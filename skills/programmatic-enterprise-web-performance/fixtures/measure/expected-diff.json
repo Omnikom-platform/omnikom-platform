@@ -1,0 +1,53 @@
+{
+ "note": "What the measure builder's diff of 2026-09-22 -> 2026-10-22 must say (hand-written; test-plan-gate.mjs checks compareMeasure() against it).",
+ "rankings": {
+  "comparable": [
+   {
+    "query": "real estate agent roseville ca",
+    "from": 14,
+    "to": 9,
+    "change": 5
+   },
+   {
+    "query": "real estate agent rocklin ca",
+    "from": 22,
+    "to": 17,
+    "change": 5
+   },
+   {
+    "query": "real estate agent lincoln ca",
+    "from": null,
+    "to": 38,
+    "change": null
+   },
+   {
+    "query": "how much does a realtor cost in california",
+    "from": 31,
+    "to": 25,
+    "change": 6
+   }
+  ],
+  "notComparable": [
+   {
+    "query": "home value roseville ca",
+    "why": "measured from a different location, device or language than the earlier run"
+   }
+  ],
+  "newInB": [
+   "sell my house without a realtor california"
+  ],
+  "goneInB": []
+ },
+ "citations": [
+  {
+   "question": "How much does a realtor cost in California?",
+   "from": 0,
+   "to": 0.3333
+  },
+  {
+   "question": "Who is a good real estate agent in Roseville CA?",
+   "from": 0.3333,
+   "to": 0.6667
+  }
+ ]
+}

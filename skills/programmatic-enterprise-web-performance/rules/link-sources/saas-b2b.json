@@ -1,0 +1,143 @@
+{
+ "slug": "saas-b2b",
+ "title": "Software company or B2B service (no local pack)",
+ "aliases": [
+  "saas-b2b",
+  "saas",
+  "software",
+  "b2b",
+  "b2b-saas",
+  "app",
+  "software-company",
+  "it-services",
+  "agency",
+  "consulting"
+ ],
+ "basis": "Recalled general knowledge, 2026-10-22; hosts not re-fetched (UNVERIFIED). Review platforms are among the sources AI engines quote for 'best X software' questions; read the research-ai captures for the client's category to see which ones.",
+ "extends": [],
+ "domainTypes": [
+  {
+   "host": "g2.com",
+   "type": "platform-profile",
+   "baseline": true,
+   "cost": "free profile; paid marketing add-ons",
+   "note": "review platform; website field; reviews matter most"
+  },
+  {
+   "host": "capterra.com",
+   "type": "platform-profile",
+   "baseline": true,
+   "cost": "free listing; leads are paid",
+   "note": "same owner family as GetApp and Software Advice"
+  },
+  {
+   "host": "getapp.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "listing shared with Capterra",
+   "note": "check, do not create twice"
+  },
+  {
+   "host": "softwareadvice.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "listing shared with Capterra",
+   "note": "check, do not create twice"
+  },
+  {
+   "host": "trustradius.com",
+   "type": "platform-profile",
+   "baseline": true,
+   "cost": "free profile; paid add-ons",
+   "note": "review platform"
+  },
+  {
+   "host": "producthunt.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "free",
+   "note": "launch once, with a real maker"
+  },
+  {
+   "host": "alternativeto.net",
+   "type": "directory",
+   "baseline": false,
+   "cost": "free",
+   "note": "alternatives lists"
+  },
+  {
+   "host": "crunchbase.com",
+   "type": "platform-profile",
+   "baseline": true,
+   "cost": "free profile",
+   "note": "company facts that feed other databases"
+  },
+  {
+   "host": "github.com",
+   "type": "own-property",
+   "baseline": false,
+   "cost": "free",
+   "note": "organisation page and the open-source repos"
+  },
+  {
+   "host": "clutch.co",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "free profile; paid placement",
+   "note": "for agencies and service firms"
+  },
+  {
+   "host": "zapier.com",
+   "type": "partner-supplier",
+   "baseline": false,
+   "cost": "free integration listing",
+   "note": "app directory page if there is an integration"
+  },
+  {
+   "host": "appexchange.salesforce.com",
+   "type": "partner-supplier",
+   "baseline": false,
+   "cost": "partner programme",
+   "note": "only if the product integrates"
+  }
+ ],
+ "patterns": [
+  {
+   "re": "awesome-|awesome\\.",
+   "type": "editorial-list",
+   "why": "a curated 'awesome' list"
+  },
+  {
+   "re": "newsletter|weekly|digest",
+   "type": "podcast-guest",
+   "why": "a newsletter that features tools and guests"
+  },
+  {
+   "re": "marketplace|appstore|integrations|partners",
+   "type": "partner-supplier",
+   "why": "an integration marketplace or partner directory"
+  }
+ ],
+ "angles": [
+  "Claim the review-platform profiles first (G2, Capterra, TrustRadius); then ask real customers for reviews through the platform's own invitation tool.",
+  "Publish a data study, benchmark or free tool from the product's own numbers; reporters and newsletters link to original data.",
+  "List the product in the integration marketplace of every tool it works with; each page links back.",
+  "Ask customers for a case-study page they host or share; their site links to yours.",
+  "Guest on three podcasts or newsletters the buyers follow; give one concrete lesson.",
+  "Get on curated lists (awesome lists, 'tools for X' roundups) by contacting the maintainer with a clear fit."
+ ],
+ "avoid": [
+  "Incentivised or fake reviews; platforms ban them and ban the vendor.",
+  "Sponsored 'best software' roundups without rel=\"sponsored\".",
+  "Comment, forum and Q&A drops with links; community members spot and flag them.",
+  "Buying guest posts from link-seller marketplaces."
+ ],
+ "reviewSites": [
+  "g2.com",
+  "capterra.com",
+  "trustradius.com",
+  "producthunt.com"
+ ],
+ "providerPatterns": [],
+ "providerText": []
+}

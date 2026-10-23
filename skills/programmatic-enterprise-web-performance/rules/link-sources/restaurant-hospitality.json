@@ -1,0 +1,123 @@
+{
+ "slug": "restaurant-hospitality",
+ "title": "Restaurant, cafe, bar, hotel or venue",
+ "aliases": [
+  "restaurant-hospitality",
+  "restaurant",
+  "restaurants",
+  "cafe",
+  "bar",
+  "bakery",
+  "hotel",
+  "hospitality",
+  "venue",
+  "catering",
+  "food-truck",
+  "brewery"
+ ],
+ "basis": "Recalled general knowledge, 2026-10-22; hosts not re-fetched (UNVERIFIED). Reservation and delivery platforms rarely pass followed links; their value is bookings, reviews and being named in answers.",
+ "extends": [
+  "local-generic"
+ ],
+ "domainTypes": [
+  {
+   "host": "tripadvisor.com",
+   "type": "platform-profile",
+   "baseline": true,
+   "cost": "free listing; advertising paid",
+   "note": "claim the listing; reviews and photos"
+  },
+  {
+   "host": "opentable.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "paid reservation service",
+   "note": "only if the restaurant takes reservations there"
+  },
+  {
+   "host": "resy.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "paid reservation service",
+   "note": "same"
+  },
+  {
+   "host": "doordash.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "commission on orders",
+   "note": "ordering, not a link source"
+  },
+  {
+   "host": "ubereats.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "commission on orders",
+   "note": "ordering, not a link source"
+  },
+  {
+   "host": "grubhub.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "commission on orders",
+   "note": "ordering, not a link source"
+  },
+  {
+   "host": "eater.com",
+   "type": "editorial-list",
+   "baseline": false,
+   "cost": "earned only",
+   "note": "city 'best of' maps; pitch the chef or a new opening"
+  },
+  {
+   "host": "theinfatuation.com",
+   "type": "editorial-list",
+   "baseline": false,
+   "cost": "earned only",
+   "note": "city restaurant guides"
+  }
+ ],
+ "patterns": [
+  {
+   "re": "visit[a-z]+\\.(com|org)|tourism|cvb|convention|destination",
+   "type": "chamber-local",
+   "why": "a tourism board or convention and visitors bureau (member listings)"
+  },
+  {
+   "re": "foodie|eats|dine|restaurantweek|foodfest|tasteof",
+   "type": "editorial-list",
+   "why": "a food blog, restaurant week or food festival site"
+  },
+  {
+   "re": "farm|grower|brewery|winery|coffee ?roast",
+   "type": "partner-supplier",
+   "why": "a supplier whose 'where to eat' page can name the restaurant"
+  }
+ ],
+ "angles": [
+  "Claim Google, Tripadvisor and Apple Maps listings; keep the menu, hours and photos current there first.",
+  "Join the chamber and the tourism board; their visitor guides and member pages link to restaurants.",
+  "Ask the farms, brewers and roasters you buy from to name the restaurant on their 'where to find us' page.",
+  "Pitch the local food writer a story (a new dish, a chef's background, a charity night) a few weeks ahead.",
+  "Take part in restaurant week and local food festivals; the event pages list participants with a link.",
+  "Answer reviews on Google and Tripadvisor politely and quickly."
+ ],
+ "avoid": [
+  "Paying food bloggers for a review without them marking it as sponsored (FTC disclosure rules apply in the US, and Google expects rel=\"sponsored\").",
+  "Offering free meals or discounts in exchange for positive reviews.",
+  "Listing the business under extra fake locations or ghost kitchens' names to appear in more places.",
+  "Buying followers or 'voting' packages for readers' polls."
+ ],
+ "reviewSites": [
+  "google business profile",
+  "tripadvisor.com",
+  "yelp.com",
+  "facebook.com"
+ ],
+ "providerPatterns": [
+  "restaurant|grill$|bistro|cafe$|pizz|diner$|tavern|brewing"
+ ],
+ "providerText": [
+  "\\bour menu\\b|\\border online\\b|\\breservations?\\b"
+ ]
+}

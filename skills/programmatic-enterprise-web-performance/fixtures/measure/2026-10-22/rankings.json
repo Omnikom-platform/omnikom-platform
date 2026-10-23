@@ -1,0 +1,89 @@
+{
+ "date": "2026-10-22",
+ "rankings": [
+  {
+   "query": "real estate agent roseville ca",
+   "location": "Roseville, CA",
+   "device": "mobile",
+   "language": "en",
+   "engine": "google",
+   "position": {
+    "value": 9,
+    "source": "Google Search Console API (fixture)",
+    "fetchedAt": "2026-10-22",
+    "cacheFile": null
+   },
+   "url": "https://sample-valley-realty.test/"
+  },
+  {
+   "query": "real estate agent rocklin ca",
+   "location": "Roseville, CA",
+   "device": "mobile",
+   "language": "en",
+   "engine": "google",
+   "position": {
+    "value": 17,
+    "source": "Google Search Console API (fixture)",
+    "fetchedAt": "2026-10-22",
+    "cacheFile": null
+   },
+   "url": "https://sample-valley-realty.test/rocklin-ca/"
+  },
+  {
+   "query": "real estate agent lincoln ca",
+   "location": "Roseville, CA",
+   "device": "mobile",
+   "language": "en",
+   "engine": "google",
+   "position": {
+    "value": 38,
+    "source": "Google Search Console API (fixture)",
+    "fetchedAt": "2026-10-22",
+    "cacheFile": null
+   },
+   "url": "https://sample-valley-realty.test/lincoln-ca/"
+  },
+  {
+   "query": "how much does a realtor cost in california",
+   "location": "Roseville, CA",
+   "device": "mobile",
+   "language": "en",
+   "engine": "google",
+   "position": {
+    "value": 25,
+    "source": "Google Search Console API (fixture)",
+    "fetchedAt": "2026-10-22",
+    "cacheFile": null
+   },
+   "url": "https://sample-valley-realty.test/sell/cost-of-a-realtor/"
+  },
+  {
+   "query": "home value roseville ca",
+   "location": "Sacramento, CA",
+   "device": "mobile",
+   "language": "en",
+   "engine": "google",
+   "position": {
+    "value": 12,
+    "source": "Google Search Console API (fixture)",
+    "fetchedAt": "2026-10-22",
+    "cacheFile": null
+   },
+   "url": "https://sample-valley-realty.test/home-value/"
+  },
+  {
+   "query": "sell my house without a realtor california",
+   "location": "Roseville, CA",
+   "device": "mobile",
+   "language": "en",
+   "engine": "google",
+   "position": {
+    "value": 44,
+    "source": "Google Search Console API (fixture)",
+    "fetchedAt": "2026-10-22",
+    "cacheFile": null
+   },
+   "url": "https://sample-valley-realty.test/guides/sell-my-house-without-a-realtor-california/"
+  }
+ ]
+}

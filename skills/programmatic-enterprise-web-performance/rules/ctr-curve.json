@@ -1,0 +1,32 @@
+{
+ "_about": "Expected organic click-through rate by Google position, for measure rule MSR-004 (a target query at position <= 5 whose CTR is below ctrFloorRatio x the expected CTR). This is an INDUSTRY AVERAGE ESTIMATE from one published study, not this site's data: real CTR varies with query type, SERP features (AI Overview, local pack, snippets), brand queries and device. Use it as a yardstick, never as a forecast. positions[i] is the expected CTR at position i+1 (the shape scripts/measure.mjs reads).",
+ "estimate": true,
+ "label": "industry average estimate (mixed queries and devices, SERPs with and without features)",
+ "source": "Backlinko 'Google CTR Stats' (https://backlinko.com/google-ctr-stats), an industry-average estimate; position 1 confirmed 2026-10-22, positions 2-10 UNPROVEN (see study.verification)",
+ "study": {
+  "name": "Backlinko, 'Google CTR Stats' (Backlinko with Semrush data)",
+  "url": "https://backlinko.com/google-ctr-stats",
+  "published": "2023 (the page's own date; confirm on the page)",
+  "retrieved": "2026-10-22",
+  "verification": "UNPROVEN beyond position 1. On 2026-10-22 a web-search snippet of the page confirmed: the #1 result has an average CTR of 27.6%; #1 is about 10x more likely to be clicked than #10; positions 8-10 are nearly equal with a bump at 8. The values for positions 2-10 below were NOT confirmed against the page in this build (the table is an image the search tool did not return); they are recalled and must be checked by opening the page before any report quotes them as the study's numbers."
+ },
+ "positions": [
+  0.276,
+  0.158,
+  0.11,
+  0.084,
+  0.063,
+  0.049,
+  0.039,
+  0.033,
+  0.027,
+  0.024
+ ],
+ "verifiedPositions": [
+  1
+ ],
+ "beyond10": {
+  "ctr": 0.01,
+  "note": "no study value: positions 11 and below use 1%; an authored placeholder, not a measurement"
+ }
+}

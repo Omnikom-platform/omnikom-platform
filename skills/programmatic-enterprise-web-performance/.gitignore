@@ -1,0 +1,6 @@
+node_modules/
+*.log
+# client content and run state are never committed to the skill repo (modes.md)
+site-checks/
+.pewp/
+.checks/

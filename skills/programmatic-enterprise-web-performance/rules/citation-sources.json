@@ -1,0 +1,319 @@
+{
+ "_note": "ruleset citation-sources.json: US business directories for local citations (shipgate TR-218, measure MSR-010), sources UNVERIFIED (recalled, not re-fetched on 2026-10-22). Each entry names its source in _entries; _sources says how each source was checked (recalled, not re-fetched on 2026-10-22).",
+ "_about": "Shape read by scripts/local-nap.mjs: country key (US) -> directories every local business should hold a listing on; 'US:<industry>' -> extra directories for that industry (local-nap uses US:real-estate); 'US:aggregators' are data aggregators that feed other directories and have no public listing a person can read, so MSR-010 does not look for them (TR-218 reports them separately). Compare each listing's name, address and phone with business.json after 04 section 15 normalisation.",
+ "_sources": {
+  "gbp": {
+   "title": "Google Business Profile Help: business information Google shows in Search and Maps",
+   "url": "https://support.google.com/business",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "moz": {
+   "title": "Moz Local / Moz learning centre pages on local citations and data aggregators",
+   "url": "https://moz.com/learn/local/citations",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "brightlocal": {
+   "title": "BrightLocal, local citation sources lists (US)",
+   "url": "https://www.brightlocal.com/learn/local-citations/",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "whitespark": {
+   "title": "Whitespark, 'Top Local Citation Sources by Country' (US list)",
+   "url": "https://whitespark.ca/top-local-citation-sources-by-country/",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "agg": {
+   "title": "US local-data aggregators (Data Axle, Neustar Localeze, Foursquare) as described by Moz Local and BrightLocal",
+   "url": "https://moz.com/learn/local/citations",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "bing": {
+   "title": "Bing Places for Business",
+   "url": "https://www.bingplaces.com",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "apple": {
+   "title": "Apple Business Connect",
+   "url": "https://businessconnect.apple.com",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "vertical": {
+   "title": "Industry listing sites named in BrightLocal and Whitespark vertical lists (real estate)",
+   "url": "https://whitespark.ca/top-local-citation-sources-by-country/",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  }
+ },
+ "_entries": {
+  "google.com (Google Business Profile)": {
+   "name": "Google Business Profile",
+   "type": "profile",
+   "source": "gbp",
+   "required": true
+  },
+  "bing.com (Bing Places)": {
+   "name": "Bing Places for Business",
+   "type": "profile",
+   "source": "bing",
+   "required": true
+  },
+  "apple.com (Apple Business Connect)": {
+   "name": "Apple Business Connect",
+   "type": "profile",
+   "source": "apple",
+   "required": true
+  },
+  "facebook.com": {
+   "name": "Facebook Page",
+   "type": "profile",
+   "source": "brightlocal",
+   "required": true
+  },
+  "yelp.com": {
+   "name": "Yelp",
+   "type": "review",
+   "source": "brightlocal",
+   "required": true
+  },
+  "bbb.org": {
+   "name": "Better Business Bureau",
+   "type": "review",
+   "source": "brightlocal",
+   "required": false
+  },
+  "yellowpages.com": {
+   "name": "Yellow Pages",
+   "type": "profile",
+   "source": "moz",
+   "required": true
+  },
+  "mapquest.com": {
+   "name": "MapQuest",
+   "type": "maps",
+   "source": "moz",
+   "required": false
+  },
+  "foursquare.com": {
+   "name": "Foursquare",
+   "type": "aggregator",
+   "source": "agg",
+   "required": true
+  },
+  "dataaxle.com": {
+   "name": "Data Axle (formerly Infogroup)",
+   "type": "aggregator",
+   "source": "agg",
+   "required": true
+  },
+  "neustarlocaleze.biz": {
+   "name": "Neustar Localeze",
+   "type": "aggregator",
+   "source": "agg",
+   "required": true
+  },
+  "superpages.com": {
+   "name": "Superpages",
+   "type": "profile",
+   "source": "moz",
+   "required": false
+  },
+  "manta.com": {
+   "name": "Manta",
+   "type": "profile",
+   "source": "brightlocal",
+   "required": false
+  },
+  "chamberofcommerce.com": {
+   "name": "ChamberofCommerce.com",
+   "type": "profile",
+   "source": "brightlocal",
+   "required": false
+  },
+  "nextdoor.com": {
+   "name": "Nextdoor",
+   "type": "profile",
+   "source": "whitespark",
+   "required": false
+  },
+  "angi.com": {
+   "name": "Angi",
+   "type": "vertical",
+   "source": "whitespark",
+   "required": false,
+   "industries": [
+    "home-services"
+   ]
+  },
+  "homeadvisor.com": {
+   "name": "HomeAdvisor",
+   "type": "vertical",
+   "source": "whitespark",
+   "required": false,
+   "industries": [
+    "home-services"
+   ]
+  },
+  "houzz.com": {
+   "name": "Houzz",
+   "type": "vertical",
+   "source": "whitespark",
+   "required": false,
+   "industries": [
+    "home-services",
+    "real-estate"
+   ]
+  },
+  "thumbtack.com": {
+   "name": "Thumbtack",
+   "type": "vertical",
+   "source": "whitespark",
+   "required": false,
+   "industries": [
+    "home-services"
+   ]
+  },
+  "zillow.com": {
+   "name": "Zillow agent or professional profile",
+   "type": "vertical",
+   "source": "vertical",
+   "required": false,
+   "industries": [
+    "real-estate"
+   ]
+  },
+  "realtor.com": {
+   "name": "Realtor.com agent profile",
+   "type": "vertical",
+   "source": "vertical",
+   "required": false,
+   "industries": [
+    "real-estate"
+   ]
+  },
+  "redfin.com": {
+   "name": "Redfin partner agent profile",
+   "type": "vertical",
+   "source": "vertical",
+   "required": false,
+   "industries": [
+    "real-estate"
+   ]
+  },
+  "trulia.com": {
+   "name": "Trulia agent profile",
+   "type": "vertical",
+   "source": "vertical",
+   "required": false,
+   "industries": [
+    "real-estate"
+   ]
+  },
+  "homes.com": {
+   "name": "Homes.com agent profile",
+   "type": "vertical",
+   "source": "vertical",
+   "required": false,
+   "industries": [
+    "real-estate"
+   ]
+  },
+  "homelight.com": {
+   "name": "HomeLight",
+   "type": "vertical",
+   "source": "vertical",
+   "required": false,
+   "industries": [
+    "real-estate"
+   ]
+  },
+  "avvo.com": {
+   "name": "Avvo",
+   "type": "vertical",
+   "source": "whitespark",
+   "required": false,
+   "industries": [
+    "legal"
+   ]
+  },
+  "findlaw.com": {
+   "name": "FindLaw",
+   "type": "vertical",
+   "source": "whitespark",
+   "required": false,
+   "industries": [
+    "legal"
+   ]
+  },
+  "healthgrades.com": {
+   "name": "Healthgrades",
+   "type": "vertical",
+   "source": "whitespark",
+   "required": false,
+   "industries": [
+    "health"
+   ]
+  },
+  "zocdoc.com": {
+   "name": "Zocdoc",
+   "type": "vertical",
+   "source": "whitespark",
+   "required": false,
+   "industries": [
+    "health"
+   ]
+  },
+  "tripadvisor.com": {
+   "name": "Tripadvisor",
+   "type": "vertical",
+   "source": "whitespark",
+   "required": false,
+   "industries": [
+    "hospitality"
+   ]
+  }
+ },
+ "US": [
+  "google.com (Google Business Profile)",
+  "bing.com (Bing Places)",
+  "apple.com (Apple Business Connect)",
+  "facebook.com",
+  "yelp.com",
+  "bbb.org",
+  "yellowpages.com",
+  "mapquest.com",
+  "superpages.com",
+  "manta.com",
+  "chamberofcommerce.com",
+  "nextdoor.com"
+ ],
+ "US:aggregators": [
+  "foursquare.com",
+  "dataaxle.com",
+  "neustarlocaleze.biz"
+ ],
+ "US:home-services": [
+  "angi.com",
+  "homeadvisor.com",
+  "houzz.com",
+  "thumbtack.com"
+ ],
+ "US:real-estate": [
+  "houzz.com",
+  "zillow.com",
+  "realtor.com",
+  "redfin.com",
+  "trulia.com",
+  "homes.com",
+  "homelight.com"
+ ],
+ "US:legal": [
+  "avvo.com",
+  "findlaw.com"
+ ],
+ "US:health": [
+  "healthgrades.com",
+  "zocdoc.com"
+ ],
+ "US:hospitality": [
+  "tripadvisor.com"
+ ]
+}

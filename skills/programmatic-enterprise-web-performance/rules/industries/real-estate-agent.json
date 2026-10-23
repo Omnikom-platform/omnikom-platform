@@ -1,0 +1,75 @@
+{
+  "slug": "real-estate-agent",
+  "title": "Real estate agent or brokerage (YMYL, regulated advertising)",
+  "jurisdiction": "US federal + California (the rules this skill was first written against). Another state: add its pattern under licencePatterns and keep the item ids.",
+  "sources": [
+    "E:/Francine & Eli/icm/knowledge/compliance/REQUIREMENTS.md rows D-01, D-02, D-05, D-07, D-27, D-28, D-29, P-26 (draft consolidation, not legal advice; lawyer review pending there)",
+    "E:/Francine & Eli/icm/gate-0-1/DEFAULTS.md DEF-03, DEF-05, DEF-07, DEF-16"
+  ],
+  "notes": "Items with severity warn are reported as WARN and fail only under --strict (launch). A business waives an item with --waive <id> when its own sign-off lifts the rule (the project's 'Lifts when' column). The business values come from business.json credentials {state, licenseNumber, brokerage, licensed}.",
+  "items": [
+    {
+      "id": "RE-LIC-001", "type": "licence-on-every-page", "severity": "fail",
+      "description": "Licence number shown on every page (DRE: 8 digits for California) and equal to business.json credentials.licenseNumber",
+      "source": "REQUIREMENTS D-01, D-02; DEFAULTS DEF-03",
+      "stateField": "credentials.state", "numberField": "credentials.licenseNumber",
+      "licencePatterns": {
+        "CA": "(?:DRE|BRE|licen[sc]e|lic\\b)[^0-9]{0,25}\\b\\d{8}\\b",
+        "default": "(?:licen[sc]e|lic\\b|reg(?:istration)?)[^0-9]{0,25}[A-Z0-9][A-Z0-9-]{4,}"
+      },
+      "proofHint": "Licence number and the responsible broker's name, as large as the smallest text on the page (REQUIREMENTS D-02)"
+    },
+    {
+      "id": "RE-BRK-001", "type": "business-text-on-every-page", "severity": "fail",
+      "description": "Responsible broker / brokerage name shown on every page (credentials.brokerage)",
+      "source": "REQUIREMENTS D-01, D-02, D-05; DEFAULTS DEF-03",
+      "field": "credentials.brokerage"
+    },
+    {
+      "id": "RE-PLACEHOLDER-001", "type": "forbidden-phrases", "severity": "fail",
+      "description": "No unfilled placeholder such as {{BROKER_NAME}} visible on a published page",
+      "source": "DEFAULTS DEF-03 (nothing that needs the placeholders publishes until they are filled)",
+      "patterns": ["\\{\\{\\s*[A-Z][A-Z0-9_]*\\s*\\}\\}", "\\[(?:TODO|TBD|INSERT)[^\\]]*\\]"]
+    },
+    {
+      "id": "RE-FH-001", "type": "forbidden-phrases", "severity": "fail",
+      "description": "Fair-housing wording: no preference, limitation or steering by protected class in page copy",
+      "source": "REQUIREMENTS D-27 (federal ad rule; examples 'perfect for young professionals', 'ideal for families', 'no Section 8'), D-28 (California extra classes), D-29 (DRE Reg 2780). The longer list is the common HUD advertising-guidance list: not in REQUIREMENTS, confirm with the lawyer",
+      "patterns": [
+        "perfect for (?:young )?(?:professionals|families|couples|singles|retirees|empty[- ]nesters)",
+        "ideal for (?:young )?(?:professionals|families|couples|singles|retirees|empty[- ]nesters)",
+        "no section 8", "section 8 (?:not|isn't) (?:accepted|welcome)", "no (?:housing )?vouchers",
+        "adults? only", "no (?:children|kids)", "mature (?:adults|couples|tenants)",
+        "(?:family|kid)[- ]friendly (?:neighbou?rhood|community|area)",
+        "(?:exclusive|prestigious|desirable) (?:neighbou?rhood|community) (?:for|of) ",
+        "(?:safe|quiet|nice) (?:neighbou?rhood|area) (?:for|with) (?:families|kids|children)",
+        "(?:christian|church|jewish|muslim) (?:community|neighbou?rhood)",
+        "walking distance to (?:church|synagogue|mosque|temple)"
+      ]
+    },
+    {
+      "id": "RE-ADV-001", "type": "forbidden-phrases", "severity": "warn",
+      "description": "Advertising must be truthful and substantiated: no guarantee of a sale or price, no unproven 'number one' claim",
+      "source": "REQUIREMENTS D-07, D-24 (substantiate on request)",
+      "patterns": ["guaranteed (?:sale|sold|price|results?|offer)", "\\b(?:the )?#\\s?1 (?:agent|realtor|broker|real estate)", "\\bno\\.? 1 (?:agent|realtor|broker|real estate)", "top (?:agent|realtor|producer) in (?:the )?(?:world|nation|country|state)"]
+    },
+    {
+      "id": "RE-DEF05-001", "type": "forbidden-phrases", "severity": "fail",
+      "description": "No foreclosure situation page or foreclosure-help copy while DEF-05 binds",
+      "source": "DEFAULTS DEF-05 (lifts only by the lawyer's answers Q-35, Q-36, Q-39 in APPROVED.md); waive with --waive RE-DEF05-001 once lifted",
+      "patterns": ["foreclos", "behind on (?:your )?(?:mortgage )?payments", "notice of default"]
+    },
+    {
+      "id": "RE-DEF07-001", "type": "forbidden-phrases", "severity": "fail",
+      "description": "No MLS listing data on the site while DEF-07 binds",
+      "source": "DEFAULTS DEF-07; waive with --waive RE-DEF07-001 once lifted",
+      "patterns": ["\\bMLS\\s*(?:#|no\\.?|number|listing)", "\\bIDX\\b"]
+    },
+    {
+      "id": "RE-DISC-001", "type": "required-pages", "severity": "warn",
+      "description": "Disclosure pages exist: a privacy policy with request methods, and an accessibility statement",
+      "source": "REQUIREMENTS P-26 (consumer request handling), DEFAULTS DEF-16 (accessibility statement blocks launch). WARN while planning, FAIL under --strict at launch",
+      "anyOf": [["/privacy/", "/privacy-policy/"], ["/accessibility/", "/accessibility-statement/"]]
+    }
+  ]
+}

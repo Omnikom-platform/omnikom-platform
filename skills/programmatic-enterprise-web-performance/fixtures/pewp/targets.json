@@ -1,0 +1,411 @@
+{
+ "version": 1,
+ "business": "sample-valley-realty.test",
+ "market": {
+  "country": "US",
+  "language": "en"
+ },
+ "createdAt": "2026-10-20T09:00:00Z",
+ "clusters": [
+  {
+   "id": "c-agent-roseville",
+   "primaryQuery": "real estate agent roseville ca",
+   "queries": [
+    "real estate agent roseville ca",
+    "realtor roseville ca",
+    "roseville real estate agent"
+   ],
+   "intent": "local",
+   "location": "Roseville, CA",
+   "volume": {
+    "value": [
+     100,
+     1000
+    ],
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null,
+    "estimate": true
+   },
+   "difficulty": {
+    "value": 30,
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "value": {
+    "value": 4.5,
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "serpFeatures": {
+    "value": [
+     "local_pack",
+     "paa"
+    ],
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "winningFormat": "city landing page",
+   "competitorsTop3": [
+    {
+     "url": "https://example-competitor-one.test/page/",
+     "domain": "example-competitor-one.test"
+    }
+   ],
+   "requiredEntities": [
+    "Roseville",
+    "Placer County",
+    "Sample Valley Brokerage"
+   ],
+   "questions": [
+    "How do I choose a real estate agent in Roseville?",
+    "What does a real estate agent do for sellers?"
+   ],
+   "targetPage": "/",
+   "priority": 9,
+   "wordRange": {
+    "value": [
+     200,
+     1500
+    ],
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   }
+  },
+  {
+   "id": "c-agent-rocklin",
+   "primaryQuery": "real estate agent rocklin ca",
+   "queries": [
+    "real estate agent rocklin ca",
+    "realtor rocklin ca",
+    "rocklin real estate agent"
+   ],
+   "intent": "local",
+   "location": "Rocklin, CA",
+   "volume": {
+    "value": [
+     50,
+     500
+    ],
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null,
+    "estimate": true
+   },
+   "difficulty": {
+    "value": 30,
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "value": {
+    "value": 4.5,
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "serpFeatures": {
+    "value": [
+     "local_pack",
+     "paa"
+    ],
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "winningFormat": "city landing page",
+   "competitorsTop3": [
+    {
+     "url": "https://example-competitor-one.test/page/",
+     "domain": "example-competitor-one.test"
+    }
+   ],
+   "requiredEntities": [
+    "Rocklin",
+    "Placer County"
+   ],
+   "questions": [
+    "How much does it cost to sell a home in Rocklin?",
+    "How long does a home take to sell in Rocklin?"
+   ],
+   "targetPage": "/rocklin-ca/",
+   "priority": 7,
+   "wordRange": {
+    "value": [
+     200,
+     1500
+    ],
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   }
+  },
+  {
+   "id": "c-agent-lincoln",
+   "primaryQuery": "real estate agent lincoln ca",
+   "queries": [
+    "real estate agent lincoln ca",
+    "realtor lincoln ca",
+    "lincoln real estate agent"
+   ],
+   "intent": "local",
+   "location": "Lincoln, CA",
+   "volume": {
+    "value": [
+     50,
+     500
+    ],
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null,
+    "estimate": true
+   },
+   "difficulty": {
+    "value": 30,
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "value": {
+    "value": 4.5,
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "serpFeatures": {
+    "value": [
+     "local_pack",
+     "paa"
+    ],
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "winningFormat": "city landing page",
+   "competitorsTop3": [
+    {
+     "url": "https://example-competitor-one.test/page/",
+     "domain": "example-competitor-one.test"
+    }
+   ],
+   "requiredEntities": [
+    "Lincoln",
+    "Placer County"
+   ],
+   "questions": [
+    "How much does it cost to sell a home in Lincoln?",
+    "How long does a home take to sell in Lincoln?"
+   ],
+   "targetPage": "/lincoln-ca/",
+   "priority": 6,
+   "wordRange": {
+    "value": [
+     200,
+     1500
+    ],
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   }
+  },
+  {
+   "id": "c-cost-of-realtor",
+   "primaryQuery": "how much does a realtor cost in california",
+   "queries": [
+    "how much does a realtor cost in california",
+    "realtor commission california",
+    "real estate agent fees california"
+   ],
+   "intent": "informational",
+   "location": null,
+   "volume": {
+    "value": 1900,
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null,
+    "estimate": false
+   },
+   "difficulty": {
+    "value": 30,
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "value": {
+    "value": 4.5,
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "serpFeatures": {
+    "value": [
+     "local_pack",
+     "paa"
+    ],
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "winningFormat": "guide",
+   "competitorsTop3": [
+    {
+     "url": "https://example-competitor-one.test/page/",
+     "domain": "example-competitor-one.test"
+    }
+   ],
+   "requiredEntities": [
+    "commission",
+    "listing agreement",
+    "buyer's agent"
+   ],
+   "questions": [
+    "Is 3% a normal real estate commission?",
+    "Who pays the buyer's agent?"
+   ],
+   "targetPage": "/sell/cost-of-a-realtor/",
+   "priority": 8,
+   "wordRange": {
+    "value": [
+     200,
+     1500
+    ],
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   }
+  },
+  {
+   "id": "c-home-value",
+   "primaryQuery": "home value roseville ca",
+   "queries": [
+    "home value roseville ca",
+    "what is my home worth roseville"
+   ],
+   "intent": "local",
+   "location": "Roseville, CA",
+   "volume": {
+    "value": 880,
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null,
+    "estimate": false
+   },
+   "difficulty": {
+    "value": 30,
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "value": {
+    "value": 4.5,
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "serpFeatures": {
+    "value": [
+     "local_pack",
+     "paa"
+    ],
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "winningFormat": "valuation tool",
+   "competitorsTop3": [
+    {
+     "url": "https://example-competitor-one.test/page/",
+     "domain": "example-competitor-one.test"
+    }
+   ],
+   "requiredEntities": [
+    "comparative market analysis",
+    "Roseville"
+   ],
+   "questions": [
+    "How accurate is an online home value estimate?",
+    "What is a comparative market analysis?"
+   ],
+   "targetPage": "/home-value/",
+   "priority": 5,
+   "wordRange": {
+    "value": [
+     200,
+     1500
+    ],
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   }
+  },
+  {
+   "id": "c-sell-without-agent",
+   "primaryQuery": "sell my house without a realtor california",
+   "queries": [
+    "sell my house without a realtor california",
+    "for sale by owner california"
+   ],
+   "intent": "commercial",
+   "location": null,
+   "volume": {
+    "value": 720,
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null,
+    "estimate": false
+   },
+   "difficulty": {
+    "value": 30,
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "value": {
+    "value": 4.5,
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "serpFeatures": {
+    "value": [
+     "local_pack",
+     "paa"
+    ],
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   },
+   "winningFormat": "guide",
+   "competitorsTop3": [
+    {
+     "url": "https://example-competitor-one.test/page/",
+     "domain": "example-competitor-one.test"
+    }
+   ],
+   "requiredEntities": [
+    "for sale by owner",
+    "disclosures",
+    "title company"
+   ],
+   "questions": [
+    "Can I sell my house without a realtor in California?",
+    "What disclosures does a California seller need?"
+   ],
+   "targetPage": "new",
+   "priority": 4,
+   "wordRange": {
+    "value": [
+     200,
+     1500
+    ],
+    "source": "fixture (invented numbers for tests)",
+    "fetchedAt": "2026-10-20",
+    "cacheFile": null
+   }
+  }
+ ]
+}

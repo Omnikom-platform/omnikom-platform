@@ -1,0 +1,157 @@
+{
+ "slug": "home-services",
+ "title": "Home services and trades (plumber, roofer, HVAC, electrician, painter, landscaper, cleaner)",
+ "aliases": [
+  "home-services",
+  "home-service",
+  "contractor",
+  "plumber",
+  "plumbing",
+  "roofer",
+  "roofing",
+  "hvac",
+  "electrician",
+  "painter",
+  "landscaper",
+  "landscaping",
+  "cleaning",
+  "handyman",
+  "remodeler",
+  "builder",
+  "pest-control",
+  "trades"
+ ],
+ "basis": "Recalled general knowledge, 2026-10-22; hosts not re-fetched (UNVERIFIED). Lead marketplaces (Angi, HomeAdvisor, Thumbtack) sell leads: a profile is free to hold but the leads cost money; the pack marks them so.",
+ "extends": [
+  "local-generic"
+ ],
+ "domainTypes": [
+  {
+   "host": "angi.com",
+   "type": "directory",
+   "baseline": false,
+   "cost": "free profile; leads are paid",
+   "note": "lead marketplace: check the cost per lead first"
+  },
+  {
+   "host": "homeadvisor.com",
+   "type": "directory",
+   "baseline": false,
+   "cost": "free profile; leads are paid",
+   "note": "lead marketplace, same owner family as Angi"
+  },
+  {
+   "host": "thumbtack.com",
+   "type": "directory",
+   "baseline": false,
+   "cost": "free profile; leads are paid",
+   "note": "lead marketplace"
+  },
+  {
+   "host": "houzz.com",
+   "type": "platform-profile",
+   "baseline": true,
+   "cost": "free profile",
+   "note": "project photos with a website link; good for remodelers and designers"
+  },
+  {
+   "host": "porch.com",
+   "type": "directory",
+   "baseline": false,
+   "cost": "free listing",
+   "note": "home pro directory"
+  },
+  {
+   "host": "nahb.org",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "membership",
+   "note": "home builders: local builders associations list members"
+  },
+  {
+   "host": "nari.org",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "membership",
+   "note": "remodelers"
+  },
+  {
+   "host": "nrca.net",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "membership",
+   "note": "roofing contractors"
+  },
+  {
+   "host": "acca.org",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "membership",
+   "note": "HVAC contractors"
+  },
+  {
+   "host": "phccweb.org",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "membership",
+   "note": "plumbing, heating and cooling contractors"
+  },
+  {
+   "host": "pdca.org",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "membership",
+   "note": "painting and decorating contractors"
+  }
+ ],
+ "patterns": [
+  {
+   "re": "findapro|findinstaller|dealerlocator|wheretobuy|installerlocator|certifiedcontractor",
+   "type": "parent-roster",
+   "why": "a manufacturer's find-an-installer page"
+  },
+  {
+   "re": "cslb|contractorslicense|licenseboard",
+   "type": "edu-gov",
+   "why": "a licensing board"
+  },
+  {
+   "re": "homeshow|homeandgarden|homebuilders|builders?association",
+   "type": "professional-association",
+   "why": "a home show or builders association"
+  },
+  {
+   "re": "supply|lumber|hardware|distributor",
+   "type": "partner-supplier",
+   "why": "a supplier or distributor"
+  }
+ ],
+ "angles": [
+  "Apply for the 'certified installer' or 'find a pro' locator of each manufacturer whose product you install; they link to local contractors and send calls.",
+  "Join the trade association and the local builders or contractors association; fill the member profile.",
+  "Publish before-and-after project pages with the street or neighbourhood, and give them to the local news site and the neighbourhood group.",
+  "Ask your suppliers and your showroom partners for a 'where to buy / who installs' entry.",
+  "Sponsor a local team or home show booth; ask for the sponsor-page link.",
+  "Collect reviews on Google first; on the lead marketplaces only if the client chose to buy leads there."
+ ],
+ "avoid": [
+  "Keyword-stuffed business names on listings ('Best Plumber Sacramento'): it breaks consistency and the platforms' rules.",
+  "Fake 'office addresses' in each city (virtual offices, mailbox addresses) to enter more map packs.",
+  "Doorway city pages with the same text and a different city name.",
+  "Paying for links on 'contractor SEO' blog networks."
+ ],
+ "reviewSites": [
+  "google business profile",
+  "yelp.com",
+  "angi.com",
+  "houzz.com",
+  "facebook.com",
+  "nextdoor.com"
+ ],
+ "providerPatterns": [
+  "plumb|roofing|roofer|hvac|electrician|landscap|painting|cleaning|contractors?$|remodel|construction|handyman"
+ ],
+ "providerText": [
+  "\\blicensed (and insured )?(plumber|roofer|electrician|contractor)s?\\b|\\bfree (estimate|quote)s?\\b"
+ ]
+}

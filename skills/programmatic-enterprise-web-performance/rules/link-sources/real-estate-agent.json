@@ -1,0 +1,244 @@
+{
+ "slug": "real-estate-agent",
+ "title": "Real estate agent or brokerage (YMYL, regulated advertising)",
+ "aliases": [
+  "real-estate-agent",
+  "real-estate",
+  "realtor",
+  "realtors",
+  "real-estate-broker",
+  "brokerage",
+  "realty",
+  "real-estate-brokerage"
+ ],
+ "basis": "Recalled general knowledge, 2026-10-22; hosts not re-fetched (UNVERIFIED). The competitor link sources in the Francine and Eli research (2026-10-22) agree with this list: expertise.com, activerain.com, a chamber, a local news site, a press-release site, a charity, partner businesses, ranking lists, brokerage sites.",
+ "extends": [
+  "local-generic"
+ ],
+ "domainTypes": [
+  {
+   "host": "zillow.com",
+   "type": "platform-profile",
+   "baseline": true,
+   "cost": "free profile; paid advertising separate",
+   "note": "agent profile with website field and reviews"
+  },
+  {
+   "host": "realtor.com",
+   "type": "platform-profile",
+   "baseline": true,
+   "cost": "free profile",
+   "note": "agent profile; tied to the brokerage's listing feed"
+  },
+  {
+   "host": "homes.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "free profile; paid advertising separate",
+   "note": "agent profile"
+  },
+  {
+   "host": "redfin.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "partner programme only",
+   "note": "only for agents it accepts as partners"
+  },
+  {
+   "host": "fastexpert.com",
+   "type": "platform-profile",
+   "baseline": true,
+   "cost": "free profile",
+   "note": "agent reviews and profile"
+  },
+  {
+   "host": "upnest.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "referral-fee model",
+   "note": "lead-referral network; check the fee before joining"
+  },
+  {
+   "host": "homelight.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "referral-fee model",
+   "note": "referral network; check the fee"
+  },
+  {
+   "host": "ratemyagent.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "free profile",
+   "note": "agent reviews"
+  },
+  {
+   "host": "activerain.com",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "free",
+   "note": "agent network that linked to a competitor in the research; check it is still active"
+  },
+  {
+   "host": "expertise.com",
+   "type": "editorial-list",
+   "baseline": false,
+   "cost": "editorial choice; they state a selection process",
+   "note": "linked to two competitors; read their selection criteria and apply"
+  },
+  {
+   "host": "threebestrated.com",
+   "type": "editorial-list",
+   "baseline": false,
+   "cost": "editorial choice",
+   "note": "best-of lists by city"
+  },
+  {
+   "host": "nar.realtor",
+   "type": "professional-association",
+   "baseline": true,
+   "cost": "membership",
+   "note": "National Association of Realtors: find-an-agent and member profile"
+  },
+  {
+   "host": "car.org",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "membership",
+   "note": "California Association of Realtors; use the state association of the licence"
+  },
+  {
+   "host": "kw.com",
+   "type": "parent-roster",
+   "baseline": false,
+   "cost": "free",
+   "note": "Keller Williams agent pages (only if that is the brokerage)",
+   "onlyIf": "brokerage",
+   "brokerageNames": [
+    "keller williams",
+    "kw"
+   ]
+  },
+  {
+   "host": "remax.com",
+   "type": "parent-roster",
+   "baseline": false,
+   "cost": "free",
+   "note": "only if that is the brokerage",
+   "onlyIf": "brokerage",
+   "brokerageNames": [
+    "re/max",
+    "remax"
+   ]
+  },
+  {
+   "host": "coldwellbanker.com",
+   "type": "parent-roster",
+   "baseline": false,
+   "cost": "free",
+   "note": "only if that is the brokerage",
+   "onlyIf": "brokerage",
+   "brokerageNames": [
+    "coldwell banker"
+   ]
+  },
+  {
+   "host": "compass.com",
+   "type": "parent-roster",
+   "baseline": false,
+   "cost": "free",
+   "note": "only if that is the brokerage",
+   "onlyIf": "brokerage",
+   "brokerageNames": [
+    "compass"
+   ]
+  },
+  {
+   "host": "exprealty.com",
+   "type": "parent-roster",
+   "baseline": false,
+   "cost": "free",
+   "note": "only if that is the brokerage",
+   "onlyIf": "brokerage",
+   "brokerageNames": [
+    "exp realty",
+    "exp"
+   ]
+  },
+  {
+   "host": "century21.com",
+   "type": "parent-roster",
+   "baseline": false,
+   "cost": "free",
+   "note": "only if that is the brokerage",
+   "onlyIf": "brokerage",
+   "brokerageNames": [
+    "century 21",
+    "century21"
+   ]
+  },
+  {
+   "host": "bhhs.com",
+   "type": "parent-roster",
+   "baseline": false,
+   "cost": "free",
+   "note": "only if that is the brokerage",
+   "onlyIf": "brokerage",
+   "brokerageNames": [
+    "berkshire hathaway",
+    "bhhs"
+   ]
+  }
+ ],
+ "patterns": [
+  {
+   "re": "realtors?(association|board)|boardofrealtors|assnofrealtors|(^|[.-])mls([.-]|$)",
+   "type": "professional-association",
+   "why": "a local board or association of Realtors / MLS"
+  },
+  {
+   "re": "agent(s)?(directory|finder)|findanagent|listingnearme|findinmyzip",
+   "type": "directory",
+   "why": "an agent finder or ranking site"
+  },
+  {
+   "re": "homes?(for)?sale|moveto|relocat|neighborhoodscout|areavibes",
+   "type": "directory",
+   "why": "a relocation or neighbourhood information site"
+  },
+  {
+   "re": "escrow|mortgage|homeinspect|titlecompany|titleco|homestaging|moving",
+   "type": "partner-supplier",
+   "why": "a service a buyer or seller also needs (title, escrow, lender, inspector, stager, mover)"
+  }
+ ],
+ "angles": [
+  "Fill in every field of the profile on the platforms buyers use (Zillow, Realtor.com, the brokerage page) with the website link and one identical name, phone and licence number.",
+  "Publish a quarterly local market note (median price, days on market, inventory for each city served) with one chart, and send it to the local news site and the chamber newsletter.",
+  "Build a preferred-vendor page of real partners (lender, title or escrow, inspector, stager, mover) and ask each to list the agent back on their resources page.",
+  "Sponsor a youth team, school fundraiser or neighbourhood event; ask for the sponsor-page link.",
+  "Apply to the editorial 'best agents' lists whose selection criteria you meet; skip the lists that charge to be included unless the client treats it as advertising.",
+  "Host a first-time-buyer or downsizing workshop and get it on the chamber, library and city event calendars.",
+  "Write city and neighbourhood guides worth quoting (schools, commute, parks); local sites and AI answers cite these."
+ ],
+ "avoid": [
+  "Paying a 'Top 100 agents' site that sells rankings without labelling it advertising.",
+  "Buying links on real-estate blogs or 'Realtor SEO' networks.",
+  "Reviews written by the agent, paid for, or from people who were not clients; also breaks real-estate advertising rules.",
+  "Showing awards or ranks you cannot prove; the state's advertising rules apply (see the licence-number rule in rules/industries/real-estate-agent.json)."
+ ],
+ "reviewSites": [
+  "google business profile",
+  "zillow.com",
+  "realtor.com",
+  "fastexpert.com",
+  "ratemyagent.com",
+  "facebook.com"
+ ],
+ "providerPatterns": [
+  "(we|i)buy|buys[a-z0-9]*(houses|homes)|buyhouses|homebuyers?|housebuyers?|cashfor|cashbuyers?|cashoffer|sellmy(house|home)|sellwith|listwith|sellingsolutions|ibuyer|brokerage|realty$|homes$|properties$|offers$"
+ ],
+ "providerText": [
+  "\\bwe buy (houses|homes)\\b|\\bsell (your|my) (house|home) (fast|for cash|quickly)|\\bget (a|your) (fair |free |no-obligation )?cash offer|\\bcash home ?buyers?\\b|\\bhome ?buyers? (in|of|for)\\b|\\bwork with (a|our) (local )?(realtor|agent)|\\bour (real estate )?agents\\b|\\bfree home valuation\\b|\\bi(’|')m a (licensed )?(realtor|real estate agent)"
+ ]
+}

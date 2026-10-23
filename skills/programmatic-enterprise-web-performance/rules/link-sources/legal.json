@@ -1,0 +1,129 @@
+{
+ "slug": "legal",
+ "title": "Law firm or lawyer (YMYL, regulated advertising)",
+ "aliases": [
+  "legal",
+  "lawyer",
+  "law-firm",
+  "attorney",
+  "attorneys",
+  "law",
+  "personal-injury",
+  "family-law",
+  "criminal-defense",
+  "immigration-lawyer",
+  "estate-planning"
+ ],
+ "basis": "Recalled general knowledge, 2026-10-22; hosts not re-fetched (UNVERIFIED). Lawyer advertising is regulated by each state bar (the ABA model rules are the template); the pack marks awards that are bought.",
+ "extends": [
+  "local-generic"
+ ],
+ "domainTypes": [
+  {
+   "host": "avvo.com",
+   "type": "platform-profile",
+   "baseline": true,
+   "cost": "free profile; advertising paid",
+   "note": "claim the lawyer profile; website field"
+  },
+  {
+   "host": "justia.com",
+   "type": "platform-profile",
+   "baseline": true,
+   "cost": "free lawyer profile; paid upgrades",
+   "note": "lawyer directory"
+  },
+  {
+   "host": "findlaw.com",
+   "type": "directory",
+   "baseline": false,
+   "cost": "paid marketing packages",
+   "note": "mostly a paid marketing product"
+  },
+  {
+   "host": "lawyers.com",
+   "type": "directory",
+   "baseline": false,
+   "cost": "free basic profile",
+   "note": "lawyer directory"
+  },
+  {
+   "host": "martindale.com",
+   "type": "directory",
+   "baseline": false,
+   "cost": "free basic profile; peer ratings",
+   "note": "peer-rated directory"
+  },
+  {
+   "host": "superlawyers.com",
+   "type": "editorial-list",
+   "baseline": false,
+   "cost": "selection process; paid profiles exist",
+   "note": "do not call it earned unless you were selected; follow your state's rules on stating it"
+  },
+  {
+   "host": "bestlawyers.com",
+   "type": "editorial-list",
+   "baseline": false,
+   "cost": "peer-review selection",
+   "note": "same caution"
+  },
+  {
+   "host": "nolo.com",
+   "type": "directory",
+   "baseline": false,
+   "cost": "paid directory",
+   "note": "legal information with a lawyer directory"
+  },
+  {
+   "host": "americanbar.org",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "membership",
+   "note": "membership and section pages"
+  }
+ ],
+ "patterns": [
+  {
+   "re": "barassociation|\bbar.org|lawyersassociation|trialattorneys|triallawyers",
+   "type": "professional-association",
+   "why": "a state or local bar or lawyers association"
+  },
+  {
+   "re": "lawschool|law\\.[a-z]+\\.edu|legalaid|probono|clinic",
+   "type": "edu-gov",
+   "why": "a law school, legal aid or clinic"
+  },
+  {
+   "re": "courts?\\.|\\.courts\\.",
+   "type": "edu-gov",
+   "why": "a court site"
+  }
+ ],
+ "angles": [
+  "Claim and complete the Avvo, Justia and Martindale profiles with identical bar number, name, address and phone.",
+  "Join the state bar sections and the local bar association; fill the 'find a lawyer' profile.",
+  "Publish plain-language guides for the practice area and the county (court forms, deadlines, what happens next) that local libraries, legal aid pages and reporters can cite.",
+  "Offer a free talk or clinic to a library, school, senior centre or community group; ask for the event page link.",
+  "Answer reporter requests in your practice area with a fact and a quote; local news and legal-news sites link to sources.",
+  "Teach a CLE class or contribute to a bar publication; the association page links the author."
+ ],
+ "avoid": [
+  "Buying 'Top Attorney' or 'Best Lawyer' awards; many are pay-to-play and state bars restrict how to claim them.",
+  "Reviews posted by the firm or by friends, and reviews that name client matters (confidentiality).",
+  "Paid links on law-blog networks: legal is one of the most abused niches and the most checked.",
+  "Promising results in listings. State bar advertising rules apply."
+ ],
+ "reviewSites": [
+  "google business profile",
+  "avvo.com",
+  "yelp.com",
+  "facebook.com"
+ ],
+ "providerPatterns": [
+  "lawfirm|lawgroup|lawoffices?|attorneys?|lawyers?$"
+ ],
+ "providerText": [
+  "\\bour (attorneys|lawyers)\\b|\\bfree (case )?consultation\\b"
+ ]
+}

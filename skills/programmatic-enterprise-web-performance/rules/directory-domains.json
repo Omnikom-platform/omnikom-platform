@@ -1,0 +1,779 @@
+{
+ "_about": "Directories, marketplaces, portals and forums for shipgate 06 sections 9.2 (navigational brands), 9.3 (forum and directory page types) and TR-215 (flag, never drop). A host matches itself and every subdomain (www.zillow.com, m.zillow.com). kind: directory (listing portal, review site, lead marketplace, social or reference host that ranks as a profile), marketplace (retail), forum (Q&A or discussion; 9.3 turns these into the page type forum). brand: the lowercase name people type to reach the site (a query equal to a brand is navigational, 9.2 rule 4). Every entry names its source id in _sources. Entries are US-centred; add per market.",
+ "_sources": {
+  "re": {
+   "title": "Public sites that are US real-estate portals, brokerages-as-portals or iBuyers (host identity recalled)",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "review": {
+   "title": "Public sites that are review / business-directory / professional-directory platforms (host identity recalled)",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "pro": {
+   "title": "Public sites that are home-services lead marketplaces or professional directories (host identity recalled)",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "market": {
+   "title": "Public sites that are retail or classifieds marketplaces (host identity recalled)",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "forum": {
+   "title": "Public sites that are question-and-answer or discussion forums (host identity recalled)",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "social": {
+   "title": "Public sites that are social or video platforms whose pages rank as profiles or posts (host identity recalled)",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "ref": {
+   "title": "Public sites that are reference or publisher aggregators that rank for generic queries (host identity recalled)",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  }
+ },
+ "domains": [
+  {
+   "host": "zillow.com",
+   "brand": "zillow",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "realtor.com",
+   "brand": "realtor",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "redfin.com",
+   "brand": "redfin",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "trulia.com",
+   "brand": "trulia",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "homes.com",
+   "brand": "homes",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "movoto.com",
+   "brand": "movoto",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "apartments.com",
+   "brand": "apartments",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "rent.com",
+   "brand": "rent",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "hotpads.com",
+   "brand": "hotpads",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "loopnet.com",
+   "brand": "loopnet",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "compass.com",
+   "brand": "compass",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "century21.com",
+   "brand": "century 21",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "coldwellbanker.com",
+   "brand": "coldwell banker",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "remax.com",
+   "brand": "remax",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "kw.com",
+   "brand": "keller williams",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "homelight.com",
+   "brand": "homelight",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "opendoor.com",
+   "brand": "opendoor",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "offerpad.com",
+   "brand": "offerpad",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "zumper.com",
+   "brand": "zumper",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "propertyshark.com",
+   "brand": "propertyshark",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "estately.com",
+   "brand": "estately",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "homesnap.com",
+   "brand": "homesnap",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "realtytrac.com",
+   "brand": "realtytrac",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "landwatch.com",
+   "brand": "landwatch",
+   "kind": "directory",
+   "source": "re"
+  },
+  {
+   "host": "yelp.com",
+   "brand": "yelp",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "bbb.org",
+   "brand": "bbb",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "yellowpages.com",
+   "brand": "yellow pages",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "mapquest.com",
+   "brand": "mapquest",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "manta.com",
+   "brand": "manta",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "superpages.com",
+   "brand": "superpages",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "foursquare.com",
+   "brand": "foursquare",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "tripadvisor.com",
+   "brand": "tripadvisor",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "trustpilot.com",
+   "brand": "trustpilot",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "glassdoor.com",
+   "brand": "glassdoor",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "indeed.com",
+   "brand": "indeed",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "birdeye.com",
+   "brand": "birdeye",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "chamberofcommerce.com",
+   "brand": "chamber of commerce",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "dnb.com",
+   "brand": "dun and bradstreet",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "bizapedia.com",
+   "brand": "bizapedia",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "hotfrog.com",
+   "brand": "hotfrog",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "merchantcircle.com",
+   "brand": "merchantcircle",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "citysearch.com",
+   "brand": "citysearch",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "opencorporates.com",
+   "brand": "opencorporates",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "facebook.com",
+   "brand": "facebook",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "g2.com",
+   "brand": "g2",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "capterra.com",
+   "brand": "capterra",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "clutch.co",
+   "brand": "clutch",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "sitejabber.com",
+   "brand": "sitejabber",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "consumeraffairs.com",
+   "brand": "consumer affairs",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "healthgrades.com",
+   "brand": "healthgrades",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "avvo.com",
+   "brand": "avvo",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "zocdoc.com",
+   "brand": "zocdoc",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "findlaw.com",
+   "brand": "findlaw",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "lawyers.com",
+   "brand": "lawyers.com",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "justia.com",
+   "brand": "justia",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "vitals.com",
+   "brand": "vitals",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "webmd.com",
+   "brand": "webmd",
+   "kind": "directory",
+   "source": "review"
+  },
+  {
+   "host": "angi.com",
+   "brand": "angi",
+   "kind": "directory",
+   "source": "pro"
+  },
+  {
+   "host": "angieslist.com",
+   "brand": "angies list",
+   "kind": "directory",
+   "source": "pro"
+  },
+  {
+   "host": "homeadvisor.com",
+   "brand": "homeadvisor",
+   "kind": "directory",
+   "source": "pro"
+  },
+  {
+   "host": "houzz.com",
+   "brand": "houzz",
+   "kind": "directory",
+   "source": "pro"
+  },
+  {
+   "host": "thumbtack.com",
+   "brand": "thumbtack",
+   "kind": "directory",
+   "source": "pro"
+  },
+  {
+   "host": "nextdoor.com",
+   "brand": "nextdoor",
+   "kind": "directory",
+   "source": "pro"
+  },
+  {
+   "host": "porch.com",
+   "brand": "porch",
+   "kind": "directory",
+   "source": "pro"
+  },
+  {
+   "host": "networx.com",
+   "brand": "networx",
+   "kind": "directory",
+   "source": "pro"
+  },
+  {
+   "host": "fixr.com",
+   "brand": "fixr",
+   "kind": "directory",
+   "source": "pro"
+  },
+  {
+   "host": "bark.com",
+   "brand": "bark",
+   "kind": "directory",
+   "source": "pro"
+  },
+  {
+   "host": "taskrabbit.com",
+   "brand": "taskrabbit",
+   "kind": "directory",
+   "source": "pro"
+  },
+  {
+   "host": "expertise.com",
+   "brand": "expertise",
+   "kind": "directory",
+   "source": "pro"
+  },
+  {
+   "host": "homeguide.com",
+   "brand": "homeguide",
+   "kind": "directory",
+   "source": "pro"
+  },
+  {
+   "host": "improvenet.com",
+   "brand": "improvenet",
+   "kind": "directory",
+   "source": "pro"
+  },
+  {
+   "host": "modernize.com",
+   "brand": "modernize",
+   "kind": "directory",
+   "source": "pro"
+  },
+  {
+   "host": "buildzoom.com",
+   "brand": "buildzoom",
+   "kind": "directory",
+   "source": "pro"
+  },
+  {
+   "host": "amazon.com",
+   "brand": "amazon",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "ebay.com",
+   "brand": "ebay",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "walmart.com",
+   "brand": "walmart",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "etsy.com",
+   "brand": "etsy",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "target.com",
+   "brand": "target",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "bestbuy.com",
+   "brand": "best buy",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "homedepot.com",
+   "brand": "home depot",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "lowes.com",
+   "brand": "lowes",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "wayfair.com",
+   "brand": "wayfair",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "costco.com",
+   "brand": "costco",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "aliexpress.com",
+   "brand": "aliexpress",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "craigslist.org",
+   "brand": "craigslist",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "offerup.com",
+   "brand": "offerup",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "mercari.com",
+   "brand": "mercari",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "poshmark.com",
+   "brand": "poshmark",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "alibaba.com",
+   "brand": "alibaba",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "temu.com",
+   "brand": "temu",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "overstock.com",
+   "brand": "overstock",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "newegg.com",
+   "brand": "newegg",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "groupon.com",
+   "brand": "groupon",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "autotrader.com",
+   "brand": "autotrader",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "cars.com",
+   "brand": "cars.com",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "carvana.com",
+   "brand": "carvana",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "carmax.com",
+   "brand": "carmax",
+   "kind": "marketplace",
+   "source": "market"
+  },
+  {
+   "host": "reddit.com",
+   "brand": "reddit",
+   "kind": "forum",
+   "source": "forum"
+  },
+  {
+   "host": "quora.com",
+   "brand": "quora",
+   "kind": "forum",
+   "source": "forum"
+  },
+  {
+   "host": "stackexchange.com",
+   "brand": "stack exchange",
+   "kind": "forum",
+   "source": "forum"
+  },
+  {
+   "host": "stackoverflow.com",
+   "brand": "stack overflow",
+   "kind": "forum",
+   "source": "forum"
+  },
+  {
+   "host": "biggerpockets.com",
+   "brand": "biggerpockets",
+   "kind": "forum",
+   "source": "forum"
+  },
+  {
+   "host": "city-data.com",
+   "brand": "city data",
+   "kind": "forum",
+   "source": "forum"
+  },
+  {
+   "host": "superuser.com",
+   "brand": "superuser",
+   "kind": "forum",
+   "source": "forum"
+  },
+  {
+   "host": "serverfault.com",
+   "brand": "serverfault",
+   "kind": "forum",
+   "source": "forum"
+  },
+  {
+   "host": "answers.microsoft.com",
+   "brand": "microsoft answers",
+   "kind": "forum",
+   "source": "forum"
+  },
+  {
+   "host": "wikihow.com",
+   "brand": "wikihow",
+   "kind": "forum",
+   "source": "forum"
+  },
+  {
+   "host": "youtube.com",
+   "brand": "youtube",
+   "kind": "directory",
+   "source": "social"
+  },
+  {
+   "host": "instagram.com",
+   "brand": "instagram",
+   "kind": "directory",
+   "source": "social"
+  },
+  {
+   "host": "linkedin.com",
+   "brand": "linkedin",
+   "kind": "directory",
+   "source": "social"
+  },
+  {
+   "host": "twitter.com",
+   "brand": "twitter",
+   "kind": "directory",
+   "source": "social"
+  },
+  {
+   "host": "x.com",
+   "brand": "x",
+   "kind": "directory",
+   "source": "social"
+  },
+  {
+   "host": "pinterest.com",
+   "brand": "pinterest",
+   "kind": "directory",
+   "source": "social"
+  },
+  {
+   "host": "tiktok.com",
+   "brand": "tiktok",
+   "kind": "directory",
+   "source": "social"
+  },
+  {
+   "host": "medium.com",
+   "brand": "medium",
+   "kind": "directory",
+   "source": "social"
+  },
+  {
+   "host": "tumblr.com",
+   "brand": "tumblr",
+   "kind": "directory",
+   "source": "social"
+  },
+  {
+   "host": "wikipedia.org",
+   "brand": "wikipedia",
+   "kind": "directory",
+   "source": "ref"
+  },
+  {
+   "host": "investopedia.com",
+   "brand": "investopedia",
+   "kind": "directory",
+   "source": "ref"
+  },
+  {
+   "host": "britannica.com",
+   "brand": "britannica",
+   "kind": "directory",
+   "source": "ref"
+  },
+  {
+   "host": "nerdwallet.com",
+   "brand": "nerdwallet",
+   "kind": "directory",
+   "source": "ref"
+  },
+  {
+   "host": "bankrate.com",
+   "brand": "bankrate",
+   "kind": "directory",
+   "source": "ref"
+  },
+  {
+   "host": "forbes.com",
+   "brand": "forbes",
+   "kind": "directory",
+   "source": "ref"
+  },
+  {
+   "host": "usnews.com",
+   "brand": "us news",
+   "kind": "directory",
+   "source": "ref"
+  },
+  {
+   "host": "consumerreports.org",
+   "brand": "consumer reports",
+   "kind": "directory",
+   "source": "ref"
+  }
+ ]
+}

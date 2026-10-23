@@ -1,0 +1,60 @@
+# programmatic (shipgate spec 8.0.0)
+
+P0 = blocks release, P1 = must fix, P2 = should fix, W = warning. [kinds]: static = read from code/config; http, browser = needs the running site.
+
+- PCF-001 P0 [cfg] Template tokens reference only required fields of the family, whitelisted constants ({brand}, {siteName}), {self}, or {page} in paginated hub templates
+- PCF-002 P0 [cfg] localFacts ⊆ declared fields (required or optional), none regional, includes primaryEntityField, and |localFacts| ≥ minLocalFacts ≥ 3; measurement needs a numeric/money/geo local fact; sourcedText needs sourcedTextField
+- PCF-003 P0 [cfg] schemaTypes ⊆ the public-page types of web-delivery § 6 *Allowed types by surface*, minus Review, AggregateRating, FAQPage, HowTo, ClaimReview, SpecialAnnouncement; LocalBusiness only with a localBusiness block (§ 1.3)
+- PCF-004 P0 [cfg, data] rendering: isr ⇔ revalidateSeconds set (an integer ≥ 1); every source exists (its rights: DAT-018); ymyl: true ⇒ required reviewedBy (text) and sourceUrl (url); demand.field, lastmodField and priorityField name declared
+- PCF-005 P0 [cfg] Every field rendered as text has a format (defaults per type, 04 § 15); links.relation is one of nearest-by-geo, same-group:<field>, field-similarity:<fields>, declared:<field>
+- PCF-006 P0 [cfg] Multi-locale families declare locales, a localeField (or one dataset per locale) and templates keyed by locale ("titleTemplates"
+- PCF-007 P0 [cfg] Hubs declare service, minMembers (default 2), descriptionTemplate, paginatedTitleTemplate and paginatedDescriptionTemplate (both containing {page}, so MET-001/002 uniqueness holds), and an optional parent hub; a hub wit
+- DAT-001 P0 [data] Dataset format: UTF-8 JSON Lines, one object per line, blank lines ignored. A missing dataset file, invalid UTF-8, or a line that is not a JSON object is a blocking parse-error finding owned by operator (file, line) and
+- DAT-002 P0 [data] Blank, whitespace-only and null = missing; reject NaN/Infinity, invalid dates, malformed slugs, out-of-range numbers, unknown enums, </> in text, and text-like values (text, sourcedText, aiText, enum) that contain {, }
+- DAT-003 P0 [data] Required field missing/invalid/stale → row quarantined with rule IDs (no page, no links, no sitemap entry)
+- DAT-004 P0† [data] Quarantined/total (per family and locale, § 4-0 *DAT-004 rate*) > maxQuarantineRate → build fails
+- DAT-005 P0 [data] Duplicate (family, locale, id), (family, locale, slug), pathname or canonical → build failure (never first-row-wins)
+- DAT-006 P0 [data, site, http] Generated set = inventory. Part size (P0 · data): inventory lines of type page and hub number ≤ maxGeneratedUrls; each page line comes from exactly one dataset row and each hub line from one group (no cartesian expansio
+- DAT-007 P0† [data, html] No fallback chains (proven on output
+- DAT-008 P0 [cfg, data] Every field listed in localFacts, every regional field and every field rendered with data-fact (TPL-003), other than fields of type id, slug, slugList or url and the fields named by observedAtField or lastmodField, decl
+- DAT-009 P0 [data] Freshness via observedAtField vs dataAsOf (never the wall clock)
+- DAT-010 P0 [data, html] Money is {amountMinor, currency}; one formatter produces the visible text and Offer.price.
+- DAT-011 P0 [data] Geo: both coordinates, finite, in range, not (0, 0).
+- DAT-012 P0 [data] YMYL rows without reviewedBy and https sourceUrl are quarantined
+- TPL-001 P0 [cfg, ast] All user-visible copy on family and hub pages comes from policy (templates, labels, breadcrumbs, staticFragments)
+- TPL-002 P0 [data] applyTemplate replaces {token} with formatted values (row field → constant → {self} → {page})
+- TPL-003 P0 [html] Every rendered fact is an element with data-fact="<field>" and data-value="<canonical machine value>", text = formatted value
+- TPL-004 P0 [content] Skeleton identity (algorithm: 04 § 11): after masking token/fact text and variable attributes, collapsing data-list containers and hashing data-section subtrees separately (unreviewed aiText counts as absent), the canon
+- TPL-005 P0 [content] Conditionals exist only around declared optional fields
+- TPL-006 P0† [content] No per-row generated prose in templates
+- TPL-007 P0 [html] sourcedText and aiText fields render as an element with data-fact="<field>" inside a data-section="<field>" wrapper; their data-value is the lowercase hex SHA-256 of the field's UTF-8 bytes after NFC, and the element's
+- TPL-008 P0 [html] Page equals oracle (§ 6), in inventory mode, in the fixture pass (§ 7) and in live mode (against the snapshot-derived oracle)
+- CNT-001 P0 [data] Eligible = not quarantined (row states, § 4-0) + ≥ minLocalFacts local facts present and fresh in this row + local evidence (CNT-002)
+- CNT-002 P0 [data] Local evidence matches localEvidence (measurement
+- CNT-003 P0 [data] Local cardinality: with n ≥ 2 eligible rows, each local fact has ≥ max(2, ⌈localCardinalityRatio · n⌉) distinct values. Distinct values are counted among the eligible rows in which the fact is present, with n the number
+- CNT-004 P0 [data] No two eligible rows share the full tuple of local-fact values apart from the entity name
+- CNT-005 P0 [content] Exact duplicate <main> text (UAX #29 words, NFKC, lowercase, joined by U+0020) across indexable URLs fails when at least one of the two is a family or hub page (other pairs
+- CNT-006 P1 [data] Near-duplicates measured over row-specific text only (fact texts, sourcedText, list items; template text excluded, since TPL-004 makes it identical by design)
+- CNT-007 P0 [data] Ineligible rows follow onThin (omit default → 404 (row state thin, § 4-0; probed by DAT-006 omitted); noindex → served noindex, excluded from sitemap and related links)
+- CNT-008 P0† [content] On family and hub pages, visible text matching bannedClaims (an entry matches when its NFKC, case-folded form occurs in the NFKC, case-folded text and is neither preceded nor followed by a letter or digit, so #1 matches
+- CNT-009 P0† [browser, html] On family and hub pages, in the rendered DOM at the mobile and desktop viewports, no element carrying data-fact, data-token or data-section is hidden, and no other <main> text is hidden
+- CNT-010 P1 [html] On family and hub pages, every visible date (04 § 15 *Visible dates*) is inside a data-fact element whose field is of type date/datetime (family pages) or equals the hub inventory line's lastmod (hub pages; § 6 *Hub las
+- DAT-013 P0 [data] Every aiText field has provenance sibling fields
+- DAT-014 P0 [data] Grounding: every number, percentage, currency amount and date in aiText (number detection: 04 § 15) equals a value of a field in the same row; otherwise the field is treated as absent for that row (as unreviewed aiText,
+- DAT-015 P0† [data, html] Unreviewed aiText (not *reviewed* per DAT-013
+- DAT-016 P0 [data] aiText never counts toward minLocalFacts, local evidence, cardinality or tuple checks
+- CNT-011 W [html] Pages rendering reviewed AI text show the family's aiTextDisclosure fragment
+- DAT-017 P1 [data] With demand set, rows whose demand.field value is < demand.min or missing follow onLow
+- DAT-018 P1 [cfg, html, review] Dataset rights (Google spam policies, scraped content
+- KW-003 P1 [data, site] Each family's targetQueryTemplate (the copy for the row's locale, PCF-006) yields one target query per row through applyTemplate (TPL-002)
+- CNT-012 P1 [content] Across families and non-programmatic pages, two indexable pages whose full <main> text has Jaccard similarity > 0.9 and < 1.0 (MinHash/LSH, 04 § 11; exact duplicates
+- ROL-001 P0 [data, site] With rollout set, only rows in released waves (quality/rollout/<family>.json, Operator-signed) are published
+- ROL-002 P0 [data] Wave 1 has ≤ pilot rows; later waves ≤ waveSize; rows are assigned to waves by priorityField (highest first), deterministically
+- ROL-003 P0 [cfg, data] shipgate rollout release <family> (Operator, 05 § 1) releases the next wave only if the previous wave is at least minWaveAgeDays old and its index rate ≥ minIndexRate, computed from an Operator-provided Search Console i
+- ROL-004 W [data] With rollout set: the *latest aged wave* is the highest-index wave of quality/rollout/<family>.json whose releasedAt is at least minWaveAgeDays × 86,400 s before the reference time (04 § 15 *Reference time*). Its index
+- CRW-001 P2 [http, edge] Family and hub pages: per family and per hub, one discarded warm-up request, then one GET per URL of a 100-URL sample drawn with the lock-digest PRNG (all pages when fewer), sent sequentially; the p75 of TTFB (request s
+- CRW-002 P1 [http] Family and hub pages send ETag or Last-Modified (from the inventory lastmod
+- CRW-003 W [cfg] Families using onThin: "noindex" get a reminder that omission (404) saves crawl capacity; use noindex only for pages users need.
+- CRW-004 P1 [site] Closed link space (Google: calendars and parameter combinations create "infinite spaces"; block them or nofollow the links). Applies to the whole G4 crawl (04 § 10), not only family pages. A trap hit is a URL that the c
+- PLK-001 P1 [html] Family pages link every breadcrumb, the hub, and exactly the oracle's related set (links.relation, computed by the Verifier, relative to the current row, tie-break by slug, no self; candidate set and orders
+- PLK-002 P1 [html] On family pages, links inside <main> ⊆ breadcrumb ∪ hub ∪ related set (∪ DAT-018 attribution source links)

@@ -1,0 +1,86 @@
+{
+ "slug": "cash-home-buyer",
+ "title": "Cash home buyer, investor or iBuyer-style service",
+ "aliases": [
+  "cash-home-buyer",
+  "cash-buyer",
+  "we-buy-houses",
+  "home-buyer",
+  "house-buyer",
+  "real-estate-investor",
+  "investor",
+  "wholesaler",
+  "ibuyer"
+ ],
+ "basis": "Recalled general knowledge, 2026-10-22; hosts not re-fetched (UNVERIFIED). The 'we buy houses' space attracts spam and paid directories, so the pack leans on trust sources (BBB, local investor groups, referrers such as probate and divorce professionals).",
+ "extends": [
+  "local-generic"
+ ],
+ "domainTypes": [
+  {
+   "host": "bbb.org",
+   "type": "directory",
+   "baseline": true,
+   "cost": "free listing; accreditation paid",
+   "note": "sellers check the BBB before a cash offer"
+  },
+  {
+   "host": "trustpilot.com",
+   "type": "platform-profile",
+   "baseline": true,
+   "cost": "free profile",
+   "note": "reviews the seller can read; follow its review rules"
+  },
+  {
+   "host": "biggerpockets.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "free profile",
+   "note": "investor community profile; contribute, do not advertise"
+  },
+  {
+   "host": "nextdoor.com",
+   "type": "social-link-hub",
+   "baseline": true,
+   "cost": "free",
+   "note": "neighbour recommendations"
+  }
+ ],
+ "patterns": [
+  {
+   "re": "reia|investorsassociation|investorsclub|landlordassociation|apartmentassociation",
+   "type": "professional-association",
+   "why": "a real estate investors or landlords association"
+  },
+  {
+   "re": "probate|estatesale|estateplanning|divorce|familylaw|elderlaw|hoarder|cleanout|junkremoval|movers|relocat",
+   "type": "partner-supplier",
+   "why": "a professional who meets sellers in trouble (probate, divorce, elder care, clean-out, movers)"
+  }
+ ],
+ "angles": [
+  "Join the local real estate investors association and the chamber; both list members.",
+  "Meet probate, divorce, elder-care and estate-clean-out professionals; a genuine referral partnership is a resources-page link and a source of sellers.",
+  "Publish plain guides sellers search for (selling an inherited house, selling with liens, how a cash offer is calculated) and ask local professionals to cite them.",
+  "Get named in local news when helping a real situation (with the seller's consent): a house saved from foreclosure, a vacant property revived.",
+  "Collect reviews from sellers you closed with on Google, Trustpilot and BBB; follow each platform's rules."
+ ],
+ "avoid": [
+  "Paying 'we buy houses' directories that publish only paid listings; they are the spam neighbourhood of this niche.",
+  "Hundreds of near-identical city pages to be 'found everywhere'.",
+  "Claims such as 'no fees ever' or 'guaranteed offer' on listings if they are not strictly true.",
+  "Wholesaling rules differ by state; check the state's licensing and disclosure rules before any listing says 'we buy'."
+ ],
+ "reviewSites": [
+  "google business profile",
+  "trustpilot.com",
+  "bbb.org",
+  "facebook.com"
+ ],
+ "providerPatterns": [
+  "(we|i)buy|buys[a-z0-9]*(houses|homes)|buyhouses|homebuyers?|housebuyers?|cashfor|cashbuyers?|cashoffer|sellmy(house|home)|sellwith|listwith|sellingsolutions|ibuyer|brokerage|realty$|homes$|properties$|offers$"
+ ],
+ "providerText": [
+  "\\bwe buy (houses|homes)\\b|\\bsell (your|my) (house|home) (fast|for cash|quickly)|\\bget (a|your) (fair |free |no-obligation )?cash offer|\\bcash home ?buyers?\\b|\\bhome ?buyers? (in|of|for)\\b|\\bwork with (a|our) (local )?(realtor|agent)|\\bour (real estate )?agents\\b|\\bfree home valuation\\b|\\bi(’|')m a (licensed )?(realtor|real estate agent)"
+ ]
+}

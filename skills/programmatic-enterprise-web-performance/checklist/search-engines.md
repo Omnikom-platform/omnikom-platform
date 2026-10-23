@@ -1,0 +1,62 @@
+# search-engines (shipgate spec 8.0.0)
+
+P0 = blocks release, P1 = must fix, P2 = should fix, W = warning. [kinds]: static = read from code/config; http, browser = needs the running site.
+
+- SE-001 P0 [http] robots.txt health (Google treats server errors on robots.txt as a full disallow for a period; Naver treats 5xx as "disallow everything")
+- SE-002 P0 [http, browser] robots.txt groups for the crawler token of every engine in engines ∪ {google, bing} (google Googlebot, bing Bingbot, yandex YandexBot, naver Yeti, baidu Baiduspider, seznam SeznamBot, apple Applebot) allow (a) every ind
+- SE-003 P1 [html, http] Engine verification. Value grammar of each verification entry: "dns" | "meta:<name>:<content>" | "file:<path>[:<content>]"; a legacy <name>:<content> value is meta. meta: the homepage of every public service origin has
+- SE-004 P1 [site] (Owner of lastmod format; IDX-003 owns lastmod source.) Sitemap <lastmod> uses W3C datetime with time and timezone (YYYY-MM-DDThh:mm:ss followed by Z or ±hh:mm; a date-only value fails; Bing prioritises recrawls with it
+- SE-005 P1 [http] All indexable HTML responses support conditional requests (ETag or Last-Modified with If-None-Match/If-Modified-Since → 304)
+- SE-006 P0 [http] Non-HTML documents: same-origin responses of content type application/pdf, application/msword, application/vnd.openxmlformats-officedocument.* or application/vnd.oasis.opendocument.* linked from indexable pages. A docum
+- SE-007 P1 [html, ast] Part uri (P1 · html): each internal <a href>, after percent-encoding non-ASCII characters, is an RFC 3986 URI-reference; a raw space, any of <>"{}|\^ or a backtick, a % not followed by two hex digits, or a query contain
+- SE-008 W [edge, review] Bot reach. Part ua-reach (W · edge): in the edge pass (G8), requests with the userAgent of the search-agents.json entry of each engine token of SE-002 (engines ∪ {google, bing}; variant desktop, else the only variant) t
+- SE-009 P1 [cfg, html, review] Webmaster tools are connected: verification.google and verification.bing are non-null (a value checked by SE-003, or "dns"). Part submitted (W, review): the Auditor confirms the sitemap index is submitted in Google Sear
+- SE-010 P0 [http] Auxiliary crawler tokens and robots.txt directive hygiene
+- SE-011 P1 [edge, http] Robots.txt of first-party resource hosts (robots.txt applies per host, protocol and port)
+- SE-101 P1 [html] Structured-data features, against the feature table of the pinned ruleset (rules/features/google.json, § 4)
+- SE-102 P1 [html] Site name: the homepage WebSite node carries name equal to web-delivery.siteName and to og:site_name, and, when web-delivery.siteAlternateName (string, default null) is set, alternateName equal to it.
+- SE-103 P1 [html] Discover. With discover.enabled, on indexable pages whose JSON-LD has an Article/BlogPosting/NewsArticle node: part preview (P1) — meta robots carries max-image-preview:large (on these pages SE-103 preview owns AEO-001#
+- SE-104 P1 [html, site] With news.enabled: every NewsArticle node on an indexable page has datePublished and dateModified, and each author with a url that returns 200 and is indexable. Part unused (W): no indexable page has a NewsArticle node.
+- SE-105 P1 [html] Images: images referenced as og:image (except a URL equal to web-delivery.defaultOgImage), Article.image or Product.image are also present in <main> as an <img> whose src or any srcset candidate, or a <picture><source s
+- SE-106 P1 [html, browser] Video watch pages (pages whose {canonical}#primary node (SCH-001) or WebPage.mainEntity is a VideoObject)
+- SE-107 P1 [html] Merchant listings (merchant-listing)
+- SE-108 P0 [http, html] Expiring content: a 200 page must not carry JobPosting.validThrough or Event.endDate earlier than the reference time (04 § 15); expired postings return 404/410 or drop the markup. A date-only value is the end of that da
+- SE-109 P0 [html, browser] Paywalled or gated content: on an indexable page whose raw-HTML <main> (Googlebot smartphone user agent) contains a *gated block* — an element whose text has ≥ 50 UAX #29 words, that is hidden (04 § 15 *Hidden content*)
+- SE-110 W [html] Byline dates (owner of the "article shows a date" check; CQ-004 refers here)
+- SE-111 P1 [html] Product variants. A page has variants when its JSON-LD contains a ProductGroup or a Product with inProductGroupWithID, or its URL carries a products.variantParams parameter. Then: the ProductGroup has productGroupID, va
+- SE-112 P1 [html, http] Stock state. Part availability: let S be the set of stock states whose ruleset phrases (stock-phrases.json per locale: in stock, out of stock, sold out, pre-order, back-order, limited, discontinued) appear in <main> of
+- SE-113 P1 [data, html] Merchant feed (with merchantFeed set; RSS 2.0/Atom with the g
+- SE-114 P1 [data, html] Agentic-commerce feeds (with agenticFeeds set)
+- SE-115 P1 [html, edge] Offer validity dates (Google merchant listings
+- SE-120 P0 [html] Paid, affiliate and sponsored links (sponsoredLinkSelectors, and links to hosts in the hosts registry with purpose affiliate) carry rel="sponsored" (or nofollow); user-generated links (ugcSelectors) carry rel="ugc".
+- SE-121 P1 [html] Keyword stuffing signals, in <main> of indexable pages (words
+- SE-122 P0 [http, browser] No sneaky redirects: for every sampled page, the final URL (after HTTP and JavaScript redirects, 5 s after load) for Googlebot smartphone equals that for Chrome mobile, and for Googlebot desktop equals that for Chrome d
+- SE-123 P0 [browser] No hidden links on indexable pages
+- SE-124 P1 [browser] No intrusive interstitials, at the mobile viewport 2 s after load
+- SE-125 W [review] Site reputation abuse: the Auditor confirms that each third-party content section hosted on the domain (coupons, partner articles) has a named owner and editorial oversight.
+- SE-126 W [html] Thin affiliate pages: on an indexable page, affiliate links (matching sponsoredLinkSelectors or pointing at hosts with purpose affiliate) number more than 1 per 100 <main> words (UAX #29), or <main> has < 300 words and
+- SE-127 W [review] Expired-domain abuse: with domainHistory.previousUse: "unrelated", the Auditor confirms the site doesn't trade on the previous owner's reputation (content, retained URLs or backlinks from the old topic); a null domainHi
+- SE-128 P1 [html] Sitewide third-party links (Google spam policies, link spam
+- SE-129 P0 [browser, ast] No back-button hijacking (Google spam policies, *Malicious practices*, added 2026-04-13
+- SE-130 P0 [http] Facet parameters (facets.params)
+- SE-131 P1 [http, html] Facet parameters appear in the order of facets.params with values equal to facets.defaults dropped; reordered or default-valued variants of each probe base redirect once to the normalised URL.
+- SE-132 P0 [http, html] Facet combinations that are not indexable (above)
+- SE-201 P1 [html, http] No noarchive or nocache on indexable pages unless declared in answer-engines.snippetRules
+- SE-202 P1 [html] Bing minimum lengths: title ≥ 20 and meta description ≥ 50 Unicode code points (pages whose page locale (04 § 15) has primary language subtag zh, ja or ko: title ≥ 10, description ≥ 25) (presence and uniqueness are owne
+- SE-204 P1 [html] On every indexable page, when web-delivery.locales has ≥ 2 entries or baidu or naver is in engines, add <meta http-equiv="content-language"> (or Content-Language header) whose first language tag equals <html lang> case-
+- SE-301 P1 [http] With yandex in engines, the YandexBot group contains Clean-param lines that together list every web-delivery.trackingParams entry without *, and, for an entry ending in *, the names ruleset tracking-param-expansions.jso
+- SE-302 P1 [http] Indexable HTML responses are ≤ 10,485,760 bytes after Content-Encoding is removed (304 handling
+- SE-401 P0 [http, browser] With naver in engines: in the browser check, the homepage's main frame has no navigation within 5 s after load that no HTTP redirect, meta refresh (RTE-009) or user input caused ( meta refresh is RTE-009, robots.txt hea
+- SE-402 P1 [html] With naver in engines, on every indexable page
+- SE-403 W [html] With naver in engines, titles/descriptions concise for Naver display
+- SE-404 W [html] nosourceinfo (Naver's opt-out from AI source explanations) only where declared in answer-engines.snippetRules.
+- SE-501 P0 [html, browser] Chinese-locale pages. Part hosts (P0 · html): no <script src>, stylesheet, @font-face source, <iframe>, or <img>/<video> inside <main> on those pages loads from a host in ruleset china-blocked-hosts.json ([host…] in the
+- SE-502 P1 [html] Chinese-locale pages: <html lang> is one of zh-CN, zh-Hans, zh-Hans-CN (equality of <html lang> with the page locale and the UTF-8 charset are MET-007's; the content-language declaration itself is owned by SE-204, which
+- SE-503 P1 [html] Chinese-locale pages declare the mobile/desktop relationship with Baidu's applicable-device meta
+- SE-504 W [html] Meta keywords present on Chinese-locale pages (still read by Baidu; ignored by Google and Bing)
+- SE-505 W [review] Hosting/CDN reachable from mainland China (off-site; not verifiable from the verify environment)
+- SE-601 W [cfg] Seznam: with seznam in engines, answer-engines.indexNow.enabled is true (Seznam accepts IndexNow; key file: AEO-007). SeznamBot access: SE-002.
+- LOC-001 P0 [html, site] NAP and hours match the facts file on every indexable page (text inside data-fact elements of programmatic family pages is excluded
+- LOC-002 W [html, review] Business Profile: each location page's LocalBusiness lists the location's gbpUrl (or its Google Maps URL) in sameAs or hasMap (html); the Auditor confirms each Business Profile's website link points to the location's pa
+- LOC-003 P1 [site, html] Location pages: every locations[] entry has exactly one indexable 200 page at its pagePath carrying a LocalBusiness (or subtype) node with @id {canonical}#localbusiness, unique across the site, and that location's name,
+- LOC-004 W [review] Local listings on the other engines

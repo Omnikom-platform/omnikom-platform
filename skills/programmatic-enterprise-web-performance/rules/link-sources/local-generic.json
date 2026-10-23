@@ -1,0 +1,132 @@
+{
+ "slug": "local-generic",
+ "title": "Any local business (base pack; every local pack extends it)",
+ "aliases": [
+  "local",
+  "local-business",
+  "local-generic",
+  "small-business",
+  "service-business"
+ ],
+ "basis": "Recalled general knowledge of US local-citation and community sources, 2026-10-22; hosts not re-fetched (UNVERIFIED). Apple Business Connect and Bing Places are named as the vendors' own listing programmes.",
+ "extends": [],
+ "domainTypes": [
+  {
+   "host": "yelp.com",
+   "type": "directory",
+   "baseline": true,
+   "cost": "free",
+   "note": "claim the page; Yelp discourages asking for reviews, so do not solicit them"
+  },
+  {
+   "host": "bbb.org",
+   "type": "directory",
+   "baseline": true,
+   "cost": "free listing; accreditation is paid",
+   "note": "a free business profile exists without accreditation"
+  },
+  {
+   "host": "yellowpages.com",
+   "type": "directory",
+   "baseline": true,
+   "cost": "free",
+   "note": "basic listing is free"
+  },
+  {
+   "host": "mapquest.com",
+   "type": "directory",
+   "baseline": false,
+   "cost": "free",
+   "note": "fed by data suppliers; check rather than create"
+  },
+  {
+   "host": "foursquare.com",
+   "type": "directory",
+   "baseline": true,
+   "cost": "free",
+   "note": "a data supplier for other apps"
+  },
+  {
+   "host": "nextdoor.com",
+   "type": "social-link-hub",
+   "baseline": true,
+   "cost": "free",
+   "note": "business page; neighbours' recommendations carry weight locally"
+  },
+  {
+   "host": "facebook.com",
+   "type": "social-link-hub",
+   "baseline": true,
+   "cost": "free",
+   "note": "page with website, phone and hours"
+  },
+  {
+   "host": "linkedin.com",
+   "type": "social-link-hub",
+   "baseline": true,
+   "cost": "free",
+   "note": "company page"
+  },
+  {
+   "host": "youtube.com",
+   "type": "social-link-hub",
+   "baseline": false,
+   "cost": "free",
+   "note": "channel with the website in About"
+  },
+  {
+   "host": "businessconnect.apple.com",
+   "type": "directory",
+   "baseline": true,
+   "cost": "free",
+   "note": "Apple Business Connect feeds Apple Maps and Siri"
+  },
+  {
+   "host": "bingplaces.com",
+   "type": "directory",
+   "baseline": true,
+   "cost": "free",
+   "note": "Bing Places feeds Bing and other engines that use Bing data"
+  }
+ ],
+ "patterns": [
+  {
+   "re": "rotary|kiwanis|lionsclub|jaycees",
+   "type": "sponsorship-charity",
+   "why": "a service club"
+  },
+  {
+   "re": "downtown|mainstreet|merchants|bia\\b|businessimprovement",
+   "type": "chamber-local",
+   "why": "a downtown or merchants association"
+  },
+  {
+   "re": "visit[a-z]*(\\.|-)|tourism|cvb|destination",
+   "type": "chamber-local",
+   "why": "a tourism or visitors board"
+  }
+ ],
+ "angles": [
+  "Join the chamber of commerce of the city served most and complete the member directory page.",
+  "Sponsor one real local cause (youth team, school event, food bank) and ask to be named on the sponsor page with a link.",
+  "Give the local paper or city news site one useful local fact a month (a number, a tip, a how-to), not a press release.",
+  "Ask real partners (supplier, lender, neighbour business) for a resources or partners page entry, and link back where it helps a customer.",
+  "Host or speak at a free local workshop; get the event listed on the chamber, library and community calendars.",
+  "Keep name, address and phone identical everywhere; fix the mismatches the local-nap check lists before creating new listings."
+ ],
+ "avoid": [
+  "Buying links, or links on a 'sponsored post' without rel=\"sponsored\" (Google link spam).",
+  "Bulk submission to hundreds of directories, bookmark sites or 'SEO directories'.",
+  "Fake reviews, paid reviews and review gating (asking only happy customers); also against the platforms' rules and, in the US, the FTC rule on fake reviews.",
+  "A network of thin sites you own that link to each other (private blog network).",
+  "Changing the business name to add keywords on listings: it breaks consistency and breaks the platforms' rules."
+ ],
+ "reviewSites": [
+  "google business profile",
+  "yelp.com",
+  "facebook.com",
+  "bbb.org"
+ ],
+ "providerPatterns": [],
+ "providerText": []
+}

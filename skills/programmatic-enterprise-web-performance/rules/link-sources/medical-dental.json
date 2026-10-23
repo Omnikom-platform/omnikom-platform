@@ -1,0 +1,139 @@
+{
+ "slug": "medical-dental",
+ "title": "Doctor, clinic, dentist or therapist (YMYL, privacy rules)",
+ "aliases": [
+  "medical-dental",
+  "medical",
+  "dental",
+  "dentist",
+  "doctor",
+  "physician",
+  "clinic",
+  "healthcare",
+  "therapist",
+  "chiropractor",
+  "orthodontist",
+  "optometrist",
+  "medspa",
+  "veterinarian"
+ ],
+ "basis": "Recalled general knowledge, 2026-10-22; hosts not re-fetched (UNVERIFIED). In the US patient privacy (HIPAA) limits how a practice may reply to reviews; the pack says so. Another country needs its own rules.",
+ "extends": [
+  "local-generic"
+ ],
+ "domainTypes": [
+  {
+   "host": "healthgrades.com",
+   "type": "platform-profile",
+   "baseline": true,
+   "cost": "free profile; advertising paid",
+   "note": "provider profile with website field"
+  },
+  {
+   "host": "zocdoc.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "paid booking service",
+   "note": "bookings platform; listing is a paid product"
+  },
+  {
+   "host": "vitals.com",
+   "type": "platform-profile",
+   "baseline": true,
+   "cost": "free profile",
+   "note": "provider profile"
+  },
+  {
+   "host": "webmd.com",
+   "type": "directory",
+   "baseline": false,
+   "cost": "its physician directory is fed by data suppliers and paid placement",
+   "note": "check rather than create"
+  },
+  {
+   "host": "ratemds.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "free profile",
+   "note": "provider reviews"
+  },
+  {
+   "host": "psychologytoday.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "paid profile",
+   "note": "for therapists and counsellors"
+  },
+  {
+   "host": "ada.org",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "membership",
+   "note": "American Dental Association: find-a-dentist for members"
+  },
+  {
+   "host": "agd.org",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "membership",
+   "note": "Academy of General Dentistry"
+  },
+  {
+   "host": "ama-assn.org",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "membership",
+   "note": "American Medical Association"
+  },
+  {
+   "host": "doximity.com",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "free for clinicians",
+   "note": "clinician network profile"
+  }
+ ],
+ "patterns": [
+  {
+   "re": "medicalsociety|dentalsociety|dentalassociation|medicalassociation|academyof",
+   "type": "professional-association",
+   "why": "a state or county medical or dental society"
+  },
+  {
+   "re": "hospital|health ?system|medicalcenter|healthcare\\.org",
+   "type": "parent-roster",
+   "why": "a hospital or health system with an affiliated-provider directory"
+  },
+  {
+   "re": "insur|aetna|cigna|bluecross|unitedhealth|delta ?dental",
+   "type": "directory",
+   "why": "an insurer's find-a-provider directory (a citation; no link is expected)"
+  }
+ ],
+ "angles": [
+  "Claim the provider profiles (Healthgrades, Vitals, the hospital's affiliated-provider page, the society's find-a-provider) with one identical name, credentials, NPI or licence number, address and phone.",
+  "Ask each insurer and hospital you are in-network with to confirm the directory entry is correct; wrong addresses cost patients.",
+  "Write patient-education pages reviewed by a named clinician (name, credentials, date reviewed); schools, libraries and local news cite these.",
+  "Offer a community talk or screening day; get it on the library, chamber and city calendars.",
+  "Answer local health-reporter requests with a clinician's quote."
+ ],
+ "avoid": [
+  "Replying to a review in a way that confirms the person is a patient or mentions their care (HIPAA in the US).",
+  "Review incentives such as discounts for five stars, and review gating.",
+  "Guarantees of results and unsupported claims in listings; health claims are checked closely.",
+  "Paid link packages on health-blog networks."
+ ],
+ "reviewSites": [
+  "google business profile",
+  "healthgrades.com",
+  "vitals.com",
+  "ratemds.com",
+  "yelp.com"
+ ],
+ "providerPatterns": [
+  "dental|dentist|orthodont|chiropract|medspa|physician|clinic$"
+ ],
+ "providerText": [
+  "\\bnew patients?\\b|\\bour (dentists|doctors|physicians)\\b|\\bbook (an )?appointment\\b"
+ ]
+}

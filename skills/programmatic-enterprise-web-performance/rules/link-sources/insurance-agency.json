@@ -1,0 +1,102 @@
+{
+ "slug": "insurance-agency",
+ "title": "Independent insurance agency or marketing organization (life insurance, annuities, mortgage protection, agent recruiting)",
+ "aliases": [
+  "insurance-agency",
+  "insurance",
+  "insurance-agent",
+  "insurance-broker",
+  "life-insurance",
+  "life-insurance-agent",
+  "annuity-agency",
+  "insurance-marketing-organization",
+  "imo",
+  "fmo"
+ ],
+ "basis": "Recalled general knowledge, 2026-10-23; hosts not re-fetched (UNVERIFIED). Insurance is YMYL and heavily regulated, so the pack leans on trade associations, local partners that refer clients (lenders, real-estate agents, estate-planning attorneys, CPAs) and trust profiles, and away from paid rankings and lead networks.",
+ "extends": [
+  "local-generic"
+ ],
+ "domainTypes": [
+  {
+   "host": "naifa.org",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "membership dues",
+   "note": "National Association of Insurance and Financial Advisors; local chapters list members and sponsor events"
+  },
+  {
+   "host": "iiaba.net",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "membership dues",
+   "note": "Independent Insurance Agents & Brokers of America (the 'Big I') and its state affiliates, for independent agencies"
+  },
+  {
+   "host": "insurancenewsnet.com",
+   "type": "press-release",
+   "baseline": false,
+   "cost": "free to paid",
+   "note": "trade news site; check its contributor and press-release terms before sending anything (UNVERIFIED)"
+  },
+  {
+   "host": "trustpilot.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "free profile",
+   "note": "reviews the client can read; follow its review rules and the FTC endorsement rules"
+  },
+  {
+   "host": "linkedin.com",
+   "type": "social-link-hub",
+   "baseline": true,
+   "cost": "free profile",
+   "note": "company page and licensed-producer profiles; also the main recruiting channel; put the website link and the licence number in the profile"
+  }
+ ],
+ "patterns": [
+  {
+   "re": "naifa|insuranceagents?(assoc|association)|independentagents|agentsandbrokers|iiab",
+   "type": "professional-association",
+   "why": "an insurance agents' association or chapter"
+  },
+  {
+   "re": "insurancequotes?|comparelife|quote(compare|finder)|agentfinder|findaninsurance|lifeinsurancerates",
+   "type": "directory",
+   "why": "a quote-comparison or agent-finder site (most are lead sellers: vet before use)"
+  },
+  {
+   "re": "mortgage(lender|broker|loan)|loanofficer|homeloans?|realty|realestate|title(company|co)|escrow|estateplan|probate|cpa|taxprep|financialplann|wealthmanag|retirementplan",
+   "type": "partner-supplier",
+   "why": "a service a homeowner or retiree also needs (lender, real-estate agent, estate-planning attorney, CPA, financial planner): a referral partner"
+  }
+ ],
+ "angles": [
+  "Fill in every field of the professional profiles that matter (association chapter, carrier agent-locator pages, Google Business Profile, LinkedIn) with one identical agency name, phone, state licence number, NPN and website link.",
+  "Publish carrier-neutral explainers (mortgage protection vs PMI, fixed vs fixed indexed annuity, term vs permanent life) with a named author, a licensed reviewer and a last-reviewed date; local news sites, lender and CPA resource pages and AI answers cite pages like these.",
+  "Build a referral-partner page of real partners (mortgage lenders and loan officers, real-estate agents, estate-planning attorneys, CPAs, financial planners) and ask each to list the agency back; confirm with compliance that no referral payment breaks the state's rules on commissions and inducements.",
+  "Host a plain-words workshop (first-time home buyer protection, retirement income basics) at a library, credit union or chamber with no product pitch; get it on the chamber, library and city event calendars.",
+  "For recruiting: publish an honest 'how agents are paid' page (commission-based, independent contractor, licensing steps and costs, no income figures) and ask community-college business departments, workforce centres and industry association career pages to list it.",
+  "Sponsor a youth team, school fundraiser or neighbourhood event; ask for the sponsor-page link."
+ ],
+ "avoid": [
+  "Paying a 'Top Insurance Agent' or 'Best Annuity Agent' list that sells the ranking without labelling it advertising.",
+  "Buying links on insurance-quote blogs or lead-generation networks, or from sites that dress paid placement as independent reviews.",
+  "Reviews written by staff, paid for, or collected only from happy clients (FTC Endorsement Guides, 16 CFR Part 255); also breaks the insurance advertising rules on testimonials (UNVERIFIED section, see rules/industries/insurance-agency.json).",
+  "Guest posts or partner pages that carry guaranteed-return, risk-free or tax-free-retirement claims: the agency answers for the claims it supplies (see INS-GUAR-001 and INS-TAX-001).",
+  "Directories that scrape licence data and charge to 'claim' a profile without checking the licence."
+ ],
+ "reviewSites": [
+  "google business profile",
+  "trustpilot.com",
+  "bbb.org",
+  "yelp.com",
+  "facebook.com"
+ ],
+ "providerPatterns": [
+  "insurance(agency|agent|brokers?|group|services?)?$|lifeinsurance|annuit(y|ies)|finalexpense|mortgageprotection|insurancequotes?|coverage$|assurance$|financial(group|services?)$|(^|[.-])iul([.-]|$)|(^|[.-])imo([.-]|$)"
+ ],
+ "providerText": [
+  "\\bget (a |your )?(free )?(life insurance |term life )?quotes?\\b|\\blicensed (insurance )?(agent|producer)s?\\b|\\bour (licensed )?agents\\b|\\bmortgage protection (insurance|life)\\b|\\bfinal expense\\b|\\bfixed (indexed )?annuit(y|ies)\\b|\\bbecome (a |an )?(life )?insurance agent\\b|\\binsurance marketing organization\\b|\\bwe(’|')re an independent (insurance )?agency\\b"
+ ]
+}

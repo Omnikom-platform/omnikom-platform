@@ -1,0 +1,55 @@
+{
+ "_about": "Route patterns of common platforms whose last path segment names a product category or collection, for shipgate 06 section 9.3 ('a path ending in a category segment of an adapter's route patterns' -> category). A path matches when it has a segment from categorySegments immediately followed by exactly one more segment (the category handle) and nothing after it. This skill has no framework adapters, so the patterns come from the platforms' public URL conventions.",
+ "_sources": {
+  "shopify": {
+   "title": "Shopify URL structure: /collections/<handle>",
+   "url": "https://shopify.dev/docs/storefronts/themes/architecture/templates/collection",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "woocommerce": {
+   "title": "WooCommerce default permalinks: /product-category/<slug>",
+   "url": "https://woocommerce.com/document/woocommerce-permalinks/",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "wordpress": {
+   "title": "WordPress default category base: /category/<slug>",
+   "url": "https://wordpress.org/documentation/article/settings-permalinks-screen/",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "bigcommerce": {
+   "title": "BigCommerce category URLs: /<category>/ and /categories/<slug>",
+   "url": "https://developer.bigcommerce.com/docs/storefront",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  }
+ },
+ "categorySegments": [
+  {
+   "segment": "collections",
+   "source": "shopify"
+  },
+  {
+   "segment": "product-category",
+   "source": "woocommerce"
+  },
+  {
+   "segment": "category",
+   "source": "wordpress"
+  },
+  {
+   "segment": "categories",
+   "source": "bigcommerce"
+  },
+  {
+   "segment": "shop",
+   "source": "woocommerce"
+  },
+  {
+   "segment": "department",
+   "source": "bigcommerce"
+  },
+  {
+   "segment": "c",
+   "source": "bigcommerce"
+  }
+ ]
+}

@@ -1,0 +1,60 @@
+{
+ "name": "Sample Valley Realty",
+ "domain": "sample-valley-realty.test",
+ "kind": "real-estate-agent",
+ "industry": "real-estate-agent",
+ "offer": "residential real estate sales and purchases",
+ "audience": "home sellers and buyers in Placer County",
+ "market": {
+  "country": "US",
+  "language": "en"
+ },
+ "locations": [
+  {
+   "name": "Roseville office",
+   "address": null,
+   "serviceArea": [
+    "Roseville",
+    "Rocklin",
+    "Lincoln"
+   ]
+  }
+ ],
+ "goals": [
+  "leads",
+  "calls"
+ ],
+ "competitors": [
+  "example-competitor-one.test",
+  "example-competitor-two.test"
+ ],
+ "brand": {
+  "constraints": [
+   "no MLS listing pages"
+  ]
+ },
+ "existing": {
+  "site": null,
+  "searchConsole": false,
+  "businessProfile": null,
+  "socials": [
+   "https://www.facebook.com/samplevalleyrealty.test"
+  ]
+ },
+ "launchState": "live",
+ "rankTracking": {
+  "source": "search-console",
+  "locations": [
+   "Roseville, CA"
+  ],
+  "devices": [
+   "mobile"
+  ]
+ },
+ "credentials": {
+  "state": "CA",
+  "licenseNumber": "01234567",
+  "brokerage": "Sample Valley Brokerage Inc.",
+  "licensed": true
+ }
+}

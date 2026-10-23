@@ -1,0 +1,111 @@
+{
+ "slug": "ecommerce",
+ "title": "Online shop or brand that sells products",
+ "aliases": [
+  "ecommerce",
+  "e-commerce",
+  "online-store",
+  "online-shop",
+  "retail",
+  "shop",
+  "store",
+  "dtc",
+  "brand",
+  "marketplace-seller"
+ ],
+ "basis": "Recalled general knowledge, 2026-10-22; hosts not re-fetched (UNVERIFIED). Google's own link-spam page names 'sending a product in exchange for a write-up with a link' as a violation unless the link is qualified; the pack repeats it.",
+ "extends": [],
+ "domainTypes": [
+  {
+   "host": "trustpilot.com",
+   "type": "platform-profile",
+   "baseline": true,
+   "cost": "free profile; paid add-ons",
+   "note": "review profile shown in search results when enough reviews exist"
+  },
+  {
+   "host": "sitejabber.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "free profile",
+   "note": "review profile"
+  },
+  {
+   "host": "reviews.io",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "paid service",
+   "note": "review collection"
+  },
+  {
+   "host": "amazon.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "fees",
+   "note": "a sales channel; no followed link; brand registry strengthens the entity"
+  },
+  {
+   "host": "etsy.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "fees",
+   "note": "a sales channel; shop page can carry the website in About"
+  },
+  {
+   "host": "pinterest.com",
+   "type": "social-link-hub",
+   "baseline": true,
+   "cost": "free",
+   "note": "claim the website; product pins"
+  },
+  {
+   "host": "youtube.com",
+   "type": "social-link-hub",
+   "baseline": false,
+   "cost": "free",
+   "note": "product videos and how-tos"
+  }
+ ],
+ "patterns": [
+  {
+   "re": "giftguide|gifts?for|bestof|toprated|reviews?\\.|wirecutter|roundup",
+   "type": "editorial-list",
+   "why": "a gift guide or product review site"
+  },
+  {
+   "re": "wheretobuy|storelocator|retailers?|stockists?|dealers?",
+   "type": "partner-supplier",
+   "why": "a retailer or stockist page"
+  },
+  {
+   "re": "coupon|promo|deals?|cashback|voucher",
+   "type": "directory",
+   "why": "a coupon or deal site (usually affiliate; links are paid)"
+  }
+ ],
+ "angles": [
+  "Get on the 'where to buy' and stockist pages of every retailer and partner that sells or uses the products.",
+  "Send gift-guide and roundup editors samples and a one-page fact sheet 8 to 10 weeks before the season; if a link comes from a gift, the editor must be free to mark it rel=\"sponsored\".",
+  "Turn product data (return rates, sizes, materials, price history) into one citable study a year.",
+  "Find unlinked brand mentions (search the brand name) and ask politely for a link where the mention is already positive.",
+  "Support one cause tied to the product, with a sponsor-page mention.",
+  "Collect product reviews with the shop's own review tool, from real buyers only, and keep the review markup truthful."
+ ],
+ "avoid": [
+  "Free products in return for a link without rel=\"sponsored\" (named in Google's link-spam list).",
+  "Affiliate and coupon sites that rank for your brand name; their links are paid by commission.",
+  "Reviews you wrote, bought or gated.",
+  "Widgets or badges with keyword links distributed to other sites."
+ ],
+ "reviewSites": [
+  "google merchant reviews",
+  "trustpilot.com",
+  "sitejabber.com"
+ ],
+ "providerPatterns": [
+  "shop$|store$|boutique|outlet$|mart$"
+ ],
+ "providerText": [
+  "\\badd to cart\\b|\\bfree shipping\\b"
+ ]
+}

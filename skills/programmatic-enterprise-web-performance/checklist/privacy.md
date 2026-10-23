@@ -1,0 +1,46 @@
+# privacy (shipgate spec 8.0.0)
+
+P0 = blocks release, P1 = must fix, P2 = should fix, W = warning. [kinds]: static = read from code/config; http, browser = needs the running site.
+
+- PRV-001 P0 [browser] Before any consent interaction, at the end of the observation window of each sampled page, no non-essential cookie or storage entry is present and no request has gone to a third-party host without essential
+- PRV-002 P0 [browser] Reject is as easy as accept: on the first consent page, a control that matches rejectLabel is in the first layer and is reachable; after activating it, the observation windows of the next two consent pages contain no no
+- PRV-003 P1 [browser, http] Consent withdrawal: in a context where the acceptLabel control was activated on the first consent page (the *PRV-003 accept context*), activate the control matching banner.reopenLabel, then the control matching rejectLa
+- PRV-004 P1 [browser, cfg] With honourGpc: in a fresh context that sends Sec-GPC: 1 on every request and exposes navigator.globalPrivacyControl === true (init script), after activating the acceptLabel control on the first consent page, the observ
+- PRV-005 P0 [browser] Every third-party host requested by the browser in G6 is in the hosts registry with a declared purpose; unknown hosts are forbidden-value findings showing the host and the first request URL
+- PRV-006 P1 [html, site] Each page in legalPages exists (200) and is linked from the footer of every public page
+- PRV-007 P0 [browser] No personal data in URLs sent to third parties
+- PRV-008 P1 [browser] No pre-ticked marketing opt-ins
+- PRV-009 W [review] Cancellation and account deletion are as easy as signup (dark-pattern review
+- PRV-010 P1 [browser] No account identifiers in tracking
+- PRV-011 P0 [browser] Google Consent Mode v2, when a jurisdiction is eu-gdpr or uk-gdpr, a Google tag host is requested on any sampled page or flow, and googleConsentMode is "basic" or "advanced"
+- PRV-012 P0 [html, browser] Sensitive values stay out of first-party URLs
+- PRV-013 P1 [browser, site] With us-ca-ccpa and any hosts entry with purpose advertising
+- PRV-014 P1 [browser] Consent persistence: after accept (and, in a fresh context, after reject) on the first consent page, navigating to the next two consent pages and reloading the last shows no banner (its accept and reject controls are ab
+- PRV-015 P1 [browser, html] Every cookie name present (all domains) in the PRV-014 accept context after its three consent-page windows and the reload appears in the <main> text of legalPages.cookies, verbatim or as a listed prefix ending in * (e.g
+- PRV-016 P1 [browser, db] Account data rights. Part deletion — after accountData.deletionFlow completes as its account, each personalDataTables entry has no row where column = the account id (accountIdSql, resolved before the flow, {account.emai
+- PRV-017 P1 [cfg, html] With eu-eaa, legalPages.accessibility must be declared (declaration, existence and footer link
+- PRV-018 P1 [browser] AI interaction disclosure (EU AI Act Art
+- PRV-019 P0 [browser] Typed values entered into fields with type password, email or tel, or autocomplete cc-*, one-time-code, email, tel*, current-password, new-password, are contained in no request to a third-party host (*Encodings of a val
+- PRV-020 P1 [browser, html] Audience. Part children — with audience.children: true, no host with purpose advertising is requested on any sampled page or flow, before or after accept (forbidden-value showing the request URL). Part age-gate — with a
+- PRV-021 P1 [html, browser, cfg] EU withdrawal function (Consumer Rights Directive Art
+- PRV-022 P1 [cfg, html] Required legal pages: every legalPages key that ruleset required-legal-pages.json requires for the declared jurisdictions and project.kinds is declared (e.g. GDPR-family jurisdictions and us-ca-ccpa → privacy; de/at → i
+- PRV-023 P1 [browser] Order button (EU: CRD Art. 8(2); UK: Consumer Contracts Regulations 2013 reg. 14(3)): with an EU consumer jurisdiction or uk-consumer, in each journey: "checkout" flow, the order control — the element activated by the s
+- PRV-024 P1 [html, browser] EU consumer information, with an EU consumer jurisdiction, on sampled public pages
+- PRV-025 P1 [html, data] EU product safety information (GPSR, Regulation (EU) 2023/988 Art
+- PRV-026 P1 [html, browser] Price transparency.
+- PRV-027 P1 [browser] Auto-renewal disclosure (ROSCA, California ARL as amended 2025-07-01, EU CRD; any jurisdiction, so it also covers Australian subscription rules), with security.payments.recurring
+- PRV-028 P1 [html] Privacy notice at the point of collection (GDPR Art
+- PRV-029 P1 [cfg, html, site] Declared jurisdictions cover the observed markets (GDPR Art
+- PRV-030 P1 [html] Provider identification (Directive 2000/31/EC Art
+- PRV-031 P1 [html, browser] Privacy notice content (GDPR Art
+- PRV-032 P1 [html, browser] SMS and call-marketing consent (47 U.S.C
+- PRV-033 P1 [html] India. Part in-ecommerce (P1; in-ecommerce and ecommerce in project.kinds; Consumer Protection (E-Commerce) Rules 2020 r. 4 to 6): the identification page (§ 1) answers 200, is linked from the page-level footer of every
+- PRV-034 P1 [html] Australia. Part privacy-policy (P1; au-privacy; Privacy Act 1988 APP 1.3–1.4): legalPages.privacy is required (PRV-022), PRV-022 controller applies, and its <main> has a phrase match for each app group of privacy-notice
+- PRV-035 P1 [html, browser] Brazil. Part identity (P1; br-consumer and ecommerce in project.kinds; Decreto 7.962/2013 art. 2): the page-level header (banner landmark, UX-016 definition) or page-level footer of every sampled public page contains (f
+- PRV-036 P1 [browser] IAB TCF for Google ad products in the EEA, UK and Switzerland
+- PRV-037 P1 [html, browser] Intermediary services (Regulation (EU) 2022/2065 Arts 11, 12, 14 and 16), with eu-dsa (the Operator declares that the service hosts third-party content)
+- PRV-038 P1 [cfg, html] Third-country transfers and EU/UK representatives (GDPR Arts 13(1)(a), (e), (f), 27, 44–46; UK GDPR likewise), with eu-gdpr or uk-gdpr; otherwise notApplicable
+- PRV-039 P1 [html] Right-of-withdrawal information (Directive 2011/83/EU Art
+- PRV-040 P1 [html, data] Regulated-product disclosures, with ecommerce in project.kinds (Regulation (EU) 2017/1369 Art
+- PRV-041 P1 [html, browser] Marketing e-mail consent capture (GDPR Arts 4(11), 7(3); Directive 2002/58/EC Art
+- PRV-042 P1 [html, browser] User-content duties outside the EU, with us-ugc or uk-osa; otherwise notApplicable

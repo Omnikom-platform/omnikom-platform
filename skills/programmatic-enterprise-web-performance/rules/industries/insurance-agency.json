@@ -1,0 +1,1029 @@
+{
+ "slug": "insurance-agency",
+ "title": "Independent insurance agency or marketing organization: mortgage protection, life insurance, annuities, agent recruiting (YMYL, regulated advertising)",
+ "jurisdiction": "US federal + the NAIC model rules. Insurance advertising is regulated state by state: each state adopts its own version of the NAIC models, so every item below is a floor to confirm against the states the agency is licensed in. Another state: add its pattern under licencePatterns and keep the item ids.",
+ "sources": [
+  "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance)",
+  "NAIC Unfair Trade Practices Act #880, misrepresentation and false advertising (UNVERIFIED, confirm with compliance: section and the state's adopted text)",
+  "NAIC Annuity Disclosure Model Regulation #245 (number recalled; UNVERIFIED, confirm with compliance)",
+  "NAIC Suitability in Annuity Transactions Model Regulation #275 (number recalled; UNVERIFIED, confirm with compliance)",
+  "NAIC Life Insurance Illustrations Model Regulation #582 (number recalled; UNVERIFIED, confirm with compliance)",
+  "Gramm-Leach-Bliley Act privacy provisions (15 U.S.C. 6801 et seq.) and NAIC Privacy of Consumer Financial and Health Information Regulation #672 (number recalled; UNVERIFIED)",
+  "FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices",
+  "FTC Guides Concerning the Use of Endorsements and Testimonials in Advertising (16 CFR Part 255)",
+  "FTC Guide Concerning Use of the Word \"Free\" (16 CFR Part 251)",
+  "FTC Business Opportunity Rule (16 CFR Part 437; whether it applies to an agency's agent programme depends on whether agents pay for the opportunity: UNVERIFIED, confirm with counsel)",
+  "TCPA (47 U.S.C. 227) and FCC rules (47 CFR 64.1200): prior express (written) consent for marketing calls and texts",
+  "Google Search Quality Rater Guidelines: insurance and annuities are YMYL (Your Money or Your Life); E-E-A-T applies, trust is the most important member",
+  "Google Search Central structured data guidelines: review markup must come from real, visible reviews, and self-serving reviews on LocalBusiness/Organization pages are not eligible for review rich results",
+  "Compiled from recalled knowledge on 2026-10-23; no source page was re-fetched. A rule whose basis says UNVERIFIED must be confirmed with compliance counsel before it is relied on. Not legal advice."
+ ],
+ "notes": "Items with severity warn are reported as WARN and fail only under --strict (launch). A business waives an item with --waive <id> when its own sign-off lifts the rule. The business values come from business.json credentials {state, licenseNumber, agencyLegalName}. Item types: licence-on-every-page, business-text-on-every-page, forbidden-phrases, required-pages (as in the other packs) and, new with this pack, required-when-present (a statement that must appear on a page that makes a claim, has a form, or sits under pathPattern; nearChars = within that many characters of the claim; 'any occurrence' is enough) and forbidden-schema (JSON-LD @type names). pageTypes feeds plan-site.mjs (schema per page kind, plannerKind); seeds.queries feeds research-seeds.mjs --industry insurance-agency. Variable annuities, RILAs and funds are securities: out of scope, INS-INV-001 flags them.",
+ "pageTypes": [
+  {
+   "id": "home",
+   "plannerKind": "home",
+   "schema": [
+    "InsuranceAgency",
+    "WebSite"
+   ],
+   "description": "Home: the agency as a local FinancialService entity (InsuranceAgency), with name, url, telephone, areaServed, sameAs; no offers or prices",
+   "requires": [
+    "INS-AGENCY-001",
+    "INS-LIC-001",
+    "INS-STATE-001"
+   ]
+  },
+  {
+   "id": "product-line",
+   "plannerKind": "money",
+   "schema": [
+    "Service"
+   ],
+   "description": "One page per product line (mortgage protection, term life, permanent life, indexed universal life, fixed annuity, fixed indexed annuity, income annuity): Service with serviceType and provider = the agency; FAQPage added when the page shows 2+ real questions; no Product, Offer, price or rate markup",
+   "requires": [
+    "INS-MP-001",
+    "INS-MP-002",
+    "INS-ANN-001",
+    "INS-ANN-002",
+    "INS-ANN-003",
+    "INS-ANN-004",
+    "INS-ANN-005",
+    "INS-IUL-001",
+    "INS-IUL-002",
+    "INS-IUL-003",
+    "INS-UW-001",
+    "INS-SCHEMA-001"
+   ]
+  },
+  {
+   "id": "city-landing",
+   "plannerKind": "city-landing",
+   "schema": [
+    "Service"
+   ],
+   "description": "A page for a state or city only where the agency and the producer are licensed and have real local content (areaServed); never swapped-name doorway pages",
+   "requires": [
+    "INS-STATE-001",
+    "INS-LIC-001"
+   ]
+  },
+  {
+   "id": "guide",
+   "plannerKind": "guide",
+   "schema": [
+    "Article"
+   ],
+   "description": "Educational guide or comparison (mortgage protection vs PMI, fixed vs fixed indexed annuity, term vs permanent): Article with author, datePublished and dateModified; named author, licensed reviewer and last-reviewed date shown on the page",
+   "requires": [
+    "INS-EEAT-001",
+    "INS-TAX-001",
+    "INS-INV-001"
+   ]
+  },
+  {
+   "id": "hub",
+   "plannerKind": "hub",
+   "schema": [
+    "WebPage"
+   ],
+   "description": "Hub that links the product-line and area pages",
+   "requires": []
+  },
+  {
+   "id": "recruiting",
+   "plannerKind": null,
+   "schema": [
+    "WebPage"
+   ],
+   "description": "Agent recruiting page: WebPage (JobPosting only for a real employee posting, not an independent-contractor opportunity); earnings disclaimer, licence requirement, engagement and cost statements; no income promises",
+   "requires": [
+    "INS-INCOME-001",
+    "INS-REC-LIC-001",
+    "INS-REC-001",
+    "INS-REC-002",
+    "INS-REC-003",
+    "INS-MLM-001"
+   ]
+  },
+  {
+   "id": "quote-request",
+   "plannerKind": null,
+   "schema": [
+    "WebPage"
+   ],
+   "description": "Quote or contact form page (ContactPage if it is only a contact form): consent language beside the form, privacy link, no Product/Offer",
+   "requires": [
+    "INS-FORM-001",
+    "INS-FORM-002"
+   ]
+  },
+  {
+   "id": "about-licensing",
+   "plannerKind": null,
+   "schema": [
+    "AboutPage"
+   ],
+   "description": "About, team and licensing page: each producer named with licence number and NPN, states of licence, carriers appointed, how the agency is paid; Person nodes only for people shown on the page",
+   "requires": [
+    "INS-LIC-001",
+    "INS-AGENCY-001"
+   ]
+  }
+ ],
+ "seeds": {
+  "note": "Recalled demand, no volume and no ranking; the owner approves the list and research measures it. {city} expands per service-area city in business.json; national queries stay as they are. Local pages only for states and cities where the agency is licensed.",
+  "queries": [
+   {
+    "query": "mortgage protection insurance",
+    "productLine": "mortgage-protection",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "what is mortgage protection insurance",
+    "productLine": "mortgage-protection",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "mortgage protection insurance vs life insurance",
+    "productLine": "mortgage-protection",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "mortgage protection insurance vs pmi",
+    "productLine": "mortgage-protection",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "is mortgage protection insurance worth it",
+    "productLine": "mortgage-protection",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "how much does mortgage protection insurance cost",
+    "productLine": "mortgage-protection",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "mortgage protection insurance for homeowners",
+    "productLine": "mortgage-protection",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "mortgage protection life insurance",
+    "productLine": "mortgage-protection",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "does mortgage protection insurance pay off the mortgage",
+    "productLine": "mortgage-protection",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "mortgage protection insurance quotes",
+    "productLine": "mortgage-protection",
+    "intent": "transactional",
+    "scope": "national"
+   },
+   {
+    "query": "mortgage protection insurance for first time home buyers",
+    "productLine": "mortgage-protection",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "mortgage protection insurance with living benefits",
+    "productLine": "mortgage-protection",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "mortgage protection insurance in {city}",
+    "productLine": "mortgage-protection",
+    "intent": "local",
+    "scope": "local"
+   },
+   {
+    "query": "mortgage protection insurance agent in {city}",
+    "productLine": "mortgage-protection",
+    "intent": "local",
+    "scope": "local"
+   },
+   {
+    "query": "mortgage protection insurance agent near me",
+    "productLine": "mortgage-protection",
+    "intent": "local",
+    "scope": "local"
+   },
+   {
+    "query": "life insurance for homeowners",
+    "productLine": "life-insurance",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "term life insurance for homeowners",
+    "productLine": "life-insurance",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "how much life insurance do i need with a mortgage",
+    "productLine": "life-insurance",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "term vs whole life insurance",
+    "productLine": "life-insurance",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "term life insurance quotes",
+    "productLine": "life-insurance",
+    "intent": "transactional",
+    "scope": "national"
+   },
+   {
+    "query": "how much does term life insurance cost",
+    "productLine": "life-insurance",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "life insurance with no medical exam",
+    "productLine": "life-insurance",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "life insurance with living benefits",
+    "productLine": "life-insurance",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "whole life insurance cash value explained",
+    "productLine": "life-insurance",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "what is indexed universal life insurance",
+    "productLine": "life-insurance",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "iul vs whole life",
+    "productLine": "life-insurance",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "indexed universal life pros and cons",
+    "productLine": "life-insurance",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "life insurance agent near me",
+    "productLine": "life-insurance",
+    "intent": "local",
+    "scope": "local"
+   },
+   {
+    "query": "independent life insurance agent in {city}",
+    "productLine": "life-insurance",
+    "intent": "local",
+    "scope": "local"
+   },
+   {
+    "query": "life insurance quotes in {city}",
+    "productLine": "life-insurance",
+    "intent": "local",
+    "scope": "local"
+   },
+   {
+    "query": "fixed indexed annuity vs fixed annuity",
+    "productLine": "annuities",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "what is a fixed indexed annuity",
+    "productLine": "annuities",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "fixed indexed annuity pros and cons",
+    "productLine": "annuities",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "fixed annuity rates",
+    "productLine": "annuities",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "best fixed annuity rates",
+    "productLine": "annuities",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "multi year guaranteed annuity vs cd",
+    "productLine": "annuities",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "how do annuities work",
+    "productLine": "annuities",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "are annuities safe",
+    "productLine": "annuities",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "annuity surrender charges explained",
+    "productLine": "annuities",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "how are annuities taxed",
+    "productLine": "annuities",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "immediate annuity vs deferred annuity",
+    "productLine": "annuities",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "income annuity how it works",
+    "productLine": "annuities",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "fixed indexed annuity income rider explained",
+    "productLine": "annuities",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "annuities for retirement income",
+    "productLine": "annuities",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "annuity agent near me",
+    "productLine": "annuities",
+    "intent": "local",
+    "scope": "local"
+   },
+   {
+    "query": "annuity advisor in {city}",
+    "productLine": "annuities",
+    "intent": "local",
+    "scope": "local"
+   },
+   {
+    "query": "become a life insurance agent",
+    "productLine": "recruiting",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "how to become a life insurance agent",
+    "productLine": "recruiting",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "life insurance agent license requirements",
+    "productLine": "recruiting",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "how much do life insurance agents make",
+    "productLine": "recruiting",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "life insurance agent commission structure",
+    "productLine": "recruiting",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "independent vs captive insurance agent",
+    "productLine": "recruiting",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "what is an insurance marketing organization",
+    "productLine": "recruiting",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "life insurance agent contracting",
+    "productLine": "recruiting",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "insurance agent career",
+    "productLine": "recruiting",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "insurance agent training program",
+    "productLine": "recruiting",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "work from home life insurance agent",
+    "productLine": "recruiting",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "independent insurance agency near me",
+    "productLine": "agency",
+    "intent": "local",
+    "scope": "local"
+   },
+   {
+    "query": "independent insurance agency in {city}",
+    "productLine": "agency",
+    "intent": "local",
+    "scope": "local"
+   },
+   {
+    "query": "insurance agent vs broker",
+    "productLine": "agency",
+    "intent": "informational",
+    "scope": "national"
+   }
+  ]
+ },
+ "items": [
+  {
+   "id": "INS-LIC-001",
+   "type": "licence-on-every-page",
+   "severity": "warn",
+   "description": "A producer licence number (state licence or National Producer Number) is shown on every page and equals business.json credentials.licenseNumber",
+   "source": "State producer-licensing and advertising rules require the licensed name and, in some states, the licence number in advertising (for example California Insurance Code 1725.5: recalled, UNVERIFIED, confirm with compliance; the rule differs by state, so this is WARN and fails under --strict at launch); Google Search Quality Rater Guidelines: insurance and annuities are YMYL (Your Money or Your Life); E-E-A-T applies, trust is the most important member",
+   "stateField": "credentials.state",
+   "numberField": "credentials.licenseNumber",
+   "licencePatterns": {
+    "default": "(?:licen[sc]e|lic\\b|NPN)[^0-9]{0,25}\\d[A-Z0-9-]{3,}"
+   },
+   "proofHint": "Each named producer shown with the state licence number and the NPN (National Producer Number), as large as the smallest text on the page; confirm each against the state's licence lookup before launch (date and URL of the lookup)"
+  },
+  {
+   "id": "INS-AGENCY-001",
+   "type": "business-text-on-every-page",
+   "severity": "fail",
+   "description": "The licensed agency or business name shown on every page (credentials.agencyLegalName): the advertiser is identified",
+   "source": "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance): advertiser identity; NAIC Unfair Trade Practices Act #880, misrepresentation and false advertising (UNVERIFIED, confirm with compliance: section and the state's adopted text); FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices",
+   "field": "credentials.agencyLegalName"
+  },
+  {
+   "id": "INS-STATE-001",
+   "type": "required-when-present",
+   "severity": "warn",
+   "description": "Every page carries a state availability and licensing notice (products, features and availability vary by state; where the agency is licensed)",
+   "source": "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance): an advertisement must not imply it is licensed or the product available where it is not (jurisdictional licensing: UNVERIFIED, confirm with compliance); state producer-licensing statutes",
+   "require": [
+    {
+     "label": "a state availability / licensing notice (for example \"products and features vary by state\" or \"licensed in ...\")",
+     "pattern": "(?:vary|varies|varying) by state|not (?:all|available in all|offered in all)[^.]{0,40}states|(?:available|offered|licen[sc]ed) (?:only )?in (?:select(?:ed)?|certain|the following|these) states?|licen[sc]ed in [A-Z]|state availability|product availability"
+    }
+   ],
+   "proofHint": "A footer or disclosure-page notice of the states where the agency and each producer is licensed, and that product availability and features vary by state"
+  },
+  {
+   "id": "INS-PLACEHOLDER-001",
+   "type": "forbidden-phrases",
+   "severity": "fail",
+   "description": "No unfilled placeholder such as {{LICENSE_NUMBER}} visible on a published page",
+   "source": "Nothing that needs a licence number, name or date publishes until the value is filled (same rule as the other packs)",
+   "patterns": [
+    "\\{\\{\\s*[A-Z][A-Z0-9_]*\\s*\\}\\}",
+    "\\[(?:TODO|TBD|INSERT)[^\\]]*\\]"
+   ]
+  },
+  {
+   "id": "INS-GUAR-001",
+   "type": "forbidden-phrases",
+   "severity": "fail",
+   "description": "No guaranteed-return, risk-free or 'best rate guaranteed' claims",
+   "source": "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance): advertisements must not be unfair, deceptive or misleading, and non-guaranteed elements must not be presented as guaranteed; NAIC Unfair Trade Practices Act #880, misrepresentation and false advertising (UNVERIFIED, confirm with compliance: section and the state's adopted text); FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices; Google Ads Misrepresentation policy (UNVERIFIED, confirm with compliance); Google Search Quality Rater Guidelines: insurance and annuities are YMYL (Your Money or Your Life); E-E-A-T applies, trust is the most important member",
+   "patterns": [
+    "guaranteed (?:rates? of )?returns?",
+    "guaranteed (?:to )?(?:grow|make|earn|beat|profit)",
+    "guaranteed (?:profits?|gains?|growth)",
+    "(?<!not )(?<!n['’]t )risk[- ]free",
+    "\\bno[- ]risk\\b",
+    "\\bzero[- ]risk\\b",
+    "without (?:any )?risk",
+    "(?:can'?t|cannot|never) lose (?:any )?(?:money|your (?:money|principal)|a penny|a dollar)",
+    "100% (?:safe|guaranteed|secure)",
+    "(?:best|lowest) rates? guaranteed",
+    "guaranteed (?:lowest|best) (?:rates?|price|premiums?)",
+    "beat the (?:stock )?market",
+    "all (?:of )?the upside (?:with )?(?:none|no) (?:of )?(?:the )?(?:downside|risk)",
+    "zero is your hero"
+   ]
+  },
+  {
+   "id": "INS-GUAR-002",
+   "type": "forbidden-phrases",
+   "severity": "warn",
+   "description": "Income, rate and approval guarantees need the contract feature named and the issuer-backing statement (review each hit)",
+   "source": "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance); NAIC Annuity Disclosure Model Regulation #245 (number recalled; UNVERIFIED, confirm with compliance); NAIC Suitability in Annuity Transactions Model Regulation #275 (number recalled; UNVERIFIED, confirm with compliance)",
+   "patterns": [
+    "guaranteed (?:lifetime |retirement |monthly )?income",
+    "guaranteed (?:minimum )?(?:interest )?rates?\\b",
+    "guaranteed (?:approval|acceptance|issue)\\b",
+    "(?:everyone|anyone) (?:is )?(?:approved|qualifies|accepted)"
+   ]
+  },
+  {
+   "id": "INS-FREE-001",
+   "type": "forbidden-phrases",
+   "severity": "fail",
+   "description": "Coverage is not described as free or no-cost (a free quote, review or consultation is fine)",
+   "source": "FTC Guide Concerning Use of the Word \"Free\" (16 CFR Part 251); NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance): use of the word free where a premium is required (UNVERIFIED, confirm with compliance); NAIC Unfair Trade Practices Act #880, misrepresentation and false advertising (UNVERIFIED, confirm with compliance: section and the state's adopted text)",
+   "patterns": [
+    "\\bfree (?:life |term |whole life |mortgage protection |burial |final expense )?(?:insurance|coverage|policy|annuity|protection)\\b(?!\\s+(?:review|analysis|consultation|quote|estimate|checkup|check-up|assessment|evaluation|comparison|guide|checklist|calculator))",
+    "\\b(?:insurance|coverage|policy|protection) (?:is |for |at )?(?:absolutely )?(?:free|no cost)\\b",
+    "\\bno[- ]cost (?:life )?(?:insurance|coverage|protection)\\b"
+   ]
+  },
+  {
+   "id": "INS-MISL-001",
+   "type": "forbidden-phrases",
+   "severity": "fail",
+   "description": "Mortgage protection is not sold as a lender notice, a lender requirement, a government programme or an affiliate of the lender",
+   "source": "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance) and NAIC Unfair Trade Practices Act #880, misrepresentation and false advertising (UNVERIFIED, confirm with compliance: section and the state's adopted text): misrepresenting the nature, source or affiliation of the offer; FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices; state insurance department consumer alerts on 'mortgage protection' mailers (UNVERIFIED, confirm with compliance: no specific bulletin named)",
+   "patterns": [
+    "your (?:mortgage )?(?:lender|bank|loan servicer|servicer) (?:has |have )?(?:requires?|required|sent|notified|referred|recommends?|approved)",
+    "(?:important|urgent|final) notice (?:about|regarding|on|for) your (?:mortgage|home loan)",
+    "(?:we are|we're|i am|i'm|calling from) (?:with |from )?your (?:mortgage|lender|bank|servicer)",
+    "(?:government|state|federally?|hud|fha|va)[- ](?:approved|backed|endorsed|sponsored|insured) (?:mortgage protection|life insurance|annuity|plan|program|coverage)"
+   ]
+  },
+  {
+   "id": "INS-MISL-002",
+   "type": "forbidden-phrases",
+   "severity": "warn",
+   "description": "'Mortgage insurance' used for mortgage protection life insurance, or a claim that it replaces PMI (review each hit: PMI protects the lender)",
+   "source": "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance); NAIC Unfair Trade Practices Act #880, misrepresentation and false advertising (UNVERIFIED, confirm with compliance: section and the state's adopted text); mortgage protection life insurance pays the named beneficiary, private mortgage insurance (PMI) protects the lender (general industry fact, UNVERIFIED, confirm with compliance for any state-specific wording)",
+   "patterns": [
+    "(?<!not )(?<!not a )(?<!not the same as )(?<!unlike )(?<!than )(?<!from )(?<!private )(?<!and )\\bmortgage insurance\\b(?!\\s*\\(?PMI)",
+    "(?:cancel|eliminate|remove|replace|drop|avoid) (?:your |the )?(?:pmi|private mortgage insurance)"
+   ]
+  },
+  {
+   "id": "INS-TAX-001",
+   "type": "forbidden-phrases",
+   "severity": "warn",
+   "description": "Tax and retirement-replacement claims for life insurance and annuities (review each hit: loans and withdrawals can lapse the policy or be taxable)",
+   "source": "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance); NAIC Life Insurance Illustrations Model Regulation #582 (number recalled; UNVERIFIED, confirm with compliance); NAIC Unfair Trade Practices Act #880, misrepresentation and false advertising (UNVERIFIED, confirm with compliance: section and the state's adopted text); FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices; IRC section 72(e) and 72(q) treatment of withdrawals, loans and early annuity distributions (recalled, UNVERIFIED, confirm with compliance)",
+   "patterns": [
+    "tax[- ]free (?:retirement|income|growth|loans?)",
+    "(?:never|no longer) pay (?:any )?taxes?",
+    "avoid(?:s)? (?:all )?taxes",
+    "infinite banking",
+    "bank on yourself",
+    "401\\(?k\\)? (?:killer|alternative|replacement)",
+    "better than (?:a )?(?:401\\(?k\\)?|roth|ira)\\b"
+   ]
+  },
+  {
+   "id": "INS-INV-001",
+   "type": "forbidden-phrases",
+   "severity": "warn",
+   "description": "Securities wording (variable products, RILAs, funds): selling these needs a securities registration and FINRA-reviewed communications, which this pack does not cover",
+   "source": "FINRA Rule 2210 communications with the public and securities registration for variable products (recalled, UNVERIFIED, confirm with compliance whether the agency or its agents are registered)",
+   "patterns": [
+    "variable (?:annuit|universal)",
+    "registered index[- ]linked",
+    "\\bRILAs?\\b",
+    "\\bsub-?accounts?\\b",
+    "mutual funds?",
+    "\\b(?:buy|invest in) (?:stocks|securities)\\b"
+   ]
+  },
+  {
+   "id": "INS-CLAIM-001",
+   "type": "forbidden-phrases",
+   "severity": "warn",
+   "description": "Unsubstantiated rank, price or superiority claims (name the study, rating agency and date, or remove)",
+   "source": "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance): comparisons and superlatives must be substantiated and not misleading (UNVERIFIED, confirm with compliance); FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices; FTC substantiation doctrine",
+   "patterns": [
+    "(?:#|number |no\\.? ?)1 (?:rated |ranked )?(?:life )?(?:insurance|annuity|agency|agent|broker)",
+    "best (?:life )?(?:insurance|annuity) (?:agency|agent|broker|company)s? (?:in|of) ",
+    "(?:lowest|cheapest|best) (?:rates?|premiums?|prices?) (?:available|anywhere|in (?:the )?(?:state|country|nation|america|usa))",
+    "(?:we|our) (?:will )?beat any (?:quote|price|rate)"
+   ]
+  },
+  {
+   "id": "INS-MP-001",
+   "type": "required-when-present",
+   "severity": "fail",
+   "description": "A page that sells mortgage protection says it is not PMI / private mortgage insurance",
+   "source": "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance); NAIC Unfair Trade Practices Act #880, misrepresentation and false advertising (UNVERIFIED, confirm with compliance: section and the state's adopted text): avoid confusion with a different product; mortgage protection life insurance is a life policy and PMI protects the lender (general industry fact, UNVERIFIED, confirm with compliance)",
+   "trigger": "mortgage protection",
+   "require": [
+    {
+     "label": "a statement that mortgage protection is not PMI / private mortgage insurance",
+     "pattern": "(?:not|isn['’]t|is different (?:from|than)|differs from|unlike|rather than|instead of)[^.]{0,80}(?:PMI|private mortgage insurance)"
+    }
+   ],
+   "proofHint": "A plain sentence on every mortgage protection page: it is life insurance paid to your beneficiary, it is not PMI and does not replace it"
+  },
+  {
+   "id": "INS-MP-002",
+   "type": "required-when-present",
+   "severity": "warn",
+   "description": "Next to the mortgage protection claim: the benefit goes to the named beneficiary, not automatically to the lender",
+   "source": "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance): material information placed with the claim (UNVERIFIED, confirm with compliance); NAIC Unfair Trade Practices Act #880, misrepresentation and false advertising (UNVERIFIED, confirm with compliance: section and the state's adopted text)",
+   "trigger": "mortgage protection",
+   "nearChars": 1500,
+   "require": [
+    {
+     "label": "the benefit is paid to the named beneficiary",
+     "pattern": "(?:paid|pays?|payable|goes?|go) (?:directly )?to (?:your |the |a )?(?:named |chosen )?beneficiar(?:y|ies)"
+    }
+   ]
+  },
+  {
+   "id": "INS-ANN-001",
+   "type": "required-when-present",
+   "severity": "fail",
+   "description": "A page that mentions annuities says they are not a bank deposit and not FDIC insured",
+   "source": "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance): an advertisement must not imply an insurance product is a bank product (UNVERIFIED, confirm with compliance); NAIC Annuity Disclosure Model Regulation #245 (number recalled; UNVERIFIED, confirm with compliance); Interagency Statement on Retail Sales of Nondeposit Investment Products (1994, bank-sold products: the wording is the usual market practice, whether it binds a non-bank agency is UNVERIFIED, confirm with compliance)",
+   "trigger": "annuit(?:y|ies)",
+   "require": [
+    {
+     "label": "'not a bank deposit / not FDIC insured'",
+     "pattern": "not (?:a )?(?:bank )?deposit|not (?:insured|guaranteed) by (?:the )?FDIC|not FDIC[- ]insured|not (?:a )?bank (?:product|guarantee)|not insured by any federal government agency"
+    }
+   ],
+   "proofHint": "The not-a-deposit / not-FDIC-insured wording in the annuity disclosure block, in type no smaller than the surrounding claim"
+  },
+  {
+   "id": "INS-ANN-002",
+   "type": "required-when-present",
+   "severity": "warn",
+   "description": "Next to an annuity rate, income, interest or guarantee claim: the not-a-deposit / not-FDIC-insured wording",
+   "source": "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance): disclosure placed with the claim it qualifies (UNVERIFIED, confirm with compliance); NAIC Annuity Disclosure Model Regulation #245 (number recalled; UNVERIFIED, confirm with compliance)",
+   "trigger": "annuit[^.]{0,80}(?:guarantee|rate|income|interest|growth|return)|(?:guarantee|rate|income|interest|growth|return)[^.]{0,80}annuit",
+   "nearChars": 1500,
+   "require": [
+    {
+     "label": "'not a bank deposit / not FDIC insured'",
+     "pattern": "not (?:a )?(?:bank )?deposit|not (?:insured|guaranteed) by (?:the )?FDIC|not FDIC[- ]insured|not (?:a )?bank (?:product|guarantee)|not insured by any federal government agency"
+    }
+   ]
+  },
+  {
+   "id": "INS-ANN-003",
+   "type": "required-when-present",
+   "severity": "warn",
+   "description": "Next to an annuity rate, income, interest or guarantee claim: surrender charges or withdrawal limits are mentioned",
+   "source": "NAIC Annuity Disclosure Model Regulation #245 (number recalled; UNVERIFIED, confirm with compliance): surrender charges and withdrawal limits are among the required disclosures (UNVERIFIED, confirm with compliance); NAIC Suitability in Annuity Transactions Model Regulation #275 (number recalled; UNVERIFIED, confirm with compliance)",
+   "trigger": "annuit[^.]{0,80}(?:guarantee|rate|income|interest|growth|return)|(?:guarantee|rate|income|interest|growth|return)[^.]{0,80}annuit",
+   "nearChars": 2500,
+   "require": [
+    {
+     "label": "surrender charges / withdrawal limits",
+     "pattern": "surrender (?:charges?|period|fees?|schedule)|early withdrawal|withdrawal (?:charges?|penalt|limits?)"
+    }
+   ]
+  },
+  {
+   "id": "INS-ANN-004",
+   "type": "required-when-present",
+   "severity": "warn",
+   "description": "Where a guarantee is claimed: the guarantee is backed by the claims-paying ability of the issuing insurer",
+   "source": "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance): statements about an insurer and guarantees (UNVERIFIED, confirm with compliance); state guaranty association notices differ by state (UNVERIFIED, confirm with compliance)",
+   "trigger": "(?<!not )(?<!non-)(?<!no )(?<!n['\\u2019]t )\\bguarantee[sd]?\\b",
+   "nearChars": 2500,
+   "require": [
+    {
+     "label": "'guarantees are backed by the claims-paying ability of the issuing insurance company'",
+     "pattern": "claims[- ]paying ability|financial strength of the (?:issuing )?(?:insurance )?(?:company|insurer|carrier)"
+    }
+   ]
+  },
+  {
+   "id": "INS-ANN-005",
+   "type": "required-when-present",
+   "severity": "warn",
+   "description": "Where tax deferral is claimed: tax on gains and the early-withdrawal tax (before age 59 1/2) are mentioned",
+   "source": "IRC section 72(q) 10% additional tax on early annuity distributions (recalled, UNVERIFIED, confirm with compliance); NAIC Annuity Disclosure Model Regulation #245 (number recalled; UNVERIFIED, confirm with compliance); NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance)",
+   "trigger": "tax[- ]deferr",
+   "nearChars": 2500,
+   "require": [
+    {
+     "label": "the early-withdrawal tax before age 59 1/2",
+     "pattern": "59\\s?(?:1\\/2|½|\\.5)|10% (?:additional |early withdrawal )?(?:federal )?(?:income )?(?:tax|penalty)|tax penalt"
+    }
+   ]
+  },
+  {
+   "id": "INS-IUL-001",
+   "type": "required-when-present",
+   "severity": "warn",
+   "description": "A page about indexed universal life says the policy is not a direct investment in the index and names the crediting limits (cap, participation rate, floor)",
+   "source": "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance): use of 'investment' and index-linked wording; NAIC Life Insurance Illustrations Model Regulation #582 (number recalled; UNVERIFIED, confirm with compliance)",
+   "trigger": "indexed universal|\\bIUL\\b",
+   "require": [
+    {
+     "label": "not a direct investment in the index, or the cap / participation rate / floor",
+     "pattern": "\\b(?:caps?|participation rates?|floors?)\\b|not (?:a )?(?:direct )?invest|do(?:es)? not (?:directly )?(?:participate|invest)"
+    }
+   ]
+  },
+  {
+   "id": "INS-IUL-002",
+   "type": "required-when-present",
+   "severity": "warn",
+   "description": "Where policy loans, tax-free income or borrowing against cash value is described: loans and withdrawals reduce the death benefit and can lapse the policy",
+   "source": "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance); NAIC Life Insurance Illustrations Model Regulation #582 (number recalled; UNVERIFIED, confirm with compliance); IRC section 7702 and modified endowment contract rules (recalled, UNVERIFIED, confirm with compliance)",
+   "trigger": "policy loans?|(?:borrow|loans?) (?:from|against) (?:the |your )?(?:policy|cash value)|tax[- ]free (?:loans?|income)",
+   "nearChars": 2500,
+   "require": [
+    {
+     "label": "loans and withdrawals reduce the death benefit / cash value and can cause the policy to lapse",
+     "pattern": "reduce[sd]? (?:the )?(?:death benefit|cash value)|\\blapse"
+    }
+   ]
+  },
+  {
+   "id": "INS-IUL-003",
+   "type": "required-when-present",
+   "severity": "warn",
+   "description": "Where an illustration or projection is shown: it is hypothetical and non-guaranteed",
+   "source": "NAIC Life Insurance Illustrations Model Regulation #582 (number recalled; UNVERIFIED, confirm with compliance): illustrations and non-guaranteed elements (UNVERIFIED, confirm with compliance)",
+   "trigger": "illustrat(?:ion|ed)s?|projected (?:return|growth|value|cash value)",
+   "nearChars": 1500,
+   "require": [
+    {
+     "label": "hypothetical / non-guaranteed wording",
+     "pattern": "non-?guaranteed|not guaranteed|hypothetical|actual results (?:may|will) vary|assumptions?"
+    }
+   ]
+  },
+  {
+   "id": "INS-UW-001",
+   "type": "required-when-present",
+   "severity": "warn",
+   "description": "Where fast approval, instant coverage or no medical exam is advertised: coverage is subject to underwriting and eligibility",
+   "source": "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance); NAIC Unfair Trade Practices Act #880, misrepresentation and false advertising (UNVERIFIED, confirm with compliance: section and the state's adopted text); FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices",
+   "trigger": "(?:instant|same[- ]day|fast|easy|quick) (?:approval|coverage|acceptance|issue)|no medical exam|apply in minutes",
+   "nearChars": 1500,
+   "require": [
+    {
+     "label": "subject to underwriting / eligibility",
+     "pattern": "subject to (?:underwriting|approval)|underwriting|eligib"
+    }
+   ]
+  },
+  {
+   "id": "INS-INCOME-001",
+   "type": "forbidden-phrases",
+   "severity": "fail",
+   "description": "No income, earnings or 'financial freedom' promises on recruiting (or any) page",
+   "source": "FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices; FTC Business Opportunity Rule (16 CFR Part 437; whether it applies to an agency's agent programme depends on whether agents pay for the opportunity: UNVERIFIED, confirm with counsel): earnings claims need a written basis and disclosure; FTC Notice of Penalty Offenses concerning substantiation of earnings claims (2020, recalled, UNVERIFIED, confirm with compliance); NAIC Unfair Trade Practices Act #880, misrepresentation and false advertising (UNVERIFIED, confirm with compliance: section and the state's adopted text)",
+   "patterns": [
+    "(?:earn|make|making|earning) (?:up to |over |more than |as much as )?\\$\\s?\\d",
+    "\\bsix[- ]figures?\\b",
+    "\\bseven[- ]figures?\\b",
+    "(?:unlimited|uncapped|limitless) (?:income|earning|earnings|commissions?|potential)",
+    "\\bresidual income\\b",
+    "\\bpassive income\\b",
+    "\\bfinancial freedom\\b",
+    "\\bget rich\\b",
+    "quit your (?:9[- ]to[- ]5|job)",
+    "replace your (?:income|salary|paycheck)",
+    "guaranteed (?:income|pay|salary|paycheck|commissions?|leads?)",
+    "\\$\\s?\\d[\\d,.]*\\s?[kK]?\\+? (?:in )?(?:your )?first (?:month|year|90 days)"
+   ]
+  },
+  {
+   "id": "INS-REC-LIC-001",
+   "type": "forbidden-phrases",
+   "severity": "fail",
+   "description": "A recruiting page never says a licence is not needed (selling insurance requires a state producer licence)",
+   "source": "State producer-licensing statutes (every state requires a licence to sell, solicit or negotiate insurance: general knowledge, UNVERIFIED, confirm with compliance for any one state); NAIC Unfair Trade Practices Act #880, misrepresentation and false advertising (UNVERIFIED, confirm with compliance: section and the state's adopted text)",
+   "patterns": [
+    "no (?:insurance |life )?licen[sc]e (?:is )?(?:needed|required|necessary)",
+    "without (?:a |an )?(?:insurance )?licen[sc]e",
+    "no experience (?:needed|necessary|required)"
+   ]
+  },
+  {
+   "id": "INS-MLM-001",
+   "type": "forbidden-phrases",
+   "severity": "warn",
+   "description": "Multi-level or recruit-to-earn wording (review each hit: an override structure can be lawful, paying for recruitment itself is not)",
+   "source": "FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices and FTC pyramid-scheme enforcement; FTC Business Opportunity Rule (16 CFR Part 437; whether it applies to an agency's agent programme depends on whether agents pay for the opportunity: UNVERIFIED, confirm with counsel); state insurance department rules on commissions paid to unlicensed persons (UNVERIFIED, confirm with compliance)",
+   "patterns": [
+    "\\bdownline\\b",
+    "multi[- ]level",
+    "\\bMLM\\b",
+    "\\bpyramid\\b",
+    "recruit(?:ing)? (?:agents )?to earn",
+    "overrides? on (?:your )?(?:recruits|downline)"
+   ]
+  },
+  {
+   "id": "INS-REC-001",
+   "type": "required-when-present",
+   "severity": "fail",
+   "description": "A recruiting page says income is not guaranteed and results vary",
+   "source": "FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices; FTC Business Opportunity Rule (16 CFR Part 437; whether it applies to an agency's agent programme depends on whether agents pay for the opportunity: UNVERIFIED, confirm with counsel); FTC Notice of Penalty Offenses concerning substantiation of earnings claims (UNVERIFIED, confirm with compliance)",
+   "trigger": "become (?:a |an )?(?:licensed )?(?:life )?(?:insurance )?agent|join (?:our|the) (?:agency|team|organization)|agent (?:opportunit|career|recruit)|careers? (?:in|as) (?:a |an )?(?:life )?insurance|(?:insurance )?agent (?:contracting|onboarding)",
+   "require": [
+    {
+     "label": "an earnings disclaimer (income is not guaranteed, results vary)",
+     "pattern": "(?:income|earnings|commissions?|results) (?:are |is |will |may |can )?(?:not guaranteed|vary|varies|differ)|no (?:guarantee|assurance|promise)[^.]{0,60}(?:income|earnings|results|success)|results (?:will |may )?vary|individual results"
+    }
+   ],
+   "proofHint": "On every recruiting page: income depends on the agent's own work and is not guaranteed; no earnings figure unless the written basis and the date are shown"
+  },
+  {
+   "id": "INS-REC-002",
+   "type": "required-when-present",
+   "severity": "warn",
+   "description": "A recruiting page states that a state insurance licence is required",
+   "source": "State producer-licensing statutes (UNVERIFIED, confirm with compliance); NAIC Unfair Trade Practices Act #880, misrepresentation and false advertising (UNVERIFIED, confirm with compliance: section and the state's adopted text)",
+   "trigger": "become (?:a |an )?(?:licensed )?(?:life )?(?:insurance )?agent|join (?:our|the) (?:agency|team|organization)|agent (?:opportunit|career|recruit)|careers? (?:in|as) (?:a |an )?(?:life )?insurance|(?:insurance )?agent (?:contracting|onboarding)",
+   "require": [
+    {
+     "label": "a state insurance licence is required",
+     "pattern": "licen[sc]e (?:is |are )?(?:required|needed)|must (?:hold|have|obtain|be|become) (?:a )?(?:valid |current )?(?:state[- ])?licen[sc]ed|requires? (?:a )?(?:state )?(?:insurance )?licen[sc]e|licen[sc]ing (?:is|are) required"
+    }
+   ]
+  },
+  {
+   "id": "INS-REC-003",
+   "type": "required-when-present",
+   "severity": "warn",
+   "description": "A recruiting page says how agents are paid and engaged (independent contractor, commission-based) and names any cost the agent bears",
+   "source": "FTC Business Opportunity Rule (16 CFR Part 437; whether it applies to an agency's agent programme depends on whether agents pay for the opportunity: UNVERIFIED, confirm with counsel): required-payment and earnings disclosure; FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices",
+   "trigger": "become (?:a |an )?(?:licensed )?(?:life )?(?:insurance )?agent|join (?:our|the) (?:agency|team|organization)|agent (?:opportunit|career|recruit)|careers? (?:in|as) (?:a |an )?(?:life )?insurance|(?:insurance )?agent (?:contracting|onboarding)",
+   "require": [
+    {
+     "label": "independent contractor / commission-based engagement",
+     "pattern": "independent contractor|\\b1099\\b|commission[- ]only|commission[- ]based|not (?:an )?employee|self[- ]employed"
+    },
+    {
+     "label": "costs the agent pays (licensing, training, leads, E&O) or that there are none",
+     "pattern": "(?:no|any) (?:upfront|start-?up|enrol+ment|sign-?up) (?:cost|fee|payment)s?|(?:cost|fee|expense)s? (?:of|for|to) (?:licensing|licen[sc]e|training|leads|E&O|errors)"
+    }
+   ]
+  },
+  {
+   "id": "INS-FORM-001",
+   "type": "required-when-present",
+   "severity": "fail",
+   "pageHasForm": true,
+   "description": "A page with a form shows consent language (what the person agrees to be contacted by, and how) and mentions the privacy policy; the wording belongs beside the form",
+   "source": "TCPA (47 U.S.C. 227) and FCC rules (47 CFR 64.1200): prior express (written) consent for marketing calls and texts; CAN-SPAM Act (15 U.S.C. 7701 et seq.); Gramm-Leach-Bliley Act privacy provisions (15 U.S.C. 6801 et seq.) and NAIC Privacy of Consumer Financial and Health Information Regulation #672 (number recalled; UNVERIFIED)",
+   "require": [
+    {
+     "label": "consent wording: by submitting, you agree to be contacted by call, text or email",
+     "pattern": "(?:agree|consent|authori[sz]e)[^.]{0,200}(?:calls?|texts?|sms|messages?|emails?|contact(?:ed)?)"
+    },
+    {
+     "label": "a link or mention of the privacy policy",
+     "pattern": "privacy (?:policy|notice)"
+    }
+   ],
+   "proofHint": "Beside every form: who will contact the person, by which channels, that consent is not a condition of buying, how to opt out, and the privacy policy link; the consent record keeps the wording, time and source page"
+  },
+  {
+   "id": "INS-FORM-002",
+   "type": "required-when-present",
+   "severity": "warn",
+   "pageHasForm": true,
+   "description": "A page with a form says consent is not a condition of purchase and how to opt out",
+   "source": "TCPA (47 U.S.C. 227) and FCC rules (47 CFR 64.1200): prior express (written) consent for marketing calls and texts (consent to marketing texts or autodialed calls may not be a condition of purchase: recalled, UNVERIFIED, confirm with compliance); FCC one-to-one consent rule status (UNVERIFIED, confirm with compliance: the rule was challenged in 2025, confirm its current state)",
+   "require": [
+    {
+     "label": "'consent is not a condition of purchase' and an opt-out",
+     "pattern": "not (?:a )?condition (?:of|for|to) (?:any )?(?:purchas|buy|obtain)|reply stop|opt[- ]out|unsubscribe"
+    }
+   ]
+  },
+  {
+   "id": "INS-EEAT-001",
+   "type": "required-when-present",
+   "severity": "warn",
+   "pathPattern": "^\\/(?:guides?|learn|resources?|blog|articles?|education|insights|faq|compare|comparisons)\\/",
+   "description": "Educational pages name the author, a licensed reviewer and a last-reviewed date",
+   "source": "Google Search Quality Rater Guidelines: insurance and annuities are YMYL (Your Money or Your Life); E-E-A-T applies, trust is the most important member; NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance): educational content that promotes a product is advertising (UNVERIFIED, confirm with compliance)",
+   "require": [
+    {
+     "label": "a named author (Written by First Last)",
+     "caseSensitive": true,
+     "pattern": "(?:Written|Authored|Author)(?: by|:)\\s+[A-Z][a-z]+(?:\\s+[A-Z][a-z.]+)+"
+    },
+    {
+     "label": "a named reviewer (Reviewed by ...)",
+     "caseSensitive": true,
+     "pattern": "(?:[Rr]eviewed|[Ff]act[- ]checked) by\\s+[A-Z][a-z]+"
+    },
+    {
+     "label": "a last-reviewed or last-updated date",
+     "pattern": "(?:reviewed|updated|fact[- ]checked)(?: on)?:?\\s+(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\.? \\d{1,2},? \\d{4}|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}\\/\\d{1,2}\\/\\d{4})"
+    }
+   ],
+   "proofHint": "Educational pages: author and reviewer are real licensed people shown with licence number or NPN on their profile, the last-reviewed date is real, and every rate, rule or statistic names its source and date"
+  },
+  {
+   "id": "INS-SCHEMA-001",
+   "type": "forbidden-schema",
+   "severity": "fail",
+   "description": "No Product, Offer or price markup for insurance or annuities (quotes depend on underwriting and state; use Service per product line)",
+   "source": "NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance): an advertised price or rate must not mislead (UNVERIFIED, confirm with compliance); Google Search Central structured data guidelines: markup must match visible content; premiums here are individual and underwritten",
+   "types": [
+    "Product",
+    "Offer",
+    "AggregateOffer",
+    "IndividualProduct",
+    "ProductModel",
+    "ProductGroup"
+   ]
+  },
+  {
+   "id": "INS-SCHEMA-002",
+   "type": "forbidden-schema",
+   "severity": "warn",
+   "description": "Review or AggregateRating markup only from real, visible, attributable client reviews (review each hit; self-serving reviews on the business's own pages are not eligible for rich results)",
+   "source": "Google Search Central structured data guidelines: review markup must come from real, visible reviews, and self-serving reviews on LocalBusiness/Organization pages are not eligible for review rich results; FTC Guides Concerning the Use of Endorsements and Testimonials in Advertising (16 CFR Part 255); NAIC Advertisements of Life Insurance and Annuities Model Regulation #570 (state-adopted versions differ; section numbers UNVERIFIED, confirm with compliance): testimonials (UNVERIFIED, confirm with compliance)",
+   "types": [
+    "Review",
+    "AggregateRating"
+   ]
+  },
+  {
+   "id": "INS-DISC-001",
+   "type": "required-pages",
+   "severity": "warn",
+   "description": "Disclosure pages exist: a privacy policy, an accessibility statement, and a licensing and disclosures page",
+   "source": "Gramm-Leach-Bliley Act privacy provisions (15 U.S.C. 6801 et seq.) and NAIC Privacy of Consumer Financial and Health Information Regulation #672 (number recalled; UNVERIFIED); California Online Privacy Protection Act (Bus. & Prof. Code 22575: privacy policy on a commercial site, recalled, UNVERIFIED, confirm with compliance); accessibility statement is good practice, a legal duty is UNVERIFIED, confirm with compliance; state producer-licensing display rules (UNVERIFIED, confirm with compliance). WARN while planning, FAIL under --strict at launch",
+   "anyOf": [
+    [
+     "/privacy/",
+     "/privacy-policy/"
+    ],
+    [
+     "/accessibility/",
+     "/accessibility-statement/"
+    ],
+    [
+     "/licensing/",
+     "/licenses/",
+     "/disclosures/",
+     "/licensing-and-disclosures/"
+    ]
+   ]
+  }
+ ]
+}

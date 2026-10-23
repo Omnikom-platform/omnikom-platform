@@ -1,0 +1,85 @@
+{
+ "note": "Fixture facts: invented, each with source and date.",
+ "records": {
+  "/rocklin-ca/": {
+   "facts": [
+    {
+     "label": "median sale price",
+     "value": "$812,000",
+     "source": "fixture data sheet (invented)",
+     "date": "2026-10-20"
+    },
+    {
+     "label": "days on market",
+     "value": "27 days",
+     "source": "fixture data sheet (invented)",
+     "date": "2026-10-20"
+    },
+    {
+     "label": "elementary school",
+     "value": "Granite Ridge Elementary",
+     "source": "fixture data sheet (invented)",
+     "date": "2026-10-20"
+    },
+    {
+     "label": "trail",
+     "value": "Oakmont Trail",
+     "source": "fixture data sheet (invented)",
+     "date": "2026-10-20"
+    },
+    {
+     "label": "park",
+     "value": "Stonecrest Park",
+     "source": "fixture data sheet (invented)",
+     "date": "2026-10-20"
+    },
+    {
+     "label": "neighbourhood",
+     "value": "Whitney Oaks",
+     "source": "fixture data sheet (invented)",
+     "date": "2026-10-20"
+    }
+   ]
+  },
+  "/lincoln-ca/": {
+   "facts": [
+    {
+     "label": "median sale price",
+     "value": "$689,000",
+     "source": "fixture data sheet (invented)",
+     "date": "2026-10-20"
+    },
+    {
+     "label": "days on market",
+     "value": "41 days",
+     "source": "fixture data sheet (invented)",
+     "date": "2026-10-20"
+    },
+    {
+     "label": "community",
+     "value": "Twelve Bridges",
+     "source": "fixture data sheet (invented)",
+     "date": "2026-10-20"
+    },
+    {
+     "label": "main road",
+     "value": "Joiner Parkway",
+     "source": "fixture data sheet (invented)",
+     "date": "2026-10-20"
+    },
+    {
+     "label": "park",
+     "value": "Coyote Creek Park",
+     "source": "fixture data sheet (invented)",
+     "date": "2026-10-20"
+    },
+    {
+     "label": "neighbourhood",
+     "value": "Lincoln Crossing",
+     "source": "fixture data sheet (invented)",
+     "date": "2026-10-20"
+    }
+   ]
+  }
+ }
+}

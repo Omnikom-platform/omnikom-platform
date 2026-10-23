@@ -1,0 +1,60 @@
+{
+  "slug": "cash-home-buyer",
+  "title": "Cash home buyer buying as a principal (not an agent or broker)",
+  "jurisdiction": "US federal + California (the rules this skill was first written against).",
+  "sources": [
+    "E:/Francine & Eli/icm/knowledge/compliance/REQUIREMENTS.md rows D-13, D-14, D-17, D-18, D-25, D-27, D-28, D-07 (draft consolidation, not legal advice; lawyer review pending there)",
+    "E:/Francine & Eli/icm/gate-0-1/DEFAULTS.md DEF-03, DEF-05"
+  ],
+  "notes": "Items with severity warn are reported as WARN and fail only under --strict (launch). A business waives an item with --waive <id> when its own sign-off lifts the rule. business.json credentials.licensed = true turns the licence-claim rules off (the buyer holds a licence).",
+  "items": [
+    {
+      "id": "CH-NOLIC-001", "type": "forbidden-phrases", "severity": "fail", "unlessField": "credentials.licensed",
+      "description": "No licence claim on a principal buyer's page unless the buyer is licensed (credentials.licensed = true)",
+      "source": "REQUIREMENTS D-13, D-18; DEFAULTS DEF-03 (no licence claim on Eli's pages unless the sheet says he is licensed)",
+      "patterns": ["licen[sc]ed (?:real estate )?(?:agent|broker|salesperson|realtor)", "\\bDRE\\b[^0-9]{0,25}\\d{6,8}", "(?:real estate )?licen[sc]e (?:no\\.?|number|#)\\s*\\d+"]
+    },
+    {
+      "id": "CH-NOAGENT-001", "type": "forbidden-phrases", "severity": "fail", "unlessField": "credentials.licensed",
+      "description": "The buyer does not describe itself as an agent, broker or Realtor (it buys as a principal)",
+      "source": "REQUIREMENTS D-13 (unlicensed persons may not advertise as, or assume to act as, a broker or salesperson)",
+      "patterns": ["\\bwe(?:'re| are) (?:a |an |your )?(?:licensed )?(?:real estate )?(?:agents?|brokers?|realtors?)\\b", "\\bour (?:licensed )?(?:real estate )?(?:agents|brokers|realtors)\\b", "\\bi(?:'m| am) (?:a |an |your )?(?:licensed )?(?:real estate )?(?:agent|broker|realtor)\\b"]
+    },
+    {
+      "id": "CH-NOTES-001", "type": "forbidden-phrases", "severity": "fail",
+      "description": "No advertising of buying notes or land contracts, or of lending, as a business (a broker/lender activity)",
+      "source": "REQUIREMENTS D-14 (B&P 10131.1)",
+      "patterns": ["we (?:buy|purchase) (?:notes|mortgage notes|promissory notes|land contracts)", "we (?:lend|make loans|offer loans)"]
+    },
+    {
+      "id": "CH-VALUE-001", "type": "forbidden-phrases", "severity": "fail",
+      "description": "No deceptive offer claims: no 'full market value' promise and no guaranteed offer",
+      "source": "REQUIREMENTS D-07, D-25 (a lowball presented as market value is a misrepresentation)",
+      "patterns": ["we pay (?:full|top|retail|fair) (?:market )?(?:value|price|dollar)", "guaranteed (?:cash )?offer", "more than (?:your )?(?:agent|realtor)s? (?:can|will) (?:get|offer)"]
+    },
+    {
+      "id": "CH-DEF05-001", "type": "forbidden-phrases", "severity": "fail",
+      "description": "No foreclosure situation page or foreclosure-help copy while DEF-05 binds",
+      "source": "DEFAULTS DEF-05 (lifts only by the lawyer's answers Q-35, Q-36, Q-39); waive with --waive CH-DEF05-001 once lifted",
+      "patterns": ["foreclos", "behind on (?:your )?(?:mortgage )?payments", "notice of default"]
+    },
+    {
+      "id": "CH-FH-001", "type": "forbidden-phrases", "severity": "fail",
+      "description": "Fair-housing wording: no preference, limitation or steering by protected class in page copy",
+      "source": "REQUIREMENTS D-27, D-28",
+      "patterns": ["perfect for (?:young )?(?:professionals|families|couples|singles|retirees)", "ideal for (?:young )?(?:professionals|families|couples|singles|retirees)", "no section 8", "adults? only", "no (?:children|kids)"]
+    },
+    {
+      "id": "CH-PLACEHOLDER-001", "type": "forbidden-phrases", "severity": "fail",
+      "description": "No unfilled placeholder such as {{HOURS}} visible on a published page",
+      "source": "DEFAULTS DEF-03 / M-01 (placeholders until the owner supplies the value)",
+      "patterns": ["\\{\\{\\s*[A-Z][A-Z0-9_]*\\s*\\}\\}", "\\[(?:TODO|TBD|INSERT)[^\\]]*\\]"]
+    },
+    {
+      "id": "CH-DISC-001", "type": "required-pages", "severity": "warn",
+      "description": "Disclosure pages exist: a privacy policy with request methods, and an accessibility statement",
+      "source": "REQUIREMENTS P-26, DEFAULTS DEF-16. WARN while planning, FAIL under --strict at launch",
+      "anyOf": [["/privacy/", "/privacy-policy/"], ["/accessibility/", "/accessibility-statement/"]]
+    }
+  ]
+}

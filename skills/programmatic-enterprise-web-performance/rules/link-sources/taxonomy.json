@@ -1,0 +1,686 @@
+{
+ "_about": "Taxonomy of link, mention and citation sources for stages/authority.md. Read by scripts/authority-lib.mjs (classify, vet, outreach). 'types' says what each kind of source gives, what it costs and how to get on it; 'knownHosts' and 'domainRules' decide a type from a domain name (ordered: the first match wins, so exceptions come first); 'textRules' decide from a home page title/description when --fetch is given. A domain no rule matches stays 'unclassified': the tools never guess.",
+ "_basis": "Rules written from general knowledge of how these site kinds behave, 2026-10-22; the host names were NOT re-fetched one by one (UNVERIFIED, same standard as rules/directory-domains.json). The link-policy statements follow Google Search Central 'Spam policies' and 'Qualify your outbound links' (both re-read 2026-10-22). Value and effort are skill judgements on a 1 to 5 scale, not measurements.",
+ "scale": {
+  "value": "1 = little effect on rankings or AI answers, 5 = the strongest kind of source for a local or service business",
+  "effort": "1 = about an hour, 5 = weeks of relationship work",
+  "givesKeys": {
+   "followedLink": "does the page usually carry a normal link (no rel nofollow/sponsored/ugc) that passes ranking credit",
+   "citation": "a mention of name, address, phone or site that counts even without a followed link (maps, local ranking, AI engines)",
+   "entity": "helps search and AI engines tie the business to one real organisation (same name, sameAs links, listed with others like it)",
+   "referral": "sends real visitors"
+  }
+ },
+ "types": {
+  "directory": {
+   "label": "Directory or review listing site",
+   "actionable": true,
+   "value": 3,
+   "effort": 1,
+   "cost": "free, often with a paid upgrade",
+   "risk": "medium",
+   "gives": {
+    "followedLink": "sometimes",
+    "citation": "yes",
+    "entity": "yes",
+    "referral": "sometimes"
+   },
+   "what": "A site that lists businesses of a kind or in a place, with a profile page you can claim or create.",
+   "howTo": [
+    "Search the site for the business first; claim the profile if it exists, create it if not.",
+    "Copy the business name, address and phone exactly as on the Google Business Profile.",
+    "Fill the website, hours, categories, photos and a short description in your own words.",
+    "Skip the paid upgrade unless the client chooses it; if a link is paid for, it must carry rel=\"sponsored\"."
+   ],
+   "watch": "Low-quality directory and bookmark sites are named in Google's link-spam list. Only join a directory real customers use or that competitors are on."
+  },
+  "editorial-list": {
+   "label": "'Best of' or 'top' list chosen by an editor",
+   "actionable": true,
+   "value": 4,
+   "effort": 4,
+   "cost": "free if earned; some lists charge to be listed",
+   "risk": "medium",
+   "gives": {
+    "followedLink": "sometimes",
+    "citation": "yes",
+    "entity": "yes",
+    "referral": "yes"
+   },
+   "what": "An article or ranking such as 'Best realtors in Elk Grove'. AI engines quote these lists a lot.",
+   "howTo": [
+    "Find who writes the list and how they choose (look for a methodology page).",
+    "Send the editor a short, specific note: who you are, what makes you fit their criteria, one proof they can check.",
+    "If the list is pay-to-play (an 'apply' fee or 'featured' fee), treat it as advertising and ask for rel=\"sponsored\"; do not count it as earned.",
+    "Record the answer in the outreach tracker whatever it is."
+   ],
+   "watch": "'Top 100' sites that sell placement are a common trap. Check the site on the vetting step before paying anything."
+  },
+  "professional-association": {
+   "label": "Industry or professional association or network",
+   "actionable": true,
+   "value": 4,
+   "effort": 2,
+   "cost": "membership fee (often already paid)",
+   "risk": "low",
+   "gives": {
+    "followedLink": "likely",
+    "citation": "yes",
+    "entity": "yes",
+    "referral": "sometimes"
+   },
+   "what": "Trade bodies, licensing-linked associations and member networks with a find-a-member page.",
+   "howTo": [
+    "Check which associations the owner already belongs to; many members never fill in their profile.",
+    "Log in to the member profile and add the website link, the same name/address/phone and a short bio.",
+    "Ask whether the association lists member news, awards or events and send one item a quarter."
+   ],
+   "watch": "Only claim memberships and credentials the business actually holds."
+  },
+  "parent-roster": {
+   "label": "Parent brokerage, franchise, employer or hospital roster",
+   "actionable": true,
+   "value": 4,
+   "effort": 1,
+   "cost": "free",
+   "risk": "low",
+   "gives": {
+    "followedLink": "likely",
+    "citation": "yes",
+    "entity": "yes",
+    "referral": "sometimes"
+   },
+   "what": "The page on the parent company's site that lists its agents, locations, doctors or members.",
+   "howTo": [
+    "Ask the parent company for the profile page or open the agent portal.",
+    "Make sure the website field is filled and the name, phone and licence number match everywhere else.",
+    "Add the parent company's logo/link to the business's own site so the two pages point at each other."
+   ],
+   "watch": "The profile belongs to the parent, so it can disappear if the person leaves; keep a copy of the URL in the tracker."
+  },
+  "platform-profile": {
+   "label": "Platform profile with a website field",
+   "actionable": true,
+   "value": 3,
+   "effort": 1,
+   "cost": "free (paid advertising is separate)",
+   "risk": "low",
+   "gives": {
+    "followedLink": "rare",
+    "citation": "yes",
+    "entity": "yes",
+    "referral": "yes"
+   },
+   "what": "A profile on the platform customers use to find this kind of business (Zillow or Realtor.com for agents, Avvo for lawyers, Healthgrades for doctors, G2 for software). The link is usually nofollow; the value is the citation, the reviews and the visitors.",
+   "howTo": [
+    "Claim the profile with the business email or the verification the platform asks for.",
+    "Fill every field, add the website, and use the exact business name, address and phone.",
+    "Ask happy customers for reviews there (once, in person or by email, no reward, never only the happy ones)."
+   ],
+   "watch": "Do not pay for 'featured' placement just to get a link. Review rules differ per platform; read them first."
+  },
+  "chamber-local": {
+   "label": "Chamber of commerce or local business association",
+   "actionable": true,
+   "value": 4,
+   "effort": 2,
+   "cost": "membership fee",
+   "risk": "low",
+   "gives": {
+    "followedLink": "likely",
+    "citation": "yes",
+    "entity": "yes",
+    "referral": "sometimes"
+   },
+   "what": "A local chamber, downtown association, tourism board or business network with a member directory.",
+   "howTo": [
+    "Join the chamber of the city the business serves most (membership is the price of the listing).",
+    "Complete the member directory profile: website, phone, address, category.",
+    "Go to one event, then offer a speaker slot, a ribbon cutting or a member-news item; those pages are often linked."
+   ],
+   "watch": "A membership that only sells a link and has no members or events is a directory in disguise."
+  },
+  "local-news": {
+   "label": "Local news or community site",
+   "actionable": true,
+   "value": 5,
+   "effort": 4,
+   "cost": "free if earned",
+   "risk": "low",
+   "gives": {
+    "followedLink": "likely",
+    "citation": "yes",
+    "entity": "yes",
+    "referral": "yes"
+   },
+   "what": "Local papers, city news sites, neighbourhood blogs. A mention here is the strongest kind of local proof.",
+   "howTo": [
+    "Pick one real local story the business can speak to (a market number, a community event, a helpful tip).",
+    "Send the local reporter a 5-line note with the fact, a quote and a phone number. Do not send a press release blast.",
+    "Answer journalist requests in your field the same day; say who you are and give one checkable fact."
+   ],
+   "watch": "Never pay for an article without it being labelled sponsored."
+  },
+  "press-release": {
+   "label": "Press-release distribution site",
+   "actionable": true,
+   "value": 2,
+   "effort": 2,
+   "cost": "free to paid",
+   "risk": "medium",
+   "gives": {
+    "followedLink": "rare",
+    "citation": "sometimes",
+    "entity": "sometimes",
+    "referral": "rare"
+   },
+   "what": "Wire and press-release sites. A release is worth sending when there is real news (an opening, an award, a study). Do not expect ranking credit from the link.",
+   "howTo": [
+    "Write the release only for real news, with the business name, place and a contact line.",
+    "Link to the site once with the plain business name as the link text, not a keyword.",
+    "Treat any link as bonus; the goal is the mention and pickup by a real outlet."
+   ],
+   "watch": "Google names optimized anchor text in press releases distributed on other sites as link spam. Keep the anchor plain."
+  },
+  "sponsorship-charity": {
+   "label": "Sponsorship, charity or community cause",
+   "actionable": true,
+   "value": 3,
+   "effort": 2,
+   "cost": "the sponsorship itself",
+   "risk": "low",
+   "gives": {
+    "followedLink": "likely",
+    "citation": "yes",
+    "entity": "yes",
+    "referral": "sometimes"
+   },
+   "what": "Sponsor pages of events, teams, charities, schools and foundations, and the thank-you pages after a donation.",
+   "howTo": [
+    "Support a cause the owner really cares about and that fits the area served.",
+    "Ask, in writing, to be named on the sponsor page with a link to the website.",
+    "Do this for real support only; do not buy a 'donation' for a link."
+   ],
+   "watch": "A donation made mainly to get a link is a link scheme in spirit. Keep the cause real and the gift real."
+  },
+  "partner-supplier": {
+   "label": "Partner or supplier business",
+   "actionable": true,
+   "value": 3,
+   "effort": 2,
+   "cost": "free",
+   "risk": "low",
+   "gives": {
+    "followedLink": "likely",
+    "citation": "yes",
+    "entity": "sometimes",
+    "referral": "yes"
+   },
+   "what": "Businesses you really work with (lender, title company, inspector, supplier, manufacturer, agency) that list preferred partners.",
+   "howTo": [
+    "List the real partners; ask each for a 'partners' or 'resources' page entry.",
+    "Give a reason to link: a joint guide, a client referral, a testimonial the partner can quote.",
+    "Link to them from your site too, only where a customer would find it useful."
+   ],
+   "watch": "Pages that exist only to swap links are 'excessive link exchanges' in Google's list. Keep it to genuine partners."
+  },
+  "podcast-guest": {
+   "label": "Podcast or guest article",
+   "actionable": true,
+   "value": 4,
+   "effort": 3,
+   "cost": "free (your time)",
+   "risk": "low",
+   "gives": {
+    "followedLink": "sometimes",
+    "citation": "yes",
+    "entity": "yes",
+    "referral": "yes"
+   },
+   "what": "A guest spot on a podcast, newsletter or blog read by the business's customers or peers.",
+   "howTo": [
+    "Make a list of ten shows or blogs the customers actually follow.",
+    "Pitch one specific topic and two things listeners will learn; say why you.",
+    "Ask for the show notes or author box to carry the website with the business name as link text."
+   ],
+   "watch": "Mass guest posting with keyword anchors is a named link scheme. Few, relevant, real."
+  },
+  "own-property": {
+   "label": "The business's own other site or profile",
+   "actionable": true,
+   "value": 2,
+   "effort": 1,
+   "cost": "free",
+   "risk": "low",
+   "gives": {
+    "followedLink": "yes",
+    "citation": "yes",
+    "entity": "yes",
+    "referral": "sometimes"
+   },
+   "what": "Another site the business owns (a second domain, a brand site, a blog). It connects the owner's pages; it is not independent proof.",
+   "howTo": [
+    "Link it to the main site where it helps a visitor.",
+    "Use the same name, address and phone on every property."
+   ],
+   "watch": "A pile of thin sites that exist to link to each other is a private blog network. Keep owned sites few and real."
+  },
+  "social-link-hub": {
+   "label": "Social profile or link hub",
+   "actionable": true,
+   "value": 2,
+   "effort": 1,
+   "cost": "free",
+   "risk": "low",
+   "gives": {
+    "followedLink": "rare",
+    "citation": "sometimes",
+    "entity": "yes",
+    "referral": "sometimes"
+   },
+   "what": "Facebook, LinkedIn, YouTube, Instagram, Linktree and the like. Mostly nofollow, but they are the 'sameAs' proof that ties one business to one entity.",
+   "howTo": [
+    "Create or claim the profile with the exact business name.",
+    "Put the website in the profile's website field and the profile URL in the site's sameAs schema.",
+    "Keep name, phone and description the same as everywhere else."
+   ],
+   "watch": "A link hub (linktr.ee) in place of a website link is a weak signal; link the site itself where the platform allows."
+  },
+  "edu-gov": {
+   "label": "School, university or government site",
+   "actionable": true,
+   "value": 4,
+   "effort": 4,
+   "cost": "free if earned",
+   "risk": "medium",
+   "gives": {
+    "followedLink": "likely",
+    "citation": "yes",
+    "entity": "yes",
+    "referral": "rare"
+   },
+   "what": "Local schools, colleges, city and county pages (resource lists, business partners, event pages).",
+   "howTo": [
+    "Look for a real reason to be on the page: a guest talk, an internship, a community event, a resource list for residents.",
+    "Ask the page owner; never pay or offer a discount in exchange for a link."
+   ],
+   "watch": "'Scholarship' and 'discount' link campaigns aimed at .edu pages are a known link scheme."
+  },
+  "competitor-own-property": {
+   "label": "A competitor's own site",
+   "actionable": false,
+   "value": 0,
+   "effort": 5,
+   "cost": "n/a",
+   "risk": "n/a",
+   "gives": {
+    "followedLink": "n/a",
+    "citation": "n/a",
+    "entity": "n/a",
+    "referral": "n/a"
+   },
+   "what": "A site that belongs to the competitor itself (their second domain or their brand site). It links to them because they own it. Not available to us.",
+   "howTo": [],
+   "watch": ""
+  },
+  "spam-suspect": {
+   "label": "Looks like a spam or link-selling site",
+   "actionable": false,
+   "value": 0,
+   "effort": 5,
+   "cost": "n/a",
+   "risk": "high",
+   "gives": {
+    "followedLink": "n/a",
+    "citation": "n/a",
+    "entity": "n/a",
+    "referral": "n/a"
+   },
+   "what": "The domain name carries words typical of spam sites (casino, pharma, essay mills, link sales). Do not seek these links.",
+   "howTo": [],
+   "watch": "A competitor having such links is no reason to copy them."
+  },
+  "unclassified": {
+   "label": "Not classified (look by hand or run with --fetch)",
+   "actionable": true,
+   "value": null,
+   "effort": null,
+   "cost": "unknown",
+   "risk": "unknown",
+   "gives": {},
+   "what": "No rule matched this domain and nothing was read from it. It is shown, never guessed.",
+   "howTo": [
+    "Open the site's home page and decide which kind it is, or run authority-classify.mjs --fetch to read its title and description."
+   ],
+   "watch": ""
+  },
+  "not-a-source": {
+   "label": "Search engine, map, login or infrastructure host",
+   "actionable": false,
+   "value": 0,
+   "effort": 5,
+   "cost": "n/a",
+   "risk": "n/a",
+   "gives": {
+    "followedLink": "n/a",
+    "citation": "n/a",
+    "entity": "n/a",
+    "referral": "n/a"
+   },
+   "what": "A search engine, map tile, login or CDN host that shows up in link or AI-citation data but is not a place to earn a link. The Google Business Profile and Bing Places are handled by stages/local.md, not here.",
+   "howTo": [],
+   "watch": ""
+  },
+  "provider-business": {
+   "label": "Competitor or unrelated business",
+   "actionable": false,
+   "value": 0,
+   "effort": 5,
+   "cost": "n/a",
+   "risk": "n/a",
+   "gives": {
+    "followedLink": "n/a",
+    "citation": "n/a",
+    "entity": "n/a",
+    "referral": "n/a"
+   },
+   "what": "A business that sells the same or a neighbouring service (another agent, a cash buyer, a brokerage that is not the client's own, a contractor). It does not link to a competitor of its own trade, so it is not a place to earn a link. A partner type the industry pack names (lender, stager, inspector for a realtor) is the exception and is classified as a partner instead.",
+   "howTo": [],
+   "watch": ""
+  }
+ },
+ "knownHosts": [
+  {
+   "host": "facebook.com",
+   "type": "social-link-hub"
+  },
+  {
+   "host": "instagram.com",
+   "type": "social-link-hub"
+  },
+  {
+   "host": "linkedin.com",
+   "type": "social-link-hub"
+  },
+  {
+   "host": "x.com",
+   "type": "social-link-hub"
+  },
+  {
+   "host": "twitter.com",
+   "type": "social-link-hub"
+  },
+  {
+   "host": "youtube.com",
+   "type": "social-link-hub"
+  },
+  {
+   "host": "pinterest.com",
+   "type": "social-link-hub"
+  },
+  {
+   "host": "tiktok.com",
+   "type": "social-link-hub"
+  },
+  {
+   "host": "nextdoor.com",
+   "type": "social-link-hub"
+  },
+  {
+   "host": "medium.com",
+   "type": "social-link-hub"
+  },
+  {
+   "host": "reddit.com",
+   "type": "social-link-hub"
+  },
+  {
+   "host": "linktr.ee",
+   "type": "social-link-hub"
+  },
+  {
+   "host": "yelp.com",
+   "type": "directory"
+  },
+  {
+   "host": "bbb.org",
+   "type": "directory"
+  },
+  {
+   "host": "yellowpages.com",
+   "type": "directory"
+  },
+  {
+   "host": "mapquest.com",
+   "type": "directory"
+  },
+  {
+   "host": "manta.com",
+   "type": "directory"
+  },
+  {
+   "host": "superpages.com",
+   "type": "directory"
+  },
+  {
+   "host": "foursquare.com",
+   "type": "directory"
+  },
+  {
+   "host": "hotfrog.com",
+   "type": "directory"
+  },
+  {
+   "host": "merchantcircle.com",
+   "type": "directory"
+  },
+  {
+   "host": "chamberofcommerce.com",
+   "type": "directory"
+  },
+  {
+   "host": "expertise.com",
+   "type": "editorial-list"
+  },
+  {
+   "host": "threebestrated.com",
+   "type": "editorial-list"
+  },
+  {
+   "host": "google.com",
+   "type": "not-a-source"
+  },
+  {
+   "host": "gstatic.com",
+   "type": "not-a-source"
+  },
+  {
+   "host": "googleapis.com",
+   "type": "not-a-source"
+  },
+  {
+   "host": "googleusercontent.com",
+   "type": "not-a-source"
+  },
+  {
+   "host": "mapbox.com",
+   "type": "not-a-source"
+  },
+  {
+   "host": "openstreetmap.org",
+   "type": "not-a-source"
+  },
+  {
+   "host": "cloudflare.com",
+   "type": "not-a-source"
+  },
+  {
+   "host": "w3.org",
+   "type": "not-a-source"
+  },
+  {
+   "host": "schema.org",
+   "type": "not-a-source"
+  }
+ ],
+ "domainRules": [
+  {
+   "id": "spam-words",
+   "re": "casino|poker|betting|viagra|cialis|payday|escort|porn|essay(writ|help)|replica(watch|bag)|slotgacor|togel|buy-?backlinks|link-?building-?service",
+   "type": "spam-suspect",
+   "confidence": "high",
+   "why": "the domain name contains a word typical of spam sites"
+  },
+  {
+   "id": "press-release",
+   "re": "press-?release|prweb|prnewswire|businesswire|einpresswire|globenewswire|openpr\\.|newswire",
+   "type": "press-release",
+   "confidence": "high",
+   "why": "the domain name says press release or newswire"
+  },
+  {
+   "id": "link-hub",
+   "re": "^(linktree\\.com|beacons\\.ai|bio\\.link|lnk\\.bio|campsite\\.bio|carrd\\.co|taplink\\.cc|about\\.me|solo\\.to|stan\\.store)$",
+   "type": "social-link-hub",
+   "confidence": "high",
+   "why": "a link-hub or profile page service"
+  },
+  {
+   "id": "chamber",
+   "re": "chamber|chambre",
+   "type": "chamber-local",
+   "confidence": "medium",
+   "why": "the domain name says chamber"
+  },
+  {
+   "id": "charity",
+   "re": "foundation|charit|rotary|kiwanis|lionsclub|donat|giftof|habitat|ymca|unitedway|foodbank|nonprofit",
+   "type": "sponsorship-charity",
+   "confidence": "medium",
+   "why": "the domain name names a foundation, charity or service club"
+  },
+  {
+   "id": "podcast",
+   "re": "podcast",
+   "type": "podcast-guest",
+   "confidence": "medium",
+   "why": "the domain name says podcast"
+  },
+  {
+   "id": "top-list",
+   "re": "^(top|best)\\d+",
+   "type": "editorial-list",
+   "confidence": "medium",
+   "why": "the domain name starts with top/best and a number (a ranking list)"
+  },
+  {
+   "id": "association",
+   "re": "association|assoc[.-]|assn|society|guild|federation|institute",
+   "type": "professional-association",
+   "confidence": "low",
+   "why": "the domain name names an association or society"
+  },
+  {
+   "id": "news",
+   "re": "news|gazette|herald|tribune|chronicle|courier|insider",
+   "type": "local-news",
+   "confidence": "low",
+   "why": "the domain name looks like a news outlet"
+  },
+  {
+   "id": "directory-words",
+   "re": "directory|listings?([.-]|$)|^listing|finder|yellowpages|^find|businesslist|localpages",
+   "type": "directory",
+   "confidence": "low",
+   "why": "the domain name looks like a listing site"
+  }
+ ],
+ "tldRules": [
+  {
+   "id": "edu",
+   "re": "\\.edu$|\\.edu\\.[a-z]{2}$|\\.ac\\.[a-z]{2}$",
+   "type": "edu-gov",
+   "confidence": "high",
+   "why": "an education domain"
+  },
+  {
+   "id": "gov",
+   "re": "\\.gov$|\\.gov\\.[a-z]{2}$|\\.mil$|\\.us\\.gov$",
+   "type": "edu-gov",
+   "confidence": "high",
+   "why": "a government domain"
+  }
+ ],
+ "textRules": [
+  {
+   "id": "t-spam",
+   "re": "casino|online poker|sports betting|payday loans?|buy (backlinks|links)|essay writing",
+   "type": "spam-suspect",
+   "confidence": "medium",
+   "why": "the title or description carries spam words"
+  },
+  {
+   "id": "t-chamber",
+   "re": "chamber of commerce",
+   "type": "chamber-local",
+   "confidence": "high",
+   "why": "the title or description says chamber of commerce"
+  },
+  {
+   "id": "t-press",
+   "re": "press releases?|newswire",
+   "type": "press-release",
+   "confidence": "medium",
+   "why": "the title or description says press release"
+  },
+  {
+   "id": "t-podcast",
+   "re": "podcast",
+   "type": "podcast-guest",
+   "confidence": "medium",
+   "why": "the title or description says podcast"
+  },
+  {
+   "id": "t-edu",
+   "re": "university|college|school district|city of |county of ",
+   "type": "edu-gov",
+   "confidence": "low",
+   "why": "the title or description names a school or a government body"
+  },
+  {
+   "id": "t-charity",
+   "re": "foundation|non-?profit|charity|charitable",
+   "type": "sponsorship-charity",
+   "confidence": "low",
+   "why": "the title or description names a foundation or charity"
+  },
+  {
+   "id": "t-association",
+   "re": "association of|society of|trade association|professional association|guild",
+   "type": "professional-association",
+   "confidence": "low",
+   "why": "the title or description names an association"
+  },
+  {
+   "id": "t-news",
+   "re": "local news|newspaper|breaking news|news and events|community news",
+   "type": "local-news",
+   "confidence": "low",
+   "why": "the title or description says news"
+  },
+  {
+   "id": "t-list",
+   "re": "\\btop \\d+|\\bbest [a-z ]{3,40} (in|of|near)\\b|ranked by",
+   "type": "editorial-list",
+   "confidence": "low",
+   "why": "the title or description reads like a ranking"
+  },
+  {
+   "id": "t-directory",
+   "re": "directory|business listings|find (a|an|the best) |yellow pages|reviews? of local",
+   "type": "directory",
+   "confidence": "low",
+   "why": "the title or description reads like a directory"
+  }
+ ]
+}

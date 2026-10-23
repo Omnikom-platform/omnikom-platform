@@ -1,0 +1,118 @@
+# web-delivery (shipgate spec 8.0.0)
+
+P0 = blocks release, P1 = must fix, P2 = should fix, W = warning. [kinds]: static = read from code/config; http, browser = needs the running site.
+
+- WCF-001 P0 [cfg] Every service with a public surface has an https origin without path, query or port.
+- WCF-002 P0 [cfg] defaultLocale ∈ locales; localePrefix
+- WCF-003 P0 [cfg] Service trailingSlash equals adapter config setting trailingSlash, service mount equals setting basePath, locales/defaultLocale equal settings i18n.locales/i18n.defaultLocale (compared as sets of BCP 47 tags, case-insen
+- WCF-004 P0 [cfg] warnMin < warnMax ≤ hardMax for title and description lengths (positive integers)
+- WCF-005 P1 [cfg] Every targets[].url resolves to a declared or discovered route.
+- WCF-006 P0 [cfg] All patterns parse (03 § 2.1), mediaNoindex entries included; retired[].path and retired[].successor (when set) are wildcard-free path patterns (no *,  or {param}; a pattern with one is a finding); indexRules have no sp
+- WCF-007 P0 [cfg] syndicated[].originalUrl is absolute https on a host that is no service origin, using only {params} of its pattern; aliasHosts are concrete or *.-prefixed hostnames disjoint from service origin hosts; trustPages values
+- WCF-008 P0 [cfg] docs.versions, when set: latest is a path without wildcards or params; every older entry parses as a pattern whose literal prefix (the text before its first * or {) is non-empty, ends in /, and is not a prefix of latest
+- RTE-001 P0 [html, browser] Content in the initial HTML, on browser-sampled public pages (04 § 10), raw HTML vs rendered DOM
+- RTE-002 P1 [ast] Hint for RTE-001: each public route file is matched against the adapter's renderModes (03 § 6; entries tried in order, the first match decides, adapters end the list with a catch-all entry for the framework default); a
+- RTE-003 W [ast] Tombstone (deprecated, rule metadata lifecycle
+- RTE-004 P0† [http] Status contract:
+- RTE-005 P0 [ast, http] The 404 decision happens before the response is committed
+- RTE-006 P0 [ast, http] Closed route space: unknown route parameters are rejected or validated before render. Probes: for each dynamic route and each of its params in turn, the URL with that param set to sg-probe-404 (a param with a :regex con
+- RTE-007 P0† [http] Dependency errors return 5xx (stale caches may keep serving), never 404 or a 200 shell; proven by the core fault-injection facility in G4 (04 § 4.5
+- RTE-008 P1 [html] Duplicate head tags in the raw HTML of each public page
+- RTE-009 P0 [html, http] On each indexable page of the HTTP sample
+- RTE-010 P0† [http, ast] No cloaking. User agents come from the pinned ruleset search-agents.json (§ 2 shape, for Googlebot, Bingbot, YandexBot, Yeti, Baiduspider, SeznamBot, Applebot and Chrome; SE-002 and SE-008 use the engine tokens). Part b
+- RTE-011 P1 [ast] In files of role route, layout or component (04 § 7.1)
+- RTE-012 P1 [build] Two builds from identical inputs (clean output directory, same lock digest) produce identical public HTML (--profile nightly)
+- RTE-013 P1 [browser] Browser-sampled public pages (04 § 10) and flow steps on public surfaces
+- RTE-014 P0 [html, http] Mobile parity between the smartphone and desktop Googlebot UAs (search-agents.json; Google indexes the smartphone response), checked on every indexable page in the HTTP sample (04 § 10)
+- RTE-015 P1 [http] Fetch-size limit (Googlebot reads only the first 2 MB of an HTML file, and of each referenced JS/CSS file, uncompressed)
+- RTE-016 P0 (part `invalid-element` P1, part `noscript-body` W) [html, browser] Head integrity on the indexable pages of the HTTP sample (Google ignores every head element after an invalid one and treats the head as ended there)
+- RTE-017 P1 (part `button` W) [browser, html] No content that exists only after a click
+- URL-001 P0 [http, html] Canonical form (the one definition, used by URL-002, URL-004, URL-009 and URL-014)
+- URL-002 P0 [http, edge] Non-canonical variants reach the canonical in exactly one hop with redirectStatus (auth redirects exempt); no chains or loops; a canonical URL returns 200
+- URL-003 P0 [ast] One URL module builds every emitted public URL from route params + the configured origin (data-flow rule, 04 § 13).
+- URL-004 P0 [html] Applies to every 200 text/html public response of the HTTP sample and of the URL-005 probes
+- URL-005 P0 [http, html] Query params: tracking and unknown params → 200 with a canonical equal to the clean URL and no noindex (no redirect). Probes per indexable page of the HTTP sample: each trackingParams entry without * as ?{name}=sg; for
+- URL-006 P0 [http, html, browser] Pagination: page 1 has no page param (?page=1 → one-hop redirect, probed and judged by URL-002); page N > 1 is self-canonical, and its title and description each contain N as a whole word (UAX #29; digits of any numberi
+- URL-007 P1 [data, diff, ast, site] Slugs: lowercase, hyphenated, no reserved segments, stable. Part format (site, data): every percent-decoded value of a dynamic route param in a crawled indexable URL, and every inventory slug, is NFC, matches ^[\p{Ll}\p
+- URL-008 P0 [http] Moved URLs redirect in one hop to their current canonical (moves come from inventory previousSlugs, retired[].successor and the adapter redirectSources[]); the redirect target is exactly the expected target (the current
+- URL-009 P0 [html, site] On each indexable page: the same canonical string in the canonical tag, og:url, the page's own hreflang href and JSON-LD WebPage.url; every hreflang href equals the canonical of its target page (value-mismatch: field, e
+- URL-011 P0 [edge] Alias hosts (with project.stage
+- URL-012 P0 [html] Syndicated content: a page matching a syndicated entry carries either noindex or a canonical equal to the expanded originalUrl (not both, MET-006), and <main> contains a visible <a href> to the expanded originalUrl. Suc
+- URL-013 P1 [http, html] Docs versions (with docs.versions set)
+- URL-014 P1 [http, edge] Path-variant probes (the variants URL-002 does not send)
+- URL-015 P1 [http, edge] Campaign parameters survive redirects (a redirect that drops gclid or utm_* loses paid and e-mail attribution; Google Ads and Tag Manager help
+- MET-001 P0 [html] Exactly one non-empty head > title (an SVG <title> is not counted), whose length — Unicode code points of its NFC text with whitespace collapsed and trimmed (the length rule of MET-002 and MET-004 too) — is ≤ titleLengt
+- MET-002 P1 [html] A non-empty <meta name="description"> in <head> (duplicates
+- MET-003 P0 [html] Exactly one <main> with exactly one <h1> on public pages (part main; missing-element, duplicate-element); part skip — in document order across the whole <body>, each <hN> after the first heading has N ≤ the previous hea
+- MET-004 W [html] Title or description length (MET-001) outside its warnMin–warnMax range
+- MET-005 P1 [html, http, edge] og:title = <title>, og:description = description, og:url = canonical, og:type = article on a page with Article/BlogPosting/NewsArticle JSON-LD and website on every other page, og:site_name = siteName (NFKC, whitespace-c
+- MET-006 P0 [html, http] Robots directives. Directives are the comma-separated, trimmed, lowercased tokens of every <meta name> robots, googlebot or bingbot content and of every X-Robots-Tag header value (a leading <agent>: scopes a header valu
+- MET-007 P0 [html] <html lang> equals the page locale tag (04 § 15 *Page locale*) after ASCII case folding, exactly (en does not equal en-US); a URL with no URL locale under localePrefix
+- MET-008 P0 [html] Leak scan exactly as in 04 § 12 (template markers anywhere outside code elements; words like undefined/TODO only when they make up a whole title, meta, heading, attribute, fact or cell value) (part main); part banned —
+- MET-009 P0 [html] <meta name="viewport"> whose content, split on ,, each item trimmed and lowercased with spaces around = removed, contains width=device-width and initial-scale=1 (any order; initial-scale=1.0 counts as 1), contains no us
+- MET-010 P1 [html] Part favicon: ≥ 1 <link rel="icon"> returns 200 and is SVG, or decodes (ICO: its largest frame) to a square image whose side is a multiple of 48 px (measured on the decoded image, not the sizes attribute); part apple-to
+- MET-011 P0 [html, http, site, browser] Placeholder and starter residue (owner; MET-008 owns template markers)
+- MET-012 P1 [html, browser] Real image sources: every content <img> in raw <main> (excluding alt="", role="presentation"/"none", aria-hidden="true") has a src or srcset (or a <picture><source srcset>) that is not a data: URI and does not resolve t
+- MET-013 W [html] Title quality: part generic — after removing the brand suffix, the title is not empty, not only brand/siteName, and not an entry of ruleset generic-titles.json for the page locale (Home, Untitled, Page, New Page, Docume
+- MET-014 P1 [http, html, edge] Media that engines can index (Google
+- SCH-001 P0 [html] One <script type="application/ld+json"> with @graph; stable absolute @ids ({origin}/#organization, {origin}/#website, {canonical}#webpage, {canonical}#breadcrumb, {canonical}#primary, {canonical}#localbusiness on locati
+- SCH-002 P0† [ast, html] Serialised only by safeJsonLd() (escapes <, >, &, U+2028, U+2029; adapter codegen provides it per language); raw script text has no case-insensitive </script; parses.
+- SCH-003 P0 [html] Only the allowed types above for the surface/family, and Review/AggregateRating only as the footnote above allows (forbidden-value
+- SCH-004 P0 [html] Required properties:
+- SCH-005 P0 [html] No "", null, [], {} values; no 0,0 coordinates; no invented dates
+- SCH-006 P0 [html, browser] These properties of Product, Offer, LocalBusiness, Event, Review, AggregateRating, Person and Service nodes and of the {canonical}#primary node appear in visible text (§ 2; on browser-sampled pages also in the browser's
+- SCH-007 P0 [html, data] LocalBusiness only with a verified physical location (programmatic
+- SCH-008 P1 [html] BreadcrumbList mirrors the visible breadcrumb (<nav aria-label="Breadcrumb"><ol>) item for item
+- SCH-009 P1 [html] Pages whose <main>, before its first <h2>, contains a <video> (its src or first <source src>) or an <iframe> whose src host is a hosts entry with purpose video carry a VideoObject whose contentUrl or embedUrl equals tha
+- SCH-010 W [html, browser] Article pages (indexable pages with Article/BlogPosting/NewsArticle JSON-LD) show a visible author name equal (NFKC, case-folded, normalised containment) to the JSON-LD author.name
+- SCH-011 P1 (part `domain` W) [html] Vocabulary and value formats, against the schema.org version pinned in ruleset schemaorg.json (§ 2 shape)
+- LNK-001 P0 [browser] Navigation to indexable pages uses plain <a href>
+- LNK-002 P0 [site] Internal link targets. Scope: every a[href] in the raw HTML of each HTTP-sample page whose absolute target (04 § 10 normalisation) is http(s) on a service origin host or an alias host (URL-011); fragment-only, mailto:,
+- LNK-003 P0 [site] No orphans: every indexable page has ≥ 1 inbound link from another indexable page and is reachable from the homepage of some locale (§ 1 *Homepage*) within maxClickDepth clicks. Inbound links and click depth are compute
+- LNK-004 P1 [html] Anchor text names the destination, for internal and outbound a[href] on indexable pages
+- LNK-005 W [site] Each page listed in targets is linked from ≥ 3 distinct indexable pages other than itself, each with an a[href] whose anchor text (LNK-004 definition) contains the target query's head term (§ 12); several links on one p
+- LNK-006 W [site] Outbound links (opt-in externalLinks.check; profile
+- LNK-007 P1 [site, diff] Links added in the diff resolve (guard against invented citations; with externalLinks.checkAdded, default profile, scope
+- IDX-001 P0† [site] Sitemap URL set equals the set of indexable pages (§ 2) in canonical form (URL-001); each discrepancy class (extra, missing, non-canonical, non-200, noindex) is its own finding
+- IDX-002 P0 [site] ≤ maxUrlsPerFile (hard limit 50,000 URLs / 52,428,800 bytes uncompressed) per file; sitemap index when > 1 file; valid escaped XML; absolute URLs on the right origin; unique entries.
+- IDX-003 P1 [site] <lastmod> (W3C datetime with time and timezone, SE-004) is the page's content modification time, or omitted
+- IDX-004 P0 [http] Production robots.txt: 200, text/plain; references the sitemap index; never disallows sitemap URLs or any public-surface URL of the HTTP sample or of an RTE-004 probe whose response carries noindex (meta or X-Robots-Tag
+- IDX-005 P0† [http, edge] Environment mode from DEPLOY_ENV only
+- IDX-006 P0 [html] 404/410 responses (the RTE-004 Unknown URL, Retired and Empty pagination probes) carry noindex (meta robots or X-Robots-Tag) and no link[rel=canonical] or hreflang link (missing-element, forbidden-value
+- IDX-007 P0 [http] The response to each app route seed (RTE-004 anonymous and authenticated probes) and each api route seed, including a 302/303/401, carries noindex in X-Robots-Tag or, for a 200 HTML response, in meta robots; no such URL
+- IDX-008 P1 [cfg, http] AI agents. The pinned ruleset ai-agents.json (§ 2 shape: token, vendor, category training|search|user-fetch, userAgent, honoursRobots, docUrl) lists at least GPTBot, OAI-SearchBot, ChatGPT-User, Google-Extended, ClaudeB
+- IDX-009 P1 [site] With sitemap.images/videos enabled (else notApplicable)
+- IDX-010 W [http] llms.txt per llmsTxt (default required when project.kinds includes docs, else optional)
+- IDX-011 P0 [edge] Production launch check (with project.stage
+- IDX-012 P1 [http, html, ast] Internal site search: result URLs are not indexable. Search routes are routes whose handler reads a free-text query parameter (q, s, query, search, keyword, or adapter searchHandlers), plus the same-origin action of GET
+- IDX-013 P1 [http] Machine-text variants: for each indexable page of the HTTP sample (04 § 10), the .md/.txt siblings {path}.md, {path}/index.md, {path}.txt and {path}/index.txt ({path} = the page path without trailing slash; for a path o
+- IDX-014 W [http] When any training token is disallow in aiCrawlers, robots.txt also states it as a Content Signal (ruleset content-signals.json syntax, e.g
+- IDX-015 P1 [http, html] Feeds (when indexable pages carry Article/BlogPosting/NewsArticle JSON-LD)
+- IDX-016 P1 [browser] Confirmation pages (both checks run in G6 on the flow's output)
+- I18-001 P0 [html] One locale → no hreflang.
+- I18-002 P0 [site] Multiple locales: reciprocal clusters including self; only versions of the same entity: same family + rowId (inventory alternates) for family pages; for other pages the same route pattern with the same param values afte
+- I18-003 P0 [html] Each locale page is self-canonical.
+- I18-004 W [review] No machine-translated or synthesized locale content in place of source content (not mechanically detectable; for programmatic families, DAT-* already forbid content not present in the locale's dataset).
+- I18-005 P1 [html] Crawlable links between locale versions; cookies/Accept-Language never the only route; a request for each locale's page with the Googlebot UA (search-agents.json) and Accept-Language set to each other declared locale re
+- I18-006 P1 [ast] Explicit locale formatting: in files of role route, layout or component (04 § 7.1), each call of an adapter formatterApis entry whose ApiRef args declares a locale role passes that argument, and it is neither omitted no
+- I18-007 P1 [html] The language of <main> text (pages with ≥ 50 words, UAX #29), detected with the pinned lingua crate (WP-102 toolchain, version in the report; high-accuracy mode, minimum relative distance 0.25), equals the primary subta
+- I18-008 P1 [html] Pages of a locale whose CLDR characterOrder (toolchain CLDR) is right-to-left set dir="rtl" on <html> (missing-element).
+- I18-009 P1 [data, html] Complete translations (multiple locales)
+- I18-010 P1 [site, html, data] French for Quebec (with ca-qc in privacy.jurisdictions, else notApplicable; Charter of the French Language as amended by Bill 96
+- I18-011 P1 (part `source` W) [http, ast] No IP-country-dependent serving to crawlers (Google, *Managing multi-regional and multilingual sites*
+- CQ-001 W [html] Thin pages: indexable pages with < 150 words (UAX #29) of <main> text whose <main> contains no non-decorative <img> (decorative as MET-012), <video>, <iframe>, <table> with ≥ 2 rows, or <ul>/<ol> with ≥ 3 <li>.
+- CQ-002 P1 [content] Exact duplicates: two indexable URLs, neither of them a family or hub page (pairs with one: CNT-005), with equal mainTextHash (03 § 12 routes.jsonl definition, computed for this run's crawl). Needs a complete crawl, els
+- CQ-003 P1 [html] Broken images: each <img src>, <img srcset> candidate and <picture><source srcset> candidate URL on the indexable pages of the HTTP sample answers < 400 when requested (GET, ≤ 5 redirects) (status-mismatch: page URL, im
+- CQ-004 W [html] Tombstone (deprecated): the visible author on article pages is owned by SCH-010, visible dates by SE-110.
+- CQ-005 W [html] Images in <main> whose file-name stem (before the extension, percent-decoded) matches ^(IMG|DSC|DCIM|PXL|Screenshot)[ _-]?\d+, ^image ?\(\d+\)$, ^[0-9a-f]{16,}$ or a UUID, while the alt has ≥ 2 words (descriptive filena
+- CQ-006 P1 [baseline, site] Bulk page additions (scaled-content control for pages outside programmatic families)
+- CQ-007 W [html] Spelling: words (UAX #29, NFKC) in <title>, meta description, headings and <main> text of indexable pages are checked with the toolchain's Hunspell dictionary for the page locale, extended by the content.dictionary file
+- CQ-008 P1 [content] Hand-made doorways: pages outside programmatic families and hubs that differ only by swapped-in words (algorithm: 04 § 15, swap similarity). A connected component of ≥ 5 swap-similar indexable pages in one route group i
+- CQ-009 W [html] Stale years (reference year = the year of the reference time, 04 § 15)
+- CQ-010 P1 [content] No copied third-party text: on each indexable page of the HTTP sample (04 § 10), the visible <main> text (UAX #29 words, NFKC, case-folded, punctuation-only tokens dropped) contains no run of ≥ 30 consecutive words that
+- TRS-001 P1 (part `strict` P0) [site, html] About and contact. The checks below run as part strict when project.kinds includes local-business or ymyl or ymylPatterns is non-empty, else as part main: trustPages.about and trustPages.contact return 200, are indexabl
+- TRS-002 P1 [html, browser] YMYL pages: a visible author name linked to an author page (200, indexable); JSON-LD WebPage carries reviewedBy (Person/Organization with name) and lastReviewed (ISO 8601 date), the reviewedBy name appears in visible te
+- TRS-003 W [site, html] Editorial transparency (project.kinds includes news or ymyl, or ymylPatterns is non-empty)
+- TRS-004 W [review] Comparison pages: indexable pages whose path or <title> matches ruleset comparison-patterns.json for the page locale (vs, versus, alternative(s), compare, comparison, …) are listed as review items; the Auditor confirms
+- KW-001 P1 [cfg, site] Each target query maps to exactly one URL (no two targets with the same query on different URLs
+- KW-002 W [html] The target URL's <title> or <h1> contains the query's head term (missing-element, query and both texts).

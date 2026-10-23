@@ -1,0 +1,230 @@
+{
+ "_about": "Per-locale intent modifiers for shipgate 06 section 9.2 rules 1-3. A modifier matches when its words (NFKC, lowercased, Snowball-stemmed for the locale) occur next to each other in the query. Every entry names its source; _sources says how each source was checked. Locale key: BCP 47 tag; lookup tries the full tag, then the primary subtag (en-US, then en). Keys starting with _ are metadata.",
+ "_sources": {
+  "semrush": {
+   "title": "Semrush blog, 'Search Intent: What It Is and How to Optimize for It' (informational / navigational / commercial / transactional, with example modifier words)",
+   "url": "https://www.semrush.com/blog/search-intent/",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "ahrefs": {
+   "title": "Ahrefs blog, 'Search Intent: The Overlooked Ranking Factor' (modifier words per intent)",
+   "url": "https://ahrefs.com/blog/search-intent/",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "qrg": {
+   "title": "Google Search Quality Evaluator Guidelines, 'Understanding User Intent' (Know / Do / Website / Visit-in-person; 'near me' is a visit-in-person query)",
+   "url": "https://services.google.com/fh/files/misc/hsw-sqrg.pdf",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  },
+  "spec": {
+   "title": "shipgate spec 06-growth.md section 9.2, which names 'best, vs, review, top, price' as commercial modifiers",
+   "url": "spec:06-growth.md#92-intent",
+   "basis": "read on 2026-10-22"
+  },
+  "google_near_me": {
+   "title": "Think with Google, 'near me' searches (people add 'near me', 'nearby', 'closest' to find a place to visit)",
+   "url": "https://www.thinkwithgoogle.com/consumer-insights/consumer-trends/near-me-searches/",
+   "basis": "recalled, page not re-fetched on 2026-10-22"
+  }
+ },
+ "en-US": {
+  "local": [
+   {
+    "term": "near me",
+    "source": "google_near_me"
+   },
+   {
+    "term": "nearby",
+    "source": "google_near_me"
+   },
+   {
+    "term": "close to me",
+    "source": "google_near_me"
+   },
+   {
+    "term": "closest",
+    "source": "google_near_me"
+   },
+   {
+    "term": "nearest",
+    "source": "google_near_me"
+   },
+   {
+    "term": "around me",
+    "source": "google_near_me"
+   },
+   {
+    "term": "open now",
+    "source": "qrg"
+   },
+   {
+    "term": "in my area",
+    "source": "qrg"
+   },
+   {
+    "term": "local",
+    "source": "ahrefs"
+   }
+  ],
+  "transactional": [
+   {
+    "term": "buy",
+    "source": "semrush"
+   },
+   {
+    "term": "purchase",
+    "source": "semrush"
+   },
+   {
+    "term": "order",
+    "source": "semrush"
+   },
+   {
+    "term": "coupon",
+    "source": "semrush"
+   },
+   {
+    "term": "discount",
+    "source": "semrush"
+   },
+   {
+    "term": "deal",
+    "source": "semrush"
+   },
+   {
+    "term": "deals",
+    "source": "semrush"
+   },
+   {
+    "term": "cheap",
+    "source": "semrush"
+   },
+   {
+    "term": "cheapest",
+    "source": "semrush"
+   },
+   {
+    "term": "for sale",
+    "source": "semrush"
+   },
+   {
+    "term": "free shipping",
+    "source": "semrush"
+   },
+   {
+    "term": "get a quote",
+    "source": "semrush"
+   },
+   {
+    "term": "quote",
+    "source": "semrush"
+   },
+   {
+    "term": "hire",
+    "source": "semrush"
+   },
+   {
+    "term": "book",
+    "source": "semrush"
+   },
+   {
+    "term": "booking",
+    "source": "semrush"
+   },
+   {
+    "term": "subscribe",
+    "source": "semrush"
+   },
+   {
+    "term": "download",
+    "source": "semrush"
+   },
+   {
+    "term": "sign up",
+    "source": "ahrefs"
+   },
+   {
+    "term": "free trial",
+    "source": "ahrefs"
+   },
+   {
+    "term": "add to cart",
+    "source": "ahrefs"
+   }
+  ],
+  "commercial": [
+   {
+    "term": "best",
+    "source": "spec"
+   },
+   {
+    "term": "top",
+    "source": "spec"
+   },
+   {
+    "term": "vs",
+    "source": "spec"
+   },
+   {
+    "term": "review",
+    "source": "spec"
+   },
+   {
+    "term": "price",
+    "source": "spec"
+   },
+   {
+    "term": "versus",
+    "source": "semrush"
+   },
+   {
+    "term": "reviews",
+    "source": "semrush"
+   },
+   {
+    "term": "compare",
+    "source": "semrush"
+   },
+   {
+    "term": "comparison",
+    "source": "semrush"
+   },
+   {
+    "term": "alternative",
+    "source": "semrush"
+   },
+   {
+    "term": "alternatives",
+    "source": "semrush"
+   },
+   {
+    "term": "pricing",
+    "source": "semrush"
+   },
+   {
+    "term": "cost",
+    "source": "semrush"
+   },
+   {
+    "term": "rated",
+    "source": "semrush"
+   },
+   {
+    "term": "worth it",
+    "source": "semrush"
+   },
+   {
+    "term": "top rated",
+    "source": "ahrefs"
+   },
+   {
+    "term": "pros and cons",
+    "source": "ahrefs"
+   },
+   {
+    "term": "which is better",
+    "source": "ahrefs"
+   }
+  ]
+ }
+}

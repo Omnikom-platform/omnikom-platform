@@ -1,0 +1,43 @@
+{
+ "date": "2026-09-22",
+ "citations": [
+  {
+   "question": "How much does a realtor cost in California?",
+   "engine": "gemini",
+   "model": "gemini-fixture-1",
+   "prompt": "Answer for a homeowner in Roseville, CA: How much does a realtor cost in California?",
+   "runs": 3,
+   "citedShare": {
+    "value": 0,
+    "source": "Gemini API with Google Search grounding (fixture)",
+    "fetchedAt": "2026-09-22",
+    "cacheFile": null
+   },
+   "citedSources": [
+    "example-competitor-one.test",
+    "example-listing-portal.test"
+   ],
+   "ourDomainCited": false,
+   "location": "Roseville, CA"
+  },
+  {
+   "question": "Who is a good real estate agent in Roseville CA?",
+   "engine": "gemini",
+   "model": "gemini-fixture-1",
+   "prompt": "Answer for a homeowner in Roseville, CA: Who is a good real estate agent in Roseville CA?",
+   "runs": 3,
+   "citedShare": {
+    "value": 0.3333,
+    "source": "Gemini API with Google Search grounding (fixture)",
+    "fetchedAt": "2026-09-22",
+    "cacheFile": null
+   },
+   "citedSources": [
+    "example-competitor-one.test",
+    "sample-valley-realty.test"
+   ],
+   "ourDomainCited": true,
+   "location": "Roseville, CA"
+  }
+ ]
+}

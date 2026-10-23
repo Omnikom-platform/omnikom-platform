@@ -1,0 +1,81 @@
+# security (shipgate spec 8.0.0)
+
+P0 = blocks release, P1 = must fix, P2 = should fix, W = warning. [kinds]: static = read from code/config; http, browser = needs the running site.
+
+- SEC-001 P0† [ast] Untrusted content is rendered only through framework escaping
+- SEC-078 P1 [ast, browser] postMessage safety (CWE-345/346)
+- SEC-002 P0† [data, html] Dangerous URL schemes. Part data (data): dataset fields of type url are absolute https: or same-origin relative. Part html (html): the values of attributes href, src, action, formaction, xlink:href, poster, data (on obj
+- SEC-003 P0† [http, browser, ast] No open redirects. Probed URLs: every route that answered 3xx during the crawl or flows, auth.loginPath, and every crawled URL that already carries one of the parameters. Each of next, redirect, returnTo, url, continue,
+- SEC-004 P0 [ast, http] Server-side fetches only to hosts with server
+- SEC-005 P0† [build, html, http] No secret in client bundles, HTML or API responses
+- SEC-006 W [review] Cache keys include every dimension that changes output; user/tenant data never in shared caches
+- SEC-007 P0 [http] Production-mode errors never expose stack traces, SQL errors, file paths, debug pages or internal hostnames (detection patterns
+- SEC-008 P1 [build, http] No publicly served source maps (*.map) for production client bundles unless sourceMaps
+- SEC-009 P0 [html] No mixed content: https pages load no http: subresources. Subresources: script[src], link[rel~=stylesheet|preload|modulepreload|icon][href], img[src|srcset], source[src|srcset], video[src|poster], audio[src], iframe[src
+- SEC-010 P1 [http, edge] Every 2xx text/html response of sampled pages (04 § 10) sends
+- SEC-075 P1 [http, edge] CSP strength (OWASP CSP Cheat Sheet; ASVS 5.0 V3), on the same responses whose Content-Security-Policy SEC-010 judges, when csp.required; otherwise notApplicable
+- SEC-011 P0 [http, browser] Session cookies. Part attributes (P0, http): each Set-Cookie for a name in auth.sessionCookies has HttpOnly, Secure, SameSite=Lax or SameSite=Strict, and a Path equal to the service mount or below it. Part local-storage
+- SEC-012 P0 [http] CORS. Probed: each route on the api surface and each route that sent any Access-Control-* header during the crawl, with a GET carrying Origin: https://evil.shipgate.test, and (local services only) an OPTIONS preflight w
+- SEC-013 P0 [http] Responses to requests carrying an account's session, for routes whose resolved access policy is auth
+- SEC-058 P0 [http, edge] Web cache deception: for P = the lexicographically first sampled URL of each auth: required route group, requests with an allowed account's session to <P>/sg{n}.css, <P>;sg{n}.css and <P>%2Fsg{n}.js are not a protected
+- SEC-014 W [html] Subresource Integrity: every cross-origin <script src> and <link rel=stylesheet href> whose host is in ruleset sri-hosts.json ([{ host, versionedPathPattern }]: cdnjs.cloudflare.com, cdn.jsdelivr.net, unpkg.com, code.jq
+- SEC-015 P1 [edge] security.txt per securityTxt: /.well-known/security.txt on previewUrl and, with edge.production, on each production.origins entry answers 2xx text/plain with RFC 9116 Contact: and Expires: fields, and Expires is after t
+- SEC-016 P0 [http, edge] Shared-cacheable responses carry no Set-Cookie
+- SEC-056 P1 [edge] TLS on previewUrl and, with edge.production, production.origins
+- SEC-017 P1 [http] Session renewal: part fixation — a session cookie (each name in auth.sessionCookies) present before login, and one pre-set to sg-fixation-{n}, is not the value in force after the login flow; part credential-change — aft
+- SEC-018 P1 [browser, html] Password policy (NIST SP 800-63B-4)
+- SEC-019 P1 [http] OAuth/OIDC: part state — each oauth.callbacks route requested with code=sg{n}sg{n}sg{n}sg{n} (32 characters) and (a) no state, (b) a state value taken from the state query parameter of the Location of one GET to the lex
+- SEC-020 P0† [cfg, http] Every api-surface route and endpoint (declared, or discovered during the crawl and flows) matches a security.routes pattern; one that matches none is a finding
+- SEC-021 P0† [http] auth: required routes refuse anonymous requests: API 401/403, pages redirect to auth.loginPath; never 200 with protected data. API = a route on the api surface, or a response whose Content-Type is not text/html; everyth
+- SEC-022 P0† [http] roles routes refuse authenticated accounts without those roles (refused as in SEC-021)
+- SEC-023 P0† [http] Tenant/owner isolation: account B requesting A's resource ids (ownership fixtures or harvesting, 03 § 14) gets 403/404. The resource-id segment carries A's id; other {param} segments are filled per shared definitions *P
+- SEC-024 P0 [http] CSRF (OWASP CSRF Prevention Cheat Sheet; D-003)
+- SEC-025 P1 [http] Auth endpoint abuse, for each authEndpoints entry
+- SEC-026 P0 [http] Webhooks with auth: signature. Part unsigned (P0): the fixture event (no fixture → {} as application/json) sent with no signature headers is answered non-2xx and has no side effect. Part wrong-signature (P0): the fixtur
+- SEC-027 P0 [ast] Password storage. Password values = request fields whose name matches (?i)^(pass(word)?|passwd|pwd)$ or ends in _password/Password (excluding names starting with confirm), and values written to a column listed in rulese
+- SEC-028 P0 [http] Logout invalidates the session server-side
+- SEC-029 P0 [http, browser] Password-reset and magic-link tokens are single-use
+- SEC-030 P0 [ast, http] API input validation. Part source (P0, ast): each api-surface route handler that reads the request body or query calls an adapter validatorApis function on it before its first queryApis or httpClientApis call in source
+- SEC-031 P0 [ast] Parameterised queries or the ORM's safe API
+- SEC-032 P1 [http, review] Uploads. Upload requests = those made by flow upload steps. No flow has an upload step: when any crawled or flow-visited page contains an input[type=file], a blocking finding missing-element owned by operator (flows are
+- SEC-033 P1 [cfg, http] Test-login backdoors. In the preview pass (04 § 2 item 4, SHIPGATE_VERIFY unset) the request of 03 § 4 *Backdoor login* is sent: method and path from auth.verifyBackdoor, the same JSON body for the first account id in b
+- SEC-037 P0 [http] Token tampering: for each account's session token (auth.sessionCookies values, or the headerTemplate token; JWT = three base64url segments, after adapter cookie decoding), the lexicographically first sampled URL (04 § 1
+- SEC-057 P0† [ast, http] Server functions (enumerated by adapter serverFunctions
+- SEC-036 P0 [http, db] Mass assignment: each write request (POST/PUT/PATCH) recorded during flows is replayed as the same account with extra body fields: properties marked readOnly: true in the operation's contract schemas, plus the ruleset l
+- SEC-077 P0 [http, db] Numeric boundaries on commerce fields (OWASP WSTG-BUSL)
+- SEC-038 P0 [http] Host header poisoning: each mail endpoint is called with a valid body for a seeded account (flow-recorded or contract example) and, in separate requests, Host: evil.shipgate.test and X-Forwarded-Host: evil.shipgate.test
+- SEC-039 P0 [http] Email header injection: for each mail endpoint, each string field of the request is sent in turn as sg{n}@example.com\r\nBcc: sg{n}@evil.shipgate.test, its %0d%0a-encoded form, and sg{n}\r\nCc: sg{n}@evil.shipgate.test;
+- SEC-045 P0† [ast, http] Injection beyond SQL. Source parts flag request-derived values (04 § 13 *Request-derived data flow*) reaching: part exec — adapter execApis (shell or process execution); part fs — the path argument of adapter fsApis unl
+- SEC-046 P0 [http] SSRF: URL-accepting inputs — contract request fields with format: uri|url|iri, and query/body/form fields named in ruleset ssrf-params.json (url, uri, src, source, callback, webhook, image, imageUrl, image_url, avatar,
+- SEC-047 P0† [http, browser] Behavioural XSS: payloads from ruleset xss-payloads.json, each containing {n} (e.g. "'><sgx{n}></sgx{n}><img src=x onerror=__sg('{n}')>, '-__sg('{n}')-', </script><sgx{n}>), are injected into: query parameters seen in l
+- SEC-034 P0† [http, edge] Exposed files: each path in ruleset exposed-paths.json returns no 2xx whose body matches that entry's signature, including /.git/HEAD (^ref: |^[0-9a-f]{40}), /.git/config (\[core\]), /.env, /.env.local, /.env.production
+- SEC-035 P0 [http] Debug and admin tools: each entry of ruleset debug-paths.json ([{ path, signature }], signature a regex over the response body, e.g. /actuator/env → "propertySources", /graphiql → graphiql, /swagger-ui → swagger-ui, /ph
+- SEC-054 P1 [http] Abuse rate limits beyond login
+- SEC-055 P1 [http, html, browser] Bot protection on public form targets
+- SEC-059 P1 [edge] Subdomain takeover: every non-wildcard host in aliasHosts (web-delivery), production.hosts, and hosts[] entries under the registrable domain (Public Suffix List) of a production.origins entry resolves (its CNAME chain e
+- SEC-074 P0 [http, browser] Property-level exposure (OWASP API Security Top 10 2023 API3; ASVS 5.0 V14)
+- SEC-079 P0 [edge] No anonymous object-storage listing (CWE-200, CWE-732)
+- SEC-040 P0 [browser, ast] Card data is entered only in the provider's hosted fields/iframe or redirect (payments.hostedFields)
+- SEC-041 P0 [http] Prices and amounts are computed server-side
+- SEC-042 P0 [build] No live-mode payment key (the live-key patterns of CFG-004
+- SEC-043 P0 [http] Realtime (realtime.protocol adapter
+- SEC-076 P0 [http] WebSocket origin validation (cross-site WebSocket hijacking; CWE-1385, OWASP WSTG-CLNT-10)
+- SEC-044 P0 [http, db] Storage. Probe objects: for each bucket, the objects uploaded during account A's flows (recorded storage upload requests); none → objects listed with the service key; none → notConfigured(storage objects for <bucket>).
+- SEC-048 P0 [http] Payment fulfilment: entitlements are granted only from a verified webhook or a server-side lookup of the provider session. Part fabricated — each account requests payments.successPath with {id} = a provider-shaped id fr
+- SEC-049 P1 [http] Webhook replay, for auth: signature routes with scheme, secretVar and fixture: shipgate signs the fixture event with the secret per the scheme (ruleset webhook-schemes.json: Stripe, Standard Webhooks/Svix, GitHub, Shopi
+- SEC-063 P1 [browser, http] Payment-page scripts (PCI DSS 4.0.1 req
+- SEC-064 P1 [http, cfg] Session lifetime and admin MFA (ASVS V3/V2):
+- SEC-065 P0 [edge] Production takes real payments
+- SEC-066 W [review, cfg] CI workflow hardening (CI files are Operator-owned, so this is advice to the Operator)
+- SEC-067 P1 [browser, http] Email ownership before trust (OWASP ASVS 5.0 V6), when project.kinds contains saas (mutating stage, 04 § 4.2 step 8)
+- SEC-050 P0† [diff] No secrets committed (04 § 13)
+- SEC-051 P0 [deps] No known vulnerabilities ≥ vulnerabilities.blockAt (OSV offline database), except waived packages
+- SEC-052 P1 [deps] Direct dependencies added in the diff (04 § 5)
+- SEC-053 P0 [deps, diff] Supply chain. Part lockfile — every dependency manifest has its committed lockfile (package-lock.json/pnpm-lock.yaml/yarn.lock/bun.lock, poetry.lock/uv.lock/hash-pinned requirements*.txt, composer.lock, Gemfile.lock, go
+- SEC-060 P1 [http] GraphQL, in production mode. GraphQL endpoints = the endpoint path (default /graphql) of each data-api.contracts entry with type: "graphql", plus every flow-recorded POST whose JSON body has a string query property; non
+- SEC-061 W [review] AI features: user content passed to models is delimited from instructions; cost caps exist per account; system prompts contain no secrets. (Automated parts: SEC-062; output rendering: SEC-001.)
+- SEC-062 P1 [ast, http] AI endpoints = route handlers that call adapter modelApis (directly or via a function in the same module) ∪ aiEndpoints
+- SEC-070 P1 [http] No anonymous username enumeration unless wordpress.publicAuthors
+- SEC-071 P1 [http] Unless wordpress.xmlrpc: true, POST /xmlrpc.php with system.listMethods doesn't return 2xx with a <methodResponse> body. remote: read: system.listMethods is a read-only call, and this POST is the only non-GET/HEAD reque
+- SEC-072 P1 [http] wp-login.php: rateLimit.attempts failed logins for one username from one client produce at least one 429 or 403, or a body matching ruleset wp-lockout-signatures.json (string[] of case-insensitive regexes over the respo
+- SEC-073 P1 [http, deps] Core, plugin and theme versions — from wp-includes/version.php and plugin/theme headers for local services; otherwise from the generator meta, /feed/ generator, readme.txt Stable tag under /wp-content/plugins/<slug>/ an
