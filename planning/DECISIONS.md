@@ -20,3 +20,14 @@
 4. **Skills live in this repo.** They are copied into `skills/` (the platform's source of truth) and stay usable outside the repo
    for side work. Drift rule: `skills/SOURCE.md` records where each copy came from; changes made outside are synced back on purpose,
    never silently.
+
+## 2026-10-24 (on planning/REQUIREMENTS.md)
+
+5. **Tenant data: spike first.** Short test of Supabase vs Cloudflare D1 before step C; no choice until then.
+6. **Content master copy: database rows.** The content contract's values live in the tenant DB; version history and rollback must
+   be built in (no git-file source of truth).
+7. **Hosting: one Omnikom Cloudflare account** for all client sites (fully scriptable with one upgraded token); the client still
+   owns the domain.
+8. **OmniSuite is `E:\Omnisuite final stage the CTO Packets\omnisuite-platform`** (not `D:\Omincom\Omnikom Platform build for the
+   Suite system`). Its engine is **not yet upgraded to work as an API**, so the lead adapter (O1) waits for that upgrade. Its own
+   session can be asked about it: resume steps in `E:\Omnisuite final stage the CTO Packets\RESUME-THIS-CONVERSATION.txt`.

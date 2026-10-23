@@ -26,8 +26,7 @@ client, as cited). No code yet. Open decisions are marked **DECIDE**; unknowns *
 - **Integrations:** reads the skill's plan output (`targets.json`, briefs); the factory renders from it; the dashboard edits it.
 - **PROVEN:** the plan side (`plan-site` -> `approve.mjs` signed/locked -> briefs; `E:\Rainmaker\.pewp`). **TO BUILD:** the
   contract schema, generator (plan -> contract), and the renderer change (today text lives inside HTML: `E:\Rainmaker\site-src\`).
-- **DECIDE:** where the contract lives as source of truth: DB rows (dashboard-native) vs JSON files in a per-client git repo
-  (diffable, rebuildable) with the DB as an index.
+- **DECIDED (DECISIONS.md 6):** the contract values live as DB rows; versions + rollback must be built in.
 
 ### 0.3 Auth
 - **Capabilities:** email login (magic link or password), roles (operator, client owner, client staff), invite a client user,
@@ -38,9 +37,9 @@ client, as cited). No code yet. Open decisions are marked **DECIDE**; unknowns *
 ### 0.4 OmniSuite link (follow-up engine, rented by API key; DECISIONS.md 1)
 - **Capabilities:** push each lead (with source page, form fields, consent text) to OmniSuite or the client's own CRM (webhook);
   read back status if the API allows.
-- **Credentials:** an OmniSuite API key per tenant (or one platform key + tenant id). **UNKNOWN:** the API exists only in the
-  Suite's spec (`D:\Omincom\Omnikom Platform build for the Suite system\spec\20-architecture\05-infrastructure-auth-api.md:311`,
-  tenant API keys under `/api/v1/integrations`); not known to be built or live. **UNKNOWN:** that this repo is the "OmniSuite" meant.
+- **Credentials:** an OmniSuite API key per tenant (or one platform key + tenant id). OmniSuite =
+  `E:\Omnisuite final stage the CTO Packets\omnisuite-platform` (DECISIONS.md 8); its engine is **not yet an API** (owner,
+  2026-10-24), so the adapter is BLOCKED on that upgrade. **UNKNOWN:** the API's shape; ask its own session.
 - **PROVEN:** generic push only: forms -> Google Apps Script -> Sheet + email alert (`E:\Rainmaker\integrations\apps-script`,
   `E:\Rainmaker\tools\live-form-check.mjs`). **TO BUILD:** the lead API in our DB, webhook out, OmniSuite adapter.
 
@@ -140,24 +139,22 @@ client, as cited). No code yet. Open decisions are marked **DECIDE**; unknowns *
 | Per client: registrar login holder, Google Workspace status, existing tracking accounts | part 3 domain move | per client |
 
 ## Open decisions (owner)
-1. Tenant data: Supabase vs Cloudflare D1 (or spike first).
-2. Content contract source of truth: DB rows vs per-client git files.
-3. Whose Cloudflare account hosts client sites: one Omnikom account vs each client's own.
-4. OmniSuite: confirm the D: repo is it, and whether its lead API exists yet.
-Later: worker/CI host for gates, email provider, payments, dashboard app stack (follows 1).
+Answered 2026-10-24 (DECISIONS.md 5-8): tenant DB = spike first; content master copy = DB rows (build versions + rollback in);
+hosting = one Omnikom Cloudflare account; OmniSuite = `E:\Omnisuite final stage the CTO Packets\omnisuite-platform`, not yet an API.
+Still open, later: worker/CI host for gates, email provider, payments, dashboard app stack (follows the DB spike).
 
 ## Dependency-ordered build list
 1. **A1** Presence Report runner over the existing skill modules (no new accounts needed) -> reproduce Francine's report.
 2. **A2** No-website path + RDAP + scoring rubric as data -> calibrate on Eli, Rainmaker; measure time + usage per report.
 3. **K1** Per-client knowledge folder written by the runner (part 2, files).
-4. **B1** Generic content contract schema + generator (plan -> contract). Needs: decision 2.
+4. **B1** Generic content contract schema + generator (plan -> contract); values stored as DB rows (needs S1 spike, or a file stand-in until then).
 5. **B2** Factory template: render Rainmaker's site from a contract with no bespoke code; all existing gates pass.
-6. **B3** One command: approved plan -> gated preview on a Worker. Needs: Cloudflare token upgrade, decision 3.
+6. **B3** One command: approved plan -> gated preview on a Worker in the Omnikom account. Needs: Cloudflare token upgrade.
 7. **B4** Scripted zone/DNS/SSL onboarding + Search Console verify. Needs: token, Google Cloud project.
-8. **S1** Spike + choose tenant DB; schema + RLS + auth. Needs: decision 1.
+8. **S1** Spike Supabase vs D1 (DECISIONS.md 5), then schema + RLS + auth.
 9. **C1** Lead API + inbox + webhook; move the Apps Script forms onto it.
 10. **C2** Dashboard: edit contract fields, publish (rebuild + gate + deploy + rollback). Needs: build runner host.
 11. **C3** Search Console + health panels; operator view.
-12. **O1** OmniSuite adapter. Needs: decision 4 + a working API.
+12. **O1** OmniSuite adapter. BLOCKED until OmniSuite's engine is upgraded to an API (DECISIONS.md 8).
 13. **D1** AI operators (proposal -> approval -> publish -> measure). Needs: C2, model key with cap.
 14. **E1** Self-serve signup, checkout, job queue. Needs: A-D, payments.
