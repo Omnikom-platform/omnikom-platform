@@ -68,8 +68,11 @@ The business reason (owner): free clients from builders that lock them in (Duda,
 - Client report renderer: `E:\Francine & Eli\tools\review-pdf.mjs`; report shape: `deliverables/docs/website-review-francine.md`
 - ICM + librarian pattern: `E:\Francine & Eli\icm\`, `tools/icm-index.mjs`, agent copy in `skills/icm-librarian.agent.md`
 - SEO/build skill (research, local, plan, approve, gate, snapshot, compare, code-check workers): `skills/programmatic-enterprise-web-performance/`
-- OmniSuite (follow-up engine to rent by API key): separate codebase, likely `D:\Omincom\Omnikom Platform build for the Suite system`
-  (UNVERIFIED path; confirm with the owner before relying on it).
+- OmniSuite (follow-up engine to rent by API key): separate codebase at `D:\Omincom\Omnikom Platform build for the Suite system`
+  (path exists, checked 2026-10-24; its README calls it "Omnikom Suite (alternate: OneOREAN)", Supabase-native, 13 industries,
+  "the code, which is a third built"). Its spec plans tenant-scoped API keys under `/api/v1/integrations`
+  (`spec/20-architecture/05-infrastructure-auth-api.md:311`). UNVERIFIED: that this is the "OmniSuite" in DECISIONS.md 1, and
+  that any lead-intake API is built or live (spec only). Confirm with the owner.
 
 ## People and working style
 - Abdo: CTO, makes the technical calls and sign-offs. Dave: CEO, owns Omnikom, business decisions and the client relationship

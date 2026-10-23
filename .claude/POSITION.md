@@ -1,7 +1,9 @@
 # Position
 
 ## 2026-10-24 (handover from the Francine & Eli / Rainmaker session)
-- **Repo born today.** Planning inputs banked verbatim, analysis written, owner decisions recorded, skills copied in. Git: `256cad0`.
+- **Repo born today.** Planning inputs banked verbatim, analysis written, owner decisions recorded, skills copied in. Git: `256cad0`, then `274351b` (session context), `484819f` (launcher).
+- **Same day, later:** knowledge check passed; ANALYSIS.md stale lines marked superseded; `planning/REQUIREMENTS.md` written (what
+  each part needs, PROVEN vs TO BUILD, credentials, open decisions, dependency order). No code yet.
 - **Next: build step A, the Presence Report engine** (prospect sales tool; also the onboarding baseline). One command: business
   name, city/area, phone, optional website + socials in; scored, sourced PDF out; human review before it goes out. Plan:
   `E:\Francine & Eli\icm\work\presence-report-plan.md`; reuse list in `planning/ANALYSIS.md` section 2. First proof: reproduce

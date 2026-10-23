@@ -2,9 +2,10 @@
 
 Sources: `inputs/2026-10-23-chatgpt-omnikom-website-cms-full-chat.md` (ChatGPT), `inputs/2026-10-23-owner-draft-deepseek-brief.md`
 (owner draft), and what was really built and proven on Francine (VTV), Eli and Rainmaker (evidence paths below).
-Status: analysis; the owner settled sections 3 and 6 on 2026-10-24, see `DECISIONS.md` (lead inbox + OmniSuite by API key for
-follow-up; humans only at design approval + fact/legal sign-off on the preview; one standard procedure for every industry with a
-plan-generated content contract; skills copied into `skills/`).
+Status: analysis; the owner settled section 3 and items 6.1, 6.3, 6.4 on 2026-10-24, see `DECISIONS.md` (lead inbox + OmniSuite by
+API key for follow-up; humans only at design approval + fact/legal sign-off on the preview; one standard procedure for every
+industry with a plan-generated content contract; skills copied into `skills/`). Item 6.2 (where tenant data lives) is still OPEN;
+see `REQUIREMENTS.md`. Where this file and `DECISIONS.md` disagree, `DECISIONS.md` wins.
 
 ## 1. The shape in one picture
 
@@ -49,7 +50,7 @@ Five parts, one shared spine (the client record + its content contract):
 1. **CRM inside the dashboard?** Owner: "Dashboard has a built in CRM". ChatGPT: "not a competing full CRM; push leads to the
    client's CRM / MARY". Luxury Presence clients expect a lead inbox. Middle path: a **lead inbox** (list, status, owner, notes,
    export, webhook to any CRM), which is exactly what the Rainmaker Sheet already does, and no pipelines/deals/email campaigns.
-   **OPEN.**
+   **SETTLED 2026-10-24** (DECISIONS.md 1): lead inbox + push; follow-up runs on OmniSuite by API key.
 2. **"No humans" vs. what we saw.** Safe to automate end to end: research, scoring, the report draft, SEO planning, building,
    gating, deploying, monitoring. Not safe without a human yet: (a) facts in a client-facing report (sources can be wrong), (b)
    legal/compliance pages (Rainmaker: legal entity, licence states, consent wording), (c) design taste (the owner rejected several
@@ -67,7 +68,9 @@ Five parts, one shared spine (the client record + its content contract):
 - Keep `llms.txt` as an optional extra, not a selling point (we built it; fine, do not promise outcomes from it).
 - AEO/GEO "visibility" must show observed samples, not invented scores. Our report already follows "facts carry sources".
 - Programmatic pages need a quality gate (the skill has one: GT-009 + brief coverage). Keep it strict.
-- Dashboard universal, content schemas per industry (real estate: agents, areas, listings; insurance: products, licensed states).
+- Dashboard universal. ~~Content schemas per industry~~ SUPERSEDED by DECISIONS.md 3: no per-industry schemas; each client's
+  sections and collections are declared by its own SEO plan (a realtor's plan yields agents/areas/listings, an insurer's yields
+  products/licensed states).
 
 ## 5. Build order (each step sells something on its own)
 
@@ -84,9 +87,10 @@ Five parts, one shared spine (the client record + its content contract):
 1. CRM scope: lead inbox + export/webhook (recommended) vs. full CRM.
 2. Where tenant data lives: Supabase (already used for OmniSkipX) vs. Cloudflare D1 (already hosting the sites). Recommendation
    after a short spike, not now.
-3. First industries for the content schemas: real estate (Francine, Eli) + insurance (Rainmaker) since we have real data for both.
-4. Where the skills live: move them into this repo as source (with `~/.claude/skills` pointing here), or keep them where they are
-   and reference them. Moving needs a careful link so Claude Code still finds them.
+3. ~~First industries for the content schemas~~ SETTLED (DECISIONS.md 3): one procedure for all industries; the three real clients
+   are test cases, not schemas.
+4. ~~Where the skills live~~ SETTLED (DECISIONS.md 4): copied into `skills/` as source; outside copies stay; no link; drift tracked
+   in `skills/SOURCE.md`.
 
 ## 7. Proposed folder layout for this repo
 
@@ -99,6 +103,6 @@ E:\Omnikom Platform\
     factory\   part 3: template site + content contract + build/deploy tools (from Rainmaker)
     control\   part 4: dashboard app
     ops\       part 5: AI operators
-  contracts\   content contract schemas (per industry) shared by factory + control
+  contracts\   the one generic content contract schema (sections + collections declared by each plan), shared by factory + control
   clients\     per-client knowledge exports (part 2) until the DB exists
 ```
