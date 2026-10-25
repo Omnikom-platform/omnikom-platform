@@ -1,0 +1,6 @@
+Resume this Claude Code session (started 2026-10-24):
+
+  cd "E:\Omnikom Platform"
+  claude --resume dc89bd7c-f63e-4c20-9cbe-0709be15a834
+
+Web/phone link: https://claude.ai/code/session_01DTpLUKpyQ28V33AC56XHgQ
