@@ -17,6 +17,13 @@
   It filed `decisions/17-redirection-2026-10.md`; the lead endpoint is item 1 of its E6 API contract; the draft comes to both
   sessions when the owner says go. Rainmaker Sheet has no `external_lead_id` column yet (add one when that API exists).
 
+- **2026-10-26: first real run of step A (Presence Report) is a prospect: ELEV8 Real Estate Group / Alex Sevilla**, done by
+  hand in `E:\Alex Sevilla` (BRIEF.md = sequence, deliverables, skill stages per phase; facts/ = verified inputs). Lessons for the
+  engine (owner, 2026-10-26): start from the brand's MAIN domain, not the link given; every number confirmed in the browser
+  (scroll bottom then top first); speed from PageSpeed Insights mobile + desktop with conditions; live sitemap and code read;
+  a full search grid (brand + name variants + services x cities) on Google, Bing, Maps; record time and usage per phase.
+- Track record for the offer: Francine (VTV), Eli and Rainmaker all reached the website-draft stage with previews.
+
 ## Open elsewhere (not this repo, but the owner may ask)
 - Rainmaker launch is WAITING on Monica's answers (via Dave) and the GoDaddy nameserver switch; steps in `E:\Rainmaker\LAUNCH.md`.
 - Francine (VTV) and Eli: see `E:\Francine & Eli\.claude\POSITION.md`.
