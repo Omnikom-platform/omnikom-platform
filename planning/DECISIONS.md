@@ -31,3 +31,11 @@
 8. **OmniSuite is `E:\Omnisuite final stage the CTO Packets\omnisuite-platform`** (not `D:\Omincom\Omnikom Platform build for the
    Suite system`). Its engine is **not yet upgraded to work as an API**, so the lead adapter (O1) waits for that upgrade. Its own
    session can be asked about it: resume steps in `E:\Omnisuite final stage the CTO Packets\RESUME-THIS-CONVERSATION.txt`.
+
+## 2026-10-26 (owner, while the setup-service brief was being written)
+
+9. **Omnikom holds the running accounts, not the client.** Google Search Console, hosting and deployment are on Omnikom's
+   accounts (not "in the client's name"). The client keeps their domain, content, enquiries and listings. **On exit** the client
+   gets the website's codebase, and Omnikom keeps the site hosted as it is. Omnikom is sold as a platform: the setup is how a
+   client gets onto it (`E:\Francine & Eli\deliverables\docs\OMNIKOM-setup-service.md`).
+10. **After the setup, the growth loop:** optimise organic (Google + AI answers) until it levels off; paid ads only after that.
