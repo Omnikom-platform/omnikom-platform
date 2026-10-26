@@ -13,6 +13,12 @@ below); first version: `E:\Francine & Eli\tools\site-backup`. Its README lists e
 2. **Find the pages the sitemap misses.** Sitemaps are often incomplete (ELEV8: 20 URLs, all 9 agent profile pages missing). From
    the saved home page HTML and the site's own HTML sitemap / directory pages (no extra requests), list important internal pages
    and pass them with `--extra` (explicit list; never scrape every link).
+2b. **IDX / listing search (owner rule 2026-10-26).** Listing pages come from a third-party MLS feed (Brivity IDX, Luxury
+   Presence `/home-search`, ...): they rate-limit, never "settle" on the automated phone pass, and their content is not the
+   client's. We only need their **design**: capture exactly **one search results page** (the main home-search / search page) and
+   **one listing detail page**; exclude every other search variant and listing (`--exclude-pages` for the feed's paths, plus the
+   two chosen URLs in `--extra`). Check those two in the browser by hand (phone and desktop) and list them in `VERIFY-EXCEPTIONS.md`
+   if the automated phone pass fails.
 3. **Run** (PowerShell, never Git Bash, which rewrites `/` arguments), in the background:
    `node backup.mjs --site https://<host> --sitemap <url> --extra "<paths>" --out "<backups>/<host>_<YYYY-MM-DD>"`
    WordPress: add `--raw-variant "?nowprocket=1" --wp-api`. A run that dies: move its folder to `backups/_stopped/<name>_runN-<why>`
@@ -43,6 +49,9 @@ robots.txt obeyed, one 429 = 90 s pause, a second 429 stops the run.
 | ELEV8 | one network error with no HTTP answer ended a run in its first second | one retry per URL after 20 s for a plain network error |
 | ELEV8 | the sitemap writes `&` as `&#38;`; only `&amp;` was decoded, so search URLs were cut short | all XML entities decoded (`decodeXmlUrl`), URLs compared normalised (`normUrl`); `test-urls.mjs` proves it |
 | ELEV8 | several query pages on one path got one folder name (named from the query's last 12 characters) | readable start + hash of the whole query (`pageSlug`) |
+| ELEV8 | the 4 IDX listing-search pages (`/search?multi_search=...`, Brivity IDX, MLS feed) never "settled" on the automated phone pass, though a person's phone view shows the listings and an offline phone replay settles in 2 s | owner rule (2026-10-26), step 2b: capture one search page + one listing page for the design only; exclude the rest of the feed; hand-check those two; list them in `VERIFY-EXCEPTIONS.md` if needed. Same family as Francine's `/home-search` |
+| ELEV8 | finished listing cards keep a CSS class "loading" | a loader counts only if visible and still empty (`countLoaders`, `test-loaders.mjs`) |
+| ELEV8 | the offline replay read pages without scrolling or waiting (82-88% of live text) | the replay scrolls bottom-then-top and waits for the text to settle, like the capture |
 | ELEV8 | two platform stylesheets answer 403; the record keeps them with no answer and the offline replay hung on them | replay aborts requests the record holds with no answer (`harUnanswered`); the 403 itself is an audit lead |
 
 ## Measured times

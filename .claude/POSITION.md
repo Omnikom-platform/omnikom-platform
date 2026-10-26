@@ -30,6 +30,16 @@
   when the ELEV8 run ends (they are still changing). `skills/programmatic-enterprise-web-performance` here is at 92c540b; the live
   skill is at 2822a78 (overhaul mode): sync on purpose and update `skills/SOURCE.md`. Not committed yet.
 
+- **2026-10-26: API keys banked** (owner: "save all creds in a folder in omnikom platform ... gitignored"): `.secrets/api-keys.env`
+  (git-ignored by the new `.gitignore`) holds PSI_API_KEY, CRUX_API_KEY (Google Cloud project `omnikom-seo`, key restricted to those
+  2 APIs), GEMINI_API_KEY (AI Studio free tier), BING_WEBMASTER_KEY (account with omniskipx.com verified). Doc without values:
+  `sops/credentials.md`; tools `tools/save-secret-from-clipboard.ps1`, `tools/check-api-keys.mjs` (all four HTTP 200; a wrong key
+  -> 401). OPEN for the owner: `PEWP_GEMINI_TERMS_ACK`. Committed `9e4980e` (`.gitignore`, `sops/credentials.md`, the 2 tools; never
+  `.secrets/`).
+- **2026-10-26: IDX lesson in the backup SOP** (owner): `sops/website-backup.md` step 2b: for an IDX / home-search feed capture only
+  one search page + one listing page (design only), exclude the rest, hand-check those two; plus trap rows for the loader class and
+  the replay that did not scroll.
+
 ## Open elsewhere (not this repo, but the owner may ask)
 - Rainmaker launch is WAITING on Monica's answers (via Dave) and the GoDaddy nameserver switch; steps in `E:\Rainmaker\LAUNCH.md`.
 - Francine (VTV) and Eli: see `E:\Francine & Eli\.claude\POSITION.md`.
