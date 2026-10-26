@@ -11,8 +11,11 @@
   measure real time + usage per report (the chat estimates are UNPROVEN).
 - **Then step B:** the content contract (generated from each client's SEO plan) + Factory v1 from the Rainmaker pipeline. The
   dashboard (step C) cannot start before the contract: today's sites keep their text inside the HTML.
-- **Budget:** weekly usage was 93% on 2026-10-24 (cap 95%); it resets Wednesday 2026-10-28 19:00. Do not start step A before the
-  reset unless the owner says so.
+- **Budget:** weekly usage was 93% on 2026-10-24 (cap 95%). UPDATE 2026-10-26: the week has reset (meter 18% used, next reset
+  Sat 2026-10-31 06:00), so step A is no longer blocked by budget; it starts when the owner says go.
+- **OmniSuite (2026-10-24..26):** session omnisuite-platform-91 knows it can ask the Francine & Eli session about this platform.
+  It filed `decisions/17-redirection-2026-10.md`; the lead endpoint is item 1 of its E6 API contract; the draft comes to both
+  sessions when the owner says go. Rainmaker Sheet has no `external_lead_id` column yet (add one when that API exists).
 
 ## Open elsewhere (not this repo, but the owner may ask)
 - Rainmaker launch is WAITING on Monica's answers (via Dave) and the GoDaddy nameserver switch; steps in `E:\Rainmaker\LAUNCH.md`.
