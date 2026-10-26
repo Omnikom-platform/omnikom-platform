@@ -275,6 +275,27 @@ async function suite(scriptsDir, { full }) {
     expectPass("a page the cluster lists in alsoServes is not cannibalisation", "GT-003", variant([["guides/sell-my-house-without-a-realtor-california/index.html", (h) => h.replace(/<title>[^<]*<\/title>/, "<title>Realtor Cost in California: What You Pay | Sample Valley Realty</title>").replace(/<h1>[^<]*<\/h1>/, "<h1>How Much Does a Realtor Cost in California?</h1>")]]), {}, pewpVariant((d) => jedit(d, "targets.json", (t) => { t.clusters.find((c) => c.id === "c-cost-of-realtor").alsoServes = ["/guides/sell-my-house-without-a-realtor-california/"]; })));
     expectPass("a page of a type that does not fit the intent is not a rival (a Product page for an informational search)", "GT-003", variant([["guides/sell-my-house-without-a-realtor-california/index.html", (h) => ((h) => h.replace(/<title>[^<]*<\/title>/, "<title>Realtor Cost in California: What You Pay | Sample Valley Realty</title>").replace(/<h1>[^<]*<\/h1>/, "<h1>How Much Does a Realtor Cost in California?</h1>"))(h).replace("</head>", '<script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"Report"}</script></head>')]]));
     expectPass("a city page for another place (same head term, other place) is not a rival (a page per city)", "GT-003", CLEAN);
+    // GT-003-SUBTOPIC: a planned page of a narrower or local sibling cluster is a deliberate sub-topic page, not a rival
+    {
+      // a planned cluster+page is [id, query, intent, url path, (unused), title]; built() adds the page to the site, plannedSet() adds the cluster and sitemap entry
+      const COST = "sell/cost-of-a-realtor/index.html"; // every added cluster and page is a copy of the fixture's cost-of-a-realtor cluster, page and brief
+      const plannedSet = (list, alsoServes = {}) => pewpVariant((d) => {
+        jedit(d, "targets.json", (t) => { const tpl = t.clusters.find((x) => x.id === "c-cost-of-realtor"); for (const [id, q, intent] of list) t.clusters.push(Object.assign(structuredClone(tpl), { id, primaryQuery: q, queries: [q], intent, targetPage: "new", questions: [], requiredEntities: [] })); for (const c of t.clusters) if (alsoServes[c.id]) c.alsoServes = alsoServes[c.id]; });
+        jedit(d, "plan/sitemap.json", (m) => { const tpl = m.pages.find((x) => x.cluster === "c-cost-of-realtor"); for (const [id, , , p] of list) m.pages.push({ ...tpl, path: p, cluster: id }); });
+      });
+      const built = (list) => variant([], { add: Object.fromEntries(list.map(([, , , p, , ttl]) => [p.slice(1) + "index.html", fs.readFileSync(path.join(CLEAN, COST), "utf8").replace(/<title>[^<]*<\/title>/, "<title>" + ttl + "</title>").replace(/<h1>[^<]*<\/h1>/, "<h1>" + ttl + "</h1>")])) });
+      const narrow = [["c-luxury-cost", "how much does a luxury realtor cost in california", "informational", "/guides/luxury-realtor-cost/", COST, "How Much Does a Luxury Realtor Cost in California?"]];
+      expectPass("a planned page of a narrower cluster (all the head-term words plus one more) is a sub-topic page, not a rival", "GT-003", built(narrow), {}, plannedSet(narrow));
+      expectFail("the same narrower page when no cluster of the plan owns it (unplanned) is still a rival", "GT-003", built(narrow), /1 other page\(s\) have its head term .*\/guides\/luxury-realtor-cost\//);
+      const dup = [["c-cost-dup", "realtor cost in california how much does it", "informational", "/guides/realtor-cost-california/", COST, "How Much a Realtor Costs in California"]];
+      expectFail("a planned page of a cluster with the same head term, no extra word and the same places is a true duplicate and still a rival", "GT-003", built(dup), /"how much does a realtor cost in california".*\/guides\/realtor-cost-california\//, {}, plannedSet(dup));
+      // the head term is the same, only the places differ: "how much does a realtor cost in california" (the fixture's cluster) and the general "how much does a realtor cost"
+      const general = [["c-cost-general", "how much does a realtor cost", "informational", "/guides/realtor-cost-general/", COST, "How Much Does a Realtor Cost?"]];
+      expectPass("a planned general page is not a rival of the place-named cluster (same head term, the page names no place, the cluster does)", "GT-003", built(general), {}, plannedSet(general, { "c-cost-general": ["/sell/cost-of-a-realtor/"] }));
+      expectPass("a planned place-named page is not a rival of the general cluster (same head term, the page names a place, the cluster does not)", "GT-003", built(general), {}, plannedSet(general, { "c-cost-of-realtor": ["/guides/realtor-cost-general/"] }));
+      expectPass("a general and its place-named sibling together: neither direction is a rival", "GT-003", built(general), {}, plannedSet(general));
+      expectPass("an UNPLANNED page for another place (Loomis) is still not a rival of the place-named clusters (the old page-for-another-place guard)", "GT-003", variant([], { add: { "loomis-ca/index.html": fs.readFileSync(path.join(CLEAN, "rocklin-ca/index.html"), "utf8").replace(/<title>[^<]*<\/title>/, "<title>Real Estate Agent in Loomis, CA | Sample Valley Realty</title>").replace(/<h1>[^<]*<\/h1>/, "<h1>Real Estate Agent in Loomis, CA</h1>") } }));
+    }
     // GT-011 priority-demand-covered (TGT-011, W)
     {
       const noGuide = variant([], { remove: ["guides/sell-my-house-without-a-realtor-california/index.html"] });
@@ -689,7 +710,10 @@ async function suite(scriptsDir, { full }) {
       // the committed fixtures are what the builder + planner write today
       const regen = fresh("regen");
       const fb = spawnSync(process.execPath, [path.join(FIX, "build-fixtures.mjs"), "--out", regen], { encoding: "utf8", timeout: 600_000 });
-      const files = walkFiles(FIX).filter((f) => f !== "build-fixtures.mjs" && f !== "freshness-sites.mjs"); // freshness-sites.mjs is a generator (test-freshness), not output
+      // freshness-sites.mjs is a generator (test-freshness), not output; bing-junk/ and competitors/ are copies of real responses and reports
+      // (evidence fixtures of the 2026-10-25 overhaul: test-research, test-approve), hand-made, never generated here
+      const HAND_MADE = /^(bing-junk|competitors|serp-html)[\\/]/; // serp-html: reduced real result pages (test-capture, G23)
+      const files = walkFiles(FIX).filter((f) => f !== "build-fixtures.mjs" && f !== "freshness-sites.mjs" && !HAND_MADE.test(f));
       const stale = files.filter((f) => !fs.existsSync(path.join(regen, f)) || fs.readFileSync(path.join(regen, f), "utf8") !== fs.readFileSync(path.join(FIX, f), "utf8"));
       check("S: committed fixtures equal what build-fixtures.mjs writes now (none stale)", fb.status === 0 && stale.length === 0 && walkFiles(regen).length === files.length, `${fb.stderr} stale: ${stale.join(", ")}`);
     }
@@ -726,9 +750,14 @@ if (!args.includes("--no-mutants") && !opt("--scripts")) {
     ["gate-query-match.mjs", '["meta description", pg.metaDescription || ""], ', "", /G: GT-004 FAIL a meta description that does not carry/, "TGT-004: the meta description is not checked"],
     ["lib-growth.mjs", "return [cluster.primaryQuery, ...(cluster.queries || [])].some((q) => containsPhrase(text, q));", "return false;", /G: GT-004 PASS a first paragraph that carries another query/, "TGT-004: only the head term counts, not the cluster's other queries"],
     ["gate-cannibalisation.mjs", "if (rivals.length) bad.push(", "if (false) bad.push(", /G: GT-003 FAIL a second page/, "TGT-003: a rival page is no longer flagged"],
+    ["gate-cannibalisation.mjs", "if (isSubTopicOf(c, head, myPlaces, clusterOfPlanned.get(pg.path), locale)) continue;", "", /G: GT-003 PASS a planned (page of a narrower|general page|place-named page|general and)/, "GT-003-SUBTOPIC: a planned page of a narrower or local sibling cluster is accused of cannibalising again"],
+    ["gate-cannibalisation.mjs", "return dHead.words.length > head.words.length || !samePlaces;", "return !samePlaces;", /G: GT-003 PASS a planned page of a narrower cluster/, "GT-003-SUBTOPIC: an extra word in the sibling's head term no longer makes it a sub-topic"],
+    ["gate-cannibalisation.mjs", "return dHead.words.length > head.words.length || !samePlaces;", "return dHead.words.length > head.words.length;", /G: GT-003 PASS a planned (general page|place-named page|general and)/, "GT-003-SUBTOPIC: a different set of place names (general against local, either direction) no longer makes it a sub-topic"],
+    ["gate-cannibalisation.mjs", "return dHead.words.length > head.words.length || !samePlaces;", "return true;", /G: GT-003 FAIL a planned page of a cluster with the same head term/, "GT-003-SUBTOPIC: a true duplicate (same head term, same places) is exempted"],
+    ["gate-cannibalisation.mjs", "if (!d || d.id === c.id) return false;", "if (d && d.id === c.id) return false; if (!d) return true;", /G: GT-003 FAIL the same narrower page when no cluster/, "GT-003-SUBTOPIC: an unplanned page is exempted"],
     ["gate-cannibalisation.mjs", "if (pg.path === mine || exempt.has(pg.path)) continue;", "if (pg.path === mine) continue;", /G: GT-003 PASS a page the cluster lists in alsoServes/, "TGT-003: alsoServes no longer exempts a page"],
     ["gate-cannibalisation.mjs", 'if (!isCompatible(c.intent, ctx.pageTypeOf(pg), { cta: hasCta(pg.path) }) && !(pg.path === "/" && isCompatible(c.intent, "home"))) continue;', "", /G: GT-003 PASS a page of a type that does not fit/, "9.7: the page type is ignored when matching a rival"],
-    ["gate-cannibalisation.mjs", "if (namesOtherPlace(c.primaryQuery, `${pg.title} ${pg.h1[0] || \"\"}`, { locale })) continue; // a page for another place", "", /G: GT-003 PASS a city page for another place/, "skill choice: the page-for-another-place exemption is gone, so sibling city pages accuse each other"],
+    ["gate-cannibalisation.mjs", "if (namesOtherPlace(c.primaryQuery, `${pg.title} ${pg.h1[0] || \"\"}`, { locale })) continue; // a page for another place", "", /G: GT-003 PASS an UNPLANNED page for another place/, "skill choice: the page-for-another-place exemption is gone, so sibling city pages accuse each other"],
     ["gate-coverage.mjs", "if (ctx.strict) return fail(", "if (false) return fail(", /G: GT-011 FAIL the same gap under --strict/, "TGT-011: --strict no longer turns the warning into a failure"],
     ["gate-coverage.mjs", "const top = ranked.slice(0, n)", "const top = ranked", /G: GT-011 only the top/, "TGT-011: every cluster counts, not the top priorityPages"],
     ["gate-coverage.mjs", "(b.priority ?? 0) - (a.priority ?? 0) ||", "", /G: GT-011 the top clusters are chosen by priority/, "TGT-011: clusters taken in file order, not by priority"],

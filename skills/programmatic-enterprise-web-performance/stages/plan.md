@@ -21,13 +21,19 @@ read `plan/summary.md` and the briefs, tell the owner in plain words, and fix wh
    text, at most about 40% shared with a sibling): `--prog-min-words 1000 --prog-min-unique 600 --prog-min-facts 5 --prog-max-similarity 0.4`.
    Other knobs: `--hub-min 4` (city pages needed before an "areas we serve" hub is added), `--home-max-links 40`, `--today`.
    Exit 0 written, 1 invalid input (nothing written), 2 a file is missing.
+   `--require-approved-business` (after the folder) refuses with exit 1 unless `approved/business.json` is the current `business.json`:
+   the owner signs the business definition first (`node scripts/approve.mjs <target> business --by NAME`), or intake runs again if it changed.
 3. Read `plan/summary.md` (ranked list) and tell the owner, in plain words: how many pages, which are new, what is quick, what is blocked.
+   Call `plan/sitemap.json` "the page plan" in every word the owner reads; "the sitemap file" is sitemap.xml, which search engines read and the built site makes later.
+   Then draw the page plan for the owner: `node scripts/plan-picture.mjs <pewp dir> [--out-dir DIR]` writes `plan/page-plan.svg`, `plan/page-plan.png` (every page as a box under
+   its parent with its target search, volume and NEW or EXISTING; the PNG needs Chrome, else it prints `PNG BLOCKED` and the SVG and the table `plan/page-plan.md` are still written)
+   and prints `page plan picture: N pages, M new`. Show the owner the PNG before asking for the yes (`approve.mjs <target> plan --by NAME`).
 4. Fill what the plan cannot know: `plan/programmatic-data.json` (local facts, each with value, source and date), the data source in
    `plan/programmatic.json`, and the real values behind `{{PLACEHOLDERS}}` in the briefs. A fact without a source and date does not count at the gate.
 5. Hand `plan/briefs/<slug>.md` to the builder as its spec. It is the same file the S5 gate reads.
 
 ## What it writes (`<pewp>/plan/`)
-- `sitemap.json`: one cluster = one page; `kind` (home, city-landing, guide, money, hub), `role` (home, hub, spoke, support), `parent`,
+- `sitemap.json` (the page plan, not the sitemap file search engines read, which is sitemap.xml and is made later from the built pages): one cluster = one page; `kind` (home, city-landing, guide, money, hub), `role` (home, hub, spoke, support), `parent`,
   slug and path (an existing `targetPage` keeps its URL; a new page gets `/<slug of the query>/`, guides under `/guides/`), planned title (<=60), H1,
   meta description (<=160), schema types, word range, and `links[]` {from, to, anchor, type}.
   Hubs and spokes: a cluster whose words are a strict subset of another's is its spoke; with `--hub-min` or more city pages an

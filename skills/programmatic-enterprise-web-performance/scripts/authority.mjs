@@ -1,4 +1,9 @@
 // Usage: node authority.mjs <out.json> --target <domain> [--competitor <domain>]... [--release <id>] [--cache DIR] [--top 30]
+//        [--approved-competitors <pewp>/approved/competitors.json] [--require-approved] | --download-only [--release <id>] [--cache DIR]
+// G8 (overhaul mode): authority never compares against a guessed list. --approved-competitors takes the competitor domains from the owner's approved
+// list (approve.mjs <target> competitors): exactly the rows that have a domain; a --competitor that is not in it is refused (exit 2). When the file sits
+// next to approved/lock.json it must still match the lock. --require-approved refuses (exit 3) without such a file, before anything is read.
+// --download-only fetches/prepares the release into the cache (the same for any competitor list), then exits 0 without computing or writing anything.
 // Who links to a site and how strong it is, from Common Crawl's FREE web graph (domain level; one release is about
 // 3 months of crawling). Port of tools/seo-kit/backlinks.mjs (Francine & Eli, 2026-10-17) with a link gap added:
 // domains that link to 2 or more competitors but not to the target (the outreach list an agency would build).
@@ -12,10 +17,11 @@ import { isMain } from "./lib-main.mjs";
 import os from "node:os";
 import path from "node:path";
 import zlib from "node:zlib";
+import crypto from "node:crypto";
 import { Readable } from "node:stream";
 import {  } from "./measure-sources.mjs";
 
-const BASE = "https://data.commoncrawl.org/projects/hyperlinkgraph";
+const BASE = process.env.PEWP_CC_BASE || "https://data.commoncrawl.org/projects/hyperlinkgraph"; // PEWP_CC_BASE: the test hook (a local server)
 const UA = "PEWP-Authority/1.0 (Common Crawl web graph, read-only)";
 export const rev = (d) => d.toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/^www\./, "").split(".").reverse().join(".");
 export const unrev = (r) => r.split(".").reverse().join(".");
@@ -97,6 +103,37 @@ export async function eachLine(url, cacheDir, label, onLine, { stallMs = STALL_M
 }
 const int = (s, i, j) => { let n = 0; for (; i < j; i++) { const c = s.charCodeAt(i) - 48; if (c < 0 || c > 9) break; n = n * 10 + c; } return n; };
 
+// G8: fetch the three release files into the cache (the same for any competitor list); nothing is computed. A file already complete in the cache is left alone.
+export async function prepareRelease({ release, cacheDir }) {
+  const report = [];
+  for (const f of ["vertices", "edges", "ranks"]) {
+    const u = `${BASE}/${release}/domain/${release}-domain-${f}.txt.gz`, file = path.join(cacheDir, path.basename(u));
+    if (fs.existsSync(file) && fs.statSync(file).size > 0 && !fs.existsSync(file + ".part")) { report.push(`${f}: already in the cache`); continue; }
+    console.log(`downloading ${f} (${path.basename(u)})`);
+    await eachLine(u, cacheDir, f, () => {});
+    report.push(`${f}: downloaded`);
+  }
+  return report;
+}
+
+// G8: the competitor domains of the owner's approved list (approve.mjs competitors): exactly the rows that have a domain.
+const bareDomain = (d) => String(d).toLowerCase().trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/^www\./, "");
+export function approvedDomains(file) {
+  let doc;
+  try { doc = JSON.parse(fs.readFileSync(file, "utf8").replace(/^﻿/, "")); } catch (e) { return { error: `the approved competitor list ${file} cannot be read (${e.code || e.message})` }; }
+  const rows = Array.isArray(doc) ? doc : doc?.rows;
+  if (!Array.isArray(rows)) return { error: `${file} has no rows: it must be the file approve.mjs <target> competitors wrote` };
+  const lockFile = path.join(path.dirname(file), "lock.json");
+  if (fs.existsSync(lockFile)) { // next to a lock: the file must be the one the owner signed
+    let lock = null; try { lock = JSON.parse(fs.readFileSync(lockFile, "utf8")); } catch {}
+    const want = lock?.competitors?.files?.[path.basename(file)];
+    if (!want) return { error: `${file} is not in approved/lock.json: the list was not approved` };
+    if (crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex") !== want) return { error: `${file} was changed after the owner approved it (sha256 differs from approved/lock.json)` };
+  }
+  const domains = [...new Set(rows.map((r) => r && typeof r.domain === "string" && r.domain.trim() ? bareDomain(r.domain) : null).filter(Boolean))];
+  return { domains, rows: rows.length };
+}
+
 export async function authority({ out, release, cacheDir, top = 30, target, competitors = [] }) {
   const url = (f) => `${BASE}/${release}/domain/${release}-domain-${f}.txt.gz`;
   const domains = [target, ...competitors].filter(Boolean);
@@ -170,14 +207,36 @@ if (isMain(import.meta.url)) {
   const all = (k) => a.flatMap((x, i) => (x === k ? [a[i + 1]] : []));
   const out = a[0];
   const target = opt("--target");
-  if (!out || out.startsWith("--") || !target) { console.error("usage: node authority.mjs <out.json> --target <domain> [--competitor <domain>]... [--release id] [--cache DIR] [--top 30]"); process.exit(2); }
+  const downloadOnly = a.includes("--download-only"), requireApproved = a.includes("--require-approved"), approvedFile = opt("--approved-competitors");
+  if (!downloadOnly && (!out || out.startsWith("--") || !target)) { console.error("usage: node authority.mjs <out.json> --target <domain> [--competitor <domain>]... [--release id] [--cache DIR] [--top 30] [--approved-competitors <approved/competitors.json>] [--require-approved] | --download-only [--release id] [--cache DIR]"); process.exit(2); }
+  // G8, before anything is read: the competitor list is the owner's approved one or the run is refused
+  const UNBLOCK = "unblocks: approve.mjs <target> competitors --by NAME";
+  let competitors = all("--competitor");
+  if (!downloadOnly) {
+    if (requireApproved && !approvedFile) { console.error(`BLOCKED: competitor list not approved; ${UNBLOCK}`); process.exit(3); }
+    if (approvedFile) {
+      const ap = approvedDomains(approvedFile);
+      if (ap.error) { console.error(`BLOCKED: competitor list not approved: ${ap.error}; ${UNBLOCK}`); process.exit(3); }
+      const bad = competitors.filter((c) => !ap.domains.includes(bareDomain(c)));
+      if (bad.length) { console.error(`REFUSED: --competitor ${bad.join(", ")} is not in the approved list (${approvedFile}). Approved domains: ${ap.domains.join(", ") || "none"}. A domain joins the comparison by the owner approving a new list, never by a flag.`); process.exit(2); }
+      if (!ap.domains.length) { console.error(`BLOCKED: the approved list has no competitor with a domain (${ap.rows} rows, all social accounts or without a site); there is nothing to compare. ${UNBLOCK} after the list names at least one site`); process.exit(3); }
+      competitors = ap.domains;
+      console.log(`competitors: ${competitors.length} domains from the approved list ${approvedFile}`);
+    }
+  }
   const cacheDir = opt("--cache") || defaultCache();
   const release = opt("--release") || cachedRelease(cacheDir);
   if (!release) { console.error(`BLOCKED: no complete Common Crawl release in the cache (${cacheDir || "no cache set"}); pass --release <id> to download one (about 11 GB).`); process.exit(3); }
-  const top = Number(opt("--top") || 30);
-  if (!Number.isInteger(top) || top < 1) { console.error(`--top must be a whole number of at least 1 (got ${opt("--top")})`); process.exit(2); }
-  console.log(`release ${release}; cache ${cacheDir}`);
-  // a failure names the file and the step; exitCode, not process.exit(), so an aborted download can close cleanly (Windows libuv assert)
-  try { await authority({ out, release, cacheDir, top, target, competitors: all("--competitor") }); }
-  catch (e) { console.error(`FAILED: ${e.message}`); process.exitCode = 1; }
+  if (downloadOnly) {
+    if (!cacheDir) { console.error("BLOCKED: --download-only needs a cache folder to put the release in (--cache DIR, or seoKitCache in machine.local.json)"); process.exit(3); }
+    try { const r = await prepareRelease({ release, cacheDir }); console.log(`release ${release} ready; nothing computed (${r.join("; ")}; cache ${cacheDir})`); }
+    catch (e) { console.error(`FAILED: ${e.message}`); process.exitCode = 1; }
+  } else {
+    const top = Number(opt("--top") || 30);
+    if (!Number.isInteger(top) || top < 1) { console.error(`--top must be a whole number of at least 1 (got ${opt("--top")})`); process.exit(2); }
+    console.log(`release ${release}; cache ${cacheDir}`);
+    // a failure names the file and the step; exitCode, not process.exit(), so an aborted download can close cleanly (Windows libuv assert)
+    try { await authority({ out, release, cacheDir, top, target, competitors }); }
+    catch (e) { console.error(`FAILED: ${e.message}`); process.exitCode = 1; }
+  }
 }

@@ -1,9 +1,14 @@
 // Usage: node snapshot-site.mjs <url> <out dir> [--max-pages 16] [--per-group 2] [--include /a,/b]
 //        [--exclude "<regex>"]... [--gap-ms 4000] [--retry-wait-ms 90000] [--ignore-robots] [--no-browser]
-//        [--desktop] [--runs 3] [--page-cap-s 180] [--max-minutes 90] [--note "<text>"]
+//        [--desktop] [--runs 3] [--page-cap-s 180] [--max-minutes 90] [--busy-threshold 35] [--note "<text>"]
 // Never hangs: every Chrome command has a time limit, one page measurement is capped (--page-cap-s; on failure Chrome
 // is restarted and the run moves on), and the whole run stops at --max-minutes (exit 4, what was saved is kept).
 // Run it while the machine is otherwise idle: lab timings are measured on this CPU (other heavy jobs inflate them).
+// Machine load (G9, contract C8): during the speed runs the CPU use of the whole machine is sampled every 2 s (os.cpus() idle vs total
+// deltas across cores). _site.json.machineLoad = { cpuPctAvg, cpuPctMax, samples, thresholdPct } (--busy-threshold N, default 35) and every
+// measured page gets speedTrust: "trusted", or "UNTRUSTED: machine busy (cpu avg N%)" when the average over that page's runs is above the
+// threshold. An UNTRUSTED lab number is not a finding; take the PageSpeed Insights number (psi.mjs) instead. Test hook: PEWP_TEST_CPU_PCT
+// (a number 0..100) replaces the real reading, so a test can say "busy" or "idle" without loading the laptop.
 // Saves a live site to <out dir> in a form the check workers can read like a codebase, so the same
 // checklist runs on a site whose code we do not have. It is a polite, honest crawler:
 //   - GET only; never clicks, types, logs in or submits anything.
@@ -26,6 +31,7 @@
 //                              bytes by type, third parties, console errors, and the rendered page summary
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import zlib from "node:zlib";
 import { launchBrowser, measurePage } from "./cdp-measure.mjs";
 import { mainTextHash } from "./lib-freshness.mjs";
@@ -43,7 +49,7 @@ const out = path.resolve(pos[1]);
 // after a 429). To a host this machine does not serve, the gap is at least MIN_GAP_MS and the 429 wait at least MIN_RETRY_WAIT_MS
 // (lib-polite.mjs); a local fixture server may use any value >= 0. A bad value is a usage error (exit 2), nothing fetched.
 const num = (k, def, o = {}) => numArg(k, opt(k), { present: args.includes(k), def, ...o });
-let maxPages, perGroup, gapMs, retryWaitMs, runs, pageCapMs, maxMinutes;
+let maxPages, perGroup, gapMs, retryWaitMs, runs, pageCapMs, maxMinutes, busyPct;
 try {
   maxPages = num("--max-pages", 16, { min: 1, int: true });
   perGroup = num("--per-group", 2, { min: 1, int: true });
@@ -52,6 +58,7 @@ try {
   runs = num("--runs", 3, { min: 1, int: true });
   pageCapMs = num("--page-cap-s", 180, { min: 1 }) * 1000;
   maxMinutes = num("--max-minutes", 90, { min: 0 });
+  busyPct = num("--busy-threshold", 35, { min: 0 });
 } catch (e) {
   if (!(e instanceof UsageError)) throw e;
   console.error(`usage: node snapshot-site.mjs <url> <out dir> [options]: ${e.message}`); process.exit(2);
@@ -208,6 +215,36 @@ const site = { url: start.href, origin, startedAt: new Date().toISOString(), too
   userAgent: UA, gapMs, runs, maxPages, perGroup, profiles, ignoreRobots, excludes: excludeSrc, include, note, pages: [], skipped: [], stoppedEarly: null };
 let exit = 0;
 let browser = null;
+
+// G9: CPU use of the whole machine while the speed runs go. A reading is the share of non-idle time across all cores since the previous
+// reading (os.cpus() times are cumulative). A timer takes one every 2 s and is unref'd (it never keeps the process alive); stop() clears it,
+// and the run calls tick() after each page so even a short run has a reading. PEWP_TEST_CPU_PCT replaces the real number (tests only).
+const cpuTimes = () => { let idle = 0, total = 0; for (const c of os.cpus()) { for (const [k, v] of Object.entries(c.times)) { total += v; if (k === "idle") idle += v; } } return { idle, total }; };
+function makeSampler(intervalMs = 2000) {
+  const fake = process.env.PEWP_TEST_CPU_PCT != null && process.env.PEWP_TEST_CPU_PCT !== "" ? Number(process.env.PEWP_TEST_CPU_PCT) : NaN;
+  const samples = []; // { t: ms, pct }
+  let prev = cpuTimes(), timer = null, started = false;
+  const tick = () => {
+    let pct;
+    if (Number.isFinite(fake) && fake >= 0 && fake <= 100) pct = fake;
+    else {
+      const now = cpuTimes(), dt = now.total - prev.total, di = now.idle - prev.idle;
+      prev = now;
+      if (dt <= 0) return;
+      pct = Math.min(100, Math.max(0, (1 - di / dt) * 100));
+    }
+    samples.push({ t: Date.now(), pct });
+  };
+  return {
+    samples, tick,
+    get started() { return started; },
+    start() { started = true; if (!timer) { timer = setInterval(tick, intervalMs); timer.unref(); } },
+    stop() { if (timer) { clearInterval(timer); timer = null; } },
+    avgSince(t0) { const v = samples.filter((x) => x.t >= t0).map((x) => x.pct); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; },
+  };
+}
+const sampler = makeSampler();
+const trustOf = (avg) => (avg == null ? "UNTRUSTED: machine load not sampled" : avg > busyPct ? `UNTRUSTED: machine busy (cpu avg ${Math.round(avg)}%)` : "trusted");
 try {
   // Site level: robots, sitemaps, probes.
   log(`robots.txt for ${origin}`);
@@ -323,7 +360,9 @@ try {
         return null;
       } finally { clearTimeout(timer); }
     };
+    sampler.start();
     for (const e of site.pages.filter((p) => p.status === 200)) {
+      const pageStart = Date.now();
       for (const profile of profiles) {
         // Lab numbers swing from run to run: measure --runs times and keep the median of each metric.
         const all = [];
@@ -343,6 +382,7 @@ try {
           }
           if (m) all.push(m);
         }
+        sampler.tick();
         if (!all.length) { e[profile] = { failed: true }; log(`  ${profile} ${e.url}: NOT MEASURED (every run failed, see _site.json browserFailures)`); continue; }
         const med = (xs) => { const v = xs.filter((x) => typeof x === "number").sort((a, b) => a - b); return v.length ? v[Math.floor((v.length - 1) / 2)] : null; };
         const keys = ["lcpMs", "cls", "tbtMs", "fcpMs", "ttfbMs", "loadMs"];
@@ -354,13 +394,22 @@ try {
         e[profile] = { lcpMs: m.vitals.lcpMs && Math.round(m.vitals.lcpMs), cls: m.vitals.cls != null ? Number(m.vitals.cls.toFixed(3)) : null, tbtMs: m.vitals.tbtMs, requests: m.totals.requests, kb: Math.round(m.totals.bytes / 1024), errors: m.errors.length, timedOut: all.some((x) => x.timedOut), runs: all.length };
         log(`  ${profile} ${e.url}: LCP ${e[profile].lcpMs} ms, CLS ${e[profile].cls}, TBT ${e[profile].tbtMs} ms (median of ${all.length}), ${e[profile].requests} requests, ${e[profile].kb} KB${e[profile].timedOut ? " (A RUN TIMED OUT)" : ""}`);
       }
+      if (profiles.some((p) => e[p] && !e[p].failed)) { e.speedTrust = trustOf(sampler.avgSince(pageStart)); if (e.speedTrust !== "trusted") log(`  ${e.url}: speed ${e.speedTrust}; take the PageSpeed Insights number (psi.mjs) instead`); }
     }
   }
 } catch (e) {
   if (e instanceof Stop) { site.stoppedEarly = e.message; exit = e.code; console.error(`STOPPED: ${e.message}`); }
   else { site.stoppedEarly = `error: ${e.stack || e}`; exit = 1; console.error(e); }
 } finally {
+  sampler.stop();
   if (browser) await browser.close();
+  if (sampler.started) {
+    const v = sampler.samples.map((x) => x.pct);
+    const avg = v.length ? v.reduce((a, b) => a + b, 0) / v.length : null, max = v.length ? Math.max(...v) : null;
+    site.machineLoad = { cpuPctAvg: avg == null ? null : Number(avg.toFixed(1)), cpuPctMax: max == null ? null : Number(max.toFixed(1)), samples: v.length, thresholdPct: busyPct };
+    if (v.length) log(`machine load during speed runs: avg ${Math.round(avg)}% max ${Math.round(max)}% -> speed ${avg > busyPct ? "UNTRUSTED" : "trusted"}`);
+    else log("machine load during speed runs: not sampled -> speed UNTRUSTED");
+  } else site.machineLoad = null;
   Object.assign(site, { finishedAt: new Date().toISOString(), requests, rateLimited });
   // REF-013: every service worker any measured page registered, in the shape ref-sw.mjs reads.
   if (useBrowser) {

@@ -45,3 +45,17 @@ answers are pasted by the owner; a robot check stops that host; the owner reads 
 - Ask the owner early what the client wants (ELEV8: a website that brings leads and revenue) and record the draft-site direction
   in the brief; it decides what the audit collects (per-member service areas and own sites).
 - Measured time per phase goes into the run's position file, for the engine's estimates.
+
+## Measured times (ELEV8 prospect audit, 2026-10-26)
+From logs and file stamps, not estimates.
+| Step | Time | Source (in E:\Alex Sevilla) |
+|---|---|---|
+| Website backup to gate | 1 h 50 min run + 18 min verify | `sops/website-backup.md` measured times |
+| Search grid, 122 result pages at >= 45 s apart (owner's browser) | 1 h 28 min (16:31 to 17:59 UTC) | `facts/search/SUMMARY.md` header |
+| PageSpeed re-check, API, 12 runs (2 pages x 2 devices x 3) | 4 min 41 s | `icm/work/lead/speed-final-2026-10-26.md` |
+| Scores -> REPORT.md -> first PDF -> EVIDENCE + brief (inputs already sourced) | about 15 min of file writes (21:43 to 21:58 local) | file times |
+| Fresh-context number review (subagent, 97 claims) | 7 min 39 s | agent run time |
+| Owner review rounds after the first PDF (analyst review, speed re-test, IDX fixes, screenshots) | 4 rounds | `.claude/POSITION.md` |
+Lesson: the report itself is fast once every input is sourced; the time goes into the backup, the search grid and the owner's
+review rounds. Label every speed number with its test (Google's slow-phone lab test vs a real load); the owner caught a lab number
+presented as "on a phone".

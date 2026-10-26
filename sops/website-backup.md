@@ -13,9 +13,10 @@ below); first version: `E:\Francine & Eli\tools\site-backup`. Its README lists e
 2. **Find the pages the sitemap misses.** Sitemaps are often incomplete (ELEV8: 20 URLs, all 9 agent profile pages missing). From
    the saved home page HTML and the site's own HTML sitemap / directory pages (no extra requests), list important internal pages
    and pass them with `--extra` (explicit list; never scrape every link).
-2b. **IDX / listing search (owner rule 2026-10-26).** Listing pages come from a third-party MLS feed (Brivity IDX, Luxury
-   Presence `/home-search`, ...): they rate-limit, never "settle" on the automated phone pass, and their content is not the
-   client's. We only need their **design**: capture exactly **one search results page** (the main home-search / search page) and
+2b. **IDX / listing search (owner rule 2026-10-26): a blocked wall, design only.** Any route backed by an IDX integration (Brivity
+   IDX, Luxury Presence `/home-search`, any MLS feed) is treated as a wall: we never pull listings from it, never collect, store,
+   count or reuse listing data, and never crawl its search variants or listing pages. It rate-limits, never "settles" on the
+   automated phone pass, and its content is licensed MLS data, not the client's. We only need **how it looks**: capture exactly **one search results page** (the main home-search / search page) and
    **one listing detail page**; exclude every other search variant and listing (`--exclude-pages` for the feed's paths, plus the
    two chosen URLs in `--extra`). Check those two in the browser by hand (phone and desktop) and list them in `VERIFY-EXCEPTIONS.md`
    if the automated phone pass fails.
@@ -59,3 +60,11 @@ robots.txt obeyed, one 429 = 90 s pause, a second 429 stops the run.
   offline replay of every page (minutes, no site requests).
 - ELEV8 needed four runs before a clean one (hang, network error, sitemap entities). Budget for one or two restarts on any new
   website platform; each fix stays in the tool.
+
+## Measured times (ELEV8, elev8ca.com, 2026-10-26)
+From the run logs, not estimates. Use them to plan; a new site can differ.
+| Step | Time | Source |
+|---|---|---|
+| Backup run 4 + resume, 35 pages (8 s between pages, HAR, phone + desktop passes) | 1 h 50 min (14:00:31 to 15:50:14 UTC) | `backups/www.elev8ca.com_2026-10-26/backup.log` |
+| Runs lost before the fixes in this SOP (hung HAR, "fetch failed", entity URLs) | 3 runs stopped; run 1 hung 11 min on page 1 | Alex Sevilla `.claude/POSITION.md` |
+| Verify (G1 to G7) to backup gate signed | gate signed 16:08 UTC, 18 min after the run ended | `icm/gate/BACKUP-GATE.md` |

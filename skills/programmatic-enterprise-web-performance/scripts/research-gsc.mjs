@@ -1,34 +1,25 @@
 // Google Search Console API client (free; owner OAuth): real queries, pages, clicks, impressions, average position, by country and device.
 // Usage: node research-gsc.mjs <target> [--property sc-domain:example.com | https://example.com/] [--days 90] [--country usa] [--max-rows 5000] [--cwd DIR]
-// Token file (never printed, never cached): $GSC_TOKEN_FILE or ~/.config/pewp/gsc-token.json, JSON with either
-//   { access_token, expiry_date? } or { refresh_token, client_id, client_secret } (a refreshed token is kept in memory only).
+// Access (lib-google-auth.mjs, never printed, never written): a service account (GSC_SERVICE_ACCOUNT_FILE or GSC_SERVICE_ACCOUNT_JSON_B64),
+//   else the token file $GSC_TOKEN_FILE or ~/.config/pewp/gsc-token.json, JSON with either { access_token, expiry_date? } or
+//   { refresh_token, client_id, client_secret } (a refreshed token is kept in memory only).
 // Test hooks: GSC_API_BASE, GSC_TOKEN_URL. Every response is cached with cache.mjs (the Authorization header is not stored).
 // Output: research/gsc.json { property, range, rows:[{query, page, country, device, language, engine, position, clicks, impressions, ctr}] }
 // where position/clicks/impressions are sourced numbers. No token => BLOCKED (exit 3). Search Console data is for OUR site only.
-import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { Blocked, J, iso, context, needBusiness, runCli, writeStep, writeBlocked, cachedFetch, factor, pace } from "./research-lib.mjs";
+import { getGscToken, GoogleAuthBlocked, UNBLOCK as GOOGLE_UNBLOCK } from "./lib-google-auth.mjs";
+import { Blocked, iso, context, needBusiness, runCli, writeStep, writeBlocked, cachedFetch, factor, pace } from "./research-lib.mjs";
 
 const API = () => (process.env.GSC_API_BASE || "https://searchconsole.googleapis.com").replace(/\/$/, "");
-const TOKEN_URL = () => process.env.GSC_TOKEN_URL || "https://oauth2.googleapis.com/token";
 export const tokenFile = () => process.env.GSC_TOKEN_FILE || path.join(os.homedir(), ".config", "pewp", "gsc-token.json");
-const UNBLOCK = "the site owner adds our Google account as a user of the Search Console property, then we save an OAuth token at ~/.config/pewp/gsc-token.json (or set GSC_TOKEN_FILE); see scripts/doctor.mjs";
+const UNBLOCK = GOOGLE_UNBLOCK;
 
+// One function for both ways in (lib-google-auth.mjs): a service account (GSC_SERVICE_ACCOUNT_FILE / GSC_SERVICE_ACCOUNT_JSON_B64, token kept in memory)
+// or the token file above. Its refusal becomes the Blocked this script has always raised.
 async function accessToken() {
-  const t = J(tokenFile());
-  if (!t) throw new Blocked(UNBLOCK);
-  // the same token file serves measure-sources.mjs, which writes `expiry` (ISO); Google's own files carry `expiry_date` (ms)
-  const exp = t.expiry_date ?? t.expiry;
-  const expMs = typeof exp === "number" ? exp : exp ? Date.parse(exp) : null;
-  if (t.access_token && (expMs == null || Number.isNaN(expMs) || expMs > Date.now() + 60000)) return t.access_token;
-  if (t.refresh_token && t.client_id && t.client_secret) {
-    const res = await fetch(TOKEN_URL(), { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: t.refresh_token, client_id: t.client_id, client_secret: t.client_secret }), signal: AbortSignal.timeout(30000) });
-    const j = await res.json().catch(() => ({}));
-    if (!j.access_token) throw new Blocked(`the Search Console token could not be refreshed (HTTP ${res.status}); the owner re-authorises and we save a new token at ${tokenFile()}`);
-    return j.access_token;
-  }
-  throw new Blocked(`${tokenFile()} has no usable access_token or refresh_token+client_id+client_secret; ${UNBLOCK}`);
+  try { return (await getGscToken({ tokenFile: tokenFile() })).token; }
+  catch (e) { if (e instanceof GoogleAuthBlocked) throw new Blocked(e.message); throw e; }
 }
 
 async function gsc(ctx, token, url, body) {

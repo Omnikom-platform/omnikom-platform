@@ -28,6 +28,7 @@ order, stops at approvals, missing inputs and main-session tasks, and re-runs st
 | "approve the plan" / "sign off the targets" | `approve <target> targets\|plan --by NAME` | BUILT: scripts/approve.mjs (signed copies + lock; the launch gate needs them) |
 | "what should we change next" / after a measure run | `iterate <target>` | BUILT: `stages/iterate.md` (proposals only; they need approve again) |
 | "build a new site from a business brief" | `build <brief>` | BUILT (driver): `stages/build.md` |
+| "fix our existing live site end to end" / "make the site rank, then regenerate the sitemap properly" (a live URL AND its code repo) | `overhaul <live url> <repo>` | BUILT: `stages/overhaul.md` (14 steps in order: audit-live -> definition (OWNER) -> competitors of every kind (OWNER) -> seeds (OWNER) -> research -> authority on approved domains -> page plan as a picture (OWNER) -> audit-repo -> fix run with the live findings mapped in (OWNER) -> build pages -> gate -> deploy (OWNER) -> sitemap file checked then submitted -> measure) |
 | (inside `build`, new or redesigned site, between plan and builder) the design stage | run by the main session with agents and the owner | BUILT (SOP, not a script): `stages/design.md` -> `DESIGN.md`; tools `scripts/wf-shots.mjs`, `scripts/section-shots.mjs` |
 Read the stage file before running a mode: each lists its inputs, steps, outputs and stop rules. A mode whose stage
 file does not exist is NOT BUILT: say so plainly; never improvise it from memory.

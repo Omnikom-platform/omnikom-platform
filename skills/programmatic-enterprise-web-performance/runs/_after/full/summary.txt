@@ -1,0 +1,23 @@
+test-approve exit=0 secs=388
+test-authority exit=0 secs=5
+test-capture exit=0 secs=141
+test-compare exit=0 secs=15
+test-freshness exit=0 secs=3293
+test-google-auth exit=1 secs=11
+test-iterate exit=0 secs=134
+test-main exit=0 secs=9
+test-measure exit=0 secs=7
+test-phase1 exit=0 secs=4
+test-plan-gate exit=1 secs=190
+test-plan-merge exit=0 secs=2
+test-psi exit=0 secs=72
+test-ref exit=0 secs=1248
+test-refactor exit=0 secs=2592
+test-reports exit=0 secs=50
+test-research exit=0 secs=18
+test-rules exit=0 secs=189
+test-sitemap exit=0 secs=73
+test-snapshot exit=0 secs=240
+test-start exit=0 secs=569
+mutants-research exit=0 secs=1426
+DONE

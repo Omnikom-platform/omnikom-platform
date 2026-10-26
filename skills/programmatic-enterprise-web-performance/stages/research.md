@@ -65,19 +65,33 @@ already covers the domains.
 
 ## Capturing results pages (the main session, in the owner's browser)
 This is the project's 2026-10-17 precedent, kept as is. Use the claude-in-chrome extension; ask the owner to be present.
+0. **The list.** Capture exactly the `items` of `research/capture-requests.json` (query, engine, device, location), in order, no more than the file's cap, and
+   nothing else: no query of your own. The main session adds a query only by adding a seed through the approved path (`research-seeds.mjs`, owner approves
+   with `approve.mjs <target> seeds`, the next run rewrites the list). **The tools** are two files of the skill, no key, no download:
+   `node scripts/capture-server.mjs <target> --cwd . &` starts the receiver in the background (127.0.0.1 only, port 47321, stops after 3 hours, prints a line
+   per saved file); `scripts/serp-capture.js` is pasted once into the results tab through the `javascript_tool`, and each page is then saved with
+   `await window.__pewpCapture({ query, requested, engine, device })` (the top of that file explains every option). The receiver checks each capture with the
+   importer's own rules and answers 400 with the reason, so a bad capture is refused on the spot, not found at import time. The first time, Chrome asks the owner
+   to allow the page to reach devices on the local network (127.0.0.1): **the owner clicks Allow once**; the helper never clicks it for him. Scripts still never
+   fetch Google or Bing; only the owner's browser reads those pages.
 1. **Pace.** One page at a time, at least 45 seconds between page loads, no parallel engines. **Stop the whole run at the first robot check**
    (CAPTCHA, "unusual traffic", a sign-in wall): save that capture with `"robotCheck": true`, mark every query not yet run BLOCKED, and do not
-   retry or work around it. Read only, one attempt per query, no clicks on ads, never sign in or accept terms.
+   retry or work around it. Read only, one attempt per query, no clicks on ads, never sign in or accept terms. The only clicks allowed are "Show more" / "Show all" inside the AI Overview
+   (the extractor does them). The receiver also refuses the same file name twice inside 45 s (429, "pace: at least 45 s between captures"); that is a backstop,
+   the pace is yours. When the answer says ROBOT CHECK, the capture is saved with `"robotCheck": true`; stop there.
 2. **Google**: `https://www.google.com/search?q=<query>&hl=<language>&gl=<country>` (add the city with Google's location parameter if the owner
-   wants it). Expand the AI Overview ("Show more"), scroll, then read the page with a script returning `document.body.innerText` (the page-text
-   tool omits the AI Overview). Collect the result addresses too, they are what clustering needs:
-   `[...document.querySelectorAll('a h3')].map((h,i)=>({position:i+1,title:h.innerText,url:h.closest('a').href}))`. The map pack:
-   `https://www.google.com/maps/search/<query>?hl=en`, wait about 4 seconds.
+   wants it). Navigate, wait until the page has loaded, then call `__pewpCapture`: it clicks "Show more" / "Show all" in the AI Overview (waits 800 ms, reads again),
+   so `aiOverview.sources` holds the domains cited; it records the result addresses (what clustering needs), the local pack, People-also-ask and the footer. The page-text
+   tool omits the AI Overview, which is why the extractor reads the page itself. A capture whose AI Overview is present but lists no sources is flagged
+   `aiSourcesMissing` by the importer: capture it again. The map pack, if the owner wants it: `https://www.google.com/maps/search/<query>?hl=en`, wait about 4 seconds.
+   **Device.** Capture on the device the item asks for (`business.json` `rankTracking.devices`, default mobile). For mobile, resize the window below 768 px wide
+   before loading the page; the extractor refuses a `device` the tab does not look like. If the captures' devices differ from the wanted ones the importer writes
+   `deviceMismatch` and a note into `serp.json`. When both devices are wanted, pass `id: "<slug>-mobile"` so the two files differ.
 3. **Bing**: `https://www.bing.com/search?q=<query>`; it cannot be localized, record the machine's location.
 4. **Location, honestly.** Record the footer text of the page ("Tracy, California - From your device" or "Egypt"). The importer calls a capture
    localized only when the footer shows the requested city; otherwise it is labelled `NOT LOCALIZED (baseline)` and no city ranking claim may
-   be made from it. A baseline still shows who wins, which formats, which features.
-5. **One file per query and engine**: `<pewp>/captures/serp/<id>.<engine>.json`:
+   be made from it (when every capture is baseline, `serp.json` says so: "baseline captures cannot support city ranking claims"). A baseline still shows who wins, which formats, which features.
+5. **One file per query and engine**: `<pewp>/captures/serp/<id>.<engine>.json` (the receiver writes it; by hand only if the tools cannot run):
    `{"query","engine":"google|bing","capturedAt":"ISO","browser":"owner's Edge","device":"mobile|desktop","language":"en","location":{"requested":"Tracy, CA","footer":"...","method":"uule parameter"},"organic":[{"position":1,"url":"https://...","title":"..."}],"localPack":[{"name","rating","reviews"}],"paa":["..."],"aiOverview":{"present":true,"text":"...","sources":["domain.com"]},"relatedSearches":[],"robotCheck":false,"notes":""}`.
    A capture without query, engine, date, device, language or location is rejected with the reason. The old text files
    (`icm/work/p0.2/fresh/<ID>.google.md`, `.bing.md`; query from `captures/<ID>.md` next to them) are read too, from `--capture-dir` or found through the
@@ -86,13 +100,22 @@ This is the project's 2026-10-17 precedent, kept as is. Use the claude-in-chrome
    only: clustering then treats a niche domain as its one page and a portal by domain + title, and they give no `competitorsTop3`; the report says so.
    The same capture saved in two folders counts once.
 6. **AI engines** (ChatGPT, Perplexity, Copilot, Gemini app): the owner's browser, a fresh chat with memory off, the exact question, 3 runs,
-   same pace and stop rule. An engine that needs a sign-in or new terms is BLOCKED until the owner does it himself. Save
+   same pace and stop rule; the answer can go through the same receiver (`POST /save-ai?file=<id>.json`, checked and paced like the results pages). An engine that needs a sign-in or new terms is BLOCKED until the owner does it himself. Save
    `<pewp>/captures/ai/<id>.json`: `{"engine":"chatgpt","question","prompt","model":"as shown","capturedAt","browser","location":"what the assistant said it assumed","answer","sources":["https://..."]}`
    (one file per run). The project's `AI-<ID>.<engine>.md` files are read too.
 7. Run `research.mjs` again. The capture list shrinks to what is still missing or older than 30 days.
 
+### Capture helper agent
+The main session may hand the captures to one helper (a Sonnet agent) so its own context is kept for judgment. The rules do not loosen: **one agent, one browser
+tab**, never two in parallel; the same list (`capture-requests.json` only), the same 45 s pace, the same stop rule (first robot check or sign-in wall: stop,
+report, do not retry). Give it the target, the path of `serp-capture.js`, the receiver's port, the list of items and these limits; it saves **only through the
+receiver** (no hand-written files, no other tool that writes captures) and reports counts: saved, refused (with the receiver's reason), blocked by a robot check,
+not yet run. It does not decide which queries to add, does not click Allow for the owner and does not sign in. The main session reads the counts, runs
+`research.mjs` again and trusts only what the importer shows (`serp.json` counts, rejected, `deviceMismatch`, notes).
+
 ## Capturing autocomplete (the main session, in the owner's browser)
-Same pace and stop rule as the results pages. For each seed in `capture-requests.json` (`autocompleteRequests`): type the seed slowly into the engine's search
+Same pace and stop rule as the results pages, and the same rule for the list: only the seeds in `capture-requests.json` (`autocompleteRequests`), none of your own
+(a new seed comes through the approved path). The receiver does not take autocomplete files yet; the main session writes them. For each seed: type the seed slowly into the engine's search
 box, do NOT press Enter, save the list shown as `<pewp>/captures/autocomplete/<id>.<engine>.json`:
 `{"seed":"realtor in tracy","engine":"google|bing","capturedAt":"ISO","browser":"owner's Edge","language":"en","location":{"requested":"Tracy, CA","footer":"..."},"suggestions":["realtor in tracy ca", "..."]}`.
 A file without seed, engine, date, language, location or suggestions is rejected with the reason. Scripts never fetch an autocomplete endpoint.

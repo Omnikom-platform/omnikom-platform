@@ -1,4 +1,4 @@
-// Usage: node test-phase1.mjs [--scripts <dir>]
+// Usage: node test-phase1.mjs [--scripts <dir>] [--mutants [--only <id>]]  (--mutants: watched-fail for the env-file checks, see the mutants section)
 // Phase 1 self-test on fixtures (no network, no real site): state layout, cache, snapshot reuse, Common Crawl authority
 // and link gap on a tiny fake graph, the audit-live report (six questions in order, every number sourced, glossary
 // once, preview noindex by design), the read-only guard, the doctor's shape, and the checklist builder (wrong path
@@ -8,17 +8,94 @@ import os from "node:os";
 import path from "node:path";
 import http from "node:http";
 import zlib from "node:zlib";
+import crypto from "node:crypto";
 import { spawnSync, spawn } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const args = process.argv.slice(2);
 const dir = path.resolve(args.includes("--scripts") ? args[args.indexOf("--scripts") + 1] : path.dirname(fileURLToPath(import.meta.url)));
+const skill = path.dirname(dir);
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-p1-"));
 const results = [];
 const check = (name, ok, detail = "") => results.push({ name, ok: !!ok, detail });
 const node = (script, a, opts = {}) => spawnSync(process.execPath, [path.join(dir, script), ...a], { encoding: "utf8", timeout: 120000, ...opts });
 const w = (p, s) => { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, typeof s === "string" || Buffer.isBuffer(s) ? s : JSON.stringify(s)); };
 const J = (p) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return null; } };
+
+// ---------------------------------------------------------------- mutants (watched-fail for the env-file checks)
+// Usage: node test-phase1.mjs --mutants [--only <id>]. Copies the skill, breaks ONE thing per mutant (a patch asserts its target text
+// occurs exactly once, so "the patch never applied" cannot pass as green), runs this test on the copy and requires the NAMED check to go
+// red. `patches` = several edits for one mutant where the code has two independent defences for the same case (a trim() also removes a
+// BOM and a CR, so removing only the explicit handling would leave the behaviour right).
+if (args.includes("--mutants")) {
+  const E = "lib-env.mjs", D = "doctor.mjs";
+  const MUT = [
+    { id: "env-export-kept", file: E, from: 'line = line.replace(/^export\\s+/, "");', to: "", red: "env lib: parse reads export" },
+    { id: "env-quotes-ignored", file: E, from: `if ((q === '"' || q === "'") && v.length > 1) {`, to: "if (false) {", red: "env lib: parse reads export" },
+    { id: "env-dq-escapes-ignored", file: E, from: "if (q === '\"') v = v.replace(", to: "if (false) v = v.replace(", red: "env lib: parse reads export" },
+    { id: "env-inline-comment-kept", file: E, from: 'out.set(name, v.replace(/\\s+#.*$/, "").trim());', to: "out.set(name, v.trim());", red: "env lib: parse drops an inline comment" },
+    { id: "env-comment-lines-read", file: E, patches: [{ from: 'if (!line || line.startsWith("#")) continue;', to: "if (!line) continue;" }, { from: "if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) continue;", to: "" }], red: "env lib: parse drops an inline comment" },
+    { id: "env-bom-kept", file: E, patches: [{ from: 'String(text).replace(/^\\uFEFF/, "").split', to: "String(text).split" }, { from: "    line = line.trim();\n", to: '    line = line.replace(/^[ \\t]+|[ \\t\\r]+$/g, "");\n' }, { from: "const name = line.slice(0, eq).trim();", to: "const name = line.slice(0, eq);" }], red: "env lib: parse is safe with a byte-order mark" },
+    { id: "env-crlf-kept", file: E, patches: [{ from: ".split(/\\r\\n|\\n|\\r/)", to: '.split("\\n")' }, { from: "    line = line.trim();\n", to: '    line = line.replace(/^[ \\t]+/, "");\n' }, { from: "let v = line.slice(eq + 1).trim();", to: "let v = line.slice(eq + 1);" }, { from: 'out.set(name, v.replace(/\\s+#.*$/, "").trim());', to: 'out.set(name, v.replace(/[ \\t]+#.*$/, ""));' }], red: "env lib: parse is safe with a byte-order mark" },
+    { id: "env-overrides-existing", file: E, from: "if (isSet(name)) skipped.push(name);", to: "if (false) skipped.push(name);", red: "env lib: a name already set is never overridden" },
+    { id: "env-empty-counts-as-set-removed", file: E, from: 'const isSet = (name) => typeof process.env[name] === "string" && process.env[name].trim() !== "";', to: "const isSet = (name) => false;", red: "env lib: a name already set is never overridden" },
+    { id: "env-returns-values", file: E, from: "  return { file, loaded, skipped, source };", to: "  return { file, loaded, skipped, source, values: Object.fromEntries(loaded.map((n) => [n, process.env[n]])) };", red: "env lib: the result carries names only" },
+    { id: "env-arg-ignored", file: E, from: "  if (envFile) {\n    const p", to: "  if (false) {\n    const p", red: "env lib: precedence" },
+    { id: "env-state-ignored", file: E, from: "if (fromState && isFile(", to: "if (false && fromState && isFile(", red: "env lib: precedence" },
+    { id: "env-explicit-missing-silent", file: E, from: "if (!isFile(p)) throw new EnvFileError(`--env-file: no such file: ${p}`);", to: "if (!isFile(p)) return { file: null, loaded: [], skipped: [], source: \"none\" };", red: "env lib: a missing file named explicitly" },
+    { id: "env-default-missing-throws", file: E, from: "if (fromMachine && isFile(path.resolve(path.join(home, \".claude\"), fromMachine))) {", to: "if (fromMachine) {", red: "env lib: a missing file named only by a default" },
+    { id: "env-arg-equals-form-lost", file: E, from: 'if (t.startsWith("--env-file=")) {', to: "if (false) {", red: "env lib: envFileArg" },
+    { id: "env-arg-dotenv-lost", file: E, from: 't === "--env-file" || t === "--dotenv"', to: 't === "--env-file"', red: "env lib: envFileArg" },
+    { id: "doctor-env-never-loaded", file: D, from: "loadEnv({ envFile: envFileArg(a),", to: "loadEnv({ envFile: null,", red: "doctor env: --env-file loads the names" },
+    { id: "doctor-env-line-missing", file: D, from: "  console.log(envLine);\n", to: "", red: "doctor env: one line" },
+    { id: "doctor-env-line-shows-values", file: D, from: "names from ${envInfo.file}${", to: "names from ${envInfo.file} ${envInfo.loaded.map((n) => process.env[n]).join()}${", red: "doctor secrecy" },
+    { id: "doctor-no-env-line-changed", file: D, from: ': "env: no env file";', to: ': "env: none";', red: "doctor env: with no env file" },
+    { id: "doctor-env-json-leaks-values", file: D, from: "loaded: envInfo.loaded, source", to: "loaded: envInfo.loaded.map((n) => `${n}=${process.env[n]}`), source", red: "doctor secrecy" },
+    { id: "doctor-setby-env-file-lost", file: D, from: "(envInfo.loaded.includes(k) ? `env file ${envInfo.file}` :", to: "(false ? `env file ${envInfo.file}` :", red: "doctor setBy: a key the env file supplied" },
+    { id: "doctor-setby-process-lost", file: D, from: ': env(k) ? "process environment" : null);', to: ": null);", red: "doctor setBy: a key already in the environment" },
+    { id: "doctor-setby-token-lost", file: D, from: ": `token file ${gscFile}`);", to: ': "process environment");', red: "doctor setBy: Search Console connected by the token file" },
+    { id: "doctor-terms-time-lost", file: D, from: "termsSrc.setAt = at;", to: "termsSrc.setAt = null;", red: "doctor gemini-terms" },
+    { id: "doctor-terms-detail-bare", file: D, from: "termsSrc.detail = `acknowledged (set by ${termsSrc.setBy}${at ? `, file last changed ${at}` : \"\"})`;", to: 'termsSrc.detail = "acknowledged";', red: "doctor gemini-terms" },
+    { id: "doctor-inputs-env-hash-lost", file: D, from: "envFileSha1: sha1Of(envInfo.file)", to: 'envFileSha1: "absent"', red: "doctor inputs" },
+    { id: "doctor-inputs-token-hash-lost", file: D, from: "tokenFileSha1: sha1Of(gscFile)", to: 'tokenFileSha1: "absent"', red: "doctor inputs" },
+    { id: "doctor-inputs-sa-hash-lost", file: D, from: "serviceAccountFileSha1: sha1Of(saFileOk ? saFile : null)", to: 'serviceAccountFileSha1: "absent"', red: "doctor service account: GSC_SERVICE_ACCOUNT_FILE (an existing file)" },
+    { id: "doctor-psi-missing", file: D, from: 'add("psi", ', to: 'add("psi-off", ', red: "doctor psi" },
+    { id: "doctor-psi-always-connected", file: D, from: 'env("PSI_API_KEY") ? "connected" : "needs"', to: '"connected"', red: "doctor psi" },
+    { id: "doctor-sa-file-ignored", file: D, from: 'const gscVia = saFileOk ? "GSC_SERVICE_ACCOUNT_FILE" : saB64', to: "const gscVia = saB64", red: "doctor service account: GSC_SERVICE_ACCOUNT_FILE (an existing file)" },
+    { id: "doctor-sa-b64-ignored", file: D, from: ': saB64 ? "GSC_SERVICE_ACCOUNT_JSON_B64" : null;', to: ": null;", red: "doctor service account: GSC_SERVICE_ACCOUNT_JSON_B64" },
+    { id: "doctor-sa-missing-file-counts", file: D, from: "saFileOk = !!saFile && fs.existsSync(saFile) && fs.statSync(saFile).isFile()", to: "saFileOk = !!saFile", red: "doctor service account: a GSC_SERVICE_ACCOUNT_FILE that names no file" },
+    { id: "doctor-sa-setby-lost", file: D, from: "gscVia ? setByOf(gscVia) :", to: "gscVia ? null :", red: "doctor service account: GSC_SERVICE_ACCOUNT_JSON_B64" },
+    { id: "doctor-dotenv-usage-error-lost", file: D, from: "console.error(`usage error: ${e.message}`); process.exit(2);", to: "console.error(`usage error: ${e.message}`); process.exit(0);", red: "doctor env: a missing file named with --dotenv" },
+  ];
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-p1mut-"));
+  let ok = 0;
+  const runOne = (m) => new Promise((resolve) => {
+    const copy = path.join(root, m.id);
+    for (let n = 0; ; n++) { try { fs.rmSync(copy, { recursive: true, force: true }); fs.cpSync(skill, copy, { recursive: true, filter: (p) => !/[\\/](runs|site-checks|fixtures|\.git)([\\/]|$)/.test(p) && !/[\\/]scripts[\\/][^\\/.]+$/.test(p) }); break; } catch (e) { if (n > 4) return resolve({ good: false, line: `MUTANT ${m.id}: cannot copy the skill (${e.code})` }); } }
+    const f = path.join(copy, "scripts", m.file);
+    let src = fs.readFileSync(f, "utf8");
+    for (const p of m.patches || [{ from: m.from, to: m.to }]) {
+      if (src.split(p.from).length !== 2) return resolve({ good: false, line: `MUTANT ${m.id}: PATCH DID NOT APPLY exactly once (${src.split(p.from).length - 1} matches of the target text in ${m.file}: ${p.from.slice(0, 50)})` });
+      src = src.replace(p.from, () => p.to);
+    }
+    fs.writeFileSync(f, src);
+    const c = spawn(process.execPath, [path.join(copy, "scripts", "test-phase1.mjs"), "--scripts", path.join(copy, "scripts")], { stdio: ["ignore", "pipe", "pipe"] });
+    let out = ""; c.stdout.on("data", (d) => (out += d)); c.stderr.on("data", (d) => (out += d));
+    const t = setTimeout(() => c.kill(), 240000);
+    c.on("close", (code) => {
+      clearTimeout(t);
+      const failed = (out.match(/^FAIL .*$/gm) || []).map((l) => l.slice(5));
+      const hit = failed.some((n) => n.startsWith(m.red));
+      resolve({ good: code !== 0 && hit, line: `MUTANT ${m.id}: ${code === 0 ? "STAYED GREEN (the check measures nothing)" : hit ? "red for the right reason" : "red, but NOT the expected check"} | expected "${m.red}" | failed: ${failed.map((x) => x.slice(0, 60)).join(" ; ").slice(0, 200) || "(none)"}` });
+    });
+  });
+  const only = args.includes("--only") ? args[args.indexOf("--only") + 1] : null;
+  const queue = MUT.filter((m) => !only || m.id === only);
+  await Promise.all(Array.from({ length: 4 }, async () => { while (queue.length) { const r = await runOne(queue.shift()); console.log(r.line); if (r.good) ok++; else process.exitCode = 1; } }));
+  console.log(`mutants: ${ok}/${only ? 1 : MUT.length} red for the right reason`);
+  fs.rmSync(root, { recursive: true, force: true });
+  process.exit(process.exitCode || 0);
+}
 
 try {
   // ---- state ----
@@ -155,6 +232,103 @@ try {
   let dj2 = null; try { dj2 = JSON.parse(d2.stdout.slice(d2.stdout.indexOf("{"))); } catch {}
   const src2 = (id) => dj2?.sources.find((s) => s.id === id);
   check("doctor: with a target, each API source reports its last successful call (newest cache file) or null (TR-210)", !!src2("search-console")?.lastSuccessfulCall && !Number.isNaN(Date.parse(src2("search-console").lastSuccessfulCall)) && src2("bing-webmaster")?.lastSuccessfulCall === null && src2("crux")?.lastSuccessfulCall === null && !("lastSuccessfulCall" in (src2("keyword-planner") || {})), JSON.stringify([src2("search-console"), src2("bing-webmaster")]) + d2.stderr);
+
+  // ---- env file (G1, G15, G18; contract C4) ----
+  // lib-env.mjs in-process: names are LIBT_* so nothing here can touch a real key; process.env is restored afterwards.
+  const libEnv = await import(pathToFileURL(path.join(dir, "lib-env.mjs")).href);
+  const sha1 = (p) => crypto.createHash("sha1").update(fs.readFileSync(p)).digest("hex");
+  const savedEnv = { ...process.env };
+  const restoreEnv = () => { for (const k of Object.keys(process.env)) if (!(k in savedEnv)) delete process.env[k]; Object.assign(process.env, savedEnv); };
+  try {
+    const P = libEnv.parseEnv(`﻿FIRST=1\r\n# c1\r\n#COMMENTED_KEY=zzz\r\nPLAIN=abc\r\nexport EXP=def\r\nDQ="has # hash and \\"q\\" and \\n nl"\r\nSQ='single # kept \\n raw'\r\nINL=val1 # trailing comment\r\n  SPACED = padded \r\nLAST=1\r\n`);
+    check("env lib: parse reads export, double quotes (a # inside is kept; \\\" and \\n read) and single quotes (literal)",
+      P.get("EXP") === "def" && P.get("DQ") === 'has # hash and "q" and \n nl' && P.get("SQ") === "single # kept \\n raw" && P.get("PLAIN") === "abc" && P.get("SPACED") === "padded", JSON.stringify([...P]));
+    check("env lib: parse drops an inline comment after an unquoted value and skips comment lines", P.get("INL") === "val1" && !P.has("COMMENTED_KEY") && ![...P.keys()].some((k) => k.startsWith("#")), JSON.stringify([...P]));
+    check("env lib: parse is safe with a byte-order mark and CRLF line ends (no name or value carries a BOM or CR)", P.get("FIRST") === "1" && P.get("LAST") === "1" && [...P].every(([k, v]) => !/[\r﻿]/.test(k + v)), JSON.stringify([...P]));
+
+    // never override, names only
+    process.env.LIBT_SET = "from-process"; delete process.env.LIBT_NEW;
+    const ef = path.join(tmp, "lib.env"); w(ef, "LIBT_SET=from-file\nLIBT_NEW=from-file-2\n");
+    const r = libEnv.loadEnv({ envFile: ef, cwd: tmp, home: path.join(tmp, "nohome") });
+    check("env lib: a name already set is never overridden (it is reported as skipped); a new name is set for child processes",
+      process.env.LIBT_SET === "from-process" && r.skipped.join() === "LIBT_SET" && r.loaded.join() === "LIBT_NEW" && process.env.LIBT_NEW === "from-file-2" && r.source === "--env-file" && r.file === ef, JSON.stringify(r) + process.env.LIBT_SET);
+    check("env lib: the result carries names only, never a value", !JSON.stringify(r).includes("from-file") && !JSON.stringify(r).includes("from-process"), JSON.stringify(r));
+    restoreEnv();
+
+    // precedence: --env-file > state.json envFile > machine.local.json envFile
+    const base = path.join(tmp, "prec"), pw = path.join(base, ".pewp"), hm = path.join(base, "home");
+    w(path.join(base, "arg.env"), "LIBT_WHO=arg\n"); w(path.join(base, "state.env"), "LIBT_WHO=state\n"); w(path.join(hm, ".claude", "mach.env"), "LIBT_WHO=machine\n");
+    w(path.join(pw, "state.json"), { envFile: "state.env" }); w(path.join(hm, ".claude", "machine.local.json"), { envFile: "mach.env" });
+    const who = (o) => { delete process.env.LIBT_WHO; const x = libEnv.loadEnv({ cwd: base, home: hm, ...o }); const v = process.env.LIBT_WHO; delete process.env.LIBT_WHO; return `${x.source}:${v}`; };
+    const pr = [who({ envFile: "arg.env", pewp: pw }), who({ pewp: pw }), who({})];
+    check("env lib: precedence is --env-file, then state.json envFile, then machine.local.json envFile", pr.join() === "--env-file:arg,state.json envFile:state,machine.local.json envFile:machine", pr.join());
+
+    // a missing file: named explicitly = usage error (exit code 2) with the path; named only by a default = silently none
+    let eerr = null; try { libEnv.loadEnv({ envFile: "no-such.env", cwd: base, home: hm }); } catch (e) { eerr = e; }
+    check("env lib: a missing file named explicitly is a usage error (exitCode 2) whose message carries the path", eerr?.exitCode === 2 && eerr.message.includes(path.join(base, "no-such.env")), eerr ? eerr.message : "no error thrown");
+    w(path.join(base, "p2", ".pewp", "state.json"), { envFile: "gone.env" }); w(path.join(base, "home2", ".claude", "machine.local.json"), { envFile: "gone2.env" });
+    let derr = null, dr = null; try { dr = libEnv.loadEnv({ pewp: path.join(base, "p2", ".pewp"), home: path.join(base, "home2"), cwd: base }); } catch (e) { derr = e; }
+    check("env lib: a missing file named only by a default (state.json, machine.local.json) is silently none", !derr && dr?.file === null && dr.source === "none" && dr.loaded.length === 0, derr ? derr.message : JSON.stringify(dr));
+
+    // the option itself
+    const o1 = libEnv.envFileArg(["x", "--env-file", "a.env"]), o2 = libEnv.envFileArg(["--env-file=b.env"]), o3 = libEnv.envFileArg(["x", "--dotenv", "c.env"]), o4 = libEnv.envFileArg(["x"]);
+    let o5 = null; try { libEnv.envFileArg(["--env-file"]); } catch (e) { o5 = e.exitCode; }
+    check("env lib: envFileArg reads --env-file <p>, --env-file=<p>, --dotenv <p>; none = null; no path = usage error 2", [o1, o2, o3, o4 === null, o5].join() === "a.env,b.env,c.env,true,2", JSON.stringify([o1, o2, o3, o4, o5]));
+  } finally { restoreEnv(); }
+
+  // doctor as a child process with --env-file. HOME and USERPROFILE point at an empty folder so no real token file, machine.local.json or key leaks in.
+  const ehome = path.join(tmp, "ehome"); fs.mkdirSync(ehome, { recursive: true });
+  const KEYS = ["BING_WEBMASTER_KEY", "CRUX_API_KEY", "GEMINI_API_KEY", "PSI_API_KEY", "PEWP_GEMINI_TERMS_ACK", "GSC_TOKEN_FILE", "GSC_SERVICE_ACCOUNT_FILE", "GSC_SERVICE_ACCOUNT_JSON_B64"];
+  const cleanEnv = (extra = {}) => { const e = { ...process.env, USERPROFILE: ehome, HOME: ehome }; for (const k of Object.keys(e)) if (KEYS.includes(k.toUpperCase())) delete e[k]; return { ...e, ...extra }; };
+  const SEC = { bing: "bing-SECRET-aaa111", crux: "crux-SECRET-bbb222", psiFile: "psi-SECRET-ccc333", psiProc: "psi-FROMPROC-ddd444", sa: "SA-PRIVATE-KEY-eee555", b64: Buffer.from("SA-B64-SECRET-fff666").toString("base64"), token: "TOKEN-SECRET-ggg777" };
+  const envA = path.join(tmp, "doctor-A.env"); // BOM + CRLF, a comment, a quoted value, `export` + inline comment; PSI is also set in the child's environment
+  w(envA, Buffer.from(`﻿# keys for the doctor test\r\nBING_WEBMASTER_KEY="${SEC.bing}"\r\nexport CRUX_API_KEY=${SEC.crux} # inline note\r\nPSI_API_KEY=${SEC.psiFile}\r\nPEWP_GEMINI_TERMS_ACK=1\r\n`, "utf8"));
+  const tokenFile = path.join(tmp, "gsc-token.json"); w(tokenFile, JSON.stringify({ access_token: SEC.token }));
+  const saFile = path.join(tmp, "sa.json"); w(saFile, JSON.stringify({ private_key: SEC.sa, client_email: "x@y.iam.gserviceaccount.com" }));
+  const cwdE = path.join(tmp, "cwd-env");
+  const docOf = (host) => J(path.join(cwdE, "site-checks", host, ".pewp", "doctor.json"));
+  const srcOf = (dj, id) => dj?.sources.find((s) => s.id === id);
+  const envMtime = fs.statSync(envA).mtime.toISOString();
+  const eA = node("doctor.mjs", ["https://a.doctor.example/", "--offline", "--cwd", cwdE, "--env-file", envA], { env: cleanEnv({ PSI_API_KEY: SEC.psiProc, GSC_TOKEN_FILE: tokenFile }) });
+  const eAj = node("doctor.mjs", ["https://a.doctor.example/", "--offline", "--json", "--cwd", cwdE, "--env-file", envA], { env: cleanEnv({ PSI_API_KEY: SEC.psiProc, GSC_TOKEN_FILE: tokenFile }) });
+  const dA = docOf("a.doctor.example");
+  const escRe = envA.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  check("doctor env: --env-file loads the names it holds (names only) and writes them to doctor.json; the name already set in the environment is not among them",
+    eA.status === 0 && dA?.env?.file === envA && dA.env.loaded.slice().sort().join() === "BING_WEBMASTER_KEY,CRUX_API_KEY,PEWP_GEMINI_TERMS_ACK" && dA.env.source === "--env-file" && srcOf(dA, "bing-webmaster")?.status === "connected" && srcOf(dA, "crux")?.status === "connected",
+    JSON.stringify(dA?.env) + eA.stdout.slice(0, 300) + eA.stderr);
+  check("doctor env: one line 'env: loaded N names from <file>' (here 3; the one already set is mentioned as kept), names and path only",
+    new RegExp(`^env: loaded 3 names from ${escRe}`, "m").test(eA.stdout) && /1 already set in the process environment, kept/.test(eA.stdout), eA.stdout.slice(0, 300));
+  check("doctor setBy: a key the env file supplied says 'env file <path>' (quoted value, export + inline comment)", srcOf(dA, "bing-webmaster")?.setBy === `env file ${envA}` && srcOf(dA, "crux")?.setBy === `env file ${envA}`, JSON.stringify([srcOf(dA, "bing-webmaster")?.setBy, srcOf(dA, "crux")?.setBy]));
+  check("doctor setBy: a key already in the environment says 'process environment' and the env file's value for it was not applied", srcOf(dA, "psi")?.status === "connected" && srcOf(dA, "psi")?.setBy === "process environment" && !dA.env.loaded.includes("PSI_API_KEY"), JSON.stringify(srcOf(dA, "psi")));
+  check("doctor setBy: Search Console connected by the token file says 'token file <path>'; a source with no key says nothing", srcOf(dA, "search-console")?.status === "connected" && srcOf(dA, "search-console")?.setBy === `token file ${tokenFile}` && srcOf(dA, "gemini")?.status === "needs" && srcOf(dA, "gemini")?.setBy === null, JSON.stringify([srcOf(dA, "search-console"), srcOf(dA, "gemini")]));
+  check("doctor gemini-terms: connected, and it says which env file set the acknowledgement and when (the file's last-change time)",
+    srcOf(dA, "gemini-terms")?.status === "connected" && srcOf(dA, "gemini-terms").setBy === `env file ${envA}` && srcOf(dA, "gemini-terms").setAt === envMtime && srcOf(dA, "gemini-terms").detail.includes(envA) && srcOf(dA, "gemini-terms").detail.includes(envMtime), JSON.stringify(srcOf(dA, "gemini-terms")));
+  check("doctor inputs: doctor.json carries the sha1 of the env file and of the token file, and 'absent' for the service account file (stale-result check)",
+    dA?.inputs?.envFileSha1 === sha1(envA) && dA.inputs.tokenFileSha1 === sha1(tokenFile) && dA.inputs.serviceAccountFileSha1 === "absent", JSON.stringify(dA?.inputs));
+  check("doctor psi: a PageSpeed Insights source exists, is connected through PSI_API_KEY and needs a key (with how) when none is set", srcOf(dA, "psi")?.usedBy?.length > 0 && (() => { const x = node("doctor.mjs", ["--json", "--offline"], { env: cleanEnv() }); try { const p = JSON.parse(x.stdout.slice(x.stdout.indexOf("{"))).sources.find((s) => s.id === "psi"); return p?.status === "needs" && /PSI_API_KEY/.test(p.unblock); } catch { return false; } })(), JSON.stringify(srcOf(dA, "psi")));
+
+  // no env file given: a plain line, env.file null, hashes 'absent'; the service account (file) connects Search Console
+  const eB = node("doctor.mjs", ["https://b.doctor.example/", "--offline", "--cwd", cwdE], { env: cleanEnv({ GSC_SERVICE_ACCOUNT_FILE: saFile }) });
+  const dB = docOf("b.doctor.example");
+  check("doctor env: with no env file the line says so, env.file is null, loaded is empty and the env file hash is 'absent'", /^env: no env file$/m.test(eB.stdout) && dB?.env?.file === null && dB.env.loaded.length === 0 && dB.env.source === "none" && dB.inputs.envFileSha1 === "absent", eB.stdout.slice(0, 200) + JSON.stringify(dB?.env));
+  check("doctor service account: GSC_SERVICE_ACCOUNT_FILE (an existing file) connects Search Console as 'service account', setBy process environment, and its sha1 is recorded",
+    srcOf(dB, "search-console")?.status === "connected" && srcOf(dB, "search-console").detail === "service account" && srcOf(dB, "search-console").setBy === "process environment" && dB.inputs.serviceAccountFileSha1 === sha1(saFile) && dB.inputs.tokenFileSha1 === "absent", JSON.stringify([srcOf(dB, "search-console"), dB?.inputs]));
+  // the base64 form supplied by an env file
+  const envB = path.join(tmp, "doctor-B.env"); w(envB, `GSC_SERVICE_ACCOUNT_JSON_B64=${SEC.b64}\n`);
+  const eC = node("doctor.mjs", ["https://c.doctor.example/", "--offline", "--cwd", cwdE, "--env-file", envB], { env: cleanEnv() });
+  const dC = docOf("c.doctor.example");
+  check("doctor service account: GSC_SERVICE_ACCOUNT_JSON_B64 (non-empty) connects Search Console as 'service account' with setBy 'env file <path>'", srcOf(dC, "search-console")?.status === "connected" && srcOf(dC, "search-console").detail === "service account" && srcOf(dC, "search-console").setBy === `env file ${envB}`, JSON.stringify(srcOf(dC, "search-console")) + eC.stderr);
+  // a service account path that names no file does not connect anything
+  const eD = node("doctor.mjs", ["https://d.doctor.example/", "--offline", "--cwd", cwdE], { env: cleanEnv({ GSC_SERVICE_ACCOUNT_FILE: path.join(tmp, "no-such-sa.json") }) });
+  const dD = docOf("d.doctor.example");
+  check("doctor service account: a GSC_SERVICE_ACCOUNT_FILE that names no file does not connect Search Console (and says why)", srcOf(dD, "search-console")?.status === "needs" && /does not exist/.test(srcOf(dD, "search-console").detail) && dD.inputs.serviceAccountFileSha1 === "absent", JSON.stringify(srcOf(dD, "search-console")));
+  // a missing file named with --dotenv is a usage error: exit 2, the path in the message, nothing written
+  const eE = node("doctor.mjs", ["https://e.doctor.example/", "--offline", "--cwd", cwdE, "--dotenv", path.join(tmp, "missing.env")], { env: cleanEnv() });
+  check("doctor env: a missing file named with --dotenv is a usage error (exit 2) that names the path, and doctor.json is not written", eE.status === 2 && eE.stderr.includes(path.join(tmp, "missing.env")) && !docOf("e.doctor.example"), eE.status + eE.stderr.slice(0, 200));
+  // secrecy: no value from any of the files appears in anything doctor printed or wrote
+  const everything = [eA.stdout, eA.stderr, eAj.stdout, eAj.stderr, eB.stdout, eB.stderr, eC.stdout, eC.stderr, eD.stdout, eE.stdout, eE.stderr, ...["a", "b", "c", "d"].map((h) => fs.readFileSync(path.join(cwdE, "site-checks", `${h}.doctor.example`, ".pewp", "doctor.json"), "utf8"))].join("\n");
+  const leaked = Object.entries(SEC).filter(([, v]) => everything.includes(v)).map(([k]) => k);
+  check("doctor secrecy: no value from the env file, the token file, the service account file or the base64 string appears in stdout, stderr or doctor.json", leaked.length === 0 && everything.includes("BING_WEBMASTER_KEY") && everything.length > 2000, `leaked: ${leaked.join(",")}`);
 
   // ---- checklist builder ----
   const out = path.join(tmp, "checklist-out");

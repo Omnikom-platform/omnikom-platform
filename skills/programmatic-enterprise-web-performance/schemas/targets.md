@@ -23,6 +23,15 @@ Never a bare number. `estimate: true` for ranges and inferred values (Keyword Pl
 }
 ```
 
+Overhaul additions (2026-10-25, contract C2; written by intake, all optional for older files):
+`"vocabulary": ["historic homes", ...]` (the words the business and its readers use; owner-only; never `[]`), `"notOffer": "what it is not"` (one line),
+`"provenance": { "<field>": "owner" | "site" | "default" | "unstated" }` with one entry per filled field, keyed by the dotted field name
+(`kind`, `offer`, `audience`, `goals`, `competitors`, `brand.constraints`, `vocabulary`, `market.country`, `locations`, `existing.searchConsole`,
+`rankTracking.locations`, ...). `kind` may be `editorial-media` (publisher or media platform with paid features; `industry` follows it when
+`rules/industries/editorial-media.json` exists). `approve.mjs business` signs the file to `approved/business.json` only when the owner-only fields
+(`kind, offer, audience, goals, competitors, brand.constraints, vocabulary`) all have provenance `owner`. A location whose `name` lists several places
+(" and ", "&", ";" or two or more commas) is a label: the default `rankTracking.locations` comes from its `serviceArea`.
+
 Ratified extensions (Lead, 2026-10-22, from the phase 2 and 4 builders): `phone` (string, as shown on the site) and
 `legalName` (optional) for the NAP check; `credentials: { state, licenseNumber, brokerage, licensed }` (optional; the
 industry rules need it for licence-number and brokerage checks).

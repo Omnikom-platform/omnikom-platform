@@ -30,7 +30,9 @@ export function listFile(f, key) {
   return list;
 }
 export const W = (p, o) => { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, typeof o === "string" ? o : JSON.stringify(o, null, 1) + "\n"); };
-export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// A wait is never negative or NaN: setTimeout(-1) prints TimeoutNegativeWarning and waits 1 ms (G19: pace() computes "when I may go" minus "now",
+// and the clock can tick between the two readings). Anything that is not a finite number of ms is no wait at all.
+export const sleep = (ms) => new Promise((r) => setTimeout(r, Number.isFinite(Number(ms)) ? Math.max(0, Number(ms)) : 0));
 export const slug = (s) => String(s).toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60).replace(/-+$/g, "") || "x"; // cut at 60, then never end on a hyphen (ids must match c-<slug>)
 export const ageDays = (isoDate) => (Date.now() - Date.parse(isoDate)) / 86400000;
 
@@ -106,7 +108,11 @@ const nextAt = new Map();
 export async function pace(url, gapMs) {
   const host = new URL(url).host;
   const local = /^(127\.0\.0\.1|localhost)(:|$)/.test(host);
-  const gap = local && process.env.PEWP_TEST_GAP_MS != null ? Number(process.env.PEWP_TEST_GAP_MS) : gapMs;
+  // PEWP_TEST_GAP_MS shortens the gap for a local test server only; a value that is not a number of ms >= 0 is ignored (the real gap applies),
+  // and a caller gap that is not a number of ms >= 0 is the polite default of 1 s, never NaN.
+  const testGap = local && process.env.PEWP_TEST_GAP_MS != null && process.env.PEWP_TEST_GAP_MS !== "" ? Number(process.env.PEWP_TEST_GAP_MS) : NaN;
+  const own = Number.isFinite(Number(gapMs)) && Number(gapMs) >= 0 ? Number(gapMs) : 1000;
+  const gap = Number.isFinite(testGap) && testGap >= 0 ? testGap : own;
   const at = Math.max(Date.now(), nextAt.get(host) ?? 0);
   nextAt.set(host, at + gap);
   await sleep(at - Date.now());
@@ -136,19 +142,25 @@ export const normUrl = (u) => { try { const x = new URL(u); return (x.hostname.r
 export const pathOf = (u) => { try { return new URL(u).pathname || "/"; } catch { return null; } };
 
 // ---- places the business serves ("Tracy, CA"), and the intent of a query ----
+const US_STATES = new Set(["alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut", "delaware", "florida", "georgia", "hawaii", "idaho", "illinois", "indiana", "iowa", "kansas", "kentucky", "louisiana", "maine", "maryland", "massachusetts", "michigan", "minnesota", "mississippi", "missouri", "montana", "nebraska", "nevada", "new hampshire", "new jersey", "new mexico", "new york", "north carolina", "north dakota", "ohio", "oklahoma", "oregon", "pennsylvania", "rhode island", "south carolina", "south dakota", "tennessee", "texas", "utah", "vermont", "virginia", "washington", "west virginia", "wisconsin", "wyoming", "district of columbia"]);
+// G16: a location whose name lists several places ("California, New York and Florida", "Tracy; Manteca", "A & B", "A, B, C") is a LABEL, not a place:
+// it is never expanded into seeds or tracked as a city. Each serviceArea entry is its own place.
+export const isPlaceLabel = (name) => / and /i.test(String(name ?? "")) || /[&;]/.test(String(name ?? "")) || (String(name ?? "").match(/,/g) || []).length >= 2;
 export function knownPlaces(business) {
   const out = new Map();
   const add = (city, state) => {
     const c = String(city || "").trim(); if (!c) return;
     const m = c.match(/^(.*?),\s*([A-Za-z]{2})$/);
-    const name = (m ? m[1] : c).trim(), st = (m ? m[2] : state || null);
+    const name = (m ? m[1] : c).trim();
+    // a whole state ("Florida") is its own place and needs no ", FL" (the address of a Miami office must not turn it into "Florida, FL")
+    const st = !m && US_STATES.has(name.toLowerCase()) ? null : (m ? m[2] : state || null);
     const key = name.toLowerCase();
     if (!out.has(key) || (!out.get(key).state && st)) out.set(key, { city: name, state: st ? st.toUpperCase() : null, label: st ? `${name}, ${st.toUpperCase()}` : name });
   };
   for (const l of business?.rankTracking?.locations || []) add(l);
   for (const loc of business?.locations || []) {
     const st = String(loc.address || "").match(/,\s*([A-Z]{2})\b\s*\d{0,5}/)?.[1] || null;
-    add(loc.name, st);
+    if (!isPlaceLabel(loc.name)) add(loc.name, st);
     for (const c of loc.serviceArea || []) add(c, st);
   }
   return [...out.values()].sort((a, b) => b.city.length - a.city.length);

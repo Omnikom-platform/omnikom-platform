@@ -76,8 +76,10 @@ export function directoryEntry(host) {
 // input: { schemaTypes: [type] (every @type on the page), mainEntityType: type|null (default: the first schema type), path, host } -> product | category | local | article | video | forum | directory | comparison | page
 export function pageTypeOf({ schemaTypes = [], mainEntityType, path: urlPath = "/", host = "" } = {}) {
   const types = schemaTypes.map(String), main = mainEntityType === undefined ? types[0] : mainEntityType;
+  // A BreadcrumbList is an ItemList subtype in schema.org, but it is navigation: it must not make every page with a trail a category.
+  const listTypes = types.filter((t) => t !== "BreadcrumbList");
   if (hasType(types, "Product", "Offer")) return "product";
-  if (hasType(types, "ItemList") || categoryPath(urlPath)) return "category";
+  if (hasType(listTypes, "ItemList") || categoryPath(urlPath)) return "category";
   if (hasType(types, "LocalBusiness")) return "local";
   if (hasType(types, "Article")) return "article"; // BlogPosting and NewsArticle are Article subtypes in the schema.org vocabulary
   if (main && isSchemaType(main, "VideoObject")) return "video";

@@ -1,0 +1,47 @@
+{
+ "_about": "Real rows from GetRelatedKeywords answers of the 2026-10-25 Matter of Place research run (31 real-estate seeds): what Bing returned that is not about real estate or is another site's name. Exact Query/Impressions/BroadImpressions. The test adds these to the related answers of its seeds.",
+ "rows": [
+  {
+   "__type": "Keyword:#Microsoft.Bing.Webmaster.Api",
+   "BroadImpressions": 210201,
+   "Impressions": 210201,
+   "Query": "how to find my windows product key site microsoft.com"
+  },
+  {
+   "__type": "Keyword:#Microsoft.Bing.Webmaster.Api",
+   "BroadImpressions": 97459,
+   "Impressions": 97459,
+   "Query": "how to find slope from a graph"
+  },
+  {
+   "__type": "Keyword:#Microsoft.Bing.Webmaster.Api",
+   "BroadImpressions": 419655,
+   "Impressions": 83416,
+   "Query": "cars for sale"
+  },
+  {
+   "__type": "Keyword:#Microsoft.Bing.Webmaster.Api",
+   "BroadImpressions": 138459,
+   "Impressions": 58397,
+   "Query": "how to clear cache"
+  },
+  {
+   "__type": "Keyword:#Microsoft.Bing.Webmaster.Api",
+   "BroadImpressions": 68302,
+   "Impressions": 68302,
+   "Query": "five people emerge from manhole in new york"
+  },
+  {
+   "__type": "Keyword:#Microsoft.Bing.Webmaster.Api",
+   "BroadImpressions": 1016289,
+   "Impressions": 953877,
+   "Query": "zillow homes for sale"
+  },
+  {
+   "__type": "Keyword:#Microsoft.Bing.Webmaster.Api",
+   "BroadImpressions": 49148,
+   "Impressions": 45197,
+   "Query": "redfin homes for sale"
+  }
+ ]
+}

@@ -14,6 +14,23 @@ decides, in words, after reading the summary.
 | Optional `.pewp/needs-people.json` `{ "C04": "why" }`, `--people C04,C07` | the main session, after reading REPORT.md | the heuristic still skips causes whose fix text asks for client content or an owner decision |
 | `--decisions <file>` (repeatable): the project's binding defaults or decisions (Francine & Eli: `icm/gate-0-1/DEFAULTS.md`); a `DECISIONS.md` at the site root or repo top is found by itself | the main session, from the project's rules | workers are not told what the client holds; a fix can land in a held area (C16 added listing JSON-LD while DEF-07 holds the client's own listings) |
 
+## Live causes (overhaul mode) and the four project inputs
+A fix run can take the causes of the audit of the LIVE site too, so nothing from the live audit is handed to anyone as a to-do list.
+1. Run the repo audit, then map: `node "<skill>/scripts/causes-map.mjs" <repo> --live <snapshot>/.checks/causes.json` (`--dry` first). A live cause
+   that shares a rule id with a repo cause is attached to it as `liveEvidence` (the worker is told what the served pages show); a live cause with
+   no match becomes a new cause `L01..` (`origin: "live"`, source file UNKNOWN: the worker finds it and names the file). Running it twice does not
+   duplicate; the repo's own list is kept as `.checks/causes.repo-original.json`.
+2. Proof of a live-origin cause: after the worker and the rebuild, each of its live check scripts is run as `node <check> <built output folder>`
+   (`--live-root <sub>` names the folder under the site root; default the site root). All PASS = FIXED. A check that cannot judge there (it
+   reads another layout, for example a snapshot's `pages/<slug>/raw.html.gz`, as the Matter of Place live checks do) or a missing script =
+   **NEEDS-PROOF** with its own line, never FIXED, and when none of its checks can judge even before the fix, no worker is spent on it. Any FAIL = NOT FIXED.
+   The way out of NEEDS-PROOF is a check that reads the built output, added to the repo audit.
+3. The four project inputs, asked once and recorded (never assumed from another project): **build** (`--build`), **setup** (`--setup`, or none;
+   `--no-setup` is accepted and ignored), **how many workers at once** (`--max-parallel N`, same as `--parallel`; a project that allows one
+   local build at a time says 1), **who merges** (`--project-merges` when the project merges only through its own gate: CI green, never a direct
+   merge; the integration branch is still prepared and the report's closing lines say so). A public repository never gets a secret committed:
+   workers run without tokens and cannot push, and the owner is reminded in the report.
+
 ## Worktree setup: sites whose build needs git-ignored inputs
 A worktree is a fresh checkout of the last commit, so anything the build needs that git ignores (installed packages, pinned
 libraries, a media folder) is missing and the baseline build fails (BLOCKED: "the untouched code does not build"). `--setup "<cmd>"`
@@ -137,6 +154,7 @@ it until someone commits it.
 | NOT FIXED | the checks still fail after the rebuild / timeout / refused / build broke / conflict on the combined branch | read the reason; the patch is saved; try again alone or fix by hand |
 | NOT COMMITTED | proven (checks FAIL -> PASS, nothing regressed) but `git commit` was refused, e.g. by a pre-commit hook | fix the hook; commit from the kept worktree or apply the saved patch |
 | REGRESSED | the cause's own checks may pass, but another check broke | none; the fix was thrown away |
+| NEEDS-PROOF | a live-origin cause whose live check is missing or cannot judge the built output | add a check that reads the built output to the repo audit, then re-run the cause; any worker patch is saved but NOT proven |
 | SKIPPED-NEEDS-PEOPLE | needs client content or an owner decision | collect it (the report says what and from whom) |
 | SKIPPED-NO-CHECK / SKIPPED-ALREADY-PASSING | nothing to prove / nothing to fix | none |
 

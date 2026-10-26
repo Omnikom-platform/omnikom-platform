@@ -122,6 +122,7 @@ async function suite() {
   const pt = (o) => G.pageTypeOf(o);
   check("P 1: Product or Offer -> product (beats everything below)", pt({ schemaTypes: ["Product", "LocalBusiness"] }) === "product" && pt({ schemaTypes: ["Offer"] }) === "product" && pt({ schemaTypes: ["IndividualProduct"] }) === "product");
   check("P 2: ItemList, or a path ending in a category segment -> category (beats local)", pt({ schemaTypes: ["ItemList", "LocalBusiness"] }) === "category" && pt({ path: "/collections/shoes" }) === "category" && pt({ path: "/product-category/shoes/" }) === "category" && pt({ path: "/collections/shoes/red-shoe" }) === "page");
+  check("P 2b: a BreadcrumbList (an ItemList subtype) is navigation, not a listing: an Article with breadcrumbs is an article", pt({ schemaTypes: ["WebPage", "BreadcrumbList", "Article"] }) === "article" && pt({ schemaTypes: ["BreadcrumbList", "Service"] }) === "page" && pt({ schemaTypes: ["BreadcrumbList", "ItemList"] }) === "category");
   check("P 3: LocalBusiness or a subtype -> local", pt({ schemaTypes: ["RealEstateAgent"] }) === "local" && pt({ schemaTypes: ["Dentist"] }) === "local" && pt({ schemaTypes: ["LocalBusiness"] }) === "local");
   check("P 4: Article, BlogPosting, NewsArticle -> article", ["Article", "BlogPosting", "NewsArticle"].every((t) => pt({ schemaTypes: [t] }) === "article"));
   check("P 5: VideoObject counts only as the main entity", pt({ schemaTypes: ["VideoObject"] }) === "video" && pt({ schemaTypes: ["WebPage", "VideoObject"], mainEntityType: "WebPage" }) === "page" && pt({ schemaTypes: ["WebPage", "VideoObject"], mainEntityType: "VideoObject" }) === "video");
@@ -165,6 +166,151 @@ async function suite() {
   check("M: no clicks anywhere -> the shortest URL path wins", G.matchPages(cluster, [pg("/long/path/here/", "We buy houses", "x", "local"), pg("/s/", "We buy houses", "x", "local")]).match.path === "/s/");
   check("M: a page for another place is not a match (skill choice, recorded): 'realtor in manteca' does not take the Tracy page", G.matchPages({ primaryQuery: "realtor manteca", intent: "local" }, [pg("/", "Realtor in Tracy", "Realtor in Tracy", "local")]).match === null && G.matchPages({ primaryQuery: "realtor manteca", intent: "local" }, [pg("/m/", "Realtor in Manteca", "x", "local")]).match?.path === "/m/");
   check("M: carriesQuery = head term OR one of the cluster's queries as whole words (TGT-004)", G.carriesQuery("Sell your house fast", { primaryQuery: "we buy houses", queries: ["sell house fast"] }) === false && G.carriesQuery("Quick sell house fast guide", { primaryQuery: "we buy houses", queries: ["sell house fast"] }) === true && G.carriesQuery("We buy houses", { primaryQuery: "we buy houses", queries: [] }) === true);
+  await editorial();
+}
+
+// ------------------------------------------------ E: the editorial-media industry pack (rules/industries/editorial-media.json + rules/link-sources/editorial-media.json)
+// The gate checks run the real GT-010 code (gate-industry.mjs) on small built sites written to a temp folder; every assertion has a mutant below.
+async function editorial() {
+  const GI = await imp("gate-industry.mjs"), LS = await imp("lib-site.mjs"), LP = await imp("lib-plan.mjs"), RS = await imp("research-seeds.mjs"), AL = await imp("authority-lib.mjs");
+  const IND = path.join(RULES, "industries"), PACKFILE = path.join(IND, "editorial-media.json");
+  const pack = J(PACKFILE), items = pack.items, pt = pack.pageTypes, itemIds = new Set(items.map((i) => i.id));
+  const KNOWN = new Set(["licence-on-every-page", "business-text-on-every-page", "forbidden-phrases", "required-pages", "required-when-present", "forbidden-schema"]);
+  const problems = (p) => { // the same item schema test-plan-gate.mjs applies to every pack
+    const out = [], ids = new Set(), rx = (s, w) => { try { new RegExp(s, "i"); } catch (e) { out.push(`${w}: ${e.message}`); } };
+    for (const k of ["slug", "title", "jurisdiction", "notes"]) if (typeof p[k] !== "string" || !p[k].trim()) out.push(`pack.${k} missing`);
+    if (!Array.isArray(p.sources) || !p.sources.length) out.push("pack.sources missing");
+    for (const it of p.items || []) {
+      const w = it.id || "(no id)";
+      if (!/^[A-Z]{2,3}(?:-[A-Z0-9]+)+-\d{3}$/.test(it.id || "")) out.push(`${w}: bad id`);
+      if (ids.has(it.id)) out.push(`${w}: duplicate id`); ids.add(it.id);
+      if (!KNOWN.has(it.type)) out.push(`${w}: unknown type ${it.type}`);
+      if (!["fail", "warn"].includes(it.severity)) out.push(`${w}: severity`);
+      if (typeof it.description !== "string" || it.description.length < 15) out.push(`${w}: description`);
+      if (typeof it.source !== "string" || it.source.length < 20) out.push(`${w}: source`);
+      if (it.type === "forbidden-phrases") { if (!Array.isArray(it.patterns) || !it.patterns.length) out.push(`${w}: patterns`); else it.patterns.forEach((x) => rx(x, w)); }
+      if (it.type === "required-pages" && !(Array.isArray(it.anyOf) && it.anyOf.length && it.anyOf.every((g) => Array.isArray(g) && g.length && g.every((x) => /^\/.*\/$/.test(x))))) out.push(`${w}: anyOf`);
+      if (it.type === "forbidden-schema" && !(Array.isArray(it.types) && it.types.length && it.types.every((t) => /^[A-Z][A-Za-z]+$/.test(t)))) out.push(`${w}: types`);
+      if (it.type === "required-when-present") {
+        if (!Array.isArray(it.require) || !it.require.length) out.push(`${w}: require`); else for (const r of it.require) { if (!r.label || !r.pattern) out.push(`${w}: require entry`); else rx(r.pattern, w); }
+        if (it.trigger) rx(it.trigger, w);
+        if (it.pathPattern) rx(it.pathPattern, w);
+        if (it.nearChars !== undefined && !(Number.isInteger(it.nearChars) && it.nearChars > 0 && it.trigger)) out.push(`${w}: nearChars needs a trigger and a positive integer`);
+        if (!it.trigger && !it.pageHasForm && !it.pathPattern) out.push(`${w}: applies to every page without saying so`);
+      }
+    }
+    return out;
+  };
+  check("E: editorial-media.json validates against the item schema every pack must meet (known types, id format, severity, description, source, compiling regexes, nothing that silently applies to every page)", problems(pack).length === 0, problems(pack).join("; "));
+  const loaded = LP.loadIndustry("editorial-media", IND);
+  check("E: the pack loads through loadIndustry and is named editorial-media with 15+ items, 14+ page types and 30+ seed queries", loaded.slug === "editorial-media" && loaded.items.length >= 15 && loaded.pageTypes.length >= 14 && loaded.seeds.queries.length >= 30, `${loaded.slug} ${loaded.items.length} ${loaded.pageTypes.length} ${loaded.seeds.queries.length}`);
+  const schemaOf = (id) => pt.find((t) => t.id === id)?.schema || [];
+  const has = (id, ...types) => types.every((t) => schemaOf(id).includes(t));
+  check("E: the page types competitors use are all there with the schema each needs: feature Article, news NewsArticle, roundup CollectionPage+ItemList, house-of-the-day Article, market-guide Article, style and architect landing CollectionPage, newsletter-issue Article, author ProfilePage+Person, submit-a-listing WebPage, pricing WebPage+Offer",
+    has("feature", "Article") && has("news", "NewsArticle") && has("roundup", "CollectionPage", "ItemList") && has("house-of-the-day", "Article") && has("market-guide", "Article") && has("style-landing", "CollectionPage") && has("architect-landing", "CollectionPage") && has("newsletter-issue", "Article") && has("author", "ProfilePage", "Person") && has("submit-a-listing", "WebPage") && has("pricing", "WebPage", "Offer"), pt.map((t) => `${t.id}:${t.schema}`).join(" "));
+  check("E: every collection page type (roundup, style, architect, city, hub) plans an ItemList of its own next to CollectionPage, so an empty or missing list is a missing planned type", ["roundup", "style-landing", "architect-landing", "city-landing", "hub"].every((id) => has(id, "CollectionPage", "ItemList")), pt.map((t) => `${t.id}:${t.schema}`).join(" "));
+  check("E: news plans Article as well as NewsArticle (GT-008 only checks the required fields of the planned type name Article)", has("news", "NewsArticle", "Article"));
+  const kinds = pt.map((t) => t.plannerKind).filter(Boolean), PLANNER = new Set(["home", "money", "city-landing", "guide", "hub"]);
+  check("E: every plannerKind is one plan-site.mjs makes (home, money, city-landing, guide, hub), no kind is claimed twice, and every `requires` names an item of the pack", kinds.every((k) => PLANNER.has(k)) && new Set(kinds).size === kinds.length && pt.every((t) => t.requires.every((r) => itemIds.has(r))), `${kinds} ${pt.flatMap((t) => t.requires.filter((r) => !itemIds.has(r)))}`);
+  check("E: a publisher plan never asks for RealEstateAgent, RealEstateListing, Product or Review schema", pt.every((t) => t.schema.length && !t.schema.some((s) => ["RealEstateAgent", "RealEstateListing", "Product", "AggregateOffer", "Review", "AggregateRating"].includes(s))), JSON.stringify(pt.map((t) => t.schema)));
+  const legalNeedle = /Business and Professions Code|Fair Housing Act|Civil Code|Bus\. & Prof|Native Advertising|TCPA|Deceptively Formatted/;
+  const legal = items.filter((i) => legalNeedle.test(i.source)), legalSrc = pack.sources.filter((s) => legalNeedle.test(s));
+  check("E: every item or source that cites a statute section or an FTC/HUD document from memory says UNVERIFIED (nothing legal is presented as confirmed)", legal.length >= 8 && legal.every((i) => /UNVERIFIED/.test(i.source)) && legalSrc.every((s) => /UNVERIFIED/.test(s)) && /UNVERIFIED/.test(pack.sources.at(-1)), legal.filter((i) => !/UNVERIFIED/.test(i.source)).map((i) => i.id).join());
+  check("E: the pack says plainly what no item can enforce (an empty ItemList, JSON-LD author and dates, roundup links), so no reader thinks they are gated", /NOT ENFORCED/.test(pack.notes) && /numberOfItems 0/.test(pack.notes) && /linking each featured property page/.test(pack.notes), pack.notes.slice(0, 80));
+  check("E: every item gives a why in plain words (the source or description says why the rule exists)", items.every((i) => /\bWhy:/.test(i.source) || /^EDM-(?:PLACEHOLDER|SCHEMA-002|FH|FREE|FORM|DISC)/.test(i.id)) && items.filter((i) => /\bWhy:/.test(i.source)).length >= 12, items.filter((i) => !/\bWhy:/.test(i.source)).map((i) => i.id).join());
+  check("E: the pack names no client, business or person (it is for any editorial media platform)", !/\b(?:matter of place|matterofplace|omnikom|francine|elibuyshomes|valley to valley|abdo)\b/i.test(fs.readFileSync(PACKFILE, "utf8")));
+  const Q = pack.seeds.queries, ok = (q) => q.query && q.productLine && ["informational", "commercial", "transactional", "local"].includes(q.intent) && ["national", "local"].includes(q.scope);
+  check("E: every seed query has a product line, an intent and a scope; {city} appears only in local queries and every local query without {city} is a plain 'near me' style; no volume or rank field", Q.every(ok) && Q.every((q) => (q.scope === "local") === /\{city\}/.test(q.query)) && Q.every((q) => !("volume" in q) && !("rank" in q)) && new Set(Q.map((q) => q.query)).size === Q.length, Q.filter((q) => !ok(q) || (q.scope === "local") !== /\{city\}/.test(q.query)).map((q) => q.query).join());
+  const want = ["historic homes for sale", "architect designed homes for sale", "mid century modern homes for sale {city}", "houses with history", "unique homes for sale", "old houses for sale", "modern houses for sale", "luxury real estate news", "homes for sale on the market this week", "sponsored listing real estate media", "feature my listing", "how to get a home featured in"];
+  check("E: the seed queries include the editorial searches the brief names (historic, architect designed, mid century {city}, houses with history, unique, old, modern, luxury news, on the market this week, sponsored listing, how to get a home featured in, feature my listing)", want.every((w) => Q.some((q) => q.query === w || q.query.startsWith(w + " "))), want.filter((w) => !Q.some((q) => q.query === w || q.query.startsWith(w + " "))).join(" | "));
+  const ps = RS.packSeeds("editorial-media", IND);
+  check("E: research-seeds.mjs --industry editorial-media reads every seed query of the pack and names the pack as the source", ps.length === Q.length && ps.every((x) => /industry pack editorial-media: /.test(x.source)), `${ps.length}/${Q.length}`);
+
+  // ---- the gate on built sites
+  const eHtml = (title, body, head = "") => `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${title}</title>${head}</head><body><header><nav><a href="/">Sample Journal</a></nav></header><main><h1>${title}</h1>${body}</main><footer><p>Sample Journal, 2026.</p></footer></body></html>`;
+  const ld = (o) => `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", ...o })}</script>`;
+  const BYL = "By Jane Doe | Published October 24, 2026 | Updated October 25, 2026";
+  const LABEL = "SPONSORED LISTING. Listing agent: Alex Sample, Sample Realty.";
+  const STANDARD = 'Payment does not buy acceptance; see our <a href="/editorial-standard/">editorial standard</a>.';
+  const AS_OF = "Prices and availability are as of October 24, 2026 and may change.";
+  const art = { "@type": "Article", headline: "A stone house", author: { "@type": "Person", name: "Jane Doe" }, datePublished: "2026-10-24", dateModified: "2026-10-25" };
+  const base = {
+    "index.html": eHtml("Sample Journal", "<p>Stories about notable houses and the people who made them.</p>", ld({ "@graph": [{ "@type": ["NewsMediaOrganization", "Organization"], name: "Sample Journal", url: "https://example.test/", logo: "https://example.test/logo.png" }, { "@type": "WebSite", name: "Sample Journal", url: "https://example.test/" }] })),
+    "stories/stone-house/index.html": eHtml("A stone house in the hills", `<p>${BYL}</p><p>${LABEL}</p><p>A stone house on two acres with a restored barn.</p><p>${STANDARD}</p><p><a href="/on-the-market/2026-10-24/">More homes in this week's roundup</a></p>`, ld(art)),
+    "on-the-market/index.html": eHtml("On the Market", `<p>Weekly roundups of notable homes. ${AS_OF}</p><ul><li><a href="/on-the-market/2026-10-24/">October 24, 2026</a></li></ul>`, ld({ "@graph": [{ "@type": "CollectionPage", name: "On the Market" }, { "@type": "ItemList", numberOfItems: 1, itemListElement: [{ "@type": "ListItem", position: 1, url: "https://example.test/on-the-market/2026-10-24/" }] }] })),
+    "on-the-market/2026-10-24/index.html": eHtml("On the Market, October 24", `<p>${BYL}</p><p>${AS_OF}</p><h2>A stone house in the hills</h2><p>${LABEL}</p><h2>A shingle-style cottage</h2><p>Selected by our editors; no payment was made. Listing agent: Sam Example, Example Homes.</p><p>${STANDARD}</p><ul><li><a href="/stories/stone-house/">A stone house in the hills</a></li></ul>`, ld({ "@graph": [{ "@type": "CollectionPage", name: "On the Market, October 24" }, { "@type": "ItemList", numberOfItems: 2, itemListElement: [{ "@type": "ListItem", position: 1, url: "https://example.test/stories/stone-house/" }, { "@type": "ListItem", position: 2, url: "https://example.test/stories/cottage/" }] }] })),
+    "submit-a-listing/index.html": eHtml("Submit a listing", '<p>Sample Journal is an independent publisher. It is not a brokerage and does not represent anyone in a sale.</p><p>The Feature is $295. Submission is free, and review comes before payment.</p><form action="/thanks/" method="post"><label>Email <input name="e"></label><button>Send</button></form><p>By submitting this form you agree to be contacted by email about your property. See our <a href="/privacy/">privacy policy</a>.</p>'),
+    "editorial-standard/index.html": eHtml("Editorial standard", "<p>Payment does not buy acceptance. Editors choose what runs.</p>"),
+    "privacy/index.html": eHtml("Privacy policy", "<p>How we handle what you send us.</p>"),
+    "accessibility/index.html": eHtml("Accessibility", "<p>How to reach us about access.</p>"),
+    "authors/jane-doe/index.html": eHtml("Jane Doe", "<p>Jane Doe writes about houses.</p>", ld({ "@type": "ProfilePage", mainEntity: { "@type": "Person", name: "Jane Doe" } })),
+  };
+  const SF = "stories/stone-house/index.html", RU = "on-the-market/2026-10-24/index.html", HUB = "on-the-market/index.html", SUB = "submit-a-listing/index.html";
+  const runE = (edit = {}, o = {}) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-edm-"));
+    try {
+      const files = { ...base }; for (const [k, v] of Object.entries(edit)) { if (v === null) delete files[k]; else files[k] = typeof v === "function" ? v(files[k]) : v; }
+      for (const [k, v] of Object.entries(files)) { fs.mkdirSync(path.dirname(path.join(dir, k)), { recursive: true }); fs.writeFileSync(path.join(dir, k), v); }
+      const site = LS.loadSite(dir);
+      return GI.run({ rules: o.rules || pack, business: o.business || { name: "Sample Journal" }, site, indexable: (p) => !p.noindex, waive: new Set(o.waive || []), strict: !!o.strict, noindexNote: [] });
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  };
+  const L = (r) => (r.details || []).join("\n");
+  const hit = (r, lvl, id, p = "") => new RegExp(`^${lvl} ${id} ${p.replace(/\//g, "\\/")}`, "m").test(L(r));
+  const swap = (a, b) => (h) => { if (!h.includes(a)) throw new Error(`fixture text not found: ${a}`); return h.replace(a, b); };
+  const add = (html) => (h) => h.replace("</main>", `${html}</main>`);
+  const bad = (name, r, id, p, lvl = "FAIL") => check(name, r.status === "FAIL" && hit(r, lvl, id, p), `${r.status} ${r.summary}\n${L(r).slice(0, 400)}`);
+
+  const clean = runE(), cleanStrict = runE({}, { strict: true });
+  check("E: a clean editorial site PASSes, with no FAIL or WARN line, also under --strict (nine pages: home, feature, roundup issue and index, submit page, standard, privacy, accessibility, author)", clean.status === "PASS" && cleanStrict.status === "PASS" && !/^(?:FAIL|WARN|ERROR)/m.test(L(cleanStrict)) && new RegExp(`^${items.length} industry rule item`).test(cleanStrict.summary), `${cleanStrict.status} ${cleanStrict.summary}\n${L(cleanStrict).slice(0, 500)}`);
+  check("E: a labelled sponsored listing PASSes (the 'SPONSORED LISTING' label sits by the agent credit), and so does an unpaid pick that says it was chosen by the editors", !hit(clean, "FAIL", "EDM-SPON-001") && !/EDM-SPON-001/.test(L(clean)) && !/EDM-SPON-001/.test(L(runE({ [SF]: swap(LABEL, "Selected by our editors; no payment was made. Listing agent: Alex Sample, Sample Realty.") }))));
+  bad("E: a listing credit with no paid-or-not label FAILs (EDM-SPON-001)", runE({ [SF]: swap("SPONSORED LISTING. ", "") }), "EDM-SPON-001", "/stories/stone-house/");
+  bad("E: a Sponsored label more than 2500 characters from the agent credit does not count (nearChars)", runE({ [SF]: swap(LABEL, `Listing agent: Alex Sample, Sample Realty.</p><p>${"The barn was restored in 1998. ".repeat(110)}</p><p>SPONSORED`) }), "EDM-SPON-001", "/stories/stone-house/");
+  bad("E: a sponsored page that never says payment does not buy acceptance is flagged (EDM-SPON-002, FAIL under --strict)", runE({ [SF]: swap(`<p>${STANDARD}</p>`, "") }, { strict: true }), "EDM-SPON-002", "/stories/stone-house/");
+  bad("E: an article with no named author FAILs (EDM-BYLINE-001)", runE({ [SF]: swap("By Jane Doe | ", "") }), "EDM-BYLINE-001", "/stories/stone-house/");
+  bad("E: an article with no publication date FAILs (EDM-DATE-001)", runE({ [SF]: swap("Published October 24, 2026", "") }), "EDM-DATE-001", "/stories/stone-house/");
+  bad("E: an article with no last-updated date FAILs (EDM-DATE-002)", runE({ [SF]: swap(" | Updated October 25, 2026", "") }), "EDM-DATE-002", "/stories/stone-house/");
+  const scoped = runE({ [SF]: swap("By Jane Doe | ", "") });
+  const flaggedPaths = [...L(scoped).matchAll(/^(?:FAIL|WARN) EDM-(?:BYLINE|DATE)-00\d (\S+)/gm)].map((m) => m[1]);
+  check("E: only article pages are asked for a byline and dates (the home page, the author page, the submit page, the roundup index and a dated roundup issue that has them are not flagged)", flaggedPaths.length >= 1 && flaggedPaths.every((p) => p === "/stories/stone-house/"), flaggedPaths.join());
+  bad("E: 'guaranteed exposure' FAILs (EDM-OUTCOME-001)", runE({ [SF]: add("<p>Your property gets guaranteed exposure to buyers.</p>") }), "EDM-OUTCOME-001", "/stories/stone-house/");
+  bad("E: 'sells in days' FAILs (EDM-OUTCOME-001)", runE({ [SF]: add("<p>This is a house that sells in days.</p>") }), "EDM-OUTCOME-001", "/stories/stone-house/");
+  bad("E: 'we will sell your home' FAILs (EDM-OUTCOME-001)", runE({ [SF]: add("<p>We will sell your home.</p>") }), "EDM-OUTCOME-001", "/stories/stone-house/");
+  bad("E: 'your home will sell' FAILs (EDM-OUTCOME-001)", runE({ [SF]: add("<p>With this feature your home will sell.</p>") }), "EDM-OUTCOME-001", "/stories/stone-house/");
+  bad("E: 'we guarantee a sale' FAILs (EDM-OUTCOME-001)", runE({ [SF]: add("<p>We guarantee a sale with every feature.</p>") }), "EDM-OUTCOME-001", "/stories/stone-house/");
+  const honest = runE({ [SF]: add("<p>We do not guarantee buyers or a sale. There is no guaranteed exposure, and nobody can promise results.</p>") });
+  check("E: an honest disclaimer ('we do not guarantee buyers or a sale', 'no guaranteed exposure') is not flagged as a promise", !/EDM-OUTCOME-001/.test(L(honest)) && honest.status === "PASS", L(honest));
+  const lic = { name: "Sample Journal", credentials: { licensed: true, licenseNumber: "01234567" } };
+  bad("E: RealEstateAgent schema on the publisher's page FAILs without credentials (EDM-SCHEMA-001)", runE({ [SF]: swap("</head>", `${ld({ "@type": "RealEstateAgent", name: "Sample Journal" })}</head>`) }), "EDM-SCHEMA-001", "/stories/stone-house/");
+  bad("E: RealEstateListing schema inside an @graph on the publisher's page FAILs (EDM-SCHEMA-001)", runE({ [SF]: swap("</head>", `${ld({ "@graph": [{ "@type": "WebPage" }, { "@type": "RealEstateListing", name: "A stone house" }] })}</head>`) }), "EDM-SCHEMA-001", "/stories/stone-house/");
+  const asLicensed = runE({ [SF]: swap("</head>", `${ld({ "@type": "RealEstateAgent", name: "Sample Journal" })}</head>`) }, { business: lic });
+  check("E: with credentials.licensed = true the RealEstateAgent item is skipped and says so (NOTE ... not applicable)", asLicensed.status === "PASS" && /NOTE EDM-SCHEMA-001 not applicable/.test(L(asLicensed)), L(asLicensed));
+  bad("E: 'we represent buyers and sellers' FAILs without credentials (EDM-BROKER-001)", runE({ [SF]: add("<p>We represent buyers and sellers.</p>") }), "EDM-BROKER-001", "/stories/stone-house/");
+  bad("E: 'ask our agents' FAILs without credentials (EDM-BROKER-001)", runE({ [SF]: add("<p>Ask our agents about this house.</p>") }), "EDM-BROKER-001", "/stories/stone-house/");
+  const asBroker = runE({ [SF]: add("<p>We represent buyers and sellers. Ask our agents.</p>") }, { business: lic });
+  check("E: a licensed business (credentials.licensed) may say it represents clients; crediting someone else's listing agent and 'we are not a brokerage' never trip the rule", asBroker.status === "PASS" && /NOTE EDM-BROKER-001 not applicable/.test(L(asBroker)) && !/EDM-BROKER-001/.test(L(runE({ [SF]: add("<p>We are not a brokerage and we do not represent anyone in a sale.</p>") })).replace(/NOTE.*/g, "")), L(asBroker));
+  bad("E: a submit page that does not say the publisher is not a brokerage is flagged (EDM-ROLE-001, FAIL under --strict)", runE({ [SUB]: swap("Sample Journal is an independent publisher. It is not a brokerage and does not represent anyone in a sale.", "Send us your house.") }, { strict: true }), "EDM-ROLE-001", "/submit-a-listing/");
+  const emptyPage = runE({ [HUB]: add("<p>No stories yet. Check back soon.</p>") });
+  check("E: an indexable page that says 'no stories yet' is a WARN (EDM-EMPTY-001) now and a FAIL under --strict", emptyPage.status === "PASS" && hit(emptyPage, "WARN", "EDM-EMPTY-001", "/on-the-market/") && hit(runE({ [HUB]: add("<p>No stories yet.</p>") }, { strict: true }), "FAIL", "EDM-EMPTY-001", "/on-the-market/"), L(emptyPage));
+  const noidx = runE({ [HUB]: (h) => add("<p>No stories yet. Check back soon.</p>")(h.replace("</head>", '<meta name="robots" content="noindex"></head>')) });
+  check("E: the same empty collection page kept noindex is not judged (an empty page stays out of the index until it lists something)", noidx.status === "PASS" && !/EDM-EMPTY-001 \/on-the-market\//.test(L(noidx)), L(noidx));
+  bad("E: fair-housing steering ('perfect for young professionals') FAILs (EDM-FH-001)", runE({ [SF]: add("<p>Perfect for young professionals.</p>") }), "EDM-FH-001", "/stories/stone-house/");
+  bad("E: a roundup with no 'prices and availability as of' line is flagged (EDM-ROUNDUP-001, FAIL under --strict)", runE({ [RU]: swap(`<p>${AS_OF}</p>`, "") }, { strict: true }), "EDM-ROUNDUP-001", "/on-the-market/2026-10-24/");
+  bad("E: 'free feature' for a paid feature is flagged (EDM-FREE-001, FAIL under --strict), while 'submission is free' passes", runE({ [SUB]: add("<p>Get a free feature today.</p>") }, { strict: true }), "EDM-FREE-001", "/submit-a-listing/");
+  bad("E: an unsubstantiated reach claim ('reaching 2 million affluent buyers') is flagged (EDM-CLAIM-001, FAIL under --strict)", runE({ [SUB]: add("<p>Reaching 2 million affluent buyers every week.</p>") }, { strict: true }), "EDM-CLAIM-001", "/submit-a-listing/");
+  bad("E: a form page with no privacy-policy mention is flagged (EDM-FORM-001, FAIL under --strict)", runE({ [SUB]: swap(" See our <a href=\"/privacy/\">privacy policy</a>.", "") }, { strict: true }), "EDM-FORM-001", "/submit-a-listing/");
+  bad("E: a site with no editorial standard page is flagged (EDM-DISC-001, FAIL under --strict)", runE({ "editorial-standard/index.html": null }, { strict: true }), "EDM-DISC-001", "none of /editorial-standard/");
+  bad("E: an unfilled {{PLACEHOLDER}} on a page FAILs (EDM-PLACEHOLDER-001)", runE({ [SF]: add("<p>Asking {{PRICE}}.</p>") }), "EDM-PLACEHOLDER-001", "/stories/stone-house/");
+  bad("E: Review or AggregateRating markup is flagged (EDM-SCHEMA-002, FAIL under --strict)", runE({ [SF]: swap("</head>", `${ld({ "@type": "AggregateRating", ratingValue: 5, reviewCount: 1 })}</head>`) }, { strict: true }), "EDM-SCHEMA-002", "/stories/stone-house/");
+
+  // ---- the link-sources pack (authority lane)
+  const lr = AL.loadRules(path.join(RULES, "link-sources")), picks = (b) => AL.pickPack(lr, b).pack.slug;
+  check("E: the link-source pack editorial-media is picked by slug and by the alias real-estate-media, and has the fields the authority lane needs (UNVERIFIED basis, 3+ angles, 2+ things to avoid, hosts clean with a cost, types in the taxonomy)",
+    picks({ industry: "editorial-media" }) === "editorial-media" && picks({ industry: "real-estate-media" }) === "editorial-media" && picks({ kind: "editorial-media" }) === "editorial-media" && (() => { const p = lr.packs.get("editorial-media"); return !!p && /UNVERIFIED/.test(p.basis) && p.angles.length >= 3 && p.avoid.length >= 2 && Array.isArray(p.providerPatterns) && Array.isArray(p.providerText) && p.domainTypes.every((e) => e.host === e.host.toLowerCase() && !/^www\.|\//.test(e.host) && e.cost && lr.tax.types[e.type]) && p.patterns.every((e) => lr.tax.types[e.type] && new RegExp(e.re, "i")); })(), `${picks({ industry: "real-estate-media" })}`);
+  const mp = AL.mergedPack(lr, lr.packs.get("editorial-media")), cls = (d) => AL.classifyDomain(d, { rules: lr, pack: mp, target: "example.test", competitors: [] }).type;
+  check("E: the link-source pack names a design-press host as editorial-list, a preservation group as professional-association, a local news host as local-news and a brokerage-looking domain as a partner", cls("dezeen.com") === "editorial-list" && cls("docomomo-us.org") === "professional-association" && cls("patch.com") === "local-news" && cls("harborrealty.com") === "partner-supplier", [cls("dezeen.com"), cls("docomomo-us.org"), cls("patch.com"), cls("harborrealty.com")].join());
+  const aliases = lr.packs.get("editorial-media").aliases.map(AL.norm), others = [...lr.packs.values()].filter((p) => p.slug !== "editorial-media").flatMap((p) => [p.slug, ...p.aliases].map(AL.norm));
+  check("E: no alias of the link-source pack belongs to another pack", aliases.every((a) => !others.includes(a)), aliases.filter((a) => others.includes(a)).join());
 }
 
 const mutants = [
@@ -188,7 +334,8 @@ const mutants = [
   ["lib-growth.mjs", "if (maxHost && maxHost[1] >= 5)", "if (maxHost && maxHost[1] >= 4)", "I rule 4: 4 of 10 on one domain is not enough", "same-domain threshold 5 -> 4"],
   ["lib-growth.mjs", "if (brandNames.includes(q))", "if (brandNames.some((b) => q.includes(b)))", "I rule 4: a query EQUAL to a directory brand", "brand contained instead of equal"],
   ["lib-growth.mjs", 'if (mods.local) return { intent: "local", rule: 1,', 'if (false) return { intent: "local", rule: 1,', "I rule 1: a gazetteer place", "local modifier ignored"],
-  ["lib-growth.mjs", 'if (hasType(types, "Product", "Offer")) return "product";\n  if (hasType(types, "ItemList") || categoryPath(urlPath)) return "category";\n  if (hasType(types, "LocalBusiness")) return "local";', 'if (hasType(types, "LocalBusiness")) return "local";\n  if (hasType(types, "Product", "Offer")) return "product";\n  if (hasType(types, "ItemList") || categoryPath(urlPath)) return "category";', "P 1: Product or Offer", "local before product"],
+  ["lib-growth.mjs", 'const listTypes = types.filter((t) => t !== "BreadcrumbList");', "const listTypes = types;", "P 2b: a BreadcrumbList", "breadcrumbs count as a list again"],
+  ["lib-growth.mjs", 'if (hasType(types, "Product", "Offer")) return "product";\n  if (hasType(listTypes, "ItemList") || categoryPath(urlPath)) return "category";\n  if (hasType(types, "LocalBusiness")) return "local";', 'if (hasType(types, "LocalBusiness")) return "local";\n  if (hasType(types, "Product", "Offer")) return "product";\n  if (hasType(listTypes, "ItemList") || categoryPath(urlPath)) return "category";', "P 1: Product or Offer", "local before product"],
   ["lib-growth.mjs", 'if (main && isSchemaType(main, "VideoObject")) return "video";', 'if (hasType(types, "VideoObject")) return "video";', "P 5: VideoObject counts only", "video not required to be the main entity"],
   ["lib-growth.mjs", 'if (hasType(types, "QAPage") || dir?.kind === "forum") return "forum";', 'if (hasType(types, "QAPage")) return "forum";', "P 6: QAPage or a forum host", "forum host ignored"],
   ["lib-growth.mjs", 'segs.some((s) => s === "vs" || s.includes("-vs-"))', 'segs.some((s) => s === "vs")', "P 8: a path segment 'vs'", "-vs- path ignored"],
@@ -205,6 +352,71 @@ const mutants = [
   ["lib-growth.mjs", "return [cluster.primaryQuery, ...(cluster.queries || [])].some((q) => containsPhrase(text, q));", "return false;", "M: carriesQuery", "cluster queries ignored"],
 ];
 
+// E: watched-fail mutants for the editorial-media pack. A function in the second slot edits the parsed JSON of the named ruleset in a copy of rules/ (the first slot is its path under rules/); a string in the second slot patches a script as above.
+{
+  const EP = "industries/editorial-media.json", LK = "link-sources/editorial-media.json", GIF = "gate-industry.mjs";
+  const I = (d, id) => d.items.find((i) => i.id === id), T = (d, id) => d.pageTypes.find((t) => t.id === id), NEVER = "^\\/zz-never\\/", ZZ = "zzzz-never";
+  mutants.push(
+    [EP, (d) => { d.items[2].severity = "bogus"; }, null, "E: editorial-media.json validates against the item schema", "an item with a severity the gate does not know"],
+    [EP, (d) => { d.slug = "x"; }, null, "E: the pack loads through loadIndustry", "wrong slug"],
+    [EP, (d) => { d.pageTypes = d.pageTypes.filter((t) => t.id !== "author"); }, null, "E: the page types competitors use", "author page type dropped"],
+    [EP, (d) => { T(d, "roundup").schema = ["CollectionPage"]; }, null, "E: every collection page type", "roundup plans no ItemList"],
+    [EP, (d) => { T(d, "news").schema = ["NewsArticle"]; }, null, "E: news plans Article as well", "news plans NewsArticle only"],
+    [EP, (d) => { T(d, "hub").plannerKind = "money"; }, null, "E: every plannerKind is one", "a planner kind claimed twice"],
+    [EP, (d) => { T(d, "feature").requires.push("EDM-NOPE-001"); }, null, "E: every plannerKind is one", "a page type requires an item that does not exist"],
+    [EP, (d) => { T(d, "home").schema.push("RealEstateAgent"); }, null, "E: a publisher plan never asks", "the home plans RealEstateAgent"],
+    [EP, (d) => { I(d, "EDM-OUTCOME-001").source = I(d, "EDM-OUTCOME-001").source.replace(/UNVERIFIED/g, "checked"); }, null, "E: every item or source that cites", "a statute section presented as confirmed"],
+    [EP, (d) => { d.notes = d.notes.replace("NOT ENFORCED", "ENFORCED"); }, null, "E: the pack says plainly", "the notes claim the JSON-LD checks are enforced"],
+    [EP, (d) => { I(d, "EDM-OUTCOME-001").source = I(d, "EDM-OUTCOME-001").source.replace(/Why:/g, "Because:"); }, null, "E: every item gives a why", "an item with no why"],
+    [EP, (d) => { d.notes += " Written for Matter of Place."; }, null, "E: the pack names no client", "a client name in the pack"],
+    [EP, (d) => { delete d.seeds.queries[3].productLine; }, null, "E: every seed query has a product line", "a seed without a product line"],
+    [EP, (d) => { d.seeds.queries.find((q) => q.scope === "local").scope = "national"; }, null, "E: every seed query has a product line", "a {city} query marked national"],
+    [EP, (d) => { d.seeds.queries = d.seeds.queries.filter((q) => q.query !== "houses with history"); }, null, "E: the seed queries include", "a named editorial search dropped"],
+    ["research-seeds.mjs", "return qs.map((x) => ({ query: x.query, source:", "return qs.slice(1).map((x) => ({ query: x.query, source:", "E: research-seeds.mjs --industry editorial-media", "the first pack query is not read"],
+    [EP, (d) => { I(d, "EDM-PLACEHOLDER-001").patterns.push("Sample Journal"); }, null, "E: a clean editorial site PASSes", "a banned phrase that the clean site contains"],
+    [EP, (d) => { I(d, "EDM-SPON-001").require[0].pattern = ZZ; }, null, "E: a labelled sponsored listing PASSes", "no label can satisfy the rule"],
+    [EP, (d) => { I(d, "EDM-SPON-001").trigger = ZZ; }, null, "E: a listing credit with no paid-or-not label FAILs", "the listing credit no longer triggers the rule"],
+    [EP, (d) => { delete I(d, "EDM-SPON-001").nearChars; }, null, "E: a Sponsored label more than 2500", "the label may sit anywhere on the page"],
+    [GIF, 'if (item.nearChars && hits.length) {', "if (false) {", "E: a Sponsored label more than 2500", "gate ignores nearChars"],
+    [EP, (d) => { I(d, "EDM-SPON-002").trigger = ZZ; }, null, "E: a sponsored page that never says payment", "sponsored pages need no editorial statement"],
+    [EP, (d) => { I(d, "EDM-BYLINE-001").require[0].pattern = ".*"; }, null, "E: an article with no named author", "any text counts as a byline"],
+    [EP, (d) => { I(d, "EDM-DATE-001").pathPattern = NEVER; }, null, "E: an article with no publication date", "no page is asked for a publication date"],
+    [EP, (d) => { I(d, "EDM-DATE-002").pathPattern = NEVER; }, null, "E: an article with no last-updated date", "no page is asked for an updated date"],
+    [EP, (d) => { I(d, "EDM-BYLINE-001").pathPattern = ".*"; }, null, "E: only article pages are asked", "every page is asked for a byline"],
+    [GIF, "if (inScope && !inScope.test(pg.path)) continue;", "", "E: only article pages are asked", "gate ignores pathPattern"],
+    [EP, (d) => { I(d, "EDM-OUTCOME-001").patterns[0] = ZZ; }, null, "E: 'guaranteed exposure' FAILs", "guaranteed-exposure pattern removed"],
+    [EP, (d) => { I(d, "EDM-OUTCOME-001").patterns[1] = ZZ; }, null, "E: 'we guarantee a sale' FAILs", "we-guarantee pattern removed"],
+    [EP, (d) => { I(d, "EDM-OUTCOME-001").patterns[2] = ZZ; }, null, "E: 'sells in days' FAILs", "sells-in-days pattern removed"],
+    [EP, (d) => { I(d, "EDM-OUTCOME-001").patterns[4] = ZZ; I(d, "EDM-OUTCOME-001").patterns[5] = ZZ; }, null, "E: 'we will sell your home' FAILs", "we-will-sell patterns removed"],
+    [EP, (d) => { I(d, "EDM-OUTCOME-001").patterns[3] = ZZ; }, null, "E: 'your home will sell' FAILs", "your-home-will-sell pattern removed"],
+    [EP, (d) => { I(d, "EDM-OUTCOME-001").patterns[0] = "guaranteed (?:sale|exposure)"; }, null, "E: an honest disclaimer", "the negation guard is gone, so 'no guaranteed exposure' is flagged"],
+    [EP, (d) => { I(d, "EDM-SCHEMA-001").types = ["Zzz"]; }, null, "E: RealEstateAgent schema on the publisher's page FAILs", "RealEstateAgent no longer forbidden"],
+    [EP, (d) => { I(d, "EDM-SCHEMA-001").types = ["RealEstateAgent"]; }, null, "E: RealEstateListing schema inside an @graph", "RealEstateListing no longer forbidden"],
+    [GIF, "if (found.length) report(item,", "if (false) report(item,", "E: RealEstateAgent schema on the publisher's page FAILs", "gate does not report forbidden JSON-LD types"],
+    [EP, (d) => { I(d, "EDM-SCHEMA-001").unlessField = "credentials.never"; }, null, "E: with credentials.licensed = true the RealEstateAgent item is skipped", "the licence switch does not turn the schema rule off"],
+    [GIF, "if (item.unlessField && get(biz, item.unlessField))", "if (false)", "E: with credentials.licensed = true the RealEstateAgent item is skipped", "gate ignores unlessField"],
+    [EP, (d) => { I(d, "EDM-BROKER-001").patterns[0] = ZZ; }, null, "E: 'we represent buyers and sellers' FAILs", "we-represent pattern removed"],
+    [EP, (d) => { I(d, "EDM-BROKER-001").patterns[1] = ZZ; }, null, "E: 'ask our agents' FAILs", "our-agents pattern removed"],
+    [EP, (d) => { I(d, "EDM-BROKER-001").unlessField = "credentials.never"; }, null, "E: a licensed business (credentials.licensed) may say", "the licence switch does not turn the brokerage rule off"],
+    [EP, (d) => { I(d, "EDM-BROKER-001").patterns.push("not a brokerage"); }, null, "E: a licensed business (credentials.licensed) may say", "'we are not a brokerage' is flagged"],
+    [EP, (d) => { I(d, "EDM-ROLE-001").pathPattern = NEVER; }, null, "E: a submit page that does not say", "no page is asked for a role statement"],
+    [EP, (d) => { I(d, "EDM-EMPTY-001").patterns = [ZZ]; }, null, "E: an indexable page that says 'no stories yet'", "empty-page wording no longer found"],
+    [GIF, 'const sev = level === "FAIL" && item.severity === "warn" && !ctx.strict ? "WARN" : level;', "const sev = level;", "E: an indexable page that says 'no stories yet'", "warn items fail without --strict"],
+    [GIF, "const biz = ctx.business, pages = [...ctx.site.pages.values()].filter((p) => ctx.indexable(p));", "const biz = ctx.business, pages = [...ctx.site.pages.values()];", "E: the same empty collection page kept noindex", "noindex pages are judged"],
+    [EP, (d) => { I(d, "EDM-FH-001").patterns = [ZZ]; }, null, "E: fair-housing steering", "fair-housing wording no longer found"],
+    [EP, (d) => { I(d, "EDM-ROUNDUP-001").pathPattern = NEVER; }, null, "E: a roundup with no", "no page is asked for the as-of line"],
+    [EP, (d) => { I(d, "EDM-FREE-001").patterns = [ZZ]; }, null, "E: 'free feature' for a paid feature", "free-feature wording no longer found"],
+    [EP, (d) => { I(d, "EDM-CLAIM-001").patterns = [ZZ]; }, null, "E: an unsubstantiated reach claim", "reach claims no longer found"],
+    [EP, (d) => { I(d, "EDM-FORM-001").require[1].pattern = ".*"; }, null, "E: a form page with no privacy-policy", "any text counts as a privacy mention"],
+    [EP, (d) => { I(d, "EDM-DISC-001").anyOf[2] = ["/"]; }, null, "E: a site with no editorial standard page", "the home page counts as an editorial standard"],
+    [EP, (d) => { I(d, "EDM-PLACEHOLDER-001").patterns = [ZZ]; }, null, "E: an unfilled {{PLACEHOLDER}}", "placeholders no longer found"],
+    [EP, (d) => { I(d, "EDM-SCHEMA-002").types = ["Zzz"]; }, null, "E: Review or AggregateRating markup", "review markup no longer found"],
+    [LK, (d) => { d.aliases = d.aliases.filter((a) => a !== "real-estate-media"); }, null, "E: the link-source pack editorial-media is picked", "the alias real-estate-media dropped"],
+    [LK, (d) => { d.domainTypes.find((e) => e.host === "dezeen.com").type = "directory"; }, null, "E: the link-source pack names a design-press host", "design press typed as a directory"],
+    [LK, (d) => { d.aliases.push("realtor"); }, null, "E: no alias of the link-source pack belongs to another pack", "an alias that belongs to the realtor pack"],
+  );
+}
+
 if (args.includes("--child") || !args.includes("--run-mutants-only")) {
   try { await suite(); } catch (e) { check("test harness ran to the end", false, e.stack || e); }
 }
@@ -215,9 +427,10 @@ console.log(`\n${R.length - bad.length}/${R.length} rule checks passed`);
 
 let code = bad.length ? 1 : 0;
 if (!args.includes("--no-mutants") && !opt("--scripts") && !bad.length) {
-  const NEEDED = /^(lib-text|lib-snowball|lib-growth|lib-rules)\.mjs$/;
-  const run = (dir) => new Promise((resolve) => {
-    const p = spawn(process.execPath, [path.join(HERE, "test-rules.mjs"), "--scripts", dir, "--json", "--no-mutants"], { env: { ...process.env, PEWP_RULES_DIR: path.join(HERE, "..", "rules") } });
+  const NEEDED = /^(?!test-).*\.mjs$/; // the whole script folder: the editorial-media checks run gate-industry.mjs, which imports most of it
+  const REAL_RULES = path.join(HERE, "..", "rules");
+  const run = (dir, rulesDir = REAL_RULES) => new Promise((resolve) => {
+    const p = spawn(process.execPath, [path.join(HERE, "test-rules.mjs"), "--scripts", dir, "--json", "--no-mutants"], { env: { ...process.env, PEWP_RULES_DIR: rulesDir } });
     let out = ""; p.stdout.on("data", (c) => (out += c)); p.stderr.on("data", (c) => (out += c));
     const t = setTimeout(() => p.kill(), 180000);
     p.on("close", () => { clearTimeout(t); try { resolve(JSON.parse(out.trim().split("\n").at(-1))); } catch { resolve(null); } });
@@ -227,6 +440,18 @@ if (!args.includes("--no-mutants") && !opt("--scripts") && !bad.length) {
   const worker = async () => {
     while (next < mutants.length) {
       const i = next++, [file, from, to, expect, why] = mutants[i];
+      if (typeof from === "function") { // a ruleset mutant: `from` edits the parsed JSON of rules/<file> in a copy of the rules folder (scripts stay as they are)
+        const rdir = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-mrr-")), target = path.join(rdir, file);
+        fs.cpSync(REAL_RULES, rdir, { recursive: true });
+        let doc, before, after, applied = true;
+        try { doc = JSON.parse(fs.readFileSync(target, "utf8")); before = JSON.stringify(doc); from(doc); after = JSON.stringify(doc); } catch (e) { applied = false; after = String(e.message); }
+        if (!applied || before === after) { results[i] = { file, why, status: "PATCH-NOT-APPLIED", detail: applied ? "the edit changed nothing" : after }; fs.rmSync(rdir, { recursive: true, force: true }); continue; }
+        fs.writeFileSync(target, JSON.stringify(doc, null, 1) + "\n");
+        const jr = await run(HERE, rdir);
+        fs.rmSync(rdir, { recursive: true, force: true });
+        results[i] = !jr ? { file, why, status: "NO-RESULT" } : jr.failed.some((f) => f.includes(expect)) ? { file, why, status: "RED (right reason)", detail: `${jr.failed.length} failing; e.g. ${jr.failed[0].slice(0, 70)}` } : { file, why, status: jr.failed.length ? "WRONG-CHECK" : "STAYED GREEN", detail: jr.failed.join(" | ").slice(0, 200) };
+        continue;
+      }
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-mr-"));
       for (const f of fs.readdirSync(HERE).filter((x) => NEEDED.test(x))) fs.copyFileSync(path.join(HERE, f), path.join(dir, f));
       const src = fs.readFileSync(path.join(dir, file), "utf8"), n = src.split(from).length - 1;

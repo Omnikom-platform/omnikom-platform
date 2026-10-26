@@ -1,0 +1,23 @@
+test-authority exit=0 secs=10
+test-compare exit=0 secs=34
+test-iterate exit=0 secs=452
+test-main exit=0 secs=31
+test-measure exit=0 secs=23
+test-phase1 exit=0 secs=13
+test-plan-gate exit=1 secs=2051
+test-plan-merge exit=0 secs=28
+test-freshness exit=0 secs=9364
+test-iterate exit=0 secs=208
+test-main exit=0 secs=8
+test-measure exit=0 secs=8
+test-phase1 exit=0 secs=3
+test-plan-gate exit=0 secs=307
+test-plan-merge exit=0 secs=3
+test-ref exit=0 secs=1197
+test-refactor exit=0 secs=2137
+test-research exit=0 secs=16
+test-rules exit=0 secs=28
+test-snapshot exit=0 secs=106
+test-start exit=0 secs=99
+mutants-research exit=1 secs=24
+DONE

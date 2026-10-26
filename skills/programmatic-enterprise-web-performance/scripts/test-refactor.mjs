@@ -1,4 +1,4 @@
-// Usage: node test-refactor.mjs [--scripts <dir>] [--only units|A|B|C|D|E|F|build] [--no-mutants] [--keep]
+// Usage: node test-refactor.mjs [--scripts <dir>] [--only units|A|B|C|D|E|F|M|G|P|build] [--mutant "<part of a mutant name>|<another>": with --only it runs just those mutants] [--no-mutants] [--keep]
 // Proof of refactor mode (refactor.mjs, run-all-diff.mjs) and the build-mode driver (build-site.mjs). No model is called:
 // the fix worker is a stand-in script (--worker-script) that behaves as scripted per finding; the stage scripts of
 // build mode are stand-ins too. Fixture = a git repo with a tiny generator (site/gen.mjs -> site/dist/, tracked), a
@@ -8,6 +8,9 @@
 //   scenario B (cap 2): concurrency cap respected, merge conflict between two proven fixes is downgraded
 //   scenario F: rebuild stability (IDX-003/SE-004/AEO-012): clock-stamped sitemap rejected at the merge, ledger sitemap merged,
 //     a 6-URL clock sitemap newly fails the built-in check, --no-stability, a pre-existing baseline defect
+//   scenario M: causes-map.mjs (live causes attached as evidence / appended as L-causes, idempotent, ids, --dry, --out)
+//   scenario G: refactor on live-origin causes (proof by the live check, NEEDS-PROOF when none can judge), --project-merges, --dry origins
+//   scenario P: --max-parallel limits concurrency (the smaller of --parallel / --max-parallel wins)
 //   mutants: break the code each assertion guards, expect the named assertion(s) to go red, restore.
 // Exit 0 = every assertion passed and every mutant was caught.
 import fs from "node:fs";
@@ -132,10 +135,10 @@ switch (b) {
     // synchronous rebuilds can outlast any fixed sleep, so a sleep made "ran in parallel" depend on timing; this does not.
     const t0 = Date.now();
     const starts = (slowOnly) => fs.readFileSync(process.env.FAKE_LOG, "utf8").split(String.fromCharCode(10)).filter((l) => l.includes('"ev":"start"') && (!slowOnly || l.includes('"b":"good-slow"'))).length;
-    while (Date.now() - t0 < 30000 && starts(true) < 2) await sleep(200);
+    while (Date.now() - t0 < (spec[fid].barrier ?? 30000) && starts(true) < 2) await sleep(200);
     // then hold the slot (up to 10 s): with the cap working the third worker cannot start now; without a cap it starts and is seen
     const t1 = Date.now();
-    while (Date.now() - t1 < 10000 && starts(false) < 3) await sleep(200);
+    while (Date.now() - t1 < (spec[fid].hold ?? 10000) && starts(false) < 3) await sleep(200);
     flip(gen, flag);
     break;
   }
@@ -531,8 +534,170 @@ function scenarioBuild(dir) {
   return [fx, fm];
 }
 
+// ---------------- causes from the live audit (C6): causes-map.mjs, then refactor.mjs on origin:"live" causes ----------------
+const liveCause = (id, severity, rules, scripts, extra = {}) => ({ id, severity, rules, fixAt: ["pages/about/head.html", "pages/home/head.html"], problem: `live problem of ${id}: the served pages show it`, fix: `live fix of ${id}`, pages: 5, findings: [`lv-${id.toLowerCase()}`], scripts, ...extra });
+const CANNOT_SRC = `console.log("ERROR live-layout cannot judge: pages/home/raw.html.gz missing (this check reads a snapshot folder, not built output)"); process.exit(2);\n`;
+// writes <tmp>/snap/.checks/{causes.json,scripts/*}: defs = [{ cause, scripts: { name: source|null } }]
+function makeSnapshot(tmp, defs) {
+  const snap = path.join(tmp, "snap");
+  for (const d of defs) for (const [n, src] of Object.entries(d.scripts)) if (src) w(path.join(snap, ".checks/scripts", n), src);
+  w(path.join(snap, ".checks/causes.json"), JSON.stringify(defs.map((d) => ({ ...d.cause, scripts: Object.keys(d.scripts) })), null, 1));
+  return { snap, file: path.join(snap, ".checks/causes.json") };
+}
+const runMap = (dir, args) => spawnSync(node, [path.join(dir, "causes-map.mjs"), ...args], { encoding: "utf8", timeout: 60_000 });
+const readJ = (p) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return null; } }; // null when missing: a mutant that stops writing a file must turn an assertion red, not crash the run
+
+// M: causes-map.mjs on a hand-made repo (2 causes) and live file (3 causes: a full match, a partial overlap that also matches a second repo cause, no match)
+function scenarioM(dir) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-refactor-M-"));
+  const repo = path.join(tmp, "repo");
+  const rc = (id, severity, rules) => ({ id, severity, rules, fixAt: [`src/${id}.html`], problem: `repo problem ${id}`, fix: `repo fix ${id}`, pages: 3, findings: [`r-${id}`], scripts: [`check-r-${id}.mjs`] });
+  const original = [rc("C02", "medium", ["MET-003"]), rc("C01", "high", ["SCH-001", "SE-101"])]; // medium listed first on purpose
+  w(path.join(repo, ".checks/causes.json"), JSON.stringify(original, null, 1) + "\n");
+  const live = makeSnapshot(tmp, [
+    { cause: liveCause("LV1", "high", ["SCH-001"], [], { pages: 16, findings: ["a1", "a2"] }), scripts: { "check-lv1.mjs": "console.log('PASS lv1');" } },
+    { cause: liveCause("LV2", "medium", ["se-101", "MET-003"], [], { pages: 2, findings: ["b1"] }), scripts: { "check-lv2a.mjs": "console.log('PASS');", "check-lv2b.mjs": "console.log('PASS');" } },
+    { cause: liveCause("LV3", "low", ["LNK-003"], [], { pages: 2, findings: ["c1"] }), scripts: { "check-lv3.mjs": "console.log('PASS');", "check-lv3-gone.mjs": null } },
+  ]);
+  const r1 = runMap(dir, [repo, "--live", live.file]);
+  const out = readJ(path.join(repo, ".checks/causes.json"));
+  const C = (id) => out.find((c) => c.id === id);
+  check("M: prints the counts line: 2 repo causes, 2 live attached, 1 live added as new causes", r1.status === 0 && /causes-map: 2 repo causes, 2 live attached, 1 live added as new causes/.test(r1.stdout), `exit ${r1.status} ${r1.stdout}${r1.stderr}`);
+  const e1 = C("C01")?.liveEvidence;
+  check("M: live causes whose rules intersect a repo cause's are attached as liveEvidence (several on one; a partial overlap, any letter case, also matches)", e1 && e1.causes.map((x) => x.id).join(",") === "LV1,LV2" && e1.pages === 16 && e1.findings.join(",") === "a1,a2,b1" && e1.snapshot === live.snap && e1.liveCheckScripts.length === 3 && e1.liveCheckScripts.every((p) => path.isAbsolute(p) && p.startsWith(path.join(live.snap, ".checks", "scripts"))) && C("C02")?.liveEvidence?.causes.map((x) => x.id).join(",") === "LV2", JSON.stringify(C("C01")?.liveEvidence));
+  const L = out.find((c) => c.origin === "live");
+  check("M: an unmatched live cause is appended as L01 with origin live, an UNKNOWN fixAt, no repo scripts and its live check paths", out.length === 3 && L?.id === "L01" && /^UNKNOWN: find the source of this live finding/.test(L.fixAt) && L.scripts.length === 0 && L.liveChecks.length === 2 && L.liveChecks.every((p) => path.isAbsolute(p)) && L.findings[0] === "c1" && L.severity === "low" && L.problem.startsWith("live problem of LV3") && L.rules[0] === "LNK-003" && L.pages === 2, JSON.stringify(L));
+  check("M: repo causes first, most severe first inside the group (C01 high before C02 medium), the live cause last; repo fields kept", out.map((c) => c.id).join(",") === "C01,C02,L01" && C("C01").problem === "repo problem C01" && C("C01").scripts[0] === "check-r-C01.mjs", out.map((c) => c.id).join(","));
+  check("M: the repo's own list is kept as causes.repo-original.json, without any live mark", JSON.stringify(readJ(path.join(repo, ".checks/causes.repo-original.json"))) === JSON.stringify(original), "");
+  check("M: a missing live check script is named in a NOTE (the fix run will end it NEEDS-PROOF)", /NOTE: 1 live check script\(s\) not found/.test(r1.stdout), r1.stdout);
+  const before = fs.readFileSync(path.join(repo, ".checks/causes.json"), "utf8");
+  const r2 = runMap(dir, [repo, "--live", live.file]);
+  check("M: idempotent: a second run gives the same file and the same counts, no duplicate L-cause or evidence", r2.status === 0 && fs.readFileSync(path.join(repo, ".checks/causes.json"), "utf8") === before && /2 repo causes, 2 live attached, 1 live added/.test(r2.stdout) && readJ(path.join(repo, ".checks/causes.repo-original.json"))?.length === 2, `${r2.stdout}`);
+  // a newer live file with the unmatched cause gone: no leftover L-cause (rebuilt from the repo's list, not appended to the previous result)
+  const live2 = makeSnapshot(path.join(tmp, "second"), [{ cause: liveCause("LV1", "high", ["SCH-001"], [], { pages: 16, findings: ["a1", "a2"] }), scripts: { "check-lv1.mjs": "console.log('PASS');" } }]);
+  const r3 = runMap(dir, [repo, "--live", live2.file]);
+  const out3 = readJ(path.join(repo, ".checks/causes.json"));
+  check("M: a later run with a different live file rebuilds from the repo's list: no L-cause left over, evidence replaced", r3.status === 0 && out3.length === 2 && !out3.some((c) => c.origin === "live") && out3.find((c) => c.id === "C01").liveEvidence.causes.length === 1 && !out3.find((c) => c.id === "C02").liveEvidence, JSON.stringify(out3.map((c) => [c.id, !!c.liveEvidence])));
+  // --dry writes nothing
+  const repoD = path.join(tmp, "repoD");
+  w(path.join(repoD, ".checks/causes.json"), JSON.stringify(original) + "\n");
+  const d = runMap(dir, [repoD, "--live", live.file, "--dry"]);
+  check("M: --dry prints the counts and writes nothing (no change to causes.json, no original copy)", d.status === 0 && /1 live added as new causes/.test(d.stdout) && fs.readFileSync(path.join(repoD, ".checks/causes.json"), "utf8") === JSON.stringify(original) + "\n" && !fs.existsSync(path.join(repoD, ".checks/causes.repo-original.json")), `${d.stdout}${d.stderr}`);
+  // missing repo causes file
+  const nr = runMap(dir, [path.join(tmp, "nothing"), "--live", live.file]);
+  check("M: no repo .checks/causes.json: exit 2 saying to run the repo checker first", nr.status === 2 && /run the repo checker first/.test(nr.stderr), `exit ${nr.status} ${nr.stderr}`);
+  // an existing L01 in the repo's list: the added id never collides
+  const repoC = path.join(tmp, "repoC");
+  w(path.join(repoC, ".checks/causes.json"), JSON.stringify([rc("L01", "high", ["MET-003"])]) + "\n");
+  const cc = runMap(dir, [repoC, "--live", live.file]);
+  const outC = readJ(path.join(repoC, ".checks/causes.json"));
+  check("M: ids never collide: a repo cause already called L01 pushes the new live causes to L02 and L03", cc.status === 0 && outC.map((c) => c.id).join(",") === "L01,L02,L03" && outC[0].origin === undefined && outC[1].origin === "live" && new Set(outC.map((c) => c.id)).size === outC.length, JSON.stringify(outC.map((c) => c.id)) + cc.stderr);
+  // --out elsewhere leaves the repo file alone
+  const repoO = path.join(tmp, "repoO"), outO = path.join(tmp, "elsewhere", "causes.json");
+  w(path.join(repoO, ".checks/causes.json"), JSON.stringify(original) + "\n");
+  const oo = runMap(dir, [repoO, "--live", live.file, "--out", outO]);
+  check("M: --out writes the mapped list there and leaves the repo's causes.json as it was", oo.status === 0 && readJ(outO)?.length === 3 && fs.readFileSync(path.join(repoO, ".checks/causes.json"), "utf8") === JSON.stringify(original) + "\n", oo.stdout + oo.stderr);
+  const bad = runMap(dir, [repo]);
+  check("M: no --live: usage and exit 2", bad.status === 2 && /usage: node causes-map\.mjs/.test(bad.stderr), `exit ${bad.status} ${bad.stderr}`);
+  return { tmp };
+}
+
+// G: refactor.mjs on causes mapped from a live audit. Repo = the standard fixture (12 causes); the live file has 7 causes.
+function scenarioG(dir) {
+  const fx = makeFixture("G", {});
+  const defs = [
+    { cause: liveCause("LIVE-A", "high", ["LNG-001", "ZZZ-1"], []), scripts: { "live-a.mjs": checkSrc("live-a", "lang") } }, // overlaps the repo cause of s01-01 on one rule
+    { cause: liveCause("LIVE-B", "high", ["LIVE-1"], []), scripts: { "live-b.mjs": checkSrc("live-b", "robots") } }, // unmatched; runnable check; worker fixes it
+    { cause: liveCause("LIVE-C", "medium", ["LIVE-2"], []), scripts: { "live-gone.mjs": null } }, // unmatched; its check script does not exist
+    { cause: liveCause("LIVE-D", "medium", ["LIVE-3"], []), scripts: { "live-layout.mjs": CANNOT_SRC } }, // unmatched; its check cannot judge a build folder
+    { cause: liveCause("LIVE-E", "medium", ["LIVE-4"], []), scripts: { "live-e.mjs": checkSrc("live-e", "og") } }, // unmatched; the worker does nothing -> still fails
+    { cause: liveCause("LIVE-F", "low", ["LIVE-5"], []), scripts: { "live-f.mjs": checkSrc("live-f", "title") } }, // unmatched; already passes on the built output
+    { cause: liveCause("LIVE-G", "low", ["LIVE-6"], []), scripts: { "live-g1.mjs": checkSrc("live-g1", "canon"), "live-g2.mjs": CANNOT_SRC } }, // one check passes after the fix, the other cannot judge
+  ];
+  const live = makeSnapshot(fx.tmp, defs);
+  const m = runMap(dir, [fx.site, "--live", live.file]);
+  const mapped = readJ(path.join(fx.site, ".checks/causes.json"));
+  const Lid = (liveId) => mapped.find((c) => c.liveId === liveId)?.id;
+  // stand-in worker behaviours for the live findings (the worker looks the behaviour up by the cause's first finding id)
+  const beh = readJ(fx.behaviors);
+  Object.assign(beh, { "lv-live-b": { b: "good", flag: "robots" }, "lv-live-e": { b: "noop" }, "lv-live-g": { b: "good", flag: "canon" }, "lv-live-d": { b: "good", flag: "title" }, "lv-live-c": { b: "good", flag: "title" } });
+  w(fx.behaviors, JSON.stringify(beh));
+  check("G: causes-map on the real fixture: 12 repo causes, 1 live attached, 6 live added", m.status === 0 && /causes-map: 12 repo causes, 1 live attached, 6 live added as new causes/.test(m.stdout) && !!Lid("LIVE-B"), m.stdout + m.stderr);
+  const ids = [fx.cid("s01-01"), ...["LIVE-B", "LIVE-C", "LIVE-D", "LIVE-E", "LIVE-F", "LIVE-G"].map(Lid)];
+  const dry = runRefactor(fx, dir, ["--dry", "--max-parallel", "2", "--project-merges", "--no-setup", "--causes", ids.join(",")]);
+  check("G: --dry lists the live causes with their origin (and the repo cause with live evidence), the parallel cap and who merges", dry.r.status === 0 && /causes by origin: 1 repo \(1 with live evidence\), 6 live/.test(dry.out) && ["LIVE-B", "LIVE-C", "LIVE-D"].every((l) => new RegExp(`${Lid(l)} \\[origin live, \\w+\\]`).test(dry.out)) && /source file: unknown/.test(dry.out) && /cap 2 at once/.test(dry.out) && /merges: through the project's own gate \(--project-merges\)/.test(dry.out), `exit ${dry.r.status}\n${dry.out}`);
+  const run = runRefactor(fx, dir, ["--max-parallel", "2", "--project-merges", "--no-setup", "--timeout-min", "10", "--causes", ids.join(",")]);
+  const rep = run.report;
+  check("G: report json written, exit 0, --max-parallel/--project-merges/--no-setup accepted", !!rep && run.r.status === 0 && rep.projectMerges === true && rep.parallel === 2, `exit ${run.r.status} ${run.out.slice(-800)}`);
+  if (!rep) return fx;
+  const V = (id) => rep.causes.find((c) => c.id === id);
+  const started = (fid) => run.logLines.some((l) => l.ev === "start" && l.fid === fid);
+  const promptOf = (id) => { const p = path.join(fx.site, ".pewp/refactor/2026-10-22/prompts", `${id}.md`); return fs.existsSync(p) ? fs.readFileSync(p, "utf8") : ""; };
+  const b = V(Lid("LIVE-B"));
+  check("G: a live cause whose live check goes FAIL -> PASS after the worker's fix and rebuild is FIXED (origin live, check before -> after, a commit)", b?.verdict === "FIXED" && b.origin === "live" && b.checks.length === 1 && b.checks[0].script === "live-b.mjs" && b.checks[0].before === "open" && b.checks[0].after === "pass" && !!b.commit, JSON.stringify(b));
+  check("G: the live-origin fix is merged onto the new branch, with the repo cause's fix", rep.branch && /robots: true/.test(git(fx.top, "show", `${rep.branch}:site/gen.mjs`).stdout) && /lang: true/.test(git(fx.top, "show", `${rep.branch}:site/gen.mjs`).stdout), git(fx.top, "log", "--oneline", "main..pewp/refactor-2026-10-22").stdout);
+  const pb = promptOf(Lid("LIVE-B"));
+  check("G: the live worker's prompt carries the live problem, pages and findings, says the source file is unknown, names the live check (readable copy) and the NEEDS-PROOF rule; no placeholder is left", pb.includes("live problem of LIVE-B") && /Live pages affected: 5/.test(pb) && pb.includes("lv-live-b") && /no source file is known/.test(pb) && pb.includes("live-checks/live-b.mjs") && /NEEDS-PROOF, never FIXED/.test(pb) && !/\{\{[A-Z_]+\}\}/.test(pb) && /UNKNOWN: find the source/.test(pb), pb.slice(0, 1500));
+  const a = V(fx.cid("s01-01"));
+  const pa = promptOf(fx.cid("s01-01"));
+  check("G: a repo cause with live evidence is proven by its repo check (FIXED) and its prompt carries the live evidence", a?.verdict === "FIXED" && a.liveEvidence === true && a.origin === "repo" && /same defect/.test(pa) && pa.includes("live problem of LIVE-A") && /Live pages affected: 5/.test(pa) && !/\{\{[A-Z_]+\}\}/.test(pa), JSON.stringify(a) + pa.slice(0, 900));
+  const c = V(Lid("LIVE-C"));
+  check("G: a live cause whose check script is missing is NEEDS-PROOF (never FIXED), its worker never started", c?.verdict === "NEEDS-PROOF" && /missing/.test(c.reason) && /live-gone\.mjs/.test(c.reason) && !started("lv-live-c") && !c.commit, JSON.stringify(c));
+  const dd = V(Lid("LIVE-D"));
+  check("G: a live check that cannot judge the built output (wrong folder layout) is NEEDS-PROOF with the check's own line, no worker is spent, never FIXED", dd?.verdict === "NEEDS-PROOF" && /cannot judge/.test(dd.reason) && /snapshot folder/.test(dd.reason) && !started("lv-live-d") && !dd.commit, JSON.stringify(dd));
+  const e = V(Lid("LIVE-E"));
+  check("G: a live check still failing after the worker is NOT FIXED", e?.verdict === "NOT FIXED" && /live check\(s\) still fail after rebuild/.test(e.reason) && started("lv-live-e") && !e.commit, JSON.stringify(e));
+  const f = V(Lid("LIVE-F"));
+  check("G: a live check that already passes on the built output is SKIPPED-ALREADY-PASSING (no worker)", f?.verdict === "SKIPPED-ALREADY-PASSING" && !started("lv-live-f"), JSON.stringify(f));
+  const g = V(Lid("LIVE-G"));
+  check("G: one live check passing and one that cannot judge after the fix is NEEDS-PROOF, not FIXED, and the unproven change is saved as a patch", g?.verdict === "NEEDS-PROOF" && started("lv-live-g") && /cannot judge/.test(g.reason) && /live-g2\.mjs/.test(g.reason) && !g.commit && !!g.patch && fs.existsSync(path.join(fx.site, g.patch)), JSON.stringify(g));
+  check("G: counts and report words: 3 NEEDS-PROOF, 6 live causes, the section that says what unblocks them, and the run summary line", rep.counts.needsProof === 3 && rep.counts.liveCauses === 6 && /Needs a check before it can be proven/.test(run.md) && /3 cannot be proven yet/.test(run.md) && /3 NEEDS-PROOF/.test(run.out) && /\(live\)/.test(run.md), run.md.slice(0, 700) + run.out.slice(-300));
+  check("G: --project-merges: the report's closing lines say merges go through the project's own gate, CI green, never a direct merge; no merge command is offered", /## How this gets merged \(--project-merges\)/.test(run.md) && /project's own gate/.test(run.md.split("## How this gets merged")[1] || "") && /CI go green/.test(run.md) && /Never a direct merge into `main`/.test(run.md) && !/merge --no-ff/.test(run.md) && !!rep.branch && git(fx.top, "branch", "--list", rep.branch).stdout.includes("pewp/refactor"), run.md.slice(-700));
+  check("G: main never moved and nothing else is left behind", run.mainBefore === run.mainAfter && git(fx.top, "status", "--porcelain").stdout.trim() === "" && git(fx.top, "worktree", "list").stdout.trim().split("\n").length === 2, git(fx.top, "worktree", "list").stdout);
+  return fx;
+}
+
+// P: --max-parallel limits concurrency like --parallel; without --project-merges the report still offers the merge command
+function scenarioP(dir) {
+  // good-slow is the barrier worker of scenario B: it waits until a second slow worker has started, then holds its slot so a third would be seen
+  const slow = (o) => Object.fromEntries(["s01-01", "s01-03", "s01-12"].map((f) => [f, { b: "good-slow", ...o }]));
+  const maxConc = (logLines) => { let cur = 0, max = 0; for (const e of logLines.filter((l) => l.ev === "start" || l.ev === "end").sort((x, y) => x.t - y.t)) { cur += e.ev === "start" ? 1 : -1; max = Math.max(max, cur); } return max; };
+  const f1 = makeFixture("P1", slow({ barrier: 25000, hold: 500 }));
+  const ids = ["s01-01", "s01-03", "s01-12"].map(f1.cid);
+  const r1 = runRefactor(f1, dir, ["--max-parallel", "1", "--timeout-min", "10", "--causes", ids.join(",")]);
+  check("P: --max-parallel 1 runs the workers one at a time", r1.report?.causes.filter((c) => c.verdict === "FIXED").length === 3 && maxConc(r1.logLines) === 1 && r1.report.parallel === 1, `max concurrent ${maxConc(r1.logLines)} ${r1.out.slice(-400)}`);
+  check("P: without --project-merges the report offers the merge command and has no 'How this gets merged' section", /merge --no-ff pewp\/refactor-2026-10-22/.test(r1.md) && !/How this gets merged/.test(r1.md) && r1.report.projectMerges === false, r1.md.slice(0, 600));
+  const f2 = makeFixture("P2", slow({ hold: 20000 }));
+  const r2 = runRefactor(f2, dir, ["--parallel", "3", "--max-parallel", "2", "--timeout-min", "10", "--causes", ["s01-01", "s01-03", "s01-12"].map(f2.cid).join(",")]);
+  check("P: both --parallel 3 and --max-parallel 2 given: the smaller wins (2 at once, not 3, not 1)", maxConc(r2.logLines) === 2 && r2.report?.parallel === 2, `max concurrent ${maxConc(r2.logLines)} ${r2.out.slice(-300)}`);
+  return [f1, f2];
+}
+
 // ---------------- mutants ----------------
 const MUTANTS = [
+  { name: "causes-map: no rule matching (nothing attached, everything appended)", file: "causes-map.mjs", from: "const hits = base.filter((rc) => [...ruleSet(rc)].some((r) => lr.has(r)));", to: "const hits = [];", sc: "M", expect: [/^M: prints the counts line/, /^M: live causes whose rules intersect/] },
+  { name: "causes-map: marks of an earlier run not stripped", file: "causes-map.mjs", from: "export function stripMarks(causes) {", to: "export function stripMarks(causes) { return causes;", sc: "M", expect: [/^M: idempotent/, /^M: a later run with a different live file/] },
+  { name: "causes-map: ids can collide", file: "causes-map.mjs", from: "while (used.has(id));", to: "while (false);", sc: "M", expect: [/^M: ids never collide/] },
+  { name: "causes-map: missing repo causes file not refused", file: "causes-map.mjs", from: "if (!fs.existsSync(repoFile)) {", to: "if (false) {", sc: "M", expect: [/^M: no repo \.checks\/causes\.json/] },
+  { name: "causes-map: --dry writes", file: "causes-map.mjs", from: 'if (argv.includes("--dry")) {', to: "if (false) {", sc: "M", expect: [/^M: --dry prints the counts and writes nothing/] },
+  { name: "causes-map: not sorted by severity", file: "causes-map.mjs", from: "sevRank(a[0]) - sevRank(b[0]) || a[1] - b[1]", to: "a[1] - b[1]", sc: "M", expect: [/^M: repo causes first, most severe first/] },
+  { name: "causes-map: the repo's own list not kept", file: "causes-map.mjs", from: "if (outFile === repoFile && !repoRaw.some(isOurs))", to: "if (false)", sc: "M", expect: [/^M: the repo's own list is kept/] },
+  { name: "causes-map: live causes appended as origin repo", file: "causes-map.mjs", from: 'id: nextId(), origin: "live",', to: 'id: nextId(), origin: "repo",', sc: "M", expect: [/^M: an unmatched live cause is appended as L01/, /^M: idempotent/] },
+  { name: "refactor: --max-parallel ignored", file: "refactor.mjs", from: '["--parallel", "--max-parallel"].filter((k) => A.includes(k))', to: '["--parallel"].filter((k) => A.includes(k))', sc: "P", expect: [/^P: --max-parallel 1 runs the workers one at a time/, /^P: both --parallel 3 and --max-parallel 2/] },
+  { name: "refactor: the larger of --parallel / --max-parallel wins", file: "refactor.mjs", from: "Math.min(...parVals)", to: "Math.max(...parVals)", sc: "P", expect: [/^P: both --parallel 3 and --max-parallel 2/] },
+  { name: "refactor: a live check that cannot judge counts as PASS", file: "refactor.mjs", from: 'r.status === 1 ? "fail" : "cannot", line };', to: 'r.status === 1 ? "fail" : "pass", line };', sc: "G", expect: [/^G: a live check that cannot judge the built output/, /^G: one live check passing and one that cannot judge/] },
+  { name: "refactor: a missing live check script is not NEEDS-PROOF", file: "refactor.mjs", from: 'else if (!lf.present.length) { r.verdict = "NEEDS-PROOF";', to: 'else if (false) { r.verdict = "NEEDS-PROOF";', sc: "G", expect: [/^G: a live cause whose check script is missing/] },
+  { name: "refactor: live checks that cannot judge before the fix still get a worker", file: "refactor.mjs", from: 'else if (!base.some((x) => x.status === "fail")) { r.verdict = "NEEDS-PROOF";', to: 'else if (false) { r.verdict = "NEEDS-PROOF";', sc: "G", expect: [/^G: a live check that cannot judge the built output/] },
+  { name: "refactor: a live check still failing after the worker is not noticed", file: "refactor.mjs", from: 'if (failing.length) { savePatch(); return done("NOT FIXED", `live check(s) still fail', to: 'if (false) { savePatch(); return done("NOT FIXED", `live check(s) still fail', sc: "G", expect: [/^G: a live check still failing after the worker is NOT FIXED/] },
+  { name: "refactor: a live check that cannot judge after the fix is accepted", file: "refactor.mjs", from: "    if (cannot.length) { savePatch(); return done(\"NEEDS-PROOF\",", to: "    if (false) { savePatch(); return done(\"NEEDS-PROOF\",", sc: "G", expect: [/^G: one live check passing and one that cannot judge/] },
+  { name: "refactor: live evidence not told to the worker", file: "refactor.mjs", from: '.split("{{LIVE}}").join(liveBlock(c, root, outRel))', to: '.split("{{LIVE}}").join("")', sc: "G", expect: [/^G: the live worker's prompt carries the live problem/, /^G: a repo cause with live evidence is proven by its repo check/] },
+  { name: "refactor: the live-origin fix is not re-proven on the combined branch", file: "refactor.mjs", from: 'const targetOk = isLive(c) ? runLiveAll(c, intRoot).every((x) => x.status === "pass") : d.targetFixed;', to: "const targetOk = isLive(c) ? false : d.targetFixed;", sc: "G", expect: [/^G: a live cause whose live check goes FAIL -> PASS/] },
+  { name: "refactor: --project-merges text missing from the report", file: "refactor.mjs", from: "...(projectMerges ? [", to: "...(false ? [", sc: "G", expect: [/^G: --project-merges: the report's closing lines/] },
+  { name: "refactor: --project-merges still offers the merge command", file: "refactor.mjs", from: '${projectMerges ? "- Merges for this project go only through the', to: '${false ? "- Merges for this project go only through the', sc: "G", expect: [/^G: --project-merges: the report's closing lines/] },
+  { name: "refactor: the merge command is dropped without --project-merges", file: "refactor.mjs", from: 'merge --no-ff ${branch}\\`, then rebuild', to: 'merge --ff-only ${branch}\\`, then rebuild', sc: "P", expect: [/^P: without --project-merges the report offers the merge command/] },
+  { name: "refactor: dry run hides the live causes", file: "refactor.mjs", from: "for (const c of liveCs) console.log(", to: "for (const c of []) console.log(", sc: "G", expect: [/^G: --dry lists the live causes/] },
+  { name: "refactor: the live cause takes no origin in the result", file: "refactor.mjs", from: 'origin: isLive(c) ? "live" : "repo",', to: 'origin: "repo",', sc: "G", expect: [/^G: a live cause whose live check goes FAIL -> PASS/, /^G: counts and report words/] },
+
   { name: "no rebuild before the check", file: "refactor.mjs", from: "const rebuilt = prepare(root);", to: "const rebuilt = { ok: true };", sc: "A", expect: [/^A: an edit of built output/] },
   { name: "regressions ignored", file: "refactor.mjs", from: "  if (d.broken.length) {\n    savePatch();", to: "  if (false) {\n    savePatch();", sc: "A", expect: [/^A: a fix that breaks another check/] },
   { name: "run-all-diff never reports a regression", file: "run-all-diff.mjs", from: 'if (was === "pass" && now !== "pass")', to: 'if (was === "pass" && now === "never")', sc: "units+A", expect: [/^diff: another check going pass/, /^A: a fix that breaks another check/] },
@@ -550,13 +715,13 @@ const MUTANTS = [
   { name: "start rule off", file: "refactor.mjs", from: "if (dirtyAtStart.length) die(", to: "if (false) die(", sc: "D", expect: [/^D: uncommitted changes under the site root/] },
   { name: "cost stop removed", file: "refactor.mjs", from: 'if (!only.length && stillFailing.length > maxWorkers && !A.includes("--yes")) {', to: "if (false) {", sc: "E", expect: [/^E: over the cap without --causes/] },
   { name: "cost stop: explicit --causes over the cap not refused", file: "refactor.mjs", from: 'if (only.length && runnableNow.length > maxWorkers && !A.includes("--yes")) die(', to: "if (false) die(", sc: "E", expect: [/^E: --causes over the cap dies/] },
-  { name: "cost stop counts causes that already pass at the baseline", file: "refactor.mjs", from: 'const stillFailing = runnableNow.filter((c) => !c.scripts.every((s) => baseMap.get(s) === "pass"));', to: "const stillFailing = runnableNow;", sc: "E", expect: [/^E: a cause whose checks already pass at the baseline takes no slot/] },
+  { name: "cost stop counts causes that already pass at the baseline", file: "refactor.mjs", from: "const stillFailing = runnableNow.filter((c) => !alreadyPassing(c));", to: "const stillFailing = runnableNow;", sc: "E", expect: [/^E: a cause whose checks already pass at the baseline takes no slot/] },
   { name: "decisions file not given to the worker", file: "refactor.mjs", from: '.split("{{DECISIONS}}").join(decisionFiles.length', to: '.split("{{DECISIONS}}").join(false', sc: "A", expect: [/^A: every worker is told to read the binding decisions file/] },
   { name: "--yes ignored by the cost stop", file: "refactor.mjs", from: 'if (only.length && runnableNow.length > maxWorkers && !A.includes("--yes")) die(', to: "if (only.length && runnableNow.length > maxWorkers) die(", sc: "E", expect: [/^E: --yes lets a run over the cap/] },
   { name: "cost stop takes the least severe first", file: "refactor.mjs", from: "(sevRank[a.severity] ?? 9) - (sevRank[b.severity] ?? 9) || (b.pages || 0)", to: "(sevRank[b.severity] ?? 9) - (sevRank[a.severity] ?? 9) || (b.pages || 0)", sc: "E", expect: [/^E: over the cap without --causes/] },
   { name: "push not blocked", file: "refactor.mjs", from: "env.GIT_CONFIG_COUNT = String(cfg.length);", to: 'env.GIT_CONFIG_COUNT = "0";', sc: "A", expect: [/^A: a worker that tries to push/, /^A: worker environment has no deploy/] },
   { name: "secrets not scrubbed", file: "refactor.mjs", from: "else if (!SECRET_RE.test(k)) env[k] = v;", to: "else env[k] = v;", sc: "A", expect: [/^A: worker environment has no deploy/] },
-  { name: "a fix that does not survive the combined branch is kept", file: "refactor.mjs", from: "if (!(d.targetFixed && !d.broken.length && !undone.length)) why =", to: "if (false) why =", sc: "B", expect: [/^B: a proven fix that conflicts/] },
+  { name: "a fix that does not survive the combined branch is kept", file: "refactor.mjs", from: "if (!(targetOk && !d.broken.length && !undone.length)) why =", to: "if (false) why =", sc: "B", expect: [/^B: a proven fix that conflicts/] },
   { name: "worker timeout not applied", file: "refactor.mjs", from: "timedOut = true; killTree(child, sup.supervised);", to: "timedOut = false; killTree(child, sup.supervised);", sc: "A", expect: [/^A: a hung worker is killed/] },
   { name: "stability after a merge ignored", file: "refactor.mjs", from: "else if (fresh.length) {", to: "else if (false) {", sc: "F", expect: [/^F: a fix that adds a sitemap whose lastmod is the build clock is REJECTED/] },
   { name: "baseline stability failures counted as the fix's", file: "refactor.mjs", from: "newFailures(stability.baseline?.status === \"FAIL\" ? stability.baseline : null, s)", to: "newFailures(null, s)", sc: "F", expect: [/^F: a defect already there at the baseline/] },
@@ -582,21 +747,24 @@ async function runScenarios(dir, which) {
   if (which.includes("D")) keepers.push(...scenarioD(dir));
   if (which.includes("E")) keepers.push(...scenarioE(dir));
   if (which.includes("F")) keepers.push(...scenarioF(dir));
+  if (which.includes("M")) keepers.push(scenarioM(dir));
+  if (which.includes("G")) keepers.push(scenarioG(dir));
+  if (which.includes("P")) keepers.push(...scenarioP(dir));
   if (which.includes("build")) keepers.push(...scenarioBuild(dir));
   if (!keep) for (const k of keepers.flat()) fs.rmSync(k.tmp, { recursive: true, force: true, maxRetries: 5 });
   return results;
 }
 
-const wanted = onlyWhat ? [onlyWhat] : ["units", "A", "B", "C", "D", "E", "F", "build"];
+const wanted = onlyWhat ? [onlyWhat] : ["units", "A", "B", "C", "D", "E", "F", "M", "G", "P", "build"];
 const main = await runScenarios(scriptsDir, wanted);
 for (const r of main) console.log(`${r.ok ? "PASS" : "FAIL"} ${r.name}${r.ok ? "" : `\n     ${r.detail.slice(0, 700)}`}`);
 let failed = main.filter((r) => !r.ok).length;
 console.log(failed ? `REFACTOR TEST FAIL: ${failed} of ${main.length}` : `REFACTOR TEST PASS: ${main.length} of ${main.length}`);
 
-if (!failed && !A.includes("--no-mutants") && !onlyWhat) {
+if (!failed && !A.includes("--no-mutants") && (!onlyWhat || opt("--mutant"))) {
   console.log("\nWatched-fail mutants (each must turn the named assertions red; the unmutated tree is green above):");
   let caught = 0;
-  for (const mu of MUTANTS.filter((m) => !opt("--mutant") || m.name.includes(opt("--mutant")))) {
+  for (const mu of MUTANTS.filter((m) => !opt("--mutant") || opt("--mutant").split("|").some((p) => m.name.includes(p)))) {
     const mdir = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-mutant-"));
     const sdir = path.join(mdir, "scripts");
     for (let t = 0; ; t++) { try { fs.mkdirSync(sdir, { recursive: true }); fs.cpSync(scriptsDir, sdir, { recursive: true }); break; } catch (e) { if (t >= 4) throw e; } }

@@ -10,9 +10,17 @@
 // Writes <pewp>/report.md and <pewp>/report.json. Every number in report.json is {value, source, fetchedAt, cacheFile}.
 // A previous report.json is kept as report.prev.json and the new report says what changed since it.
 // launchState "preview" (from --launch-state or <pewp>/business.json): a noindex preview is "not indexable by design".
+// G18: the report says the date of the doctor result it used; when doctor.json's `inputs` hashes (env file, token file, service account file)
+//   differ from the files now, section 2 opens with "STALE doctor result (<date>)" and the old per-source NEEDS text is not repeated.
+// G9: when _site.json.machineLoad says the machine was busy and a page's speedTrust is "UNTRUSTED...", the speed line says so; when
+//   <pewp>/psi/<date>.json (newest) exists, lab and PageSpeed Insights are shown side by side and PSI is named the trusted number.
+// Words: the file search engines read is "the sitemap file (sitemap.xml)"; this report never calls a page plan a sitemap.
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { parseEnv } from "./lib-env.mjs";
 import { locate, load, markStage } from "./state.mjs";
 import { latestComplete } from "./live-target.mjs";
 import { fact } from "./cache.mjs";
@@ -90,6 +98,36 @@ const q1Facts = {
   rootCauses: causes ? fact({ total: causes.length, critical: count("critical"), high: count("high"), medium: count("medium"), low: count("low") }, `the checker's root causes (${RULES})`, J(path.join(snapDir, ".checks", "plan.json"))?.createdAt || snapAt, rel(causesFile)) : null,
 };
 
+// ---------- G9: how far to trust the lab speed, and what PageSpeed Insights (Google's servers) says ----------
+const machineLoad = site.machineLoad && typeof site.machineLoad === "object" ? site.machineLoad : null;
+const isUntrusted = (p) => /^UNTRUSTED/i.test(String(p?.speedTrust || ""));
+const untrustedPages = measured.filter(isUntrusted);
+const labUntrusted = untrustedPages.length > 0;
+const psiDir = path.join(loc.pewp, "psi");
+const psiDates = fs.existsSync(psiDir) ? fs.readdirSync(psiDir).map((x) => x.match(/^(\d{4}-\d{2}-\d{2})\.json$/)?.[1]).filter(Boolean).sort().reverse() : [];
+const psiFile = psiDates.length ? path.join(psiDir, psiDates[0] + ".json") : null;
+const psiRows = ((psiFile && J(psiFile))?.pages || []).filter((r) => r && r.url);
+const urlPath = (u) => { try { return normPath(new URL(u).pathname); } catch { return null; } };
+const labFor = (u) => measured.find((p) => urlPath(p.finalUrl || p.url) === urlPath(u));
+const secOf = (ms) => (ms == null ? "n/a" : `${(ms / 1000).toFixed(1)} s`);
+const cell = (x) => String(x ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ");
+const psiMedianLcp = med(psiRows.filter((r) => r.strategy === "mobile").map((r) => r.lcpMs));
+const speedTrustLines = [];
+if (machineLoad) speedTrustLines.push(`- Machine load while the lab speed was measured: CPU use ${machineLoad.cpuPctAvg ?? "n/a"}% on average (highest ${machineLoad.cpuPctMax ?? "n/a"}%, ${machineLoad.samples ?? 0} samples); lab speed is only trusted up to ${machineLoad.thresholdPct ?? 35}%.`);
+if (labUntrusted) speedTrustLines.push(`- **Lab speed UNTRUSTED** on ${untrustedPages.length} page${untrustedPages.length === 1 ? "" : "s"} (${untrustedPages.slice(0, 5).map((p) => `${urlPath(p.finalUrl || p.url) || p.url}: ${p.speedTrust}`).join("; ")}): this computer was busy, so those lab numbers are not findings.${psiRows.length ? " The PageSpeed Insights numbers below (Google's own test, run on Google's servers) are the trusted ones." : " Run psi.mjs (needs PSI_API_KEY, free) to get the trusted number."}`);
+if (psiRows.length) {
+  speedTrustLines.push("", `PageSpeed Insights of ${psiDates[0]} next to the lab run (${labUntrusted ? "PSI is the trusted number: the lab run was UNTRUSTED" : "both are shown"}):`, "",
+    "| Page | Device | Lab (this computer) | PageSpeed Insights (Google) | Trusted number |", "|---|---|---|---|---|",
+    ...psiRows.slice(0, 40).map((r) => {
+      const lab = r.strategy === "mobile" ? labFor(r.url) : null;
+      const labTxt = lab ? `LCP ${secOf(lab.b.vitals.lcpMs)}, TBT ${lab.b.vitals.tbtMs ?? "n/a"} ms${isUntrusted(lab) ? ` (${lab.speedTrust})` : ""}` : r.strategy === "mobile" ? "not measured" : "lab runs are phone only";
+      const trusted = lab && !isUntrusted(lab) ? "lab and PSI" : "PSI";
+      return `| ${cell(urlPath(r.url) || r.url)} | ${r.strategy === "mobile" ? "phone" : r.strategy === "desktop" ? "desktop" : cell(r.strategy)} | ${cell(labTxt)} | score ${r.performance ?? "n/a"}, LCP ${secOf(r.lcpMs)}, CLS ${r.cls ?? "n/a"}, TBT ${r.tbtMs ?? "n/a"} ms | ${trusted} |`;
+    }), "");
+}
+if (machineLoad || labUntrusted) q1Facts.labSpeedTrust = fact({ trusted: !labUntrusted, untrustedPages: untrustedPages.map((p) => p.url), machineLoad }, src(path.join(snapDir, "_site.json")), snapAt, rel(path.join(snapDir, "_site.json")));
+if (psiRows.length) q1Facts.psiSpeed = fact({ date: psiDates[0], pages: psiRows.length, typicalPhoneLcpMs: psiMedianLcp == null ? null : Math.round(psiMedianLcp), trustedNumber: labUntrusted ? "PSI" : "lab and PSI" }, "PageSpeed Insights API (Google's servers), psi.mjs", psiRows[0].fetchedAt || psiDates[0], rel(psiFile));
+
 // ---------- Q4 authority ----------
 const authFile = opt("--authority") || path.join(loc.pewp, "authority.json");
 const auth = J(authFile);
@@ -105,7 +143,22 @@ if (auth) {
 
 // ---------- research and measure outputs (Q2, Q3, Q5) ----------
 const doctor = J(path.join(loc.pewp, "doctor.json"));
-const srcStatus = (id) => doctor?.sources?.find((s) => s.id === id)?.status || "unknown (run doctor.mjs)";
+// G18: is the doctor result still current? Hash the env, token and service account files the way doctor.mjs did and compare with doctor.inputs.
+const doctorDate = doctor?.checkedAt ? String(doctor.checkedAt).slice(0, 10) : null;
+const doctorCheck = (() => {
+  const inp = doctor?.inputs;
+  if (!inp || typeof inp !== "object") return { stale: false, hashed: false, why: [] };
+  const sha1Of = (p) => { try { return p && fs.statSync(p).isFile() ? crypto.createHash("sha1").update(fs.readFileSync(p)).digest("hex") : "absent"; } catch { return "absent"; } };
+  const envFile = doctor.env?.file || null;
+  let fromFile = new Map();
+  try { if (envFile) fromFile = parseEnv(fs.readFileSync(envFile, "utf8")); } catch {}
+  const val = (k) => (process.env[k] && process.env[k].trim()) || (fromFile.get(k) && fromFile.get(k).trim()) || null; // like doctor: a name already in the environment wins
+  const now = { envFileSha1: sha1Of(envFile), tokenFileSha1: sha1Of(val("GSC_TOKEN_FILE") || path.join(os.homedir(), ".config", "pewp", "gsc-token.json")), serviceAccountFileSha1: sha1Of(val("GSC_SERVICE_ACCOUNT_FILE")) };
+  const why = Object.keys(now).filter((k) => k in inp && inp[k] !== now[k]);
+  return { stale: why.length > 0, hashed: true, why };
+})();
+const doctorStale = doctorCheck.stale;
+const srcStatus = (id) => (doctorStale ? `unknown (the doctor result of ${doctorDate} is STALE: run doctor again)` : doctor?.sources?.find((s) => s.id === id)?.status || "unknown (run doctor.mjs)");
 const blocked = (why, needs) => ({ status: "BLOCKED", why, needs: needs.map((n) => ({ ...n, status: srcStatus(n.id) })) });
 const targetsFile = path.join(loc.pewp, "targets.json");
 const targets = J(targetsFile);
@@ -341,7 +394,7 @@ plan.forEach((p, i) => (p.order = i + 1));
 // ---------- plain words ----------
 const GLOSSARY = {
   "robots.txt": "a small file that tells search engines and AI crawlers which pages they may read",
-  sitemap: "a list of the site's pages that search engines read to find them",
+  "sitemap file": "the file (sitemap.xml) that lists the site's pages for search engines to read",
   noindex: "a tag that asks search engines to leave a page out of their results",
   canonical: "a tag naming the one official address of a page, so copies don't compete with it",
   "structured data": "hidden labels that tell search engines what a page is (a business, an article, a listing)",
@@ -361,12 +414,17 @@ const GLOSSARY = {
 const problemsQ1 = [];
 if (robots.status !== 200) problemsQ1.push(`the robots.txt file is missing or broken (status ${robots.status ?? "none"})`);
 if (blockedBots.length) problemsQ1.push(`robots.txt blocks ${blockedBots.join(", ")}`);
-if (!sitemaps.urlCount) problemsQ1.push("no sitemap was found");
+if (!sitemaps.urlCount) problemsQ1.push("no sitemap file (sitemap.xml) was found");
 if (noindexPages.length && launchState !== "preview") problemsQ1.push(`${noindexPages.length} page${s(noindexPages.length)} ask${noindexPages.length === 1 ? "s" : ""} to be left out of search results (noindex)`);
 if (noCanonical.length) problemsQ1.push(`${noCanonical.length} page${s(noCanonical.length)} have no canonical tag`);
 if (noLd.length) problemsQ1.push(`${noLd.length} page${s(noLd.length)} have no structured data`);
-if ((speed.lcpMedianMs.value || 0) > 2500) problemsQ1.push(`pages are slow on phones: the typical page takes ${sec(speed.lcpMedianMs.value)} to show its main content (LCP), the slowest ${sec(speed.lcpWorst?.value)}`);
-if ((speed.tbtMedianMs.value || 0) > 200) problemsQ1.push(`phones are blocked ${sec(speed.tbtMedianMs.value)} while a typical page loads (TBT)`);
+if (labUntrusted) {
+  problemsQ1.push(`the phone speed measured here is not trusted (this computer was busy while it ran), so it is not counted as a finding${psiRows.length ? "; PageSpeed Insights is the trusted number" : "; run psi.mjs for the trusted number"}`);
+  if (psiMedianLcp != null && psiMedianLcp > 2500) problemsQ1.push(`pages are slow on phones according to PageSpeed Insights (Google's own test): the typical page takes ${sec(psiMedianLcp)} to show its main content (LCP)`);
+} else {
+  if ((speed.lcpMedianMs.value || 0) > 2500) problemsQ1.push(`pages are slow on phones: the typical page takes ${sec(speed.lcpMedianMs.value)} to show its main content (LCP), the slowest ${sec(speed.lcpWorst?.value)}`);
+  if ((speed.tbtMedianMs.value || 0) > 200) problemsQ1.push(`phones are blocked ${sec(speed.tbtMedianMs.value)} while a typical page loads (TBT)`);
+}
 const highCauses = causes ? count("critical") + count("high") : null;
 const pctTxt = (v) => `${Math.round(v * 100)}%`;
 const blockedQs = [[2, q2], [3, q3], [5, q5]].filter(([, q]) => q.status === "BLOCKED").map(([n]) => n);
@@ -376,7 +434,9 @@ if (q5.status === "answered") researchBits.push(`AI engines cite it in ${pctTxt(
 const tail = blockedQs.length ? `${researchBits.length ? `${researchBits.join("; ")}. ` : ""}Whether it ranks${blockedQs.includes(5) ? " and gets cited by AI" : ""} is not fully measured yet (BLOCKED, see ${blockedQs.length === 1 ? blockedQs[0] : blockedQs.slice(0, -1).join(", ") + " and " + blockedQs.at(-1)}).` : `${researchBits.join("; ")}.`;
 const oneLine = `${loc.host}: ${problemsQ1.length ? `search engines can reach it, but ${problemsQ1.length} thing${s(problemsQ1.length)} hold${problemsQ1.length === 1 ? "s" : ""} it back` : "search engines and AI crawlers can reach and read it"}${causes ? `; the checker found ${causes.length} root causes (${highCauses} serious)` : ""}${q4.status === "answered" ? `; ${q4.facts.referringDomains.value} other websites link to it (Common Crawl)` : ""}. ${tail}`;
 
-const card = (q) => [`**BLOCKED.** ${q.why}`, "", "What unblocks it:", ...q.needs.map((n) => `- ${n.what}: ${n.status === "connected" ? "connected" : `${n.status}${doctor ? ` (doctor: ${doctor.sources.find((x) => x.id === n.id)?.unblock || "-"})` : ""}`}`)];
+const doctorLines = doctorStale ? [`**STALE doctor result (${doctorDate}): the env or token files changed since; run doctor again.**`, ""]
+  : doctorDate ? [`Source status below is from the doctor result of ${doctorDate}${doctorCheck.hashed ? "" : " (it records no file hashes, so it cannot show whether the env or token files changed since)"}.`, ""] : [];
+const card = (q) => [`**BLOCKED.** ${q.why}`, "", `What unblocks it${doctorDate && !doctorStale ? ` (source status from the doctor result of ${doctorDate})` : ""}:`,...q.needs.map((n) => `- ${n.what}: ${n.status === "connected" ? "connected" : `${n.status}${doctor ? ` (doctor: ${doctor.sources.find((x) => x.id === n.id)?.unblock || "-"})` : ""}`}`)];
 const volTxt = (v) => (v?.value == null ? "not measured" : `${typeof v.value === "number" ? v.value.toLocaleString("en-US") : v.value}${v.estimate ? " (estimate)" : ""}`);
 
 function q2Lines() {
@@ -452,6 +512,7 @@ const show = (m, v) => (m.pct ? pctTxt(v) : String(v));
 const q6 = { n: 6, q: "What to fix, in order", status: fixes.length || plan.length ? "answered" : "partial", fixes, plan };
 const notMeasured = Object.entries(measureRep?.sources || {}).filter(([, v]) => v.status === "BLOCKED").map(([name, v]) => ({ part: name, reason: v.reason, unblock: v.unblock }));
 const report = { url: loc.target, host: loc.host, writtenAt: new Date().toISOString(), snapshot: rel(snapDir), launchState, shortAnswer: oneLine,
+  doctor: doctor ? { checkedAt: doctor.checkedAt || null, stale: doctorStale, staleBecause: doctorCheck.why, hasInputHashes: doctorCheck.hashed } : null,
   inputs: { targets: targets ? rel(targetsFile) : null, research: fs.existsSync(rdir) ? rel(rdir) : null, measure: measureDir ? rel(measureDir) : null, gate: gateR ? rel(gateFile) : null, authority: auth ? rel(path.resolve(authFile)) : null },
   questions: [
     { n: 1, q: "Can search engines and AI crawlers reach and read the site?", status: "answered", problems: problemsQ1, facts: q1Facts },
@@ -493,15 +554,17 @@ const md = [
   ...problemsQ1.map((p) => `- ${p}`),
   "",
   `- ${term("robots.txt")}: status ${robots.status ?? "none"}; ${term("AI crawler")}s blocked: ${blockedBots.length ? blockedBots.join(", ") : "none"}`,
-  `- ${term("sitemap")}: ${sitemaps.urlCount ?? 0} addresses listed`,
+  `- ${term("sitemap file")}: ${sitemaps.urlCount ?? 0} addresses listed`,
   `- Pages left out of search (${term("noindex")}): ${noindexPages.length}${launchState === "preview" ? " (by design: preview)" : ""}`,
   `- Pages without a ${term("canonical")} tag: ${noCanonical.length}; without a description: ${noDesc.length}; without exactly one main heading: ${badH1.length}`,
   `- Pages without ${term("structured data")}: ${noLd.length}; without sharing tags: ${noOg.length}`,
-  `- Phone speed (lab): typical ${term("LCP")} ${sec(speed.lcpMedianMs.value)} (slowest ${sec(speed.lcpWorst?.value)}, ${speed.lcpWorst?.source || "-"}); typical ${term("TBT")} ${sec(speed.tbtMedianMs.value)}; worst ${term("CLS")} ${speed.clsWorst?.value ?? "n/a"}; heaviest page ${speed.heaviestKb ? `${(speed.heaviestKb.value / 1024).toFixed(1)} MB` : "n/a"}`,
+  `- Phone speed (lab): typical ${term("LCP")} ${sec(speed.lcpMedianMs.value)} (slowest ${sec(speed.lcpWorst?.value)}, ${speed.lcpWorst?.source || "-"}); typical ${term("TBT")} ${sec(speed.tbtMedianMs.value)}; worst ${term("CLS")} ${speed.clsWorst?.value ?? "n/a"}; heaviest page ${speed.heaviestKb ? `${(speed.heaviestKb.value / 1024).toFixed(1)} MB` : "n/a"}${labUntrusted ? " (UNTRUSTED, see below)" : ""}`,
+  ...speedTrustLines,
   causes ? `- The checklist (${RULES}) found ${causes.length} ${term("root cause")}s: ${count("critical")} critical, ${count("high")} high, ${count("medium")} medium, ${count("low")} low (fix order in section 6)` : `- The shipgate checklist (${RULES}) has not run on this snapshot yet: run the skill's checker on the snapshot folder.`,
   "",
   "## 2. Is there a page for what people actually search?",
   "",
+  ...doctorLines,
   ...q2Lines(),
   "",
   "## 3. Is each page better than what ranks now?",

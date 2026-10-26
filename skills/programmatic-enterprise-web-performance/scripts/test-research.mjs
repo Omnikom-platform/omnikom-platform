@@ -79,6 +79,49 @@ try {
   const caPlaces = [{ city: "Tracy", state: "CA", label: "Tracy, CA" }];
   check("lib: a city the lists do not know is inferred from '... <city> ca'; service words are not cities", lib.inferPlace("we buy houses oakland ca", caPlaces)?.label === "Oakland, CA" && lib.inferPlace("realtor in san ramon ca", caPlaces)?.label === "San Ramon, CA" && lib.inferPlace("sell house fast ca", caPlaces) === null && lib.inferPlace("we buy houses oakland ca", []) === null, JSON.stringify([lib.inferPlace("we buy houses oakland ca", caPlaces), lib.inferPlace("sell house fast ca", caPlaces)]));
 
+  // ---- G16: a location whose name is a list is a label, not a place; the Matter of Place shape ----
+  const MOP = {
+    name: "Matter of Place", domain: "mop.test", kind: "real-estate-media", industry: null,
+    offer: "An editorial real-estate media platform for exceptional residential property in California, New York and Florida.",
+    audience: "Owners and listing agents of exceptional existing homes, and the buyers and readers who follow considered residential property",
+    market: { country: "US", language: "en" },
+    locations: [{ name: "California, New York and Florida", address: null, serviceArea: ["California", "New York", "Florida"] }],
+    goals: ["leads"], competitors: ["dwell.test"], vocabulary: ["old houses", "victorian", "architecture"], brand: { constraints: [] },
+    existing: { site: "https://mop.test/", searchConsole: false, businessProfile: null, socials: [] }, launchState: "live",
+    rankTracking: { source: "browser-capture", locations: ["California", "New York", "Florida"], devices: ["mobile"] },
+  };
+  const MOPP = path.join(tmp, "site-checks", "mop.test", ".pewp");
+  w(path.join(MOPP, "business.json"), MOP);
+  check("lib: a location name that lists places (' and ', '&', ';', two commas) is a label; 'Tracy, CA', 'Tracy' and 'San Luis Obispo' are places", ["California, New York and Florida", "Tracy & Manteca", "Tracy; Manteca", "Oakland, Berkeley, Alameda"].every((x) => lib.isPlaceLabel(x)) && !["Tracy, CA", "Tracy", "San Luis Obispo", "Brandon, FL"].some((x) => lib.isPlaceLabel(x)), JSON.stringify(["California, New York and Florida", "Tracy & Manteca", "Tracy; Manteca", "Oakland, Berkeley, Alameda", "Tracy, CA"].map((x) => lib.isPlaceLabel(x))));
+  const mopPlaces = lib.knownPlaces(MOP), mopNoRt = lib.knownPlaces({ locations: MOP.locations });
+  check("lib: a location that is a list is a label, not a place: the Matter of Place shape gives the three states, never 'California, New York and Florida'", mopPlaces.map((p) => p.label).sort().join("|") === "California|Florida|New York" && mopNoRt.map((p) => p.label).sort().join("|") === "California|Florida|New York" && ![...mopPlaces, ...mopNoRt].some((p) => /,| and /.test(p.city)), JSON.stringify([mopPlaces, mopNoRt]));
+  const miami = lib.knownPlaces({ locations: [{ name: "Miami", address: "1 Main St, Miami, FL 33101", serviceArea: ["Florida", "Tampa", "New York"] }] }).map((p) => p.label).sort();
+  check("lib: a service-area entry that is itself a state gets no state code ('Florida', never 'Florida, FL'); a city keeps the office state", miami.join("|") === "Florida|Miami, FL|New York|Tampa, FL", miami.join("|"));
+
+  // ---- G19: no negative timeout (research.mjs printed `TimeoutNegativeWarning: -1 is a negative number` during the Matter of Place run) ----
+  {
+    const warns = [], onWarn = (x) => warns.push(`${x.name}: ${x.message}`);
+    process.on("warning", onWarn);
+    await lib.sleep(-5); await lib.sleep(NaN); await lib.sleep(undefined); await lib.sleep("soon");
+    await new Promise((r) => setTimeout(r, 40));
+    check("lib: sleep(-5), sleep(NaN), sleep(undefined) resolve at once without a timeout warning (a wait is never negative or NaN)", warns.length === 0, warns.join(" | "));
+    // pace() computes "when I may go" minus "now"; when the clock ticks between the two readings the wait is -1. Make that happen on every call.
+    const realNow = Date.now, base = realNow(), prevGap = process.env.PEWP_TEST_GAP_MS;
+    let tick = 0; process.env.PEWP_TEST_GAP_MS = "0"; Date.now = () => base + tick++;
+    try { for (let i = 0; i < 25; i++) await lib.pace("http://127.0.0.1:59998/x", 1000); } finally { Date.now = realNow; if (prevGap == null) delete process.env.PEWP_TEST_GAP_MS; else process.env.PEWP_TEST_GAP_MS = prevGap; }
+    await new Promise((r) => setTimeout(r, 40));
+    check("lib: pace() never asks for a negative wait (no TimeoutNegativeWarning when the clock ticks between its two readings)", warns.length === 0 && tick >= 50, `${tick} clock reads; ${warns.join(" | ")}`);
+    // PEWP_TEST_GAP_MS that is not a number of ms >= 0 must not shorten the real gap, and must not reach setTimeout
+    const gapTimes = [];
+    for (const bad of ["-5", "abc"]) {
+      process.env.PEWP_TEST_GAP_MS = bad; const t0 = realNow();
+      try { await lib.pace(`http://127.0.0.1:5999${bad === "-5" ? 7 : 6}/x`, 200); await lib.pace(`http://127.0.0.1:5999${bad === "-5" ? 7 : 6}/x`, 200); } finally { if (prevGap == null) delete process.env.PEWP_TEST_GAP_MS; else process.env.PEWP_TEST_GAP_MS = prevGap; }
+      gapTimes.push(realNow() - t0);
+    }
+    await new Promise((r) => setTimeout(r, 40)); process.off("warning", onWarn);
+    check("lib: PEWP_TEST_GAP_MS that is not a number of ms (>= 0) is ignored: the real gap still applies and no timeout warning appears", gapTimes.every((t) => t >= 150) && warns.length === 0, `${gapTimes.join(",")} ms; ${warns.join(" | ")}`);
+  }
+
   // ============================ S1 intake ============================
   const snap = path.join(loc.snaps, "2026-10-20");
   const html = `<!doctype html><html lang="en-US"><head><title>Tracy Homes Realty | Realtor in Tracy CA</title><meta name="description" content="Residential real estate agents serving Tracy, Manteca and Lathrop."><meta name="robots" content="index,follow">
@@ -124,6 +167,18 @@ try {
   const seedDoc = rd("seeds");
   check("seeds: service x place x pattern, with the place label and a source on each", sd.status === 0 && seedDoc.queries.some((q) => q.query === "best realtor in manteca" && q.location === "Manteca, CA" && q.source) && seedDoc.queries.length >= 14, sd.stdout + sd.stderr);
   check("seeds: a {city} query expands per service-area city; an unfillable one is dropped and listed, never written", ["homes in tracy", "homes in manteca", "homes in lathrop"].every((q) => seedDoc.queries.some((s) => s.query === q && /, CA$/.test(s.location))) && !seedDoc.queries.some((s) => /[{}]/.test(s.query)) && seedDoc.droppedTemplates.some((d) => d.text === "bad {thing} query"), JSON.stringify(seedDoc.droppedTemplates));
+
+  check("seeds: every query says where it came from (`from`): the service list, the --query, the pack", seedDoc.queries.length >= 14 && seedDoc.queries.every((q) => typeof q.from === "string" && q.from.length > 0) && seedDoc.queries.some((q) => q.from === "service list (--service)") && seedDoc.queries.some((q) => /^--query/.test(q.from)) && seedInd.queries.every((q) => q.from === "industry pack insurance-agency") && seedDoc.serviceListFrom === "service list (--service)", JSON.stringify(seedDoc.queries.slice(0, 2)) + JSON.stringify(seedDoc.queries.at(-1)));
+  // G16 + G3 on the Matter of Place business: a location that is a list, and a vocabulary instead of --service
+  const mopSd = await node("research-seeds.mjs", ["https://mop.test/", "--cwd", tmp, "--service", "historic homes for sale", "--pattern", "{service} in {city}", "--pattern", "best {service} in {city} {st}"]);
+  const mopSeedDoc = J(path.join(MOPP, "research", "seeds.json")), mopQ = (mopSeedDoc?.queries || []).map((q) => q.query);
+  check("seeds: a business whose one location is the list 'California, New York and Florida' gets one query per state, never the combined name and no 'Florida FL' (a location name is not expanded as a place)", mopSd.status === 0 && ["historic homes for sale in california", "historic homes for sale in new york", "historic homes for sale in florida", "best historic homes for sale in florida"].every((q) => mopQ.includes(q)) && !mopQ.some((q) => /california, new york|new york and florida/.test(q)) && !mopQ.some((q) => / (fl|ny|ca)$/.test(q)) && mopSeedDoc.placesUsed.slice().sort().join("|") === "California|Florida|New York", mopSd.stdout + mopSd.stderr + mopQ.join(" | "));
+  const mopVoc = await node("research-seeds.mjs", ["https://mop.test/", "--cwd", tmp]);
+  const mopVocDoc = J(path.join(MOPP, "research", "seeds.json")), mopVocQ = (mopVocDoc?.queries || []);
+  check("seeds: with no --service the business vocabulary is the service list, and the file says so (from: definition vocabulary)", mopVoc.status === 0 && mopVocDoc.serviceListFrom === "definition vocabulary" && ["old houses", "victorian in florida", "best architecture in new york"].every((q) => mopVocQ.some((x) => x.query === q && x.from === "definition vocabulary")) && mopVocQ.every((x) => x.from === "definition vocabulary"), mopVoc.stdout + mopVoc.stderr + JSON.stringify(mopVocQ.slice(0, 3)));
+  const mopQ1 = await node("research-seeds.mjs", ["https://mop.test/", "--cwd", tmp, "--query", "castle tours"]), mopQ1d = J(path.join(MOPP, "research", "seeds.json"));
+  check("seeds: seeds the caller names itself (--query) are not widened with the vocabulary", mopQ1.status === 0 && mopQ1d.queries.length === 1 && mopQ1d.queries[0].query === "castle tours" && mopQ1d.queries[0].from.startsWith("--query") && mopQ1d.serviceListFrom === null, mopQ1.stdout + JSON.stringify(mopQ1d.queries));
+  check("seeds: --service wins over the vocabulary (the vocabulary words are not added to an explicit service list)", !mopQ.includes("old houses") && !mopQ.includes("victorian") && mopSeedDoc.serviceListFrom === "service list (--service)", mopQ.join(" | "));
 
   // ============================ Keyword Planner CSV ============================
   const csv = ["Keyword Stats 2026-10-15 to 2026-10-15", "", ["Keyword", "Currency", "Avg. monthly searches", "Three month change", "YoY change", "Competition", "Competition (indexed value)", "Top of page bid (low range)", "Top of page bid (high range)", "Account Status"].join("\t"),
@@ -192,6 +247,40 @@ try {
   const b3 = await T("research-bing.mjs", ["--seed", "x"]);
   check("bing: no key => BLOCKED exit 3", b3.status === 3 && /BLOCKED: .*BING_WEBMASTER_KEY/.test(b3.stdout), b3.stdout + b3.stderr);
   bg.close();
+
+  // ---- G4: the parser against the LIVE response shapes (fixtures/bing-junk = answers of 2026-10-25), and the relevance filter against that day's junk ----
+  const FIX = path.resolve(process.env.PEWP_FIXTURES_DIR || path.join(dir, "..", "fixtures"), "bing-junk");
+  const fxBody = (n) => JSON.parse(J(path.join(FIX, n)).text);
+  const junkRows = J(path.join(FIX, "junk-rows.json")).rows, manhole = junkRows.find((x) => /manhole/.test(x.Query));
+  const relHist = fxBody("getrelatedkeywords-historic-homes-for-sale.json").d, relFl = fxBody("getrelatedkeywords-luxury-homes-for-sale-in-florida.json").d;
+  const synthRow = (Query, n) => ({ __type: "Keyword:#Microsoft.Bing.Webmaster.Api", BroadImpressions: n, Impressions: n, Query });
+  const SYNTH = [synthRow("used boats for sale", 300), synthRow("luxury penthouses", 200), synthRow("historic houses for sale florida", 150)]; // SYNTHETIC rows (not from the live answers)
+  const mopSeedsB = ["historic homes for sale", "luxury homes for sale in florida", "historic homes for sale in new york"];
+  const mb = await serve((r) => {
+    const u = new URL(r.url, "http://x"), m = u.pathname.split("/").pop(), q = u.searchParams.get("q");
+    if (u.searchParams.get("apikey") !== "MOP-KEY-SECRET") return { status: 401, body: {} };
+    if (m === "GetQueryStats") return { body: { d: [] } };
+    if (m === "GetKeyword") return { body: fxBody(q === mopSeedsB[0] ? "getkeyword-single-object-historic-homes-for-sale.json" : "getkeyword-single-object-null-query.json") };
+    if (m === "GetRelatedKeywords") return { body: { d: q === mopSeedsB[0] ? [...relHist, ...junkRows.filter((x) => x !== manhole), ...SYNTH] : q === mopSeedsB[1] ? relFl : [manhole] } };
+  });
+  const menv = { BING_API_BASE: mb.url, BING_WEBMASTER_KEY: "MOP-KEY-SECRET" };
+  const bseeds = mopSeedsB.flatMap((s) => ["--seed", s]);
+  const mbRun = await node("research-bing.mjs", ["https://mop.test/", "--cwd", tmp, ...bseeds], menv);
+  const mbd = J(path.join(MOPP, "research", "bing.json")) || { keywords: [], droppedOffTopic: [] };
+  const kwOf = (d, q) => d.keywords.find((k) => k.query === q), dropOf = (d, q) => d.droppedOffTopic.find((x) => x.query === q);
+  check("bing: the live shapes parse: GetKeyword answers ONE object in `d` (644 impressions, broad 665; another answers Query null and 0), GetRelatedKeywords an array", mbRun.status === 0 && relHist.length === 110 && relFl.length === 53 && kwOf(mbd, mopSeedsB[0])?.volume.value === 644 && kwOf(mbd, mopSeedsB[0]).broad.value === 665 && kwOf(mbd, mopSeedsB[0]).volume.estimate === true && kwOf(mbd, mopSeedsB[1])?.volume.value === 0 && isFact(kwOf(mbd, mopSeedsB[1]).volume) && mbd.calls === 6, mbRun.stdout + mbRun.stderr + JSON.stringify(mbd.keywords.slice(0, 2)));
+  const expectRel = new Set([...relHist, ...junkRows, ...SYNTH, ...relFl].map((x) => x.Query.toLowerCase().trim()).filter((x) => !mopSeedsB.includes(x)));
+  check("bing: every related row of the live answers is either kept or dropped with a reason (the counts add up)", mbd.keywords.filter((k) => k.related).length + mbd.droppedOffTopic.length === expectRel.size && mbd.droppedOffTopic.length > 0 && mbd.keywords.filter((k) => k.related).length > 20, `${mbd.keywords.filter((k) => k.related).length} kept + ${mbd.droppedOffTopic.length} dropped vs ${expectRel.size}`);
+  const JUNKQ = ["how to find my windows product key site microsoft.com", "how to find slope from a graph", "cars for sale", "how to clear cache", "five people emerge from manhole in new york", "used boats for sale"], BRANDQ = ["zillow homes for sale", "redfin homes for sale"];
+  check("bing: relevance filter: the off-topic keywords of the real run (windows key site:microsoft.com, slope, cars, cache, manhole) are dropped with a reason and the seed they came from", JUNKQ.every((q) => { const x = dropOf(mbd, q); return x && x.reason && mopSeedsB.includes(x.relatedTo) && !kwOf(mbd, q); }) && /"site:" search on another website \(microsoft\.com\)/.test(dropOf(mbd, JUNKQ[0])?.reason) && /place name/.test(dropOf(mbd, JUNKQ[4])?.reason || "") && /no meaningful term/.test(dropOf(mbd, "how to clear cache")?.reason || ""), JSON.stringify(JUNKQ.map((q) => dropOf(mbd, q))));
+  check("bing: relevance filter: a word that is another site's name (zillow, redfin, realtor) or a web address drops the keyword as navigational", BRANDQ.every((q) => /navigational/.test(dropOf(mbd, q)?.reason || "") && !kwOf(mbd, q)) && /"zillow" is the name of another site \(zillow\.com\)/.test(dropOf(mbd, "zillow homes for sale").reason) && /web address/.test(dropOf(mbd, "zillow.com")?.reason || "") && !mbd.keywords.some((k) => /zillow|redfin|realtor|trulia/.test(k.query)), JSON.stringify(BRANDQ.map((q) => dropOf(mbd, q))));
+  check("bing: relevance filter keeps the legitimate related keywords (victorian houses, circa old houses for sale, historic houses for sale florida, luxury penthouses, real estate) and says why", ["victorian houses", "circa old houses for sale", "historic houses for sale florida", "luxury penthouses", "real estate"].every((q) => kwOf(mbd, q)?.related === true && /^shares "/.test(kwOf(mbd, q).relevance || "") && !dropOf(mbd, q)), JSON.stringify(["victorian houses", "luxury penthouses", "real estate"].map((q) => kwOf(mbd, q) || dropOf(mbd, q))));
+  const mbKeep = await node("research-bing.mjs", ["https://mop.test/", "--cwd", tmp, ...bseeds, "--keep-brands"], menv);
+  const mbd2 = J(path.join(MOPP, "research", "bing.json"));
+  check("bing: --keep-brands keeps keywords that name another site (zillow homes for sale); a keyword with no term of the business is still dropped", mbKeep.status === 0 && mbd2.keepBrands === true && kwOf(mbd2, "zillow homes for sale")?.related === true && !!dropOf(mbd2, JUNKQ[0]) && !!dropOf(mbd2, "how to clear cache") && mbd2.droppedOffTopic.every((x) => !/^navigational/.test(x.reason)), mbKeep.stdout + mbKeep.stderr);
+  const mbNo = await node("research-bing.mjs", ["https://mop.test/", "--cwd", tmp, ...bseeds, "--no-related"], menv);
+  const mbd3 = J(path.join(MOPP, "research", "bing.json"));
+  check("bing: --no-related asks for the seeds' own volumes only (no related keywords, nothing dropped)", mbNo.status === 0 && mbd3.relatedAsked === false && mbd3.keywords.length === 3 && mbd3.keywords.every((k) => k.related === false) && mbd3.droppedOffTopic.length === 0 && mbd3.calls === 3, mbNo.stdout + mbNo.stderr);
 
   // ============================ Wikipedia pageviews ============================
   const wk = await serve((r) => {
@@ -393,6 +482,21 @@ try {
   check("authority: no cached Common Crawl release => blocked with what unblocks it", aBlocked.status === "blocked" && /release/.test(aBlocked.why), JSON.stringify(aBlocked));
   compPort.close(); comp429.close(); compRobots.close();
 
+  // ---- G7: the audited competitors are exactly the owner-approved list (contract C3: approved/competitors.json) ----
+  const csA = await serve((r) => (r.url === "/robots.txt" ? { type: "text/plain", body: "User-agent: *\nAllow: /\n" } : r.url === "/" ? { type: "text/html", body: `<html><head><title>Rival A</title></head><body><main><h1>Rival A</h1>${"w ".repeat(200)}</main></body></html>` } : { status: 404, body: "" }));
+  const apprFile = path.join(MOPP, "approved", "competitors.json");
+  w(apprFile, { step: "competitors-discover", business: "mop.test", rows: [
+    { name: "Rival A", domain: csA.url, handle: null, platform: "web", kind: "publisher", evidenceUrl: "https://example.test/a", closeness: 4, note: "" },
+    { name: "Circa", domain: null, handle: "@circahouses", platform: "instagram", kind: "social-curator", evidenceUrl: "https://example.test/ig", closeness: 5, note: "" }] });
+  w(path.join(MOPP, "research", "serp.json"), { step: "serp", status: "ok", captures: [{ organic: [{ domain: "suggested.test", position: 1, url: "https://suggested.test/x" }] }] }); // a results page won by a site nobody approved
+  const mc = await node("research-competitors.mjs", ["https://mop.test/", "--cwd", tmp, "--approved-competitors", apprFile, "--from-serp"]);
+  const mcd = J(path.join(MOPP, "research", "competitors.json"));
+  check("competitors: with --approved-competitors the audited sites are exactly the approved rows that have a domain; business.json competitors are not audited; the handle-only row is listed, not audited; --from-serp picks are only suggested", mc.status === 0 && JSON.stringify(mcd.audited) === JSON.stringify([csA.url]) && mcd.sites.length === 1 && !!mcd.sites[0].facts && JSON.stringify(mcd.suggested) === '["suggested.test"]' && mcd.withoutDomain.length === 1 && mcd.withoutDomain[0].handle === "@circahouses" && mcd.approvedRows === 2 && csA.reqs[0]?.url === "/robots.txt", mc.stdout + mc.stderr + JSON.stringify(mcd).slice(0, 500));
+  w(path.join(MOPP, "approved", "handles-only.json"), { rows: [{ name: "Circa", domain: null, handle: "@circahouses" }] });
+  const mcH = await node("research-competitors.mjs", ["https://mop.test/", "--cwd", tmp, "--approved-competitors", path.join(MOPP, "approved", "handles-only.json")]);
+  const mcMissing = await node("research-competitors.mjs", ["https://mop.test/", "--cwd", tmp, "--approved-competitors", path.join(MOPP, "approved", "nope.json")]);
+  check("competitors: an approved list with no website is BLOCKED (exit 3, says why) and a missing file is a usage error (exit 2), neither falls back to business.json", mcH.status === 3 && /no row with a domain/.test(mcH.stdout) && mcMissing.status === 2 && /file not found/.test(mcMissing.stderr), mcH.stdout + mcMissing.stderr);
+
   // ============================ AI citations ============================
   let gcalls = 0, gstop = 99;
   const gem = await serve((r) => {
@@ -444,9 +548,17 @@ try {
   const cs = await serve((r) => (r.url === "/robots.txt" ? { type: "text/plain", body: "User-agent: *\nAllow: /\n" } : r.url === "/" ? { type: "text/html", body: `<html><head><title>Rival</title></head><body><main><h1>Rival</h1>${"w ".repeat(200)}</main></body></html>` } : { status: 404, body: "" }));
   const common = ["--query", "realtor in tracy ca", "--query", "real estate agent tracy ca", "--query", "realtor in manteca ca", "--query", "we buy houses tracy ca", "--query", "what is a cash offer on a house", "--query", "realtors tracy ca", "--kwp-file", csvFile, "--competitor", cs.url, "--max-competitors", "3", "--device", "mobile", "--existing-dir", exDir];
   const dry = await T("research.mjs", [...common, "--dry"], { ...e2eEnv, GSC_API_BASE: gs2.url });
-  check("research: --dry prints the plan (stages, 0 workers, calls, $0) and fetches nothing", dry.status === 0 && /PLAN research/.test(dry.stdout) && /workers: 0/.test(dry.stdout) && /\$0/.test(dry.stdout) && !fs.existsSync(path.join(loc.pewp, "targets.json")) && gs2.reqs.length === 0 && cs.reqs.length === 0, dry.stdout + dry.stderr);
+  check("research: --dry prints the plan (stages, 0 workers, calls, $0) and fetches nothing", dry.status === 0 && /PLAN research/.test(dry.stdout) && /workers: 0/.test(dry.stdout) && /\$0/.test(dry.stdout) && /seeds: \d+ in research\/seeds.json, NOT approved/.test(dry.stdout) && !fs.existsSync(path.join(loc.pewp, "targets.json")) && gs2.reqs.length === 0 && cs.reqs.length === 0, dry.stdout + dry.stderr);
   const big = await T("research.mjs", [...common, "--confirm-above", "1"], { ...e2eEnv, GSC_API_BASE: gs2.url });
   check("research: a plan above the call limit needs the owner's OK (exit 3), nothing fetched", big.status === 3 && /BLOCKED: .*approves/.test(big.stdout) && gs2.reqs.length === 0, big.stdout + big.stderr);
+  // G3: the seeds are a proposal; Bing, forums and the capture list wait for the owner's approval (approved/seeds.json equal to research/seeds.json) or --yes
+  const ng = await T("research.mjs", common, { ...e2eEnv, GSC_API_BASE: gs2.url });
+  check("research: seeds nobody approved => exit 3 with `NEEDS-APPROVAL seeds:` (show research/seeds.json, run approve.mjs <target> seeds --by NAME, or --yes), nothing fetched, no targets.json", ng.status === 3 && /^NEEDS-APPROVAL seeds: the 6 seed queries in research\/seeds.json have not been approved/m.test(ng.stdout) && /approve\.mjs https:\/\/tracyhomes\.test\/ seeds --by NAME/.test(ng.stdout) && /re-run with --yes/.test(ng.stdout) && gs2.reqs.length === 0 && cs.reqs.length === 0 && !fs.existsSync(path.join(loc.pewp, "targets.json")), ng.stdout.slice(-700) + ng.stderr);
+  const seedsProposed = J(path.join(loc.pewp, "research", "seeds.json"));
+  w(path.join(loc.pewp, "approved", "seeds.json"), { ...seedsProposed, queries: seedsProposed.queries.slice(1).concat([{ query: "something the owner added", from: "owner" }]) });
+  const ng2 = await T("research.mjs", common, { ...e2eEnv, GSC_API_BASE: gs2.url });
+  check("research: an approved list that differs from research/seeds.json (one query not approved, one approved query gone) still blocks, and says how many", ng2.status === 3 && /^NEEDS-APPROVAL seeds: .*differ from the approved list: 1 not approved yet \(realtor in tracy ca\), 1 approved but no longer/m.test(ng2.stdout) && gs2.reqs.length === 0, ng2.stdout.slice(-700));
+  fs.copyFileSync(path.join(loc.pewp, "research", "seeds.json"), path.join(loc.pewp, "approved", "seeds.json")); // the owner approved exactly this list (approve.mjs seeds copies the file)
   const rs = await T("research.mjs", common, { ...e2eEnv, GSC_API_BASE: gs2.url });
   const tg = J(path.join(loc.pewp, "targets.json"));
   check("research: runs end to end on fixtures and writes targets.json (exit 0)", rs.status === 0 && tg && tg.version === 1 && tg.business === HOST && tg.market.country === "US" && tg.clusters.length >= 4 && /targets-validate.mjs exit 0/.test(rs.stdout), rs.stdout + rs.stderr);
@@ -490,6 +602,29 @@ try {
   const bad = await node("research.mjs", [URLT, "--cwd", path.join(tmp, "no-intake-here")]);
   check("research: no business.json (intake not done) => BLOCKED exit 3", bad.status === 3 && /BLOCKED: .*S1 intake/.test(bad.stdout), bad.stdout + bad.stderr);
   gs2.close(); cs.close();
+  // ---- the Matter of Place shape end to end: seeds the owner approves, approved competitors, Bing with the relevance filter, a location that is a list ----
+  const mopArgs = ["https://mop.test/", "--cwd", tmp, ...mopSeedsB.flatMap((s) => ["--query", s]), "--device", "mobile"];
+  const mopReqs0 = mb.reqs.length;
+  const m0 = await node("research.mjs", mopArgs, menv);
+  check("research: seeds nobody approved block Bing, forums and the capture list: exit 3, `NEEDS-APPROVAL seeds:` says to show research/seeds.json and run approve.mjs <target> seeds --by NAME (or --yes), and not one request is made", m0.status === 3 && /^NEEDS-APPROVAL seeds: /m.test(m0.stdout) && /research[\\/]seeds\.json/.test(m0.stdout) && /approve\.mjs https:\/\/mop\.test\/ seeds --by NAME/.test(m0.stdout) && /--yes/.test(m0.stdout) && mb.reqs.length === mopReqs0 && !fs.existsSync(path.join(MOPP, "targets.json")), m0.stdout.slice(-700) + m0.stderr);
+  fs.copyFileSync(path.join(MOPP, "research", "seeds.json"), path.join(MOPP, "approved", "seeds.json")); // what approve.mjs <target> seeds does (the lock is its job)
+  const m1 = await node("research.mjs", mopArgs, menv);
+  const mt = J(path.join(MOPP, "targets.json")), mbEnd = J(path.join(MOPP, "research", "bing.json")), mrep = fs.existsSync(path.join(MOPP, "research", "report.md")) ? fs.readFileSync(path.join(MOPP, "research", "report.md"), "utf8") : "";
+  check("research: with the seeds approved (approved/seeds.json lists the same queries) the run goes on; Bing's off-topic keywords never reach targets.json and report.md counts them", m1.status === 0 && mt?.clusters.length >= 3 && mbEnd.droppedOffTopic.length > 20 && mrep.includes(`Bing related keywords dropped as off-topic: ${mbEnd.droppedOffTopic.length} (see research/bing.json droppedOffTopic)`) && !mt.clusters.some((c) => c.queries.some((q) => /zillow|redfin|realtor|manhole|slope|clear cache|windows product|cars for sale|boats/.test(q))), m1.stdout.slice(-900) + m1.stderr + mrep.slice(0, 300));
+  check("targets.json: a business whose one location is the list 'California, New York and Florida' never gets that combined name as a place or a location", !/california, new york( and|,)/i.test(JSON.stringify(mt)) && !/california, new york/i.test(fs.readFileSync(path.join(MOPP, "research", "capture-requests.json"), "utf8")) && mt.clusters.every((c) => c.location === null || ["California", "New York", "Florida"].includes(c.location)), JSON.stringify(mt.clusters.map((c) => [c.primaryQuery, c.location])));
+  const mcd2 = J(path.join(MOPP, "research", "competitors.json"));
+  check("research: when approved/competitors.json exists research.mjs audits exactly its rows with a domain (not business.json's), keeps the handle-only row in the report", JSON.stringify(mcd2.audited) === JSON.stringify([csA.url]) && !mcd2.sites.some((s) => /dwell/.test(s.domain || "")) && /owner-approved list \(1 websites from 2 rows\)\. Kept for the report and the offsite plan, not audited \(no website\): @circahouses/.test(mrep), JSON.stringify(mcd2.audited) + mrep.split("## 3.")[1]?.slice(0, 400));
+  const m2 = await node("research.mjs", [...mopArgs, "--no-related"], menv);
+  const mbNo2 = J(path.join(MOPP, "research", "bing.json"));
+  check("research: --no-related is passed to Bing (seed volumes only, no related keywords, no dropped list)", m2.status === 0 && mbNo2.relatedAsked === false && mbNo2.keywords.every((k) => k.related === false) && mbNo2.keywords.length === 3, m2.stdout.slice(-500) + m2.stderr);
+  mb.close(); csA.close();
+  // report.md lines that depend on other steps: the device mismatch of the captures (set by the serp step), the off-topic count
+  {
+    const rctx = { business: { name: "X", domain: "x.test", market: { country: "US", language: "en" } }, market: { country: "US", language: "en" } };
+    const rr = (await imp("research.mjs")).reportMd(rctx, { serp: { captures: [], deviceMismatch: { captured: ["desktop"], wanted: ["mobile"], count: 24 } }, bing: { status: "ok", droppedOffTopic: [{}, {}, {}] }, competitors: null }, { clusters: [] }, [], { items: [] }, {}, []);
+    const rr0 = (await imp("research.mjs")).reportMd(rctx, { serp: { captures: [] } }, { clusters: [] }, [], { items: [] }, {}, []);
+    check("research: report.md says when the captures were taken on another device than rankTracking.devices (baseline only, no device claim) and says nothing when they match", /Captures taken on desktop while rankTracking\.devices is mobile: baseline only, no device claim \(24 captures\)\./.test(rr) && /Bing related keywords dropped as off-topic: 3 \(see research\/bing\.json droppedOffTopic\)/.test(rr) && !/Captures taken on/.test(rr0) && !/Bing related keywords dropped/.test(rr0), rr.slice(0, 600));
+  }
 
   // ============================ the checks on targets.json ============================
   const rsm = await imp("research.mjs");
@@ -552,7 +687,9 @@ try {
   }
   check("contract: every Search Console row is a valid ranking row (whole position, location, device, language, url)", !!V && gd.rows.length > 0 && gd.rows.every((r, k) => V.validateRankingRow(r, "row" + k).length === 0), V ? JSON.stringify(gd.rows.map((r, k) => V.validateRankingRow(r, "row" + k))) : "missing");
   check("contract: every AI row is a valid citation row (model, prompt, location, whole number of runs, share)", !!V && d5.rows.length >= 3 && d5.rows.every((r, k) => V.validateCitationRow(r, "row" + k).length === 0), V ? JSON.stringify(d5.rows.map((r, k) => V.validateCitationRow(r, "row" + k))) : "missing");
-  const nov = await node("research.mjs", ["https://other.test/", "--cwd", tmp, "--query", "foo bar baz"]);
+  const nov0 = await node("research.mjs", ["https://other.test/", "--cwd", tmp, "--query", "foo bar baz"]);
+  check("research: the same run without approval and without --yes stops at NEEDS-APPROVAL (exit 3)", nov0.status === 3 && /^NEEDS-APPROVAL seeds: the 1 seed queries/m.test(nov0.stdout), nov0.stdout.slice(-500));
+  const nov = await node("research.mjs", ["https://other.test/", "--cwd", tmp, "--query", "foo bar baz", "--yes"]);
   check("research: no search has a sourced volume => BLOCKED exit 3, targets.json NOT written, nothing invented", nov.status === 3 && /BLOCKED: none of the \d+ searches has a sourced volume/.test(nov.stdout) && !fs.existsSync(path.join(oth, "targets.json")), nov.stdout + nov.stderr);
 
   // ============================ no direct Google fetching, no paid API ============================

@@ -1,0 +1,26 @@
+// plan.mjs must never lose .checks/prev/ to --help, an unknown flag, or a second plan with no run behind it.
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+const PLAN = path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), "plan.mjs");
+const d = fs.mkdtempSync(path.join(os.tmpdir(), "planprev-"));
+fs.writeFileSync(path.join(d, "a.js"), "export const a = 1;\n");
+const c = path.join(d, ".checks");
+fs.mkdirSync(path.join(c, "findings"), { recursive: true });
+fs.writeFileSync(path.join(c, "findings", "s01.md"), "run A\n");
+fs.writeFileSync(path.join(c, "REPORT.md"), "run A report\n");
+const run = (...a) => spawnSync(process.execPath, [PLAN, d, ...a], { encoding: "utf8", timeout: 60_000 });
+let fail = 0;
+const ok = (cond, msg) => { console.log(`${cond ? "ok  " : "FAIL"} ${msg}`); if (!cond) fail++; };
+let r = run("--help");
+ok(r.status === 0 && fs.existsSync(path.join(c, "REPORT.md")) && !fs.existsSync(path.join(c, "prev")), "--help plans nothing and moves nothing");
+r = run("--bogus");
+ok(r.status === 2 && fs.existsSync(path.join(c, "REPORT.md")), "unknown flag refused with exit 2, nothing moved");
+r = run();
+ok(r.status === 0 && fs.existsSync(path.join(c, "prev", "REPORT.md")), "a real plan moves run A into prev/");
+r = run();
+ok(r.status === 0 && fs.existsSync(path.join(c, "prev", "REPORT.md")) && fs.existsSync(path.join(c, "prev", "findings", "s01.md")), "a second plan with no run behind it keeps prev/ (run A)");
+fs.rmSync(d, { recursive: true, force: true });
+console.log(fail ? `${fail} failed` : "all passed");
+process.exit(fail ? 1 : 0);

@@ -1,0 +1,161 @@
+{
+ "slug": "editorial-media",
+ "title": "Editorial real-estate media platform with paid features (a publisher of property stories, roundups and newsletters; not a brokerage)",
+ "aliases": [
+  "editorial-media",
+  "editorial-media-platform",
+  "real-estate-media",
+  "property-media",
+  "real-estate-publisher",
+  "publisher",
+  "digital-publisher",
+  "online-magazine",
+  "newsletter-publisher",
+  "media-platform"
+ ],
+ "basis": "Recalled general knowledge, 2026-10-25; hosts not re-fetched (UNVERIFIED). A publisher earns links by being worth citing: design and architecture press, preservation groups, local news, newsletters and curators, and the architects, owners and agents it features. The pack leans away from buying placement, link swaps with the brokerages that pay for features, and directories that sell a 'listing' as a link.",
+ "extends": [],
+ "domainTypes": [
+  {
+   "host": "instagram.com",
+   "type": "social-link-hub",
+   "baseline": true,
+   "cost": "free profile",
+   "note": "the publisher's account and the curators who feature homes; put the site link in the bio and tag the architect or owner on every feature"
+  },
+  {
+   "host": "linkedin.com",
+   "type": "social-link-hub",
+   "baseline": true,
+   "cost": "free profile",
+   "note": "company page; agents and brokerages who buy features are here; put the site link on the page"
+  },
+  {
+   "host": "substack.com",
+   "type": "platform-profile",
+   "baseline": false,
+   "cost": "free profile",
+   "note": "newsletter platform: a free publication profile that links the site, and curators of homes who run a newsletter here (UNVERIFIED, check each one's terms)"
+  },
+  {
+   "host": "dwell.com",
+   "type": "editorial-list",
+   "baseline": false,
+   "cost": "free to pitch",
+   "note": "design magazine with a real-estate section and a weekly homes roundup; read its submission page before pitching (UNVERIFIED)"
+  },
+  {
+   "host": "dezeen.com",
+   "type": "editorial-list",
+   "baseline": false,
+   "cost": "free to pitch",
+   "note": "architecture and design press that covers houses; pitch an architect's project with a link to the full story (UNVERIFIED)"
+  },
+  {
+   "host": "archdaily.com",
+   "type": "editorial-list",
+   "baseline": false,
+   "cost": "free to pitch",
+   "note": "architecture news site with a project submission route (UNVERIFIED)"
+  },
+  {
+   "host": "wallpaper.com",
+   "type": "editorial-list",
+   "baseline": false,
+   "cost": "free to pitch",
+   "note": "design magazine that runs architecture-led homes-for-sale roundups (UNVERIFIED)"
+  },
+  {
+   "host": "thespaces.com",
+   "type": "editorial-list",
+   "baseline": false,
+   "cost": "free to pitch",
+   "note": "design-led property editorial with a weekly newsletter (UNVERIFIED)"
+  },
+  {
+   "host": "docomomo-us.org",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "membership or donation",
+   "note": "modern architecture preservation group; its chapters and real-estate round-ups list modernist homes (UNVERIFIED)"
+  },
+  {
+   "host": "aia.org",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "membership dues",
+   "note": "American Institute of Architects and its local chapters: home tours, award lists and member pages that can link to a feature on a member's house (UNVERIFIED)"
+  },
+  {
+   "host": "savingplaces.org",
+   "type": "professional-association",
+   "baseline": false,
+   "cost": "free to membership",
+   "note": "National Trust for Historic Preservation: its historic-places guides and local partner organisations suit stories on historic homes (UNVERIFIED)"
+  },
+  {
+   "host": "patch.com",
+   "type": "local-news",
+   "baseline": false,
+   "cost": "free to pitch",
+   "note": "hyperlocal news: a story about a notable local house or sale (UNVERIFIED)"
+  }
+ ],
+ "patterns": [
+  {
+   "re": "archdaily|dezeen|designboom|designmilk|dwell|wallpaper|yellowtrace|thespaces|architect(ural)?(digest|review|record)|architecturelist|interiordesign",
+   "type": "editorial-list",
+   "why": "design or architecture press that features homes"
+  },
+  {
+   "re": "preservation|historicsociety|historical(society|trust)|landmarks?|heritage|nationaltrust|savingplaces|docomomo",
+   "type": "professional-association",
+   "why": "a preservation, landmark or heritage group (its lists and tours of historic and modern houses)"
+  },
+  {
+   "re": "newsletter|substack|beehiiv|buttondown|ghost\\.io|curated(homes|houses)|homesofinstagram",
+   "type": "editorial-list",
+   "why": "an independent newsletter or curator of homes: pitch a story, do not pay for the mention"
+  },
+  {
+   "re": "gazette|herald|tribune|chronicle|dailynews|localnews|patch\\.com|courier|times-?union",
+   "type": "local-news",
+   "why": "a local news outlet that covers its own market's notable homes and sales"
+  },
+  {
+   "re": "realty|realestate|properties|brokerage|luxuryhomes|estatesales|sothebys|compass|coldwellbanker",
+   "type": "partner-supplier",
+   "why": "an agent or brokerage: the people who buy or supply features; earn the link when they share a story, never trade a link for a placement"
+  },
+  {
+   "re": "architects?(studio|office|and)|(design|build|restoration|landscape)(studio|group|firm|co)|interiors?$|builders?$",
+   "type": "partner-supplier",
+   "why": "an architecture, design or restoration firm whose project is featured: ask it to link the feature from its project page"
+  }
+ ],
+ "angles": [
+  "Give every feature a named author, a date, the architect and the year the house was built, and a link to the property or the listing agent; design press, local news and preservation groups link stories that carry facts they can cite.",
+  "Pitch the story, not the package: send design press (Dwell, Dezeen, ArchDaily, Wallpaper-type titles) and local news one architect or one restored house with photographs they may use and the link to the full feature; never pitch a paid placement as news.",
+  "Tell each architect, designer, restorer and owner when their house is featured and ask them to link the feature from their project, press or portfolio page; label a paid feature as Sponsored on the page the link goes to.",
+  "Build architect and style hubs (one page per architect, one per style) that are complete reference pages; preservation groups, tour organisers and architecture chapters link to a hub that lists real houses.",
+  "Run the newsletter archive on the site (each issue a page with a byline and date) and ask newsletter curators and Instagram accounts that feature homes to credit the site with a link in the post or bio.",
+  "Publish a market page per region with dated numbers and a source for each, so local news and real-estate columnists have something to cite; keep the date current."
+ ],
+ "avoid": [
+  "Paying for a 'feature' on another site that is not labelled Sponsored, or selling the same unlabelled placement: the FTC expects paid content to say it is paid (see EDM-SPON-001 in rules/industries/editorial-media.json).",
+  "Link swaps with the brokerages and agents that pay for features: a link given back for a purchase is a paid link; the page that links must say so.",
+  "Directories and 'luxury listing' portals that sell a profile or a backlink as exposure, and lead-seller networks.",
+  "Mass guest posts, comment links and Instagram engagement pods: they bring spam links and an account that is limited or removed.",
+  "Counting follower or reader numbers the publisher cannot show (see EDM-CLAIM-001): a media kit with a number you cannot back is a claim the publisher answers for."
+ ],
+ "reviewSites": [
+  "google business profile",
+  "trustpilot.com"
+ ],
+ "providerPatterns": [
+  "(house|home)s?(oftheday|oftheweek)|onthemarket|luxury(realestate|homes|listings?)|(realestate|property|homes?)(magazine|journal|digest|news|weekly|edit)|listings?project"
+ ],
+ "providerText": [
+  "\\bhouse of the day\\b|\\bon the market\\b[^.]{0,40}\\bthis week\\b|\\bsponsored listing\\b|\\bhomes for sale this week\\b|\\bsubmit your (listing|home|property)\\b|\\badvertise with us\\b"
+ ]
+}

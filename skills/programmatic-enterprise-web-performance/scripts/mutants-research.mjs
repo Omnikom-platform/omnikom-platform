@@ -1,4 +1,4 @@
-// Usage: node mutants-research.mjs [--only <name substring>] [--jobs 3]
+// Usage: node mutants-research.mjs [--only <name substring>[|<another>]] [--jobs 3]
 // Watched-fail for test-research.mjs (CLAUDE.md Rule 2): for every mutant, copy the scripts to a temp folder, break ONE thing the test
 // claims to guard (the patch asserts its target text exists exactly once, so "the patch never applied" cannot pass as green), run the
 // test against the copy, and require that the NAMED check goes red. Baseline (unmutated copy) must be all green first.
@@ -53,7 +53,7 @@ const M = [
   ["kwp: ranges no longer flagged estimate", "research-kwp.mjs", "const isRange = r.range && r.range.lo !== r.range.hi;", "const isRange = false;", "kwp: UTF-16 export parsed"],
   ["kwp: no-volume row filled with 0", "research-kwp.mjs", "{ ...notMeasured(`Keyword Planner gave no volume for this row (\"${r.rawVolume}\")`), cacheFile: copy }", "f(0)", "kwp: a row without a volume stays null"],
   ["bing: call budget not enforced", "research-bing.mjs", "if (calls >= maxCalls) return null;", "if (false) return null;", "bing: the call budget is a hard stop"],
-  ["gsc: a missing token no longer blocks", "research-gsc.mjs", "if (!t) throw new Blocked(UNBLOCK);", "if (!t) return \"x\";", "gsc: no token file => BLOCKED"],
+  ["gsc: a missing token no longer blocks", "lib-google-auth.mjs", "if (!t) throw new GoogleAuthBlocked(\"no-token\", `no token file at ${file} and no service account set`);", "if (!t) return { token: \"x\", source: \"token-file\", expiresAt: null };", "gsc: no token file => BLOCKED"], // the token code lives in lib-google-auth.mjs since G12
   ["gsc: positions not rounded to whole places", "research-gsc.mjs", "position: f(Math.max(1, Math.round(x.position))", "position: f(Math.round(x.position * 10) / 10", "contract: every Search Console row is a valid ranking row"],
   ["wiki: a 404 is treated as a failure", "research-wiki.mjs", "if (r.status === 404) {", "if (false) {", "wiki: average monthly views"],
   ["forums: keeps going after a 429", "research-forums.mjs", "stoppedBy = `HTTP ${r.status} on \"${q}\"`; break; }", "stoppedBy = `HTTP ${r.status} on \"${q}\"`; continue; }", "forums: the FIRST 429 stops the run"],
@@ -75,7 +75,7 @@ const M = [
   ["ai: Gemini runs without the owner's terms acknowledgement", "research-ai.mjs", "if (process.env.PEWP_GEMINI_TERMS_ACK !== \"1\") throw new Blocked(UNBLOCK_TERMS);", "", "ai: Gemini is BLOCKED until the owner acknowledges its terms"],
   ["ai: samples 13 s apart (06 9.6 wants 60)", "research-ai.mjs", "export const GEMINI_GAP_MS = 60000;", "export const GEMINI_GAP_MS = 13000;", "ai: Gemini samples are spaced at least 60 s apart"],
   ["ai: measure's citedDomains captures read as zero citations", "research-ai.mjs", "(Array.isArray(c.citedDomains) ? c.citedDomains : c.sources || [])", "(c.sources || [])", "ai: an owner capture in measure's citedDomains form"],
-  ["gsc: an expired token (expiry form) is sent as is", "research-gsc.mjs", "const exp = t.expiry_date ?? t.expiry;", "const exp = t.expiry_date;", "gsc: an expired token (measure's `expiry` form) is refreshed"],
+  ["gsc: an expired token (expiry form) is sent as is", "lib-google-auth.mjs", "const exp = t.expiry_date ?? t.expiry;", "const exp = t.expiry_date;", "gsc: an expired token (measure's `expiry` form) is refreshed"],
   ["ai: an owner capture without a date is accepted", "research-ai.mjs", "if (!c.capturedAt || Number.isNaN(Date.parse(c.capturedAt))) why.push(\"no capture date\");", "", "ai: a capture without a date is rejected"],
   ["existing: nothing is ever stale", "research-existing.mjs", "stale: ageDays(updated) > maxAgeDays", "stale: false", "existing: keyword map imported with its date; stale flagged"],
   ["existing: a keyword with no tier becomes volume 0","research-existing.mjs","{ ...notMeasured(ntext || \"the imported keyword map carries no search volume\"), cacheFile: file }","{ value: 0, source: \"imported\", fetchedAt: new Date().toISOString(), cacheFile: file }","existing: a keyword with no tier stays null"],
@@ -129,16 +129,46 @@ const M = [
   ["cluster: a SERP-captured query is movable by tokens", "research-cluster.mjs", "const loose = raw.filter((c) => !c.serp && c.members.length === 1);", "const loose = raw.filter((c) => c.members.length === 1);", "cluster: validator consistency: a query WITH its own SERP capture is never merged"],
   ["cluster: after a token merge the primary is not the higher demand", "research-cluster.mjs", "c.members.sort((a, b) => vol(b) - vol(a) || dif(a) - dif(b) || cmpCode(a.query, b.query));", "c.members.sort((a, b) => cmpCode(a.query, b.query));", "cluster: validator consistency: two serp:false singletons that collide merge"],
   ["cluster: the token-overlap merge ignores research-lib sameQuery (T-003 exact set only)", "research-cluster.mjs", "export const collides = (a, b) => sameQuery(a, b) ||", "export const collides = (a, b) => false ||", "cluster: validator consistency: the autocomplete-only"],
+  ["bing: a single-object `d` (GetKeyword) is read as no rows","research-bing.mjs","Array.isArray(d) ? d : d ? [d] : []","Array.isArray(d) ? d : []","bing: the live shapes parse"],
+  ["bing: the relevance filter keeps everything","research-bing.mjs","if (v.drop) { droppedOffTopic.push(","if (false) { droppedOffTopic.push(","bing: relevance filter: the off-topic keywords"],
+  ["bing: another site's name is not a reason to drop","research-bing.mjs","for (const w of words) if (brands.words.has(w) &&","for (const w of words) if (false && brands.words.has(w) &&","bing: relevance filter: a word that is another site's name"],
+  ["bing: 'sale' counts as a meaningful term","research-bing.mjs","new Set([\"sale\", \"sell\", ","new Set([\"sell\", ","bing: relevance filter: the off-topic keywords"],
+  ["bing: a place name alone makes a keyword relevant","research-bing.mjs","const inVocab = qt.find((t) => pool.has(t) && !placeTerms.has(t));","const inVocab = qt.find((t) => pool.has(t));","bing: relevance filter: the off-topic keywords"],
+  ["bing: the business vocabulary is ignored","research-bing.mjs","[...(Array.isArray(b.vocabulary) ? b.vocabulary : []), b.offer || \"\"]","[b.offer || \"\"]","bing: relevance filter keeps the legitimate"],
+  ["bing: the offer words are ignored","research-bing.mjs","[...(Array.isArray(b.vocabulary) ? b.vocabulary : []), b.offer || \"\"]","[...(Array.isArray(b.vocabulary) ? b.vocabulary : [])]","bing: relevance filter keeps the legitimate"],
+  ["bing: the seed list's own terms are ignored","research-bing.mjs","const seedListTerms = new Set(seeds.flatMap(termsOf));","const seedListTerms = new Set();","bing: relevance filter keeps the legitimate"],
+  ["bing: --keep-brands ignored","research-bing.mjs","if (!keepBrands) {","if (true) {","bing: --keep-brands keeps"],
+  ["bing: --no-related not honoured by the CLI","research-bing.mjs","related: !a.has(\"no-related\"),","related: true,","bing: --no-related asks"],
+  ["research: --no-related not passed to Bing","research.mjs","related: o.related !== false,","related: true,","research: --no-related is passed to Bing"],
+  ["research: the off-topic count is not in report.md","research.mjs","if (S.bing?.status === \"ok\" && Array.isArray(S.bing.droppedOffTopic)) L.push(","if (false) L.push(","research: with the seeds approved"],
+  ["research: the device mismatch line is not in report.md","research.mjs","if (dm) L.push(","if (false) L.push(","research: report.md says when the captures were taken"],
+  ["seeds: queries written without `from`","research-seeds.mjs","out.set(q, { query: q, source, from, location:","out.set(q, { query: q, source, location:","seeds: every query says where it came from"],
+  ["seeds: the vocabulary is not the service list","research-seeds.mjs","const svc = given.length ? given : explicit ? [] : vocab,","const svc = given.length ? given : [],","seeds: with no --service the business vocabulary"],
+  ["seeds: --query seeds are widened with the vocabulary","research-seeds.mjs","explicit ? [] : vocab","vocab","seeds: seeds the caller names itself"],
+  ["research: demand steps run on unapproved seeds","research.mjs","if (!o.yes) { const g = seedsApproval(ctx);","if (false) { const g = seedsApproval(ctx);","research: seeds nobody approved => exit 3"],
+  ["research: --yes does not skip the seeds approval","research.mjs","if (!o.yes) { const g = seedsApproval(ctx);","if (true) { const g = seedsApproval(ctx);","research: no search has a sourced volume"],
+  ["research: an approved list that differs counts as approved","research.mjs","if (!added.length && !removed.length) return {","if (true) return {","research: an approved list that differs"],
+  ["research: a missing approved/seeds.json counts as approved","research.mjs","if (!ap) return { needed: true, ok: false,","if (!ap) return { needed: true, ok: true,","research: seeds nobody approved => exit 3"],
+  ["research: NEEDS-APPROVAL exits 1 instead of 3","research.mjs","console.log(e.text); process.exitCode = 3; return;","console.log(e.text); process.exitCode = 1; return;","research: seeds nobody approved => exit 3"],
+  ["lib: a location that is a list is expanded as a place","research-lib.mjs","if (!isPlaceLabel(loc.name)) add(loc.name, st);","add(loc.name, st);","lib: a location that is a list is a label"],
+  ["lib: a service-area state gets the office state code","research-lib.mjs","const st = !m && US_STATES.has(name.toLowerCase()) ? null : (m ? m[2] : state || null);","const st = (m ? m[2] : state || null);","lib: a service-area entry that is itself a state"],
+  ["lib: two commas are not a list","research-lib.mjs","(String(name ?? \"\").match(/,/g) || []).length >= 2","(String(name ?? \"\").match(/,/g) || []).length >= 3","lib: a location name that lists places"],
+  ["competitors: the approved list is ignored","research-competitors.mjs","const approved = approvedFile ? approvedCompetitorRows(approvedFile) : null;","const approved = null;","competitors: with --approved-competitors"],
+  ["competitors: --from-serp picks are audited in approved mode","research-competitors.mjs","const have = new Set(list.map(domainOf)); suggested = pickCompetitors(","const have = new Set(list.map(domainOf)); list.push(...pickCompetitors(ctx, { max, extra: list, fromBusiness: false }).filter((d) => !have.has(d))); suggested = pickCompetitors(","competitors: with --approved-competitors"],
+  ["competitors: business.json competitors are audited in approved mode","research-competitors.mjs","list = [...new Set([...approved.domains, ...domains].map(keepPort))];","list = [...new Set([...approved.domains, ...domains, ...(b.competitors || [])].map(keepPort))];","competitors: with --approved-competitors"],
+  ["research: the approved competitor file is not passed on","research.mjs","domains: o.competitors || [], approvedFile, fromSerp:","domains: o.competitors || [], fromSerp:","research: when approved/competitors.json exists"],
+  ["lib: sleep() takes a negative or NaN wait as is","research-lib.mjs","Number.isFinite(Number(ms)) ? Math.max(0, Number(ms)) : 0","Number(ms)","lib: sleep(-5)"],
+  ["lib: a negative PEWP_TEST_GAP_MS is accepted","research-lib.mjs","const gap = Number.isFinite(testGap) && testGap >= 0 ? testGap : own;","const gap = Number.isFinite(testGap) ? testGap : own;","lib: PEWP_TEST_GAP_MS that is not a number"],
 ];
 
-const sel = M.filter((m) => !only || m[0].includes(only));
+const sel = M.filter((m) => !only || only.split("|").some((o) => m[0].includes(o))); // --only "a|b" runs the mutants whose name contains a or b
 const mk = () => fs.mkdtempSync(path.join(os.tmpdir(), "pewp-mut-"));
 function copyScripts(to) { for (const f of NEEDED) fs.copyFileSync(path.join(here, f), path.join(to, f)); }
 function runTest(scriptsDir) {
   return new Promise((resolve) => {
-    const p = spawn(process.execPath, [path.join(scriptsDir, "test-research.mjs"), "--scripts", scriptsDir, "--json"], { env: { ...process.env, NODE_OPTIONS: "", PEWP_RULES_DIR: path.join(here, "..", "rules") } });
+    const p = spawn(process.execPath, [path.join(scriptsDir, "test-research.mjs"), "--scripts", scriptsDir, "--json"], { env: { ...process.env, NODE_OPTIONS: "", PEWP_RULES_DIR: path.join(here, "..", "rules"), PEWP_FIXTURES_DIR: path.join(here, "..", "fixtures") } });
     let out = ""; p.stdout.on("data", (c) => (out += c)); p.stderr.on("data", (c) => (out += c));
-    const t = setTimeout(() => p.kill(), 240000);
+    const t = setTimeout(() => p.kill(), 900000); // the suite takes 3 to 4 minutes on a busy laptop (3 mutants at a time): 240 s turned slow runs into NO-RESULT
     p.on("close", (code) => { clearTimeout(t); const last = out.trim().split("\n").at(-1); let j = null; try { j = JSON.parse(last); } catch {} resolve({ code, json: j, tail: out.slice(-400) }); });
   });
 }

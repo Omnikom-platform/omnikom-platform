@@ -130,7 +130,7 @@ real capture session is the first proof, and the location override approach must
 - A missing source is BLOCKED with the unblock step in plain words; it is never filled from memory or from an older capture.
 
 ## Still open in files other agents own
-- `rules/citation-sources.json` and `rules/ctr-curve.json` do not exist; the scripts use built-in defaults labelled UNVERIFIED.
+- `rules/citation-sources.json` and `rules/ctr-curve.json` exist now (read by local-nap.mjs, local-run.mjs, measure.mjs, rules-sync.mjs); their values are still labelled UNVERIFIED where the scripts print them. (Corrected 2026-10-25: this line used to say the files did not exist.)
 - Done since this file was written: `schemas/targets.md` ratified `phone` and `legalName` on `business.json`; `doctor.mjs` lists the
   Business Profile export and the map-pack captures as sources.
 

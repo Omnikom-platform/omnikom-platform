@@ -12,6 +12,17 @@ import { execFileSync } from "node:child_process";
 import { groupFamilies, unitsFor } from "./families.mjs";
 
 const args = process.argv.slice(2);
+// An unknown flag (2026-10-26: `--help`) used to fall through to a real plan, which rotated .checks/prev/ and lost a run.
+const KNOWN = new Set(["--budget-kb", "--dry", "--all"]);
+if (args.includes("--help") || args.includes("-h")) {
+  console.log("usage: node plan.mjs <repo> [--dry] [--all] [--budget-kb N]   (without --dry it starts a new run: the old one moves to .checks/prev/)");
+  process.exit(0);
+}
+const unknown = args.filter((a) => a.startsWith("-") && !KNOWN.has(a));
+if (unknown.length) {
+  console.error(`refusing: unknown option(s) ${unknown.join(", ")}; nothing was planned or moved`);
+  process.exit(2);
+}
 const root = path.resolve(args.find((a, i) => !a.startsWith("--") && args[i - 1] !== "--budget-kb") || ".");
 const opt = (k, d) => (args.includes(k) ? args[args.indexOf(k) + 1] : d);
 const budget = Number(opt("--budget-kb", 200)) * 1024;
@@ -86,7 +97,9 @@ if (!dry) {
   // (whose slice ids collide with the new ones) are never merged into the new report.
   const cd = path.join(root, ".checks");
   const old = ["findings", "scripts", "logs", "REPORT.md", "REPORT.prev.md", "causes.json", "run-all.mjs", "plan.json"].filter((x) => fs.existsSync(path.join(cd, x)));
-  if (old.length) {
+  // A plan with no run behind it (only plan.json) is replaced in place: rotating it would wipe the real previous run in prev/.
+  if (old.length === 1 && old[0] === "plan.json") console.log("replacing a plan that has no run yet; .checks/prev/ kept");
+  else if (old.length) {
     fs.rmSync(path.join(cd, "prev"), { recursive: true, force: true });
     fs.mkdirSync(path.join(cd, "prev"), { recursive: true });
     for (const x of old) fs.renameSync(path.join(cd, x), path.join(cd, "prev", x));

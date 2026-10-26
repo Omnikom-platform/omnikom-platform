@@ -37,16 +37,44 @@ measure) reads this one file, so a wrong country or a missing service area here 
    `competitors` and `brand.constraints` ("none known"); a missing answer is not.
 5. **Re-run** the same command. Loop to step 3 while it prints `QUESTIONS`. It ends with `COMPLETE <pewp>/business.json`.
 6. **Check it**: `node "<skill>/scripts/targets-validate.mjs" <pewp> --business <pewp>/business.json` (rule B-001) must pass.
+7. **The owner approves the business** (overhaul mode, and any run that wants a signed definition): `node "<skill>/scripts/approve.mjs" <target> business --by "<owner name>"`
+   after the owner has read the one-screen definition. The script refuses (exit 1) while an owner-only field was not answered by the owner; see "Who answered".
+
+## Who answered (`answeredBy`)
+An answer in `intake-answers.json` is bare (`"kind": "real-estate-agent"`, the old form: still accepted, recorded as `unstated`) or stamped:
+`"kind": {"value": "editorial-media", "answeredBy": "owner"}`. `answeredBy` is `owner` (the owner picked or typed it), `site` (read from the site) or
+`default`; any other word counts as `unstated`. Stamp `owner` only for what the owner himself said in this session: the main session never answers for the
+owner, and a stamp copied from a project document is the same breach as a bare answer. `business.json` gets `provenance`: one entry per filled field
+(`owner | site | default | unstated`; what intake read from the site is `site`, what it defaulted is `default`). `approve.mjs business` refuses unless
+`kind, offer, audience, goals, competitors, brand.constraints, vocabulary` are all `owner`; the refusal names the fields and says to write the answers as
+`{"value": ..., "answeredBy": "owner"}` and run intake again.
+
+## Vocabulary and what it is not
+`vocabulary` is the list of words the business and its readers use for what it does (`["historic homes", "design-led"]`), asked as a multi-select whose
+options are the words the home page repeats (from the snapshot; free text when there is none). `[]` is not an answer. It does not block `COMPLETE` (older
+runs have no such answer); `--require-vocabulary` makes it block (the overhaul mode passes it), and `approve.mjs business` refuses without it.
+`notOffer` (optional, one line) says what the business is not ("not a brokerage"); the discovery brief and the seeds read it. Both are printed after
+`COMPLETE` as `OPTIONAL QUESTIONS` when unanswered.
+
+## Business kind: editorial media
+`editorial-media` ("publisher or media platform with paid features") is a kind option; JSON-LD `NewsMediaOrganization`, `Periodical` and `Blog` suggest it.
+`industry` follows the kind when `rules/industries/editorial-media.json` exists, else stays `null` (never an error).
+
+## Several regions, no single main city
+A location whose `name` holds " and ", "&", ";" or two or more commas ("California, New York and Florida") is a label, not a place. The default
+`rankTracking.locations` is then the first three entries of its `serviceArea` (`["California", "New York", "Florida"]`), never the label; the printed
+default line says so. A single place ("Tracy, CA") keeps the old default.
 
 ## Defaults the script applies and shows (never asked)
 `rankTracking.devices = ["mobile"]`, `rankTracking.source = "search-console"` when Search Console access exists else `"browser-capture"`,
-`rankTracking.locations` = the first three places of the first location. Change them by answering `rankTracking.locations` /
+`rankTracking.locations` = the first three places of the first location (of its `serviceArea` when the location is a multi-region label). Change them by answering `rankTracking.locations` /
 `rankTracking.devices` / `rankTracking.source`. Browser capture costs 45 seconds a page, so three places on one device is the honest start.
 
 ## Outputs
 | File | Content |
 |---|---|
-| `<pewp>/business.json` | exactly the shape in `schemas/targets.md`; written only when nothing is missing and nothing is invalid |
+| `<pewp>/business.json` | exactly the shape in `schemas/targets.md` (with `provenance`); written only when nothing is missing and nothing is invalid |
+| `<pewp>/approved/business.json` | the owner-signed copy (`approve.mjs business`); `approved/lock.json` holds its sha256 |
 | `<pewp>/intake-facts.json` | every fact found with its source and date, what was accepted, what was defaulted, the open questions |
 | `<pewp>/business.draft.json` | what is known so far, written on every run |
 | `<pewp>/state.json` | stage `intake` marked done with the paths (only on COMPLETE) |

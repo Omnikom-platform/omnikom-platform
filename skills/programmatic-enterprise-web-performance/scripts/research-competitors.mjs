@@ -8,6 +8,9 @@
 // agent, and a site is STOPPED for the rest of the run at its first 403/429/503 or bot-protection page (never retried, never bypassed).
 // Every response is cached under <pewp>/cache/competitors/ (same layout as cache.mjs, plus headers); a cached refusal is honoured for
 // 24 h so an immediate re-run does not knock again. Domains with a fresh audit in research/existing.json are not fetched again.
+// --approved-competitors FILE (G7, contract C3: <pewp>/approved/competitors.json): the audited domains are exactly the rows of that file that have a
+// domain (plus --domain); rows with only a handle (Instagram, TikTok, newsletters) are listed in the output, not audited; --from-serp picks are
+// reported as `suggested` and NOT audited (the owner approves a list, then the audit reads it). business.json competitors are not used in that mode.
 // Test hooks: PEWP_TEST_GAP_MS (local servers only). Output: research/competitors.json { sites:[...], authority:{...} }.
 import fs from "node:fs";
 import path from "node:path";
@@ -15,7 +18,7 @@ import zlib from "node:zlib";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { Blocked, J, W, iso, ageDays, context, needBusiness, runCli, readStep, writeStep, writeBlocked, factor, fact, domainOf, pace } from "./research-lib.mjs";
+import { Blocked, J, W, listFile, iso, ageDays, context, needBusiness, runCli, readStep, writeStep, writeBlocked, factor, fact, domainOf, pace } from "./research-lib.mjs";
 import { cachedRelease, defaultCache } from "./authority.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -231,13 +234,21 @@ export async function auditUrl(pewp, url) {
 }
 
 // Who to audit: named competitors first, then the domains that win the captured SERPs most often (top 3 positions count double).
-export function pickCompetitors(ctx, { max = 12, extra = [] } = {}) {
+export function pickCompetitors(ctx, { max = 12, extra = [], fromBusiness = true } = {}) {
   const own = ctx.domain, score = new Map();
   const add = (d, n) => { d = domainOf(d); if (d && d !== own && !d.endsWith("." + own)) score.set(d, (score.get(d) || 0) + n); };
-  (ctx.business?.competitors || []).forEach((d) => add(d, 1e6));
+  if (fromBusiness) (ctx.business?.competitors || []).forEach((d) => add(d, 1e6));
   extra.forEach((d) => add(d, 1e6));
   for (const c of readStep(ctx, "serp")?.captures || []) for (const o of c.organic.slice(0, 5)) add(o.domain, o.position <= 3 ? 2 : 1);
   return [...score].sort((a, b) => b[1] - a[1]).slice(0, max).map(([d]) => d);
+}
+
+// The owner-approved competitor list (contract C3): { rows:[{ name, domain|null, handle|null, platform, kind, ... }] } or a bare list of rows.
+// Domains are what gets audited; a row without a domain is kept for the report and the offsite plan.
+export function approvedCompetitorRows(file) {
+  const rows = listFile(file, "rows").filter((x) => x && typeof x === "object");
+  const withDomain = rows.filter((x) => String(x.domain ?? "").trim());
+  return { file, rows: rows.length, domains: [...new Set(withDomain.map((x) => String(x.domain).trim()))], withoutDomain: rows.filter((x) => !String(x.domain ?? "").trim()).map((x) => ({ name: x.name ?? null, handle: x.handle ?? null, platform: x.platform ?? null })) };
 }
 
 export function summarise(r, f) {
@@ -269,12 +280,20 @@ export async function runAuthority(ctx, { target, competitors, cache = null, rel
   return { status: "ran", file: out, doc: J(out), release: rel };
 }
 
-export async function run(ctx, { domains = [], fromSerp = false, max = 12, pages = 4, authority = false, authorityCache = null, authorityRelease = null, maxAgeDays = 30 } = {}) {
+export async function run(ctx, { domains = [], approvedFile = null, fromSerp = false, max = 12, pages = 4, authority = false, authorityCache = null, authorityRelease = null, maxAgeDays = 30 } = {}) {
   const b = needBusiness(ctx);
   const keepPort = (d) => (/^(https?:\/\/)?(127\.0\.0\.1|localhost):\d+/.test(d) ? d.replace(/\/$/, "") : domainOf(d)); // local test servers keep their port
-  const named = [...domains, ...(b.competitors || [])].map(keepPort);
-  const list = [...new Set(fromSerp ? pickCompetitors(ctx, { max, extra: named }) : named)].slice(0, max);
-  if (!list.length) { const m = "no competitor domains: name them in business.json, pass --domain, or import SERP captures and use --from-serp"; writeBlocked(ctx, "competitors", m); throw new Blocked(m); }
+  const approved = approvedFile ? approvedCompetitorRows(approvedFile) : null;
+  let list, suggested = [];
+  if (approved) { // exactly the approved rows with a domain (plus --domain); the owner approved this list, so --max does not cut it
+    list = [...new Set([...approved.domains, ...domains].map(keepPort))];
+    if (fromSerp) { const have = new Set(list.map(domainOf)); suggested = pickCompetitors(ctx, { max, extra: list, fromBusiness: false }).filter((d) => !have.has(d)); }
+    if (!list.length) { const m = `the approved competitor list ${approvedFile} has no row with a domain (${approved.rows} rows, ${approved.withoutDomain.length} with only a handle): approve a list that has websites, or pass --domain`; writeBlocked(ctx, "competitors", m); throw new Blocked(m); }
+  } else {
+    const named = [...domains, ...(b.competitors || [])].map(keepPort);
+    list = [...new Set(fromSerp ? pickCompetitors(ctx, { max, extra: named }) : named)].slice(0, max);
+    if (!list.length) { const m = "no competitor domains: name them in business.json, pass --domain, or import SERP captures and use --from-serp"; writeBlocked(ctx, "competitors", m); throw new Blocked(m); }
+  }
   const existing = readStep(ctx, "existing")?.competitorAudits || {};
   const sites = [];
   for (const d of list) {
@@ -287,11 +306,11 @@ export async function run(ctx, { domains = [], fromSerp = false, max = 12, pages
   }
   const auth = await runAuthority(ctx, { target: b.domain, competitors: list, cache: authorityCache, release: authorityRelease, maxAgeDays, run: authority });
   const authority_ = { status: auth.status, ...(auth.why ? { why: auth.why } : {}), ...(auth.status === "reused" || auth.status === "ran" ? { file: auth.file, release: auth.doc.release, fetchedAt: auth.doc.fetchedAt, domains: auth.doc.results.map((r) => { const f = factor(auth.doc.source, auth.doc.fetchedAt, auth.file); return r.inGraph ? { domain: r.domain, role: r.role, linkingDomains: f(r.linkingDomains, { unit: "distinct linking domains in this release (domain level)" }), strengthRank: f(r.harmonicPos ?? null, { unit: "harmonic-centrality rank, 1 = strongest" }) } : { domain: r.domain, inGraph: false }; }), linkGap: (auth.doc.linkGap || []).slice(0, 30) } : {}) };
-  return writeStep(ctx, "competitors", { audited: list, blockedSites: sites.filter((s) => /BLOCKED/.test(s.error || "")).map((s) => s.domain), sites, authority: authority_ });
+  return writeStep(ctx, "competitors", { ...(approved ? { approvedFile, approvedRows: approved.rows, withoutDomain: approved.withoutDomain, suggested } : {}), audited: list, blockedSites: sites.filter((s) => /BLOCKED/.test(s.error || "")).map((s) => s.domain), sites, authority: authority_ });
 }
 
-await runCli(import.meta.url, "node research-competitors.mjs <target> [--domain d]... [--from-serp] [--max 12] [--pages 4] [--authority] [--authority-cache DIR] [--authority-release ID] [--max-age-days 30] [--cwd DIR]", ["from-serp", "authority"], async (a) => {
+await runCli(import.meta.url, "node research-competitors.mjs <target> [--domain d]... [--approved-competitors FILE] [--from-serp] [--max 12] [--pages 4] [--authority] [--authority-cache DIR] [--authority-release ID] [--max-age-days 30] [--cwd DIR]", ["from-serp", "authority"], async (a) => {
   const ctx = context(a._[0], { cwd: a.get("cwd") || process.cwd() });
-  const r = await run(ctx, { domains: a.all("domain"), fromSerp: a.has("from-serp"), max: a.num("max", 12), pages: a.num("pages", 4), authority: a.has("authority"), authorityCache: a.get("authority-cache"), authorityRelease: a.get("authority-release"), maxAgeDays: a.num("max-age-days", 30) });
+  const r = await run(ctx, { domains: a.all("domain"), approvedFile: a.get("approved-competitors"), fromSerp: a.has("from-serp"), max: a.num("max", 12), pages: a.num("pages", 4), authority: a.has("authority"), authorityCache: a.get("authority-cache"), authorityRelease: a.get("authority-release"), maxAgeDays: a.num("max-age-days", 30) });
   return `OK competitors: ${r.sites.length} sites (${r.sites.filter((s) => s.facts).length} read, ${r.sites.filter((s) => s.reused).length} reused, ${r.blockedSites.length} stopped by bot protection); authority: ${r.authority.status}${r.authority.why ? " (" + r.authority.why + ")" : ""} -> ${path.join(ctx.rdir, "competitors.json")}`;
 });

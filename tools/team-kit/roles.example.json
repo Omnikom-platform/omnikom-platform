@@ -1,0 +1,42 @@
+{
+  "_doc": "Write scopes per role. Read by tools/agent-anchor.mjs and tools/write-guard.mjs. A session's role comes from an exact line 'ICM-ROLE: <role>' anywhere in its first message (icm/agents/boot-prompts.md). No marker = the Lead (unrestricted). Globs: '**' = any depth, '*' = one path segment. appendOnly files may only grow at the end. Writer of this file: the Lead.",
+  "marker": "ICM-ROLE:",
+  "leadSessionIdFrom": ".claude/POSITION.md",
+  "alwaysAllowed": ["<tmp>/**"],
+  "gate": {
+    "_doc": "Owner 2026-10-26: nothing after P0.1 starts until the website backup is verified. Every later work path stays closed for the agents until the Lead writes the marker line into the gate file.",
+    "signoffFile": "icm/gate/BACKUP-GATE.md",
+    "marker": "BACKUP VERIFIED",
+    "_owner_2026-10-26": "Opened early by the owner: icm/work/p0.2 (team licence lookups only; the profile draft still waits for the gate), icm/work/p0.8 (AI scorecard on the 16 existing answers), icm/work/p0.9 + competitors/ (checking the unverified competitor leads).",
+    "closedPaths": ["icm/work/p0.3/**", "icm/work/p0.5/**", "icm/work/p0.6/**", "icm/work/p0.7/**", "icm/work/p0.10/**", "icm/work/p0.13/**", "site/**", "facts/search/**", "authority/**"]
+  },
+  "roles": {
+    "researcher": {
+      "name": "Researcher",
+      "letter": "R",
+      "model": "claude-sonnet-5-5",
+      "charter": "icm/agents/researcher.md",
+      "phaseOwnerLabel": "Researcher",
+      "writes": ["backups/**", "icm/work/p0.1/**", "icm/work/p0.2/**", "icm/work/p0.3/**", "icm/work/p0.5/**", "icm/work/p0.6/**", "icm/work/researcher/**", "site/**", "icm/work/gaps/LOG.md"],
+      "appendOnly": ["icm/work/gaps/LOG.md"]
+    },
+    "seo-analyst": {
+      "name": "SEO analyst",
+      "letter": "S",
+      "model": "claude-opus-5-5",
+      "charter": "icm/agents/seo-analyst.md",
+      "phaseOwnerLabel": "SEO analyst",
+      "writes": ["facts/search/**", "competitors/**", "authority/**", "icm/work/p0.7/**", "icm/work/p0.8/**", "icm/work/p0.9/**", "icm/work/p0.10/**", "icm/work/seo-analyst/**", "icm/work/gaps/LOG.md"],
+      "appendOnly": ["icm/work/gaps/LOG.md"]
+    },
+    "reviewer": {
+      "name": "Number reviewer",
+      "letter": "V",
+      "model": "claude-fable-5-1",
+      "charter": "icm/agents/reviewer.md",
+      "phaseOwnerLabel": "Reviewer",
+      "writes": ["icm/work/p0.13/**", "icm/work/gaps/LOG.md"],
+      "appendOnly": ["icm/work/gaps/LOG.md"]
+    }
+  }
+}

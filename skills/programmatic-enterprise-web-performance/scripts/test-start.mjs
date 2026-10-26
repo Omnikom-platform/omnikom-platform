@@ -61,16 +61,39 @@ else if (name === "research.mjs") {
   say("DONE 1 clusters"); done();
 }
 else if (name === "plan-site.mjs") { const p = args[0]; w(path.join(p, "plan", "sitemap.json"), JSON.stringify({ pages: [{ path: "/" }] })); say("plan written"); done(); }
+else if (name === "plan-picture.mjs") { const p = args[0]; w(path.join(p, "plan", "page-plan.svg"), "<svg/>"); w(path.join(p, "plan", "page-plan.md"), "| page |"); say("page plan picture: 1 page"); done(); }
 else if (name === "approve.mjs") {
   const l = locOf(args[0]); const kind = args[1];
-  if (fs.existsSync(path.join(l.pewp, "signed-" + kind))) { if (kind === "targets") w(path.join(l.pewp, "approved", "targets.json"), "{}"); else w(path.join(l.pewp, "approved", "plan", "sitemap.json"), "{}"); w(path.join(l.pewp, "approved", "lock.json"), "{}"); say("approved " + kind); done(); }
-  else { say("DIFF " + kind + ": +1 cluster"); process.exit(3); }
+  const copy = { targets: ["approved", "targets.json"], plan: ["approved", "plan", "sitemap.json"], business: ["approved", "business.json"], competitors: ["approved", "competitors.json"], seeds: ["approved", "seeds.json"] }[kind];
+  const src = { business: ["business.json"], competitors: ["research", "competitors-proposed.json"], seeds: ["research", "seeds.json"] }[kind];
+  if (fs.existsSync(path.join(l.pewp, "signed-" + kind))) { w(path.join(l.pewp, ...copy), src && fs.existsSync(path.join(l.pewp, ...src)) ? fs.readFileSync(path.join(l.pewp, ...src), "utf8") : "{}"); w(path.join(l.pewp, "approved", "lock.json"), "{}"); say("approved " + kind); done(); }
+  else { say("DIFF " + kind + ": +1 row"); process.exit(3); }
 }
 else if (name === "build-site.mjs") {
-  const l = locOf(args[0]);
+  const l = locOf(args[0]); const pw = opt("--pewp") || l.pewp;
   if (args.includes("--builder-done")) { say("gate: PASS (x)"); say("measure: BLOCKED"); say("STATUS: BUILT-AWAITING-MEASURE"); done(); }
-  else { w(path.join(l.pewp, "builder", "HANDOFF.md"), "# handoff"); w(path.join(l.pewp, "builder", "builder-prompt.md"), "Read the handoff"); say("handoff: wrote"); say("WAITING-FOR-BUILDER: start a builder session"); done(); }
+  else { w(path.join(pw, "builder", "HANDOFF.md"), "# handoff"); w(path.join(pw, "builder", "builder-prompt.md"), "Read the handoff"); say("handoff: wrote"); say("WAITING-FOR-BUILDER: start a builder session"); done(); }
 }
+else if (name === "classify-business.mjs") {
+  const l = locOf(args[0]);
+  if (!fs.existsSync(path.join(l.pewp, "business.json"))) { say("BLOCKED: no business.json"); process.exit(3); }
+  w(path.join(l.pewp, "business-definition.md"), "# What Fixture Co is\\n- Kind of business: editorial-media\\n");
+  say("- Kind of business: editorial-media (industry pack: editorial-media)");
+  if (fs.existsSync(ctlFile("needs"))) { say("NEEDS-INPUT classify: vocabulary missing"); process.exit(3); }
+  say("READY for the owner's approval"); done();
+}
+else if (name === "competitors-discover.mjs") {
+  const l = locOf(args[0]);
+  if (fs.existsSync(ctlFile("ok"))) { w(path.join(l.pewp, "research", "competitors-proposed.json"), JSON.stringify({ rows: [{ name: "Rival", domain: "rival.test", kind: "publisher", evidenceUrl: "https://rival.test/about", closeness: 4 }, { name: "@rival", handle: "@rival", domain: null, platform: "instagram", kind: "social-curator", evidenceUrl: "https://instagram.com/rival", closeness: 3 }] })); w(path.join(l.pewp, "research", "competitors-proposed.md"), "| Rival |"); say("competitors proposed: 1 row"); done(); }
+  say("NEEDS-INPUT competitors: no candidates found. The main session runs discovery across kinds (websites, Instagram, TikTok, YouTube, newsletters, paid media, agencies) and writes research/competitors-candidates.json"); process.exit(3);
+}
+else if (name === "research-seeds.mjs") { const l = locOf(args[0]); w(path.join(l.pewp, "research", "seeds.json"), JSON.stringify({ queries: [{ query: "historic homes for sale", from: "definition vocabulary" }] })); say("seeds: 1 proposed"); done(); }
+else if (name === "psi.mjs") { say("psi: 2 pages"); done(); }
+else if (name === "authority-classify.mjs" || name === "authority-vet.mjs" || name === "authority-outreach.mjs") { say(name + " ok (stand-in: never reached when authority is BLOCKED)"); done(); }
+else if (name === "causes-map.mjs") { const repo = args[0]; w(path.join(repo, ".checks", "causes.json"), JSON.stringify([{ id: "C01" }, { id: "L01", origin: "live" }])); say("causes-map: 1 repo cause, 1 live cause added"); done(); }
+else if (name === "gate.mjs") { const p = args[0]; if (fs.existsSync(ctlFile("fail"))) { say("FAIL GT-001 a planned page is missing"); process.exit(1); } w(path.join(p, "gate", "report.json"), "{}"); say("PASS GT-001 every planned page exists"); done(); }
+else if (name === "sitemap-check.mjs") { const l = locOf(args[0]); const t = opt("--today", "2026-10-23"); if (fs.existsSync(ctlFile("fail"))) { say("FAIL /legal/ is in the sitemap file but not in the page plan"); process.exit(1); } w(path.join(l.pewp, "sitemap", "check-" + t + ".json"), "{}"); say("PASS sitemap: 12 urls, all in the page plan"); done(); }
+else if (name === "sitemap-submit.mjs") { const l = locOf(args[0]); const t = opt("--today", "2026-10-23"); w(path.join(l.pewp, "sitemap", "submit-" + t + ".json"), "{}"); say("submitted: gsc 200, bing 200"); done(); }
 else if (name === "report-live.mjs") { const l = locOf(args[0]); if (!noout) { w(path.join(l.pewp, "report.md"), "# report"); w(path.join(l.pewp, "report.json"), "{}"); } say("report written"); done(); }
 else if (name === "authority.mjs") { if (fs.existsSync(ctlFile("ok"))) { w(args[0], "{}"); say("authority ok"); done(); } say("BLOCKED: no complete Common Crawl release in the cache"); process.exit(3); }
 else if (name === "guard-readonly.mjs") { say("PASS guard"); done(); }
@@ -102,7 +125,8 @@ else if (name === "compare.mjs") {
 else if (name === "local-run.mjs") { say("local ok"); done(); }
 else { say("unknown stand-in " + name); process.exit(9); }
 `;
-const STUB_NAMES = ["doctor", "live-target", "intake", "research", "plan-site", "approve", "build-site", "report-live", "authority", "guard-readonly", "refactor", "measure", "iterate", "migrate", "ref-sw", "compare", "local-run"];
+const STUB_NAMES = ["doctor", "live-target", "intake", "research", "plan-site", "approve", "build-site", "report-live", "authority", "guard-readonly", "refactor", "measure", "iterate", "migrate", "ref-sw", "compare", "local-run",
+  "plan-picture", "classify-business", "competitors-discover", "research-seeds", "psi", "authority-classify", "authority-vet", "authority-outreach", "causes-map", "gate", "sitemap-check", "sitemap-submit"];
 
 // ---------------- harness ----------------
 function mkWorld(sdir, { omit = [] } = {}) {
@@ -111,14 +135,20 @@ function mkWorld(sdir, { omit = [] } = {}) {
   fs.mkdirSync(stubs); fs.mkdirSync(ctl); fs.mkdirSync(cwd);
   for (const n of STUB_NAMES) if (!omit.includes(n)) w(path.join(stubs, n + ".mjs"), STUB);
   const log = path.join(root, "calls.log"); fs.writeFileSync(log, "");
-  const env = { ...process.env, STUB_LOG: log, STUB_CTL: ctl, STUB_REAL: sdir };
+  const env = { ...process.env, STUB_LOG: log, STUB_CTL: ctl, STUB_REAL: sdir }; delete env.PSI_API_KEY; // the psi stage is skipped without the key, whatever this machine has
   const run = (args, { stdin = "" } = {}) => {
     const r = spawnSync(node, [path.join(sdir, "start.mjs"), ...args, ...(args.includes("--") ? [] : []), ], { cwd, env, encoding: "utf8", timeout: 120000 });
     return { code: r.status, out: (r.stdout || "") + (r.stderr || "") };
   };
-  // run with the usual global options appended before any `--`
+  // run with the usual global options appended before any `--`. A stage with external calls or agent workers needs the owner's plan ack
+  // (G13): the harness records `--ack plan-ok --by "Test Owner"` once per mode and target before the first --go, unless the scenario passes the
+  // harness-only marker --no-plan-ack (removed before the call) to test the stop itself.
+  const acked = new Set();
   const start = (mode, targets, extra = []) => {
-    const dd = extra.indexOf("--"); const pre = dd >= 0 ? extra.slice(0, dd) : extra; const post = dd >= 0 ? extra.slice(dd) : [];
+    const dd = extra.indexOf("--"); let pre = dd >= 0 ? extra.slice(0, dd) : extra; const post = dd >= 0 ? extra.slice(dd) : [];
+    const noAck = pre.includes("--no-plan-ack"); pre = pre.filter((x) => x !== "--no-plan-ack");
+    const key = mode + " " + targets.join(" ");
+    if (pre.includes("--go") && !noAck && !acked.has(key)) { acked.add(key); run([mode, ...targets, "--stage-scripts", stubs, "--cwd", cwd, "--today", TODAY, "--ack", "plan-ok", "--by", "Test Owner"]); }
     return run([mode, ...targets, "--stage-scripts", stubs, "--cwd", cwd, ...(pre.includes("--today") ? [] : ["--today", TODAY]), ...pre, ...post]);
   };
   const calls = () => fs.readFileSync(log, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
@@ -251,6 +281,8 @@ async function runScenariosInner(sdir, only, results) {
     W.clear(); r = W.start("refactor", [repo], ["--go", "--build", "node gen.mjs", "--causes", "C01,C02"]);
     const dry = W.calls().find((c) => c.script === "refactor.mjs");
     check("C: the dry run gets --build and --dry and the cause list; the stop is the cost approval (exit 3)", dry && dry.args.includes("--dry") && dry.args[dry.args.indexOf("--build") + 1] === "node gen.mjs" && dry.args.includes("C01,C02") && /NEEDS-APPROVAL stage=refactor-ok/.test(r.out) && /2 would get a fix worker/.test(r.out) && r.code === 3, `${JSON.stringify(dry)} ${r.code} ${r.out.slice(-400)}`);
+    W.clear(); r = W.start("refactor", [repo], ["--go", "--stage", "refactor"]);
+    check("C: --stage refactor before the owner's cost approval is refused (exit 3) and no fix worker runs", r.code === 3 && !W.calls().some((c) => c.script === "refactor.mjs") && /NEEDS-APPROVAL stage=refactor: it depends on .*--ack refactor-ok/.test(r.out), `${r.code} ${names(W.calls())} ${r.out.slice(-300)}`);
     r = W.start("refactor", [repo], ["--ack", "refactor-ok"]);
     check("C: an owner approval needs the owner's name (--by), else exit 2", r.code === 2 && /needs --by/.test(r.out), `${r.code} ${r.out}`);
     r = W.start("refactor", [repo], ["--ack", "guard-before", "--by", "x"]);
@@ -323,7 +355,9 @@ async function runScenariosInner(sdir, only, results) {
     check("E: research on a name with no site creates the folder and stops at intake questions (exit 3)", r.code === 3 && fs.existsSync(biz) && /NEEDS-INPUT stage=intake/.test(r.out), `${r.code} ${r.out.slice(-200)}`);
     w(path.join(biz, ".pewp", "intake-answers.json"), "{}");
     Wr.clear(); r = Wr.start("research", [biz], ["--go", "--research-args", "--service bread"]);
-    check("E: research: intake, then research --dry with the args, then research itself", names(Wr.calls()).join() === "intake,research,research" && Wr.calls()[1].args.includes("--dry") && !Wr.calls()[2].args.includes("--dry") && Wr.calls()[2].args.includes("--service") && r.code === 0, `${names(Wr.calls())} ${r.code} ${r.out.slice(-200)}`);
+    check("E: research: intake, then the seeds are proposed and the OWNER seeds approval stops the run (G3): research never ran", names(Wr.calls()).join() === "intake,research-seeds,approve" && Wr.calls()[2].args[1] === "seeds" && r.code === 3 && /NEEDS-APPROVAL stage=approve-seeds/.test(r.out), `${names(Wr.calls())} ${r.code} ${r.out.slice(-200)}`);
+    w(path.join(biz, ".pewp", "signed-seeds"), ""); Wr.clear(); r = Wr.start("research", [biz], ["--go"]);
+    check("E: research: with the seeds approved, research --dry with the remembered args, then research itself", names(Wr.calls()).join() === "approve,research,research" && Wr.calls()[1].args.includes("--dry") && !Wr.calls()[2].args.includes("--dry") && Wr.calls()[2].args.includes("--service") && r.code === 0, `${names(Wr.calls())} ${r.code} ${r.out.slice(-200)}`);
     const Wc = mkWorld(sdir); const repoB = path.join(Wc.cwd, "repob"); fs.mkdirSync(repoB, { recursive: true });
     r = Wc.start("compare", [URL1, repoB], ["--go", "--launch-state-b", "preview"]);
     check("E: compare: snapshot only for the URL side, a checker task for each side", names(Wc.calls()).join() === "live-target" && /WAITING-FOR the checker agent \(stage=checker-a\)/.test(r.out), `${names(Wc.calls())} ${r.out.slice(-300)}`);
@@ -345,6 +379,103 @@ async function runScenariosInner(sdir, only, results) {
     for (const x of [W, Wr, Wc, Wi]) x.cleanup();
   }
 
+  if (want("G")) {
+    // overhaul <url> <repo>: the 14-step chain for fixing an existing live site (stages/overhaul.md). Stand-ins for every stage script;
+    // what is proven: the order, the OWNER stops, that a later stage never starts before an earlier approval, stale re-approval, the plan
+    // ack (G13), the run files (G14), the project inputs asked once (G21), and that nothing is submitted before the sitemap check passes.
+    const W = mkWorld(sdir); const live = path.join(W.cwd, "site-checks", "fixture.test"); const pewp = path.join(live, ".pewp");
+    const repo = path.join(W.cwd, "siterepo"); fs.mkdirSync(repo, { recursive: true }); w(path.join(repo, "package.json"), "{}");
+    const runs = (f) => path.join(pewp, "runs", f);
+    let r = W.run(["overhaul", URL1, "--stage-scripts", W.stubs, "--cwd", W.cwd]);
+    check("G: overhaul without the repo folder is a usage error (exit 2)", r.code === 2 && /overhaul needs the live site's URL and the code repo/.test(r.out), `${r.code} ${r.out.slice(0, 200)}`);
+    r = W.start("overhaul", [URL1, "siterepo"], []);
+    const steps = (r.out.match(/== step (\d+) of 14/g) || []).map((x) => Number(x.match(/\d+/)[0]));
+    const at = (n) => r.out.indexOf(" " + n.padEnd(18) + " ");
+    check("G: the plan (no --go) prints the 14 steps in order with their stages, the OWNER stops and the costs, runs nothing, exit 0", r.code === 0 && W.calls().length === 0 && steps.join() === "1,2,3,4,5,6,7,8,9,10,11,12,13,14" && (r.out.match(/OWNER/g) || []).length >= 8 && at("sitemap-check") > 0 && at("sitemap-check") < at("sitemap-submit") && at("approve-competitors") < at("authority") && at("approve-seeds") < at("research") && at("approve-plan") < at("checker-repo") && at("classify") < at("approve-business") && at("deploy") < at("sitemap-check"), `${r.code} ${W.calls().length} ${steps.join()} ${r.out.slice(0, 400)}`);
+    check("G: the plan calls plan/sitemap.json the page plan and the sitemap file what search engines read (G10)", /page plan/.test(r.out) && /sitemap file search engines read/.test(r.out) && !/the sitemap \(plan/.test(r.out), r.out.slice(0, 300));
+    check("G: a run file is written even for the plan-only start (G14), saying the owner has not seen the plan", fs.existsSync(runs(`${TODAY}-overhaul.md`)) && /exit code: 0/.test(fs.readFileSync(runs(`${TODAY}-overhaul.md`), "utf8")) && /NOT RECORDED/.test(fs.readFileSync(runs(`${TODAY}-overhaul.md`), "utf8")), fs.existsSync(runs(`${TODAY}-overhaul.md`)) ? fs.readFileSync(runs(`${TODAY}-overhaul.md`), "utf8").slice(0, 400) : "no run file");
+    // G13: --go without the owner's plan ack runs the free doctor and stops before the first external stage
+    W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go", "--no-plan-ack"]);
+    check("G: --go without the plan ack runs doctor (free) and stops at plan-ok before the snapshot (exit 3): nothing external ran", r.code === 3 && names(W.calls()).join() === "doctor" && /NEEDS-APPROVAL stage=plan-ok \(before snapshot\)/.test(r.out) && /--ack plan-ok --by/.test(r.out), `${r.code} ${names(W.calls())} ${r.out.slice(-500)}`);
+    check("G: the run file records the stop and the doctor stage it ran", /exit code: 3/.test(fs.readFileSync(runs(`${TODAY}-overhaul.md`), "utf8")) && fs.existsSync(runs(`${TODAY}-overhaul-doctor.md`)) && /doctor\.mjs/.test(fs.readFileSync(runs(`${TODAY}-overhaul-doctor.md`), "utf8")), fs.readFileSync(runs(`${TODAY}-overhaul.md`), "utf8").slice(0, 500));
+    // a forced later stage never starts before the approval it depends on
+    W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go", "--stage", "seeds-propose"]);
+    check("G: --stage seeds-propose before the competitor list is approved is refused (NEEDS-APPROVAL, exit 3) and research-seeds never runs", r.code === 3 && !names(W.calls()).includes("research-seeds") && /NEEDS-APPROVAL stage=seeds-propose: it depends on .*the approval that writes approved\/competitors\.json/.test(r.out), `${r.code} ${names(W.calls())} ${r.out.slice(-400)}`);
+    // the owner acked the plan (the harness did it): the chain runs to the first stop of each step
+    W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    check("G: with the ack: doctor is done, the snapshot runs, psi is skipped without its key, and it stops at the live checker agent (exit 3)", r.code === 3 && names(W.calls()).join() === "live-target" && /psi: skipped \(PSI_API_KEY not set/.test(r.out) && /WAITING-FOR the checker agent \(stage=checker-live\)/.test(r.out), `${r.code} ${names(W.calls())} ${r.out.slice(-500)}`);
+    const snapDir = path.join(live, "snapshots", "2026-10-21"); w(path.join(snapDir, ".checks", "REPORT.md"), "# live"); w(path.join(snapDir, ".checks", "causes.json"), JSON.stringify([{ id: "C01", rules: ["SCH-001"] }]));
+    W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    check("G: step 2 ends with report-live; step 3 intake asks the owner's questions (NEEDS-INPUT, exit 3)", r.code === 3 && names(W.calls()).join() === "report-live,intake" && /NEEDS-INPUT stage=intake/.test(r.out), `${r.code} ${names(W.calls())} ${r.out.slice(-400)}`);
+    w(path.join(pewp, "intake-answers.json"), JSON.stringify({ kind: { value: "editorial-media", answeredBy: "owner" } }));
+    W.control("classify-business.mjs.needs"); W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    check("G: with the answers intake completes; classify writes the one-screen definition and stops when a field is missing or not the owner's (NEEDS-INPUT, exit 3), before any approval", r.code === 3 && names(W.calls()).join() === "intake,classify-business" && /NEEDS-INPUT stage=classify: NEEDS-INPUT classify: vocabulary missing/.test(r.out) && fs.existsSync(path.join(pewp, "business-definition.md")), `${r.code} ${names(W.calls())} ${r.out.slice(-300)}`);
+    W.uncontrol("classify-business.mjs.needs"); W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    check("G: when the definition is complete the OWNER approval of the business definition stops the run (exit 3), approve.mjs business shown the diff", r.code === 3 && names(W.calls()).slice(-2).join() === "classify-business,approve" && W.calls().at(-1).args[1] === "business" && /Kind of business: editorial-media/.test(r.out) && /NEEDS-APPROVAL stage=approve-business/.test(r.out), `${r.code} ${names(W.calls())} ${JSON.stringify(W.calls()[1])} ${r.out.slice(-300)}`);
+    w(path.join(pewp, "signed-business"), ""); W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    check("G: step 4: competitors-discover without candidates stops for the main session's discovery (NEEDS-INPUT, exit 3) and names the kinds", r.code === 3 && names(W.calls()).join() === "approve,competitors-discover" && /Instagram/.test(r.out) && /NEEDS-INPUT/.test(r.out), `${r.code} ${names(W.calls())} ${r.out.slice(-400)}`);
+    W.control("competitors-discover.mjs.ok"); W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    check("G: with candidates the proposed list is written and the OWNER approval of the competitors stops the run", r.code === 3 && names(W.calls()).join() === "competitors-discover,approve" && W.calls()[1].args[1] === "competitors" && /NEEDS-APPROVAL stage=approve-competitors/.test(r.out), `${r.code} ${names(W.calls())} ${r.out.slice(-300)}`);
+    w(path.join(pewp, "signed-competitors"), ""); W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    const c5 = W.calls();
+    check("G: authority-prepare is tried early with --download-only and skipped as BLOCKED (no release); step 5 proposes seeds and stops at the OWNER seeds approval", r.code === 3 && names(c5).join() === "approve,authority,research-seeds,approve" && c5[1].args.includes("--download-only") && /authority-prepare: skipped, BLOCKED/.test(r.out) && /NEEDS-APPROVAL stage=approve-seeds/.test(r.out), `${r.code} ${names(c5)} ${r.out.slice(-400)}`);
+    w(path.join(pewp, "signed-seeds"), ""); W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    // the optional authority-prepare (BLOCKED) is tried again on every --go, like any optional BLOCKED stage: it is left out of the order checks below
+    const nz = (cs) => names(cs).filter((n) => n !== "authority");
+    const c6 = W.calls(); const rs = c6.filter((c) => c.script === "research.mjs"); const au = c6.find((c) => c.script === "authority.mjs" && !c.args.includes("--download-only")); const ps = c6.find((c) => c.script === "plan-site.mjs");
+    check("G: research runs (dry plan, then the run) only after the seeds are approved; authority on the approved list is BLOCKED and skipped with its follow-ups; the page plan and its picture are written; stop at the OWNER targets approval", r.code === 3 && nz(c6).join() === "approve,research,research,plan-site,plan-picture,approve" && au && rs[0].args.includes("--dry") && !rs[1].args.includes("--dry") && au.args.includes("--approved-competitors") && au.args.includes("--require-approved") && au.args.join(" ").includes("--competitor rival.test") && !au.args.join(" ").includes("@rival") && /authority-classify: skipped \(authority BLOCKED or skipped/.test(r.out) && ps.args.includes("--require-approved-business") && /NEEDS-APPROVAL stage=approve-targets/.test(r.out), `${r.code} ${nz(c6)} ${JSON.stringify(au?.args)} ${r.out.slice(-400)}`);
+    // stale: the seeds change after their approval -> the approval is asked again before anything else
+    fs.rmSync(path.join(pewp, "signed-seeds")); w(path.join(pewp, "research", "seeds.json"), JSON.stringify({ queries: [{ query: "victorian houses for sale", from: "owner" }] }));
+    W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    check("G: a changed seeds.json after its approval makes approve-seeds stale: the owner is asked again and research does not run on the new seeds", r.code === 3 && nz(W.calls()).join() === "approve" && /approve-seeds: stale/.test(r.out) && /NEEDS-APPROVAL stage=approve-seeds/.test(r.out), `${r.code} ${names(W.calls())} ${r.out.slice(-400)}`);
+    w(path.join(pewp, "signed-seeds"), ""); W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    check("G: after the re-approval research is stale and runs again, then the targets approval stops", r.code === 3 && nz(W.calls()).slice(0, 3).join() === "approve,research,research" && /NEEDS-APPROVAL stage=approve-targets/.test(r.out), `${r.code} ${names(W.calls())} ${r.out.slice(-300)}`);
+    w(path.join(pewp, "signed-targets"), ""); w(path.join(pewp, "signed-plan"), ""); W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    check("G: targets and page plan approved: step 8 guards the repo and stops at the repo checker agent", r.code === 3 && nz(W.calls()).join() === "approve,approve,guard-readonly" && /WAITING-FOR the checker agent \(stage=checker-repo\)/.test(r.out) && /siterepo/.test(r.out), `${r.code} ${names(W.calls())} ${r.out.slice(-300)}`);
+    w(path.join(repo, ".checks", "REPORT.md"), "# repo"); w(path.join(repo, ".checks", "causes.json"), JSON.stringify([{ id: "C01", rules: ["SCH-001"] }]));
+    W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    const qids = (r.out.match(/\[(build|setup|max-parallel|merges)\]/g) || []).join(" ");
+    check("G: step 9 maps the live causes onto the repo causes (causes-map with --live), then refactor-dry asks ONCE for the build command, the setup command, the workers at once and who merges (G21), exit 3", r.code === 3 && nz(W.calls()).join() === "guard-readonly,causes-map" && W.calls().find((c) => c.script === "causes-map.mjs").args.includes("--live") && /NEEDS-INPUT stage=refactor-dry: 4 question/.test(r.out) && ["[build]", "[setup]", "[max-parallel]", "[merges]"].every((q) => qids.includes(q)), `${r.code} ${names(W.calls())} ${qids} ${r.out.slice(-600)}`);
+    W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go", "--build", "bun run build", "--no-setup", "--max-parallel", "1", "--project-merges"]);
+    check("G: with the four answers the dry run goes and the OWNER cost approval stops the run", r.code === 3 && nz(W.calls()).join() === "refactor" && W.calls().at(-1).args.includes("--dry") && W.calls().at(-1).args.join(" ").includes("--max-parallel 1") && W.calls().at(-1).args.includes("--project-merges") && /NEEDS-APPROVAL stage=refactor-ok/.test(r.out), `${r.code} ${names(W.calls())} ${JSON.stringify(W.calls()[0])} ${r.out.slice(-300)}`);
+    W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go", "--stage", "refactor"]);
+    check("G: --stage refactor before the OWNER cost approval is refused (NEEDS-APPROVAL, exit 3): no fix worker runs without --ack refactor-ok", r.code === 3 && !W.calls().some((c) => c.script === "refactor.mjs") && /NEEDS-APPROVAL stage=refactor: it depends on .*--ack refactor-ok/.test(r.out), `${r.code} ${names(W.calls())} ${r.out.slice(-300)}`);
+    r = W.start("overhaul", [URL1, "siterepo"], ["--ack", "refactor-ok", "--by", "Owner"]); W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    const rf = W.calls().find((c) => c.script === "refactor.mjs" && !c.args.includes("--dry"));
+    check("G: the fix run gets the remembered project inputs (--build, --max-parallel 1, --project-merges, --visual) and stops at the OWNER merge decision, which names the project's merge gate", r.code === 3 && rf && rf.args.join(" ").includes("--max-parallel 1") && rf.args.includes("--project-merges") && rf.args.includes("--visual") && /NEEDS-APPROVAL stage=refactor-merge/.test(r.out) && /project's own merge gate/.test(r.out), `${r.code} ${JSON.stringify(rf)} ${r.out.slice(-300)}`);
+    r = W.start("overhaul", [URL1, "siterepo"], ["--ack", "refactor-merge", "--by", "Owner"]); W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    const ho = W.calls().find((c) => c.script === "build-site.mjs");
+    check("G: step 10: the handoff is written into the run's own .pewp (build-site --pewp) and it waits for the builder session", r.code === 3 && ho && ho.args.includes("--pewp") && ho.args[ho.args.indexOf("--pewp") + 1] === pewp && fs.existsSync(path.join(pewp, "builder", "HANDOFF.md")) && /WAITING-FOR the builder session/.test(r.out) && /--ack builder --site/.test(r.out), `${r.code} ${JSON.stringify(ho)} ${r.out.slice(-300)}`);
+    r = W.start("overhaul", [URL1, "siterepo"], ["--ack", "builder", "--site", path.join(repo, "dist")]);
+    check("G: --ack builder refuses a built folder that does not exist (exit 2)", r.code === 2 && /does not exist/.test(r.out), `${r.code} ${r.out}`);
+    fs.mkdirSync(path.join(repo, "dist"), { recursive: true }); r = W.start("overhaul", [URL1, "siterepo"], ["--ack", "builder", "--site", path.join(repo, "dist")]); W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    const gt = W.calls().find((c) => c.script === "gate.mjs");
+    check("G: step 11 gates the built folder --strict with the build command, then step 12 stops for the OWNER's deploy (exit 3), which must record the release", r.code === 3 && gt && gt.args[0] === pewp && gt.args[1] === path.join(repo, "dist") && gt.args.includes("--strict") && gt.args.join(" ").includes("--build bun run build") && /NEEDS-APPROVAL stage=deploy/.test(r.out) && /--release/.test(r.out), `${r.code} ${JSON.stringify(gt)} ${r.out.slice(-300)}`);
+    r = W.start("overhaul", [URL1, "siterepo"], ["--ack", "deploy", "--by", "Owner"]);
+    check("G: --ack deploy without --release is refused (exit 2): the skill records what went live", r.code === 2 && /--release/.test(r.out), `${r.code} ${r.out}`);
+    r = W.start("overhaul", [URL1, "siterepo"], ["--ack", "deploy", "--by", "Owner", "--release", "abc123"]);
+    check("G: the deploy ack records the release in state.json", rj(path.join(pewp, "state.json")).stages.deploy?.ack?.release === "abc123", JSON.stringify(rj(path.join(pewp, "state.json")).stages.deploy));
+    W.control("sitemap-check.mjs.fail"); W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    check("G: step 13: a failing sitemap check FAILS the run (exit 1) and sitemap-submit is never called: nothing is submitted before the file passes", r.code === 1 && nz(W.calls()).join() === "sitemap-check" && /FAILED stage=sitemap-check/.test(r.out) && /nothing is submitted until it passes/.test(r.out), `${r.code} ${names(W.calls())} ${r.out.slice(-300)}`);
+    W.uncontrol("sitemap-check.mjs.fail"); W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    const sub = W.calls().find((c) => c.script === "sitemap-submit.mjs");
+    check("G: when the check passes the sitemap file is submitted (--sitemap <live>/sitemap.xml), step 14 measures the baseline, iterate is BLOCKED (optional) and ALL STAGES DONE (exit 0)", r.code === 0 && nz(W.calls()).join() === "sitemap-check,sitemap-submit,measure,measure,measure,iterate" && sub.args.join(" ").includes("--sitemap https://fixture.test/sitemap.xml") && /iterate: skipped, BLOCKED/.test(r.out) && /ALL STAGES DONE/.test(r.out), `${r.code} ${names(W.calls())} ${r.out.slice(-400)}`);
+    const st = rj(path.join(pewp, "state.json"));
+    check("G: state.json records the plan ack by the owner for this mode and the mode's sequence", st.start.planAck?.overhaul?.by === "Test Owner" && st.start.mode === "overhaul" && st.start.sequence.length >= 38 && st.start.status === "done", JSON.stringify(st.start).slice(0, 300));
+    check("G: the final run file lists the stages run and exit 0, and one file per stage exists", /exit code: 0/.test(fs.readFileSync(runs(`${TODAY}-overhaul.md`), "utf8")) && /sitemap-submit \(exit 0\)/.test(fs.readFileSync(runs(`${TODAY}-overhaul.md`), "utf8")) && fs.existsSync(runs(`${TODAY}-overhaul-sitemap-check.md`)), fs.readFileSync(runs(`${TODAY}-overhaul.md`), "utf8").slice(0, 600));
+    // --yes is the main session saying the owner agreed in words: recorded as such, no stop
+    const Wy = mkWorld(sdir); const repoY = path.join(Wy.cwd, "r2"); fs.mkdirSync(repoY, { recursive: true });
+    r = Wy.start("overhaul", [URL1, "r2"], ["--go", "--yes", "--no-plan-ack"]);
+    const sty = rj(path.join(Wy.cwd, "site-checks", "fixture.test", ".pewp", "state.json"));
+    check("G: --go --yes passes the plan-ok stop and records how (--yes, main session) in state.json and the run file", r.code === 3 && names(Wy.calls()).join() === "doctor,live-target" && sty.start.planAck?.overhaul?.how === "--yes" && /plan seen by the owner: --yes/.test(fs.readFileSync(path.join(Wy.cwd, "site-checks", "fixture.test", ".pewp", "runs", `${TODAY}-overhaul.md`), "utf8")), `${r.code} ${names(Wy.calls())} ${JSON.stringify(sty.start.planAck)}`);
+    // --env-file: an existing file is loaded by start itself and handed to doctor as --dotenv (never --env-file: Node 24 pre-scans that name)
+    const envFile = path.join(Wy.cwd, "keys.env"); w(envFile, "PEWP_TEST_ONLY_NAME=secret-value-xyz\n");
+    Wy.clear(); r = Wy.start("overhaul", [URL1, "r2"], ["--go", "--stage", "doctor", "--env-file", envFile]);
+    const dc = Wy.calls().find((c) => c.script === "doctor.mjs");
+    check("G: --env-file is loaded by start (names only printed) and passed to doctor as --dotenv; the value never appears in the output or the run file", dc && dc.args.includes("--dotenv") && !dc.args.includes("--env-file") && /env: loaded 1 name/.test(r.out) && !/secret-value-xyz/.test(r.out) && !/secret-value-xyz/.test(fs.readFileSync(path.join(Wy.cwd, "site-checks", "fixture.test", ".pewp", "runs", `${TODAY}-overhaul.md`), "utf8")), `${r.code} ${JSON.stringify(dc)} ${r.out.slice(0, 300)}`);
+    W.cleanup(); Wy.cleanup();
+  }
+
   if (want("F")) {
     // The REAL stage scripts, offline stages only, on fixtures: the command lines start builds must be accepted by the scripts that
     // own them (a stand-in would accept anything). No network: doctor --offline, plan, approve, intake on a folder, research --dry,
@@ -358,6 +489,7 @@ async function runScenariosInner(sdir, only, results) {
     check("F: real plan-site.mjs accepts <pewp> and writes plan/sitemap.json", r.code === 0 && fs.existsSync(path.join(dir, ".pewp", "plan", "sitemap.json")), `${r.code} ${r.out.slice(-500)}`);
     r = real(["build", dir, "--stage", "approve-targets"]);
     check("F: real approve.mjs shows the diff of the targets and the stop is NEEDS-APPROVAL (exit 3), nothing signed", r.code === 3 && /NEEDS-APPROVAL stage=approve-targets/.test(r.out) && !fs.existsSync(path.join(dir, ".pewp", "approved", "lock.json")), `${r.code} ${r.out.slice(-600)}`);
+    w(path.join(dir, ".pewp", "approved", "seeds.json"), "{}"); // research-plan depends on the seeds approval (G3): a forced stage is refused without it
     r = real(["research", dir, "--stage", "research-plan"]);
     check("F: real research.mjs --dry accepts start's command line and prints the plan to the log (exit 0)", r.code === 0 && fs.existsSync(path.join(dir, ".pewp", "start", "research-plan.log")) && /DRY RUN/.test(fs.readFileSync(path.join(dir, ".pewp", "start", "research-plan.log"), "utf8")), `${r.code} ${r.out.slice(-600)}`);
     const dirB = path.join(cwd, "empty-biz");
@@ -394,6 +526,21 @@ const MUTANTS = [
   { name: "the service-worker check is dropped from migrate", file: "start.mjs", from: "{ name: \"service-workers\", kind: \"script\"", to: "{ name: \"service-workers\", skipIf: () => \"x\", kind: \"script\"", sc: "D", expect: [/^D: after the review: baseline/] },
   { name: "options are not remembered between starts", file: "start.mjs", from: "if (!keys.has(k)) { A = [...A, k, ...(v == null ? [] : [v])]; remembered.push(v == null ? k : `${k} ${v}`); }", to: "if (!keys.has(k)) { }", sc: "A+D", expect: [/^A: options given once/, /^D: after the review: baseline/] },
   { name: "the cutover date from the acknowledgement is lost", file: "start.mjs", from: "const cutoverDate = () => (load(runLoc)?.stages?.cutover?.ack?.date) || val(\"--cutover-date\");", to: "const cutoverDate = () => null;", sc: "D", expect: [/^D: monitor is called with the cutover date/] },
+  // overhaul (scenario G)
+  { name: "G13: external stages run without the owner's plan ack", file: "start.mjs", from: "if (s.external && !planAckOf()) {", to: "if (false) {", sc: "G", expect: [/^G: --go without the plan ack runs doctor/] },
+  { name: "G13: --yes is not recorded as the plan ack", file: "start.mjs", from: "if (go && flag(\"--yes\") && !planAckOf()) persist(", to: "if (false) persist(", sc: "G", expect: [/^G: --go --yes passes the plan-ok stop/] },
+  { name: "G14: no run file is written", file: "start.mjs", from: "const finish = (code) => { writeRunFiles(code); process.exit(code); };", to: "const finish = (code) => { process.exit(code); };", sc: "G", expect: [/^G: a run file is written even for the plan-only start/] },
+  { name: "a forced stage starts before the approval it depends on", file: "start.mjs", from: "if (missing.length) { setRun(\"needs-approval\", s.name, missing.join(\", \"));", to: "if (false) { setRun(\"needs-approval\", s.name, missing.join(\", \"));", sc: "G", expect: [/^G: --stage seeds-propose before the competitor list is approved is refused/] },
+  { name: "the seeds approval is not an input of research (unapproved seeds would be researched)", file: "start.mjs", from: "inputs: () => [\"business.json\", \"approved/seeds.json\", \"approved/competitors.json\", \"captures/serp\", \"captures/ai\"] });", to: "inputs: () => [\"business.json\", \"approved/competitors.json\", \"captures/serp\", \"captures/ai\"] });", sc: "G", expect: [/^G: after the re-approval research is stale and runs again/] },
+  { name: "authority is not told the approved competitor list", file: "start.mjs", from: "\"--approved-competitors\", P(\"approved\", \"competitors.json\"), \"--require-approved\", ...approvedDomains().flatMap((d) => [\"--competitor\", d])]),", to: "...approvedDomains().flatMap((d) => [\"--competitor\", d])]),", sc: "G", expect: [/^G: research runs \(dry plan, then the run\) only after the seeds are approved/] },
+  { name: "a failed sitemap check counts as passed (submit would run)", file: "start.mjs", from: "judge: (r) => (r.code === 0 ? { outcome: \"done\", message: r.out.split(\"\\n\").filter((l) => /^(PASS|sitemap:)/.test(l)).join(\"\\n\") } : r.code === 3 ?", to: "judge: (r) => (r.code === 0 || r.code === 1 ? { outcome: \"done\", message: r.out.split(\"\\n\").filter((l) => /^(PASS|sitemap:)/.test(l)).join(\"\\n\") } : r.code === 3 ?", sc: "G", expect: [/^G: step 13: a failing sitemap check FAILS the run/] },
+  { name: "G21: who merges is not asked", file: "start.mjs", from: "...(flag(\"--project-merges\") || flag(\"--owner-merges\") ? [] : [{ id: \"merges\",", to: "...(true ? [] : [{ id: \"merges\",", sc: "G", expect: [/^G: step 9 maps the live causes onto the repo causes/] },
+  { name: "G21: --max-parallel is not passed to the fix run", file: "start.mjs", from: "...(val(\"--max-parallel\") ? [\"--max-parallel\", val(\"--max-parallel\")] : []), ...(flag(\"--project-merges\") ? [\"--project-merges\"] : [])];", to: "...(flag(\"--project-merges\") ? [\"--project-merges\"] : [])];", sc: "G", expect: [/^G: with the four answers the dry run goes/] },
+  { name: "--ack deploy does not need the release", file: "start.mjs", from: "if (s.name === \"deploy\") { if (!String(val(\"--release\") || \"\").trim()) die(", to: "if (s.name === \"deploy\") { if (false) die(", sc: "G", expect: [/^G: --ack deploy without --release is refused/] },
+  { name: "the fix run does not depend on the owner's cost approval (a forced --stage refactor would run workers)", file: "start.mjs", from: "inputs: () => [{ abs: path.join(repo, \".checks\", \"causes.json\") }, \"start/refactor-dry.log\", \"start/ack-refactor-ok\"]", to: "inputs: () => [{ abs: path.join(repo, \".checks\", \"causes.json\") }, \"start/refactor-dry.log\"]", sc: "G", expect: [/^G: --stage refactor before the OWNER cost approval is refused/] },
+  { name: "refactor mode: the fix run does not depend on the owner's cost approval", file: "start.mjs", from: "inputs: () => [{ abs: path.join(loc.root, \".checks\", \"causes.json\") }, \"start/refactor-dry.log\", \"start/ack-refactor-ok\"]", to: "inputs: () => [{ abs: path.join(loc.root, \".checks\", \"causes.json\") }, \"start/refactor-dry.log\"]", sc: "C", expect: [/^C: --stage refactor before the owner's cost approval is refused/] },
+  { name: "the classify stage is dropped from step 3", file: "start.mjs", from: "{ name: \"classify\", kind: \"script\", what:", to: "{ name: \"classify\", kind: \"script\", skipIf: () => \"x\", what:", sc: "G", expect: [/^G: with the answers intake completes; classify writes/] },
+  { name: "G1: children get --env-file (Node 24 pre-scans it) instead of --dotenv", file: "start.mjs", from: "const envArgs = () => (envInfo.file ? [\"--dotenv\", envInfo.file] : []);", to: "const envArgs = () => (envInfo.file ? [\"--env-file\", envInfo.file] : []);", sc: "G", expect: [/^G: --env-file is loaded by start/] },
 ];
 
 if (isMain(import.meta.url)) { // lib-main.mjs: real paths (started through a junction this used to skip the whole suite)

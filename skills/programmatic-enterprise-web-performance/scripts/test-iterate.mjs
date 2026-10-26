@@ -59,6 +59,14 @@ async function suite(scriptsDir) {
       r = approveP(pw2);
       const l2 = lockOf(pw2);
       check("A: approve plan --by copies the plan, lists every file with its sha256 and the targets sha it was approved against", r.status === 0 && l2.plan.targetsSha256 === l2.targets.files["targets.json"] && l2.plan.files["plan/sitemap.json"] === sha(path.join(pw2, "approved/plan/sitemap.json")) && Object.keys(l2.plan.files).some((f) => f.startsWith("plan/briefs/")) && l2.plan.approvedBy === "Test Owner", r.stdout);
+      { // plan/existing-pages.json (pages already on the site that may sit in the sitemap file) is signed with the plan, so sitemap-check may read the approved copy
+        const pw3 = newPewp(); approveT(pw3);
+        W(path.join(pw3, "plan", "existing-pages.json"), { note: "existing pages", pages: [{ path: "/about", why: "the about page exists and is fine to offer" }] });
+        const r3 = approveP(pw3), l3 = lockOf(pw3);
+        check("A: plan/existing-pages.json is signed with the plan: approved/plan/existing-pages.json appears and is in the lock", r3.status === 0 && fs.existsSync(path.join(pw3, "approved/plan/existing-pages.json")) && l3.plan.files["plan/existing-pages.json"] === sha(path.join(pw3, "approved/plan/existing-pages.json")), r3.stdout);
+        W(path.join(pw3, "approved/plan/existing-pages.json"), { pages: [{ path: "/admin", why: "tampered" }] });
+        check("A: editing the approved existing-pages.json after approval fails the lock check", run("approve.mjs", ["--pewp", pw3, "--check"]).status !== 0, "lock check passed after the edit");
+      }
       check("A: the builder's programmatic-data.json is not part of the approved plan", !fs.existsSync(path.join(pw2, "approved/plan/programmatic-data.json")) && !("plan/programmatic-data.json" in l2.plan.files));
       r = run("approve.mjs", ["--pewp", pw2, "--check"]);
       check("A: --check passes on untouched approved files (exit 0)", r.status === 0 && /^PASS approve-lock/.test(r.stdout), r.stdout);
@@ -315,6 +323,7 @@ console.log(`${failed ? "FAIL" : "PASS"} test-iterate ${main.filter((r) => r.ok)
 // ---------- M: watched-fail mutants ----------
 if (!process.argv.includes("--no-mutants")) {
   const MUTANTS = [
+    ["approve.mjs", 'const EXCLUDE_PLAN = new Set(["programmatic-data.json"]);', 'const EXCLUDE_PLAN = new Set(["programmatic-data.json", "existing-pages.json"]);', /A: plan\/existing-pages\.json is signed with the plan/, "existing-pages.json is left out of the approved plan"],
     ["approve.mjs", "else if (sha256(fs.readFileSync(f)) !== want) problems.push", "else if (false) problems.push", /A: lock check FAILS when approved targets\.json is edited/, "the lock no longer compares sha256"],
     ["approve.mjs", "if (!(rel in entry.files)) problems.push(", "if (false) problems.push(", /A: lock check FAILS when a file is added/, "files added after approval are not detected"],
     ["approve.mjs", "if (!by) { log(`NOT SIGNED: approving is the owner's act. Re-run with --by \"<owner name>\" after the owner has read the diff.`); return 3; }\n    if (old)", "if (old)", /A: approve targets without --by/, "targets can be approved without --by"],

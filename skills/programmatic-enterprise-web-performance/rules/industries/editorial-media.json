@@ -1,0 +1,719 @@
+{
+ "slug": "editorial-media",
+ "title": "Editorial real-estate media platform with paid features: a publisher that selects and presents properties, not a brokerage (stories, roundups, newsletters, sponsored listings)",
+ "jurisdiction": "US federal + California as the first state. A publisher that sells paid features sits under the FTC's rules on advertising and on material connections (a paid feature must be recognisable as paid), the Fair Housing Act's advertising rule, and the state's licensing and false-advertising law. Each item below is a floor to confirm with counsel for the states the publisher features properties in. Another state: keep the item ids and add its statute to the item's source.",
+ "sources": [
+  "FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices, and the FTC substantiation doctrine (a claim needs proof before it is made)",
+  "FTC Guides Concerning the Use of Endorsements and Testimonials in Advertising (16 CFR Part 255): disclose a material connection",
+  "FTC Enforcement Policy Statement on Deceptively Formatted Advertisements and Native Advertising: A Guide for Businesses (2015; recalled, UNVERIFIED, confirm with counsel)",
+  "FTC Guide Concerning Use of the Word \"Free\" (16 CFR Part 251)",
+  "Fair Housing Act section 804(c), 42 U.S.C. 3604(c), advertising (section recalled, UNVERIFIED, confirm with counsel) and HUD advertising guidance (UNVERIFIED)",
+  "California Business and Professions Code sections 10130, 10131 (licence to act as broker or salesperson) and 17500 (misleading advertising) (sections recalled, UNVERIFIED, confirm with counsel)",
+  "CAN-SPAM Act (15 U.S.C. 7701 et seq.); TCPA (47 U.S.C. 227); California Consumer Privacy Act notice at collection (Civil Code 1798.100) (recalled, UNVERIFIED)",
+  "Google Search Central structured data guidelines (Article: author, datePublished, dateModified; markup must match visible content; review markup) and the Search Quality Rater Guidelines (E-E-A-T) (recalled, UNVERIFIED)",
+  "Page types taken from the competitor reports of one real publisher project (weekly 'On the Market' roundups, 'House of the Day', architect- and style-named landing pages, 'SPONSORED LISTING' labels, paid features priced from about $50 to $250 and up): what competitors publish, not a legal source",
+  "Compiled from recalled knowledge on 2026-10-25; no source page was re-fetched. A rule whose basis says UNVERIFIED must be confirmed with counsel before it is relied on. Not legal advice."
+ ],
+ "notes": "Items with severity warn are reported as WARN and fail only under --strict (launch). A business waives an item with --waive <id> when its own sign-off lifts the rule. credentials.licensed = true in business.json turns off the brokerage-claim, role and RealEstateAgent/RealEstateListing items (the publisher then holds a real estate licence; its licence number and brokerage name are then a job for the real-estate-agent pack). Item types used are the ones gate-industry.mjs reads: forbidden-phrases, required-when-present (pathPattern, trigger, nearChars), forbidden-schema, required-pages. pageTypes feeds plan-site.mjs (schema per page kind, plannerKind home | money | city-landing | guide | hub; the other page types have plannerKind null and are planned by hand); seeds.queries feeds research-seeds.mjs --industry editorial-media. NOT ENFORCED BY ANY ITEM (this gate has no item type for it, so it is a planning rule, not a gate): an ItemList with numberOfItems 0 or no ListItem on a collection page; author, dateModified, publisher logo and isPartOf inside the JSON-LD (GT-008 checks headline, author and datePublished of a planned Article only); every roundup linking each featured property page and each of those pages linking back. EDM-EMPTY-001 and the visible byline and date items catch the same faults in the page text only.",
+ "pageTypes": [
+  {
+   "id": "home",
+   "plannerKind": "home",
+   "schema": [
+    "Organization",
+    "WebSite"
+   ],
+   "description": "Home: the publisher as an Organization (declare NewsMediaOrganization together with Organization, so the planned type is satisfied) with name, url, logo and sameAs, plus WebSite; not RealEstateAgent",
+   "requires": [
+    "EDM-SCHEMA-001",
+    "EDM-ROLE-001",
+    "EDM-DISC-001"
+   ]
+  },
+  {
+   "id": "feature",
+   "plannerKind": null,
+   "schema": [
+    "Article"
+   ],
+   "description": "A feature on one property or place: Article with headline, author (a Person with a url to the author page), datePublished, dateModified, image, publisher (Organization with a logo) and isPartOf (the stories or roundup page it belongs to); a paid feature carries its Sponsored label in the text; it links to its roundup or section page",
+   "requires": [
+    "EDM-SPON-001",
+    "EDM-SPON-002",
+    "EDM-OUTCOME-001",
+    "EDM-BYLINE-001",
+    "EDM-DATE-001",
+    "EDM-DATE-002",
+    "EDM-FH-001"
+   ]
+  },
+  {
+   "id": "news",
+   "plannerKind": null,
+   "schema": [
+    "NewsArticle",
+    "Article"
+   ],
+   "description": "A news item on the market (a record sale, a listing, a policy change): NewsArticle with the Article properties; Article is planned too so the gate's required-field check (headline, author, datePublished) applies to it",
+   "requires": [
+    "EDM-BYLINE-001",
+    "EDM-DATE-001",
+    "EDM-DATE-002",
+    "EDM-FH-001"
+   ]
+  },
+  {
+   "id": "roundup",
+   "plannerKind": null,
+   "schema": [
+    "CollectionPage",
+    "ItemList"
+   ],
+   "description": "A weekly or periodic roundup (for example On the Market): CollectionPage plus an ItemList node of its own (not nested), with numberOfItems equal to the listed homes and one ListItem per featured home (position, url, name); never an empty list; links every featured property page and each of those pages links back; prices and availability are dated",
+   "requires": [
+    "EDM-ROUNDUP-001",
+    "EDM-SPON-001",
+    "EDM-OUTCOME-001",
+    "EDM-BYLINE-001",
+    "EDM-DATE-001",
+    "EDM-DATE-002",
+    "EDM-EMPTY-001"
+   ]
+  },
+  {
+   "id": "house-of-the-day",
+   "plannerKind": null,
+   "schema": [
+    "Article"
+   ],
+   "description": "A single home shown as the day's or week's pick: Article (not RealEstateListing) with author, dates, publisher logo and isPartOf; says if it is a paid placement; credits the listing agent and brokerage as the source",
+   "requires": [
+    "EDM-SPON-001",
+    "EDM-OUTCOME-001",
+    "EDM-BYLINE-001",
+    "EDM-DATE-001",
+    "EDM-DATE-002",
+    "EDM-SCHEMA-001"
+   ]
+  },
+  {
+   "id": "market-guide",
+   "plannerKind": "guide",
+   "schema": [
+    "Article"
+   ],
+   "description": "A guide to a market, a style or a buying topic (historic homes in a state, how a brownstone differs from a townhouse): Article with author, dates, publisher logo, isPartOf; every price or statistic names its source and date",
+   "requires": [
+    "EDM-BYLINE-001",
+    "EDM-DATE-001",
+    "EDM-DATE-002",
+    "EDM-CLAIM-001",
+    "EDM-FH-001"
+   ]
+  },
+  {
+   "id": "style-landing",
+   "plannerKind": "money",
+   "schema": [
+    "CollectionPage",
+    "ItemList"
+   ],
+   "description": "A landing page for a style or search theme (mid-century modern homes for sale, historic homes for sale): CollectionPage plus its own ItemList of the stories and properties on it, never empty; indexable only when it lists at least one real page",
+   "requires": [
+    "EDM-EMPTY-001",
+    "EDM-SPON-001",
+    "EDM-OUTCOME-001",
+    "EDM-FH-001"
+   ]
+  },
+  {
+   "id": "architect-landing",
+   "plannerKind": null,
+   "schema": [
+    "CollectionPage",
+    "ItemList"
+   ],
+   "description": "A landing page for one architect or designer (the homes and stories about their work): CollectionPage plus ItemList, never empty; the architect is named in the headline; no claim the publisher represents the architect",
+   "requires": [
+    "EDM-EMPTY-001",
+    "EDM-SPON-001",
+    "EDM-BROKER-001"
+   ]
+  },
+  {
+   "id": "city-landing",
+   "plannerKind": "city-landing",
+   "schema": [
+    "CollectionPage",
+    "ItemList"
+   ],
+   "description": "A page for one city or market, only where the publisher has real featured homes and stories there: CollectionPage plus ItemList; never swapped-name doorway pages",
+   "requires": [
+    "EDM-EMPTY-001",
+    "EDM-SPON-001",
+    "EDM-FH-001"
+   ]
+  },
+  {
+   "id": "hub",
+   "plannerKind": "hub",
+   "schema": [
+    "CollectionPage",
+    "ItemList"
+   ],
+   "description": "The index of stories, roundups or issues: CollectionPage plus an ItemList whose numberOfItems matches the entries shown; an index with no entries is noindex",
+   "requires": [
+    "EDM-EMPTY-001"
+   ]
+  },
+  {
+   "id": "newsletter-issue",
+   "plannerKind": null,
+   "schema": [
+    "Article"
+   ],
+   "description": "The web copy of one newsletter issue: Article with author, dates, publisher logo and isPartOf (the newsletter archive); sponsored items inside it are labelled the same way as on the site",
+   "requires": [
+    "EDM-SPON-001",
+    "EDM-OUTCOME-001",
+    "EDM-BYLINE-001",
+    "EDM-DATE-001",
+    "EDM-DATE-002",
+    "EDM-FORM-001"
+   ]
+  },
+  {
+   "id": "author",
+   "plannerKind": null,
+   "schema": [
+    "ProfilePage",
+    "Person"
+   ],
+   "description": "An author page: ProfilePage with a Person (name, url, sameAs, jobTitle), listing the pieces they wrote; only people shown on the page",
+   "requires": []
+  },
+  {
+   "id": "about-standards",
+   "plannerKind": null,
+   "schema": [
+    "AboutPage"
+   ],
+   "description": "About and editorial standard: who publishes, how homes are chosen, that payment does not buy acceptance, how paid features are labelled, that the publisher is not a brokerage",
+   "requires": [
+    "EDM-ROLE-001",
+    "EDM-SPON-002",
+    "EDM-BROKER-001",
+    "EDM-DISC-001"
+   ]
+  },
+  {
+   "id": "submit-a-listing",
+   "plannerKind": null,
+   "schema": [
+    "WebPage"
+   ],
+   "description": "The page where an owner or agent submits a property: WebPage (ContactPage if it is only a form); what happens after submitting, that review comes first, consent wording and the privacy link beside the form; no outcome promise",
+   "requires": [
+    "EDM-ROLE-001",
+    "EDM-FORM-001",
+    "EDM-OUTCOME-001",
+    "EDM-FREE-001"
+   ]
+  },
+  {
+   "id": "pricing",
+   "plannerKind": null,
+   "schema": [
+    "WebPage",
+    "Offer"
+   ],
+   "description": "Paid features and prices, only when the prices are public: WebPage plus an Offer per package (name, price, priceCurrency, what is included) matching the visible price; if prices are not shown on the page, plan submit-a-listing instead and leave out Offer",
+   "requires": [
+    "EDM-ROLE-001",
+    "EDM-OUTCOME-001",
+    "EDM-FREE-001",
+    "EDM-CLAIM-001"
+   ]
+  }
+ ],
+ "seeds": {
+  "note": "Recalled demand, no volume and no ranking; the owner approves the list and research measures it. {city} expands per service-area city in business.json (a place, never a combined label of several states); national queries stay as they are. Product lines: reader-homes (what a reader searches), reader-roundups, reader-news, reader-newsletter, owner-features (an owner or agent looking to be featured), agent-marketing.",
+  "queries": [
+   {
+    "query": "historic homes for sale",
+    "productLine": "reader-homes",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "historic homes for sale in {city}",
+    "productLine": "reader-homes",
+    "intent": "local",
+    "scope": "local"
+   },
+   {
+    "query": "old houses for sale",
+    "productLine": "reader-homes",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "houses with history",
+    "productLine": "reader-homes",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "architect designed homes for sale",
+    "productLine": "reader-homes",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "architect designed homes for sale in {city}",
+    "productLine": "reader-homes",
+    "intent": "local",
+    "scope": "local"
+   },
+   {
+    "query": "architecturally significant homes for sale",
+    "productLine": "reader-homes",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "mid century modern homes for sale",
+    "productLine": "reader-homes",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "mid century modern homes for sale {city}",
+    "productLine": "reader-homes",
+    "intent": "local",
+    "scope": "local"
+   },
+   {
+    "query": "modern houses for sale",
+    "productLine": "reader-homes",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "unique homes for sale",
+    "productLine": "reader-homes",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "unique homes for sale in {city}",
+    "productLine": "reader-homes",
+    "intent": "local",
+    "scope": "local"
+   },
+   {
+    "query": "brownstones for sale in {city}",
+    "productLine": "reader-homes",
+    "intent": "local",
+    "scope": "local"
+   },
+   {
+    "query": "waterfront homes for sale in {city}",
+    "productLine": "reader-homes",
+    "intent": "local",
+    "scope": "local"
+   },
+   {
+    "query": "homes for sale on the market this week",
+    "productLine": "reader-roundups",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "house of the day",
+    "productLine": "reader-roundups",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "homes for sale this week in {city}",
+    "productLine": "reader-roundups",
+    "intent": "local",
+    "scope": "local"
+   },
+   {
+    "query": "luxury real estate news",
+    "productLine": "reader-news",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "real estate newsletter",
+    "productLine": "reader-newsletter",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "design real estate newsletter",
+    "productLine": "reader-newsletter",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "real estate magazine",
+    "productLine": "reader-news",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "luxury home tours",
+    "productLine": "reader-news",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "sponsored listing real estate media",
+    "productLine": "owner-features",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "feature my listing",
+    "productLine": "owner-features",
+    "intent": "transactional",
+    "scope": "national"
+   },
+   {
+    "query": "how to get a home featured in a magazine",
+    "productLine": "owner-features",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "how to get my house featured",
+    "productLine": "owner-features",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "submit a home to be featured",
+    "productLine": "owner-features",
+    "intent": "transactional",
+    "scope": "national"
+   },
+   {
+    "query": "luxury real estate marketing",
+    "productLine": "agent-marketing",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "luxury listing marketing",
+    "productLine": "agent-marketing",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "how to market a luxury home",
+    "productLine": "agent-marketing",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "promote a luxury listing",
+    "productLine": "agent-marketing",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "luxury real estate marketing packages",
+    "productLine": "agent-marketing",
+    "intent": "commercial",
+    "scope": "national"
+   },
+   {
+    "query": "real estate storytelling",
+    "productLine": "agent-marketing",
+    "intent": "informational",
+    "scope": "national"
+   },
+   {
+    "query": "architectural real estate photography",
+    "productLine": "agent-marketing",
+    "intent": "commercial",
+    "scope": "national"
+   }
+  ]
+ },
+ "items": [
+  {
+   "id": "EDM-PLACEHOLDER-001",
+   "type": "forbidden-phrases",
+   "severity": "fail",
+   "description": "No unfilled placeholder such as {{PRICE}} or [TODO] visible on a published page",
+   "source": "Nothing that needs a price, name, date or sponsor label publishes until the value is filled (same rule as the other packs)",
+   "patterns": [
+    "\\{\\{\\s*[A-Z][A-Z0-9_]*\\s*\\}\\}",
+    "\\[(?:TODO|TBD|INSERT)[^\\]]*\\]"
+   ]
+  },
+  {
+   "id": "EDM-SPON-001",
+   "type": "required-when-present",
+   "severity": "fail",
+   "nearChars": 2500,
+   "description": "A page that shows a property with an agent credit or an inquiry path says, near it, whether the placement is paid (Sponsored, Paid feature, Advertisement) or independently chosen by the editors",
+   "source": "FTC Enforcement Policy Statement on Deceptively Formatted Advertisements and the FTC guide Native Advertising: A Guide for Businesses (both 2015; recalled, UNVERIFIED, confirm with counsel): paid content must be recognisable as paid, with a clear label such as 'Sponsored' or 'Advertisement'; 'Presented by' alone is the kind of wording the guide calls unclear; FTC Guides Concerning the Use of Endorsements and Testimonials in Advertising (16 CFR Part 255): a material connection (payment, free service) between the publisher and the person or business it features must be disclosed; FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices. Why: a reader cannot tell a story from an advertisement unless the page says which it is, and the label has to sit by the property, not in the footer",
+   "trigger": "listing agent|listed by|courtesy of|presented by|represented by|private showing|schedule a (?:private )?(?:showing|tour|viewing)|request a (?:private )?(?:showing|tour|viewing)|contact the (?:listing )?agent|\\binquir(?:e|ies) (?:about|to|with|go)",
+   "require": [
+    {
+     "label": "a paid or not-paid label near the listing (for example 'Sponsored listing', 'Paid feature', 'Advertisement', or 'selected by our editors, no payment was made')",
+     "pattern": "sponsored|\\badvertisement\\b|\\badvertorial\\b|\\bpaid ad\\b|paid (?:feature|placement|listing|partnership|promotion|content)|partner content|in partnership with|promoted by|(?:not|never) (?:a |an )?(?:sponsored|paid|advertis)|editorial(?:ly)? (?:selection|selected|choice|pick)|selected (?:by|for) (?:our )?editors?|independently selected|no (?:payment|fee|compensation) (?:was|is|has been) (?:made|received|accepted|paid)"
+    }
+   ],
+   "proofHint": "Every paid feature carries a visible label ('Sponsored listing' or 'Paid feature') at the top of the item, as large as the headline's smallest text, in the page, in the newsletter and in the social post; every unpaid pick says it was chosen by the editors; the label is in the text, not only in an image"
+  },
+  {
+   "id": "EDM-SPON-002",
+   "type": "required-when-present",
+   "severity": "warn",
+   "description": "A page that carries sponsored or paid features links to or states the editorial standard: payment does not buy acceptance or a good write-up",
+   "source": "FTC Guides Concerning the Use of Endorsements and Testimonials in Advertising (16 CFR Part 255): a material connection (payment, free service) between the publisher and the person or business it features must be disclosed; FTC Enforcement Policy Statement on Deceptively Formatted Advertisements and the FTC guide Native Advertising: A Guide for Businesses (both 2015; recalled, UNVERIFIED, confirm with counsel): paid content must be recognisable as paid, with a clear label such as 'Sponsored' or 'Advertisement'; 'Presented by' alone is the kind of wording the guide calls unclear. Why: a label says the feature was paid for; the reader also needs to know the publisher still decides what runs",
+   "trigger": "sponsored|paid (?:feature|placement|listing|partnership)|partner content",
+   "require": [
+    {
+     "label": "a statement that payment does not buy acceptance or influence the write-up, or a link to the editorial standard",
+     "pattern": "(?:payment|paying|sponsorship|fees?)[^.]{0,60}(?:does not|doesn['’]t|do not|cannot|can['’]t|never)[^.]{0,40}(?:buy|guarantee|influence|secure|ensure)|editorial (?:standard|standards|independence|policy)|how we select"
+    }
+   ]
+  },
+  {
+   "id": "EDM-OUTCOME-001",
+   "type": "forbidden-phrases",
+   "severity": "fail",
+   "description": "No promise of a sale, a price, buyers, offers, showings or guaranteed exposure or reach (a feature buys attention, not an outcome)",
+   "source": "FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices; FTC substantiation doctrine (a claim needs proof before it is made); California Business and Professions Code section 17500 (untrue or misleading advertising; section recalled, UNVERIFIED, confirm with counsel). Why: the publisher sells exposure; it controls the page, not the buyers, so it cannot promise what happens next",
+   "patterns": [
+    "(?<!\\bno )(?<!\\bnot )(?<!n['’]t )(?<!never )(?<!without )guaranteed (?:sale|sold|price|buyers?|offers?|showings?|exposure|reach|traffic|views|impressions|leads?|inquiries|results?|visibility)",
+    "\\b(?:we|our \\w+|this (?:feature|package|campaign|placement|story)|the (?:feature|package|campaign|placement)) (?:guarantee|guarantees|promise|promises) (?:you |your (?:home|house|property|listing) )?(?:a |an |the )?(?:sale|buyers?|offers?|showings?|exposure|reach|results?)\\b",
+    "\\bsells? (?:in|within) (?:just |only |as little as )?(?:days|(?:a |one |an? )?(?:few )?(?:days?|weeks?)|\\d+(?:-\\d+)? (?:days|weeks))\\b",
+    "(?:your|the|this|that|every) (?:home|house|property|listing|estate)\\s+(?:will|is going to|is sure to|is bound to) sell\\b",
+    "\\b(?:will|going to) sell (?:your|the|this) (?:home|house|property|listing)\\b",
+    "\\bwe(?:['’]ll| will) (?:sell|find (?:you )?(?:a |the )?buyer)",
+    "\\bsell (?:your|the) (?:home|house|property) (?:fast|quickly|faster|in days)\\b",
+    "\\bget (?:your|the) (?:home|house|property) sold\\b",
+    "\\b(?:sure|certain|guaranteed) to sell\\b",
+    "\\b(?:buyers?|offers?) (?:are |is )?guaranteed\\b"
+   ]
+  },
+  {
+   "id": "EDM-CLAIM-001",
+   "type": "forbidden-phrases",
+   "severity": "warn",
+   "description": "Audience, reach and rank claims are substantiated (name the measure, the source and the date, or remove the claim)",
+   "source": "FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices; FTC substantiation doctrine; California Business and Professions Code section 17500 (untrue or misleading advertising; section recalled, UNVERIFIED, confirm with counsel). Why: an owner pays for reach, so an audience figure is the product claim and has to be one the publisher can show",
+   "patterns": [
+    "(?:#|number |no\\.? ?)1 (?:rated |ranked )?(?:luxury )?(?:real estate )?(?:media|magazine|publication|platform|marketing|newsletter|site|website)",
+    "(?:reach(?:es|ing)?|read by|seen by|trusted by) (?:over |more than |up to )?(?:\\d[\\d,.]*\\s?(?:[kKmM]\\b|million|thousand)?\\+?|millions of|thousands of|hundreds of thousands of) (?:\\w+[- ]){0,3}(?:buyers|readers|investors|viewers|subscribers|followers|people)",
+    "\\b(?:largest|biggest|most[- ]read|most[- ]viewed|most[- ]trusted|leading) (?:audience|readership|network|publication|platform) (?:of|for) "
+   ]
+  },
+  {
+   "id": "EDM-BROKER-001",
+   "type": "forbidden-phrases",
+   "severity": "fail",
+   "unlessField": "credentials.licensed",
+   "description": "A publisher does not describe itself as a brokerage, agent or representative (it publishes; it does not represent anyone in a sale)",
+   "source": "California Business and Professions Code sections 10130 and 10131 (a licence is needed to act as a broker or salesperson; sections recalled, UNVERIFIED, confirm with counsel); FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices. Why: acting or advertising as a broker needs a licence, and a reader who thinks the publisher represents them will rely on it. A business that holds a real estate licence sets credentials.licensed = true in business.json and this item is then skipped. Crediting someone else's listing agent by name is allowed: only the first-person claim is forbidden",
+   "patterns": [
+    "\\bwe(?:['’]ll| will| can)? represent\\b",
+    "\\bour (?:listing |licensed |real estate |in-house )*(?:agents?|brokers?|realtors?|salespeople)\\b",
+    "\\b(?:we are|we['’]re|i am|i['’]m) (?:a |an |your )?(?:licensed )?(?:real estate )?(?:agents?|brokers?|brokerage|realtors?|listing agent)\\b",
+    "\\bwe(?:['’]ll| will) negotiate\\b",
+    "\\b(?:buy|sell|list) (?:your (?:home|house|property) )?with us\\b"
+   ]
+  },
+  {
+   "id": "EDM-ROLE-001",
+   "type": "required-when-present",
+   "severity": "warn",
+   "unlessField": "credentials.licensed",
+   "pathPattern": "^\\/(?:submit|submit-a-listing|submit-your-(?:home|property|listing)|list-your-(?:home|property)|feature-your-(?:home|property|listing)|get-featured|exposure|advertise|pricing|packages|plans|rates|media-kit|for-agents|for-owners|work-with-us)(?:\\/|$)",
+   "description": "Pages where an owner or agent buys a feature say what the publisher is and is not: a publisher, not a brokerage, and not a representative in the sale",
+   "source": "California Business and Professions Code sections 10130 and 10131 (a licence is needed to act as a broker or salesperson; sections recalled, UNVERIFIED, confirm with counsel); FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices. Why: the person paying must know that the publisher shows the property and does not act for them in a sale. A business that holds a real estate licence sets credentials.licensed = true in business.json and this item is then skipped.",
+   "require": [
+    {
+     "label": "a role statement (a publisher or media platform, not a brokerage; does not represent anyone in a sale)",
+     "pattern": "not (?:a |an )?(?:real estate )?(?:brokerage|broker|agency|agent)|do(?:es)? not (?:represent|broker|negotiate)|(?:independent )?(?:publisher|media (?:company|platform)|editorial (?:platform|publication|media))"
+    }
+   ]
+  },
+  {
+   "id": "EDM-SCHEMA-001",
+   "type": "forbidden-schema",
+   "severity": "fail",
+   "unlessField": "credentials.licensed",
+   "description": "No RealEstateAgent or RealEstateListing markup on a publisher's pages (the publisher is not the agent and does not hold the listing)",
+   "source": "Google Search Central structured data general guidelines: markup must describe the visible content of the page it sits on and must not mislead; California Business and Professions Code sections 10130 and 10131 (a licence is needed to act as a broker or salesperson; sections recalled, UNVERIFIED, confirm with counsel). Why: this markup tells search engines the page is an agent or a for-sale listing it holds; a publisher's property story is neither. Use Article, CollectionPage and ItemList. A business that holds a real estate licence sets credentials.licensed = true in business.json and this item is then skipped.",
+   "types": [
+    "RealEstateAgent",
+    "RealEstateListing"
+   ]
+  },
+  {
+   "id": "EDM-SCHEMA-002",
+   "type": "forbidden-schema",
+   "severity": "warn",
+   "description": "Review or AggregateRating markup only from real, visible, attributable reviews (review each hit; a publisher rating its own paying features is not eligible)",
+   "source": "Google Search Central structured data guidelines: review markup must come from real, visible reviews, and self-serving reviews are not eligible for review rich results; FTC Guides Concerning the Use of Endorsements and Testimonials in Advertising (16 CFR Part 255): a material connection (payment, free service) between the publisher and the person or business it features must be disclosed",
+   "types": [
+    "Review",
+    "AggregateRating"
+   ]
+  },
+  {
+   "id": "EDM-BYLINE-001",
+   "type": "required-when-present",
+   "severity": "fail",
+   "pathPattern": "^\\/(?:stories|story|news|journal|features?|house-of-the-day|home-of-the-day|on-the-market|roundups?|market-guides?|guides?|newsletters?|place-notes|editorial|articles?|issues?)\\/[^/]+",
+   "description": "Every article page (story, news item, house of the day, roundup issue, market guide, newsletter issue) names its author, a person, not a brand",
+   "source": "Google Search Central article structured data guidelines (author, datePublished and dateModified are recommended properties; recalled, UNVERIFIED) and the Search Quality Rater Guidelines (E-E-A-T: who wrote it and when matter for trust). This pack chooses to fail a missing byline; the search guidelines only recommend it. Why: an unsigned page has nobody to be wrong, and readers and search engines both weigh who wrote it",
+   "require": [
+    {
+     "label": "a named author (By First Last)",
+     "caseSensitive": true,
+     "pattern": "(?:By|Written by|Words by|Text by|Story by|Authored by|Author:|Edited by|Reported by)\\s+[A-Z][a-z]+(?:\\s+[A-Z][a-z.'’-]+)+"
+    }
+   ],
+   "proofHint": "A visible byline with the author's name linked to their /authors/ page, and the same person in the Article author property"
+  },
+  {
+   "id": "EDM-DATE-001",
+   "type": "required-when-present",
+   "severity": "fail",
+   "pathPattern": "^\\/(?:stories|story|news|journal|features?|house-of-the-day|home-of-the-day|on-the-market|roundups?|market-guides?|guides?|newsletters?|place-notes|editorial|articles?|issues?)\\/[^/]+",
+   "description": "Every article page shows its publication date",
+   "source": "Google Search Central article structured data guidelines (author, datePublished and dateModified are recommended properties; recalled, UNVERIFIED) and the Search Quality Rater Guidelines (E-E-A-T: who wrote it and when matter for trust). Why: for a listings publisher the date is part of the claim (a price or availability is true as of a day)",
+   "require": [
+    {
+     "label": "a publication date (Published October 24, 2026, or a date beside the byline)",
+     "pattern": "(?:published|posted|first published)(?: on)?:?\\s+(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\.? \\d{1,2},? \\d{4}|\\d{1,2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\.?,? \\d{4}|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}\\/\\d{1,2}\\/\\d{4})|\\bby\\s+[A-Za-z][^|·•\\n.]{1,40}[|·•,–—-]+\\s*(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\.? \\d{1,2},? \\d{4}|\\d{1,2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\.?,? \\d{4}|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}\\/\\d{1,2}\\/\\d{4})|(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\.? \\d{1,2},? \\d{4}|\\d{1,2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\.?,? \\d{4}|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}\\/\\d{1,2}\\/\\d{4})\\s*[|·•–—-]+\\s*by\\b"
+    }
+   ]
+  },
+  {
+   "id": "EDM-DATE-002",
+   "type": "required-when-present",
+   "severity": "fail",
+   "pathPattern": "^\\/(?:stories|story|news|journal|features?|house-of-the-day|home-of-the-day|on-the-market|roundups?|market-guides?|guides?|newsletters?|place-notes|editorial|articles?|issues?)\\/[^/]+",
+   "description": "Every article page shows when it was last updated (the same date as the publication date if it was never changed)",
+   "source": "Google Search Central article structured data guidelines (author, datePublished and dateModified are recommended properties; recalled, UNVERIFIED) and the Search Quality Rater Guidelines (E-E-A-T: who wrote it and when matter for trust). Why: a reader and a search engine can then tell a current roundup from a stale one",
+   "require": [
+    {
+     "label": "a last-updated date (Updated October 24, 2026)",
+     "pattern": "(?:updated|last updated|modified|last modified|revised)(?: on)?:?\\s+(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\.? \\d{1,2},? \\d{4}|\\d{1,2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\.?,? \\d{4}|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}\\/\\d{1,2}\\/\\d{4})"
+    }
+   ]
+  },
+  {
+   "id": "EDM-ROUNDUP-001",
+   "type": "required-when-present",
+   "severity": "warn",
+   "pathPattern": "^\\/(?:on-the-market|roundups?|this-week|weekly|week-in-review|picks|favou?rites|listings-of-the-week)(?:\\/|$)",
+   "description": "A roundup of homes for sale says its prices and availability are as of a date and may have changed",
+   "source": "FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices; California Business and Professions Code section 17500 (untrue or misleading advertising; section recalled, UNVERIFIED, confirm with counsel). Why: a listing roundup is a set of price and availability statements, and they go stale in days. (Linking every featured property page, and each property page back to its roundup, is a link check this item type cannot make: see the pack notes)",
+   "require": [
+    {
+     "label": "prices and availability are as of a date, subject to change, or to be confirmed with the listing agent",
+     "pattern": "(?:prices?|availability|status|details)[^.]{0,80}(?:as of|subject to change|may (?:have )?change|confirm|verify)|\\bas of (?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\.? \\d{1,2},? \\d{4}|\\d{1,2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\.?,? \\d{4}|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}\\/\\d{1,2}\\/\\d{4})"
+    }
+   ]
+  },
+  {
+   "id": "EDM-EMPTY-001",
+   "type": "forbidden-phrases",
+   "severity": "warn",
+   "description": "An indexable page does not announce that it has nothing on it (a collection page with no items stays noindex until it lists something)",
+   "source": "Google Search Central structured data general guidelines: markup must describe the visible content of the page it sits on and must not mislead; Google Search Central guidance on thin content and soft 404 pages (recalled, UNVERIFIED). Why: an index page that says 'no stories yet' is an empty page that a search engine is invited to rank. WARN while planning, FAIL under --strict at launch",
+   "patterns": [
+    "\\b(?:no|zero|0) (?:stories|features|listings|properties|homes|issues|articles|posts|results) (?:yet|found|available|to show|to display|published|listed)\\b",
+    "\\bnothing (?:is |has been )?(?:listed|published|featured) yet\\b",
+    "\\bcoming soon\\b",
+    "\\bopening soon\\b",
+    "\\bcheck back (?:soon|later)\\b"
+   ]
+  },
+  {
+   "id": "EDM-FH-001",
+   "type": "forbidden-phrases",
+   "severity": "fail",
+   "description": "Fair-housing wording: no preference, limitation or steering by protected class in the copy about a home or a place",
+   "source": "Fair Housing Act section 804(c), 42 U.S.C. 3604(c) (no discriminatory statement, preference or limitation in a notice or advertisement for housing; it reaches publishers of such advertisements; section recalled, UNVERIFIED, confirm with counsel); HUD advertising guidance (the longer word list is recalled, UNVERIFIED)",
+   "patterns": [
+    "perfect for (?:young )?(?:professionals|families|couples|singles|retirees|empty[- ]nesters)",
+    "ideal for (?:young )?(?:professionals|families|couples|singles|retirees|empty[- ]nesters)",
+    "adults? only",
+    "no (?:children|kids)",
+    "mature (?:adults|couples|tenants)",
+    "(?:family|kid)[- ]friendly (?:neighbou?rhood|community|area)",
+    "(?:exclusive|prestigious|desirable) (?:neighbou?rhood|community) (?:for|of) ",
+    "(?:safe|quiet|nice) (?:neighbou?rhood|area) (?:for|with) (?:families|kids|children)",
+    "(?:christian|church|jewish|muslim) (?:community|neighbou?rhood)",
+    "walking distance to (?:church|synagogue|mosque|temple)"
+   ]
+  },
+  {
+   "id": "EDM-FREE-001",
+   "type": "forbidden-phrases",
+   "severity": "warn",
+   "description": "A paid feature is not called free (free submission or a free review is fine; a free feature, free exposure or free placement is not, unless it really costs nothing)",
+   "source": "FTC Guide Concerning Use of the Word \"Free\" (16 CFR Part 251); FTC Act section 5 (15 U.S.C. 45), deceptive acts or practices",
+   "patterns": [
+    "\\bfree (?:feature|exposure|placement|promotion|campaign|marketing|advertising)\\b",
+    "\\bfree listings?\\b(?!\\s+(?:submission|review|consultation|to submit))"
+   ]
+  },
+  {
+   "id": "EDM-FORM-001",
+   "type": "required-when-present",
+   "severity": "warn",
+   "pageHasForm": true,
+   "description": "A page with a form (submit a property, newsletter signup, inquiry) shows what the person agrees to receive and links the privacy policy",
+   "source": "CAN-SPAM Act (15 U.S.C. 7701 et seq.) for newsletters; TCPA (47 U.S.C. 227) and FCC rules (47 CFR 64.1200) if texts or calls follow (UNVERIFIED, confirm with counsel); California Consumer Privacy Act notice at collection (Civil Code 1798.100; recalled, UNVERIFIED, confirm with counsel)",
+   "require": [
+    {
+     "label": "what the person agrees to receive (by submitting you agree to be contacted or to receive the newsletter)",
+     "pattern": "(?:agree|consent|authori[sz]e|subscrib|submit(?:ting)?)[^.]{0,200}(?:contact|calls?|texts?|emails?|messages?|newsletter|updates)"
+    },
+    {
+     "label": "a link or mention of the privacy policy",
+     "pattern": "privacy (?:policy|notice)"
+    }
+   ]
+  },
+  {
+   "id": "EDM-DISC-001",
+   "type": "required-pages",
+   "severity": "warn",
+   "description": "Disclosure pages exist: a privacy policy, an accessibility statement, and an editorial standard that also states how paid features work",
+   "source": "FTC Enforcement Policy Statement on Deceptively Formatted Advertisements and the FTC guide Native Advertising: A Guide for Businesses (both 2015; recalled, UNVERIFIED, confirm with counsel): paid content must be recognisable as paid, with a clear label such as 'Sponsored' or 'Advertisement'; 'Presented by' alone is the kind of wording the guide calls unclear; California Online Privacy Protection Act (Bus. & Prof. Code 22575; recalled, UNVERIFIED, confirm with counsel); an accessibility statement is good practice, a legal duty is UNVERIFIED. WARN while planning, FAIL under --strict at launch",
+   "anyOf": [
+    [
+     "/privacy/",
+     "/privacy-policy/"
+    ],
+    [
+     "/accessibility/",
+     "/accessibility-statement/"
+    ],
+    [
+     "/editorial-standard/",
+     "/editorial-standards/",
+     "/editorial-policy/",
+     "/standards/",
+     "/how-we-select/"
+    ]
+   ]
+  }
+ ]
+}

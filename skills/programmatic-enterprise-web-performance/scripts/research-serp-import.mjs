@@ -10,7 +10,12 @@
 // --device fills a missing device (recorded as deviceSource "default"); a capture without query, engine, date, location or device is
 // REJECTED with the reason (a row the next run cannot compare is worse than no row). "Localized" is claimed only when the page footer
 // shows the requested city; otherwise the location reads "NOT LOCALIZED (baseline): <what the footer said>".
-// Output: research/serp.json { captures:[...], rejected:[...], counts }. No directory or no files => BLOCKED (exit 3).
+// Output: research/serp.json { captures:[...], rejected:[...], counts, deviceMismatch?, notes? }. No directory or no files => BLOCKED (exit 3).
+// Quality flags (G6, they never reject a capture): business.json rankTracking.devices is the wanted list; captures taken on another device
+// give deviceMismatch { captured, wanted, count } (count = captures on an unwanted device; missing = wanted devices with no capture);
+// every capture NOT LOCALIZED gives the notes line "baseline captures cannot support city ranking claims"; an AI Overview seen but with no
+// source domains gets aiSourcesMissing:true and is counted in counts.aiOverviewWithoutSources (the page was not expanded: capture it again).
+// validateCapture(obj) is the one rule set scripts/capture-server.mjs also applies, so the receiver refuses what this importer would reject.
 import fs from "node:fs";
 import path from "node:path";
 import { Blocked, J, stripBom, iso, context, needBusiness, runCli, writeStep, writeBlocked, factor, normQuery, domainOf, ageDays } from "./research-lib.mjs";
@@ -89,6 +94,27 @@ export function finish(cap, { defaultDevice = null, defaultLanguage = null, file
   return why.length ? { rejected: { file, reason: why.join("; ") } } : { capture: cap };
 }
 
+// One saved .json capture as the importer reads it (also what validateCapture checks).
+export function jsonCapture(j, file) {
+  const f = path.basename(file);
+  return { id: f.replace(/\.json$/i, ""), file, ...j, engine: String(j.engine || "").toLowerCase(), query: j.query, location: j.location || {}, organic: j.organic || [], localPack: j.localPack || [], paa: j.paa || [], aiOverview: j.aiOverview || { present: null, text: null, sources: [] }, robotCheck: !!j.robotCheck || ROBOT.test(JSON.stringify(j.notes || "")) };
+}
+
+// -> { ok, problems[] }: the same rejection rules run() applies to a .json capture. A JSON capture must carry its own device;
+// the language may come from business.json market.language (defaultLanguage), exactly as in run().
+export function validateCapture(obj, { defaultLanguage = null, defaultDevice = null } = {}) {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return { ok: false, problems: ["the capture is not a JSON object"] };
+  const shape = [];
+  if (obj.organic != null && !Array.isArray(obj.organic)) shape.push("organic is not a list");
+  if (obj.location != null && typeof obj.location !== "object") shape.push("location is not an object");
+  if (shape.length) return { ok: false, problems: shape };
+  let r;
+  try { r = finish(jsonCapture(JSON.parse(JSON.stringify(obj)), "capture.json"), { defaultDevice, defaultLanguage, file: "capture.json" }); }
+  catch (e) { return { ok: false, problems: [`unreadable: ${e.message}`] }; }
+  const problems = r.rejected ? r.rejected.reason.split("; ") : [];
+  return { ok: problems.length === 0, problems };
+}
+
 export function ourPosition(cap, domain) {
   const hit = cap.organic.find((o) => o.domain === domain || o.domain.endsWith("." + domain));
   const f = factor(`${cap.engine} results captured in browser (${cap.browser || "browser"}) ${cap.capturedAt}`, `${cap.capturedAt.slice(0, 10)}T00:00:00.000Z`, cap.file, { location: cap.locationLabel, device: cap.device });
@@ -106,7 +132,7 @@ export async function run(ctx, { dir = null, dirs = [], defaultDevice = null, ma
     const f = path.basename(file);
     let cap;
     try {
-      if (/\.json$/i.test(f)) { const j = J(file); if (!j) throw new Error("not valid JSON"); cap = { id: f.replace(/\.json$/i, ""), file, ...j, engine: String(j.engine || "").toLowerCase(), query: j.query, location: j.location || {}, organic: j.organic || [], localPack: j.localPack || [], paa: j.paa || [], aiOverview: j.aiOverview || { present: null, text: null, sources: [] }, robotCheck: !!j.robotCheck || ROBOT.test(JSON.stringify(j.notes || "")) }; }
+      if (/\.json$/i.test(f)) { const j = J(file); if (!j) throw new Error("not valid JSON"); cap = jsonCapture(j, file); }
       else cap = parseMarkdownCapture(fs.readFileSync(file, "utf8"), file);
     } catch (e) { rejected.push({ file, reason: `unreadable: ${e.message}` }); continue; }
     // legacy text captures never recorded the device; they were read in desktop browsers (the owner's Edge, the built-in browser), so desktop is
@@ -120,9 +146,21 @@ export async function run(ctx, { dir = null, dirs = [], defaultDevice = null, ma
   for (const c of captures) { const k = [c.engine, normQuery(c.query), c.device, c.capturedAt, c.locationLabel].join("|"); if (seen.has(k)) continue; seen.add(k); unique.push(c); }
   const duplicates = captures.length - unique.length;
   captures.length = 0; captures.push(...unique);
+  for (const c of captures) { c.aiSourcesMissing = c.aiOverview?.present === true && !(c.aiOverview.sources || []).length; }
   for (const c of captures) { c.ourPosition = ourPosition(c, b.domain); c.ageDays = Math.round(ageDays(c.capturedAt) * 10) / 10; c.stale = c.ageDays > maxAgeDays; }
-  const counts = { files: files.length, duplicates, captures: captures.length, rejected: rejected.length, blocked: captures.filter((c) => c.status === "BLOCKED").length, partial: captures.filter((c) => c.status === "PARTIAL").length, stale: captures.filter((c) => c.stale).length, notLocalized: captures.filter((c) => !c.location.localized).length };
-  return writeStep(ctx, "serp", { dirs: roots, maxAgeDays, counts, captures, rejected });
+  const counts = { files: files.length, duplicates, captures: captures.length, rejected: rejected.length, blocked: captures.filter((c) => c.status === "BLOCKED").length, partial: captures.filter((c) => c.status === "PARTIAL").length, stale: captures.filter((c) => c.stale).length, notLocalized: captures.filter((c) => !c.location.localized).length, aiOverviewWithoutSources: captures.filter((c) => c.aiSourcesMissing).length };
+  // G6 quality flags: device against business.json rankTracking.devices (no list = no check), localization, AI Overview sources
+  const wanted = Array.isArray(b.rankTracking?.devices) ? [...new Set(b.rankTracking.devices.filter((d) => ["mobile", "desktop"].includes(d)))] : [];
+  const captured = [...new Set(captures.map((c) => c.device))].sort();
+  const offList = wanted.length ? captures.filter((c) => !wanted.includes(c.device)).length : 0, missing = wanted.filter((d) => !captured.includes(d));
+  const doc = { dirs: roots, maxAgeDays, counts, captures, rejected };
+  if (wanted.length && captures.length && (offList || missing.length)) doc.deviceMismatch = { captured, wanted, count: offList, ...(missing.length ? { missing } : {}) };
+  const notes = [];
+  if (doc.deviceMismatch) notes.push(`device mismatch: business.json rankTracking.devices wants ${wanted.join("+")}, ${offList} of ${captures.length} capture(s) were taken on ${captured.join("+")}; capture again on the wanted device`);
+  if (captures.length && captures.every((c) => !c.location.localized)) notes.push("baseline captures cannot support city ranking claims: every capture is NOT LOCALIZED (the page footer did not show the requested city)");
+  if (counts.aiOverviewWithoutSources) notes.push(`${counts.aiOverviewWithoutSources} capture(s) show an AI Overview with no source domains (not expanded when captured): capture them again`);
+  if (notes.length) doc.notes = notes;
+  return writeStep(ctx, "serp", doc);
 }
 
 await runCli(import.meta.url, "node research-serp-import.mjs <target> [--dir DIR] [--device desktop|mobile] [--max-age-days 30] [--cwd DIR]", [], async (a) => {

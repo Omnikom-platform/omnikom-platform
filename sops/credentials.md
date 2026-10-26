@@ -15,8 +15,8 @@ folder. Tools read it by path, e.g. the audit skill: `doctor.mjs <url> --dotenv 
 | `GEMINI_API_KEY` | Gemini API (Google AI Studio) | "Default Gemini API Key" in project "Default Gemini Project" (`gen-lang-client-0166882660`), free tier | new key format (starts `AQ.`) |
 | `BING_WEBMASTER_KEY` | Bing Webmaster Tools API | Bing Webmaster account signed in with Google (amer@omnikom.io); verified site omniskipx.com | account-level key |
 
-Not set yet (owner decision): `PEWP_GEMINI_TERMS_ACK=1`, the owner's confirmation that we may keep derived fields (cited domains,
-whether we are cited) from grounded Gemini answers. Add the line only once the owner has read Gemini's terms and agreed.
+`PEWP_GEMINI_TERMS_ACK=1` is set (owner, 2026-10-26: "okay with Gemini" after the Gemini API Additional Terms tab was opened):
+we may keep derived fields (cited domains, whether we are cited) from grounded Gemini answers. Doctor: "acknowledged".
 
 Also in the account: a second Google Cloud project "My First Project" (`static-retina-512814-h5`) with PageSpeed Insights enabled,
 created during sign-up; unused by our tools (delete it or leave it).

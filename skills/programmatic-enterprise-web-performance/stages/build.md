@@ -49,7 +49,7 @@ node "<skill>/scripts/build-site.mjs" <target dir> [--brief <file>] [--go] [--bu
    runs `scripts/gate.mjs <pewp> <site dir>` itself (a builder's report is a claim), saves the output to `.pewp/gate/<date>.txt`
    (the gate also writes `gate/report.md`), and stops with `GATE-FAILED` on any non-zero exit. Failures go back to the builder
    with the output pasted; repeat until it passes. Pass `--strict` for the launch gate (warnings such as missing disclosure pages
-   become failures). The gate's GT-013 builds the site twice and fails any date that moves (sitemap lastmod, JSON-LD dates: the build
+   become failures). The gate's GT-013 builds the site twice and fails any date that moves (the sitemap file's (sitemap.xml) lastmod, JSON-LD dates: the build
    clock is fake freshness, IDX-003/AEO-012): the driver passes the build command from `--site-build "<cmd>" [--site-build-cwd DIR]`, else from
    `.pewp/builder/build-command.txt` (the handoff tells the builder to write it); with neither, GT-013 reads one build only and says so.
    Also run the existing checker on the built site (`audit-repo`, coordinator.md): the target gate and the
@@ -64,12 +64,12 @@ node "<skill>/scripts/build-site.mjs" <target dir> [--brief <file>] [--go] [--bu
 |---|---|---|---|---|
 | intake | `intake.mjs <target>` | the site/web, `.pewp/intake-answers.json` | `business.json` (+ `intake-facts.json`) | 0 complete, 3 questions open |
 | research | `research.mjs <target> [args]` | business.json, free sources (cached) | `targets.json`, `research/report.md` | 0 written, 3 BLOCKED, 1 crashed |
-| plan | `plan-site.mjs <pewp dir> [args]` | targets.json, business.json | `plan/sitemap.json`, `plan/briefs/<slug>.md` | 0 written, 1 invalid input, 2 file missing |
+| plan | `plan-site.mjs <pewp dir> [args]` | targets.json, business.json | the page plan (`plan/sitemap.json`), `plan/briefs/<slug>.md` | 0 written, 1 invalid input, 2 file missing |
 | gate | `gate.mjs <pewp dir> <site dir> [--strict]` | targets.json, plan/, the built HTML | `gate/report.md` | 0 all PASS, 1 a FAIL, 2 could not judge |
 | measure | `measure.mjs <live url>` | targets.json, the live site | `measure/<date>/` | 0 ran (blocked parts are results) |
 
 `<target>` is the folder; the driver passes it as the working directory too. If a stage owner changes a command line or an
-output name, that is a change to this table and to `build-site.mjs`: tell the Lead. `sitemap.json` pages are read as
+output name, that is a change to this table and to `build-site.mjs`: tell the Lead. The pages of the page plan (`plan/sitemap.json`) are read as
 `{ path, slug, primaryQuery, title, h1, schema[], brief }` (older spellings `query`, `schemaType`, `briefFile` also work).
 
 ## Intake rules (S1)

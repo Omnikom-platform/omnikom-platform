@@ -2,9 +2,12 @@
 // spokes, slugs, internal-link plan with anchors), briefs/<slug>.md (the builder's spec; the S5 gate tests the built page
 // against it), programmatic.json (data source + numeric quality gate), offsite.json (links, local, AI visibility),
 // priorities.json (impact / effort, quick wins first), summary.md. Deterministic, no network, no model.
+// Words (contract C7): sitemap.json is "the page plan" (which pages exist, what each targets); the file search engines read is the
+// sitemap file (sitemap.xml), made later from the built pages. Owner-facing text never calls the plan a bare "sitemap".
 // Usage: node plan-site.mjs <pewp dir> [--today YYYY-MM-DD] [--authority <authority.json>] [--citations <citations.json>]
 //        [--hub-min 4] [--home-max-links 40] [--prog-min-words 1000] [--prog-min-unique 600] [--prog-min-facts 5]
-//        [--prog-max-similarity 0.4] [--data-source "<text>"]
+//        [--prog-max-similarity 0.4] [--data-source "<text>"] [--require-approved-business]
+// --require-approved-business (put it after the folder): refuse (exit 1) unless approved/business.json exists and is the current business.json.
 // Exit 0 written, 1 targets.json / business.json invalid (nothing written), 2 cannot judge (file missing).
 // Ported from this project's own specs (Francine & Eli): icm/work/seo-analyst/CODE-NEEDS-SEO.md (§1 page types, §2 schema per
 // page type, §5 internal-linking rules, §6 content templates and the city-page floor), icm/knowledge/market/must-have.md
@@ -18,6 +21,7 @@ import { normPath } from "./lib-site.mjs";
 import { loadIndustry, RULES_DIR } from "./lib-plan.mjs";
 import { compatibleTypes } from "./lib-growth.mjs";
 import * as state from "./state.mjs";
+import * as approveLib from "./approve.mjs";
 
 const args = process.argv.slice(2);
 const opt = (k, d = null) => (args.includes(k) ? args[args.indexOf(k) + 1] : d);
@@ -83,6 +87,16 @@ if (!pos[0]) { console.error("usage: node plan-site.mjs <pewp dir> [options]"); 
 const pewp = path.resolve(pos[0]);
 let targets, business;
 try { targets = j(path.join(pewp, "targets.json")); business = j(path.join(pewp, "business.json")); } catch (e) { console.log(`ERROR plan cannot judge: ${e.code === "ENOENT" ? "targets.json or business.json not found in " + pewp : e.message}`); process.exit(2); }
+// G2: the owner approved the business definition (approve.mjs <target> business --by NAME). Kept behind one helper so the check is easy to switch:
+// the shared approvedMatches (C1: the lock's sha256) when approve.mjs exports it, else approved/business.json equal to business.json byte for byte.
+function businessApproved() {
+  if (typeof approveLib.approvedMatches === "function") { try { return approveLib.approvedMatches(pewp, "business").ok === true; } catch { return false; } }
+  try { return fs.readFileSync(path.join(pewp, "approved", "business.json")).equals(fs.readFileSync(path.join(pewp, "business.json"))); } catch { return false; }
+}
+if (args.includes("--require-approved-business") && !businessApproved()) {
+  console.error("business.json is not approved by the owner: run approve.mjs <target> business --by NAME (or intake again if it changed)");
+  process.exit(1);
+}
 const vt = validate(targets), vb = validateBusiness(business);
 if (!vt.ok || !vb.ok) {
   console.log(`FAIL plan targets.json / business.json invalid, nothing written (${vt.errors.length + vb.errors.length} error(s); run targets-validate.mjs)`);
@@ -326,6 +340,7 @@ writeJson("priorities.json", { version: 1, generatedAt: OPTS.today, rule: "quick
 
 fs.writeFileSync(path.join(planDir, "summary.md"), [`# Plan summary (${business.name}, ${OPTS.today})`, "",
   `${pages.length} pages (${pages.filter((x) => x.cluster).length} from clusters, ${pages.filter((x) => !x.cluster).length} support), ${links.length} planned internal links, ${progPages.length} programmatic pages.`, "",
+  "This is the page plan (the file plan/sitemap.json): which pages the site should have and which search each one targets. It is not the sitemap file search engines read (sitemap.xml); that file is made later from the pages that are built.", "",
   "| Rank | Item | Impact | Effort | Quick win |", "|---|---|---|---|---|", ...order.map((x) => `| ${x.rank} | ${x.what} | ${x.impact} | ${x.effort} | ${x.quickWin ? "yes" : ""} |`), "",
   `Programmatic data source: ${OPTS.dataSource || "TO DECIDE (plan/programmatic.json)"}.`, `Off-site link gap: ${offsite.links.status}.`, ""].join("\n"));
 

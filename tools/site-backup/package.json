@@ -1,0 +1,13 @@
+{
+  "name": "site-backup",
+  "private": true,
+  "type": "module",
+  "description": "Browser-rendered website backup: sitemap-driven page list, network-captured assets, HAR replay, scroll videos, self-verifying.",
+  "scripts": {
+    "backup": "node backup.mjs",
+    "verify": "node verify.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.56.1"
+  }
+}

@@ -56,6 +56,14 @@ Start never signs an approval, merges, pushes, deploys or switches a site over.
 | `build <folder>` (alias `new`) | doctor -> intake -> research -> plan -> approve-targets [approval] -> approve-plan [approval] -> handoff (`build-site.mjs --go`) -> builder [ack] -> gate (`build-site.mjs --builder-done`) -> measure (waits for launch) |
 | `iterate <target>` | iterate -> approve-proposals-targets [approval] -> approve-proposals-plan [approval] |
 | `local <url\|repo>` | doctor -> local (`local-run.mjs`) |
+| `overhaul <live url> <repo>` | the 14-step chain of `stages/overhaul.md`: doctor -> snapshot -> psi (optional) -> checker-live [agent] -> report-live -> intake -> classify -> approve-business [approval] -> competitors-discover -> approve-competitors [approval] -> authority-prepare (optional) -> seeds-propose -> approve-seeds [approval] -> research-plan -> research -> authority (+ classify, vet, outreach; optional) -> plan -> plan-picture -> approve-targets -> approve-plan -> guard-before -> checker-repo [agent] -> guard-after -> causes-map -> refactor-dry -> refactor-ok [ack] -> refactor -> refactor-merge [ack] -> handoff -> builder [ack --site] -> gate -> deploy [ack --release] -> sitemap-check -> sitemap-submit -> measure-init -> measure-plan -> measure-run -> iterate (optional) |
+
+Three rules added 2026-10-25 for every mode: (1) `--env-file <path>` (or `--dotenv`) loads keys once in start, every stage inherits them, doctor
+is told the file (names only are ever printed); (2) a stage with external calls or agent workers (snapshot, checkers, research, the fix run,
+measure-run, the migrate requests, sitemap check and submit) runs only after `--ack plan-ok --by "<owner name>"` was recorded for the mode, or
+`--yes` was passed with `--go` (recorded as "the main session says the owner agreed"); (3) start writes `<pewp>/runs/<date>-<mode>.md` at every
+end or stop and `runs/<date>-<mode>-<stage>.md` per stage it ran. A forced `--stage` never starts before the approval or acknowledgement an
+earlier stage of the same sequence produces. `approve.mjs` kinds: `targets`, `plan`, `business`, `competitors`, `seeds`.
 `audit <target>` is audit-live for a URL and audit-repo for a path. shipgate's `audit`, `audit --url`, `refactor`, `new`, `compare`, `research`,
 `measure` entry modes map to these (its intake/research/gate/diagnosis names are this skill's doctor/snapshot/checker/report stages).
 

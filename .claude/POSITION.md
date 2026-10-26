@@ -29,6 +29,13 @@
   `tools/site-backup`, the team hooks, `START-TEAM.cmd`) and the panel mod in `~/.claude/dev-mods/.../elev8-tracker`; copy them in
   when the ELEV8 run ends (they are still changing). `skills/programmatic-enterprise-web-performance` here is at 92c540b; the live
   skill is at 2822a78 (overhaul mode): sync on purpose and update `skills/SOURCE.md`. Not committed yet.
+- **2026-10-26 ~20:25 UTC: DONE (owner: "Get what is not on the checklist done in one go").** Copied in: `tools/site-backup/`
+  (newest, no node_modules: run `npm install` there before use; test-urls passes here, test-loaders needs playwright installed),
+  `tools/team-kit/` (hooks, launcher, example roles and boot prompts, README with what to rename), `tools/panel-mods/elev8-tracker/`
+  (+ README). Skill synced 92c540b -> a116b00 (mirror; nothing was platform-only; `skills/SOURCE.md` updated). Measured times added
+  to both SOPs. The IDX wording and credentials Gemini-ack edits committed with them. gitleaks: 2 hits, both fake test keys in the
+  skill's tests (PSIKEY..., BINGKE...; checked against `.secrets/`, no match). `RESUME-SESSION.txt` is another session's file: left
+  untracked.
 
 - **2026-10-26: API keys banked** (owner: "save all creds in a folder in omnikom platform ... gitignored"): `.secrets/api-keys.env`
   (git-ignored by the new `.gitignore`) holds PSI_API_KEY, CRUX_API_KEY (Google Cloud project `omnikom-seo`, key restricted to those

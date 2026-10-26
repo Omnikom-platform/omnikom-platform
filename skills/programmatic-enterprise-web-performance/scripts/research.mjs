@@ -2,16 +2,22 @@
 // <pewp>/targets.json (schemas/targets.md). Each step is also usable alone (research-*.mjs). A step whose source is missing is recorded
 // BLOCKED with what unblocks it and the run goes on; nothing is ever filled from memory. Scripts never prompt and never fetch Google.
 // Usage: node research.mjs <url | repo path> [--cwd DIR] [--dry] [--yes]
-//   seeds:        --service S (repeat) [--pattern P]... [--query Q]...      (or research/seeds.json already there)
-//   demand:       --gsc-property P  --kwp-file F  --bing-max-calls 60  --wiki-title T (repeat)  --forums [--forum-query Q]...
+//   seeds:        --service S (repeat) [--pattern P]... [--query Q]...      (or research/seeds.json already there; with none of these and a business.json
+//                 `vocabulary`, the vocabulary is the service list). The seeds are a PROPOSAL (G3): the demand steps (Bing, forums, the capture list)
+//                 refuse to run (exit 3, "NEEDS-APPROVAL seeds:") unless <pewp>/approved/seeds.json lists the same queries as research/seeds.json
+//                 (node approve.mjs <target> seeds --by NAME) or --yes is given because the owner already agreed. --dry is never blocked.
+//   demand:       --gsc-property P  --kwp-file F  --bing-max-calls 60  [--no-related] [--keep-brands]  --wiki-title T (repeat)  --forums [--forum-query Q]...
+//                 (--no-related: Bing seed volumes only, no related keywords; --keep-brands: keep related keywords that name another site, e.g. zillow)
 //   captures:     --capture-dir DIR (default <pewp>/captures/serp)  --device desktop|mobile (for old text captures)  --use-existing-captures
 //   competitors:  --competitor domain (repeat)  --from-serp (also audit the sites that win the captured results pages; listed in the plan)
-//                 --max-competitors 12  --authority [--authority-cache DIR --authority-release ID]
+//                 --max-competitors 12  --authority [--authority-cache DIR --authority-release ID]  [--approved-competitors FILE]
+//                 When <pewp>/approved/competitors.json exists (the owner-approved list) the audit reads exactly its rows with a domain (plus --competitor);
+//                 --from-serp picks are then only SUGGESTED in the report, never audited.
 //   AI answers:   --gemini [--runs 3 --ai-questions 8 --ai-max-calls 30]  --question Q  (owner captures: <pewp>/captures/ai/)
 //   reuse:        --existing-dir DIR (repeat)  --max-age-days 30
 //   cost:         --dry prints the plan and stops; a plan above --confirm-above (default 150) external calls needs --yes.
 // Exit codes: 0 targets.json written (blocked steps are listed in report.md and state), 1 a step crashed or the output failed its checks,
-//             2 usage, 3 BLOCKED (no intake yet, no query universe, or owner confirmation needed).
+//             2 usage, 3 BLOCKED (no intake yet, no query universe, owner confirmation needed, or NEEDS-APPROVAL seeds).
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -30,6 +36,7 @@ import * as forums from "./research-forums.mjs";
 import * as serp from "./research-serp-import.mjs";
 import * as cluster from "./research-cluster.mjs";
 import * as competitors from "./research-competitors.mjs";
+import { approvedCompetitorRows } from "./research-competitors.mjs";
 import * as ai from "./research-ai.mjs";
 import * as autocomplete from "./research-autocomplete.mjs";
 import * as winners from "./research-winners.mjs";
@@ -37,6 +44,22 @@ import * as assets from "./research-assets.mjs";
 import * as citations from "./research-citations.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+
+// ---------- G3: the demand steps run only on seeds the owner approved ----------
+export class NeedsApproval extends Error { constructor(text) { super(text); this.text = text; } }
+const seedKey = (x) => normQuery(typeof x === "string" ? x : x?.query);
+// { needed, ok, reason, count }: needed = there are seeds to spend calls on; ok = <pewp>/approved/seeds.json lists exactly the queries of research/seeds.json
+export function seedsApproval(ctx) {
+  const doc = readStep(ctx, "seeds"), cur = new Set((doc?.status === "ok" ? doc.queries || [] : []).map(seedKey).filter(Boolean));
+  if (!cur.size) return { needed: false, ok: true, reason: "no seeds yet", count: 0 };
+  const ap = J(path.join(ctx.pewp, "approved", "seeds.json"));
+  if (!ap) return { needed: true, ok: false, reason: "have not been approved: approved/seeds.json does not exist", count: cur.size };
+  const have = new Set((Array.isArray(ap) ? ap : ap.queries || []).map(seedKey).filter(Boolean));
+  const added = [...cur].filter((x) => !have.has(x)), removed = [...have].filter((x) => !cur.has(x));
+  if (!added.length && !removed.length) return { needed: true, ok: true, reason: "approved (approved/seeds.json lists the same queries)", count: cur.size };
+  return { needed: true, ok: false, reason: `differ from the approved list: ${added.length} not approved yet (${added.slice(0, 3).join("; ")}${added.length > 3 ? "; ..." : ""}), ${removed.length} approved but no longer in research/seeds.json`, count: cur.size };
+}
+const needsApprovalText = (ctx, g) => `NEEDS-APPROVAL seeds: the ${g.count} seed queries in research/seeds.json ${g.reason}. Bing, forums and the capture list spend calls and the owner's time on exactly these searches, so the owner approves them first. Show the owner ${path.join(ctx.rdir, "seeds.json")} (every query says where it came from), then run: node approve.mjs ${ctx.loc.target} seeds --by NAME   or, when the owner has already agreed to this list, re-run with --yes. Nothing was fetched.`;
 const GENERIC = new Set("home homes house houses real estate agent agents realtor realtors company companies service services best top near sell buy cash free quote contact".split(" "));
 
 // ---------- helpers for the targets ----------
@@ -197,7 +220,7 @@ export function checkTargets(t) {
 }
 
 // ---------- the plain-words report ----------
-function reportMd(ctx, S, targets, steps, req, why = {}, unmeasured = []) {
+export function reportMd(ctx, S, targets, steps, req, why = {}, unmeasured = []) {
   const b = ctx.business, cl = targets.clusters, f = (x) => (x?.value == null ? "not measured" : Array.isArray(x.value) ? x.value.join(", ") : x.value);
   const tier = cl.filter((c) => c.volume.rank);
   const vol = (x) => (x?.value == null ? "not measured" : typeof x.value === "string" ? `${x.value}, an estimate` : `${x.estimate ? "about " : ""}${x.value}${x.range ? ` (range ${x.range[0]} to ${x.range[1]})` : ""}`);
@@ -218,6 +241,7 @@ function reportMd(ctx, S, targets, steps, req, why = {}, unmeasured = []) {
   if (sharedCl.length) L.push("", `**Shared with another business: owner decides (${sharedCl.length}).** These clusters come from a keyword-map section that names ${[...new Set(sharedCl.flatMap((c) => c.sharedWith))].join(", ")} as well as ${b.name} (for example "${sharedCl[0].primaryQuery}"). They are marked \`sharedWith\` in targets.json; keep, give to the other business, or drop each: ${sharedCl.slice(0, 12).map((c) => c.primaryQuery).join("; ")}${sharedCl.length > 12 ? " ..." : ""}.`);
   const refSec = (S.existing?.refused || []).filter((r) => r.section);
   if (refSec.length) L.push("", `Not imported (a section that names only another business): ${refSec.map((r) => `"${r.section}" in ${path.basename(r.file)}`).join("; ")}.`);
+  if (S.bing?.status === "ok" && Array.isArray(S.bing.droppedOffTopic)) L.push("", `Bing related keywords dropped as off-topic: ${S.bing.droppedOffTopic.length} (see research/bing.json droppedOffTopic)`);
   L.push("", "Priority is computed (demand x intent weight x ease), not measured: transactional and local searches weigh 3, commercial 2, informational 1; ease is 3 when we already rank in the top 20, 2 when a page exists, 1 when it must be built. Use it to order work, not to forecast traffic.", "");
   L.push("## 2. What the results pages look like", "");
   if (!caps.length) L.push("BLOCKED: no captured results pages yet. The main session captures them in the owner's browser (list: research/capture-requests.json).", "");
@@ -228,8 +252,11 @@ function reportMd(ctx, S, targets, steps, req, why = {}, unmeasured = []) {
     cl.filter((c) => !/^NOT CAPTURED/.test(c.serpFeatures.source)).slice(0, 25).forEach((c) => L.push(`| ${c.primaryQuery} | ${c.winningFormat} | ${(c.competitorsTop3.length ? c.competitorsTop3.map((x) => x.domain) : why[c.id]?.topDomains || []).join(", ") || "-"} | ${f(c.serpFeatures) || "none"} |`));
     L.push("");
   }
+  const dm = S.serp?.deviceMismatch;
+  if (dm) L.push(`Captures taken on ${[].concat(dm.captured || []).join(", ")} while rankTracking.devices is ${[].concat(dm.wanted || []).join(", ")}: baseline only, no device claim${dm.count != null ? ` (${dm.count} captures)` : ""}.`, "");
   L.push("## 3. Competitors and authority", "");
   const sites = S.competitors?.sites || [];
+  if (S.competitors?.approvedFile) L.push(`Audited: the owner-approved list (${S.competitors.audited.length} websites from ${S.competitors.approvedRows} rows).${S.competitors.withoutDomain?.length ? ` Kept for the report and the offsite plan, not audited (no website): ${S.competitors.withoutDomain.map((x) => x.handle || x.name).join(", ")}.` : ""}${S.competitors.suggested?.length ? ` Suggested from the captured results pages, NOT audited (not on the approved list): ${S.competitors.suggested.join(", ")}.` : ""}`, "");
   if (!sites.length) L.push("BLOCKED: no competitor audit yet.", "");
   else {
     L.push("| Site | Platform | Schema | FAQ items | City pages | Sitemap URLs | AI search bots blocked |", "|---|---|---|---|---|---|---|");
@@ -292,11 +319,13 @@ export async function run(ctx, o = {}) {
   // 2 seeds
   if (o.services?.length || o.patterns?.length || o.queries?.length) S.seeds = await step("seeds", () => seeds.run(ctx, { services: o.services, patterns: o.patterns, raw: o.queries }), (r) => `${r.queries.length} seed queries`);
   else if (readStep(ctx, "seeds")?.status === "ok") { S.seeds = readStep(ctx, "seeds"); skip("seeds", `${S.seeds.queries.length} seed queries from research/seeds.json`); }
+  else if (Array.isArray(b.vocabulary) && b.vocabulary.some(Boolean)) S.seeds = await step("seeds", () => seeds.run(ctx, {}), (r) => `${r.queries.length} seed queries proposed from the definition vocabulary (the owner approves them)`);
   else skip("seeds", "none given (--service/--query); other sources may still supply queries");
+  if (!o.yes) { const g = seedsApproval(ctx); if (g.needed && !g.ok) throw new NeedsApproval(needsApprovalText(ctx, g)); } // G3: nothing below spends a call on unapproved seeds
   const seedList = (readStep(ctx, "seeds")?.queries || []).map((s) => s.query);
   // 3 demand sources
   S.gsc = await step("Search Console", () => gsc.run(ctx, { property: o.gscProperty }), (r) => `${r.rowCount} rows`);
-  S.bing = await step("Bing Webmaster", () => bing.run(ctx, { seeds: seedList.slice(0, 40), siteStats: true, maxCalls: o.bingMaxCalls ?? 60 }), (r) => `${r.keywords.length} keywords, ${r.calls} calls`);
+  S.bing = await step("Bing Webmaster", () => bing.run(ctx, { seeds: seedList.slice(0, 40), related: o.related !== false, keepBrands: !!o.keepBrands, siteStats: true, maxCalls: o.bingMaxCalls ?? 60 }), (r) => `${r.keywords.length} keywords, ${r.calls} calls`);
   S.kwp = await step("Keyword Planner CSV", () => kwp.run(ctx, { files: o.kwpFiles || [] }), (r) => `${r.keywords.length} keywords`);
   if (o.wikiTitles?.length) S.wiki = await step("Wikipedia pageviews", () => wiki.run(ctx, { titles: o.wikiTitles }), (r) => `${r.entities.length} titles`); else skip("Wikipedia pageviews", "no --wiki-title given");
   if (o.forums || o.forumQueries?.length) S.forums = await step("forum questions", () => forums.run(ctx, { queries: o.forumQueries?.length ? o.forumQueries : seedList.slice(0, 6), subreddits: o.subreddits || [] }), (r) => `${r.questions.length} questions${r.stoppedBy ? ", stopped by " + r.stoppedBy : ""}`); else skip("forum questions", "not requested (--forums)");
@@ -310,8 +339,10 @@ export async function run(ctx, o = {}) {
   S.clusters = await step("clusters", () => cluster.run(ctx, { engine: "google", shared: o.shared ?? 4, maxClusters: o.maxClusters ?? 80 }), (r) => `${r.clusters.length} clusters from ${r.universe} queries`);
   // 6 competitors
   if (S.clusters) {
-    const named = (b.competitors || []).length || (o.competitors || []).length;
-    if (named || (o.competitorsFromSerp && S.serp)) S.competitors = await step("competitor audit", () => competitors.run(ctx, { domains: o.competitors || [], fromSerp: !!(o.competitorsFromSerp && S.serp), max: o.maxCompetitors ?? 12, authority: !!o.authority, authorityCache: o.authorityCache, authorityRelease: o.authorityRelease, maxAgeDays: age }), (r) => `${r.sites.length} sites; authority ${r.authority.status}`);
+    const approvedFile = o.approvedCompetitors ?? approvedCompetitorsFile(ctx);
+    let named = (b.competitors || []).length || (o.competitors || []).length;
+    if (approvedFile) { try { named = approvedCompetitorRows(approvedFile).domains.length + (o.competitors || []).length; } catch { named = 1; } } // an unreadable file: let the step report it
+    if (named || (o.competitorsFromSerp && S.serp)) S.competitors = await step("competitor audit", () => competitors.run(ctx, { domains: o.competitors || [], approvedFile, fromSerp: !!(o.competitorsFromSerp && S.serp), max: o.maxCompetitors ?? 12, authority: !!o.authority, authorityCache: o.authorityCache, authorityRelease: o.authorityRelease, maxAgeDays: age }), (r) => `${r.sites.length} sites; authority ${r.authority.status}`);
     else skip("competitor audit", "no named competitors; add --from-serp to audit the sites that win the captured results pages (they are listed in the plan first)");
   }
   // 6b winner pages: the pages that already rank (needs --from-serp to fetch; otherwise the competitor audits already cached)
@@ -377,26 +408,31 @@ export function captureRequests(ctx, S, o) {
   return { generatedAt: iso(), autocompleteRequests, rules: "one page at a time, at least 45 s apart, stop at the first robot check, never sign in or accept terms, record date/browser/location/device in each file", saveAs: "<pewp>/captures/serp/<id>.<engine>.json and <pewp>/captures/ai/<id>.json (formats in stages/research.md)", paceSeconds: 45, count: items.length, items: items.slice(0, cap), truncated: Math.max(0, items.length - cap), estimatedMinutes: Math.ceil((Math.min(items.length, cap) * 45) / 60), aiRequests };
 }
 
+export const approvedCompetitorsFile = (ctx) => { const f = path.join(ctx.pewp, "approved", "competitors.json"); return fs.existsSync(f) ? f : null; };
 export function plannedCompetitors(ctx, o) {
+  const approvedFile = o.approvedCompetitors ?? approvedCompetitorsFile(ctx);
+  if (approvedFile) { try { return [...new Set([...approvedCompetitorRows(approvedFile).domains, ...(o.competitors || [])])]; } catch { return [...(o.competitors || [])]; } } // the approved list is audited whole (--max-competitors does not cut it)
   const named = [...(o.competitors || []), ...(ctx.business.competitors || [])];
   return [...new Set(o.competitorsFromSerp ? competitors.pickCompetitors(ctx, { max: o.maxCompetitors ?? 12, extra: named }) : named)].slice(0, o.maxCompetitors ?? 12);
 }
 
 export function planText(ctx, o) {
   const b = ctx.business;
-  const seedN = (o.services?.length || 0) * Math.max(1, knownPlaces(b).length) * (o.patterns?.length || 2) + (o.queries?.length || 0) + (readStep(ctx, "seeds")?.queries?.length || 0);
-  const calls = { "Search Console": 3, "Bing Webmaster": Math.min(o.bingMaxCalls ?? 60, seedN * 2 || 0) + 1, Wikipedia: o.wikiTitles?.length || 0, Reddit: o.forums || o.forumQueries?.length ? 12 : 0, "competitor sites (1 request/s each, ~14 requests)": plannedCompetitors(ctx, o).length * 14, "winner pages (robots + page each)": o.competitorsFromSerp ? (winners.plannedWinnerUrls(ctx, { perCluster: o.winnersPerCluster ?? 3, topClusters: o.winnerClusters ?? 10, maxPages: o.winnerPages ?? 20 })?.length ?? 0) * 2 : 0, "Gemini grounded runs": o.gemini ? (o.aiMaxCalls ?? 30) : 0 };
+  const seedN = (o.services?.length || (Array.isArray(b.vocabulary) ? b.vocabulary.filter(Boolean).length : 0)) * Math.max(1, knownPlaces(b).length) * (o.patterns?.length || 2) + (o.queries?.length || 0) + (readStep(ctx, "seeds")?.queries?.length || 0);
+  const calls = { "Search Console": 3, "Bing Webmaster": Math.min(o.bingMaxCalls ?? 60, seedN * (o.related === false ? 1 : 2) || 0) + 1, Wikipedia: o.wikiTitles?.length || 0, Reddit: o.forums || o.forumQueries?.length ? 12 : 0, "competitor sites (1 request/s each, ~14 requests)": plannedCompetitors(ctx, o).length * 14, "winner pages (robots + page each)": o.competitorsFromSerp ? (winners.plannedWinnerUrls(ctx, { perCluster: o.winnersPerCluster ?? 3, topClusters: o.winnerClusters ?? 10, maxPages: o.winnerPages ?? 20 })?.length ?? 0) * 2 : 0, "Gemini grounded runs": o.gemini ? (o.aiMaxCalls ?? 30) : 0 };
   const total = Object.values(calls).reduce((s, n) => s + n, 0);
   const text = [`PLAN research ${ctx.loc.target}`, `  stages: existing research, seeds, Search Console, Bing, Keyword Planner CSV, Wikipedia, forums, SERP capture import, autocomplete import, clusters, competitor audit${o.authority ? " + authority (disk, 15-30 min)" : ""}, winner pages, AI citations, asset ideas, citation sources, targets + report`,
     ...(o.competitorsFromSerp ? [`  winner pages to audit (--from-serp, robots first, 1 request/s per site, hard page budget ${o.winnerPages ?? 20}): ${(winners.plannedWinnerUrls(ctx, { perCluster: o.winnersPerCluster ?? 3, topClusters: o.winnerClusters ?? 10, maxPages: o.winnerPages ?? 20 }) || []).join(", ") || "(listed once the captures are imported and clustered)"}`] : []),
+    `  seeds: ${(() => { const g = seedsApproval(ctx); return g.needed ? `${g.count} in research/seeds.json, ${g.ok ? "owner-approved" : "NOT approved (the demand steps need approved/seeds.json or --yes)"}` : "none written yet"; })()}`,
     "  workers: 0 (scripts only; the main session captures results pages and AI answers in the owner's browser)", `  external calls, upper bound: ${Object.entries(calls).filter(([, n]) => n).map(([k, n]) => `${k} ${n}`).join(", ") || "none"} (total ${total}); model tokens: none for the scripts`, "  cost in money: $0 (free sources only)", `  competitor sites to audit (robots.txt first, 1 request/s, stop at the first 403/429): ${plannedCompetitors(ctx, o).join(", ") || "none"}`].join("\n");
   return { text, total };
 }
 
-await runCli(import.meta.url, "node research.mjs <url | repo path> [--dry] [--yes] [options: see the top of the file]", ["dry", "yes", "forums", "authority", "gemini", "use-existing-captures", "from-serp"], async (a) => {
+await runCli(import.meta.url, "node research.mjs <url | repo path> [--dry] [--yes] [options: see the top of the file]", ["dry", "yes", "forums", "authority", "gemini", "use-existing-captures", "from-serp", "no-related", "keep-brands"], async (a) => {
   const ctx = context(a._[0], { cwd: a.get("cwd") || process.cwd() });
   needBusiness(ctx);
   const o = {
+    yes: a.has("yes"), related: !a.has("no-related"), keepBrands: a.has("keep-brands"), approvedCompetitors: a.get("approved-competitors") || undefined,
     services: a.all("service"), patterns: a.all("pattern"), queries: a.all("query"), gscProperty: a.get("gsc-property"), kwpFiles: a.all("kwp-file"), bingMaxCalls: a.num("bing-max-calls", 60), wikiTitles: a.all("wiki-title"),
     forums: a.has("forums"), forumQueries: a.all("forum-query"), subreddits: a.all("subreddit"), captureDirs: a.all("capture-dir"), device: a.get("device"), useExistingCaptures: a.has("use-existing-captures"),
     competitors: a.all("competitor"), competitorsFromSerp: a.has("from-serp"), winnerPages: a.num("winner-pages", 20), winnersPerCluster: a.num("winner-per-cluster", 3), winnerClusters: a.num("winner-clusters", 10), existingAliases: a.all("existing-alias"), maxCompetitors: a.num("max-competitors", 12), authority: a.has("authority"), authorityCache: a.get("authority-cache"), authorityRelease: a.get("authority-release"),
@@ -406,7 +442,8 @@ await runCli(import.meta.url, "node research.mjs <url | repo path> [--dry] [--ye
   console.log(plan.text);
   if (a.has("dry")) return "DRY RUN: nothing fetched.";
   if (plan.total > a.num("confirm-above", 150) && !a.has("yes")) throw new Blocked(`the plan is ${plan.total} external calls, above ${a.num("confirm-above", 150)}: the owner approves it, then re-run with --yes`);
-  const r = await run(ctx, o);
+  let r;
+  try { r = await run(ctx, o); } catch (e) { if (e instanceof NeedsApproval) { console.log(e.text); process.exitCode = 3; return; } throw e; }
   for (const s of r.steps) console.log(`  ${s.status.toUpperCase().padEnd(8)} ${s.step}${s.note ? ": " + s.note : ""}${s.unblock ? "\n           BLOCKED: " + s.unblock : ""}${s.error ? "\n           ERROR: " + s.error : ""}`);
   if (r.status !== "ok") { process.exitCode = 1; return; } // exitCode, not process.exit(): see research-lib.mjs runCli
   if (r.steps.some((s) => s.status === "failed")) { console.log(`PARTIAL: ${r.steps.filter((s) => s.status === "failed").length} step(s) FAILED (see above); targets written from what ran`); }

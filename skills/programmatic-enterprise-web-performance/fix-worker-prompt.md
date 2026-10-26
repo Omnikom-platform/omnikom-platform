@@ -9,6 +9,9 @@ Where to fix it (the place the defect is made, per the checker): {{FIX_AT}}
 Findings that make up this cause (read the rows; `file:line` and `root cause` columns say where to look):
 {{FINDINGS}}
 
+## Live evidence
+{{LIVE}}
+
 ## How your fix is judged (the coordinator does this itself, afterwards; your "done" is only a claim)
 1. The coordinator rebuilds the site with `{{BUILD}}` and runs these check scripts: {{CHECKS}}. Each must go from FAIL to PASS.
 2. It then runs EVERY check of the site. Any check that passed before and does not pass now makes your fix REGRESSED and it is thrown away, even if your own checks pass.
@@ -23,6 +26,7 @@ Findings that make up this cause (read the rows; `file:line` and `root cause` co
 - **Binding project decisions.** {{DECISIONS}}
 - **A fix that needs people is not a fix.** If the defect needs content only the client has (real photos, licence numbers, testimonials, legal wording, prices) or an owner decision, do not invent it. Write one plain sentence saying what is needed and from whom into `{{OUT_DIR}}/NEEDS-PEOPLE.txt` and stop. Placeholder text is a lie on a live site.
 - If a correct fix would break something else you can see (a check that passes now), find a fix that does not, or stop and say so in your last message.
+- **A cause that comes from the live site.** If the section "Live evidence" says so, the defect was found in the pages as served and nobody knows which source file makes it: finding that file is part of the job, and your final line names every file you changed. Such a cause has no repo check. It is proven only by the live check scripts listed there: after the rebuild the coordinator runs each one as `node <check> <built output folder>` and the cause is FIXED only if every one prints PASS. A check that prints `cannot judge` cannot prove anything, so the cause is NEEDS-PROOF, not FIXED: say in your last message which check it was. Do not make a live check pass by writing the text it looks for in the wrong place; fix what produces the page. The copies of the live scripts under `.checks/refactor/` are for reading and for your own runs; the coordinator uses the originals.
 - **A fix that creates a new artefact** (sitemap, robots.txt, a feed, JSON-LD, `_headers`, redirects, llms.txt) must meet every rule that governs that artefact, not only "it now exists". Before writing it, grep the checklist (`{{CHECKLIST}}`) for the artefact's name (e.g. `sitemap`, `lastmod`, `robots`, `JSON-LD`, `_headers`) and satisfy every rule you find. No check script judged those rules at the audit (the artefact did not exist), so the coordinator judges them after you: it builds the site **twice** and rejects any date that moves between two builds of the same commit (IDX-003, AEO-012), and the built-in check `check-builtin-se004-idx003-sitemap-lastmod.mjs` fails a date-only or timezone-less lastmod (SE-004) and a sitemap whose URLs all share one lastmod near the build time.
 - **Dates written into output are content dates**: the source file's change time, a committed ledger (for example `lastmod.json` with each page's content fingerprint and date, seeded from each source's git change time `git log -1 --format=%cI -- <file>`, never from the clock), or a post's own date. Never `new Date()` / `Date.now()` / the clock at build time. Sitemap `<lastmod>` is `YYYY-MM-DDThh:mm:ssZ` (seconds and a timezone).
 

@@ -1,9 +1,14 @@
-// Usage: node test-snapshot.mjs [--script <path to snapshot-site.mjs>] [--no-browser]
+// Usage: node test-snapshot.mjs [--script <path to snapshot-site.mjs>] [--no-browser] [--no-mutants] [--mutant <name part>]
 // Runs snapshot-site.mjs against a local fake site and checks what it saved. Exit 0 = all pass.
 // Covers: robots.txt obeyed, sitemap read, 429 waits and retries once, a second 429 stops the run (exit 3), the 429 allowance is
 // per run (a 429 on another address is the second), --gap-ms holds between every request, bad numbers / impolite gaps are exit 2,
 // redirect chain recorded, 404 probe, a 300 KB inline script elided so the page fits, JSON-LD kept,
 // and (unless --no-browser) real Chrome lab numbers on the home page.
+// G9 (machine load, contract C8; needs Chrome): PEWP_TEST_CPU_PCT is the sampler's test hook (a fixed reading instead of os.cpus()). Busy ->
+// every measured page speedTrust "UNTRUSTED: machine busy (cpu avg N%)" and the summary line says UNTRUSTED; idle -> "trusted";
+// --busy-threshold moves the line; a real reading is a number 0..100; --no-browser samples nothing (machineLoad null).
+// Watched-fail mutants for G9 (a copy of the scripts folder is patched, the G9 runs repeated, the named assertions must turn red):
+// threshold ignored (per page / in the summary / in _site.json), untrusted never marked, summary line gone. Not run with --no-browser.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -58,10 +63,10 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-snap-test-"));
 const results = [];
 const check = (name, ok, detail = "") => results.push({ name, ok: !!ok, detail });
 const run = (out, extra) => runRaw([base, out, "--gap-ms", "0", "--retry-wait-ms", "300", "--per-group", "5", ...extra]);
-const runRaw = (argv) => new Promise((resolve) => {
+const runRaw = (argv, o = {}) => new Promise((resolve) => {
   // spawnSync would block this process's own server, so run it async.
   import("node:child_process").then(({ spawn }) => {
-    const c = spawn(process.execPath, [script, ...argv], { stdio: ["ignore", "pipe", "pipe"] });
+    const c = spawn(process.execPath, [o.script || script, ...argv], { stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, ...(o.env || {}) } });
     let so = "", se = "";
     c.stdout.on("data", (d) => (so += d)); c.stderr.on("data", (d) => (se += d));
     // A crawler that never stops (for example one that retries 429s forever) must fail the test, not hang it.
@@ -70,6 +75,29 @@ const runRaw = (argv) => new Promise((resolve) => {
   });
 });
 const J = (p) => JSON.parse(fs.readFileSync(p, "utf8"));
+// ---- G9: the machine-load scenarios; run against the real script and again against each mutant ----
+async function g9(scriptPath, tag) {
+  const out = [];
+  const ck = (name, ok, detail = "") => out.push({ name, ok: !!ok, detail });
+  const go = async (n, cpu, extra = []) => {
+    const o = path.join(tmp, `g9-${tag}-${n}`);
+    const r = await runRaw([base, o, "--gap-ms", "0", "--retry-wait-ms", "300", "--runs", "1", "--max-pages", "1", ...extra], { script: scriptPath, env: { PEWP_TEST_CPU_PCT: String(cpu) } });
+    const sj = fs.existsSync(path.join(o, "_site.json")) ? J(path.join(o, "_site.json")) : { pages: [] };
+    return { r, sj, measured: sj.pages.filter((p) => p.mobile && !p.mobile.failed) };
+  };
+  const line = (r) => r.so.split("\n").filter((l) => /machine load/.test(l)).join(" | ") || "no summary line";
+  const busy = await go("busy", 90);
+  ck("G9 busy machine: exit 0, at least one page measured", busy.r.code === 0 && busy.measured.length >= 1, `exit ${busy.r.code} ${busy.r.se.slice(0, 200)}`);
+  ck("G9 busy machine: machineLoad = { cpuPctAvg 90, cpuPctMax 90, samples >= 1, thresholdPct 35 }", busy.sj.machineLoad?.cpuPctAvg === 90 && busy.sj.machineLoad?.cpuPctMax === 90 && busy.sj.machineLoad?.samples >= 1 && busy.sj.machineLoad?.thresholdPct === 35, JSON.stringify(busy.sj.machineLoad));
+  ck("G9 busy machine: every measured page is speedTrust \"UNTRUSTED: machine busy (cpu avg 90%)\"", busy.measured.length >= 1 && busy.measured.every((p) => p.speedTrust === "UNTRUSTED: machine busy (cpu avg 90%)"), JSON.stringify(busy.measured.map((p) => p.speedTrust)));
+  ck("G9 busy machine: summary line says UNTRUSTED", /machine load during speed runs: avg 90% max 90% -> speed UNTRUSTED/.test(busy.r.so), line(busy.r));
+  const idle = await go("idle", 10);
+  ck("G9 idle machine: every measured page is speedTrust \"trusted\"", idle.r.code === 0 && idle.measured.length >= 1 && idle.measured.every((p) => p.speedTrust === "trusted"), `exit ${idle.r.code} ${JSON.stringify(idle.measured.map((p) => p.speedTrust))}`);
+  ck("G9 idle machine: summary line says trusted and machineLoad avg 10", /machine load during speed runs: avg 10% max 10% -> speed trusted/.test(idle.r.so) && idle.sj.machineLoad?.cpuPctAvg === 10, line(idle.r));
+  const thr = await go("thr", 50, ["--busy-threshold", "60"]);
+  ck("G9 --busy-threshold 60 with load 50: trusted, thresholdPct 60 recorded, summary trusted", thr.measured.length >= 1 && thr.measured.every((p) => p.speedTrust === "trusted") && thr.sj.machineLoad?.thresholdPct === 60 && /-> speed trusted/.test(thr.r.so), `${JSON.stringify(thr.measured.map((p) => p.speedTrust))} ${JSON.stringify(thr.sj.machineLoad)}`);
+  return out;
+}
 try {
   const o1 = path.join(tmp, "one");
   const r1 = await run(o1, ["--include", "/flaky,/redirect", ...(browser ? [] : ["--no-browser"])]);
@@ -101,11 +129,18 @@ try {
     check("browser: service workers recorded for REF-013", swf && Array.isArray(swf.registrations) && swf.registrations.some((r) => /sw\.js$/.test(r.scriptURL)), JSON.stringify(swf));
   }
   check("excludes recorded in _site.json", Array.isArray(site.excludes));
+  if (browser) {
+    const ml = site.machineLoad, pg = site.pages.filter((p) => p.mobile && !p.mobile.failed);
+    check("G9 real sampler (no test hook): machineLoad has a 0..100 average and max, samples >= 1, thresholdPct 35", ml && ml.samples >= 1 && ml.cpuPctAvg >= 0 && ml.cpuPctAvg <= 100 && ml.cpuPctMax >= ml.cpuPctAvg && ml.cpuPctMax <= 100 && ml.thresholdPct === 35, JSON.stringify(ml));
+    check("G9 real sampler: every measured page carries speedTrust (trusted or UNTRUSTED: machine busy ...)", pg.length >= 1 && pg.every((p) => /^(trusted|UNTRUSTED: machine busy \(cpu avg \d+%\))$/.test(p.speedTrust)), JSON.stringify(pg.map((p) => p.speedTrust)));
+    check("G9 real sampler: the run printed its machine-load summary line", /machine load during speed runs: avg \d+% max \d+% -> speed (trusted|UNTRUSTED)/.test(r1.so), r1.so.split("\n").filter((l) => /machine load|SNAPSHOT/.test(l)).join(" | "));
+  }
   // An off-limits path listed as a sitemap in robots.txt must not be fetched either.
   const o5 = path.join(tmp, "five");
   const before5 = offLimitsHits;
   const r5 = await run(o5, ["--exclude", "^/offlimits", "--no-browser", "--max-pages", "2"]);
   check("--exclude covers sitemaps from robots.txt (never requested)", r5.code === 0 && offLimitsHits === before5, `exit ${r5.code}; off-limits requests ${offLimitsHits - before5}`);
+  check("G9 --no-browser: no speed runs, so nothing is sampled (machineLoad null, no summary line, no speedTrust)", J(path.join(o5, "_site.json")).machineLoad === null && !/machine load/.test(r5.so) && !J(path.join(o5, "_site.json")).pages.some((p) => "speedTrust" in p), JSON.stringify(J(path.join(o5, "_site.json")).machineLoad));
   const o3 = path.join(tmp, "three");
   const before = hits;
   const r3 = await run(o3, ["--exclude", "^C:/Program Files/Git/private", "--no-browser"]);
@@ -164,6 +199,34 @@ try {
   const r6 = await run(o6, ["--max-minutes", "0", "--no-browser"]);
   const s6 = J(path.join(o6, "_site.json"));
   check("--max-minutes caps the server pass too (exit 4, nothing requested past the cap)", r6.code === 4 && /time cap/.test(s6.stoppedEarly || "") && hits === hits6 && s6.pages.length === 0, `exit ${r6.code} ${s6.stoppedEarly}; ${hits - hits6} requests`);
+  if (browser) {
+    for (const r of await g9(script, "real")) check(r.name, r.ok, r.detail);
+    // ---- watched-fail mutants for G9 ----
+    const MUTANTS = [
+      { name: "threshold ignored per page (35 hard-coded)", from: "avg > busyPct ? `UNTRUSTED: machine busy", to: "avg > 35 ? `UNTRUSTED: machine busy", expect: [/^G9 --busy-threshold 60/] },
+      { name: "threshold ignored: nothing is ever UNTRUSTED", from: "avg > busyPct ? `UNTRUSTED: machine busy", to: "avg > 1e9 ? `UNTRUSTED: machine busy", expect: [/^G9 busy machine: every measured page/] },
+      { name: "threshold ignored in the summary line", from: 'avg > busyPct ? "UNTRUSTED" : "trusted"', to: 'avg > 35 ? "UNTRUSTED" : "trusted"', expect: [/^G9 --busy-threshold 60/] },
+      { name: "the option --busy-threshold is not read", from: 'busyPct = num("--busy-threshold", 35, { min: 0 });', to: "busyPct = 35;", expect: [/^G9 --busy-threshold 60/] },
+      { name: "machineLoad thresholdPct not recorded", from: "samples: v.length, thresholdPct: busyPct };", to: "samples: v.length };", expect: [/^G9 busy machine: machineLoad/, /^G9 --busy-threshold 60/] },
+      { name: "summary line removed", from: 'if (v.length) log(`machine load during speed runs:', to: 'if (v.length) void (`machine load during speed runs:', expect: [/^G9 busy machine: summary line/, /^G9 idle machine: summary line/] },
+      { name: "speedTrust never written on the page", from: "e.speedTrust = trustOf(sampler.avgSince(pageStart));", to: "void trustOf(sampler.avgSince(pageStart));", expect: [/^G9 busy machine: every measured page/, /^G9 idle machine: every measured page/] },
+    ];
+    const bad = results.filter((r) => !r.ok && /^G9 /.test(r.name)).length; // mutants run when the G9 assertions are green (an unrelated timing check may flake on a loaded machine)
+    if (!bad && !args.includes("--no-mutants")) {
+      const opt = (k) => (args.includes(k) ? args[args.indexOf(k) + 1] : null);
+      let n = 0;
+      for (const mu of MUTANTS.filter((m) => !opt("--mutant") || m.name.includes(opt("--mutant")))) {
+        const mdir = fs.mkdtempSync(path.join(tmp, "mutant-")), sdir = path.join(mdir, "scripts");
+        fs.cpSync(path.dirname(script), sdir, { recursive: true, filter: (p) => !/[\\/]test-[^\\/]*$/.test(p) });
+        const target = path.join(sdir, path.basename(script)), src = fs.readFileSync(target, "utf8"), count = src.split(mu.from).length - 1;
+        if (count !== 1) { check(`mutant "${mu.name}": the patch applied (target found once)`, false, `found ${count} times`); continue; }
+        fs.writeFileSync(target, src.replace(mu.from, () => mu.to));
+        let res; try { res = await g9(target, `m${n++}`); } catch (e) { res = [{ name: `crashed: ${e.message}`, ok: false }]; }
+        const red = res.filter((r) => !r.ok), missing = mu.expect.filter((re) => !red.some((r) => re.test(r.name)));
+        check(`mutant "${mu.name}" is caught: ${red.length} G9 assertion(s) red, the expected ones among them`, red.length > 0 && !missing.length, `red: ${red.map((r) => r.name.slice(0, 60)).join(" | ") || "none (survived)"}; expected red but green: ${missing.map(String).join(" ")}`);
+      }
+    }
+  }
 } finally {
   server.close();
   fs.rmSync(tmp, { recursive: true, force: true });

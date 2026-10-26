@@ -1,7 +1,7 @@
 // refactor mode driver: fix the root causes of an audit on a git branch, prove each fix, never touch main.
 // Usage: node refactor.mjs <site root> --build "<build command>" | --no-build
 //          [--setup "<cmd run once in every worktree, e.g. npm ci>"] [--causes C01,C03] [--people C04,C07]
-//          [--parallel 3] [--timeout-min 30] [--build-timeout-min 10] [--model sonnet] [--effort high]
+//          [--parallel 3 | --max-parallel 3] [--project-merges] [--live-root <subfolder>] [--no-setup] [--timeout-min 30] [--build-timeout-min 10] [--model sonnet] [--effort high]
 //          [--worktrees <dir outside the repo>] [--date YYYY-MM-DD] [--worker-script <file>] [--dry]
 //          [--max-workers 12] [--yes] [--decisions <binding decisions file>]... (DECISIONS.md at the site root / repo top is found by itself)
 //          [--visual [--visual-dir <subfolder of the site root that holds the built HTML>] [--visual-max-diff 0.001] [--visual-groups 40]
@@ -14,6 +14,16 @@
 //             is built a second time at the baseline, and once more after every merge onto the combined branch: a date field (sitemap
 //             lastmod, JSON-LD dateModified, ...) that moves between two builds of the same commit is the build clock, and a merge that
 //             brings that in is rejected like a regression. A baseline that already fails is a pre-existing finding, not a regression.
+//          --max-parallel N   same as --parallel (the overhaul start passes this name; with both, the smaller wins)
+//          --project-merges   the project merges only through its own gate (CI green, never a direct merge): the integration branch is still
+//             prepared and the report's closing lines say so instead of suggesting a merge command. Nothing else changes.
+//          --no-setup         accepted and ignored (the overhaul start passes it as a recorded answer: there is no setup command)
+//          --live-root <sub>  the folder (under the site root) that holds the built output; the live check scripts of origin:"live" causes
+//             are run against it (default: the site root)
+// Causes from a LIVE audit (causes-map.mjs): origin:"live" causes carry liveChecks (absolute paths of the live audit's check scripts) and no
+//   repo check. Proof = after the rebuild each live check is run as `node <check> <built output root>`: all PASS -> FIXED; a check that
+//   cannot judge (exit 2: the script is missing, or it expects a different folder layout) -> NEEDS-PROOF with its own line, never FIXED;
+//   any FAIL -> NOT FIXED. A repo cause with liveEvidence is proven by its repo checks as before; the live evidence is only told to the worker.
 // Needs <site root>/.checks/{causes.json,run-all.mjs,scripts/} from an audit (coordinator.md) and a git repo.
 // What it does (stages/refactor.md has the full contract):
 //   1. integration worktree on a NEW branch pewp/refactor-<date>; build; baseline = run-all before any fix
@@ -35,7 +45,7 @@ import { rebuildAndJudge, newFailures, plainReason, formatLines, gitRun, runShel
 
 const skill = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const A = process.argv.slice(2);
-const VALUE_FLAGS = new Set(["--build", "--setup", "--causes", "--people", "--parallel", "--timeout-min", "--build-timeout-min", "--model", "--effort", "--worktrees", "--date", "--worker-script", "--max-workers", "--decisions", "--visual-dir", "--visual-max-diff", "--visual-groups", "--visual-allow", "--visual-allow-file", "--visual-mask"]);
+const VALUE_FLAGS = new Set(["--build", "--setup", "--causes", "--people", "--parallel", "--max-parallel", "--live-root", "--timeout-min", "--build-timeout-min", "--model", "--effort", "--worktrees", "--date", "--worker-script", "--max-workers", "--decisions", "--visual-dir", "--visual-max-diff", "--visual-groups", "--visual-allow", "--visual-allow-file", "--visual-mask"]);
 const opt = (k, d = null) => (A.includes(k) ? A[A.indexOf(k) + 1] : d);
 const positional = A.filter((x, i) => !x.startsWith("--") && !VALUE_FLAGS.has(A[i - 1]));
 const die = (msg, code = 2) => { console.error(msg); process.exit(code); };
@@ -45,7 +55,11 @@ const siteRoot = path.resolve(positional[0]);
 const buildCmd = opt("--build");
 const setupCmd = opt("--setup");
 if (!buildCmd && !A.includes("--no-build")) die("refactor needs --build \"<command that regenerates the site>\" (the check only means something after a rebuild) or --no-build for a site with no generator");
-const parallel = Math.max(1, Number(opt("--parallel", 3)));
+// --max-parallel is the overhaul start's name for --parallel; if both are given the smaller wins (never more workers than either allows)
+const parVals = ["--parallel", "--max-parallel"].filter((k) => A.includes(k)).map((k) => Number(opt(k))).filter((v) => Number.isFinite(v));
+const parallel = Math.max(1, parVals.length ? Math.min(...parVals) : 3);
+const projectMerges = A.includes("--project-merges");
+const liveRootSub = opt("--live-root") || ".";
 const timeoutMs = Number(opt("--timeout-min", 30)) * 60_000;
 const buildTimeoutMs = Number(opt("--build-timeout-min", 10)) * 60_000;
 const model = opt("--model", "sonnet");
@@ -153,6 +167,26 @@ const peopleReason = (c, extra) => {
   return m ? `the fix text asks for people ("${m[0]}")` : null;
 };
 
+// ---------- causes from the live audit (causes-map.mjs) ----------
+const isLive = (c) => c.origin === "live";
+const fixAtList = (c) => (Array.isArray(c.fixAt) ? c.fixAt : c.fixAt ? [c.fixAt] : []);
+// -> { present: [abs path], missing: [abs path] } of the live check scripts a live cause names
+const liveFiles = (c) => {
+  const all = (c.liveChecks || []).map((p) => path.resolve(siteRoot, p));
+  return { present: all.filter((p) => fs.existsSync(p)), missing: all.filter((p) => !fs.existsSync(p)) };
+};
+// One live check against a built output root. exit 0 = PASS, 1 = FAIL, anything else (exit 2, a crash, a timeout) = it cannot judge there.
+function runLiveCheck(root, script) {
+  const dir = path.resolve(root, liveRootSub);
+  const r = spawnSync(process.execPath, [script, dir], { cwd: fs.existsSync(dir) ? dir : root, encoding: "utf8", timeout: 60_000, maxBuffer: 32 * 1024 * 1024, windowsHide: true });
+  const line = ((r.stdout || "").trim().split("\n")[0] || (r.stderr || "").trim().split("\n")[0] || "").slice(0, 200);
+  if (r.error) return { script, status: "cannot", line: r.error.code === "ETIMEDOUT" ? "timed out after 60 s" : String(r.error.code || r.error.message) };
+  return { script, status: r.status === 0 ? "pass" : r.status === 1 ? "fail" : "cannot", line };
+}
+const runLiveAll = (c, root) => liveFiles(c).present.map((p) => runLiveCheck(root, p));
+const liveWord = { pass: "pass", fail: "open", cannot: "cannot judge" };
+const liveBase = new Map(); // live cause id -> [{ script, status, line }] on the untouched code (filled after the baseline build)
+
 // A worker runs under the job-object supervisor (lib-freshness supervised): killing the supervisor ends the worker's whole tree,
 // the shells and their children included (`taskkill /T` alone misses Git Bash children). Without the supervisor: taskkill /T.
 function killTree(child, isSupervised) {
@@ -201,8 +235,11 @@ const workerArgs = (wtRoot) => [
 // baseline (below), so a cause whose checks already pass on the last commit never takes a slot (batch 2 on proposals/vtv
 // ran 2 workers of 12 because fixed causes filled the batch). An explicit --causes list over the cap is refused up front.
 const maxWorkers = Number(opt("--max-workers") || 12);
+// takes no worker slot: a repo cause when all its checks pass at the baseline; a live cause when none of its live checks FAILS there (all pass: nothing to fix; all cannot judge: no fix could be proven; liveBase is filled by then)
+const alreadyPassing = (c) => (isLive(c) ? !(liveBase.get(c.id) || []).some((x) => x.status === "fail") : (c.scripts || []).length > 0 && c.scripts.every((s) => baseMap.get(s) === "pass"));
 const sevRank = { critical: 0, high: 1, medium: 2, low: 3 };
-const runnableNow = causes.filter((c) => c.scripts?.length && !peopleReason(c, extraPeople));
+const provable = (c) => c.scripts?.length || (isLive(c) && liveFiles(c).present.length);
+const runnableNow = causes.filter((c) => provable(c) && !peopleReason(c, extraPeople));
 if (only.length && runnableNow.length > maxWorkers && !A.includes("--yes")) die(`${runnableNow.length} fix workers requested, over the cost stop of ${maxWorkers}: pass fewer --causes, or --yes after the owner agrees`);
 let deferred = [];
 
@@ -219,9 +256,13 @@ const outsideAtStart = [...fp0.outside.keys()];
 if (dirtyAtStart.length) die(`refusing to start: ${dirtyAtStart.length} uncommitted change(s) under ${rel(siteRoot)} (${dirtyAtStart.slice(0, 5).join(", ")}${dirtyAtStart.length > 5 ? ", ..." : ""}). The fix worktrees start from the last commit, so the proof would not be about the code you see. Commit or stash them, then run again.`);
 
 if (dry) {
-  const runnable = causes.filter((c) => c.scripts?.length && !peopleReason(c, extraPeople));
+  const runnable = causes.filter((c) => provable(c) && !peopleReason(c, extraPeople));
   console.log(`DRY refactor ${siteRoot}\n  branch ${branch} (new), worktrees under ${wtBase}, base ${baseSha.slice(0, 8)} on ${baseBranch}`);
   console.log(`  ${causes.length} root causes: ${runnable.length} would get a fix worker (Sonnet, ${effort} effort, cap ${parallel} at once, ${timeoutMs / 60000} min each), ${causes.length - runnable.length} skipped (needs people / no check)`);
+  const liveCs = causes.filter(isLive);
+  console.log(`  causes by origin: ${causes.length - liveCs.length} repo (${causes.filter((c) => c.liveEvidence).length} with live evidence), ${liveCs.length} live`);
+  for (const c of liveCs) console.log(`    ${c.id} [origin live, ${c.severity}] ${String(c.problem).slice(0, 80)}; live checks: ${liveFiles(c).present.length} found, ${liveFiles(c).missing.length} missing; source file: unknown`);
+  console.log(`  merges: ${projectMerges ? "through the project's own gate (--project-merges); the integration branch is still prepared" : "left to the owner (a branch is prepared, nothing is merged)"}`);
   console.log(`  build: ${buildCmd || "none"}${setupCmd ? `; setup: ${setupCmd}` : ""}; worker: ${workerScript ? `stand-in ${workerScript}` : `claude ${workerArgs("<worktree>").join(" ")}`}`);
   console.log(`  worker cap: ${maxWorkers} per run; a cause whose checks already pass at the baseline takes no slot (the exact batch is chosen after the baseline build)`);
   console.log(`  binding decisions read by every worker: ${decisionFiles.map(rel).join(", ") || "none (pass --decisions <file>; DECISIONS.md at the site root or repo top is found by itself)"}`);
@@ -233,7 +274,7 @@ if (dry) {
 
 // ---------- worktrees ----------
 const results = new Map();
-const mkResult = (c, extra) => ({ id: c.id, severity: c.severity, problem: c.problem, fix: c.fix, fixAt: c.fixAt, rules: c.rules, pages: c.pages, verdict: null, reason: "", checks: [], alsoFixed: [], regressed: [], newlyFailing: [], files: [], commit: null, ...extra });
+const mkResult = (c, extra) => ({ id: c.id, origin: isLive(c) ? "live" : "repo", liveEvidence: !!c.liveEvidence, severity: c.severity, problem: c.problem, fix: c.fix, fixAt: c.fixAt, rules: c.rules, pages: c.pages, verdict: null, reason: "", checks: [], alsoFixed: [], regressed: [], newlyFailing: [], files: [], commit: null, ...extra });
 const wtRootOf = (wt) => (prefix ? path.join(wt, prefix) : wt);
 function addWorktree(dir, br) {
   const r = git(topReal, "worktree", "add", "-q", "-b", br, dir, baseSha);
@@ -270,6 +311,8 @@ const baseline = snapshotRunAll(intRoot);
 if (baseline.error) die(`BLOCKED: baseline checks did not run: ${baseline.error}`);
 const baseMap = new Map(baseline.scripts.map((s) => [s.script, s.status]));
 console.log(`baseline: ${baseline.summary}`);
+for (const c of causes.filter(isLive)) liveBase.set(c.id, runLiveAll(c, intRoot));
+if (liveBase.size) console.log(`live baseline: ${[...liveBase].map(([id, rs]) => `${id} ${rs.map((x) => x.status).join("/") || "no check"}`).join(", ")}`);
 // ---------- REF-009 (optional): screenshots of every route group before any fix ----------
 const visualOn = A.includes("--visual");
 const allOpt = (k) => A.flatMap((x, i) => (x === k ? [A[i + 1]] : []));
@@ -292,7 +335,7 @@ if (stabilityOn) {
 
 // ---------- the cost stop, now that the baseline says which causes still fail ----------
 {
-  const stillFailing = runnableNow.filter((c) => !c.scripts.every((s) => baseMap.get(s) === "pass"));
+  const stillFailing = runnableNow.filter((c) => !alreadyPassing(c));
   if (!only.length && stillFailing.length > maxWorkers && !A.includes("--yes")) {
     const keep = new Set([...stillFailing].sort((a, b) => (sevRank[a.severity] ?? 9) - (sevRank[b.severity] ?? 9) || (b.pages || 0) - (a.pages || 0)).slice(0, maxWorkers).map((c) => c.id));
     deferred = stillFailing.filter((c) => !keep.has(c.id)).map((c) => c.id);
@@ -308,6 +351,17 @@ for (const c of causes) {
   results.set(c.id, r);
   const missing = (c.scripts || []).filter((s) => !baseMap.has(s));
   const people = peopleReason(c, extraPeople);
+  if (isLive(c)) {
+    // a cause from the live audit: its proof is the live check scripts run against the built output (never FIXED without one)
+    const lf = liveFiles(c);
+    const base = liveBase.get(c.id) || [];
+    if (people) { r.verdict = "SKIPPED-NEEDS-PEOPLE"; r.reason = people; }
+    else if (!lf.present.length) { r.verdict = "NEEDS-PROOF"; r.reason = lf.missing.length ? `its live check script(s) are missing: ${lf.missing.slice(0, 3).join(", ")}; a fix could not be proven` : "the live cause names no check script, so a fix could not be proven; add a check first"; }
+    else if (base.every((x) => x.status === "pass")) { r.verdict = "SKIPPED-ALREADY-PASSING"; r.reason = "its live check(s) already PASS on the repo's built output; the defect may exist only in what is deployed (an older release), nothing to fix in the code"; }
+    else if (!base.some((x) => x.status === "fail")) { r.verdict = "NEEDS-PROOF"; r.reason = `the live check(s) cannot judge the built output (${base.filter((x) => x.status === "cannot").slice(0, 2).map((x) => path.basename(x.script) + ": " + x.line).join(" | ")}): they were written for another folder layout, so no fix here could be proven. Unblocks: a check that reads the built output (add it to the repo audit), then run this cause again with --causes ${c.id}`; }
+    else toRun.push(c);
+    continue;
+  }
   if ((c.scripts || []).length && (c.scripts || []).every((s) => baseMap.get(s) === "pass")) { r.verdict = "SKIPPED-ALREADY-PASSING"; r.reason = "all its checks already pass on the last commit; nothing to fix"; }
   else if (people) { r.verdict = "SKIPPED-NEEDS-PEOPLE"; r.reason = people; }
   else if (!(c.scripts || []).length || missing.length === (c.scripts || []).length) { r.verdict = "SKIPPED-NO-CHECK"; r.reason = "no working check script, so a fix could not be proven; add a check first"; }
@@ -345,6 +399,40 @@ function findingsRows(c) {
   }
   return rows.join("\n") || "(no rows found)";
 }
+// What the worker is told about the live audit. A live-origin cause has no known source file; a repo cause may carry live evidence.
+function liveFindings(c) {
+  const pages = (c.liveFixAt || []).filter((p) => /^pages\//.test(p)).map((p) => p.split("/")[1]);
+  return [`- live finding ids: ${(c.findings || []).join(", ") || "(none)"}; seen on ${c.pages ?? "?"} live page(s)${pages.length ? `: ${[...new Set(pages)].slice(0, 20).join(", ")}` : ""}`, ...(c.liveFixAt || []).slice(0, 12).map((p) => `- live snapshot file showing it: ${p} (a copy of the page as served, not a file of this repository)`)].join("\n");
+}
+function liveBlock(c, root, outRel) {
+  // readable copies inside the work root (the worker cannot read the live audit's folder); the coordinator judges with the originals
+  const copyChecks = (paths) => {
+    const dir = path.join(root, outRel, "live-checks");
+    fs.mkdirSync(dir, { recursive: true });
+    return paths.map((p) => { try { fs.copyFileSync(p, path.join(dir, path.basename(p))); } catch {} return rel(path.join(outRel, "live-checks", path.basename(p))); });
+  };
+  if (isLive(c)) {
+    const copies = copyChecks(liveFiles(c).present);
+    return [
+      "**This cause comes from the audit of the LIVE site, not from the code.** The pages as served show the defect; **no source file is known** (the cause's \"where to fix\" says UNKNOWN). Finding the file that makes it is your first job (grep the work root for the template, component or data behind those pages). In your final line name every file you changed.",
+      `- Live problem: ${c.problem}`,
+      `- Live fix suggested: ${c.fix || "(none)"}`,
+      `- Live pages affected: ${c.pages ?? "?"}; live rules: ${(c.rules || []).join(", ") || "(none)"}`,
+      `- How it is proven: the coordinator rebuilds, then runs these live check scripts against the built output (${liveRootSub === "." ? "the work root" : liveRootSub}): ${copies.join(", ")}. They are readable copies of the live audit's scripts; run one yourself with \`node <copy> <built output folder>\`. All must PASS. A check that prints "cannot judge" cannot prove your fix: the cause then ends NEEDS-PROOF, never FIXED. A "FAIL" line says what is still wrong.`,
+    ].join("\n");
+  }
+  if (c.liveEvidence) {
+    const e = c.liveEvidence;
+    const copies = copyChecks((e.liveCheckScripts || []).filter((p) => fs.existsSync(p)));
+    return [
+      "**The live site shows this same defect** (the audit of the live pages matched it to this cause). Your fix is judged by the repo checks above, as always; the live evidence tells you what the served pages look like.",
+      ...(e.causes || []).map((x) => `- Live cause ${x.id} [${x.severity}]: ${x.problem}${x.fix ? ` (live fix suggestion: ${x.fix})` : ""}`),
+      `- Live pages affected: ${e.pages ?? "?"}; live finding ids: ${(e.findings || []).join(", ") || "(none)"}`,
+      ...(copies.length ? [`- Live check scripts, for reading only: ${copies.join(", ")}`] : []),
+    ].join("\n");
+  }
+  return "(this cause comes from the repo checker only; no live evidence)";
+}
 function spawnWorker(c, root, log) {
   return new Promise((resolve) => {
     const started = Date.now();
@@ -356,8 +444,9 @@ function spawnWorker(c, root, log) {
     const prompt = promptTemplate
       .split("{{ROOT}}").join(rel(root)).split("{{CAUSE_ID}}").join(c.id).split("{{SEVERITY}}").join(c.severity)
       .split("{{PROBLEM}}").join(c.problem).split("{{FIX}}").join(c.fix || "(none given)")
-      .split("{{FIX_AT}}").join((c.fixAt || []).join("; ") || "(not named)")
-      .split("{{FINDINGS}}").join(findingsRows(c)).split("{{CHECKS}}").join((c.scripts || []).join(", "))
+      .split("{{FIX_AT}}").join(fixAtList(c).join("; ") || "(not named)")
+      .split("{{FINDINGS}}").join(isLive(c) ? liveFindings(c) : findingsRows(c)).split("{{CHECKS}}").join((c.scripts || []).join(", ") || "(none from the repo checker: this cause is proven by the live check scripts named under Live evidence)")
+      .split("{{LIVE}}").join(liveBlock(c, root, outRel))
       .split("{{CHECKLIST}}").join(rel(path.join(skill, "checklist")))
       .split("{{BUILD}}").join(buildCmd || "(no build step)").split("{{OUT_DIR}}").join(outRel).split("{{CAUSE_FILE}}").join(`${outRel}/cause.json`)
       .split("{{DECISIONS}}").join(decisionFiles.length
@@ -424,7 +513,9 @@ async function fixOne(c, dir, root, br) {
   const after = snapshotRunAll(root);
   if (after.error) { savePatch(); return done("NOT FIXED", `checks could not run after the change: ${after.error}`); }
   const d = diffRunAll(baseline, after, c.scripts);
-  r.checks = d.target;
+  // a live-origin cause is proven by its live check scripts run against the rebuilt output (the repo checks only guard against regressions)
+  const liveRes = isLive(c) ? runLiveAll(c, root) : null;
+  r.checks = liveRes ? liveRes.map((x) => ({ script: path.basename(x.script), before: liveWord[(liveBase.get(c.id) || []).find((b) => b.script === x.script)?.status] || "?", after: liveWord[x.status] })) : d.target;
   r.alsoFixed = d.fixed.filter((s) => !c.scripts.includes(s));
   r.regressed = d.regressed;
   r.newlyFailing = d.newlyFailing;
@@ -434,21 +525,25 @@ async function fixOne(c, dir, root, br) {
     const parts = [d.regressed.length ? `broke ${d.regressed.length} check(s) that passed before: ${d.regressed.map((x) => x.script).slice(0, 4).join(", ")}` : "", newOnly.length ? `made ${newOnly.length} check(s) FAIL that could not judge before (the fix created what they judge, wrongly): ${newOnly.map((x) => x.script).slice(0, 4).join(", ")}` : ""].filter(Boolean);
     return done("REGRESSED", `${parts.join("; ")}${d.targetFixed ? " (its own checks do pass)" : ""}`);
   }
-  if (!d.targetFixed) { savePatch(); const edited = patch.trim() ? "" : " and no source file changed"; return done("NOT FIXED", `checks still fail after rebuild: ${d.target.filter((t) => t.after !== "pass").map((t) => t.script).join(", ")}${edited}`); }
+  if (liveRes) {
+    const failing = liveRes.filter((x) => x.status === "fail"), cannot = liveRes.filter((x) => x.status === "cannot");
+    if (failing.length) { savePatch(); return done("NOT FIXED", `live check(s) still fail after rebuild: ${failing.map((x) => path.basename(x.script) + ": " + x.line).join(" | ")}${patch.trim() ? "" : " and no source file changed"}`); }
+    if (cannot.length) { savePatch(); return done("NEEDS-PROOF", `after the rebuild the live check(s) cannot judge the built output (${cannot.slice(0, 2).map((x) => path.basename(x.script) + ": " + x.line).join(" | ")}); the worker's change is saved as a patch but nothing proves it`); }
+  } else if (!d.targetFixed) { savePatch(); const edited = patch.trim() ? "" : " and no source file changed"; return done("NOT FIXED", `checks still fail after rebuild: ${d.target.filter((t) => t.after !== "pass").map((t) => t.script).join(", ")}${edited}`); }
   stageAll(root);
   savePatch(); // the final state (after the rebuild), before any commit is tried
   if (git(root, "diff", "--cached", "--quiet").code === 0) return done("NOT FIXED", "the checks pass but nothing is committable (the change lives in ignored or built files, so it would not survive a fresh checkout)");
   const files = git(root, "diff", "--cached", "--name-only").out.split("\n").filter(Boolean);
-  const cm = git(root, ...GIT_ID, "commit", "-q", "-m", `refactor ${c.id}: ${c.problem.slice(0, 90)}\n\nProven by ${c.scripts.join(", ")} (FAIL -> PASS) with no other check going PASS -> FAIL.`);
+  const cm = git(root, ...GIT_ID, "commit", "-q", "-m", `refactor ${c.id}: ${c.problem.slice(0, 90)}\n\nProven by ${(liveRes ? liveRes.map((x) => "live check " + path.basename(x.script)) : c.scripts).join(", ")} (FAIL -> PASS) with no other check going PASS -> FAIL.`);
   if (cm.code !== 0) {
     // Hooks are never skipped: a failing hook is the project's to fix. The proven work stays in this worktree (staged) on its branch and
     // as the patch above; this worktree is NOT removed at the end.
     const msg = ((cm.err || "") + (cm.out ? "\n" + cm.out : "")).trim();
     r.hookMessage = msg; r.worktree = rel(dir); r.branch = br; r.files = git(root, "diff", "--cached", "--name-only").out.split("\n").filter(Boolean);
-    return done("NOT COMMITTED", `proven fix (${d.target.length} check(s) FAIL -> PASS, nothing regressed) but git commit failed: ${msg.split("\n").slice(0, 3).join(" | ")}. Kept in ${rel(dir)} (branch ${br}) and as ${r.patch || "(no patch)"}`);
+    return done("NOT COMMITTED", `proven fix (${r.checks.length} check(s) FAIL -> PASS, nothing regressed) but git commit failed: ${msg.split("\n").slice(0, 3).join(" | ")}. Kept in ${rel(dir)} (branch ${br}) and as ${r.patch || "(no patch)"}`);
   }
   fixedBranches.push({ id: c.id, br });
-  done("FIXED", `${d.target.length} check(s) FAIL -> PASS, ${d.passAfter}/${d.total} pass overall, files: ${files.join(", ").slice(0, 80)}`, { files, commit: git(root, "rev-parse", "--short", "HEAD").out });
+  done("FIXED", `${r.checks.length} check(s) FAIL -> PASS, ${d.passAfter}/${d.total} pass overall, files: ${files.join(", ").slice(0, 80)}`, { files, commit: git(root, "rev-parse", "--short", "HEAD").out });
 }
 const cwts = toRun.map((c) => { const dir = path.join(wtBase, c.id); const br = `${branch}-${c.id}`; return { c, dir, br, root: addWorktree(dir, br) }; });
 const queue = [...cwts];
@@ -487,8 +582,10 @@ for (const { id, br } of fixedBranches.sort((x, y) => x.id.localeCompare(y.id)))
     if (run.error) why = `checks could not run on the combined branch: ${run.error.slice(0, 80)}`;
     else {
       const d = diffRunAll(baseline, run, c.scripts);
-      const undone = accepted.flatMap((a) => a.scripts).filter((s) => run.scripts.find((x) => x.script === s)?.status !== "pass");
-      if (!(d.targetFixed && !d.broken.length && !undone.length)) why = d.broken.length ? `it breaks ${d.broken.map((x) => x.script).slice(0, 3).join(", ")} when combined with the earlier fixes` : undone.length ? `it undoes an earlier fix (${undone.join(", ")})` : `its checks fail when combined with the earlier fixes${conflicted.length ? ` (it conflicts with an earlier fix in ${conflicted.slice(0, 3).join(", ")})` : ""}`;
+      // earlier fixes must still pass: repo checks by the run-all result, live checks (live-origin causes) by running them on the combined branch
+      const undone = [...accepted.flatMap((a) => a.scripts).filter((s) => run.scripts.find((x) => x.script === s)?.status !== "pass"), ...accepted.filter(isLive).flatMap((a) => runLiveAll(a, intRoot)).filter((x) => x.status !== "pass").map((x) => path.basename(x.script))];
+      const targetOk = isLive(c) ? runLiveAll(c, intRoot).every((x) => x.status === "pass") : d.targetFixed;
+      if (!(targetOk && !d.broken.length && !undone.length)) why = d.broken.length ? `it breaks ${d.broken.map((x) => x.script).slice(0, 3).join(", ")} when combined with the earlier fixes` : undone.length ? `it undoes an earlier fix (${undone.join(", ")})` : `its checks fail when combined with the earlier fixes${conflicted.length ? ` (it conflicts with an earlier fix in ${conflicted.slice(0, 3).join(", ")})` : ""}`;
       else if (stabilityOn) {
         // one extra build of this commit: a date that moves between the two builds is the build clock (IDX-003 / AEO-012), SE-004 on the format
         const s = rebuildAndJudge(intRoot, buildCmd, { timeoutMs: buildTimeoutMs });
@@ -547,9 +644,9 @@ const finalPass = finalRun && !finalRun.error ? finalRun.summary : null;
 const unsafe = mainChanges.size > 0 || mainHeadMoved || integrationRegressions.length > 0;
 const summary = {
   runId, date, siteRoot: rel(siteRoot), baseBranch, baseSha, branch: keepBranch ? branch : null, worktree: keepBranch ? rel(intDir) : null,
-  buildCommand: buildCmd, baseline: baseline.summary, final: finalPass, visual,
+  buildCommand: buildCmd, projectMerges, parallel, baseline: baseline.summary, final: finalPass, visual,
   stability: { status: stabilityWord, checked: stability.checked, why: stability.why, baseline: stability.baseline && { status: stability.baseline.status, why: stability.baseline.why, failures: stability.baseline.failures.slice(0, 40), se004: stability.baseline.se004.slice(0, 40), warns: stability.baseline.warns.slice(0, 40) }, final: stability.final && { status: stability.final.status, failures: stability.final.failures.slice(0, 40), se004: stability.final.se004.slice(0, 40), warns: stability.final.warns.slice(0, 40) }, preExisting: stability.preExisting.slice(0, 40), rejected: stability.rejected },
-  counts: { causes: list.length, fixed: by("FIXED").length, notFixed: by("NOT FIXED").length, notCommitted: by("NOT COMMITTED").length, regressed: by("REGRESSED").length, needsPeople: by("SKIPPED-NEEDS-PEOPLE").length, noCheck: by("SKIPPED-NO-CHECK").length, alreadyPassing: by("SKIPPED-ALREADY-PASSING").length },
+  counts: { causes: list.length, fixed: by("FIXED").length, notFixed: by("NOT FIXED").length, notCommitted: by("NOT COMMITTED").length, regressed: by("REGRESSED").length, needsPeople: by("SKIPPED-NEEDS-PEOPLE").length, needsProof: by("NEEDS-PROOF").length, liveCauses: list.filter((r) => r.origin === "live").length, noCheck: by("SKIPPED-NO-CHECK").length, alreadyPassing: by("SKIPPED-ALREADY-PASSING").length },
   mainTouched: [...mainChanges], notes: [...mainNotes], baseMoved: lastFp.base !== fp0.base, mainHeadMoved, integrationRegressions, deferred, decisionFiles: decisionFiles.map(rel), causes: list, generatedAt: new Date().toISOString(),
 };
 const cell = (s) => String(s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
@@ -559,19 +656,20 @@ const md = [
   "",
   unsafe
     ? `**STOP: the run is not safe to use.** ${mainChanges.size ? `The main checkout changed under the site root while workers ran (${[...mainChanges].slice(0, 5).join(", ")}). ` : ""}${mainHeadMoved ? "A branch tip in the main repository moved. " : ""}${integrationRegressions.length ? `The combined branch breaks checks that passed before (${integrationRegressions.map((x) => x.script).join(", ")}). ` : ""}Nothing has been merged. Look at it before anything else.`
-    : `**${n.fixed} of ${n.causes} root causes fixed and proven on the branch \`${keepBranch ? branch : "(none created: nothing was fixed)"}\`${n.notCommitted ? `; ${n.notCommitted} more are proven but git refused to commit them (a hook failed: the work is saved, see below)` : ""}; ${n.needsPeople} need people, ${n.notFixed + n.regressed} did not work out.** Nothing has been merged into \`${baseBranch}\`, pushed or deployed. You decide.`,
+    : `**${n.fixed} of ${n.causes} root causes fixed and proven on the branch \`${keepBranch ? branch : "(none created: nothing was fixed)"}\`${n.notCommitted ? `; ${n.notCommitted} more are proven but git refused to commit them (a hook failed: the work is saved, see below)` : ""}; ${n.needsPeople} need people${n.needsProof ? `, ${n.needsProof} cannot be proven yet (no check that can judge them)` : ""}, ${n.notFixed + n.regressed} did not work out.** Nothing has been merged into \`${baseBranch}\`, pushed or deployed. You decide.`,
   "",
   "A **root cause** is one defect that shows up in many places (for example one template line behind 40 pages). A **check** is a small script that looks at the built site and says PASS or FAIL. A fix counts as **proven** only when its checks go from FAIL to PASS after the site is rebuilt, and no other check that passed before has stopped passing.",
   "",
-  keepBranch ? `## To review and approve\n\n- Review the branch: \`git -C "${rel(topReal)}" log --oneline ${baseBranch}..${branch}\` and \`git -C "${rel(topReal)}" diff ${baseBranch}...${branch}\`. The files are also checked out at \`${rel(intDir)}\`.\n- To accept it (your decision, not done by this tool): \`git -C "${rel(topReal)}" merge --no-ff ${branch}\`, then rebuild and re-run the audit.\n- To reject it: \`git -C "${rel(topReal)}" worktree remove --force "${rel(intDir)}"\` and \`git -C "${rel(topReal)}" branch -D ${branch}\`.\n` : "",
+  keepBranch ? `## To review and approve\n\n- Review the branch: \`git -C "${rel(topReal)}" log --oneline ${baseBranch}..${branch}\` and \`git -C "${rel(topReal)}" diff ${baseBranch}...${branch}\`. The files are also checked out at \`${rel(intDir)}\`.\n${projectMerges ? "- Merges for this project go only through the project's own gate (see the last lines of this report): do not run a direct merge.\n" : `- To accept it (your decision, not done by this tool): \`git -C "${rel(topReal)}" merge --no-ff ${branch}\`, then rebuild and re-run the audit.\n`}- To reject it: \`git -C "${rel(topReal)}" worktree remove --force "${rel(intDir)}"\` and \`git -C "${rel(topReal)}" branch -D ${branch}\`.\n` : "",
   `## Result per root cause`,
   "",
   "| cause | severity | verdict | what happened | checks (before -> after) |",
   "|---|---|---|---|---|",
-  ...list.map((r) => `| ${r.id} | ${r.severity} | **${r.verdict}** | ${cell(r.reason)}${r.note ? ` Note: ${cell(r.note)}` : ""} | ${r.checks.map((t) => `${t.script}: ${t.before} -> ${t.after}`).join("; ") || "-"}${r.alsoFixed.length ? `; also fixed: ${r.alsoFixed.join(", ")}` : ""} |`),
+  ...list.map((r) => `| ${r.id}${r.origin === "live" ? " (live)" : ""} | ${r.severity} | **${r.verdict}** | ${cell(r.reason)}${r.note ? ` Note: ${cell(r.note)}` : ""} | ${r.checks.map((t) => `${t.script}: ${t.before} -> ${t.after}`).join("; ") || "-"}${r.alsoFixed.length ? `; also fixed: ${r.alsoFixed.join(", ")}` : ""} |`),
   "",
   by("SKIPPED-NEEDS-PEOPLE").length ? `## Needs people (not touched, by design)\n\n${by("SKIPPED-NEEDS-PEOPLE").map((r) => `- **${r.id}** ${r.problem}: ${r.reason}`).join("\n")}\n` : "",
   by("SKIPPED-NO-CHECK").length ? `## Cannot be proven yet (no working check)\n\n${by("SKIPPED-NO-CHECK").map((r) => `- **${r.id}** ${r.problem}`).join("\n")}\n` : "",
+  by("NEEDS-PROOF").length ? `## Needs a check before it can be proven (never marked fixed without one)\n\nThese causes come from the audit of the live site. The live check scripts that would prove a fix either are missing or could not judge the rebuilt output (they read another folder layout). Where a worker already made a change it is saved as a patch; it is NOT proven. To prove it: put a check that reads this project's built output into the repo audit, then run the cause again with \`--causes <id>\`.\n\n${by("NEEDS-PROOF").map((r) => `- **${r.id}** ${r.problem}: ${r.reason}${r.patch ? ` (unproven patch: ${r.patch})` : ""}`).join("\n")}\n` : "",
   by("NOT COMMITTED").length ? `## Proven, but not committed (nothing is lost)\n\nThe fix passed its checks after a rebuild with nothing regressing, then \`git commit\` was refused (normally by the repository's pre-commit hook). No hook was skipped. For each: the diff is saved as a patch, and the staged work is still in its worktree on its own branch. When the hook problem is fixed, commit from the worktree (\`git -C <worktree> commit -m "..."\`) or apply the patch (\`git apply <patch>\`).\n\n${by("NOT COMMITTED").map((r) => `- **${r.id}** patch \`${r.patch || "(none)"}\`; worktree \`${r.worktree}\` (branch \`${r.branch}\`); files: ${(r.files || []).slice(0, 8).join(", ")}\n\n  Hook message:\n\n  \`\`\`\n${String(r.hookMessage || "").split("\n").map((l) => "  " + l).join("\n")}\n  \`\`\``).join("\n")}\n` : "",
   by("REGRESSED").length || by("NOT FIXED").length ? `## Did not work (a patch of what the worker changed is saved next to this report: \`.pewp/refactor/${runId}/<cause>.patch\`)\n\n${[...by("REGRESSED"), ...by("NOT FIXED")].map((r) => `- **${r.id}** ${r.verdict}: ${r.reason}${r.patch ? ` (patch: ${r.patch})` : ""}`).join("\n")}\n` : "",
   `## Checks overall`,
@@ -591,10 +689,16 @@ const md = [
   "",
   "A passing check means the thing it looks at is right; it does not prove the page looks right or reads well. Open the changed pages before you accept. Fix workers could run `node` and so could in principle write outside their folder: the main checkout is fingerprinted before and after every worker and any change is reported above.",
   "",
+  ...(projectMerges ? [
+    "## How this gets merged (--project-merges)",
+    "",
+    `Merges for this project go only through the project's own gate. The branch \`${keepBranch ? branch : "(none: nothing was fixed)"}\` is prepared for review; nothing was merged, pushed or deployed by this run. Open a pull request from it with the project's own process, let the project's CI go green, and merge there. Never a direct merge into \`${baseBranch}\`. If the repository is public, no secret goes into a commit or a pull request.`,
+    "",
+  ] : []),
 ].join("\n");
 fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, `${runId}.json`), JSON.stringify(summary, null, 1) + "\n");
 fs.writeFileSync(path.join(outDir, `${runId}.md`), md);
 try { markStage(locate(siteRoot), "refactor", { report: `.pewp/refactor/${runId}.md`, json: `.pewp/refactor/${runId}.json` }, { branch: summary.branch, fixed: n.fixed }); } catch {}
-console.log(`REFACTOR ${unsafe ? "UNSAFE" : "DONE"}: ${n.fixed} FIXED, ${n.regressed} REGRESSED, ${n.notFixed} NOT FIXED, ${n.notCommitted} NOT COMMITTED, ${n.needsPeople} NEEDS-PEOPLE, ${n.noCheck + n.alreadyPassing} other skipped; branch ${summary.branch || "none"}; stability: ${stabilityWord}${stabilityWord === "FAIL" && !stability.rejected.length && stability.preExisting.length ? " (pre-existing)" : ""}; report .pewp/refactor/${runId}.md`);
+console.log(`REFACTOR ${unsafe ? "UNSAFE" : "DONE"}: ${n.fixed} FIXED, ${n.regressed} REGRESSED, ${n.notFixed} NOT FIXED, ${n.notCommitted} NOT COMMITTED, ${n.needsPeople} NEEDS-PEOPLE, ${n.needsProof} NEEDS-PROOF, ${n.noCheck + n.alreadyPassing} other skipped; branch ${summary.branch || "none"}; stability: ${stabilityWord}${stabilityWord === "FAIL" && !stability.rejected.length && stability.preExisting.length ? " (pre-existing)" : ""}; report .pewp/refactor/${runId}.md`);
 process.exit(unsafe ? 1 : 0);

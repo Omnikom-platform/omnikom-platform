@@ -1,21 +1,70 @@
 // Bing Webmaster Tools API client (free key: Settings > API access). Two jobs:
 //   keyword volumes   GetKeyword + GetRelatedKeywords for seed queries (impressions on Bing, per country/language)  -> estimates
 //   our own queries   GetQueryStats for the verified site (clicks, impressions, average positions)                  -> measured
-// Usage: node research-bing.mjs <target> [--seeds-file FILE.json] [--seed "q"]... [--no-related] [--site-stats] [--max-calls 60] [--days 90] [--cwd DIR]
+// Usage: node research-bing.mjs <target> [--seeds-file FILE.json] [--seed "q"]... [--no-related] [--keep-brands] [--site-stats] [--max-calls 60] [--days 90] [--cwd DIR]
 // Key: $BING_WEBMASTER_KEY (sent as ?apikey=, redacted from the cache). Test hook: BING_API_BASE.
 // A hard per-run unit budget (--max-calls) is enforced here, because every call counts against the key's quota.
-// UNPROVEN against the live API: the response parsing follows Bing's documented JSON shape and is tested on a local fixture only.
-// Output: research/bing.json { keywords:[{query, volume, broad, related}], siteQueries:[...], calls }. No key => BLOCKED (exit 3).
+// Parser proven on 2026-10-25 live responses (fixtures/bing-junk: real cached GetKeyword / GetRelatedKeywords bodies, key-free).
+// UNPROVEN live: the request side (parameters, pacing, quota behaviour) is tested on a local fixture server only.
+// (GetKeyword answers with ONE object in `d`, often Query null and Impressions 0; GetRelatedKeywords answers with an array of {__type, BroadImpressions, Impressions, Query}.)
+// Relevance filter (G4): a RELATED keyword is kept only when it shares a meaningful term (stemmed, 3+ letters, not a stop or generic word, not a place name)
+// with its seed or with the business vocabulary (business.json `vocabulary`, the `offer` words and the terms of the whole seed list), AND it is not the
+// navigational name of another site (a word that is a site name in rules/directory-domains.json, a web address, or a `site:` operator) unless --keep-brands.
+// Everything dropped is listed with its reason in `droppedOffTopic` (Bing returned "how to clear cache" and "zillow homes for sale" for real-estate seeds).
+// Output: research/bing.json { keywords:[{query, volume, broad, related}], droppedOffTopic:[{query, relatedTo, reason}], siteQueries:[...], calls }. No key => BLOCKED (exit 3).
 import path from "node:path";
-import { Blocked, listFile, context, needBusiness, runCli, writeStep, writeBlocked, cachedFetch, factor, pace, normQuery } from "./research-lib.mjs";
+import { Blocked, listFile, context, needBusiness, runCli, writeStep, writeBlocked, cachedFetch, factor, pace, normQuery, tokens, stem, knownPlaces } from "./research-lib.mjs";
+import { loadRule } from "./lib-rules.mjs";
+
+// words that make a search no more about the business even when they are shared ("cars for sale" shares "sale" with "historic homes for sale")
+const GENERIC = new Set(["sale", "sell", "buy", "find", "best", "top", "near", "nearby", "cheap", "price", "cost", "online", "free", "new", "used", "get"].map(stem));
+const termsOf = (s) => tokens(s).filter((t) => t.length >= 3 && !/^\d+$/.test(t) && !GENERIC.has(t));
+const TLD = "com|net|org|io|co|us|info|biz|app|dev|ai|tv|me|edu|gov|uk|ca|au";
+const stripEdges = (w) => w.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, "");
+// names of other sites: single-word brands and host labels (zillow, redfin, realtor) and multi-word brands (keller williams)
+function brandIndex() {
+  const words = new Map(), phrases = new Map();
+  for (const d of loadRule("directory-domains.json").domains) {
+    const label = String(d.host).split(".")[0].toLowerCase(), brand = String(d.brand || "").toLowerCase().trim();
+    if (label.length >= 3) words.set(label, d.host);
+    if (brand && !/\s/.test(brand) && brand.length >= 3) words.set(brand, d.host);
+    if (/\s/.test(brand)) phrases.set(brand, d.host);
+  }
+  return { words, phrases };
+}
+// Why a related keyword is off topic, or null when it stays. `allowed` = stemmed terms the owner/seeds use (a brand word in it is not a brand here).
+export function offTopicReason(query, seed, { vocabTerms, seedListTerms, placeTerms, ownDomain, keepBrands = false, brands = brandIndex() }) {
+  const q = normQuery(query), own = String(ownDomain || "").toLowerCase();
+  if (!keepBrands) {
+    const op = q.match(new RegExp(`\\bsite:?\\s*(?:https?://)?((?:[a-z0-9-]+\\.)+[a-z]{2,})`));
+    if (op && op[1].replace(/^www\./, "") !== own) return { drop: `navigational: a "site:" search on another website (${op[1]})` };
+    const words = q.split(/\s+/).map(stripEdges).filter(Boolean);
+    for (const w of words) if (new RegExp(`^(?:www\\.)?(?:[a-z0-9-]+\\.)+(?:${TLD})$`).test(w) && w.replace(/^www\./, "") !== own) return { drop: `navigational: the web address of another site (${w})` };
+    const allowed = new Set([...vocabTerms, ...seedListTerms]);
+    for (const w of words) if (brands.words.has(w) && !allowed.has(stem(w)) && w !== own.split(".")[0]) return { drop: `navigational: "${w}" is the name of another site (${brands.words.get(w)})` };
+    for (const [p, host] of brands.phrases) if ((` ${q} `).includes(` ${p} `) && !p.split(" ").every((x) => allowed.has(stem(x)))) return { drop: `navigational: "${p}" is the name of another site (${host})` };
+  }
+  const qt = termsOf(q), seedT = new Set(termsOf(seed)), pool = new Set([...vocabTerms, ...seedListTerms]);
+  const inSeed = qt.find((t) => seedT.has(t) && !placeTerms.has(t));
+  if (inSeed) return { keep: `shares "${inSeed}" with the seed` };
+  const inVocab = qt.find((t) => pool.has(t) && !placeTerms.has(t));
+  if (inVocab) return { keep: `shares "${inVocab}" with the business vocabulary or the seed list` };
+  const placeOnly = tokens(q).filter((t) => t.length >= 3 && placeTerms.has(t) && (seedT.has(t) || pool.has(t)));
+  return { drop: placeOnly.length ? `off topic: only a place name in common (${placeOnly.join(", ")}), nothing about the business` : "off topic: no meaningful term in common with the seed, the business vocabulary or the seed list" };
+}
 
 const BASE = () => (process.env.BING_API_BASE || "https://ssl.bing.com/webmaster/api.svc/json").replace(/\/$/, "");
 const UNBLOCK = "verify the site in Bing Webmaster Tools, create an API key (Settings > API access), set BING_WEBMASTER_KEY";
 const msDate = (s) => { const m = String(s || "").match(/\/Date\((-?\d+)/); return m ? new Date(Number(m[1])).toISOString().slice(0, 10) : String(s || "").slice(0, 10); };
 const dayStr = (d) => d.toISOString().slice(0, 10);
 
-export async function run(ctx, { seeds = [], related = true, siteStats = false, maxCalls = 60, days = 90 } = {}) {
+export async function run(ctx, { seeds = [], related = true, keepBrands = false, siteStats = false, maxCalls = 60, days = 90 } = {}) {
   const b = needBusiness(ctx);
+  // the words that make a search "about the business": the owner's vocabulary, the offer, and every seed (the seeds are owner-approved, G3)
+  const vocabTerms = new Set(termsOf([...(Array.isArray(b.vocabulary) ? b.vocabulary : []), b.offer || ""].join(" ")));
+  const seedListTerms = new Set(seeds.flatMap(termsOf));
+  const placeTerms = new Set(knownPlaces(b).flatMap((p) => tokens(p.city)));
+  const brands = brandIndex(), droppedOffTopic = [];
   const key = (process.env.BING_WEBMASTER_KEY || "").trim();
   if (!key) { writeBlocked(ctx, "bing", UNBLOCK); throw new Blocked(UNBLOCK); }
   const country = ctx.market.country.toLowerCase(), language = `${ctx.market.language}-${ctx.market.country}`;
@@ -53,7 +102,12 @@ export async function run(ctx, { seeds = [], related = true, siteStats = false, 
         const f2 = factor(`Bing Webmaster API GetRelatedKeywords for "${q}" (${country}, ${language})`, rr.fetchedAt, rr.cacheFile, { location: ctx.market.country });
         const byQuery = new Map();
         for (const x of dRows(rr)) (byQuery.get(normQuery(x.Query)) || byQuery.set(normQuery(x.Query), []).get(normQuery(x.Query))).push(x);
-        for (const [query, rows] of byQuery) if (query && !keywords.some((k) => k.query === query)) keywords.push({ query, related: true, relatedTo: q, ...volume(rows, f2) });
+        for (const [query, rows] of byQuery) {
+          if (!query || keywords.some((k) => k.query === query) || droppedOffTopic.some((d) => d.query === query)) continue;
+          const v = offTopicReason(query, q, { vocabTerms, seedListTerms, placeTerms, ownDomain: b.domain, keepBrands, brands });
+          if (v.drop) { droppedOffTopic.push({ query, relatedTo: q, reason: v.drop }); continue; }
+          keywords.push({ query, related: true, relatedTo: q, relevance: v.keep, ...volume(rows, f2) });
+        }
       }
     }
     if (siteStats) {
@@ -66,13 +120,13 @@ export async function run(ctx, { seeds = [], related = true, siteStats = false, 
       }
     }
   } catch (e) { if (e instanceof Blocked) writeBlocked(ctx, "bing", e.unblock); throw e; }
-  return writeStep(ctx, "bing", { callBudget: maxCalls, calls, budgetStopped: skipped.length > 0, skippedSeeds: skipped, keywords, siteQueries });
+  return writeStep(ctx, "bing", { callBudget: maxCalls, calls, budgetStopped: skipped.length > 0, skippedSeeds: skipped, relatedAsked: !!related, keepBrands: !!keepBrands, droppedOffTopic, keywords, siteQueries });
 }
 
-await runCli(import.meta.url, "node research-bing.mjs <target> [--seeds-file FILE] [--seed q]... [--no-related] [--site-stats] [--max-calls 60] [--days 90] [--cwd DIR]", ["no-related", "site-stats"], async (a) => {
+await runCli(import.meta.url, "node research-bing.mjs <target> [--seeds-file FILE] [--seed q]... [--no-related] [--keep-brands] [--site-stats] [--max-calls 60] [--days 90] [--cwd DIR]", ["no-related", "keep-brands", "site-stats"], async (a) => {
   const ctx = context(a._[0], { cwd: a.get("cwd") || process.cwd() });
   const sf = a.get("seeds-file");
   const fileSeeds = sf ? listFile(sf, "queries").map((x) => (typeof x === "string" ? x : x?.query)) : []; // a named file that is missing is a usage error, not "no seeds"
-  const r = await run(ctx, { seeds: [...fileSeeds, ...a.all("seed")], related: !a.has("no-related"), siteStats: a.has("site-stats"), maxCalls: a.num("max-calls", 60), days: a.num("days", 90) });
-  return `OK bing: ${r.keywords.length} keywords, ${r.siteQueries.length} own queries, ${r.calls}/${r.callBudget} calls${r.budgetStopped ? ` (budget stop: ${r.skippedSeeds.length} seeds not asked)` : ""} -> ${path.join(ctx.rdir, "bing.json")}`;
+  const r = await run(ctx, { seeds: [...fileSeeds, ...a.all("seed")], related: !a.has("no-related"), keepBrands: a.has("keep-brands"), siteStats: a.has("site-stats"), maxCalls: a.num("max-calls", 60), days: a.num("days", 90) });
+  return `OK bing: ${r.keywords.length} keywords (${r.droppedOffTopic.length} related dropped as off topic), ${r.siteQueries.length} own queries, ${r.calls}/${r.callBudget} calls${r.budgetStopped ? ` (budget stop: ${r.skippedSeeds.length} seeds not asked)` : ""} -> ${path.join(ctx.rdir, "bing.json")}`;
 });

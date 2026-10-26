@@ -40,7 +40,7 @@ if (args.includes("--mutants")) {
     { id: "gate-ignores-chains", file: "migrate.mjs", from: "if (t.hops.length > 1) fails.push(", to: "if (false) fails.push(", red: "gate: a chain of two hops fails" },
     { id: "gate-ignores-429", file: "migrate.mjs", from: "if (res.status === 429) throw new Stop429(", to: "if (false) throw new Stop429(", red: "gate: a 429 stops the run" },
     { id: "gate-exclude-ignored", file: "migrate.mjs", from: "const targets = inv.rows.filter((r) => r.mustKeep && !isEx(r.path)).slice(0, maxUrls);", to: "const targets = inv.rows.filter((r) => r.mustKeep).slice(0, maxUrls);", red: "gate: --exclude keeps off-limits addresses" },
-    { id: "gsc-expiry-date-ignored", file: "measure-sources.mjs", from: "const exp = tok.expiry ?? tok.expiry_date;", to: "const exp = tok.expiry;", red: "gsc: a token with Google's expiry_date" },
+    { id: "gsc-expiry-date-ignored", file: "lib-google-auth.mjs", from: "const exp = t.expiry_date ?? t.expiry;", to: "const exp = t.expiry;", red: "gsc: a token with Google's expiry_date" }, // the token code moved to lib-google-auth.mjs (G12)
     { id: "phone-country-code-kept", file: "local-lib.mjs", from: 'if (d.length === 11 && d.startsWith("1")) d = d.slice(1);', to: "", red: "nap: phone numbers match after normalisation" },
     { id: "page-type-synonyms-off", file: "migrate.mjs", from: "if (types.size && pt.size &&", to: "if (false && types.size && pt.size &&", red: "map: page-type synonyms and stemming" },
     { id: "page-type-from-title", file: "migrate.mjs", from: "const types = oSlugTypes, pt =", to: "const types = oSlugTypes.size ? oSlugTypes : ot, pt =", red: "map: a page type comes only from the old path" },

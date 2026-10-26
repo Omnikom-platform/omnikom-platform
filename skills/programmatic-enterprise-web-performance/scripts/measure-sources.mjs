@@ -9,11 +9,11 @@
 //     domains, a hash of the answer and the counts are kept.
 // If research builders' clients (scripts/research-*.mjs) appear, measure.mjs prefers them; these are the minimal ones.
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { cachedFetch, fact } from "./cache.mjs";
+import { getGscToken, GoogleAuthBlocked, UNBLOCK as GOOGLE_UNBLOCK } from "./lib-google-auth.mjs";
 
 export { fact };
 // A file saved by Windows PowerShell 5.1 or Notepad may start with a UTF-8 BOM, which JSON.parse refuses: strip it.
@@ -92,27 +92,20 @@ async function getCached(ctx, source, url, init = {}) {
 const bodyMsg = (r) => { try { const j = r.json(); return j.error?.message || JSON.stringify(j).slice(0, 160); } catch { return String(r.text || "").slice(0, 160); } };
 
 // ---------- Google Search Console ----------
-const DEFAULT_TOKEN = () => process.env.GSC_TOKEN_FILE || path.join(os.homedir(), ".config", "pewp", "gsc-token.json");
+// The token comes from lib-google-auth.mjs (one copy for this file and research-gsc.mjs): a service account (GSC_SERVICE_ACCOUNT_FILE /
+// GSC_SERVICE_ACCOUNT_JSON_B64, kept in memory only), else the token file (access_token, or refresh_token+client_id+client_secret).
+// Only the token-file path writes anything: a token refreshed from the file is saved back to that same file, as before.
 export async function gscAccessToken(ctx) {
-  const file = ctx.tokenFile || DEFAULT_TOKEN();
-  const tok = readJson(file);
-  const unblock = "The site owner adds our Google account as a user of the Search Console property, then we save an OAuth token (access_token, refresh_token, client_id, client_secret) at ~/.config/pewp/gsc-token.json or set GSC_TOKEN_FILE.";
-  if (!tok) return blocked("search-console", `no token file at ${file}`, unblock);
-  // `expiry` (ISO, written here after a refresh) or Google's `expiry_date` (ms): the same file serves research-gsc.mjs
-  const exp = tok.expiry ?? tok.expiry_date;
-  const expMs = typeof exp === "number" ? exp : exp ? Date.parse(exp) : null;
-  const fresh = tok.access_token && (expMs == null || Number.isNaN(expMs) || expMs - Date.now() > 60000);
-  if (fresh) return { ok: true, token: tok.access_token };
-  if (!(tok.refresh_token && tok.client_id && tok.client_secret)) return blocked("search-console", "the token has expired and has no refresh_token/client_id/client_secret", unblock);
-  try {
-    const res = await fetch(tok.token_uri || ctx.endpoints.token, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, signal: AbortSignal.timeout(30000),
-      body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: tok.refresh_token, client_id: tok.client_id, client_secret: tok.client_secret }).toString() });
-    const j = await res.json();
-    if (!res.ok || !j.access_token) return blocked("search-console", `token refresh refused (${res.status}): ${j.error_description || j.error || ""}`, unblock);
-    const next = { ...tok, access_token: j.access_token, expiry: new Date(Date.now() + (j.expires_in || 3600) * 1000).toISOString() };
-    fs.writeFileSync(file, JSON.stringify(next, null, 1) + "\n");
-    return { ok: true, token: j.access_token, refreshed: true };
-  } catch (e) { return blocked("search-console", `token refresh failed: ${e.message}`, unblock); }
+  let g;
+  try { g = await getGscToken({ env: ctx.env || process.env, tokenFile: ctx.tokenFile || process.env.GSC_TOKEN_FILE || undefined, tokenUrl: ctx.endpoints.token }); }
+  catch (e) { if (e instanceof GoogleAuthBlocked) return blocked("search-console", e.reason, e.unblock); throw e; }
+  if (g.refreshed && g.file) {
+    const file = g.file, tok = readJson(file) || {};
+    try { const next = { ...tok, access_token: g.token, expiry: new Date(g.expiresAt).toISOString() }; fs.writeFileSync(file, JSON.stringify(next, null, 1) + "\n"); }
+    catch (e) { return blocked("search-console", `token refresh failed: ${e.message}`, GOOGLE_UNBLOCK); }
+    return { ok: true, token: g.token, refreshed: true };
+  }
+  return { ok: true, token: g.token };
 }
 
 function gscFail(source, res) {

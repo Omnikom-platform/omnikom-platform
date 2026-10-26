@@ -1,0 +1,10 @@
+{
+ "source": "bing",
+ "url": "https://ssl.bing.com/webmaster/api.svc/json/GetKeyword",
+ "method": "GET",
+ "status": 200,
+ "fetchedAt": "2026-10-25T19:34:15.406Z",
+ "contentType": "application/json; charset=utf-8",
+ "headers": {},
+ "text": "{\"d\":{\"__type\":\"Keyword:#Microsoft.Bing.Webmaster.Api\",\"BroadImpressions\":665,\"Impressions\":644,\"Query\":\"historic homes for sale\"}}"
+}

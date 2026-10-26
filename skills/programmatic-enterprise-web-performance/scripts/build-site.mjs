@@ -2,7 +2,7 @@
 // It runs the stage scripts in order from <target>/.pewp/state.json, stops at each missing input with the exact
 // question list for the MAIN session (which asks the owner as pickable options), writes the builder's spec, and
 // resumes where it stopped. It builds no stage itself; the stage scripts are owned by other builders.
-// Usage: node build-site.mjs <target dir> [--brief <file>] [--go] [--builder-done] [--site <built site dir>] [--strict]
+// Usage: node build-site.mjs <target dir> [--brief <file>] [--go] [--builder-done] [--site <built site dir>] [--strict] [--pewp <state dir>]
 //          [--research-args "<extra research.mjs args>"] [--plan-args "<extra plan-site.mjs args>"] [--live-url <url>]
 //          [--force <stage>] [--stage-scripts <dir>] [--stage-timeout-min 60]
 //   no --go          print the plan (stages, status, cost) and stop: the main session shows it and asks first
@@ -28,14 +28,15 @@ import { locate, load, save, init, markStage } from "./state.mjs";
 
 const skill = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const A = process.argv.slice(2);
-const VALUE_FLAGS = new Set(["--brief", "--site", "--force", "--stage-scripts", "--stage-timeout-min", "--research-args", "--plan-args", "--live-url", "--site-build", "--site-build-cwd"]);
+const VALUE_FLAGS = new Set(["--brief", "--site", "--force", "--stage-scripts", "--stage-timeout-min", "--research-args", "--plan-args", "--live-url", "--site-build", "--site-build-cwd", "--pewp"]);
 const opt = (k, d = null) => (A.includes(k) ? A[A.indexOf(k) + 1] : d);
 const positional = A.filter((x, i) => !x.startsWith("--") && !VALUE_FLAGS.has(A[i - 1]));
 if (!positional[0]) { console.error("usage: node build-site.mjs <target dir> [--brief file] [--go] [--builder-done] [--site dir] [--force stage] [--stage-scripts dir]"); process.exit(2); }
 
 const target = path.resolve(positional[0]);
 fs.mkdirSync(target, { recursive: true });
-const loc = locate(target);
+// --pewp DIR: the run state lives elsewhere (overhaul: with the live site under site-checks/<host>/.pewp while the code is this repo)
+const loc = opt("--pewp") ? { kind: "repo", target, root: target, pewp: path.resolve(opt("--pewp")) } : locate(target);
 const pewp = loc.pewp;
 const stageDir = path.resolve(opt("--stage-scripts") || here());
 function here() { return path.dirname(fileURLToPath(import.meta.url)); }
@@ -77,7 +78,7 @@ function briefFiles() { try { return fs.readdirSync(P("plan", "briefs")).filter(
 const statusOf = (s) => (!st.stages?.[s.name] ? "pending" : outputsMissing(s) ? "pending (outputs missing)" : stale(s) ? "stale (an input changed after it ran)" : "done");
 
 if (A.includes("--builder-done")) { st.build.builderDoneAt = new Date().toISOString(); st.build.site = siteDir; save(loc, st); }
-const builderDone = () => !!st.build.builderDoneAt && Date.parse(st.build.builderDoneAt) >= Date.parse(st.stages?.handoff?.doneAt || 0);
+const builderDone = () => !!st.build?.builderDoneAt && Date.parse(st.build.builderDoneAt) >= Date.parse(st.stages?.handoff?.doneAt || 0);
 
 // ---------- the plan (always printed; --go runs it) ----------
 const planLines = [`PLAN build ${rel(target)}  (state: ${rel(P("state.json"))})`];

@@ -1,0 +1,6 @@
+{
+  "name": "elev8-tracker",
+  "version": "0.1.0",
+  "description": "Side panel tracking the ELEV8 audit phases and every file that must be on disk when it is done",
+  "types": "./types/index.d.ts"
+}

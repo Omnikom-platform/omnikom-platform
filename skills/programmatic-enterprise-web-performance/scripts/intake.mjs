@@ -1,25 +1,28 @@
 // S1 intake: builds <pewp>/business.json (schemas/targets.md) from what the site says about itself plus a JSON answers file,
 // and prints the questions still missing. THIS SCRIPT NEVER PROMPTS: the main session turns each question into a pickable
 // option (AskUserQuestion, recommended option first), appends the picks to <pewp>/intake-answers.json, and re-runs it.
-// Usage: node intake.mjs <url | repo path> [--answers FILE] [--snapshot DIR] [--cwd DIR] [--refresh]
+// Usage: node intake.mjs <url | repo path> [--answers FILE] [--snapshot DIR] [--cwd DIR] [--refresh] [--require-vocabulary]
 // Facts come from (1) the newest complete snapshot of a URL target, or the built index.html of a repo target, (2) the answers
 // file (<pewp>/intake-answers.json is read automatically; --answers adds another). Answers win over site facts.
+// Who answered (contract C2): an answer is bare (legacy: provenance "unstated") or {"value": ..., "answeredBy": "owner" | "site" | "default"}.
+// business.json.provenance says, per field, owner | site | default | unstated; approve.mjs business refuses a business whose owner-only fields
+// (kind, offer, audience, goals, competitors, brand.constraints, vocabulary) are not "owner". vocabulary (the words the business and its readers
+// use) is asked as a question and [] is not an answer; it blocks only with --require-vocabulary (overhaul mode), otherwise approve refuses without it.
 // Outputs: business.json (only when nothing is missing), intake-facts.json (every found fact with its source, what was
 // accepted, what was defaulted, the open questions), business.draft.json. Exit 0 complete, 3 questions open (BLOCKED), 2 usage.
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
-import { fileURLToPath } from "node:url";
+import { rulesDir } from "./lib-rules.mjs";
 import { markStage } from "./state.mjs";
 import { latestComplete } from "./live-target.mjs";
 import { J, W, iso, today, domainOf, slug, context, runCli, parseArgs, Usage } from "./research-lib.mjs";
 
-const SKILL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const GOALS = ["leads", "calls", "bookings", "sales"];
 const LAUNCH = ["live", "preview", "planned"];
 const SOCIAL = /(facebook|instagram|linkedin|youtube|tiktok|twitter|x|pinterest|yelp|zillow|realtor|houzz|nextdoor|bbb)\.(com|org)/i;
 const PREVIEW_HOST = /(\.pages\.dev|\.vercel\.app|\.netlify\.app|\.github\.io|\.web\.app|localhost|127\.0\.0\.1)$/i;
-const KIND_BY_TYPE = { RealEstateAgent: "real-estate-agent", RealEstateOrganization: "real-estate-agent", Plumber: "plumber", Electrician: "electrician", Dentist: "dentist", InsuranceAgency: "insurance-agency", Attorney: "lawyer", LegalService: "lawyer", Restaurant: "restaurant", HVACBusiness: "hvac", RoofingContractor: "roofing-contractor", GeneralContractor: "general-contractor", AutoRepair: "auto-repair", MedicalBusiness: "medical-practice", Physician: "medical-practice", FinancialService: "financial-service", AccountingService: "accountant", HomeAndConstructionBusiness: "home-services", LocalBusiness: "local-service", ProfessionalService: "professional-service" };
+const KIND_BY_TYPE = { RealEstateAgent: "real-estate-agent", RealEstateOrganization: "real-estate-agent", Plumber: "plumber", Electrician: "electrician", Dentist: "dentist", InsuranceAgency: "insurance-agency", Attorney: "lawyer", LegalService: "lawyer", Restaurant: "restaurant", HVACBusiness: "hvac", RoofingContractor: "roofing-contractor", GeneralContractor: "general-contractor", AutoRepair: "auto-repair", MedicalBusiness: "medical-practice", Physician: "medical-practice", FinancialService: "financial-service", AccountingService: "accountant", HomeAndConstructionBusiness: "home-services", LocalBusiness: "local-service", ProfessionalService: "professional-service", NewsMediaOrganization: "editorial-media", Periodical: "editorial-media", Blog: "editorial-media" };
 
 // ---------- small HTML readers (the snapshot keeps the server's HTML) ----------
 // HTML entities in text AND in every URL read from the page (`?hl&#x3D;en` is `?hl=en`); decoded once, so `&amp;#x3D;` stays literal
@@ -32,6 +35,15 @@ function jsonLd(html) {
   return items;
 }
 const types = (o) => [].concat(o["@type"]).map(String);
+
+// The words a home page repeats (2+ times, 4+ letters, not filler): offered to the owner as options for "vocabulary", never assumed.
+const WORD_STOP = new Set("about above after again also been before being below between both build cannot could does doing down during each even every from have having here home into just like make many more most much must never only other over page please quite same should since some such than that their them then there these they this those through under until very what when where which while with within without would your yours ours contact privacy policy terms cookies login sign subscribe newsletter menu skip content read more click learn follow share search copyright rights reserved".split(" "));
+export function siteWords(html, limit = 12) {
+  const text = decode(String(html).replace(/<(script|style|noscript|svg|template)\b[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " "));
+  const counts = new Map();
+  for (const w of text.toLowerCase().match(/[a-z][a-z'-]{3,}/g) || []) if (!WORD_STOP.has(w)) counts.set(w, (counts.get(w) || 0) + 1);
+  return [...counts].filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, limit).map(([w]) => w);
+}
 
 export function readSite(dir) {
   let html = null, file = null;
@@ -60,6 +72,7 @@ export function siteFacts(site, label) {
   add("name", biz?.name ? decode(biz.name) : ogName, biz?.name ? `JSON-LD ${types(biz).join("/")}.name` : "meta og:site_name");
   const kind = biz ? types(biz).map((t) => KIND_BY_TYPE[t]).find(Boolean) : null;
   add("kind", kind, `JSON-LD @type ${biz ? types(biz).join("/") : ""}`, "suggest");
+  add("vocabulary.candidates", siteWords(h), "words the home page repeats (a suggestion for the owner's vocabulary, not an answer)", "suggest");
   add("offer", metaOf(h, "description"), "meta description (a suggestion to confirm, not a fact about the offer)", "suggest");
   const addr = biz?.address;
   if (addr && typeof addr === "object") {
@@ -91,12 +104,46 @@ export function normaliseAnswers(raw) { // dotted keys ("market.country") and ne
   for (const [k, v] of Object.entries(raw || {})) { const piece = {}; if (k.includes(".")) setPath(piece, k, v); else piece[k] = v; out = deepMerge(out, piece); }
   return out;
 }
+// Contract C2: an answer is bare (legacy: "unstated") or { value, answeredBy }. unwrapAnswers returns the plain answers and, per answered field
+// (dotted path), who answered. A plain object with no wrapped answer inside (a location, a credentials block) is one answer.
+const STAMPS = ["owner", "site", "default"];
+const isWrapped = (v) => !!v && typeof v === "object" && !Array.isArray(v) && Object.hasOwn(v, "answeredBy") && Object.hasOwn(v, "value");
+const hasWrapped = (v) => isWrapped(v) || (!!v && typeof v === "object" && !Array.isArray(v) && Object.values(v).some(hasWrapped));
+export function unwrapAnswers(raw) {
+  const prov = {};
+  const walk = (o, prefix) => {
+    const out = {};
+    for (const [k, v] of Object.entries(o || {})) {
+      const p = prefix ? `${prefix}.${k}` : k;
+      if (isWrapped(v)) { out[k] = v.value; prov[p] = STAMPS.includes(v.answeredBy) ? v.answeredBy : "unstated"; }
+      else if (hasWrapped(v)) out[k] = walk(v, p);
+      else { out[k] = v; prov[p] = "unstated"; }
+    }
+    return out;
+  };
+  return { answers: walk(raw, ""), prov };
+}
+const getPath = (o, p) => p.split(".").reduce((c, k) => (c && typeof c === "object" ? c[k] : undefined), o);
+// who answered <field>: its own entry, else the nearest parent's ("market" for "market.country"), else unstated
+const answerProvOf = (prov, field) => { for (let p = field; ; p = p.slice(0, p.lastIndexOf("."))) { if (prov[p]) return prov[p]; if (!p.includes(".")) return "unstated"; } };
+const PROV_FIELDS = ["name", "domain", "kind", "industry", "offer", "audience", "market.country", "market.language", "locations", "goals", "competitors", "brand.constraints", "existing.site", "existing.searchConsole", "existing.businessProfile", "existing.socials", "launchState", "vocabulary", "notOffer", "credentials", "rankTracking.source", "rankTracking.locations", "rankTracking.devices"];
+export function provenanceOf(business, answers, answerProv, accepted, defaulted) {
+  const out = {}, acc = new Set(accepted.map((x) => x.field)), def = new Set(defaulted.map((x) => x.field));
+  for (const f of PROV_FIELDS) {
+    const v = getPath(business, f), given = getPath(answers, f) !== undefined;
+    if (v === undefined || (v === null && !given)) continue;
+    out[f] = given ? answerProvOf(answerProv, f) : acc.has(f) ? "site" : def.has(f) ? "default" : "default";
+  }
+  return out;
+}
+// A location whose name lists several places ("California, New York and Florida") is a label, not a place (contract C2, G16).
+export const isRegionLabel = (name) => / and |&|;/i.test(String(name)) || (String(name).match(/,/g) || []).length >= 2;
 const list = (v) => (Array.isArray(v) ? v : typeof v === "string" ? v.split(/[,\n]/) : v == null ? null : [v]);
 const clean = (v) => list(v)?.map((x) => String(x).trim()).filter(Boolean) ?? null;
 const goalWord = (g) => ({ lead: "leads", leads: "leads", "lead generation": "leads", call: "calls", calls: "calls", phone: "calls", booking: "bookings", bookings: "bookings", appointments: "bookings", sale: "sales", sales: "sales", ecommerce: "sales" })[String(g).toLowerCase().trim()] || String(g).toLowerCase().trim();
 
 // Validate + normalise a candidate business; returns { business, missing: [field...], invalid: [{field, why}] }.
-export function assemble(c, { industries = null } = {}) {
+export function assemble(c, { industries = null, requireVocabulary = false } = {}) {
   const missing = [], invalid = [];
   const b = {};
   const need = (field, ok, val) => { if (ok) return val; missing.push(field); return undefined; };
@@ -124,6 +171,11 @@ export function assemble(c, { industries = null } = {}) {
   if (!b.goals.length) missing.push("goals");
   if (!Array.isArray(c.competitors)) missing.push("competitors"); // [] is a valid answer: "none known"
   b.competitors = [...new Set((clean(c.competitors) || []).map(domainOf))];
+  if (c.vocabulary !== undefined) { // owner-only; [] is not an answer (a business has words)
+    const v = [...new Set(clean(c.vocabulary) || [])];
+    if (!v.length) invalid.push({ field: "vocabulary", why: "[] is not an answer: list the words the business and its readers use for what it does" }); else b.vocabulary = v;
+  } else if (requireVocabulary) missing.push("vocabulary");
+  if (c.notOffer != null && String(c.notOffer).trim()) b.notOffer = String(c.notOffer).trim();
   if (!Array.isArray(c.brand?.constraints)) missing.push("brand.constraints"); // [] is valid
   b.brand = { constraints: clean(c.brand?.constraints) || [] };
   const ex = c.existing || {};
@@ -143,13 +195,13 @@ export function assemble(c, { industries = null } = {}) {
 
 // ---------- questions, shaped for AskUserQuestion: recommended option first, max 4 options (the tool adds "Other") ----------
 const opt = (label, description, value) => ({ label, description, value });
-export function questionsFor(missing, invalid, facts, cand) {
+export function questionsFor(missing, invalid, facts, cand, optional = []) {
   const fact = (f) => facts.find((x) => x.field === f);
   const why = (f) => invalid.find((i) => i.field === f)?.why;
   const Q = {
     name: () => ({ header: "Business", question: "What is the business called (the name customers know)?", options: [opt(cand.domain ? `Use "${cand.domain}"` : "Type the name", "pick Other to type the exact name", null)] }),
     domain: () => ({ header: "Website", question: "What is the website domain (no site yet: the domain it will have)?", options: [opt("Not decided yet", "research can still run; plan will need it", null)] }),
-    kind: () => { const f = fact("kind"); return { header: "Business type", question: "What kind of business is it?", options: [f && opt(f.value, "found on the site's own markup", f.value), opt("real-estate-agent", "licensed agent or brokerage", "real-estate-agent"), opt("cash-home-buyer", "buys houses directly for cash", "cash-home-buyer"), opt("local-service", "plumber, dentist, lawyer, contractor ...", "local-service")].filter(Boolean) }; },
+    kind: () => { const f = fact("kind"); return { header: "Business type", question: "What kind of business is it?", options: [f && opt(f.value, "found on the site's own markup", f.value), opt("real-estate-agent", "licensed agent or brokerage", "real-estate-agent"), opt("cash-home-buyer", "buys houses directly for cash", "cash-home-buyer"), opt("editorial-media", "publisher or media platform with paid features", "editorial-media"), opt("local-service", "plumber, dentist, lawyer, contractor ...", "local-service")].filter(Boolean).filter((o, i, all) => all.findIndex((x) => x.value === o.value) === i).slice(0, 4) }; }, // at most 4 pickable options (the tool adds Other)
     offer: () => { const f = fact("offer"); return { header: "Offer", question: "What does it sell, in one line?", options: [f && opt("Use the site's own description", String(f.value).slice(0, 110), f.value), opt("I will type it", "pick Other and type one line", null)].filter(Boolean) }; },
     audience: () => ({ header: "Audience", question: "Who is it for?", options: [opt("Households in the service area", "people deciding about their own home or service", "Households in the service area"), opt("Businesses (B2B)", "companies buying a service", "Businesses"), opt("Both", "households and businesses", "Households and businesses")] }),
     "market.country": () => ({ header: "Country", question: "Which country do the searchers live in? (every volume is per country)", options: [opt("US", "United States", "US"), opt("CA", "Canada", "CA"), opt("GB", "United Kingdom", "GB"), opt("AU", "Australia", "AU")] }),
@@ -161,13 +213,16 @@ export function questionsFor(missing, invalid, facts, cand) {
     "existing.searchConsole": () => ({ header: "Search Console", question: "Do we have Google Search Console access for this site?", options: [opt("No", "research uses captured search results instead", false), opt("Yes", "the owner can connect it (OAuth)", true)] }),
     "existing.site": () => ({ header: "Current site", question: "Is there a current website?", options: [opt("No site yet", "a new build", null), opt("Yes, I will type the address", "pick Other", null)] }),
     "existing.businessProfile": () => ({ header: "Google profile", question: "Is there a Google Business Profile (the map listing)?", options: [opt("None / not sure", "recorded as none", null), opt("Yes, I will paste the link", "pick Other", null)] }),
+    vocabulary: () => { const top = (fact("vocabulary.candidates")?.value || []).slice(0, 4); return { header: "Your words", multiSelect: true, question: "Which words do you and the people who read you use for what you do? (pick the right ones; type more under Other)", options: top.length ? top.map((w) => opt(w, "a word your own home page repeats", w)) : [opt("I will type them", "pick Other: the words, one per line", null)] }; },
+    notOffer: () => ({ header: "Not this", question: "What is the business NOT? (so research does not chase the wrong searches)", options: [opt("Nothing to rule out", "no exclusions", ""), opt("I will type it", "pick Other: one line", null)] }),
     launchState: () => ({ header: "Site state", question: "Is the site live, a preview copy, or only planned?", options: [opt("live", "public and meant to be found", "live"), opt("preview", "a copy kept out of search on purpose", "preview"), opt("planned", "nothing built yet", "planned")] }),
   };
-  return [...missing, ...invalid.map((i) => i.field).filter((f) => !missing.includes(f))].filter((f) => Q[f]).map((f, i) => ({ id: `q${i + 1}`, field: f, ...Q[f](), ...(why(f) ? { invalid: why(f) } : {}), recommended: 0, freeText: true }));
+  const asked = [...missing, ...invalid.map((i) => i.field).filter((f) => !missing.includes(f))];
+  return [...asked, ...optional.filter((f) => !asked.includes(f))].filter((f) => Q[f]).map((f, i) => ({ id: `q${i + 1}`, field: f, ...Q[f](), ...(why(f) ? { invalid: why(f) } : {}), ...(!asked.includes(f) ? { optional: true } : {}), recommended: 0, freeText: true }));
 }
 
 // ---------- the step ----------
-export async function run(ctx, { answersFile = null, snapshotDir = null, refresh = false } = {}) {
+export async function run(ctx, { answersFile = null, snapshotDir = null, refresh = false, requireVocabulary = false } = {}) {
   const { loc } = ctx;
   if (!refresh && ctx.business && !answersFile && !fs.existsSync(path.join(loc.pewp, "intake-answers.json"))) return { status: "complete", businessFile: path.join(loc.pewp, "business.json"), reused: true };
   let site = null, label = null;
@@ -185,7 +240,9 @@ export async function run(ctx, { answersFile = null, snapshotDir = null, refresh
     if (j === undefined || j === null || typeof j !== "object" || Array.isArray(j)) throw new Error(`${f} is not a JSON object of {"field": value} answers: fix or delete it, then re-run intake`);
     return j;
   };
-  const answers = normaliseAnswers({ ...readAnswers(path.join(loc.pewp, "intake-answers.json"), false), ...(answersFile ? readAnswers(answersFile, true) : {}) });
+  const parts = [readAnswers(path.join(loc.pewp, "intake-answers.json"), false), answersFile ? readAnswers(answersFile, true) : {}].map(unwrapAnswers);
+  const answers = normaliseAnswers({ ...parts[0].answers, ...parts[1].answers });
+  const answerProv = { ...parts[0].prov, ...parts[1].prov }; // who answered each field (a later file wins, like the values)
   // merge answers (win) over accepted facts
   const accepted = [], defaulted = [];
   const take = (field, value, why) => { accepted.push({ field, value, source: facts.find((x) => x.field === field)?.source || why }); return value; };
@@ -206,40 +263,56 @@ export async function run(ctx, { answersFile = null, snapshotDir = null, refresh
   }
   // kind: only an answer or the site's own markup type is used, and the markup type is offered as the recommended pick, not assumed
   let industries = null;
-  try { industries = fs.readdirSync(path.join(SKILL, "rules", "industries")).filter((f) => f.endsWith(".json")).map((f) => f.slice(0, -5)); } catch {}
-  const first = assemble(cand, { industries });
+  try { industries = fs.readdirSync(path.join(rulesDir(), "industries")).filter((f) => f.endsWith(".json")).map((f) => f.slice(0, -5)); } catch {}
+  const first = assemble(cand, { industries, requireVocabulary });
   // rank tracking defaults: the first three places, mobile (the cost stop for browser capture is 1 page / 45 s)
   const rt = cand.rankTracking || {};
   if (!rt.locations?.length && first.business.locations.length) {
     const l0 = first.business.locations[0], st = String(l0.address || "").match(/,\s*([A-Z]{2})\b\s*\d{0,5}/)?.[1] || String(l0.name).match(/,\s*([A-Z]{2})$/)?.[1] || null;
-    const seen = new Set();
-    const places = [l0.name, ...l0.serviceArea].filter(Boolean).map((p) => (st && !/,\s*[A-Z]{2}$/.test(p) ? `${p}, ${st}` : p)).filter((p) => { const k = p.split(",")[0].trim().toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 3); // "city, ST" as the contract wants
-    cand.rankTracking = { ...rt, locations: places };
-    defaulted.push({ field: "rankTracking.locations", value: places, why: "first three places of the first location; change by answering rankTracking.locations" });
+    const seen = new Set(), label = isRegionLabel(l0.name);
+    // a multi-region name ("California, New York and Florida") is a label, never a place: the served regions are the places (G16)
+    const places = (label ? l0.serviceArea : [l0.name, ...l0.serviceArea]).filter(Boolean).map((p) => (st && !/,\s*[A-Z]{2}$/.test(p) ? `${p}, ${st}` : p)).filter((p) => { const k = p.split(",")[0].trim().toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 3); // "city, ST" as the contract wants
+    if (places.length) {
+      cand.rankTracking = { ...rt, locations: places };
+      defaulted.push({ field: "rankTracking.locations", value: places, why: label ? `"${l0.name}" lists several places, so the first three served places are used; change by answering rankTracking.locations` : "first three places of the first location; change by answering rankTracking.locations" });
+    }
   }
   if (!rt.devices?.length) defaulted.push({ field: "rankTracking.devices", value: ["mobile"], why: "most local searches are on phones" });
   if (!rt.source) defaulted.push({ field: "rankTracking.source", value: first.business.existing.searchConsole ? "search-console" : "browser-capture", why: "Search Console when connected, else captured in the browser" });
-  const { business, missing, invalid } = assemble(cand, { industries });
-  const questions = questionsFor(missing, invalid, facts, cand);
-  const doc = { generatedAt: iso(), target: loc.target, siteSource: label, facts, accepted, defaulted, missing, invalid, questions };
+  const { business, missing, invalid } = assemble(cand, { industries, requireVocabulary });
+  const optional = [...(cand.vocabulary === undefined ? ["vocabulary"] : []), ...(cand.notOffer === undefined ? ["notOffer"] : [])]; // asked with the rest; they do not block (vocabulary blocks with requireVocabulary)
+  const questions = questionsFor(missing, invalid, facts, cand, optional);
+  business.provenance = provenanceOf(business, answers, answerProv, accepted, defaulted);
+  const doc = { generatedAt: iso(), target: loc.target, siteSource: label, facts, accepted, defaulted, missing, invalid, questions, provenance: business.provenance };
   W(path.join(loc.pewp, "intake-facts.json"), doc);
   W(path.join(loc.pewp, "business.draft.json"), business);
   if (!missing.length && !invalid.length) {
     W(path.join(loc.pewp, "business.json"), business);
     markStage(loc, "intake", { "business.json": path.join(loc.pewp, "business.json"), "intake-facts.json": path.join(loc.pewp, "intake-facts.json") });
-    return { status: "complete", businessFile: path.join(loc.pewp, "business.json"), accepted, defaulted };
+    return { status: "complete", businessFile: path.join(loc.pewp, "business.json"), accepted, defaulted, provenance: business.provenance, optional: questions.filter((q) => q.optional) };
   }
   return { status: "questions", questions, accepted, defaulted, invalid, factsFile: path.join(loc.pewp, "intake-facts.json") };
 }
 
-await runCli(import.meta.url, "node intake.mjs <url | repo path> [--answers FILE] [--snapshot DIR] [--cwd DIR] [--refresh]", ["refresh"], async (a) => {
+// owner-only fields (approve.mjs OWNER_ONLY) that nobody with the owner's stamp answered: said on every run so the next step is not a surprise
+const OWNER_FIELDS = ["kind", "offer", "audience", "goals", "competitors", "brand.constraints", "vocabulary"];
+await runCli(import.meta.url, "node intake.mjs <url | repo path> [--answers FILE] [--snapshot DIR] [--cwd DIR] [--refresh] [--require-vocabulary]", ["refresh", "require-vocabulary"], async (a) => {
   const ctx = context(a._[0], { cwd: a.get("cwd") || process.cwd() });
-  const r = await run(ctx, { answersFile: a.get("answers"), snapshotDir: a.get("snapshot"), refresh: a.has("refresh") });
-  if (r.status === "complete") { console.log(`COMPLETE ${r.businessFile}${r.reused ? " (already there; --refresh rebuilds)" : ""}`); for (const x of r.accepted || []) console.log(`  accepted ${x.field}: ${JSON.stringify(x.value).slice(0, 100)}  [${x.source}]`); for (const x of r.defaulted || []) console.log(`  default  ${x.field}: ${JSON.stringify(x.value)}  (${x.why})`); return; }
+  const r = await run(ctx, { answersFile: a.get("answers"), snapshotDir: a.get("snapshot"), refresh: a.has("refresh"), requireVocabulary: a.has("require-vocabulary") });
+  if (r.status === "complete") {
+    console.log(`COMPLETE ${r.businessFile}${r.reused ? " (already there; --refresh rebuilds)" : ""}`); for (const x of r.accepted || []) console.log(`  accepted ${x.field}: ${JSON.stringify(x.value).slice(0, 100)}  [${x.source}]`); for (const x of r.defaulted || []) console.log(`  default  ${x.field}: ${JSON.stringify(x.value)}  (${x.why})`);
+    if (r.provenance) {
+      const n = (k) => Object.values(r.provenance).filter((v) => v === k).length, no = OWNER_FIELDS.filter((f) => r.provenance[f] !== "owner");
+      console.log(`  provenance: owner ${n("owner")}, site ${n("site")}, default ${n("default")}, unstated ${n("unstated")}`);
+      if (no.length) console.log(`  NOTE no owner answer for: ${no.join(", ")}. approve.mjs business will refuse until the owner answers them and the answers are written as {"value":..., "answeredBy":"owner"} in ${path.join(ctx.pewp, "intake-answers.json")}, then intake runs again.`);
+    }
+    if (r.optional?.length) { console.log(`OPTIONAL QUESTIONS ${r.optional.length} (not blocking; ask them with the rest)`); console.log(JSON.stringify(r.optional, null, 1)); }
+    return;
+  }
   for (const x of r.accepted) console.log(`  accepted ${x.field}: ${JSON.stringify(x.value).slice(0, 100)}  [${x.source}]`);
   for (const x of r.defaulted) console.log(`  default  ${x.field}: ${JSON.stringify(x.value)}  (${x.why})`);
   console.log(`QUESTIONS ${r.questions.length}`);
   console.log(JSON.stringify(r.questions, null, 1));
-  console.log(`BLOCKED: ${r.questions.length} answers missing. The main session asks them as pickable options, appends the picks to ${path.join(ctx.pewp, "intake-answers.json")} (field -> value), then re-runs intake.`);
+  console.log(`BLOCKED: ${r.questions.filter((q) => !q.optional).length} answers missing${r.questions.some((q) => q.optional) ? ` (and ${r.questions.filter((q) => q.optional).length} optional, asked with them)` : ""}. The main session asks them as pickable options, appends the picks to ${path.join(ctx.pewp, "intake-answers.json")} (field -> value), then re-runs intake.`);
   process.exit(3);
 });
