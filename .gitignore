@@ -1,0 +1,4 @@
+# Credentials never enter git (owner 2026-10-26: "save all creds in a folder ... and have it gitignored").
+.secrets/
+.env
+.env.*
