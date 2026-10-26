@@ -24,6 +24,12 @@
   a full search grid (brand + name variants + services x cities) on Google, Bing, Maps; record time and usage per phase.
 - Track record for the offer: Francine (VTV), Eli and Rainmaker all reached the website-draft stage with previews.
 
+- **2026-10-26 (later): SOPs banked from the ELEV8 run** (owner: "send all those SOPs to the Omnikom Platform folder"):
+  `sops/website-backup.md` and `sops/prospect-audit-team.md`. The tools they name still live in `E:\Alex Sevilla` (newest
+  `tools/site-backup`, the team hooks, `START-TEAM.cmd`) and the panel mod in `~/.claude/dev-mods/.../elev8-tracker`; copy them in
+  when the ELEV8 run ends (they are still changing). `skills/programmatic-enterprise-web-performance` here is at 92c540b; the live
+  skill is at 2822a78 (overhaul mode): sync on purpose and update `skills/SOURCE.md`. Not committed yet.
+
 ## Open elsewhere (not this repo, but the owner may ask)
 - Rainmaker launch is WAITING on Monica's answers (via Dave) and the GoDaddy nameserver switch; steps in `E:\Rainmaker\LAUNCH.md`.
 - Francine (VTV) and Eli: see `E:\Francine & Eli\.claude\POSITION.md`.
