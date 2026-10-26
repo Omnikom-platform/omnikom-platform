@@ -42,3 +42,7 @@
 11. **Stack decided (supersedes 5, the DB spike):** ONE multi-tenant database on **Supabase**; ONE Omnikom business Cloudflare
     account hosts and deploys every client site (= 7); ONE Omnikom Google Search Console account manages every site. Each client
     gets a **dashboard login** where they can **post new articles / blog posts** and **change wording inside their pages**.
+12. **The AI voice agent is a rented add-on, fully provided by OmniSuite** (refines 1). The owner is turning the whole OmniSuite
+    engine into an API-key service: per client we create their profile + knowledge base in OmniSuite and connect it to the
+    **custom CRM built inside the client's dashboard**. The client pays for the voice agent separately (rent). Until the
+    OmniSuite API exists, the CRM side waits on it (see 8).
