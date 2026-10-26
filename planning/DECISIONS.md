@@ -23,7 +23,7 @@
 
 ## 2026-10-24 (on planning/REQUIREMENTS.md)
 
-5. **Tenant data: spike first.** Short test of Supabase vs Cloudflare D1 before step C; no choice until then.
+5. **(SUPERSEDED 2026-10-26 by 11: Supabase chosen, no spike.) Tenant data: spike first.** Short test of Supabase vs Cloudflare D1 before step C; no choice until then.
 6. **Content master copy: database rows.** The content contract's values live in the tenant DB; version history and rollback must
    be built in (no git-file source of truth).
 7. **Hosting: one Omnikom Cloudflare account** for all client sites (fully scriptable with one upgraded token); the client still
@@ -39,3 +39,6 @@
    gets the website's codebase, and Omnikom keeps the site hosted as it is. Omnikom is sold as a platform: the setup is how a
    client gets onto it (`E:\Francine & Eli\deliverables\docs\OMNIKOM-setup-service.md`).
 10. **After the setup, the growth loop:** optimise organic (Google + AI answers) until it levels off; paid ads only after that.
+11. **Stack decided (supersedes 5, the DB spike):** ONE multi-tenant database on **Supabase**; ONE Omnikom business Cloudflare
+    account hosts and deploys every client site (= 7); ONE Omnikom Google Search Console account manages every site. Each client
+    gets a **dashboard login** where they can **post new articles / blog posts** and **change wording inside their pages**.
