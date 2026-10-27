@@ -31,7 +31,9 @@ import { hasPlaceholder, Blocked, context, needBusiness, runCli, readStep, write
 // pages for a query), while a portal (a domain that fills many results pages) is told apart by domain + title.
 const resultKey = (o, portals = []) => (o.url ? normUrl(o.url) : portals.includes(o.domain) ? `${o.domain}|${String(o.title || "").toLowerCase().slice(0, 40)}` : o.domain);
 // Order: a measured number beats a tier estimate beats nothing; inside a kind, bigger first.
-export const volKey = (v) => (typeof v?.value === "number" ? [2, v.value] : v?.rank ? [1, v.rank] : [0, 0]);
+// A measured 0 is "the source saw no demand": it ranks below a tier estimate and above nothing (2026-10-27: 44 Bing zeros for unnatural seeds
+// such as "best buy a home in benicia" filled the 80-cluster cap and pushed out autocomplete-confirmed local phrases).
+export const volKey = (v) => (typeof v?.value === "number" ? (v.value > 0 ? [2, v.value] : [0.5, 0]) : v?.rank ? [1, v.rank] : [0, 0]);
 const byVolume = (a, b) => { const x = volKey(a.volume), y = volKey(b.volume); return y[0] - x[0] || y[1] - x[1] || a.order - b.order; };
 
 // domains that fill the SERPs of many different queries (aggregators/portals): used for the difficulty signal
@@ -72,7 +74,7 @@ export function buildUniverse(ctx) {
   for (const c of readStep(ctx, "serp")?.captures || []) up(c.query, { source: "serp" });
   for (const row of U.values()) {
     const order = ["kwp", "bing", "gsc", "autocomplete", "existing"];
-    const src = order.find((s) => row.volumes[s]?.value != null);
+    const src = order.find((s) => row.volumes[s]?.value != null && row.volumes[s].value !== 0) || order.find((s) => row.volumes[s]?.value != null); // a measured 0 yields to any signal of demand
     row.volume = src ? row.volumes[src] : notMeasured("no volume source has this query (Keyword Planner export, Bing key or Search Console would give one)");
     row.volumeSource = src || null;
   }
