@@ -14,7 +14,14 @@ p{max-width:62ch;margin-bottom:var(--sp-4)}
 .card img{width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;border-radius:var(--r-1)}
 .btn{display:inline-flex;align-items:center;min-height:3rem;padding:var(--sp-3) var(--sp-5);border-radius:var(--r-1);background:#1a1a1a;color:#fff;font-size:var(--fs-1);text-decoration:none}
 small{font-size:var(--fs-0);color:#555}
+/* regressions 2026-10-27: a color-mix() hover fill, a 50% circle beside three radii, an uppercase eyebrow <p> under 16 px on phone */
+:root{--r-3:1.5rem}
+.panel{border-radius:var(--r-3);border:1px solid #ccc;padding:var(--sp-5)}
+.mix{background:color-mix(in srgb,#fff 82%,#1a1a1a);color:#1a1a1a}
+.dot{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:50%;background:#1a1a1a;color:#fff;font-size:var(--fs-0)}
+.eye{font-size:var(--fs-0);text-transform:uppercase;letter-spacing:.12em;color:#555}
 </style></head><body><main>
 <section><h2>Homes for sale near you today</h2><p>Search every home for sale in the ten cities the team serves, from the Bay Area through Solano County and into Greater Sacramento, and pick the one that fits.</p><a class="btn" href="#">Search homes</a></section>
 <section><div class="card"><img src="photo.jpg" alt="A porch" width="1800" height="1200"><h2>A covered front porch</h2><small>Sample listing photo</small></div></section>
+<section class="panel"><p class="eye">Areas we serve</p><a class="btn mix" href="#">Search homes</a> <a class="dot" href="#" aria-label="Call">1</a></section>
 </main></body></html>

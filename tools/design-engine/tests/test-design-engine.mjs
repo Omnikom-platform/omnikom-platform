@@ -1,7 +1,7 @@
 // design-engine self-test. No network: the basemap check uses the cached example tiles (it fails if a tile would have to download).
 // Checks, each a named PASS/FAIL line:
 //   render-asset   2x scale doubles the pixels; --transparent leaves the rounded corner fully transparent; the centre keeps its colour
-//   craft-lint     the good fixture exits 0 at 3 viewports; the bad fixture exits 1 and reports every planted rule (12)
+//   craft-lint     the good fixture exits 0 at 3 viewports; the bad fixture exits 1 and reports every planted rule (13)
 //   ref-capture    a robot page stops the host; a fixture is captured at both widths; lazy images (data-src, loading=lazy) load first
 //   ref-fixed      the bottom-docked bar and the sticky header are found at mid-page; a robot page stops the host
 //   basemap        a place's pixel position equals an independent Web Mercator computation; cached tiles only
@@ -41,7 +41,7 @@ const bad = run([path.join(DE, 'craft-lint.mjs'), '--root', path.join(DE, 'tests
 check('craft-lint: bad fixture exits 1', bad.status === 1, `exit ${bad.status}`);
 if (fs.existsSync(badJson)) {
   const rules = new Set(JSON.parse(fs.readFileSync(badJson, 'utf8')).flatMap((v) => v.errors.map((e) => e.rule)));
-  for (const want of ['token-type', 'token-space', 'contrast', 'orphan', 'distortion', 'radius-family', 'shadow-family', 'overflow', 'tap-target', 'phone-body', 'min-size', 'families'])
+  for (const want of ['token-type', 'token-space', 'contrast', 'orphan', 'distortion', 'radius-family', 'shadow-family', 'overflow', 'tap-target', 'phone-body', 'min-size', 'families', 'label-wrap'])
     check(`craft-lint: catches ${want}`, rules.has(want), `rules seen: ${[...rules].join(', ')}`);
 }
 

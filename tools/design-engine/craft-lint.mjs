@@ -47,7 +47,8 @@ function audit({ scope, phone, max: MAX }) {
   const els = [...sc.querySelectorAll('*')].filter(visible);
   const directText = (el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim().length > 0);
   const fams = new Map(), wts = new Map(), radii = new Map(), shadows = new Map();
-  const lum = (c) => { const m = c.match(/[\d.]+/g); if (!m) return null; const [r, g, b, a = 1] = m.map(Number); const f = (x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }; return { L: 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b), a, rgb: [r, g, b] }; };
+  // color-mix() computes to `color(srgb r g b / a)` with channels 0-1, not 0-255 (2026-10-27: read as near-black, false 1.14:1 failures)
+  const lum = (c) => { const fn = /^color\(srgb\s/.test(c); const m = c.replace(/^color\(srgb/, '').match(/[\d.]+/g); if (!m) return null; let [r, g, b, a = 1] = m.map(Number); if (fn) { r *= 255; g *= 255; b *= 255; } const f = (x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }; return { L: 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b), a, rgb: [r, g, b] }; };
   // text drawn over a photo (an <img>/<video>/<canvas> layer under it, not a CSS background) is an eye check, not a colour sum
   const overMedia = (el) => { const r = el.getBoundingClientRect(), x = r.left + Math.min(r.width / 2, 40), y = r.top + r.height / 2;
     if (y < 0 || y > innerHeight || x < 0 || x > innerWidth) { el.scrollIntoView({ block: 'center' }); }
@@ -64,7 +65,8 @@ function audit({ scope, phone, max: MAX }) {
       fams.set(cs.fontFamily.split(',')[0].trim().replace(/["']/g, ''), sel(el)); wts.set(cs.fontWeight, sel(el));
       if (fsSet.length && !near(fsz, fsSet)) { counts.tokenFs++; if (counts.tokenFs <= MAX) err('token-type', el, `font-size ${fsz}px is not a --fs-* token (${out.stats.tokens.fs.join('/')})`); }
       if (fsz < 11) err('min-size', el, `text ${fsz}px < 11px`);
-      if (phone && ['p', 'li', 'dd', 'td'].includes(tag) && fsz < 16) err('phone-body', el, `body text ${fsz}px < 16px on phone`);
+      // uppercase tracked text is a label (CRAFT 3: >= 11 px, checked below), not body copy
+      if (phone && ['p', 'li', 'dd', 'td'].includes(tag) && fsz < 16 && cs.textTransform !== 'uppercase') err('phone-body', el, `body text ${fsz}px < 16px on phone`);
       if (cs.textTransform === 'uppercase' && fsz < 11) err('min-size', el, `uppercase ${fsz}px < 11px`);
       const bg = bgOf(el), fg = lum(cs.color);
       if (bg.image) out.eye.push({ rule: 'contrast-on-image', at: sel(el), msg: `text over a background image (${sel(bg.at)}): check the scrim by eye` });
@@ -76,12 +78,21 @@ function audit({ scope, phone, max: MAX }) {
         const v = px(cs[p]); if (v && !okSpace(v)) { counts.tokenSp++; if (counts.tokenSp <= MAX) err('token-space', el, `${p} ${v}px is not a --sp-* token (${spSet.join('/')})`); }
       }
     }
-    const rad = px(cs.borderTopLeftRadius); const r = el.getBoundingClientRect();
+    // a % radius computes as "50%", not px: >= 50% is a circle or pill (exempt), a smaller % is converted against the short side
+    const r = el.getBoundingClientRect(), rRaw = cs.borderTopLeftRadius; let rad = px(rRaw);
+    if (rRaw.includes('%')) rad = rad >= 50 ? 1000 : (rad / 100) * Math.min(r.width, r.height);
     if (rad > 0 && rad < 999 && !(Math.abs(rad - r.width / 2) < 1 && Math.abs(r.width - r.height) < 2)) radii.set(rad, sel(el));
     if (cs.boxShadow && cs.boxShadow !== 'none') shadows.set(cs.boxShadow, sel(el));
     if (tag === 'img' && el.naturalWidth) { const fit = cs.objectFit, nr = el.naturalWidth / el.naturalHeight, rr = r.width / r.height; if (fit === 'fill' && Math.abs(nr - rr) / nr > 0.02) err('distortion', el, `image stretched: natural ${nr.toFixed(2)} vs rendered ${rr.toFixed(2)}`); }
     if (tag === 'p' && !phone && (el.textContent || '').trim().length > 140) { const lh = px(cs.lineHeight) || px(cs.fontSize) * 1.5, lines = Math.max(1, Math.round(r.height / lh)), cpl = el.textContent.trim().length / lines;
       if (lines > 1 && (cpl > 85 || cpl < 35)) (cpl > 95 ? err : warn)('measure', el, `about ${Math.round(cpl)} characters per line (45-80)`); }
+    // a button-like control (a box with a fill or border) whose label breaks onto two lines (2026-10-27: "Get my home / value" passed every rule)
+    if (isText && (['a', 'button', 'summary'].includes(tag) || el.getAttribute('role') === 'tab') && /flex|grid|inline-block/.test(cs.display)
+      && ((lum(cs.backgroundColor)?.a || 0) > 0.05 || px(cs.borderTopWidth) > 0 || px(cs.borderBottomWidth) > 0)) {
+      const tops = new Set(); const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let n;
+      while ((n = walker.nextNode())) { const rg = document.createRange(); rg.selectNodeContents(n); for (const rc of rg.getClientRects()) if (rc.width > 1) tops.add(Math.round(rc.top / 4)); }
+      if (tops.size > 1) err('label-wrap', el, `control label wraps onto ${tops.size} lines ("${el.textContent.trim().slice(0, 40)}"): use white-space: nowrap or a shorter label`);
+    }
     if (/^h[1-3]$/.test(tag)) { const words = []; const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let n; while ((n = walker.nextNode())) { const t = n.textContent; const re = /\S+/g; let m; while ((m = re.exec(t))) { const rg = document.createRange(); rg.setStart(n, m.index); rg.setEnd(n, m.index + m[0].length); const rc = rg.getClientRects()[0]; if (rc) words.push(Math.round(rc.top)); } }
       const tops = [...new Set(words)]; if (tops.length > 1) { const last = Math.max(...tops); if (words.filter((t) => Math.abs(t - last) < 3).length === 1) err('orphan', el, `heading ends with one word alone on its last line ("${el.textContent.trim().split(/\s+/).pop()}")`); } }
   }

@@ -35,6 +35,8 @@ lint is not shown to the owner. The rest are checked by eye in the section revie
 - Never pure #000 on pure #fff for long text; never grey text on a coloured surface below 4.5:1.
 
 ## 5. Components (anatomy and every state)
+- **[lint] Labels never wrap**: a button, tab or chip label stays on one line (`white-space: nowrap`; shorten the label or widen the
+  column instead).
 - **Buttons**: heights 44 (small), 48 (default), 56 (hero); horizontal padding = 1.25-1.5x the height's half; one radius family;
   states: default, hover, focus-visible (2-3 px ring, offset 2-3 px), active (pressed), disabled, loading. Icon 20 px with 8 px gap.
 - **Inputs**: height 48-56, label above (or a visible floating label), placeholder is never the only label, error text below in the

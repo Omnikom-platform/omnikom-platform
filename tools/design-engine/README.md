@@ -11,5 +11,5 @@ the quality standard is `CRAFT.md`. First run: ELEV8 Real Estate Group (2026-10-
   fixed/sticky UI probe (phone action bars that a full-page shot hides); read only, a robot page stops the host.
 - `lib/browser.mjs`: the one browser loader (the skill's lib-shots, this repo's copy first).
 
-Prove it: `node tools/design-engine/tests/test-design-engine.mjs` (28 checks; the basemap checks run offline only when tiles are cached,
+Prove it: `node tools/design-engine/tests/test-design-engine.mjs` (29 checks; the basemap checks run offline only when tiles are cached,
 because tiles are never committed).
