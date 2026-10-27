@@ -1,0 +1,13 @@
+{
+ "duotone": {"dark": "#6b8597", "light": "#f6f1e7"},
+ "accent": "#a96d14",
+ "font": "Instrument Sans",
+ "fontCss": "../assets/fonts/fonts.css",
+ "hub": "fairfield",
+ "routes": [
+  {"style": "main", "points": ["walnut-creek", [37.945,-122.06], "concord", [38.01,-122.08], [38.035,-122.118], "benicia", [38.10,-122.13], [38.16,-122.13], [38.218,-122.135], [38.235,-122.08], "fairfield", [38.30,-122.02], "vacaville", [38.40,-121.90], [38.445,-121.82], [38.545,-121.74], [38.575,-121.60], [38.58,-121.53], "sacramento"]},
+  {"style": "branch", "points": [[38.218,-122.135], [38.19,-122.19], [38.14,-122.235], "vallejo", [38.14,-122.258], "american-canyon", [38.24,-122.276], "napa"]}
+ ],
+ "labels": {"napa":"r","american-canyon":"r","vallejo":"l","benicia":"l","concord":"r","walnut-creek":"r","fairfield":"ru","suisun-city":"rd","vacaville":"r","sacramento":"b"},
+ "regions": [["Napa Valley",38.42,-122.36],["Solano County",38.33,-121.82],["Contra Costa",37.86,-121.93],["Yolo County",38.62,-121.86]]
+}

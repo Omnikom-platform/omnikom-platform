@@ -1,0 +1,12 @@
+[
+ {"name":"Walnut Creek","slug":"walnut-creek","lat":37.9101,"lon":-122.0652},
+ {"name":"Concord","slug":"concord","lat":37.978,"lon":-122.0311},
+ {"name":"Benicia","slug":"benicia","lat":38.0494,"lon":-122.1586},
+ {"name":"Vallejo","slug":"vallejo","lat":38.1041,"lon":-122.2566},
+ {"name":"American Canyon","slug":"american-canyon","lat":38.1749,"lon":-122.2608},
+ {"name":"Napa","slug":"napa","lat":38.2975,"lon":-122.2869},
+ {"name":"Suisun City","slug":"suisun-city","lat":38.2385,"lon":-122.0402},
+ {"name":"Fairfield","slug":"fairfield","lat":38.2494,"lon":-122.04},
+ {"name":"Vacaville","slug":"vacaville","lat":38.3566,"lon":-121.9877},
+ {"name":"Sacramento","slug":"sacramento","lat":38.5816,"lon":-121.4944}
+]

@@ -2,3 +2,7 @@
 .secrets/
 .env
 .env.*
+
+# design engine: map tiles are provider data (Esri / OSM terms): never committed; rendered map PNGs are derived from them
+tools/design-engine/examples/**/map/tiles/
+tools/design-engine/examples/**/*.png

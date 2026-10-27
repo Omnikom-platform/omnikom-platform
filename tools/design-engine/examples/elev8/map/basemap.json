@@ -1,0 +1,375 @@
+{
+ "zoom": 11,
+ "source": "esri",
+ "attribution": "Esri, HERE, Garmin, © OpenStreetMap contributors",
+ "width": 1792,
+ "height": 2048,
+ "origin": [
+  83712,
+  200704
+ ],
+ "tiles": [
+  {
+   "src": "tiles/esri-11-327-784.png",
+   "x": 0,
+   "y": 0
+  },
+  {
+   "src": "tiles/esri-11-328-784.png",
+   "x": 256,
+   "y": 0
+  },
+  {
+   "src": "tiles/esri-11-329-784.png",
+   "x": 512,
+   "y": 0
+  },
+  {
+   "src": "tiles/esri-11-330-784.png",
+   "x": 768,
+   "y": 0
+  },
+  {
+   "src": "tiles/esri-11-331-784.png",
+   "x": 1024,
+   "y": 0
+  },
+  {
+   "src": "tiles/esri-11-332-784.png",
+   "x": 1280,
+   "y": 0
+  },
+  {
+   "src": "tiles/esri-11-333-784.png",
+   "x": 1536,
+   "y": 0
+  },
+  {
+   "src": "tiles/esri-11-327-785.png",
+   "x": 0,
+   "y": 256
+  },
+  {
+   "src": "tiles/esri-11-328-785.png",
+   "x": 256,
+   "y": 256
+  },
+  {
+   "src": "tiles/esri-11-329-785.png",
+   "x": 512,
+   "y": 256
+  },
+  {
+   "src": "tiles/esri-11-330-785.png",
+   "x": 768,
+   "y": 256
+  },
+  {
+   "src": "tiles/esri-11-331-785.png",
+   "x": 1024,
+   "y": 256
+  },
+  {
+   "src": "tiles/esri-11-332-785.png",
+   "x": 1280,
+   "y": 256
+  },
+  {
+   "src": "tiles/esri-11-333-785.png",
+   "x": 1536,
+   "y": 256
+  },
+  {
+   "src": "tiles/esri-11-327-786.png",
+   "x": 0,
+   "y": 512
+  },
+  {
+   "src": "tiles/esri-11-328-786.png",
+   "x": 256,
+   "y": 512
+  },
+  {
+   "src": "tiles/esri-11-329-786.png",
+   "x": 512,
+   "y": 512
+  },
+  {
+   "src": "tiles/esri-11-330-786.png",
+   "x": 768,
+   "y": 512
+  },
+  {
+   "src": "tiles/esri-11-331-786.png",
+   "x": 1024,
+   "y": 512
+  },
+  {
+   "src": "tiles/esri-11-332-786.png",
+   "x": 1280,
+   "y": 512
+  },
+  {
+   "src": "tiles/esri-11-333-786.png",
+   "x": 1536,
+   "y": 512
+  },
+  {
+   "src": "tiles/esri-11-327-787.png",
+   "x": 0,
+   "y": 768
+  },
+  {
+   "src": "tiles/esri-11-328-787.png",
+   "x": 256,
+   "y": 768
+  },
+  {
+   "src": "tiles/esri-11-329-787.png",
+   "x": 512,
+   "y": 768
+  },
+  {
+   "src": "tiles/esri-11-330-787.png",
+   "x": 768,
+   "y": 768
+  },
+  {
+   "src": "tiles/esri-11-331-787.png",
+   "x": 1024,
+   "y": 768
+  },
+  {
+   "src": "tiles/esri-11-332-787.png",
+   "x": 1280,
+   "y": 768
+  },
+  {
+   "src": "tiles/esri-11-333-787.png",
+   "x": 1536,
+   "y": 768
+  },
+  {
+   "src": "tiles/esri-11-327-788.png",
+   "x": 0,
+   "y": 1024
+  },
+  {
+   "src": "tiles/esri-11-328-788.png",
+   "x": 256,
+   "y": 1024
+  },
+  {
+   "src": "tiles/esri-11-329-788.png",
+   "x": 512,
+   "y": 1024
+  },
+  {
+   "src": "tiles/esri-11-330-788.png",
+   "x": 768,
+   "y": 1024
+  },
+  {
+   "src": "tiles/esri-11-331-788.png",
+   "x": 1024,
+   "y": 1024
+  },
+  {
+   "src": "tiles/esri-11-332-788.png",
+   "x": 1280,
+   "y": 1024
+  },
+  {
+   "src": "tiles/esri-11-333-788.png",
+   "x": 1536,
+   "y": 1024
+  },
+  {
+   "src": "tiles/esri-11-327-789.png",
+   "x": 0,
+   "y": 1280
+  },
+  {
+   "src": "tiles/esri-11-328-789.png",
+   "x": 256,
+   "y": 1280
+  },
+  {
+   "src": "tiles/esri-11-329-789.png",
+   "x": 512,
+   "y": 1280
+  },
+  {
+   "src": "tiles/esri-11-330-789.png",
+   "x": 768,
+   "y": 1280
+  },
+  {
+   "src": "tiles/esri-11-331-789.png",
+   "x": 1024,
+   "y": 1280
+  },
+  {
+   "src": "tiles/esri-11-332-789.png",
+   "x": 1280,
+   "y": 1280
+  },
+  {
+   "src": "tiles/esri-11-333-789.png",
+   "x": 1536,
+   "y": 1280
+  },
+  {
+   "src": "tiles/esri-11-327-790.png",
+   "x": 0,
+   "y": 1536
+  },
+  {
+   "src": "tiles/esri-11-328-790.png",
+   "x": 256,
+   "y": 1536
+  },
+  {
+   "src": "tiles/esri-11-329-790.png",
+   "x": 512,
+   "y": 1536
+  },
+  {
+   "src": "tiles/esri-11-330-790.png",
+   "x": 768,
+   "y": 1536
+  },
+  {
+   "src": "tiles/esri-11-331-790.png",
+   "x": 1024,
+   "y": 1536
+  },
+  {
+   "src": "tiles/esri-11-332-790.png",
+   "x": 1280,
+   "y": 1536
+  },
+  {
+   "src": "tiles/esri-11-333-790.png",
+   "x": 1536,
+   "y": 1536
+  },
+  {
+   "src": "tiles/esri-11-327-791.png",
+   "x": 0,
+   "y": 1792
+  },
+  {
+   "src": "tiles/esri-11-328-791.png",
+   "x": 256,
+   "y": 1792
+  },
+  {
+   "src": "tiles/esri-11-329-791.png",
+   "x": 512,
+   "y": 1792
+  },
+  {
+   "src": "tiles/esri-11-330-791.png",
+   "x": 768,
+   "y": 1792
+  },
+  {
+   "src": "tiles/esri-11-331-791.png",
+   "x": 1024,
+   "y": 1792
+  },
+  {
+   "src": "tiles/esri-11-332-791.png",
+   "x": 1280,
+   "y": 1792
+  },
+  {
+   "src": "tiles/esri-11-333-791.png",
+   "x": 1536,
+   "y": 1792
+  }
+ ],
+ "places": [
+  {
+   "name": "Walnut Creek",
+   "slug": "walnut-creek",
+   "lat": 37.9101,
+   "lon": -122.0652,
+   "x": 661.7,
+   "y": 1695
+  },
+  {
+   "name": "Concord",
+   "slug": "concord",
+   "lat": 37.978,
+   "lon": -122.0311,
+   "x": 711.3,
+   "y": 1569.6
+  },
+  {
+   "name": "Benicia",
+   "slug": "benicia",
+   "lat": 38.0494,
+   "lon": -122.1586,
+   "x": 525.6,
+   "y": 1437.6
+  },
+  {
+   "name": "Vallejo",
+   "slug": "vallejo",
+   "lat": 38.1041,
+   "lon": -122.2566,
+   "x": 382.9,
+   "y": 1336.4
+  },
+  {
+   "name": "American Canyon",
+   "slug": "american-canyon",
+   "lat": 38.1749,
+   "lon": -122.2608,
+   "x": 376.8,
+   "y": 1205.3
+  },
+  {
+   "name": "Napa",
+   "slug": "napa",
+   "lat": 38.2975,
+   "lon": -122.2869,
+   "x": 338.8,
+   "y": 978
+  },
+  {
+   "name": "Suisun City",
+   "slug": "suisun-city",
+   "lat": 38.2385,
+   "lon": -122.0402,
+   "x": 698.1,
+   "y": 1087.4
+  },
+  {
+   "name": "Fairfield",
+   "slug": "fairfield",
+   "lat": 38.2494,
+   "lon": -122.04,
+   "x": 698.4,
+   "y": 1067.2
+  },
+  {
+   "name": "Vacaville",
+   "slug": "vacaville",
+   "lat": 38.3566,
+   "lon": -121.9877,
+   "x": 774.5,
+   "y": 868.2
+  },
+  {
+   "name": "Sacramento",
+   "slug": "sacramento",
+   "lat": 38.5816,
+   "lon": -121.4944,
+   "x": 1493,
+   "y": 449.7
+  }
+ ]
+}

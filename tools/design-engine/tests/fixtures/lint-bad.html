@@ -1,0 +1,34 @@
+<!doctype html>
+<!-- craft-lint fixture with planted defects, one per rule. Expected: each rule below reports at least once.
+     token-type (15px font) · token-space (13px padding) · contrast (#aaa on #fff) · orphan (h2 last word alone) · distortion (stretched img)
+     · radius-family (5 radii) · shadow-family (4 shadows) · overflow (2000px box) · tap-target (20px link on phone) · phone-body (14px p)
+     · min-size (10px text) · families (4 families) -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>lint bad</title>
+<style>
+:root{--fs-1:1rem;--fs-3:2.5rem;--sp-4:1rem;--sp-6:2rem;--r-1:.5rem;--sh-1:0 2px 4px rgba(0,0,0,.1)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;font-size:var(--fs-1);color:#1a1a1a;background:#fff}
+main{padding:var(--sp-4)}
+.off{font-size:15px;padding:13px}
+.faint{color:#aaa}
+h2{font-size:var(--fs-3);width:21rem}
+.stretch{width:400px;height:100px}
+.r1{border-radius:3px}.r2{border-radius:7px}.r3{border-radius:11px}.r4{border-radius:19px}.r5{border-radius:23px}
+.s1{box-shadow:0 1px 2px #000}.s2{box-shadow:0 2px 3px #000}.s3{box-shadow:0 3px 4px #000}.s4{box-shadow:0 4px 5px #000}
+.wide{width:2000px;height:var(--sp-4)}
+.tiny{display:inline-block;width:20px;height:20px;font-size:var(--fs-1)}
+.small{font-size:14px}.micro{font-size:10px}
+.f1{font-family:Georgia}.f2{font-family:"Courier New"}.f3{font-family:Impact}
+</style></head><body><main>
+<p class="off">Off-scale type and spacing.</p>
+<p class="faint">Faint grey text that fails contrast on white.</p>
+<h2>Homes for sale in Fairfield today, look</h2>
+<img class="stretch" src="photo.jpg" alt="stretched" width="1800" height="1200">
+<div class="r1">a</div><div class="r2">b</div><div class="r3">c</div><div class="r4">d</div><div class="r5">e</div>
+<div class="s1">a</div><div class="s2">b</div><div class="s3">c</div><div class="s4">d</div>
+<div class="wide"></div>
+<a class="tiny" href="#">x</a><a class="tiny" href="#">y</a>
+<p class="small">Phone body text that is too small to read comfortably.</p>
+<span class="micro">tiny print</span>
+<span class="f1">serif</span><span class="f2">mono</span><span class="f3">impact</span>
+</main></body></html>
