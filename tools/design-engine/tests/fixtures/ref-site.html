@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ref fixture</title>
+<style>
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; }
+  header { position: sticky; top: 0; height: 60px; background: #111; color: #fff; padding: 0 16px; display: flex; align-items: center; }
+  section { min-height: 900px; padding: 40px 16px; border-bottom: 1px solid #ddd; }
+  img { width: 300px; height: 200px; display: block; }
+  .dock { position: fixed; left: 0; right: 0; bottom: 0; height: 64px; background: #0b3d5c; display: flex; }
+  .dock a { flex: 1; color: #fff; display: flex; align-items: center; justify-content: center; text-decoration: none; }
+</style></head>
+<body>
+  <header>Fixture Realty</header>
+  <section><h1>Find a home in the fixture</h1><p>First section.</p></section>
+  <section><h2>Below the fold</h2><img alt="lazy by data-src" data-src="photo.jpg" src=""></section>
+  <section><h2>Further down</h2><img alt="native lazy" loading="lazy" src="photo.jpg"></section>
+  <nav class="dock" aria-label="Quick actions"><a href="tel:+15550100">Call</a><a href="#search">Search</a></nav>
+</body></html>

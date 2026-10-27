@@ -2,13 +2,15 @@
 // Checks, each a named PASS/FAIL line:
 //   render-asset   2x scale doubles the pixels; --transparent leaves the rounded corner fully transparent; the centre keeps its colour
 //   craft-lint     the good fixture exits 0 at 3 viewports; the bad fixture exits 1 and reports every planted rule (12)
+//   ref-capture    a robot page stops the host; a fixture is captured at both widths; lazy images (data-src, loading=lazy) load first
+//   ref-fixed      the bottom-docked bar and the sticky header are found at mid-page; a robot page stops the host
 //   basemap        a place's pixel position equals an independent Web Mercator computation; cached tiles only
 //   map-overlay    the template renders the example with 0 page errors
 // Usage: node tools/design-engine/tests/test-design-engine.mjs        Exit 0 all pass, 1 any fail.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url)), DE = path.resolve(here, '..');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'de-test-'));
@@ -41,6 +43,31 @@ if (fs.existsSync(badJson)) {
   const rules = new Set(JSON.parse(fs.readFileSync(badJson, 'utf8')).flatMap((v) => v.errors.map((e) => e.rule)));
   for (const want of ['token-type', 'token-space', 'contrast', 'orphan', 'distortion', 'radius-family', 'shadow-family', 'overflow', 'tap-target', 'phone-body', 'min-size', 'families'])
     check(`craft-lint: catches ${want}`, rules.has(want), `rules seen: ${[...rules].join(', ')}`);
+}
+
+// ref-capture + ref-fixed against local fixtures (served in-process, so the child runs async: spawnSync would block the server)
+{
+  const { lib } = await import(new URL('../lib/browser.mjs', import.meta.url).href);
+  const fx = path.join(DE, 'tests/fixtures');
+  const { server, port } = await lib.serve(fx);
+  const runAsync = (args) => new Promise((resolve) => { const c = spawn(process.execPath, args, { env: { ...process.env, DE_OFFLINE: '1' } }); let out = ''; c.stdout.on('data', (d) => { out += d; }); c.stderr.on('data', (d) => { out += d; }); c.on('close', (status) => resolve({ status, out })); });
+  const refs = path.join(tmp, 'refs'), sites = path.join(tmp, 'sites.json');
+  fs.writeFileSync(sites, JSON.stringify([{ name: 'site', url: lib.urlFor(port, fx, path.join(fx, 'ref-site.html')) }, { name: 'robot', url: lib.urlFor(port, fx, path.join(fx, 'ref-robot.html')) }]));
+  const rc = await runAsync([path.join(DE, 'ref-capture.mjs'), '--out', refs, '--sites', sites]);
+  const cap = (n) => { try { return JSON.parse(fs.readFileSync(path.join(refs, n, 'capture.json'), 'utf8')); } catch { return null; } };
+  const site = cap('site'), robot = cap('robot');
+  check('ref-capture: exit 1 when one site is a robot page', rc.status === 1, rc.out.slice(-400));
+  check('ref-capture: robot page recorded as blocked, phone pass skipped', !!robot?.views?.laptop?.blocked && !robot?.views?.phone, JSON.stringify(robot?.views));
+  check('ref-capture: fixture captured at laptop and phone with full shots', !!site?.views?.laptop?.h1?.length && !!site?.views?.phone?.h1?.length && fs.existsSync(path.join(refs, 'site/laptop-full.png')) && fs.existsSync(path.join(refs, 'site/phone-full.png')), rc.out.slice(-400));
+  // watched-fail target: without the eager-load step the data-src image stays empty and this goes red
+  check('ref-capture: lazy images loaded before the shot (data-src and loading=lazy)', site?.views?.laptop?.imgs?.total === 2 && site.views.laptop.imgs.unloaded === 0, JSON.stringify(site?.views?.laptop?.imgs));
+  const rf = await runAsync([path.join(DE, 'ref-fixed.mjs'), '--out', refs, '--sites', sites]);
+  let fixed = null; try { fixed = JSON.parse(fs.readFileSync(path.join(refs, 'site/fixed.json'), 'utf8')); } catch {}
+  const dock = (fixed?.atMid || []).find((e) => e.edge === 'bottom');
+  check('ref-fixed: finds the bottom-docked bar at mid-page with its links', !!dock && dock.links.join('|') === 'Call|Search', JSON.stringify(fixed?.atMid));
+  check('ref-fixed: finds the sticky header at mid-page', (fixed?.atMid || []).some((e) => e.position === 'sticky' && e.edge === 'top'), JSON.stringify(fixed?.atMid));
+  check('ref-fixed: robot page stops the host (exit 1, blocked)', rf.status === 1 && /BLOCKED robot/.test(rf.out), rf.out.slice(-300));
+  server.close();
 }
 
 // basemap: cached tiles only (the example ships them); compare one place with an independent computation

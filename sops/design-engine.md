@@ -28,7 +28,7 @@ Group (E:\Alex Sevilla\draft-site\design). Code: `tools/design-engine/`. Standar
 | S6 | Audit: section-shots laptop + phone, layering at 25/50/75%, menus open, forms, tap targets by hand, a fresh-context reviewer | `variants/AUDIT.md` | no section under 8; reviewer findings fixed |
 | S7 | Delivery: gallery page, screenshots in chat, decisions recorded | `index.html`, `DECISIONS.md` | the owner reviews |
 
-## Tools (all in `tools/design-engine/`, all proven by `tests/test-design-engine.mjs`: 21 checks, watched-fail done)
+## Tools (all in `tools/design-engine/`, all proven by `tests/test-design-engine.mjs`: 28 checks, watched-fail done)
 | Tool | Does | Example |
 |---|---|---|
 | `render-asset.mjs` | renders a code-drawn page or element in Chromium and extracts the pixels (PNG, transparent, 2x, or JPEG) | `node render-asset.mjs --root <dir> lab/x.html --out x.png --selector "#art" --transparent` |
@@ -37,6 +37,8 @@ Group (E:\Alex Sevilla\draft-site\design). Code: `tools/design-engine/`. Standar
 | `templates/map-overlay.html` | duotone the basemap in brand colours, draw routes, pins, labels from a config | `render-asset.mjs ... "templates/map-overlay.html?map=...&cfg=..."` |
 | `fetch-fonts.mjs` | self-host OFL fonts (no runtime calls to Google) | `node fetch-fonts.mjs assets/fonts --family "Fraunces:wght@300..800"` |
 | `commons-find.mjs` | find freely licensed photos of a place with licence + author | `node commons-find.mjs "Vacaville California"` |
+| `ref-capture.mjs` | S0: capture reference sites (laptop + phone full pages, structure, unloaded images); robot page = host stopped | `node ref-capture.mjs --out refs --sites sites.json` |
+| `ref-fixed.mjs` | S0: list fixed/sticky UI at mid-page on phone (action bars a full-page shot hides) | `node ref-fixed.mjs --out refs --sites sites.json` |
 | screenshot tools | `wf-shots.mjs`, `section-shots.mjs` in the skill (`skills/programmatic-enterprise-web-performance/scripts`) | see design.md |
 
 ## Rules that never bend

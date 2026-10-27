@@ -7,7 +7,9 @@ the quality standard is `CRAFT.md`. First run: ELEV8 Real Estate Group (2026-10-
 - `craft-lint.mjs`: measure a rendered page against CRAFT.md (type/space tokens, contrast, tap targets, orphans, distortion, families, overflow).
 - `basemap.mjs` + `templates/map-overlay.html`: a real map of the client's places, toned and annotated in brand colours.
 - `fetch-fonts.mjs`, `commons-find.mjs`: self-hosted OFL fonts; freely licensed place photos with licence and author.
+- `ref-capture.mjs`, `ref-fixed.mjs`: S0 reference capture (laptop + phone full pages, structure dump, unloaded-image count) and the
+  fixed/sticky UI probe (phone action bars that a full-page shot hides); read only, a robot page stops the host.
 - `lib/browser.mjs`: the one browser loader (the skill's lib-shots, this repo's copy first).
 
-Prove it: `node tools/design-engine/tests/test-design-engine.mjs` (21 checks; the basemap checks run offline only when tiles are cached,
+Prove it: `node tools/design-engine/tests/test-design-engine.mjs` (28 checks; the basemap checks run offline only when tiles are cached,
 because tiles are never committed).
