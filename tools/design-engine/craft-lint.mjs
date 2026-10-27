@@ -122,7 +122,10 @@ try {
     const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
     const pg = await ctx.newPage();
     await pg.goto(lib.urlFor(port, R, path.resolve(R, page)) + '#still', { waitUntil: 'networkidle', timeout: 60000 });
-    await pg.evaluate(async () => { await document.fonts.ready; await Promise.all([...document.images].map((i) => i.complete ? 0 : new Promise((r) => { i.onload = i.onerror = r; }))); });
+    // a hidden <img loading="lazy"> never loads, so its promise never settled and the lint hung forever (2026-10-27): load lazy images
+    // eagerly and cap the wait per image
+    await pg.evaluate(async () => { await document.fonts.ready; for (const i of document.querySelectorAll('img[loading="lazy"]')) i.loading = 'eager';
+      await Promise.all([...document.images].map((i) => i.complete ? 0 : new Promise((r) => { i.onload = i.onerror = r; setTimeout(r, 8000); }))); });
     const r = await pg.evaluate(audit, { scope: SCOPE, phone: w < 600, max: MAX });
     report.push({ viewport: `${w}x${h}`, ...r });
     total += r.errors.length;
