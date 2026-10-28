@@ -1,0 +1,580 @@
+{
+ "contractVersion": 1,
+ "core": 1,
+ "site": {
+  "workspace": "paper-cash-home-buyer",
+  "industry": "cash-home-buyer",
+  "generatedFrom": {
+   "plan": "paper plan",
+   "sitemapSha256": "428876ebe127e0dc",
+   "planGeneratedAt": "paper plan",
+   "entities": "industry-run/run.mjs paper plan"
+  }
+ },
+ "collections": {
+  "areas": {
+   "label": "areas",
+   "kind": "collection",
+   "type": "Place",
+   "schemaType": "Place",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "region": {
+     "type": "text",
+     "max": 40
+    },
+    "geo": {
+     "type": "geo"
+    },
+    "intro": {
+     "type": "richtext"
+    },
+    "heroImage": {
+     "type": "image",
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "localFacts": {
+     "type": "list",
+     "of": {
+      "label": {
+       "type": "text",
+       "required": true,
+       "max": 80
+      },
+      "value": {
+       "type": "text",
+       "required": true,
+       "max": 120,
+       "sourced": true
+      }
+     }
+    }
+   }
+  },
+  "situations": {
+   "label": "Situations we buy in",
+   "kind": "collection",
+   "type": "Service",
+   "schemaType": "Service",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "summary": {
+     "type": "text",
+     "required": true,
+     "max": 220
+    },
+    "body": {
+     "type": "richtext"
+    },
+    "image": {
+     "type": "image",
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "priceFrom": {
+     "type": "money"
+    },
+    "order": {
+     "type": "number",
+     "integer": true,
+     "internal": true
+    },
+    "seo": {
+     "type": "seo"
+    }
+   },
+   "route": "/sell-my-house/{slug}/"
+  },
+  "purchases": {
+   "label": "Houses we bought",
+   "kind": "collection",
+   "type": "CaseStudy",
+   "schemaType": "Article",
+   "titleField": "title",
+   "slugFrom": "title",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "title": {
+     "type": "text",
+     "required": true,
+     "max": 110
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "summary": {
+     "type": "text",
+     "required": true,
+     "max": 220
+    },
+    "body": {
+     "type": "richtext",
+     "required": true
+    },
+    "images": {
+     "type": "gallery",
+     "max": 30,
+     "media": {
+      "minWidth": 1000,
+      "rightsConfirm": true
+     }
+    },
+    "results": {
+     "type": "list",
+     "of": {
+      "label": {
+       "type": "text",
+       "required": true,
+       "max": 60
+      },
+      "value": {
+       "type": "text",
+       "required": true,
+       "max": 60,
+       "sourced": true
+      }
+     }
+    },
+    "clientPermission": {
+     "type": "boolean",
+     "required": true
+    },
+    "completedOn": {
+     "type": "date"
+    },
+    "seo": {
+     "type": "seo"
+    },
+    "area": {
+     "type": "reference",
+     "to": "areas"
+    }
+   },
+   "route": "/houses-we-bought/{slug}/"
+  }
+ },
+ "pageTypes": {
+  "home": {
+   "label": "home",
+   "schema": [
+    "LocalBusiness"
+   ],
+   "sections": [
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "max": 70,
+       "required": true
+      },
+      "lead": {
+       "type": "text",
+       "max": 240
+      },
+      "image": {
+       "type": "image",
+       "media": {
+        "minWidth": 1600,
+        "rightsConfirm": true
+       },
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "feed-situations",
+     "kind": "feed",
+     "accepts": "situations"
+    },
+    {
+     "id": "feed-purchases",
+     "kind": "feed",
+     "accepts": "purchases"
+    },
+    {
+     "id": "reviews",
+     "kind": "feed",
+     "accepts": "testimonials"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "about": {
+   "label": "about",
+   "schema": [
+    "AboutPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "default (no approved design for this page type yet)"
+  },
+  "contact": {
+   "label": "contact",
+   "schema": [
+    "ContactPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "default (no approved design for this page type yet)"
+  },
+  "sell-fast-in-area": {
+   "label": "sell-fast-in-area",
+   "bind": "areas",
+   "schema": [
+    "Service"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "max": 90,
+       "required": true
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "near-purchases",
+     "kind": "feed",
+     "accepts": "purchases"
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  }
+ },
+ "pages": [
+  {
+   "path": "/",
+   "type": "home"
+  },
+  {
+   "path": "/about/",
+   "type": "about"
+  },
+  {
+   "path": "/contact/",
+   "type": "contact"
+  },
+  {
+   "path": "/sell-fast-northtown/",
+   "type": "sell-fast-in-area",
+   "bind": "northtown"
+  },
+  {
+   "path": "/sell-fast-southville/",
+   "type": "sell-fast-in-area",
+   "bind": "southville"
+  }
+ ],
+ "forms": {
+  "lead": {
+   "label": "Lead form",
+   "fields": {
+    "name": {
+     "type": "text",
+     "max": 120,
+     "required": true
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "address": {
+     "type": "text",
+     "max": 200,
+     "required": true
+    },
+    "condition": {
+     "type": "enum",
+     "options": [
+      "move-in-ready",
+      "needs-work",
+      "major-repairs"
+     ]
+    },
+    "timeline": {
+     "type": "enum",
+     "options": [
+      "asap",
+      "30-days",
+      "90-days",
+      "flexible"
+     ]
+    }
+   },
+   "consent": {
+    "notice": "form-consent"
+   },
+   "crm": {}
+  }
+ },
+ "placements": [
+  {
+   "id": "situations>home",
+   "collection": "situations",
+   "to": {
+    "page": "/",
+    "section": "feed-situations"
+   },
+   "limit": 6
+  },
+  {
+   "id": "purchases>home",
+   "collection": "purchases",
+   "to": {
+    "page": "/",
+    "section": "feed-purchases"
+   },
+   "limit": 6
+  },
+  {
+   "id": "reviews>home",
+   "collection": "testimonials",
+   "to": {
+    "page": "/",
+    "section": "reviews"
+   },
+   "limit": 6
+  },
+  {
+   "id": "derived:faqs>about",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "about",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "about",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:faqs>contact",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "contact",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "contact",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:purchases>sell-fast-in-area",
+   "collection": "purchases",
+   "to": {
+    "pageType": "sell-fast-in-area",
+    "section": "near-purchases",
+    "match": "area"
+   }
+  },
+  {
+   "id": "derived:faqs>sell-fast-in-area",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "sell-fast-in-area",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "sell-fast-in-area",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:posts>sitemap",
+   "collection": "posts",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:posts>schema",
+   "collection": "posts",
+   "to": {
+    "schema": "BlogPosting"
+   }
+  },
+  {
+   "id": "derived:situations>sitemap",
+   "collection": "situations",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:situations>schema",
+   "collection": "situations",
+   "to": {
+    "schema": "Service"
+   }
+  },
+  {
+   "id": "derived:purchases>sitemap",
+   "collection": "purchases",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:purchases>schema",
+   "collection": "purchases",
+   "to": {
+    "schema": "Article"
+   }
+  }
+ ],
+ "clientWording": [],
+ "seeds": {
+  "areas": [
+   "northtown",
+   "southville"
+  ]
+ }
+}

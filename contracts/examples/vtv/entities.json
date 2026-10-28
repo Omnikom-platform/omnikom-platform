@@ -1,0 +1,72 @@
+{
+ "workspace": "vtv",
+ "source": "contracts/examples/vtv/entities.json: from the VTV preview's own page list (sitemap.xml) and the field names of its proposals/vtv/_build/data.json; structure only. VTV has no approved SEO plan yet (front end only, its CLAUDE.md rule 1)",
+ "locations": { "collection": "areas" },
+ "families": { "c-hood": "neighborhood" },
+ "pageTypeOf": { "/": "home", "/about/": "about", "/buy/": "buyer-guide", "/sell/": "seller-guide", "/home-valuation/": "home-value",
+  "/mortgage-calculator/": "calculator", "/contact-us/": "contact", "/privacy/": "privacy", "/blog/": "blog-index",
+  "/properties/": "listings-index", "/neighborhoods/": "areas-hub" },
+ "collections": {
+  "areas": { "type": "Place", "label": "Neighborhoods" },
+  "listings": {
+   "type": "RealEstateListing", "label": "Properties", "route": "/properties/{slug}/",
+   "fields": { "area": { "type": "reference", "to": "areas" }, "agent": { "type": "reference", "to": "team" },
+    "style": { "type": "text", "max": 60 }, "agentNote": { "type": "richtext" } }
+  }
+ },
+ "defaultForm": "contact",
+ "forms": {
+  "contact": { "label": "Contact", "fields": { "name": { "type": "text", "required": true, "max": 120 }, "email": { "type": "email", "required": true }, "phone": { "type": "phone" }, "message": { "type": "text", "max": 2000 } }, "consent": { "notice": "form-consent" } },
+  "home-value": { "label": "Home valuation", "fields": { "address": { "type": "text", "required": true, "max": 200 }, "name": { "type": "text", "required": true, "max": 120 }, "email": { "type": "email", "required": true }, "phone": { "type": "phone" } }, "consent": { "notice": "form-consent" } }
+ },
+ "pageTypes": {
+  "home": { "label": "Home page", "sections": [
+   { "id": "hero", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 70 }, "intro": { "type": "text", "max": 400 }, "video": { "type": "file" }, "poster": { "type": "image", "media": { "minWidth": 1600, "rightsConfirm": true } } } },
+   { "id": "stats", "kind": "fields", "fields": { "items": { "type": "list", "max": 5, "of": { "value": { "type": "text", "required": true, "max": 30, "sourced": true }, "label": { "type": "text", "required": true, "max": 60 } } } } },
+   { "id": "featured", "kind": "feed", "accepts": "listings" },
+   { "id": "neighborhoods", "kind": "feed", "accepts": "areas" },
+   { "id": "reviews", "kind": "feed", "accepts": "testimonials" },
+   { "id": "awards", "kind": "fields", "fields": { "logos": { "type": "gallery", "max": 12, "media": { "rightsConfirm": true } } } },
+   { "id": "contact", "kind": "form", "form": "contact" } ] },
+  "about": { "label": "About", "sections": [
+   { "id": "bio", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "bio": { "type": "richtext", "required": true }, "approach": { "type": "list", "max": 6, "of": { "title": { "type": "text", "required": true, "max": 40 }, "text": { "type": "text", "required": true, "max": 400 } } } } } ] },
+  "buyer-guide": { "label": "Buyer's guide", "sections": [
+   { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "intro": { "type": "richtext" } } },
+   { "id": "steps", "kind": "fields", "fields": { "steps": { "type": "list", "max": 15, "of": { "title": { "type": "text", "required": true, "max": 80 }, "text": { "type": "richtext", "required": true }, "image": { "type": "image" } } } } } ] },
+  "seller-guide": { "label": "Seller's guide", "sections": [
+   { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "intro": { "type": "richtext" } } },
+   { "id": "steps", "kind": "fields", "fields": { "steps": { "type": "list", "max": 15, "of": { "title": { "type": "text", "required": true, "max": 80 }, "text": { "type": "richtext", "required": true }, "image": { "type": "image" } } } } } ] },
+  "home-value": { "label": "Home valuation", "sections": [
+   { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "body": { "type": "richtext" } } },
+   { "id": "form", "kind": "form", "form": "home-value" } ] },
+  "calculator": { "label": "Mortgage calculator", "sectionsFrom": "the calculator itself is code; only its text is content", "sections": [
+   { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } } ] },
+  "contact": { "label": "Contact", "sections": [
+   { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
+   { "id": "form", "kind": "form", "form": "contact" } ] },
+  "privacy": { "label": "Privacy", "sections": [ { "id": "text", "kind": "notice", "notice": "privacy-policy" } ] },
+  "blog-index": { "label": "Blog", "sections": [
+   { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 } } },
+   { "id": "posts", "kind": "feed", "accepts": "posts" } ] },
+  "listings-index": { "label": "Properties", "sections": [
+   { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 } } },
+   { "id": "for-sale", "kind": "feed", "accepts": "listings" },
+   { "id": "sold", "kind": "feed", "accepts": "listings" } ] },
+  "areas-hub": { "label": "Neighborhoods", "sections": [
+   { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 } } },
+   { "id": "list", "kind": "feed", "accepts": "areas" } ] },
+  "neighborhood": { "label": "Neighborhood guide (one per neighborhood)", "sections": [
+   { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
+   { "id": "listings", "kind": "feed", "accepts": "listings" },
+   { "id": "contact", "kind": "form", "form": "contact" } ] }
+ },
+ "placements": [
+  { "id": "listings>home", "collection": "listings", "when": { "status": ["coming-soon", "active", "pending"] }, "to": { "page": "/", "section": "featured" }, "sort": "-listedOn", "limit": 6 },
+  { "id": "listings>index", "collection": "listings", "when": { "status": ["coming-soon", "active", "pending"] }, "to": { "pageType": "listings-index", "section": "for-sale" } },
+  { "id": "listings>index-sold", "collection": "listings", "when": { "status": ["sold"] }, "to": { "pageType": "listings-index", "section": "sold" }, "sort": "-soldOn" },
+  { "id": "areas>home", "collection": "areas", "to": { "page": "/", "section": "neighborhoods" } },
+  { "id": "areas>hub", "collection": "areas", "to": { "pageType": "areas-hub", "section": "list" } },
+  { "id": "reviews>home", "collection": "testimonials", "to": { "page": "/", "section": "reviews" }, "sort": "-givenOn" },
+  { "id": "posts>blog", "collection": "posts", "to": { "pageType": "blog-index", "section": "posts" }, "sort": "-publishedOn" }
+ ]
+}

@@ -77,7 +77,7 @@ Five parts, one shared spine (the client record + its content contract):
 | Step | What | Sells as | Depends on |
 |---|---|---|---|
 | A | **Presence Report engine** (part 1): one command, website or not, scored + sourced PDF | Free prospect report (sales tool) | skill modules; review-pdf |
-| B | **Content contract + Factory v1** (part 3): turn the Rainmaker pipeline into a template where pages render from structured content files; one command from approved plan to deployed site | Custom SEO website (done-for-you) | A's knowledge output |
+| B | **Content contract + Factory v1** (part 3): turn the Rainmaker pipeline into a template where pages render from structured content files; one command from approved plan to deployed site. Contract part built and proven 2026-10-28 (`contracts/`, status `planning/CONTRACT.md`); Factory v1 not started | Custom SEO website (done-for-you) | A's knowledge output |
 | C | **Tenant DB + Control Center MVP** (parts 2, 4): workspaces, auth, lead inbox, edit contract fields, publish (rebuild + deploy), Search Console numbers | Monthly subscription (the Luxury Presence replacement) | B's contract |
 | D | **AI Operations** (part 5): blog/content proposals, SEO operator, AEO observations, all with approval | Upsell tier | C |
 | E | **Self-serve onboarding**: signup -> intake -> report -> checkout -> build queue | Scale | A-D |

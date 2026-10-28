@@ -1,0 +1,6 @@
+contract: VALID; 11 pages
+source pages 11; mapped 11; source pages with no contract page: none; contract pages with no source: none
+page SEO text against the contract (draft): I-MAX seo.description on 2 (contact.html, insurance-disclosures.html)
+product pages 3; with a "Product disclosure" block (-> locked notice + required products.disclosure): 3 (life-insurance, annuities, mortgage-protection)
+disclosures page: 11 fixed-text sections -> notices rows (category product-disclosure / general-disclosure / consent)
+lead forms in source 3 on 2 pages; form sections in contract on those pages 3; mismatched pages: none; consent notices needed: calls-and-texts-consent

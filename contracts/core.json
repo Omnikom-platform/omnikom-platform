@@ -1,0 +1,175 @@
+{
+  "coreVersion": 1,
+  "note": "The shared core every site contract includes. A site may ADD fields to a core collection (extend) but never remove or retype a core field. Field types and rules: README.md.",
+  "collections": {
+    "settings": {
+      "label": "Business details",
+      "kind": "singleton",
+      "schemaType": "Organization",
+      "access": { "member": "none" },
+      "fields": {
+        "businessName": { "type": "text", "required": true, "max": 80 },
+        "legalName": { "type": "text", "locked": { "reason": "legal entity name, fact/legal sign-off" } },
+        "logo": { "type": "image", "required": true, "media": { "minWidth": 200 } },
+        "logoOnDark": { "type": "image", "media": { "minWidth": 200 } },
+        "phone": { "type": "phone", "required": true },
+        "email": { "type": "email", "required": true },
+        "address": { "type": "address" },
+        "hours": { "type": "list", "of": { "days": { "type": "text", "required": true, "max": 40 }, "open": { "type": "text", "max": 20 }, "close": { "type": "text", "max": 20 } } },
+        "socials": { "type": "list", "of": { "network": { "type": "enum", "required": true, "options": ["google", "facebook", "instagram", "linkedin", "youtube", "tiktok", "x", "zillow", "yelp", "other"] }, "url": { "type": "url", "required": true } } },
+        "licences": { "type": "list", "locked": { "reason": "licence numbers are facts with a source, staff edit after sign-off" }, "of": { "authority": { "type": "text", "required": true, "max": 80 }, "number": { "type": "text", "required": true, "max": 40 }, "source": { "type": "url" } } },
+        "footerNotice": { "type": "richtext", "locked": { "reason": "regulatory footer notice, shown exactly as signed off" } },
+        "brand": { "type": "group", "internal": true, "of": { "tokensRef": { "type": "text", "max": 200 } } }
+      }
+    },
+    "pages": {
+      "label": "Pages",
+      "kind": "collection",
+      "titleField": "title",
+      "access": { "member": "none" },
+      "note": "One row per page in the contract's page list. Path and type come from the contract and are not editable in the dashboard; the client edits section fields and SEO text.",
+      "fields": {
+        "path": { "type": "text", "required": true, "locked": { "reason": "routing comes from the approved SEO plan" } },
+        "type": { "type": "text", "required": true, "locked": { "reason": "page type comes from the approved SEO plan" } },
+        "title": { "type": "text", "required": true, "max": 90 },
+        "seo": { "type": "seo", "required": true },
+        "sections": { "type": "sections", "required": true }
+      }
+    },
+    "posts": {
+      "label": "Articles",
+      "kind": "collection",
+      "schemaType": "BlogPosting",
+      "route": "/blog/{slug}/",
+      "titleField": "title",
+      "slugFrom": "title",
+      "access": { "member": "own" },
+      "ownerField": "author",
+      "fields": {
+        "title": { "type": "text", "required": true, "max": 110 },
+        "slug": { "type": "slug", "required": true },
+        "excerpt": { "type": "text", "required": true, "max": 200 },
+        "cover": { "type": "image", "required": true, "media": { "minWidth": 1200, "rightsConfirm": true } },
+        "body": { "type": "richtext", "required": true },
+        "author": { "type": "reference", "to": "team" },
+        "publishedOn": { "type": "date", "required": true },
+        "updatedOn": { "type": "date" },
+        "topics": { "type": "list", "of": { "name": { "type": "text", "required": true, "max": 40 } } },
+        "seo": { "type": "seo", "required": true }
+      }
+    },
+    "team": {
+      "label": "Team",
+      "kind": "collection",
+      "schemaType": "Person",
+      "titleField": "name",
+      "slugFrom": "name",
+      "access": { "member": "own" },
+      "ownerField": "self",
+      "fields": {
+        "name": { "type": "text", "required": true, "max": 80 },
+        "slug": { "type": "slug", "required": true },
+        "role": { "type": "text", "required": true, "max": 60 },
+        "photo": { "type": "image", "media": { "minWidth": 400, "rightsConfirm": true } },
+        "bio": { "type": "richtext" },
+        "licence": { "type": "group", "locked": { "reason": "licence number is a fact with a source" }, "of": { "authority": { "type": "text", "max": 80 }, "number": { "type": "text", "max": 40 }, "source": { "type": "url" } } },
+        "email": { "type": "email" },
+        "phone": { "type": "phone" },
+        "languages": { "type": "list", "of": { "name": { "type": "text", "required": true, "max": 30 } } },
+        "ownSite": { "type": "url" },
+        "order": { "type": "number", "integer": true, "internal": true }
+      }
+    },
+    "testimonials": {
+      "label": "Reviews",
+      "kind": "collection",
+      "schemaType": "Review",
+      "titleField": "author",
+      "access": { "member": "none" },
+      "note": "No invented reviews: every review names where it was given and when.",
+      "fields": {
+        "author": { "type": "text", "required": true, "max": 60 },
+        "text": { "type": "richtext", "required": true },
+        "rating": { "type": "number", "min": 1, "max": 5 },
+        "source": { "type": "enum", "required": true, "options": ["google", "zillow", "yelp", "facebook", "realtor-com", "direct", "other"] },
+        "sourceUrl": { "type": "url" },
+        "givenOn": { "type": "date", "required": true },
+        "permission": { "type": "boolean", "required": true, "help": "The reviewer agreed to it being shown on the website (needed for direct reviews)." }
+      }
+    },
+    "faqs": {
+      "label": "Questions and answers",
+      "kind": "collection",
+      "schemaType": "Question",
+      "titleField": "question",
+      "access": { "member": "none" },
+      "fields": {
+        "question": { "type": "text", "required": true, "max": 160 },
+        "answer": { "type": "richtext", "required": true },
+        "topic": { "type": "text", "max": 60 },
+        "order": { "type": "number", "integer": true, "internal": true }
+      }
+    },
+    "notices": {
+      "label": "Legal and compliance text",
+      "kind": "collection",
+      "titleField": "title",
+      "slugFrom": "title",
+      "access": { "member": "none" },
+      "note": "Consent wording, product disclosures, privacy and terms text. The text is locked: the client sees it and cannot change it; Omnikom staff change it only with a recorded sign-off (TENANCY-AND-PUBLISHING 2).",
+      "fields": {
+        "title": { "type": "text", "required": true, "max": 80 },
+        "slug": { "type": "slug", "required": true },
+        "text": { "type": "richtext", "required": true, "locked": { "reason": "compliance text, fact/legal sign-off" } },
+        "appliesTo": { "type": "text", "max": 120, "internal": true },
+        "approvedBy": { "type": "text", "internal": true, "locked": { "reason": "sign-off record" } },
+        "approvedOn": { "type": "date", "internal": true, "locked": { "reason": "sign-off record" } }
+      }
+    },
+    "media": {
+      "label": "Photos and files",
+      "kind": "collection",
+      "titleField": "alt",
+      "access": { "member": "own" },
+      "ownerField": "uploadedBy",
+      "fields": {
+        "asset": { "type": "file", "required": true },
+        "alt": { "type": "text", "required": true, "max": 150 },
+        "credit": { "type": "text", "max": 80 },
+        "uploadedBy": { "type": "reference", "to": "team", "internal": true }
+      }
+    },
+    "redirects": {
+      "label": "Redirects",
+      "kind": "collection",
+      "titleField": "from",
+      "access": { "member": "none" },
+      "fields": {
+        "from": { "type": "text", "required": true, "max": 300 },
+        "to": { "type": "text", "required": true, "max": 300 },
+        "code": { "type": "enum", "required": true, "options": ["301", "302"] }
+      }
+    },
+    "leads": {
+      "label": "Lead inbox",
+      "kind": "inbox",
+      "titleField": "name",
+      "access": { "member": "own" },
+      "ownerField": "owner",
+      "note": "Leads are not published content: no draft/publish, no public page. Pushed to OmniSuite or the client's CRM (DECISIONS 1, 12).",
+      "fields": {
+        "form": { "type": "text", "required": true },
+        "pagePath": { "type": "text", "required": true },
+        "name": { "type": "text", "max": 120 },
+        "email": { "type": "email" },
+        "phone": { "type": "phone" },
+        "answers": { "type": "group", "of": {} , "open": true },
+        "consentText": { "type": "text", "required": true, "help": "The exact consent wording shown when the form was sent (copied at send time)." },
+        "status": { "type": "enum", "required": true, "options": ["new", "contacted", "qualified", "closed", "spam"] },
+        "owner": { "type": "reference", "to": "team" },
+        "notes": { "type": "list", "of": { "at": { "type": "datetime", "required": true }, "by": { "type": "text", "required": true }, "text": { "type": "text", "required": true, "max": 2000 } } },
+        "pushes": { "type": "list", "internal": true, "of": { "target": { "type": "text", "required": true }, "at": { "type": "datetime", "required": true }, "ok": { "type": "boolean", "required": true } } }
+      }
+    }
+  }
+}

@@ -1,0 +1,572 @@
+{
+ "contractVersion": 1,
+ "core": 1,
+ "site": {
+  "workspace": "paper-legal",
+  "industry": "legal",
+  "generatedFrom": {
+   "plan": "paper plan",
+   "sitemapSha256": "0c18b76c0a43ea6a",
+   "planGeneratedAt": "paper plan",
+   "entities": "industry-run/run.mjs paper plan"
+  }
+ },
+ "collections": {
+  "areas": {
+   "label": "areas",
+   "kind": "collection",
+   "type": "Place",
+   "schemaType": "Place",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "region": {
+     "type": "text",
+     "max": 40
+    },
+    "geo": {
+     "type": "geo"
+    },
+    "intro": {
+     "type": "richtext"
+    },
+    "heroImage": {
+     "type": "image",
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "localFacts": {
+     "type": "list",
+     "of": {
+      "label": {
+       "type": "text",
+       "required": true,
+       "max": 80
+      },
+      "value": {
+       "type": "text",
+       "required": true,
+       "max": 120,
+       "sourced": true
+      }
+     }
+    }
+   }
+  },
+  "practice": {
+   "label": "Practice areas",
+   "kind": "collection",
+   "type": "Service",
+   "schemaType": "Service",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "summary": {
+     "type": "text",
+     "required": true,
+     "max": 220
+    },
+    "body": {
+     "type": "richtext"
+    },
+    "image": {
+     "type": "image",
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "priceFrom": {
+     "type": "money"
+    },
+    "order": {
+     "type": "number",
+     "integer": true,
+     "internal": true
+    },
+    "seo": {
+     "type": "seo"
+    }
+   },
+   "route": "/practice-areas/{slug}/"
+  },
+  "results": {
+   "label": "Case results",
+   "kind": "collection",
+   "type": "CaseStudy",
+   "schemaType": "Article",
+   "titleField": "title",
+   "slugFrom": "title",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "title": {
+     "type": "text",
+     "required": true,
+     "max": 110
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "summary": {
+     "type": "text",
+     "required": true,
+     "max": 220
+    },
+    "body": {
+     "type": "richtext",
+     "required": true
+    },
+    "images": {
+     "type": "gallery",
+     "max": 30,
+     "media": {
+      "minWidth": 1000,
+      "rightsConfirm": true
+     }
+    },
+    "results": {
+     "type": "list",
+     "of": {
+      "label": {
+       "type": "text",
+       "required": true,
+       "max": 60
+      },
+      "value": {
+       "type": "text",
+       "required": true,
+       "max": 60,
+       "sourced": true
+      }
+     }
+    },
+    "clientPermission": {
+     "type": "boolean",
+     "required": true
+    },
+    "completedOn": {
+     "type": "date"
+    },
+    "seo": {
+     "type": "seo"
+    },
+    "disclaimer": {
+     "type": "reference",
+     "to": "notices",
+     "required": true
+    }
+   },
+   "route": "/results/{slug}/"
+  },
+  "team": {
+   "extend": true,
+   "fields": {
+    "barAdmissions": {
+     "type": "text",
+     "max": 200,
+     "locked": {
+      "reason": "bar admissions, fact sign-off"
+     }
+    }
+   }
+  }
+ },
+ "pageTypes": {
+  "home": {
+   "label": "home",
+   "schema": [
+    "LocalBusiness"
+   ],
+   "sections": [
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "max": 70,
+       "required": true
+      },
+      "lead": {
+       "type": "text",
+       "max": 240
+      },
+      "image": {
+       "type": "image",
+       "media": {
+        "minWidth": 1600,
+        "rightsConfirm": true
+       },
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "feed-practice",
+     "kind": "feed",
+     "accepts": "practice"
+    },
+    {
+     "id": "feed-results",
+     "kind": "feed",
+     "accepts": "results"
+    },
+    {
+     "id": "reviews",
+     "kind": "feed",
+     "accepts": "testimonials"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "about": {
+   "label": "about",
+   "schema": [
+    "AboutPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "default (no approved design for this page type yet)"
+  },
+  "contact": {
+   "label": "contact",
+   "schema": [
+    "ContactPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "default (no approved design for this page type yet)"
+  },
+  "lawyer-in-area": {
+   "label": "lawyer-in-area",
+   "bind": "areas",
+   "schema": [
+    "Service"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "max": 90,
+       "required": true
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  }
+ },
+ "pages": [
+  {
+   "path": "/",
+   "type": "home"
+  },
+  {
+   "path": "/about/",
+   "type": "about"
+  },
+  {
+   "path": "/contact/",
+   "type": "contact"
+  },
+  {
+   "path": "/lawyer-northtown/",
+   "type": "lawyer-in-area",
+   "bind": "northtown"
+  },
+  {
+   "path": "/lawyer-southville/",
+   "type": "lawyer-in-area",
+   "bind": "southville"
+  }
+ ],
+ "forms": {
+  "lead": {
+   "label": "Lead form",
+   "fields": {
+    "name": {
+     "type": "text",
+     "max": 120,
+     "required": true
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "caseType": {
+     "type": "reference",
+     "to": "practice"
+    },
+    "referral": {
+     "type": "text",
+     "max": 80
+    },
+    "summary": {
+     "type": "text",
+     "max": 2000
+    }
+   },
+   "consent": {
+    "notice": "form-consent"
+   },
+   "crm": {
+    "caseType": "Case Type",
+    "referral": "Referral Source"
+   }
+  }
+ },
+ "placements": [
+  {
+   "id": "practice>home",
+   "collection": "practice",
+   "to": {
+    "page": "/",
+    "section": "feed-practice"
+   },
+   "limit": 6
+  },
+  {
+   "id": "results>home",
+   "collection": "results",
+   "to": {
+    "page": "/",
+    "section": "feed-results"
+   },
+   "limit": 6
+  },
+  {
+   "id": "reviews>home",
+   "collection": "testimonials",
+   "to": {
+    "page": "/",
+    "section": "reviews"
+   },
+   "limit": 6
+  },
+  {
+   "id": "derived:faqs>about",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "about",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "about",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:faqs>contact",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "contact",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "contact",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:faqs>lawyer-in-area",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "lawyer-in-area",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "lawyer-in-area",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:posts>sitemap",
+   "collection": "posts",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:posts>schema",
+   "collection": "posts",
+   "to": {
+    "schema": "BlogPosting"
+   }
+  },
+  {
+   "id": "derived:practice>sitemap",
+   "collection": "practice",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:practice>schema",
+   "collection": "practice",
+   "to": {
+    "schema": "Service"
+   }
+  },
+  {
+   "id": "derived:results>sitemap",
+   "collection": "results",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:results>schema",
+   "collection": "results",
+   "to": {
+    "schema": "Article"
+   }
+  }
+ ],
+ "clientWording": [],
+ "seeds": {
+  "areas": [
+   "northtown",
+   "southville"
+  ]
+ }
+}

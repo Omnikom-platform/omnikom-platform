@@ -1,0 +1,28 @@
+contract: VALID; 22 pages; sitemap.xml has 81 URLs = 22 pages + 28 listing pages + 31 article pages
+
+draft: areas 0/11 clean, listings 28/28 clean, posts 25/31 clean, testimonials 6/6 clean
+   126 x areas I-SOURCE localFacts[].value
+     2 x posts I-MAX excerpt
+     4 x posts I-MAX seo.description
+     6 x posts I-MAX seo.title
+
+publish: areas 0/11 clean, listings 0/28 clean, posts 0/31 clean, testimonials 0/6 clean
+    11 x areas I-EXIF heroImage
+    11 x areas I-MEDIA-SIZE heroImage
+    11 x areas I-RIGHTS heroImage
+   126 x areas I-SOURCE localFacts[].value
+   414 x listings I-ALT photos[]
+   442 x listings I-EXIF photos[]
+   442 x listings I-MEDIA-SIZE photos[]
+   442 x listings I-RIGHTS photos[]
+    31 x posts I-EXIF cover
+     2 x posts I-MAX excerpt
+     4 x posts I-MAX seo.description
+     6 x posts I-MAX seo.title
+    31 x posts I-MEDIA-SIZE cover
+    31 x posts I-RIGHTS cover
+     6 x testimonials I-REQUIRED givenOn
+     6 x testimonials I-REQUIRED permission
+
+placement: home featured 3, /properties/ for-sale 3 + sold 25, listings on neighborhood pages 16 (pages with any: 9/11), listings with no neighborhood page 12, sitemap 81 URLs, schema 59
+sitemap.xml URLs the contract build would NOT produce: 0

@@ -1,0 +1,546 @@
+{
+ "contractVersion": 1,
+ "core": 1,
+ "site": {
+  "workspace": "paper-cleaning",
+  "industry": "cleaning",
+  "generatedFrom": {
+   "plan": "paper plan",
+   "sitemapSha256": "7c8799bd429ba514",
+   "planGeneratedAt": "paper plan",
+   "entities": "industry-run/run.mjs paper plan"
+  }
+ },
+ "collections": {
+  "areas": {
+   "label": "areas",
+   "kind": "collection",
+   "type": "Place",
+   "schemaType": "Place",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "region": {
+     "type": "text",
+     "max": 40
+    },
+    "geo": {
+     "type": "geo"
+    },
+    "intro": {
+     "type": "richtext"
+    },
+    "heroImage": {
+     "type": "image",
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "localFacts": {
+     "type": "list",
+     "of": {
+      "label": {
+       "type": "text",
+       "required": true,
+       "max": 80
+      },
+      "value": {
+       "type": "text",
+       "required": true,
+       "max": 120,
+       "sourced": true
+      }
+     }
+    }
+   }
+  },
+  "services": {
+   "label": "services",
+   "kind": "collection",
+   "type": "Service",
+   "schemaType": "Service",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "summary": {
+     "type": "text",
+     "required": true,
+     "max": 220
+    },
+    "body": {
+     "type": "richtext"
+    },
+    "image": {
+     "type": "image",
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "priceFrom": {
+     "type": "money"
+    },
+    "order": {
+     "type": "number",
+     "integer": true,
+     "internal": true
+    },
+    "seo": {
+     "type": "seo"
+    }
+   },
+   "route": "/services/{slug}/"
+  },
+  "plans": {
+   "label": "Plans and frequency",
+   "kind": "collection",
+   "type": "Offer",
+   "schemaType": "Offer",
+   "titleField": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 60
+    },
+    "price": {
+     "type": "money"
+    },
+    "period": {
+     "type": "enum",
+     "options": [
+      "one-time",
+      "week",
+      "month",
+      "year",
+      "visit",
+      "session"
+     ]
+    },
+    "includes": {
+     "type": "list",
+     "of": {
+      "item": {
+       "type": "text",
+       "required": true,
+       "max": 120
+      }
+     }
+    },
+    "terms": {
+     "type": "richtext"
+    },
+    "order": {
+     "type": "number",
+     "integer": true,
+     "internal": true
+    }
+   }
+  }
+ },
+ "pageTypes": {
+  "home": {
+   "label": "home",
+   "schema": [
+    "LocalBusiness"
+   ],
+   "sections": [
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "max": 70,
+       "required": true
+      },
+      "lead": {
+       "type": "text",
+       "max": 240
+      },
+      "image": {
+       "type": "image",
+       "media": {
+        "minWidth": 1600,
+        "rightsConfirm": true
+       },
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "feed-services",
+     "kind": "feed",
+     "accepts": "services"
+    },
+    {
+     "id": "feed-plans",
+     "kind": "feed",
+     "accepts": "plans"
+    },
+    {
+     "id": "reviews",
+     "kind": "feed",
+     "accepts": "testimonials"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "about": {
+   "label": "about",
+   "schema": [
+    "AboutPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "default (no approved design for this page type yet)"
+  },
+  "contact": {
+   "label": "contact",
+   "schema": [
+    "ContactPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "default (no approved design for this page type yet)"
+  },
+  "clean-in-area": {
+   "label": "clean-in-area",
+   "bind": "areas",
+   "schema": [
+    "Service"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "max": 90,
+       "required": true
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  }
+ },
+ "pages": [
+  {
+   "path": "/",
+   "type": "home"
+  },
+  {
+   "path": "/about/",
+   "type": "about"
+  },
+  {
+   "path": "/contact/",
+   "type": "contact"
+  },
+  {
+   "path": "/clean-northtown/",
+   "type": "clean-in-area",
+   "bind": "northtown"
+  },
+  {
+   "path": "/clean-southville/",
+   "type": "clean-in-area",
+   "bind": "southville"
+  }
+ ],
+ "forms": {
+  "lead": {
+   "label": "Lead form",
+   "fields": {
+    "name": {
+     "type": "text",
+     "max": 120,
+     "required": true
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "frequency": {
+     "type": "enum",
+     "options": [
+      "one-time",
+      "weekly",
+      "every-2-weeks",
+      "monthly"
+     ]
+    },
+    "propertyType": {
+     "type": "enum",
+     "options": [
+      "house",
+      "apartment",
+      "office"
+     ]
+    },
+    "size": {
+     "type": "text",
+     "max": 40
+    },
+    "day": {
+     "type": "enum",
+     "options": [
+      "mon",
+      "tue",
+      "wed",
+      "thu",
+      "fri",
+      "sat"
+     ]
+    }
+   },
+   "consent": {
+    "notice": "form-consent"
+   },
+   "crm": {
+    "frequency": "Service Frequency",
+    "propertyType": "Property Type",
+    "size": "Property Size",
+    "day": "Preferred Service Day"
+   }
+  }
+ },
+ "placements": [
+  {
+   "id": "services>home",
+   "collection": "services",
+   "to": {
+    "page": "/",
+    "section": "feed-services"
+   },
+   "limit": 6
+  },
+  {
+   "id": "plans>home",
+   "collection": "plans",
+   "to": {
+    "page": "/",
+    "section": "feed-plans"
+   },
+   "limit": 6
+  },
+  {
+   "id": "reviews>home",
+   "collection": "testimonials",
+   "to": {
+    "page": "/",
+    "section": "reviews"
+   },
+   "limit": 6
+  },
+  {
+   "id": "derived:faqs>about",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "about",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "about",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:faqs>contact",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "contact",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "contact",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:faqs>clean-in-area",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "clean-in-area",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "clean-in-area",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:posts>sitemap",
+   "collection": "posts",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:posts>schema",
+   "collection": "posts",
+   "to": {
+    "schema": "BlogPosting"
+   }
+  },
+  {
+   "id": "derived:services>sitemap",
+   "collection": "services",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:services>schema",
+   "collection": "services",
+   "to": {
+    "schema": "Service"
+   }
+  }
+ ],
+ "clientWording": [],
+ "seeds": {
+  "areas": [
+   "northtown",
+   "southville"
+  ]
+ }
+}

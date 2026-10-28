@@ -1,0 +1,935 @@
+{
+ "contractVersion": 1,
+ "core": 1,
+ "site": {
+  "workspace": "vtv",
+  "industry": "real-estate-agent",
+  "generatedFrom": {
+   "plan": "stand-in: proposals/vtv/sitemap.xml (no approved plan)",
+   "sitemapSha256": "b7936e6c8a4323f9",
+   "planGeneratedAt": "from sitemap.xml",
+   "entities": "contracts/examples/vtv/entities.json: from the VTV preview's own page list (sitemap.xml) and the field names of its proposals/vtv/_build/data.json; structure only. VTV has no approved SEO plan yet (front end only, its CLAUDE.md rule 1)"
+  }
+ },
+ "collections": {
+  "areas": {
+   "label": "Neighborhoods",
+   "kind": "collection",
+   "type": "Place",
+   "schemaType": "Place",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "region": {
+     "type": "text",
+     "max": 40
+    },
+    "geo": {
+     "type": "geo"
+    },
+    "intro": {
+     "type": "richtext"
+    },
+    "heroImage": {
+     "type": "image",
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "localFacts": {
+     "type": "list",
+     "of": {
+      "label": {
+       "type": "text",
+       "required": true,
+       "max": 80
+      },
+      "value": {
+       "type": "text",
+       "required": true,
+       "max": 120,
+       "sourced": true
+      }
+     }
+    }
+   }
+  },
+  "listings": {
+   "label": "Properties",
+   "kind": "collection",
+   "type": "RealEstateListing",
+   "schemaType": "RealEstateListing",
+   "titleField": "street",
+   "slugFrom": "street",
+   "statusField": "status",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "street": {
+     "type": "text",
+     "required": true,
+     "max": 120
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "address": {
+     "type": "address",
+     "required": true
+    },
+    "geo": {
+     "type": "geo"
+    },
+    "status": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "coming-soon",
+      "active",
+      "pending",
+      "sold"
+     ]
+    },
+    "price": {
+     "type": "money",
+     "required": true
+    },
+    "soldPrice": {
+     "type": "money",
+     "visibleWhen": {
+      "showSoldPrice": [
+       true
+      ]
+     }
+    },
+    "showSoldPrice": {
+     "type": "boolean"
+    },
+    "beds": {
+     "type": "number",
+     "min": 0,
+     "max": 50
+    },
+    "baths": {
+     "type": "number",
+     "min": 0,
+     "max": 50
+    },
+    "livingSqft": {
+     "type": "number",
+     "integer": true,
+     "min": 0
+    },
+    "lotSqft": {
+     "type": "number",
+     "integer": true,
+     "min": 0
+    },
+    "yearBuilt": {
+     "type": "number",
+     "integer": true,
+     "min": 1700,
+     "max": 2100
+    },
+    "propertyType": {
+     "type": "enum",
+     "options": [
+      "single-family",
+      "condo",
+      "townhouse",
+      "multi-family",
+      "land",
+      "manufactured",
+      "other"
+     ]
+    },
+    "description": {
+     "type": "richtext",
+     "required": true
+    },
+    "features": {
+     "type": "list",
+     "max": 40,
+     "of": {
+      "name": {
+       "type": "text",
+       "required": true,
+       "max": 80
+      }
+     }
+    },
+    "mlsNumber": {
+     "type": "text",
+     "max": 30
+    },
+    "tourUrl": {
+     "type": "url"
+    },
+    "photos": {
+     "type": "gallery",
+     "required": true,
+     "min": 1,
+     "max": 60,
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "openHouses": {
+     "type": "list",
+     "of": {
+      "starts": {
+       "type": "datetime",
+       "required": true
+      },
+      "ends": {
+       "type": "datetime",
+       "required": true
+      }
+     }
+    },
+    "listedOn": {
+     "type": "date"
+    },
+    "soldOn": {
+     "type": "date"
+    },
+    "seo": {
+     "type": "seo"
+    },
+    "area": {
+     "type": "reference",
+     "to": "areas"
+    },
+    "agent": {
+     "type": "reference",
+     "to": "team"
+    },
+    "style": {
+     "type": "text",
+     "max": 60
+    },
+    "agentNote": {
+     "type": "richtext"
+    }
+   },
+   "route": "/properties/{slug}/"
+  }
+ },
+ "pageTypes": {
+  "about": {
+   "label": "About",
+   "schema": [],
+   "sections": [
+    {
+     "id": "bio",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "bio": {
+       "type": "richtext",
+       "required": true
+      },
+      "approach": {
+       "type": "list",
+       "max": 6,
+       "of": {
+        "title": {
+         "type": "text",
+         "required": true,
+         "max": 40
+        },
+        "text": {
+         "type": "text",
+         "required": true,
+         "max": 400
+        }
+       }
+      }
+     }
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "blog-index": {
+   "label": "Blog",
+   "schema": [],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      }
+     }
+    },
+    {
+     "id": "posts",
+     "kind": "feed",
+     "accepts": "posts"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "buyer-guide": {
+   "label": "Buyer's guide",
+   "schema": [],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "intro": {
+       "type": "richtext"
+      }
+     }
+    },
+    {
+     "id": "steps",
+     "kind": "fields",
+     "fields": {
+      "steps": {
+       "type": "list",
+       "max": 15,
+       "of": {
+        "title": {
+         "type": "text",
+         "required": true,
+         "max": 80
+        },
+        "text": {
+         "type": "richtext",
+         "required": true
+        },
+        "image": {
+         "type": "image"
+        }
+       }
+      }
+     }
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "contact": {
+   "label": "Contact",
+   "schema": [],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "form",
+     "kind": "form",
+     "form": "contact"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "home-value": {
+   "label": "Home valuation",
+   "schema": [],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "body": {
+       "type": "richtext"
+      }
+     }
+    },
+    {
+     "id": "form",
+     "kind": "form",
+     "form": "home-value"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "home": {
+   "label": "Home page",
+   "schema": [],
+   "sections": [
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 70
+      },
+      "intro": {
+       "type": "text",
+       "max": 400
+      },
+      "video": {
+       "type": "file"
+      },
+      "poster": {
+       "type": "image",
+       "media": {
+        "minWidth": 1600,
+        "rightsConfirm": true
+       }
+      }
+     }
+    },
+    {
+     "id": "stats",
+     "kind": "fields",
+     "fields": {
+      "items": {
+       "type": "list",
+       "max": 5,
+       "of": {
+        "value": {
+         "type": "text",
+         "required": true,
+         "max": 30,
+         "sourced": true
+        },
+        "label": {
+         "type": "text",
+         "required": true,
+         "max": 60
+        }
+       }
+      }
+     }
+    },
+    {
+     "id": "featured",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "neighborhoods",
+     "kind": "feed",
+     "accepts": "areas"
+    },
+    {
+     "id": "reviews",
+     "kind": "feed",
+     "accepts": "testimonials"
+    },
+    {
+     "id": "awards",
+     "kind": "fields",
+     "fields": {
+      "logos": {
+       "type": "gallery",
+       "max": 12,
+       "media": {
+        "rightsConfirm": true
+       }
+      }
+     }
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "contact"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "calculator": {
+   "label": "Mortgage calculator",
+   "schema": [],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    }
+   ],
+   "sectionsFrom": "the calculator itself is code; only its text is content"
+  },
+  "neighborhood": {
+   "label": "Neighborhood guide (one per neighborhood)",
+   "bind": "areas",
+   "schema": [
+    "WebPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "listings",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "contact"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "areas-hub": {
+   "label": "Neighborhoods",
+   "schema": [],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      }
+     }
+    },
+    {
+     "id": "list",
+     "kind": "feed",
+     "accepts": "areas"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "privacy": {
+   "label": "Privacy",
+   "schema": [],
+   "sections": [
+    {
+     "id": "text",
+     "kind": "notice",
+     "notice": "privacy-policy"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "listings-index": {
+   "label": "Properties",
+   "schema": [],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      }
+     }
+    },
+    {
+     "id": "for-sale",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "sold",
+     "kind": "feed",
+     "accepts": "listings"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "seller-guide": {
+   "label": "Seller's guide",
+   "schema": [],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "intro": {
+       "type": "richtext"
+      }
+     }
+    },
+    {
+     "id": "steps",
+     "kind": "fields",
+     "fields": {
+      "steps": {
+       "type": "list",
+       "max": 15,
+       "of": {
+        "title": {
+         "type": "text",
+         "required": true,
+         "max": 80
+        },
+        "text": {
+         "type": "richtext",
+         "required": true
+        },
+        "image": {
+         "type": "image"
+        }
+       }
+      }
+     }
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  }
+ },
+ "pages": [
+  {
+   "path": "/about/",
+   "type": "about"
+  },
+  {
+   "path": "/blog/",
+   "type": "blog-index"
+  },
+  {
+   "path": "/buy/",
+   "type": "buyer-guide"
+  },
+  {
+   "path": "/contact-us/",
+   "type": "contact"
+  },
+  {
+   "path": "/home-valuation/",
+   "type": "home-value"
+  },
+  {
+   "path": "/",
+   "type": "home"
+  },
+  {
+   "path": "/mortgage-calculator/",
+   "type": "calculator"
+  },
+  {
+   "path": "/neighborhoods/dublin/",
+   "type": "neighborhood",
+   "bind": "dublin"
+  },
+  {
+   "path": "/neighborhoods/elk-grove/",
+   "type": "neighborhood",
+   "bind": "elk-grove"
+  },
+  {
+   "path": "/neighborhoods/fremont/",
+   "type": "neighborhood",
+   "bind": "fremont"
+  },
+  {
+   "path": "/neighborhoods/",
+   "type": "areas-hub"
+  },
+  {
+   "path": "/neighborhoods/lathrop/",
+   "type": "neighborhood",
+   "bind": "lathrop"
+  },
+  {
+   "path": "/neighborhoods/livermore/",
+   "type": "neighborhood",
+   "bind": "livermore"
+  },
+  {
+   "path": "/neighborhoods/manteca/",
+   "type": "neighborhood",
+   "bind": "manteca"
+  },
+  {
+   "path": "/neighborhoods/milpitas/",
+   "type": "neighborhood",
+   "bind": "milpitas"
+  },
+  {
+   "path": "/neighborhoods/pleasanton/",
+   "type": "neighborhood",
+   "bind": "pleasanton"
+  },
+  {
+   "path": "/neighborhoods/san-jose/",
+   "type": "neighborhood",
+   "bind": "san-jose"
+  },
+  {
+   "path": "/neighborhoods/san-ramon/",
+   "type": "neighborhood",
+   "bind": "san-ramon"
+  },
+  {
+   "path": "/neighborhoods/tracy/",
+   "type": "neighborhood",
+   "bind": "tracy"
+  },
+  {
+   "path": "/privacy/",
+   "type": "privacy"
+  },
+  {
+   "path": "/properties/",
+   "type": "listings-index"
+  },
+  {
+   "path": "/sell/",
+   "type": "seller-guide"
+  }
+ ],
+ "forms": {
+  "contact": {
+   "label": "Contact",
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 120
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "message": {
+     "type": "text",
+     "max": 2000
+    }
+   },
+   "consent": {
+    "notice": "form-consent"
+   }
+  },
+  "home-value": {
+   "label": "Home valuation",
+   "fields": {
+    "address": {
+     "type": "text",
+     "required": true,
+     "max": 200
+    },
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 120
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    },
+    "phone": {
+     "type": "phone"
+    }
+   },
+   "consent": {
+    "notice": "form-consent"
+   }
+  }
+ },
+ "placements": [
+  {
+   "id": "listings>home",
+   "collection": "listings",
+   "when": {
+    "status": [
+     "coming-soon",
+     "active",
+     "pending"
+    ]
+   },
+   "to": {
+    "page": "/",
+    "section": "featured"
+   },
+   "sort": "-listedOn",
+   "limit": 6
+  },
+  {
+   "id": "listings>index",
+   "collection": "listings",
+   "when": {
+    "status": [
+     "coming-soon",
+     "active",
+     "pending"
+    ]
+   },
+   "to": {
+    "pageType": "listings-index",
+    "section": "for-sale"
+   }
+  },
+  {
+   "id": "listings>index-sold",
+   "collection": "listings",
+   "when": {
+    "status": [
+     "sold"
+    ]
+   },
+   "to": {
+    "pageType": "listings-index",
+    "section": "sold"
+   },
+   "sort": "-soldOn"
+  },
+  {
+   "id": "areas>home",
+   "collection": "areas",
+   "to": {
+    "page": "/",
+    "section": "neighborhoods"
+   }
+  },
+  {
+   "id": "areas>hub",
+   "collection": "areas",
+   "to": {
+    "pageType": "areas-hub",
+    "section": "list"
+   }
+  },
+  {
+   "id": "reviews>home",
+   "collection": "testimonials",
+   "to": {
+    "page": "/",
+    "section": "reviews"
+   },
+   "sort": "-givenOn"
+  },
+  {
+   "id": "posts>blog",
+   "collection": "posts",
+   "to": {
+    "pageType": "blog-index",
+    "section": "posts"
+   },
+   "sort": "-publishedOn"
+  },
+  {
+   "id": "derived:listings>neighborhood",
+   "collection": "listings",
+   "to": {
+    "pageType": "neighborhood",
+    "section": "listings",
+    "match": "area"
+   }
+  },
+  {
+   "id": "derived:posts>sitemap",
+   "collection": "posts",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:posts>schema",
+   "collection": "posts",
+   "to": {
+    "schema": "BlogPosting"
+   }
+  },
+  {
+   "id": "derived:listings>sitemap",
+   "collection": "listings",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:listings>schema",
+   "collection": "listings",
+   "to": {
+    "schema": "RealEstateListing"
+   }
+  }
+ ],
+ "clientWording": [],
+ "seeds": {
+  "areas": [
+   "dublin",
+   "elk-grove",
+   "fremont",
+   "lathrop",
+   "livermore",
+   "manteca",
+   "milpitas",
+   "pleasanton",
+   "san-jose",
+   "san-ramon",
+   "tracy"
+  ]
+ }
+}

@@ -1,0 +1,788 @@
+{
+ "contractVersion": 1,
+ "core": 1,
+ "site": {
+  "workspace": "paper-real-estate",
+  "industry": "real-estate",
+  "generatedFrom": {
+   "plan": "paper plan",
+   "sitemapSha256": "4165d63fc90c1e2f",
+   "planGeneratedAt": "paper plan",
+   "entities": "industry-run/run.mjs paper plan"
+  }
+ },
+ "collections": {
+  "areas": {
+   "label": "areas",
+   "kind": "collection",
+   "type": "Place",
+   "schemaType": "Place",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "region": {
+     "type": "text",
+     "max": 40
+    },
+    "geo": {
+     "type": "geo"
+    },
+    "intro": {
+     "type": "richtext"
+    },
+    "heroImage": {
+     "type": "image",
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "localFacts": {
+     "type": "list",
+     "of": {
+      "label": {
+       "type": "text",
+       "required": true,
+       "max": 80
+      },
+      "value": {
+       "type": "text",
+       "required": true,
+       "max": 120,
+       "sourced": true
+      }
+     }
+    }
+   }
+  },
+  "listings": {
+   "label": "listings",
+   "kind": "collection",
+   "type": "RealEstateListing",
+   "schemaType": "RealEstateListing",
+   "titleField": "street",
+   "slugFrom": "street",
+   "statusField": "status",
+   "access": {
+    "member": "own"
+   },
+   "ownerField": "agent",
+   "fields": {
+    "street": {
+     "type": "text",
+     "required": true,
+     "max": 120
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "address": {
+     "type": "address",
+     "required": true
+    },
+    "geo": {
+     "type": "geo"
+    },
+    "status": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "coming-soon",
+      "active",
+      "pending",
+      "sold"
+     ]
+    },
+    "price": {
+     "type": "money",
+     "required": true
+    },
+    "soldPrice": {
+     "type": "money",
+     "visibleWhen": {
+      "showSoldPrice": [
+       true
+      ]
+     }
+    },
+    "showSoldPrice": {
+     "type": "boolean"
+    },
+    "beds": {
+     "type": "number",
+     "min": 0,
+     "max": 50
+    },
+    "baths": {
+     "type": "number",
+     "min": 0,
+     "max": 50
+    },
+    "livingSqft": {
+     "type": "number",
+     "integer": true,
+     "min": 0
+    },
+    "lotSqft": {
+     "type": "number",
+     "integer": true,
+     "min": 0
+    },
+    "yearBuilt": {
+     "type": "number",
+     "integer": true,
+     "min": 1700,
+     "max": 2100
+    },
+    "propertyType": {
+     "type": "enum",
+     "options": [
+      "single-family",
+      "condo",
+      "townhouse",
+      "multi-family",
+      "land",
+      "manufactured",
+      "other"
+     ]
+    },
+    "description": {
+     "type": "richtext",
+     "required": true
+    },
+    "features": {
+     "type": "list",
+     "max": 40,
+     "of": {
+      "name": {
+       "type": "text",
+       "required": true,
+       "max": 80
+      }
+     }
+    },
+    "mlsNumber": {
+     "type": "text",
+     "max": 30
+    },
+    "tourUrl": {
+     "type": "url"
+    },
+    "photos": {
+     "type": "gallery",
+     "required": true,
+     "min": 1,
+     "max": 60,
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "openHouses": {
+     "type": "list",
+     "of": {
+      "starts": {
+       "type": "datetime",
+       "required": true
+      },
+      "ends": {
+       "type": "datetime",
+       "required": true
+      }
+     }
+    },
+    "listedOn": {
+     "type": "date"
+    },
+    "soldOn": {
+     "type": "date"
+    },
+    "seo": {
+     "type": "seo"
+    },
+    "area": {
+     "type": "reference",
+     "to": "areas",
+     "required": true
+    },
+    "agent": {
+     "type": "reference",
+     "to": "team",
+     "required": true
+    }
+   },
+   "route": "/listings/{slug}/"
+  },
+  "team": {
+   "extend": true,
+   "fields": {
+    "areas": {
+     "type": "reference",
+     "to": "areas",
+     "multiple": true
+    }
+   }
+  }
+ },
+ "pageTypes": {
+  "home": {
+   "label": "home",
+   "schema": [
+    "LocalBusiness"
+   ],
+   "sections": [
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "max": 70,
+       "required": true
+      },
+      "lead": {
+       "type": "text",
+       "max": 240
+      },
+      "image": {
+       "type": "image",
+       "media": {
+        "minWidth": 1600,
+        "rightsConfirm": true
+       },
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "feed-listings",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "reviews",
+     "kind": "feed",
+     "accepts": "testimonials"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "about": {
+   "label": "about",
+   "schema": [
+    "AboutPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "default (no approved design for this page type yet)"
+  },
+  "contact": {
+   "label": "contact",
+   "schema": [
+    "ContactPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "default (no approved design for this page type yet)"
+  },
+  "agent-in-area": {
+   "label": "agent-in-area",
+   "bind": "areas",
+   "schema": [
+    "Service"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "max": 90,
+       "required": true
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "near-listings",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "buy-in-area": {
+   "label": "buy-in-area",
+   "bind": "areas",
+   "schema": [
+    "Service"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "max": 90,
+       "required": true
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "near-listings",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "sell-in-area": {
+   "label": "sell-in-area",
+   "bind": "areas",
+   "schema": [
+    "Service"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "max": 90,
+       "required": true
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "near-listings",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  }
+ },
+ "pages": [
+  {
+   "path": "/",
+   "type": "home"
+  },
+  {
+   "path": "/about/",
+   "type": "about"
+  },
+  {
+   "path": "/contact/",
+   "type": "contact"
+  },
+  {
+   "path": "/agent-northtown/",
+   "type": "agent-in-area",
+   "bind": "northtown"
+  },
+  {
+   "path": "/agent-southville/",
+   "type": "agent-in-area",
+   "bind": "southville"
+  },
+  {
+   "path": "/buy-northtown/",
+   "type": "buy-in-area",
+   "bind": "northtown"
+  },
+  {
+   "path": "/buy-southville/",
+   "type": "buy-in-area",
+   "bind": "southville"
+  },
+  {
+   "path": "/sell-northtown/",
+   "type": "sell-in-area",
+   "bind": "northtown"
+  },
+  {
+   "path": "/sell-southville/",
+   "type": "sell-in-area",
+   "bind": "southville"
+  }
+ ],
+ "forms": {
+  "lead": {
+   "label": "Lead form",
+   "fields": {
+    "name": {
+     "type": "text",
+     "max": 120,
+     "required": true
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "side": {
+     "type": "enum",
+     "options": [
+      "buyer",
+      "seller",
+      "both"
+     ]
+    },
+    "area": {
+     "type": "reference",
+     "to": "areas"
+    },
+    "price": {
+     "type": "enum",
+     "options": [
+      "under-500k",
+      "500k-1m",
+      "over-1m"
+     ]
+    },
+    "timing": {
+     "type": "enum",
+     "options": [
+      "now",
+      "3-months",
+      "6-months-plus"
+     ]
+    },
+    "financing": {
+     "type": "enum",
+     "options": [
+      "pre-approved",
+      "cash",
+      "not-yet"
+     ]
+    }
+   },
+   "consent": {
+    "notice": "form-consent"
+   },
+   "crm": {
+    "side": "Buyer or Seller",
+    "area": "Target Area",
+    "price": "Price Range",
+    "timing": "Move Timeframe",
+    "financing": "Financing Status"
+   }
+  }
+ },
+ "placements": [
+  {
+   "id": "listings>home",
+   "collection": "listings",
+   "to": {
+    "page": "/",
+    "section": "feed-listings"
+   },
+   "limit": 6
+  },
+  {
+   "id": "reviews>home",
+   "collection": "testimonials",
+   "to": {
+    "page": "/",
+    "section": "reviews"
+   },
+   "limit": 6
+  },
+  {
+   "id": "derived:faqs>about",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "about",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "about",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:faqs>contact",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "contact",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "contact",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:listings>agent-in-area",
+   "collection": "listings",
+   "to": {
+    "pageType": "agent-in-area",
+    "section": "near-listings",
+    "match": "area"
+   }
+  },
+  {
+   "id": "derived:faqs>agent-in-area",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "agent-in-area",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "agent-in-area",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:listings>buy-in-area",
+   "collection": "listings",
+   "to": {
+    "pageType": "buy-in-area",
+    "section": "near-listings",
+    "match": "area"
+   }
+  },
+  {
+   "id": "derived:faqs>buy-in-area",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "buy-in-area",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "buy-in-area",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:listings>sell-in-area",
+   "collection": "listings",
+   "to": {
+    "pageType": "sell-in-area",
+    "section": "near-listings",
+    "match": "area"
+   }
+  },
+  {
+   "id": "derived:faqs>sell-in-area",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "sell-in-area",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "sell-in-area",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:posts>sitemap",
+   "collection": "posts",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:posts>schema",
+   "collection": "posts",
+   "to": {
+    "schema": "BlogPosting"
+   }
+  },
+  {
+   "id": "derived:listings>sitemap",
+   "collection": "listings",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:listings>schema",
+   "collection": "listings",
+   "to": {
+    "schema": "RealEstateListing"
+   }
+  }
+ ],
+ "clientWording": [],
+ "seeds": {
+  "areas": [
+   "northtown",
+   "southville"
+  ]
+ }
+}

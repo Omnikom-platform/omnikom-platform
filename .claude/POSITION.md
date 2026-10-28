@@ -47,6 +47,13 @@
   one search page + one listing page (design only), exclude the rest, hand-check those two; plus trap rows for the loader class and
   the replay that did not scroll.
 
+- **2026-10-28: content contract built (DECISIONS 13 step 1), NOT COMMITTED, waiting for the owner's approval** (side session of
+  the ELEV8 session). `contracts/` (core.json, types.json, from-plan / validate / store / place / screens .mjs, tests, examples for
+  ELEV8 / Rainmaker / VTV, industry-run for 15 industries), `planning/CONTRACT.md` (proven / open), ANALYSIS step B row updated.
+  Gates re-run at the end: `node contracts/test/run.mjs` -> 114 passed, 0 failed; `node contracts/test/mutate.mjs` -> 73 caught,
+  0 survived; `node contracts/industry-run/run.mjs` -> 15/15 PASS. Client projects were only read. OPEN: plan-site should write
+  entities.json; DB/RLS (step 3) NOT DONE; upload pipeline not built; ELEV8 questions answered and applied (42 pages incl. `/blog`; add `/blog` to the approved plan in E:\Alex Sevilla).
+
 ## Open elsewhere (not this repo, but the owner may ask)
 - Rainmaker launch is WAITING on Monica's answers (via Dave) and the GoDaddy nameserver switch; steps in `E:\Rainmaker\LAUNCH.md`.
 - Francine (VTV) and Eli: see `E:\Francine & Eli\.claude\POSITION.md`.

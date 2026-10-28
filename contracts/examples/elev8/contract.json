@@ -1,0 +1,1525 @@
+{
+ "contractVersion": 1,
+ "core": 1,
+ "site": {
+  "workspace": "elev8",
+  "industry": "real-estate-agent",
+  "generatedFrom": {
+   "plan": "E:/Alex Sevilla/site-checks/elev8ca.com/.pewp/approved",
+   "sitemapSha256": "60c8cc3afe2a2d14",
+   "planGeneratedAt": "2026-10-27",
+   "entities": "contracts/examples/elev8/entities.json: approved home design V4 (2026-10-28) + LISTINGS-DECISION.md (2026-10-28); structure only, no client copy"
+  }
+ },
+ "collections": {
+  "areas": {
+   "label": "Cities",
+   "kind": "collection",
+   "type": "Place",
+   "schemaType": "Place",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "region": {
+     "type": "text",
+     "max": 40
+    },
+    "geo": {
+     "type": "geo"
+    },
+    "intro": {
+     "type": "richtext"
+    },
+    "heroImage": {
+     "type": "image",
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "localFacts": {
+     "type": "list",
+     "of": {
+      "label": {
+       "type": "text",
+       "required": true,
+       "max": 80
+      },
+      "value": {
+       "type": "text",
+       "required": true,
+       "max": 120,
+       "sourced": true
+      }
+     }
+    }
+   }
+  },
+  "listings": {
+   "label": "Our listings",
+   "kind": "collection",
+   "type": "RealEstateListing",
+   "schemaType": "RealEstateListing",
+   "titleField": "street",
+   "slugFrom": "street",
+   "statusField": "status",
+   "access": {
+    "member": "own"
+   },
+   "ownerField": "agent",
+   "fields": {
+    "street": {
+     "type": "text",
+     "required": true,
+     "max": 120
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "address": {
+     "type": "address",
+     "required": true
+    },
+    "geo": {
+     "type": "geo"
+    },
+    "status": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "coming-soon",
+      "active",
+      "pending",
+      "sold"
+     ]
+    },
+    "price": {
+     "type": "money",
+     "required": true
+    },
+    "soldPrice": {
+     "type": "money",
+     "visibleWhen": {
+      "showSoldPrice": [
+       true
+      ]
+     }
+    },
+    "showSoldPrice": {
+     "type": "boolean"
+    },
+    "beds": {
+     "type": "number",
+     "min": 0,
+     "max": 50
+    },
+    "baths": {
+     "type": "number",
+     "min": 0,
+     "max": 50
+    },
+    "livingSqft": {
+     "type": "number",
+     "integer": true,
+     "min": 0
+    },
+    "lotSqft": {
+     "type": "number",
+     "integer": true,
+     "min": 0
+    },
+    "yearBuilt": {
+     "type": "number",
+     "integer": true,
+     "min": 1700,
+     "max": 2100
+    },
+    "propertyType": {
+     "type": "enum",
+     "options": [
+      "single-family",
+      "condo",
+      "townhouse",
+      "multi-family",
+      "land",
+      "manufactured",
+      "other"
+     ]
+    },
+    "description": {
+     "type": "richtext",
+     "required": true
+    },
+    "features": {
+     "type": "list",
+     "max": 40,
+     "of": {
+      "name": {
+       "type": "text",
+       "required": true,
+       "max": 80
+      }
+     }
+    },
+    "mlsNumber": {
+     "type": "text",
+     "max": 30
+    },
+    "tourUrl": {
+     "type": "url"
+    },
+    "photos": {
+     "type": "gallery",
+     "required": true,
+     "min": 1,
+     "max": 60,
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "openHouses": {
+     "type": "list",
+     "of": {
+      "starts": {
+       "type": "datetime",
+       "required": true
+      },
+      "ends": {
+       "type": "datetime",
+       "required": true
+      }
+     }
+    },
+    "listedOn": {
+     "type": "date"
+    },
+    "soldOn": {
+     "type": "date"
+    },
+    "seo": {
+     "type": "seo"
+    },
+    "area": {
+     "type": "reference",
+     "to": "areas",
+     "required": true
+    },
+    "agent": {
+     "type": "reference",
+     "to": "team",
+     "required": true
+    }
+   },
+   "route": "/listings/{slug}/",
+   "onDelete": {
+    "redirectToPageOf": "area",
+    "pageType": "buyer-guide"
+   }
+  },
+  "team": {
+   "extend": true,
+   "fields": {
+    "areas": {
+     "type": "reference",
+     "to": "areas",
+     "multiple": true
+    }
+   },
+   "route": "/agent-profile/{slug}"
+  },
+  "settings": {
+   "extend": true,
+   "fields": {
+    "homeSearchUrl": {
+     "type": "url",
+     "locked": {
+      "reason": "home-search (Brivity IDX) address, set by Omnikom with the client"
+     }
+    }
+   }
+  }
+ },
+ "pageTypes": {
+  "home": {
+   "label": "Home page",
+   "schema": [
+    "RealEstateAgent",
+    "WebSite"
+   ],
+   "sections": [
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 70
+      },
+      "lead": {
+       "type": "text",
+       "max": 200
+      },
+      "image": {
+       "type": "image",
+       "required": true,
+       "media": {
+        "minWidth": 1600,
+        "rightsConfirm": true
+       }
+      },
+      "searchTabs": {
+       "type": "list",
+       "min": 1,
+       "max": 4,
+       "of": {
+        "label": {
+         "type": "text",
+         "required": true,
+         "max": 20
+        },
+        "mode": {
+         "type": "enum",
+         "required": true,
+         "options": [
+          "buy",
+          "sell",
+          "value",
+          "finder"
+         ]
+        }
+       }
+      }
+     }
+    },
+    {
+     "id": "trust",
+     "kind": "fields",
+     "fields": {
+      "items": {
+       "type": "list",
+       "max": 4,
+       "of": {
+        "value": {
+         "type": "text",
+         "required": true,
+         "max": 30,
+         "sourced": true
+        },
+        "label": {
+         "type": "text",
+         "required": true,
+         "max": 60
+        }
+       }
+      }
+     }
+    },
+    {
+     "id": "three-ways",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 70
+      },
+      "cards": {
+       "type": "list",
+       "min": 3,
+       "max": 3,
+       "of": {
+        "title": {
+         "type": "text",
+         "required": true,
+         "max": 50
+        },
+        "text": {
+         "type": "text",
+         "required": true,
+         "max": 240
+        },
+        "linkLabel": {
+         "type": "text",
+         "max": 30
+        },
+        "linkTo": {
+         "type": "text",
+         "max": 200
+        }
+       }
+      }
+     }
+    },
+    {
+     "id": "home-value",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 70
+      },
+      "lead": {
+       "type": "text",
+       "max": 240
+      },
+      "points": {
+       "type": "list",
+       "max": 4,
+       "of": {
+        "text": {
+         "type": "text",
+         "required": true,
+         "max": 120
+        }
+       }
+      }
+     }
+    },
+    {
+     "id": "home-value-form",
+     "kind": "form",
+     "form": "home-value"
+    },
+    {
+     "id": "how-we-sell",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 70
+      },
+      "steps": {
+       "type": "list",
+       "min": 3,
+       "max": 8,
+       "of": {
+        "title": {
+         "type": "text",
+         "required": true,
+         "max": 40
+        },
+        "text": {
+         "type": "text",
+         "required": true,
+         "max": 240
+        }
+       }
+      }
+     }
+    },
+    {
+     "id": "areas",
+     "kind": "feed",
+     "accepts": "areas"
+    },
+    {
+     "id": "our-listings",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "recently-sold",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "home-finder",
+     "kind": "form",
+     "form": "home-finder"
+    },
+    {
+     "id": "about-team",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 70
+      },
+      "body": {
+       "type": "richtext"
+      }
+     }
+    },
+    {
+     "id": "team-grid",
+     "kind": "feed",
+     "accepts": "team"
+    },
+    {
+     "id": "closing-cta",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 70
+      },
+      "lead": {
+       "type": "text",
+       "max": 200
+      }
+     }
+    },
+    {
+     "id": "closing-form",
+     "kind": "form",
+     "form": "contact"
+    }
+   ],
+   "sectionsFrom": "draft-site/design/variants/v4.html (approved 2026-10-28); header and footer come from settings"
+  },
+  "agent-in-area": {
+   "label": "Realtor in <city>",
+   "bind": "areas",
+   "schema": [
+    "Service",
+    "FAQPage",
+    "WebPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "area-agents",
+     "kind": "feed",
+     "accepts": "team"
+    },
+    {
+     "id": "area-listings",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "contact"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "buyer-guide": {
+   "label": "City buyer guide (/homes-for-sale-in-<city>-ca/)",
+   "bind": "areas",
+   "schema": [
+    "Service",
+    "WebPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "guide",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "area-listings",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "area-sold",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "home-finder",
+     "kind": "form",
+     "form": "home-finder"
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    }
+   ],
+   "sectionsFrom": "LISTINGS-DECISION.md: local facts, the city's own listings, the home finder preset to the city, a button to the home search"
+  },
+  "sell-in-area": {
+   "label": "Sell your house in <city>",
+   "bind": "areas",
+   "schema": [
+    "Service",
+    "WebPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "home-value-form",
+     "kind": "form",
+     "form": "home-value"
+    },
+    {
+     "id": "area-sold",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "areas-hub": {
+   "label": "Areas we serve",
+   "schema": [
+    "WebPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "areas-list",
+     "kind": "feed",
+     "accepts": "areas"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "service-page": {
+   "label": "service-page",
+   "schema": [],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "contact"
+    }
+   ],
+   "sectionsFrom": "default (no approved design for this page type yet)"
+  },
+  "home-value": {
+   "label": "Home value page",
+   "schema": [],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "form",
+     "kind": "form",
+     "form": "home-value"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "contact": {
+   "label": "Contact page",
+   "schema": [],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "form",
+     "kind": "form",
+     "form": "contact"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "faq": {
+   "label": "Questions page",
+   "schema": [],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "reviews": {
+   "label": "Reviews page",
+   "schema": [],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      }
+     }
+    },
+    {
+     "id": "reviews",
+     "kind": "feed",
+     "accepts": "testimonials"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "team": {
+   "label": "Team page",
+   "schema": [],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "team-grid",
+     "kind": "feed",
+     "accepts": "team"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "privacy": {
+   "label": "Privacy policy",
+   "schema": [],
+   "sections": [
+    {
+     "id": "text",
+     "kind": "notice",
+     "notice": "privacy-policy"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "terms": {
+   "label": "Terms of use",
+   "schema": [],
+   "sections": [
+    {
+     "id": "text",
+     "kind": "notice",
+     "notice": "terms-of-use"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "blog-index": {
+   "label": "Articles",
+   "schema": [],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "posts",
+     "kind": "feed",
+     "accepts": "posts"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  }
+ },
+ "pages": [
+  {
+   "path": "/",
+   "type": "home"
+  },
+  {
+   "path": "/realtor-american-canyon/",
+   "type": "agent-in-area",
+   "bind": "american-canyon"
+  },
+  {
+   "path": "/realtor-in-benicia-ca/",
+   "type": "agent-in-area",
+   "bind": "benicia"
+  },
+  {
+   "path": "/realtor-in-concord-ca/",
+   "type": "agent-in-area",
+   "bind": "concord"
+  },
+  {
+   "path": "/realtor-in-fairfield-ca/",
+   "type": "agent-in-area",
+   "bind": "fairfield"
+  },
+  {
+   "path": "/realtor-in-napa/",
+   "type": "agent-in-area",
+   "bind": "napa"
+  },
+  {
+   "path": "/realtor-in-sacramento-ca/",
+   "type": "agent-in-area",
+   "bind": "sacramento"
+  },
+  {
+   "path": "/realtor-in-suisun-city-ca/",
+   "type": "agent-in-area",
+   "bind": "suisun-city"
+  },
+  {
+   "path": "/realtor-in-vacaville-ca/",
+   "type": "agent-in-area",
+   "bind": "vacaville"
+  },
+  {
+   "path": "/realtor-in-vallejo-ca/",
+   "type": "agent-in-area",
+   "bind": "vallejo"
+  },
+  {
+   "path": "/realtor-in-walnut-creek-ca/",
+   "type": "agent-in-area",
+   "bind": "walnut-creek"
+  },
+  {
+   "path": "/homes-for-sale-in-american-canyon-ca/",
+   "type": "buyer-guide",
+   "bind": "american-canyon"
+  },
+  {
+   "path": "/homes-for-sale-in-benicia-ca/",
+   "type": "buyer-guide",
+   "bind": "benicia"
+  },
+  {
+   "path": "/homes-for-sale-in-concord-ca/",
+   "type": "buyer-guide",
+   "bind": "concord"
+  },
+  {
+   "path": "/homes-for-sale-in-fairfield-ca/",
+   "type": "buyer-guide",
+   "bind": "fairfield"
+  },
+  {
+   "path": "/homes-for-sale-in-napa-ca/",
+   "type": "buyer-guide",
+   "bind": "napa"
+  },
+  {
+   "path": "/homes-for-sale-in-sacramento-ca/",
+   "type": "buyer-guide",
+   "bind": "sacramento"
+  },
+  {
+   "path": "/homes-for-sale-in-suisun-city-ca/",
+   "type": "buyer-guide",
+   "bind": "suisun-city"
+  },
+  {
+   "path": "/homes-for-sale-in-vacaville-ca/",
+   "type": "buyer-guide",
+   "bind": "vacaville"
+  },
+  {
+   "path": "/homes-for-sale-in-vallejo-ca/",
+   "type": "buyer-guide",
+   "bind": "vallejo"
+  },
+  {
+   "path": "/homes-for-sale-in-walnut-creek-ca/",
+   "type": "buyer-guide",
+   "bind": "walnut-creek"
+  },
+  {
+   "path": "/sell-my-house-fast-in-benicia-ca/",
+   "type": "sell-in-area",
+   "bind": "benicia"
+  },
+  {
+   "path": "/sell-my-house-fast-in-concord-ca/",
+   "type": "sell-in-area",
+   "bind": "concord"
+  },
+  {
+   "path": "/sell-my-house-fast-in-fairfield-ca/",
+   "type": "sell-in-area",
+   "bind": "fairfield"
+  },
+  {
+   "path": "/sell-my-house-fast-in-napa-ca/",
+   "type": "sell-in-area",
+   "bind": "napa"
+  },
+  {
+   "path": "/sell-my-house-fast-in-sacramento-ca/",
+   "type": "sell-in-area",
+   "bind": "sacramento"
+  },
+  {
+   "path": "/sell-my-house-fast-in-suisun-city-ca/",
+   "type": "sell-in-area",
+   "bind": "suisun-city"
+  },
+  {
+   "path": "/sell-my-house-fast-in-vacaville-ca/",
+   "type": "sell-in-area",
+   "bind": "vacaville"
+  },
+  {
+   "path": "/sell-my-house-fast-in-vallejo-ca/",
+   "type": "sell-in-area",
+   "bind": "vallejo"
+  },
+  {
+   "path": "/sell-my-house-fast-in-walnut-creek-ca/",
+   "type": "sell-in-area",
+   "bind": "walnut-creek"
+  },
+  {
+   "path": "/areas-we-serve/",
+   "type": "areas-hub"
+  },
+  {
+   "path": "/buying",
+   "type": "service-page"
+  },
+  {
+   "path": "/selling",
+   "type": "service-page"
+  },
+  {
+   "path": "/home_value",
+   "type": "home-value"
+  },
+  {
+   "path": "/financing",
+   "type": "service-page"
+  },
+  {
+   "path": "/connect",
+   "type": "contact"
+  },
+  {
+   "path": "/faq",
+   "type": "faq"
+  },
+  {
+   "path": "/reviews",
+   "type": "reviews"
+  },
+  {
+   "path": "/team",
+   "type": "team"
+  },
+  {
+   "path": "/privacy_policy",
+   "type": "privacy"
+  },
+  {
+   "path": "/tos",
+   "type": "terms"
+  },
+  {
+   "path": "/blog",
+   "type": "blog-index"
+  }
+ ],
+ "forms": {
+  "contact": {
+   "label": "Closing form",
+   "fields": {
+    "topic": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "buy",
+      "sell",
+      "other"
+     ]
+    },
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 120
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    }
+   },
+   "consent": {
+    "notice": "form-consent"
+   },
+   "crm": {
+    "topic": "Buyer or Seller"
+   }
+  },
+  "home-value": {
+   "label": "Home value request",
+   "fields": {
+    "address": {
+     "type": "text",
+     "required": true,
+     "max": 200
+    },
+    "name": {
+     "type": "text",
+     "max": 120
+    },
+    "email": {
+     "type": "email"
+    },
+    "phone": {
+     "type": "phone"
+    }
+   },
+   "consent": {
+    "notice": "form-consent"
+   }
+  },
+  "home-finder": {
+   "label": "Home finder",
+   "fields": {
+    "city": {
+     "type": "reference",
+     "to": "areas",
+     "required": true
+    },
+    "budget": {
+     "type": "enum",
+     "options": [
+      "under-500k",
+      "500k-750k",
+      "750k-1m",
+      "over-1m"
+     ]
+    },
+    "beds": {
+     "type": "enum",
+     "options": [
+      "1+",
+      "2+",
+      "3+",
+      "4+"
+     ]
+    },
+    "timing": {
+     "type": "enum",
+     "options": [
+      "now",
+      "3-months",
+      "6-months-plus",
+      "just-looking"
+     ]
+    },
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 120
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    }
+   },
+   "consent": {
+    "notice": "form-consent"
+   },
+   "crm": {
+    "city": "Target Area",
+    "budget": "Price Range",
+    "timing": "Move Timeframe"
+   }
+  }
+ },
+ "placements": [
+  {
+   "id": "listings>home-our-listings",
+   "collection": "listings",
+   "when": {
+    "status": [
+     "coming-soon",
+     "active",
+     "pending"
+    ]
+   },
+   "to": {
+    "page": "/",
+    "section": "our-listings"
+   },
+   "sort": "-listedOn",
+   "limit": 6
+  },
+  {
+   "id": "listings>home-recently-sold",
+   "collection": "listings",
+   "when": {
+    "status": [
+     "sold"
+    ]
+   },
+   "to": {
+    "page": "/",
+    "section": "recently-sold"
+   },
+   "sort": "-soldOn",
+   "limit": 4
+  },
+  {
+   "id": "listings>city-guide",
+   "collection": "listings",
+   "when": {
+    "status": [
+     "coming-soon",
+     "active",
+     "pending"
+    ]
+   },
+   "to": {
+    "pageType": "buyer-guide",
+    "section": "area-listings",
+    "match": "area"
+   },
+   "sort": "-listedOn"
+  },
+  {
+   "id": "listings>city-guide-sold",
+   "collection": "listings",
+   "when": {
+    "status": [
+     "sold"
+    ]
+   },
+   "to": {
+    "pageType": "buyer-guide",
+    "section": "area-sold",
+    "match": "area"
+   },
+   "sort": "-soldOn",
+   "limit": 4
+  },
+  {
+   "id": "listings>realtor-in-city",
+   "collection": "listings",
+   "when": {
+    "status": [
+     "coming-soon",
+     "active",
+     "pending"
+    ]
+   },
+   "to": {
+    "pageType": "agent-in-area",
+    "section": "area-listings",
+    "match": "area"
+   },
+   "limit": 6
+  },
+  {
+   "id": "listings>sell-in-city-sold",
+   "collection": "listings",
+   "when": {
+    "status": [
+     "sold"
+    ]
+   },
+   "to": {
+    "pageType": "sell-in-area",
+    "section": "area-sold",
+    "match": "area"
+   },
+   "sort": "-soldOn",
+   "limit": 4
+  },
+  {
+   "id": "areas>home",
+   "collection": "areas",
+   "to": {
+    "page": "/",
+    "section": "areas"
+   }
+  },
+  {
+   "id": "areas>hub",
+   "collection": "areas",
+   "to": {
+    "pageType": "areas-hub",
+    "section": "areas-list"
+   }
+  },
+  {
+   "id": "team>home",
+   "collection": "team",
+   "to": {
+    "page": "/",
+    "section": "team-grid"
+   },
+   "sort": "order"
+  },
+  {
+   "id": "team>team-page",
+   "collection": "team",
+   "to": {
+    "pageType": "team",
+    "section": "team-grid"
+   },
+   "sort": "order"
+  },
+  {
+   "id": "posts>blog-index",
+   "collection": "posts",
+   "to": {
+    "pageType": "blog-index",
+    "section": "posts"
+   },
+   "sort": "-publishedOn"
+  },
+  {
+   "id": "reviews>reviews-page",
+   "collection": "testimonials",
+   "to": {
+    "pageType": "reviews",
+    "section": "reviews"
+   },
+   "sort": "-givenOn"
+  },
+  {
+   "id": "derived:team>agent-in-area",
+   "collection": "team",
+   "to": {
+    "pageType": "agent-in-area",
+    "section": "area-agents",
+    "match": "areas"
+   }
+  },
+  {
+   "id": "derived:faqs>agent-in-area",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "agent-in-area",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "agent-in-area",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:faqs>buyer-guide",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "buyer-guide",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "buyer-guide",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:faqs>sell-in-area",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "sell-in-area",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "sell-in-area",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:faqs>service-page",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "service-page",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "service-page",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:faqs>faq",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "faq",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "faq",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:posts>sitemap",
+   "collection": "posts",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:posts>schema",
+   "collection": "posts",
+   "to": {
+    "schema": "BlogPosting"
+   }
+  },
+  {
+   "id": "derived:team>sitemap",
+   "collection": "team",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:team>schema",
+   "collection": "team",
+   "to": {
+    "schema": "Person"
+   }
+  },
+  {
+   "id": "derived:listings>sitemap",
+   "collection": "listings",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:listings>schema",
+   "collection": "listings",
+   "to": {
+    "schema": "RealEstateListing"
+   }
+  }
+ ],
+ "clientWording": [
+  {
+   "where": "forms.home-finder.fields.budget.options",
+   "status": "[client to confirm]",
+   "note": "budget ranges are draft values"
+  },
+  {
+   "where": "forms.contact.fields.topic.options",
+   "status": "[client to confirm]",
+   "note": "closing-form topics are draft values"
+  },
+  {
+   "where": "notices:form-consent",
+   "status": "[client to confirm]",
+   "note": "consent wording under every form (LISTINGS-DECISION)"
+  },
+  {
+   "where": "collections.settings.fields.homeSearchUrl",
+   "status": "[client to confirm]",
+   "note": "home-search address; Brivity on a subdomain is not verified"
+  }
+ ],
+ "seeds": {
+  "areas": [
+   "american-canyon",
+   "benicia",
+   "concord",
+   "fairfield",
+   "napa",
+   "sacramento",
+   "suisun-city",
+   "vacaville",
+   "vallejo",
+   "walnut-creek"
+  ]
+ }
+}

@@ -1,0 +1,161 @@
+{
+  "typesVersion": 1,
+  "note": "Field packs keyed by schema.org type (plus a few platform types). NOT industry schemas: a plan declares an entity ('listings', type RealEstateListing) and the generator copies this pack, then adds the plan's extra fields. A realtor and a solar installer both use Place for service areas. New types are added when a plan needs one (DECISIONS 3, 14).",
+  "types": {
+    "Place": {
+      "schemaType": "Place",
+      "titleField": "name",
+      "slugFrom": "name",
+      "fields": {
+        "name": { "type": "text", "required": true, "max": 80 },
+        "slug": { "type": "slug", "required": true },
+        "region": { "type": "text", "max": 40 },
+        "geo": { "type": "geo" },
+        "intro": { "type": "richtext" },
+        "heroImage": { "type": "image", "media": { "minWidth": 1200, "rightsConfirm": true } },
+        "localFacts": { "type": "list", "of": { "label": { "type": "text", "required": true, "max": 80 }, "value": { "type": "text", "required": true, "max": 120, "sourced": true } } }
+      }
+    },
+    "RealEstateListing": {
+      "schemaType": "RealEstateListing",
+      "titleField": "street",
+      "slugFrom": "street",
+      "statusField": "status",
+      "fields": {
+        "street": { "type": "text", "required": true, "max": 120 },
+        "slug": { "type": "slug", "required": true },
+        "address": { "type": "address", "required": true },
+        "geo": { "type": "geo" },
+        "status": { "type": "enum", "required": true, "options": ["coming-soon", "active", "pending", "sold"] },
+        "price": { "type": "money", "required": true },
+        "soldPrice": { "type": "money", "visibleWhen": { "showSoldPrice": [true] } },
+        "showSoldPrice": { "type": "boolean" },
+        "beds": { "type": "number", "min": 0, "max": 50 },
+        "baths": { "type": "number", "min": 0, "max": 50 },
+        "livingSqft": { "type": "number", "integer": true, "min": 0 },
+        "lotSqft": { "type": "number", "integer": true, "min": 0 },
+        "yearBuilt": { "type": "number", "integer": true, "min": 1700, "max": 2100 },
+        "propertyType": { "type": "enum", "options": ["single-family", "condo", "townhouse", "multi-family", "land", "manufactured", "other"] },
+        "description": { "type": "richtext", "required": true },
+        "features": { "type": "list", "max": 40, "of": { "name": { "type": "text", "required": true, "max": 80 } } },
+        "mlsNumber": { "type": "text", "max": 30 },
+        "tourUrl": { "type": "url" },
+        "photos": { "type": "gallery", "required": true, "min": 1, "max": 60, "media": { "minWidth": 1200, "rightsConfirm": true } },
+        "openHouses": { "type": "list", "of": { "starts": { "type": "datetime", "required": true }, "ends": { "type": "datetime", "required": true } } },
+        "listedOn": { "type": "date" },
+        "soldOn": { "type": "date" },
+        "seo": { "type": "seo" }
+      }
+    },
+    "Service": {
+      "schemaType": "Service",
+      "titleField": "name",
+      "slugFrom": "name",
+      "fields": {
+        "name": { "type": "text", "required": true, "max": 80 },
+        "slug": { "type": "slug", "required": true },
+        "summary": { "type": "text", "required": true, "max": 220 },
+        "body": { "type": "richtext" },
+        "image": { "type": "image", "media": { "minWidth": 1200, "rightsConfirm": true } },
+        "priceFrom": { "type": "money" },
+        "order": { "type": "number", "integer": true, "internal": true },
+        "seo": { "type": "seo" }
+      }
+    },
+    "Product": {
+      "schemaType": "Product",
+      "titleField": "name",
+      "slugFrom": "name",
+      "fields": {
+        "name": { "type": "text", "required": true, "max": 80 },
+        "slug": { "type": "slug", "required": true },
+        "summary": { "type": "text", "required": true, "max": 220 },
+        "body": { "type": "richtext" },
+        "image": { "type": "image", "media": { "minWidth": 1000, "rightsConfirm": true } },
+        "price": { "type": "money" },
+        "specs": { "type": "list", "of": { "label": { "type": "text", "required": true, "max": 60 }, "value": { "type": "text", "required": true, "max": 120 } } },
+        "seo": { "type": "seo" }
+      }
+    },
+    "FinancialProduct": {
+      "schemaType": "FinancialProduct",
+      "titleField": "name",
+      "slugFrom": "name",
+      "fields": {
+        "name": { "type": "text", "required": true, "max": 80 },
+        "slug": { "type": "slug", "required": true },
+        "summary": { "type": "text", "required": true, "max": 220 },
+        "body": { "type": "richtext" },
+        "image": { "type": "image", "media": { "minWidth": 1200, "rightsConfirm": true } },
+        "disclosure": { "type": "reference", "to": "notices", "required": true },
+        "seo": { "type": "seo" }
+      }
+    },
+    "Offer": {
+      "schemaType": "Offer",
+      "titleField": "name",
+      "fields": {
+        "name": { "type": "text", "required": true, "max": 60 },
+        "price": { "type": "money" },
+        "period": { "type": "enum", "options": ["one-time", "week", "month", "year", "visit", "session"] },
+        "includes": { "type": "list", "of": { "item": { "type": "text", "required": true, "max": 120 } } },
+        "terms": { "type": "richtext" },
+        "order": { "type": "number", "integer": true, "internal": true }
+      }
+    },
+    "Event": {
+      "schemaType": "Event",
+      "titleField": "name",
+      "fields": {
+        "name": { "type": "text", "required": true, "max": 80 },
+        "starts": { "type": "datetime", "required": true },
+        "ends": { "type": "datetime" },
+        "repeats": { "type": "enum", "options": ["none", "weekly", "monthly"] },
+        "description": { "type": "text", "max": 400 }
+      }
+    },
+    "CaseStudy": {
+      "schemaType": "Article",
+      "titleField": "title",
+      "slugFrom": "title",
+      "fields": {
+        "title": { "type": "text", "required": true, "max": 110 },
+        "slug": { "type": "slug", "required": true },
+        "summary": { "type": "text", "required": true, "max": 220 },
+        "body": { "type": "richtext", "required": true },
+        "images": { "type": "gallery", "max": 30, "media": { "minWidth": 1000, "rightsConfirm": true } },
+        "results": { "type": "list", "of": { "label": { "type": "text", "required": true, "max": 60 }, "value": { "type": "text", "required": true, "max": 60, "sourced": true } } },
+        "clientPermission": { "type": "boolean", "required": true },
+        "completedOn": { "type": "date" },
+        "seo": { "type": "seo" }
+      }
+    },
+    "BeforeAfter": {
+      "schemaType": "ImageObject",
+      "titleField": "label",
+      "note": "Before/after photos of people or homes: consent on file is required before publish.",
+      "fields": {
+        "label": { "type": "text", "required": true, "max": 80 },
+        "before": { "type": "image", "required": true, "media": { "minWidth": 800, "rightsConfirm": true } },
+        "after": { "type": "image", "required": true, "media": { "minWidth": 800, "rightsConfirm": true } },
+        "consentOnFile": { "type": "boolean", "required": true },
+        "disclaimer": { "type": "reference", "to": "notices" }
+      }
+    },
+    "Course": {
+      "schemaType": "Course",
+      "titleField": "name",
+      "slugFrom": "name",
+      "fields": {
+        "name": { "type": "text", "required": true, "max": 80 },
+        "slug": { "type": "slug", "required": true },
+        "summary": { "type": "text", "required": true, "max": 220 },
+        "body": { "type": "richtext" },
+        "format": { "type": "enum", "options": ["one-to-one", "group", "online", "in-person", "hybrid"] },
+        "length": { "type": "text", "max": 40 },
+        "applicationRequired": { "type": "boolean" },
+        "seo": { "type": "seo" }
+      }
+    }
+  }
+}

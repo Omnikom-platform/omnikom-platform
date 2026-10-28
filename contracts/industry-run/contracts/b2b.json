@@ -1,0 +1,527 @@
+{
+ "contractVersion": 1,
+ "core": 1,
+ "site": {
+  "workspace": "paper-b2b",
+  "industry": "b2b",
+  "generatedFrom": {
+   "plan": "paper plan",
+   "sitemapSha256": "788127b6e50885ad",
+   "planGeneratedAt": "paper plan",
+   "entities": "industry-run/run.mjs paper plan"
+  }
+ },
+ "collections": {
+  "solutions": {
+   "label": "Solutions",
+   "kind": "collection",
+   "type": "Service",
+   "schemaType": "Service",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "summary": {
+     "type": "text",
+     "required": true,
+     "max": 220
+    },
+    "body": {
+     "type": "richtext"
+    },
+    "image": {
+     "type": "image",
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "priceFrom": {
+     "type": "money"
+    },
+    "order": {
+     "type": "number",
+     "integer": true,
+     "internal": true
+    },
+    "seo": {
+     "type": "seo"
+    }
+   },
+   "route": "/solutions/{slug}/"
+  },
+  "sectors": {
+   "label": "Industries served",
+   "kind": "collection",
+   "type": "Service",
+   "schemaType": "Service",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "summary": {
+     "type": "text",
+     "required": true,
+     "max": 220
+    },
+    "body": {
+     "type": "richtext"
+    },
+    "image": {
+     "type": "image",
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "priceFrom": {
+     "type": "money"
+    },
+    "order": {
+     "type": "number",
+     "integer": true,
+     "internal": true
+    },
+    "seo": {
+     "type": "seo"
+    }
+   },
+   "route": "/industries/{slug}/"
+  },
+  "work": {
+   "label": "Case studies",
+   "kind": "collection",
+   "type": "CaseStudy",
+   "schemaType": "Article",
+   "titleField": "title",
+   "slugFrom": "title",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "title": {
+     "type": "text",
+     "required": true,
+     "max": 110
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "summary": {
+     "type": "text",
+     "required": true,
+     "max": 220
+    },
+    "body": {
+     "type": "richtext",
+     "required": true
+    },
+    "images": {
+     "type": "gallery",
+     "max": 30,
+     "media": {
+      "minWidth": 1000,
+      "rightsConfirm": true
+     }
+    },
+    "results": {
+     "type": "list",
+     "of": {
+      "label": {
+       "type": "text",
+       "required": true,
+       "max": 60
+      },
+      "value": {
+       "type": "text",
+       "required": true,
+       "max": 60,
+       "sourced": true
+      }
+     }
+    },
+    "clientPermission": {
+     "type": "boolean",
+     "required": true
+    },
+    "completedOn": {
+     "type": "date"
+    },
+    "seo": {
+     "type": "seo"
+    },
+    "sector": {
+     "type": "reference",
+     "to": "sectors"
+    }
+   },
+   "route": "/customers/{slug}/"
+  }
+ },
+ "pageTypes": {
+  "home": {
+   "label": "home",
+   "schema": [
+    "LocalBusiness"
+   ],
+   "sections": [
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "max": 70,
+       "required": true
+      },
+      "lead": {
+       "type": "text",
+       "max": 240
+      },
+      "image": {
+       "type": "image",
+       "media": {
+        "minWidth": 1600,
+        "rightsConfirm": true
+       },
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "feed-solutions",
+     "kind": "feed",
+     "accepts": "solutions"
+    },
+    {
+     "id": "feed-sectors",
+     "kind": "feed",
+     "accepts": "sectors"
+    },
+    {
+     "id": "feed-work",
+     "kind": "feed",
+     "accepts": "work"
+    },
+    {
+     "id": "reviews",
+     "kind": "feed",
+     "accepts": "testimonials"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "about": {
+   "label": "about",
+   "schema": [
+    "AboutPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "default (no approved design for this page type yet)"
+  },
+  "contact": {
+   "label": "contact",
+   "schema": [
+    "ContactPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "default (no approved design for this page type yet)"
+  }
+ },
+ "pages": [
+  {
+   "path": "/",
+   "type": "home"
+  },
+  {
+   "path": "/about/",
+   "type": "about"
+  },
+  {
+   "path": "/contact/",
+   "type": "contact"
+  }
+ ],
+ "forms": {
+  "lead": {
+   "label": "Lead form",
+   "fields": {
+    "name": {
+     "type": "text",
+     "max": 120,
+     "required": true
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "company": {
+     "type": "text",
+     "max": 120,
+     "required": true
+    },
+    "companySize": {
+     "type": "enum",
+     "options": [
+      "1-10",
+      "11-50",
+      "51-200",
+      "201-1000",
+      "1000-plus"
+     ]
+    },
+    "role": {
+     "type": "enum",
+     "options": [
+      "decision-maker",
+      "influencer",
+      "researcher"
+     ]
+    },
+    "budget": {
+     "type": "enum",
+     "options": [
+      "yes",
+      "no",
+      "not-sure"
+     ]
+    }
+   },
+   "consent": {
+    "notice": "form-consent"
+   },
+   "crm": {
+    "companySize": "Company Size",
+    "role": "Buying Role",
+    "budget": "Budget Confirmed"
+   }
+  }
+ },
+ "placements": [
+  {
+   "id": "solutions>home",
+   "collection": "solutions",
+   "to": {
+    "page": "/",
+    "section": "feed-solutions"
+   },
+   "limit": 6
+  },
+  {
+   "id": "sectors>home",
+   "collection": "sectors",
+   "to": {
+    "page": "/",
+    "section": "feed-sectors"
+   },
+   "limit": 6
+  },
+  {
+   "id": "work>home",
+   "collection": "work",
+   "to": {
+    "page": "/",
+    "section": "feed-work"
+   },
+   "limit": 6
+  },
+  {
+   "id": "reviews>home",
+   "collection": "testimonials",
+   "to": {
+    "page": "/",
+    "section": "reviews"
+   },
+   "limit": 6
+  },
+  {
+   "id": "derived:faqs>about",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "about",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "about",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:faqs>contact",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "contact",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "contact",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:posts>sitemap",
+   "collection": "posts",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:posts>schema",
+   "collection": "posts",
+   "to": {
+    "schema": "BlogPosting"
+   }
+  },
+  {
+   "id": "derived:solutions>sitemap",
+   "collection": "solutions",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:solutions>schema",
+   "collection": "solutions",
+   "to": {
+    "schema": "Service"
+   }
+  },
+  {
+   "id": "derived:sectors>sitemap",
+   "collection": "sectors",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:sectors>schema",
+   "collection": "sectors",
+   "to": {
+    "schema": "Service"
+   }
+  },
+  {
+   "id": "derived:work>sitemap",
+   "collection": "work",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:work>schema",
+   "collection": "work",
+   "to": {
+    "schema": "Article"
+   }
+  }
+ ],
+ "clientWording": [],
+ "seeds": {}
+}

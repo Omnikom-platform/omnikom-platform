@@ -1,0 +1,589 @@
+{
+ "contractVersion": 1,
+ "core": 1,
+ "site": {
+  "workspace": "rainmaker",
+  "industry": "insurance-agency",
+  "generatedFrom": {
+   "plan": "E:/Rainmaker/.pewp/approved",
+   "sitemapSha256": "dafabb9e45e8a071",
+   "planGeneratedAt": "2026-10-23",
+   "entities": "contracts/examples/rainmaker/entities.json: from E:/Rainmaker site-src/pages (section ids, form field names) and its CLAUDE.md rule 3 (compliance text fixed); structure only, no client copy"
+  }
+ },
+ "collections": {
+  "products": {
+   "label": "Products",
+   "kind": "collection",
+   "type": "FinancialProduct",
+   "schemaType": "FinancialProduct",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "summary": {
+     "type": "text",
+     "required": true,
+     "max": 220
+    },
+    "body": {
+     "type": "richtext"
+    },
+    "image": {
+     "type": "image",
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "disclosure": {
+     "type": "reference",
+     "to": "notices",
+     "required": true
+    },
+    "seo": {
+     "type": "seo"
+    },
+    "availableIn": {
+     "type": "text",
+     "max": 200,
+     "locked": {
+      "reason": "offered only where licensed and appointed: legal sign-off"
+     }
+    },
+    "order": {
+     "type": "number",
+     "integer": true,
+     "internal": true
+    }
+   }
+  },
+  "notices": {
+   "extend": true,
+   "fields": {
+    "category": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "product-disclosure",
+      "consent",
+      "privacy",
+      "terms",
+      "general-disclosure"
+     ]
+    }
+   }
+  }
+ },
+ "pageTypes": {
+  "home": {
+   "label": "Home page",
+   "schema": [
+    "LocalBusiness",
+    "WebSite"
+   ],
+   "sections": [
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 70
+      },
+      "lead": {
+       "type": "text",
+       "max": 240
+      },
+      "image": {
+       "type": "image",
+       "required": true,
+       "media": {
+        "minWidth": 1600,
+        "rightsConfirm": true
+       }
+      }
+     }
+    },
+    {
+     "id": "products",
+     "kind": "feed",
+     "accepts": "products"
+    },
+    {
+     "id": "life-map",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 70
+      },
+      "stages": {
+       "type": "list",
+       "max": 6,
+       "of": {
+        "title": {
+         "type": "text",
+         "required": true,
+         "max": 40
+        },
+        "text": {
+         "type": "text",
+         "required": true,
+         "max": 240
+        }
+       }
+      }
+     }
+    },
+    {
+     "id": "guide",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "inquiry",
+     "kind": "form",
+     "form": "inquiry"
+    }
+   ],
+   "sectionsFrom": "site-src/pages/home.html section ids"
+  },
+  "product-guide": {
+   "label": "Product guide (one per product)",
+   "bind": "products",
+   "schema": [
+    "Service",
+    "Article",
+    "FAQPage"
+   ],
+   "sections": [
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "guide",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "faq",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "inquiry",
+     "kind": "form",
+     "form": "inquiry"
+    }
+   ],
+   "sectionsFrom": "site-src/pages/{life-insurance,mortgage-protection,annuities}.html; the product's disclosure (a locked notice) renders from the bound product row"
+  },
+  "careers": {
+   "label": "Careers",
+   "schema": [
+    "Article"
+   ],
+   "sections": [
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "guide",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "interest",
+     "kind": "form",
+     "form": "careers-interest"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "about": {
+   "label": "About",
+   "schema": [],
+   "sections": [
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "contact": {
+   "label": "Contact",
+   "schema": [],
+   "sections": [
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      }
+     }
+    },
+    {
+     "id": "inquiry",
+     "kind": "form",
+     "form": "inquiry"
+    },
+    {
+     "id": "agent-interest",
+     "kind": "form",
+     "form": "careers-interest"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "faq": {
+   "label": "Questions page",
+   "schema": [],
+   "sections": [
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "disclosures": {
+   "label": "Insurance disclosures",
+   "schema": [],
+   "sections": [
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      }
+     }
+    },
+    {
+     "id": "disclosures",
+     "kind": "feed",
+     "accepts": "notices"
+    }
+   ],
+   "sectionsFrom": "site-src/pages/insurance-disclosures.html: every section is fixed compliance text"
+  },
+  "privacy": {
+   "label": "Privacy policy",
+   "schema": [],
+   "sections": [
+    {
+     "id": "text",
+     "kind": "notice",
+     "notice": "privacy-policy"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "terms": {
+   "label": "Terms of use",
+   "schema": [],
+   "sections": [
+    {
+     "id": "text",
+     "kind": "notice",
+     "notice": "terms-of-use"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  }
+ },
+ "pages": [
+  {
+   "path": "/",
+   "type": "home"
+  },
+  {
+   "path": "/life-insurance/",
+   "type": "product-guide",
+   "bind": "life-insurance"
+  },
+  {
+   "path": "/annuities/",
+   "type": "product-guide",
+   "bind": "annuities"
+  },
+  {
+   "path": "/mortgage-protection/",
+   "type": "product-guide",
+   "bind": "mortgage-protection"
+  },
+  {
+   "path": "/careers/",
+   "type": "careers"
+  },
+  {
+   "path": "/about/",
+   "type": "about"
+  },
+  {
+   "path": "/contact/",
+   "type": "contact"
+  },
+  {
+   "path": "/faq/",
+   "type": "faq"
+  },
+  {
+   "path": "/insurance-disclosures/",
+   "type": "disclosures"
+  },
+  {
+   "path": "/privacy/",
+   "type": "privacy"
+  },
+  {
+   "path": "/terms/",
+   "type": "terms"
+  }
+ ],
+ "forms": {
+  "inquiry": {
+   "label": "Inquiry",
+   "fields": {
+    "first_name": {
+     "type": "text",
+     "required": true,
+     "max": 60
+    },
+    "last_name": {
+     "type": "text",
+     "required": true,
+     "max": 60
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    },
+    "phone": {
+     "type": "phone",
+     "required": true
+    },
+    "state": {
+     "type": "text",
+     "max": 40
+    },
+    "interest": {
+     "type": "reference",
+     "to": "products"
+    },
+    "preferred_contact": {
+     "type": "enum",
+     "options": [
+      "phone",
+      "text",
+      "email"
+     ]
+    },
+    "message": {
+     "type": "text",
+     "max": 2000
+    }
+   },
+   "consent": {
+    "notice": "calls-and-texts-consent"
+   }
+  },
+  "careers-interest": {
+   "label": "Careers interest",
+   "fields": {
+    "full_name": {
+     "type": "text",
+     "required": true,
+     "max": 120
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "state": {
+     "type": "text",
+     "max": 40
+    },
+    "licensing_status": {
+     "type": "enum",
+     "options": [
+      "licensed",
+      "in-progress",
+      "not-licensed"
+     ]
+    },
+    "experience": {
+     "type": "text",
+     "max": 200
+    },
+    "about": {
+     "type": "text",
+     "max": 2000
+    }
+   },
+   "consent": {
+    "notice": "calls-and-texts-consent"
+   }
+  }
+ },
+ "placements": [
+  {
+   "id": "products>home",
+   "collection": "products",
+   "to": {
+    "page": "/",
+    "section": "products"
+   },
+   "sort": "order"
+  },
+  {
+   "id": "disclosures>disclosures-page",
+   "collection": "notices",
+   "when": {
+    "category": [
+     "product-disclosure",
+     "general-disclosure"
+    ]
+   },
+   "to": {
+    "pageType": "disclosures",
+    "section": "disclosures"
+   }
+  },
+  {
+   "id": "derived:faqs>product-guide",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "product-guide",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "product-guide",
+    "section": "faq"
+   }
+  },
+  {
+   "id": "derived:faqs>faq",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "faq",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "faq",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:posts>sitemap",
+   "collection": "posts",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:posts>schema",
+   "collection": "posts",
+   "to": {
+    "schema": "BlogPosting"
+   }
+  }
+ ],
+ "clientWording": [],
+ "seeds": {
+  "products": [
+   "annuities",
+   "life-insurance",
+   "mortgage-protection"
+  ]
+ }
+}

@@ -1,0 +1,691 @@
+{
+ "contractVersion": 1,
+ "core": 1,
+ "site": {
+  "workspace": "paper-solar",
+  "industry": "solar",
+  "generatedFrom": {
+   "plan": "paper plan",
+   "sitemapSha256": "644f282ca5db61eb",
+   "planGeneratedAt": "paper plan",
+   "entities": "industry-run/run.mjs paper plan"
+  }
+ },
+ "collections": {
+  "areas": {
+   "label": "areas",
+   "kind": "collection",
+   "type": "Place",
+   "schemaType": "Place",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "region": {
+     "type": "text",
+     "max": 40
+    },
+    "geo": {
+     "type": "geo"
+    },
+    "intro": {
+     "type": "richtext"
+    },
+    "heroImage": {
+     "type": "image",
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "localFacts": {
+     "type": "list",
+     "of": {
+      "label": {
+       "type": "text",
+       "required": true,
+       "max": 80
+      },
+      "value": {
+       "type": "text",
+       "required": true,
+       "max": 120,
+       "sourced": true
+      }
+     }
+    }
+   }
+  },
+  "systems": {
+   "label": "Systems and batteries",
+   "kind": "collection",
+   "type": "Product",
+   "schemaType": "Product",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "summary": {
+     "type": "text",
+     "required": true,
+     "max": 220
+    },
+    "body": {
+     "type": "richtext"
+    },
+    "image": {
+     "type": "image",
+     "media": {
+      "minWidth": 1000,
+      "rightsConfirm": true
+     }
+    },
+    "price": {
+     "type": "money"
+    },
+    "specs": {
+     "type": "list",
+     "of": {
+      "label": {
+       "type": "text",
+       "required": true,
+       "max": 60
+      },
+      "value": {
+       "type": "text",
+       "required": true,
+       "max": 120
+      }
+     }
+    },
+    "seo": {
+     "type": "seo"
+    }
+   },
+   "route": "/systems/{slug}/"
+  },
+  "incentives": {
+   "label": "Incentives and financing",
+   "kind": "collection",
+   "type": "Service",
+   "schemaType": "Service",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "summary": {
+     "type": "text",
+     "required": true,
+     "max": 220
+    },
+    "body": {
+     "type": "richtext"
+    },
+    "image": {
+     "type": "image",
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "priceFrom": {
+     "type": "money"
+    },
+    "order": {
+     "type": "number",
+     "integer": true,
+     "internal": true
+    },
+    "seo": {
+     "type": "seo"
+    },
+    "amount": {
+     "type": "text",
+     "max": 60,
+     "sourced": true
+    }
+   },
+   "route": "/incentives/{slug}/"
+  },
+  "projects": {
+   "label": "Installs",
+   "kind": "collection",
+   "type": "CaseStudy",
+   "schemaType": "Article",
+   "titleField": "title",
+   "slugFrom": "title",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "title": {
+     "type": "text",
+     "required": true,
+     "max": 110
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "summary": {
+     "type": "text",
+     "required": true,
+     "max": 220
+    },
+    "body": {
+     "type": "richtext",
+     "required": true
+    },
+    "images": {
+     "type": "gallery",
+     "max": 30,
+     "media": {
+      "minWidth": 1000,
+      "rightsConfirm": true
+     }
+    },
+    "results": {
+     "type": "list",
+     "of": {
+      "label": {
+       "type": "text",
+       "required": true,
+       "max": 60
+      },
+      "value": {
+       "type": "text",
+       "required": true,
+       "max": 60,
+       "sourced": true
+      }
+     }
+    },
+    "clientPermission": {
+     "type": "boolean",
+     "required": true
+    },
+    "completedOn": {
+     "type": "date"
+    },
+    "seo": {
+     "type": "seo"
+    },
+    "area": {
+     "type": "reference",
+     "to": "areas"
+    }
+   },
+   "route": "/projects/{slug}/"
+  }
+ },
+ "pageTypes": {
+  "home": {
+   "label": "home",
+   "schema": [
+    "LocalBusiness"
+   ],
+   "sections": [
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "max": 70,
+       "required": true
+      },
+      "lead": {
+       "type": "text",
+       "max": 240
+      },
+      "image": {
+       "type": "image",
+       "media": {
+        "minWidth": 1600,
+        "rightsConfirm": true
+       },
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "feed-systems",
+     "kind": "feed",
+     "accepts": "systems"
+    },
+    {
+     "id": "feed-incentives",
+     "kind": "feed",
+     "accepts": "incentives"
+    },
+    {
+     "id": "feed-projects",
+     "kind": "feed",
+     "accepts": "projects"
+    },
+    {
+     "id": "reviews",
+     "kind": "feed",
+     "accepts": "testimonials"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "about": {
+   "label": "about",
+   "schema": [
+    "AboutPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "default (no approved design for this page type yet)"
+  },
+  "contact": {
+   "label": "contact",
+   "schema": [
+    "ContactPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "default (no approved design for this page type yet)"
+  },
+  "solar-in-area": {
+   "label": "solar-in-area",
+   "bind": "areas",
+   "schema": [
+    "Service"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "max": 90,
+       "required": true
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "near-projects",
+     "kind": "feed",
+     "accepts": "projects"
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  }
+ },
+ "pages": [
+  {
+   "path": "/",
+   "type": "home"
+  },
+  {
+   "path": "/about/",
+   "type": "about"
+  },
+  {
+   "path": "/contact/",
+   "type": "contact"
+  },
+  {
+   "path": "/solar-northtown/",
+   "type": "solar-in-area",
+   "bind": "northtown"
+  },
+  {
+   "path": "/solar-southville/",
+   "type": "solar-in-area",
+   "bind": "southville"
+  }
+ ],
+ "forms": {
+  "lead": {
+   "label": "Lead form",
+   "fields": {
+    "name": {
+     "type": "text",
+     "max": 120,
+     "required": true
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "homeowner": {
+     "type": "enum",
+     "options": [
+      "owner",
+      "renter"
+     ],
+     "required": true
+    },
+    "bill": {
+     "type": "enum",
+     "options": [
+      "under-100",
+      "100-200",
+      "200-300",
+      "over-300"
+     ]
+    },
+    "roof": {
+     "type": "enum",
+     "options": [
+      "shingle",
+      "tile",
+      "metal",
+      "flat",
+      "not-sure"
+     ]
+    },
+    "financing": {
+     "type": "enum",
+     "options": [
+      "cash",
+      "loan",
+      "lease",
+      "not-sure"
+     ]
+    }
+   },
+   "consent": {
+    "notice": "form-consent"
+   },
+   "crm": {
+    "homeowner": "Homeowner Status",
+    "bill": "Average Monthly Bill",
+    "roof": "Roof Type",
+    "financing": "Financing Interest"
+   }
+  }
+ },
+ "placements": [
+  {
+   "id": "systems>home",
+   "collection": "systems",
+   "to": {
+    "page": "/",
+    "section": "feed-systems"
+   },
+   "limit": 6
+  },
+  {
+   "id": "incentives>home",
+   "collection": "incentives",
+   "to": {
+    "page": "/",
+    "section": "feed-incentives"
+   },
+   "limit": 6
+  },
+  {
+   "id": "projects>home",
+   "collection": "projects",
+   "to": {
+    "page": "/",
+    "section": "feed-projects"
+   },
+   "limit": 6
+  },
+  {
+   "id": "reviews>home",
+   "collection": "testimonials",
+   "to": {
+    "page": "/",
+    "section": "reviews"
+   },
+   "limit": 6
+  },
+  {
+   "id": "derived:faqs>about",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "about",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "about",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:faqs>contact",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "contact",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "contact",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:projects>solar-in-area",
+   "collection": "projects",
+   "to": {
+    "pageType": "solar-in-area",
+    "section": "near-projects",
+    "match": "area"
+   }
+  },
+  {
+   "id": "derived:faqs>solar-in-area",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "solar-in-area",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "solar-in-area",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:posts>sitemap",
+   "collection": "posts",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:posts>schema",
+   "collection": "posts",
+   "to": {
+    "schema": "BlogPosting"
+   }
+  },
+  {
+   "id": "derived:systems>sitemap",
+   "collection": "systems",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:systems>schema",
+   "collection": "systems",
+   "to": {
+    "schema": "Product"
+   }
+  },
+  {
+   "id": "derived:incentives>sitemap",
+   "collection": "incentives",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:incentives>schema",
+   "collection": "incentives",
+   "to": {
+    "schema": "Service"
+   }
+  },
+  {
+   "id": "derived:projects>sitemap",
+   "collection": "projects",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:projects>schema",
+   "collection": "projects",
+   "to": {
+    "schema": "Article"
+   }
+  }
+ ],
+ "clientWording": [],
+ "seeds": {
+  "areas": [
+   "northtown",
+   "southville"
+  ]
+ }
+}

@@ -1,0 +1,172 @@
+{
+ "workspace": "elev8",
+ "source": "contracts/examples/elev8/entities.json: approved home design V4 (2026-10-28) + LISTINGS-DECISION.md (2026-10-28); structure only, no client copy",
+ "locations": { "collection": "areas" },
+ "families": { "c-agent": "agent-in-area", "c-buy": "buyer-guide", "c-sell": "sell-in-area" },
+ "pageTypeOf": {
+  "/": "home", "/areas-we-serve/": "areas-hub",
+  "/buying": "service-page", "/selling": "service-page", "/financing": "service-page",
+  "/home_value": "home-value", "/connect": "contact", "/faq": "faq", "/reviews": "reviews", "/team": "team",
+  "/privacy_policy": "privacy", "/tos": "terms", "/blog": "blog-index"
+ },
+ "extraPages": [ { "path": "/blog", "why": "articles index (lead session answer 2026-10-28): no article is orphaned (GT-007); linked from nav/footer. To be added to the approved plan too" } ],
+ "collections": {
+  "areas": { "type": "Place", "label": "Cities" },
+  "listings": {
+   "type": "RealEstateListing", "label": "Our listings", "route": "/listings/{slug}/",
+   "access": { "member": "own" }, "ownerField": "agent",
+   "fields": {
+    "area": { "type": "reference", "to": "areas", "required": true },
+    "agent": { "type": "reference", "to": "team", "required": true }
+   },
+   "onDelete": { "redirectToPageOf": "area", "pageType": "buyer-guide" }
+  }
+ },
+ "extend": {
+  "team": { "route": "/agent-profile/{slug}", "areas": { "type": "reference", "to": "areas", "multiple": true } },
+  "settings": { "homeSearchUrl": { "type": "url", "locked": { "reason": "home-search (Brivity IDX) address, set by Omnikom with the client" } } }
+ },
+ "clientWording": [
+  { "where": "forms.home-finder.fields.budget.options", "status": "[client to confirm]", "note": "budget ranges are draft values" },
+  { "where": "forms.contact.fields.topic.options", "status": "[client to confirm]", "note": "closing-form topics are draft values" },
+  { "where": "notices:form-consent", "status": "[client to confirm]", "note": "consent wording under every form (LISTINGS-DECISION)" },
+  { "where": "collections.settings.fields.homeSearchUrl", "status": "[client to confirm]", "note": "home-search address; Brivity on a subdomain is not verified" }
+ ],
+ "defaultForm": "contact",
+ "forms": {
+  "contact": {
+   "label": "Closing form",
+   "fields": {
+    "topic": { "type": "enum", "required": true, "options": ["buy", "sell", "other"] },
+    "name": { "type": "text", "required": true, "max": 120 },
+    "phone": { "type": "phone" },
+    "email": { "type": "email", "required": true }
+   },
+   "consent": { "notice": "form-consent" },
+   "crm": { "topic": "Buyer or Seller" }
+  },
+  "home-value": {
+   "label": "Home value request",
+   "fields": {
+    "address": { "type": "text", "required": true, "max": 200 },
+    "name": { "type": "text", "max": 120 },
+    "email": { "type": "email" },
+    "phone": { "type": "phone" }
+   },
+   "consent": { "notice": "form-consent" }
+  },
+  "home-finder": {
+   "label": "Home finder",
+   "fields": {
+    "city": { "type": "reference", "to": "areas", "required": true },
+    "budget": { "type": "enum", "options": ["under-500k", "500k-750k", "750k-1m", "over-1m"] },
+    "beds": { "type": "enum", "options": ["1+", "2+", "3+", "4+"] },
+    "timing": { "type": "enum", "options": ["now", "3-months", "6-months-plus", "just-looking"] },
+    "name": { "type": "text", "required": true, "max": 120 },
+    "phone": { "type": "phone" },
+    "email": { "type": "email", "required": true }
+   },
+   "consent": { "notice": "form-consent" },
+   "crm": { "city": "Target Area", "budget": "Price Range", "timing": "Move Timeframe" }
+  }
+ },
+ "pageTypes": {
+  "home": {
+   "label": "Home page",
+   "sectionsFrom": "draft-site/design/variants/v4.html (approved 2026-10-28); header and footer come from settings",
+   "sections": [
+    { "id": "hero", "kind": "fields", "fields": {
+      "heading": { "type": "text", "required": true, "max": 70 },
+      "lead": { "type": "text", "max": 200 },
+      "image": { "type": "image", "required": true, "media": { "minWidth": 1600, "rightsConfirm": true } },
+      "searchTabs": { "type": "list", "min": 1, "max": 4, "of": { "label": { "type": "text", "required": true, "max": 20 }, "mode": { "type": "enum", "required": true, "options": ["buy", "sell", "value", "finder"] } } } } },
+    { "id": "trust", "kind": "fields", "fields": {
+      "items": { "type": "list", "max": 4, "of": { "value": { "type": "text", "required": true, "max": 30, "sourced": true }, "label": { "type": "text", "required": true, "max": 60 } } } } },
+    { "id": "three-ways", "kind": "fields", "fields": {
+      "heading": { "type": "text", "required": true, "max": 70 },
+      "cards": { "type": "list", "min": 3, "max": 3, "of": { "title": { "type": "text", "required": true, "max": 50 }, "text": { "type": "text", "required": true, "max": 240 }, "linkLabel": { "type": "text", "max": 30 }, "linkTo": { "type": "text", "max": 200 } } } } },
+    { "id": "home-value", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 70 }, "lead": { "type": "text", "max": 240 }, "points": { "type": "list", "max": 4, "of": { "text": { "type": "text", "required": true, "max": 120 } } } } },
+    { "id": "home-value-form", "kind": "form", "form": "home-value" },
+    { "id": "how-we-sell", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 70 }, "steps": { "type": "list", "min": 3, "max": 8, "of": { "title": { "type": "text", "required": true, "max": 40 }, "text": { "type": "text", "required": true, "max": 240 } } } } },
+    { "id": "areas", "kind": "feed", "accepts": "areas" },
+    { "id": "our-listings", "kind": "feed", "accepts": "listings" },
+    { "id": "recently-sold", "kind": "feed", "accepts": "listings" },
+    { "id": "home-finder", "kind": "form", "form": "home-finder" },
+    { "id": "about-team", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 70 }, "body": { "type": "richtext" } } },
+    { "id": "team-grid", "kind": "feed", "accepts": "team" },
+    { "id": "closing-cta", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 70 }, "lead": { "type": "text", "max": 200 } } },
+    { "id": "closing-form", "kind": "form", "form": "contact" }
+   ]
+  },
+  "buyer-guide": {
+   "label": "City buyer guide (/homes-for-sale-in-<city>-ca/)",
+   "sectionsFrom": "LISTINGS-DECISION.md: local facts, the city's own listings, the home finder preset to the city, a button to the home search",
+   "sections": [
+    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
+    { "id": "guide", "kind": "fields", "fields": { "body": { "type": "richtext", "required": true } } },
+    { "id": "area-listings", "kind": "feed", "accepts": "listings" },
+    { "id": "area-sold", "kind": "feed", "accepts": "listings" },
+    { "id": "home-finder", "kind": "form", "form": "home-finder" },
+    { "id": "questions", "kind": "feed", "accepts": "faqs" }
+   ]
+  },
+  "agent-in-area": {
+   "label": "Realtor in <city>",
+   "sections": [
+    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
+    { "id": "body", "kind": "fields", "fields": { "body": { "type": "richtext", "required": true } } },
+    { "id": "area-agents", "kind": "feed", "accepts": "team" },
+    { "id": "area-listings", "kind": "feed", "accepts": "listings" },
+    { "id": "questions", "kind": "feed", "accepts": "faqs" },
+    { "id": "contact", "kind": "form", "form": "contact" }
+   ]
+  },
+  "sell-in-area": {
+   "label": "Sell your house in <city>",
+   "sections": [
+    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
+    { "id": "body", "kind": "fields", "fields": { "body": { "type": "richtext", "required": true } } },
+    { "id": "home-value-form", "kind": "form", "form": "home-value" },
+    { "id": "area-sold", "kind": "feed", "accepts": "listings" },
+    { "id": "questions", "kind": "feed", "accepts": "faqs" }
+   ]
+  },
+  "areas-hub": { "label": "Areas we serve", "sections": [
+    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
+    { "id": "areas-list", "kind": "feed", "accepts": "areas" } ] },
+  "team": { "label": "Team page", "sections": [
+    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
+    { "id": "team-grid", "kind": "feed", "accepts": "team" } ] },
+  "reviews": { "label": "Reviews page", "sections": [
+    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 } } },
+    { "id": "reviews", "kind": "feed", "accepts": "testimonials" } ] },
+  "faq": { "label": "Questions page", "sections": [
+    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 } } },
+    { "id": "questions", "kind": "feed", "accepts": "faqs" } ] },
+  "home-value": { "label": "Home value page", "sections": [
+    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
+    { "id": "form", "kind": "form", "form": "home-value" } ] },
+  "contact": { "label": "Contact page", "sections": [
+    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
+    { "id": "form", "kind": "form", "form": "contact" } ] },
+  "blog-index": { "label": "Articles", "sections": [
+    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
+    { "id": "posts", "kind": "feed", "accepts": "posts" } ] },
+  "privacy": { "label": "Privacy policy", "sections": [ { "id": "text", "kind": "notice", "notice": "privacy-policy" } ] },
+  "terms": { "label": "Terms of use", "sections": [ { "id": "text", "kind": "notice", "notice": "terms-of-use" } ] }
+ },
+ "placements": [
+  { "id": "listings>home-our-listings", "collection": "listings", "when": { "status": ["coming-soon", "active", "pending"] }, "to": { "page": "/", "section": "our-listings" }, "sort": "-listedOn", "limit": 6 },
+  { "id": "listings>home-recently-sold", "collection": "listings", "when": { "status": ["sold"] }, "to": { "page": "/", "section": "recently-sold" }, "sort": "-soldOn", "limit": 4 },
+  { "id": "listings>city-guide", "collection": "listings", "when": { "status": ["coming-soon", "active", "pending"] }, "to": { "pageType": "buyer-guide", "section": "area-listings", "match": "area" }, "sort": "-listedOn" },
+  { "id": "listings>city-guide-sold", "collection": "listings", "when": { "status": ["sold"] }, "to": { "pageType": "buyer-guide", "section": "area-sold", "match": "area" }, "sort": "-soldOn", "limit": 4 },
+  { "id": "listings>realtor-in-city", "collection": "listings", "when": { "status": ["coming-soon", "active", "pending"] }, "to": { "pageType": "agent-in-area", "section": "area-listings", "match": "area" }, "limit": 6 },
+  { "id": "listings>sell-in-city-sold", "collection": "listings", "when": { "status": ["sold"] }, "to": { "pageType": "sell-in-area", "section": "area-sold", "match": "area" }, "sort": "-soldOn", "limit": 4 },
+  { "id": "areas>home", "collection": "areas", "to": { "page": "/", "section": "areas" } },
+  { "id": "areas>hub", "collection": "areas", "to": { "pageType": "areas-hub", "section": "areas-list" } },
+  { "id": "team>home", "collection": "team", "to": { "page": "/", "section": "team-grid" }, "sort": "order" },
+  { "id": "team>team-page", "collection": "team", "to": { "pageType": "team", "section": "team-grid" }, "sort": "order" },
+  { "id": "posts>blog-index", "collection": "posts", "to": { "pageType": "blog-index", "section": "posts" }, "sort": "-publishedOn" },
+  { "id": "reviews>reviews-page", "collection": "testimonials", "to": { "pageType": "reviews", "section": "reviews" }, "sort": "-givenOn" }
+ ]
+}

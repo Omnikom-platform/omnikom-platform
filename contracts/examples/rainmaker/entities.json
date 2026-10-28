@@ -1,0 +1,84 @@
+{
+ "workspace": "rainmaker",
+ "source": "contracts/examples/rainmaker/entities.json: from E:/Rainmaker site-src/pages (section ids, form field names) and its CLAUDE.md rule 3 (compliance text fixed); structure only, no client copy",
+ "pageTypeOf": { "/": "home", "/careers/": "careers", "/about/": "about", "/contact/": "contact", "/faq/": "faq",
+  "/insurance-disclosures/": "disclosures", "/privacy/": "privacy", "/terms/": "terms" },
+ "bindPages": {
+  "/life-insurance/": { "collection": "products", "key": "life-insurance", "type": "product-guide" },
+  "/mortgage-protection/": { "collection": "products", "key": "mortgage-protection", "type": "product-guide" },
+  "/annuities/": { "collection": "products", "key": "annuities", "type": "product-guide" }
+ },
+ "extraPages": [
+  { "path": "/about/" }, { "path": "/contact/" }, { "path": "/faq/" },
+  { "path": "/insurance-disclosures/" }, { "path": "/privacy/" }, { "path": "/terms/" }
+ ],
+ "collections": {
+  "products": {
+   "type": "FinancialProduct", "label": "Products",
+   "fields": {
+    "availableIn": { "type": "text", "max": 200, "locked": { "reason": "offered only where licensed and appointed: legal sign-off" } },
+    "order": { "type": "number", "integer": true, "internal": true }
+   }
+  }
+ },
+ "extend": {
+  "notices": { "category": { "type": "enum", "required": true, "options": ["product-disclosure", "consent", "privacy", "terms", "general-disclosure"] } }
+ },
+ "defaultForm": "inquiry",
+ "forms": {
+  "inquiry": {
+   "label": "Inquiry",
+   "fields": {
+    "first_name": { "type": "text", "required": true, "max": 60 }, "last_name": { "type": "text", "required": true, "max": 60 },
+    "email": { "type": "email", "required": true }, "phone": { "type": "phone", "required": true },
+    "state": { "type": "text", "max": 40 }, "interest": { "type": "reference", "to": "products" },
+    "preferred_contact": { "type": "enum", "options": ["phone", "text", "email"] }, "message": { "type": "text", "max": 2000 }
+   },
+   "consent": { "notice": "calls-and-texts-consent" }
+  },
+  "careers-interest": {
+   "label": "Careers interest",
+   "fields": {
+    "full_name": { "type": "text", "required": true, "max": 120 }, "email": { "type": "email", "required": true }, "phone": { "type": "phone" },
+    "state": { "type": "text", "max": 40 }, "licensing_status": { "type": "enum", "options": ["licensed", "in-progress", "not-licensed"] },
+    "experience": { "type": "text", "max": 200 }, "about": { "type": "text", "max": 2000 }
+   },
+   "consent": { "notice": "calls-and-texts-consent" }
+  }
+ },
+ "pageTypes": {
+  "home": { "label": "Home page", "sectionsFrom": "site-src/pages/home.html section ids", "sections": [
+   { "id": "hero", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 70 }, "lead": { "type": "text", "max": 240 }, "image": { "type": "image", "required": true, "media": { "minWidth": 1600, "rightsConfirm": true } } } },
+   { "id": "products", "kind": "feed", "accepts": "products" },
+   { "id": "life-map", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 70 }, "stages": { "type": "list", "max": 6, "of": { "title": { "type": "text", "required": true, "max": 40 }, "text": { "type": "text", "required": true, "max": 240 } } } } },
+   { "id": "guide", "kind": "fields", "fields": { "body": { "type": "richtext", "required": true } } },
+   { "id": "inquiry", "kind": "form", "form": "inquiry" } ] },
+  "product-guide": { "label": "Product guide (one per product)", "sectionsFrom": "site-src/pages/{life-insurance,mortgage-protection,annuities}.html; the product's disclosure (a locked notice) renders from the bound product row", "sections": [
+   { "id": "hero", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
+   { "id": "guide", "kind": "fields", "fields": { "body": { "type": "richtext", "required": true } } },
+   { "id": "faq", "kind": "feed", "accepts": "faqs" },
+   { "id": "inquiry", "kind": "form", "form": "inquiry" } ] },
+  "careers": { "label": "Careers", "sections": [
+   { "id": "hero", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
+   { "id": "guide", "kind": "fields", "fields": { "body": { "type": "richtext", "required": true } } },
+   { "id": "interest", "kind": "form", "form": "careers-interest" } ] },
+  "about": { "label": "About", "sections": [
+   { "id": "hero", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "body": { "type": "richtext", "required": true } } } ] },
+  "contact": { "label": "Contact", "sections": [
+   { "id": "hero", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 } } },
+   { "id": "inquiry", "kind": "form", "form": "inquiry" },
+   { "id": "agent-interest", "kind": "form", "form": "careers-interest" } ] },
+  "faq": { "label": "Questions page", "sections": [
+   { "id": "hero", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 } } },
+   { "id": "questions", "kind": "feed", "accepts": "faqs" } ] },
+  "disclosures": { "label": "Insurance disclosures", "sectionsFrom": "site-src/pages/insurance-disclosures.html: every section is fixed compliance text", "sections": [
+   { "id": "hero", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 } } },
+   { "id": "disclosures", "kind": "feed", "accepts": "notices" } ] },
+  "privacy": { "label": "Privacy policy", "sections": [ { "id": "text", "kind": "notice", "notice": "privacy-policy" } ] },
+  "terms": { "label": "Terms of use", "sections": [ { "id": "text", "kind": "notice", "notice": "terms-of-use" } ] }
+ },
+ "placements": [
+  { "id": "products>home", "collection": "products", "to": { "page": "/", "section": "products" }, "sort": "order" },
+  { "id": "disclosures>disclosures-page", "collection": "notices", "when": { "category": ["product-disclosure", "general-disclosure"] }, "to": { "pageType": "disclosures", "section": "disclosures" } }
+ ]
+}

@@ -1,0 +1,577 @@
+{
+ "contractVersion": 1,
+ "core": 1,
+ "site": {
+  "workspace": "paper-fitness",
+  "industry": "fitness",
+  "generatedFrom": {
+   "plan": "paper plan",
+   "sitemapSha256": "90edecb874dfed63",
+   "planGeneratedAt": "paper plan",
+   "entities": "industry-run/run.mjs paper plan"
+  }
+ },
+ "collections": {
+  "areas": {
+   "label": "areas",
+   "kind": "collection",
+   "type": "Place",
+   "schemaType": "Place",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "region": {
+     "type": "text",
+     "max": 40
+    },
+    "geo": {
+     "type": "geo"
+    },
+    "intro": {
+     "type": "richtext"
+    },
+    "heroImage": {
+     "type": "image",
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "localFacts": {
+     "type": "list",
+     "of": {
+      "label": {
+       "type": "text",
+       "required": true,
+       "max": 80
+      },
+      "value": {
+       "type": "text",
+       "required": true,
+       "max": 120,
+       "sourced": true
+      }
+     }
+    }
+   }
+  },
+  "programs": {
+   "label": "Programs",
+   "kind": "collection",
+   "type": "Course",
+   "schemaType": "Course",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "summary": {
+     "type": "text",
+     "required": true,
+     "max": 220
+    },
+    "body": {
+     "type": "richtext"
+    },
+    "format": {
+     "type": "enum",
+     "options": [
+      "one-to-one",
+      "group",
+      "online",
+      "in-person",
+      "hybrid"
+     ]
+    },
+    "length": {
+     "type": "text",
+     "max": 40
+    },
+    "applicationRequired": {
+     "type": "boolean"
+    },
+    "seo": {
+     "type": "seo"
+    }
+   },
+   "route": "/programs/{slug}/"
+  },
+  "classes": {
+   "label": "Class schedule",
+   "kind": "collection",
+   "type": "Event",
+   "schemaType": "Event",
+   "titleField": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "starts": {
+     "type": "datetime",
+     "required": true
+    },
+    "ends": {
+     "type": "datetime"
+    },
+    "repeats": {
+     "type": "enum",
+     "options": [
+      "none",
+      "weekly",
+      "monthly"
+     ]
+    },
+    "description": {
+     "type": "text",
+     "max": 400
+    }
+   }
+  },
+  "memberships": {
+   "label": "Memberships",
+   "kind": "collection",
+   "type": "Offer",
+   "schemaType": "Offer",
+   "titleField": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 60
+    },
+    "price": {
+     "type": "money"
+    },
+    "period": {
+     "type": "enum",
+     "options": [
+      "one-time",
+      "week",
+      "month",
+      "year",
+      "visit",
+      "session"
+     ]
+    },
+    "includes": {
+     "type": "list",
+     "of": {
+      "item": {
+       "type": "text",
+       "required": true,
+       "max": 120
+      }
+     }
+    },
+    "terms": {
+     "type": "richtext"
+    },
+    "order": {
+     "type": "number",
+     "integer": true,
+     "internal": true
+    }
+   }
+  }
+ },
+ "pageTypes": {
+  "home": {
+   "label": "home",
+   "schema": [
+    "LocalBusiness"
+   ],
+   "sections": [
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "max": 70,
+       "required": true
+      },
+      "lead": {
+       "type": "text",
+       "max": 240
+      },
+      "image": {
+       "type": "image",
+       "media": {
+        "minWidth": 1600,
+        "rightsConfirm": true
+       },
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "feed-programs",
+     "kind": "feed",
+     "accepts": "programs"
+    },
+    {
+     "id": "feed-classes",
+     "kind": "feed",
+     "accepts": "classes"
+    },
+    {
+     "id": "feed-memberships",
+     "kind": "feed",
+     "accepts": "memberships"
+    },
+    {
+     "id": "reviews",
+     "kind": "feed",
+     "accepts": "testimonials"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "about": {
+   "label": "about",
+   "schema": [
+    "AboutPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "default (no approved design for this page type yet)"
+  },
+  "contact": {
+   "label": "contact",
+   "schema": [
+    "ContactPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "default (no approved design for this page type yet)"
+  },
+  "gym-in-area": {
+   "label": "gym-in-area",
+   "bind": "areas",
+   "schema": [
+    "Service"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "max": 90,
+       "required": true
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "lead"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  }
+ },
+ "pages": [
+  {
+   "path": "/",
+   "type": "home"
+  },
+  {
+   "path": "/about/",
+   "type": "about"
+  },
+  {
+   "path": "/contact/",
+   "type": "contact"
+  },
+  {
+   "path": "/gym-northtown/",
+   "type": "gym-in-area",
+   "bind": "northtown"
+  },
+  {
+   "path": "/gym-southville/",
+   "type": "gym-in-area",
+   "bind": "southville"
+  }
+ ],
+ "forms": {
+  "lead": {
+   "label": "Lead form",
+   "fields": {
+    "name": {
+     "type": "text",
+     "max": 120,
+     "required": true
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "membership": {
+     "type": "enum",
+     "options": [
+      "trial",
+      "monthly",
+      "annual",
+      "class-pack"
+     ]
+    },
+    "interest": {
+     "type": "reference",
+     "to": "programs"
+    }
+   },
+   "consent": {
+    "notice": "form-consent"
+   },
+   "crm": {
+    "membership": "Membership Type",
+    "interest": "Class or Program Interest"
+   }
+  }
+ },
+ "placements": [
+  {
+   "id": "programs>home",
+   "collection": "programs",
+   "to": {
+    "page": "/",
+    "section": "feed-programs"
+   },
+   "limit": 6
+  },
+  {
+   "id": "classes>home",
+   "collection": "classes",
+   "to": {
+    "page": "/",
+    "section": "feed-classes"
+   },
+   "limit": 6
+  },
+  {
+   "id": "memberships>home",
+   "collection": "memberships",
+   "to": {
+    "page": "/",
+    "section": "feed-memberships"
+   },
+   "limit": 6
+  },
+  {
+   "id": "reviews>home",
+   "collection": "testimonials",
+   "to": {
+    "page": "/",
+    "section": "reviews"
+   },
+   "limit": 6
+  },
+  {
+   "id": "derived:faqs>about",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "about",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "about",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:faqs>contact",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "contact",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "contact",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:faqs>gym-in-area",
+   "collection": "faqs",
+   "when": {
+    "topic": [
+     "gym-in-area",
+     "all"
+    ]
+   },
+   "to": {
+    "pageType": "gym-in-area",
+    "section": "questions"
+   }
+  },
+  {
+   "id": "derived:posts>sitemap",
+   "collection": "posts",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:posts>schema",
+   "collection": "posts",
+   "to": {
+    "schema": "BlogPosting"
+   }
+  },
+  {
+   "id": "derived:programs>sitemap",
+   "collection": "programs",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:programs>schema",
+   "collection": "programs",
+   "to": {
+    "schema": "Course"
+   }
+  }
+ ],
+ "clientWording": [],
+ "seeds": {
+  "areas": [
+   "northtown",
+   "southville"
+  ]
+ }
+}
