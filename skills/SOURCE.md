@@ -2,7 +2,7 @@
 
 | Copy here | Copied from | Version at copy | Date |
 |---|---|---|---|
-| `programmatic-enterprise-web-performance/` | `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance` (own git repo; its `.git` was not copied) | `36145a9` "research: a measured 0 is no demand (yields to a tier, never a target)" (synced on purpose from `a116b00`; 4 files, test-research 200/200, 2/2 new mutants killed) | 2026-10-27 |
+| `programmatic-enterprise-web-performance/` | `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance` (own git repo; its `.git` was not copied) | `e5aa62c` "mutants-research: repoint volumes invented" (synced on purpose; full mutants-research 112/112 after the repoint, test-research 200/200) | 2026-10-28 |
 | `design-tournament/` | `C:\Users\DELL\.claude\skills\design-tournament` | (no git) | 2026-10-24 |
 | `icm-librarian.agent.md` | `E:\Francine & Eli\.claude\agents\icm-librarian.md` | Francine & Eli repo | 2026-10-24 |
 
