@@ -21,7 +21,7 @@ from a library keyed by schema.org type.
 | `store.mjs` | Reference model of how rows behave: versions, draft/publish, rollback, locked fields, member-owns-own, the workspace wall. **The spec the Supabase layer (step 3) must reproduce** |
 | `place.mjs` | Publish-time placement: published rows -> page sections, item pages, sitemap, page schema |
 | `screens.mjs` | Dashboard screens from the contract: `node screens.mjs <contract.json> --out screens.md` |
-| `test/run.mjs` | 114 checks on a synthetic fixture ("Demo Homes"); `test/mutate.mjs` breaks each rule and requires the tests to go red |
+| `test/run.mjs` | 138 checks on a synthetic fixture ("Demo Homes"); `test/mutate.mjs` breaks each rule and requires the tests to go red |
 | `examples/elev8/` | ELEV8: entity declaration, contract generated from its **approved plan**, screens, mapping |
 | `examples/rainmaker/` | Rainmaker: same, plus `check.mjs` run against its real pages (read only) |
 | `examples/vtv/` | VTV: same, plus `adapter.mjs` run against its real `data.json` (read only); front end only (its project rule) |
@@ -74,15 +74,15 @@ database checks so the app cannot skip them.
 ## Rule codes (each has a test that watches it fail)
 Contract: C-SHAPE C-CORE C-KIND C-FIELDS C-FIELD-TYPE C-ENUM C-REF C-LOCK C-RANGE C-MEDIA C-TITLE C-ROUTE C-STATUS C-ACCESS C-OWNER
 C-ONDELETE C-BIND C-SECTION C-FEED C-FORM-REF C-NOTICE C-PAGE-TYPE C-PATH C-PAGE-BIND C-CONSENT C-CRM C-PLACE-COLL C-PLACE-WHEN
-C-PLACE-TARGET C-PLACE-SECTION C-PLACE-MATCH C-PLACE-ROUTE C-FEED-ORPHAN C-SITEMAP C-VISIBLE C-WORDING.
-Rows: I-REQUIRED I-TYPE I-ENUM I-MAX I-MIN I-SLUG I-ALT I-MEDIA-SIZE I-RIGHTS I-EXIF I-SOURCE I-PLACEHOLDER I-UNKNOWN I-REF I-COLLECTION.
+C-PLACE-TARGET C-PLACE-SECTION C-PLACE-MATCH C-PLACE-ROUTE C-FEED-ORPHAN C-SITEMAP C-VISIBLE C-WORDING C-SAMPLE C-WAIVER.
+Rows: I-REQUIRED I-TYPE I-ENUM I-MAX I-MIN I-SLUG I-ALT I-MEDIA-SIZE I-RIGHTS I-EXIF I-SOURCE I-PLACEHOLDER I-UNKNOWN I-REF I-COLLECTION I-MEDIA-UNKNOWN I-SAMPLE-LIVE.
 Store: S-WORKSPACE S-NOT-FOUND S-COLLECTION S-ROLE S-OWN-ONLY S-SINGLETON S-LOCKED S-SIGNOFF S-INVALID S-PUBLISH-INVALID S-KIND.
 The message text of each is in the source next to the code.
 
 ## Run it
 ```
-node contracts/test/run.mjs          # 114 checks, exit 1 on any failure
-node contracts/test/mutate.mjs       # 73 broken copies (every rule off + 11 behaviour breaks); all must be caught
+node contracts/test/run.mjs          # 138 checks, exit 1 on any failure
+node contracts/test/mutate.mjs       # 82 broken copies (every rule off + 11 behaviour breaks); all must be caught
 node contracts/industry-run/run.mjs  # 15 industries
 node contracts/from-plan.mjs --plan "E:/Alex Sevilla/site-checks/elev8ca.com/.pewp/approved" --entities contracts/examples/elev8/entities.json --out contracts/examples/elev8/contract.json
 node contracts/examples/rainmaker/check.mjs
@@ -90,7 +90,7 @@ node contracts/examples/vtv/adapter.mjs
 ```
 
 ## What was proven (2026-10-28, outputs pasted from the runs)
-- Tests: `114 passed, 0 failed`. Mutants: `73 mutants, 73 caught, 0 survived; 0 codes untested`; every mutant was caught by a
+- Tests: `138 passed, 0 failed`. Mutants: `82 mutants, 82 caught, 0 survived; 0 codes untested`; every mutant was caught by a
   failing assertion, none by a crash.
 - **ELEV8**, generated from its approved plan: `VALID ... 12 collections (4 site), 14 page types, 42 pages, 3 forms, 24
   placements` (42 = the plan's 31 + 10 of the 18 kept live pages + the `/blog` articles index; the other 8 kept pages are agent

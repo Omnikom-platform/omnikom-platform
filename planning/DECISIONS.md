@@ -58,3 +58,15 @@
     (agency, b2b, chiropractic, cleaning, coaching, default, dental, fitness, home-services, legal, med-spa, real-estate, solar).
     Not in it: insurance (Rainmaker) and cash home buyer (Eli). Website compliance rule files exist for only 4 industries
     (skill `rules/industries/`: cash-home-buyer, editorial-media, insurance-agency, real-estate-agent).
+
+## 2026-10-28 (owner, during the blueprint)
+
+15. **No Docker. One Supabase account with two projects: staging (testing) and production.** Local checks keep the plain-Postgres
+    stand-in; every cloud acceptance test runs on the staging project; production only receives migrations already proven on
+    staging. Owner: "docker of the table but a supabase account with two databases projects one for testing one for production".
+16. **Build once, launch by edits.** Every V2 site is built a single time, its content in the contract's shape, to the full SEO
+    standard (skill build lane, 547-rule checklist, 13 launch gates) as a noindex preview. Client review changes rows, not code;
+    launch is a fixed list of blocks: approved wording, real media, live forms, search link, redirects from the old site, then
+    noindex off + strict gate + Search Console + domain. Owner: "make sure that this is a part of the SOP and skill of the platform
+    so we don't have to recode the website". To do: `sops/draft-to-launch.md` + the skill's build stage, written from the ELEV8
+    run (first real instance), then proven on the next site.

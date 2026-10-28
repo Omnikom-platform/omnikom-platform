@@ -6,6 +6,8 @@
 // against that niche's OmniSuite custom fields (read from the niche pack files). Writes contracts/, screens/, RESULTS.md.
 // Exit 0 = every industry valid and every row publishable; 1 = at least one failed.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+// Write only when the content differs, so running the gates leaves an unchanged tree untouched (dry run 2).
+const writeIfChanged = (p, s) => { if (!existsSync(p) || readFileSync(p, 'utf8') !== s) writeFileSync(p, s); };
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { generate } from '../from-plan.mjs';
@@ -160,10 +162,10 @@ let bad = 0;
 for (const ind of INDUSTRIES) {
   const { sitemap, entities } = paper(ind);
   const contract = generate({ sitemap, business: { industry: ind.id }, existing: null, entities, planDir: 'paper plan' });
-  writeFileSync(join(HERE, 'contracts', `${ind.id}.json`), JSON.stringify(contract, null, 1) + '\n');
+  writeIfChanged(join(HERE, 'contracts', `${ind.id}.json`), JSON.stringify(contract, null, 1) + '\n');
   const problems = validateContract(contract);
   const md = screens(contract);
-  writeFileSync(join(HERE, 'screens', `${ind.id}.md`), md);
+  writeIfChanged(join(HERE, 'screens', `${ind.id}.md`), md);
   const cols = mergeCore(contract);
   const refs = to => `ref:${to}`;
   const publishFails = [];
@@ -213,6 +215,6 @@ for (const r of rows) out.push(`| ${r.ind.id}${r.ind.note ? ` (${r.ind.note})` :
 out.push('', `Result: ${rows.length - bad}/${rows.length} industries PASS.`, '',
   'Locked fields present in every industry (core): settings.legalName, settings.licences, settings.footerNotice, pages.path, pages.type, team.licence, notices.text, notices.approvedBy, notices.approvedOn. Industry extras: ' +
   rows.map(r => `${r.ind.id}: ${r.lockedFields.filter(f => !/^(settings\.(legalName|licences|footerNotice)|pages\.(path|type)|team\.licence|notices\.(text|approvedBy|approvedOn))$/.test(f)).join(', ') || 'none'}`).join('; ') + '.', '');
-writeFileSync(join(HERE, 'RESULTS.md'), out.join('\n'));
+writeIfChanged(join(HERE, 'RESULTS.md'), out.join('\n'));
 console.log(`\n${rows.length - bad}/${rows.length} PASS; wrote industry-run/RESULTS.md, contracts/, screens/`);
 process.exit(bad ? 1 : 0);

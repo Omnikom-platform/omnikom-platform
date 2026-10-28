@@ -1,0 +1,39 @@
+gantt
+  title Platform v1 (M0-M5), 2 engineers, estimates (engineer-days), assumed start 2026-11-02
+  dateFormat YYYY-MM-DD
+  excludes weekends
+  section M0 Foundations
+  Owner decisions D1-D4           :crit, d0, 2026-11-02, 3d
+  CI gates (W0.2)                 :w02, 2026-11-02, 2d
+  Supabase staging/prod (W0.3)    :crit, w03, after d0, 2d
+  Cloudflare + hello Worker (W0.4):w04, after d0, 1d
+  Local dev kit (W0.5)            :w05, 2026-11-02, 3d
+  section M1 Thin pipeline
+  Seed workspace (W1.1)           :crit, w11, after w03, 2d
+  save/publish fns (W1.2)         :crit, w12, after w11, 4d
+  export + snapshot (W1.3)       :crit, w13, after w12, 2d
+  publish.yml one page (W1.4)     :crit, w14, after w13, 4d
+  job states (W1.5)               :w15, after w14, 1d
+  wrong-target + leak tests (W1.6):crit, w16, after w14, 2d
+  section M2 ELEV8 on V4
+  Design package home (W2.1)      :crit, w21, after w16, 6d
+  Other page types (W2.2)         :crit, w22, after w21, 8d
+  Launch layer + gates (W2.3)     :crit, w23, after w22, 5d
+  Form endpoint (W2.4)            :w24, after w21, 3d
+  City pages quality (W2.5)       :w25, after w22, 5d
+  /blog in plan (W2.6)            :w26, after d0, 1d
+  section M3 Dashboard v1
+  Shell + auth (W3.1)             :w31, after w16, 4d
+  Uploads (W3.2)                  :w32, after w31, 4d
+  Generated screens (W3.3)        :w33, after w31, 8d
+  Page editor (W3.4)              :w34, after w33, 4d
+  Publish + history (W3.5)        :w35, after w34, 3d
+  Leads inbox (W3.6)              :w36, after w33, 3d
+  Staff admin (W3.7)              :w37, after w35, 4d
+  Overview + visibility (W3.8)    :w38, after w37, 2d
+  section M4 Moves
+  Visual-equivalence tool (W4.1)  :w41, after w23, 3d
+  Rainmaker (W4.2)                :w42, after w41, 6d
+  VTV files (W4.3)                :w43, after w41, 5d
+  section M5 Review email
+  Review list + draft (W5.1-2)    :crit, w51, after w23, 2d

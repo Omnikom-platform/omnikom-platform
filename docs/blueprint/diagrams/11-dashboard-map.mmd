@@ -1,0 +1,34 @@
+%% Dashboard: screens and how a user moves between them
+flowchart LR
+  classDef s fill:#1f6feb,color:#fff,stroke:#1f6feb
+  classDef staff fill:#7c3aed,color:#fff,stroke:#7c3aed
+  classDef gen fill:#0f766e,color:#fff,stroke:#0f766e
+
+  login["Login / invite accept"]:::s
+  pick["Workspace picker<br/>(if more than one)"]:::s
+  home["Overview<br/>leads this week, site status,<br/>last publish, to-dos"]:::s
+  pages["Pages<br/>list by type"]:::s
+  ped["Page editor<br/>sections: edit / feed / form / legal"]:::s
+  coll["Collection list<br/>(generated: listings, products,<br/>services...)"]:::gen
+  ced["Item editor<br/>(generated widgets)"]:::gen
+  media["Media library"]:::s
+  leads["Lead inbox"]:::s
+  lead["Lead detail<br/>status, owner, notes, pushes"]:::s
+  seo["Search + AI visibility<br/>clicks, queries, speed,<br/>AI-answer samples"]:::s
+  pub["Publish centre<br/>pending drafts, jobs,<br/>gate reports"]:::s
+  hist["History<br/>versions, restore"]:::s
+  set["Settings<br/>business details, team,<br/>logins, integrations"]:::s
+  adm["Staff admin<br/>workspaces, sites, contracts,<br/>sign-off queue, audit"]:::staff
+
+  login --> pick --> home
+  home --> pages --> ped --> hist
+  home --> coll --> ced --> hist
+  ced --> media
+  ped --> media
+  home --> leads --> lead
+  home --> seo
+  home --> pub
+  ped --> pub
+  ced --> pub
+  home --> set
+  login --> adm

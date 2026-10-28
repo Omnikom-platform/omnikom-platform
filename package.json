@@ -1,0 +1,12 @@
+{
+  "name": "omnikom-platform",
+  "private": true,
+  "type": "module",
+  "description": "Omnikom Platform monorepo (W0.5). No dependencies yet; every one added follows the supply-chain rule (pinned, lockfile, 7-day rule).",
+  "scripts": {
+    "gates": "node docs/blueprint/specs/run-all-gates.mjs",
+    "test:contracts": "node contracts/test/run.mjs",
+    "test:db": "node supabase/tests/run-local.mjs",
+    "test:signature": "node supabase/functions/_shared/signature.test.mjs"
+  }
+}

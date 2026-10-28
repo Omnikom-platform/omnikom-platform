@@ -21,7 +21,9 @@
       "titleField": "street",
       "slugFrom": "street",
       "statusField": "status",
+      "sampleField": "sample",
       "fields": {
+        "sample": { "type": "boolean", "internal": true, "help": "Sample/placeholder listing for previews: smaller photos allowed, never published to a live site." },
         "street": { "type": "text", "required": true, "max": 120 },
         "slug": { "type": "slug", "required": true },
         "address": { "type": "address", "required": true },

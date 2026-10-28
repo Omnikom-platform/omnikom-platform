@@ -4,11 +4,12 @@
 // Every problem is { code, path, msg }. Codes are listed in README.md; each one has a test that watches it fail.
 // CLI: node validate.mjs <site-contract.json>   (exit 0 = valid, 1 = errors printed, 2 = usage)
 import { readFileSync, realpathSync } from 'node:fs';
+import CORE_JSON from './core.json' with { type: 'json' };
 import { fileURLToPath } from 'node:url';
-import { dirname, join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-export const CORE = JSON.parse(readFileSync(join(HERE, 'core.json'), 'utf8'));
+// JSON module import (not a runtime file read) so bundlers (Vite, the Supabase functions bundler) include it.
+export const CORE = CORE_JSON;
 
 export const FIELD_TYPES = ['text', 'richtext', 'slug', 'number', 'money', 'boolean', 'date', 'datetime', 'enum', 'email',
   'phone', 'url', 'image', 'gallery', 'file', 'reference', 'address', 'geo', 'list', 'group', 'seo', 'sections'];
@@ -25,6 +26,7 @@ export function mergeCore(contract, problems = []) {
   const merged = {};
   for (const [id, c] of Object.entries(CORE.collections)) merged[id] = { ...c, fields: { ...c.fields }, core: true };
   for (const [id, c] of Object.entries(contract.collections || {})) {
+    if (merged[id] && c.core) { merged[id] = { ...c, fields: { ...c.fields } }; continue; }   // already resolved: keep its extensions (idempotent)
     if (merged[id]) {
       if (!c.extend) { err(problems, 'C-CORE', `collections.${id}`, `"${id}" is a core collection: use "extend": true and add fields only`); continue; }
       for (const [f, def] of Object.entries(c.fields || {})) {
@@ -92,6 +94,8 @@ export function validateContract(contract) {
     if (c.slugFrom && !fields[c.slugFrom]) err(out, 'C-TITLE', p, `slugFrom "${c.slugFrom}" is not a field`);
     if (c.route) for (const rf of routeFields(c.route)) if (!fields[rf] || fields[rf].type !== 'slug')
       err(out, 'C-ROUTE', p, `route "${c.route}" uses "{${rf}}", which must be a slug field`);
+    if (c.sampleField && (!fields[c.sampleField] || fields[c.sampleField].type !== 'boolean'))
+      err(out, 'C-SAMPLE', p, `sampleField "${c.sampleField}" must be a boolean field`);
     if (c.statusField && (!fields[c.statusField] || fields[c.statusField].type !== 'enum'))
       err(out, 'C-STATUS', p, `statusField "${c.statusField}" must be an enum field`);
     const member = c.access && c.access.member;
@@ -197,6 +201,18 @@ export function validateContract(contract) {
   for (const [id, c] of Object.entries(cols)) if (c.route && !contract.placements.some(pl => pl.collection === id && pl.to && pl.to.sitemap))
     err(out, 'C-SITEMAP', `collections.${id}`, `${id} has public pages (route) but no sitemap placement`);
 
+  // Gate waivers: a kept live URL stands in for a path a gate rule expects (e.g. /privacy_policy for RE-DISC-001's /privacy/).
+  // Each names the rule, the kept page (must be in the page list), the paths it stands in for, why, and who approved it.
+  if (contract.gateWaivers !== undefined && !Array.isArray(contract.gateWaivers)) err(out, 'C-WAIVER', 'gateWaivers', 'must be a list');
+  for (const [i, w] of (contract.gateWaivers || []).entries()) {
+    const p = `gateWaivers[${i}]`;
+    const okRule = w && typeof w.rule === 'string' && /^[A-Z]{2,}(-[A-Z]+)?-\d{3}$/.test(w.rule);
+    const okPath = w && contract.pages.some(pg => pg.path === w.path);
+    const okExpects = w && Array.isArray(w.expects) && w.expects.length && w.expects.every(x => typeof x === 'string' && x.startsWith('/'));
+    const okWhy = w && typeof w.reason === 'string' && w.reason.trim() && typeof w.approvedBy === 'string' && w.approvedBy.trim();
+    if (!(okRule && okPath && okExpects && okWhy)) err(out, 'C-WAIVER', p, 'needs rule (e.g. RE-DISC-001), path (a page in the list), expects [paths], reason, approvedBy');
+  }
+
   // Client wording still to confirm: each entry must point at something that exists in this contract (or a notices slug).
   if (contract.clientWording !== undefined && !Array.isArray(contract.clientWording)) err(out, 'C-WORDING', 'clientWording', 'must be a list');
   for (const [i, w] of (contract.clientWording || []).entries()) {
@@ -226,11 +242,20 @@ const checks = {
 };
 const empty = v => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length);
 
-function checkImage(out, p, img, f, publish) {
+// o.media(asset) -> { width, exifStripped, rightsConfirmed } from the platform's media record. When it is given (the save and
+// publish functions always give it), those facts come from the record, never from the row's own JSON (dry run 3.3).
+function checkImage(out, p, img, f, publish, o = {}) {
   const m = f.media || {};
+  if (typeof o.media === 'function') {
+    const rec = o.media(img.asset);
+    if (!rec) { err(out, 'I-MEDIA-UNKNOWN', p, `no uploaded file "${img.asset}" in this workspace`); return; }
+    img = { ...img, width: rec.width, exifStripped: rec.exifStripped, rightsConfirmed: rec.rightsConfirmed };
+    if (rec.processed === false) img.exifStripped = false;   // not processed yet = not proven stripped (N12)
+  }
   if (publish && !(isStr(img.alt) && img.alt.trim())) err(out, 'I-ALT', p, 'image needs alt text');
-  if (m.minWidth && typeof img.width === 'number' && img.width < m.minWidth) err(out, 'I-MEDIA-SIZE', p, `image is ${img.width}px wide; needs ${m.minWidth}px`);
-  if (publish && m.minWidth && typeof img.width !== 'number') err(out, 'I-MEDIA-SIZE', p, 'image width unknown (upload pipeline sets it)');
+  const minWidth = o.sample ? 0 : m.minWidth;   // sample/placeholder items (preview only) may use smaller photos
+  if (minWidth && typeof img.width === 'number' && img.width < minWidth) err(out, 'I-MEDIA-SIZE', p, `image is ${img.width}px wide; needs ${minWidth}px`);
+  if (publish && minWidth && typeof img.width !== 'number') err(out, 'I-MEDIA-SIZE', p, 'image width unknown (upload pipeline sets it)');
   if (publish && m.rightsConfirm && img.rightsConfirmed !== true) err(out, 'I-RIGHTS', p, 'tick "we have the right to publish this photo"');
   if (publish && img.exifStripped !== true) err(out, 'I-EXIF', p, 'location/EXIF data not stripped by the upload pipeline');
 }
@@ -261,9 +286,9 @@ function checkValue(out, p, v, f, o) {
     if (typeof f.min === 'number' && v.length < f.min && publish) err(out, 'I-MIN', p, `needs at least ${f.min}`);
     if (typeof f.max === 'number' && v.length > f.max) err(out, 'I-MAX', p, `at most ${f.max}`);
   }
-  if (f.type === 'image') checkImage(out, p, v, f, publish);
+  if (f.type === 'image') checkImage(out, p, v, f, publish, o);
   if (f.type === 'gallery') v.forEach((img, i) => {
-    if (!checks.image(img)) err(out, 'I-TYPE', `${p}[${i}]`, 'not a valid image'); else checkImage(out, `${p}[${i}]`, img, f, publish);
+    if (!checks.image(img)) err(out, 'I-TYPE', `${p}[${i}]`, 'not a valid image'); else checkImage(out, `${p}[${i}]`, img, f, publish, o);
   });
   if (f.type === 'reference' && o.exists) for (const id of [].concat(v)) if (!o.exists(f.to, id)) err(out, 'I-REF', p, `no ${f.to} item "${id}" in this workspace`);
   if (f.type === 'list' && !f.open) v.forEach((row, i) => checkObject(out, `${p}[${i}]`, row, f.of, o));
@@ -300,8 +325,18 @@ export function validateItem(contract, collection, data, o = {}) {
   const cols = mergeCore(contract);
   const c = cols[collection];
   if (!c) { err(out, 'I-COLLECTION', collection, 'unknown collection'); return out; }
-  checkObject(out, '', data, c.fields, { mode: 'draft', ...o, contract, pageType: data && data.type });
+  const sample = !!(c.sampleField && data && data[c.sampleField] === true);
+  // o.live: the row is about to go to a live (indexed) site. Samples are for previews only.
+  if (sample && o.live && o.mode === 'publish') err(out, 'I-SAMPLE-LIVE', c.sampleField, 'sample/placeholder items cannot be published to a live site');
+  checkObject(out, '', data, c.fields, { mode: 'draft', ...o, contract, pageType: data && data.type, sample });
   return out;
+}
+
+// For the factory's gate runner: widen a rule's required-path groups with the contract's approved waivers.
+// groups: [[path, path], ...] as in the skill's rules (e.g. RE-DISC-001 anyOf). A waiver whose expects overlap a group adds its path.
+export function applyWaivers(contract, ruleId, groups) {
+  const ws = (contract.gateWaivers || []).filter(w => w.rule === ruleId);
+  return groups.map(g => [...new Set([...g, ...ws.filter(w => w.expects.some(x => g.includes(x))).map(w => w.path)])]);
 }
 
 // True when the given module was started directly (realpaths, so a junction or symlink still matches).

@@ -1,0 +1,30 @@
+%% C4 level 3: website factory (from approved plan to a deployed site)
+flowchart TB
+  classDef in fill:#eef1f5,color:#1d2733,stroke:#8a96a3
+  classDef step fill:#1f6feb,color:#fff,stroke:#1f6feb
+  classDef gate fill:#dc2626,color:#fff,stroke:#991b1b
+  classDef out fill:#f59e0b,color:#1d2733,stroke:#b45309
+
+  plan["Approved SEO plan<br/>.pewp/approved: sitemap.json,<br/>business.json, briefs"]:::in
+  ent["entities.json<br/>collections, design sections,<br/>forms, placement rules"]:::in
+  design["Approved design package<br/>tokens.css + one partial per<br/>section (from V4 / wireframes)"]:::in
+
+  gen["contracts/from-plan.mjs<br/>-> site contract (validated)"]:::step
+  seed["seed-workspace<br/>contract -> site_contracts,<br/>seed rows (pages, places)"]:::step
+  export["export-published<br/>one workspace, published only"]:::step
+  place["contracts/place.mjs<br/>items -> sections, item pages,<br/>sitemap, schema; publicData()"]:::step
+  render["renderer<br/>page type + section partials<br/>+ row data -> HTML"]:::step
+  layer["launch layer<br/>WebP + phone sizes, woff2,<br/>hashed assets, _headers,<br/>_redirects, 404, robots, llms.txt,<br/>JSON-LD @graph"]:::step
+  gates["gates: SEO GT-001..013,<br/>render gate (0 errors, no overflow,<br/>3 sizes), a11y 0, media, forms,<br/>no placeholders on live"]:::gate
+  deploy["deploy<br/>Cloudflare API, target from<br/>site registry; previews noindex"]:::out
+  smoke["worker smoke<br/>headers, redirects, 404, forms"]:::gate
+
+  plan --> gen
+  ent --> gen
+  gen --> seed
+  seed --> export
+  export --> place --> render
+  design --> render
+  render --> layer --> gates
+  gates -- "all pass" --> deploy --> smoke
+  gates -- "any fail: nothing deploys,<br/>client sees why" --> export

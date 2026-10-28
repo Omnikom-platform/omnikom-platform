@@ -1,0 +1,62 @@
+erDiagram
+  workspaces ||--o{ members : has
+  workspaces ||--o{ sites : has
+  workspaces ||--o{ site_contracts : "versioned contract"
+  workspaces ||--o{ content_rows : owns
+  content_rows ||--|{ content_versions : "append-only history"
+  workspaces ||--o{ media : owns
+  workspaces ||--o{ leads : receives
+  leads ||--o{ lead_notes : has
+  leads ||--o{ lead_pushes : "push attempts"
+  sites ||--o{ publish_jobs : builds
+  workspaces ||--o{ metrics_snapshots : measured
+  workspaces ||--o{ audit_log : logged
+  workspaces ||--o{ integrations : "secret refs"
+  workspaces {
+    uuid id PK
+    text slug
+    text industry
+  }
+  members {
+    uuid workspace_id PK
+    uuid user_id PK
+    member_role role
+    uuid team_row_id
+  }
+  sites {
+    uuid id PK
+    text deploy_target
+    text preview_host
+    text domain
+    site_state state
+  }
+  site_contracts {
+    int version PK
+    jsonb contract
+    jsonb resolved
+    bool active
+  }
+  content_rows {
+    uuid id PK
+    text collection
+    uuid owner_team_row
+    int published_version
+  }
+  content_versions {
+    uuid row_id PK
+    int n PK
+    jsonb data
+    uuid by
+    jsonb sign_off
+  }
+  leads {
+    uuid id PK
+    text form
+    text consent_text
+    lead_status status
+  }
+  publish_jobs {
+    uuid id PK
+    job_state state
+    jsonb gate_report
+  }

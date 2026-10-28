@@ -176,6 +176,7 @@ Every content screen has the same publish bar: **Save draft** (a new version, th
 
 | Field | Editor | Rules |
 |---|---|---|
+| sample | tick box | not shown on the site |
 | street | single line | required; max 120 chars |
 | slug | web address part (auto from title) | required |
 | address | address with autocomplete (fills map pin) | required |

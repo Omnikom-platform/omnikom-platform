@@ -1,0 +1,40 @@
+%% C4 level 3: intake + presence report, client knowledge, AI operations, OmniSuite lead adapter
+flowchart LR
+  classDef step fill:#1f6feb,color:#fff,stroke:#1f6feb
+  classDef data fill:#0f766e,color:#fff,stroke:#0f766e
+  classDef human fill:#0b3d5c,color:#fff,stroke:#0b3d5c
+  classDef ext fill:#eef1f5,color:#1d2733,stroke:#8a96a3
+  classDef blocked fill:#fde68a,color:#1d2733,stroke:#b45309
+
+  subgraph A["1 Intake + Presence Report (step A)"]
+    in["inputs: name, city, phone,<br/>site?, socials?"]:::step
+    mods["skill modules: intake, snapshot,<br/>PSI, research, local, AI answers,<br/>authority (Common Crawl), RDAP"]:::step
+    score["score SEO / AEO / GEO<br/>rubric as data, every input sourced"]:::step
+    pdf["report + PDF"]:::step
+    rev["human fact review"]:::human
+  end
+  subgraph K["2 Client knowledge"]
+    facts[("facts: text, source URL,<br/>date, status")]:::data
+    lib["librarian: ranked facts<br/>for an agent's task"]:::step
+  end
+  subgraph O["5 AI operations (step D)"]
+    obs["observe: Search Console, PSI,<br/>gate results, AI-answer samples"]:::step
+    prop["propose: article draft, SEO fix,<br/>FAQ, speed fix (with evidence)"]:::step
+    appr["client / staff approves"]:::human
+    meas["measure after publish"]:::step
+  end
+  subgraph L["4 Leads"]
+    inbox[("lead inbox")]:::data
+    adapter["OmniSuite adapter<br/>BLOCKED: OmniSuite API not built"]:::blocked
+    hook["CRM webhook (generic, signed)"]:::step
+  end
+  web["public web"]:::ext
+  omni["OmniSuite"]:::ext
+
+  in --> mods --> score --> pdf --> rev
+  mods -- "sourced facts" --> facts --> lib
+  lib --> prop
+  obs --> prop --> appr -- "becomes a draft row,<br/>normal publish" --> meas
+  mods --> web
+  inbox --> adapter --> omni
+  inbox --> hook

@@ -1,0 +1,50 @@
+%% C4 level 2: containers
+flowchart TB
+  classDef app fill:#1f6feb,color:#fff,stroke:#1f6feb
+  classDef data fill:#0f766e,color:#fff,stroke:#0f766e
+  classDef job fill:#7c3aed,color:#fff,stroke:#7c3aed
+  classDef ext fill:#eef1f5,color:#1d2733,stroke:#8a96a3
+  classDef site fill:#f59e0b,color:#1d2733,stroke:#b45309
+
+  subgraph CF["Cloudflare"]
+    dash["Dashboard app<br/>React + Vite SPA, TypeScript<br/>Worker with static assets<br/>app.omnikom.io (placeholder)"]:::app
+    sites["Client sites<br/>static HTML/CSS/JS + images<br/>one Worker per site, preview noindex<br/>until launch; client domain last"]:::site
+    formw["Form endpoint<br/>per site, in the site Worker:<br/>POST /api/lead -> capture-lead"]:::site
+  end
+
+  subgraph SB["Supabase (per environment)"]
+    auth["Auth<br/>email magic link + password,<br/>invites"]:::data
+    db[("Postgres<br/>workspaces, members, contracts,<br/>content rows + versions, leads,<br/>jobs, metrics, audit; RLS walls")]:::data
+    store[("Storage<br/>bucket media/&lt;workspace_id&gt;/...")]:::data
+    fn["Edge Functions (Deno, TypeScript)<br/>save, publish, upload-finish,<br/>capture-lead, push-lead,<br/>export-published, job-callback"]:::job
+    cron["pg_cron + Queues<br/>metrics pulls, lead push retries,<br/>sitemap submit, AI ops runs"]:::job
+  end
+
+  subgraph GH["GitHub"]
+    runner["Build runner<br/>GitHub Actions: factory build,<br/>13 launch gates, render gate,<br/>deploy via Cloudflare API"]:::job
+  end
+
+  subgraph LOCAL["Omnikom worker host"]
+    intake["Intake + Presence Report engine<br/>Node .mjs over the SEO skill"]:::job
+    know["Client knowledge (ICM)<br/>facts with sources -> DB"]:::job
+    aiops["AI operators<br/>propose with evidence"]:::job
+  end
+
+  ext_omni["OmniSuite API"]:::ext
+  ext_gsc["Search Console / PSI APIs"]:::ext
+
+  dash -- "supabase-js (user JWT, RLS)" --> db
+  dash -- "login" --> auth
+  dash -- "signed upload" --> store
+  dash -- "save / publish" --> fn
+  fn --> db
+  fn -- "repository_dispatch<br/>(job id)" --> runner
+  runner -- "export-published (runner key):<br/>one job's frozen snapshot" --> fn
+  runner -- "deploy (account token,<br/>target from site registry)" --> sites
+  runner -- "gate report, state" --> fn
+  formw -- "site id + answers + consent" --> fn
+  fn -- "push lead" --> ext_omni
+  cron --> fn
+  cron -- "daily pulls" --> ext_gsc
+  intake --> know --> db
+  aiops -- "proposals (draft rows)" --> db

@@ -1,0 +1,30 @@
+%% Security and tenancy: who can reach what, and where each wall is enforced
+flowchart LR
+  classDef who fill:#0b3d5c,color:#fff,stroke:#0b3d5c
+  classDef wall fill:#dc2626,color:#fff,stroke:#991b1b
+  classDef data fill:#0f766e,color:#fff,stroke:#0f766e
+
+  owner["owner of A<br/>JWT sub = user"]:::who
+  member["member of A (agent)<br/>team_row_id = their team row"]:::who
+  ownerB["owner of B"]:::who
+  staff["Omnikom staff<br/>(staff table)"]:::who
+  runner["build runner<br/>(runner key, one job)"]:::who
+  visitor["visitor<br/>(no login)"]:::who
+
+  rls["RLS on every table:<br/>can_see(workspace_id)"]:::wall
+  fn["save_as -> save_version():<br/>membership first, workspace from the row,<br/>role + own-only from the contract,<br/>locked fields, sign-off"]:::wall
+  exp["export-published:<br/>workspace from the job,<br/>frozen snapshot only"]:::wall
+  cap["capture_lead():<br/>workspace from the site id,<br/>consent text required"]:::wall
+  stor["Storage policy:<br/>first folder = a workspace you can see"]:::wall
+
+  A[("workspace A rows")]:::data
+  B[("workspace B rows")]:::data
+
+  owner --> rls --> A
+  member --> fn --> A
+  ownerB --> rls --> B
+  ownerB -. "guessed id of A:<br/>not found" .-> fn
+  staff --> fn
+  runner --> exp --> A
+  visitor --> cap --> B
+  owner --> stor

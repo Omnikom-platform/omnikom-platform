@@ -44,7 +44,7 @@ export function generate({ sitemap, business, existing, entities, planDir }) {
     if (!pack) throw new Error(`collection ${id}: unknown type "${d.type}" (add it to types.json)`);
     const c = {
       label: d.label || id, kind: d.kind || 'collection', type: d.type, schemaType: pack.schemaType || undefined,
-      titleField: d.titleField || pack.titleField, slugFrom: pack.slugFrom, statusField: pack.statusField,
+      titleField: d.titleField || pack.titleField, slugFrom: pack.slugFrom, statusField: pack.statusField, sampleField: pack.sampleField,
       access: d.access || { member: 'none' }, ownerField: d.ownerField,
       fields: { ...pack.fields, ...(d.fields || {}) },
     };
@@ -67,6 +67,7 @@ export function generate({ sitemap, business, existing, entities, planDir }) {
   const boundTypes = new Set();
   const locColl = E.locations && E.locations.collection;
   const seeds = {};
+  const pageSeeds = {};
   const bindOf = {};
   for (const p of sitemap.pages) {
     let type = (E.pageTypeOf || {})[p.path];
@@ -87,6 +88,7 @@ export function generate({ sitemap, business, existing, entities, planDir }) {
     }
     type ||= p.kind;
     pages.push(bind ? { path: p.path, type, bind } : { path: p.path, type });
+    if (p.title || p.metaDescription) pageSeeds[p.path] = { title: p.h1 || p.title, seo: { title: p.title, description: p.metaDescription }, source: 'approved plan sitemap.json' };
     (typeSchema[type] ||= new Set());
     for (const s of p.schema || []) typeSchema[type].add(s);
   }
@@ -141,8 +143,26 @@ export function generate({ sitemap, business, existing, entities, planDir }) {
     },
     collections, pageTypes, pages, forms, placements,
     clientWording: E.clientWording || [],
+    gateWaivers: E.gateWaivers || [],
+    pageSeeds: { ...pageSeeds, ...(E.pageSeo || {}) },
     seeds: Object.fromEntries(Object.entries(seeds).map(([k, v]) => [k, [...v].sort()])),
   };
+}
+
+// Pages the seed cannot create publishable: no seed, or title / SEO text missing or over the publish limits (60 / 160).
+export function seedGaps(contract) {
+  const gaps = [];
+  for (const pg of contract.pages) {
+    const s = (contract.pageSeeds || {})[pg.path];
+    const why = !s ? 'no title or SEO text to seed'
+      : !(s.title && String(s.title).trim()) ? 'no title'
+      : !(s.seo && s.seo.title && String(s.seo.title).trim()) ? 'no SEO title'
+      : !(s.seo.description && String(s.seo.description).trim()) ? 'no SEO description'
+      : s.seo.title.length > 60 ? `SEO title over 60 characters (${s.seo.title.length})`
+      : s.seo.description.length > 160 ? `SEO description over 160 characters (${s.seo.description.length})` : null;
+    if (why) gaps.push({ path: pg.path, why });
+  }
+  return gaps;
 }
 
 function args() {

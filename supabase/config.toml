@@ -1,0 +1,37 @@
+# Supabase project config (functions part). Source: https://supabase.com/docs/guides/functions/auth (checked 2026-10-28):
+# the platform validates a user JWT before the handler runs unless verify_jwt = false. Functions called by machines
+# (build runner, site Workers, pg_cron) have no user JWT, so the gateway check is off and EACH ONE verifies its own
+# credential in code before doing anything (02-BACKEND.md section 6; tests in W1.3 / W2.4: forged or missing -> 401).
+
+[functions.save]
+verify_jwt = true            # dashboard user
+
+[functions.publish]
+verify_jwt = true            # dashboard user
+
+[functions.upload-start]
+verify_jwt = true            # dashboard user
+
+[functions.upload-finish]
+verify_jwt = true            # dashboard user
+
+[functions.export-published]
+verify_jwt = false           # build runner: verifies X-Runner-Signature in code (supabase/functions/_shared/signature.ts)
+
+[functions.job-callback]
+verify_jwt = false           # build runner: verifies X-Runner-Signature (HMAC of the body) in code
+
+[functions.capture-lead]
+verify_jwt = false           # site Worker: verifies X-Site-Signature (HMAC with that site's signing key) in code
+
+[functions.push-lead]
+verify_jwt = false           # pg_cron / queue: verifies the internal cron secret header in code
+
+[functions.metrics-pull]
+verify_jwt = false           # pg_cron: verifies the internal cron secret header in code; one workspace per call
+
+[functions.sitemap-submit]
+verify_jwt = false           # job-callback (internal): verifies the internal secret header in code
+
+[functions.media-process-callback]
+verify_jwt = false           # media processor (runner): verifies X-Runner-Signature in code

@@ -12,7 +12,7 @@ Step 1 of DECISIONS 13. Detail, file list and pasted run outputs: `contracts/REA
 - Placement rules: ELEV8's listing decision expressed as rules (active -> home "Our listings", its city guide; sold -> "Recently
   sold"; delete -> 301 to the city guide) and proven on a synthetic site.
 - Dashboard screens generated from the contract for all three real sites and 15 industries.
-- Tests can fail: 114 checks; 73 broken copies of the code (every rule switched off, plus placement / build-leak / derivation
+- Tests can fail: 138 checks; 82 broken copies of the code (every rule switched off, plus placement / build-leak / derivation
   breaks) all caught by a failing assertion.
 - Real sites (read only): ELEV8 contract from its approved plan + `/blog` (42 pages); Rainmaker 11/11 pages mapped, 3/3 product disclosures
   located, its contact page's second form found by the check; VTV's real data fits (28/28 listings, 81/81 URLs) and the contract

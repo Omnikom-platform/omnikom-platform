@@ -1,0 +1,36 @@
+%% Deployment and environments
+flowchart TB
+  classDef env fill:#eef1f5,color:#1d2733,stroke:#8a96a3
+  classDef box fill:#1f6feb,color:#fff,stroke:#1f6feb
+  classDef sec fill:#dc2626,color:#fff,stroke:#991b1b
+
+  subgraph LOCALENV["local (developer)"]
+    l1["plain Postgres + shim<br/>(Supabase defaults modelled),<br/>no Docker"]:::box
+    l2["dashboard: vite dev"]:::box
+    l3["factory: node build -> dist/"]:::box
+  end
+  subgraph STAGING["staging"]
+    s1["Supabase project: staging<br/>(all cloud acceptance)"]:::box
+    s2["dashboard Worker: app-staging"]:::box
+    s3["site Workers: &lt;slug&gt;-staging<br/>always noindex"]:::box
+  end
+  subgraph PROD["production"]
+    p1["Supabase project: production<br/>(only staging-proven migrations),<br/>PITR"]:::box
+    p2["dashboard Worker: app"]:::box
+    p3["site Workers: &lt;slug&gt;<br/>preview noindex until launch,<br/>client domain attached last"]:::box
+  end
+  subgraph CI["GitHub Actions"]
+    c1["on PR: contract tests + mutants,<br/>DB tests + mutants, typecheck,<br/>lint, gitleaks, dashboard build"]:::box
+    c2["on merge to main: migrate staging,<br/>run-staging tenancy tests (rolled back),<br/>deploy functions + dashboard, E2E"]:::box
+    c3["owner approves: promote only<br/>staging-proven migrations to prod,<br/>same function + dashboard versions"]:::box
+    c4["publish jobs (repository_dispatch):<br/>build one site, gates, deploy"]:::box
+  end
+  secrets["Secrets (02-BACKEND 8): Supabase Vault holds<br/>per-site Cloudflare deploy tokens, site signing keys,<br/>cron secret, OmniSuite/CRM keys. GitHub env secrets hold<br/>Supabase secret key, onboarding token, signing keys.<br/>Never in the repo; .secrets/ is git-ignored"]:::sec
+
+  c1 --> c2 --> c3
+  c2 --> s1
+  c2 --> s2
+  c3 --> p1
+  c3 --> p2
+  c4 --> s3
+  c4 --> p3

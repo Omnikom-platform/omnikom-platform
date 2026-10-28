@@ -75,11 +75,17 @@
    "titleField": "street",
    "slugFrom": "street",
    "statusField": "status",
+   "sampleField": "sample",
    "access": {
     "member": "own"
    },
    "ownerField": "agent",
    "fields": {
+    "sample": {
+     "type": "boolean",
+     "internal": true,
+     "help": "Sample/placeholder listing for previews: smaller photos allowed, never published to a live site."
+    },
     "street": {
      "type": "text",
      "required": true,
@@ -779,6 +785,8 @@
   }
  ],
  "clientWording": [],
+ "gateWaivers": [],
+ "pageSeeds": {},
  "seeds": {
   "areas": [
    "northtown",

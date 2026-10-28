@@ -1,0 +1,1025 @@
+{
+ "openapi": "3.1.2",
+ "info": {
+  "title": "Omnikom Platform functions",
+  "version": "1.0.0-draft",
+  "description": "Supabase Edge Functions and the per-site form endpoint. User-facing functions take the user's Supabase JWT (bearerAuth, verify_jwt on). Machine-called functions run with verify_jwt = false (supabase/config.toml) and verify their own credential in code first (jobToken, runnerSecret, siteSignature, cronSecret). The database enforces the tenancy wall (02-BACKEND.md). Error bodies use the Problem schema with contract/store codes (07-SPECS.md)."
+ },
+ "servers": [
+  {
+   "url": "https://{projectRef}.supabase.co/functions/v1",
+   "description": "projectRef is the Supabase project reference id (not the project name)",
+   "variables": {
+    "projectRef": {
+     "default": "your-project-ref"
+    }
+   }
+  }
+ ],
+ "components": {
+  "securitySchemes": {
+   "bearerAuth": {
+    "type": "http",
+    "scheme": "bearer",
+    "bearerFormat": "Supabase JWT"
+   },
+   "runnerSecret": {
+    "type": "apiKey",
+    "in": "header",
+    "name": "X-Runner-Signature",
+    "description": "Runner key. Header value t=<unix seconds>,v1=<hex HMAC-SHA256 of \"t\\nMETHOD\\npath?query\\nbody\">, accepted for 300 s (supabase/functions/_shared/signature.ts); checked in code (verify_jwt = false). The runner is trusted (ADR 0011)"
+   },
+   "siteSignature": {
+    "type": "apiKey",
+    "in": "header",
+    "name": "X-Site-Signature",
+    "description": "That site's own signing key. Header value t=<unix seconds>,v1=<hex HMAC-SHA256 of \"t\\nMETHOD\\npath?query\\nbody\">, accepted for 300 s (supabase/functions/_shared/signature.ts); checked in code (verify_jwt = false)"
+   },
+   "cronSecret": {
+    "type": "apiKey",
+    "in": "header",
+    "name": "X-Internal-Secret",
+    "description": "internal cron secret read from Vault by pg_cron; checked in code (verify_jwt = false)"
+   }
+  },
+  "schemas": {
+   "Problem": {
+    "type": "object",
+    "required": [
+     "code",
+     "message"
+    ],
+    "properties": {
+     "code": {
+      "type": "string",
+      "description": "e.g. S-OWN-ONLY, S-LOCKED, VALIDATION"
+     },
+     "message": {
+      "type": "string",
+      "description": "plain words for the client"
+     },
+     "problems": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/FieldProblem"
+      }
+     }
+    }
+   },
+   "FieldProblem": {
+    "type": "object",
+    "required": [
+     "code",
+     "path",
+     "msg"
+    ],
+    "properties": {
+     "code": {
+      "type": "string",
+      "description": "I-* or C-* code"
+     },
+     "path": {
+      "type": "string"
+     },
+     "msg": {
+      "type": "string"
+     }
+    }
+   },
+   "SaveRequest": {
+    "type": "object",
+    "required": [
+     "workspace",
+     "collection",
+     "data"
+    ],
+    "properties": {
+     "workspace": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "collection": {
+      "type": "string"
+     },
+     "row": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid",
+      "description": "null creates a row"
+     },
+     "data": {
+      "type": "object"
+     },
+     "signOff": {
+      "type": "object",
+      "required": [
+       "by",
+       "ref"
+      ],
+      "properties": {
+       "by": {
+        "type": "string"
+       },
+       "ref": {
+        "type": "string"
+       }
+      },
+      "description": "staff only, when a locked field changes"
+     }
+    }
+   },
+   "SaveResponse": {
+    "type": "object",
+    "required": [
+     "row",
+     "version"
+    ],
+    "properties": {
+     "row": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "version": {
+      "type": "integer"
+     }
+    }
+   },
+   "PublishRequest": {
+    "type": "object",
+    "required": [
+     "site",
+     "rows",
+     "versions"
+    ],
+    "properties": {
+     "site": {
+      "type": "string",
+      "format": "uuid",
+      "description": "the site to rebuild (a workspace may have more than one)"
+     },
+     "rows": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+       "type": "string",
+       "format": "uuid"
+      }
+     },
+     "versions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+       "type": "integer"
+      },
+      "description": "the version of each row that was validated; the job ships exactly these (dry run 2, N4)"
+     }
+    }
+   },
+   "PublishResponse": {
+    "type": "object",
+    "required": [
+     "job",
+     "state"
+    ],
+    "properties": {
+     "job": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "state": {
+      "$ref": "#/components/schemas/JobState"
+     }
+    },
+    "description": "a job holding a snapshot of exact versions; nothing goes live until the job is done"
+   },
+   "JobState": {
+    "type": "string",
+    "enum": [
+     "queued",
+     "building",
+     "gating",
+     "deploying",
+     "done",
+     "failed"
+    ]
+   },
+   "UploadStartRequest": {
+    "type": "object",
+    "required": [
+     "workspace",
+     "filename",
+     "bytes",
+     "mime"
+    ],
+    "properties": {
+     "workspace": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "filename": {
+      "type": "string"
+     },
+     "bytes": {
+      "type": "integer",
+      "maximum": 26214400
+     },
+     "mime": {
+      "type": "string",
+      "enum": [
+       "image/jpeg",
+       "image/png",
+       "image/webp",
+       "image/heic",
+       "application/pdf"
+      ]
+     }
+    }
+   },
+   "UploadStartResponse": {
+    "type": "object",
+    "required": [
+     "media",
+     "uploadUrl",
+     "path"
+    ],
+    "properties": {
+     "media": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "uploadUrl": {
+      "type": "string"
+     },
+     "path": {
+      "type": "string",
+      "description": "<workspace_id>/<uuid>.<ext>"
+     }
+    }
+   },
+   "UploadFinishRequest": {
+    "type": "object",
+    "required": [
+     "media",
+     "rightsConfirmed"
+    ],
+    "properties": {
+     "media": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "rightsConfirmed": {
+      "type": "boolean"
+     },
+     "alt": {
+      "type": "string",
+      "maxLength": 150
+     }
+    }
+   },
+   "Media": {
+    "type": "object",
+    "required": [
+     "id",
+     "path",
+     "width",
+     "height",
+     "exifStripped",
+     "rightsConfirmed",
+     "processed"
+    ],
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "path": {
+      "type": "string"
+     },
+     "width": {
+      "type": "integer"
+     },
+     "height": {
+      "type": "integer"
+     },
+     "exifStripped": {
+      "type": "boolean"
+     },
+     "rightsConfirmed": {
+      "type": "boolean"
+     },
+     "sizes": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "processed": {
+      "type": "boolean",
+      "description": "false until the media processor (build runner) has made sizes and stripped EXIF"
+     }
+    }
+   },
+   "Export": {
+    "type": "object",
+    "required": [
+     "job",
+     "workspace",
+     "site",
+     "contract",
+     "rows",
+     "media",
+     "snapshot",
+     "deployToken",
+     "deployTokenWorker"
+    ],
+    "properties": {
+     "job": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "workspace": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "site": {
+      "type": "object",
+      "required": [
+       "deployTarget",
+       "previewHost",
+       "state",
+       "id"
+      ],
+      "properties": {
+       "deployTarget": {
+        "type": "string"
+       },
+       "previewHost": {
+        "type": "string"
+       },
+       "domain": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "state": {
+        "type": "string",
+        "enum": [
+         "preview",
+         "live",
+         "paused"
+        ]
+       },
+       "id": {
+        "type": "string",
+        "format": "uuid",
+        "description": "the runner refuses if this differs from client_payload.site_id"
+       }
+      }
+     },
+     "contract": {
+      "type": "object",
+      "description": "resolved site contract (contracts/README.md)"
+     },
+     "rows": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "id",
+        "collection",
+        "data"
+       ],
+       "properties": {
+        "id": {
+         "type": "string"
+        },
+        "collection": {
+         "type": "string"
+        },
+        "data": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "media": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/Media"
+      }
+     },
+     "snapshot": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "description": "{ row_id: version } the build ships; a rerun ships the same"
+     },
+     "deployToken": {
+      "type": "string",
+      "description": "that one site's Cloudflare deploy token (Editor on its Worker), read from Vault for this job only; the runner masks it in logs"
+     },
+     "deployTokenWorker": {
+      "type": "string",
+      "description": "the Worker the deploy token is scoped to (from the Vault secret JSON {token, worker}); the runner refuses when it differs from site.deployTarget"
+     }
+    }
+   },
+   "JobCallback": {
+    "type": "object",
+    "required": [
+     "job",
+     "state"
+    ],
+    "properties": {
+     "job": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "state": {
+      "$ref": "#/components/schemas/JobState"
+     },
+     "gateReport": {
+      "type": "object",
+      "description": "per gate: pass/fail, findings in plain words"
+     },
+     "deployId": {
+      "type": "string"
+     },
+     "error": {
+      "type": "string"
+     }
+    }
+   },
+   "LeadRequest": {
+    "type": "object",
+    "required": [
+     "form",
+     "page",
+     "consentText"
+    ],
+    "properties": {
+     "form": {
+      "type": "string"
+     },
+     "page": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "email": {
+      "type": "string",
+      "format": "email"
+     },
+     "phone": {
+      "type": "string"
+     },
+     "answers": {
+      "type": "object"
+     },
+     "consentText": {
+      "type": "string",
+      "minLength": 1
+     },
+     "hp": {
+      "type": "string",
+      "description": "honeypot; must be empty"
+     }
+    }
+   },
+   "LeadAccepted": {
+    "type": "object",
+    "required": [
+     "ok"
+    ],
+    "properties": {
+     "ok": {
+      "type": "boolean"
+     }
+    }
+   }
+  },
+  "responses": {
+   "Invalid": {
+    "description": "validation failed (I-*/C-* codes)",
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "#/components/schemas/Problem"
+      }
+     }
+    }
+   },
+   "Refused": {
+    "description": "refused by a wall (S-ROLE, S-OWN-ONLY, S-LOCKED, S-SIGNOFF)",
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "#/components/schemas/Problem"
+      }
+     }
+    }
+   },
+   "NotFound": {
+    "description": "not found (also any row of another workspace)",
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "#/components/schemas/Problem"
+      }
+     }
+    }
+   },
+   "Unauthorized": {
+    "description": "missing or bad token",
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "#/components/schemas/Problem"
+      }
+     }
+    }
+   },
+   "Conflict": {
+    "description": "S-SINGLETON: there is already one; edit it",
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "#/components/schemas/Problem"
+      }
+     }
+    }
+   }
+  }
+ },
+ "paths": {
+  "/save": {
+   "post": {
+    "operationId": "save",
+    "summary": "Save a draft version (FR-4, FR-6, FR-7)",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SaveRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "version saved; the site is unchanged",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SaveResponse"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "403": {
+      "$ref": "#/components/responses/Refused"
+     },
+     "404": {
+      "description": "not a member of that workspace: returned before any validation, so no field names or limits are revealed (dry run 2, N1)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "409": {
+      "$ref": "#/components/responses/Conflict"
+     },
+     "422": {
+      "$ref": "#/components/responses/Invalid"
+     }
+    }
+   }
+  },
+  "/publish": {
+   "post": {
+    "operationId": "publish",
+    "summary": "Publish rows and start a build of that site only (FR-8, FR-9)",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PublishRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "202": {
+      "description": "job queued",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PublishResponse"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "403": {
+      "$ref": "#/components/responses/Refused"
+     },
+     "404": {
+      "$ref": "#/components/responses/NotFound"
+     },
+     "409": {
+      "description": "a build of this site is running; this one is queued behind it",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PublishResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "$ref": "#/components/responses/Invalid"
+     }
+    }
+   }
+  },
+  "/upload-start": {
+   "post": {
+    "operationId": "uploadStart",
+    "summary": "Signed upload URL under the workspace prefix (FR-12)",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/UploadStartRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "upload URL",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UploadStartResponse"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "$ref": "#/components/responses/NotFound"
+     },
+     "413": {
+      "description": "file too large",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "415": {
+      "description": "type not allowed",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/upload-finish": {
+   "post": {
+    "operationId": "uploadFinish",
+    "summary": "Record the upload and the rights tick, queue processing in the runner (FR-12)",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/UploadFinishRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "media recorded; processed = false until the runner finishes",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Media"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "$ref": "#/components/responses/NotFound"
+     },
+     "422": {
+      "$ref": "#/components/responses/Invalid"
+     }
+    }
+   }
+  },
+  "/export-published": {
+   "get": {
+    "operationId": "exportPublished",
+    "summary": "Freeze and return one job's snapshot, the contract, media list, and that site's deploy target + token (ADR 0011)",
+    "security": [
+     {
+      "runnerSecret": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "job",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "export",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Export"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     }
+    }
+   }
+  },
+  "/job-callback": {
+   "post": {
+    "operationId": "jobCallback",
+    "summary": "Runner reports job state and gate report",
+    "security": [
+     {
+      "runnerSecret": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/JobCallback"
+       }
+      }
+     }
+    },
+    "responses": {
+     "204": {
+      "description": "recorded"
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "$ref": "#/components/responses/NotFound"
+     },
+     "409": {
+      "description": "S-JOB-STATE: illegal state change",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/capture-lead": {
+   "post": {
+    "operationId": "captureLead",
+    "summary": "Called by a site's /api/lead with the site id (FR-13); no user login",
+    "security": [
+     {
+      "siteSignature": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "site",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LeadRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "202": {
+      "description": "stored; push queued",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/LeadAccepted"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "missing consent or bad input",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "429": {
+      "description": "rate limited (per IP and site)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/media-process-callback": {
+   "post": {
+    "operationId": "mediaProcessCallback",
+    "summary": "Runner reports processed media (sizes, EXIF stripped)",
+    "security": [
+     {
+      "runnerSecret": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Media"
+       }
+      }
+     }
+    },
+    "responses": {
+     "204": {
+      "description": "recorded"
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "$ref": "#/components/responses/NotFound"
+     }
+    }
+   }
+  },
+  "/metrics-pull": {
+   "post": {
+    "operationId": "metricsPull",
+    "summary": "Pull Search Console + PSI for ONE workspace (one queue message per call; finishes under the 150 s idle timeout)",
+    "security": [
+     {
+      "cronSecret": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "workspace",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "snapshot stored"
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     }
+    }
+   }
+  },
+  "/unpublish": {
+   "post": {
+    "operationId": "unpublish",
+    "summary": "Take a row off the site (optionally delete it); goes live with the next publish (owner/staff)",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "row"
+        ],
+        "properties": {
+         "row": {
+          "type": "string",
+          "format": "uuid"
+         },
+         "delete": {
+          "type": "boolean"
+         }
+        }
+       }
+      }
+     }
+    },
+    "responses": {
+     "204": {
+      "description": "done"
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "$ref": "#/components/responses/NotFound"
+     }
+    }
+   }
+  }
+ }
+}

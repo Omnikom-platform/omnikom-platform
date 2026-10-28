@@ -1,0 +1,36 @@
+%% C4 level 3: control center (dashboard app + its backend functions)
+flowchart TB
+  classDef ui fill:#1f6feb,color:#fff,stroke:#1f6feb
+  classDef fn fill:#7c3aed,color:#fff,stroke:#7c3aed
+  classDef data fill:#0f766e,color:#fff,stroke:#0f766e
+
+  subgraph APP["Dashboard SPA (React + Vite + TypeScript)"]
+    router["Router (TanStack Router)<br/>/w/:workspace/..."]:::ui
+    gen["Screen generator<br/>reads the resolved contract,<br/>builds list + editor screens"]:::ui
+    forms["Field widgets<br/>one per field type<br/>(text, money, gallery, reference...)"]:::ui
+    val["contracts/validate.mjs<br/>same rules in the browser<br/>(instant feedback)"]:::ui
+    q["Data layer (TanStack Query<br/>+ supabase-js)"]:::ui
+    admin["Staff admin<br/>workspaces, sites, contracts,<br/>sign-offs, impersonate read-only"]:::ui
+  end
+
+  subgraph FN["Supabase Edge Functions"]
+    save["save<br/>contract_for (404 if not a member)<br/>-> validateItem(draft) -> save_as()"]:::fn
+    pub["publish<br/>validateItem(publish) -> start_publish()<br/>(job + snapshot) -> dispatch {job_id, site_id}"]:::fn
+    up["upload-finish<br/>record + rights tick,<br/>queue processing (runner:<br/>sizes, EXIF strip)"]:::fn
+    cb["job-callback<br/>runner reports state + gate report"]:::fn
+    lead["capture-lead / push-lead<br/>inbox row, push to OmniSuite/CRM,<br/>retry with backoff"]:::fn
+  end
+
+  db[("Postgres + RLS")]:::data
+  st[("Storage media/")]:::data
+
+  router --> gen --> forms --> val
+  forms --> q
+  q -- "reads (RLS)" --> db
+  q --> save --> db
+  q --> pub --> db
+  q -- "signed upload URL" --> st
+  st --> up --> db
+  cb --> db
+  lead --> db
+  admin --> q

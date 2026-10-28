@@ -7,9 +7,9 @@
   "/": "home", "/areas-we-serve/": "areas-hub",
   "/buying": "service-page", "/selling": "service-page", "/financing": "service-page",
   "/home_value": "home-value", "/connect": "contact", "/faq": "faq", "/reviews": "reviews", "/team": "team",
-  "/privacy_policy": "privacy", "/tos": "terms", "/blog": "blog-index"
+  "/privacy_policy": "privacy", "/tos": "terms", "/blog": "blog-index", "/accessibility-statement/": "accessibility"
  },
- "extraPages": [ { "path": "/blog", "why": "articles index (lead session answer 2026-10-28): no article is orphaned (GT-007); linked from nav/footer. To be added to the approved plan too" } ],
+ "extraPages": [ { "path": "/accessibility-statement/", "why": "required by the launch gate (RE-DISC-001, accessibility statement); lead session 2026-10-28" }, { "path": "/blog", "why": "articles index (lead session answer 2026-10-28): no article is orphaned (GT-007); linked from nav/footer. To be added to the approved plan too" } ],
  "collections": {
   "areas": { "type": "Place", "label": "Cities" },
   "listings": {
@@ -23,13 +23,124 @@
   }
  },
  "extend": {
-  "team": { "route": "/agent-profile/{slug}", "areas": { "type": "reference", "to": "areas", "multiple": true } },
+  "team": { "route": "/agent-profile/{slug}", "areas": { "type": "reference", "to": "areas", "multiple": true },
+   "group": { "type": "enum", "required": true, "options": ["leadership", "financing", "agents"], "help": "Where this person sits on the team page (lead session, 2026-10-28)" },
+   "specialties": { "type": "list", "max": 4, "of": { "name": { "type": "enum", "required": true, "sourced": true, "options": ["buyers", "sellers", "cash-offers", "investors"] } }, "help": "Only what a source says (their own profile, the brokerage page), with the source link and date" },
+   "photoCredit": { "type": "text", "max": 120 },
+   "licences": { "type": "list", "max": 4, "locked": { "reason": "licence numbers and status are facts with a source; staff change them after sign-off" },
+     "of": { "type": { "type": "enum", "required": true, "options": ["DRE", "NMLS"] }, "number": { "type": "text", "required": true, "max": 20 },
+       "status": { "type": "enum", "required": true, "options": ["active", "expired", "inactive"] }, "source": { "type": "url", "required": true }, "readOn": { "type": "date", "required": true } } } },
   "settings": { "homeSearchUrl": { "type": "url", "locked": { "reason": "home-search (Brivity IDX) address, set by Omnikom with the client" } } }
+ },
+ "gateWaivers": [
+  { "rule": "RE-DISC-001", "path": "/privacy_policy", "expects": ["/privacy/", "/privacy-policy/"], "reason": "the live privacy URL is kept so no redirect is needed (existing-pages.json)", "approvedBy": "lead session 2026-10-28 (owner delegation)" }
+ ],
+ "pageSeo": {
+   "/buying": {
+     "title": "Buy a Home with Elev8 Real Estate Group",
+     "seo": {
+       "title": "Buy a Home with Elev8 Real Estate Group",
+       "description": "Looking to buy a home? Elev8 Real Estate Group can help! Search listings, sign up for alerts, and find the perfect property with our expert guidance."
+     },
+     "source": "live page, backup 2026-10-26 (shortened)"
+   },
+   "/selling": {
+     "title": "Sell Your Home with Elev8 Real Estate Group",
+     "seo": {
+       "title": "Sell Your Home with Elev8 Real Estate Group",
+       "description": "Considering selling your home in California? Elev8 Real Estate Group provides a hassle-free experience."
+     },
+     "source": "live page, backup 2026-10-26 (shortened)"
+   },
+   "/home_value": {
+     "title": "Free Home Value Estimate & Property Marketing Plan",
+     "seo": {
+       "title": "Free Home Value Estimate & Property Marketing Plan",
+       "description": "Get a free property marketing plan from Elev8 Real Estate Group to sell your home for the most money in the least amount of time."
+     },
+     "source": "live page, backup 2026-10-26 (shortened)"
+   },
+   "/financing": {
+     "title": "Home Financing",
+     "seo": {
+       "title": "Home Financing | Elev8 Real Estate Group",
+       "description": "Demystifying the home loan process. Learn about getting pre-approved, finding the best loan, the application process, and signing the deal."
+     },
+     "source": "live page, backup 2026-10-26 (shortened)"
+   },
+   "/connect": {
+     "title": "Contact Elev8 Real Estate Group",
+     "seo": {
+       "title": "Contact Elev8 Real Estate Group: Your Real Estate Experts",
+       "description": "Connect with Elev8 Real Estate Group! Contact us to buy, sell, or rent a home."
+     },
+     "source": "live page, backup 2026-10-26 (shortened)"
+   },
+   "/faq": {
+     "title": "Frequently Asked Questions",
+     "seo": {
+       "title": "Frequently Asked Questions | Elev8 Real Estate Group",
+       "description": "Get answers to common real estate questions about buying, selling, financing, closing costs, home value and down payments."
+     },
+     "source": "live page, backup 2026-10-26 (shortened)"
+   },
+   "/reviews": {
+     "title": "Elev8 Real Estate Group Reviews",
+     "seo": {
+       "title": "Elev8 Real Estate Group Reviews",
+       "description": "Read real client reviews and testimonials for Elev8 Real Estate Group."
+     },
+     "source": "live page, backup 2026-10-26 (shortened)"
+   },
+   "/tos": {
+     "title": "Terms of Use",
+     "seo": {
+       "title": "Terms of Use | Elev8 Real Estate Group",
+       "description": "View the terms of service for Elev8 CA. Learn about your rights and responsibilities when using our real estate platform."
+     },
+     "source": "live page, backup 2026-10-26 (title replaced: live title was \"terms-conditions\")"
+   },
+   "/team": {
+     "title": "Our Team",
+     "seo": {
+       "title": "Our Team | Elev8 Real Estate Group",
+       "description": "Meet the Elev8 Real Estate Group team and the cities each agent serves."
+     },
+     "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording"
+   },
+   "/privacy_policy": {
+     "title": "Privacy Policy",
+     "seo": {
+       "title": "Privacy Policy - Elev8 Real Estate Group",
+       "description": "How Elev8 Real Estate Group handles your personal information and how to make a privacy request."
+     },
+     "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording (live description was cut off)"
+   },
+   "/blog": {
+     "title": "Articles",
+     "seo": {
+       "title": "Articles | Elev8 Real Estate Group",
+       "description": "Local real estate articles from Elev8 Real Estate Group."
+     },
+     "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording"
+   },
+   "/accessibility-statement/": {
+     "title": "Accessibility Statement",
+     "seo": {
+       "title": "Accessibility Statement | Elev8 Real Estate Group",
+       "description": "Our commitment to an accessible website and how to tell us if something does not work for you."
+     },
+     "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording"
+   }
  },
  "clientWording": [
   { "where": "forms.home-finder.fields.budget.options", "status": "[client to confirm]", "note": "budget ranges are draft values" },
   { "where": "forms.contact.fields.topic.options", "status": "[client to confirm]", "note": "closing-form topics are draft values" },
   { "where": "notices:form-consent", "status": "[client to confirm]", "note": "consent wording under every form (LISTINGS-DECISION)" },
+  { "where": "pageSeeds./team", "status": "[client to confirm]", "note": "drafted page title and search text (no live page)" },
+  { "where": "pageSeeds./privacy_policy", "status": "[client to confirm]", "note": "drafted search text (live description was cut off)" },
+  { "where": "pageSeeds./blog", "status": "[client to confirm]", "note": "drafted page title and search text (new page)" },
+  { "where": "pageSeeds./accessibility-statement/", "status": "[client to confirm]", "note": "drafted page title and search text (new page)" },
   { "where": "collections.settings.fields.homeSearchUrl", "status": "[client to confirm]", "note": "home-search address; Brivity on a subdomain is not verified" }
  ],
  "defaultForm": "contact",
@@ -37,7 +148,7 @@
   "contact": {
    "label": "Closing form",
    "fields": {
-    "topic": { "type": "enum", "required": true, "options": ["buy", "sell", "other"] },
+    "topic": { "type": "enum", "required": true, "options": ["buy", "sell", "cash-offer", "other"] },
     "name": { "type": "text", "required": true, "max": 120 },
     "phone": { "type": "phone" },
     "email": { "type": "email", "required": true }
@@ -79,7 +190,7 @@
       "heading": { "type": "text", "required": true, "max": 70 },
       "lead": { "type": "text", "max": 200 },
       "image": { "type": "image", "required": true, "media": { "minWidth": 1600, "rightsConfirm": true } },
-      "searchTabs": { "type": "list", "min": 1, "max": 4, "of": { "label": { "type": "text", "required": true, "max": 20 }, "mode": { "type": "enum", "required": true, "options": ["buy", "sell", "value", "finder"] } } } } },
+      "searchTabs": { "type": "list", "min": 1, "max": 4, "of": { "label": { "type": "text", "required": true, "max": 20 }, "mode": { "type": "enum", "required": true, "options": ["buy", "sell", "value", "cash-offer", "finder"] } } } } },
     { "id": "trust", "kind": "fields", "fields": {
       "items": { "type": "list", "max": 4, "of": { "value": { "type": "text", "required": true, "max": 30, "sourced": true }, "label": { "type": "text", "required": true, "max": 60 } } } } },
     { "id": "three-ways", "kind": "fields", "fields": {
@@ -132,7 +243,7 @@
    ]
   },
   "areas-hub": { "label": "Areas we serve", "sections": [
-    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
+    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 }, "body": { "type": "richtext" } } },
     { "id": "areas-list", "kind": "feed", "accepts": "areas" } ] },
   "team": { "label": "Team page", "sections": [
     { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
@@ -153,7 +264,8 @@
     { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
     { "id": "posts", "kind": "feed", "accepts": "posts" } ] },
   "privacy": { "label": "Privacy policy", "sections": [ { "id": "text", "kind": "notice", "notice": "privacy-policy" } ] },
-  "terms": { "label": "Terms of use", "sections": [ { "id": "text", "kind": "notice", "notice": "terms-of-use" } ] }
+  "terms": { "label": "Terms of use", "sections": [ { "id": "text", "kind": "notice", "notice": "terms-of-use" } ] },
+  "accessibility": { "label": "Accessibility statement", "sections": [ { "id": "text", "kind": "notice", "notice": "accessibility-statement" } ] }
  },
  "placements": [
   { "id": "listings>home-our-listings", "collection": "listings", "when": { "status": ["coming-soon", "active", "pending"] }, "to": { "page": "/", "section": "our-listings" }, "sort": "-listedOn", "limit": 6 },

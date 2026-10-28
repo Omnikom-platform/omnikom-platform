@@ -36,6 +36,11 @@ swap('from-plan.mjs', 'if (ref) placements.push(', 'if (false) placements.push('
 swap('from-plan.mjs', 'if (routes.some(rx => rx.test(p.path))', 'if (false', 'generator keeps pages a collection route covers');
 swap('place.mjs', 'if (f.visibleWhen && !Object.entries', 'if (false && !Object.entries', 'public data ignores visibleWhen (sold price leaks)');
 swap('place.mjs', 'if (!f || f.internal) continue;', 'if (!f) continue;', 'public data shows internal fields');
+swap('validate.mjs', 'img = { ...img, width: rec.width, exifStripped: rec.exifStripped, rightsConfirmed: rec.rightsConfirmed };', '', 'photo facts taken from the row, not the media record');
+swap('validate.mjs', "if (merged[id] && c.core) { merged[id] = { ...c, fields: { ...c.fields } }; continue; }", '', 'mergeCore not idempotent (resolved contract loses extensions)');
+swap('validate.mjs', 'if (rec.processed === false) img.exifStripped = false;', '', 'unprocessed photo treated as processed');
+swap('validate.mjs', 'const minWidth = o.sample ? 0 : m.minWidth;', 'const minWidth = m.minWidth;', 'sample listings held to the full photo width');
+swap('validate.mjs', 'ws.filter(w => w.expects.some(x => g.includes(x))).map(w => w.path)', 'ws.map(w => w.path)', 'waiver widens every group, not just the matching one');
 swap('validate.mjs', "if (empty(v)) { if (publish && f.required)", "if (empty(v)) { if (f.required)", 'required enforced on drafts too');
 
 // 3. coverage: every code raised in the source is named in the tests

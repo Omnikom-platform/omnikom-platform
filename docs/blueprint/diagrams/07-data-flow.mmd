@@ -1,0 +1,41 @@
+%% Data flow: where each kind of data is born, stored and used
+flowchart LR
+  classDef src fill:#eef1f5,color:#1d2733,stroke:#8a96a3
+  classDef store fill:#0f766e,color:#fff,stroke:#0f766e
+  classDef use fill:#1f6feb,color:#fff,stroke:#1f6feb
+
+  research["public research<br/>(intake, report)"]:::src
+  planf["approved SEO plan<br/>+ entities.json"]:::src
+  client["client edits + uploads<br/>(dashboard)"]:::src
+  visitor["visitor forms"]:::src
+  metrics["Search Console, PSI,<br/>AI-answer samples"]:::src
+
+  facts[("facts<br/>source + date")]:::store
+  contracts[("site_contracts<br/>versioned")]:::store
+  rows[("content_rows +<br/>content_versions")]:::store
+  media[("Storage media/<br/>+ media rows")]:::store
+  leads[("leads, notes,<br/>pushes")]:::store
+  snaps[("metrics_snapshots")]:::store
+
+  site["client website<br/>(published rows only)"]:::use
+  dash["dashboard screens"]:::use
+  crm["OmniSuite / CRM"]:::use
+  ops["AI operators"]:::use
+
+  research --> facts
+  planf --> contracts
+  contracts -- "seed pages, places" --> rows
+  client --> rows
+  client --> media
+  facts -- "staff turns facts into<br/>sourced fields" --> rows
+  rows -- "published versions" --> site
+  media -- "copied into the build" --> site
+  visitor --> leads --> crm
+  metrics --> snaps
+  contracts --> dash
+  rows --> dash
+  leads --> dash
+  snaps --> dash
+  snaps --> ops
+  facts --> ops
+  ops -- "draft rows" --> rows

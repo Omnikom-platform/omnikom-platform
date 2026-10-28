@@ -4,7 +4,7 @@ Sources (read only): approved plan `E:/Alex Sevilla/site-checks/elev8ca.com/.pew
 18 kept live pages, business.json), approved home design `draft-site/design/variants/v4.html`, `LISTINGS-DECISION.md`.
 Generated: `contract.json` (`node contracts/from-plan.mjs ...`), `screens.md`. Declared by hand: `entities.json`.
 
-## Pages (42)
+## Pages (43)
 | Plan / live page | Page type | Bound to |
 |---|---|---|
 | `/` | home (V4 sections) | |
@@ -15,6 +15,7 @@ Generated: `contract.json` (`node contracts/from-plan.mjs ...`), `screens.md`. D
 | `/buying`, `/selling`, `/financing` | service-page (default sections) | |
 | `/home_value`, `/connect`, `/faq`, `/reviews`, `/team`, `/privacy_policy`, `/tos` | home-value, contact, faq, reviews, team, privacy, terms | |
 | `/blog` (added 2026-10-28, lead session: articles index, GT-007) | blog-index | |
+| `/accessibility-statement/` (added 2026-10-28: launch gate RE-DISC-001) | accessibility (locked notice) | |
 | `/agent-profile/<slug>` x8 | not pages: Team item pages at their live addresses (`team` route), so no redirects | |
 
 Page type comes from the plan's cluster family (cluster id minus the city), the city binding from the plan's `location`.
@@ -48,3 +49,7 @@ budget ranges · closing-form topics · consent wording · home-search address (
 
 ## Still to do outside this repo
 Add `/blog` to the approved plan in the ELEV8 project (it is declared here in `entities.json`).
+
+## Gate waivers and samples (2026-10-28, from the preview build)
+`/privacy_policy` stands in for RE-DISC-001's `/privacy/` (live URL kept; contract `gateWaivers`). Sample listings (`sample: true`) may use
+photos below 1200 px on previews and are refused on a live site (`I-SAMPLE-LIVE`). Form topics and hero tabs include "cash-offer" (V4).

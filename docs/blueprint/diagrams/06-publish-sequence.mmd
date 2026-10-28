@@ -1,0 +1,40 @@
+sequenceDiagram
+  autonumber
+  actor U as Client (owner or agent)
+  participant D as Dashboard SPA
+  participant S as Edge fn save
+  participant P as Edge fn publish
+  participant DB as Postgres (RLS + service fns)
+  participant R as Build runner (GitHub Actions)
+  participant X as Edge fn export-published
+  participant C as Edge fn job-callback
+  participant CF as Cloudflare (site Worker)
+
+  U->>D: edit listing, add photos
+  D->>D: validateItem(draft) in the browser
+  D->>S: save(...) with user JWT
+  S->>DB: service.contract_for(): 404 if not a member (before any validation)
+  S->>S: validateItem(draft) against that contract
+  S->>DB: service.save_as(): role, own-only, locked fields
+  DB-->>S: version n (site unchanged)
+  U->>D: Publish
+  D->>P: publish(rows) with user JWT
+  P->>DB: service.contract_for(): 404 if not a member
+  P->>P: validateItem(publish) on exactly the given versions: required, alt, rights, processed photos, sources
+  P->>DB: service.start_publish(): job with the validated versions pinned, nothing goes live
+  P->>R: repository_dispatch {job_id, site_id} (concurrency group per site, queue max)
+  R->>X: export-published(job, runner key)
+  X->>DB: service.published_rows(job): exactly the snapshot
+  X-->>R: rows + resolved contract + site target + that site's deploy token (Vault)
+  R->>R: check site id = payload site_id, place() -> render -> launch layer -> gates
+  alt any gate fails
+    R->>C: job-callback failed + gate report (runner signature)
+    C->>DB: service.set_job_state(failed): nothing goes live
+    D-->>U: "Not published: 2 photos have no alt text" (plain words)
+  else all gates pass
+    R->>CF: deploy to the site's own Worker with its per-site token
+    R->>CF: smoke test (headers, redirects, 404, form endpoint)
+    R->>C: job-callback done + deploy id
+    C->>DB: service.set_job_state(done): the job's rows go live at their snapshot versions
+    D-->>U: "Published" + link + history entry
+  end

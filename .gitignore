@@ -6,3 +6,5 @@
 # design engine: map tiles are provider data (Esri / OSM terms): never committed; rendered map PNGs are derived from them
 tools/design-engine/examples/**/map/tiles/
 tools/design-engine/examples/**/*.png
+# local dev database (supabase/dev-db.mjs, W0.5)
+.localdb/

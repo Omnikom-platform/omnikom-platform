@@ -1,0 +1,12 @@
+stateDiagram-v2
+  [*] --> queued: publish (validated)
+  queued --> building: runner picks the job (one per site at a time)
+  building --> gating: export read, pages rendered
+  gating --> deploying: every gate passed
+  gating --> failed: any gate failed (nothing deployed)
+  building --> failed: export refused / render error
+  deploying --> done: deployed + smoke test passed
+  deploying --> failed: deploy or smoke failed (previous deploy stays live)
+  queued --> failed: timeout 30 min
+  done --> [*]
+  failed --> [*]

@@ -1,0 +1,36 @@
+%% C4 level 1: system context
+flowchart LR
+  classDef person fill:#0b3d5c,color:#fff,stroke:#0b3d5c
+  classDef system fill:#1f6feb,color:#fff,stroke:#1f6feb
+  classDef ext fill:#eef1f5,color:#1d2733,stroke:#8a96a3
+
+  owner["Client owner<br/>(e.g. the broker)"]:::person
+  agent["Client member<br/>(e.g. an agent)"]:::person
+  staff["Omnikom staff<br/>(design + fact/legal sign-off)"]:::person
+  visitor["Website visitor<br/>(buyer, seller, patient...)"]:::person
+
+  platform["Omnikom Platform<br/>research, build, host and run<br/>each client's website"]:::system
+
+  cf["Cloudflare<br/>one Omnikom account,<br/>one deploy target per site"]:::ext
+  sb["Supabase<br/>one multi-tenant project:<br/>Postgres, Auth, Storage, Functions"]:::ext
+  gsc["Google Search Console<br/>+ PageSpeed Insights"]:::ext
+  omni["OmniSuite<br/>follow-up engine by API key<br/>(voice agent add-on)"]:::ext
+  crm["Client's own CRM<br/>(webhook)"]:::ext
+  idx["Client's IDX / home search<br/>(e.g. Brivity; linked, not copied)"]:::ext
+  web["Public web<br/>(sites, maps, AI answers;<br/>polite, no logins)"]:::ext
+  llm["Anthropic API<br/>(AI operators, capped)"]:::ext
+  gh["GitHub<br/>code + build runner"]:::ext
+
+  owner -- "edits content, sees leads,<br/>publishes" --> platform
+  agent -- "own listings, posts, leads" --> platform
+  staff -- "approves design, signs off<br/>facts and locked text" --> platform
+  visitor -- "reads pages,<br/>sends forms" --> cf
+  platform -- "deploys static sites" --> cf
+  platform -- "data, logins, files" --> sb
+  platform -- "builds + gates" --> gh
+  platform -- "verifies sites, reads clicks,<br/>speed" --> gsc
+  platform -- "pushes leads" --> omni
+  platform -- "pushes leads" --> crm
+  visitor -. "home search" .-> idx
+  platform -- "research, presence report" --> web
+  platform -- "proposals with evidence" --> llm

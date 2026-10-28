@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Dashboard wireframes</title>
+<style>
+/* Low-fidelity wireframes: structure and content only, not the visual design. ?s=<id> shows one screen. */
+*{box-sizing:border-box}body{margin:0;font:14px/1.4 system-ui,Segoe UI,sans-serif;color:#1d2733;background:#fff}
+.scr{width:1280px;height:800px;display:grid;grid-template-columns:220px 1fr;border:1px solid #c9d1da;margin:0 0 40px}
+.rail{background:#f1f4f7;border-right:1px solid #c9d1da;padding:20px 16px}.rail b{display:block;margin:0 0 18px;font-size:16px}
+.rail a{display:block;padding:8px 10px;border-radius:8px;color:#1d2733;text-decoration:none;margin:2px 0}.rail a.on{background:#dbe4ee;font-weight:600}
+.rail small{display:block;margin:16px 0 4px;color:#66717d}
+main{padding:28px 32px;overflow:hidden}h1{font-size:22px;margin:0 0 4px}h2{font-size:15px;margin:0 0 10px}.sub{color:#66717d;margin:0 0 20px}
+.row{display:flex;gap:16px;align-items:stretch}.col{flex:1}.card{border:1px solid #c9d1da;border-radius:12px;padding:20px;background:#fff;margin:0 0 16px}
+.k{font-size:26px;font-weight:700}.muted{color:#66717d}.btn{display:inline-block;padding:8px 14px;border-radius:8px;border:1px solid #1d2733;margin-right:6px;font-weight:600}
+.btn.p{background:#1d2733;color:#fff}.bar{display:flex;justify-content:space-between;align-items:center;margin:0 0 18px}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 8px;border-bottom:1px solid #e3e8ee}th{color:#66717d;font-weight:600;font-size:12px}
+.f{margin:0 0 12px}.f label{display:block;font-weight:600;margin:0 0 4px}.in{border:1px solid #b7c1cc;border-radius:8px;height:34px;background:#fafbfc}
+.in.tall{height:90px}.lock{background:#f6f2e6;border-color:#d9c48a}.note{font-size:12px;color:#8a6d1d}.err{font-size:12px;color:#b42318}
+.ph{background:repeating-linear-gradient(45deg,#eef1f5,#eef1f5 8px,#e3e8ee 8px,#e3e8ee 16px);border-radius:8px}
+.chip{display:inline-block;padding:2px 8px;border:1px solid #b7c1cc;border-radius:6px;font-size:12px}
+.pub{position:absolute;left:220px;right:0;bottom:0;height:56px;border-top:1px solid #c9d1da;background:#f8fafb;display:flex;align-items:center;gap:8px;padding:0 32px}
+.rel{position:relative}.spark{height:60px}
+</style></head><body>
+
+<!-- 1 Overview -->
+<section class="scr" id="overview"><nav class="rail"><b>Workspace name</b>
+<a class="on">Overview</a><a>Pages</a><small>Content (from the contract)</small><a>Our listings</a><a>Cities</a><a>Team</a><a>Articles</a><a>Reviews</a><a>Questions</a>
+<small>Run</small><a>Leads <span class="chip">3 new</span></a><a>Search + AI visibility</a><a>Publish</a><a>Media</a><a>Settings</a></nav>
+<main><h1>Good morning</h1><p class="sub">Site: preview (not live yet) · last published 2 days ago by an agent</p>
+<div class="row"><div class="card col"><div class="muted">Leads this week</div><div class="k">7</div><div class="muted">3 new, 2 contacted</div></div>
+<div class="card col"><div class="muted">Search clicks (28 days)</div><div class="k">412</div><div class="ph spark"></div></div>
+<div class="card col"><div class="muted">Waiting to publish</div><div class="k">2 drafts</div><span class="btn p">Review and publish</span></div></div>
+<div class="row"><div class="card col"><h2>To do</h2><table><tr><td>2 listing photos have no alt text</td><td><span class="btn">Fix</span></td></tr>
+<tr><td>Consent wording to confirm (Omnikom will email you)</td><td class="muted">waiting</td></tr><tr><td>Add your reviews' dates and permission</td><td><span class="btn">Open</span></td></tr></table></div>
+<div class="card col"><h2>Latest leads</h2><table><tr><th>Name</th><th>Form</th><th>Page</th><th>Status</th></tr><tr><td>Lead A</td><td>Home finder</td><td>/homes-for-sale-in-city/</td><td>new</td></tr>
+<tr><td>Lead B</td><td>Home value</td><td>/</td><td>contacted</td></tr></table></div></div></main></section>
+
+<!-- 2 Collection list (generated): listings -->
+<section class="scr" id="collection"><nav class="rail"><b>Workspace name</b><a>Overview</a><a>Pages</a><small>Content</small><a class="on">Our listings</a><a>Cities</a><a>Team</a><a>Articles</a></nav>
+<main><div class="bar"><div><h1>Our listings</h1><p class="sub" style="margin:0">Agents see only their own. Generated from the contract: columns, filters and the form.</p></div><span class="btn p">Add</span></div>
+<div class="row" style="margin:0 0 14px"><span class="chip">Status: all</span><span class="chip">City: all</span><span class="chip">Type: all</span><span class="chip">Search street</span></div>
+<table><tr><th></th><th>Street</th><th>Status</th><th>Agent</th><th>City</th><th>Price</th><th>Draft / published</th><th>Last edited by</th></tr>
+<tr><td><div class="ph" style="width:56px;height:40px"></div></td><td>1 Example Street</td><td>active</td><td>Agent One</td><td>City A</td><td>$000,000</td><td>published</td><td>Agent One, 2 h ago</td></tr>
+<tr><td><div class="ph" style="width:56px;height:40px"></div></td><td>2 Example Street</td><td>pending</td><td>Agent Two</td><td>City B</td><td>$000,000</td><td>draft changes</td><td>Owner, today</td></tr>
+<tr><td><div class="ph" style="width:56px;height:40px"></div></td><td>3 Example Street</td><td>sold</td><td>Agent One</td><td>City A</td><td>$000,000</td><td>published</td><td>Agent One, last week</td></tr></table></main></section>
+
+<!-- 3 Item editor (generated): listing -->
+<section class="scr rel" id="editor"><nav class="rail"><b>Workspace name</b><a>Overview</a><a>Pages</a><small>Content</small><a class="on">Our listings</a><a>Cities</a><a>Team</a></nav>
+<main><div class="bar"><h1>1 Example Street</h1><span class="muted">Shows on: home "Our listings", City A guide, Realtor in City A, sitemap</span></div>
+<div class="row"><div class="col">
+<div class="f"><label>Address (fills city and map pin)</label><div class="in"></div></div>
+<div class="row"><div class="f col"><label>Status</label><div class="in"></div></div><div class="f col"><label>Price</label><div class="in"></div></div><div class="f col"><label>City</label><div class="in"></div></div></div>
+<div class="row"><div class="f col"><label>Beds</label><div class="in"></div></div><div class="f col"><label>Baths</label><div class="in"></div></div><div class="f col"><label>Sq ft</label><div class="in"></div></div><div class="f col"><label>Year</label><div class="in"></div></div></div>
+<div class="f"><label>Description</label><div class="in tall"></div><div class="muted">Draft it for me from the fields (you edit it)</div></div>
+<div class="row"><div class="f col"><label>Sold price</label><div class="in"></div></div><div class="f col"><label>Show sold price on the site</label><div class="in" style="width:34px"></div></div></div></div>
+<div class="col"><div class="f"><label>Photos (drag to order; first = cover)</label><div class="row"><div class="ph" style="height:90px;flex:1"></div><div class="ph" style="height:90px;flex:1"></div><div class="ph" style="height:90px;flex:1"></div></div>
+<div class="err">Photo 3: add alt text before publishing</div></div>
+<div class="f"><label>We have the right to publish these photos</label><div class="in" style="width:34px"></div></div>
+<div class="f"><label>Listing agent</label><div class="in lock"></div><div class="note">Set from your login</div></div>
+<div class="f"><label>Search result preview</label><div class="card" style="padding:12px"><b>1 Example Street, City A</b><div class="muted">example.com/listings/1-example-street-city-a/</div></div></div></div></div></main>
+<div class="pub"><span class="btn">Save draft</span><span class="btn">Preview</span><span class="btn p">Publish</span><span class="muted">Version 4 · saved 10 s ago · History</span></div></section>
+
+<!-- 4 Page editor -->
+<section class="scr rel" id="page"><nav class="rail"><b>Workspace name</b><a>Overview</a><a class="on">Pages</a><small>Content</small><a>Our listings</a></nav>
+<main><div class="bar"><div><h1>Home page</h1><p class="sub" style="margin:0">Address and page type come from the approved SEO plan.</p></div><span class="btn">View page</span></div>
+<div class="row"><div class="col" style="flex:0 0 300px"><div class="card"><h2>Sections</h2><table>
+<tr><td><b>Hero</b></td><td>edit</td></tr><tr><td>At a glance</td><td>edit</td></tr><tr><td>Three ways</td><td>edit</td></tr><tr><td>Home value</td><td>form</td></tr>
+<tr><td>Cities</td><td class="muted">fills itself</td></tr><tr><td>Our listings</td><td class="muted">fills itself</td></tr><tr><td>Recently sold</td><td class="muted">fills itself</td></tr><tr><td>Closing</td><td>edit</td></tr></table></div></div>
+<div class="col"><div class="card"><h2>Hero</h2><div class="f"><label>Heading (70)</label><div class="in"></div></div><div class="f"><label>Lead (200)</label><div class="in tall"></div></div>
+<div class="f"><label>Photo</label><div class="ph" style="height:120px"></div></div></div>
+<div class="card"><h2>Search result text</h2><div class="f"><label>Title (60)</label><div class="in"></div></div><div class="f"><label>Description (160)</label><div class="in"></div></div></div></div></div></main>
+<div class="pub"><span class="btn">Save draft</span><span class="btn">Preview</span><span class="btn p">Publish</span></div></section>
+
+<!-- 5 Leads inbox -->
+<section class="scr" id="leads"><nav class="rail"><b>Workspace name</b><a>Overview</a><a>Pages</a><small>Run</small><a class="on">Leads</a></nav>
+<main><div class="bar"><h1>Leads</h1><div><span class="btn">Export CSV</span></div></div>
+<div class="row"><div class="col"><table><tr><th>Received</th><th>Name</th><th>Form</th><th>Page</th><th>Status</th><th>Owner</th><th>Sent to CRM</th></tr>
+<tr><td>Today 09:12</td><td><b>Lead A</b></td><td>Home finder</td><td>City A guide</td><td>new</td><td>unassigned</td><td>ok</td></tr>
+<tr><td>Yesterday</td><td>Lead B</td><td>Home value</td><td>Home</td><td>contacted</td><td>Agent One</td><td>ok</td></tr>
+<tr><td>Mon</td><td>Lead C</td><td>Contact</td><td>Realtor in City B</td><td>qualified</td><td>Agent Two</td><td class="err">failed, retrying</td></tr></table></div>
+<div class="card" style="flex:0 0 380px"><h2>Lead A</h2><p class="muted">Home finder · City A · budget band · 3+ beds · timing</p><p>email · phone</p>
+<div class="f"><label>Status</label><div class="in"></div></div><div class="f"><label>Owner</label><div class="in"></div></div><div class="f"><label>Add a note</label><div class="in tall"></div></div>
+<p class="muted">Consent shown when sent: (exact text kept)</p></div></div></main></section>
+
+<!-- 6 Media -->
+<section class="scr" id="media"><nav class="rail"><b>Workspace name</b><a>Overview</a><small>Run</small><a class="on">Media</a></nav>
+<main><div class="bar"><h1>Media</h1><span class="btn p">Upload</span></div>
+<div class="card" style="text-align:center;padding:30px"><b>Drop photos here</b><div class="muted">We resize them for the web and remove location data. Tick that you have the right to publish them.</div></div>
+<div class="row" style="flex-wrap:wrap"><div class="ph" style="width:180px;height:120px"></div><div class="ph" style="width:180px;height:120px"></div><div class="ph" style="width:180px;height:120px"></div><div class="ph" style="width:180px;height:120px"></div><div class="ph" style="width:180px;height:120px"></div></div>
+<p class="err">2 photos have no alt text · 1 photo is too small for a hero (needs 1600 px)</p></main></section>
+
+<!-- 7 Visibility -->
+<section class="scr" id="visibility"><nav class="rail"><b>Workspace name</b><a>Overview</a><small>Run</small><a class="on">Search + AI visibility</a></nav>
+<main><h1>Search and AI visibility</h1><p class="sub">Observed numbers only, each with its source and date.</p>
+<div class="row"><div class="card col"><div class="muted">Clicks (Search Console, 28 d)</div><div class="k">412</div><div class="ph spark"></div></div><div class="card col"><div class="muted">Impressions</div><div class="k">18,900</div><div class="ph spark"></div></div>
+<div class="card col"><div class="muted">Phone speed (PageSpeed, home)</div><div class="k">LCP 2.4 s</div><div class="muted">tested date, conditions</div></div></div>
+<div class="row"><div class="card col"><h2>Top searches</h2><table><tr><th>Query</th><th>Clicks</th><th>Position</th></tr><tr><td>realtor in city a</td><td>40</td><td>4.1</td></tr><tr><td>homes for sale city b</td><td>22</td><td>7.9</td></tr></table></div>
+<div class="card col"><h2>AI answers (samples)</h2><table><tr><th>Question asked</th><th>Engine</th><th>Named you?</th><th>Date</th></tr><tr><td>best realtor in City A</td><td>engine</td><td>yes</td><td>date</td></tr></table></div></div></main></section>
+
+<!-- 8 Publish centre -->
+<section class="scr" id="publish"><nav class="rail"><b>Workspace name</b><a>Overview</a><small>Run</small><a class="on">Publish</a></nav>
+<main><h1>Publish</h1><p class="sub">Publishing rebuilds only your site, runs the checks, and deploys if all pass.</p>
+<div class="card"><h2>Waiting to publish</h2><table><tr><td>Our listings · 2 Example Street</td><td>draft changes by Owner</td><td><span class="btn">Compare</span><span class="btn p">Publish</span></td></tr></table></div>
+<div class="card"><h2>Recent publishes</h2><table><tr><th>When</th><th>By</th><th>Result</th><th></th></tr><tr><td>Today 10:02</td><td>Agent One</td><td>published</td><td>gate report</td></tr>
+<tr><td>Yesterday</td><td>Owner</td><td class="err">not published: 2 photos have no alt text</td><td>fix</td></tr></table></div></main></section>
+
+<!-- 9 Staff admin -->
+<section class="scr" id="admin"><nav class="rail"><b>Omnikom staff</b><a class="on">Workspaces</a><a>Sign-off queue</a><a>Publish jobs</a><a>Audit log</a></nav>
+<main><div class="bar"><h1>Workspaces</h1><span class="btn p">New workspace</span></div>
+<table><tr><th>Workspace</th><th>Industry</th><th>Site</th><th>State</th><th>Contract</th><th>Open sign-offs</th><th>Last publish</th></tr>
+<tr><td>Client 1</td><td>real-estate-agent</td><td>client-1 (Worker)</td><td>preview</td><td>v3 active</td><td>4</td><td>ok</td></tr>
+<tr><td>Client 2</td><td>insurance-agency</td><td>client-2 (Worker)</td><td>preview</td><td>v1 active</td><td>6</td><td>-</td></tr></table>
+<div class="card" style="margin-top:20px"><h2>Sign-off queue (locked text)</h2><table><tr><td>Client 2 · product disclosure · annuities</td><td>needs legal OK</td><td><span class="btn">Record sign-off</span></td></tr>
+<tr><td>Client 1 · licence number · Agent Two</td><td>source attached</td><td><span class="btn">Record sign-off</span></td></tr></table></div></main></section>
+
+<script>
+const s = new URLSearchParams(location.search).get('s');
+if (s) document.querySelectorAll('.scr').forEach(e => { if (e.id !== s) e.remove(); else e.style.margin = '0'; });
+</script></body></html>

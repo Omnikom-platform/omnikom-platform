@@ -54,6 +54,13 @@
   0 survived; `node contracts/industry-run/run.mjs` -> 15/15 PASS. Client projects were only read. OPEN: plan-site should write
   entities.json; DB/RLS (step 3) NOT DONE; upload pipeline not built; ELEV8 questions answered and applied (42 pages incl. `/blog`; add `/blog` to the approved plan in E:\Alex Sevilla).
 
+- **2026-10-28 (later): build blueprint written, NOT COMMITTED, waiting for the owner.** `docs/blueprint/` (README = BUILD-GUIDE,
+  STANDARDS.md, 01-11, adr/, specs/, diagrams/, wireframes/, PROGRESS.md) + `supabase/` (migration, config.toml, tenancy tests,
+  local shim modelling Supabase defaults, run-staging.mjs). Corrected after an independent fact-check and an M1 dry run, and for
+  DECISIONS 15 (no Docker; staging + production Supabase projects). Gates (`node docs/blueprint/specs/run-all-gates.mjs`): contract
+  138/138, 82/82 mutants, industries 15/15, DB walls pass with 47/47 mutants, specs 0 problems. Owner decisions D1-D4 gate M0.
+  Contract work committed earlier as d588c3c; contracts/ changes since (media lookup, idempotent mergeCore, JSON import) uncommitted.
+
 ## Open elsewhere (not this repo, but the owner may ask)
 - Rainmaker launch is WAITING on Monica's answers (via Dave) and the GoDaddy nameserver switch; steps in `E:\Rainmaker\LAUNCH.md`.
 - Francine (VTV) and Eli: see `E:\Francine & Eli\.claude\POSITION.md`.
