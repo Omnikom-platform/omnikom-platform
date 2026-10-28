@@ -85,8 +85,8 @@ Five parts, one shared spine (the client record + its content contract):
 ## 6. Decisions the owner should make (only these shape the work)
 
 1. CRM scope: lead inbox + export/webhook (recommended) vs. full CRM.
-2. Where tenant data lives: Supabase (already used for OmniSkipX) vs. Cloudflare D1 (already hosting the sites). Recommendation
-   after a short spike, not now.
+2. ~~Where tenant data lives~~ SETTLED (DECISIONS.md 11): one multi-tenant Supabase database. Isolation and publishing per
+   client: `TENANCY-AND-PUBLISHING.md` (proposal, 2026-10-28).
 3. ~~First industries for the content schemas~~ SETTLED (DECISIONS.md 3): one procedure for all industries; the three real clients
    are test cases, not schemas.
 4. ~~Where the skills live~~ SETTLED (DECISIONS.md 4): copied into `skills/` as source; outside copies stay; no link; drift tracked

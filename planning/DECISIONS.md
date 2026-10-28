@@ -46,3 +46,15 @@
     engine into an API-key service: per client we create their profile + knowledge base in OmniSuite and connect it to the
     **custom CRM built inside the client's dashboard**. The client pays for the voice agent separately (rent). Until the
     OmniSuite API exists, the CRM side waits on it (see 8).
+
+## 2026-10-28 (owner, ELEV8 session)
+
+13. **Order of work:** (1) finish the content contract end to end (`TENANCY-AND-PUBLISHING.md` + the contract itself); (2) build the
+    ELEV8 website on it; (3) build the platform's database, users, connections and backend layer that manage every website in the
+    **"V2 program"** (the program this repo is for).
+14. **The contract must cover every industry Omnikom sells to** (owner: "13 or 14 industries"): one shared core, each client's own
+    collections from its plan (3), expandable over time. Proof is a run of the contract against every industry, not a claim.
+    Industry list found (2026-10-28): OmniSuite's 13 niche packs, `E:\Omnisuite final stage the CTO Packets\omnisuite-platform\spec\30-product\niches\`
+    (agency, b2b, chiropractic, cleaning, coaching, default, dental, fitness, home-services, legal, med-spa, real-estate, solar).
+    Not in it: insurance (Rainmaker) and cash home buyer (Eli). Website compliance rule files exist for only 4 industries
+    (skill `rules/industries/`: cash-home-buyer, editorial-media, insurance-agency, real-estate-agent).

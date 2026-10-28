@@ -1,0 +1,177 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="860" viewBox="0 0 1500 860" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#1f2937"/>
+    </marker>
+    <marker id="ad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#9a6700"/>
+    </marker>
+  </defs>
+  <rect width="1500" height="860" fill="#ffffff"/>
+  <text x="24" y="34" font-size="20" font-weight="700" fill="#111827">Omnikom MLS listings feature: data flow (v0.1, 2026-10-27)</text>
+  <text x="24" y="54" fill="#4b5563">One connector per MLS licence, one shared store per MLS, per-tenant display rights, rules as data, photos always in our own storage.</text>
+
+  <!-- Column headers -->
+  <g font-size="12" font-weight="700" fill="#374151">
+    <text x="24" y="92">MLS FEEDS (one licence each)</text>
+    <text x="330" y="92">INGESTION (Node backfill / Worker cron 15 min)</text>
+    <text x="700" y="92">SUPABASE, schema listings (one project, all tenants)</text>
+    <text x="1060" y="92">CLIENT SITE WORKER (client's domain)</text>
+  </g>
+
+  <!-- MLS feeds -->
+  <g>
+    <rect x="24" y="110" width="250" height="80" rx="8" fill="#eef2ff" stroke="#4f46e5"/>
+    <text x="40" y="136" font-weight="700" fill="#1e1b4b">bridgeMLS / Bay East / CCAR</text>
+    <text x="40" y="156" fill="#312e81">Paragon RESO Web API (endpoint: ask)</text>
+    <text x="40" y="174" fill="#312e81">Concord, Walnut Creek</text>
+
+    <rect x="24" y="206" width="250" height="80" rx="8" fill="#eef2ff" stroke="#4f46e5"/>
+    <text x="40" y="232" font-weight="700" fill="#1e1b4b">BAREIS</text>
+    <text x="40" y="252" fill="#312e81">Rapattoni RESO Web API (OAuth2)</text>
+    <text x="40" y="270" fill="#312e81">Solano + Napa: 7 of ELEV8's 10 cities</text>
+
+    <rect x="24" y="302" width="250" height="80" rx="8" fill="#eef2ff" stroke="#4f46e5"/>
+    <text x="40" y="328" font-weight="700" fill="#1e1b4b">MetroList</text>
+    <text x="40" y="348" fill="#312e81">Rapattoni RESO Web API (OAuth2)</text>
+    <text x="40" y="366" fill="#312e81">Sacramento</text>
+
+    <rect x="24" y="398" width="250" height="60" rx="8" fill="#fff7ed" stroke="#f97316" stroke-dasharray="5 4"/>
+    <text x="40" y="422" font-weight="700" fill="#7c2d12">Future sources (same connector)</text>
+    <text x="40" y="442" fill="#7c2d12">Bridge, Trestle, MLS Grid, RETS slot</text>
+  </g>
+
+  <!-- Ingestion -->
+  <g>
+    <rect x="330" y="110" width="300" height="150" rx="8" fill="#ecfdf5" stroke="#059669"/>
+    <text x="346" y="136" font-weight="700" fill="#064e3b">Generic OData connector</text>
+    <text x="346" y="158" fill="#065f46">auth strategy per source (bearer / OAuth2)</text>
+    <text x="346" y="176" fill="#065f46">follow @odata.nextLink, $top is a hint</text>
+    <text x="346" y="194" fill="#065f46">high-water mark + 5 min overlap window</text>
+    <text x="346" y="212" fill="#065f46">upsert on (source, ListingKey), allowlisted fields only</text>
+    <text x="346" y="230" fill="#065f46">daily key sweep for silent deletes (20 % drop guard)</text>
+    <text x="346" y="248" fill="#065f46">429 backoff, partial runs resume</text>
+
+    <rect x="330" y="290" width="300" height="70" rx="8" fill="#ecfdf5" stroke="#059669"/>
+    <text x="346" y="316" font-weight="700" fill="#064e3b">Media queue + media worker</text>
+    <text x="346" y="336" fill="#065f46">download each photo once (within the hour),</text>
+    <text x="346" y="352" fill="#065f46">SHA-256, card 640 px + detail 1600 px variants</text>
+
+    <rect x="330" y="390" width="300" height="68" rx="8" fill="#fef2f2" stroke="#dc2626"/>
+    <text x="346" y="416" font-weight="700" fill="#7f1d1d">Secrets</text>
+    <text x="346" y="434" fill="#991b1b">.secrets/api-keys.env (local tools)</text>
+    <text x="346" y="450" fill="#991b1b">Worker + Supabase secrets (prod); DB holds names</text>
+  </g>
+
+  <!-- Supabase -->
+  <g>
+    <rect x="690" y="110" width="330" height="76" rx="8" fill="#f5f3ff" stroke="#7c3aed"/>
+    <text x="706" y="136" font-weight="700" fill="#3b0764">mls_source + display_rules (versioned)</text>
+    <text x="706" y="156" fill="#4c1d95">disclaimer, attribution, statuses, sold window,</text>
+    <text x="706" y="174" fill="#4c1d95">field allowlist, caps, refresh limit, confirmed_by + date</text>
+
+    <rect x="690" y="202" width="330" height="76" rx="8" fill="#f5f3ff" stroke="#7c3aed"/>
+    <text x="706" y="228" font-weight="700" fill="#3b0764">listing / media / member / office / open_house</text>
+    <text x="706" y="248" fill="#4c1d95">raw jsonb (allowlist) + columns, geo, full-text</text>
+    <text x="706" y="266" fill="#4c1d95">media rows point to R2 keys, never MLS URLs</text>
+
+    <rect x="690" y="294" width="330" height="76" rx="8" fill="#f5f3ff" stroke="#7c3aed"/>
+    <text x="706" y="320" font-weight="700" fill="#3b0764">tenant_feed: client x source</text>
+    <text x="706" y="340" fill="#4c1d95">broker participant + DRE, approval date, agreement ref,</text>
+    <text x="706" y="358" fill="#4c1d95">enabled cities / statuses, isolated flag</text>
+
+    <rect x="690" y="386" width="330" height="56" rx="8" fill="#f5f3ff" stroke="#7c3aed"/>
+    <text x="706" y="410" font-weight="700" fill="#3b0764">sync_state / sync_run / listing_history</text>
+    <text x="706" y="430" fill="#4c1d95">marks, counts, 429s, errors; internal only</text>
+
+    <rect x="690" y="458" width="330" height="56" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+    <text x="706" y="482" font-weight="700" fill="#3b0764">Public views + RPC (RLS)</text>
+    <text x="706" y="502" fill="#4c1d95">search_listings, get_listing, city_summary</text>
+
+    <rect x="690" y="540" width="330" height="56" rx="8" fill="#fff7ed" stroke="#ea580c"/>
+    <text x="706" y="564" font-weight="700" fill="#7c2d12">R2 bucket: photos + variants</text>
+    <text x="706" y="584" fill="#9a3412">&lt;source&gt;/&lt;ListingKey&gt;/&lt;MediaKey&gt;; kept by status</text>
+  </g>
+
+  <!-- Site worker -->
+  <g>
+    <rect x="1060" y="110" width="410" height="120" rx="8" fill="#f0f9ff" stroke="#0284c7"/>
+    <text x="1076" y="136" font-weight="700" fill="#0c4a6e">Listings renderer (server-side HTML)</text>
+    <text x="1076" y="156" fill="#075985">/search (noindex), /homes-for-sale-in-&lt;city&gt;-ca/ (index),</text>
+    <text x="1076" y="174" fill="#075985">/listing/&lt;city&gt;/&lt;slug&gt;-&lt;id&gt;/ (index, 410 when gone),</text>
+    <text x="1076" y="192" fill="#075985">listings-sitemap.xml, JSON-LD, map + list</text>
+    <text x="1076" y="210" fill="#075985">templates = the design lab sections (listings.html, hero.html)</text>
+
+    <rect x="1060" y="250" width="410" height="104" rx="8" fill="#fefce8" stroke="#ca8a04" stroke-width="2"/>
+    <text x="1076" y="276" font-weight="700" fill="#713f12">Compliance layer (reads display_rules, no MLS code)</text>
+    <text x="1076" y="296" fill="#854d0e">disclaimer + year + last updated; Listed by firm, agent, phone</text>
+    <text x="1076" y="314" fill="#854d0e">field allowlist, status + sold window, result cap, address withheld</text>
+    <text x="1076" y="332" fill="#854d0e">refuses if rules unconfirmed; compliance-gate.mjs at go-live</text>
+
+    <rect x="1060" y="374" width="410" height="56" rx="8" fill="#f0f9ff" stroke="#0284c7"/>
+    <text x="1076" y="398" font-weight="700" fill="#0c4a6e">Edge cache 5-15 min, stale-while-revalidate</text>
+    <text x="1076" y="418" fill="#075985">purged by the sync run per changed URL; static pages untouched</text>
+
+    <rect x="1060" y="450" width="195" height="56" rx="8" fill="#f3f4f6" stroke="#6b7280"/>
+    <text x="1076" y="474" font-weight="700" fill="#111827">Visitor / Googlebot</text>
+    <text x="1076" y="494" fill="#374151">HTML, cached photos</text>
+
+    <rect x="1275" y="450" width="195" height="56" rx="8" fill="#f3f4f6" stroke="#6b7280"/>
+    <text x="1291" y="474" font-weight="700" fill="#111827">Lead inbox -&gt; CRM</text>
+    <text x="1291" y="494" fill="#374151">listing key + source per lead</text>
+
+    <rect x="1060" y="540" width="410" height="90" rx="8" fill="#fdf2f8" stroke="#db2777"/>
+    <text x="1076" y="566" font-weight="700" fill="#831843">Monitor + duties</text>
+    <text x="1076" y="586" fill="#9d174d">freshness (alert 2 h, rule limit 12 h), count drift, photo backlog,</text>
+    <text x="1076" y="604" fill="#9d174d">429s, daily render gate; monthly customer list to each MLS,</text>
+    <text x="1076" y="622" fill="#9d174d">rule-set review on MLS notice (7 days)</text>
+  </g>
+
+  <!-- Arrows: feeds -> connector -->
+  <g stroke="#1f2937" stroke-width="1.6" fill="none" marker-end="url(#a)">
+    <path d="M274 150 L330 160"/>
+    <path d="M274 246 L330 190"/>
+    <path d="M274 342 L330 220"/>
+    <path d="M274 428 L330 245" stroke-dasharray="4 3"/>
+    <!-- connector -> listing tables / sync_state -->
+    <path d="M630 200 L690 240"/>
+    <path d="M630 230 L690 414"/>
+    <!-- connector -> media queue -> R2 -->
+    <path d="M480 260 L480 290"/>
+    <path d="M630 330 C 660 330, 660 568, 690 568"/>
+    <path d="M630 345 L690 262"/>
+    <!-- rules + tenant + listing -> views -->
+    <path d="M855 186 L855 202"/>
+    <path d="M855 278 L855 294"/>
+    <path d="M855 370 L855 386"/>
+    <path d="M855 442 L855 458"/>
+    <!-- views -> renderer; R2 -> renderer -->
+    <path d="M1020 486 C 1040 486, 1040 170, 1060 170"/>
+    <path d="M1020 568 C 1040 568, 1040 200, 1060 200"/>
+    <!-- rules -> compliance layer -->
+    <path d="M1020 148 C 1040 148, 1040 302, 1060 302"/>
+    <!-- renderer -> compliance -> cache -> visitor -->
+    <path d="M1265 230 L1265 250"/>
+    <path d="M1265 354 L1265 374"/>
+    <path d="M1157 430 L1157 450"/>
+    <!-- visitor -> lead inbox -->
+    <path d="M1255 478 L1275 478"/>
+    <!-- sync_run -> monitor -->
+    <path d="M1020 430 C 1040 430, 1040 585, 1060 585"/>
+  </g>
+  <!-- secrets dotted -->
+  <g stroke="#9a6700" stroke-width="1.4" fill="none" stroke-dasharray="3 3" marker-end="url(#ad)">
+    <path d="M615 390 C 660 330, 660 290, 630 262"/>
+  </g>
+
+  <!-- Legend / failure modes -->
+  <g>
+    <rect x="24" y="660" width="1446" height="176" rx="8" fill="#f9fafb" stroke="#d1d5db"/>
+    <text x="40" y="686" font-weight="700" fill="#111827">Failure modes the design answers (ARCHITECTURE.md section 5)</text>
+    <text x="40" y="710" fill="#374151">MLS down / 5xx: pages serve from DB + edge cache, freshness alert at 2 h.    429: per-source budget, backoff, partial run resumes.    Credentials revoked: hard alert, mark not advanced.</text>
+    <text x="40" y="732" fill="#374151">Silent deletes: daily key sweep with a 20 % drop guard, 410 on the page.    Single-use media URLs: download within the hour, never retry a used URL, re-read the listing.</text>
+    <text x="40" y="754" fill="#374151">Rules missing / unconfirmed: renderer refuses that source.    Supabase down: static site unaffected, listing routes serve stale then a notice, never a blank 500.</text>
+    <text x="40" y="776" fill="#374151">Count collapse: sweep aborts, nothing deleted until a human looks.    Worker cron caps: runs are bounded and resumable, Node path for backfill.    Client leaves: tenant_feed ends, source stays.</text>
+    <text x="40" y="808" fill="#6b7280" font-size="12">Sources: docs/listings/research/01-06 (2026-10-27). Endpoints, grants and delete semantics for Paragon and Rapattoni are CONFIRMED only after credentials exist (first-week measurements, section 6).</text>
+  </g>
+</svg>
