@@ -4,6 +4,15 @@ Task: build-ready product engineering package (owner, 2026-10-28), raised to eng
 then corrected by an independent fact-check (72 claims) and an independent M1 dry run (31 issues), and by DECISIONS 15
 (no Docker; one Supabase account, staging + production). **Status: complete for owner review. Nothing committed.**
 
+## Expansion blocks run (2026-10-29 21:05, `node supabase/tests/run-local.mjs`, three migrations in order; DECISIONS 23)
+```
+PASS real migration: ALL TENANCY TESTS PASSED
+83 mutants: 82 caught + 1 target missing on the first pass (a mutant still aimed at the pre-fix line), re-pointed and caught -> 83 caught, 0 survived
+```
+Leak found by T13 and fixed (watched red): a non-member's NULL role passed `not (false or NULL)` in `lead_update` and the
+add-on and template owner checks (B's owner could act on A). Null guards added (`can_act_on_lead`, `is_owner_or_staff`,
+`lead_update`), 3 tests and 3 mutants for them. One plain bug fixed on the way (a CASE that yielded text for `booking_state`).
+
 ## Step C run (2026-10-29 19:45, `node supabase/tests/run-local.mjs`, both migrations applied in order; DECISIONS 21)
 ```
 PASS real migration: ALL TENANCY TESTS PASSED

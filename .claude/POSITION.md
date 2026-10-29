@@ -105,7 +105,12 @@
   `docs/blueprint/17-EXPANSION-MAP.md` (blocks: add_ons, connectors, bookings, messages, crm_templates, webhook_events, setup
   wizard pattern; the concierge sequence; SMS/email rules; CRM export/import mapper algorithm; horizontal growth; build order;
   D10-D13 for the owner). Owner 20:25: use Haiku for mechanical work, Sonnet for routine builds (memory saved).
-  NEXT TICKS: 2 = migration 3 (add_ons, connectors, bookings, messages, crm_templates, webhook_events + functions, tests,
+  TICK 2 DONE (21:05): `supabase/migrations/20261029000003_addons.sql` (workspaces.timezone; add_ons, connectors, bookings,
+  messages, platform_limits, crm_templates, webhook_events; functions activate_addon, set_addon_state, book, set_booking_state,
+  record_message, set_message_state, webhook_received, save_crm_template; null guards `can_act_on_lead`, `is_owner_or_staff`),
+  T13, 23 new mutants: real PASS, 83 of 83 mutants caught. LEAK FIXED in migration 2's lead_update (NULL role of a non-member
+  passed the check; coalesce added; test + mutant). `13-DATA-MODEL.md` 8b added. Tick 3 (crm-map by a Sonnet agent) running.
+  PLANNED TICKS: 2 = migration 3 (add_ons, connectors, bookings, messages, crm_templates, webhook_events + functions, tests,
   mutants); 3 = `tools/crm-map/` mapper + tests + 2 shipped templates (Sonnet builds, lead verifies); 4 = fresh-eyes review
   (unit-reviewer) + fixes; then stop the loop and ask D9-D13 as options.
 

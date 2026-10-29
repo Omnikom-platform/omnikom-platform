@@ -256,6 +256,23 @@ Rules: one active `site-signing` key per site at a time, plus one "next" key dur
 table is readable by staff only (RLS); no client role reads it. The site signing key is minted at onboarding, handed to the site's
 Worker as a secret, and never appears in the dashboard, a log or a file.
 
+## 8b. The expansion tables (migration 3, `20261029000003_addons.sql`, DECISIONS 23; tests T13 + mutants)
+| Table | Holds | Who writes it | Who reads it |
+|---|---|---|---|
+| `add_ons` | per workspace and kind (`concierge`, `messaging`, `crm-sync`, `ads`): state `paying` -> `setting-up` -> `active` <-> `paused`, any -> `cancelled`; settings JSON; paid until | `service.activate_addon`, `service.set_addon_state` (owner or staff; legal transitions only) | owner, staff |
+| `connectors` | one row per outside system (`omnisuite`, `crm-webhook`, `calendar`, `sms`, `payment`, `search-console`): label, config JSON (a check constraint refuses any `token`, `secret`, `password`, `apiKey` key), the credential by `api_keys` id, state, last ok, last error | staff and the setup wizard (service role); `webhook_received` marks ok | owner, staff |
+| `bookings` | a meeting with a lead: with which team member, start, end (at most 8 h), where, source (`concierge`, `manual`, `import`), state `proposed` -> `confirmed` -> `held` / `no-show` / `cancelled`, calendar ref | `service.book` (the lead's rule: staff, owner, assigned member; members only for themselves; no overlap for one team member, advisory lock), `service.set_booking_state` | owner, staff, the team member it is with |
+| `messages` | every outbound SMS and email: recipient (a lead or a login), channel, template id, provider id, state `queued` / `sent` / `delivered` / `failed` / `blocked` with the reason; the body is rendered at send time, never stored | `service.record_message` (SMS needs consent that covers texting; quiet hours and the daily cap block), `service.set_message_state` | owner, staff, the recipient, the assigned member of the lead |
+| `platform_limits` | the counters' caps (`email_per_day` 95, `sms_per_day` 200, quiet hours 21 to 8) with the source of each | staff | staff |
+| `crm_templates` | a client's sheet layout: ordered columns `[{ header, field, transform }]` and value maps | `service.save_crm_template` (owner or staff; shape checked) | members of the workspace |
+| `webhook_events` | provider callbacks after signature check: connector, kind, provider event id (unique per connector: the same event twice stores one row), payload, processed at, error; the workspace comes from the connector, never the payload | `service.webhook_received` (service role) | staff |
+`workspaces.timezone` (default America/Los_Angeles) drives quiet hours; `lead_event_kind` gained `booked`, `booking-changed`,
+`message-sent`, `message-failed`.
+**Leak found and fixed the same day (T12/T13, watched red):** for a login that is not a member at all, `my_role` is NULL and
+`not (false or NULL)` is NULL, which PL/pgSQL reads as "do not raise": B's owner could have updated A's leads and activated
+A's add-ons. Every such check now goes through `coalesce(..., false)` (`private.can_act_on_lead`, `private.is_owner_or_staff`,
+`lead_update`), with a test per path and a mutant per guard.
+
 ## 9. Roles in one table
 | Can | Visitor | Member | Owner | Staff |
 |---|---|---|---|---|

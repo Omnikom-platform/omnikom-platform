@@ -53,8 +53,9 @@ begin
   select * into l from leads where id = p_lead for update;
   if not found then raise exception 'S-NOT-FOUND: not found'; end if;
   staff := private.is_staff(); role := private.my_role(l.workspace_id); mine := private.my_team_row(l.workspace_id);
-  -- the same rule as the leads read policy: staff, the owner, or the member the lead is assigned to
-  if not (staff or role = 'owner' or (role = 'member' and l.owner_team_row = mine)) then raise exception 'S-NOT-FOUND: not found'; end if;
+  -- the same rule as the leads read policy: staff, the owner, or the member the lead is assigned to. A non-member has a NULL
+  -- role, and NOT NULL is NULL, which PL/pgSQL reads as "do not raise": the coalesce makes unknown count as refused.
+  if not coalesce(staff or role = 'owner' or (role = 'member' and l.owner_team_row = mine), false) then raise exception 'S-NOT-FOUND: not found'; end if;
   if p_status is not null and p_status is distinct from l.status then
     update leads set status = p_status where id = p_lead;
     insert into lead_events (lead_id, workspace_id, kind, by, detail) values (p_lead, l.workspace_id, 'status', me, jsonb_build_object('from', l.status, 'to', p_status));

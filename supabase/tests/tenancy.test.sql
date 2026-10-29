@@ -31,6 +31,13 @@ create function test.lead_update(p_lead uuid, p_status lead_status default null,
 returns void language sql security definer as $$ select service.lead_update(test.claims(), p_lead, p_status, p_owner, p_note) $$;
 create function test.add_lead(p_site uuid, p_name text, p_email text, p_phone text, p_answers jsonb, p_consent text, p_owner uuid default null)
 returns uuid language sql security definer as $$ select service.add_lead(test.claims(), p_site, p_name, p_email, p_phone, p_answers, p_consent, 'manual', p_owner) $$;
+-- step C expansion blocks (migration 3): what the add-on, booking and template Edge Functions do after verifying the user's JWT
+create function test.book(p_lead uuid, p_with uuid, p_starts timestamptz, p_ends timestamptz, p_where text default null, p_source booking_source default 'manual')
+returns uuid language sql security definer as $$ select service.book(test.claims(), p_lead, p_with, p_starts, p_ends, p_where, p_source) $$;
+create function test.set_booking_state(p_booking uuid, p_state booking_state) returns void language sql security definer as $$ select service.set_booking_state(test.claims(), p_booking, p_state) $$;
+create function test.activate_addon(p_ws uuid, p_kind addon_kind) returns void language sql security definer as $$ select service.activate_addon(test.claims(), p_ws, p_kind) $$;
+create function test.set_addon_state(p_ws uuid, p_kind addon_kind, p_state addon_state) returns void language sql security definer as $$ select service.set_addon_state(test.claims(), p_ws, p_kind, p_state) $$;
+create function test.save_crm_template(p_ws uuid, p_id uuid, p_name text, p_columns jsonb) returns uuid language sql security definer as $$ select service.save_crm_template(test.claims(), p_ws, p_id, p_name, 'custom', 'export', p_columns) $$;
 grant usage on schema test to anon, authenticated, service_role;
 grant execute on all functions in schema test to anon, authenticated, service_role;
 
@@ -302,8 +309,9 @@ select test.expect_error(format($q$update leads set status = 'spam' where id = %
 select test.act_as('00000000-0000-0000-0000-0000000000a2');     -- agent two: not their lead
 select test.expect_error(format($q$select test.lead_update(%L, 'closed')$q$, test.id('leadA')), 'S-NOT-FOUND');
 do $$ begin assert (select count(*) from lead_events where lead_id = test.id('leadA')) = 0, 'agent two sees no timeline of a lead they cannot see'; end $$;
-select test.act_as('00000000-0000-0000-0000-00000000000b');     -- B's owner
+select test.act_as('00000000-0000-0000-0000-00000000000b');     -- B's owner: not a member of A at all (NULL role must count as refused)
 do $$ begin assert (select count(*) from lead_events where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 0, 'B''s owner sees no timeline of A'; end $$;
+select test.expect_error(format($q$select test.lead_update(%L, 'spam')$q$, test.id('leadA')), 'S-NOT-FOUND');
 select test.act_as('00000000-0000-0000-0000-00000000000a');     -- A's owner
 select test.lead_update(test.id('leadA'), null, test.id('team2'), 'Called, will visit on Monday');
 do $$ begin
@@ -337,6 +345,117 @@ do $$ begin
   assert (select vault_ref from service.active_key('site-signing', 'aaaaaaaa-0000-0000-0000-00000000517e')) = 'site-demo-a-key-1', 'the live key is the one handed out';
 end $$;
 
+-- ===== T13 expansion blocks: add-ons, bookings, messages, webhook inbox, CRM templates =====
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-0000000000a1');     -- agent one, member of A
+select test.expect_error($q$select test.activate_addon('aaaaaaaa-0000-0000-0000-000000000000', 'concierge')$q$, 'S-NOT-FOUND');   -- members never activate add-ons
+select test.act_as('00000000-0000-0000-0000-00000000000b');     -- B's owner cannot touch A
+select test.expect_error($q$select test.activate_addon('aaaaaaaa-0000-0000-0000-000000000000', 'concierge')$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000000a');     -- A's owner
+select test.activate_addon('aaaaaaaa-0000-0000-0000-000000000000', 'concierge');
+select test.expect_error($q$select test.activate_addon('aaaaaaaa-0000-0000-0000-000000000000', 'concierge')$q$, 'S-ADDON');            -- twice is refused
+select test.expect_error($q$select test.set_addon_state('aaaaaaaa-0000-0000-0000-000000000000', 'concierge', 'active')$q$, 'S-ADDON-STATE');   -- paying -> active skips setting-up
+select test.set_addon_state('aaaaaaaa-0000-0000-0000-000000000000', 'concierge', 'setting-up');
+select test.set_addon_state('aaaaaaaa-0000-0000-0000-000000000000', 'concierge', 'active');
+do $$ begin assert (select state from add_ons where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and kind = 'concierge') = 'active', 'add-on reached active through the legal path'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+do $$ begin assert (select count(*) from add_ons) = 0, 'B''s owner sees no add-on of A'; end $$;
+
+-- bookings: agent one books for themselves with their lead; cannot book for agent two; no double booking; legal state changes
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.lead_update(test.id('leadA'), null, test.id('team1'));             -- give leadA back to agent one for this block
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+insert into test.ids select 'bk1', test.book(test.id('leadA'), test.id('team1'), '2026-11-03 10:00+00', '2026-11-03 11:00+00', 'Office');
+do $$ begin
+  assert (select state from bookings where id = test.id('bk1')) = 'confirmed', 'a manual booking is confirmed at once';
+  assert (select count(*) from lead_events where lead_id = test.id('leadA') and kind = 'booked') = 1, 'the booking is on the timeline';
+end $$;
+select test.expect_error(format($q$select test.book(%L, %L, '2026-11-03 10:30+00', '2026-11-03 11:30+00')$q$, test.id('leadA'), test.id('team1')), 'B-OVERLAP');
+select test.expect_error(format($q$select test.book(%L, %L, '2026-11-04 10:00+00', '2026-11-04 11:00+00')$q$, test.id('leadA'), test.id('team2')), 'S-OWN-ONLY');
+select test.expect_error(format($q$select test.book(%L, %L, '2026-11-04 11:00+00', '2026-11-04 10:00+00')$q$, test.id('leadA'), test.id('team1')), 'B-TIME');
+select test.act_as('00000000-0000-0000-0000-00000000000a');     -- the owner may pick anyone of the workspace, but not a team row of another workspace
+select test.expect_error(format($q$select test.book(%L, %L, '2026-11-04 10:00+00', '2026-11-04 11:00+00')$q$, test.id('leadA'), test.id('teamB1')), 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000000b');     -- B's owner is nobody in A
+select test.expect_error(format($q$select test.book(%L, %L, '2026-11-06 10:00+00', '2026-11-06 11:00+00')$q$, test.id('leadA'), test.id('team1')), 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-0000000000a2');
+do $$ begin assert (select count(*) from bookings) = 0, 'agent two sees no meeting of agent one'; end $$;
+select test.expect_error(format($q$select test.set_booking_state(%L, 'held')$q$, test.id('bk1')), 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+select test.expect_error(format($q$select test.set_booking_state(%L, 'proposed')$q$, test.id('bk1')), 'B-STATE');
+select test.set_booking_state(test.id('bk1'), 'held');
+do $$ begin assert (select count(*) from lead_events where lead_id = test.id('leadA') and kind = 'booking-changed' and detail ->> 'to' = 'held') = 1, 'the booking change is on the timeline'; end $$;
+-- after 'held' the slot is free again
+insert into test.ids select 'bk2', test.book(test.id('leadA'), test.id('team1'), '2026-11-03 10:30+00', '2026-11-03 11:30+00');
+reset role;
+-- the concierge books without a login (service caller): proposed, then confirmed by the owner
+insert into test.ids select 'bk3', service.book(null, test.id('leadA'), test.id('team1'), '2026-11-05 10:00+00', '2026-11-05 10:30+00', 'Phone', 'concierge');
+do $$ begin assert (select state from bookings where id = test.id('bk3')) = 'proposed', 'a concierge booking waits for confirmation'; end $$;
+
+-- messages: SMS needs consent that covers texting; quiet hours block; the daily cap blocks; the provider's answer lands on the timeline
+do $$ declare r record; begin
+  select * into r from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', test.id('leadA'), null, 'email', 'booking-confirmed', 'a@test', test.id('bk1'), '2026-11-02 18:00+00');
+  assert r.state = 'queued', 'an email in the day is queued';
+end $$;
+-- leadI's consent text is "I agree": it does not cover texting
+select test.expect_error(format($q$select * from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', %L, null, 'sms', 'booking-reminder', '+15555550100', null, '2026-11-02 18:00+00')$q$, test.id('leadI')), 'M-CONSENT');
+insert into test.ids select 'leadS', service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'Lead S', 's@test', '+15555550101', '{}', 'I agree to be contacted by email, phone or text');
+do $$ declare r record; begin
+  select * into r from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', test.id('leadS'), null, 'sms', 'booking-reminder', '+15555550101', null, '2026-11-02 18:00+00');   -- 10:00 Los Angeles
+  assert r.state = 'queued', 'an SMS in the day with texting consent is queued';
+  select * into r from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', test.id('leadS'), null, 'sms', 'booking-reminder', '+15555550101', null, '2026-11-03 06:00+00');   -- 22:00 Los Angeles
+  assert r.state = 'blocked' and r.reason = 'quiet hours', 'an SMS at 22:00 local is blocked by quiet hours';
+end $$;
+update platform_limits set value = 1 where key = 'email_per_day';     -- one is already queued today
+do $$ declare r record; begin
+  select * into r from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', null, '00000000-0000-0000-0000-00000000000a', 'email', 'new-lead', 'owner-a@test', null, '2026-11-02 19:00+00');
+  assert r.state = 'blocked' and r.reason = 'daily cap', 'the daily email cap blocks the next email';
+end $$;
+update platform_limits set value = 95 where key = 'email_per_day';
+do $$ declare mid uuid; begin
+  select id into mid from messages where template = 'booking-confirmed' limit 1;
+  perform service.set_message_state(mid, 'sent', 'provider-1');
+  assert (select count(*) from lead_events where lead_id = test.id('leadA') and kind = 'message-sent') = 1, 'a sent message is on the timeline';
+end $$;
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-0000000000a2');
+do $$ begin assert (select count(*) from messages) = 0, 'agent two sees no message about leads that are not theirs'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin assert (select count(*) from messages) >= 3, 'the owner sees the workspace''s messages'; assert (select count(*) from platform_limits) = 0, 'owners do not see platform limits'; end $$;
+select test.expect_error($q$update messages set state = 'sent'$q$, 'permission denied');
+reset role;
+
+-- webhook inbox: the workspace comes from the connector; the same provider event twice stores one row; a revoked connector is refused
+insert into api_keys (workspace_id, kind, label, vault_ref) values ('aaaaaaaa-0000-0000-0000-000000000000', 'omnisuite', 'Demo A OmniSuite', 'demo-a-omnisuite');
+insert into connectors (id, workspace_id, kind, label, api_key_id) select 'cccccccc-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000000', 'omnisuite', 'OmniSuite', id from api_keys where label = 'Demo A OmniSuite';
+insert into connectors (id, workspace_id, kind, label, state) values ('cccccccc-0000-0000-0000-000000000002', 'bbbbbbbb-0000-0000-0000-000000000000', 'sms', 'Old number', 'revoked');
+select test.expect_error($q$insert into connectors (workspace_id, kind, label, config) values ('aaaaaaaa-0000-0000-0000-000000000000', 'sms', 'x', '{"token":"abc"}')$q$, 'connectors_no_secret_in_config');
+do $$ declare e1 bigint; e2 bigint; begin
+  e1 := service.webhook_received('cccccccc-0000-0000-0000-000000000001', 'call.result', 'evt-1', '{"workspace_id":"bbbbbbbb-0000-0000-0000-000000000000","outcome":"booked"}');
+  e2 := service.webhook_received('cccccccc-0000-0000-0000-000000000001', 'call.result', 'evt-1', '{}');
+  assert e1 = e2, 'the same provider event twice answers the same row';
+  assert (select count(*) from webhook_events where provider_event_id = 'evt-1') = 1, 'the same provider event twice stores one row';
+  assert (select workspace_id from webhook_events where id = e1) = 'aaaaaaaa-0000-0000-0000-000000000000', 'the workspace comes from the connector, not the payload';
+  assert (select state from connectors where id = 'cccccccc-0000-0000-0000-000000000001') = 'ok', 'a first callback marks the connector ok';
+end $$;
+select test.expect_error($q$select service.webhook_received('cccccccc-0000-0000-0000-000000000002', 'x', 'evt-9', '{}')$q$, 'S-NOT-FOUND');
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin assert (select count(*) from webhook_events) = 0, 'owners never read the webhook inbox'; assert (select count(*) from connectors) = 1, 'the owner sees only their connectors'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+do $$ begin assert (select count(*) from webhook_events) = 1, 'staff read the webhook inbox'; end $$;
+
+-- CRM templates: owner saves, member cannot, shape is checked, B cannot read A's
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+insert into test.ids select 'tpl1', test.save_crm_template('aaaaaaaa-0000-0000-0000-000000000000', null, 'My CRM', '[{"header":"First Name","field":"name.first"},{"header":"Phone","field":"phone"}]');
+select test.expect_error($q$select test.save_crm_template('aaaaaaaa-0000-0000-0000-000000000000', null, 'Bad', '[{"header":"Phone"},{"header":"Email","field":"email"}]')$q$, 'T-COLUMNS');
+select test.expect_error($q$select test.save_crm_template('aaaaaaaa-0000-0000-0000-000000000000', null, 'Dup', '[{"header":"Phone","field":"phone"},{"header":"Phone","field":"email"}]')$q$, 'T-COLUMNS');
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+select test.expect_error($q$select test.save_crm_template('aaaaaaaa-0000-0000-0000-000000000000', null, 'Mine', '[{"header":"Phone","field":"phone"}]')$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+do $$ begin assert (select count(*) from crm_templates) = 0, 'B''s owner sees no template of A'; end $$;
+select test.expect_error(format($q$select test.save_crm_template('bbbbbbbb-0000-0000-0000-000000000000', %L, 'Stolen', '[{"header":"Phone","field":"phone"}]')$q$, test.id('tpl1')), 'S-NOT-FOUND');
+reset role;
+
 -- ===== T9 anonymous callers (Supabase grants EXECUTE and table rights to anon by default): everything is closed =====
 set role anon;
 select test.act_as(null);
@@ -348,6 +467,10 @@ select test.expect_error($q$select service.lead_update('{"sub":"00000000-0000-00
 select test.expect_error($q$select service.add_lead('{"sub":"00000000-0000-0000-0000-00000000000a"}'::jsonb, 'aaaaaaaa-0000-0000-0000-00000000517e', 'x', 'x@test', null, '{}', 'c')$q$, 'permission denied');
 select test.expect_error($q$insert into lead_events (lead_id, workspace_id, kind) values ('00000000-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-000000000000', 'note')$q$, 'permission denied');
 select test.expect_error($q$select count(*) from api_keys$q$, 'permission denied');
+select test.expect_error($q$select service.book(null, '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', now(), now() + interval '1 hour', null)$q$, 'permission denied');
+select test.expect_error($q$select * from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', null, null, 'email', 'x', 'x@test')$q$, 'permission denied');
+select test.expect_error($q$select count(*) from bookings$q$, 'permission denied');
+select test.expect_error($q$select count(*) from webhook_events$q$, 'permission denied');
 select test.expect_error($q$select count(*) from content_rows$q$, 'permission denied');
 reset role;
 
