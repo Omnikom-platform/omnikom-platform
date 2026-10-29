@@ -102,3 +102,21 @@
     third-party outage; plus not-yet-due, set by the script for C and D items) and what unblocks it. This is the launch half of
     the to-do in 16. NOT BUILT: a platform job or dashboard screen for the ledger; checks for email DNS records, the test lead
     and CrUX (OWNER-PROOF for now).
+
+20. **The writing gate: speed and agent readiness are written in, not cleaned up** (2026-10-29, from the ELEV8 PageSpeed read
+    `E:\Alex Sevilla\site-checks\live-audit-2026-10-29\PSI-FINDINGS.md`). The first real V2 site scored 97 on mobile PageSpeed,
+    and every red item came from a habit in how the build writes code. So the engine applies 7 rules while it writes a site
+    (`tools/design-engine/WRITING.md`), each a number or a yes/no: WG-1 critical CSS inline (14 KiB gzip or less per page), the rest
+    deferred, no render-blocking stylesheet (render-blocking savings 0 ms); WG-2 CSS per template or purged per page, wasted CSS
+    under 8 KiB gzip per page (the 20% proxy was recalibrated from live PageSpeed on 2026-10-29); WG-3 images sized to their slot (`sizes` from the real slot width, `100vw` only for full-bleed, WebP/AVIF at
+    quality 60-70, image-delivery savings under 10 KiB); WG-4 no layout read after a style write in our JS, forced reflows from
+    our scripts 0; WG-5 ARIA roles only on compatible elements, axe `aria-allowed-role` 0; WG-6 agent readiness (clean
+    accessibility tree, `/llms.txt` generated from the contract, Lighthouse Agentic Browsing 2/2); WG-7 `Strict-Transport-Security`
+    and `Cross-Origin-Opener-Policy: same-origin` in `_headers` and on the live response. Enforced in three places: the site's
+    build stops with `BUILD STOPPED: WG-n ...` (measured rules run in the site's `tools/writing-check.mjs`); the skill's
+    `scripts/writing-gate.mjs <built site dir> [--url] [--psi-dir]` checks again, independently; and the launch ledger checks the
+    live site (`live-headers` on L-B8 now also requires COOP; the new check `writing` on L-B9 runs writing-gate on the launch
+    build with the live URL and the saved PageSpeed JSON). Watched-red rule: each check is proven red by a mutant that breaks the
+    code it covers, red for the right reason, before it counts. NOT BUILT: the Agentic Browsing category by API (the PageSpeed
+    API does not expose it yet, so WG-6's 2/2 is read in the browser at pagespeed.web.dev: lead's browser or OWNER-PROOF);
+    Trusted Types CSP (needs a CSP review first); WebMCP form metadata (once the spec settles).

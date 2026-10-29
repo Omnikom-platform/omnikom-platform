@@ -58,14 +58,19 @@ Each `--check` also writes `<pewp>/runs/<date>-launch.md` (command, exit code, o
 | Check | Items | Source of truth |
 |---|---|---|
 | gate | L-B7 | the skill's `gate.mjs --strict` (always strict) on the launch build |
-| live-headers | L-B8 | HTTP 200, no noindex (header or meta), robots.txt allows Googlebot and Bingbot, nosniff, HSTS on https |
+| live-headers | L-B8 | HTTP 200, no noindex (header or meta), robots.txt allows Googlebot and Bingbot, nosniff, HSTS on https, COOP `same-origin` |
 | canonical | L-B10 | canonical = URL, one H1, title 1-60 characters |
 | detailed-seo | L-B10 | the Detailed SEO CLI's panel, when the CLI is present (path in config) |
+| writing | L-B9 | the skill's `writing-gate.mjs` on the launch build with the live URL and the saved PageSpeed JSON: WG-1 to WG-7 all PASS |
 | psi | L-B9 | PageSpeed Insights v5, mobile and desktop, `PSI_API_KEY` from the env (never printed or stored) |
 | redirects | L-A6 | every static rule of the 301 map answers 301 to its target |
 | sitemap | L-B11 | the sitemap file: 200, urlset or index, every URL on the site's host |
 | command | L-A1 | a site-specific command; exit 0 passes |
 Everything else is OWNER-PROOF: a screenshot or URL the owner gives, for systems with no API.
+
+L-B8 includes `Cross-Origin-Opener-Policy` and L-B9 includes the `writing` check. Both come from the writing gate: seven rules
+applied while the engine writes a site, so speed and agent readiness are built in. Rules: `tools/design-engine/WRITING.md`.
+Decision: `planning/DECISIONS.md` item 20.
 
 ## 6. The stop condition
 Every item is PASS with its proof line, or BLOCKED with an allowed reason and what unblocks it. Nothing else ends the task.

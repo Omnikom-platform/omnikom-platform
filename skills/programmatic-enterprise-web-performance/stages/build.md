@@ -78,6 +78,56 @@ options. `business.industry` selects `rules/industries/<slug>.json` (regulated n
 the claim rules the builder follows. `launchState` decides indexability: a preview or planned site is "not indexable by
 design" and the handoff tells the builder to put noindex on every page.
 
+## Site scope by industry (DECISIONS 18)
+The SOP `E:\Omnikom Platform\sops\site-scope.md` sets three things:
+- what every V2 site contains;
+- who writes what. Omnikom writes the structure and the wording. The client feeds services, articles, their industry
+  collection and reviews, all through their dashboard;
+- the placeholder rule. Sections the dashboard feeds ship as marked placeholders.
+
+Old-site features (IDX, home search, widgets) are cut.
+
+## Client questions: facts and access only (DECISIONS 17, owner 2026-10-28)
+An unsourced claim found during the build is OUR research task, never a client question:
+1. Research it from a public source and record it with its source and date.
+2. If no source exists, use the safe default (leave it out, use neutral wording, or drop the section).
+3. Only a fact in the catalogue of `E:\Omnikom Platform\sops\client-questions.md` becomes ONE merged question.
+
+The client sheet has at most 12 questions, in the format of `E:\Omnikom Platform\templates\client-questions\`, and is checked
+with `tools/client-questions/questions-pdf.mjs --check`.
+
+Never asked of a client: page wording, cut features (listings, IDX, search), or a failing checker or gate rule.
+Those are our fixes.
+
+Internal question markers (Q-ids, `clientWording`) never reach a client page, PDF or email.
+
+Why: the ELEV8 build produced 115 "questions" that handed our work to the client. The owner caught it before it was sent.
+
+## The writing gate (7 rules, build-time)
+Seven habits in how a build writes code made PageSpeed Insights red on the first V2 site (ELEV8 preview, 2026-10-29: 97 on mobile, but a
+render-blocking sheet, half-unused CSS, a hero sized `100vw`, a 53 ms forced reflow, `<form role="tabpanel">`, no `/llms.txt`, no COOP).
+Each is now a rule the BUILDER'S OWN BUILD enforces while it writes (build.mjs, the templates, the CSS and image pipeline): the build
+must **stop with a non-zero exit** on each one, so a site that breaks a rule is never produced. The ELEV8 build is the first instance.
+This skill checks the same rules independently on the built folder, before launch:
+`node "<skill>/scripts/writing-gate.mjs" <built site dir> [--pages /a,/b] [--url <live base>] [--psi-dir <saved PSI v5 json>] [--json out]`
+(exit 0 all PASS, 1 any FAIL, 2 a rule could not run). The builder's build and this check must agree; the builder's "all green" is a claim, this is the proof.
+
+| Rule | The build must produce | Number to hit | Checked how |
+|---|---|---|---|
+| WG-1 critical CSS inline, rest deferred | each template inlines its above-the-fold CSS; the rest loads with `media="print" onload` (or `rel="preload" as="style"`, or `media="print"` flipped by a script when the CSP forbids inline handlers) plus a `<noscript>` fallback | 0 render-blocking `<link rel="stylesheet">` in `<head>`; inline `<style>` in `<head>` <= 14 KiB gzip (the first round trip, compressed; raw is often 2-4x) | static parse of every sampled page; a script-flipped sheet is loaded in Chromium and must not be `print` 1.5 s after load |
+| WG-2 CSS per template, purged | one stylesheet per template, or unused rules purged per page | wasted CSS under 8 KiB gzip per page view (each same-origin sheet's unused share of its gzip size; the % is reported). Calibrated 2026-10-29 from live PageSpeed: 34-52% unused by coverage was green, its one red was 10.2 KiB wasted | Chromium CSS coverage, page loaded, scrolled to the bottom and back, at each viewport |
+| WG-3 images sized to their slot | `sizes` derived from the real layout width; `100vw` only on full-width images; AVIF/WebP at q 60-70 | every `srcset` image has `sizes`; `sizes="100vw"` only when rendered width >= 95% of the viewport; chosen candidate <= the first srcset step at or above 1.5 x the rendered width | Chromium at 390x844 and 1366x900, DPR 1 |
+| WG-4 no layout read after a style write | JS batches reads, then writes (no `offsetHeight` / `getBoundingClientRect` / `getComputedStyle` after `classList`, `style`, `hidden`) | 0 forced Layout events from the site's own scripts (style recalculations are listed, not gated: PageSpeed attributes forced layout only) | Chromium trace (Layout with a same-origin JS frame); a static lint is the fallback and the result says which ran |
+| WG-5 ARIA only on compatible elements | roles on `<div>`/`<section>`, never `<form role="tabpanel">`; a `<div role="tabpanel">` wraps the form | 0 violations of the ARIA in HTML allowed-roles table (`scripts/lib-aria-roles.mjs`) on every built page | static |
+| WG-6 agent readiness | `/llms.txt` generated from the contract (H1, markdown links to built pages) and a clean accessibility tree | file exists, begins `# `, >= 1 link, every same-host link resolves to a built page; WG-5 = 0; live: 200 `text/plain` | static, plus one GET of `/llms.txt` with `--url` |
+| WG-7 security headers | `_headers` (Cloudflare Pages) with a `/*` block for every site | `Strict-Transport-Security` and `Cross-Origin-Opener-Policy` present; live: on each page | static, plus one GET per page with `--url` |
+
+`--psi-dir` adds the saved PageSpeed v5 answers as evidence lines and fails the matching rule when they contradict the measurement:
+render-blocking savings 0 ms (WG-1), unused-css wastedBytes <= 8 KiB (WG-2), image-delivery wasted <= 10 KiB (WG-3), forced-reflow 0 ms from rows with a source location, "[unattributed]" rows not counted (WG-4),
+aria-allowed-role items 0 (WG-5). Launch runs it as the `writing` check of L-B9 (`stages/launch.md`).
+Proof of the tool: `node scripts/test-writing-gate.mjs` (a good fixture site, one mutant per rule, watched red for the right reason).
+Not covered: Trusted Types CSP and WebMCP form metadata (the spec has not settled), and the `network-dependency-tree` insight (reference only).
+
 ## What "ranks from day one" means here (so nobody oversells)
 The plan is built from real demand (research from free sources) so every page exists for a query people search, there is one
 page per cluster, and the gate proves the page carries that query where it counts, answers the brief's questions, links as

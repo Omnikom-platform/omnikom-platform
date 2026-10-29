@@ -21,7 +21,7 @@ const A = process.argv.slice(2);
 const opt = (k, d = null) => (A.includes(k) ? A[A.indexOf(k) + 1] : d);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const scriptsDir = path.resolve(opt("--scripts", here));
-const KEY = "PSIKEYSECRET-abc123XYZ";
+const KEY = "PSIKEYSECRET-abc123XYZ";   // gitleaks:allow (a made-up test key, never a real one)
 const GAP = 400;
 
 // the documented v5 shape, reduced to the fields the script reads (plus the neighbours a real answer carries)

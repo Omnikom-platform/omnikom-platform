@@ -1,4 +1,4 @@
-# SOP: launch a V2 site, from preview to production (DECISIONS 19)
+# SOP: launch a V2 site, from preview to production (DECISIONS 19, 20)
 
 Status 2026-10-29. Written from the first real run: ELEV8 (`E:\Alex Sevilla\draft-site\LAUNCH-ENTERPRISE.md`, 22 items in
 groups A-D). This SOP is industry neutral. It follows DECISIONS 16 (build once, launch by edits), 17 (the client gives facts and
@@ -57,8 +57,8 @@ Proof kinds:
 | Id | Item | Done when | Proven by |
 |---|---|---|---|
 | L-B7 | Launch build passes the strict gate | The launch build (noindex off, robots allow, samples dropped) passes `gate.mjs --strict`. | check: gate |
-| L-B8 | Custom domain live with HTTPS and headers | Every key page answers 200 on the production URL. No noindex header or meta. robots.txt allows it. Security headers present. The preview host is retired or redirected. | check: live-headers |
-| L-B9 | PageSpeed Insights on the live domain | Mobile and desktop, every template: performance 90+, accessibility 100, best practices 100, SEO 100. | check: psi |
+| L-B8 | Custom domain live with HTTPS and headers | Every key page answers 200 on the production URL. No noindex header or meta. robots.txt allows it. Security headers present: `X-Content-Type-Options`, `Strict-Transport-Security` and `Cross-Origin-Opener-Policy` (COOP). The preview host is retired or redirected. | check: live-headers |
+| L-B9 | PageSpeed Insights on the live domain | Mobile and desktop, every template: performance 90+, accessibility 100, best practices 100, SEO 100. The writing gate (WG-1 to WG-7, `tools/design-engine/WRITING.md`) passes on the launch build against the live URL and the saved PageSpeed JSON. | check: psi + writing |
 | L-B10 | Page tags on every template | The canonical equals the URL. Robots reads index, follow. One H1. No cut-off title. | check: canonical + detailed-seo |
 | L-B11 | Search Console and Bing Webmaster | The sitemap file is reachable and lists only production URLs. The Domain property is verified. The sitemap is submitted. URL inspection says indexable on the home page and 3 key pages. Bing has the site. | check: sitemap + OWNER-PROOF |
 | L-B12 | Rich results valid | Google's Rich Results Test is valid for the main schema types (the business, a person, FAQ) on sample pages. | OWNER-PROOF |
@@ -86,9 +86,10 @@ Due 30 days after launch day (the day L-B8 first passes).
 | Check | Passes when |
 |---|---|
 | gate | `scripts/gate.mjs <pewp> <launch build> --strict` exits 0. Waivers come only from a recorded sign-off. |
-| live-headers | Every page: HTTP 200 with no redirect. No `noindex` or `none` in `X-Robots-Tag` or a robots meta tag. robots.txt allows the path for Googlebot and Bingbot. `X-Content-Type-Options: nosniff`. `Strict-Transport-Security` on https. |
+| live-headers | Every page: HTTP 200 with no redirect. No `noindex` or `none` in `X-Robots-Tag` or a robots meta tag. robots.txt allows the path for Googlebot and Bingbot. `X-Content-Type-Options: nosniff`. `Strict-Transport-Security` on https. `Cross-Origin-Opener-Policy` present (WG-7; ELEV8 had none, PSI-FINDINGS.md 2026-10-29). |
 | canonical | Every page: `rel=canonical` equals the page URL. Exactly one H1. A title of 1 to 60 characters. |
 | psi | PageSpeed Insights v5 for every page, mobile and desktop, with the key in `PSI_API_KEY`. No key: BLOCKED `owner-access psi-key`. |
+| writing | `writing-gate.mjs` on the launch build with the live URL and the saved PageSpeed files: the 7 WG lines (WG-1 to WG-7) all PASS. |
 | redirects | Every static rule of the map (`_redirects` lines or JSON) answers 301 with a Location equal to its target. |
 | sitemap | The sitemap file answers 200, is a urlset or sitemapindex, lists at least one URL, all on the site's host. |
 | detailed-seo | When the CLI is present: its panel agrees on canonical, robots, one H1 and the title. When absent, the line says NOT RUN. |
@@ -119,6 +120,7 @@ Where a platform has no user seat, the client makes the change from our exact st
 ## 6. Not built yet
 - **NOT BUILT:** an automated check for the email records (MX, SPF, DKIM, DMARC before and after the DNS change). L-A5 is OWNER-PROOF.
 - **NOT BUILT:** an automated test lead (L-A2) and a CrUX pull for L-D20. Both are OWNER-PROOF.
+- **NOT BUILT:** the Agentic Browsing category by API (WG-6). The PageSpeed API does not expose it yet, so the lead or the owner reads it at pagespeed.web.dev and records it as OWNER-PROOF.
 - **NOT BUILT:** `start.mjs launch <target>`. Run `launch.mjs` directly.
 - **NOT BUILT:** a dashboard view of the ledger in the platform.
 - **UNPROVEN:** the live PageSpeed Insights call and the real Detailed SEO CLI through `launch.mjs`. The test uses a local fake

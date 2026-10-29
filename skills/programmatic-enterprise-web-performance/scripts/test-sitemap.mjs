@@ -20,7 +20,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const scriptsDir = path.resolve(opt("--scripts", here));
 const NEEDED = ["sitemap-check.mjs", "sitemap-submit.mjs", "lib-main.mjs", "state.mjs", "lib-env.mjs", "lib-polite.mjs", "lib-freshness.mjs", "lib-google-auth.mjs"];
 const TODAY = "2026-10-26";
-const KEY = "BINGKEY-s3cr3t-9f8e7d";
+const KEY = "BINGKEY-s3cr3t-9f8e7d";   // gitleaks:allow (a made-up test key, never a real one)
 const TOKEN = "TESTTOKEN-ABC123";
 const node = process.execPath;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
