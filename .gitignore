@@ -12,3 +12,5 @@ tools/design-engine/examples/**/*.png
 # owner 2026-10-29: account logins and the master .env (DB, Cloudflare, Resend, ...). Never committed; scripts read keys from it by name only.
 creds and accounts login/
 creds*/
+supabase/.temp/
+.wrangler/

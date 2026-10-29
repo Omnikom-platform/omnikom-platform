@@ -4,6 +4,77 @@ Task: build-ready product engineering package (owner, 2026-10-28), raised to eng
 then corrected by an independent fact-check (72 claims) and an independent M1 dry run (31 issues), and by DECISIONS 15
 (no Docker; one Supabase account, staging + production). **Status: complete for owner review. Nothing committed.**
 
+## Step 1.1 + step 2.1 on the real staging project (2026-10-29 23:10-00:10, setup session beside the owner)
+Project: Supabase org "Omnikom" (Free), project "Omnikom V2 Platform" used as staging (owner's pick), ref in the .env as
+`STAGING_SUPABASE_REF`, region us-west-2 (DECISIONS 29), Postgres 17.11. Banked by name only (`creds and accounts login/omnikom.env`,
+git-ignored, `OMNIKOM_ENV_FILE`): `STAGING_DB_PASSWORD`, `STAGING_DB_URL` (transaction pooler 6543), `STAGING_DB_URL_DIRECT`
+(session pooler 5432: the direct host is IPv6-only on Free, so the session pooler is the IPv4 path for migrations),
+`STAGING_SUPABASE_PUBLISHABLE_KEY`, `STAGING_SUPABASE_SECRET_KEY`.
+```
+node tools/check-platform-keys.mjs "<env>"
+STAGING_SUPABASE_REF: present / STAGING_DB_PASSWORD: present / STAGING_DB_URL: present / STAGING_DB_URL_DIRECT: present
+STAGING_DB_URL connect: OK
+Supabase publishable key: HTTP 200 OK
+Supabase secret key: HTTP 200 OK
+(Cloudflare, R2, Resend, LEAD_ALERT_FROM, Google: MISSING, steps 1.3-1.5 not started)
+
+node tools/test/probe-db.mjs STAGING_DB_URL_DIRECT
+STAGING_DB_URL_DIRECT: HTTP-like OK: pg 17.11 ssl=true user=postgres
+STAGING_DB_URL_DIRECT: SSL enforced (a non-SSL connection was refused: ... FATAL: ...)
+
+node tools/staging-extensions.mjs
+ok pg_cron 1.6.4 schema=pg_catalog / ok pg_net 0.20.4 schema=extensions / ok pgmq 1.5.1 schema=pgmq / ok pg_stat_statements 1.11 schema=extensions
+all installed: pg_cron 1.6.4, pg_net 0.20.4, pg_stat_statements 1.11, pgcrypto 1.3, pgmq 1.5.1, plpgsql 1.0, supabase_vault 0.3.1, uuid-ossp 1.1
+PASS extensions on staging: 4 of 4
+
+node supabase/apply-staging.mjs --url-env STAGING_DB_URL_DIRECT
+apply 20261028000001_platform.sql / apply 20261029000002_crm.sql / apply 20261029000003_addons.sql / apply 20261029000004_hardening.sql
+OK: applied 4 of 4 (0 were already applied)
+
+node supabase/tests/run-staging.mjs   (first run on real Supabase)
+FAIL tenancy tests on staging:
+psql:.../tenancy.test.sql:89: ERROR:  no public function executable by anon
+OK: no fixtures left on staging (rolled back)
+```
+After migration 5 (vendor defaults) and the ledger moved to `ops.platform_migrations` (second T14 catch on staging: the
+ledger table that apply-staging created in `public`, now in its own schema; `test-apply.mjs` updated):
+```
+node supabase/apply-staging.mjs --url-env STAGING_DB_URL_DIRECT
+apply 20261029000005_vendor_defaults.sql
+OK: applied 1 of 5 (4 were already applied)
+
+node supabase/tests/run-local.mjs --only "vendor function defaults"
+PASS real migration: ALL TENANCY TESTS PASSED
+caught   vendor function defaults overridden (N10 on real Supabase, migration 5) ERROR:  no public function executable by anon
+
+node supabase/tests/run-staging.mjs   (2026-10-30 00:03)
+PASS tenancy tests on staging
+OK: no fixtures left on staging (rolled back)
+```
+Closes REVIEW 15 and the "run-staging.mjs written, not run" line below: the walls hold on real Supabase.
+Settings observed in the dashboard (browser pane, each read back after saving): Enforce SSL on (confirmed by the probe above);
+sign-ups off, anonymous off, confirm email on, OTP expiry 3600 s, OTP length 8; Site URL `https://app-staging.omnikom.io`,
+redirect `https://app-staging.omnikom.io/**`; rate limits left at the defaults (sign-in 30 / 5 min, OTP and magic-link
+verifications 30 / 5 min, token refresh 150 / 5 min, built-in mail 2 / hour until custom SMTP); Data API: auto-expose already
+off, schemas public + extensions exposed, pg_graphql not installed (no graphql_public).
+FINDINGS (vendor differs from the docs):
+1. The Email provider has no "passwords off" switch; magic-link-only (DECISIONS 29 D18) is enforced by the app never offering
+   a password form, and by the staff second factor. Recorded on the sequence line.
+2. `public.rls_auto_enable()` (Supabase's own event-trigger function, owner postgres, default ACL) gave `anon` EXECUTE on one
+   function in `public`, so N10 failed on staging while passing locally. An event-trigger function cannot be called by a
+   client (nothing leaked). Fix: `20261029000005_vendor_defaults.sql` (revoke execute on all functions in public from public,
+   anon), the same vendor function added to `local-shim.sql`, and the mutant "vendor function defaults overridden" in
+   `run-local.mjs`. Proof lines below once run.
+3. The built-in browser pane cannot copy to the Windows clipboard (page scripts: "Write permission denied"; the owner's own
+   click: "unable to copy") and Supabase's CSP blocks the page from posting to localhost, so `tools/secret-receiver.mjs`
+   (built and tested: 14 checks, 6 of 6 mutants) could not be used from that page. Working path: the Copy button clicked in
+   the owner's Edge through the Claude extension, then `save-secret-from-clipboard.ps1` by name. The pane still drives
+   every settings page.
+NOT DONE (owner clicks): MFA on the Supabase account, a second owner; custom SMTP waits for 1.4.
+New tools: `tools/with-env.mjs` (run a command with the .env loaded by name), `tools/compose-db-url.mjs` (connection strings
+from the password in the note, never shown), `tools/check-platform-keys.mjs`, `tools/staging-extensions.mjs`,
+`tools/secret-receiver.mjs` + tests, `tools/tick-sequence.mjs`, `tools/test/probe-*.mjs`.
+
 ## Hardening run (2026-10-29 22:50, four migrations in order, `node supabase/tests/run-local.mjs`)
 ```
 PASS real migration: ALL TENANCY TESTS PASSED

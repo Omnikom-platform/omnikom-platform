@@ -42,7 +42,7 @@ r = apply([]);
 check('run 2 applies none', r.status === 0 && /OK: applied 0 of/.test(r.stdout), r.stdout + r.stderr);
 r = apply(['--dry-run']);
 check('dry run after that reports 0 pending', r.status === 0 && /DRY RUN: 0 pending/.test(r.stdout), r.stdout);
-r = psql(['-t', '-A', '-c', 'select count(*) from public.platform_migrations']);
+r = psql(['-t', '-A', '-c', 'select count(*) from ops.platform_migrations']);
 check('ledger holds one row per file', r.stdout.trim() === String(files.length), r.stdout);
 
 // the database the script built passes the tenancy tests (the same file run-local.mjs and run-staging.mjs use)

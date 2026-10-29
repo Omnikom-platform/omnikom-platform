@@ -44,3 +44,12 @@ grant execute on function storage.foldername(text) to anon, authenticated, servi
 
 -- Realtime publication (Supabase creates it in every project)
 create publication supabase_realtime;
+
+-- Supabase's own event-trigger function in public (seen on the real staging project 2026-10-29: public.rls_auto_enable(),
+-- owner postgres, default ACL, so PUBLIC may "execute" it). It made N10 ("no public function executable by anon") fail on
+-- staging while passing locally; migration 5 revokes it, and this stand-in keeps the local run honest about it.
+create function public.rls_auto_enable() returns event_trigger language plpgsql security definer set search_path to 'pg_catalog' as $$
+begin
+  perform 1;   -- the real one enables RLS on every new table in public; the walls do that themselves
+end $$;
+create event trigger rls_auto_enable_tbl on ddl_command_end when tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO') execute function public.rls_auto_enable();

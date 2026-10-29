@@ -173,6 +173,7 @@ const MUTANTS = [
   ['pinned version must exist (N4)', "    then raise exception 'S-NOT-FOUND: a pinned version does not exist'; end if;", "    then null; end if;"],
   ['seed records its reference (N9)', "jsonb_build_object('by', p_actor, 'ref', p_ref));", "null);"],
   ['no extension functions in public (N10)', "-- gen_random_uuid() is built into Postgres 13+:", "create extension if not exists pgcrypto;\n-- gen_random_uuid() is built into Postgres 13+:"],
+  ['vendor function defaults overridden (N10 on real Supabase, migration 5)', 'revoke execute on all functions in schema public from public, anon;', '-- (vendor defaults kept)'],
   ['job error recorded (N13)', "error = coalesce(p_error, error),", ""],
   ['unpublish: owners and staff only (null-guarded, review 1)', "  if not found or not private.is_owner_or_staff(c.workspace_id) then raise exception 'S-NOT-FOUND: not found'; end if;\n  update content_rows set published_version = null", "  update content_rows set published_version = null"],
   ['jobs and leads stream through Realtime', "    alter publication supabase_realtime add table publish_jobs, leads;", "    null;"],

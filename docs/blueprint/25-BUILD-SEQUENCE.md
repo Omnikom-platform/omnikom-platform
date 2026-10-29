@@ -11,24 +11,24 @@ Nothing of the platform can be proven without them. Values go into the master .e
 I never see or print a value. Tick each line when done.
 
 **1.1 Supabase staging** (first, because the lead-path proof needs it)
-- [ ] Create the Omnikom organisation (not a personal one). Turn on MFA for your account. Add a second owner (Dave, or a
+- [ ] Create the Omnikom organisation (not a personal one) (organisation "Omnikom" EXISTS on Free, 2026-10-29; MFA and the second owner NOT DONE: owner clicks). Turn on MFA for your account. Add a second owner (Dave, or a
       second account of yours): DECISION 29 lists it; the gap hunt says one owner is a single point of failure.
-- [ ] Create project `omnikom-staging`, region **US West** (DECISIONS 29), Free plan. Save the database password in the .env as
+- [x] Create project `omnikom-staging`, region **US West** (DECISIONS 29), Free plan. Save the database password in the .env as (DONE 2026-10-29: project Omnikom V2 Platform, ref in the .env, us-west-2, Free, used as staging; STAGING_DB_PASSWORD, STAGING_DB_URL = transaction pooler 6543, STAGING_DB_URL_DIRECT = session pooler 5432 because the direct host is IPv6-only on Free; both connect, pg 17.11)
       `STAGING_DB_PASSWORD`. From Connect, copy the **transaction pooler** connection string (port 6543) into the .env as
       `STAGING_DB_URL`, and the direct string as `STAGING_DB_URL_DIRECT` (for migrations).
-- [ ] Project settings > Database: **Enforce SSL** on (do it now; it reboots the database, fine while empty).
-- [ ] Authentication > Providers: Email on, **magic link only** (passwords off, DECISIONS 29 D18). Sign-ups: **off** (invites only).
+- [x] Project settings > Database: **Enforce SSL** on (do it now; it reboots the database, fine while empty). (DONE 2026-10-29: switched on in the dashboard; probe-db.mjs: ssl=true and a sslmode=disable connection refused)
+- [x] Authentication > Providers: Email on, **magic link only** (passwords off, DECISIONS 29 D18). Sign-ups: **off** (invites only). (DONE 2026-10-29: sign-ups off, anonymous off, confirm email on, OTP expiry 3600 s, Site URL https://app-staging.omnikom.io, redirect https://app-staging.omnikom.io/**; FINDING: no "passwords off" switch exists in the Email provider, so magic-link-only is enforced by the app never offering a password form)
       Anonymous sign-ins: **off**. Confirm email: **on**. OTP expiry: **3600 s**. Site URL: `https://app-staging.<your domain>`
       (placeholder until D3); redirect allowlist: the same.
-- [ ] Authentication > Rate limits: leave the defaults, note them (30 per 5 min per IP for sign-in and magic link).
+- [x] Authentication > Rate limits: leave the defaults, note them (30 per 5 min per IP for sign-in and magic link). (DONE 2026-10-29: defaults kept: sign-in 30 per 5 min, OTP/magic-link verifications 30 per 5 min, token refresh 150 per 5 min, built-in email 2 per hour until custom SMTP)
 - [ ] Authentication > SMTP: custom SMTP through Resend (after 1.4), sender on the Omnikom domain.
-- [ ] Database > Extensions: enable `pg_cron`, `pg_net`, `pgmq`, `pg_stat_statements`. (If one is missing on Free, tell me: it
+- [x] Database > Extensions: enable `pg_cron`, `pg_net`, `pgmq`, `pg_stat_statements`. (If one is missing on Free, tell me: it (DONE 2026-10-29: staging-extensions.mjs PASS 4 of 4: pg_cron 1.6.4, pg_net 0.20.4 (extensions schema), pgmq 1.5.1, pg_stat_statements 1.11)
       is a design change, not a blocker.)
-- [ ] API settings: "automatically expose new tables" **off**; keep `public` exposed for now (D24 later); disable `graphql_public`
+- [x] API settings: "automatically expose new tables" **off**; keep `public` exposed for now (D24 later); disable `graphql_public` (DONE 2026-10-29: auto-expose was already off; exposed schemas public + extensions; pg_graphql is not installed so there is no graphql_public endpoint)
       if the toggle exists.
-- [ ] Copy the **publishable** key into the .env as `STAGING_SUPABASE_PUBLISHABLE_KEY`, the **secret** key as
+- [x] Copy the **publishable** key into the .env as `STAGING_SUPABASE_PUBLISHABLE_KEY`, the **secret** key as (DONE 2026-10-29: STAGING_SUPABASE_PUBLISHABLE_KEY and STAGING_SUPABASE_SECRET_KEY banked from the Copy buttons in Edge; check-platform-keys.mjs: both HTTP 200; STAGING_SUPABASE_REF written)
       `STAGING_SUPABASE_SECRET_KEY`, the project ref as `STAGING_SUPABASE_REF`.
-- [ ] Production project: NOT yet (step 6). Free allows two active projects; staging first.
+- [x] Production project: NOT yet (step 6). Free allows two active projects; staging first. (DONE 2026-10-29: nothing created)
 Done when: `STAGING_DB_URL` is in the .env and you tell me "staging is up".
 
 **1.2 GitHub organisation**

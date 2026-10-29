@@ -136,6 +136,36 @@
   mutants); 3 = `tools/crm-map/` mapper + tests + 2 shipped templates (Sonnet builds, lead verifies); 4 = fresh-eyes review
   (unit-reviewer) + fixes; then stop the loop and ask D9-D13 as options.
 
+- **2026-10-29 23:10 -> 2026-10-30: SETUP SESSION (step 1 "Accounts exist" + step 2 "The first lead is proven", beside the
+  owner; browser pane for settings, the owner's Edge through the Claude extension for every Copy button).** Proofs in
+  `docs/blueprint/PROGRESS.md` ("Step 1.1 + step 2.1 on the real staging project"); ticks in `25-BUILD-SEQUENCE.md`.
+  DONE 1.1: Supabase org "Omnikom" (Free), project "Omnikom V2 Platform" = staging (owner's pick), us-west-2, pg 17.11;
+  Enforce SSL on (probe: non-SSL refused); sign-ups off, anonymous off, confirm on, OTP 3600 s; Site URL + redirect
+  `https://app-staging.omnikom.io(/**)`; rate limits noted; extensions 4 of 4; Data API auto-expose off, no pg_graphql;
+  banked by name in `creds and accounts login/omnikom.env` (= `OMNIKOM_ENV_FILE`; load with `node tools/with-env.mjs "<file>" --
+  <cmd>`): STAGING_SUPABASE_REF, STAGING_DB_PASSWORD, STAGING_DB_URL (transaction pooler 6543), STAGING_DB_URL_DIRECT
+  (session pooler 5432: the direct host is IPv6-only on Free), STAGING_SUPABASE_PUBLISHABLE_KEY, STAGING_SUPABASE_SECRET_KEY;
+  `tools/check-platform-keys.mjs`: DB connect OK, both keys HTTP 200. NOT DONE 1.1 (owner clicks): MFA, second owner; SMTP after 1.4.
+  DONE 2.1: `apply-staging.mjs` applied migrations 1-4, then 5 (`20261029000005_vendor_defaults.sql`: Supabase's own
+  `public.rls_auto_enable()` gave anon EXECUTE in public, N10 failed on staging; mirrored in `local-shim.sql`, mutant in
+  `run-local.mjs`, caught). Second staging finding: the ledger `public.platform_migrations` (created by apply-staging itself)
+  failed T14; the ledger now lives in `ops.platform_migrations` (apply-staging moves it; test-apply updated). run-staging:
+  see PROGRESS for the final line (UNPROVEN until it prints PASS).
+  FINDINGS: no "passwords off" switch in the Email provider (magic-link-only is enforced by the app); the browser pane cannot
+  reach the Windows clipboard and Supabase's CSP blocks localhost, so `tools/secret-receiver.mjs` (tested, 6 of 6 mutants)
+  is unused for now: Copy buttons are clicked in the owner's Edge; Supabase CLI on this machine is logged in to ANOTHER
+  account (OmniSuite/OmniSkipX projects): deploying `capture-lead` needs an access token from amer@omnikom.io banked as
+  `SUPABASE_ACCESS_TOKEN`; this machine's `CLOUDFLARE_API_TOKEN` env var is an old user token for the account
+  a0ef90789c7de98e163d05c5b741154b (holds elev8/rainmaker/francine Pages projects); GitHub: no organisation exists yet.
+  DECISIONS 30 landed mid-session (commit 86edf13): the proof runs on the CLI's test workspaces, ELEV8 is touched only in
+  step 7; my ELEV8 seed script was deleted unused. Ownership: this session = step 1 + the staging project (including the
+  `capture-lead` deploy and its secrets); the `cli-slice-1` session = `tools/omnikom-cli/` (seed test, key mint, lead send,
+  verify); neither touches the ELEV8 Pages project. `supabase/.temp/` and `.wrangler/` are now git-ignored.
+  NEXT (owner's clicks, asked as options): SUPABASE_ACCESS_TOKEN (amer@omnikom.io, for `supabase functions deploy`); 1.2
+  GitHub org; 1.3 the two Cloudflare tokens + R2 (bucket list failed once: "fetch failed", retry); 1.4 Resend
+  (RESEND_API_KEY, LEAD_ALERT_FROM); MFA + second owner on Supabase; then deploy `capture-lead` with its secrets and hand the
+  lead proof to the CLI session (step 2 items 2-5).
+
 ## Open elsewhere (not this repo, but the owner may ask)
 - Rainmaker launch is WAITING on Monica's answers (via Dave) and the GoDaddy nameserver switch; steps in `E:\Rainmaker\LAUNCH.md`.
 - Francine (VTV) and Eli: see `E:\Francine & Eli\.claude\POSITION.md`.
