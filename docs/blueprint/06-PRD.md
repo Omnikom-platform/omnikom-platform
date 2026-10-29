@@ -55,6 +55,15 @@ edit content, never layout).
 | FR-22 | Sold price shown only when ticked; internal fields never reach the site | W2.2 | `publicData` tests |
 | FR-23 | The site renders the approved design without silent changes | W2.1 | visual-equivalence diff vs the approved design at 3 sizes |
 | FR-24 | Clients edit page sections (text, photos, SEO text) in a page editor | W3.4 | Playwright: edit a home section, publish, preview shows it |
+| FR-25 | A new lead alerts the business and the assigned member by email, within the free tier's daily cap (DECISIONS 22, 23) | W6.1 | T13 cap test; function test with a fake provider |
+| FR-26 | Provider callbacks (calls, delivery receipts, payments) land in one signed inbox, once each, in the connector's workspace | W6.2 | T13 webhook tests; function test |
+| FR-27 | Leads are pushed to the client's CRM with retries and a visible result; the OmniSuite adapter when its API exists | W6.3, W6.8 | function test with a fake receiver; contract test against the OmniSuite spec |
+| FR-28 | SMS and email about meetings: only with consent that covers the channel, outside quiet hours, under the daily cap; STOP honoured | W6.4 | T13 consent and quiet-hours tests; function test |
+| FR-29 | A client activates a paid add-on through one setup wizard; states paying -> setting-up -> active; members cannot | W6.5 | T13 add-on states; Playwright |
+| FR-30 | Meetings with a lead are booked, confirmed, reminded, and never double-booked for one team member | W6.6 | T13 bookings; function test |
+| FR-31 | Leads export in the client's own CRM sheet layout and import from it, through a learned column map | W6.7 | `tools/crm-map/test/run.mjs` + `mutate.mjs`; T13 template tests |
+| FR-32 | A client previews every pending change on a real preview site with before and after pictures before publishing | W6.9 | preview job test + mutant |
+| FR-33 | Two people editing the same page never silently overwrite each other; old autosaves are compacted without losing a published version | W6.10 | migration tests + mutants |
 
 ## 5. Non-functional requirements
 | ID | Requirement | Target | WO | Test |

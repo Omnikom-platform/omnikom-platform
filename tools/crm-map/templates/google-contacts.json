@@ -1,0 +1,38 @@
+{
+  "name": "Google Contacts CSV",
+  "crm": "google-contacts",
+  "direction": "both",
+  "source": "https://support.google.com/contacts/answer/7199294",
+  "readOn": "2026-10-29 PARTLY: support.google.com/contacts/answer/7199294 confirms a Google CSV export exists; the column headers are UNVERIFIED (not on the page)",
+  "note": "Written 2026-10-29 from memory, no browser. The headers are those of the Google Contacts CSV export as I recall them; the source URL itself is from memory too. Google has no lead status, so status is not exported.",
+  "columns": [
+    {
+      "header": "Name",
+      "field": "name"
+    },
+    {
+      "header": "Given Name",
+      "field": "name",
+      "transform": "first"
+    },
+    {
+      "header": "Family Name",
+      "field": "name",
+      "transform": "last"
+    },
+    {
+      "header": "E-mail 1 - Value",
+      "field": "email"
+    },
+    {
+      "header": "Phone 1 - Value",
+      "field": "phone",
+      "transform": "e164"
+    },
+    {
+      "header": "Notes",
+      "field": "answers.message"
+    }
+  ],
+  "value_maps": {}
+}

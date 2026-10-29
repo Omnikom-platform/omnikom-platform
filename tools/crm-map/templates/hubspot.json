@@ -1,0 +1,57 @@
+{
+  "name": "HubSpot contact import",
+  "crm": "hubspot",
+  "direction": "both",
+  "source": "https://knowledge.hubspot.com/import-and-export/set-up-your-import-file",
+  "readOn": "2026-10-29 PARTLY: the import page confirms Email is required, First name and Last name are accepted, phone as +countrycode; the header Phone Number and the Lead Status and Lifecycle Stage labels are UNVERIFIED (the page says enum values must match the internal value or the English label)",
+  "note": "Written 2026-10-29 from memory, no browser. Column labels and the two status value maps are proposals until the lead checks them against the import page. Lead Status comes before Lifecycle Stage on purpose: on import the first filled column wins, and Lead Status maps back one to one while Lifecycle Stage does not.",
+  "columns": [
+    {
+      "header": "First Name",
+      "field": "name",
+      "transform": "first"
+    },
+    {
+      "header": "Last Name",
+      "field": "name",
+      "transform": "last"
+    },
+    {
+      "header": "Email",
+      "field": "email"
+    },
+    {
+      "header": "Phone Number",
+      "field": "phone",
+      "transform": "e164"
+    },
+    {
+      "header": "Lead Status",
+      "field": "status"
+    },
+    {
+      "header": "Lifecycle Stage",
+      "field": "status"
+    },
+    {
+      "header": "Message",
+      "field": "answers.message"
+    }
+  ],
+  "value_maps": {
+    "status": {
+      "new": "New",
+      "contacted": "Attempted to Contact",
+      "qualified": "Connected",
+      "closed": "Open Deal",
+      "spam": "Unqualified"
+    },
+    "status@Lifecycle Stage": {
+      "new": "Lead",
+      "contacted": "Lead",
+      "qualified": "Sales Qualified Lead",
+      "closed": "Customer",
+      "spam": "Other"
+    }
+  }
+}
