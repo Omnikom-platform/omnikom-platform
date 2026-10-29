@@ -8,3 +8,7 @@ tools/design-engine/examples/**/map/tiles/
 tools/design-engine/examples/**/*.png
 # local dev database (supabase/dev-db.mjs, W0.5)
 .localdb/
+
+# owner 2026-10-29: account logins and the master .env (DB, Cloudflare, Resend, ...). Never committed; scripts read keys from it by name only.
+creds and accounts login/
+creds*/
