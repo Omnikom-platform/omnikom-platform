@@ -232,7 +232,9 @@ name only; the docs name the variable so the owner can add it. Variables the pla
 | `CRON_SECRET` | `push-lead`, `metrics-pull`, `sitemap-submit` | per environment |
 | `GITHUB_DISPATCH_TOKEN` | `publish` -> `repository_dispatch` | this repo |
 | `RESEND_API_KEY` | lead alerts and Supabase Auth email (invites, magic links); the owner named Resend for the master .env on 2026-10-29, which answers D5 once recorded in DECISIONS.md | platform |
-| `SITE_SIGNING_KEY_<slug>` | minted at onboarding and handed to that site's Worker; the platform keeps it in Vault, the .env copy is for the onboarding script only | one per site |
+| `SITE_SIGNING_KEY_<SLUG>` | minted by `tools/mint-site-key.mjs` (Vault + `api_keys`; the value is appended to the master .env, named by `OMNIKOM_ENV_FILE`, and shown nowhere); set on the site's Pages project as `SITE_SIGNING_KEY` | one per site |
+| `LEAD_ALERT_FROM`, `DASHBOARD_URL` | `capture-lead` (function secrets): the alert sender on a verified Resend domain, the dashboard link in the alert | platform |
+| `STAGING_DB_URL`, `PROD_DB_URL` | `apply-staging.mjs`, `run-staging.mjs`, `e2e-lead.mjs`, `mint-site-key.mjs` (read by name; production needs `--i-mean-production`) | per project |
 Never in a client folder, a log, a reply or this repo.
 
 ### `api_keys` (PROPOSED)

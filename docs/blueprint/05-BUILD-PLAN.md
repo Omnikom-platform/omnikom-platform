@@ -161,7 +161,7 @@ command output or a looked-at render.
 ## Owner decisions still open
 | # | Decision | Recommended |
 |---|---|---|
-| D1 | Supabase: account and **two projects decided (DECISIONS 15: staging + production, no Docker)**; still open: org owner, plan tier, region | Omnikom-owned org; Pro for production (PITR add-on); region nearest the clients (US West for ELEV8/VTV) |
+| D1 | Supabase: account and **two projects decided (DECISIONS 15: staging + production, no Docker)**; still open: org owner, region. Plan: **Free for both** (DECISIONS 22 supersedes the earlier "Pro for production"); Pro only when a measured trigger in `18-BUDGET-ARCHITECTURE.md` section 3 fires (database over 350 MB, invocations over 400,000 a month, Realtime over 150 concurrent); backups are ours (`backup.yml`), not the vendor's | Omnikom-owned org; Free; region nearest the clients (US West for ELEV8/VTV) |
 | D2 | Cloudflare: confirm Workers (static assets) instead of Pages per site (ADR 0002); token scheme | Workers; one deploy token per site (Editor on that Worker) + one staff onboarding token (Workers Admin; Zone/DNS/Zone Settings Edit when domain onboarding starts) |
 | D3 | Domains: dashboard address, preview hostnames | `app.omnikom.io` (placeholder) for the dashboard; previews on `<slug>.<omnikom-preview-domain>` or `workers.dev` |
 | D4 | GitHub: org/repo and plan the new team builds in (the "other account") | private repo under an Omnikom org. Plan matters: environment required reviewers are not available for private repos on Free/Pro/Team, and environment secrets not on Free (GitHub docs). Recommended: Team plan + production gated by an owner-only `workflow_dispatch` and branch protection, or Enterprise for required reviewers |

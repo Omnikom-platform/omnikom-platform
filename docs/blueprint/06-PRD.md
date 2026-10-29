@@ -78,7 +78,7 @@ edit content, never layout).
 | NFR-8 Security | auth, secrets, dependencies | MFA for staff; no secret in git; no critical CVE unpatched > 7 days | W0.2 | gitleaks in CI; dependency audit |
 | NFR-9 Privacy | lead personal data | consent stored; export/delete on request; retention per D6 | W3.6 | consent column NOT NULL; delete runbook |
 | NFR-10 Accessibility | dashboard and sites | WCAG 2.2 AA | W2.3, W3.x | axe in CI |
-| NFR-11 Cost | platform run cost at 25 sites | Supabase Pro + Cloudflare Workers paid + GitHub Actions within the free/included minutes where possible; budget set by owner | W0.1 | monthly cost review |
+| NFR-11 Cost | platform run cost at 25 sites | Free tiers first (DECISIONS 22): Supabase Free, Cloudflare Free, Resend Free, GitHub Actions free minutes; each upgrade only on its measured trigger (`18-BUDGET-ARCHITECTURE.md` section 3) | W0.1 | weekly usage pull (`usage.yml`) against the triggers |
 | NFR-12 Auditability | every save, publish, sign-off, staff action | 100% in `audit_log` | W1.2 | audit row test |
 | NFR-13 Correct facts | client-facing facts | 100% sourced; no placeholders on live | W2.3 | I-SOURCE, I-PLACEHOLDER, live guard |
 | NFR-14 Local reproducibility | every M0-M1 rule provable without cloud accounts | local acceptance passes on a clean clone (Node, Deno, Postgres binaries; no Docker) | W0.2, W0.5 | `run-all-gates.mjs`; W0.5 local acceptance |

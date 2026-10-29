@@ -153,3 +153,14 @@
     platform to keep everything saved"). Standing permission for this repo only: after each commit the session pushes `master`
     to the `backup-gh` remote (the repo's only remote; its default branch is `master`, there is no `main`). Still never pushed:
     `film/`, `.secrets/`, `creds and accounts login/`, anything gitleaks flags.
+25. **Stop building expansion blocks; the next goal is proof on a real staging project** (2026-10-29 21:11, owner through the
+    lead session after reviewing the files and commits): "finish the current tick (the mapping tool, if it is already running)
+    and then stop building expansion blocks. No more add-on tables, connectors, bookings, messaging, CRM templates or their
+    tests until a client has bought one; leave 17-EXPANSION-MAP.md as the map. The next goal is proof, not paper: the lead path
+    running on a real staging project end to end, from the live ELEV8 preview form into the database and to an alert in the
+    owner's inbox, once the owner has put the accounts in `creds and accounts login/`." What already exists (migration 3 and
+    `tools/crm-map`, tested) stays as built and is not extended. Prepared for the proof: the D1-D5 options for the owner, D2
+    settled as a question (Pages Function, which the ELEV8 preview uses today, or a Worker per site), D1 reconciled with
+    DECISIONS 22 (free tiers first), `supabase/apply-staging.mjs`, `supabase/functions/capture-lead`, the site lead endpoint
+    `factory/worker/lead-endpoint.mjs`, and `supabase/tests/e2e-lead.mjs`. The dashboard UI starts only after the lead path is
+    proven.

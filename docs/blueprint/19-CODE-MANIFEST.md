@@ -32,7 +32,7 @@ to staging in CI, to production on the owner's approval; `verify_jwt` per functi
 | `export-published` | runner, `X-Runner-Signature` | `?job=` -> `Export` (frozen snapshot, contract, media list, deploy target, token) | W1.3 | SPEC |
 | `job-callback` | runner, `X-Runner-Signature` | `{job, state, gateReport?, deployId?, error?}` -> 204; `set_job_state`; notify; sitemap submit on live done | W1.5 | SPEC |
 | `media-process-callback` | runner, `X-Runner-Signature` | `{media, width, height, exifStripped}` -> 204 | W3.2 | SPEC |
-| `capture-lead` | site Worker, `X-Site-Signature` | `?site=` + `LeadRequest` -> 202 `{ok}`; `active_key` lookup, body check against the contract's form, `capture_lead`, queue alert + push | W2.4; 14-LEAD-PATH 8 | SPEC |
+| `capture-lead` | site endpoint, `X-Site-Signature` | `?site=` + `LeadRequest` -> 202 `{ok}`; keys from `active_key` + Vault, body check (`checkBody`), `capture_lead`, `touch_key`, the new-lead alert through Resend recorded in `messages` (inline for the first proof; a queue later) | `deno task check` passes; W2.4 and `supabase/tests/e2e-lead.mjs` on staging | BUILT (DECISIONS 25), UNPROVEN on a real project |
 | `lead-update` | dashboard, JWT | `{lead, status?, owner?, note?}` -> 204; `lead_update` | T12 covers the SQL; function test W3.6 | SPEC |
 | `add-lead` | dashboard, JWT | `{site, name, email, phone, answers, consent, owner?}` -> `{lead}`; `add_lead` | T12; W3.6 | SPEC |
 | `push-lead` | pgmq consumer, `X-Internal-Secret` | one `lead_push` message -> adapter call (OmniSuite BLOCKED / CRM webhook signed) -> `lead_event` pushed or push-failed; retry schedule | M6 W6.3 | SPEC; OmniSuite BLOCKED |
@@ -47,13 +47,13 @@ to staging in CI, to production on the owner's approval; `verify_jwt` per functi
 Every function: a `Problem` body with plain words and a code, never a stack; a test file next to it (Deno test) run in CI; the
 request body size cap; all machine-called ones verify their credential before reading the body.
 
-## 3. Site Worker (per client site): `factory/worker/worker.ts` (one source, deployed per site)
-In: a request. Out: static assets (free, uncounted) or `/api/lead` (section 2 of 14-LEAD-PATH): honeypot, size cap, rate limit
-(KV-free: a sliding counter in the Worker's memory per isolate plus the Edge Function's own limit), sign with the site key, forward,
-pass the answer back in plain words. Config: `SITE_ID`, `SITE_SIGNING_KEY` (secret), `PLATFORM_BASE`. Compiles with
-`wrangler deploy --dry-run` (W0.4); deployed by the publish runner with the site's token. Proven by W2.4 (a test lead on the
-preview lands in staging with its consent text; an empty consent is refused; a bad key gets 401 and the visitor sees the phone-us
-text). Status: SPEC; the preview stub (`{preview: true}`) is BUILT in the ELEV8 project.
+## 3. The site's lead endpoint: `factory/worker/lead-endpoint.mjs` (+ `pages-function-lead.js`)
+In: the form's request. Out: the plain-words answer. Honeypot, size cap, not-JSON refused; the body signed with the site key
+(same canonical form as `signature.ts`, proven by the tests with the platform's own `verify`); forwarded to `capture-lead`; only
+a 202 becomes "sent". Config: `SITE_ID`, `SITE_SIGNING_KEY` (secret), `PLATFORM_BASE`. Runs as a Pages Function (what the ELEV8
+preview uses today) or inside a Worker (D2). Proven by `factory/worker/test/run.mjs` (17) and `mutate.mjs` (15 of 15);
+end to end by `supabase/tests/e2e-lead.mjs` on staging. Deploy steps: `factory/worker/README.md`. Status: BUILT (DECISIONS 25),
+UNPROVEN on a real site. Rate limiting per IP stays SPEC (the Edge Function's own limit first).
 
 ## 4. Build runner (GitHub Actions): `.github/workflows/`
 | Workflow | Trigger | Steps | Proven by | Status |
