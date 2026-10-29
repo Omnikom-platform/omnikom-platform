@@ -60,16 +60,23 @@ Done when: a test email from the Resend dashboard arrives.
 - [ ] In project `omnikom-seo`: enable the Search Console API and the Site Verification API; create a service account; its JSON
       key into the .env as `GOOGLE_SERVICE_ACCOUNT_JSON` (one line, base64 if easier).
 
-## Step 2. The first lead is proven: from the live ELEV8 preview to staging to your inbox (me, one session)
-1. `apply-staging.mjs` applies the four migrations to staging; `run-staging.mjs` runs the tenancy tests there. First time the
-   walls run on real Supabase (closes REVIEW 15 and the UNPROVEN items in 21-PROTOCOLS 7).
-2. Seed ELEV8: workspace, site row (`sites.lead_alert_to` = your address), the contract. `mint-site-key.mjs` creates the site key.
+## Step 2. The first lead is proven: through the platform's own CLI on a test workspace, to staging, to your inbox
+No client preview is a test vehicle (DECISIONS 30): the proof runs on the platform's seeded test workspaces A and B through the
+`omnikom` CLI (`26-PLATFORM-CLI.md`, slice 1, built by the `cli-slice-1` session). The ELEV8 preview is touched only in step 7.
+1. `omnikom apply --target staging` (the four migrations through `apply-staging.mjs`); `omnikom test walls --target staging`
+   (`run-staging.mjs`). First time the walls run on real Supabase (closes REVIEW 15 and the UNPROVEN items in 21-PROTOCOLS 7).
+2. `omnikom seed test --target staging`: workspaces A and B, their sites (`test-site-demo-a` with `lead_alert_to` = your
+   address), contracts, test logins. `omnikom key mint --site test-demo-a` (Vault + registry + the .env by name).
 3. Deploy `capture-lead` to staging with its secrets (`RESEND_API_KEY`, `LEAD_ALERT_FROM`).
-4. Replace the ELEV8 Pages Function stub with the real endpoint and set `SITE_ID`, `PLATFORM_BASE`, `SITE_SIGNING_KEY` on the
-   Pages project (your yes before the deploy: it is the live preview).
-5. `e2e-lead.mjs`: PASS means the email is in your inbox and the test lead is removed again.
-Done when: the PASS output is pasted in PROGRESS.md and you have the email. ESTIMATE: one session, two if a vendor behaves
-differently from its docs (the signed path string, the pooler, Vault from a function are the three UNVERIFIED points).
+4. `omnikom lead send --site test-demo-a --fixture contact.json --target staging --expect 202`, then `--retry` (one row),
+   then `omnikom verify --only lead --target staging` (bad key, replay, empty consent, paused site, B's key on A's site).
+5. `omnikom lead list --as owner-a` shows the row; the alert email is in your inbox; `omnikom lead delete` removes the test lead.
+Done when: the `verify` output (every line PASS) is pasted in PROGRESS.md and you have the email. Until slice 1 of the CLI lands,
+the same proof runs with the scripts directly (`apply-staging.mjs`, `run-staging.mjs`, a seed SQL, `mint-site-key.mjs`,
+`e2e-lead.mjs` pointed at a test site instead of the ELEV8 preview). ESTIMATE: one session, two if a vendor behaves differently
+from its docs (the signed path string, the pooler, Vault from a function are the three UNVERIFIED points).
+Collision rule for the two sessions running now: the setup assistant owns step 1 and the staging project; the CLI builder owns
+`tools/omnikom-cli/`; neither touches the ELEV8 Pages project.
 
 ## Step 3. The database is finished: the hardening leftovers (me)
 Migration 5 (security events, consent ledger and suppressions, privacy requests, workspace lifecycle, per-workspace quotas,
@@ -97,7 +104,10 @@ rotation reminder, the production keep-alive. Done when: a promote run applies a
 drill passes. ESTIMATE: two sessions plus your account clicks.
 
 ## Step 7. ELEV8 is live on its domain (you with the client; me with the launch ledger)
-The launch ledger (sops/launch.md): zone in Cloudflare, nameservers changed by the client (DECISIONS 26), mail records copied
+First the preview's lead endpoint: replace the ELEV8 Pages Function stub with `factory/worker/pages-function-lead.js` +
+`lead-endpoint.mjs`, set `SITE_ID`, `PLATFORM_BASE` and the encrypted `SITE_SIGNING_KEY` on the Pages project (your yes: it is
+the live preview), and `omnikom lead send --site elev8` proves it, the same way step 2 proved the test site. Then the launch
+ledger (sops/launch.md): zone in Cloudflare, nameservers changed by the client (DECISIONS 26), mail records copied
 and checked, Search Console verified by the service account, sitemap submitted, noindex off, headers and speed gates on the
 live site, the end-to-end lead on the live site. Done when: every ledger item is PASS with its output line.
 

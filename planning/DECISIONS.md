@@ -176,6 +176,13 @@
     owner-run `promote`; the working repository never holds a production key. **D17 recovery objectives: at most 24 hours of
     data lost, back within 4 hours**: nightly dumps to R2 plus a second copy at another provider, a monthly restore drill
     (`18-BUDGET-ARCHITECTURE.md` 2.4). Source of the questions: `docs/blueprint/24-GAP-HUNT.md` E2 item 7.
+30. **The platform tests itself through its own CLI on its own test workspaces; a client's preview is never a test vehicle**
+    (2026-10-29 23:20, owner: "instead of using a draft website that might get refused, why don't we create a CLI tool that
+    sessions use, calling the database and the same endpoints the websites use, as the tester for contracts, lead funnels and
+    content pushing"; scope picked: test harness and staff tool; design here, Sonnet builds). Spec: `docs/blueprint/26-PLATFORM-CLI.md`.
+    Step 2 of the build sequence now runs through the CLI on the seeded workspaces A and B; the ELEV8 preview's endpoint swap
+    moves to step 7. Session ownership while both run: the setup assistant owns step 1 and the staging project, the CLI builder
+    owns `tools/omnikom-cli/`, neither touches the ELEV8 Pages project.
 27. **GitHub: one free account (an Omnikom organisation on the Free plan), one private repository, Cloudflare deploys from
     that repository** (2026-10-29 21:55, owner: "can't it be one main free account that houses all the repos and cloudflare
     deploys from that repo?" plus "do the real search needed"). Verified the same evening from docs.github.com: on Free,
