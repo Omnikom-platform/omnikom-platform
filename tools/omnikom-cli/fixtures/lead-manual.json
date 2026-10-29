@@ -1,0 +1,7 @@
+{
+  "name": "Manual Test Lead",
+  "email": "manual.lead@example.com",
+  "phone": "(555) 010-0142",
+  "answers": { "note": "Added by hand through the omnikom CLI. Synthetic." },
+  "consentText": "The person agreed to be contacted about their request."
+}

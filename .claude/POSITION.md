@@ -166,6 +166,11 @@
   (RESEND_API_KEY, LEAD_ALERT_FROM); MFA + second owner on Supabase; then deploy `capture-lead` with its secrets and hand the
   lead proof to the CLI session (step 2 items 2-5).
 
+## 2026-10-30 (cli-slice-1: the omnikom CLI, slice 1)
+- **Built, `tools/omnikom-cli/` (README there, spec `docs/blueprint/26-PLATFORM-CLI.md` section 7):** `status apply "test walls" "seed test|workspace" "key mint|list|revoke" "contract validate|place" "lead send|list|get|update|add|delete" "content save|get|history" publish "job get|wait|set" "verify --only lead"`, exit codes 0/1/2/3, `--expect`, fixtures. PROVEN: `node tools/omnikom-cli/test/run.mjs` = 138 of 138 checks (units + a throwaway local cluster with a fake fetch and a MODEL of capture-lead); `node tools/omnikom-cli/test/mutate.mjs` = 61 mutants, 61 caught; `run-local.mjs --only no-such-mutant` still OK. The four spec rules each have a test watched red and a mutant (no secret in output; production refuses everything but `status` and `apply --i-mean-production`; `seed test` twice changes nothing; `lead send --retry` stores one row).
+- **BLOCKED / UNPROVEN until staging is used:** person tokens for the HTTP path (Auth admin call UNVERIFIED); the DEPLOYED `capture-lead` (only the model is proven); `seed test` inserting `auth.users` by (id, email) on Supabase; `key mint` on the real Vault. Step 2 items 1-5 of `25-BUILD-SEQUENCE.md` can now run through the CLI once the function is deployed. `test walls` and `seed test` cannot share a database: run `omnikom seed test --clean` first.
+- **Finding:** `capture-lead` returns a generic 500 for a paused site, so S-SITE-PAUSED is not visible over HTTP; `verify` checks "not 202 and nothing stored" and prints the real status. Decide whether the function should map it (04xx) when it is next touched.
+
 ## Open elsewhere (not this repo, but the owner may ask)
 - Rainmaker launch is WAITING on Monica's answers (via Dave) and the GoDaddy nameserver switch; steps in `E:\Rainmaker\LAUNCH.md`.
 - Francine (VTV) and Eli: see `E:\Francine & Eli\.claude\POSITION.md`.

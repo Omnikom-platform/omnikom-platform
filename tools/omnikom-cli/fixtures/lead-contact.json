@@ -1,0 +1,13 @@
+{
+  "form": "contact",
+  "flow": "contact",
+  "page": "/omnikom-cli-test",
+  "cta": "cli test",
+  "name": "Test Person (omnikom cli)",
+  "email": "test.person@example.com",
+  "phone": "(555) 010-0199",
+  "answers": { "message": "Sent by the omnikom CLI. Synthetic. Safe to ignore." },
+  "consentText": "I agree that the business may contact me about this request by email, phone or text.",
+  "marketingConsent": { "given": false, "text": "marketing wording" },
+  "hp": ""
+}

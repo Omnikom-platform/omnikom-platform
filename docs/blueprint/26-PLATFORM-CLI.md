@@ -77,3 +77,29 @@ every function that lands later; `e2e-lead.mjs` becomes `omnikom verify --only l
 - **Slice 3 (step 6 and 7):** `onboard`, `offboard`, `drift`, the Cloudflare API calls.
 Person identities (section 2) need the staging Auth admin API: UNVERIFIED until step 1.1 exists; slice 1 ships them with a
 clear BLOCKED message until then.
+
+## 7. Slice 1 as built (2026-10-30, `tools/omnikom-cli/`, README there)
+**Built and proven locally** (`test/run.mjs`: units plus a throwaway-cluster run with a fake fetch; `test/mutate.mjs`: one rule
+removed per mutant, all caught): the entry and exit codes, targets and the production guard, machine identities and person
+claims, `status`, `apply`, `test walls`, `seed test` (twice changes nothing, `--clean`), `seed workspace` (SQL path, from a
+`contracts/from-plan.mjs` contract), `key mint|list|revoke`, `contract validate|place`, `lead send|list|get|update|add|delete`,
+`content save|get|history`, `publish`, `job get|wait|set`, `verify --only lead`. The five rules of section 5 each have a test
+watched red and a mutant.
+**BLOCKED / UNPROVEN until the staging project exists:** (1) person TOKENS for the HTTP path (`lib/identity.mjs personToken`;
+which Auth admin call returns one is UNVERIFIED); (2) everything that talks to the DEPLOYED `capture-lead` (`lead send`,
+`verify`, the functions column of `status`): proven only against a MODEL of the function over a fake fetch, not the function;
+(3) `seed test` inserts `auth.users` by `(id, email)`: UNVERIFIED on Supabase; (4) `key mint` against the real
+`vault.create_secret` (a model is used locally); (5) slices 2 and 3.
+**Decided where the spec was silent:** default target is `local`; production runs only `status` (connection opened read-only) and
+`apply --i-mean-production`, everything else is refused with exit 3 before anything is spawned (stricter than "identity, seed
+and verify"); `--expect` compares the result `code` (HTTP status, platform code such as `S-NOT-FOUND`, or `ok`); output is always
+JSON (`--json` only makes it one line); on the SQL path a person is the JWT claims given to `service.*` (reads run as
+`authenticated`, so RLS decides); `cron` signs nothing and sends `CRON_SECRET` as `X-Internal-Secret`; `--site` is a uuid, a
+`SITE_ID_<SLUG>` variable, or a workspace slug / deploy target looked up in the database, and the key variable is
+`SITE_SIGNING_KEY_<WORKSPACE SLUG>`; `lead send --retry` sends the same key twice and counts rows (must be 1); added
+`seed test --clean` (the walls test and the seeded fixtures cannot share a database), `lead delete`, `job set` (the runner's
+stand-in on the SQL path), and `key mint` numbers its keys itself (rotation); `status` "keys present" lists the TARGET's
+variable names as booleans (not the research-key check); a fixture outside `fixtures/` or with a real-looking email or phone
+needs `--real`. `apply` and `test walls` run the existing scripts as child processes (they are scripts, not libraries).
+**Finding for the function (not changed here):** `capture-lead` answers a paused site with a generic 500 (the catch-all), so the
+S-SITE-PAUSED code of section 4 is not visible over HTTP; `verify` checks "not 202 and nothing stored" and prints the real status.
