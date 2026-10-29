@@ -108,3 +108,15 @@ and disclosures. Bookings and payments (D10, D12). CRM export and import wizards
 ## The first thing to do, today
 Step 1.1: the Supabase organisation and the staging project, with the settings above. When `STAGING_DB_URL` is in the .env,
 tell me "staging is up" and I start step 2 the same session. 1.2 to 1.4 can follow in any order; 1.5 can wait for step 7.
+
+## The builder prompt (paste into a new session in `E:\Omnikom Platform`; change only the step number)
+The project's `CLAUDE.md` already carries the rules (read order, keys, push, proof, live things need the owner's click), so the
+prompt stays short:
+
+```
+You are the builder for step N of docs/blueprint/25-BUILD-SEQUENCE.md. Read CLAUDE.md's "read first" files, then the step's
+section and every file it names. Do the step's numbered items in order; after each one, paste the command's real output,
+commit and push, and update .claude/POSITION.md. Ask the owner as pickable options before touching anything live. Stop when
+the step's "done when" line is met with its proof pasted in docs/blueprint/PROGRESS.md, or when BLOCKED (two failed
+approaches to one obstacle), written in POSITION.md with what unblocks it.
+```
