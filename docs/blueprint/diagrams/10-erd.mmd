@@ -6,8 +6,8 @@ erDiagram
   content_rows ||--|{ content_versions : "append-only history"
   workspaces ||--o{ media : owns
   workspaces ||--o{ leads : receives
-  leads ||--o{ lead_notes : has
-  leads ||--o{ lead_pushes : "push attempts"
+  leads ||--o{ lead_events : "one timeline"
+  sites ||--o{ api_keys : "hash or Vault name"
   sites ||--o{ publish_jobs : builds
   workspaces ||--o{ metrics_snapshots : measured
   workspaces ||--o{ audit_log : logged
@@ -54,6 +54,19 @@ erDiagram
     text form
     text consent_text
     lead_status status
+    text flow
+    uuid idempotency_key
+  }
+  lead_events {
+    lead_event_kind kind
+    uuid by
+    jsonb detail
+  }
+  api_keys {
+    api_key_kind kind
+    text key_hash
+    text vault_ref
+    timestamptz revoked_at
   }
   publish_jobs {
     uuid id PK

@@ -185,7 +185,7 @@ submitted after a live deploy (`sitemap-submit`). Every number shown carries its
 - It is applied **on the server, in `push-lead`**, from the lead's `answers`. The site never sees a CRM field name and never
   calls a CRM. This keeps CRM keys out of the browser and the Worker.
 - `push-lead` sends to OmniSuite or to the client's own CRM through a signed webhook, retries at 1 minute, 5 minutes, 30
-  minutes and 2 hours, writes a `lead_pushes` row per try, and shows a failed push to the owner after the last retry.
+  minutes and 2 hours, writes a `lead_events` row (`pushed` or `push-failed`) per try, and shows a failed push to the owner after the last retry.
 - **BLOCKED:** the OmniSuite adapter waits for OmniSuite's API (DECISIONS 8, 12; ADR 0007). What can run first is the signed
   webhook. Neither is built.
 - **Open (NOT DECIDED):** `flow`, `cta`, `assignee` and `marketingConsent` are not form fields, so `forms.crm` cannot map

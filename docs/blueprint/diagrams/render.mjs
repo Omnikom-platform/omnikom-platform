@@ -9,9 +9,18 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const BROWSERS = ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Google/Chrome/Application/chrome.exe'];
-const BROWSER = BROWSERS.find(existsSync);
-if (!BROWSER) { console.error('no Edge or Chrome found'); process.exit(2); }
+const BROWSERS = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'];
+// Probe each installed browser with a one-line page: on 2026-10-29 Edge headless (--dump-dom) returned an empty stdout for every
+// page after an update, which made every diagram "fail" with no error. Use the first browser that actually prints the DOM.
+const probeTmp = mkdtempSync(join(tmpdir(), 'mmd-probe-'));
+const BROWSER = BROWSERS.filter(existsSync).find(b => {
+  const r = spawnSync(b, ['--headless=new', '--disable-gpu', '--no-sandbox', `--user-data-dir=${join(probeTmp, basename(b))}`, '--dump-dom', 'data:text/html,<p id=ok>probe</p>'], { encoding: 'utf8', timeout: 60000 });
+  const ok = /id="ok"/.test(r.stdout || '');
+  if (!ok) console.log(`skip ${b}: headless --dump-dom printed ${(r.stdout || '').length} chars`);
+  return ok;
+});
+try { rmSync(probeTmp, { recursive: true, force: true }); } catch {}
+if (!BROWSER) { console.error('no browser prints a DOM in headless mode (Edge and Chrome tried)'); process.exit(3); }
 const MERMAID = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js';
 const only = process.argv[2];
 const tmp = mkdtempSync(join(tmpdir(), 'mmd-'));
@@ -48,5 +57,5 @@ mermaid.run().catch(e => { document.getElementById('err').textContent = 'MERMAID
   if (!existsSync(png)) { bad++; console.log(`FAIL ${name}: screenshot ${r.stderr.slice(0, 200)}`); continue; }
   console.log(`ok   ${name}: ${Math.ceil(w)}x${Math.ceil(h)}`);
 }
-rmSync(tmp, { recursive: true, force: true });
+try { rmSync(tmp, { recursive: true, force: true }); } catch (e) { console.log(`note: temp profile not removed (${e.code}); the browser may still hold it`); }
 process.exit(bad ? 1 : 0);

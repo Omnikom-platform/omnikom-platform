@@ -19,7 +19,7 @@ site id and that site's own signature (`X-Site-Signature`, per-site key; headers
 | Job | Trigger | Concurrency | Timeout | Retries | Idempotency |
 |---|---|---|---|---|---|
 | publish build (`publish.yml`) | `publish` -> `repository_dispatch {job_id, site_id}` | one per site (`concurrency: group site-<id>, queue: max`; never cancel or replace a waiting publish) | 30 min | none automatic; client presses Publish again | the snapshot {row: version} is frozen when the build starts (what is live + the requested versions); a rerun ships exactly that snapshot; rows go live only when the job is done; a failed job's versions are never shipped by a later job |
-| push-lead | insert into `leads` -> pgmq queue `lead_push` | per lead | 30 s per attempt | 1 m, 5 m, 30 m, 2 h, then failed | `lead_pushes` row per attempt; receiver gets `X-Idempotency-Key = lead id` |
+| push-lead | insert into `leads` -> pgmq queue `lead_push` | per lead | 30 s per attempt | 1 m, 5 m, 30 m, 2 h, then failed | `lead_events` row (`pushed` / `push-failed`) per attempt; receiver gets `X-Idempotency-Key = lead id` |
 | metrics-pull | pg_cron daily 03:30 UTC enqueues one message per workspace | one workspace per invocation | under the 150 s request idle timeout | next day | upsert on (workspace, source, day) |
 | sitemap-submit | job `done` on a live site | 1 per site | 1 min | 3 | Search Console accepts resubmits |
 | AI ops run (M8) | pg_cron weekly | 1 per workspace | 15 min | none | proposals are draft rows; nothing publishes itself |

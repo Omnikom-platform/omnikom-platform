@@ -61,6 +61,40 @@
   138/138, 82/82 mutants, industries 15/15, DB walls pass with 47/47 mutants, specs 0 problems. Owner decisions D1-D4 gate M0.
   Contract work committed earlier as d588c3c; contracts/ changes since (media lookup, idempotent mergeCore, JSON import) uncommitted.
 
+- **2026-10-29 ~18:00: step C started on paper (owner: database, client login, CRM), NOT COMMITTED, waiting for the owner's picks**
+  (side session of the ELEV8 session). Written: `docs/blueprint/13-DATA-MODEL.md` (every table, columns, who writes it; BUILT = in
+  the migration, PROPOSED = `lead_events`, `api_keys`, leads `flow`/`cta`/`marketing_consent`/`idempotency_key`, sites
+  `signing_key_ref`/`lead_alert_to`), `docs/blueprint/14-LEAD-PATH.md` (form -> site Worker -> signed `capture-lead` -> leads ->
+  alert + push -> CRM screen; BUILT/PROPOSED/NOT BUILT per step; the proof table), `docs/blueprint/design/` (reference board: 5
+  greyscale directions by Sonnet agents, one Open Design reference each, wf-shots PASS 2 of 2 all five; Plain dropped as a
+  lookalike; gallery `index.html`, judging `BOARD.md`). No code, no migration change, no DECISIONS entry yet (nothing decided).
+  OPEN for the owner (asked as options 2026-10-29 18:05, answer came back "no preference" on all three, so NOTHING is decided and
+  DECISIONS.md was not touched): design direction (Document / Ledger / Inbox / Precision; lead recommends Document); `lead_events`
+  fold or add (lead recommends fold); `api_keys` registry now or Vault names only (lead recommends now); alert channel v1.
+  The branded comp is NOT started: the design stage needs a real pick before step 3-4.
+- **2026-10-29 19:40: step C built in the database (DECISIONS 21: owner steer, focus on backend + DB; dashboard = fewest screens,
+  owner brings the design references).** New: `supabase/migrations/20261029000002_crm.sql` (lead columns flow/cta/marketing_consent/
+  idempotency_key, sites signing_key_ref/lead_alert_to, `lead_events` replacing lead_notes + lead_pushes, `service.lead_update`,
+  `service.add_lead`, extended `service.capture_lead`, `service.lead_event`, `api_keys` + `service.active_key`); `run-local.mjs` now
+  applies every migration in order; T12 + 14 new mutants in `supabase/tests/`; `docs/blueprint/15-CRM.md` (4 screens, entries by
+  hand, publish with the gates); docs 02/07/11/README/site-endpoints updated to `lead_events`. Real migration + tests: PASS; 60 mutants, 60 caught
+  (PROGRESS.md, 19:45). gitleaks over the working tree: hits only inside the git-ignored `.secrets/api-keys.env`. FIXED 20:05 (owner asked): `diagrams/render.mjs` failed for every diagram because
+  Edge headless `--dump-dom` now prints an empty stdout (probed: 0 chars with every flag set; Chrome prints the DOM). The renderer
+  now probes each installed browser with a one-line page and uses the first that prints a DOM (Chrome first); temp cleanup no
+  longer crashes the run. Re-rendered: 13 of 13 ok; `10-erd.png` shows lead_events and api_keys.
+- **2026-10-29 20:10: `docs/blueprint/16-DESIGN-PARTS.md`** (owner asked): every part to design (foundations, the four screens
+  with every button and click, what happens, what the person sees, what if it fails; emails; staff admin), the preview design
+  (instant in-editor render with the factory's dependency-free partials in a Web Worker + iframe; a preview Worker per site with
+  `publish_jobs.kind = preview`; before/after screenshots), the invariants with their tests, the failure table, the engineering
+  rules, the build order. PROPOSED walls from it: `S-STALE` (save on top of a newer version refused), `sites.preview_target`,
+  `publish_jobs.kind`. Nothing drawn, nothing coded.
+- **2026-10-29 19:25: key files rule (from the lead session).** The owner's master `.env` and account logins live in
+  `creds and accounts login/` (git-ignored: `creds and accounts login/`, `creds*/`); `.secrets/api-keys.env` keeps the research keys.
+  Scripts read keys from the environment by variable name only; never print, copy, store or list them. The variable names the
+  platform expects are listed in `docs/blueprint/13-DATA-MODEL.md` section 8 (owner adds them to the .env). Resend was named for
+  email: D5 still needs its DECISIONS.md line. Then: step 3-4 of `design.md` (branded comp of the pick), the
+  additive migration with tests + mutants, then the dashboard build (M3). Still BLOCKED by D1-D5 for anything on a real project.
+
 ## Open elsewhere (not this repo, but the owner may ask)
 - Rainmaker launch is WAITING on Monica's answers (via Dave) and the GoDaddy nameserver switch; steps in `E:\Rainmaker\LAUNCH.md`.
 - Francine (VTV) and Eli: see `E:\Francine & Eli\.claude\POSITION.md`.

@@ -28,6 +28,8 @@ One procedure for every industry; the client's collections come from its own pla
 | 12 | `docs/blueprint/10-DELIVERY.md` | monorepo, branching + reviews, CI stages, environments, migrations, releases, rollback, flags |
 | 13 | `docs/blueprint/11-OPERATIONS.md` | observability, alerts, runbooks R1-R5, backup/restore drill, on-call |
 | 13b | `docs/blueprint/12-LAUNCH.md` | launch pipeline: preview to production through one ledger (`launch.json`), its checks and its stop condition (SOP `sops/launch.md`) |
+| 13c | `docs/blueprint/13-DATA-MODEL.md`, `14-LEAD-PATH.md`, `15-CRM.md` | step C in plain words: every table and who writes it; the lead path form -> site Worker -> signed capture -> database -> alert, push, CRM screen; the four-screen client CRM, entries by hand, publish with the gates (DECISIONS 21) |
+| 13d | `docs/blueprint/16-DESIGN-PARTS.md` | every part to design (each screen, button, click, state, failure), the preview design (instant in-editor, preview site, compare), the invariants and the failure table |
 | 14 | `docs/blueprint/05-BUILD-PLAN.md` | milestones M0-M5, work orders with acceptance tests, estimates, critical path, RACI, risks, open decisions |
 | 15 | `planning/CONTEXT.md` | lessons from three real client sites (Cloudflare, forms, speed, design rules) |
 Background only: `planning/ANALYSIS.md`, `planning/REQUIREMENTS.md`, `planning/TENANCY-AND-PUBLISHING.md`, `planning/CONTRACT.md`.

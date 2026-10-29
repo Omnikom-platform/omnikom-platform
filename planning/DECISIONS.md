@@ -120,3 +120,19 @@
     code it covers, red for the right reason, before it counts. NOT BUILT: the Agentic Browsing category by API (the PageSpeed
     API does not expose it yet, so WG-6's 2/2 is read in the browser at pagespeed.web.dev: lead's browser or OWNER-PROOF);
     Trusted Types CSP (needs a CSP review first); WebMCP form metadata (once the spec settles).
+
+## 2026-10-29 (owner, platform step C: database, login, CRM)
+
+21. **The client dashboard is super simple, the fewest screens, smooth; the owner brings the design references; the effort goes
+    to the database and the backend** (2026-10-29 18:13, owner's words: "for the design I will pick some references online just
+    make sure that we are actually ready to build and write the CRM features down the layout how it will look enteries manually
+    and things like that I wan the user dashboard to be super simple least amount of screens super smooth and things like that
+    focus on the backend and DB structure"). So: no design tournament or reference board run by the platform sessions for the
+    dashboard (the one made before this steer, `docs/blueprint/design/`, stays on disk as material, not as a pick); the CRM is
+    written down as a plain document (`docs/blueprint/15-CRM.md`: every feature, the layout, the screens, how a client enters a
+    lead or a change by hand); the data model (`13-DATA-MODEL.md`), the lead path (`14-LEAD-PATH.md`), auth and roles, and the
+    content-change path with the build gates are the deliverable. Working defaults taken by the lead on the same day because the
+    owner answered "no preference" (reverse by saying so; nothing exists on a real project yet): the lead timeline is ONE table
+    `lead_events` (notes and CRM pushes folded in, `lead_notes` and `lead_pushes` dropped before any real lead exists); the
+    `api_keys` registry (hashes and Vault names, never values) is built in the same migration. Email provider named by the owner
+    for the master .env: Resend (this is D5; its DECISIONS line is this one).

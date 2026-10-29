@@ -26,6 +26,11 @@ returns table (row_id uuid, version int) language sql security definer as $$ sel
 create function test.publish(p_site uuid, p_rows uuid[], p_versions int[] default null) returns uuid language sql security definer as $$
   select service.start_publish(test.claims(), p_site, p_rows,
     coalesce(p_versions, (select array_agg((select max(n) from content_versions v where v.row_id = r) order by i) from unnest(p_rows) with ordinality x(r, i)))) $$;
+-- step C: what the lead-update and add-lead Edge Functions do after verifying the user's JWT
+create function test.lead_update(p_lead uuid, p_status lead_status default null, p_owner uuid default null, p_note text default null)
+returns void language sql security definer as $$ select service.lead_update(test.claims(), p_lead, p_status, p_owner, p_note) $$;
+create function test.add_lead(p_site uuid, p_name text, p_email text, p_phone text, p_answers jsonb, p_consent text, p_owner uuid default null)
+returns uuid language sql security definer as $$ select service.add_lead(test.claims(), p_site, p_name, p_email, p_phone, p_answers, p_consent, 'manual', p_owner) $$;
 grant usage on schema test to anon, authenticated, service_role;
 grant execute on all functions in schema test to anon, authenticated, service_role;
 
@@ -260,8 +265,77 @@ select test.act_as('00000000-0000-0000-0000-0000000000a2');
 do $$ begin assert (select count(*) from leads) = 0, 'agent two sees no lead assigned to agent one'; end $$;
 select test.act_as('00000000-0000-0000-0000-0000000000a1');
 do $$ begin assert (select count(*) from leads) = 1, 'agent one sees the lead assigned to them'; end $$;
-select test.expect_error(format($q$update leads set owner_team_row = %L where id = %L$q$, test.id('team2'), test.id('leadA')), 'row-level security');
+select test.expect_error(format($q$update leads set owner_team_row = %L where id = %L$q$, test.id('team2'), test.id('leadA')), 'permission denied');
 reset role;
+
+-- ===== T12 CRM (step C): idempotent capture, assignee by slug, one timeline, lead_update walls, manual leads, api_keys =====
+-- a team row with a slug in A, and the SAME slug in B: the lookup must stay inside the lead's workspace
+insert into test.ids select 'teamA3', service.seed_version('aaaaaaaa-0000-0000-0000-000000000000', 'team', '{"name":"Agent Three","slug":"agent-three"}', '00000000-0000-0000-0000-00000000005f', 'plan sitemap sha256 abc123');
+insert into test.ids select 'teamB1', service.seed_version('bbbbbbbb-0000-0000-0000-000000000000', 'team', '{"name":"Someone B","slug":"agent-three"}', '00000000-0000-0000-0000-00000000005f', 'plan sitemap sha256 abc123');
+insert into test.ids select 'leadI', service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/sell/', 'Lead I', 'i@test', null, '{"topic":"sell"}', 'I agree',
+  'cash-offer', 'Talk to an agent', '{"given":false,"text":"marketing wording"}', '11111111-1111-1111-1111-111111111111', 'agent-three');
+do $$ begin
+  assert service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/sell/', 'Lead I again', 'i@test', null, '{}', 'I agree',
+    null, null, null, '11111111-1111-1111-1111-111111111111', null) = test.id('leadI'), 'a retry with the same key answers the same lead';
+  assert (select count(*) from leads where idempotency_key = '11111111-1111-1111-1111-111111111111') = 1, 'a retry stores nothing';
+  assert (select owner_team_row from leads where id = test.id('leadI')) = test.id('teamA3'), 'assignee slug resolves to the team row of the same workspace';
+  assert (select flow from leads where id = test.id('leadI')) = 'cash-offer', 'flow stored';
+  assert (select marketing_consent ->> 'given' from leads where id = test.id('leadI')) = 'false', 'marketing consent stored apart from consent_text';
+  assert (select count(*) from lead_events where lead_id = test.id('leadI') and kind = 'received') = 1, 'received event written on capture';
+end $$;
+insert into test.ids select 'leadBs', service.capture_lead('bbbbbbbb-0000-0000-0000-00000000517e', 'contact', '/', 'Lead Bs', 'b@test', null, '{}', 'I agree', null, null, null, null, 'agent-three');
+do $$ begin
+  assert (select owner_team_row from leads where id = test.id('leadBs')) = test.id('teamB1'), 'the same slug in B resolves to B''s row, never A''s';
+  assert (select owner_team_row from leads where id = service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'x', 'x@test', null, '{}', 'I agree', null, null, null, null, 'nobody')) is null, 'an unknown slug is ignored';
+end $$;
+select test.expect_error($q$select service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'x', 'x@test', null, '{}', 'I agree', 'Bad Flow!')$q$, 'violates check constraint');
+
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-0000000000a1');     -- agent one: leadA is theirs
+select test.lead_update(test.id('leadA'), 'contacted');
+do $$ begin
+  assert (select status from leads where id = test.id('leadA')) = 'contacted', 'agent one changed the status of their lead';
+  assert (select count(*) from lead_events where lead_id = test.id('leadA') and kind = 'status' and detail ->> 'from' = 'new' and detail ->> 'to' = 'contacted') = 1, 'the status change wrote its event';
+end $$;
+select test.expect_error(format($q$select test.lead_update(%L, null, %L)$q$, test.id('leadA'), test.id('team2')), 'S-OWN-ONLY');
+select test.expect_error(format($q$update leads set status = 'spam' where id = %L$q$, test.id('leadA')), 'permission denied');
+select test.act_as('00000000-0000-0000-0000-0000000000a2');     -- agent two: not their lead
+select test.expect_error(format($q$select test.lead_update(%L, 'closed')$q$, test.id('leadA')), 'S-NOT-FOUND');
+do $$ begin assert (select count(*) from lead_events where lead_id = test.id('leadA')) = 0, 'agent two sees no timeline of a lead they cannot see'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000b');     -- B's owner
+do $$ begin assert (select count(*) from lead_events where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 0, 'B''s owner sees no timeline of A'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000a');     -- A's owner
+select test.lead_update(test.id('leadA'), null, test.id('team2'), 'Called, will visit on Monday');
+do $$ begin
+  assert (select owner_team_row from leads where id = test.id('leadA')) = test.id('team2'), 'the owner reassigned the lead';
+  assert (select count(*) from lead_events where lead_id = test.id('leadA') and kind = 'assigned') = 1, 'the reassignment wrote its event';
+  assert (select count(*) from lead_events where lead_id = test.id('leadA') and kind = 'note' and detail ->> 'text' = 'Called, will visit on Monday') = 1, 'the note is in the timeline';
+end $$;
+select test.expect_error(format($q$select test.lead_update(%L, null, %L)$q$, test.id('leadA'), test.id('teamB1')), 'S-NOT-FOUND');   -- a team row of another workspace
+-- a lead entered by hand: a member gives it only to themselves; a non-member of B cannot add one there
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+insert into test.ids select 'leadM', test.add_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'Walk-in', 'w@test', null, '{"about":"sell"}', 'The person agreed on the phone to be contacted', test.id('team2'));
+do $$ begin
+  assert (select owner_team_row from leads where id = test.id('leadM')) = test.id('team1'), 'a member''s manual lead is their own, whatever owner they typed';
+  assert (select form from leads where id = test.id('leadM')) = 'manual', 'manual lead form';
+  assert (select by from lead_events where lead_id = test.id('leadM') and kind = 'received') = '00000000-0000-0000-0000-0000000000a1', 'received by the member';
+end $$;
+select test.expect_error($q$select test.add_lead('bbbbbbbb-0000-0000-0000-00000000517e', 'x', 'x@test', null, '{}', 'agreed')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select test.add_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'x', 'x@test', null, '{}', '')$q$, 'consent text required');
+reset role;
+-- api_keys: owners never see them, staff (aal2) do; a revoked key is dead
+insert into api_keys (site_id, kind, label, vault_ref) values ('aaaaaaaa-0000-0000-0000-00000000517e', 'site-signing', 'Demo A live key', 'site-demo-a-key-1');
+insert into api_keys (site_id, kind, label, vault_ref, revoked_at) values ('aaaaaaaa-0000-0000-0000-00000000517e', 'site-signing', 'Demo A old key', 'site-demo-a-key-0', now());
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin assert (select count(*) from api_keys) = 0, 'owners never see api keys'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+do $$ begin assert (select count(*) from api_keys) = 2, 'staff with MFA see the registry'; end $$;
+reset role;
+do $$ begin
+  assert (select count(*) from service.active_key('site-signing', 'aaaaaaaa-0000-0000-0000-00000000517e')) = 1, 'a revoked key is dead';
+  assert (select vault_ref from service.active_key('site-signing', 'aaaaaaaa-0000-0000-0000-00000000517e')) = 'site-demo-a-key-1', 'the live key is the one handed out';
+end $$;
 
 -- ===== T9 anonymous callers (Supabase grants EXECUTE and table rights to anon by default): everything is closed =====
 set role anon;
@@ -270,6 +344,10 @@ select test.expect_error($q$select * from private.save_version('aaaaaaaa-0000-00
 select test.expect_error($q$select * from service.published_rows('00000000-0000-0000-0000-000000000000')$q$, 'permission denied');
 select test.expect_error($q$select service.capture_lead('bbbbbbbb-0000-0000-0000-00000000517e', 'contact', '/', 'x', 'x@test', null, '{}', 'I agree')$q$, 'permission denied');
 select test.expect_error($q$insert into leads (workspace_id, form, page_path, consent_text) values ('aaaaaaaa-0000-0000-0000-000000000000','f','/','c')$q$, 'permission denied');
+select test.expect_error($q$select service.lead_update('{"sub":"00000000-0000-0000-0000-00000000000a"}'::jsonb, '00000000-0000-0000-0000-000000000000', 'spam')$q$, 'permission denied');
+select test.expect_error($q$select service.add_lead('{"sub":"00000000-0000-0000-0000-00000000000a"}'::jsonb, 'aaaaaaaa-0000-0000-0000-00000000517e', 'x', 'x@test', null, '{}', 'c')$q$, 'permission denied');
+select test.expect_error($q$insert into lead_events (lead_id, workspace_id, kind) values ('00000000-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-000000000000', 'note')$q$, 'permission denied');
+select test.expect_error($q$select count(*) from api_keys$q$, 'permission denied');
 select test.expect_error($q$select count(*) from content_rows$q$, 'permission denied');
 reset role;
 

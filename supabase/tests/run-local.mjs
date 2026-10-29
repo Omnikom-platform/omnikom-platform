@@ -3,7 +3,7 @@
 // Needs initdb/pg_ctl/psql on PATH (Postgres 15+). The shim (default local-shim.sql) models Supabase's defaults.
 // Then runs each MUTANT (one wall removed from a copy of the migration) and requires the tests to fail: a wall whose
 // mutant passes has no test. Exit 0 = tests pass on the real migration AND every mutant is caught.
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, readdirSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const arg = n => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : null; };
-const MIGRATION = resolve(HERE, '..', 'migrations', '20261028000001_platform.sql');
+const MIGRATIONS_DIR = resolve(HERE, '..', 'migrations');   // every migration, in file-name order, as Supabase applies them
 const SHIM = arg('--shim') ? resolve(arg('--shim')) : join(HERE, 'local-shim.sql');
 const ONLY = arg('--only');
 const TESTS = join(HERE, 'tenancy.test.sql');
@@ -19,7 +19,8 @@ const PORT = String(54000 + Math.floor(Math.random() * 900));
 const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 120000, ...opts });
 
 // Read every input ONCE at the start, so editing files during a run cannot mix versions.
-const src = readFileSync(MIGRATION, 'utf8');
+const migrationFiles = readdirSync(MIGRATIONS_DIR).filter(f => f.endsWith('.sql')).sort();
+const src = migrationFiles.map(f => `-- >>> ${f}\n` + readFileSync(join(MIGRATIONS_DIR, f), 'utf8')).join('\n');
 const shimText = readFileSync(SHIM, 'utf8');
 const testText = readFileSync(TESTS, 'utf8');
 
@@ -48,9 +49,21 @@ const MUTANTS = [
   ['RLS on workspaces', 'create policy ws_read on workspaces for select to authenticated using (private.can_see(id));', 'create policy ws_read on workspaces for select to authenticated using (true);'],
   ['media insert wall', "create policy media_insert on media for insert to authenticated with check (private.can_see(workspace_id) and uploaded_by = (select auth.uid()));", "create policy media_insert on media for insert to authenticated with check (true);"],
   ['leads read wall', "create policy leads_read on leads for select to authenticated using (private.is_staff() or private.my_role(workspace_id) = 'owner'", "create policy leads_read on leads for select to authenticated using (true or private.my_role(workspace_id) = 'owner'"],
-  // Two layers stop a member re-assigning a lead: the update WITH CHECK, and Postgres applying the SELECT policy to the new row.
-  ['member cannot reassign a lead (with check + read policy)', [["  with check (private.is_staff() or private.my_role(workspace_id) = 'owner'\n  or (private.my_role(workspace_id) = 'member' and owner_team_row = private.my_team_row(workspace_id)));", "  with check (private.is_staff() or private.is_member(workspace_id));"],
-    ["create policy leads_read on leads for select to authenticated using (private.is_staff() or private.my_role(workspace_id) = 'owner'\n  or (private.my_role(workspace_id) = 'member' and owner_team_row = private.my_team_row(workspace_id)));", "create policy leads_read on leads for select to authenticated using (private.is_staff() or private.is_member(workspace_id));"]]],
+  // Step C (20261029000002_crm.sql): status and owner change only through service.lead_update, which writes the timeline.
+  ['member cannot reassign a lead (lead_update)', "    if not staff and role = 'member' then raise exception 'S-OWN-ONLY: members cannot hand a lead to someone else'; end if;", "    null;"],
+  ['lead_update needs to see the lead', "  if not (staff or role = 'owner' or (role = 'member' and l.owner_team_row = mine)) then raise exception 'S-NOT-FOUND: not found'; end if;", "  null;"],
+  ['no direct status update (grant removed)', "revoke update on leads from authenticated;\ndrop policy leads_update on leads;", "-- (grant kept)"],
+  ['status change writes its event', "    insert into lead_events (lead_id, workspace_id, kind, by, detail) values (p_lead, l.workspace_id, 'status', me, jsonb_build_object('from', l.status, 'to', p_status));", "    null;"],
+  ['new owner must be a team row of the workspace', "    if not exists (select 1 from content_rows c where c.id = p_owner and c.workspace_id = l.workspace_id and c.collection = 'team' and c.deleted_at is null)\n      then raise exception 'S-NOT-FOUND: no such team member'; end if;", "    null;"],
+  ['timeline read wall follows the lead', "create policy lead_events_read on lead_events for select to authenticated using (exists (select 1 from leads l where l.id = lead_id));", "create policy lead_events_read on lead_events for select to authenticated using (true);"],
+  ['a retry stores nothing (idempotency)', "    if lid is not null then return lid; end if;    -- a retry of the same submission stores nothing and answers the same id", "    lid := null;"],
+  ['assignee slug resolves inside the workspace only', "      where c.workspace_id = ws and c.collection = 'team' and c.deleted_at is null and v.data ->> 'slug' = p_assignee limit 1;", "      where c.collection = 'team' and c.deleted_at is null and v.data ->> 'slug' = p_assignee order by c.created_at limit 1;"],
+  ['received event on capture', "  insert into lead_events (lead_id, workspace_id, kind, detail) values (lid, ws, 'received', jsonb_build_object('form', p_form, 'page', p_page, 'flow', p_flow));", "  null;"],
+  ['manual lead: members only to themselves', "  who := case when role = 'member' and not staff then private.my_team_row(ws) else p_owner end;", "  who := p_owner;"],
+  ['manual lead needs membership', "  if not staff and role is null then raise exception 'S-NOT-FOUND: not found'; end if;\n  if coalesce(p_consent, '') = '' then raise exception 'consent text required'; end if;\n  who :=", "  if coalesce(p_consent, '') = '' then raise exception 'consent text required'; end if;\n  who :="],
+  ['api keys are staff-only', "create policy api_keys_staff_read on api_keys for select to authenticated using (private.is_staff());", "create policy api_keys_staff_read on api_keys for select to authenticated using (true);"],
+  ['a revoked key is dead', "    and k.revoked_at is null and (k.expires_at is null or k.expires_at > now())", "    and (k.expires_at is null or k.expires_at > now())"],
+  ['step C service functions closed to clients (both layers)', "revoke all on all functions in schema service from public, anon, authenticated;\ngrant execute on all functions in schema service to service_role;\n\ndo $$ begin\n  if exists (select from pg_publication where pubname = 'supabase_realtime') then\n    alter publication supabase_realtime add table lead_events;", "grant usage on schema service to anon, authenticated;\ngrant execute on all functions in schema service to service_role, anon, authenticated;\n\ndo $$ begin\n  if exists (select from pg_publication where pubname = 'supabase_realtime') then\n    alter publication supabase_realtime add table lead_events;"],
   ['locked fields', "    if not staff then raise exception 'S-LOCKED:", "    if false then raise exception 'S-LOCKED:"],
   ['sign-off for staff', "if p_sign_off is null or p_sign_off ->> 'by' is null or p_sign_off ->> 'ref' is null then", "if false then"],
   ['staff need MFA (aal2)', "and coalesce((select auth.jwt() ->> 'aal'), '') = 'aal2' $$;", " $$;"],
@@ -65,7 +78,9 @@ const MUTANTS = [
   ['append-only versions (table grants, both layers)', [['alter default privileges in schema public revoke all on tables from anon, authenticated;', '-- (default revoke removed)'], ['revoke insert, update, delete, truncate, references, trigger on all tables in schema public from authenticated;', '-- (revoke removed)']]],
   ['anon has no table rights (both layers)', [['alter default privileges in schema public revoke all on tables from anon, authenticated;', '-- (default revoke removed)'], ['revoke all on all tables in schema public from anon;', '-- (revoke removed)']]],
   ['clients cannot skip the validator (save body private)', 'revoke all on all functions in schema private from public, anon, authenticated;', 'grant execute on all functions in schema private to anon, authenticated;'],
-  ['service functions closed to clients', 'grant usage on schema service to service_role;', 'grant usage on schema service to service_role, anon, authenticated; grant execute on all functions in schema service to anon, authenticated;'],
+  // Double since step C: the first migration closes the schema, the second closes its own functions again. Remove both layers.
+  ['service functions closed to clients (both layers)', [['grant usage on schema service to service_role;', 'grant usage on schema service to service_role, anon, authenticated; grant execute on all functions in schema service to anon, authenticated;'],
+    ["revoke all on all functions in schema service from public, anon, authenticated;\ngrant execute on all functions in schema service to service_role;", "grant execute on all functions in schema service to service_role;"]]],
   ['seed actor must be staff', "if not exists (select 1 from staff where user_id = p_actor) then raise exception 'S-SEED-ACTOR", "if false then raise exception 'S-SEED-ACTOR"],
   ['members publish only their own items', "        raise exception 'S-OWN-ONLY: members publish only their own items';", "        null;"],
   ['publish needs membership', "  if not staff and role is null then raise exception 'S-NOT-FOUND: not found'; end if;\n  if coalesce(array_length", "  if coalesce(array_length"],

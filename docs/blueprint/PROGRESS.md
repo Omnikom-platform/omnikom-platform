@@ -4,6 +4,17 @@ Task: build-ready product engineering package (owner, 2026-10-28), raised to eng
 then corrected by an independent fact-check (72 claims) and an independent M1 dry run (31 issues), and by DECISIONS 15
 (no Docker; one Supabase account, staging + production). **Status: complete for owner review. Nothing committed.**
 
+## Step C run (2026-10-29 19:45, `node supabase/tests/run-local.mjs`, both migrations applied in order; DECISIONS 21)
+```
+PASS real migration: ALL TENANCY TESTS PASSED
+OK: real migration passes; 60 mutants        (60 caught, 0 survived; 14 new for 20261029000002_crm.sql, T12)
+```
+Also this run: `check-specs.mjs` 0 problems; `contracts/test/run.mjs` 138 passed, 0 failed. Watched-red on the way: the two
+"service functions closed to clients" mutants SURVIVED once the second migration re-closed the schema (a single wall had become
+double); both now remove both layers and are caught. NOT RUN this time: the industry run, deno check (unchanged files).
+Diagrams: `render.mjs` failed for every diagram (Edge headless `--dump-dom` prints nothing since an update); fixed 20:05 by probing
+each browser and using the first that prints a DOM (Chrome). `node docs/blueprint/diagrams/render.mjs` -> 13 of 13 ok.
+
 ## Final gate run (2026-10-28, after dry run 2, `node docs/blueprint/specs/run-all-gates.mjs`)
 ```
 PASS contract tests             138 passed, 0 failed

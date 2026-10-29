@@ -19,7 +19,7 @@ window recovers. SLO report monthly with the DORA metrics.
 |---|---|---|---|
 | Function logs (JSON: request id, workspace id, function, code, ms; no personal data) | Edge Functions | Supabase logs (+ export to a log drain later) | error rate > 2% for 10 min |
 | Publish jobs | `publish_jobs` + GitHub run logs | DB + GitHub | a job `failed` 2 times in a row for a site; any job > 30 min |
-| Lead pipeline | `leads`, `lead_pushes` | DB | a push failed after all retries; 0 leads for a live site with traffic for 7 days (form outage check) |
+| Lead pipeline | `leads`, `lead_events` (`push-failed`) | DB | a push failed after all retries; 0 leads for a live site with traffic for 7 days (form outage check) |
 | Uptime | external checker on each live site, dashboard, form endpoint (synthetic POST to a test site) | `metrics_snapshots` (uptime) | 2 consecutive failures |
 | Site quality | nightly gates on every live site | job reports | any gate turns red |
 | Speed | PSI weekly (mobile+desktop) on key pages | `metrics_snapshots` | LCP over 4 s lab |
@@ -53,7 +53,7 @@ redeploy the last good version. 3) If `capture-lead` fails: function logs; Supab
 stored: the form must show the "please call us" fallback with the phone number (built into every form). 5) Tell the client how
 long it was down.
 
-**R5 Lead push failing.** Check `lead_pushes` codes; 401 = CRM secret rotated (ask the client); 5xx = their CRM down (retries
+**R5 Lead push failing.** Check the `push-failed` events' codes in `lead_events`; 401 = CRM secret rotated (ask the client); 5xx = their CRM down (retries
 continue); after the last retry the owner sees the lead in the inbox anyway (nothing is lost).
 
 ## 3. Backup and restore

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard design board</title>
+<meta name="robots" content="noindex">
+<style>
+  :root { --ink: #1c1c1c; --mute: #6b6b6b; --line: #e3e3e3; --bg: #fff; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, sans-serif; padding: 32px 16px 64px; max-width: 1400px; margin-inline: auto; }
+  h1 { font: 600 28px/1.2 Poppins, system-ui, sans-serif; margin: 0 0 8px; }
+  h2 { font: 600 20px/1.2 Poppins, system-ui, sans-serif; margin: 0 0 4px; }
+  p { margin: 0 0 12px; }
+  .note { color: var(--mute); max-width: 70ch; }
+  .dir { border: 1px solid var(--line); border-radius: 8px; padding: 28px; margin-top: 28px; }
+  .shots { display: grid; grid-template-columns: 3fr 1fr; gap: 16px; margin-top: 16px; }
+  .shots a { display: block; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #f6f6f6; }
+  .shots img { display: block; width: 100%; height: 520px; object-fit: cover; object-position: top; }
+  .meta { display: flex; gap: 24px; flex-wrap: wrap; color: var(--mute); font-size: 14px; }
+  @media (max-width: 700px) { .shots { grid-template-columns: 1fr; } .dir { padding: 20px; } }
+</style>
+</head>
+<body>
+<h1>Client dashboard: four directions to pick from</h1>
+<p class="note">Greyscale wireframes of the same three screens (login, leads inbox, page editor), each grounded in one real design
+reference and each with its own rail, grid, type and motion. Structure is fixed by the blueprint; only the look differs. Click a
+shot to open the full page; open the HTML itself to see the motion (toggle top right). Judged 2026-10-29; the Plain direction
+was dropped because it shared Document's rail, table and panel grid. Nothing here is coloured or branded yet: that comes after the pick.</p>
+
+<section class="dir">
+  <h2>1. Document (reference: Notion)</h2>
+  <p>The dashboard reads like a calm page you write in: big title, quiet blocks, text-only page tree on the left, warm greys.</p>
+  <div class="meta"><span>Rail groups: Content / Run</span><span>Motion: blocks settle in one by one</span><span>Check: PASS 2 of 2, no defect seen</span></div>
+  <div class="shots">
+    <a href="directions/notion.html"><img src="directions/_shots/notion/notion-1366x650.png" alt="Document direction, laptop"></a>
+    <a href="directions/notion.html"><img src="directions/_shots/notion/notion-390x844.png" alt="Document direction, phone"></a>
+  </div>
+</section>
+
+<section class="dir">
+  <h2>2. Ledger (reference: Stripe)</h2>
+  <p>Finance-grade order: a 2 px ink rule on top of every screen, hairlines under it, tabular numerals, numbered sections, the selected rail item in black.</p>
+  <div class="meta"><span>Rail: plain list, selected in black</span><span>Motion: entries post into place, staggered</span><span>Check: PASS 2 of 2, no defect seen</span></div>
+  <div class="shots">
+    <a href="directions/stripe.html"><img src="directions/_shots/stripe/stripe-1366x650.png" alt="Ledger direction, laptop"></a>
+    <a href="directions/stripe.html"><img src="directions/_shots/stripe/stripe-390x844.png" alt="Ledger direction, phone"></a>
+  </div>
+</section>
+
+<section class="dir">
+  <h2>3. Inbox (reference: Intercom)</h2>
+  <p>A lead is a thread: list on the left, the conversation on the right with status and owner at the top, the note box at the bottom. The editor reuses the same split.</p>
+  <div class="meta"><span>Rail: workspace name on top, who is signed in at the bottom</span><span>Motion: newest row drops in</span><span>Check: PASS 2 of 2, no defect seen</span></div>
+  <div class="shots">
+    <a href="directions/intercom.html"><img src="directions/_shots/intercom/intercom-1366x650.png" alt="Inbox direction, laptop"></a>
+    <a href="directions/intercom.html"><img src="directions/_shots/intercom/intercom-390x844.png" alt="Inbox direction, phone"></a>
+  </div>
+</section>
+
+<section class="dir">
+  <h2>4. Precision (reference: Linear)</h2>
+  <p>Dark, keyboard-first: dense calm rows, a jump box, key hints on every rail item, selection is the only loud thing.</p>
+  <div class="meta"><span>Rail: dark with key hints</span><span>Motion: a 2 px bar grows in on selection</span><span>Check: PASS 2 of 2; defect seen: the lead detail panel runs past the frame edge on the laptop shot (fixable)</span></div>
+  <div class="shots">
+    <a href="directions/linear-app.html"><img src="directions/_shots/linear-app/linear-app-1366x650.png" alt="Precision direction, laptop"></a>
+    <a href="directions/linear-app.html"><img src="directions/_shots/linear-app/linear-app-390x844.png" alt="Precision direction, phone"></a>
+  </div>
+</section>
+
+<p class="note" style="margin-top:28px">Dropped: Plain (reference: Cal.com), <a href="directions/cal.html">kept on disk</a>; same grid as Document, rings instead of borders, and its phone bottom bar drew over the screen headings in the full-page shot.</p>
+</body>
+</html>

@@ -16,7 +16,8 @@ The schema is a tested draft: `supabase/migrations/20261028000001_platform.sql`,
 | `content_rows` | one row per item (page, listing, article, notice...) | `collection`, `owner_team_row`, `published_version`, soft delete |
 | `content_versions` | every save, append-only | `data jsonb` checked by `contracts/validate.mjs`; `sign_off` for locked changes |
 | `media` | uploaded files | key must start with `<workspace_id>/`; `rights_confirmed` from the client; `width`, `exif_stripped`, `processed` set by the media processor (section 5) |
-| `leads`, `lead_notes`, `lead_pushes` | the lead inbox | consent text copied at send time; every push attempt logged |
+| `leads`, `lead_events` | the lead inbox and one timeline per lead (step C, `20261029000002_crm.sql`; DECISIONS 21 folded `lead_notes` and `lead_pushes` into `lead_events`) | consent text copied at send time; `flow`, `cta`, `marketing_consent`, `idempotency_key`; status and owner change only through `service.lead_update`, which writes the event; `service.add_lead` for leads typed by hand |
+| `api_keys` | registry of every machine credential: a hash or a Vault name, never the value; staff-only | `service.active_key` ignores revoked and expired keys |
 | `publish_jobs` | one per Publish | `rows` requested, `snapshot` {row: version} the build ships; state queued -> building -> gating -> deploying -> done / failed; gate report |
 | `metrics_snapshots` | observed numbers per day | Search Console, PageSpeed, AI-answer samples, uptime; never invented |
 | `audit_log` | who did what, when | every save, publish, sign-off, staff action |
@@ -103,7 +104,7 @@ idle timeout.
 | `unpublish` | dashboard, user JWT (owner/staff) | `service.unpublish` | 404 |
 | `media-process-callback` | runner, `X-Runner-Signature`, verify_jwt off | set width, height, `exif_stripped`, `processed` | 401 |
 | `capture-lead` | site Worker, `X-Site-Signature` (HMAC with that site's signing key), verify_jwt off | honeypot + rate limit per IP/site -> `service.capture_lead` -> queue push -> email alert | 400 (consent), 401, 429 |
-| `push-lead` | pg_cron/queue, internal cron secret, verify_jwt off | OmniSuite adapter (BLOCKED until its API exists) or signed CRM webhook; retries 1m/5m/30m/2h; `lead_pushes` row per try | after 4 tries: failed, owner sees it |
+| `push-lead` | pg_cron/queue, internal cron secret, verify_jwt off | OmniSuite adapter (BLOCKED until its API exists) or signed CRM webhook; retries 1m/5m/30m/2h; a `lead_events` row (`pushed` / `push-failed`) per try via `service.lead_event` | after 4 tries: failed, owner sees it |
 | `metrics-pull` | pg_cron, internal cron secret, verify_jwt off | cron enqueues **one message per workspace**; each call handles one workspace (Search Console + PSI) and finishes well under the 150 s idle timeout | retried next day |
 | `sitemap-submit` | job-callback, internal secret | Search Console sitemap submit for live sites | logged |
 pg_cron calls functions through pg_net with the cron secret read from Vault; pg_net keeps request headers in

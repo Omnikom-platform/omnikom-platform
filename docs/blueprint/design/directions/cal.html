@@ -1,0 +1,252 @@
+<!doctype html>
+<!-- Concept "Plain": a quiet document, not a dashboard. One charcoal button per screen, hairline rings instead of shadows, rows and panels that settle in 4px and nothing else moves.
+     From Cal's DESIGN.md: #242424 / #6b6b6b (its #898989 darkened for contrast) / white palette; the 0 0 0 1px ring at rgba(34,42,53,.1) as the containment (no soft shadows); 8px base unit, 8px/12px radii; dark primary button with hover opacity .7; 1.1 headings, +0.2px below 24px; 80px/48px section spacing; Poppins 600 stands in for Cal Sans. -->
+<!-- Review only: the "Motion: on / off" toggle flips class "motion-on" on html. Production follows prefers-reduced-motion and has no toggle. -->
+<html lang="en" class="motion-on">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plain: client dashboard wireframe</title>
+<style>
+:root{--ink:#242424;--ink2:#6b6b6b;--ring:rgba(34,42,53,.12);--ring2:rgba(34,42,53,.36);--wash:#f5f5f5;--head:Poppins,system-ui,sans-serif;--body:system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box;margin:0}
+body{font:14px/1.5 var(--body);color:var(--ink);background:#fff}
+h1,h2,h3{font-family:var(--head);font-weight:600;line-height:1.1;letter-spacing:.2px}
+h1{font-size:28px;letter-spacing:0}h2{font-size:20px}h3{font-size:16px}
+p,li,dd{overflow-wrap:anywhere}
+.g{color:var(--ink2)}.sm{font-size:13px}
+a{color:inherit;text-underline-offset:3px}
+ul,ol{list-style:none;padding:0}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+/* review bar */
+.review{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 24px;background:#fff;box-shadow:0 1px 0 var(--ring)}
+.review b{font-family:var(--head)}
+#mo{font:inherit;color:inherit;background:none;border:0;padding:8px 0;cursor:pointer}
+#mo [data-s]{color:var(--ink2);font-family:var(--body);font-weight:400}#mo [aria-current]{color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+/* screens */
+main{max-width:1328px;margin:0 auto;padding:0 24px}
+.screen{padding:80px 0 0}
+.screen>.lbl{font:600 16px var(--head);margin-bottom:16px}
+.frame{box-shadow:0 0 0 1px var(--ring);border-radius:12px;background:#fff}
+.card{box-shadow:0 0 0 1px var(--ring);border-radius:12px;padding:28px;background:#fff}
+/* controls */
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 16px;font:600 14px var(--body);color:var(--ink);background:#fff;border:0;border-radius:8px;box-shadow:0 0 0 1px var(--ring2);cursor:pointer;text-decoration:none}
+.btn.p{background:var(--ink);color:#fff;box-shadow:none}
+.btn:hover{opacity:.7}
+.in{display:block;width:100%;min-height:40px;padding:8px 12px;font:inherit;color:var(--ink);background:#fff;border:0;border-radius:8px;box-shadow:0 0 0 1px var(--ring2)}
+textarea.in{min-height:96px;resize:vertical}
+label,.fl{display:block;font-weight:600;margin:20px 0 6px}
+.hint{display:flex;justify-content:space-between;gap:12px;margin-top:6px;color:var(--ink2);font-size:13px}
+input[type=checkbox]{accent-color:var(--ink);width:18px;height:18px;margin:0}
+/* login */
+.login{padding:64px 24px;display:grid;gap:48px;justify-items:center}
+.login .card{width:100%;max-width:440px}
+.login .cap{width:100%;max-width:440px;margin-bottom:-32px}
+.login h1{margin-bottom:8px}.login .btn{width:100%;margin-top:24px}
+.login .alt{display:block;margin-top:16px;font-size:13px;color:var(--ink2);text-align:center}
+.pick{display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:56px;margin-top:12px;padding:8px 16px;border-radius:8px;box-shadow:0 0 0 1px var(--ring2);color:inherit;text-decoration:none;font-weight:600}
+.pick:hover{background:var(--wash)}.pick span{font-weight:400;color:var(--ink2);font-size:13px}
+/* app frame */
+.app{display:grid;grid-template-columns:192px minmax(0,1fr)}
+.rail{padding:28px 16px;box-shadow:1px 0 0 var(--ring)}
+.rail h3{padding:0 12px;margin-bottom:24px}
+.rail a{display:flex;justify-content:space-between;gap:8px;padding:8px 12px;margin-bottom:4px;border-radius:8px;color:var(--ink2);text-decoration:none}
+.rail a:hover{color:var(--ink)}
+.rail a[aria-current]{background:var(--wash);color:var(--ink);font-weight:600}
+.body{padding:32px;min-width:0}
+.top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+.sub{margin-bottom:24px}
+.split{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:24px;align-items:start}
+/* site switcher */
+.sites{display:flex;gap:24px;margin-bottom:24px;box-shadow:0 1px 0 var(--ring)}
+.sites a{padding:8px 0;color:var(--ink2);text-decoration:none}
+.sites a[aria-current]{color:var(--ink);font-weight:600;box-shadow:0 2px 0 var(--ink)}
+/* leads list */
+.lt{--c:72px 56px 80px minmax(0,1fr) 72px 80px 84px;font-size:13px}
+.lh,.row{display:grid;grid-template-columns:var(--c);gap:12px;align-items:start;padding:12px 8px;border-bottom:1px solid var(--ring);color:inherit;text-decoration:none}
+.lh{color:var(--ink2)}
+a.row:hover{background:var(--wash)}
+.row[aria-current]{background:var(--wash);border-radius:8px}
+.c-n{font-weight:600}.fail{font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.detail h2{margin-bottom:4px}
+.detail h3{margin:28px 0 8px}
+.detail dl{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;margin-top:16px}
+.detail dt{color:var(--ink2)}
+.tl li{display:grid;grid-template-columns:84px 1fr;gap:12px;padding:6px 0}
+.quote{padding:16px;border-radius:8px;background:var(--wash);font-size:13px}
+.acts{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}
+/* page editor */
+.secs a{display:flex;justify-content:space-between;gap:12px;padding:12px;margin-bottom:4px;border-radius:8px;color:var(--ink2);text-decoration:none}
+.secs a:hover{color:var(--ink)}
+.secs a[aria-current]{background:var(--wash);color:var(--ink);font-weight:600}
+.slot{display:grid;place-items:center;min-height:120px;padding:16px;text-align:center;border-radius:8px;box-shadow:0 0 0 1px var(--ring2);background:var(--wash)}
+.chk{display:flex;align-items:center;gap:12px;margin-top:16px}
+.self{margin-top:24px}
+.pub{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px;padding-top:24px;box-shadow:0 -1px 0 var(--ring)}
+.checks{margin-top:24px}
+.checks li{display:flex;justify-content:space-between;gap:16px;padding:12px 0;box-shadow:0 1px 0 var(--ring)}
+.checks li:last-child{box-shadow:none}
+/* motion: transform and opacity only */
+@keyframes rise{from{opacity:0;transform:translateY(4px)}}
+.motion-on .row,.motion-on .detail,.motion-on .editp{animation:rise .24s ease-out both}
+.motion-on .row:nth-of-type(2){animation-delay:40ms}.motion-on .row:nth-of-type(3){animation-delay:80ms}.motion-on .row:nth-of-type(4){animation-delay:120ms}
+.motion-on .btn{transition:opacity .15s,transform .1s}
+.motion-on .btn:active{transform:translateY(1px)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* laptop narrow */
+@media (max-width:1100px){.split,.split.ed{grid-template-columns:1fr}}
+/* phone: single column, bottom bar */
+@media (max-width:430px){
+ main{padding:0 16px}.screen{padding-top:48px}.review{padding:12px 16px}.review span{display:none}
+ .login{padding:32px 0}
+ .app{grid-template-columns:1fr}
+ .rail{order:2;position:sticky;bottom:0;z-index:4;display:flex;padding:0;background:#fff;box-shadow:0 -1px 0 var(--ring);border-radius:0 0 12px 12px}
+ .rail h3,.rail .n{display:none}
+ .rail a{flex:1;justify-content:center;margin:0;padding:14px 0;min-height:48px;font-size:13px;border-radius:0}
+ .body{padding:24px 16px}
+ .btn,.in{min-height:44px}
+ .lh{display:none}
+ .row{grid-template-columns:1fr auto;grid-template-areas:"n s" "p p" "r f" "o c";gap:2px 12px}
+ .c-n{grid-area:n}.c-s{grid-area:s}.c-p{grid-area:p}.c-r{grid-area:r}.c-f{grid-area:f;text-align:right}.c-o{grid-area:o}.c-c{grid-area:c;text-align:right}
+ .c-o::before{content:"Owner: "}.c-c::before{content:"CRM: "}
+ .tl li{grid-template-columns:1fr;gap:0}
+ .pub .btn{flex:1 1 40%}.pub .p{margin-left:0}
+ .sites{gap:16px}
+}
+.split.ed{grid-template-columns:minmax(0,260px) minmax(0,1fr)}
+@media (max-width:1100px){.split.ed{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="review"><span><b>Plain</b> &nbsp;wireframe direction, greyscale</span><button id="mo" type="button" aria-pressed="true">Motion: <b data-s="on" aria-current="true">on</b> / <b data-s="off">off</b></button></div>
+<main>
+
+<section class="screen" aria-labelledby="l1">
+<p class="lbl" id="l1">Screen 1: Login, and the workspace picker that follows it</p>
+<div class="frame login">
+ <p class="cap g sm">State 1. Magic link is the default.</p>
+ <div class="card">
+  <h1>Sign in</h1>
+  <p class="g">We email you a link. No password to remember.</p>
+  <label for="em">Email</label>
+  <input class="in" id="em" type="email" placeholder="you@business-a.example" autocomplete="email">
+  <button class="btn p" type="button">Send me a sign-in link</button>
+  <a class="alt" href="#">use a password instead</a>
+ </div>
+ <p class="cap g sm">State 2. Shown after login when a person belongs to more than one business.</p>
+ <div class="card">
+  <h1>Choose a business</h1>
+  <p class="g">You belong to more than one. Last time you opened Business A.</p>
+  <a class="pick" href="#" style="margin-top:24px">Business A <span>2 websites</span></a>
+  <a class="pick" href="#">Business B <span>1 website</span></a>
+ </div>
+</div>
+</section>
+
+<section class="screen" aria-labelledby="l2">
+<p class="lbl" id="l2">Screen 2: Leads inbox</p>
+<div class="frame app">
+ <nav class="rail" aria-label="Main">
+  <h3>Workspace A</h3>
+  <a href="#">Overview</a><a href="#">Pages</a><a href="#">Media</a>
+  <a href="#" aria-current="page">Leads <span class="n g sm">3 new</span></a>
+  <a href="#">Settings</a>
+ </nav>
+ <div class="body">
+  <div class="top"><h1>Leads</h1><button class="btn" type="button">Export CSV</button></div>
+  <p class="g sub">Newest first. Leads are kept per website.</p>
+  <div class="sites" aria-label="Website"><a href="#" aria-current="page">Site A</a><a href="#">Site B</a></div>
+  <div class="split">
+   <div class="lt" role="table" aria-label="Leads for Site A">
+    <div class="lh" role="row"><span>Received</span><span>Name</span><span>Form</span><span>Page</span><span>Status</span><span>Owner</span><span>Sent to CRM</span></div>
+    <a class="row" href="#"><span class="c-r">Today 09:12</span><span class="c-n">Lead A</span><span class="c-f">Home finder</span><span class="c-p">City A guide</span><span class="c-s">new</span><span class="c-o">unassigned</span><span class="c-c">ok</span></a>
+    <a class="row" href="#" aria-current="true"><span class="c-r">Yesterday</span><span class="c-n">Lead B</span><span class="c-f">Home value</span><span class="c-p">Home</span><span class="c-s">contacted</span><span class="c-o">Agent One</span><span class="c-c">ok</span></a>
+    <a class="row" href="#"><span class="c-r">Mon</span><span class="c-n">Lead C</span><span class="c-f">Contact</span><span class="c-p">Realtor in City B</span><span class="c-s">qualified</span><span class="c-o">Agent Two</span><span class="c-c fail">failed, retrying</span></a>
+    <a class="row" href="#"><span class="c-r">Last week</span><span class="c-n">Lead D</span><span class="c-f">Home finder</span><span class="c-p">City B guide</span><span class="c-s">new</span><span class="c-o">Agent One</span><span class="c-c">ok</span></a>
+   </div>
+   <aside class="card detail" aria-label="Lead B">
+    <h2>Lead B</h2>
+    <p class="g">Home value form on the Home page, yesterday</p>
+    <dl class="sm"><dt>Address</dt><dd>Street A, City A</dd><dt>Timing</dt><dd>Within 3 months</dd><dt>Email</dt><dd>lead-b@example.test</dd><dt>Phone</dt><dd>(555) 000-0000</dd></dl>
+    <label for="st">Status</label>
+    <select class="in" id="st"><option>contacted</option><option>new</option><option>qualified</option><option>closed</option></select>
+    <label for="ow">Owner</label>
+    <select class="in" id="ow"><option>Agent One</option><option>Agent Two</option><option>unassigned</option></select>
+    <label for="nt">Add a note</label>
+    <textarea class="in" id="nt"></textarea>
+    <div class="acts"><button class="btn p" type="button">Save changes</button></div>
+    <h3>Timeline</h3>
+    <ol class="tl sm">
+     <li><span class="g">Yesterday 14:02</span><span>Received from the Home value form</span></li>
+     <li><span class="g">Yesterday 14:02</span><span>Pushed to CRM: ok</span></li>
+     <li><span class="g">Yesterday 15:10</span><span>Status changed to contacted by Agent One</span></li>
+    </ol>
+    <h3>Consent shown when sent</h3>
+    <p class="quote">I agree that Business A may contact me about my enquiry by email or phone. (Exact wording, kept as the visitor saw it.)</p>
+    <div class="acts"><button class="btn" type="button">Resend to CRM</button></div>
+   </aside>
+  </div>
+ </div>
+</div>
+</section>
+
+<section class="screen" aria-labelledby="l3" style="padding-bottom:80px">
+<p class="lbl" id="l3">Screen 3: Page editor</p>
+<div class="frame app">
+ <nav class="rail" aria-label="Main">
+  <h3>Workspace A</h3>
+  <a href="#">Overview</a><a href="#" aria-current="page">Pages</a><a href="#">Media</a>
+  <a href="#">Leads <span class="n g sm">3 new</span></a>
+  <a href="#">Settings</a>
+ </nav>
+ <div class="body">
+  <div class="top"><h1>Home page</h1><a class="g" href="#">Back to all pages</a></div>
+  <p class="g sub">Site A. The draft has 2 changes not yet published.</p>
+  <div class="split ed">
+   <nav class="secs" aria-label="Sections of this page">
+    <a href="#" aria-current="true">1. Hero <span class="sm">edit</span></a>
+    <a href="#">2. Three ways <span class="sm">edit</span></a>
+    <a href="#">3. Home value <span class="sm">form</span></a>
+    <a href="#">4. Active listings <span class="sm">fills itself</span></a>
+    <a href="#">5. FAQ <span class="sm">edit</span></a>
+    <a href="#">6. Legal text <span class="sm">locked</span></a>
+   </nav>
+   <div>
+    <div class="card editp">
+     <h2>Hero</h2>
+     <p class="g">An edit section. Change the words and the photo; the layout stays as designed.</p>
+     <label for="ti">Title</label>
+     <input class="in" id="ti" value="Realtor in City A">
+     <p class="hint"><span>One line</span><span>17 of 70, max 70</span></p>
+     <label for="tx">Text</label>
+     <textarea class="in" id="tx">Text A: two short sentences about how the team helps in City A.</textarea>
+     <span class="fl">Photo</span>
+     <div class="slot"><p>Drop a photo here, or <a href="#">choose a file</a><br><span class="g sm">Photo A is uploaded: hero-photo-a.jpg</span></p></div>
+     <label for="al">Alt text</label>
+     <input class="in" id="al" placeholder="Say what the photo shows, for people who cannot see it">
+     <div class="chk"><input type="checkbox" id="rt"><label for="rt" style="margin:0;font-weight:400">We have the right to publish this photo</label></div>
+    </div>
+    <div class="card self">
+     <h3>Active listings</h3>
+     <p class="g">This section fills itself: active listings in this city, newest first. Nothing to edit.</p>
+    </div>
+   </div>
+  </div>
+  <div class="pub"><button class="btn" type="button">Save draft</button><button class="btn" type="button">Preview</button><button class="btn p" type="button">Publish</button><button class="btn" type="button">History</button></div>
+  <ul class="checks" aria-label="Checks before publishing">
+   <li><span>2 photos have no alt text</span><a href="#">Fix</a></li>
+   <li><span>Title is within 70 characters</span><span class="g">ok</span></li>
+   <li><span>Consent wording on the Home value form is not confirmed yet</span><a href="#">Open</a></li>
+  </ul>
+ </div>
+</div>
+</section>
+
+</main>
+<script>
+var h=document.documentElement,b=document.getElementById('mo');
+b.onclick=function(){var on=h.classList.toggle('motion-on');b.setAttribute('aria-pressed',on);
+b.querySelectorAll('[data-s]').forEach(function(e){e.toggleAttribute('aria-current',e.dataset.s===(on?'on':'off'))})};
+</script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!doctype html>
+<!-- Concept (Precision): a keyboard-first ledger. Dense, calm rows on a near-black grid; selection is the only loud thing, a luminance step plus a 2px bar that grows in (transform only), never a colour.
+     Taken from linear-app/DESIGN.md: luminance stacking (#0f0f0f panel, raised greys), whisper borders rgba(255,255,255,.08), 6px control / 8px card / 12px frame radii, 12/13/15 type steps, weights 500-600 only, kbd hints, ghost buttons at .04 white; its indigo accent is replaced by a plain white primary.
+     The "Motion: on / off" toggle is review-only (production respects prefers-reduced-motion). Only transform and opacity animate. -->
+<html lang="en" class="motion"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Precision wireframe</title>
+<style>
+:root{--bg:#0a0a0a;--p1:#0f0f0f;--p2:#161616;--p3:#1e1e1e;--ln:rgba(255,255,255,.08);--ln2:rgba(255,255,255,.16);--t1:#f5f5f5;--t2:#cfcfcf;--t3:#8f8f8f;--hd:Poppins,system-ui,sans-serif;--bd:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--ease:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+html{color-scheme:dark;background:var(--bg)}
+body{background:var(--bg);color:var(--t2);font:14px/1.5 var(--bd);-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:var(--hd);font-weight:600;color:var(--t1);letter-spacing:-.02em}
+h1{font-size:24px;line-height:1.2}h2{font-size:20px;line-height:1.2}h3{font-size:15px;letter-spacing:-.01em;margin-bottom:8px}
+a{color:var(--t1);text-underline-offset:3px;text-decoration-color:var(--ln2)}
+:focus-visible{outline:2px solid var(--t1);outline-offset:2px}
+kbd{font:11px/1 ui-monospace,"SF Mono",Menlo,Consolas,monospace;color:var(--t3);border:1px solid var(--ln2);border-radius:4px;padding:3px 5px}
+.sub,.hint{color:var(--t3);font-size:13px}
+.rv{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 24px;background:var(--bg);border-bottom:1px solid var(--ln);font-size:13px;color:var(--t3)}
+.rv button{font:inherit;color:var(--t3);background:none;border:1px solid var(--ln2);border-radius:6px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+html.motion [data-s=on],html:not(.motion) [data-s=off]{color:var(--t1);font-weight:600}
+.wrap{max-width:1300px;margin:0 auto;padding:0 24px 64px}
+.lab{margin:40px 0 12px;font:600 15px var(--hd);color:var(--t1)}.lab2{margin:28px 0 12px;font-size:13px;color:var(--t3)}
+.scr{display:grid;grid-template-columns:200px 1fr;background:var(--p1);border:1px solid var(--ln);border-radius:12px;overflow:hidden}
+.scr.solo{display:block;padding:56px 24px}
+.rail{display:flex;flex-direction:column;gap:2px;padding:20px 12px;background:var(--bg);border-right:1px solid var(--ln)}
+.rail .ws{font:600 15px var(--hd);color:var(--t1);padding:0 10px 14px}
+.rail .jump{margin:0 0 14px;padding:7px 10px;border:1px solid var(--ln);border-radius:6px;font-size:13px;color:var(--t3);display:flex;justify-content:space-between}
+.rail a{position:relative;display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--t2);text-decoration:none}
+.rail a:hover,.rail a[aria-current]{background:rgba(255,255,255,.05);color:var(--t1)}
+.rail a::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:2px;background:var(--t1);transform:scaleY(0)}
+.rail a[aria-current]::before{transform:scaleY(1)}
+.main{padding:28px 32px 36px;min-width:0}
+.hd{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:6px}
+.card{background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:28px}
+.card.n{max-width:420px;margin:0 auto}.card.n h1{margin-bottom:6px}
+label,.lr{display:block;font-size:13px;font-weight:500;color:var(--t2);margin:16px 0 6px}
+.lr{display:flex;justify-content:space-between;align-items:baseline}.lr label{margin:0}.lr span{font-weight:400;color:var(--t3);font-size:12px}
+input,select,textarea{width:100%;font:13px/1.5 var(--bd);color:var(--t1);background:rgba(255,255,255,.03);border:1px solid var(--ln2);border-radius:6px;padding:8px 10px}
+input[type=checkbox]{width:16px;height:16px;accent-color:#f5f5f5;margin:0}
+textarea{resize:vertical;min-height:84px}
+.btn{font:500 13px var(--bd);color:var(--t1);background:rgba(255,255,255,.04);border:1px solid var(--ln2);border-radius:6px;padding:8px 14px;min-height:36px;cursor:pointer;display:inline-flex;gap:10px;align-items:center;justify-content:center;white-space:nowrap}
+.btn:hover{background:rgba(255,255,255,.08)}.btn:active{transform:translateY(1px)}
+.btn.pri,.btn.pri:hover{background:var(--t1);color:#0a0a0a;border-color:var(--t1)}.btn.pri kbd{color:#555;border-color:#aaa}
+.full{width:100%;margin-top:20px}.lnk{display:block;margin-top:16px;text-align:center;font-size:13px}
+.ws-list{list-style:none;padding:0;margin-top:20px;border-top:1px solid var(--ln)}
+.ws-list a{display:flex;justify-content:space-between;align-items:center;padding:14px 4px;border-bottom:1px solid var(--ln);text-decoration:none;font-weight:500}.ws-list small{display:block;color:var(--t3);font-weight:400;font-size:13px}
+.tabs{display:flex;gap:24px;margin:14px 0 22px;border-bottom:1px solid var(--ln)}
+.tabs a{position:relative;padding:6px 0 10px;font-size:13px;font-weight:500;color:var(--t3);text-decoration:none}
+.tabs a[aria-current]{color:var(--t1)}.tabs a::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--t1);transform:scaleX(0)}.tabs a[aria-current]::after{transform:scaleX(1)}
+.lg{display:grid;grid-template-columns:1fr 380px;gap:28px;align-items:start}
+table,thead,tbody{display:block;width:100%}
+tr{--c:92px 64px 90px 1fr 76px 84px 96px;display:grid;grid-template-columns:var(--c);gap:0 12px;position:relative;padding:10px 12px;border-bottom:1px solid var(--ln);font-size:13px;align-items:start}
+th,td{display:block;text-align:left}th{font:500 12px var(--bd);color:var(--t3)}
+td:nth-child(3),td:nth-child(4),td:nth-child(6){color:var(--t3)}td.fail{color:var(--t1);font-weight:600}td.nm{color:var(--t1);font-weight:500}
+tbody tr::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,.05);opacity:0;pointer-events:none}
+tbody tr::after{content:"";position:absolute;left:0;top:8px;bottom:8px;width:2px;background:var(--t1);transform:scaleY(0)}
+tbody tr:hover::before,tr[aria-current]::before{opacity:1}tr[aria-current]::after{transform:scaleY(1)}
+.keys{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--t3)}
+.kv{display:grid;grid-template-columns:64px 1fr;gap:4px 12px;font-size:13px;margin:14px 0 4px}.kv dt{color:var(--t3)}.kv dd{color:var(--t1);margin:0;overflow-wrap:anywhere}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tl{list-style:none;padding:0;font-size:13px}.tl li{display:grid;grid-template-columns:84px 1fr;padding:5px 0}.tl li span{color:var(--t3)}.tl li b{font-weight:500;color:var(--t1)}
+.quote{margin:0;padding:12px 14px;border:1px solid var(--ln);border-radius:6px;background:rgba(255,255,255,.02);font-size:13px;color:var(--t2)}
+.ed{display:grid;grid-template-columns:260px 1fr;gap:28px;align-items:start}
+.secs{list-style:none;padding:0;border-top:1px solid var(--ln)}
+.secs a{position:relative;display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-bottom:1px solid var(--ln);font-size:13px;font-weight:500;color:var(--t2);text-decoration:none}
+.secs a::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,.05);opacity:0;pointer-events:none}.secs a:hover::before,.secs a[aria-current]::before{opacity:1}
+.secs a[aria-current]{color:var(--t1)}.secs span{font-weight:400;color:var(--t3)}.secs p{padding:0 12px 10px;font-size:12px;color:var(--t3);border-bottom:1px solid var(--ln)}
+.slot{display:grid;grid-template-columns:132px 1fr;gap:16px;align-items:start}
+.drop{height:96px;border:1px dashed var(--ln2);border-radius:6px;display:grid;place-items:center;text-align:center;font-size:12px;color:var(--t3);padding:8px}
+.rt{display:flex;gap:10px;align-items:center;margin-top:12px;font-size:13px;color:var(--t2)}
+.pub{margin-top:28px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:var(--p3);border:1px solid var(--ln);border-radius:8px;padding:28px}.pub .hint{margin-right:auto}
+.chk{list-style:none;padding:0;margin:4px 0 0}.chk li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--ln);font-size:13px}.chk li:last-child{border:0}
+html.motion .scr{animation:up .28s var(--ease) both}html.motion .pane{animation:in .2s var(--ease) both}
+html.motion .rail a::before,html.motion tbody tr::after{transition:transform .16s var(--ease)}
+html.motion .tabs a::after{transition:transform .2s var(--ease)}
+html.motion tbody tr::before,html.motion .secs a::before{transition:opacity .12s}
+html.motion .btn{transition:transform .08s var(--ease)}
+@keyframes up{from{opacity:0;transform:translateY(8px)}}@keyframes in{from{opacity:0;transform:translateX(8px)}}
+@media(max-width:1100px){.lg,.ed{grid-template-columns:1fr}}
+@media(max-width:640px){
+.rv{padding:10px 16px}.wrap{padding:0 16px 40px}.scr{display:flex;flex-direction:column}.scr.solo{display:block;padding:28px 12px}
+.rail{order:2;flex-direction:row;gap:0;padding:0;border-right:0;border-top:1px solid var(--ln)}.rail .ws,.rail .jump,.rail kbd{display:none}
+.rail a{flex:1;justify-content:center;min-height:56px;border-radius:0}.rail a::before{left:12px;right:12px;top:0;bottom:auto;width:auto;height:2px;transform:scaleX(0)}.rail a[aria-current]::before{transform:scaleX(1)}
+.main{padding:20px 16px 24px}.hd{flex-wrap:wrap}.btn,input,select{min-height:44px}
+thead{display:none}tr{--c:1fr auto;grid-template-areas:"n r" "s c";row-gap:2px;padding:12px 8px}
+td:nth-child(1){grid-area:r;text-align:right;color:var(--t3)}td:nth-child(2){grid-area:n}td:nth-child(5){grid-area:s;color:var(--t3)}td:nth-child(7){grid-area:c;text-align:right}td:nth-child(3),td:nth-child(4),td:nth-child(6),.keys{display:none}
+.two,.slot{grid-template-columns:1fr}.pub .btn{flex:1}.tabs{gap:18px}}
+</style></head><body>
+<div class="rv"><span>Direction: Precision, from linear-app. Greyscale wireframe.</span><button id="mt" aria-pressed="true">Motion: <span data-s="on">on</span> / <span data-s="off">off</span></button></div>
+<div class="wrap">
+
+<section aria-labelledby="s1"><h2 class="lab" id="s1">Screen 1: Login</h2>
+<div class="scr solo"><div class="card n pane"><h1>Sign in</h1><p class="sub">We email you a link. Nothing to remember.</p>
+<label for="em">Email</label><input id="em" type="email" placeholder="name@business-a.example" autocomplete="email">
+<button class="btn pri full">Send me a sign-in link <kbd>Enter</kbd></button><a class="lnk" href="#">use a password instead</a></div></div>
+<p class="lab2">Second state: shown after login when a person belongs to more than one business.</p>
+<div class="scr solo"><div class="card n pane"><h1>Choose a business</h1><p class="sub">You can switch later from the left rail.</p>
+<ul class="ws-list"><li><a href="#"><span>Business A<small>Site A, Site B</small></span><kbd>1</kbd></a></li><li><a href="#"><span>Business B<small>Site C</small></span><kbd>2</kbd></a></li></ul>
+<p class="hint" style="margin-top:16px">Press a number to open. Last used: Business A.</p></div></div></section>
+
+<section aria-labelledby="s2"><h2 class="lab" id="s2">Screen 2: Leads inbox</h2>
+<div class="scr"><nav class="rail" aria-label="Main"><b class="ws">Business A</b><div class="jump">Jump to <kbd>Ctrl K</kbd></div>
+<a href="#">Overview <kbd>g o</kbd></a><a href="#">Pages <kbd>g p</kbd></a><a href="#" aria-current="page">Leads <kbd>g l</kbd></a><a href="#">Media <kbd>g m</kbd></a><a href="#">Settings <kbd>g s</kbd></a></nav>
+<main class="main"><div class="hd"><h1>Leads</h1><button class="btn">Export CSV</button></div>
+<div class="tabs" role="tablist" aria-label="Site"><a href="#" aria-current="page">Site A</a><a href="#">Site B</a></div>
+<div class="lg"><div><table aria-label="Leads, newest first"><thead><tr><th>Received</th><th>Name</th><th>Form</th><th>Page</th><th>Status</th><th>Owner</th><th>Sent to CRM</th></tr></thead><tbody>
+<tr><td>Today 09:12</td><td class="nm">Lead A</td><td>Home finder</td><td>City A guide</td><td>new</td><td>unassigned</td><td>ok</td></tr>
+<tr><td>Yesterday</td><td class="nm">Lead B</td><td>Home value</td><td>Home</td><td>contacted</td><td>Agent One</td><td>ok</td></tr>
+<tr aria-current="true"><td>Mon</td><td class="nm">Lead C</td><td>Contact</td><td>Realtor in City B</td><td>qualified</td><td>Agent Two</td><td class="fail">failed, retrying</td></tr></tbody></table>
+<p class="keys"><span><kbd>j</kbd> <kbd>k</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>s</kbd> status</span><span><kbd>o</kbd> owner</span><span><kbd>n</kbd> note</span></p></div>
+<aside class="card pane" aria-label="Lead C"><div class="hd"><h2>Lead C</h2><button class="btn pri">Resend to CRM</button></div>
+<p class="sub">Contact form, Realtor in City B, Mon</p>
+<dl class="kv"><dt>Name</dt><dd>Lead C</dd><dt>Email</dt><dd>lead-c@example.test</dd><dt>Phone</dt><dd>000 000 0000</dd><dt>Asked</dt><dd>I would like to talk about Neighborhood A.</dd></dl>
+<div class="two"><div><label for="st">Status</label><select id="st"><option>qualified</option><option>new</option><option>contacted</option></select></div><div><label for="ow">Owner</label><select id="ow"><option>Agent Two</option><option>Agent One</option><option>unassigned</option></select></div></div>
+<label for="nt">Add a note</label><textarea id="nt" rows="3"></textarea><button class="btn" style="margin-top:10px">Save note</button>
+<h3 style="margin-top:28px">Timeline</h3><ol class="tl"><li><span>Mon 09:12</span><b>Received</b></li><li><span>Mon 09:12</span><b>Pushed to CRM: failed, retrying</b></li><li><span>Tue 10:30</span><b>Status changed to qualified by Agent Two</b></li></ol>
+<h3 style="margin-top:28px">Consent shown when sent</h3><p class="quote">I agree that Business A may contact me about my request by email or phone.</p></aside></div></main></div></section>
+
+<section aria-labelledby="s3"><h2 class="lab" id="s3">Screen 3: Page editor</h2>
+<div class="scr"><nav class="rail" aria-label="Main"><b class="ws">Business A</b><div class="jump">Jump to <kbd>Ctrl K</kbd></div>
+<a href="#">Overview <kbd>g o</kbd></a><a href="#" aria-current="page">Pages <kbd>g p</kbd></a><a href="#">Leads <kbd>g l</kbd></a><a href="#">Media <kbd>g m</kbd></a><a href="#">Settings <kbd>g s</kbd></a></nav>
+<main class="main"><div class="hd"><h1>Home</h1></div><p class="sub">Site A. Preview, not live yet. Sections run top to bottom as on the page.</p>
+<div class="ed" style="margin-top:22px"><ol class="secs" aria-label="Sections">
+<li><a href="#" aria-current="true">Hero <span>edit</span></a></li><li><a href="#">Three ways <span>edit</span></a></li><li><a href="#">Home value <span>form</span></a></li>
+<li><a href="#">Active listings <span>fills itself</span></a><p>Active listings in this city, newest first.</p></li><li><a href="#">FAQ <span>edit</span></a></li><li><a href="#">Legal text <span>locked</span></a></li></ol>
+<section class="card pane" aria-label="Edit Hero"><h2>Hero</h2><p class="sub">Edit section</p>
+<div class="lr"><label for="ti">Title</label><span>max 70</span></div><input id="ti" value="Title text A">
+<div class="lr"><label for="tx">Text</label><span>a few lines</span></div><textarea id="tx" rows="4">Body text A for City A.</textarea>
+<div class="lr"><label>Photo</label><span>sizes are made for you</span></div>
+<div class="slot"><div class="drop">Drop a photo or choose a file</div><div><label for="alt" style="margin-top:0">Alt text</label><input id="alt" placeholder="Describe what the photo shows">
+<label class="rt" for="rt"><input id="rt" type="checkbox"> We have the right to publish this photo</label></div></div></section></div>
+<div class="pub"><span class="hint">Draft saved. Live version published 2 days ago by an agent.</span><button class="btn">Save draft</button><button class="btn">Preview</button><button class="btn pri">Publish</button><button class="btn">History</button></div>
+<div class="card" style="margin-top:20px"><h3>Before you publish</h3><ul class="chk"><li><span>2 photos have no alt text</span><a href="#">Fix</a></li><li><span>1 section has no text yet</span><a href="#">Fix</a></li><li><span>Consent wording waiting for your confirmation</span><span class="sub">waiting</span></li></ul></div></main></div></section>
+</div>
+<script>var h=document.documentElement,b=document.getElementById('mt');b.onclick=function(){b.setAttribute('aria-pressed',h.classList.toggle('motion'))}</script>
+</body></html>

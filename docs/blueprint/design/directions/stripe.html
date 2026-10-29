@@ -1,0 +1,186 @@
+<!doctype html>
+<!-- Concept "Ledger": every state has a ruled line to sit on; a 2px ink rule over each screen, hairlines under it, right-aligned tabular numerals, and entries "post" into place (rise 6px + fade, staggered).
+     Taken from the Stripe DESIGN.md: "tnum" numerals, 8px base with dense small steps, 4-6px radii, 1px hairline borders (greyed), layered far+near shadow formula (greyed), dashed drop zone, dense data inside generous chrome. Weight 300 and purple NOT taken (owner: Poppins 600, greyscale).
+     Motion toggle (top right) is review-only: it flips class "motion" on <html>; production follows prefers-reduced-motion. Only transform and opacity animate. Phone layout: @media 900 (stack, bottom bar) and @media 390 (tighten). -->
+<html lang="en" class="motion"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ledger direction</title>
+<style>
+:root{--ink:#111;--body:#555;--lab:#333;--line:#e2e2e2;--soft:#f4f4f4;--card:#fff;--mute:#767676;
+--h:Poppins,system-ui,sans-serif;--b:system-ui,"Segoe UI",Helvetica,Arial,sans-serif;
+--lift:0 30px 45px -30px rgba(0,0,0,.25),0 18px 36px -18px rgba(0,0,0,.1)}
+*{box-sizing:border-box;margin:0}
+body{font:14px/1.45 var(--b);color:var(--body);background:#ececec;font-feature-settings:"tnum";padding:0 24px 64px}
+h1,h2,h3{font-family:var(--h);font-weight:600;color:var(--ink);letter-spacing:-.01em}
+h1{font-size:28px;line-height:1.15}h2{font-size:20px;line-height:1.2}h3{font-size:16px;line-height:1.3}
+a{color:var(--ink);text-underline-offset:3px}
+.review{max-width:1280px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px 0;color:var(--lab)}
+.review button{font:13px var(--b);border:1px solid #bbb;background:#fff;border-radius:4px;padding:8px 16px;color:var(--ink);cursor:pointer;white-space:nowrap}
+html.motion .on,html:not(.motion) .off{font-weight:700;text-decoration:underline}
+.sec{max-width:1280px;margin:0 auto 48px}
+.sec>h2.lbl{font-size:16px;color:var(--lab);margin:0 0 12px}
+.sub{margin:24px 0 12px;color:var(--lab)}
+.frame{background:var(--soft);border-radius:8px;box-shadow:var(--lift);overflow:hidden;display:grid;grid-template-columns:208px minmax(0,1fr);min-height:560px}
+.frame.solo{display:block;padding:48px 24px;min-height:0}
+/* rail */
+.rail{background:#fff;border-right:1px solid var(--line);padding:24px 16px}
+.rail b{display:block;font:600 16px var(--h);color:var(--ink);padding:0 8px 16px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.rail small{display:block;padding:16px 8px 4px;color:var(--mute);font-size:12px}
+.rail a{display:block;padding:8px;border-radius:4px;text-decoration:none;color:var(--lab)}
+.rail a[aria-current]{background:var(--ink);color:#fff}
+.rail a:hover:not([aria-current]){background:var(--soft)}
+.main{padding:0 32px 32px;min-width:0}
+.head{border-top:2px solid var(--ink);margin-top:24px;padding:16px 0 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.tabs{display:flex;gap:24px;margin:16px 0 24px;border-bottom:1px solid var(--line)}
+.tabs button{font:14px var(--b);color:var(--body);background:none;border:0;border-bottom:2px solid transparent;padding:8px 0;margin-bottom:-1px;cursor:pointer}
+.tabs button[aria-selected=true]{color:var(--ink);border-color:var(--ink);font-weight:600}
+.tabs span{color:var(--mute);font-size:12px;margin-left:8px}
+/* cards, controls */
+.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:28px;box-shadow:0 3px 6px rgba(23,23,23,.06);min-width:0}
+.card.narrow{max-width:440px;margin:0 auto}
+label,.lab{display:block;color:var(--lab);margin:16px 0 4px}
+input[type=text],input[type=email],textarea,select{width:100%;font:14px var(--b);color:var(--ink);background:#fff;border:1px solid #cfcfcf;border-radius:4px;padding:8px 12px}
+textarea{min-height:96px;resize:vertical}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.btn{font:14px var(--b);border:1px solid #bbb;background:#fff;color:var(--ink);border-radius:4px;padding:8px 16px;cursor:pointer;text-decoration:none;display:inline-block;transition:transform .12s}
+.btn.pri{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn:active{transform:translateY(1px)}
+.hint{color:var(--mute);font-size:13px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row.sp{justify-content:space-between}
+/* ledger table */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:400;color:var(--mute);padding:0 8px 8px;border-bottom:1px solid var(--ink)}
+td{padding:12px 8px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--lab)}
+tr.sel td{background:var(--soft)}
+tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--ink)}
+td.nm{font-weight:600;color:var(--ink)}
+td.bad{color:var(--ink);font-weight:600}
+.num{font-variant-numeric:tabular-nums}
+.leads{display:grid;grid-template-columns:minmax(0,1fr) 392px;gap:24px;align-items:start}
+.ans{display:grid;grid-template-columns:80px 1fr;gap:4px 16px;margin:16px 0;font-size:13px}
+.ans dt{color:var(--mute)}.ans dd{margin:0;color:var(--ink)}
+.tl{list-style:none;padding:0;margin:12px 0 0 3px;border-left:1px solid var(--line)}
+.tl li{position:relative;padding:0 0 12px 16px;font-size:13px;color:var(--lab)}
+.tl li:before{content:"";position:absolute;left:-4px;top:6px;width:7px;height:7px;background:var(--ink)}
+.tl li.f:before{background:#fff;border:1px solid var(--ink)}
+.consent{border-top:1px solid var(--line);margin-top:16px;padding-top:16px;font-size:13px}
+.consent q{display:block;margin-top:8px;color:var(--ink);quotes:none;background:var(--soft);border-radius:4px;padding:12px}
+/* editor */
+.ed{display:grid;grid-template-columns:280px minmax(0,1fr);gap:24px;align-items:start;margin-top:24px}
+.sl{list-style:none;padding:0;margin-top:8px}
+.sl li{display:grid;grid-template-columns:24px 1fr auto;gap:8px;padding:12px 0;border-bottom:1px solid var(--line);color:var(--lab)}
+.sl li.open{color:var(--ink);font-weight:600;border-bottom-color:var(--ink)}
+.sl .k{color:var(--mute);font-weight:400;font-size:13px}
+.drop{border:1px dashed #777;border-radius:4px;padding:28px;text-align:center;color:var(--body);background:var(--soft)}
+label.tick{display:flex;gap:8px;align-items:flex-start;margin-top:16px}.tick input{margin-top:3px}
+.auto{border-top:1px solid var(--line);margin-top:24px;padding-top:16px}
+.pub{display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:2px solid var(--ink);margin-top:24px;padding-top:16px}
+.pub .gap{flex:1}
+.chk{list-style:none;padding:0;margin-top:16px}
+.chk li{display:flex;justify-content:space-between;gap:16px;padding:8px 0;border-bottom:1px solid var(--line);color:var(--lab)}
+/* motion: entries post into the ledger */
+html.motion .post{animation:post .45s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*60ms)}
+html.motion .detail{animation:post .45s .2s cubic-bezier(.2,.7,.2,1) both}
+@keyframes post{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+html:not(.motion) *{animation:none!important;transition:none!important}
+@media (max-width:900px){
+ body{padding:0 16px 48px}
+ .frame{display:flex;flex-direction:column;min-height:0}
+ .rail{order:2;border:0;border-top:2px solid var(--ink);padding:8px;display:flex}
+ .rail b,.rail small{display:none}.rail a{flex:1;text-align:center;padding:12px 4px;font-size:12px}
+ .main{padding:0 16px 24px}
+ .leads,.ed{grid-template-columns:minmax(0,1fr)}
+ table,tbody,tr,td{display:block}thead{display:none}
+ tr{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;padding:12px 0;border-bottom:1px solid var(--line)}
+ td{border:0;padding:0}td:before{content:attr(data-l);display:block;color:var(--mute);font-size:12px}
+ td[data-l=""]:before{display:none}
+ tr.sel td:first-child{box-shadow:none}
+ .frame.solo{padding:24px 0}
+}
+@media (max-width:390px){
+ h1{font-size:24px}.review{flex-wrap:wrap}.tabs{gap:16px}.pub .gap{display:none}.pub .btn{flex:1 1 40%;text-align:center}
+}
+</style></head><body>
+<div class="review"><span>Direction: Ledger. Greyscale wireframe, three screens, placeholders only.</span>
+<button id="m" type="button" aria-pressed="true">Motion: <span class="on">on</span> / <span class="off">off</span></button></div>
+
+<section class="sec" aria-labelledby="s1"><h2 class="lbl" id="s1">Screen 1: Login</h2>
+<div class="frame solo">
+ <div class="card narrow post" style="--i:0">
+  <h1>Sign in</h1>
+  <p style="margin-top:8px">We email you a link. No password to remember.</p>
+  <label for="em">Email</label><input id="em" type="email" placeholder="you@business-a.example">
+  <div class="row" style="margin-top:24px"><button class="btn pri" type="button">Send me a sign-in link</button></div>
+  <p class="hint" style="margin-top:16px"><a href="#">Use a password instead</a></p>
+ </div>
+</div>
+<p class="sub">State 2: the workspace picker, shown after login when a person belongs to more than one business.</p>
+<div class="frame solo">
+ <div class="card narrow post" style="--i:1">
+  <h2>Choose a business</h2>
+  <p style="margin-top:8px">You can switch later from the top of the rail.</p>
+  <table style="margin-top:24px"><thead><tr><th>Business</th><th>Your role</th><th></th></tr></thead><tbody>
+   <tr><td class="nm" data-l="Business">Workspace A</td><td data-l="Your role">Owner</td><td data-l=""><a href="#">Open</a></td></tr>
+   <tr><td class="nm" data-l="Business">Workspace B</td><td data-l="Your role">Member</td><td data-l=""><a href="#">Open</a></td></tr>
+  </tbody></table>
+  <p class="hint" style="margin-top:16px">Last used: Workspace A</p>
+ </div>
+</div></section>
+
+<section class="sec" aria-labelledby="s2"><h2 class="lbl" id="s2">Screen 2: Leads inbox</h2>
+<div class="frame">
+ <nav class="rail" aria-label="Main"><b>Workspace A</b><a href="#">Overview</a><a href="#">Pages</a><small>Run</small><a href="#" aria-current="page">Leads</a><a href="#">Media</a><a href="#">Settings</a></nav>
+ <div class="main">
+  <header class="head"><h1>Leads</h1><a class="btn" href="#">Export CSV</a></header>
+  <div class="tabs" role="tablist" aria-label="Site"><button role="tab" aria-selected="true">Site A<span>leads for this site</span></button><button role="tab" aria-selected="false">Site B</button></div>
+  <div class="leads">
+   <div class="card"><table><thead><tr><th>Received</th><th>Name</th><th>Form</th><th>Page</th><th>Status</th><th>Owner</th><th>Sent to CRM</th></tr></thead><tbody>
+    <tr class="post" style="--i:1"><td class="num" data-l="Received">Today 09:12</td><td class="nm" data-l="Name">Lead A</td><td data-l="Form">Home finder</td><td data-l="Page">City A guide</td><td data-l="Status">new</td><td data-l="Owner">unassigned</td><td data-l="Sent to CRM">ok</td></tr>
+    <tr class="post" style="--i:2"><td class="num" data-l="Received">Yesterday</td><td class="nm" data-l="Name">Lead B</td><td data-l="Form">Home value</td><td data-l="Page">Home</td><td data-l="Status">contacted</td><td data-l="Owner">Agent One</td><td data-l="Sent to CRM">ok</td></tr>
+    <tr class="post sel" style="--i:3"><td class="num" data-l="Received">Mon</td><td class="nm" data-l="Name">Lead C</td><td data-l="Form">Contact</td><td data-l="Page">Realtor in City B</td><td data-l="Status">qualified</td><td data-l="Owner">Agent Two</td><td class="bad" data-l="Sent to CRM">failed, retrying</td></tr>
+   </tbody></table></div>
+   <aside class="card detail" aria-label="Lead C">
+    <div class="row sp"><h2>Lead C</h2><span class="hint">selected</span></div>
+    <dl class="ans"><dt>Form</dt><dd>Contact</dd><dt>Page</dt><dd>Realtor in City B</dd><dt>Message</dt><dd>Answer text from the form</dd><dt>Reach</dt><dd>email, phone</dd></dl>
+    <label for="st">Status</label><select id="st"><option>qualified</option><option>new</option><option>contacted</option></select>
+    <label for="ow">Owner</label><select id="ow"><option>Agent Two</option><option>Agent One</option></select>
+    <label for="nt">Add a note</label><textarea id="nt"></textarea>
+    <div class="row" style="margin-top:8px"><button class="btn" type="button">Save note</button></div>
+    <h3 style="margin-top:24px">Timeline</h3>
+    <ul class="tl"><li>Received, Mon</li><li class="f">Push to CRM failed, retrying</li><li>Status changed to qualified by Agent One</li></ul>
+    <div class="consent">Consent text shown when this was sent<q>Exact consent wording kept as the visitor saw it.</q></div>
+    <div class="row" style="margin-top:24px"><button class="btn pri" type="button">Resend to CRM</button></div>
+   </aside>
+  </div>
+ </div>
+</div></section>
+
+<section class="sec" aria-labelledby="s3"><h2 class="lbl" id="s3">Screen 3: Page editor</h2>
+<div class="frame">
+ <nav class="rail" aria-label="Main"><b>Workspace A</b><a href="#">Overview</a><a href="#" aria-current="page">Pages</a><small>Run</small><a href="#">Leads</a><a href="#">Media</a><a href="#">Settings</a></nav>
+ <div class="main">
+  <header class="head"><h1>Home page</h1><span class="hint">Draft, last saved by Agent One</span></header>
+  <div class="ed">
+   <div class="card post" style="--i:0"><h3>Sections, in order</h3>
+    <ol class="sl">
+     <li class="open"><span class="num">1</span><span>Hero</span><span class="k">edit</span></li>
+     <li><span class="num">2</span><span>Three ways</span><span class="k">edit</span></li>
+     <li><span class="num">3</span><span>Home value</span><span class="k">form</span></li>
+     <li><span class="num">4</span><span>Our listings</span><span class="k">fills itself</span></li>
+     <li><span class="num">5</span><span>FAQ</span><span class="k">edit</span></li>
+    </ol></div>
+   <div class="card post" style="--i:1"><h2>Hero</h2>
+    <label for="ti">Title <span class="hint">(single line, max 70)</span></label><input id="ti" type="text" value="Page title goes here">
+    <label for="tx">Text</label><textarea id="tx">A few lines of text for this section.</textarea>
+    <span class="lab">Photo</span>
+    <div class="drop">Drop a photo here, or <a href="#">choose a file</a></div>
+    <label for="al">Alt text (what the photo shows)</label><input id="al" type="text" placeholder="Describe the photo">
+    <label class="tick"><input type="checkbox"><span>We have the right to publish this photo</span></label>
+    <div class="auto"><h3>Our listings</h3><p style="margin-top:4px">This section fills itself: Active listings in this city, newest first. Nothing to edit here.</p></div>
+    <div class="pub"><button class="btn" type="button">Save draft</button><button class="btn" type="button">Preview</button><button class="btn" type="button">History</button><span class="gap"></span><button class="btn pri" type="button">Publish</button></div>
+    <ul class="chk"><li><span>2 photos have no alt text</span><a href="#">Fix</a></li><li><span>Title is within 70 characters</span><span class="hint">ok</span></li><li><span>Consent wording still to confirm</span><a href="#">Fix</a></li></ul>
+   </div>
+  </div>
+ </div>
+</div></section>
+<script>document.getElementById('m').onclick=function(){this.setAttribute('aria-pressed',document.documentElement.classList.toggle('motion'))}</script>
+</body></html>
