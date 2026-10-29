@@ -184,6 +184,15 @@
     production database URL is used by nothing else; `apply-staging.mjs` needs `--i-mean-production`; one human in the org).
     Trigger to Team ($4 per user per month): a second engineer with write access. Included compute on Free is "$12 USD per
     month" (plans page; the minute equivalent is UNVERIFIED). `21-PROTOCOLS.md`.
+    **Clarified 2026-10-29 23:10** (the owner had said "houses all the repos", plural, and asked "what is the design we have for
+    the codebases of the websites", "would one platform repo lock us from the custom design process we have?"): a website's
+    codebase shrinks to its look-folder (templates, colours, type: `sites/<slug>/design/`); the words and photos live in the
+    database; the build is the one shared factory. The design process (references, directions, comps, the owner's pick, the
+    section lab, variants, audit) runs per client in that client's project folder as today and is converted into the look-folder
+    afterwards (the ELEV8 V4 -> partials step), proven by a screenshot comparison. Owner picked: **the look-folders live inside
+    the one platform repo**; a folder can be moved out into its own repo later (a client's developers, a hand-over). The three
+    existing drafts: ELEV8 moves first (its content file loads into the database once); Rainmaker and VTV follow as the M4 work
+    orders; the old repos become archives.
 28. **Hosting: a Cloudflare Pages project per client site** (2026-10-29 21:55; the owner delegated: "I don't know which one is
     what will serve right implementation for such platform", "research on the best actual practice"). Decided by the lead on
     the sourced facts in `20-SHAPE.md` section 3 and `21-PROTOCOLS.md`: it is what the two previews use today and it works;
