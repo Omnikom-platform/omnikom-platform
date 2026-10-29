@@ -82,6 +82,8 @@
   Edge headless `--dump-dom` now prints an empty stdout (probed: 0 chars with every flag set; Chrome prints the DOM). The renderer
   now probes each installed browser with a one-line page and uses the first that prints a DOM (Chrome first); temp cleanup no
   longer crashes the run. Re-rendered: 13 of 13 ok; `10-erd.png` shows lead_events and api_keys.
+- **2026-10-29 20:10: COMMITTED `c095d5d`** (owner: "Yes, commit"; 49 files; gitleaks on the staged set: no leaks; not pushed).
+  Still untracked on purpose: `film/`, `RESUME-SESSION.txt`.
 - **2026-10-29 20:10: `docs/blueprint/16-DESIGN-PARTS.md`** (owner asked): every part to design (foundations, the four screens
   with every button and click, what happens, what the person sees, what if it fails; emails; staff admin), the preview design
   (instant in-editor render with the factory's dependency-free partials in a Web Worker + iframe; a preview Worker per site with
