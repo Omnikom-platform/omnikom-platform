@@ -164,3 +164,25 @@
     DECISIONS 22 (free tiers first), `supabase/apply-staging.mjs`, `supabase/functions/capture-lead`, the site lead endpoint
     `factory/worker/lead-endpoint.mjs`, and `supabase/tests/e2e-lead.mjs`. The dashboard UI starts only after the lead path is
     proven.
+26. **Client domains: nameservers to the Omnikom Cloudflare account** (2026-10-29 21:55, owner picked "Nameservers to our
+    account"). The client keeps the registrar and ownership; the domain becomes a zone in our account (free); both the bare
+    domain and `www` serve the site; we hold the DNS and copy the mail records exactly (checked by the launch ledger); leaving
+    is pointing the nameservers back. Fallback for a client who refuses: `www` by CNAME from their DNS plus a bare-domain
+    redirect at their registrar (Cloudflare serves an apex only from a zone in the account: custom-domains page, read
+    2026-10-29). `20-SHAPE.md` section 3.
+27. **GitHub: one free account (an Omnikom organisation on the Free plan), one private repository, Cloudflare deploys from
+    that repository** (2026-10-29 21:55, owner: "can't it be one main free account that houses all the repos and cloudflare
+    deploys from that repo?" plus "do the real search needed"). Verified the same evening from docs.github.com: on Free,
+    private repositories have no environments, no required reviewers and no branch restrictions, so the production gate
+    cannot be a GitHub feature; it lives in our own code (the `promote` workflow takes the exact commit id as an input and the
+    production database URL is used by nothing else; `apply-staging.mjs` needs `--i-mean-production`; one human in the org).
+    Trigger to Team ($4 per user per month): a second engineer with write access. Included compute on Free is "$12 USD per
+    month" (plans page; the minute equivalent is UNVERIFIED). `21-PROTOCOLS.md`.
+28. **Hosting: a Cloudflare Pages project per client site** (2026-10-29 21:55; the owner delegated: "I don't know which one is
+    what will serve right implementation for such platform", "research on the best actual practice"). Decided by the lead on
+    the sourced facts in `20-SHAPE.md` section 3 and `21-PROTOCOLS.md`: it is what the two previews use today and it works;
+    preview deployments per branch are free; Pages Functions carry `/api/lead` (built and tested); custom domains come from
+    the account's zones (DECISIONS 26); 100 projects per account is the ceiling before a second account; direct uploads are
+    not documented as counting toward the 500 builds a month (UNVERIFIED, to measure on the first deploys); the deploy token
+    is account-level (per-project scoping UNVERIFIED), held only by the runner. This revises ADR 0002, whose reason (Pages
+    project creation failing on 2026-10-23) no longer holds. Reversible: Cloudflare documents a Pages-to-Workers migration.
