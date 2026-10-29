@@ -170,6 +170,12 @@
     is pointing the nameservers back. Fallback for a client who refuses: `www` by CNAME from their DNS plus a bare-domain
     redirect at their registrar (Cloudflare serves an apex only from a zone in the account: custom-domains page, read
     2026-10-29). `20-SHAPE.md` section 3.
+29. **Four setup decisions from the gap hunt** (2026-10-29 22:55, owner picked each recommended option): **D1 region: US West**
+    for both Supabase projects. **D18 sign-in: magic link only**, no passwords (staff keep the second factor); the ASVS password
+    chapter drops out. **D21 production secrets: a separate private production repository, free**, whose only workflow is the
+    owner-run `promote`; the working repository never holds a production key. **D17 recovery objectives: at most 24 hours of
+    data lost, back within 4 hours**: nightly dumps to R2 plus a second copy at another provider, a monthly restore drill
+    (`18-BUDGET-ARCHITECTURE.md` 2.4). Source of the questions: `docs/blueprint/24-GAP-HUNT.md` E2 item 7.
 27. **GitHub: one free account (an Omnikom organisation on the Free plan), one private repository, Cloudflare deploys from
     that repository** (2026-10-29 21:55, owner: "can't it be one main free account that houses all the repos and cloudflare
     deploys from that repo?" plus "do the real search needed"). Verified the same evening from docs.github.com: on Free,
