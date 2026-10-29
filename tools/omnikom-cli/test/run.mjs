@@ -181,8 +181,8 @@ async function units() {
   const statusCall = calls.find(c => c[0] === 'spawn');
   check('production guard: status is allowed and its connection is opened read-only', r.json.command === 'status' && Boolean(statusCall));
   let ro = false;
-  await cli(['status', '--target', 'production'], PROD, { ...spies, spawn: (cmd, args, opts) => { ro = String(opts.env.PGOPTIONS || '').includes('default_transaction_read_only=on'); return { status: 1, stdout: '', stderr: '' }; } });
-  check('production guard: status sets default_transaction_read_only=on', ro);
+  await cli(['status', '--target', 'production'], PROD, { ...spies, spawn: (cmd, args, opts) => { ro = /^begin transaction read only;/i.test(opts.input); return { status: 1, stdout: '', stderr: '' }; } });
+  check('production guard: status runs in a read-only transaction (also works through a transaction pooler)', ro);
   calls.length = 0;
   r = await cli(['apply', '--target', 'production'], PROD, spies);
   check('production guard: apply without --i-mean-production is refused', r.exit === 3 && calls.length === 0);

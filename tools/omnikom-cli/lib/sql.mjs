@@ -47,7 +47,8 @@ export function classify(stderr) {
 }
 
 // A fingerprint of every table in public plus auth.users: equal fingerprints mean nothing changed ("seed test twice").
-export const FINGERPRINT_SQL = `
+// (one transaction: a transaction pooler may hand each statement to a different backend, and pg_temp belongs to one backend)
+export const FINGERPRINT_SQL = `begin;
 create or replace function pg_temp.omk_fp() returns text language plpgsql as $f$
 declare r record; h text := ''; x text;
 begin
@@ -57,17 +58,19 @@ begin
   end loop;
   return md5(h);
 end $f$;
-select pg_temp.omk_fp();`;
+select pg_temp.omk_fp();
+commit;`;
 
 export function makeSql({ url, spawn = spawnSync, readOnly = false, env = process.env, timeout = 120000 }) {
   const childEnv = () => ({
     ...env, ...pgEnv(url),
-    ...(readOnly ? { PGOPTIONS: '-c default_transaction_read_only=on' } : {}),
   });
 
   // run a script; resolves to { ok, out, code, message }
+  // readOnly: the script runs in a read-only transaction (a startup option would be refused by a transaction pooler)
   function exec(script) {
-    const r = spawn('psql', ['-X', '-q', '-t', '-A', '-v', 'ON_ERROR_STOP=1', '-f', '-'], { input: script, encoding: 'utf8', env: childEnv(), timeout });
+    const text = readOnly && !/^begin/i.test(script) ? `begin transaction read only;\n${script}\ncommit;` : script;
+    const r = spawn('psql', ['-X', '-q', '-t', '-A', '-v', 'ON_ERROR_STOP=1', '-f', '-'], { input: text, encoding: 'utf8', env: childEnv(), timeout });
     if (r.error) return { ok: false, out: '', code: 'CONNECT', message: `could not run psql: ${r.error.code || r.error.message}` };
     if (r.status !== 0) return { ok: false, out: (r.stdout || '').trim(), ...classify(r.stderr) };
     return { ok: true, out: (r.stdout || '').trim(), code: 'ok', message: '' };

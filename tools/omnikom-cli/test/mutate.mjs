@@ -35,7 +35,7 @@ const MUTANTS = [
   ['the production guard does nothing', 'lib/target.mjs', "  if (targetName !== 'production') return;", '  return;', 'unit'],
   ['production apply needs no --i-mean-production', 'lib/target.mjs', "if (command === 'apply' && !flags['i-mean-production']) throw new Blocked(", 'if (false) throw new Blocked(', 'unit'],
   ['the entry never calls the production guard', 'omnikom.mjs', '    guardProduction(flags.target, command, flags);\n', '', 'unit'],
-  ['status opens a writable connection', 'lib/sql.mjs', "...(readOnly ? { PGOPTIONS: '-c default_transaction_read_only=on' } : {}),", '...{},', 'unit'],
+  ['status opens a writable connection', 'lib/sql.mjs', 'const text = readOnly && !/^begin/i.test(script) ?', 'const text = false && !/^begin/i.test(script) ?', 'unit'],
   ['production apply does not pass --url-env PROD_DB_URL', 'commands/apply.mjs', "if (production) args.push('--url-env', 'PROD_DB_URL', '--i-mean-production');", '', 'unit'],
   ['staging may equal PROD_DB_URL', 'lib/target.mjs', "if (name !== 'production' && env.PROD_DB_URL && env.PROD_DB_URL === dbUrl) throw new Blocked(", 'if (false) throw new Blocked(', 'unit'],
   ['local may point at another machine', 'lib/target.mjs', "if (name === 'local' && !isLoopback(host)) throw new Blocked(", 'if (false) throw new Blocked(', 'unit'],
