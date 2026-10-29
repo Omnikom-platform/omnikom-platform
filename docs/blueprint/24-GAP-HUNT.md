@@ -73,6 +73,7 @@ PITR, `main`, environment reviewers; `20-SHAPE` and `21-PROTOCOLS` say Pages, on
 | Media isolation in R2 | presign signed with account-wide credentials; no test that a presign for another workspace's prefix fails | medium | OPEN: `upload-start` test (W3.2) |
 | Pages headers and indexing | `<project>.pages.dev` and `<hash>.pages.dev` stay live after launch and duplicate the client's site unless `X-Robots-Tag` is set for both patterns; `_headers` limits (100 rules, 2,000 chars per line) | medium | OPEN: the launch layer writes the two noindex rules; the ledger checks them |
 | Accessibility statement | none | low | LATER |
+| Circuit breaker on outbound destinations (noted 2026-10-30 from a system-design reel the owner shared) | retries are per message; a CRM or mail provider that is down is hammered by every message until its own retries end | low | OPEN: `connectors.state = failing` after N consecutive failures, skip that destination for a cooldown, resume on the next success; one test |
 
 ## D. Legal and consent duties (TCPA, CAN-SPAM, CTIA and 10DLC, CCPA/CPRA, California DRE, call recording)
 Reader's source quality: read directly: the FTC CAN-SPAM guide, the California AG CCPA page, 47 CFR 64.1200 (eCFR), The
