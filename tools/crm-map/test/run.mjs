@@ -403,9 +403,10 @@ check('template: a field path cannot reach the prototype', () => {
   assert.throws(() => importRows(cols(['A', 'answers.constructor']), [{ A: 'x' }]), /bad field/);
   eq({}.polluted, undefined);
 });
-check('template: the shipped files carry source, readOn UNVERIFIED and the crm_templates shape', () => {
+check('template: the shipped files carry source, a readOn verification note and the crm_templates shape', () => {
   for (const [t, crm] of [[hubspot, 'hubspot'], [google, 'google-contacts']]) {
-    assert.match(t.source, /^https:\/\//); eq(t.readOn, 'UNVERIFIED'); eq(t.crm, crm); eq(t.direction, 'both');
+    // readOn is either UNVERIFIED or a dated note that says what was checked and names what is still UNVERIFIED
+    assert.match(t.source, /^https:\/\//); assert.match(t.readOn, /^(UNVERIFIED|\d{4}-\d{2}-\d{2}.*UNVERIFIED)/); eq(t.crm, crm); eq(t.direction, 'both');
     assert.match(t.crm, /^[a-z0-9]+(-[a-z0-9]+)*$/); assert.ok(t.name.length <= 120); assert.ok(typeof t.value_maps === 'object');
     for (const c of t.columns) assert.ok(typeof c.header === 'string' && typeof c.field === 'string');
   }
