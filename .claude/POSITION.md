@@ -121,6 +121,17 @@
   problems), `supabase/tests/e2e-lead.mjs`, `tools/mint-site-key.mjs`; D1 reconciled (Free for both), NFR-11 updated. gitleaks
   flagged the fake test key in the endpoint test (annotated gitleaks:allow); lesson: the commit chain must gate on gitleaks'
   exit code, not on `tail`. WAITING: the Sonnet reviewer (tick 4). THEN: stop the loop, ask D1-D5 + D2 as options.
+  TICK 6 (22:04-22:55): REVIEW fixes = `supabase/migrations/20261029000004_hardening.sql` + T15 + T14 structural gates + 42
+  new mutants (125 total, all caught after the two-layer fix); `tools/crm-map` review fixes (152 tests, 109 mutants);
+  `docs/blueprint/23-GROUND-RULES.md` (sources, 12 rules, gates, the not-skippable list); `24-GAP-HUNT.md` (four fresh
+  readers: ASVS L2, SaaS ops, legal/consent, Supabase production checklist; verdict in E: set up the accounts now, the plan is
+  not complete and E1/E2 list what is added; doc drift list in F). Owner answers 21:55: domains = nameservers (DECISIONS 26),
+  GitHub = one free org, one repo (27), hosting delegated -> Pages per site (28). `20-SHAPE.md`, `21-PROTOCOLS.md`,
+  `22-SEARCH-AND-ANALYTICS.md`, diagram 14 written. OPEN DECISIONS for the owner: D1 region, D5 Resend confirmed, D9 R2 media,
+  D10-D13 (add-on providers), D14 analytics default, D15 Google service account, D16 PII encryption, D17 RPO/RTO, D18 magic link
+  only, D19 session lifetime, D20 secrets store, D21 GitHub Team or a production repo, D22 on-call terms, D23 network
+  restrictions, D24 api schema. NEXT: write `sops/account-setup.md` (E1), fix the doc drift (F), migration 5 (E2 item 1),
+  then the accounts and the staging proof.
   PLANNED TICKS (superseded by DECISIONS 25 after tick 3): 2 = migration 3 (add_ons, connectors, bookings, messages, crm_templates, webhook_events + functions, tests,
   mutants); 3 = `tools/crm-map/` mapper + tests + 2 shipped templates (Sonnet builds, lead verifies); 4 = fresh-eyes review
   (unit-reviewer) + fixes; then stop the loop and ask D9-D13 as options.

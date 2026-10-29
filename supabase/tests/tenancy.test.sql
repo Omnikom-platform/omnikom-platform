@@ -27,8 +27,8 @@ create function test.publish(p_site uuid, p_rows uuid[], p_versions int[] defaul
   select service.start_publish(test.claims(), p_site, p_rows,
     coalesce(p_versions, (select array_agg((select max(n) from content_versions v where v.row_id = r) order by i) from unnest(p_rows) with ordinality x(r, i)))) $$;
 -- step C: what the lead-update and add-lead Edge Functions do after verifying the user's JWT
-create function test.lead_update(p_lead uuid, p_status lead_status default null, p_owner uuid default null, p_note text default null)
-returns void language sql security definer as $$ select service.lead_update(test.claims(), p_lead, p_status, p_owner, p_note) $$;
+create function test.lead_update(p_lead uuid, p_status lead_status default null, p_owner uuid default null, p_note text default null, p_unassign boolean default false)
+returns void language sql security definer as $$ select service.lead_update(test.claims(), p_lead, p_status, p_owner, p_note, p_unassign) $$;
 create function test.add_lead(p_site uuid, p_name text, p_email text, p_phone text, p_answers jsonb, p_consent text, p_owner uuid default null)
 returns uuid language sql security definer as $$ select service.add_lead(test.claims(), p_site, p_name, p_email, p_phone, p_answers, p_consent, 'manual', p_owner) $$;
 -- step C expansion blocks (migration 3): what the add-on, booking and template Edge Functions do after verifying the user's JWT
@@ -38,6 +38,11 @@ create function test.set_booking_state(p_booking uuid, p_state booking_state) re
 create function test.activate_addon(p_ws uuid, p_kind addon_kind) returns void language sql security definer as $$ select service.activate_addon(test.claims(), p_ws, p_kind) $$;
 create function test.set_addon_state(p_ws uuid, p_kind addon_kind, p_state addon_state) returns void language sql security definer as $$ select service.set_addon_state(test.claims(), p_ws, p_kind, p_state) $$;
 create function test.save_crm_template(p_ws uuid, p_id uuid, p_name text, p_columns jsonb) returns uuid language sql security definer as $$ select service.save_crm_template(test.claims(), p_ws, p_id, p_name, 'custom', 'export', p_columns) $$;
+-- hardening (migration 4): members through functions, lead deletion
+create function test.set_member(p_ws uuid, p_user uuid, p_role member_role, p_team uuid default null) returns void language sql security definer as $$ select service.set_member(test.claims(), p_ws, p_user, p_role, p_team) $$;
+create function test.remove_member(p_ws uuid, p_user uuid) returns void language sql security definer as $$ select service.remove_member(test.claims(), p_ws, p_user) $$;
+create function test.delete_lead(p_lead uuid) returns void language sql security definer as $$ select service.delete_lead(test.claims(), p_lead) $$;
+create function test.unpublish(p_row uuid) returns void language sql security definer as $$ select service.unpublish(test.claims(), p_row, true) $$;
 grant usage on schema test to anon, authenticated, service_role;
 grant execute on all functions in schema test to anon, authenticated, service_role;
 
@@ -87,8 +92,14 @@ do $$ begin assert (select count(*) from pg_proc p join pg_namespace n on n.oid 
 set role authenticated;
 select test.act_as('00000000-0000-0000-0000-00000000000a');
 insert into test.ids select 'team2', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'team', null, '{"name":"Agent Two"}');
-update members set team_row_id = test.id('team1') where user_id = '00000000-0000-0000-0000-0000000000a1';
-update members set team_row_id = test.id('team2') where user_id = '00000000-0000-0000-0000-0000000000a2';
+-- members change only through set_member (review 4): the owner links the agents' logins to their team rows
+select test.expect_error($q$update members set team_row_id = null where user_id = '00000000-0000-0000-0000-0000000000a1'$q$, 'permission denied');
+select test.set_member('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a1', 'member', test.id('team1'));
+select test.set_member('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a2', 'member', test.id('team2'));
+select test.expect_error($q$select test.set_member('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a1', 'member', 'bbbbbbbb-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');   -- a team row must be of this workspace
+select test.expect_error($q$select test.set_member('aaaaaaaa-0000-0000-0000-000000000000', '99999999-0000-0000-0000-000000000000', 'member')$q$, 'S-NOT-FOUND');   -- an unknown login gets the same answer, no probing
+select test.expect_error($q$select test.remove_member('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000000a')$q$, 'S-LAST-OWNER');
+select test.expect_error($q$select test.set_member('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000000a', 'member')$q$, 'S-LAST-OWNER');
 insert into test.ids select 'settingsA', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'settings', null, '{"businessName":"Demo A"}');
 do $$ begin assert (select count(*) from content_versions) = 3, 'owner A sees the 3 versions'; end $$;
 
@@ -354,10 +365,13 @@ select test.expect_error($q$select test.activate_addon('aaaaaaaa-0000-0000-0000-
 select test.act_as('00000000-0000-0000-0000-00000000000a');     -- A's owner
 select test.activate_addon('aaaaaaaa-0000-0000-0000-000000000000', 'concierge');
 select test.expect_error($q$select test.activate_addon('aaaaaaaa-0000-0000-0000-000000000000', 'concierge')$q$, 'S-ADDON');            -- twice is refused
-select test.expect_error($q$select test.set_addon_state('aaaaaaaa-0000-0000-0000-000000000000', 'concierge', 'active')$q$, 'S-ADDON-STATE');   -- paying -> active skips setting-up
-select test.set_addon_state('aaaaaaaa-0000-0000-0000-000000000000', 'concierge', 'setting-up');
-select test.set_addon_state('aaaaaaaa-0000-0000-0000-000000000000', 'concierge', 'active');
+select test.expect_error($q$select test.set_addon_state('aaaaaaaa-0000-0000-0000-000000000000', 'concierge', 'setting-up')$q$, 'S-ROLE');   -- an owner never moves the billing state (review 7)
+reset role;
+select test.expect_error($q$select service.set_addon_state(null, 'aaaaaaaa-0000-0000-0000-000000000000', 'concierge', 'active')$q$, 'S-ADDON-STATE');   -- paying -> active skips setting-up, even for the payment webhook
+select service.set_addon_state(null, 'aaaaaaaa-0000-0000-0000-000000000000', 'concierge', 'setting-up');
+select service.set_addon_state(null, 'aaaaaaaa-0000-0000-0000-000000000000', 'concierge', 'active');
 do $$ begin assert (select state from add_ons where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and kind = 'concierge') = 'active', 'add-on reached active through the legal path'; end $$;
+set role authenticated;
 select test.act_as('00000000-0000-0000-0000-00000000000b');
 do $$ begin assert (select count(*) from add_ons) = 0, 'B''s owner sees no add-on of A'; end $$;
 
@@ -398,7 +412,10 @@ do $$ declare r record; begin
 end $$;
 -- leadI's consent text is "I agree": it does not cover texting
 select test.expect_error(format($q$select * from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', %L, null, 'sms', 'booking-reminder', '+15555550100', null, '2026-11-02 18:00+00')$q$, test.id('leadI')), 'M-CONSENT');
-insert into test.ids select 'leadS', service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'Lead S', 's@test', '+15555550101', '{}', 'I agree to be contacted by email, phone or text');
+-- texting consent is an explicit flag recorded at capture (review 6: a wording test fails open), never read out of the sentence
+insert into test.ids select 'leadS', service.capture_lead(p_site => 'aaaaaaaa-0000-0000-0000-00000000517e', p_form => 'contact', p_page => '/', p_name => 'Lead S', p_email => 's@test', p_phone => '+15555550101', p_answers => '{}', p_consent => 'I agree to be contacted by email, phone or text', p_sms_consent => true);
+select test.expect_error(format($q$select * from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', %L, null, 'sms', 'x', '+15555550199')$q$,
+  service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'Lead N', 'n@test', null, '{}', 'I do NOT agree to text messages, call me')), 'M-CONSENT');
 do $$ declare r record; begin
   select * into r from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', test.id('leadS'), null, 'sms', 'booking-reminder', '+15555550101', null, '2026-11-02 18:00+00');   -- 10:00 Los Angeles
   assert r.state = 'queued', 'an SMS in the day with texting consent is queued';
@@ -446,7 +463,7 @@ do $$ begin assert (select count(*) from webhook_events) = 1, 'staff read the we
 
 -- CRM templates: owner saves, member cannot, shape is checked, B cannot read A's
 select test.act_as('00000000-0000-0000-0000-00000000000a');
-insert into test.ids select 'tpl1', test.save_crm_template('aaaaaaaa-0000-0000-0000-000000000000', null, 'My CRM', '[{"header":"First Name","field":"name.first"},{"header":"Phone","field":"phone"}]');
+insert into test.ids select 'tpl1', test.save_crm_template('aaaaaaaa-0000-0000-0000-000000000000', null, 'My CRM', '[{"header":"First Name","field":"name","transform":"first"},{"header":"Phone","field":"phone"}]');
 select test.expect_error($q$select test.save_crm_template('aaaaaaaa-0000-0000-0000-000000000000', null, 'Bad', '[{"header":"Phone"},{"header":"Email","field":"email"}]')$q$, 'T-COLUMNS');
 select test.expect_error($q$select test.save_crm_template('aaaaaaaa-0000-0000-0000-000000000000', null, 'Dup', '[{"header":"Phone","field":"phone"},{"header":"Phone","field":"email"}]')$q$, 'T-COLUMNS');
 select test.act_as('00000000-0000-0000-0000-0000000000a1');
@@ -454,6 +471,180 @@ select test.expect_error($q$select test.save_crm_template('aaaaaaaa-0000-0000-00
 select test.act_as('00000000-0000-0000-0000-00000000000b');
 do $$ begin assert (select count(*) from crm_templates) = 0, 'B''s owner sees no template of A'; end $$;
 select test.expect_error(format($q$select test.save_crm_template('bbbbbbbb-0000-0000-0000-000000000000', %L, 'Stolen', '[{"header":"Phone","field":"phone"}]')$q$, test.id('tpl1')), 'S-NOT-FOUND');
+reset role;
+
+-- ===== T15 hardening (migration 4, REVIEW-2026-10-29) =====
+-- review 1: unpublish by a non-member is refused; by a member of the workspace too; the owner may
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+select test.expect_error(format($q$select test.unpublish(%L)$q$, test.id('listing2')), 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-0000000000a2');
+select test.expect_error(format($q$select test.unpublish(%L)$q$, test.id('listing2')), 'S-NOT-FOUND');
+reset role;
+do $$ begin assert (select deleted_at from content_rows where id = test.id('listing2')) is null, 'nobody but the owner or staff unpublished listing2'; end $$;
+-- review 3: a member cannot forge media facts (column-limited insert)
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+select test.expect_error($q$insert into media (workspace_id, path, uploaded_by, processed, exif_stripped, width) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-000000000000/forged.jpg', '00000000-0000-0000-0000-0000000000a1', true, true,4000)$q$, 'permission denied');
+insert into media (workspace_id, path, uploaded_by, rights_confirmed) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-000000000000/honest.jpg', '00000000-0000-0000-0000-0000000000a1', true);
+do $$ begin assert (select processed from media where path like '%/honest.jpg') = false, 'a client upload starts unprocessed'; end $$;
+reset role;
+-- review 5: no overlapping builds of one site; a late reconcile never moves a version backwards; a deleted row stays off
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('listing1'), jsonb_build_object('street', '1 Demo Road v3', 'agent', test.id('team1')));
+insert into test.ids select 'jobX', test.publish('aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('listing1')]);
+insert into test.ids select 'jobY', test.publish('aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('listing1')]);
+reset role;
+set role service_role;
+select service.freeze_snapshot(test.id('jobX'));
+select test.expect_error(format($q$select service.freeze_snapshot(%L)$q$, test.id('jobY')), 'S-JOB-BUSY');
+select service.set_job_state(test.id('jobX'), 'gating'); select service.set_job_state(test.id('jobX'), 'deploying'); select service.set_job_state(test.id('jobX'), 'done');
+select service.freeze_snapshot(test.id('jobY'));   -- now the site is free
+do $$ declare live int; begin
+  select published_version into live from content_rows where id = test.id('listing1');
+  -- jobY carries the same (latest) version; a reconcile of an older snapshot must never lower it
+  update publish_jobs set snapshot = jsonb_build_object(test.id('listing1')::text, 1) where id = test.id('jobY');
+  perform service.set_job_state(test.id('jobY'), 'gating'); perform service.set_job_state(test.id('jobY'), 'deploying'); perform service.set_job_state(test.id('jobY'), 'done');
+  assert (select published_version from content_rows where id = test.id('listing1')) = live, 'published_version never moves backwards';
+end $$;
+reset role;
+-- review 6: messages: STOP, per-workspace cap, idempotent record, legal transitions, no duplicate event
+do $$ declare r record; r2 record; begin
+  select * into r from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', test.id('leadS'), null, 'sms', 'booking-reminder', '+15555550101', null, '2026-11-02 18:00+00', 'rem-1');
+  select * into r2 from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', test.id('leadS'), null, 'sms', 'booking-reminder', '+15555550101', null, '2026-11-02 18:00+00', 'rem-1');
+  assert r.id = r2.id, 'the same idempotency key records one message';
+  perform service.set_message_state(r.id, 'sent', 'p-1'); perform service.set_message_state(r.id, 'sent', 'p-1');
+  assert (select count(*) from lead_events where lead_id = test.id('leadS') and kind = 'message-sent') = 1, 'a repeated sent callback writes one event';
+  perform service.set_message_state(r.id, 'delivered');
+end $$;
+select test.expect_error($q$select service.set_message_state((select id from messages where idem_key = 'rem-1'), 'queued')$q$, 'M-STATE');
+select service.lead_sms_stop(test.id('leadS'), '{"reply":"STOP"}');
+select test.expect_error(format($q$select * from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', %L, null, 'sms', 'booking-reminder', '+15555550101', null, '2026-11-02 18:00+00', 'rem-2')$q$, test.id('leadS')), 'M-STOP');
+update platform_limits set value = 1 where key = 'email_per_day_workspace';
+do $$ declare r record; begin
+  select * into r from service.record_message('bbbbbbbb-0000-0000-0000-000000000000', null, '00000000-0000-0000-0000-00000000000b', 'email', 'new-lead', 'owner-b@test', null, '2026-11-02 19:30+00');
+  assert r.state = 'queued', 'B is not blocked by A''s messages (per-workspace cap)';
+  select * into r from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', null, '00000000-0000-0000-0000-00000000000a', 'email', 'new-lead', 'owner-a@test', null, '2026-11-02 19:30+00');
+  assert r.state = 'blocked' and r.reason = 'daily cap (workspace)', 'A hit its own daily cap';
+end $$;
+update platform_limits set value = 40 where key = 'email_per_day_workspace';
+-- review 7: an owner cannot move the billing state; the payment webhook (service, null claims) can
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.activate_addon('aaaaaaaa-0000-0000-0000-000000000000', 'messaging');
+select test.expect_error($q$select test.set_addon_state('aaaaaaaa-0000-0000-0000-000000000000', 'messaging', 'setting-up')$q$, 'S-ROLE');
+reset role;
+select service.set_addon_state(null, 'aaaaaaaa-0000-0000-0000-000000000000', 'messaging', 'setting-up');
+select service.set_addon_state(null, 'aaaaaaaa-0000-0000-0000-000000000000', 'messaging', 'active', '2026-12-31');
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.set_addon_state('aaaaaaaa-0000-0000-0000-000000000000', 'messaging', 'cancelled');
+select test.activate_addon('aaaaaaaa-0000-0000-0000-000000000000', 'messaging');
+do $$ begin assert (select paid_until from add_ons where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and kind = 'messaging') is null, 're-activation does not keep the old paid_until'; end $$;
+reset role;
+-- review 12: a paused site refuses leads; bounded inputs; the member a meeting is with may change its state; null claims only for the concierge
+update sites set state = 'paused' where id = 'bbbbbbbb-0000-0000-0000-00000000517e';
+select test.expect_error($q$select service.capture_lead('bbbbbbbb-0000-0000-0000-00000000517e', 'contact', '/', 'x', 'x@test', null, '{}', 'I agree')$q$, 'S-SITE-PAUSED');
+update sites set state = 'preview' where id = 'bbbbbbbb-0000-0000-0000-00000000517e';
+select test.expect_error(format($q$select service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', %L, 'x@test', null, '{}', 'I agree')$q$, repeat('x', 121)), 'leads_bounded');
+select test.expect_error(format($q$select service.set_booking_state(null, %L, 'cancelled')$q$, test.id('bk3')), 'S-AUTH');
+select test.expect_error(format($q$select service.book(null, %L, %L, '2026-11-09 10:00+00', '2026-11-09 11:00+00', null, 'manual')$q$, test.id('leadA'), test.id('team1')), 'S-AUTH');
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.lead_update(test.id('leadA'), null, test.id('team2'));      -- leadA now belongs to agent two; bk3 is WITH agent one
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+select test.set_booking_state(test.id('bk3'), 'confirmed');              -- the member the meeting is with may confirm it
+do $$ begin assert (select state from bookings where id = test.id('bk3')) = 'confirmed', 'the team member the meeting is with confirmed it'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.lead_update(test.id('leadA'), null, null, null, true);
+do $$ begin assert (select owner_team_row from leads where id = test.id('leadA')) is null, 'the owner can unassign a lead'; end $$;
+reset role;
+-- review 9: lead deletion on request: owner only, audit survives
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+select test.expect_error(format($q$select test.delete_lead(%L)$q$, test.id('leadM')), 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.delete_lead(test.id('leadM'));
+reset role;
+do $$ begin
+  assert (select count(*) from leads where id = test.id('leadM')) = 0, 'the lead is gone';
+  assert (select count(*) from audit_log where action = 'lead-delete' and target = test.id('leadM')::text) = 1, 'the deletion is in the audit log';
+end $$;
+-- review 10: template fields are checked; secrets anywhere in a connector config are refused
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.expect_error($q$select test.save_crm_template('aaaaaaaa-0000-0000-0000-000000000000', null, 'Bad2', '[{"header":"X","field":"__proto__"}]')$q$, 'T-COLUMNS');
+select test.expect_error($q$select test.save_crm_template('aaaaaaaa-0000-0000-0000-000000000000', null, 'Bad3', '[{"header":"X","field":"workspace_id"}]')$q$, 'T-COLUMNS');
+select test.expect_error($q$select service.save_crm_template(test.claims(), 'aaaaaaaa-0000-0000-0000-000000000000', null, 'Bad4', 'custom', 'export', '[{"header":"X","field":"phone"}]', '[]')$q$, 'permission denied');   -- the service schema stays closed to logins
+reset role;
+select test.expect_error($q$select service.save_crm_template('{"sub":"00000000-0000-0000-0000-00000000000a"}', 'aaaaaaaa-0000-0000-0000-000000000000', null, 'Bad4', 'custom', 'export', '[{"header":"X","field":"phone"}]', '[]')$q$, 'T-VALUE-MAPS');
+select test.expect_error($q$insert into connectors (workspace_id, kind, label, config) values ('aaaaaaaa-0000-0000-0000-000000000000', 'sms', 'nested', '{"auth":{"token":"abc"}}')$q$, 'connectors_no_secret_in_config');
+select test.expect_error($q$insert into connectors (workspace_id, kind, label, config) values ('aaaaaaaa-0000-0000-0000-000000000000', 'sms', 'url', '{"endpoint":"https://u:p@sms.test/x"}')$q$, 'connectors_no_secret_in_config');
+-- review 12: an "own" collection without an ownerField is refused for members
+update site_contracts set resolved = jsonb_set(resolved, '{collections,posts}', '{"kind":"collection","access":{"member":"own"},"fields":{"title":{"type":"text"}}}') where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000';
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+select test.expect_error($q$select test.save('aaaaaaaa-0000-0000-0000-000000000000', 'posts', null, '{"title":"x"}')$q$, 'S-CONTRACT');
+reset role;
+
+-- ===== T14 structural gates (23-GROUND-RULES section 3): read from the catalogues, so a new table or function cannot skip them =====
+do $$ declare t record; n int; begin
+  -- every public table has RLS and a select policy naming authenticated
+  for t in select c.relname from pg_class c join pg_namespace s on s.oid = c.relnamespace where s.nspname = 'public' and c.relkind = 'r' loop
+    assert (select relrowsecurity from pg_class where oid = ('public.' || quote_ident(t.relname))::regclass), 'RLS off on ' || t.relname;
+    assert exists (select 1 from pg_policy p where p.polrelid = ('public.' || quote_ident(t.relname))::regclass and p.polcmd in ('r', '*') and 'authenticated' = any(select rolname from pg_roles where oid = any(p.polroles))),
+      'no select policy for authenticated on ' || t.relname;
+  end loop;
+  -- every table with workspace_id (and more than one row per workspace) has an index starting with workspace_id
+  for t in select c.relname from pg_class c join pg_namespace s on s.oid = c.relnamespace join pg_attribute a on a.attrelid = c.oid and a.attname = 'workspace_id' and not a.attisdropped
+           where s.nspname = 'public' and c.relkind = 'r' and c.relname not in ('workspaces') loop
+    assert exists (select 1 from pg_index i join pg_attribute a on a.attrelid = i.indrelid and a.attnum = i.indkey[0]
+                   where i.indrelid = ('public.' || quote_ident(t.relname))::regclass and a.attname = 'workspace_id'), 'no workspace_id-first index on ' || t.relname;
+  end loop;
+  -- every SECURITY DEFINER function sets search_path; no definer function has an un-guarded "if not (" authorisation test
+  for t in select n.nspname, p.proname, p.prosrc, p.proconfig from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname in ('private', 'service') and p.prosecdef loop
+    assert t.proconfig is not null and array_to_string(t.proconfig, ',') like '%search_path=%', 'no search_path on ' || t.nspname || '.' || t.proname;
+    assert t.prosrc !~ 'if not \((staff|private\.is_staff\(\)|role)', 'un-guarded "if not (" authorisation in ' || t.nspname || '.' || t.proname || ' (use coalesce or is_owner_or_staff)';
+  end loop;
+  -- anon has no table privilege; authenticated writes nothing except the allowlist
+  select count(*) into n from information_schema.role_table_grants where grantee = 'anon' and table_schema = 'public';
+  assert n = 0, 'anon has table grants: ' || n;
+  select count(*) into n from information_schema.role_table_grants g where g.grantee = 'authenticated' and g.table_schema = 'public' and g.privilege_type in ('INSERT', 'UPDATE', 'DELETE')
+    and not (g.table_name = 'media' and g.privilege_type = 'INSERT');
+  assert n = 0, 'authenticated has write grants beyond the allowlist: ' || n;
+  -- every service function that takes claims is covered by an outsider test (the list below is the contract; a new function must be added here with its test)
+  for t in select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'service' and p.proargnames[1] = 'p_claims' loop
+    assert t.proname = any(array['use_claims', 'contract_for', 'save_as', 'start_publish', 'unpublish', 'lead_update', 'add_lead', 'activate_addon', 'set_addon_state', 'book', 'set_booking_state', 'save_crm_template', 'set_member', 'remove_member', 'delete_lead']),
+      'service.' || t.proname || ' takes claims but has no outsider test listed in T14';
+  end loop;
+end $$;
+-- read isolation per table, generated: B's owner and a no-membership login read 0 rows of A from every table that has workspace_id
+-- (every such table holds at least one row of A first, so a policy opened to "true" is seen)
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000e', 'nobody@test');
+insert into integrations (workspace_id, kind, config) values ('aaaaaaaa-0000-0000-0000-000000000000', 'idx-link', '{"url":"https://idx.test"}');
+insert into metrics_snapshots (workspace_id, source, day, data) values ('aaaaaaaa-0000-0000-0000-000000000000', 'uptime', '2026-11-01', '{"up":true}');
+do $$ declare t record; n int; begin
+  for t in select c.relname from pg_class c join pg_namespace s on s.oid = c.relnamespace join pg_attribute a on a.attrelid = c.oid and a.attname = 'workspace_id' and not a.attisdropped
+           where s.nspname = 'public' and c.relkind = 'r' loop
+    execute format('select count(*) from public.%I where workspace_id = %L', t.relname, 'aaaaaaaa-0000-0000-0000-000000000000') into n;
+    assert n > 0, 'the isolation loop needs a row of A in ' || t.relname || ' (add a fixture)';
+  end loop;
+end $$;
+set role authenticated;
+do $$ declare t record; n int; who text; begin
+  foreach who in array array['00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-00000000000e'] loop
+    perform test.act_as(who);
+    for t in select c.relname from pg_class c join pg_namespace s on s.oid = c.relnamespace join pg_attribute a on a.attrelid = c.oid and a.attname = 'workspace_id' and not a.attisdropped
+             where s.nspname = 'public' and c.relkind = 'r' loop
+      execute format('select count(*) from public.%I where workspace_id = %L', t.relname, 'aaaaaaaa-0000-0000-0000-000000000000') into n;
+      assert n = 0, who || ' reads ' || n || ' row(s) of A from ' || t.relname;
+    end loop;
+    execute 'select count(*) from publish_job_events' into n; assert n = 0 or who = '00000000-0000-0000-0000-00000000000b', 'nobody reads job events';
+    execute 'select count(*) from platform_limits' into n; assert n = 0, who || ' reads platform limits';
+    execute 'select count(*) from staff' into n; assert n = 0, who || ' reads the staff table';
+  end loop;
+end $$;
 reset role;
 
 -- ===== T9 anonymous callers (Supabase grants EXECUTE and table rights to anon by default): everything is closed =====

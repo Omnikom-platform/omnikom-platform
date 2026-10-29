@@ -4,6 +4,22 @@ Task: build-ready product engineering package (owner, 2026-10-28), raised to eng
 then corrected by an independent fact-check (72 claims) and an independent M1 dry run (31 issues), and by DECISIONS 15
 (no Docker; one Supabase account, staging + production). **Status: complete for owner review. Nothing committed.**
 
+## Hardening run (2026-10-29 22:50, four migrations in order, `node supabase/tests/run-local.mjs`)
+```
+PASS real migration: ALL TENANCY TESTS PASSED
+125 mutants: 124 caught on the full run; the one survivor ("a retry stores nothing") had become a double wall (early return
+plus on-conflict insert) and is now a two-layer mutant, caught on re-run
+```
+New this run: migration 4 (REVIEW-2026-10-29 fixes: unpublish null guard, column-limited media insert, members through
+`set_member`/`remove_member`, one build per site, monotonic `published_version`, `own` needs an `ownerField`, paused sites
+refuse leads, bounded inputs, explicit `sms_consent` and STOP, per-workspace message caps, message idempotency and legal
+transitions, owners cannot move billing state, null claims only for the concierge, the member a meeting is with may change it,
+template field allowlist, recursive secret scan on connector configs, workspace indexes, `delete_lead`); T15 behaviour tests;
+T14 structural gates read from the catalogues (RLS and a select policy on every table, a `workspace_id`-first index on every
+tenant table, `search_path` and a null-guard lint on every definer function, grants audit, every claims-taking service function
+in the outsider list, the generated read-isolation loop over every tenant table for a foreign owner and a no-membership login).
+`tools/crm-map`: 152 tests, 109 mutants after the review fixes. Deno check PASS on capture-lead.
+
 ## Expansion blocks run (2026-10-29 21:05, `node supabase/tests/run-local.mjs`, three migrations in order; DECISIONS 23)
 ```
 PASS real migration: ALL TENANCY TESTS PASSED

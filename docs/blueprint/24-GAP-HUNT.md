@@ -99,4 +99,72 @@ details and the call-recording law rest on secondary pages and are UNPROVEN unti
 | Imported contacts carry no consent | imports default to no SMS and no calls | medium | FIXED by design (`sms_consent` default false); the import wizard must say so |
 | Security of personal data (CCPA breach claims) | D16 open; breach runbook partial | medium | DECISION D16; runbook R2 extended to breach notice |
 
-(Section C, the Supabase production checklist, follows when its reader reports; then E, the synthesis and the verdict.)
+## C. Supabase "Going into production" checklist and the RLS, Data API and Auth guides
+Reader's note: vendor items are short quotes or close paraphrases (WebFetch summarises); migrations 2 to 4 were grepped, not read.
+COVERED: RLS on every table with named roles and revoked defaults; `(select auth.uid())`; definer helpers outside exposed schemas;
+no secret key in the browser; indexes; Realtime limits; staging instead of branching; secret key rotation.
+| Vendor item | Status | Gap | Status |
+|---|---|---|---|
+| Enforce SSL for database connections (`verify-full`) | MISSING | no `sslmode` anywhere; the vendor warns enabling it reboots the database, so do it at project creation | SETUP step |
+| Restrict database network access | MISSING, conflicts | restrictions would cut the Edge Functions' direct connection and CI's `db push` from GitHub's dynamic IPs | DECISION D23: not used, recorded with the reason, or use the pooler only |
+| Supabase account MFA, GitHub account MFA, a second organisation owner | MISSING | the account holding the secret key and Vault has no written hardening | SETUP step (owner): MFA on both accounts, a second owner |
+| Auth configuration: signups off (invites only), anonymous sign-ins off, email confirmation, OTP expiry at most 1 hour, Site URL and redirect allowlist, password rules or no passwords (D18), session settings | MISSING | nothing recorded; anyone could sign up today and burn the mail quota | SETUP step with a written `supabase/auth-settings.md` checked at W0.3 |
+| Custom SMTP for Auth mail | PARTLY | Resend named (D5) but not configured; the 95-a-day counter cannot see Auth mail unless a Send Email hook routes it | SETUP + OPEN (Send Email hook, W0.3) |
+| CAPTCHA on sign-up, sign-in, reset | MISSING | Turnstile only discussed for the lead form | DECISION with Turnstile (B) |
+| Email scanners consume single-use magic links | MISSING | a real login failure for office mail; the vendor suggests an intermediate confirmation page | OPEN: dashboard login page W3.1 |
+| Disable link tracking in the SMTP provider | MISSING | Resend tracking would break magic links | SETUP step |
+| Auth rate limits (30 per 5 min per IP for sign-in and magic link, OTP 1 per 60 s) | PARTLY | not recorded; an office behind one NAT could hit them | OPEN: record in 21-PROTOCOLS; raise if measured |
+| `pg_stat_statements` | MISSING | no slow-query practice beyond `explain` in PRs | OPEN: weekly top-10 in `usage.yml` |
+| Load test of RLS-heavy dashboard reads | PARTLY | k6 aims at the form and publish only | LATER (W3) |
+| PITR | CONTRADICTION | 01, ADR 0001, NFR-7, 10 say PITR; 18 says Free, own dumps | FIX the docs (section F) |
+| Backups exclude `auth`; many tables reference `auth.users` | PARTLY | a restore needs a plan for logins | OPEN: dump `auth.users` ids and emails too (no passwords) |
+| Production project on Free may pause before the first client | PARTLY | keepalive covers staging only | OPEN: `keepalive.yml` pings production too |
+| Data API: disable "automatically expose new tables"; a dedicated `api` schema; GraphQL exposure | MISSING | every table sits in the exposed `public` schema, protected by grants and RLS alone; `graphql_public` never addressed | SETUP step (disable auto-expose; disable pg_graphql) + DECISION D24: move the client-readable tables behind views in an `api` schema later |
+| `search_path = ''` on definer functions | PARTLY | known deviation (`= public`), W0.3 | OPEN (migration 5: `set search_path = ''` with schema-qualified names) |
+| Default privileges for `private` and `service` schemas | PARTLY | only `public` has the default revoke; each migration re-revokes at the end | OPEN: `alter default privileges in schema service/private` (migration 5) |
+| Database password: no row in the secrets table, no rotation | MISSING | | OPEN: add to 02-BACKEND 8 |
+| Shared Responsibility Model read and signed off | MISSING | | SETUP step |
+| Pre-request quotas for authenticated direct inserts (`media`, `lead_notes`) | MISSING (low) | | covered by per-workspace quotas (B) |
+
+## E. Synthesis: are we ready to set up the accounts and build?
+**Verdict: set up the accounts now; the platform is not "complete", and the list of what to add is now known and sourced.**
+Reasons: (1) most of what the four readers found is either an account setting applied at setup (Auth configuration, SSL
+enforcement, MFA and a second owner, Data API exposure, SMTP tracking off) or a build item with a named migration or work
+order; none of it is a reason to delay the accounts, and several of them cannot be verified without the accounts. (2) The
+first real proof (the lead path from the ELEV8 preview into staging and to the owner's inbox, DECISIONS 25) depends only on
+the accounts and the code already written. (3) The truly new blocks the hunt surfaced (consent ledger and suppressions, security
+events, tenant lifecycle and quotas, the legal documents, the SMS registration gate) are additions to the plan, not changes to
+its shape.
+
+### E1. What goes into the accounts' setup checklist (done once, by the owner with the lead; `sops/account-setup.md` to write)
+Supabase: org MFA, second owner, two Free projects in the region picked (D1), SSL enforcement on, Auth: signups off, anonymous
+off, email confirmation on, OTP expiry 1 h, magic link only (D18), Site URL and redirect allowlist, custom SMTP through Resend
+with tracking off, Data API auto-expose off, pg_graphql off, `pg_cron`, `pgmq`, `pg_net`, `pg_stat_statements` enabled, Vault
+present, the database password in the master .env with a rotation date. Cloudflare: account MFA, two API tokens (Pages deploy;
+DNS onboarding) with TTL, `cfut_` added to gitleaks, R2 bucket, Web Analytics on. GitHub: org with MFA required, the repo,
+Dependabot, actions pinned by SHA (CI lint), D21 (Team or a separate production repo). Resend: domain verified, tracking off.
+Google Cloud: service account for Search Console (D15).
+
+### E2. What is added to the plan before the first client goes live (each a work order, migration or document)
+1. Migration 5: `security_events` (every refused call and failed signature, with workspace and hashed address), `consent_ledger`
+   and `suppressions` outside the delete cascade, `privacy_requests`, `workspaces.state` lifecycle, per-workspace quotas in
+   `platform_limits` by workspace, `search_path = ''`, default privileges on `private` and `service`, a dedicated DB role per
+   function family, `audit_log` append-only for every role, `usage_daily`.
+2. Auth hardening in code: staff login without aal2 refused at the dashboard, session revocation on staff removal (Auth admin
+   API), the login page's scanner-safe confirmation step, recorded rate limits.
+3. The legal set: privacy policy per client with notice at collection on every form, terms, service-provider agreement, the
+   acceptable-use policy and takedown runbook, the breach-notice runbook, data classification table, processor and location list.
+4. Messaging prerequisites before any SMS or call ships: 10DLC brand and campaign gate, HELP and first-message templates,
+   revocation by any method and revoke-all, lead-local quiet hours, voice consent and AI and recording disclosure, DNC scrub.
+5. Operations: onboarding and offboarding jobs with a drift check, rotation tracker with dual keys, offsite second backup copy,
+   `keepalive` for production, status page off the two vendors, Pages `pages.dev` noindex rules, rollback runbook for Pages,
+   SLOs restated for Free, on-call terms (D22), `rebuild-all` with a canary, view-as audit, `usage_daily`.
+6. Documentation drift: `01`, `02` 8, `10`, `11`, ADR 0001 and 0002 aligned to Pages, one account token, Free with own backups,
+   `master`, no environments (section F).
+7. Decisions for the owner from this hunt: D16 PII encryption, D17 RPO and RTO, D18 magic link only, D19 session lifetime,
+   D20 secrets store, D21 GitHub Team or a production repo, D22 on-call terms, D23 network restrictions, D24 `api` schema.
+
+### F. Doc drift to fix (found by readers B and C)
+`01-ARCHITECTURE.md` section 7 and 9 (Workers, PITR); `02-BACKEND.md` 3 (`save_version` client-callable wording), 8 (per-site
+Cloudflare tokens, `main`), 10; `10-DELIVERY.md` (environments, `main`, Worker rollback); `11-OPERATIONS.md` R3 (Worker
+rollback), 3 (PITR), 0 (99.9%); ADR 0001 (PITR), ADR 0002 (revised by DECISIONS 28); `06-PRD.md` NFR-7 (PITR).
