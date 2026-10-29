@@ -8,6 +8,9 @@
 //   // generic        plain words any sheet might use; no vendor claim
 // kvCORE: no header is attributed to it, because I am not sure of its export headers.
 // The lead verifies the tagged ones before they are shown to a client.
+//
+// Order matters inside one field's `synonyms`: when two columns score the same for the field, the one that matches the
+// synonym listed first wins (map.mjs, "dictionary rank"). List the preferred header first.
 
 // Our fields, in the order the wizard lists them (leads table, 13-DATA-MODEL.md section 6).
 export const LEAD_FIELDS = [
@@ -34,6 +37,9 @@ export const ABBREVIATIONS = {
   // when it was created
   createdat: 'created at', dateadded: 'created at', createddate: 'created at', createdon: 'created at', // generic
   createdate: 'created at', // HubSpot "Create Date"
+  // "Inquiry Date", "Lead Date", "Date of Inquiry": the day the lead came in. A bare "inquiry" is NOT here: it is the
+  // message (answers.message lists it), so it would tie with created_at.
+  inquirydate: 'created at', leaddate: 'created at', dateofinquiry: 'created at', // generic
   // which journey / where it came from
   src: 'flow', source: 'flow', leadsource: 'flow', // generic; "Source" also Follow Up Boss
   // status
@@ -118,6 +124,7 @@ export const FIELDS = {
     synonyms: [
       'created at', 'created', 'date', 'date added', 'created date', 'date created', // generic
       'create date', // HubSpot "Create Date"
+      'inquiry date', 'lead date', 'date of inquiry', // generic
       'submitted', 'submitted at', 'received', 'received at', 'timestamp', // generic
     ],
   },

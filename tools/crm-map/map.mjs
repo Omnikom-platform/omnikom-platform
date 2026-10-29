@@ -8,6 +8,7 @@
 // transform is one of: first | last (split our name), street | city | state | postal_code | zip (split our address),
 // e164 | us (phone), iso | us | eu (date). "us" means (xxx) xxx-xxxx on a phone field and MM/DD/YYYY on a date field.
 // A value map may also be keyed "field@Header" to apply to one column only (the more specific key wins).
+// A field name may not be any Object.prototype name (toString, valueOf, __proto__ ...) or "prototype": see UNSAFE_KEYS.
 import { FIELDS, ABBREVIATIONS, WHOLE_HEADER, PART_TOKENS, DISQUALIFIERS, PARTS, LEAD_FIELDS } from './dictionary.mjs';
 
 export { LEAD_FIELDS };
@@ -54,7 +55,8 @@ function synonymsOf(field) {
   const def = has(FIELDS, field) ? FIELDS[field] : null;
   const names = [...(def ? def.synonyms : []), String(field).split('.').pop().replace(/_/g, ' ')];
   const list = [...new Set(names.map(normaliseHeader).filter(Boolean))];
-  const entry = { list, tokens: list.map(s => s.split(' ')), glued: new Set(list.map(s => s.replace(/ /g, ''))), accepts: def ? def.accepts : null };
+  // list[i] is the synonym of rank i: the order the dictionary lists them in (after normalising and dropping repeats)
+  const entry = { list, tokens: list.map(s => s.split(' ')), glued: list.map(s => s.replace(/ /g, '')), accepts: def ? def.accepts : null };
   synCache.set(field, entry);
   return entry;
 }
@@ -116,27 +118,31 @@ function sampleType(values) {
   return null;
 }
 
-// How well does their column fit our field? 0..1.
-export function score(ourField, theirHeader, sampleValues) {
+const NONE = { score: 0, rank: Infinity };
+
+// One header against one field: { score 0..1, rank }. rank is the position, in the dictionary's synonym list for the
+// field, of the synonym that gave the score (the first one on a tie); it only settles ties between equal scores.
+function scoreOne(ourField, theirHeader, sampleValues) {
   const nh = normaliseHeader(theirHeader);
-  if (!nh) return 0;
+  if (!nh) return NONE;
   const syn = synonymsOf(ourField);
   const ht = nh.split(' ');
-  let base = 0;
-  if (syn.glued.has(nh.replace(/ /g, ''))) {
-    base = 1;
+  let base = 0, rank = Infinity;
+  const at = syn.glued.indexOf(nh.replace(/ /g, ''));
+  if (at >= 0) {
+    base = 1; rank = at;
   } else {
-    let best = 0;
-    syn.tokens.forEach(st => { if (compatible(ht, st)) best = Math.max(best, jaccard(ht, st)); });
+    let best = 0, bestAt = Infinity;
+    syn.tokens.forEach((st, i) => { if (compatible(ht, st)) { const j = jaccard(ht, st); if (j > best) { best = j; bestAt = i; } } });
     if (best > 0) {
-      base = best;
+      base = best; rank = bestAt;
     } else if (nh.length < SHORT_HEADER) {
       const gh = nh.replace(/ /g, '');
       syn.list.forEach((s, i) => {
         if (!compatible(ht, syn.tokens[i])) return;
         const gs = s.replace(/ /g, '');
         const ratio = 1 - editDistance(gh, gs) / Math.max(gh.length, gs.length);
-        if (ratio >= EDIT_GATE) base = Math.max(base, Math.min(ratio, EDIT_CAP));
+        if (ratio >= EDIT_GATE) { const capped = Math.min(ratio, EDIT_CAP); if (capped > base) { base = capped; rank = i; } }
       });
     }
   }
@@ -144,15 +150,35 @@ export function score(ourField, theirHeader, sampleValues) {
     const t = sampleType(sampleValues);
     if (t && t !== 'text' && !syn.accepts.includes(t)) base -= TYPE_PENALTY;
   }
-  return round3(Math.max(0, Math.min(1, base)));
+  return { score: round3(Math.max(0, Math.min(1, base))), rank: base > 0 ? rank : Infinity };
+}
+
+// A compound header such as "State/Province" or "Fax | Phone" is also tried part by part; the best part counts when it
+// beats the header taken whole.
+const COMPOUND = /[/|]/;
+function scoreDetail(ourField, theirHeader, sampleValues) {
+  const whole = scoreOne(ourField, theirHeader, sampleValues);
+  if (theirHeader === null || theirHeader === undefined || !COMPOUND.test(String(theirHeader))) return whole;
+  let part = NONE;
+  for (const piece of String(theirHeader).split(COMPOUND)) {
+    const c = scoreOne(ourField, piece, sampleValues);
+    if (c.score > part.score || (c.score === part.score && c.rank < part.rank)) part = c;
+  }
+  return part.score > whole.score ? part : whole;
+}
+
+// How well does their column fit our field? 0..1.
+export function score(ourField, theirHeader, sampleValues) {
+  return scoreDetail(ourField, theirHeader, sampleValues).score;
 }
 
 // ---------------------------------------------------------------- propose
 
-// Greedy best-first: highest score first, one `a` and one `b` each; ties go to the lower a, then the lower b.
+// Greedy best-first: highest score first, one `a` and one `b` each. On equal scores the lower field `a` goes first and,
+// for one field, the column whose header matches the synonym listed earliest in the dictionary (`r`); only then the lower column.
 function assign(pairs) {
   const usedA = new Set(), usedB = new Set(), picked = [];
-  pairs.sort((x, y) => y.s - x.s || x.a - y.a || x.b - y.b);
+  pairs.sort((x, y) => y.s - x.s || x.a - y.a || x.r - y.r || x.b - y.b);
   for (const p of pairs) {
     if (usedA.has(p.a) || usedB.has(p.b)) continue;
     usedA.add(p.a); usedB.add(p.b); picked.push(p);
@@ -173,6 +199,19 @@ function bestOf(list) {
   return best;
 }
 
+// every word the dictionary knows, for the "does this sheet look English" test (numbers do not count)
+let knownWords = null;
+function dictionaryWords() {
+  if (!knownWords) {
+    knownWords = new Set(PART_TOKENS);
+    for (const f of Object.keys(FIELDS)) for (const s of synonymsOf(f).list) for (const t of s.split(' ')) if (!/^\d+$/.test(t)) knownWords.add(t);
+  }
+  return knownWords;
+}
+
+// ourFields: the field names to map; theirHeaders: their column headers; sampleRows: a few of their rows (optional).
+// Returns { columns, unmapped, splits, warnings }. unmapped.headers[].best is the best field for that header among ALL
+// the fields, taken or not, so a header that lost a tie shows what it lost. warnings are plain sentences.
 export function proposeMap(ourFields, theirHeaders, sampleRows) {
   const fields = [...new Set(ourFields)];
   const headers = theirHeaders.map(h => (h === null || h === undefined ? '' : String(h)));
@@ -181,6 +220,7 @@ export function proposeMap(ourFields, theirHeaders, sampleRows) {
   const cols = [];
   const splits = [];
   const splitFields = new Set();
+  const warnings = [];
 
   // 1. composites first: name <- First Name + Last Name, address <- street + city + state + zip
   for (const field of fields) {
@@ -189,8 +229,8 @@ export function proposeMap(ourFields, theirHeaders, sampleRows) {
     const pairs = [];
     def.parts.forEach((part, a) => headers.forEach((h, b) => {
       if (taken.has(b)) return;
-      const s = score(part.key, h, samples[b]);
-      if (s >= MIN_SCORE) pairs.push({ a, b, s });
+      const d = scoreDetail(part.key, h, samples[b]);
+      if (d.score >= MIN_SCORE) pairs.push({ a, b, s: d.score, r: d.rank });
     }));
     const picked = assign(pairs);
     const got = new Set(picked.map(p => def.parts[p.a].transform));
@@ -208,8 +248,8 @@ export function proposeMap(ourFields, theirHeaders, sampleRows) {
   const pairs = [];
   fields.forEach((f, a) => headers.forEach((h, b) => {
     if (taken.has(b)) return;
-    const s = score(f, h, samples[b]);
-    if (s >= MIN_SCORE) pairs.push({ a, b, s });
+    const d = scoreDetail(f, h, samples[b]);
+    if (d.score >= MIN_SCORE) pairs.push({ a, b, s: d.score, r: d.rank });
   }));
   const single = assign(pairs);
   const mappedFields = new Set(), mappedHeaders = new Set();
@@ -218,22 +258,36 @@ export function proposeMap(ourFields, theirHeaders, sampleRows) {
     cols.push({ i: p.b, header: headers[p.b], field: fields[p.a], score: p.s });
   }
 
-  // 3. what is left, each with its best candidate among the other leftovers (for the wizard)
+  // 3. what is left, each with its best candidate (for the wizard)
   const freeH = headers.map((_, b) => b).filter(b => !taken.has(b) && !mappedHeaders.has(b));
   const freeF = fields.filter((f, a) => !mappedFields.has(a) && !splitFields.has(f));
   const fit = (f, b) => Math.max(score(f, headers[b], samples[b]), ...(has(PARTS, f) ? PARTS[f].parts.map(p => score(p.key, headers[b], samples[b])) : [0]));
   const unmapped = {
-    headers: freeH.map(b => ({ header: headers[b], best: bestOf(freeF.map(f => ({ field: f, score: fit(f, b) }))) })),
+    headers: freeH.map(b => ({ header: headers[b], best: bestOf(fields.map(f => ({ field: f, score: fit(f, b) }))) })),
     fields: freeF.map(f => ({ field: f, best: bestOf(freeH.map(b => ({ header: headers[b], score: fit(f, b) }))) })),
   };
 
+  // 4. warnings
+  if (headers.length === 1 && headers[0].includes(';')) {
+    warnings.push('only one column was found and its header holds semicolons: the file may be separated by semicolons, read it with parseCsv(text, { delimiter: ";" })');
+  }
+  const named = headers.map(h => normaliseHeader(h)).filter(Boolean);
+  const known = named.filter(nh => nh.split(' ').some(t => dictionaryWords().has(t)));
+  const nothing = unmapped.headers.map(u => u.header).filter(h => h.trim());
+  if (nothing.length && known.length * 2 < named.length) {
+    const shown = nothing.slice(0, 10).map(h => JSON.stringify(h)).join(', ') + (nothing.length > 10 ? `, and ${nothing.length - 10} more` : '');
+    warnings.push(`the sheet looks non-English: only ${known.length} of ${named.length} headers hold a word the dictionary knows, and ${nothing.length} mapped nothing (${shown}); map those by hand`);
+  }
+
   cols.sort((x, y) => x.i - y.i);
-  return { columns: cols.map(({ i, ...rest }) => rest), unmapped, splits };
+  return { columns: cols.map(({ i, ...rest }) => rest), unmapped, splits, warnings };
 }
 
 // ---------------------------------------------------------------- values
 
-const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+// Field names are used as property names on plain objects, so every name an object already has (toString, valueOf,
+// hasOwnProperty, __proto__, constructor ...) is refused, and "prototype" with them.
+const UNSAFE_KEYS = new Set([...Object.getOwnPropertyNames(Object.prototype), 'prototype']);
 function pathKeys(path) {
   const keys = String(path).split('.');
   if (keys.some(k => !k || UNSAFE_KEYS.has(k))) throw new Error(`T-FIELD: bad field "${path}"`);
@@ -252,7 +306,7 @@ function setPath(obj, path, value) {
   const keys = pathKeys(path);
   let cur = obj;
   for (const k of keys.slice(0, -1)) {
-    if (cur[k] === null || typeof cur[k] !== 'object') cur[k] = {};
+    if (!has(cur, k) || cur[k] === null || typeof cur[k] !== 'object') cur[k] = {};
     cur = cur[k];
   }
   cur[keys[keys.length - 1]] = value;
@@ -266,11 +320,37 @@ function toText(v) {
   return String(v);
 }
 
-// name: split on the last space; join with one space
+// name: the last word is the last name, with the particles before it ("van der", "de la", "St.") and the suffix after it
+// ("Jr.", "III") kept on that side; "Smith, John" is John / Smith; join with one space. Judged on words, not on a name list,
+// so "Mary Ann Smith" is Mary Ann / Smith.
+const PARTICLES = ['van der', 'van den', 'de la', 'van', 'de', 'del', 'della', 'di', 'da', 'dos', 'du', 'le', 'la', 'von', 'bin', 'al', 'el', 'st.', 'st'];
+const PARTICLE_PHRASES = PARTICLES.map(p => p.split(' ')).sort((a, b) => b.length - a.length);
+const SUFFIXES = new Set(['jr.', 'jr', 'sr.', 'sr', 'ii', 'iii', 'iv']);
+const isSuffix = w => SUFFIXES.has(w.toLowerCase());
+
+function splitWords(w) {
+  if (w.length < 2) return { first: w[0] || '', last: '' };
+  let core = w.length - 1;
+  while (core > 1 && isSuffix(w[core])) core--;
+  let k = core;
+  for (;;) {
+    const hit = PARTICLE_PHRASES.find(p => k - p.length >= 1 && p.join(' ') === w.slice(k - p.length, k).join(' ').toLowerCase());
+    if (!hit) break;
+    k -= hit.length;
+  }
+  return { first: w.slice(0, k).join(' '), last: w.slice(k).join(' ') };
+}
 function splitName(text) {
-  const t = text.trim().replace(/\s+/g, ' ');
-  const at = t.lastIndexOf(' ');
-  return at < 0 ? { first: t, last: '' } : { first: t.slice(0, at), last: t.slice(at + 1) };
+  const parts = text.split(',').map(s => s.trim().replace(/\s+/g, ' ')).filter(Boolean);
+  if (!parts.length) return { first: '', last: '' };
+  const tail = [];
+  while (parts.length > 1 && parts[parts.length - 1].split(' ').every(isSuffix)) tail.unshift(parts.pop());
+  if (parts.length === 2) {
+    const first = parts[1].split(' ');
+    while (first.length > 1 && isSuffix(first[first.length - 1])) tail.unshift(first.pop());
+    return { first: first.join(' '), last: [parts[0], ...tail].join(' ') };
+  }
+  return splitWords([parts.join(' '), ...tail].join(' ').split(' '));
 }
 const joinName = (first, last) => [first, last].filter(Boolean).join(' ');
 
@@ -296,31 +376,91 @@ function splitAddress(text) {
 }
 const joinAddress = p => [p.street, p.city, [p.state, p.postal_code].filter(Boolean).join(' ')].filter(Boolean).join(', ');
 
-// phone: a US number is 10 digits (area code 2-9), or 11 with a leading 1 / +1. Anything else does not parse.
-function parsePhone(text) {
+// phone. A US number is 10 digits (area code 2-9), or 11 with a leading 1 / +1. Without a "+", a number is read as US only
+// when the default country is US (the default); with a "+1" it is US whatever the default. Any other number that already
+// starts with "+" and has 8 to 15 digits (the E.164 limit) is kept as "+" and its digits when the target is E.164.
+// Nothing else is formatted: no other country's rules are built in.
+const countryOf = options => {
+  const c = options && typeof options.defaultCountry === 'string' ? options.defaultCountry.trim().toUpperCase() : '';
+  return c || 'US';
+};
+function parsePhone(text, country) {
   const t = text.trim();
   if (!/^\+?[\d\s().-]+$/.test(t)) return null;
   const digits = t.replace(/\D/g, '');
   const plus = t.startsWith('+');
-  if (digits.length === 11 && digits[0] === '1' && /[2-9]/.test(digits[1])) return digits.slice(1);
-  if (digits.length === 10 && !plus && /[2-9]/.test(digits[0])) return digits;
+  if (digits.length === 11 && digits[0] === '1' && /[2-9]/.test(digits[1]) && (plus || country === 'US')) return digits.slice(1);
+  if (digits.length === 10 && !plus && country === 'US' && /[2-9]/.test(digits[0])) return digits;
   return null;
 }
-const toE164 = text => { const n = parsePhone(text); return n ? `+1${n}` : null; };
-function formatPhone(text, fmt) {
-  const n = parsePhone(text);
-  if (!n) return text;
-  return fmt === 'us' ? `(${n.slice(0, 3)}) ${n.slice(3, 6)}-${n.slice(6)}` : `+1${n}`;
+function plusNumber(text) {
+  const t = text.trim();
+  if (!/^\+[\d\s().-]+$/.test(t)) return null;
+  const digits = t.replace(/\D/g, '');
+  return digits.length >= 8 && digits.length <= 15 ? `+${digits}` : null;
 }
+// E.164 text for a number, or null
+function leadPhone(text, fmt, country) {
+  const n = parsePhone(text, country);
+  if (n) return `+1${n}`;
+  return fmt === 'e164' ? plusNumber(text) : null;
+}
+// -> { value, ok }; a number that cannot be formatted comes back as it was, with ok false
+function formatPhone(text, fmt, country) {
+  if (fmt === 'us') {
+    const n = parsePhone(text, country);
+    return n ? { value: `(${n.slice(0, 3)}) ${n.slice(3, 6)}-${n.slice(6)}`, ok: true } : { value: text, ok: false };
+  }
+  const v = leadPhone(text, 'e164', country);
+  return v === null ? { value: text, ok: false } : { value: v, ok: true };
+}
+const PHONE_HELP = 'a bare number needs defaultCountry US, any other number needs a leading + and its country code';
 
-// dates: kept in UTC so the same text comes out in every browser and every time zone
+// dates: kept in UTC unless options.timezone names an IANA zone, so the same text comes out in every browser and every time zone
 const pad = (n, w = 2) => String(n).padStart(w, '0');
 function validYmd(y, m, d) {
   if (m < 1 || m > 12 || d < 1) return false;
   return d <= new Date(Date.UTC(y, m, 0)).getUTCDate();
 }
+
+const zoneFormats = new Map();
+function zoneFormat(tz) {
+  let f = zoneFormats.get(tz);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' });
+    zoneFormats.set(tz, f);
+  }
+  return f;
+}
+// options.timezone -> a zone name that Intl accepts ('UTC' when none is given); an unknown name is an error, not a silent UTC
+function zoneOf(options) {
+  const tz = String((options && options.timezone) || 'UTC');
+  if (tz === 'UTC') return tz;
+  try { zoneFormat(tz); } catch { throw new Error(`T-TIMEZONE: unknown time zone "${tz}"`); }
+  return tz;
+}
+// the clock and calendar parts of an instant (ms since 1970, UTC) as a wall clock in the zone
+function wallParts(ms, tz) {
+  if (tz === 'UTC') {
+    const t = new Date(ms);
+    return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate(), h: t.getUTCHours(), mi: t.getUTCMinutes(), s: t.getUTCSeconds() };
+  }
+  const o = {};
+  for (const p of zoneFormat(tz).formatToParts(new Date(ms))) if (p.type !== 'literal') o[p.type] = +p.value;
+  return { y: o.year, m: o.month, d: o.day, h: o.hour % 24, mi: o.minute, s: o.second };
+}
+// a wall clock in the zone -> the instant it names (ms since 1970, UTC). The offset is read at the guess and again at the corrected
+// instant, so a time near a daylight-saving change still lands on a real instant.
+function wallToMs(y, mo, d, h, mi, s, tz) {
+  const guess = Date.UTC(y, mo - 1, d, h, mi, s);
+  if (tz === 'UTC') return guess;
+  const offsetAt = ms => { const w = wallParts(ms, tz); return Date.UTC(w.y, w.m - 1, w.d, w.h, w.mi, w.s) - ms; };
+  return guess - offsetAt(guess - offsetAt(guess));
+}
+
 const ISO_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?\s*(Z|[+-]\d{2}(?::?\d{2})?)?)?$/i;
-function parseIso(text) {
+// A timestamp with Z or an offset names its own instant. One with neither is read as UTC, or as `tz` when a zone is given.
+function parseIso(text, tz = 'UTC') {
   const m = ISO_RE.exec(text.trim());
   if (!m) return null;
   const y = +m[1], mo = +m[2], d = +m[3];
@@ -333,14 +473,14 @@ function parseIso(text) {
     const o = m[7].replace(':', '');
     offset = (o[0] === '-' ? -1 : 1) * (+o.slice(1, 3) * 60 + +o.slice(3, 5));
   }
-  const t = new Date(Date.UTC(y, mo - 1, d, h, mi, s) - offset * 60000);
+  const t = new Date(m[7] === undefined ? wallToMs(y, mo, d, h, mi, s, tz) : Date.UTC(y, mo - 1, d, h, mi, s) - offset * 60000);
   return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate(), h: t.getUTCHours(), mi: t.getUTCMinutes(), s: t.getUTCSeconds(), time: true };
 }
 const SLASH_RE = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})(?:[ T,].*)?$/;
 // text -> parts, from ISO, or from MM/DD/YYYY or DD/MM/YYYY. `order` is 'us' or 'eu'; when the text itself settles it
 // (a first number over 12 is a day, a second over 12 is a day) the text wins; a real tie goes to `order`.
-function parseDate(text, order) {
-  const iso = parseIso(text);
+function parseDate(text, order, tz) {
+  const iso = parseIso(text, tz);
   if (iso) return iso;
   const m = SLASH_RE.exec(text.trim());
   if (!m) return null;
@@ -354,12 +494,14 @@ function isoOf(p) {
   const day = `${pad(p.y, 4)}-${pad(p.m)}-${pad(p.d)}`;
   return p.time ? `${day}T${pad(p.h)}:${pad(p.mi)}:${pad(p.s)}Z` : day;
 }
-// MM/DD/YYYY and DD/MM/YYYY carry the date only (no time)
-function formatDate(text, fmt) {
+// MM/DD/YYYY and DD/MM/YYYY carry the date only (no time). The day of a timestamp is the day in `tz`; a date with no time has no zone to move.
+// Our leads are UTC, so on export a timestamp with no offset is read as UTC.
+function formatDate(text, fmt, tz) {
   const p = parseIso(text);
   if (!p) return text;
-  if (fmt === 'us') return `${pad(p.m)}/${pad(p.d)}/${pad(p.y, 4)}`;
-  if (fmt === 'eu') return `${pad(p.d)}/${pad(p.m)}/${pad(p.y, 4)}`;
+  const q = p.time && tz !== 'UTC' ? wallParts(Date.UTC(p.y, p.m - 1, p.d, p.h, p.mi, p.s), tz) : p;
+  if (fmt === 'us') return `${pad(q.m)}/${pad(q.d)}/${pad(q.y, 4)}`;
+  if (fmt === 'eu') return `${pad(q.d)}/${pad(q.m)}/${pad(q.y, 4)}`;
   return isoOf(p);
 }
 
@@ -442,21 +584,31 @@ function planOf(col, options) {
 // ---------------------------------------------------------------- export
 
 // Our leads -> rows keyed by their headers, in the template's column order.
-// options: { phone: 'e164' | 'us', date: 'iso' | 'us' | 'eu' } fill in for columns with no transform.
+// options: { phone: 'e164' | 'us', date: 'iso' | 'us' | 'eu' } fill in for columns with no transform;
+// { defaultCountry: 'US' } the country a bare phone number is read in (only US is built in);
+// { timezone: 'UTC' } an IANA zone name (America/Los_Angeles): the day printed by the us and eu date formats.
+// The returned array carries a non-enumerable `warnings` list, [{ row, header, message }], one per phone cell that could
+// not be formatted (the cell is written as it was).
 export function exportRows(template, leads, options) {
   assertTemplate(template);
   const opts = options || {};
+  const zone = zoneOf(opts), country = countryOf(opts);
   const valueMaps = template.value_maps || {};
   const plans = template.columns.map(c => planOf(c, opts));
-  return leads.map(lead => Object.fromEntries(template.columns.map((col, i) => {
+  const warnings = [];
+  const rows = leads.map((lead, r) => Object.fromEntries(template.columns.map((col, i) => {
     const text = toText(getPath(lead, col.field));
     if (!text.trim()) return [col.header, ''];
     const p = plans[i];
     let cell;
     if (p.op === 'namepart') cell = splitName(text)[p.part];
     else if (p.op === 'addrpart') cell = splitAddress(text)[p.part];
-    else if (p.op === 'phone') cell = formatPhone(text, p.fmt);
-    else if (p.op === 'date') cell = formatDate(text, p.fmt);
+    else if (p.op === 'phone') {
+      const f = formatPhone(text, p.fmt, country);
+      if (!f.ok) warnings.push({ row: r, header: col.header, message: `phone could not be formatted as ${p.fmt === 'us' ? 'a US number' : 'E.164'} (${PHONE_HELP}), left as it was` });
+      cell = f.value;
+    }
+    else if (p.op === 'date') cell = formatDate(text, p.fmt, zone);
     else {
       const map = pickMap(valueMaps, col);
       const mapped = map ? lookup(map, text) : undefined;
@@ -464,6 +616,8 @@ export function exportRows(template, leads, options) {
     }
     return [col.header, cell];
   })));
+  Object.defineProperty(rows, 'warnings', { value: warnings, enumerable: false });
+  return rows;
 }
 
 // ---------------------------------------------------------------- import
@@ -471,7 +625,7 @@ export function exportRows(template, leads, options) {
 const emailKey = e => (typeof e === 'string' && e.includes('@') ? e.trim().toLowerCase() : null);
 function phoneKey(p) {
   if (typeof p !== 'string') return null;
-  const n = parsePhone(p);
+  const n = parsePhone(p, 'US');
   if (n) return n;
   const digits = p.replace(/\D/g, '');
   return digits.length >= 7 ? digits : null;
@@ -479,31 +633,44 @@ function phoneKey(p) {
 
 // Their rows (objects keyed by their headers, as parseCsv gives) -> our lead objects.
 // Returns { leads, duplicates, sourceRows, warnings }: sourceRows[i] is the index in `rows` that leads[i] came from;
-// duplicates are groups of lead indexes sharing an email or a phone; warnings name values left as they were.
-// options: { date: 'us' | 'eu' } settles a date like 03/04/2026 that could be either.
+// duplicates are groups of lead indexes sharing an email or a phone; warnings are { row, header, message } and name values
+// left as they were, or (row null) a header the file repeated, which parseCsv renamed to "Phone (2)".
+// options: { date: 'us' | 'eu' } settles a date like 03/04/2026 that could be either;
+// { defaultCountry: 'US' } as in exportRows; { timezone: 'UTC' } the zone a timestamp with no offset is read in.
 export function importRows(template, rows, options) {
   assertTemplate(template);
   const opts = options || {};
+  const zone = zoneOf(opts), country = countryOf(opts);
   const valueMaps = template.value_maps || {};
   const plans = template.columns.map(c => planOf(c, opts));
   const order = opts.date === 'eu' ? 'eu' : 'us';
   const leads = [], sourceRows = [], warnings = [];
 
+  const headersInFile = new Set();
+  for (const row of rows) if (row !== null && typeof row === 'object') for (const k of Object.keys(row)) headersInFile.add(k);
+  for (const k of headersInFile) {
+    const renamed = /^(.*) \((\d+)\)$/.exec(k);
+    if (renamed && +renamed[2] >= 2 && headersInFile.has(renamed[1])) {
+      warnings.push({ row: null, header: k, message: `duplicate header in the file: "${renamed[1]}" appears more than once, and this copy was renamed "${k}"; it is read only if the template names it` });
+    }
+  }
+
   rows.forEach((row, r) => {
-    const lead = {}, names = {}, addrs = {};
+    const lead = {}, names = new Map(), addrs = new Map();
     const put = (field, value) => { if (!toText(getPath(lead, field)).trim()) setPath(lead, field, value); };
+    const part = (into, field, key, text) => { if (!into.has(field)) into.set(field, {}); const o = into.get(field); o[key] = o[key] || text; };
     template.columns.forEach((col, i) => {
       const text = row !== null && typeof row === 'object' && has(row, col.header) ? toText(row[col.header]).trim() : '';
       if (!text) return;
       const p = plans[i];
-      if (p.op === 'namepart') { names[col.field] = names[col.field] || {}; names[col.field][p.part] = names[col.field][p.part] || text; }
-      else if (p.op === 'addrpart') { addrs[col.field] = addrs[col.field] || {}; addrs[col.field][p.part] = addrs[col.field][p.part] || text; }
+      if (p.op === 'namepart') part(names, col.field, p.part, text);
+      else if (p.op === 'addrpart') part(addrs, col.field, p.part, text);
       else if (p.op === 'phone') {
-        const e164 = toE164(text);
-        if (e164 === null) warnings.push({ row: r, header: col.header, message: 'phone is not a US number, left as it was' });
+        const e164 = leadPhone(text, p.fmt, country);
+        if (e164 === null) warnings.push({ row: r, header: col.header, message: `phone could not be turned into E.164 (${PHONE_HELP}), left as it was` });
         put(col.field, e164 === null ? text : e164);
       } else if (p.op === 'date') {
-        const parts = parseDate(text, p.fmt === 'eu' || p.fmt === 'us' ? p.fmt : order);
+        const parts = parseDate(text, p.fmt === 'eu' || p.fmt === 'us' ? p.fmt : order, zone);
         if (!parts) warnings.push({ row: r, header: col.header, message: 'date not recognised, left as it was' });
         put(col.field, parts ? isoOf(parts) : text);
       } else {
@@ -512,8 +679,8 @@ export function importRows(template, rows, options) {
         put(col.field, ours === undefined ? text : ours);
       }
     });
-    for (const field of Object.keys(names)) put(field, joinName(names[field].first, names[field].last));
-    for (const field of Object.keys(addrs)) put(field, joinAddress(addrs[field]));
+    for (const [field, n] of names) put(field, joinName(n.first, n.last));
+    for (const [field, a] of addrs) put(field, joinAddress(a));
     if (!Object.keys(lead).length) return;
     leads.push(lead); sourceRows.push(r);
   });
@@ -559,14 +726,33 @@ export function toCsv(rows, headers, options) {
   return (opts.bom ? String.fromCharCode(0xFEFF) : '') + lines.join('\r\n') + '\r\n';
 }
 
+// The separator a file most likely uses: ';' when its header line has more semicolons than commas (outside quotes), else ','.
+function guessDelimiter(s) {
+  let inQuotes = false, semicolons = 0, commas = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === '"') inQuotes = !inQuotes;
+    else if (!inQuotes) {
+      if (c === '\r' || c === '\n') break;
+      if (c === ';') semicolons++; else if (c === ',') commas++;
+    }
+  }
+  return semicolons > commas ? ';' : ',';
+}
+
 // text -> { headers, rows, warnings }. rows are objects keyed by header (a repeated header becomes "Phone (2)").
 // Accepts a byte order mark, CRLF, LF or a lone CR, quoted fields with commas, quotes ("") and line breaks,
-// and a last line with no line break. options: { delimiter: ';' } for sheets saved by a European Excel.
+// and a last line with no line break. options: { delimiter: ';' } fixes the separator. Without it the separator is guessed
+// from the header line (more semicolons than commas, as a European Excel saves, means ';') and a warning says so.
 export function parseCsv(text, options) {
-  const delim = (options && options.delimiter) || ',';
   let s = String(text === null || text === undefined ? '' : text);
   if (s.charCodeAt(0) === 0xFEFF) s = s.slice(1);
   const records = [], warnings = [];
+  let delim = options && options.delimiter;
+  if (!delim) {
+    delim = guessDelimiter(s);
+    if (delim === ';') warnings.push('the header line has more semicolons than commas, so ";" was read as the separator (pass { delimiter: "," } to read it with commas)');
+  }
   let rec = [], field = '', inQuotes = false, atStart = true, recQuoted = false;
   const endField = () => { rec.push(field); field = ''; atStart = true; };
   const endRecord = () => {
