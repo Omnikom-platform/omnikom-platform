@@ -1,0 +1,6 @@
+[
+  { "type": "TXT", "name": "resend._domainkey.notify", "content": "p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQD0/3bCkyutgXt7dPObQLw9QXQoz7JfCxSawT49/VJDPwKBnzxGC591fV+5WwaFhsOSoG7vauMA5F3pVlP1PKM64MFb6RHmMxpyACtSLP4EsLy/V0Vz9jQKWIN9KUKde4dQK9a4r11geQZ6WyiXt7DhCbPhigxlo0aqGgX++OAV0QIDAQAB" },
+  { "type": "CNAME", "name": "rsend.notify", "content": "rsend-euw1.forge.rmta.net", "proxied": false },
+  { "type": "CNAME", "name": "send.notify", "content": "send.forge.rmta.net", "proxied": false },
+  { "type": "MX", "name": "notify", "content": "receive-euw1.forge.rmta.net", "priority": 10 }
+]

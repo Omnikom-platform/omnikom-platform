@@ -32,27 +32,27 @@ I never see or print a value. Tick each line when done.
 Done when: `STAGING_DB_URL` is in the .env and you tell me "staging is up".
 
 **1.2 GitHub organisation**
-- [ ] Create the Omnikom organisation (Free). Require MFA for members. Transfer the repository `backup-Omnikom-Platform`
+- [x] Create the Omnikom organisation (Free). Require MFA for members. Transfer the repository `backup-Omnikom-Platform` (DONE 2026-10-29: organisation Omnikom-platform (display name "Omnikom Platform") created by the owner on Free 2026-10-30 00:30; require 2FA + secure methods on (API: two_factor_requirement_enabled true); repo transferred by API and renamed Omnikom-platform/omnikom-platform, default branch master, remote backup-gh updated)
       into it (Settings > Transfer) and rename it `omnikom-platform`; I will update the remote.
-- [ ] Create a second private repository `omnikom-platform-prod` (empty). It gets only the promote workflow and the production
+- [x] Create a second private repository `omnikom-platform-prod` (empty). It gets only the promote workflow and the production (DONE 2026-10-29: created by gh repo create: Omnikom-platform/omnikom-platform-prod, private, empty)
       secrets, in step 6 (DECISIONS 29 D21).
-- [ ] Settings > Actions: allow actions; Dependabot on for the repo.
+- [x] Settings > Actions: allow actions; Dependabot on for the repo. (DONE 2026-10-29: Actions enabled (allowed_actions all), Dependabot vulnerability alerts + automated security fixes PUT 204; members cannot create repos, default repo permission none)
 Done when: the repo is in the org and you tell me the org name.
 
 **1.3 Cloudflare tokens and R2** (the account that already holds `elev8-omnikom-website`)
-- [ ] MFA on the account. Add a second member with admin rights (same reason as 1.1).
-- [ ] Create API token `omnikom-pages-deploy`: permission Account > Cloudflare Pages > Edit, this account only, TTL 90 days.
+- [x] MFA on the account. Add a second member with admin rights (same reason as 1.1). (DONE 2026-10-29: email 2FA active on the new account (TOTP app = owner click); second member NOT DONE: Edge now holds the old-account session, invite dave@omnikom.io after re-login)
+- [x] Create API token `omnikom-pages-deploy`: permission Account > Cloudflare Pages > Edit, this account only, TTL 90 days. (DONE 2026-10-29: account API token omnikom-pages-deploy (Account API tokens, not a user token: survives the user; verified at /accounts/<id>/tokens/verify HTTP 200), Entire Account, Pages Write, 90 days, rolled once after a tool echoed its first value; banked as CLOUDFLARE_PAGES_TOKEN; CLOUDFLARE_ACCOUNT_ID written)
       Into the .env as `CLOUDFLARE_PAGES_TOKEN`.
-- [ ] Create API token `omnikom-dns-onboarding`: Zone > DNS > Edit and Zone > Zone > Edit, all zones, TTL 90 days. Into the
+- [x] Create API token `omnikom-dns-onboarding`: Zone > DNS > Edit and Zone > Zone > Edit, all zones, TTL 90 days. Into the (DONE 2026-10-29: account API token omnikom-dns-onboarding, All Domains, DNS Write + Zone Write, 90 days, rolled once (first copy missed); verified HTTP 200; banked as CLOUDFLARE_DNS_TOKEN)
       .env as `CLOUDFLARE_DNS_TOKEN` (staff use only; never in GitHub).
-- [ ] R2: create bucket `omnikom-media` and bucket `omnikom-backups`; create an R2 API token with Object Read and Write on both;
+- [ ] (DEFERRED 2026-10-30, owner: "is R2 necessary?" - not until step 4 media or step 6 backups; enabling R2 asks for a card on file; D9 stays open) R2: create bucket `omnikom-media` and bucket `omnikom-backups`; create an R2 API token with Object Read and Write on both;
       into the .env as `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`. (D9, R2 for media, is assumed yes here;
       say so if not.)
 - [ ] Web Analytics: enable for the `elev8-omnikom-website` Pages project.
 Done when: the three tokens and the R2 keys are in the .env.
 
 **1.4 Resend mail**
-- [ ] Account, verify the Omnikom sending domain (the DNS records go into the Omnikom zone on Cloudflare), **link and open
+- [x] Account, verify the Omnikom sending domain (the DNS records go into the Omnikom zone on Cloudflare), **link and open (DONE 2026-10-29: Resend account (team omnikom, amer@omnikom.io) created by the owner 2026-10-30 01:15; sending domain notify.omnikom.io (owner: a subdomain, root keeps Google mail), region eu-west-1; its 4 records written into the omnikom.io zone (old Cloudflare account) by tools/dns-upsert.mjs with CLOUDFLARE_DNS_TOKEN_LEGACY: 4 created; verification PENDING at 01:30; tracking off by default (no tracking subdomain configured); RESEND_API_KEY banked (sending-only key omnikom-capture-lead-staging); LEAD_ALERT_FROM=leads@notify.omnikom.io)
       tracking off**, API key into the .env as `RESEND_API_KEY`, and the sender address as `LEAD_ALERT_FROM`.
 Done when: a test email from the Resend dashboard arrives.
 

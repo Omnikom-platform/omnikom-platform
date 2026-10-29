@@ -87,6 +87,10 @@ end $$;
 -- N10: no function in public is executable by anon (extensions live elsewhere)
 do $$ begin assert (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public' and has_function_privilege('anon', p.oid, 'execute')) = 0, 'no public function executable by anon'; end $$;
+-- N10b: no extension is installed into public (migration 5 revokes anon execute wholesale, so the first assert alone would no
+-- longer notice an extension landing in public; staging 2026-10-29 had pg_net there until it was moved to `extensions`)
+do $$ begin assert (select count(*) from pg_extension x join pg_namespace n on n.oid = x.extnamespace
+  where n.nspname = 'public' and x.extname <> 'plpgsql') = 0, 'no extension installed in public'; end $$;
 
 -- ===== owner A creates a team row and links the agents' logins =====
 set role authenticated;

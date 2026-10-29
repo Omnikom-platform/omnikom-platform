@@ -24,7 +24,17 @@ if (ref) {
   await check('Supabase publishable key', 'STAGING_SUPABASE_PUBLISHABLE_KEY', k => fetch(`https://${ref}.supabase.co/auth/v1/settings`, { headers: { apikey: k }, signal: t(20000) }));
   await check('Supabase secret key', 'STAGING_SUPABASE_SECRET_KEY', k => fetch(`https://${ref}.supabase.co/rest/v1/`, { headers: { apikey: k, authorization: `Bearer ${k}` }, signal: t(20000) }));
 }
-await check('Cloudflare Pages token', 'CLOUDFLARE_PAGES_TOKEN', k => fetch('https://api.cloudflare.com/client/v4/user/tokens/verify', { headers: { authorization: `Bearer ${k}` }, signal: t(20000) }));
-await check('Cloudflare DNS token', 'CLOUDFLARE_DNS_TOKEN', k => fetch('https://api.cloudflare.com/client/v4/user/tokens/verify', { headers: { authorization: `Bearer ${k}` }, signal: t(20000) }));
+// Account API tokens (dash > account > Account API tokens, 2026-10-30) verify at the ACCOUNT endpoint; the user endpoint answers
+// 401 "Invalid API Token" for them (measured). User tokens verify at /user/tokens/verify.
+const cfVerify = env.CLOUDFLARE_ACCOUNT_ID ? `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/tokens/verify` : 'https://api.cloudflare.com/client/v4/user/tokens/verify';
+await check('Cloudflare Pages token', 'CLOUDFLARE_PAGES_TOKEN', k => fetch(cfVerify, { headers: { authorization: `Bearer ${k}` }, signal: t(20000) }));
+await check('Cloudflare DNS token', 'CLOUDFLARE_DNS_TOKEN', k => fetch(cfVerify, { headers: { authorization: `Bearer ${k}` }, signal: t(20000) }));
 for (const k of ['R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_ACCOUNT_ID', 'LEAD_ALERT_FROM', 'GOOGLE_SERVICE_ACCOUNT_JSON']) console.log(`${k}: ${env[k] ? 'present' : 'MISSING'}`);
-await check('Resend', 'RESEND_API_KEY', k => fetch('https://api.resend.com/domains', { headers: { authorization: `Bearer ${k}` }, signal: t(20000) }));
+// A sending-only key answers 401 "restricted to only send emails" on /domains (measured 2026-10-30): that is a VALID key with the
+// least privilege; an unknown key answers 401 "API key is invalid". No harmless send endpoint exists, so the message is the check.
+if (!env.RESEND_API_KEY) console.log('Resend: MISSING (RESEND_API_KEY)');
+else try {
+  const r = await fetch('https://api.resend.com/domains', { headers: { authorization: `Bearer ${env.RESEND_API_KEY}` }, signal: t(20000) });
+  const body = await r.text();
+  console.log(r.ok ? 'Resend: HTTP 200 OK (full-access key)' : /restricted to only send/.test(body) ? 'Resend: HTTP 401 OK (sending-only key, as intended)' : `Resend: HTTP ${r.status} ${scrub(body, env.RESEND_API_KEY)}`);
+} catch (e) { console.log(`Resend: ERROR ${scrub(e.message, env.RESEND_API_KEY)}`); }

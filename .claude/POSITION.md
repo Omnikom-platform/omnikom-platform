@@ -161,10 +161,26 @@
   step 7; my ELEV8 seed script was deleted unused. Ownership: this session = step 1 + the staging project (including the
   `capture-lead` deploy and its secrets); the `cli-slice-1` session = `tools/omnikom-cli/` (seed test, key mint, lead send,
   verify); neither touches the ELEV8 Pages project. `supabase/.temp/` and `.wrangler/` are now git-ignored.
-  NEXT (owner's clicks, asked as options): SUPABASE_ACCESS_TOKEN (amer@omnikom.io, for `supabase functions deploy`); 1.2
-  GitHub org; 1.3 the two Cloudflare tokens + R2 (bucket list failed once: "fetch failed", retry); 1.4 Resend
-  (RESEND_API_KEY, LEAD_ALERT_FROM); MFA + second owner on Supabase; then deploy `capture-lead` with its secrets and hand the
-  lead proof to the CLI session (step 2 items 2-5).
+  2026-10-30 00:10-01:30, with the owner back: run-staging PASS (00:03, after migration 5 + the ledger move); commit 7b09d21.
+  SUPABASE_ACCESS_TOKEN (scoped: project settings read, edge functions + secrets read-write, 90 d) banked; `capture-lead`
+  DEPLOYED to staging (`tools/deploy-capture-lead.mjs`; 401 without a signature); secrets RESEND_API_KEY + LEAD_ALERT_FROM set
+  by name 01:28. 1.2 DONE: org `Omnikom-platform` (display "Omnikom Platform", Free; logo set from `brand/omnikom-mark-square.png`),
+  require 2FA on (API true), repo transferred to `Omnikom-platform/omnikom-platform` (default branch master, remote `backup-gh`
+  re-pointed), `omnikom-platform-prod` created private, Dependabot alerts + fixes on, Actions on. 1.3: NEW Cloudflare account
+  (amer@omnikom.io, id de2143d18d484dfeebaef9fe43223662 = CLOUDFLARE_ACCOUNT_ID); account API tokens `omnikom-pages-deploy`
+  (Pages Write, entire account) and `omnikom-dns-onboarding` (DNS + Zone Write, all domains), both 90 d, both ROLLED once
+  (the first Pages value was echoed by the browser "find" tool into this transcript; the first DNS copy missed), both verify
+  HTTP 200 at /accounts/<id>/tokens/verify (user endpoint says 401 for account tokens: checker fixed). R2 DEFERRED (owner:
+  not needed before step 4/6; enabling asks for a card). Email 2FA active; TOTP + member invite for dave@omnikom.io = owner
+  clicks (Edge now holds the OLD account session). 1.4: Resend team "omnikom", domain `notify.omnikom.io` (owner: subdomain),
+  region eu-west-1, 4 records written into the omnikom.io zone (OLD account, token `omnikom-dns-legacy` = CLOUDFLARE_DNS_TOKEN_LEGACY,
+  DNS edit on that zone only) by `tools/dns-upsert.mjs` (`sops/dns/notify.omnikom.io-resend.json`); verification PENDING;
+  RESEND_API_KEY = sending-only key; LEAD_ALERT_FROM=leads@notify.omnikom.io. Tracking: off by default (no tracking subdomain).
+  Local: full mutant run 125 of 126 then N10b added (no extension in public) and the survivor caught; `test-apply.mjs` HANGS
+  (exit 124, no output, even alone: UNPROVEN, to debug; apply-staging itself is proven on staging).
+  NEXT: Resend "Verified" (re-check), then Supabase Auth custom SMTP via Resend (1.1 line 24); owner clicks: Supabase MFA +
+  second owner, Cloudflare TOTP + Dave invite; 1.5 Google (may wait); the lead proof = CLI session (step 2 items 2-5) now that
+  the function is deployed with its secrets.
 
 ## 2026-10-30 (cli-slice-1: the omnikom CLI, slice 1)
 - **Built, `tools/omnikom-cli/` (README there, spec `docs/blueprint/26-PLATFORM-CLI.md` section 7):** `status apply "test walls" "seed test|workspace" "key mint|list|revoke" "contract validate|place" "lead send|list|get|update|add|delete" "content save|get|history" publish "job get|wait|set" "verify --only lead"`, exit codes 0/1/2/3, `--expect`, fixtures. PROVEN: `node tools/omnikom-cli/test/run.mjs` = 138 of 138 checks (units + a throwaway local cluster with a fake fetch and a MODEL of capture-lead); `node tools/omnikom-cli/test/mutate.mjs` = 61 mutants, 61 caught; `run-local.mjs --only no-such-mutant` still OK. The four spec rules each have a test watched red and a mutant (no secret in output; production refuses everything but `status` and `apply --i-mean-production`; `seed test` twice changes nothing; `lead send --retry` stores one row).
