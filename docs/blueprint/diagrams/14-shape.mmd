@@ -1,0 +1,36 @@
+flowchart LR
+  subgraph GH[GitHub: one private repo, the build runner]
+    CI[ci.yml: tests, mutants, gates]
+    PUB[publish.yml: build one site]
+    PROMO[promote: owner-only run]
+  end
+  subgraph SB[Supabase: one project per environment]
+    PG[(Postgres: every client, RLS wall)]
+    AUTH[Auth]
+    FN[Edge Functions: capture-lead, save, publish, lead-update]
+    CRON[pg_cron + pgmq]
+    VAULT[Vault: site keys, tokens]
+  end
+  subgraph CF[Cloudflare: one Omnikom account]
+    S1[Pages project: client site A, zone a.com]
+    S2[Pages project: client site B, zone b.com]
+    APP[Pages project: the dashboard]
+    R2[(R2: media, backups)]
+  end
+  V[Visitor] -->|static files| S1
+  V -->|form POST| S1
+  S1 -->|/api/lead signed with site key| FN
+  FN --> PG
+  FN -->|new-lead email| RESEND[Resend]
+  C[Client owner or agent] -->|sign in| APP
+  APP -->|JWT, RLS| PG
+  APP -->|save, publish| FN
+  FN -->|repository_dispatch| PUB
+  PUB -->|export-published, signed| FN
+  PUB -->|wrangler pages deploy| S1
+  PUB -->|job-callback, signed| FN
+  PUB --> R2
+  CRON --> FN
+  FN --- VAULT
+  PROMO -->|same commit| SB
+  CI --> PUB

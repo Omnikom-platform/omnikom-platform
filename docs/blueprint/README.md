@@ -32,6 +32,7 @@ One procedure for every industry; the client's collections come from its own pla
 | 13d | `docs/blueprint/16-DESIGN-PARTS.md` | every part to design (each screen, button, click, state, failure), the preview design (instant in-editor, preview site, compare), the invariants and the failure table |
 | 13e | `docs/blueprint/17-EXPANSION-MAP.md`, `18-BUDGET-ARCHITECTURE.md` | how the platform grows (AI concierge, booking, SMS and email, CRM export and import with a mapping wizard, setup wizard, white label) and the free-tier limits with sources, what the design does to stay inside, the measured upgrade triggers (DECISIONS 22, 23) |
 | 13f | `docs/blueprint/19-CODE-MANIFEST.md` | every artifact to produce in code (migrations, 20 Edge Functions, Workers, workflows, factory, dashboard modules, tools): in and out, how it compiles and deploys, how it is proven, BUILT / SPEC / BLOCKED |
+| 13g | `docs/blueprint/20-SHAPE.md` | the shape: one GitHub repo as the build runner and how promotion works; one Cloudflare account with a Pages project per site and a zone per client domain; every crossing between the parts with its credential; environments |
 | 14 | `docs/blueprint/05-BUILD-PLAN.md` | milestones M0-M5, work orders with acceptance tests, estimates, critical path, RACI, risks, open decisions |
 | 15 | `planning/CONTEXT.md` | lessons from three real client sites (Cloudflare, forms, speed, design rules) |
 Background only: `planning/ANALYSIS.md`, `planning/REQUIREMENTS.md`, `planning/TENANCY-AND-PUBLISHING.md`, `planning/CONTRACT.md`.
