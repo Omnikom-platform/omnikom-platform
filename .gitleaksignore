@@ -1,3 +1,1 @@
-# Fake test values in the skill's own tests (PSI and Bing keys; not real keys, checked against .secrets 2026-10-28).
-65c8274625938604ccb5f674597c0e394def6fbc:skills/programmatic-enterprise-web-performance/scripts/test-psi.mjs:generic-api-key:24
-65c8274625938604ccb5f674597c0e394def6fbc:skills/programmatic-enterprise-web-performance/scripts/test-sitemap.mjs:generic-api-key:23
+60f575b2ac3959df90e828f9588d7b13807a1beb:factory/worker/test/run.mjs:generic-api-key:15

@@ -10,7 +10,7 @@ import { verify } from '../../../supabase/functions/_shared/signature.ts';
 let passed = 0, failed = 0;
 const check = async (name, fn) => { try { await fn(); passed++; console.log(`ok   ${name}`); } catch (e) { failed++; console.log(`FAIL ${name}  ${String(e.message || e).split('\n')[0].slice(0, 160)}`); } };
 
-const SITE = '11111111-2222-4333-8444-555555555555', KEY = 'test-signing-key-not-a-secret', BASE = 'https://example.test/functions/v1';
+const SITE = '11111111-2222-4333-8444-555555555555', KEY = 'test-signing-key-not-a-secret', BASE = 'https://example.test/functions/v1'; // gitleaks:allow (a fake key for the tests)
 const NOW = 1_800_000_000;
 const lead = { form: 'contact', page: '/', name: 'Lead A', email: 'a@example.test', consentText: 'I agree', hp: '', idempotencyKey: '7c3f1d2a-1b2c-4d3e-8f90-1234567890ab' };
 const post = (obj, init = {}) => new Request('https://site.test/api/lead', { method: 'POST', body: typeof obj === 'string' ? obj : JSON.stringify(obj), ...init });

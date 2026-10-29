@@ -1,0 +1,13 @@
+# gitleaks config for this repo (gitleaks 8.30): the default rules, plus an allowlist for the FAKE keys the tests use on purpose.
+# A real key never belongs in a tracked file (CLAUDE.md, DECISIONS 24); only strings that are plainly fakes go here.
+title = "Omnikom Platform"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "fake keys used by tests (not secrets)"
+regexTarget = "match"
+regexes = [
+  '''test-signing-key-not-a-secret''',
+]

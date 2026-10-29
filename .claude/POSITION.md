@@ -110,7 +110,18 @@
   record_message, set_message_state, webhook_received, save_crm_template; null guards `can_act_on_lead`, `is_owner_or_staff`),
   T13, 23 new mutants: real PASS, 83 of 83 mutants caught. LEAK FIXED in migration 2's lead_update (NULL role of a non-member
   passed the check; coalesce added; test + mutant). `13-DATA-MODEL.md` 8b added. Tick 3 (crm-map by a Sonnet agent) running.
-  PLANNED TICKS: 2 = migration 3 (add_ons, connectors, bookings, messages, crm_templates, webhook_events + functions, tests,
+  TICK 3 DONE (21:16): `tools/crm-map/` (Sonnet build, lead verified: 115 tests, 67 mutants caught; dependency-free; templates
+  hubspot + google-contacts PARTLY verified against the vendor pages, labels still UNVERIFIED; `field@Header` value-map keys are an
+  extension the migration accepts as jsonb); `docs/blueprint/19-CODE-MANIFEST.md`; M6 work orders W6.1-W6.10 in 05-BUILD-PLAN
+  with FR-25..33 in 06-PRD (check-specs 0 problems). Commits 1642874 + the test fix, pushed. TICK 4 running: unit-reviewer
+  (Sonnet) adversarial review of migrations, tests, mapper, docs.
+  OWNER STEER 21:11 (DECISIONS 25, via the lead session): stop expansion blocks; prove the lead path on real staging. TICK 5 DONE
+  (21:33, commit 60f575b pushed): `supabase/functions/capture-lead/index.ts` (deno check PASS), `factory/worker/lead-endpoint.mjs`
+  + `pages-function-lead.js` + README (17 tests, 15 of 15 mutants), `supabase/apply-staging.mjs` + `tests/test-apply.mjs` (0
+  problems), `supabase/tests/e2e-lead.mjs`, `tools/mint-site-key.mjs`; D1 reconciled (Free for both), NFR-11 updated. gitleaks
+  flagged the fake test key in the endpoint test (annotated gitleaks:allow); lesson: the commit chain must gate on gitleaks'
+  exit code, not on `tail`. WAITING: the Sonnet reviewer (tick 4). THEN: stop the loop, ask D1-D5 + D2 as options.
+  PLANNED TICKS (superseded by DECISIONS 25 after tick 3): 2 = migration 3 (add_ons, connectors, bookings, messages, crm_templates, webhook_events + functions, tests,
   mutants); 3 = `tools/crm-map/` mapper + tests + 2 shipped templates (Sonnet builds, lead verifies); 4 = fresh-eyes review
   (unit-reviewer) + fixes; then stop the loop and ask D9-D13 as options.
 
