@@ -97,6 +97,18 @@
   email: D5 still needs its DECISIONS.md line. Then: step 3-4 of `design.md` (branded comp of the pick), the
   additive migration with tests + mutants, then the dashboard build (M3). Still BLOCKED by D1-D5 for anything on a real project.
 
+- **2026-10-29 20:20 LOOP (owner /loop: flawless building blocks + expansion map + budget engineering; then UI).** Tick 1 (20:30):
+  DECISIONS 22 (free tiers baseline), 23 (expansion), 24 (push to `backup-gh` master after each commit: standing permission for
+  this repo); pushed `b731183..7c8839c`. Written: `docs/blueprint/18-BUDGET-ARCHITECTURE.md` (Supabase, Cloudflare, R2,
+  Resend limits read from the vendor pages 2026-10-29 with URLs; design rules: staging keep-alive, version compaction, media in R2
+  (D9 for the owner), own backups, Worker request budget, pg_cron + pgmq, mail counters; measured upgrade triggers),
+  `docs/blueprint/17-EXPANSION-MAP.md` (blocks: add_ons, connectors, bookings, messages, crm_templates, webhook_events, setup
+  wizard pattern; the concierge sequence; SMS/email rules; CRM export/import mapper algorithm; horizontal growth; build order;
+  D10-D13 for the owner). Owner 20:25: use Haiku for mechanical work, Sonnet for routine builds (memory saved).
+  NEXT TICKS: 2 = migration 3 (add_ons, connectors, bookings, messages, crm_templates, webhook_events + functions, tests,
+  mutants); 3 = `tools/crm-map/` mapper + tests + 2 shipped templates (Sonnet builds, lead verifies); 4 = fresh-eyes review
+  (unit-reviewer) + fixes; then stop the loop and ask D9-D13 as options.
+
 ## Open elsewhere (not this repo, but the owner may ask)
 - Rainmaker launch is WAITING on Monica's answers (via Dave) and the GoDaddy nameserver switch; steps in `E:\Rainmaker\LAUNCH.md`.
 - Francine (VTV) and Eli: see `E:\Francine & Eli\.claude\POSITION.md`.

@@ -136,3 +136,20 @@
     `lead_events` (notes and CRM pushes folded in, `lead_notes` and `lead_pushes` dropped before any real lead exists); the
     `api_keys` registry (hashes and Vault names, never values) is built in the same migration. Email provider named by the owner
     for the master .env: Resend (this is D5; its DECISIONS line is this one).
+
+22. **The budget baseline is the free tiers, and the engineering must scale from there** (2026-10-29 20:20, owner, /loop
+    brief: "a budget db perfect db and backend top practices that allows use to scale so big with what we will have which will
+    be that free supabase and free cloudflare"). Supabase Free (two active projects = staging + production, DECISIONS 15; Pro
+    only when a measured limit is hit) and Cloudflare Free (Workers, R2, Queues) are the baseline; Resend Free for mail. The
+    limits, their sources with the date read, what the design does to stay inside them and the measured trigger for each
+    upgrade: `docs/blueprint/18-BUDGET-ARCHITECTURE.md`. Engineering first, then the UI and UX pass (owner: "then we can
+    upgrade the ui and ux and how it looks when the engineered plan is fully in place").
+23. **The platform expands in two directions and the building blocks must carry both** (same brief): vertically per client
+    (paid add-ons: the AI concierge that calls a lead, agrees a meeting time and books it; SMS and email about that meeting;
+    CRM export and import with a mapping wizard that learns the client's own sheet layout; a setup wizard and connector when a
+    client pays to activate an add-on) and horizontally (more industries, more sites per client, more clients, white label).
+    The map, the blocks and the build order: `docs/blueprint/17-EXPANSION-MAP.md`.
+24. **Push to GitHub to keep everything saved** (2026-10-29 20:21, owner: "you can push to main on github for the omnikom
+    platform to keep everything saved"). Standing permission for this repo only: after each commit the session pushes `master`
+    to the `backup-gh` remote (the repo's only remote; its default branch is `master`, there is no `main`). Still never pushed:
+    `film/`, `.secrets/`, `creds and accounts login/`, anything gitleaks flags.
