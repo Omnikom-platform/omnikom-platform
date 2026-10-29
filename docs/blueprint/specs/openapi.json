@@ -489,6 +489,53 @@
      "hp": {
       "type": "string",
       "description": "honeypot; must be empty"
+     },
+     "flow": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "maxLength": 60,
+      "description": "Optional. Which journey on the site produced this lead (a hero tab, a calculator, a landing flow). A lower-case slug, not a closed list, because one procedure serves every industry (DECISIONS 3, 14). Real-estate example (ELEV8): home-value, home-finder, sell, cash-offer, contact. Another industry names its own flows. Checking the value against the site contract is UNPROVEN (not built). Different from form, which is the contract form id.",
+      "examples": [
+       "home-value",
+       "home-finder",
+       "sell",
+       "cash-offer",
+       "contact"
+      ]
+     },
+     "cta": {
+      "type": "string",
+      "maxLength": 120,
+      "description": "Optional. The label of the button or link the visitor used to start the form."
+     },
+     "assignee": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "maxLength": 80,
+      "description": "Optional. Slug of the team row the visitor asked for (for example from an agent profile page). The server checks it against that workspace's team rows and ignores an unknown slug (UNPROVEN, not built)."
+     },
+     "marketingConsent": {
+      "type": "object",
+      "required": [
+       "given",
+       "text"
+      ],
+      "additionalProperties": false,
+      "description": "Optional. Consent to marketing messages, kept separate from consentText (permission to contact the visitor about this request). given is false when the box was left empty; text is the exact wording shown next to the box.",
+      "properties": {
+       "given": {
+        "type": "boolean"
+       },
+       "text": {
+        "type": "string",
+        "minLength": 1
+       }
+      }
+     },
+     "idempotencyKey": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Optional. Made by the form when it loads and reused on every retry of the same submission, so a retry cannot store the lead twice. Deduplication on the server is UNPROVEN (not built)."
      }
     }
    },

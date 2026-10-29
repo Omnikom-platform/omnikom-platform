@@ -27,6 +27,7 @@ One procedure for every industry; the client's collections come from its own pla
 | 11 | `docs/blueprint/09-TEST-STRATEGY.md` | test pyramid, required gates (mutants), e2e flows, load targets, definition of done |
 | 12 | `docs/blueprint/10-DELIVERY.md` | monorepo, branching + reviews, CI stages, environments, migrations, releases, rollback, flags |
 | 13 | `docs/blueprint/11-OPERATIONS.md` | observability, alerts, runbooks R1-R5, backup/restore drill, on-call |
+| 13b | `docs/blueprint/12-LAUNCH.md` | launch pipeline: preview to production through one ledger (`launch.json`), its checks and its stop condition (SOP `sops/launch.md`) |
 | 14 | `docs/blueprint/05-BUILD-PLAN.md` | milestones M0-M5, work orders with acceptance tests, estimates, critical path, RACI, risks, open decisions |
 | 15 | `planning/CONTEXT.md` | lessons from three real client sites (Cloudflare, forms, speed, design rules) |
 Background only: `planning/ANALYSIS.md`, `planning/REQUIREMENTS.md`, `planning/TENANCY-AND-PUBLISHING.md`, `planning/CONTRACT.md`.
@@ -80,7 +81,7 @@ relationship; client emails go through him. Questions to the owner as pickable o
 | Dashboard wireframes | `docs/blueprint/wireframes/` |
 | SEO / build skill (plan, gates, snapshot, research) | `skills/programmatic-enterprise-web-performance/` |
 | Design method | `skills/design-tournament/` |
-| SOPs (backup, audit team, credentials, listings feed) | `sops/` |
+| SOPs (backup, audit team, credentials, listings feed, launch) | `sops/` |
 | ELEV8 approved plan + design (outside this repo, read only) | `E:\Alex Sevilla\site-checks\elev8ca.com\.pewp\approved`, `E:\Alex Sevilla\draft-site\design\variants\v4.html` |
 | Rainmaker / VTV sources (outside, read only) | `E:\Rainmaker\site-src`, `E:\Francine & Eli\proposals\vtv` |
 The `E:\` client folders live on the owner's machine; a team on another machine gets copies from the owner (never mix them).

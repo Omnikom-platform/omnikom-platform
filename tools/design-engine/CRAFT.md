@@ -2,7 +2,8 @@
 
 Owner, 2026-10-27: "the quality of the elements, components and the grid of the artistic direction and what would make you actually create
 a good element code or a good layout that looks fabulous: we need that hardened." Every rule below is a number or a yes/no, and the rules
-marked **[lint]** are measured on the rendered page by `tools/design-engine/craft-lint.mjs` (laptop 1366 + 1536, phone 390). A page that fails the
+marked **[lint]** are measured on the rendered page by `tools/design-engine/craft-lint.mjs` (laptop 1366 + 1536, phone 390; add 1024 and 768 for
+an audit); **[warn]** rules are reported but never fail. A page that fails the
 lint is not shown to the owner. The rest are checked by eye in the section review (design.md step 7) with this file open.
 
 ## 1. Tokens first, values never [lint]
@@ -73,6 +74,38 @@ lint is not shown to the owner. The rest are checked by eye in the section revie
 
 ## 9. Motion
 - 150-250 ms for UI state, 400-700 ms for reveals, one easing family; nothing above the fold waits for a reveal; prefers-reduced-motion = static.
+
+## 10. Generated-look checks (ported from tasteskill)
+Source: tasteskill v2.1.5 by Leon Lin, https://github.com/Leonxlnx/taste-skill, MIT licence (read 2026-10-28: `scripts/lib/probe.mjs`,
+`references/tells.md`). Evaluation: `docs/research/design-addons-2026-10-28.md`. Taken over: the browser probes that measure a defect and
+its "tells" registry as advisory warnings. Each probe was rewritten for craft-lint, with the false positives it raised on ELEV8 fixed.
+- **[lint] Edge text**: text that is wholly on screen sits >= 16 px from the left and right edges (rule in section 2, now measured). Text in a
+  sideways scroller is exempt (section 8 wants a peek of the next card); screen-reader-only text is exempt.
+- **[lint] Broken image**: every `<img>` that finished loading has pixels.
+- **[lint] Covered text**: at every screen-height scroll stop, no text lies under another painted element (>= 20% of its sampled points).
+  Fixed and sticky bars are exempt: content passes under them by design. Clipped, screen-reader-only and unrendered text (inside a
+  closed `<details>`) is exempt.
+- **[lint] Reduced motion shows everything**: text that becomes visible while scrolling with motion on must also become visible with
+  `prefers-reduced-motion: reduce`. Put a reveal's hidden start state inside `@media (prefers-reduced-motion: no-preference)`. Text
+  hidden in both settings (tab-swapped button labels) is not reported.
+- **[warn] First action**: the first screen holds one filled or outlined control >= 44 px tall.
+- **[warn] One pair of margins**: the leftmost and rightmost text blocks sit equally far in (within 32 px); images may bleed.
+- **[warn] Display headline on two lines**: a headline >= 40 px wraps to at most 2 lines (about 5 words / 32 characters).
+- **[warn] Tells**: gradient-filled text; monospace outside code; a small tracked uppercase label right above a heading (eyebrow); a
+  headline that switches face or turns italic mid-line; more than two em dashes on a page; genre words (unlock, seamless, elevate,
+  effortless, cutting-edge, all-in-one, game-changer, world-class ...); "not just X, it's Y"; emoji as icons or bullets. A tell is a device
+  produced by default, everywhere, without a reason. Keep one only with a reason written in the design's DECISIONS.md.
+
+Advisory only, by decision. These tasteskill bans contradict directions the owner approved (ELEV8 v4 uses eyebrows, mono labels, hairline
+rules, resting card shadows, a photo scrim and three families) or the owner's "whitespace first" rule, so they are not linted: hairlines
+and 1 px outlined boxes, resting shadows, glass, gradients, index numbering, more than two families, text under 13 px (section 3 allows
+12 px captions), empty screens and hero voids, "still page" (no motion) and "no footage". Raise them in the section review only when a
+direction did not choose them.
+
+Method worth keeping (tasteskill SKILL.md steps 1 and 4), for S1 specs: list 8-12 things that belong to this client and no competitor (its
+name and what it means, its streets, its constraint, its materials, its printed things), then write "On this page, [one of them] becomes
+[the device the direction calls for]". Competitor test: put the nearest competitor in that sentence; if it still works, it is a category
+idea, not this client's.
 
 ## How it is enforced
 1. `node tools/design-engine/craft-lint.mjs --root <site or design folder> <page>`: exit 0 = no errors; exit 1 = errors listed with element selectors.

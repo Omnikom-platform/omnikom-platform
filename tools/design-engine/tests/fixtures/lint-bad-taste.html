@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- craft-lint fixture for the tasteskill ports (CRAFT.md 10), one planted defect per rule.
+     Errors: edge-text (text 4px from the edge) · broken-image (missing.jpg) · covered-text (an opaque box over a heading)
+     · reduced-hidden (a reveal whose hidden start state also applies with reduced motion).
+     Warnings: first-action (no button on the first screen) · off-centre (left-hugging column) · headline-lines (display h1 on 3+ lines)
+     · tell-gradient · tell-mono · tell-eyebrow · tell-mixed · tell-em-dash · tell-buzzword · tell-not-just · tell-emoji -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>lint bad taste</title>
+<style>
+:root{--fs-0:.875rem;--fs-1:1rem;--fs-2:1.5rem;--fs-3:3rem;--sp-1:.25rem;--sp-2:.5rem;--sp-4:1rem;--sp-6:2rem}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;font-size:var(--fs-1);line-height:1.5;color:#1a1a1a;background:#fff}
+main{max-width:20rem;padding:var(--sp-6) var(--sp-4)}
+h1{font-size:var(--fs-3);line-height:1.1}
+h2{font-size:var(--fs-2)}
+.edge{position:relative;left:calc(var(--sp-1) - var(--sp-4))}
+.cov{position:relative}.lid{position:absolute;inset:0;background:#ccc}
+.rv{opacity:0;transition:opacity .2s}.rv.in{opacity:1}
+.serif{font-family:Georgia,serif;font-style:italic}
+.grad{background:linear-gradient(90deg,#c00,#00c);-webkit-background-clip:text;background-clip:text;color:transparent}
+.mono{font-family:ui-monospace,"Courier New",monospace}
+.eye{font-size:var(--fs-0);text-transform:uppercase;letter-spacing:.12em}
+</style></head><body><main>
+<h1>Homes for sale in every city we serve across the region</h1>
+<p class="edge">Edge text that sits four pixels from the screen.</p>
+<img src="missing.jpg" alt="" width="160" height="90">
+<div class="cov"><h2>Covered heading</h2><div class="lid"></div></div>
+<p class="rv">Revealed only when motion is on.</p>
+<h2>Pick the path <em class="serif">that fits</em></h2>
+<p class="grad">Gradient words</p>
+<p><span class="mono">Ten cities</span></p>
+<p class="eye">Home value</p><h2>What your home is worth</h2>
+<p>Unlock seamless results — fast — simple — done. It's not just a home, it's a lifestyle.</p>
+<p><span>🏠</span></p>
+</main>
+<script>if (!matchMedia('(prefers-reduced-motion: reduce)').matches) for (const e of document.querySelectorAll('.rv')) e.classList.add('in');</script>
+</body></html>

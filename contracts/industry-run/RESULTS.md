@@ -1,6 +1,6 @@
 # Industry run: one contract procedure, 15 industries
 
-Run: `node contracts/industry-run/run.mjs` (2026-10-28). Generated, not hand-written: each row below is the output of the same
+Run: `node contracts/industry-run/run.mjs` (2026-10-29). Generated, not hand-written: each row below is the output of the same
 generator, validator and screen builder used for ELEV8, Rainmaker and VTV. The plans are **paper plans** (what a typical plan for that
 business declares; no real client), so this proves the contract can express each industry, not that a real plan for it was run.
 

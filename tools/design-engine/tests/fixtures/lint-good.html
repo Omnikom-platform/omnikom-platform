@@ -20,9 +20,26 @@ small{font-size:var(--fs-0);color:#555}
 .mix{background:color-mix(in srgb,#fff 82%,#1a1a1a);color:#1a1a1a}
 .dot{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:50%;background:#1a1a1a;color:#fff;font-size:var(--fs-0)}
 .eye{font-size:var(--fs-0);text-transform:uppercase;letter-spacing:.12em;color:#555}
+/* false positives tasteskill raised on ELEV8 (2026-10-28), which the ports must pass: text passing under a fixed bottom bar,
+   tab-swapped button labels hidden in every motion setting, a reveal done right, a sideways chip row cut at the screen edge */
+main{position:relative}
+.under{position:absolute;top:calc(100vh - 2.5rem);left:var(--sp-4)}
+.dock{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:var(--sp-2);padding:var(--sp-3);background:#1a1a1a}
+.dock a{display:inline-flex;align-items:center;min-height:3rem;padding-inline:var(--sp-4);color:#fff}
+.gl{display:grid}.gl>span{grid-area:1/1;visibility:hidden}.gl>span.on{visibility:visible}
+@media (prefers-reduced-motion: no-preference){.rv{opacity:0;transition:opacity .2s}.rv.in{opacity:1}}
+.row{display:flex;gap:var(--sp-2);overflow-x:auto;padding-block:var(--sp-2)}
+.pad{flex:none;width:calc(100vw - 5.5rem)} /* on phone the chip's text ends about 10px from the screen edge, inside the scroller */
+.chip{flex:none;display:inline-flex;align-items:center;min-height:3rem;padding-inline:var(--sp-4);border:1px solid #ccc;border-radius:999px;color:#1a1a1a;text-decoration:none}
 </style></head><body><main>
 <section><h2>Homes for sale near you today</h2><p>Search every home for sale in the ten cities the team serves, from the Bay Area through Solano County and into Greater Sacramento, and pick the one that fits.</p><a class="btn" href="#">Search homes</a></section>
 <section><div class="card"><img src="photo.jpg" alt="A porch" width="1800" height="1200"><h2>A covered front porch</h2><small>Sample listing photo</small></div></section>
 <img src="photo.jpg" alt="" loading="lazy" width="1800" height="1200" style="display:none"><!-- regression: a hidden lazy image hung the lint -->
 <section class="panel"><p class="eye">Areas we serve</p><a class="btn mix" href="#">Search homes</a> <a class="dot" href="#" aria-label="Call">1</a></section>
-</main></body></html>
+<p class="under">Text that scrolls under the bar</p>
+<section><button class="btn" type="button"><span class="gl"><span class="on">Search homes</span><span>Get a value</span></span></button><p class="rv">Revealed with or without motion.</p>
+<div class="row"><a class="chip" href="#">Fairfield</a><a class="chip" href="#">Suisun City</a><a class="chip" href="#">Vacaville</a><a class="chip" href="#">Vallejo</a><a class="chip" href="#">Benicia</a><a class="chip" href="#">Napa</a><a class="chip" href="#">American Canyon</a><a class="chip" href="#">Concord</a><a class="chip" href="#">Walnut Creek</a><a class="chip" href="#">Sacramento</a></div>
+<div class="row"><span class="pad"></span><a class="chip" href="#">Napa</a></div></section></main>
+<nav class="dock"><a href="#">Call</a><a href="#">Search</a></nav>
+<script>if (!matchMedia('(prefers-reduced-motion: reduce)').matches) for (const e of document.querySelectorAll('.rv')) e.classList.add('in');</script>
+</body></html>

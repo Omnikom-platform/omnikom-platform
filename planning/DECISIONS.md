@@ -70,3 +70,35 @@
     noindex off + strict gate + Search Console + domain. Owner: "make sure that this is a part of the SOP and skill of the platform
     so we don't have to recode the website". To do: `sops/draft-to-launch.md` + the skill's build stage, written from the ELEV8
     run (first real instance), then proven on the next site.
+17. **The client gives facts and access, never our work** (2026-10-28, after the rejected ELEV8 115-question PDF). A V2 client
+    is asked only facts that only they can know plus access: at most 12 questions from the fixed catalogue in
+    `sops/client-questions.md` (people and licences, regulated identity, offer terms, fees line, media, account ownership,
+    reviews and Google Business Profile, lead-alert recipients, legal sign-off), in the question-sheet format of
+    `templates/client-questions/`, plus one short forwardable email. An unsourced claim is our research task: research it, else
+    use the safe default, else (only if in the catalogue) one merged question. Wording, pages, features (listings, IDX, search,
+    cut; content comes through the contract, leads go to the Omnikom CRM) and any failing checker rule are never
+    client questions. `tools/client-questions/questions-pdf.mjs` refuses a sheet over 12 questions, without "Why we ask", or with
+    internal Q-ids. Owner: "If they're gonna do that, what is the fucking purpose of us existing as a V2 fucking engine?"
+    DECISIONS 16's "client review changes rows" means the client's facts change rows; it does not mean the client reviews the wording.
+18. **What goes into every V2 site** (2026-10-28): `sops/site-scope.md`. The same core for every industry (home, team and
+    profiles, services, city/area pages from the plan, reviews, FAQ, articles, contact, legal; leads to the Omnikom CRM; the 547
+    rules and 13 gates). Omnikom writes the structure and page wording. The client feeds services, articles, their industry
+    collection (e.g. real-estate listings they post themselves, not IDX) and reviews through their user dashboard (with the
+    CRM), and each of those sections ships as a marked placeholder that fills from the dashboard. Owner: "we put the placeholders
+    as we did with the draft for them and that is sourced from what they feed into it through the dashboard". Old-site features
+    (IDX/Brivity search, old form tools, widgets) are cut. Compliance packs exist for real estate, insurance and cash home buyer;
+    the others are NOT BUILT yet.
+
+## 2026-10-29 (owner, ELEV8 launch)
+
+19. **Launch is a command with a ledger and a stop condition** (2026-10-29, from the ELEV8 production list
+    `E:\Alex Sevilla\draft-site\LAUNCH-ENTERPRISE.md`). A V2 preview becomes a production site through one command, the same for
+    every industry: `sops/launch.md` (22 items L-A1 to L-D22 in groups A before launch, B launch day, C first 30 days off-site,
+    D ongoing, each with its "done when" and how it is proven: an automated check or OWNER-PROOF), architecture
+    `docs/blueprint/12-LAUNCH.md`, tool: the skill's `scripts/launch.mjs`. The command writes a ledger (`<pewp>/launch.json`),
+    walks the owner through every access to grant as pickable questions (never a password: omnikom is added as a user), and
+    hands one agent a one-shot task. The task ends only when every item is PASS with its check's own output line or recorded
+    owner proof, or BLOCKED with an allowed reason (waiting on owner access, waiting on client answer Q-n, needs OWNER-PROOF,
+    third-party outage; plus not-yet-due, set by the script for C and D items) and what unblocks it. This is the launch half of
+    the to-do in 16. NOT BUILT: a platform job or dashboard screen for the ledger; checks for email DNS records, the test lead
+    and CrUX (OWNER-PROOF for now).

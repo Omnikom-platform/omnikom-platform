@@ -1,0 +1,27 @@
+{
+  "form": "home-value",
+  "page": "/",
+  "name": "Jordan Sample",
+  "email": "jordan.sample@example.com",
+  "phone": "(555) 010-0199",
+  "answers": {
+    "address": "123 Example Street, Sample City, CA 90000",
+    "propertyType": "house",
+    "beds": "3",
+    "baths": "2",
+    "condition": "needs-some-work",
+    "sellTimeframe": "3-6-months",
+    "intent": "home-value",
+    "leadType": "seller"
+  },
+  "consentText": "I agree that ELEV8 Real Estate Group may contact me about this request by email, phone or text message.",
+  "hp": "",
+  "flow": "home-value",
+  "cta": "Get my home value",
+  "assignee": "example-agent",
+  "marketingConsent": {
+    "given": false,
+    "text": "Send me market updates and news from ELEV8 Real Estate Group. I can unsubscribe at any time."
+  },
+  "idempotencyKey": "00000000-0000-4000-8000-000000000000"
+}

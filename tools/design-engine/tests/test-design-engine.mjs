@@ -1,7 +1,8 @@
 // design-engine self-test. No network: the basemap check uses the cached example tiles (it fails if a tile would have to download).
 // Checks, each a named PASS/FAIL line:
 //   render-asset   2x scale doubles the pixels; --transparent leaves the rounded corner fully transparent; the centre keeps its colour
-//   craft-lint     the good fixture exits 0 at 3 viewports; the bad fixture exits 1 and reports every planted rule (13)
+//   craft-lint     the good fixture exits 0 at 3 viewports; the bad fixture exits 1 and reports every planted rule (13); the taste
+//                  fixture reports the 4 ported errors and 11 warnings; the good fixture raises none of them
 //   ref-capture    a robot page stops the host; a fixture is captured at both widths; lazy images (data-src, loading=lazy) load first
 //   ref-fixed      the bottom-docked bar and the sticky header are found at mid-page; a robot page stops the host
 //   basemap        a place's pixel position equals an independent Web Mercator computation; cached tiles only
@@ -44,6 +45,23 @@ if (fs.existsSync(badJson)) {
   for (const want of ['token-type', 'token-space', 'contrast', 'orphan', 'distortion', 'radius-family', 'shadow-family', 'overflow', 'tap-target', 'phone-body', 'min-size', 'families', 'label-wrap'])
     check(`craft-lint: catches ${want}`, rules.has(want), `rules seen: ${[...rules].join(', ')}`);
 }
+// tasteskill ports (CRAFT.md 10): every planted rule is reported on the bad fixture; the good fixture (which carries the ELEV8 false
+// positives: a fixed bottom bar over text, tab-swapped labels, a reveal done right, a chip cut at the edge in a scroller) shows none of them
+const NEW_ERR = ['edge-text', 'broken-image', 'covered-text', 'reduced-hidden'];
+const NEW_WARN = ['first-action', 'off-centre', 'headline-lines', 'tell-gradient', 'tell-mono', 'tell-eyebrow', 'tell-mixed', 'tell-em-dash', 'tell-buzzword', 'tell-not-just', 'tell-emoji'];
+const tasteJson = path.join(tmp, 'taste.json'), goodJson = path.join(tmp, 'good.json');
+const tb = run([path.join(DE, 'craft-lint.mjs'), '--root', path.join(DE, 'tests/fixtures'), 'lint-bad-taste.html', '--viewports', '1366x900,390x844', '--json', tasteJson]);
+check('craft-lint: taste bad fixture exits 1', tb.status === 1, `exit ${tb.status}`);
+if (fs.existsSync(tasteJson)) {
+  const v = JSON.parse(fs.readFileSync(tasteJson, 'utf8')), errs = new Set(v.flatMap((x) => x.errors.map((e) => e.rule))), warns = new Set(v.flatMap((x) => x.warns.map((e) => e.rule)));
+  for (const want of NEW_ERR) check(`craft-lint: catches ${want}`, errs.has(want), `errors seen: ${[...errs].join(', ')}`);
+  for (const want of NEW_WARN) check(`craft-lint: warns ${want}`, warns.has(want), `warnings seen: ${[...warns].join(', ')}`);
+}
+run([path.join(DE, 'craft-lint.mjs'), '--root', path.join(DE, 'tests/fixtures'), 'lint-good.html', '--json', goodJson]);
+if (fs.existsSync(goodJson)) {
+  const seen = JSON.parse(fs.readFileSync(goodJson, 'utf8')).flatMap((x) => [...x.errors, ...x.warns]).filter((e) => [...NEW_ERR, ...NEW_WARN].includes(e.rule));
+  check('craft-lint: good fixture raises none of the ported rules', seen.length === 0, JSON.stringify(seen.slice(0, 3)));
+} else check('craft-lint: good fixture json written', false, goodJson);
 
 // ref-capture + ref-fixed against local fixtures (served in-process, so the child runs async: spawnSync would block the server)
 {

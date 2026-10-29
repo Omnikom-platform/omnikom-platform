@@ -28,7 +28,7 @@ Group (E:\Alex Sevilla\draft-site\design). Code: `tools/design-engine/`. Standar
 | S6 | Audit: section-shots laptop + phone, layering at 25/50/75%, menus open, forms, tap targets by hand, a fresh-context reviewer | `variants/AUDIT.md` | no section under 8; reviewer findings fixed |
 | S7 | Delivery: gallery page, screenshots in chat, decisions recorded | `index.html`, `DECISIONS.md` | the owner reviews |
 
-## Tools (all in `tools/design-engine/`, all proven by `tests/test-design-engine.mjs`: 29 checks, watched-fail done)
+## Tools (all in `tools/design-engine/`, all proven by `tests/test-design-engine.mjs`: 46 checks, watched-fail done; craft-lint includes the tasteskill ports, CRAFT.md 10)
 | Tool | Does | Example |
 |---|---|---|
 | `render-asset.mjs` | renders a code-drawn page or element in Chromium and extracts the pixels (PNG, transparent, 2x, or JPEG) | `node render-asset.mjs --root <dir> lab/x.html --out x.png --selector "#art" --transparent` |

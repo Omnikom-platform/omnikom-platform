@@ -1198,7 +1198,7 @@
  ],
  "forms": {
   "contact": {
-   "label": "Closing form",
+   "label": "Contact",
    "fields": {
     "topic": {
      "type": "enum",
@@ -1206,28 +1206,55 @@
      "options": [
       "buy",
       "sell",
+      "home-value",
+      "financing",
       "cash-offer",
       "other"
      ]
+    },
+    "message": {
+     "type": "text",
+     "max": 1000
     },
     "name": {
      "type": "text",
      "required": true,
      "max": 120
     },
-    "phone": {
-     "type": "phone"
-    },
     "email": {
      "type": "email",
      "required": true
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "intent": {
+     "type": "enum",
+     "options": [
+      "home-value",
+      "buy",
+      "sell",
+      "cash-offer",
+      "contact"
+     ],
+     "help": "which form or tab the lead came from"
+    },
+    "leadType": {
+     "type": "enum",
+     "options": [
+      "buyer",
+      "seller",
+      "both",
+      "other"
+     ]
     }
    },
    "consent": {
     "notice": "form-consent"
    },
    "crm": {
-    "topic": "Buyer or Seller"
+    "leadType": "Buyer or Seller",
+    "intent": "Last Intent Signal"
    }
   },
   "home-value": {
@@ -1238,31 +1265,111 @@
      "required": true,
      "max": 200
     },
+    "propertyType": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "house",
+      "condo-townhome",
+      "multi-unit",
+      "land"
+     ]
+    },
+    "beds": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5+"
+     ]
+    },
+    "baths": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "1",
+      "1.5",
+      "2",
+      "2.5",
+      "3+"
+     ]
+    },
+    "condition": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "move-in-ready",
+      "needs-some-work",
+      "needs-a-lot"
+     ]
+    },
+    "sellTimeframe": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "0-3-months",
+      "3-6-months",
+      "6-12-months",
+      "just-curious"
+     ]
+    },
     "name": {
      "type": "text",
+     "required": true,
      "max": 120
     },
     "email": {
-     "type": "email"
+     "type": "email",
+     "required": true
     },
     "phone": {
      "type": "phone"
+    },
+    "intent": {
+     "type": "enum",
+     "options": [
+      "home-value",
+      "buy",
+      "sell",
+      "cash-offer",
+      "contact"
+     ],
+     "help": "which form or tab the lead came from"
+    },
+    "leadType": {
+     "type": "enum",
+     "options": [
+      "buyer",
+      "seller",
+      "both",
+      "other"
+     ]
     }
    },
    "consent": {
     "notice": "form-consent"
+   },
+   "crm": {
+    "sellTimeframe": "Move Timeframe",
+    "leadType": "Buyer or Seller",
+    "intent": "Last Intent Signal"
    }
   },
   "home-finder": {
    "label": "Home finder",
    "fields": {
-    "city": {
-     "type": "reference",
-     "to": "areas",
-     "required": true
+    "area": {
+     "type": "text",
+     "required": true,
+     "max": 120,
+     "help": "one of the ten cities, or what the visitor typed"
     },
     "budget": {
      "type": "enum",
+     "required": true,
      "options": [
       "under-500k",
       "500k-750k",
@@ -1272,6 +1379,7 @@
     },
     "beds": {
      "type": "enum",
+     "required": true,
      "options": [
       "1+",
       "2+",
@@ -1281,6 +1389,7 @@
     },
     "timing": {
      "type": "enum",
+     "required": true,
      "options": [
       "now",
       "3-months",
@@ -1288,26 +1397,142 @@
       "just-looking"
      ]
     },
+    "preApproved": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "yes",
+      "no",
+      "not-yet"
+     ]
+    },
+    "financingHelp": {
+     "type": "boolean",
+     "help": "asked to talk to Sunny Azizi about financing"
+    },
     "name": {
      "type": "text",
      "required": true,
      "max": 120
     },
-    "phone": {
-     "type": "phone"
-    },
     "email": {
      "type": "email",
      "required": true
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "intent": {
+     "type": "enum",
+     "options": [
+      "home-value",
+      "buy",
+      "sell",
+      "cash-offer",
+      "contact"
+     ],
+     "help": "which form or tab the lead came from"
+    },
+    "leadType": {
+     "type": "enum",
+     "options": [
+      "buyer",
+      "seller",
+      "both",
+      "other"
+     ]
     }
    },
    "consent": {
     "notice": "form-consent"
    },
    "crm": {
-    "city": "Target Area",
+    "area": "Target Area",
     "budget": "Price Range",
-    "timing": "Move Timeframe"
+    "timing": "Move Timeframe",
+    "preApproved": "Financing Status",
+    "leadType": "Buyer or Seller",
+    "intent": "Last Intent Signal"
+   }
+  },
+  "sell": {
+   "label": "Sell / cash offer request",
+   "fields": {
+    "address": {
+     "type": "text",
+     "required": true,
+     "max": 200
+    },
+    "reason": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "moving-for-work",
+      "upsizing",
+      "downsizing",
+      "inherited",
+      "money",
+      "other"
+     ]
+    },
+    "sellTimeframe": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "0-3-months",
+      "3-6-months",
+      "6-12-months",
+      "just-curious"
+     ]
+    },
+    "offerType": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "list",
+      "cash-offer"
+     ]
+    },
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 120
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "intent": {
+     "type": "enum",
+     "options": [
+      "home-value",
+      "buy",
+      "sell",
+      "cash-offer",
+      "contact"
+     ],
+     "help": "which form or tab the lead came from"
+    },
+    "leadType": {
+     "type": "enum",
+     "options": [
+      "buyer",
+      "seller",
+      "both",
+      "other"
+     ]
+    }
+   },
+   "consent": {
+    "notice": "form-consent"
+   },
+   "crm": {
+    "sellTimeframe": "Move Timeframe",
+    "leadType": "Buyer or Seller",
+    "intent": "Last Intent Signal"
    }
   }
  },

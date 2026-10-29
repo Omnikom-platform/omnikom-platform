@@ -1,184 +1,651 @@
 {
  "workspace": "elev8",
  "source": "contracts/examples/elev8/entities.json: approved home design V4 (2026-10-28) + LISTINGS-DECISION.md (2026-10-28); structure only, no client copy",
- "locations": { "collection": "areas" },
- "families": { "c-agent": "agent-in-area", "c-buy": "buyer-guide", "c-sell": "sell-in-area" },
- "pageTypeOf": {
-  "/": "home", "/areas-we-serve/": "areas-hub",
-  "/buying": "service-page", "/selling": "service-page", "/financing": "service-page",
-  "/home_value": "home-value", "/connect": "contact", "/faq": "faq", "/reviews": "reviews", "/team": "team",
-  "/privacy_policy": "privacy", "/tos": "terms", "/blog": "blog-index", "/accessibility-statement/": "accessibility"
+ "locations": {
+  "collection": "areas"
  },
- "extraPages": [ { "path": "/accessibility-statement/", "why": "required by the launch gate (RE-DISC-001, accessibility statement); lead session 2026-10-28" }, { "path": "/blog", "why": "articles index (lead session answer 2026-10-28): no article is orphaned (GT-007); linked from nav/footer. To be added to the approved plan too" } ],
+ "families": {
+  "c-agent": "agent-in-area",
+  "c-buy": "buyer-guide",
+  "c-sell": "sell-in-area"
+ },
+ "pageTypeOf": {
+  "/": "home",
+  "/areas-we-serve/": "areas-hub",
+  "/buying": "service-page",
+  "/selling": "service-page",
+  "/financing": "service-page",
+  "/home_value": "home-value",
+  "/connect": "contact",
+  "/faq": "faq",
+  "/reviews": "reviews",
+  "/team": "team",
+  "/privacy_policy": "privacy",
+  "/tos": "terms",
+  "/blog": "blog-index",
+  "/accessibility-statement/": "accessibility"
+ },
+ "extraPages": [
+  {
+   "path": "/accessibility-statement/",
+   "why": "required by the launch gate (RE-DISC-001, accessibility statement); lead session 2026-10-28"
+  },
+  {
+   "path": "/blog",
+   "why": "articles index (lead session answer 2026-10-28): no article is orphaned (GT-007); linked from nav/footer. To be added to the approved plan too"
+  }
+ ],
  "collections": {
-  "areas": { "type": "Place", "label": "Cities" },
+  "areas": {
+   "type": "Place",
+   "label": "Cities"
+  },
   "listings": {
-   "type": "RealEstateListing", "label": "Our listings", "route": "/listings/{slug}/",
-   "access": { "member": "own" }, "ownerField": "agent",
-   "fields": {
-    "area": { "type": "reference", "to": "areas", "required": true },
-    "agent": { "type": "reference", "to": "team", "required": true }
+   "type": "RealEstateListing",
+   "label": "Our listings",
+   "route": "/listings/{slug}/",
+   "access": {
+    "member": "own"
    },
-   "onDelete": { "redirectToPageOf": "area", "pageType": "buyer-guide" }
+   "ownerField": "agent",
+   "fields": {
+    "area": {
+     "type": "reference",
+     "to": "areas",
+     "required": true
+    },
+    "agent": {
+     "type": "reference",
+     "to": "team",
+     "required": true
+    }
+   },
+   "onDelete": {
+    "redirectToPageOf": "area",
+    "pageType": "buyer-guide"
+   }
   }
  },
  "extend": {
-  "team": { "route": "/agent-profile/{slug}", "areas": { "type": "reference", "to": "areas", "multiple": true },
-   "group": { "type": "enum", "required": true, "options": ["leadership", "financing", "agents"], "help": "Where this person sits on the team page (lead session, 2026-10-28)" },
-   "specialties": { "type": "list", "max": 4, "of": { "name": { "type": "enum", "required": true, "sourced": true, "options": ["buyers", "sellers", "cash-offers", "investors"] } }, "help": "Only what a source says (their own profile, the brokerage page), with the source link and date" },
-   "photoCredit": { "type": "text", "max": 120 },
-   "licences": { "type": "list", "max": 4, "locked": { "reason": "licence numbers and status are facts with a source; staff change them after sign-off" },
-     "of": { "type": { "type": "enum", "required": true, "options": ["DRE", "NMLS"] }, "number": { "type": "text", "required": true, "max": 20 },
-       "status": { "type": "enum", "required": true, "options": ["active", "expired", "inactive"] }, "source": { "type": "url", "required": true }, "readOn": { "type": "date", "required": true } } } },
-  "settings": { "homeSearchUrl": { "type": "url", "locked": { "reason": "home-search (Brivity IDX) address, set by Omnikom with the client" } } }
+  "team": {
+   "route": "/agent-profile/{slug}",
+   "areas": {
+    "type": "reference",
+    "to": "areas",
+    "multiple": true
+   },
+   "group": {
+    "type": "enum",
+    "required": true,
+    "options": [
+     "leadership",
+     "financing",
+     "agents"
+    ],
+    "help": "Where this person sits on the team page (lead session, 2026-10-28)"
+   },
+   "specialties": {
+    "type": "list",
+    "max": 4,
+    "of": {
+     "name": {
+      "type": "enum",
+      "required": true,
+      "sourced": true,
+      "options": [
+       "buyers",
+       "sellers",
+       "cash-offers",
+       "investors"
+      ]
+     }
+    },
+    "help": "Only what a source says (their own profile, the brokerage page), with the source link and date"
+   },
+   "photoCredit": {
+    "type": "text",
+    "max": 120
+   },
+   "licences": {
+    "type": "list",
+    "max": 4,
+    "locked": {
+     "reason": "licence numbers and status are facts with a source; staff change them after sign-off"
+    },
+    "of": {
+     "type": {
+      "type": "enum",
+      "required": true,
+      "options": [
+       "DRE",
+       "NMLS"
+      ]
+     },
+     "number": {
+      "type": "text",
+      "required": true,
+      "max": 20
+     },
+     "status": {
+      "type": "enum",
+      "required": true,
+      "options": [
+       "active",
+       "expired",
+       "inactive"
+      ]
+     },
+     "source": {
+      "type": "url",
+      "required": true
+     },
+     "readOn": {
+      "type": "date",
+      "required": true
+     }
+    }
+   }
+  },
+  "settings": {
+   "homeSearchUrl": {
+    "type": "url",
+    "locked": {
+     "reason": "home-search (Brivity IDX) address, set by Omnikom with the client"
+    }
+   }
+  }
  },
  "gateWaivers": [
-  { "rule": "RE-DISC-001", "path": "/privacy_policy", "expects": ["/privacy/", "/privacy-policy/"], "reason": "the live privacy URL is kept so no redirect is needed (existing-pages.json)", "approvedBy": "lead session 2026-10-28 (owner delegation)" }
+  {
+   "rule": "RE-DISC-001",
+   "path": "/privacy_policy",
+   "expects": [
+    "/privacy/",
+    "/privacy-policy/"
+   ],
+   "reason": "the live privacy URL is kept so no redirect is needed (existing-pages.json)",
+   "approvedBy": "lead session 2026-10-28 (owner delegation)"
+  }
  ],
  "pageSeo": {
-   "/buying": {
-     "title": "Buy a Home with Elev8 Real Estate Group",
-     "seo": {
-       "title": "Buy a Home with Elev8 Real Estate Group",
-       "description": "Looking to buy a home? Elev8 Real Estate Group can help! Search listings, sign up for alerts, and find the perfect property with our expert guidance."
-     },
-     "source": "live page, backup 2026-10-26 (shortened)"
+  "/buying": {
+   "title": "Buy a Home with Elev8 Real Estate Group",
+   "seo": {
+    "title": "Buy a Home with Elev8 Real Estate Group",
+    "description": "Looking to buy a home? Elev8 Real Estate Group can help! Search listings, sign up for alerts, and find the perfect property with our expert guidance."
    },
-   "/selling": {
-     "title": "Sell Your Home with Elev8 Real Estate Group",
-     "seo": {
-       "title": "Sell Your Home with Elev8 Real Estate Group",
-       "description": "Considering selling your home in California? Elev8 Real Estate Group provides a hassle-free experience."
-     },
-     "source": "live page, backup 2026-10-26 (shortened)"
+   "source": "live page, backup 2026-10-26 (shortened)"
+  },
+  "/selling": {
+   "title": "Sell Your Home with Elev8 Real Estate Group",
+   "seo": {
+    "title": "Sell Your Home with Elev8 Real Estate Group",
+    "description": "Considering selling your home in California? Elev8 Real Estate Group provides a hassle-free experience."
    },
-   "/home_value": {
-     "title": "Free Home Value Estimate & Property Marketing Plan",
-     "seo": {
-       "title": "Free Home Value Estimate & Property Marketing Plan",
-       "description": "Get a free property marketing plan from Elev8 Real Estate Group to sell your home for the most money in the least amount of time."
-     },
-     "source": "live page, backup 2026-10-26 (shortened)"
+   "source": "live page, backup 2026-10-26 (shortened)"
+  },
+  "/home_value": {
+   "title": "Free Home Value Estimate & Property Marketing Plan",
+   "seo": {
+    "title": "Free Home Value Estimate & Property Marketing Plan",
+    "description": "Get a free property marketing plan from Elev8 Real Estate Group to sell your home for the most money in the least amount of time."
    },
-   "/financing": {
-     "title": "Home Financing",
-     "seo": {
-       "title": "Home Financing | Elev8 Real Estate Group",
-       "description": "Demystifying the home loan process. Learn about getting pre-approved, finding the best loan, the application process, and signing the deal."
-     },
-     "source": "live page, backup 2026-10-26 (shortened)"
+   "source": "live page, backup 2026-10-26 (shortened)"
+  },
+  "/financing": {
+   "title": "Home Financing",
+   "seo": {
+    "title": "Home Financing | Elev8 Real Estate Group",
+    "description": "Demystifying the home loan process. Learn about getting pre-approved, finding the best loan, the application process, and signing the deal."
    },
-   "/connect": {
-     "title": "Contact Elev8 Real Estate Group",
-     "seo": {
-       "title": "Contact Elev8 Real Estate Group: Your Real Estate Experts",
-       "description": "Connect with Elev8 Real Estate Group! Contact us to buy, sell, or rent a home."
-     },
-     "source": "live page, backup 2026-10-26 (shortened)"
+   "source": "live page, backup 2026-10-26 (shortened)"
+  },
+  "/connect": {
+   "title": "Contact Elev8 Real Estate Group",
+   "seo": {
+    "title": "Contact Elev8 Real Estate Group: Your Real Estate Experts",
+    "description": "Connect with Elev8 Real Estate Group! Contact us to buy, sell, or rent a home."
    },
-   "/faq": {
-     "title": "Frequently Asked Questions",
-     "seo": {
-       "title": "Frequently Asked Questions | Elev8 Real Estate Group",
-       "description": "Get answers to common real estate questions about buying, selling, financing, closing costs, home value and down payments."
-     },
-     "source": "live page, backup 2026-10-26 (shortened)"
+   "source": "live page, backup 2026-10-26 (shortened)"
+  },
+  "/faq": {
+   "title": "Frequently Asked Questions",
+   "seo": {
+    "title": "Frequently Asked Questions | Elev8 Real Estate Group",
+    "description": "Get answers to common real estate questions about buying, selling, financing, closing costs, home value and down payments."
    },
-   "/reviews": {
-     "title": "Elev8 Real Estate Group Reviews",
-     "seo": {
-       "title": "Elev8 Real Estate Group Reviews",
-       "description": "Read real client reviews and testimonials for Elev8 Real Estate Group."
-     },
-     "source": "live page, backup 2026-10-26 (shortened)"
+   "source": "live page, backup 2026-10-26 (shortened)"
+  },
+  "/reviews": {
+   "title": "Elev8 Real Estate Group Reviews",
+   "seo": {
+    "title": "Elev8 Real Estate Group Reviews",
+    "description": "Read real client reviews and testimonials for Elev8 Real Estate Group."
    },
-   "/tos": {
-     "title": "Terms of Use",
-     "seo": {
-       "title": "Terms of Use | Elev8 Real Estate Group",
-       "description": "View the terms of service for Elev8 CA. Learn about your rights and responsibilities when using our real estate platform."
-     },
-     "source": "live page, backup 2026-10-26 (title replaced: live title was \"terms-conditions\")"
+   "source": "live page, backup 2026-10-26 (shortened)"
+  },
+  "/tos": {
+   "title": "Terms of Use",
+   "seo": {
+    "title": "Terms of Use | Elev8 Real Estate Group",
+    "description": "View the terms of service for Elev8 CA. Learn about your rights and responsibilities when using our real estate platform."
    },
-   "/team": {
-     "title": "Our Team",
-     "seo": {
-       "title": "Our Team | Elev8 Real Estate Group",
-       "description": "Meet the Elev8 Real Estate Group team and the cities each agent serves."
-     },
-     "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording"
+   "source": "live page, backup 2026-10-26 (title replaced: live title was \"terms-conditions\")"
+  },
+  "/team": {
+   "title": "Our Team",
+   "seo": {
+    "title": "Our Team | Elev8 Real Estate Group",
+    "description": "Meet the Elev8 Real Estate Group team and the cities each agent serves."
    },
-   "/privacy_policy": {
-     "title": "Privacy Policy",
-     "seo": {
-       "title": "Privacy Policy - Elev8 Real Estate Group",
-       "description": "How Elev8 Real Estate Group handles your personal information and how to make a privacy request."
-     },
-     "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording (live description was cut off)"
+   "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording"
+  },
+  "/privacy_policy": {
+   "title": "Privacy Policy",
+   "seo": {
+    "title": "Privacy Policy - Elev8 Real Estate Group",
+    "description": "How Elev8 Real Estate Group handles your personal information and how to make a privacy request."
    },
-   "/blog": {
-     "title": "Articles",
-     "seo": {
-       "title": "Articles | Elev8 Real Estate Group",
-       "description": "Local real estate articles from Elev8 Real Estate Group."
-     },
-     "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording"
+   "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording (live description was cut off)"
+  },
+  "/blog": {
+   "title": "Articles",
+   "seo": {
+    "title": "Articles | Elev8 Real Estate Group",
+    "description": "Local real estate articles from Elev8 Real Estate Group."
    },
-   "/accessibility-statement/": {
-     "title": "Accessibility Statement",
-     "seo": {
-       "title": "Accessibility Statement | Elev8 Real Estate Group",
-       "description": "Our commitment to an accessible website and how to tell us if something does not work for you."
-     },
-     "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording"
-   }
+   "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording"
+  },
+  "/accessibility-statement/": {
+   "title": "Accessibility Statement",
+   "seo": {
+    "title": "Accessibility Statement | Elev8 Real Estate Group",
+    "description": "Our commitment to an accessible website and how to tell us if something does not work for you."
+   },
+   "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording"
+  }
  },
  "clientWording": [
-  { "where": "forms.home-finder.fields.budget.options", "status": "[client to confirm]", "note": "budget ranges are draft values" },
-  { "where": "forms.contact.fields.topic.options", "status": "[client to confirm]", "note": "closing-form topics are draft values" },
-  { "where": "notices:form-consent", "status": "[client to confirm]", "note": "consent wording under every form (LISTINGS-DECISION)" },
-  { "where": "pageSeeds./team", "status": "[client to confirm]", "note": "drafted page title and search text (no live page)" },
-  { "where": "pageSeeds./privacy_policy", "status": "[client to confirm]", "note": "drafted search text (live description was cut off)" },
-  { "where": "pageSeeds./blog", "status": "[client to confirm]", "note": "drafted page title and search text (new page)" },
-  { "where": "pageSeeds./accessibility-statement/", "status": "[client to confirm]", "note": "drafted page title and search text (new page)" },
-  { "where": "collections.settings.fields.homeSearchUrl", "status": "[client to confirm]", "note": "home-search address; Brivity on a subdomain is not verified" }
+  {
+   "where": "forms.home-finder.fields.budget.options",
+   "status": "[client to confirm]",
+   "note": "budget ranges are draft values"
+  },
+  {
+   "where": "forms.contact.fields.topic.options",
+   "status": "[client to confirm]",
+   "note": "closing-form topics are draft values"
+  },
+  {
+   "where": "notices:form-consent",
+   "status": "[client to confirm]",
+   "note": "consent wording under every form (LISTINGS-DECISION)"
+  },
+  {
+   "where": "pageSeeds./team",
+   "status": "[client to confirm]",
+   "note": "drafted page title and search text (no live page)"
+  },
+  {
+   "where": "pageSeeds./privacy_policy",
+   "status": "[client to confirm]",
+   "note": "drafted search text (live description was cut off)"
+  },
+  {
+   "where": "pageSeeds./blog",
+   "status": "[client to confirm]",
+   "note": "drafted page title and search text (new page)"
+  },
+  {
+   "where": "pageSeeds./accessibility-statement/",
+   "status": "[client to confirm]",
+   "note": "drafted page title and search text (new page)"
+  },
+  {
+   "where": "collections.settings.fields.homeSearchUrl",
+   "status": "[client to confirm]",
+   "note": "home-search address; Brivity on a subdomain is not verified"
+  }
  ],
  "defaultForm": "contact",
  "forms": {
   "contact": {
-   "label": "Closing form",
+   "label": "Contact",
    "fields": {
-    "topic": { "type": "enum", "required": true, "options": ["buy", "sell", "cash-offer", "other"] },
-    "name": { "type": "text", "required": true, "max": 120 },
-    "phone": { "type": "phone" },
-    "email": { "type": "email", "required": true }
+    "topic": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "buy",
+      "sell",
+      "home-value",
+      "financing",
+      "cash-offer",
+      "other"
+     ]
+    },
+    "message": {
+     "type": "text",
+     "max": 1000
+    },
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 120
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "intent": {
+     "type": "enum",
+     "options": [
+      "home-value",
+      "buy",
+      "sell",
+      "cash-offer",
+      "contact"
+     ],
+     "help": "which form or tab the lead came from"
+    },
+    "leadType": {
+     "type": "enum",
+     "options": [
+      "buyer",
+      "seller",
+      "both",
+      "other"
+     ]
+    }
    },
-   "consent": { "notice": "form-consent" },
-   "crm": { "topic": "Buyer or Seller" }
+   "consent": {
+    "notice": "form-consent"
+   },
+   "crm": {
+    "leadType": "Buyer or Seller",
+    "intent": "Last Intent Signal"
+   }
   },
   "home-value": {
    "label": "Home value request",
    "fields": {
-    "address": { "type": "text", "required": true, "max": 200 },
-    "name": { "type": "text", "max": 120 },
-    "email": { "type": "email" },
-    "phone": { "type": "phone" }
+    "address": {
+     "type": "text",
+     "required": true,
+     "max": 200
+    },
+    "propertyType": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "house",
+      "condo-townhome",
+      "multi-unit",
+      "land"
+     ]
+    },
+    "beds": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5+"
+     ]
+    },
+    "baths": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "1",
+      "1.5",
+      "2",
+      "2.5",
+      "3+"
+     ]
+    },
+    "condition": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "move-in-ready",
+      "needs-some-work",
+      "needs-a-lot"
+     ]
+    },
+    "sellTimeframe": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "0-3-months",
+      "3-6-months",
+      "6-12-months",
+      "just-curious"
+     ]
+    },
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 120
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "intent": {
+     "type": "enum",
+     "options": [
+      "home-value",
+      "buy",
+      "sell",
+      "cash-offer",
+      "contact"
+     ],
+     "help": "which form or tab the lead came from"
+    },
+    "leadType": {
+     "type": "enum",
+     "options": [
+      "buyer",
+      "seller",
+      "both",
+      "other"
+     ]
+    }
    },
-   "consent": { "notice": "form-consent" }
+   "consent": {
+    "notice": "form-consent"
+   },
+   "crm": {
+    "sellTimeframe": "Move Timeframe",
+    "leadType": "Buyer or Seller",
+    "intent": "Last Intent Signal"
+   }
   },
   "home-finder": {
    "label": "Home finder",
    "fields": {
-    "city": { "type": "reference", "to": "areas", "required": true },
-    "budget": { "type": "enum", "options": ["under-500k", "500k-750k", "750k-1m", "over-1m"] },
-    "beds": { "type": "enum", "options": ["1+", "2+", "3+", "4+"] },
-    "timing": { "type": "enum", "options": ["now", "3-months", "6-months-plus", "just-looking"] },
-    "name": { "type": "text", "required": true, "max": 120 },
-    "phone": { "type": "phone" },
-    "email": { "type": "email", "required": true }
+    "area": {
+     "type": "text",
+     "required": true,
+     "max": 120,
+     "help": "one of the ten cities, or what the visitor typed"
+    },
+    "budget": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "under-500k",
+      "500k-750k",
+      "750k-1m",
+      "over-1m"
+     ]
+    },
+    "beds": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "1+",
+      "2+",
+      "3+",
+      "4+"
+     ]
+    },
+    "timing": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "now",
+      "3-months",
+      "6-months-plus",
+      "just-looking"
+     ]
+    },
+    "preApproved": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "yes",
+      "no",
+      "not-yet"
+     ]
+    },
+    "financingHelp": {
+     "type": "boolean",
+     "help": "asked to talk to Sunny Azizi about financing"
+    },
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 120
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "intent": {
+     "type": "enum",
+     "options": [
+      "home-value",
+      "buy",
+      "sell",
+      "cash-offer",
+      "contact"
+     ],
+     "help": "which form or tab the lead came from"
+    },
+    "leadType": {
+     "type": "enum",
+     "options": [
+      "buyer",
+      "seller",
+      "both",
+      "other"
+     ]
+    }
    },
-   "consent": { "notice": "form-consent" },
-   "crm": { "city": "Target Area", "budget": "Price Range", "timing": "Move Timeframe" }
+   "consent": {
+    "notice": "form-consent"
+   },
+   "crm": {
+    "area": "Target Area",
+    "budget": "Price Range",
+    "timing": "Move Timeframe",
+    "preApproved": "Financing Status",
+    "leadType": "Buyer or Seller",
+    "intent": "Last Intent Signal"
+   }
+  },
+  "sell": {
+   "label": "Sell / cash offer request",
+   "fields": {
+    "address": {
+     "type": "text",
+     "required": true,
+     "max": 200
+    },
+    "reason": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "moving-for-work",
+      "upsizing",
+      "downsizing",
+      "inherited",
+      "money",
+      "other"
+     ]
+    },
+    "sellTimeframe": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "0-3-months",
+      "3-6-months",
+      "6-12-months",
+      "just-curious"
+     ]
+    },
+    "offerType": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "list",
+      "cash-offer"
+     ]
+    },
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 120
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "intent": {
+     "type": "enum",
+     "options": [
+      "home-value",
+      "buy",
+      "sell",
+      "cash-offer",
+      "contact"
+     ],
+     "help": "which form or tab the lead came from"
+    },
+    "leadType": {
+     "type": "enum",
+     "options": [
+      "buyer",
+      "seller",
+      "both",
+      "other"
+     ]
+    }
+   },
+   "consent": {
+    "notice": "form-consent"
+   },
+   "crm": {
+    "sellTimeframe": "Move Timeframe",
+    "leadType": "Buyer or Seller",
+    "intent": "Last Intent Signal"
+   }
   }
  },
  "pageTypes": {
@@ -186,99 +653,728 @@
    "label": "Home page",
    "sectionsFrom": "draft-site/design/variants/v4.html (approved 2026-10-28); header and footer come from settings",
    "sections": [
-    { "id": "hero", "kind": "fields", "fields": {
-      "heading": { "type": "text", "required": true, "max": 70 },
-      "lead": { "type": "text", "max": 200 },
-      "image": { "type": "image", "required": true, "media": { "minWidth": 1600, "rightsConfirm": true } },
-      "searchTabs": { "type": "list", "min": 1, "max": 4, "of": { "label": { "type": "text", "required": true, "max": 20 }, "mode": { "type": "enum", "required": true, "options": ["buy", "sell", "value", "cash-offer", "finder"] } } } } },
-    { "id": "trust", "kind": "fields", "fields": {
-      "items": { "type": "list", "max": 4, "of": { "value": { "type": "text", "required": true, "max": 30, "sourced": true }, "label": { "type": "text", "required": true, "max": 60 } } } } },
-    { "id": "three-ways", "kind": "fields", "fields": {
-      "heading": { "type": "text", "required": true, "max": 70 },
-      "cards": { "type": "list", "min": 3, "max": 3, "of": { "title": { "type": "text", "required": true, "max": 50 }, "text": { "type": "text", "required": true, "max": 240 }, "linkLabel": { "type": "text", "max": 30 }, "linkTo": { "type": "text", "max": 200 } } } } },
-    { "id": "home-value", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 70 }, "lead": { "type": "text", "max": 240 }, "points": { "type": "list", "max": 4, "of": { "text": { "type": "text", "required": true, "max": 120 } } } } },
-    { "id": "home-value-form", "kind": "form", "form": "home-value" },
-    { "id": "how-we-sell", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 70 }, "steps": { "type": "list", "min": 3, "max": 8, "of": { "title": { "type": "text", "required": true, "max": 40 }, "text": { "type": "text", "required": true, "max": 240 } } } } },
-    { "id": "areas", "kind": "feed", "accepts": "areas" },
-    { "id": "our-listings", "kind": "feed", "accepts": "listings" },
-    { "id": "recently-sold", "kind": "feed", "accepts": "listings" },
-    { "id": "home-finder", "kind": "form", "form": "home-finder" },
-    { "id": "about-team", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 70 }, "body": { "type": "richtext" } } },
-    { "id": "team-grid", "kind": "feed", "accepts": "team" },
-    { "id": "closing-cta", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 70 }, "lead": { "type": "text", "max": 200 } } },
-    { "id": "closing-form", "kind": "form", "form": "contact" }
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 70
+      },
+      "lead": {
+       "type": "text",
+       "max": 200
+      },
+      "image": {
+       "type": "image",
+       "required": true,
+       "media": {
+        "minWidth": 1600,
+        "rightsConfirm": true
+       }
+      },
+      "searchTabs": {
+       "type": "list",
+       "min": 1,
+       "max": 4,
+       "of": {
+        "label": {
+         "type": "text",
+         "required": true,
+         "max": 20
+        },
+        "mode": {
+         "type": "enum",
+         "required": true,
+         "options": [
+          "buy",
+          "sell",
+          "value",
+          "cash-offer",
+          "finder"
+         ]
+        }
+       }
+      }
+     }
+    },
+    {
+     "id": "trust",
+     "kind": "fields",
+     "fields": {
+      "items": {
+       "type": "list",
+       "max": 4,
+       "of": {
+        "value": {
+         "type": "text",
+         "required": true,
+         "max": 30,
+         "sourced": true
+        },
+        "label": {
+         "type": "text",
+         "required": true,
+         "max": 60
+        }
+       }
+      }
+     }
+    },
+    {
+     "id": "three-ways",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 70
+      },
+      "cards": {
+       "type": "list",
+       "min": 3,
+       "max": 3,
+       "of": {
+        "title": {
+         "type": "text",
+         "required": true,
+         "max": 50
+        },
+        "text": {
+         "type": "text",
+         "required": true,
+         "max": 240
+        },
+        "linkLabel": {
+         "type": "text",
+         "max": 30
+        },
+        "linkTo": {
+         "type": "text",
+         "max": 200
+        }
+       }
+      }
+     }
+    },
+    {
+     "id": "home-value",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 70
+      },
+      "lead": {
+       "type": "text",
+       "max": 240
+      },
+      "points": {
+       "type": "list",
+       "max": 4,
+       "of": {
+        "text": {
+         "type": "text",
+         "required": true,
+         "max": 120
+        }
+       }
+      }
+     }
+    },
+    {
+     "id": "home-value-form",
+     "kind": "form",
+     "form": "home-value"
+    },
+    {
+     "id": "how-we-sell",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 70
+      },
+      "steps": {
+       "type": "list",
+       "min": 3,
+       "max": 8,
+       "of": {
+        "title": {
+         "type": "text",
+         "required": true,
+         "max": 40
+        },
+        "text": {
+         "type": "text",
+         "required": true,
+         "max": 240
+        }
+       }
+      }
+     }
+    },
+    {
+     "id": "areas",
+     "kind": "feed",
+     "accepts": "areas"
+    },
+    {
+     "id": "our-listings",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "recently-sold",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "home-finder",
+     "kind": "form",
+     "form": "home-finder"
+    },
+    {
+     "id": "about-team",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 70
+      },
+      "body": {
+       "type": "richtext"
+      }
+     }
+    },
+    {
+     "id": "team-grid",
+     "kind": "feed",
+     "accepts": "team"
+    },
+    {
+     "id": "closing-cta",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 70
+      },
+      "lead": {
+       "type": "text",
+       "max": 200
+      }
+     }
+    },
+    {
+     "id": "closing-form",
+     "kind": "form",
+     "form": "contact"
+    }
    ]
   },
   "buyer-guide": {
    "label": "City buyer guide (/homes-for-sale-in-<city>-ca/)",
    "sectionsFrom": "LISTINGS-DECISION.md: local facts, the city's own listings, the home finder preset to the city, a button to the home search",
    "sections": [
-    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
-    { "id": "guide", "kind": "fields", "fields": { "body": { "type": "richtext", "required": true } } },
-    { "id": "area-listings", "kind": "feed", "accepts": "listings" },
-    { "id": "area-sold", "kind": "feed", "accepts": "listings" },
-    { "id": "home-finder", "kind": "form", "form": "home-finder" },
-    { "id": "questions", "kind": "feed", "accepts": "faqs" }
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "guide",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "area-listings",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "area-sold",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "home-finder",
+     "kind": "form",
+     "form": "home-finder"
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    }
    ]
   },
   "agent-in-area": {
    "label": "Realtor in <city>",
    "sections": [
-    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
-    { "id": "body", "kind": "fields", "fields": { "body": { "type": "richtext", "required": true } } },
-    { "id": "area-agents", "kind": "feed", "accepts": "team" },
-    { "id": "area-listings", "kind": "feed", "accepts": "listings" },
-    { "id": "questions", "kind": "feed", "accepts": "faqs" },
-    { "id": "contact", "kind": "form", "form": "contact" }
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "area-agents",
+     "kind": "feed",
+     "accepts": "team"
+    },
+    {
+     "id": "area-listings",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    },
+    {
+     "id": "contact",
+     "kind": "form",
+     "form": "contact"
+    }
    ]
   },
   "sell-in-area": {
    "label": "Sell your house in <city>",
    "sections": [
-    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
-    { "id": "body", "kind": "fields", "fields": { "body": { "type": "richtext", "required": true } } },
-    { "id": "home-value-form", "kind": "form", "form": "home-value" },
-    { "id": "area-sold", "kind": "feed", "accepts": "listings" },
-    { "id": "questions", "kind": "feed", "accepts": "faqs" }
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "body",
+     "kind": "fields",
+     "fields": {
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "home-value-form",
+     "kind": "form",
+     "form": "home-value"
+    },
+    {
+     "id": "area-sold",
+     "kind": "feed",
+     "accepts": "listings"
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    }
    ]
   },
-  "areas-hub": { "label": "Areas we serve", "sections": [
-    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 }, "body": { "type": "richtext" } } },
-    { "id": "areas-list", "kind": "feed", "accepts": "areas" } ] },
-  "team": { "label": "Team page", "sections": [
-    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
-    { "id": "team-grid", "kind": "feed", "accepts": "team" } ] },
-  "reviews": { "label": "Reviews page", "sections": [
-    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 } } },
-    { "id": "reviews", "kind": "feed", "accepts": "testimonials" } ] },
-  "faq": { "label": "Questions page", "sections": [
-    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 } } },
-    { "id": "questions", "kind": "feed", "accepts": "faqs" } ] },
-  "home-value": { "label": "Home value page", "sections": [
-    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
-    { "id": "form", "kind": "form", "form": "home-value" } ] },
-  "contact": { "label": "Contact page", "sections": [
-    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
-    { "id": "form", "kind": "form", "form": "contact" } ] },
-  "blog-index": { "label": "Articles", "sections": [
-    { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
-    { "id": "posts", "kind": "feed", "accepts": "posts" } ] },
-  "privacy": { "label": "Privacy policy", "sections": [ { "id": "text", "kind": "notice", "notice": "privacy-policy" } ] },
-  "terms": { "label": "Terms of use", "sections": [ { "id": "text", "kind": "notice", "notice": "terms-of-use" } ] },
-  "accessibility": { "label": "Accessibility statement", "sections": [ { "id": "text", "kind": "notice", "notice": "accessibility-statement" } ] }
+  "areas-hub": {
+   "label": "Areas we serve",
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      },
+      "body": {
+       "type": "richtext"
+      }
+     }
+    },
+    {
+     "id": "areas-list",
+     "kind": "feed",
+     "accepts": "areas"
+    }
+   ]
+  },
+  "team": {
+   "label": "Team page",
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "team-grid",
+     "kind": "feed",
+     "accepts": "team"
+    }
+   ]
+  },
+  "reviews": {
+   "label": "Reviews page",
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      }
+     }
+    },
+    {
+     "id": "reviews",
+     "kind": "feed",
+     "accepts": "testimonials"
+    }
+   ]
+  },
+  "faq": {
+   "label": "Questions page",
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      }
+     }
+    },
+    {
+     "id": "questions",
+     "kind": "feed",
+     "accepts": "faqs"
+    }
+   ]
+  },
+  "home-value": {
+   "label": "Home value page",
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "form",
+     "kind": "form",
+     "form": "home-value"
+    }
+   ]
+  },
+  "contact": {
+   "label": "Contact page",
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "form",
+     "kind": "form",
+     "form": "contact"
+    }
+   ]
+  },
+  "blog-index": {
+   "label": "Articles",
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "posts",
+     "kind": "feed",
+     "accepts": "posts"
+    }
+   ]
+  },
+  "privacy": {
+   "label": "Privacy policy",
+   "sections": [
+    {
+     "id": "text",
+     "kind": "notice",
+     "notice": "privacy-policy"
+    }
+   ]
+  },
+  "terms": {
+   "label": "Terms of use",
+   "sections": [
+    {
+     "id": "text",
+     "kind": "notice",
+     "notice": "terms-of-use"
+    }
+   ]
+  },
+  "accessibility": {
+   "label": "Accessibility statement",
+   "sections": [
+    {
+     "id": "text",
+     "kind": "notice",
+     "notice": "accessibility-statement"
+    }
+   ]
+  }
  },
  "placements": [
-  { "id": "listings>home-our-listings", "collection": "listings", "when": { "status": ["coming-soon", "active", "pending"] }, "to": { "page": "/", "section": "our-listings" }, "sort": "-listedOn", "limit": 6 },
-  { "id": "listings>home-recently-sold", "collection": "listings", "when": { "status": ["sold"] }, "to": { "page": "/", "section": "recently-sold" }, "sort": "-soldOn", "limit": 4 },
-  { "id": "listings>city-guide", "collection": "listings", "when": { "status": ["coming-soon", "active", "pending"] }, "to": { "pageType": "buyer-guide", "section": "area-listings", "match": "area" }, "sort": "-listedOn" },
-  { "id": "listings>city-guide-sold", "collection": "listings", "when": { "status": ["sold"] }, "to": { "pageType": "buyer-guide", "section": "area-sold", "match": "area" }, "sort": "-soldOn", "limit": 4 },
-  { "id": "listings>realtor-in-city", "collection": "listings", "when": { "status": ["coming-soon", "active", "pending"] }, "to": { "pageType": "agent-in-area", "section": "area-listings", "match": "area" }, "limit": 6 },
-  { "id": "listings>sell-in-city-sold", "collection": "listings", "when": { "status": ["sold"] }, "to": { "pageType": "sell-in-area", "section": "area-sold", "match": "area" }, "sort": "-soldOn", "limit": 4 },
-  { "id": "areas>home", "collection": "areas", "to": { "page": "/", "section": "areas" } },
-  { "id": "areas>hub", "collection": "areas", "to": { "pageType": "areas-hub", "section": "areas-list" } },
-  { "id": "team>home", "collection": "team", "to": { "page": "/", "section": "team-grid" }, "sort": "order" },
-  { "id": "team>team-page", "collection": "team", "to": { "pageType": "team", "section": "team-grid" }, "sort": "order" },
-  { "id": "posts>blog-index", "collection": "posts", "to": { "pageType": "blog-index", "section": "posts" }, "sort": "-publishedOn" },
-  { "id": "reviews>reviews-page", "collection": "testimonials", "to": { "pageType": "reviews", "section": "reviews" }, "sort": "-givenOn" }
+  {
+   "id": "listings>home-our-listings",
+   "collection": "listings",
+   "when": {
+    "status": [
+     "coming-soon",
+     "active",
+     "pending"
+    ]
+   },
+   "to": {
+    "page": "/",
+    "section": "our-listings"
+   },
+   "sort": "-listedOn",
+   "limit": 6
+  },
+  {
+   "id": "listings>home-recently-sold",
+   "collection": "listings",
+   "when": {
+    "status": [
+     "sold"
+    ]
+   },
+   "to": {
+    "page": "/",
+    "section": "recently-sold"
+   },
+   "sort": "-soldOn",
+   "limit": 4
+  },
+  {
+   "id": "listings>city-guide",
+   "collection": "listings",
+   "when": {
+    "status": [
+     "coming-soon",
+     "active",
+     "pending"
+    ]
+   },
+   "to": {
+    "pageType": "buyer-guide",
+    "section": "area-listings",
+    "match": "area"
+   },
+   "sort": "-listedOn"
+  },
+  {
+   "id": "listings>city-guide-sold",
+   "collection": "listings",
+   "when": {
+    "status": [
+     "sold"
+    ]
+   },
+   "to": {
+    "pageType": "buyer-guide",
+    "section": "area-sold",
+    "match": "area"
+   },
+   "sort": "-soldOn",
+   "limit": 4
+  },
+  {
+   "id": "listings>realtor-in-city",
+   "collection": "listings",
+   "when": {
+    "status": [
+     "coming-soon",
+     "active",
+     "pending"
+    ]
+   },
+   "to": {
+    "pageType": "agent-in-area",
+    "section": "area-listings",
+    "match": "area"
+   },
+   "limit": 6
+  },
+  {
+   "id": "listings>sell-in-city-sold",
+   "collection": "listings",
+   "when": {
+    "status": [
+     "sold"
+    ]
+   },
+   "to": {
+    "pageType": "sell-in-area",
+    "section": "area-sold",
+    "match": "area"
+   },
+   "sort": "-soldOn",
+   "limit": 4
+  },
+  {
+   "id": "areas>home",
+   "collection": "areas",
+   "to": {
+    "page": "/",
+    "section": "areas"
+   }
+  },
+  {
+   "id": "areas>hub",
+   "collection": "areas",
+   "to": {
+    "pageType": "areas-hub",
+    "section": "areas-list"
+   }
+  },
+  {
+   "id": "team>home",
+   "collection": "team",
+   "to": {
+    "page": "/",
+    "section": "team-grid"
+   },
+   "sort": "order"
+  },
+  {
+   "id": "team>team-page",
+   "collection": "team",
+   "to": {
+    "pageType": "team",
+    "section": "team-grid"
+   },
+   "sort": "order"
+  },
+  {
+   "id": "posts>blog-index",
+   "collection": "posts",
+   "to": {
+    "pageType": "blog-index",
+    "section": "posts"
+   },
+   "sort": "-publishedOn"
+  },
+  {
+   "id": "reviews>reviews-page",
+   "collection": "testimonials",
+   "to": {
+    "pageType": "reviews",
+    "section": "reviews"
+   },
+   "sort": "-givenOn"
+  }
  ]
 }
