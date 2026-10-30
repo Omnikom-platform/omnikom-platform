@@ -446,6 +446,14 @@
   for 4.5: a fine-grained GitHub token on `Omnikom-platform/omnikom-platform` with Contents read and write, banked as
   GITHUB_DISPATCH_TOKEN (the publish function's dispatch credential). Finding routed to the CLI head: `seed test` must seed
   the test site's contract v2 and page rows.
+- 00:30 OWNER "yes, create it": GitHub fine-grained token made in the owner's Edge (they passed the sudo passkey themselves):
+  `omnikom-platform-dispatch-2`, resource owner Omnikom-platform, only `omnikom-platform`, Contents read and write, Metadata
+  read, expires 2027-01-29; copied by a REAL mouse click on the copy control (a script click leaves the clipboard empty: the
+  first attempt `omnikom-platform-dispatch` was lost that way and DELETED, nobody held its value); banked by
+  `save-secret-from-clipboard.ps1` as GITHUB_DISPATCH_TOKEN (93 chars). Probe through a Haiku runner: repo HTTP 200 with
+  push true, prod repo 404 (unreachable, as intended), contents read 200. PROVEN; the platform head told.
+  LESSON for the credentials SOP: clipboard writes need a real click; position the control by script, click with the mouse,
+  never screenshot the page that shows the value.
 
 ## 2026-10-30 21:36-22:15 (Clients department head `local_02b5fce4-6e08-4801-b312-28226e8817d7`, Fable; this checkout, master)
 - SLICE 1 PROVEN: `clients/README.md` (four rows: elev8, rainmaker, vtv, eli; the last three "NOT WRITTEN yet (slice 2)"),
@@ -542,3 +550,6 @@
   the GitHub dispatch token for `publish` is an owner click (asked now); `.github/` and two tool paths need an Owns line (asked).
 
 - NEXT: slice 4.1 (Sonnet builder, in-session agent; brief in docs/departments/briefs/platform-build-4-1.md). Nothing built, nothing committed yet.
+- 00:30 GITHUB_DISPATCH_TOKEN is in the env file (head of operations; fine-grained, this repo only, Contents read and write, expires
+  2027-01-29; probed 200 with push true, prod repo 404). Slice 4.5's critical path is clear. The by-hand run for the done-when test uses
+  `gh workflow run` with the owner's gh login (workflow scope), not that token, so no Actions write is needed on it.
