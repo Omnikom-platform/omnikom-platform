@@ -230,3 +230,19 @@
     fix a database bug it found):** a step session stays inside its brief; anything it finds outside it (a bug in another
     part, a decision to take) goes back to the lead as a finding with options, and the lead re-checks it, decides or asks the
     owner, and routes the fix to the session that owns those files. Every brief says so.
+33. **Departments: a head of operations, department heads that spin builders, charters as the memory, a tool that creates
+    new departments the same way** (2026-10-30 18:57 and 19:30, owner: "a master session that spins up builder sessions for
+    anything related that mimics a client for testing ... a fable session that spins those sonnet sessions properly per building
+    slice and per cli expansion ... an orchestrator for that department that creates the tools that will be used for the long
+    run ... so we never have to figure our way from scratch in sessions that know nothing or rely on memory that expires";
+    "make a tool for you that makes you able to create new departments following the same engineeringly right structure ...
+    when it's time to have the department that will manage for example the PEWP SEO and audits ... turn the whole skill and
+    process we have into a CLI expansion ... so every website we output has actual enforcement for the heading code structure").
+    Shape and rules: `docs/departments/README.md`. Three departments today: head of operations (the lead; orients, routes,
+    verifies, never builds), platform build (one fable session per step, DECISIONS 32), CLI and testing tooling (fable head,
+    sonnet builder per slice; the omnikom CLI is the client stand-in and the home of every learned check). One owner per path
+    (`tools/departments/check.mjs` fails on overlap); findings cross departments only through the head of operations; reports
+    go up in two lines, proofs go into files; a learned check becomes a CLI command or gate, judgement stays a skill. New
+    departments come from `tools/departments/new-department.mjs` (template, README row, check); the next one is SEO and
+    audits, which turns the measurable rules of `skills/programmatic-enterprise-web-performance` into `omnikom audit` gates
+    that every built site must pass before publish.

@@ -7,7 +7,8 @@ runs it from a client dashboard with a lead inbox, while AI operators keep impro
 
 **Read first, in order:** `.claude/POSITION.md` (where we are; outranks memory) → `planning/DECISIONS.md` (settled, do not
 re-open; the newest items are the binding ones) → `docs/blueprint/25-BUILD-SEQUENCE.md` (the step you are on, its "done when")
-→ `docs/blueprint/23-GROUND-RULES.md` (the rules every piece of code is admitted by). Background when needed:
+→ `docs/blueprint/23-GROUND-RULES.md` (the rules every piece of code is admitted by) → `docs/departments/README.md` (who owns
+which files; a session reads its own department's charter and edits only what it owns). Background when needed:
 `docs/blueprint/README.md` (the map of every blueprint file), `planning/ANALYSIS.md`, `planning/CONTEXT.md`.
 
 **Sessions:** one orientation session decides and reviews; one builder session per step of `25-BUILD-SEQUENCE.md`, discarded

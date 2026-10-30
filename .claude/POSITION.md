@@ -323,3 +323,15 @@
   GoTrue-shaped rows (aud and role 'authenticated', zero instance_id, empty-string tokens, email_confirmed_at; emails unchanged), then
   one more probe; `staff` needs a TOTP factor (aal2); `nobody` has no auth.users row. Waiting, not faked: owner B / member A1 /
   nobody reads over HTTP; lead-update, publish, add-lead checks (slice 2 functions).
+
+## 2026-10-30 19:30-19:50 (head of operations: DECISIONS 33, departments)
+- Part 1 of the CLI brief verified by the head: `run-all-gates` all PASS on my own run (129 DB mutants), staging 6 applied and
+  `active_key(site A)` = 1 (18:5x). Part 2 decision sent to the builder 18:55: `seed test` writes GoTrue-shaped logins (same ids
+  and emails, plus `nobody`), then generateLink + verify for tokens; person checks over HTTP; staff aal2 only if cheap.
+- OWNER 18:57 + 19:30: departments (DECISIONS 33). Built: `docs/departments/README.md` (shape, six rules, the table),
+  `TEMPLATE.md`, charters `head-of-operations.md`, `platform-build.md`, `cli-and-testing.md`; `tools/departments/lib.mjs`,
+  `check.mjs` (required sections, one owner per path incl. child paths with "except", models, dated log, README table, no em
+  dash), `new-department.mjs` (scaffold + README row + check, removes its file if the check fails); tests 13 of 13, mutants
+  9 of 9 caught (first run had 8 false catches: crashes counted as red; fixed so only a FAIL line counts). CLAUDE.md read
+  order gained `docs/departments/README.md`. NEXT: start the CLI department head (fable) which adopts the running builder
+  and part 2; the SEO and audits department when the owner says go.
