@@ -399,6 +399,11 @@
   `clients/elev8/` read-only from `E:\Alex Sevilla`, the split as `sites.md` with the owner's options (one workspace with
   three sites or separate workspaces; which pages move; what is shared), then Rainmaker and VTV/Eli, the onboarding SOP and
   the SOP moves under `sops/clients/`. Step 3 is mid-flight (migrations 7 and 8 drafted, many files open in the tree).
+- 21:56 Clients slice 1 verified by me: `clients/check.mjs` = 1 record complete (elev8), tests 6 of 6, `clients/elev8/` five
+  files, three split sites "waiting for the agreement" (6a620d1). WAITS ON THE OWNER in the Clients session: workspace shape,
+  what moves, what is shared, and the name mapping (Alex = cash offer, Sunny = mortgage is the head's reading, to confirm).
+  Routed: "move a site between workspaces" to platform-build open items; "compliance pack for a mortgage site" stays with
+  Clients as an owner decision before that site is planned.
 
 ## 2026-10-30 21:36-22:15 (Clients department head `local_02b5fce4-6e08-4801-b312-28226e8817d7`, Fable; this checkout, master)
 - SLICE 1 PROVEN: `clients/README.md` (four rows: elev8, rainmaker, vtv, eli; the last three "NOT WRITTEN yet (slice 2)"),

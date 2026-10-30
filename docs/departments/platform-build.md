@@ -66,6 +66,9 @@ sent to the head of operations with options, never a fix made here.
 - `capture-lead` answers a paused site with 500, not S-SITE-PAUSED (finding from the CLI department, 2026-10-30).
 - `tools/deploy-capture-lead.mjs` prints the project ref inside the Supabase CLI's dashboard line (scrub when next touched).
 - `supabase/tests/test-apply.mjs` hangs locally (exit 124, no output; UNPROVEN since 2026-10-30 01:30).
+- From the Clients department (2026-10-30 21:56, ELEV8 split): no platform path to move a site between workspaces; needed
+  only if the owner picks separate workspaces for the split sites (decision pending). Design it as a service function with
+  walls (leads, content, keys, jobs follow the site) when the decision lands; step 3 or 4.
 
 ## Position log (append-only, newest last; one line per finished slice or blocked item: date, slice, PROVEN / BLOCKED, where the proof is)
 - 2026-10-30: department created. Steps 1 and 2 DONE (PROGRESS.md "Step 1.1 + step 2.1", "Step 2"); migration 6 applied on
