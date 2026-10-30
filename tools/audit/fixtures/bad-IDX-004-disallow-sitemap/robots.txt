@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: /private/
+Disallow: /sitemap.xml
+Sitemap: https://www.brindlewood-tea.example/sitemap.xml

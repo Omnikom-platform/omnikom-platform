@@ -426,3 +426,15 @@
 - Committed from this session: `clients/`, `docs/departments/clients.md` (the charter, untracked until now) and this block
   only (staged as HEAD + this block so the step 3 session's uncommitted edits to this file were not taken). NEXT: slice 2
   (Rainmaker, VTV, Eli records; the four SOP moves under `sops/clients/`; `sops/clients/onboarding.md`).
+
+## 2026-10-30 20:14-22:00 (SEO and audits head, session `local_d0e65fa9-4a2d-4c74-a612-5d33cd189efe`; this checkout, master)
+- Charter filled (Proof gates, slice plan with what each proves, findings); briefs `tools/audit/briefs/slice-1-engine.md` and
+  `slice-3-cli-command.md`. The app refused `start_session` for a builder from a session-given task, so the slice 1 builder ran as an
+  in-session Sonnet agent with the same brief (CLAUDE.md rule 4 default); the owner's sidebar-per-department view does not show it.
+- SLICE 1 PROVEN (head re-run): `tools/audit/` = 14 checks (MET-001/002/003/004, SE-202, URL-009, IDX-001/002/004, IDX-003 as WARN, SE-004,
+  A11-007, LNK-002, SCH-001), each with `rules/<ID>.md` carrying the full shipgate 8.0.0 text and source; tests 195/195, mutants 106/106,
+  good fixture all PASS exit 0, bad-MET-003 FAIL with file:line and source exit 1. Outputs: PROGRESS.md "SEO and audits, slice 1".
+  Library call for the CLI: `tools/audit/README.md`. Fixtures: 64 synthetic bad sites + `good` (invented tea room; no client folder).
+- NEXT: head of operations routes `slice-3-cli-command.md` to the CLI head (`omnikom audit --dir`, `omnikom gate --dir`); slice 2 (live
+  mode + speed budgets) after carrying the reader fixes back into the skill source through sync. Findings for the skill copy are in the
+  charter's Open items.

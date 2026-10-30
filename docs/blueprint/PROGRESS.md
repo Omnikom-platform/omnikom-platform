@@ -4,6 +4,33 @@ Task: build-ready product engineering package (owner, 2026-10-28), raised to eng
 then corrected by an independent fact-check (72 claims) and an independent M1 dry run (31 issues), and by DECISIONS 15
 (no Docker; one Supabase account, staging + production). **Status: complete for owner review. Nothing committed.**
 
+## SEO and audits, slice 1: the audit engine over a built folder (2026-10-30 21:30, builder session)
+`tools/audit/` built to `tools/audit/briefs/slice-1-engine.md`: 14 checks (MET-001, MET-002, MET-003, MET-004, SE-202, URL-009, IDX-004,
+IDX-001, IDX-002, IDX-003 as WARN, SE-004, A11-007, LNK-002, SCH-001), each with `rules/<ID>.md`; 64 generated fixtures plus `fixtures/good`.
+Nothing committed. Outputs below are the real ones from the final run.
+- `node tools/audit/test/run.mjs` (last lines): `ok   audit() returns the documented shape` / `OK: 195 of 195 checks passed`, exit 0.
+- `node tools/audit/test/mutate.mjs` (last lines, final run): `106 mutants, 106 caught, 0 survived, 0 target text missing`, exit 0.
+  (An earlier run was `106 mutants, 105 caught, 1 survived`: the svg-title mutant, because the test put the svg in the body, where the
+  head filter hid it. The test now puts one in `<head>`; the rerun is the line above.)
+- `node tools/audit/run.mjs tools/audit/fixtures/good`: 40 lines, every one `PASS`, then `OK: 4 page(s), 14 rule(s), 0 FAIL, 0 WARN, 0 SKIP`
+  on stderr, exit 0.
+- `node tools/audit/run.mjs tools/audit/fixtures/bad-MET-003`: exit 1 and
+  `FAIL MET-003 /tasting-room/:48 value-mismatch: <h4> "Small print" follows <h2> "Before you come" (line 46) and skips a level (source: checklist/web-delivery.md MET-003)`.
+- `node tools/audit/fixtures/build-fixtures.mjs --check`: `OK: 64 fixture(s) equal the generator output`.
+- Not covered by the engine (listed, not printed as SKIP so a clean site is all PASS): the HTTP parts of IDX-004 and the browser parts of
+  A11-007. UNPROVEN: the rule texts were pasted from the brief, not re-read from `shipgate/spec/packs/`; IDX-003 has only the checklist's
+  cut-short text.
+- HEAD RE-RUN (Rule 2, 2026-10-30 21:30-21:55, the SEO and audits head, this checkout, the builder's files untouched):
+  `node tools/audit/test/run.mjs` -> `OK: 195 of 195 checks passed`, exit 0, 0 FAIL lines;
+  `node tools/audit/test/mutate.mjs` -> `106 mutants, 106 caught, 0 survived, 0 target text missing`, exit 0 (106 `caught` lines, 0 SURVIVED or MISSING);
+  `node tools/audit/run.mjs tools/audit/fixtures/good` -> 41 lines, 0 non-PASS, `OK: 4 page(s), 14 rule(s), 0 FAIL, 0 WARN, 0 SKIP`, exit 0;
+  `node tools/audit/run.mjs tools/audit/fixtures/bad-MET-003` -> `FAIL MET-003 /tasting-room/:48 value-mismatch: <h4> "Small print" follows
+  <h2> "Before you come" (line 46) and skips a level (source: checklist/web-delivery.md MET-003)`, `FAILED: ... 1 FAIL`, exit 1;
+  `--list` -> 14 rules each with a severity and a checklist source; `build-fixtures.mjs --check` -> `OK: 64 fixture(s) equal the generator output`.
+  SLICE 1 PROVEN. The brief's rule texts came from the shipgate spec 8.0.0 pack files read by the head on 2026-10-30 (the builder's
+  UNPROVEN point above is closed by that reading, except IDX-003, which stays on the checklist's cut text as a WARN).
+  The builder ran as an in-session Sonnet agent, not a sidebar session (the app refused `start_session` from a session-given task).
+
 ## Migration 6 and CLI part 2 (2026-10-30 17:45-19:00, cli-slice-1 session; the lead's brief after the step 2 finding)
 - **Part 1, PROVEN.** `20261030000006_active_key_by_site.sql`: `service.active_key` matches a given site by `site_id` and narrows by the
   workspace only when one is given; no site keeps the platform-wide behaviour. Tenancy test now writes site keys the way `key mint` does
