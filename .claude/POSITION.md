@@ -399,3 +399,25 @@
   `clients/elev8/` read-only from `E:\Alex Sevilla`, the split as `sites.md` with the owner's options (one workspace with
   three sites or separate workspaces; which pages move; what is shared), then Rainmaker and VTV/Eli, the onboarding SOP and
   the SOP moves under `sops/clients/`. Step 3 is mid-flight (migrations 7 and 8 drafted, many files open in the tree).
+
+## 2026-10-30 21:36-22:15 (Clients department head `local_02b5fce4-6e08-4801-b312-28226e8817d7`, Fable; this checkout, master)
+- SLICE 1 PROVEN: `clients/README.md` (four rows: elev8, rainmaker, vtv, eli; the last three "NOT WRITTEN yet (slice 2)"),
+  `clients/TEMPLATE/` (profile, decisions, sites, facts, status), `clients/check.mjs` (five files per client, README row with a
+  status line, a source on every facts row, no em dash) with `clients/test/run.mjs` (5 mutants). ELEV8 housed in `clients/elev8/`
+  read-only from `E:\Alex Sevilla`: 19 dated owner decisions, the facts ledger pointing at `facts/` and `EVIDENCE.md` (no audit
+  number copied), the 42-page plan and the built page list, the 10 launch blocks, the preview paused since 2026-10-29 20:48.
+  `sites.md`: the split as three sites (ELEV8 real estate keeps 31 of the 42 plus profiles and listings; cash offer "Alex buys
+  homes" takes the 9 sell-my-house-fast pages and the Cash flow; mortgage "Sunny buys homes" takes `/financing`), each "waiting
+  for the agreement"; the name-to-purpose mapping is the head of operations' reading, flagged for the owner.
+  Output: `node clients/check.mjs` -> "OK: 1 client record(s) complete: elev8"; `node clients/test/run.mjs` -> "PASS clients
+  tests: 6 of 6"; `node tools/departments/check.mjs` -> "OK: 5 charter(s) valid".
+- ASKED the owner (pickable options, recommended first): A workspace shape (one workspace, sites split; per-site workspaces;
+  mortgage apart), B what moves (as in sites.md sections 2 to 4), C what is shared (people, licences, address, phones,
+  cross-links, one design family; not the ELEV8 name, not reviews across lines, no cross-claims). Answers go to
+  `clients/elev8/decisions.md` the same turn.
+- FINDINGS for the head of operations (not fixed here): no compliance pack for a mortgage / lender site (needed before the
+  third site is planned); moving a site between workspaces has no platform path yet; `brokerOfRecord` on the team collection
+  and the live `captureLead` behind the ELEV8 endpoint are the two platform items the ELEV8 launch waits on.
+- Committed from this session: `clients/`, `docs/departments/clients.md` (the charter, untracked until now) and this block
+  only (staged as HEAD + this block so the step 3 session's uncommitted edits to this file were not taken). NEXT: slice 2
+  (Rainmaker, VTV, Eli records; the four SOP moves under `sops/clients/`; `sops/clients/onboarding.md`).

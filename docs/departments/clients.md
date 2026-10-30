@@ -38,17 +38,55 @@ options, never a fix made here.
 - The owner talks to this department's head directly about clients; every decision the owner states is written into clients/<slug>/decisions.md the same turn, dated, in the owner's words, and the head answers questions as pickable options.
 
 ## Proof
-- node tools/departments/check.mjs green; clients/README.md lists every client with its status line; each clients/<slug>/ has profile.md, decisions.md, sites.md (what will be produced, per site: purpose, domain, pages, forms, add-ons, status) and facts.md with a source per fact.
+- The record of a client is complete when `clients/<slug>/` holds the five files of `clients/TEMPLATE/` (`profile.md` who they
+  are and where the project folder is; `decisions.md` every owner decision dated in the owner's words; `sites.md` per site
+  purpose, domain, brand, pages, forms and lead flows, what is shared and what must not be, status; `facts.md` a ledger with a
+  source cell on every row; `status.md` the one status line, the phase table, the open items with who holds each) and
+  `clients/README.md` carries the slug with that status line.
+- The check: `node clients/check.mjs` (exit 0 = every record complete; red lines name the slug and the missing file, the
+  unlisted slug, the empty status line, the unsourced facts row or the em dash). Its tests and five mutants:
+  `node clients/test/run.mjs` ("PASS clients tests: 6 of 6"). `node tools/departments/check.mjs` stays green.
 - A change of agreement is proven by the record: sites.md shows the new set of sites with their status, decisions.md the dated owner words, and the platform departments can start from those files alone (the head of operations checks this by reading them cold).
+- A slice is accepted when the head has re-run the two commands above itself and read the record cold against the project
+  folder (one fact per section checked back to its source file).
 
 ## Decisions that shape this department
 - DECISIONS 1 to 9 (shape, human gates, one procedure for every industry), 17 (client gives facts and access), 19 (launch is a command with a ledger), 26 (nameservers), 27 (look-folders in the platform repo, design per client in its folder), 30 (ELEV8 touched only in step 7), 31 (powered by Omnikom, exit terms), 33 (departments).
 - Owner 2026-10-30 21:32: ELEV8 is split: ELEV8 becomes real-estate focused; the cash-offer and mortgage parts become their own sites (working names: Alex buys homes, Sunny buys homes); two or three websites depending on the agreement with them. The department houses what exists today so production starts the moment the agreement is known.
 
-## Open items
-- First job: house ELEV8 as it is today from E:\Alex Sevilla (BRIEF.md, facts/, the approved plan with 42 pages incl. /blog, the draft site, the leads work, the launch state) into clients/elev8/, read-only on the project folder; then record the split (three candidate sites, what moves where, what is shared: brand, team, licences, reviews) as options for the owner, including whether the split is one workspace with three sites or three workspaces on the platform (the data model allows both).
-- Then: Rainmaker and VTV (Francine) records from their folders and planning/CONTEXT.md; the onboarding SOP (prospect audit with the SEO engine, Launch Information Request, agreement, plan approval) as sops/clients/onboarding.md, moving sops/prospect-audit-team.md, sops/client-questions.md, sops/launch.md and sops/site-scope.md under sops/clients/ (one owner per path).
+## Open items (the slice plan)
+- Slice 1 (head, DONE 2026-10-30, see the position log): the record layout (`clients/TEMPLATE/`, `clients/README.md`,
+  `clients/check.mjs` + tests), ELEV8 housed in `clients/elev8/` read-only from `E:\Alex Sevilla`, the split recorded in
+  `clients/elev8/sites.md` as three candidate sites "waiting for the agreement", the three questions put to the owner
+  (workspace shape; which pages and flows move; what is shared). OPEN inside slice 1: the owner's answers, written into
+  `clients/elev8/decisions.md` the turn they are given.
+- Slice 2a (Sonnet builder, brief by the head): `clients/rainmaker/`, `clients/vtv/`, `clients/eli/` from `E:\Rainmaker`,
+  `E:\Francine & Eli` and `planning/CONTEXT.md`, read-only on the folders; the README rows lose "NOT WRITTEN"; check and tests green.
+- Slice 2b (head): `git mv` of `sops/prospect-audit-team.md`, `sops/client-questions.md`, `sops/launch.md`, `sops/site-scope.md`
+  under `sops/clients/`; every pointer in files this department owns fixed; pointers in other departments' files (found by
+  grep on 2026-10-30: `README.md`, `.claude/POSITION.md`, `planning/DECISIONS.md`, `contracts/README.md`, blueprint 12, 13, 15,
+  22, 25 and README, `tools/client-questions/questions-pdf.mjs`, `templates/client-questions/README.md`, `tools/design-engine/WRITING.md`,
+  `tools/team-kit/README.md`, `sops/site-endpoints.md`, the skill's `scripts/launch.mjs` and `stages/build.md`) sent up as a
+  finding with the exact lines. Then `sops/clients/onboarding.md`: the prospect audit (the SEO and audits department's engine
+  when it exists, until then `sops/clients/prospect-audit-team.md`), the Launch Information Request (`sops/clients/client-questions.md`),
+  the agreement record (`clients/<slug>/profile.md` "Agreement" plus `decisions.md`), the plan approval (the skill's `approve.mjs`
+  lock), each with its "done when" and where the proof lands.
+- Slice 3 (after the agreement): ELEV8's `sites.md` turned into per-site plans (a signed search plan per site, the rows that move,
+  the new sites' profiles), handed to the platform departments through the head of operations.
 - Later: the monthly service record per client (reports, SEO work, add-ons bought), the offboarding record (DECISIONS 31), a design department if the per-client design process outgrows this one.
+- Findings sent up (2026-10-30, slice 1), for the head of operations to route: (1) no compliance pack for a mortgage / lender
+  site (skill `rules/industries/` has real-estate-agent, insurance-agency, cash-home-buyer only), needed before the "Sunny buys
+  homes" site is planned; (2) moving a site between workspaces (if the owner picks "one workspace now, split later") needs a
+  platform path (`sites.workspace_id` plus its leads and keys), not in `26-PLATFORM-CLI.md` yet; (3) `brokerOfRecord` on the
+  contract's team collection (ELEV8 launch block 10) and the live `captureLead` behind the ELEV8 endpoint (block 3) are platform
+  items already known, listed here so the client record points at them.
 
 ## Position log (append-only, newest last; one line per finished slice or blocked item: date, slice, PROVEN / BLOCKED, where the proof is)
 - 2026-10-30: department created.
+- 2026-10-30 22:10 (head `local_02b5fce4-6e08-4801-b312-28226e8817d7`, Fable): slice 1 PROVEN. Layout: `clients/README.md`,
+  `clients/TEMPLATE/` (5 files), `clients/check.mjs`, `clients/test/run.mjs`. ELEV8 housed in `clients/elev8/` (profile,
+  decisions with 19 dated owner decisions, sites with the current preview and the three split sites "waiting for the
+  agreement", facts ledger 19 rows each sourced, status with the 10 launch blocks). Proof: `node clients/check.mjs` ->
+  "OK: 1 client record(s) complete: elev8"; `node clients/test/run.mjs` -> "PASS clients tests: 6 of 6" (5 mutants red for
+  the right reason; the first run caught a real parser bug: the README separator row read as a slug). `tools/departments/check.mjs`
+  -> "OK: 5 charter(s) valid". OPEN: the owner's answers to the three split questions (asked this turn as pickable options).
