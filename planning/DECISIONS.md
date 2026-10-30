@@ -226,3 +226,7 @@
     step's "done when" with its own re-run (Rule 2) and starts the next step's session. The lead's context stays for
     orientation, review and the owner's questions. The step sessions run on Fable (not the "Sonnet for routine builds" default
     of CLAUDE.md rule 8); they may still hand mechanical work to Sonnet or Haiku agents.
+    **Protocol, from the first run (2026-10-30 17:40, owner sent the step 2 session back to the lead instead of letting it
+    fix a database bug it found):** a step session stays inside its brief; anything it finds outside it (a bug in another
+    part, a decision to take) goes back to the lead as a finding with options, and the lead re-checks it, decides or asks the
+    owner, and routes the fix to the session that owns those files. Every brief says so.

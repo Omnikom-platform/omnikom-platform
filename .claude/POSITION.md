@@ -256,3 +256,37 @@
 - 17:13 OWNER: DECISIONS 32, one full-power Fable 5.1 session per build step, the lead orients and verifies. The lead started
   the step 2 session (name `step-2-lead-proof`, in this checkout, master) with the brief = step 2 of 25-BUILD-SEQUENCE through
   the CLI, alerts to amer@omnikom.io; its proof lands in PROGRESS.md; the lead re-runs `verify --only lead` after.
+
+## 2026-10-30 17:15- (step-2-lead-proof session, Fable, DECISIONS 32; this checkout, master)
+- Through `with-env` + `omnikom ... --target staging`, PROVEN: `status` (5 applied, 0 pending, capture-lead deployed, 4 key names
+  present, exit 0); `apply --dry-run` (`DRY RUN: 0 pending of 5`); `test walls` (`PASS tenancy tests on staging`, rolled back);
+  `seed test --alert-to amer@omnikom.io` twice (`changed: true` then `changed: false`; the `auth.users` insert by (id, email)
+  WORKS on real Supabase); `key mint --site test-demo-a` and `-b` (Vault names `site-test-demo-a-key-1`, `site-test-demo-b-key-1`,
+  hash prefixes ba00ce1aae9e and 2266f6832967, env variables appended; the real Vault through the pooler WORKS); `key list` 2 rows.
+- FINDING (not fixed, owner asked): `lead send --site test-demo-a --expect 202` got **401 SIGNATURE** (exit 1, nothing stored).
+  Read-only diagnosis (scratchpad `diag-active-key.mjs`): `service.active_key('site-signing', <site A>)` = 0 rows but
+  `active_key('site-signing', <site A>, <workspace A>)` = 1; the minted row has `workspace_id` = A's workspace (both `key mint` and
+  `tools/mint-site-key.mjs` write `s.workspace_id`), while `active_key` requires `workspace_id is not distinct from p_workspace`
+  and the function passes no workspace. The tenancy test inserts site keys WITHOUT a workspace, so the SQL tests pass; the CLI's
+  test model (`test/harness.mjs:73`) checks signatures against keys it holds in memory, never through `active_key`, so 138 of 138
+  passed. Clock in step (db epoch = local epoch), Vault secret readable, site state preview, signing_key_ref set. The signed path
+  string is therefore NOT yet observed (the key lookup fails before the signature is compared).
+  Options for the owner: A (recommended) migration 6 fixes `active_key` for a per-site lookup + tenancy test with a workspace-bearing
+  site key (watched red) + mutant + the CLI model reads keys through `active_key`; B mint tools stop storing the workspace on site keys
+  and the two staging rows are repaired; C the function passes the site's workspace (redeploy).
+- 17:40 OWNER (to this session): the fix is NOT built here. The lead session routes it to the CLI builder ("Build the omnikom CLI,
+  slice 1", cli-slice-1); step 2 WAITS until the key lookup works on staging and does not start again before that. Owner's reading
+  of the 401 recorded: the walls hold (every bad request refused before the database), and the owner wants the CLI finished with
+  real test accounts over HTTP (session tokens for owner-a, owner-b, members, staff; the person checks of 26 section 4 in `verify`),
+  each piece proven on staging as it lands. This session reported to the lead and stopped. Staging state left as is: workspaces A
+  and B seeded (alerts to amer@omnikom.io), two site keys minted (env variables appended), 0 leads, nothing to clean.
+  Hand-over note: side-session-notes/.../step-2-finding-active-key-2026-10-30.md.
+- 17:45 LEAD: finding re-checked read-only on staging: api_keys site A = 1 row (workspace set), `active_key('site-signing', A)` =
+  0, with workspace A = 1, 0 leads, site A preview. CONFIRMED. Routed to cli-slice-1 (owner's choice, relayed by the step 2
+  session) with a written brief: PART 1 migration 6 `active_key` by site (workspace optional), tenancy test with a key stored
+  the way `key mint` stores it (watched red), mutant, the CLI model reads keys through `active_key` + the Vault shim, `apply` on
+  staging, ground rule "a wall test writes its fixture the way the production tool does"; PART 2 person tokens over HTTP and
+  the section 4 person checks in `verify`, each proven on staging. Step 2 session told to wait; resumes at `lead send` when the
+  lead confirms `active_key` finds the key on staging. Lesson (Rule 2): 126 mutants and 138 CLI checks were green because the
+  SQL test inserted keys without a workspace and the CLI model never called the lookup: a check sharing nothing with the real
+  writer proves nothing about it.
