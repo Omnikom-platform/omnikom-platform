@@ -11,7 +11,7 @@ Nothing of the platform can be proven without them. Values go into the master .e
 I never see or print a value. Tick each line when done.
 
 **1.1 Supabase staging** (first, because the lead-path proof needs it)
-- [ ] Create the Omnikom organisation (not a personal one) (organisation "Omnikom" EXISTS on Free, 2026-10-29; MFA and the second owner NOT DONE: owner clicks). Turn on MFA for your account. Add a second owner (Dave, or a
+- [ ] Create the Omnikom organisation (not a personal one) (organisation "Omnikom" EXISTS on Free, 2026-10-29; second owner: dave@omnikom.io INVITED as Owner 2026-10-30 01:55 ("Successfully sent invitation"); MFA on the owner account NOT DONE: owner click). Turn on MFA for your account. Add a second owner (Dave, or a
       second account of yours): DECISION 29 lists it; the gap hunt says one owner is a single point of failure.
 - [x] Create project `omnikom-staging`, region **US West** (DECISIONS 29), Free plan. Save the database password in the .env as (DONE 2026-10-29: project Omnikom V2 Platform, ref in the .env, us-west-2, Free, used as staging; STAGING_DB_PASSWORD, STAGING_DB_URL = transaction pooler 6543, STAGING_DB_URL_DIRECT = session pooler 5432 because the direct host is IPv6-only on Free; both connect, pg 17.11)
       `STAGING_DB_PASSWORD`. From Connect, copy the **transaction pooler** connection string (port 6543) into the .env as
@@ -21,7 +21,7 @@ I never see or print a value. Tick each line when done.
       Anonymous sign-ins: **off**. Confirm email: **on**. OTP expiry: **3600 s**. Site URL: `https://app-staging.<your domain>`
       (placeholder until D3); redirect allowlist: the same.
 - [x] Authentication > Rate limits: leave the defaults, note them (30 per 5 min per IP for sign-in and magic link). (DONE 2026-10-29: defaults kept: sign-in 30 per 5 min, OTP/magic-link verifications 30 per 5 min, token refresh 150 per 5 min, built-in email 2 per hour until custom SMTP)
-- [ ] Authentication > SMTP: custom SMTP through Resend (after 1.4), sender on the Omnikom domain.
+- [x] Authentication > SMTP: custom SMTP through Resend (after 1.4), sender on the Omnikom domain. (DONE 2026-10-29: custom SMTP on 2026-10-30 01:41: host smtp.resend.com, port 465, user resend, password = RESEND_API_KEY (pasted by the owner from the clipboard, never seen by the session), sender login@notify.omnikom.io / Omnikom Platform; dashboard said "Successfully updated settings"; a real magic-link send through it is UNPROVEN until the first login)
 - [x] Database > Extensions: enable `pg_cron`, `pg_net`, `pgmq`, `pg_stat_statements`. (If one is missing on Free, tell me: it (DONE 2026-10-29: staging-extensions.mjs PASS 4 of 4: pg_cron 1.6.4, pg_net 0.20.4 (extensions schema), pgmq 1.5.1, pg_stat_statements 1.11)
       is a design change, not a blocker.)
 - [x] API settings: "automatically expose new tables" **off**; keep `public` exposed for now (D24 later); disable `graphql_public` (DONE 2026-10-29: auto-expose was already off; exposed schemas public + extensions; pg_graphql is not installed so there is no graphql_public endpoint)
@@ -40,7 +40,7 @@ Done when: `STAGING_DB_URL` is in the .env and you tell me "staging is up".
 Done when: the repo is in the org and you tell me the org name.
 
 **1.3 Cloudflare tokens and R2** (the account that already holds `elev8-omnikom-website`)
-- [x] MFA on the account. Add a second member with admin rights (same reason as 1.1). (DONE 2026-10-29: email 2FA active on the new account (TOTP app = owner click); second member NOT DONE: Edge now holds the old-account session, invite dave@omnikom.io after re-login)
+- [x] MFA on the account. Add a second member with admin rights (same reason as 1.1). (DONE 2026-10-29: email 2FA active on the new account (TOTP app = owner click); second member: dave@omnikom.io invited as Super Administrator 01:43, status Pending until Dave accepts)
 - [x] Create API token `omnikom-pages-deploy`: permission Account > Cloudflare Pages > Edit, this account only, TTL 90 days. (DONE 2026-10-29: account API token omnikom-pages-deploy (Account API tokens, not a user token: survives the user; verified at /accounts/<id>/tokens/verify HTTP 200), Entire Account, Pages Write, 90 days, rolled once after a tool echoed its first value; banked as CLOUDFLARE_PAGES_TOKEN; CLOUDFLARE_ACCOUNT_ID written)
       Into the .env as `CLOUDFLARE_PAGES_TOKEN`.
 - [x] Create API token `omnikom-dns-onboarding`: Zone > DNS > Edit and Zone > Zone > Edit, all zones, TTL 90 days. Into the (DONE 2026-10-29: account API token omnikom-dns-onboarding, All Domains, DNS Write + Zone Write, 90 days, rolled once (first copy missed); verified HTTP 200; banked as CLOUDFLARE_DNS_TOKEN)
@@ -48,16 +48,16 @@ Done when: the repo is in the org and you tell me the org name.
 - [ ] (DEFERRED 2026-10-30, owner: "is R2 necessary?" - not until step 4 media or step 6 backups; enabling R2 asks for a card on file; D9 stays open) R2: create bucket `omnikom-media` and bucket `omnikom-backups`; create an R2 API token with Object Read and Write on both;
       into the .env as `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`. (D9, R2 for media, is assumed yes here;
       say so if not.)
-- [ ] Web Analytics: enable for the `elev8-omnikom-website` Pages project.
+- [ ] (DEFERRED to step 7 per DECISIONS 30: the ELEV8 project lives in the old Cloudflare account and is not touched before launch) Web Analytics: enable for the `elev8-omnikom-website` Pages project.
 Done when: the three tokens and the R2 keys are in the .env.
 
 **1.4 Resend mail**
-- [x] Account, verify the Omnikom sending domain (the DNS records go into the Omnikom zone on Cloudflare), **link and open (DONE 2026-10-29: Resend account (team omnikom, amer@omnikom.io) created by the owner 2026-10-30 01:15; sending domain notify.omnikom.io (owner: a subdomain, root keeps Google mail), region eu-west-1; its 4 records written into the omnikom.io zone (old Cloudflare account) by tools/dns-upsert.mjs with CLOUDFLARE_DNS_TOKEN_LEGACY: 4 created; verification PENDING at 01:30; tracking off by default (no tracking subdomain configured); RESEND_API_KEY banked (sending-only key omnikom-capture-lead-staging); LEAD_ALERT_FROM=leads@notify.omnikom.io)
+- [x] Account, verify the Omnikom sending domain (the DNS records go into the Omnikom zone on Cloudflare), **link and open (DONE 2026-10-29: Resend account (team omnikom, amer@omnikom.io) created by the owner 2026-10-30 01:15; sending domain notify.omnikom.io (owner: a subdomain, root keeps Google mail), region eu-west-1; its 4 records written into the omnikom.io zone (old Cloudflare account) by tools/dns-upsert.mjs with CLOUDFLARE_DNS_TOKEN_LEGACY: 4 created; VERIFIED at 01:30; test email tools/resend-test-email.mjs HTTP 200 id 01a18a00..., owner confirmed it arrived at amer@omnikom.io 01:35; tracking off by default (no tracking subdomain configured); RESEND_API_KEY banked (sending-only key omnikom-capture-lead-staging); LEAD_ALERT_FROM=leads@notify.omnikom.io)
       tracking off**, API key into the .env as `RESEND_API_KEY`, and the sender address as `LEAD_ALERT_FROM`.
 Done when: a test email from the Resend dashboard arrives.
 
 **1.5 Google service account** (for step 7, can wait)
-- [ ] In project `omnikom-seo`: enable the Search Console API and the Site Verification API; create a service account; its JSON
+- [ ] (PARTLY DONE 2026-10-30 02:00: both APIs enabled, service account omnikom-platform-search@omnikom-seo.iam.gserviceaccount.com created; BLOCKED: the omnikom.io Google organisation enforces iam.disableServiceAccountKeyCreation, so no JSON key can be made; unblock = Workload Identity Federation from GitHub Actions (keyless, recommended for step 7) or an org-policy admin lifting the constraint) In project `omnikom-seo`: enable the Search Console API and the Site Verification API; create a service account; its JSON
       key into the .env as `GOOGLE_SERVICE_ACCOUNT_JSON` (one line, base64 if easier).
 
 ## Step 2. The first lead is proven: through the platform's own CLI on a test workspace, to staging, to your inbox

@@ -70,7 +70,57 @@ FINDINGS (vendor differs from the docs):
    (built and tested: 14 checks, 6 of 6 mutants) could not be used from that page. Working path: the Copy button clicked in
    the owner's Edge through the Claude extension, then `save-secret-from-clipboard.ps1` by name. The pane still drives
    every settings page.
-NOT DONE (owner clicks): MFA on the Supabase account, a second owner; custom SMTP waits for 1.4.
+NOT DONE (owner clicks): MFA on the Supabase account, a second owner.
+
+### Steps 1.2, 1.3, 1.4 (2026-10-30 00:30-01:45, owner creating accounts, the session clicking through them in Edge)
+```
+gh api orgs/Omnikom-platform --jq '{two_factor_requirement_enabled}'     -> {"two_factor_requirement_enabled":true}
+gh api -X POST repos/AbdulrahmanAmer/backup-Omnikom-Platform/transfer -f new_owner=Omnikom-platform -f new_name=omnikom-platform
+gh repo view Omnikom-platform/omnikom-platform -> {"branch":"master" (after PATCH default_branch), "isPrivate":true}
+gh repo create Omnikom-platform/omnikom-platform-prod --private -> https://github.com/Omnikom-platform/omnikom-platform-prod
+PUT vulnerability-alerts 204, PUT automated-security-fixes 204; actions/permissions {"allowed_actions":"all","enabled":true}
+git push backup-gh master -> 86edf13..7b09d21, 8414fcb..52bf824 (remote re-pointed to the org repo)
+
+node tools/check-platform-keys.mjs "<env>"   (01:27)
+Cloudflare Pages token: HTTP 200 OK  /  Cloudflare DNS token: HTTP 200 OK   (account endpoint /accounts/<id>/tokens/verify;
+the user endpoint answers 401 "Invalid API Token" for account-owned tokens: checker fixed)
+Resend: HTTP 401 "This API key is restricted to only send emails" = a valid sending-only key (checker reads it as OK)
+
+node tools/dns-upsert.mjs --zone omnikom.io --records sops/dns/notify.omnikom.io-resend.json --token-env CLOUDFLARE_DNS_TOKEN_LEGACY
+zone omnikom.io (a7c8acea...) in account "Abdoamer683@gmail.com's Account"
+create TXT resend._domainkey.notify.omnikom.io / create CNAME rsend.notify... / create CNAME send.notify... / create MX notify.omnikom.io
+done: 4 created, 0 skipped, 0 failed
+Resend domain page 01:30: STATUS Verified (region eu-west-1)
+node tools/resend-test-email.mjs --to amer@omnikom.io -> Resend send: HTTP 200 id=01a18a00-13fe-7dae-8593-2b9415fb85dc
+owner 01:35: "email arrived"
+node tools/deploy-capture-lead.mjs --secrets-only -> OK: secrets set by name: RESEND_API_KEY, LEAD_ALERT_FROM
+Supabase Auth > SMTP (pane, 01:41): Enable custom SMTP on, smtp.resend.com:465, user resend, sender login@notify.omnikom.io,
+password pasted by the owner from the clipboard (tools/clipboard-from-env.ps1) -> "Successfully updated settings"
+```
+Accounts: GitHub org `Omnikom-platform` (logo set); Cloudflare NEW account amer@omnikom.io (id in the .env as
+CLOUDFLARE_ACCOUNT_ID), tokens `omnikom-pages-deploy` + `omnikom-dns-onboarding` (account API tokens, 90 d, each rolled once:
+the first Pages value was echoed by the browser "find" tool, the first DNS copy missed), Dave invited as Super Administrator
+(Pending); Resend team "omnikom", domain `notify.omnikom.io` (owner's choice of a subdomain), sending-only key. R2 DEFERRED
+(owner; a card on file is the price). Legacy token `omnikom-dns-legacy` (old account, DNS edit on omnikom.io only) for the
+zone that still lives there. UNPROVEN: a magic-link send through the custom SMTP (no login exists yet); `test-apply.mjs`
+hangs locally (exit 124, no output) and needs a debug pass; the member invite until Dave accepts.
+Later the same night: Supabase org invite dave@omnikom.io as Owner ("Successfully sent invitation", 01:55; the first attempt
+missed a second confirmation dialog "Invite as Owner?").
+
+### Step 1.5 Google (2026-10-30 01:50-02:15): PARTLY DONE, then BLOCKED by an organisation policy
+Done in project `omnikom-seo` (signed in as amer@omnikom.io in Edge): Search Console API and Site Verification API enabled
+(both listed on the APIs dashboard next to PageSpeed Insights); service account `omnikom-platform-search@omnikom-seo.iam.gserviceaccount.com`
+created (unique id 101514631929447392231, no project role: Search Console access is granted per property later).
+BLOCKED: "Service account key creation is disabled": the organisation omnikom.io (id 29312388971) enforces
+`iam.disableServiceAccountKeyCreation` ("Secure by Default"). The owner chose to lift it for the project, but amer@omnikom.io
+has neither `orgpolicy.policies.*` on the project nor `resourcemanager.organizations.getIamPolicy` on the organisation: the
+console names the role to add, "Organization Policy Administrator" on omnikom.io, and only an Organization Administrator (or
+the Google Workspace super admin of omnikom.io) can grant it. UNBLOCK (either): (a) the Workspace super admin opens the Cloud
+console > IAM at organisation omnikom.io > Grant access > amer@omnikom.io > roles Organization Administrator + Organization
+Policy Administrator; then the policy page for Omnikom SEO > Manage policy > Override parent's policy > rule Enforcement
+Off > Set policy; then `Add key > Create new key > JSON` and `node tools/bank-json-key.mjs --file <download> --env <env>`
+banks it as GOOGLE_SERVICE_ACCOUNT_JSON and deletes the download; or (b) keep the policy and use Workload Identity
+Federation from GitHub Actions in step 7 (keyless; Google's recommendation on that very dialog). Nothing before step 7 needs it.
 New tools: `tools/with-env.mjs` (run a command with the .env loaded by name), `tools/compose-db-url.mjs` (connection strings
 from the password in the note, never shown), `tools/check-platform-keys.mjs`, `tools/staging-extensions.mjs`,
 `tools/secret-receiver.mjs` + tests, `tools/tick-sequence.mjs`, `tools/test/probe-*.mjs`.
