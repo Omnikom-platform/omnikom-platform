@@ -385,3 +385,8 @@
   message to both; no file carried the wrong id. CURRENT HEAD IDS: head of operations `local_f58886f2-26f1-4f9f-bc47-913ce5b0c4d1`;
   CLI and testing head `local_c8848ce4-2e87-4e85-b578-e47e42aaf1a7`; SEO and audits head `local_d0e65fa9-4a2d-4c74-a612-5d33cd189efe`;
   step 3 session `local_a3c114b5-9826-4504-9ab9-3363e05151d2`. CLI slice 1 CLOSED by its head (1151178), matches my re-run.
+- 21:06 OWNER: "notify me when we would be ready to start and if that doesn't hold onto me we can have things progress".
+  Standing rule for the head of operations: the next step starts on its own when its predecessor is verified; the owner is
+  notified (push notification plus a line here) only when a step needs their click or decision (step 4: preview review and
+  the ELEV8 look-folder sign-off; step 5: design references; step 6: production project, R2 card, promote; step 7: the
+  client's nameservers and the live preview). Everything else progresses without waiting.
