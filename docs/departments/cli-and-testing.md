@@ -61,12 +61,16 @@ this department then proves it over HTTP.
   up, fixes are routed), 33 (departments; README rule 5: a learned check becomes a command).
 
 ## Open items
-- Slice 1 part 2 in progress (2026-10-30): person tokens over HTTP (GoTrue-shaped seeded logins, generateLink + verify),
-  the person checks of spec section 4, staff at aal2 if the MFA API makes it cheap.
-- Slice 2 (as the functions land in build step 4): save, publish, export, job-callback, lead-update, add-lead paths; `verify`
-  grows one check per wall.
-- Slice 3 (build steps 6 and 7): `onboard`, `offboard` (DECISIONS 31), `drift`, the Cloudflare API calls.
-- Client stand-in flows beyond leads: a content edit and publish as a member, a CRM push, a booking (when the add-on exists).
+Builder briefs live in `tools/omnikom-cli/briefs/` (one file per slice; `README.md` there is the index). A brief is started only
+when the head of operations has released its slice.
+- Slice 2 (brief `briefs/slice-2-functions.md`; waits for build step 4): save, publish, export, job-callback, lead-update, add-lead
+  paths; `verify` grows one check per wall (the three `waiting` checks of the `people` suite move here).
+- Client stand-in flows beyond leads (brief `briefs/stand-in-flows.md`; waits for slice 2 and `push-lead`): a content edit and
+  publish as a member, a CRM webhook push through `tools/crm-map`, `lead day`; a booking when the add-on exists.
+- Slice 3 (placeholder `briefs/slice-3-onboard.md`; build steps 6 and 7): `onboard`, `offboard` (DECISIONS 31), `drift`, the
+  Cloudflare API calls.
+- UNPROVEN on staging: `mfa enroll-staff` removing a stale TOTP factor (model only). Known: a paused site answers 500 over HTTP
+  (the function's catch-all; S-SITE-PAUSED not visible), a finding for the platform department, recorded 2026-10-30.
 - `omnikom audit` gates from the PEWP skill (the future SEO and audits department supplies the rules; this department holds the
   command shape and the test pattern).
 
@@ -74,3 +78,7 @@ this department then proves it over HTTP.
 - 2026-10-30: department created. Slice 1 PROVEN locally (145 of 145, 67 of 67 mutants) and on staging through step 2
   (`verify --only lead` 12 of 12, `verify --only walls` 5 of 5); person tokens BLOCKED on GoTrue-shaped logins, decision taken
   (POSITION.md 19:00 block), builder cli-slice-1 on it.
+- 2026-10-30 20:30: slice 1 CLOSED (parts 1 and 2), PROVEN by the head's own re-run of commit 82bc2f8: staging `status` green,
+  `verify` lead 12 / walls 5 / people 15 all PASS, 0 leads left; local run 168 of 168, mutants 83 of 83 caught. Proof lines in
+  PROGRESS.md "Migration 6 and CLI part 2", "Head's re-run". Builder cli-slice-1 discarded. Charter finding sent up: the builder
+  edited `supabase/tests/local-shim.sql` before `supabase/` was reserved (committed, green, not reverted). Next: slice 2 on release.

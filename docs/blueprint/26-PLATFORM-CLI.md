@@ -121,3 +121,10 @@ is `TEST_STAFF_TOTP_SECRET` in the env file, the code is computed in the CLI). `
 those sessions (owner B reads A's leads: 0 rows, member A1 sees only their own, nobody sees none, keys hidden from owners and members,
 staff see leads and keys only at aal2, an owner cannot update a lead status directly, a login calling a service function is refused).
 Still waiting for the slice 2 functions: member A1 updates A2's lead, member A1 publishes A2's listing, add-lead by a member.
+**Slice 1 closed (2026-10-30 20:30, CLI department head, own re-run of commit 82bc2f8):** on staging `status` green (6 applied,
+`capture-lead` deployed), `verify --only lead` 12 of 12, `--only walls` 5 of 5, `--only people` 15 of 15, 0 leads left; locally
+`test/run.mjs` 168 of 168 and `test/mutate.mjs` 83 of 83 caught. Everything in sections 2, 3 and 4 that does not need a slice 2 or 3
+function is now PROVEN over HTTP against the real project. Known and accepted: a paused site answers 500 (S-SITE-PAUSED not visible;
+`verify` checks "not 202 and nothing stored"); `mfa enroll-staff` removing a stale factor ran only against the model. Builder briefs
+for the next slices live in `tools/omnikom-cli/briefs/` (slice 2 waits for build step 4; the stand-in flows wait for slice 2 and
+`push-lead`; slice 3 waits for steps 6 and 7).

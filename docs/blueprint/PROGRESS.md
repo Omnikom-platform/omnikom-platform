@@ -39,6 +39,14 @@ then corrected by an independent fact-check (72 claims) and an independent M1 dr
   got `noMfa`; both re-run and caught); `run-all-gates.mjs`: `all gates passed` (the auth.users shim gained the GoTrue columns).
   NOT DONE / UNPROVEN: `mfa enroll-staff` removing a stale factor (the path with `removedFactors > 0`) ran only against the model, not on staging;
   the slice 2 checks (lead-update, publish, add-lead) wait for those functions.
+- **Head's re-run (2026-10-30 20:18-20:30, CLI department head, Rule 2; commit 82bc2f8 as pushed, this checkout).** Through
+  `with-env` + `omnikom ... --target staging`: `status` = reachable, 6 applied / 0 pending / 0 mismatched, `capture-lead` deployed, 4 key
+  names present, exit 0; `verify --only walls` = `passed 5 failed 0 exit 0` (406, 406, 401, 401, 401); `verify --only people` = `passed 15
+  failed 0 exit 0`, every line PASS as listed above (owner PATCH 403, service function 406); `verify --only lead` = `passed 12 failed 0
+  exit 0` (202; retry 1 row and 1 alert; 400; 401 x5; 404; 405; paused site 500 and 0 rows); `lead list --as owner-a` after = 0 rows.
+  No token or key in any output. Local: `test/run.mjs` = `OK: 168 of 168 checks passed`, exit 0; `test/mutate.mjs` = `83 mutants, 83 caught, 0 survived, 0 target text missing`, exit 0.
+  ACCEPTED: slice 1 (parts 1 and 2) is closed. Charter finding passed up: the builder edited `supabase/tests/local-shim.sql` (GoTrue
+  columns on the auth.users shim) before the charter reserved `supabase/`; committed and green, recorded, not reverted.
 
 ## Step 2: the first lead, through the CLI on test workspaces A and B, to staging, to the owner's inbox (2026-10-30 17:15-18:20, step-2-lead-proof session)
 Every command ran as `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs <command> --target staging`;

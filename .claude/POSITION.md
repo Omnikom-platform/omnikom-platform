@@ -363,7 +363,7 @@
 - Adopted builder cli-slice-1 (reports here). Its part 2 landed as 82bc2f8 on backup-gh master. Re-run myself (Rule 2) through
   `with-env` + `omnikom ... --target staging`: `status` green (6 applied, capture-lead deployed, 4 key names); `verify --only walls`
   5 of 5, `--only people` 15 of 15, `--only lead` 12 of 12, all exit 0; `lead list --as owner-a` after = 0. Local `test/run.mjs` 168 of
-  168; `test/mutate.mjs` MUTATE_SHORT. SLICE 1 CLOSED and ACCEPTED. Proof lines: PROGRESS.md "Head's re-run".
+  168; `test/mutate.mjs` 83 of 83 caught. SLICE 1 CLOSED and ACCEPTED. Proof lines: PROGRESS.md "Head's re-run".
 - Head work: builder briefs written in `tools/omnikom-cli/briefs/` (slice 2 functions, stand-in flows, slice 3 placeholder; each with
   the spec section, the gate commands, the five rules of spec section 5, "finding, not a fix"); `26-PLATFORM-CLI.md` section 7 closed
   for slice 1; charter open items and position log updated. NOT started: slice 2 waits for build step 4's functions on staging.
