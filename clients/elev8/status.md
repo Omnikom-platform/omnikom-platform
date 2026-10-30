@@ -32,10 +32,11 @@
 
 ## Open items (who holds each)
 - Alex (via Dave): the Launch Information Request answers (Q1 to Q11), the agreement, which lines of business get their own site.
-- Owner: the three split questions in `sites.md` (workspace shape, what moves, what is shared); the look-folder sign-off at build step 4; the production project, domain and endpoint swap at steps 6 and 7 (owner's click, DECISIONS 30).
+- Owner: decided 2026-10-30 21:58 "A workspace per site"; what moves and what is shared "we will determine after a meeting" (the client meeting; the owner brings the words back to this department); the look-folder sign-off at build step 4; the production project, domain and endpoint swap at steps 6 and 7 (owner's click, DECISIONS 30).
 - Platform build: `brokerOfRecord` on the team collection (launch block 10); live `captureLead` behind the site (block 3). Both are findings for the head of operations, not this department's work.
 - Known gaps in the draft: C124 (home_value title suffix, the owner's rows.json); WG-2 wasted CSS 11.7 KiB gzip on the home desktop sheet vs the 8 KiB rule (one PageSpeed flag); Fairfield city page at 97 by the owner's "Accept 97".
 - Film "The Signal Finds You": on hold (owner).
 
 ## Last updated
 - 2026-10-30: record created by the Clients head (slice 1) from `E:\Alex Sevilla` read-only; the split recorded in `sites.md` as waiting for the agreement.
+- 2026-10-30 21:58: the owner's answers written into `decisions.md` and `sites.md` (workspace per site; pages and sharing after the client meeting).

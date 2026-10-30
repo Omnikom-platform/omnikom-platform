@@ -13,7 +13,7 @@ in sections 2 to 4 is built, planned with the search engine, or promised to the 
 ## Workspace (the platform side)
 | Item | Value | Source |
 |---|---|---|
-| Platform workspace(s) | One workspace ("ELEV8 Real Estate Group") is the expected first client workspace; whether the split means one workspace with two or three sites or separate workspaces is question A in section 5. The data model allows both: a workspace holds several sites, every table is walled per workspace, leads are listed per site (`13-DATA-MODEL.md` section 0 and 4; `15-CRM.md` "Leads per site") | `docs/blueprint/13-DATA-MODEL.md`; `docs/blueprint/15-CRM.md` line 113 |
+| Platform workspace(s) | DECIDED by the owner 2026-10-30 21:58: "A workspace per site". Each site below is its own platform workspace with its own dashboard owner, lead inbox and bill: "ELEV8 Real Estate Group" (the real-estate site), the cash-offer site's workspace, the mortgage site's workspace if that site is agreed. A person who works on two lines (Alex, Sunny) is a member of two workspaces (`13-DATA-MODEL.md` section 3: "One person can be in several workspaces"). The data model needs no change for this; the question whether a site can later move between workspaces falls away | `clients/elev8/decisions.md` 2026-10-30 21:58; `docs/blueprint/13-DATA-MODEL.md` sections 0 and 3 |
 | Dashboard owner(s) and members | unknown until the agreement (Q9 of the Launch Information Request asks who gets lead alerts; the dashboard login is the next question) | `deliverables\questions-for-alex.md` Q9 |
 | Lead inbox routing | per site in the inbox (leads carry `site_id`); who at ELEV8 answers which site's leads is unknown | `docs/blueprint/15-CRM.md` |
 | Add-ons | none bought; the OmniSuite follow-up and voice agent are rented add-ons (DECISIONS 1, 12); the listings feed (`docs/listings/`) is researched, not offered | `planning/DECISIONS.md` 1, 12; `docs/listings/REQUIREMENTS.md` |
@@ -72,15 +72,15 @@ in sections 2 to 4 is built, planned with the search engine, or promised to the 
 | Status | waiting for the agreement (and the owner's answer whether this is the third site or stays a page on ELEV8) | owner 2026-10-30 21:32 ("2 or 3 websites") |
 | Where the work is | nothing yet | |
 
-## 5. Questions put to the owner (2026-10-30; answers go to `decisions.md` the same turn)
-A. **Workspace shape.** One platform workspace holding two or three sites (one dashboard, one lead inbox filtered per site, one
-bill), or a workspace per site (separate logins, inboxes, bills). Recommendation: one workspace while the same people own all
-three lines; a site can be moved to its own workspace later (a `workspace_id` change plus its leads and keys: a platform
-task, not a rebuild). If the mortgage line is Better Rate Mortgage's business rather than ELEV8's, that one is the candidate
-for its own workspace.
+## 5. Questions put to the owner (2026-10-30 21:58; answers recorded in `decisions.md` the same turn)
+A. **Workspace shape.** Asked: one platform workspace holding two or three sites, or a workspace per site. ANSWERED: "A
+workspace per site" (the Workspace table above is updated).
 B. **What moves.** Recommendation as written in sections 2 to 4: the 9 sell-my-house-fast pages and the Cash tab to the
 cash-offer site; `/financing` and the home-finder's financing hand-off to the mortgage site; everything else stays on ELEV8.
+ANSWERED: "We will determine after a meeting". Sections 2 to 4 stay a recommendation, not a decision, until then.
 C. **What is shared.** Recommendation: people and licences (Alex on ELEV8 and the cash site; Sunny on ELEV8 and the mortgage
 site), the office address and phones, cross-links between the sites, one design family; NOT shared: the ELEV8 brand name and
 logo (each site its own name), reviews unless about that line, and no cross-claims (ELEV8 does not lend or buy unless Q3 / Q4
-say so).
+say so). ANSWERED: "We will determine after meeting". Same standing as B.
+Next step for this file: after the meeting with the client, the owner's words on B and C go into `decisions.md` and sections
+2 to 4 become decided rows (slice 3 of the charter).

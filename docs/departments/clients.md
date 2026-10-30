@@ -90,3 +90,7 @@ options, never a fix made here.
   "OK: 1 client record(s) complete: elev8"; `node clients/test/run.mjs` -> "PASS clients tests: 6 of 6" (5 mutants red for
   the right reason; the first run caught a real parser bug: the README separator row read as a slug). `tools/departments/check.mjs`
   -> "OK: 5 charter(s) valid". OPEN: the owner's answers to the three split questions (asked this turn as pickable options).
+- 2026-10-30 21:58 (head): OWNER ANSWERED: workspace shape "A workspace per site"; what moves and what is shared "We will
+  determine after a meeting". Written into `clients/elev8/decisions.md` and `sites.md` the same turn. Slice 1 CLOSED; the
+  split's page and sharing decisions wait on the client meeting (slice 3 trigger). Finding (2) above (moving a site between
+  workspaces) falls away. Next: slice 2.
