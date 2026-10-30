@@ -7,7 +7,7 @@
 //   5 the same signature after 301 s is refused (401)      6 no signature is refused (401)
 //   7 a garbled signature is refused (401)                 8 an unknown site id is refused (401), a malformed one is 404
 //   9 a lead to a paused site is not stored                10 GET is refused (405)
-import { Usage } from '../lib/errors.mjs';
+import { Usage, Blocked } from '../lib/errors.mjs';
 import { uuidLit } from '../lib/sql.mjs';
 import { result } from '../lib/ctx.mjs';
 import { parseIdentity, machineKey } from '../lib/identity.mjs';
@@ -17,7 +17,8 @@ import { loadFixture } from '../lib/fixtures.mjs';
 export async function verify(ctx) {
   const f = ctx.flags;
   const only = f.only || 'lead';
-  if (only !== 'lead') throw new Usage("verify --only lead (the only suite in slice 1; it grows with the functions)");
+  if (only === 'walls') return verifyWalls(ctx);
+  if (only !== 'lead') throw new Usage('verify --only lead | walls (the suites grow with the functions)');
   const target = ctx.target();
   const a = ctx.site(f['site-a'] || 'test-demo-a');
   const b = ctx.site(f['site-b'] || 'test-demo-b');
@@ -82,4 +83,51 @@ export async function verify(ctx) {
   const lines = checks.map(c => `${c.pass ? 'PASS' : 'FAIL'} ${c.name} (expected ${c.expected}, got ${c.status}${c.extra ? ', ' + c.extra : ''})`);
   const failed = checks.filter(c => !c.pass).length;
   return result(failed === 0, failed === 0 ? 'ok' : 'VERIFY-FAILED', { suite: only, passed: checks.length - failed, failed, lines, checks });
+}
+
+// verify --only walls   what the Data API does with callers who are nobody (spec section 4: "anon calls a service function").
+// Needs only the project's PUBLISHABLE key (an anon caller), read by name; no login, nothing is written.
+// WAITING (not faked): every check that needs a person's session token (owner B reads A's leads, member A1 sees only own leads,
+// nobody sees nothing) is BLOCKED until the seeded logins can sign in (lib/identity.mjs personToken); the checks that need the
+// slice 2 functions (lead-update, publish, add-lead) wait for those functions.
+export const WALLS_WAITING = [
+  'owner B reads A\'s leads -> 0 rows (needs a person token)',
+  'member A1 sees only their own leads (needs a person token)',
+  'nobody sees nothing (needs a person token)',
+  'member A1 updates A2\'s lead -> S-NOT-FOUND (needs the lead-update function)',
+  'member A1 publishes A2\'s listing -> S-OWN-ONLY (needs the publish function)',
+];
+async function verifyWalls(ctx) {
+  const target = ctx.target();
+  if (!target.restBase) throw new Blocked('no Data API URL for this target (staging needs STAGING_SUPABASE_REF; local needs LOCAL_REST_BASE)', 'set the variable by name');
+  const keyVar = target.vars.publishableKey;
+  const anon = ctx.env[keyVar];
+  if (!anon) throw new Blocked(`${keyVar} is not set (the anon key of the project, read by name)`, `set ${keyVar} in the environment`);
+  const call = async (path, { method = 'GET', headers = {}, body } = {}) => {
+    try {
+      const res = await ctx.fetch(target.restBase.replace(/\/$/, '') + path, { method, headers: { apikey: anon, ...headers }, body, signal: AbortSignal.timeout(30000) });
+      const text = await res.text();
+      let json = null; try { json = JSON.parse(text); } catch { /* not JSON */ }
+      return { status: res.status, json, text };
+    } catch (e) { return { status: 0, json: null, text: '' }; }
+  };
+  const checks = [];
+  const add = (name, expected, status, pass) => checks.push({ name, expected, status, pass: Boolean(pass), extra: '' });
+  const refused = s => s === 401 || s === 403 || s === 404 || s === 406;   // a Data API refusal: no login, no function, schema not exposed
+  const empty = r => r.status === 200 && Array.isArray(r.json) && r.json.length === 0;
+
+  let r = await call('/rpc/capture_lead', { method: 'POST', headers: { 'content-type': 'application/json', 'content-profile': 'service' }, body: '{}' });
+  add('anon calling a service function is refused', '401/403/404/406', r.status, refused(r.status));
+  r = await call('/rpc/lead_update', { method: 'POST', headers: { 'content-type': 'application/json', 'content-profile': 'service' }, body: '{}' });
+  add('anon calling service.lead_update is refused', '401/403/404/406', r.status, refused(r.status));
+  r = await call('/leads?select=id&limit=1');
+  add('anon reading leads gets nothing', '401/403 or 0 rows', r.status, refused(r.status) || empty(r));
+  r = await call('/api_keys?select=id&limit=1');
+  add('anon reading the key registry gets nothing', '401/403 or 0 rows', r.status, refused(r.status) || empty(r));
+  r = await call('/sites?select=id&limit=1');
+  add('anon reading sites gets nothing', '401/403 or 0 rows', r.status, refused(r.status) || empty(r));
+
+  const lines = checks.map(c => `${c.pass ? 'PASS' : 'FAIL'} ${c.name} (expected ${c.expected}, got ${c.status})`);
+  const failed = checks.filter(c => !c.pass).length;
+  return result(failed === 0, failed ? 'VERIFY-FAILED' : 'ok', { suite: 'walls', passed: checks.length - failed, failed, lines, checks, waiting: WALLS_WAITING });
 }

@@ -244,8 +244,8 @@ Vault name (for keys we present to others, like deploy tokens).
 | Column | Meaning | Written by |
 |---|---|---|
 | `id` | key id | database |
-| `workspace_id` | empty for platform-wide keys (runner key, cron secret) | staff |
-| `site_id` | set for per-site keys (lead signing key, deploy token) | staff |
+| `workspace_id` | empty for platform-wide keys (runner key, cron secret); a per-site key carries its site's workspace too (so staff see the registry per workspace) | staff |
+| `site_id` | set for per-site keys (lead signing key, deploy token). The lookup `service.active_key(kind, site)` is by site alone: the workspace narrows it only when given (migration 6; before it, a site key stored with its workspace was never found, found on staging 2026-10-30) | staff |
 | `kind` | `site-signing`, `deploy-token`, `runner`, `cron`, `crm-webhook`, `omnisuite`, `client-api` (a client's own key to read its leads by API, later) | staff |
 | `label` | plain name shown to staff ("ELEV8 production lead key") | staff |
 | `key_hash` | SHA-256 of the key, for kinds we verify ourselves; empty otherwise | the issuing function |

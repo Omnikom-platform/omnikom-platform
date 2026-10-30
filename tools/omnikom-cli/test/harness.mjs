@@ -49,12 +49,12 @@ export async function cli(argv, env, deps = {}) {
 }
 
 // A MODEL of supabase/functions/capture-lead/index.ts (the TS file needs Deno and Postgres on a project): same order of checks
-// (method, site id, signature against the site's keys, JSON, consent, then service.capture_lead). With `naive`, the signature
+// (method, site id, signature against the site's keys read from the database through service.active_key and the Vault view, JSON, consent, then service.capture_lead). With `naive`, the signature
 // check is skipped: a broken function that `verify` must catch. With `dropIdem`, the idempotency key is dropped: a retry stores a
 // second row (the other broken function the CLI must catch). Like the function, the model records one new-lead alert per lead
 // in `messages` (service.record_message, to the site's lead_alert_to); with `doubleAlert` it alerts on every call, so a retry
 // alerts twice (the bug found on 2026-10-30; the function dedupes on messages.lead_id + template).
-export async function makeFunctionModel({ makeSql, dbUrl, keys, naive = false, dropIdem = false, doubleAlert = false }) {
+export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIdem = false, doubleAlert = false }) {
   const { verify } = await import(pathToFileURL(join(REPO_ROOT, 'supabase', 'functions', '_shared', 'signature.ts')).href);
   const sql = makeSql({ url: dbUrl });
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -70,7 +70,11 @@ export async function makeFunctionModel({ makeSql, dbUrl, keys, naive = false, d
     const body = init.body || '';
     const path = u.pathname.replace(/^\/functions\/v1/, '') + u.search;
     let ok = naive;
-    for (const k of keys[site.toLowerCase()] || []) if (await verify((init.headers || {})['x-site-signature'] || null, k, 'POST', path, body)) ok = true;
+    // the keys come from the database exactly as the function reads them (index.ts): service.active_key joined to the Vault view.
+    // (until 2026-10-30 the model held the keys in memory and never asked the lookup: a lookup that finds nothing passed every test)
+    const found = sql.rows(`select s.decrypted_secret as secret from service.active_key('site-signing', ${lit(site)}::uuid) k join vault.decrypted_secrets s on s.name = k.vault_ref`);
+    if (!found.ok) return reply(500, { problems: [{ code: 'SERVER' }] });
+    for (const k of found.rows) if (await verify((init.headers || {})['x-site-signature'] || null, k.secret, 'POST', path, body)) ok = true;
     if (!ok) return reply(401, { problems: [{ code: 'SIGNATURE' }] });
     let d;
     try { d = JSON.parse(body); } catch { return reply(400, { problems: [{ code: 'BODY' }] }); }

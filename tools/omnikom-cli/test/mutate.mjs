@@ -84,6 +84,13 @@ const MUTANTS = [
   ['key mint writes without an env file to receive the value (both layers)', 'commands/key.mjs', [['if (!dry && (!envFile || !existsSync(envFile))) throw new Blocked(', 'if (false) throw new Blocked('], ["if (!dry) { try { accessSync(envFile, constants.W_OK); } catch { throw new Blocked('the env file is not writable', 'fix the file permissions'); } }", '']], null, 'db'],
   ['seed workspace accepts an invalid contract', 'commands/seed.mjs', 'if (problems.length) return result(false, problems[0].code, { problems: problems.slice(0, 20), total: problems.length });', '', 'db'],
   ['status ignores a changed migration', 'commands/status.mjs', 'const ok = mismatched.length === 0;', 'const ok = true;', 'db'],
+  // ---- what key mint stores is what the function's lookup finds (the model reads service.active_key + the Vault view)
+  ['key mint registers the key without its site', 'commands/key.mjs', "select s.id, s.workspace_id, 'site-signing'", "select null, s.workspace_id, 'site-signing'", 'db'],
+  ['key mint registers a Vault name that does not exist', 'commands/key.mjs', "${lit(hash)}, ${lit(vaultName)}, jsonb_build_object('site', s.id)", "${lit(hash)}, ${lit(vaultName + '-x')}, jsonb_build_object('site', s.id)", 'db'],
+  // ---- verify --only walls
+  ['walls: any answer from a service function counts as refused', 'commands/verify.mjs', 'const refused = s => s === 401 || s === 403 || s === 404 || s === 406;', 'const refused = s => true;', 'db'],
+  ['walls: rows returned to anon count as nothing', 'commands/verify.mjs', "const empty = r => r.status === 200 && Array.isArray(r.json) && r.json.length === 0;", "const empty = r => r.status === 200;", 'db'],
+  ['walls: no anon key still runs', 'commands/verify.mjs', "  if (!anon) throw new Blocked(`${keyVar} is not set", "  if (false) throw new Blocked(`${keyVar} is not set", 'db'],
   // ---- verify keeps its promises
   ['verify exits 0 whatever failed', 'commands/verify.mjs', "result(failed === 0, failed === 0 ? 'ok' : 'VERIFY-FAILED', {", "result(true, 'ok', {", 'db'],
   ['verify does not check B\'s key', 'commands/verify.mjs', 'add("B\'s key on A\'s site is refused", \'401\', r.status, r.status === 401 && rows(L.idem) === 0);', 'add("B\'s key on A\'s site is refused", \'401\', r.status, true);', 'db'],

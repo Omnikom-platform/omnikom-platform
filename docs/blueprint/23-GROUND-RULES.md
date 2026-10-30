@@ -41,6 +41,10 @@ Nothing here is a certification of the platform; these are the published rule se
 12. Encryption, named precisely: in transit everywhere (TLS, HSTS on every site); at rest by the vendors (Supabase, R2);
     secrets only in Vault or the vendors' secret stores; application-level encryption of lead names, phones and emails is an
     owner decision (D16: it costs search and the lead list; the pattern is hashed lookup columns plus encrypted values).
+13. A fixture in a wall test is written the way the production tool writes it, or the test calls the tool; a model of a
+    function reads its inputs from the database the way the function does, never from values handed to it. (Found on staging
+    2026-10-30: the test inserted site keys without a workspace and the CLI's model of `capture-lead` held keys in memory, so
+    126 mutants and 138 checks stayed green while the deployed lookup found no key and answered 401.)
 
 ## 3. The gates (what runs, where, what it proves)
 | Gate | Rule(s) | What it checks | Where | Status |

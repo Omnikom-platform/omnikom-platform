@@ -4,6 +4,26 @@ Task: build-ready product engineering package (owner, 2026-10-28), raised to eng
 then corrected by an independent fact-check (72 claims) and an independent M1 dry run (31 issues), and by DECISIONS 15
 (no Docker; one Supabase account, staging + production). **Status: complete for owner review. Nothing committed.**
 
+## Migration 6 and CLI part 2 (2026-10-30 17:45-19:00, cli-slice-1 session; the lead's brief after the step 2 finding)
+- **Part 1, PROVEN.** `20261030000006_active_key_by_site.sql`: `service.active_key` matches a given site by `site_id` and narrows by the
+  workspace only when one is given; no site keeps the platform-wide behaviour. Tenancy test now writes site keys the way `key mint` does
+  (site AND workspace) plus another site's key, a revoked key and a key without a workspace. Watched red without the migration:
+  `ERROR:  a revoked key is dead; a site key stored with its workspace is found by the site alone (what capture-lead asks)`; with it
+  `PASS real migration: ALL TENANCY TESTS PASSED`, `OK: real migration passes; 129 mutants` (3 new, all caught: the old filter back,
+  the workspace not narrowing, a site key handed out for no site). The CLI's `capture-lead` model now reads keys from the database
+  (`service.active_key` joined to `vault.decrypted_secrets`, shimmed locally): `test/run.mjs` red without migration 6 (`lead send` 401,
+  `test walls` fails), green with it. `run-all-gates.mjs`: `all gates passed`. Staging: `apply` = `applied 1 of 6`, `status` 6 applied /
+  0 pending, read-only `active_key('site-signing', site A)` = 1 (was 0), with workspace 1, site B 1, no site 0.
+- **Part 2, partly PROVEN, partly BLOCKED.** `verify --only walls` on staging: 5 of 5 PASS (anon calling `service.capture_lead` and
+  `service.lead_update` through the Data API: 406; anon reading `leads`, `api_keys`, `sites`: 401). 406 means the service schema is not
+  exposed (a refusal, but not the execute grant being tested). BLOCKED: person tokens. Approach 1 `generate_link` (magiclink) for
+  `owner-a@test`: 500 `duplicate key ... users_email_partial_key` (GoTrue did not find the seeded user and tried to create it).
+  Approach 2 admin `PUT /auth/v1/admin/users/<seeded id>` then password grant: 404 `user_not_found`. Read-only cause: the seeded
+  `auth.users` rows have `aud`, `role`, `instance_id` and the token columns null. Staff would also need a TOTP factor for aal2, and
+  `nobody` (sub ...f0) has no `auth.users` row. Nothing changed on staging by these probes. Unblock: a decision on GoTrue-shaped seed rows.
+- Tests: `test/run.mjs` 145 of 145; `test/mutate.mjs` 67 mutants, 67 caught (66 in the full run, the 67th re-run after making its target
+  unique).
+
 ## Step 2: the first lead, through the CLI on test workspaces A and B, to staging, to the owner's inbox (2026-10-30 17:15-18:20, step-2-lead-proof session)
 Every command ran as `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs <command> --target staging`;
 the CLI redacts, no key or URL value appears below. Ids are the seeded fixture ids (`aaaaaaaa-...` = A, `bbbbbbbb-...` = B).

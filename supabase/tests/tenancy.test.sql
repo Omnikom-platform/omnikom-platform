@@ -347,17 +347,26 @@ select test.expect_error($q$select test.add_lead('bbbbbbbb-0000-0000-0000-000000
 select test.expect_error($q$select test.add_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'x', 'x@test', null, '{}', '')$q$, 'consent text required');
 reset role;
 -- api_keys: owners never see them, staff (aal2) do; a revoked key is dead
-insert into api_keys (site_id, kind, label, vault_ref) values ('aaaaaaaa-0000-0000-0000-00000000517e', 'site-signing', 'Demo A live key', 'site-demo-a-key-1');
-insert into api_keys (site_id, kind, label, vault_ref, revoked_at) values ('aaaaaaaa-0000-0000-0000-00000000517e', 'site-signing', 'Demo A old key', 'site-demo-a-key-0', now());
+-- written the way the production tools write a site key (omnikom key mint, tools/mint-site-key.mjs): site AND its workspace set
+-- (found 2026-10-30 on staging: this fixture had no workspace, so a green test hid that the deployed lookup found no real key)
+insert into api_keys (site_id, workspace_id, kind, label, key_hash, vault_ref) values ('aaaaaaaa-0000-0000-0000-00000000517e', 'aaaaaaaa-0000-0000-0000-000000000000', 'site-signing', 'Demo A live key', repeat('a', 64), 'site-demo-a-key-1');
+insert into api_keys (site_id, workspace_id, kind, label, key_hash, vault_ref, revoked_at) values ('aaaaaaaa-0000-0000-0000-00000000517e', 'aaaaaaaa-0000-0000-0000-000000000000', 'site-signing', 'Demo A old key', repeat('b', 64), 'site-demo-a-key-0', now());
 set role authenticated;
 select test.act_as('00000000-0000-0000-0000-00000000000a');
 do $$ begin assert (select count(*) from api_keys) = 0, 'owners never see api keys'; end $$;
 select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
 do $$ begin assert (select count(*) from api_keys) = 2, 'staff with MFA see the registry'; end $$;
 reset role;
+insert into api_keys (site_id, workspace_id, kind, label, key_hash, vault_ref) values ('bbbbbbbb-0000-0000-0000-00000000517e', 'bbbbbbbb-0000-0000-0000-000000000000', 'site-signing', 'Demo B live key', repeat('c', 64), 'site-demo-b-key-1');
+insert into api_keys (site_id, kind, label, key_hash, vault_ref) values ('bbbbbbbb-0000-0000-0000-00000000517e', 'site-signing', 'Demo B key without a workspace', repeat('d', 64), 'site-demo-b-key-0');   -- the shape of a key stored before workspaces were written: still found by its site
 do $$ begin
-  assert (select count(*) from service.active_key('site-signing', 'aaaaaaaa-0000-0000-0000-00000000517e')) = 1, 'a revoked key is dead';
+  assert (select count(*) from service.active_key('site-signing', 'aaaaaaaa-0000-0000-0000-00000000517e')) = 1, 'a revoked key is dead; a site key stored with its workspace is found by the site alone (what capture-lead asks)';
   assert (select vault_ref from service.active_key('site-signing', 'aaaaaaaa-0000-0000-0000-00000000517e')) = 'site-demo-a-key-1', 'the live key is the one handed out';
+  assert (select array_agg(vault_ref order by vault_ref) from service.active_key('site-signing', 'bbbbbbbb-0000-0000-0000-00000000517e')) = array['site-demo-b-key-0', 'site-demo-b-key-1'], 'another site''s keys are handed out for that site only, with or without a workspace';
+  assert (select count(*) from service.active_key('site-signing', 'aaaaaaaa-0000-0000-0000-00000000517e') where vault_ref = 'site-demo-b-key-1') = 0, 'another site''s key never comes back';
+  assert (select count(*) from service.active_key('site-signing', 'aaaaaaaa-0000-0000-0000-00000000517e', 'aaaaaaaa-0000-0000-0000-000000000000')) = 1, 'a workspace given narrows the lookup, it does not widen it';
+  assert (select count(*) from service.active_key('site-signing', 'aaaaaaaa-0000-0000-0000-00000000517e', 'bbbbbbbb-0000-0000-0000-000000000000')) = 0, 'a site key is not handed out under another workspace';
+  assert (select count(*) from service.active_key('site-signing', null)) = 0, 'no site given: platform-wide keys only, never a site key (even one stored without a workspace)';
 end $$;
 
 -- ===== T13 expansion blocks: add-ons, bookings, messages, webhook inbox, CRM templates =====

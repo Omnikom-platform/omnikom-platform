@@ -109,3 +109,7 @@ the same day: a retried submission made the function alert the client twice (`se
 returned the existing lead id; `service.record_message` has no per-lead dedupe). The function now skips the alert when a
 `messages` row (that lead, template `new-lead`) exists; `verify` gained check "a retry sends no second alert" (11 checks), the
 test model records alerts like the function (`doubleAlert` = the bug, caught by the suite), and a mutant removes the check.
+**Part 2 (2026-10-30, after migration 6):** `verify --only walls` exists (anon callers of the Data API; 5 checks, proven on staging).
+Person tokens over HTTP are BLOCKED: the seeded `auth.users` rows have `aud`, `role`, `instance_id` and the token columns null, so
+GoTrue cannot find them (`generate_link` 500 `users_email_partial_key`; admin `PUT /users/<id>` 404 `user_not_found`). The two
+candidate calls named in section 2 are therefore both refused as things stand; unblock = `seed test` writes GoTrue-shaped rows.

@@ -21,14 +21,15 @@ Secrets never leave the program: stdout and stderr pass `lib/redact.mjs`; psql g
 | `content save/get/history --as person` | contract_for + validator + `service.save_as`; reads through RLS |
 | `publish --as person --site s --rows ids`, `job get/wait/set` | `service.start_publish`; `job set` stands in for the runner on the SQL path |
 | `verify --only lead` | 10 checks of `capture-lead` over HTTP, one PASS/FAIL line each on stderr, exit 1 on any FAIL |
+| `verify --only walls` | 5 checks of the Data API as anon (service functions refused, leads / key registry / sites give nothing); needs only the publishable key. Person checks are listed under `waiting` |
 
 Identities: `owner-a owner-b member-a1 member-a2 staff nobody` (claims on the SQL path), `site:<slug>` (`SITE_SIGNING_KEY_<SLUG>`), `runner` (`RUNNER_KEY`), `cron` (`CRON_SECRET`).
 Production runs only `status` (read-only connection) and `apply --i-mean-production`; every other command is refused (exit 3) before anything is spawned.
 Fixtures live in `fixtures/` and are synthetic (example.com, 555); anything else needs `--real` and prints a warning.
 
-## BLOCKED until a staging project exists
-- **Person identities over HTTP** (a session token for `owner-a` ...): which Auth admin call returns a usable token without email is UNVERIFIED (`generateLink` + `verifyOtp`, or a password on the test users). `lib/identity.mjs personToken` says BLOCKED.
-- **`lead send` / `verify` / `status` functions column against a real project**: proven only against a MODEL of `capture-lead` over a fake fetch on a throwaway cluster (`test/harness.mjs`), not the deployed function. `seed test` on Supabase inserts into `auth.users` by `(id, email)`: UNVERIFIED there. `key mint` needs the real `vault.create_secret` (a model is used locally).
+## BLOCKED
+- **Person identities over HTTP** (a session token for `owner-a` ...): BLOCKED, measured on staging 2026-10-30. `seed test` inserts `auth.users` by `(id, email)`; aud, role, instance_id and the token columns stay null and GoTrue filters on them: `generate_link` answered 500 `users_email_partial_key`, admin `PUT /users/<id>` answered 404 `user_not_found`. Unblocked by a decision on GoTrue-shaped seed rows (the lead); `staff` also needs a TOTP factor for aal2. Waiting, not faked: owner B reads A's leads, member A1 sees own leads only, nobody sees nothing (need a token); lead-update, publish, add-lead checks (need the slice 2 functions).
+- **`lead send` / `verify --only lead` against the deployed function**: the model of `capture-lead` (`test/harness.mjs`) reads keys the way the function does (`service.active_key` joined to the Vault view), but the deployed run belongs to the step 2 session. `key mint` and `seed test` were observed working on staging (the `(id, email)` insert and `vault.create_secret` through the pooler).
 - Slice 2 (function paths for save, publish, export, job callback, lead update, add lead) and slice 3 (`onboard`) are not built.
 
 ## Tests

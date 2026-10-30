@@ -79,7 +79,7 @@ async function units() {
   check('identity: an unknown name is a usage error; a machine has no claims', throws(() => parseIdentity('root'), Usage) && throws(() => claimsFor(parseIdentity('runner')), Usage));
   let m; try { machineKey(parseIdentity('runner'), {}); } catch (x) { m = x; }
   check('identity: a missing machine key is BLOCKED and names the variable', m instanceof Blocked && m.message.includes('RUNNER_KEY'));
-  check('identity: person tokens are BLOCKED until a staging project exists', throws(() => personToken(parseIdentity('owner-a')), Blocked));
+  check('identity: person tokens are BLOCKED (staging GoTrue cannot see the seeded logins)', throws(() => personToken(parseIdentity('owner-a')), Blocked));
   const tenancy = readFileSync(join(REPO_ROOT, 'supabase', 'tests', 'tenancy.test.sql'), 'utf8');
   const { WS_A, WS_B, SITE_A, SITE_B, TEST_CONTRACT } = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'seed.mjs')).href);
   check('seed test: ids, emails and logins are the ones in tenancy.test.sql',
@@ -297,7 +297,7 @@ async function database() {
     const siteA = db.query("select id from sites where deploy_target = 'test-site-demo-a'"), siteB = db.query("select id from sites where deploy_target = 'test-site-demo-b'");
     const keyOf = v => readFileSync(envFile, 'utf8').match(new RegExp(`${v}=([0-9a-f]{64})`))[1];
     const keyA = keyOf('SITE_SIGNING_KEY_TEST_DEMO_A'), keyB = keyOf('SITE_SIGNING_KEY_TEST_DEMO_B');
-    const model = await makeFunctionModel({ makeSql, dbUrl: db.url, keys: { [siteA]: [keyA], [siteB]: [keyB] } });
+    const model = await makeFunctionModel({ makeSql, dbUrl: db.url });
     const sendEnv = { SITE_SIGNING_KEY_TEST_DEMO_A: keyA, SITE_SIGNING_KEY_TEST_DEMO_B: keyB, LOCAL_FUNCTIONS_BASE: 'https://fn.example.test/functions/v1' };
     const rkey = '9d5f9c7a-0000-4000-8000-00000000c0de';
     r = await run(['lead', 'send', ...T, '--site', 'test-demo-a', '--retry', '--key', rkey, '--expect', '202'], sendEnv, { fetch: model });
@@ -307,7 +307,7 @@ async function database() {
     check('lead send: a retry in a later run with --key still stores nothing more', r.exit === 0 && db.query(`select count(*) from leads where idempotency_key = '${rkey}'`) === '1');
     r = await run(['lead', 'send', ...T, '--site', 'test-demo-a', '--expect', '401'], { ...sendEnv, SITE_SIGNING_KEY_TEST_DEMO_A: keyB }, { fetch: model });
     check("lead send: B's key on A's site is 401, and --expect 401 passes", r.exit === 0 && r.json.code === '401');
-    const dropModel = await makeFunctionModel({ makeSql, dbUrl: db.url, keys: { [siteA]: [keyA], [siteB]: [keyB] }, dropIdem: true });
+    const dropModel = await makeFunctionModel({ makeSql, dbUrl: db.url, dropIdem: true });
     r = await run(['lead', 'send', ...T, '--site', 'test-demo-a', '--retry', '--key', '9d5f9c7a-0000-4000-8000-00000000d0d0'], sendEnv, { fetch: dropModel });
     check('lead send --retry: a platform that stores the retry again is reported (exit 1, RETRY-STORED-n)', r.exit === 1 && /^RETRY-STORED-/.test(r.json.code), r.all.slice(0, 200));
     db.query("delete from leads where idempotency_key is null and page_path = '/omnikom-cli-test'");
@@ -398,20 +398,42 @@ async function database() {
     check('verify --only lead: every check PASSes against the function model', r.exit === 0 && r.json.data.failed === 0 && r.json.data.checks.length >= 10 && /^PASS /.test(r.stderr), r.all.slice(0, 600));
     check('verify: one line per check on stderr, the real status in it', r.stderr.trim().split('\n').length === r.json.data.checks.length && /got 202/.test(r.stderr));
     check('verify: the paused-site check put the site state back and removed its leads', db.query("select state::text from sites where deploy_target = 'test-site-demo-a'") === 'preview' && db.query("select count(*) from leads where page_path = '/omnikom-cli-test'") === '1');
-    const naive = await makeFunctionModel({ makeSql, dbUrl: db.url, keys: { [siteA]: [keyA], [siteB]: [keyB] }, naive: true });
+    const naive = await makeFunctionModel({ makeSql, dbUrl: db.url, naive: true });
     r = await run(['verify', ...T, '--only', 'lead'], sendEnv, { fetch: naive });
     check('verify: a function that accepts any signature FAILs (exit 1) on the signature checks', r.exit === 1 && r.json.code === 'VERIFY-FAILED' && r.json.data.checks.filter(c => !c.pass).map(c => c.name).join('|').includes("B's key") && /^FAIL /m.test(r.stderr), r.stderr.slice(0, 600));
-    const dropped = await makeFunctionModel({ makeSql, dbUrl: db.url, keys: { [siteA]: [keyA], [siteB]: [keyB] }, dropIdem: true });
+    const dropped = await makeFunctionModel({ makeSql, dbUrl: db.url, dropIdem: true });
     r = await run(['verify', ...T, '--only', 'lead'], sendEnv, { fetch: dropped });
     check('verify: a function that stores a retry twice FAILs only the idempotency check', r.exit === 1 && r.json.data.checks.filter(c => !c.pass).map(c => c.name).join('|') === 'the same idempotency key twice stores one row', r.stderr.slice(0, 600));
     db.query("delete from leads where idempotency_key is null and page_path = '/omnikom-cli-test'");
-    const chatty = await makeFunctionModel({ makeSql, dbUrl: db.url, keys: { [siteA]: [keyA], [siteB]: [keyB] }, doubleAlert: true });
+    const chatty = await makeFunctionModel({ makeSql, dbUrl: db.url, doubleAlert: true });
     r = await run(['verify', ...T, '--only', 'lead'], sendEnv, { fetch: chatty });
     check('verify: a function that alerts again on a retry FAILs only the alert check', r.exit === 1 && r.json.data.checks.filter(c => !c.pass).map(c => c.name).join('|') === 'a retry sends no second alert', r.stderr.slice(0, 600));
     r = await run(['verify', ...T, '--only', 'lead'], { ...sendEnv, SITE_SIGNING_KEY_TEST_DEMO_B: '' }, { fetch: model });
     check("verify: no key for site B in the environment is BLOCKED (exit 3)", r.exit === 3);
     r = await run(['verify', ...T, '--only', 'job']);
     check('verify: an unknown suite is a usage error', r.exit === 2);
+
+    // ---- verify --only walls: anon callers of the Data API (a model of PostgREST over a fake fetch)
+    const anonKey = `sb_publishable_${rand(12)}`;
+    const wallsEnv = { LOCAL_REST_BASE: 'https://rest.example.test/rest/v1', LOCAL_SUPABASE_PUBLISHABLE_KEY: anonKey };
+    const postgrest = ({ openRpc = false, openRows = false } = {}) => async (url, init = {}) => {
+      const u = new URL(url);
+      const json = (status, obj) => new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
+      if (init.headers && init.headers.apikey !== anonKey) return json(401, { message: 'No API key found' });
+      if (u.pathname.includes('/rpc/')) return openRpc ? json(200, { id: 'x' }) : json(406, { code: 'PGRST106' });
+      return openRows ? json(200, [{ id: 'row' }]) : json(401, { code: '42501' });
+    };
+    r = await run(['verify', ...T, '--only', 'walls'], wallsEnv, { fetch: postgrest() });
+    check('verify --only walls: a Data API that refuses anon passes, and the person checks are listed as waiting', r.exit === 0 && r.json.data.failed === 0 && r.json.data.checks.length === 5 && r.json.data.waiting.length >= 5 && /^PASS /.test(r.stderr), r.all.slice(0, 400));
+    r = await run(['verify', ...T, '--only', 'walls'], wallsEnv, { fetch: postgrest({ openRpc: true }) });
+    check('verify --only walls: a service function that answers anon FAILs (exit 1)', r.exit === 1 && r.json.data.checks.filter(c => !c.pass).map(c => c.name).join('|') === 'anon calling a service function is refused|anon calling service.lead_update is refused', r.stderr.slice(0, 400));
+    r = await run(['verify', ...T, '--only', 'walls'], wallsEnv, { fetch: postgrest({ openRows: true }) });
+    check('verify --only walls: a table that returns rows to anon FAILs (exit 1)', r.exit === 1 && r.json.data.checks.filter(c => !c.pass).length === 3, r.stderr.slice(0, 400));
+    r = await run(['verify', ...T, '--only', 'walls'], { ...wallsEnv, LOCAL_SUPABASE_PUBLISHABLE_KEY: '' }, { fetch: postgrest() });
+    check('verify --only walls: no anon key in the environment is BLOCKED (exit 3)', r.exit === 3);
+    r = await run(['verify', ...T, '--only', 'walls'], { LOCAL_SUPABASE_PUBLISHABLE_KEY: anonKey }, { fetch: postgrest() });
+    check('verify --only walls: no Data API URL is BLOCKED (exit 3)', r.exit === 3);
+    check('hygiene: the anon key is in no output of the walls runs', everything.every(o => !o.includes(anonKey)));
 
     // ---- seed test --clean: a login that a real workspace still references (the staff actor of elev8) stays, and is reported
     r = await run(['seed', 'test', ...T, '--clean']);

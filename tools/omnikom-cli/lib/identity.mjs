@@ -4,7 +4,7 @@
 //   Person identities: owner-a, member-a1, member-a2, owner-b, staff, nobody: the seeded test logins of workspaces A and B
 //   (the fixtures of supabase/tests/tenancy.test.sql, created by `omnikom seed test`). On the SQL path a person is the JWT
 //   claims the Edge Functions would pass to the service.* functions, so they work on a local database today. A real session
-//   TOKEN for the HTTP path is BLOCKED until a staging project exists (UNVERIFIED which Auth admin call gives one).
+//   TOKEN for the HTTP path is BLOCKED: tried on staging 2026-10-30, two approaches, both refused (see personToken).
 import { Blocked, Usage } from './errors.mjs';
 
 export const PERSONS = {
@@ -42,6 +42,6 @@ export function machineKey(identity, env = process.env) {
 
 // A session token for a person, for the HTTP path (slice 2). BLOCKED on purpose: see the header of this file.
 export function personToken(identity) {
-  throw new Blocked(`a session token for ${identity.name} needs the staging Auth admin API (UNVERIFIED which call returns a usable access token without email)`,
-    'the staging project must exist (build step 1.1); then verify generateLink + verifyOtp, or a password set on the test users only');
+  throw new Blocked(`a session token for ${identity.name}: staging GoTrue cannot see the seeded login (BLOCKED, measured 2026-10-30)`,
+    "seed test writes auth.users rows with aud, role, instance_id and the token columns null; GoTrue filters on them: generate_link answered 500 'users_email_partial_key' (it tried to create the user) and admin PUT /users/<id> answered 404 user_not_found. Unblock: the lead decides whether seed test writes GoTrue-shaped rows (aud and role 'authenticated', the zero instance_id, empty-string tokens, email_confirmed_at); the staff login also needs a TOTP factor for aal2");
 }

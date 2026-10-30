@@ -312,3 +312,14 @@
   leftovers) touches supabase/migrations and supabase/tests, which the builder's part 2 also edits: its session starts after the
   builder reports part 2 (one builder per set of files). OWNER 18:29: "Yes, after part 2": the lead starts the step 3 session
   (Fable, DECISIONS 32 brief) on its own as soon as the builder's part 2 is reported and verified by the lead; no further ask.
+
+## 2026-10-30 19:00 (cli-slice-1, the lead's brief: migration 6 and part 2; this checkout, master)
+- PART 1 DONE and on staging: migration 6 (`service.active_key` by site, workspace optional), tenancy test with production-shaped
+  keys (watched red), 3 mutants (129 total), CLI model reads keys through `active_key` + the Vault view, ground rule 13, data model line.
+  Staging `status`: 6 applied, 0 pending; `active_key(site A)` = 1. `run-all-gates`: all gates passed. CLI: run 145/145, mutate 67/67.
+- PART 2: `verify --only walls` (anon refused on service functions, leads, api_keys, sites) PROVEN on staging, 5 of 5.
+  BLOCKED - person tokens for HTTP - GoTrue cannot see the seeded logins (aud, role, instance_id, token columns null: generate_link 500
+  users_email_partial_key; admin PUT 404 user_not_found; two approaches, stopped) - unblock: the lead decides that `seed test` writes
+  GoTrue-shaped rows (aud and role 'authenticated', zero instance_id, empty-string tokens, email_confirmed_at; emails unchanged), then
+  one more probe; `staff` needs a TOTP factor (aal2); `nobody` has no auth.users row. Waiting, not faked: owner B / member A1 /
+  nobody reads over HTTP; lead-update, publish, add-lead checks (slice 2 functions).
