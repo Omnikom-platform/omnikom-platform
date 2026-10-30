@@ -11,7 +11,7 @@ Nothing of the platform can be proven without them. Values go into the master .e
 I never see or print a value. Tick each line when done.
 
 **1.1 Supabase staging** (first, because the lead-path proof needs it)
-- [ ] Create the Omnikom organisation (not a personal one) (organisation "Omnikom" EXISTS on Free, 2026-10-29; second owner: dave@omnikom.io INVITED as Owner 2026-10-30 01:55 ("Successfully sent invitation"); MFA on the owner account NOT DONE: owner click). Turn on MFA for your account. Add a second owner (Dave, or a
+- [x] Create the Omnikom organisation (not a personal one) (organisation "Omnikom" EXISTS on Free, 2026-10-29; second owner: dave@omnikom.io INVITED as Owner 2026-10-30 01:55 ("Successfully sent invitation"); MFA on the owner account DONE 02:37 (Google Authenticator added, owner scanned the QR). Turn on MFA for your account. Add a second owner (Dave, or a (DONE 2026-10-30: organisation "Omnikom" on Free; MFA on; second owner invited)
       second account of yours): DECISION 29 lists it; the gap hunt says one owner is a single point of failure.
 - [x] Create project `omnikom-staging`, region **US West** (DECISIONS 29), Free plan. Save the database password in the .env as (DONE 2026-10-29: project Omnikom V2 Platform, ref in the .env, us-west-2, Free, used as staging; STAGING_DB_PASSWORD, STAGING_DB_URL = transaction pooler 6543, STAGING_DB_URL_DIRECT = session pooler 5432 because the direct host is IPv6-only on Free; both connect, pg 17.11)
       `STAGING_DB_PASSWORD`. From Connect, copy the **transaction pooler** connection string (port 6543) into the .env as
@@ -40,7 +40,7 @@ Done when: `STAGING_DB_URL` is in the .env and you tell me "staging is up".
 Done when: the repo is in the org and you tell me the org name.
 
 **1.3 Cloudflare tokens and R2** (the account that already holds `elev8-omnikom-website`)
-- [x] MFA on the account. Add a second member with admin rights (same reason as 1.1). (DONE 2026-10-29: email 2FA active on the new account (TOTP app = owner click); second member: dave@omnikom.io invited as Super Administrator 01:43, status Pending until Dave accepts)
+- [x] MFA on the account. Add a second member with admin rights (same reason as 1.1). (DONE 2026-10-29: email 2FA active on the new account; TOTP app added 02:38 (owner scanned the QR; backup codes moved into creds and accounts login/, git-ignored); second member: dave@omnikom.io invited as Super Administrator 01:43, status Pending until Dave accepts)
 - [x] Create API token `omnikom-pages-deploy`: permission Account > Cloudflare Pages > Edit, this account only, TTL 90 days. (DONE 2026-10-29: account API token omnikom-pages-deploy (Account API tokens, not a user token: survives the user; verified at /accounts/<id>/tokens/verify HTTP 200), Entire Account, Pages Write, 90 days, rolled once after a tool echoed its first value; banked as CLOUDFLARE_PAGES_TOKEN; CLOUDFLARE_ACCOUNT_ID written)
       Into the .env as `CLOUDFLARE_PAGES_TOKEN`.
 - [x] Create API token `omnikom-dns-onboarding`: Zone > DNS > Edit and Zone > Zone > Edit, all zones, TTL 90 days. Into the (DONE 2026-10-29: account API token omnikom-dns-onboarding, All Domains, DNS Write + Zone Write, 90 days, rolled once (first copy missed); verified HTTP 200; banked as CLOUDFLARE_DNS_TOKEN)
