@@ -444,3 +444,29 @@
 - NEXT: head of operations routes `slice-3-cli-command.md` to the CLI head (`omnikom audit --dir`, `omnikom gate --dir`); slice 2 (live
   mode + speed budgets) after carrying the reader fixes back into the skill source through sync. Findings for the skill copy are in the
   charter's Open items.
+
+## 2026-10-30 20:22-22:40 (STEP 3, platform build: the hardening leftovers; session `local_a3c114b5-9826-4504-9ab9-3363e05151d2`, this checkout, master)
+- STEP 3 DONE and PROVEN (PROGRESS.md "Step 3"; 25-BUILD-SEQUENCE step 3 ticked). Migrations 7 (`20261030000007_hardening_leftovers.sql`:
+  security_events, consent_ledger, suppressions, privacy_requests, workspaces.state lifecycle, workspace_limits + S-QUOTA, append-only
+  audit for every role) and 8 (`20261030000008_search_path_and_roles.sql`: every definer function `search_path = ''` with qualified
+  names via `supabase/tests/qualify.mjs`, global default privileges, role `omnikom_fn`, service.site_signing_secrets / alert_recipients /
+  lead_alerted). Tests T16, T17, T14 tightened, watched red without each file; `run-local.mjs` = `OK: real migration passes; 161 mutants`,
+  every one caught. Consent wording lint I-CONSENT-* (contracts 147 tests, 88 mutants). 24-GAP-HUNT F ticked (16 items; two diagrams left).
+  `capture-lead` redeployed: `set role omnikom_fn`, 409 S-SITE-PAUSED / S-WORKSPACE-SUSPENDED, 429 S-QUOTA, security events on refusals.
+- STAGING: `apply` 2 of 8 -> `status` 8 applied; `seed test --clean`; `test walls` PASS (rolled back); fixtures restored
+  (`seed test --alert-to amer@omnikom.io`, `key mint` A and B: numbered key-1 AGAIN with new values, see PROGRESS; `mfa enroll-staff`
+  re-enrolled); `verify --only lead` 12 of 12 (paused site now 409), `--only walls` 5 of 5, `--only people` 15 of 15. Read-only after:
+  6 security_events (5 bad-signature, 1 S-SITE-PAUSED, all with ip hash), 3 consent_ledger rows, 0 leads, `pg_has_role(postgres,
+  omnikom_fn)` true, 0 definer functions off the empty path. One alert email went to amer@omnikom.io.
+- `run-all-gates.mjs`: `all gates passed` 22:50 (161 database mutants, contracts 88 of 88, industry run 15/15, specs, signature, deno) (the runner's per-gate limit raised from 15 to 30 minutes: the wall gate with
+  161 mutants was killed at 15 while the first run of the evening was still busy).
+- BLOCKED: `supabase/auth-settings.md` "checked against staging": the Management API answered 403 (the token lacks the Auth read scope);
+  the file holds the 2026-10-29 dashboard values; unblock = the owner adds "Auth: Read" to the token (or a second read-only token under
+  a new variable name), then `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node supabase/check-auth-settings.mjs`.
+- UNPROVEN: the role step-down inside the deployed function beyond "set role succeeded" (a pooler would reset it per transaction,
+  unobservable from outside); `mfa enroll-staff` over a stale factor; the consent lint on a real notices row (no client content yet).
+- NOT REPRODUCED: `test-apply.mjs` hang (10 of 10, exit 0 inside 600 s). Leftovers paused-site code and deploy-tool ref scrub DONE.
+- Findings routed up (hand-over note `side-session-notes/.../step-3-hardening-leftovers-2026-10-30.md`): CLI key numbering after
+  `--clean` + stale env lines; `verify` could assert security_events and consent_ledger; `sops/site-endpoints.md` 2.3 needs the 409 row
+  (sops/ has no owning department); the site-move service function from the Clients department waits for the owner's decision (charter).
+- Staging state left: A and B seeded (alerts to amer@omnikom.io), 2 active site keys (key-1 names, new values), staff factor, 0 leads.

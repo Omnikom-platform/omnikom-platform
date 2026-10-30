@@ -15,7 +15,7 @@ const GATES = [
 ];
 let bad = 0;
 for (const [name, script] of GATES) {
-  const r = spawnSync(process.execPath, [resolve(ROOT, script)], { cwd: ROOT, encoding: 'utf8', timeout: 900000 });
+  const r = spawnSync(process.execPath, [resolve(ROOT, script)], { cwd: ROOT, encoding: 'utf8', timeout: 1800000 });   // the wall gate: 161 mutants, about 12 minutes on the owner's machine (2026-10-30)
   const last = (r.stdout || '').trim().split('\n').filter(Boolean).pop() || (r.stderr || '').trim().split('\n').pop();
   if (r.status !== 0) bad++;
   console.log(`${r.status === 0 ? 'PASS' : 'FAIL'} ${name.padEnd(26)} ${last}`);

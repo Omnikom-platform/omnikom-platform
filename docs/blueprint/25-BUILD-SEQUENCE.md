@@ -95,6 +95,24 @@ Migration 5 (security events, consent ledger and suppressions, privacy requests,
 narrower database role for the functions, `search_path = ''`, default privileges on the private schemas, append-only audit),
 the consent wording lint on the contract, the doc drift list (24-GAP-HUNT F), `supabase/auth-settings.md` checked against
 staging. Done when: the full mutant run is green on five migrations and `run-staging.mjs` passes again. ESTIMATE: two sessions.
+**DONE 2026-10-30 22:20 (step 3 session, one session; full outputs in PROGRESS.md "Step 3"):** migrations 5 and 6 existed, so the
+leftovers are migrations 7 (`20261030000007_hardening_leftovers.sql`) and 8 (`20261030000008_search_path_and_roles.sql`).
+- [x] Security events, consent ledger and suppressions, privacy requests, workspace lifecycle, per-workspace quotas, append-only audit
+  (migration 7): tests T16 watched red without the file, 30 mutants caught.
+- [x] Narrower function role `omnikom_fn`, `search_path = ''` on every SECURITY DEFINER function (schema-qualified copies), default
+  privileges (migration 8): T17 and the tightened T14 watched red without the file, 3 mutants; `run-local.mjs` = `OK: real migration
+  passes; 161 mutants`, every one caught.
+- [x] Consent wording lint on the contract: `I-CONSENT-CHANNEL / -TCPA / -STOP / -RATES` on `notices` rows at publish; contract tests 147,
+  mutants 88 of 88.
+- [x] Doc drift list 24-GAP-HUNT F: 16 items ticked with where each was fixed (two diagrams left for a redraw).
+- [ ] `supabase/auth-settings.md` checked against staging: the file is written with the dashboard values of 2026-10-29; the Management
+  API check is BLOCKED (403: the token lacks the Auth read scope); unblock = the owner widens the token, then `node supabase/check-auth-settings.mjs`.
+- [x] Staging: `apply` 2 of 8, `status` 8 applied, `seed test --clean`, `test walls` `PASS tenancy tests on staging`, fixtures restored
+  (keys numbered 1 again with new values), `verify --only lead` 12 of 12 (paused site 409 now), `walls` 5 of 5, `people` 15 of 15.
+- [x] Leftovers: paused site 409 `S-SITE-PAUSED` (deployed, PROVEN); deploy tool scrubs the project ref; `test-apply.mjs` ran clean
+  (10 of 10, exit 0), the hang was not reproduced.
+Done when, observed: `run-all-gates.mjs` "all gates passed" (161 database mutants), `test walls` PASS on staging again, the three verify
+suites PASS on the restored fixtures.
 
 ## Step 4. Sites build themselves: the build machine, ELEV8 first (me, with Sonnet builders; you review previews)
 The factory ported from ELEV8's build script (rows in, pages out), `publish.yml` (export, build, gates, `wrangler pages

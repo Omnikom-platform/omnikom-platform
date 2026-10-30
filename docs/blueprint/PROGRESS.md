@@ -4,6 +4,98 @@ Task: build-ready product engineering package (owner, 2026-10-28), raised to eng
 then corrected by an independent fact-check (72 claims) and an independent M1 dry run (31 issues), and by DECISIONS 15
 (no Docker; one Supabase account, staging + production). **Status: complete for owner review. Nothing committed.**
 
+## Step 3: the database is finished, the hardening leftovers (2026-10-30 20:22-22:20, step 3 session, platform build; commits 0e60178 and the one after it)
+Every command through `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs <command> --target staging`
+(the CLI redacts secrets; the lines below are its real output, trimmed to the lines that matter). Local gates ran on this machine.
+
+**What landed.** Two migrations (never an edit to an applied one): `20261030000007_hardening_leftovers.sql` (security events, consent
+ledger, suppressions, privacy requests, workspace lifecycle, per-workspace quotas, append-only audit for every role) and
+`20261030000008_search_path_and_roles.sql` (every SECURITY DEFINER function pinned to `search_path = ''` with schema-qualified names,
+written by `supabase/tests/qualify.mjs` from the bodies of migrations 1 to 7; global default privileges so a new function is closed to
+PUBLIC; the Edge Functions' role `omnikom_fn`; `service.site_signing_secrets`, `alert_recipients`, `lead_alerted`). Plain words:
+`13-DATA-MODEL.md` 8c; the gates: `23-GROUND-RULES.md` 3 (five new rows). `capture-lead` redeployed: it steps down to `omnikom_fn`
+after connecting, answers a paused site or suspended workspace with 409 and a quota with 429 (named codes instead of 500), and records
+every refusal in `security_events`. The consent wording lint `I-CONSENT-CHANNEL / -TCPA / -STOP / -RATES` on `notices` rows at publish
+(`contracts/validate.mjs`). The doc drift of `24-GAP-HUNT.md` F (16 items ticked, where each was fixed). `supabase/auth-settings.md`
+written. The site endpoint maps 409 to the call-us message.
+
+**Watched red, then green (local, `node supabase/tests/run-local.mjs`).**
+- Without migration 7 (file moved aside): `FAIL real migration: psql ... tests.sql:47: ERROR:  type workspace_state does not exist`.
+- Without migration 8: `FAIL real migration: psql ... tests.sql:50: ERROR:  role "omnikom_fn" does not exist`.
+- With both: `PASS real migration: ALL TENANCY TESTS PASSED` and `OK: real migration passes; 161 mutants` (129 before; 30 for migration 7,
+  3 for migration 8; one re-pointed). Every mutant line reads `caught`; 0 SURVIVED, 0 SETUP-FAIL, 0 MUTANT TARGET MISSING. Two findings
+  on the way: a per-schema `alter default privileges ... revoke` cannot remove the global PUBLIC EXECUTE default (T17's probe function stayed
+  executable by anon; the global form is used); Supabase gives `service_role` ALL on a new table by default, so the append-only tables revoke
+  update, delete and truncate from it explicitly.
+- Contracts: `node contracts/test/run.mjs` = `147 passed, 0 failed`; `node contracts/test/mutate.mjs` = `88 mutants, 88 caught, 0 survived;
+  0 codes untested` (the four `I-CONSENT-*` rules plus two behaviour mutants, each `caught`).
+- Site endpoint: `node factory/worker/test/run.mjs` = `18 passed, 0 failed`; `node factory/worker/test/mutate.mjs` = `16 mutants, 16 caught`.
+- `deno task check`: `Check supabase/functions/capture-lead/index.ts` (no error). `node docs/blueprint/specs/check-specs.mjs` =
+  `OK: 10 operations, 10 operationIds; 47 FR/NFR rows, 40 work orders, 0 problem(s)`.
+- CLI department's own units, read-only cross-check after my test-file edits: `node tools/omnikom-cli/test/run.mjs --unit` = `OK: 69 of 69 checks passed`.
+- `node docs/blueprint/specs/run-all-gates.mjs`: `all gates passed` (contract tests 147, contract mutants 88 of 88, industry run 15/15, database walls + mutants `OK: real migration passes; 161 mutants`, specs OK, signature OK, deno check OK), 2026-10-30 22:50; the first run was killed by the runner`s 15-minute per-gate limit while the machine was busy, so the limit is now 30 minutes.
+
+**On staging, in order.**
+```
+### apply --dry-run        "summary": "DRY RUN: 2 pending of 8"   wouldApply: 20261030000007_hardening_leftovers.sql, 20261030000008_search_path_and_roles.sql
+### apply                  "summary": "OK: applied 2 of 8 (6 were already applied)"
+### status                 applied: 8 (…0001 to …0008), pending: [], mismatched: [], "capture-lead": "deployed", 4 key names present, exit 0
+### seed test --clean      removed: workspaces test-demo-a, test-demo-b; their sites, contracts, members, content; Vault secrets site-test-demo-*; the test logins; keptLogins: []
+### test walls             "PASS tenancy tests on staging"  "OK: no fixtures left on staging (rolled back)"   exit 0
+### deploy capture-lead    node tools/deploy-capture-lead.mjs --deploy-only: "Deployed Functions on project <project ref>: capture-lead" ... "OK: capture-lead deployed" (the ref is scrubbed now)
+### seed test --alert-to amer@omnikom.io    workspaces a/b, logins owner-a owner-b member-a1 member-a2 staff nobody, "changed": true
+### key mint --site test-demo-a             vaultSecret site-test-demo-a-key-1, envVariable SITE_SIGNING_KEY_TEST_DEMO_A, hashPrefix 98c55c9adff5
+### key mint --site test-demo-b             vaultSecret site-test-demo-b-key-1, envVariable SITE_SIGNING_KEY_TEST_DEMO_B, hashPrefix f9926b9a24b2
+### verify --only people (before)           exit 3, "error": "the staff test login has no verified TOTP factor", "unblock": "run: omnikom mfa enroll-staff --target staging"
+### mfa enroll-staff                        "changed": true, exit 0
+### verify --only lead                      "passed": 12, "failed": 0, exit 0; every line PASS, among them
+   PASS a signed lead is accepted (expected 202, got 202)
+   PASS a retry sends no second alert (expected at most 1 alert row, got 202, alerts=1)
+   PASS a lead to a paused site is not stored (expected not 202, 0 rows, got 409)      <- was 500 before this step
+### verify --only walls                     "passed": 5, "failed": 0, exit 0 (anon: service functions 406, leads / key registry / sites 401)
+### verify --only people                    "passed": 15, "failed": 0, exit 0 (owner B 0 rows of A, member A1 own lead only, nobody none, keys hidden, staff only at aal2, status PATCH 403, service function 406)
+```
+Read-only after the runs (`staging-readonly.mjs`, counts only): security_events last 2 h = `bad-signature SIGNATURE` 5, `suspended S-SITE-PAUSED` 1,
+all 6 with an ip hash (the deployed function records refusals); consent_ledger 3 rows (the suites' leads; the leads themselves 0, removed by
+the suites); api_keys active site keys 2; workspaces state active 2; `pg_has_role('postgres', 'omnikom_fn', 'member')` true; definer functions
+not pinned to the empty path: 0.
+
+**Fixtures for the CLI department (please read).** The clean removed the Vault secrets and the `api_keys` rows with the workspaces, so
+`key mint` numbered the new keys **1 again** (`site-test-demo-a-key-1`, `site-test-demo-b-key-1`), not 2: same names, NEW values (hash
+prefixes 98c55c9adff5 and f9926b9a24b2; the old ones were ba00ce1aae9e and 2266f6832967). The env file now holds the older
+`SITE_SIGNING_KEY_TEST_DEMO_A/B` lines and the new ones below them; `with-env` takes the last line, so everything works, but the stale
+lines could be removed by the owner. The staff TOTP factor was re-enrolled (`TEST_STAFF_TOTP_SECRET` rewritten by the CLI). State left:
+A and B seeded (alerts to amer@omnikom.io), 2 active site keys, staff factor present, 0 leads, 3 consent_ledger rows, 6 security_events,
+6 audit_log rows. One alert email went to amer@omnikom.io from `verify --only lead`.
+
+**Leftovers from the charter.**
+- `capture-lead` paused site: DONE, 409 `S-SITE-PAUSED` (PROVEN above); also 409 `S-WORKSPACE-SUSPENDED`, 429 `S-QUOTA`, 404 unknown site,
+  400 consent (the function maps the database's codes; the 409 and 429 are in `openapi.json`).
+- `tools/deploy-capture-lead.mjs` project ref: DONE, scrubbed (`<project ref>` in the output above).
+- `supabase/tests/test-apply.mjs` hang: NOT REPRODUCED. `timeout 600 node supabase/tests/test-apply.mjs` on 2026-10-30 21:58 printed 10 `ok`
+  lines (`run 1 applies every file (8)`, `tenancy tests pass on the applied database`, `an edited applied migration is refused`, ...) and
+  `OK: apply-staging 0 problem(s)`, exit 0, well inside the bound. The earlier `exit 124` was a timeout wrapper on a slow cluster start, not a
+  hang in the script; nothing was changed in it. Kept on the open list as "watch", not as a bug.
+
+**BLOCKED.** `supabase/auth-settings.md` checked against staging through the Management API: `node supabase/check-auth-settings.mjs` answered
+`Management API answered 403 Forbidden (the token needs read access to the project's auth config); nothing checked`. The personal access token
+in the env file is scoped to functions, function secrets and project settings read; the Auth configuration endpoint needs the Auth read
+scope. Second approach (reading the dashboard back in the owner's signed-in Edge) needs the owner present. Unblock: the owner adds the Auth
+read scope (or a second read-only token under a new variable name) and re-runs the command; its lines then fill the "checked" column. The
+file holds the values set and read back in the dashboard on 2026-10-29 as the expectation.
+
+**UNPROVEN.** The step-down to `omnikom_fn` inside the deployed function: a 202 proves the `set role` statement succeeded (a failure answers
+500 CONFIG), and `pg_has_role` is true on staging; whether the connection string Supabase hands the function keeps the role for the whole
+session (direct connection) or resets it per transaction (a transaction pooler) is not observable from outside. `mfa enroll-staff` over a
+stale factor: still only the model (the clean removed the login, so the factor was simply absent). The consent lint has no notices row on
+staging yet (no client content); proven by the contract tests only.
+
+**Findings for other departments (not fixed here).** (1) CLI: `seed test --clean` resets key numbering (above) and leaves stale env lines; a
+`key mint` that reads the env file's existing lines, or a `--clean` that says so, would help. (2) CLI: `verify --only lead` could assert the
+`security_events` rows the function now writes (one per refused request) and the `consent_ledger` row per stored lead. (3) Head of
+operations: `sops/site-endpoints.md` 2.3 should list the 409 answer (the site shows the call-us message; `factory/worker/lead-endpoint.mjs`
+does); `sops/` has no owning department in the charters.
+
 ## SEO and audits, slice 1: the audit engine over a built folder (2026-10-30 21:30, builder session)
 `tools/audit/` built to `tools/audit/briefs/slice-1-engine.md`: 14 checks (MET-001, MET-002, MET-003, MET-004, SE-202, URL-009, IDX-004,
 IDX-001, IDX-002, IDX-003 as WARN, SE-004, A11-007, LNK-002, SCH-001), each with `rules/<ID>.md`; 64 generated fixtures plus `fixtures/good`.
