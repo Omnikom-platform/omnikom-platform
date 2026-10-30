@@ -4,6 +4,57 @@ Task: build-ready product engineering package (owner, 2026-10-28), raised to eng
 then corrected by an independent fact-check (72 claims) and an independent M1 dry run (31 issues), and by DECISIONS 15
 (no Docker; one Supabase account, staging + production). **Status: complete for owner review. Nothing committed.**
 
+## Step 2: the first lead, through the CLI on test workspaces A and B, to staging, to the owner's inbox (2026-10-30 17:15-18:20, step-2-lead-proof session)
+Every command ran as `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs <command> --target staging`;
+the CLI redacts, no key or URL value appears below. Ids are the seeded fixture ids (`aaaaaaaa-...` = A, `bbbbbbbb-...` = B).
+1. `status`: `reachable: true`, ledger present, applied `20261028000001_platform` .. `20261029000005_vendor_defaults` (5), pending `[]`,
+   mismatched `[]`, `capture-lead: deployed`, 4 `STAGING_*` key names `true`, exit 0. `apply --dry-run`: `DRY RUN: 0 pending of 5`, exit 0.
+   `test walls`: `PASS tenancy tests on staging`, `OK: no fixtures left on staging (rolled back)`, exit 0.
+2. `seed test --alert-to amer@omnikom.io`: workspaces `test-demo-a` (id `aaaaaaaa-0000-0000-0000-000000000000`, site
+   `aaaaaaaa-0000-0000-0000-00000000517e`) and `test-demo-b` (`bbbbbbbb-...-000000000000`, site `bbbbbbbb-...-00000000517e`), logins
+   owner-a, owner-b, member-a1, member-a2, staff, `changed: true`, exit 0. Second run: same ids, `changed: false`, exit 0.
+   PROVEN for the first time: the `auth.users` insert by `(id, email)` on real Supabase.
+   `key mint --site test-demo-a`: `vaultSecret: site-test-demo-a-key-1`, `envVariable: SITE_SIGNING_KEY_TEST_DEMO_A`, `hashPrefix: ba00ce1aae9e`.
+   `key mint --site test-demo-b`: `site-test-demo-b-key-1`, `SITE_SIGNING_KEY_TEST_DEMO_B`, `hashPrefix: 2266f6832967`. `key list`: 2 rows
+   (ids `5764d644-ffa2-4aa6-9931-60e1745a8235`, `056cda42-8b69-415b-89c5-93ab51f9b7fb`, kind site-signing, hash prefixes only).
+   PROVEN for the first time: `vault.create_secret` through the transaction pooler.
+3. `capture-lead` deployed with `RESEND_API_KEY` and `LEAD_ALERT_FROM` (step 1 session, re-verified by the lead; `status` shows `deployed`).
+4. FIRST ATTEMPT (18:0x, before migration 6): `lead send --site test-demo-a --fixture lead-contact.json --expect 202` = **401**
+   `{"code":"SIGNATURE","msg":"Not accepted."}`, `stored: null`, exit 1. Read-only diagnosis: `service.active_key('site-signing', <site A>)`
+   = 0 rows, with A's workspace added = 1 row; db epoch = local epoch; Vault secret readable; site state preview. Cause: migration 2's
+   `active_key` matched `workspace_id is not distinct from p_workspace` (null from the function) while both mint tools store the site's
+   workspace on the key. Routed by the owner to the CLI builder (POSITION 17:40); fixed by migration `20261030000006_active_key_by_site.sql`
+   (builder), applied to staging by the lead. `status` after: 6 applied, 0 pending, exit 0.
+   SECOND ATTEMPT (18:07): `lead send --site test-demo-a --fixture lead-contact.json --expect 202` = `code: 202`, `matched: true`,
+   submission id (the idempotency uuid) `4551e604-eb65-402a-b4fe-7bc93706c6a2`, attempts `[202 {"ok":true}]`, `stored: 1`, exit 0.
+   PROVEN for the first time: the signed path string the deployed function sees equals what the endpoint signs.
+   `lead send ... --retry --expect 202` (18:08): submission id `f190271c-6d8c-42b1-ba30-9aa2062953af`, attempts `[202, 202]`, `stored: 1`, exit 0.
+   `verify --only lead` (18:09; the lead suite as in commit d4ad6d8, 12 checks; the builder's uncommitted `walls` suite was not run), exit 0:
+   ```
+   PASS a signed lead is accepted (expected 202, got 202)
+   PASS the same idempotency key twice stores one row (expected 202 and 1 row, got 202, rows=1)
+   PASS a retry sends no second alert (expected at most 1 alert row, got 202, alerts=1)
+   PASS an empty consent is refused (expected 400, got 400)
+   PASS B's key on A's site is refused (expected 401, got 401)
+   PASS a signature older than 301 s is refused (replay) (expected 401, got 401)
+   PASS a request without a signature is refused (expected 401, got 401)
+   PASS a garbled signature is refused (expected 401, got 401)
+   PASS an unknown site id is refused (expected 401, got 401)
+   PASS a malformed site id is not found (expected 404, got 404)
+   PASS GET is refused (expected 405, got 405)
+   PASS a lead to a paused site is not stored (expected not 202, 0 rows, got 500)
+   ```
+   stdout: `"passed": 12, "failed": 0`. The paused site still answers 500 (known finding, not S-SITE-PAUSED). Site A state after: `preview`.
+5. `lead list --as owner-a`: `count: 2` (ids `4ba2f8aa-58d5-4f54-96d2-6118f83f8064` 16:07:34Z and `5a27460a-561b-4c4b-bc7e-0b548f5cec79`
+   16:08:29Z, status new, page `/omnikom-cli-test`). `lead list --as owner-b`: `count: 0`. Alerts (read-only query of `messages`, template
+   `new-lead`): 3 rows, all `state: sent`, `error: null`, one per lead (16:07:35Z, 16:08:30Z, 16:09:16Z for verify's own lead), none for the
+   two retries. OWNER 18:15: "Yes, 3 emails arrived" at amer@omnikom.io. `lead delete --as owner-a --lead 4ba2f8aa...` and `--lead 5a27460a...`:
+   `ok`, `deleted`, exit 0 each; `lead list --as owner-a` after: `count: 0`.
+Staging state at the end: A and B seeded (alerts to amer@omnikom.io), 2 active site keys, 0 leads, 3 `messages` rows (sent; the deleted leads'
+rows keep `lead_id: null`, so messages are set null, not cascaded, on a lead delete). Observation: `verify.mjs` says "events and messages cascade";
+messages survive with a null lead (harmless; the row is the proof an alert went out). UNPROVEN still: the person checks of 26 section 4 over HTTP
+(builder's part 2), `S-SITE-PAUSED` over HTTP (500 today).
+
 ## Step 1.1 + step 2.1 on the real staging project (2026-10-29 23:10-00:10, setup session beside the owner)
 Project: Supabase org "Omnikom" (Free), project "Omnikom V2 Platform" used as staging (owner's pick), ref in the .env as
 `STAGING_SUPABASE_REF`, region us-west-2 (DECISIONS 29), Postgres 17.11. Banked by name only (`creds and accounts login/omnikom.env`,

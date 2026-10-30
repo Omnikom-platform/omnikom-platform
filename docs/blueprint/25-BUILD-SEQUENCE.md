@@ -71,6 +71,18 @@ No client preview is a test vehicle (DECISIONS 30): the proof runs on the platfo
 4. `omnikom lead send --site test-demo-a --fixture contact.json --target staging --expect 202`, then `--retry` (one row),
    then `omnikom verify --only lead --target staging` (bad key, replay, empty consent, paused site, B's key on A's site).
 5. `omnikom lead list --as owner-a` shows the row; the alert email is in your inbox; `omnikom lead delete` removes the test lead.
+**DONE 2026-10-30 18:15 (step-2-lead-proof session; full outputs in PROGRESS.md "Step 2"):**
+- [x] 1. `status` 5 applied / 0 pending, `apply --dry-run` `0 pending of 5`, `test walls` `PASS tenancy tests on staging` (rolled back).
+- [x] 2. `seed test --alert-to amer@omnikom.io` `changed: true` then `changed: false`; `key mint` A and B (Vault `site-test-demo-a-key-1`,
+  `site-test-demo-b-key-1`); the `auth.users` insert and the real Vault through the pooler both work.
+- [x] 3. `capture-lead` deployed with its secrets (step 1 session); `status` reports `deployed`.
+- [x] 4. `lead send --expect 202` = 202, `stored: 1`; `--retry` = 202, 202, `stored: 1`; `verify --only lead` = 12 of 12 PASS (exit 0).
+  First attempt was 401: `service.active_key` ignored site keys that carry a workspace; fixed by migration 6 (CLI builder), applied by the lead.
+  The signed path string the deployed function sees matches what the endpoint signs.
+- [x] 5. `lead list --as owner-a` 2 rows, `--as owner-b` 0 rows; 3 alerts `sent` (one per lead, none for retries); owner confirmed 3 emails
+  at amer@omnikom.io; `lead delete` x2, list after = 0.
+Still open from this step: `S-SITE-PAUSED` answers 500 over HTTP (recorded, not fixed); the person checks of 26 section 4 over HTTP
+(the builder's part 2).
 Done when: the `verify` output (every line PASS) is pasted in PROGRESS.md and you have the email. Until slice 1 of the CLI lands,
 the same proof runs with the scripts directly (`apply-staging.mjs`, `run-staging.mjs`, a seed SQL, `mint-site-key.mjs`,
 `e2e-lead.mjs` pointed at a test site instead of the ELEV8 preview). ESTIMATE: one session, two if a vendor behaves differently

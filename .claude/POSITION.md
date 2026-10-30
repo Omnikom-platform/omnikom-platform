@@ -290,3 +290,18 @@
   lead confirms `active_key` finds the key on staging. Lesson (Rule 2): 126 mutants and 138 CLI checks were green because the
   SQL test inserted keys without a workspace and the CLI model never called the lookup: a check sharing nothing with the real
   writer proves nothing about it.
+
+## 2026-10-30 18:06-18:20 (step-2-lead-proof session, resumed on the lead's word: migration 6 on staging)
+- STEP 2 DONE (owner confirmed the 3 emails 18:15). Through `with-env` + `omnikom ... --target staging`: `status` 6 applied / 0 pending
+  (`20261030000006_active_key_by_site.sql`), capture-lead deployed; `lead send --site test-demo-a --expect 202` = 202, `stored: 1`
+  (idempotency key 4551e604...); `--retry` = 202, 202, `stored: 1` (f190271c...); `verify --only lead` = 12 of 12 PASS, exit 0 (the
+  lead suite of commit d4ad6d8; the builder's uncommitted `walls` suite was NOT run); `lead list --as owner-a` 2 rows, `--as owner-b` 0;
+  `messages` template new-lead: 3 rows `sent`, one per lead, none for the retries; `lead delete` x2, list after 0. Full outputs:
+  `docs/blueprint/PROGRESS.md` "Step 2"; the sequence's step 2 items ticked with their proof lines.
+- PROVEN for the first time (the three UNVERIFIED vendor points of step 2): `auth.users` insert by (id, email) on real Supabase;
+  `vault.create_secret` through the transaction pooler; the signed path string the deployed function sees. Plus: one alert on a real retry.
+- Observations, not fixed: paused site answers 500 over HTTP (S-SITE-PAUSED not visible, known); deleting a lead sets `messages.lead_id`
+  null rather than cascading (verify.mjs's comment says cascade; harmless). Staging left: A and B seeded (alerts to amer@omnikom.io),
+  2 active site keys, 0 leads, 3 sent messages.
+- Committed from this session: PROGRESS.md, 25-BUILD-SEQUENCE.md, POSITION.md only (the builder's files in this checkout are its own).
+  NEXT: the lead re-runs `verify --only lead` (Rule 2); the builder finishes part 2 (person tokens, `verify --only walls`); step 3 session.
