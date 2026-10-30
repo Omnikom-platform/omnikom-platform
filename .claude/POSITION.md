@@ -310,4 +310,5 @@
   (paused site still 500); read-only state before: 2 workspaces, 2 sites, 5 auth.users, 0 leads, 2 api_keys, 3 messages, 2 Vault
   secrets. STEP 2 DONE, verified by the lead. One more alert went to amer@omnikom.io (the re-run's own lead). Step 3 (database
   leftovers) touches supabase/migrations and supabase/tests, which the builder's part 2 also edits: its session starts after the
-  builder reports part 2 (one builder per set of files).
+  builder reports part 2 (one builder per set of files). OWNER 18:29: "Yes, after part 2": the lead starts the step 3 session
+  (Fable, DECISIONS 32 brief) on its own as soon as the builder's part 2 is reported and verified by the lead; no further ask.
