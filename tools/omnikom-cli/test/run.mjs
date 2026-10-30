@@ -405,6 +405,9 @@ async function database() {
     r = await run(['verify', ...T, '--only', 'lead'], sendEnv, { fetch: dropped });
     check('verify: a function that stores a retry twice FAILs only the idempotency check', r.exit === 1 && r.json.data.checks.filter(c => !c.pass).map(c => c.name).join('|') === 'the same idempotency key twice stores one row', r.stderr.slice(0, 600));
     db.query("delete from leads where idempotency_key is null and page_path = '/omnikom-cli-test'");
+    const chatty = await makeFunctionModel({ makeSql, dbUrl: db.url, keys: { [siteA]: [keyA], [siteB]: [keyB] }, doubleAlert: true });
+    r = await run(['verify', ...T, '--only', 'lead'], sendEnv, { fetch: chatty });
+    check('verify: a function that alerts again on a retry FAILs only the alert check', r.exit === 1 && r.json.data.checks.filter(c => !c.pass).map(c => c.name).join('|') === 'a retry sends no second alert', r.stderr.slice(0, 600));
     r = await run(['verify', ...T, '--only', 'lead'], { ...sendEnv, SITE_SIGNING_KEY_TEST_DEMO_B: '' }, { fetch: model });
     check("verify: no key for site B in the environment is BLOCKED (exit 3)", r.exit === 3);
     r = await run(['verify', ...T, '--only', 'job']);

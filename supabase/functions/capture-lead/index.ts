@@ -3,7 +3,8 @@
 // No user login: verify_jwt = false (supabase/config.toml); the signature is checked here first, against the site's active
 // signing keys from the api_keys registry (service.active_key) read out of Vault. Then the body is checked against LeadRequest
 // (specs/openapi.json), stored through service.capture_lead (workspace from the site, consent required, idempotent by key),
-// and the new-lead email alert goes out through Resend to sites.lead_alert_to (recorded in messages, never fails the lead).
+// and the new-lead email alert goes out through Resend to sites.lead_alert_to (recorded in messages, never fails the lead;
+// one alert per lead: a retry of the same idempotency key alerts nobody again, found 2026-10-30 by the lead session).
 // First proof target (DECISIONS 25): the ELEV8 preview form -> this -> staging database -> the owner's inbox.
 // Environment, read by name only: SUPABASE_DB_URL (set by Supabase for every function), RESEND_API_KEY, LEAD_ALERT_FROM
 // (a sender on a verified Resend domain, or onboarding@resend.dev for the first test), DASHBOARD_URL (optional, for the link).
@@ -73,6 +74,9 @@ async function sha256Hex(s: string): Promise<string> {
 async function sendAlert(sql: any, site: string, leadId: string, lead: Lead): Promise<void> {
   const apiKey = Deno.env.get('RESEND_API_KEY'), from = Deno.env.get('LEAD_ALERT_FROM');
   if (!apiKey || !from) return;                                   // alerts are off until D5 is set up; the lead is already stored
+  // one alert per lead: a retried submission (same idempotency key) answers the same lead id and must not alert again
+  const [prior] = await sql`select 1 as x from messages where lead_id = ${leadId}::uuid and template = 'new-lead' limit 1`;
+  if (prior) return;
   const [s] = await sql`select s.workspace_id, s.lead_alert_to, w.name from sites s join workspaces w on w.id = s.workspace_id where s.id = ${site}::uuid`;
   if (!s || !s.lead_alert_to || s.lead_alert_to.length === 0) return;
   const dash = Deno.env.get('DASHBOARD_URL');

@@ -53,6 +53,7 @@ const MUTANTS = [
   ['lead send --retry does not count the stored rows', 'commands/lead.mjs', 'const duplicate = f.retry && stored !== null && stored !== 1;', 'const duplicate = false;', 'db'],
   ['lead send --retry sends only once', 'commands/lead.mjs', 'i < (f.retry ? 2 : 1)', 'i < 1', 'unit'],
   ['verify does not check that a retry stored one row', 'commands/verify.mjs', 'r.status === 202 && rows(L.idem) === 1,', 'r.status === 202,', 'db'],
+  ['verify does not check that a retry alerts once', 'commands/verify.mjs', 'r.status, alerts(L.idem) <= 1,', 'r.status, true,', 'db'],
   // ---- rule 5: the canonical signature
   ['the signature is not the endpoint\'s', 'lib/sign.mjs', 'export const sign = endpoint.sign;', 'export const sign = (key, method, p, body, t) => endpoint.sign(key, method, p, body, t + 1);', 'unit'],
   ['a site signs with the runner header', 'lib/sign.mjs', "name: 'x-site-signature'", "name: 'x-runner-signature'", 'unit'],

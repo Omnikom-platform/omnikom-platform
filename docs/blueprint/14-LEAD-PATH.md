@@ -87,6 +87,8 @@ rows over Realtime (`leads` is in the `supabase_realtime` publication; RLS still
   in the Launch Information Request, question "lead-alert recipients") plus the assigned agent's email from their team row.
 - Content: name, form, page, the first answers, a link to the lead in the CRM. Never the consent text in full, never another
   client's data (the mail is built from one workspace's rows only).
+- One alert per lead: a retried submission (same idempotency key) answers the same lead id and alerts nobody again
+  (`capture-lead` checks `messages` for that lead and template first; BUILT 2026-10-30, `verify` check 2b).
 - Sender: the provider chosen in D5 (a free-tier transactional provider or Google Workspace SMTP). Delivery result is a
   `lead_events` row `alert-sent` or `alert-failed`; a failed alert is retried 3 times and then shown on the Overview to-do list.
 - Phone or SMS alerts: not in v1; OmniSuite's voice agent is the follow-up channel (DECISIONS 12), not the alert.

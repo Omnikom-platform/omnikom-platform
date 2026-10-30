@@ -218,3 +218,38 @@
 - Desktop mod `md-viewer` (`~/.claude/dev-mods/<session>/md-viewer`): `/md <path>` shows a markdown file in a pane; Copy, Edit.
 - Setup assistant (step 1 complete through 1.5, commits to 661412f) and cli-slice-1 (status against staging PROVEN; seed test,
   key mint, lead send, verify on staging NOT RUN, they need the owner's go) both idle. NEXT: a new lead session verifies both.
+
+## 2026-10-30 04:20-04:45 (new lead session: verification of step 1 and the CLI, nothing of step 2 run)
+- Re-run myself (Rule 2), every command through `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- ...`:
+  `apply-staging.mjs --dry-run` = skip x5, `DRY RUN: 0 pending of 5`; `omnikom status --target staging` = reachable, ledger
+  present, 5 applied / 0 pending / 0 mismatched, capture-lead deployed, 4 key names present, exit 0; `run-staging.mjs` = `PASS
+  tenancy tests on staging` + `OK: no fixtures left on staging (rolled back)`; deployed function probe = POST without signature
+  401 SIGNATURE, bad signature 401, GET 405; function secrets by name = LEAD_ALERT_FROM + RESEND_API_KEY (+ Supabase defaults);
+  staging DB read-only: Vault 0.3.1 with create_secret executable and decrypted_secrets readable, 0 workspaces / sites /
+  auth.users / leads / api_keys / messages (clean, nothing seeded); check-platform-keys: DB OK, Supabase keys 200, Cloudflare
+  Pages + DNS 200, Google SA 200, Resend 401 (sending-only key), R2 access keys MISSING (deferred); git: 661412f and 8414fcb
+  are on `backup-gh/master` (= c224b41). CLI: `test/run.mjs` = `OK: 138 of 138 checks passed` (220 s); `test/mutate.mjs` =
+  `61 mutants, 61 caught, 0 survived, 0 target text missing` (exit 0).
+- NOT verifiable from here (owner-observed, reported by the setup session): owner MFA, Resend domain verified, test email arrived.
+- FINDING (function, not fixed): a retried submission emails the alert again. `capture-lead` calls sendAlert after
+  `service.capture_lead` even when it returned the existing lead id, and `service.record_message` has no per-lead dedupe. Step 2
+  as written (lead send, --retry, verify checks 1+2) would deliver about 5 alerts. Fix = skip sendAlert when a `messages` row
+  (lead_id, template 'new-lead') exists, or return "created" from capture_lead; needs a redeploy (`tools/deploy-capture-lead.mjs`).
+- Spec gaps in slice 1 (as the spec allows): person tokens over HTTP BLOCKED (`lib/identity.mjs personToken`); `verify` has only the
+  10 lead checks (the person-token checks of 26 section 4 are SQL-path tests only); `export`, `onboard`, `offboard` not built
+  (slices 2-3); `seed test` on real `auth.users` and `key mint` on real Vault NOT RUN (the same auth.users insert form passed on
+  staging inside the rolled-back walls test; Vault privileges confirmed).
+- Step 2 is READY to run on the owner's go: `seed test --alert-to <owner address>`, `key mint --site test-demo-a` and `-b`
+  (each appends to the env file; the next command reloads it), `lead send --site test-demo-a --expect 202`, `--retry`,
+  `verify --only lead`, `lead list --as owner-a`, `lead delete`. Writes to the shared staging project; sends real alert emails.
+- Notes for the session group: `side-session-notes/.../lead-verification-2026-10-30.md`.
+- OWNER 04:45: "fix it yes and don't start the next session that will do step 2 till I say so"; alerts go to amer@omnikom.io.
+  FIX (this session): `capture-lead` `sendAlert` returns when a `messages` row (that lead, template new-lead) exists; `verify`
+  check "a retry sends no second alert" (11 checks); the test model records alerts (`doubleAlert` = the bug); run.mjs test "a
+  function that alerts again on a retry FAILs only the alert check"; mutant "verify does not check that a retry alerts once".
+  `deno check` PASS. Gates: `run.mjs --db` = `OK: 80 of 80 checks passed` (the chatty model is caught); `mutate.mjs --only
+  "alerts once"` = baseline 139 of 139, `1 mutants, 1 caught, 0 survived`. Redeployed to staging by
+  `tools/deploy-capture-lead.mjs --deploy-only` (`OK: capture-lead deployed`); probe after: 401 / 401 / 405 as before.
+  UNPROVEN until step 2 runs: one alert on a real retry on staging (the new `verify` check proves it then). Small finding: the
+  deploy tool prints the project ref inside the Supabase CLI's dashboard line (scrub it when next touched).
+  STEP 2 WAITS for the owner's go (owner 04:45); alerts to amer@omnikom.io.

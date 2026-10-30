@@ -2,7 +2,7 @@
 // deployed. A fixed script of checks with expectations; one line each, PASS or FAIL with the real status; exit 1 on any FAIL.
 // It needs the two seeded test sites (omnikom seed test) and their keys (omnikom key mint) in the environment by name,
 // and it cleans up the leads it created. The paused-site check pauses site A for one request and puts its state back.
-//   1 a signed lead is accepted (202)                      2 the same idempotency key twice stores one row
+//   1 a signed lead is accepted (202)                      2 the same idempotency key twice stores one row, and alerts once
 //   3 an empty consent is refused (400)                    4 B's key on A's site is refused (401)
 //   5 the same signature after 301 s is refused (401)      6 no signature is refused (401)
 //   7 a garbled signature is refused (401)                 8 an unknown site id is refused (401), a malformed one is 404
@@ -31,6 +31,8 @@ export async function verify(ctx) {
   const post = ({ siteId = a.id, body, identity = idA, key = keyA, t, headers, method = 'POST' }) =>
     callFunction({ base: target.functionsBase, name: 'capture-lead', query: `?site=${siteId}`, method, body, identity: headers ? null : identity, key, t: t ?? ctx.now(), fetchImpl: ctx.fetch, extraHeaders: headers || {} });
   const rows = k => Number(sql.scalar(`select count(*) from leads where idempotency_key = ${uuidLit(k)}`).value);
+  // alert rows recorded for that submission: a retry must not alert the client again
+  const alerts = k => Number(sql.scalar(`select count(*) from messages m join leads l on l.id = m.lead_id where l.idempotency_key = ${uuidLit(k)} and m.template = 'new-lead'`).value);
 
   const checks = [];
   const add = (name, expected, status, pass, extra = '') => checks.push({ name, expected, status, pass: Boolean(pass), extra });
@@ -40,6 +42,7 @@ export async function verify(ctx) {
   add('a signed lead is accepted', '202', r.status, r.status === 202);
   r = await post(L);
   add('the same idempotency key twice stores one row', '202 and 1 row', r.status, r.status === 202 && rows(L.idem) === 1, `rows=${rows(L.idem)}`);
+  add('a retry sends no second alert', 'at most 1 alert row', r.status, alerts(L.idem) <= 1, `alerts=${alerts(L.idem)}`);
   L = lead({ consentText: '' });
   r = await post(L);
   add('an empty consent is refused', '400', r.status, r.status === 400 && rows(L.idem) === 0);

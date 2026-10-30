@@ -103,3 +103,9 @@ variable names as booleans (not the research-key check); a fixture outside `fixt
 needs `--real`. `apply` and `test walls` run the existing scripts as child processes (they are scripts, not libraries).
 **Finding for the function (not changed here):** `capture-lead` answers a paused site with a generic 500 (the catch-all), so the
 S-SITE-PAUSED code of section 4 is not visible over HTTP; `verify` checks "not 202 and nothing stored" and prints the real status.
+**Verified by the lead session 2026-10-30** (`test/run.mjs` 138 of 138, `test/mutate.mjs` 61 of 61 caught, `status --target
+staging` against the real project: 5 migrations applied, `capture-lead` deployed, keys present by name). Second finding, FIXED
+the same day: a retried submission made the function alert the client twice (`sendAlert` ran after `service.capture_lead`
+returned the existing lead id; `service.record_message` has no per-lead dedupe). The function now skips the alert when a
+`messages` row (that lead, template `new-lead`) exists; `verify` gained check "a retry sends no second alert" (11 checks), the
+test model records alerts like the function (`doubleAlert` = the bug, caught by the suite), and a mutant removes the check.

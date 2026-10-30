@@ -51,8 +51,10 @@ export async function cli(argv, env, deps = {}) {
 // A MODEL of supabase/functions/capture-lead/index.ts (the TS file needs Deno and Postgres on a project): same order of checks
 // (method, site id, signature against the site's keys, JSON, consent, then service.capture_lead). With `naive`, the signature
 // check is skipped: a broken function that `verify` must catch. With `dropIdem`, the idempotency key is dropped: a retry stores a
-// second row (the other broken function the CLI must catch).
-export async function makeFunctionModel({ makeSql, dbUrl, keys, naive = false, dropIdem = false }) {
+// second row (the other broken function the CLI must catch). Like the function, the model records one new-lead alert per lead
+// in `messages` (service.record_message, to the site's lead_alert_to); with `doubleAlert` it alerts on every call, so a retry
+// alerts twice (the bug found on 2026-10-30; the function dedupes on messages.lead_id + template).
+export async function makeFunctionModel({ makeSql, dbUrl, keys, naive = false, dropIdem = false, doubleAlert = false }) {
   const { verify } = await import(pathToFileURL(join(REPO_ROOT, 'supabase', 'functions', '_shared', 'signature.ts')).href);
   const sql = makeSql({ url: dbUrl });
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -75,6 +77,14 @@ export async function makeFunctionModel({ makeSql, dbUrl, keys, naive = false, d
     if (!d.form || !d.page || typeof d.consentText !== 'string' || d.consentText === '') return reply(400, { problems: [{ code: 'REQUIRED' }] });
     const r = sql.exec(`select service.capture_lead(${lit(site)}::uuid, ${lit(d.form)}, ${lit(d.page)}, ${lit(d.name)}, ${lit(d.email)}, ${lit(d.phone)}, ${lit(JSON.stringify(d.answers || {}))}::jsonb, ${lit(d.consentText)}, ${lit(d.flow)}, ${lit(d.cta)}, ${d.marketingConsent ? lit(JSON.stringify(d.marketingConsent)) : 'null'}::jsonb, ${dropIdem ? 'null' : lit(d.idempotencyKey)}::uuid, null, null, null);`);
     if (!r.ok) return reply(500, { problems: [{ code: 'SERVER' }] });
+    const leadId = r.out.split(/\r?\n/).filter(Boolean).pop();
+    sql.exec(`do $a$ declare ws uuid; t text; begin
+      if ${doubleAlert ? 'false' : 'true'} and exists (select 1 from messages where lead_id = ${lit(leadId)}::uuid and template = 'new-lead') then return; end if;
+      select workspace_id into ws from sites where id = ${lit(site)}::uuid;
+      for t in select unnest(lead_alert_to) from sites where id = ${lit(site)}::uuid loop
+        perform service.record_message(ws, ${lit(leadId)}::uuid, null, 'email', 'new-lead', t);
+      end loop;
+    end $a$;`);
     return reply(202, { ok: true });
   }
   model.calls = calls;
