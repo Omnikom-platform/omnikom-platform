@@ -12,7 +12,7 @@ engine) after the weekly usage reset.
 
 ## sops/ (standard procedures, proven on real runs)
 - `website-backup.md`: back up a site first (our copy of its code), verify it, read a failed gate as tool vs site; traps per platform.
-- `prospect-audit-team.md`: the agent team (Lead, Researcher, SEO analyst, Reviewer), write guard, backup gate, gap log, progress
+- `clients/prospect-audit-team.md` (moved under `sops/clients/` 2026-10-30, Clients department): the agent team (Lead, Researcher, SEO analyst, Reviewer), write guard, backup gate, gap log, progress
   panel, phase order, where the owner is needed. First run: ELEV8 / Alex Sevilla (`E:\Alex Sevilla`), 2026-10-26.
 
 ## planning/inputs/ (verbatim, never edited)

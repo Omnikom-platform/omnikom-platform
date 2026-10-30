@@ -72,7 +72,7 @@
     run (first real instance), then proven on the next site.
 17. **The client gives facts and access, never our work** (2026-10-28, after the rejected ELEV8 115-question PDF). A V2 client
     is asked only facts that only they can know plus access: at most 12 questions from the fixed catalogue in
-    `sops/client-questions.md` (people and licences, regulated identity, offer terms, fees line, media, account ownership,
+    `sops/clients/client-questions.md` (people and licences, regulated identity, offer terms, fees line, media, account ownership,
     reviews and Google Business Profile, lead-alert recipients, legal sign-off), in the question-sheet format of
     `templates/client-questions/`, plus one short forwardable email. An unsourced claim is our research task: research it, else
     use the safe default, else (only if in the catalogue) one merged question. Wording, pages, features (listings, IDX, search,
@@ -80,7 +80,7 @@
     client questions. `tools/client-questions/questions-pdf.mjs` refuses a sheet over 12 questions, without "Why we ask", or with
     internal Q-ids. Owner: "If they're gonna do that, what is the fucking purpose of us existing as a V2 fucking engine?"
     DECISIONS 16's "client review changes rows" means the client's facts change rows; it does not mean the client reviews the wording.
-18. **What goes into every V2 site** (2026-10-28): `sops/site-scope.md`. The same core for every industry (home, team and
+18. **What goes into every V2 site** (2026-10-28): `sops/clients/site-scope.md`. The same core for every industry (home, team and
     profiles, services, city/area pages from the plan, reviews, FAQ, articles, contact, legal; leads to the Omnikom CRM; the 547
     rules and 13 gates). Omnikom writes the structure and page wording. The client feeds services, articles, their industry
     collection (e.g. real-estate listings they post themselves, not IDX) and reviews through their user dashboard (with the
@@ -93,7 +93,7 @@
 
 19. **Launch is a command with a ledger and a stop condition** (2026-10-29, from the ELEV8 production list
     `E:\Alex Sevilla\draft-site\LAUNCH-ENTERPRISE.md`). A V2 preview becomes a production site through one command, the same for
-    every industry: `sops/launch.md` (22 items L-A1 to L-D22 in groups A before launch, B launch day, C first 30 days off-site,
+    every industry: `sops/clients/launch.md` (22 items L-A1 to L-D22 in groups A before launch, B launch day, C first 30 days off-site,
     D ongoing, each with its "done when" and how it is proven: an automated check or OWNER-PROOF), architecture
     `docs/blueprint/12-LAUNCH.md`, tool: the skill's `scripts/launch.mjs`. The command writes a ledger (`<pewp>/launch.json`),
     walks the owner through every access to grant as pickable questions (never a password: omnikom is added as a user), and

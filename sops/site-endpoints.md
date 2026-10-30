@@ -1,7 +1,7 @@
 # SOP: where every V2 website plugs into the platform (endpoints, payloads, preview and live)
 
 Status 2026-10-28. This SOP follows `docs/blueprint/specs/openapi.json` (the API), `contracts/README.md` (forms, consent, CRM
-mapping), `sops/site-scope.md` (DECISIONS 18) and `sops/client-questions.md` (DECISIONS 17). Where a fact is not in those
+mapping), `sops/clients/site-scope.md` (DECISIONS 18) and `sops/clients/client-questions.md` (DECISIONS 17). Where a fact is not in those
 files it says so.
 
 **Built vs not built.** The API is specified. The signature code (`supabase/functions/_shared/signature.ts`) and the database
@@ -173,7 +173,7 @@ submitted after a live deploy (`sitemap-submit`). Every number shown carries its
   idempotency key. They need an additive migration in W2.4. Until it is applied the extended fields are accepted by the schema
   but nothing keeps them.
 - **The wording itself** for ELEV8 is marked `[client to confirm]` in the contract and needs the client's legal sign-off
-  (`sops/client-questions.md`, legal sign-off). Locked wording is never invented by a build.
+  (`sops/clients/client-questions.md`, legal sign-off). Locked wording is never invented by a build.
 - The inbox shows each lead's consent text and CSV export carries it (W3.6).
 
 ## 7. CRM field mapping (the contract, applied on the server)
