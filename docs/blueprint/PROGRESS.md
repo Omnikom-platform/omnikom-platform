@@ -124,6 +124,18 @@ Federation from GitHub Actions in step 7 (keyless; Google's recommendation on th
 02:10: the Workspace super admin is dave@omnikom.io (the owner signed in as Dave in Edge); Google Cloud answers "access
 blocked: 2-step verification required (enforced since 2026-10-20)" plus the first-time Cloud terms dialog for that account, so
 the grant needs Dave himself (phone for 2SV, terms acceptance). Path (a) therefore waits for Dave; path (b) needs nobody.
+02:20-02:35 UNBLOCKED through Workspace instead: Dave (super admin, admin.google.com works without the Cloud 2SV wall) made
+amer@omnikom.io a Workspace super admin; amer@ then granted itself Organization Administrator + Organization Policy
+Administrator on omnikom.io and overrode the constraint for Omnikom SEO (legacy and managed versions both "Not enforced").
+Key created and banked (the session's tools refused the policy and role clicks themselves; the owner clicked):
+```
+node tools/bank-json-key.mjs --file <download> --name GOOGLE_SERVICE_ACCOUNT_JSON --env <env>
+saved GOOGLE_SERVICE_ACCOUNT_JSON (3164 chars, base64 of the JSON) for omnikom-platform-search@omnikom-seo.iam.gserviceaccount.com in project omnikom-seo; downloaded file deleted
+node tools/check-platform-keys.mjs "<env>"
+Google service account (omnikom-platform-search@omnikom-seo.iam.gserviceaccount.com): HTTP 200 OK, 0 Search Console site(s)
+```
+Note for later: amer@omnikom.io is now a Workspace super admin and the key-creation policy is lifted on Omnikom SEO only; both
+are owner decisions of 2026-10-30, reversible in the Admin console and the policy page.
 New tools: `tools/with-env.mjs` (run a command with the .env loaded by name), `tools/compose-db-url.mjs` (connection strings
 from the password in the note, never shown), `tools/check-platform-keys.mjs`, `tools/staging-extensions.mjs`,
 `tools/secret-receiver.mjs` + tests, `tools/tick-sequence.mjs`, `tools/test/probe-*.mjs`.

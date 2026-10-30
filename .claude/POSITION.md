@@ -185,8 +185,10 @@
   `iam.disableServiceAccountKeyCreation` (amer@ has no org roles; super admin = dave@, whose account needs 2SV + Cloud terms
   first). Owner picked "lift the policy": waits for Dave, or keyless (WIF from GitHub Actions) in step 7. Commits 7b09d21,
   52bf824, 5a22d21 + this one, all pushed to `Omnikom-platform/omnikom-platform` master.
+  02:35: 1.5 DONE after all: Dave made amer@ a Workspace super admin, amer@ granted itself the two org roles and overrode
+  the policy for Omnikom SEO; GOOGLE_SERVICE_ACCOUNT_JSON banked (base64), live check HTTP 200 (0 Search Console sites).
   STEP 1 STATUS: 1.1 DONE except owner MFA; 1.2 DONE; 1.3 DONE except R2 (deferred), Cloudflare TOTP (owner), ELEV8 analytics
-  (step 7); 1.4 DONE; 1.5 PARTLY DONE (key blocked). STEP 2: item 1 PROVEN (run-staging PASS); items 2-5 = the CLI session
+  (step 7); 1.4 DONE; 1.5 DONE. STEP 2: item 1 PROVEN (run-staging PASS); items 2-5 = the CLI session
   (DECISIONS 30), function deployed with secrets. UNPROVEN: magic-link send via the new SMTP; `test-apply.mjs` hang (local only).
   NEXT: the CLI session's lead proof; owner: Supabase MFA, Cloudflare TOTP, Dave accepts both invites and enables Google 2SV.
 
