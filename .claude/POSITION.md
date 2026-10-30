@@ -208,3 +208,13 @@
 ## Open elsewhere (not this repo, but the owner may ask)
 - Rainmaker launch is WAITING on Monica's answers (via Dave) and the GoDaddy nameserver switch; steps in `E:\Rainmaker\LAUNCH.md`.
 - Francine (VTV) and Eli: see `E:\Francine & Eli\.claude\POSITION.md`.
+
+## 2026-10-30 04:20 (lead session, platform-step-c, closing: context full, new lead session takes over)
+- DECISIONS 31 (no white label, "powered by Omnikom", code never held hostage) committed and pushed: 9bc73d8.
+- Offer deck for Dave, UNCOMMITTED: `docs/offer/omnikom-platform-offer.html` + `.pdf` (draft 4, in the style of the owner's
+  reference image), renderer `tools/offer/render-offer.mjs`, briefs `docs/offer/brief-for-gemini.md` / `brief-for-gpt.md`.
+  Owner said "cancel work on this"; leave it until the owner raises it again. Hosting-only price: no number decided.
+- Machine-global design rules: `~/.claude/reference/design-rules.md`, pushed by `~/.claude/hooks/design-rules.mjs` (tested).
+- Desktop mod `md-viewer` (`~/.claude/dev-mods/<session>/md-viewer`): `/md <path>` shows a markdown file in a pane; Copy, Edit.
+- Setup assistant (step 1 complete through 1.5, commits to 661412f) and cli-slice-1 (status against staging PROVEN; seed test,
+  key mint, lead send, verify on staging NOT RUN, they need the owner's go) both idle. NEXT: a new lead session verifies both.
