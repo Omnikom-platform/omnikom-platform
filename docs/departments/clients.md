@@ -65,8 +65,10 @@ options, never a fix made here.
   `clients/elev8/decisions.md` the turn they are given.
 - Slice 2a (Sonnet builder, brief by the head): `clients/rainmaker/`, `clients/vtv/`, `clients/eli/` from `E:\Rainmaker`,
   `E:\Francine & Eli` and `planning/CONTEXT.md`, read-only on the folders; the README rows lose "NOT WRITTEN"; check and tests green.
-- Slice 2b (head): `git mv` of `sops/prospect-audit-team.md`, `sops/client-questions.md`, `sops/launch.md`, `sops/site-scope.md`
-  under `sops/clients/`; every pointer in files this department owns fixed; pointers in other departments' files (found by
+- Slice 2b (head, DONE 2026-10-30 22:30, a2610f6): the four SOPs now live at `sops/clients/prospect-audit-team.md`,
+  `sops/clients/client-questions.md`, `sops/clients/launch.md`, `sops/clients/site-scope.md` (moved with `git mv`); every
+  pointer in files this department owns fixed (incl. `templates/client-questions/`, `tools/client-questions/`, `tools/team-kit/`,
+  given to this charter by the head of operations 2026-10-30); pointers in other departments' files (found by
   grep on 2026-10-30: `README.md`, `.claude/POSITION.md`, `planning/DECISIONS.md`, `contracts/README.md`, blueprint 12, 13, 15,
   22, 25 and README, `tools/client-questions/questions-pdf.mjs`, `templates/client-questions/README.md`, `tools/design-engine/WRITING.md`,
   `tools/team-kit/README.md`, `sops/site-endpoints.md`, the skill's `scripts/launch.mjs` and `stages/build.md`) sent up as a

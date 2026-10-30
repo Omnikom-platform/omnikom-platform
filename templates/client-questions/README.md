@@ -1,4 +1,4 @@
-# Client questions: template (sops/client-questions.md, DECISIONS 17)
+# Client questions: template (sops/clients/client-questions.md, DECISIONS 17)
 
 These files are the model for what a V2 client is asked before launch: ONE sheet of at most 12 questions, plus one short
 forwardable email. The worked example is ELEV8 (2026-10-28): `E:\Alex Sevilla\deliverables\questions-for-alex.md` and

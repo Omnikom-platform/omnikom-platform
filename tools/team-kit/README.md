@@ -1,7 +1,7 @@
 # Team kit: the ICM audit team (Lead, Researcher, SEO analyst, Reviewer)
 
 Copied 2026-10-26 from `E:\Alex Sevilla` (the ELEV8 prospect audit), where it ran end to end. How the team works:
-`sops/prospect-audit-team.md`. These files are the newest working copies; they still carry ELEV8 names, so rename when starting a
+`sops/clients/prospect-audit-team.md`. These files are the newest working copies; they still carry ELEV8 names, so rename when starting a
 new client:
 
 | File | Goes to (in a client project) | Rename / edit |

@@ -1,4 +1,4 @@
-// Client question sheet -> PDF (sops/client-questions.md, DECISIONS 17). The .md is the source; never edit the PDF.
+// Client question sheet -> PDF (sops/clients/client-questions.md, DECISIONS 17). The .md is the source; never edit the PDF.
 // Look: the Omnikom question-sheet renderer (toHtml from E:\Francine & Eli\tools\partner-pdf.mjs): tick boxes, "Must answer"
 // badges, "Why we ask" lines, accounts table. The build REFUSES a sheet that breaks the SOP:
 //   more than 12 questions; a question with no "Why we ask:" line; any internal reference (Q-ids, [Q-, gold markers); a "[link]"
@@ -29,7 +29,7 @@ md.split(/\r?\n/).forEach((l, i, all) => {
   if (!(j < all.length && /^\s+Why we ask:/.test(all[j]))) whyMissing.push(l.slice(0, 50));
 });
 const problems = [];
-if (qs.length > 12) problems.push(`${qs.length} questions (max 12: the rest is our work, see sops/client-questions.md)`);
+if (qs.length > 12) problems.push(`${qs.length} questions (max 12: the rest is our work, see sops/clients/client-questions.md)`);
 if (whyMissing.length) problems.push(`no "Why we ask:" line for: ${whyMissing.join(' | ')}`);
 if (/\(Q-?\d|\[Q-\d|Q-\d{3}|client to confirm/i.test(md)) problems.push('internal question references left (Q-ids / markers)');
 if (base && /\[link\]/.test(md)) problems.push('a [link] placeholder is left although --base was given');
