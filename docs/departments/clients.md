@@ -107,3 +107,14 @@ options, never a fix made here.
   or unowned files NOT edited: listed with file:line, owner and options in the shared note
   `clients-finding-sop-moves-2026-10-30.md` (side-session notes folder of the head of operations) and sent up. Slice 2a
   (Rainmaker, VTV, Eli records) running in a Sonnet builder; the head re-runs its proof before accepting.
+- 2026-10-30 23:55 (head): slice 2a PROVEN. `clients/rainmaker/`, `clients/vtv/`, `clients/eli/` (five files each) written
+  by a Sonnet builder from `E:\Rainmaker` and `E:\Francine & Eli` read-only (`git status` there unchanged); the three README
+  rows carry their status lines. Proof re-run by a Haiku agent (DECISIONS 34) and read back: `node clients/check.mjs` ->
+  "OK: 4 client record(s) complete: elev8, eli, rainmaker, vtv"; `node clients/test/run.mjs` -> "PASS clients tests: 6 of 6";
+  `node tools/departments/check.mjs` -> "OK: 5 charter(s) valid". Cold read by the head: licence #0D82822 (`licensing.md` 43 to 46),
+  plural name (`decisions.md` 13), lock.json approvedBy, the cpe redirect contradiction (`_redirects` 8 vs decisions 24), Xpert
+  Home Realty (`log.md` 76), 15 and 6 questions, 81 sitemap URLs, 26 Eli pages, domain row (`website-review-eli.md` 129), three
+  previews HTTP 200 noindex: all match. The records prove structure and sourcing only; every "gates green" inside them is the
+  project log's claim, marked so. Findings sent up: CONTEXT.md row 9 says eXp (project: Xpert Home Realty); DECISIONS 18 (IDX cut)
+  vs VTV's MLS plan and her 28 listings on the preview; Francine's sheet 15 questions vs the DECISIONS 17 cap of 12; Eli absent
+  from the DECISIONS 27 M4 list; Rainmaker on a Worker vs DECISIONS 28; six stale Rainmaker project files (record only).
