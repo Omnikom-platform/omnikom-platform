@@ -404,6 +404,12 @@
   what moves, what is shared, and the name mapping (Alex = cash offer, Sunny = mortgage is the head's reading, to confirm).
   Routed: "move a site between workspaces" to platform-build open items; "compliance pack for a mortgage site" stays with
   Clients as an owner decision before that site is planned.
+- 22:10 SEO slice 1 (cdda922) verified by me: `tools/audit/test/run.mjs` 195 of 195; `run.mjs fixtures/good` = 4 pages, 14
+  rules, 0 FAIL, exit 0; `fixtures/bad-MET-003` = FAIL MET-003 with file:line and the checklist source, exit 1; mutants (106)
+  re-run in the background, result below when done. Slice 3 brief (`tools/audit/briefs/slice-3-cli-command.md`: `omnikom audit
+  --dir`, `omnikom gate --dir`) routed to the CLI head as a released slice. STRUCTURAL FINDING: a department head cannot start
+  a sidebar builder session (the app refuses start_session for a task that came from a session), so builders run as in-session
+  Sonnet agents inside the head (same brief, not visible in the sidebar) unless the owner types the ask in the head's session.
 
 ## 2026-10-30 21:36-22:15 (Clients department head `local_02b5fce4-6e08-4801-b312-28226e8817d7`, Fable; this checkout, master)
 - SLICE 1 PROVEN: `clients/README.md` (four rows: elev8, rainmaker, vtv, eli; the last three "NOT WRITTEN yet (slice 2)"),
