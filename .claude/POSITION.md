@@ -178,9 +178,17 @@
   RESEND_API_KEY = sending-only key; LEAD_ALERT_FROM=leads@notify.omnikom.io. Tracking: off by default (no tracking subdomain).
   Local: full mutant run 125 of 126 then N10b added (no extension in public) and the survivor caught; `test-apply.mjs` HANGS
   (exit 124, no output, even alone: UNPROVEN, to debug; apply-staging itself is proven on staging).
-  NEXT: Resend "Verified" (re-check), then Supabase Auth custom SMTP via Resend (1.1 line 24); owner clicks: Supabase MFA +
-  second owner, Cloudflare TOTP + Dave invite; 1.5 Google (may wait); the lead proof = CLI session (step 2 items 2-5) now that
-  the function is deployed with its secrets.
+  01:30-02:15: Resend VERIFIED; test email HTTP 200, owner confirmed it arrived (1.4 "done when" met); Supabase Auth custom
+  SMTP through Resend saved (owner pasted the key from the clipboard: `tools/clipboard-from-env.ps1`); dave@omnikom.io invited
+  on Cloudflare (Super Administrator, Pending) and on Supabase (Owner, "Successfully sent invitation"); 1.5: both Google APIs
+  enabled + service account `omnikom-platform-search@omnikom-seo.iam.gserviceaccount.com`, JSON key BLOCKED by the org policy
+  `iam.disableServiceAccountKeyCreation` (amer@ has no org roles; super admin = dave@, whose account needs 2SV + Cloud terms
+  first). Owner picked "lift the policy": waits for Dave, or keyless (WIF from GitHub Actions) in step 7. Commits 7b09d21,
+  52bf824, 5a22d21 + this one, all pushed to `Omnikom-platform/omnikom-platform` master.
+  STEP 1 STATUS: 1.1 DONE except owner MFA; 1.2 DONE; 1.3 DONE except R2 (deferred), Cloudflare TOTP (owner), ELEV8 analytics
+  (step 7); 1.4 DONE; 1.5 PARTLY DONE (key blocked). STEP 2: item 1 PROVEN (run-staging PASS); items 2-5 = the CLI session
+  (DECISIONS 30), function deployed with secrets. UNPROVEN: magic-link send via the new SMTP; `test-apply.mjs` hang (local only).
+  NEXT: the CLI session's lead proof; owner: Supabase MFA, Cloudflare TOTP, Dave accepts both invites and enables Google 2SV.
 
 ## 2026-10-30 (cli-slice-1: the omnikom CLI, slice 1)
 - **Built, `tools/omnikom-cli/` (README there, spec `docs/blueprint/26-PLATFORM-CLI.md` section 7):** `status apply "test walls" "seed test|workspace" "key mint|list|revoke" "contract validate|place" "lead send|list|get|update|add|delete" "content save|get|history" publish "job get|wait|set" "verify --only lead"`, exit codes 0/1/2/3, `--expect`, fixtures. PROVEN: `node tools/omnikom-cli/test/run.mjs` = 138 of 138 checks (units + a throwaway local cluster with a fake fetch and a MODEL of capture-lead); `node tools/omnikom-cli/test/mutate.mjs` = 61 mutants, 61 caught; `run-local.mjs --only no-such-mutant` still OK. The four spec rules each have a test watched red and a mutant (no secret in output; production refuses everything but `status` and `apply --i-mean-production`; `seed test` twice changes nothing; `lead send --retry` stores one row).

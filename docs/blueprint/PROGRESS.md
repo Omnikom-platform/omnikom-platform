@@ -121,6 +121,9 @@ Policy Administrator; then the policy page for Omnikom SEO > Manage policy > Ove
 Off > Set policy; then `Add key > Create new key > JSON` and `node tools/bank-json-key.mjs --file <download> --env <env>`
 banks it as GOOGLE_SERVICE_ACCOUNT_JSON and deletes the download; or (b) keep the policy and use Workload Identity
 Federation from GitHub Actions in step 7 (keyless; Google's recommendation on that very dialog). Nothing before step 7 needs it.
+02:10: the Workspace super admin is dave@omnikom.io (the owner signed in as Dave in Edge); Google Cloud answers "access
+blocked: 2-step verification required (enforced since 2026-10-20)" plus the first-time Cloud terms dialog for that account, so
+the grant needs Dave himself (phone for 2SV, terms acceptance). Path (a) therefore waits for Dave; path (b) needs nobody.
 New tools: `tools/with-env.mjs` (run a command with the .env loaded by name), `tools/compose-db-url.mjs` (connection strings
 from the password in the note, never shown), `tools/check-platform-keys.mjs`, `tools/staging-extensions.mjs`,
 `tools/secret-receiver.mjs` + tests, `tools/tick-sequence.mjs`, `tools/test/probe-*.mjs`.

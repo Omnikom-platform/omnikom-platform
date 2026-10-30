@@ -57,7 +57,7 @@ Done when: the three tokens and the R2 keys are in the .env.
 Done when: a test email from the Resend dashboard arrives.
 
 **1.5 Google service account** (for step 7, can wait)
-- [ ] (PARTLY DONE 2026-10-30 02:00: both APIs enabled, service account omnikom-platform-search@omnikom-seo.iam.gserviceaccount.com created; BLOCKED: the omnikom.io Google organisation enforces iam.disableServiceAccountKeyCreation, so no JSON key can be made; unblock = Workload Identity Federation from GitHub Actions (keyless, recommended for step 7) or an org-policy admin lifting the constraint) In project `omnikom-seo`: enable the Search Console API and the Site Verification API; create a service account; its JSON
+- [ ] (PARTLY DONE 2026-10-30 02:00: both APIs enabled, service account omnikom-platform-search@omnikom-seo.iam.gserviceaccount.com created; BLOCKED: the omnikom.io Google organisation enforces iam.disableServiceAccountKeyCreation, so no JSON key can be made; unblock = Workload Identity Federation from GitHub Actions (keyless, recommended for step 7) or an org-policy admin lifting the constraint; 02:10: amer@ has no org roles, the Workspace super admin is dave@omnikom.io, whose account is blocked from the Cloud console until Dave enables 2-step verification and accepts the Cloud terms, so this waits for Dave or goes keyless in step 7) In project `omnikom-seo`: enable the Search Console API and the Site Verification API; create a service account; its JSON
       key into the .env as `GOOGLE_SERVICE_ACCOUNT_JSON` (one line, base64 if easier).
 
 ## Step 2. The first lead is proven: through the platform's own CLI on a test workspace, to staging, to your inbox
