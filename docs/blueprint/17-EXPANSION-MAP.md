@@ -9,7 +9,7 @@ row and a function, never a rewrite. Budget rules: `18-BUDGET-ARCHITECTURE.md`.
 lead, agrees a meeting time, books it), SMS and email about that meeting, CRM export and import with a mapping wizard, ads later
 (DECISIONS 10). Each add-on is activated through one setup wizard pattern and runs through one connector pattern.
 **Horizontal: more clients, sites and industries.** More workspaces (one database, RLS), more sites per workspace (`sites`),
-more industries (the contract is generated per plan, DECISIONS 3 and 14), more team members per client, white label later
+more industries (the contract is generated per plan, DECISIONS 3 and 14), more team members per client (white label was planned here and withdrawn by DECISIONS 31)
 (the dashboard shows the reseller's name; the same code).
 
 ## 2. The blocks that make both possible (build once)
@@ -101,7 +101,7 @@ the dashboard shows "Finish setting up the AI concierge" on Leads.
 | A second site for a client | one `sites` row and contract version; leads carry `site_id`; the switcher appears | everything |
 | A new industry | a plan and its compliance pack (`skills/.../rules/industries/`); the contract generator proves it (industry run) | the schema, the screens |
 | Many clients | the limits in `18-BUDGET-ARCHITECTURE.md` section 3 trigger upgrades; indexes by workspace first | the wall |
-| White label (a reseller runs clients under their name) | a `resellers` table and `workspaces.reseller_id`; the dashboard reads the name, logo and support address from it; staff of a reseller see only their workspaces (`private.can_see` gains one clause, with its mutant) | the rest |
+| White label | withdrawn 2026-10-30 (DECISIONS 31, owner: "we are not something hidden we are enterprise"); every client surface carries "powered by Omnikom" with our logo in the footer, the client's brand above it; a client who leaves keeps the hosted site and CRM access, add-ons stop, the code is handed over on request (`offboard`, CLI slice 3) | nothing |
 | Self-serve signup | the Presence Report engine (step A) as the entry, payment, then onboarding as a job | the pipeline |
 
 ## 5. Build order for this loop and after

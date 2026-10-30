@@ -147,7 +147,7 @@
 23. **The platform expands in two directions and the building blocks must carry both** (same brief): vertically per client
     (paid add-ons: the AI concierge that calls a lead, agrees a meeting time and books it; SMS and email about that meeting;
     CRM export and import with a mapping wizard that learns the client's own sheet layout; a setup wizard and connector when a
-    client pays to activate an add-on) and horizontally (more industries, more sites per client, more clients, white label).
+    client pays to activate an add-on) and horizontally (more industries, more sites per client, more clients; white label was listed here and is struck by DECISIONS 31).
     The map, the blocks and the build order: `docs/blueprint/17-EXPANSION-MAP.md`.
 24. **Push to GitHub to keep everything saved** (2026-10-29 20:21, owner: "you can push to main on github for the omnikom
     platform to keep everything saved"). Standing permission for this repo only: after each commit the session pushes `master`
@@ -208,3 +208,12 @@
     not documented as counting toward the 500 builds a month (UNVERIFIED, to measure on the first deploys); the deploy token
     is account-level (per-project scoping UNVERIFIED), held only by the runner. This revises ADR 0002, whose reason (Pages
     project creation failing on 2026-10-23) no longer holds. Reversible: Cloudflare documents a Pages-to-Workers migration.
+31. **No white label; branding is "powered by Omnikom"; a client who leaves keeps the code and the CRM** (2026-10-30 02:49,
+    owner to the setup session, relayed to the lead: "we are not something hidden we are enterprise"). Lead alert emails and
+    client-facing mail carry the client's own brand above and "powered by Omnikom" with our logo in the footer, "like any
+    services". Exit terms in the owner's words: "if they wanted to exit we don't hold the website code hostage at all and we
+    keep hosting it minus the other services like tracking the numbers SEO monthly reports etc but they will keep their
+    access to the platform to check the CRM new leads and things like that". Effects: the white-label row of
+    `17-EXPANSION-MAP.md` is withdrawn (no `resellers` table); DECISIONS 23's horizontal line loses "white label"; the email
+    layout stays a step 5 design item; an offboarding path (hosting kept, add-ons stopped, CRM access kept, code handed over
+    on request) is a step 5 item for `15-CRM.md` and `26-PLATFORM-CLI.md` slice 3 (`offboard`).
