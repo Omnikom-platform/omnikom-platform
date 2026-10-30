@@ -24,7 +24,7 @@ to the department that owns the files, as a brief with the evidence.
   block of `.claude/POSITION.md`; nothing else is needed to continue).
 - Reads first, in order: `CLAUDE.md`, `.claude/POSITION.md` (whole file; the last blocks are the hand-over), `planning/DECISIONS.md`
   (newest items), `docs/departments/README.md`, then each department charter's position log and open items.
-- Does: answers the owner in plain words with pickable options; starts and briefs department heads and platform step sessions
+- Reports to the owner, and to nobody else. Does: answers the owner in plain words with pickable options; starts and briefs department heads and platform step sessions
   (DECISIONS 32); receives two-line reports; re-runs the proof of every finished step or slice itself (Rule 2) before accepting
   it; routes cross-department findings (evidence down, decision recorded); keeps POSITION.md current after every phase; commits
   and pushes `backup-gh master` after a clean `gitleaks protect --staged` (DECISIONS 24).

@@ -57,6 +57,13 @@ try {
   r = run('check.mjs', [], d);
   check('check: unknown model, undated log, em dash are each a problem', r.status === 1 && /unknown head model gpt/.test(r.out) && /position log has no dated line/.test(r.out) && /contains an em dash/.test(r.out), r.out);
 
+  // a head that names nobody to report to, builders without the finding line
+  d = fresh(); dirs.push(d);
+  edit(d, 'cli-and-testing.md', 'reports to the head of\n  operations in two lines', 'reports in two lines');
+  edit(d, 'platform-build.md', '"anything outside this brief is a finding you send back, not a fix"', '"stay inside the brief"');
+  r = run('check.mjs', [], d);
+  check('check: a head with nobody to report to, and builders without the finding line, each fail', r.status === 1 && /does not say whom it reports to/.test(r.out) && /finding you send back/.test(r.out), r.out);
+
   // new-department: dry run writes nothing
   d = fresh(); dirs.push(d);
   r = run('new-department.mjs', ['--slug', 'seo-and-audits', '--name', 'SEO and audits', '--mission', 'Audit gates.', '--owns', 'skills/programmatic-enterprise-web-performance/', '--dry-run'], d);

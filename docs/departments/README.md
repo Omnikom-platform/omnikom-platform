@@ -36,6 +36,30 @@ that is written here.
    a skill or a document.
 6. **Live things need the owner's click** (CLAUDE.md rule 6 and 12); a department never widens its own permissions.
 
+## Where sessions live and who they talk to (owner, 2026-10-30 19:51)
+- Sidebar: every session is filed under its department's group, named `Omnikom: <department name>` (head of operations,
+  platform build, CLI and testing). A session the head of operations starts for a department is detached from the head's
+  family and filed under that department's group, so the sidebar shows the departments, not who clicked start.
+- Reporting line, always one hop: builder -> its department head -> head of operations -> owner. A builder never messages the
+  head of operations; a department head never messages another department's builder; cross-department findings go up to the
+  head of operations and down to the owner department. Session ids of the heads are in each charter's position log when they
+  change; the current ones are in `.claude/POSITION.md`.
+
+## Every session type has a head it can talk to (owner, 2026-10-30 19:59)
+| Session type | Department | Talks to (one hop up) | Started by |
+|---|---|---|---|
+| Head of operations | head-of-operations | the owner | the owner, or the previous head's hand-over |
+| Department head (CLI and testing; every future department) | its charter | head of operations | head of operations |
+| Builder of a department (one slice) | its head's charter | its department head | its department head |
+| Platform step session (one per step, DECISIONS 32) | platform-build | head of operations (it is its own head for the step) | head of operations |
+| Builder started by a step session (a mechanical piece) | platform-build | the step session that started it | the step session |
+| Setup or one-off assistant beside the owner | the department whose files it touches | head of operations | head of operations |
+Session titles carry the role so the owner knows them at a glance (owner, 2026-10-30 20:04): `HEAD OF OPERATIONS: ...`,
+`HEAD: <department>`, `BUILDER (<department>): <slice>`, `STEP <n> (platform build): <what>`, `ASSISTANT (<department>): <what>`;
+a finished session gets `, DONE` appended. A session type not in this table is not started until a row is added; `tools/departments/check.mjs` requires every charter to
+say whom its head reports to and that its builders send findings back. When a department has no standing head (platform build
+today), the head of operations is the head and says so in the brief.
+
 ## Starting a department
 `node tools/departments/new-department.mjs --slug <slug> --name "<Name>" --mission "<one sentence>" --owns <path> [--owns <path>]
 [--head-model fable] [--builder-model sonnet]` writes `docs/departments/<slug>.md` from `TEMPLATE.md` and adds the row below.

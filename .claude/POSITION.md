@@ -333,5 +333,11 @@
   `check.mjs` (required sections, one owner per path incl. child paths with "except", models, dated log, README table, no em
   dash), `new-department.mjs` (scaffold + README row + check, removes its file if the check fails); tests 13 of 13, mutants
   9 of 9 caught (first run had 8 false catches: crashes counted as red; fixed so only a FAIL line counts). CLAUDE.md read
-  order gained `docs/departments/README.md`. NEXT: start the CLI department head (fable) which adopts the running builder
-  and part 2; the SEO and audits department when the owner says go.
+  order gained `docs/departments/README.md`. Committed 5a5fcec, pushed.
+- 19:50 CLI department head STARTED: session `local_c8848ce4-2e87-4e85-b578-e47e42aaf1a7` (fable, this checkout), brief = adopt
+  the Sonnet builder `local_480469e1-e5cd-474c-82e8-c4bf79528ab2` and part 2, re-run its proof, plan slice 2, report up in two
+  lines. The builder was told to report to the head. OWNER 19:51: sessions organised by department: sidebar groups
+  "Omnikom: head of operations" (this session `local_f58886f2-26f1-4f9f-bc47-913ce5b0c4d1`), "Omnikom: platform build"
+  (step-2, setup-assistant), "Omnikom: CLI and testing" (the head, the builder); the department sessions detached from the
+  old family so the groups hold; reporting line builder -> head -> head of operations -> owner written into the README.
+  NEXT: the SEO and audits department when the owner says go; step 3 session after the CLI head reports part 2 verified.

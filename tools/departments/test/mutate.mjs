@@ -15,6 +15,8 @@ const MUTANTS = [
   ['a child path under another department is fine', 'check.mjs', "if (a !== b && ownerA !== ownerB && b.startsWith(a + '/')", "if (false"],
   ['the README table is not checked', 'check.mjs', 'for (const c of charters) if (!rows.includes(c.slug)) problems.push(', 'for (const c of []) if (!rows.includes(c.slug)) problems.push('],
   ['an unknown model passes', 'check.mjs', 'else if (!MODELS.includes(c.headModel)) problems.push(', 'else if (false) problems.push('],
+  ['a head need not say whom it reports to', 'check.mjs', "if (!/reports? to (the owner|the head of operations)/i.test((c.sections.get('Head session') || '').replace(/\\s+/g, ' '))) problems.push(", 'if (false) problems.push('],
+  ['builders need no finding line', 'check.mjs', "if (!/finding/i.test(c.sections.get('Builders') || '')) problems.push(", 'if (false) problems.push('],
   ['an em dash passes', 'check.mjs', 'if (c.text.includes(String.fromCharCode(0x2014))) problems.push(', 'if (false) problems.push('],
   ['new-department does not refuse a path owned elsewhere', 'new-department.mjs', 'if (owner) { console.error(`refusing: ${p} is owned by ${owner.slug}`); process.exit(1); }', ''],
   ['new-department keeps a charter the check refused', 'new-department.mjs', '  unlinkSync(file);\n  writeFileSync(readmePath, readme, \'utf8\');\n', ''],
