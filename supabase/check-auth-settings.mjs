@@ -23,7 +23,7 @@ const EXPECT = {
   mfa_totp_enroll_enabled: ['TOTP enrolment on (staff second factor)', true, '13-DATA-MODEL 3; the CLI enrolled the staff factor 2026-10-30'],
   mfa_totp_verify_enabled: ['TOTP verification on', true, 'same'],
   security_captcha_enabled: ['CAPTCHA on Auth (Turnstile decision open, 24-GAP-HUNT C)', null, 'recorded'],
-  rate_limit_email_sent: ['emails per hour through the built-in mailer', 2, 'PROGRESS.md 2026-10-29 "built-in mail 2 / hour until custom SMTP"'],
+  rate_limit_email_sent: ['emails per hour through Auth mail (custom SMTP through Resend since 2026-10-30 01:41)', 30, 'observed 2026-10-31 through the Management API with the full-access token; the earlier "2 per hour" was the built-in mailer cap (21-PROTOCOLS section 5: "after custom SMTP a 30 per hour limit")'],
   rate_limit_verify: ['OTP and magic-link verifications per 5 minutes per IP', 30, 'PROGRESS.md 2026-10-29'],
   rate_limit_token_refresh: ['token refreshes per 5 minutes per IP', 150, 'PROGRESS.md 2026-10-29'],
   rate_limit_otp: ['OTP requests per 5 minutes', null, 'recorded'],

@@ -24,7 +24,7 @@ Needs `SUPABASE_ACCESS_TOKEN` with read access to the project's Auth configurati
 | Redirect allow list (`uri_allow_list`) | `https://app-staging.omnikom.io/**` (production: its own) | no open redirect | yes | 2026-10-30: BLOCKED |
 | Email provider (`external_email_enabled`) | on | magic link is the one sign-in (DECISIONS 29 D18) | yes (no "passwords off" switch exists: finding 1 in PROGRESS.md; the dashboard never offers a password form) | 2026-10-30: BLOCKED |
 | TOTP MFA (`mfa_totp_enroll_enabled`, `mfa_totp_verify_enabled`) | on | staff act only at aal2 (`private.is_staff()`) | not read on 2026-10-29; the CLI enrolled the staff factor on 2026-10-30, so enrolment is on | 2026-10-30: BLOCKED (observed working through `omnikom mfa enroll-staff`) |
-| Rate limits (`rate_limit_email_sent`, `rate_limit_verify`, `rate_limit_token_refresh`, `rate_limit_otp`) | the defaults recorded: built-in mail 2 per hour, verifications 30 per 5 min, token refresh 150 per 5 min; raise only on a measurement | 24-GAP-HUNT A 6.1.1 | yes, defaults | 2026-10-30: BLOCKED |
+| Rate limits (`rate_limit_email_sent`, `rate_limit_verify`, `rate_limit_token_refresh`, `rate_limit_otp`) | the defaults recorded: Auth mail 30 per hour (Supabase's value once custom SMTP is on; 2 per hour was the built-in mailer's cap, 21-PROTOCOLS section 5), verifications 30 per 5 min, token refresh 150 per 5 min; raise only on a measurement | 24-GAP-HUNT A 6.1.1 | yes, defaults | 2026-10-31: 24 read, 0 differ (the expectation 2 was stale, corrected) |
 | JWT lifetime (`jwt_exp`) | recorded; D19 proposes 3600 s | ASVS 7.x | not read | 2026-10-30: BLOCKED |
 | Refresh token rotation (`refresh_token_rotation_enabled`) | on | a stolen refresh token dies at first reuse | not read | 2026-10-30: BLOCKED |
 | Sessions (`sessions_timebox`, `sessions_inactivity_timeout`) | recorded (paid feature; D19) | ASVS 7.x | not read | 2026-10-30: BLOCKED |
@@ -33,6 +33,10 @@ Needs `SUPABASE_ACCESS_TOKEN` with read access to the project's Auth configurati
 | Enforce SSL on database connections | on | the vendor's production checklist | yes (confirmed by a probe, PROGRESS.md) | not an Auth setting; proven by the probe on 2026-10-29 |
 
 ## Check log
+- 2026-10-31 (platform build head, after the owner banked a full-access `SUPABASE_ACCESS_TOKEN`): the command above read 24 settings; 23
+  matched, 1 differed: `rate_limit_email_sent` observed 30, expected 2. The expectation was stale (the built-in mailer's cap; custom SMTP
+  through Resend has been on since 2026-10-30 01:41 and Supabase quotes 30 per hour then). Expectation corrected to 30 here and in
+  `check-auth-settings.mjs`; the re-run line is in PROGRESS.md "Step 4" (Haiku runner).
 - 2026-10-30 (step 3 session): `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node supabase/check-auth-settings.mjs`
   answered `Management API answered 403 Forbidden (the token needs read access to the project's auth config); nothing checked`.
   BLOCKED: the personal access token in the env file is scoped to Edge Functions, function secrets and project settings read

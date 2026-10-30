@@ -105,8 +105,8 @@ leftovers are migrations 7 (`20261030000007_hardening_leftovers.sql`) and 8 (`20
 - [x] Consent wording lint on the contract: `I-CONSENT-CHANNEL / -TCPA / -STOP / -RATES` on `notices` rows at publish; contract tests 147,
   mutants 88 of 88.
 - [x] Doc drift list 24-GAP-HUNT F: 16 items ticked with where each was fixed (two diagrams left for a redraw).
-- [ ] `supabase/auth-settings.md` checked against staging: the file is written with the dashboard values of 2026-10-29; the Management
-  API check is BLOCKED (403: the token lacks the Auth read scope); unblock = the owner widens the token, then `node supabase/check-auth-settings.mjs`.
+- [x] `supabase/auth-settings.md` checked against staging (DONE 2026-10-31: the owner banked a full-access token; 24 settings read, 0 differ
+  after the stale `rate_limit_email_sent` expectation (2, the built-in mailer) was corrected to 30, the custom-SMTP value; re-run line in PROGRESS.md "Step 4").
 - [x] Staging: `apply` 2 of 8, `status` 8 applied, `seed test --clean`, `test walls` `PASS tenancy tests on staging`, fixtures restored
   (keys numbered 1 again with new values), `verify --only lead` 12 of 12 (paused site 409 now), `walls` 5 of 5, `people` 15 of 15.
 - [x] Leftovers: paused site 409 `S-SITE-PAUSED` (deployed, PROVEN); deploy tool scrubs the project ref; `test-apply.mjs` ran clean

@@ -78,7 +78,7 @@ sent to the head of operations with options, never a fix made here.
   platform), 31 (branding and exit), 32 (one session per step), 33 (departments).
 
 ## Open items
-- **Step 4 slice plan** (the standing head, session `local_e909c214` of 2026-10-30 23:46; builders are in-session Sonnet agents,
+- **Step 4 slice plan** (the standing head, session `local_cade0add-3389-4314-b7b5-83333d26a97a` of 2026-10-30 23:46; builders are in-session Sonnet agents,
   one brief each under `factory/briefs/4-<n>-<slice>.md`; every mechanical run goes to a Haiku agent; the head
   re-runs each proof through a Haiku runner before the slice is called PROVEN). Adjustments to the head of operations' shape, and
   why: the seeded test contract (`omnikom seed test`) has collections but no pages, so the factory proof needs a test-site contract
@@ -123,8 +123,8 @@ sent to the head of operations with options, never a fix made here.
     publish with the heading violation: the audit gate fails, nothing deploys, job `failed`, the preview still shows the first heading.
     Both pasted in PROGRESS.md "Step 4"; the sequence file ticked; two lines to the head of operations.
 - Step 3 DONE 2026-10-30 (migrations 7 and 8, PROGRESS.md "Step 3"); still open from it: `supabase/auth-settings.md` checked against
-  staging is BLOCKED on the token scope (403 from the Management API; the owner adds the Auth read scope, then
-  `node supabase/check-auth-settings.mjs`); the step-down to `omnikom_fn` inside the deployed function is UNPROVEN beyond "set role
+  staging: DONE 2026-10-31 (full-access token banked by the owner; 24 settings read, 0 differ after the stale `rate_limit_email_sent`
+  expectation was corrected from 2 to 30, the custom-SMTP value; re-run line in PROGRESS.md "Step 4"); the step-down to `omnikom_fn` inside the deployed function is UNPROVEN beyond "set role
   succeeds" (a transaction pooler would reset it silently); `diagrams/08-deployment.png` and `09-tenancy.png` still draw Workers.
 - `capture-lead` paused site: DONE 2026-10-30, 409 `S-SITE-PAUSED` proven by `verify --only lead` on staging.
 - `tools/deploy-capture-lead.mjs` project ref: DONE 2026-10-30, scrubbed.
@@ -142,7 +142,7 @@ sent to the head of operations with options, never a fix made here.
   migrations 7 and 8 on staging (8 applied), `test walls` PASS on staging, 161 database mutants caught locally, `capture-lead`
   redeployed (409 for a paused site), the three verify suites 12 / 5 / 15 PASS on the restored fixtures. BLOCKED: the auth-settings
   API check (token scope). Reported to the head of operations.
-- 2026-10-30 23:50, standing head (session `local_e909c214-d937-405e-b311-e5539bd9a6b1`, Fable, this checkout): step 4 planned as five slices
+- 2026-10-30 23:50, standing head (session `local_cade0add-3389-4314-b7b5-83333d26a97a`, Fable, this checkout): step 4 planned as five slices
   (Open items above): 4.1 factory core on the test site, 4.2 dashboard-facing functions, 4.3 runner-facing functions, 4.4 the runner and
   the five workflows, 4.5 the done-when on the test site's own Pages project. Asked up: the owner's fine-grained GitHub dispatch token
   (`GITHUB_DISPATCH_TOKEN`), `.github/` and two tool paths for this charter's Owns. Nothing built yet.

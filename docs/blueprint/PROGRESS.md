@@ -4,6 +4,21 @@ Task: build-ready product engineering package (owner, 2026-10-28), raised to eng
 then corrected by an independent fact-check (72 claims) and an independent M1 dry run (31 issues), and by DECISIONS 15
 (no Docker; one Supabase account, staging + production). **Status: complete for owner review. Nothing committed.**
 
+## Step 4: sites build themselves (2026-10-31, the standing Platform build head, session `local_cade0add-3389-4314-b7b5-83333d26a97a`)
+Five slices (charter `docs/departments/platform-build.md` Open items; briefs in `factory/briefs/`). Builders are in-session Sonnet agents; every
+mechanical run is a Haiku agent whose verbatim output is what is pasted here.
+
+**Step 3 leftover closed (head of operations' request 2026-10-31 00:18).** The owner banked a full-access `SUPABASE_ACCESS_TOKEN`; the stale
+expectation `rate_limit_email_sent` 2 (the built-in mailer cap) was corrected to 30 (Supabase's value with custom SMTP, on since 2026-10-30 01:41)
+in `supabase/auth-settings.md` and `check-auth-settings.mjs`. Haiku re-run of
+`node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node supabase/check-auth-settings.mjs` (00:21 local), exit 0, last lines:
+```
+PASS     rate_limit_email_sent                    observed 30  expected 30  (emails per hour through Auth mail (custom SMTP through Resend since 2026-10-30 01:41); ...)
+PASS     mailer_secure_email_change_enabled       observed true  expected true  (secure email change (both addresses confirm); Supabase default)
+OK: 24 settings read, 0 differ from auth-settings.md (checked 2026-10-30)
+```
+(15 PASS, 9 RECORDED, 0 FAIL; the "checked" date is the script's UTC day.) The step 3 line in `25-BUILD-SEQUENCE.md` is ticked.
+
 ## Step 3: the database is finished, the hardening leftovers (2026-10-30 20:22-22:20, step 3 session, platform build; commits 0e60178 and the one after it)
 Every command through `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs <command> --target staging`
 (the CLI redacts secrets; the lines below are its real output, trimmed to the lines that matter). Local gates ran on this machine.
