@@ -84,7 +84,7 @@ The site registry: where a workspace's website is deployed.
 | `created_at` | when | database |
 PROPOSED additions (needed by the lead path, `14-LEAD-PATH.md`): `signing_key_ref` (the NAME of the Vault secret holding this
 site's lead signing key, section 8) and `lead_alert_to` (the email addresses that get a new-lead alert, from client question
-"lead-alert recipients" in `sops/client-questions.md`).
+"lead-alert recipients" in `sops/clients/client-questions.md`).
 
 ### `site_contracts` (BUILT)
 The generated content contract per workspace (which collections, which fields, which rules), versioned. One is `active`.

@@ -36,7 +36,7 @@ pageTypes    { id: { label, bind <collection>, schema [...], sections [ { id, ki
 pages        [ { path, type, bind <slug> } ]        from the approved plan; the client cannot add or move pages
 forms        { id: { label, fields, consent { notice <slug> }, crm { formField: "OmniSuite field" } } }
 placements   [ { id, collection, when { field: [values] }, to { page | pageType (+ match) | sitemap | schema, section }, sort, limit } ]
-clientWording [ { where, status "[client to confirm]", note } ]   INTERNAL build notes only: never shown to the client; client questions come only from sops/client-questions.md (DECISIONS 17)
+clientWording [ { where, status "[client to confirm]", note } ]   INTERNAL build notes only: never shown to the client; client questions come only from sops/clients/client-questions.md (DECISIONS 17)
 seeds        places / items the plan names (e.g. the 10 ELEV8 cities)
 ```
 - **Field types:** text, richtext, slug, number, money, boolean, date, datetime, enum, email, phone, url, image, gallery, file,

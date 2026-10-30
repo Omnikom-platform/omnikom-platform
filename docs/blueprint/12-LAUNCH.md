@@ -1,7 +1,7 @@
 # 12 Launch: from preview to production
 
 Status 2026-10-29. DECISIONS 16 (build once, launch by edits) and 19 (launch is a command with a ledger and a stop condition).
-The SOP in plain words: `sops/launch.md`. The tool: the skill's `scripts/launch.mjs`, stage file `stages/launch.md`, proof
+The SOP in plain words: `sops/clients/launch.md`. The tool: the skill's `scripts/launch.mjs`, stage file `stages/launch.md`, proof
 `scripts/test-launch.mjs`. First instance: ELEV8 (`E:\Alex Sevilla\draft-site\LAUNCH-ENTERPRISE.md`).
 
 ## 1. Why a ledger

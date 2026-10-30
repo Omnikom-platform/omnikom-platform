@@ -8,7 +8,7 @@ trust the first, and a live check at launch. A site that fails a rule is not sho
 Where each rule is measured:
 - **[build]** the site's build stops with `BUILD STOPPED: WG-n ...`. The measured rules run in the site's `tools/writing-check.mjs`, one line per rule.
 - **[gate]** the skill's `scripts/writing-gate.mjs <built site dir> [--url] [--psi-dir]`, independent of the build.
-- **[live]** the launch ledger (`sops/launch.md`): `live-headers` on L-B8 and `writing` on L-B9.
+- **[live]** the launch ledger (`sops/clients/launch.md`): `live-headers` on L-B8 and `writing` on L-B9.
 
 Source for every ELEV8 number below: `E:\Alex Sevilla\site-checks\live-audit-2026-10-29\PSI-FINDINGS.md` (PSI-FINDINGS.md, 2026-10-29).
 

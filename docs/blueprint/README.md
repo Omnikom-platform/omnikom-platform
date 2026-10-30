@@ -27,7 +27,7 @@ One procedure for every industry; the client's collections come from its own pla
 | 11 | `docs/blueprint/09-TEST-STRATEGY.md` | test pyramid, required gates (mutants), e2e flows, load targets, definition of done |
 | 12 | `docs/blueprint/10-DELIVERY.md` | monorepo, branching + reviews, CI stages, environments, migrations, releases, rollback, flags |
 | 13 | `docs/blueprint/11-OPERATIONS.md` | observability, alerts, runbooks R1-R5, backup/restore drill, on-call |
-| 13b | `docs/blueprint/12-LAUNCH.md` | launch pipeline: preview to production through one ledger (`launch.json`), its checks and its stop condition (SOP `sops/launch.md`) |
+| 13b | `docs/blueprint/12-LAUNCH.md` | launch pipeline: preview to production through one ledger (`launch.json`), its checks and its stop condition (SOP `sops/clients/launch.md`) |
 | 13c | `docs/blueprint/13-DATA-MODEL.md`, `14-LEAD-PATH.md`, `15-CRM.md` | step C in plain words: every table and who writes it; the lead path form -> site Worker -> signed capture -> database -> alert, push, CRM screen; the four-screen client CRM, entries by hand, publish with the gates (DECISIONS 21) |
 | 13d | `docs/blueprint/16-DESIGN-PARTS.md` | every part to design (each screen, button, click, state, failure), the preview design (instant in-editor, preview site, compare), the invariants and the failure table |
 | 13e | `docs/blueprint/17-EXPANSION-MAP.md`, `18-BUDGET-ARCHITECTURE.md` | how the platform grows (AI concierge, booking, SMS and email, CRM export and import with a mapping wizard, setup wizard; white label withdrawn by DECISIONS 31) and the free-tier limits with sources, what the design does to stay inside, the measured upgrade triggers (DECISIONS 22, 23) |

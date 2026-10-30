@@ -84,7 +84,7 @@ on collections marked "own" in the contract and sees only their own items in the
 
 ### Publish and the gates
 Publish lists the changes (page or item, who, when) and asks once: "Publish these 3 changes to <site>?". Then the same checks
-the site already runs (`sops/launch.md`, the 13 gates; craft-lint; the 7 writing-gate rules) run on a rebuild of the site with
+the site already runs (`sops/clients/launch.md`, the 13 gates; craft-lint; the 7 writing-gate rules) run on a rebuild of the site with
 these versions. The screen shows one line per check in plain words as they finish: "Photos have alt text: ok", "Page titles
 under 60 characters: 1 to fix", with a Fix link that opens the field. A failed check publishes nothing; the live site is
 unchanged; the draft stays. When every check passes, the site deploys and the line reads "Live since 14:02". Takes about the

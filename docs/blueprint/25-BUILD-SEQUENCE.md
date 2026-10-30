@@ -137,7 +137,7 @@ drill passes. ESTIMATE: two sessions plus your account clicks.
 First the preview's lead endpoint: replace the ELEV8 Pages Function stub with `factory/worker/pages-function-lead.js` +
 `lead-endpoint.mjs`, set `SITE_ID`, `PLATFORM_BASE` and the encrypted `SITE_SIGNING_KEY` on the Pages project (your yes: it is
 the live preview), and `omnikom lead send --site elev8` proves it, the same way step 2 proved the test site. Then the launch
-ledger (sops/launch.md): zone in Cloudflare, nameservers changed by the client (DECISIONS 26), mail records copied
+ledger (sops/clients/launch.md): zone in Cloudflare, nameservers changed by the client (DECISIONS 26), mail records copied
 and checked, Search Console verified by the service account, sitemap submitted, noindex off, headers and speed gates on the
 live site, the end-to-end lead on the live site. Done when: every ledger item is PASS with its output line.
 
