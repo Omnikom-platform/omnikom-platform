@@ -192,10 +192,12 @@
   (DECISIONS 30), function deployed with secrets. UNPROVEN: magic-link send via the new SMTP; `test-apply.mjs` hang (local only).
   02:40: owner MFA DONE on Supabase (authenticator app) and Cloudflare (TOTP; backup codes in `creds and accounts login/`);
   email to Dave sent from amer@omnikom.io asking him to accept the Cloudflare and Supabase invites (not a blocker for any step).
-  OPEN (owner 02:45 "no preference", nothing decided): email look and logo. Lead recommends, for the step 5 design session:
-  lead alerts carry the CLIENT's logo from the site contract with a small "sent by Omnikom" footer (white-label path, DECISIONS
-  23); platform emails (magic link, invites, publish reports) carry the Omnikom mark (`brand/omnikom-mark-square.png`,
-  `brand/pdf-kit/omnikom-logo-full.png`); no new logo needed; images served from a public URL, not attached.
+  OWNER 02:49 on branding and exit (sent to the lead session for DECISIONS.md): no white label, "we are not something hidden,
+  we are enterprise". Every email carries "powered by Omnikom" with the Omnikom logo in the footer, like any service; the
+  client's own brand sits above it on their lead alerts. Exit terms: the client's website code is never held hostage; after
+  an exit Omnikom keeps hosting the site but stops the paid services (tracking, SEO monthly reports and the like); the client
+  keeps their platform access to the CRM and new leads. Email look itself (layout, logo placement) stays a step 5 design item;
+  no new logo needed (`brand/omnikom-mark-square.png`, `brand/pdf-kit/omnikom-logo-full.png`); images from a public URL.
   NEXT: the CLI session's lead proof (step 2 items 2-5); then a fresh builder session for step 3.
 
 ## 2026-10-30 (cli-slice-1: the omnikom CLI, slice 1)
