@@ -32,6 +32,8 @@ to the department that owns the files, as a brief with the evidence.
 ## Builders
 - Model: fable for a department head or a platform step; sonnet only for a mechanical, well-specified piece the head of
   operations runs itself (rare: it should be a department's builder instead).
+- Mechanical runs (tests, mutants, gates, grep, fixture rebuilds, deploy and status commands) go to a haiku agent with the
+  exact command; the head or builder reads the verdict lines back (DECISIONS 34).
 - The brief of every session it starts carries: the files to read in order, the task, done-when with the gate command, the
   rules, the reporting line ("you report to the head of operations; anything outside this brief is a finding you send back,
   not a fix you make"), and for a department head: "read your charter first".
@@ -41,6 +43,9 @@ to the department that owns the files, as a brief with the evidence.
   public data only, questions as options, outward actions need the owner's click, scripts in files, budget, keys by name,
   commit and push, a rule is a test with a mutant, live things need the click).
 - The global Rule 2: a department's "all green" is a claim; the head re-runs the deterministic gate before reporting to the owner.
+  The re-run is the cheap, decisive part (the staging suites, `status`, the test suite, a good and a bad fixture); the full
+  mutant runs are the department head's proof and are not repeated here (owner 2026-10-30 22:50: the head of operations
+  does no work a department head should do).
 - One ask at a time to the owner, as options, the recommended one first; no yapping.
 - Keys by variable name only (CLAUDE.md rule 9); live things need the owner's click (rules 6 and 12); nothing against a client
   project or site; no em dashes in any file.

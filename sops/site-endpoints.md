@@ -81,6 +81,7 @@ The Worker never shows a technical word. It never says "sent" unless it got a 20
 | **202** `{"ok": true}` | stored, push queued | the thank-you message; the form clears | change nothing; a new `idempotencyKey` for the next submission |
 | **400** `Problem` with `problems[]` (`code`, `path`, `msg`) | consent missing, a required field missing, bad input, or the honeypot was filled | the plain `msg` next to the field named in `path`. A missing consent shows next to the consent box. The honeypot case shows only "Something is missing" | keep every answer in the form; do not retry |
 | **401** | the site's signature was refused (wrong key, or the Worker clock is off by more than 300 s) | "We could not send this. Please call or email us" plus the business phone and email from Business details | log it and alert Omnikom staff (the alert is UNPROVEN). Never show "unauthorized" |
+| **409** code `S-SITE-PAUSED` | the site is paused on the platform (an exit, an unpaid bill, a hold); nothing is stored (built 2026-10-30, step 3) | "We could not send this. Please call or email us" plus the business phone and email | keep the form filled; log it once per hour at most |
 | **429** code `RATE_LIMITED` | too many requests from this IP for this site | "Please try again in a minute." | keep the form filled |
 | **5xx**, timeout, no network | the platform did not answer | "We could not send this. Your answers are still here. Try again, or call us" plus the business phone and email | keep the form filled; the visitor's retry reuses the same `idempotencyKey` |
 

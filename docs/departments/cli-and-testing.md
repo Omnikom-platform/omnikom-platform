@@ -34,6 +34,8 @@ this department then proves it over HTTP.
 
 ## Builders
 - Model: sonnet per slice (a slice is one section of the spec: a command group, a verify suite, a client stand-in flow).
+- Mechanical runs (tests, mutants, gates, grep, fixture rebuilds, deploy and status commands) go to a haiku agent with the
+  exact command; the head or builder reads the verdict lines back (DECISIONS 34).
 - One slice, one brief, discarded when done. The brief carries: the spec section, the files, the gate commands
   (`node tools/omnikom-cli/test/run.mjs`, `node tools/omnikom-cli/test/mutate.mjs`, the staging command through
   `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- ...`), the five rules of the spec's section 5, and

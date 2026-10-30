@@ -23,6 +23,7 @@ for (const c of charters) {
   // every session type has someone to talk to: the head says whom it reports to, the builders say they report to the head
   if (!/reports? to (the owner|the head of operations)/i.test((c.sections.get('Head session') || '').replace(/\s+/g, ' '))) problems.push(`${c.file}: Head session does not say whom it reports to (the owner, or the head of operations)`);
   if (!/finding/i.test(c.sections.get('Builders') || '')) problems.push(`${c.file}: Builders does not carry the "finding you send back" line`);
+  if (!/haiku/i.test(c.sections.get('Builders') || '')) problems.push(`${c.file}: Builders does not name haiku as the mechanical runner (DECISIONS 34)`);
   if (c.text.includes(String.fromCharCode(0x2014))) problems.push(`${c.file}: contains an em dash`);
   for (const p of c.owns) {
     const n = norm(p);

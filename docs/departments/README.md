@@ -35,6 +35,9 @@ that is written here.
    gate with tests (the PEWP audit rules become `omnikom audit` gates, not a prompt a session may skip); what is judgement stays
    a skill or a document.
 6. **Live things need the owner's click** (CLAUDE.md rule 6 and 12); a department never widens its own permissions.
+7. **Mechanical runs go to Haiku 5.5 agents** (DECISIONS 34): test suites, mutant runs, the gates, greps and listings, fixture
+   rebuilds, deploy and status commands. The head or builder gives the Haiku agent the exact command and reads the verdict
+   lines back; the beefy models spend their turns on judgement, code and reading results, never on waiting for a run.
 
 ## Where sessions live and who they talk to (owner, 2026-10-30 19:51)
 - Sidebar: every session is filed under its department's group, named `Omnikom: <department name>` (head of operations,
@@ -55,8 +58,10 @@ that is written here.
 | Head of operations | head-of-operations | the owner | the owner, or the previous head's hand-over |
 | Department head (CLI and testing; every future department) | its charter | head of operations | head of operations |
 | Builder of a department (one slice) | its head's charter | its department head | its department head |
-| Platform step session (one per step, DECISIONS 32) | platform-build | head of operations (it is its own head for the step) | head of operations |
-| Builder started by a step session (a mechanical piece) | platform-build | the step session that started it | the step session |
+| Platform build head (standing from step 4, DECISIONS 34) | platform-build | head of operations | head of operations |
+| Platform step session (steps 2 and 3 ran this way; from step 4 only when the platform head asks for one) | platform-build | the platform build head | head of operations, on the platform head's request |
+| Builder of a department (one slice) or a step session | its head's charter | its department head (or the step session) | its department head |
+| Haiku runner (a mechanical run: tests, mutants, gates, grep, deploy, status) | the department it runs for | the head or builder that gave it the command | that head or builder |
 | Setup or one-off assistant beside the owner | the department whose files it touches | head of operations | head of operations |
 Session titles carry the role so the owner knows them at a glance (owner, 2026-10-30 20:04): `HEAD OF OPERATIONS: ...`,
 `HEAD: <department>`, `BUILDER (<department>): <slice>`, `STEP <n> (platform build): <what>`, `ASSISTANT (<department>): <what>`;

@@ -410,6 +410,19 @@
   --dir`, `omnikom gate --dir`) routed to the CLI head as a released slice. STRUCTURAL FINDING: a department head cannot start
   a sidebar builder session (the app refuses start_session for a task that came from a session), so builders run as in-session
   Sonnet agents inside the head (same brief, not visible in the sidebar) unless the owner types the ask in the head's session.
+- 22:50-23:45 STEP 3 reported DONE (0e60178, d403b65). My re-run on staging: `status` 8 applied; verify lead 12 of 12, walls
+  5 of 5, people 15 of 15; paused site 409. Local gates on my machine: contract 147 + 88 mutants, industry 15 of 15, specs,
+  signature, deno PASS; the database walls gate reported FAIL with the last line "caught privacy requests read wall" while
+  three other sessions and my own audit mutant run loaded the machine (likely the 30-minute limit, UNPROVEN); re-run handed
+  to a Haiku agent, result in the next line. BLOCKED for the owner: `auth-settings.md` "checked against staging" needs the
+  access token widened with the Auth read scope (push notification sent 22:45). Routed: key-mint numbering and the ledger
+  checks to the CLI head; the 409 row added to `sops/site-endpoints.md` 2.3 by me.
+- 23:25 OWNER: DECISIONS 34 (mechanical runs to Haiku 5.5 agents; a standing Platform build head). Rule 7 in the departments
+  README, haiku line in every charter's Builders section (check enforces it; tests 14 of 14, mutants 12 of 12), broadcast to
+  the three heads; my own duplicate mutant re-runs stopped and a rule written into my charter. The Platform head's start was
+  REFUSED by the app ("over Remote Control, a session starts only on a message typed in the desktop app"); its full brief is
+  saved at `docs/departments/briefs/platform-build-head-step-4.md`; the owner types "start the platform head" in the desktop
+  app and the head of operations starts it from that file.
 
 ## 2026-10-30 21:36-22:15 (Clients department head `local_02b5fce4-6e08-4801-b312-28226e8817d7`, Fable; this checkout, master)
 - SLICE 1 PROVEN: `clients/README.md` (four rows: elev8, rainmaker, vtv, eli; the last three "NOT WRITTEN yet (slice 2)"),

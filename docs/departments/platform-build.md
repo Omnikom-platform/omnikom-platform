@@ -27,18 +27,24 @@ command sends the need up as a finding; the CLI department builds it. A bug or a
 sent to the head of operations with options, never a fix made here.
 
 ## Head session
-- Model: fable. There is no standing head: each step of the build sequence is its own fable session started by the head of
-  operations with the step's brief (DECISIONS 32); that session acts as this department's head for the step.
+- Model: fable. A standing head from step 4 (DECISIONS 34; steps 2 and 3 ran as one session per step under DECISIONS 32),
+  started by the head of operations with a brief that names this file; long-lived across steps; hands over through this
+  charter's position log when its context is full. It plans each step of `25-BUILD-SEQUENCE.md` as slices, runs sonnet
+  builders and haiku runners inside itself, and asks the head of operations for a separate step session only when a slice
+  is too large for its own context.
 - Reads first, in order: `CLAUDE.md`, this charter (whole file, the position log last), `.claude/POSITION.md` (last blocks),
   `planning/DECISIONS.md` (newest items), `docs/blueprint/25-BUILD-SEQUENCE.md` (its step), `docs/blueprint/23-GROUND-RULES.md`,
   then the files its step names.
-- Does: the step's numbered items in order; may start sonnet builders for mechanical pieces (a migration against a written
-  spec, a port of a script) and re-runs their proof; pastes real output into `docs/blueprint/PROGRESS.md`; ticks the sequence;
-  appends to the position log below and to `.claude/POSITION.md`; commits and pushes after a clean gitleaks; reports to the head
-  of operations in two lines; stops at the step's "done when" or at BLOCKED.
+- Does: the step's numbered items in order as slices with a written brief each; sonnet builders for well-specified pieces (a
+  migration against a written spec, a port of a script, a workflow file), haiku agents for every mechanical run; re-runs each
+  builder's proof (through a haiku runner, reading the verdict lines); pastes real output into `docs/blueprint/PROGRESS.md`;
+  ticks the sequence; appends to the position log below and to `.claude/POSITION.md`; commits and pushes after a clean
+  gitleaks; reports to the head of operations in two lines per finished slice and at the step's "done when" or at BLOCKED.
 
 ## Builders
 - Model: sonnet for a mechanical, well-specified piece; fable when the piece is design or an unknown root cause.
+- Mechanical runs (tests, mutants, gates, grep, fixture rebuilds, deploy and status commands) go to a haiku agent with the
+  exact command; the head or builder reads the verdict lines back (DECISIONS 34).
 - One piece, one brief, discarded when done. The brief carries the spec file and line, the gate command, the rules below, and
   "anything outside this brief is a finding you send back, not a fix".
 

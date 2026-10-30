@@ -246,3 +246,13 @@
     departments come from `tools/departments/new-department.mjs` (template, README row, check); the next one is SEO and
     audits, which turns the measurable rules of `skills/programmatic-enterprise-web-performance` into `omnikom audit` gates
     that every built site must pass before publish.
+34. **Mechanical work goes to Haiku 5.5 agents; a standing Platform build head from step 4** (2026-10-30 23:25, owner:
+    "anything mechanical must be handed to a Haiku 5.5 agent instead of wasting compute on test runs and mutation runs from
+    the beefy models"; "yes create that standing head"). Mechanical = running a test suite, a mutant run, the gates, a
+    grep or a file listing, a fixture rebuild, a deploy command, a status probe: anything whose outcome is the command's
+    output. A head or a builder hands such a run to a Haiku agent with the exact command and reads back the verdict lines;
+    Fable and Sonnet turns are for judgement, design, writing code and reading results. Every charter's Builders section
+    names Haiku as the mechanical runner (`tools/departments/check.mjs` requires it). Platform build gets a standing Fable
+    head (it was one session per step, DECISIONS 32): from step 4 the head plans the step as slices, runs Sonnet builders and
+    Haiku runners inside itself, keeps the step's proof in PROGRESS.md and reports to the head of operations, who verifies at
+    step level; a separate step session is started by the head of operations only when the head asks for one (context).
