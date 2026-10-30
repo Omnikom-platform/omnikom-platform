@@ -40,6 +40,10 @@ that is written here.
 - Sidebar: every session is filed under its department's group, named `Omnikom: <department name>` (head of operations,
   platform build, CLI and testing). A session the head of operations starts for a department is detached from the head's
   family and filed under that department's group, so the sidebar shows the departments, not who clicked start.
+- A brief names the current head's session id, and a session that was started by someone else (an earlier head, a hand-over)
+  is re-told its head by id when the head changes; the app's own turn-end notes still go to whoever clicked start, so a
+  report that lands at an old head is relayed, never acted on there (2026-10-30 20:18: the CLI builder reported to the
+  previous head of operations out of habit; relayed, re-pointed).
 - Reporting line, always one hop: builder -> its department head -> head of operations -> owner. A builder never messages the
   head of operations; a department head never messages another department's builder; cross-department findings go up to the
   head of operations and down to the owner department. Session ids of the heads are in each charter's position log when they

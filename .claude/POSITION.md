@@ -358,3 +358,25 @@
 - WAITING, not faked: member A1 updates A2's lead (S-NOT-FOUND), member A1 publishes A2's listing (S-OWN-ONLY), add-lead by a member:
   they need slice 2 functions. UNPROVEN: `mfa enroll-staff` over a stale factor, on staging (model only).
 - Staging state: 6 logins GoTrue-shaped, staff has one verified TOTP factor, 0 leads. Step 3 may start (the CLI builder no longer edits supabase/).
+
+## 2026-10-30 19:51-20:30 (CLI and testing department head, Fable; this checkout, master)
+- Adopted builder cli-slice-1 (reports here). Its part 2 landed as 82bc2f8 on backup-gh master. Re-run myself (Rule 2) through
+  `with-env` + `omnikom ... --target staging`: `status` green (6 applied, capture-lead deployed, 4 key names); `verify --only walls`
+  5 of 5, `--only people` 15 of 15, `--only lead` 12 of 12, all exit 0; `lead list --as owner-a` after = 0. Local `test/run.mjs` 168 of
+  168; `test/mutate.mjs` MUTATE_SHORT. SLICE 1 CLOSED and ACCEPTED. Proof lines: PROGRESS.md "Head's re-run".
+- Head work: builder briefs written in `tools/omnikom-cli/briefs/` (slice 2 functions, stand-in flows, slice 3 placeholder; each with
+  the spec section, the gate commands, the five rules of spec section 5, "finding, not a fix"); `26-PLATFORM-CLI.md` section 7 closed
+  for slice 1; charter open items and position log updated. NOT started: slice 2 waits for build step 4's functions on staging.
+- Findings passed to the head of operations: (1) the builder edited `supabase/tests/local-shim.sql` (GoTrue columns) before the charter
+  reserved `supabase/` (committed, green, not reverted); (2) a paused site answers 500 over HTTP (S-SITE-PAUSED not visible), known since
+  slice 1, still open for the platform department. One more alert email went to amer@omnikom.io from my `verify --only lead` re-run.
+
+## 2026-10-30 20:18-20:27 (head of operations: part 2 accepted, step 3 started)
+- CLI part 2 (82bc2f8) verified by my own runs: staging `status` 6 applied; `verify --only people` 15 of 15; `--only walls`
+  5 of 5; local `run.mjs` 168 of 168 (mutants: the builder's 83 of 83, not re-run here). ACCEPTED. The builder had reported to
+  the previous head out of habit (its 2026-10-29 brief); re-pointed to the CLI head by id; rule added to the departments README.
+- STEP 3 session STARTED: `local_a3c114b5-9826-4504-9ab9-3363e05151d2` (fable, this checkout; filed under "Omnikom: platform
+  build"): migration 7 hardening leftovers with walls and mutants, apply on staging, `seed test --clean` + walls + fixtures
+  restored (key number 2) + the three verify suites, 24-GAP-HUNT F drift, auth-settings checked, leftovers (paused-site code,
+  deploy tool ref scrub, test-apply hang). Reports to me by SendMessage. Running now: CLI head (slice 2 waits for step 4),
+  SEO head (slice 1 audit engine), step 3.
