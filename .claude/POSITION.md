@@ -380,3 +380,8 @@
   restored (key number 2) + the three verify suites, 24-GAP-HUNT F drift, auth-settings checked, leftovers (paused-site code,
   deploy tool ref scrub, test-apply hang). Reports to me by SendMessage. Running now: CLI head (slice 2 waits for step 4),
   SEO head (slice 1 audit engine), step 3.
+- 20:47 CORRECTION (my error, not the builder's habit): my briefs to the CLI head and to the CLI builder named the PREVIOUS head
+  of operations' session id as the head of operations, so both reported there and the previous head relayed. Corrected by
+  message to both; no file carried the wrong id. CURRENT HEAD IDS: head of operations `local_f58886f2-26f1-4f9f-bc47-913ce5b0c4d1`;
+  CLI and testing head `local_c8848ce4-2e87-4e85-b578-e47e42aaf1a7`; SEO and audits head `local_d0e65fa9-4a2d-4c74-a612-5d33cd189efe`;
+  step 3 session `local_a3c114b5-9826-4504-9ab9-3363e05151d2`. CLI slice 1 CLOSED by its head (1151178), matches my re-run.
