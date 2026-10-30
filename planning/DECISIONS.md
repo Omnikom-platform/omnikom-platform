@@ -217,3 +217,12 @@
     `17-EXPANSION-MAP.md` is withdrawn (no `resellers` table); DECISIONS 23's horizontal line loses "white label"; the email
     layout stays a step 5 design item; an offboarding path (hosting kept, add-ons stopped, CRM access kept, code handed over
     on request) is a step 5 item for `15-CRM.md` and `26-PLATFORM-CLI.md` slice 3 (`offboard`).
+32. **One full-power Fable 5.1 session per build step; the lead session orients and manages, never builds** (2026-10-30 17:13,
+    owner: "open a new session fable 5.1 and you manage the orientation; that session is able to spin its agents and start
+    other sessions and you manage it and you hold the whole ecosystem; a session with full power for each step that is smart,
+    efficient and has good judgement"). So: for every step of `25-BUILD-SEQUENCE.md` (step 2 onward) the lead session starts
+    one Fable 5.1 session with the step's brief; that session runs its own agents and side sessions as it judges, writes its
+    proofs into `docs/blueprint/PROGRESS.md` and `.claude/POSITION.md`, commits and pushes; the lead session verifies the
+    step's "done when" with its own re-run (Rule 2) and starts the next step's session. The lead's context stays for
+    orientation, review and the owner's questions. The step sessions run on Fable (not the "Sonnet for routine builds" default
+    of CLAUDE.md rule 8); they may still hand mechanical work to Sonnet or Haiku agents.

@@ -253,3 +253,6 @@
   UNPROVEN until step 2 runs: one alert on a real retry on staging (the new `verify` check proves it then). Small finding: the
   deploy tool prints the project ref inside the Supabase CLI's dashboard line (scrub it when next touched).
   STEP 2 WAITS for the owner's go (owner 04:45); alerts to amer@omnikom.io.
+- 17:13 OWNER: DECISIONS 32, one full-power Fable 5.1 session per build step, the lead orients and verifies. The lead started
+  the step 2 session (name `step-2-lead-proof`, in this checkout, master) with the brief = step 2 of 25-BUILD-SEQUENCE through
+  the CLI, alerts to amer@omnikom.io; its proof lands in PROGRESS.md; the lead re-runs `verify --only lead` after.
