@@ -423,6 +423,18 @@
   REFUSED by the app ("over Remote Control, a session starts only on a message typed in the desktop app"); its full brief is
   saved at `docs/departments/briefs/platform-build-head-step-4.md`; the owner types "start the platform head" in the desktop
   app and the head of operations starts it from that file.
+- 23:46 OWNER back on the desktop: Platform build head STARTED from the saved brief, session
+  `local_cade0add-3389-4314-b7b5-83333d26a97a` (fable, group "Omnikom: platform build"). Rules commit eab0142 pushed.
+  CURRENT HEADS: operations `local_f58886f2-26f1-4f9f-bc47-913ce5b0c4d1`; platform build `local_cade0add-...`; CLI and testing
+  `local_c8848ce4-2e87-4e85-b578-e47e42aaf1a7`; SEO and audits `local_d0e65fa9-4a2d-4c74-a612-5d33cd189efe`; Clients
+  `local_02b5fce4-6e08-4801-b312-28226e8817d7`.
+- 2026-10-31 00:05 Step 3 database gate re-run ALONE by a Haiku runner: `run-local.mjs` exit 0, 923 s, `OK: real migration
+  passes; 161 mutants`, 161 caught, 0 survived. My earlier FAIL was the loaded machine (four runs at once). STEP 3 ACCEPTED.
+- 00:10 OWNER picked "full access" for the Supabase access token and had me create it in their signed-in Edge: token
+  `omnikom-platform-full` (legacy = full account, 90 days, expires 2027-01-29), Copy clicked by page script (the value was
+  never read, screenshotted or printed), banked by `tools/save-secret-from-clipboard.ps1` as SUPABASE_ACCESS_TOKEN (44 chars,
+  the single line for that name; clipboard cleared). The old scoped token `omnikom-cli` is still on the account, unused now:
+  revoke it on the owner's word. It covers production once that project exists (step 6): revisit then.
 
 ## 2026-10-30 21:36-22:15 (Clients department head `local_02b5fce4-6e08-4801-b312-28226e8817d7`, Fable; this checkout, master)
 - SLICE 1 PROVEN: `clients/README.md` (four rows: elev8, rainmaker, vtv, eli; the last three "NOT WRITTEN yet (slice 2)"),
@@ -483,3 +495,39 @@
   `--clean` + stale env lines; `verify` could assert security_events and consent_ledger; `sops/site-endpoints.md` 2.3 needs the 409 row
   (sops/ has no owning department); the site-move service function from the Clients department waits for the owner's decision (charter).
 - Staging state left: A and B seeded (alerts to amer@omnikom.io), 2 active site keys (key-1 names, new values), staff factor, 0 leads.
+
+## 2026-10-30 22:30-23:55 (Clients department head `local_02b5fce4-6e08-4801-b312-28226e8817d7`, Fable; this checkout, master)
+- OWNER ANSWERED 21:58 (slice 1 closed): workspace shape "A workspace per site"; which pages and flows move, and what is shared:
+  "We will determine after a meeting". In `clients/elev8/decisions.md` and `sites.md` (b99a869). Slice 3 waits on that meeting.
+- SLICE 2b DONE (a2610f6): `sops/prospect-audit-team.md`, `client-questions.md`, `launch.md`, `site-scope.md` moved with
+  `git mv` to `sops/clients/`; `sops/clients/onboarding.md` written (steps 0 to 4, done-when, where the proof lands; not built).
+  21 stale pointers outside the charter listed in the shared note `clients-finding-sop-moves-2026-10-30.md`; the head of
+  operations gave this charter `templates/client-questions/`, `tools/client-questions/`, `tools/team-kit/` and their four
+  pointers were fixed in 690aeb3.
+- SLICE 2a PROVEN: `clients/rainmaker/`, `clients/vtv/`, `clients/eli/` (Sonnet builder, read-only on the project folders),
+  README rows filled. Haiku re-run (DECISIONS 34): `node clients/check.mjs` "OK: 4 client record(s) complete: elev8, eli,
+  rainmaker, vtv"; `node clients/test/run.mjs` "PASS clients tests: 6 of 6"; departments check "OK: 5 charter(s) valid". Head's
+  cold read: nine sampled facts match their source lines; three previews HTTP 200 with noindex on 2026-10-30. The records prove
+  structure and sourcing only; "gates green" claims inside them are the project logs', marked so. Detail: the charter position log.
+- FINDINGS for the head of operations (record only, nothing fixed): `planning/CONTEXT.md` row 9 says eXp, the project says Xpert
+  Home Realty (Dave 2026-10-20); DECISIONS 18 cuts IDX while VTV's plan waits on her MLS and the preview shows 28 listings;
+  Francine's sheet has 15 questions against the DECISIONS 17 cap of 12; Eli's draft is not on the DECISIONS 27 M4 list; Rainmaker
+  live hosting is a Worker (Pages refused 2026-10-23) against DECISIONS 28; no mortgage/lender compliance pack (from slice 1).
+- NEXT: slice 3 after the ELEV8 client meeting (per-site plans from the owner's words). No agreement document exists for any of
+  the four clients: the records say so.
+
+## 2026-10-30 23:46- (HEAD: Platform build department, standing from step 4; session `local_e909c214-d937-405e-b311-e5539bd9a6b1`, Fable, this checkout, master)
+
+- Read the brief's order (CLAUDE.md, departments README, charter, DECISIONS 15/21/22/25-34, sequence step 4, ground rules, 05/02/03/10/12/14/21,
+
+  PROGRESS steps 2 and 3, the step 3 hand-over note, worker README, capture-lead, config.toml, audit README, clients/elev8/sites.md, the ELEV8
+
+  build script read-only). Step 4 planned as five slices in the charter's Open items (4.1 factory core on the test site, 4.2 dashboard-facing
+
+  functions, 4.3 runner-facing functions, 4.4 runner + workflows, 4.5 done-when on the test site's own Pages project).
+
+- Adjustments said out loud: the seeded test contract has no pages, so a test-site contract (version 2 for workspace A) comes from `sites/test-demo-a/`;
+
+  the GitHub dispatch token for `publish` is an owner click (asked now); `.github/` and two tool paths need an Owns line (asked).
+
+- NEXT: slice 4.1 (Sonnet builder, in-session agent; brief in docs/departments/briefs/platform-build-4-1.md). Nothing built, nothing committed yet.
