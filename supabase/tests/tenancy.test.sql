@@ -43,8 +43,12 @@ create function test.set_member(p_ws uuid, p_user uuid, p_role member_role, p_te
 create function test.remove_member(p_ws uuid, p_user uuid) returns void language sql security definer as $$ select service.remove_member(test.claims(), p_ws, p_user) $$;
 create function test.delete_lead(p_lead uuid) returns void language sql security definer as $$ select service.delete_lead(test.claims(), p_lead) $$;
 create function test.unpublish(p_row uuid) returns void language sql security definer as $$ select service.unpublish(test.claims(), p_row, true) $$;
-grant usage on schema test to anon, authenticated, service_role;
-grant execute on all functions in schema test to anon, authenticated, service_role;
+-- step 3 (migration 7): the workspace lifecycle and privacy requests, as the staff admin and dashboard functions will call them
+create function test.set_workspace_state(p_ws uuid, p_state workspace_state, p_reason text default null) returns void language sql security definer as $$ select service.set_workspace_state(test.claims(), p_ws, p_state, p_reason) $$;
+create function test.open_privacy_request(p_ws uuid, p_kind privacy_request_kind, p_subject text) returns uuid language sql security definer as $$ select service.open_privacy_request(test.claims(), p_ws, p_kind, p_subject) $$;
+create function test.set_privacy_request_state(p_req uuid, p_state privacy_request_state) returns void language sql security definer as $$ select service.set_privacy_request_state(test.claims(), p_req, p_state) $$;
+grant usage on schema test to anon, authenticated, service_role, omnikom_fn;
+grant execute on all functions in schema test to anon, authenticated, service_role, omnikom_fn;
 
 -- fixtures (as the superuser)
 insert into auth.users (id, email) values
@@ -71,9 +75,9 @@ insert into members (workspace_id, user_id, role) values
  ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a1', 'member'),
  ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a2', 'member');
 create table test.ids (k text primary key, v uuid);
-grant all on test.ids to anon, authenticated, service_role;
+grant all on test.ids to anon, authenticated, service_role, omnikom_fn;
 create function test.id(k text) returns uuid language sql as $$ select v from test.ids where test.ids.k = id.k $$;
-grant execute on function test.id(text) to anon, authenticated, service_role;
+grant execute on function test.id(text) to anon, authenticated, service_role, omnikom_fn;
 
 -- ===== T0 seeding without a user session: explicit actor, must be staff =====
 set role service_role;
@@ -601,6 +605,172 @@ select test.act_as('00000000-0000-0000-0000-0000000000a1');
 select test.expect_error($q$select test.save('aaaaaaaa-0000-0000-0000-000000000000', 'posts', null, '{"title":"x"}')$q$, 'S-CONTRACT');
 reset role;
 
+-- ===== T16 step 3 leftovers (migration 7): append-only audit, security events, consent ledger, suppressions, lifecycle, quotas, privacy requests =====
+-- the audit trail is append-only for every role: service_role has no grant, and the trigger refuses the owner too
+set role service_role;
+select test.expect_error($q$update audit_log set action = 'rewritten' where action = 'lead-delete'$q$, 'permission denied');
+select test.expect_error($q$delete from audit_log where action = 'lead-delete'$q$, 'permission denied');
+reset role;
+select test.expect_error($q$update audit_log set action = 'rewritten' where action = 'lead-delete'$q$, 'A-APPEND-ONLY');
+select test.expect_error($q$delete from audit_log where action = 'lead-delete'$q$, 'A-APPEND-ONLY');
+select test.expect_error($q$truncate audit_log$q$, 'A-APPEND-ONLY');
+-- the trail outlives the tenant: deleting a workspace leaves its audit rows (no cascade)
+insert into workspaces (id, slug, name, industry) values ('dddddddd-0000-0000-0000-000000000000', 'test-demo-d', 'Demo D', 'real-estate-agent');
+insert into audit_log (workspace_id, action, target) values ('dddddddd-0000-0000-0000-000000000000', 'test-row', 'd');
+delete from workspaces where id = 'dddddddd-0000-0000-0000-000000000000';
+do $$ begin assert (select count(*) from audit_log where workspace_id = 'dddddddd-0000-0000-0000-000000000000' and action = 'test-row') = 1, 'the audit trail outlives the deleted workspace'; end $$;
+-- security events: written by the functions (service role), read by staff only, never rewritten
+set role service_role;
+do $$ begin assert service.record_security_event('bad-signature', 'SIGNATURE', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', null, repeat('e', 64), '{"path":"/capture-lead"}') > 0, 'a security event is recorded'; end $$;
+select test.expect_error($q$update security_events set kind = 'refused'$q$, 'permission denied');
+reset role;
+select test.expect_error($q$update security_events set kind = 'refused'$q$, 'A-APPEND-ONLY');
+select test.expect_error($q$delete from security_events$q$, 'A-APPEND-ONLY');
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin assert (select count(*) from security_events) = 0, 'owners never read security events'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+do $$ begin assert (select count(*) from security_events where kind = 'bad-signature' and site_id = 'aaaaaaaa-0000-0000-0000-00000000517e') = 1, 'staff with MFA read the security events'; end $$;
+reset role;
+-- consent ledger: one row per captured lead, with the hash of the wording; a manual lead too; it survives the lead's deletion
+insert into test.ids select 'leadC', service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/consent/', 'Lead C', 'c@test', '+15555550102', '{}', 'I agree to be contacted by email, phone or text', null, null, '{"given":true,"text":"news too"}', '22222222-2222-2222-2222-222222222222', null, repeat('f', 64), 'UA', true);
+do $$ declare c consent_ledger; begin
+  select * into c from consent_ledger where lead_id = test.id('leadC');
+  assert found, 'capture writes the consent ledger row';
+  assert c.consent_hash = encode(sha256(convert_to('I agree to be contacted by email, phone or text', 'utf8')), 'hex'), 'the ledger holds the hash of the exact wording';
+  assert c.sms_consent and c.marketing ->> 'given' = 'true' and c.ip_hash = repeat('f', 64) and c.page_path = '/consent/', 'the ledger holds the consent facts (sms, marketing, hashed address, page)';
+  assert (select count(*) from consent_ledger where lead_id = test.id('leadM')) = 1, 'a manual lead has its consent row too (added by a member, then deleted: the row stays)';
+  assert (select by from consent_ledger where lead_id = test.id('leadM')) = '00000000-0000-0000-0000-0000000000a1', 'the manual consent row names who entered it';
+end $$;
+select test.expect_error($q$update consent_ledger set consent_text = 'changed'$q$, 'A-APPEND-ONLY');
+select test.expect_error($q$delete from consent_ledger$q$, 'A-APPEND-ONLY');
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin assert (select count(*) from consent_ledger where lead_id = test.id('leadC')) = 1, 'the owner reads the consent proof of their own leads'; end $$;
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+do $$ begin assert (select count(*) from consent_ledger) = 0, 'members do not read the consent ledger'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.delete_lead(test.id('leadC'));
+reset role;
+do $$ begin assert (select count(*) from consent_ledger where lead_id = test.id('leadC')) = 1, 'the consent record survives the lead''s deletion'; end $$;
+-- suppressions: the STOP of leadS (T15) became a suppression by hashed number; it survives the lead and blocks a new lead with the same number
+do $$ begin assert (select count(*) from suppressions where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and channel = 'sms' and reason = 'stop' and lead_id = test.id('leadS')) = 1, 'STOP wrote a suppression'; end $$;
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.delete_lead(test.id('leadS'));
+reset role;
+insert into test.ids select 'leadS2', service.capture_lead(p_site => 'aaaaaaaa-0000-0000-0000-00000000517e', p_form => 'contact', p_page => '/', p_name => 'Lead S again', p_email => 's2@test', p_phone => '(555) 555-0101', p_answers => '{}', p_consent => 'I agree to be contacted by email, phone or text', p_sms_consent => true);
+select test.expect_error(format($q$select * from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', %L, null, 'sms', 'booking-reminder', '(555) 555-0101', null, '2026-11-02 18:00+00')$q$, test.id('leadS2')), 'M-SUPPRESSED');
+-- an email suppression by hand (a complaint), matched however the address is typed; it is the workspace's, so B is not affected; a platform-wide one is
+select service.suppress('aaaaaaaa-0000-0000-0000-000000000000', 'email', ' Owner-A@test ', 'complaint', 'dashboard');
+select service.suppress('aaaaaaaa-0000-0000-0000-000000000000', 'email', 'owner-a@test', 'complaint', 'dashboard');   -- twice changes nothing
+do $$ begin assert (select count(*) from suppressions where channel = 'email' and workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 1, 'the same address twice is one suppression'; end $$;
+select test.expect_error($q$select * from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', null, '00000000-0000-0000-0000-00000000000a', 'email', 'new-lead', 'owner-a@test', null, '2026-11-02 19:30+00')$q$, 'M-SUPPRESSED');
+do $$ declare r record; begin
+  select * into r from service.record_message('bbbbbbbb-0000-0000-0000-000000000000', null, '00000000-0000-0000-0000-00000000000b', 'email', 'new-lead', 'owner-a@test', null, '2026-11-02 19:31+00');
+  assert r.state = 'queued', 'a workspace''s suppression does not reach another workspace';
+end $$;
+select service.suppress(null, 'email', 'blocked-everywhere@test', 'dnc', 'registry');
+select test.expect_error($q$select * from service.record_message('bbbbbbbb-0000-0000-0000-000000000000', null, '00000000-0000-0000-0000-00000000000b', 'email', 'new-lead', 'blocked-everywhere@test', null, '2026-11-02 19:32+00')$q$, 'M-SUPPRESSED');
+select test.expect_error($q$select service.suppress('aaaaaaaa-0000-0000-0000-000000000000', 'sms', '   ', 'request')$q$, 'M-ADDRESS');
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+do $$ begin assert (select count(*) from suppressions where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 0, 'B''s owner reads no suppression of A'; end $$;
+reset role;
+-- workspace lifecycle: staff only (aal2), legal moves only; a suspended workspace takes no leads, publishes nothing, sends nothing
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+select test.expect_error($q$select test.set_workspace_state('bbbbbbbb-0000-0000-0000-000000000000', 'suspended')$q$, 'S-NOT-FOUND');   -- an owner never changes the lifecycle
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal1');
+select test.expect_error($q$select test.set_workspace_state('bbbbbbbb-0000-0000-0000-000000000000', 'suspended')$q$, 'S-NOT-FOUND');   -- staff without MFA neither
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+select test.expect_error($q$select test.set_workspace_state('bbbbbbbb-0000-0000-0000-000000000000', 'deleted')$q$, 'S-WORKSPACE-STATE');   -- active -> deleted skips offboarding
+select test.set_workspace_state('bbbbbbbb-0000-0000-0000-000000000000', 'suspended', 'unpaid invoice (test)');
+reset role;
+do $$ begin
+  assert (select state from workspaces where id = 'bbbbbbbb-0000-0000-0000-000000000000') = 'suspended', 'staff suspended B';
+  assert (select count(*) from audit_log where action = 'workspace-suspended' and target = 'bbbbbbbb-0000-0000-0000-000000000000') = 1, 'the suspension is audited';
+end $$;
+select test.expect_error($q$select service.capture_lead('bbbbbbbb-0000-0000-0000-00000000517e', 'contact', '/', 'x', 'x@test', null, '{}', 'I agree')$q$, 'S-WORKSPACE-SUSPENDED');
+do $$ declare r record; begin
+  select * into r from service.record_message('bbbbbbbb-0000-0000-0000-000000000000', null, '00000000-0000-0000-0000-00000000000b', 'email', 'new-lead', 'owner-b@test', null, '2026-11-02 19:33+00');
+  assert r.state = 'blocked' and r.reason = 'workspace suspended', 'a suspended workspace sends nothing';
+end $$;
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+insert into test.ids select 'teamB2', row_id from test.save('bbbbbbbb-0000-0000-0000-000000000000', 'team', null, '{"name":"Agent B Two"}');
+select test.expect_error(format($q$select test.publish('bbbbbbbb-0000-0000-0000-00000000517e', array[%L::uuid])$q$, test.id('teamB2')), 'S-WORKSPACE-STATE');
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+select test.set_workspace_state('bbbbbbbb-0000-0000-0000-000000000000', 'active', 'paid');
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+insert into test.ids select 'jobB2', test.publish('bbbbbbbb-0000-0000-0000-00000000517e', array[test.id('teamB2')]);
+reset role;
+-- per-workspace quotas: a value in workspace_limits overrides the platform-wide one; A's lead quota never touches B
+do $$ declare n int; begin
+  select count(*) into n from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and created_at > now() - interval '1 hour';
+  insert into workspace_limits (workspace_id, key, value, note) values ('aaaaaaaa-0000-0000-0000-000000000000', 'leads_per_hour_workspace', n, 'test: the quota is exactly what A already sent this hour');
+  assert private.limit_for('aaaaaaaa-0000-0000-0000-000000000000', 'leads_per_hour_workspace') = n, 'the workspace value overrides the platform value';
+  assert private.limit_for('bbbbbbbb-0000-0000-0000-000000000000', 'leads_per_hour_workspace') = 60, 'B keeps the platform value';
+end $$;
+select test.expect_error($q$select service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'one too many', 'q@test', null, '{}', 'I agree')$q$, 'S-QUOTA');
+do $$ begin assert service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/sell/', 'Lead I again', 'i@test', null, '{}', 'I agree', null, null, null, '11111111-1111-1111-1111-111111111111', null) = test.id('leadI'), 'a retry of an earlier submission is answered even at the quota (nothing new is stored)'; end $$;
+insert into test.ids select 'leadBq', service.capture_lead('bbbbbbbb-0000-0000-0000-00000000517e', 'contact', '/', 'B still fine', 'bq@test', null, '{}', 'I agree');
+delete from workspace_limits where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and key = 'leads_per_hour_workspace';
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin assert (select count(*) from workspace_limits) = 0, 'owners do not see workspace limits'; end $$;
+reset role;
+insert into workspace_limits (workspace_id, key, value, note) values ('aaaaaaaa-0000-0000-0000-000000000000', 'email_per_day_workspace', 500, 'fixture for the isolation loop');
+-- privacy requests: owner or staff opens one; it lists the person's leads and carries the 45-day clock; legal moves only
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+select test.expect_error($q$select test.open_privacy_request('aaaaaaaa-0000-0000-0000-000000000000', 'access', 'i@test')$q$, 'S-NOT-FOUND');   -- members do not handle privacy requests
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+select test.expect_error($q$select test.open_privacy_request('aaaaaaaa-0000-0000-0000-000000000000', 'access', 'i@test')$q$, 'S-NOT-FOUND');   -- B's owner is nobody in A
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.expect_error($q$select test.open_privacy_request('aaaaaaaa-0000-0000-0000-000000000000', 'access', '  ')$q$, 'P-SUBJECT');
+insert into test.ids select 'pr1', test.open_privacy_request('aaaaaaaa-0000-0000-0000-000000000000', 'delete', 'I@test');
+do $$ declare r privacy_requests; begin
+  select * into r from privacy_requests where id = test.id('pr1');
+  assert r.state = 'received' and test.id('leadI') = any(r.lead_ids), 'the request lists the person''s leads (matched by email, any case)';
+  assert r.due_at between now() + interval '44 days' and now() + interval '46 days', 'the 45-day clock is set';
+  assert (select count(*) from privacy_requests) = 1, 'the owner reads the workspace''s requests';
+end $$;
+select test.expect_error(format($q$select test.set_privacy_request_state(%L, 'done')$q$, test.id('pr1')), 'P-STATE');   -- received -> done skips the work
+select test.set_privacy_request_state(test.id('pr1'), 'in-progress');
+select test.set_privacy_request_state(test.id('pr1'), 'done');
+select test.expect_error(format($q$select test.set_privacy_request_state(%L, 'in-progress')$q$, test.id('pr1')), 'P-STATE');   -- nothing leaves done
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+select test.expect_error(format($q$select test.set_privacy_request_state(%L, 'refused')$q$, test.id('pr1')), 'S-NOT-FOUND');
+do $$ begin assert (select count(*) from privacy_requests) = 0, 'B''s owner reads no request of A'; end $$;
+reset role;
+do $$ begin assert (select done_at from privacy_requests where id = test.id('pr1')) is not null and (select count(*) from audit_log where action = 'privacy-request-done' and target = test.id('pr1')::text) = 1, 'closing the request is dated and audited'; end $$;
+
+-- ===== T17 migration 8: default privileges on private and service, the function role; search_path = '' is asserted in T14 =====
+create function service.zz_probe() returns int language sql as $$ select 1 $$;
+create function private.zz_probe() returns int language sql as $$ select 1 $$;
+do $$ begin
+  assert not has_function_privilege('anon', 'service.zz_probe()', 'execute') and not has_function_privilege('authenticated', 'service.zz_probe()', 'execute'), 'a new service function is closed to anon and authenticated by default';
+  assert not has_function_privilege('anon', 'private.zz_probe()', 'execute') and not has_function_privilege('authenticated', 'private.zz_probe()', 'execute'), 'a new private function is closed to anon and authenticated by default';
+  assert has_function_privilege('omnikom_fn', 'service.zz_probe()', 'execute') and has_function_privilege('service_role', 'service.zz_probe()', 'execute'), 'a new service function is open to the function role and service_role by default';
+  assert (select count(*) from information_schema.role_table_grants where grantee = 'omnikom_fn' and table_schema <> 'test') = 0, 'the function role has no table grant anywhere (the test schema aside)';
+  assert not has_schema_privilege('omnikom_fn', 'private', 'usage'), 'the function role cannot reach the private helpers';
+  assert pg_has_role('postgres', 'omnikom_fn', 'member'), 'postgres may step down to the function role';
+end $$;
+set role omnikom_fn;
+select test.expect_error($q$select count(*) from leads$q$, 'permission denied');
+select test.expect_error($q$select count(*) from audit_log$q$, 'permission denied');
+select test.expect_error($q$select count(*) from api_keys$q$, 'permission denied');
+select test.expect_error($q$insert into leads (workspace_id, form, page_path, consent_text) values ('aaaaaaaa-0000-0000-0000-000000000000', 'f', '/', 'c')$q$, 'permission denied');
+select test.expect_error($q$select private.is_staff()$q$, 'permission denied');
+do $$ begin
+  assert (select count(*) from service.active_key('site-signing', 'aaaaaaaa-0000-0000-0000-00000000517e')) = 1, 'the function role reads keys through the service function';
+  assert (select count(*) from service.alert_recipients('aaaaaaaa-0000-0000-0000-00000000517e')) = 1, 'the function role reads the alert recipients through the service function';
+  assert service.lead_alerted(test.id('leadI')) = false, 'the function role asks whether a lead was alerted through the service function';
+  assert service.record_security_event('refused', 'S-NOT-FOUND', 'aaaaaaaa-0000-0000-0000-000000000000') > 0, 'the function role records security events';
+end $$;
+reset role;
+
 -- ===== T14 structural gates (23-GROUND-RULES section 3): read from the catalogues, so a new table or function cannot skip them =====
 do $$ declare t record; n int; begin
   -- every public table has RLS and a select policy naming authenticated
@@ -617,7 +787,7 @@ do $$ declare t record; n int; begin
   end loop;
   -- every SECURITY DEFINER function sets search_path; no definer function has an un-guarded "if not (" authorisation test
   for t in select n.nspname, p.proname, p.prosrc, p.proconfig from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname in ('private', 'service') and p.prosecdef loop
-    assert t.proconfig is not null and array_to_string(t.proconfig, ',') like '%search_path=%', 'no search_path on ' || t.nspname || '.' || t.proname;
+    assert t.proconfig is not null and array_to_string(t.proconfig, ',') = 'search_path=""', 'search_path is not pinned to the empty path on ' || t.nspname || '.' || t.proname || ' (migration 8: set search_path = '''' and schema-qualified names)';
     assert t.prosrc !~ 'if not \((staff|private\.is_staff\(\)|role)', 'un-guarded "if not (" authorisation in ' || t.nspname || '.' || t.proname || ' (use coalesce or is_owner_or_staff)';
   end loop;
   -- anon has no table privilege; authenticated writes nothing except the allowlist
@@ -628,7 +798,8 @@ do $$ declare t record; n int; begin
   assert n = 0, 'authenticated has write grants beyond the allowlist: ' || n;
   -- every service function that takes claims is covered by an outsider test (the list below is the contract; a new function must be added here with its test)
   for t in select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'service' and p.proargnames[1] = 'p_claims' loop
-    assert t.proname = any(array['use_claims', 'contract_for', 'save_as', 'start_publish', 'unpublish', 'lead_update', 'add_lead', 'activate_addon', 'set_addon_state', 'book', 'set_booking_state', 'save_crm_template', 'set_member', 'remove_member', 'delete_lead']),
+    assert t.proname = any(array['use_claims', 'contract_for', 'save_as', 'start_publish', 'unpublish', 'lead_update', 'add_lead', 'activate_addon', 'set_addon_state', 'book', 'set_booking_state', 'save_crm_template', 'set_member', 'remove_member', 'delete_lead',
+      'set_workspace_state', 'open_privacy_request', 'set_privacy_request_state']),
       'service.' || t.proname || ' takes claims but has no outsider test listed in T14';
   end loop;
 end $$;
@@ -676,6 +847,11 @@ select test.expect_error($q$select * from service.record_message('aaaaaaaa-0000-
 select test.expect_error($q$select count(*) from bookings$q$, 'permission denied');
 select test.expect_error($q$select count(*) from webhook_events$q$, 'permission denied');
 select test.expect_error($q$select count(*) from content_rows$q$, 'permission denied');
+select test.expect_error($q$select service.record_security_event('refused', 'S-NOT-FOUND')$q$, 'permission denied');
+select test.expect_error($q$select count(*) from security_events$q$, 'permission denied');
+select test.expect_error($q$select count(*) from consent_ledger$q$, 'permission denied');
+select test.expect_error($q$select service.suppress(null, 'email', 'x@test', 'dnc')$q$, 'permission denied');
+select test.expect_error($q$select * from service.site_signing_secrets('aaaaaaaa-0000-0000-0000-00000000517e')$q$, 'permission denied');
 reset role;
 
 select 'ALL TENANCY TESTS PASSED' as result;

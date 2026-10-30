@@ -14,7 +14,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ref = process.env.STAGING_SUPABASE_REF, token = process.env.SUPABASE_ACCESS_TOKEN;
 if (!ref || !token) { console.error('set STAGING_SUPABASE_REF and SUPABASE_ACCESS_TOKEN (by name)'); process.exit(2); }
 const argv = process.argv.slice(2);
-const scrub = s => String(s || '').split(token).join('<token>');
+const scrub = s => String(s || '').split(token).join('<token>').split(ref).join('<project ref>');   // the CLI prints the ref inside its dashboard link
 const sb = args => { const r = spawnSync('supabase', args, { cwd: ROOT, encoding: 'utf8', timeout: 600000, env: { ...process.env, SUPABASE_ACCESS_TOKEN: token }, shell: process.platform === 'win32' }); return { status: r.status, out: scrub(r.stdout) + scrub(r.stderr) }; };
 let failed = 0;
 

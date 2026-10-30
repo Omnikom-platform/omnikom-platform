@@ -44,6 +44,7 @@ export function makeLeadHandler({ siteId, signingKey, platformBase, fetchImpl = 
     }
     if (res.status === 429) return json(429, { sent: false, retry: true, msg: 'Please try again in a minute.' });
     if (res.status === 401) { log('platform refused the site signature (key or clock)'); return json(502, { sent: false, retry: false, msg: CALL_US }); }
+    if (res.status === 409) { log('platform refused: the site is paused or its workspace suspended'); return json(409, { sent: false, retry: false, msg: CALL_US }); }   // step 3: S-SITE-PAUSED, S-WORKSPACE-SUSPENDED
     log(`platform answered ${res.status}`);
     return json(502, { sent: false, retry: true, msg: TRY_AGAIN });
   };

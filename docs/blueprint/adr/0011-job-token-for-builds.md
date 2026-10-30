@@ -10,7 +10,8 @@ runner is trusted" (dry run 4.2).
 ## Decision
 The runner authenticates to `export-published` and `job-callback` with the runner key (`X-Runner-Signature`). The export is
 scoped by the job id: `service.freeze_snapshot` + `service.published_rows(job)` return only that job's workspace, and the export
-hands over that one site's deploy token (Vault) with the Worker name it is scoped to. The runner refuses when the target differs.
+names that one site's Pages project (`sites.deploy_target`); the runner deploys with the one account token it holds as a GitHub
+secret (DECISIONS 28, 20-SHAPE 3; the 2026-10-28 text said a per-site token from Vault) and refuses when the target differs.
 
 ## Considered Options
 Per-job tokens minted by the `publish` function and sent in the dispatch payload (visible in run metadata; expire while queued);
@@ -19,5 +20,6 @@ GitHub OIDC tokens verified by the function (better; adopt when the runner count
 
 ## Consequences
 The runner and its key are in the trusted computing base: protect the GitHub environment (`08-SECURITY.md`). Blast radius of a
-compromised runner key: read any job's export and the per-site deploy tokens it is handed, not the database. The build-leak
+compromised runner key: read any job's export, not the database (the deploy token is the runner's own secret, 24-GAP-HUNT B lists
+narrowing it). The build-leak
 tests (T6, T11, W1.3, W1.6) cover the scoping. OIDC is the planned hardening.

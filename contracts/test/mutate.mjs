@@ -38,6 +38,8 @@ swap('place.mjs', 'if (f.visibleWhen && !Object.entries', 'if (false && !Object.
 swap('place.mjs', 'if (!f || f.internal) continue;', 'if (!f) continue;', 'public data shows internal fields');
 swap('validate.mjs', 'img = { ...img, width: rec.width, exifStripped: rec.exifStripped, rightsConfirmed: rec.rightsConfirmed };', '', 'photo facts taken from the row, not the media record');
 swap('validate.mjs', "if (merged[id] && c.core) { merged[id] = { ...c, fields: { ...c.fields } }; continue; }", '', 'mergeCore not idempotent (resolved contract loses extensions)');
+swap('validate.mjs', 'const forms = consentForms(contract, data && data.slug);', 'const forms = Object.values(contract.forms || {});', 'consent lint runs on notices rows no form names');
+swap('validate.mjs', "if (collection === 'notices' && (o.mode || 'draft') === 'publish') checkConsentWording(out, contract, data);", "if (collection === 'notices') checkConsentWording(out, contract, data);", 'consent lint ignores the publish gate (drafts refused)');
 swap('validate.mjs', 'if (rec.processed === false) img.exifStripped = false;', '', 'unprocessed photo treated as processed');
 swap('validate.mjs', 'const minWidth = o.sample ? 0 : m.minWidth;', 'const minWidth = m.minWidth;', 'sample listings held to the full photo width');
 swap('validate.mjs', 'ws.filter(w => w.expects.some(x => g.includes(x))).map(w => w.path)', 'ws.map(w => w.path)', 'waiver widens every group, not just the matching one');

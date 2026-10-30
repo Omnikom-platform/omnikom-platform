@@ -8,7 +8,10 @@
 // First proof target (DECISIONS 25): the ELEV8 preview form -> this -> staging database -> the owner's inbox.
 // Environment, read by name only: SUPABASE_DB_URL (set by Supabase for every function), RESEND_API_KEY, LEAD_ALERT_FROM
 // (a sender on a verified Resend domain, or onboarding@resend.dev for the first test), DASHBOARD_URL (optional, for the link).
-// UNPROVEN until deployed: the path string this function sees (req.url) must equal what the endpoint signs; see pathForSignature.
+// The path string this function sees equals what the endpoint signs (proven on staging 2026-10-30, step 2).
+// Step 3 (migration 8): the connection steps down to the role omnikom_fn right after it opens, so this code can only call
+// service.* functions (no table read or write, 24-GAP-HUNT A 13.2.2); Vault, the alert recipients and "was this lead alerted"
+// come through service functions. A refusal is answered with its platform code and recorded in security_events.
 import postgres from 'npm:postgres@3.4.5';
 import { verify } from '../_shared/signature.ts';
 
@@ -27,6 +30,17 @@ type Lead = {
 };
 const problem = (status: number, problems: Problem[]) =>
   new Response(JSON.stringify({ status, problems }), { status, headers: H });
+
+// What the database said no to, as the visitor's answer: the platform code becomes a named 4xx instead of a bare 500.
+// S-SITE-PAUSED and S-WORKSPACE-SUSPENDED: 409 (the site exists and is not taking requests); S-QUOTA: 429; unknown site: 404.
+export function refusal(message: string): { status: number; code: string; kind: string; msg: string } | null {
+  if (message.includes('S-SITE-PAUSED')) return { status: 409, code: 'S-SITE-PAUSED', kind: 'suspended', msg: 'This site is not taking requests right now. Please call or email us.' };
+  if (message.includes('S-WORKSPACE-SUSPENDED')) return { status: 409, code: 'S-WORKSPACE-SUSPENDED', kind: 'suspended', msg: 'This site is not taking requests right now. Please call or email us.' };
+  if (message.includes('S-QUOTA')) return { status: 429, code: 'S-QUOTA', kind: 'quota', msg: 'Please try again later.' };
+  if (message.includes('unknown site')) return { status: 404, code: 'SITE', kind: 'refused', msg: 'Not found.' };
+  if (message.includes('consent text required')) return { status: 400, code: 'REQUIRED', kind: 'bad-request', msg: 'This is needed.' };
+  return null;
+}
 
 // The signed path is "/capture-lead?site=<id>". Supabase's gateway may present the function URL as /capture-lead or as
 // /functions/v1/capture-lead; both reduce to the same signed string.
@@ -75,9 +89,9 @@ async function sendAlert(sql: any, site: string, leadId: string, lead: Lead): Pr
   const apiKey = Deno.env.get('RESEND_API_KEY'), from = Deno.env.get('LEAD_ALERT_FROM');
   if (!apiKey || !from) return;                                   // alerts are off until D5 is set up; the lead is already stored
   // one alert per lead: a retried submission (same idempotency key) answers the same lead id and must not alert again
-  const [prior] = await sql`select 1 as x from messages where lead_id = ${leadId}::uuid and template = 'new-lead' limit 1`;
-  if (prior) return;
-  const [s] = await sql`select s.workspace_id, s.lead_alert_to, w.name from sites s join workspaces w on w.id = s.workspace_id where s.id = ${site}::uuid`;
+  const [prior] = await sql`select service.lead_alerted(${leadId}::uuid) as alerted`;
+  if (prior?.alerted) return;
+  const [s] = await sql`select workspace_id, lead_alert_to, name from service.alert_recipients(${site}::uuid)`;
   if (!s || !s.lead_alert_to || s.lead_alert_to.length === 0) return;
   const dash = Deno.env.get('DASHBOARD_URL');
   const answers = lead.answers;
@@ -114,25 +128,39 @@ export async function handle(req: Request): Promise<Response> {
   const dbUrl = Deno.env.get('SUPABASE_DB_URL');
   if (!dbUrl) return problem(500, [{ code: 'CONFIG', path: '', msg: 'Not configured.' }]);
   const sql = postgres(dbUrl, { max: 1, prepare: false });
+  // a hash with the site id, never the address itself (Cloudflare's header first; X-Forwarded-For is a fallback for the first test)
+  const ip = req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '';
+  const ipHash = ip ? await sha256Hex(`${site}:${ip}`) : null;
+  const event = async (kind: string, code: string, workspace: string | null = null) => {
+    try { await sql`select service.record_security_event(${kind}, ${code}, ${workspace}::uuid, ${site}::uuid, null, ${ipHash}, ${JSON.stringify({ path: url.pathname })}::jsonb)`; }
+    catch (e) { console.error('security event not recorded', String(e).slice(0, 200)); }
+  };
   try {
+    // step down: from here on only service.* functions are reachable (migration 8); fail closed when the role is missing
+    try { await sql.unsafe('set role omnikom_fn'); } catch (e) { console.error('set role omnikom_fn failed', String(e).slice(0, 200)); return problem(500, [{ code: 'CONFIG', path: '', msg: 'Not configured.' }]); }
     // the site's live signing keys (never revoked or expired), read from Vault by the registry's name
-    const keys = await sql`select k.id, s.decrypted_secret as secret from service.active_key('site-signing', ${site}::uuid) k
-      join vault.decrypted_secrets s on s.name = k.vault_ref`;
+    const keys = await sql`select id, secret from service.site_signing_secrets(${site}::uuid)`;
     const header = req.headers.get('x-site-signature');
     let keyId: string | null = null;
     for (const k of keys) { if (await verify(header, k.secret, 'POST', pathForSignature(url), body)) { keyId = k.id; break; } }
-    if (!keyId) return problem(401, [{ code: 'SIGNATURE', path: '', msg: 'Not accepted.' }]);
+    if (!keyId) { await event('bad-signature', 'SIGNATURE'); return problem(401, [{ code: 'SIGNATURE', path: '', msg: 'Not accepted.' }]); }
     let data: unknown;
     try { data = JSON.parse(body); } catch { return problem(400, [{ code: 'BODY', path: '', msg: 'Send the form as JSON.' }]); }
     const c = checkBody(data);
     if (!c.ok) return problem(400, c.problems);
     const L = c.lead;
-    const ip = req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '';
-    const ipHash = ip ? await sha256Hex(`${site}:${ip}`) : null;      // a hash with the site id, never the address itself
     const ua = (req.headers.get('user-agent') ?? '').slice(0, 400) || null;
-    const [row] = await sql`select service.capture_lead(${site}::uuid, ${L.form}, ${L.page}, ${L.name}, ${L.email}, ${L.phone},
-      ${JSON.stringify(L.answers)}::jsonb, ${L.consentText}, ${L.flow}, ${L.cta}, ${L.marketing ? JSON.stringify(L.marketing) : null}::jsonb,
-      ${L.idempotencyKey}::uuid, ${L.assignee}, ${ipHash}, ${ua}) as id`;
+    let row: { id: string };
+    try {
+      [row] = await sql`select service.capture_lead(${site}::uuid, ${L.form}, ${L.page}, ${L.name}, ${L.email}, ${L.phone},
+        ${JSON.stringify(L.answers)}::jsonb, ${L.consentText}, ${L.flow}, ${L.cta}, ${L.marketing ? JSON.stringify(L.marketing) : null}::jsonb,
+        ${L.idempotencyKey}::uuid, ${L.assignee}, ${ipHash}, ${ua}) as id`;
+    } catch (e) {
+      const r = refusal(String(e));
+      if (!r) throw e;
+      await event(r.kind, r.code);                                  // the refusal's own transaction rolled back; the record is a call of its own
+      return problem(r.status, [{ code: r.code, path: '', msg: r.msg }]);
+    }
     await sql`select service.touch_key(${keyId}::uuid)`;
     try { await sendAlert(sql, site, row.id, L); } catch (e) { console.error('alert failed', String(e).slice(0, 200)); }
     return new Response(JSON.stringify({ ok: true }), { status: 202, headers: H });

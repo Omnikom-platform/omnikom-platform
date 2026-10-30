@@ -166,6 +166,22 @@ Google Cloud: service account for Search Console (D15).
    D20 secrets store, D21 GitHub Team or a production repo, D22 on-call terms, D23 network restrictions, D24 `api` schema.
 
 ### F. Doc drift to fix (found by readers B and C)
-`01-ARCHITECTURE.md` section 7 and 9 (Workers, PITR); `02-BACKEND.md` 3 (`save_version` client-callable wording), 8 (per-site
-Cloudflare tokens, `main`), 10; `10-DELIVERY.md` (environments, `main`, Worker rollback); `11-OPERATIONS.md` R3 (Worker
-rollback), 3 (PITR), 0 (99.9%); ADR 0001 (PITR), ADR 0002 (revised by DECISIONS 28); `06-PRD.md` NFR-7 (PITR).
+- [x] `01-ARCHITECTURE.md` section 7 (Worker names to Pages projects, `main` to `master`, PITR removed): fixed 2026-10-30 in 01-ARCHITECTURE.md section 7
+- [x] `01-ARCHITECTURE.md` section 9 (deploy target per site and the dashboard row now Pages, revised by DECISIONS 28): fixed 2026-10-30 in 01-ARCHITECTURE.md section 9
+- [x] `01-ARCHITECTURE.md` section 8 (per-site deploy tokens became the one account token; secrets bullet): fixed 2026-10-30 in 01-ARCHITECTURE.md section 8
+- [x] `02-BACKEND.md` 3 (`save_version` was called client-callable; the only way in is `save` calling `service.save_as`): fixed 2026-10-30 in 02-BACKEND.md section 3
+- [x] `02-BACKEND.md` 8 (per-site Cloudflare token row became the one account token held by the runner; `main` and environment wording gone): fixed 2026-10-30 in 02-BACKEND.md section 8
+- [x] `02-BACKEND.md` 10 (Status: six migrations on staging, `capture-lead` deployed, lead path proven through the CLI): fixed 2026-10-30 in 02-BACKEND.md section 10
+- [x] `02-BACKEND.md` 1, 6, 7, 11 (same drift found on the way: Worker names, per-site token in the export, production approval): fixed 2026-10-30 in 02-BACKEND.md sections 1, 6, 7 and 11
+- [x] `10-DELIVERY.md` 2 and 3 (`master`, no branch protection or environments on Free, the promote gate, Pages preview deployment): fixed 2026-10-30 in 10-DELIVERY.md sections 2 and 3
+- [x] `10-DELIVERY.md` 4 and 5 (staging and production rows without PITR, promotion by the owner-run `promote`, own dumps and D17, data-loss rollback): fixed 2026-10-30 in 10-DELIVERY.md sections 4 and 5
+- [x] `10-DELIVERY.md` 6, 8 and 10 (rollback by redeploying the previous Pages deployment, SSDF row, twelve-factor wording): fixed 2026-10-30 in 10-DELIVERY.md sections 6, 8 and 10
+- [x] `11-OPERATIONS.md` 0 (99.9% restated as a target, best effort on the free tiers until Pro): fixed 2026-10-30 in 11-OPERATIONS.md section 0
+- [x] `11-OPERATIONS.md` R3 and R4 (Worker rollback became Pages redeploy; data loss restores the last dump): fixed 2026-10-30 in 11-OPERATIONS.md section 2
+- [x] `11-OPERATIONS.md` 3 (PITR became nightly dump to R2 plus a second copy, monthly drill, D17): fixed 2026-10-30 in 11-OPERATIONS.md section 3
+- [x] ADR 0001 (Consequences: backups with PITR became the own-dumps fact): fixed 2026-10-30 in adr/0001-one-multi-tenant-supabase.md section Consequences
+- [x] ADR 0002 (Status: Superseded by DECISIONS 28, a line under Decision saying why; history kept): fixed 2026-10-30 in adr/0002-workers-static-assets-per-site.md sections Status and Decision
+- [x] `06-PRD.md` NFR-7 (point-in-time recovery became dump plus second copy, RPO 24 h, RTO 4 h, monthly drill): fixed 2026-10-30 in 06-PRD.md section NFR-7
+
+- [x] `adr/README.md` (ADR 0002 row: Superseded by DECISIONS 28), ADR 0003 (dashboard on a Pages project), ADR 0011 (the runner's one account token, not a per-site token), `06-PRD.md` NFR-6 (best effort on the free tiers): fixed 2026-10-30 by the step 3 session
+- [ ] `diagrams/08-deployment.png` and `09-tenancy.png` still draw Workers and per-site tokens: redraw when the diagrams are next regenerated (not text; left as is)

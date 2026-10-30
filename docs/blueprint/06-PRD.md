@@ -73,8 +73,8 @@ edit content, never layout).
 | NFR-3 Site quality | SEO gate, a11y, render gate | 13/13, 0 axe violations, 0 console errors at 3 sizes; programmatic pages meet the plan's quality gate | W2.3, W2.5 | gates in `publish.yml` |
 | NFR-4 Publish time | click to live preview | <= 5 min p95 for a 50-page site | W1.4 | job timestamps (queued -> done) |
 | NFR-5 Dashboard speed | first load / screen change | <= 2.5 s / <= 500 ms on a mid phone, 4G | W3.1 | Lighthouse CI on the dashboard |
-| NFR-6 Availability | client sites / dashboard / form endpoint | 99.9% / 99.5% / 99.9% monthly | M6 | uptime checks into `metrics_snapshots` |
-| NFR-7 Durability | content and leads | point-in-time recovery 7 days; restore drill quarterly | W0.3 | restore drill runbook (`11-OPERATIONS.md`) |
+| NFR-6 Availability | client sites / dashboard / form endpoint | 99.9% / 99.5% / 99.9% monthly as the target once on the paid tiers; best effort on the free tiers until then (11-OPERATIONS 0, 24-GAP-HUNT B) | M6 | uptime checks into `metrics_snapshots` |
+| NFR-7 Durability | content and leads | nightly dump to R2 plus a second copy; RPO 24 h, RTO 4 h (D17); monthly restore drill | W0.3 | restore drill runbook (`11-OPERATIONS.md`) |
 | NFR-8 Security | auth, secrets, dependencies | MFA for staff; no secret in git; no critical CVE unpatched > 7 days | W0.2 | gitleaks in CI; dependency audit |
 | NFR-9 Privacy | lead personal data | consent stored; export/delete on request; retention per D6 | W3.6 | consent column NOT NULL; delete runbook |
 | NFR-10 Accessibility | dashboard and sites | WCAG 2.2 AA | W2.3, W3.x | axe in CI |

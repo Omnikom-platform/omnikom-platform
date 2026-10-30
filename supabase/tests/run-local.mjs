@@ -8,6 +8,7 @@ import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { qualify } from './qualify.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const arg = n => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : null; };
@@ -42,7 +43,9 @@ const fresh = (name, migrationText) => {
   return { setup: true, ok: t.status === 0, out: (t.stdout + t.stderr).trim() };
 };
 
-// The walls, each removed in one mutant. Every target must exist in the migration.
+// The walls, each removed in one mutant. Every target must exist in the migration (as written, or schema-qualified: since
+// migration 8 every SECURITY DEFINER function exists twice in the migration text, the original and its qualified copy with
+// search_path = ''; a mutant removes the wall from both copies, through the same qualify() that wrote migration 8).
 const MUTANTS = [
   ['RLS read wall on content_rows', 'create policy rows_read on content_rows for select to authenticated using (private.can_see(workspace_id));', 'create policy rows_read on content_rows for select to authenticated using (true);'],
   ['RLS read wall on content_versions', 'create policy versions_read on content_versions for select to authenticated using (private.can_see(workspace_id));', 'create policy versions_read on content_versions for select to authenticated using (true);'],
@@ -110,7 +113,10 @@ const MUTANTS = [
   ['lead deletion: owner or staff (review 9)', "  if not found or not private.is_owner_or_staff(l.workspace_id) then raise exception 'S-NOT-FOUND: not found'; end if;\n  insert into audit_log (workspace_id, actor, action, target, detail) values (l.workspace_id, me, 'lead-delete'", "  insert into audit_log (workspace_id, actor, action, target, detail) values (l.workspace_id, me, 'lead-delete'"],
   ['lead deletion is audited (review 9)', "'lead-delete', p_lead::text", "'lead-removed', p_lead::text"],
   ['workspace index on leads (review 8, T14)', [['create index if not exists leads_ws_created on leads (workspace_id, created_at desc);', ''], ['create index if not exists leads_ws_owner on leads (workspace_id, owner_team_row, created_at desc);', '']]],
-  ['definer functions set search_path (T14)', "create function service.lead_sms_stop(p_lead uuid, p_detail jsonb default '{}') returns void language plpgsql security definer set search_path = public as $$", "create function service.lead_sms_stop(p_lead uuid, p_detail jsonb default '{}') returns void language plpgsql security definer as $$"],
+  ['definer functions set search_path (T14)', "create or replace function service.lead_sms_stop(p_lead uuid, p_detail jsonb default '{}') returns void language plpgsql security definer set search_path = '' as $$", "create or replace function service.lead_sms_stop(p_lead uuid, p_detail jsonb default '{}') returns void language plpgsql security definer as $$"],
+  ['definer functions pin the empty search_path (migration 8, T14)', "create or replace function service.delete_lead(p_claims jsonb, p_lead uuid, p_reason text default null) returns void language plpgsql security definer set search_path = '' as $$", "create or replace function service.delete_lead(p_claims jsonb, p_lead uuid, p_reason text default null) returns void language plpgsql security definer set search_path = pg_catalog, public as $$"],
+  ['default privileges close a new private or service function (migration 8)', 'alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'],
+  ['the function role reaches service functions only (migration 8)', 'grant usage on schema service to omnikom_fn;', 'grant usage on schema service, private to omnikom_fn; grant select on all tables in schema public to omnikom_fn;'],
   ['RLS read wall on sites (T14 loop)', 'create policy sites_read on sites for select to authenticated using (private.can_see(workspace_id));', 'create policy sites_read on sites for select to authenticated using (true);'],
   ['RLS read wall on site_contracts (T14 loop)', 'create policy contracts_read on site_contracts for select to authenticated using (private.can_see(workspace_id));', 'create policy contracts_read on site_contracts for select to authenticated using (true);'],
   ['RLS read wall on media (T14 loop)', 'create policy media_read on media for select to authenticated using (private.can_see(workspace_id));', 'create policy media_read on media for select to authenticated using (true);'],
@@ -184,7 +190,40 @@ const MUTANTS = [
   ['consent required on leads', "if coalesce(p_consent, '') = '' then raise", "if false then raise"],
   ['media key under its workspace', "constraint media_path_in_workspace check (path like workspace_id::text || '/%')", "constraint media_path_in_workspace check (true)"],
   ['storage folder must be a visible workspace', "  with check (bucket_id = 'media' and private.try_uuid((storage.foldername(name))[1]) is not null and private.can_see(private.try_uuid((storage.foldername(name))[1])));", "  with check (bucket_id = 'media');"],
+  // Migration 7 (step 3 leftovers): append-only audit, security events, consent ledger, suppressions, lifecycle, quotas, privacy requests.
+  ['audit trail append-only for every role (trigger)', [["create trigger audit_log_append_only before update or delete on audit_log for each row execute function private.refuse_change();", ''], ["create trigger audit_log_no_truncate before truncate on audit_log for each statement execute function private.refuse_change();", '']]],
+  ['audit trail: service role cannot rewrite it', 'revoke update, delete, truncate on audit_log from service_role;', '-- (service_role keeps update and delete on audit_log)'],
+  ['audit trail outlives the tenant (no cascade)', 'alter table audit_log drop constraint audit_log_workspace_id_fkey;', '-- (cascade kept)'],
+  ['security events staff-only', 'create policy security_events_staff_read on security_events for select to authenticated using (private.is_staff());', 'create policy security_events_staff_read on security_events for select to authenticated using (true);'],
+  ['security events append-only', 'create trigger security_events_append_only before update or delete on security_events for each row execute function private.refuse_change();', ''],
+  ['consent ledger written on capture', '  perform private.record_consent(ws, p_site, lid, p_form, p_page, p_consent, p_sms_consent, p_marketing, p_ip_hash, p_user_agent, null);', ''],
+  ['consent ledger written on a manual lead', "  perform private.record_consent(ws, p_site, lid, coalesce(p_form, 'manual'), 'dashboard', p_consent, false, null, null, null, me);", ''],
+  ['consent ledger holds the hash of the wording', "encode(sha256(convert_to(p_consent, 'utf8')), 'hex'), coalesce(p_sms, false)", "repeat('0', 64), coalesce(p_sms, false)"],
+  ['consent ledger read wall', "create policy consent_ledger_read on consent_ledger for select to authenticated using (private.is_staff() or private.my_role(workspace_id) = 'owner');", 'create policy consent_ledger_read on consent_ledger for select to authenticated using (true);'],
+  ['consent ledger append-only', 'create trigger consent_ledger_append_only before update or delete on consent_ledger for each row execute function private.refuse_change();', ''],
+  ['STOP writes a suppression that outlives the lead', "  if private.address_hash('sms', ph) is not null then perform service.suppress(ws, 'sms', ph, 'stop', 'sms reply', p_lead); end if;", ''],
+  ['a suppressed address is refused (record_message)', "  if private.is_suppressed(p_workspace, p_channel::text::suppression_channel, p_to) then raise exception 'M-SUPPRESSED: this address asked for no more messages'; end if;", ''],
+  ['suppression lookup normalises the address', "case when p_channel = 'email' then lower(btrim(p_address)) else regexp_replace(regexp_replace(p_address, '[^0-9]', '', 'g'), '^1(?=[0-9]{10}$)', '') end", 'p_address'],
+  ['a platform-wide suppression reaches every workspace', '    and (s.workspace_id is null or s.workspace_id = p_workspace)), false) $$;', '    and s.workspace_id = p_workspace), false) $$;'],
+  ['suppressions read wall', "create policy suppressions_read on suppressions for select to authenticated using (private.is_staff() or private.my_role(workspace_id) = 'owner');", 'create policy suppressions_read on suppressions for select to authenticated using (true);'],
+  ['workspace lifecycle: staff only', "  if not private.is_staff() then raise exception 'S-NOT-FOUND: not found'; end if;\n  select * into w from workspaces where id = p_workspace for update;", '  select * into w from workspaces where id = p_workspace for update;'],
+  ['workspace lifecycle: legal moves only', "  if not ok then raise exception 'S-WORKSPACE-STATE: % -> % is not allowed', w.state, p_state; end if;", ''],
+  ['a suspended workspace takes no leads', "  if wst in ('suspended', 'deleted') then raise exception 'S-WORKSPACE-SUSPENDED: this workspace is suspended'; end if;", ''],
+  ['a suspended workspace publishes nothing', "  if wst not in ('trial', 'active') then raise exception 'S-WORKSPACE-STATE: a % workspace publishes nothing', wst; end if;", ''],
+  ['a suspended workspace sends nothing', "  if wst in ('suspended', 'deleted') then st := 'blocked'; why := 'workspace suspended'; end if;", ''],
+  ['lead quota per workspace', "    raise exception 'S-QUOTA: this workspace reached its hourly lead limit'; end if;", '    null; end if;'],
+  ['a workspace value overrides the platform limit', '  select coalesce((select value from workspace_limits where workspace_id = p_workspace and key = p_key), (select value from platform_limits where key = p_key)) $$;', '  select (select value from platform_limits where key = p_key) $$;'],
+  ['workspace limits staff-only', 'create policy workspace_limits_staff_read on workspace_limits for select to authenticated using (private.is_staff());', 'create policy workspace_limits_staff_read on workspace_limits for select to authenticated using (true);'],
+  ['privacy requests: owner or staff opens one', "  if not private.is_owner_or_staff(p_workspace) then raise exception 'S-NOT-FOUND: not found'; end if;\n  if coalesce(btrim(p_subject), '') = ''", "  if coalesce(btrim(p_subject), '') = ''"],
+  ['privacy requests: owner or staff moves one', "  if not found or not private.is_owner_or_staff(r.workspace_id) then raise exception 'S-NOT-FOUND: not found'; end if;\n  ok := (r.state, p_state)", "  ok := (r.state, p_state)"],
+  ['privacy request legal moves only', "  if not ok then raise exception 'P-STATE: % -> % is not allowed', r.state, p_state; end if;", ''],
+  ['privacy request: the 45-day clock', "values (p_workspace, p_kind, btrim(p_subject), h, now() + interval '45 days', me, p_notes, ids)", "values (p_workspace, p_kind, btrim(p_subject), h, now() + interval '450 days', me, p_notes, ids)"],
+  ["privacy request lists the person's leads", "    and (lower(btrim(coalesce(l.email, ''))) = lower(btrim(p_subject)) or", '    and (false or'],
+  ['privacy requests read wall', "create policy privacy_requests_read on privacy_requests for select to authenticated using (private.is_staff() or private.my_role(workspace_id) = 'owner');", 'create policy privacy_requests_read on privacy_requests for select to authenticated using (true);'],
 ];
+
+// remove a wall from the original text and, when the wall lives in a function body, from its schema-qualified copy too
+const mutate = (s, x, y) => { let t = s.split(x).join(y); const qx = qualify(x); if (qx !== x) t = t.split(qx).join(qualify(y)); return t; };
 
 let failed = 0;
 const real = fresh('real', src);
@@ -195,9 +234,9 @@ for (const [name, a, b] of MUTANTS) {
   if (ONLY && !name.includes(ONLY)) continue;
   ran++;
   const pairs = Array.isArray(a) ? a : [[a, b]];
-  const missing = pairs.find(([x]) => !src.includes(x));
+  const missing = pairs.find(([x]) => !src.includes(x) && !src.includes(qualify(x)));
   if (missing) { console.log(`MUTANT TARGET MISSING: ${name}: ${missing[0].slice(0, 60)}`); failed++; continue; }
-  const m = fresh(`m${++n}`, pairs.reduce((s, [x, y]) => s.split(x).join(y), src));
+  const m = fresh(`m${++n}`, pairs.reduce((s, [x, y]) => mutate(s, x, y), src));
   const caught = m.setup && !m.ok;
   if (!caught) failed++;
   const why = (m.out.match(/(EXPECTED[^\n]*|Assertion[^\n]*|assert[^\n]*|ERROR:[^\n]*)/) || [''])[0].slice(0, 120);

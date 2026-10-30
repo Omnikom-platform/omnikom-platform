@@ -6,7 +6,7 @@ plus MADR 4.0.0's "Considered Options" (https://adr.github.io/madr/). Statuses: 
 | ADR | Decision | Status |
 |---|---|---|
 | [0001](0001-one-multi-tenant-supabase.md) | One multi-tenant Supabase database | Accepted (owner, DECISIONS 11, 2026-10-26) |
-| [0002](0002-workers-static-assets-per-site.md) | One Cloudflare Worker with static assets per client site (not a Pages project) | Proposed (owner to confirm, decision D2) |
+| [0002](0002-workers-static-assets-per-site.md) | One Cloudflare Worker with static assets per client site (not a Pages project) | Superseded by DECISIONS 28 (2026-10-29): one Pages project per site |
 | [0003](0003-react-vite-spa-dashboard.md) | Dashboard as a React + Vite SPA on a Worker, no server framework | Accepted (this blueprint; reversible) |
 | [0004](0004-github-actions-build-runner.md) | GitHub Actions as the site build runner | Accepted (this blueprint) |
 | [0005](0005-content-in-db-rows-with-versions.md) | Content master copy in database rows with append-only versions | Accepted (owner, DECISIONS 6) |

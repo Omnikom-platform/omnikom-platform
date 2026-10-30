@@ -33,7 +33,7 @@ blueprint paraphrases and cites the clause.
 ## Deviations (where the blueprint does not follow its standard, and why)
 | Standard | Deviation | Why | Plan |
 |---|---|---|---|
-| Supabase RLS guide (security-definer functions: `search_path = ''`) | functions use `search_path = public` | every table in the function bodies would need schema-qualifying; `public` cannot be written to by clients | W0.3: switch to `''` with qualified names; the tenancy tests must stay green |
+| Supabase RLS guide (security-definer functions: `search_path = ''`) | CLOSED 2026-10-30 (step 3, migration `20261030000008_search_path_and_roles.sql`): every SECURITY DEFINER function pins `search_path = ''` and names every table and type with its schema; T14 asserts it on every definer function | the bodies were schema-qualified by `supabase/tests/qualify.mjs`; the mutants remove each wall from both copies | none |
 | ISO/IEC/IEEE 29148 | characteristic names not listed in the PRD | the clause text is paywalled; we do not cite names we have not read | buy the standard or cite the clause only; verifiability and traceability are enforced by tests anyway |
 | OWASP ASVS L2 | not all L2 requirements mapped one by one yet (chapters mapped) | 5.0.0 has about half its ~350 requirements at L2; a per-requirement sheet is a build task | W0.2 adds `docs/blueprint/specs/asvs-l2.csv` (requirement id, applies?, control, test) |
 | GitHub environments (required reviewers) | production approval gate depends on the GitHub plan | required reviewers are not available for private repos on Free, Pro or Team plans (GitHub docs) | D4: choose an Enterprise plan, or gate prod with a `workflow_dispatch` only the owner can run + branch protection |

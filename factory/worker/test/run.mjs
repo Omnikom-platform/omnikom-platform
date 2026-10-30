@@ -82,6 +82,10 @@ await check('a 429 from the platform says try again in a minute', async () => {
   const r = await handler(platform(429, {}))(post(lead));
   assert.equal(r.status, 429); const j = await r.json(); assert.equal(j.retry, true); assert.match(j.msg, /minute/);
 });
+await check('a 409 from the platform (site paused or workspace suspended) says call us, no retry, and is logged', async () => {
+  const logged = []; const r = await handler(platform(409, { status: 409, problems: [{ code: 'S-SITE-PAUSED', path: '', msg: 'x' }] }), { log: m => logged.push(m) })(post(lead));
+  assert.equal(r.status, 409); const j = await r.json(); assert.equal(j.sent, false); assert.equal(j.retry, false); assert.match(j.msg, /call/i); assert.equal(logged.length, 1);
+});
 await check('a 401 from the platform (key or clock) says call us, no retry, and is logged', async () => {
   const logged = []; const r = await handler(platform(401, {}), { log: m => logged.push(m) })(post(lead));
   assert.equal(r.status, 502); const j = await r.json(); assert.equal(j.sent, false); assert.equal(j.retry, false); assert.match(j.msg, /call/i); assert.equal(logged.length, 1);

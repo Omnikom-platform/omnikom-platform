@@ -5,12 +5,14 @@ Level Objectives, ch. 6 Monitoring Distributed Systems, ch. 14 Managing Incident
 DORA (`10-DELIVERY.md` 9).
 
 ## 0. SLIs, SLOs and error budgets (SRE ch. 3-4)
-| Service | SLI | SLO (monthly) | Error budget |
+| Service | SLI | SLO target (monthly) | Error budget |
 |---|---|---|---|
 | Client sites | share of successful (non-5xx) responses at the edge | 99.9% | ~43 min |
 | Form endpoint | share of valid submissions stored (202 with a row) | 99.9% | ~43 min |
 | Dashboard | share of successful API reads/writes | 99.5% | ~3.6 h |
 | Publish | share of jobs that finish (done or a content-caused fail) within 5 min | 95% | 5% of jobs |
+The column is a target, not a promise: on the free tiers these are best effort until the Pro upgrade (`24-GAP-HUNT.md` B, SLO row);
+the 99.9% figure is the target once on Pro. In client terms nothing is promised until then.
 Policy: when a budget is spent, feature releases to that service stop and the next work is reliability, until the 30-day
 window recovers. SLO report monthly with the DORA metrics.
 
@@ -42,14 +44,15 @@ site(s) to the previous deploy. 2) Preserve evidence: audit_log, function logs, 
 read-only replica/staging copy; identify the wall that failed. 4) Fix with a test + mutant that reproduce it; two reviewers; deploy.
 5) Tell the owner the same day; the owner decides client notification (privacy duty). 6) Write a post-incident note.
 
-**R3 Roll back a deploy.** Site: Cloudflare -> the site's Worker -> deployments -> redeploy previous version (or CLI
-`wrangler rollback`); then fix content (restore versions) and publish again. Dashboard: same for the `app` Worker. Database data
-loss: Supabase PITR restore to a new project, verify, switch; never restore over prod without the owner; re-enter Vault
-secrets only after a manual dump/restore into a new project (restoring to the same project, cloning or branching keeps them
-readable; Supabase Vault docs).
+**R3 Roll back a deploy.** Site: Cloudflare -> Workers & Pages -> the site's Pages project -> deployments -> redeploy the previous
+deployment (or `wrangler pages deployment` tooling; the exact command for rolling back is UNVERIFIED until the first rollback is
+done); then fix content (restore versions) and publish again. Dashboard: same for the `app` Pages project. Database data loss:
+restore the last dump into a new Supabase project, verify with the tenancy tests, switch (Free has no PITR, section 3); never
+restore over prod without the owner; re-enter Vault secrets by hand after a dump/restore into a new project (Vault secrets are
+not in a dump; restoring to the same project, cloning or branching keeps them readable; Supabase Vault docs).
 
-**R4 Form outage (leads not arriving).** 1) Synthetic POST to the site's `/api/lead` on a test form. 2) If the Worker fails:
-redeploy the last good version. 3) If `capture-lead` fails: function logs; Supabase status. 4) Leads that hit an error were not
+**R4 Form outage (leads not arriving).** 1) Synthetic POST to the site's `/api/lead` on a test form. 2) If the Pages Function fails:
+redeploy the last good Pages deployment. 3) If `capture-lead` fails: function logs; Supabase status. 4) Leads that hit an error were not
 stored: the form must show the "please call us" fallback with the phone number (built into every form). 5) Tell the client how
 long it was down.
 
@@ -57,10 +60,11 @@ long it was down.
 continue); after the last retry the owner sees the lead in the inbox anyway (nothing is lost).
 
 ## 3. Backup and restore
-Supabase PITR (an add-on on Pro and above that needs a compute add-on; WAL archived about every 2 minutes;
-enabling it replaces the daily backups, per the Supabase backups docs) on prod, 7 days; nightly logical dump (schema + data) to an Omnikom-owned bucket, kept 30 days, encrypted.
-Storage `media` replicated by nightly sync to the same bucket. **Restore drill every quarter** into a scratch project: restore,
-run `tenancy.test.sql`, build one site from the restored data, record the time taken (target: < 2 h).
+Supabase Free has no PITR and no backups of its own (`18-BUDGET-ARCHITECTURE.md` 2.4), so we take our own: a nightly `pg_dump` of
+production (schema + data) to R2, plus a second copy at another provider, kept 30 days, encrypted. Recovery objectives (D17,
+DECISIONS 29): at most 24 hours of data lost, back within 4 hours. Storage `media` replicated by nightly sync to the same bucket.
+**Restore drill every month** into a throwaway local Postgres: load the dump, run `tenancy.test.sql`, build one site from the
+restored data, record the time taken (target: < 2 h); the output is pasted in `PROGRESS.md`.
 
 ## 4. On-call basics
 Hours: business hours (US Pacific) to start; out of hours only severity 1 (R2, all sites down). Rota: owner + one engineer.

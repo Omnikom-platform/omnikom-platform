@@ -329,7 +329,29 @@ export function validateItem(contract, collection, data, o = {}) {
   // o.live: the row is about to go to a live (indexed) site. Samples are for previews only.
   if (sample && o.live && o.mode === 'publish') err(out, 'I-SAMPLE-LIVE', c.sampleField, 'sample/placeholder items cannot be published to a live site');
   checkObject(out, '', data, c.fields, { mode: 'draft', ...o, contract, pageType: data && data.type, sample });
+  if (collection === 'notices' && (o.mode || 'draft') === 'publish') checkConsentWording(out, contract, data);
   return out;
+}
+
+// The consent wording lint (24-GAP-HUNT D, TCPA 47 CFR 64.1200(f) written consent; CTIA): a notices row that a form names as its
+// consent notice must say, in the words the visitor reads, what the person agrees to. Checked at publish, on the row's text:
+//  - every channel the form can use is named: a phone field means "call" or "text", an email field means "email";
+//  - when calls or texts are named: consent is "not a condition of purchase" (the TCPA written-consent element);
+//  - when texts are named: how to stop ("reply STOP" or "opt out") and that "message and data rates may apply".
+// The contract knows which notices rows are consent notices (forms.<id>.consent.notice), so a privacy policy row is not linted.
+const consentForms = (contract, slug) => Object.values(contract.forms || {}).filter(f => f.consent && f.consent.notice === slug);
+function checkConsentWording(out, contract, data) {
+  const forms = consentForms(contract, data && data.slug);
+  if (!forms.length) return;
+  const text = isStr(data.text) ? data.text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').toLowerCase() : '';
+  const wantsPhone = forms.some(f => Object.values(f.fields || {}).some(x => x && x.type === 'phone'));
+  const wantsEmail = forms.some(f => Object.values(f.fields || {}).some(x => x && x.type === 'email'));
+  const saysCall = /\b(call|calls|phone)\b/.test(text), saysText = /\b(text|texts|sms|text message|text messages)\b/.test(text);
+  if (wantsPhone && !saysCall && !saysText) err(out, 'I-CONSENT-CHANNEL', 'text', 'the form asks for a phone number: the consent wording must say "call" or "text"');
+  if (wantsEmail && !/\be-?mail\b/.test(text)) err(out, 'I-CONSENT-CHANNEL', 'text', 'the form asks for an email: the consent wording must say "email"');
+  if ((saysCall || saysText) && !/not (a )?condition of (any )?purchase/.test(text)) err(out, 'I-CONSENT-TCPA', 'text', 'calls or texts are named: the wording must say consent is "not a condition of purchase"');
+  if (saysText && !/\bstop\b|opt[ -]out/.test(text)) err(out, 'I-CONSENT-STOP', 'text', 'texts are named: the wording must say how to stop ("reply STOP" or "opt out")');
+  if (saysText && !/data rates/.test(text)) err(out, 'I-CONSENT-RATES', 'text', 'texts are named: the wording must say "message and data rates may apply"');
 }
 
 // For the factory's gate runner: widen a rule's required-path groups with the contract's approved waivers.

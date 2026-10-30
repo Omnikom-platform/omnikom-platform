@@ -151,6 +151,20 @@ for (const [code, coll, data] of itemCases) {
   const got = codes(validateItem(GOOD, coll, data, { mode: 'publish' }));
   check(`item ${code} (${coll})`, got.includes(code), `got [${got.join(', ')}]`);
 }
+// the consent wording lint (step 3, 24-GAP-HUNT D): the notices row the contact form names as its consent notice must name the
+// channels (the form asks for email and phone), the TCPA "not a condition of purchase" element, STOP and data rates when texting
+const notice = (text, slug = 'form-consent') => ({ title: 'Form consent', slug, text, appliesTo: 'contact form' });
+const FULL = 'By submitting this form you agree that Demo Homes may contact you by email, phone call or text message about your request. Consent is not a condition of purchase. Message and data rates may apply; message frequency varies. Reply STOP to opt out, HELP for help.';
+const ncodes = (text, slug) => codes(validateItem(GOOD, 'notices', notice(text, slug), { mode: 'publish' }));
+check('consent wording: the full wording publishes clean', ncodes(FULL).length === 0, `got [${ncodes(FULL).join(', ')}]`);
+check('item I-CONSENT-CHANNEL: no channel named for a phone field', ncodes('By submitting you agree that Demo Homes may email you. Consent is not a condition of purchase.').includes('I-CONSENT-CHANNEL'));
+check('item I-CONSENT-CHANNEL: email not named for an email field', ncodes('You agree to receive calls and texts. Not a condition of purchase. Message and data rates may apply. Reply STOP to opt out.').includes('I-CONSENT-CHANNEL'));
+check('item I-CONSENT-TCPA: calls named without the purchase element', ncodes('You agree that we may email or call you about your request.').includes('I-CONSENT-TCPA'));
+check('item I-CONSENT-STOP: texts named without a way to stop', ncodes('You agree to email, calls and text messages. Consent is not a condition of purchase. Message and data rates may apply.').includes('I-CONSENT-STOP'));
+check('item I-CONSENT-RATES: texts named without the data-rates line', ncodes('You agree to email, calls and text messages. Consent is not a condition of purchase. Reply STOP to opt out.').includes('I-CONSENT-RATES'));
+check('consent wording: a notices row no form names is not linted', !ncodes('Our privacy policy.', 'privacy-policy').some(c => c.startsWith('I-CONSENT')));
+check('consent wording: a draft is not linted (publish is the gate)', !codes(validateItem(GOOD, 'notices', notice('draft words'), { mode: 'draft' })).some(c => c.startsWith('I-CONSENT')));
+check('consent wording: tags in the richtext do not hide the words', ncodes(`<p>${FULL.replace('text message', '<strong>text</strong> message')}</p>`).length === 0);
 // photo facts come from the platform's media record, never from the row's own JSON (dry run 3.3)
 const forged = listing({ photos: [img({ width: 5000, exifStripped: true, rightsConfirmed: true })] });
 const fromRecord = codes(validateItem(GOOD, 'listings', forged, { mode: 'publish', media: () => ({ width: 300, exifStripped: false, rightsConfirmed: false }) }));

@@ -23,6 +23,7 @@ const MUTANTS = [
   ['400 problems pass through', 'return json(400, { sent: false, problems: Array.isArray(j.problems) ? j.problems : [', 'return json(400, { sent: false, problems: ['],
   ['429 says try again', "if (res.status === 429) return json(429, { sent: false, retry: true, msg: 'Please try again in a minute.' });", ''],
   ['401 is no retry', "if (res.status === 401) { log('platform refused the site signature (key or clock)'); return json(502, { sent: false, retry: false, msg: CALL_US }); }", ''],
+  ['409 (paused or suspended) is no retry, says call us', "if (res.status === 409) { log('platform refused: the site is paused or its workspace suspended'); return json(409, { sent: false, retry: false, msg: CALL_US }); }", ''],
   ['unreachable keeps the answers', 'return json(502, { sent: false, retry: true, msg: TRY_AGAIN });\n    }', "return json(200, { sent: true });\n    }"],
   ['noindex on every answer', "const H = { 'content-type': 'application/json', 'x-robots-tag': 'noindex, nofollow', 'cache-control': 'no-store' };", "const H = { 'content-type': 'application/json' };"],
 ];

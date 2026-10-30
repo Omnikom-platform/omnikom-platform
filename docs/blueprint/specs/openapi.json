@@ -949,8 +949,14 @@
      "401": {
       "$ref": "#/components/responses/Unauthorized"
      },
+     "404": {
+      "$ref": "#/components/responses/NotFound"
+     },
+     "409": {
+      "description": "The site is paused or its workspace is suspended (code S-SITE-PAUSED or S-WORKSPACE-SUSPENDED): nothing is stored; the site shows the call-us message (step 3, migrations 7 and 8)."
+     },
      "429": {
-      "description": "rate limited (per IP and site)",
+      "description": "rate limited (per IP and site) Also code S-QUOTA: the workspace reached its hourly lead limit (workspace_limits over platform_limits leads_per_hour_workspace).",
       "content": {
        "application/json": {
         "schema": {
