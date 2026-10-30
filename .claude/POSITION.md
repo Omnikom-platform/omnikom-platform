@@ -305,3 +305,9 @@
   2 active site keys, 0 leads, 3 sent messages.
 - Committed from this session: PROGRESS.md, 25-BUILD-SEQUENCE.md, POSITION.md only (the builder's files in this checkout are its own).
   NEXT: the lead re-runs `verify --only lead` (Rule 2); the builder finishes part 2 (person tokens, `verify --only walls`); step 3 session.
+- 18:25 LEAD RE-RUN (Rule 2), with the committed CLI (git archive of d4ad6d8 in the scratchpad, OMNIKOM_REPO_ROOT = the repo, so the
+  builder's in-progress files were not used): `verify --only lead --target staging` = `passed: 12, failed: 0`, exit 0, every line PASS
+  (paused site still 500); read-only state before: 2 workspaces, 2 sites, 5 auth.users, 0 leads, 2 api_keys, 3 messages, 2 Vault
+  secrets. STEP 2 DONE, verified by the lead. One more alert went to amer@omnikom.io (the re-run's own lead). Step 3 (database
+  leftovers) touches supabase/migrations and supabase/tests, which the builder's part 2 also edits: its session starts after the
+  builder reports part 2 (one builder per set of files).
