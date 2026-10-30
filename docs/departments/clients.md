@@ -94,3 +94,9 @@ options, never a fix made here.
   determine after a meeting". Written into `clients/elev8/decisions.md` and `sites.md` the same turn. Slice 1 CLOSED; the
   split's page and sharing decisions wait on the client meeting (slice 3 trigger). Finding (2) above (moving a site between
   workspaces) falls away. Next: slice 2.
+- 2026-10-30 22:30 (head): slice 2b DONE: the four SOPs moved with `git mv` to `sops/clients/` (prospect-audit-team,
+  client-questions, launch, site-scope), 3 pointers fixed inside them, `sops/clients/onboarding.md` written (steps 0 to 4
+  with done-when and where the proof lands; rules; measured times; not built yet). 21 stale pointers in other departments'
+  or unowned files NOT edited: listed with file:line, owner and options in the shared note
+  `clients-finding-sop-moves-2026-10-30.md` (side-session notes folder of the head of operations) and sent up. Slice 2a
+  (Rainmaker, VTV, Eli records) running in a Sonnet builder; the head re-runs its proof before accepting.

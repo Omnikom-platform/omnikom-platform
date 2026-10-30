@@ -14,7 +14,7 @@
 - **Leads:** every form sends to the Omnikom CRM in the client's dashboard. There are no third-party form tools.
 - **Quality:** the skill's build lane, the 547-rule checker and the 13 launch gates. A failing rule is our fix.
 - **Lifecycle:** built once as a noindex preview (DECISIONS 16). The client gives facts and access only (DECISIONS 17,
-  `sops/client-questions.md`). Launch takes about a day: logins, domain, Search Console, noindex off, strict gate.
+  `sops/clients/client-questions.md`). Launch takes about a day: logins, domain, Search Console, noindex off, strict gate.
 
 ## 2. Who writes what
 | Content | Who | How |

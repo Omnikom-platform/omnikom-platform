@@ -2,7 +2,7 @@
 
 Status 2026-10-29. Written from the first real run: ELEV8 (`E:\Alex Sevilla\draft-site\LAUNCH-ENTERPRISE.md`, 22 items in
 groups A-D). This SOP is industry neutral. It follows DECISIONS 16 (build once, launch by edits), 17 (the client gives facts and
-access), 18 (`sops/site-scope.md`) and `sops/site-endpoints.md` (the lead path).
+access), 18 (`sops/clients/site-scope.md`) and `sops/site-endpoints.md` (the lead path).
 
 **What launch is.** A ledger of 22 items. Each item has a "done when" and a proof. One command walks the owner through the
 access to collect. One agent then works the ledger in one session until the stop condition holds. Architecture:
@@ -28,7 +28,7 @@ Every item is PASS with its proof line, or BLOCKED with an allowed reason and wh
 **Allowed BLOCKED reasons:**
 - `owner-access`: waiting on owner access X. X is a key from section 4, or `owner-click` for an outward action only the owner
   may click (a DNS change, going live, sending). The block stops holding when that access is recorded as granted.
-- `client-answer`: waiting on client answer Q-n (the question sheet of `sops/client-questions.md`).
+- `client-answer`: waiting on client answer Q-n (the question sheet of `sops/clients/client-questions.md`).
 - `owner-proof`: needs OWNER-PROOF. Only for an item with an OWNER-PROOF slot whose checks do not fail.
 - `third-party-outage`: a named service is down. The block expires after 24 hours.
 - `not-yet-due`: set by the script only. A C or D item before launch day plus its window. (Added to the four reasons of the brief,
