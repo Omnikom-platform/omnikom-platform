@@ -190,7 +190,13 @@
   STEP 1 STATUS: 1.1 DONE except owner MFA; 1.2 DONE; 1.3 DONE except R2 (deferred), Cloudflare TOTP (owner), ELEV8 analytics
   (step 7); 1.4 DONE; 1.5 DONE. STEP 2: item 1 PROVEN (run-staging PASS); items 2-5 = the CLI session
   (DECISIONS 30), function deployed with secrets. UNPROVEN: magic-link send via the new SMTP; `test-apply.mjs` hang (local only).
-  NEXT: the CLI session's lead proof; owner: Supabase MFA, Cloudflare TOTP, Dave accepts both invites and enables Google 2SV.
+  02:40: owner MFA DONE on Supabase (authenticator app) and Cloudflare (TOTP; backup codes in `creds and accounts login/`);
+  email to Dave sent from amer@omnikom.io asking him to accept the Cloudflare and Supabase invites (not a blocker for any step).
+  OPEN (owner 02:45 "no preference", nothing decided): email look and logo. Lead recommends, for the step 5 design session:
+  lead alerts carry the CLIENT's logo from the site contract with a small "sent by Omnikom" footer (white-label path, DECISIONS
+  23); platform emails (magic link, invites, publish reports) carry the Omnikom mark (`brand/omnikom-mark-square.png`,
+  `brand/pdf-kit/omnikom-logo-full.png`); no new logo needed; images served from a public URL, not attached.
+  NEXT: the CLI session's lead proof (step 2 items 2-5); then a fresh builder session for step 3.
 
 ## 2026-10-30 (cli-slice-1: the omnikom CLI, slice 1)
 - **Built, `tools/omnikom-cli/` (README there, spec `docs/blueprint/26-PLATFORM-CLI.md` section 7):** `status apply "test walls" "seed test|workspace" "key mint|list|revoke" "contract validate|place" "lead send|list|get|update|add|delete" "content save|get|history" publish "job get|wait|set" "verify --only lead"`, exit codes 0/1/2/3, `--expect`, fixtures. PROVEN: `node tools/omnikom-cli/test/run.mjs` = 138 of 138 checks (units + a throwaway local cluster with a fake fetch and a MODEL of capture-lead); `node tools/omnikom-cli/test/mutate.mjs` = 61 mutants, 61 caught; `run-local.mjs --only no-such-mutant` still OK. The four spec rules each have a test watched red and a mutant (no secret in output; production refuses everything but `status` and `apply --i-mean-production`; `seed test` twice changes nothing; `lead send --retry` stores one row).
