@@ -19,10 +19,11 @@ import { leadGroup } from './commands/lead.mjs';
 import { contentGroup } from './commands/content.mjs';
 import { publish, jobGroup } from './commands/publish.mjs';
 import { verify } from './commands/verify.mjs';
+import { mfaGroup } from './commands/mfa.mjs';
 
-const COMMANDS = { status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify };
+const COMMANDS = { status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup };
 export const USAGE = [
-  'status | apply [--dry-run] | test walls | verify --only lead',
+  'status | apply [--dry-run] | test walls | verify --only lead|walls|people | mfa enroll-staff',
   'seed test [--alert-to <email>] [--clean] | seed workspace --slug --name --industry --deploy-target --preview-host (--contract <file> | --plan <dir> --entities <file>)',
   'key mint --site <slug> | key list [--site <slug>] | key revoke --id <uuid>',
   'contract validate --file <f> | contract place --file <f> --rows <f>',

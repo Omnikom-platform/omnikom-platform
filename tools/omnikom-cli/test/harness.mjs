@@ -95,4 +95,76 @@ export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIde
   return model;
 }
 
+// A MODEL of GoTrue (admin generate_link, verify, the MFA endpoints) and PostgREST (reads and one update as the caller), over a fake
+// fetch against the local database. A session token is a JWT-shaped string carrying sub and aal (unsigned: only this model reads
+// it); a read runs as the `authenticated` role with those claims, so the database's row-level security decides, as on a project.
+//   blindAuth  GoTrue cannot find the seeded users (answers generate_link with the 500 seen on 2026-10-30)
+//   leaky      the Data API ignores the caller (reads as the table owner): a broken wall that `verify --only people` must catch
+//   noMfa      every session counts as aal2 (the wall that keeps staff out without MFA is gone)
+export async function makeSupabaseModel({ makeSql, dbUrl, anonKey, secretKey, totpSecret = null, blindAuth = false, leaky = false, noMfa = false }) {
+  const { totp } = await import(pathToFileURL(join(CLI_ROOT, 'lib', 'totp.mjs')).href);
+  const sql = makeSql({ url: dbUrl });
+  const lit = v => `'${String(v).replace(/'/g, "''")}'`;
+  const b64u = o => Buffer.from(typeof o === 'string' ? o : JSON.stringify(o)).toString('base64url');
+  const jwt = claims => `${b64u({ alg: 'HS256', typ: 'JWT' })}.${b64u({ role: 'authenticated', exp: 4102444800, ...claims })}.${Buffer.from(String(Math.random()) + String(Math.random())).toString('hex').slice(0, 43)}`;
+  const claimsOf = auth => { try { return JSON.parse(Buffer.from(String(auth).replace(/^Bearer /, '').split('.')[1], 'base64url').toString()); } catch { return null; } };
+  const reply = (status, obj) => new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
+  const FACTOR = '11111111-aaaa-4aaa-8aaa-111111111111';
+  let issued = null;   // the secret the model hands out when a factor is enrolled
+  const calls = [];
+  async function model(url, init = {}) {
+    const u = new URL(url);
+    const h = init.headers || {};
+    const body = init.body ? JSON.parse(init.body) : {};
+    calls.push({ method: init.method || 'GET', path: u.pathname + u.search });
+    if (u.pathname.startsWith('/auth/v1')) {
+      const p = u.pathname.slice('/auth/v1'.length);
+      if (p === '/admin/generate_link') {
+        if (h.apikey !== secretKey || h.authorization !== `Bearer ${secretKey}`) return reply(401, { msg: 'invalid admin key' });
+        if (blindAuth) return reply(500, { code: '23505', message: 'duplicate key value violates unique constraint "users_email_partial_key"' });
+        const r = sql.rows(`select id from auth.users where email = ${lit(body.email)} and aud = 'authenticated'`);
+        if (!r.rows.length) return reply(404, { msg: 'User not found' });
+        return reply(200, { id: r.rows[0].id, hashed_token: `h${Buffer.from(r.rows[0].id).toString('hex')}` });
+      }
+      if (p === '/verify') {
+        if (h.apikey !== anonKey) return reply(401, { msg: 'no api key' });
+        const id = Buffer.from(String(body.token_hash || '').slice(1), 'hex').toString();
+        return reply(200, { access_token: jwt({ sub: id, aal: 'aal1' }), token_type: 'bearer', expires_in: 3600 });
+      }
+      const c = claimsOf(h.authorization);
+      if (!c) return reply(401, { msg: 'no session' });
+      if (p === '/user') return reply(200, { id: c.sub, factors: (totpSecret || issued) ? [{ id: FACTOR, factor_type: 'totp', status: 'verified' }] : [] });
+      if (p === '/factors') { issued = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'; return reply(200, { id: FACTOR, totp: { secret: issued } }); }
+      if (p.startsWith('/admin/users/') && init.method === 'DELETE') { issued = null; return reply(200, {}); }
+      if (p === `/factors/${FACTOR}/challenge`) return reply(200, { id: 'challenge-1' });
+      if (p === `/factors/${FACTOR}/verify`) {
+        const now = Date.now() / 1000;
+        const ok = [now - 30, now, now + 30].some(t => totp(totpSecret || issued, t) === body.code);
+        return ok && body.challenge_id === 'challenge-1' ? reply(200, { access_token: jwt({ sub: c.sub, aal: 'aal2' }) }) : reply(400, { msg: 'Invalid TOTP code entered' });
+      }
+      return reply(404, { msg: 'no such Auth endpoint in the model' });
+    }
+    // the Data API
+    const p = u.pathname.replace(/^\/rest\/v1/, '');
+    if (h.apikey !== anonKey) return reply(401, { message: 'No API key found in request' });
+    if (p.startsWith('/rpc/')) return reply(406, { code: 'PGRST106' });
+    const table = p.slice(1);
+    if (!['leads', 'api_keys', 'workspaces', 'sites'].includes(table)) return reply(404, { code: 'PGRST205' });
+    const claims = claimsOf(h.authorization);
+    if (!claims) return reply(401, { code: '42501' });   // the anon role has no table rights
+    const ids = (u.searchParams.get('id') || '').replace(/^(in\.\(|eq\.)/, '').replace(/\)$/, '').split(',').filter(Boolean);
+    const where = ids.length ? `where id in (${ids.map(i => `${lit(i)}::uuid`).join(', ')})` : '';
+    if (init.method === 'PATCH') {
+      const script = `begin;\nset local role authenticated;\nselect set_config('request.jwt.claims', ${lit(JSON.stringify({ sub: claims.sub, aal: claims.aal, role: 'authenticated' }))}, true), set_config('request.jwt.claim.sub', ${lit(claims.sub)}, true);\nupdate leads set status = ${lit(body.status)}::lead_status ${where};\ncommit;`;
+      const r = sql.exec(script);
+      return r.ok ? reply(200, []) : reply(/permission denied/.test(r.message) ? 403 : 400, { code: '42501' });
+    }
+    const q = `select id from public.${table} ${where} limit ${Number(u.searchParams.get('limit')) || 1000}`;
+    const r = leaky ? sql.rows(q) : sql.rows(q, { claims: { sub: claims.sub, aal: noMfa ? 'aal2' : claims.aal, role: 'authenticated' } });
+    return r.ok ? reply(200, r.rows) : reply(403, { code: '42501' });
+  }
+  model.calls = calls;
+  return model;
+}
+
 export const readFile = p => readFileSync(p, 'utf8');

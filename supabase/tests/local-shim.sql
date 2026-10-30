@@ -16,7 +16,12 @@ do $$ begin   -- roles are cluster-wide: create once, reuse for every test datab
 end $$;
 
 create schema auth;
-create table auth.users (id uuid primary key, email text unique);
+-- the columns GoTrue reads (a login written without them cannot sign in on a real project: found 2026-10-30), all nullable like Supabase's
+create table auth.users (id uuid primary key, email text unique,
+  instance_id uuid, aud varchar(255), role varchar(255), email_confirmed_at timestamptz, created_at timestamptz, updated_at timestamptz,
+  confirmation_token varchar(255), recovery_token varchar(255), email_change_token_new varchar(255), email_change varchar(255),
+  email_change_token_current varchar(255) default '', phone_change text default '', phone_change_token varchar(255) default '', reauthentication_token varchar(255) default '',
+  raw_app_meta_data jsonb, raw_user_meta_data jsonb, is_sso_user boolean not null default false, is_anonymous boolean not null default false);
 create function auth.jwt() returns jsonb language sql stable as
   $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
 create function auth.uid() returns uuid language sql stable as

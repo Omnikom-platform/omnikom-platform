@@ -23,6 +23,22 @@ then corrected by an independent fact-check (72 claims) and an independent M1 dr
   `nobody` (sub ...f0) has no `auth.users` row. Nothing changed on staging by these probes. Unblock: a decision on GoTrue-shaped seed rows.
 - Tests: `test/run.mjs` 145 of 145; `test/mutate.mjs` 67 mutants, 67 caught (66 in the full run, the 67th re-run after making its target
   unique).
+- **Part 2, resolved (19:00-19:40, after the lead's decision: GoTrue-shaped seed rows).** `seed test` writes six logins (adds `nobody`
+  `nobody@test`, id ...f0) with `aud`/`role` authenticated, zero `instance_id`, `email_confirmed_at`, empty-string token columns, app
+  metadata; an update statement repairs rows from the earlier seed. On staging: `seed test` -> `changed: true`, again -> `changed: false`.
+  `generate_link` (magiclink) + `/verify`: 200, 200, `GET /user` 200, sub = the seeded id, aal1 (probe output: `generate_link 200`,
+  `verify(token_hash) 200`, `user(token) 200`). `omnikom mfa enroll-staff --target staging`: `changed: true` (a TOTP factor for the staff
+  test login; `TEST_STAFF_TOTP_SECRET` appended to the master env file, nothing printed). `verify --only people --target staging`:
+  15 of 15 PASS, exit 0 (owner A reads both test leads; owner B 0; member A1 only the lead handed to them; member A2 0; nobody 0 leads and
+  0 workspaces; owner B sees only workspace B; owner and member read 0 api_keys; staff at aal2 read both leads and the key registry;
+  staff at aal1 read none; owner PATCH of a lead status 403; service function via Data API 406), no token in the output (grep `eyJ` = 0),
+  leads afterwards 0. Local: `test/run.mjs` 167 of 167 (a model of GoTrue and PostgREST over the throwaway database: row-level security
+  decides; a leaky Data API makes `people` FAIL; blind Auth is BLOCKED exit 3; `mfa enroll-staff` once and twice); mutants and gates below.
+  Final local state: `test/run.mjs` 168 of 168; `test/mutate.mjs` 83 mutants, 83 caught (81 in the full run; the two survivors were test-design
+  gaps, fixed: the seed repair hid the null-token insert, so that mutant is layered; the aal1-key check had no broken-wall model, so the model
+  got `noMfa`; both re-run and caught); `run-all-gates.mjs`: `all gates passed` (the auth.users shim gained the GoTrue columns).
+  NOT DONE / UNPROVEN: `mfa enroll-staff` removing a stale factor (the path with `removedFactors > 0`) ran only against the model, not on staging;
+  the slice 2 checks (lead-update, publish, add-lead) wait for those functions.
 
 ## Step 2: the first lead, through the CLI on test workspaces A and B, to staging, to the owner's inbox (2026-10-30 17:15-18:20, step-2-lead-proof session)
 Every command ran as `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs <command> --target staging`;

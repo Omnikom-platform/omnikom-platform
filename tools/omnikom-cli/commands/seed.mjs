@@ -32,12 +32,31 @@ export const TEST_CONTRACT = {
 };
 const P = PERSONS;
 const SEED_REF = 'omnikom seed test';
+export const LOGINS = ['owner-a', 'owner-b', 'member-a1', 'member-a2', 'staff', 'nobody'];
+
+// The test logins as GoTrue expects a user row (found 2026-10-30 on staging: rows with only (id, email) have aud, role, instance_id and
+// the token columns null, GoTrue filters on them and cannot find the user, so no session token can be made). Same ids and emails as the
+// tenancy fixtures. A row left by an earlier seed is brought to this shape by the update below (no manual SQL).
+const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
+const TOKEN_COLUMNS = ['confirmation_token', 'recovery_token', 'email_change_token_new', 'email_change', 'email_change_token_current', 'phone_change', 'phone_change_token', 'reauthentication_token'];
+const APP_META = '{"provider":"email","providers":["email"]}';
+export function loginsSql() {
+  const ids = LOGINS.map(n => uuidLit(P[n].sub)).join(', ');
+  const rows = LOGINS.map(n => `(${uuidLit(ZERO_UUID)}, ${uuidLit(P[n].sub)}, 'authenticated', 'authenticated', ${lit(P[n].email)}, now(), now(), now(), ${TOKEN_COLUMNS.map(() => "''").join(', ')}, ${lit(APP_META)}::jsonb, '{}'::jsonb, false, false)`).join(',\n  ');
+  return `insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at, created_at, updated_at, ${TOKEN_COLUMNS.join(', ')}, raw_app_meta_data, raw_user_meta_data, is_sso_user, is_anonymous) values
+  ${rows}
+  on conflict (id) do nothing;
+update auth.users set instance_id = coalesce(instance_id, ${uuidLit(ZERO_UUID)}), aud = coalesce(aud, 'authenticated'), role = coalesce(role, 'authenticated'),
+  email_confirmed_at = coalesce(email_confirmed_at, now()), created_at = coalesce(created_at, now()), updated_at = coalesce(updated_at, now()),
+  ${TOKEN_COLUMNS.map(c => `${c} = coalesce(${c}, '')`).join(', ')},
+  raw_app_meta_data = coalesce(raw_app_meta_data, ${lit(APP_META)}::jsonb), raw_user_meta_data = coalesce(raw_user_meta_data, '{}'::jsonb)
+  where id in (${ids});`;
+}
 
 export function seedTestSql({ alertTo = null } = {}) {
-  const users = ['owner-a', 'owner-b', 'member-a1', 'member-a2', 'staff'].map(n => `(${uuidLit(P[n].sub)}, ${lit(P[n].email)})`).join(', ');
   return `begin;
 set client_min_messages = warning;
-insert into auth.users (id, email) values ${users} on conflict (id) do nothing;
+${loginsSql()}
 insert into staff values (${uuidLit(P.staff.sub)}) on conflict do nothing;
 insert into workspaces (id, slug, name, industry) values
   (${uuidLit(WS_A)}, 'test-demo-a', 'Demo A', 'real-estate-agent'), (${uuidLit(WS_B)}, 'test-demo-b', 'Demo B', 'real-estate-agent') on conflict (id) do nothing;
@@ -77,7 +96,7 @@ end $v$;
 delete from workspaces where slug in ('test-demo-a', 'test-demo-b');
 -- a login that real content still references (the staff actor of a seeded workspace) cannot go; it is kept and reported
 do $u$ declare e text; begin
-  foreach e in array array[${['owner-a', 'owner-b', 'member-a1', 'member-a2', 'staff'].map(n => lit(P[n].email)).join(', ')}] loop
+  foreach e in array array[${LOGINS.map(n => lit(P[n].email)).join(', ')}] loop
     begin delete from auth.users where email = e; exception when foreign_key_violation then null; end;
   end loop;
 end $u$;
@@ -91,7 +110,7 @@ async function seedTest(ctx) {
   if (ctx.flags.clean) {
     const r = sql.exec(seedCleanSql());
     if (!r.ok) return fromSql(r);
-    const kept = sql.rows(`select email from auth.users where email in (${['owner-a', 'owner-b', 'member-a1', 'member-a2', 'staff'].map(n => lit(P[n].email)).join(', ')})`);
+    const kept = sql.rows(`select email from auth.users where email in (${LOGINS.map(n => lit(P[n].email)).join(', ')})`);
     return result(true, 'ok', { removed: ['workspaces test-demo-a, test-demo-b', 'their sites, contracts, members, content', 'Vault secrets site-test-demo-*', 'the test logins nothing references'], keptLogins: kept.rows.map(x => x.email) });
   }
   const alertTo = ctx.flags['alert-to'];
@@ -102,7 +121,7 @@ async function seedTest(ctx) {
   const after = sql.fingerprint();
   return result(true, 'ok', {
     workspaces: { a: { id: WS_A, slug: 'test-demo-a', site: SITE_A }, b: { id: WS_B, slug: 'test-demo-b', site: SITE_B } },
-    logins: ['owner-a', 'owner-b', 'member-a1', 'member-a2', 'staff'],
+    logins: LOGINS,
     changed: before === null || before !== after,
   });
 }

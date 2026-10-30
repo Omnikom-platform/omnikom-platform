@@ -22,13 +22,16 @@ Secrets never leave the program: stdout and stderr pass `lib/redact.mjs`; psql g
 | `publish --as person --site s --rows ids`, `job get/wait/set` | `service.start_publish`; `job set` stands in for the runner on the SQL path |
 | `verify --only lead` | 10 checks of `capture-lead` over HTTP, one PASS/FAIL line each on stderr, exit 1 on any FAIL |
 | `verify --only walls` | 5 checks of the Data API as anon (service functions refused, leads / key registry / sites give nothing); needs only the publishable key. Person checks are listed under `waiting` |
+| `verify --only people` | 15 checks of what each seeded login sees through the Data API with its own session (owner B reads A's leads: 0, member A1 only their own, nobody none, keys hidden, staff only at aal2; an owner cannot update a lead directly); makes two leads and removes them |
+| `mfa enroll-staff` | once: a TOTP factor for the staff test login, its secret to the env file as `TEST_STAFF_TOTP_SECRET` (never printed) |
 
 Identities: `owner-a owner-b member-a1 member-a2 staff nobody` (claims on the SQL path), `site:<slug>` (`SITE_SIGNING_KEY_<SLUG>`), `runner` (`RUNNER_KEY`), `cron` (`CRON_SECRET`).
 Production runs only `status` (read-only connection) and `apply --i-mean-production`; every other command is refused (exit 3) before anything is spawned.
 Fixtures live in `fixtures/` and are synthetic (example.com, 555); anything else needs `--real` and prints a warning.
 
-## BLOCKED
-- **Person identities over HTTP** (a session token for `owner-a` ...): BLOCKED, measured on staging 2026-10-30. `seed test` inserts `auth.users` by `(id, email)`; aud, role, instance_id and the token columns stay null and GoTrue filters on them: `generate_link` answered 500 `users_email_partial_key`, admin `PUT /users/<id>` answered 404 `user_not_found`. Unblocked by a decision on GoTrue-shaped seed rows (the lead); `staff` also needs a TOTP factor for aal2. Waiting, not faked: owner B reads A's leads, member A1 sees own leads only, nobody sees nothing (need a token); lead-update, publish, add-lead checks (need the slice 2 functions).
+## Live parts: proven, waiting, blocked
+- **Person sessions over HTTP**: PROVEN on staging 2026-10-30 (`lib/identity.mjs personToken`: Auth admin `generate_link` for the login's email, then `/verify` with the token hash; in memory only, masked in all output). `seed test` writes the six logins the way GoTrue reads them (aud, role, instance, confirmed, empty token columns; earlier rows are repaired by one run). Before that, two approaches failed on `(id, email)`-only rows. `staff` is brought to aal2 with a TOTP factor: `omnikom mfa enroll-staff` (once) puts `TEST_STAFF_TOTP_SECRET` in the env file; without it the staff checks are listed as waiting.
+- **Waiting, not faked** (they need functions slice 2 builds): member A1 updates A2's lead (S-NOT-FOUND), member A1 publishes A2's listing (S-OWN-ONLY), a member adds a lead for someone else.
 - **`lead send` / `verify --only lead` against the deployed function**: the model of `capture-lead` (`test/harness.mjs`) reads keys the way the function does (`service.active_key` joined to the Vault view), but the deployed run belongs to the step 2 session. `key mint` and `seed test` were observed working on staging (the `(id, email)` insert and `vault.create_secret` through the pooler).
 - Slice 2 (function paths for save, publish, export, job callback, lead update, add lead) and slice 3 (`onboard`) are not built.
 

@@ -113,3 +113,11 @@ test model records alerts like the function (`doubleAlert` = the bug, caught by 
 Person tokens over HTTP are BLOCKED: the seeded `auth.users` rows have `aud`, `role`, `instance_id` and the token columns null, so
 GoTrue cannot find them (`generate_link` 500 `users_email_partial_key`; admin `PUT /users/<id>` 404 `user_not_found`). The two
 candidate calls named in section 2 are therefore both refused as things stand; unblock = `seed test` writes GoTrue-shaped rows.
+**Part 2, resolved (2026-10-30 19:30, lead decision):** `seed test` now writes the six test logins (the five plus `nobody`, same ids and
+emails) the way GoTrue reads them, and repairs the rows an earlier seed left; with them, the first candidate of section 2 works:
+Auth admin `generate_link` (magiclink) then `/verify` with the `hashed_token` returns a session (proven on staging; held in memory,
+masked in all output). `staff` reaches aal2 through the Auth MFA API (`omnikom mfa enroll-staff` enrolls a TOTP factor once; the secret
+is `TEST_STAFF_TOTP_SECRET` in the env file, the code is computed in the CLI). `verify --only people`: 15 checks over the Data API with
+those sessions (owner B reads A's leads: 0 rows, member A1 sees only their own, nobody sees none, keys hidden from owners and members,
+staff see leads and keys only at aal2, an owner cannot update a lead status directly, a login calling a service function is refused).
+Still waiting for the slice 2 functions: member A1 updates A2's lead, member A1 publishes A2's listing, add-lead by a member.

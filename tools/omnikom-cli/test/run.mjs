@@ -8,7 +8,7 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { CLI_ROOT, REPO_ROOT, startCluster, freshDb, cli, makeFunctionModel } from './harness.mjs';
+import { CLI_ROOT, REPO_ROOT, startCluster, freshDb, cli, makeFunctionModel, makeSupabaseModel } from './harness.mjs';
 
 const onlyUnit = process.argv.includes('--unit'), onlyDb = process.argv.includes('--db');
 let failed = 0, total = 0;
@@ -79,11 +79,56 @@ async function units() {
   check('identity: an unknown name is a usage error; a machine has no claims', throws(() => parseIdentity('root'), Usage) && throws(() => claimsFor(parseIdentity('runner')), Usage));
   let m; try { machineKey(parseIdentity('runner'), {}); } catch (x) { m = x; }
   check('identity: a missing machine key is BLOCKED and names the variable', m instanceof Blocked && m.message.includes('RUNNER_KEY'));
-  check('identity: person tokens are BLOCKED (staging GoTrue cannot see the seeded logins)', throws(() => personToken(parseIdentity('owner-a')), Blocked));
+  // ---- person tokens (Auth admin generate_link + verify) over a fake GoTrue; TOTP for the staff aal2 session
+  const { totp } = await lib('totp.mjs');
+  check('totp: the RFC 6238 vectors (SHA1, 8 digits, T=59 and T=1111111109)', totp('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', 59, { digits: 8 }) === '94287082' && totp('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', 1111111109, { digits: 8 }) === '07081804');
+  const blocked = async fn => { try { await fn(); return null; } catch (e) { return e instanceof Blocked ? e : null; } };
+  const admK = `sb_secret_${rand(12)}`, pubK = `sb_publishable_${rand(12)}`, sess = `tok_${rand(20)}`, hashed = `th_${rand(8)}`, aal2tok = `tok_${rand(20)}`, totpSecret = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+  const tgt = resolveTarget('staging', { STAGING_DB_URL: 'postgres://u:p@h.example.test:6543/db', STAGING_SUPABASE_REF: 'abcdref' }, { needDb: false });
+  const authEnv = { STAGING_SUPABASE_SECRET_KEY: admK, STAGING_SUPABASE_PUBLISHABLE_KEY: pubK };
+  const authSeen = [];
+  const gotrue = (over = {}) => async (url, init = {}) => {
+    const path = new URL(url).pathname.replace('/auth/v1', '');
+    authSeen.push({ path, method: init.method, headers: init.headers, body: init.body ? JSON.parse(init.body) : null });
+    const reply = (s, o) => new Response(JSON.stringify(o), { status: s });
+    if (over[path]) return over[path];
+    if (path === '/admin/generate_link') return reply(200, { hashed_token: hashed });
+    if (path === '/verify') return reply(200, { access_token: sess });
+    if (path === '/user') return reply(200, { factors: [{ id: 'f-1', factor_type: 'totp', status: 'verified' }] });
+    if (path === '/factors/f-1/challenge') return reply(200, { id: 'ch-1' });
+    if (path === '/factors/f-1/verify') return reply(200, { access_token: aal2tok });
+    return reply(404, { msg: 'no' });
+  };
+  let tok = await personToken(parseIdentity('owner-a'), { target: tgt, env: authEnv, fetchImpl: gotrue() });
+  check('person token: generate_link with the admin key, then verify with the token hash and the anon key; the session comes back',
+    tok === sess && authSeen[0].path === '/admin/generate_link' && authSeen[0].headers.apikey === admK && authSeen[0].body.email === 'owner-a@test' && authSeen[0].body.type === 'magiclink'
+    && authSeen[1].path === '/verify' && authSeen[1].headers.apikey === pubK && authSeen[1].body.token_hash === hashed);
+  check('person token: the session and the token hash are masked in anything rendered', !render({ x: sess, y: hashed, z: `Bearer ${sess}` }, {}).includes(sess) && !render({ y: hashed }, {}).includes(hashed));
+  authSeen.length = 0;
+  let b = await blocked(() => personToken(parseIdentity('owner-a'), { target: tgt, env: authEnv, fetchImpl: gotrue({ '/admin/generate_link': new Response(JSON.stringify({ code: 500, msg: 'users_email_partial_key' }), { status: 500 }) }) }));
+  check('person token: a refusal from Auth is BLOCKED with its status and message, and nothing else is tried', b && /500/.test(b.message) && /users_email_partial_key/.test(b.message) && authSeen.length === 1, b ? b.message : 'not blocked');
+  b = await blocked(() => personToken(parseIdentity('owner-a'), { target: tgt, env: authEnv, fetchImpl: gotrue({ '/verify': new Response('{}', { status: 400 }) }) }));
+  check('person token: a verify without a session is BLOCKED', b && /verify answered 400/.test(b.message));
+  b = await blocked(() => personToken(parseIdentity('owner-a'), { target: tgt, env: { STAGING_SUPABASE_PUBLISHABLE_KEY: pubK }, fetchImpl: gotrue() }));
+  check('person token: a missing admin key is BLOCKED and names the variable', b && b.message.includes('STAGING_SUPABASE_SECRET_KEY'));
+  b = await blocked(() => personToken(parseIdentity('owner-a'), { target: resolveTarget('local', { LOCAL_DB_URL: 'postgres://u@127.0.0.1:5432/db' }), env: authEnv, fetchImpl: gotrue() }));
+  check('person token: the local target has no Auth service (BLOCKED)', b && /Auth/.test(b.message));
+  b = await blocked(() => personToken(parseIdentity('staff'), { target: tgt, env: authEnv, fetchImpl: gotrue() }));
+  check('person token: staff without TEST_STAFF_TOTP_SECRET is BLOCKED and names it', b && b.message.includes('TEST_STAFF_TOTP_SECRET'));
+  authSeen.length = 0;
+  tok = await personToken(parseIdentity('staff'), { target: tgt, env: { ...authEnv, TEST_STAFF_TOTP_SECRET: totpSecret }, fetchImpl: gotrue(), now: () => 59 });
+  const mfaVerify = authSeen.find(s => s.path === '/factors/f-1/verify');
+  check('person token: staff gets an aal2 session: factor found, challenge made, the code is the TOTP of the secret', tok === aal2tok && mfaVerify && mfaVerify.body.challenge_id === 'ch-1' && mfaVerify.body.code === totp(totpSecret, 59) && mfaVerify.headers.authorization === `Bearer ${sess}`);
+  tok = await personToken(parseIdentity('staff'), { target: tgt, env: { ...authEnv, TEST_STAFF_TOTP_SECRET: totpSecret }, fetchImpl: gotrue(), aal1: true });
+  check('person token: aal1 asked for -> the plain session, no MFA calls', tok === sess);
   const tenancy = readFileSync(join(REPO_ROOT, 'supabase', 'tests', 'tenancy.test.sql'), 'utf8');
   const { WS_A, WS_B, SITE_A, SITE_B, TEST_CONTRACT } = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'seed.mjs')).href);
   check('seed test: ids, emails and logins are the ones in tenancy.test.sql',
     [WS_A, WS_B, SITE_A, SITE_B, ...Object.entries(PERSONS).filter(([n]) => n !== 'nobody').flatMap(([, p]) => [p.sub, p.email])].every(v => tenancy.includes(v)));
+  const { loginsSql, LOGINS } = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'seed.mjs')).href);
+  const lsql = loginsSql();
+  check('seed test: the login rows carry every column GoTrue scans, for all six logins',
+    LOGINS.length === 6 && ['instance_id', 'aud', 'role', 'email_confirmed_at', 'confirmation_token', 'recovery_token', 'email_change_token_new', 'email_change', 'email_change_token_current', 'phone_change', 'phone_change_token', 'reauthentication_token', 'raw_app_meta_data', 'raw_user_meta_data', 'is_sso_user'].every(c => lsql.includes(c)) && (lsql.match(/'authenticated', 'authenticated'/g) || []).length === 6 && /update auth\.users set/.test(lsql));
   const contractText = /select ws, 1, '\{\}'::jsonb, '(\{"collections":[\s\S]*?\})'::jsonb, true/.exec(tenancy);
   check('seed test: the contract is the one in tenancy.test.sql', contractText && JSON.stringify(JSON.parse(contractText[1])) === JSON.stringify(TEST_CONTRACT), contractText ? 'differs' : 'not found in the test file');
 
@@ -243,6 +288,11 @@ async function database() {
     const f2 = fp();
     check('seed test twice changes nothing: every table has the same content before and after the second run', f1 !== f0 && f1 === f2 && r.json.data.changed === false, `${f1} ${f2} ${r.all.slice(0, 200)}`);
     check('seed test: each agent is linked to a team row', db.query("select count(*) from members where team_row_id is not null") === '2');
+    const gotrue = "aud = 'authenticated' and role = 'authenticated' and instance_id = '00000000-0000-0000-0000-000000000000' and email_confirmed_at is not null and confirmation_token = '' and recovery_token = '' and email_change = '' and email_change_token_new = '' and email_change_token_current = '' and phone_change = '' and phone_change_token = '' and reauthentication_token = '' and raw_app_meta_data ->> 'provider' = 'email' and raw_user_meta_data = '{}'::jsonb";
+    check('seed test: the six logins are written the way GoTrue reads them (aud, role, instance, confirmed, empty token columns, app metadata)', db.query(`select count(*) from auth.users where ${gotrue}`) === '6' && db.query("select count(*) from auth.users where email = 'nobody@test'") === '1');
+    db.query("update auth.users set aud = null, role = null, instance_id = null, email_confirmed_at = null, confirmation_token = null, recovery_token = null, raw_app_meta_data = null where email in ('owner-a@test', 'staff@omnikom')");
+    r = await run(['seed', 'test', ...T]);
+    check('seed test repairs logins left by the earlier seed (null aud, instance, tokens) without manual SQL', r.exit === 0 && db.query(`select count(*) from auth.users where ${gotrue}`) === '6' && db.query('select count(*) from auth.users') === '6', r.all.slice(0, 200));
     r = await run(['seed', 'test', ...T, '--alert-to', 'owner@example.com']);
     check('seed test --alert-to sets the sites\' lead alert address', db.query("select count(distinct lead_alert_to::text) from sites") === '1' && db.query("select lead_alert_to::text from sites limit 1") === '{owner@example.com}');
     r = await run(['test', 'walls', ...T]);
@@ -424,7 +474,7 @@ async function database() {
       return openRows ? json(200, [{ id: 'row' }]) : json(401, { code: '42501' });
     };
     r = await run(['verify', ...T, '--only', 'walls'], wallsEnv, { fetch: postgrest() });
-    check('verify --only walls: a Data API that refuses anon passes, and the person checks are listed as waiting', r.exit === 0 && r.json.data.failed === 0 && r.json.data.checks.length === 5 && r.json.data.waiting.length >= 5 && /^PASS /.test(r.stderr), r.all.slice(0, 400));
+    check('verify --only walls: a Data API that refuses anon passes, and the person checks are listed as waiting', r.exit === 0 && r.json.data.failed === 0 && r.json.data.checks.length === 5 && r.json.data.waiting.length >= 3 && /^PASS /.test(r.stderr), r.all.slice(0, 400));
     r = await run(['verify', ...T, '--only', 'walls'], wallsEnv, { fetch: postgrest({ openRpc: true }) });
     check('verify --only walls: a service function that answers anon FAILs (exit 1)', r.exit === 1 && r.json.data.checks.filter(c => !c.pass).map(c => c.name).join('|') === 'anon calling a service function is refused|anon calling service.lead_update is refused', r.stderr.slice(0, 400));
     r = await run(['verify', ...T, '--only', 'walls'], wallsEnv, { fetch: postgrest({ openRows: true }) });
@@ -434,6 +484,38 @@ async function database() {
     r = await run(['verify', ...T, '--only', 'walls'], { LOCAL_SUPABASE_PUBLISHABLE_KEY: anonKey }, { fetch: postgrest() });
     check('verify --only walls: no Data API URL is BLOCKED (exit 3)', r.exit === 3);
     check('hygiene: the anon key is in no output of the walls runs', everything.every(o => !o.includes(anonKey)));
+
+    // ---- verify --only people over a model of GoTrue and PostgREST on this database (row-level security decides what each login sees)
+    const secretK = `sb_secret_${rand(12)}`, staffTotp = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+    const peopleEnv = { ...wallsEnv, LOCAL_AUTH_BASE: 'https://auth.example.test/auth/v1', LOCAL_SUPABASE_SECRET_KEY: secretK };
+    const testLeads = () => db.query("select count(*) from leads where page_path = '/omnikom-cli-test'");
+    const leadsBefore = testLeads();
+    const supa = opts => makeSupabaseModel({ makeSql, dbUrl: db.url, anonKey, secretKey: secretK, ...opts });
+    r = await run(['verify', ...T, '--only', 'people'], { ...peopleEnv, TEST_STAFF_TOTP_SECRET: staffTotp }, { fetch: await supa({ totpSecret: staffTotp }) });
+    check('verify --only people: every login sees what its role allows (owner B 0, member A1 own, nobody none, keys hidden, staff only at aal2)',
+      r.exit === 0 && r.json.data.failed === 0 && r.json.data.checks.length === 15 && /^PASS /.test(r.stderr) && !r.json.data.waiting.some(w => w.startsWith('staff at aal2')), r.stderr.slice(0, 700) || r.all.slice(0, 400));
+    check('verify --only people: the two test leads are removed again', testLeads() === leadsBefore);
+    check('hygiene: no session token and no admin key in the people run', !/eyJ[\w-]+\.[\w-]+\.[\w-]+/.test(r.all) && !r.all.includes(secretK));
+    r = await run(['verify', ...T, '--only', 'people'], peopleEnv, { fetch: await supa({}) });
+    check('verify --only people: without the staff TOTP secret the staff checks are listed as waiting, not faked', r.exit === 0 && r.json.data.checks.length === 11 && r.json.data.waiting.some(w => w.startsWith('staff at aal2')), r.all.slice(0, 300));
+    r = await run(['verify', ...T, '--only', 'people'], { ...peopleEnv, TEST_STAFF_TOTP_SECRET: staffTotp }, { fetch: await supa({ totpSecret: staffTotp, leaky: true }) });
+    check('verify --only people: a Data API that ignores the caller FAILs (exit 1) on the wall checks', r.exit === 1 && r.json.code === 'VERIFY-FAILED' && ["owner B reads A's leads -> 0 rows", 'member A1 sees only their own lead', 'an owner reading the key registry gets nothing'].every(n => r.json.data.checks.some(c => !c.pass && c.name === n)), r.stderr.slice(0, 700));
+    check('verify --only people: the leads of a failed run are removed too', testLeads() === leadsBefore);
+    r = await run(['verify', ...T, '--only', 'people'], { ...peopleEnv, TEST_STAFF_TOTP_SECRET: staffTotp }, { fetch: await supa({ totpSecret: staffTotp, noMfa: true }) });
+    check('verify --only people: staff who count as aal2 without MFA FAIL both aal1 staff checks (exit 1)', r.exit === 1 && ['staff without MFA (aal1) sees no lead', 'staff without MFA (aal1) sees no key'].every(n => r.json.data.checks.some(c => !c.pass && c.name === n)), r.stderr.slice(0, 700));
+    r = await run(['verify', ...T, '--only', 'people'], peopleEnv, { fetch: await supa({ blindAuth: true }) });
+    check('verify --only people: logins Auth cannot find are BLOCKED (exit 3) with the status, and no lead is made', r.exit === 3 && /500/.test(r.all) && testLeads() === leadsBefore, r.all.slice(0, 300));
+
+    // ---- mfa enroll-staff: a factor is made once, the secret goes to the env file only
+    const mfaEnvFile = join(work, 'mfa.env'); writeFileSync(mfaEnvFile, 'SOMETHING=1\n');
+    const mfaModel = await supa({});
+    r = await run(['mfa', 'enroll-staff', ...T], { ...peopleEnv, OMNIKOM_ENV_FILE: mfaEnvFile }, { fetch: mfaModel });
+    const envText = readFileSync(mfaEnvFile, 'utf8');
+    check('mfa enroll-staff: a TOTP factor is enrolled, verified, and its secret appended to the env file by name', r.exit === 0 && r.json.data.changed === true && envText.includes(`TEST_STAFF_TOTP_SECRET=${staffTotp}`) && !r.all.includes(staffTotp), r.all.slice(0, 300));
+    r = await run(['mfa', 'enroll-staff', ...T], { ...peopleEnv, OMNIKOM_ENV_FILE: mfaEnvFile, TEST_STAFF_TOTP_SECRET: staffTotp }, { fetch: mfaModel });
+    check('mfa enroll-staff: twice changes nothing', r.exit === 0 && r.json.data.changed === false && readFileSync(mfaEnvFile, 'utf8') === envText, r.all.slice(0, 200));
+    r = await run(['mfa', 'enroll-staff', ...T], { ...peopleEnv, OMNIKOM_ENV_FILE: join(work, 'no-such.env') }, { fetch: await supa({}) });
+    check('mfa enroll-staff: no env file to receive the secret is BLOCKED (exit 3) before any factor is made', r.exit === 3, r.all.slice(0, 200));
 
     // ---- seed test --clean: a login that a real workspace still references (the staff actor of elev8) stays, and is reported
     r = await run(['seed', 'test', ...T, '--clean']);

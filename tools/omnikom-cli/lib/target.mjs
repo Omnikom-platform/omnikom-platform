@@ -46,7 +46,8 @@ export function resolveTarget(name, env = process.env, { needDb = true } = {}) {
   const ref = env[v.ref] || '';
   const functionsBase = name === 'local' ? (env[v.functionsBase] || '') : (ref ? `https://${ref}.supabase.co/functions/v1` : '');
   const restBase = name === 'local' ? (env.LOCAL_REST_BASE || '') : (ref ? `https://${ref}.supabase.co/rest/v1` : '');   // the Data API (PostgREST)
-  return { name, vars: v, dbUrl, ref, functionsBase, restBase, env };
+  const authBase = name === 'local' ? (env.LOCAL_AUTH_BASE || '') : (ref ? `https://${ref}.supabase.co/auth/v1` : '');   // GoTrue
+  return { name, vars: v, dbUrl, ref, functionsBase, restBase, authBase, env };
 }
 
 // Which variables a target expects, and whether each is present (names and booleans only; never a value).

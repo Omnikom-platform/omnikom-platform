@@ -348,3 +348,13 @@
   robots/sitemap, alt, internal links, structured data), fixtures, tests, mutants; slice 3 = the `omnikom audit` / `gate`
   command brief routed to the CLI head; filed under sidebar group "Omnikom: SEO and audits". Department tests 14 of 14 after
   the fixture rename (the test scaffolded "seo-and-audits", which now exists; it scaffolds "design-lab"), mutants 11 of 11.
+
+## 2026-10-30 20:15 (cli-slice-1, part 2 continued after the lead's decision: GoTrue-shaped seed rows)
+- DONE and PROVEN on staging: `seed test` writes six GoTrue-shaped logins (adds nobody@test) and repaired the five old rows (changed true,
+  then false); person sessions work (Auth admin generate_link + verify, in memory only); `mfa enroll-staff` made the staff TOTP factor
+  (`TEST_STAFF_TOTP_SECRET` is in the master env file by name); `verify --only people` = 15 of 15 PASS (owner B 0 rows, member A1 own lead
+  only, nobody none, keys hidden from owners/members, staff see leads and keys only at aal2, direct status PATCH 403), no token in output,
+  0 leads left; `verify --only walls` 5 of 5. Local: run 168/168, mutate 83/83, run-all-gates all passed.
+- WAITING, not faked: member A1 updates A2's lead (S-NOT-FOUND), member A1 publishes A2's listing (S-OWN-ONLY), add-lead by a member:
+  they need slice 2 functions. UNPROVEN: `mfa enroll-staff` over a stale factor, on staging (model only).
+- Staging state: 6 logins GoTrue-shaped, staff has one verified TOTP factor, 0 leads. Step 3 may start (the CLI builder no longer edits supabase/).
