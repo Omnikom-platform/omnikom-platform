@@ -72,3 +72,4 @@ models named, position log present). Tests: `tools/departments/test/run.mjs`, mu
 | head-of-operations | Head of operations | fable | none (starts department heads) | planning/, .claude/, docs/departments/, tools/departments/, CLAUDE.md |
 | platform-build | Platform build (the build sequence, one session per step) | fable | fable per step (DECISIONS 32), sonnet for mechanical pieces | supabase/, factory/, contracts/, docs/blueprint/ (except 26), sites/ |
 | cli-and-testing | CLI and testing tooling (the omnikom CLI, the client stand-in, the gates) | fable | sonnet per slice | tools/omnikom-cli/, docs/blueprint/26-PLATFORM-CLI.md, tools/crm-map/, tools/test/ |
+| seo-and-audits | SEO and audits | fable | sonnet per slice | skills/programmatic-enterprise-web-performance/, tools/audit/, docs/blueprint/22-SEARCH-AND-ANALYTICS.md |

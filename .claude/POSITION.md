@@ -340,4 +340,11 @@
   "Omnikom: head of operations" (this session `local_f58886f2-26f1-4f9f-bc47-913ce5b0c4d1`), "Omnikom: platform build"
   (step-2, setup-assistant), "Omnikom: CLI and testing" (the head, the builder); the department sessions detached from the
   old family so the groups hold; reporting line builder -> head -> head of operations -> owner written into the README.
-  NEXT: the SEO and audits department when the owner says go; step 3 session after the CLI head reports part 2 verified.
+  NEXT: step 3 session after the CLI head reports part 2 verified.
+- 20:11 OWNER: "we can setup the head and give its brief". SEO and audits department created by the tool
+  (`docs/departments/seo-and-audits.md`; owns the PEWP skill copy, `tools/audit/`, blueprint 22; the check caught the blueprint
+  22 overlap first, exception added to platform-build), head session `local_d0e65fa9-4a2d-4c74-a612-5d33cd189efe` (fable)
+  started with the brief: slice 1 = `tools/audit/` engine over a built site folder (headings first, then title/meta, canonical,
+  robots/sitemap, alt, internal links, structured data), fixtures, tests, mutants; slice 3 = the `omnikom audit` / `gate`
+  command brief routed to the CLI head; filed under sidebar group "Omnikom: SEO and audits". Department tests 14 of 14 after
+  the fixture rename (the test scaffolded "seo-and-audits", which now exists; it scaffolds "design-lab"), mutants 11 of 11.

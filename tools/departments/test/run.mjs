@@ -66,16 +66,16 @@ try {
 
   // new-department: dry run writes nothing
   d = fresh(); dirs.push(d);
-  r = run('new-department.mjs', ['--slug', 'seo-and-audits', '--name', 'SEO and audits', '--mission', 'Audit gates.', '--owns', 'skills/programmatic-enterprise-web-performance/', '--dry-run'], d);
-  check('new-department: --dry-run prints the row and writes nothing', r.status === 0 && /DRY RUN/.test(r.out) && !existsSync(join(d, 'seo-and-audits.md')), r.out);
+  r = run('new-department.mjs', ['--slug', 'design-lab', '--name', 'Design lab', '--mission', 'Audit gates.', '--owns', 'tools/design-lab/', '--dry-run'], d);
+  check('new-department: --dry-run prints the row and writes nothing', r.status === 0 && /DRY RUN/.test(r.out) && !existsSync(join(d, 'design-lab.md')), r.out);
 
   // new-department: a real scaffold passes the check and lands in the README
-  r = run('new-department.mjs', ['--slug', 'seo-and-audits', '--name', 'SEO and audits', '--mission', 'Audit gates.', '--owns', 'skills/programmatic-enterprise-web-performance/', '--rules', 'Public data only.', '--open', 'first slice: heading structure gate'], d);
-  const written = existsSync(join(d, 'seo-and-audits.md')) ? readFileSync(join(d, 'seo-and-audits.md'), 'utf8') : '';
-  check('new-department: writes the charter from the template with every placeholder filled', r.status === 0 && written.includes('# Department: SEO and audits (`seo-and-audits`)') && !/\{\{[A-Z_]+\}\}/.test(written) && written.includes('- `skills/programmatic-enterprise-web-performance/`') && written.includes('- Public data only.') && written.includes('first slice: heading structure gate'), r.out);
+  r = run('new-department.mjs', ['--slug', 'design-lab', '--name', 'Design lab', '--mission', 'Audit gates.', '--owns', 'tools/design-lab/', '--rules', 'Public data only.', '--open', 'first slice: heading structure gate'], d);
+  const written = existsSync(join(d, 'design-lab.md')) ? readFileSync(join(d, 'design-lab.md'), 'utf8') : '';
+  check('new-department: writes the charter from the template with every placeholder filled', r.status === 0 && written.includes('# Department: Design lab (`design-lab`)') && !/\{\{[A-Z_]+\}\}/.test(written) && written.includes('- `tools/design-lab/`') && written.includes('- Public data only.') && written.includes('first slice: heading structure gate'), r.out);
   check('new-department: adds the README row and the tree passes the check', /\| seo-and-audits \| SEO and audits \| fable \| sonnet per slice \|/.test(readFileSync(join(d, 'README.md'), 'utf8')) && run('check.mjs', [], d).status === 0);
   // the same slug again is refused; a path owned elsewhere is refused and nothing is written
-  r = run('new-department.mjs', ['--slug', 'seo-and-audits', '--name', 'x', '--mission', 'x', '--owns', 'x/'], d);
+  r = run('new-department.mjs', ['--slug', 'design-lab', '--name', 'x', '--mission', 'x', '--owns', 'x/'], d);
   check('new-department: an existing slug is refused', r.status === 1 && /exists already/.test(r.out), r.out);
   r = run('new-department.mjs', ['--slug', 'other', '--name', 'x', '--mission', 'x', '--owns', 'tools/omnikom-cli/'], d);
   check('new-department: a path owned by another charter is refused before writing', r.status === 1 && /owned by cli-and-testing/.test(r.out) && !existsSync(join(d, 'other.md')), r.out);

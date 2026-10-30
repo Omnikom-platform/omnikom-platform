@@ -11,7 +11,7 @@ proven on staging through the CLI the testing department provides.
 - `supabase/`
 - `factory/`
 - `contracts/`
-- `docs/blueprint/` except `docs/blueprint/26-PLATFORM-CLI.md`
+- `docs/blueprint/` except `docs/blueprint/26-PLATFORM-CLI.md` and except `docs/blueprint/22-SEARCH-AND-ANALYTICS.md`
 - `sites/`
 - `tools/deploy-capture-lead.mjs`
 - `tools/mint-site-key.mjs`
