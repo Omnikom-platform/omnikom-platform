@@ -1,4 +1,4 @@
-// Launch: a V2 preview becomes a production site through one ledger with a stop condition (stages/launch.md, sops/launch.md,
+// Launch: a V2 preview becomes a production site through one ledger with a stop condition (stages/launch.md, sops/clients/launch.md,
 // Omnikom Platform DECISIONS 19).
 // Usage:
 //   node launch.mjs --init <pewp> [--site-url URL] [--pages URL,URL] [--site-dir DIR] [--waive ID,ID] [--build "<cmd>"] [--build-cwd DIR]
@@ -63,7 +63,7 @@ const USAGE = `usage: node launch.mjs --init <pewp> [--site-url URL] [--pages UR
        node launch.mjs --config <pewp> key=value [key=value ...]
 Exit: 0 every item PASS or allowed BLOCKED; 3 items open; 2 usage; 1 crash.`;
 
-// ---------------- the items (sops/launch.md is the same list in words) ----------------
+// ---------------- the items (sops/clients/launch.md is the same list in words) ----------------
 export const ITEMS = [
   ["L-A1", "A", "Client answers applied", "Every answer from the client question sheet (at most 12 questions, sops/client-questions.md) is applied as a content row; the internal view shows 0 open questions; the rebuild passes the strict gate.", { checks: ["command"] }],
   ["L-A2", "A", "Platform dashboard and CRM live", "One real test lead goes form -> /api/lead -> captureLead -> a CRM record with every mapped field, plus the alert email, on staging and then on production.", { owner: true }],

@@ -1,21 +1,30 @@
 // Reads a built site into page records the gate can test: a static folder (index.html per directory) or a live snapshot
 // (made by snapshot-site.mjs: _site.json + pages/<slug>/raw.html.gz). Node built-ins only, tolerant HTML tokenizer.
-// A page: { path, status, title, metaDescription, canonical, robots, noindex, h1[], headings[{level,text}], blocks[{tag,text,region,seq}],
-//           firstParagraph, links[{href,text,region}], jsonld[{parsed,error}], text, mainText, mainWords, wordCount }
+// 2026-10-30 (Omnikom audit engine, tools/audit/lib/site.mjs is a copy of this file): every token carries its 1-based line (stripped
+// regions keep their newlines), new page fields titles[], descriptions[], mains[], imgs[], canonicals[], ogUrls[], hreflangs[], raw;
+// the first description and canonical are what MET-002 and URL-009 judge (the old metaDescription/canonical fields keep the last one).
+// A page: { path, status, title, metaDescription, canonical, robots, noindex, h1[], headings[{level,text,line}], blocks[{tag,text,region,seq}],
+//           firstParagraph, links[{href,text,region,rel,line}], jsonld[{parsed,error,line}], text, mainText, mainWords, wordCount,
+//           raw, titles[{text,line,inHead}], descriptions[{text,line,inHead}], mains[{line}], imgs[{tag,line,attrs}],
+//           canonicals[{href,line}], ogUrls[{content,line}], hreflangs[{hreflang,href,line}] }
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
+import { lineAt } from "./lib-lines.mjs";
+
 import { words } from "./lib-text.mjs";
+export { words };
 
 const VOID = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
 const BLOCK = new Set(["h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "summary", "dt", "dd", "td", "th", "blockquote", "figcaption", "title"]);
 const CONTAINERS = new Set(["div", "section", "article", "ul", "ol", "table", "form", "header", "footer", "nav", "main", "aside", "dl", "details", "tr", "h1", "h2", "h3", "h4", "h5", "h6", "p"]);
-const ENT = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", mdash: "—", ndash: "–", rsquo: "’", lsquo: "‘", ldquo: "“", rdquo: "”", copy: "©", hellip: "…" };
+const ENT = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", mdash: String.fromCharCode(0x2014), ndash: "–", rsquo: "’", lsquo: "‘", ldquo: "“", rdquo: "”", copy: "©", hellip: "…" };
 export const decode = (s) => s.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (m, e) => {
   if (e[0] === "#") { const n = e[1].toLowerCase() === "x" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10); return Number.isFinite(n) ? String.fromCodePoint(n) : m; }
   return ENT[e.toLowerCase()] ?? m;
 });
 const ws = (s) => decode(s).replace(/\s+/g, " ").trim();
+const nl = (s) => s.replace(/[^\n]/g, ""); // only the newlines of a stripped region, so later line numbers stay true
 
 // Normal form of a page path so "/a", "/a/", "/a/index.html" and "/a.html" are one page.
 export function normPath(p) {
@@ -28,16 +37,19 @@ export function normPath(p) {
 }
 
 export function parseHtml(html) {
+  const rawHtml = html;
   const jsonld = [];
-  html = html.replace(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi, (m, attrs, body) => {
-    if (/type\s*=\s*["']?application\/ld\+json/i.test(attrs)) { try { jsonld.push({ parsed: JSON.parse(body) }); } catch (e) { jsonld.push({ parsed: null, error: String(e.message).slice(0, 100) }); } }
-    return " ";
+  html = html.replace(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi, (m, attrs, body, off) => {
+    if (/type\s*=\s*["']?application\/ld\+json/i.test(attrs)) { const line = lineAt(rawHtml, off); try { jsonld.push({ parsed: JSON.parse(body), line }); } catch (e) { jsonld.push({ parsed: null, error: String(e.message).slice(0, 100), line }); } }
+    return " " + nl(m);
   });
-  html = html.replace(/<(style|noscript|template|svg)\b[\s\S]*?<\/\1\s*>/gi, " ").replace(/<!--[\s\S]*?-->/g, " ").replace(/<[!?][^>]*>/g, " ");
-  const page = { title: "", metaDescription: "", canonical: "", robots: "", h1: [], headings: [], blocks: [], links: [], jsonld, lang: "", forms: 0 };
+  html = html.replace(/<(style|noscript|template|svg)\b[\s\S]*?<\/\1\s*>/gi, (m) => " " + nl(m)).replace(/<!--[\s\S]*?-->/g, (m) => " " + nl(m)).replace(/<[!?][^>]*>/g, (m) => " " + nl(m));
+  const page = { title: "", metaDescription: "", canonical: "", robots: "", h1: [], headings: [], blocks: [], links: [], jsonld, lang: "", forms: 0,
+    raw: rawHtml, titles: [], descriptions: [], mains: [], imgs: [], canonicals: [], ogUrls: [], hreflangs: [] };
   const stack = []; // chrome tags: nav header footer aside main
-  const collectors = []; // open block collectors {tag, text, region, seq}
-  let anchor = null, seq = 0;
+  const collectors = []; // open block collectors {tag, text, region, seq, line}
+  let anchor = null, seq = 0, inBody = false, ln = 1, ptr = 0;
+  const lineTo = (idx) => { while (ptr < idx) { if (html.charCodeAt(ptr++) === 10) ln++; } return ln; };
   const allText = [], mainText = [];
   const regionOf = () => {
     const has = (t) => stack.includes(t);
@@ -50,14 +62,15 @@ export function parseHtml(html) {
   const closeCollector = (i) => {
     const c = collectors.splice(i, 1)[0];
     const text = ws(c.text);
-    if (c.tag === "title") { if (!page.title) page.title = text; return; }
+    if (c.tag === "title") { page.titles.push({ text, line: c.line, inHead: !c.inBody }); if (!page.title) page.title = text; return; }
     page.blocks.push({ tag: c.tag, text, region: c.region, seq: c.seq });
-    if (/^h[1-6]$/.test(c.tag)) { page.headings.push({ level: +c.tag[1], text, region: c.region, seq: c.seq }); if (c.tag === "h1") page.h1.push(text); }
+    if (/^h[1-6]$/.test(c.tag)) { page.headings.push({ level: +c.tag[1], text, region: c.region, seq: c.seq, line: c.line }); if (c.tag === "h1") page.h1.push(text); }
   };
   const attrOf = (raw) => { const o = {}; raw.replace(/([\w:-]+)\s*(?:=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g, (m, k, a, b, c) => { o[k.toLowerCase()] = decode(a ?? b ?? c ?? ""); return m; }); return o; };
   const re = /<(\/)?([a-zA-Z][\w:-]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>|([^<]+|<)/g;
   let m;
   while ((m = re.exec(html))) {
+    const line = lineTo(m.index);
     if (m[4] !== undefined) {
       const t = m[4];
       if (collectors.some((c) => c.tag === "title")) { collectors.forEach((c) => (c.text += t)); continue; }
@@ -72,26 +85,31 @@ export function parseHtml(html) {
     if (!close) {
       const a = attrOf(raw);
       if (tag === "html") page.lang = a.lang || "";
+      if (tag === "body") inBody = true;
+      if (tag === "main") page.mains.push({ line });
       if (tag === "form") page.forms++; // GT-010 required-when-present with pageHasForm
+      if (tag === "img" || (tag === "input" && /^image$/i.test(a.type || "")) || (tag === "area" && a.href !== undefined)) page.imgs.push({ tag, line, attrs: a });
       if (tag === "meta") {
         const nm = (a.name || a.property || "").toLowerCase();
-        if (nm === "description") page.metaDescription = ws(a.content || "");
+        if (nm === "description") { page.metaDescription = ws(a.content || ""); page.descriptions.push({ text: ws(a.content || ""), line, inHead: !inBody }); }
         if (nm === "robots") page.robots = (a.content || "").toLowerCase();
+        if (nm === "og:url") page.ogUrls.push({ content: a.content ?? "", line });
       }
-      if (tag === "link" && /\bcanonical\b/i.test(a.rel || "")) page.canonical = a.href || "";
+      if (tag === "link" && /\bcanonical\b/i.test(a.rel || "")) { page.canonical = a.href || ""; page.canonicals.push({ href: a.href || "", line }); }
+      if (tag === "link" && /\balternate\b/i.test(a.rel || "") && a.hreflang) page.hreflangs.push({ hreflang: a.hreflang, href: a.href || "", line });
       if (tag === "img" && anchor && a.alt) anchor.alt = (anchor.alt || "") + " " + a.alt;
       if (CONTAINERS.has(tag)) { const pi = collectors.findLastIndex((c) => c.tag === "p"); if (pi >= 0) closeCollector(pi); }
       if (tag === "li") { const li = collectors.findLastIndex((c) => c.tag === "li"); if (li >= 0 && !collectors.slice(li).some((c) => c.tag === "ul" || c.tag === "ol")) closeCollector(li); }
       if (["nav", "header", "footer", "aside", "main"].includes(tag)) stack.push(tag);
       else if (a.role === "navigation") stack.push("nav");
       else if (a.role === "contentinfo") stack.push("footer");
-      if (tag === "a" && a.href !== undefined) anchor = { href: a.href, text: "", alt: "", label: a["aria-label"] || a.title || "", region: regionOf(), rel: a.rel || "" };
-      if (BLOCK.has(tag)) collectors.push({ tag, text: "", region: regionOf(), seq: seq++ });
+      if (tag === "a" && a.href !== undefined) anchor = { href: a.href, text: "", alt: "", label: a["aria-label"] || a.title || "", region: regionOf(), rel: a.rel || "", line };
+      if (BLOCK.has(tag)) collectors.push({ tag, text: "", region: regionOf(), seq: seq++, line, inBody });
       if (VOID.has(tag) || /\/\s*$/.test(raw)) { if (BLOCK.has(tag)) collectors.pop(); }
     } else {
       const ci = collectors.findLastIndex((c) => c.tag === tag);
       if (ci >= 0) closeCollector(ci);
-      if (tag === "a" && anchor) { page.links.push({ href: anchor.href, text: ws(anchor.text) || ws(anchor.alt) || ws(anchor.label), region: anchor.region, rel: anchor.rel }); anchor = null; }
+      if (tag === "a" && anchor) { page.links.push({ href: anchor.href, text: ws(anchor.text) || ws(anchor.alt) || ws(anchor.label), region: anchor.region, rel: anchor.rel, line: anchor.line }); anchor = null; }
       if (["nav", "header", "footer", "aside", "main"].includes(tag)) { const si = stack.lastIndexOf(tag); if (si >= 0) stack.length = si; }
     }
   }

@@ -101,3 +101,8 @@ options, never a fix made here.
   bad-MET-003 FAIL with line and source exit 1, 14 rules each sourced, 64 fixtures equal their generator. Proof lines:
   `docs/blueprint/PROGRESS.md` "SEO and audits, slice 1". Library call: `tools/audit/README.md`. Slice 3 command brief written:
   `tools/audit/briefs/slice-3-cli-command.md` (sent to the head of operations for the CLI head).
+- 2026-10-30 23:30: skill reader fixes carried back through the source (`~/.claude/skills/...` commit 7d94c41: `lib-site.mjs` with line
+  numbers and the new fields, `lib-lines.mjs`; `launch.mjs` path `sops/clients/launch.md`), source tests green (test-plan-gate 64 of 64
+  mutants, test-rules 92 of 92, test-compare 37 of 37, test-phase1 52 of 52), synced with `node skills/sync-skill.mjs`, SOURCE.md row
+  7d94c41. Blueprint 22 line 20 points at `sops/clients/launch.md`. Slice 2 brief `tools/audit/briefs/slice-2-live-and-speed.md`,
+  Sonnet builder running (in-session agent). The audit's `lib/site.mjs` will diverge again in slice 2 (snapshot branch); carry back after.

@@ -17,7 +17,7 @@ numbers land. Facts marked UNVERIFIED are tested at W0.4 / W2.x on the first rea
 | AI answers | whether the business is named in ChatGPT, Gemini, Perplexity answers | our own checks | the skill's research stage, monthly, at human pace |
 The site's own numbers (leads per form, per page) come from our `leads` table, no third party.
 
-## 2. Per-site setup, in the launch ledger (sops/launch.md, group B and C)
+## 2. Per-site setup, in the launch ledger (sops/clients/launch.md, group B and C)
 1. **GSC property**: a Domain property for `<domain>` (covers apex, www, http, https). Verification is a DNS TXT record on the
    zone we hold (DECISIONS 26): the platform adds it by the Cloudflare DNS API and verifies through the Google Site
    Verification API using the platform's service account (Google Cloud project `omnikom-seo`, the one that holds the PSI and

@@ -2,7 +2,7 @@
 
 | Copy here | Copied from | Version at copy | Date |
 |---|---|---|---|
-| `programmatic-enterprise-web-performance/` | `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance` (own git repo; its `.git` was not copied) | `430b318` "writing gate: 7 build-time rules (WG-1..7) as scripts/writing-gate.mjs, wired into launch " | 2026-10-29 |
+| `programmatic-enterprise-web-performance/` | `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance` (own git repo; its `.git` was not copied) | `7d94c41` "lib-site: every token carries its line, first description/canonical kept, titles/mains/img" | 2026-10-30 |
 | `design-tournament/` | `C:\Users\DELL\.claude\skills\design-tournament` | (no git) | 2026-10-24 |
 | `icm-librarian.agent.md` | `E:\Francine & Eli\.claude\agents\icm-librarian.md` | Francine & Eli repo | 2026-10-24 |
 
