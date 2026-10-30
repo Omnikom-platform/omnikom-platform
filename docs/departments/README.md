@@ -67,6 +67,8 @@ today), the head of operations is the head and says so in the brief.
 ## Starting a department
 `node tools/departments/new-department.mjs --slug <slug> --name "<Name>" --mission "<one sentence>" --owns <path> [--owns <path>]
 [--head-model fable] [--builder-model sonnet]` writes `docs/departments/<slug>.md` from `TEMPLATE.md` and adds the row below.
+`--from <file.json>` takes the same fields from a JSON file (slug, name, mission, owns, rules, proof, decisions, open), which is
+how a long charter is written without a long command line.
 `node tools/departments/check.mjs` validates every charter (required sections present, owned paths unique across charters,
 models named, position log present). Tests: `tools/departments/test/run.mjs`, mutants `test/mutate.mjs`.
 
@@ -77,3 +79,4 @@ models named, position log present). Tests: `tools/departments/test/run.mjs`, mu
 | platform-build | Platform build (the build sequence, one session per step) | fable | fable per step (DECISIONS 32), sonnet for mechanical pieces | supabase/, factory/, contracts/, docs/blueprint/ (except 26), sites/ |
 | cli-and-testing | CLI and testing tooling (the omnikom CLI, the client stand-in, the gates) | fable | sonnet per slice | tools/omnikom-cli/, docs/blueprint/26-PLATFORM-CLI.md, tools/crm-map/, tools/test/ |
 | seo-and-audits | SEO and audits | fable | sonnet per slice | skills/programmatic-enterprise-web-performance/, tools/audit/, docs/blueprint/22-SEARCH-AND-ANALYTICS.md |
+| clients | Clients | fable | sonnet per slice | clients/, sops/clients/, docs/listings/ |

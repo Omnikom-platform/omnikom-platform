@@ -390,3 +390,12 @@
   notified (push notification plus a line here) only when a step needs their click or decision (step 4: preview review and
   the ELEV8 look-folder sign-off; step 5: design references; step 6: production project, R2 card, promote; step 7: the
   client's nameservers and the live preview). Everything else progresses without waiting.
+- 21:32 OWNER: ELEV8 is split (real estate stays ELEV8; cash offer and mortgage become their own sites, working names Alex buys
+  homes and Sunny buys homes; two or three sites per the agreement). Clients department created with the tool (`--from` JSON
+  added to `new-department.mjs`; the except-path check now accepts a trailing slash): owns `clients/`, `sops/clients/`,
+  `docs/listings/`; onboarding (prospect audit, Launch Information Request, agreement, plan approval) is phase 1 of a client's
+  life inside this department, not a department of its own (split later if volume demands). Head started:
+  `local_02b5fce4-6e08-4801-b312-28226e8817d7` (fable, group "Omnikom: Clients"), brief: record layout + ELEV8 housed in
+  `clients/elev8/` read-only from `E:\Alex Sevilla`, the split as `sites.md` with the owner's options (one workspace with
+  three sites or separate workspaces; which pages move; what is shared), then Rainmaker and VTV/Eli, the onboarding SOP and
+  the SOP moves under `sops/clients/`. Step 3 is mid-flight (migrations 7 and 8 drafted, many files open in the tree).

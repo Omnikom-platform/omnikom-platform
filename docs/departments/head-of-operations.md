@@ -13,7 +13,7 @@ where things stand in `.claude/POSITION.md`.
 - `docs/departments/`
 - `tools/departments/`
 - `CLAUDE.md`
-- `sops/`
+- `sops/` except `sops/clients/`
 
 ## Does not touch
 Every path not listed above. The head of operations edits no code: a bug it finds (it does re-run proofs, so it finds them) goes

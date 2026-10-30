@@ -36,7 +36,9 @@ for (const [a, ownerA] of paths) for (const [b, ownerB] of paths) {
   if (a !== b && ownerA !== ownerB && b.startsWith(a + '/') && !paths.some(([x, ox]) => ox === ownerA && x === b)) {
     // allowed only when the parent's owner lists an explicit exception "except <child>" in its Owns text
     const parent = charters.find(c => c.slug === ownerA);
-    if (!(parent && parent.sections.get('Owns').includes(`except \`${b}\``) || parent && parent.sections.get('Owns').includes(`except ${b}`))) problems.push(`${b} (${ownerB}) lies under ${a} (${ownerA}); add "except \`${b}\`" to ${ownerA}'s Owns line or move it`);
+    const owns = parent ? parent.sections.get('Owns') : '';
+    const excepted = [`except \`${b}\``, `except \`${b}/\``, `except ${b}`].some(s => owns.includes(s));
+    if (!excepted) problems.push(`${b} (${ownerB}) lies under ${a} (${ownerA}); add "except \`${b}\`" to ${ownerA}'s Owns line or move it`);
   }
 }
 // the README table

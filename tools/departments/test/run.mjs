@@ -52,7 +52,7 @@ try {
   // an unknown model, an empty position log, an em dash
   d = fresh(); dirs.push(d);
   edit(d, 'platform-build.md', '- Model: fable. There is no standing head', '- Model: gpt. There is no standing head');
-  edit(d, 'cli-and-testing.md', '- 2026-10-30: department created.', '- department created.');
+  { const p = join(d, 'cli-and-testing.md'); const t = readFileSync(p, 'utf8'); writeFileSync(p, t.replace(/(## Position log[^\n]*\n)[\s\S]*$/, '$1- department created.\n'), 'utf8'); }   // the whole log, undated
   edit(d, 'head-of-operations.md', 'Never build.', 'Never build ' + String.fromCharCode(0x2014) + ' ever.');
   r = run('check.mjs', [], d);
   check('check: unknown model, undated log, em dash are each a problem', r.status === 1 && /unknown head model gpt/.test(r.out) && /position log has no dated line/.test(r.out) && /contains an em dash/.test(r.out), r.out);

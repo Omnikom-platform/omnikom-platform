@@ -9,8 +9,21 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { ROOT, DEPT_DIR, parseCharters } from './lib.mjs';
 
+//        [--from <file.json>]   the same fields from a JSON file ({ slug, name, mission, owns: [], rules: [], proof: [], decisions: [], open: [], headModel, builderModel }); command-line flags add to it
 const argv = process.argv.slice(2);
 const flags = {}; const lists = { owns: [], rules: [], proof: [], decisions: [], open: [] };
+const fromIdx = argv.indexOf('--from');
+if (fromIdx >= 0) {
+  const f = argv[fromIdx + 1];
+  if (!f) { console.error('--from needs a file'); process.exit(2); }
+  let j;
+  try { j = JSON.parse(readFileSync(f, 'utf8')); } catch (e) { console.error(`--from: cannot read ${f}: ${e.message}`); process.exit(2); }
+  for (const k of ['slug', 'name', 'mission']) if (j[k]) flags[k] = String(j[k]);
+  if (j.headModel) flags['head-model'] = String(j.headModel);
+  if (j.builderModel) flags['builder-model'] = String(j.builderModel);
+  for (const k of Object.keys(lists)) if (Array.isArray(j[k])) lists[k].push(...j[k].map(String));
+  argv.splice(fromIdx, 2);
+}
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (!a.startsWith('--')) { console.error(`unexpected argument ${a}`); process.exit(2); }
