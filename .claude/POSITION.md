@@ -435,6 +435,17 @@
   never read, screenshotted or printed), banked by `tools/save-secret-from-clipboard.ps1` as SUPABASE_ACCESS_TOKEN (44 chars,
   the single line for that name; clipboard cleared). The old scoped token `omnikom-cli` is still on the account, unused now:
   revoke it on the owner's word. It covers production once that project exists (step 6): revisit then.
+- 00:10 Clients slice 2a reported (92528fc: rainmaker, vtv, eli records; check 4 of 4, tests 6 of 6; Haiku re-run on my side
+  below). FINDINGS recorded for the owner, one batch when convenient (none urgent): CONTEXT.md says Francine is at eXp, the
+  project log says Xpert Home Realty; DECISIONS 18 cuts IDX while VTV's plan waits on her MLS and the preview shows 28
+  listings; Francine's sheet has 15 questions against the DECISIONS 17 cap of 12; Eli's draft is not on the DECISIONS 27 M4
+  list; Rainmaker's live hosting is a Worker against DECISIONS 28; no agreement document exists for any of the four clients.
+- 00:11 Platform build head: step 4 planned as five slices (4.1 factory core on the test site with the audit gate, 4.2 the
+  dashboard-side functions, 4.3 the runner-side functions, 4.4 runner and workflows, 4.5 the done-when on a Pages project
+  for the test site). Owns added: `.github/`, `tools/deploy-functions.mjs`, `tools/github-secrets.mjs`. OWNER CLICK NEEDED
+  for 4.5: a fine-grained GitHub token on `Omnikom-platform/omnikom-platform` with Contents read and write, banked as
+  GITHUB_DISPATCH_TOKEN (the publish function's dispatch credential). Finding routed to the CLI head: `seed test` must seed
+  the test site's contract v2 and page rows.
 
 ## 2026-10-30 21:36-22:15 (Clients department head `local_02b5fce4-6e08-4801-b312-28226e8817d7`, Fable; this checkout, master)
 - SLICE 1 PROVEN: `clients/README.md` (four rows: elev8, rainmaker, vtv, eli; the last three "NOT WRITTEN yet (slice 2)"),
