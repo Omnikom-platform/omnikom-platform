@@ -628,3 +628,13 @@
   SEO heads switch at their next boundary. Department check 5 valid, tests 14 of 14 on the new model lines (Haiku run); mutants
   pending.
 - 06:20 DECISIONS 40 (owner): lead model Opus 5.5 from the next turn; this Fable turn finishes the 4.4 re-run, commits, sends "boundary". Builder 4.3 (Sonnet) was launched at 06:06, before the order, and keeps running; its verification is the first Opus task. Builders Sonnet, mechanical runs Haiku.
+- 06:31 Head of operations: the model switch (DECISIONS 40) happens after 4.3 AND 4.4 are committed; send "boundary" then. .gitleaksignore has the two historic test-key fingerprints (his commit 30c4a2b), so ci.yml secrets job starts clean.
+
+- 06:40 Slice 4.2 (dashboard functions) VERIFIED by me: Haiku re-run on the committed tree (ab2ed36): `node supabase/functions/test/run.mjs`
+  "OK: 58 of 58 checks passed" exit 0; `omnikom status --target staging` exit 0; `supabase/tests/e2e-functions.mjs` "PASS: staging end to
+  end for the dashboard functions, 0 problem(s)" exit 0 (the 214 database mutants are the head's run). CLI slice 2 released with the two
+  findings (claims object on save; status skips a disabled function folder) and the 401 gateway note. Gitleaks: the two historic hits in
+  65c8274 are made-up test keys, fingerprints in .gitleaksignore, whole history "no leaks found" (30c4a2b). Department mutants after the model
+  switch: 12 of 12 caught. CLI head recorded the big-output hook (owns tools/hooks/). Model switches pending at boundaries: platform
+  (after 4.3 and 4.4), CLI (after key-numbering), SEO (after slice 2); clients done.
+- 06:40 Slice 4.4 PROVEN against fakes (PROGRESS.md "4.4 runner and workflows: head's verification"), ci.yml caps 75/60; committing .github/, factory/runner/, tools/github-secrets.mjs, factory/README.md, PROGRESS, charter. NEXT: 4.3 report -> Haiku re-run -> commit -> "boundary" to the head of operations -> Opus from then.
