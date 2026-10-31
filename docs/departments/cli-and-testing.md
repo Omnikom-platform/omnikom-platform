@@ -140,3 +140,8 @@ when the head of operations has released its slice.
   run 124 of 124 and staging `verify --only lead` 16 of 16). Proof in PROGRESS.md "CLI: key numbering and lead ledgers"; spec section 7
   updated. Seed-test brief gained: platform script facts (5a), preview host (item 8), the `status` function-folder rule (Part 2), an
   isolated `test walls` that leaves test-demo-a unchanged (Part 3). Next: tools and CI (offline proof), then seed test.
+- 2026-10-31 18:30: tools and local CI PROVEN offline (Sonnet builder on `briefs/tools-and-ci.md`; the head's Haiku re-run on a clean
+  copy: 303 of 303, the "tools" (21) and "ci:" (30) mutants all caught, run-all-gates passed); `publish` I-NOT-READY check added; the eeb8431 chain miss and its
+  one-line follow-on in `supabase/functions/test/publish.test.ts:115` (landed by platform build as 98c9930). Proof in PROGRESS.md "CLI: tools and local CI".
+  NOT DONE: the real downloads and `omnikom ci` (head of operations). Next: `omnikom impact`, gate stamp, pre-push hook (DECISIONS 43,
+  builder running on `briefs/impact-stamp-hooks.md`), then seed test.

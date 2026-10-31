@@ -14,8 +14,8 @@ never `.gitignore` (the head adds the `.tools/` line), never PATH, the registry,
 
 ## Part 1: `tools/omnikom-cli/tools.json` (decided by the head; do not redesign)
 One entry per external tool a check uses: `actionlint` 1.7.12, `gitleaks` 8.30.1, `deno` 2.8.1 (ci.yml's `deno-version`), `shellcheck`
-(the version ci.yml's runner actually uses: read `actions/runner-images` `images/ubuntu/Ubuntu2404-Readme.md` with `gh api`; ci.yml does
-not install it, it comes with the image), and room for more. Each entry: `version`, `published` (the release's `published_at`), `repo`
+0.11.0 (ci.yml pins it since a303a89, DECISIONS 42: `koalaman/shellcheck` release `v0.11.0`, linux sha256 `b7af85e4...6fe6f6` in ci.yml;
+the linux asset ci.yml downloads and the windows zip, digests from the API like the others), and room for more. Each entry: `version`, `published` (the release's `published_at`), `repo`
 (`owner/name`), `bin` (the executable's name inside the archive, per platform), and per platform (`windows-amd64`, `linux-amd64`):
 `url` (an asset of `https://github.com/<repo>/releases/download/<tag>/...` only), `sha256`, `size`. Fill the hashes from the GitHub API's
 asset digest, never from a downloaded file and never by hand:
@@ -56,7 +56,7 @@ hash you compute. Add a `node` entry with only `version` 24.22.1 (ci.yml's `node
 - Long jobs: the CLI does not time them out below ci.yml's `timeout-minutes`.
 
 ## Tests (`test/run.mjs` units; no network, no real download)
-- **ci.yml and tools.json agree**: actionlint's and gitleaks' version, linux URL and sha256 in ci.yml equal the manifest's; ci.yml's
+- **ci.yml and tools.json agree**: actionlint's, gitleaks' and shellcheck's version, linux URL and sha256 in ci.yml equal the manifest's; ci.yml's
   `node-version` and `deno-version` equal the manifest's. Watched red: change one hash in a copy of ci.yml, see the check name it.
 - `tools ensure` with a fake fetch serving fixture archives the test builds itself (a tar.gz and a zip made with the system tar from a
   tiny script file): downloaded, `.ok` written, the binary in `bin/`; a second run fetches nothing; a wrong sha256 deletes the file and
@@ -98,5 +98,5 @@ In your report, list exactly what `tools ensure` would download: each file name,
   verdict lines back (DECISIONS 34).
 - Do not commit; the head re-runs the proof and commits. Leave every file outside the list above alone.
 - Report in this shape: PROVEN lines, UNPROVEN or NOT DONE by name (the held live runs are NOT DONE, say so), findings (for the platform
-  head: ci.yml takes shellcheck from the image instead of pinning it from the manifest; anything else ci.yml should change).
+  head: anything ci.yml should change; the shellcheck pin is already in ci.yml since a303a89).
 - Anything outside this brief is a finding you send back, not a fix.

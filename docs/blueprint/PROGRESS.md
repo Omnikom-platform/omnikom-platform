@@ -4,6 +4,31 @@ Task: build-ready product engineering package (owner, 2026-10-28), raised to eng
 then corrected by an independent fact-check (72 claims) and an independent M1 dry run (31 issues), and by DECISIONS 15
 (no Docker; one Supabase account, staging + production). **Status: complete for owner review. Nothing committed.**
 
+## CLI: tools and local CI, the 4.6 contract follow-on (2026-10-31 12:40 to 18:30, CLI department head `local_c8848ce4...`, Sonnet builder, Haiku runners)
+Brief `tools/omnikom-cli/briefs/tools-and-ci.md` (DECISIONS 42). Built: `tools.json`, `lib/tools.mjs`, `commands/tools.mjs` (`tools ensure|list`),
+`commands/ci.mjs` (`omnikom ci`), registration in `omnikom.mjs`, `--install` switch, `OMNIKOM_MUTANT_TIMEOUT_MS` in `test/mutate.mjs`
+(the baseline under load took 982 s, over the old 10 minutes), 46 new mutants. The head added the publish-ready check (a bare listing is
+saved as a draft; `publish` answers `I-NOT-READY` with the row id and `status required`; no job queued) and lowered one floor the builder
+had fitted to the platform's uncommitted `.github/production` folder (7 workflow files; committed ci.yml lints 5).
+Head's Haiku re-run on a clean worktree of eeb8431 plus the staged files and the one-line follow-on below (now 98c9930) (verbatim):
+```
+node tools/omnikom-cli/test/run.mjs                                  FAILED: 302 of 303 checks passed (the 7-file floor), fixed, then:
+node tools/omnikom-cli/test/mutate.mjs --only "tools"                baseline: OK: 303 of 303 checks passed / 21 mutants, 21 caught, 0 survived, 0 target text missing
+node tools/omnikom-cli/test/mutate.mjs --only "ci:"                  baseline: OK: 303 of 303 checks passed / 30 mutants, 30 caught, 0 survived, 0 target text missing
+node tools/omnikom-cli/omnikom.mjs tools list                        exit 0; actionlint, gitleaks, deno, shellcheck "installed": "missing"; node 24.22.1 running
+node docs/blueprint/specs/run-all-gates.mjs                          every line PASS (function tests (Deno) OK: 87 of 87) / all gates passed
+```
+Watched red: the same suite with the bare listing given its status: `FAIL publish: a bare row is refused with I-NOT-READY ...`.
+The builder's full run: 301 of 301 and 170 mutants, 170 caught (before the head's two edits).
+**The chain miss (DECISIONS 43's case):** platform 4.6 (f831f10) added required fields to the test contract and the cli job went red;
+eeb8431 copied the contract into `TEST_CONTRACT` and gave the listing fixtures `status`. It ran only the CLI units, so it missed that
+`supabase/functions/test/harness.mjs` seeds with `seed.mjs`: the functions and gates jobs went red (run 41212617395:
+`I-REQUIRED ... status ... got 422` at `publish.test.ts:115`). The follow-on (one line, `status: 'for-sale'` in that test's listing, the
+platform department's file) landed as 98c9930 by platform build. Also recorded: the owner's env file holds two
+`SITE_SIGNING_KEY_TEST_DEMO_A/B` lines each; fingerprints show the loaded (last) line is the active `key-1` in the registry and the earlier
+lines match no row, so a `key mint` that collapses them is safe and needs no guard.
+NOT DONE: real `tools ensure` (about 58 MiB on windows-amd64) and real `omnikom ci`, run by the head of operations.
+
 ## CLI: key numbering and lead ledgers (2026-10-31 04:50 to 12:40, CLI department head `local_c8848ce4...`, Sonnet builder as in-session agent, Haiku runners for every mechanical run)
 Brief `tools/omnikom-cli/briefs/key-numbering-and-lead-ledgers.md`. Built: `commands/key.mjs` (numbering from the highest of Vault,
 registry and env record line; env file rewritten in place, CRLF kept, temp file and rename), `commands/verify.mjs` (`--only lead` 12 to 16

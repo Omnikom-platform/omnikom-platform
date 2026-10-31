@@ -4,9 +4,10 @@
 // OMNIKOM_TEST_CLUSTER_PORT reuses a cluster a parent already started. Output lines start with "ok  " or "FAIL ".
 // Everything secret in these tests is generated at run time (no key literal in the file).
 import { randomBytes, createHash, createHmac } from 'node:crypto';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, cpSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, cpSync, mkdirSync, readdirSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { join, relative } from 'node:path';
+import { join, relative, dirname, basename, delimiter, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CLI_ROOT, REPO_ROOT, startCluster, freshDb, cli, makeFunctionModel, makeSupabaseModel } from './harness.mjs';
 
@@ -343,6 +344,409 @@ async function units() {
   check('key mint env: the lines of another slug that starts the same are kept; this slug\'s are replaced in place', rewriteEnv(`T=1\nVAR_AB=keep\n${REC('ab', 1)}\nVAR_A=old\n${REC('a', 1)}\nU=2\n`, 'a', 'VAR_A', 'REC', 'VAR_A=new') === `T=1\nVAR_AB=keep\n${REC('ab', 1)}\nREC\nVAR_A=new\nU=2\n`);
 }
 
+// ======================================================================================================== TOOLS AND CI
+// tools.json, `tools ensure` (over a fake fetch serving archives built here with the system tar: no network, no real download) and `ci`
+// (fixture ci.yml files in temp roots; a fake spawn records what would run). DECISIONS 42.
+async function toolsAndCi() {
+  const NOW = 1800000000;                        // the clock the tests hand to the CLI (seconds)
+  const DAY = 86400;
+  const iso = ago => new Date((NOW - ago) * 1000).toISOString();
+  const tarExe = process.platform === 'win32' ? join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
+  const sha = b => createHash('sha256').update(b).digest('hex');
+  const sh16 = h => `${h.slice(0, 16)}...${h.slice(-8)}`;
+  const NODEV = process.version.slice(1);
+  const work = mkdtempSync(join(tmpdir(), 'omnikom-tools-'));
+  const tree = root => { const out = []; const walk = (d, rel) => { let es = []; try { es = readdirSync(d, { withFileTypes: true }); } catch { return; } for (const e of es) { const p = rel ? `${rel}/${e.name}` : e.name; out.push(p); if (e.isDirectory()) walk(join(d, e.name), p); } }; walk(root, ''); return out.sort(); };
+  const fresh = () => join(mkdtempSync(join(work, 'case-')), 'tools');   // a tools folder that does not exist yet
+  const archiveOf = (kind, bin, body, inner = 'faketool-1.0.0') => {
+    const src = mkdtempSync(join(work, 'src-'));
+    mkdirSync(join(src, inner));
+    writeFileSync(join(src, inner, bin), body);
+    writeFileSync(join(src, inner, 'README.txt'), 'docs\n');
+    const out = join(src, kind === 'zip' ? 'a.zip' : 'a.tar.gz');
+    const r = spawnSync(tarExe, kind === 'zip' ? ['-a', '-cf', out, '-C', src, inner] : ['-czf', out, '-C', src, inner], { encoding: 'utf8', timeout: 60000 });
+    if (r.status !== 0) throw new Error(`could not build the fixture archive: ${r.stderr}`);
+    return readFileSync(out);
+  };
+  const URL1 = 'https://github.com/acme/faketool/releases/download/v1.0.0/faketool-1.0.0.tar.gz';
+  const manifestOf = (bytes, over = {}) => {
+    const plat = over.plat || 'linux-amd64', bin = over.bin || 'faketool';
+    const p = { url: 'url' in over ? over.url : URL1, sha256: 'sha256' in over ? over.sha256 : sha(bytes), size: 'size' in over ? over.size : bytes.length };
+    for (const k of Object.keys(p)) if (p[k] === undefined) delete p[k];
+    return { schema: 1, tools: { faketool: { version: '1.0.0', published: 'published' in over ? over.published : iso(30 * DAY), repo: 'acme/faketool', bin: over.noBin ? {} : { [plat]: bin }, platforms: { [plat]: p } }, node: { version: NODEV } } };
+  };
+  const server = bytes => { const f = async url => { f.calls.push(String(url)); return new Response(bytes, { status: 200 }); }; f.calls = []; return f; };
+  const ens = (manifest, fetchFn, dir, extra = [], deps = {}, env = {}) => cli(['tools', 'ensure', '--json', ...extra], { OMNIKOM_TOOLS_DIR: dir, ...env }, { fetch: fetchFn, now: () => NOW, manifest, platform: 'linux-amd64', ...deps });
+  const body = Buffer.from('#!/bin/sh\necho a fake tool\n');
+  try {
+    // ---- the manifest and ci.yml agree (independent of the CLI's own reader: plain regular expressions over the two files)
+    const ciReal = readFileSync(join(REPO_ROOT, '.github', 'workflows', 'ci.yml'), 'utf8');
+    const manReal = JSON.parse(readFileSync(join(CLI_ROOT, 'tools.json'), 'utf8'));
+    const agree = (ciText, man) => {
+      const bad = [];
+      const urls = [...ciText.matchAll(/https:\/\/github\.com\/([^\s"/]+)\/([^\s"/]+)\/releases\/download\/v([0-9.]+)\/[^\s"]+/g)];
+      const shas = [...ciText.matchAll(/echo "([0-9a-f]{64})  /g)].map(m => m[1]);
+      if (urls.length !== 3 || shas.length !== 3) bad.push(`ci.yml has ${urls.length} download urls and ${shas.length} sha256 lines (expected 3 and 3)`);
+      urls.forEach((m, i) => {
+        const name = m[2].toLowerCase(), e = man.tools[name], linux = e && e.platforms && e.platforms['linux-amd64'];
+        if (!e) { bad.push(`${name}: not in tools.json`); return; }
+        if (m[3] !== e.version) bad.push(`${name}: version ${m[3]} in ci.yml, ${e.version} in tools.json`);
+        if (!linux || m[0] !== linux.url) bad.push(`${name}: linux url differs`);
+        if (!linux || shas[i] !== linux.sha256) bad.push(`${name}: linux sha256 differs`);
+        if (e.repo !== `${m[1]}/${m[2]}`) bad.push(`${name}: repo differs`);
+      });
+      for (const [key, tool] of [['node-version', 'node'], ['deno-version', 'deno']]) {
+        const vals = new Set([...ciText.matchAll(new RegExp(`${key}: ([0-9.]+)`, 'g'))].map(m => m[1]));
+        if (vals.size !== 1 || ![...vals][0] || [...vals][0] !== man.tools[tool].version) bad.push(`${tool}: ci.yml says ${[...vals].join('/')}, tools.json says ${man.tools[tool].version}`);
+      }
+      return bad;
+    };
+    const diffs = agree(ciReal, manReal);
+    check('tools.json and ci.yml agree: actionlint, gitleaks and shellcheck (version, linux url, sha256), node-version and deno-version', diffs.length === 0, diffs.join('; '));
+    const firstSha = /echo "([0-9a-f]{64})  /.exec(ciReal)[1];
+    const flipped = agree(ciReal.replace(firstSha, firstSha.replace(/^./, c => (c === '0' ? '1' : '0'))), manReal);
+    check('tools.json and ci.yml agree: watched red, one changed hash in a copy of ci.yml is named (tool and "sha256")', flipped.length === 1 && /sha256 differs/.test(flipped[0]) && /^(actionlint|gitleaks|shellcheck|deno):/.test(flipped[0]), flipped.join('; '));
+    check('tools.json and ci.yml agree: watched red, another node-version in a copy is named', agree(ciReal.replace('node-version: 24', 'node-version: 23'), manReal).some(m => m.startsWith('node:')));
+    // the manifest's own rules (the head's design): every download has an official github.com release url, a sha256 and a size; node is checked only
+    const rules = [];
+    for (const [name, e] of Object.entries(manReal.tools)) {
+      if (!e.platforms) { if (name !== 'node' || Object.keys(e).join() !== 'version') rules.push(`${name}: only node may be a bare version`); continue; }
+      for (const [plat, p] of Object.entries(e.platforms)) {
+        if (!['windows-amd64', 'linux-amd64'].includes(plat)) rules.push(`${name}: platform ${plat}`);
+        if (!p.url.startsWith(`https://github.com/${e.repo}/releases/download/v${e.version}/`)) rules.push(`${name} ${plat}: url`);
+        if (!/^[0-9a-f]{64}$/.test(p.sha256) || !(p.size > 0) || !e.bin[plat]) rules.push(`${name} ${plat}: sha256, size or bin`);
+      }
+      if (!Number.isFinite(Date.parse(e.published))) rules.push(`${name}: published`);
+    }
+    check('tools.json: every download is an official github.com release asset with a sha256, a size, an executable name and a published date; node is a bare version', rules.length === 0 && ['actionlint', 'gitleaks', 'deno', 'shellcheck', 'node'].every(n => manReal.tools[n]), rules.join('; '));
+
+    // ---- tools ensure over a fake fetch
+    const tgz = archiveOf('tgz', 'faketool', body);
+    const man = manifestOf(tgz);
+    let dir = fresh();
+    const f1 = server(tgz);
+    let r = await ens(man, f1, dir);
+    let t0 = r.json && r.json.data.tools[0];
+    check('tools ensure: a fixture release is fetched once (the manifest url), extracted with the system tar, and the executable is in bin/',
+      r.exit === 0 && t0 && t0.status === 'downloaded' && f1.calls.length === 1 && f1.calls[0] === URL1 && existsSync(join(dir, 'bin', 'faketool')) && readFileSync(join(dir, 'bin', 'faketool')).equals(body), r.all.slice(0, 300));
+    let ok = {};
+    try { ok = JSON.parse(readFileSync(join(dir, 'faketool-1.0.0', '.ok'), 'utf8')); } catch { ok = {}; }
+    const left = tree(dir);
+    check('tools ensure: .ok holds the version and the archive sha256; no archive and no temp folder are left', ok.version === '1.0.0' && ok.sha256 === sha(tgz) && left.every(p => !p.includes('.tmp-') && !p.endsWith('/archive')) && left.includes('bin/faketool') && left.includes('faketool-1.0.0/faketool-1.0.0/faketool'), left.join(' '));
+    const spyDir = fresh(), tarCalls = [];
+    const spyTar = (cmd, args, opts) => { tarCalls.push({ cmd, args }); return spawnSync(cmd, args, opts); };   // no-timeout: opts is the CLI's own, with its timeout
+    r = await ens(man, server(tgz), spyDir, [], { spawn: spyTar });
+    check('tools ensure: the archive is read by the system tar (%SystemRoot%\\System32\\tar.exe on Windows, tar on linux) with -xf, into a folder inside the tools folder; nothing else is spawned',
+      r.exit === 0 && tarCalls.length === 1 && tarCalls[0].cmd === tarExe && tarCalls[0].args[0] === '-xf' && resolve(tarCalls[0].args[1]).startsWith(resolve(spyDir) + sep) && resolve(tarCalls[0].args[3]).startsWith(resolve(spyDir) + sep), r.all.slice(0, 300) + JSON.stringify(tarCalls));
+    r = await ens(man, f1, dir);
+    check('tools ensure: a second run is present and fetches nothing', r.exit === 0 && r.json.data.tools[0].status === 'present' && f1.calls.length === 1, r.all.slice(0, 200));
+    writeFileSync(join(dir, 'faketool-1.0.0', '.ok'), JSON.stringify({ ...ok, version: '0.0.1' }));
+    r = await ens(man, f1, dir);
+    check('tools ensure: an .ok of another version is not a skip (fetched again)', r.exit === 0 && r.json.data.tools[0].status === 'downloaded' && f1.calls.length === 2, r.all.slice(0, 200));
+    writeFileSync(join(dir, 'bin', 'faketool'), 'not the file that was extracted');
+    r = await ens(man, f1, dir);
+    check('tools ensure: an executable that is not the extracted file is replaced (fetched again)', r.exit === 0 && r.json.data.tools[0].status === 'downloaded' && f1.calls.length === 3 && readFileSync(join(dir, 'bin', 'faketool')).equals(body), r.all.slice(0, 200));
+
+    dir = fresh();
+    const other = Buffer.from(tgz); other[other.length - 1] ^= 1;   // the same size, other content
+    r = await ens(man, server(other), dir);
+    t0 = r.json && r.json.data.tools[0];
+    check('tools ensure: a wrong sha256 deletes the download and exits 1 naming the tool, the expected and the actual hash',
+      r.exit === 1 && r.json.code === 'TOOLS-REFUSED' && t0.tool === 'faketool' && t0.reason.includes(`expected ${sh16(sha(tgz))}`) && t0.reason.includes(`got ${sh16(sha(other))}`) && tree(dir).length === 0, `${r.all.slice(0, 300)} ${tree(dir).join(' ')}`);
+    dir = fresh();
+    r = await ens(manifestOf(tgz, { size: tgz.length + 1 }), server(tgz), dir);
+    check('tools ensure: a wrong size is refused and nothing is kept', r.exit === 1 && /size \d+ bytes, expected \d+/.test(r.json.data.tools[0].reason) && tree(dir).length === 0, r.all.slice(0, 300));
+
+    const offsite = [
+      ['a host that is not github.com', 'https://evil.example/acme/faketool/releases/download/v1.0.0/x.tar.gz'],
+      ['another repository', 'https://github.com/other/repo/releases/download/v1.0.0/x.tar.gz'],
+      ['plain http', 'http://github.com/acme/faketool/releases/download/v1.0.0/x.tar.gz'],
+      ['dot segments out of the release folder', 'https://github.com/acme/faketool/releases/download/v1.0.0/../../../../evil/x.tar.gz'],
+      ['another tag', 'https://github.com/acme/faketool/releases/download/v9.9.9/x.tar.gz'],
+      ['the source archive of a tag', 'https://github.com/acme/faketool/archive/refs/tags/v1.0.0.tar.gz'],
+      ['a query string', `${URL1}?token=x`],
+      ['a dot segment that the url parser would remove (the string is not the url that is fetched)', 'https://github.com/acme/faketool/releases/download/v1.0.0/./faketool-1.0.0.tar.gz'],
+    ];
+    let bad = '';
+    for (const [why, url] of offsite) {
+      dir = fresh();
+      const f = server(tgz);
+      r = await ens(manifestOf(tgz, { url }), f, dir);
+      if (r.exit !== 1 || f.calls.length !== 0 || existsSync(dir) || !/not an asset of https:\/\/github\.com\/acme\/faketool\/releases\/download\/v1\.0\.0\//.test(r.json.data.tools[0].reason)) bad += ` [${why}: exit ${r.exit}, ${f.calls.length} fetches, folder ${existsSync(dir)}]`;
+    }
+    check('tools ensure: a url off github.com/<repo>/releases/download/<tag>/ is refused before any fetch and before any byte is written', bad === '', bad);
+
+    dir = fresh();
+    let f = server(tgz);
+    r = await ens(manifestOf(tgz, { published: iso(6 * DAY) }), f, dir);
+    check('tools ensure: a release 6 days old is refused (supply-chain rule 1) before any fetch, nothing written', r.exit === 1 && /released 6\.0 days ago/.test(r.json.data.tools[0].reason) && f.calls.length === 0 && !existsSync(dir), r.all.slice(0, 300));
+    r = await ens(manifestOf(tgz, { published: iso(7 * DAY) }), f, dir);
+    check('tools ensure: a release exactly 7 days old is allowed', r.exit === 0 && r.json.data.tools[0].status === 'downloaded', r.all.slice(0, 300));
+    bad = '';
+    for (const [why, over, re] of [['no sha256', { sha256: undefined }, /no sha256/], ['no size', { size: undefined }, /no size/], ['no published date', { published: undefined }, /published/], ['no executable name', { noBin: true }, /no executable/], ['another platform only', { plat: 'windows-amd64', bin: 'faketool.exe' }, /no build of faketool for linux-amd64/]]) {
+      dir = fresh(); f = server(tgz);
+      r = await ens(manifestOf(tgz, over), f, dir);
+      if (r.exit !== 1 || f.calls.length !== 0 || existsSync(dir) || !re.test(r.json.data.tools[0].reason)) bad += ` [${why}: exit ${r.exit}, ${f.calls.length} fetches, ${(r.json && r.json.data.tools[0].reason) || r.all.slice(0, 80)}]`;
+    }
+    check('tools ensure: a missing sha256, size, published date or executable name, and a platform with no build, are refused before any fetch', bad === '', bad);
+    r = await ens(man, f, fresh(), ['--only', 'nosuchtool']);
+    check('tools ensure: an unknown tool name is a usage error (exit 2)', r.exit === 2 && r.json.error.includes('nosuchtool'), r.all.slice(0, 200));
+    r = await cli(['tools', 'ensure', '--target', 'staging'], {}, { manifest: man });
+    check('tools: --target is a usage error (exit 2); production is refused (exit 3) before anything runs', r.exit === 2 && (await cli(['tools', 'list', '--target', 'production'], {}, { manifest: man })).exit === 3, r.all.slice(0, 200));
+
+    // nothing is written outside the tools folder
+    const root = mkdtempSync(join(work, 'root-'));
+    mkdirSync(join(root, 'sibling'));
+    writeFileSync(join(root, 'sibling', 'keep.txt'), 'x');
+    const outside = () => tree(root).filter(p => !p.startsWith('tools')).join('|');
+    const repoTools = join(REPO_ROOT, '.tools');
+    const repoSnap = () => (existsSync(repoTools) ? tree(repoTools).join('|') : 'absent');
+    const b4 = [outside(), repoSnap()];
+    r = await ens(man, server(tgz), join(root, 'tools'));
+    check('tools ensure: nothing is written outside the tools folder (the fixture root and the repository\'s .tools are as they were)', r.exit === 0 && outside() === b4[0] && repoSnap() === b4[1] && tree(join(root, 'tools')).includes('bin/faketool'), `${outside()} ${repoSnap()}`);
+
+    dir = fresh();
+    r = await ens(manifestOf(Buffer.from('this is not an archive')), server(Buffer.from('this is not an archive')), dir);
+    check('tools ensure: bytes the system tar cannot read are refused and leave nothing behind (no half-written tool)', r.exit === 1 && /extraction with the system tar failed/.test(r.json.data.tools[0].reason) && tree(dir).length === 0, `${r.all.slice(0, 300)} ${tree(dir).join(' ')}`);
+    const noBin = archiveOf('tgz', 'something-else', body);
+    dir = fresh();
+    r = await ens(manifestOf(noBin), server(noBin), dir);
+    check('tools ensure: an archive without the named executable is refused and leaves nothing behind', r.exit === 1 && /holds no file named faketool/.test(r.json.data.tools[0].reason) && tree(dir).length === 0, r.all.slice(0, 300));
+    if (process.platform === 'win32') {
+      const zip = archiveOf('zip', 'faketool.exe', body);
+      dir = fresh();
+      r = await ens({ ...manifestOf(zip, { plat: 'windows-amd64', bin: 'faketool.exe', url: 'https://github.com/acme/faketool/releases/download/v1.0.0/faketool-1.0.0.zip' }) }, server(zip), dir, [], { platform: 'windows-amd64' });
+      check('tools ensure: a zip (windows-amd64) is extracted by %SystemRoot%\\System32\\tar.exe and bin/faketool.exe holds the file', r.exit === 0 && r.json.data.tools[0].status === 'downloaded' && readFileSync(join(dir, 'bin', 'faketool.exe')).equals(body), r.all.slice(0, 300));
+    } else console.log('skip  tools ensure: the zip case (GNU tar on this system cannot read zip; the Windows tar.exe can)');
+    r = await ens(man, server(tgz), fresh(), ['--only', 'node']);
+    check('tools ensure --only node: present when the running node is the manifest\'s; refused (never downloaded) when it is not',
+      r.exit === 0 && r.json.data.tools[0].status === 'present' && (await ens({ ...man, tools: { ...man.tools, node: { version: '1.1.1' } } }, server(tgz), fresh(), ['--only', 'node'])).json.data.tools[0].status === 'refused');
+
+    // tools list: read-only
+    dir = fresh();
+    r = await cli(['tools', 'list', '--json'], { OMNIKOM_TOOLS_DIR: dir }, { manifest: man, now: () => NOW, platform: 'linux-amd64' });
+    check('tools list: the manifest rows, nothing installed, no target in the result, and it creates nothing', r.exit === 0 && r.json.target === undefined && r.json.data.tools.find(t => t.tool === 'faketool').installed === 'missing' && r.json.data.tools.find(t => t.tool === 'faketool').sha256 === sh16(sha(tgz)) && !existsSync(dir), r.all.slice(0, 300));
+    await ens(man, server(tgz), dir);
+    mkdirSync(join(dir, 'stray'));
+    const listed = tree(dir).join('|');
+    r = await cli(['tools', 'list', '--json'], { OMNIKOM_TOOLS_DIR: dir }, { manifest: man, now: () => NOW, platform: 'linux-amd64' });
+    check('tools list: shows an installed tool and a folder that is not in the manifest; the folder is unchanged', r.json.data.tools.find(t => t.tool === 'faketool').installed === 'present' && r.json.data.unknownFolders.join() === 'stray' && r.json.data.bin.join() === 'faketool' && tree(dir).join('|') === listed, r.all.slice(0, 300));
+    const SEC = rand();
+    const boom = async () => { throw new Error(`connection reset, key ${SEC}`); };
+    r = await ens(man, boom, fresh(), [], {}, { SOME_SECRET_KEY: SEC });
+    check('tools ensure: a failing download is refused (exit 1) and the secret its error quotes is masked in the output', r.exit === 1 && /download failed/.test(r.all) && !r.all.includes(SEC) && r.all.includes('<redacted:SOME_SECRET_KEY>'), r.all.slice(0, 300));
+
+    // ---- ci: a fixture ci.yml in a temp root; what would run is real (node scripts) or recorded (the tools)
+    const CHECKOUT = '      - name: Check out the repository\n        uses: actions/checkout@aaaa # v1\n        with:\n          persist-credentials: false\n';
+    const SETUP_NODE = (v = NODEV) => `      - name: Set up Node\n        uses: actions/setup-node@bbbb # v1\n        with:\n          node-version: ${v}\n`;
+    const RUN = (name, cmd, extra = '') => `      - name: ${name}\n        run: ${cmd}\n${extra}`;
+    const JOB = (id, steps, mins = 5, more = '') => `  ${id}:\n    name: ${id} job\n    runs-on: ubuntu-latest\n    timeout-minutes: ${mins}\n${more}    steps:\n${steps}`;
+    const YML = jobs => `# fixture\nname: fixture\n\non: [push]\n\npermissions:\n  contents: read\n\njobs:\n${jobs}`;
+    const mkRoot = (yml, files = {}) => {
+      const rt = mkdtempSync(join(work, 'ci-'));
+      const all = { '.github/workflows/ci.yml': yml, 'jobs/ok.mjs': "console.log('first line'); console.log('ok line');\n", 'jobs/bad.mjs': "console.log('before the failure'); console.error('boom last line'); process.exit(1);\n",
+        'jobs/path.mjs': "import { delimiter } from 'node:path'; const k = Object.keys(process.env).find(x => x.toLowerCase() === 'path'); console.log('PATHFIRST=' + process.env[k].split(delimiter)[0]);\n",
+        'jobs/secret.mjs': "console.log('value is ' + process.env.SOME_SECRET_KEY);\n", ...files };
+      for (const [p, c] of Object.entries(all)) { mkdirSync(dirname(join(rt, p)), { recursive: true }); writeFileSync(join(rt, p), c); }
+      return rt;
+    };
+    // fake tools: archives, a manifest, a fetch that serves them
+    const toolMan = {}, toolBytes = {};
+    for (const [name, ver] of [['actionlint', '1.2.3'], ['shellcheck', '1.0.0'], ['gitleaks', '4.5.6'], ['deno', '1.2.3']]) {
+      const b = archiveOf('tgz', name, Buffer.from(`fake ${name}\n`), `${name}-${ver}`);
+      toolBytes[name] = b;
+      toolMan[name] = { version: ver, published: iso(40 * DAY), repo: `acme/${name}`, bin: { 'linux-amd64': name }, platforms: { 'linux-amd64': { url: `https://github.com/acme/${name}/releases/download/v${ver}/${name}-${ver}.tar.gz`, sha256: sha(b), size: b.length } } };
+    }
+    toolMan.node = { version: NODEV };
+    const ciMan = { schema: 1, tools: toolMan };
+    const routeFetch = () => { const fn = async url => { fn.calls.push(String(url)); const t = Object.keys(toolMan).find(n => toolMan[n].platforms && toolMan[n].platforms['linux-amd64'].url === String(url)); return t ? new Response(toolBytes[t], { status: 200 }) : new Response('no', { status: 404 }); }; fn.calls = []; return fn; };
+    const DL = tool => { const e = toolMan[tool], p = e.platforms['linux-amd64']; return `      - name: Download ${tool} ${e.version} and check its sha256\n        run: |\n          curl -fsSL -o "$RUNNER_TEMP/${tool}.tar.gz" ${p.url}\n          echo "${p.sha256}  $RUNNER_TEMP/${tool}.tar.gz" | sha256sum --check -\n          mkdir "$RUNNER_TEMP/${tool}"\n`; };
+    const LINT = (flags = '-color') => `      - name: Lint every workflow (with the pinned shellcheck)\n        run: '"$RUNNER_TEMP/actionlint/actionlint" ${flags} .github/workflows/*.yml'\n`;
+    const SCAN = '      - name: Scan the history and the tree\n        run: \'"$RUNNER_TEMP/gitleaks/gitleaks" detect --source . --redact --no-banner\'\n';
+    const DEFAULT_TOOL = {
+      shellcheck: () => ({ status: 0, stdout: 'ShellCheck - shell script analysis tool\nversion: 1.0.0\nlicense: GNU General Public License, version 3\n', stderr: '' }),
+      deno: () => ({ status: 0, stdout: 'deno 1.2.3 (stable, release, x86_64)\nv8 12.0\n', stderr: '' }),
+    };
+    // a spawn that records every call; tools in the tools folder are scripted (default: exit 0), npm is never run, anything else really runs
+    const recorder = (toolsDir, script = {}, real = true) => {
+      const log = [];
+      const fn = (cmd, args, opts) => {
+        log.push({ cmd: String(cmd), args: [...args], opts });
+        const name = basename(String(cmd)).replace(/\.exe$/, '');
+        const inBin = resolve(String(cmd)).toLowerCase().startsWith(resolve(toolsDir, 'bin').toLowerCase());
+        if (inBin) return (script[name] || DEFAULT_TOOL[name] || (() => ({ status: 0, stdout: '', stderr: '' })))(args, opts);
+        if (name === 'initdb') return script.initdb ? script.initdb(args, opts) : { status: 0, stdout: 'initdb (PostgreSQL) 16.4\n', stderr: '' };
+        if (String(args[0] || '').endsWith('npm-cli.js')) return script.npm ? script.npm(args, opts) : { status: 0, stdout: 'added 1 package\n', stderr: '' };
+        if (real) return spawnSync(cmd, args, opts);   // no-timeout: opts is the CLI's own, with its timeout
+        return { status: 0, stdout: 'fake ok\n', stderr: '' };
+      };
+      fn.log = log;
+      return fn;
+    };
+    const ciRun = (rt, extra = [], o = {}) => cli(['ci', '--root', rt, ...extra], { OMNIKOM_TOOLS_DIR: o.dir || fresh(), ...(o.env || {}) }, { manifest: o.manifest || ciMan, platform: 'linux-amd64', ...(o.deps || {}) });
+    const lines = x => x.stdout.split('\n').filter(Boolean);
+
+    let rt = mkRoot(YML(JOB('good', CHECKOUT + SETUP_NODE() + RUN('CLI unit tests', 'node jobs/ok.mjs'))
+      + JOB('bad', CHECKOUT + RUN('Factory tests', 'node jobs/bad.mjs') + RUN('Factory mutants', 'node jobs/ok.mjs') + RUN('Free disk after the gates', 'df -h /tmp', '        if: always()\n'))
+      + JOB('unmapped', CHECKOUT + RUN('Brand new check', 'node jobs/ok.mjs'))));
+    r = await ciRun(rt);
+    check('ci: one line per job (PASS with the last line of its output; FAIL with the failing command\'s last line), then the count; exit 1',
+      r.exit === 1 && lines(r).join('|') === 'PASS good  ok line|FAIL bad  boom last line|FAIL unmapped  step not mapped: Brand new check|ci: 3 jobs, 1 PASS, 2 FAIL', r.all.slice(0, 400));
+    r = await ciRun(rt, ['--json']);
+    const badJob = r.json && r.json.data.jobs.find(j => j.id === 'bad');
+    check('ci --json: a step after the failing one is SKIP, a step with if: always() still runs, the mapped checkout says "working tree"',
+      badJob && badJob.steps.map(s => s.status).join() === 'PASS,FAIL,SKIP,PASS' && /disk free/.test(badJob.steps[3].lines[0]) && /working tree/.test(badJob.steps[0].lines[0]) && r.json.code === 'CI-FAILED' && r.json.target === undefined, r.all.slice(0, 400));
+    r = await ciRun(rt, ['--job', 'good']);
+    check('ci --job: runs the one job only', r.exit === 0 && lines(r).join('|') === 'PASS good  ok line|ci: 1 jobs, 1 PASS, 0 FAIL', r.all.slice(0, 300));
+    r = await ciRun(rt, ['--job', 'nope']);
+    check('ci --job <unknown>: exit 2, naming the jobs there are', r.exit === 2 && r.stdout.startsWith('ERROR ') && r.stdout.includes('good, bad, unmapped'), r.all.slice(0, 300));
+    r = await ciRun(rt, ['--job', 'unmapped']);
+    check('ci: a ci.yml step the table does not map makes its job FAIL with "step not mapped: <name>" (exit 1)', r.exit === 1 && lines(r)[0] === 'FAIL unmapped  step not mapped: Brand new check', r.all.slice(0, 300));
+    rt = mkRoot(YML(JOB('only', CHECKOUT + SETUP_NODE() + RUN('CLI unit tests', 'node jobs/ok.mjs'))));
+    r = await ciRun(rt);
+    check('ci: every job PASS is exit 0', r.exit === 0 && lines(r).at(-1) === 'ci: 1 jobs, 1 PASS, 0 FAIL', r.all.slice(0, 300));
+    r = await ciRun(rt, ['--json']);
+    check('ci --json: the node version step reports ci.yml\'s, the manifest\'s and the running node', r.json.data.jobs[0].steps[1].lines[0] === `node ${NODEV} (ci.yml ${NODEV}, tools.json ${NODEV})`, r.all.slice(0, 300));
+    rt = mkRoot(YML(JOB('wrongnode', CHECKOUT + SETUP_NODE('1.2.3'))));
+    r = await ciRun(rt);
+    check('ci: a node-version in ci.yml that is not the manifest\'s (and not the running node) is a FAIL that names all three', r.exit === 1 && lines(r)[0].startsWith(`FAIL wrongnode  node ${NODEV} is running, ci.yml wants 1.2.3, tools.json says ${NODEV}`), r.all.slice(0, 300));
+
+    // the child's PATH carries .tools/bin first; the parent's PATH and the caller's environment do not change
+    rt = mkRoot(YML(JOB('p', RUN('CLI unit tests', 'node jobs/path.mjs'))));
+    const toolsHere = fresh();
+    const parentPath = process.env.PATH;
+    r = await ciRun(rt, [], { dir: toolsHere });
+    const shown = (lines(r)[0] || '').replace(/^PASS p  PATHFIRST=/, '');
+    check('ci: the child process\'s PATH starts with <tools>/bin; the parent\'s PATH is untouched', r.exit === 0 && resolve(shown).toLowerCase() === resolve(toolsHere, 'bin').toLowerCase() && process.env.PATH === parentPath && !String(process.env.PATH).toLowerCase().includes(resolve(toolsHere, 'bin').toLowerCase()), `${r.all.slice(0, 300)}`);
+    const spy = recorder(toolsHere);
+    await ciRun(rt, [], { dir: toolsHere, deps: { spawn: spy } });
+    const first = (spy.log.find(c => c.args.includes('jobs/path.mjs')) || { opts: { env: {} } }).opts.env;
+    const pk = Object.keys(first).find(k => k.toLowerCase() === 'path');
+    check('ci: the child PATH is .tools/bin + the caller\'s PATH, and the caller\'s environment object is not changed', pk && first[pk] === resolve(toolsHere, 'bin') + delimiter + process.env.PATH);
+
+    // redaction: a secret in the environment that a step prints
+    const SEC2 = rand();
+    rt = mkRoot(YML(JOB('s', RUN('CLI unit tests', 'node jobs/secret.mjs'))));
+    r = await ciRun(rt, [], { env: { SOME_SECRET_KEY: SEC2 } });
+    const rj = await ciRun(rt, ['--json'], { env: { SOME_SECRET_KEY: SEC2 } });
+    check('ci hygiene: a secret that a step prints is masked in the text lines and in --json', !r.all.includes(SEC2) && r.stdout.includes('<redacted:SOME_SECRET_KEY>') && !rj.all.includes(SEC2) && rj.all.includes('<redacted:SOME_SECRET_KEY>'), r.all.slice(0, 300));
+
+    // usage, and shapes the table does not model
+    r = await ciRun(rt, ['--target', 'staging']);
+    check('ci: --target, --expect, a stray argument and a root without ci.yml are usage errors (exit 2); production is refused (exit 3)',
+      r.exit === 2 && (await ciRun(rt, ['--expect', '202'])).exit === 2 && (await cli(['ci', 'extra', '--root', rt], {}, { manifest: ciMan })).exit === 2 && (await ciRun(join(work, 'no-such-root'))).exit === 2 && (await ciRun(rt, ['--target', 'production'])).exit === 3, r.all.slice(0, 200));
+    rt = mkRoot(YML(JOB('e', CHECKOUT + RUN('CLI unit tests', 'node jobs/ok.mjs', '        env:\n          X: y\n')) + JOB('i', CHECKOUT + RUN('CLI unit tests', 'node jobs/ok.mjs', '        if: success()\n')) + JOB('n', CHECKOUT + RUN('CLI unit tests', 'node jobs/ok.mjs'), 5, '    needs: e\n')
+      + JOB('x', CHECKOUT + RUN('CLI unit tests', 'node jobs/ok.mjs && node jobs/ok.mjs'))));
+    r = await ciRun(rt);
+    check('ci: a step key, an if:, a job key or a shell construct the runner does not model FAILs the job instead of being skipped',
+      lines(r).slice(0, 4).every(l => l.startsWith('FAIL ')) && /uses env, which omnikom ci does not model/.test(lines(r)[0]) && /has if: success\(\)/.test(lines(r)[1]) && /job keys not modelled: needs/.test(lines(r)[2]) && /shell syntax/.test(lines(r)[3]), r.all.slice(0, 600));
+    rt = mkRoot('name: x\nenv:\n  A: b\njobs:\n  a:\n    steps:\n      - name: x\n');
+    r = await ciRun(rt);
+    check('ci: a top-level key that is not modelled (env) is a FAIL of the whole run, not a pass', r.exit === 1 && lines(r)[0].startsWith('FAIL ci.yml  ci.yml top-level keys not modelled: env'), r.all.slice(0, 300));
+
+    // ---- the tools in a ci run (recorded, not executed)
+    const files = { '.github/workflows/other.yml': 'name: other\n' };
+    const WF = (lint) => YML(JOB('secrets', CHECKOUT + DL('gitleaks') + SCAN, 7) + JOB('workflows', CHECKOUT + DL('actionlint') + DL('shellcheck') + lint, 9));
+    rt = mkRoot(WF(LINT()), files);
+    const td = fresh();
+    const rf = routeFetch();
+    let rec = recorder(td);
+    r = await ciRun(rt, ['--json'], { dir: td, deps: { fetch: rf, spawn: rec, now: () => NOW } });
+    const dlStep = r.json && r.json.data.jobs.find(j => j.id === 'workflows').steps[1];
+    check('ci: a download step runs tools ensure for its tool (fetched once from the manifest url, extracted, checked)', r.exit === 0 && /tools ensure actionlint 1\.2\.3: downloaded/.test(dlStep.lines[0]) && rf.calls.length === 3 && rf.calls.includes(toolMan.actionlint.platforms['linux-amd64'].url), r.all.slice(0, 500));
+    const binDir = resolve(td, 'bin');
+    const al = rec.log.find(c => resolve(c.cmd) === resolve(binDir, 'actionlint'));
+    check('ci: actionlint is called from .tools/bin with -shellcheck <.tools/bin/shellcheck> given explicitly, then the flags of ci.yml and the expanded workflow files',
+      al && JSON.stringify(al.args) === JSON.stringify(['-shellcheck', resolve(binDir, 'shellcheck'), '-color', '.github/workflows/ci.yml', '.github/workflows/other.yml']) && resolve(al.opts.cwd) === resolve(rt), al && JSON.stringify(al.args));
+    const alEnv = al ? al.opts.env : {};
+    const alKey = Object.keys(alEnv).find(k => k.toLowerCase() === 'path');
+    check('ci: the tool runs with .tools/bin first on its PATH and a timeout of the job\'s timeout-minutes (9 minutes, not less)', alKey && alEnv[alKey].startsWith(binDir + delimiter) && al.opts.timeout > 8.5 * 60000 && al.opts.timeout <= 9 * 60000, al && String(al.opts.timeout));
+    r = await ciRun(rt, [], { dir: td, deps: { fetch: rf, spawn: rec, now: () => NOW } });
+    check('ci: the PASS line of the lint reports the shellcheck version used; a second run downloads nothing', lines(r).includes('PASS workflows  actionlint: no findings [shellcheck 1.0.0]') && rf.calls.length === 3, `${r.all.slice(0, 300)} fetches ${rf.calls.length}`);
+    const gl = rec.log.find(c => resolve(c.cmd) === resolve(binDir, 'gitleaks'));
+    check('ci: the gitleaks call keeps its arguments and runs from .tools/bin', gl && JSON.stringify(gl.args) === JSON.stringify(['detect', '--source', '.', '--redact', '--no-banner']), gl && JSON.stringify(gl.args));
+
+    rt = mkRoot(WF(LINT('-color -shellcheck "$RUNNER_TEMP/shellcheck-v1.0.0/shellcheck"')), files);
+    rec = recorder(td);
+    r = await ciRun(rt, [], { dir: td, deps: { fetch: rf, spawn: rec, now: () => NOW } });
+    const al2 = rec.log.find(c => resolve(c.cmd) === resolve(binDir, 'actionlint'));
+    check('ci: a -shellcheck "$RUNNER_TEMP/..." in ci.yml becomes the .tools/bin one, given once', al2 && al2.args.filter(a => a === '-shellcheck').length === 1 && al2.args[al2.args.indexOf('-shellcheck') + 1] === resolve(binDir, 'shellcheck') && !al2.args.some(a => a.includes('RUNNER_TEMP')), al2 && JSON.stringify(al2.args));
+    rec = recorder(td, { actionlint: () => ({ status: 1, stdout: '.github/workflows/ci.yml:7:9: shellcheck reported issue in this script: SC2086:info:1:6: Double quote to prevent globbing [shellcheck]\n', stderr: '' }) });
+    r = await ciRun(rt, [], { dir: td, deps: { fetch: rf, spawn: rec, now: () => NOW } });
+    check('ci: actionlint finding -> FAIL naming the finding and the shellcheck version used, exit 1', r.exit === 1 && /^FAIL workflows  .*SC2086.* \[shellcheck 1\.0\.0\]$/.test(lines(r).find(l => l.startsWith('FAIL workflows'))), r.all.slice(0, 400));
+    rec = recorder(td, { shellcheck: () => ({ status: 0, stdout: 'ShellCheck - shell script analysis tool\nversion: 9.9.9\n', stderr: '' }) });
+    r = await ciRun(rt, [], { dir: td, deps: { fetch: rf, spawn: rec, now: () => NOW } });
+    check('ci: a shellcheck in .tools/bin that is not the manifest\'s version is a FAIL (actionlint is not run)', r.exit === 1 && /^FAIL workflows  shellcheck 9\.9\.9 is in \.tools\/bin, tools\.json says 1\.0\.0$/.test(lines(r).find(l => l.startsWith('FAIL workflows'))) && !rec.log.some(c => resolve(c.cmd) === resolve(binDir, 'actionlint')), r.all.slice(0, 400));
+    // a download step that disagrees with the manifest, and a tool that is not there
+    const stale = YML(JOB('d', CHECKOUT + DL('actionlint').replace(toolMan.actionlint.platforms['linux-amd64'].sha256, '0'.repeat(64)) + DL('gitleaks').replace('gitleaks 4.5.6', 'gitleaks 4.5.7')));
+    r = await ciRun(mkRoot(stale), [], { dir: td, deps: { fetch: rf, spawn: recorder(td) } });
+    check('ci: a download step whose sha256 or version differs from tools.json is a FAIL (the check that ci.yml and the manifest agree, inside the run)', r.exit === 1 && /^FAIL d  ci\.yml's url or sha256 for actionlint differs from tools\.json$/.test(lines(r)[0]), r.all.slice(0, 300));
+    r = await ciRun(mkRoot(YML(JOB('d', CHECKOUT + DL('gitleaks').replace('gitleaks 4.5.6', 'gitleaks 4.5.7')))), [], { dir: td, deps: { fetch: rf, spawn: recorder(td) } });
+    check('ci: a download step naming another version than tools.json is a FAIL', /^FAIL d  ci\.yml names gitleaks 4\.5\.7 but tools\.json has 4\.5\.6$/.test(lines(r)[0]), r.all.slice(0, 300));
+    r = await ciRun(mkRoot(YML(JOB('g', CHECKOUT + SCAN))), [], { dir: fresh(), deps: { spawn: recorder(td) } });
+    check('ci: a tool that is not in .tools/bin is a FAIL telling to run tools ensure --only <tool>', /^FAIL g  gitleaks is not in \.tools\/bin: run omnikom tools ensure --only gitleaks$/.test(lines(r)[0]), r.all.slice(0, 300));
+    // deno, initdb, npm
+    await cli(['tools', 'ensure', '--only', 'deno'], { OMNIKOM_TOOLS_DIR: td }, { manifest: ciMan, platform: 'linux-amd64', fetch: routeFetch(), now: () => NOW });
+    const DENO = v => `      - name: Set up Deno\n        uses: denoland/setup-deno@cccc # v2\n        with:\n          deno-version: ${v}\n`;
+    const PG = '      - name: PostgreSQL 16 binaries on PATH (the image\'s own; apt install postgresql only if the image lacks them)\n        run: |\n          if [ -x /usr/lib/postgresql/16/bin/initdb ]; then\n            echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"\n          fi\n';
+    r = await ciRun(mkRoot(YML(JOB('a', CHECKOUT + DENO('1.2.3')) + JOB('b', CHECKOUT + DENO('9.9.9')) + JOB('c', CHECKOUT + DENO('1.2.3') + PG))), [], { dir: td, deps: { spawn: recorder(td), fetch: rf } });
+    check('ci: setup-deno is a version check of .tools/bin/deno against ci.yml and the manifest (PASS, FAIL on a mismatch)', /^PASS a  deno 1\.2\.3 from \.tools\/bin \(ci\.yml 1\.2\.3, tools\.json 1\.2\.3\)$/.test(lines(r)[0]) && /^FAIL b  deno 1\.2\.3 is in \.tools\/bin, ci\.yml wants 9\.9\.9/.test(lines(r)[1]), r.all.slice(0, 400));
+    check('ci: the PostgreSQL PATH step is "initdb found" (its version line)', /^PASS c  initdb \(PostgreSQL\) 16\.4/.test(lines(r)[2]), r.all.slice(0, 400));
+    r = await ciRun(mkRoot(YML(JOB('c', CHECKOUT + PG))), [], { dir: td, deps: { spawn: recorder(td, { initdb: () => ({ error: Object.assign(new Error('spawn initdb ENOENT'), { code: 'ENOENT' }), status: null, stdout: '', stderr: '' }) }) } });
+    check('ci: no initdb on PATH is a FAIL', r.exit === 1 && /^FAIL c  .*initdb/.test(lines(r)[0]), r.all.slice(0, 300));
+    r = await ciRun(mkRoot(YML(JOB('c', CHECKOUT + PG))), [], { dir: td, deps: { spawn: recorder(td, { initdb: () => ({ status: 0, stdout: 'initdb (PostgreSQL) 18.4\n', stderr: '' }) }) } });
+    check('ci: an initdb of another major than the step\'s name is a PASS that says so (CI runs 16, this machine 18)', r.exit === 0 && /^PASS c  initdb \(PostgreSQL\) 18\.4 \(initdb found; CI runs PostgreSQL 16, this machine 18\)$/.test(lines(r)[0]), r.all.slice(0, 300));
+    r = await ciRun(mkRoot(YML(JOB('n', CHECKOUT + SETUP_NODE() + RUN('Free disk before the gates', 'df -h /tmp "$RUNNER_TEMP" && free -m')))), [], { dir: td, deps: { spawn: recorder(td) } });
+    check('ci: the df step is a disk and memory report (PASS), mapped explicitly', r.exit === 0 && /memory free \d+ MiB/.test(lines(r)[0]), r.all.slice(0, 300));
+    const NPM = RUN('Install the runner\'s pinned dependency (sharp), install scripts off', 'npm ci --prefix factory/runner --ignore-scripts --no-audit --no-fund');
+    rt = mkRoot(YML(JOB('n', CHECKOUT + NPM)));
+    rec = recorder(td);
+    r = await ciRun(rt, [], { dir: td, deps: { spawn: rec } });
+    check('ci: npm ci without --install and without node_modules is a FAIL saying "run with --install"; npm is not run', r.exit === 1 && /^FAIL n  npm ci: factory\/runner\/node_modules is missing; run with --install$/.test(lines(r)[0]) && !rec.log.some(c => String(c.args[0]).endsWith('npm-cli.js')), r.all.slice(0, 300));
+    mkdirSync(join(rt, 'factory', 'runner', 'node_modules'), { recursive: true });
+    rec = recorder(td);
+    r = await ciRun(rt, [], { dir: td, deps: { spawn: rec } });
+    check('ci: npm ci without --install is SKIP (PASS) when node_modules exists; npm is not run', r.exit === 0 && /^PASS n  SKIP npm ci: factory\/runner\/node_modules exists/.test(lines(r)[0]) && !rec.log.some(c => String(c.args[0]).endsWith('npm-cli.js')), r.all.slice(0, 300));
+    r = await ciRun(rt, ['--install'], { dir: td, deps: { spawn: rec } });
+    const npmCall = rec.log.find(c => String(c.args[0]).endsWith('npm-cli.js'));
+    check('ci --install: npm ci runs as written (with --ignore-scripts), through node and npm-cli.js', r.exit === 0 && npmCall && JSON.stringify(npmCall.args.slice(1)) === JSON.stringify(['ci', '--prefix', 'factory/runner', '--ignore-scripts', '--no-audit', '--no-fund']), r.all.slice(0, 300));
+
+    // ---- the real ci.yml: every job and step is mapped today, every `run: node ...` line runs as written (nothing really runs: a fake spawn)
+    const rtools = fresh();
+    for (const [name, e] of Object.entries(manReal.tools)) {
+      if (!e.platforms) continue;
+      mkdirSync(join(rtools, `${name}-${e.version}`), { recursive: true });
+      writeFileSync(join(rtools, `${name}-${e.version}`, '.ok'), JSON.stringify({ name, version: e.version, sha256: e.platforms['linux-amd64'].sha256 }));
+      mkdirSync(join(rtools, 'bin'), { recursive: true });
+      writeFileSync(join(rtools, 'bin', e.bin['linux-amd64']), 'placeholder');
+    }
+    const calls = [];
+    const allOk = (cmd, args, opts) => {
+      calls.push({ cmd: String(cmd), args: [...args], opts });
+      const name = basename(String(cmd)).replace(/\.exe$/, '');
+      if (name === 'shellcheck') return { status: 0, stdout: `version: ${manReal.tools.shellcheck.version}\n`, stderr: '' };
+      if (name === 'deno') return { status: 0, stdout: `deno ${manReal.tools.deno.version} (stable)\n`, stderr: '' };
+      if (String(cmd) === process.execPath && args[0] === '--version') return { status: 0, stdout: `v${manReal.tools.node.version}\n`, stderr: '' };
+      return { status: 0, stdout: 'fake ok\n', stderr: '' };
+    };
+    r = await cli(['ci', '--install', '--json'], { OMNIKOM_TOOLS_DIR: rtools }, { manifest: manReal, platform: 'linux-amd64', spawn: allOk, fetch: async () => { throw new Error('the real ci.yml test must not fetch'); }, now: () => NOW + 400 * DAY });
+    const jobCount = (ciReal.slice(ciReal.indexOf('\njobs:')).match(/^ {2}[A-Za-z0-9_-]+:\s*$/gm) || []).length;
+    const unmapped = r.json ? r.json.data.jobs.flatMap(j => j.steps).filter(s => /step not mapped|does not model/.test(s.lines.join(' '))) : [];
+    check('ci on the real ci.yml: every job and step is mapped (none "not mapped"), every job PASSes with the commands faked', r.exit === 0 && r.json.data.total === jobCount && jobCount >= 8 && unmapped.length === 0, `${unmapped.map(s => s.name).join('; ')} ${r.all.slice(0, 300)}`);
+    const wantNode = [...ciReal.matchAll(/^\s+run: node (.+)$/gm)].map(m => m[1].trim().split(' '));
+    const gotNode = calls.filter(c => c.cmd === process.execPath && c.args[0] !== '--version' && !String(c.args[0]).endsWith('npm-cli.js')).map(c => c.args);
+    check('ci on the real ci.yml: every `run: node ...` line is run exactly as written, in file order', wantNode.length >= 12 && JSON.stringify(gotNode) === JSON.stringify(wantNode), `${gotNode.length} of ${wantNode.length}`);
+    const wantNpm = /^\s+run: npm (ci .+)$/m.exec(ciReal)[1].split(' ');
+    const gotNpm = calls.find(c => String(c.args[0]).endsWith('npm-cli.js'));
+    check('ci on the real ci.yml: npm ci runs as written with --install', gotNpm && JSON.stringify(gotNpm.args.slice(1)) === JSON.stringify(wantNpm), gotNpm && JSON.stringify(gotNpm.args));
+    // the files actionlint must get: the folders named by the globs on the lint line of ci.yml (read here by a regular expression), every .yml in them, sorted per glob
+    const lintLine = ciReal.split('\n').find(l => l.includes('actionlint/actionlint"')) || '';
+    const wfFiles = [...lintLine.matchAll(/(\.github\/[A-Za-z0-9_-]+)\/\*\.yml/g)].flatMap(m => readdirSync(join(REPO_ROOT, m[1])).filter(n => n.endsWith('.yml')).sort().map(n => `${m[1]}/${n}`));
+    const lintCall = calls.find(c => basename(c.cmd).startsWith('actionlint'));
+    check('ci on the real ci.yml: actionlint gets the pinned shellcheck first, -color, and every file of the globs on its line in ci.yml', wfFiles.length >= 5 && lintCall && lintCall.args[0] === '-shellcheck' && basename(lintCall.args[1]).startsWith('shellcheck') && JSON.stringify(lintCall.args.slice(2)) === JSON.stringify(['-color', ...wfFiles]), lintCall && JSON.stringify(lintCall.args));
+  } finally { rmSync(work, { recursive: true, force: true }); }
+}
+
 // ======================================================================================================== DATABASE
 async function database() {
   const { makeSql } = await lib('sql.mjs');
@@ -527,6 +931,15 @@ async function database() {
     check('content save: a field outside the contract is refused by the validator (I-UNKNOWN) and nothing is stored', r.exit === 0 && db.query(`select count(*) from content_rows where collection = 'listings'`) === '1');
 
     // ---- publish and the job states
+    // ---- the publish-ready wall (platform 4.6, migration 11): a row missing a required value is saved as a draft, never published
+    const bareFile = join(work, 'listing-bare.json'); writeFileSync(bareFile, JSON.stringify({ street: '3 Bare Rd' }));
+    r = await run(['content', 'save', ...T, '--as', 'member-a1', ...wsA, '--collection', 'listings', '--file', bareFile]);
+    const bare = r.json && r.json.data.row;
+    check('content save: a listing without its required status is still saved (a draft)', r.exit === 0 && bare, r.all.slice(0, 300));
+    r = await run(['publish', ...T, '--as', 'member-a1', '--site', 'test-demo-a', '--rows', bare, '--expect', 'I-NOT-READY']);
+    check('publish: a bare row is refused with I-NOT-READY naming the row and the first missing path; no job is queued for it',
+      r.exit === 0 && r.json.code === 'I-NOT-READY' && String(r.json.data && r.json.data.error).includes(`${bare} status required`)
+      && db.query(`select count(*) from publish_jobs where '${bare}'::uuid = any(rows)`) === '0', r.all.slice(0, 300));
     r = await run(['publish', ...T, '--as', 'member-a2', '--site', 'test-demo-a', '--rows', listing, '--expect', 'S-OWN-ONLY']);
     check("publish: member A2 cannot publish A1's listing -> S-OWN-ONLY", r.exit === 0 && r.json.code === 'S-OWN-ONLY');
     r = await run(['publish', ...T, '--as', 'owner-b', '--site', 'test-demo-a', '--rows', listing, '--expect', 'S-NOT-FOUND']);
@@ -715,7 +1128,7 @@ async function database() {
 }
 const PERSON = n => ({ 'member-a1': '00000000-0000-0000-0000-0000000000a1' })[n];
 
-if (!onlyDb) await units();
+if (!onlyDb) { await units(); await toolsAndCi(); }
 if (!onlyUnit) await database();
 console.log(`\n${failed ? 'FAILED' : 'OK'}: ${total - failed} of ${total} checks passed${failed ? `, ${failed} FAILED` : ''}`);
 process.exit(failed ? 1 : 0);

@@ -159,3 +159,16 @@ function model in `test/harness.mjs` records security events with the function's
 cluster before the walls re-run (`session_replication_role = replica`, `test/run.mjs`), because the walls file counted events for the
 test site's id. PROVEN by the head's own Haiku re-run (lines in PROGRESS.md "CLI: key numbering and lead ledgers"). Not watched failing:
 "the minted values are printed nowhere" (the redaction layer masks a leak before the check can see it).
+
+**Tools and local CI (2026-10-31 18:30, CLI department head; builder brief `tools/omnikom-cli/briefs/tools-and-ci.md`, DECISIONS 42):**
+`tools/omnikom-cli/tools.json` pins actionlint 1.7.12, gitleaks 8.30.1, deno 2.8.1 and shellcheck 0.11.0 (version, release date, repo,
+per platform url, size and sha256 from the GitHub API digest) and node 24.22.1 (checked, never downloaded). `omnikom tools ensure
+[--only]` downloads into `.tools/` only an asset of the pinned release URL that is at least 7 days old, refuses a size or sha256 that
+differs (the file is deleted), unpacks with the system tar and writes a `.ok` record with the executable's hash; `tools list` shows
+what is pinned and installed. `omnikom ci [--job] [--root] [--install]` runs the jobs of `.github/workflows/ci.yml` on this machine
+with the pinned tools from `.tools/bin` (actionlint gets the pinned shellcheck), each `run: node ...` line as written, and refuses a
+ci.yml step or key it does not model (so a change to ci.yml turns the cli job red until `commands/ci.mjs` maps it). A unit test
+holds ci.yml's actionlint, gitleaks and shellcheck version, URL and sha256 equal to the manifest's. `omnikom publish` of a row that
+fails the publish-ready wall (migration 11) answers `I-NOT-READY` with the row id and the first missing path; a test pins it.
+PROVEN offline (PROGRESS.md "CLI: tools and local CI"). NOT DONE here: the real downloads and the real `omnikom ci` (the head of
+operations runs them in its session, where the owner said yes).

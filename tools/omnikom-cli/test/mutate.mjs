@@ -19,6 +19,9 @@ const CLI = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = process.env.OMNIKOM_REPO_ROOT ? resolve(process.env.OMNIKOM_REPO_ROOT) : resolve(CLI, '..', '..');
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
 const R = String.raw;
+// One run of the suite is cut off after this long (a hang counts as caught). 10 minutes was enough on a quiet laptop; the whole suite took
+// 16 minutes on 2026-10-31 under load, so the baseline failed with no FAIL line. OMNIKOM_MUTANT_TIMEOUT_MS raises it (milliseconds).
+const LIMIT_MS = Number(process.env.OMNIKOM_MUTANT_TIMEOUT_MS) || 600000;
 
 const MUTANTS = [
   // ---- rule 1: the CLI never prints a secret (lib/redact.mjs and what feeds it)
@@ -159,13 +162,60 @@ const MUTANTS = [
   ['audit and gate: text mode prints the JSON object', 'omnikom.mjs', "if ((first === 'audit' || first === 'gate') && obj.command", "if (false && obj.command", 'unit'],
   ['audit and gate: the result shows a target', 'omnikom.mjs', "const ctxUsesTarget = command => !['contract', 'audit', 'gate'].includes(command);", "const ctxUsesTarget = command => command !== 'contract';", 'unit'],
   ['audit: the summary line miscounts the FAIL lines', 'commands/audit.mjs', "${n('FAIL')} FAIL", "${n('WARN')} FAIL", 'unit'],
+  // ---- tools.json, tools ensure and ci (DECISIONS 42): the checks that refuse before a byte is fetched, the hash and size after, the table that maps every ci.yml step
+  ["tools ensure: the sha256 comparison is always true", "lib/tools.mjs", "const shaOk = actualSha === plat.sha256;", "const shaOk = true;", 'unit'],
+  ["tools ensure: the size comparison is always true", "lib/tools.mjs", "const sizeOk = onDisk.length === plat.size;", "const sizeOk = true;", 'unit'],
+  ["tools ensure: the 7-day check is removed", "lib/tools.mjs", "if (nowSec - pub / 1000 < MIN_AGE_DAYS * DAY) return", "if (false) return", 'unit'],
+  ["tools ensure: the host check is removed", "lib/tools.mjs", "if (!urlOk) return", "if (false) return", 'unit'],
+  ["tools ensure: the url need not start with the repository's release folder", "lib/tools.mjs", "let urlOk = typeof p.url === 'string' && p.url.startsWith(prefix);", "let urlOk = typeof p.url === 'string';", 'unit'],
+  ["tools ensure: a url that changes when parsed (dot segments) is accepted", "lib/tools.mjs", "urlOk = u.href === p.url && u.protocol === 'https:'", "urlOk = u.protocol === 'https:'", 'unit'],
+  ["tools ensure: a missing published date is accepted", "lib/tools.mjs", "if (!Number.isFinite(pub)) return", "if (false) return", 'unit'],
+  ["tools ensure: a missing sha256 is accepted", "lib/tools.mjs", "if (typeof p.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(p.sha256)) return", "if (false) return", 'unit'],
+  ["tools ensure: the .ok skip ignores the version", "lib/tools.mjs", "ok.version !== entry.version || ", "", 'unit'],
+  ["tools ensure: the .ok skip ignores the executable's hash", "lib/tools.mjs", "if (ok.binSha256 && sha256Of(readFileSync(binPath)) !== ok.binSha256) return", "if (false) return", 'unit'],
+  ["tools ensure: a download that does not match is kept", "lib/tools.mjs", "rm(tmp);   // the file is deleted: a download that does not match is never kept", "", 'unit'],
+  ["tools ensure: a failed extraction leaves its temp folder", "lib/tools.mjs", "if (x.error || x.status !== 0) { rm(tmp); return refuse(", "if (x.error || x.status !== 0) { return refuse(", 'unit'],
+  ["tools ensure: the archive is read by a tar found on PATH, not the system one", "lib/tools.mjs", "(process.platform === 'win32' ? join(ctx.env.SystemRoot", "(false ? join(ctx.env.SystemRoot", 'unit'],
+  ["tools ensure: an unknown tool name is not refused", "lib/tools.mjs", "for (const n of wanted) if (!manifest.tools[n]) throw new Usage(", "for (const n of wanted) if (false) throw new Usage(", 'unit'],
+  ["tools ensure: a refused tool still exits 0", "commands/tools.mjs", "const ok = tools.every(t => t.status === 'present' || t.status === 'downloaded');", "const ok = true;", 'unit'],
+  ["tools: --target is accepted", "commands/tools.mjs", "if (ctx.flags.target !== undefined) throw new Usage(`tools ${verb} takes no --target", "if (false) throw new Usage(`tools ${verb} takes no --target", 'unit'],
+  ["ci: an unmapped step passes", "commands/ci.mjs", "if (!row) return { ok: false, lines: [`step not mapped:", "if (!row) return { ok: true, lines: [`step not mapped:", 'unit'],
+  ["ci: a FAIL job is counted as PASS", "commands/ci.mjs", "const status = steps.some(s => s.status === 'FAIL') ? 'FAIL' : 'PASS';", "const status = 'PASS';", 'unit'],
+  ["ci: .tools/bin is dropped from the child's PATH", "commands/ci.mjs", "[key]: binDir + delimiter + (env[key] || '')", "[key]: env[key] || ''", 'unit'],
+  ["ci: the shellcheck flag is dropped", "commands/ci.mjs", "args.splice(0, 0, '-shellcheck', shell);", "", 'unit'],
+  ["ci: a -shellcheck already in ci.yml is kept next to the pinned one", "commands/ci.mjs", "if (at >= 0) args.splice(at, 2);", "", 'unit'],
+  ["ci: --job is ignored", "commands/ci.mjs", "jobs = parsed.jobs.filter(j => j.id === f.job);", "jobs = parsed.jobs;", 'unit'],
+  ["ci: a step with if: always() is skipped after a failure", "commands/ci.mjs", "if (failedBefore && step.if !== 'always()')", "if (failedBefore)", 'unit'],
+  ["ci: the job timeout is shorter than ci.yml's timeout-minutes", "commands/ci.mjs", "(job.timeoutMinutes > 0 ? job.timeoutMinutes : 360) * 60000", "(job.timeoutMinutes > 0 ? job.timeoutMinutes : 360) * 1000", 'unit'],
+  ["ci: shell syntax in a run line is accepted", "commands/ci.mjs", "throw new Error(`shell syntax '${c}' in a run line (omnikom ci does not run a shell)`)", "void 0", 'unit'],
+  ["ci: a step key the runner does not model is ignored", "commands/ci.mjs", "if (step.extra.length) return { ok: false, lines: [`step '${step.name}' uses", "if (false) return { ok: false, lines: [`step '${step.name}' uses", 'unit'],
+  ["ci: an if: the runner does not model is ignored", "commands/ci.mjs", "if (step.if && step.if !== 'always()') return", "if (false) return", 'unit'],
+  ["ci: a job key the runner does not model is ignored", "commands/ci.mjs", "let broken = job.extra.length ? `job keys not modelled: ${job.extra.join(', ')}` : '';", "let broken = '';", 'unit'],
+  ["ci: a top-level key the runner does not model is ignored", "commands/ci.mjs", "if (odd.length) return fail1(", "if (false) return fail1(", 'unit'],
+  ["ci: npm ci runs without --install", "commands/ci.mjs", "if (!st.flags.install) {", "if (false) {", 'unit'],
+  ["ci: a download step does not run tools ensure", "commands/ci.mjs", "const [r] = await ensureTools(st.ctx, [tool]);", "const r = { status: 'present', version };", 'unit'],
+  ["ci: a download step's url and sha256 need not equal the manifest's", "commands/ci.mjs", "if (!linux || url !== linux.url || sha !== linux.sha256) return", "if (false) return", 'unit'],
+  ["ci: a download step's version need not equal the manifest's", "commands/ci.mjs", "if (version !== entry.version) return { ok: false, lines: [`ci.yml names", "if (false) return { ok: false, lines: [`ci.yml names", 'unit'],
+  ["ci: the shellcheck in .tools/bin may be any version", "commands/ci.mjs", "if (!sv.ok || have !== pinned) return", "if (false) return", 'unit'],
+  ["ci: the node version check always passes", "commands/ci.mjs", "return { ok: same, lines: [same ? `node ${have}", "return { ok: true, lines: [same ? `node ${have}", 'unit'],
+  ["ci: the deno version check always passes", "commands/ci.mjs", "return { ok: same, lines: [same ? `deno ${have}", "return { ok: true, lines: [same ? `deno ${have}", 'unit'],
+  ["ci: a tool missing from .tools/bin is run anyway", "commands/ci.mjs", "if (!existsSync(bin)) return missing(first);", "", 'unit'],
+  ["ci: the text lines skip the redaction", "commands/ci.mjs", "out.push(redact(`${j.status} ${j.id}  ${j.last}`, env));", "out.push(`${j.status} ${j.id}  ${j.last}`);", 'unit'],
+  ["ci: the exit is 0 whatever failed", "commands/ci.mjs", "return result(failed === 0, failed === 0 ? 'ok' : 'CI-FAILED',", "return result(true, 'ok',", 'unit'],
+  ["ci: a failing command's last line is not the last of stderr", "commands/ci.mjs", "const lines = failed ? [...out, ...err] : [...err, ...out];", "const lines = [...err, ...out];", 'unit'],
+  ["ci: --target is accepted", "commands/ci.mjs", "if (f.target !== undefined) throw new Usage('ci takes no --target", "if (false) throw new Usage('ci takes no --target", 'unit'],
+  ["ci: --expect is accepted", "commands/ci.mjs", "if (f.expect !== undefined) throw new Usage('ci takes no --expect", "if (false) throw new Usage('ci takes no --expect", 'unit'],
+  ["ci: text mode prints the JSON object", "omnikom.mjs", "if (first === 'ci' && obj.command !== 'help' && !parsed.flags.json", "if (false && first === 'ci' && obj.command !== 'help' && !parsed.flags.json", 'unit'],
+  ["tools and ci: the result shows a target", "omnikom.mjs", "&& command !== 'tools' && command !== 'ci' ? ctx.targetName", "? ctx.targetName", 'unit'],
+  ["ci: a PostgreSQL major that differs from the step name is not said", "commands/ci.mjs", "wantMajor && haveMajor && wantMajor !== haveMajor ?", "false ?", 'unit'],
+  ["ci: --install is not a switch", "lib/args.mjs", "'help', 'install']);", "'help']);", 'unit'],
 ];
 
 const sh = (args, env) => new Promise(res => {
   const c = spawn(process.execPath, args, { env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
   let out = '', err = '';
   c.stdout.on('data', d => { out += d; }); c.stderr.on('data', d => { err += d; });
-  const timer = setTimeout(() => { c.kill(); }, 600000);
+  const timer = setTimeout(() => { c.kill(); }, LIMIT_MS);
   c.on('close', code => { clearTimeout(timer); res({ status: code, out, err }); });
 });
 

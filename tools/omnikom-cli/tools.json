@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "note": "One entry per external tool a check uses (DECISIONS 42). sha256 and size are the GitHub API asset digest of the release, never computed from a download. ci.yml pins the same versions (a test fails when they differ). node is checked, never downloaded.",
+  "tools": {
+    "actionlint": {
+      "version": "1.7.12",
+      "published": "2026-03-30T17:49:21Z",
+      "repo": "rhysd/actionlint",
+      "bin": {
+        "windows-amd64": "actionlint.exe",
+        "linux-amd64": "actionlint"
+      },
+      "platforms": {
+        "windows-amd64": {
+          "url": "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_windows_amd64.zip",
+          "sha256": "6e7241b51e6817ea6a047693d8e6fed13b31819c9a0dd6c5a726e1592d22f6e9",
+          "size": 2479065
+        },
+        "linux-amd64": {
+          "url": "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz",
+          "sha256": "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8",
+          "size": 2353908
+        }
+      }
+    },
+    "gitleaks": {
+      "version": "8.30.1",
+      "published": "2026-03-21T02:17:58Z",
+      "repo": "gitleaks/gitleaks",
+      "bin": {
+        "windows-amd64": "gitleaks.exe",
+        "linux-amd64": "gitleaks"
+      },
+      "platforms": {
+        "windows-amd64": {
+          "url": "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_windows_x64.zip",
+          "sha256": "d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e",
+          "size": 8438883
+        },
+        "linux-amd64": {
+          "url": "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz",
+          "sha256": "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb",
+          "size": 8230402
+        }
+      }
+    },
+    "deno": {
+      "version": "2.8.1",
+      "published": "2026-05-27T12:56:27Z",
+      "repo": "denoland/deno",
+      "bin": {
+        "windows-amd64": "deno.exe",
+        "linux-amd64": "deno"
+      },
+      "platforms": {
+        "windows-amd64": {
+          "url": "https://github.com/denoland/deno/releases/download/v2.8.1/deno-x86_64-pc-windows-msvc.zip",
+          "sha256": "5fb5bac71f609fb91ec8960fb290885aadc27eeb22f07a8eca0c3db6be38b11a",
+          "size": 42032643
+        },
+        "linux-amd64": {
+          "url": "https://github.com/denoland/deno/releases/download/v2.8.1/deno-x86_64-unknown-linux-gnu.zip",
+          "sha256": "2d7bb6195226ac832e0bf7109a115f0af65ee69ac797a4bbde5b27a06cc242d9",
+          "size": 46052410
+        }
+      }
+    },
+    "shellcheck": {
+      "version": "0.11.0",
+      "published": "2025-08-04T00:27:19Z",
+      "repo": "koalaman/shellcheck",
+      "bin": {
+        "windows-amd64": "shellcheck.exe",
+        "linux-amd64": "shellcheck"
+      },
+      "platforms": {
+        "windows-amd64": {
+          "url": "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.zip",
+          "sha256": "8a4e35ab0b331c85d73567b12f2a444df187f483e5079ceffa6bda1faa2e740e",
+          "size": 8068167
+        },
+        "linux-amd64": {
+          "url": "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.gz",
+          "sha256": "b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6",
+          "size": 3773312
+        }
+      }
+    },
+    "node": {
+      "version": "24.22.1"
+    }
+  }
+}

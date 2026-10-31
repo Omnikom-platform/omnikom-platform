@@ -2,7 +2,7 @@
 // Switches (flags without a value) are listed here; every other flag takes the next argument as its value.
 import { Usage } from './errors.mjs';
 
-export const SWITCHES = new Set(['json', 'retry', 'real', 'dry-run', 'i-mean-production', 'clean', 'unassign', 'help']);
+export const SWITCHES = new Set(['json', 'retry', 'real', 'dry-run', 'i-mean-production', 'clean', 'unassign', 'help', 'install']);
 
 export function parseArgs(argv) {
   const positionals = [];

@@ -21,8 +21,10 @@ import { publish, jobGroup } from './commands/publish.mjs';
 import { verify } from './commands/verify.mjs';
 import { mfaGroup } from './commands/mfa.mjs';
 import { audit, gate, AuditCrash, textOutput } from './commands/audit.mjs';
+import { toolsGroup } from './commands/tools.mjs';
+import { ci, ciText } from './commands/ci.mjs';
 
-const COMMANDS = { status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate };
+const COMMANDS = { status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate, tools: toolsGroup, ci };
 export const USAGE = [
   'status | apply [--dry-run] | test walls | verify --only lead|walls|people | mfa enroll-staff',
   'seed test [--alert-to <email>] [--clean] | seed workspace --slug --name --industry --deploy-target --preview-host (--contract <file> | --plan <dir> --entities <file>)',
@@ -31,6 +33,8 @@ export const USAGE = [
   'lead send --site <slug> [--form contact] [--fixture <f>] [--retry] [--key <uuid>] | lead list|get|update|add|delete --as <person> ...',
   'content save|get|history --as <person> ... | publish --as <person> --site <slug> --rows <ids> | job get|wait|set --job <id>',
   'audit --dir <built site folder> [--only <rule ids>] | gate --dir <built site folder>   (text lines by default; exit 0 pass, 1 FAIL, 2 usage or crash)',
+  'tools ensure [--only a,b] | tools list   (the binaries the checks need, from tools.json, into the git-ignored .tools/; no target)',
+  'ci [--job <id>] [--root <dir>] [--install]   (every job of .github/workflows/ci.yml, locally, with those binaries; text lines by default; exit 0 all PASS, 1 FAIL, 2 usage)',
   'flags: --target staging|local|production  --as <identity>  --expect <code>  --json  --fixture <file>  --real',
 ];
 
@@ -54,7 +58,7 @@ export async function main(argv, deps = {}) {
     const res = await run(ctx);
     const expect = flags.expect === undefined || flags.expect === true ? null : String(flags.expect);
     const matched = expect !== null ? res.code === expect : res.ok;
-    out = { ok: res.ok, command: name(), target: ['local', 'staging', 'production'].includes(ctx.targetName) && ctxUsesTarget(command) ? ctx.targetName : undefined, code: res.code, ...(expect !== null ? { expect, matched } : {}), exit: matched ? 0 : 1, data: res.data, ...(ctx.warnings.length ? { warnings: ctx.warnings } : {}) };
+    out = { ok: res.ok, command: name(), target: ['local', 'staging', 'production'].includes(ctx.targetName) && ctxUsesTarget(command) && command !== 'tools' && command !== 'ci' ? ctx.targetName : undefined, code: res.code, ...(expect !== null ? { expect, matched } : {}), exit: matched ? 0 : 1, data: res.data, ...(ctx.warnings.length ? { warnings: ctx.warnings } : {}) };
   } catch (e) {
     if (e instanceof Usage) out = { ok: false, command: name(), code: 'USAGE', exit: 2, error: e.message };
     else if (e instanceof AuditCrash) out = { ok: false, command: name(), code: 'AUDIT-CRASH', exit: 2, error: e.message };
@@ -66,6 +70,7 @@ export async function main(argv, deps = {}) {
   function finish(obj) {
     // audit and gate print their lines, not the JSON object (unless --json); a usage error or a crash is one ERROR line
     const first = parsed.positionals[0] || argv.find(a => !a.startsWith('--'));
+    if (first === 'ci' && obj.command !== 'help' && !parsed.flags.json && !argv.includes('--json')) return { exit: obj.exit, stdout: ciText(obj, env), stderr: '' };
     if ((first === 'audit' || first === 'gate') && obj.command !== 'help' && !parsed.flags.json && !argv.includes('--json')) return { exit: obj.exit, stdout: textOutput(first, obj, env), stderr: '' };
     const lines = obj.data && Array.isArray(obj.data.lines) && obj.command === 'verify' ? obj.data.lines.map(l => redact(l, env)).join('\n') + '\n' : '';
     return { exit: obj.exit, stdout: render(obj, { compact: Boolean(parsed.flags.json), env }), stderr: lines };

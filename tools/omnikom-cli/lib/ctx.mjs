@@ -13,6 +13,9 @@ export function makeCtx({ command, positionals, flags, deps = {} }) {
   const ctx = {
     command, positionals, flags, env, spawn,
     fetch: deps.fetch || globalThis.fetch,
+    platform: deps.platform,   // tools and ci: 'windows-amd64' | 'linux-amd64' (a test names one; otherwise this machine's)
+    manifest: deps.manifest,   // tools and ci: a test hands over its own tools.json
+
     now: deps.now || (() => Math.floor(Date.now() / 1000)),
     randomUUID: deps.randomUUID || randomUUID,
     sleep: deps.sleep || (ms => new Promise(r => setTimeout(r, ms))),
