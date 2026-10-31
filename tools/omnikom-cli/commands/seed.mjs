@@ -24,11 +24,13 @@ export const SITE_B = 'bbbbbbbb-0000-0000-0000-00000000517e';
 // the contract text of tenancy.test.sql, as data
 export const TEST_CONTRACT = {
   collections: {
-    team: { kind: 'collection', access: { member: 'own' }, ownerField: 'self', fields: { name: { type: 'text' }, licence: { type: 'group', locked: { reason: 'fact' } } } },
-    listings: { kind: 'collection', access: { member: 'own' }, ownerField: 'agent', fields: { street: { type: 'text' }, agent: { type: 'reference', to: 'team' } } },
-    settings: { kind: 'singleton', access: { member: 'none' }, fields: { businessName: { type: 'text' }, licences: { type: 'list', locked: { reason: 'fact' } } } },
-    leads: { kind: 'inbox', access: { member: 'own' }, ownerField: 'owner', fields: { status: { type: 'enum' } } },
+    team: {"kind":"collection","access":{"member":"own"},"ownerField":"self","fields":{"name":{"type":"text","required":true},"licence":{"type":"group","locked":{"reason":"fact"}}}},
+    listings: {"kind":"collection","access":{"member":"own"},"ownerField":"agent","fields":{"street":{"type":"text","required":true},"status":{"type":"enum","options":["for-sale","sold"],"required":true},"agent":{"type":"reference","to":"team"}}},
+    pages: {"kind":"collection","access":{"member":"none"},"fields":{"type":{"type":"text","required":true},"title":{"type":"text","required":true},"seo":{"type":"seo","required":true},"contact":{"type":"group","of":{"phone":{"type":"text","required":true},"hours":{"type":"text"}}},"rooms":{"type":"list","of":{"name":{"type":"text","required":true}}},"free":{"type":"group","open":true,"of":{"x":{"type":"text","required":true}}},"fact":{"type":"group","sourced":true,"of":{"n":{"type":"text","required":true}}},"sections":{"type":"sections"}}},
+    settings: {"kind":"singleton","access":{"member":"none"},"fields":{"businessName":{"type":"text"},"licences":{"type":"list","locked":{"reason":"fact"}}}},
+    leads: {"kind":"inbox","access":{"member":"own"},"ownerField":"owner","fields":{"status":{"type":"enum"}}},
   },
+  pageTypes: {"home":{"sections":[{"id":"hero","kind":"fields","fields":{"headline":{"type":"text","required":true}}},{"id":"extras","kind":"fields","fields":{"note":{"type":"text"}}},{"id":"feed","kind":"feed","accepts":"listings"}]}},
 };
 const P = PERSONS;
 const SEED_REF = 'omnikom seed test';
