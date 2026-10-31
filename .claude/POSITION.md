@@ -638,3 +638,4 @@
   switch: 12 of 12 caught. CLI head recorded the big-output hook (owns tools/hooks/). Model switches pending at boundaries: platform
   (after 4.3 and 4.4), CLI (after key-numbering), SEO (after slice 2); clients done.
 - 06:40 Slice 4.4 PROVEN against fakes (PROGRESS.md "4.4 runner and workflows: head's verification"), ci.yml caps 75/60; committing .github/, factory/runner/, tools/github-secrets.mjs, factory/README.md, PROGRESS, charter. NEXT: 4.3 report -> Haiku re-run -> commit -> "boundary" to the head of operations -> Opus from then.
+- 06:45 Head of operations session switched to Opus 5.5 by the owner (/model). Pending: platform, CLI, SEO heads at their boundaries.
