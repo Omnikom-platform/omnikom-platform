@@ -18,7 +18,7 @@ Needs `SUPABASE_ACCESS_TOKEN` with read access to the project's Auth configurati
 | Sign-ups (`disable_signup`) | off: true | invites only; no stranger burns the mail quota (24-GAP-HUNT C) | yes, off | 2026-10-30: BLOCKED, see below |
 | Anonymous sign-ins (`external_anonymous_users_enabled`) | off: false | no anonymous logins exist in the data model | yes, off | 2026-10-30: BLOCKED |
 | Email confirmation (`mailer_autoconfirm`) | required: false | a login is a confirmed address | yes, confirm email on | 2026-10-30: BLOCKED |
-| OTP and magic-link expiry (`mailer_otp_exp`) | 3600 s at most | the vendor's production checklist | yes, 3600 | 2026-10-30: BLOCKED |
+| OTP and magic-link expiry (`mailer_otp_exp`) | 600 s (owner 2026-10-31: the link lives 10 minutes; the dashboard copy DP-1.2-02 says so) | the spec; the vendor's production checklist allows up to 3600 | 3600 on 2026-10-29; 600 pending on staging | 2026-10-30: BLOCKED |
 | OTP length (`mailer_otp_length`) | 8 | brute-force margin | yes, 8 | 2026-10-30: BLOCKED |
 | Site URL (`site_url`) | `https://app-staging.omnikom.io` (production: the dashboard's domain) | magic links land on our dashboard only | yes | 2026-10-30: BLOCKED |
 | Redirect allow list (`uri_allow_list`) | `https://app-staging.omnikom.io/**` (production: its own) | no open redirect | yes | 2026-10-30: BLOCKED |

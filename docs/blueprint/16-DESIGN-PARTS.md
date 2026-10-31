@@ -28,7 +28,7 @@ Slice says which build slice puts it on the screen; `later` rows are not built i
 | Id | Slice | Element | Click or input | What happens | What the person sees | If it fails |
 |---|---|---|---|---|---|---|
 | DP-1.2-01 | 5.3 | Email field | type | nothing until Enter or the button | the field | a bad address: "Enter an email like name@example.com" under the field |
-| DP-1.2-02 | 5.3 | Send me a sign-in link | click | Supabase Auth sends the link | the card changes to "Check your email. The link works for 1 hour." (the project's link life, `mailer_otp_exp` 3600 s in `supabase/auth-settings.md`; the copy follows the setting) | provider down: "We could not send the email. Try again in a minute." The button stays |
+| DP-1.2-02 | 5.3 | Send me a sign-in link | click | Supabase Auth sends the link | the card changes to "Check your email. The link works for 10 minutes." (the project's link life, `mailer_otp_exp` 600 s in `supabase/auth-settings.md`, owner 2026-10-31; the copy follows the setting) | provider down: "We could not send the email. Try again in a minute." The button stays |
 | DP-1.2-03 | 5.3 | Send it again (after 60 s, on the check-your-email card) | click | the same send | the same card | the same message as DP-1.2-02 |
 | DP-1.2-04 | 5.3 | Use a password instead | click | the card shows email + password + Sign in | | |
 | DP-1.2-05 | 5.3 | Password field and Sign in | type, click | password sign in | Leads | wrong password: "Email or password is wrong." No account discovery |

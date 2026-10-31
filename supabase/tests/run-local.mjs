@@ -51,7 +51,15 @@ const fresh = (name, migrationText) => {
 };
 // Every mutant database is dropped after its run (and its SQL file deleted): 215 kept databases filled a CI runner's disk once
 // (run 41187071384 attempt 1: the walls died mid-run, then the next gate could not write a file). Only `real` stays until the end.
-const done = (name) => { sqlOn('postgres', `drop database if exists ${name}`); rmSync(join(dir, `${name}.sql`), { force: true }); };
+// WITH (FORCE): on 2026-10-31 (5.3 combined tree, loaded laptop) one mutant database survived its drop and the gate failed with no
+// reason; a backend still attached (a psql killed at its time limit) makes a plain drop fail. The drop is checked, retried once,
+// and a failure names the database and the server's answer.
+const done = (name) => {
+  let x = sqlOn('postgres', `drop database if exists ${name} with (force)`);
+  if (x.status !== 0) x = sqlOn('postgres', `drop database if exists ${name} with (force)`);
+  if (x.status !== 0) console.log(`DROP FAILED ${name}: ${outOf(x).slice(0, 300)}`);
+  rmSync(join(dir, `${name}.sql`), { force: true });
+};
 
 // The walls, each removed in one mutant. Every target must exist in the migration (as written, or schema-qualified: since
 // migration 8 every SECURITY DEFINER function exists twice in the migration text, the original and its qualified copy with

@@ -1,0 +1,47 @@
+import { Link, Outlet, useNavigate, useParams } from '@tanstack/react-router';
+import { useSession } from '../auth';
+import { useMemberships, useWorkspace } from '../data';
+import { WorkspaceContext } from '../workspace-context';
+import { UNREACHABLE } from '../lib/problems';
+import { NotFound } from './NotFound';
+import { SignOutButton } from './SignOutButton';
+
+/**
+ * The shell (DP-1.2s-01 to -03, -06, -07): the business name, Leads, a switcher when there is more than one business, Sign out.
+ * A workspace in the address that this login cannot read shows "Not found" and renders nothing below it, so no page under it asks for
+ * data: the database decides (Row-Level Security), the screen only reports. Site and Settings are not shown: their screens are slices 5.4 and 5.6.
+ */
+export function Shell() {
+  const { ws } = useParams({ from: '/authed/w/$ws' });
+  const { session } = useSession();
+  const userId = session?.user.id;
+  const nav = useNavigate();
+  const q = useWorkspace(ws, userId);
+  const mem = useMemberships(userId);
+  const workspace = q.data;
+
+  if (q.isLoading) return <main><p data-plan="DP-1.2s-10">Loading</p></main>;
+  if (q.error) return <main><p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p></main>;
+  if (!workspace || !userId) return <main><NotFound /></main>;
+
+  const others = mem.data ?? [];
+  return (
+    <WorkspaceContext.Provider value={{ workspace, userId }}>
+      <header>
+        <nav>
+          <p data-plan="DP-1.2s-01"><strong>{workspace.name}</strong></p>
+          <Link to="/w/$ws/leads" params={{ ws }} data-plan="DP-1.2s-03" activeProps={{ 'aria-current': 'page' }}>Leads</Link>
+          {others.length > 1 && (
+            <select data-plan="DP-1.2s-02" aria-label="Workspace switcher" value={workspace.slug} onChange={e => void nav({ to: '/w/$ws/leads', params: { ws: e.target.value } })}>
+              {others.map(m => <option key={m.workspace.id} value={m.workspace.slug}>{m.workspace.name}</option>)}
+            </select>
+          )}
+          <SignOutButton />
+        </nav>
+      </header>
+      <main>
+        <Outlet />
+      </main>
+    </WorkspaceContext.Provider>
+  );
+}

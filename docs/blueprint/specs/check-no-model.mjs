@@ -12,7 +12,7 @@ import { readdirSync, readFileSync, statSync, existsSync, realpathSync } from 'n
 import { join, relative, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const SCOPE = ['supabase', 'factory', 'tools/audit', 'tools/omnikom-cli', '.github/workflows', 'dashboard', 'sites'];
+export const SCOPE = ['supabase', 'factory', 'tools/audit', 'tools/omnikom-cli', '.github/workflows', 'apps/dashboard', 'sites'];
 export const ALLOW = ['skills/programmatic-enterprise-web-performance/scripts/', 'operators/'];
 export const EXTENSIONS = ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.yml', '.yaml', '.sh', '.ps1', '.py', '.sql', '.toml', '.json'];
 const SKIP_DIRS = new Set(['node_modules', '.git', '.wrangler', '.temp', 'dist']);

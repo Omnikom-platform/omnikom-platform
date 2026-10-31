@@ -1,0 +1,33 @@
+{
+  "name": "omnikom-dashboard",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The client dashboard (step 5): plain semantic markup, staging data. The look comes later from the Design department.",
+  "engines": { "node": ">=24.22.1" },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node scripts/check-bundle-secrets.mjs",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "flows": "playwright test"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.118.0",
+    "@tanstack/react-query": "5.104.5",
+    "@tanstack/react-router": "1.170.46",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "24.19.2",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "@vitejs/plugin-react": "6.1.2",
+    "typescript": "7.0.2",
+    "vite": "8.3.5",
+    "vitest": "4.1.12"
+  }
+}

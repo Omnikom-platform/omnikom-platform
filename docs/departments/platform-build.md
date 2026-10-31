@@ -15,6 +15,7 @@ proven on staging through the CLI the testing department provides.
 - `sites/`
 - `tools/deploy-capture-lead.mjs`
 - `tools/mint-site-key.mjs`
+- `tools/tick-sequence.mjs`
 - `tools/dns-upsert.mjs`
 - `tools/staging-extensions.mjs`
 - `tools/check-platform-keys.mjs`

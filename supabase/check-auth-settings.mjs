@@ -15,7 +15,7 @@ const EXPECT = {
   disable_signup: ['sign-ups off (invites only)', true, '24-GAP-HUNT C; PROGRESS.md 2026-10-29'],
   external_anonymous_users_enabled: ['anonymous sign-ins off', false, '24-GAP-HUNT C; PROGRESS.md 2026-10-29'],
   mailer_autoconfirm: ['email confirmation required (autoconfirm off)', false, 'PROGRESS.md 2026-10-29 "confirm email on"'],
-  mailer_otp_exp: ['OTP and magic-link expiry, seconds (at most 3600)', 3600, 'PROGRESS.md 2026-10-29'],
+  mailer_otp_exp: ['OTP and magic-link expiry, seconds (owner 2026-10-31: 10 minutes)', 600, 'owner 2026-10-31 23:58'],
   mailer_otp_length: ['OTP length', 8, 'PROGRESS.md 2026-10-29'],
   site_url: ['Site URL', 'https://app-staging.omnikom.io', 'PROGRESS.md 2026-10-29'],
   uri_allow_list: ['redirect allow list', 'https://app-staging.omnikom.io/**', 'PROGRESS.md 2026-10-29'],

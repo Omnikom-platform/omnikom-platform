@@ -120,6 +120,29 @@ UNPROVEN: nothing in this slice touches staging; the CLI gates must be re-run wh
 
 ## Step 6 prep: what needs no account click (2026-10-31, the standing Platform build head; brief `factory/briefs/6-0-production-prep.md`)
 
+### Restore drill 1 (the monthly drill's first record, 2026-10-31 21:36 local, the head; 11-OPERATIONS section 3)
+`node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node supabase/ops/restore-drill.mjs --db STAGING_DB_URL` on
+master 3cd4bf0 (per-table counts left out here; 29 tables listed in the run). The first run, 21:00, failed one step, "checks":
+"constraints NOT VALID: 1" was Supabase's own `realtime.messages messages_payload_exclusive`, NOT VALID on staging itself; the
+check now covers our schemas only and names what it finds (its test watched red on the committed drill: "constraints NOT VALID: 2").
+```
+restore drill 2026-10-31T19:33:27Z: dump of STAGING_DB_URL, site test-demo-a, work folder in the system temp folder, limit 120 min
+PASS dump     2 min 10 s  pg_dump of the source, 679055 bytes (custom format, with privileges, read only)
+     archive: 1105 entries, grants present
+PASS cluster      16.9 s  PostgreSQL 18.4 on port 55525, folder C:/Users/DELL/AppData/Local/Temp/...
+PASS restore       6.3 s  restored into database "restored"; 32 expected errors, 0 unexpected
+     expected here (no pg_cron, pg_net, pgmq, Supabase Vault in plain Postgres): 32 errors, all about those four extensions, their schemas and their rows (CREATE EXTENSION IF x4; COMMENT ON EXTENSION x4; COPY cron.job (jobid, x1; COPY cron.job_run_details (jobid, x1; COPY vault.secrets (id, x1; SELECT pg_catalog.setval('cron.jobid_seq', 1, x1; ...)
+PASS counts       18.9 s  65 tables, 814 rows in all (the non-empty tables below); every table lies between the source count before the dump and after the restore (the source did not change)
+PASS checks        1.2 s  29 public tables, all with row level security on; 0 constraints NOT VALID in our schemas
+PASS walls         9.2 s  tenancy.test.sql (unchanged, rolled back): ALL TENANCY TESTS PASSED on the restored schema
+PASS build         2.2 s  job a7a3ca9f: 13 rows, 6 media (stand-in logo), factory built 7 pages (4 contract + 3 item), 8 html files, index.html present
+total 3 min 8 s (target under 2 hours)
+DRILL PASS: 7 phases, 3 min 8 s
+exit 0
+```
+CI on 3cd4bf0 (run 41234695247): 8 of 8 jobs green; it also fixed the red factory job of 68e2592 (the runner tests read
+.github/workflows; the chain check now runs every CI job that reads a changed file, not only run-all-gates).
+
 ### 6A promote and key-rotation reminder (builder)
 Built `supabase/ops/promote-check.mjs`, `key-ages.mjs`, `supabase/ops/test/{promote-check,key-ages}.test.mjs` plus the shared
 `test/cluster.mjs`, `.github/production/promote.yml` and `.github/workflows/key-rotation.yml`. `promote-check` reads each database's
@@ -158,6 +181,33 @@ yet: Storage files (the `media` bucket are not in a `pg_dump`).
 
 ## Step 5: the dashboard, backend first (2026-10-31, the standing Platform build head)
 Plan `factory/briefs/5-0-step-5-and-6-plan.md`; one in-session Sonnet builder per slice.
+
+### 5.3 shell, sign-in and Leads (2026-10-31, builder then head; brief `factory/briefs/5-3-shell-and-leads.md`)
+Builder (in-session Sonnet): `apps/dashboard/` (Vite 8.3.5, React 18.3.1, TanStack Router and Query, supabase-js 2.118.0, TypeScript
+7.0.2, Vitest, Playwright 1.64.1 on Edge). Plain semantic markup, no styling (the Design department owns the look, DECISIONS 39).
+Sign in (magic link and password), the workspace list, Leads with the lead panel and Add a lead, Not found. Every element and every
+fixed text carries `data-plan="DP-..."` from 16-DESIGN-PARTS Part 1 through `t('<id>', 'words')`; `built-slices.json` = ["5.3"].
+Plan gate (DECISIONS 44, `tests/plan-gate.mjs`, rules PLAN-1 to PLAN-9, parsed with Vite's parseAst): an element with no plan id,
+an id that names no plan line, a 5.3 plan line with no element, placeholder data, a dead control; 11 of 11 mutants red. A DOM
+gate in Playwright checks the rendered pages the same way. Bundle-secret check on the staging build. Builder's numbers: npm ci 0,
+tsc 0, Vitest 50 of 50, Playwright 7 of 7 on staging (1.5 min); the flow mutants leak-b, no-live and member-sees-all each red.
+Packages: 126, each at least 7 days old, osv clean.
+
+Head's verification (23:16 local, Haiku in a clean C: worktree of 3cd4bf0 plus the slice and its chain): dashboard CI step
+`OK: dashboard install, type check, unit tests and plan gate passed`; staging build `bundle-secret check: ok, 3 files scanned`;
+Playwright on staging `7 passed (1.3m)` (A cannot open B, a lead appears live, a member sees only their leads, four DOM gate
+tests); check-no-model with scope `apps/dashboard` `10 of 10 mutants caught ... 0 tell(s)`; departments `5 charter(s) valid`;
+actionlint exit 0. Red: (1) CLI unit 184 of 186: the new ci.yml job `dashboard` is not in the CLI's NODE_STEPS
+(`tools/omnikom-cli/commands/ci.mjs`, CLI department, with its staged work in the file), so the ci.yml job and the runner test's
+nine-job list are held back until the CLI maps "Dashboard tests" (notice sent); 5.3 lands without CI coverage for now. (2) The
+walls gate: every mutant caught as far as the tail shows, then `FAIL mutant databases left behind: 1` under load, with no reason
+printed. Fix in `supabase/tests/run-local.mjs`: the drop is `with (force)`, checked, retried once, and a failure prints
+`DROP FAILED <db>: <answer>`. Watched red with the drop removed: `FAIL mutant databases left behind: 1`. (3) `omnikom ci --job
+workflows` could not download actionlint (github.com connect timeout), network only.
+From DECISIONS 45 the full gates run on GitHub: the commit goes to `check/platform/5-3`, master fast-forwards to it only when every
+ci.yml job is green. Owner 2026-10-31 23:58: the sign-in link lives 10 minutes: DP-1.2-02 copy, its Playwright check, `supabase/auth-settings.md` and
+`check-auth-settings.mjs` now say 600 s; the staging project still has 3600 until its Auth setting is changed (NOT DONE). GAP lines still open (sent up): the owner-unassign wording; page titles for the panel, Add a lead and Not
+found; the test contract has no forms; the tab count uses status New until 5.3b.
 
 ### 5.1, 6A and 6B: head's verification (2026-10-31 20:55 local, one combined commit, DECISIONS 43)
 The three slices were gated together in a clean C: worktree of 98c9930 plus exactly the committed files (scratchpad
