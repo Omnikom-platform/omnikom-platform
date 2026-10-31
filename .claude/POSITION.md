@@ -687,6 +687,7 @@
   to the owning head; only heads commit and push, after the full gates on the combined tree; a pre-push hook refuses a tree
   with no passing gate stamp. Cause: f831f10 (contract) then eeb8431 (seed.mjs, imported by the functions harness) each went
   red on GitHub. Build: CLI dept, `omnikom impact` + gate stamp + `omnikom hooks install`, ahead of the seed-test brief.
+- 18:25 CI fix 98c9930 pushed (publish.test.ts status; full gates on a clean worktree: all gates passed). Combined commit in verification on a C: worktree: 5.1 (migration 12, applied on staging already), 6A, 6B, apply-staging dry run read-only (6A finding, apply-dry test 5/5, old script red 3/5), ci.yml lints .github/production. Then 6B restore drill (heavy, waits), then 5.2 (brief written). 5.3 builder running in apps/dashboard (E: OK given 17:56). DECISIONS 43: chain check + full gates on the combined tree before each commit; only the head commits.
 
 ## 2026-10-31 12:40 to 18:30 (HEAD: CLI and testing department, session `local_c8848ce4...`, Opus 5.5, this checkout, master)
 - Tools and local CI PROVEN offline (PROGRESS.md "CLI: tools and local CI"): `tools.json`, `omnikom tools ensure|list`, `omnikom ci`;
@@ -694,3 +695,8 @@
 - NOT DONE: real `node tools/omnikom-cli/omnikom.mjs tools ensure` and `omnikom ci`, run by the head of operations (owner's yes there).
 - Building: `omnikom impact`, `omnikom gates` stamp (temp worktree on D:/omk-gates), `omnikom hooks install` pre-push (DECISIONS 43).
 - UNPROVEN: staging walls (seed-test Part 3).
+
+- 18:30 DECISIONS 44 (owner): nothing made up on the dashboard; every control and fixed text carries its plan id (15-CRM,
+  16-DESIGN-PARTS, slice brief), a gate checks both directions, no sample data, no dead buttons, plan gaps go up, never invented.
+  Routed to the platform head for 5.3 on. E: cleaned to 78 GB free (71 GB node_modules from idle mop-build copies). Master CI
+  green on 98c9930 (8 of 8, checked by me).

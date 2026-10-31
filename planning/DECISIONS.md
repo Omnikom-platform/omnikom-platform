@@ -383,3 +383,14 @@
         `git write-tree` hash) under .git/; a pre-push hook installed by `omnikom hooks install` refuses to push a commit
         whose tree has no passing stamp. A commit that changes only prose no gate reads is allowed, as `omnikom impact`
         decides. Built by the CLI and testing department, with a test watched failing and a mutant for each part.
+
+44. **Nothing on the dashboard is made up; every button, field and line of text traces to the written plan** (2026-10-31
+    18:30, owner: "make sure that we don't put anything that is made up in the screens of the plain dashboard ... it needs to be
+    actually production written every button is actually planned for"). So: (1) every interactive element and every fixed
+    piece of copy on a screen carries the id of the plan line it implements (`15-CRM.md`, `16-DESIGN-PARTS.md`, or the step 5
+    slice brief); a gate fails on an element with no plan id, on a plan id that names nothing, and on a plan line for a screen
+    that has no element; (2) no sample or placeholder data in the app source (no invented leads, names, numbers, lorem text, fake
+    charts); screens show real rows from staging or the plan's empty state; (3) no dead control: a button that does nothing,
+    or that leads to something not built yet, is not shown; (4) where the plan is silent, the builder does not invent: it
+    stops and sends the gap to its head, who adds it to the plan or asks the owner. Each part is a test watched failing with a
+    mutant. Platform build department, from slice 5.3 on; the styling layer added later (DECISIONS 39) changes looks only.
