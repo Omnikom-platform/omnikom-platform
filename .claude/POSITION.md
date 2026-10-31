@@ -615,3 +615,5 @@
 - 05:48 Reel 7 (Nvidia Kumo) and the owner's subscription worry: DECISIONS 38 (runtime never needs Claude, agent steps run from a
   key too, structural check routed to the platform head; Kumo noted for step D). Owner's answer on unslop's home: Design
   department at step 5, DECISIONS 39. Explained in plain words after the owner said the first version was not understandable.
+- 05:47 DECISIONS 38 part 1 (no model in runtime: structural check, allowlist by path, watched red + mutant) recorded in the charter Open items; due after 4.2 and 4.4, before step 5.
+- 05:55 Slice 4.2 PROVEN (PROGRESS.md "4.2 dashboard functions: head's verification"); committing supabase/**, tools/deploy-functions.mjs, deno.json, openapi.json, run-all-gates.mjs fix, charter, PROGRESS. NEXT: launch 4.3 (brief + extras: capture-lead jsonb fix with test and mutant, [functions.test] enabled=false, media[].path/url -> 2400 webp derivative, RUNNER_KEY mint) and Haiku re-run of 4.4.

@@ -148,6 +148,60 @@ the real `site_contracts.resolved` shape was read from the migration text only; 
 `method="post"` but no script handles the answer, so "a preview never fakes success" is not exercised; `motion.js` is supported and tested with a stub, the
 test design has none.
 
+### 4.2 dashboard functions: head's verification (2026-10-31 05:55 local)
+Builder: in-session Sonnet agent, brief `factory/briefs/4-2-dashboard-functions.md`, 205 tool uses, 4 h 44 min. Its paragraph is below. Every gate
+re-run by a Haiku agent on the same tree, one command at a time (04:55 to 05:52), verbatim last lines:
+```
+deno task check                                              (15 files listed, no error)                                   exit 0
+node docs/blueprint/specs/check-specs.mjs                    OK: 12 operations, 12 operationIds; 47 FR/NFR rows, 40 work orders, 0 problem(s)   exit 0
+node supabase/functions/test/run.mjs                         OK: 58 of 58 checks passed (the Deno tests), exit 0            exit 0
+node supabase/functions/test/mutate.mjs                      31 mutants, 31 caught, 0 survived, 0 target text missing       exit 0
+node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs status --target staging
+                                                             applied 10 (…000009_media_and_export, …000010_export_schema_key), pending [], mismatched []
+                                                             functions: add-lead, capture-lead, lead-update, publish, save, upload-finish, upload-start "deployed"; test "not deployed"   exit 0
+node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node supabase/tests/e2e-functions.mjs
+                                                             PASS save by owner-a is 200 with a version: 200 version 1
+                                                             PASS save by nobody is 404 and names no field: 404 S-NOT-FOUND
+                                                             PASS publish by owner-a is 202 and the job is queued: 202 job ce15cf70-328a-4600-bd43-b9d3fa685129
+                                                             INFO publish dispatched: true   [no workflow listens yet, so it stays queued]
+                                                             PASS add-lead by owner-a is 201: 201
+                                                             PASS lead-update by member-a1 on a lead that is not theirs is 404: 404 S-NOT-FOUND
+                                                             PASS the e2e lead was deleted through the CLI (lead delete): exit 0
+                                                             PASS 0 leads remain on staging (lead list as owner-a): count 0
+                                                             PASS upload-start by owner-a is 200 with a path under workspace A and a signed upload URL: 200
+                                                             PASS upload-finish by owner-a is 200 and processed stays false: 200
+                                                             INFO upload-finish dispatched: true
+                                                             PASS a call with no token is 401: 401 UNAUTHORIZED_NO_AUTH_HEADER
+                                                             PASS: staging end to end for the dashboard functions, 0 problem(s)   exit 0
+node supabase/tests/run-local.mjs                            OK: real migration passes; 214 mutants   (214 "caught" lines, 0 SURVIVED, 0 FAIL, 0 MISSING; 17 min 0 s alone)   exit 0
+```
+**Verdict: slice 4.2 PROVEN** (six dashboard functions deployed on staging and exercised end to end by the head's own run; migrations 9 and 10
+applied; T18 and 53 new database mutants; 58 Deno checks, 31 Deno mutants). Left on staging by the two e2e runs (builder's and head's), on purpose:
+two queued publish jobs for site A (one is `ce15cf70-...`), two saved listing versions, two unprocessed media rows with rights ticked, 0 leads;
+two `repository_dispatch` events reached the real repo (204) with no workflow to receive them. UNPROVEN: the in-code 401 `S-AUTH` on staging
+(the gateway refuses a missing token first, `UNAUTHORIZED_NO_AUTH_HEADER`; proven locally); the 404 on a wrong token is local only.
+
+**The "flaky wall" the builder's `run-all-gates` hit twice (04:04, 04:46) is DIAGNOSED by the head: not a test.** The runner killed the walls
+gate at 30 minutes (214 mutants under four sessions) and printed the gate's last stdout line, a "caught" mutant line, as the failure. Fixed in
+`docs/blueprint/specs/run-all-gates.mjs` (the head's file): a killed gate prints `TIMEOUT after N s (limit, not a test failure, last line)`,
+limit 60 minutes, `GATE_TIMEOUT_MS` overrides, `GATE_ONLY=<name>` runs one gate, the Deno function tests are a gate. Watched red:
+`GATE_ONLY="contract mutants" GATE_TIMEOUT_MS=1500` printed `FAIL contract mutants  TIMEOUT after 2 s (limit 2 s; not a test failure, the gate
+was killed; last line: caught   rule C-CORE off ...)`, exit 1; with the limit restored `PASS contract tests  147 passed, 0 failed`, exit 0.
+
+**Findings from the builder, decided by the head.** (1) `capture-lead` passes `JSON.stringify(...)::jsonb` for answers, marketing and event
+detail (lines 135 and 156); postgres.js double-encodes a string given to a jsonb parameter (measured by the builder: `jsonb_typeof = 'string'`),
+so a captured lead's answers are very likely stored as a JSON string: a real bug in a deployed function, fixed in slice 4.3 with a test
+(`jsonb_typeof(answers) = 'object'` after a capture) and a mutant. (2) `supabase/functions/test/` shows as a function (`test: not deployed`)
+and a bare `supabase functions deploy` would try it: slice 4.3 adds `[functions.test] enabled = false` to `config.toml`; the status line is
+the CLI head's. (3) walls-gate timeout: done above. (4) Deno tests in the gates: done above. (5) publish checks that a referenced row exists,
+not that it is live or in the same job (02-BACKEND 4), and `I-SAMPLE-LIVE` cannot fire: the factory's publish-mode re-validation catches a
+reference to a row outside the export at build time (defence in depth), so step 4's done-when holds; open item for a later migration
+(`row_exists` with the job, or a `row_live_or_in_job`). (6) `S-AUTH` on staging: noted as UNPROVEN above; the `SUPABASE_JWKS` secret as a
+JWKS-fetch replacement is an option for later. (7) one shared `refusal` for `capture-lead`: follow-up with (1) in 4.3. (8) the CLI's slice 2
+save path sends the claims as an object and the `{ workspace, collection, row, data, signOff }` bodies match the openapi schemas: finding to the
+CLI head. Deviations accepted: `service.site_for` and `service.row_version`; `auth-refused` as the event kind (detail `bad-jwt`); T18 before T17;
+migration 10 instead of an edit of the applied migration 9.
+
 ### 4.2 dashboard functions (builder)  (2026-10-31, builder session `BUILDER (platform build): slice 4.2`, brief `factory/briefs/4-2-dashboard-functions.md`)
 Six Edge Functions the dashboard calls (`save`, `publish`, `lead-update`, `add-lead`, `upload-start`, `upload-finish`), the shared pieces
 (`_shared/db.ts` step-down and refusals, `_shared/auth.ts` second JWT wall, `_shared/dashboard.ts` frame, `_shared/validate.ts`
@@ -174,7 +228,11 @@ node supabase/functions/test/run.mjs                 ok | 58 passed | 0 failed (
 node supabase/functions/test/mutate.mjs              31 mutants, 31 caught, 0 survived, 0 target text missing
 deno task check                                      exit 0 (15 files, no error)
 node docs/blueprint/specs/check-specs.mjs            OK: 12 operations, 12 operationIds; 47 FR/NFR rows, 40 work orders, 0 problem(s)
-node docs/blueprint/specs/run-all-gates.mjs          GATES_PLACEHOLDER
+node docs/blueprint/specs/run-all-gates.mjs          NOT PASSED (twice, 04:04 and 04:46 local): 6 of 7 gates PASS (contract tests 147, contract mutants 88/88, industry run 15/15, specs 0 problems, signature, deno check);
+                                                    FAIL database walls + mutants   caught   audit trail append-only for every role (trigger)  ERROR:  EXPECTED A-APPEND-ONLY BUT IT SUCCEEDED ...
+                                                    The last line printed is a "caught" mutant line, not the summary: the runner killed the walls gate at its 30 minute spawn timeout (docs/blueprint/specs/run-all-gates.mjs line 18)
+                                                    with the machine loaded by other sessions (38 postgres.exe, 35 node/deno processes at 04:10). 214 mutants did not fit in 30 minutes either time. UNPROVEN as one run;
+                                                    the same gate run directly, alone, finished: OK: real migration passes; 214 mutants (above). Unblock: raise that timeout to 60 min or run mutants in parallel (not my file).
 ```
 Staging (project ref and tokens never printed):
 ```
@@ -201,6 +259,78 @@ Left on staging on purpose: one saved listing version in workspace A, one publis
 yet), one media row (unprocessed, rights ticked), two repository_dispatch events (`publish`, `media`) sent to the real repository. The staging
 call with no token was refused by the gateway (`UNAUTHORIZED_NO_AUTH_HEADER`), so the in-code wall's 401 `S-AUTH` is proven locally (auth.test.ts,
 save.test.ts) and not separately on staging; a 200 on staging proves that Supabase's real ES256 session tokens pass `verifyUserJwt`.
+
+### 4.4 runner and workflows (builder)  (2026-10-31, builder session `BUILDER (platform build): slice 4.4`, brief `factory/briefs/4-4-runner-and-workflows.md`; gates run 03:15 to 06:00 local)
+Made: `factory/runner/` (`publish.mjs`, `media.mjs`, `lib/sign.mjs`, `lib/common.mjs`, `package.json` + `package-lock.json` with sharp 0.35.5, `test/`),
+`.github/workflows/` (`publish`, `media`, `ci`, `keepalive`, `backup`), `.github/actionlint.yaml`, `tools/github-secrets.mjs`, a "Runner" section in
+`factory/README.md`. Proven against a FAKE platform, a FAKE wrangler and a FAKE gh on this machine; the platform's own `verify`
+(`supabase/functions/_shared/signature.ts`, Node type stripping) judges every signature. NOT proven against the real functions, Cloudflare or GitHub (slice 4.5).
+```
+node factory/runner/test/run.mjs                 OK: 87 of 87 checks passed                                           exit 0   (sharp installed: media checks ran)
+node factory/runner/test/mutate.mjs              67 mutants, 67 caught, 0 survived, 0 target text missing             exit 0
+node --check factory/runner/publish.mjs factory/runner/media.mjs factory/runner/lib/*.mjs tools/github-secrets.mjs      ok
+actionlint 1.7.12 .github/workflows/*.yml        (no output)                                                          exit 0   (binary in the scratchpad, sha256 6e7241b5... checked against the release's checksums file)
+node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/github-secrets.mjs --repo Omnikom-platform/omnikom-platform --names CLOUDFLARE_PAGES_TOKEN,CLOUDFLARE_ACCOUNT_ID,RUNNER_KEY,PLATFORM_FUNCTIONS_BASE,STAGING_DB_URL,STAGING_SUPABASE_REF,STAGING_SUPABASE_SECRET_KEY,STAGING_SUPABASE_PUBLISHABLE_KEY --dry-run
+                                                 DERIVED: PLATFORM_FUNCTIONS_BASE from STAGING_SUPABASE_REF
+                                                 WOULD SET: CLOUDFLARE_PAGES_TOKEN / CLOUDFLARE_ACCOUNT_ID / PLATFORM_FUNCTIONS_BASE / STAGING_DB_URL / STAGING_SUPABASE_REF / STAGING_SUPABASE_SECRET_KEY / STAGING_SUPABASE_PUBLISHABLE_KEY
+                                                 NOT SET (missing in the env): RUNNER_KEY      <- slice 4.3 mints it (tools/mint-site-key.mjs --runner); not minted yet
+                                                 secrets on Omnikom-platform/omnikom-platform (names only): none                                             exit 0
+node docs/blueprint/specs/run-all-gates.mjs      all gates passed   (contract 147, contract mutants 88, industry 15/15, walls 214 mutants, Deno 58 of 58, specs 0 problems, signature, deno check)
+```
+Watched-fail evidence: the first mutant run of the runner left 4 survivors (`no gating callback`, `no deploying callback`, `metadata kept`, `upload url on another
+host`). Cause: my `same()` helper returned a message STRING on mismatch, truthy inside `&&` chains and inside `.every()`. Fixed (boolean), a message check added for the
+upload host, re-run: 59 of 59, then 67 of 67 after the workflow-file rules got their own checks and mutants. Workflow files: a copy of publish.yml with an undefined
+`secret.` context and an undefined `inputs.nope` made actionlint print three errors (exit 1); without `.github/actionlint.yaml` the real files print
+`unexpected key "queue" for "concurrency" section` (actionlint 1.7.12 does not know the key GitHub documents).
+Decisions made in this slice (flagged to the head in the report): wrangler pinned 4.152.0 (the brief's 4.156.0 was 2 days old; supply-chain rule 1), Node 24.22.1 in every
+workflow (the brief said Node 20; supply-chain rule 4 minimum is 24.22.1 / 22.23.4), the site's `/api/lead` Pages Function is staged next to the deploy, the smoke compares
+the built `index.html` `<title>`, a live site must NOT answer noindex.
+UNPROVEN: the runner against the real `export-published` / `job-callback` / `media-export` / `media-process-callback` (slices 4.2 and 4.3 not deployed when this ran);
+`npx wrangler pages deploy` for real (no Pages project exists; fake wrangler only); `concurrency: queue: max` on GitHub (actionlint rejects the key, GitHub's docs name it);
+GitHub Actions itself (no workflow has run); the `ci.yml` jobs on a Linux runner; Supabase signed-upload PUT semantics (`x-upsert`) for media.
+
+## SEO and audits, slice 2: live snapshot input and speed budgets (2026-10-31 05:40, builder)
+`tools/audit` now judges a live-site snapshot (made by the skill's `snapshot-site.mjs`) with the same rules as a built folder. Rule set 14 to 17:
+SE-001 (robots.txt health), PRF-001 (LCP/CLS/TBT budgets, speed trust, PSI preference) and PRF-016 (TTFB, a WARN) are new; IDX-004 gained its
+HTTP part, LNK-002 its status part. New: `tools/audit/live.mjs` (driver over the skill's `live-target.mjs`), `--psi FILE`, snapshot fixtures
+(`snapshot-good`, 27 `snapshot-bad-*`), `fixtures/live-target-standin.mjs`. No network anywhere; the driver was only run through the stand-in.
+Also done (head's addition 2026-10-31 01:37): `audit(dir, { rules })` with `[]`, `''` or an unknown id throws `AuditError` exit 2 (`no such rule: ""`).
+Real outputs (Haiku agents ran the commands; the mutant run was started from this session because a background process started by an agent died with it):
+```
+node tools/audit/test/run.mjs                 ... ok   audit() returns the documented shape
+                                              OK: 332 of 332 checks passed            (exit 0)
+node tools/audit/test/mutate.mjs              (full run, 4 at a time, 2026-10-31)
+                                              185 mutants, 185 caught, 0 survived, 0 target text missing   (EXIT=0)
+node tools/audit/run.mjs tools/audit/fixtures/snapshot-good
+                                              ... PASS URL-009 /tasting-room/ ; OK: 4 page(s), 17 rule(s), 0 FAIL, 0 WARN, 0 SKIP   (exit 0; grep -vc "^PASS" = 0)
+node tools/audit/run.mjs tools/audit/fixtures/snapshot-bad-PRF-001
+                                              FAIL PRF-001 /:1 budget-exceeded: LCP 3100 ms > 2500 ms (source: checklist/performance.md PRF-001)   (exit 1)
+OMNIKOM_AUDIT_LIVE_TARGET=<stand-in> node tools/audit/live.mjs https://example-tea.invalid/
+                                              ... PASS URL-009 /tasting-room/ ; OK: 4 page(s), 17 rule(s), 0 FAIL, 0 WARN, 0 SKIP   (exit 0)
+node tools/audit/fixtures/build-fixtures.mjs --check
+                                              OK: 92 fixture(s) equal the generator output   (exit 0)
+```
+Runner class added at the coordinator's request: a mutant whose process is killed (exit null) is `NOT RUN`, the summary reads
+`N mutants, N caught, N survived, N not run, N target text missing`, exit 1 when any is not run. Watched fail, same mutant twice:
+```
+MUTATE_TIMEOUT_S=1 : NOT RUN  PRF-016: a slow response passes   (killed, exit null)
+                     1 mutants, 0 caught, 0 survived, 1 not run, 0 target text missing        EXIT=1
+MUTATE_TIMEOUT_S=600: caught   PRF-016: a slow response passes   (3 red: snapshot-bad-PRF-016: WARN PRF-016 naming "TTFB 1900 ms > 600 ms ...)
+                     1 mutants, 1 caught, 0 survived, 0 not run, 0 target text missing        EXIT=0
+```
+**Honest limits.** The 185-mutant run above ran with the harness before the NOT RUN class was added (only the close handler differs; no mutant was killed
+in it). A first full run on a machine loaded by other sessions had 34 `exit null` lines (killed by the timeout or by sleep); they were re-run and
+caught, one real survivor ("child progress lines go to stdout") was fixed by making the stand-in log on stdout like `snapshot-site.mjs` does. UNPROVEN:
+the real `live-target.mjs` and a real snapshot were never run (the head does that on a platform-owned site); the real PSI file shape is the one `psi.mjs`
+documents, tested here only with a hand-made file. Interpretations the head should confirm: (1) IDX-001 on a sample crawl makes BOTH "extra" and
+"missing" a SKIP `incomplete-crawl` (the brief names "missing"; "extra" cannot be judged on a sample either); (2) only pages the crawl saw answer 200 are
+judged by the page rules; (3) links to files/assets are not judged in a snapshot (the crawl fetches pages only); (4) `_site.json` `complete: true`
+is the only way a snapshot counts as a complete crawl (the skill never writes it).
+Findings for the skill (not fixed here): `browser-mobile.json` keeps the numbers under `vitals` (the brief said flat; both are read);
+`snapshot-site.mjs` writes robots.txt with `toString("utf8")`, so a bad byte becomes U+FFFD (SE-001 treats U+FFFD as invalid UTF-8 for that reason);
+`psi.mjs` writes under `site-checks/<host>/.pewp/psi/`, not inside the snapshot folder (pass it with `--psi`); `sitemaps.json` fetched[].status is not
+judged (a declared sitemap that 404s is only visible as "no sitemap file"); `_site.json.url` is written without a trailing slash in the fixture but
+`start.href` has one in the real script (both work).
 
 ## Step 3: the database is finished, the hardening leftovers (2026-10-30 20:22-22:20, step 3 session, platform build; commits 0e60178 and the one after it)
 Every command through `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs <command> --target staging`

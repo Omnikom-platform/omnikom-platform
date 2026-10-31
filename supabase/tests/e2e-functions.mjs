@@ -1,0 +1,72 @@
+// One real call per dashboard function on the STAGING project (slice 4.2; brief factory/briefs/4-2-dashboard-functions.md item 5).
+//   node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node supabase/tests/e2e-functions.mjs
+// Calls the deployed functions over HTTPS with real session tokens of the seeded test logins (the CLI's personToken: Auth admin
+// generate_link + verify, in memory only, never printed). Keys are read from the environment by name: STAGING_SUPABASE_REF,
+// STAGING_SUPABASE_SECRET_KEY, STAGING_SUPABASE_PUBLISHABLE_KEY (the CLI's names). Imports the CLI's modules read-only.
+// Prints one PASS/FAIL line per check and exits 1 on any FAIL. What it leaves on staging, on purpose: the saved listing (a content
+// version), the queued publish job (the runner does not exist yet), the media row. The lead it adds is deleted again through the CLI.
+import { resolveTarget } from '../../tools/omnikom-cli/lib/target.mjs';
+import { parseIdentity, personToken } from '../../tools/omnikom-cli/lib/identity.mjs';
+import { callFunction } from '../../tools/omnikom-cli/lib/fn.mjs';
+import { main as cli } from '../../tools/omnikom-cli/omnikom.mjs';
+
+const WS_A = 'aaaaaaaa-0000-0000-0000-000000000000';
+const SITE_A = 'aaaaaaaa-0000-0000-0000-00000000517e';
+const target = resolveTarget('staging', process.env, { needDb: false });
+if (!target.functionsBase) { console.error('BLOCKED: STAGING_SUPABASE_REF is not set (read by name)'); process.exit(3); }
+const pubKey = process.env[target.vars.publishableKey];
+let failed = 0;
+const line = (ok, name, detail = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? ': ' + detail : ''}`); if (!ok) failed++; };
+
+const tokens = {};
+async function as(person) { return tokens[person] ??= await personToken(parseIdentity(person), { target, env: process.env }); }
+async function fn(name, who, body) {
+  const token = await as(who);
+  const r = await callFunction({ base: target.functionsBase, name, body: JSON.stringify(body), extraHeaders: { authorization: `Bearer ${token}`, ...(pubKey ? { apikey: pubKey } : {}) } });
+  return r;
+}
+const brief = r => `${r.status} ${r.json && r.json.code ? r.json.code : ''}`.trim();
+
+try {
+  const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+  // save: owner-a 200 (version n), nobody 404
+  const s = await fn('save', 'owner-a', { workspace: WS_A, collection: 'listings', row: null, data: { street: `4.2 e2e ${stamp}` } });
+  line(s.status === 200 && s.json && s.json.version >= 1, 'save by owner-a is 200 with a version', `${brief(s)} version ${s.json && s.json.version}`);
+  const n = await fn('save', 'nobody', { workspace: WS_A, collection: 'listings', row: null, data: { street: 'x', zzUnknownField: 1 } });
+  line(n.status === 404 && !n.snippet.includes('zzUnknownField'), 'save by nobody is 404 and names no field', brief(n));
+
+  // publish: owner-a 202; dispatched printed as it is
+  if (s.json && s.json.row) {
+    const p = await fn('publish', 'owner-a', { site: SITE_A, rows: [s.json.row], versions: [s.json.version] });
+    line(p.status === 202 && p.json && p.json.state === 'queued', 'publish by owner-a is 202 and the job is queued', `${brief(p)} job ${p.json && p.json.job}`);
+    console.log(`INFO publish dispatched: ${p.json && p.json.dispatched}${p.json && p.json.reason ? ` (reason: ${p.json.reason})` : ''}   [the job is left ${p.json && p.json.dispatched ? 'dispatched to GitHub; no workflow listens yet, so it stays queued' : 'queued; the reaper fails it after 24 h'}]`);
+  } else line(false, 'publish by owner-a', 'no row to publish: the save failed');
+
+  // lead-update by member-a1 on a lead that is not theirs: 404; add-lead by owner-a 201; the lead is deleted again through the CLI
+  const a = await fn('add-lead', 'owner-a', { site: SITE_A, name: 'E2E 4.2 lead', email: 'e2e-test@example.com', consentText: 'E2E test: consent given by the test, safe to ignore', answers: { note: 'slice 4.2 e2e' } });
+  line(a.status === 201 && a.json && a.json.lead, 'add-lead by owner-a is 201', brief(a));
+  if (a.json && a.json.lead) {
+    const u = await fn('lead-update', 'member-a1', { lead: a.json.lead, status: 'contacted' });
+    line(u.status === 404, 'lead-update by member-a1 on a lead that is not theirs is 404', brief(u));
+    const d = await cli(['lead', 'delete', '--lead', a.json.lead, '--as', 'owner-a', '--target', 'staging', '--json']);
+    line(d.exit === 0, 'the e2e lead was deleted through the CLI (lead delete)', `exit ${d.exit}`);
+  }
+  const l = await cli(['lead', 'list', '--as', 'owner-a', '--target', 'staging', '--json']);
+  let count = null; try { count = JSON.parse(l.stdout).data.count; } catch { /* reported below */ }
+  line(l.exit === 0 && count === 0, '0 leads remain on staging (lead list as owner-a)', `count ${count}`);
+
+  // upload-start / upload-finish
+  const us = await fn('upload-start', 'owner-a', { workspace: WS_A, filename: 'e2e.png', bytes: 1234, mime: 'image/png' });
+  line(us.status === 200 && us.json && String(us.json.path).startsWith(`${WS_A}/`) && /\/storage\/v1\/object\/upload\/sign\/media\//.test(String(us.json.uploadUrl)), 'upload-start by owner-a is 200 with a path under workspace A and a signed upload URL', brief(us));
+  if (us.json && us.json.media) {
+    const uf = await fn('upload-finish', 'owner-a', { media: us.json.media, rightsConfirmed: true });
+    line(uf.status === 200 && uf.json && uf.json.processed === false, 'upload-finish by owner-a is 200 and processed stays false', brief(uf));
+    console.log(`INFO upload-finish dispatched: ${uf.json && uf.json.dispatched}${uf.json && uf.json.reason ? ` (reason: ${uf.json.reason})` : ''}`);
+  }
+  const noJwt = await callFunction({ base: target.functionsBase, name: 'save', body: '{}' });
+  line(noJwt.status === 401, 'a call with no token is 401', brief(noJwt));
+} catch (e) {
+  line(false, 'the run', String(e && e.message || e).slice(0, 200));
+}
+console.log(`\n${failed ? 'FAILED' : 'PASS'}: staging end to end for the dashboard functions, ${failed} problem(s)`);
+process.exit(failed ? 1 : 0);

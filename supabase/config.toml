@@ -35,3 +35,11 @@ verify_jwt = false           # job-callback (internal): verifies the internal se
 
 [functions.media-process-callback]
 verify_jwt = false           # media processor (runner): verifies X-Runner-Signature in code
+
+# Slice 4.2 (2026-10-31): the two dashboard functions that had no entry. Both take the user's JWT (verify_jwt = true) and check it again
+# in code (supabase/functions/_shared/auth.ts, the second wall).
+[functions.lead-update]
+verify_jwt = true            # dashboard user
+
+[functions.add-lead]
+verify_jwt = true            # dashboard user

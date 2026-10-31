@@ -97,7 +97,10 @@ sent to the head of operations with options, never a fix made here.
     + `mutate.mjs`. Gate: tests and mutants green; `node factory/build.mjs --export factory/test/fixtures/export-test-demo-a.json --out
     <tmp>` then `node tools/audit/run.mjs <tmp>` exit 0; `--force-fail heading` makes the audit exit 1 (the heading rule MET-003).
     Done when: those four lines are pasted in PROGRESS.md "Step 4" and the ELEV8 folder has no new file.
-  - **4.2 Edge Functions, the dashboard's calls** (Sonnet): `_shared/db.ts` (connect, `set role omnikom_fn`, one place), `_shared/jwt.ts`
+  - **4.2 Edge Functions, the dashboard's calls** (Sonnet) PROVEN 2026-10-31 05:55 (PROGRESS.md "4.2 dashboard functions: head's
+    verification"; six functions deployed on staging and run end to end by the head, migrations 9 and 10, 214 database mutants, 58 Deno
+    checks, 31 Deno mutants; open from it: capture-lead jsonb double-encoding fix in 4.3, publish live-or-in-job check, `[functions.test]
+    enabled = false`): `_shared/db.ts` (connect, `set role omnikom_fn`, one place), `_shared/jwt.ts`
     (verify the user JWT against the project's JWKS with Web Crypto; `exp`, `aud`), `save`, `publish` (contract_for first, validateItem,
     `service.start_publish` pinned versions, `repository_dispatch` with `GITHUB_DISPATCH_TOKEN`; 202 with the job id even when the token is
     unset, the job then waits for the runner: NOT a silent success, the body says `dispatched: false`), `lead-update`, `add-lead`,
@@ -131,12 +134,44 @@ sent to the head of operations with options, never a fix made here.
 - `capture-lead` paused site: DONE 2026-10-30, 409 `S-SITE-PAUSED` proven by `verify --only lead` on staging.
 - `tools/deploy-capture-lead.mjs` project ref: DONE 2026-10-30, scrubbed.
 - `supabase/tests/test-apply.mjs` hang: NOT REPRODUCED 2026-10-30 21:58 (10 of 10, exit 0 inside a 600 s bound); watch, not a bug.
-- **Flaky wall (finding from the head of operations, 2026-10-31 01:40): the database walls gate failed twice today on "privacy requests
-  read wall: B's owner reads no request of A" (once under four sessions on his machine, once in the CLI builder's gates run) and passed on
-  every re-run alone (161 of 161 through a Haiku runner).** Suspects: two `run-local.mjs` clusters at once (a shared port or data directory),
-  or a leftover row between tests (order or timing). Diagnose after 4.1 is proven: run two clusters at once on purpose, read the test's
-  setup for state it assumes clean, and fix the test or the runner so a red is always a real red. A wall that goes green on rerun stops
-  being read, which is worse than no wall.
+- **"Flaky wall" DIAGNOSED 2026-10-31 05:00: not a flaky test, a masked timeout.** `docs/blueprint/specs/run-all-gates.mjs` killed the
+  database-walls gate after 30 minutes (161 mutants took about 12 minutes on a quiet machine; 214 mutants after slice 4.2 under four sessions
+  did not fit) and printed the gate's LAST STDOUT LINE as the failure: a "caught" mutant line ("privacy requests read wall", "the 45-day
+  clock"), which read as that wall failing. The wall passed alone every time (161 of 161, 213, 214). Fix in the runner (my file): a killed
+  gate prints `TIMEOUT after N s (limit, not a test failure, last line)`, the limit is 60 minutes, `GATE_TIMEOUT_MS` overrides it,
+  `GATE_ONLY=<name>` runs one gate; watched red with `GATE_ONLY="contract mutants" GATE_TIMEOUT_MS=1500` (the TIMEOUT line, last line a
+  "caught" line), green again with the limit restored. The Deno function tests are now a gate too. Still worth doing later: run the mutants
+  in parallel so the gate fits a loaded machine (the walls runner is `supabase/tests/run-local.mjs`, mine).
+- **Prompt map reaches what is built (DECISIONS 35, owner 2026-10-31 03:40; backlog for step 5 and later, NOT step 4; no slices
+  planned yet, 4.2 and 4.4 stay first).** This department's four parts: (1) step 5: two new contract page types the factory renders,
+  `situation` (a page shaped like a buyer's whole situation: scenario + comparison + constraint) and honest `comparison` (public,
+  sourced facts about the other option only, never an invented claim: Non-negotiable 3), each with its design partial in the look-folder
+  convention (`sections/<id>.mjs`, `contracts/core.json` page types, `place()` and the factory's contract-page build); (2) a read-only
+  export of one workspace's lead inbox messages for the SEO research stage (that workspace only, consent-ledger aware, through an Edge
+  Function or the CLI; the skill never reads the database directly); (3) where the gates land: a publish gate that fails a build leaving
+  a prompt-map row uncovered without a written reason, driven by the plan artifact the SEO department defines (the shape is theirs; the
+  gate's place is the factory gates or the runner's gating step); (4) step 6 or 7: dashboard rows for named/cited per prompt from the
+  measure stage (data model addition; the measure stage's output shape is the SEO department's).
+- **Step 5 small items (head of operations, 2026-10-31 05:04, owner-read reels assessed by him; nothing for step 4):** (1) a factory footer
+  partial "Add us as a preferred source on Google" linking to `https://www.google.com/preferences/source?q=<production domain>` (Google's
+  documented deeplink, developers.google.com/search/docs/appearance/preferred-sources, read 2026-10-31), production builds only, never a
+  preview; and the production `_headers` must never carry `nosnippet` (it excludes the site from Google's generative features; add a factory
+  gate line). (2) when `23-GROUND-RULES.md` is next edited, one line: an optimisation that bypasses a view, caches a count or relies on row
+  order writes the invariant it depends on as one comment next to the test that checks it.
+- **DECISIONS 37 for step 5 look-folders (head of operations, 2026-10-31 05:19; nothing to build in step 4):** every look-folder's
+  `DESIGN.md` opens with a five-line direction (product, character, world, moments, signature; clean, modern, sleek, minimal and premium are
+  banned as character words); design partials are built in nine passes in order (spacing, colour, icons, copy, type, layout, details,
+  visuals, motion); the SEO department's DSN rule family in `tools/audit` (after its slice 2) fails a build on AI-looking tells (looping
+  motion classes, gradient text, emoji labels, hype words, badges, unverifiable claims), and the factory's publish gate picks it up for free
+  through `tools/audit/run.mjs`. The look-folder convention in `factory/README.md` section 2 gets the `DESIGN.md` line when step 5 starts.
+- **No model in the runtime (DECISIONS 38 part 1, owner 2026-10-31 05:45; after 4.2 and 4.4 are proven, before step 5):** a structural
+  check (in `docs/blueprint/specs/run-all-gates.mjs` or `supabase/tests/run-local.mjs`, this head's call; the gates runner is the likelier
+  home, it already scans files) that fails when runtime code imports a model SDK or calls a model API. Scope: `supabase/functions`,
+  `factory/`, `tools/audit/`, `tools/omnikom-cli/`, the dashboard source, `.github/workflows`. Tells: `@anthropic-ai`, `anthropic`,
+  `openai`, `@google/generative-ai`, `api.anthropic.com`, `api.openai.com`, `generativelanguage.googleapis.com`, and `ANTHROPIC_API_KEY`
+  read anywhere outside an allowlisted operators folder (does not exist yet). Allowlist by path, written in the rule: the SEO skill's
+  research scripts (Gemini citations, owner-acknowledged) and the future step D operators. Ships with a test watched red (a planted
+  import in a scratch copy) and a mutant (the tell list emptied); add the rule line to `23-GROUND-RULES.md` in the same commit.
 - Follow-ups that need a decision or another department: the global kill switch (`platform_limits` keys `sends_enabled`,
   `deploys_enabled`), `usage_daily` (24-GAP-HUNT E2 item 1, not in step 3's list), the per-person privacy export (step 5), the
   CLI reading `security_events` and `consent_ledger` in `verify` (finding sent up).
@@ -155,3 +190,6 @@ sent to the head of operations with options, never a fix made here.
   the five workflows, 4.5 the done-when on the test site's own Pages project. Asked up: the owner's fine-grained GitHub dispatch token
   (`GITHUB_DISPATCH_TOKEN`), `.github/` and two tool paths for this charter's Owns. Nothing built yet.
 - 2026-10-31 03:05, standing head: slice 4.1 (factory core) PROVEN locally, Haiku re-run equal to the builder line for line (88 checks, 85 mutants, audit 0 FAIL on the build, MET-003 FAIL on the forced heading); proof in PROGRESS.md "4.1 factory core: head's verification". Findings decided there; two go up (seed writes slug and role; flaky database wall). 4.2 builder still running; 4.4 launched next.
+- 2026-10-31 03:45, standing head: DECISIONS 35 (prompt map reaches the build) recorded in Open items as backlog for step 5 and later: situation and comparison page types with their design partials (step 5), a read-only per-workspace lead-inbox export for the research stage, a publish gate on uncovered prompt-map rows, dashboard rows for named/cited per prompt (step 6 or 7). No slices planned; 4.2 and 4.4 first. Still due from this head: the flaky privacy-requests wall diagnosis.
+- 2026-10-31 05:47, standing head: DECISIONS 38 part 1 recorded in Open items: a structural "no model SDK or model API in runtime code" check with a path allowlist (SEO research scripts, future step D operators), test watched red and a mutant, after 4.2 and 4.4, before step 5. Also recorded this hour: DECISIONS 35 backlog, DECISIONS 37 look-folder rules, the preferred-source footer and nosnippet gate, the invariant-comment ground rule; the "flaky wall" diagnosed as the gates runner masking a 30-minute timeout (fixed in run-all-gates.mjs).
+- 2026-10-31 05:55, standing head: slice 4.2 (dashboard functions) PROVEN, Haiku re-run equal to the builder line for line (deno check, specs, 58 Deno checks, 31 Deno mutants, staging status with 10 migrations and 7 functions deployed, e2e-functions 0 problems, walls 214 mutants alone in 17 min); proof in PROGRESS.md "4.2 dashboard functions: head's verification". Committing with the gates-runner fix. Next: 4.3 builder launched, 4.4 re-run.

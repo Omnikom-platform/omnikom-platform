@@ -746,6 +746,155 @@ do $$ begin assert (select count(*) from privacy_requests) = 0, 'B''s owner read
 reset role;
 do $$ begin assert (select done_at from privacy_requests where id = test.id('pr1')) is not null and (select count(*) from audit_log where action = 'privacy-request-done' and target = test.id('pr1')::text) = 1, 'closing the request is dated and audited'; end $$;
 
+-- ===== T18 migration 9: media and export (slice 4.2): the service functions the dashboard and runner Edge Functions call =====
+-- (placed before T17 on purpose: a grant mutant of migration 9 must be seen here, on its own function, before T17 trips on the default privileges)
+-- Written before the migration (watched red: every call below failed with "function service.record_media ... does not exist"), then
+-- the migration made it pass. The Edge Functions call these as the role omnikom_fn, so the block runs as that role.
+create function test.cl(p_sub text, p_aal text default 'aal1') returns jsonb language sql as $$ select jsonb_build_object('sub', p_sub, 'aal', p_aal, 'role', 'authenticated') $$;
+grant execute on function test.cl(text, text) to anon, authenticated, service_role, omnikom_fn;
+create table test.counts (k text primary key, v int);
+grant all on test.counts to anon, authenticated, service_role, omnikom_fn;
+insert into media (workspace_id, path, uploaded_by) values ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000/b-only.jpg', '00000000-0000-0000-0000-00000000000b');
+insert into test.ids select 'mediaB', id from media where path = 'bbbbbbbb-0000-0000-0000-000000000000/b-only.jpg';
+set role omnikom_fn;
+-- record_media: a member or staff of the workspace, an allowed type, a size in range; the path is under the workspace
+insert into test.ids select 'mediaOwner', id from service.record_media(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 'front.jpg', 2000000, 'image/jpeg');
+insert into test.ids select 'mediaA1', id from service.record_media(test.cl('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', 'a1.png', 1000, 'image/png');
+insert into test.ids select 'mediaStaff', id from service.record_media(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), 'aaaaaaaa-0000-0000-0000-000000000000', 'staff.pdf', 5000, 'application/pdf');
+select test.expect_error($q$select * from service.record_media(test.cl('00000000-0000-0000-0000-00000000000e'), 'aaaaaaaa-0000-0000-0000-000000000000', 'x.jpg', 1000, 'image/jpeg')$q$, 'S-NOT-FOUND');   -- a login of nothing
+select test.expect_error($q$select * from service.record_media(test.cl('00000000-0000-0000-0000-00000000000b'), 'aaaaaaaa-0000-0000-0000-000000000000', 'x.jpg', 1000, 'image/jpeg')$q$, 'S-NOT-FOUND');   -- B's owner into A
+select test.expect_error($q$select * from service.record_media(test.cl('00000000-0000-0000-0000-00000000005f'), 'aaaaaaaa-0000-0000-0000-000000000000', 'x.jpg', 1000, 'image/jpeg')$q$, 'S-NOT-FOUND');   -- staff without MFA
+select test.expect_error($q$select * from service.record_media(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 'x.gif', 1000, 'image/gif')$q$, 'I-MEDIA-TYPE');
+select test.expect_error($q$select * from service.record_media(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 'x.jpg', 0, 'image/jpeg')$q$, 'I-MEDIA-SIZE');
+select test.expect_error($q$select * from service.record_media(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 'x.jpg', 26214401, 'image/jpeg')$q$, 'I-MEDIA-SIZE');
+select * from service.record_media(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 'edge.jpg', 26214400, 'image/webp');   -- the cap itself is allowed
+select test.expect_error($q$select * from service.record_media(null, 'aaaaaaaa-0000-0000-0000-000000000000', 'x.jpg', 1000, 'image/jpeg')$q$, 'S-AUTH');
+reset role;
+do $$ begin
+  assert (select path from media where id = test.id('mediaOwner')) ~ '^aaaaaaaa-0000-0000-0000-000000000000/[0-9a-f-]{36}\.jpg$', 'the path is <workspace>/<uuid>.<ext> (jpeg -> jpg)';
+  assert (select path from media where id = test.id('mediaA1')) like '%.png' and (select path from media where id = test.id('mediaStaff')) like '%.pdf', 'the extension follows the type';
+  assert (select uploaded_by from media where id = test.id('mediaOwner')) = '00000000-0000-0000-0000-00000000000a', 'uploaded_by is the login from the claims';
+  assert (select not processed and not exif_stripped and not rights_confirmed and width is null from media where id = test.id('mediaOwner')), 'a new record is unprocessed, unstripped, rights not confirmed, width unknown';
+  assert (select count(*) from audit_log where action = 'media-start' and workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 4, 'every recorded upload is audited (media-start)';
+  assert (select count(*) from media where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and path like '%/x.%') = 0, 'a refused upload left no row';
+end $$;
+-- finish_media: the uploader, an owner or staff of the workspace; the rights tick only; never the processor's facts
+set role omnikom_fn;
+select service.finish_media(test.cl('00000000-0000-0000-0000-0000000000a1'), test.id('mediaA1'), true);                 -- the uploader (a member)
+select service.finish_media(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('mediaOwner'), true);             -- the owner, the uploader
+select test.expect_error(format($q$select service.finish_media(test.cl('00000000-0000-0000-0000-0000000000a2'), %L, true)$q$, test.id('mediaA1')), 'S-NOT-FOUND');   -- another member of A is not the uploader
+select test.expect_error(format($q$select service.finish_media(test.cl('00000000-0000-0000-0000-00000000000b'), %L, true)$q$, test.id('mediaA1')), 'S-NOT-FOUND');   -- B's owner
+select test.expect_error(format($q$select service.finish_media(test.cl('00000000-0000-0000-0000-00000000000e'), %L, true)$q$, test.id('mediaA1')), 'S-NOT-FOUND');   -- nobody
+select test.expect_error($q$select service.finish_media(test.cl('00000000-0000-0000-0000-00000000000a'), '99999999-0000-0000-0000-000000000000', true)$q$, 'S-NOT-FOUND');   -- unknown id
+select test.expect_error($q$select service.finish_media(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), '99999999-0000-0000-0000-000000000000', true)$q$, 'S-NOT-FOUND');   -- staff on an unknown id (staff pass the role test, so this needs its own wall)
+select service.finish_media(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('mediaA1'), false);              -- the owner may take the tick back
+reset role;
+do $$ begin assert not (select rights_confirmed from media where id = test.id('mediaA1')), 'the owner took the rights tick back'; end $$;
+set role omnikom_fn;
+select service.finish_media(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('mediaA1'), true);
+reset role;
+do $$ begin
+  assert (select rights_confirmed from media where id = test.id('mediaOwner')) and (select rights_confirmed from media where id = test.id('mediaA1')), 'finish sets the rights tick';
+  assert not (select rights_confirmed from media where id = test.id('mediaStaff')), 'a media nobody finished stays unticked';
+  assert (select not processed and not exif_stripped and width is null from media where id = test.id('mediaOwner')), 'finish never touches width, processed or exif_stripped (ground rule 11)';
+  assert (select count(*) from audit_log where action = 'media-finish') = 4, 'every finish is audited (media-finish)';
+end $$;
+-- an uploader who has left the workspace can no longer finish their upload
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000e1', 'ex-member@test');
+insert into members (workspace_id, user_id, role) values ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000e1', 'member');
+set role omnikom_fn;
+insert into test.ids select 'mediaEx', id from service.record_media(test.cl('00000000-0000-0000-0000-0000000000e1'), 'aaaaaaaa-0000-0000-0000-000000000000', 'ex.jpg', 1000, 'image/jpeg');
+reset role;
+delete from members where user_id = '00000000-0000-0000-0000-0000000000e1';
+set role omnikom_fn;
+select test.expect_error(format($q$select service.finish_media(test.cl('00000000-0000-0000-0000-0000000000e1'), %L, true)$q$, test.id('mediaEx')), 'S-NOT-FOUND');
+reset role;
+-- media_processed and media_for_runner: the runner's calls (no claims)
+set role omnikom_fn;
+select test.expect_error($q$select service.media_processed('99999999-0000-0000-0000-000000000000', 2400, 1600, true, 1000)$q$, 'S-NOT-FOUND');
+select test.expect_error(format($q$select service.media_processed(%L, 0, 1600, true, 1000)$q$, test.id('mediaOwner')), 'I-MEDIA-SIZE');
+select test.expect_error($q$select * from service.media_for_runner('99999999-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+do $$ begin
+  assert (select count(*) from service.media_for_runner(test.id('mediaOwner'))) = 1 and (select not processed from service.media_for_runner(test.id('mediaOwner'))), 'the runner reads a media record: id, workspace, path, processed';
+  assert (select workspace_id from service.media_for_runner(test.id('mediaOwner'))) = 'aaaaaaaa-0000-0000-0000-000000000000' and (select path from service.media_for_runner(test.id('mediaOwner'))) like 'aaaaaaaa-0000-0000-0000-000000000000/%', 'the runner record names its workspace and path';
+end $$;
+select service.media_processed(test.id('mediaOwner'), 2400, 1600, true, 1500000);
+reset role;
+do $$ begin
+  assert (select processed and exif_stripped and width = 2400 and height = 1600 and bytes = 1500000 from media where id = test.id('mediaOwner')), 'the processor sets the facts and processed';
+end $$;
+-- media_facts: what validateItem reads about a photo, only for members and staff, only inside the named workspace
+set role omnikom_fn;
+do $$ declare f jsonb; begin
+  f := service.media_facts(test.cl('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', test.id('mediaOwner'));
+  assert (f ->> 'width')::int = 2400 and (f ->> 'exifStripped')::boolean and (f ->> 'rightsConfirmed')::boolean and (f ->> 'processed')::boolean, 'media_facts answers width, exifStripped, rightsConfirmed, processed';
+  assert service.media_facts(test.cl('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', test.id('mediaB')) is null, 'a media of B asked inside A is unknown';
+  assert service.media_facts(test.cl('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', '99999999-0000-0000-0000-000000000000') is null, 'an unknown media is null';
+end $$;
+select test.expect_error(format($q$select service.media_facts(test.cl('00000000-0000-0000-0000-00000000000b'), 'aaaaaaaa-0000-0000-0000-000000000000', %L)$q$, test.id('mediaOwner')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select service.media_facts(test.cl('00000000-0000-0000-0000-00000000000e'), 'aaaaaaaa-0000-0000-0000-000000000000', %L)$q$, test.id('mediaOwner')), 'S-NOT-FOUND');
+-- row_exists: a live row of that collection in the workspace (a draft reference may point at any row of the workspace)
+do $$ begin
+  assert service.row_exists(test.cl('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', 'team', test.id('team1')), 'a team row of A exists for a member of A';
+  assert not service.row_exists(test.cl('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('team1')), 'the collection must match';
+  assert not service.row_exists(test.cl('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', 'team', test.id('teamB2')), 'a row of B does not exist inside A';
+  assert not service.row_exists(test.cl('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', 'team', '99999999-0000-0000-0000-000000000000'), 'an unknown row does not exist';
+end $$;
+select test.expect_error(format($q$select service.row_exists(test.cl('00000000-0000-0000-0000-00000000000e'), 'aaaaaaaa-0000-0000-0000-000000000000', 'team', %L)$q$, test.id('team1')), 'S-NOT-FOUND');
+-- site_for and row_version: how publish finds the workspace and reads the version it validates
+do $$ begin
+  assert service.site_for(test.cl('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-00000000517e') = 'aaaaaaaa-0000-0000-0000-000000000000', 'site_for answers the workspace of the site to its members';
+  assert (select collection from service.row_version(test.cl('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', test.id('team1'), 1)) = 'team'
+     and (select data ->> 'name' from service.row_version(test.cl('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', test.id('team1'), 1)) = 'Agent One', 'row_version answers the collection and the data of that version';
+end $$;
+select test.expect_error($q$select service.site_for(test.cl('00000000-0000-0000-0000-00000000000e'), 'aaaaaaaa-0000-0000-0000-00000000517e')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select service.site_for(test.cl('00000000-0000-0000-0000-00000000000b'), 'aaaaaaaa-0000-0000-0000-00000000517e')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select service.site_for(test.cl('00000000-0000-0000-0000-00000000000a'), '99999999-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.expect_error(format($q$select * from service.row_version(test.cl('00000000-0000-0000-0000-00000000000e'), 'aaaaaaaa-0000-0000-0000-000000000000', %L, 1)$q$, test.id('team1')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select * from service.row_version(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', %L, 99)$q$, test.id('team1')), 'S-NOT-FOUND');   -- a version that does not exist
+select test.expect_error(format($q$select * from service.row_version(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', %L, 1)$q$, test.id('teamB2')), 'S-NOT-FOUND');   -- B's row asked inside A
+reset role;
+-- export_bundle and job_site: the runner's calls; nothing of another workspace can appear
+insert into test.counts select 'mediaA', count(*) from media where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000';
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+insert into test.ids select 'jobE', test.publish('aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('team1')]);
+reset role;
+set role omnikom_fn;
+select test.expect_error(format($q$select service.export_bundle(%L)$q$, test.id('jobE')), 'S-JOB-STATE');           -- snapshot not frozen
+select test.expect_error($q$select service.export_bundle('99999999-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select * from service.job_site('99999999-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select service.freeze_snapshot(test.id('jobE'));
+do $$ declare b jsonb; begin
+  b := service.export_bundle(test.id('jobE'));
+  assert b ->> 'schema' = 'omnikom-export/1', 'the bundle carries the export schema key the factory checks first (migration 10)';
+  assert b #>> '{job,id}' = test.id('jobE')::text and b #>> '{job,site_id}' = 'aaaaaaaa-0000-0000-0000-00000000517e' and b #>> '{job,workspace_id}' = 'aaaaaaaa-0000-0000-0000-000000000000' and (b #> '{job,snapshot}') ? test.id('team1')::text, 'the bundle names the job, its site, workspace and snapshot';
+  assert b #>> '{site,deploy_target}' = 'test-site-demo-a' and b #>> '{site,preview_host}' = 'demo-a.preview.test' and b #>> '{site,state}' = 'preview', 'the bundle carries the site''s deploy target, preview host and state';
+  assert b #>> '{workspace,slug}' = 'test-demo-a' and b #>> '{workspace,industry}' = 'real-estate-agent', 'the bundle carries the workspace';
+  assert (b #> '{contract,collections}') ? 'team', 'the bundle carries the active resolved contract';
+  assert (select count(*) from jsonb_array_elements(b -> 'rows') r where r ->> 'id' = test.id('team1')::text and r ->> 'collection' = 'team' and (r ->> 'version')::int = 1 and r #>> '{data,name}' = 'Agent One' and r ->> 'at' is not null) = 1, 'the bundle rows are the frozen snapshot, with data and the version''s time';
+  assert (select count(*) from jsonb_array_elements(b -> 'rows')) = (select count(*) from service.published_rows(test.id('jobE'))), 'the bundle rows are exactly published_rows';
+  assert exists (select 1 from jsonb_array_elements(b -> 'media') m where m ->> 'id' = test.id('mediaOwner')::text and (m ->> 'width')::int = 2400 and (m ->> 'processed')::boolean and (m ->> 'exif_stripped')::boolean and (m ->> 'rights_confirmed')::boolean and m ->> 'path' like 'aaaaaaaa-%'), 'the bundle lists the workspace''s media with the processor''s facts';
+  assert (select count(*) from jsonb_array_elements(b -> 'media')) = (select v from test.counts where k = 'mediaA'), 'the bundle lists every media row of A';
+  assert position('bbbbbbbb-0000-0000-0000-' in b::text) = 0 and position(test.id('mediaB')::text in b::text) = 0 and position(test.id('teamB2')::text in b::text) = 0, 'nothing of workspace B appears in the bundle of A';
+  assert (select deploy_target from service.job_site(test.id('jobE'))) = 'test-site-demo-a' and (select site_id from service.job_site(test.id('jobE'))) = 'aaaaaaaa-0000-0000-0000-00000000517e', 'job_site answers the site and its deploy target';
+end $$;
+reset role;
+-- the ten new functions are closed to anon and authenticated and open to the function role
+do $$ declare f text; begin
+  foreach f in array array['record_media(jsonb,uuid,text,integer,text)', 'finish_media(jsonb,uuid,boolean)', 'media_processed(uuid,integer,integer,boolean,integer)', 'export_bundle(uuid)', 'job_site(uuid)', 'media_for_runner(uuid)',
+    'row_exists(jsonb,uuid,text,uuid)', 'media_facts(jsonb,uuid,uuid)', 'site_for(jsonb,uuid)', 'row_version(jsonb,uuid,uuid,integer)'] loop
+    assert has_function_privilege('omnikom_fn', 'service.' || f, 'execute'), f || ' is open to the function role';
+    assert not has_function_privilege('anon', 'service.' || f, 'execute') and not has_function_privilege('authenticated', 'service.' || f, 'execute'), f || ' is closed to anon and authenticated';
+    assert (select prosecdef from pg_proc where oid = ('service.' || f)::regprocedure), f || ' is security definer';
+  end loop;
+end $$;
+set role authenticated;
+select test.expect_error($q$select service.media_processed('00000000-0000-0000-0000-000000000000', 1, 1, true, 1)$q$, 'permission denied');
+select test.expect_error($q$select service.export_bundle('00000000-0000-0000-0000-000000000000')$q$, 'permission denied');
+select test.expect_error($q$select * from service.record_media('{"sub":"00000000-0000-0000-0000-00000000000a"}'::jsonb, 'aaaaaaaa-0000-0000-0000-000000000000', 'x.jpg', 1, 'image/jpeg')$q$, 'permission denied');
+reset role;
+
 -- ===== T17 migration 8: default privileges on private and service, the function role; search_path = '' is asserted in T14 =====
 create function service.zz_probe() returns int language sql as $$ select 1 $$;
 create function private.zz_probe() returns int language sql as $$ select 1 $$;
@@ -799,7 +948,8 @@ do $$ declare t record; n int; begin
   -- every service function that takes claims is covered by an outsider test (the list below is the contract; a new function must be added here with its test)
   for t in select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'service' and p.proargnames[1] = 'p_claims' loop
     assert t.proname = any(array['use_claims', 'contract_for', 'save_as', 'start_publish', 'unpublish', 'lead_update', 'add_lead', 'activate_addon', 'set_addon_state', 'book', 'set_booking_state', 'save_crm_template', 'set_member', 'remove_member', 'delete_lead',
-      'set_workspace_state', 'open_privacy_request', 'set_privacy_request_state']),
+      'set_workspace_state', 'open_privacy_request', 'set_privacy_request_state',
+      'record_media', 'finish_media', 'row_exists', 'media_facts', 'site_for', 'row_version']),
       'service.' || t.proname || ' takes claims but has no outsider test listed in T14';
   end loop;
 end $$;

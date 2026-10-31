@@ -190,6 +190,17 @@
      },
      "state": {
       "$ref": "#/components/schemas/JobState"
+     },
+     "dispatched": {
+      "type": "boolean",
+      "description": "false when the build did not reach GitHub (no dispatch token, GitHub refused or unreachable): the job stays queued and the reaper fails it after 24 hours; never a silent success"
+     },
+     "reason": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "why dispatched is false: no dispatch token, no repository configured, github <status>, github unreachable"
      }
     },
     "description": "a job holding a snapshot of exact versions; nothing goes live until the job is done"
@@ -549,6 +560,125 @@
       "type": "boolean"
      }
     }
+   },
+   "LeadUpdateRequest": {
+    "type": "object",
+    "required": [
+     "lead"
+    ],
+    "properties": {
+     "lead": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "new",
+       "contacted",
+       "qualified",
+       "closed",
+       "spam"
+      ]
+     },
+     "owner": {
+      "type": "string",
+      "format": "uuid",
+      "description": "a team row of the workspace; a member cannot hand a lead to someone else (403 S-OWN-ONLY)"
+     },
+     "note": {
+      "type": "string",
+      "maxLength": 2000
+     },
+     "unassign": {
+      "type": "boolean",
+      "description": "true takes the lead off its owner"
+     }
+    },
+    "description": "every field but lead is optional; each change writes its own event on the lead timeline (service.lead_update)"
+   },
+   "AddLeadRequest": {
+    "type": "object",
+    "required": [
+     "site",
+     "consentText"
+    ],
+    "properties": {
+     "site": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "name": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "email": {
+      "type": "string",
+      "format": "email",
+      "maxLength": 320
+     },
+     "phone": {
+      "type": "string",
+      "maxLength": 40
+     },
+     "answers": {
+      "type": "object"
+     },
+     "consentText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "description": "the wording the person agreed to, as said or shown; it goes on the consent ledger"
+     },
+     "form": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "maxLength": 60,
+      "description": "default manual"
+     },
+     "owner": {
+      "type": "string",
+      "format": "uuid",
+      "description": "a team row of the workspace; ignored for a member: their own lead lands on their own team row"
+     }
+    }
+   },
+   "AddLeadResponse": {
+    "type": "object",
+    "required": [
+     "lead"
+    ],
+    "properties": {
+     "lead": {
+      "type": "string",
+      "format": "uuid"
+     }
+    }
+   },
+   "UploadFinishResponse": {
+    "type": "object",
+    "required": [
+     "media",
+     "processed",
+     "dispatched"
+    ],
+    "properties": {
+     "media": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "processed": {
+      "type": "boolean",
+      "description": "false until the runner calls media-process-callback"
+     },
+     "dispatched": {
+      "type": "boolean",
+      "description": "false when the media job did not reach GitHub (no token, GitHub refused); reason says why"
+     },
+     "reason": {
+      "type": "string"
+     }
+    }
    }
   },
   "responses": {
@@ -799,7 +929,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/Media"
+         "$ref": "#/components/schemas/UploadFinishResponse"
         }
        }
       }
@@ -1070,6 +1200,114 @@
      },
      "404": {
       "$ref": "#/components/responses/NotFound"
+     }
+    }
+   }
+  },
+  "/lead-update": {
+   "post": {
+    "operationId": "leadUpdate",
+    "summary": "Change a lead: status, owner, a note, or unassign (dashboard; supabase/functions/lead-update)",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LeadUpdateRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "204": {
+      "description": "done; each change is on the lead timeline"
+     },
+     "400": {
+      "description": "the body is not a LeadUpdateRequest",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "403": {
+      "$ref": "#/components/responses/Refused"
+     },
+     "404": {
+      "description": "no such lead, or one the caller cannot see (another workspace's lead, a member's colleague's lead): the same answer",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/add-lead": {
+   "post": {
+    "operationId": "addLead",
+    "summary": "Add a lead by hand (dashboard; supabase/functions/add-lead)",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AddLeadRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "lead created; the consent wording is on the consent ledger",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AddLeadResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "the body is not an AddLeadRequest (bad email, no consent wording, too long)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "description": "no such site, or the caller is not a member of its workspace",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
      }
     }
    }
