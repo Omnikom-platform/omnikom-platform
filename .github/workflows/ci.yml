@@ -43,12 +43,12 @@ jobs:
           fi
       # free disk before and after: run 41187071384 attempt 1 crashed two gates the way a full disk does (evidence for next time)
       - name: Free disk before the gates
-        run: df -h /tmp "$RUNNER_TEMP"
+        run: df -h /tmp "$RUNNER_TEMP" && free -m
       - name: All blueprint gates
         run: node docs/blueprint/specs/run-all-gates.mjs
       - name: Free disk after the gates
         if: always()
-        run: df -h /tmp "$RUNNER_TEMP"
+        run: df -h /tmp "$RUNNER_TEMP" && free -m
 
   factory:
     name: factory and runner (tests and mutants)

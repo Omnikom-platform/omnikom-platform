@@ -2,7 +2,7 @@
 //   node docs/blueprint/specs/run-all-gates.mjs     exit 0 only if every gate passes
 import { spawnSync } from 'node:child_process';
 import { statfsSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, freemem, totalmem } from 'node:os';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -42,6 +42,7 @@ for (const [name, script] of GATES) {
     if ((r.stderr || '').trim()) console.log(`    stderr (last 12 lines):\n${tail(r.stderr, 12)}`);
     if (r.error) console.log(`    spawn error: ${r.error.code || r.error.message}`);
     try { const f = statfsSync(tmpdir()); console.log(`    free disk in ${tmpdir()}: ${Math.round(f.bavail * f.bsize / 1048576)} MB`); } catch { /* not every platform reports it */ }
+    console.log(`    free memory: ${Math.round(freemem() / 1048576)} of ${Math.round(totalmem() / 1048576)} MB`);
   }
 }
 // Deno type check of the shared function code (needs deno on PATH; reported, not hidden, when missing)
