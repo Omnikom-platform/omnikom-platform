@@ -9,6 +9,7 @@ Turn the programmatic-enterprise-web-performance skill (the shipgate checklist, 
 - `skills/programmatic-enterprise-web-performance/`
 - `tools/audit/`
 - `docs/blueprint/22-SEARCH-AND-ANALYTICS.md`
+- `skills/unslop/` (until step 5, then the Design department; DECISIONS 37, 39)
 
 ## Does not touch
 Every path not listed above. A bug or a need in another department's files is a finding sent to the head of operations with
@@ -148,3 +149,6 @@ options, never a fix made here.
   is a complete crawl. Skill findings carried (not fixed): `vitals` nesting in browser-mobile.json, robots saved via utf8 (U+FFFD),
   psi.mjs output outside the snapshot, sitemaps fetched[].status unjudged, test-snapshot gap timing fails under load. UNPROVEN: the
   real live-target.mjs on a real site; a real PSI file. Next: slice 4b (unslop).
+- 2026-10-31 10:45: slice 4b started: brief `tools/audit/briefs/slice-4b-design-tells.md` (DSN-001 to DSN-011, rule set 17 to 28 when
+  proven; five-line direction and nine passes in the skill's stages/design.md), Sonnet builder running (in-session agent). The unslop copy
+  into `skills/unslop/` is a download and waits for the owner's yes in this session; the hype word list (DSN-005) grows from it.
