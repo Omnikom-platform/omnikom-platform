@@ -112,7 +112,7 @@ t('publish: a photo must be processed, rights-ticked and wide enough in the medi
   await fake.reset();
   const team = await teamRows();
   const m = await mkMedia(WS_A, { width: null, processed: false });
-  const v1 = await saveRow('owner-a', 'listings', null, { street: '9 Photo Close', agent: team.one, photo: { asset: m, alt: 'The front of the house', width: 5000, exifStripped: true, rightsConfirmed: true } });
+  const v1 = await saveRow('owner-a', 'listings', null, { street: '9 Photo Close', status: 'for-sale', agent: team.one, photo: { asset: m, alt: 'The front of the house', width: 5000, exifStripped: true, rightsConfirmed: true } });
   const refused = await publish('owner-a', { site: SITE_A, rows: [v1.row], versions: [v1.version] });
   eq(refused.status, 422, 'not processed: ' + refused.text);
   const codes = (refused.json?.problems as { code: string }[]).map(p => p.code);
