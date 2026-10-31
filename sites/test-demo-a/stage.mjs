@@ -15,7 +15,9 @@
 //    version differs -> service.save_as as owner-a (a new version of the same row); equal -> nothing.
 //    A row is found by: settings = the one row; pages = data.path; other collections = data.slug, and for team also data.name (the seed's
 //    "Agent One" row has no slug: it gets a new version with slug and role, not a second team row).
-// 3. prints one line per row and, with --out, writes { contractVersion, rows: [{ key, collection, id, version }] } for the publish step.
+// 3. a PUBLISHED row of workspace A that is not in rows.json is unpublished through service.unpublish as owner-a (kept, never deleted):
+//    every publish snapshots all published rows, so a leftover bare test row would fail every build (seen on job e29fb962, 4.5).
+// 4. prints one line per row and, with --out, writes { contractVersion, rows: [{ key, collection, id, version }] } for the publish step.
 // The values of secrets never print: the database URL is read by NAME and handed to psql as PG* variables (tools/omnikom-cli/lib/sql.mjs).
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -117,6 +119,8 @@ commit;`);
 const contractVersion = q(`select version from site_contracts where workspace_id = ${uuidLit(WS)} and active`)[0].version;
 console.log(active.length && active[0].same ? `CONTRACT version ${contractVersion} unchanged` : `CONTRACT version ${contractVersion} written and active`);
 
+// jsonb keeps object keys in its own order (shorter keys first), so rows are compared with every object's keys sorted
+const canon = v => JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x)) ? Object.fromEntries(Object.keys(x).sort().map(n => [n, x[n]])) : x);
 // ---- write: rows (rows without pending refs first; a row whose refs are still pending waits for the next pass)
 const out = [];
 const left = [...wanted];
@@ -130,7 +134,7 @@ for (let pass = 0; left.length && pass < 5; pass++) {
     if (!hit) {
       id = q(`select service.seed_version(${uuidLit(WS)}, ${lit(w.collection)}, ${jsonLit(data)}, ${uuidLit(actor)}, ${lit(ref)}) as id`)[0].id;
       version = 1; what = 'NEW';
-    } else if (JSON.stringify(hit.data) === JSON.stringify(data)) {
+    } else if (canon(hit.data) === canon(data)) {
       id = hit.id; version = hit.n; what = 'SAME';
     } else {
       const s = q(`select * from service.save_as(${jsonLit(OWNER)}, ${uuidLit(WS)}, ${lit(w.collection)}, ${uuidLit(hit.id)}, ${jsonLit(data)}, null)`)[0];
@@ -143,6 +147,14 @@ for (let pass = 0; left.length && pass < 5; pass++) {
   }
 }
 if (left.length) die(1, `rows left with unresolved references: ${left.map((w) => w.id).join(', ')}`);
+// ---- the site holds exactly rows.json: a PUBLISHED row of workspace A that is not one of them is unpublished (kept, never deleted).
+// Every later publish snapshots all published rows, so one bare test row (an e2e listing with only `street`) fails every build.
+const mine = new Set(out.map((r) => r.id));
+for (const r of q(`select id, collection, published_version as pub from public.content_rows where workspace_id = ${uuidLit(WS)} and deleted_at is null and published_version is not null order by collection, id`)) {
+  if (mine.has(r.id)) continue;
+  ex(`select service.unpublish(${jsonLit(OWNER)}, ${uuidLit(r.id)}, false);`);
+  console.log(`${'UNPUB'.padEnd(7)} ${(r.collection + ' (not in rows.json)').padEnd(28)} ${r.id} was v${r.pub}`);
+}
 const file = flag('out');
 if (typeof file === 'string') { writeFileSync(resolve(file), JSON.stringify({ contractVersion, rows: out }, null, 2) + '\n'); console.log(`wrote ${file}`); }
 console.log(`OK: contract version ${contractVersion}, ${out.length} rows (${out.filter((r) => r.version === 1).length} at version 1)`);

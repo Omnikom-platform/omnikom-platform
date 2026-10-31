@@ -187,6 +187,14 @@ sent to the head of operations with options, never a fix made here.
   finding for the CLI head.
 - **Staging walls after 4.5:** `omnikom test walls --target staging` refuses while the test fixtures are seeded (FIXTURES-PRESENT, 9
   rows), and 4.5 needs them; run it after 4.5 (`seed test --clean`, walls, re-seed) to prove the security-event fix on staging.
+- **From 4.5 (2026-10-31 11:50):** (1) FLAKY CI gates job: on 8504771 attempt 1 the walls run died mid-way (no summary line,
+  exit 1, 42 s) and the function-test harness then crashed at start; attempt 2 green. First make run-all-gates print a crashed gate's
+  stderr tail (test watched red with a gate that throws), then find the cause. (2) A row published on the SQL path (`omnikom publish`,
+  e2e scripts) skips publish validation and breaks every later build of the site (the factory stops it, nothing deploys; job
+  e29fb962): start_publish, or the export, should validate the whole snapshot, or the SQL path should validate; decide and test.
+  (3) The staging sites row's `preview_host` is the seed's placeholder (`demo-a.preview.test`, the runner deploys to
+  `preview.test-site-demo-a.pages.dev`): finding for the CLI head's `seed test`, with `stage.mjs` / `upload-logo.mjs` / `publish.mjs`
+  for it to take over.
 - (CLOSED 2026-10-30 21:58: the owner picked "a workspace per site" for the ELEV8 split, so no site moves between
   workspaces; each split site is a new workspace seeded from its own plan.)
 
@@ -207,3 +215,4 @@ sent to the head of operations with options, never a fix made here.
 - 2026-10-31 05:55, standing head: slice 4.2 (dashboard functions) PROVEN, Haiku re-run equal to the builder line for line (deno check, specs, 58 Deno checks, 31 Deno mutants, staging status with 10 migrations and 7 functions deployed, e2e-functions 0 problems, walls 214 mutants alone in 17 min); proof in PROGRESS.md "4.2 dashboard functions: head's verification". Committing with the gates-runner fix. Next: 4.3 builder launched, 4.4 re-run.
 - 2026-10-31 06:40, standing head: slice 4.4 (runner and five workflows) PROVEN against fakes, Haiku re-run equal to the builder (87 checks, 67 mutants, actionlint clean, actions pinned by SHA, secrets dry-run names only); UNPROVEN against the real functions, Pages and GitHub until 4.5; ci.yml caps raised (gates 75, factory 60). Proof in PROGRESS.md "4.4 runner and workflows: head's verification". Builder 4.3 running; then the model switch (DECISIONS 40).
 - 2026-10-31 10:55, standing head: slice 4.3 (runner functions) PROVEN, Haiku re-run (deno check, specs, staging status with the four functions deployed, staging e2e-export 31 PASS, 0 problems) and the walls by the head (215 mutants); the security-event wall scoped to its own event (finding from the CLI head), watched red with an earlier event planted, new mutant caught. PROGRESS.md "4.3 runner functions: head's verification" and "4.5".
+- 2026-10-31 11:50, standing head: slice 4.5, step 4 DONE on the test site: a save reached preview.test-site-demo-a.pages.dev through GitHub (job 3f0a94e5, deploy 1321b598, the new heading served with noindex), a forced heading failure deployed nothing (job c8b1ca8d failed at the gate, MET-003), the workflows job green on GitHub; logo through media.yml, contract v2 and 12 rows by sites/test-demo-a/stage.mjs. PROGRESS.md "4.5". The ELEV8 preview waits on the owner.

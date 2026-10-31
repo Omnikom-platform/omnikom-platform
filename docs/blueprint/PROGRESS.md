@@ -457,7 +457,7 @@ tests with the new reader: test-plan-gate `PASS mutants 64/64`, test-rules `PASS
 The head accepts the four interpretations above as written. UNPROVEN: the skill's `test-snapshot.mjs` failed 1 of 49 on a loaded machine
 (`FAIL --gap-ms 400 ... 6 gaps, min 92 ms`; a timing test that does not use lib-site; not re-run idle); the real `live-target.mjs` on a real site.
 
-### 4.5 done-when on the test site (the head; in progress, opened 2026-10-31 07:45)
+### 4.5 done-when on the test site (the head; opened 2026-10-31 07:45, DONE 11:50)
 **Pages project.** `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node <scratch>/pages-project.mjs` (07:20, the head; the script refuses any
 name but `test-site-demo-a`):
 ```
@@ -521,6 +521,74 @@ caught   security events append-only                  ERROR:  EXPECTED A-APPEND-
 OK: real migration passes; 3 mutants
 ```
 Full run: `OK: real migration passes; 215 mutants`. UNPROVEN until the CLI runs it: `omnikom test walls --target staging` green on staging.
+
+**CI on 8504771 (slice 4.3 commit).** Run 41187071384, attempt 1: the gates job red, every other job green. The walls gate died after
+printing `SETUP-FAIL migration 9 opens service.media_processed to the function role (both layers)` with no summary line (exit 1, 42 s), then
+the function-test gate crashed at start (its last stderr line `Node.js v24.22.1`, 0 s). Attempt 2 (`gh run rerun --failed`), same commit:
+```
+PASS database walls + mutants   OK: real migration passes; 215 mutants
+PASS function tests (Deno)      OK: 87 of 87 checks passed (the Deno tests), exit 0
+```
+FLAKY on GitHub, not diagnosed: open item (run-all-gates should print a crashed gate's stderr tail; then find the cause).
+
+**The test site on staging, through the real pipeline (11:15 to 11:47, the head).** Three scripts in `sites/test-demo-a/`, every one
+through the deployed functions or the service functions, keys by name only:
+- `upload-logo.mjs` (owner-a, as the dashboard does): `upload-start 200: media 441fb10f-de50-4c54-9d17-bdbecc5751f7` /
+  `upload PUT 200: 1060 bytes` / `upload-finish 200: processed false, dispatched true` / media.yml run 41188412737 success /
+  `PROCESSED: media 441fb10f-de50-4c54-9d17-bdbecc5751f7, width 400, height 400` (the 800 slot at its own width).
+- `stage.mjs --logo-media 441fb10f-de50-4c54-9d17-bdbecc5751f7` (for the CLI's `seed test` to take over). First run:
+  `CONTRACT version 2 written and active`, 11 NEW at v1 (settings d070d660-06c7-49dd-8390-2a5ebaeb1ecf; pages / d8362afe-af60-4668-9566-6c84f34bc421,
+  /contact/ 008ef2da-6faf-40e2-bd7f-801b6d6c87a2, /homes-in-alpha/ 4d42b61d-55e6-45af-9782-1cea1ab357ad, /homes-in-beta/ 53e69182-8f6c-4bf7-9ec9-8bd59bd65047;
+  areas alpha ed3f87ba-4bff-4e0f-8d27-4cece23d257b, beta dd0860c6-34e1-49f4-b086-0c3aee876562; listings 12-alpha-lane 236cb3e1-8f35-4621-a131-daeed815de99,
+  34-beta-street 2423f51c-2129-456d-93b2-d8d029deab3d; notices form-consent 826ca0af-5b46-4fcc-bd26-6d1ddd637144, marketing-consent
+  177bf6a9-777f-4345-9ff3-72424988d2cd) and `VERSION team:agent-one 2e874b3a-ddc6-4f94-8c03-280eeb4702cc v2` (the seed's row, slug and role added).
+  Watched red: the second run wrote a new version of every row (jsonb stores object keys in its own order, so the raw JSON never matched);
+  compared with sorted keys since, the third run printed `SAME` for all 12 and `OK: contract version 2, 12 rows (0 at version 1)`.
+  Versions now: every row v2, team v3, home page v3 (the save below).
+- `publish.mjs` (owner-a through the publish function, which dispatches to GitHub; waits on the job; asks the preview for `/`).
+
+The first publish failed, honestly: job e29fb962-2811-4921-8a14-aa5652fb9080, `queued > building > failed`, error `build failed`, the
+factory's lines `1a823a46-... I-REQUIRED status required` and more: three bare listings published by the 4.3 e2e runs (only `street`)
+are in every snapshot (it carries every published row). stage.mjs now unpublishes (never deletes) a published row of workspace A that is
+not in rows.json: `UNPUB listings (not in rows.json) 1a823a46-cffb-4791-aaeb-ae4c5aac34cf was v1`, `2f3dc6ce-...`, `f1d98739-...`.
+
+**Done-when 1, a content change by a database save reaches the preview through GitHub.** First the site as staged:
+```
+publish 202: job 8ef2b47e-149c-4acd-be05-54e1d64e18be, state queued, dispatched true, 12 rows
+JOB 8ef2b47e-149c-4acd-be05-54e1d64e18be: done; events queued > building > gating > deploying > done; deploy 0ae872d1; error -
+gate report: {"audit":{"exit":0,"fails":[]},"factory":"pass"}
+PREVIEW preview.test-site-demo-a.pages.dev/: HTTP 200; x-robots-tag "noindex, nofollow"; h1 "Homes in Alpha and Beta"
+```
+(publish.yml run 41189634707 success.) Then the change, a save of the home page through the save function as owner-a, published:
+```
+save 200: page-home d8362afe-af60-4668-9566-6c84f34bc421 now version 3 (hero heading changed)
+publish 202: job 3f0a94e5-cc99-450c-a6a8-5169490c00ad, state queued, dispatched true, 12 rows
+JOB 3f0a94e5-cc99-450c-a6a8-5169490c00ad: done; events queued > building > gating > deploying > done; deploy 1321b598; error -
+gate report: {"audit":{"exit":0,"fails":[]},"factory":"pass"}
+PREVIEW preview.test-site-demo-a.pages.dev/: HTTP 200; x-robots-tag "noindex, nofollow"; h1 "Homes in Alpha and Beta, changed by a save at 11:42"; holds the new heading: true
+```
+(publish.yml run 41189782018 success.)
+
+**Done-when 2, a forced gate failure deploys nothing and the job is failed.** A job started on the SQL path (no dispatch), then the
+workflow by hand: `omnikom publish --as owner-a --site test-demo-a --rows d8362afe-...` gave job c8b1ca8d-f2f9-4027-b8c4-65dcac0baf19, and
+`gh workflow run publish.yml -f job_id=c8b1ca8d-... -f site_id=aaaaaaaa-0000-0000-0000-00000000517e -f force_fail=heading` (run 41190042221):
+```
+STEP export: job c8b1ca8d site aaaaaaaa -> test-site-demo-a, 12 rows, 4 media, state preview
+STEP media: 4 of 4 downloaded
+STEP build: BUILT 6 pages (4 contract pages + 2 item pages) -> /tmp/omnikom-publish-c8b1ca8d-Iqd2pC/dist | preview: true
+STEP failed: audit failed
+RESULT failed: audit failed
+JOB c8b1ca8d-f2f9-4027-b8c4-65dcac0baf19: failed; events queued > building > gating > failed; deploy -; error audit failed
+gate report: {"audit":{"exit":1,"fails":["FAIL MET-003 /contact/:70 value-mismatch: <h4> \"Forced skipped heading level\" follows <h2> \"Send a message\" (line 70) and skips a level (source: checklist/web-delivery.md MET-003)"]},"reason":"audit failed","factory":"pass"}
+PREVIEW preview.test-site-demo-a.pages.dev/: HTTP 200; x-robots-tag "noindex, nofollow"; h1 "Homes in Alpha and Beta, changed by a save at 11:42"
+```
+No deploy step ran (no wrangler line, no deploy id), and the preview still shows deploy 1321b598's heading.
+
+**Done-when 3, ci.yml's workflows job on GitHub:** green on a303a89 and 8504771 (pasted above). Step 4 is DONE on the test site.
+Not covered, on purpose: the ELEV8 preview (its Pages project needs the owner's click; DECISIONS, head of operations' order of 2026-10-31).
+Findings: the sites row's `preview_host` on staging is the seed's placeholder `demo-a.preview.test` (the runner deploys to
+`preview.test-site-demo-a.pages.dev`; publish.mjs checks that address): for the CLI head's `seed test`. A row published on the SQL path skips
+publish validation and then breaks every later build of the site (the factory stops it, nothing deploys): open item.
 
 ## Step 3: the database is finished, the hardening leftovers (2026-10-30 20:22-22:20, step 3 session, platform build; commits 0e60178 and the one after it)
 Every command through `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs <command> --target staging`

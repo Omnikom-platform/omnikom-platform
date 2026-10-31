@@ -120,6 +120,9 @@ deploy`, callback), `ci.yml` (every test and scan on every change), `media.yml` 
 `keepalive.yml`, the remaining Edge Functions (save, publish, export-published, job-callback, upload, lead-update, add-lead).
 Done when: a content change made by a database save publishes to the ELEV8 preview through GitHub and the preview shows it;
 a forced gate failure deploys nothing. ESTIMATE: four to six sessions.
+STATUS 2026-10-31 11:50: DONE on the test site (Pages project test-site-demo-a, staging), PROGRESS.md "4.5 done-when on the test
+site": a save reached the preview through GitHub (job 3f0a94e5), a forced heading failure deployed nothing (job c8b1ca8d failed).
+The ELEV8 preview half waits on the owner's click (its Pages project).
 
 ## Step 5. Clients can work: the dashboard (me, after you bring the design references, DECISIONS 21)
 The four screens on the engineered plan (15-CRM, 16-DESIGN-PARTS): sign in, Leads with the lead panel and "add a lead",
