@@ -1,6 +1,6 @@
 # Nightly encrypted dump of the STAGING database to two S3-compatible buckets: Cloudflare R2 and a second provider
 # (10-DELIVERY section 5, 11-OPERATIONS section 3, 18-BUDGET-ARCHITECTURE 2.4). The work is supabase/ops/backup.mjs (its header says how).
-# BLOCKED until the owner does these (each is an account or secret click, none is done by a session):
+# BLOCKED: R2 is deferred until the owner does these (each is an account or secret click, none is done by a session):
 #   (1) makes the key pair OFFLINE and commits only the public certificate as supabase/ops/backup-recipient.pem (supabase/ops/README.md);
 #   (2) enables R2 and creates a private bucket, and a bucket at a second provider (Backblaze B2, Wasabi...), each with a write-only key;
 #   (3) adds the repository secrets R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET (CLOUDFLARE_ACCOUNT_ID exists) and
@@ -51,7 +51,7 @@ jobs:
       - name: Back up staging (dump, encrypt to the public certificate, upload to both buckets, verify each by size)
         env:
           STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
-          R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
@@ -61,6 +61,7 @@ jobs:
           BACKUP2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP2_SECRET_ACCESS_KEY }}
         run: |
           pg_dump --version
+          export R2_ENDPOINT="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
           node supabase/ops/backup.mjs --db STAGING_DB_URL --privileges \
             --to "s3://${R2_BUCKET}/staging" --env R2 \
             --to "s3://${BACKUP2_BUCKET}/staging" --env BACKUP2

@@ -50,7 +50,7 @@ jobs:
       - name: Back up production (dump, encrypt to the public certificate, upload to both buckets, verify each by size)
         env:
           PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
-          R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
@@ -60,6 +60,7 @@ jobs:
           BACKUP2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP2_SECRET_ACCESS_KEY }}
         run: |
           pg_dump --version
+          export R2_ENDPOINT="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
           node supabase/ops/backup.mjs --db PROD_DB_URL --privileges \
             --to "s3://${R2_BUCKET}/production" --env R2 \
             --to "s3://${BACKUP2_BUCKET}/production" --env BACKUP2

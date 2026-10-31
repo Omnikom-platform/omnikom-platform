@@ -109,7 +109,10 @@ const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`PASS
     cluster.createDb('tiny');
     cluster.sql('tiny', `${ROLES_SQL}
       create table notes (id int primary key, body text not null); insert into notes select g, 'row ' || g from generate_series(1, 40) g;
-      grant select on notes to anon;`);
+      grant select on notes to anon;
+      alter table notes add constraint notes_body_short check (length(body) < 100) not valid;
+      create schema realtime; create table realtime.messages (payload text);
+      alter table realtime.messages add constraint messages_payload_exclusive check (payload is not null) not valid;`);
     const dump = join(root, 'tiny.dump');
     const d = spawnSync('pg_dump', ['--format=custom', '--no-owner', '--file', dump, cluster.url('tiny')], { encoding: 'utf8', timeout: 5 * 60 * 1000 });
     check('setup: a tiny dump was made', d.status === 0, d.stderr);
@@ -125,6 +128,7 @@ const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`PASS
     check('drill: counts and checks pass (40 + 0 rows counted, row level security is OFF on the tiny table, so the checks phase must be RED)', phase('counts').ok && phase('checks') && !phase('checks').ok, text);
     check('drill: the walls phase is RED (the tiny database has no service schema, tenancy.test.sql cannot pass)', phase('walls') && !phase('walls').ok, text);
     check('drill: the build phase is RED with the plain reason (no finished publish job)', phase('build') && !phase('build').ok && /no finished publish job|export_bundle|could not look for a job/.test(text), text);
+    check('drill: checks name a NOT VALID constraint in our schemas (public.notes notes_body_short) and ignore the vendor one (realtime)', phase('checks') && !phase('checks').ok && /constraints NOT VALID: public\.notes notes_body_short/.test(text) && !/realtime\.messages/.test(text), text);
     check('drill: exit 1, "DRILL FAIL" names the failed phases, and no "DRILL PASS" is printed', r.exit === 1 && /DRILL FAIL: .*checks.*walls.*build/.test(text) && !/DRILL PASS/.test(text), text);
     check('drill: every phase line carries a time, and a total is printed', r.phases.every(p => Number.isFinite(p.secs)) && /^total .*\(target under /m.test(text), text);
     check('drill: a total over the limit (set to 0.06 s here) fails the drill by itself', r.failures.some(f => /total time over the limit/.test(f)), r.failures.join(' | '));

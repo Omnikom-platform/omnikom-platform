@@ -36,6 +36,12 @@ const NAME_RE = /^[A-Z][A-Z0-9_]*$/;
 class Stop extends Error { constructor(code, message) { super(message); this.code = code; } }
 
 // ---- pure helpers (tested in 6b-drill.test.mjs)
+// The constraints left NOT VALID in the schemas our migrations own, by name. Vendor schemas are not ours to judge: the first drill
+// against staging (2026-10-31) failed on Supabase's own realtime.messages messages_payload_exclusive, which is NOT VALID on staging
+// itself, not a restore defect.
+export const OUR_SCHEMAS = ['public', 'private', 'service', 'ops'];
+export const NOT_VALID_SQL = `select coalesce(string_agg(n.nspname || '.' || c.relname || ' ' || k.conname, ', ' order by 1), '') from pg_constraint k join pg_class c on c.oid = k.conrelid join pg_namespace n on n.oid = c.relnamespace where not k.convalidated and n.nspname in (${OUR_SCHEMAS.map(s => `'${s}'`).join(', ')})`;
+
 export function pgEnv(url) {
   const u = new URL(url);
   const e = {};
@@ -270,11 +276,11 @@ export async function drill(argv, env = process.env, log = console.log) {
     // 5 structural checks on the restored data
     if (full.ok) await phase('checks', async () => {
       const rls = q('restored', "select coalesce(string_agg(c.relname, ', '), '') from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity");
-      const nv = q('restored', 'select count(*) from pg_constraint where not convalidated');
+      const nv = q('restored', NOT_VALID_SQL);
       const tables = q('restored', "select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r'");
       if (!rls.ok || !nv.ok || !tables.ok) return { ok: false, detail: `a check could not run: ${rls.err || nv.err || tables.err}` };
-      const ok = rls.out === '' && nv.out === '0' && Number(tables.out) > 0;
-      return { ok, detail: ok ? `${tables.out} public tables, all with row level security on; 0 constraints NOT VALID` : `row level security off on: ${rls.out || '(none)'}; constraints NOT VALID: ${nv.out}; public tables: ${tables.out}` };
+      const ok = rls.out === '' && nv.out === '' && Number(tables.out) > 0;
+      return { ok, detail: ok ? `${tables.out} public tables, all with row level security on; 0 constraints NOT VALID in our schemas` : `row level security off on: ${rls.out || '(none)'}; constraints NOT VALID: ${nv.out || '(none)'}; public tables: ${tables.out}` };
     });
 
     // 6 the walls, on the restored schema
