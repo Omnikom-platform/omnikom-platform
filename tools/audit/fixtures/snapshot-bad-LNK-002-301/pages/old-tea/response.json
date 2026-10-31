@@ -1,0 +1,25 @@
+{
+ "url": "https://example-tea.invalid/old-tea/",
+ "finalUrl": "https://example-tea.invalid/tasting-room/",
+ "status": 200,
+ "chain": [
+  {
+   "url": "https://example-tea.invalid/old-tea/",
+   "status": 301,
+   "location": "/tasting-room/"
+  },
+  {
+   "url": "https://example-tea.invalid/tasting-room/",
+   "status": 200
+  }
+ ],
+ "headers": {
+  "content-type": "text/html; charset=utf-8"
+ },
+ "ttfbMs": 250,
+ "totalMs": 290,
+ "htmlBytes": 4096,
+ "mainTextHash": null,
+ "fetchedAt": "2026-10-30T08:02:00.000Z",
+ "userAgent": "PEWP-SiteCheck/1.0"
+}

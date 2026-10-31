@@ -1,0 +1,21 @@
+{
+ "url": "https://example-tea.invalid/tasting-room/",
+ "finalUrl": "https://example-tea.invalid/tasting-room/",
+ "profile": "mobile",
+ "measuredAt": "2026-10-30T08:05:00.000Z",
+ "timedOut": false,
+ "vitals": {
+  "lcpMs": 2230,
+  "cls": 0.04,
+  "tbtMs": 120,
+  "fcpMs": 1338,
+  "ttfbMs": 240,
+  "loadMs": 2830
+ },
+ "method": "median of 3 run(s); other fields from the median-LCP run",
+ "totals": {
+  "requests": 14,
+  "bytes": 412000
+ },
+ "errors": []
+}

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://example-tea.invalid/</loc>
+    <lastmod>2026-10-02T08:15:00Z</lastmod>
+  </url>
+  <url>
+    <loc>https://example-tea.invalid/about/</loc>
+    <lastmod>2026-09-21T14:40:00Z</lastmod>
+  </url>
+  <url>
+    <loc>https://example-tea.invalid/journal/how-to-steep-oolong/</loc>
+    <lastmod>2026-10-19T16:22:10Z</lastmod>
+  </url>
+</urlset>

@@ -2,7 +2,7 @@
 // one check file per rule id, each admitted only with its rules/<ID>.md source text. Node built-ins only, no network.
 //   import { audit, listRules } from "./tools/audit/index.mjs";
 //   const r = audit("path/to/built/site", { rules: ["MET-003"], config: { titleLength: { hardMax: 65 } } });
-//   r = { dir, pages: [paths], rules: [{ id, severity, source }], findings: [...], lines: [...], pass, exit }
+//   r = { dir, mode: "static"|"snapshot", pages: [paths], rules: [{ id, severity, source }], findings: [...], lines: [...], pass, exit }
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -19,6 +19,8 @@ export const DEFAULT_CONFIG = {
   titleLength: { warnMin: 30, warnMax: 60, hardMax: 70 },
   descriptionLength: { warnMin: 70, warnMax: 160, hardMax: 180 },
   sitemap: { maxUrlsPerFile: 50000, maxBytesPerFile: 52428800 },
+  // shipgate spec 8.0.0 packs/performance.md defaults block (read 2026-10-30): lcpMs, cls, tbtMs (PRF-001), ttfbMs (PRF-016, warm server response).
+  speed: { lcpMs: 2500, cls: 0.1, tbtMs: 200, ttfbMs: 600 },
 };
 
 async function loadChecks() {
@@ -53,6 +55,7 @@ function resolveConfig(dir, override) {
     const { warnMin, warnMax, hardMax } = cfg[k];
     if (![warnMin, warnMax, hardMax].every((n) => Number.isInteger(n) && n > 0) || !(warnMin < warnMax && warnMax <= hardMax)) throw new AuditError(`WCF-004: ${k} must satisfy warnMin < warnMax <= hardMax (got ${warnMin}, ${warnMax}, ${hardMax})`);
   }
+  for (const [k, v] of Object.entries(cfg.speed)) if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) throw new AuditError(`WCF-004: speed.${k} must be a number above zero (got ${JSON.stringify(v)})`);
   for (const [k, v] of Object.entries(cfg.sitemap)) if (!Number.isInteger(v) || v < 1) throw new AuditError(`sitemap.${k} must be a whole number above zero`);
   return cfg;
 }
@@ -63,13 +66,17 @@ export function audit(dir, options = {}) {
   if (!dir || !fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) throw new AuditError(`site folder not found: ${dir}`);
   const config = resolveConfig(dir, options.config);
   let selected = CHECKS;
-  if (options.rules) {
-    const want = options.rules.map((r) => String(r).trim().toUpperCase()).filter(Boolean);
+  // rules omitted (undefined or null) runs every rule; anything else must name rules that exist. An empty list, an empty string or an
+  // unknown id is a usage error, never "zero rules ran, PASS" (a caller that passes rules: [''] must not fail open).
+  if (options.rules !== undefined && options.rules !== null) {
+    const list = Array.isArray(options.rules) ? options.rules : [options.rules];
+    if (list.length === 0) throw new AuditError('no such rule: (an empty rules list runs nothing; omit rules to run all of them)');
+    const want = list.map((r) => String(r).trim().toUpperCase());
     const unknown = want.filter((r) => !CHECKS.some((c) => c.id === r));
-    if (unknown.length) throw new AuditError(`unknown rule id: ${unknown.join(", ")} (node tools/audit/run.mjs --list shows them)`);
+    if (unknown.length) throw new AuditError(`no such rule: ${unknown.map((u) => JSON.stringify(u)).join(", ")} (unknown rule id; node tools/audit/run.mjs --list shows them)`);
     selected = CHECKS.filter((c) => want.includes(c.id));
   }
-  const site = buildSite(dir, config);
+  const site = buildSite(dir, config, { psi: options.psi });
   const findings = [];
   const lines = [];
   for (const c of selected) {
@@ -87,5 +94,5 @@ export function audit(dir, options = {}) {
     }
   }
   const pass = !findings.some((f) => f.status === "FAIL");
-  return { dir: site.dir, pages: site.pageList.map((p) => p.path), rules: selected.map((c) => ({ id: c.id, severity: c.severity, source: c.source })), findings, lines, pass, exit: pass ? 0 : 1 };
+  return { dir: site.dir, mode: site.mode, pages: site.pageList.map((p) => p.path), rules: selected.map((c) => ({ id: c.id, severity: c.severity, source: c.source })), findings, lines, pass, exit: pass ? 0 : 1 };
 }

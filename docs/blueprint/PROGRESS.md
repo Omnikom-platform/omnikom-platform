@@ -370,6 +370,29 @@ Findings for the skill (not fixed here): `browser-mobile.json` keeps the numbers
 `psi.mjs` writes under `site-checks/<host>/.pewp/psi/`, not inside the snapshot folder (pass it with `--psi`); `sitemaps.json` fetched[].status is not
 judged (a declared sitemap that 404s is only visible as "no sitemap file"); `_site.json.url` is written without a trailing slash in the fixture but
 `start.href` has one in the real script (both work).
+**HEAD RE-RUN (2026-10-31 07:00 to 10:25, SEO and audits head `local_d0e65fa9...`, Opus 5.5; every command run by a Haiku runner, outputs pasted verbatim).** SLICE 2 PROVEN.
+```
+node tools/audit/test/run.mjs                              OK: 332 of 332 checks passed   EXIT=0
+MUTATE_JOBS=3 MUTATE_TIMEOUT_S=1800 node tools/audit/test/mutate.mjs   (harness WITH the NOT RUN class)
+                                                           185 mutants, 185 caught, 0 survived, 0 not run, 0 target text missing   EXIT=0
+                                                           grep "^(SURVIVED|NOT RUN|MISSING)": no lines
+node tools/audit/run.mjs tools/audit/fixtures/good         lines=44 nonPASS=0  OK: 4 page(s), 17 rule(s), 0 FAIL, 0 WARN, 0 SKIP   EXIT=0
+node tools/audit/run.mjs tools/audit/fixtures/snapshot-good   lines=52 nonPASS=0  OK: 4 page(s), 17 rule(s), 0 FAIL, 0 WARN, 0 SKIP   EXIT=0
+node tools/audit/run.mjs tools/audit/fixtures/snapshot-bad-PRF-001
+                                                           FAIL PRF-001 /:1 budget-exceeded: LCP 3100 ms > 2500 ms (source: checklist/performance.md PRF-001)   EXIT=1
+node tools/audit/run.mjs tools/audit/fixtures/bad-MET-003  FAIL MET-003 /tasting-room/:48 value-mismatch: <h4> "Small print" follows <h2> "Before you come" (line 46) and skips a level (source: checklist/web-delivery.md MET-003)   EXIT=1
+OMNIKOM_AUDIT_LIVE_TARGET=tools/audit/fixtures/live-target-standin.mjs node tools/audit/live.mjs https://example-tea.invalid/
+                                                           OK: 4 page(s), 17 rule(s), 0 FAIL, 0 WARN, 0 SKIP   EXIT=0 (the 4 non-PASS lines are the stand-in's progress lines)
+node tools/audit/run.mjs --list                            17 rules: A11-007, IDX-001..004, LNK-002, MET-001..004, PRF-001, PRF-016, SCH-001, SE-001, SE-004, SE-202, URL-009   EXIT=0
+node tools/audit/fixtures/build-fixtures.mjs --check       OK: 92 fixture(s) equal the generator output   EXIT=0
+node docs/blueprint/specs/run-all-gates.mjs                every gate PASS (contract tests 147, contract mutants 88/88, industry run 15/15, database walls 214 mutants, Deno 58/58, specs, signature, deno check)   EXIT=0
+em dash (U+2014) scan of tools/audit, the charter, the skill lib-site.mjs, this block: 0 files
+```
+Reader carried back: the snapshot branch of `lib/site.mjs` went into the skill source `lib-site.mjs` (skill repo commit 9e99708; only the two import lines
+differ from the audit copy), synced with `node skills/sync-skill.mjs programmatic-enterprise-web-performance` ("1 copied", SOURCE.md row 9e99708). Skill
+tests with the new reader: test-plan-gate `PASS mutants 64/64`, test-rules `PASS mutants 92/92`, test-compare 37 of 37, test-phase1 52 of 52 (all EXIT=0).
+The head accepts the four interpretations above as written. UNPROVEN: the skill's `test-snapshot.mjs` failed 1 of 49 on a loaded machine
+(`FAIL --gap-ms 400 ... 6 gaps, min 92 ms`; a timing test that does not use lib-site; not re-run idle); the real `live-target.mjs` on a real site.
 
 ## Step 3: the database is finished, the hardening leftovers (2026-10-30 20:22-22:20, step 3 session, platform build; commits 0e60178 and the one after it)
 Every command through `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs <command> --target staging`

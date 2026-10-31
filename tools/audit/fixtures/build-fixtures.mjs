@@ -6,6 +6,7 @@
 // throws, so a fixture can never silently equal the good site.
 import fs from "node:fs";
 import path from "node:path";
+import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -152,21 +153,143 @@ export const FIXTURES = {
   "bad-SE-202-cjk": { expect: "Bing wants at least 10", edit: (d) => { rep(d, "about/index.html", '<html lang="en">', '<html lang="ja">'); rep(d, "about/index.html", ABOUT_TITLE, "紅茶専門店のご案内"); } },
 };
 
+// ---------------------------------------------------------------------------------------------------------------------------------------
+// Snapshot fixtures (slice 2): fixtures/snapshot-good/ is the good site in the form snapshot-site.mjs saves a live site (see that script's
+// header for every file), generated from fixtures/good by snapshotGood(). fixtures/snapshot-bad-<RULE-ID>[-part]/ are snapshotGood() plus one
+// edit. Entries are Maps of path -> string | Buffer. A .gz file is compared on its gunzipped bytes (the gzip header carries an OS byte that
+// differs between platforms); the writer fixes that byte and the time stamp, so the files are also the same bytes everywhere.
+// A fixture entry may carry: status ("FAIL" default, "WARN", "SKIP", "PASS" = the status of its own rule's finding), also (rule ids whose
+// findings are expected as well, because one fact breaks two rules), count, expect, at.
+const SO = "https://example-tea.invalid";
+const gz = (text) => { const b = zlib.gzipSync(Buffer.isBuffer(text) ? text : Buffer.from(text, "utf8"), { level: 9 }); b.fill(0, 4, 8); b[9] = 3; return b; };
+const ungz = (b) => zlib.gunzipSync(b).toString("utf8");
+const txt = (d, file) => String(need(d, file));
+const jsonOf = (d, file) => JSON.parse(txt(d, file));
+const putJson = (d, file, o) => d.set(file, JSON.stringify(o, null, 1) + "\n");
+const edJson = (d, file, fn) => { const o = jsonOf(d, file); fn(o); putJson(d, file, o); };
+const edHtml = (d, slug, from, to) => {
+  const f = `pages/${slug}/raw.html.gz`;
+  const t = ungz(need(d, f)); const n = t.split(from).length - 1;
+  if (n !== 1) throw new Error(`fixture edit: ${f}: expected 1 occurrence of ${JSON.stringify(from.slice(0, 70))}, found ${n}`);
+  d.set(f, gz(t.split(from).join(to)));
+};
+const edHtmlAll = (d, slug, from, to) => { const f = `pages/${slug}/raw.html.gz`; const t = ungz(need(d, f)); if (!t.includes(from)) throw new Error(`fixture edit: ${f}: no occurrence of ${JSON.stringify(from.slice(0, 70))}`); d.set(f, gz(t.split(from).join(to))); };
+const edText = (d, file, from, to) => rep(d, file, from, to);
+const SNAP_PAGES = [
+  { file: "index.html", slug: "home", path: "/", ttfb: 238, lcp: 1840, cls: 0.02, tbt: 70 },
+  { file: "about/index.html", slug: "about", path: "/about/", ttfb: 261, lcp: 2010, cls: 0.01, tbt: 95 },
+  { file: "tasting-room/index.html", slug: "tasting-room", path: "/tasting-room/", ttfb: 244, lcp: 2230, cls: 0.04, tbt: 120 },
+  { file: "journal/how-to-steep-oolong/index.html", slug: "journal__how-to-steep-oolong", path: "/journal/how-to-steep-oolong/", ttfb: 275, lcp: 1950, cls: 0, tbt: 60 },
+];
+const TRUSTED = "trusted";
+const responseJson = (url, finalUrl, status, ttfbMs, extra = {}) => ({ url, finalUrl, status, chain: [{ url, status, ttfbMs }], headers: { "content-type": "text/html; charset=utf-8" }, ttfbMs, totalMs: ttfbMs + 40, htmlBytes: 4096, mainTextHash: null, fetchedAt: "2026-10-30T08:02:00.000Z", userAgent: "PEWP-SiteCheck/1.0", ...extra });
+const browserJson = (url, lcpMs, cls, tbtMs) => ({ url, finalUrl: url, profile: "mobile", measuredAt: "2026-10-30T08:05:00.000Z", timedOut: false, vitals: { lcpMs, cls, tbtMs, fcpMs: Math.round(lcpMs * 0.6), ttfbMs: 240, loadMs: lcpMs + 600 }, method: "median of 3 run(s); other fields from the median-LCP run", totals: { requests: 14, bytes: 412000 }, errors: [] });
+
+export function snapshotGood(good) {
+  const d = new Map();
+  const swap = (s) => s.split(O).join(SO);
+  const robots = swap(need(good, "robots.txt"));
+  const sitemap = swap(need(good, "sitemap.xml"));
+  const entries = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/g)].map((m) => ({ kind: "url", loc: m[1], lastmod: m[2] }));
+  const pagesMeta = [];
+  for (const p of SNAP_PAGES) {
+    const url = SO + p.path;
+    d.set(`pages/${p.slug}/raw.html.gz`, gz(swap(need(good, p.file))));
+    putJson(d, `pages/${p.slug}/response.json`, responseJson(url, url, 200, p.ttfb));
+    putJson(d, `pages/${p.slug}/browser-mobile.json`, browserJson(url, p.lcp, p.cls, p.tbt));
+    pagesMeta.push({ url, slug: p.slug, status: 200, finalUrl: url, redirects: 0, mobile: { lcpMs: p.lcp, cls: p.cls, tbtMs: p.tbt, requests: 14, kb: 402, errors: 0, timedOut: false, runs: 3 }, speedTrust: TRUSTED });
+  }
+  d.set("site/robots.txt", robots);
+  putJson(d, "site/robots.json", { status: 200, headers: { "content-type": "text/plain; charset=utf-8" }, bytes: Buffer.byteLength(robots), sitemaps: [SO + "/sitemap.xml"] });
+  d.set("site/sitemap-1.xml", sitemap);
+  putJson(d, "site/sitemaps.json", { declaredInRobots: [SO + "/sitemap.xml"], fetched: [{ url: SO + "/sitemap.xml", status: 200, contentType: "application/xml", bytes: Buffer.byteLength(sitemap), file: "site/sitemap-1.xml", entries: entries.length, withLastmod: entries.length, sampleLastmod: entries[0].lastmod }], urlCount: entries.length, urls: entries });
+  putJson(d, "_site.json", { url: SO, origin: SO, startedAt: "2026-10-30T08:00:00.000Z", tool: "programmatic-enterprise-web-performance/snapshot-site.mjs", userAgent: "PEWP-SiteCheck/1.0", gapMs: 4000, runs: 3, maxPages: 16, perGroup: 2, profiles: ["mobile"], ignoreRobots: false, note: "synthetic fixture", pages: pagesMeta, skipped: [], stoppedEarly: null, machineLoad: { cpuPctAvg: 12.5, cpuPctMax: 31, samples: 40, thresholdPct: 35 }, finishedAt: "2026-10-30T08:09:41.000Z", requests: 31, rateLimited: 0 });
+  return d;
+}
+
+const SM_ABOUT = urlBlock("/about/", T_ABOUT).split(O).join(SO);
+const smBlock = (u, t) => urlBlock(u, t).split(O).join(SO);
+// a crawled record that is not a normal 200 page: slug, the url crawled, the url it ended on, its chain and body
+const addRecord = (d, { slug, url, finalUrl, status, chain, html }) => {
+  putJson(d, `pages/${slug}/response.json`, responseJson(url, finalUrl, status, 250, { chain }));
+  if (html !== undefined) d.set(`pages/${slug}/raw.html.gz`, gz(html));
+  edJson(d, "_site.json", (m) => m.pages.push({ url, slug, status, finalUrl, redirects: chain.length - 1 }));
+};
+const NOT_FOUND_HTML = '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<title>Not found</title>\n</head>\n<body>\n<h1>Not found</h1>\n</body>\n</html>\n';
+const linkAbout = (d, href) => edHtml(d, "about", ABOUT_LINK_TAIL, ABOUT_LINK_TAIL.replace("</p>", ` See also <a href="${href}">a page we link to</a>.</p>`));
+const untrusted = (d) => edJson(d, "_site.json", (m) => { m.pages[0].speedTrust = "UNTRUSTED: machine busy (cpu avg 71%)"; });
+const homeLab = (d, key, value) => edJson(d, "pages/home/browser-mobile.json", (m) => { m.vitals[key] = value; });
+const psiFile = (lcpMs, strategy = "mobile") => ({ generatedAt: "2026-10-30T09:12:00.000Z", pages: [{ url: SO + "/", strategy, performance: 41, lcpMs, cls: 0.02, tbtMs: 120, fcpMs: 1500, speedIndexMs: 2600, fetchedAt: "2026-10-30T09:12:00.000Z", cacheFile: "cache/psi/home.json" }], failures: [] });
+const ROBOTS_BAD_BYTES = Buffer.from("User-agent: *\nDisallow: /private/\n# caf\xe9 closed on Mondays\nSitemap: " + SO + "/sitemap.xml\n", "latin1");
+
+export const SNAPSHOT_FIXTURES = {
+  // the slice 1 rules on a snapshot: the mode shares the checks
+  "snapshot-bad-MET-003": { expect: "skips a level", at: "<h4>Small print", edit: (d) => edHtml(d, "tasting-room", "<h2>Before you come</h2>", "<h2>Before you come</h2>\n<p>Bring a friend if you like.</p>\n<h4>Small print</h4>") },
+  "snapshot-bad-MET-001-duplicate": { expect: "is also the title of", at: "<title>About", edit: (d) => edHtml(d, "tasting-room", TASTING_TITLE, ABOUT_TITLE) },
+  "snapshot-bad-IDX-002-origin": { expect: "is not on the origin", count: 4, at: "www.example-tea.invalid", also: ["IDX-001"], edit: (d) => d.set("site/sitemap-1.xml", txt(d, "site/sitemap-1.xml").split(SO).join("https://www.example-tea.invalid")) },
+  "snapshot-bad-URL-009-origin": { expect: "is not the origin", at: "rel=\"canonical\"", also: ["IDX-001"], edit: (d) => edHtmlAll(d, "about", `${SO}/about/`, "https://www.example-tea.invalid/about/") },
+  // IDX-001: "extra" and "missing" need a complete crawl; a snapshot is a sample unless _site.json says complete
+  "snapshot-bad-IDX-001-missing": { expect: "incomplete-crawl", status: "SKIP", edit: (d) => edText(d, "site/sitemap-1.xml", smBlock("/tasting-room/", T_TASTING), "") },
+  "snapshot-bad-IDX-001-extra": { expect: "incomplete-crawl", status: "SKIP", edit: (d) => edText(d, "site/sitemap-1.xml", "</urlset>", smBlock("/ghost/", "2026-10-05T09:00:00Z") + "</urlset>") },
+  "snapshot-bad-IDX-001-missing-complete": { expect: "is not in the sitemap", edit: (d) => { edText(d, "site/sitemap-1.xml", smBlock("/tasting-room/", T_TASTING), ""); edJson(d, "_site.json", (m) => { m.complete = true; }); } },
+  "snapshot-bad-IDX-001-extra-complete": { expect: "extra", at: "/ghost/", edit: (d) => { edText(d, "site/sitemap-1.xml", "</urlset>", smBlock("/ghost/", "2026-10-05T09:00:00Z") + "</urlset>"); edJson(d, "_site.json", (m) => { m.complete = true; }); } },
+  // IDX-004 http part (status 200, content type text/plain) and SE-001 judge the same robots.json; one fact breaks both
+  "snapshot-bad-IDX-004-type": { expect: "not text/plain", also: ["SE-001"], edit: (d) => edJson(d, "site/robots.json", (m) => { m.headers["content-type"] = "text/html; charset=utf-8"; }) },
+  "snapshot-bad-IDX-004-status": { expect: "answered 403, not 200", also: ["SE-001"], edit: (d) => { edJson(d, "site/robots.json", (m) => { m.status = 403; }); del(d, "site/robots.txt"); } },
+  "snapshot-bad-IDX-004-wrong-sitemap": { expect: "is not the sitemap file", at: "other-sitemap.xml", edit: (d) => edText(d, "site/robots.txt", `Sitemap: ${SO}/sitemap.xml`, `Sitemap: ${SO}/other-sitemap.xml`) },
+  // SE-001: robots.txt health
+  "snapshot-bad-SE-001": { expect: "answered 500; Google", also: ["IDX-004"], edit: (d) => { edJson(d, "site/robots.json", (m) => { m.status = 500; }); del(d, "site/robots.txt"); } },
+  "snapshot-bad-SE-001-404": { expect: "answered 404", status: "WARN", also: ["IDX-004"], edit: (d) => { edJson(d, "site/robots.json", (m) => { m.status = 404; }); del(d, "site/robots.txt"); } },
+  "snapshot-bad-SE-001-429": { expect: "answered 429; Google", also: ["IDX-004"], edit: (d) => { edJson(d, "site/robots.json", (m) => { m.status = 429; }); del(d, "site/robots.txt"); } },
+  "snapshot-bad-SE-001-type": { expect: "application/json", also: ["IDX-004"], edit: (d) => edJson(d, "site/robots.json", (m) => { m.headers["content-type"] = "application/json"; }) },
+  "snapshot-bad-SE-001-bytes": { expect: "600000 bytes, the limit is 512000", edit: (d) => edJson(d, "site/robots.json", (m) => { m.bytes = 600000; }) },
+  "snapshot-bad-SE-001-utf8": { expect: "not valid UTF-8", at: "caf", edit: (d) => { d.set("site/robots.txt", ROBOTS_BAD_BYTES); edJson(d, "site/robots.json", (m) => { m.bytes = ROBOTS_BAD_BYTES.length; }); } },
+  // LNK-002 status part: what the crawl saw at the target
+  "snapshot-bad-LNK-002-404": { expect: "answer 404, not 200", at: "/gone/", edit: (d) => { linkAbout(d, "/gone/"); addRecord(d, { slug: "gone", url: SO + "/gone/", finalUrl: SO + "/gone/", status: 404, chain: [{ url: SO + "/gone/", status: 404 }], html: NOT_FOUND_HTML }); } },
+  "snapshot-bad-LNK-002-301": { expect: "redirect-target", at: "/old-tea/", edit: (d) => { linkAbout(d, "/old-tea/"); addRecord(d, { slug: "old-tea", url: SO + "/old-tea/", finalUrl: SO + "/tasting-room/", status: 200, chain: [{ url: SO + "/old-tea/", status: 301, location: "/tasting-room/" }, { url: SO + "/tasting-room/", status: 200 }], html: ungz(need(d, "pages/tasting-room/raw.html.gz")) }); } },
+  "snapshot-bad-LNK-002-uncrawled": { expect: "not-crawled", status: "SKIP", edit: (d) => linkAbout(d, "/wholesale/") },
+  // PRF-001: LCP, CLS and TBT budgets, the speed trust rule and the PSI preference
+  "snapshot-bad-PRF-001": { expect: "LCP 3100 ms > 2500 ms", edit: (d) => homeLab(d, "lcpMs", 3100) },
+  "snapshot-bad-PRF-001-cls": { expect: "CLS 0.25 > 0.1", edit: (d) => homeLab(d, "cls", 0.25) },
+  "snapshot-bad-PRF-001-tbt": { expect: "TBT 350 ms > 200 ms", edit: (d) => homeLab(d, "tbtMs", 350) },
+  "snapshot-bad-PRF-001-untrusted": { expect: "speed UNTRUSTED (machine busy (cpu avg 71%))", status: "SKIP", edit: (d) => { homeLab(d, "lcpMs", 3100); untrusted(d); } },
+  "snapshot-bad-PRF-001-psi-fail": { expect: "LCP 3400 ms > 2500 ms (source: PSI 2026-10-30)", edit: (d) => { untrusted(d); add(d, "psi/2026-10-30.json", JSON.stringify(psiFile(3400), null, 1) + "\n"); } },
+  "snapshot-bad-PRF-001-psi-pass": { expect: "", status: "PASS", edit: (d) => { homeLab(d, "lcpMs", 3100); untrusted(d); add(d, "psi/2026-10-30.json", JSON.stringify(psiFile(1900), null, 1) + "\n"); } },
+  // PRF-016: one cold request over ttfbMs is a WARN
+  "snapshot-bad-PRF-016": { expect: "TTFB 1900 ms > 600 ms (single cold request", status: "WARN", edit: (d) => edJson(d, "pages/home/response.json", (m) => { m.ttfbMs = 1900; }) },
+};
+
+const isSnapshotName = (n) => n === "snapshot-good" || n.startsWith("snapshot-bad-");
+const isFixtureName = (n) => n.startsWith("bad-") || isSnapshotName(n);
+
 export function buildAll() {
   const good = readDir(path.join(HERE, "good"));
   const out = new Map();
   for (const [name, { edit }] of Object.entries(FIXTURES)) { const d = new Map(good); edit(d); out.set(name, d); }
+  const sg = snapshotGood(good);
+  out.set("snapshot-good", sg);
+  for (const [name, { edit }] of Object.entries(SNAPSHOT_FIXTURES)) { const d = new Map(sg); edit(d); out.set(name, d); }
   return out;
 }
 
+// every file of a folder as bytes (the folder fixtures are text, the snapshot ones hold .gz files and one latin-1 text)
+function readDirBytes(dir) {
+  const out = new Map();
+  const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else out.set(path.relative(dir, p).split(path.sep).join("/"), fs.readFileSync(p)); } };
+  walk(dir);
+  return out;
+}
+const bytesOf = (v) => (Buffer.isBuffer(v) ? v : Buffer.from(v, "utf8"));
+const same = (rel, a, b) => { const x = bytesOf(a), y = bytesOf(b); if (/\.gz$/i.test(rel)) { try { return zlib.gunzipSync(x).equals(zlib.gunzipSync(y)); } catch { return false; } } return x.equals(y); };
+
 export function diffAgainstDisk(built, root = HERE) {
   const problems = [];
-  const onDisk = fs.readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory() && e.name.startsWith("bad-")).map((e) => e.name);
+  const onDisk = fs.readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory() && isFixtureName(e.name)).map((e) => e.name);
   for (const n of onDisk) if (!built.has(n)) problems.push(`stale fixture folder ${n} (no generator entry)`);
   for (const [name, files] of built) {
     const dir = path.join(root, name);
-    const have = fs.existsSync(dir) ? readDir(dir) : new Map();
-    for (const [rel, text] of files) { if (!have.has(rel)) problems.push(`${name}/${rel} is missing on disk`); else if (have.get(rel) !== text) problems.push(`${name}/${rel} differs from the generator output`); }
+    const have = fs.existsSync(dir) ? readDirBytes(dir) : new Map();
+    for (const [rel, text] of files) { if (!have.has(rel)) problems.push(`${name}/${rel} is missing on disk`); else if (!same(rel, have.get(rel), text)) problems.push(`${name}/${rel} differs from the generator output`); }
     for (const rel of have.keys()) if (!files.has(rel)) problems.push(`${name}/${rel} is on disk but not generated`);
   }
   return problems;
@@ -181,8 +304,8 @@ if (isMain) {
     console.log(problems.length ? `FAILED: ${problems.length} difference(s)` : `OK: ${built.size} fixture(s) equal the generator output`);
     process.exit(problems.length ? 1 : 0);
   }
-  for (const e of fs.readdirSync(HERE, { withFileTypes: true })) if (e.isDirectory() && e.name.startsWith("bad-")) fs.rmSync(path.join(HERE, e.name), { recursive: true, force: true });
-  for (const [name, files] of built) for (const [rel, text] of files) { const p = path.join(HERE, name, rel); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, text, "utf8"); }
+  for (const e of fs.readdirSync(HERE, { withFileTypes: true })) if (e.isDirectory() && isFixtureName(e.name)) fs.rmSync(path.join(HERE, e.name), { recursive: true, force: true });
+  for (const [name, files] of built) for (const [rel, text] of files) { const p = path.join(HERE, name, rel); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, Buffer.isBuffer(text) ? text : Buffer.from(text, "utf8")); }
   console.log(`wrote ${built.size} fixture(s)`);
 }
 void O; void add; void del; void copyPage;

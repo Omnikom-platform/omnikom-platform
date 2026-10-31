@@ -1,0 +1,40 @@
+{
+ "declaredInRobots": [
+  "https://example-tea.invalid/sitemap.xml"
+ ],
+ "fetched": [
+  {
+   "url": "https://example-tea.invalid/sitemap.xml",
+   "status": 200,
+   "contentType": "application/xml",
+   "bytes": 582,
+   "file": "site/sitemap-1.xml",
+   "entries": 4,
+   "withLastmod": 4,
+   "sampleLastmod": "2026-10-02T08:15:00Z"
+  }
+ ],
+ "urlCount": 4,
+ "urls": [
+  {
+   "kind": "url",
+   "loc": "https://example-tea.invalid/",
+   "lastmod": "2026-10-02T08:15:00Z"
+  },
+  {
+   "kind": "url",
+   "loc": "https://example-tea.invalid/about/",
+   "lastmod": "2026-09-21T14:40:00Z"
+  },
+  {
+   "kind": "url",
+   "loc": "https://example-tea.invalid/tasting-room/",
+   "lastmod": "2026-10-11T10:05:30+01:00"
+  },
+  {
+   "kind": "url",
+   "loc": "https://example-tea.invalid/journal/how-to-steep-oolong/",
+   "lastmod": "2026-10-19T16:22:10Z"
+  }
+ ]
+}

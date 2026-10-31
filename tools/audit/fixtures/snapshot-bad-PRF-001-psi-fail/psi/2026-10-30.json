@@ -1,0 +1,18 @@
+{
+ "generatedAt": "2026-10-30T09:12:00.000Z",
+ "pages": [
+  {
+   "url": "https://example-tea.invalid/",
+   "strategy": "mobile",
+   "performance": 41,
+   "lcpMs": 3400,
+   "cls": 0.02,
+   "tbtMs": 120,
+   "fcpMs": 1500,
+   "speedIndexMs": 2600,
+   "fetchedAt": "2026-10-30T09:12:00.000Z",
+   "cacheFile": "cache/psi/home.json"
+  }
+ ],
+ "failures": []
+}

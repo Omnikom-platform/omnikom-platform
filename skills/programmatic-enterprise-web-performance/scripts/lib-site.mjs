@@ -3,6 +3,7 @@
 // 2026-10-30 (Omnikom audit engine, tools/audit/lib/site.mjs is a copy of this file): every token carries its 1-based line (stripped
 // regions keep their newlines), new page fields titles[], descriptions[], mains[], imgs[], canonicals[], ogUrls[], hreflangs[], raw;
 // the first description and canonical are what MET-002 and URL-009 judge (the old metaDescription/canonical fields keep the last one).
+// 2026-10-31 (audit engine slice 2): the snapshot branch of loadSite keys pages by FINAL url, lists followed redirects in `redirects`, keeps body-less records, returns origin, meta, complete; page fields slug, url, crawledUrl, ttfbMs, chain.
 // A page: { path, status, title, metaDescription, canonical, robots, noindex, h1[], headings[{level,text,line}], blocks[{tag,text,region,seq}],
 //           firstParagraph, links[{href,text,region,rel,line}], jsonld[{parsed,error,line}], text, mainText, mainWords, wordCount,
 //           raw, titles[{text,line,inHead}], descriptions[{text,line,inHead}], mains[{line}], imgs[{tag,line,attrs}],
@@ -146,7 +147,12 @@ function walk(dir, base = dir, out = []) {
   return out;
 }
 
-// Returns { mode: "static"|"snapshot", dir, complete, hosts[], pages: Map<normPath, page> }.
+// Returns { mode: "static"|"snapshot", dir, complete, origin, hosts[], pages: Map<normPath, page>, redirects: Map<normPath, {...}>, meta }.
+// Snapshot mode (slice 2): every folder under pages/ that has a response.json is a record. A page is keyed by the path of its FINAL url
+// (response.json.finalUrl); status is the final status. A record whose crawled url path differs from its final path (a redirect the
+// crawl followed) is also listed in `redirects` under the crawled path, with the status of the first hop, and becomes a page only when
+// no record crawled directly at the final path exists. A record with no raw.html.gz (a 404 with no body) is a page with empty content.
+// `complete` is true only when _site.json says `complete: true`: a snapshot is a sample of a site unless it says otherwise.
 export function loadSite(dir) {
   const root = path.resolve(dir);
   if (!fs.existsSync(root)) throw new Error(`site folder not found: ${root}`);
@@ -154,19 +160,35 @@ export function loadSite(dir) {
   const hosts = [];
   if (fs.existsSync(path.join(root, "_site.json")) && fs.existsSync(path.join(root, "pages"))) {
     const meta = JSON.parse(fs.readFileSync(path.join(root, "_site.json"), "utf8"));
-    try { hosts.push(new URL(meta.url).hostname); } catch {}
-    for (const slug of fs.readdirSync(path.join(root, "pages"))) {
+    let metaOrigin = "";
+    try { const mu = new URL(meta.url); hosts.push(mu.hostname); metaOrigin = mu.origin; } catch {}
+    const recs = [];
+    for (const slug of fs.readdirSync(path.join(root, "pages")).sort()) {
       const base = path.join(root, "pages", slug);
       let resp; try { resp = JSON.parse(fs.readFileSync(path.join(base, "response.json"), "utf8")); } catch { continue; }
+      let fin, crawled;
+      try { fin = new URL(resp.finalUrl || resp.url); crawled = new URL(resp.url || resp.finalUrl); } catch { continue; }
       const gz = path.join(base, "raw.html.gz");
-      if (!fs.existsSync(gz)) continue;
-      const u = new URL(resp.finalUrl || resp.url);
-      hosts.push(u.hostname);
-      const pg = parseHtml(zlib.gunzipSync(fs.readFileSync(gz)).toString("utf8"));
-      pg.path = normPath(u.pathname); pg.status = resp.status; pg.file = path.relative(root, gz);
-      pages.set(pg.path, pg);
+      hosts.push(fin.hostname);
+      recs.push({ slug, resp, gz, fin, crawled, finalPath: normPath(fin.pathname), crawledPath: normPath(crawled.pathname) });
     }
-    return { mode: "snapshot", dir: root, complete: false, hosts: [...new Set(hosts)], pages };
+    const redirects = new Map();
+    const add = (r) => {
+      const html = fs.existsSync(r.gz) ? zlib.gunzipSync(fs.readFileSync(r.gz)).toString("utf8") : "";
+      const pg = parseHtml(html);
+      pg.path = r.finalPath; pg.status = typeof r.resp.status === "number" ? r.resp.status : 0; pg.slug = r.slug; pg.url = r.fin.href; pg.crawledUrl = r.crawled.href;
+      pg.ttfbMs = typeof r.resp.ttfbMs === "number" ? r.resp.ttfbMs : null; pg.chain = Array.isArray(r.resp.chain) ? r.resp.chain : [];
+      pg.file = fs.existsSync(r.gz) ? path.relative(root, r.gz).split(path.sep).join("/") : `pages/${r.slug}/response.json`;
+      pages.set(pg.path, pg);
+    };
+    for (const r of recs) {
+      if (r.crawledPath === r.finalPath) { add(r); continue; }
+      const first = Array.isArray(r.resp.chain) && r.resp.chain[0] ? r.resp.chain[0].status : undefined;
+      if (typeof first === "number" && first >= 300 && first < 400) redirects.set(r.crawledPath, { status: first, to: r.finalPath, finalStatus: r.resp.status, slug: r.slug });
+    }
+    for (const r of recs) if (r.crawledPath !== r.finalPath && !pages.has(r.finalPath)) add(r);
+    const home = pages.get("/");
+    return { mode: "snapshot", dir: root, complete: meta.complete === true, origin: home ? new URL(home.url).origin : metaOrigin, hosts: [...new Set(hosts)], pages, redirects, meta };
   }
   for (const rel of walk(root)) {
     const pg = parseHtml(fs.readFileSync(path.join(root, rel), "utf8"));

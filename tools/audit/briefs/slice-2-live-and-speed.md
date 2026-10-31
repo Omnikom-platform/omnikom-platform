@@ -110,3 +110,9 @@ lines and exits 0. Then write the outputs into `docs/blueprint/PROGRESS.md` at t
 `## SEO and audits, slice 2: live snapshot input and speed budgets (<date and time>, builder)`, update `tools/audit/README.md`
 (the snapshot mode, the driver, the new rules and thresholds with sources), and send the head two lines: PROVEN with counts; open or
 UNPROVEN or BLOCKED. Do not commit.
+
+## Added 2026-10-31 01:37 (finding from the CLI head, via the head of operations)
+`audit(dir, { rules: [''] })` runs zero rules and reports PASS, so any caller other than the CLI fails open. An empty rule list,
+an empty string, or an unknown rule id is a usage error: throw `AuditError` (exit 2) naming the id, e.g. `no such rule: ""`. Test
+watched red (good fixture with `rules: ['']` and with `rules: ['NOPE-999']` both exit 2 and judge nothing; `rules` omitted still
+runs all), plus one mutant that removes the guard. The report to the head says the rule set changed (14 to 17) so dependants know.

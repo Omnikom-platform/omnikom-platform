@@ -20,6 +20,8 @@ export function run(site) {
     let u = null;
     if (/^https:\/\//i.test(canon)) { try { u = new URL(canon); } catch { u = null; } }
     if (!u) { out.push(f.fail(p.path, c.line, `value-mismatch: the canonical "${canon}" is not an absolute https:// URL`)); continue; }
+    // a snapshot knows the HTTP origin the page was fetched from, so the canonical's origin is checked exactly (a folder has none)
+    if (site.mode === "snapshot" && site.origin && u.origin !== site.origin) out.push(f.fail(p.path, c.line, `value-mismatch: the canonical origin ${u.origin} is not the origin ${site.origin} the page was fetched from`));
     if (normPath(u.pathname) !== p.path) out.push(f.fail(p.path, c.line, `value-mismatch: the canonical path ${u.pathname} is not this page's own path ${p.path}`));
     for (const og of p.ogUrls) if (og.content.trim() !== canon) out.push(f.fail(p.path, og.line, `value-mismatch: og:url "${og.content}" is not the canonical "${canon}"`));
     for (const h of p.hreflangs) {

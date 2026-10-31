@@ -1,0 +1,21 @@
+{
+ "url": "https://example-tea.invalid/journal/how-to-steep-oolong/",
+ "finalUrl": "https://example-tea.invalid/journal/how-to-steep-oolong/",
+ "profile": "mobile",
+ "measuredAt": "2026-10-30T08:05:00.000Z",
+ "timedOut": false,
+ "vitals": {
+  "lcpMs": 1950,
+  "cls": 0,
+  "tbtMs": 60,
+  "fcpMs": 1170,
+  "ttfbMs": 240,
+  "loadMs": 2550
+ },
+ "method": "median of 3 run(s); other fields from the median-LCP run",
+ "totals": {
+  "requests": 14,
+  "bytes": 412000
+ },
+ "errors": []
+}

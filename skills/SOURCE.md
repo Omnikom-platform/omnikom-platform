@@ -2,7 +2,7 @@
 
 | Copy here | Copied from | Version at copy | Date |
 |---|---|---|---|
-| `programmatic-enterprise-web-performance/` | `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance` (own git repo; its `.git` was not copied) | `7d94c41` "lib-site: every token carries its line, first description/canonical kept, titles/mains/img" | 2026-10-30 |
+| `programmatic-enterprise-web-performance/` | `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance` (own git repo; its `.git` was not copied) | `9e99708` "lib-site: snapshot branch of loadSite from the Omnikom audit engine slice 2 (final-url key" | 2026-10-31 |
 | `design-tournament/` | `C:\Users\DELL\.claude\skills\design-tournament` | (no git) | 2026-10-24 |
 | `icm-librarian.agent.md` | `E:\Francine & Eli\.claude\agents\icm-librarian.md` | Francine & Eli repo | 2026-10-24 |
 

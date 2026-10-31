@@ -15,7 +15,7 @@ Every path not listed above. A bug or a need in another department's files is a 
 options, never a fix made here.
 
 ## Head session
-- Model: fable. Started by the head of operations with a brief that names this file.
+- Model: opus (DECISIONS 40). Started by the head of operations with a brief that names this file.
 - Reads first, in order: `CLAUDE.md`, this charter (whole file, the position log last), `.claude/POSITION.md` (last blocks),
   `planning/DECISIONS.md` (the items this charter lists under Decisions), then the files the current slice names.
 - Does: splits the work into slices with a written brief each, starts one builder per slice, re-runs every builder's proof
@@ -23,7 +23,7 @@ options, never a fix made here.
   operations in two lines.
 
 ## Builders
-- Model: sonnet unless a slice is design-heavy (then the head does it, or a fable builder).
+- Model: sonnet unless a slice is design-heavy (then the head does it, or an opus builder).
 - Mechanical runs (tests, mutants, gates, grep, fixture rebuilds, deploy and status commands) go to a haiku agent with the
   exact command; the head or builder reads the verdict lines back (DECISIONS 34).
 - One slice, one brief, one set of files; discarded when the slice is done. The brief carries: the files, the spec, what done
@@ -80,6 +80,32 @@ options, never a fix made here.
   build), which this department supplies with the gate call and its expected output.
 - Slice 4: the six-question report as a generated document from the audit JSON (the skill's `report-live.mjs` wording), plain words.
   Proves: a report never states a number without its source line in the JSON.
+- Slice 4b, design tells (DECISIONS 37; after slice 2 is committed, before the prompt map; not started, one builder brief):
+  (1) copy the open skill unslop (github.com/heydamir/unslop, folder skills/unslop, CC BY 4.0, by Damir Sokolovsky) into
+  `skills/unslop/` with its credit and licence kept, a row in `skills/SOURCE.md`, and `skills/unslop/` added to this charter's Owns;
+  its scripts folder (story video, snapshot) is not copied (design-bench and the render gate exist). (2) A DSN rule family in
+  `tools/audit` from its machine-checkable tells, same shape as the 17 rules (rules/<DSN-nnn>.md, checks/, a bad fixture, a test
+  watched red, a mutant): looping or bouncy motion classes (animate-pulse, animate-ping, transition-all, hover:scale, shimmer);
+  gradient text and hue-gradient backgrounds; emoji in labels or headings; uppercase tracked labels; hype words and "AI-powered"
+  copy; exclamation marks in headlines; greeting headlines; PRO or Beta badges; unverifiable-claim patterns ("loved by N+ teams",
+  "Nx faster"); font weight 700 or more under 14 px; negative letter spacing on small text. FAIL on the first six and the claim
+  patterns; WARN where the engine cannot see computed styles, said so in the rule file. (3) The design stage (`stages/design.md`)
+  requires the five-line direction (product, character, world, moments, signature; clean, modern, sleek, minimal and premium banned
+  as character words) as the header of every look-folder's DESIGN.md and lists the nine passes (spacing, colour, icons, copy, type,
+  layout, details, visuals, motion) as the builder's order of work; carried back through `node skills/sync-skill.mjs`. Done when:
+  `node tools/audit/run.mjs tools/audit/fixtures/good` still exit 0; a new `fixtures/bad-DSN` folder exits 1 naming each rule; the
+  mutant run catches every DSN mutant; the design stage text states the direction header as required. Proves: a built site that
+  carries a design-slop tell does not publish, and every look-folder starts from a written direction.
+- Slice 5, the prompt map (DECISIONS 35; backlog, first slice after build step 4 is proven; not started, no builder briefed): (1) the
+  research stage of the skill writes a prompt map, one row per prompt with its scenario, comparison and constraint; whether the business
+  is named in ChatGPT, Perplexity and Gemini (owner captures plus the Gemini check the skill already has, public and polite); the page
+  cited; and ONE fix (new page, improve a page, earn a mention). Sources for the buyer's words: the client's own lead inbox messages (that
+  workspace only, through a platform export the platform head provides, never a direct database read), reviews, and the forum questions
+  already mined; a row without a source is not a row; no volume target. (2) The plan stage covers every row with a brief or a written
+  reason; briefs may name two new page types, `situation` and honest `comparison` (public sourced facts about the other option only,
+  Non-negotiable 3); the page types themselves are the platform head's in step 5. (3) The measure stage re-runs the map monthly.
+  (4) Gate rule for `omnikom audit`: a build that leaves a prompt-map row uncovered without a reason fails, active only once the plan
+  artifact exists. Proves: every built page traces to a prompt someone actually asks, and every prompt is covered or declined in writing.
 - Findings from the slice 1 builder, for the skill copy (own files, through `node skills/sync-skill.mjs` after the fix lands in the outside
   source): (a) `scripts/lib-site.mjs` holds literal em dash characters (the `ENT.mdash` entry and comments); the audit's copy uses
   `String.fromCharCode(0x2014)`; (b) `parseHtml` keeps the LAST `<meta name=description>` and the LAST canonical while MET-002 and URL-009
@@ -108,3 +134,17 @@ options, never a fix made here.
   mutants, test-rules 92 of 92, test-compare 37 of 37, test-phase1 52 of 52), synced with `node skills/sync-skill.mjs`, SOURCE.md row
   7d94c41. Blueprint 22 line 20 points at `sops/clients/launch.md`. Slice 2 brief `tools/audit/briefs/slice-2-live-and-speed.md`,
   Sonnet builder running (in-session agent). The audit's `lib/site.mjs` will diverge again in slice 2 (snapshot branch); carry back after.
+- 2026-10-31 01:40: DECISIONS 35 (prompt map reaching the built pages) recorded as slice 5 in Open items, backlog after build step 4;
+  not started. Slice 2 (builder running, mutant run settling) and the fail-open fix (empty or unknown rule id, folded into slice 2's
+  brief from the CLI head's finding) stay first.
+- 2026-10-31 05:25: DECISIONS 37 (unslop skill copy, DSN rule family, five-line direction in the design stage) recorded as slice 4b
+  in Open items: after slice 2's commit, before slice 5; not started, no builder briefed. Slice 2 builder still running (mutant run
+  182 lines, 34 survivors under rework after the laptop sleep).
+- 2026-10-31 10:25: SLICE 2 PROVEN (head re-run by Haiku runners, outputs in `docs/blueprint/PROGRESS.md` under "slice 2: live snapshot"):
+  332 of 332 checks; 185 mutants, 185 caught, 0 survived, 0 not run (harness now counts a killed child as NOT RUN, exit 1); rule set 14
+  to 17 (SE-001, PRF-001, PRF-016 new; IDX-004 HTTP part, LNK-002 status part; CLI head told, the CLI reads the count from the engine);
+  empty or unknown rule id is exit 2. Reader carried back to the skill (9e99708). Interpretations accepted: IDX-001 extra and missing
+  both SKIP on a sample crawl; only status-200 pages go through page rules; file links not judged in a snapshot; only `complete: true`
+  is a complete crawl. Skill findings carried (not fixed): `vitals` nesting in browser-mobile.json, robots saved via utf8 (U+FFFD),
+  psi.mjs output outside the snapshot, sitemaps fetched[].status unjudged, test-snapshot gap timing fails under load. UNPROVEN: the
+  real live-target.mjs on a real site; a real PSI file. Next: slice 4b (unslop).

@@ -651,3 +651,10 @@
   build, never a line in a report.
 - 08:10 OWNER BATCH (waits for him): (1) in the CLI head session, a yes to download the pinned tool binaries (actionlint, shellcheck, gitleaks, deno) into .tools/ for `omnikom ci` (DECISIONS 42; downloads need his own word in that session); (2) ELEV8 meeting answers; (3) six client findings; (4) registering the big-output hook in his settings; (5) any production click. CLI head proves the rest offline with fixture archives meanwhile; shellcheck pin in ci.yml routed to the platform head.
 - 08:25 Runner 800-slot fix (media.mjs: the 800 slot always exists, narrower originals at their own width; a 400 px logo was unpublishable): test watched red (exit 1, no upload), green 87/87, 68 mutants caught; builder 4.3 told the matching export slot rule. shellcheck 0.11.0 pinned in ci.yml (DECISIONS 42; sha256 b7af85e4..., passed to actionlint by -shellcheck), runner workflow check went red (2 sha256 checks expected), updated to 3 + two mutants; full mutants running. sites/test-demo-a/stage.mjs written, dry-run on staging: contract v2 planned, 11 NEW + team Agent One MATCH (gets slug/role as a new version); only problem the logo (needs a processed media row after 4.3).
+
+## 2026-10-31 10:25 (SEO and audits head `local_d0e65fa9-4a2d-4c74-a612-5d33cd189efe`, Opus 5.5; this checkout, master)
+- SLICE 2 PROVEN (live snapshot input, speed budgets): 332/332 checks, 185 mutants all caught, 0 not run; `tools/audit` rule set 14 to 17
+  (SE-001, PRF-001, PRF-016); `tools/audit/live.mjs <url>` drives the skill's live-target.mjs (exit 3 on a failed snapshot or a 429).
+  Proof in PROGRESS "SEO and audits, slice 2". Reader carried back to the skill (9e99708).
+- UNPROVEN: a real live-target.mjs run on a real site (needs a platform-owned site); a real PSI file. Skill test-snapshot gap timing red under load.
+- NEXT: slice 4b (unslop: skills/unslop copy, DSN rule family, five-line direction in stages/design.md), Sonnet builder from a written brief.

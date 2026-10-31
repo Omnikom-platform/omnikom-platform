@@ -1,0 +1,21 @@
+{
+ "url": "https://example-tea.invalid/journal/how-to-steep-oolong/",
+ "finalUrl": "https://example-tea.invalid/journal/how-to-steep-oolong/",
+ "status": 200,
+ "chain": [
+  {
+   "url": "https://example-tea.invalid/journal/how-to-steep-oolong/",
+   "status": 200,
+   "ttfbMs": 275
+  }
+ ],
+ "headers": {
+  "content-type": "text/html; charset=utf-8"
+ },
+ "ttfbMs": 275,
+ "totalMs": 315,
+ "htmlBytes": 4096,
+ "mainTextHash": null,
+ "fetchedAt": "2026-10-30T08:02:00.000Z",
+ "userAgent": "PEWP-SiteCheck/1.0"
+}

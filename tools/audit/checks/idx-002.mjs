@@ -15,7 +15,8 @@ export function run(site) {
   const { files, root } = site.sitemaps();
   if (files.length === 0) return [f.skip("sitemap.xml", "no sitemap*.xml in the folder, so there is nothing to judge")];
   const { maxUrlsPerFile, maxBytesPerFile } = site.config.sitemap;
-  let origin = null;
+  let origin = site.mode === "snapshot" && site.origin ? site.origin : null; // a snapshot knows the site origin; a folder takes the first URL's
+  const originOf = origin ? "the snapshot" : "the first URL";
   const seen = new Map(); // loc -> "file:line" of its first appearance
   if (files.length > 1 && root.kind !== "index") out.push(f.fail(root.rel, 1, `value-mismatch: the folder has ${files.length} sitemap files but ${root.rel} is not a sitemap index`));
   for (const s of files) {
@@ -29,7 +30,7 @@ export function run(site) {
       if (/^https?:\/\//i.test(e.loc)) { try { u = new URL(e.loc); } catch { u = null; } }
       if (!u) { out.push(f.fail(s.rel, e.line, `value-mismatch: the <loc> "${e.loc}" is not an absolute URL`)); continue; }
       if (origin === null) origin = u.origin;
-      else if (u.origin !== origin) out.push(f.fail(s.rel, e.line, `value-mismatch: ${e.loc} is not on the origin ${origin} of the first URL`));
+      else if (u.origin !== origin) out.push(f.fail(s.rel, e.line, `value-mismatch: ${e.loc} is not on the origin ${origin} of ${originOf}`));
       if (seen.has(e.loc)) out.push(f.fail(s.rel, e.line, `duplicate-element: ${e.loc} is listed more than once (first at ${seen.get(e.loc)})`));
       else seen.set(e.loc, `${s.rel}:${e.line}`);
     }
