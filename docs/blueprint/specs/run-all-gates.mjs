@@ -1,6 +1,8 @@
 // Run every gate this repo has today, in order, and print one line each (the line a new team should see on their machine).
 //   node docs/blueprint/specs/run-all-gates.mjs     exit 0 only if every gate passes
 import { spawnSync } from 'node:child_process';
+import { statfsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -13,6 +15,7 @@ const GATES = [
   ['function tests (Deno)', 'supabase/functions/test/run.mjs'],   // slice 4.2 harness: a local cluster + the Edge Functions under Deno, about 2 to 5 minutes; its mutants (mutate.mjs) are the slice gate, too long for here
   ['specs + traceability', 'docs/blueprint/specs/check-specs.mjs'],
   ['machine-call signature', 'supabase/functions/_shared/signature.test.mjs'],
+  ['no model in runtime (D38)', 'docs/blueprint/specs/check-no-model.test.mjs'],   // DECISIONS 38 (1): planted tells, 10 mutants, then the real tree
 ];
 // Per-gate time limit. The wall gate ran 161 mutants in about 12 minutes on a quiet machine (2026-10-30); with 214 mutants (slice 4.2) and
 // other sessions loading the machine it passed 30 minutes twice on 2026-10-31, and this runner then printed the LAST STDOUT LINE (a "caught"
@@ -31,6 +34,15 @@ for (const [name, script] of GATES) {
   if (r.status !== 0) bad++;
   if (timedOut) console.log(`FAIL ${name.padEnd(26)} TIMEOUT after ${secs} s (limit ${Math.round(TIMEOUT_MS / 1000)} s; not a test failure, the gate was killed; last line: ${last})`);
   else console.log(`${r.status === 0 ? 'PASS' : 'FAIL'} ${name.padEnd(26)} ${last}${r.status === 0 ? '' : `   (exit ${r.status}, ${secs} s)`}`);
+  // A failed gate shows its own evidence: the tails of its stdout and stderr, and the free disk. On 2026-10-31 (CI run 41187071384,
+  // attempt 1) two gates crashed and this runner had kept one stdout line of each, so the crash itself was never written anywhere.
+  if (r.status !== 0) {
+    const tail = (s, n) => (s || '').trim().split(/\r?\n/).filter(Boolean).slice(-n).map(l => `      ${l.slice(0, 300)}`).join('\n');
+    if ((r.stdout || '').trim()) console.log(`    stdout (last 8 lines):\n${tail(r.stdout, 8)}`);
+    if ((r.stderr || '').trim()) console.log(`    stderr (last 12 lines):\n${tail(r.stderr, 12)}`);
+    if (r.error) console.log(`    spawn error: ${r.error.code || r.error.message}`);
+    try { const f = statfsSync(tmpdir()); console.log(`    free disk in ${tmpdir()}: ${Math.round(f.bavail * f.bsize / 1048576)} MB`); } catch { /* not every platform reports it */ }
+  }
 }
 // Deno type check of the shared function code (needs deno on PATH; reported, not hidden, when missing)
 const dn = ONLY ? null : spawnSync('deno', ['task', 'check'], { cwd: ROOT, encoding: 'utf8', timeout: 300000, shell: process.platform === 'win32' });

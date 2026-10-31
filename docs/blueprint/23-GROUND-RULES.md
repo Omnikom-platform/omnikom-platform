@@ -45,6 +45,10 @@ Nothing here is a certification of the platform; these are the published rule se
     function reads its inputs from the database the way the function does, never from values handed to it. (Found on staging
     2026-10-30: the test inserted site keys without a workspace and the CLI's model of `capture-lead` held keys in memory, so
     126 mutants and 138 checks stayed green while the deployed lookup found no key and answered 401.)
+14. The running platform needs no model (DECISIONS 38): runtime code (supabase/, factory/, tools/audit/, tools/omnikom-cli/,
+    the workflows, the dashboard, sites/) imports no model SDK, names no model API host and reads no model key. Checked by
+    `docs/blueprint/specs/check-no-model.mjs` in run-all-gates (planted tells, 10 mutants, the real tree). The allowlist is by
+    path and outside the runtime folders (the SEO skill's research scripts, the step D operators); adding to it is a decision.
 
 ## 3. The gates (what runs, where, what it proves)
 | Gate | Rule(s) | What it checks | Where | Status |
