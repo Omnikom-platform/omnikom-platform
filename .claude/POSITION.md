@@ -716,3 +716,13 @@
   tree passed every ci.yml job; the pre-push hook refuses master otherwise; laptop runs only the impact-named tests. Cause:
   walls gate 55 min on the laptop vs 3 min on CI. Routed to CLI (hook design change) and all heads. tools ensure: actionlint,
   deno, shellcheck in .tools; gitleaks BLOCKED (Node fetch failed twice, curl reaches the asset), fix in the CLI.
+- 21:36 Restore drill 1 against staging: DRILL PASS, 7 phases, 3 min 8 s (the NOT VALID check scoped to our schemas; record in PROGRESS "Restore drill 1").
+- 23:50 5.3 (shell, sign-in, Leads; apps/dashboard) verified by impact: dashboard CI step, staging build, Playwright 7 of 7 on staging, check-no-model, departments. Held back: the ci.yml `dashboard` job and the runner test's nine-job list until the CLI maps "Dashboard tests" in NODE_STEPS (CLI unit was 184 of 186 with the job). run-local.mjs: mutant databases dropped WITH (FORCE), checked, retried (one was left behind under load; watched red). DECISIONS 45: pushed to check/platform/5-3; master fast-forwards only after every ci.yml job is green there. Next: 5.2 (builder running, light work), its heavy checks go to a check branch too.
+
+- 23:50 Verified from GitHub run 41234695247 on 3cd4bf0 (8 of 8, read by me): audit 332/332 and 185 of 185 mutants (closes SEO
+  slice 2; my local runs died "killed, exit null" from load and a builder's pattern kill), functions 88/88 and 76 caught,
+  walls 336 mutants, factory 85 + 70 caught, D38 gate, CLI 185/185, gitleaks clean. tools ensure PROVEN at 103a502 (ok,
+  exit 0; gitleaks downloaded 8438883 bytes). Platform: 5.1 + 6A + 6B landed (68e2592 red on runner tests, fixed 3cd4bf0);
+  restore drill PASS 3 min 8 s; 5.3 built (Playwright 7/7 on staging, plan gate 11/11 mutants), lands via check branch.
+  CLI hook redesigned to DECISIONS 45 (GitHub ci run is the stamp, omnikom land). Owner question: sign-in link 10 min vs 1 h.
+  Leftover: E:/omk-verify (an rmdir was refused by the safety check; owner may delete it).
