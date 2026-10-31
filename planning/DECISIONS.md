@@ -297,3 +297,22 @@
     (spacing, colour, icons, copy, type, layout, details, visuals, motion) as the builder's order of work for design partials;
     step 5 builds under it. The skill's story video and snapshot scripts are not used (design-bench and the render gate exist).
     Ordering: SEO department, after its slice 2 is proven; the rules land before step 5's first look-folder.
+
+38. **The running platform never needs Claude; anything that uses AI must also run from a paid key** (2026-10-31 05:45, owner:
+    "we sure do too much stuff that needs to be less in cost and not rely on my Claude subscription cuz that might go away
+    anytime, so at least we should have as much of this platform with all of its parts perfectly in place"; on the shape of the
+    rule the owner said "no preference", so the recommended shape stands). (1) Runtime code (supabase/, factory/, tools/audit/,
+    the workflows, the dashboard, tools/omnikom-cli/) imports no model SDK and calls no model API; a structural check in
+    `supabase/tests/run-local.mjs` or `docs/blueprint/specs/run-all-gates.mjs` fails when one appears (platform head, with a
+    test watched red and a mutant). (2) The AI operators of step D and every agent step that builds or improves a site (the SEO
+    skill's `claude -p` workers, the department builders) run from an API key by environment variable as well as from the
+    subscription, behind one harness, so losing the subscription stops nothing that is built and only changes how the next
+    build is paid for. (3) Nvidia Kumo Tabular (open weights, commercial licence, single-table classification and regression
+    without training; developer.nvidia.com/topics/ai/agent-knowledge-foundation/kumo, read 2026-10-31) is noted for step D as
+    a possible lead-sorting model once clients have labelled lead outcomes; it cannot run on Cloudflare Workers (fixed model
+    catalogue, 128 MB) and would run on the owner's GPU laptop or a small GPU host. Nothing starts now.
+39. **A Design department is created when step 5 starts, not before** (2026-10-31 05:36, owner: "Create it at step 5").
+    Until then the SEO and audits department keeps the design stage, the unslop copy and the DSN rules (DECISIONS 37). At
+    step 5 the new department takes over `skills/design-tournament/`, `skills/unslop/`, the design stage file (an "except"
+    path inside the SEO skill), `docs/blueprint/16-DESIGN-PARTS.md`, the wireframes and the look-folder reviews; the DSN audit
+    rules stay with SEO because the engine is theirs. The head of operations scaffolds it with `tools/departments/new-department.mjs`.
