@@ -555,3 +555,19 @@
   `gh workflow run` with the owner's gh login (workflow scope), not that token, so no Actions write is needed on it.
 - 01:40 Finding from the head of operations noted in the charter Open items: the privacy-requests read wall (T-series, "B's owner reads no request of A") failed twice today under load and passed alone (161 of 161); flaky wall, diagnose after 4.1 is proven (two clusters at once, leftover row). Builders 4.1 and 4.2 both alive after the laptop sleep (last writes 01:33 and 01:30).
 - 03:05 Slice 4.1 PROVEN locally (PROGRESS.md "4.1 factory core: head's verification"); committing factory/, sites/test-demo-a/, PROGRESS, charter. Builder 4.2 still running (told to add the export schema key). NEXT: launch 4.4 (brief factory/briefs/4-4-runner-and-workflows.md); 4.3 after 4.2 is verified.
+
+## 2026-10-31 03:16 head of operations: slice 4.1 verified, seed-test slice released, state after the laptop sleep
+- 4.1 factory core PROVEN locally, committed c1258dc (platform head), on backup-gh master. My own Haiku re-run (03:10 to 03:15) matched
+  the head's and the builder's lines: `node factory/test/run.mjs` OK 88 of 88 exit 0; build 6 pages exit 0; `tools/audit/run.mjs dist`
+  OK 7 pages 17 rules 0 FAIL 1 WARN exit 0; `--force-fail heading` build then audit FAILED 1 FAIL exit 1 (MET-003). Mutants (85, 0
+  survived) are the head's re-run, not mine (department heads own full mutant runs).
+- Released to the CLI head: the queued `seed test` slice (contract final at sites/test-demo-a/contract.json) with the finding that the
+  seeded team row needs `slug` and `role`. CLI audit-command slice (213 checks, 110 mutants) still uncommitted on my last check; asked
+  for the hash. CLI slice 2 still waits for 4.2 on staging.
+- Platform: 4.2 (dashboard functions) still running, last writes 02:13 (test harness, save/publish/upload functions); 4.4 (runner +
+  workflows) launched 03:08. Findings routed earlier today: engine fail-open on an empty rule filter to the SEO head; flaky walls test
+  ("privacy requests read wall") to the platform head after 4.1 (now due). Keep-awake requested after the laptop slept (the owner's
+  "26 h" was clock time, active work about 12 to 13 h). Owner on the old scoped Supabase token omnikom-cli: "Leave it".
+- NEXT: verify 4.2 and 4.4 on report (Haiku re-run of the gate lines), then 4.3 and 4.5; verify the CLI audit slice commit and the
+  seed-test slice; SEO slice 2 on report. Owner is notified only for a click or a decision (next: ELEV8 meeting answers, step 5 design
+  references).
