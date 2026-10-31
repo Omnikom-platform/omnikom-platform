@@ -12,8 +12,12 @@
 // Step 3 (migration 8): the connection steps down to the role omnikom_fn right after it opens, so this code can only call
 // service.* functions (no table read or write, 24-GAP-HUNT A 13.2.2); Vault, the alert recipients and "was this lead alerted"
 // come through service functions. A refusal is answered with its platform code and recorded in security_events.
+// Slice 4.3 (2026-10-31): a jsonb parameter is given the OBJECT, never JSON.stringify(object)::jsonb: postgres.js encodes a string given to a jsonb
+// parameter a second time, so answers, marketing consent and the security event's detail were stored as JSON strings (jsonb_typeof 'string').
+// Tests: supabase/functions/test/capture.test.ts. This file keeps its own `refusal` (visitor wording and the 'SITE' code differ from _shared/db.ts).
 import postgres from 'npm:postgres@3.4.5';
 import { verify } from '../_shared/signature.ts';
+import type { Sql } from '../_shared/db.ts';
 
 const MAX_BODY = 16 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -127,12 +131,12 @@ export async function handle(req: Request): Promise<Response> {
   if (body.length > MAX_BODY) return problem(413, [{ code: 'SIZE', path: '', msg: 'Too large.' }]);
   const dbUrl = Deno.env.get('SUPABASE_DB_URL');
   if (!dbUrl) return problem(500, [{ code: 'CONFIG', path: '', msg: 'Not configured.' }]);
-  const sql = postgres(dbUrl, { max: 1, prepare: false });
+  const sql: Sql = postgres(dbUrl, { max: 1, prepare: false });     // any: a jsonb parameter takes the object itself (see the header)
   // a hash with the site id, never the address itself (Cloudflare's header first; X-Forwarded-For is a fallback for the first test)
   const ip = req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '';
   const ipHash = ip ? await sha256Hex(`${site}:${ip}`) : null;
   const event = async (kind: string, code: string, workspace: string | null = null) => {
-    try { await sql`select service.record_security_event(${kind}, ${code}, ${workspace}::uuid, ${site}::uuid, null, ${ipHash}, ${JSON.stringify({ path: url.pathname })}::jsonb)`; }
+    try { await sql`select service.record_security_event(${kind}, ${code}, ${workspace}::uuid, ${site}::uuid, null, ${ipHash}, ${{ path: url.pathname }}::jsonb)`; }
     catch (e) { console.error('security event not recorded', String(e).slice(0, 200)); }
   };
   try {
@@ -153,7 +157,7 @@ export async function handle(req: Request): Promise<Response> {
     let row: { id: string };
     try {
       [row] = await sql`select service.capture_lead(${site}::uuid, ${L.form}, ${L.page}, ${L.name}, ${L.email}, ${L.phone},
-        ${JSON.stringify(L.answers)}::jsonb, ${L.consentText}, ${L.flow}, ${L.cta}, ${L.marketing ? JSON.stringify(L.marketing) : null}::jsonb,
+        ${L.answers}::jsonb, ${L.consentText}, ${L.flow}, ${L.cta}, ${L.marketing}::jsonb,
         ${L.idempotencyKey}::uuid, ${L.assignee}, ${ipHash}, ${ua}) as id`;
     } catch (e) {
       const r = refusal(String(e));

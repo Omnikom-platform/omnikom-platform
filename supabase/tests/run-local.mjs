@@ -195,6 +195,7 @@ const MUTANTS = [
   ['audit trail: service role cannot rewrite it', 'revoke update, delete, truncate on audit_log from service_role;', '-- (service_role keeps update and delete on audit_log)'],
   ['audit trail outlives the tenant (no cascade)', 'alter table audit_log drop constraint audit_log_workspace_id_fkey;', '-- (cascade kept)'],
   ['security events staff-only', 'create policy security_events_staff_read on security_events for select to authenticated using (private.is_staff());', 'create policy security_events_staff_read on security_events for select to authenticated using (true);'],
+  ["security events readable by staff (read scoped to the test event's id)", 'create policy security_events_staff_read on security_events for select to authenticated using (private.is_staff());', 'create policy security_events_staff_read on security_events for select to authenticated using (false);'],
   ['security events append-only', 'create trigger security_events_append_only before update or delete on security_events for each row execute function private.refuse_change();', ''],
   ['consent ledger written on capture', '  perform private.record_consent(ws, p_site, lid, p_form, p_page, p_consent, p_sms_consent, p_marketing, p_ip_hash, p_user_agent, null);', ''],
   ['consent ledger written on a manual lead', "  perform private.record_consent(ws, p_site, lid, coalesce(p_form, 'manual'), 'dashboard', p_consent, false, null, null, null, me);", ''],

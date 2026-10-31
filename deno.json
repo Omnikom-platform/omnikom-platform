@@ -1,7 +1,7 @@
 {
   "nodeModulesDir": "none",
   "tasks": {
-    "check": "deno check supabase/functions/_shared/signature.ts supabase/functions/_shared/contracts.ts supabase/functions/_shared/db.ts supabase/functions/_shared/auth.ts supabase/functions/_shared/http.ts supabase/functions/_shared/dashboard.ts supabase/functions/_shared/validate.ts supabase/functions/_shared/dispatch.ts supabase/functions/capture-lead/index.ts supabase/functions/save/index.ts supabase/functions/publish/index.ts supabase/functions/lead-update/index.ts supabase/functions/add-lead/index.ts supabase/functions/upload-start/index.ts supabase/functions/upload-finish/index.ts",
+    "check": "deno check supabase/functions/_shared/signature.ts supabase/functions/_shared/contracts.ts supabase/functions/_shared/db.ts supabase/functions/_shared/auth.ts supabase/functions/_shared/http.ts supabase/functions/_shared/dashboard.ts supabase/functions/_shared/validate.ts supabase/functions/_shared/dispatch.ts supabase/functions/capture-lead/index.ts supabase/functions/save/index.ts supabase/functions/publish/index.ts supabase/functions/lead-update/index.ts supabase/functions/add-lead/index.ts supabase/functions/upload-start/index.ts supabase/functions/upload-finish/index.ts supabase/functions/_shared/runner.ts supabase/functions/_shared/storage.ts supabase/functions/export-published/index.ts supabase/functions/job-callback/index.ts supabase/functions/media-export/index.ts supabase/functions/media-process-callback/index.ts",
     "test:signature": "deno run supabase/functions/_shared/signature.test.mjs"
   }
 }

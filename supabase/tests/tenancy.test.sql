@@ -621,7 +621,11 @@ delete from workspaces where id = 'dddddddd-0000-0000-0000-000000000000';
 do $$ begin assert (select count(*) from audit_log where workspace_id = 'dddddddd-0000-0000-0000-000000000000' and action = 'test-row') = 1, 'the audit trail outlives the deleted workspace'; end $$;
 -- security events: written by the functions (service role), read by staff only, never rewritten
 set role service_role;
-do $$ begin assert service.record_security_event('bad-signature', 'SIGNATURE', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', null, repeat('e', 64), '{"path":"/capture-lead"}') > 0, 'a security event is recorded'; end $$;
+-- an earlier run's event for the same site (security_events is append-only, so staging always holds some)
+do $$ begin assert service.record_security_event('bad-signature', 'SIGNATURE', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', null, repeat('d', 64), '{"path":"/capture-lead","earlier":true}') > 0, 'an earlier event is recorded'; end $$;
+-- this run's event: its id is kept, and the staff read below is scoped to it (a count of the site's events grows on staging)
+select set_config('test.sec_event', service.record_security_event('bad-signature', 'SIGNATURE', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', null, repeat('e', 64), '{"path":"/capture-lead"}')::text, false) is not null as recorded;
+do $$ begin assert coalesce(current_setting('test.sec_event', true), '') ~ '^[1-9][0-9]*$', 'a security event is recorded'; end $$;
 select test.expect_error($q$update security_events set kind = 'refused'$q$, 'permission denied');
 reset role;
 select test.expect_error($q$update security_events set kind = 'refused'$q$, 'A-APPEND-ONLY');
@@ -630,7 +634,8 @@ set role authenticated;
 select test.act_as('00000000-0000-0000-0000-00000000000a');
 do $$ begin assert (select count(*) from security_events) = 0, 'owners never read security events'; end $$;
 select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
-do $$ begin assert (select count(*) from security_events where kind = 'bad-signature' and site_id = 'aaaaaaaa-0000-0000-0000-00000000517e') = 1, 'staff with MFA read the security events'; end $$;
+do $$ begin assert (select count(*) from security_events where id = current_setting('test.sec_event')::bigint and kind = 'bad-signature' and site_id = 'aaaaaaaa-0000-0000-0000-00000000517e') = 1, 'staff with MFA read the security events'; end $$;
+do $$ begin assert (select count(*) from security_events where kind = 'bad-signature' and site_id = 'aaaaaaaa-0000-0000-0000-00000000517e') >= 2, 'staff read the earlier events too'; end $$;
 reset role;
 -- consent ledger: one row per captured lead, with the hash of the wording; a manual lead too; it survives the lead's deletion
 insert into test.ids select 'leadC', service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/consent/', 'Lead C', 'c@test', '+15555550102', '{}', 'I agree to be contacted by email, phone or text', null, null, '{"given":true,"text":"news too"}', '22222222-2222-2222-2222-222222222222', null, repeat('f', 64), 'UA', true);

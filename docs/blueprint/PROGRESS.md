@@ -328,6 +328,69 @@ UNPROVEN: the runner against the real `export-published` / `job-callback` / `med
 `npx wrangler pages deploy` for real (no Pages project exists; fake wrangler only); `concurrency: queue: max` on GitHub (actionlint rejects the key, GitHub's docs name it);
 GitHub Actions itself (no workflow has run); the `ci.yml` jobs on a Linux runner; Supabase signed-upload PUT semantics (`x-upsert`) for media.
 
+### 4.3 runner functions: head's verification (2026-10-31 10:55 local)
+Re-run by a Haiku runner that did not write the code (commands and output as it pasted them), plus the full walls run by the head:
+```
+deno task check                                   exit 0 (21 files, the four new functions and _shared/runner.ts, storage.ts among them)
+node docs/blueprint/specs/check-specs.mjs         OK: 13 operations, 13 operationIds; 47 FR/NFR rows, 40 work orders, 0 problem(s)
+omnikom status --target staging                   migrations 0001 to 0010 applied, pending [], mismatched []; export-published, job-callback,
+                                                  media-export, media-process-callback "deployed"; "test": "not deployed"
+e2e-export.mjs (staging, with-env)                31 PASS lines, among them: an unsigned export is 401 SIGNATURE; a callback signed 400 s ago
+                                                  (a replay) is 401; exifStripped false is 422 I-EXIF; a document is 422 I-MEDIA-SIZE; the export
+                                                  holds 0 values of workspace B; the test media is in the export at its 2400 derivative path;
+                                                  a 400 px photo is exported at the 800 slot and its url gives the 800 derivative; a callback after
+                                                  done is 409 S-JOB-STATE; done job 2f95dd0c-79a6-45ab-a590-672fcb1988fb (5 events), failed job
+                                                  65e96bc9-b620-4a68-9605-174e0e2d7d8e (queued > building > failed)
+                                                  "PASS: staging end to end for the runner functions, 0 problem(s)", exit 0
+node supabase/tests/run-local.mjs (the head)      PASS real migration: ALL TENANCY TESTS PASSED / OK: real migration passes; 215 mutants
+```
+The Deno tests (87) and their mutants (71) are re-run by CI on GitHub on the commit (ci.yml jobs "functions" and "gates"); the run is pasted in
+4.5 below. Accepted. Findings decided: the PDF that can never be processed and the runner key whose registry row does not stop it (the
+functions trust the secret; a revoked row should refuse) go to Open items; notifying the requester and submitting the sitemap from
+job-callback go to step 5; `omnikom status` listing the `test` folder goes to the CLI head as a finding.
+
+### 4.3 runner functions (builder)  (2026-10-31, builder session `BUILDER (platform build): slice 4.3`, brief `factory/briefs/4-3-runner-functions.md` plus the head's four changes of the same day)
+Files: `supabase/functions/{export-published,job-callback,media-export,media-process-callback}/index.ts`, `_shared/runner.ts` (the shared frame: method, id, body
+cap, signature, bad-signature event, key touch, refusal mapping) and `_shared/storage.ts` (signed URLs, `pool`, `derivativePath`, `derivativeSlot`) [two NEW
+files in `_shared/`, not in the brief's edit list: they hold what the four functions share, no existing file of `_shared/` was edited], `capture-lead/index.ts` (jsonb fix),
+`test/{runner.test.ts,capture.test.ts,runner-util.ts}` + `harness.mjs` (Storage sign fakes, `RUNNER_KEY`) + `mutate.mjs` (+40 mutants, an optional 5th element
+names the one test file that must go red, `--only a|b`), `config.toml`, `deno.json`, `tools/mint-site-key.mjs --runner`, `supabase/tests/e2e-export.mjs`,
+`openapi.json` (Export, ExportMedia, MediaExport, MediaProcessCallback, `/media-export`), `factory/README.md` (section 1 media rules, new section 6). No migration.
+Head's changes applied: leak fix (only processed media; `path` = a derivative, `url` signed for it, `original_path` information only), the slot rule (2400 if
+width >= 2400, else 1600 if >= 1600, else 800 which always exists; `derivativeSlot`, tested at 2400/2399/1600/1599/800/799/400/200), the `capture-lead`
+double-encoding fix, `[functions.test] enabled = false`.
+
+**Watched red.** `--runner` before the code: `usage: --site <uuid> --slug <slug> ...` exit 2. `capture.test.ts` before the fix: `ASSERT: answers is an object: got "string", wanted "object"`
+(three tests red: answers, marketing consent, security event detail). `runner.test.ts` was written AFTER the four functions (not test-first as the brief asked); its first run was green, so every wall was proven only by mutants. Each wall went red through a mutant
+(every one named in `mutate.mjs`, all caught, e.g. `runner: the signature is not checked  red: export-published: unsigned is 401 SIGNATURE ...`, `export-published: the ORIGINAL path is exported (GPS leak)`,
+`media-process-callback: exifStripped false is accepted`, `capture-lead: the answers are given as JSON text  red: capture-lead: a captured lead stores answers ... as JSON OBJECTS`).
+`e2e-export.mjs` run with a wrong RUNNER_KEY: 20 FAIL lines, all `401 SIGNATURE` (it left one unprocessed test media row, one saved listing and one queued job on staging; the reaper fails the job after 24 h).
+
+**Gates (run by the builder; the mutation run was split in two `--only` halves that ran side by side because one 71-mutant run takes hours on this machine).**
+```
+node supabase/functions/test/run.mjs                 OK: 87 of 87 checks passed (the Deno tests), exit 0                      (4.2 was 58; +3 capture-lead, +26 runner)
+node supabase/functions/test/mutate.mjs --only <the 4.2 prefixes>   31 mutants, 31 caught, 0 survived, 0 target text missing
+node supabase/functions/test/mutate.mjs --only <the 4.3 prefixes>   40 mutants, 40 caught, 0 survived, 0 target text missing   (71 in all, the two halves are disjoint)
+node supabase/tests/run-local.mjs                    OK: real migration passes; 214 mutants   (no mutant appended: export_bundle's "media of this workspace only" mutant exists since 4.2)
+deno task check                                      exit 0 (the 4 functions and both new _shared files are in the task)
+node docs/blueprint/specs/check-specs.mjs            OK: 13 operations, 13 operationIds; 47 FR/NFR rows, 40 work orders, 0 problem(s)
+```
+**Staging** (functions deployed with `tools/deploy-functions.mjs --functions export-published,job-callback,media-export,media-process-callback,capture-lead --secrets RUNNER_KEY`; `RUNNER_KEY`
+minted by `--runner`: first run `OK: api_keys row written (kind runner ...)`, second run `already present: RUNNER_KEY is in the .env; nothing was changed`; export-published and media-export redeployed after the slot rule).
+`omnikom status --target staging`: the four are `deployed` (and `capture-lead`); `test` is listed `not deployed` (the CLI lists every folder of `supabase/functions`; config.toml keeps it off).
+`node tools/with-env.mjs ... -- node supabase/tests/e2e-export.mjs`: 31 PASS lines, `PASS: staging end to end for the runner functions, 0 problem(s)`, among them the unsigned/wrong-key/replay 401s,
+a real upload to Storage through the signed upload URL, the 2400 derivative written twice (upsert), exif false 422 `I-EXIF`, a document 422 `I-MEDIA-SIZE`, the export carrying the derivative whose
+signed URL returns the derivative bytes and not the original's, a 400 px photo served at the `-800.webp` slot, 0 values of workspace B, a second export with the same snapshot and rows, callbacks 204 204 204,
+a callback after done 409 `S-JOB-STATE`. `omnikom job get` for the done job `a09f6b16-9986-449c-8c0f-71866e894294`: `done`, deploy `e2e-4-3`, events `queued>building>gating>deploying>done`;
+for the failed job `5a285ca0-e13a-42cd-b4c4-594dc8e688bf`: `failed`, error `test`, report `{"reason":"test"}`, events `queued>building>failed`. (An earlier identical run left `a058c2d5-...` done and `6c41357a-...` failed.)
+Left on staging on purpose: those jobs (they moved `published_version` of the saved test listing), two test media rows of workspace A (processed, their files in Storage).
+
+**Findings.** (1) A PDF can never be `processed` (`media_processed` refuses width < 1, no document flag): a migration decision for the head. (2) The runner key registry row is touched by hash
+(`service.active_key('runner')` + `touch_key`, no new function), but revoking that row does not stop the key; rotation is changing the secret. (3) `job-callback` does not notify the requester nor submit the sitemap
+(02-BACKEND lists both). (4) `omnikom status` lists the `test` folder as a function (the CLI's `functionNames()` should skip it). (5) `capture-lead` keeps its own `refusal` (visitor wording and the `SITE` code differ).
+(6) postgres.js: `sql.array(uuids)` with `::uuid[]` fails in a plain connection (`malformed array literal`), a plain array works; the 4.2 `publish` uses `sql.array` and passed on staging, the difference was not chased.
+(7) Error bodies are `{ code, message }` (the `Problem` schema), not `{ code, msg }` as the brief wrote.
+
 ## SEO and audits, slice 2: live snapshot input and speed budgets (2026-10-31 05:40, builder)
 `tools/audit` now judges a live-site snapshot (made by the skill's `snapshot-site.mjs`) with the same rules as a built folder. Rule set 14 to 17:
 SE-001 (robots.txt health), PRF-001 (LCP/CLS/TBT budgets, speed trust, PSI preference) and PRF-016 (TTFB, a WARN) are new; IDX-004 gained its
@@ -393,6 +456,71 @@ differ from the audit copy), synced with `node skills/sync-skill.mjs programmati
 tests with the new reader: test-plan-gate `PASS mutants 64/64`, test-rules `PASS mutants 92/92`, test-compare 37 of 37, test-phase1 52 of 52 (all EXIT=0).
 The head accepts the four interpretations above as written. UNPROVEN: the skill's `test-snapshot.mjs` failed 1 of 49 on a loaded machine
 (`FAIL --gap-ms 400 ... 6 gaps, min 92 ms`; a timing test that does not use lib-site; not re-run idle); the real `live-target.mjs` on a real site.
+
+### 4.5 done-when on the test site (the head; in progress, opened 2026-10-31 07:45)
+**Pages project.** `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node <scratch>/pages-project.mjs` (07:20, the head; the script refuses any
+name but `test-site-demo-a`):
+```
+GET test-site-demo-a: HTTP 404 [[8000007,"Project not found. The specified project name does not match any of your existing projects."]]
+CREATED test-site-demo-a subdomain test-site-demo-a.pages.dev production_branch main
+```
+**CI on GitHub (the done-when line the head of operations added: actionlint is not on this machine's PATH).** The first `ci.yml` run
+(41171222572, on 2dd1ec1, 05:06 UTC) was 6 of 8 jobs green, gates with the database walls in 2m52s on a hosted runner. Two reds, both real:
+`workflow files (actionlint 1.7.12)`: GitHub's runner has shellcheck, so actionlint ran it and flagged `ls` and `echo "$(...)"` in three run
+blocks (SC2012, SC2005); this laptop has no shellcheck, so the local actionlint was clean. `factory and runner`: `85 mutants, 84 caught, 1 survived`,
+`SURVIVED launch: a media path with a backslash is accepted`: on Linux a backslash is an ordinary filename character, so with the check removed
+`..\outside.png` was just a missing file and the test accepted that stop; the test now requires the "unsafe path" refusal. Fixed in 3f7fcc2.
+Re-run 41173306979 (05:37 UTC), `gh run watch --exit-status` exit 0, every job green:
+```
+✓ audit engine (tests and mutants) in 3m8s            ✓ secret scan (gitleaks 8.30.1) in 9s
+✓ gates (contracts, database walls, specs, signature, deno check) in 2m58s
+✓ departments and client files in 6s                  ✓ platform CLI (unit tests) in 5s
+✓ workflow files (actionlint 1.7.12) in 6s            ✓ factory and runner (tests and mutants) in 3m31s
+✓ functions (Deno tests and mutants) in 2m10s
+workflow files:  /home/runner/work/_temp/actionlint.tar.gz: OK   (sha256 checked)   then "$RUNNER_TEMP/actionlint/actionlint" -color .github/workflows/*.yml, step green
+factory:         OK: 88 of 88 checks passed / 85 mutants, 85 caught, 0 survived, 0 target text missing / OK: 87 of 87 checks passed / 67 mutants, 67 caught, 0 survived, 0 target text missing
+```
+**GitHub secrets (07:50, the head, names only, values never printed).** `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node
+tools/github-secrets.mjs --repo Omnikom-platform/omnikom-platform --names CLOUDFLARE_PAGES_TOKEN,CLOUDFLARE_ACCOUNT_ID,PLATFORM_FUNCTIONS_BASE,STAGING_DB_URL,STAGING_SUPABASE_REF,STAGING_SUPABASE_SECRET_KEY,STAGING_SUPABASE_PUBLISHABLE_KEY`, exit 0:
+```
+DERIVED: PLATFORM_FUNCTIONS_BASE from STAGING_SUPABASE_REF
+SET: CLOUDFLARE_PAGES_TOKEN / SET: CLOUDFLARE_ACCOUNT_ID / SET: PLATFORM_FUNCTIONS_BASE / SET: STAGING_DB_URL / SET: STAGING_SUPABASE_REF / SET: STAGING_SUPABASE_SECRET_KEY / SET: STAGING_SUPABASE_PUBLISHABLE_KEY
+secrets on Omnikom-platform/omnikom-platform (names only): CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_PAGES_TOKEN PLATFORM_FUNCTIONS_BASE STAGING_DB_URL STAGING_SUPABASE_PUBLISHABLE_KEY STAGING_SUPABASE_REF STAGING_SUPABASE_SECRET_KEY
+```
+Every name is a staging or test-site value; no production name (DECISIONS 27, 29). NOT DONE yet: `RUNNER_KEY` (slice 4.3 mints it), contract version 2
+and the page rows on staging, the green publish run and the forced-failure run (after 4.3).
+
+**CI on a303a89 (08:36, the shellcheck pin on GitHub).** `gh run watch 41176956912`:
+```
+✓ workflow files (actionlint 1.7.12, shellcheck 0.11.0) in 12s
+✓ gates (contracts, database walls, specs, signature, deno check) in 2m43s
+✓ factory and runner (tests and mutants) in 2m43s
+✓ audit engine (tests and mutants) in 3m57s
+✓ functions (Deno tests and mutants) in 3m31s
+✓ secret scan (gitleaks 8.30.1) in 8s
+✓ platform CLI (unit tests) in 7s
+✓ departments and client files in 8s
+2026-10-31T06:31:34.1992975Z /home/runner/work/_temp/shellcheck.tar.gz: OK
+2026-10-31T06:31:34.2507587Z ShellCheck - shell script analysis tool
+2026-10-31T06:31:34.2508240Z version: 0.11.0
+```
+**The security-event wall on staging (10:20, finding from the CLI head).** `tenancy.test.sql` asserted exactly 1 `bad-signature` event for
+site `...517e`; security_events is append-only, so every `verify --only lead` on staging added one and `test walls --target staging` failed
+there. The test now plants an earlier event for the same site first, keeps the id of its own event (`test.sec_event`) and asserts staff read
+exactly that row (plus at least two for the site). Watched red first: the earlier event planted, the old assertion kept:
+```
+psql:.../tests.sql:635: ERROR:  staff with MFA read the security events
+FAILED: real migration fails; 2 mutants
+```
+Then scoped, with a new mutant (the staff read policy `using (false)`):
+```
+PASS real migration: ALL TENANCY TESTS PASSED
+caught   security events staff-only                   ERROR:  owners never read security events
+caught   security events readable by staff (read scoped to the test event's id) ERROR:  staff with MFA read the security events
+caught   security events append-only                  ERROR:  EXPECTED A-APPEND-ONLY BUT IT SUCCEEDED: update security_events set kind = 'refused'
+OK: real migration passes; 3 mutants
+```
+Full run: `OK: real migration passes; 215 mutants`. UNPROVEN until the CLI runs it: `omnikom test walls --target staging` green on staging.
 
 ## Step 3: the database is finished, the hardening leftovers (2026-10-30 20:22-22:20, step 3 session, platform build; commits 0e60178 and the one after it)
 Every command through `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs <command> --target staging`

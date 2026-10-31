@@ -43,3 +43,12 @@ verify_jwt = true            # dashboard user
 
 [functions.add-lead]
 verify_jwt = true            # dashboard user
+
+# Slice 4.3 (2026-10-31): the media job's first call. The runner signs it (X-Runner-Signature) and the function verifies it in code, like export-published.
+[functions.media-export]
+verify_jwt = false           # build runner (media job): verifies X-Runner-Signature in code (supabase/functions/_shared/runner.ts)
+
+# supabase/functions/test holds the Deno tests, not a function. A bare `supabase functions deploy` deploys every folder of supabase/functions
+# unless it is disabled here, so the test folder is switched off (deploys are by name through tools/deploy-functions.mjs anyway).
+[functions.test]
+enabled = false

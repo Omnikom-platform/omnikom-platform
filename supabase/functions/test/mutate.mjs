@@ -1,6 +1,6 @@
 // Mutation test of the dashboard Edge Functions (slice 4.2): remove ONE check from a COPY of the source and require the Deno tests to go
 // red. A check whose mutant stays green has no test. Ends: `N mutants, N caught, 0 survived, 0 target text missing`.
-//   node supabase/functions/test/mutate.mjs [--only <name substring>]
+//   node supabase/functions/test/mutate.mjs [--only <name substring>[|<another>]]
 // The copy lives in a temp folder (supabase/functions copied, contracts/ linked as a junction, deno.json copied); the real source is never
 // touched. Mutated runs use `deno test --no-check` (the real code is type-checked by `deno task check`), and a run that ends without a
 // test summary (a mutant that does not even load) counts as BROKEN, not as caught.
@@ -47,6 +47,54 @@ const MUTANTS = [
   ['upload-finish: nothing is dispatched', F + 'upload-finish/index.ts', "    const sent = await dispatch('media', { media_id: media, workspace_id: m.workspace_id });", '    const sent = { dispatched: true, reason: null };'],
   ['add-lead: the email is not checked', F + 'add-lead/index.ts', '    if (email && !EMAIL.test(email)) f.problems.push(', '    if (false) f.problems.push('],
   ['lead-update: the status is not checked', F + 'lead-update/index.ts', '    if (status && !STATUS.includes(status)) f.problems.push(', '    if (false) f.problems.push('],
+
+  // ---- slice 4.3: the runner's functions (the fifth element is the test file that must go red) and the capture-lead jsonb fix ----
+  // the frame every runner function shares (_shared/runner.ts)
+  ['runner: the signature is not checked', F + '_shared/runner.ts', "  const signed = await verify(req.headers.get('x-runner-signature'), key, o.method, pathForSignature(url), signedBody);", '  const signed = true;', 'runner.test.ts'],
+  ['runner: a bad signature leaves no security event', F + '_shared/runner.ts', "service.record_security_event('bad-signature', 'SIGNATURE'", "service.record_security_event('no-such-kind', 'SIGNATURE'", 'runner.test.ts'],
+  ['runner: the event does not say kind runner', F + '_shared/runner.ts', "{ fn: o.fn, kind: 'runner' }", '{ fn: o.fn }', 'runner.test.ts'],
+  ['runner: a GET is verified over a body that is not empty', F + '_shared/runner.ts', "const signedBody = o.method === 'GET' ? '' : text;", "const signedBody = o.method === 'GET' ? 'x' : text;", 'runner.test.ts'],
+  ['runner: a missing RUNNER_KEY is not refused', F + '_shared/runner.ts', "  if (!key) { console.error(o.fn, 'RUNNER_KEY is not set'); return problem(500, 'CONFIG', 'Not configured.'); }\n", '', 'runner.test.ts'],
+  ['runner: any method', F + '_shared/runner.ts', "  if (req.method !== o.method) return problem(405, 'METHOD', `${o.method} only.`);\n", '', 'runner.test.ts'],
+  ['runner: an id that is not a uuid is not refused', F + '_shared/runner.ts', "    if (!UUID.test(v)) return problem(404, 'S-NOT-FOUND', 'Not found.');\n", '', 'runner.test.ts'],
+  ['runner: no body cap (256 KiB)', F + '_shared/runner.ts', "  if (text.length > MAX_BODY) return problem(413, 'SIZE', 'This request is too large.');\n", '', 'runner.test.ts'],
+  ['runner: a refusal of the database is a plain 500', F + '_shared/runner.ts', '      return problem(r.status, r.code, r.msg);', "      return problem(500, 'SERVER', 'x');", 'runner.test.ts'],
+  ['runner: the key row is not touched', F + '_shared/runner.ts', '    await touchKey(sql, key);\n', '', 'runner.test.ts'],
+  // export-published
+  ['export-published: the snapshot is not frozen first', F + 'export-published/index.ts', '    await c.sql`select service.freeze_snapshot(${c.id}::uuid)`;\n', '', 'runner.test.ts'],
+  ['export-published: the ORIGINAL path is exported (GPS leak)', F + 'export-published/index.ts', '      const path = derivativePath(m.path, derivativeSlot(m.width));', '      const path = m.path;', 'runner.test.ts'],
+  ['export-published: every photo is served at the 2400 slot', F + 'export-published/index.ts', 'derivativePath(m.path, derivativeSlot(m.width))', 'derivativePath(m.path, 2400)', 'runner.test.ts'],
+  ['storage: derivativeSlot, 2400 needs more than 2400', F + '_shared/storage.ts', 'if (w >= 2400) return 2400;', 'if (w > 2400) return 2400;', 'runner.test.ts'],
+  ['storage: derivativeSlot, 1600 needs more than 1600', F + '_shared/storage.ts', 'if (w >= 1600) return 1600;', 'if (w > 1600) return 1600;', 'runner.test.ts'],
+  ['storage: derivativeSlot, the narrowest slot is 1600', F + '_shared/storage.ts', '  return 800;\n}', '  return 1600;\n}', 'runner.test.ts'],
+  ['export-published: the URL is signed for the original upload (GPS leak)', F + 'export-published/index.ts', 'const url = await signDownload(cfg, path, 3600);', 'const url = await signDownload(cfg, m.path, 3600);', 'runner.test.ts'],
+  ['export-published: the URL lasts a day, not an hour', F + 'export-published/index.ts', 'const url = await signDownload(cfg, path, 3600);', 'const url = await signDownload(cfg, path, 86400);', 'runner.test.ts'],
+  ['export-published: unprocessed media are exported', F + 'export-published/index.ts', '.filter(m => m.processed === true)', '.filter(() => true)', 'runner.test.ts'],
+  ['export-published: no bound on the signing (8 at a time)', F + 'export-published/index.ts', 'export const SIGN_AT_ONCE = 8;', 'export const SIGN_AT_ONCE = 1000;', 'runner.test.ts'],
+  ['export-published: a file that did not sign has no error', F + 'export-published/index.ts', "rights_confirmed: m.rights_confirmed, url, ...(url ? {} : { error: 'sign failed' }) };", 'rights_confirmed: m.rights_confirmed, url };', 'runner.test.ts'],
+  ['storage: Storage is called without the secret key', F + '_shared/storage.ts', 'authorization: `Bearer ${cfg.key}`, apikey: cfg.key, ', '', 'runner.test.ts'],
+  ['storage: an upload URL is signed without upsert', F + '_shared/storage.ts', "{ 'x-upsert': 'true' }", '{}', 'runner.test.ts'],
+  // job-callback
+  ['job-callback: the state list is not checked', F + 'job-callback/index.ts', "    if (state && !STATES.includes(state)) f.problems.push({ code: 'ENUM', path: 'state', msg: 'Not a state the runner reports.' });\n", '', 'runner.test.ts'],
+  ['job-callback: no cap on the gate report (64 KiB)', F + 'job-callback/index.ts', "    if (report && JSON.stringify(report).length > MAX_REPORT) return problem(413, 'SIZE', 'The gate report is too large (64 KiB at most).');\n", '', 'runner.test.ts'],
+  ['job-callback: the deploy id is dropped', F + 'job-callback/index.ts', '${report}::jsonb, ${deployId}, ${error})', '${report}::jsonb, null, ${error})', 'runner.test.ts'],
+  ['job-callback: the error is dropped', F + 'job-callback/index.ts', '${report}::jsonb, ${deployId}, ${error})', '${report}::jsonb, ${deployId}, null)', 'runner.test.ts'],
+  ['job-callback: the gate report is stored as JSON text', F + 'job-callback/index.ts', '${report}::jsonb', '${report ? JSON.stringify(report) : null}::jsonb', 'runner.test.ts'],
+  // media-export
+  ['media-export: the upload paths are not the workspace folder', F + 'media-export/index.ts', 'signUpload(cfg, derivativePath(m.path, w))', 'signUpload(cfg, derivativePath(m.id, w))', 'runner.test.ts'],
+  ['media-export: a failed signing still answers 200', F + 'media-export/index.ts', "    if (!url || ups.some(u => !u)) return problem(502, 'STORAGE', 'Files are not available right now. Please try again.');\n", '', 'runner.test.ts'],
+  ['media-export: one size is missing', F + 'media-export/index.ts', 'export const WIDTHS = [...SLOTS];', 'export const WIDTHS = [2400, 1600];', 'runner.test.ts'],
+  // media-process-callback
+  ['media-process-callback: exifStripped false is accepted', F + 'media-process-callback/index.ts', 'if (c.body.exifStripped !== true) return', 'if (false) return', 'runner.test.ts'],
+  ['media-process-callback: any truthy exifStripped is accepted', F + 'media-process-callback/index.ts', 'c.body.exifStripped !== true', '!c.body.exifStripped', 'runner.test.ts'],
+  ['media-process-callback: a document is not refused', F + 'media-process-callback/index.ts', "if (c.body.kind === 'document') return", 'if (false) return', 'runner.test.ts'],
+  ['media-process-callback: a width below 1 goes to the database', F + 'media-process-callback/index.ts', 'if (width < 1 || height < 1) return', 'if (false) return', 'runner.test.ts'],
+  ['media-process-callback: negative bytes are accepted', F + 'media-process-callback/index.ts', 'if (bytes !== null && bytes < 0) return', 'if (false) return', 'runner.test.ts'],
+  ['media-process-callback: sizes need not be a list', F + 'media-process-callback/index.ts', 'const widthsOk = (v: unknown) => v == null ||', 'const widthsOk = (v: unknown) => true || v == null ||', 'runner.test.ts'],
+  // capture-lead: a jsonb parameter is the object, never JSON text
+  ['capture-lead: the answers are given as JSON text', F + 'capture-lead/index.ts', '${L.answers}::jsonb', '${JSON.stringify(L.answers)}::jsonb', 'capture.test.ts'],
+  ['capture-lead: the marketing consent is given as JSON text', F + 'capture-lead/index.ts', '${L.cta}, ${L.marketing}::jsonb', '${L.cta}, ${L.marketing ? JSON.stringify(L.marketing) : null}::jsonb', 'capture.test.ts'],
+  ['capture-lead: the security event detail is given as JSON text', F + 'capture-lead/index.ts', '${{ path: url.pathname }}::jsonb', '${JSON.stringify({ path: url.pathname })}::jsonb', 'capture.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
@@ -66,15 +114,15 @@ try {
     process.exitCode = 1;
   } else {
     console.log(`baseline (the unmutated copy): ${base.passed} passed, 0 failed`);
-    for (const [name, file, find, to] of MUTANTS) {
-      if (only && !name.includes(only)) continue;
+    for (const [name, file, find, to, scope] of MUTANTS) {
+      if (only && !only.split('|').some(s => name.includes(s))) continue;   // --only a|b: any of the substrings
       ran++;
       const path = join(work, file);
       const orig = readFileSync(join(REPO, file), 'utf8');
       const n = orig.split(find).length - 1;
       if (n !== 1) { missing++; console.log(`TARGET TEXT MISSING (${n} matches): ${name}`); continue; }
       writeFileSync(path, orig.split(find).join(to));
-      const r = await denoTest(api, testDir, { noCheck: true, cwd: work });
+      const r = await denoTest(api, scope ? join(testDir, scope) : testDir, { noCheck: true, cwd: work });   // a mutant may name the one test file that must go red (slice 4.3: faster)
       writeFileSync(path, orig);
       if (r.failed === null) { broken++; console.log(`BROKEN   ${name}: no test summary\n${r.out.trim().split(/\r?\n/).slice(-6).join('\n')}`); }
       else if (r.failed > 0 && r.status !== 0) {

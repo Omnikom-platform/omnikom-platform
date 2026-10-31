@@ -20,13 +20,24 @@ the build.
   "workspace": { "id", "slug", "name", "industry" },
   "contract":  <the resolved contract: the active site_contracts.resolved (the whole contract with the core merged in)>,
   "rows":      [ { "id", "collection", "version", "data", "at" } ],                  exactly the frozen snapshot
-  "media":     [ { "id", "path", "width", "height", "processed", "exif_stripped", "rights_confirmed" } ] }
+  "media":     [ { "id", "path", "original_path", "width", "height", "processed", "exif_stripped", "rights_confirmed", "url", "error"? } ] }
 ```
 - A row's image, gallery or file value is `{ "asset": "<media.id>", "alt": ... }`; a reference field holds a row id.
 - The media facts (width, processed, EXIF stripped, rights ticked) come from `media[]`, never from the row: `validateItem` is given
   `media(asset)` that looks the asset up there. An id that is not in `media[]` is `I-MEDIA-UNKNOWN`, an unprocessed one is refused.
 - `media[].path` is the storage path. The runner puts the file at `<--media dir>/<path>` before the build; the build copies it to
   `/media/<path>` and only for media a built row references. A path with `..`, an empty segment or a backslash stops the build.
+- **Which media, which path (slice 4.3, decision of the head 2026-10-31; ground rule 11).** `media[]` lists the workspace's PROCESSED media
+  only (an unprocessed upload is not exported; a row that references one fails `I-MEDIA-UNKNOWN`). `path` is the WebP derivative the
+  runner's media job uploaded: `<upload path without extension>-<slot>.webp`, inside `<workspace id>/`. The derivatives are "slots" 2400,
+  1600 and 800 px wide; a slot exists when the original is at least that wide (never upscaled) and the 800 slot ALWAYS exists (for an original
+  narrower than 800 it holds the image at its own width). The export serves the widest slot that exists: `slot = 2400` if `width >= 2400`,
+  else `1600` if `width >= 1600`, else `800` (`derivativeSlot` in `supabase/functions/_shared/storage.ts`; tested at 2399, 2400, 1599, 1600,
+  799, 400, 200). It is NEVER the original upload, which still carries its GPS data. `original_path` is the upload's storage path, information only: the platform never signs or serves it.
+  `url` is a signed download URL for `path` (made with the Storage secret key; signed URLs expire after 1 hour, so download at once, never
+  store the URL). A file Storage would not sign has `url: null` and `error: "sign failed"`: the build fails if a built row references it.
+  `width` and `height` are those of the original after its orientation is applied (the facts `validateItem` checks); the served
+  derivative is narrower when the original is.
 - Fixture: `factory/test/fixtures/export-test-demo-a.json`, written by `factory/test/make-export.mjs` from
   `sites/test-demo-a/contract.json` + `rows.json` (the seeded site A and workspace A of `tools/omnikom-cli/commands/seed.mjs`).
 
@@ -146,3 +157,19 @@ node factory/runner/media.mjs                                                   
 - **Secrets for the repository**: `tools/github-secrets.mjs` (values from the env by name onto `gh secret set` stdin; `--dry-run` prints names only).
 - **Proof**: `node factory/runner/test/run.mjs` (OK: N of N checks passed; the media checks print `SKIP media test: run npm ci --prefix factory/runner`
   when sharp is missing) and `node factory/runner/test/mutate.mjs` (N mutants, N caught, 0 survived, 0 target text missing).
+
+## 6. The platform side of the runner (slice 4.3): `supabase/functions/{export-published,job-callback,media-export,media-process-callback}/`
+Every call carries `X-Runner-Signature: t=<unix>,v1=<hex>` (section 5), verified with the function secret `RUNNER_KEY` before anything else; a bad,
+missing or stale (older or newer than 300 s) signature is `401 { code: 'SIGNATURE' }` and one security event (kind bad-signature, detail kind
+runner). Every answer is JSON (or 204) and `cache-control: no-store`; an error body is `{ code, message }`. A refusal of the state machine
+(409, 404) is not a security event. The shared frame is `supabase/functions/_shared/runner.ts`, the Storage signing `_shared/storage.ts`.
+
+| call | answer |
+|---|---|
+| `GET /export-published?job=<uuid>` (signs an empty body) | `200` the export of section 1. The FIRST call freezes the snapshot and moves the job `queued -> building` (so the runner sends no `building` callback); a rerun answers the same snapshot and rows and moves nothing. `404 S-NOT-FOUND` (malformed id or no such job), `409 S-JOB-BUSY` (another build of this site runs: retry later), `500 CONFIG` |
+| `POST /job-callback` `{ job, state, gateReport?, deployId?, error? }` | `204`. `state` is `building`, `gating`, `deploying`, `done` or `failed` (`queued` or any other value is `400`); `gateReport` an object of at most 64 KiB (`413` beyond); `deployId` at most 200 and `error` at most 2000 characters. `409 S-JOB-STATE` when the database refuses the change (`done` straight from `queued`, anything after `done` or `failed`), `404 S-NOT-FOUND`. `done` moves `published_version` of the job's rows to their snapshot versions; `failed` moves nothing. Nothing else happens (no requester notice, no sitemap submit yet) |
+| `GET /media-export?media=<uuid>` | `200 { id, workspace_id, path, processed, url, uploads: { "2400": <url>, "1600": <url>, "800": <url> } }`: `url` is a signed download URL of the ORIGINAL upload (1 hour); each `uploads` URL is a signed upload URL (upsert allowed, so a rerun may write again) for `<path without extension>-<width>.webp` in the same `<workspace id>/` folder (always the three slots; the export serves the widest one that exists, section 1). `404`, `502 STORAGE` (a file could not be signed: retry, then fail the media job) |
+| `POST /media-process-callback` `{ media, width, height, exifStripped: true, bytes, sizes: [..], skipped?: [..] }` | `204`. `exifStripped` must be the boolean `true`, else `422 I-EXIF` and the file stays unprocessed; `width` and `height` are whole numbers of at least 1 (`422 I-MEDIA-SIZE` below that); `sizes` and `skipped` are accepted and ignored (an original narrower than 800 px is accepted with `sizes: [800]`). `{ media, kind: 'document' }` (a PDF) is `422 I-MEDIA-SIZE`: a document cannot be marked processed (no document flag in the data model). `404` unknown file, `400` a body of the wrong shape |
+
+The runner key lives in the function secrets and the GitHub secret `RUNNER_KEY`; its registry row (`api_keys`, kind `runner`, the sha256 only) shows
+`last_used_at`. `node tools/mint-site-key.mjs --runner` mints it (value to the env file by name, never printed).

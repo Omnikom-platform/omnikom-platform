@@ -3,8 +3,10 @@
 // seedTestSql, imported read-only), plus a tiny HTTP server that plays the three outside services the functions call:
 //   GET  /auth/v1/.well-known/jwks.json                       the project's JWKS (an ES256 public key generated for this run)
 //   POST /storage/v1/object/upload/sign/media/<path>          Storage's signed-upload endpoint (answers { url, token }; needs the secret key)
+//   POST /storage/v1/object/sign/media/<path>                 Storage's signed-download endpoint (slice 4.3; answers { signedURL }; records the path, the
+//                                                             expiresIn asked for and how many calls ran at once; can be told to fail for a path or to be slow)
 //   POST /repos/test/test/dispatches                          GitHub repository_dispatch (records what it got; answers the status you set)
-//   GET  /__recorded, POST /__reset, POST /__github-status?code=N     control, for the tests
+//   GET  /__recorded, POST /__reset, POST /__github-status?code=N, POST /__sign?fail=<path part>&delay=<ms>     control, for the tests
 // The cluster holds a template database (migrations + fixtures); every run gets its own copy, so tests and mutants never see each
 // other's rows. Needs initdb / pg_ctl / psql / deno on PATH.
 import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync } from 'node:fs';
@@ -19,6 +21,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO = resolve(HERE, '..', '..', '..');
 const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 240000, ...opts });
 export const SECRET = 'test-not-a-secret';
+export const RUNNER_KEY = 'test-runner-key-not-a-secret';
 
 export async function startHarness() {
   const dir = mkdtempSync(join(tmpdir(), 'omnikom-fn-'));
@@ -49,7 +52,7 @@ export async function startHarness() {
     const pub = { ...publicKey.export({ format: 'jwk' }), kid, alg: 'ES256', use: 'sig' };
     const priv = { ...privateKey.export({ format: 'jwk' }), kid, alg: 'ES256' };
 
-    const state = { github: [], storage: [], githubStatus: 204 };
+    const state = { github: [], storage: [], githubStatus: 204, signed: [], signFail: '', signDelayMs: 0, inflight: 0, maxInflight: 0 };
     server = createServer((req, res) => {
       const chunks = [];
       req.on('data', c => chunks.push(c));
@@ -61,9 +64,23 @@ export async function startHarness() {
         if (req.method === 'POST' && u.pathname.startsWith('/storage/v1/object/upload/sign/media/')) {
           const path = u.pathname.slice('/storage/v1/object/upload/sign/media/'.length);
           const okKey = req.headers.authorization === `Bearer ${SECRET}`;
-          state.storage.push({ path, authorized: okKey });
+          state.storage.push({ path, authorized: okKey, upsert: req.headers['x-upsert'] ?? null });
           if (!okKey) return send(401, { message: 'no' });
+          if (state.signFail && path.includes(state.signFail)) return send(400, { message: 'Object not found' });
           return send(200, { url: `/object/upload/sign/media/${path}?token=fake-token`, token: 'fake-token' });
+        }
+        if (req.method === 'POST' && u.pathname.startsWith('/storage/v1/object/sign/media/')) {
+          const path = decodeURIComponent(u.pathname.slice('/storage/v1/object/sign/media/'.length));
+          const okKey = req.headers.authorization === `Bearer ${SECRET}`;
+          let expiresIn = null; try { expiresIn = JSON.parse(body).expiresIn ?? null; } catch { /* recorded as null */ }
+          state.signed.push({ path, authorized: okKey, expiresIn });
+          if (!okKey) return send(401, { message: 'no' });
+          state.inflight++; state.maxInflight = Math.max(state.maxInflight, state.inflight);
+          return setTimeout(() => {
+            state.inflight--;
+            if (state.signFail && path.includes(state.signFail)) return send(400, { message: 'Object not found' });
+            send(200, { signedURL: `/object/sign/media/${path}?token=fake-download-token` });
+          }, state.signDelayMs);
         }
         if (req.method === 'POST' && u.pathname === '/repos/test/test/dispatches') {
           let parsed = null; try { parsed = JSON.parse(body); } catch { /* recorded as null */ }
@@ -71,7 +88,8 @@ export async function startHarness() {
           return state.githubStatus === 204 ? (res.writeHead(204), res.end()) : send(state.githubStatus, { message: 'refused' });
         }
         if (u.pathname === '/__recorded') return send(200, state);
-        if (u.pathname === '/__reset') { state.github = []; state.storage = []; state.githubStatus = 204; return send(200, {}); }
+        if (u.pathname === '/__reset') { state.github = []; state.storage = []; state.githubStatus = 204; state.signed = []; state.signFail = ''; state.signDelayMs = 0; state.inflight = 0; state.maxInflight = 0; return send(200, {}); }
+        if (u.pathname === '/__sign') { state.signFail = u.searchParams.get('fail') ?? ''; state.signDelayMs = Number(u.searchParams.get('delay') ?? 0); return send(200, {}); }
         if (u.pathname === '/__github-status') { state.githubStatus = Number(u.searchParams.get('code')); return send(200, {}); }
         send(404, { message: 'no such fake endpoint' });
       });
@@ -93,7 +111,7 @@ export async function startHarness() {
         return {
           SUPABASE_DB_URL: `postgres://postgres@127.0.0.1:${PORT}/${db}`,
           SUPABASE_URL: base, JWKS_URL: `${base}/auth/v1/.well-known/jwks.json`,
-          SUPABASE_SECRET_KEY: SECRET, SUPABASE_SERVICE_ROLE_KEY: SECRET, GITHUB_DISPATCH_TOKEN: SECRET, GITHUB_REPO: 'test/test', GITHUB_API_BASE: base,
+          SUPABASE_SECRET_KEY: SECRET, SUPABASE_SERVICE_ROLE_KEY: SECRET, RUNNER_KEY, GITHUB_DISPATCH_TOKEN: SECRET, GITHUB_REPO: 'test/test', GITHUB_API_BASE: base,
           TEST_JWK_PRIVATE: JSON.stringify(priv), TEST_FAKE_BASE: base, TEST_DB_URL: `postgres://postgres@127.0.0.1:${PORT}/${db}`,
           NO_COLOR: '1',
         };

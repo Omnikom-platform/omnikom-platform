@@ -179,6 +179,14 @@ sent to the head of operations with options, never a fix made here.
 - Follow-ups that need a decision or another department: the global kill switch (`platform_limits` keys `sends_enabled`,
   `deploys_enabled`), `usage_daily` (24-GAP-HUNT E2 item 1, not in step 3's list), the per-person privacy export (step 5), the
   CLI reading `security_events` and `consent_ledger` in `verify` (finding sent up).
+- **From 4.3 (2026-10-31 10:55):** (1) a PDF can never become processed (`media_processed` refuses a width under 1, no document
+  flag): a migration with a document flag, or `media_processed` accepting a null width for documents; until then a PDF is never exported.
+  (2) The runner key: revoking its registry row does not stop it, because the functions trust the function secret; `runner.ts` should
+  refuse when the key's hash is not `service.active_key('runner')` (test watched red with a revoked row, mutant). (3) job-callback does
+  not notify the requester or submit the sitemap (02-BACKEND): step 5. (4) `omnikom status` lists the `test` folder as a function:
+  finding for the CLI head.
+- **Staging walls after 4.5:** `omnikom test walls --target staging` refuses while the test fixtures are seeded (FIXTURES-PRESENT, 9
+  rows), and 4.5 needs them; run it after 4.5 (`seed test --clean`, walls, re-seed) to prove the security-event fix on staging.
 - (CLOSED 2026-10-30 21:58: the owner picked "a workspace per site" for the ELEV8 split, so no site moves between
   workspaces; each split site is a new workspace seeded from its own plan.)
 
@@ -198,3 +206,4 @@ sent to the head of operations with options, never a fix made here.
 - 2026-10-31 05:47, standing head: DECISIONS 38 part 1 recorded in Open items: a structural "no model SDK or model API in runtime code" check with a path allowlist (SEO research scripts, future step D operators), test watched red and a mutant, after 4.2 and 4.4, before step 5. Also recorded this hour: DECISIONS 35 backlog, DECISIONS 37 look-folder rules, the preferred-source footer and nosnippet gate, the invariant-comment ground rule; the "flaky wall" diagnosed as the gates runner masking a 30-minute timeout (fixed in run-all-gates.mjs).
 - 2026-10-31 05:55, standing head: slice 4.2 (dashboard functions) PROVEN, Haiku re-run equal to the builder line for line (deno check, specs, 58 Deno checks, 31 Deno mutants, staging status with 10 migrations and 7 functions deployed, e2e-functions 0 problems, walls 214 mutants alone in 17 min); proof in PROGRESS.md "4.2 dashboard functions: head's verification". Committing with the gates-runner fix. Next: 4.3 builder launched, 4.4 re-run.
 - 2026-10-31 06:40, standing head: slice 4.4 (runner and five workflows) PROVEN against fakes, Haiku re-run equal to the builder (87 checks, 67 mutants, actionlint clean, actions pinned by SHA, secrets dry-run names only); UNPROVEN against the real functions, Pages and GitHub until 4.5; ci.yml caps raised (gates 75, factory 60). Proof in PROGRESS.md "4.4 runner and workflows: head's verification". Builder 4.3 running; then the model switch (DECISIONS 40).
+- 2026-10-31 10:55, standing head: slice 4.3 (runner functions) PROVEN, Haiku re-run (deno check, specs, staging status with the four functions deployed, staging e2e-export 31 PASS, 0 problems) and the walls by the head (215 mutants); the security-event wall scoped to its own event (finding from the CLI head), watched red with an earlier event planted, new mutant caught. PROGRESS.md "4.3 runner functions: head's verification" and "4.5".

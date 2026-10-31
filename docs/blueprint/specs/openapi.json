@@ -334,39 +334,78 @@
    },
    "Export": {
     "type": "object",
+    "description": "Everything one publish job needs, as one document (factory/README.md section 1). A rerun of the same job returns the same snapshot and rows. The runner holds the account deploy token itself (02-BACKEND section 8); no token travels in this document.",
     "required": [
+     "schema",
      "job",
-     "workspace",
      "site",
+     "workspace",
      "contract",
      "rows",
-     "media",
-     "snapshot",
-     "deployToken",
-     "deployTokenWorker"
+     "media"
     ],
     "properties": {
-     "job": {
+     "schema": {
       "type": "string",
-      "format": "uuid"
+      "enum": [
+       "omnikom-export/1"
+      ],
+      "description": "the factory refuses any other value"
      },
-     "workspace": {
-      "type": "string",
-      "format": "uuid"
+     "job": {
+      "type": "object",
+      "required": [
+       "id",
+       "site_id",
+       "workspace_id",
+       "snapshot",
+       "created_at"
+      ],
+      "properties": {
+       "id": {
+        "type": "string",
+        "format": "uuid"
+       },
+       "site_id": {
+        "type": "string",
+        "format": "uuid"
+       },
+       "workspace_id": {
+        "type": "string",
+        "format": "uuid"
+       },
+       "snapshot": {
+        "type": "object",
+        "additionalProperties": {
+         "type": "integer"
+        },
+        "description": "{ row_id: version } the build ships; a rerun ships the same"
+       },
+       "created_at": {
+        "type": "string",
+        "format": "date-time"
+       }
+      }
      },
      "site": {
       "type": "object",
       "required": [
-       "deployTarget",
-       "previewHost",
-       "state",
-       "id"
+       "id",
+       "deploy_target",
+       "preview_host",
+       "state"
       ],
       "properties": {
-       "deployTarget": {
-        "type": "string"
+       "id": {
+        "type": "string",
+        "format": "uuid",
+        "description": "the runner refuses if this differs from client_payload.site_id"
        },
-       "previewHost": {
+       "deploy_target": {
+        "type": "string",
+        "description": "the Cloudflare Pages project name"
+       },
+       "preview_host": {
         "type": "string"
        },
        "domain": {
@@ -382,36 +421,66 @@
          "live",
          "paused"
         ]
-       },
+       }
+      }
+     },
+     "workspace": {
+      "type": "object",
+      "required": [
+       "id",
+       "slug",
+       "name",
+       "industry"
+      ],
+      "properties": {
        "id": {
         "type": "string",
-        "format": "uuid",
-        "description": "the runner refuses if this differs from client_payload.site_id"
+        "format": "uuid"
+       },
+       "slug": {
+        "type": "string"
+       },
+       "name": {
+        "type": "string"
+       },
+       "industry": {
+        "type": "string"
        }
       }
      },
      "contract": {
       "type": "object",
-      "description": "resolved site contract (contracts/README.md)"
+      "description": "the resolved site contract (contracts/README.md): the active site_contracts.resolved"
      },
      "rows": {
       "type": "array",
+      "description": "exactly the frozen snapshot",
       "items": {
        "type": "object",
        "required": [
         "id",
         "collection",
-        "data"
+        "version",
+        "data",
+        "at"
        ],
        "properties": {
         "id": {
-         "type": "string"
+         "type": "string",
+         "format": "uuid"
         },
         "collection": {
          "type": "string"
         },
+        "version": {
+         "type": "integer"
+        },
         "data": {
          "type": "object"
+        },
+        "at": {
+         "type": "string",
+         "format": "date-time"
         }
        }
       }
@@ -419,23 +488,8 @@
      "media": {
       "type": "array",
       "items": {
-       "$ref": "#/components/schemas/Media"
+       "$ref": "#/components/schemas/ExportMedia"
       }
-     },
-     "snapshot": {
-      "type": "object",
-      "additionalProperties": {
-       "type": "integer"
-      },
-      "description": "{ row_id: version } the build ships; a rerun ships the same"
-     },
-     "deployToken": {
-      "type": "string",
-      "description": "that one site's Cloudflare deploy token (Editor on its Worker), read from Vault for this job only; the runner masks it in logs"
-     },
-     "deployTokenWorker": {
-      "type": "string",
-      "description": "the Worker the deploy token is scoped to (from the Vault secret JSON {token, worker}); the runner refuses when it differs from site.deployTarget"
      }
     }
    },
@@ -455,7 +509,7 @@
      },
      "gateReport": {
       "type": "object",
-      "description": "per gate: pass/fail, findings in plain words"
+      "description": "per gate: pass/fail, findings in plain words; at most 64 KiB (413 beyond)"
      },
      "deployId": {
       "type": "string"
@@ -463,7 +517,8 @@
      "error": {
       "type": "string"
      }
-    }
+    },
+    "description": "state is one of building | gating | deploying | done | failed (a queued or unknown state is 400). The database decides whether the change is legal (409 S-JOB-STATE)."
    },
    "LeadRequest": {
     "type": "object",
@@ -677,6 +732,179 @@
      },
      "reason": {
       "type": "string"
+     }
+    }
+   },
+   "ExportMedia": {
+    "type": "object",
+    "description": "One PROCESSED photo of the workspace (an unprocessed one is left out). `path` is the widest WebP derivative slot that exists (2400 if the original is at least 2400 px wide, else 1600 if at least 1600, else 800, which always exists), never the original upload (the original keeps its GPS data); `url` is a signed download URL for that derivative (1 hour).",
+    "required": [
+     "id",
+     "path",
+     "original_path",
+     "processed",
+     "exif_stripped",
+     "rights_confirmed",
+     "url"
+    ],
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "path": {
+      "type": "string",
+      "description": "<upload path without extension>-<slot>.webp with slot 2400, 1600 or 800, inside <workspace id>/"
+     },
+     "original_path": {
+      "type": "string",
+      "description": "storage path of the upload; information only, never signed or served"
+     },
+     "width": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "description": "of the original after its orientation was applied"
+     },
+     "height": {
+      "type": [
+       "integer",
+       "null"
+      ]
+     },
+     "processed": {
+      "type": "boolean"
+     },
+     "exif_stripped": {
+      "type": "boolean"
+     },
+     "rights_confirmed": {
+      "type": "boolean"
+     },
+     "url": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "signed download URL for `path`, valid 1 hour; null when Storage would not sign it (then `error` is \"sign failed\" and the runner fails the build if the file is referenced)"
+     },
+     "error": {
+      "type": "string",
+      "enum": [
+       "sign failed"
+      ]
+     }
+    }
+   },
+   "MediaExport": {
+    "type": "object",
+    "description": "Where one uploaded file is and where the runner puts its sizes. Every URL is signed (Storage, secret key) and the secret key never leaves the function.",
+    "required": [
+     "id",
+     "workspace_id",
+     "path",
+     "processed",
+     "url",
+     "uploads"
+    ],
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "workspace_id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "path": {
+      "type": "string",
+      "description": "storage path of the original upload, <workspace id>/<uuid>.<ext>"
+     },
+     "processed": {
+      "type": "boolean"
+     },
+     "url": {
+      "type": "string",
+      "description": "signed download URL of the original, valid 1 hour"
+     },
+     "uploads": {
+      "type": "object",
+      "description": "signed upload URLs (upsert allowed) for <path without extension>-<width>.webp, in the same workspace folder",
+      "required": [
+       "2400",
+       "1600",
+       "800"
+      ],
+      "properties": {
+       "800": {
+        "type": "string"
+       },
+       "1600": {
+        "type": "string"
+       },
+       "2400": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "MediaProcessCallback": {
+    "type": "object",
+    "description": "The runner reports one processed photo. exifStripped must be the boolean true (422 I-EXIF otherwise: nothing unprocessed is published). A PDF sends only { media, kind: \"document\" } and is answered 422 I-MEDIA-SIZE: the data model has no document flag yet.",
+    "required": [
+     "media"
+    ],
+    "properties": {
+     "media": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "document"
+      ]
+     },
+     "width": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "of the original after its orientation was applied"
+     },
+     "height": {
+      "type": "integer",
+      "minimum": 1
+     },
+     "exifStripped": {
+      "type": "boolean",
+      "description": "must be true"
+     },
+     "bytes": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "sizes": {
+      "type": "array",
+      "items": {
+       "type": [
+        "integer",
+        "string"
+       ]
+      },
+      "maxItems": 10,
+      "description": "the widths that were made (accepted, not stored)"
+     },
+     "skipped": {
+      "type": "array",
+      "items": {
+       "type": [
+        "integer",
+        "string"
+       ]
+      },
+      "maxItems": 10,
+      "description": "widths not made because the original is narrower (accepted, not stored)"
      }
     }
    }
@@ -949,7 +1177,7 @@
   "/export-published": {
    "get": {
     "operationId": "exportPublished",
-    "summary": "Freeze and return one job's snapshot, the contract, media list, and that site's deploy target + token (ADR 0011)",
+    "summary": "Freeze and return one job's snapshot, the contract, the rows, the processed media with signed URLs and the site's deploy target (slice 4.3)",
     "security": [
      {
       "runnerSecret": []
@@ -979,6 +1207,70 @@
      },
      "401": {
       "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "$ref": "#/components/responses/NotFound"
+     },
+     "409": {
+      "description": "S-JOB-BUSY: another build of this site is running; the runner's queue retries later",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     }
+    },
+    "description": "The first call moves the job queued -> building and freezes the snapshot; a rerun returns the same snapshot and changes nothing. Media: processed files only; `path` is the widest derivative slot that exists (2400, 1600 or 800), `url` signs that path (1 hour, at most 8 signed at a time), `original_path` is information only."
+   }
+  },
+  "/media-export": {
+   "get": {
+    "operationId": "mediaExport",
+    "summary": "The runner's media job asks where one uploaded file is and where to put its sizes",
+    "security": [
+     {
+      "runnerSecret": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "media",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "signed download URL of the original and signed upload URLs of the three WebP sizes",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MediaExport"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "$ref": "#/components/responses/NotFound"
+     },
+     "502": {
+      "description": "STORAGE: a file could not be signed (it was never uploaded, or Storage is down); the runner retries",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
      }
     }
    }
@@ -1006,6 +1298,9 @@
      "204": {
       "description": "recorded"
      },
+     "400": {
+      "$ref": "#/components/responses/Invalid"
+     },
      "401": {
       "$ref": "#/components/responses/Unauthorized"
      },
@@ -1014,6 +1309,16 @@
      },
      "409": {
       "description": "S-JOB-STATE: illegal state change",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "the gate report is larger than 64 KiB",
       "content": {
        "application/json": {
         "schema": {
@@ -1112,7 +1417,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/Media"
+        "$ref": "#/components/schemas/MediaProcessCallback"
        }
       }
      }
@@ -1121,11 +1426,24 @@
      "204": {
       "description": "recorded"
      },
+     "400": {
+      "$ref": "#/components/responses/Invalid"
+     },
      "401": {
       "$ref": "#/components/responses/Unauthorized"
      },
      "404": {
       "$ref": "#/components/responses/NotFound"
+     },
+     "422": {
+      "description": "I-EXIF: exifStripped was not true; I-MEDIA-SIZE: a document, or a width or height below 1 (the file stays unprocessed)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
      }
     }
    }
