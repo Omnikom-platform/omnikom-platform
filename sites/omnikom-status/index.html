@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Omnikom status</title>
+<meta name="description" content="Whether the Omnikom dashboard, the forms on client sites and publishing are working, with the time each was last checked.">
+<!-- DRAFT: no host is chosen (supabase/ops/README.md). Remove the next line when the page goes live. -->
+<meta name="robots" content="noindex">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'">
+<style>
+:root {
+  --bg: #f6f7f9; --card: #ffffff; --ink: #14181f; --muted: #556070; --line: #dde2ea;
+  --ok: #17703a; --ok-bg: #e4f4ea; --warn: #8a5300; --warn-bg: #fdf0d8; --none: #4a5568; --none-bg: #eceff4;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11151b; --card: #1a2029; --ink: #eef1f6; --muted: #9aa6b8; --line: #2b3542;
+    --ok: #6fd391; --ok-bg: #16301f; --warn: #f3b95f; --warn-bg: #3a2b10; --none: #b4bfd0; --none-bg: #252d39;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11151b; --card: #1a2029; --ink: #eef1f6; --muted: #9aa6b8; --line: #2b3542;
+  --ok: #6fd391; --ok-bg: #16301f; --warn: #f3b95f; --warn-bg: #3a2b10; --none: #b4bfd0; --none-bg: #252d39;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 40rem; margin: 0 auto; padding: 3rem 16px 4rem; }
+h1 { font-size: 1.5rem; margin: 0 0 1.5rem; letter-spacing: -0.01em; }
+.summary { border-radius: 12px; padding: 1.1rem 1.25rem; margin-bottom: 1.5rem; font-weight: 600; font-size: 1.125rem; background: var(--none-bg); color: var(--none); }
+.summary[data-state="operational"] { background: var(--ok-bg); color: var(--ok); }
+.summary[data-state="degraded"] { background: var(--warn-bg); color: var(--warn); }
+ul { list-style: none; margin: 0; padding: 0; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+li { padding: 1rem 1.25rem; border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; gap: 0.25rem 1rem; align-items: baseline; }
+li:first-child { border-top: 0; }
+.name { font-weight: 600; }
+.badge { font-size: 0.875rem; font-weight: 600; padding: 0.15rem 0.6rem; border-radius: 999px; background: var(--none-bg); color: var(--none); white-space: nowrap; }
+.badge[data-state="operational"] { background: var(--ok-bg); color: var(--ok); }
+.badge[data-state="degraded"] { background: var(--warn-bg); color: var(--warn); }
+.meta { grid-column: 1 / -1; color: var(--muted); font-size: 0.875rem; }
+.meta time { color: var(--ink); }
+footer { margin-top: 1.5rem; color: var(--muted); font-size: 0.875rem; }
+.error { background: var(--warn-bg); color: var(--warn); padding: 1rem 1.25rem; border-radius: 12px; }
+@media (max-width: 420px) { main { padding-top: 1.5rem; } li { grid-template-columns: 1fr; } .badge { justify-self: start; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Omnikom status</h1>
+  <div id="summary" class="summary" data-state="unknown" role="status">Loading the latest check</div>
+  <ul id="components" aria-label="Services"></ul>
+  <footer id="foot"></footer>
+  <noscript><p class="error">This page needs JavaScript to show the latest check. The data is the file status.json next to it.</p></noscript>
+</main>
+<script>
+(function () {
+  var LABEL = { operational: 'Working', degraded: 'Needs attention', unknown: 'Not measured yet' };
+  var summary = document.getElementById('summary');
+  var list = document.getElementById('components');
+  var foot = document.getElementById('foot');
+
+  function when(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    var el = document.createElement('time');
+    el.dateTime = d.toISOString();
+    el.title = d.toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
+    el.textContent = d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    return el;
+  }
+  function row(c) {
+    var li = document.createElement('li');
+    var name = document.createElement('span'); name.className = 'name'; name.textContent = c.name;
+    var state = LABEL[c.status] ? c.status : 'unknown';
+    var badge = document.createElement('span'); badge.className = 'badge'; badge.dataset.state = state; badge.textContent = LABEL[state];
+    var meta = document.createElement('span'); meta.className = 'meta';
+    var t = c.checked_at ? when(c.checked_at) : null;
+    meta.appendChild(document.createTextNode('Last checked: '));
+    if (t) meta.appendChild(t); else meta.appendChild(document.createTextNode('never'));
+    if (c.note) meta.appendChild(document.createTextNode('. ' + c.note.charAt(0).toUpperCase() + c.note.slice(1)));
+    li.appendChild(name); li.appendChild(badge); li.appendChild(meta);
+    return li;
+  }
+  function show(data) {
+    if (!data || data.schema !== 'omnikom-status/1' || !Array.isArray(data.components)) throw new Error('not the status file');
+    var bad = data.components.filter(function (c) { return c.status === 'degraded'; }).length;
+    var ok = data.components.filter(function (c) { return c.status === 'operational'; }).length;
+    var state = bad ? 'degraded' : (ok === data.components.length ? 'operational' : 'unknown');
+    summary.dataset.state = state;
+    summary.textContent = bad ? 'Something needs attention' : (state === 'operational' ? 'Everything we measure is working' : 'Some services are not measured yet');
+    list.textContent = '';
+    data.components.forEach(function (c) { list.appendChild(row(c)); });
+    var g = data.generated_at ? when(data.generated_at) : null;
+    foot.textContent = '';
+    foot.appendChild(document.createTextNode('Data from the ' + (data.environment || 'unknown') + ' checks, written '));
+    if (g) foot.appendChild(g);
+    foot.appendChild(document.createTextNode('. This page is a draft.'));
+  }
+  function fail() {
+    summary.dataset.state = 'unknown';
+    summary.textContent = 'The latest check is not available';
+    list.hidden = true;
+  }
+  fetch('status.json', { cache: 'no-store' })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(show)
+    .catch(fail);
+})();
+</script>
+</body>
+</html>

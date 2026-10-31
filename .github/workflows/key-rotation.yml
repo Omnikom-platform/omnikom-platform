@@ -1,0 +1,68 @@
+# Monthly key-age check (13-DATA-MODEL section 8, 02-BACKEND section 8): lists every row of the api_keys registry as kind, label,
+# site, age in days, last used, expires, revoked (never a hash, a Vault name or an id) in the job summary, and goes RED when an active
+# key is older than 90 days or expires within 14. A red scheduled run is emailed by GitHub to the repository's watchers: that email is
+# the reminder. It reads staging only (read-only transaction); production's registry is the production repository's business.
+# If the secret STAGING_DB_URL is absent the job says so in its summary and is skipped, not red (the check then simply has nothing to
+# read). Rotation itself is done by a person: mint the new key, set it, revoke the old row; nothing here changes a key.
+name: key-rotation
+
+on:
+  schedule:
+    - cron: '23 6 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: key-rotation
+  cancel-in-progress: false
+
+jobs:
+  key-ages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Is the staging database secret set
+        id: secret
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+        run: |
+          if [ -z "$STAGING_DB_URL" ]; then
+            echo "have=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Key rotation check skipped"
+              echo ""
+              echo "The repository secret STAGING_DB_URL is not set, so no key age could be read. Set it, then run this workflow again."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "STAGING_DB_URL is not set: skipping the check (this is not a failure)"
+          else
+            echo "have=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out the key-age script
+        if: steps.secret.outputs.have == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: supabase/ops
+          persist-credentials: false
+
+      - name: Set up Node
+        if: steps.secret.outputs.have == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+
+      - name: PostgreSQL client on PATH (the image's own; apt only if the image lacks it)
+        if: steps.secret.outputs.have == 'true'
+        run: |
+          if ! command -v psql > /dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+
+      - name: List the keys and their ages (red when one is due)
+        if: steps.secret.outputs.have == 'true'
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+        run: node supabase/ops/key-ages.mjs --db STAGING_DB_URL

@@ -1,0 +1,193 @@
+# promote: move a commit that is already proven on staging to PRODUCTION (10-DELIVERY sections 5 and 6, DECISIONS 27 and 29).
+#
+# WHERE THIS FILE GOES: copy it to `.github/workflows/promote.yml` in the PRODUCTION repository, never in this one. It lives under
+# `.github/production/` here so that it can never run here (GitHub only runs `.github/workflows/`), and so that no production secret is
+# ever needed in this repository. THIS FILE HOLDS NO SECRET VALUE: every secret below is named only; the owner adds them in the
+# production repository (Settings > Secrets and variables > Actions) and runs `promote` himself, with the exact commit as the input.
+#
+# Secrets (names only), all in the production repository:
+#   PROD_DB_URL            the production database connection string (used by nothing but this workflow and the production backup)
+#   STAGING_DB_URL         the staging database, READ ONLY here: the migration history that was proven
+#   PROD_SUPABASE_REF      the production project ref (function deploy and smoke checks)
+#   SUPABASE_ACCESS_TOKEN  a Supabase access token scoped to Edge Functions of the production project
+#   CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET    the first backup copy (Cloudflare R2; the endpoint is built from the account id)
+#   BACKUP2_ENDPOINT, BACKUP2_ACCESS_KEY_ID, BACKUP2_SECRET_ACCESS_KEY, BACKUP2_BUCKET   the second copy, at another provider
+# The backup is encrypted to the PUBLIC certificate supabase/ops/backup-recipient.pem (the owner's private half stays offline).
+#
+# Order, and why: every read-only gate first, the backup point next, the migrations and functions last. Nothing after the backup is
+# automatic to undo: a bad release is a forward fix promoted the same way, or a restore into a NEW project (runbook R3).
+#   read only:  the input is a full sha and the checkout is exactly it; every secret is present; pinned Node, PostgreSQL client and
+#               Supabase CLI; promote-check (production's pending list equals what staging proved, in order, same content)
+#   the point:  dump production, encrypt it, copy it to both providers (stops here if either copy is missing)
+#   changes:    apply the pending migrations; deploy the same functions
+#   read only:  nothing pending any more; every function answers
+# Migrations go through supabase/apply-staging.mjs (--url-env PROD_DB_URL --i-mean-production), not `supabase db push`: staging was
+# proven with that script and its ops.platform_migrations ledger (name + sha256), so production must be written the same way for the
+# check above to compare like with like. The Supabase CLI is here for `functions deploy` only.
+# The input commit must EXIST in the production repository: it receives this repository's history unchanged (a push of master), so a
+# sha proven here is the same sha there. UNPROVEN until the production repository exists; how it is fed is an owner-batch item.
+name: promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: 'The full 40-character commit sha that is proven on staging'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: The input is a full commit sha
+        env:
+          INPUT_COMMIT: ${{ inputs.commit }}
+        run: |
+          if ! printf '%s' "$INPUT_COMMIT" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::commit must be the full 40-character sha (lower case hex), not a branch, a tag or a short sha"
+            exit 1
+          fi
+
+      - name: Check out that exact commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit }}
+          persist-credentials: false
+
+      - name: The checkout is exactly that commit
+        env:
+          INPUT_COMMIT: ${{ inputs.commit }}
+        run: |
+          head="$(git rev-parse HEAD)"
+          if [ "$head" != "$INPUT_COMMIT" ]; then
+            echo "::error::the checkout is $head, not the requested commit"
+            exit 1
+          fi
+          echo "promoting $head"
+
+      - name: Every secret is present (names only, a value is never printed)
+        env:
+          PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          PROD_SUPABASE_REF: ${{ secrets.PROD_SUPABASE_REF }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          BACKUP2_ENDPOINT: ${{ secrets.BACKUP2_ENDPOINT }}
+          BACKUP2_ACCESS_KEY_ID: ${{ secrets.BACKUP2_ACCESS_KEY_ID }}
+          BACKUP2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP2_SECRET_ACCESS_KEY }}
+          BACKUP2_BUCKET: ${{ secrets.BACKUP2_BUCKET }}
+        run: |
+          missing=""
+          for n in PROD_DB_URL STAGING_DB_URL PROD_SUPABASE_REF SUPABASE_ACCESS_TOKEN CLOUDFLARE_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET BACKUP2_ENDPOINT BACKUP2_ACCESS_KEY_ID BACKUP2_SECRET_ACCESS_KEY BACKUP2_BUCKET; do
+            if [ -z "${!n}" ]; then missing="$missing $n"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::secrets not set in this repository:$missing"
+            exit 1
+          fi
+          if [ ! -s supabase/ops/backup-recipient.pem ]; then
+            echo "::error::supabase/ops/backup-recipient.pem is missing in this commit: no backup can be encrypted, so nothing is promoted"
+            exit 1
+          fi
+          echo "all secrets present; the backup certificate is in the commit"
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+
+      - name: PostgreSQL 16 client on PATH (the image's own; apt only if the image lacks it)
+        run: |
+          if [ -x /usr/lib/postgresql/16/bin/psql ] && [ -x /usr/lib/postgresql/16/bin/pg_dump ]; then
+            echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          else
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client-16
+          fi
+
+      # Supabase CLI v2.122.0 (a stable release, published 2026-10-23, 8 days before this file was written). The sha256 is the GitHub
+      # release asset digest and the same line in the release's checksums.txt (both read 2026-10-31 for supabase_2.122.0_linux_amd64.tar.gz).
+      - name: Download the Supabase CLI 2.122.0 and check its sha256
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/supabase.tar.gz" https://github.com/supabase/cli/releases/download/v2.122.0/supabase_2.122.0_linux_amd64.tar.gz
+          echo "59ed066847b98d7461c60e9109d40cab6b9756177ce06ebb05b51338519f5136  $RUNNER_TEMP/supabase.tar.gz" | sha256sum --check -
+          mkdir "$RUNNER_TEMP/supabase-cli"
+          tar -xzf "$RUNNER_TEMP/supabase.tar.gz" -C "$RUNNER_TEMP/supabase-cli"
+          echo "$RUNNER_TEMP/supabase-cli" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/supabase-cli/supabase" --version
+
+      - name: Gate 1, read only. Production's pending migrations are exactly what staging proved
+        env:
+          PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+        run: node supabase/ops/promote-check.mjs --proven STAGING_DB_URL --target PROD_DB_URL
+
+      - name: Backup point. Dump production, encrypt it, copy it to both providers, check both copies by size
+        env:
+          PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+          INPUT_COMMIT: ${{ inputs.commit }}
+          R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          BACKUP2_ENDPOINT: ${{ secrets.BACKUP2_ENDPOINT }}
+          BACKUP2_ACCESS_KEY_ID: ${{ secrets.BACKUP2_ACCESS_KEY_ID }}
+          BACKUP2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP2_SECRET_ACCESS_KEY }}
+          BACKUP2_BUCKET: ${{ secrets.BACKUP2_BUCKET }}
+        run: |
+          node supabase/ops/backup.mjs --db PROD_DB_URL --privileges --name "production-pre-${INPUT_COMMIT:0:7}" \
+            --to "s3://${R2_BUCKET}/production/promote" --env R2 \
+            --to "s3://${BACKUP2_BUCKET}/production/promote" --env BACKUP2
+
+      - name: Apply the pending migrations to production (the script staging was proven with)
+        env:
+          PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+        run: node supabase/apply-staging.mjs --url-env PROD_DB_URL --i-mean-production
+
+      - name: Deploy the same functions to production
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          # tools/deploy-functions.mjs reads the project it deploys to from this name (its only one); here it is the PRODUCTION ref
+          STAGING_SUPABASE_REF: ${{ secrets.PROD_SUPABASE_REF }}
+        run: |
+          functions="$(node supabase/ops/promote-check.mjs functions)"
+          echo "functions: $functions"
+          node tools/deploy-functions.mjs --functions "$functions" --deploy-only
+
+      - name: Check, read only. Nothing is pending on production any more
+        env:
+          PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+        run: node supabase/ops/promote-check.mjs --proven STAGING_DB_URL --target PROD_DB_URL --expect-pending 0
+
+      - name: Smoke, read only. Every function answers on production (OPTIONS, no body, no key)
+        env:
+          PROD_SUPABASE_REF: ${{ secrets.PROD_SUPABASE_REF }}
+        run: node supabase/ops/promote-check.mjs smoke --ref PROD_SUPABASE_REF
+
+      - name: Record what was promoted
+        if: success()
+        env:
+          INPUT_COMMIT: ${{ inputs.commit }}
+        run: |
+          {
+            echo "### Promoted to production"
+            echo ""
+            echo "Commit \`$INPUT_COMMIT\`. Migrations applied, functions deployed, nothing pending, every function answers."
+          } >> "$GITHUB_STEP_SUMMARY"

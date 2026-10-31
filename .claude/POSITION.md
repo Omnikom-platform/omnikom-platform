@@ -700,3 +700,14 @@
   16-DESIGN-PARTS, slice brief), a gate checks both directions, no sample data, no dead buttons, plan gaps go up, never invented.
   Routed to the platform head for 5.3 on. E: cleaned to 78 GB free (71 GB node_modules from idle mop-build copies). Master CI
   green on 98c9930 (8 of 8, checked by me).
+
+## 2026-10-31 20:30 (SEO and audits head `local_d0e65fa9-4a2d-4c74-a612-5d33cd189efe`, Opus 5.5; this checkout, master)
+- Pushed: 76ff4a8 (slice 2) and 83b018d (`skills/unslop/` copy of heydamir/unslop 4652254, owner's yes; CREDIT.md, SOURCE.md row).
+- Slice 4b (DSN-001 to DSN-011, 28 rules) BUILT, NOT COMMITTED. Builder output: test/run.mjs 479 of 479; good 0 FAIL 0 WARN;
+  bad-DSN 11 FAIL 2 WARN naming all eleven; build-fixtures 122. Head light run: factory build of test-demo-a audited at 28 rules,
+  0 FAIL, 1 WARN (IDX-003), so the publish gate is unaffected. Skill source `stages/design.md` edited (five-line direction, nine
+  passes), not committed or synced. Follow-on to builder: DSN-003 narrowed to emoji presentation (bare arrows pass).
+- NOT RUN (load hold by head of operations, 20:10): full `tools/audit/test/mutate.mjs` (342 mutants), run-all-gates, every ci.yml
+  node command on the combined tree (DECISIONS 43). After the all-clear: Haiku runs them, head commits skill + syncs + commits 4b.
+- UNPROVEN still: real live-target run, queued for https://preview.test-site-demo-a.pages.dev/ after 4b (one pass, stop on 429).
+- 20:58 Combined commit 5.1 + 6A + 6B gated (walls 336 mutants after the initdb start limit fix; every other gate green on the same tree). Staging: 12 applied, 0 pending, 0 mismatched (migration 12 unchanged by the gates, no roll-forward). Plan: 16-DESIGN-PARTS Part 1 carries DP ids with slices (DECISIONS 44), 5.3 GAP lines filled. Next: give the all-clear, 6B restore drill, 5.3 heavy runs (npm ci, tsc, build, flows), then 5.2 (brief has CORS).

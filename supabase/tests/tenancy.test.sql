@@ -995,6 +995,346 @@ do $$ declare f text; begin
   assert (select prosecdef from pg_proc where oid = 'private.check_job_ready()'::regprocedure) and (select prosecdef from pg_proc where oid = 'private.check_version_ready()'::regprocedure), 'both trigger functions are security definer';
 end $$;
 
+-- ===== T20 migration 12 (slice 5.1): the database for the four screens: S-STALE, unread leads, export events, lead alerts, the CRM webhook, drafts waiting =====
+-- Written before the migration (watched red: every helper below failed with "function service.mark_lead_read ... does not exist", see PROGRESS 5.1).
+-- The Edge Functions of slice 5.2 call these as omnikom_fn after verifying the JWT; the helpers stand in for them (security definer, claims from
+-- test.act_as), and (a) and (g) also call as omnikom_fn. (placed before T17 on purpose, like T18 and T19: a grant mutant must be seen here, on its own function.)
+create function test.save_b(p_ws uuid, p_coll text, p_row uuid, p_data jsonb, p_base int) returns table (row_id uuid, version int) language sql security definer as $$
+  select * from service.save_as(test.claims(), p_ws, p_coll, p_row, p_data, null, p_base) $$;
+create function test.mark_read(p_lead uuid) returns void language sql security definer as $$ select service.mark_lead_read(test.claims(), p_lead) $$;
+create function test.exported(p_site uuid, p_ids uuid[]) returns int language sql security definer as $$ select service.leads_exported(test.claims(), p_site, p_ids) $$;
+create function test.set_alerts(p_site uuid, p_to text[], p_assignee boolean default null) returns void language sql security definer as $$
+  select service.set_alerts(test.claims(), p_site, p_to, p_assignee) $$;
+create function test.set_crm(p_ws uuid, p_url text, p_ref text default null) returns void language sql security definer as $$ select service.set_crm_webhook(test.claims(), p_ws, p_url, p_ref) $$;
+create function test.drafts(p_site uuid) returns table (row_id uuid, collection text, newest_version int, published_version int, edited_by uuid, edited_at timestamptz) language sql security definer as $$
+  select * from service.drafts_waiting(test.claims(), p_site) $$;
+grant execute on all functions in schema test to anon, authenticated, service_role, omnikom_fn;
+
+-- ---------- (a) S-STALE: a save names the version it started from (16-DESIGN-PARTS 3.2) ----------
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+insert into test.ids select 'st1', row_id from test.save_b('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"4 Stale Rd","status":"for-sale"}', null);   -- no base on a new row: today's behaviour
+insert into test.ids select 'st2', row_id from test.save_b('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"5 Stale Rd","status":"for-sale"}', 0);      -- base 0 on a new row: nothing before it
+select test.expect_error($q$select * from test.save_b('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"6 Stale Rd","status":"for-sale"}', 1)$q$, 'S-STALE');   -- a new row cannot start from a version
+select test.expect_error($q$select * from test.save_b('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"6 Stale Rd","status":"for-sale"}', 7)$q$, 'S-STALE');
+do $$ begin assert (select count(*) from content_versions where data ->> 'street' = '6 Stale Rd') = 0, 'a refused new row wrote nothing'; end $$;
+select * from test.save_b('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('st1'), '{"street":"4 Stale Rd","status":"sold"}', 1);        -- started from version 1, the newest: accepted (version 2)
+select * from test.save_b('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('st1'), '{"street":"4 Stale Rd","status":"for-sale"}', 2);     -- version 3
+do $$ begin assert (select max(n) from content_versions where row_id = test.id('st1')) = 3, 'two current saves made versions 2 and 3'; end $$;
+select test.expect_error(format($q$select * from test.save_b('aaaaaaaa-0000-0000-0000-000000000000', 'listings', %L, '{"street":"stale one"}', 1)$q$, test.id('st1')),
+  'S-STALE: ' || test.id('st1') || ' was saved at version 3 by someone else');
+select test.expect_error(format($q$select * from test.save_b('aaaaaaaa-0000-0000-0000-000000000000', 'listings', %L, '{"street":"stale two"}', 2)$q$, test.id('st1')),
+  'S-STALE: ' || test.id('st1') || ' was saved at version 3 by someone else');
+do $$ declare m text; begin
+  begin perform test.save_b('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('st1'), '{"street":"stale three"}', 0);
+  exception when others then m := sqlerrm; end;
+  assert m = 'S-STALE: ' || test.id('st1') || ' was saved at version 3 by someone else', 'the message is exactly the row id and the newest version: ' || coalesce(m, '(no error)');
+  assert (select max(n) from content_versions where row_id = test.id('st1')) = 3 and (select count(*) from content_versions where data ->> 'street' like 'stale %') = 0, 'a stale save wrote nothing';
+end $$;
+select * from test.save_b('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('st1'), '{"street":"4 Stale Rd","status":"sold"}', null);        -- no base: today's behaviour, version 4
+do $$ begin assert (select max(n) from content_versions where row_id = test.id('st1')) = 4, 'a save without a base is still accepted'; end $$;
+-- the stale check comes after the access checks: a person who may not save the row learns nothing about its versions
+select test.act_as('00000000-0000-0000-0000-0000000000a2');
+select test.expect_error(format($q$select * from test.save_b('aaaaaaaa-0000-0000-0000-000000000000', 'listings', %L, '{"street":"hijack"}', 0)$q$, test.id('listing1')), 'S-OWN-ONLY');
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+select test.expect_error(format($q$select * from test.save_b('aaaaaaaa-0000-0000-0000-000000000000', 'listings', %L, '{"street":"outsider"}', 0)$q$, test.id('st1')), 'S-NOT-FOUND');
+reset role;
+-- the old signature is gone (an overload would leave the old, base-less function callable) and every grant it had is kept
+do $$ begin
+  assert (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'service' and p.proname = 'save_as') = 1, 'one service.save_as only: the old signature was dropped';
+  assert (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'private' and p.proname = 'save_version') = 1, 'one private.save_version only: the old signature was dropped';
+  assert has_function_privilege('service_role', 'service.save_as(jsonb,uuid,text,uuid,jsonb,jsonb,int)', 'execute') and has_function_privilege('omnikom_fn', 'service.save_as(jsonb,uuid,text,uuid,jsonb,jsonb,int)', 'execute'), 'service_role and the function role may execute save_as';
+  assert not has_function_privilege('anon', 'service.save_as(jsonb,uuid,text,uuid,jsonb,jsonb,int)', 'execute') and not has_function_privilege('authenticated', 'service.save_as(jsonb,uuid,text,uuid,jsonb,jsonb,int)', 'execute'), 'anon and authenticated may not execute save_as';
+  assert not has_function_privilege('anon', 'private.save_version(uuid,text,uuid,jsonb,jsonb,int)', 'execute') and not has_function_privilege('authenticated', 'private.save_version(uuid,text,uuid,jsonb,jsonb,int)', 'execute')
+    and not has_function_privilege('omnikom_fn', 'private.save_version(uuid,text,uuid,jsonb,jsonb,int)', 'execute'), 'save_version stays closed to everyone but its owner';
+end $$;
+-- the function role calls it, with and without a base (the CLI and stage.mjs still call it with six arguments)
+set role omnikom_fn;
+select row_id from service.save_as(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('st1'), '{"street":"4 Stale Rd","status":"for-sale"}', null);   -- six arguments: version 5
+select row_id from service.save_as(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('st1'), '{"street":"4 Stale Rd","status":"sold"}', null, 5);    -- seven, current: version 6
+select test.expect_error(format($q$select row_id from service.save_as(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 'listings', %L, '{"street":"late"}', null, 5)$q$, test.id('st1')),
+  'S-STALE: ' || test.id('st1') || ' was saved at version 6 by someone else');
+reset role;
+
+-- ---------- (b) unread leads: lead_reads, one row per login and lead ----------
+insert into test.ids select 'rdA1', service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'Read A1', 'ra1@test', null, '{}', 'I agree');
+insert into test.ids select 'rdA2', service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'Read A2', 'ra2@test', null, '{}', 'I agree');
+insert into test.ids select 'rdNone', service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'Read nobody', 'rn@test', null, '{}', 'I agree');
+insert into test.ids select 'rdTmp', service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'Read temp', 'rt@test', null, '{}', 'I agree');
+update leads set owner_team_row = test.id('team1') where id = test.id('rdA1');
+update leads set owner_team_row = test.id('team2') where id = test.id('rdA2');
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+select test.mark_read(test.id('rdA1'));
+select test.mark_read(test.id('rdA1'));      -- a second time changes nothing but the time
+do $$ begin assert (select count(*) from lead_reads where lead_id = test.id('rdA1')) = 1 and (select user_id from lead_reads where lead_id = test.id('rdA1')) = '00000000-0000-0000-0000-0000000000a1', 'agent one marked their own lead read, once'; end $$;
+select test.expect_error(format($q$select test.mark_read(%L)$q$, test.id('rdA2')), 'S-NOT-FOUND');       -- another agent's lead
+select test.expect_error(format($q$select test.mark_read(%L)$q$, test.id('rdNone')), 'S-NOT-FOUND');     -- not assigned to anyone: an agent sees only their own
+select test.expect_error(format($q$select test.mark_read(%L)$q$, test.id('leadB')), 'S-NOT-FOUND');      -- another workspace
+select test.expect_error($q$select test.mark_read('99999999-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');   -- unknown
+do $$ begin assert (select count(*) from lead_reads) = 1, 'agent one sees exactly their own mark'; end $$;
+select test.expect_error(format($q$insert into lead_reads (lead_id, user_id) values (%L, '00000000-0000-0000-0000-0000000000a1')$q$, test.id('rdNone')), 'permission denied');
+select test.expect_error($q$update lead_reads set read_at = now()$q$, 'permission denied');
+select test.expect_error($q$delete from lead_reads$q$, 'permission denied');
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.mark_read(test.id('rdA1')); select test.mark_read(test.id('rdA2')); select test.mark_read(test.id('rdNone')); select test.mark_read(test.id('rdTmp'));
+do $$ begin
+  assert (select count(*) from lead_reads) = 4, 'the owner sees their own four marks';
+  assert (select count(*) from lead_reads where user_id = '00000000-0000-0000-0000-0000000000a1') = 0, 'the owner cannot read another login''s marks';
+end $$;
+select test.act_as('00000000-0000-0000-0000-0000000000a2');
+do $$ begin assert (select count(*) from lead_reads) = 0, 'agent two reads no mark of anyone else'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+select test.expect_error(format($q$select test.mark_read(%L)$q$, test.id('rdA1')), 'S-NOT-FOUND');       -- B's owner into A
+do $$ begin assert (select count(*) from lead_reads) = 0, 'B''s owner reads none of A''s marks'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000005f');                                                 -- staff without MFA is nobody
+select test.expect_error(format($q$select test.mark_read(%L)$q$, test.id('rdNone')), 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+select test.mark_read(test.id('rdNone'));
+do $$ begin assert (select count(*) from lead_reads) = 1, 'staff with MFA marks any lead and sees only their own mark'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.delete_lead(test.id('rdTmp'));
+reset role;
+do $$ begin
+  assert (select count(*) from lead_reads where lead_id = test.id('rdTmp')) = 0, 'deleting a lead deletes its marks';
+  assert (select count(*) from lead_reads) = 5, 'five marks remain: agent one 1, the owner 3, staff 1 (the deleted lead''s is gone)';
+  assert not exists (select 1 from pg_publication where pubname = 'supabase_realtime') or exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'lead_reads'), 'lead_reads is in the Realtime publication';
+  assert not has_table_privilege('anon', 'public.lead_reads', 'select') and has_table_privilege('authenticated', 'public.lead_reads', 'select'), 'anon reads nothing, authenticated reads through the policy';
+  assert not has_table_privilege('authenticated', 'public.lead_reads', 'insert') and not has_table_privilege('authenticated', 'public.lead_reads', 'update') and not has_table_privilege('authenticated', 'public.lead_reads', 'delete'), 'authenticated has no write grant on lead_reads';
+end $$;
+set role anon;
+select test.act_as(null);
+select test.expect_error($q$select count(*) from lead_reads$q$, 'permission denied');
+reset role;
+
+-- ---------- (c) the CSV export leaves one event per readable lead ----------
+insert into sites (id, workspace_id, deploy_target, preview_host) values ('aaaaaaaa-0000-0000-0000-0000000052e2', 'aaaaaaaa-0000-0000-0000-000000000000', 'test-site-demo-a2', 'demo-a2.preview.test');
+insert into test.ids select 'rdS2', service.capture_lead('aaaaaaaa-0000-0000-0000-0000000052e2', 'contact', '/', 'Second site', 'rs2@test', null, '{}', 'I agree');
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+do $$ begin assert test.exported('aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('rdA1'), test.id('rdA2'), test.id('rdNone'), test.id('leadB'), '99999999-0000-0000-0000-000000000000', test.id('rdA1')]) = 1, 'an agent exports one lead of the six ids: their own, once'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin
+  assert test.exported('aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('rdA1'), test.id('rdA2'), test.id('rdNone'), test.id('leadB'), test.id('rdS2')]) = 3, 'the owner exports the three leads of this site; another workspace''s and another site''s are skipped';
+  assert test.exported('aaaaaaaa-0000-0000-0000-00000000517e', '{}') = 0 and test.exported('aaaaaaaa-0000-0000-0000-00000000517e', null) = 0, 'nothing to export records nothing';
+  assert test.exported('aaaaaaaa-0000-0000-0000-0000000052e2', array[test.id('rdS2')]) = 1, 'the lead of the second site exports under the second site';
+end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+select test.expect_error(format($q$select test.exported('aaaaaaaa-0000-0000-0000-00000000517e', array[%L::uuid])$q$, test.id('rdA1')), 'S-NOT-FOUND');   -- B's owner into A's site
+do $$ begin assert test.exported('bbbbbbbb-0000-0000-0000-00000000517e', array[test.id('rdA1')]) = 0, 'B''s owner exports nothing of A under their own site'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000005f');
+select test.expect_error(format($q$select test.exported('aaaaaaaa-0000-0000-0000-00000000517e', array[%L::uuid])$q$, test.id('rdA1')), 'S-NOT-FOUND');   -- staff without MFA
+select test.expect_error($q$select test.exported('99999999-0000-0000-0000-000000000000', '{}')$q$, 'S-NOT-FOUND');                                         -- unknown site
+reset role;
+do $$ begin
+  assert (select count(*) from lead_events where lead_id = test.id('rdA1') and kind = 'exported') = 2, 'rdA1: one event from agent one, one from the owner';
+  assert (select count(*) from lead_events where lead_id = test.id('rdA1') and kind = 'exported' and by = '00000000-0000-0000-0000-0000000000a1' and detail = jsonb_build_object('by', '00000000-0000-0000-0000-0000000000a1'::uuid)) = 1, 'the event says who exported';
+  assert (select count(*) from lead_events where lead_id = test.id('rdA2') and kind = 'exported') = 1, 'rdA2: the owner''s event only (agent one could not read it)';
+  assert (select count(*) from lead_events where lead_id = test.id('rdNone') and kind = 'exported') = 1, 'rdNone: the owner''s event only';
+  assert (select count(*) from lead_events where lead_id = test.id('leadB') and kind = 'exported') = 0, 'a lead of another workspace is never recorded';
+  assert (select count(*) from lead_events where lead_id = test.id('rdS2') and kind = 'exported') = 1, 'the second site''s lead: recorded once, under its own site';
+  assert (select detail from audit_log where action = 'leads-export' and target = 'aaaaaaaa-0000-0000-0000-00000000517e' and actor = '00000000-0000-0000-0000-00000000000a' order by id limit 1) = '{"recorded": 3, "skipped": 2}', 'the audit row counts what was recorded and what was skipped';
+end $$;
+
+-- ---------- (d) lead alerts: who gets every new lead, and the agent too ----------
+do $$ begin assert (select alert_assignee from sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e') and (select lead_alert_to from sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e') = '{}', 'a site starts with nobody listed and the agent included'; end $$;
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.set_alerts('aaaaaaaa-0000-0000-0000-00000000517e', array['Boss@Test.com', ' boss@test.com', 'second@test.com', 'SECOND@test.com'], false);
+do $$ begin
+  assert (select lead_alert_to from sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e') = array['boss@test.com', 'second@test.com'], 'the list is lower-cased and de-duplicated, in the order given';
+  assert not (select alert_assignee from sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e'), 'the assignee tick is stored';
+  assert (select count(*) from audit_log where action = 'alerts-set' and target = 'aaaaaaaa-0000-0000-0000-00000000517e') = 1, 'the change is audited';
+  assert (select detail::text from audit_log where action = 'alerts-set' limit 1) not like '%boss@test.com%', 'the audit row holds no address';
+end $$;
+select test.set_alerts('aaaaaaaa-0000-0000-0000-00000000517e', array['boss@test.com'], null);
+do $$ begin assert not (select alert_assignee from sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e') and (select lead_alert_to from sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e') = array['boss@test.com'], 'a null tick keeps the tick; the list is replaced'; end $$;
+select test.expect_error($q$select test.set_alerts('aaaaaaaa-0000-0000-0000-00000000517e', array['boss@test.com', 'nope'])$q$, 'I-EMAIL: nope');
+select test.expect_error($q$select test.set_alerts('aaaaaaaa-0000-0000-0000-00000000517e', array['a@b'])$q$, 'I-EMAIL: a@b');
+select test.expect_error($q$select test.set_alerts('aaaaaaaa-0000-0000-0000-00000000517e', array['a b@c.com'])$q$, 'I-EMAIL: a b@c.com');
+select test.expect_error($q$select test.set_alerts('aaaaaaaa-0000-0000-0000-00000000517e', array['two@@c.com'])$q$, 'I-EMAIL: two@@c.com');
+select test.expect_error($q$select test.set_alerts('aaaaaaaa-0000-0000-0000-00000000517e', array['x@y.com', null])$q$, 'I-EMAIL');
+select test.expect_error($q$select test.set_alerts('aaaaaaaa-0000-0000-0000-00000000517e', array['a1@t.com','a2@t.com','a3@t.com','a4@t.com','a5@t.com','a6@t.com','a7@t.com','a8@t.com','a9@t.com','a10@t.com','a11@t.com'])$q$, 'I-EMAIL');
+do $$ begin assert (select lead_alert_to from sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e') = array['boss@test.com'], 'a refused list changed nothing'; end $$;
+select test.set_alerts('aaaaaaaa-0000-0000-0000-00000000517e', array['a1@t.com','a2@t.com','a3@t.com','a4@t.com','a5@t.com','a6@t.com','a7@t.com','a8@t.com','a9@t.com','a10@t.com','A10@t.com'], true);   -- ten after de-duplication
+do $$ begin assert (select cardinality(lead_alert_to) from sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e') = 10 and (select alert_assignee from sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e'), 'ten addresses are allowed'; end $$;
+select test.set_alerts('aaaaaaaa-0000-0000-0000-00000000517e', null, true);
+do $$ begin assert (select lead_alert_to from sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e') = '{}', 'no list clears it'; end $$;
+select test.set_alerts('aaaaaaaa-0000-0000-0000-00000000517e', array['boss@test.com'], true);
+select test.act_as('00000000-0000-0000-0000-0000000000a1');                       -- an agent
+select test.expect_error($q$select test.set_alerts('aaaaaaaa-0000-0000-0000-00000000517e', array['agent@test.com'])$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000000b');                       -- another workspace's owner
+select test.expect_error($q$select test.set_alerts('aaaaaaaa-0000-0000-0000-00000000517e', array['b@test.com'])$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000005f');                       -- staff without MFA
+select test.expect_error($q$select test.set_alerts('aaaaaaaa-0000-0000-0000-00000000517e', array['s@test.com'])$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select test.set_alerts('99999999-0000-0000-0000-000000000000', array['s@test.com'])$q$, 'S-NOT-FOUND');   -- unknown site
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+select test.set_alerts('aaaaaaaa-0000-0000-0000-00000000517e', array['staff-set@test.com'], true);
+reset role;
+do $$ begin assert (select lead_alert_to from sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e') = array['staff-set@test.com'], 'staff with MFA may set it; every refusal above changed nothing'; end $$;
+
+-- ---------- (e) the CRM connection: a webhook URL that is public, and the NAME of its secret ----------
+-- the rules on the helper itself (the service function calls it)
+do $$ begin
+  assert private.crm_url_problem('https://hooks.example.com/crm/abc?x=1#top') is null, 'a good address';
+  assert private.crm_url_problem('https://hooks.example.com:8443/x') is null, 'a port is fine';
+  assert private.crm_url_problem('https://8.8.8.8/hook') is null and private.crm_url_problem('https://172.32.0.1/') is null and private.crm_url_problem('https://172.15.255.255/') is null and private.crm_url_problem('https://11.0.0.1/') is null and private.crm_url_problem('https://192.169.0.1/') is null and private.crm_url_problem('https://192.0.1.1/') is null and private.crm_url_problem('https://198.17.255.255/') is null and private.crm_url_problem('https://198.20.0.1/') is null and private.crm_url_problem('https://100.63.255.255/') is null and private.crm_url_problem('https://100.128.0.1/') is null, 'public numbers just outside the private ranges are fine';
+  assert private.crm_url_problem('http://hooks.example.com/x') is not null, 'plain http is refused';
+  assert private.crm_url_problem('HTTP://hooks.example.com/x') is not null and private.crm_url_problem('ftp://hooks.example.com/x') is not null and private.crm_url_problem('//hooks.example.com/x') is not null and private.crm_url_problem('hooks.example.com') is not null, 'only https:// is accepted';
+  assert private.crm_url_problem(null) is not null and private.crm_url_problem('') is not null, 'nothing is not an address';
+  assert private.crm_url_problem('https://' || repeat('a', 1985) || '.example.com/') is not null, 'at most 2000 characters';
+  assert private.crm_url_problem('https://hooks.example.com/' || repeat('a', 1974)) is null and private.crm_url_problem('https://hooks.example.com/' || repeat('a', 1975)) is not null, '2000 characters is the edge';
+  assert private.crm_url_problem('https://127.0.0.1/') is not null and private.crm_url_problem('https://127.255.255.254/') is not null, 'loopback';
+  assert private.crm_url_problem('https://10.0.0.5/') is not null and private.crm_url_problem('https://10.255.255.255/') is not null, '10/8';
+  assert private.crm_url_problem('https://172.16.0.1/') is not null and private.crm_url_problem('https://172.31.255.255/') is not null, '172.16/12';
+  assert private.crm_url_problem('https://192.168.1.1/') is not null, '192.168/16';
+  assert private.crm_url_problem('https://169.254.169.254/latest/meta-data') is not null, 'link-local (the cloud metadata address)';
+  assert private.crm_url_problem('https://0.0.0.0/') is not null and private.crm_url_problem('https://100.64.0.1/') is not null and private.crm_url_problem('https://100.127.255.255/') is not null and private.crm_url_problem('https://192.0.0.1/') is not null and private.crm_url_problem('https://198.18.0.1/') is not null and private.crm_url_problem('https://198.19.255.255/') is not null and private.crm_url_problem('https://224.0.0.1/') is not null and private.crm_url_problem('https://255.255.255.255/') is not null, 'this-network, shared address space, multicast and broadcast';
+  assert private.crm_url_problem('https://127.0.0.1:8080/x') is not null and private.crm_url_problem('https://127.0.0.1./') is not null and private.crm_url_problem('https://127.0.0.1?x=1') is not null, 'a port, a trailing dot or a query does not hide it';
+  assert private.crm_url_problem('https://localhost/') is not null and private.crm_url_problem('https://LOCALHOST:8443/') is not null and private.crm_url_problem('https://localhost./') is not null and private.crm_url_problem('https://app.localhost/') is not null, 'localhost, any case, port or subdomain';
+  assert private.crm_url_problem('https://printer.local/') is not null and private.crm_url_problem('https://db.internal/') is not null and private.crm_url_problem('https://intranet/') is not null, 'private names and one-word hosts';
+  assert private.crm_url_problem('https://[::1]/') is not null and private.crm_url_problem('https://[2001:db8::1]/') is not null, 'IPv6 addresses are refused: use a host name';
+  assert private.crm_url_problem('https://2130706433/') is not null and private.crm_url_problem('https://0x7f.1/') is not null and private.crm_url_problem('https://0x7f000001/') is not null and private.crm_url_problem('https://0177.0.0.1/') is not null and private.crm_url_problem('https://127.1/') is not null and private.crm_url_problem('https://1.2.3/') is not null and private.crm_url_problem('https://1.2.3.4.5/') is not null and private.crm_url_problem('https://256.1.1.1/') is not null, 'other ways to write an address are refused';
+  assert private.crm_url_problem('https://user:pw@hooks.example.com/') is not null and private.crm_url_problem('https://hooks.example.com@127.0.0.1/') is not null and private.crm_url_problem('https://a@hooks.example.com/') is not null, 'no login in the address';
+  assert private.crm_url_problem('https://user:pw@hooks.example.com/') like '%user name or password%' and private.crm_url_problem('https://hooks.example.com@127.0.0.1/') like '%user name or password%', 'a login is named as the reason (the host rules would refuse it too, for a worse reason)';
+  assert private.crm_url_problem('https://hooks.example.com/a b') is not null and private.crm_url_problem('https://hooks.example.com/a' || chr(10) || 'b') is not null and private.crm_url_problem('https://hooks.example.com\@127.0.0.1/') is not null, 'no space, control character or backslash';
+  assert private.crm_url_problem('https://hooks_x.example.com/') is not null and private.crm_url_problem('https://-bad.example.com/') is not null and private.crm_url_problem('https://example..com/') is not null and private.crm_url_problem('https://example.com:99999/') is not null and private.crm_url_problem('https://example.com:0/') is not null and private.crm_url_problem('https://example.com:/') is not null, 'a host name and a port that cannot be real are refused';
+  assert private.crm_url_problem('https://example.123/') is not null, 'a last label made of digits looks like an address';
+  assert private.crm_url_problem('https://xn--bcher-kva.example/') is null and private.crm_url_problem('https://a.b.c.d.example.com/') is null and private.crm_url_problem('https://1.2.3.4.example.com/') is null, 'punycode and digits inside a name are fine';
+end $$;
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', 'https://hooks.example.com/crm/abc', 'crm-webhook-signing-a');
+do $$ begin
+  assert (select count(*) from integrations where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and kind = 'crm-webhook') = 1, 'the owner sees the row they made';
+  assert (select config from integrations where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and kind = 'crm-webhook') = '{"url": "https://hooks.example.com/crm/abc"}'::jsonb, 'the config holds the url and nothing else';
+  assert (select secret_ref from integrations where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and kind = 'crm-webhook') = 'crm-webhook-signing-a', 'the secret is held as a name';
+  assert (select count(*) from audit_log where action = 'crm-set' and target = 'aaaaaaaa-0000-0000-0000-000000000000') = 1, 'the change is audited';
+  assert (select detail::text from audit_log where action = 'crm-set' and target = 'aaaaaaaa-0000-0000-0000-000000000000') not like '%crm-webhook-signing-a%', 'the audit row does not carry the ref';
+end $$;
+select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', 'https://hooks.example.com/crm/def', null);
+do $$ begin assert (select config ->> 'url' from integrations where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and kind = 'crm-webhook') = 'https://hooks.example.com/crm/def' and (select secret_ref from integrations where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and kind = 'crm-webhook') = 'crm-webhook-signing-a', 'a new address without a ref keeps the ref'; end $$;
+select test.expect_error($q$select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', 'http://hooks.example.com/x')$q$, 'I-URL');
+select test.expect_error($q$select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', 'https://127.0.0.1/')$q$, 'I-URL');
+select test.expect_error($q$select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', 'https://10.0.0.5/')$q$, 'I-URL');
+select test.expect_error($q$select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', 'https://localhost/')$q$, 'I-URL');
+select test.expect_error($q$select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', 'https://hooks.example.com/x', 'a b')$q$, 'I-SECRET-REF');
+select test.expect_error($q$select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', 'https://hooks.example.com/x', 'https://hooks.example.com/secret')$q$, 'I-SECRET-REF');
+select test.expect_error(format($q$select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', 'https://hooks.example.com/x', %L)$q$, repeat('r', 101)), 'I-SECRET-REF');
+do $$ begin assert (select config ->> 'url' from integrations where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and kind = 'crm-webhook') = 'https://hooks.example.com/crm/def', 'every refusal above changed nothing'; end $$;
+select test.act_as('00000000-0000-0000-0000-0000000000a1');                       -- an agent
+select test.expect_error($q$select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', 'https://hooks.example.com/agent', 'x')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', null)$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000000b');                       -- another workspace's owner
+select test.expect_error($q$select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', 'https://hooks.example.com/b', 'x')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', null)$q$, 'S-NOT-FOUND');
+do $$ begin assert (select count(*) from integrations where kind = 'crm-webhook') = 0, 'B''s owner sees no connection of A'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000005f');                       -- staff without MFA
+select test.expect_error($q$select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', 'https://hooks.example.com/s', 'x')$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+select test.set_crm('bbbbbbbb-0000-0000-0000-000000000000', 'https://hooks.example.com/staff-b', 'crm-webhook-signing-b');
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', null);              -- no url removes the connection
+do $$ begin
+  assert (select count(*) from integrations where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and kind = 'crm-webhook') = 0, 'no address removes the row';
+  assert (select count(*) from audit_log where action = 'crm-set' and target = 'aaaaaaaa-0000-0000-0000-000000000000') = 3, 'two sets and the removal are audited';
+end $$;
+select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', null);              -- removing nothing is fine
+select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', 'https://hooks.example.com/again', null);
+do $$ begin assert (select secret_ref from integrations where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and kind = 'crm-webhook') is null, 'after a removal the old ref is gone'; end $$;
+reset role;
+
+-- ---------- (f) drafts waiting ("Publish 3 changes") ----------
+-- The question was whether two plain RLS reads (content_rows for published_version, content_versions for the newest) answer it. They do not,
+-- for an agent: rows_read is workspace-wide, so an agent can READ a page the owner edited, but start_publish refuses them that page (S-ROLE /
+-- S-OWN-ONLY). The count on their button must only hold what they can publish, so the scope lives in a function, in the database.
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+insert into test.ids select 'dwPage', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'pages', null, '{"type":"home","title":"Draft page"}');
+insert into test.ids select 'dwInbox', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'leads', null, '{"status":"new"}');
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+select * from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'team', test.id('team1'), '{"name":"Agent One","bio":"draft"}');   -- their own profile: a new version, so it is waiting whatever was published before
+insert into test.ids select 'dwL1', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"7 Draft Rd","status":"for-sale"}');
+select test.act_as('00000000-0000-0000-0000-0000000000a2');
+select * from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'team', test.id('team2'), '{"name":"Agent Two","bio":"draft"}');
+insert into test.ids select 'dwL2', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"8 Draft Rd","status":"for-sale"}');
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ declare ids uuid[]; begin
+  select array_agg(d.row_id) into ids from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') d;
+  assert test.id('dwPage') = any(ids) and test.id('dwL1') = any(ids) and test.id('dwL2') = any(ids) and test.id('st1') = any(ids), 'the owner sees every draft of the workspace';
+  assert not (test.id('dwInbox') = any(ids)), 'an inbox row is never published, so it is never waiting';
+  assert (select newest_version from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') where row_id = test.id('dwPage')) = 1
+    and (select published_version from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') where row_id = test.id('dwPage')) is null
+    and (select collection from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') where row_id = test.id('dwPage')) = 'pages'
+    and (select edited_by from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') where row_id = test.id('dwPage')) = '00000000-0000-0000-0000-00000000000a'
+    and (select edited_at from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') where row_id = test.id('dwPage')) > now() - interval '1 hour', 'the columns: collection, newest version, published version (none yet), who and when';
+  assert (select newest_version from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') where row_id = test.id('st1')) = 6, 'the newest version of a row edited six times is 6';
+  assert (select edited_by from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') where row_id = test.id('dwL1')) = '00000000-0000-0000-0000-0000000000a1', 'edited by the agent who saved it';
+end $$;
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+do $$ declare ids uuid[]; begin
+  select array_agg(d.row_id) into ids from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') d;
+  assert (select count(*) from content_rows where id = test.id('dwPage')) = 1, 'plain RLS shows an agent the owner''s page (this is why a function is needed)';
+  assert test.id('dwL1') = any(ids), 'agent one sees their own draft listing';
+  assert test.id('team1') = any(ids), 'agent one sees their own team profile (an own collection, ownerField self)';
+  assert not (test.id('dwPage') = any(ids)), 'agent one does not see the page, they cannot publish it';
+  assert not (test.id('dwL2') = any(ids)) and not (test.id('st1') = any(ids)) and not (test.id('team2') = any(ids)), 'agent one does not see another agent''s draft or one that is nobody''s';
+  assert not (test.id('dwInbox') = any(ids)), 'nor the inbox row';
+end $$;
+select test.act_as('00000000-0000-0000-0000-0000000000a2');
+do $$ declare ids uuid[]; begin
+  select array_agg(d.row_id) into ids from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') d;
+  assert test.id('dwL2') = any(ids) and not (test.id('dwL1') = any(ids)) and not (test.id('dwPage') = any(ids)), 'agent two sees only their own';
+end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+select test.expect_error($q$select * from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select * from test.drafts('99999999-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+do $$ begin assert (select count(*) from test.drafts('bbbbbbbb-0000-0000-0000-00000000517e')) = (select count(*) from test.drafts('bbbbbbbb-0000-0000-0000-00000000517e') d join content_rows c on c.id = d.row_id), 'B''s list holds only rows B''s owner can read: none of A''s'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000005f');
+select test.expect_error($q$select * from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e')$q$, 'S-NOT-FOUND');   -- staff without MFA
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+do $$ declare ids uuid[]; begin
+  select array_agg(d.row_id) into ids from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') d;
+  assert test.id('dwPage') = any(ids) and test.id('dwL1') = any(ids) and test.id('dwL2') = any(ids), 'staff with MFA sees all';
+end $$;
+reset role;
+-- a row that goes live at its newest version is no longer waiting; a new version brings it back; a deleted row leaves the list
+update content_rows set published_version = 1 where id = test.id('dwL1');
+update content_rows set published_version = 1 where id = test.id('dwL2');
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+do $$ begin assert not exists (select 1 from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') where row_id = test.id('dwL1')), 'published at its newest version: not waiting'; end $$;
+select * from test.save_b('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('dwL1'), '{"street":"7 Draft Rd","status":"sold"}', 1);
+do $$ begin assert (select newest_version from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') where row_id = test.id('dwL1')) = 2 and (select published_version from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') where row_id = test.id('dwL1')) = 1, 'a newer draft is waiting, with both numbers'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.unpublish(test.id('dwL2'));                                           -- the test helper deletes
+do $$ begin assert not exists (select 1 from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') where row_id = test.id('dwL2')), 'a deleted row is not waiting'; end $$;
+reset role;
+
+-- ---------- (g) the new functions are closed to anon, authenticated and PUBLIC, open to service_role and the function role, definer with an empty search_path ----------
+do $$ declare f text; begin
+  foreach f in array array['service.mark_lead_read(jsonb,uuid)', 'service.leads_exported(jsonb,uuid,uuid[])', 'service.set_alerts(jsonb,uuid,text[],boolean)', 'service.set_crm_webhook(jsonb,uuid,text,text)', 'service.drafts_waiting(jsonb,uuid)'] loop
+    assert not has_function_privilege('anon', f, 'execute') and not has_function_privilege('authenticated', f, 'execute'), f || ' is closed to anon and authenticated';
+    assert has_function_privilege('service_role', f, 'execute') and has_function_privilege('omnikom_fn', f, 'execute'), f || ' is open to service_role and the function role';
+    assert (select prosecdef from pg_proc where oid = f::regprocedure) and (select proconfig from pg_proc where oid = f::regprocedure) = array['search_path=""'], f || ' is a definer function with an empty search_path';
+    assert (select proacl is not null and not exists (select 1 from aclexplode(proacl) a where a.grantee = 0) from pg_proc where oid = f::regprocedure), f || ' is not executable by PUBLIC';
+  end loop;
+  f := 'private.crm_url_problem(text)';
+  assert not has_function_privilege('anon', f, 'execute') and not has_function_privilege('authenticated', f, 'execute') and not has_function_privilege('omnikom_fn', f, 'execute'), f || ' is closed to anon, authenticated and the function role';
+  assert (select proconfig from pg_proc where oid = f::regprocedure) = array['search_path=""'], f || ' pins an empty search_path';
+end $$;
+-- the function role really calls them
+set role omnikom_fn;
+do $$ begin
+  perform service.mark_lead_read(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('rdA1'));
+  assert service.leads_exported(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('rdA1')]) = 1, 'the function role exports';
+  perform service.set_alerts(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', array['fn@test.com'], true);
+  perform service.set_crm_webhook(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 'https://hooks.example.com/fn', 'crm-webhook-signing-a');
+  assert (select count(*) from service.drafts_waiting(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e')) > 0, 'the function role lists the drafts';
+end $$;
+select test.expect_error($q$select count(*) from lead_reads$q$, 'permission denied');
+reset role;
+
 -- ===== T17 migration 8: default privileges on private and service, the function role; search_path = '' is asserted in T14 =====
 create function service.zz_probe() returns int language sql as $$ select 1 $$;
 create function private.zz_probe() returns int language sql as $$ select 1 $$;
@@ -1049,7 +1389,8 @@ do $$ declare t record; n int; begin
   for t in select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'service' and p.proargnames[1] = 'p_claims' loop
     assert t.proname = any(array['use_claims', 'contract_for', 'save_as', 'start_publish', 'unpublish', 'lead_update', 'add_lead', 'activate_addon', 'set_addon_state', 'book', 'set_booking_state', 'save_crm_template', 'set_member', 'remove_member', 'delete_lead',
       'set_workspace_state', 'open_privacy_request', 'set_privacy_request_state',
-      'record_media', 'finish_media', 'row_exists', 'media_facts', 'site_for', 'row_version']),
+      'record_media', 'finish_media', 'row_exists', 'media_facts', 'site_for', 'row_version',
+      'mark_lead_read', 'leads_exported', 'set_alerts', 'set_crm_webhook', 'drafts_waiting']),
       'service.' || t.proname || ' takes claims but has no outsider test listed in T14';
   end loop;
 end $$;

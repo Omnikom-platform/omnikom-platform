@@ -28,13 +28,22 @@ const dry = flag('--dry-run');
 const psql = (args, input) => spawnSync('psql', [url, '-v', 'ON_ERROR_STOP=1', '-X', '-q', ...args], { encoding: 'utf8', timeout: 600000, input });
 const fail = (msg, r) => { console.error(msg); if (r) console.error((r.stderr || '').replace(url, '<db url>').trim()); process.exit(1); };
 
-// the ledger table (idempotent)
-let r = psql(['-c', `create schema if not exists ops;
+// the ledger table (idempotent). A dry run writes nothing (builder 6A found it created the ledger first): it reads whichever
+// ledger exists inside a read-only transaction, and a database with no ledger has nothing applied.
+let r;
+if (dry) {
+  r = psql(['-t', '-A', '-c', `begin read only; select case when to_regclass('ops.platform_migrations') is not null then 'ops' when to_regclass('public.platform_migrations') is not null then 'public' else '' end; commit;`]);
+  if (r.status !== 0) fail('could not reach the database', r);
+}
+const ledger = dry ? r.stdout.trim().split(/\r?\n/).map(l => l.trim()).filter(l => l === 'ops' || l === 'public' || l === '').pop() ?? '' : 'ops';
+if (!dry) {
+  r = psql(['-c', `create schema if not exists ops;
 do $$ begin if to_regclass('public.platform_migrations') is not null and to_regclass('ops.platform_migrations') is null then alter table public.platform_migrations set schema ops; end if; end $$;
 create table if not exists ops.platform_migrations (name text primary key, sha256 text not null, applied_at timestamptz not null default now());
 revoke all on schema ops from public; revoke all on ops.platform_migrations from public;`]);
-if (r.status !== 0) fail('could not reach the database or create the ledger', r);
-r = psql(['-t', '-A', '-c', 'select name || \' \' || sha256 from ops.platform_migrations order by name']);
+  if (r.status !== 0) fail('could not reach the database or create the ledger', r);
+}
+r = ledger ? psql(['-t', '-A', '-c', `begin read only; select name || ' ' || sha256 from ${ledger}.platform_migrations order by name; commit;`]) : { status: 0, stdout: '' };
 if (r.status !== 0) fail('could not read the ledger', r);
 const applied = new Map(r.stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => l.split(' ')));   // psql on Windows ends lines with CRLF
 

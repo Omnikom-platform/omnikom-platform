@@ -202,5 +202,6 @@ jobs:
           echo "b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6  $RUNNER_TEMP/shellcheck.tar.gz" | sha256sum --check -
           tar -xzf "$RUNNER_TEMP/shellcheck.tar.gz" -C "$RUNNER_TEMP"
           "$RUNNER_TEMP/shellcheck-v0.11.0/shellcheck" --version
+      # .github/production/ holds the production repository's workflows (they never run here; linted here all the same)
       - name: Lint every workflow (with the pinned shellcheck)
-        run: '"$RUNNER_TEMP/actionlint/actionlint" -color -shellcheck "$RUNNER_TEMP/shellcheck-v0.11.0/shellcheck" .github/workflows/*.yml'
+        run: '"$RUNNER_TEMP/actionlint/actionlint" -color -shellcheck "$RUNNER_TEMP/shellcheck-v0.11.0/shellcheck" .github/workflows/*.yml .github/production/*.yml'

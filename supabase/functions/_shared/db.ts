@@ -44,6 +44,12 @@ export function refusal(message: string): Refusal | null {
   if (has('S-SIGNOFF')) return { status: 403, code: 'S-SIGNOFF', kind: 'refused', msg: 'Changing this needs a sign-off from Omnikom.' };
   if (has('S-SEED-ACTOR')) return { status: 403, code: 'S-SEED-ACTOR', kind: 'refused', msg: 'Not allowed.' };
   if (has('S-SINGLETON')) return { status: 409, code: 'S-SINGLETON', kind: 'refused', msg: 'There is already one; edit it.' };
+  // migration 12 (slice 5.1): a save on top of a newer version. A conflict, not an attack, so no security event (kind null). The one refusal that
+  // keeps the database's words, because they are the row id and the newest version and nothing else; a message of any other shape gets fixed words.
+  if (has('S-STALE')) {
+    const m = /S-STALE: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12} was saved at version [0-9]+ by someone else)/.exec(message);
+    return { status: 409, code: 'S-STALE', kind: null, msg: m ? m[1] : 'Someone else saved a newer version.' };
+  }
   if (has('S-JOB-STATE')) return { status: 409, code: 'S-JOB-STATE', kind: 'refused', msg: 'That is not possible in the build\'s current state.' };
   if (has('S-JOB-BUSY')) return { status: 409, code: 'S-JOB-BUSY', kind: 'refused', msg: 'Another build of this site is running.' };
   if (has('S-WORKSPACE-SUSPENDED')) return { status: 409, code: 'S-WORKSPACE-SUSPENDED', kind: 'suspended', msg: 'This workspace is suspended.' };

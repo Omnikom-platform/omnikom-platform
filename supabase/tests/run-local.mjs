@@ -27,9 +27,12 @@ const testText = readFileSync(TESTS, 'utf8');
 
 const dir = mkdtempSync(join(tmpdir(), 'omnikom-pg-'));
 const data = join(dir, 'data');
-let r = run('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8']);
+// Starting the cluster gets 10 minutes: on 2026-10-31 a bare initdb took 123 s on the loaded laptop and the 120 s limit killed the
+// whole wall gate before a single test ran (combined 5.1/6A/6B tree). The per-statement limit below stays 120 s.
+const START_MS = 600000;
+let r = run('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8'], { timeout: START_MS });
 if (r.status !== 0) { console.error('initdb failed:', r.stderr || r.error); process.exit(2); }
-r = run('pg_ctl', ['-D', data, '-o', `-p ${PORT} -k ""`, '-l', join(dir, 'pg.log'), '-w', 'start']);
+r = run('pg_ctl', ['-D', data, '-o', `-p ${PORT} -k ""`, '-l', join(dir, 'pg.log'), '-w', 'start'], { timeout: START_MS });
 if (r.status !== 0) { console.error('pg_ctl start failed:', r.stderr, readFileSync(join(dir, 'pg.log'), 'utf8')); process.exit(2); }
 for (const [n, t] of [['shim.sql', shimText], ['tests.sql', testText]]) writeFileSync(join(dir, n), t);
 
@@ -164,7 +167,10 @@ const MUTANTS = [
   // Grant walls are double: Supabase's defaults are switched off first AND revoked explicitly. Each mutant removes both layers.
   ['append-only versions (table grants, both layers)', [['alter default privileges in schema public revoke all on tables from anon, authenticated;', '-- (default revoke removed)'], ['revoke insert, update, delete, truncate, references, trigger on all tables in schema public from authenticated;', '-- (revoke removed)']]],
   ['anon has no table rights (both layers)', [['alter default privileges in schema public revoke all on tables from anon, authenticated;', '-- (default revoke removed)'], ['revoke all on all tables in schema public from anon;', '-- (revoke removed)']]],
-  ['clients cannot skip the validator (save body private)', 'revoke all on all functions in schema private from public, anon, authenticated;', 'grant execute on all functions in schema private to anon, authenticated;'],
+  // since migration 12 private.save_version is re-created (new signature), after the blanket statements of migrations 1 to 8: the mutant takes away the blanket revoke of
+  // every migration AND the two layers that close the new function (the default privileges of migration 8 and migration 12's own revoke)
+  ['clients cannot skip the validator (save body private)', [['revoke all on all functions in schema private from public, anon, authenticated;', 'grant execute on all functions in schema private to anon, authenticated;'],
+    ['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], ['revoke all on function private.save_version(uuid, text, uuid, jsonb, jsonb, int) from public, anon, authenticated;', 'grant execute on function private.save_version(uuid, text, uuid, jsonb, jsonb, int) to anon, authenticated;']]],
   // Layered: every migration closes the service schema again. The mutant removes the schema-usage wall and EVERY revoke line
   // (split/join replaces all occurrences), so that Postgres's default EXECUTE to PUBLIC is what is left.
   ['service functions closed to clients (all layers)', [['grant usage on schema service to service_role;', 'grant usage on schema service to service_role, anon, authenticated;'],
@@ -304,6 +310,94 @@ const MUTANTS = [
       ['publish-ready: a sourced value needs its source', "and (v ->> 'source') <> ''", 'and true'],
       ['publish-ready: an unknown collection is a problem', "  if jsonb_typeof(c) is distinct from 'object' then return array[p_collection || ' unknown collection']; end if;", '  null;'],
       ...fns.map(sig => [`publish-ready: migration 11 closes private.${sig.split('(')[0]} to anon, authenticated, PUBLIC (both layers)`,
+        [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], [`revoke all on function private.${sig} from public, anon, authenticated;`, '-- (revoke removed)']]]),
+    ];
+  })(),
+  // Migration 12 (slice 5.1, 20261031000012_screens.sql): the database for the four screens. Tests: tenancy.test.sql T20. Run only these: --only screens:
+  ...(() => {
+    const IP = "    if o[1] in (0, 10, 127) or o[1] >= 224\n       or (o[1] = 100 and o[2] between 64 and 127) or (o[1] = 169 and o[2] = 254) or (o[1] = 172 and o[2] between 16 and 31)\n       or (o[1] = 192 and o[2] = 168) or (o[1] = 192 and o[2] = 0 and o[3] = 0) or (o[1] = 198 and o[2] in (18, 19))\n      then return 'the address must be public, not a private, loopback or link-local number'; end if;";
+    const ipWith = (x, y) => ['screens: crm range, ' + x + ' becomes ' + y, IP, IP.replace(x, y)];
+    const sigs = ['mark_lead_read(jsonb, uuid)', 'leads_exported(jsonb, uuid, uuid[])', 'set_alerts(jsonb, uuid, text[], boolean)', 'set_crm_webhook(jsonb, uuid, text, text)', 'drafts_waiting(jsonb, uuid)',
+      'save_as(jsonb, uuid, text, uuid, jsonb, jsonb, int)'];
+    return [
+      // 1. S-STALE
+      ['screens: S-STALE, the stale check removed', "    elsif newest > p_base then\n", "    elsif false then\n"],
+      ['screens: S-STALE, off by one (>= for >)', "    elsif newest > p_base then\n", "    elsif newest >= p_base then\n"],
+      ['screens: S-STALE, a new row with a base is accepted', "      if p_base <> 0 then raise exception 'S-STALE: a new item", "      if false then raise exception 'S-STALE: a new item"],
+      ['screens: S-STALE, the message names another version', "by someone else', r.id, newest;", "by someone else', r.id, newest + 1;"],
+      ['screens: S-STALE, the old save_as stays callable (no drop)', "drop function service.save_as(jsonb, uuid, text, uuid, jsonb, jsonb);", "-- (old signature kept)"],
+      ['screens: S-STALE, the old save_version stays (no drop)', "drop function private.save_version(uuid, text, uuid, jsonb, jsonb);", "-- (old signature kept)"],
+      // 2. unread leads
+      ['screens: lead_reads, mark_lead_read without the readable check', "  if not found or not private.can_act_on_lead(l) then raise exception 'S-NOT-FOUND: not found'; end if;\n  insert into public.lead_reads", "  if not found then raise exception 'S-NOT-FOUND: not found'; end if;\n  insert into public.lead_reads"],
+      ['screens: lead_reads, the select policy widened to true', "create policy lead_reads_own on public.lead_reads for select to authenticated using (user_id = (select auth.uid()));", "create policy lead_reads_own on public.lead_reads for select to authenticated using (true);"],
+      ['screens: lead_reads, no select policy', "create policy lead_reads_own on public.lead_reads for select to authenticated using (user_id = (select auth.uid()));", "-- (no policy)"],
+      ['screens: lead_reads, RLS off', "alter table public.lead_reads enable row level security;", "-- (RLS off)"],
+      // two layers each since migration 1 (alter default privileges in schema public revoke all on tables from anon, authenticated): the mutant removes both
+      ['screens: lead_reads, write grants kept for authenticated (both layers)', [["alter default privileges in schema public revoke all on tables from anon, authenticated;", "-- (tables open by default)"], ["revoke insert, update, delete, truncate, references, trigger on public.lead_reads from authenticated;", "-- (grants kept)"]]],
+      ['screens: lead_reads, anon keeps its grants (both layers)', [["alter default privileges in schema public revoke all on tables from anon, authenticated;", "-- (tables open by default)"], ["revoke all on public.lead_reads from anon;", "-- (kept)"]]],
+      ['screens: lead_reads, not in the Realtime publication', "    alter publication supabase_realtime add table public.lead_reads;", "    null;"],
+      ['screens: lead_reads, a second mark is not an upsert', "\n    on conflict (lead_id, user_id) do update set read_at = now();", ";"],
+      ['screens: lead_reads, marks do not follow a deleted lead', "lead_id uuid not null references public.leads(id) on delete cascade,", "lead_id uuid not null references public.leads(id),"],
+      // 3. export events
+      ['screens: export, without the readable check', "    if not found or not private.can_act_on_lead(l) then skipped := skipped + 1; continue; end if;", "    if not found then skipped := skipped + 1; continue; end if;"],
+      ['screens: export, a lead of another site is recorded', "where public.leads.id = lid and public.leads.site_id = p_site;", "where public.leads.id = lid;"],
+      ['screens: export, any caller may name any site', "  if ws is null or not coalesce(private.is_staff() or private.is_member(ws), false) then raise exception 'S-NOT-FOUND: not found'; end if;\n  -- a lead of another site", "  if ws is null then raise exception 'S-NOT-FOUND: not found'; end if;\n  -- a lead of another site"],
+      ['screens: export, the event does not say who', "'exported', me, jsonb_build_object('by', me));", "'exported', null, '{}');"],
+      ['screens: export, a repeated id is recorded twice', "for lid in select distinct x from unnest(", "for lid in select x from unnest("],
+      ['screens: export, not audited', "'leads-export', p_site::text", "'leads-exported', p_site::text"],
+      // 4. lead alerts
+      ['screens: alerts, without the owner check', "  if ws is null or not private.is_owner_or_staff(ws) then raise exception 'S-NOT-FOUND: not found'; end if;\n  if cardinality(coalesce(p_to", "  if ws is null then raise exception 'S-NOT-FOUND: not found'; end if;\n  if cardinality(coalesce(p_to"],
+      ['screens: alerts, no email check', String.raw`    if v !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' or length(v) > 254 then`, "    if false or length(v) > 254 then"],
+      ['screens: alerts, not lower-cased', "    v := lower(btrim(coalesce(a, '')));", "    v := btrim(coalesce(a, ''));"],
+      ['screens: alerts, not trimmed', "    v := lower(btrim(coalesce(a, '')));", "    v := lower(coalesce(a, ''));"],
+      ['screens: alerts, not de-duplicated', "    if not (v = any(clean)) then clean := clean || v; end if;", "    clean := clean || v;"],
+      ['screens: alerts, more than ten addresses', "  if cardinality(clean) > 10 then raise exception 'I-EMAIL: at most 10 addresses'; end if;\n", ""],
+      ['screens: alerts, the assignee tick is not stored', "alert_assignee = coalesce(p_assignee, alert_assignee) where public.sites.id = p_site;", "alert_assignee = alert_assignee where public.sites.id = p_site;"],
+      ['screens: alerts, a null tick is stored as null', "alert_assignee = coalesce(p_assignee, alert_assignee) where public.sites.id = p_site;", "alert_assignee = p_assignee where public.sites.id = p_site;"],
+      ['screens: alerts, not audited', "'alerts-set', p_site::text", "'alerts-changed', p_site::text"],
+      ['screens: alerts, a site starts with the agent left out', "add column alert_assignee boolean not null default true", "add column alert_assignee boolean not null default false"],
+      // 5. the CRM connection
+      ['screens: crm, without the owner check', "  if not private.is_owner_or_staff(p_workspace) then raise exception 'S-NOT-FOUND: not found'; end if;\n  if p_url is null then", "  if p_url is null then"],
+      ['screens: crm, no address check at all', "  why := private.crm_url_problem(p_url);\n  if why is not null then raise exception 'I-URL: %', why; end if;\n", ""],
+      ['screens: crm, without the private-host check (numbers)', IP, IP.replace("then return 'the address must be public, not a private, loopback or link-local number'; end if;", "then null; end if;")],
+      ['screens: crm, without the private-host check (localhost and private names)', "  if host = 'localhost' or host like '%.localhost' or host like '%.local' or host like '%.internal' then return 'the address must be public, not localhost or a private name'; end if;\n", ""],
+      ['screens: crm, other ways to write a number are accepted', String.raw`  if host ~ '(^|\.)0x' or host ~ '\.[0-9]+$' then return`, "  if false then return"],
+      ['screens: crm, a number not in four plain parts is accepted', String.raw`    if host !~ '^(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})$' then return`, "    if false then return"],
+      ['screens: crm, plain http is accepted', "  if lower(left(p_url, 8)) <> 'https://' then", "  if false then"],
+      ['screens: crm, a login in the address is accepted', "  if position('@' in auth) > 0 then return", "  if false then return"],
+      ['screens: crm, no length limit', "  if length(p_url) > 2000 then", "  if false then"],
+      ['screens: crm, a space or control character or backslash is accepted', String.raw`  if p_url ~ '[[:space:][:cntrl:]\\]' then`, "  if false then"],
+      ['screens: crm, any secret ref is accepted', "  if p_secret_ref is not null and p_secret_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$' then raise exception 'I-SECRET-REF: a name of the secret, not the secret itself'; end if;\n", ""],
+      ['screens: crm, the secret goes into the config', "jsonb_build_object('url', p_url), p_secret_ref)", "jsonb_build_object('url', p_url, 'secret', p_secret_ref), p_secret_ref)"],
+      ['screens: crm, the audit row carries the ref', "'crm-set', p_workspace::text, jsonb_build_object('removed', false)", "'crm-set', p_workspace::text, jsonb_build_object('removed', false, 'ref', p_secret_ref)"],
+      ['screens: crm, a new address drops the ref', "secret_ref = coalesce(excluded.secret_ref, public.integrations.secret_ref)", "secret_ref = excluded.secret_ref"],
+      ['screens: crm, no address does not remove the row', "    delete from public.integrations i where i.workspace_id = p_workspace and i.kind = 'crm-webhook';", "    null;"],
+      ['screens: crm, the removal is not audited', "      insert into public.audit_log (workspace_id, actor, action, target, detail) values (p_workspace, me, 'crm-set', p_workspace::text, jsonb_build_object('removed', true));", "      null;"],
+      ipWith("o[1] in (0, 10, 127)", "o[1] in (0, 127)"), ipWith("o[1] in (0, 10, 127)", "o[1] in (10, 127)"), ipWith("o[1] in (0, 10, 127)", "o[1] in (0, 10)"),
+      ipWith("o[1] >= 224", "o[1] > 224"), ipWith("o[2] between 64 and 127", "o[2] between 65 and 127"), ipWith("o[2] between 64 and 127", "o[2] between 64 and 126"),
+      ipWith("(o[1] = 169 and o[2] = 254)", "false"), ipWith("o[2] between 16 and 31", "o[2] between 17 and 31"), ipWith("o[2] between 16 and 31", "o[2] between 16 and 30"),
+      ipWith("(o[1] = 192 and o[2] = 168)", "false"), ipWith("(o[1] = 192 and o[2] = 0 and o[3] = 0)", "false"), ipWith("(o[1] = 198 and o[2] in (18, 19))", "false"), ipWith("o[2] in (18, 19)", "o[2] in (18)"),
+      // 6. drafts waiting
+      ['screens: drafts, an agent sees every draft', "or (role = 'member' and contract -> ", "or (role = 'member') or (false and contract -> "],
+      ['screens: drafts, a row published at its newest version is waiting', "    and v.n > coalesce(c.published_version, 0)", "    and v.n >= coalesce(c.published_version, 0)"],
+      ['screens: drafts, inbox rows are waiting', "    and coalesce(contract -> 'collections' -> c.collection ->> 'kind', '') <> 'inbox'\n", ""],
+      ['screens: drafts, deleted rows are waiting', "  where c.workspace_id = ws and c.deleted_at is null\n    and v.n >", "  where c.workspace_id = ws\n    and v.n >"],
+      ['screens: drafts, rows of every workspace', "  where c.workspace_id = ws and c.deleted_at is null\n    and v.n >", "  where c.deleted_at is null\n    and v.n >"],
+      ['screens: drafts, any caller may name any site', "  if ws is null or not coalesce(staff or role is not null, false) then raise exception 'S-NOT-FOUND: not found'; end if;", "  if ws is null then raise exception 'S-NOT-FOUND: not found'; end if;"],
+      ['screens: drafts, the oldest version instead of the newest', "order by x.n desc limit 1) v on true", "order by x.n asc limit 1) v on true"],
+      // every new definer function pins the empty search_path (T14 and the check in T20 (g))
+      ['screens: private.save_version does not pin the search_path', "returns table (row_id uuid, version int) language plpgsql security definer set search_path = '' as $$\ndeclare\n  def jsonb := private.collection_def(p_workspace, p_collection);\n  r public.content_rows;\n  prev jsonb;\n  newest int;", "returns table (row_id uuid, version int) language plpgsql security definer as $$\ndeclare\n  def jsonb := private.collection_def(p_workspace, p_collection);\n  r public.content_rows;\n  prev jsonb;\n  newest int;"],
+      ['screens: service.drafts_waiting does not pin the search_path', "language plpgsql security definer set search_path = '' as $$\ndeclare me uuid; ws uuid; role public.member_role; staff boolean; mine uuid; contract jsonb;", "language plpgsql security definer as $$\ndeclare me uuid; ws uuid; role public.member_role; staff boolean; mine uuid; contract jsonb;"],
+      ...['mark_lead_read(p_claims jsonb, p_lead uuid) returns void', 'leads_exported(p_claims jsonb, p_site uuid, p_lead_ids uuid[]) returns int', 'set_alerts(p_claims jsonb, p_site uuid, p_to text[], p_assignee boolean) returns void',
+        'set_crm_webhook(p_claims jsonb, p_workspace uuid, p_url text, p_secret_ref text) returns void'].map(h => [`screens: service.${h.split('(')[0]} does not pin the search_path`,
+        `create function service.${h} language plpgsql security definer set search_path = '' as $$`, `create function service.${h} language plpgsql security definer as $$`]),
+      ['screens: service.save_as does not pin the search_path', "returns table (row_id uuid, version int) language plpgsql security definer set search_path = '' as $$\nbegin\n  perform service.use_claims(p_claims);\n  return query select * from private.save_version(p_workspace, p_collection, p_row, p_data, p_sign_off, p_base);", "returns table (row_id uuid, version int) language plpgsql security definer as $$\nbegin\n  perform service.use_claims(p_claims);\n  return query select * from private.save_version(p_workspace, p_collection, p_row, p_data, p_sign_off, p_base);"],
+      // the grants of migration 12, both layers each (migration 8's default privileges would hide a missing explicit statement)
+      ...sigs.flatMap(sig => [
+        [`screens: migration 12 closes service.${sig.split('(')[0]} to anon, authenticated, PUBLIC (both layers)`, [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], [`revoke all on function service.${sig} from public, anon, authenticated;`, '-- (revoke removed)']]],
+        [`screens: migration 12 opens service.${sig.split('(')[0]} to the function role (both layers)`, [['alter default privileges in schema service grant execute on functions to service_role, omnikom_fn;', '-- (no default grant)'], [`grant execute on function service.${sig} to service_role, omnikom_fn;`, '-- (grant removed)']]],
+      ]),
+      ...['crm_url_problem(text)', 'save_version(uuid, text, uuid, jsonb, jsonb, int)'].map(sig => [`screens: migration 12 closes private.${sig.split('(')[0]} to anon, authenticated, PUBLIC (both layers)`,
         [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], [`revoke all on function private.${sig} from public, anon, authenticated;`, '-- (revoke removed)']]]),
     ];
   })(),

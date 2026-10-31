@@ -1,0 +1,65 @@
+# THIS FILE DOES NOT RUN IN THE PLATFORM REPOSITORY. It is the production repository's backup workflow: copy it to
+# .github/workflows/backup.yml of the PRODUCTION repository (DECISIONS 29 D21: the working repository never holds a production key).
+# This file holds no secret value, only the NAMES of the secrets the production repository must hold.
+# Nightly encrypted dump of the PRODUCTION database to two S3-compatible buckets (10-DELIVERY section 5, 11-OPERATIONS section 3).
+# The work is supabase/ops/backup.mjs, so the production repository must hold the same supabase/ops/ folder as the platform repository,
+# including supabase/ops/backup-recipient.pem (the PUBLIC certificate; promote puts the proven commit there). UNPROVEN: how the files get
+# into the production repository is the promote workflow's concern (6A); this job only needs them in the checked-out tree.
+# BLOCKED until the owner has: made the key pair offline and committed only the certificate; created the production Supabase project and
+# the buckets (use other prefixes or other buckets than staging's); added the repository secrets PROD_DB_URL, CLOUDFLARE_ACCOUNT_ID,
+# R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, BACKUP2_ENDPOINT, BACKUP2_BUCKET, BACKUP2_ACCESS_KEY_ID, BACKUP2_SECRET_ACCESS_KEY
+# (write-only keys), and set the repository variable BACKUP_ENABLED = true. Until then the job is skipped.
+# Recovery objectives (D17): at most 24 hours of data lost, back within 4 hours; retention 30 days is a lifecycle rule on the buckets.
+name: backup
+
+on:
+  schedule:
+    - cron: '47 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  dump:
+    if: ${{ vars.BACKUP_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Install the PostgreSQL 17 client
+        run: |
+          sudo apt-get update
+          if ! apt-cache show postgresql-client-17 > /dev/null 2>&1; then
+            sudo apt-get install -y postgresql-common
+            sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          fi
+          sudo apt-get install -y postgresql-client-17
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - name: Back up production (dump, encrypt to the public certificate, upload to both buckets, verify each by size)
+        env:
+          PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+          R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          BACKUP2_ENDPOINT: ${{ secrets.BACKUP2_ENDPOINT }}
+          BACKUP2_BUCKET: ${{ secrets.BACKUP2_BUCKET }}
+          BACKUP2_ACCESS_KEY_ID: ${{ secrets.BACKUP2_ACCESS_KEY_ID }}
+          BACKUP2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP2_SECRET_ACCESS_KEY }}
+        run: |
+          pg_dump --version
+          node supabase/ops/backup.mjs --db PROD_DB_URL --privileges \
+            --to "s3://${R2_BUCKET}/production" --env R2 \
+            --to "s3://${BACKUP2_BUCKET}/production" --env BACKUP2

@@ -6,6 +6,9 @@ screens of `04-DASHBOARD.md` for the client; the staff admin stays as written th
 `14-LEAD-PATH.md`. Database side: `supabase/migrations/20261029000002_crm.sql` (tested locally, see section 8).
 
 ## 1. Four screens, nothing else
+Every element and fixed piece of copy of these screens has an id in `16-DESIGN-PARTS.md` Part 1 (`DP-1.2-01` ...), with the build
+slice that puts it on the screen; the app carries it as `data-plan` and a gate checks both ways (DECISIONS 44). This file says what
+the screens are; that table is the list of what is on them. A thing on neither is not built: it is a gap sent to the head.
 | # | Screen | What it is | Primary action |
 |---|---|---|---|
 | 1 | Sign in | email, one button; the sign-in link lands in the mailbox | Send me a sign-in link |

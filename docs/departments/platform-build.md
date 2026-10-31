@@ -58,6 +58,10 @@ sent to the head of operations with options, never a fix made here.
 - A fixture in a wall test is written the way the production tool writes it, or the test calls the tool (ground rule 13, from the
   `active_key` bug of 2026-10-30).
 - Never edit an applied migration; write a new one. Production receives only migrations proven on staging (DECISIONS 15, 27).
+- Staging only ever runs committed, gated code (DECISIONS 43, head of operations 2026-10-31 18:23, after migration 12 reached
+  staging before its tree was gated): a builder never applies a migration or deploys a function to staging; the head does it after
+  the combined tree passed the full gates and is committed. A builder proves its work locally and names the staging steps for the
+  head. If a gate changes something already on staging, roll staging forward to the fixed version and say so in PROGRESS.
 - Keys by variable name only (CLAUDE.md rule 9); live things need the owner's click (rules 6 and 12); nothing against a client
   project or site (DECISIONS 30: ELEV8 is touched only in step 7); no em dashes in any file.
 

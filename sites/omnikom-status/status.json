@@ -1,0 +1,28 @@
+{
+  "schema": "omnikom-status/1",
+  "environment": "staging",
+  "generated_at": "2026-10-31T15:18:51Z",
+  "components": [
+    {
+      "id": "dashboard",
+      "name": "Dashboard",
+      "status": "unknown",
+      "checked_at": null,
+      "note": "not measured yet: an external uptime checker does not exist"
+    },
+    {
+      "id": "forms",
+      "name": "Client sites' forms",
+      "status": "operational",
+      "checked_at": "2026-10-31T15:18:51Z",
+      "note": "no lead push is stuck and no live site has been silent for 7 days (this is not a live form test)"
+    },
+    {
+      "id": "publishing",
+      "name": "Publishing",
+      "status": "degraded",
+      "checked_at": "2026-10-31T15:18:51Z",
+      "note": "needs a look: job-over-30-min"
+    }
+  ]
+}
