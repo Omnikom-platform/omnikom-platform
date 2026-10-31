@@ -172,7 +172,7 @@ const MUTANTS = [
   ["tools ensure: a missing published date is accepted", "lib/tools.mjs", "if (!Number.isFinite(pub)) return", "if (false) return", 'unit'],
   ["tools ensure: a missing sha256 is accepted", "lib/tools.mjs", "if (typeof p.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(p.sha256)) return", "if (false) return", 'unit'],
   ["tools ensure: the .ok skip ignores the version", "lib/tools.mjs", "ok.version !== entry.version || ", "", 'unit'],
-  ["tools ensure: the .ok skip ignores the executable's hash", "lib/tools.mjs", "if (ok.binSha256 && sha256Of(readFileSync(binPath)) !== ok.binSha256) return", "if (false) return", 'unit'],
+  ["tools ensure: the .ok skip ignores the executable's hash", "lib/tools.mjs", "if (typeof ok.binSha256 !== 'string' || sha256Of(readFileSync(binPath)) !== ok.binSha256) return", "if (false) return", 'unit'],
   ["tools ensure: a download that does not match is kept", "lib/tools.mjs", "rm(tmp);   // the file is deleted: a download that does not match is never kept", "", 'unit'],
   ["tools ensure: a failed extraction leaves its temp folder", "lib/tools.mjs", "if (x.error || x.status !== 0) { rm(tmp); return refuse(", "if (x.error || x.status !== 0) { return refuse(", 'unit'],
   ["tools ensure: the archive is read by a tar found on PATH, not the system one", "lib/tools.mjs", "(process.platform === 'win32' ? join(ctx.env.SystemRoot", "(false ? join(ctx.env.SystemRoot", 'unit'],
