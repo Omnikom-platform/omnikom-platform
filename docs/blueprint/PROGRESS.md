@@ -260,6 +260,45 @@ yet), one media row (unprocessed, rights ticked), two repository_dispatch events
 call with no token was refused by the gateway (`UNAUTHORIZED_NO_AUTH_HEADER`), so the in-code wall's 401 `S-AUTH` is proven locally (auth.test.ts,
 save.test.ts) and not separately on staging; a 200 on staging proves that Supabase's real ES256 session tokens pass `verifyUserJwt`.
 
+### 4.4 runner and workflows: head's verification (2026-10-31 06:40 local)
+Builder: in-session Sonnet agent, brief `factory/briefs/4-4-runner-and-workflows.md`, 135 tool uses, 2 h 20 min. Its paragraph is below. Every gate
+re-run by a Haiku agent on the same tree (06:06 to 06:33), verbatim:
+```
+node factory/runner/test/run.mjs                 OK: 87 of 87 checks passed                                                exit 0
+node factory/runner/test/mutate.mjs              67 mutants, 67 caught, 0 survived, 0 target text missing                  exit 0
+actionlint.exe .github/workflows/*.yml           (no output)                                                               exit 0   (1.7.12, the pinned binary in the builder's scratch)
+node --check tools/github-secrets.mjs && node --check factory/runner/publish.mjs && node --check factory/runner/media.mjs   exit 0
+node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/github-secrets.mjs --repo Omnikom-platform/omnikom-platform --names <8 names> --dry-run
+                                                 DERIVED: PLATFORM_FUNCTIONS_BASE from STAGING_SUPABASE_REF
+                                                 WOULD SET: CLOUDFLARE_PAGES_TOKEN / CLOUDFLARE_ACCOUNT_ID / PLATFORM_FUNCTIONS_BASE / STAGING_DB_URL / STAGING_SUPABASE_REF / STAGING_SUPABASE_SECRET_KEY / STAGING_SUPABASE_PUBLISHABLE_KEY
+                                                 NOT SET (missing in the env): RUNNER_KEY      (slice 4.3 mints it)
+                                                 secrets on Omnikom-platform/omnikom-platform (names only): none           exit 0   (run by the head, names only)
+grep "uses:" .github/workflows/*.yml             every action pinned by full SHA with the version in a comment: actions/checkout v7.0.1, actions/setup-node v7.1.0, denoland/setup-deno v2.0.5
+grep "secrets\." .github/workflows/*.yml        publish: PLATFORM_FUNCTIONS_BASE, RUNNER_KEY, CLOUDFLARE_PAGES_TOKEN, CLOUDFLARE_ACCOUNT_ID; media: the first two; keepalive: the four STAGING_*;
+                                                 backup: STAGING_DB_URL, R2_* and CLOUDFLARE_ACCOUNT_ID (gated by vars.BACKUP_ENABLED). No production name anywhere (DECISIONS 27, 29).
+```
+The head raised two `ci.yml` job caps after the re-run (gates 40 to 75 minutes: the walls gate has its own 60-minute limit; factory 40 to 60: factory
+mutants about 20 minutes plus the runner suite) and linted again: `actionlint.exe .github/workflows/ci.yml` exit 0. Two fixes before the
+commit, both by the head: (a) `gitleaks protect --staged` found 1 leak, rule `jwt`, `factory/runner/test/run.mjs` line 130: jwt.io's sample token
+with a made-up signature inside the scrubber test; the test now assembles it from three parts at run time, rescan `no leaks found`; (b) my first
+cap edit put a trailing comment on the `timeout-minutes` lines and the runner's own workflow check went red for the right reason
+(`FAIL workflows: every job has a timeout  ... ci.yml:8:6 ...`, `FAILED: 1 of 87`); comments moved to their own lines, then
+`OK: 87 of 87 checks passed` and actionlint exit 0 on all five workflows.
+
+**Verdict: slice 4.4 PROVEN against fakes, UNPROVEN against the real services** (the four runner-facing functions did not exist when it was built,
+no Pages project exists, no workflow has run on the repo). The runner is coded to the shapes in `factory/README.md` and brief 4.3; builder 4.3 was
+given those exact shapes to implement. Slice 4.5 proves the chain for real. NOT DONE: `backup.yml` stays off until R2 exists (owner deferred).
+
+**Findings from the builder, decided by the head.** wrangler pinned 4.152.0 (the brief's 4.156.0 was 2 days old, 7-day rule) and Node 24.22.1
+(supply-chain minimum): accepted. `concurrency.queue: max` kept with the one actionlint ignore; fallback `cancel-in-progress: false` if GitHub
+rejects it on the first run. LEAK: the export's `media[].url` pointed at the original upload and the factory copies `/media/<path>`, so the
+original JPEG with its GPS data would ship (ground rule 11): slice 4.3 now exports the 2400 webp derivative as `path` and `url` (original kept
+as `original_path`), factory unchanged. `/api/lead` staged from `factory/worker/` beside the deploy: accepted (without it every built form
+404s). Deploy id = the 8-character hash from the deployment URL: accepted, open item for the full deployment id. A PDF (`kind: 'document'`):
+422 `I-MEDIA-SIZE` in 4.3, open item for a document flag in the data model. Deploy-target mismatch not checkable from the dispatch payload
+(only the site id is): open item, the payload gains the target when a second Pages project exists. Historic gitleaks hits for `ci.yml`'s
+secrets job: the head of operations added the fingerprints (test keys) in `.gitleaksignore`, commit 30c4a2b.
+
 ### 4.4 runner and workflows (builder)  (2026-10-31, builder session `BUILDER (platform build): slice 4.4`, brief `factory/briefs/4-4-runner-and-workflows.md`; gates run 03:15 to 06:00 local)
 Made: `factory/runner/` (`publish.mjs`, `media.mjs`, `lib/sign.mjs`, `lib/common.mjs`, `package.json` + `package-lock.json` with sharp 0.35.5, `test/`),
 `.github/workflows/` (`publish`, `media`, `ci`, `keepalive`, `backup`), `.github/actionlint.yaml`, `tools/github-secrets.mjs`, a "Runner" section in

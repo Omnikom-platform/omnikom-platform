@@ -101,3 +101,48 @@ Rule 10 of `docs/blueprint/23-GROUND-RULES.md`: every gate and every launch rule
 The test site `sites/test-demo-a/` is synthetic ("Demo A"): `plan/` (sitemap.json, entities.json), `make-contract.mjs` (runs
 `contracts/from-plan.mjs`; a test asserts the committed `contract.json` equals its output), `rows.json`, `media/logo.png`,
 `design/` (the minimal look). Its team, listings, settings and leads keep the keys of the seed command's `TEST_CONTRACT`.
+
+## 5. Runner (slice 4.4): `factory/runner/`, `.github/workflows/`, `tools/github-secrets.mjs`
+Owner: the platform build department. The runner is the GitHub Actions side of a publish: it fetches the export, builds, judges the
+build with the audit engine, deploys to Cloudflare Pages, smoke-tests the address and tells the platform. Design: `docs/blueprint/02-BACKEND.md`
+sections 5, 7, 8 and `21-PROTOCOLS.md` sections 1 to 3. It is proven against a FAKE platform and a FAKE wrangler; against the real Edge
+Functions and the real Cloudflare account it is UNPROVEN until slice 4.5.
+
+```
+node factory/runner/publish.mjs [--force-fail heading] [--no-deploy <dir>] [--work <dir>]      JOB_ID SITE_ID PLATFORM_FUNCTIONS_BASE RUNNER_KEY CLOUDFLARE_PAGES_TOKEN CLOUDFLARE_ACCOUNT_ID
+node factory/runner/media.mjs                                                                   MEDIA_ID WORKSPACE_ID PLATFORM_FUNCTIONS_BASE RUNNER_KEY      (needs: npm ci --prefix factory/runner --ignore-scripts)
+```
+- **Signature.** `lib/sign.mjs` is a port of `supabase/functions/_shared/signature.ts`: header `X-Runner-Signature: t=<unix>,v1=<hex>`,
+  HMAC-SHA256 over `t\nMETHOD\npath?query\nbody`, 300 s window. The path is what FOLLOWS `PLATFORM_FUNCTIONS_BASE` (the `/functions/v1`
+  prefix is never signed): `/export-published?job=<id>`, `/job-callback`, `/media-export?media=<id>`, `/media-process-callback`. A GET signs an
+  empty body. The tests have the platform's own `verify` judge every header.
+- **publish.mjs steps**, each printed `STEP <name>: <result>`: `export` (GET, refuses a different site or job, a missing `sites/<slug>/design/`)
+  -> `media` (downloads every signed URL of `media[]`; one that fails is only reported, the factory stops if a built row needs it) -> `build`
+  (`factory/build.mjs`) -> `gating` (callback, then `tools/audit/run.mjs`; exit 1 = failed with the FAIL lines in `gateReport.audit.fails`)
+  -> `deploying` (callback, then `wrangler pages deploy`, branch `preview` unless the site is live, then `main`) -> `smoke` (the fixed address,
+  6 tries 10 s apart: 200, `x-robots-tag: noindex` on a preview and NOT on a live site, the built home page `<title>` in the body) -> `done`
+  (callback with the deploy id and `{ factory: 'pass', audit: { exit: 0, fails: [] } }`). The export call already moved the job to `building`
+  (`freeze_snapshot`), so there is no `building` callback. Every failure sends ONE `failed` callback (`error` = the short reason,
+  `gateReport.reason` the same) and exits 1; a 409 from any callback is printed and the run stops without sending more.
+- **Deploy.** `npx --yes wrangler@4.152.0 pages deploy <work>/dist --project-name <site.deploy_target> --branch <preview|main> --commit-dirty=true`
+  run from `<work>/pages-root/`, which holds `functions/api/lead.js` and `lead-endpoint.mjs` (copied from `factory/worker/`) so the site's
+  `/api/lead` travels with the deploy. wrangler gets `CLOUDFLARE_API_TOKEN` (= `CLOUDFLARE_PAGES_TOKEN`) and `CLOUDFLARE_ACCOUNT_ID` and
+  nothing of the runner key or the platform address. The deploy id sent to the platform is the deployment hash from the printed address
+  (`https://<hash>.<project>.pages.dev`).
+- **Bounds.** Every fetch has a timeout (30 s, media 60 s), a call is tried 3 times on a network error or 502/503/504, every child process has a
+  timeout (build 3 min, audit 3 min, wrangler 7 min), the media step 4 min in all. Everything printed passes the scrubber: secret values, the
+  project ref, `?token=` of a signed URL, JWT-shaped strings.
+- **media.mjs.** GET `media-export` -> refuses a `workspace_id` that is not the dispatch's -> downloads -> sharp: orientation applied, WebP at
+  2400 / 1600 / 800 wide (a size wider than the original is skipped and listed in `skipped`), no `withMetadata()` so EXIF, GPS, XMP and ICC are
+  gone -> PUT each size to its signed upload URL (`x-upsert: true`) -> `media-process-callback` `{ media, width, height, exifStripped: true, bytes,
+  sizes, skipped }` (width and height are the oriented size). A PDF sends `{ media, kind: 'document' }`. An original narrower than 800 px is
+  refused (nothing sent; publish refuses an unprocessed photo).
+- **Test hooks** (not for production): `OMNIKOM_REPO_ROOT`, `RUNNER_WRANGLER_SCRIPT`, `RUNNER_FETCH_TIMEOUT_MS`, `RUNNER_RETRY_BACKOFF_MS`,
+  `--smoke-url`, `--smoke-tries`, `--smoke-interval-ms`; `--no-deploy <dir>` copies `dist/` there and invents the deploy id `local-<sha>`.
+- **Workflows** (`.github/workflows/`, every action pinned by SHA, `permissions: contents: read`, a timeout on every job, `.github/actionlint.yaml`
+  ignores only actionlint 1.7.12's ignorance of `concurrency.queue`): `publish.yml` (repository_dispatch `publish` + a manual
+  `workflow_dispatch` with `job_id`, `site_id`, `force_fail`), `media.yml` (repository_dispatch `media`), `ci.yml` (eight jobs), `keepalive.yml`
+  (Mondays 06:00 UTC), `backup.yml` (complete but off until `vars.BACKUP_ENABLED == 'true'`: BLOCKED on R2).
+- **Secrets for the repository**: `tools/github-secrets.mjs` (values from the env by name onto `gh secret set` stdin; `--dry-run` prints names only).
+- **Proof**: `node factory/runner/test/run.mjs` (OK: N of N checks passed; the media checks print `SKIP media test: run npm ci --prefix factory/runner`
+  when sharp is missing) and `node factory/runner/test/mutate.mjs` (N mutants, N caught, 0 survived, 0 target text missing).

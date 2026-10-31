@@ -1,0 +1,41 @@
+# Photo processing (02-BACKEND section 5, ground rule 11): EXIF and GPS stripped, WebP at 2400, 1600 and 800 wide, written back to the
+# private bucket, then media-process-callback. Started by the `upload-finish` Edge Function (repository_dispatch, type media,
+# client_payload { media_id, workspace_id }). sharp is pinned in factory/runner/package.json and package-lock.json; install scripts stay off.
+name: media
+
+on:
+  repository_dispatch:
+    types: [media]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: media-${{ github.event.client_payload.media_id }}
+  queue: max
+
+jobs:
+  media:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+
+      - name: Install the pinned dependencies (sharp), install scripts off
+        run: npm ci --prefix factory/runner --ignore-scripts --no-audit --no-fund
+
+      - name: Process the photo
+        env:
+          MEDIA_ID: ${{ github.event.client_payload.media_id }}
+          WORKSPACE_ID: ${{ github.event.client_payload.workspace_id }}
+          PLATFORM_FUNCTIONS_BASE: ${{ secrets.PLATFORM_FUNCTIONS_BASE }}
+          RUNNER_KEY: ${{ secrets.RUNNER_KEY }}
+        run: node factory/runner/media.mjs

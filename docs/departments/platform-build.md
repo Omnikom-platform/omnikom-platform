@@ -30,7 +30,7 @@ command sends the need up as a finding; the CLI department builds it. A bug or a
 sent to the head of operations with options, never a fix made here.
 
 ## Head session
-- Model: fable. A standing head from step 4 (DECISIONS 34; steps 2 and 3 ran as one session per step under DECISIONS 32),
+- Model: opus (DECISIONS 40). A standing head from step 4 (DECISIONS 34; steps 2 and 3 ran as one session per step under DECISIONS 32),
   started by the head of operations with a brief that names this file; long-lived across steps; hands over through this
   charter's position log when its context is full. It plans each step of `25-BUILD-SEQUENCE.md` as slices, runs sonnet
   builders and haiku runners inside itself, and asks the head of operations for a separate step session only when a slice
@@ -45,7 +45,7 @@ sent to the head of operations with options, never a fix made here.
   gitleaks; reports to the head of operations in two lines per finished slice and at the step's "done when" or at BLOCKED.
 
 ## Builders
-- Model: sonnet for a mechanical, well-specified piece; fable when the piece is design or an unknown root cause.
+- Model: sonnet for a mechanical, well-specified piece; opus when the piece is design or an unknown root cause.
 - Mechanical runs (tests, mutants, gates, grep, fixture rebuilds, deploy and status commands) go to a haiku agent with the
   exact command; the head or builder reads the verdict lines back (DECISIONS 34).
 - One piece, one brief, discarded when done. The brief carries the spec file and line, the gate command, the rules below, and
@@ -113,7 +113,9 @@ sent to the head of operations with options, never a fix made here.
     `media-process-callback`; `RUNNER_KEY` minted by `tools/mint-site-key.mjs --runner` into the env file by name and set as a function
     secret. Gate: function tests + deno check; on staging `omnikom export --job <id> --as runner` once the CLI has it, until then
     `supabase/tests/e2e-export.mjs` (signed call, two workspaces, 0 ids of B in A's export, a bad signature 401, a rerun = same snapshot).
-  - **4.4 The runner** (Sonnet): `factory/runner/publish.mjs` (fetch the export, refuse a site or target mismatch, build, gates:
+  - **4.4 The runner** (Sonnet) PROVEN against fakes 2026-10-31 06:40, UNPROVEN against the real functions, Pages and GitHub until 4.5
+    (PROGRESS.md "4.4 runner and workflows: head's verification"; 87 checks, 67 mutants, actionlint clean, five workflows, every action
+    pinned by SHA; open from it: full deployment id, deploy-target in the dispatch payload, document flag): `factory/runner/publish.mjs` (fetch the export, refuse a site or target mismatch, build, gates:
     factory gates + `node tools/audit/run.mjs dist`, `wrangler pages deploy` with the account token by name, smoke, callback; `--force-fail`
     for the test), `.github/workflows/publish.yml` (repository_dispatch `publish`, concurrency `site-<site_id>` queue max), `ci.yml` (every
     gate of `run-all-gates.mjs` + factory + audit + omnikom-cli units + gitleaks, Postgres binaries on the runner), `media.yml`
@@ -193,3 +195,4 @@ sent to the head of operations with options, never a fix made here.
 - 2026-10-31 03:45, standing head: DECISIONS 35 (prompt map reaches the build) recorded in Open items as backlog for step 5 and later: situation and comparison page types with their design partials (step 5), a read-only per-workspace lead-inbox export for the research stage, a publish gate on uncovered prompt-map rows, dashboard rows for named/cited per prompt (step 6 or 7). No slices planned; 4.2 and 4.4 first. Still due from this head: the flaky privacy-requests wall diagnosis.
 - 2026-10-31 05:47, standing head: DECISIONS 38 part 1 recorded in Open items: a structural "no model SDK or model API in runtime code" check with a path allowlist (SEO research scripts, future step D operators), test watched red and a mutant, after 4.2 and 4.4, before step 5. Also recorded this hour: DECISIONS 35 backlog, DECISIONS 37 look-folder rules, the preferred-source footer and nosnippet gate, the invariant-comment ground rule; the "flaky wall" diagnosed as the gates runner masking a 30-minute timeout (fixed in run-all-gates.mjs).
 - 2026-10-31 05:55, standing head: slice 4.2 (dashboard functions) PROVEN, Haiku re-run equal to the builder line for line (deno check, specs, 58 Deno checks, 31 Deno mutants, staging status with 10 migrations and 7 functions deployed, e2e-functions 0 problems, walls 214 mutants alone in 17 min); proof in PROGRESS.md "4.2 dashboard functions: head's verification". Committing with the gates-runner fix. Next: 4.3 builder launched, 4.4 re-run.
+- 2026-10-31 06:40, standing head: slice 4.4 (runner and five workflows) PROVEN against fakes, Haiku re-run equal to the builder (87 checks, 67 mutants, actionlint clean, actions pinned by SHA, secrets dry-run names only); UNPROVEN against the real functions, Pages and GitHub until 4.5; ci.yml caps raised (gates 75, factory 60). Proof in PROGRESS.md "4.4 runner and workflows: head's verification". Builder 4.3 running; then the model switch (DECISIONS 40).

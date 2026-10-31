@@ -1,0 +1,39 @@
+# Keeps the staging Supabase project from pausing (a Free project with a quiet week may be paused; 21-PROTOCOLS section 5).
+# One read-only call through the platform CLI every Monday 06:00 UTC. The step fails when the CLI exits non-zero, so a paused
+# or unreachable project shows red. The CLI redacts its own output.
+name: keepalive
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+
+      - name: Staging status (touches the database, the functions and Auth)
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          STAGING_SUPABASE_REF: ${{ secrets.STAGING_SUPABASE_REF }}
+          STAGING_SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+          STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+        run: node tools/omnikom-cli/omnikom.mjs status --target staging

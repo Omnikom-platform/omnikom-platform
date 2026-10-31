@@ -1,0 +1,192 @@
+# CI (02-BACKEND section 11, 10-DELIVERY section 3, 23-GROUND-RULES section 3): the same gates the head runs by hand, on every push and
+# pull request. Every job is independent, has a timeout, holds no secret, and starts from a clean checkout. Every third-party action
+# is pinned by commit SHA (supply-chain rule 7); the two downloaded binaries (gitleaks, actionlint) are pinned by version AND sha256.
+# Expected red on the first run: see factory/README.md "Runner" (the `functions` and `gates` jobs depend on work that may not be merged).
+name: ci
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: gates (contracts, database walls, specs, signature, deno check)
+    runs-on: ubuntu-latest
+    # the walls gate has its own 60-minute limit inside run-all-gates.mjs (214 mutants, 17 min on a quiet laptop)
+    timeout-minutes: 75
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Set up Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: 2.8.1
+      - name: PostgreSQL 16 binaries on PATH (the image's own; apt install postgresql only if the image lacks them)
+        run: |
+          if [ -x /usr/lib/postgresql/16/bin/initdb ]; then
+            echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          else
+            sudo apt-get update
+            sudo apt-get install -y postgresql
+            echo "$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)" >> "$GITHUB_PATH"
+          fi
+      - name: All blueprint gates
+        run: node docs/blueprint/specs/run-all-gates.mjs
+
+  factory:
+    name: factory and runner (tests and mutants)
+    runs-on: ubuntu-latest
+    # factory mutants about 20 min and the runner suite about 15 min on the laptop; a hosted runner is slower
+    timeout-minutes: 60
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Install the runner's pinned dependency (sharp), install scripts off
+        run: npm ci --prefix factory/runner --ignore-scripts --no-audit --no-fund
+      - name: Factory tests
+        run: node factory/test/run.mjs
+      - name: Factory mutants
+        run: node factory/test/mutate.mjs
+      - name: Runner tests
+        run: node factory/runner/test/run.mjs
+      - name: Runner mutants
+        run: node factory/runner/test/mutate.mjs
+
+  functions:
+    name: functions (Deno tests and mutants)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Set up Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: 2.8.1
+      - name: PostgreSQL 16 binaries on PATH (the image's own; apt install postgresql only if the image lacks them)
+        run: |
+          if [ -x /usr/lib/postgresql/16/bin/initdb ]; then
+            echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          else
+            sudo apt-get update
+            sudo apt-get install -y postgresql
+            echo "$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)" >> "$GITHUB_PATH"
+          fi
+      - name: Function tests
+        run: node supabase/functions/test/run.mjs
+      - name: Function mutants
+        run: node supabase/functions/test/mutate.mjs
+
+  audit:
+    name: audit engine (tests and mutants)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Audit tests
+        run: node tools/audit/test/run.mjs
+      - name: Audit mutants
+        run: node tools/audit/test/mutate.mjs
+
+  cli:
+    name: platform CLI (unit tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: CLI unit tests
+        run: node tools/omnikom-cli/test/run.mjs --unit
+
+  departments:
+    name: departments and client files
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: One owner per path
+        run: node tools/departments/check.mjs
+      - name: Department tool tests
+        run: node tools/departments/test/run.mjs
+      - name: Client files
+        run: node clients/check.mjs
+
+  secrets:
+    name: secret scan (gitleaks 8.30.1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out the repository with its whole history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Download gitleaks 8.30.1 and check its sha256 (a binary, never a marketplace action)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/gitleaks.tar.gz" https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check -
+          mkdir "$RUNNER_TEMP/gitleaks"
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP/gitleaks" gitleaks
+      - name: Scan the history and the tree
+        run: '"$RUNNER_TEMP/gitleaks/gitleaks" detect --source . --redact --no-banner'
+
+  workflows:
+    name: workflow files (actionlint 1.7.12)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download actionlint 1.7.12 and check its sha256
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/actionlint.tar.gz" https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check -
+          mkdir "$RUNNER_TEMP/actionlint"
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP/actionlint" actionlint
+      - name: Lint every workflow
+        run: '"$RUNNER_TEMP/actionlint/actionlint" -color .github/workflows/*.yml'

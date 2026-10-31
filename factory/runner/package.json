@@ -1,0 +1,10 @@
+{
+  "name": "omnikom-factory-runner",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Dependencies of the build runner (media.mjs only). publish.mjs and every test use Node built-ins; install with: npm ci --prefix factory/runner --ignore-scripts",
+  "engines": { "node": ">=20.9.0" },
+  "dependencies": {
+    "sharp": "0.35.5"
+  }
+}
