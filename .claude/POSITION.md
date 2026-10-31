@@ -600,3 +600,9 @@
   for the platform head's next ground-rules edit: an optimisation that bypasses a view or caches a count writes its invariant
   as one comment next to the test that checks it. CLI audit-command slice committed 77679cf (CLI head); my Haiku re-run of
   its 213 checks and the four fixture commands is running (slow suite), verdict when it lands.
+
+- 05:08 CLI audit-command slice VERIFIED by me (Haiku re-run: 213 of 213; audit --dir good exit 0, bad-MET-003 exit 1; gate PASS and FAIL
+  the same way), commit 77679cf accepted; CLI head now runs the key-numbering builder, then seed test. Reel 5 (Google Preferred
+  Sources) checked against Google's own page: real, covers AI Overviews and AI Mode, but only for users who opted in; not a ranking
+  shortcut. Sent to the platform head as a step 5 footer partial (production only, no nosnippet) with the invariant-comment ground
+  rule. No decision needed from the owner.
