@@ -20,7 +20,7 @@ Every path not listed above. The head of operations edits no code: a bug it find
 to the department that owns the files, as a brief with the evidence.
 
 ## Head session
-- Model: fable. Started by the owner, or by the previous head's hand-over when its context is full (the hand-over is the last
+- Model: opus (Opus 5.5; Fable 5.1 until 2026-10-31, DECISIONS 40). Started by the owner, or by the previous head's hand-over when its context is full (the hand-over is the last
   block of `.claude/POSITION.md`; nothing else is needed to continue).
 - Reads first, in order: `CLAUDE.md`, `.claude/POSITION.md` (whole file; the last blocks are the hand-over), `planning/DECISIONS.md`
   (newest items), `docs/departments/README.md`, then each department charter's position log and open items.
@@ -30,7 +30,7 @@ to the department that owns the files, as a brief with the evidence.
   and pushes `backup-gh master` after a clean `gitleaks protect --staged` (DECISIONS 24).
 
 ## Builders
-- Model: fable for a department head or a platform step; sonnet only for a mechanical, well-specified piece the head of
+- Model: opus for a department head or a platform step; sonnet only for a mechanical, well-specified piece the head of
   operations runs itself (rare: it should be a department's builder instead).
 - Mechanical runs (tests, mutants, gates, grep, fixture rebuilds, deploy and status commands) go to a haiku agent with the
   exact command; the head or builder reads the verdict lines back (DECISIONS 34).

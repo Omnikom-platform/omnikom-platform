@@ -51,7 +51,7 @@ try {
 
   // an unknown model, an empty position log, an em dash
   d = fresh(); dirs.push(d);
-  edit(d, 'platform-build.md', '- Model: fable. A standing head from step 4', '- Model: gpt. A standing head from step 4');
+  edit(d, 'platform-build.md', '- Model: opus (DECISIONS 40). A standing head from step 4', '- Model: gpt. A standing head from step 4');
   { const p = join(d, 'cli-and-testing.md'); const t = readFileSync(p, 'utf8'); writeFileSync(p, t.replace(/(## Position log[^\n]*\n)[\s\S]*$/, '$1- department created.\n'), 'utf8'); }   // the whole log, undated
   edit(d, 'head-of-operations.md', 'Never build.', 'Never build ' + String.fromCharCode(0x2014) + ' ever.');
   r = run('check.mjs', [], d);
@@ -74,7 +74,7 @@ try {
   r = run('new-department.mjs', ['--slug', 'design-lab', '--name', 'Design lab', '--mission', 'Audit gates.', '--owns', 'tools/design-lab/', '--rules', 'Public data only.', '--open', 'first slice: heading structure gate'], d);
   const written = existsSync(join(d, 'design-lab.md')) ? readFileSync(join(d, 'design-lab.md'), 'utf8') : '';
   check('new-department: writes the charter from the template with every placeholder filled', r.status === 0 && written.includes('# Department: Design lab (`design-lab`)') && !/\{\{[A-Z_]+\}\}/.test(written) && written.includes('- `tools/design-lab/`') && written.includes('- Public data only.') && written.includes('first slice: heading structure gate'), r.out);
-  check('new-department: adds the README row and the tree passes the check', /\| seo-and-audits \| SEO and audits \| fable \| sonnet per slice \|/.test(readFileSync(join(d, 'README.md'), 'utf8')) && run('check.mjs', [], d).status === 0);
+  check('new-department: adds the README row and the tree passes the check', /\| seo-and-audits \| SEO and audits \| opus \| sonnet per slice \|/.test(readFileSync(join(d, 'README.md'), 'utf8')) && run('check.mjs', [], d).status === 0);
   // the same slug again is refused; a path owned elsewhere is refused and nothing is written
   r = run('new-department.mjs', ['--slug', 'design-lab', '--name', 'x', '--mission', 'x', '--owns', 'x/'], d);
   check('new-department: an existing slug is refused', r.status === 1 && /exists already/.test(r.out), r.out);

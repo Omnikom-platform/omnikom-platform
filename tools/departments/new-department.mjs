@@ -1,6 +1,6 @@
 // Creates a department charter from docs/departments/TEMPLATE.md and adds its row to docs/departments/README.md.
 //   node tools/departments/new-department.mjs --slug <slug> --name "<Name>" --mission "<one sentence>" --owns <path> [--owns <path>...]
-//        [--head-model fable] [--builder-model sonnet] [--rules "<line>"]... [--proof "<line>"] [--decisions "<line>"] [--open "<line>"]
+//        [--head-model opus] [--builder-model sonnet] [--rules "<line>"]... [--proof "<line>"] [--decisions "<line>"] [--open "<line>"]
 //        [--dry-run]
 // Refuses: a slug that is not lowercase-dashed, a charter that already exists, an owned path already owned by another charter
 // (tools/departments/check.mjs is run after writing; a failing check removes the new file again, so the tree stays valid).
@@ -37,7 +37,7 @@ const need = k => { if (!flags[k]) { console.error(`--${k} is required`); proces
 const slug = need('slug'), name = need('name'), mission = need('mission');
 if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) { console.error('--slug must be lowercase words joined with dashes'); process.exit(2); }
 if (lists.owns.length === 0) { console.error('at least one --owns <path> is required'); process.exit(2); }
-const headModel = flags['head-model'] || 'fable', builderModel = flags['builder-model'] || 'sonnet';
+const headModel = flags['head-model'] || 'opus', builderModel = flags['builder-model'] || 'sonnet';
 const file = join(DEPT_DIR, `${slug}.md`);
 if (existsSync(file)) { console.error(`${file} exists already: edit it, or pick another slug`); process.exit(1); }
 

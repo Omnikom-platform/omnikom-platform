@@ -21,7 +21,7 @@ options, never a fix made here.
   operations in two lines.
 
 ## Builders
-- Model: {{BUILDER_MODEL}} unless a slice is design-heavy (then the head does it, or a fable builder).
+- Model: {{BUILDER_MODEL}} unless a slice is design-heavy (then the head does it, or an opus builder).
 - Mechanical runs (tests, mutants, gates, grep, fixture rebuilds, deploy and status commands) go to a haiku agent with the
   exact command; the head or builder reads the verdict lines back (DECISIONS 34).
 - One slice, one brief, one set of files; discarded when the slice is done. The brief carries: the files, the spec, what done

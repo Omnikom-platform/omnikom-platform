@@ -617,3 +617,14 @@
   department at step 5, DECISIONS 39. Explained in plain words after the owner said the first version was not understandable.
 - 05:47 DECISIONS 38 part 1 (no model in runtime: structural check, allowlist by path, watched red + mutant) recorded in the charter Open items; due after 4.2 and 4.4, before step 5.
 - 05:55 Slice 4.2 PROVEN (PROGRESS.md "4.2 dashboard functions: head's verification"); committing supabase/**, tools/deploy-functions.mjs, deno.json, openapi.json, run-all-gates.mjs fix, charter, PROGRESS. NEXT: launch 4.3 (brief + extras: capture-lead jsonb fix with test and mutant, [functions.test] enabled=false, media[].path/url -> 2400 webp derivative, RUNNER_KEY mint) and Haiku re-run of 4.4.
+
+## 2026-10-31 05:55 head of operations: lead model switched to Opus 5.5 (DECISIONS 40), Fable at 80% of its weekly cap
+- Model lines changed in README, five charters, TEMPLATE, new-department.mjs default, its test, the step 4 brief (log lines
+  untouched). Heads told: finish the current slice, then I switch the session's model; new sessions start on Opus. My own session
+  is switched by the owner in the model menu. Tests: see the Haiku line below when it lands.
+
+- 06:05 Reel 8 (Context Mode) assessed from the repository: not installed, DECISIONS 41; our own big-output hook routed to the CLI
+  head after seed test, registration is the owner's click. Clients head switched to Opus 5.5 (between slices); platform, CLI and
+  SEO heads switch at their next boundary. Department check 5 valid, tests 14 of 14 on the new model lines (Haiku run); mutants
+  pending.
+- 06:20 DECISIONS 40 (owner): lead model Opus 5.5 from the next turn; this Fable turn finishes the 4.4 re-run, commits, sends "boundary". Builder 4.3 (Sonnet) was launched at 06:06, before the order, and keeps running; its verification is the first Opus task. Builders Sonnet, mechanical runs Haiku.

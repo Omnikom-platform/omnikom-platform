@@ -316,3 +316,27 @@
     step 5 the new department takes over `skills/design-tournament/`, `skills/unslop/`, the design stage file (an "except"
     path inside the SEO skill), `docs/blueprint/16-DESIGN-PARTS.md`, the wireframes and the look-folder reviews; the DSN audit
     rules stay with SEO because the engine is theirs. The head of operations scaffolds it with `tools/departments/new-department.mjs`.
+
+40. **The lead model is Opus 5.5 from 2026-10-31 05:55; Fable 5.1 is reserved** (owner: "prepare the whole setup from Fable 5.1
+    to Claude Opus 5.5 since Fable usage is running out, 79% right now"; the usage card read 80% of the weekly Fable cap, reset
+    2026-11-04 16:00 UTC, all models 49%). Every place that said "fable" as the head or lead model now says "opus": the
+    department README and charters, the template, the department tool's default, its tests. Running heads finish the slice they
+    are on and are switched at that boundary by the head of operations (`set_session_model`, never mid-slice: a switch mid-task
+    throws the prompt cache away); new heads and new step sessions start on Opus 5.5; the head of operations itself is switched by
+    the owner in the model menu (a session cannot re-price itself). Builders stay Sonnet, mechanical runs stay Haiku 5.5 (DECISIONS
+    34). Fable 5.1 is used again only on the owner's word, for a piece that needs it (design judgement, an unknown root cause),
+    while the cap allows. DECISIONS 32 and 34 read "Fable" where they were written; this item is the binding one.
+
+41. **Context Mode is not installed; we build our own big-output hook** (2026-10-31 06:05, owner: "Skip it, build the small
+    output hook"; source: a reel by justinmendez.ai pointing at github.com/mksglu/context-mode, read by the head of operations
+    from the project's README and repository data, not the reel). Why not: its purpose is to keep raw tool output away from the
+    model and return filtered summaries, which contradicts non-negotiable 2 ("a command ran and its pasted output says so");
+    it installs PreToolUse hooks that rewrite or block commands on the same events as the seven hooks already on this machine;
+    it keeps a second session memory in SQLite outside the files that are our memory (DECISIONS 33); it runs code with the
+    parent's filesystem rights and passes credentials through. Licence Elastic 2.0 (source-available), 33k stars, active; a
+    fine tool for a different setup. What we take: one hook of our own, `tools/hooks/big-output.mjs`, PostToolUse on Bash:
+    when a command's output exceeds a set size (start at 12 KB) the full text is saved to a file under the session scratchpad
+    and the model sees the first and last 40 lines plus the path and the byte count; proofs still paste the saved file's lines.
+    Built by the CLI and testing department after its seed-test slice (test watched red, a mutant, the measured standard for
+    scripts); registering it in the owner's `~/.claude/settings.json` is the owner's click. Haiku runners that return only
+    verdict lines, scripts in files and slice reads already cover the rest of what Context Mode sells.

@@ -2,7 +2,7 @@
 
 Why this file exists: the app refused to start the session from a message that came over Remote Control ("you can start a
 session only on a message typed in the desktop app"). The owner types "start the platform head" in the desktop app and the
-head of operations starts it with this brief, model fable, fresh context, this checkout, title `HEAD: Platform build department`,
+head of operations starts it with this brief, model fable (now opus, DECISIONS 40), fresh context, this checkout, title `HEAD: Platform build department`,
 filed under the sidebar group "Omnikom: platform build", detached from the starting session.
 
 ## Background (goes into the session's background field)

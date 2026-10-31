@@ -18,7 +18,7 @@ Every path not listed above. A bug or a need in another department's files is a 
 options, never a fix made here.
 
 ## Head session
-- Model: fable. Started by the head of operations with a brief that names this file.
+- Model: opus (DECISIONS 40). Started by the head of operations with a brief that names this file.
 - Reads first, in order: `CLAUDE.md`, this charter (whole file, the position log last), `.claude/POSITION.md` (last blocks),
   `planning/DECISIONS.md` (the items this charter lists under Decisions), then the files the current slice names.
 - Does: splits the work into slices with a written brief each, starts one builder per slice, re-runs every builder's proof
@@ -26,7 +26,7 @@ options, never a fix made here.
   operations in two lines.
 
 ## Builders
-- Model: sonnet unless a slice is design-heavy (then the head does it, or a fable builder).
+- Model: sonnet unless a slice is design-heavy (then the head does it, or an opus builder).
 - Mechanical runs (tests, mutants, gates, grep, fixture rebuilds, deploy and status commands) go to a haiku agent with the
   exact command; the head or builder reads the verdict lines back (DECISIONS 34).
 - One slice, one brief, one set of files; discarded when the slice is done. The brief carries: the files, the spec, what done

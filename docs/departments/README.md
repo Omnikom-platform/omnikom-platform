@@ -6,13 +6,13 @@ sessions that know nothing or rely on memory that expires". The files are the me
 that is written here.
 
 ## The shape
-- **Head of operations** (one Fable session, the lead): talks to the owner and to department heads only. Verifies every
+- **Head of operations** (one Opus 5.5 session, the lead; Fable 5.1 until 2026-10-31, DECISIONS 40): talks to the owner and to department heads only. Verifies every
   department's proof with its own re-run before a step is called done (Rule 2), routes cross-department findings, records
   decisions in `planning/DECISIONS.md`, keeps `.claude/POSITION.md`.
 - **A department** = one charter file in this folder (`docs/departments/<slug>.md`), a head session, builder sessions, and a
   set of files nobody else edits. The charter says what it owns, what it never touches, how its head and builders start, what
   its proof is, and holds its position log at the end.
-- **Head of a department** (Fable): reads its charter first, splits work into slices, starts one builder session per slice
+- **Head of a department** (Opus 5.5): reads its charter first, splits work into slices, starts one builder session per slice
   (the model the charter names, Sonnet for routine builds against a written spec), re-runs each builder's proof, appends two
   lines to the charter's position log, reports to the head of operations in two lines (never pastes outputs upward: outputs go
   into `docs/blueprint/PROGRESS.md` or the department's own proof file).
@@ -71,7 +71,7 @@ today), the head of operations is the head and says so in the brief.
 
 ## Starting a department
 `node tools/departments/new-department.mjs --slug <slug> --name "<Name>" --mission "<one sentence>" --owns <path> [--owns <path>]
-[--head-model fable] [--builder-model sonnet]` writes `docs/departments/<slug>.md` from `TEMPLATE.md` and adds the row below.
+[--head-model opus] [--builder-model sonnet]` writes `docs/departments/<slug>.md` from `TEMPLATE.md` and adds the row below.
 `--from <file.json>` takes the same fields from a JSON file (slug, name, mission, owns, rules, proof, decisions, open), which is
 how a long charter is written without a long command line.
 `node tools/departments/check.mjs` validates every charter (required sections present, owned paths unique across charters,
@@ -80,8 +80,8 @@ models named, position log present). Tests: `tools/departments/test/run.mjs`, mu
 ## The departments
 | Slug | Department | Head | Builders | Owns (summary) |
 |---|---|---|---|---|
-| head-of-operations | Head of operations | fable | none (starts department heads) | planning/, .claude/, docs/departments/, tools/departments/, CLAUDE.md |
-| platform-build | Platform build (the build sequence, one session per step) | fable | fable per step (DECISIONS 32), sonnet for mechanical pieces | supabase/, factory/, contracts/, docs/blueprint/ (except 26), sites/ |
-| cli-and-testing | CLI and testing tooling (the omnikom CLI, the client stand-in, the gates) | fable | sonnet per slice | tools/omnikom-cli/, docs/blueprint/26-PLATFORM-CLI.md, tools/crm-map/, tools/test/ |
-| seo-and-audits | SEO and audits | fable | sonnet per slice | skills/programmatic-enterprise-web-performance/, tools/audit/, docs/blueprint/22-SEARCH-AND-ANALYTICS.md |
-| clients | Clients | fable | sonnet per slice | clients/, sops/clients/, docs/listings/, templates/client-questions/, tools/client-questions/, tools/team-kit/ |
+| head-of-operations | Head of operations | opus | none (starts department heads) | planning/, .claude/, docs/departments/, tools/departments/, CLAUDE.md |
+| platform-build | Platform build (the build sequence, one session per step) | opus | opus per step (DECISIONS 32, 40), sonnet for mechanical pieces | supabase/, factory/, contracts/, docs/blueprint/ (except 26), sites/ |
+| cli-and-testing | CLI and testing tooling (the omnikom CLI, the client stand-in, the gates) | opus | sonnet per slice | tools/omnikom-cli/, docs/blueprint/26-PLATFORM-CLI.md, tools/crm-map/, tools/test/ |
+| seo-and-audits | SEO and audits | opus | sonnet per slice | skills/programmatic-enterprise-web-performance/, tools/audit/, docs/blueprint/22-SEARCH-AND-ANALYTICS.md |
+| clients | Clients | opus | sonnet per slice | clients/, sops/clients/, docs/listings/, templates/client-questions/, tools/client-questions/, tools/team-kit/ |
