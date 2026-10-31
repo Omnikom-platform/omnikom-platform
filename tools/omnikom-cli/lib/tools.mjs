@@ -60,6 +60,15 @@ export function refusal(name, entry, platKey, nowSec) {
   return null;
 }
 
+const DOWNLOAD_ATTEMPTS = 2;
+const retryMs = ctx => (ctx.env && ctx.env.OMNIKOM_RETRY_MS !== undefined && Number.isFinite(Number(ctx.env.OMNIKOM_RETRY_MS)) ? Number(ctx.env.OMNIKOM_RETRY_MS) : 3000);
+// Node's fetch says only "fetch failed"; the reason is in e.cause (a code such as ECONNRESET and its message)
+function failText(e) {
+  const c = e && e.cause;
+  const cause = c ? ` (cause: ${[c.code, c.message].filter(Boolean).join(' ')})` : '';
+  return (String((e && e.message) || e) + cause).slice(0, 300);
+}
+
 // installed? .ok says which version and archive hash it was extracted from, and the hash of the executable it left in bin/
 export function installState(dir, name, entry, platKey) {
   const p = entry.platforms[platKey], bin = entry.bin[platKey];
@@ -70,7 +79,7 @@ export function installState(dir, name, entry, platKey) {
   try { ok = JSON.parse(readFileSync(okFile, 'utf8')); } catch { ok = null; }
   if (!ok || ok.version !== entry.version || ok.sha256 !== p.sha256) return { state: 'stale', why: '.ok is for another version or archive', binPath };
   if (!existsSync(binPath)) return { state: 'stale', why: `bin/${bin} is missing`, binPath };
-  if (ok.binSha256 && sha256Of(readFileSync(binPath)) !== ok.binSha256) return { state: 'stale', why: `bin/${bin} is not the file that was extracted`, binPath };
+  if (typeof ok.binSha256 !== 'string' || sha256Of(readFileSync(binPath)) !== ok.binSha256) return { state: 'stale', why: `bin/${bin} is not the file that was extracted (or .ok holds no hash of it)`, binPath };
   return { state: 'present', binPath };
 }
 
@@ -104,12 +113,18 @@ async function ensureOne(ctx, manifest, name) {
   const have = installState(dir, name, entry, platKey);
   if (have.state === 'present') return { ...base, status: 'present', bin: `bin/${bin}` };
 
-  let res, buf;
-  try {
-    res = await ctx.fetch(plat.url, { redirect: 'follow', signal: AbortSignal.timeout(600000) });
-    if (!res.ok) return refuse(`the download answered HTTP ${res.status}`);
-    buf = Buffer.from(await res.arrayBuffer());
-  } catch (e) { return refuse(`the download failed: ${String((e && e.message) || e).slice(0, 160)}`); }
+  // one bounded retry after a short wait, for a network error or an HTTP 5xx; a failed fetch prints its cause (code and message)
+  let buf = null, lastWhy = '', tries = 0;
+  for (let attempt = 1; attempt <= DOWNLOAD_ATTEMPTS && !buf; attempt++) {
+    if (attempt > 1) await new Promise(r => setTimeout(r, retryMs(ctx)));
+    tries = attempt;
+    try {
+      const res = await ctx.fetch(plat.url, { redirect: 'follow', signal: AbortSignal.timeout(600000) });
+      if (!res.ok) { lastWhy = `the download answered HTTP ${res.status}`; if (res.status < 500) break; continue; }
+      buf = Buffer.from(await res.arrayBuffer());
+    } catch (e) { lastWhy = `the download failed: ${failText(e)}`; }
+  }
+  if (!buf) return refuse(tries > 1 ? `${lastWhy} (after ${tries} attempts)` : lastWhy);
 
   const tmp = join(dir, `.tmp-${name}-${randomBytes(4).toString('hex')}`);
   try {

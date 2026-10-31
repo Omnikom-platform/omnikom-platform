@@ -4,6 +4,24 @@ Task: build-ready product engineering package (owner, 2026-10-28), raised to eng
 then corrected by an independent fact-check (72 claims) and an independent M1 dry run (31 issues), and by DECISIONS 15
 (no Docker; one Supabase account, staging + production). **Status: complete for owner review. Nothing committed.**
 
+## CLI: tools ensure, the cause of a failed download and the trusted .ok (2026-10-31 19:10 to 20:00, CLI department head `local_c8848ce4...`)
+Found by the head of operations' first real `tools ensure` at c25bdcd: gitleaks refused with only "the download failed: fetch failed" (curl
+reached the asset: 302, then 200, 8438883 bytes), and actionlint and shellcheck were already "present". Fixed in `lib/tools.mjs`: a failed
+fetch prints its cause (`e.cause` code and message); one retry after 3 s (`OMNIKOM_RETRY_MS`) for a network error or an HTTP 5xx, never a
+4xx; "present" needs the executable hash in `.ok` (a `.ok` without `binSha256` used to skip the check, so a planted bin would have passed;
+now it is stale and downloaded again). One test fixture relied on that gap (the real-ci.yml test wrote `.ok` files without the hash) and
+now writes it. Proof on a clean worktree of 8f3455f plus these files (the laptop was loaded, so unit suite only; the full suite and
+`mutate.mjs` wait for the head of operations' all-clear; run-all-gates runs no CLI test and no other file reads these):
+```
+node tools/omnikom-cli/test/run.mjs --unit     OK: 186 of 186 checks passed
+four new mutants, each on the unit suite:      4 mutants, 4 caught (".ok without the executable's hash is trusted", "a failed download is
+                                               not tried again", "the cause of a failed fetch is not printed", "an HTTP 404 is retried")
+```
+Who put actionlint and shellcheck into `.tools/`: the CLI's own `tools ensure` code (its `.ok` format) at 15:43:09 and 15:43:12, during the
+tools-and-ci builder's run; each archive sha256 equals tools.json and each executable's hash equals its `.ok`, so they are verified copies.
+Which run did it is NOT identified (the builder's command log shows no ensure or ci in the repo; its mutants ran in a scratch copy).
+UNPROVEN: the full suite and full `mutate.mjs` on this tree (held for load).
+
 ## CLI: tools and local CI, the 4.6 contract follow-on (2026-10-31 12:40 to 18:30, CLI department head `local_c8848ce4...`, Sonnet builder, Haiku runners)
 Brief `tools/omnikom-cli/briefs/tools-and-ci.md` (DECISIONS 42). Built: `tools.json`, `lib/tools.mjs`, `commands/tools.mjs` (`tools ensure|list`),
 `commands/ci.mjs` (`omnikom ci`), registration in `omnikom.mjs`, `--install` switch, `OMNIKOM_MUTANT_TIMEOUT_MS` in `test/mutate.mjs`

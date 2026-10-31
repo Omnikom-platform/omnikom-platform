@@ -494,6 +494,33 @@ async function toolsAndCi() {
     r = await cli(['tools', 'ensure', '--target', 'staging'], {}, { manifest: man });
     check('tools: --target is a usage error (exit 2); production is refused (exit 3) before anything runs', r.exit === 2 && (await cli(['tools', 'list', '--target', 'production'], {}, { manifest: man })).exit === 3, r.all.slice(0, 200));
 
+    // ---- a failed download names its cause and is tried once more (head of operations 2026-10-31 19:10: "fetch failed" alone could not be diagnosed)
+    {
+      const failing = n => { const f = async url => { f.calls.push(String(url)); if (f.calls.length <= n) throw Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('connect ECONNRESET 1.2.3.4:443'), { code: 'ECONNRESET' }) }); return new Response(tgz, { status: 200 }); }; f.calls = []; return f; };
+      let f = failing(1), d = fresh();
+      r = await ens(man, f, d, [], {}, { OMNIKOM_RETRY_MS: '0' });
+      check('tools ensure: a download that fails once is tried once more and then installed', r.exit === 0 && f.calls.length === 2 && r.json.data.tools[0].status === 'downloaded', r.all.slice(0, 300));
+      f = failing(9); d = fresh();
+      r = await ens(man, f, d, [], {}, { OMNIKOM_RETRY_MS: '0' });
+      const why = (r.json && r.json.data.tools[0].reason) || '';
+      check('tools ensure: a download that keeps failing is refused after exactly 2 attempts, naming the cause (code and message)', r.exit === 1 && f.calls.length === 2 && why.includes('fetch failed') && why.includes('ECONNRESET') && why.includes('after 2 attempts') && tree(d).every(p => !p.startsWith('.tmp-')), why || r.all.slice(0, 300));
+      const g = async url => { g.calls.push(String(url)); return new Response('no', { status: 404 }); }; g.calls = [];
+      r = await ens(man, g, fresh(), [], {}, { OMNIKOM_RETRY_MS: '0' });
+      check('tools ensure: an HTTP 404 is not retried', r.exit === 1 && g.calls.length === 1, r.all.slice(0, 200));
+    }
+    // ---- "present" re-checks the executable against the hash its .ok recorded; a .ok without that hash is not trusted
+    {
+      const d = fresh();
+      r = await ens(man, server(tgz), d);
+      const okPath = join(d, 'faketool-1.0.0', '.ok');
+      const okRec = JSON.parse(readFileSync(okPath, 'utf8'));
+      delete okRec.binSha256;
+      writeFileSync(okPath, JSON.stringify(okRec));
+      writeFileSync(join(d, 'bin', 'faketool'), 'a planted file\n');
+      const s2 = server(tgz);
+      r = await ens(man, s2, d);
+      check('tools ensure: a .ok without the executable\'s hash is not trusted: a planted bin is replaced by a fresh verified download', r.exit === 0 && s2.calls.length === 1 && r.json.data.tools[0].status === 'downloaded' && readFileSync(join(d, 'bin', 'faketool'), 'utf8') === body.toString(), r.all.slice(0, 300));
+    }
     // nothing is written outside the tools folder
     const root = mkdtempSync(join(work, 'root-'));
     mkdirSync(join(root, 'sibling'));
@@ -716,7 +743,7 @@ async function toolsAndCi() {
     for (const [name, e] of Object.entries(manReal.tools)) {
       if (!e.platforms) continue;
       mkdirSync(join(rtools, `${name}-${e.version}`), { recursive: true });
-      writeFileSync(join(rtools, `${name}-${e.version}`, '.ok'), JSON.stringify({ name, version: e.version, sha256: e.platforms['linux-amd64'].sha256 }));
+      writeFileSync(join(rtools, `${name}-${e.version}`, '.ok'), JSON.stringify({ name, version: e.version, sha256: e.platforms['linux-amd64'].sha256, binSha256: sha('placeholder') }));
       mkdirSync(join(rtools, 'bin'), { recursive: true });
       writeFileSync(join(rtools, 'bin', e.bin['linux-amd64']), 'placeholder');
     }

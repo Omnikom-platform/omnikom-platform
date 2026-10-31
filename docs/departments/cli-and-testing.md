@@ -145,3 +145,7 @@ when the head of operations has released its slice.
   one-line follow-on in `supabase/functions/test/publish.test.ts:115` (landed by platform build as 98c9930). Proof in PROGRESS.md "CLI: tools and local CI".
   NOT DONE: the real downloads and `omnikom ci` (head of operations). Next: `omnikom impact`, gate stamp, pre-push hook (DECISIONS 43,
   builder running on `briefs/impact-stamp-hooks.md`), then seed test.
+- 2026-10-31 20:00: `tools ensure` fix (cause of a failed fetch printed, one retry, a `.ok` without the executable hash no longer trusted);
+  unit 186 of 186 and its 4 mutants caught on the unit suite; full suite and mutants held for the laptop's load (UNPROVEN). Open: a
+  suite-wide guard that fails when a test run changes the repository's `.tools/` (a real download landed there at 15:43 from an
+  unidentified run). Proof in PROGRESS.md "CLI: tools ensure, the cause of a failed download".
