@@ -39,6 +39,8 @@ options, never a fix made here.
 - Measurable rules become code in tools/audit/ (one check = one rule id from the checklist, a test with a fixture that fails it and a mutant that removes it); judgement (what to fix first, the plain-word report) stays in the skill. A check without a cited source (checklist rule id, or vendor page URL with the date read) is not admitted.
 - The CLI command shape (omnikom audit, omnikom gate) belongs to the CLI and testing department: this department ships tools/audit/ as a library with a documented call and sends the command brief to the head of operations, who routes it to the CLI head.
 - No client project folder is a test vehicle (DECISIONS 30): fixtures are synthetic sites under tools/audit/fixtures/ and the skill's own fixtures; a live public URL may be read politely for a measurement, never changed.
+- Shared laptop: a head or builder stops only processes it started, by their PID, never by a name or pattern (2026-10-31: a pattern kill in
+  slice 4b may have ended another session's mutant run). The audit tests must remove every temp folder they make, killed runs included (NOT DONE: slice 4b.1).
 
 ## Proof
 - Gate 1, the tests: `node tools/audit/test/run.mjs` prints `ok  ` or `FAIL` per check and ends `OK: N of N checks passed`, exit 0.
@@ -152,3 +154,14 @@ options, never a fix made here.
 - 2026-10-31 10:45: slice 4b started: brief `tools/audit/briefs/slice-4b-design-tells.md` (DSN-001 to DSN-011, rule set 17 to 28 when
   proven; five-line direction and nine passes in the skill's stages/design.md), Sonnet builder running (in-session agent). The unslop copy
   into `skills/unslop/` is a download and waits for the owner's yes in this session; the hype word list (DSN-005) grows from it.
+- 2026-10-31 17:30: DECISIONS 43 binding from 4b on: before a commit the head reads the chain, a Haiku agent runs the gates on the
+  combined tree, then the head commits and pushes (builders never do). The chain of `tools/audit` (grep, 2026-10-31): `factory/lib/gates.mjs`
+  (the publish gate runs the audit on every built site: a new rule that fires on `sites/test-demo-a` or a factory fixture breaks the
+  factory tests), `factory/test/run.mjs`, `factory/test/mutate.mjs`, `factory/runner/test/run.mjs`, `tools/omnikom-cli/commands/audit.mjs` and
+  its tests (counts read from the engine), `docs/blueprint/specs/check-no-model.mjs`, `sites/test-demo-a/make-contract.mjs`, the skill copy's
+  `lib-site.mjs`, `.github/workflows/ci.yml`. The pre-commit run is every node command of ci.yml: run-all-gates; factory test and mutate;
+  factory runner test and mutate; tools/audit test and mutate; omnikom-cli `--unit`; departments check and tests; `clients/check.mjs`
+  (Deno function tests only when supabase/functions changed).
+- 2026-11-01 00:05: DECISIONS 45 binding: the full checks run on GitHub. The head builds the commit (`omnikom impact --commit` names the
+  tests run on the laptop, on that commit's tree), pushes it to `check/seo/<slug>`, and fast-forwards master only when every ci.yml job
+  is green on it. Slice 2 confirmed by GitHub's audit job on 3cd4bf0: 332 of 332, 185 mutants 185 caught 0 survived 0 not run.

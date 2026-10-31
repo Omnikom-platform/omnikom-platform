@@ -14,7 +14,13 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const AUDIT = process.env.OMNIKOM_AUDIT_DIR ? resolve(process.env.OMNIKOM_AUDIT_DIR) : resolve(HERE, "..");
 const FIX = join(AUDIT, "fixtures");
 let failed = 0, total = 0;
-const check = (name, ok, detail = "") => { total++; if (!ok) failed++; console.log(`${ok ? "ok  " : "FAIL"} ${name}${ok || !detail ? "" : ": " + String(detail).slice(0, 400)}`); };
+const check = (name, ok, detail = "") => {
+  total++; if (!ok) failed++;
+  console.log(`${ok ? "ok  " : "FAIL"} ${name}${ok || !detail ? "" : ": " + String(detail).slice(0, 400)}`);
+  // OMNIKOM_AUDIT_FAILFAST=1 (set by test/mutate.mjs for its broken copies): stop at the first red check. The suite still prints that FAIL line and
+  // exits 1, which is all the mutant harness needs to call it caught; a green run is never shortened. A normal run never sets it.
+  if (!ok && process.env.OMNIKOM_AUDIT_FAILFAST === "1") { for (const d of tmps) { try { rmSync(d, { recursive: true, force: true }); } catch {} } console.log(`FAILED: ${failed} of ${total} (stopped at the first failure, OMNIKOM_AUDIT_FAILFAST=1)`); process.exit(1); }
+};
 const cli = (args, audit = AUDIT) => { const r = spawnSync(process.execPath, [join(audit, "run.mjs"), ...args], { encoding: "utf8", timeout: 60000 }); return { status: r.status, out: r.stdout || "", err: r.stderr || "" }; };
 const json = (args) => { const r = cli(["--json", ...args]); let j = null; try { j = JSON.parse(r.out); } catch {} return { ...r, j }; };
 const tmps = [];
@@ -30,11 +36,17 @@ try {
   const rules = listed.out.split(/\r?\n/).filter(Boolean).map((l) => { const [id, severity, ...src] = l.trim().split(/\s+/); return { id, severity, source: src.join(" ") }; });
   const sevOf = Object.fromEntries(rules.map((r) => [r.id, r.severity]));
   const checkFiles = readdirSync(join(AUDIT, "checks")).filter((f) => f.endsWith(".mjs"));
-  check("--list: exit 0 and one line per check file, each with its severity and a source", listed.status === 0 && rules.length === checkFiles.length && rules.length > 0 && rules.every((r) => /^(P0|P1|P2|W)$/.test(r.severity) && /^checklist\/\S+\.md [A-Z0-9-]+$/.test(r.source) && checkFiles.includes(r.id.toLowerCase() + ".mjs")), listed.out + listed.err);
+  // a source is either a shipgate checklist line (checklist/<file>.md <ID>) or, for the DSN family, DECISIONS 37 with its origin credit (slice 4b)
+  // the source of each DSN rule: the line(s) of the unslop copy in skills/unslop/ that the head named, then DECISIONS 37 and the credit
+  const SGN = "skills/unslop/references/signs.md", SKM = "skills/unslop/SKILL.md", TAIL = "; planning/DECISIONS.md 37 (owner, 2026-10-31); unslop by Damir Sokolovsky, CC BY 4.0";
+  const DSN_SOURCES = { "DSN-001": `${SGN}:85-86 and ${SKM}:170-171`, "DSN-002": `${SGN}:7-8 and ${SKM}:89`, "DSN-003": `${SGN}:27`, "DSN-004": `${SGN}:19`, "DSN-005": `${SGN}:47 and ${SKM}:110`, "DSN-006": `${SGN}:44 and ${SKM}:105`, "DSN-007": `${SGN}:43 and ${SKM}:106`, "DSN-008": `${SGN}:54 and ${SKM}:113`, "DSN-009": `${SGN}:71 and ${SKM}:111`, "DSN-010": `${SKM}:118`, "DSN-011": `${SGN}:22 and ${SKM}:121` };
+  const sourceOk = (r) => (r.id.startsWith("DSN-") ? r.source === DSN_SOURCES[r.id] + TAIL : /^checklist\/\S+\.md [A-Z0-9-]+$/.test(r.source));
+  check("--list: exit 0 and one line per check file, each with its severity and a source", listed.status === 0 && rules.length === checkFiles.length && rules.length > 0 && rules.every((r) => /^(P0|P1|P2|W)$/.test(r.severity) && sourceOk(r) && checkFiles.includes(r.id.toLowerCase() + ".mjs")), listed.out + listed.err);
+  check("--list: 28 rules, the 11 DSN rules among them, each P1 with the DECISIONS 37 source and the unslop credit", rules.length === 28 && rules.filter((r) => r.id.startsWith("DSN-")).length === 11 && Array.from({ length: 11 }, (_, i) => "DSN-" + String(i + 1).padStart(3, "0")).every((id) => rules.some((r) => r.id === id && r.severity === "P1" && r.source === DSN_SOURCES[id] + TAIL)), listed.out);
 
-  // every check has its rules file, and the file carries the source and the spec path
-  const sourceless = rules.filter((r) => { const p = join(AUDIT, "rules", r.id + ".md"); if (!existsSync(p)) return true; const t = readFileSync(p, "utf8"); return !t.includes(r.source) || !/shipgate\/spec\/packs\/(web-delivery|accessibility|search-engines|performance)\.md/.test(t) || !t.includes("## Rule text"); });
-  check("every rule has rules/<ID>.md with its source, the spec path and the rule text", sourceless.length === 0, sourceless.map((r) => r.id).join(", "));
+  // every check has its rules file, and the file carries the source and the spec path (a DSN rule: DECISIONS 37 and the unslop credit)
+  const sourceless = rules.filter((r) => { const p = join(AUDIT, "rules", r.id + ".md"); if (!existsSync(p)) return true; const t = readFileSync(p, "utf8"); const specOk = r.id.startsWith("DSN-") ? t.includes("skills/unslop/") && t.includes("CC BY 4.0") && t.includes("Damir Sokolovsky") : /shipgate\/spec\/packs\/(web-delivery|accessibility|search-engines|performance)\.md/.test(t); return !t.includes(r.source) || !specOk || !t.includes("## Rule text") || !t.includes("## Judged here") || !t.includes("## Not judged here"); });
+  check("every rule has rules/<ID>.md with its source, the spec path (a DSN rule: the unslop credit) and the rule text", sourceless.length === 0, sourceless.map((r) => r.id).join(", "));
 
   // the good site passes every rule, in text mode and in JSON
   const good = cli([join(FIX, "good")]);
@@ -58,6 +70,19 @@ try {
   const viaCli = new Set();
   for (const name of names) {
     const spec = ALL[name];
+    // a fixture that carries several rules' tells (bad-DSN) lists every expected rule and its status; the check is exact in both directions:
+    // each listed rule shows its status, no other rule shows anything, the exit is 1 (it is never a way to loosen a one-rule fixture)
+    if (spec.multi) {
+      const mr = engine.audit(join(FIX, name));
+      const want = Object.entries(spec.multi);
+      const missing = want.filter(([id, st]) => !mr.findings.some((f) => f.rule === id && f.status === st)).map(([id, st]) => `${id} ${st}`);
+      const stray = mr.findings.filter((f) => !(f.rule in spec.multi) || f.status === "SKIP").map((f) => `${f.rule} ${f.status} ${f.page}:${f.line}`);
+      const wrongStatus = mr.findings.filter((f) => f.rule in spec.multi && f.status !== spec.multi[f.rule]).map((f) => `${f.rule} ${f.status}`);
+      const cl = cli([join(FIX, name)]);
+      const shown = cl.out.split(/\r?\n/).filter((l) => /^(FAIL|WARN) /.test(l)).map((l) => l.split(" ")[1]);
+      check(`${name}: names all ${want.length} rules (${want.map(([id]) => id.slice(4)).join(",")}) with FAIL or WARN lines as listed, nothing else, exit 1`, missing.length === 0 && stray.length === 0 && wrongStatus.length === 0 && mr.exit === 1 && cl.status === 1 && want.every(([id]) => shown.includes(id)) && cl.out.split(/\r?\n/).filter((l) => /^(FAIL|WARN) /.test(l)).every((l) => FAIL_SHAPE.test(l.replace(/^WARN /, "FAIL "))), `missing ${missing.join(", ")}; stray ${stray.join(" | ")}; wrong ${wrongStatus.join(", ")}; exit ${mr.exit}/${cl.status}`);
+      continue;
+    }
     const rule = ruleOf(name);
     const snap = name.startsWith("snapshot-");
     let dir = join(FIX, name);
@@ -71,8 +96,10 @@ try {
     const wantStatus = spec.status || (sevOf[rule] === "W" ? "WARN" : "FAIL");
     const own = j ? j.findings.filter((f) => f.rule === rule && f.status === wantStatus) : [];
     const allowed = new Set([rule, ...(spec.also || [])]);
-    const foreignFails = j ? (snap ? j.findings.filter((f) => !allowed.has(f.rule)) : j.findings.filter((f) => f.rule !== rule && f.status === "FAIL")) : [];
-    const ownOther = snap && j ? j.findings.filter((f) => f.rule === rule).length - own.length : 0;
+    // the DSN fixtures are held to the strict form (no finding of any status from another rule), in folder mode as well
+    const strict = snap || /^DSN-/.test(rule);
+    const foreignFails = j ? (strict ? j.findings.filter((f) => !allowed.has(f.rule)) : j.findings.filter((f) => f.rule !== rule && f.status === "FAIL")) : [];
+    const ownOther = strict && j ? j.findings.filter((f) => f.rule === rule).length - own.length : 0;
     let snapPages = null;
     const lineText = (pg, n) => {
       try {
@@ -231,7 +258,7 @@ try {
   const putFile = (rel, text) => (dir) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), text); };
 
   const sgJson = json([SG]);
-  check("snapshot-good: exit 0, every line PASS, mode snapshot, all 17 rules present, no folder-only line", sgJson.status === 0 && sgJson.j && sgJson.j.mode === "snapshot" && sgJson.j.findings.length === 0 && rules.every((r) => sgJson.j.lines.some((l) => l.startsWith(`PASS ${r.id} `))) && sgJson.j.lines.every((l) => l.startsWith("PASS ")) && sgJson.j.pages.length === 4, sgJson.out.slice(0, 300) + sgJson.err);
+  check("snapshot-good: exit 0, every line PASS, mode snapshot, all 28 rules present, no folder-only line", sgJson.status === 0 && sgJson.j && sgJson.j.mode === "snapshot" && sgJson.j.findings.length === 0 && rules.every((r) => sgJson.j.lines.some((l) => l.startsWith(`PASS ${r.id} `))) && sgJson.j.lines.every((l) => l.startsWith("PASS ")) && sgJson.j.pages.length === 4, sgJson.out.slice(0, 300) + sgJson.err);
   check("--list shows SE-001, PRF-001 and PRF-016 with their severity and source", ["SE-001 P0 checklist/search-engines.md SE-001", "PRF-001 P2 checklist/performance.md PRF-001", "PRF-016 P2 checklist/performance.md PRF-016"].every((s) => listed.out.split(/\r?\n/).some((l) => l.trim().split(/\s+/).join(" ") === s)), listed.out);
   check("the good folder prints no PRF line (the speed rules need a snapshot) and its audit() result says mode static", (() => { const r = engine.audit(join(FIX, "good")); return r.mode === "static" && !r.lines.some((l) => /PRF-/.test(l)); })());
 
@@ -349,6 +376,213 @@ try {
   check("audit(good, { rules: ['met-001'] }) still works (case is folded)", (() => { const r = engine.audit(join(FIX, "good"), { rules: ["met-001"] }); return r.rules.length === 1 && r.lines.every((l) => l.startsWith("PASS MET-001 ")); })());
   adhoc("options.rules limits the rules and the lines (library call)", () => {}, (j) => { const r = engine.audit(j.dir, { rules: ["MET-003", "met-001"] }); return r.rules.length === 2 && r.lines.every((l) => /^PASS (MET-003|MET-001) /.test(l)); });
   adhoc("audit() returns the documented shape", () => {}, (j) => ["dir", "pages", "rules", "findings", "lines", "pass", "exit"].every((k) => k in j) && j.rules.every((r) => r.id && r.severity && r.source) && j.pass === true && j.exit === 0);
+  // ---- slice 4b: the DSN rules, the source wall for the new source form, and both sides of every pattern ----
+  const copy2 = copy; // the copy made for the source wall above, without the planted check
+  rmSync(join(copy2, "checks", "zzz-001.mjs")); rmSync(join(copy2, "rules", "ZZZ-001.md"));
+  const d1src = readFileSync(join(copy2, "checks", "dsn-001.mjs"), "utf8");
+  const srcLine = d1src.split("\n").find((l) => l.startsWith("export const source = dsnSource("));
+  if (!srcLine) throw new Error("test setup: dsn-001.mjs has no 'export const source = dsnSource(...)' line");
+  writeFileSync(join(copy2, "checks", "dsn-001.mjs"), d1src.replace(srcLine, 'export const source = "";'), "utf8");
+  const noSrc = cli([join(FIX, "good")], copy2);
+  check("a DSN check whose source is the empty string is refused: exit 2 and 'no source string'", noSrc.status === 2 && /no source string/.test(noSrc.err), noSrc.err + noSrc.out);
+  writeFileSync(join(copy2, "checks", "dsn-001.mjs"), d1src.replace(srcLine, "export const source = 42;"), "utf8");
+  const numSrc = cli([join(FIX, "good")], copy2);
+  check("a DSN check whose source is not a string is refused: exit 2 and 'no source string'", numSrc.status === 2 && /no source string/.test(numSrc.err), numSrc.err + numSrc.out);
+  writeFileSync(join(copy2, "checks", "dsn-001.mjs"), d1src.replace(srcLine + "\n", ""), "utf8");
+  const missSrc = cli([join(FIX, "good")], copy2);
+  check("a DSN check with no source export at all is refused: exit 2 and 'no source string'", missSrc.status === 2 && /no source string/.test(missSrc.err), missSrc.err + missSrc.out);
+  writeFileSync(join(copy2, "checks", "dsn-001.mjs"), d1src, "utf8");
+  rmSync(join(copy2, "rules", "DSN-001.md"));
+  const noRule = cli([join(FIX, "good")], copy2);
+  check("a DSN check with no rules/DSN-001.md is refused: exit 2 and 'admitted only with a source'", noRule.status === 2 && /admitted only with a source/.test(noRule.err), noRule.err + noRule.out);
+
+  // the hue-family table printed in rules/DSN-002.md is the table the code uses
+  const colour = await import(pathToFileURL(join(AUDIT, "lib", "colour.mjs")).href);
+  const r2 = readFileSync(join(AUDIT, "rules", "DSN-002.md"), "utf8");
+  check("rules/DSN-002.md prints the hue-family table of lib/colour.mjs, row for row", colour.HUE_FAMILIES.length === 8 && colour.HUE_FAMILIES.every((h) => r2.includes(`| ${h.family} | ${h.from} to ${h.to} | ${h.tailwind.join(", ")} |`)), r2.slice(0, 200));
+  check("rules/DSN-002.md names the grey rule numbers the code uses", r2.includes(`saturation is under ${colour.GREY_RULE.maxSaturation}`) && r2.includes(`lightness under ${colour.GREY_RULE.maxLightness} or over ${colour.GREY_RULE.minLightness}`));
+  check("every DSN rules file says what it does not judge and that a snapshot carries HTML only", rules.filter((r) => r.id.startsWith("DSN-")).every((r) => { const t = readFileSync(join(AUDIT, "rules", r.id + ".md"), "utf8"); return /A snapshot .* carries each page's HTML only/s.test(t) && t.includes("## Not judged here") && t.includes("Severity P1"); }));
+  check("the DSN-010 and DSN-011 rules files say WARN and declared styles; DSN-005 says where the word list comes from and that unlock and magic may need an exception", ["DSN-010", "DSN-011"].every((id) => { const t = readFileSync(join(AUDIT, "rules", id + ".md"), "utf8"); return t.includes("WARN") && t.includes("declared styles, not computed ones"); }) && /may need a[ \n]+per-site exception/.test(readFileSync(join(AUDIT, "rules", "DSN-005.md"), "utf8")));
+
+  // the CSS reader
+  const design = await import(pathToFileURL(join(AUDIT, "lib", "design.mjs")).href);
+  const css1 = design.parseCss("/* c */\n.a { color: red; background: url(data:image/png;base64,AAA=) ; }\n@media (min-width: 600px) {\n  .b { text-transform: uppercase !important }\n}\n@keyframes fade { from { opacity: 0 } }\n@-webkit-keyframes Shimmer-X { to { opacity: 1 } }\n@font-face { font-family: x; src: url(a.woff2) }\nh2, .c , a:hover { font-size: 12px; content: \"a;b\" }\n", 1);
+  const sel = (s) => css1.rules.find((r) => r.selectors.includes(s)) || { decls: [{}, {}], line: -1 }; // a missing rule is a red check, never a crash
+  check("parseCss: a semicolon inside url() or a string does not split a declaration, !important is dropped, line numbers are true", sel(".a").decls.length === 2 && sel(".a").decls[1].prop === "background" && sel(".a").decls[1].value.startsWith("url(data:image/png;base64,AAA=)") && sel(".b").decls[0].value === "uppercase" && sel(".b").line === 4 && sel(".b").decls[0].line === 4 && sel("h2").decls[1].value === '"a;b"' && sel("h2").line === 9, JSON.stringify(css1.rules).slice(0, 400));
+  check("parseCss: rules inside @media are read, @keyframes names are listed (prefixed form too), @font-face is not a rule", css1.rules.length === 3 && css1.keyframes.length === 2 && css1.keyframes[0].name === "fade" && css1.keyframes[1].name === "Shimmer-X" && css1.keyframes[1].line === 7, JSON.stringify(css1.keyframes));
+  check("plainSelectors: one class or one element only; compound, descendant, pseudo, id and attribute selectors are dropped", JSON.stringify(design.plainSelectors([".card", "H2", ".a.b", ".a .b", "a:hover", "#x", "[data-x]", "ul > li", ".c"])) === JSON.stringify([{ kind: "class", key: "card" }, { kind: "tag", key: "h2" }, { kind: "class", key: "c" }]));
+  check("splitToken: variants split on a colon outside brackets; ! is stripped; lengthPx reads px and rem only", (() => { const a = design.splitToken("md:hover:!scale-105"), b = design.splitToken("[&:hover]:animate-pulse"), c = design.splitToken("tracking-[0.1em]!"); return JSON.stringify(a) === JSON.stringify({ variants: ["md", "hover"], utility: "scale-105" }) && b.variants[0] === "[&:hover]" && b.utility === "animate-pulse" && c.utility === "tracking-[0.1em]" && design.lengthPx("12px") === 12 && design.lengthPx("0.75rem") === 12 && design.lengthPx("1em") === null && design.lengthPx("0") === 0 && design.lengthPx("calc(1px)") === null; })());
+  check("colour: families by hue (indigo and purple differ, two blues do not), greys and transparent are no family, oklch is unknown", (() => { const fam = (c) => colour.colourFamily(c); return fam("#6366f1").family === "blue" && fam("#a855f7").family === "purple" && fam("#3b82f6").family === fam("#1e40af").family && fam("#ff0000").family === "red" && fam("hsl(330 80% 60%)").family === "pink" && fam("#777").none && fam("white").none && fam("rgba(0,0,0,0.5)").none && fam("transparent").none && fam("oklch(0.6 0.2 260)").unknown && fam("var(--x)").unknown; })());
+
+  const onlyOf = (j, rule) => j.findings.filter((f) => f.rule === rule);
+  const homeIns = (html) => sub("index.html", "<h2>Learn to steep</h2>", html + "\n<h2>Learn to steep</h2>");
+  const headIns = (html) => sub("index.html", '<meta name="viewport" content="width=device-width, initial-scale=1">', '<meta name="viewport" content="width=device-width, initial-scale=1">\n' + html);
+  const putDir = (rel, text) => (dir) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), text, "utf8"); };
+  const linkSheet = (href = "/css/a.css") => headIns(`<link rel="stylesheet" href="${href}">`);
+  const both = (...fns) => (dir) => fns.forEach((fn) => fn(dir));
+  const EM = "\u{1F680}";
+  // dsn(label, rule, html, n[, setup]): one snippet is added to the home page; the rule shows exactly n findings
+  const dsn = (label, rule, html, n, setup) => adhoc(`${rule}: ${label}`, both(...(setup ? [setup] : []), homeIns(html)), (j) => onlyOf(j, rule).length === n);
+  // batch(label, rule, [[html, n], ...][, setup][, status]): every snippet goes on its own line(s) of the home page behind a marker comment, in
+  // ONE page and one audit; each snippet must show exactly n findings of the rule on its lines, and the rule none anywhere else. A failure
+  // names the snippets that did not behave. status WARN also demands that the run exits 0.
+  const batch = (label, rule, items, setup, status = "FAIL") => adhoc(`${rule}: ${label}`, both(...(setup ? [setup] : []), homeIns(items.map(([html], i) => `<!--b${i}-->${html}`).join("\n"))), (j) => {
+    const lines = readFileSync(join(j.dir, "index.html"), "utf8").split("\n");
+    const at = (i) => lines.findIndex((l) => l.includes(`<!--b${i}-->`)) + 1;
+    const end = lines.findIndex((l) => l.includes("<h2>Learn to steep</h2>")) + 1;
+    const own = onlyOf(j, rule);
+    const wrong = items.map(([html, n], i) => { const hits = own.filter((f) => f.line >= at(i) && f.line < (i + 1 < items.length ? at(i + 1) : end)); return hits.length === n && hits.every((f) => f.status === status) ? null : `${JSON.stringify(html).slice(0, 70)} wanted ${n}, got ${hits.length}${hits.length ? " (" + hits.map((f) => f.status + ":" + f.what.slice(0, 50)).join("; ") + ")" : ""}`; }).filter(Boolean);
+    const total = items.reduce((a, [, n]) => a + n, 0);
+    if (own.length !== total) wrong.push(`the rule shows ${own.length} findings, the snippets want ${total}`);
+    if (status === "WARN" && j.exit !== 0) wrong.push("exit is " + j.exit + ", a WARN never fails the run");
+    if (wrong.length) throw new Error(wrong.join(" | "));
+    return true;
+  });
+
+  // DSN-001
+  batch("these classes fail (a variant prefix does not hide them)", "DSN-001", ["animate-ping", "animate-bounce", "animate-pulse", "motion-safe:animate-pulse", "group-hover:scale-110", "hover:-scale-x-100", "md:hover:scale-[1.02]", "!transition-all", "peer-hover:scale-95", "animate-shimmer", "Skeleton-Shimmer", "[&:hover]:animate-pulse", "hover:scale-100", "transition-all"].map((tok) => [`<p class="p-2 ${tok}">x</p>`, 1]));
+  batch("these classes pass", "DSN-001", ["transition-colors", "transition", "transition-opacity", "hover:opacity-80", "scale-105", "hover:shadow-lg", "animate-spin", "focus:scale-105", "hover:translate-y-1", "fade-in", "transitionall"].map((tok) => [`<p class="p-2 ${tok}">x</p>`, 0]));
+  dsn("a class inside an svg, a template, a noscript, a comment and a script string is not judged", "DSN-001", `<svg class="animate-pulse" viewBox="0 0 4 4"><circle class="animate-ping" r="1"/></svg><template><p class="animate-bounce">t</p></template><noscript><p class="transition-all">n</p></noscript><!-- <p class="a"><span class="animate-pulse">c</span></p> --><script>var s = '<p class="animate-pulse">';</script>`, 0);
+  dsn("@keyframes fade passes; a keyframes name with shimmer in any case fails; @media nesting is read", "DSN-001", "<p>x</p>", 1, headIns("<style>\n@keyframes fade { from { opacity: 0 } }\n@media (min-width: 40em) { @keyframes Shimmer-Wide { to { opacity: 1 } } }\n</style>"));
+  dsn("a shimmer @keyframes inside an HTML comment or an svg style is not judged", "DSN-001", "<p>x</p>", 0, headIns("<!-- <style>@keyframes shimmer { to { opacity: 1 } }</style> -->\n<svg><style>@keyframes shimmer { to { opacity: 1 } }</style></svg>"));
+  dsn("a linked stylesheet outside the folder (another host with a file of the same name in the folder, a missing file) is not read", "DSN-001", "<p>x</p>", 0, both(putDir("css/a.css", "@keyframes shimmer { to { opacity: 1 } }\n"), linkSheet("https://cdn.example/css/a.css"), linkSheet("/css/missing.css")));
+  dsn("a stylesheet linked by an absolute URL on the site's own host is read", "DSN-001", "<p>x</p>", 1, both(putDir("css/a.css", "@keyframes shimmer { to { opacity: 1 } }\n"), linkSheet("https://www.brindlewood-tea.example/css/a.css")));
+  dsn("a linked stylesheet of the folder is read, relative href included, and reported once on the file", "DSN-001", "<p>x</p>", 1, both(putDir("css/a.css", "@keyframes shimmer { to { opacity: 1 } }\n"), linkSheet("css/a.css"), linkSheet("/css/a.css")));
+  adhoc("DSN-001: the stylesheet finding names the file and its line", both(putDir("css/a.css", "a { color: red }\n\n@keyframes shimmer { to { opacity: 1 } }\n"), linkSheet()), (j) => j.lines.some((l) => l.startsWith("FAIL DSN-001 css/a.css:3 ")));
+  snapAdhoc("DSN-001 (snapshot): a class in the HTML is judged; a stylesheet that sits in the snapshot folder and is linked is not read", seq(putFile("css/a.css", "@keyframes shimmer { to { opacity: 1 } }\n"), gzSub("home", "<h2>Learn to steep</h2>", '<p class="animate-pulse">x</p>\n<link rel="stylesheet" href="/css/a.css">\n<h2>Learn to steep</h2>')), (j) => ownOf(j, "DSN-001", "FAIL").length === 1 && j.mode === "snapshot");
+
+  // DSN-002
+  batch("Tailwind colour classes naming two hue families fail", "DSN-002", [["indigo to purple", "from-indigo-500 to-purple-600"], ["blue via purple to pink", "from-blue-500 via-purple-500 to-pink-500"], ["a variant group", "dark:from-indigo-500 dark:to-purple-600"], ["arbitrary colours", "from-[#6366f1] to-[#a855f7]"], ["green to cyan with opacity", "from-green-400/50 to-cyan-500"], ["every stop in one variant group (md:)", "md:from-red-500 md:via-white md:to-blue-500"]].map(([, cls]) => [`<div class="bg-gradient-to-r ${cls}">x</div>`, 1]));
+  batch("Tailwind colour classes in one family, greys or unreadable names pass", "DSN-002", [["two blues", "from-blue-500 to-blue-800"], ["grey to white", "from-slate-100 to-white"], ["red through white to red", "from-red-500 via-white to-red-700"], ["colour to transparent", "from-red-500 to-transparent"], ["different variant groups", "from-indigo-500 dark:to-purple-600"], ["custom names", "from-brand to-accent"], ["blue to indigo (one family)", "from-blue-500 to-indigo-600"], ["a single stop", "from-purple-500"], ["arbitrary same family", "from-[#3b82f6] to-[#1e40af]"], ["a position utility", "from-10% to-90%"]].map(([, cls]) => [`<div class="bg-gradient-to-r ${cls}">x</div>`, 0]));
+  batch("CSS gradients with stops in two hue families fail", "DSN-002", [["linear hue gradient", "background: linear-gradient(to right, red, blue)"], ["radial hsl", "background-image: radial-gradient(circle at top, hsl(250 80% 60%), hsl(330 80% 60%))"], ["conic", "background: conic-gradient(#ff0000, #00ff00, #0000ff)"], ["repeating", "background: repeating-linear-gradient(45deg, #f97316, #f97316 10px, #3b82f6 10px, #3b82f6 20px)"], ["rgb function with a position", "background: linear-gradient(90deg, rgb(99, 102, 241) 0%, rgb(168 85 247) 100%)"], ["a hue gradient after a grey scrim layer", "background-image: linear-gradient(rgba(0,0,0,.4), transparent), linear-gradient(red, blue)"]].map(([, style]) => [`<div style="${style}">x</div>`, 1]));
+  batch("CSS gradients in one family, greys, black, white or unreadable stops pass", "DSN-002", [["dark scrim", "linear-gradient(rgba(0,0,0,.6), transparent)"], ["two blues", "linear-gradient(#3b82f6, #1d4ed8)"], ["greys", "linear-gradient(#fff, #eee, #999)"], ["oklch stops are not read", "linear-gradient(oklch(0.6 0.2 260), oklch(0.7 0.2 330))"], ["var stops are not read", "linear-gradient(var(--a), var(--b))"], ["one hue and an unreadable stop", "linear-gradient(red, oklch(0.7 0.2 330))"], ["a plain colour", "#6366f1"], ["a direction only", "linear-gradient(to right, #6366f1 20%, #6366f1)"], ["a mid grey to blue", "linear-gradient(#777, #3b82f6)"], ["black to red", "linear-gradient(black, red)"], ["white to purple", "linear-gradient(white, #a855f7)"], ["a near-white blue tint to purple", "linear-gradient(#eef2ff, #a855f7)"], ["a near-black blue to red", "linear-gradient(#020617, #ef4444)"], ["a dark blue to a light blue", "linear-gradient(#1e3a8a, #60a5fa)"]].map(([, g]) => [`<div style="background: ${g}">x</div>`, 0]));
+  batch("gradient text: what passes and what fails", "DSN-002", [
+    ['<p class="bg-clip-text">x</p>', 0], ['<p class="text-transparent">y</p>', 0],
+    ['<p style="background-clip: padding-box; background-image: linear-gradient(#111, #999)">x</p>', 0],
+    ['<p class="bg-clip-text md:text-transparent">x</p>', 1],
+    ['<p style="background-clip: text; color: #222">x</p>', 0],
+    ['<p style="background-clip: text; background-image: linear-gradient(#111, #999)">y</p>', 1],
+    ['<p class="bg-gradient-to-b from-slate-900 to-slate-500" style="-webkit-background-clip: text">y</p>', 1],
+  ]);
+  dsn("a <style> rule .grad (class) with clip text and a hue gradient gives two findings on the element (text and hue)", "DSN-002", '<p class="grad">x</p>', 2, headIns("<style>.grad { background: linear-gradient(red, blue); background-clip: text }</style>"));
+  dsn("a compound or descendant selector is not judged: .a .b, .a.b, p:hover", "DSN-002", '<div class="a"><p class="b">x</p></div>', 0, headIns("<style>.a .b { background: linear-gradient(red, blue) } .a.b { background: linear-gradient(red, blue) } p:hover { background: linear-gradient(red, blue) }</style>"));
+  dsn("an element selector (mark) is matched, and the style attribute overrides a class rule of the same property", "DSN-002", '<mark>x</mark><mark class="plain" style="background: #fff">y</mark>', 1, headIns("<style>mark { background: linear-gradient(red, blue) } .plain { background: linear-gradient(red, blue) }</style>"));
+  dsn("a rule inside @media is judged", "DSN-002", '<p class="m">x</p>', 1, headIns("<style>@media (min-width: 40em) { .m { background: linear-gradient(red, blue) } }</style>"));
+
+  // DSN-003
+  batch("an emoji in each of h3-h6, button, a, label, legend, summary, th and option fails", "DSN-003", ["h3", "h4", "h5", "h6"].map((h) => [`<${h}>${EM} a</${h}>`, 1]).concat([
+    [`<button>${EM} e</button>`, 1], [`<a href="/about/">${EM} f</a>`, 1], [`<label>${EM} g</label>`, 1], [`<fieldset><legend>${EM} h</legend></fieldset>`, 1],
+    [`<details><summary>${EM} i</summary><p>x</p></details>`, 1], [`<table><tr><th>${EM} j</th></tr></table>`, 1], [`<select><option>${EM} k</option></select>`, 1],
+  ]));
+  adhoc("DSN-003: an emoji in the h1 fails", sub("index.html", "<h1>Loose-leaf tea, blended in small batches</h1>", `<h1>Loose-leaf tea ${EM}, blended in small batches</h1>`), (j) => onlyOf(j, "DSN-003").length === 1 && onlyOf(j, "DSN-003")[0].what.includes("<h1>"));
+  batch("emoji outside the label elements, in attributes, in svg or template, and text symbols pass", "DSN-003", [
+    [`<p>${EM} x</p>`, 0], [`<ul><li>${EM} y</li></ul>`, 0], [`<div>${EM} z</div>`, 0], [`<span>${EM}</span>`, 0],
+    [`<h3 title="${EM}" aria-label="${EM}">plain</h3>`, 0],
+    ["<h3>Top 10 # tea * 3⃣</h3>", 0], ["<h4>Brindlewood™ Tea © 2026 ®</h4>", 0],
+    [`<h3>Tea <svg viewBox="0 0 4 4"><title>${EM}</title></svg><template>${EM}</template></h3>`, 0],
+  ]);
+  // text presentation or emoji presentation: a symbol shows as an emoji only with Emoji_Presentation or with U+FE0F after it (the head's reading of DECISIONS 37)
+  const SYM = (...c) => String.fromCharCode(...c), V = SYM(0xfe0f);
+  batch("text-style symbols pass: the bare arrow of an external link, play, heavy check, telephone, warning, heart, copyright, registered, trade mark", "DSN-003", [
+    [`<a href="/about/">Visit the shop ${SYM(0x2197)}</a>`, 0], [`<h3>Play ${SYM(0x25b6)}</h3>`, 0], [`<h3>Done ${SYM(0x2714)}</h3>`, 0], [`<button>Call ${SYM(0x260e)}</button>`, 0],
+    [`<h3>Careful ${SYM(0x26a0)}</h3>`, 0], [`<h3>Love ${SYM(0x2764)}</h3>`, 0], [`<h4>Brindlewood${SYM(0x2122)} ${SYM(0xa9)} ${SYM(0xae)}</h4>`, 0],
+  ]);
+  batch("the same symbols with U+FE0F, and symbols with emoji presentation, fail", "DSN-003", [
+    [`<a href="/about/">Visit the shop ${SYM(0x2197)}${V}</a>`, 1], [`<h3>Play ${SYM(0x25b6)}${V}</h3>`, 1], [`<h3>Done ${SYM(0x2714)}${V}</h3>`, 1], [`<button>Call ${SYM(0x260e)}${V}</button>`, 1],
+    [`<h3>Careful ${SYM(0x26a0)}${V}</h3>`, 1], [`<h3>Love ${SYM(0x2764)}${V}</h3>`, 1], [`<h4>Brindlewood${SYM(0x2122)}${V}</h4>`, 1], [`<h4>${SYM(0xa9)}${V} 2026</h4>`, 1],
+    [`<h3>Star ${SYM(0x2b50)}</h3>`, 1], [`<h3>Watch ${SYM(0x231a)}</h3>`, 1], [`<h3>${SYM(0xd83d, 0xde80)}</h3>`, 1],
+  ]);
+  batch("emoji clusters and nested label elements are reported once", "DSN-003", [
+    ["<h3>Tea ™️</h3>", 1], [`<h3>Fresh <span>${EM}</span> <b>tea</b></h3>`, 1], [`<h3><a href="/about/">${EM} About</a></h3>`, 1],
+    ["<h3>\u{1F469}‍\u{1F4BB} \u{1F44B}\u{1F3FD} ❤️</h3>", 1], [`<h3>${EM} tea \u{1F375}</h3>`, 1],
+  ]);
+  dsn("an emoji in <title> or a head comment is not judged", "DSN-003", "<p>x</p>", 0, sub("index.html", "<title>Brindlewood Tea Co.: Loose-Leaf Tea Shop</title>", "<title>Brindlewood Tea Co.: Loose-Leaf Tea Shop " + EM + "</title>\n<!-- " + EM + " -->"));
+  adhoc("DSN-003: the finding names the glyph, the element and the line of the text", homeIns(`<p>x</p>\n<h3>Tea ${EM}</h3>`), (j) => j.lines.some((l) => /^FAIL DSN-003 \/:\d+ forbidden-value: emoji "\u{1F680}" in the text of <h3> "Tea \u{1F680}" \(source: skills\/unslop\/references\/signs\.md:27; planning\/DECISIONS\.md 37/u.test(l)));
+  snapAdhoc("DSN-003 (snapshot): an emoji in a heading of a saved page fails", gzSub("about", "<h2>The blenders</h2>", `<h2>${EM} The blenders</h2>`), (j) => ownOf(j, "DSN-003", "FAIL").length === 1 && ownOf(j, "DSN-003", "FAIL")[0].page === "/about/");
+
+  // DSN-004
+  batch("uppercase with a positive tracking fails; everything else passes", "DSN-004", [
+    ...["uppercase tracking-wide", "uppercase tracking-wider", "uppercase tracking-widest", "tracking-[0.1em] uppercase", "uppercase tracking-[2px]", "uppercase tracking-[.05em]"].map((cls) => [`<p class="${cls}">Label</p>`, 1]),
+    ...["uppercase", "tracking-widest", "uppercase tracking-normal", "uppercase tracking-tight", "uppercase tracking-[-0.02em]", "uppercase tracking-[0]", "uppercase tracking-[0em]", "md:uppercase tracking-wide", "uppercase md:tracking-wide", "uppercase tracking-widest normal-case", "uppercase tracking-wide tracking-normal", "lowercase tracking-wide", "uppercase tracking-[var(--t)]"].map((cls) => [`<p class="${cls}">Label</p>`, 0]),
+    ['<p class="uppercase tracking-widest"></p>', 0],
+    ['<p class="uppercase"><span class="tracking-widest">Label</span></p>', 0],
+  ]);
+  batch("the same in a style attribute", "DSN-004", [["text-transform: uppercase; letter-spacing: 0.1em", 1], ["text-transform:UPPERCASE;letter-spacing:1px", 1], ["text-transform: uppercase; letter-spacing: normal", 0], ["text-transform: uppercase; letter-spacing: 0", 0], ["text-transform: uppercase; letter-spacing: -0.02em", 0], ["text-transform: capitalize; letter-spacing: 0.2em", 0], ["text-transform: uppercase; letter-spacing: calc(1px + 1px)", 0], ["letter-spacing: 0.2em", 0]].map(([style, n]) => [`<p style="${style}">Label</p>`, n]));
+  dsn("uppercase from a class and tracking from a <style> rule on the same element fail", "DSN-004", '<p class="uppercase t">Label</p>', 1, headIns("<style>.t { letter-spacing: 0.2em }</style>"));
+  dsn("uppercase from a linked stylesheet and tracking-wide from a class fail", "DSN-004", '<p class="wide tracking-wide">Label</p>', 1, both(putDir("css/a.css", ".wide { text-transform: uppercase }\n"), linkSheet()));
+
+  // DSN-005
+  batch("AI-powered copy fails", "DSN-005", ["Our AI-powered tea", "an AI powered shop", "powered by AI", "Powered By AI today", "ai-powered", "Our <b>AI</b>-powered blends", "AI&#8209;powered", "AI-\npowered", "built on AI  powered tech", "an AI\npowered shop"].map((t) => [`<p>${t}</p>`, 1]));
+  batch("the hype words fail (whole words, any case)", "DSN-005", ["Supercharge your morning", "a seamless checkout", "Unlock the flavour", "pure Magic", "We revolutionize tea", "Revolutionise your shelf", "revolutionizing the cup", "a revolutionary blend", "a game-changing blend", "a game changing blend", "the Game-Changer", "Our <b>magic</b> blend"].map((tt) => [`<p>${tt}</p>`, 1]));
+  batch("words that only contain a hype word pass", "DSN-005", ["a magician at the fair", "a supercharger for the car", "an unlockable level", "seamlessly", "magical", "unlocked", "revolutions per minute", "game on", "changing rooms"].map((tt) => [`<p>${tt}</p>`, 0]));
+  batch("near misses and text across a block boundary pass", "DSN-005", ["maintain-powered", "AIR-powered", "AI and powered by tea", "hair powered", "Powered by AIR", "AI </p><p>powered", "AI </p>powered", "AI <div>powered</div>", "wind-powered mill"].map((t) => [`<p>${t}</p>`, 0]));
+  dsn("the text of a script, style, noscript, template, comment, svg, title and meta description is not visible body text", "DSN-005", `<script>var a = "AI-powered";</script><noscript>AI-powered</noscript><template>AI-powered</template><!-- a > b AI-powered --><svg viewBox="0 0 4 4"><text>AI-powered</text></svg><style>/* AI-powered */</style>`, 0, sub("index.html", "<title>Brindlewood Tea Co.: Loose-Leaf Tea Shop</title>", "<title>AI-powered Brindlewood</title>"));
+  adhoc("DSN-005: the line of a match is the line of the text it starts in, not the line of the block", homeIns("<p>first\nsecond\nthird AI-powered</p>"), (j) => { const lines = readFileSync(join(j.dir, "index.html"), "utf8").split("\n"); const want = lines.findIndex((l) => l.startsWith("third AI-powered")) + 1; return want > 0 && onlyOf(j, "DSN-005").length === 1 && onlyOf(j, "DSN-005")[0].line === want; });
+  dsn("two matches in two paragraphs are two findings", "DSN-005", "<p>AI-powered one</p><p>powered by AI two</p>", 2);
+
+  // DSN-006
+  batch("an exclamation mark in a heading fails, anywhere else it passes", "DSN-006", [
+    ...["h1", "h2", "h3", "h4", "h5", "h6"].map((h) => [`<${h}>Fresh stock!</${h}>`, 1]),
+    ["<h3>Fresh <b>stock!</b> now! really!</h3>", 1],
+    ["<p>Fresh stock!</p>", 0], ["<button>Buy now!</button>", 0], ['<h3 title="a!">plain</h3>', 0], ["<h3>Why? ¡Tea</h3>", 0],
+  ]);
+
+  // DSN-007
+  batch("a greeting as the first word of a heading fails; near misses pass", "DSN-007", [
+    ...["Hello", "Hi", "Hey", "Welcome", "Greetings", "Howdy", "HELLO", "welcome", "Hello,", "Hi!"].map((w) => [`<h2>${w} tea lovers</h2>`, 1]),
+    ...["Hi-fi speakers", "Highlights", "Heythrop Hall", "Say hello", "Hello_world", "Welcomed guests", "Hey'day", "Hiking boots"].map((t) => [`<h2>${t}</h2>`, 0]),
+    ["<h4>Hello there</h4>", 0], ["<p>Hello there</p>", 0], ["<h3><span>Welcome</span> to the shop</h3>", 1], ["<h3>Welcome in</h3>", 1],
+  ]);
+  adhoc("DSN-007: a greeting in the h1 is a finding", sub("index.html", "<h1>Loose-leaf tea, blended in small batches</h1>", "<h1>Hello and welcome</h1>"), (j) => onlyOf(j, "DSN-007").length === 1 && onlyOf(j, "DSN-007")[0].what.includes("<h1>"));
+
+  // DSN-008
+  batch("PRO and Beta badges fail, longer words pass", "DSN-008", [
+    ...["span", "small", "sup", "div", "strong", "em", "mark", "b"].map((tag) => [`<p>Tools <${tag}>PRO</${tag}></p>`, 1]),
+    ...["Beta", "beta", "BETA", " pro ", "Pro"].map((t) => [`<p>Tools <span>${t}</span></p>`, 1]),
+    ...["Pro tips", "Beta feature", "Probe", "PRO+", "Alpha"].map((t) => [`<p>Tools <span>${t}</span></p>`, 0]),
+    ['<button>PRO</button><a href="/about/">PRO</a><ul><li>PRO</li></ul><p>PRO</p>', 0],
+    ["<div><span><b>PRO</b></span></div>", 1],
+    ["<span>P<b>RO</b></span>", 1],
+  ]);
+
+  // DSN-009
+  batch("unverifiable claims fail", "DSN-009", ["Loved by 10,000+ teams", "Trusted by 10,000+ teams", "trusted by 5k customers", "TRUSTED BY 2.5M readers", "loved by 5k customers", "Loved by 2.5M readers", "LOVED BY 300 tea drinkers", "Loved by <b>10,000+</b> teams", "Loved by 12 k+ people", "10x faster", "3.5x better", "2 × cheaper", "4 x more", "10X QUICKER", "5x easier", "2x smarter", "3x higher", "Steeps <b>10x</b> faster"].map((t) => [`<p>${t}</p>`, 1]));
+  batch("near misses and text across a block boundary pass", "DSN-009", ["Loved by tea lovers", "trusted by our customers", "loved by us", "10 faster", "10x", "box faster", "2x slower", "10x the flavour", "v2.0x faster", "Loved by </p><p>10,000 teams", "10x </p><p>faster", "Loved by <p>10,000 teams"].map((t) => [`<p>${t}</p>`, 0]));
+  dsn("a claim in a script, a comment or an attribute is not judged", "DSN-009", '<script>var a = "10x faster";</script><!-- loved by 5k teams --><p title="10x faster">plain</p>', 0);
+
+  // DSN-010 and DSN-011 (WARN)
+  const warnsOf = (j, rule) => j.findings.filter((f) => f.rule === rule && f.status === "WARN");
+  batch("a heavy weight on small text warns (classes)", "DSN-010", [
+    ...["text-xs font-bold", "text-xs font-extrabold", "text-xs font-black", "font-bold text-[11px]", "font-black text-[0.75rem]", "text-xs font-[700]", "text-[13px] font-[900]", "font-bold text-sm text-xs"].map((cls) => [`<p class="${cls}">Tag</p>`, 1]),
+    ...["text-sm font-bold", "text-xs font-semibold", "text-xs font-medium", "text-xs", "font-bold", "text-base font-bold", "text-[14px] font-bold", "text-[0.875rem] font-bold", "text-xs font-bold text-base", "md:text-xs font-bold", "text-xs md:font-bold", "text-xs font-bold font-normal", "text-[#fff] font-bold", "font-bold text-[1em]"].map((cls) => [`<p class="${cls}">Tag</p>`, 0]),
+    ['<p class="text-xs font-bold"></p>', 0],
+    ['<p class="font-bold"><span class="text-xs">Tag</span></p>', 0],
+  ], undefined, "WARN");
+  batch("a heavy weight on small text warns (style attribute)", "DSN-010", [["font-weight: bold; font-size: 13px", 1], ["font-weight: 700; font-size: 13.9px", 1], ["font-weight: 900; font-size: .7rem", 1], ["font-weight: bolder; font-size: 10px", 1], ["font-weight: 700; font-size: 14px", 0], ["font-weight: 600; font-size: 12px", 0], ["font-weight: normal; font-size: 12px", 0], ["font-weight: 700; font-size: small", 0], ["font-weight: 700; font-size: 1em", 0], ["font-weight: 700", 0], ["font-size: 12px", 0]].map(([style, n]) => [`<p style="${style}">Tag</p>`, n]), undefined, "WARN");
+  batch("weight from a class and size from a stylesheet rule on the same element warn; a style attribute size beats the rule", "DSN-010", [['<p class="small font-bold">Tag</p>', 1], ['<p class="small font-bold" style="font-size: 16px">Tag</p>', 0]], both(putDir("css/a.css", ".small { font-size: 12px }\n"), linkSheet()), "WARN");
+  batch("negative letter spacing on small text warns (classes)", "DSN-011", [
+    ...["text-xs tracking-tight", "text-xs tracking-tighter", "text-xs tracking-[-0.03em]", "tracking-tight text-[11px]", "tracking-tighter text-[0.7rem]"].map((cls) => [`<p class="${cls}">Tag</p>`, 1]),
+    ...["text-sm tracking-tight", "text-xs tracking-wide", "text-xs tracking-normal", "text-xs", "tracking-tight", "text-xs tracking-[0.03em]", "text-xs tracking-tight tracking-normal", "md:text-xs tracking-tight", "text-xs md:tracking-tight", "text-[14px] tracking-tight"].map((cls) => [`<p class="${cls}">Tag</p>`, 0]),
+    ['<p class="text-xs tracking-tight"></p>', 0],
+  ], undefined, "WARN");
+  batch("negative letter spacing on small text warns (style attribute)", "DSN-011", [["letter-spacing: -0.02em; font-size: 12px", 1], ["letter-spacing: -1px; font-size: 13px", 1], ["letter-spacing: -0.02em; font-size: 14px", 0], ["letter-spacing: 0; font-size: 12px", 0], ["letter-spacing: normal; font-size: 12px", 0], ["letter-spacing: 0.02em; font-size: 12px", 0], ["letter-spacing: -0.02em", 0]].map(([style, n]) => [`<p style="${style}">Tag</p>`, n]), undefined, "WARN");
+  batch("negative spacing from a <style> block rule and a small size from a class warn", "DSN-011", [['<p class="tight text-xs">Tag</p>', 1]], headIns("<style>.tight { letter-spacing: -0.04em }</style>"), "WARN");
+  adhoc("DSN-010 and DSN-011: the two WARN rules together on one element give two WARN lines and the run still exits 0", homeIns('<p class="text-xs font-bold tracking-tight">Tag</p>'), (j) => j.exit === 0 && j.lines.filter((l) => /^WARN DSN-01[01] /.test(l)).length === 2 && !j.lines.some((l) => l.startsWith("FAIL ")));
+
+  // the style sources
+  adhoc("DSN styles: an unreadable or missing stylesheet link, a link without a href, and a stylesheet in a subfolder resolve without a crash", both(putDir("css/sub/b.css", "p { text-transform: uppercase; letter-spacing: 1px }\n"), headIns('<link rel="stylesheet" href="css/sub/b.css">\n<link rel="stylesheet">\n<link rel="stylesheet" href="/nope.css">\n<link rel="icon" href="/img/leaf.svg">')), (j) => onlyOf(j, "DSN-004").length > 0 && j.findings.every((f) => f.rule === "DSN-004"));
+  adhoc("DSN styles: a page in a subfolder resolves a relative stylesheet from its own folder", both(putDir("about/local.css", "h2 { font-weight: 800; font-size: 11px }\n"), sub("about/index.html", '<meta name="viewport" content="width=device-width, initial-scale=1">', '<meta name="viewport" content="width=device-width, initial-scale=1">\n<link rel="stylesheet" href="local.css">')), (j) => warnsOf(j, "DSN-010").length === 3 && warnsOf(j, "DSN-010").every((f) => f.page === "/about/"));
+  adhoc("DSN styles: a CSS declaration with a nested rule or a stray brace does not crash the reader", both(putDir("css/a.css", ".a { color: red; .b { color: blue } text-transform: uppercase; letter-spacing: 1px }\n}}} .c { \n"), linkSheet(), homeIns('<p class="a">x</p>')), (j) => Array.isArray(j.findings));
+  const textOfWarn = (j) => warnsOf(j, "DSN-010").map((w) => w.what);
+  adhoc("DSN pages: an unclosed li closes at the next li, so its text is its own", homeIns('<ul><li class="text-xs font-bold">New<li>Other words</ul>'), (j) => textOfWarn(j).length === 1 && textOfWarn(j)[0].includes('<li> "New"'));
+  adhoc("DSN pages: an unclosed p closes at the next p, so its text is its own", homeIns('<p class="text-xs font-bold">New<p>Other words</p>'), (j) => textOfWarn(j).length === 1 && textOfWarn(j)[0].includes('<p> "New"'));
+  adhoc("DSN pages: an unclosed option closes at the next option", homeIns('<select><option class="text-xs font-bold">New<option>Other words</select>'), (j) => textOfWarn(j).length === 1 && textOfWarn(j)[0].includes('<option> "New"'));
+  adhoc("DSN pages: a div closes an open p", homeIns('<p class="text-xs font-bold">New<div>Other words</div>'), (j) => textOfWarn(j).length === 1 && textOfWarn(j)[0].includes('<p> "New"'));
+  adhoc("DSN pages: an unclosed td closes at the next td", homeIns('<table><tr><td class="text-xs font-bold">New<td>Other words</table>'), (j) => textOfWarn(j).length === 1 && textOfWarn(j)[0].includes('<td> "New"'));
+  adhoc("DSN pages: an unclosed li, p and option do not swallow the text that follows (a heading emoji after them is still found)", homeIns(`<ul><li>one<li>two</ul><p>para<p>more<select><option>a<option>b</select><h3>${EM} Found</h3>`), (j) => onlyOf(j, "DSN-003").length === 1);
+  adhoc("DSN pages: a lone < in the text of a page does not break the reader (the heading after it is still found)", sub("tasting-room/index.html", "<h2>Before you come</h2>", `<h2>Before you come</h2>\n<p>5 < 6 and a < b</p>\n<h3>${EM} lone</h3>`), (j) => onlyOf(j, "DSN-003").length === 1 && onlyOf(j, "DSN-003")[0].page === "/tasting-room/");
+  adhoc("DSN: audit({ rules: ['dsn-003'] }) runs that rule alone, case folded", homeIns(`<h3>${EM} x</h3>`), (j) => { const r = engine.audit(j.dir, { rules: ["dsn-003"] }); return r.rules.length === 1 && r.rules[0].id === "DSN-003" && r.exit === 1; });
+  adhoc("DSN: a stylesheet linked from several pages is read once and its element rules reach every page", both(putDir("css/a.css", "h2 { text-transform: uppercase; letter-spacing: 0.1em }\n"), linkSheet(), sub("about/index.html", '<meta name="viewport" content="width=device-width, initial-scale=1">', '<meta name="viewport" content="width=device-width, initial-scale=1">\n<link rel="stylesheet" href="/css/a.css">')), (j) => onlyOf(j, "DSN-004").length === 6 && onlyOf(j, "DSN-004").every((f) => f.page === "/" || f.page === "/about/") && onlyOf(j, "DSN-004").filter((f) => f.page === "/about/").length === 3);
 } finally {
   for (const d of tmps) rmSync(d, { recursive: true, force: true });
 }

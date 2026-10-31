@@ -107,19 +107,51 @@ The full rule text of each is in `rules/<ID>.md` with the spec path (`shipgate/s
 2026-10-30). The skill's checklist copy (`skills/programmatic-enterprise-web-performance/checklist/`) has the same ids with the text cut
 short; the FAIL line cites that file.
 
+## Design tells (slice 4b): the DSN rules
+28 rules now: the 17 above plus DSN-001 to DSN-011, the machine-checkable tells of generic AI-made design (DECISIONS 37; origin: the open skill
+unslop by Damir Sokolovsky, CC BY 4.0, copied to `skills/unslop/`, rewritten here in our own words). The source line of each DSN rule names the line(s) of
+that copy and the decision, e.g. DSN-005: `skills/unslop/references/signs.md:47 and skills/unslop/SKILL.md:110; planning/DECISIONS.md 37 (owner, 2026-10-31); unslop by Damir Sokolovsky, CC BY 4.0`.
+All P1; DSN-010 and DSN-011 print WARN (the exit stays 0), the other nine print FAIL. A built site that trips one does not publish.
+
+| Id | Tell | Reads |
+|---|---|---|
+| DSN-001 | looping or bouncy motion | class `animate-pulse`/`ping`/`bounce`, `transition-all`, `hover:scale-*`, `shimmer` in a class or `@keyframes` name |
+| DSN-002 | gradient text; hue gradients | `bg-clip-text`+`text-transparent`, `background-clip: text`+gradient; `from-/via-/to-` or a CSS gradient across two hue families |
+| DSN-003 | emoji in labels and headings | `\p{Extended_Pictographic}` in h1-h6, button, a, label, legend, summary, th, option (not (c), (r), TM) |
+| DSN-004 | uppercase tracked labels | `uppercase` with a positive tracking, on one element |
+| DSN-005 | hype words, "AI-powered" copy | visible text: `AI-powered`, `powered by AI`, supercharge, seamless, unlock, magic, revolutionize/-ary, game-changing |
+| DSN-006 | exclamation mark in a headline | `!` in h1-h6 |
+| DSN-007 | greeting headline | h1-h3 starting with Hello, Hi, Hey, Welcome, Greetings, Howdy |
+| DSN-008 | PRO or Beta badge | span, small, sup, div, strong, em, mark, b whose whole text is PRO or Beta |
+| DSN-009 | unverifiable claim | `loved by 10,000+ teams`, `trusted by 5k teams`, `10x faster` |
+| DSN-010 | heavy weight on small text (WARN) | weight 700+ under 14 px on one element |
+| DSN-011 | negative letter spacing on small text (WARN) | tracking-tight or a negative letter-spacing under 14 px |
+
+- Code: `lib/design.mjs` (re-reads each page element by element, parses `<style>` blocks and, in a built folder, the local stylesheets a page links;
+  matches only plain class or element selectors), `lib/typography.mjs` (declared size, weight, tracking, text transform), `lib/colour.mjs` (the
+  hue-family table, printed in `rules/DSN-002.md` and kept equal by a test), `checks/dsn-0NN.mjs`.
+- A finding names the rule, the page, the line, the exact class or text and the source. Styles are declared, not computed (no inheritance, no
+  specificity, no media queries); a snapshot judges what its HTML carries, since its stylesheets are not in the snapshot. Text inside `svg`,
+  `template`, `noscript`, `script`, `style` and comments is never judged. Each rule file lists what it does not judge.
+- Fixtures: one `bad-DSN-0NN[-part]` per rule, `bad-DSN` (every tell on one page, listed by `multi` in the generator, exit 1 naming all eleven),
+  `snapshot-bad-DSN-003`. Every DSN fixture is held to "its own rule and no other, of any status".
+- The design stage of the skill (`stages/design.md`) requires the five-line direction and the nine passes, and runs this family after them.
+
 ## Layout
 - `index.mjs` the engine, `run.mjs` the runner, `live.mjs` the live driver.
 - `lib/site.mjs` the site reader: a copy of the skill's `scripts/lib-site.mjs` (header says which changes). `lib/context.mjs` folder
   facts, sitemap reading, `resolveLink`. `lib/lines.mjs` line numbers. `lib/schema.mjs`, `lib/xml.mjs`, `lib/check.mjs` helpers.
   `lib/sitemap-lastmod.mjs` a copy of the skill's built-in SE-004/IDX-003 check with its logic lifted into functions.
+  `lib/design.mjs`, `lib/typography.mjs`, `lib/colour.mjs` the readers of the DSN rules (slice 4b).
 - `checks/<rule-id>.mjs` one file per rule (`id`, `severity`, `source`, `run(site) -> findings[]`, optional `subjects(site)` and `notCovered`).
 - `rules/<RULE-ID>.md` the rule text and its source. `fixtures/good` and `fixtures/bad-<RULE-ID>[-part]`.
 - `test/run.mjs` the tests, `test/mutate.mjs` the watched-fail.
 
 ## How to add a rule (all five, or it is not admitted)
 1. `checks/<id>.mjs` exporting `id`, `severity`, `source`, `run(site)`.
-2. `rules/<ID>.md` with `Source: <checklist file> <ID>`, the spec path, a `## Rule text` section and what is and is not judged.
-   The engine refuses to import a check whose rules file is missing (`checks admitted only with a source`).
+2. `rules/<ID>.md` with `Source: <checklist file> <ID>` (a DSN rule: the DECISIONS 37 line above), the spec path (a DSN rule: the unslop
+   credit), a `## Rule text` section and what is and is not judged. The engine refuses to import a check whose rules file is missing
+   (`checks admitted only with a source`) or that exports no non-empty `source` string (`no source string`).
 3. At least one `bad-<ID>` fixture: an entry in `fixtures/build-fixtures.mjs` (`expect` text of the FAIL, optional `at` text that must be on
    the FAIL line, optional `count`, one `edit(d)` of `rep`/`repAll`/`add`/`del` calls), then `node tools/audit/fixtures/build-fixtures.mjs`
    and commit the files. It must break that rule only; the good site must still pass.
@@ -130,10 +162,11 @@ short; the FAIL line cites that file.
 ```
 node tools/audit/test/run.mjs      ends "OK: N of N checks passed", exit 0
 node tools/audit/test/mutate.mjs   ends "N mutants, N caught, 0 survived, 0 not run, 0 target text missing", exit 0  (not run = the child was killed, exit null; exit 1)
-(`MUTATE_JOBS` mutants run at once, default 4; `MUTATE_TIMEOUT_S` raises the 180 s limit on a loaded machine; `MUTATE_ONLY=<regex>` runs only the mutants whose name matches.)
+(`MUTATE_JOBS` mutants run at once, default 4; `MUTATE_TIMEOUT_S` raises the 180 s limit on a loaded machine; `MUTATE_ONLY=<regex>` runs only the mutants whose name matches; `MUTATE_FIRST=<regex>` starts those first.)
 node tools/audit/run.mjs tools/audit/fixtures/good              every line PASS, exit 0
 node tools/audit/run.mjs tools/audit/fixtures/bad-MET-003       a FAIL MET-003 line with file:line and source, exit 1
 node tools/audit/run.mjs tools/audit/fixtures/snapshot-good     every line PASS, exit 0
 node tools/audit/run.mjs tools/audit/fixtures/snapshot-bad-PRF-001   a FAIL PRF-001 line (LCP 3100 ms > 2500 ms) with source, exit 1
+node tools/audit/run.mjs tools/audit/fixtures/bad-DSN           a FAIL or WARN line for each of DSN-001 to DSN-011, exit 1
 ```
 No file in this folder may contain the em dash character. Fixtures are synthetic (an invented tea shop); no client folder is a test vehicle.

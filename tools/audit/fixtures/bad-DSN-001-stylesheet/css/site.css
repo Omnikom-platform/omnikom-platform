@@ -1,0 +1,5 @@
+body { margin: 0 }
+@keyframes pulse-shimmer {
+  from { opacity: 0.4 }
+  to { opacity: 1 }
+}

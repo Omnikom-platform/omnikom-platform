@@ -151,7 +151,59 @@ export const FIXTURES = {
   "bad-IDX-004-disallow-sitemap": { expect: "disallows the sitemap /sitemap.xml", at: "Disallow: /sitemap.xml", edit: (d) => rep(d, "robots.txt", "Disallow: /private/\n", "Disallow: /private/\nDisallow: /sitemap.xml\n") },
 
   "bad-SE-202-cjk": { expect: "Bing wants at least 10", edit: (d) => { rep(d, "about/index.html", '<html lang="en">', '<html lang="ja">'); rep(d, "about/index.html", ABOUT_TITLE, "紅茶専門店のご案内"); } },
+
+  // DSN (slice 4b): the design tells of DECISIONS 37. Each fixture is the good site plus one tell, and trips its own rule only (a WARN rule says status).
+  // The snippets are added to the home page before "Learn to steep" (heading order stays valid) or to a head, so no other rule sees them.
+  "bad-DSN-001": { expect: 'class "animate-pulse"', at: "animate-pulse", edit: (d) => homeAdd(d, '<p class="animate-pulse">Opening soon</p>') },
+  "bad-DSN-001-hover-scale": { expect: 'class "hover:scale-105"', at: "hover:scale-105", edit: (d) => homeAdd(d, '<p class="hover:scale-105">Hover to see more</p>') },
+  "bad-DSN-001-transition-all": { expect: 'class "transition-all"', at: "transition-all", edit: (d) => homeAdd(d, '<p class="transition-all">Every property moves</p>') },
+  "bad-DSN-001-shimmer-class": { expect: 'class "skeleton-shimmer"', at: "skeleton-shimmer", edit: (d) => homeAdd(d, '<p class="skeleton-shimmer">Loading the shelf</p>') },
+  "bad-DSN-001-shimmer-keyframes": { expect: '@keyframes "shimmer"', at: "@keyframes shimmer", edit: (d) => headAdd(d, "index.html", "<style>\n@keyframes shimmer { from { opacity: 0.4 } to { opacity: 1 } }\n</style>") },
+  // a linked stylesheet of the folder, linked from two pages: the @keyframes is reported once, on the file
+  "bad-DSN-001-stylesheet": { expect: '@keyframes "pulse-shimmer"', at: "@keyframes pulse-shimmer", edit: (d) => { add(d, "css/site.css", "body { margin: 0 }\n@keyframes pulse-shimmer {\n  from { opacity: 0.4 }\n  to { opacity: 1 }\n}\n"); linkCss(d, "index.html"); linkCss(d, "about/index.html"); } },
+
+  "bad-DSN-002-text": { expect: "gradient text", at: "bg-clip-text", edit: (d) => homeAdd(d, '<h2 class="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">Steeped slowly</h2>') },
+  "bad-DSN-002-text-css": { expect: "gradient text", at: 'class="fancy"', edit: (d) => { headAdd(d, "index.html", "<style>\n.fancy { background-image: linear-gradient(#222222, #888888); -webkit-background-clip: text; background-clip: text }\n</style>"); homeAdd(d, '<p class="fancy">Steeped slowly</p>'); } },
+  "bad-DSN-002-background": { expect: "name two hue families (blue, purple)", at: "from-indigo-500", edit: (d) => homeAdd(d, '<div class="bg-gradient-to-r from-indigo-500 to-purple-600"><p>Steeped slowly</p></div>') },
+  "bad-DSN-002-background-css": { expect: "two hue families (blue, purple)", at: "linear-gradient", edit: (d) => homeAdd(d, '<div style="background-image: linear-gradient(90deg, #6366f1, #a855f7)"><p>Steeped slowly</p></div>') },
+  "bad-DSN-002-background-stylesheet": { expect: "two hue families (red, blue)", at: 'class="hero"', edit: (d) => { add(d, "css/site.css", ".hero { background: linear-gradient(to right, red, blue) }\n"); linkCss(d, "index.html"); homeAdd(d, '<div class="hero"><p>Steeped slowly</p></div>'); } },
+
+  "bad-DSN-003": { expect: "emoji", at: "What we sell", edit: (d) => rep(d, "index.html", "<h2>What we sell</h2>", "<h2>\u{1F375} What we sell</h2>") },
+
+  // a text-style symbol (the north-east arrow) turned into an emoji by U+FE0F
+  "bad-DSN-003-selector": { expect: "emoji", at: "Visit the shop", edit: (d) => homeAdd(d, `<p><a href="/about/">Visit the shop ${String.fromCharCode(0x2197, 0xfe0f)}</a></p>`) },
+
+  "bad-DSN-004": { expect: "uppercase tracked label", at: "uppercase tracking-widest", edit: (d) => homeAdd(d, '<p><span class="uppercase tracking-widest">Our story</span></p>') },
+  "bad-DSN-004-inline": { expect: "uppercase tracked label", at: "text-transform: uppercase", edit: (d) => homeAdd(d, '<p style="text-transform: uppercase; letter-spacing: 2px">Our story</p>') },
+  "bad-DSN-004-style-block": { expect: "uppercase tracked label", at: 'class="eyebrow"', edit: (d) => { headAdd(d, "index.html", "<style>\n.eyebrow { text-transform: uppercase; letter-spacing: 0.2em }\n</style>"); homeAdd(d, '<p class="eyebrow">Our story</p>'); } },
+  "bad-DSN-004-stylesheet": { expect: "uppercase tracked label", at: 'class="eyebrow"', edit: (d) => { add(d, "css/site.css", ".eyebrow {\n  text-transform: uppercase;\n  letter-spacing: 0.2em;\n}\n"); linkCss(d, "index.html"); homeAdd(d, '<p class="eyebrow">Our story</p>'); } },
+
+  "bad-DSN-005": { expect: 'hype copy "AI-powered"', at: "AI-powered", edit: (d) => homeAdd(d, "<p>Our AI-powered blends find the tea you like.</p>") },
+  "bad-DSN-005-hype-word": { expect: 'hype copy "magic"', at: "magic", edit: (d) => homeAdd(d, "<p>Pure magic in every cup.</p>") },
+  "bad-DSN-006": { expect: "exclamation mark in <h2>", at: "What we sell!", edit: (d) => rep(d, "index.html", "<h2>What we sell</h2>", "<h2>What we sell!</h2>") },
+  "bad-DSN-007": { expect: 'greeting "Welcome"', at: "Welcome to", edit: (d) => rep(d, "index.html", "<h2>What we sell</h2>", "<h2>Welcome to our shelves</h2>") },
+  "bad-DSN-008": { expect: 'badge <span> "PRO"', at: ">PRO<", edit: (d) => homeAdd(d, '<p>Steeping guide <span class="badge">PRO</span></p>') },
+  "bad-DSN-009": { expect: 'unverifiable claim "Loved by 10,000+ tea"', at: "Loved by", edit: (d) => homeAdd(d, "<p>Loved by 10,000+ tea drinkers.</p>") },
+  "bad-DSN-009-times": { expect: 'unverifiable claim "3x faster"', at: "3x faster", edit: (d) => homeAdd(d, "<p>Steeps 3x faster than a kettle.</p>") },
+  "bad-DSN-009-trusted": { expect: 'unverifiable claim "Trusted by 5k tea"', at: "Trusted by", edit: (d) => homeAdd(d, "<p>Trusted by 5k tea shops.</p>") },
+  "bad-DSN-010": { status: "WARN", expect: 'weight 700 at 12 px on <span> "New"', at: "text-xs font-bold", edit: (d) => homeAdd(d, '<p><span class="text-xs font-bold">New</span></p>') },
+  "bad-DSN-010-inline": { status: "WARN", expect: "weight 700 at 12 px", at: "font-weight: 700", edit: (d) => homeAdd(d, '<p style="font-weight: 700; font-size: 12px">New</p>') },
+  "bad-DSN-011": { status: "WARN", expect: 'negative letter spacing at 12 px on <span> "Small print"', at: "text-xs tracking-tight", edit: (d) => homeAdd(d, '<p><span class="text-xs tracking-tight">Small print</span></p>') },
+  "bad-DSN-011-inline": { status: "WARN", expect: "negative letter spacing at 12 px", at: "letter-spacing: -0.02em", edit: (d) => homeAdd(d, '<p style="letter-spacing: -0.02em; font-size: 12px">Small print</p>') },
+
+  // one page with every tell: run.mjs exits 1 and names all eleven rules (multi lists the status each rule must show; the one-rule-per-fixture check is unchanged for every other fixture)
+  "bad-DSN": { multi: { "DSN-001": "FAIL", "DSN-002": "FAIL", "DSN-003": "FAIL", "DSN-004": "FAIL", "DSN-005": "FAIL", "DSN-006": "FAIL", "DSN-007": "FAIL", "DSN-008": "FAIL", "DSN-009": "FAIL", "DSN-010": "WARN", "DSN-011": "WARN" },
+    edit: (d) => homeAdd(d, [
+      '<h2 class="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">Welcome to the tea shelf \u{1F375}!</h2>',
+      '<div class="bg-gradient-to-r from-indigo-500 to-purple-600"><p>Steeped slowly</p></div>',
+      '<p><span class="animate-pulse uppercase tracking-widest">Fresh</span> <span class="text-xs font-bold tracking-tight">small print</span> <span>PRO</span></p>',
+      "<p>Our AI-powered blends are loved by 10,000+ tea drinkers and steep 3x faster.</p>",
+    ].join("\n")) },
 };
+const HOME_ANCHOR = "<h2>Learn to steep</h2>";
+function homeAdd(d, html) { rep(d, "index.html", HOME_ANCHOR, html + "\n" + HOME_ANCHOR); }
+function headAdd(d, file, html) { rep(d, file, VIEWPORT, VIEWPORT + "\n" + html); }
+function linkCss(d, file) { headAdd(d, file, '<link rel="stylesheet" href="/css/site.css">'); }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
 // Snapshot fixtures (slice 2): fixtures/snapshot-good/ is the good site in the form snapshot-site.mjs saves a live site (see that script's
@@ -257,6 +309,8 @@ export const SNAPSHOT_FIXTURES = {
   "snapshot-bad-PRF-001-psi-pass": { expect: "", status: "PASS", edit: (d) => { homeLab(d, "lcpMs", 3100); untrusted(d); add(d, "psi/2026-10-30.json", JSON.stringify(psiFile(1900), null, 1) + "\n"); } },
   // PRF-016: one cold request over ttfbMs is a WARN
   "snapshot-bad-PRF-016": { expect: "TTFB 1900 ms > 600 ms (single cold request", status: "WARN", edit: (d) => edJson(d, "pages/home/response.json", (m) => { m.ttfbMs = 1900; }) },
+  // DSN (slice 4b): the design tells run on a snapshot's HTML too (its stylesheets are not in the snapshot)
+  "snapshot-bad-DSN-003": { expect: "emoji", at: "What we sell", edit: (d) => edHtml(d, "home", "<h2>What we sell</h2>", "<h2>\u{1F375} What we sell</h2>") },
 };
 
 const isSnapshotName = (n) => n === "snapshot-good" || n.startsWith("snapshot-bad-");

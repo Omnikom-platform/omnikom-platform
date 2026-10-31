@@ -4,6 +4,8 @@
 // Caught = the suite exited nonzero AND printed at least one "FAIL" line. A crash or a timeout with no FAIL line is NOT a catch
 // (it would hide a broken test), and target text that is not found exactly once is counted as "target text missing". A mutant whose process
 // was killed (exit null: the timeout, a laptop sleep) is "NOT RUN", a third class that also makes the exit 1, so a killed run never reads as clean.
+// The child runs with OMNIKOM_AUDIT_FAILFAST=1: test/run.mjs stops at its first red check (still printing that FAIL line and exiting 1), so a caught mutant costs
+// only the checks up to its first failure; a mutant that survives runs the whole suite as before.
 // Summary line: "N mutants, N caught, N survived, N not run, N target text missing".
 //   node tools/audit/test/mutate.mjs      exit 0 = every mutant caught, none survived, none not run, none missing
 import { readFileSync, writeFileSync, mkdtempSync, cpSync, rmSync } from "node:fs";
@@ -221,6 +223,165 @@ const MUTANTS = [
   ["live.mjs: --only is not passed to the audit", "live.mjs", "engine.audit(dir, { rules: only || undefined,", "engine.audit(dir, { rules: undefined,"],
   ["live.mjs: a url that is not http(s) is accepted", "live.mjs", "if (!url || !/^https?:\\/\\//i.test(url)) die(", "if (!url) die("],
   ["live.mjs: the (finished ...) suffix of a REUSE line stays in the folder name", "live.mjs", "(?: \\(finished [^)]*\\))?$/.exec(verdict)", "$/.exec(verdict)"],
+  // slice 4b: the source wall for a check that exports no source, and the DSN design tells
+  ["index.mjs: a check with no source string is admitted", "index.mjs", 'if (typeof mod.source !== "string" || !mod.source) throw', "if (false) throw"],
+  // each DSN check emptied (its run() returns no finding): the watched-red of the rule, the first red line names its fixture
+  ...["001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011"].map((n) => [`DSN-${n}: the check is emptied`, `checks/dsn-${n}.mjs`, "export function run(site) {\n  const out = [];", "export function run(site) {\n  return [];\n  const out = [];"]),
+  // DSN-001
+  ["DSN-001: animate-pulse passes", "checks/dsn-001.mjs", 'new Set(["animate-pulse", "animate-ping", "animate-bounce", "transition-all"])', 'new Set(["animate-ping", "animate-bounce", "transition-all"])'],
+  ["DSN-001: animate-ping passes", "checks/dsn-001.mjs", 'new Set(["animate-pulse", "animate-ping", "animate-bounce", "transition-all"])', 'new Set(["animate-pulse", "animate-bounce", "transition-all"])'],
+  ["DSN-001: animate-bounce passes", "checks/dsn-001.mjs", 'new Set(["animate-pulse", "animate-ping", "animate-bounce", "transition-all"])', 'new Set(["animate-pulse", "animate-ping", "transition-all"])'],
+  ["DSN-001: transition-all passes", "checks/dsn-001.mjs", 'new Set(["animate-pulse", "animate-ping", "animate-bounce", "transition-all"])', 'new Set(["animate-pulse", "animate-ping", "animate-bounce"])'],
+  ["DSN-001: hover:scale passes", "checks/dsn-001.mjs", "else if (variants.some((v) => HOVER.test(v)) && /^-?scale(-|$)/.test(utility)) why", "else if (false) why"],
+  ["DSN-001: group-hover and peer-hover are not hover", "checks/dsn-001.mjs", String.raw`const HOVER = /^(?:(?:group|peer)-)?hover(?:\/.+)?$/;`, "const HOVER = /^hover$/;"],
+  ["DSN-001: a negative scale is not a scale", "checks/dsn-001.mjs", String.raw`/^-?scale(-|$)/.test(utility)`, String.raw`/^scale(-|$)/.test(utility)`],
+  ["DSN-001: a shimmer class passes", "checks/dsn-001.mjs", 'else if (tok.toLowerCase().includes("shimmer")) why', "else if (false) why"],
+  ["DSN-001: shimmer in a class is case-sensitive", "checks/dsn-001.mjs", 'tok.toLowerCase().includes("shimmer")', 'tok.includes("shimmer")'],
+  ["DSN-001: a variant prefix hides a token", "checks/dsn-001.mjs", "const { variants, utility } = splitToken(tok);", "const { variants, utility } = { variants: [], utility: tok };"],
+  ["DSN-001: a shimmer @keyframes passes", "checks/dsn-001.mjs", "if (!/shimmer/i.test(k.name)) continue;", "continue;"],
+  ["DSN-001: a stylesheet is reported once per page that links it", "checks/dsn-001.mjs", "if (seen.has(key)) continue;", ""],
+  ["DSN-001: a stylesheet finding is put on the page, not on the file", "checks/dsn-001.mjs", "out.push(f.fail(k.file || p.path, k.line,", "out.push(f.fail(p.path, k.line,"],
+  // DSN-002
+  ["DSN-002: gradient text by classes passes", "checks/dsn-002.mjs", 'if (toks.some((t) => t.utility === "bg-clip-text") && toks.some((t) => t.utility === "text-transparent")) textWhy', "if (false) textWhy"],
+  ["DSN-002: bg-clip-text alone is gradient text", "checks/dsn-002.mjs", '&& toks.some((t) => t.utility === "text-transparent")', ""],
+  ["DSN-002: gradient text by a CSS clip passes", "checks/dsn-002.mjs", "if (clip.length && (gradDecls.length || gradClass)) {", "if (false) {"],
+  ["DSN-002: a CSS clip without a gradient is gradient text", "checks/dsn-002.mjs", "if (clip.length && (gradDecls.length || gradClass)) {", "if (clip.length) {"],
+  ["DSN-002: any background-clip value is text", "checks/dsn-002.mjs", String.raw` && /\btext\b/i.test(d.value)`, ""],
+  ["DSN-002: a Tailwind hue gradient passes", "checks/dsn-002.mjs", "if (fams.length >= 2) out.push(", "if (false) out.push("],
+  ["DSN-002: one family is a Tailwind hue gradient", "checks/dsn-002.mjs", "if (fams.length >= 2) out.push(", "if (fams.length >= 1) out.push("],
+  ["DSN-002: variant groups are one group", "checks/dsn-002.mjs", 'const key = t.variants.join(":");', 'const key = "";'],
+  ["DSN-002: a colour with no family counts as a family", "checks/dsn-002.mjs", "if (!sf.family) continue;", "if (sf.unknown) continue;"],
+  ["DSN-002: a CSS hue gradient passes", "checks/dsn-002.mjs", "if (fams.length >= 2) { out.push(", "if (false) { out.push("],
+  ["DSN-002: one family is a CSS hue gradient", "checks/dsn-002.mjs", "if (fams.length >= 2) { out.push(", "if (fams.length >= 1) { out.push("],
+  ["DSN-002: background-image is not read", "checks/dsn-002.mjs", '["background", "background-image"].map(', '["background"].map('],
+  ["DSN-002: an arbitrary Tailwind colour is not read", "checks/dsn-002.mjs", String.raw`if ((m = /^\[(.+)\]$/.exec(s))) return colourFamily(`, "if (false) return colourFamily("],
+  ["DSN-002: an opacity suffix hides a Tailwind colour", "checks/dsn-002.mjs", String.raw`const s = rest.replace(/\/[\w.%[\]]+$/, "");`, "const s = rest;"],
+  ["colour.mjs: indigo is not in the blue family", "lib/colour.mjs", 'tailwind: ["sky", "blue", "indigo"]', 'tailwind: ["sky", "blue"]'],
+  ["colour.mjs: the red hue range does not wrap", "lib/colour.mjs", "f.from < f.to ? x >= f.from && x < f.to : x >= f.from || x < f.to", "x >= f.from && x < f.to"],
+  ["colour.mjs: a grey is a family", "lib/colour.mjs", "if (s < GREY_RULE.maxSaturation || l < GREY_RULE.maxLightness || l > GREY_RULE.minLightness) return { none: true };", ""],
+  ["colour.mjs: a very light tint is a family", "lib/colour.mjs", "minLightness: 0.96", "minLightness: 1.1"],
+  ["colour.mjs: a very dark tint is a family", "lib/colour.mjs", "maxLightness: 0.05", "maxLightness: 0"],
+  ["colour.mjs: a short hex colour is not expanded", "lib/colour.mjs", 'if (h.length <= 4) h = h.split("").map((c) => c + c).join("");', ""],
+  ["colour.mjs: parentheses inside a gradient are not balanced", "lib/colour.mjs", 'if (value[i] === "(") depth++; else if (value[i] === ")") depth--;', 'if (value[i] === ")") depth--;'],
+  ["colour.mjs: a comma inside a colour function splits a stop", "lib/colour.mjs", 'if (ch === "," && depth === 0) {', 'if (ch === ",") {'],
+  ["colour.mjs: hsl colours are not read", "lib/colour.mjs", String.raw`if ((m = /^hsla?\(([^)]*)\)$/.exec(s))) {`, "if (false) {"],
+  // DSN-003
+  ["DSN-003: an emoji in a label passes", "checks/dsn-003.mjs", "if (found.length) out.push(", "if (false) out.push("],
+  ["DSN-003: h1 is not a label", "checks/dsn-003.mjs", '"h1", "h2", "h3", "h4", "h5", "h6", "button"', '"h2", "h3", "h4", "h5", "h6", "button"'],
+  ["DSN-003: a link is not a label", "checks/dsn-003.mjs", '"button", "a", "label"', '"button", "label"'],
+  ["DSN-003: label, legend and th are not labels", "checks/dsn-003.mjs", '"label", "legend", "summary", "th", "option"', '"summary", "option"'],
+  ["DSN-003: summary and option are not labels", "checks/dsn-003.mjs", '"summary", "th", "option"', '"th"'],
+  ["DSN-003: the U+FE0F branch is dropped (a text symbol with the selector passes)", "checks/dsn-003.mjs", " || PICTOGRAPH_WITH_SELECTOR.test(cluster)", ""],
+  ["DSN-003: the Emoji_Presentation branch is dropped (a plain emoji passes)", "checks/dsn-003.mjs", "/\\p{Emoji_Presentation}/u.test(cluster) || ", ""],
+  ["DSN-003: every pictograph is an emoji (a bare arrow or play sign fails)", "checks/dsn-003.mjs", ".filter(showsAsEmoji)", ".filter(() => true)"],
+  ["DSN-003: the emoji selector is not part of an emoji", "checks/dsn-003.mjs", String.raw`const EMOJI = /\p{Extended_Pictographic}[️⃣\u{1F3FB}-\u{1F3FF}]*(?:‍\p{Extended_Pictographic}[️\u{1F3FB}-\u{1F3FF}]*)*/gu;`, String.raw`const EMOJI = /\p{Extended_Pictographic}/gu;`],
+  ["DSN-003: the nearest label is not searched for", "checks/dsn-003.mjs", "while (el && !LABELS.has(el.tag)) el = el.parent >= 0 ? sc.elements[el.parent] : null;", "if (el && !LABELS.has(el.tag)) el = null;"],
+  // DSN-004
+  ["DSN-004: a lowercase element counts as uppercase", "checks/dsn-004.mjs", "if (!up || !up.upper) continue;", "if (!up) continue;"],
+  ["DSN-004: zero tracking counts as tracked", "checks/dsn-004.mjs", "if (!tr || tr.sign <= 0) continue;", "if (!tr || tr.sign < 0) continue;"],
+  ["DSN-004: negative tracking counts as tracked", "checks/dsn-004.mjs", "if (!tr || tr.sign <= 0) continue;", "if (!tr || tr.sign >= 0) continue;"],
+  ["DSN-004: a label with no text is judged", "checks/dsn-004.mjs", "if (!text) continue;", ""],
+  ["typography.mjs: a class with a variant prefix is read", "lib/typography.mjs", ".filter((t) => t.variants.length === 0)", ".filter(() => true)"],
+  ["typography.mjs: normal-case does not turn uppercase off", "lib/typography.mjs", 'else if (utility === "lowercase" || utility === "capitalize" || utility === "normal-case") cand.push', "else if (false) cand.push"],
+  ["typography.mjs: the style attribute text-transform is not read", "lib/typography.mjs", 'inlineDecls(sc, el, ["text-transform"])', "[]"],
+  ["typography.mjs: the style attribute letter-spacing is not read", "lib/typography.mjs", 'inlineDecls(sc, el, ["letter-spacing"])', "[]"],
+  ["typography.mjs: the style attribute font-size is not read", "lib/typography.mjs", 'inlineDecls(sc, el, ["font-size"])', "[]"],
+  ["typography.mjs: the style attribute font-weight is not read", "lib/typography.mjs", 'inlineDecls(sc, el, ["font-weight"])', "[]"],
+  ["typography.mjs: a stylesheet text-transform is not read", "lib/typography.mjs", 'sheetDecls(sc, el, ["text-transform"])', "[]"],
+  ["typography.mjs: a stylesheet letter-spacing is not read", "lib/typography.mjs", 'sheetDecls(sc, el, ["letter-spacing"])', "[]"],
+  ["typography.mjs: a stylesheet font-size is not read", "lib/typography.mjs", 'sheetDecls(sc, el, ["font-size"])', "[]"],
+  ["typography.mjs: a stylesheet font-weight is not read", "lib/typography.mjs", 'sheetDecls(sc, el, ["font-weight"])', "[]"],
+  ["typography.mjs: zero letter spacing is positive", "lib/typography.mjs", "return n > 0 ? 1 : n < 0 ? -1 : 0;", "return n >= 0 ? 1 : -1;"],
+  ["typography.mjs: tracking-normal is wide", "lib/typography.mjs", "normal: 0, wide: 1", "normal: 1, wide: 1"],
+  ["typography.mjs: tracking-tight is not negative", "lib/typography.mjs", "tighter: -1, tight: -1", "tighter: -1, tight: 0"],
+  ["typography.mjs: text-xs is 14 px", "lib/typography.mjs", "{ xs: 12, sm: 14,", "{ xs: 14, sm: 14,"],
+  ["typography.mjs: text-sm is under 14 px", "lib/typography.mjs", "xs: 12, sm: 14,", "xs: 12, sm: 13,"],
+  ["typography.mjs: an arbitrary font size is not read", "lib/typography.mjs", String.raw`else if ((m = /^text-\[(?:length:)?(.+)\]$/.exec(utility)))`, "else if (false)"],
+  ["typography.mjs: bold and bolder are not 700", "lib/typography.mjs", 'if (s === "bold" || s === "bolder") return 700;', ""],
+  ["typography.mjs: an arbitrary font weight is not read", "lib/typography.mjs", String.raw`else if ((m = /^font-\[(\d{3})\]$/.exec(utility)))`, "else if (false)"],
+  ["typography.mjs: font-bold is 600", "lib/typography.mjs", "bold: 700, extrabold", "bold: 600, extrabold"],
+  ["typography.mjs: font-black is 600", "lib/typography.mjs", "black: 900", "black: 600"],
+  ["typography.mjs: the first declaration wins, not the last", "lib/typography.mjs", "return l.length ? l[l.length - 1] : null;", "return l.length ? l[0] : null;"],
+  // DSN-005
+  ["DSN-005: AI powered with a space passes", "checks/dsn-005.mjs", "AI[-‐‑ ]+powered", "AI-powered"],
+  ["DSN-005: powered by AI passes", "checks/dsn-005.mjs", "|powered +by +AI", ""],
+  ["DSN-005: the match is case-sensitive", "checks/dsn-005.mjs", "\"gi\");", "\"g\");"],
+  ["DSN-005: the non-breaking hyphen is not a hyphen", "checks/dsn-005.mjs", "AI[-‐‑ ]+powered", "AI[- ]+powered"],
+  ["DSN-005: supercharge is no hype word", "checks/dsn-005.mjs", "|supercharge", ""],
+  ["DSN-005: seamless is no hype word", "checks/dsn-005.mjs", "|seamless", ""],
+  ["DSN-005: unlock is no hype word", "checks/dsn-005.mjs", "|unlock", ""],
+  ["DSN-005: magic is no hype word", "checks/dsn-005.mjs", "|magic", ""],
+  ["DSN-005: revolutionize is no hype word", "checks/dsn-005.mjs", "|revolutioni[sz](?:e|es|ed|ing)", ""],
+  ["DSN-005: revolutionary is no hype word", "checks/dsn-005.mjs", "|revolutionary", ""],
+  ["DSN-005: game-changing is no hype word", "checks/dsn-005.mjs", "|game[-‐‑ ]chang(?:ing|er|ers)", ""],
+  ["DSN-009: trusted-by claims pass", "checks/dsn-009.mjs", "(?:loved|trusted) +by", "loved +by"],
+  // DSN-006, DSN-007, DSN-008, DSN-009
+  ["DSN-006: an exclamation mark outside a heading is a finding", "checks/dsn-006.mjs", "if (!HEADINGS.has(el.tag)) continue;", ""],
+  ["DSN-006: h6 is not a heading", "checks/dsn-006.mjs", 'new Set(["h1", "h2", "h3", "h4", "h5", "h6"])', 'new Set(["h1", "h2", "h3", "h4", "h5"])'],
+  ["DSN-006: an exclamation mark passes", "checks/dsn-006.mjs", "sc.textMatches(el, /!/)[0]", "sc.textMatches(el, /!!/)[0]"],
+  ["DSN-007: Howdy is no greeting", "checks/dsn-007.mjs", "|greetings|howdy)", "|greetings)"],
+  ["DSN-007: Hi-fi is a greeting", "checks/dsn-007.mjs", String.raw`(?![\p{L}\p{N}_'’-])`, String.raw`(?![\p{L}\p{N}])`],
+  ["DSN-007: a greeting anywhere in the heading counts", "checks/dsn-007.mjs", "/^(?:hello|hi|hey|welcome|greetings|howdy)", "/(?:hello|hi|hey|welcome|greetings|howdy)"],
+  ["DSN-007: the greeting match is case-sensitive", "checks/dsn-007.mjs", "/iu;", "/u;"],
+  ["DSN-007: h3 is not judged", "checks/dsn-007.mjs", 'new Set(["h1", "h2", "h3"])', 'new Set(["h1", "h2"])'],
+  ["DSN-007: h4 is judged", "checks/dsn-007.mjs", 'new Set(["h1", "h2", "h3"])', 'new Set(["h1", "h2", "h3", "h4"])'],
+  ["DSN-008: mark is no badge tag", "checks/dsn-008.mjs", '"em", "mark", "b"]', '"em", "b"]'],
+  ["DSN-008: a button is a badge tag", "checks/dsn-008.mjs", '"em", "mark", "b"]', '"em", "mark", "b", "button"]'],
+  ["DSN-008: Pro tips is a badge", "checks/dsn-008.mjs", "const WORD = /^(?:pro|beta)$/i;", "const WORD = /^(?:pro|beta)/i;"],
+  ["DSN-008: the badge match is case-sensitive", "checks/dsn-008.mjs", "|beta)$/i;", "|beta)$/;"],
+  ["DSN-008: nested badges are all reported", "checks/dsn-008.mjs", "if (hits.some((o) => o !== el && o.parent === el.i)) continue;", ""],
+  ["DSN-009: loved-by claims pass", "checks/dsn-009.mjs", "for (const re of [LOVED, TIMES])", "for (const re of [TIMES])"],
+  ["DSN-009: times claims pass", "checks/dsn-009.mjs", "for (const re of [LOVED, TIMES])", "for (const re of [LOVED])"],
+  ["DSN-009: higher is no comparative", "checks/dsn-009.mjs", "|smarter|higher)", "|smarter)"],
+  ["DSN-009: the multiplication sign is no x", "checks/dsn-009.mjs", String.raw`[x×]`, "[x]"],
+  ["DSN-009: a number inside a word starts a claim", "checks/dsn-009.mjs", String.raw`(?<![\p{L}\p{N}.])`, ""],
+  ["DSN-009: M is no multiplier", "checks/dsn-009.mjs", String.raw`(?: *[km])?`, String.raw`(?: *[k])?`],
+  ["DSN-009: a plus sign ends the claim", "checks/dsn-009.mjs", String.raw`\+? +\p{L}+`, String.raw` +\p{L}+`],
+  // DSN-010, DSN-011
+  ["DSN-010: heavy small text passes", "checks/dsn-010.mjs", "if (!w || w.weight < 700) continue;", "if (true) continue;"],
+  ["DSN-010: 600 is heavy", "checks/dsn-010.mjs", "w.weight < 700", "w.weight < 600"],
+  ["DSN-010: 700 is not heavy enough", "checks/dsn-010.mjs", "w.weight < 700", "w.weight < 800"],
+  ["DSN-010: 14 px is small", "checks/dsn-010.mjs", "!(s.px < 14)", "!(s.px <= 14)"],
+  ["DSN-010: 13 px is not small", "checks/dsn-010.mjs", "!(s.px < 14)", "!(s.px < 13)"],
+  ["DSN-010: an element with no text is judged", "checks/dsn-010.mjs", "if (!text) continue;", ""],
+  ["DSN-010: the WARN becomes a FAIL", "checks/dsn-010.mjs", "out.push(f.warn(", "out.push(f.fail("],
+  ["DSN-011: negative spacing on small text passes", "checks/dsn-011.mjs", "if (!t || t.sign >= 0) continue;", "if (true) continue;"],
+  ["DSN-011: zero spacing is negative", "checks/dsn-011.mjs", "t.sign >= 0", "t.sign > 0"],
+  ["DSN-011: positive spacing is negative", "checks/dsn-011.mjs", "if (!t || t.sign >= 0) continue;", "if (!t) continue;"],
+  ["DSN-011: 14 px is small", "checks/dsn-011.mjs", "!(s.px < 14)", "!(s.px <= 14)"],
+  ["DSN-011: an element with no text is judged", "checks/dsn-011.mjs", "if (!text) continue;", ""],
+  ["DSN-011: the WARN becomes a FAIL", "checks/dsn-011.mjs", "out.push(f.warn(", "out.push(f.fail("],
+  // the DSN reader (lib/design.mjs)
+  ["design.mjs: an open block tag does not end a run of text", "lib/design.mjs", 'if (BLOCKY.has(tag)) pushNode("\\n", line, true);\n      if (VOID.has(tag)', "if (VOID.has(tag)"],
+  ["design.mjs: a close block tag does not end a run of text", "lib/design.mjs", 'if (e.tag === "title") titleDepth--; }\n      if (BLOCKY.has(tag)) pushNode("\\n", line, true);', 'if (e.tag === "title") titleDepth--; }'],
+  ["design.mjs: nothing closes by itself (li, p, option, td)", "lib/design.mjs", "if (closers) while (", "if (false) while ("],
+  ["design.mjs: a block tag does not close an open p", "lib/design.mjs", 'const closers = P_CLOSERS.has(tag) ? ["p"] : IMPLIED[tag];', "const closers = IMPLIED[tag];"],
+  ["design.mjs: an li does not close an open li", "lib/design.mjs", 'li: ["li", "p"],', 'li: ["p"],'],
+  ["design.mjs: an option does not close an open option", "lib/design.mjs", 'option: ["option"],', "option: [],"],
+  ["design.mjs: a td does not close an open td", "lib/design.mjs", 'td: ["td", "th", "p"], th:', 'td: ["p"], th:'],
+  ["design.mjs: svg text is visible", "lib/design.mjs", String.raw`<(script|template|noscript|svg)\b`, String.raw`<(script|template|noscript)\b`],
+  ["design.mjs: template text is visible", "lib/design.mjs", String.raw`<(script|template|noscript|svg)\b`, String.raw`<(script|noscript|svg)\b`],
+  ["design.mjs: noscript text is visible", "lib/design.mjs", String.raw`<(script|template|noscript|svg)\b`, String.raw`<(script|template|svg)\b`],
+  ["design.mjs: script text is visible", "lib/design.mjs", String.raw`<(script|template|noscript|svg)\b`, String.raw`<(template|noscript|svg)\b`],
+  ["design.mjs: comments are visible", "lib/design.mjs", String.raw`let html = before0.replace(/<!--[\s\S]*?-->/g, (m) => " " + nl(m));`, "let html = before0;"],
+  ["design.mjs: the head text is visible", "lib/design.mjs", "if (inHead || titleDepth > 0) continue;", "if (false) continue;"],
+  ["design.mjs: a style block is not read", "lib/design.mjs", 'styleBlocks.push({ text: css, line: lineAt(beforeStyle, off + m.indexOf(">") + 1) });', 'styleBlocks.push({ text: "", line: 1 });'],
+  ["design.mjs: a style block starts at line 1", "lib/design.mjs", "parsed: parseCss(b.text, b.line)", "parsed: parseCss(b.text, 1)"],
+  ["design.mjs: a snapshot's linked stylesheet is read", "lib/design.mjs", 'if (site.mode !== "static") return null;', ""],
+  ["design.mjs: a stylesheet on another host is read", "lib/design.mjs", String.raw`if (u.hostname !== "site.invalid" && !(site.hosts || []).map((x) => x.replace(/^www\./, "")).includes(u.hostname.replace(/^www\./, ""))) return null;`, ""],
+  ["design.mjs: the site's own host is not recognised", "lib/design.mjs", 'if (u.hostname !== "site.invalid" && !(site.hosts || [])', 'if (u.hostname !== "site.invalid" && ![]'],
+  ["design.mjs: rules inside @media are not read", "lib/design.mjs", '["media", "supports", "layer", "container", "document", "scope"].includes(name)', "false"],
+  ["design.mjs: prefixed keyframes are not listed", "lib/design.mjs", String.raw`/keyframes$/.test(name)`, String.raw`/^keyframes$/.test(name)`],
+  ["design.mjs: !important stays in the value", "lib/design.mjs", String.raw`.replace(/!\s*important/i, "")`, ""],
+  ["design.mjs: a semicolon inside parentheses splits a declaration", "lib/design.mjs", 'if (ch === "(") depth++; else if (ch === ")") depth--;\n      if (ch === "{") {', 'if (ch === ")") depth--;\n      if (ch === "{") {'],
+  ["design.mjs: a compound selector matches its first class", "lib/design.mjs", String.raw`/^\.(-?[_a-zA-Z][\w-]*)$/`, String.raw`/^\.(-?[_a-zA-Z][\w-]*)/`],
+  ["design.mjs: the style attribute is not read", "lib/design.mjs", "if (el.attrs.style) for (const d of parseInlineStyle(el.attrs.style, el.line)) out.push(", "if (false) for (const d of parseInlineStyle(el.attrs.style, el.line)) out.push("],
+  ["design.mjs: the first declaration wins, not the last", "lib/design.mjs", "return l.length ? l[l.length - 1] : null; };", "return l.length ? l[0] : null; };"],
+  ["design.mjs: a colon inside brackets splits a Tailwind token", "lib/design.mjs", 'if (ch === "[") depth++; else if (ch === "]") depth--;', ""],
+  ["design.mjs: a leading ! stays in the utility", "lib/design.mjs", String.raw`.replace(/^!/, "")`, ""],
+  ["design.mjs: rem is read as px", "lib/design.mjs", 'return m[2] === "rem" ? n * 16 : n;', "return n;"],
+  ["design.mjs: a line break in text is not a space", "lib/design.mjs", 'if (k > 0) s = " " + s;', ""],
+  ["design.mjs: every line of a text node is reported on its first line", "lib/design.mjs", "pushNode(s, line + k)", "pushNode(s, line)"],
 ];
 let survived = 0, missing = 0, notRun = 0;
 // MUTATE_JOBS mutants run at the same time (default 4); each is its own copy in its own temp folder, so they cannot disturb each other.
@@ -236,7 +397,7 @@ function runOne([name, file, find, repl]) {
       const n = t.split(find).length - 1;
       if (n !== 1) { missing++; finish(`MISSING  ${name} (target text found ${n} times in ${file})`); return; }
       writeFileSync(p, t.split(find).join(repl), "utf8");
-      const child = spawn(process.execPath, [join(dir, "test", "run.mjs")], { env: { ...process.env, OMNIKOM_AUDIT_DIR: dir }, timeout: (Number(process.env.MUTATE_TIMEOUT_S) || 180) * 1000 });
+      const child = spawn(process.execPath, [join(dir, "test", "run.mjs")], { env: { ...process.env, OMNIKOM_AUDIT_DIR: dir, OMNIKOM_AUDIT_FAILFAST: "1" }, timeout: (Number(process.env.MUTATE_TIMEOUT_S) || 180) * 1000 });
       let out = "", err = "";
       child.stdout.on("data", (c) => { out += c; });
       child.stderr.on("data", (c) => { err += c; });
@@ -252,7 +413,9 @@ function runOne([name, file, find, repl]) {
   });
 }
 // MUTATE_ONLY=<regex> runs only the mutants whose name matches (a re-run of a few); MUTATE_TIMEOUT_S raises the 180 s limit on a loaded machine
-const PICK = process.env.MUTATE_ONLY ? MUTANTS.filter((m) => new RegExp(process.env.MUTATE_ONLY).test(m[0])) : MUTANTS;
+const PICK = process.env.MUTATE_ONLY ? MUTANTS.filter((m) => new RegExp(process.env.MUTATE_ONLY).test(m[0])) : [...MUTANTS];
+// MUTATE_FIRST=<regex> starts the mutants whose name matches before the others (the order of the list is otherwise kept), so a new family shows its survivors first
+if (process.env.MUTATE_FIRST) { const first = new RegExp(process.env.MUTATE_FIRST); PICK.sort((a, b) => Number(first.test(b[0])) - Number(first.test(a[0]))); }
 let next = 0;
 await Promise.all(Array.from({ length: JOBS }, async () => { while (next < PICK.length) await runOne(PICK[next++]); }));
 console.log(`\n${PICK.length} mutants, ${PICK.length - survived - notRun - missing} caught, ${survived} survived, ${notRun} not run, ${missing} target text missing`);

@@ -130,11 +130,35 @@ output was pasted or the file exists.
   6. **Page list** with each page's section order (the plan's page copy order) and the shared header/footer.
   7. **Done means:** the exact checks (section shots by the lead per section, `wf-shots.mjs` at three widths with 0 errors and 0
      overflow, the sizing viewports, the skill's gate, a speed measurement).
+- **Opens with the five-line direction,** above section 1, one line each in this order: **product** (what it is, for whom),
+  **character** (its personality in words a person would use), **world** (the setting and materials it borrows from), **moments**
+  (the two or three moments the visitor must feel), **signature** (the one thing nobody else's site does). The words clean, modern,
+  sleek, minimal and premium are banned as character words: they describe every site, so they direct nothing. A `DESIGN.md` without
+  the five lines, or with a banned character word, is not handed to the builder.
 - **Rule:** **once the spec exists, stop polishing mock-ups.** The comps are references for the idea, not the design; the builder builds
   real components from `DESIGN.md`. Further design changes are made in the spec and the build, not in the comps.
-- **Check:** the sections 1 to 7 above are all present (a heading grep); every component lists its states; every number has a unit.
+- **Check:** the sections 1 to 7 above are all present (a heading grep); every component lists its states; every number has a unit;
+  the first five lines are product, character, world, moments, signature, and the character line holds none of the banned words.
 - **Owner:** sign-off of `DESIGN.md` (pickable: approve / change X). The builder may not start before this (the project's own rule,
   e.g. no code before sign-off, comes first).
+
+### The builder's order of work for design partials: nine passes
+The direction and the passes follow unslop (Damir Sokolovsky, github.com/heydamir/unslop, CC BY 4.0), written here in our own words.
+Every partial (header, section, card, footer) is built in this order, and a pass is finished before the next one starts:
+1. **Spacing:** one space scale and one rhythm between sections, before anything is decorated.
+2. **Colour:** the palette roles, one accent, contrast pairs checked; no hue gradient across two colour families.
+3. **Icons:** one set, one stroke, one size scale; each icon has a job; no emoji standing in for an icon.
+4. **Copy:** the client's own words, plain verbs, a headline that says what the page offers; no hype, no claim nobody can check.
+5. **Type:** families, the fluid scale, weight and tracking by size; small text is neither heavy nor tightly spaced.
+6. **Layout:** the grid, the widths, the order of sections; the phone composed on its own, not shrunk.
+7. **Details:** every state of every component, radii, borders, focus, empty and error states.
+8. **Visuals:** photos, crops, scrims, alt text; what each image shows or proves.
+9. **Motion:** last, one trigger per moment named in the direction, transform and opacity only, nothing that loops.
+
+After the passes, run the design tells of the repo's `tools/audit` on the built folder:
+`node tools/audit/run.mjs <built folder> --only DSN-001,DSN-002,DSN-003,DSN-004,DSN-005,DSN-006,DSN-007,DSN-008,DSN-009,DSN-010,DSN-011`.
+A finding sends the page back to its pass: DSN-001 to motion, DSN-002 to colour, DSN-003 to icons, DSN-004, DSN-010 and DSN-011 to type,
+DSN-005 to DSN-009 to copy. A built site that trips a FAIL does not publish.
 
 ### 9. Scope check before building
 - **Why:** a research plan can propose dozens of pages (a real project's plan proposed 80, including competitor-brand pages and rate
