@@ -391,10 +391,10 @@ if (on('workflows')) {
   await check('keepalive.yml: Mondays 06:00 UTC and by hand, one status call per target staging with the four staging names', () =>
     wf['keepalive.yml'].includes("cron: '0 6 * * 1'") && wf['keepalive.yml'].includes('workflow_dispatch:') && wf['keepalive.yml'].includes('omnikom.mjs status --target staging')
     && ['STAGING_DB_URL', 'STAGING_SUPABASE_REF', 'STAGING_SUPABASE_SECRET_KEY', 'STAGING_SUPABASE_PUBLISHABLE_KEY'].every((n) => wf['keepalive.yml'].includes('secrets.' + n)));
-  await check('ci.yml: the eight jobs, and the three downloaded binaries (gitleaks, actionlint, shellcheck) are pinned by exact version and sha256 and the sum is checked; actionlint is given the pinned shellcheck', () => {
+  await check('ci.yml: the nine jobs, and the three downloaded binaries (gitleaks, actionlint, shellcheck) are pinned by exact version and sha256 and the sum is checked; actionlint is given the pinned shellcheck', () => {
     const t = wf['ci.yml'], at = t.split('\n').indexOf('jobs:');
     const jobs = t.split('\n').slice(at + 1).filter((x) => /^  [a-z]+:\s*$/.test(x)).map((x) => x.trim().slice(0, -1));
-    return same(jobs, ['gates', 'factory', 'functions', 'audit', 'cli', 'departments', 'secrets', 'workflows'])
+    return same(jobs, ['gates', 'factory', 'functions', 'audit', 'cli', 'dashboard', 'departments', 'secrets', 'workflows'])
       && t.includes('551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb') && t.includes('8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8')
       && t.includes('b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6') && t.includes('shellcheck/releases/download/v0.11.0/')
       && t.includes('-shellcheck "$RUNNER_TEMP/shellcheck-v0.11.0/shellcheck"')
