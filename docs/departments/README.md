@@ -42,7 +42,7 @@ that is written here.
    imports, reads or copies the changed files. A light follow-on in another department's file (a fixture value, a test
    literal) is made in the same commit and named in the report with its owner, whose head gets a notice; anything bigger is
    a notice to that head, who sequences it. Builders never commit or push: the head reads the impact output, has a Haiku agent
-   run the full gates on the combined tree, then commits and pushes. The pre-push hook refuses a tree without a passing stamp.
+   run the full gates on the combined tree, then commits and pushes. The full checks run on GitHub on a `check/<department>/<slug>` branch; master moves only to a commit GitHub passed (DECISIONS 45).
 
 ## Where sessions live and who they talk to (owner, 2026-10-30 19:51)
 - Sidebar: every session is filed under its department's group, named `Omnikom: <department name>` (head of operations,

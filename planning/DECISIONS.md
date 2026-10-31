@@ -394,3 +394,15 @@
     or that leads to something not built yet, is not shown; (4) where the plan is silent, the builder does not invent: it
     stops and sends the gap to its head, who adds it to the plan or asks the owner. Each part is a test watched failing with a
     mutant. Platform build department, from slice 5.3 on; the styling layer added later (DECISIONS 39) changes looks only.
+
+45. **The full checks run on GitHub, on a check branch; master only takes a commit whose exact tree GitHub passed** (2026-10-31
+    19:40, owner picked "GitHub test branch" over "laptop only"). Why: the laptop is the bottleneck, not the code; the
+    database walls gate takes about 55 minutes here (a bare initdb 123 s, 3.3 of 32 GB free) and about 3 minutes on a CI
+    runner, and a local pass is a different runtime from CI anyway (global Rule 2). This amends DECISIONS 43 part (5) and
+    part (4): (a) a head pushes its gated-by-impact commit to `check/<department>/<slug>` (ci.yml already runs on every
+    push); (b) only when every ci.yml job is green on that commit does the head move master to it, fast-forward only; (c) the
+    stamp is the green GitHub run for that tree, read with `gh`; the pre-push hook from `omnikom hooks install` refuses a
+    push to master unless the commit's tree has a successful ci run, and allows check/** branches; (d) on the laptop a head
+    runs only the tests the impact list names (fast feedback), never the full gates as the gate; `omnikom ci` stays for
+    reproducing a GitHub failure locally. Builders still never push. Watch: Actions minutes on the private org repo; the
+    head of operations checks usage weekly and says when it nears the plan's limit.

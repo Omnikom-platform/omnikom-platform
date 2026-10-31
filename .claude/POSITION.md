@@ -711,3 +711,8 @@
   node command on the combined tree (DECISIONS 43). After the all-clear: Haiku runs them, head commits skill + syncs + commits 4b.
 - UNPROVEN still: real live-target run, queued for https://preview.test-site-demo-a.pages.dev/ after 4b (one pass, stop on 429).
 - 20:58 Combined commit 5.1 + 6A + 6B gated (walls 336 mutants after the initdb start limit fix; every other gate green on the same tree). Staging: 12 applied, 0 pending, 0 mismatched (migration 12 unchanged by the gates, no roll-forward). Plan: 16-DESIGN-PARTS Part 1 carries DP ids with slices (DECISIONS 44), 5.3 GAP lines filled. Next: give the all-clear, 6B restore drill, 5.3 heavy runs (npm ci, tsc, build, flows), then 5.2 (brief has CORS).
+
+- 19:40 DECISIONS 45 (owner): full checks run on GitHub on check/<dept>/<slug>; master fast-forwards only to a commit whose
+  tree passed every ci.yml job; the pre-push hook refuses master otherwise; laptop runs only the impact-named tests. Cause:
+  walls gate 55 min on the laptop vs 3 min on CI. Routed to CLI (hook design change) and all heads. tools ensure: actionlint,
+  deno, shellcheck in .tools; gitleaks BLOCKED (Node fetch failed twice, curl reaches the asset), fix in the CLI.
