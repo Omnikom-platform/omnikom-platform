@@ -66,7 +66,8 @@ const MUTANTS = [
   ['media: the EXIF orientation is not applied', `${R}media.mjs`, '.rotate().resize(', '.resize(', 'media', 'sharp'],
   ['media: the metadata (EXIF, GPS) is kept', `${R}media.mjs`, '.webp({ quality: 82 })', '.withMetadata().webp({ quality: 82 })', 'media', 'sharp'],
   ['media: a size wider than the original is made', `${R}media.mjs`, 'const wanted = SIZES.filter((w) => w <= width);', 'const wanted = SIZES;', 'media', 'sharp'],
-  ['media: an original narrower than 800 is processed', `${R}media.mjs`, 'if (!wanted.length) die(', 'if (false) die(', 'media', 'sharp'],
+  ['media: the 800 slot is not made for an original narrower than 800', `${R}media.mjs`, 'if (!wanted.includes(SMALLEST)) wanted.push(SMALLEST);', '', 'media', 'sharp'],
+  ['media: a narrow original is upscaled into the 800 slot', `${R}media.mjs`, '.resize({ width: w, withoutEnlargement: true })', '.resize({ width: w, withoutEnlargement: false })', 'media', 'sharp'],
   ['media: another workspace is accepted', `${R}media.mjs`, 'if (m.workspace_id !== WORKSPACE_ID) die(', 'if (false) die(', 'media', 'sharp'],
   ['media: a PDF is run through the image pipeline', `${R}media.mjs`, 'if (/\\.pdf$/i.test(m.path)) {', 'if (false) {', 'media', 'sharp'],
   ['media: exifStripped is reported false', `${R}media.mjs`, 'exifStripped: true, bytes: total', 'exifStripped: false, bytes: total', 'media', 'sharp'],
@@ -81,6 +82,8 @@ const MUTANTS = [
   ['workflows: the backup job is not switched off', '.github/workflows/backup.yml', "    if: ${{ vars.BACKUP_ENABLED == 'true' }}\n", '', 'workflows'],
   ['workflows: publish loses its per-site queue', '.github/workflows/publish.yml', '  queue: max\n', '', 'workflows'],
   ['workflows: the gitleaks download is not checked against its sha256', '.github/workflows/ci.yml', '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb', '0000000000000000000000000000000000000000000000000000000000000000', 'workflows'],
+  ['workflows: the shellcheck download is not checked against its sha256', '.github/workflows/ci.yml', 'b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6', '0000000000000000000000000000000000000000000000000000000000000000', 'workflows'],
+  ['workflows: actionlint uses the image shellcheck, not the pinned one', '.github/workflows/ci.yml', ' -shellcheck "$RUNNER_TEMP/shellcheck-v0.11.0/shellcheck"', '', 'workflows'],
   // tools/github-secrets.mjs
   ['secrets: the value is given on the command line', 'tools/github-secrets.mjs', "gh(['secret', 'set', name, '-R', opts.repo], value)", "gh(['secret', 'set', name, '-R', opts.repo, '-b', value], undefined)", 'secrets'],
   ['secrets: --dry-run still sets', 'tools/github-secrets.mjs', 'if (opts.dry) {', 'if (false) {', 'secrets'],

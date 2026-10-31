@@ -1,6 +1,6 @@
 # CI (02-BACKEND section 11, 10-DELIVERY section 3, 23-GROUND-RULES section 3): the same gates the head runs by hand, on every push and
 # pull request. Every job is independent, has a timeout, holds no secret, and starts from a clean checkout. Every third-party action
-# is pinned by commit SHA (supply-chain rule 7); the two downloaded binaries (gitleaks, actionlint) are pinned by version AND sha256.
+# is pinned by commit SHA (supply-chain rule 7); the three downloaded binaries (gitleaks, actionlint, shellcheck) are pinned by version AND sha256.
 # Expected red on the first run: see factory/README.md "Runner" (the `functions` and `gates` jobs depend on work that may not be merged).
 name: ci
 
@@ -174,7 +174,7 @@ jobs:
         run: '"$RUNNER_TEMP/gitleaks/gitleaks" detect --source . --redact --no-banner'
 
   workflows:
-    name: workflow files (actionlint 1.7.12)
+    name: workflow files (actionlint 1.7.12, shellcheck 0.11.0)
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -188,5 +188,13 @@ jobs:
           echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check -
           mkdir "$RUNNER_TEMP/actionlint"
           tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP/actionlint" actionlint
-      - name: Lint every workflow
-        run: '"$RUNNER_TEMP/actionlint/actionlint" -color .github/workflows/*.yml'
+      # shellcheck is pinned too (DECISIONS 42): actionlint runs it on every run block, so the image's copy would make the check depend on the
+      # runner image. The same version and sha256 are in tools/omnikom-cli/tools.json (the CLI's test fails when the two differ).
+      - name: Download shellcheck 0.11.0 and check its sha256
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/shellcheck.tar.gz" https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.gz
+          echo "b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6  $RUNNER_TEMP/shellcheck.tar.gz" | sha256sum --check -
+          tar -xzf "$RUNNER_TEMP/shellcheck.tar.gz" -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/shellcheck-v0.11.0/shellcheck" --version
+      - name: Lint every workflow (with the pinned shellcheck)
+        run: '"$RUNNER_TEMP/actionlint/actionlint" -color -shellcheck "$RUNNER_TEMP/shellcheck-v0.11.0/shellcheck" .github/workflows/*.yml'

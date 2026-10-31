@@ -391,12 +391,14 @@ if (on('workflows')) {
   await check('keepalive.yml: Mondays 06:00 UTC and by hand, one status call per target staging with the four staging names', () =>
     wf['keepalive.yml'].includes("cron: '0 6 * * 1'") && wf['keepalive.yml'].includes('workflow_dispatch:') && wf['keepalive.yml'].includes('omnikom.mjs status --target staging')
     && ['STAGING_DB_URL', 'STAGING_SUPABASE_REF', 'STAGING_SUPABASE_SECRET_KEY', 'STAGING_SUPABASE_PUBLISHABLE_KEY'].every((n) => wf['keepalive.yml'].includes('secrets.' + n)));
-  await check('ci.yml: the eight jobs, and the two downloaded binaries are pinned by exact version and sha256 and the sum is checked', () => {
+  await check('ci.yml: the eight jobs, and the three downloaded binaries (gitleaks, actionlint, shellcheck) are pinned by exact version and sha256 and the sum is checked; actionlint is given the pinned shellcheck', () => {
     const t = wf['ci.yml'], at = t.split('\n').indexOf('jobs:');
     const jobs = t.split('\n').slice(at + 1).filter((x) => /^  [a-z]+:\s*$/.test(x)).map((x) => x.trim().slice(0, -1));
     return same(jobs, ['gates', 'factory', 'functions', 'audit', 'cli', 'departments', 'secrets', 'workflows'])
       && t.includes('551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb') && t.includes('8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8')
-      && (t.match(/sha256sum --check -/g) || []).length === 2 && t.includes('gitleaks/releases/download/v8.30.1/') && t.includes('actionlint/releases/download/v1.7.12/') && t.includes('fetch-depth: 0');
+      && t.includes('b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6') && t.includes('shellcheck/releases/download/v0.11.0/')
+      && t.includes('-shellcheck "$RUNNER_TEMP/shellcheck-v0.11.0/shellcheck"')
+      && (t.match(/sha256sum --check -/g) || []).length === 3 && t.includes('gitleaks/releases/download/v8.30.1/') && t.includes('actionlint/releases/download/v1.7.12/') && t.includes('fetch-depth: 0');
   });
 }
 // ================= 12. media (needs sharp) =================
@@ -449,7 +451,12 @@ if (!HAS_SHARP) {
   await check('media: a 1000 px original is never upscaled: only 800 is made, 2400 and 1600 are reported as skipped', () =>
     small.code === 0 && small.log.uploads.length === 1 && webpSize(small.log.uploads[0].body).width === 800 && same(small.log.mediaCallbacks[0].body.sizes, [800]) && same(small.log.mediaCallbacks[0].body.skipped, [2400, 1600]) || `${small.code} ${JSON.stringify(small.log.mediaCallbacks.map((c) => c.body))}`);
   const tiny = await runMedia({ bytes: await jpeg(600, 400) });
-  await check('media: an original narrower than 800 is refused: exit 1, no upload, no callback (the photo stays unprocessed)', () => tiny.code === 1 && tiny.log.uploads.length === 0 && tiny.log.mediaCallbacks.length === 0);
+  // The 800 slot always exists (head's rule 2026-10-31: core allows images narrower than 800, the logo's minWidth is 200; export-published
+  // points at the largest slot the width reaches, else 800). A narrower original fills the 800 slot at its own width, never upscaled.
+  await check('media: an original narrower than 800 fills the 800 slot at its own width: exit 0, one PUT 600 px wide, sizes [800], skipped [2400, 1600]', () =>
+    tiny.code === 0 && tiny.log.uploads.length === 1 && webpSize(tiny.log.uploads[0].body).width === 600 && /-800\.webp$/.test(tiny.log.uploads[0].path || '')
+      && same(tiny.log.mediaCallbacks[0] && tiny.log.mediaCallbacks[0].body, { media: MEDIA, width: 600, height: 400, exifStripped: true, bytes: tiny.log.uploads[0].body.length, sizes: [800], skipped: [2400, 1600] })
+      || `${tiny.code} ${JSON.stringify(tiny.log.uploads.map((u) => [u.path, u.body && u.body.length]))} ${JSON.stringify(tiny.log.mediaCallbacks.map((c) => c.body))}`);
   const pdf = await runMedia({ bytes: Buffer.from('%PDF-1.4 test'), path: `${WS}/${MEDIA}.pdf` });
   await check('media: a PDF is not processed: the callback is exactly { media, kind: "document" }, no upload', () =>
     pdf.code === 0 && pdf.log.uploads.length === 0 && same(pdf.log.mediaCallbacks[0].body, { media: MEDIA, kind: 'document' }) && pdf.log.mediaCallbacks[0].sigOk || `${pdf.code} ${pdf.out.slice(-300)}`);

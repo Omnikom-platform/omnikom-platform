@@ -8,8 +8,8 @@
 //    withMetadata() is NEVER called, so the outputs carry no EXIF, no GPS, no XMP, no ICC.
 // 4. PUT each size to its signed upload URL, then POST <base>/media-process-callback (signed):
 //    { media, width, height, exifStripped: true, bytes, sizes: [2400, 1600, 800], skipped: [] }   (width and height are the ORIENTED size)
-//    A PDF is not processed: { media, kind: 'document' }. An original narrower than 800 is refused (nothing is sent: the photo stays
-//    unprocessed and publish refuses it, ground rule 7).
+//    A PDF is not processed: { media, kind: 'document' }. An original narrower than 800 fills only the 800 slot, at its own width
+//    (never upscaled): sizes [800], skipped [2400, 1600]. Whether it is wide enough for its field is the contract's minWidth, at publish.
 // sharp is installed only where this runs: npm ci --prefix factory/runner (pinned in package.json + package-lock.json).
 import { UUID, checkBase, makeScrubber, makePlatform, numEnv } from './lib/common.mjs';
 
@@ -67,9 +67,12 @@ try { meta = await sharp(original, { failOn: 'error', limitInputPixels: 120e6 })
 const turned = (meta.orientation || 1) >= 5;
 const width = turned ? meta.height : meta.width, height = turned ? meta.width : meta.height;
 if (!width || !height) die(1, 'the image has no size');
+// A slot exists when the original is at least that wide; the smallest slot (800) ALWAYS exists, and for a narrower original it holds the
+// image at its own width (resize withoutEnlargement). export-published points at the largest slot the width reaches, else 800 (the same rule).
+const SMALLEST = SIZES[SIZES.length - 1];
 const wanted = SIZES.filter((w) => w <= width);
-const skipped = SIZES.filter((w) => w > width);
-if (!wanted.length) die(1, `the original is ${width} px wide, narrower than ${SIZES[SIZES.length - 1]}: not processed`);
+if (!wanted.includes(SMALLEST)) wanted.push(SMALLEST);
+const skipped = SIZES.filter((w) => !wanted.includes(w));
 if (!m.uploads || wanted.some((w) => !m.uploads[w] || !sameHost(m.uploads[w]))) die(1, 'media-export gave no upload url on the platform host for a size');
 
 let total = 0;
