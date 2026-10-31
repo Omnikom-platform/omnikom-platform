@@ -20,8 +20,9 @@ import { contentGroup } from './commands/content.mjs';
 import { publish, jobGroup } from './commands/publish.mjs';
 import { verify } from './commands/verify.mjs';
 import { mfaGroup } from './commands/mfa.mjs';
+import { audit, gate, AuditCrash, textOutput } from './commands/audit.mjs';
 
-const COMMANDS = { status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup };
+const COMMANDS = { status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate };
 export const USAGE = [
   'status | apply [--dry-run] | test walls | verify --only lead|walls|people | mfa enroll-staff',
   'seed test [--alert-to <email>] [--clean] | seed workspace --slug --name --industry --deploy-target --preview-host (--contract <file> | --plan <dir> --entities <file>)',
@@ -29,6 +30,7 @@ export const USAGE = [
   'contract validate --file <f> | contract place --file <f> --rows <f>',
   'lead send --site <slug> [--form contact] [--fixture <f>] [--retry] [--key <uuid>] | lead list|get|update|add|delete --as <person> ...',
   'content save|get|history --as <person> ... | publish --as <person> --site <slug> --rows <ids> | job get|wait|set --job <id>',
+  'audit --dir <built site folder> [--only <rule ids>] | gate --dir <built site folder>   (text lines by default; exit 0 pass, 1 FAIL, 2 usage or crash)',
   'flags: --target staging|local|production  --as <identity>  --expect <code>  --json  --fixture <file>  --real',
 ];
 
@@ -48,25 +50,30 @@ export async function main(argv, deps = {}) {
     if (!run) throw new Usage(`unknown command '${command}'`);
     guardProduction(flags.target, command, flags);
     const ctx = makeCtx({ command, positionals, flags, deps });
+    if (deps.auditLib) ctx.auditLib = deps.auditLib;   // a test hands audit/gate a library that throws
     const res = await run(ctx);
     const expect = flags.expect === undefined || flags.expect === true ? null : String(flags.expect);
     const matched = expect !== null ? res.code === expect : res.ok;
     out = { ok: res.ok, command: name(), target: ['local', 'staging', 'production'].includes(ctx.targetName) && ctxUsesTarget(command) ? ctx.targetName : undefined, code: res.code, ...(expect !== null ? { expect, matched } : {}), exit: matched ? 0 : 1, data: res.data, ...(ctx.warnings.length ? { warnings: ctx.warnings } : {}) };
   } catch (e) {
     if (e instanceof Usage) out = { ok: false, command: name(), code: 'USAGE', exit: 2, error: e.message };
+    else if (e instanceof AuditCrash) out = { ok: false, command: name(), code: 'AUDIT-CRASH', exit: 2, error: e.message };
     else if (e instanceof Blocked) out = { ok: false, command: name(), code: 'BLOCKED', exit: 3, error: e.message, ...(e.unblock ? { unblock: e.unblock } : {}) };
     else out = { ok: false, command: name(), code: 'INTERNAL', exit: 1, error: String(e && e.message || e).slice(0, 300) };
   }
   return finish(out);
 
   function finish(obj) {
+    // audit and gate print their lines, not the JSON object (unless --json); a usage error or a crash is one ERROR line
+    const first = parsed.positionals[0] || argv.find(a => !a.startsWith('--'));
+    if ((first === 'audit' || first === 'gate') && obj.command !== 'help' && !parsed.flags.json && !argv.includes('--json')) return { exit: obj.exit, stdout: textOutput(first, obj, env), stderr: '' };
     const lines = obj.data && Array.isArray(obj.data.lines) && obj.command === 'verify' ? obj.data.lines.map(l => redact(l, env)).join('\n') + '\n' : '';
     return { exit: obj.exit, stdout: render(obj, { compact: Boolean(parsed.flags.json), env }), stderr: lines };
   }
 }
 
 // only commands that talk to a target show one in their result
-const ctxUsesTarget = command => command !== 'contract';
+const ctxUsesTarget = command => !['contract', 'audit', 'gate'].includes(command);
 
 const isMain = (() => { try { return process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } })();
 if (isMain) {

@@ -4,6 +4,45 @@ Task: build-ready product engineering package (owner, 2026-10-28), raised to eng
 then corrected by an independent fact-check (72 claims) and an independent M1 dry run (31 issues), and by DECISIONS 15
 (no Docker; one Supabase account, staging + production). **Status: complete for owner review. Nothing committed.**
 
+## CLI: audit and gate commands (2026-10-30 22:11 to 2026-10-31 04:40, CLI department head `local_c8848ce4...`, Sonnet builder as in-session agent, Haiku runner for every mechanical run)
+Brief `tools/omnikom-cli/briefs/audit-gate-commands.md` (from the SEO department's `tools/audit/briefs/slice-3-cli-command.md`). What was
+built: `tools/omnikom-cli/commands/audit.mjs` (new), `omnikom.mjs` (registration, text path in `finish()`, `AuditCrash` exit 2), README
+rows, 45 new checks, 27 new mutants. Decisions taken on review: `--expect` refused on both commands; `gate --json` carries `pages` and
+`rules` counts; a malformed or self-contradicting library result is a crash (exit 2), never a pass; the library is injectable through
+`deps.auditLib`. The engine grew from 14 to 17 rules while the builder worked (SEO session, uncommitted), so the tests now take the
+page and rule counts from the engine. After the engine started refusing an empty rules list itself, the mutant "an empty --only is
+accepted" survived (both guards gave exit 2); closed by asserting the CLI's own message `--only needs at least one rule id`.
+
+**Head's own re-run (Haiku runner, verbatim last lines; engine at 17 rules, uncommitted SEO edits present):**
+```
+node tools/omnikom-cli/test/run.mjs 2>&1 | grep -E "^FAIL|^OK|^FAILED|^BASELINE"; echo "exit ${PIPESTATUS[0]}"
+OK: 213 of 213 checks passed
+exit 0
+node tools/omnikom-cli/test/mutate.mjs 2>&1 | grep -v "^caught" | tail -12; echo "exit ${PIPESTATUS[0]}"
+baseline: OK: 213 of 213 checks passed
+
+110 mutants, 110 caught, 0 survived, 0 target text missing
+exit 0
+grep -rl $'\xe2\x80\x94' tools/omnikom-cli/ docs/blueprint/26-PLATFORM-CLI.md docs/departments/cli-and-testing.md; echo "em-dash grep exit $?"
+em-dash grep exit 1
+```
+Commands (same runner, earlier the same night): `audit --dir tools/audit/fixtures/good` ends `audit: 4 pages, 17 rules, 0 FAIL, 0 WARN, 0 SKIP`
+exit 0 (42 PASS lines); `audit --dir tools/audit/fixtures/bad-MET-003` prints `FAIL MET-003 /tasting-room/:48 value-mismatch: <h4> "Small
+print" follows <h2> "Before you come" (line 46) and skips a level (source: checklist/web-delivery.md MET-003)` then `audit: 4 pages, 17 rules,
+1 FAIL, 0 WARN, 0 SKIP` exit 1 (the FAIL line identical to `tools/audit/run.mjs`'s); `gate --dir ...bad-MET-003` prints `GATE FAIL 1
+finding(s)` and that line, exit 1; `gate --dir ...good` prints `GATE PASS 4 pages, 17 rules` exit 0; `gate` alone `ERROR --dir is required`
+exit 2; a missing folder `ERROR --dir is not a folder: tools/audit/fixtures/no-such-folder` exit 2; `gate --json` on good
+`{"ok":true,"command":"gate","code":"ok","exit":0,"data":{"pass":true,"exit":0,"fails":[],"pages":4,"rules":17}}` exit 0.
+
+**Red results seen, pasted, and where they belong:** one suite run under load (other sessions' mutant and gate runs active) ended
+`FAIL test walls: passes again after the clean: {` / `FAILED: 212 of 213 checks passed, 1 FAILED`; that check runs
+`supabase/tests/tenancy.test.sql` on the CLI's throwaway cluster, and the same suite passed 213 of 213 as the mutants' baseline minutes
+later: the flaky privacy-requests wall the head of operations recorded at 01:40, not a CLI check. `run-all-gates.mjs` once ended
+`FAIL database walls + mutants   caught   privacy requests read wall                   ERROR:  B's owner reads no request of A` / `1 gate(s)
+failed` / `exit 1` (every other gate PASS; the builder's rerun passed): same wall. Findings for the SEO head: `audit(dir, { rules: [''] })`
+ran zero rules and passed (already fixed in the SEO session's open edits); `gate` obeys an `audit.config.json` in the audited folder.
+UNPROVEN: nothing in this slice touches staging; the CLI gates must be re-run when the SEO department commits `tools/audit/`.
+
 ## Step 4: sites build themselves (2026-10-31, the standing Platform build head, session `local_cade0add-3389-4314-b7b5-83333d26a97a`)
 Five slices (charter `docs/departments/platform-build.md` Open items; briefs in `factory/briefs/`). Builders are in-session Sonnet agents; every
 mechanical run is a Haiku agent whose verbatim output is what is pasted here.
@@ -108,6 +147,60 @@ layer's image work (WebP, phone sizes, woff2, `_redirects`) is not built (the te
 the real `site_contracts.resolved` shape was read from the migration text only; richtext is not sanitised (designs print it escaped); the form posts with
 `method="post"` but no script handles the answer, so "a preview never fakes success" is not exercised; `motion.js` is supported and tested with a stub, the
 test design has none.
+
+### 4.2 dashboard functions (builder)  (2026-10-31, builder session `BUILDER (platform build): slice 4.2`, brief `factory/briefs/4-2-dashboard-functions.md`)
+Six Edge Functions the dashboard calls (`save`, `publish`, `lead-update`, `add-lead`, `upload-start`, `upload-finish`), the shared pieces
+(`_shared/db.ts` step-down and refusals, `_shared/auth.ts` second JWT wall, `_shared/dashboard.ts` frame, `_shared/validate.ts`
+validateItem with database lookups, `_shared/dispatch.ts` GitHub dispatch, `_shared/http.ts`), migration 9 (ten service functions) and migration 10
+(one `create or replace`, see below), tests T18, 31 Deno-test mutants, `tools/deploy-functions.mjs`, `supabase/tests/e2e-functions.mjs`, two
+operations in `openapi.json`. Deviations from the brief, each also in the report: (1) `service.site_for` and `service.row_version` are new
+(publish gets a site, not a workspace, and the function role cannot read a table, so it needs both to validate the pinned versions); T14's list of
+claims-taking functions got six names (`record_media finish_media row_exists media_facts site_for row_version`), the one edit outside the T18
+block; (2) a bad token is the security-event kind `auth-refused` (code `S-AUTH`, detail reason `bad-jwt`), because `security_events.kind` has a
+check constraint (migration 7) that does not list `bad-jwt` and a widening would have been an extra migration; (3) the coordinator's `schema`
+key for `export_bundle` arrived after migration 9 was applied to staging, so it is migration 10 (`20261031000010_export_schema_key.sql`,
+`create or replace` of the one function), not an edit of 9; (4) T18 sits before T17 on purpose, so a grant mutant is seen on its own function.
+
+Watched-fail evidence (one line per new wall; the walls are the 53 database mutants below, the Deno checks are the 31 mutants):
+- T18 written first, run with no migration 9: `ERROR:  function service.record_media(jsonb, unknown, unknown, integer, unknown) does not exist` (psql, tests.sql line 785), `FAILED: real migration fails; 0 mutants`; then green: `PASS real migration: ALL TENANCY TESTS PASSED`.
+- 53 new database mutants (migration 9 and 10): one per raise exception line and boundary of record_media, finish_media, media_processed, media_for_runner, media_facts, row_exists, site_for, row_version, export_bundle (also the `schema` key), job_site, and 20 grant mutants (each function closed and open, both layers: the default privilege of migration 8 and the explicit statement). Every one `caught`, for example `caught   record_media: the 25 MB cap   ERROR:  EXPECTED I-MEDIA-SIZE BUT IT SUCCEEDED`, `caught   migration 9 opens service.job_site to the function role (both layers)   ERROR:  permission denied for function job_site`, `caught   export_bundle: the schema key the factory checks first (migration 10)   ERROR:  the bundle carries the export schema key the factory checks first (migration 10)`.
+- First Deno run, red for the right reasons and each fixed: every handler test 401 (claims went to SQL as a JSON string: postgres.js double-encodes a string given to `::jsonb`; measured `jsonb_typeof = string`; objects are passed now); `security_events_kind_check` violation (see deviation 2); a synchronous spawn froze the fake JWKS server (the harness spawns asynchronously now); `SUPABASE_SERVICE_ROLE_KEY` set in the shell won over the test key (the harness sets it).
+
+Gates, last lines as run:
+```
+node supabase/tests/run-local.mjs                   (after migration 10)   OK: real migration passes; 214 mutants   (214 caught, 0 SURVIVED, 0 MISSING)
+node supabase/functions/test/run.mjs                 ok | 58 passed | 0 failed (1m43s)
+                                                    OK: 58 of 58 checks passed (the Deno tests), exit 0
+node supabase/functions/test/mutate.mjs              31 mutants, 31 caught, 0 survived, 0 target text missing
+deno task check                                      exit 0 (15 files, no error)
+node docs/blueprint/specs/check-specs.mjs            OK: 12 operations, 12 operationIds; 47 FR/NFR rows, 40 work orders, 0 problem(s)
+node docs/blueprint/specs/run-all-gates.mjs          GATES_PLACEHOLDER
+```
+Staging (project ref and tokens never printed):
+```
+apply --dry-run   "summary": "DRY RUN: 1 pending of 9"  wouldApply: 20261031000009_media_and_export.sql
+apply             "summary": "OK: applied 1 of 9 (8 were already applied)"
+deploy-functions  OK: save|publish|lead-update|add-lead|upload-start|upload-finish deployed; OK: secrets set by name: GITHUB_DISPATCH_TOKEN, GITHUB_REPO (GITHUB_REPO=Omnikom-platform/omnikom-platform via --set)
+status            applied 9, pending [], mismatched []; functions: add-lead deployed, capture-lead deployed, lead-update deployed, publish deployed, save deployed, upload-finish deployed, upload-start deployed   ("test": "not deployed" is the folder supabase/functions/test, see findings)
+e2e-functions.mjs PASS save by owner-a is 200 with a version: 200 version 1
+                  PASS save by nobody is 404 and names no field: 404 S-NOT-FOUND
+                  PASS publish by owner-a is 202 and the job is queued: 202 job 9ced0936-22dc-4b2f-ad54-78e867bdddb4
+                  INFO publish dispatched: true   [the job is left dispatched to GitHub; no workflow listens yet, so it stays queued]
+                  PASS add-lead by owner-a is 201: 201
+                  PASS lead-update by member-a1 on a lead that is not theirs is 404: 404 S-NOT-FOUND
+                  PASS the e2e lead was deleted through the CLI (lead delete): exit 0
+                  PASS 0 leads remain on staging (lead list as owner-a): count 0
+                  PASS upload-start by owner-a is 200 with a path under workspace A and a signed upload URL: 200
+                  PASS upload-finish by owner-a is 200 and processed stays false: 200
+                  INFO upload-finish dispatched: true
+                  PASS a call with no token is 401: 401 UNAUTHORIZED_NO_AUTH_HEADER
+                  PASS: staging end to end for the dashboard functions, 0 problem(s)
+apply (migration 10)  "summary": "DRY RUN: 1 pending of 10" then "OK: applied 1 of 10 (9 were already applied)"; status afterwards: pending [], mismatched []
+```
+Left on staging on purpose: one saved listing version in workspace A, one publish job (queued; dispatched to GitHub, where no workflow listens
+yet), one media row (unprocessed, rights ticked), two repository_dispatch events (`publish`, `media`) sent to the real repository. The staging
+call with no token was refused by the gateway (`UNAUTHORIZED_NO_AUTH_HEADER`), so the in-code wall's 401 `S-AUTH` is proven locally (auth.test.ts,
+save.test.ts) and not separately on staging; a 200 on staging proves that Supabase's real ES256 session tokens pass `verifyUserJwt`.
 
 ## Step 3: the database is finished, the hardening leftovers (2026-10-30 20:22-22:20, step 3 session, platform build; commits 0e60178 and the one after it)
 Every command through `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs <command> --target staging`

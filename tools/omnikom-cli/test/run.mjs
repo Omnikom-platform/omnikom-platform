@@ -4,9 +4,9 @@
 // OMNIKOM_TEST_CLUSTER_PORT reuses a cluster a parent already started. Output lines start with "ok  " or "FAIL ".
 // Everything secret in these tests is generated at run time (no key literal in the file).
 import { randomBytes, createHash, createHmac } from 'node:crypto';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CLI_ROOT, REPO_ROOT, startCluster, freshDb, cli, makeFunctionModel, makeSupabaseModel } from './harness.mjs';
 
@@ -236,6 +236,102 @@ async function units() {
   check('production guard: apply --i-mean-production runs apply-staging with --url-env PROD_DB_URL', applyArgs && applyArgs.includes('--url-env') && applyArgs.includes('PROD_DB_URL') && applyArgs.includes('--i-mean-production'));
   r = await cli(['contract', 'validate', '--file', 'x.json', '--target', 'production'], PROD, spies);
   check('production guard: even a pure command is refused when asked to run against production', r.exit === 3);
+
+  // ---- audit and gate: thin calls into tools/audit (the engine has its own tests); the lines must come out exactly as the engine made them
+  const GOOD = join(REPO_ROOT, 'tools', 'audit', 'fixtures', 'good'), BAD = join(REPO_ROOT, 'tools', 'audit', 'fixtures', 'bad-MET-003');
+  const engine = await import(pathToFileURL(join(REPO_ROOT, 'tools', 'audit', 'index.mjs')).href);
+  const out = x => x.stdout.split('\n').filter(Boolean);
+  const FAIL_LINE = 'FAIL MET-003 /tasting-room/:48 ';
+  const engineGood = engine.audit(GOOD), engineBad = engine.audit(BAD);
+  // the counts come from the engine, not from a literal: the SEO department adds rules to tools/audit without touching this file (17 on 2026-10-31, 14 the day before)
+  const NP = engineGood.pages.length, NR = engineGood.rules.length;
+  r = await cli(['audit', '--dir', GOOD], {});
+  check('audit: the good site exits 0, every line but the summary starts with PASS, the summary counts the engine\'s pages and rules and 0 FAIL',
+    r.exit === 0 && out(r).slice(0, -1).every(l => l.startsWith('PASS ')) && out(r).length > 1 && out(r).at(-1).startsWith(`audit: ${NP} pages, ${NR} rules, 0 FAIL`), r.all.slice(-200));
+  check('audit: text mode prints no JSON object and nothing on stderr', !r.stdout.trimStart().startsWith('{') && r.stderr === '');
+  r = await cli(['audit', '--dir', BAD], {});
+  check('audit: the bad site exits 1 and its lines (minus the summary) are the engine\'s lines, identical and in order',
+    r.exit === 1 && JSON.stringify(out(r).slice(0, -1)) === JSON.stringify(engineBad.lines) && engineBad.lines.some(l => l.startsWith('FAIL ')), r.all.slice(-300));
+  check('audit: the last line counts the FAIL', out(r).at(-1) === `audit: ${NP} pages, ${NR} rules, 1 FAIL, 0 WARN, 0 SKIP`, out(r).at(-1));
+  r = await cli(['audit', '--dir', BAD, '--only', 'MET-003'], {});
+  check('audit --only MET-003 prints the one FAIL MET-003 line with its source',
+    r.exit === 1 && out(r).filter(l => l.startsWith('FAIL ')).length === 1 && out(r).some(l => l.startsWith(FAIL_LINE) && l.endsWith('(source: checklist/web-delivery.md MET-003)')) && out(r).slice(0, -1).every(l => l.includes(' MET-003 ')), r.all.slice(-300));
+  r = await cli(['audit', '--dir', BAD, '--only', ' MET-003 , ,met-003'], {});
+  check('audit --only: ids are split on commas, trimmed, empty ones dropped', r.exit === 1 && out(r).slice(0, -1).every(l => l.includes(' MET-003 ')) && out(r).at(-1).startsWith(`audit: ${NP} pages, 1 rules`), r.all.slice(-200));
+  r = await cli(['audit', '--dir', relative(process.cwd(), GOOD)], {});
+  check('audit: --dir is resolved against the current working directory', r.exit === 0 && out(r).at(-1).startsWith(`audit: ${NP} pages`), r.all.slice(-200));
+  r = await cli(['gate', '--dir', BAD], {});
+  check('gate: the bad site exits 1; first line GATE FAIL 1 finding(s), then the engine\'s FAIL line unchanged, nothing else',
+    r.exit === 1 && out(r).length === 2 && out(r)[0] === 'GATE FAIL 1 finding(s)' && out(r)[1] === engineBad.lines.find(l => l.startsWith('FAIL ')) && out(r)[1].startsWith(FAIL_LINE), r.all.slice(-300));
+  r = await cli(['gate', '--dir', GOOD], {});
+  check('gate: the good site exits 0 with the one line GATE PASS <pages> pages, <rules> rules', r.exit === 0 && r.stdout === `GATE PASS ${NP} pages, ${NR} rules\n`, r.all.slice(-200));
+  r = await cli(['gate'], {});
+  check('gate without --dir exits 2 (no default to the current folder)', r.exit === 2 && r.stdout.startsWith('ERROR ') && r.stdout.includes('--dir'), r.all);
+  r = await cli(['audit'], {});
+  check('audit without --dir exits 2', r.exit === 2 && r.stdout.startsWith('ERROR '), r.all);
+  r = await cli(['gate', '--dir', join(REPO_ROOT, 'tools', 'audit', 'fixtures', 'no-such-folder')], {});
+  check('gate --dir <missing folder> exits 2 (never 0)', r.exit === 2 && r.stdout.startsWith('ERROR '), r.all);
+  r = await cli(['audit', '--dir', join(GOOD, 'index.html')], {});
+  check('audit --dir <a file> exits 2', r.exit === 2, r.all);
+  r = await cli(['audit', '--dir', GOOD, '--target', 'staging'], {});
+  check('audit --target staging exits 2 (no target)', r.exit === 2 && r.stdout.includes('--target'), r.all);
+  r = await cli(['gate', '--dir', GOOD, '--target', 'local'], {});
+  check('gate --target local exits 2 (no target)', r.exit === 2, r.all);
+  r = await cli(['gate', '--dir', GOOD, '--only', 'MET-003'], {});
+  check('gate --only exits 2 (a gate with fewer rules is a weaker gate)', r.exit === 2 && r.stdout.includes('--only'), r.all);
+  r = await cli(['gate', '--dir', BAD, '--expect', 'AUDIT-FAILED'], {});
+  check('gate --expect exits 2: a verdict cannot be told to match a failure', r.exit === 2, r.all);
+  r = await cli(['audit', '--dir', BAD, '--expect', 'AUDIT-FAILED'], {});
+  check('audit --expect exits 2 as well', r.exit === 2, r.all);
+  r = await cli(['audit', '--dir', GOOD, '--only', 'NOPE-999'], {});
+  check('audit --only NOPE-999 exits 2: the engine\'s refusal passes through as usage with its message', r.exit === 2 && r.stdout.startsWith('ERROR ') && r.stdout.includes('NOPE-999') && !r.stdout.includes('crashed'), r.all);
+  r = await cli(['audit', '--dir', GOOD, '--only', 'NOPE-999', '--json'], {});
+  check('audit --only NOPE-999 --json: code USAGE, not AUDIT-CRASH', r.exit === 2 && r.json.code === 'USAGE', r.all);
+  r = await cli(['audit', '--dir', GOOD, '--only', ','], {});
+  check('audit --only with no id exits 2 from the CLI\'s own guard (not only the engine\'s: the engine refuses an empty list since 2026-10-31, so the message is what tells them apart)', r.exit === 2 && r.stdout.includes('--only needs at least one rule id'), r.all);
+  r = await cli(['audit', '--dir', GOOD, 'extra'], {});
+  check('audit with a stray argument exits 2', r.exit === 2, r.all);
+  const boom = { audit() { throw new Error('boom inside the engine'); } };
+  r = await cli(['audit', '--dir', GOOD], {}, { auditLib: boom });
+  check('audit: a crash inside the library exits 2 and prints one line ERROR audit crashed: <message>', r.exit === 2 && r.stdout === 'ERROR audit crashed: boom inside the engine\n', r.all);
+  r = await cli(['gate', '--dir', GOOD], {}, { auditLib: boom });
+  check('gate: a crash inside the library exits 2 (never 0, never 1) and prints ERROR audit crashed:', r.exit === 2 && r.stdout.startsWith('ERROR audit crashed: boom'), r.all);
+  r = await cli(['gate', '--dir', GOOD, '--json'], {}, { auditLib: boom });
+  check('gate --json: a crash is code AUDIT-CRASH, exit 2, with the error text', r.exit === 2 && r.json && r.json.code === 'AUDIT-CRASH' && r.json.error === 'audit crashed: boom inside the engine', r.all);
+  const throwingGetter = { get pass() { throw new Error('getter exploded'); }, lines: [], pages: [], rules: [] };
+  for (const [name, bogus] of [['nothing', {}], ['an object with no lines', { pass: true }], ['pass with FAIL lines', { pass: true, lines: ['FAIL X /a:1 y (source: z)'], pages: [], rules: [] }], ['a result that throws when read', throwingGetter]]) {
+    for (const command of ['gate', 'audit']) {
+      r = await cli([command, '--dir', GOOD], {}, { auditLib: { audit: () => bogus } });
+      check(command + ': a library that returns ' + name + ' is a crash (exit 2), never a pass', r.exit === 2 && r.stdout.startsWith('ERROR audit crashed:'), r.all);
+    }
+  }
+  r = await cli(['gate', '--dir', GOOD], {}, { auditLib: { audit: () => ({ pass: false, lines: ['WARN X /a:1 y (source: z)'], pages: ['/'], rules: [{ id: 'X' }] }) } });
+  check('gate: a library that says pass false is a failed gate even with no FAIL line (exit 1, GATE FAIL)', r.exit === 1 && r.stdout.startsWith('GATE FAIL 0 finding(s)'), r.all);
+  r = await cli(['audit', '--dir', GOOD, '--json'], {});
+  check('audit --json: one JSON object whose data has the engine\'s lines, pages, rules, pass and exit', r.exit === 0 && r.json && r.json.command === 'audit' && r.json.target === undefined && JSON.stringify(r.json.data.lines) === JSON.stringify(engineGood.lines) && r.json.data.exit === 0 && r.json.data.pass === true && r.json.data.pages.length === NP && r.json.data.rules.length === NR, r.all.slice(0, 200));
+  r = await cli(['audit', '--dir', BAD, '--json'], {});
+  check('audit --json on the bad site: exit 1, code AUDIT-FAILED, data.exit 1, data.lines equals the engine\'s', r.exit === 1 && r.json.code === 'AUDIT-FAILED' && r.json.data.exit === 1 && r.json.data.pass === false && JSON.stringify(r.json.data.lines) === JSON.stringify(engineBad.lines), r.all.slice(0, 200));
+  r = await cli(['gate', '--dir', BAD, '--json'], {});
+  check('gate --json: data.pass false, data.exit 1, data.fails is the FAIL line', r.exit === 1 && r.json.data.pass === false && r.json.data.exit === 1 && r.json.data.fails.length === 1 && r.json.data.fails[0] === engineBad.lines.find(l => l.startsWith('FAIL ')), r.all.slice(0, 200));
+  r = await cli(['gate', '--dir', GOOD, '--json'], {});
+  check('gate --json on the good site: data.pass true, data.exit 0, data.fails empty', r.exit === 0 && r.json.data.pass === true && r.json.data.exit === 0 && r.json.data.fails.length === 0 && r.json.target === undefined, r.all.slice(0, 200));
+  r = await cli(['gate', '--dir', GOOD, '--target', 'production'], {});
+  check('gate --target production is refused before anything runs (exit 3)', r.exit === 3, r.all);
+  // rule 1: a secret that the environment holds is masked on every printed line, text mode included
+  const SECRET = rand(), leakDir = mkdtempSync(join(tmpdir(), 'omnikom-audit-'));
+  try {
+    cpSync(GOOD, leakDir, { recursive: true });
+    cpSync(join(GOOD, 'about'), join(leakDir, SECRET), { recursive: true });
+    const leakEnv = { SOME_SECRET_KEY: SECRET };
+    const withPage = engine.audit(leakDir);
+    check('audit hygiene: the setup puts the secret into the engine\'s own lines (else the test measures nothing)', withPage.lines.some(l => l.includes(SECRET)));
+    for (const argv of [['audit', '--dir', leakDir], ['gate', '--dir', leakDir], ['audit', '--dir', leakDir, '--json'], ['gate', '--dir', leakDir, '--json']]) {
+      r = await cli(argv, leakEnv);
+      check('audit hygiene: ' + argv.filter(x => x !== '--dir' && x !== leakDir).join(' ') + ' never prints the secret', !r.all.includes(SECRET) && r.stdout.length > 0, r.all.slice(0, 200));
+    }
+    r = await cli(['audit', '--dir', leakDir], leakEnv);
+    check('audit hygiene: the masked value is named, not blanked', r.stdout.includes('<redacted:SOME_SECRET_KEY>'), r.all.slice(0, 200));
+  } finally { rmSync(leakDir, { recursive: true, force: true }); }
 }
 
 // ======================================================================================================== DATABASE

@@ -579,3 +579,19 @@
   what is built. Recorded as DECISIONS 35. Routed: SEO head (research stage slice after step 4, plan coverage, measure rerun),
   platform head (page types in step 5, gate on uncovered rows, dashboard rows). Nothing starts now.
 - 03:45 DECISIONS 35 backlog (prompt map: situation/comparison page types, lead-inbox export, uncovered-row gate, named/cited rows) recorded in the charter Open items; nothing planned for step 4. Due after 4.1: flaky walls test diagnosis.
+
+## 2026-10-30 22:11 to 2026-10-31 04:45 (HEAD: CLI and testing department, session `local_c8848ce4...`, Fable, this checkout, master)
+
+- Audit and gate commands PROVEN and committed (brief `tools/omnikom-cli/briefs/audit-gate-commands.md`; Sonnet builder as an in-session
+  agent; every mechanical run on a Haiku agent per DECISIONS 34): `omnikom audit --dir` and `omnikom gate --dir` as thin calls into
+  `tools/audit/index.mjs`. Head's own re-run: `test/run.mjs` 213 of 213, `test/mutate.mjs` 110 of 110 caught, six command runs on the
+  fixtures at the engine's 17 rules. Proof lines in PROGRESS.md "CLI: audit and gate commands"; spec `26-PLATFORM-CLI.md` section 7;
+  charter log line. The tests take page and rule counts from the engine (it grew 14 to 17 during the slice, SEO session, uncommitted).
+- Seen red and routed: the flaky privacy-requests wall of `tenancy.test.sql` (one CLI suite run 212 of 213 under load, one
+  `run-all-gates` database-walls FAIL; passed alone and as the mutants' baseline), on record with the head of operations since 01:40.
+  Findings for the SEO head: engine passed with `rules: ['']` (fixed in its open edits), `gate` obeys an `audit.config.json` in the folder.
+- UNPROVEN: the CLI gates against the SEO department's `tools/audit/` edits once committed (expected to hold; counts come from the engine).
+- NEXT: builder on `briefs/key-numbering-and-lead-ledgers.md` (released 22:40), then on `briefs/seed-test-site-and-status.md` (released
+  03:10 after slice 4.1; brief rewritten from the final `sites/test-demo-a/` files; decisions: contract version 2 for A only, rows through
+  `service.seed_version`, refs resolved at seed time, Agent Two from the CLI with slug and role, repair by a new version, media row for
+  the logo). Slice 2 waits for 4.2 on staging.

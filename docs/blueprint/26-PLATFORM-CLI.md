@@ -128,3 +128,20 @@ function is now PROVEN over HTTP against the real project. Known and accepted: a
 `verify` checks "not 202 and nothing stored"); `mfa enroll-staff` removing a stale factor ran only against the model. Builder briefs
 for the next slices live in `tools/omnikom-cli/briefs/` (slice 2 waits for build step 4; the stand-in flows wait for slice 2 and
 `push-lead`; slice 3 waits for steps 6 and 7).
+
+**Audit and gate commands (2026-10-31 04:40, CLI department head; builder brief `tools/omnikom-cli/briefs/audit-gate-commands.md`, the
+SEO department's command brief `tools/audit/briefs/slice-3-cli-command.md`):** `omnikom audit --dir <built folder> [--only <ids>]` and
+`omnikom gate --dir <built folder>` are thin calls into `tools/audit/index.mjs` (`commands/audit.mjs`, imported through `importRepo`, so the
+mutation runner's temp copy still finds the engine). Neither has a target (`--target` is usage; `ctxUsesTarget` leaves them out); `--dir`
+is required and must be a folder (exit 2); `--expect` is refused on both (a verdict that can be told to match a failure is not a gate);
+`--only` on `gate` is usage (fewer rules is a weaker gate); an empty `--only` is refused by the CLI itself (and, since 2026-10-31, by the
+engine too). Exits: 0 pass, 1 any FAIL, 2 usage or a crash (`AUDIT-CRASH`: the engine's `AuditError` passes through as usage with its
+message; any other throw, a malformed result, or a result that says pass while a line says FAIL, is a crash; a crash is never 0 or 1).
+Text mode (default) prints the engine's lines unchanged, then `audit: <pages> pages, <rules> rules, <fails> FAIL, <warns> WARN, <skips>
+SKIP`, or `GATE PASS <pages> pages, <rules> rules` / `GATE FAIL <n> finding(s)` plus the FAIL lines; every line goes through `redact`;
+`--json` gives the usual envelope (`gate` data: `pass`, `exit`, `fails`, `pages`, `rules`). A library can be injected through `deps.auditLib`
+for the crash tests. PROVEN by the head's own Haiku re-run (verbatim lines in PROGRESS.md "CLI: audit and gate commands"): `test/run.mjs`
+213 of 213, `test/mutate.mjs` 110 of 110 caught, the six command runs on `tools/audit/fixtures/good` and `bad-MET-003` at the engine's
+17 rules (the tests take the page and rule counts from the engine, not from literals: the SEO department adds rules without touching
+this file). Known: one run of the suite under load showed the flaky privacy-requests wall of `supabase/tests/tenancy.test.sql` (the head
+of operations' finding of 01:40), not a CLI check; the same suite passed as the mutants' baseline minutes later.
