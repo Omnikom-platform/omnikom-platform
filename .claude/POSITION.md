@@ -571,3 +571,11 @@
 - NEXT: verify 4.2 and 4.4 on report (Haiku re-run of the gate lines), then 4.3 and 4.5; verify the CLI audit slice commit and the
   seed-test slice; SEO slice 2 on report. Owner is notified only for a click or a decision (next: ELEV8 meeting answers, step 5 design
   references).
+
+## 2026-10-31 03:40 head of operations: prompt map decided (DECISIONS 35), routed to SEO and platform heads
+- Owner read a reel on prompt-shaped pages for AI search; my assessment: the citation loop exists in the skill (UNPROVEN live),
+  missing are the prompt map as an artifact (scenario, comparison, constraint, named, cited, one fix), the lead inbox as the
+  buyer's-words source, and two factory page types (situation, comparison). Owner: SEO backlog after step 4, and it must reach
+  what is built. Recorded as DECISIONS 35. Routed: SEO head (research stage slice after step 4, plan coverage, measure rerun),
+  platform head (page types in step 5, gate on uncovered rows, dashboard rows). Nothing starts now.
+- 03:45 DECISIONS 35 backlog (prompt map: situation/comparison page types, lead-inbox export, uncovered-row gate, named/cited rows) recorded in the charter Open items; nothing planned for step 4. Due after 4.1: flaky walls test diagnosis.

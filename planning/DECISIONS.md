@@ -256,3 +256,19 @@
     head (it was one session per step, DECISIONS 32): from step 4 the head plans the step as slices, runs Sonnet builders and
     Haiku runners inside itself, keeps the step's proof in PROGRESS.md and reports to the head of operations, who verifies at
     step level; a separate step session is started by the head of operations only when the head asks for one (context).
+
+35. **Every site is planned from a prompt map, and the map reaches the built pages** (2026-10-31 03:40, owner: "SEO backlog,
+    after step 4, yes, but it also needs to be counted for in the rest of the downstream chain, it needs to give us something
+    in what is actually built"; source: an Instagram reel by davi.d_roberts, DfIsQP_vCoC, caption and transcript read by the
+    head of operations; its numbers are the creator's claims and are not relied on). A prompt is a whole situation, not a
+    keyword: scenario + comparison + constraint. The research stage of the SEO skill produces a prompt map: each row a prompt,
+    its three parts, whether the business is named in ChatGPT, Perplexity and Gemini (owner captures and the Gemini check,
+    public and polite as today), the page cited, and ONE fix (new page, improve a page, earn a mention). Sources for the
+    buyer's words: the client's own lead inbox messages (that workspace only, never across clients), reviews and public
+    forum questions already mined. The chain must consume it: plan stage covers every row with a brief or a written reason;
+    briefs become contract pages, including two new page types the factory renders, `situation` and honest `comparison`
+    (public sourced facts about the other option only, never invented claims: Non-negotiable 3); the gate fails a build that
+    leaves a prompt-map row uncovered without a reason; the measure stage re-runs the map monthly and the dashboard shows
+    named/cited per prompt. Ordering: SEO department backlog, first slice after step 4 is proven; page types with the platform
+    head in step 5; the gate and the dashboard rows where those steps land. No 100-question volume target: a row without a
+    source is not a row.
