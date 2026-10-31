@@ -606,3 +606,7 @@
   Sources) checked against Google's own page: real, covers AI Overviews and AI Mode, but only for users who opted in; not a ranking
   shortcut. Sent to the platform head as a step 5 footer partial (production only, no nosnippet) with the invariant-comment ground
   rule. No decision needed from the owner.
+
+- 05:20 Reel 6 (unslop skill) assessed from the skill file: owner chose both pieces, DECISIONS 37. Routed to the SEO head as the
+  slice after slice 2 (copy with credit, DSN audit rules with tests and mutants, five-line direction and nine passes in the design
+  stage); the platform head is told step 5 look-folders open with the direction header. Nothing started.

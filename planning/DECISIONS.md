@@ -282,3 +282,18 @@
     Two other reels read the same night added nothing to record: Lean4 proofs generating C (our equivalent is a rule as a test
     with a mutant, and the static factory does all work at build time) and "local SEO, not general SEO" (the research and
     plan stages already carry a location on every target and brief; a capture without a location is rejected).
+
+37. **Design tells become audit rules; every look-folder opens with a five-line direction** (2026-10-31 05:20, owner: "Both
+    pieces, SEO dept after slice 2"; source: the open skill unslop by Damir Sokolovsky, github.com/heydamir/unslop, CC BY 4.0,
+    read by the head of operations on 2026-10-31 from the skill file itself, not the reel that pointed at it). (1) The skill is
+    copied into `skills/unslop/` with its credit kept and a row in `skills/SOURCE.md` (non-negotiable 1). (2) Its machine-
+    checkable tells become a rule family in `tools/audit` (a DSN prefix, each with a test watched red and a mutant): looping or
+    bouncy motion classes (animate-pulse, animate-ping, transition-all, hover:scale, shimmer), gradient text and hue gradients
+    as backgrounds, emoji in labels and headings, uppercase tracked labels, hype words and "AI-powered" copy, exclamation marks
+    in headlines, greeting headlines, PRO or Beta badges, unverifiable-claim patterns ("loved by N+ teams", "Nx faster"), font
+    weight 700 or more at under 14 px, negative letter spacing on small text. A built site that trips one does not publish.
+    (3) The design stage of the SEO skill requires the five-line direction (product, character, world, moments, signature; the
+    words clean, modern, sleek, minimal and premium banned) as the header of every look-folder's DESIGN.md, and the nine passes
+    (spacing, colour, icons, copy, type, layout, details, visuals, motion) as the builder's order of work for design partials;
+    step 5 builds under it. The skill's story video and snapshot scripts are not used (design-bench and the render gate exist).
+    Ordering: SEO department, after its slice 2 is proven; the rules land before step 5's first look-folder.
