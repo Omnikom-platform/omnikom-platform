@@ -649,3 +649,4 @@
   but without shellcheck, unlike ci.yml, so it is not the CI check. DECISIONS 42: CLI `tools ensure` + `omnikom ci` with one pinned
   manifest shared with ci.yml; CLI head's next slice. Lesson for me: a "could not run" in a verification is a capability gap to
   build, never a line in a report.
+- 08:10 OWNER BATCH (waits for him): (1) in the CLI head session, a yes to download the pinned tool binaries (actionlint, shellcheck, gitleaks, deno) into .tools/ for `omnikom ci` (DECISIONS 42; downloads need his own word in that session); (2) ELEV8 meeting answers; (3) six client findings; (4) registering the big-output hook in his settings; (5) any production click. CLI head proves the rest offline with fixture archives meanwhile; shellcheck pin in ci.yml routed to the platform head.
