@@ -622,6 +622,64 @@ Findings: the sites row's `preview_host` on staging is the seed's placeholder `d
 `preview.test-site-demo-a.pages.dev`; publish.mjs checks that address): for the CLI head's `seed test`. A row published on the SQL path skips
 publish validation and then breaks every later build of the site (the factory stops it, nothing deploys): open item.
 
+### 4.6 publish-ready wall: head's verification (2026-10-31 16:30 local)
+Ordered by the head of operations: "Make the SQL-path publish bypass a wall." PROVEN locally on the quick suite, the long suites
+(all 248 wall mutants, all Deno mutants) run in CI on the push (a runner does them in minutes; this machine takes 55 min and about
+5 h under load). Head re-run (scratchpad verify-46.sh), pasted:
+```
+== parity
+  4361 items have at least one required path, 10108 are complete
+OK: 14469 items, SQL and JS agree on every required path
+== deno tests
+OK: 87 of 87 checks passed (the Deno tests), exit 0
+== deno check
+exit 0
+== specs
+OK: 13 operations, 13 operationIds; 47 FR/NFR rows, 40 work orders, 0 problem(s)
+== no model
+OK: planted tells found, 10 mutants caught, no model in runtime code (DECISIONS 38)
+== walls: real migration + the new mutants only (--only "publish-ready")
+OK: real migration passes; 33 mutants
+== staging status
+      "pending": [],
+      "mismatched": [],
+```
+The test site still publishes through the wall (stage.mjs unpublished the complete listing e2e-export leaves, then publish.mjs):
+```
+UNPUB   listings (not in rows.json)  0877c787-1b59-44fc-9617-eb49a8493016 was v1
+OK: contract version 2, 12 rows (0 at version 1)
+publish 202: job b78626d3-461b-4bca-ad46-beec513a3c33, state queued, dispatched true, 12 rows
+JOB b78626d3-461b-4bca-ad46-beec513a3c33: done; events queued > building > gating > deploying > done; deploy 30e04bdf; error -
+gate report: {"audit":{"exit":0,"fails":[]},"factory":"pass"}
+PREVIEW preview.test-site-demo-a.pages.dev/: HTTP 200; x-robots-tag "noindex, nofollow"; h1 "Homes in Alpha and Beta"
+```
+Watched red: the builder's red run before the migration (below) and the parity script's two deliberate breaks. Open: the local
+wall gate is near the 60-minute limit on a loaded machine (CI runs it in about 3 minutes); the CI result of this commit is the full
+mutant proof.
+
+### 4.6 publish-ready wall (builder)  (2026-10-31 12:30 to 16:10 local, builder session, brief `factory/briefs/4-6-publish-ready-wall.md`)
+A row that fails publish validation can no longer be published on any path. Migration `20261031000011_publish_ready_wall.sql`: `private.publish_problems`
+(a SQL port of the REQUIRED rules of `contracts/validate.mjs`, publish mode, nothing else; types, max, slug, enum, references, media, placeholder text,
+consent wording and sample items stay in JS), layer one a trigger before insert on `publish_jobs`, layer two a trigger before update of
+`published_version` on `content_rows`; both definer, empty search_path, fire for a superuser; no active contract = refused (`I-NOT-READY`).
+`_shared/db.ts` maps `I-NOT-READY` to 422. Evidence (every line pasted from the run):
+- Red before the migration (`node supabase/tests/run-local.mjs --only __none__`): `FAIL real migration:` ... `tests.sql:913: ERROR:  function private.publish_problems(jsonb, text, jsonb) does not exist` ... `FAILED: real migration fails; 0 mutants`.
+- After: `PASS real migration: ALL TENANCY TESTS PASSED` and `OK: real migration passes; 248 mutants` (215 + 33 new, all `caught`, none SURVIVED; one first-run
+  `MUTANT TARGET MISSING` was my own typo in a target, fixed). The existing fixtures that published bare rows were made complete (the test contract gained
+  `required` on listings street and status and team name; a `pages` collection and a `home` page type for the seo, group, list, section rules); no assertion was weakened.
+- Parity: `node supabase/tests/publish-parity.mjs` ends `OK: 14469 items, SQL and JS agree on every required path` (6 contracts: core only, an inline stress contract,
+  sites/test-demo-a, elev8, rainmaker, vtv; every collection; every node of a complete item damaged ten ways). Watched red with a deliberate in-memory break:
+  `--break seo-description` -> `FAILED: 696 of 14469 items differ between the JS validator and private.publish_problems (deliberate break: seo-description)` (`JS only: ["seo.description"]`);
+  `--break group` -> `FAILED: 90 of 14469 items differ ... (deliberate break: group)` (`JS only: ["sections.cta.box.a"]`). Gate line added to `run-all-gates.mjs`.
+- Deno: `OK: 87 of 87 checks passed (the Deno tests), exit 0`; new check in db.test.ts (`I-NOT-READY` -> 422, its own code, plain words) and a mutant for it; mutants run on the
+  files this slice can touch: `node supabase/functions/test/mutate.mjs --only "db:|publish:"` -> `6 mutants, 6 caught, 0 survived, 0 target text missing`.
+  The FULL `mutate.mjs` (72 mutants, about 4 minutes each on the loaded machine) was started and stopped after 5 mutants (all caught): NOT DONE in full, see the report.
+- `deno task check` exit 0; `check-specs.mjs` `OK: 13 operations, 13 operationIds; 47 FR/NFR rows, 40 work orders, 0 problem(s)`;
+  `node docs/blueprint/specs/run-all-gates.mjs` (GATE_ONLY unset, GATE_TIMEOUT_MS=10800000 because the wall gate took 55 minutes under load) ends `all gates passed`.
+- Staging: `omnikom apply --target staging` -> `OK: applied 1 of 11 (10 were already applied)`; `status`: 11 applied, `pending: []`, `mismatched: []`;
+  `supabase/tests/e2e-export.mjs` -> `PASS: staging end to end for the runner functions, 0 problem(s)` (its listing is now complete for the test contract; it leaves one
+  published complete listing per run, which `sites/test-demo-a/stage.mjs` unpublishes). The wall itself was not poked on staging (that would write a bare row there).
+
 ## Step 3: the database is finished, the hardening leftovers (2026-10-30 20:22-22:20, step 3 session, platform build; commits 0e60178 and the one after it)
 Every command through `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs <command> --target staging`
 (the CLI redacts secrets; the lines below are its real output, trimmed to the lines that matter). Local gates ran on this machine.

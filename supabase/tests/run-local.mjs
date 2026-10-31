@@ -34,14 +34,21 @@ if (r.status !== 0) { console.error('pg_ctl start failed:', r.stderr, readFileSy
 for (const [n, t] of [['shim.sql', shimText], ['tests.sql', testText]]) writeFileSync(join(dir, n), t);
 
 const psql = (db, file) => run('psql', ['-h', '127.0.0.1', '-p', PORT, '-U', 'postgres', '-d', db, '-v', 'ON_ERROR_STOP=1', '-q', '-f', file]);
+const sqlOn = (db, cmd) => run('psql', ['-h', '127.0.0.1', '-p', PORT, '-U', 'postgres', '-d', db, '-q', '-t', '-A', '-c', cmd]);
+// A child that could not run at all (spawn error, timeout) has null output: say why instead of crashing on null.
+const outOf = x => `${x.stdout ?? ''}${x.stderr ?? ''}${x.error ? `\n(${x.error.code || x.error.message})` : ''}`.trim();
+const pgLogTail = (n = 15) => { try { return readFileSync(join(dir, 'pg.log'), 'utf8').trim().split(/\r?\n/).slice(-n).join('\n'); } catch { return '(no pg.log)'; } };
 const fresh = (name, migrationText) => {
-  run('psql', ['-h', '127.0.0.1', '-p', PORT, '-U', 'postgres', '-d', 'postgres', '-q', '-c', `create database ${name}`]);
+  sqlOn('postgres', `create database ${name}`);
   const m = join(dir, `${name}.sql`);
   writeFileSync(m, migrationText);
-  for (const f of [join(dir, 'shim.sql'), m]) { const x = psql(name, f); if (x.status !== 0) return { setup: false, out: x.stderr }; }
+  for (const f of [join(dir, 'shim.sql'), m]) { const x = psql(name, f); if (x.status !== 0) return { setup: false, out: outOf(x) }; }
   const t = psql(name, join(dir, 'tests.sql'));
-  return { setup: true, ok: t.status === 0, out: (t.stdout + t.stderr).trim() };
+  return { setup: true, ok: t.status === 0, out: outOf(t) };
 };
+// Every mutant database is dropped after its run (and its SQL file deleted): 215 kept databases filled a CI runner's disk once
+// (run 41187071384 attempt 1: the walls died mid-run, then the next gate could not write a file). Only `real` stays until the end.
+const done = (name) => { sqlOn('postgres', `drop database if exists ${name}`); rmSync(join(dir, `${name}.sql`), { force: true }); };
 
 // The walls, each removed in one mutant. Every target must exist in the migration (as written, or schema-qualified: since
 // migration 8 every SECURITY DEFINER function exists twice in the migration text, the original and its qualified copy with
@@ -261,29 +268,83 @@ const MUTANTS = [
     [`migration 9 closes service.${sig.split('(')[0]} to anon, authenticated, PUBLIC (both layers)`, [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], [`revoke all on function service.${sig} from public, anon, authenticated;`, '-- (revoke removed)']]],
     [`migration 9 opens service.${sig.split('(')[0]} to the function role (both layers)`, [['alter default privileges in schema service grant execute on functions to service_role, omnikom_fn;', '-- (no default grant)'], [`grant execute on function service.${sig} to omnikom_fn;`, '-- (grant removed)']]],
   ]),
+  // Migration 11 (slice 4.6, 20261031000011_publish_ready_wall.sql): the publish-ready wall. Layer one is a trigger on publish_jobs, layer two a
+  // trigger on content_rows.published_version; the rules are a SQL port of the REQUIRED rules of contracts/validate.mjs (publish mode).
+  ...(() => {
+    const T1 = 'create trigger publish_jobs_ready before insert on public.publish_jobs for each row execute function private.check_job_ready();';
+    const T2 = 'create trigger content_rows_ready before update of published_version on public.content_rows for each row\n  when (new.published_version is not null and new.published_version is distinct from old.published_version)\n  execute function private.check_version_ready();';
+    const NOCON1 = "  if res is null then raise exception 'I-NOT-READY: % no active contract', new.workspace_id; end if;\n  for r in select";
+    const NOCON2 = "  if res is null then raise exception 'I-NOT-READY: % no active contract', new.workspace_id; end if;\n  select v.data into d";
+    const fns = ['js_truthy(jsonb)', 'publish_empty(jsonb)', 'publish_has_text(jsonb)', 'publish_problems_object(jsonb, text, text, jsonb, jsonb)', 'publish_problems_value(jsonb, text, text, jsonb, jsonb)',
+      'publish_problems(jsonb, text, jsonb)', 'check_job_ready()', 'check_version_ready()'];
+    return [
+      ['publish-ready: layer one, no job for a row that is not ready (insert trigger)', T1, '-- (no insert trigger)'],
+      ['publish-ready: layer two, no row goes live at a bare version (update trigger)', T2, '-- (no update trigger)'],
+      ['publish-ready: both layers removed together', [[T1, '-- (no insert trigger)'], [T2, '-- (no update trigger)']]],
+      ['publish-ready: layer two only fires on a change of version', 'and new.published_version is distinct from old.published_version)', ')'],
+      ['publish-ready: layer two lets a row go off the site (new value null)', 'when (new.published_version is not null and', 'when (true and'],
+      ['publish-ready: layer one needs an active contract', NOCON1, '  for r in select'],
+      ['publish-ready: layer two needs an active contract', NOCON2, '  select v.data into d'],
+      ['publish-ready: layer one, a version that does not exist', "    if not found then raise exception 'I-NOT-READY: % version % not found in this workspace', r.row_id, r.n; end if;\n", ''],
+      ['publish-ready: layer one, the row is of the job\'s workspace', 'where c.id = r.row_id::uuid and c.workspace_id = new.workspace_id and v.n = r.n::int;', 'where c.id = r.row_id::uuid and v.n = r.n::int;'],
+      ['publish-ready: layer two, a version that does not exist', "  if not found then raise exception 'I-NOT-READY: % version % not found', new.id, new.published_version; end if;\n", ''],
+      ["publish-ready: empty treats '' as present", "$$ select v is null or v in ('null'::jsonb, '\"\"'::jsonb, '[]'::jsonb) $$;", "$$ select v is null or v in ('null'::jsonb, '[]'::jsonb) $$;"],
+      ['publish-ready: empty treats white space as empty', "$$ select v is null or v in ('null'::jsonb, '\"\"'::jsonb, '[]'::jsonb) $$;", "$$ select v is null or v in ('null'::jsonb, '\"\"'::jsonb, '[]'::jsonb) or (jsonb_typeof(v) = 'string' and btrim(v #>> '{}') = '') $$;"],
+      ['publish-ready: a required value is a problem', "    if private.js_truthy(p_field -> 'required') then return array[p_path || ' required']; end if;", '    null;'],
+      ['publish-ready: a missing optional value is not a problem', "    if private.js_truthy(p_field -> 'required') then return array[p_path || ' required']; end if;", "    return array[p_path || ' required'];"],
+      ['publish-ready: seo title required', "      if not private.publish_has_text(v -> 'title') then probs := probs || (p_path || '.title required'); end if;", '      null;'],
+      ['publish-ready: seo description required', "      if not private.publish_has_text(v -> 'description') then probs := probs || (p_path || '.description required'); end if;", '      null;'],
+      ['publish-ready: seo text is trimmed', "~ '[^\\s\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]'", "~ '.'"],
+      ['publish-ready: a section with required fields must be present', "          probs := probs || (p_path || '.' || (x.sec ->> 'id') || ' required');", '          null;'],
+      ['publish-ready: a present section is entered', "            probs := probs || private.publish_problems_object(p_types, p_page_type, p_path || '.' || x.k, x.sv, coalesce(s -> 'fields', '{}'::jsonb));", '            null;'],
+      ['publish-ready: a group is entered', "      probs := probs || private.publish_problems_object(p_types, p_page_type, p_path, v, coalesce(p_field -> 'of', '{}'::jsonb));", '      null;'],
+      ['publish-ready: a list is entered row by row', "        probs := probs || private.publish_problems_object(p_types, p_page_type, p_path || '[' || i || ']', v -> i, coalesce(p_field -> 'of', '{}'::jsonb));", '        null;'],
+      ['publish-ready: an open group is not entered', "  elsif t = 'group' and not private.js_truthy(p_field -> 'open') then", "  elsif t = 'group' then"],
+      ['publish-ready: a sourced value is unwrapped', "    v := v -> 'value';", '    null;'],
+      ['publish-ready: a sourced value needs its source', "and (v ->> 'source') <> ''", 'and true'],
+      ['publish-ready: an unknown collection is a problem', "  if jsonb_typeof(c) is distinct from 'object' then return array[p_collection || ' unknown collection']; end if;", '  null;'],
+      ...fns.map(sig => [`publish-ready: migration 11 closes private.${sig.split('(')[0]} to anon, authenticated, PUBLIC (both layers)`,
+        [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], [`revoke all on function private.${sig} from public, anon, authenticated;`, '-- (revoke removed)']]]),
+    ];
+  })(),
 ];
 
 // remove a wall from the original text and, when the wall lives in a function body, from its schema-qualified copy too
 const mutate = (s, x, y) => { let t = s.split(x).join(y); const qx = qualify(x); if (qx !== x) t = t.split(qx).join(qualify(y)); return t; };
 
-let failed = 0;
-const real = fresh('real', src);
-console.log(real.setup && real.ok ? `PASS real migration: ${real.out.split('\n').filter(l => /PASSED/.test(l)).join(' ').trim()}` : `FAIL real migration:\n${real.out.split('\n').filter(l => /ERROR|EXPECTED|assert/i.test(l)).join('\n')}`);
-if (!(real.setup && real.ok)) failed++;
-let n = 0, ran = 0;
-for (const [name, a, b] of MUTANTS) {
-  if (ONLY && !name.includes(ONLY)) continue;
-  ran++;
-  const pairs = Array.isArray(a) ? a : [[a, b]];
-  const missing = pairs.find(([x]) => !src.includes(x) && !src.includes(qualify(x)));
-  if (missing) { console.log(`MUTANT TARGET MISSING: ${name}: ${missing[0].slice(0, 60)}`); failed++; continue; }
-  const m = fresh(`m${++n}`, pairs.reduce((s, [x, y]) => mutate(s, x, y), src));
-  const caught = m.setup && !m.ok;
-  if (!caught) failed++;
-  const why = (m.out.match(/(EXPECTED[^\n]*|Assertion[^\n]*|assert[^\n]*|ERROR:[^\n]*)/) || [''])[0].slice(0, 120);
-  console.log(`${caught ? 'caught  ' : (m.setup ? 'SURVIVED' : 'SETUP-FAIL')} ${name.padEnd(44)} ${why}`);
+let failed = 0, crashed = null, real = { setup: false, ok: false, out: '' }, ran = 0, left = '?';
+try {
+  real = fresh('real', src);
+  console.log(real.setup && real.ok ? `PASS real migration: ${real.out.split('\n').filter(l => /PASSED/.test(l)).join(' ').trim()}` : `FAIL real migration:\n${real.out.split('\n').filter(l => /ERROR|EXPECTED|assert|\(E[A-Z]+\)/i.test(l)).join('\n')}`);
+  if (!(real.setup && real.ok)) failed++;
+  let n = 0;
+  for (const [name, a, b] of MUTANTS) {
+    if (ONLY && !name.includes(ONLY)) continue;
+    ran++;
+    const pairs = Array.isArray(a) ? a : [[a, b]];
+    const missing = pairs.find(([x]) => !src.includes(x) && !src.includes(qualify(x)));
+    if (missing) { console.log(`MUTANT TARGET MISSING: ${name}: ${missing[0].slice(0, 60)}`); failed++; continue; }
+    const db = `m${++n}`;
+    const m = fresh(db, pairs.reduce((s, [x, y]) => mutate(s, x, y), src));
+    done(db);
+    const caught = m.setup && !m.ok;
+    if (!caught) failed++;
+    const why = (m.out.match(/(EXPECTED[^\n]*|Assertion[^\n]*|assert[^\n]*|ERROR:[^\n]*|\(E[A-Z]+\))/) || [''])[0].slice(0, 120);
+    console.log(`${caught ? 'caught  ' : (m.setup ? 'SURVIVED' : 'SETUP-FAIL')} ${name.padEnd(44)} ${why}`);
+    if (!m.setup) console.log(`  setup output: ${m.out.split('\n').slice(-3).join(' | ').slice(0, 300)}\n  server log:\n${pgLogTail(8).replace(/^/gm, '    ')}`);
+  }
+  // no mutant database may be left behind (the disk wall above); `real` is the only database of ours
+  const q = sqlOn('postgres', "select count(*) from pg_database where datname ~ '^m[0-9]+$'");
+  left = (q.stdout ?? '').trim();
+  if (left !== '0') { console.log(`FAIL mutant databases left behind: ${left || outOf(q)}`); failed++; }
+} catch (e) {
+  crashed = e;
+  failed++;
+  console.log(`CRASH ${e && e.code ? e.code + ' ' : ''}${String(e && e.stack || e).split('\n').slice(0, 4).join(' | ')}`);
+  console.log(`server log:\n${pgLogTail()}`);
+} finally {
+  run('pg_ctl', ['-D', data, '-m', 'fast', 'stop']);   // always: a crash must not leave a server running
+  if (!process.argv.includes('--keep')) rmSync(dir, { recursive: true, force: true });
 }
-run('pg_ctl', ['-D', data, '-m', 'fast', 'stop']);
-if (!process.argv.includes('--keep')) rmSync(dir, { recursive: true, force: true });
-console.log(`\n${failed ? 'FAILED' : 'OK'}: real migration ${real.ok ? 'passes' : 'fails'}; ${ran} mutants`);
+console.log(`\n${failed ? 'FAILED' : 'OK'}: real migration ${real.ok ? 'passes' : 'fails'}; ${ran} mutants${crashed ? ' (CRASHED, see CRASH above)' : ''}`);
 process.exit(failed ? 1 : 0);

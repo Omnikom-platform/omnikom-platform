@@ -12,6 +12,7 @@ const GATES = [
   ['contract mutants', 'contracts/test/mutate.mjs'],
   ['industry run', 'contracts/industry-run/run.mjs'],
   ['database walls + mutants', 'supabase/tests/run-local.mjs'],
+  ['publish-ready parity (SQL vs JS)', 'supabase/tests/publish-parity.mjs'],   // slice 4.6: the SQL port of the REQUIRED rules agrees with contracts/validate.mjs on every item
   ['function tests (Deno)', 'supabase/functions/test/run.mjs'],   // slice 4.2 harness: a local cluster + the Edge Functions under Deno, about 2 to 5 minutes; its mutants (mutate.mjs) are the slice gate, too long for here
   ['specs + traceability', 'docs/blueprint/specs/check-specs.mjs'],
   ['machine-call signature', 'supabase/functions/_shared/signature.test.mjs'],

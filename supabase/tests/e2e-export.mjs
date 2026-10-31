@@ -12,6 +12,7 @@ import { parseIdentity, personToken } from '../../tools/omnikom-cli/lib/identity
 import { callFunction } from '../../tools/omnikom-cli/lib/fn.mjs';
 import { sign } from '../../tools/omnikom-cli/lib/sign.mjs';
 import { main as cli } from '../../tools/omnikom-cli/omnikom.mjs';
+import { makeSql } from '../../tools/omnikom-cli/lib/sql.mjs';
 
 const WS_A = 'aaaaaaaa-0000-0000-0000-000000000000';
 const target = resolveTarget('staging', process.env, { needDb: false });
@@ -103,7 +104,19 @@ try {
   }
 
   // ---- a publish job for owner-a's row, started on the SQL path
-  const s = await fn('save', 'owner-a', { workspace: WS_A, collection: 'listings', row: null, data: { street: `4.3 e2e ${stamp}` } });
+  // A listing the active contract accepts for PUBLISH: since migration 11 (the publish-ready wall) the database refuses a job for a row that
+  // fails the required rules, so a bare { street } listing is refused on the SQL path (slice 4.6). The two references are read from the
+  // test site's own rows (read-only SQL, the connection string read by name): the town Alpha and Agent One.
+  const sqlRead = makeSql({ url: target.dbUrl, readOnly: true });
+  const refOf = (coll, slug) => { const r = sqlRead.rows(`select c.id from public.content_rows c join public.content_versions v on v.row_id = c.id where c.workspace_id = '${WS_A}' and c.collection = '${coll}' and c.deleted_at is null and v.data ->> 'slug' = '${slug}' order by v.n desc limit 1`); return r.ok && r.rows[0] ? r.rows[0].id : null; };
+  const area = refOf('areas', 'alpha'), agent = refOf('team', 'agent-one');
+  line(!!area && !!agent, 'the test site has its town Alpha and Agent One (references for the listing)', area && agent ? 'found' : 'missing: stage the test site first (sites/test-demo-a/stage.mjs)');
+  if (!area || !agent) throw new Error('no references for the listing');
+  const tag = stamp.replace(/[^0-9]/g, '');
+  const listing = { sample: false, street: `4.3 e2e ${stamp}`, slug: `e2e-${tag}`, address: { street: `4.3 e2e ${stamp}`, city: 'Alpha' }, status: 'active', price: { amount: 450000, currency: 'USD' },
+    description: 'A synthetic home saved by the staging export test; it is unpublished by the test site staging script.', area, agent,
+    seo: { title: 'E2E test home in Alpha', description: 'A synthetic listing saved by the staging export test, used only to prove the runner export.' } };
+  const s = await fn('save', 'owner-a', { workspace: WS_A, collection: 'listings', row: null, data: listing });
   line(s.status === 200 && s.json && s.json.row, 'save by owner-a is 200 (a row to publish)', brief(s));
   if (!(s.json && s.json.row)) throw new Error('no row to publish');
   const j1 = await startJob(s.json.row);

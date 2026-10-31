@@ -26,6 +26,7 @@ const MUTANTS = [
   ['dashboard: no body cap (256 KiB)', F + '_shared/dashboard.ts', "  if (text.length > MAX_BODY) return problem(413, 'SIZE', 'This request is too large.');\n", ''],
   ['dashboard: any method', F + '_shared/dashboard.ts', "  if (req.method !== 'POST') return problem(405, 'METHOD', 'POST only.');\n", ''],
   ['db: no step-down to omnikom_fn', F + '_shared/db.ts', "await sql.unsafe('set role omnikom_fn');", "await sql.unsafe('select 1');"],
+  ['db: I-NOT-READY is not a 422 with its own code', F + '_shared/db.ts', "  if (has('I-NOT-READY')) return { status: 422, code: 'I-NOT-READY', kind: 'refused', msg: 'Some items are not ready to publish.' };\n", ''],
   ['save: the contract_for refusal is ignored (validation first)', F + 'save/index.ts',
     "    const [{ contract }] = await c.sql`select service.contract_for(${c.jwtClaims}::jsonb, ${workspace}::uuid) as contract`;",
     "    let contract: unknown; try { [{ contract }] = await c.sql`select service.contract_for(${c.jwtClaims}::jsonb, ${workspace}::uuid) as contract`; } catch { contract = { collections: {} }; }"],

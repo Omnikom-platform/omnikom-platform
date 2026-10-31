@@ -50,6 +50,8 @@ export function refusal(message: string): Refusal | null {
   if (has('S-WORKSPACE-STATE')) return { status: 409, code: 'S-WORKSPACE-STATE', kind: 'refused', msg: 'This workspace cannot publish right now.' };
   if (has('S-SITE-PAUSED')) return { status: 409, code: 'S-SITE-PAUSED', kind: 'suspended', msg: 'This site is paused.' };
   if (has('S-KIND')) return { status: 422, code: 'S-KIND', kind: 'refused', msg: 'This kind of item cannot be published.' };
+  // migration 11, the second layer: the function validated first (422 VALIDATION), so this fires only when something else got past it
+  if (has('I-NOT-READY')) return { status: 422, code: 'I-NOT-READY', kind: 'refused', msg: 'Some items are not ready to publish.' };
   if (has('S-COLLECTION')) return { status: 422, code: 'S-COLLECTION', kind: 'refused', msg: 'This site has no such collection.' };
   if (has('S-QUOTA')) return { status: 429, code: 'S-QUOTA', kind: 'quota', msg: 'Please try again later.' };
   if (has('S-NOTE')) return { status: 400, code: 'LENGTH', kind: null, msg: 'A note is at most 2000 characters.' };

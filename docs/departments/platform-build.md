@@ -23,6 +23,7 @@ proven on staging through the CLI the testing department provides.
 - `.github/`
 - `tools/deploy-functions.mjs`
 - `tools/github-secrets.mjs`
+- `apps/dashboard/`
 
 ## Does not touch
 Every path not listed above. In particular `tools/omnikom-cli/` (the testing department's): a step session that needs a new CLI
@@ -216,3 +217,4 @@ sent to the head of operations with options, never a fix made here.
 - 2026-10-31 06:40, standing head: slice 4.4 (runner and five workflows) PROVEN against fakes, Haiku re-run equal to the builder (87 checks, 67 mutants, actionlint clean, actions pinned by SHA, secrets dry-run names only); UNPROVEN against the real functions, Pages and GitHub until 4.5; ci.yml caps raised (gates 75, factory 60). Proof in PROGRESS.md "4.4 runner and workflows: head's verification". Builder 4.3 running; then the model switch (DECISIONS 40).
 - 2026-10-31 10:55, standing head: slice 4.3 (runner functions) PROVEN, Haiku re-run (deno check, specs, staging status with the four functions deployed, staging e2e-export 31 PASS, 0 problems) and the walls by the head (215 mutants); the security-event wall scoped to its own event (finding from the CLI head), watched red with an earlier event planted, new mutant caught. PROGRESS.md "4.3 runner functions: head's verification" and "4.5".
 - 2026-10-31 11:50, standing head: slice 4.5, step 4 DONE on the test site: a save reached preview.test-site-demo-a.pages.dev through GitHub (job 3f0a94e5, deploy 1321b598, the new heading served with noindex), a forced heading failure deployed nothing (job c8b1ca8d failed at the gate, MET-003), the workflows job green on GitHub; logo through media.yml, contract v2 and 12 rows by sites/test-demo-a/stage.mjs. PROGRESS.md "4.5". The ELEV8 preview waits on the owner.
+- 2026-10-31 14:20, standing head: `apps/dashboard/` added to Owns on the head of operations' routing (markup plain and semantic; the styling layer goes to the Design department, DECISIONS 39, when the owner's references arrive). Step 5 and step 6 prep planned in factory/briefs/5-0-step-5-and-6-plan.md; 6A and 6B builders running; 5.1 after 4.6; 5.3 waits for the OK on E: space.

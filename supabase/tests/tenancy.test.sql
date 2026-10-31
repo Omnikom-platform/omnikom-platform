@@ -64,10 +64,14 @@ insert into sites (id, workspace_id, deploy_target, preview_host) values
  ('bbbbbbbb-0000-0000-0000-00000000517e', 'bbbbbbbb-0000-0000-0000-000000000000', 'test-site-demo-b', 'demo-b.preview.test');
 insert into site_contracts (workspace_id, version, contract, resolved, active)
 select ws, 1, '{}'::jsonb, '{"collections":{
-  "team":{"kind":"collection","access":{"member":"own"},"ownerField":"self","fields":{"name":{"type":"text"},"licence":{"type":"group","locked":{"reason":"fact"}}}},
-  "listings":{"kind":"collection","access":{"member":"own"},"ownerField":"agent","fields":{"street":{"type":"text"},"agent":{"type":"reference","to":"team"}}},
+  "team":{"kind":"collection","access":{"member":"own"},"ownerField":"self","fields":{"name":{"type":"text","required":true},"licence":{"type":"group","locked":{"reason":"fact"}}}},
+  "listings":{"kind":"collection","access":{"member":"own"},"ownerField":"agent","fields":{"street":{"type":"text","required":true},"status":{"type":"enum","options":["for-sale","sold"],"required":true},"agent":{"type":"reference","to":"team"}}},
+  "pages":{"kind":"collection","access":{"member":"none"},"fields":{"type":{"type":"text","required":true},"title":{"type":"text","required":true},"seo":{"type":"seo","required":true},
+    "contact":{"type":"group","of":{"phone":{"type":"text","required":true},"hours":{"type":"text"}}},"rooms":{"type":"list","of":{"name":{"type":"text","required":true}}},
+    "free":{"type":"group","open":true,"of":{"x":{"type":"text","required":true}}},"fact":{"type":"group","sourced":true,"of":{"n":{"type":"text","required":true}}},"sections":{"type":"sections"}}},
   "settings":{"kind":"singleton","access":{"member":"none"},"fields":{"businessName":{"type":"text"},"licences":{"type":"list","locked":{"reason":"fact"}}}},
-  "leads":{"kind":"inbox","access":{"member":"own"},"ownerField":"owner","fields":{"status":{"type":"enum"}}}}}'::jsonb, true
+  "leads":{"kind":"inbox","access":{"member":"own"},"ownerField":"owner","fields":{"status":{"type":"enum"}}}},
+  "pageTypes":{"home":{"sections":[{"id":"hero","kind":"fields","fields":{"headline":{"type":"text","required":true}}},{"id":"extras","kind":"fields","fields":{"note":{"type":"text"}}},{"id":"feed","kind":"feed","accepts":"listings"}]}}}'::jsonb, true
 from (values ('aaaaaaaa-0000-0000-0000-000000000000'::uuid), ('bbbbbbbb-0000-0000-0000-000000000000'::uuid)) v(ws);
 insert into members (workspace_id, user_id, role) values
  ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000000a', 'owner'),
@@ -117,11 +121,11 @@ select test.expect_error($q$select test.save('aaaaaaaa-0000-0000-0000-0000000000
 
 -- ===== T2 member: own items only; owner field from the login =====
 select test.act_as('00000000-0000-0000-0000-0000000000a1');
-insert into test.ids select 'listing1', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"1 Demo Rd"}');
+insert into test.ids select 'listing1', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"1 Demo Rd","status":"for-sale"}');
 do $$ begin assert (select owner_team_row from content_rows where id = test.id('listing1')) = test.id('team1'), 'owner field set from the login'; end $$;
 select test.expect_error($q$select test.save('aaaaaaaa-0000-0000-0000-000000000000','settings',null,'{"businessName":"X"}')$q$, 'S-ROLE');
 select test.act_as('00000000-0000-0000-0000-0000000000a2');
-insert into test.ids select 'listing2', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"2 Demo Rd"}');
+insert into test.ids select 'listing2', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"2 Demo Rd","status":"for-sale"}');
 select test.expect_error(format($q$select test.save('aaaaaaaa-0000-0000-0000-000000000000','listings',%L,'{"street":"hijack"}')$q$, test.id('listing1')), 'S-OWN-ONLY');
 select test.expect_error(format($q$select test.save('aaaaaaaa-0000-0000-0000-000000000000','listings',null,'{"street":"for someone else","agent":"%s"}')$q$, test.id('team1')), 'S-OWN-ONLY');
 -- T2b publish follows the same rules: agent two cannot publish agent one's listing
@@ -208,7 +212,7 @@ reset role;
 -- ===== T13 publish pins the validated version =====
 set role authenticated;
 select test.act_as('00000000-0000-0000-0000-0000000000a2');
-select test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('listing2'), jsonb_build_object('street', '2 Demo Rd unvalidated', 'agent', test.id('team2')));
+select test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('listing2'), jsonb_build_object('street', '2 Demo Rd unvalidated', 'status', 'for-sale', 'agent', test.id('team2')));
 insert into test.ids select 'jobPin', test.publish('aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('listing2')], array[1]);
 select test.expect_error(format($q$select test.publish('aaaaaaaa-0000-0000-0000-00000000517e', array[%L::uuid], array[99])$q$, test.id('listing2')), 'S-NOT-FOUND');
 reset role;
@@ -223,7 +227,7 @@ set role authenticated;
 select test.act_as('00000000-0000-0000-0000-0000000000a1');
 insert into test.ids select 'jobA', test.publish('aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('listing1')]);
 select test.act_as('00000000-0000-0000-0000-0000000000a2');
-select test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('listing2'), jsonb_build_object('street', '2 Demo Rd v2', 'agent', test.id('team2')));
+select test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('listing2'), jsonb_build_object('street', '2 Demo Rd v2', 'status', 'for-sale', 'agent', test.id('team2')));
 insert into test.ids select 'jobB', test.publish('aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('listing2')]);
 reset role;
 set role service_role;
@@ -238,7 +242,7 @@ reset role;
 -- a rerun of job A after more edits still ships job A's frozen snapshot
 set role authenticated;
 select test.act_as('00000000-0000-0000-0000-0000000000a1');
-select test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('listing1'), jsonb_build_object('street', '1 Demo Road v2', 'agent', test.id('team1')));
+select test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('listing1'), jsonb_build_object('street', '1 Demo Road v2', 'status', 'for-sale', 'agent', test.id('team1')));
 reset role;
 set role service_role;
 select service.freeze_snapshot(test.id('jobA'));   -- what a rerun of export-published does
@@ -509,7 +513,7 @@ reset role;
 -- review 5: no overlapping builds of one site; a late reconcile never moves a version backwards; a deleted row stays off
 set role authenticated;
 select test.act_as('00000000-0000-0000-0000-00000000000a');
-select test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('listing1'), jsonb_build_object('street', '1 Demo Road v3', 'agent', test.id('team1')));
+select test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('listing1'), jsonb_build_object('street', '1 Demo Road v3', 'status', 'for-sale', 'agent', test.id('team1')));
 insert into test.ids select 'jobX', test.publish('aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('listing1')]);
 insert into test.ids select 'jobY', test.publish('aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('listing1')]);
 reset role;
@@ -899,6 +903,97 @@ select test.expect_error($q$select service.media_processed('00000000-0000-0000-0
 select test.expect_error($q$select service.export_bundle('00000000-0000-0000-0000-000000000000')$q$, 'permission denied');
 select test.expect_error($q$select * from service.record_media('{"sub":"00000000-0000-0000-0000-00000000000a"}'::jsonb, 'aaaaaaaa-0000-0000-0000-000000000000', 'x.jpg', 1, 'image/jpeg')$q$, 'permission denied');
 reset role;
+
+-- ===== T19 migration 11: the publish-ready wall (slice 4.6): a row that fails publish validation can never be published, on any path =====
+-- Written before the migration (watched red: private.publish_problems did not exist, and a bare listing was published on the SQL path).
+-- (a) the rules, on the function itself: the REQUIRED rules of contracts/validate.mjs (publish mode), ported to SQL. Everything else
+-- in the JS validator (types, max, slug, enum, references, media, placeholder text, consent wording, sample items) is not tested here.
+create function test.pp(p_coll text, p_data jsonb) returns text language sql stable as $$
+  select coalesce(string_agg(x, '; ' order by x), '') from unnest(private.publish_problems(
+    (select resolved from site_contracts where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and active), p_coll, p_data)) x $$;
+do $$ declare ok jsonb := '{"type":"home","title":"Home","seo":{"title":"T","description":"D"},"contact":{"phone":"1"},"rooms":[{"name":"a"}],"sections":{"hero":{"headline":"H"}}}'; begin
+  assert test.pp('pages', ok) = '', 'a complete page has no problem';
+  assert test.pp('pages', ok - 'title') = 'title required', 'a missing required value is a problem';
+  assert test.pp('pages', ok || '{"title":""}') = 'title required', 'the empty string is empty';
+  assert test.pp('pages', ok || '{"title":null}') = 'title required', 'JSON null is empty';
+  assert test.pp('pages', ok || '{"title":"   "}') = '', 'a whitespace-only string is NOT empty (as in JS)';
+  assert test.pp('pages', ok - 'seo') = 'seo required', 'a missing required seo field';
+  assert test.pp('pages', ok || '{"seo":{"title":"T"}}') = 'seo.description required', 'seo needs a description';
+  assert test.pp('pages', ok || '{"seo":{"title":"  ","description":"D"}}') = 'seo.title required', 'seo needs a title that is not blank after trim';
+  assert test.pp('pages', ok || '{"seo":{"title":"T","description":"D"}}') = '', 'seo with both is complete';
+  assert test.pp('pages', ok || '{"seo":{}}') = 'seo.description required; seo.title required', 'an empty seo group names both';
+  assert test.pp('pages', ok || '{"contact":{}}') = 'contact.phone required', 'a group is entered: its required field is checked';
+  assert test.pp('pages', ok - 'contact') = '', 'a missing group is a problem only when the field itself is required';
+  assert test.pp('pages', ok || '{"rooms":[{"name":"a"},{}]}') = 'rooms[1].name required', 'a list is entered row by row, the path carries the index';
+  assert test.pp('pages', ok || '{"rooms":[]}') = '', 'an empty list is a problem only when the field itself is required';
+  assert test.pp('pages', ok || '{"free":{}}') = '', 'an open group is not entered';
+  assert test.pp('pages', ok || '{"sections":{}}') = 'sections.hero required', 'a section with a required field must be present';
+  assert test.pp('pages', ok || '{"sections":{"hero":{}}}') = 'sections.hero.headline required', 'a present section is entered';
+  assert test.pp('pages', ok - 'sections') = '', 'missing sections: a problem only when the field itself is required';
+  assert test.pp('pages', ok || '{"type":"nonesuch"}') = '', 'an unknown page type is the JS validator''s I-TYPE, not a required path';
+  assert test.pp('pages', ok || '{"fact":{"value":{},"source":"https://x.test","date":"2026-01-01"}}') = 'fact.n required', 'a sourced value is unwrapped, then entered';
+  assert test.pp('pages', ok || '{"fact":{"value":{"n":"x"},"source":"https://x.test","date":"2026-01-01"}}') = '', 'a sourced value that is complete inside its wrapper has no problem';
+  assert test.pp('pages', ok || '{"fact":{"value":{},"source":"","date":"2026-01-01"}}') = '', 'a sourced value without a source is the JS validator''s I-SOURCE, not a required path';
+  assert test.pp('pages', '{"type":"home"}') = 'seo required; title required', 'every problem is listed';
+  assert test.pp('pages', '[]') = '', 'data that is not an object is the JS validator''s I-TYPE';
+  assert test.pp('nonesuch', '{}') = 'nonesuch unknown collection', 'an unknown collection';
+  assert test.pp('listings', '{"street":"x"}') = 'status required', 'the listing needs its status';
+  assert test.pp('listings', '{"street":"x","status":"for-sale"}') = '', 'a complete listing';
+end $$;
+-- (b) the SQL path (omnikom publish, test scripts, anything with a database connection): a bare row is refused, the same row made complete is accepted
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+insert into test.ids select 'bare1', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"3 Bare Rd"}');   -- saving a draft is fine
+select test.expect_error(format($q$select test.publish('aaaaaaaa-0000-0000-0000-00000000517e', array[%L::uuid])$q$, test.id('bare1')), 'I-NOT-READY: ' || test.id('bare1') || ' status required');
+select test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('bare1'), '{"street":"3 Bare Rd","status":"for-sale"}');
+select test.expect_error(format($q$select test.publish('aaaaaaaa-0000-0000-0000-00000000517e', array[%L::uuid], array[1])$q$, test.id('bare1')), 'I-NOT-READY');   -- the pinned version is the one checked, not the latest
+insert into test.ids select 'jobReady', test.publish('aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('bare1')]);
+reset role;
+do $$ begin assert (select requested ->> test.id('bare1')::text from publish_jobs where id = test.id('jobReady')) = '2', 'the complete version was accepted'; end $$;
+-- a job straight into the table (a superuser): a version that does not exist, and a row of another workspace, are refused too
+select test.expect_error(format($q$insert into publish_jobs (workspace_id, site_id, requested_by, rows, requested) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', '00000000-0000-0000-0000-00000000000a', array[%L::uuid], jsonb_build_object(%L::text, 99))$q$, test.id('bare1'), test.id('bare1')), 'version 99 not found in this workspace');
+select test.expect_error(format($q$insert into publish_jobs (workspace_id, site_id, requested_by, rows, requested) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', '00000000-0000-0000-0000-00000000000a', array[%L::uuid], jsonb_build_object(%L::text, 1))$q$, test.id('teamB2'), test.id('teamB2')), 'not found in this workspace');
+-- (c) layer two: published_version moved by hand (a superuser; triggers fire for superusers) to a bare version is refused
+select test.expect_error(format($q$update content_rows set published_version = 1 where id = %L$q$, test.id('bare1')), 'I-NOT-READY');
+select test.expect_error(format($q$update content_rows set published_version = 99 where id = %L$q$, test.id('bare1')), 'version 99 not found');
+update content_rows set published_version = 2 where id = test.id('bare1');
+do $$ begin assert (select published_version from content_rows where id = test.id('bare1')) = 2, 'the complete version can go live'; end $$;
+update content_rows set published_version = null where id = test.id('bare1');
+do $$ begin assert (select published_version from content_rows where id = test.id('bare1')) is null, 'taking a row off the site is never refused'; end $$;
+-- a legacy row (published at a bare version before the wall existed) is left alone when its version does not change
+alter table content_rows disable trigger content_rows_ready;
+update content_rows set published_version = 1 where id = test.id('bare1');
+alter table content_rows enable trigger content_rows_ready;
+update content_rows set published_version = 1 where id = test.id('bare1');
+do $$ begin assert (select published_version from content_rows where id = test.id('bare1')) = 1, 'the wall looks at a change of version, not at every update'; end $$;
+update content_rows set published_version = null where id = test.id('bare1');
+-- ... and a faked "done" callback for a job whose snapshot holds a bare version publishes nothing
+set role service_role;
+select service.set_job_state(test.id('jobE'), 'failed', '{"reason":"test"}');   -- T18's job was frozen (building) and never finished: one build per site at a time
+select service.freeze_snapshot(test.id('jobReady'));
+update publish_jobs set snapshot = snapshot || jsonb_build_object(test.id('bare1')::text, 1) where id = test.id('jobReady');
+select service.set_job_state(test.id('jobReady'), 'gating'); select service.set_job_state(test.id('jobReady'), 'deploying');
+select test.expect_error(format($q$select service.set_job_state(%L, 'done')$q$, test.id('jobReady')), 'I-NOT-READY');
+select service.set_job_state(test.id('jobReady'), 'failed', '{"reason":"test"}');
+reset role;
+do $$ begin assert (select published_version from content_rows where id = test.id('bare1')) is null, 'a faked done callback published nothing'; end $$;
+-- (d) no active contract = refused
+update site_contracts set active = false where workspace_id = 'bbbbbbbb-0000-0000-0000-000000000000';
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+select test.expect_error(format($q$select test.publish('bbbbbbbb-0000-0000-0000-00000000517e', array[%L::uuid])$q$, test.id('teamB2')), 'no active contract');
+reset role;
+select test.expect_error(format($q$update content_rows set published_version = 1 where id = %L$q$, test.id('teamB2')), 'no active contract');   -- layer two says it too
+update site_contracts set active = true where workspace_id = 'bbbbbbbb-0000-0000-0000-000000000000';
+-- (e) the new functions are closed to anon, authenticated and the function role; the triggers are definer functions with an empty search_path
+do $$ declare f text; begin
+  foreach f in array array['private.js_truthy(jsonb)', 'private.publish_empty(jsonb)', 'private.publish_has_text(jsonb)', 'private.publish_problems_object(jsonb,text,text,jsonb,jsonb)',
+    'private.publish_problems_value(jsonb,text,text,jsonb,jsonb)', 'private.publish_problems(jsonb,text,jsonb)', 'private.check_job_ready()', 'private.check_version_ready()'] loop
+    assert not has_function_privilege('anon', f, 'execute') and not has_function_privilege('authenticated', f, 'execute') and not has_function_privilege('omnikom_fn', f, 'execute'), f || ' is closed to anon, authenticated and the function role';
+    assert (select proconfig from pg_proc where oid = f::regprocedure) = array['search_path=""'], f || ' pins an empty search_path';
+  end loop;
+  assert (select prosecdef from pg_proc where oid = 'private.check_job_ready()'::regprocedure) and (select prosecdef from pg_proc where oid = 'private.check_version_ready()'::regprocedure), 'both trigger functions are security definer';
+end $$;
 
 -- ===== T17 migration 8: default privileges on private and service, the function role; search_path = '' is asserted in T14 =====
 create function service.zz_probe() returns int language sql as $$ select 1 $$;
