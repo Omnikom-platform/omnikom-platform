@@ -726,3 +726,4 @@
   restore drill PASS 3 min 8 s; 5.3 built (Playwright 7/7 on staging, plan gate 11/11 mutants), lands via check branch.
   CLI hook redesigned to DECISIONS 45 (GitHub ci run is the stamp, omnikom land). Owner question: sign-in link 10 min vs 1 h.
   Leftover: E:/omk-verify (an rmdir was refused by the safety check; owner may delete it).
+- 23:58 OWNER: the sign-in link lives 10 minutes (spec), not 1 h. NOT YET SENT to the platform head (the app paused cross-session messages after 10 sends); send on the owner's next message: set staging Auth email-link expiry to 600 s (or owner-batch click if the API refuses), plan copy back to 10 minutes, plan gate covers it.
