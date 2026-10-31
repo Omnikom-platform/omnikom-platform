@@ -6,9 +6,12 @@
 //   3 an empty consent is refused (400)                    4 B's key on A's site is refused (401)
 //   5 the same signature after 301 s is refused (401)      6 no signature is refused (401)
 //   7 a garbled signature is refused (401)                 8 an unknown site id is refused (401), a malformed one is 404
-//   9 a lead to a paused site is not stored                10 GET is refused (405)
+//   9 a lead to a paused site is refused (409) and not stored   10 GET is refused (405)
+// The ledgers migration 7 added are counted before and after (read-only): each refused signature adds one security_events row
+// (kind bad-signature, the site), the paused refusal adds one (kind suspended), an accepted lead has exactly one consent_ledger
+// row and a retry of the same key adds none. Both ledgers are append-only: a run leaves its rows behind, by design.
 import { Usage, Blocked } from '../lib/errors.mjs';
-import { uuidLit } from '../lib/sql.mjs';
+import { uuidLit, lit } from '../lib/sql.mjs';
 import { result } from '../lib/ctx.mjs';
 import { parseIdentity, machineKey, personToken, PERSONS } from '../lib/identity.mjs';
 import { WS_A, WS_B } from './seed.mjs';
@@ -36,6 +39,9 @@ export async function verify(ctx) {
   const rows = k => Number(sql.scalar(`select count(*) from leads where idempotency_key = ${uuidLit(k)}`).value);
   // alert rows recorded for that submission: a retry must not alert the client again
   const alerts = k => Number(sql.scalar(`select count(*) from messages m join leads l on l.id = m.lead_id where l.idempotency_key = ${uuidLit(k)} and m.template = 'new-lead'`).value);
+  // the ledgers of migration 7: security events of this site by kind, and the consent rows of the lead stored under an idempotency key
+  const events = kind => Number(sql.scalar(`select count(*) from security_events where kind = ${lit(kind)} and site_id = ${uuidLit(a.id)}`).value);
+  const consents = k => Number(sql.scalar(`select count(*) from consent_ledger c join leads l on l.id = c.lead_id where l.idempotency_key = ${uuidLit(k)} and c.site_id = ${uuidLit(a.id)}`).value);
 
   const checks = [];
   const add = (name, expected, status, pass, extra = '') => checks.push({ name, expected, status, pass: Boolean(pass), extra });
@@ -43,24 +49,34 @@ export async function verify(ctx) {
   let L = lead();
   let r = await post(L);
   add('a signed lead is accepted', '202', r.status, r.status === 202);
+  add('an accepted lead has exactly one consent_ledger row', '1 row', r.status, consents(L.idem) === 1, `rows=${consents(L.idem)}`);
   r = await post(L);
   add('the same idempotency key twice stores one row', '202 and 1 row', r.status, r.status === 202 && rows(L.idem) === 1, `rows=${rows(L.idem)}`);
   add('a retry sends no second alert', 'at most 1 alert row', r.status, alerts(L.idem) <= 1, `alerts=${alerts(L.idem)}`);
+  add('a retry adds no consent_ledger row', 'still 1 row', r.status, consents(L.idem) === 1, `rows=${consents(L.idem)}`);
   L = lead({ consentText: '' });
   r = await post(L);
   add('an empty consent is refused', '400', r.status, r.status === 400 && rows(L.idem) === 0);
+  const deltas = [];   // security_events (bad-signature, this site) added by each refused signature
+  let seen = events('bad-signature');
+  const recorded = () => { const now = events('bad-signature'); deltas.push(now - seen); seen = now; };
   L = lead();
   r = await post({ ...L, identity: idB, key: keyB });
+  recorded();
   add("B's key on A's site is refused", '401', r.status, r.status === 401 && rows(L.idem) === 0);
   L = lead();
   r = await post({ ...L, t: ctx.now() - 301 });
+  recorded();
   add('a signature older than 301 s is refused (replay)', '401', r.status, r.status === 401 && rows(L.idem) === 0);
   L = lead();
   r = await post({ ...L, headers: {} });
+  recorded();
   add('a request without a signature is refused', '401', r.status, r.status === 401 && rows(L.idem) === 0);
   L = lead();
   r = await post({ ...L, headers: { 'x-site-signature': 't=1,v1=00' } });
+  recorded();
   add('a garbled signature is refused', '401', r.status, r.status === 401 && rows(L.idem) === 0);
+  add('each refused signature is recorded once in security_events', '4 rows (1 each)', deltas.reduce((x, y) => x + y, 0), deltas.length === 4 && deltas.every(d => d === 1), `deltas=${deltas.join(',')}`);
   L = lead();
   const stranger = ctx.randomUUID();
   r = await post({ ...L, siteId: stranger, t: ctx.now() });
@@ -70,13 +86,15 @@ export async function verify(ctx) {
   r = await post({ body: '', method: 'GET', headers: {} });
   add('GET is refused', '405', r.status, r.status === 405);
 
-  // a paused site stores nothing (the function answers with an error status; the exact code is reported)
+  // a paused site stores nothing: the function answers 409 (S-SITE-PAUSED) and records a 'suspended' security event
   const before = sql.scalar(`select state::text from sites where id = ${uuidLit(a.id)}`).value;
   sql.exec(`update sites set state = 'paused' where id = ${uuidLit(a.id)};`);
+  const suspended = events('suspended');
   try {
     L = lead();
     r = await post(L);
-    add('a lead to a paused site is not stored', 'not 202, 0 rows', r.status, r.status !== 202 && rows(L.idem) === 0);
+    add('a lead to a paused site is not stored', '409, 0 rows', r.status, r.status === 409 && rows(L.idem) === 0);
+    add('the paused refusal is recorded once in security_events as suspended', '1 row', r.status, events('suspended') - suspended === 1, `rows=${events('suspended') - suspended}`);
   } finally {
     sql.exec(`update sites set state = ${before ? `'${before.replace(/'/g, '')}'` : "'preview'"}::site_state where id = ${uuidLit(a.id)};`);
   }

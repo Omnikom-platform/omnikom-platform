@@ -332,6 +332,15 @@ async function units() {
     r = await cli(['audit', '--dir', leakDir], leakEnv);
     check('audit hygiene: the masked value is named, not blanked', r.stdout.includes('<redacted:SOME_SECRET_KEY>'), r.all.slice(0, 200));
   } finally { rmSync(leakDir, { recursive: true, force: true }); }
+
+  // ---- key mint: the env file's text (pure functions of commands/key.mjs; the numbering rule itself is proven on the database below)
+  const { envHighest, rewriteEnv } = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'key.mjs')).href);
+  const REC = (slug, n) => `# site-${slug}-key-${n}: r`;
+  check('key mint env: the highest record number of the slug, and not that of a slug that starts the same', envHighest(`${REC('a', 2)}\n${REC('a', 11)}\n${REC('a-b', 40)}\n${REC('ab', 50)}\nX=1\n`, 'a') === 11 && envHighest('X=1\n', 'a') === 0 && envHighest('', 'a') === 0);
+  check('key mint env: the record number is read through CRLF too', envHighest(`${REC('a', 3)}\r\n`, 'a') === 3);
+  check('key mint env: a file without a trailing line break gets one before the blank line and the new lines', rewriteEnv('A=1', 'a', 'VAR_A', 'REC', 'VAR_A=new') === 'A=1\n\nREC\nVAR_A=new\n');
+  check('key mint env: no second blank line when the file already ends with one; an empty file gets no leading blank', rewriteEnv('A=1\n\n', 'a', 'VAR_A', 'REC', 'VAR_A=new') === 'A=1\n\nREC\nVAR_A=new\n' && rewriteEnv('', 'a', 'VAR_A', 'REC', 'VAR_A=new') === 'REC\nVAR_A=new\n');
+  check('key mint env: the lines of another slug that starts the same are kept; this slug\'s are replaced in place', rewriteEnv(`T=1\nVAR_AB=keep\n${REC('ab', 1)}\nVAR_A=old\n${REC('a', 1)}\nU=2\n`, 'a', 'VAR_A', 'REC', 'VAR_A=new') === `T=1\nVAR_AB=keep\n${REC('ab', 1)}\nREC\nVAR_A=new\nU=2\n`);
 }
 
 // ======================================================================================================== DATABASE
@@ -433,7 +442,8 @@ async function database() {
     r = await run(['key', 'list', ...T]);
     const listed = JSON.stringify(r.json.data.keys);
     check('key list: hash prefixes and Vault names, never a value', r.exit === 0 && r.json.data.keys.length === 3 && r.json.data.keys.every(k => k.hash_prefix.length === 12) && !/[0-9a-f]{64}/.test(listed) && !listed.includes(mintedA[1]));
-    const toRevoke = r.json.data.keys.find(k => k.vault_ref === 'site-test-demo-a-key-2').id;
+    // (key-1: the env file now holds only the newest value, key-2, and the lead tests below sign with the env file's value)
+    const toRevoke = r.json.data.keys.find(k => k.vault_ref === 'site-test-demo-a-key-1').id;
     r = await run(['key', 'revoke', ...T, '--id', toRevoke]);
     check('key revoke: the key is dead (revoked_at set)', r.exit === 0 && db.query(`select revoked_at is not null from api_keys where id = '${toRevoke}'`) === 't');
     r = await run(['key', 'revoke', ...T, '--id', toRevoke, '--expect', 'S-NOT-FOUND']);
@@ -541,7 +551,8 @@ async function database() {
 
     // ---- verify --only lead, against the model and against a broken model
     r = await run(['verify', ...T, '--only', 'lead'], sendEnv, { fetch: model });
-    check('verify --only lead: every check PASSes against the function model', r.exit === 0 && r.json.data.failed === 0 && r.json.data.checks.length >= 10 && /^PASS /.test(r.stderr), r.all.slice(0, 600));
+    check('verify --only lead: every check PASSes against the function model', r.exit === 0 && r.json.data.failed === 0 && r.json.data.checks.length === 16 && /^PASS /.test(r.stderr), r.all.slice(0, 600));
+    check('verify: the ledger checks of migration 7 are in the suite and PASS (refused signatures, suspended, consent once, retry adds none)', ['each refused signature is recorded once in security_events', 'the paused refusal is recorded once in security_events as suspended', 'an accepted lead has exactly one consent_ledger row', 'a retry adds no consent_ledger row'].every(n => r.json.data.checks.some(c => c.name === n && c.pass)) && /deltas=1,1,1,1/.test(r.stderr), r.stderr.slice(0, 900));
     check('verify: one line per check on stderr, the real status in it', r.stderr.trim().split('\n').length === r.json.data.checks.length && /got 202/.test(r.stderr));
     check('verify: the paused-site check put the site state back and removed its leads', db.query("select state::text from sites where deploy_target = 'test-site-demo-a'") === 'preview' && db.query("select count(*) from leads where page_path = '/omnikom-cli-test'") === '1');
     const naive = await makeFunctionModel({ makeSql, dbUrl: db.url, naive: true });
@@ -549,11 +560,19 @@ async function database() {
     check('verify: a function that accepts any signature FAILs (exit 1) on the signature checks', r.exit === 1 && r.json.code === 'VERIFY-FAILED' && r.json.data.checks.filter(c => !c.pass).map(c => c.name).join('|').includes("B's key") && /^FAIL /m.test(r.stderr), r.stderr.slice(0, 600));
     const dropped = await makeFunctionModel({ makeSql, dbUrl: db.url, dropIdem: true });
     r = await run(['verify', ...T, '--only', 'lead'], sendEnv, { fetch: dropped });
-    check('verify: a function that stores a retry twice FAILs only the idempotency check', r.exit === 1 && r.json.data.checks.filter(c => !c.pass).map(c => c.name).join('|') === 'the same idempotency key twice stores one row', r.stderr.slice(0, 600));
+    // (the stored leads carry no key, so the consent rows cannot be found through the key either: those two checks fail with the idempotency check)
+    check('verify: a function that stores a retry twice FAILs the idempotency check (and the consent checks, which find the lead through the key)', r.exit === 1 && r.json.data.checks.filter(c => !c.pass).map(c => c.name).join('|') === 'an accepted lead has exactly one consent_ledger row|the same idempotency key twice stores one row|a retry adds no consent_ledger row', r.stderr.slice(0, 900));
     db.query("delete from leads where idempotency_key is null and page_path = '/omnikom-cli-test'");
     const chatty = await makeFunctionModel({ makeSql, dbUrl: db.url, doubleAlert: true });
     r = await run(['verify', ...T, '--only', 'lead'], sendEnv, { fetch: chatty });
     check('verify: a function that alerts again on a retry FAILs only the alert check', r.exit === 1 && r.json.data.checks.filter(c => !c.pass).map(c => c.name).join('|') === 'a retry sends no second alert', r.stderr.slice(0, 600));
+    const failedBy = flag => makeFunctionModel({ makeSql, dbUrl: db.url, [flag]: true }).then(async m => { const x = await run(['verify', ...T, '--only', 'lead'], sendEnv, { fetch: m }); return { x, names: x.json.data.checks.filter(c => !c.pass).map(c => c.name).join('|') }; });
+    let broken = await failedBy('noSecurityLog');
+    check('verify: a function that does not record its refusals FAILs the refused-signature and the suspended checks (exit 1)', broken.x.exit === 1 && broken.names === 'each refused signature is recorded once in security_events|the paused refusal is recorded once in security_events as suspended' && /deltas=0,0,0,0/.test(broken.x.stderr), broken.x.stderr.slice(0, 900));
+    broken = await failedBy('doubleConsent');
+    check('verify: a function that writes the consent row twice FAILs the consent checks (exit 1)', broken.x.exit === 1 && broken.names === 'an accepted lead has exactly one consent_ledger row|a retry adds no consent_ledger row', broken.x.stderr.slice(0, 900));
+    broken = await failedBy('pausedAs500');
+    check('verify: a function that answers a paused site with 500 FAILs the tightened paused check and records no suspended event (exit 1)', broken.x.exit === 1 && broken.names === 'a lead to a paused site is not stored|the paused refusal is recorded once in security_events as suspended' && /got 500/.test(broken.x.stderr), broken.x.stderr.slice(0, 900));
     r = await run(['verify', ...T, '--only', 'lead'], { ...sendEnv, SITE_SIGNING_KEY_TEST_DEMO_B: '' }, { fetch: model });
     check("verify: no key for site B in the environment is BLOCKED (exit 3)", r.exit === 3);
     r = await run(['verify', ...T, '--only', 'job']);
@@ -620,8 +639,71 @@ async function database() {
     db.query("delete from workspaces where slug = 'elev8'");
     r = await run(['seed', 'test', ...T, '--clean']);
     check('seed test --clean: once nothing references it, the last login goes too', r.exit === 0 && db.query('select count(*) from auth.users') === '0' && r.json.data.keptLogins.length === 0, r.all.slice(0, 300));
+    // verify --only lead leaves rows in the append-only ledgers on purpose, and the function model now records them like the function
+    // does (bad-signature events of site A, whose id is the fixture id of tenancy.test.sql). That test counts that site's events
+    // (line 633: exactly the one it makes itself), so this throwaway database is emptied of the ledgers first (replica role: the
+    // append-only triggers are skipped; the test database only). On staging the same collision is a finding, not something to delete.
+    db.query('set session_replication_role = replica; delete from security_events; delete from consent_ledger;');
+    check('the ledgers are empty again before the walls re-run (a throwaway database)', db.query('select (select count(*) from security_events) + (select count(*) from consent_ledger)') === '0');
     r = await run(['test', 'walls', ...T]);
     check('test walls: passes again after the clean', r.exit === 0, r.all.slice(0, 300));
+
+    // ---- key mint numbering and the env file: n is one more than the highest number in the registry, the Vault and the env file's
+    // record line; the env file keeps one record line and one value line per variable (a mint rewrites it, line endings kept)
+    r = await run(['seed', 'test', ...T]);
+    check('key numbering: the fixtures are seeded again, with no key, no registry row and no Vault secret', r.exit === 0 && db.query('select count(*) from api_keys') === '0' && db.query("select count(*) from vault.secrets where name like 'site-test-demo-%'") === '0', r.all.slice(0, 200));
+    const siteAId = db.query("select id from sites where deploy_target = 'test-site-demo-a'");
+    const VARA = 'SITE_SIGNING_KEY_TEST_DEMO_A', recordA = n => new RegExp(`^# site-test-demo-a-key-${n}: lead signing key for site ${siteAId} \\(minted \\d{4}-\\d{2}-\\d{2}; set it on the Pages project as SITE_SIGNING_KEY\\)$`);
+    const lineOf = (text, eol) => text.split(eol);
+    const messy = join(work, 'messy.env');
+    writeFileSync(messy, ['# master env', 'FOO=1', `${VARA}=old-value-one`, '# site-test-demo-a-key-3: lead signing key for site x (minted 2026-10-01; set it on the Pages project as SITE_SIGNING_KEY)', 'BAR=2', `${VARA}=old-value-two`, 'SITE_SIGNING_KEY_TEST_DEMO_B=keep-b-value', '# site-test-demo-b-key-1: record of b', ''].join('\r\n'));
+    r = await run(['key', 'mint', ...T, '--site', 'test-demo-a', '--env-file', messy]);
+    const mText = readFileSync(messy, 'utf8'), mLines = lineOf(mText, '\r\n');
+    const mVals = mLines.filter(l => l.startsWith(`${VARA}=`)), mRecs = mLines.filter(l => l.startsWith('# site-test-demo-a-key-'));
+    const mNew = mVals.length === 1 ? mVals[0].slice(VARA.length + 1) : '';
+    check('key mint: an env file with two value lines and a record line -key-3 gives -key-4 (exit 0)', r.exit === 0 && r.json.data.vaultSecret === 'site-test-demo-a-key-4' && db.query("select count(*) from vault.secrets where name = 'site-test-demo-a-key-4'") === '1', r.all.slice(0, 300));
+    check('key mint: the env file then holds exactly one value line for the variable, and it is the new value (the one in the Vault)', mVals.length === 1 && /^[0-9a-f]{64}$/.test(mNew) && db.query(`select count(*) from vault.secrets where name = 'site-test-demo-a-key-4' and secret = '${mNew}'`) === '1' && !r.all.includes(mNew), mText.slice(0, 300));
+    check('key mint: and exactly one record line, for -key-4', mRecs.length === 1 && recordA(4).test(mRecs[0]), mRecs.join(' | ').slice(0, 300));
+    check('key mint: every unrelated line is unchanged, and the new lines stand where the first removed line was', mLines.length === 8 && [mLines[0], mLines[1], mLines[4], mLines[5], mLines[6], mLines[7]].join('|') === '# master env|FOO=1|BAR=2|SITE_SIGNING_KEY_TEST_DEMO_B=keep-b-value|# site-test-demo-b-key-1: record of b|' && mLines[2] === mRecs[0] && mLines[3] === mVals[0], mText.slice(0, 400));
+    check('key mint: the line ending (CRLF) is unchanged: every line break in the file is CRLF', mText.split('\n').slice(0, -1).every(l => l.endsWith('\r')) && mText.endsWith('\r\n'));
+
+    // a fresh env file remembers nothing, so only the registry and the Vault count; a new key goes at the end after one blank line
+    const memo = join(work, 'memo.env'); writeFileSync(memo, '# memo\n');
+    r = await run(['key', 'mint', ...T, '--site', 'test-demo-b', '--env-file', memo]);
+    check('key mint: a fresh env file, an empty Vault and an empty registry for the site give -key-1; the key goes at the end after one blank line', r.exit === 0 && r.json.data.vaultSecret === 'site-test-demo-b-key-1' && /^# memo\n\n# site-test-demo-b-key-1: .*\nSITE_SIGNING_KEY_TEST_DEMO_B=[0-9a-f]{64}\n$/.test(readFileSync(memo, 'utf8')), r.all.slice(0, 300));
+    r = await run(['key', 'mint', ...T, '--site', 'test-demo-a', '--env-file', memo]);
+    check('key mint: the number of one site does not count the keys of another', r.exit === 0 && r.json.data.vaultSecret === 'site-test-demo-a-key-5', r.all.slice(0, 300));
+
+    // after seed test --clean the Vault secrets and the registry rows are gone with the workspaces; the env file remembers
+    r = await run(['seed', 'test', ...T, '--clean']);
+    check('key numbering: seed test --clean takes the Vault secrets and the registry rows away', r.exit === 0 && db.query('select count(*) from api_keys') === '0' && db.query("select count(*) from vault.secrets where name like 'site-test-demo-%'") === '0', r.all.slice(0, 200));
+    r = await run(['seed', 'test', ...T]);
+    r = await run(['key', 'mint', ...T, '--site', 'test-demo-b', '--env-file', memo]);
+    const memoText = readFileSync(memo, 'utf8');
+    check('key mint: after seed test --clean and seed test again, the same env file gives -key-2 (it remembers -key-1), not -key-1, and still one value line and one record line', r.exit === 0 && r.json.data.vaultSecret === 'site-test-demo-b-key-2' && memoText.split('\n').filter(l => l.startsWith('SITE_SIGNING_KEY_TEST_DEMO_B=')).length === 1 && memoText.split('\n').filter(l => l.startsWith('# site-test-demo-b-key-')).length === 1 && /# site-test-demo-b-key-2: /.test(memoText), r.all.slice(0, 300) + memoText.slice(0, 300));
+
+    // the Vault alone remembers a higher number (no registry row, a fresh env file)
+    db.query("insert into vault.secrets (name, secret) values ('site-test-demo-a-key-7', 'seven')");
+    const vaultOnly = join(work, 'vault-only.env'); writeFileSync(vaultOnly, '# fresh\n');
+    r = await run(['key', 'mint', ...T, '--site', 'test-demo-a', '--env-file', vaultOnly]);
+    check('key mint: the Vault alone remembering -key-7 (no registry row, a fresh env file) gives -key-8', r.exit === 0 && r.json.data.vaultSecret === 'site-test-demo-a-key-8', r.all.slice(0, 300));
+    // a Vault name that exists is the SQL error it is: exit 1, nothing registered, the env file untouched, no retry under another number
+    const collide = join(work, 'collide.env'); writeFileSync(collide, '# c\n');
+    const keysBefore = db.query('select count(*) from api_keys');
+    r = await run(['key', 'mint', ...T, '--site', 'test-demo-a', '--env-file', collide, '--n', '8']);
+    check('key mint: a Vault name that already exists is reported as the SQL error (exit 1), nothing is registered and the env file is untouched', r.exit === 1 && /duplicate|unique/i.test(r.all) && db.query('select count(*) from api_keys') === keysBefore && readFileSync(collide, 'utf8') === '# c\n' && db.query("select count(*) from vault.secrets where name like 'site-test-demo-a-key-%'") === '2', r.all.slice(0, 300));
+
+    // the registry alone remembers (a revoked row counts; the Vault holds nothing of this site, the env file nothing)
+    db.query("delete from vault.secrets where name like 'site-test-demo-a-key-%'");
+    db.query("update api_keys set revoked_at = now() where vault_ref = 'site-test-demo-a-key-8'");
+    const registryOnly = join(work, 'registry-only.env'); writeFileSync(registryOnly, '# fresh\n');
+    r = await run(['key', 'mint', ...T, '--site', 'test-demo-a', '--env-file', registryOnly]);
+    check('key mint: the registry alone remembering -key-8 (revoked; empty Vault, fresh env file) gives -key-9', r.exit === 0 && r.json.data.vaultSecret === 'site-test-demo-a-key-9', r.all.slice(0, 300));
+    // a database without the Vault counts it as nothing (dry run: the Vault is moved away for one command)
+    db.query('alter schema vault rename to vault_away');
+    try { r = await run(['key', 'mint', ...T, '--site', 'test-demo-a', '--env-file', registryOnly, '--dry-run']); } finally { db.query('alter schema vault_away rename to vault'); }
+    check('key mint --dry-run: an absent Vault counts as nothing (the registry and the env file still count: -key-10), nothing is written', r.exit === 0 && r.json.data.dryRun === true && r.json.data.wouldCreate.vaultSecret === 'site-test-demo-a-key-10' && db.query("select count(*) from vault.secrets where name like 'site-test-demo-a-key-%'") === '1', r.all.slice(0, 300));
+    check('key mint: the values minted by these tests are printed nowhere', [mNew, ...[memo, vaultOnly, registryOnly].map(f => (readFileSync(f, 'utf8').match(/=([0-9a-f]{64})$/m) || [])[1])].every(v => v && everything.every(o => !o.includes(v))));
 
     // ---- rule 1 over the whole database session
     const secrets = [keyA, keyB, db.url];

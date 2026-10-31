@@ -14,3 +14,4 @@ creds and accounts login/
 creds*/
 supabase/.temp/
 .wrangler/
+.tools/

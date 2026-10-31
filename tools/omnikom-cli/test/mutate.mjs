@@ -115,6 +115,22 @@ const MUTANTS = [
   ['verify forgets to put a paused site back', 'commands/verify.mjs', '  } finally {\n    sql.exec(`update sites set state = ', '  } finally {\n    0 && sql.exec(`update sites set state = ', 'db'],
   ['verify leaves its leads behind', 'commands/verify.mjs', '  for (const k of created) sql.exec(', '  for (const k of []) sql.exec(', 'db'],
   ['verify sends the "unsigned" request signed', 'commands/verify.mjs', 'r = await post({ ...L, headers: {} });', 'r = await post({ ...L });', 'db'],
+  // ---- key mint numbering and the env file (one more than the highest number in the registry, the Vault and the env file's record line; a mint rewrites the file)
+  ['key mint counts registry rows instead of taking the highest number (the old formula back)', 'commands/key.mjs', [['const have = sql.scalar(`greatest(${parts.join(\', \')})`);', 'const have = sql.scalar(`select count(*) from api_keys where site_id = ${uuidLit(site.id)} and kind = \'site-signing\'`);'], ['Math.max(Number(have.value), envHi) + 1', 'Number(have.value) + 1']], null, 'db'],
+  ['key mint ignores the env file\'s record line when computing n', 'commands/key.mjs', 'Math.max(Number(have.value), envHi) + 1', 'Number(have.value) + 1', 'db'],
+  ['key mint appends instead of rewriting (the removal of earlier lines dropped)', 'commands/key.mjs', 'if (rec.test(body) || val.test(body)) { if (at < 0) at = out.length; continue; }', '', 'db'],
+  ['key mint ignores the Vault when computing n', 'commands/key.mjs', 'if (vaultThere.value === true) parts.push(highest(\'vault.secrets\', \'name\', \'\'));', '', 'db'],
+  ['key mint ignores the registry when computing n', 'commands/key.mjs', 'const parts = [highest(\'api_keys\', \'vault_ref\', `site_id = ${uuidLit(site.id)} and kind = \'site-signing\' and `)];', 'const parts = [\'0\'];', 'db'],
+  ['key mint rewrites the file with the wrong line ending (always LF)', 'commands/key.mjs', 'const eol = (/\\r?\\n/.exec(text) || [\'\\n\'])[0];', 'const eol = \'\\n\';', 'db'],
+  ['key mint hides a Vault name collision (the name is silently changed when --n is given)', 'commands/key.mjs', 'const vaultName = `${prefix}${n}`;', 'const vaultName = `${prefix}${n}${ctx.flags.n ? \'x\' : \'\'}`;', 'db'],
+  ['key mint reads the Vault even when there is none (a database without the Vault)', 'commands/key.mjs', 'if (vaultThere.value === true) parts.push(', 'if (true) parts.push(', 'db'],
+  ['key mint env: a new key goes at the end with no blank line before it', 'commands/key.mjs', "if (out.length && bodyOf(out[out.length - 1]) !== '') out.push(eol);", '', 'unit'],
+  // ---- verify --only lead asserts the ledgers of migration 7 (security_events, consent_ledger) and the 409 of a paused site
+  ['verify does not check the security_events delta of the refused signatures', 'commands/verify.mjs', 'deltas.length === 4 && deltas.every(d => d === 1)', 'true', 'db'],
+  ['verify does not check that a paused refusal is recorded as suspended', 'commands/verify.mjs', 'events(\'suspended\') - suspended === 1,', 'true,', 'db'],
+  ['verify does not check the consent_ledger count of an accepted lead', 'commands/verify.mjs', '\'1 row\', r.status, consents(L.idem) === 1,', '\'1 row\', r.status, true,', 'db'],
+  ['verify does not check that a retry adds no consent_ledger row', 'commands/verify.mjs', '\'still 1 row\', r.status, consents(L.idem) === 1,', '\'still 1 row\', r.status, true,', 'db'],
+  ['verify: the paused check accepts any non-202 again', 'commands/verify.mjs', 'r.status === 409 && rows(L.idem) === 0', 'r.status !== 202 && rows(L.idem) === 0', 'db'],
   // ---- audit and gate (commands/audit.mjs): thin calls into tools/audit; a FAIL stays a FAIL, a crash is never a pass
   ['audit: the exit is forced to pass', 'commands/audit.mjs', "return result(r.pass, r.pass ? 'ok' : 'AUDIT-FAILED', r);", "return result(true, 'ok', r);", 'unit'],
   ['gate: the exit is forced to pass', 'commands/audit.mjs', "return result(data.pass, data.pass ? 'ok' : 'AUDIT-FAILED', data);", "return result(true, 'ok', data);", 'unit'],

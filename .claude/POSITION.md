@@ -670,3 +670,12 @@
   Before step 5 (routed to the platform head): SQL-path publish bypass becomes a DB wall; DECISIONS 38 structural check; CI
   gates flake on 8504771 diagnosed from its log. CLI: seed sets preview_host, staging walls on their own site id without
   wiping test-demo-a. SEO: one polite live-target run on the preview. UNPROVEN: staging walls; the ELEV8 preview half (owner's click).
+
+## 2026-10-31 04:50 to 12:40 (HEAD: CLI and testing department, session `local_c8848ce4...`, Opus 5.5, this checkout, master)
+- Key numbering and lead ledgers PROVEN (PROGRESS.md "CLI: key numbering and lead ledgers"): suite 238 of 238, mutants 124 of 124
+  (builder) and the 14 new ones (plus 6 older of the same names) re-run by the head, run-all-gates passed, staging `status` ok, staging `verify --only lead` 16 of 16 once.
+- Briefs ready: `tools-and-ci.md` (DECISIONS 42; next, offline proof only), `seed-test-site-and-status.md` (5a platform script, item 8
+  preview host, Part 2 function folders, Part 3 isolated `test walls`), `slice-2-functions.md`.
+- NOT DONE, waits for the owner's yes in the CLI head session: `omnikom tools ensure` (downloads actionlint, gitleaks, deno, shellcheck
+  into `.tools/`) and the live `omnikom ci`.
+- UNPROVEN: staging walls (refused while the test site exists; seed-test Part 3 fixes it without `--clean`).

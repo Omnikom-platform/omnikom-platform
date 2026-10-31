@@ -145,3 +145,17 @@ for the crash tests. PROVEN by the head's own Haiku re-run (verbatim lines in PR
 17 rules (the tests take the page and rule counts from the engine, not from literals: the SEO department adds rules without touching
 this file). Known: one run of the suite under load showed the flaky privacy-requests wall of `supabase/tests/tenancy.test.sql` (the head
 of operations' finding of 01:40), not a CLI check; the same suite passed as the mutants' baseline minutes later.
+
+**Key numbering and the lead ledgers (2026-10-31 12:40, CLI department head; builder brief
+`tools/omnikom-cli/briefs/key-numbering-and-lead-ledgers.md`):** `key mint` numbers a new key as one more than the highest number found
+across the Vault names, the registry (`api_keys.vault_ref`, revoked rows included) and the env file's record line for the variable; a
+database without the Vault counts the Vault as nothing; `--n` still overrides, and a Vault name that already exists is the SQL error (exit 1,
+nothing written). A mint rewrites the env file: one record line and one value line per variable, the two new lines where the first removed
+line stood (or at the end after one blank line), every other line byte for byte, the file's own line ending kept, written through a temp
+file and a rename. `verify --only lead` has 16 checks: the four refused signatures each add exactly one `security_events` row, a paused site
+answers 409 with no lead and one `suspended` event, an accepted lead has exactly one `consent_ledger` row and a retry adds none. The
+function model in `test/harness.mjs` records security events with the function's kinds and codes and answers 409 for a paused site
+(broken-model flags `noSecurityLog`, `doubleConsent`, `pausedAs500`). The local suite empties both append-only ledgers on its throwaway
+cluster before the walls re-run (`session_replication_role = replica`, `test/run.mjs`), because the walls file counted events for the
+test site's id. PROVEN by the head's own Haiku re-run (lines in PROGRESS.md "CLI: key numbering and lead ledgers"). Not watched failing:
+"the minted values are printed nowhere" (the redaction layer masks a leak before the check can see it).

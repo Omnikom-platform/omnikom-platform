@@ -4,6 +4,38 @@ Task: build-ready product engineering package (owner, 2026-10-28), raised to eng
 then corrected by an independent fact-check (72 claims) and an independent M1 dry run (31 issues), and by DECISIONS 15
 (no Docker; one Supabase account, staging + production). **Status: complete for owner review. Nothing committed.**
 
+## CLI: key numbering and lead ledgers (2026-10-31 04:50 to 12:40, CLI department head `local_c8848ce4...`, Sonnet builder as in-session agent, Haiku runners for every mechanical run)
+Brief `tools/omnikom-cli/briefs/key-numbering-and-lead-ledgers.md`. Built: `commands/key.mjs` (numbering from the highest of Vault,
+registry and env record line; env file rewritten in place, CRLF kept, temp file and rename), `commands/verify.mjs` (`--only lead` 12 to 16
+checks: `security_events` per refused signature, paused 409 plus one `suspended` event, one `consent_ledger` row per lead, none on a
+retry), `test/harness.mjs` (model records security events, 409 for paused, flags `noSecurityLog`, `doubleConsent`, `pausedAs500`),
+`test/run.mjs` (25 new checks; ledgers emptied on the throwaway cluster before the walls re-run), `test/mutate.mjs` (14 new mutants), README.
+Builder's proof: `test/run.mjs` 238 of 238; `test/mutate.mjs` "124 mutants, 124 caught, 0 survived, 0 target text missing" (2.6 h);
+run-all-gates "all gates passed"; staging `status` exit 0; staging `verify --only lead` once, `"passed": 16, "failed": 0` (one real alert
+email, as the brief allowed), every line PASS, among them:
+```
+PASS each refused signature is recorded once in security_events (expected 4 rows (1 each), got 4, deltas=1,1,1,1)
+PASS a lead to a paused site is not stored (expected 409, 0 rows, got 409)
+PASS the paused refusal is recorded once in security_events as suspended (expected 1 row, got 409, rows=1)
+PASS an accepted lead has exactly one consent_ledger row (expected 1 row, got 202, rows=1)
+PASS a retry adds no consent_ledger row (expected still 1 row, got 202, rows=1)
+```
+Head's own Haiku re-run (10:09 to 12:34, output in the head's scratchpad `kn-proof/`), verbatim last lines:
+```
+node tools/omnikom-cli/test/run.mjs                                     OK: 238 of 238 checks passed / exit=0
+node tools/omnikom-cli/test/mutate.mjs --only "key mint"                12 mutants, 12 caught, 0 survived, 0 target text missing / exit=0
+node tools/omnikom-cli/test/mutate.mjs --only "verify does not check"   7 mutants, 7 caught, 0 survived, 0 target text missing / exit=0
+node tools/omnikom-cli/test/mutate.mjs --only "paused check accepts"    1 mutants, 1 caught, 0 survived, 0 target text missing / exit=0
+node docs/blueprint/specs/run-all-gates.mjs                             PASS function tests (Deno) OK: 87 of 87 ... all gates passed / exit=0
+omnikom status --target staging                                         "ok": true, migrations 1 to 10 applied, 0 pending, 0 mismatched / exit=0
+```
+(The head re-ran 20 of the 124 mutants: the 14 new ones and 6 older ones whose names matched; the full 124 is the builder's run. Staging `verify --only lead` was not re-run: it
+sends a real alert email.) Findings: the walls file counted `bad-signature` events for the test site's id on an append-only ledger
+(fixed by the platform head in 8504771: it plants an earlier event and asserts by its own id); the owner's env file still holds the
+duplicate `SITE_SIGNING_KEY_TEST_DEMO_A/B` lines from step 3, collapsed by the next real `key mint` for those slugs (none run on staging);
+the model reads keys through `service.active_key` while the function reads `service.site_signing_secrets` (the same call wrapped; left).
+`status` showed `test: not deployed`: moved into the seed-test brief (Part 2).
+
 ## CLI: audit and gate commands (2026-10-30 22:11 to 2026-10-31 04:40, CLI department head `local_c8848ce4...`, Sonnet builder as in-session agent, Haiku runner for every mechanical run)
 Brief `tools/omnikom-cli/briefs/audit-gate-commands.md` (from the SEO department's `tools/audit/briefs/slice-3-cli-command.md`). What was
 built: `tools/omnikom-cli/commands/audit.mjs` (new), `omnikom.mjs` (registration, text path in `finish()`, `AuditCrash` exit 2), README

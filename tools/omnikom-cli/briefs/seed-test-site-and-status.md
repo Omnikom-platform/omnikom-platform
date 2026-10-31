@@ -8,7 +8,8 @@ sections 3 (seed, status) and 5 (rules); the export shape the rows must end up m
 `test/run.mjs` and `test/mutate.mjs`; one builder per set of files).
 
 ## Files you may edit (nothing else; a bug anywhere else is a finding you send back, not a fix)
-- `tools/omnikom-cli/commands/seed.mjs`, `tools/omnikom-cli/commands/status.mjs`
+- `tools/omnikom-cli/commands/seed.mjs`, `tools/omnikom-cli/commands/status.mjs`, `tools/omnikom-cli/commands/apply.mjs` (`test walls`, Part 3),
+  any new `tools/omnikom-cli/lib/` helper
 - `tools/omnikom-cli/test/run.mjs`, `tools/omnikom-cli/test/mutate.mjs`
 - `tools/omnikom-cli/README.md` (the `seed test` row and the `status` row of the command table)
 Read-only: `sites/test-demo-a/` (the platform department's; a mismatch between the files and what the database accepts is a finding),
@@ -41,11 +42,37 @@ that this slice closes: those team rows have no `slug` and no `role`, and the co
    Agent One without slug and role is the real case on staging), append version `n + 1` with the file's data (`content_versions`:
    `by` = staff, `sign_off` = `{"by": staff, "ref": SEED_REF}`, plus an `audit_log` line action `seed`), never a new row: the row id,
    the members' `team_row_id` and the listings' references survive. A second run finds every latest version equal and writes nothing.
+5a. **Runs cleanly on top of the platform head's staging seed** (head of operations, 2026-10-31 07:40): the platform department puts
+   contract v2 and the test-demo-a rows on staging with its own script under `sites/test-demo-a/` for its 4.5 done-when; `seed test` is the
+   long-term owner of seeding and must add nothing on top of it but what differs. So: the contract is compared by content, never by
+   number (when the active contract equals the file, nothing is written, whatever its version; tests assert "active equals the file" and
+   "one more version when it changed", never a literal 2 on staging); a row key that finds MORE than one live row is a failure (exit 1,
+   the collection, the key and the ids), never a guess; a `team` row is found by `slug`, and a legacy row with no slug by `name` (the old
+   Agent One and Agent Two), so the repair of item 5 applies to it instead of a second row being created; the media row's key is
+   aligned with the platform script (below). The staging gate below then shows `changed: false` on the first run if the two agree, or
+   exactly the differences if they do not (paste them).
+   **The platform script, read by the head 2026-10-31 10:15** (`sites/test-demo-a/stage.mjs`, platform slice 4.5; POSITION 08:25: dry-run
+   on staging only, "contract v2 planned, 11 NEW + team Agent One MATCH", the real run waits for a processed logo after 4.3): it writes
+   the contract as `max(version) + 1` when the active one differs (compared by `contract = file`, the same rule as item 1); finds rows by
+   the same keys as item 2 (team also by `name`); writes a changed row as a new version through `service.save_as` as owner-a (item 5
+   appends as staff: the data is what is compared, never `by`); and does NOT create the media row: it takes `--logo-media <uuid>`, a
+   processed media row of workspace A that slice 4.3's upload path makes, at a path that is not `logo.png`. So for `ref:media-logo`:
+   when A's settings row exists and its latest `data.logo.asset` names a media row of workspace A, keep that id (no media row is
+   inserted and the settings row is not re-versioned for it); only when there is none, find or insert `<workspace id>/logo.png` as
+   item 3 says. A test covers both (a settings row pointing at another media row of A: nothing written; none: the row inserted once).
 6. **`seed test --clean`** is unchanged (the workspaces go with everything under them; the `media` row goes with its workspace).
    `seed test --clean` then `seed test` restores the test site: same counts, same data, new ids (a test asserts the data, not the ids).
 7. Result data gains `testSite: { contractVersion, rows: { settings, team, areas, notices, pages, listings }, media }` (numbers) and
    `changed` keeps its meaning (true when anything was written). Fail loudly (exit 1, the SQL error) on anything `seed_version` refuses;
    never fall back to a partial seed.
+
+8. **The preview host** (head of operations 2026-10-31, after platform step 4 at 5eb6045): `preview.test-site-demo-a.pages.dev` serves
+   the published test site, and staging's `sites.preview_host` for SITE_A is still the placeholder `demo-a.preview.test` (the
+   `on conflict do nothing` insert never corrects it). `seed test` sets SITE_A's `preview_host` to `preview.test-site-demo-a.pages.dev`
+   when it differs (one update, an `audit_log` line action `seed-site`, `changed: true`; the next run writes nothing). SITE_B keeps its
+   placeholder (it has no Pages project). The value is one constant in `seed.mjs` next to the deploy targets, not read from the env.
+   The platform scripts now there for this takeover (read-only, read them before item 5a): `sites/test-demo-a/stage.mjs`,
+   `upload-logo.mjs` (owner-a's upload through upload-start / upload-finish; the media job processes it on GitHub) and `publish.mjs`.
 
 ## Part 2: `status` shows the function role and the migration counts
 - `functionRole: true | false`: `select 1 from pg_roles where rolname = 'omnikom_fn'` (read-only, works on a cluster that never ran
@@ -53,6 +80,38 @@ that this slice closes: those team rows have no `slug` and no `role`, and the co
 - `migrations.onDisk` (files in `supabase/migrations/`) and `migrations.inLedger` (rows in the ledger table, 0 when there is none) as
   numbers next to the existing `applied`, `pending`, `mismatched`, `unknownInDatabase`. Nothing else in `status` changes; `ok` stays
   "no mismatched migration" (a missing role is shown, not a failure: production before migration 8 is not broken by `status`).
+- **Function folders that are not functions are not listed as functions** (moved here from slice 2 item 4, head of operations
+  2026-10-31 11:05, confirmed on staging after platform 4.3 at 8504771: `supabase/functions/test` shows `not deployed`): a folder under
+  `supabase/functions/` is a function only when it holds an `index.ts` and `supabase/config.toml` does not say
+  `[functions.<name>]` `enabled = false`; `_shared` and the others are skipped. A disabled folder is listed as `disabled` (say in the
+  README whether it is listed or left out), never `not deployed`. Read config.toml with a small reader for that one table key (no
+  TOML dependency). Tested with a fixture folder tree and a fixture config through `OMNIKOM_REPO_ROOT`, never the real files:
+  a folder without `index.ts`, a disabled folder, an enabled one; mutant: the disabled check dropped (caught by the fixture test).
+
+## Part 3: `test walls` runs on a database that holds the test site, and leaves it alone (head of operations 2026-10-31)
+Today `omnikom test walls` wraps `supabase/tests/run-staging.mjs`, which refuses while any `test-%` workspace, `test-%` deploy target or
+`%@test` login exists ("already holds N test fixture row(s)"), and the only way past it is `seed test --clean`, which would wipe the live
+test site (preview.test-site-demo-a.pages.dev serves its rows). So the staging walls are UNPROVEN since the seed. The file
+`supabase/tests/tenancy.test.sql` uses the same fixed ids as `seed test` (WS_A `aaaaaaaa-0000-...-000000000000`, SITE_A `...517e`, the
+logins `00000000-...-00000000000a` and so on, slugs `test-demo-a`, emails `owner-a@test`) inside one transaction that is rolled back.
+Both supabase files are the platform department's: never edited; read them whole first.
+1. **`test walls` runs the walls file in its own namespace.** The CLI reads `tenancy.test.sql` and, in memory only, maps every fixture
+   literal to a namespace of this run: each fixed UUID literal of the file to a fresh one (one map per run, the same old id always to the
+   same new id, so the file's own cross-references hold), each `test-` slug and deploy target to `walls-<run>-`, each `@test` and the
+   `staff@omnikom` email to `@walls-<run>.test`. It refuses (exit 1, the literal) when the mapped copy still holds any original fixture
+   literal (count them: 0 left), and it never writes the copy anywhere but a temp file it deletes. It runs the copy with psql exactly as
+   `run-staging.mjs` does (`ON_ERROR_STOP=1`, `-X -q`, the target URL by name in the child's env), and passes on
+   `ALL TENANCY TESTS PASSED` like it.
+2. **Before and after, the test site is unchanged**: a fingerprint of everything under workspaces A and B (`workspaces`, `sites`,
+   `site_contracts`, `content_rows` and `content_versions`, `media`, `members`, `api_keys`, `leads`, `security_events` and `consent_ledger`
+   counts for SITE_A and SITE_B, `audit_log` count; the existing `f1 === f2` fingerprint pattern of the tests) is taken before and after,
+   and any difference is FAIL naming the table. After the run, rows of the run's namespace = 0 (the rollback held). Output lines:
+   `PASS tenancy tests (isolated namespace walls-<run>)`, `PASS test site unchanged (N tables compared)`, `OK: 0 rows of the run left`.
+3. An assertion of the walls file that fails only because the database is not empty (a global count, a unique key the map does not cover)
+   is a finding for the platform head with the file:line and the real error, never a CLI workaround that skips it. Report it and stop
+   that part (two approaches to one obstacle = BLOCKED with what unblocks it).
+4. On a database without the test site (the throwaway cluster of `test/run.mjs`) the same command passes too: the isolated run is the
+   only mode (no flag); `run-staging.mjs` stays the platform's script and is no longer called by the CLI. Say so in the README row.
 
 ## Tests (`test/run.mjs`; the db section has the `seed test: idempotent` block and the `status` block near "status ...T")
 - After `seed test`: A's active `site_contracts` row has `version = 2`, `contract` equal to the file (`JSON.stringify` of both parsed),
@@ -69,6 +128,11 @@ that this slice closes: those team rows have no `slug` and no `role`, and the co
 - `seed test --clean` then `seed test`: the same counts and the same identical-data result.
 - `status`: `functionRole` is `true` on the test cluster after the migrations, `false` after `drop role` on a throwaway copy (or against a
   cluster before migration 8); `migrations.onDisk` equals the file count and `migrations.inLedger` equals the ledger row count.
+- preview host: after `seed test` SITE_A's `preview_host` is `preview.test-site-demo-a.pages.dev` and SITE_B's the placeholder; set it back to
+  the placeholder by SQL, run `seed test`: one `seed-site` audit line, then a further run writes nothing.
+- `test walls` on the throwaway cluster AFTER `seed test` (the case staging is in): PASS, the test site fingerprint equal, 0 rows of the run
+  left; a unit test of the mapping: every UUID, `test-` slug and `@test` email of the real file is mapped, none left; a copy whose map
+  skips one id is refused before psql runs.
 Watched-fail each new check (break what it measures, see the FAIL line name it, restore).
 
 ## Mutants (`test/mutate.mjs`; the text occurs exactly once; suite `db`)
@@ -78,6 +142,9 @@ Watched-fail each new check (break what it measures, see the FAIL line name it, 
 - the repair path dropped (caught by the repair test)
 - the role check always true (caught by the status test)
 - `onDisk` reported as the ledger count (caught by the status counts test)
+- the preview host update dropped (caught by the preview host test)
+- `test walls`: one literal left unmapped (caught by the mapping test); the before/after fingerprint comparison always equal (caught by a
+  test that changes one row of A inside the window through a hook the test gives the command, then expects FAIL naming the table)
 Then `node tools/omnikom-cli/test/mutate.mjs` until `0 survived, 0 target text missing`.
 
 ## Gates (run all, paste the real last lines in your report)
@@ -91,9 +158,12 @@ node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omn
 node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs seed test --target staging      (second run: changed false)
 node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs verify --only people --target staging
 node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs verify --only walls --target staging
+node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs test walls --target staging     (PASS, test site unchanged, 0 left)
 ```
 `seed test` on staging is released for this slice (twice, to show idempotency). Not `verify --only lead` (it sends real alert emails and the
-previous slice ran it) and not `seed test --clean` on staging (it would drop the keys the owner's env file names).
+previous slice ran it) and not `seed test --clean` on staging (it would drop the keys the owner's env file names). Head of operations'
+caution (2026-10-31 05:00): nothing in this slice may send a lead alert email; the seed path never calls `lead send` or `capture-lead`,
+and no test of this slice posts a lead to staging.
 
 ## The five rules of the spec's section 5 (binding)
 1. Secrets by name only and never in output; a test asserts it.

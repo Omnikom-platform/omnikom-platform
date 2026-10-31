@@ -54,13 +54,28 @@ export async function cli(argv, env, deps = {}) {
 // second row (the other broken function the CLI must catch). Like the function, the model records one new-lead alert per lead
 // in `messages` (service.record_message, to the site's lead_alert_to); with `doubleAlert` it alerts on every call, so a retry
 // alerts twice (the bug found on 2026-10-30; the function dedupes on messages.lead_id + template).
-export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIdem = false, doubleAlert = false }) {
+// Migration 7 (what the function does since step 3): every refusal is recorded through service.record_security_event with the
+// function's own kind and code (bad signature: 'bad-signature' SIGNATURE; the database's refusals: refusal() below), a paused site
+// or suspended workspace answers 409, a quota 429, and the consent ledger row is written by service.capture_lead itself (never by
+// the model). With `noSecurityLog` a refusal is not recorded; with `doubleConsent` a second consent row is written for every
+// accepted call (private.record_consent again); with `pausedAs500` a paused site answers 500, as before step 3: each is a broken
+// function that `verify` must catch.
+export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIdem = false, doubleAlert = false, noSecurityLog = false, doubleConsent = false, pausedAs500 = false }) {
   const { verify } = await import(pathToFileURL(join(REPO_ROOT, 'supabase', 'functions', '_shared', 'signature.ts')).href);
   const sql = makeSql({ url: dbUrl });
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const lit = v => (v === null || v === undefined ? 'null' : `'${String(v).replace(/'/g, "''")}'`);
   const calls = [];
   const reply = (status, obj) => new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
+  // what the database said no to, as the function's answer (refusal() in supabase/functions/capture-lead/index.ts)
+  const refusal = message => {
+    if (message.includes('S-SITE-PAUSED')) return { status: 409, code: 'S-SITE-PAUSED', kind: 'suspended' };
+    if (message.includes('S-WORKSPACE-SUSPENDED')) return { status: 409, code: 'S-WORKSPACE-SUSPENDED', kind: 'suspended' };
+    if (message.includes('S-QUOTA')) return { status: 429, code: 'S-QUOTA', kind: 'quota' };
+    if (message.includes('unknown site')) return { status: 404, code: 'SITE', kind: 'refused' };
+    if (message.includes('consent text required')) return { status: 400, code: 'REQUIRED', kind: 'bad-request' };
+    return null;
+  };
   async function model(url, init = {}) {
     const u = new URL(url);
     calls.push({ url: String(url), method: init.method, headers: init.headers, body: init.body });
@@ -69,19 +84,26 @@ export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIde
     if (!UUID.test(site)) return reply(404, { problems: [{ code: 'SITE' }] });
     const body = init.body || '';
     const path = u.pathname.replace(/^\/functions\/v1/, '') + u.search;
+    const event = (kind, code) => { if (!noSecurityLog) sql.exec(`select service.record_security_event(${lit(kind)}, ${lit(code)}, null, ${lit(site)}::uuid, null, null, ${lit(JSON.stringify({ path: u.pathname }))}::jsonb);`); };
     let ok = naive;
     // the keys come from the database exactly as the function reads them (index.ts): service.active_key joined to the Vault view.
     // (until 2026-10-30 the model held the keys in memory and never asked the lookup: a lookup that finds nothing passed every test)
     const found = sql.rows(`select s.decrypted_secret as secret from service.active_key('site-signing', ${lit(site)}::uuid) k join vault.decrypted_secrets s on s.name = k.vault_ref`);
     if (!found.ok) return reply(500, { problems: [{ code: 'SERVER' }] });
     for (const k of found.rows) if (await verify((init.headers || {})['x-site-signature'] || null, k.secret, 'POST', path, body)) ok = true;
-    if (!ok) return reply(401, { problems: [{ code: 'SIGNATURE' }] });
+    if (!ok) { event('bad-signature', 'SIGNATURE'); return reply(401, { problems: [{ code: 'SIGNATURE' }] }); }
     let d;
     try { d = JSON.parse(body); } catch { return reply(400, { problems: [{ code: 'BODY' }] }); }
     if (!d.form || !d.page || typeof d.consentText !== 'string' || d.consentText === '') return reply(400, { problems: [{ code: 'REQUIRED' }] });
     const r = sql.exec(`select service.capture_lead(${lit(site)}::uuid, ${lit(d.form)}, ${lit(d.page)}, ${lit(d.name)}, ${lit(d.email)}, ${lit(d.phone)}, ${lit(JSON.stringify(d.answers || {}))}::jsonb, ${lit(d.consentText)}, ${lit(d.flow)}, ${lit(d.cta)}, ${d.marketingConsent ? lit(JSON.stringify(d.marketingConsent)) : 'null'}::jsonb, ${dropIdem ? 'null' : lit(d.idempotencyKey)}::uuid, null, null, null);`);
-    if (!r.ok) return reply(500, { problems: [{ code: 'SERVER' }] });
+    if (!r.ok) {
+      const why = pausedAs500 && r.message.includes('S-SITE-PAUSED') ? null : refusal(r.message);
+      if (!why) return reply(500, { problems: [{ code: 'SERVER' }] });
+      event(why.kind, why.code);
+      return reply(why.status, { problems: [{ code: why.code }] });
+    }
     const leadId = r.out.split(/\r?\n/).filter(Boolean).pop();
+    if (doubleConsent) sql.exec(`select private.record_consent((select workspace_id from sites where id = ${lit(site)}::uuid), ${lit(site)}::uuid, ${lit(leadId)}::uuid, ${lit(d.form)}, ${lit(d.page)}, ${lit(d.consentText)}, false, null, null, null, null);`);
     sql.exec(`do $a$ declare ws uuid; t text; begin
       if ${doubleAlert ? 'false' : 'true'} and exists (select 1 from messages where lead_id = ${lit(leadId)}::uuid and template = 'new-lead') then return; end if;
       select workspace_id into ws from sites where id = ${lit(site)}::uuid;
