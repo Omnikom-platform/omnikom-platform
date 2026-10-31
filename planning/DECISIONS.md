@@ -356,3 +356,30 @@
     CLI and testing department, next slice after key-numbering, before seed test (the platform head seeds staging for 4.5
     meanwhile). Supply-chain rules apply: versions at least 7 days old, sha256 pinned, release assets from the tools'
     official GitHub releases only.
+
+43. **Every change follows its chain to the end; only a department head commits and pushes, and only a tree that passed the
+    full gates reaches GitHub** (2026-10-31 17:25, owner: "if there's something that is being created, it needs to ... be
+    considerate about what else works onto this and properly update whatever needs to be updated or hand it to something or
+    someone to finalize the rest of the chain"; "if it's something that is light ... so be it. And it gets into the report";
+    "It should not push to GitHub without the head taking a really structured, context efficient, tokens efficient look on the
+    actual chain"). What happened: platform 4.6 (f831f10) added required fields to the test contract in tenancy.test.sql, and
+    the CLI's seed check went red on GitHub; the CLI fix (eeb8431) updated tools/omnikom-cli seed.mjs, which
+    supabase/functions/test/harness.mjs imports, so the functions and gates jobs went red. Each push ran only its own
+    department's tests. The rule:
+    (1) **The chain is found before the commit, by a tool.** `omnikom impact <files>` (or `--staged`) lists every file that
+        imports, reads or copies a changed file (imports, file reads, named literal copies such as TEST_CONTRACT and the
+        contract in tenancy.test.sql), each with its owning department from the charters, and the gates and CI jobs that
+        cover them. Short output: owner, file, why, which gate.
+    (2) **Light follow-on, done in place.** A change that forces a small update in another department's file (a fixture value,
+        a test literal, a one-line follow-on, no behaviour change) is made by the changing session in the same commit; the
+        report names the file and its owner, and that owner's head gets a notice. This is the one exception to "edit only
+        what you own".
+    (3) **Anything bigger goes to the owning head as a notice**, who sequences and delegates it; the change lands only with
+        its chain green, or in the order that head agrees.
+    (4) **Only a head commits and pushes.** Builders hand back a working-tree change and a report, never a commit or push.
+        The head reads the impact output (not the whole diff), has a Haiku agent run the full gates on the combined tree
+        (`omnikom ci` once it exists; `run-all-gates.mjs` until then), then commits and pushes.
+    (5) **Enforced by a hook, not by memory.** A full gates pass writes a stamp for the exact tree it tested (the
+        `git write-tree` hash) under .git/; a pre-push hook installed by `omnikom hooks install` refuses to push a commit
+        whose tree has no passing stamp. A commit that changes only prose no gate reads is allowed, as `omnikom impact`
+        decides. Built by the CLI and testing department, with a test watched failing and a mutant for each part.

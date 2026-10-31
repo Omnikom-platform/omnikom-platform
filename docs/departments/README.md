@@ -38,6 +38,11 @@ that is written here.
 7. **Mechanical runs go to Haiku 5.5 agents** (DECISIONS 34): test suites, mutant runs, the gates, greps and listings, fixture
    rebuilds, deploy and status commands. The head or builder gives the Haiku agent the exact command and reads the verdict
    lines back; the beefy models spend their turns on judgement, code and reading results, never on waiting for a run.
+8. **Every change follows its chain; only the head pushes** (DECISIONS 43). Before a commit, `omnikom impact` lists who
+   imports, reads or copies the changed files. A light follow-on in another department's file (a fixture value, a test
+   literal) is made in the same commit and named in the report with its owner, whose head gets a notice; anything bigger is
+   a notice to that head, who sequences it. Builders never commit or push: the head reads the impact output, has a Haiku agent
+   run the full gates on the combined tree, then commits and pushes. The pre-push hook refuses a tree without a passing stamp.
 
 ## Where sessions live and who they talk to (owner, 2026-10-30 19:51)
 - Sidebar: every session is filed under its department's group, named `Omnikom: <department name>` (head of operations,
