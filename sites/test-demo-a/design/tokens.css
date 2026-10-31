@@ -1,0 +1,22 @@
+/* Design tokens of the Demo A test site: neutral values for the factory's own tests, no brand. */
+:root {
+  --color-ink: #1c2530;
+  --color-muted: #52606d;
+  --color-paper: #ffffff;
+  --color-wash: #f2f5f8;
+  --color-line: #d4dbe2;
+  --color-accent: #2b4a6b;
+  --color-accent-ink: #ffffff;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --size-body: 1rem;
+  --size-lead: 1.25rem;
+  --size-h1: 2rem;
+  --size-h2: 1.5rem;
+  --size-h3: 1.125rem;
+  --space-1: 0.5rem;
+  --space-2: 1rem;
+  --space-3: 1.5rem;
+  --space-4: 2.5rem;
+  --radius: 6px;
+  --measure: 42rem;
+}

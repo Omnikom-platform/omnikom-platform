@@ -1,0 +1,25 @@
+/* Layout, header, footer and utilities of the Demo A test site. Left-aligned, whitespace first. */
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; font: var(--size-body)/1.6 var(--font-body); color: var(--color-ink); background: var(--color-paper); }
+a { color: var(--color-accent); }
+img { max-width: 100%; height: auto; }
+.skip { position: absolute; left: -9999px; }
+.skip:focus { left: var(--space-2); top: var(--space-1); background: var(--color-paper); padding: var(--space-1); }
+.site-header, .site-footer { padding: var(--space-2); background: var(--color-wash); }
+.site-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); border-bottom: 1px solid var(--color-line); }
+.brand { display: inline-flex; align-items: center; gap: var(--space-1); font-weight: 700; text-decoration: none; color: var(--color-ink); }
+.site-header nav { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+main { max-width: var(--measure); margin: 0 auto; padding: var(--space-4) var(--space-2); }
+h1 { font-size: var(--size-h1); line-height: 1.2; margin: 0 0 var(--space-2); }
+h2 { font-size: var(--size-h2); line-height: 1.25; margin: var(--space-4) 0 var(--space-2); }
+h3 { font-size: var(--size-h3); margin: 0 0 var(--space-1); }
+.lead { font-size: var(--size-lead); color: var(--color-muted); }
+.cards { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.cards article { border: 1px solid var(--color-line); border-radius: var(--radius); padding: var(--space-2); }
+.price { font-size: var(--size-lead); font-weight: 700; }
+form label { display: block; }
+form input[type="text"], form input[type="email"], form input[type="tel"], form textarea { display: block; width: 100%; max-width: 28rem; padding: var(--space-1); border: 1px solid var(--color-line); border-radius: var(--radius); font: inherit; }
+.consent label { display: flex; gap: var(--space-1); align-items: flex-start; color: var(--color-muted); font-size: 0.9rem; }
+.hp { position: absolute; left: -9999px; }
+button { padding: var(--space-1) var(--space-3); background: var(--color-accent); color: var(--color-accent-ink); border: 0; border-radius: var(--radius); font: inherit; cursor: pointer; }
+.site-footer p { margin: 0 0 var(--space-1); }

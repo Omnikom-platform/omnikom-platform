@@ -553,3 +553,5 @@
 - 00:30 GITHUB_DISPATCH_TOKEN is in the env file (head of operations; fine-grained, this repo only, Contents read and write, expires
   2027-01-29; probed 200 with push true, prod repo 404). Slice 4.5's critical path is clear. The by-hand run for the done-when test uses
   `gh workflow run` with the owner's gh login (workflow scope), not that token, so no Actions write is needed on it.
+- 01:40 Finding from the head of operations noted in the charter Open items: the privacy-requests read wall (T-series, "B's owner reads no request of A") failed twice today under load and passed alone (161 of 161); flaky wall, diagnose after 4.1 is proven (two clusters at once, leftover row). Builders 4.1 and 4.2 both alive after the laptop sleep (last writes 01:33 and 01:30).
+- 03:05 Slice 4.1 PROVEN locally (PROGRESS.md "4.1 factory core: head's verification"); committing factory/, sites/test-demo-a/, PROGRESS, charter. Builder 4.2 still running (told to add the export schema key). NEXT: launch 4.4 (brief factory/briefs/4-4-runner-and-workflows.md); 4.3 after 4.2 is verified.

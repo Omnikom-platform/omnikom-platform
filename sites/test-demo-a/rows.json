@@ -1,0 +1,123 @@
+[
+  {
+    "id": "settings",
+    "collection": "settings",
+    "data": {
+      "businessName": "Demo A",
+      "logo": { "asset": "ref:media-logo", "alt": "Demo A logo" },
+      "phone": "(555) 555-0100",
+      "email": "info@example.com",
+      "address": { "street": "1 Demo Way", "city": "Alpha", "region": "ST", "postalCode": "00000" }
+    }
+  },
+  {
+    "id": "page-home",
+    "collection": "pages",
+    "data": {
+      "path": "/",
+      "type": "home",
+      "title": "Demo A",
+      "seo": { "title": "Demo A: homes in Alpha and Beta", "description": "Demo A is a synthetic test business used to prove the website factory: two towns, two homes and one contact form." },
+      "sections": {
+        "hero": { "heading": "Homes in Alpha and Beta", "lead": "A synthetic page for testing the factory build." },
+        "intro": { "heading": "About Demo A", "body": "Demo A does not exist. This text stands in for client content in the factory tests." }
+      }
+    }
+  },
+  {
+    "id": "page-contact",
+    "collection": "pages",
+    "data": {
+      "path": "/contact/",
+      "type": "contact",
+      "title": "Contact Demo A",
+      "seo": { "title": "Contact Demo A: send a test message", "description": "Send the Demo A test business a message. The form posts to the site lead endpoint; nothing here is a real enquiry." },
+      "sections": {
+        "contact": { "heading": "Contact Demo A", "lead": "Fill in the form and we will answer." }
+      }
+    }
+  },
+  {
+    "id": "page-alpha",
+    "collection": "pages",
+    "data": {
+      "path": "/homes-in-alpha/",
+      "type": "buyer-guide",
+      "title": "Homes in Alpha",
+      "seo": { "title": "Homes in Alpha: Demo A test listings", "description": "The Demo A guide to the town of Alpha, with the one synthetic home listed there. Used only to test the factory." },
+      "sections": {
+        "intro": { "heading": "Homes in Alpha", "body": "Alpha is an invented town. Its guide page lists the homes whose area is Alpha." }
+      }
+    }
+  },
+  {
+    "id": "page-beta",
+    "collection": "pages",
+    "data": {
+      "path": "/homes-in-beta/",
+      "type": "buyer-guide",
+      "title": "Homes in Beta",
+      "seo": { "title": "Homes in Beta: Demo A test listings", "description": "The Demo A guide to the town of Beta, with the one synthetic home listed there. Used only to test the factory." },
+      "sections": {
+        "intro": { "heading": "Homes in Beta", "body": "Beta is an invented town. Its guide page lists the homes whose area is Beta." }
+      }
+    }
+  },
+  { "id": "area-alpha", "collection": "areas", "data": { "name": "Alpha", "slug": "alpha", "region": "ST", "intro": "An invented town." } },
+  { "id": "area-beta", "collection": "areas", "data": { "name": "Beta", "slug": "beta", "region": "ST", "intro": "Another invented town." } },
+  { "id": "team-agent-one", "collection": "team", "data": { "name": "Agent One", "slug": "agent-one", "role": "Agent" } },
+  {
+    "id": "listing-alpha",
+    "collection": "listings",
+    "data": {
+      "sample": false,
+      "street": "12 Alpha Lane",
+      "slug": "12-alpha-lane",
+      "address": { "street": "12 Alpha Lane", "city": "Alpha" },
+      "status": "active",
+      "price": { "amount": 450000, "currency": "USD" },
+      "beds": 3,
+      "baths": 2,
+      "description": "A synthetic three bedroom home in Alpha, listed only to test the factory.",
+      "area": "ref:area-alpha",
+      "agent": "ref:team-agent-one",
+      "seo": { "title": "12 Alpha Lane, Alpha: 3 bed test home", "description": "A synthetic three bedroom home at 12 Alpha Lane in Alpha, listed by Demo A only to test the website factory build." }
+    }
+  },
+  {
+    "id": "listing-beta",
+    "collection": "listings",
+    "data": {
+      "sample": false,
+      "street": "34 Beta Street",
+      "slug": "34-beta-street",
+      "address": { "street": "34 Beta Street", "city": "Beta" },
+      "status": "active",
+      "price": { "amount": 525000, "currency": "USD" },
+      "beds": 4,
+      "baths": 3,
+      "description": "A synthetic four bedroom home in Beta, listed only to test the factory.",
+      "area": "ref:area-beta",
+      "agent": "ref:team-agent-one",
+      "seo": { "title": "34 Beta Street, Beta: 4 bed test home", "description": "A synthetic four bedroom home at 34 Beta Street in Beta, listed by Demo A only to test the website factory build." }
+    }
+  },
+  {
+    "id": "notice-form-consent",
+    "collection": "notices",
+    "data": {
+      "title": "Contact consent",
+      "slug": "form-consent",
+      "text": "By sending this form you agree that Demo A may contact you by phone, text message or email about your enquiry. Consent is not a condition of purchase. Message and data rates may apply; reply STOP to opt out of texts at any time."
+    }
+  },
+  {
+    "id": "notice-marketing-consent",
+    "collection": "notices",
+    "data": {
+      "title": "Marketing consent",
+      "slug": "marketing-consent",
+      "text": "I would also like to receive occasional marketing emails from Demo A. I can unsubscribe at any time."
+    }
+  }
+]

@@ -1,0 +1,47 @@
+{
+  "workspace": "test-demo-a",
+  "source": "sites/test-demo-a/plan/entities.json",
+  "locations": { "collection": "areas" },
+  "families": { "c-buy": "buyer-guide" },
+  "pageTypeOf": { "/": "home", "/contact/": "contact" },
+  "defaultForm": "contact",
+  "collections": {
+    "areas": { "type": "Place", "label": "Places" },
+    "listings": {
+      "type": "RealEstateListing",
+      "route": "/listings/{slug}/",
+      "access": { "member": "own" },
+      "ownerField": "agent",
+      "fields": {
+        "area": { "type": "reference", "to": "areas", "required": true },
+        "agent": { "type": "reference", "to": "team", "required": true },
+        "photos": { "type": "gallery", "max": 60, "media": { "minWidth": 400, "rightsConfirm": true } },
+        "seo": { "type": "seo", "required": true }
+      }
+    }
+  },
+  "pageTypes": {
+    "home": {
+      "sections": [
+        { "id": "hero", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
+        { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "body": { "type": "richtext", "required": true } } },
+        { "id": "feed", "kind": "feed", "accepts": "listings" }
+      ]
+    },
+    "buyer-guide": {
+      "sections": [
+        { "id": "intro", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "body": { "type": "richtext", "required": true } } },
+        { "id": "feed", "kind": "feed", "accepts": "listings" }
+      ]
+    },
+    "contact": {
+      "sections": [
+        { "id": "contact", "kind": "fields", "fields": { "heading": { "type": "text", "required": true, "max": 90 }, "lead": { "type": "text", "max": 300 } } },
+        { "id": "form", "kind": "form", "form": "contact" }
+      ]
+    }
+  },
+  "placements": [
+    { "id": "active>home", "collection": "listings", "when": { "status": ["active"] }, "to": { "page": "/", "section": "feed" }, "sort": "-price", "limit": 6 }
+  ]
+}

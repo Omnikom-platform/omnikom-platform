@@ -1,0 +1,10 @@
+{
+  "generatedAt": "2026-10-31",
+  "note": "Synthetic plan for the factory's test site (workspace test-demo-a, 'Demo A'). No client content.",
+  "pages": [
+    { "path": "/", "kind": "home", "schema": ["WebPage"] },
+    { "path": "/contact/", "kind": "contact", "schema": ["ContactPage"] },
+    { "path": "/homes-in-alpha/", "kind": "money", "cluster": "c-buy-alpha", "location": "Alpha, ST", "schema": ["WebPage"] },
+    { "path": "/homes-in-beta/", "kind": "money", "cluster": "c-buy-beta", "location": "Beta, ST", "schema": ["WebPage"] }
+  ]
+}

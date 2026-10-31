@@ -1,0 +1,449 @@
+{
+ "contractVersion": 1,
+ "core": 1,
+ "site": {
+  "workspace": "test-demo-a",
+  "industry": "real-estate-agent",
+  "generatedFrom": {
+   "plan": "sites/test-demo-a/plan",
+   "sitemapSha256": "2300d6f1aebaf947",
+   "planGeneratedAt": "2026-10-31",
+   "entities": "sites/test-demo-a/plan/entities.json"
+  }
+ },
+ "collections": {
+  "areas": {
+   "label": "Places",
+   "kind": "collection",
+   "type": "Place",
+   "schemaType": "Place",
+   "titleField": "name",
+   "slugFrom": "name",
+   "access": {
+    "member": "none"
+   },
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 80
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "region": {
+     "type": "text",
+     "max": 40
+    },
+    "geo": {
+     "type": "geo"
+    },
+    "intro": {
+     "type": "richtext"
+    },
+    "heroImage": {
+     "type": "image",
+     "media": {
+      "minWidth": 1200,
+      "rightsConfirm": true
+     }
+    },
+    "localFacts": {
+     "type": "list",
+     "of": {
+      "label": {
+       "type": "text",
+       "required": true,
+       "max": 80
+      },
+      "value": {
+       "type": "text",
+       "required": true,
+       "max": 120,
+       "sourced": true
+      }
+     }
+    }
+   }
+  },
+  "listings": {
+   "label": "listings",
+   "kind": "collection",
+   "type": "RealEstateListing",
+   "schemaType": "RealEstateListing",
+   "titleField": "street",
+   "slugFrom": "street",
+   "statusField": "status",
+   "sampleField": "sample",
+   "access": {
+    "member": "own"
+   },
+   "ownerField": "agent",
+   "fields": {
+    "sample": {
+     "type": "boolean",
+     "internal": true,
+     "help": "Sample/placeholder listing for previews: smaller photos allowed, never published to a live site."
+    },
+    "street": {
+     "type": "text",
+     "required": true,
+     "max": 120
+    },
+    "slug": {
+     "type": "slug",
+     "required": true
+    },
+    "address": {
+     "type": "address",
+     "required": true
+    },
+    "geo": {
+     "type": "geo"
+    },
+    "status": {
+     "type": "enum",
+     "required": true,
+     "options": [
+      "coming-soon",
+      "active",
+      "pending",
+      "sold"
+     ]
+    },
+    "price": {
+     "type": "money",
+     "required": true
+    },
+    "soldPrice": {
+     "type": "money",
+     "visibleWhen": {
+      "showSoldPrice": [
+       true
+      ]
+     }
+    },
+    "showSoldPrice": {
+     "type": "boolean"
+    },
+    "beds": {
+     "type": "number",
+     "min": 0,
+     "max": 50
+    },
+    "baths": {
+     "type": "number",
+     "min": 0,
+     "max": 50
+    },
+    "livingSqft": {
+     "type": "number",
+     "integer": true,
+     "min": 0
+    },
+    "lotSqft": {
+     "type": "number",
+     "integer": true,
+     "min": 0
+    },
+    "yearBuilt": {
+     "type": "number",
+     "integer": true,
+     "min": 1700,
+     "max": 2100
+    },
+    "propertyType": {
+     "type": "enum",
+     "options": [
+      "single-family",
+      "condo",
+      "townhouse",
+      "multi-family",
+      "land",
+      "manufactured",
+      "other"
+     ]
+    },
+    "description": {
+     "type": "richtext",
+     "required": true
+    },
+    "features": {
+     "type": "list",
+     "max": 40,
+     "of": {
+      "name": {
+       "type": "text",
+       "required": true,
+       "max": 80
+      }
+     }
+    },
+    "mlsNumber": {
+     "type": "text",
+     "max": 30
+    },
+    "tourUrl": {
+     "type": "url"
+    },
+    "photos": {
+     "type": "gallery",
+     "max": 60,
+     "media": {
+      "minWidth": 400,
+      "rightsConfirm": true
+     }
+    },
+    "openHouses": {
+     "type": "list",
+     "of": {
+      "starts": {
+       "type": "datetime",
+       "required": true
+      },
+      "ends": {
+       "type": "datetime",
+       "required": true
+      }
+     }
+    },
+    "listedOn": {
+     "type": "date"
+    },
+    "soldOn": {
+     "type": "date"
+    },
+    "seo": {
+     "type": "seo",
+     "required": true
+    },
+    "area": {
+     "type": "reference",
+     "to": "areas",
+     "required": true
+    },
+    "agent": {
+     "type": "reference",
+     "to": "team",
+     "required": true
+    }
+   },
+   "route": "/listings/{slug}/"
+  }
+ },
+ "pageTypes": {
+  "home": {
+   "label": "home",
+   "schema": [
+    "WebPage"
+   ],
+   "sections": [
+    {
+     "id": "hero",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "feed",
+     "kind": "feed",
+     "accepts": "listings"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "contact": {
+   "label": "contact",
+   "schema": [
+    "ContactPage"
+   ],
+   "sections": [
+    {
+     "id": "contact",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "lead": {
+       "type": "text",
+       "max": 300
+      }
+     }
+    },
+    {
+     "id": "form",
+     "kind": "form",
+     "form": "contact"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  },
+  "buyer-guide": {
+   "label": "buyer-guide",
+   "bind": "areas",
+   "schema": [
+    "WebPage"
+   ],
+   "sections": [
+    {
+     "id": "intro",
+     "kind": "fields",
+     "fields": {
+      "heading": {
+       "type": "text",
+       "required": true,
+       "max": 90
+      },
+      "body": {
+       "type": "richtext",
+       "required": true
+      }
+     }
+    },
+    {
+     "id": "feed",
+     "kind": "feed",
+     "accepts": "listings"
+    }
+   ],
+   "sectionsFrom": "entities.json"
+  }
+ },
+ "pages": [
+  {
+   "path": "/",
+   "type": "home"
+  },
+  {
+   "path": "/contact/",
+   "type": "contact"
+  },
+  {
+   "path": "/homes-in-alpha/",
+   "type": "buyer-guide",
+   "bind": "alpha"
+  },
+  {
+   "path": "/homes-in-beta/",
+   "type": "buyer-guide",
+   "bind": "beta"
+  }
+ ],
+ "forms": {
+  "contact": {
+   "label": "Contact",
+   "fields": {
+    "name": {
+     "type": "text",
+     "required": true,
+     "max": 120
+    },
+    "email": {
+     "type": "email",
+     "required": true
+    },
+    "phone": {
+     "type": "phone"
+    },
+    "message": {
+     "type": "text",
+     "max": 2000
+    }
+   },
+   "consent": {
+    "notice": "form-consent"
+   }
+  }
+ },
+ "placements": [
+  {
+   "id": "active>home",
+   "collection": "listings",
+   "when": {
+    "status": [
+     "active"
+    ]
+   },
+   "to": {
+    "page": "/",
+    "section": "feed"
+   },
+   "sort": "-price",
+   "limit": 6
+  },
+  {
+   "id": "derived:listings>buyer-guide",
+   "collection": "listings",
+   "to": {
+    "pageType": "buyer-guide",
+    "section": "feed",
+    "match": "area"
+   }
+  },
+  {
+   "id": "derived:posts>sitemap",
+   "collection": "posts",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:posts>schema",
+   "collection": "posts",
+   "to": {
+    "schema": "BlogPosting"
+   }
+  },
+  {
+   "id": "derived:listings>sitemap",
+   "collection": "listings",
+   "to": {
+    "sitemap": true
+   }
+  },
+  {
+   "id": "derived:listings>schema",
+   "collection": "listings",
+   "to": {
+    "schema": "RealEstateListing"
+   }
+  }
+ ],
+ "clientWording": [],
+ "gateWaivers": [],
+ "pageSeeds": {},
+ "seeds": {
+  "areas": [
+   "alpha",
+   "beta"
+  ]
+ }
+}

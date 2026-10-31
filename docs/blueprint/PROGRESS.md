@@ -19,6 +19,96 @@ OK: 24 settings read, 0 differ from auth-settings.md (checked 2026-10-30)
 ```
 (15 PASS, 9 RECORDED, 0 FAIL; the "checked" date is the script's UTC day.) The step 3 line in `25-BUILD-SEQUENCE.md` is ticked.
 
+### 4.1 factory core: head's verification (2026-10-31 03:05 local)
+Builder: in-session Sonnet agent, brief `factory/briefs/4-1-factory-core.md`, 155 tool uses, 2 h 52 min. Its paragraph is below. Every gate line
+re-run by a Haiku agent on the same tree (02:55 to 03:05), verbatim:
+```
+node factory/test/run.mjs                                   OK: 88 of 88 checks passed                                          exit 0
+node factory/test/mutate.mjs                                85 mutants, 85 caught, 0 survived, 0 target text missing            exit 0  (past 300 s, finished in the background)
+node factory/build.mjs --export factory/test/fixtures/export-test-demo-a.json --out <scratch>/dist --design sites/test-demo-a/design --media sites/test-demo-a/media
+                                                            BUILT 6 pages (4 contract pages + 2 item pages) -> <scratch>/dist
+                                                            preview: true                                                       exit 0
+node tools/audit/run.mjs <scratch>/dist                     OK: 7 page(s), 17 rule(s), 0 FAIL, 1 WARN, 0 SKIP                   exit 0
+node factory/build.mjs ... --out <scratch>/dist-bad --force-fail heading
+                                                            FORCED FAILURE: heading
+                                                            BUILT 6 pages (4 contract pages + 2 item pages) -> <scratch>/dist-bad   exit 0
+node tools/audit/run.mjs <scratch>/dist-bad                 FAIL MET-003 /contact/:70 value-mismatch: <h4> "Forced skipped heading level" follows <h2> "Send a message" (line 70) and skips a level (source: checklist/web-delivery.md MET-003)
+                                                            FAILED: 7 page(s), 17 rule(s), 1 FAIL, 1 WARN, 0 SKIP               exit 1
+```
+`ls <scratch>/dist`: `404.html _headers assets contact homes-in-alpha homes-in-beta index.html listings llms.txt media robots.txt sitemap.xml`.
+`robots.txt`: `User-agent: *` / `Allow: /` / `Sitemap: https://preview.test-site-demo-a.pages.dev/sitemap.xml`. `_headers` carries the ELEV8 security
+block plus `X-Robots-Tag: noindex, nofollow` (preview) and the immutable cache line for `/assets/*`. The head's design decision (preview stays out of the
+index by header only, robots.txt always Allow + Sitemap so IDX-004 judges the files that deploy) is written in `factory/lib/launch.mjs` and the README.
+
+**Verdict: slice 4.1 PROVEN locally** (the two done-when halves of the factory: a clean build the audit engine passes, a forced heading violation it
+catches). UNPROVEN, carried to later slices: a staging export (4.3), a browser render of the built site (render gate, step 5 dashboard work), the
+launch layer's image work (WebP, phone sizes, woff2, `_redirects`), richtext sanitising. The builder's `run-all-gates.mjs` red on "database walls"
+is the flaky-wall finding already in the charter's Open items (it passed alone, 213 mutants); the cause is NOT determined.
+
+**Findings from the builder, decided by the head.** (1) every build gets IDX-003 WARN (sitemap lastmod = build clock): accepted for now, open item
+"honest lastmod from the newest row `at` behind each page" for a later factory slice. (2) `service.export_bundle` lacks the top-level `schema`
+key: sent to builder 4.2 (migration 9 is still unapplied and its file). (3) the seeded team row `{"name":"Agent One"}` has no `slug` or `role`
+and fails publish validation under this contract: finding to the CLI head for the queued `seed test` slice (write both). (4) `ctx.media()`,
+`ctx.nav`, `ctx.notices`, `ctx.assets`, feed `_id`/`_path`: approved, they are in the README. (5) no richtext sanitiser: designs print richtext
+escaped until the dashboard editor defines its tags (open item). (6) a page row whose `type` differs from its contract page is not checked, and
+(7) a bound page whose place row is unpublished builds with `bound = null`: both become one small factory check in a later slice (6: refuse;
+7: SKIP like a missing page row). Nothing of (1), (5), (6), (7) blocks step 4's done-when.
+
+### 4.1 factory core (builder)  (2026-10-31, builder session `BUILDER (platform build): slice 4.1`, brief `factory/briefs/4-1-factory-core.md`; gates run 01:25 to 02:10 local)
+Files: `factory/README.md` (the export shape and the look-folder convention, written for slice 4.3 and the designs), `factory/build.mjs`,
+`factory/lib/{html,template,export,plan,design,launch,gates,site}.mjs`, `factory/test/{run,mutate,make-export}.mjs` +
+`fixtures/export-test-demo-a.json`, `sites/test-demo-a/` (plan, make-contract, contract, rows, media/logo.png, design). No dependency.
+Local only: nothing deployed, no network, `E:\Alex Sevilla` read only.
+
+**Watched red before any code existed (run.mjs written first; the one line seen).**
+```
+node factory/test/run.mjs      FAIL import: Cannot find module 'E:\Omnikom Platform\factory\lib\html.mjs' imported from E:\Omnikom Platform\factory\test\run.mjs   (exit 1)
+node factory/build.mjs ...     Error: Cannot find module 'E:\Omnikom Platform\factory\build.mjs'   (exit 1)
+node tools/audit/run.mjs <dist> site folder not found: /nonexistent/dist   (exit 2: no build, no audit)
+```
+Then the code, the test site and `mutate.mjs` (written after the code; its own red is the 85 mutants below: the first full run said `84 mutants, 83 caught,
+0 survived, 1 target text missing`, the missing one was a wrong target text in the mutant table, fixed, run again).
+
+**Gates (run by the builder; the mutant run took about 20 minutes with 4 in parallel).**
+```
+node factory/test/run.mjs                                    OK: 88 of 88 checks passed                                  exit 0
+node factory/test/mutate.mjs                                 85 mutants, 85 caught, 0 survived, 0 target text missing    exit 0
+node factory/build.mjs --export factory/test/fixtures/export-test-demo-a.json --out <scratch>/dist --media sites/test-demo-a/media
+                                                             BUILT 6 pages (4 contract pages + 2 item pages) -> <scratch>/dist / preview: true   exit 0
+node tools/audit/run.mjs <scratch>/dist                      OK: 7 page(s), 17 rule(s), 0 FAIL, 1 WARN, 0 SKIP           exit 0
+   the one WARN: WARN IDX-003 sitemap.xml:4 all 6 URLs share one lastmod (...) within 10 minutes of the time this file was written: the build clock, not content dates
+node factory/build.mjs ... --out <scratch>/dist-bad --force-fail heading
+                                                             FORCED FAILURE: heading / BUILT 6 pages (4 contract pages + 2 item pages) -> <scratch>/dist-bad   exit 0
+node tools/audit/run.mjs <scratch>/dist-bad                  FAILED: 7 page(s), 17 rule(s), 1 FAIL, 1 WARN, 0 SKIP       exit 1
+   FAIL MET-003 /contact/:70 value-mismatch: <h4> "Forced skipped heading level" follows <h2> "Send a message" (line 70) and skips a level (source: checklist/web-delivery.md MET-003)
+node docs/blueprint/specs/run-all-gates.mjs                  1 gate(s) failed   exit 1   (not mine: see below)
+   PASS contract tests 147 passed, 0 failed / PASS contract mutants 88 mutants, 88 caught, 0 survived; 0 codes untested / PASS industry run 15/15 PASS
+   FAIL database walls + mutants   caught   privacy request: the 45-day clock            ERROR:  the 45-day clock is set
+   PASS specs + traceability OK: 12 operations, 12 operationIds; 47 FR/NFR rows, 40 work orders, 0 problem(s) / PASS machine-call signature OK: 0 failed / PASS deno check
+```
+The red database-walls line is in files this builder did not touch (`supabase/tests/run-local.mjs`, `tenancy.test.sql`, the new migration
+`20261031000009_media_and_export.sql` are another session's uncommitted work in the same checkout); the runner prints only the last stdout line, so the
+cause of that red is NOT determined. Re-run alone afterwards (`node supabase/tests/run-local.mjs`, full output kept): `PASS real migration: ALL TENANCY
+TESTS PASSED` ... `OK: real migration passes; 213 mutants`, exit 0, no SURVIVED, FAIL, MISSING or SETUP line. So the first red was transient (a concurrent run
+on the shared local database or the other session's files changing mid-run; UNPROVEN which). Sent up as a finding.
+
+**What the 88 checks cover.** Template tags (value, raw, `.`, `#`, `^`, `?`, `>`) and the throw on a missing value or partial; `html` escaping, `raw()`,
+arrays, nesting; the export loads, wrong schema refused, publish-mode validation (required, media unknown, unprocessed, width from the media list,
+reference, bad contract); the feed carries public data only; the build writes exactly the four pages, two item pages, 404, sitemap, robots, `_headers`,
+llms.txt, the logo and two hashed stylesheets (an unreferenced media row and file stay out); sitemap = built pages, lastmod = build clock; preview vs live
+(header, origin, robots, `preview:` line); an unpublished page row = SKIP, not in the sitemap, not linked, audit 0 FAIL; `seo.noindex`; stop on invalid rows
+with an empty out dir; media path traversal (slash and backslash), missing media file, no media folder, no settings row, missing design, usage errors, a
+non-empty out dir never emptied; byte-identical rebuilds; markup escaped in a page; each factory gate red on a mutated page (h1 x2, main x2, title x3,
+description x2, canonical x2, `{{`, `[client to`, form method, form action, img alt, skipped heading); the audit engine 0 FAIL on the good dist and the live
+dist; `--force-fail heading` gives a MET-003 FAIL on `/contact/` and changes only that page; the four seeded collections keep the keys of `TEST_CONTRACT`;
+both generator-equals-file tests.
+
+**UNPROVEN / NOT DONE (this slice).** Nothing was opened in a browser (no render gate, no axe, no screenshots, A5 lines 2 and 3 of the gate table); the launch
+layer's image work (WebP, phone sizes, woff2, `_redirects`) is not built (the test site has one PNG and no redirects row); `export-published` is slice 4.3 and
+the real `site_contracts.resolved` shape was read from the migration text only; richtext is not sanitised (designs print it escaped); the form posts with
+`method="post"` but no script handles the answer, so "a preview never fakes success" is not exercised; `motion.js` is supported and tested with a stub, the
+test design has none.
+
 ## Step 3: the database is finished, the hardening leftovers (2026-10-30 20:22-22:20, step 3 session, platform build; commits 0e60178 and the one after it)
 Every command through `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs <command> --target staging`
 (the CLI redacts secrets; the lines below are its real output, trimmed to the lines that matter). Local gates ran on this machine.

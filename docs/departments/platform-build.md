@@ -86,7 +86,9 @@ sent to the head of operations with options, never a fix made here.
   `seed test` seeds it too); the `publish` function's GitHub dispatch token is a fine-grained token only the owner can create (asked
   through the head of operations in the first turn, so it is not on the critical path later); `.github/` and the two new tools
   (`tools/deploy-functions.mjs`, `tools/github-secrets.mjs`) are in no charter's Owns list: asked to be added here.
-  - **4.1 Factory core, local proof** (Sonnet): `factory/build.mjs` (export JSON in: contract, rows, media, site; `dist/` out),
+  - **4.1 Factory core, local proof** (Sonnet) PROVEN 2026-10-31 03:05 (PROGRESS.md "4.1 factory core: head's verification"; 88 checks,
+    85 mutants, audit exit 0 on the build and exit 1 on the forced heading; open from it: honest sitemap lastmod, richtext sanitiser,
+    page-type and unpublished-bound checks): `factory/build.mjs` (export JSON in: contract, rows, media, site; `dist/` out),
     `factory/lib/render.mjs` (the ELEV8 logic-less template renderer ported from `E:\Alex Sevilla\draft-site\site\lib\render.mjs`,
     read-only there, no dependency), `factory/lib/launch.mjs` (`_headers`, `robots.txt` noindex on preview, `sitemap.xml`, `404.html`),
     the look-folder convention of `03-FRONTEND.md` A2 under `sites/<slug>/design/` and the minimal `sites/test-demo-a/design/`,
@@ -129,6 +131,12 @@ sent to the head of operations with options, never a fix made here.
 - `capture-lead` paused site: DONE 2026-10-30, 409 `S-SITE-PAUSED` proven by `verify --only lead` on staging.
 - `tools/deploy-capture-lead.mjs` project ref: DONE 2026-10-30, scrubbed.
 - `supabase/tests/test-apply.mjs` hang: NOT REPRODUCED 2026-10-30 21:58 (10 of 10, exit 0 inside a 600 s bound); watch, not a bug.
+- **Flaky wall (finding from the head of operations, 2026-10-31 01:40): the database walls gate failed twice today on "privacy requests
+  read wall: B's owner reads no request of A" (once under four sessions on his machine, once in the CLI builder's gates run) and passed on
+  every re-run alone (161 of 161 through a Haiku runner).** Suspects: two `run-local.mjs` clusters at once (a shared port or data directory),
+  or a leftover row between tests (order or timing). Diagnose after 4.1 is proven: run two clusters at once on purpose, read the test's
+  setup for state it assumes clean, and fix the test or the runner so a red is always a real red. A wall that goes green on rerun stops
+  being read, which is worse than no wall.
 - Follow-ups that need a decision or another department: the global kill switch (`platform_limits` keys `sends_enabled`,
   `deploys_enabled`), `usage_daily` (24-GAP-HUNT E2 item 1, not in step 3's list), the per-person privacy export (step 5), the
   CLI reading `security_events` and `consent_ledger` in `verify` (finding sent up).
@@ -146,3 +154,4 @@ sent to the head of operations with options, never a fix made here.
   (Open items above): 4.1 factory core on the test site, 4.2 dashboard-facing functions, 4.3 runner-facing functions, 4.4 the runner and
   the five workflows, 4.5 the done-when on the test site's own Pages project. Asked up: the owner's fine-grained GitHub dispatch token
   (`GITHUB_DISPATCH_TOKEN`), `.github/` and two tool paths for this charter's Owns. Nothing built yet.
+- 2026-10-31 03:05, standing head: slice 4.1 (factory core) PROVEN locally, Haiku re-run equal to the builder line for line (88 checks, 85 mutants, audit 0 FAIL on the build, MET-003 FAIL on the forced heading); proof in PROGRESS.md "4.1 factory core: head's verification". Findings decided there; two go up (seed writes slug and role; flaky database wall). 4.2 builder still running; 4.4 launched next.
