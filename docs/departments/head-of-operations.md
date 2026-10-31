@@ -12,6 +12,8 @@ where things stand in `.claude/POSITION.md`.
 - `.claude/`
 - `docs/departments/`
 - `tools/departments/`
+- `skills/SOURCE.md` (the shared skill registry; each skill folder stays with its department)
+- `skills/sync-skill.mjs` (the sync tool for that registry)
 - `CLAUDE.md`
 - `sops/` except `sops/clients/`
 
