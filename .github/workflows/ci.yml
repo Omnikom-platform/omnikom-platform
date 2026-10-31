@@ -39,7 +39,7 @@ jobs:
           else
             sudo apt-get update
             sudo apt-get install -y postgresql
-            echo "$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)" >> "$GITHUB_PATH"
+            printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
           fi
       - name: All blueprint gates
         run: node docs/blueprint/specs/run-all-gates.mjs
@@ -93,7 +93,7 @@ jobs:
           else
             sudo apt-get update
             sudo apt-get install -y postgresql
-            echo "$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)" >> "$GITHUB_PATH"
+            printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
           fi
       - name: Function tests
         run: node supabase/functions/test/run.mjs

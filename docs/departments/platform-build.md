@@ -128,7 +128,9 @@ sent to the head of operations with options, never a fix made here.
     contract version 2 + page rows on staging for workspace A, then: `omnikom content save` changes the contact heading, `publish`
     dispatches, the run deploys, `preview.test-site-demo-a.pages.dev` shows the heading, job `done` with its five events; a second
     publish with the heading violation: the audit gate fails, nothing deploys, job `failed`, the preview still shows the first heading.
-    Both pasted in PROGRESS.md "Step 4"; the sequence file ticked; two lines to the head of operations.
+    Both pasted in PROGRESS.md "Step 4"; also pasted: a `ci.yml` run on GitHub whose `workflows` job (actionlint) passes (head of operations,
+    2026-10-31: actionlint is not on this machine's PATH, so GitHub is the place it is proven); the sequence file ticked; two lines to the head
+    of operations.
 - Step 3 DONE 2026-10-30 (migrations 7 and 8, PROGRESS.md "Step 3"); still open from it: `supabase/auth-settings.md` checked against
   staging: DONE 2026-10-31 (full-access token banked by the owner; 24 settings read, 0 differ after the stale `rate_limit_email_sent`
   expectation was corrected from 2 to 30, the custom-SMTP value; re-run line in PROGRESS.md "Step 4"); the step-down to `omnikom_fn` inside the deployed function is UNPROVEN beyond "set role

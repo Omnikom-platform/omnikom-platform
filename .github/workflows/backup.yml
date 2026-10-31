@@ -34,7 +34,7 @@ jobs:
           STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
         run: |
           pg_dump "$STAGING_DB_URL" --format=custom --no-owner --no-privileges --file "$RUNNER_TEMP/staging.dump"
-          ls -l "$RUNNER_TEMP/staging.dump" | awk '{ print "dump bytes: " $5 }'
+          echo "dump bytes: $(stat -c %s "$RUNNER_TEMP/staging.dump")"
 
       - name: Copy the dump to R2
         env:

@@ -249,7 +249,9 @@ await check('build: a media path that climbs out of the media folder (slash or b
   writeFileSync(join(parent, 'outside.png'), 'secret');   // a real file one level above the media folder: a build that follows the path would ship it
   for (const p of ['../outside.png', '..\\outside.png']) {
     const e = clone(baseExport); e.media[0].path = p;
-    const r = build({ exp: e, media: m }); if (!(r.status === 1 && /BUILD STOPPED: media/.test(r.stderr) && emptyOrMissing(r.out))) return `${p}: exit ${r.status} ${r.stderr}`;
+    // The refusal must be the path check itself ("unsafe path"): on Linux a backslash is an ordinary filename character, so without the check
+    // "..\outside.png" is just a missing file and the build stops for the wrong reason (a mutant survived on GitHub's runner, 2026-10-31).
+    const r = build({ exp: e, media: m }); if (!(r.status === 1 && /BUILD STOPPED: media/.test(r.stderr) && /unsafe path/.test(r.stderr) && emptyOrMissing(r.out))) return `${p}: exit ${r.status} ${r.stderr}`;
   }
   return true;
 });
