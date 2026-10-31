@@ -272,3 +272,13 @@
     named/cited per prompt. Ordering: SEO department backlog, first slice after step 4 is proven; page types with the platform
     head in step 5; the gate and the dashboard rows where those steps land. No 100-question volume target: a row without a
     source is not a row.
+
+36. **Parked idea, noted only: Instagram comment-keyword to DM automation as a lead source** (2026-10-31 04:55, owner:
+    "Only note the idea"; source: a reel by itstundeanthony, DfFbm6SiHyE, a ManyChat-style tool rebuilt on Replit; the head of
+    operations read caption and transcript). Shape if ever built: one Cloudflare Worker (Meta webhook in, Graph API reply and
+    DM out) and one D1 table of keyword rules, on Omnikom's own accounts in Meta developer mode first; as a client feature it
+    needs Meta App Review and Business Verification for the comment and message permissions, so it would be a lead source into
+    the existing inbox (DECISIONS 1), never a separate product. No backlog item, no slice, revisit at step 7 at the earliest.
+    Two other reels read the same night added nothing to record: Lean4 proofs generating C (our equivalent is a rule as a test
+    with a mutant, and the static factory does all work at build time) and "local SEO, not general SEO" (the research and
+    plan stages already carry a location on every target and brief; a capture without a location is rejected).

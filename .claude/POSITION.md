@@ -595,3 +595,8 @@
   03:10 after slice 4.1; brief rewritten from the final `sites/test-demo-a/` files; decisions: contract version 2 for A only, rows through
   `service.seed_version`, refs resolved at seed time, Agent Two from the CLI with slug and role, repair by a new version, media row for
   the logo). Slice 2 waits for 4.2 on staging.
+
+- 04:58 Reels 2 to 4 read (Lean4 server, IG DM automation, local SEO): one parked note, DECISIONS 36; nothing routed. Small item
+  for the platform head's next ground-rules edit: an optimisation that bypasses a view or caches a count writes its invariant
+  as one comment next to the test that checks it. CLI audit-command slice committed 77679cf (CLI head); my Haiku re-run of
+  its 213 checks and the four fixture commands is running (slow suite), verdict when it lands.
