@@ -340,3 +340,19 @@
     Built by the CLI and testing department after its seed-test slice (test watched red, a mutant, the measured standard for
     scripts); registering it in the owner's `~/.claude/settings.json` is the owner's click. Haiku runners that return only
     verdict lines, scripts in files and slice reads already cover the rest of what Context Mode sells.
+
+42. **The omnikom CLI carries every tool the checks need; "not installed" is never a reason a check did not run** (2026-10-31
+    07:55, owner: "isn't the purpose of the Omnikom CLI to house all those needed things to run tests ... the argument of not
+    installed is just not sitting well with me"; "I just don't want to wake up for half-assed work"). What happened: the head
+    of operations re-ran slice 4.4 and reported actionlint "not on PATH"; the pinned binary was in a builder's scratch; run
+    from there at 3f7fcc2 it exits 0, but without shellcheck, while ci.yml's actionlint runs shellcheck, so GitHub found three
+    shell errors the local run could not see. A local check that is not the CI check proves nothing (global Rule 2). The fix:
+    (1) one manifest, `tools/omnikom-cli/tools.json`, lists every external tool a check uses (actionlint, shellcheck,
+    gitleaks, deno, and any later one) with version, download URL per platform and sha256; ci.yml reads the same versions
+    (a test fails when they differ); (2) `omnikom tools ensure` downloads each into the git-ignored `.tools/` folder of the
+    repo, checks the sha256, refuses on a mismatch, and never touches PATH or the machine; (3) `omnikom ci` runs locally,
+    with those binaries, every job ci.yml runs, in the same order, and prints PASS/FAIL per job with the last line; (4) heads
+    and the head of operations verify with `omnikom ci` (or one job of it), never with a tool from a scratch folder.
+    CLI and testing department, next slice after key-numbering, before seed test (the platform head seeds staging for 4.5
+    meanwhile). Supply-chain rules apply: versions at least 7 days old, sha256 pinned, release assets from the tools'
+    official GitHub releases only.
