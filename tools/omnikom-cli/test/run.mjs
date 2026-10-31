@@ -634,6 +634,9 @@ async function toolsAndCi() {
     check('ci: every job PASS is exit 0', r.exit === 0 && lines(r).at(-1) === 'ci: 1 jobs, 1 PASS, 0 FAIL', r.all.slice(0, 300));
     r = await ciRun(rt, ['--json']);
     check('ci --json: the node version step reports ci.yml\'s, the manifest\'s and the running node', r.json.data.jobs[0].steps[1].lines[0] === `node ${NODEV} (ci.yml ${NODEV}, tools.json ${NODEV})`, r.all.slice(0, 300));
+    rt = mkRoot(YML(JOB('dash', CHECKOUT + SETUP_NODE() + RUN('Dashboard tests', 'node jobs/ok.mjs'))));
+    r = await ciRun(rt);
+    check('ci: the dashboard job\'s "Dashboard tests" step is mapped and runs with node (PASS)', r.exit === 0 && lines(r).join('|') === 'PASS dash  ok line|ci: 1 jobs, 1 PASS, 0 FAIL', r.all.slice(0, 300));
     rt = mkRoot(YML(JOB('wrongnode', CHECKOUT + SETUP_NODE('1.2.3'))));
     r = await ciRun(rt);
     check('ci: a node-version in ci.yml that is not the manifest\'s (and not the running node) is a FAIL that names all three', r.exit === 1 && lines(r)[0].startsWith(`FAIL wrongnode  node ${NODEV} is running, ci.yml wants 1.2.3, tools.json says ${NODEV}`), r.all.slice(0, 300));

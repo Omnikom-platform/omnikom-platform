@@ -184,6 +184,7 @@ const MUTANTS = [
   ["tools ensure: a refused tool still exits 0", "commands/tools.mjs", "const ok = tools.every(t => t.status === 'present' || t.status === 'downloaded');", "const ok = true;", 'unit'],
   ["tools: --target is accepted", "commands/tools.mjs", "if (ctx.flags.target !== undefined) throw new Usage(`tools ${verb} takes no --target", "if (false) throw new Usage(`tools ${verb} takes no --target", 'unit'],
   ["ci: an unmapped step passes", "commands/ci.mjs", "if (!row) return { ok: false, lines: [`step not mapped:", "if (!row) return { ok: true, lines: [`step not mapped:", 'unit'],
+  ["ci: the Dashboard tests step is not mapped", "commands/ci.mjs", "'Client files', 'Dashboard tests'];", "'Client files'];", 'unit'],
   ["ci: a FAIL job is counted as PASS", "commands/ci.mjs", "const status = steps.some(s => s.status === 'FAIL') ? 'FAIL' : 'PASS';", "const status = 'PASS';", 'unit'],
   ["ci: .tools/bin is dropped from the child's PATH", "commands/ci.mjs", "[key]: binDir + delimiter + (env[key] || '')", "[key]: env[key] || ''", 'unit'],
   ["ci: the shellcheck flag is dropped", "commands/ci.mjs", "args.splice(0, 0, '-shellcheck', shell);", "", 'unit'],
