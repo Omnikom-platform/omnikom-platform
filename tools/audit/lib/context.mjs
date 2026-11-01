@@ -75,6 +75,30 @@ function loadPsi(dir, explicit) {
   return { file, date, pages: j.pages };
 }
 
+// The prompt map's coverage file (slice 5c; the plan stage writes plan/prompt-coverage.json): { map, rows: [{ id, coveredBy: "<path>"|null, kind, reason }] }.
+// Given by a file option, never searched for; null when there is none. A file that is not JSON or has the wrong shape is a usage error (exit 2), not a finding.
+function loadPromptCoverage(explicit) {
+  if (!explicit) return null;
+  const bad = (m) => Object.assign(new Error(m), { exit: 2 });
+  const file = path.resolve(explicit);
+  if (!fs.existsSync(file) || !fs.statSync(file).isFile()) throw bad(`--prompt-coverage file not found: ${file}`);
+  let j;
+  try { j = JSON.parse(fs.readFileSync(file, "utf8")); } catch (e) { throw bad(`prompt coverage file ${file} is not valid JSON: ${e.message}`); }
+  if (!j || typeof j !== "object" || Array.isArray(j) || !Array.isArray(j.rows)) throw bad(`prompt coverage file ${file} has no rows[] (the shape { map, rows: [{ id, coveredBy, kind, reason }] })`);
+  const seen = new Set();
+  j.rows.forEach((r, i) => {
+    const at = `prompt coverage file ${file}: rows[${i}]`;
+    if (!r || typeof r !== "object" || Array.isArray(r)) throw bad(`${at} is not an object`);
+    if (typeof r.id !== "string" || !r.id.trim()) throw bad(`${at} has no string id`);
+    if (seen.has(r.id)) throw bad(`${at}: the id ${r.id} appears twice`);
+    seen.add(r.id);
+    if (r.coveredBy !== null && (typeof r.coveredBy !== "string" || !r.coveredBy.trim())) throw bad(`${at} (${r.id}): coveredBy must be a page path or null`);
+    if (typeof r.kind !== "string") throw bad(`${at} (${r.id}): kind must be a string`);
+    if (r.reason !== undefined && r.reason !== null && typeof r.reason !== "string") throw bad(`${at} (${r.id}): reason must be a string`);
+  });
+  return { file, map: typeof j.map === "string" ? j.map : null, rows: j.rows.map((r) => ({ id: r.id, coveredBy: r.coveredBy, kind: r.kind, reason: typeof r.reason === "string" ? r.reason : "" })) };
+}
+
 export function buildSite(dir, config, options = {}) {
   const site = loadSite(dir);
   const snap = site.mode === "snapshot";
@@ -127,6 +151,7 @@ export function buildSite(dir, config, options = {}) {
     return { rel: "site/robots.txt", present, text: present ? buf.toString("utf8") : "", buf, status: j ? j.status : null, headers, bytes: j && typeof j.bytes === "number" ? j.bytes : buf ? buf.length : null, measured: !!j };
   })());
   site.psi = snap ? loadPsi(site.dir, options.psi) : null;
+  site.promptCoverage = loadPromptCoverage(options.promptCoverage);
   return site;
 }
 

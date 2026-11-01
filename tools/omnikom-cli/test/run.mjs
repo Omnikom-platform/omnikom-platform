@@ -347,12 +347,12 @@ async function units() {
   const NP = engineGood.pages.length, NR = engineGood.rules.length;
   r = await cli(['audit', '--dir', GOOD], {});
   check('audit: the good site exits 0, every line but the summary starts with PASS, the summary counts the engine\'s pages and rules and 0 FAIL',
-    r.exit === 0 && out(r).slice(0, -1).every(l => l.startsWith('PASS ') || l.startsWith('SKIP ENV-001 / no --target')) && out(r).filter(l => l.startsWith('SKIP ENV-001 / no --target')).length === 1 && out(r).length > 1 && out(r).at(-1).startsWith(`audit: ${NP} pages, ${NR} rules, 0 FAIL`), r.all.slice(-200));
+    r.exit === 0 && out(r).slice(0, -1).every(l => l.startsWith('PASS ') || l.startsWith('SKIP ENV-001 / no --target') || l.startsWith('SKIP PMP-001 / no --prompt-coverage')) && out(r).filter(l => l.startsWith('SKIP ENV-001 / no --target')).length === 1 && out(r).filter(l => l.startsWith('SKIP PMP-001 / no --prompt-coverage')).length === 1 && out(r).length > 1 && out(r).at(-1).startsWith(`audit: ${NP} pages, ${NR} rules, 0 FAIL`), r.all.slice(-200));
   check('audit: text mode prints no JSON object and nothing on stderr', !r.stdout.trimStart().startsWith('{') && r.stderr === '');
   r = await cli(['audit', '--dir', BAD], {});
   check('audit: the bad site exits 1 and its lines (minus the summary) are the engine\'s lines, identical and in order',
     r.exit === 1 && JSON.stringify(out(r).slice(0, -1)) === JSON.stringify(engineBad.lines) && engineBad.lines.some(l => l.startsWith('FAIL ')), r.all.slice(-300));
-  check('audit: the last line counts the FAIL', out(r).at(-1) === `audit: ${NP} pages, ${NR} rules, 1 FAIL, 0 WARN, 1 SKIP`, out(r).at(-1));
+  check('audit: the last line counts the FAIL', out(r).at(-1) === `audit: ${NP} pages, ${NR} rules, 1 FAIL, 0 WARN, 2 SKIP`, out(r).at(-1));
   r = await cli(['audit', '--dir', BAD, '--only', 'MET-003'], {});
   check('audit --only MET-003 prints the one FAIL MET-003 line with its source',
     r.exit === 1 && out(r).filter(l => l.startsWith('FAIL ')).length === 1 && out(r).some(l => l.startsWith(FAIL_LINE) && l.endsWith('(source: checklist/web-delivery.md MET-003)')) && out(r).slice(0, -1).every(l => l.includes(' MET-003 ')), r.all.slice(-300));

@@ -1,10 +1,10 @@
-// The runner: node tools/audit/run.mjs <folder> [--json] [--only MET-003,MET-001] [--psi FILE] [--target preview|production] [--list]
+// The runner: node tools/audit/run.mjs <folder> [--json] [--only MET-003,MET-001] [--psi FILE] [--target preview|production] [--prompt-coverage FILE] [--list]
 // Prints PASS / WARN / FAIL / SKIP lines. Exit 0 = no FAIL (WARN and SKIP do not fail), 1 = at least one FAIL, 2 = usage error or missing folder.
-const USAGE = "usage: node tools/audit/run.mjs <folder> [--json] [--only MET-003,MET-001] [--psi FILE] [--target preview|production] [--list]";
+const USAGE = "usage: node tools/audit/run.mjs <folder> [--json] [--only MET-003,MET-001] [--psi FILE] [--target preview|production] [--prompt-coverage FILE] [--list]";
 const die = (msg) => { console.error(msg); process.exit(2); };
 
 const args = process.argv.slice(2);
-let folder = null, json = false, list = false, only = null, psi = null, target = null;
+let folder = null, json = false, list = false, only = null, psi = null, target = null, promptCoverage = null;
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
   if (a === "--json") json = true;
@@ -12,6 +12,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a === "--psi") { psi = args[++i]; if (!psi || psi.startsWith("--")) die(`--psi needs a PageSpeed Insights file (the psi/<date>.json psi.mjs writes)
 ${USAGE}`); }
   else if (a === "--target") { target = args[++i]; if (target !== "preview" && target !== "production") die(`--target needs preview or production (got ${target === undefined ? "nothing" : JSON.stringify(target)})\n${USAGE}`); }
+  else if (a === "--prompt-coverage") { promptCoverage = args[++i]; if (!promptCoverage || promptCoverage.startsWith("--")) die(`--prompt-coverage needs the plan's coverage file (plan/prompt-coverage.json)\n${USAGE}`); }
   else if (a === "--only") { const v = args[++i]; if (!v || v.startsWith("--")) die(`--only needs a rule id list\n${USAGE}`); only = v.split(",").map((s) => s.trim()).filter(Boolean); if (!only.length) die(`--only needs a rule id list\n${USAGE}`); }
   else if (a.startsWith("--")) die(`unknown option ${a}\n${USAGE}`);
   else if (folder === null) folder = a;
@@ -28,7 +29,7 @@ if (list) {
 }
 if (!folder) die(USAGE);
 try {
-  const r = engine.audit(folder, { rules: only || undefined, psi: psi || undefined, target: target || undefined });
+  const r = engine.audit(folder, { rules: only || undefined, psi: psi || undefined, target: target || undefined, promptCoverage: promptCoverage || undefined });
   if (json) console.log(JSON.stringify(r, null, 2));
   else {
     for (const l of r.lines) console.log(l);

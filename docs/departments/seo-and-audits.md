@@ -273,3 +273,76 @@ options, never a fix made here.
   Corrections from the head of operations: landing waits on the DECISIONS 46 public code-only copy (CLI department), no longer on
   billing; land with `omnikom land` once that copy runs green, rebased on master. Anonymising (DECISIONS 47) stays low priority, after
   4c, --target and slice 5. BUILDER_seo_5d-measure re-told its head.
+- 2026-11-01 15:09: 4c COMMITTED AND PUSHED, NOT LANDED: 83a410b (parent c2811ee, built in a private index; tree 71fbeba) on
+  `check/seo/4c-noindex-header` (backup-gh). gitleaks protect --staged on that index: no leaks; 67 files, 0 CR, 0 em dashes. Haiku
+  runner on a detached worktree of 83a410b: tools/audit test/run.mjs OK: 546 of 546; --list 29; build-fixtures OK: 127; good no
+  target 1 SKIP ENV-001 exit 0; good-preview --target preview 0 FAIL; bad-ENV-001-preview 4 FAIL ENV-001; factory/test/run.mjs OK:
+  88 of 88; omnikom-cli --unit OK: 356 of 356 (HEAD's blob plus the two literals). Mutants, factory runner, ci-heavy, actionlint and
+  run-all-gates: on the D46 copy run (UNPROVEN until then). Landing: `omnikom land` after the D46 copy runs green, rebased on master.
+- 2026-11-01 15:15: builders started with start-builder.mjs: BUILDER_seo-and-audits_skill-sync (pid 1428) and
+  BUILDER_seo-and-audits_5c-publish-rule (pid 27296, brief sent; builds on the 4c working tree, commit on top of 83a410b). Sync HELD:
+  the SOURCE also holds 5d's uncommitted files (SKILL.md, scripts/measure.mjs, stages/measure.md, scripts/test-measure-prompts.mjs);
+  sync-skill copies the working tree, so ONE sync runs after 5d is committed in the SOURCE (covers 4c lib-site.mjs, 5a, 5b, 5d and the
+  compare.md:38 em dash fix). The head commits lib-site.mjs and compare.md alone in the SOURCE first.
+- 2026-11-01 15:17: notices slotted by the head of operations. CLI: `audit --target` in its "small CLI fixes" slice after seed-test
+  lands (reverts 83a410b's two CLI literals; the CLI head tells this head); `--prompt-coverage` after its 2b, once 5c is on master.
+  Platform: 5-E runner `--target` after 5-W and 5-A (head of operations says when it is on a check branch; then the
+  REQUIRE_TARGET_FOR_FOLDER flip); 5-P1 `--prompt-coverage` once 5c's format is on master; page types, lead export, ai-answers
+  writer after step 5's done-when (5-P2 to 5-P4; the last needs 5d's shape in blueprint 22 on master).
+- 2026-11-01 15:24: stopped with stop-builder.mjs, nothing left: BUILDER_seo_5a-prompt-map (pid 18152), BUILDER_seo_5b-plan-coverage
+  (pid 26696). BUILDER_seo_5d-measure (pid 17048) is SWAP at 302k (context-load 15:20): asked for a handover note at the end of
+  tools/audit/proof/5d.md at its next boundary; then stop it and, if 5d is not done, start a fresh builder on the note.
+- 2026-11-01 15:33: skill-sync builder: compare.md:38 em dash fixed in the SOURCE; SOURCE tests test-main 10/10, test-plan-gate 313/313,
+  test-rules 121/121, test-compare 37/37, test-phase1 52/52. Head authorised the builder to commit ONLY scripts/lib-site.mjs and
+  stages/compare.md in the SOURCE (outside repo, no push). FINDING, QUEUED as its own slice (after anonymising): 50 older em dash lines
+  in the SOURCE (checklist/*.md 21, runs/2026-10-25-overhaul.md 6, scripts 19, fixtures/serp-html 2, coordinator.md 1,
+  rules/industries/editorial-media.json 1); the checklist copies come from build-checklist.mjs and the shipgate spec, fix there. Sync
+  done-condition: the folder's em dash count does not rise.
+- 2026-11-01 15:35: 5d BUILT, NOT FULLY VERIFIED (builder's lines: test-measure-prompts 45/45, its mutants 24/24, test-measure 140/140;
+  test-measure --mutants, test-main, test-prompt-plan in flight; an earlier killed batch showed measure mutants 40/41, survivor unnamed).
+  Handover note: tools/audit/proof/5d.md. The builder finishes only its in-flight runs, reports, and is stopped; a fresh builder takes the
+  note for whatever is left. Finding routed to platform via the head of operations: metrics_snapshots PK (workspace_id, source, day)
+  cannot hold one row per prompt per engine per month; blueprint 22 section 7 proposes one row per run day.
+- 2026-11-01 15:36: SOURCE d7997a3 (head checked: 2 files, scripts/lib-site.mjs +28 and stages/compare.md 1 line; status shows only
+  the 5d files). Sync still held for 5d.
+- 2026-11-01 15:42: platform RULING on the 5d finding (5-P4, via head of operations): one metrics_snapshots row per workspace per run
+  day, source 'ai-answers' (already in its CHECK), the per-prompt per-engine rows inside `data` jsonb; no new table, no PK change; 5-P4's
+  migration adds a CHECK refusing an ai-answers row without prompt id, engine, named, cited, asked_at and an evidence URL or dated
+  excerpt. TODO for the fresh 5d builder: blueprint 22 section 7 says exactly this (and the skill's measure writer emits that shape).
+- 2026-11-01 15:49: report line changed: head of operations is now HEAD-OF-OPERATIONS_Omnikom_2026-11-01c. Context-load 15:47: this
+  head 164k = WATCH (plan the handover at the end of the current slice: 5d plus the sync); BUILDER_seo_5d-measure 316k SWAP.
+- 2026-11-01 15:56: 5d-measure's last runs: test-measure 140/140; test-measure --mutants 40/41, the non-red one `main-check-exact-path`
+  "PATCH DID NOT APPLY" (test-measure.mjs:59, stale target in measure-sources.mjs, older than 5d: a mutant that measures nothing);
+  test-main and test-prompt-plan NOT RUN (heavy.mjs exit 75 "cannot read this process's creation time (pwsh)"). Stopped (pid 17048,
+  left []). Fresh BUILDER_seo-and-audits_5d-finish (pid 12096) briefed: blueprint 22 section 7 + writer to the 15:42 ruling, fix the stale
+  mutant to 41/41, re-run the neighbours; no commit until the head authorises exact paths.
+- 2026-11-01 16:35: CHANGE OF COURSE (DECISIONS 49, owner): the real repo is PUBLIC since 16:31 (gh: visibility PUBLIC) and GitHub runs
+  jobs again; the D46 copy is parked. 4c run 41309893821 (83a410b) was `failure` (no minutes); `gh run rerun` sent 16:35; land under the
+  land lock when green, no D46 wait. Anonymising (DECISIONS 47 list) PARKED. Rule 49 (d): no new client personal data (phone, email, home
+  address) goes into the repo.
+- 2026-11-01 17:05: run 41309893821 rerun on 83a410b: success, 9 of 9 jobs. Master had moved to 713b008 (platform 5-H), so 4c was
+  cherry-picked clean onto it as f75cc64 (same 67 files), pushed to check/seo/4c-noindex-header (lease on 83a410b), and
+  `omnikom land check/seo/4c-noindex-header` started (waits for f75cc64's run, then fast-forwards master).
+- 2026-11-01 17:20: SLICE 4c LANDED: master f75cc64 (backup-gh), run 41319446394 9 of 9 jobs success, land lock taken and released.
+  The shared checkout's local master still points at c2811ee (land does not touch it; other heads' uncommitted work is in it): build the
+  next SEO commit in a private index on `backup-gh/master`, not on HEAD. Next for 4c: the REQUIRE_TARGET_FOR_FOLDER flip after platform
+  5-E is on a check branch (head of operations says when).
+  Correction 17:26 (head of operations): the flip goes when platform 5-E is on MASTER (the head of operations or the platform head sends
+  the sha); the shared checkout's local master is the head of operations' to move, never this head's.
+- 2026-11-01 18:13: owner's order (via head of operations): stop each builder as soon as its report is accepted; never leave one idle.
+  Stopped BUILDER_seo-and-audits_skill-sync (pid 1428, left []): its part is done (SOURCE d7997a3, compare.md fixed, SOURCE tests green);
+  the sync itself restarts as a fresh builder (or Haiku runner) when 5d is committed in the SOURCE, done-condition from 15:33.
+- 2026-11-01 18:22: report line changed: head of operations is now HEAD-OF-OPERATIONS_Omnikom_2026-11-01d. Context-load 18:18: this
+  head 186k WATCH; HANDOVER block planned at the end of the current slice (after 5d, the sync and 5c are accepted).
+- 2026-11-01 19:10: platform FINDING (via head of operations 01d): the shared tree's factory/test/run.mjs ~317 holds 5c's uncommitted
+  PMP-001 SKIP allowance (CRLF); "SEO does not edit factory/". Answered: SEO needs it (without it 5c's factory job is red); options sent:
+  (a) in the 5c commit as a DECISIONS 43(2) light follow-on, LF, on master's blob (recommended, as 4c); (b) platform lands it first in
+  its own slice. WAITING for the head of operations' pick before building the 5c commit.
+  RULED 19:10 (head of operations 01d): (a). The allowance rides in the 5c commit as a DECISIONS 43(2) light follow-on, LF, on
+  master's blob; the report names factory/test/run.mjs with platform as owner (platform-c told by the head of operations). If platform
+  5-E lands first and touches that region: rebase 5c and keep both lines.
+- 2026-11-01 19:20: SLICE 5c BUILT (builder's lines; proof tools/audit/proof/5c.md): audit tests 574 of 574; 30 rules; build-fixtures
+  OK 130; good-coverage 0 FAIL; good with no file one SKIP PMP-001 and one SKIP ENV-001, exit 0; bad-PMP-001-uncovered and
+  bad-PMP-001-missing-page exit 1 naming the row id and path; bad coverage file exit 2; factory 88 of 88; CLI --unit 373 of 373; 28 new
+  mutants caught (MUTATE_TIMEOUT_S=900 under load). Light follow-ons (DECISIONS 43(2), ruled 19:10): factory/test/run.mjs:317 (platform),
+  tools/omnikom-cli/test/run.mjs:349 and 354 (CLI). The head builds the commit on backup-gh/master in a private index and re-runs on it.

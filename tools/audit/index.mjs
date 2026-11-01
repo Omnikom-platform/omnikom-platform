@@ -82,7 +82,7 @@ export function audit(dir, options = {}) {
   }
   // the build target: "preview" or "production", no default. Anything else (an empty string, another word, a non-string) is a usage error.
   if (options.target !== undefined && options.target !== null && !TARGETS.includes(options.target)) throw new AuditError(`bad --target ${JSON.stringify(options.target)}: it must be preview or production`);
-  const site = buildSite(dir, config, { psi: options.psi, target: options.target || null });
+  const site = buildSite(dir, config, { psi: options.psi, target: options.target || null, promptCoverage: options.promptCoverage || null });
   if (REQUIRE_TARGET_FOR_FOLDER && site.mode === "static" && !site.target) throw new AuditError("a built folder needs --target preview|production (the build's indexing is judged against it)");
   const findings = [];
   const lines = [];

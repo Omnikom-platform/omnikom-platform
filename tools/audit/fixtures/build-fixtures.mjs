@@ -60,6 +60,17 @@ const sitemapXml = (urls) => `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xm
 const LEAF_ALT ="A single green tea leaf on a white background";
 const ABOUT_LINK_TAIL = "tasting room</a> and try a flight of four teas.</p>";
 
+// The plan's coverage file for the good site (plan/prompt-coverage.json, the shape slice 5b writes): three rows with a page, one earn-mention row with a written reason.
+// `coverageText(change)` is the file text after `change(rows)` returned the rows to write (the fixtures break one row each).
+const COVERAGE_FILE = "plan/prompt-coverage.json";
+const coverageRows = () => [
+  { id: "pm-1c2d3e4f", coveredBy: "/tasting-room/", kind: "improve-page", reason: "" },
+  { id: "pm-9a8b7c6d", coveredBy: "/journal/how-to-steep-oolong/", kind: "new-page", reason: "" },
+  { id: "pm-3f4e5d6c", coveredBy: "/about/", kind: "improve-page", reason: "" },
+  { id: "pm-5e6f7a8b", coveredBy: null, kind: "earn-mention", reason: "offsite item 2: ask the local food writer for a mention (plan/offsite.json)" },
+];
+const coverageText = (change = (rows) => rows) => JSON.stringify({ map: "0".repeat(64), rows: change(coverageRows()) }, null, 1) + "\n";
+
 // name -> { expect: text the FAIL (or WARN) of its own rule must contain, edit(d): the one break }
 export const FIXTURES = {
   // MET-003: one <main>, one <h1>, no skipped heading level
@@ -208,6 +219,12 @@ export const FIXTURES = {
   "bad-ENV-001-preview": { target: "preview", expect: "a preview would be indexed", count: 4, at: "<head", edit: (d) => add(d, "_headers", headersText({ preview: false })) },
   // production: the preview's _headers (a /* noindex line) shipped to production. ENV-001 names every page, and IDX-001 now sees every sitemap page as noindex
   "bad-ENV-001-production": { target: "production", multi: { "ENV-001": "FAIL", "IDX-001": "FAIL" }, edit: (d) => add(d, "_headers", headersText({ preview: true })) },
+
+  // PMP-001 (slice 5c): the prompt map's publish rule. `coverage` is the path, inside the fixture, of the plan's coverage file; the test passes it to the audit for this fixture only.
+  // a row with no page and no reason (the plan left a buyer's question unanswered): one FAIL naming the row id
+  "bad-PMP-001-uncovered": { coverage: COVERAGE_FILE, expect: "row pm-5e6f7a8b (earn-mention) has no page", count: 1, edit: (d) => add(d, COVERAGE_FILE, coverageText((rows) => rows.map((r) => (r.id === "pm-5e6f7a8b" ? { ...r, reason: "" } : r)))) },
+  // a row whose page is not in the build (the plan promised /tasting-room/best-chai/, the build has no such page): one FAIL naming the row id and the path
+  "bad-PMP-001-missing-page": { coverage: COVERAGE_FILE, expect: "row pm-1c2d3e4f (improve-page) says /tasting-room/best-chai/ answers it, but the build has no page at /tasting-room/best-chai/", count: 1, edit: (d) => add(d, COVERAGE_FILE, coverageText((rows) => rows.map((r) => (r.id === "pm-1c2d3e4f" ? { ...r, coveredBy: "/tasting-room/best-chai/" } : r)))) },
 };
 const HOME_ANCHOR = "<h2>Learn to steep</h2>";
 function homeAdd(d, html) { rep(d, "index.html", HOME_ANCHOR, html + "\n" + HOME_ANCHOR); }
@@ -327,13 +344,16 @@ export const SNAPSHOT_FIXTURES = {
 const isSnapshotName = (n) => n === "snapshot-good" || n.startsWith("snapshot-bad-");
 // good-preview (slice 4c): the good site as a preview build ships it, with the /* noindex _headers; it passes with target preview
 const GOOD_PREVIEW = "good-preview";
-const isFixtureName = (n) => n === GOOD_PREVIEW || n.startsWith("bad-") || isSnapshotName(n);
+// good-coverage (slice 5c): the good site plus a coverage file in which every row is answered; it passes with --prompt-coverage plan/prompt-coverage.json
+const GOOD_COVERAGE = "good-coverage";
+const isFixtureName = (n) => n === GOOD_PREVIEW || n === GOOD_COVERAGE || n.startsWith("bad-") || isSnapshotName(n);
 
 export function buildAll() {
   const good = readDir(path.join(HERE, "good"));
   const out = new Map();
   for (const [name, { edit }] of Object.entries(FIXTURES)) { const d = new Map(good); edit(d); out.set(name, d); }
   const preview = new Map(good); add(preview, "_headers", headersText({ preview: true })); out.set(GOOD_PREVIEW, preview);
+  const covered = new Map(good); add(covered, COVERAGE_FILE, coverageText()); out.set(GOOD_COVERAGE, covered);
   const sg = snapshotGood(good);
   out.set("snapshot-good", sg);
   for (const [name, { edit }] of Object.entries(SNAPSHOT_FIXTURES)) { const d = new Map(sg); edit(d); out.set(name, d); }

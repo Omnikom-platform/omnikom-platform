@@ -1,0 +1,29 @@
+{
+ "map": "0000000000000000000000000000000000000000000000000000000000000000",
+ "rows": [
+  {
+   "id": "pm-1c2d3e4f",
+   "coveredBy": "/tasting-room/",
+   "kind": "improve-page",
+   "reason": ""
+  },
+  {
+   "id": "pm-9a8b7c6d",
+   "coveredBy": "/journal/how-to-steep-oolong/",
+   "kind": "new-page",
+   "reason": ""
+  },
+  {
+   "id": "pm-3f4e5d6c",
+   "coveredBy": "/about/",
+   "kind": "improve-page",
+   "reason": ""
+  },
+  {
+   "id": "pm-5e6f7a8b",
+   "coveredBy": null,
+   "kind": "earn-mention",
+   "reason": "offsite item 2: ask the local food writer for a mention (plan/offsite.json)"
+  }
+ ]
+}

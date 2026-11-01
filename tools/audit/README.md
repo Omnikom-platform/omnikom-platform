@@ -15,9 +15,9 @@ console.log(r.lines.join("\n"));
 process.exit(r.exit);
 ```
 - `audit(dir, options)` is synchronous. `options.rules` (array of ids, any case) limits the run; `options.config` overrides the length and
-  speed numbers; `options.psi` is the path of a PageSpeed Insights file (see PRF-001). `options.target` is `"preview"` or `"production"` (slice 4c, see ENV-001; no default). `r.mode` is `"static"` or `"snapshot"`, `r.target` the target judged or `null`.
+  speed numbers; `options.psi` is the path of a PageSpeed Insights file (see PRF-001). `options.target` is `"preview"` or `"production"` (slice 4c, see ENV-001; no default). `options.promptCoverage` is the path of the plan's coverage file (slice 5c, see PMP-001; no default, never searched for). `r.mode` is `"static"` or `"snapshot"`, `r.target` the target judged or `null`.
 - It throws an `AuditError` with `.exit === 2` for a usage or configuration error: a missing folder, an unknown rule id, an empty `rules` list or an empty-string id (`no such rule: ""`; `rules` omitted or `null` runs every rule), a length config that
-  breaks WCF-004 (`warnMin < warnMax <= hardMax`), a `target` that is not `"preview"` or `"production"` (an empty string included). A wrapper prints `error.message` and exits 2.
+  breaks WCF-004 (`warnMin < warnMax <= hardMax`), a `target` that is not `"preview"` or `"production"` (an empty string included), a `promptCoverage` file that is missing, not JSON or the wrong shape. A wrapper prints `error.message` and exits 2.
 - `import` itself throws (also `.exit === 2`) when a check file has no `rules/<ID>.md` or is malformed: `checks admitted only with a source`.
 - `listRules()` returns `[{ id, severity, source, notCovered }]`.
 - Config defaults (shipgate spec 8.0.0 web-delivery): `titleLength { warnMin 30, warnMax 60, hardMax 70 }`,
@@ -28,9 +28,10 @@ process.exit(r.exit);
 
 ## The runner
 ```
-node tools/audit/run.mjs <folder> [--json] [--only MET-003,MET-001] [--psi FILE] [--target preview|production] [--list]
+node tools/audit/run.mjs <folder> [--json] [--only MET-003,MET-001] [--psi FILE] [--target preview|production] [--prompt-coverage FILE] [--list]
 ```
 - `--target preview|production` says which kind of build is judged (slice 4c; see "The build target" below). Anything else, or no value, exits 2.
+- `--prompt-coverage FILE` names the plan's `plan/prompt-coverage.json` (slice 5c; see "The prompt map" below). A missing file, bad JSON or the wrong shape exits 2; no value exits 2.
 - `--psi FILE` names a `psi/<date>.json` written by the skill's `psi.mjs` (only a snapshot uses it; a missing or malformed file exits 2).
 - Prints the `lines`; `--json` prints the `audit()` object and nothing else; `--only` limits the rules; `--list` prints every rule with
   its severity and source and exits 0.
@@ -59,7 +60,7 @@ rules judge it. What differs from a built folder:
 
 ## The live driver (slice 2)
 ```
-node tools/audit/live.mjs <url> [--fresh] [--cwd DIR] [--max-age-days N] [--json] [--only MET-003,...] [--psi FILE] [--target preview|production] [-- <snapshot-site options>]
+node tools/audit/live.mjs <url> [--fresh] [--cwd DIR] [--max-age-days N] [--json] [--only MET-003,...] [--psi FILE] [--target preview|production] [--prompt-coverage FILE] [-- <snapshot-site options>]
 ```
 Runs the skill's `scripts/live-target.mjs` as a child process with the same arguments (it reuses a complete snapshot younger than 7 days or
 takes one politely: GET only, a 4 s gap, robots.txt obeyed, one 429 allowance then stop), reads its `REUSE <dir>` / `NEW <dir>` / `FAILED ...`
@@ -132,8 +133,21 @@ know which kind of build it judges. The target is given, never guessed: `audit(d
   (good plus a `/*` noindex `_headers`; passes with `--target preview`). A fixture entry may carry `target`, passed to the audit for that fixture only.
 - Not a checklist rule: its source line is the factory's (`factory/lib/launch.mjs headersText`), so `--list` shows that text instead of `checklist/<file>.md <ID>`.
 
+## The prompt map (slice 5c): PMP-001
+A prompt is a whole situation a buyer types into an AI engine. The skill's research stage maps the prompts, its plan stage answers every row and writes
+`plan/prompt-coverage.json` = `{ map, rows: [{ id, coveredBy: "<page path>"|null, kind, reason }] }`; PMP-001 refuses a build that leaves a row unanswered
+(DECISIONS 35, `rules/PMP-001.md`). The file is given, never searched for: `audit(dir, { promptCoverage: FILE })`, `run.mjs --prompt-coverage FILE`, `live.mjs --prompt-coverage FILE`.
+- no file: a run prints one `SKIP PMP-001 / no --prompt-coverage ...` line (site-wide subject `/`, folder and snapshot) and judges nothing; a check that did not run is never silent.
+- with a file: one line per row (the subject is the row id). FAIL when `coveredBy` is null and `reason` is empty (or only white space); FAIL when `coveredBy` is not a built page
+  (`site.pageList`, the path normalised like every page path), naming the row id and the path; PASS otherwise. A written reason does not excuse a page that is promised and not built.
+- a coverage file that is not JSON or has the wrong shape (no `rows[]`, a row with no string `id`, a repeated `id`, a `coveredBy` that is neither a path nor null, a `kind` or `reason` of the wrong type)
+  is a usage error (exit 2), not a finding.
+- Fixtures: `good-coverage` (good plus `plan/prompt-coverage.json`, every row answered), `bad-PMP-001-uncovered`, `bad-PMP-001-missing-page`. A fixture entry may carry `coverage`
+  (the file's path inside the fixture), passed to the audit for that fixture only.
+- Not a checklist rule: its source line is DECISIONS 35, so `--list` shows that text. The factory and the CLI pass no coverage file today and so get the one SKIP line.
+
 ## Design tells (slice 4b): the DSN rules
-29 rules now (28 before slice 4c): the 17 above plus DSN-001 to DSN-011, the machine-checkable tells of generic AI-made design (DECISIONS 37; origin: the open skill
+30 rules now (29 before slice 5c, 28 before slice 4c): the 17 checklist rules above, ENV-001, PMP-001 and DSN-001 to DSN-011, the machine-checkable tells of generic AI-made design (DECISIONS 37; origin: the open skill
 unslop by Damir Sokolovsky, CC BY 4.0, copied to `skills/unslop/`, rewritten here in our own words). The source line of each DSN rule names the line(s) of
 that copy and the decision, e.g. DSN-005: `skills/unslop/references/signs.md:47 and skills/unslop/SKILL.md:110; planning/DECISIONS.md 37 (owner, 2026-10-31); unslop by Damir Sokolovsky, CC BY 4.0`.
 All P1; DSN-010 and DSN-011 print WARN (the exit stays 0), the other nine print FAIL. A built site that trips one does not publish.
@@ -188,11 +202,13 @@ All P1; DSN-010 and DSN-011 print WARN (the exit stays 0), the other nine print 
 node tools/audit/test/run.mjs      ends "OK: N of N checks passed", exit 0
 node tools/audit/test/mutate.mjs   ends "N mutants, N caught, 0 survived, 0 not run, 0 target text missing", exit 0  (not run = the child was killed, exit null; exit 1)
 (`MUTATE_JOBS` mutants run at once, default 4; `MUTATE_TIMEOUT_S` raises the 180 s limit on a loaded machine; `MUTATE_ONLY=<regex>` runs only the mutants whose name matches; `MUTATE_FIRST=<regex>` starts those first. Temp folders: each run keeps all of them under one `omnikom-audit-run-*` root (in `OMNIKOM_AUDIT_TMP` if set, else the system temp folder) and removes it at the end, on a red check under FAILFAST, and on SIGINT/SIGTERM; `test/mutate.mjs` does the same with `omnikom-audit-mutate-*` and runs each child inside its own copy; a test in `test/run.mjs` fails if a killed mutant run leaves a folder.)
-node tools/audit/run.mjs tools/audit/fixtures/good              every line PASS but one `SKIP ENV-001 / no --target` line, exit 0
-node tools/audit/run.mjs tools/audit/fixtures/good --target production            every line PASS, exit 0
-node tools/audit/run.mjs tools/audit/fixtures/good-preview --target preview       every line PASS, exit 0
+node tools/audit/run.mjs tools/audit/fixtures/good              every line PASS but one `SKIP ENV-001 / no --target` and one `SKIP PMP-001 / no --prompt-coverage` line, exit 0
+node tools/audit/run.mjs tools/audit/fixtures/good --target production            every line PASS but the one `SKIP PMP-001` line, exit 0
+node tools/audit/run.mjs tools/audit/fixtures/good-coverage --prompt-coverage tools/audit/fixtures/good-coverage/plan/prompt-coverage.json   0 FAIL, four PASS PMP-001 lines, exit 0
+node tools/audit/run.mjs tools/audit/fixtures/bad-PMP-001-uncovered --prompt-coverage tools/audit/fixtures/bad-PMP-001-uncovered/plan/prompt-coverage.json   a FAIL PMP-001 line naming the row id, exit 1
+node tools/audit/run.mjs tools/audit/fixtures/good-preview --target preview       every line PASS but the one `SKIP PMP-001` line, exit 0
 node tools/audit/run.mjs tools/audit/fixtures/bad-MET-003       a FAIL MET-003 line with file:line and source, exit 1
-node tools/audit/run.mjs tools/audit/fixtures/snapshot-good     every line PASS but one `SKIP ENV-001 / no --target` line, exit 0
+node tools/audit/run.mjs tools/audit/fixtures/snapshot-good     every line PASS but one `SKIP ENV-001 / no --target` and one `SKIP PMP-001 / no --prompt-coverage` line, exit 0
 node tools/audit/run.mjs tools/audit/fixtures/snapshot-bad-PRF-001   a FAIL PRF-001 line (LCP 3100 ms > 2500 ms) with source, exit 1
 node tools/audit/run.mjs tools/audit/fixtures/bad-DSN           a FAIL or WARN line for each of DSN-001 to DSN-011, exit 1
 ```
