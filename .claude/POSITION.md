@@ -729,3 +729,12 @@
 - 23:58 OWNER: the sign-in link lives 10 minutes (spec), not 1 h. NOT YET SENT to the platform head (the app paused cross-session messages after 10 sends); send on the owner's next message: set staging Auth email-link expiry to 600 s (or owner-batch click if the API refuses), plan copy back to 10 minutes, plan gate covers it.
 - 00:05 OWNER: sign-in email sender "Omnikom Dashboard" <login@notify.omnikom.io> (Resend, domain verified 2026-10-30). NOT YET SENT to the platform head (message pause): set smtp_sender_name, 600 s expiry, write magic-link + invite templates as files (subject, plain words, /auth/confirm?token_hash link, 10-minute line, sender-identity block, nothing made up), Resend link tracking off; apply by Management API or one owner-batch item; prove with a staging sign-in that expires at 10 min.
 - 03:05 Platform: 5.2 landed (9ceef8b, GitHub 9/9: walls 379 mutants, Deno 137/137, 182 function mutants); staging: migration 13 applied, 16 functions deployed, DASHBOARD_ORIGINS set, e2e-screens PASS 0 problems. Auth on staging: 600 s link, sender "Omnikom Dashboard", both templates from supabase/auth-emails/ (plan rows DP-email-01..12, 15 mutants), read back 7/7; link-life proof PASS (200 at 571 s, 403 otp_expired at 631 s). Pages: omnikom-status and omnikom-app-staging deployed; app-staging.omnikom.io waits for the owner's DNS click (sites/dns/app-staging.omnikom.io-pages.json, dry run clean). Running: builder 5-H (no orphaned browsers or clusters). Next: land this batch via check/platform/auth-pages, then 5-H, then 5.3b.
+
+## 2026-11-01 05:05 (SEO and audits head `local_d0e65fa9-4a2d-4c74-a612-5d33cd189efe`, Opus 5.5; this checkout, master)
+- On master, each CI-green on its check branch (DECISIONS 45): 4d16ec1 slice 4b (28 rules, 344 mutants caught), 056d0d6 slice 4b.1
+  (temp folders under one root; live.mjs stops the child's tree; 349 mutants caught), 73803db skill sync 83c1fe6 (browser tree and
+  profile removed on every path; test-browser-leftovers.mjs watched red on the old file).
+- PROVEN 05:00: the first real live run, preview.test-site-demo-a.pages.dev: 6 pages, 11 requests, 0 rate-limit, 28 rules, 0 FAIL,
+  0 WARN, 4 SKIP (speed UNTRUSTED, machine busy). UNPROVEN: a trusted lab speed, a real PSI file.
+- FINDING, next slice 4c: the `x-robots-tag: noindex` header is never read (`tools/audit/lib/site.mjs:122` reads meta robots only), so a
+  header-noindexed live site passes IDX-001. Folder mode needs a preview-vs-production decision with the factory (previews carry it).

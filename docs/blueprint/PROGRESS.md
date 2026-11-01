@@ -695,6 +695,21 @@ Left on staging on purpose: those jobs (they moved `published_version` of the sa
 (6) postgres.js: `sql.array(uuids)` with `::uuid[]` fails in a plain connection (`malformed array literal`), a plain array works; the 4.2 `publish` uses `sql.array` and passed on staging, the difference was not chased.
 (7) Error bodies are `{ code, message }` (the `Problem` schema), not `{ code, msg }` as the brief wrote.
 
+## SEO and audits, the first real live run (2026-11-01 05:00, head)
+`node ~/.claude/scripts/heavy.mjs -- node tools/audit/live.mjs https://preview.test-site-demo-a.pages.dev/ --cwd <scratchpad>/live`
+on master 73803db, one pass (the first try waited 30 min behind another session's heavy job and ran nothing, exit 75):
+```
+6 candidate URLs in 5 groups; checking 6        (each 200)
+machine load during speed runs: avg 51% max 98% -> speed UNTRUSTED
+SNAPSHOT DONE: 6 pages, 11 HTTP requests, 0 rate-limit responses
+OK: 6 page(s), 28 rule(s), 0 FAIL, 0 WARN, 4 SKIP     (the 4 SKIP: PRF-001 speed UNTRUSTED, machine busy; 134 PASS lines; exit 0)
+```
+PROVEN: live-target.mjs and live.mjs on a real site (closes the slice 2 UNPROVEN). Still UNPROVEN: a trusted lab speed and a real PSI file.
+FINDING (P0 gap, slice 4c): every page answers `x-robots-tag: noindex` (snapshot `pages/home/response.json`) and no rule saw it:
+`page.noindex` is read from the meta robots tag only (`tools/audit/lib/site.mjs:122`, the skill copy `lib-site.mjs:120`), so IDX-001
+("listed but noindex") passed. A production site hidden by the header would pass. The fix must read the header in snapshot mode and
+decide folder mode (`_headers`) with the factory, since a built preview carries the same header on purpose.
+
 ## SEO and audits, slice 4b.1: temp folders and the live driver's child tree (2026-11-01 02:30, builder)
 Part A, no leaked temp folders. `test/run.mjs` keeps every temp folder under one root `omnikom-audit-run-*` (in `OMNIKOM_AUDIT_TMP`, else the system temp
 folder) and removes it in the `finally`, at the first red check under FAILFAST, and on SIGINT/SIGTERM; its children get TMPDIR/TEMP/TMP inside the root.

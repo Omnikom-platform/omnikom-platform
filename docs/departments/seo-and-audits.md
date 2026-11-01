@@ -172,3 +172,7 @@ options, never a fix made here.
 - 2026-11-01 04:05: skill 83c1fe6 synced: cdp-measure.mjs stops the browser tree and removes its profile on close, give-up and an exit
   guard (fix by the head of operations' builder); test-browser-leftovers.mjs (this department's builder) watched red on the old file
   ("FAIL b: exit profile folder still exists", "FAIL c: uncaught ..."), head re-run through heavy.mjs: OK: 4 of 4; test-main 10 of 10.
+- 2026-11-01 05:00: PROVEN, the first real live run (live.mjs on https://preview.test-site-demo-a.pages.dev/, master 73803db): 6 pages,
+  11 requests, 0 rate-limit responses, 28 rules, 0 FAIL, 0 WARN, 4 SKIP (speed UNTRUSTED, machine busy); PROGRESS "the first real live
+  run". Closes the live-target UNPROVEN of slice 2; a trusted lab speed and a real PSI file stay UNPROVEN. FINDING for slice 4c: the
+  `x-robots-tag` header is never read (meta robots only), so a header-noindexed site passes IDX-001.
