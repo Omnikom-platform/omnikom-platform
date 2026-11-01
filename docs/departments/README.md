@@ -74,6 +74,26 @@ a finished session gets `, DONE` appended. A session type not in this table is n
 say whom its head reports to and that its builders send findings back. When a department has no standing head (platform build
 today), the head of operations is the head and says so in the brief.
 
+## Context load and handover (owner, 2026-11-01 06:30)
+A head runs `node tools/departments/context-load.mjs` at every slice boundary and reads its own line; the head of operations
+runs it when it starts and at each report it reads. SWAP (context 250,000 tokens or more, 2 or more compactions, or a per-turn
+cost 5 times a fresh session's) means: at the next slice boundary, never mid-slice, the head writes a HANDOVER block at the end
+of its charter's position log (in-flight builders and branches, the next slice, open findings, anything waiting on the owner),
+stops starting work, and the head of operations starts a fresh head with the same charter. The old head is archived once its
+in-flight builders have reported and the new head has confirmed it read the block. WATCH (150,000 tokens or 1 compaction)
+means: plan the handover at the end of the current slice. There is no separate router session; the tool and the head of
+operations are the router (DECISIONS 40).
+
+## Starting and stopping a builder session (owner, 2026-11-01 06:26)
+A head starts a builder with `node tools/departments/start-builder.mjs --dept <slug> --slice <name>`: it writes a clean
+launcher, opens the session in its own window, waits until the session is registered and prints {name, pid, model, cwd}. The
+head then sends the brief with SendMessage to `BUILDER_<dept>_<slice>` (the brief names the files to read, the done-when, and
+"anything outside this brief is a finding you send back, not a fix") and carries on with other work; the builder reports back
+by SendMessage to the head's name. When the report is in and the head has re-run the gate itself, it stops the builder with
+`node tools/departments/stop-builder.mjs --pid <pid>` (a session cannot end itself) and confirms nothing is left. Hands-on work
+(diagnosis, settings, proof runs) belongs to builders or Haiku runners, never the head; a head that does it in its own session
+is filling the context this route exists to keep clear.
+
 ## Starting a department
 `node tools/departments/new-department.mjs --slug <slug> --name "<Name>" --mission "<one sentence>" --owns <path> [--owns <path>]
 [--head-model opus] [--builder-model sonnet]` writes `docs/departments/<slug>.md` from `TEMPLATE.md` and adds the row below.
