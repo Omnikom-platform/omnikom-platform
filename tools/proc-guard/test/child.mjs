@@ -30,6 +30,8 @@ async function startStandin(dir) {
 async function settledLeaks(ms = 3000) {
   let left = G.leaks(G.PREFIXES);
   for (let t = 0; left.length && t < ms; t += 300) { await sleep(300); left = G.leaks(G.PREFIXES); }
+  // diagnostics: say which processes are left (pid, ppid, name, command line)
+  for (const l of left) say('LEFT', `[pid ${l.pid} ppid ${l.ppid} name ${l.name} cmd ${l.cmd}]`);
   return left;
 }
 

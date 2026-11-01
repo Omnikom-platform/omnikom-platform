@@ -131,7 +131,7 @@ function tmpRoots(tmp) {
   return [...roots];
 }
 
-// The processes (any name) whose command line contains one of our temp folders: [{ pid, name, folder }].
+// The processes (any name) whose command line contains one of our temp folders: [{ pid, ppid, name, folder, cmd }] (cmd cut at 200 characters).
 export function leaks(prefixes = PREFIXES, o = {}) {
   const tmp = o.tmp || os.tmpdir();
   const procs = o.procs || listProcs();
@@ -140,7 +140,7 @@ export function leaks(prefixes = PREFIXES, o = {}) {
   for (const p of procs) {
     if (p.pid === process.pid) continue;
     const m = norm(p.cmd).match(re);
-    if (m) out.push({ pid: p.pid, name: p.name, folder: WIN ? m[0].replace(/\//g, '\\') : m[0] });
+    if (m) out.push({ pid: p.pid, ppid: p.ppid, name: p.name, folder: WIN ? m[0].replace(/\//g, '\\') : m[0], cmd: String(p.cmd).slice(0, 200) });
   }
   return out;
 }

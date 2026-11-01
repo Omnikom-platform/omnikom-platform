@@ -19,10 +19,11 @@ const WIN = process.platform === 'win32';
 
 let passed = 0, failed = 0, skipped = 0;
 const failLines = [];   // every FAIL line, repeated in the closing lines: a gate that shows only the last lines still shows all of them
-const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`ok   ${name}`); } else { failed++; const line = `FAIL ${name}${detail ? ': ' + String(detail).slice(0, 400) : ''}`; failLines.push(line); console.log(line); } };
+const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`ok   ${name}`); } else { failed++; const line = `FAIL ${name}${detail ? ': ' + String(detail).slice(0, 900) : ''}`; failLines.push(line); console.log(line); } };
 const want = group => !ONLY || ONLY.includes(group);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+console.log(`test runner: process.pid ${process.pid}, process.ppid ${process.ppid}, platform ${process.platform}, argv ${process.argv.slice(1).join(' ')}`);
 const root = mkdtempSync(join(os.tmpdir(), 'proc-guard-test-'));
 const env = { ...process.env, TEMP: root, TMP: root, TMPDIR: root, PROC_GUARD_SUT: SUT, FAKE_PGCTL_LOG: join(root, 'pgctl.log') };
 delete env.FAKE_PGCTL_FAIL;
@@ -33,7 +34,8 @@ async function settled(ms = 4000) {
   for (let t = 0; left.length && t < ms; t += 400) { await sleep(400); left = inRoot(); }
   return left;
 }
-const show = left => left.map(l => `${l.name}#${l.pid}`).join(',');
+// every leftover with pid, parent, name and command line (cut at 200 characters), so a failing run says which process it is
+const show = left => left.map(l => `[pid ${l.pid} ppid ${l.ppid} name ${l.name} cmd ${l.cmd}]`).join(' ');
 
 // Starts a child; returns { proc, out, wait(regex, ms), done }.
 function child(mode, arg = '', extraEnv = {}, capMs = 90000) {
@@ -227,6 +229,6 @@ try {
   try { G.killFolderProcs(root); } catch { /* nothing to kill */ }
   try { rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 }); } catch { /* not removable */ }
 }
-if (failLines.length) { console.log(`\n${failLines.length} FAILED CHECK(S), repeated:`); for (const l of failLines) console.log(l.replace(/\s+/g, ' ').slice(0, 300)); }
+if (failLines.length) { console.log(`\n${failLines.length} FAILED CHECK(S), repeated:`); for (const l of failLines) console.log(l.replace(/\s+/g, ' ').slice(0, 900)); }
 console.log(`proc-guard tests: ${passed} passed, ${failed} failed${skipped ? `, ${skipped} skipped` : ''}`);
 process.exit(failed ? 1 : 0);

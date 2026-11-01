@@ -3,7 +3,7 @@ export const PREFIXES: string[];
 export const PARENT_CHECKED: string[];
 export const NO_OWNER_MAX_AGE_MS: number;
 export interface Proc { pid: number; ppid: number; name: string; cmd: string }
-export interface Leak { pid: number; name: string; folder: string }
+export interface Leak { pid: number; ppid: number; name: string; folder: string; cmd: string }
 export interface Guarded { dir: string; release(o?: { keep?: boolean }): void }
 export interface SweepOptions { tmp?: string; now?: number; log?: (line: string) => void; pgCtl?: string[] }
 export interface Swept { dir: string; why: string; stopped: boolean; killed: number; removed: boolean }
