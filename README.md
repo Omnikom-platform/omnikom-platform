@@ -13,14 +13,14 @@ engine) after the weekly usage reset.
 ## sops/ (standard procedures, proven on real runs)
 - `website-backup.md`: back up a site first (our copy of its code), verify it, read a failed gate as tool vs site; traps per platform.
 - `clients/prospect-audit-team.md` (moved under `sops/clients/` 2026-10-30, Clients department): the agent team (Lead, Researcher, SEO analyst, Reviewer), write guard, backup gate, gap log, progress
-  panel, phase order, where the owner is needed. First run: ELEV8 / Alex Sevilla (`E:\Alex Sevilla`), 2026-10-26.
+  panel, phase order, where the owner is needed. First run: Example A / Agent A (its project folder), 2026-10-26.
 
 ## planning/inputs/ (verbatim, never edited)
 - `2026-10-23-chatgpt-omnikom-website-cms-full-chat.md`: owner's ChatGPT conversation about the website + CMS platform (33 KB, copied from Downloads/Telegram Desktop).
 - `2026-10-23-owner-draft-deepseek-brief.md`: owner's unfinished brief written for DeepSeek.
 
 ## Related, proven pieces elsewhere (to map against later)
-- Presence report plan (prospects first): `E:\Francine & Eli\icm\work\presence-report-plan.md`
-- First real client reports: `E:\Francine & Eli\deliverables\docs\website-review-francine.md` (+ .pdf)
-- Full build-to-launch run (design pass, SEO gate 13/13, forms -> Sheet, Cloudflare, launch tools): `E:\Rainmaker` (LAUNCH.md)
+- Presence report plan (prospects first): the Example B and D project folder, `icm\work\presence-report-plan.md`
+- First real client reports: the Example B and D project folder, the website review under `deliverables\docs\` (+ .pdf)
+- Full build-to-launch run (design pass, SEO gate 13/13, forms -> Sheet, Cloudflare, launch tools): the Example C project folder (LAUNCH.md)
 - SEO/build skill: `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance\`
