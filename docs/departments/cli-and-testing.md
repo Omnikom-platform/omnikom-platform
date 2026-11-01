@@ -182,3 +182,56 @@ when the head of operations has released its slice.
   - `.claude/POSITION.md` still mentions the stamp; PROGRESS.md, spec 26 section 7 and a POSITION block for 103a502 onward are NOT DONE.
   - `%TEMP%` holds about 225 old `omnikom-cli-mut-*` copies from earlier runs (not swept).
   - Still open from before: a suite-wide guard against a test run changing `.tools/`.
+- 2026-11-01 08:35 (HEAD_CLI-and-testing_2026-11-01, session 26cb85, took over from the HANDOVER above): the handover commit rebuilt on
+  a0266ca and LANDED as da0e72d (`omnikom land check/cli-and-testing/handover-r2`, run 41278664765, 9 of 9 jobs; lock released; local
+  master fast-forwarded by hand). `omnikom hooks install` done in this repository; checked live: a dry-run push of `refs/heads/hook-probe`
+  REFUSED. Seed-test builder BUILDER_cli-and-testing_seed-test started (launcher `E:\omk-launch\start-b-cli-seedtest.cmd`). New finding
+  (head of operations): `land` leaves this checkout's local master behind; it should fast-forward the local ref when none of the changed
+  paths are staged or dirty (a small slice after seed test).
+- 2026-11-01 10:06: real-kill test retry LANDED as c2811ee (`land check/cli-and-testing/kill-test-retry`, run 41284870648, 9 of 9 jobs, the
+  cli job's db part included): the first ping retries for about 10 s, the detail leads with the last three pings. One green run does not
+  prove the flake gone: UNPROVEN until several db-part runs stay green. Local master fast-forwarded by hand; the same change is in the
+  shared tree's `test/run.mjs` under the seed-test builder's edits.
+- 2026-11-01 10:18: BLOCKED (owner click, head of operations): the org's GitHub Free plan used November's 2,000 Actions minutes and the
+  spending limit stops new jobs. Land nothing until the head of operations says billing is fixed; then `gh run rerun <id>` the red runs
+  instead of rebuilding. No local full gates as a substitute (DECISIONS 45). One push per finished slice, no pushes just to test.
+  Findings queued for a small `land` slice: (a) fast-forward the local master ref when no changed path is staged or dirty; (b) print the
+  billing annotation when every job failed without a step, not only "ci is red".
+- 2026-11-01 10:40: slice 2 brief REWRITTEN against master c2811ee (`briefs/slice-2-functions.md`): split into 2a (save with `base` and
+  S-STALE, publish, lead-update with `read`, add-lead, upload-start/finish, the three waiting walls; publish/upload-finish dispatch costs
+  Actions minutes, so once per run) and 2b (drafts, settings-save, crm-test refusals only on staging, lead-export, invite-member with one
+  fixed synthetic login). Starts after seed test. Openapi gaps sent up as a finding for the platform head.
+
+## HANDOVER 2026-11-01 13:10 (HEAD_CLI-and-testing_2026-11-01, session 26cb85, at ~250k context, to the next CLI head; report to HEAD-OF-OPERATIONS_Omnikom_2026-11-01b)
+- Landing: nothing can land until the DECISIONS 46 slice lands (private org repo out of Actions minutes). Master = c2811ee.
+- In flight 1, DECISIONS 46 public code-only copy: builder BUILDER_cli-and-testing_public-copy (ref 4caa27, local; a stale Remote
+  Control row of the same name, ffdf68, is the killed first launch: ignore it), launcher `E:\omk-launch\start-b-cli-publiccopy.cmd`
+  (starts in E:\ because a new folder shows a trust prompt that blocks startup), works ONLY in worktree `D:\omk-gates\cli-public-copy`
+  (detached at c2811ee). Brief: `tools/omnikom-cli/briefs/public-copy.md` IN THAT WORKTREE (commit it with the slice). Two stop points
+  wait for your "go": (1) the Part C survey table + dry run: review it as a publication (deny business and client text even with no
+  client named; check `docs/blueprint`, `docs/departments`, `skills/`, `brand/`, `contracts/industry-run/RESULTS.md`, `sites/`); (2) Part D
+  creates `AbdulrahmanAmer/omnikom-checks` (public; owner-authorised 12:51 per DECISIONS 46). Tell the builder you are its head first.
+  When the first copy run is green, tell the head of operations; then land this slice (bootstraps with its own new `land`).
+- In flight 2, seed-test slice: BUILT and reviewed, NOT committed. Clean worktree `D:\omk-gates\cli-seedtest` (detached at c2811ee) holds
+  the slice: 9 files copied from the shared tree plus `lib/walls.mjs`, with the SEO department's two uncommitted `SKIP ENV-001` lines in
+  `test/run.mjs` restored to master text (script `strip-seo-lines.mjs` in this session's scratchpad; those lines need SEO's untracked
+  ENV-001 rule). Clean-tree proof: unit "OK: 373 of 373", heavy db "OK: 177 of 177". Functions (Deno) job re-run in progress at handover
+  (`omnikom ci --job functions --root D:/omk-gates/cli-seedtest` from E:\ through heavy.mjs; the worktree has no `.tools/`): read its
+  verdict, then re-copy this charter (it gained lines after the copy) into the worktree, gitleaks the staged diff, commit there, push to
+  `check/cli-and-testing/seed-test`, and land after DECISIONS 46 (rebase onto it if needed; `test/run.mjs` and `test/mutate.mjs` will
+  conflict mechanically). Builder BUILDER_cli-and-testing_seed-test is done (archive it). Staging facts in its report: seed test changed
+  true then false twice; Agent One v3 and Agent Two v2 with slug and role (closes the sheet-publish block); contract v2; preview host set;
+  people 15/15, walls 5/5. `test walls` on staging BLOCKED at `supabase/tests/tenancy.test.sql:264` (N2, global `reap_stale_jobs`, 5 stale
+  queued jobs from 2026-10-31): finding sent up, option 1 (the walls file counts only its own jobs) recommended. Not run: factory job
+  (needs npm install), full mutate.mjs (GitHub).
+- Next after those: slice 2a then 2b (brief rewritten, `briefs/slice-2-functions.md`); a small `land` slice (fast-forward the local
+  master ref when no changed path is staged or dirty; print the billing annotation when every job failed without a step); big-output
+  hook (DECISIONS 41).
+- Findings sent up today: openapi gaps vs 5.2 source (SaveRequest lacks `base`, LeadUpdateRequest lacks `read`, five functions without
+  paths, config.toml names three functions without folders, `/unpublish` without a function); staging A has a third bare listing;
+  `tenancy.test.sql:886/888` partial-id literals.
+- Shared-tree notes: the charter and both briefs in `tools/omnikom-cli/briefs/` are uncommitted edits of this department; the kill-test
+  change is already in master (c2811ee); SEO's two `test/run.mjs` lines are theirs, never commit them.
+- 2026-11-01 13:10 (HEAD_CLI-and-testing_2026-11-01b, session af5d60, Opus 5.5, took over from the HANDOVER above; reports to
+  HEAD-OF-OPERATIONS_Omnikom_2026-11-01b): block read; the public-copy builder (4caa27) told; seed-test worktree checked against the
+  shared tree (only this charter and SEO's two `test/run.mjs` lines differ).

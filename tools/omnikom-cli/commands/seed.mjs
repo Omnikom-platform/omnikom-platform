@@ -1,7 +1,9 @@
 // seed test       workspaces A and B, their sites, contracts, test logins: the fixtures of supabase/tests/tenancy.test.sql
-//                 (same ids, emails and contract text; a unit test compares them with that file). Idempotent: every insert is
-//                 "on conflict do nothing" or guarded by an existence check, so a second run changes no row (the command
-//                 proves it with a fingerprint of every table before and after).
+//                 (same ids, emails and contract text; a unit test compares them with that file). Workspace A also gets the
+//                 test site of sites/test-demo-a/ (contract version N+1 when the file changed, every row of rows.json, its media
+//                 row, the preview host); B keeps contract version 1. Idempotent: every insert is "on conflict do nothing" or
+//                 guarded by an existence check, a row is found by its key and a changed row gets a new version, so a second run
+//                 changes no row (the command proves it with a fingerprint of every table before and after).
 // seed test --clean   removes exactly those fixtures (and the Vault secrets named site-test-demo-*), so test walls can run.
 // seed workspace  a real client from an approved plan, SQL path (W1.1): workspace, site, contract (from contracts/from-plan.mjs
 //                 output), the pages and the places the plan names, through service.seed_version (staff actor, plan hash as the
@@ -21,6 +23,8 @@ export const WS_A = 'aaaaaaaa-0000-0000-0000-000000000000';
 export const WS_B = 'bbbbbbbb-0000-0000-0000-000000000000';
 export const SITE_A = 'aaaaaaaa-0000-0000-0000-00000000517e';
 export const SITE_B = 'bbbbbbbb-0000-0000-0000-00000000517e';
+// where the published test site is served (the platform department's Pages project test-site-demo-a); SITE_B keeps its placeholder host
+export const PREVIEW_HOST_A = 'preview.test-site-demo-a.pages.dev';
 // the contract text of tenancy.test.sql, as data
 export const TEST_CONTRACT = {
   collections: {
@@ -55,7 +59,147 @@ update auth.users set instance_id = coalesce(instance_id, ${uuidLit(ZERO_UUID)})
   where id in (${ids});`;
 }
 
-export function seedTestSql({ alertTo = null } = {}) {
+// ---------- the test site (sites/test-demo-a/): contract version 2 and the rows of workspace A ----------
+// Read from the files the platform department owns (read-only here). `seedTestSql()` with no `site` keeps the earlier content (contract
+// version 1, two bare team rows): supabase/functions/test/harness.mjs seeds its function tests with exactly that call and expects it.
+const SITE_DIR = ['sites', 'test-demo-a'];
+const SEED_ORDER = ['settings', 'team', 'areas', 'notices', 'pages', 'listings'];   // references point backwards
+const AGENT_ONE = 'team-agent-one';                                                 // the symbolic id in rows.json that member A1 is linked to
+// Agent Two is the CLI's fixture for member A2, not site content (it is not in rows.json)
+const AGENT_TWO = { id: 'team-agent-two', collection: 'team', data: { name: 'Agent Two', slug: 'agent-two', role: 'Agent' } };
+
+export async function loadTestSite() {
+  const contract = JSON.parse(readFileSync(repoPath(...SITE_DIR, 'contract.json'), 'utf8'));
+  const fileRows = JSON.parse(readFileSync(repoPath(...SITE_DIR, 'rows.json'), 'utf8'));
+  const logoBytes = readFileSync(repoPath(...SITE_DIR, 'media', 'logo.png')).length;
+  const { validateContract, mergeCore } = await importRepo('contracts/validate.mjs');
+  const problems = validateContract(contract);
+  const resolved = { ...contract, collections: mergeCore(contract) };
+  const rows = SEED_ORDER.flatMap(collection => [...fileRows, AGENT_TWO].filter(r => r.collection === collection));
+  return { contract, resolved, rows, logoBytes, problems, fileRows };
+}
+
+// the pg_temp helper: "ref:<id>" anywhere in a row's data becomes the database id of the row seeded for that id
+// (create or replace, and dropped at the end: a transaction pooler hands the next run the same backend, and pg_temp lives as long as it does)
+const REF_FUNCTION_SQL = `create or replace function pg_temp.omk_ref(v jsonb, ids jsonb) returns jsonb language plpgsql as $omk_ref$
+declare r jsonb; k text; e jsonb; t text;
+begin
+  t := jsonb_typeof(v);
+  if t = 'string' then
+    if (v #>> '{}') like 'ref:%' then
+      k := substr(v #>> '{}', 5);
+      if ids -> k is null then raise exception 'S-SEED-REF: no row was seeded for %', k; end if;
+      return ids -> k;
+    end if;
+    return v;
+  elsif t = 'object' then
+    r := '{}'::jsonb;
+    for k, e in select o.key, o.value from jsonb_each(v) o loop r := r || jsonb_build_object(k, pg_temp.omk_ref(e, ids)); end loop;
+    return r;
+  elsif t = 'array' then
+    select coalesce(jsonb_agg(pg_temp.omk_ref(x.value, ids) order by x.ord), '[]'::jsonb) into r from jsonb_array_elements(v) with ordinality x(value, ord);
+    return r;
+  end if;
+  return v;
+end $omk_ref$;`;
+
+// Contract version N+1 when the file changed, the media row of the logo, every row of rows.json (found by its key, created once, a changed
+// row gets a NEW VERSION and never a second row), the agents' links, the preview host. One script, so a refusal leaves nothing half-seeded.
+function siteSql({ contract, resolved, rows, logoBytes }) {
+  const staff = uuidLit(P.staff.sub), a = uuidLit(WS_A);
+  const ref = lit(SEED_REF);
+  const uuidRe = lit('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+  return `${REF_FUNCTION_SQL}
+do $omk_contract$
+declare a uuid := ${a}; s uuid := ${staff}; cnt jsonb := ${jsonLit(contract)}; res jsonb := ${jsonLit(resolved)};
+begin
+  -- the active contract is compared by content, never by number: equal to the file (its core-merged form too) writes nothing
+  if not exists (select 1 from site_contracts where workspace_id = a and active and contract = cnt and resolved = res) then
+    update site_contracts set active = false where workspace_id = a and active;
+    insert into site_contracts (workspace_id, version, contract, resolved, active, created_by)
+      values (a, coalesce((select max(version) from site_contracts where workspace_id = a), 0) + 1, cnt, res, true, s);
+    insert into audit_log (workspace_id, actor, action, target, detail) values (a, s, 'seed-contract', 'test-demo-a', jsonb_build_object('ref', ${ref}));
+  end if;
+end $omk_contract$;
+do $omk_rows$
+declare a uuid := ${a}; s uuid := ${staff}; want jsonb := ${jsonLit(rows)}; ids jsonb; e jsonb; coll text; keyfield text; keyval text;
+  payload jsonb; hits uuid[]; rid uuid; cur jsonb; curn int; mid uuid; logo text;
+begin
+  -- the logo: the media row that A's settings already name when there is one (the platform's upload path makes it), else <workspace id>/logo.png, inserted once
+  select l.data #>> '{logo,asset}' into logo from content_rows c join lateral (select v.data from content_versions v where v.row_id = c.id order by v.n desc limit 1) l on true
+    where c.workspace_id = a and c.collection = 'settings' and c.deleted_at is null limit 1;
+  mid := null;
+  if logo ~ ${uuidRe} then select m.id into mid from media m where m.id = logo::uuid and m.workspace_id = a; end if;
+  if mid is null then
+    select m.id into mid from media m where m.workspace_id = a and m.path = a::text || '/logo.png';
+    if mid is null then
+      insert into media (workspace_id, path, width, height, bytes, processed, exif_stripped, rights_confirmed, uploaded_by)
+        values (a, a::text || '/logo.png', 400, 400, ${Number(logoBytes)}, true, true, true, s) returning id into mid;
+      insert into audit_log (workspace_id, actor, action, target, detail) values (a, s, 'seed-media', mid::text, jsonb_build_object('ref', ${ref}));
+    end if;
+  end if;
+  ids := jsonb_build_object('media-logo', mid::text);
+
+  for e in select x.value from jsonb_array_elements(want) with ordinality x(value, ord) order by x.ord loop
+    coll := e ->> 'collection';
+    payload := pg_temp.omk_ref(e -> 'data', ids);
+    hits := null;
+    if coll = 'settings' then
+      keyval := 'the one row';
+      select array_agg(c.id order by c.id) into hits from content_rows c where c.workspace_id = a and c.collection = 'settings' and c.deleted_at is null;
+    else
+      keyfield := case when coll = 'pages' then 'path' else 'slug' end;
+      keyval := payload ->> keyfield;
+      select array_agg(c.id order by c.id) into hits from content_rows c join lateral (select v.data from content_versions v where v.row_id = c.id order by v.n desc limit 1) l on true
+        where c.workspace_id = a and c.collection = coll and c.deleted_at is null and l.data ->> keyfield = keyval;
+      if hits is null and coll = 'team' then   -- a row of the earlier seed has no slug: it is found by name and repaired, not duplicated
+        select array_agg(c.id order by c.id) into hits from content_rows c join lateral (select v.data from content_versions v where v.row_id = c.id order by v.n desc limit 1) l on true
+          where c.workspace_id = a and c.collection = 'team' and l.data ->> 'slug' is null and l.data ->> 'name' = payload ->> 'name';
+      end if;
+    end if;
+    if cardinality(hits) > 1 then raise exception 'S-SEED-AMBIGUOUS: collection % key % finds % live rows: %', coll, keyval, cardinality(hits), hits; end if;
+    if hits is null then
+      rid := service.seed_version(a, coll, payload, s, ${ref});
+    else
+      rid := hits[1];
+      select v.n, v.data into curn, cur from content_versions v where v.row_id = rid order by v.n desc limit 1;
+      if cur is distinct from payload then
+        insert into content_versions (row_id, n, workspace_id, data, by, sign_off) values (rid, curn + 1, a, payload, s, jsonb_build_object('by', s, 'ref', ${ref}));
+        insert into audit_log (workspace_id, actor, action, target, detail) values (a, s, 'seed', coll || ':' || rid, jsonb_build_object('ref', ${ref}, 'version', curn + 1));
+      end if;
+    end if;
+    ids := ids || jsonb_build_object(e ->> 'id', rid::text);
+  end loop;
+
+  update members set team_row_id = (ids ->> ${lit(AGENT_ONE)})::uuid where workspace_id = a and user_id = ${uuidLit(P['member-a1'].sub)} and team_row_id is distinct from (ids ->> ${lit(AGENT_ONE)})::uuid;
+  update members set team_row_id = (ids ->> ${lit(AGENT_TWO.id)})::uuid where workspace_id = a and user_id = ${uuidLit(P['member-a2'].sub)} and team_row_id is distinct from (ids ->> ${lit(AGENT_TWO.id)})::uuid;
+  update sites set preview_host = ${lit(PREVIEW_HOST_A)} where id = ${uuidLit(SITE_A)} and preview_host is distinct from ${lit(PREVIEW_HOST_A)};
+  if found then
+    insert into audit_log (workspace_id, actor, action, target, detail) values (a, s, 'seed-site', 'test-site-demo-a', jsonb_build_object('preview_host', ${lit(PREVIEW_HOST_A)}));
+  end if;
+end $omk_rows$;
+drop function pg_temp.omk_ref(jsonb, jsonb);`;
+}
+
+// the content earlier versions of this command seeded (contract version 1, two bare team rows); the function tests of the platform
+// department seed with it (supabase/functions/test/harness.mjs calls seedTestSql() with no argument)
+function legacyContentSql() {
+  return `do $seed$
+declare t1 uuid; t2 uuid; a uuid := ${uuidLit(WS_A)};
+begin
+  select c.id into t1 from content_rows c join content_versions v on v.row_id = c.id and v.n = 1
+    where c.workspace_id = a and c.collection = 'team' and v.data ->> 'name' = 'Agent One';
+  if t1 is null then t1 := service.seed_version(a, 'team', '{"name":"Agent One"}', ${uuidLit(P.staff.sub)}, ${lit(SEED_REF)}); end if;
+  select c.id into t2 from content_rows c join content_versions v on v.row_id = c.id and v.n = 1
+    where c.workspace_id = a and c.collection = 'team' and v.data ->> 'name' = 'Agent Two';
+  if t2 is null then t2 := service.seed_version(a, 'team', '{"name":"Agent Two"}', ${uuidLit(P.staff.sub)}, ${lit(SEED_REF)}); end if;
+  update members set team_row_id = t1 where workspace_id = a and user_id = ${uuidLit(P['member-a1'].sub)} and team_row_id is distinct from t1;
+  update members set team_row_id = t2 where workspace_id = a and user_id = ${uuidLit(P['member-a2'].sub)} and team_row_id is distinct from t2;
+end $seed$;`;
+}
+
+// site: the result of loadTestSite() (the command passes it); without it the earlier content is seeded
+export function seedTestSql({ alertTo = null, site = null } = {}) {
   return `begin;
 set client_min_messages = warning;
 ${loginsSql()}
@@ -72,18 +216,7 @@ insert into members (workspace_id, user_id, role) values
   (${uuidLit(WS_A)}, ${uuidLit(P['owner-a'].sub)}, 'owner'), (${uuidLit(WS_B)}, ${uuidLit(P['owner-b'].sub)}, 'owner'),
   (${uuidLit(WS_A)}, ${uuidLit(P['member-a1'].sub)}, 'member'), (${uuidLit(WS_A)}, ${uuidLit(P['member-a2'].sub)}, 'member')
   on conflict (workspace_id, user_id) do nothing;
-do $seed$
-declare t1 uuid; t2 uuid; a uuid := ${uuidLit(WS_A)};
-begin
-  select c.id into t1 from content_rows c join content_versions v on v.row_id = c.id and v.n = 1
-    where c.workspace_id = a and c.collection = 'team' and v.data ->> 'name' = 'Agent One';
-  if t1 is null then t1 := service.seed_version(a, 'team', '{"name":"Agent One"}', ${uuidLit(P.staff.sub)}, ${lit(SEED_REF)}); end if;
-  select c.id into t2 from content_rows c join content_versions v on v.row_id = c.id and v.n = 1
-    where c.workspace_id = a and c.collection = 'team' and v.data ->> 'name' = 'Agent Two';
-  if t2 is null then t2 := service.seed_version(a, 'team', '{"name":"Agent Two"}', ${uuidLit(P.staff.sub)}, ${lit(SEED_REF)}); end if;
-  update members set team_row_id = t1 where workspace_id = a and user_id = ${uuidLit(P['member-a1'].sub)} and team_row_id is distinct from t1;
-  update members set team_row_id = t2 where workspace_id = a and user_id = ${uuidLit(P['member-a2'].sub)} and team_row_id is distinct from t2;
-end $seed$;
+${site ? siteSql(site) : legacyContentSql()}
 ${alertTo ? `update sites set lead_alert_to = array[${lit(alertTo)}] where id in (${uuidLit(SITE_A)}, ${uuidLit(SITE_B)}) and lead_alert_to is distinct from array[${lit(alertTo)}];` : ''}
 commit;`;
 }
@@ -117,13 +250,22 @@ async function seedTest(ctx) {
   }
   const alertTo = ctx.flags['alert-to'];
   if (alertTo && !EMAIL.test(alertTo)) throw new Usage('--alert-to must be an email address');
+  const site = await loadTestSite();
+  if (site.problems.length) return result(false, site.problems[0].code, { problems: site.problems.slice(0, 20), total: site.problems.length, error: 'sites/test-demo-a/contract.json does not validate (a finding for the platform department, not fixed here)' });
+  if (!site.rows.some(r => r.id === AGENT_ONE)) return result(false, 'SITE-FILES', { error: `sites/test-demo-a/rows.json has no row with id ${AGENT_ONE} (member A1 is linked to it)` });
   const before = sql.fingerprint();
-  const r = sql.exec(seedTestSql({ alertTo: alertTo || null }));
+  const r = sql.exec(seedTestSql({ alertTo: alertTo || null, site }));
   if (!r.ok) return fromSql(r);
   const after = sql.fingerprint();
+  const stats = sql.rows(`select (select version from site_contracts where workspace_id = ${uuidLit(WS_A)} and active) as "contractVersion",
+      (select coalesce(jsonb_object_agg(t.collection, t.n), '{}'::jsonb) from (select collection, count(*) as n from content_rows where workspace_id = ${uuidLit(WS_A)} and deleted_at is null group by collection) t) as rows,
+      (select count(*) from media where workspace_id = ${uuidLit(WS_A)}) as media`);
+  const s = stats.rows[0] || {};
+  const counts = Object.fromEntries(SEED_ORDER.map(c => [c, Number((s.rows || {})[c] || 0)]));
   return result(true, 'ok', {
     workspaces: { a: { id: WS_A, slug: 'test-demo-a', site: SITE_A }, b: { id: WS_B, slug: 'test-demo-b', site: SITE_B } },
     logins: LOGINS,
+    testSite: { contractVersion: s.contractVersion === undefined ? null : Number(s.contractVersion), rows: counts, media: Number(s.media || 0) },
     changed: before === null || before !== after,
   });
 }

@@ -293,6 +293,29 @@ const MUTANTS = [
   ["impact: new URL(..., import.meta.url) is not a read", "lib/graph.mjs", "else if (t.v === 'URL') kind = pv && pv.t === 'id' && pv.v === 'new' ? 'url' : null;", "else if (t.v === 'URL') kind = null;", 'unit'],
   ["impact: export ... from is not an import", "lib/graph.mjs", "    if (t.v === 'from' && nx && nx.t === 'str') { imports.push(nx.v); used.add(k + 1); continue; }\n", "", 'unit'],
   ["impact: repoPath() and importRepo() are not reads", "lib/graph.mjs", "else if (t.v === 'repoPath' || t.v === 'importRepo') kind = 'repo';", "else if (t.v === 'repoPath' || t.v === 'importRepo') kind = null;", 'unit'],
+  // ---- seed test seeds the test site (sites/test-demo-a/), status shows the function role and counts, test walls runs in a namespace of its own
+  // (the tag [seed-site] lets one run pick exactly these: mutate.mjs --only "[seed-site]")
+  ["seed test: the test site's rows are seeded again every run (find-by-key dropped) [seed-site]", 'commands/seed.mjs', 'if hits is null then\n      rid := service.seed_version(a, coll, payload, s, ${ref});', 'if true then\n      rid := service.seed_version(a, coll, payload, s, ${ref});', 'db'],
+  ["seed test: the test site's contract is written as version 1 again [seed-site]", 'commands/seed.mjs', 'coalesce((select max(version) from site_contracts where workspace_id = a), 0) + 1, cnt, res, true, s);', '1, cnt, res, true, s);', 'db'],
+  ['seed test: a ref:<id> in a row is left unresolved [seed-site]', 'commands/seed.mjs', '      return ids -> k;\n', '      return v;\n', 'db'],
+  ['seed test: the repair path is dropped (a changed row is never re-versioned) [seed-site]', 'commands/seed.mjs', 'if cur is distinct from payload then', 'if false then', 'db'],
+  ['seed test: two live rows for one key are not refused [seed-site]', 'commands/seed.mjs', "if cardinality(hits) > 1 then raise exception 'S-SEED-AMBIGUOUS", "if false then raise exception 'S-SEED-AMBIGUOUS", 'db'],
+  ['seed test: a settings row that names a media row of A is not honoured [seed-site]', 'commands/seed.mjs', 'if logo ~ ${uuidRe} then select m.id into mid', 'if false then select m.id into mid', 'db'],
+  ['seed test: the preview host update is dropped [seed-site]', 'commands/seed.mjs', 'update sites set preview_host = ${lit(PREVIEW_HOST_A)} where id = ${uuidLit(SITE_A)} and preview_host is distinct from ${lit(PREVIEW_HOST_A)};', 'update sites set preview_host = preview_host where false;', 'db'],
+  ['seed test: Agent Two is seeded without slug and role [seed-site]', 'commands/seed.mjs', "data: { name: 'Agent Two', slug: 'agent-two', role: 'Agent' } };", "data: { name: 'Agent Two' } };", 'db'],
+  ['seed test: with no site the earlier content is not seeded [seed-site]', 'commands/seed.mjs', '${site ? siteSql(site) : legacyContentSql()}', "${site ? siteSql(site) : ''}", 'db'],
+  ['status: the function role is always present [seed-site]', 'commands/status.mjs', 'const functionRole = roleRow.ok && roleRow.value === true;', 'const functionRole = true;', 'db'],
+  ['status: onDisk is the ledger count [seed-site]', 'commands/status.mjs', 'onDisk: disk.length,', 'onDisk: ledger.length,', 'db'],
+  ['status: a disabled function is listed as enabled [seed-site]', 'commands/status.mjs', '.map(d => ({ name: d.name, disabled: off.has(d.name) }))', '.map(d => ({ name: d.name, disabled: false }))', 'unit'],
+  ['status: a folder without index.ts is listed as a function [seed-site]', 'commands/status.mjs', " && existsSync(join(functionsDir, d.name, 'index.ts')))", ')', 'unit'],
+  ['test walls: the staff email is left unmapped [seed-site]', 'lib/walls.mjs', '  out = out.replace(/staff@omnikom\\b/g, () => { emails++; return `staff@walls-${run}.test`; });\n', '', 'unit'],
+  ['test walls: the @test emails are left unmapped [seed-site]', 'lib/walls.mjs', '  out = out.replace(/@(test)\\b/gi, (m, word) => { emails++; return `@walls-${run}.${word}`; });\n', '', 'unit'],
+  ['test walls: the test- slugs are left unmapped [seed-site]', 'lib/walls.mjs', '  out = out.replace(/(?<![A-Za-z0-9_])test-(?=[a-z0-9])/g, () => { slugs++; return `walls-${run}-`; });\n', '', 'unit'],
+  ['test walls: one fixed UUID is left unmapped [seed-site-b]', 'lib/walls.mjs', "uuids.set(k, WIDTH.map((w, i) => segFor(s, i)).join('-'));", "uuids.set(k, k === '00000000-0000-0000-0000-00000000000a' ? k : WIDTH.map((w, i) => segFor(s, i)).join('-'));", 'unit'],
+  ['test walls: the beginning of an id written on its own is left unmapped [seed-site-b]', 'lib/walls.mjs', "if (!levels[s.length - 1].has(s.join('-'))) return m;", 'return m;', 'unit'],
+  ['test walls: the fingerprint column is called t again, so the rows aggregate as bare strings [seed-site-b]', 'lib/walls.mjs', "`select '${label}' as tbl, count(*)::int", "`select '${label}' as t, count(*)::int", 'db'],
+  ['test walls: the scan of the mapped copy is skipped [seed-site]', 'commands/apply.mjs', 'if (unmapped.length) {', 'if (false) {', 'unit'],
+  ['test walls: the before/after fingerprint comparison is always equal [seed-site]', 'commands/apply.mjs', 'const diff = fingerprintDiff(before.rows, after.rows);', 'const diff = [];', 'db'],
 ];
 
 const sh = (args, env) => new Promise(res => {

@@ -15,10 +15,35 @@ export function migrationsOnDisk() {
     .map(f => ({ name: f, sha: createHash('sha256').update(readFileSync(join(dir, f), 'utf8')).digest('hex') }));
 }
 
+// The names `[functions.<name>]` whose table says `enabled = false` in supabase/config.toml. A small reader for that one key (no TOML
+// dependency): a table header starts a section, a key line `enabled = false` inside a functions section disables that name.
+export function disabledFunctions(configText) {
+  const off = new Set();
+  let current = null;
+  for (const raw of String(configText || '').split(/\r?\n/)) {
+    const line = raw.replace(/#.*$/, '').trim();
+    const table = /^\[(.+)\]$/.exec(line);
+    if (table) { const m = /^functions\.("?)([A-Za-z0-9_-]+)\1$/.exec(table[1].trim()); current = m ? m[2] : null; continue; }
+    if (current && /^enabled\s*=\s*false$/.test(line)) off.add(current);
+  }
+  return off;
+}
+
+// A folder under supabase/functions/ is a function only when it holds an index.ts (`_shared` and folders like `test`, which hold only
+// helpers and tests, are not). A function that config.toml disables is listed as disabled, never as "not deployed".
+// -> [{ name, disabled }] sorted by name
+export function listFunctions(functionsDir, configText) {
+  if (!existsSync(functionsDir)) return [];
+  const off = disabledFunctions(configText);
+  return readdirSync(functionsDir, { withFileTypes: true })
+    .filter(d => d.isDirectory() && !d.name.startsWith('_') && existsSync(join(functionsDir, d.name, 'index.ts')))
+    .map(d => ({ name: d.name, disabled: off.has(d.name) }))
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+}
+
 export function functionNames() {
-  const dir = repoPath('supabase', 'functions');
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir, { withFileTypes: true }).filter(d => d.isDirectory() && !d.name.startsWith('_')).map(d => d.name).sort();
+  const cfg = repoPath('supabase', 'config.toml');
+  return listFunctions(repoPath('supabase', 'functions'), existsSync(cfg) ? readFileSync(cfg, 'utf8') : '');
 }
 
 export async function status(ctx) {
@@ -44,17 +69,24 @@ export async function status(ctx) {
   if (!target.functionsBase) functions = { checked: false, reason: 'no functions URL for this target (set the project ref, or LOCAL_FUNCTIONS_BASE)' };
   else {
     const out = {};
-    for (const name of functionNames()) {
+    for (const { name, disabled } of functionNames()) {
+      if (disabled) { out[name] = 'disabled'; continue; }
       const r = await callFunction({ base: target.functionsBase, name, body: '{}', fetchImpl: ctx.fetch, timeoutMs: 15000 });
       out[name] = r.status === 0 ? 'unreachable' : (r.status === 404 && r.json && r.json.code === 'NOT_FOUND') ? 'not deployed' : 'deployed';
     }
     functions = { checked: true, ...out };
   }
 
+  // the database role the Edge Functions step down to (migration 8); a missing role is shown, not a failure: a project that has not
+  // had migration 8 yet is not broken by `status`. pg_roles is cluster-wide and readable by anyone, so this works read-only.
+  const roleRow = sql.scalar("exists (select 1 from pg_roles where rolname = 'omnikom_fn')");
+  const functionRole = roleRow.ok && roleRow.value === true;
+
   const ok = mismatched.length === 0;
   return result(ok, ok ? 'ok' : 'MIGRATION-HASH', {
     reachable: true, ledger: hasLedger.value ? 'present' : 'missing',
-    migrations: { applied, pending, mismatched, unknownInDatabase: unknown },
+    functionRole, functionRoleLine: `function role omnikom_fn: ${functionRole ? 'present' : 'MISSING'}`,
+    migrations: { onDisk: disk.length, inLedger: ledger.length, applied, pending, mismatched, unknownInDatabase: unknown },
     functions, keys,
   });
 }

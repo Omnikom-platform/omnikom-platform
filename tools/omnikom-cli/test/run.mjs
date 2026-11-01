@@ -133,6 +133,87 @@ async function units() {
     LOGINS.length === 6 && ['instance_id', 'aud', 'role', 'email_confirmed_at', 'confirmation_token', 'recovery_token', 'email_change_token_new', 'email_change', 'email_change_token_current', 'phone_change', 'phone_change_token', 'reauthentication_token', 'raw_app_meta_data', 'raw_user_meta_data', 'is_sso_user'].every(c => lsql.includes(c)) && (lsql.match(/'authenticated', 'authenticated'/g) || []).length === 6 && /update auth\.users set/.test(lsql));
   const contractText = /select ws, 1, '\{\}'::jsonb, '(\{"collections":[\s\S]*?\})'::jsonb, true/.exec(tenancy);
   check('seed test: the contract is the one in tenancy.test.sql', contractText && JSON.stringify(JSON.parse(contractText[1])) === JSON.stringify(TEST_CONTRACT), contractText ? 'differs' : 'not found in the test file');
+
+  // ---- test walls: the namespace map (lib/walls.mjs). The expectations come from the test's own patterns, not from the mapper's.
+  {
+    const walls = await lib('walls.mjs');
+    const fresh = () => { const h = randomBytes(16).toString('hex'); return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`; };
+    const RUN = 'abc123def0';
+    const mw = walls.mapNamespace(tenancy, { run: RUN, newUuid: fresh });
+    const origIds = [...new Set((tenancy.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi) || []).map(x => x.toLowerCase()))];
+    const countOf = (text, needle) => text.split(needle).length - 1;
+    const lowerMapped = mw.text.toLowerCase();
+    check('walls map: every UUID literal of tenancy.test.sql is replaced, one fresh id per old id, as often as it stood, and no original is left',
+      origIds.length >= 15 && mw.uuids.size === origIds.length && origIds.every(id => !lowerMapped.includes(id) && countOf(lowerMapped, mw.uuids.get(id)) === countOf(tenancy.toLowerCase(), id)),
+      `${origIds.length} ids, ${mw.uuids.size} mapped, left: ${origIds.filter(id => lowerMapped.includes(id)).join(' ')}`);
+    // the file writes the beginning of an id on its own twice (line 886: m ->> 'path' like 'aaaaaaaa-%'; line 888: position('bbbbbbbb-0000-0000-0000-' in ...)):
+    // those must still mean the ids of A and of B after the map
+    const nWsA = mw.uuids.get(WS_A), nSiteA = mw.uuids.get(SITE_A), nWsB = mw.uuids.get(WS_B), nSiteB = mw.uuids.get(SITE_B);
+    check('walls map: ids that shared their beginning still share it (workspace A and site A, workspace B and site B), A and B differ, and the whole ids differ',
+      nWsA.slice(0, 24) === nSiteA.slice(0, 24) && nWsB.slice(0, 24) === nSiteB.slice(0, 24) && nWsA.slice(0, 9) !== nWsB.slice(0, 9) && nWsA !== nSiteA && nWsB !== nSiteB && new Set(mw.uuids.values()).size === mw.uuids.size, `${nWsA} ${nSiteA} ${nWsB} ${nSiteB}`);
+    check('walls map: a LIKE \'aaaaaaaa-%\' and a position(\'bbbbbbbb-0000-0000-0000-\' ...) follow their ids',
+      mw.text.includes(`like '${nWsA.slice(0, 9)}%'`) && mw.text.includes(`position('${nWsB.slice(0, 24)}' in`) && mw.prefixes >= 2 && !/like 'aaaaaaaa-%'|position\('bbbbbbbb-0000-0000-0000-'/.test(mw.text), `prefixes ${mw.prefixes}`);
+    check('walls map: no test- slug or target, no @test email and no staff@omnikom is left (the test\'s own patterns, any letter case)',
+      !/(^|[^a-z0-9_])test-[a-z0-9]/i.test(mw.text) && !/@test\b/i.test(mw.text) && !/staff@omnikom/i.test(mw.text), (mw.text.match(/(^|[^a-z0-9_])test-[a-z0-9]\S*|\S*@test\b\S*/i) || [''])[0]);
+    check('walls map: slugs, targets and emails land in walls-<run> (the names the file asserts on are mapped the same way)',
+      ['walls-abc123def0-demo-a', 'walls-abc123def0-site-demo-a', 'walls-abc123def0-demo-d', "'owner-a@walls-abc123def0.test'", 'boss@walls-abc123def0.test.com', 'Boss@walls-abc123def0.Test.com', "'staff@walls-abc123def0.test'"].every(s => mw.text.includes(s))
+      && mw.slugs >= 7 && mw.emails >= 30, `slugs ${mw.slugs} emails ${mw.emails}`);
+    check('walls map: the scan finds nothing left in the mapped copy', walls.unmappedLiterals(tenancy, mw.text).length === 0, walls.unmappedLiterals(tenancy, mw.text).join(' '));
+    const skipped = mw.text.split(mw.uuids.get(WS_A)).join(WS_A);
+    check('walls map: a copy whose map skipped one id is named by the scan (that id, nothing else)', JSON.stringify(walls.unmappedLiterals(tenancy, skipped)) === JSON.stringify([WS_A]), walls.unmappedLiterals(tenancy, skipped).join(' '));
+    check('walls map: a copy that kept one slug, or one email, is named by the scan',
+      walls.unmappedLiterals(tenancy, mw.text.replace('walls-abc123def0-demo-b', 'test-demo-b')).includes('test-demo-b')
+      && walls.unmappedLiterals(tenancy, mw.text.replace('owner-b@walls-abc123def0.test', 'owner-b@test')).some(x => x.includes('owner-b@test')));
+    check('walls map: the scan is wider than the map: an upper-case TEST- slug is named although the map does not rewrite it',
+      JSON.stringify(walls.unmappedLiterals("select 'TEST-demo-x';", walls.mapNamespace("select 'TEST-demo-x';", { run: RUN, newUuid: fresh }).text)) === JSON.stringify(['TEST-demo-x']));
+    check('walls map: a run id that is not 6 to 16 lower-case letters or digits is refused', throws(() => walls.mapNamespace('x', { run: 'Bad Run', newUuid: fresh }), Error));
+
+    // the fingerprint of the test site: one row per table; a difference names the table
+    const row = (t, nn, h) => ({ tbl: t, n: nn, h });
+    const same = walls.FINGERPRINT_TABLES.map(t => row(t, 3, 'aa'));
+    const diffs = walls.fingerprintDiff(same, same.map(x => x.tbl === 'content_rows' ? row('content_rows', 3, 'bb') : x.tbl === 'leads' ? row('leads', 4, 'aa') : x));
+    check('walls fingerprint: only an answer that names every table with a count and a hash is a fingerprint (a list of bare strings, a missing table, an empty answer are not)',
+      walls.complete(same) && !walls.complete(walls.FINGERPRINT_TABLES) && !walls.complete(same.slice(1)) && !walls.complete([]) && !walls.complete(null) && !walls.complete(same.map(x => ({ ...x, h: undefined }))));
+    check('walls fingerprint: equal rows -> no difference; a changed table is named (content, and count)',
+      walls.fingerprintDiff(same, same).length === 0 && diffs.map(d => d.table).sort().join(',') === 'content_rows,leads' && walls.diffLine(diffs.find(d => d.table === 'content_rows')).includes('content_rows (3 rows -> 3 rows, same count, different content)'), JSON.stringify(diffs));
+    const fpSql = walls.siteFingerprintSql({ workspaces: [WS_A, WS_B], sites: [SITE_A, SITE_B], users: [PERSONS['owner-a'].sub] });
+    check('walls fingerprint: the query covers workspaces, sites, contracts, content rows and versions, media, members, keys, leads, the two ledgers and the audit log',
+      ['workspaces', 'sites', 'site_contracts', 'content_rows', 'content_versions', 'media', 'members', 'api_keys', 'leads', 'security_events', 'consent_ledger', 'audit_log'].every(t => fpSql.includes(`'${t}' as tbl`)) && fpSql.includes(WS_A) && fpSql.includes(SITE_B) && walls.FINGERPRINT_TABLES.length >= 12);
+
+    // the whole command refuses a copy that still holds a fixture literal BEFORE any database is touched: the database url points at a closed port,
+    // so reaching it would be CONNECT, not WALLS-UNMAPPED
+    const fxRoot = mkdtempSync(join(tmpdir(), 'omnikom-walls-fx-'));
+    try {
+      mkdirSync(join(fxRoot, 'supabase', 'tests'), { recursive: true });
+      mkdirSync(join(fxRoot, 'factory', 'worker'), { recursive: true });   // lib/sign.mjs imports it from the repo root when the CLI loads
+      cpSync(join(REPO_ROOT, 'factory', 'worker', 'lead-endpoint.mjs'), join(fxRoot, 'factory', 'worker', 'lead-endpoint.mjs'));
+      writeFileSync(join(fxRoot, 'supabase', 'tests', 'tenancy.test.sql'), "select 'TEST-demo-x', '00000000-0000-0000-0000-00000000000a', 'ALL TENANCY TESTS PASSED';\n");
+      const child = spawnSync(process.execPath, [join(CLI_ROOT, 'omnikom.mjs'), 'test', 'walls', '--target', 'local'], {
+        encoding: 'utf8', timeout: 120000, windowsHide: true,
+        env: { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, OMNIKOM_REPO_ROOT: fxRoot, LOCAL_DB_URL: 'postgres://postgres@127.0.0.1:1/none' },
+      });
+      let out = null; try { out = JSON.parse(child.stdout); } catch { /* reported below */ }
+      check('test walls: a copy that still holds a fixture literal is refused (exit 1, WALLS-UNMAPPED, the literal named) before any database is touched',
+        child.status === 1 && out && out.code === 'WALLS-UNMAPPED' && out.data.left.includes('TEST-demo-x'), `${child.status} ${String(child.stdout).slice(0, 200)} ${String(child.stderr).slice(0, 100)}`);
+    } finally { rmSync(fxRoot, { recursive: true, force: true }); }
+  }
+
+  // ---- status: which folders are functions (supabase/functions, supabase/config.toml)
+  {
+    const { listFunctions, disabledFunctions } = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'status.mjs')).href);
+    const fx = mkdtempSync(join(tmpdir(), 'omnikom-fn-fx-'));
+    try {
+      const put = (rel, text = 'x') => { mkdirSync(join(fx, dirname(rel)), { recursive: true }); writeFileSync(join(fx, rel), text); };
+      put('functions/alpha/index.ts'); put('functions/beta/index.ts'); put('functions/gamma/index.ts'); put('functions/_shared/auth.ts');
+      put('functions/test/harness.mjs'); put('functions/notes/readme.md'); put('functions/zed/index.ts');
+      const cfg = ['[functions.alpha]', 'verify_jwt = true', '', '[functions.beta]', 'verify_jwt = false', 'enabled = false   # off for now', '', '# [functions.gamma]', '# enabled = false', '', '[functions."zed"]', 'enabled = true', '', '[other]', 'enabled = false', ''].join('\n');
+      check('status functions: a folder is a function only with an index.ts (_shared, test and notes are not), and a disabled one is listed as disabled',
+        JSON.stringify(listFunctions(join(fx, 'functions'), cfg)) === JSON.stringify([{ name: 'alpha', disabled: false }, { name: 'beta', disabled: true }, { name: 'gamma', disabled: false }, { name: 'zed', disabled: false }]), JSON.stringify(listFunctions(join(fx, 'functions'), cfg)));
+      check('status functions: only a [functions.<name>] table with enabled = false disables (a comment, another table and enabled = true do not)',
+        JSON.stringify([...disabledFunctions(cfg)]) === JSON.stringify(['beta']) && disabledFunctions('').size === 0);
+      check('status functions: no functions folder -> an empty list', listFunctions(join(fx, 'nothing'), cfg).length === 0);
+    } finally { rmSync(fx, { recursive: true, force: true }); }
+  }
   // tenancy.test.sql (T21) builds its own Vault stand-in only when no vault schema exists; the CLI's cluster has test/vault-shim.sql, so T21
   // runs against that one: it must hold every function, table column and view column of T21's stand-in (run 41263232641: no update_secret)
   const vaultShape = sql => {
@@ -804,6 +885,7 @@ async function toolsAndCi() {
 // ======================================================================================================== DATABASE
 async function database() {
   const { makeSql } = await lib('sql.mjs');
+  const { PERSONS } = await lib('identity.mjs');
   const cluster = startCluster();
   const db = freshDb(cluster);
   const work = mkdtempSync(join(tmpdir(), 'omnikom-cli-run-'));
@@ -817,6 +899,9 @@ async function database() {
     // ---- status before apply, apply, status after
     let r = await run(['status', ...T]);
     check('status: reachable, ledger missing, every migration pending', r.json.data.reachable && r.json.data.ledger === 'missing' && r.json.data.migrations.pending.length >= 4, JSON.stringify(r.json && r.json.data).slice(0, 200));
+    const migrationFiles = readdirSync(join(REPO_ROOT, 'supabase', 'migrations')).filter(f => f.endsWith('.sql')).length;
+    check('status: migrations.onDisk is the number of files in supabase/migrations, and inLedger is 0 while there is no ledger', r.json.data.migrations.onDisk === migrationFiles && migrationFiles >= 13 && r.json.data.migrations.inLedger === 0, JSON.stringify(r.json.data.migrations).slice(0, 200));
+    check('status: functionRole is a boolean and the text line says so', typeof r.json.data.functionRole === 'boolean' && r.json.data.functionRoleLine === `function role omnikom_fn: ${r.json.data.functionRole ? 'present' : 'MISSING'}`, r.json.data.functionRoleLine);
     r = await run(['apply', ...T, '--dry-run']);
     check('apply --dry-run: lists what would be applied, changes nothing', r.exit === 0 && r.json.data.wouldApply.length >= 4 && db.query("select to_regclass('public.workspaces') is null") === 't', r.all.slice(0, 200));
     r = await run(['apply', ...T]);
@@ -836,6 +921,29 @@ async function database() {
     r = await run(['status', ...T]);
     check('status: a ledger hash that differs from the file is MIGRATION-HASH (exit 1)', r.exit === 1 && r.json.code === 'MIGRATION-HASH' && r.json.data.migrations.mismatched[0] === firstFile, r.all.slice(0, 200));
     db.query(`update ${ledgerTable} set sha256 = '${goodHash}' where name = '${firstFile}'`);
+
+    // ---- status: the function role, the counts of migrations, which folders are functions
+    r = await run(['status', ...T]);
+    const inLedgerNow = Number(db.query(`select count(*) from ${ledgerTable}`));
+    check('status: after apply the function role omnikom_fn is present, onDisk is the file count and inLedger the ledger row count',
+      r.json.data.functionRole === true && r.json.data.functionRoleLine === 'function role omnikom_fn: present' && r.json.data.migrations.onDisk === migrationFiles && r.json.data.migrations.inLedger === inLedgerNow && inLedgerNow === nApplied, JSON.stringify(r.json.data.migrations).slice(0, 200));
+    const NOT_ON_DISK = '99999999999999_not_on_disk.sql';
+    db.query(`insert into ${ledgerTable} (name, sha256) values ('${NOT_ON_DISK}', 'x')`);
+    try { r = await run(['status', ...T]); } finally { db.query(`delete from ${ledgerTable} where name = '${NOT_ON_DISK}'`); }
+    check('status: a ledger row for a file that is not on disk counts in inLedger and not in onDisk (the two numbers are not one number)',
+      r.json.data.migrations.inLedger === nApplied + 1 && r.json.data.migrations.onDisk === migrationFiles && r.json.data.migrations.unknownInDatabase.length === 1, JSON.stringify(r.json.data.migrations).slice(0, 200));
+    // a database without the role: roles are cluster-wide and other test runs share this cluster (mutate.mjs), so the role is not touched;
+    // the query asks the real database about a role name that does not exist
+    const noRole = (cmd, args, opts) => spawnSync(cmd, args, { timeout: 120000, ...opts, input: String((opts && opts.input) || '').split("rolname = 'omnikom_fn'").join("rolname = 'omnikom_fn_absent'") });
+    r = await run(['status', ...T], {}, { spawn: noRole });
+    check('status: without the role omnikom_fn, functionRole is false and the line says MISSING; a missing role is shown, not a failure (exit 0)',
+      r.exit === 0 && r.json.ok === true && r.json.data.functionRole === false && r.json.data.functionRoleLine === 'function role omnikom_fn: MISSING', r.all.slice(0, 200));
+    r = await run(['status', ...T], { LOCAL_FUNCTIONS_BASE: 'http://127.0.0.1:9/functions/v1' }, { fetch: async () => new Response('{}', { status: 200 }) });
+    const fnDir = join(REPO_ROOT, 'supabase', 'functions');
+    const fnWanted = readdirSync(fnDir, { withFileTypes: true }).filter(d => d.isDirectory() && !d.name.startsWith('_') && existsSync(join(fnDir, d.name, 'index.ts'))).map(d => d.name).sort();
+    const fnGot = r.json.data.functions.checked ? Object.keys(r.json.data.functions).filter(k => k !== 'checked').sort() : [];
+    check('status: the functions listed are the folders of supabase/functions that hold an index.ts (the test folder and _shared are not functions, so none is "not deployed" for that reason)',
+      fnWanted.length >= 10 && JSON.stringify(fnGot) === JSON.stringify(fnWanted) && !fnGot.includes('test') && fnGot.every(k => r.json.data.functions[k] === 'deployed' || r.json.data.functions[k] === 'disabled'), JSON.stringify(r.json.data.functions).slice(0, 300));
 
     // ---- the walls on the database (before any fixture exists)
     // a failed walls run prints one " expect_error " line per passed negative test before the cause: show the lines that are not those
@@ -860,8 +968,175 @@ async function database() {
     check('seed test repairs logins left by the earlier seed (null aud, instance, tokens) without manual SQL', r.exit === 0 && db.query(`select count(*) from auth.users where ${gotrue}`) === '6' && db.query('select count(*) from auth.users') === '6', r.all.slice(0, 200));
     r = await run(['seed', 'test', ...T, '--alert-to', 'owner@example.com']);
     check('seed test --alert-to sets the sites\' lead alert address', db.query("select count(distinct lead_alert_to::text) from sites") === '1' && db.query("select lead_alert_to::text from sites limit 1") === '{owner@example.com}');
+    const fpW = fp();
     r = await run(['test', 'walls', ...T]);
-    check('test walls: refuses a database that holds the seeded fixtures, and says how to clean', r.exit === 1 && r.json.code === 'FIXTURES-PRESENT' && /seed test --clean/.test(r.json.data.hint), r.all.slice(0, 200));
+    // the case staging is in: the fixtures (and the test site) are there; the walls run in a namespace of their own and leave them alone
+    const wallsLines = x => (x.json && x.json.data && x.json.data.lines) || [];
+    check('test walls: on a database that holds the seeded fixtures it passes in a namespace of its own, the test site is unchanged and 0 rows of the run are left',
+      r.exit === 0 && /^PASS tenancy tests \(isolated namespace walls-[0-9a-f]{10}\)$/.test(wallsLines(r)[0] || '') && /^PASS test site unchanged \(\d+ tables compared\)$/.test(wallsLines(r)[1] || '') && wallsLines(r)[2] === 'OK: 0 rows of the run left', wallsWhy(r));
+    check('test walls: the database is what it was (the fingerprint of every table in public and auth.users)', fp() === fpW);
+
+    // ---- seed test: the test site of sites/test-demo-a/ (contract version 2, the rows of rows.json, the logo's media row, the preview host)
+    const seedMod = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'seed.mjs')).href);
+    const { PREVIEW_HOST_A, TEST_CONTRACT: TC, seedTestSql, WS_A, WS_B, SITE_A, SITE_B } = seedMod;
+    const STAFF = PERSONS.staff.sub;
+    const SITE_DIR = join(REPO_ROOT, 'sites', 'test-demo-a');
+    const siteContract = JSON.parse(readFileSync(join(SITE_DIR, 'contract.json'), 'utf8'));
+    const siteRows = JSON.parse(readFileSync(join(SITE_DIR, 'rows.json'), 'utf8'));
+    const logoSize = readFileSync(join(SITE_DIR, 'media', 'logo.png')).length;
+    const { mergeCore } = await import(pathToFileURL(join(REPO_ROOT, 'contracts', 'validate.mjs')).href);
+    const COLLECTIONS = ['settings', 'team', 'areas', 'notices', 'pages', 'listings'];
+    const AGENT_TWO = { name: 'Agent Two', slug: 'agent-two', role: 'Agent' };   // the CLI's fixture for member A2; not in rows.json
+    const wantRows = [...siteRows.map(x => ({ id: x.id, collection: x.collection, data: x.data })), { id: 'team-agent-two', collection: 'team', data: AGENT_TWO }];
+    const canon = v => JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x)) ? Object.fromEntries(Object.keys(x).sort().map(m => [m, x[m]])) : x);
+    const jsonq = q => JSON.parse(db.query(q) || 'null');
+    const rowKey = (coll, d) => coll === 'settings' ? 'settings' : coll === 'pages' ? d.path : d.slug;
+    const activeContract = ws => jsonq(`select to_jsonb(c) from site_contracts c where c.workspace_id = '${ws}' and c.active`);
+    // everything the test looks at in workspace A, read by the test's own queries
+    const siteFacts = () => {
+      const rows = jsonq(`select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'collection', c.collection, 'owner', c.owner_team_row, 'n', l.n, 'data', l.data, 'versions', (select count(*) from content_versions v where v.row_id = c.id))), '[]'::jsonb)
+        from content_rows c join lateral (select n, data from content_versions where row_id = c.id order by n desc limit 1) l on true where c.workspace_id = '${WS_A}' and c.deleted_at is null`);
+      const media = jsonq(`select coalesce(jsonb_agg(to_jsonb(m)), '[]'::jsonb) from media m where m.workspace_id = '${WS_A}'`);
+      const byKey = new Map(rows.map(x => [`${x.collection}:${rowKey(x.collection, x.data)}`, x]));
+      const rowOf = sym => { const w = wantRows.find(x => x.id === sym); return w ? byKey.get(`${w.collection}:${rowKey(w.collection, w.data)}`) : undefined; };
+      const swap = v => typeof v === 'string' && v.startsWith('ref:') ? (v === 'ref:media-logo' ? (media[0] && media[0].id) : (rowOf(v.slice(4)) || {}).id)
+        : Array.isArray(v) ? v.map(swap) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, swap(x)])) : v;
+      return { rows, media, byKey, rowOf, swap };
+    };
+    // the checks of a freshly seeded test site; `tag` names the moment
+    const checkSite = (tag, contractVersion) => {
+      const f = siteFacts(), actA = activeContract(WS_A), actB = activeContract(WS_B);
+      check(`seed test (${tag}): A's active contract is the file sites/test-demo-a/contract.json as version ${contractVersion}, made by the staff login; the version before is inactive`,
+        actA.version === contractVersion && canon(actA.contract) === canon(siteContract) && actA.created_by === STAFF && db.query(`select count(*) from site_contracts where workspace_id = '${WS_A}' and active`) === '1' && db.query(`select count(*) from site_contracts where workspace_id = '${WS_A}' and version = ${contractVersion - 1} and not active`) === '1', JSON.stringify(actA).slice(0, 200));
+      check(`seed test (${tag}): A's resolved contract is the file with the core merged in (mergeCore)`,
+        canon(actA.resolved.collections) === canon(mergeCore(siteContract)) && canon({ ...actA.resolved, collections: 0 }) === canon({ ...siteContract, collections: 0 }));
+      check(`seed test (${tag}): workspace B keeps contract version 1 with the contract text of tenancy.test.sql`, actB.version === 1 && canon(actB.resolved) === canon(TC) && canon(actB.contract) === '{}');
+      const counts = Object.fromEntries(COLLECTIONS.map(c => [c, f.rows.filter(x => x.collection === c).length]));
+      const wantCounts = Object.fromEntries(COLLECTIONS.map(c => [c, wantRows.filter(x => x.collection === c).length]));
+      check(`seed test (${tag}): A holds the rows of rows.json plus Agent Two, per collection (${COLLECTIONS.map(c => wantCounts[c]).join('/')} = ${wantRows.length})`, canon(counts) === canon(wantCounts) && f.rows.length === wantRows.length && wantRows.length === 13, JSON.stringify(counts));
+      const m = f.media[0] || {};
+      check(`seed test (${tag}): one media row, ${WS_A}/logo.png, 400 x 400, the bytes of sites/test-demo-a/media/logo.png, processed, exif stripped, rights confirmed, uploaded by the staff login`,
+        f.media.length === 1 && m.path === `${WS_A}/logo.png` && m.width === 400 && m.height === 400 && m.bytes === logoSize && m.processed === true && m.exif_stripped === true && m.rights_confirmed === true && m.uploaded_by === STAFF, JSON.stringify(f.media).slice(0, 300));
+      const wrong = wantRows.filter(w => { const hit = f.rowOf(w.id); return !hit || canon(hit.data) !== canon(f.swap(w.data)); }).map(w => w.id);
+      check(`seed test (${tag}): every row's latest data is the file's data with each ref:<id> swapped for the id the test looked up itself`, wrong.length === 0, `differs: ${wrong.join(' ')}`);
+      const one = f.rowOf('team-agent-one'), two = f.rowOf('team-agent-two');
+      check(`seed test (${tag}): the listings' agent is Agent One's real row id and owner_team_row is set from it`,
+        one && f.rows.filter(x => x.collection === 'listings').every(x => x.data.agent === one.id && x.owner === one.id), JSON.stringify(f.rows.filter(x => x.collection === 'listings').map(x => [x.data.agent, x.owner])));
+      check(`seed test (${tag}): member A1 is linked to Agent One and member A2 to Agent Two`,
+        one && two && db.query(`select team_row_id from members where workspace_id = '${WS_A}' and user_id = '${PERSONS['member-a1'].sub}'`) === one.id && db.query(`select team_row_id from members where workspace_id = '${WS_A}' and user_id = '${PERSONS['member-a2'].sub}'`) === two.id);
+      check(`seed test (${tag}): the seeded versions are the staff login's, signed off with the reference "omnikom seed test"`,
+        db.query(`select count(*) from content_versions v where v.workspace_id = '${WS_A}' and (v.by <> '${STAFF}' or v.sign_off ->> 'ref' <> 'omnikom seed test' or v.sign_off ->> 'by' <> '${STAFF}')`) === '0');
+      check(`seed test (${tag}): SITE_A serves from ${PREVIEW_HOST_A}, SITE_B keeps its placeholder`,
+        db.query(`select preview_host from sites where id = '${SITE_A}'`) === PREVIEW_HOST_A && PREVIEW_HOST_A === 'preview.test-site-demo-a.pages.dev' && db.query(`select preview_host from sites where id = '${SITE_B}'`) === 'demo-b.preview.test');
+      return f;
+    };
+    r = await run(['seed', 'test', ...T, '--json']);
+    check('seed test: the result carries testSite { contractVersion, rows per collection, media } as numbers', r.exit === 0 && r.json.data.testSite.contractVersion === 2 && canon(r.json.data.testSite.rows) === canon(Object.fromEntries(COLLECTIONS.map(c => [c, wantRows.filter(x => x.collection === c).length]))) && r.json.data.testSite.media === 1 && r.json.data.changed === false, r.all.slice(0, 300));
+    const site1 = checkSite('first seed', 2);
+    const agentOne = site1.rowOf('team-agent-one').id;
+    const idsBefore = site1.rows.map(x => x.id).sort().join(',');
+
+    // repair without re-creating: the earlier seed's Agent One had no slug and no role; it gets a new version, never a second row
+    db.query(`insert into content_versions (row_id, n, workspace_id, data, by, sign_off) values ('${agentOne}', 2, '${WS_A}', '{"name":"Agent One"}'::jsonb, '${STAFF}', '{}'::jsonb)`);
+    r = await run(['seed', 'test', ...T]);
+    let fx2 = siteFacts();
+    check('seed test: a team row left bare by the earlier seed (name only) is repaired with one more version of the file\'s data; the row id, the member\'s link and the listings\' references survive',
+      r.exit === 0 && r.json.data.changed === true && fx2.rowOf('team-agent-one').id === agentOne && fx2.rowOf('team-agent-one').versions === 3 && canon(fx2.rowOf('team-agent-one').data) === canon(siteRows.find(x => x.id === 'team-agent-one').data)
+      && fx2.rows.map(x => x.id).sort().join(',') === idsBefore && db.query(`select team_row_id from members where user_id = '${PERSONS['member-a1'].sub}'`) === agentOne && fx2.rows.filter(x => x.collection === 'listings').every(x => x.data.agent === agentOne), r.all.slice(0, 300));
+    const fpRep = fp();
+    r = await run(['seed', 'test', ...T]);
+    check('seed test: a further run after the repair adds nothing', r.exit === 0 && r.json.data.changed === false && fp() === fpRep && siteFacts().rowOf('team-agent-one').versions === 3);
+
+    // a key that finds more than one live row is a failure naming the collection, the key and the ids; nothing is written
+    const DUP = '5eed0000-0000-4000-8000-000000000001';
+    db.query(`insert into content_rows (id, workspace_id, collection) values ('${DUP}', '${WS_A}', 'areas')`);
+    db.query(`insert into content_versions (row_id, n, workspace_id, data, by, sign_off) values ('${DUP}', 1, '${WS_A}', '{"name":"Alpha again","slug":"alpha"}'::jsonb, '${STAFF}', '{}'::jsonb)`);
+    const fpDup = fp();
+    r = await run(['seed', 'test', ...T]);
+    check('seed test: two live rows for one key is exit 1, S-SEED-AMBIGUOUS naming the collection, the key and both ids, and nothing is written (no partial seed)',
+      r.exit === 1 && r.json.code === 'S-SEED-AMBIGUOUS' && /areas/.test(r.all) && /alpha/.test(r.all) && r.all.includes(DUP) && r.all.includes(fx2.rowOf('area-alpha').id) && fp() === fpDup, r.all.slice(0, 300));
+    db.query(`delete from content_rows where id = '${DUP}'`);
+
+    // the contract is compared by content, never by number: a file that differs from the active contract is the next version, the old one goes inactive
+    const auditCount = action => Number(db.query(`select count(*) from audit_log where action = '${action}'`));
+    const sc0 = auditCount('seed-contract');
+    db.query(`update site_contracts set resolved = resolved || '{"spare": true}'::jsonb where workspace_id = '${WS_A}' and active`);
+    r = await run(['seed', 'test', ...T]);
+    check('seed test: an active contract that differs from the file (a spare field) is replaced by the next version; the file is active again and the old version is inactive',
+      r.exit === 0 && r.json.data.changed === true && auditCount('seed-contract') === sc0 + 1, r.all.slice(0, 200));
+    checkSite('after the contract changed', 3);
+    const fpC = fp();
+    r = await run(['seed', 'test', ...T]);
+    check('seed test: and the next run adds nothing', r.exit === 0 && r.json.data.changed === false && fp() === fpC);
+
+    // the preview host: one update and one audit line when it differs
+    const ss0 = auditCount('seed-site');
+    db.query(`update sites set preview_host = 'demo-a.preview.test' where id = '${SITE_A}'`);
+    r = await run(['seed', 'test', ...T]);
+    check('seed test: SITE_A\'s preview host set back to the placeholder is corrected, with one seed-site audit line', r.exit === 0 && r.json.data.changed === true && db.query(`select preview_host from sites where id = '${SITE_A}'`) === PREVIEW_HOST_A && auditCount('seed-site') === ss0 + 1, r.all.slice(0, 200));
+    r = await run(['seed', 'test', ...T]);
+    check('seed test: and a further run writes nothing (no second seed-site line)', r.exit === 0 && r.json.data.changed === false && auditCount('seed-site') === ss0 + 1);
+
+    // a settings row that already names a media row of A keeps it: no media row is inserted, the settings row is not re-versioned for it
+    const OTHER = '5eed0000-0000-4000-8000-0000000000e1';
+    const st = siteFacts().rowOf('settings');
+    db.query(`insert into media (id, workspace_id, path, width, height, bytes, processed, exif_stripped, rights_confirmed, uploaded_by) values ('${OTHER}', '${WS_A}', '${WS_A}/other.png', 800, 600, 1000, true, true, true, '${STAFF}')`);
+    db.query(`insert into content_versions (row_id, n, workspace_id, data, by, sign_off) values ('${st.id}', ${st.n + 1}, '${WS_A}', '${JSON.stringify({ ...st.data, logo: { ...st.data.logo, asset: OTHER } }).replace(/'/g, "''")}'::jsonb, '${STAFF}', '{}'::jsonb)`);
+    const fpO = fp();
+    r = await run(['seed', 'test', ...T]);
+    check('seed test: when A\'s settings already name another media row of A, that id is kept: nothing is written (no media row inserted, no new settings version)',
+      r.exit === 0 && r.json.data.changed === false && fp() === fpO && db.query(`select count(*) from media where workspace_id = '${WS_A}'`) === '2' && siteFacts().rowOf('settings').n === st.n + 1, r.all.slice(0, 300));
+
+    // the isolated walls, with the test site in the database: unchanged is the pass, and a change inside the window is a FAIL naming the table
+    const inWindow = sqlText => (cmd, args, opts) => {
+      const out = spawnSync(cmd, args, { timeout: 600000, ...opts });   // no-timeout: the command's own opts carry its limit; this is the fallback
+      const fileArg = args[args.indexOf('-f') + 1];   // the walls copy is a temp file; the other psql calls of the command send their SQL on stdin
+      if (cmd === 'psql' && args.includes('-f') && fileArg !== '-' && readFileSync(fileArg, 'utf8').includes('create schema test;')) {
+        windowHook.fired++;
+        const h = spawnSync('psql', ['-h', '127.0.0.1', '-p', cluster.port, '-U', 'postgres', '-d', db.name, '-X', '-v', 'ON_ERROR_STOP=1', '-c', sqlText], { encoding: 'utf8', timeout: 60000 });
+        windowHook.out = `status ${h.status} ${String(h.stdout).trim()} ${String(h.stderr).trim().slice(0, 200)}`;
+      }   // inside the window: after the walls, before the second fingerprint
+      return out;
+    };
+    const windowHook = { fired: 0, out: '' };
+    r = await run(['test', 'walls', ...T], {}, { spawn: inWindow(`update workspaces set name = 'Demo A (changed)' where id = '${WS_A}'`) });
+    check('test walls: a row of workspace A changed while the walls ran is FAIL test site changed, naming the table (exit 1, SITE-CHANGED)',
+      r.exit === 1 && r.json.code === 'SITE-CHANGED' && wallsLines(r).some(l => l.startsWith('FAIL test site changed: workspaces')) && wallsLines(r)[0].startsWith('PASS tenancy tests'), `hook fired ${windowHook.fired}x (${windowHook.out}) exit ${r.exit} ${r.json && r.json.code} rows ${JSON.stringify(r.json && r.json.data && r.json.data.rowsPerTable)} ${wallsWhy(r)}`);
+    db.query(`update workspaces set name = 'Demo A' where id = '${WS_A}'`);
+    r = await run(['test', 'walls', ...T], {}, { spawn: inWindow(`insert into audit_log (workspace_id, action) values ('${WS_B}', 'cli-test-window')`) });
+    check('test walls: a row added to workspace B inside the window is named too (audit_log, 1 row more)', r.exit === 1 && wallsLines(r).some(l => l.startsWith('FAIL test site changed: audit_log (')), wallsWhy(r));
+    db.query(`set session_replication_role = replica; delete from audit_log where action = 'cli-test-window'`);   // audit_log is append-only; the test database only
+
+    // seed test --clean, then seed test: the same counts and the same data, new ids (the test asserts the data, not the ids)
+    r = await run(['seed', 'test', ...T, '--clean']);
+    check('seed test --clean: the test site goes with its workspace (rows, versions and the media row)', r.exit === 0 && db.query(`select count(*) from content_rows where workspace_id = '${WS_A}'`) === '0' && db.query(`select count(*) from media where workspace_id = '${WS_A}'`) === '0');
+    r = await run(['seed', 'test', ...T]);
+    const site2 = checkSite('after --clean and seed test', 2);
+    check('seed test: after --clean the rows have new ids and the same data', site2.rows.every(x => !idsBefore.split(',').includes(x.id)) && site2.rows.length === wantRows.length);
+    const fpClean = fp();
+    r = await run(['seed', 'test', ...T]);
+    check('seed test: the logo\'s media row was inserted once (none before), and a further run inserts no second', r.exit === 0 && r.json.data.changed === false && fp() === fpClean && db.query(`select count(*) from media where workspace_id = '${WS_A}'`) === '1');
+
+    // part 4: the seeded rows are publish-ready (migration 11's wall) and a bare row is still refused
+    const bareId = db.query(`select service.seed_version('${WS_A}', 'listings', '{"street":"3 Bare Rd"}'::jsonb, '${STAFF}', 'cli test')`);
+    r = await run(['publish', ...T, '--as', 'owner-a', '--site', 'test-demo-a', '--rows', bareId, '--expect', 'I-NOT-READY']);
+    check('publish: a bare row of A is still refused with I-NOT-READY, and no job is queued for it', r.exit === 0 && r.json.code === 'I-NOT-READY' && db.query(`select count(*) from publish_jobs where '${bareId}'::uuid = any(rows)`) === '0', r.all.slice(0, 300));
+    db.query(`delete from content_rows where id = '${bareId}'`);
+    const seededIds = siteFacts().rows.map(x => x.id);
+    r = await run(['publish', ...T, '--as', 'owner-a', '--site', 'test-demo-a', '--rows', seededIds.join(',')]);
+    const seededJob = r.json && r.json.data && r.json.data.job;
+    check('publish: all the seeded rows of A publish as owner A with no I-NOT-READY (migration 11): one queued job pinning every row', r.exit === 0 && seededJob && db.query(`select count(*) from publish_jobs p, jsonb_object_keys(p.requested) k where p.id = '${seededJob}'`) === String(seededIds.length), r.all.slice(0, 400));
+
+    // the earlier flows below were written against contract version 1 and two bare team rows; seedTestSql() with no argument still seeds exactly that
+    // (supabase/functions/test/harness.mjs calls it so, and the platform's function tests expect it)
+    r = await run(['seed', 'test', ...T, '--clean']);
+    const legacy = makeSql({ url: db.url }).exec(seedTestSql({ alertTo: 'owner@example.com' }));
+    check('seedTestSql() with no site (the call the platform\'s function tests make) still seeds contract version 1 for A and two bare team rows, and nothing of the test site',
+      r.exit === 0 && legacy.ok && activeContract(WS_A).version === 1 && canon(activeContract(WS_A).resolved) === canon(TC)
+      && db.query(`select string_agg(data::text, ',' order by data ->> 'name') from content_versions where workspace_id = '${WS_A}'`) === '{"name": "Agent One"},{"name": "Agent Two"}' && db.query(`select count(*) from media`) === '0', legacy.message);
+    const fpLegacy = fp();
+    const legacy2 = makeSql({ url: db.url }).exec(seedTestSql({ alertTo: 'owner@example.com' }));
+    check('seedTestSql() with no site, run twice, changes nothing the second time (the platform\'s function tests seed once; the earlier flows below seed once and rely on it)', legacy2.ok && fp() === fpLegacy && db.query(`select count(*) from content_rows where workspace_id = '${WS_A}'`) === '2', legacy2.message);
 
     // ---- seed workspace from a from-plan contract (SQL path)
     const elev8 = join(REPO_ROOT, 'contracts', 'examples', 'elev8', 'contract.json');

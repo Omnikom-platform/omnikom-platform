@@ -7,6 +7,28 @@ sections 3 (seed, status) and 5 (rules); the export shape the rows must end up m
 `factory/test/make-export.mjs` (read both first). Starts only after the `key-numbering-and-lead-ledgers.md` slice is committed (both touch
 `test/run.mjs` and `test/mutate.mjs`; one builder per set of files).
 
+## Update 2026-11-01 (the head; where this differs from the sections below, this wins)
+- Base: master after the DECISIONS 45 slice (`check/cli-and-testing/impact-hooks-4`). It added `vault.update_secret` and `updated_at`
+  to `test/vault-shim.sql`, a cluster guard in `test/harness.mjs` (`startCluster` sweeps dead owners' clusters; keep it), and
+  `test/ci-heavy.mjs`. The CLI db part now runs on GitHub in the cli job: `test/run.mjs` then `test/mutate.mjs`, whenever
+  `tools/omnikom-cli/` changes.
+- The four parts, unchanged in substance (head of operations, 2026-11-01):
+  1. the preview host (Part 1 item 8);
+  2. the isolated `test walls` in a `walls-<run>` namespace that leaves test-demo-a unchanged (Part 3). This closes "staging walls UNPROVEN";
+  3. the `status` function-folder rule (Part 2);
+  4. the publish-ready check: on the throwaway cluster, after `seed test`, `test.publish` of A's seeded rows as owner A succeeds with no
+     `I-NOT-READY` (migration 11's wall), and a bare row is still refused with `I-NOT-READY`.
+  The team rows' slug and role (Part 1) is what makes check 4 pass.
+- What you run (machine-wide heavy lock, DECISIONS 45):
+  - `node tools/omnikom-cli/test/run.mjs --unit` as often as you like;
+  - the db part only wrapped, one at a time: `node ~/.claude/scripts/heavy.mjs --label "cli seed db" -- node tools/omnikom-cli/test/run.mjs --db`.
+  - NOT `test/mutate.mjs` in full, and NOT `run-all-gates.mjs`. The head runs those on GitHub through a check branch.
+  - Single mutants are fine: `node ~/.claude/scripts/heavy.mjs -- node tools/omnikom-cli/test/mutate.mjs --only <name substring>`.
+- Test clusters must stop on every exit path. Use `startCluster` from `test/harness.mjs`; never `initdb` / `pg_ctl` yourself.
+- The staging commands in "Gates" stay released for this slice, as written: `seed test` twice, then `status`, `verify --only people|walls`,
+  `test walls`. Still never `lead send`, `verify --only lead` or `seed test --clean` on staging.
+- Report your tests' unit and db last lines, the watched-fail list and the staging lines. The head then pushes a check branch and lands it.
+
 ## Files you may edit (nothing else; a bug anywhere else is a finding you send back, not a fix)
 - `tools/omnikom-cli/commands/seed.mjs`, `tools/omnikom-cli/commands/status.mjs`, `tools/omnikom-cli/commands/apply.mjs` (`test walls`, Part 3),
   any new `tools/omnikom-cli/lib/` helper
