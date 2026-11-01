@@ -7,8 +7,12 @@
 // Exit: audit()'s exit (0 no FAIL, 1 at least one FAIL), 2 usage or configuration error, 3 the snapshot failed or stopped (a 429, a time cap,
 // a crash): nothing is judged then and nothing is printed on stdout.
 // OMNIKOM_AUDIT_LIVE_TARGET replaces the path of live-target.mjs (the tests point it at fixtures/live-target-standin.mjs, so tests make no request).
+// OMNIKOM_AUDIT_LIVE_TIMEOUT_MS replaces the time limit (4 h 1 min) so a test can watch it fire.
+// The whole process tree of the child is stopped, not only the child: the browser the skill's script starts is the child's child. That happens on the
+// time limit, on SIGINT and SIGTERM (then exit 130 or 143), and on exit while the child is still alive. Windows: taskkill /PID <pid> /T /F. POSIX: the child
+// is its own process group (detached) and the group is killed. A hard kill of this driver itself (SIGKILL, power loss) runs no code and is NOT handled here.
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -44,15 +48,27 @@ if (dd >= 0) childArgs.push("--", ...pass);
 
 // The child's stdout is read line by line and every line but the verdict is passed on to our stderr as it comes (a crawl takes minutes), so
 // that our stdout carries only the judged lines. live-target.mjs caps its own snapshot at 4 h; the limit here is one minute above that.
+const TIMEOUT_MS = Number(process.env.OMNIKOM_AUDIT_LIVE_TIMEOUT_MS) > 0 ? Number(process.env.OMNIKOM_AUDIT_LIVE_TIMEOUT_MS) : 4 * 3600_000 + 60_000;
+const WIN = process.platform === "win32";
+let child = null;
+const killTree = (c) => {
+  if (!c || !c.pid || c.exitCode !== null || c.signalCode !== null) return;
+  if (WIN) spawnSync("taskkill", ["/PID", String(c.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+  else { try { process.kill(-c.pid, "SIGKILL"); } catch { try { c.kill("SIGKILL"); } catch {} } }
+};
+process.on("exit", () => killTree(child));
+process.on("SIGINT", () => { killTree(child); process.exit(130); });
+process.on("SIGTERM", () => { killTree(child); process.exit(143); });
 const r = await new Promise((resolve) => {
-  const child = spawn(process.execPath, childArgs, { stdio: ["ignore", "pipe", "inherit"], timeout: 4 * 3600_000 + 60_000 });
+  child = spawn(process.execPath, childArgs, { stdio: ["ignore", "pipe", "inherit"], detached: !WIN, windowsHide: true });
+  const timer = setTimeout(() => { killTree(child); }, TIMEOUT_MS);
   let buf = "";
   const lines = [];
   const take = (l) => { if (/^(REUSE|NEW|FAILED) /.test(l)) lines.push(l); else if (l) console.error(l); };
   child.stdout.setEncoding("utf8");
   child.stdout.on("data", (c) => { buf += c; const parts = buf.split(/\r?\n/); buf = parts.pop(); parts.forEach(take); });
-  child.on("error", (error) => resolve({ error, lines, status: null }));
-  child.on("close", (status) => { take(buf); resolve({ lines, status }); });
+  child.on("error", (error) => { clearTimeout(timer); resolve({ error, lines, status: null }); });
+  child.on("close", (status) => { clearTimeout(timer); take(buf); resolve({ lines, status }); });
 });
 const verdict = r.lines[r.lines.length - 1];
 if (r.error) die(`FAILED: live-target.mjs could not run (${r.error.code || r.error.message}): ${target}`, 3);

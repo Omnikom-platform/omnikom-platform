@@ -695,6 +695,42 @@ Left on staging on purpose: those jobs (they moved `published_version` of the sa
 (6) postgres.js: `sql.array(uuids)` with `::uuid[]` fails in a plain connection (`malformed array literal`), a plain array works; the 4.2 `publish` uses `sql.array` and passed on staging, the difference was not chased.
 (7) Error bodies are `{ code, message }` (the `Problem` schema), not `{ code, msg }` as the brief wrote.
 
+## SEO and audits, slice 4b.1: temp folders and the live driver's child tree (2026-11-01 02:30, builder)
+Part A, no leaked temp folders. `test/run.mjs` keeps every temp folder under one root `omnikom-audit-run-*` (in `OMNIKOM_AUDIT_TMP`, else the system temp
+folder) and removes it in the `finally`, at the first red check under FAILFAST, and on SIGINT/SIGTERM; its children get TMPDIR/TEMP/TMP inside the root.
+`test/mutate.mjs` keeps one root `omnikom-audit-mutate-*`, each mutant's copy inside it, and gives each child `OMNIKOM_AUDIT_TMP`/TMPDIR/TEMP/TMP =
+`<copy>/.tmp`; a timed-out child is killed with SIGKILL (it can run no handler, like a laptop sleep); the root goes at the end and on SIGINT/SIGTERM
+(running children stopped by their PID first). Node refuses to copy a folder into a subfolder of itself even with a filter, so both harnesses copy
+`tools/audit` entry by entry and skip `.tmp`. Two new checks in `run.mjs`: every temp folder is on disk inside the one root; and a child `mutate.mjs`
+on one cheap mutant with `MUTATE_TIMEOUT_S=2` prints NOT RUN and leaves its (fresh, empty) temp base empty (`OMNIKOM_AUDIT_NESTED=1` skips it inside that
+child; not skipped on FAILFAST). Cost of the second: 9 to 13.5 s measured on this laptop (three timings, loaded machine).
+Part B, the live driver kills the child's whole tree. `live.mjs`: on the time limit (4 h 1 min; `OMNIKOM_AUDIT_LIVE_TIMEOUT_MS` overrides), on SIGINT and
+SIGTERM (exit 130/143) and on exit while the child is alive, it stops the child's tree: Windows `taskkill /PID <pid> /T /F`; POSIX the child is
+`detached` (its own group) and `process.kill(-pid, "SIGKILL")`. A new check in `run.mjs` (stand-in target that starts a long-lived grandchild, writes
+its pid, hangs; live.mjs with a 4 s limit must exit 3 and the grandchild must be gone within 5 s; the test kills it itself otherwise). On Windows the test
+spawns the grandchild `detached`: node puts its children in a kill-on-close job, so without it the grandchild dies with live.mjs whatever live.mjs
+does (found when the first watched-red showed the grandchild gone). Limits: a hard kill of the driver itself cannot be handled (README says so; the
+skill's launcher watchdog is another builder's). Skill scripts untouched.
+Watched red (check run before the fix, live.mjs unfixed, one run of run.mjs, 81 s):
+```
+FAIL live.mjs: when its time limit fires, the child's whole process tree is stopped (the grandchild is gone within 5 s) and it exits 3: live exit null; grandchild pid 1684 still alive 5 s after live.mjs ended (killed by the test)
+FAILED: 1 of 486
+```
+Real outputs (after the fix):
+```
+node tools/audit/test/run.mjs      OK: 486 of 486 checks passed   (exit 0; 49 s)
+```
+Part A cleanup: `omnikom-audit-*` (and my own `scratch-*`) folders in the system temp folder newer than my start and older than the 02:07 restart: 0 before,
+0 after (nothing of mine was left; 8034 older entries from other sessions untouched). Same count of `omnikom-audit-run-*`/`-mutate-*`/`scratch-*`: 0 now.
+Mutants added (4 temp folders + 1 live): NOT RUN locally by order of the head (load rules); they run on GitHub. UNPROVEN until then:
+`mutate.mjs gives the child no temp base inside its copy`, `... points the child's temp base at the shared base`, `mutate.mjs leaves its root behind at the end`,
+`run.mjs makes its folders beside its root`, `live.mjs: the time limit stops only the child, not its tree`. Earlier, under heavy load, the last two temp-folder
+mutants were seen caught (the "root left behind" and "folders beside the root" ones); the other two came back NOT RUN at a 400 s limit (laptop overloaded), never
+seen caught. Not testable here: the SIGTERM/SIGINT handlers of `run.mjs`, `mutate.mjs` and `live.mjs` (Node on Windows ends the process on those signals without
+running handlers); no mutant for them. The `finally` removing the root in `run.mjs` is not seen by any test either (the run cannot watch its own cleanup).
+UNPROVEN: the POSIX branch of the tree kill (detached group, process.kill(-pid)) ran only on Windows here; its first run is GitHub CI (Linux).
+Not run: mutate.mjs in full or in part (load rules), run-all-gates, a real live-target.mjs run.
+
 ## SEO and audits, slice 4b: design tells, DSN-001 to DSN-011 (2026-10-31 18:35, builder)
 `tools/audit` now carries 28 rules: the 17 old ones plus the DSN family, the machine-checkable tells of generic AI-made design (DECISIONS 37;
 origin: unslop by Damir Sokolovsky, CC BY 4.0, read in `skills/unslop/` only, rules written in our own words). All P1; DSN-010 and DSN-011 print

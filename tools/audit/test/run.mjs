@@ -5,7 +5,7 @@
 // OMNIKOM_AUDIT_DIR points at a copy of tools/audit/ (test/mutate.mjs runs one broken copy at a time).
 import { mkdtempSync, cpSync, rmSync, readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, unlinkSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve, dirname } from "node:path";
+import { join, resolve, dirname, basename } from "node:path";
 import { spawnSync } from "node:child_process";
 import zlib from "node:zlib";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -19,12 +19,23 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "ok  " : "FAIL"} ${name}${ok || !detail ? "" : ": " + String(detail).slice(0, 400)}`);
   // OMNIKOM_AUDIT_FAILFAST=1 (set by test/mutate.mjs for its broken copies): stop at the first red check. The suite still prints that FAIL line and
   // exits 1, which is all the mutant harness needs to call it caught; a green run is never shortened. A normal run never sets it.
-  if (!ok && process.env.OMNIKOM_AUDIT_FAILFAST === "1") { for (const d of tmps) { try { rmSync(d, { recursive: true, force: true }); } catch {} } console.log(`FAILED: ${failed} of ${total} (stopped at the first failure, OMNIKOM_AUDIT_FAILFAST=1)`); process.exit(1); }
+  if (!ok && process.env.OMNIKOM_AUDIT_FAILFAST === "1") { removeRoot(); console.log(`FAILED: ${failed} of ${total} (stopped at the first failure, OMNIKOM_AUDIT_FAILFAST=1)`); process.exit(1); }
 };
-const cli = (args, audit = AUDIT) => { const r = spawnSync(process.execPath, [join(audit, "run.mjs"), ...args], { encoding: "utf8", timeout: 60000 }); return { status: r.status, out: r.stdout || "", err: r.stderr || "" }; };
+const cli = (args, audit = AUDIT) => { const r = spawnSync(process.execPath, [join(audit, "run.mjs"), ...args], { encoding: "utf8", timeout: 60000, env: childEnv }); return { status: r.status, out: r.stdout || "", err: r.stderr || "" }; };
 const json = (args) => { const r = cli(["--json", ...args]); let j = null; try { j = JSON.parse(r.out); } catch {} return { ...r, j }; };
+// Every temp folder of this run lives under ONE root, omnikom-audit-run-*, inside OMNIKOM_AUDIT_TMP (test/mutate.mjs sets it inside the broken copy) or
+// the system temp folder. The root is removed in the finally below, at the first red check under FAILFAST, and on SIGINT/SIGTERM. A run that is killed
+// outright (SIGKILL, the laptop sleeping) cannot clean up; then the root is left where the one who started it can find and remove it, and test/mutate.mjs
+// starts every run inside a folder it removes itself. The children this run starts get TMPDIR, TEMP and TMP inside the root too.
+const TMP_BASE = process.env.OMNIKOM_AUDIT_TMP ? resolve(process.env.OMNIKOM_AUDIT_TMP) : tmpdir();
+mkdirSync(TMP_BASE, { recursive: true });
+const ROOT = mkdtempSync(join(TMP_BASE, "omnikom-audit-run-"));
 const tmps = [];
-const tmp = (p = "omnikom-audit-") => { const d = mkdtempSync(join(tmpdir(), p)); tmps.push(d); return d; };
+const tmp = (p = "omnikom-audit-") => { const d = mkdtempSync(join(ROOT, p)); tmps.push(d); return d; };
+const childEnv = { ...process.env, TMPDIR: ROOT, TEMP: ROOT, TMP: ROOT };
+const removeRoot = () => { try { rmSync(ROOT, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {} };
+process.on("SIGINT", () => { removeRoot(); process.exit(130); });
+process.on("SIGTERM", () => { removeRoot(); process.exit(143); });
 const FAIL_SHAPE = /^FAIL [A-Z0-9-]+ \S+:\d+ .+ \(source: .+\)$/;
 const ruleOf = (name) => (name.match(/^(?:snapshot-)?bad-([A-Z0-9]+-\d{3})/) || [])[1];
 // rules that judge only a snapshot (a built folder has no browser and no server): they print no line in folder mode
@@ -155,7 +166,7 @@ try {
 
   // the source wall: a check without its rules file is refused
   const copy = tmp("omnikom-audit-copy-");
-  cpSync(AUDIT, copy, { recursive: true });
+  for (const n of readdirSync(AUDIT)) if (n !== ".tmp") cpSync(join(AUDIT, n), join(copy, n), { recursive: true });
   const m3 = readFileSync(join(copy, "checks", "met-003.mjs"), "utf8");
   writeFileSync(join(copy, "checks", "zzz-001.mjs"), m3.split('"MET-003"').join('"ZZZ-001"'), "utf8");
   const refused = cli([join(FIX, "good")], copy);
@@ -336,7 +347,7 @@ try {
   snapAdhoc("URL-009 (snapshot): a home canonical on another origin than the one the page was fetched from is named", gzSub("home", `<link rel="canonical" href="${SO}/">`, `<link rel="canonical" href="https://www.example-tea.invalid/">`), (j) => ownOf(j, "URL-009", "FAIL").some((f) => f.page === "/" && f.what.includes("is not the origin")));
   // the live driver, through the stand-in for live-target.mjs (no request is made)
   const STANDIN = join(FIX, "live-target-standin.mjs");
-  const live = (args, env = {}) => { const r = spawnSync(process.execPath, [join(AUDIT, "live.mjs"), ...args], { encoding: "utf8", timeout: 60000, env: { ...process.env, OMNIKOM_AUDIT_LIVE_TARGET: STANDIN, ...env } }); return { status: r.status, out: r.stdout || "", err: r.stderr || "" }; };
+  const live = (args, env = {}) => { const r = spawnSync(process.execPath, [join(AUDIT, "live.mjs"), ...args], { encoding: "utf8", timeout: 60000, env: { ...childEnv, OMNIKOM_AUDIT_LIVE_TARGET: STANDIN, ...env } }); return { status: r.status, out: r.stdout || "", err: r.stderr || "" }; };
   const direct = cli([SG]);
   const lv = live(["https://example-tea.invalid/"]);
   check("live.mjs with the stand-in prints exactly the lines run.mjs prints on snapshot-good and exits the same (0)", lv.status === 0 && direct.status === 0 && lv.out === direct.out && lv.out.split(/\r?\n/).filter(Boolean).every((l) => l.startsWith("PASS ")) && lv.out.length > 0, lv.out.slice(0, 200) + lv.err);
@@ -364,6 +375,25 @@ try {
   check("live.mjs on a snapshot with a FAIL prints the FAIL line and exits 1, like run.mjs", lvBad.status === 1 && directBad.status === 1 && lvBad.out === directBad.out && /^FAIL PRF-001 \/:1 budget-exceeded: LCP 3100 ms > 2500 ms \(source: checklist\/performance\.md PRF-001\)$/m.test(lvBad.out), lvBad.out);
   const lvPsi = live(["https://example-tea.invalid/", "--psi", join(FIX, "snapshot-bad-PRF-001-psi-fail", "psi", "2026-10-30.json")], { STANDIN_DIR: join(FIX, "snapshot-bad-PRF-001-untrusted") });
   check("live.mjs --psi FILE reaches the audit: an untrusted page is judged on the PSI number", lvPsi.status === 1 && /source: PSI 2026-10-30/.test(lvPsi.out), lvPsi.out + lvPsi.err);
+
+  // the live driver stops the whole process tree of its child (slice 4b.1): a stand-in target starts a long-lived grandchild (the browser's place),
+  // writes its pid to a file and hangs; live.mjs runs with a 4 s limit and must exit, and the grandchild must be gone within 5 s. The test kills the
+  // grandchild itself if it is not, and the run fails. On Windows the grandchild is spawned detached, which breaks it away from the kill-on-close job that
+  // node gives its children (as a browser launcher does); without that it would die with live.mjs whatever live.mjs did, and the test would measure nothing.
+  // A hard kill of the driver itself cannot be handled by it and is not tested.
+  {
+    const td = tmp("omnikom-audit-tree-");
+    const grandchild = join(td, "grandchild.mjs"), standin = join(td, "standin.mjs"), pidFile = join(td, "pid.txt");
+    writeFileSync(grandchild, "setInterval(() => {}, 1000);\n", "utf8");
+    writeFileSync(standin, `import { spawn } from "node:child_process";\nimport { writeFileSync } from "node:fs";\nconst g = spawn(process.execPath, [${JSON.stringify(grandchild)}], { stdio: "ignore", detached: process.platform === "win32" });\nwriteFileSync(${JSON.stringify(pidFile)}, String(g.pid));\nsetInterval(() => {}, 1000);\n`, "utf8");
+    const lr = spawnSync(process.execPath, [join(AUDIT, "live.mjs"), "https://example-tea.invalid/"], { encoding: "utf8", timeout: 30000, env: { ...childEnv, OMNIKOM_AUDIT_LIVE_TARGET: standin, OMNIKOM_AUDIT_LIVE_TIMEOUT_MS: "4000" } });
+    const gpid = existsSync(pidFile) ? Number(readFileSync(pidFile, "utf8")) : 0;
+    const alive = (p) => { try { process.kill(p, 0); return true; } catch (e) { return e.code === "EPERM"; } };
+    let gone = false;
+    for (let i = 0; i < 25 && gpid; i++) { if (!alive(gpid)) { gone = true; break; } await new Promise((r) => setTimeout(r, 200)); }
+    if (gpid && alive(gpid)) { try { process.kill(gpid, "SIGKILL"); } catch {} }
+    check("live.mjs: when its time limit fires, the child's whole process tree is stopped (the grandchild is gone within 5 s) and it exits 3", lr.status === 3 && gpid > 0 && gone, `live exit ${lr.status}; grandchild pid ${gpid || "never written"} ${gone ? "gone" : "still alive 5 s after live.mjs ended (killed by the test)"}`);
+  }
 
   // audit() with a rules option that names nothing real is a usage error, not "zero rules ran, PASS" (a caller must not fail open)
   const throws2 = (rulesOpt, needle) => { try { engine.audit(join(FIX, "good"), { rules: rulesOpt }); return false; } catch (e) { return e && e.name !== undefined && e.exit === 2 && String(e.message).includes(needle); } };
@@ -583,8 +613,22 @@ try {
   adhoc("DSN pages: a lone < in the text of a page does not break the reader (the heading after it is still found)", sub("tasting-room/index.html", "<h2>Before you come</h2>", `<h2>Before you come</h2>\n<p>5 < 6 and a < b</p>\n<h3>${EM} lone</h3>`), (j) => onlyOf(j, "DSN-003").length === 1 && onlyOf(j, "DSN-003")[0].page === "/tasting-room/");
   adhoc("DSN: audit({ rules: ['dsn-003'] }) runs that rule alone, case folded", homeIns(`<h3>${EM} x</h3>`), (j) => { const r = engine.audit(j.dir, { rules: ["dsn-003"] }); return r.rules.length === 1 && r.rules[0].id === "DSN-003" && r.exit === 1; });
   adhoc("DSN: a stylesheet linked from several pages is read once and its element rules reach every page", both(putDir("css/a.css", "h2 { text-transform: uppercase; letter-spacing: 0.1em }\n"), linkSheet(), sub("about/index.html", '<meta name="viewport" content="width=device-width, initial-scale=1">', '<meta name="viewport" content="width=device-width, initial-scale=1">\n<link rel="stylesheet" href="/css/a.css">')), (j) => onlyOf(j, "DSN-004").length === 6 && onlyOf(j, "DSN-004").every((f) => f.page === "/" || f.page === "/about/") && onlyOf(j, "DSN-004").filter((f) => f.page === "/about/").length === 3);
+
+  // temp folders (slice 4b.1): every folder this run made is on disk inside its one root (read back from the root, not from the names kept in memory)
+  const inRoot = readdirSync(ROOT);
+  check("temp folders: the run has one root omnikom-audit-run-* and every temp folder it made is inside it", /^omnikom-audit-run-/.test(basename(ROOT)) && tmps.length > 0 && tmps.every((d) => inRoot.includes(basename(d)) && existsSync(d)), `root ${ROOT}; ${tmps.length} folders made; in the root: ${inRoot.length}`);
+  // temp folders (slice 4b.1): a killed run leaves nothing behind. Run test/mutate.mjs as a child on one cheap mutant with a 2 s limit, so the
+  // run inside it is killed and prints NOT RUN, with every temp variable pointed at a fresh empty folder; the folder must be empty afterwards.
+  // OMNIKOM_AUDIT_NESTED=1 (set for that child, inherited by the runs inside it) skips this one check there, or it would start itself again.
+  // It is not skipped on OMNIKOM_AUDIT_FAILFAST: a mutant of the temp-folder handling is caught only here.
+  if (process.env.OMNIKOM_AUDIT_NESTED !== "1") {
+    const probe = tmp("omnikom-audit-probe-");
+    const r = spawnSync(process.execPath, [join(AUDIT, "test", "mutate.mjs")], { encoding: "utf8", timeout: 120000, env: { ...process.env, OMNIKOM_AUDIT_NESTED: "1", MUTATE_ONLY: "^design\\.mjs: every line of a text node is reported on its first line$", MUTATE_JOBS: "1", MUTATE_TIMEOUT_S: "2", OMNIKOM_AUDIT_TMP: probe, TMPDIR: probe, TEMP: probe, TMP: probe } });
+    const left = readdirSync(probe);
+    check("temp folders: a mutant run killed by its time limit prints NOT RUN and leaves no folder in the temp base", /^NOT RUN /m.test(r.stdout || "") && left.length === 0, `left behind: ${left.join(", ") || "(none)"}; exit ${r.status}; ${String(r.stdout || r.stderr).trim().split(/\r?\n/).slice(-3).join(" | ")}`);
+  }
 } finally {
-  for (const d of tmps) rmSync(d, { recursive: true, force: true });
+  removeRoot();
 }
 void mkdirSync; void unlinkSync; void utimesSync;
 console.log(failed ? `FAILED: ${failed} of ${total}` : `OK: ${total} of ${total} checks passed`);

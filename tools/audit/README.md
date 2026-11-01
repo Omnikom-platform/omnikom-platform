@@ -66,6 +66,11 @@ line, runs `audit()` on that folder and prints the lines on stdout (progress and
 fetches. Exit: `audit()`'s (0 or 1), 2 usage, 3 the snapshot failed or stopped (a 429, the time cap, a crash): nothing is judged then.
 Never pass `--ignore-robots` after `--` except for a URL the head names as ours. `OMNIKOM_AUDIT_LIVE_TARGET` points at another script (the
 tests use `fixtures/live-target-standin.mjs`, which prints a REUSE line for `fixtures/snapshot-good`; no request is ever made by a test).
+Process tree: when the 4 h 1 min limit fires (`OMNIKOM_AUDIT_LIVE_TIMEOUT_MS` overrides it, for tests), on SIGINT or SIGTERM (exit 130 or 143), and on exit
+while the child is alive, the driver stops the child's whole tree, so the browser the skill starts goes too (Windows `taskkill /PID <pid> /T /F`; POSIX the
+child is its own process group and the group is killed). Limits, not judged here: a hard kill of the driver itself (SIGKILL, Task Manager, power loss) runs
+no code and leaves the browser; the skill's browser launcher carries its own watchdog for that (another builder). The SIGINT/SIGTERM handlers are not
+tested (Node on Windows ends a process on those signals without running handlers); only the time-limit path is, by `test/run.mjs`.
 
 ## The line format (one per rule per page; site-wide rules use the file they judge: `robots.txt`, `sitemap.xml`)
 ```
@@ -162,7 +167,7 @@ All P1; DSN-010 and DSN-011 print WARN (the exit stays 0), the other nine print 
 ```
 node tools/audit/test/run.mjs      ends "OK: N of N checks passed", exit 0
 node tools/audit/test/mutate.mjs   ends "N mutants, N caught, 0 survived, 0 not run, 0 target text missing", exit 0  (not run = the child was killed, exit null; exit 1)
-(`MUTATE_JOBS` mutants run at once, default 4; `MUTATE_TIMEOUT_S` raises the 180 s limit on a loaded machine; `MUTATE_ONLY=<regex>` runs only the mutants whose name matches; `MUTATE_FIRST=<regex>` starts those first.)
+(`MUTATE_JOBS` mutants run at once, default 4; `MUTATE_TIMEOUT_S` raises the 180 s limit on a loaded machine; `MUTATE_ONLY=<regex>` runs only the mutants whose name matches; `MUTATE_FIRST=<regex>` starts those first. Temp folders: each run keeps all of them under one `omnikom-audit-run-*` root (in `OMNIKOM_AUDIT_TMP` if set, else the system temp folder) and removes it at the end, on a red check under FAILFAST, and on SIGINT/SIGTERM; `test/mutate.mjs` does the same with `omnikom-audit-mutate-*` and runs each child inside its own copy; a test in `test/run.mjs` fails if a killed mutant run leaves a folder.)
 node tools/audit/run.mjs tools/audit/fixtures/good              every line PASS, exit 0
 node tools/audit/run.mjs tools/audit/fixtures/bad-MET-003       a FAIL MET-003 line with file:line and source, exit 1
 node tools/audit/run.mjs tools/audit/fixtures/snapshot-good     every line PASS, exit 0

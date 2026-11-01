@@ -40,7 +40,7 @@ options, never a fix made here.
 - The CLI command shape (omnikom audit, omnikom gate) belongs to the CLI and testing department: this department ships tools/audit/ as a library with a documented call and sends the command brief to the head of operations, who routes it to the CLI head.
 - No client project folder is a test vehicle (DECISIONS 30): fixtures are synthetic sites under tools/audit/fixtures/ and the skill's own fixtures; a live public URL may be read politely for a measurement, never changed.
 - Shared laptop: a head or builder stops only processes it started, by their PID, never by a name or pattern (2026-10-31: a pattern kill in
-  slice 4b may have ended another session's mutant run). The audit tests must remove every temp folder they make, killed runs included (NOT DONE: slice 4b.1).
+  slice 4b may have ended another session's mutant run). The audit tests must remove every temp folder they make, killed runs included (slice 4b.1: one root per run; the live driver stops its child's whole tree).
 
 ## Proof
 - Gate 1, the tests: `node tools/audit/test/run.mjs` prints `ok  ` or `FAIL` per check and ends `OK: N of N checks passed`, exit 0.
@@ -165,3 +165,7 @@ options, never a fix made here.
 - 2026-11-01 00:05: DECISIONS 45 binding: the full checks run on GitHub. The head builds the commit (`omnikom impact --commit` names the
   tests run on the laptop, on that commit's tree), pushes it to `check/seo/<slug>`, and fast-forwards master only when every ci.yml job
   is green on it. Slice 2 confirmed by GitHub's audit job on 3cd4bf0: 332 of 332, 185 mutants 185 caught 0 survived 0 not run.
+- 2026-11-01 02:40: slice 4b.1 built (temp folders under one root per run and per mutant copy, a leak test; live.mjs stops the child's
+  whole process tree on its time limit, SIGINT, SIGTERM and exit, with a test watched red: "grandchild pid 1684 still alive 5 s after
+  live.mjs ended"). Laptop: test/run.mjs 486 of 486. Mutants and the POSIX tree kill run on GitHub (check branch). A hard kill of a
+  driver runs no code: the skill's browser launcher gets a parent-death watchdog (outside copy, another builder; synced when done).

@@ -6,9 +6,13 @@
 // was killed (exit null: the timeout, a laptop sleep) is "NOT RUN", a third class that also makes the exit 1, so a killed run never reads as clean.
 // The child runs with OMNIKOM_AUDIT_FAILFAST=1: test/run.mjs stops at its first red check (still printing that FAIL line and exiting 1), so a caught mutant costs
 // only the checks up to its first failure; a mutant that survives runs the whole suite as before.
+// Temp folders (slice 4b.1): one root, omnikom-audit-mutate-*, under OMNIKOM_AUDIT_TMP or the system temp folder; each mutant's copy lives inside it, and
+// the child gets OMNIKOM_AUDIT_TMP, TMPDIR, TEMP and TMP pointed at <copy>/.tmp, so whatever a killed child made goes when its copy goes. The root is
+// removed at the end and on SIGINT/SIGTERM (the children still running are stopped first, by their PID). A child that hits the time limit is killed with SIGKILL
+// (what a laptop sleep amounts to: it can run no handler), so a run that leaks a folder outside its own root is seen by the check in test/run.mjs.
 // Summary line: "N mutants, N caught, N survived, N not run, N target text missing".
 //   node tools/audit/test/mutate.mjs      exit 0 = every mutant caught, none survived, none not run, none missing
-import { readFileSync, writeFileSync, mkdtempSync, cpSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, readdirSync, cpSync, rmSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
@@ -382,26 +386,43 @@ const MUTANTS = [
   ["design.mjs: rem is read as px", "lib/design.mjs", 'return m[2] === "rem" ? n * 16 : n;', "return n;"],
   ["design.mjs: a line break in text is not a space", "lib/design.mjs", 'if (k > 0) s = " " + s;', ""],
   ["design.mjs: every line of a text node is reported on its first line", "lib/design.mjs", "pushNode(s, line + k)", "pushNode(s, line)"],
+  // temp folders (slice 4b.1): these are seen by the check in test/run.mjs that runs this harness as a child on one mutant with a 2 s limit
+  ["temp folders: mutate.mjs gives the child no temp base inside its copy", "test/mutate.mjs", "OMNIKOM_AUDIT_" + "TMP: tmpIn, TMPDIR: tmpIn, TEMP: tmpIn, TMP: tmpIn", ""],
+  ["temp folders: mutate.mjs points the child's temp base at the shared base, not its copy", "test/mutate.mjs", "OMNIKOM_AUDIT_" + "TMP: tmpIn,", "OMNIKOM_AUDIT_" + "TMP: TMP_BASE,"],
+  ["temp folders: mutate.mjs leaves its root behind at the end", "test/mutate.mjs", "removeRoot();\n" + "process.exit(survived", "process.exit(survived"],
+  ["temp folders: run.mjs makes its folders beside its root, not inside it", "test/run.mjs", "const d = mkdtempSync(join(ROOT, p)); tmps.push(d);", "const d = mkdtempSync(join(TMP_BASE, p)); tmps.push(d);"],
+  ["live.mjs: the time limit stops only the child, not its tree", "live.mjs", "const timer = setTimeout(() => { killTree(child); }, TIMEOUT_MS);", "const timer = setTimeout(() => { child.kill(); }, TIMEOUT_MS);"],
 ];
 let survived = 0, missing = 0, notRun = 0;
+const TMP_BASE = process.env.OMNIKOM_AUDIT_TMP ? resolve(process.env.OMNIKOM_AUDIT_TMP) : tmpdir();
+mkdirSync(TMP_BASE, { recursive: true });
+const ROOT = mkdtempSync(join(TMP_BASE, "omnikom-audit-mutate-"));
+const kids = new Set();
+const removeRoot = () => { try { rmSync(ROOT, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch (e) { console.error(`could not remove ${ROOT}: ${e.message}`); } };
+const onSignal = (code) => { for (const k of kids) { try { k.kill("SIGKILL"); } catch {} } removeRoot(); process.exit(code); };
+process.on("SIGINT", () => onSignal(130));
+process.on("SIGTERM", () => onSignal(143));
 // MUTATE_JOBS mutants run at the same time (default 4); each is its own copy in its own temp folder, so they cannot disturb each other.
 const JOBS = Math.max(1, Number(process.env.MUTATE_JOBS) || 4);
 function runOne([name, file, find, repl]) {
   return new Promise((done) => {
-    const dir = mkdtempSync(join(tmpdir(), "omnikom-audit-mut-"));
-    const finish = (line) => { rmSync(dir, { recursive: true, force: true }); console.log(line); done(); };
+    const dir = mkdtempSync(join(ROOT, "mut-"));
+    const finish = (line) => { try { rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch (e) { console.error(`could not remove ${dir}: ${e.message}`); } console.log(line); done(); };
     try {
-      cpSync(AUDIT, dir, { recursive: true });
+      for (const n of readdirSync(AUDIT)) if (n !== ".tmp") cpSync(join(AUDIT, n), join(dir, n), { recursive: true });
       const p = join(dir, file);
       const t = readFileSync(p, "utf8");
       const n = t.split(find).length - 1;
       if (n !== 1) { missing++; finish(`MISSING  ${name} (target text found ${n} times in ${file})`); return; }
       writeFileSync(p, t.split(find).join(repl), "utf8");
-      const child = spawn(process.execPath, [join(dir, "test", "run.mjs")], { env: { ...process.env, OMNIKOM_AUDIT_DIR: dir, OMNIKOM_AUDIT_FAILFAST: "1" }, timeout: (Number(process.env.MUTATE_TIMEOUT_S) || 180) * 1000 });
+      const tmpIn = join(dir, ".tmp");
+      const child = spawn(process.execPath, [join(dir, "test", "run.mjs")], { env: { ...process.env, OMNIKOM_AUDIT_DIR: dir, OMNIKOM_AUDIT_FAILFAST: "1", OMNIKOM_AUDIT_TMP: tmpIn, TMPDIR: tmpIn, TEMP: tmpIn, TMP: tmpIn }, timeout: (Number(process.env.MUTATE_TIMEOUT_S) || 180) * 1000, killSignal: "SIGKILL" });
+      kids.add(child);
       let out = "", err = "";
       child.stdout.on("data", (c) => { out += c; });
       child.stderr.on("data", (c) => { err += c; });
       child.on("close", (status) => {
+        kids.delete(child);
         // status null = the process was killed (the timeout, a laptop sleep): the suite did not finish, so this is neither a catch nor a survivor
         if (status === null) { notRun++; finish(`NOT RUN  ${name.padEnd(62)} (killed, exit null)`); return; }
         const red = (out.match(/^FAIL .*$/gm) || []).map((l) => l.slice(5, 75));
@@ -419,4 +440,5 @@ if (process.env.MUTATE_FIRST) { const first = new RegExp(process.env.MUTATE_FIRS
 let next = 0;
 await Promise.all(Array.from({ length: JOBS }, async () => { while (next < PICK.length) await runOne(PICK[next++]); }));
 console.log(`\n${PICK.length} mutants, ${PICK.length - survived - notRun - missing} caught, ${survived} survived, ${notRun} not run, ${missing} target text missing`);
+removeRoot();
 process.exit(survived || notRun || missing ? 1 : 0);
