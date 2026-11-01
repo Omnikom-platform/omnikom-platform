@@ -12,11 +12,12 @@
 // --break <name>: apply one deliberate break to migration 11 in memory (never on disk) to watch this script go red for the right reason:
 //   seo-description | seo-title | section-required | group | list | empty-string | sourced | open
 // Exit 0 = every item agrees, 1 = a difference, 2 = could not run.
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+// 5-H: the cluster folder is guarded (stopped and removed on every exit path; swept at start when an earlier run was killed)
+import { guardedTemp, sweep } from '../../tools/proc-guard/index.mjs';
 import { validateItem, mergeCore, validateContract, CORE } from '../../contracts/validate.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -192,7 +193,9 @@ if (BREAK) {
   src = src.split(a).join(b);
 }
 const shim = readFileSync(join(HERE, 'local-shim.sql'), 'utf8');
-const dir = mkdtempSync(join(tmpdir(), 'omnikom-parity-'));
+sweep();
+const guard = guardedTemp('omnikom-pg-', 'cluster', { label: 'publish-parity' });
+const dir = guard.dir;
 const data = join(dir, 'data');
 let status = 2, sqlSets = null;
 try {
@@ -224,8 +227,7 @@ try {
   console.error(`could not run the SQL side: ${e && e.message}`);
   status = 2;
 } finally {
-  run('pg_ctl', ['-D', data, '-m', 'fast', 'stop']);
-  if (!process.argv.includes('--keep')) rmSync(dir, { recursive: true, force: true });
+  guard.release({ keep: process.argv.includes('--keep') });   // pg_ctl stop -m immediate, any process naming the folder, then the folder (--keep leaves it, stopped)
 }
 if (status !== 0) process.exit(status);
 

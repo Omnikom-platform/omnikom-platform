@@ -2,36 +2,42 @@
 //   node docs/blueprint/diagrams/render.mjs [only-this-name]
 // Pass 1: --dump-dom of a page that renders the diagram -> the SVG text. Pass 2: screenshot of the SVG at its own size.
 // Exit 1 if any diagram fails to render (Mermaid's syntax error text is printed).
-import { readFileSync, writeFileSync, readdirSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
-import { tmpdir } from 'node:os';
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+// 5-H: the profile folders are guarded (cleaned on every exit path, swept when an earlier run was killed) and the time limit kills the
+// browser's whole process tree: a plain spawnSync timeout killed only the main process and left its renderer, GPU and utility children.
+import { guardedTemp, runLimited, sweep } from '../../../tools/proc-guard/index.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BROWSERS = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'];
+sweep();
 // Probe each installed browser with a one-line page: on 2026-10-29 Edge headless (--dump-dom) returned an empty stdout for every
 // page after an update, which made every diagram "fail" with no error. Use the first browser that actually prints the DOM.
-const probeTmp = mkdtempSync(join(tmpdir(), 'mmd-probe-'));
-const BROWSER = BROWSERS.filter(existsSync).find(b => {
-  const r = spawnSync(b, ['--headless=new', '--disable-gpu', '--no-sandbox', `--user-data-dir=${join(probeTmp, basename(b))}`, '--dump-dom', 'data:text/html,<p id=ok>probe</p>'], { encoding: 'utf8', timeout: 60000 });
-  const ok = /id="ok"/.test(r.stdout || '');
-  if (!ok) console.log(`skip ${b}: headless --dump-dom printed ${(r.stdout || '').length} chars`);
-  return ok;
-});
-try { rmSync(probeTmp, { recursive: true, force: true }); } catch {}
+const probe = guardedTemp('mmd-probe-', 'browser');
+let BROWSER = null;
+try {
+  for (const b of BROWSERS.filter(existsSync)) {
+    const r = await runLimited(b, ['--headless=new', '--disable-gpu', '--no-sandbox', `--user-data-dir=${join(probe.dir, basename(b))}`, '--dump-dom', 'data:text/html,<p id=ok>probe</p>'], { timeout: 60000, dir: probe.dir });
+    const ok = /id="ok"/.test(r.stdout || '');
+    if (!ok) console.log(`skip ${b}: headless --dump-dom printed ${(r.stdout || '').length} chars`);
+    if (ok) { BROWSER = b; break; }
+  }
+} finally { probe.release(); }
 if (!BROWSER) { console.error('no browser prints a DOM in headless mode (Edge and Chrome tried)'); process.exit(3); }
 const MERMAID = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js';
 const only = process.argv[2];
-const tmp = mkdtempSync(join(tmpdir(), 'mmd-'));
+const guard = guardedTemp('mmd-', 'browser');
+const tmp = guard.dir;
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
 function headless(args) {
-  return spawnSync(BROWSER, ['--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars', `--user-data-dir=${join(tmp, 'profile')}`, ...args],
-    { encoding: 'utf8', timeout: 90000, maxBuffer: 64 * 1024 * 1024 });
+  return runLimited(BROWSER, ['--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars', `--user-data-dir=${join(tmp, 'profile')}`, ...args],
+    { timeout: 90000, maxBuffer: 64 * 1024 * 1024, dir: tmp });
 }
 
 let bad = 0;
+try {
 for (const f of readdirSync(HERE).filter(x => x.endsWith('.mmd') && (!only || x.includes(only))).sort()) {
   const name = basename(f, '.mmd');
   const src = readFileSync(join(HERE, f), 'utf8');
@@ -41,7 +47,7 @@ for (const f of readdirSync(HERE).filter(x => x.endsWith('.mmd') && (!only || x.
 <script src="${MERMAID}"></script>
 <script>mermaid.initialize({ startOnLoad: false, theme: 'neutral', flowchart: { htmlLabels: true, curve: 'basis' }, securityLevel: 'loose' });
 mermaid.run().catch(e => { document.getElementById('err').textContent = 'MERMAID-ERROR ' + (e && e.message || e); });</script>`);
-  const dom = headless(['--virtual-time-budget=15000', '--dump-dom', pathToFileURL(page).href]);
+  const dom = await headless(['--virtual-time-budget=15000', '--dump-dom', pathToFileURL(page).href]);
   const html = dom.stdout || '';
   const err = html.match(/<div id="err">(MERMAID-ERROR[^<]*)/);
   const svg = (html.match(/<svg[\s\S]*<\/svg>/) || [])[0];
@@ -53,9 +59,10 @@ mermaid.run().catch(e => { document.getElementById('err').textContent = 'MERMAID
   const shot = join(tmp, `${name}-shot.html`);
   writeFileSync(shot, `<!doctype html><meta charset="utf-8"><body style="margin:20px;background:#fff">${svg.replace(/style="max-width:[^"]*"/, `style="width:${Math.ceil(w)}px;height:${Math.ceil(h)}px"`)}</body>`);
   const png = join(HERE, `${name}.png`);
-  const r = headless([`--window-size=${W},${H}`, '--virtual-time-budget=3000', `--screenshot=${png}`, pathToFileURL(shot).href]);
+  const r = await headless([`--window-size=${W},${H}`, '--virtual-time-budget=3000', `--screenshot=${png}`, pathToFileURL(shot).href]);
   if (!existsSync(png)) { bad++; console.log(`FAIL ${name}: screenshot ${r.stderr.slice(0, 200)}`); continue; }
   console.log(`ok   ${name}: ${Math.ceil(w)}x${Math.ceil(h)}`);
 }
-try { rmSync(tmp, { recursive: true, force: true }); } catch (e) { console.log(`note: temp profile not removed (${e.code}); the browser may still hold it`); }
+} finally { guard.release(); }
+if (existsSync(tmp)) console.log('note: temp profile not removed; a browser may still hold it');
 process.exit(bad ? 1 : 0);

@@ -13,6 +13,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { JUNK_TITLE, CHALLENGE_TITLE, VIEWPORTS, TOOL_UA, parseArgs, readJson, slugFor, pageSlug, decodeXmlUrl, normUrl, harUnanswered, loadPlaywright } from './lib.mjs';
+// 5-H: the replay browser runs in a guarded temp folder and is closed on every path (it had no finally)
+import { guardedTempEnv, sweep } from '../proc-guard/index.mjs';
 
 const args = parseArgs(process.argv.slice(2));
 if (typeof args.out !== 'string') { console.error('usage: node verify.mjs --out <backup dir> [--no-replay] [--min-text 0.9]'); process.exit(2); }
@@ -162,7 +164,11 @@ for (const p of pages) {
 const replay = [];
 if (!args['no-replay']) {
   const { chromium } = await loadPlaywright();
-  const browser = await chromium.launch({ headless: true });
+  sweep();
+  const guard = guardedTempEnv('site-backup-', 'browser');
+  let browser;
+  try {
+  browser = await chromium.launch({ headless: true });
   for (const p of pages) {
     const har = path.join(OUT, 'pages', p.slug, 'capture.har.zip');
     if (!fs.existsSync(har)) continue;
@@ -203,7 +209,7 @@ if (!args['no-replay']) {
     }
     replay.push(row);
   }
-  await browser.close();
+  } finally { try { if (browser) await browser.close(); } finally { guard.release(); } }
 }
 
 const gates = Object.fromEntries(Object.entries(results).map(([g, f]) => [g, { pass: f.length === 0, failures: f }]));

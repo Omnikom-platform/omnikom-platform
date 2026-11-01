@@ -25,6 +25,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+// 5-H: the browser's profile lives in a guarded temp folder (cleaned on every exit path; swept when an earlier run was killed)
+import { guardedTempEnv, sweep } from '../proc-guard/index.mjs';
 import {
   VIEWPORTS, TOOL_UA, CHALLENGE_TITLE, JUNK_TITLE, sleep, parseArgs, slugFor, pageSlug, decodeXmlUrl, countLoaders, assetFileFor, writeFile, readJson, loadPlaywright,
 } from './lib.mjs';
@@ -580,8 +582,11 @@ async function capturePage(browser, url, kind) {
 
 const { chromium } = await loadPlaywright();
 let exitCode = 0;
-const browser = await chromium.launch({ headless: true });
+sweep();
+const browserGuard = guardedTempEnv('site-backup-', 'browser');
+let browser;
 try {
+  browser = await chromium.launch({ headless: true });
   const all = await discoverPages();
   let todo = all;
   if (args.only) {
@@ -613,7 +618,7 @@ try {
   R.stopReason = R.stopReason || e.message;
   exitCode = 1;
 } finally {
-  await browser.close();
+  try { if (browser) await browser.close(); } finally { browserGuard.release(); }
   fs.rmSync(path.join(OUT, '.video-tmp'), { recursive: true, force: true });
   R.finishedAt = new Date().toISOString();
   const pages = Object.values(R.pages);

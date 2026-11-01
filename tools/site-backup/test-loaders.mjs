@@ -2,6 +2,8 @@
 // loader; an empty spinner or skeleton is; hidden ones are not. Watched-fail built in: the old rule (any visible match) must
 // count the finished cards. Usage: node test-loaders.mjs
 import { countLoaders, loadPlaywright } from './lib.mjs';
+// 5-H: the browser runs in a guarded temp folder and is closed on every path (this script had no finally)
+import { guardedTempEnv, sweep } from '../proc-guard/index.mjs';
 
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 const card = (n) => `<div class="property-card-wrapper loading" style="width:340px;height:280px"><img src="${PNG}" width="300" height="200"><p>$500,000 ${n} Example Street, Sample City CA 00000</p></div>`;
@@ -15,11 +17,15 @@ const CASES = [
 const oldRule = () => [...document.querySelectorAll('[class*=skeleton i], [class*=spinner i], [class*=loading i], [aria-busy=true]')].filter((e) => { const r = e.getBoundingClientRect(); const c = getComputedStyle(e); return r.width > 0 && r.height > 0 && c.visibility !== 'hidden' && c.display !== 'none' && +c.opacity > 0; }).length;
 
 const { chromium } = await loadPlaywright();
-const browser = await chromium.launch({ headless: true });
+sweep();
+const guard = guardedTempEnv('site-backup-', 'browser');
+let browser;
+let failed = 0;
+try {
+browser = await chromium.launch({ headless: true });
 const ctx = await browser.newContext();
 await ctx.route('**/*', (r) => (r.request().url().startsWith('data:') ? r.continue() : r.abort())); // no network
 const page = await ctx.newPage();
-let failed = 0;
 for (const [name, html, want] of CASES) {
   await page.setContent(`<!doctype html><body>${html}</body>`, { waitUntil: 'load' });
   const got = await page.evaluate(countLoaders);
@@ -32,6 +38,6 @@ const oldCount = await page.evaluate(oldRule);
 const wf = oldCount === 8;
 if (!wf) failed++;
 console.log(`${wf ? 'PASS' : 'FAIL'}  watched-fail: the old rule counts ${oldCount} loaders on the 8 finished cards (must be 8)`);
-await browser.close();
+} finally { try { if (browser) await browser.close(); } finally { guard.release(); } }
 console.log(failed ? `RESULT: ${failed} FAILED` : 'RESULT: ALL PASS');
 process.exit(failed ? 1 : 0);
