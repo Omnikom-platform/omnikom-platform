@@ -59,10 +59,11 @@ export function sweepClusters({ markerDir = CLUSTER_MARKER_DIR, run = sh, alive 
   return done;
 }
 
-// start a cluster, or use the one a parent process (mutate.mjs) already started: OMNIKOM_TEST_CLUSTER_PORT.
+// start a cluster, or use the one a parent process (mutate.mjs) already started: OMNIKOM_TEST_CLUSTER_PORT. A call that names its first
+// port (firstPort: the probe and the held-port check) asks for a cluster of its own and always gets one.
 // opts (tests only): markerDir, run (initdb / pg_ctl runner), alive, signals (register exit handlers; default true)
 export function startCluster({ markerDir = CLUSTER_MARKER_DIR, run = sh, alive = pidAlive, signals = true, firstPort = null, say = console.log } = {}) {
-  if (process.env.OMNIKOM_TEST_CLUSTER_PORT) return { port: process.env.OMNIKOM_TEST_CLUSTER_PORT, dir: process.env.OMNIKOM_TEST_CLUSTER_DIR || '', stop() {}, shared: true };
+  if (process.env.OMNIKOM_TEST_CLUSTER_PORT && !firstPort) return { port: process.env.OMNIKOM_TEST_CLUSTER_PORT, dir: process.env.OMNIKOM_TEST_CLUSTER_DIR || '', stop() {}, shared: true };
   sweepClusters({ markerDir, run, alive });
   const dir = mkdtempSync(join(tmpdir(), CLUSTER_PREFIX));
   const data = join(dir, 'data');

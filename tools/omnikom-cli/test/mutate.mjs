@@ -285,6 +285,8 @@ const MUTANTS = [
   ["cluster port: 9 tries instead of 5", "test/harness.mjs", "tries: 5 }", "tries: 9 }", 'unit'],
   ["cluster port: the marker keeps the first port after a walk", "test/harness.mjs", "      rmSync(marker, { force: true });                                  // the marker file is named by its port: replace it, never keep two\n      marker = writeMarker(markerDir, { pid: process.pid, dir, data, port, startedAt: new Date().toISOString() });\n", "", 'unit'],
   ["cluster port: a walk leaves the first port's marker behind (two files, one never removed)", "test/harness.mjs", "      rmSync(marker, { force: true });                                  // the marker file is named by its port: replace it, never keep two\n      marker = writeMarker(", "      writeMarker(", 'unit'],
+  ["cluster port: a start that names its port gets the shared cluster of the environment", "test/harness.mjs", "if (process.env.OMNIKOM_TEST_CLUSTER_PORT && !firstPort) return {", "if (process.env.OMNIKOM_TEST_CLUSTER_PORT) return {", 'unit'],
+  ["cluster port: a start that names its port gets the shared cluster (the held-port check in a mutate copy)", "test/harness.mjs", "if (process.env.OMNIKOM_TEST_CLUSTER_PORT && !firstPort) return {", "if (process.env.OMNIKOM_TEST_CLUSTER_PORT) return {", 'db'],
   ["cluster diag: a failed create database names no cluster", "test/harness.mjs", " + r.stderr + clusterDiag(cluster));", " + r.stderr);", 'db'],
   ["cluster guard (real kill): a dead owner's cluster is never stopped by the sweep", "test/harness.mjs", "    if (alive(info.pid)) continue;\n", "    continue;\n", 'db'],
   ["ci: the CLI full suite step is not mapped", "commands/ci.mjs", "'CLI full suite and mutants (when the change reaches them)', ", "", 'unit'],

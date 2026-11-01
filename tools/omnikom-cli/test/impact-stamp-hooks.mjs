@@ -770,6 +770,17 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
         check('cluster guard: a failed bind named in the server log walks to the next port of the block, one printed line per try, and the marker follows the port (one file, removed by stop)',
           startArgs().map(portOf).join() === '21500,21501,21502' && String(c4.port) === '21502' && String(marker4.port) === '21502' && before4.join() === `${process.pid}-21502.json` && mine().length === 0
           && JSON.stringify(said) === JSON.stringify(['cluster: port 21500 in use (could not bind), trying 21501', 'cluster: port 21501 in use (could not bind), trying 21502']), JSON.stringify({ ports: startArgs().map(portOf), said, marker4, before4, after: mine() }));
+        // a mutate.mjs copy has OMNIKOM_TEST_CLUSTER_PORT set (the parent's shared cluster): a start that names its port (firstPort) is a request for
+        // a cluster of its own and must not be answered with the shared one
+        process.env.OMNIKOM_TEST_CLUSTER_PORT = '55555';
+        calls.length = 0;
+        const sharedOnly = h.startCluster({ markerDir: mk, run: fakeStart, signals: false });
+        const calls1 = calls.length;
+        const own = h.startCluster({ markerDir: mk, run: fakeStart, signals: false, firstPort: 21500 });
+        delete process.env.OMNIKOM_TEST_CLUSTER_PORT;
+        check('cluster guard: with a shared cluster in the environment (a mutate copy) a start that names its port still starts its own cluster on that port; one that does not name it gets the shared one',
+          sharedOnly.shared === true && String(sharedOnly.port) === '55555' && calls1 === 0 && !own.shared && String(own.port) === '21500' && calls.some(c => c[0] === 'initdb'), JSON.stringify({ sharedOnly: sharedOnly.port, calls1, own: own.port, shared: own.shared }));
+        own.stop();
         calls.length = 0; said = [];
         let e5 = null;
         try { h.startCluster({ markerDir: mk, run: fakeBind(99, 'FATAL:  data directory "x" has wrong ownership'), signals: false, firstPort: 21500, say: l => said.push(l) }); } catch (e) { e5 = e; }
