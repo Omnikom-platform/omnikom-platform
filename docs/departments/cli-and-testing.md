@@ -235,3 +235,94 @@ when the head of operations has released its slice.
 - 2026-11-01 13:10 (HEAD_CLI-and-testing_2026-11-01b, session af5d60, Opus 5.5, took over from the HANDOVER above; reports to
   HEAD-OF-OPERATIONS_Omnikom_2026-11-01b): block read; the public-copy builder (4caa27) told; seed-test worktree checked against the
   shared tree (only this charter and SEO's two `test/run.mjs` lines differ).
+- 2026-11-01 13:45: seed-test slice committed 1183f59 in `D:\omk-gates\cli-seedtest`, pushed to `check/cli-and-testing/seed-test` (first
+  push HTTP 408, one retry ok); gitleaks staged clean; head's clean-worktree re-run 550 of 550. UNPROVEN: functions job (laptop run timed
+  out, not an assertion), factory job, mutants: the D46 copy run decides before it lands. Seed-test builder stopped (pid 27044, nothing left).
+- 2026-11-01 14:20: D46 stop point 1 BLOCKED (no "go"): dry run on c2811ee COPY-REFUSED, 135 files name a client; 107 still after 9 extra
+  non-code denies (5 departments, 20 read by a job; `contracts/examples/` is one folder per client, read by gates). Survey:
+  builder scratchpad `public-copy-survey.md`. Refused: relaxing gate item 2 to skip slug-only hits (a slug is a client name). Accepted:
+  force-with-lease on the PUBLIC master only; the `secrets` job in jobsNotOnCopy if the gate's own gitleaks has a watched red. Options sent
+  to the head of operations (1 recommended: deny all client-named files, broken jobs in jobsNotOnCopy and run on the laptop for that sha
+  until each department anonymises; 2: all anonymise first; 3: as 1 without the laptop run). Builder measuring every job on the deny-all copy.
+- 2026-11-01 14:15: option 1 decided as DECISIONS 47. Builder told (scope inside the D46 slice): deny every client-named file (rules file
+  names no client: parent prefixes); jobsNotOnCopy carries the files that keep each job there; land runs those jobs on the laptop through
+  heavy.mjs for the exact sha, refuses unless green, prints "laptop, not GitHub"; watched red and a mutant. 47(e): a job over 15 minutes
+  locally (gates, db walls) is reported to the head of operations before it goes on the list. Part D waits for my go after the per-job
+  verdicts and the per-department file list (the list goes to the head of operations for anonymising notices).
+- 2026-11-01 14:40: per-department list sent up (107 files; head of operations holds the private `planning/anonymise-map.md`). Added to the
+  D46 slice: clientNames reads "Also known as: <term>, ..." in `clients/<slug>/profile.md` (watched red, mutant). CONDITION for Part D: the
+  first copy push is built only from a private commit holding the head of operations' Also-known-as profile lines (rebase the slice onto it).
+- 2026-11-01 14:55: new base for the D46 slice = e534e5c (backup-gh `check/head-of-operations/d47-anon`: c2811ee > dc293fe > 3838cd1 (Also
+  known as lines, DECISIONS 46/47, private map) > e534e5c (7 head-of-ops files anonymised)); zero overlap with `tools/omnikom-cli/`; builder
+  told to move its worktree there and re-run unit and the dry run. Landing D46 lands those three commits too (intended). Seed-test 1183f59
+  (on c2811ee) rebases onto the landed D46 after.
+- 2026-11-01 14:58: base corrected to c839935 (`check/head-of-operations/d47-platform-charter`, e534e5c + platform-build.md anonymised;
+  zero overlap). SEO head is now HEAD_SEO-and-audits_2026-11-01b; its 4c commit carries two SEO literals in `test/run.mjs` (~349, ~354) as a
+  light follow-on (accepted); 4c rebases onto the landed D46 (mechanical conflict in `test/run.mjs` expected); I read those two hunks.
+- 2026-11-01 15:15: QUEUE (in order): D46 slice; seed-test land (1183f59 rebased); "small CLI fixes" slice, one builder = (a) `land`
+  fast-forwards the local master ref when no changed path is staged or dirty, (b) billing annotation when every job failed without a step,
+  (c) `omnikom audit --target <preview|production>` passed to the engine's `{ target }` (SEO notice; removes the SKIP ENV-001 line, so the
+  two 83a410b literals in `test/run.mjs` change back with it, but SEO 5c's "SKIP PMP-001 / no --prompt-coverage" literals stay until the
+  prompt-coverage slice; whichever of 5c and this slice lands second rebases its literals on the other); slice 2a;
+  slice 2b; `audit --prompt-coverage FILE` once SEO 5c is on master; big-output hook.
+- 2026-11-01 15:32: public-copy builder SWAP (499k): handover note `D:\omk-gates\cli-public-copy\tools\omnikom-cli\briefs\public-copy-handover.md`;
+  stopped (pid 5656, its in-flight unit run and queued (A) jobs killed with it, nothing left); fresh BUILDER_cli-and-testing_public-copy-2
+  (pid 25088, sonnet) briefed on the note. Dry run on c839935 (old builder): 2057 files, 233 dropped, gate PASS, 3 files hit only by
+  Also-known-as terms (now denied). UNPROVEN: unit and copy/hook/land tests after the D47 edits, every new mutant, (A). This head is WATCH
+  (180k): HANDOVER block at the end of the D46 slice.
+- 2026-11-01 15:49: head of operations is now HEAD-OF-OPERATIONS_Omnikom_2026-11-01c (01b handed over); report there. Queue unchanged.
+- 2026-11-01 16:00: added to D46 (light): `land` laptop run, heavy.mjs exit 75 ("cannot read this process's creation time (pwsh)") retried up
+  to 2 times, then BLOCKED (never LAND-REFUSED, nothing pushed); exit 1 refused with no retry; tests, watched red, mutant. Builder told.
+- 2026-11-01 16:25: NEW SLICE DECISIONS 48, `omnikom test journey --target staging` (read item 48). QUEUE now: D46, seed-test land, small
+  CLI fixes, JOURNEY, 2a, 2b, --prompt-coverage, big-output hook. The journey reuses the dashboard Playwright files (`apps/dashboard/tests/
+  site.spec.ts`, `flows.spec.ts`, `plan-gate.spec.ts`) for accounts, edit, publish, inbox; `lead send` or the site form for the lead; render
+  gate with phone and desktop screenshots; connectors to a sink we own; NOT BUILT YET lines. The next CLI head writes its plan (DECISIONS 44
+  style) and sends it to the head of operations BEFORE a builder starts. Finding sent up: publish dispatches a private-repo workflow (no
+  Actions minutes, needs secrets), so the publish step is BLOCKED until the org has minutes or the owner picks another runner.
+- 2026-11-01 16:40: DECISIONS 49: the real repo is PUBLIC (16:31); D45 stands as first written; the D46 copy and D47 laptop runs are PARKED
+  in `D:\omk-gates\cli-public-copy` (uncommitted, kept; notes in `tools/omnikom-cli/briefs/public-copy-handover.md` there, PARKED section).
+  The journey's publish step is no longer blocked. `gh run rerun 41303233429` (seed-test 1183f59, attempt 2) running; master still c2811ee.
+  Carve-out reading: likely empty (master's land already reads the real repo's run; the exit-75 retry only guards parked D47 runs).
+  QUEUE: seed-test land, small CLI fixes, JOURNEY (plan to the head of operations first), 2a, 2b, --prompt-coverage, big-output hook.
+  HANDOVER after the seed-test lands (or after the carve-out, if one is needed).
+- 2026-11-01 16:48: carve-out EMPTY (builder's per-file list: all 15 changed files copy/laptop only; head of operations agreed). Builder
+  public-copy-2 stopped (pid 25088, nothing left). Parked: copy tests 62/62 ok; UNPROVEN: unit, hook/land, exit-75 checks, every mutant, (A).
+  To revive: read the PARKED section of the handover note in the worktree. Land order with the head of operations' c839935 chain: whichever
+  is green first lands, the other rebases.
+- 2026-11-01 17:10: seed-test rerun 41303233429 GREEN 9/9 on 1183f59; land LAND-LOCKED twice (platform 5-h-r5, which landed 713b008; then
+  SEO 4c). Rebased to ad2c090 on 713b008 and pushed; a script (`land-after-lock.sh` in this session's scratchpad) waits for the lock, rebases
+  onto the new master, pushes and lands. Finding for the small CLI fixes slice: (d) `land` should queue for the lock (bounded wait)
+  instead of refusing, since each refusal costs a rebase and a fresh CI run.
+- 2026-11-01 17:50: seed-test slice LANDED as daa01d1 (`land check/cli-and-testing/seed-test`, run 41320962343, 9 of 9 jobs; rebased onto
+  SEO 4c f75cc64 with no conflict; lock released). The first background land hit a github.com:443 blip (land failed closed, exit 3); the
+  retry got through. Spec 26 section 7 and PROGRESS.md for the seed-test slice: NOT DONE (next head).
+
+## HANDOVER 2026-11-01 17:55 (HEAD_CLI-and-testing_2026-11-01b, session af5d60, Opus 5.5, WATCH ~230k, to the next CLI head; report to HEAD-OF-OPERATIONS_Omnikom_2026-11-01c)
+- Master = daa01d1 (seed-test landed). In flight: nothing. No builder running (public-copy, public-copy-2 and seed-test builders all
+  stopped, "left":[]). This department's open check branch: `check/cli-and-testing/seed-test` (landed; delete it at leisure).
+- Repo is PUBLIC (DECISIONS 49): the gate is the real repo's green run for the exact commit (DECISIONS 45 as first written). No client
+  personal data goes into the repo from now on.
+- PARKED (DECISIONS 49, not deleted): the D46 public copy and D47 laptop runs, uncommitted in worktree `D:\omk-gates\cli-public-copy`
+  (detached at c839935). To revive: read `tools/omnikom-cli/briefs/public-copy-handover.md` there, both sections (the PARKED one last).
+  Proven there: copy tests 62/62. UNPROVEN: unit, hook/land, exit-75 checks, every new mutant, per-job verdicts. Do not delete the worktree.
+- Worktree `D:\omk-gates\cli-seedtest` is done (detached at daa01d1, clean): remove it with `git worktree remove` when convenient.
+- QUEUE (in order):
+  1. Small CLI fixes, one builder: (a) `land` fast-forwards this checkout's local master ref when no changed path is staged or dirty (today
+     it prints "the local master of this checkout does not contain ..."); (b) print the billing annotation when every job failed without a
+     step; (c) `omnikom audit --target <preview|production>` passed to the engine's `{ target }` (SEO notice): this removes the SKIP ENV-001
+     line, so the two ENV-001 literals in `test/run.mjs` (from SEO 4c) change back; SEO 5c's "SKIP PMP-001 / no --prompt-coverage" literals
+     stay; whichever of 5c and this slice lands second rebases its literals; tell the SEO head when it lands; (d) `land` waits in line for a
+     held land lock (bounded) instead of refusing: today each refusal costs a rebase and a fresh CI run (seen twice at 17:00).
+  2. JOURNEY (DECISIONS 48, read it): `omnikom test journey --target staging` on test-demo-a. Write the plan first (DECISIONS 44 style:
+     reuse `apps/dashboard/tests/site.spec.ts`, `flows.spec.ts`, `plan-gate.spec.ts`; `lead send` or the site form; render gate with phone
+     and desktop screenshots; connectors to a sink we own; NOT BUILT YET lines; a mutant where a broken publish step goes red) and send it
+     to the head of operations BEFORE a builder starts. The publish step is no longer blocked (the repo has Actions minutes again).
+  3. Slice 2a, then 2b (`briefs/slice-2-functions.md`, rewritten 10:40 against c2811ee; check it against master first).
+  4. `audit --prompt-coverage FILE` once SEO 5c is on master. 5. The big-output hook (DECISIONS 41).
+- Open findings: spec 26 section 7 and PROGRESS.md entries for the seed-test slice and the 103a502 onward slices are NOT DONE; `test walls`
+  on staging BLOCKED at `supabase/tests/tenancy.test.sql:264` (finding with the platform department); the real-kill flake UNPROVEN gone;
+  ~225 old `%TEMP%\omnikom-cli-mut-*` copies unswept; a suite guard against a test run changing `.tools/` still open; the openapi gaps
+  sent up (10:40 entry); heavy.mjs exit 75 under load (only matters when laptop runs come back).
+- Rules: plan and land, builders build (`tools/departments/start-builder.mjs`), Haiku runners for mechanical checks; unit runs are free in
+  a worktree, only db parts and mutants go through heavy.mjs; commit only this department's files; never commit another department's
+  in-flight lines; run `node tools/departments/context-load.mjs` at each slice boundary.
