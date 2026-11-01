@@ -1,0 +1,53 @@
+# PROBE ONLY (check/cli-and-testing/real-kill-probe): not part of the fix commit. Runs tools/omnikom-cli/test/port-bind-probe.mjs on the
+# runner image to show what a held port does to a cluster started on it. Same pins as ci.yml.
+name: real-kill-probe
+
+on:
+  push:
+    branches: [check/cli-and-testing/real-kill-probe]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: PostgreSQL 16 binaries on PATH (the image's own; apt install postgresql only if the image lacks them)
+        run: |
+          if [ -x /usr/lib/postgresql/16/bin/initdb ]; then
+            echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          else
+            sudo apt-get update
+            sudo apt-get install -y postgresql
+            printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
+          fi
+      - name: The runner (ephemeral range, image)
+        run: |
+          echo "ip_local_port_range: $(cat /proc/sys/net/ipv4/ip_local_port_range)"
+          grep -E '^(PRETTY_NAME|VERSION)=' /etc/os-release
+          echo "ImageVersion: ${ImageVersion:-unset}"
+          pg_ctl --version
+          cat /etc/hosts | head -5
+      - name: Probe, a held port, every start command
+        run: |
+          cd tools/omnikom-cli/test
+          for args in "--hold none --start old" "--hold tw --start old" "--hold est --start old" "--hold est --start pinned" "--hold est --start harness" "--hold none --start harness"; do
+            echo "### $args (port 21500)"
+            node port-bind-probe.mjs --port 21500 $args
+          done
+          for args in "--hold none --start old" "--hold est --start old" "--hold est --start harness"; do
+            echo "### $args (port 57338, inside the ephemeral range)"
+            node port-bind-probe.mjs --port 57338 $args
+          done
+      - name: Probe, how many ports of the old block the suite's own psql sockets hold
+        run: node tools/omnikom-cli/test/port-bind-probe.mjs --census 1500

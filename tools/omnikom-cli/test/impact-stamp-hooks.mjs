@@ -740,6 +740,45 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
         const c2 = (() => { try { return h.startCluster({ markerDir: mk, run: (cmd, args) => { if (cmd === 'initdb') { initDir = dirname(args[1]); return { status: 1, stderr: 'no space left' }; } return fakeStart(cmd, args); } }); } catch (e) { failed = e; return null; } })();
         check('cluster guard: a start that fails (initdb) cleans up after itself: no folder, no marker, no handler left', c2 === null && !!failed && /initdb failed/.test(failed.message) && listeners() === before
           && !!initDir && !existsSync(initDir) && readdirSync(mk).filter(f => f.endsWith('.json') && f.startsWith(`${process.pid}-`) && !mLive.endsWith(f)).length === 0, String(failed && failed.message));
+
+        // the port: a block below both ephemeral ranges, the server pinned to 127.0.0.1, a failed bind walks to the next port with a printed line
+        const startArgs = () => calls.filter(c => c[0] === 'pg_ctl' && c.includes('start'));
+        const portOf = c => Number((/-p (\d+)/.exec(c[c.indexOf('-o') + 1]) || [])[1]);
+        const logOf = c => c[c.indexOf('-l') + 1];
+        const P = h.CLUSTER_PORTS;
+        const fakeBind = (nBind, text = 'LOG:  could not bind IPv4 address "127.0.0.1": Address already in use') => (cmd, args) => {
+          calls.push([cmd, ...args]);
+          if (cmd === 'initdb') mkdirSync(args[1], { recursive: true });
+          if (cmd === 'pg_ctl' && args.includes('start')) {
+            if (startArgs().length <= nBind) { writeFileSync(logOf(['pg_ctl', ...args]), text + '\n'); return { status: 1, stdout: '', stderr: 'pg_ctl: could not start server' }; }
+          }
+          return { status: 0, stdout: '', stderr: '' };
+        };
+        calls.length = 0;
+        const c3 = h.startCluster({ markerDir: mk, run: fakeStart, signals: false });
+        const first = startArgs()[0];
+        check('cluster guard: a cluster takes a port from the 21000-21899 block (outside the Linux and Windows ephemeral ranges) and the server listens on 127.0.0.1 only',
+          P.first === 21000 && P.count === 900 && portOf(first) >= 21000 && portOf(first) <= 21899 && String(portOf(first)) === String(c3.port) && first[first.indexOf('-o') + 1].includes('-c listen_addresses=127.0.0.1'), JSON.stringify(first));
+        c3.stop();
+        calls.length = 0;
+        let said = [];
+        const c4 = h.startCluster({ markerDir: mk, run: fakeBind(2), signals: false, firstPort: 21500, say: l => said.push(l) });
+        const marker4 = JSON.parse(readFileSync(c4.marker, 'utf8'));
+        check('cluster guard: a failed bind named in the server log walks to the next port of the block, one printed line per try, and the marker follows the port',
+          startArgs().map(portOf).join() === '21500,21501,21502' && String(c4.port) === '21502' && String(marker4.port) === '21502'
+          && JSON.stringify(said) === JSON.stringify(['cluster: port 21500 in use (could not bind), trying 21501', 'cluster: port 21501 in use (could not bind), trying 21502']), JSON.stringify({ ports: startArgs().map(portOf), said, marker4 }));
+        c4.stop();
+        calls.length = 0; said = [];
+        let e5 = null;
+        try { h.startCluster({ markerDir: mk, run: fakeBind(99, 'FATAL:  data directory "x" has wrong ownership'), signals: false, firstPort: 21500, say: l => said.push(l) }); } catch (e) { e5 = e; }
+        check('cluster guard: a start that fails for any other reason stops at once (one pg_ctl start, no port line) and the error carries the data folder, the postmaster state and the log tail',
+          !!e5 && startArgs().length === 1 && said.length === 0 && /port 21500/.test(e5.message) && /postmaster/.test(e5.message) && /data/.test(e5.message) && /server log, last 20 lines/.test(e5.message) && /wrong ownership/.test(e5.message), String(e5 && e5.message));
+        calls.length = 0; said = [];
+        let e6 = null;
+        try { h.startCluster({ markerDir: mk, run: fakeBind(99), signals: false, firstPort: 21898, say: l => said.push(l) }); } catch (e) { e6 = e; }
+        const tried = startArgs().map(portOf);
+        check('cluster guard: a bind that never works is tried on 5 ports at most, wraps inside the block (never outside 21000-21899), says so 4 times, then fails naming the log',
+          !!e6 && tried.join() === '21898,21899,21000,21001,21002' && said.length === 4 && tried.every(p => p >= 21000 && p <= 21899) && /could not bind/.test(e6.message), JSON.stringify({ tried, said, msg: String(e6 && e6.message).slice(0, 200) }));
       } finally { if (savedPort !== undefined) process.env.OMNIKOM_TEST_CLUSTER_PORT = savedPort; }
       check('cluster guard: the cli tests start no browser (nothing under test/, commands/ or lib/ names one)',
         ![...readdirSync(join(CLI_ROOT, 'test')).map(f => join(CLI_ROOT, 'test', f)), ...readdirSync(join(CLI_ROOT, 'commands')).map(f => join(CLI_ROOT, 'commands', f)), ...readdirSync(join(CLI_ROOT, 'lib')).map(f => join(CLI_ROOT, 'lib', f))]

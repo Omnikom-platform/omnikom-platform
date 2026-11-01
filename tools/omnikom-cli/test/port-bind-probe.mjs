@@ -1,0 +1,121 @@
+// test/port-bind-probe.mjs: a probe, not a suite check. Takes the port P, what holds it, and the start command, and prints what a Postgres
+// cluster started on P does when something else already holds P. One JSON line, exit 0 (it reports; it does not judge).
+//   node test/port-bind-probe.mjs --port 21500 --hold none|tw|est --start old|pinned|harness
+//   --hold  none: nothing; tw: a TIME_WAIT socket whose LOCAL port is P (the client closed first); est: an ESTABLISHED client socket with
+//           local port P, held open for the probe (a psql call still open, or any program that owns P)
+//   --start old: the command the harness used until 2026-11-01 (pg_ctl -o "-p P -k \"\"": listen_addresses stays 'localhost' = ::1 and 127.0.0.1)
+//           pinned: the same with -c listen_addresses=127.0.0.1
+//           harness: harness.mjs startCluster() with its first try forced to P (it walks to P+1 on a failed bind and says so)
+// The 2026-11-01 reds: on Linux a held 127.0.0.1:P fails the IPv4 bind only; with 'localhost' the server still comes up on ::1, so pg_ctl -w
+// start says ok and 127.0.0.1:P is refused for the cluster's life.
+import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import net from 'node:net';
+import { startCluster, CLUSTER_PREFIX } from './harness.mjs';
+
+const arg = (n, d) => { const i = process.argv.indexOf(n); return i < 0 ? d : process.argv[i + 1]; };
+const hold = arg('--hold', 'none');
+const start = arg('--start', 'harness');
+const port = Number(arg('--port', 21000 + Math.floor(Math.random() * 900)));
+const sh = (cmd, args, o = {}) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 120000, ...o });
+
+// the range the OS hands out as local ports of outgoing connections
+function ephemeralRange() {
+  if (existsSync('/proc/sys/net/ipv4/ip_local_port_range')) return readFileSync('/proc/sys/net/ipv4/ip_local_port_range', 'utf8').trim().replace(/\s+/, '-');
+  const r = sh('netsh', ['int', 'ipv4', 'show', 'dynamicport', 'tcp']);
+  return String(r.stdout || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+}
+
+// state of the sockets whose local port is `p` (Linux /proc/net/tcp and tcp6; hex local port)
+function socketsOn(p) {
+  const out = [];
+  for (const f of ['/proc/net/tcp', '/proc/net/tcp6']) {
+    if (!existsSync(f)) continue;
+    for (const line of readFileSync(f, 'utf8').split('\n').slice(1)) {
+      const c = line.trim().split(/\s+/);
+      if (c.length < 4) continue;
+      if (parseInt(c[1].split(':')[1], 16) === p) out.push(`${f.endsWith('6') ? 'v6' : 'v4'}:${{ '01': 'ESTABLISHED', '06': 'TIME_WAIT', '0A': 'LISTEN' }[c[3]] || c[3]}`);
+    }
+  }
+  return out;
+}
+
+// a client socket whose LOCAL port is p, to a throwaway listener: closed at once (TIME_WAIT) or kept open (ESTABLISHED)
+async function makeHeld(p, keepOpen) {
+  const server = net.createServer(s => { s.on('end', () => s.end()); s.on('error', () => {}); });
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  await new Promise((res, rej) => {
+    setTimeout(() => rej(new Error('the held socket was not made in 10 s')), 10000).unref();
+    const c = net.connect({ host: '127.0.0.1', port: server.address().port, localPort: p }, () => { if (keepOpen) res(); else c.destroy(); });
+    c.on('error', rej);
+    c.on('close', () => res());
+  });
+  await new Promise(r => setTimeout(r, 300));
+}
+
+const ping = (host, p) => { const r = sh('psql', ['-h', host, '-p', String(p), '-U', 'postgres', '-d', 'postgres', '-X', '-q', '-t', '-A', '-c', 'select 1'], { timeout: 20000 }); return r.status === 0 ? 'ok' : String(r.stderr || r.error).split('\n')[0].replace(/\r/g, '').slice(0, 140); };
+const bindLines = log => (existsSync(log) ? readFileSync(log, 'utf8') : '').split('\n').filter(l => /could not bind|listening on|no socket created/.test(l)).map(l => l.replace(/\r/g, '').slice(0, 200));
+
+// --census N: N short psql calls against a cluster (what the suite does all day), then how many local ports of the OLD block (57000-57899)
+// and of the NEW block (21000-21899) are held by those sockets (TIME_WAIT lasts 60 s on Linux). Each held port is a port the old harness
+// could not have used. Linux only (/proc/net/tcp).
+if (process.argv.includes('--census')) {
+  const n = Number(arg('--census', 500));
+  const markers = mkdtempSync(join(tmpdir(), 'omnikom-cli-markers-'));
+  const c = startCluster({ markerDir: markers, signals: false });
+  for (let i = 0; i < n; i++) sh('psql', ['-h', '127.0.0.1', '-p', c.port, '-U', 'postgres', '-d', 'postgres', '-X', '-q', '-c', 'select 1'], { timeout: 20000 });
+  const held = new Map();                                                // local port -> states
+  for (const f of ['/proc/net/tcp']) {
+    if (!existsSync(f)) continue;
+    for (const line of readFileSync(f, 'utf8').split('\n').slice(1)) {
+      const col = line.trim().split(/\s+/);
+      if (col.length < 4) continue;
+      const lp = parseInt(col[1].split(':')[1], 16);
+      held.set(lp, [...(held.get(lp) || []), { '01': 'ESTABLISHED', '06': 'TIME_WAIT', '0A': 'LISTEN' }[col[3]] || col[3]]);
+    }
+  }
+  const inBlock = (a, b) => [...held.keys()].filter(p => p >= a && p <= b);
+  const states = ps => ps.flatMap(p => held.get(p)).reduce((m, s) => ({ ...m, [s]: (m[s] || 0) + 1 }), {});
+  const oldPorts = inBlock(57000, 57899), newPorts = inBlock(21000, 21899).filter(p => String(p) !== String(c.port));
+  console.log(JSON.stringify({ census: { psqlCalls: n, ephemeral: ephemeralRange(), socketsHeld: held.size, oldBlock57000to57899: { ports: oldPorts.length, ofPorts: 900, states: states(oldPorts) }, newBlock21000to21899: { ports: newPorts.length, ofPorts: 900 } } }));
+  c.stop(); rmSync(markers, { recursive: true, force: true });
+  process.exit(0);
+}
+
+const res = { port, hold, start, ephemeral: ephemeralRange() };
+let dir = '', stop = () => {};
+try {
+  if (hold === 'tw') await makeHeld(port, false);
+  if (hold === 'est') await makeHeld(port, true);
+  res.socketsBefore = socketsOn(port);
+  let landed = port;
+  if (start === 'harness') {
+    const markers = mkdtempSync(join(tmpdir(), 'omnikom-cli-markers-'));
+    const said = [];
+    const c = startCluster({ markerDir: markers, signals: false, firstPort: port, say: l => said.push(l) });
+    dir = c.dir; landed = Number(c.port); res.said = said; res.pgctlStatus = 0;
+    stop = () => { c.stop(); rmSync(markers, { recursive: true, force: true }); };
+  } else {
+    dir = mkdtempSync(join(tmpdir(), CLUSTER_PREFIX));
+    const data = join(dir, 'data');
+    let r = sh('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8']);
+    if (r.status !== 0) throw new Error('initdb failed: ' + (r.stderr || r.error));
+    r = sh('pg_ctl', ['-D', data, '-o', `-p ${port} -k ""${start === 'pinned' ? ' -c listen_addresses=127.0.0.1' : ''}`, '-l', join(dir, 'pg.log'), '-w', 'start']);
+    res.pgctlStatus = r.status;
+    stop = () => { sh('pg_ctl', ['-D', data, '-m', 'immediate', 'stop']); rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 }); };
+  }
+  res.landedPort = landed;
+  const pidFile = join(dir, 'data', 'postmaster.pid');
+  const pid = existsSync(pidFile) ? Number(readFileSync(pidFile, 'utf8').split('\n')[0]) : 0;
+  let alive = false; if (pid) { try { process.kill(pid, 0); alive = true; } catch { /* gone */ } }
+  res.postmasterPidAlive = alive;
+  if (alive) { res.ping4 = ping('127.0.0.1', landed); res.ping6 = ping('::1', landed); }
+  res.bindLines = bindLines(join(dir, 'pg.log'));
+} catch (e) { res.error = String(e.message || e).slice(0, 600); if (dir) res.bindLines = bindLines(join(dir, 'pg.log')); }
+finally {
+  try { stop(); } catch { /* best effort */ }
+}
+console.log(JSON.stringify(res));
+process.exit(0);   // the held socket and its listener would keep the loop alive

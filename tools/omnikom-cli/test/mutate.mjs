@@ -275,6 +275,16 @@ const MUTANTS = [
   ["cluster guard: the sweep also stops a live owner's cluster", "test/harness.mjs", "    if (alive(info.pid)) continue;\n", "", 'unit'],
   ["cluster guard: a planted marker can aim the sweep at any folder", "test/harness.mjs", "if (!ours(info.dir)) {", "if (false) {", 'unit'],
   ["cluster guard: a normal stop leaves its marker", "test/harness.mjs", "    rmSync(marker, { force: true });\n  };", "  };", 'unit'],
+  // the port wall (2026-11-01: a held 127.0.0.1:P left the server half bound on ::1, pg_ctl said ok, 127.0.0.1 was refused for its whole life)
+  ["cluster port: the old ephemeral-range ports (57000+) are back", "test/harness.mjs", "export const CLUSTER_PORTS = { first: 21000, count: 900, tries: 5 };", "export const CLUSTER_PORTS = { first: 57000, count: 900, tries: 5 };", 'unit'],
+  ["cluster port: the server listens on localhost again (half bound on ::1)", "test/harness.mjs", " -c listen_addresses=127.0.0.1`", "`", 'unit'],
+  ["cluster port: no walk to the next port on a failed bind (the held port fails the start)", "test/harness.mjs", "|| tries >= CLUSTER_PORTS.tries", "|| true", 'db'],
+  ["cluster port: any start failure walks on, not only a bind failure", "test/harness.mjs", "!bindFailed(log) ||", "", 'unit'],
+  ["cluster port: the walk is silent", "test/harness.mjs", "say(`cluster: port ${port} in use (could not bind), trying ${next}`);", "", 'unit'],
+  ["cluster port: the walk leaves its block (no wrap)", "test/harness.mjs", " % CLUSTER_PORTS.count);", ");", 'unit'],
+  ["cluster port: 9 tries instead of 5", "test/harness.mjs", "tries: 5 }", "tries: 9 }", 'unit'],
+  ["cluster port: the marker keeps the first port after a walk", "test/harness.mjs", "      writeMarker(markerDir, { pid: process.pid, dir, data, port, startedAt: new Date().toISOString() });\n    }\n  } catch", "    }\n  } catch", 'unit'],
+  ["cluster diag: a failed create database names no cluster", "test/harness.mjs", " + r.stderr + clusterDiag(cluster));", " + r.stderr);", 'db'],
   ["cluster guard (real kill): a dead owner's cluster is never stopped by the sweep", "test/harness.mjs", "    if (alive(info.pid)) continue;\n", "    continue;\n", 'db'],
   ["ci: the CLI full suite step is not mapped", "commands/ci.mjs", "'CLI full suite and mutants (when the change reaches them)', ", "", 'unit'],
   ["ci-heavy: the scope check always says not needed", "test/ci-heavy.mjs", "if (!v.needed) {", "if (true) {", 'unit'],
@@ -327,7 +337,7 @@ const sh = (args, env) => new Promise(res => {
 });
 
 const cluster = startCluster();
-const env = { OMNIKOM_TEST_CLUSTER_PORT: String(cluster.port), OMNIKOM_REPO_ROOT: REPO };
+const env = { OMNIKOM_TEST_CLUSTER_PORT: String(cluster.port), OMNIKOM_TEST_CLUSTER_DIR: cluster.dir, OMNIKOM_REPO_ROOT: REPO };   // the dir lets a copy name this cluster's log when it cannot reach it
 const copies = [];
 const copyCli = () => { const d = mkdtempSync(join(tmpdir(), 'omnikom-cli-mut-')); copies.push(d); cpSync(CLI, d, { recursive: true }); return d; };
 let missing = 0, survived = 0, done = 0;

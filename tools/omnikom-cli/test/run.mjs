@@ -9,7 +9,8 @@ import { spawn, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, relative, dirname, basename, delimiter, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { CLI_ROOT, REPO_ROOT, startCluster, sweepClusters, freshDb, cli, makeFunctionModel, makeSupabaseModel } from './harness.mjs';
+import net from 'node:net';
+import { CLI_ROOT, REPO_ROOT, startCluster, sweepClusters, clusterDiag, freshDb, cli, makeFunctionModel, makeSupabaseModel } from './harness.mjs';
 import { impactStampHooksTests } from './impact-stamp-hooks.mjs';
 
 const onlyUnit = process.argv.includes('--unit'), onlyDb = process.argv.includes('--db');
@@ -1473,11 +1474,44 @@ async function database() {
       await exited;
       const outlived = !!info && ping(info.port);                         // the kill ran no handler: the cluster is still running
       const markerLeft = !!info && existsSync(info.marker);
+      const diag = info ? clusterDiag(info) : '\n  cluster: the child printed no marker (it exited first)';   // read before the sweep removes the folder; printed only if the check fails
       const swept = sweepClusters({ markerDir: markers });
       const gone = !!info && !ping(info.port) && !existsSync(info.dir) && !existsSync(info.marker);
+      const killOk = up && outlived && markerLeft && swept.length === 1 && swept[0].swept === true && gone;
       check('cluster guard (real kill): a child starts a cluster and is killed hard; its marker and cluster outlive it; the next sweep stops it (pg_ctl stop -m immediate) and removes its folder and marker',
-        up && outlived && markerLeft && swept.length === 1 && swept[0].swept === true && gone, JSON.stringify({ pings: pings.slice(-3), up, outlived, markerLeft, swept, gone, info }));   // pings first: check() cuts the detail at 300 characters
+        killOk, JSON.stringify({ pings: pings.slice(-3), up, outlived, markerLeft, swept, gone, info }));   // pings first: check() cuts the detail at 300 characters
+      if (!killOk) console.log(`     real kill: failed at ${!up ? 'up (the first ping, 10 s of tries)' : !outlived ? 'outlived (the ping after the kill)' : !markerLeft ? 'markerLeft' : !gone ? 'gone (after the sweep)' : 'the sweep result'}; pings ${JSON.stringify(pings)}${diag}`);   // the long part: check() cuts its detail at 300 characters
       rmSync(markers, { recursive: true, force: true });
+
+      // a port held by something else: the harness walks to the next port of its block and says so, and the cluster answers on 127.0.0.1
+      {
+        const markers2 = mkdtempSync(join(tmpdir(), 'omnikom-cli-markers-'));
+        const holder = net.createServer(() => {});                          // a program that owns P (any listener: the bind conflict is the same)
+        const taken = await new Promise(res => { const tryOn = n => { holder.once('error', () => (n < 20 ? tryOn(n + 1) : res(0))); holder.listen(21000 + 100 + n * 10, '127.0.0.1', () => res(holder.address().port)); }; tryOn(0); });
+        const saidLines = [];
+        let held = null, heldErr = null;
+        try { held = startCluster({ markerDir: markers2, signals: false, firstPort: taken, say: l => saidLines.push(l) }); } catch (e) { heldErr = e; }
+        const answers = !!held && spawnSync('psql', ['-h', '127.0.0.1', '-p', String(held.port), '-U', 'postgres', '-d', 'postgres', '-X', '-q', '-c', 'select 1'], { encoding: 'utf8', timeout: 60000 }).status === 0;
+        check('cluster guard (held port): with P held by another program the harness says "port P in use (could not bind), trying P+1", lands on P+1 and the cluster answers on 127.0.0.1',
+          !!taken && !!held && String(held.port) === String(taken + 1) && answers && saidLines.length === 1 && saidLines[0] === `cluster: port ${taken} in use (could not bind), trying ${taken + 1}`,
+          JSON.stringify({ taken, port: held && held.port, saidLines, answers, err: heldErr && String(heldErr.message).slice(0, 150) }));
+        if (held) held.stop();
+        await new Promise(res => holder.close(res));
+        rmSync(markers2, { recursive: true, force: true });
+      }
+
+      // a database that cannot be created names its cluster: port, data folder, whether the postmaster pid lived, the log tail
+      {
+        const ghost = mkdtempSync(join(tmpdir(), 'omnikom-cli-pg-'));
+        mkdirSync(join(ghost, 'data'), { recursive: true });
+        writeFileSync(join(ghost, 'data', 'postmaster.pid'), '999999\n');
+        writeFileSync(join(ghost, 'pg.log'), 'LOG:  line one\nLOG:  the last line\n');
+        let msg = '';
+        try { freshDb({ port: '1', dir: ghost }); } catch (e) { msg = String(e.message); }
+        check('cluster diag: a create database that fails names the cluster (port, data folder, postmaster pid not alive) and prints the server log tail',
+          /^create database failed/.test(msg) && msg.includes('port 1') && msg.includes(join(ghost, 'data')) && /postmaster pid 999999 not alive/.test(msg) && msg.includes('LOG:  the last line'), msg.slice(0, 250));
+        rmSync(ghost, { recursive: true, force: true });
+      }
     }
 
     // ---- rule 1 over the whole database session
