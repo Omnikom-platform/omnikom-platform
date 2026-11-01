@@ -1189,7 +1189,10 @@ async function database() {
       });
       const pings = [];                                                     // each ping's status and first stderr line, for the failure detail
       const ping = port => { const p = spawnSync('psql', ['-h', '127.0.0.1', '-p', String(port), '-U', 'postgres', '-d', 'postgres', '-X', '-q', '-c', 'select 1'], { encoding: 'utf8', timeout: 60000 }); pings.push(`${p.status}${p.error ? ` ${p.error.code}` : ''} ${String(p.stderr || '').split('\n')[0].slice(0, 120)}`.trim()); return p.status === 0; };
-      const up = !!info && ping(info.port);
+      // the child prints its marker as soon as pg_ctl returns; on a loaded Linux runner the server can still refuse for a moment,
+      // so the first ping is retried for about 10 s (one try per second); the later pings are not retried (they measure the kill)
+      const pingUntil = (port, ms) => { const end = Date.now() + ms; for (;;) { if (ping(port)) return true; if (Date.now() >= end) return false; Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000); } };
+      const up = !!info && pingUntil(info.port, 10000);
       const exited = new Promise(res => { child.on('exit', () => res()); setTimeout(res, 60000); });
       child.kill('SIGKILL');
       await exited;
@@ -1198,7 +1201,7 @@ async function database() {
       const swept = sweepClusters({ markerDir: markers });
       const gone = !!info && !ping(info.port) && !existsSync(info.dir) && !existsSync(info.marker);
       check('cluster guard (real kill): a child starts a cluster and is killed hard; its marker and cluster outlive it; the next sweep stops it (pg_ctl stop -m immediate) and removes its folder and marker',
-        up && outlived && markerLeft && swept.length === 1 && swept[0].swept === true && gone, JSON.stringify({ up, outlived, markerLeft, swept, gone, info, pings }));
+        up && outlived && markerLeft && swept.length === 1 && swept[0].swept === true && gone, JSON.stringify({ pings: pings.slice(-3), up, outlived, markerLeft, swept, gone, info }));   // pings first: check() cuts the detail at 300 characters
       rmSync(markers, { recursive: true, force: true });
     }
 
