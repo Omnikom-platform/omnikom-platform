@@ -7,7 +7,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Workflow
 # Design Tournament — the protocol
 
 A reusable, niche-adaptive methodology for turning a template-feeling page into something that
-reads as genuinely agency-built. Built and proven on a real client site (Eli Buys Homes, a cash-
+reads as genuinely agency-built. Built and proven on a real client site (Example B Home Buyers, a cash-
 home-buyer business) across two runs: a first pass that upgraded the shared design system and
 enriched content (real but judged "still too subtle"), and a second pass — this protocol — that
 ran a full section-by-section personality tournament and closed the gap. Read this whole file
@@ -44,7 +44,7 @@ doesn't exist yet):
 - The existing site's real current tokens (colors, fonts, spacing) — a tournament should push
   craft and structure hard, but a REAL client's brand identity (their actual logo, their actual
   established color) is not something to swap out; work within it, the same way this protocol's
-  first Eli Buys Homes run kept the real gold/ink/paper/blue-link tokens and only expanded
+  first Example B Home Buyers run kept the real gold/ink/paper/blue-link tokens and only expanded
   technique around them.
 - The real niche: what kind of business, what emotional register does a visitor need (trust?
   warmth? urgency? technical credibility?), who is the actual audience.
@@ -87,7 +87,7 @@ past that). Each persona needs:
 - Explicit instruction that they're in competition — two other personas are attacking the same
   section right now with different sensibilities, so make the output unmistakably theirs.
 
-**Worked example (Eli Buys Homes, cash-home-buyer, San Ramon CA):**
+**Worked example (Example B Home Buyers, cash-home-buyer, a California city):**
 - *Vera — The Minimalist* (notion + cal): restraint as confidence, whitespace as luxury.
 - *Marcus — The Trust Architect* (coinbase): proof and numbers lead, adjectives follow, bold means unambiguous not loud.
 - *Iris — The Documentarian* (editorial): treats real seller situations as a magazine feature, not a sales page.
@@ -231,6 +231,6 @@ report "done" on an unresolved punch list.
 Build a `Workflow` script following Phases 4-7 literally (pipeline over sections -> parallel
 personas -> judge/synthesis -> single-threaded assembly -> motion pass -> independent final gate).
 Reuse the persona/reference-selection heuristic from Phase 1-2 for the new niche rather than
-copying the Eli Buys Homes personas verbatim. Scope each run to ONE page at a time unless
+copying the Example B Home Buyers personas verbatim. Scope each run to ONE page at a time unless
 explicitly told to run multiple pages in parallel (running multiple pages that share a CSS file
 in true parallel reintroduces pitfall #2 at the page level, not just the section level).

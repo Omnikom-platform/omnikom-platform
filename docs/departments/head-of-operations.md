@@ -14,6 +14,9 @@ where things stand in `.claude/POSITION.md`.
 - `tools/departments/`
 - `skills/SOURCE.md` (the shared skill registry; each skill folder stays with its department)
 - `skills/sync-skill.mjs` (the sync tool for that registry)
+- `README.md` (the repository front page)
+- `skills/design-tournament/SKILL.md` (the skill's protocol file; the rest of that folder stays with its department)
+- `skills/icm-librarian.agent.md` (the librarian agent copy)
 - `CLAUDE.md`
 - `sops/` except `sops/clients/`
 
