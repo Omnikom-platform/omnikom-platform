@@ -2,7 +2,7 @@
 
 | Copy here | Copied from | Version at copy | Date |
 |---|---|---|---|
-| `programmatic-enterprise-web-performance/` | `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance` (own git repo; its `.git` was not copied) | `1d510f1` "design stage: five-line direction opens DESIGN.md; nine passes for design partials, then t" | 2026-10-31 |
+| `programmatic-enterprise-web-performance/` | `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance` (own git repo; its `.git` was not copied) | `83c1fe6` "cdp-measure: the whole browser tree stops and the profile goes on every path (close, give-" | 2026-11-01 |
 | `design-tournament/` | `C:\Users\DELL\.claude\skills\design-tournament` | (no git) | 2026-10-24 |
 | `icm-librarian.agent.md` | `E:\Francine & Eli\.claude\agents\icm-librarian.md` | Francine & Eli repo | 2026-10-24 |
 | `unslop/` | https://github.com/heydamir/unslop folder `skills/unslop/` plus `LICENSE` and `CITATION.cff` (CC BY 4.0, Damir Sokolovsky; `scripts/` not copied; see `unslop/CREDIT.md`) | `4652254` "docs: links point to the heydamir account, hire section renamed" | 2026-10-31 |

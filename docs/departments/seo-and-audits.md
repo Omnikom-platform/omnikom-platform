@@ -169,3 +169,6 @@ options, never a fix made here.
   whole process tree on its time limit, SIGINT, SIGTERM and exit, with a test watched red: "grandchild pid 1684 still alive 5 s after
   live.mjs ended"). Laptop: test/run.mjs 486 of 486. Mutants and the POSIX tree kill run on GitHub (check branch). A hard kill of a
   driver runs no code: the skill's browser launcher gets a parent-death watchdog (outside copy, another builder; synced when done).
+- 2026-11-01 04:05: skill 83c1fe6 synced: cdp-measure.mjs stops the browser tree and removes its profile on close, give-up and an exit
+  guard (fix by the head of operations' builder); test-browser-leftovers.mjs (this department's builder) watched red on the old file
+  ("FAIL b: exit profile folder still exists", "FAIL c: uncaught ..."), head re-run through heavy.mjs: OK: 4 of 4; test-main 10 of 10.

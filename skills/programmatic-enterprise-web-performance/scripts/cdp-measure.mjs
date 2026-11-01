@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 
 const CHROME = [
   process.env.CHROME_PATH,
@@ -35,7 +35,23 @@ export async function launchBrowser() {
   // Chrome may hold its profile files for a moment after it exits: retry the removal (EBUSY/EPERM) instead of leaving temp folders.
   const removeDir = () => { try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch {} };
   proc.on("error", () => {}); // a start failure shows as "no DevTools port" below, never as an unhandled error event
-  const giveUp = async (msg) => { try { proc.kill(); } catch {} await sleep(300); removeDir(); throw new Error(msg); };
+  // The whole browser tree goes on every path (2026-11-01: 149 pewp-chrome-* profiles were left in %TEMP%; proc.kill()
+  // stops only the browser process on Windows, its children keep the profile locked, so removeDir failed silently).
+  // A process.on("exit") guard stops the tree and removes the profile if this process ends without close() (an error,
+  // process.exit, Ctrl-C); a hard kill runs no handler, and the machine reaper (~/.claude/hooks/reap-orphans.mjs)
+  // stops an orphaned pewp-chrome-* browser on its next pass.
+  const killTree = () => {
+    if (proc.exitCode !== null || proc.signalCode !== null) return;
+    if (process.platform === "win32") spawnSync("taskkill", ["/T", "/F", "/PID", String(proc.pid)], { stdio: "ignore", timeout: 10000, windowsHide: true });
+    else { try { proc.kill("SIGKILL"); } catch {} }
+  };
+  const onExit = () => { killTree(); removeDir(); };
+  const onSignal = (sig) => { onExit(); if (process.listenerCount(sig) === 0) process.exit(sig === "SIGTERM" ? 143 : 130); };
+  process.on("exit", onExit);
+  process.once("SIGINT", onSignal);
+  process.once("SIGTERM", onSignal);
+  const unguard = () => { process.off("exit", onExit); process.off("SIGINT", onSignal); process.off("SIGTERM", onSignal); };
+  const giveUp = async (msg) => { killTree(); await sleep(300); removeDir(); unguard(); throw new Error(msg); };
   let port;
   for (let i = 0; i < 100 && !port; i++) {
     await sleep(100);
@@ -84,8 +100,10 @@ export async function launchBrowser() {
     try { await send("Browser.close", {}, undefined, 5000); } catch {}
     try { ws.close(); } catch {}
     await sleep(500);
-    try { proc.kill(); } catch {}
+    killTree();
+    await sleep(300);
     removeDir();
+    unguard();
   };
   return { send, listeners, close, version: ver.Browser, userAgent: ver["User-Agent"] };
 }
