@@ -96,7 +96,8 @@ head then sends the brief with SendMessage to `BUILDER_<dept>_<slice>` (the brie
 by SendMessage to the head's name. When the report is in and the head has re-run the gate itself, it stops the builder with
 `node tools/departments/stop-builder.mjs --pid <pid>` (a session cannot end itself) and confirms nothing is left. Hands-on work
 (diagnosis, settings, proof runs) belongs to builders or Haiku runners, never the head; a head that does it in its own session
-is filling the context this route exists to keep clear.
+is filling the context this route exists to keep clear. Builders start on high effort unless the head passes `--effort <level>`;
+the machine default is low (`~/.claude/settings.json`), which a builder would otherwise inherit.
 
 ## Switching Claude accounts (DECISIONS 49 (e); docs read 2026-11-01)
 1. Each head finishes its slice and writes its HANDOVER block; the head of operations writes its own in `.claude/POSITION.md`.

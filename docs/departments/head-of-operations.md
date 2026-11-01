@@ -71,3 +71,4 @@ to the department that owns the files, as a brief with the evidence.
 
 ## Position log (append-only, newest last; one line per finished slice or blocked item: date, slice, PROVEN / BLOCKED, where the proof is)
 - 2026-10-30: department created; steps 1 and 2 verified by the head's own re-runs (POSITION.md 04:20 and 18:25 blocks).
+- 2026-11-01 20:41: DECISIONS 46 to 49, department tools (start-all, start-builder, stop-builder, context-load with prices.json), context-economics skill and the d49 CI fix LANDED as f4923df (run 41334858090, 9 of 9); proof lines in POSITION.md 19:22 and 20:06.

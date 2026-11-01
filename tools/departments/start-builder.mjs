@@ -2,7 +2,7 @@
 // session is registered and prints one JSON line {name, pid, model, cwd, launcher}. The head sends the task with SendMessage.
 //   node tools/departments/start-builder.mjs --dept <slug> --slice <name> [--model fable|opus|sonnet|haiku] [--effort low|medium|high|xhigh|max]
 //        [--cwd <dir>] [--dry-run]
-// The model defaults to the department charter's builder model. Exit 0 = started (or dry run), 1 = refused or not listed in 90 s, 2 = usage.
+// The model defaults to the department charter's builder model, the effort to high. Exit 0 = started (or dry run), 1 = refused or not listed in 90 s, 2 = usage.
 import { mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -24,7 +24,7 @@ export async function startBuilder(opts, deps = {}) {
   if (problems.length) throw new BuilderError(`the launcher is not clean: ${problems.join('; ')}`);
   if (opts.dryRun) return { dryRun: true, name: p.name, model: p.modelId, effort: p.effort, cwd: p.cwd, launcher: path, text };
   const s = await launchSession({ name: p.name, path, text, twinHint: ' or pick another slice name' }, deps);
-  return { name: p.name, pid: s.pid, model: p.modelId, cwd: p.cwd, launcher: path };
+  return { name: p.name, pid: s.pid, model: p.modelId, effort: p.effort, cwd: p.cwd, launcher: path };
 }
 
 /** Writes the launcher, opens it, waits until a session with that name registers; returns its registry entry. Shared with start-all.mjs.
@@ -76,7 +76,7 @@ if (isMain) {
   else {
     try {
       const r = await startBuilder(opts);
-      if (r.dryRun) console.log(`DRY RUN: nothing written, nothing started\nlauncher would be ${r.launcher}\n${r.text}\n${JSON.stringify({ name: r.name, model: r.model, cwd: r.cwd })}`);
+      if (r.dryRun) console.log(`DRY RUN: nothing written, nothing started\nlauncher would be ${r.launcher}\n${r.text}\n${JSON.stringify({ name: r.name, model: r.model, effort: r.effort, cwd: r.cwd })}`);
       else console.log(JSON.stringify(r));
     } catch (e) {
       if (!(e instanceof BuilderError)) throw e;
