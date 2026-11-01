@@ -5,6 +5,7 @@
 | `programmatic-enterprise-web-performance/` | `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance` (own git repo; its `.git` was not copied) | `83c1fe6` "cdp-measure: the whole browser tree stops and the profile goes on every path (close, give-" | 2026-11-01 |
 | `design-tournament/` | `C:\Users\DELL\.claude\skills\design-tournament` | (no git) | 2026-10-24 |
 | `icm-librarian.agent.md` | the Example B and D project's `.claude\agents\icm-librarian.md` | Example B and D repo | 2026-10-24 |
+| `context-economics/` | written here (no outside copy): BUILDER_head-of-operations_context-economics, brief `docs/departments/briefs/context-economics.md`; prices from platform.claude.com pricing, read 2026-11-01 | (new) | 2026-11-01 |
 | `unslop/` | https://github.com/heydamir/unslop folder `skills/unslop/` plus `LICENSE` and `CITATION.cff` (CC BY 4.0, Damir Sokolovsky; `scripts/` not copied; see `unslop/CREDIT.md`) | `4652254` "docs: links point to the heydamir account, hire section renamed" | 2026-10-31 |
 
 Drift rule: the outside copies stay in use for side work. When either side changes, sync on purpose (copy + update this table with

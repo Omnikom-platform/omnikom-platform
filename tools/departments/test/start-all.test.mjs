@@ -57,6 +57,9 @@ const deadPid = spawnSync(process.execPath, ['--version'], { timeout: 30000 }).p
 const quiet = { log: () => {} };
 const attempt = async (opts, deps) => { try { return { r: await sa.startAll(opts, { ...quiet, ...deps }) }; } catch (e) { return { err: e }; } };
 const mustNotOpen = () => { throw new Error('must not open a window'); };
+// The refusal these checks are about: a live head or builder. Without the clean-launch guard (CI) the dry run also ends with
+// "refusing: the launcher is not clean", which says nothing about stale registry rows, so a bare /refusing/ would be red there.
+const SESSION_REFUSAL = /refusing: \d+ head or builder session/;
 
 try {
   // --- the refusal: a live head (or builder) of ours blocks the start
@@ -74,15 +77,15 @@ try {
   check('refuse: a head named by its sidebar title ("HEAD: SEO and audits department") is refused, charter seo-and-audits', r.status === 1 && /head\s+HEAD: SEO and audits department pid \d+ \(seo-and-audits\)/.test(r.out) && r.out.includes('--name-prefix HEAD:    (HEAD: SEO'), r.out);
   clearSessions(); putSession({ pid: deadPid, sessionId: 's-dead', name: 'HEAD-OF-OPERATIONS_Omnikom_2099-01-01c' }, null);
   r = cli(['--dry-run']);
-  check('refuse: a registry entry whose process is gone does not block', !/refusing/.test(r.out) && /live sessions of ours: 0/.test(r.out), r.out);
+  check('refuse: a registry entry whose process is gone does not block', !SESSION_REFUSAL.test(r.out) && /live sessions of ours: 0/.test(r.out), r.out);
   // a pid Windows gave to another program (measured 2026-11-01: the registry row pid 7304 "HEAD: SEO and audits department" was svchost).
   // Same creation time on purpose, so only the program check tells it apart (the next case covers the creation time alone).
   clearSessions(); putSession({ pid: process.pid, sessionId: 's-reused', name: 'HEAD: SEO and audits department' }, { name: 'svchost.exe', cmd: 'svchost.exe -k netsvcs' });
   r = cli(['--dry-run']);
-  check('stale: a pid now held by another program (svchost) is listed as stale, never refused, never given a stop command', !/refusing/.test(r.out) && /live sessions of ours: 0/.test(r.out) && /stale, ignored: HEAD: SEO and audits department pid \d+/.test(r.out) && !r.out.includes(`--pid ${process.pid}`), r.out);
+  check('stale: a pid now held by another program (svchost) is listed as stale, never refused, never given a stop command', !SESSION_REFUSAL.test(r.out) && /live sessions of ours: 0/.test(r.out) && /stale, ignored: HEAD: SEO and audits department pid \d+/.test(r.out) && !r.out.includes(`--pid ${process.pid}`), r.out);
   clearSessions(); putSession({ pid: process.pid, sessionId: 's-reused2', name: 'HEAD_CLI-and-testing_2099-01-01' }, { created: T0 + 600e3 });
   r = cli(['--dry-run']);
-  check('stale: a pid now held by a later claude.exe (creation time differs) is stale, not refused', !/refusing/.test(r.out) && /stale, ignored: HEAD_CLI-and-testing_2099-01-01 pid \d+/.test(r.out), r.out);
+  check('stale: a pid now held by a later claude.exe (creation time differs) is stale, not refused', !SESSION_REFUSAL.test(r.out) && /stale, ignored: HEAD_CLI-and-testing_2099-01-01 pid \d+/.test(r.out), r.out);
 
   // --- the next free name
   clearSessions();

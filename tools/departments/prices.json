@@ -1,0 +1,35 @@
+{
+  "about": "Claude prices in USD per million tokens, read by tools/departments/context-load.mjs. One row per model id; a model priced by prompt length has bands (upTo = the largest prompt, in tokens, the band covers; null = no limit). Every row carries its source and the date it was read. Change a price here, nowhere else.",
+  "units": "USD per million tokens",
+  "cache": {
+    "defaultWriteTtl": "1h",
+    "ttlMinutes": { "5m": 5, "1h": 60 },
+    "source": "https://code.claude.com/docs/en/prompt-caching (Which TTL each request gets: 'Claude Code requests the one-hour TTL only on a Claude subscription within your plan's included usage'; overage drops to five minutes). Transcripts of this project carry cache_creation.ephemeral_1h_input_tokens on every write (measured 2026-11-01).",
+    "read": "2026-11-01"
+  },
+  "models": {
+    "claude-fable-5-1": {
+      "bands": [{ "upTo": null, "input": 10, "write5m": 12.5, "write1h": 20, "read": 0.25, "output": 50 }],
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing (Model pricing table; cache hits 0.025x base, footnote 1; full 1M context at standard pricing, Long context pricing)",
+      "read": "2026-11-01"
+    },
+    "claude-opus-5-5": {
+      "bands": [{ "upTo": null, "input": 4, "write5m": 5, "write1h": 8, "read": 0.2, "output": 20 }],
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing (Model pricing table; cache hits 0.05x base, footnote 2; full 1M context at standard pricing, Long context pricing)",
+      "read": "2026-11-01"
+    },
+    "claude-sonnet-5-5": {
+      "bands": [{ "upTo": null, "input": 2, "write5m": 2.5, "write1h": 4, "read": 0.1, "output": 10 }],
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing (Model pricing table; cache hits 0.05x base, footnote 2; full 1M context at standard pricing, Long context pricing)",
+      "read": "2026-11-01"
+    },
+    "claude-haiku-5-5": {
+      "bands": [
+        { "upTo": 100000, "input": 0.1, "write5m": 0.125, "write1h": 0.2, "read": 0.01, "output": 0.5 },
+        { "upTo": null, "input": 0.5, "write5m": 0.625, "write1h": 1, "read": 0.05, "output": 2.5 }
+      ],
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing (Model pricing table, two rows: prompts up to and over 100,000 tokens; Long context pricing: 'A request's prompt length counts all of its input tokens, including cache reads and cache writes')",
+      "read": "2026-11-01"
+    }
+  }
+}
