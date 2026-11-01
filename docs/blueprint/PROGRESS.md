@@ -695,6 +695,26 @@ Left on staging on purpose: those jobs (they moved `published_version` of the sa
 (6) postgres.js: `sql.array(uuids)` with `::uuid[]` fails in a plain connection (`malformed array literal`), a plain array works; the 4.2 `publish` uses `sql.array` and passed on staging, the difference was not chased.
 (7) Error bodies are `{ code, message }` (the `Problem` schema), not `{ code, msg }` as the brief wrote.
 
+## SEO and audits, slice 5b: the plan covers every prompt-map row (2026-11-01 11:55, builder)
+Skill SOURCE (not the repo copy; nothing committed): `scripts/lib-prompt-plan.mjs`, `scripts/gate-prompt-coverage.mjs` (GT-014, the 14th gate check), `scripts/test-prompt-plan.mjs`; changed `scripts/plan-site.mjs`, `scripts/gate.mjs`, `scripts/approve.mjs` (new kind `prompt-map`),
+`stages/plan.md`, `stages/gate.md`, `schemas/prompt-map.md` ("The plan's side"), `SKILL.md`. `plan-site.mjs` reads `approved/prompt-map.json` else `research/prompt-map.json`: `improve-page` adds `- <id> | <prompt>` under `## Prompts this page answers` in that page's brief;
+`new-page` adds a page of kind `situation` (`/situations/<slug>/`) or `comparison` (`/vs/<slug>/`), no cluster, with `## Facts about the other option` (each line `fact | source: <url> | date: <date>` from hand-filled `plan/comparison-facts.json`; no URL or date, or an impossible/future date, refuses the plan);
+`earn-mention` goes to `plan/offsite.json` `promptMentions`. `plan/prompt-coverage.json` = `{ map: sha256 of the map file, rows: [ { id, coveredBy, kind, reason } ] }`; `approve plan` copies it. GT-014 fails a row with neither page nor reason, a covering page not in the plan, not built, or whose brief lacks the row id, a row missing from the file, a stale map hash, a comparison fact line without URL and date.
+Also touched, said plainly: 5a's `lib-prompt-map.mjs` `isIsoDate` (it threw on `2026-13-45`; one-line fix, mutant for it), and the count literals 13 to 14 in `test-plan-gate.mjs` and `test-launch.mjs` (nothing else in them). `lib-site.mjs` untouched.
+Proof `tools/audit/proof/5b.md`: `PASS test-prompt-plan 66/66 checks`, `PASS mutants 39/39 went red for the right reason` (first run 36/39: three mutants crashed the suite, fixed in the test), `PASS test-plan-gate 313/313` and `mutants 64/64`, `LAUNCH TEST PASS: 55 of 55`, `test-prompt-map 72/72`, `MAIN-MODULE TEST PASS: 10 of 10`.
+UNPROVEN: a real map from a real lead export; the platform accepting page types `situation` and `comparison` (step 5, `entities.json`); `plan-picture.mjs` on prompt pages. NOT DONE (not this slice): PMP-001 in tools/audit (5c, reads `plan/prompt-coverage.json`), the monthly re-run (5d). Prompt pages are linked from home only.
+
+## SEO and audits, slice 5a: the prompt map, research side (2026-11-01 08:45, builder)
+Skill SOURCE (not the repo copy; nothing committed): `scripts/lib-prompt-map.mjs` (the row, validator PM-SHAPE/PROMPT/ID/PARTS/SRC/QUOTE/PII/FIX/ENG/DUP/UNS, personal-data rules, engine matching),
+`scripts/research-prompts.mjs` (`--leads` CSV of ONE workspace, `--reviews` JSON, forums.json and existing.json -> `research/prompt-candidates.json`; `--check`; `--engines`),
+`scripts/test-prompt-map.mjs`, `schemas/prompt-map.md`, `stages/research.md` "Prompt map" (three worked examples, one fix per row, unsourced rows to `research/prompt-unsourced.json`).
+Only the free text of `answers` is read; no name, email, phone or id is written; an answer naming the person or holding an email or phone is dropped whole; quotes cut to 300.
+Engines are filled from `research/ai-citations.json` and `captures/ai/*.json` by prompt id or EXACT prompt text; the script makes no request (Gemini stays under `PEWP_GEMINI_TERMS_ACK`).
+Head's decision 08:44 applied: a lead source in `prompt-map.json` has no quote (`--check` refuses one); the candidates live only in `<pewp>/private/` with its own `.gitignore` `*` written first on every run.
+Head's decision 09:09 applied: `--check` refuses a row whose prompt, scenario, comparison or constraint holds 8 or more consecutive words of a lead quote in `private/prompt-candidates.json` (names row id, field and ref, never the words); without that file it prints `lead wording not checked: no private candidates`; the stage says to reword in the buyer's terms.
+Proof `tools/audit/proof/5a.md`: `PASS test-prompt-map 72/72 checks` and `PASS mutants 62/62 went red for the right reason` (earlier runs 40/45, 51/52, 61/62: test faults and one unapplied patch fixed, listed there); `test-main.mjs` 10 of 10. NOT PROVEN: a paraphrase of a lead sentence (the check catches verbatim runs only).
+UNPROVEN: a real lead export or a live Gemini `ai-citations.json` (fixtures only); the three-part split is the session's judgement and untested. Next: 5b (the plan covers every row).
+
 ## SEO and audits, the first real live run (2026-11-01 05:00, head)
 `node ~/.claude/scripts/heavy.mjs -- node tools/audit/live.mjs https://preview.test-site-demo-a.pages.dev/ --cwd <scratchpad>/live`
 on master 73803db, one pass (the first try waited 30 min behind another session's heavy job and ran nothing, exit 75):
@@ -709,6 +729,33 @@ FINDING (P0 gap, slice 4c): every page answers `x-robots-tag: noindex` (snapshot
 `page.noindex` is read from the meta robots tag only (`tools/audit/lib/site.mjs:122`, the skill copy `lib-site.mjs:120`), so IDX-001
 ("listed but noindex") passed. A production site hidden by the header would pass. The fix must read the header in snapshot mode and
 decide folder mode (`_headers`) with the factory, since a built preview carries the same header on purpose.
+
+## SEO and audits, slice 4c: the noindex header and the build target (2026-11-01 13:40, builder, finish run)
+Brief `tools/audit/briefs/slice-4c-finish.md` (over `slice-4c-noindex-header.md`). Proof: `tools/audit/proof/4c.md`. Nothing committed; the head syncs the skill SOURCE copy.
+Built by the first 4c builder (it died mid-fix): `lib/site.mjs` (and the skill SOURCE `lib-site.mjs`) reads `x-robots-tag` into `page.robots` / `page.noindex` (no bot name or
+`googlebot:` counts, another named bot does not, `none` is noindex); `lib/headers.mjs` reads a folder's `_headers`; `audit(dir, { target })`, `run.mjs --target`, `live.mjs --target`
+(a bad target is exit 2); rule ENV-001 (P0, 29 rules): preview needs noindex on every HTML page, production forbids a header noindex; `REQUIRE_TARGET_FOR_FOLDER` in `index.mjs` is the
+one-line switch for later; fixtures `bad-ENV-001-preview`, `bad-ENV-001-production`, `snapshot-bad-IDX-001-header`, `good-preview` (127).
+This run (head of operations' ruling 2026-11-01 07:30, final): **a run with no target prints exactly ONE line, `SKIP ENV-001 / no --target ...`, in folder and snapshot mode, and judges
+no indexing** (`checks/env-001.mjs`; the subject is the site-wide `/`). Tests expect exactly that line everywhere a run has no target; mutants: the SKIP removed, no target judged as
+production, as preview, the SKIP once per page. README and `rules/ENV-001.md` say it. Follow-on literals (DECISIONS 43(2), expectation only): `factory/test/run.mjs:317`,
+`tools/omnikom-cli/test/run.mjs:349` and `:354` (before/after in the proof file).
+Gates, last lines:
+```
+node tools/audit/test/run.mjs                                               FAILED: 1 of 546 (the em dash check, on the head's tools/audit/briefs/slice-5-facts.md lines 16 and 54, not this slice; 545 pass)
+node tools/audit/run.mjs --list                                             29 rules
+node tools/audit/fixtures/build-fixtures.mjs --check                        OK: 127 fixture(s) equal the generator output
+run.mjs fixtures/good                                                       exit 0, one ENV-001 line: SKIP ENV-001 / no --target, so indexing is not judged (give --target preview|production)
+run.mjs fixtures/good --target production                                   exit 0, 0 FAIL
+run.mjs fixtures/good-preview --target preview                              exit 0, 0 FAIL
+run.mjs fixtures/snapshot-bad-IDX-001-header                                exit 1, FAIL IDX-001
+node factory/test/run.mjs                                                   OK: 88 of 88 checks passed
+node tools/omnikom-cli/test/run.mjs --unit                                  OK: 373 of 373 checks passed
+MUTATE_ONLY='ENV-001: no target' via heavy.mjs                              4 mutants, 4 caught, 0 survived, 0 not run, 0 target text missing
+```
+Watched red: the SKIP emptied in `checks/env-001.mjs` turned 135 of 546 checks red for the right reason (the missing line; proof file), file restored.
+UNPROVEN / NOT DONE: the full `mutate.mjs`, `run-all-gates`, `factory/runner/test/run.mjs` (heavy lock; GitHub runs them); the CLI and the factory pass no `--target` yet (both now
+show the one SKIP); Cloudflare's real `_headers` joining of several `X-Robots-Tag` lines; the skill SOURCE change is not synced.
 
 ## SEO and audits, slice 4b.1: temp folders and the live driver's child tree (2026-11-01 02:30, builder)
 Part A, no leaked temp folders. `test/run.mjs` keeps every temp folder under one root `omnikom-audit-run-*` (in `OMNIKOM_AUDIT_TMP`, else the system temp

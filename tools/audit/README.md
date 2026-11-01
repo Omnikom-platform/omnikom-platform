@@ -15,9 +15,9 @@ console.log(r.lines.join("\n"));
 process.exit(r.exit);
 ```
 - `audit(dir, options)` is synchronous. `options.rules` (array of ids, any case) limits the run; `options.config` overrides the length and
-  speed numbers; `options.psi` is the path of a PageSpeed Insights file (see PRF-001). `r.mode` is `"static"` or `"snapshot"`.
+  speed numbers; `options.psi` is the path of a PageSpeed Insights file (see PRF-001). `options.target` is `"preview"` or `"production"` (slice 4c, see ENV-001; no default). `r.mode` is `"static"` or `"snapshot"`, `r.target` the target judged or `null`.
 - It throws an `AuditError` with `.exit === 2` for a usage or configuration error: a missing folder, an unknown rule id, an empty `rules` list or an empty-string id (`no such rule: ""`; `rules` omitted or `null` runs every rule), a length config that
-  breaks WCF-004 (`warnMin < warnMax <= hardMax`). A wrapper prints `error.message` and exits 2.
+  breaks WCF-004 (`warnMin < warnMax <= hardMax`), a `target` that is not `"preview"` or `"production"` (an empty string included). A wrapper prints `error.message` and exits 2.
 - `import` itself throws (also `.exit === 2`) when a check file has no `rules/<ID>.md` or is malformed: `checks admitted only with a source`.
 - `listRules()` returns `[{ id, severity, source, notCovered }]`.
 - Config defaults (shipgate spec 8.0.0 web-delivery): `titleLength { warnMin 30, warnMax 60, hardMax 70 }`,
@@ -28,8 +28,9 @@ process.exit(r.exit);
 
 ## The runner
 ```
-node tools/audit/run.mjs <folder> [--json] [--only MET-003,MET-001] [--psi FILE] [--list]
+node tools/audit/run.mjs <folder> [--json] [--only MET-003,MET-001] [--psi FILE] [--target preview|production] [--list]
 ```
+- `--target preview|production` says which kind of build is judged (slice 4c; see "The build target" below). Anything else, or no value, exits 2.
 - `--psi FILE` names a `psi/<date>.json` written by the skill's `psi.mjs` (only a snapshot uses it; a missing or malformed file exits 2).
 - Prints the `lines`; `--json` prints the `audit()` object and nothing else; `--only` limits the rules; `--list` prints every rule with
   its severity and source and exits 0.
@@ -58,7 +59,7 @@ rules judge it. What differs from a built folder:
 
 ## The live driver (slice 2)
 ```
-node tools/audit/live.mjs <url> [--fresh] [--cwd DIR] [--max-age-days N] [--json] [--only MET-003,...] [--psi FILE] [-- <snapshot-site options>]
+node tools/audit/live.mjs <url> [--fresh] [--cwd DIR] [--max-age-days N] [--json] [--only MET-003,...] [--psi FILE] [--target preview|production] [-- <snapshot-site options>]
 ```
 Runs the skill's `scripts/live-target.mjs` as a child process with the same arguments (it reuses a complete snapshot younger than 7 days or
 takes one politely: GET only, a 4 s gap, robots.txt obeyed, one 429 allowance then stop), reads its `REUSE <dir>` / `NEW <dir>` / `FAILED ...`
@@ -112,8 +113,27 @@ The full rule text of each is in `rules/<ID>.md` with the spec path (`shipgate/s
 2026-10-30). The skill's checklist copy (`skills/programmatic-enterprise-web-performance/checklist/`) has the same ids with the text cut
 short; the FAIL line cites that file.
 
+## The build target (slice 4c): ENV-001 and the X-Robots-Tag header
+A preview is kept out of the index on purpose by the response header `X-Robots-Tag: noindex, nofollow` (the factory writes it into `_headers`), so the audit must
+know which kind of build it judges. The target is given, never guessed: `audit(dir, { target })`, `run.mjs --target`, `live.mjs --target`.
+- Where the header comes from: a snapshot's `response.json` headers (`x-robots-tag`, any case; a value with no bot name or after `googlebot:` counts, a value for another
+  named bot does not; `none` means noindex), or a folder's `_headers` file (Cloudflare Pages format: `*` splat, `:name` placeholder, `! Name` detach; a pattern that
+  cannot be matched exactly, such as a host pattern, is not judged). `lib/headers.mjs` reads the file.
+- `target: "production"`: a header noindex feeds `page.noindex`, so IDX-001 and every rule that skips non-indexable pages judge what Google will see.
+- `target: "preview"`: the header noindex is expected and does NOT feed `page.noindex` (the other rules judge the site as it will be in production); a meta robots noindex still does.
+- no target: a snapshot feeds the header into `page.noindex` (it is what the live site says); a built folder ignores `_headers`. **a run with no target prints one `SKIP ENV-001 / no --target ...`
+  line and judges no indexing** (head of operations, 2026-11-01, final: a check that did not run is never silent; the subject is the site-wide `/`, in folder mode and in
+  snapshot mode). A preview with no noindex, or a production build with the preview's header, therefore passes the other rules. That lasts only until the factory and the CLI
+  pass a target; after that the head turns "no target for a folder" into a usage error with ONE line: `export const REQUIRE_TARGET_FOR_FOLDER = false;` in `index.mjs` (set it to `true`;
+  a snapshot is never refused). A test runs a copy of the engine with the switch on.
+- ENV-001 (P0, `rules/ENV-001.md`): preview, every HTML page carries noindex (header or meta); production, no HTML page carries a header noindex. Each finding names the page,
+  the source of the noindex (`_headers` line and pattern, or the response header) and the target. A folder's root `404.html` is out of scope.
+- Fixtures: `bad-ENV-001-preview`, `bad-ENV-001-production` (also an IDX-001 FAIL, so it lists both with `multi`), `snapshot-bad-IDX-001-header`, and `good-preview`
+  (good plus a `/*` noindex `_headers`; passes with `--target preview`). A fixture entry may carry `target`, passed to the audit for that fixture only.
+- Not a checklist rule: its source line is the factory's (`factory/lib/launch.mjs headersText`), so `--list` shows that text instead of `checklist/<file>.md <ID>`.
+
 ## Design tells (slice 4b): the DSN rules
-28 rules now: the 17 above plus DSN-001 to DSN-011, the machine-checkable tells of generic AI-made design (DECISIONS 37; origin: the open skill
+29 rules now (28 before slice 4c): the 17 above plus DSN-001 to DSN-011, the machine-checkable tells of generic AI-made design (DECISIONS 37; origin: the open skill
 unslop by Damir Sokolovsky, CC BY 4.0, copied to `skills/unslop/`, rewritten here in our own words). The source line of each DSN rule names the line(s) of
 that copy and the decision, e.g. DSN-005: `skills/unslop/references/signs.md:47 and skills/unslop/SKILL.md:110; planning/DECISIONS.md 37 (owner, 2026-10-31); unslop by Damir Sokolovsky, CC BY 4.0`.
 All P1; DSN-010 and DSN-011 print WARN (the exit stays 0), the other nine print FAIL. A built site that trips one does not publish.
@@ -145,7 +165,7 @@ All P1; DSN-010 and DSN-011 print WARN (the exit stays 0), the other nine print 
 ## Layout
 - `index.mjs` the engine, `run.mjs` the runner, `live.mjs` the live driver.
 - `lib/site.mjs` the site reader: a copy of the skill's `scripts/lib-site.mjs` (header says which changes). `lib/context.mjs` folder
-  facts, sitemap reading, `resolveLink`. `lib/lines.mjs` line numbers. `lib/schema.mjs`, `lib/xml.mjs`, `lib/check.mjs` helpers.
+  facts, sitemap reading, `resolveLink`, the build target. `lib/headers.mjs` the `_headers` file (slice 4c). `lib/lines.mjs` line numbers. `lib/schema.mjs`, `lib/xml.mjs`, `lib/check.mjs` helpers.
   `lib/sitemap-lastmod.mjs` a copy of the skill's built-in SE-004/IDX-003 check with its logic lifted into functions.
   `lib/design.mjs`, `lib/typography.mjs`, `lib/colour.mjs` the readers of the DSN rules (slice 4b).
 - `checks/<rule-id>.mjs` one file per rule (`id`, `severity`, `source`, `run(site) -> findings[]`, optional `subjects(site)` and `notCovered`).
@@ -168,9 +188,11 @@ All P1; DSN-010 and DSN-011 print WARN (the exit stays 0), the other nine print 
 node tools/audit/test/run.mjs      ends "OK: N of N checks passed", exit 0
 node tools/audit/test/mutate.mjs   ends "N mutants, N caught, 0 survived, 0 not run, 0 target text missing", exit 0  (not run = the child was killed, exit null; exit 1)
 (`MUTATE_JOBS` mutants run at once, default 4; `MUTATE_TIMEOUT_S` raises the 180 s limit on a loaded machine; `MUTATE_ONLY=<regex>` runs only the mutants whose name matches; `MUTATE_FIRST=<regex>` starts those first. Temp folders: each run keeps all of them under one `omnikom-audit-run-*` root (in `OMNIKOM_AUDIT_TMP` if set, else the system temp folder) and removes it at the end, on a red check under FAILFAST, and on SIGINT/SIGTERM; `test/mutate.mjs` does the same with `omnikom-audit-mutate-*` and runs each child inside its own copy; a test in `test/run.mjs` fails if a killed mutant run leaves a folder.)
-node tools/audit/run.mjs tools/audit/fixtures/good              every line PASS, exit 0
+node tools/audit/run.mjs tools/audit/fixtures/good              every line PASS but one `SKIP ENV-001 / no --target` line, exit 0
+node tools/audit/run.mjs tools/audit/fixtures/good --target production            every line PASS, exit 0
+node tools/audit/run.mjs tools/audit/fixtures/good-preview --target preview       every line PASS, exit 0
 node tools/audit/run.mjs tools/audit/fixtures/bad-MET-003       a FAIL MET-003 line with file:line and source, exit 1
-node tools/audit/run.mjs tools/audit/fixtures/snapshot-good     every line PASS, exit 0
+node tools/audit/run.mjs tools/audit/fixtures/snapshot-good     every line PASS but one `SKIP ENV-001 / no --target` line, exit 0
 node tools/audit/run.mjs tools/audit/fixtures/snapshot-bad-PRF-001   a FAIL PRF-001 line (LCP 3100 ms > 2500 ms) with source, exit 1
 node tools/audit/run.mjs tools/audit/fixtures/bad-DSN           a FAIL or WARN line for each of DSN-001 to DSN-011, exit 1
 ```

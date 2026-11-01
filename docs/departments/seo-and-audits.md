@@ -210,3 +210,66 @@ options, never a fix made here.
     saved as utf8 (U+FFFD), psi.mjs output outside the snapshot, sitemaps fetched[].status unjudged, test-snapshot gap timing under
     load; clean-launch-guard refuses read-only commands that name the session scratchpad path (`\Temp\claude\...`), reported;
     `skills/SOURCE.md` and `skills/sync-skill.mjs` were flagged unowned by omnikom impact (now head-of-operations per impact).
+- 2026-11-01 07:50: head HEAD_SEO-and-audits_2026-11-01 (opus) took over; handover a0266ca landed (run 41276813381, 9 of 9 green).
+  RULING (head of operations, 07:30, overrides the outgoing head's "print nothing"): a run with no target prints exactly ONE
+  `SKIP ENV-001 ... no --target` line (a check that did not run is never silent); the factory and CLI test literals that expected no
+  SKIP change in the 4c commit as a DECISIONS 43(2) light follow-on, owners named. 4c finish: brief `tools/audit/briefs/slice-4c-finish.md`,
+  Sonnet builder running. Standing order: builders start as their own sessions through a clean launcher (start-builder.mjs once landed);
+  `node tools/departments/context-load.mjs` at each slice boundary; start nothing new at 90% weekly usage.
+- 2026-11-01 09:50: SLICE 5a PROVEN in the skill SOURCE (commit e3cfb65; brief `tools/audit/briefs/slice-5-prompt-map.md`, facts
+  `slice-5-facts.md`, proof `tools/audit/proof/5a.md`); head re-run: test-prompt-map 72/72, mutants 62/62 red for the right reason,
+  test-main 10 of 10, 0 em dashes. Head's rulings: a lead source carries no quote; candidates in `<pewp>/private/` (.gitignore `*`);
+  --check refuses 8+ consecutive words of a lead quote. UNPROVEN: paraphrase not caught; a real lead export; a live Gemini run.
+  NOT YET IN THE REPO: sync waits for 4c's skill change (`scripts/lib-site.mjs`, uncommitted in the source; sync-skill copies the
+  working tree), then ONE sync and SOURCE.md row for both. Builder BUILDER_seo_5a-prompt-map done (archive).
+- 2026-11-01 10:18: BLOCKED (owner click): GitHub Actions minutes for 2026-11 used up (Free plan, 2000 min), spending limit stops
+  new jobs. Until the head of operations says billing is fixed: land nothing, no local full gates as a substitute (DECISIONS 45),
+  one push per finished slice at most, re-run red runs with `gh run rerun <id>`. 5b builder BUILDER_seo_5b-plan-coverage running.
+- 2026-11-01 12:25: SLICE 5b PROVEN in the skill SOURCE (commit 120204c; proof `tools/audit/proof/5b.md`); head re-run through a Haiku
+  runner: test-prompt-plan 66/66 + 39/39 mutants, test-plan-gate 313/313 + 64/64, test-launch exit 0, test-prompt-map 72/72 + 62/62,
+  test-main 10 of 10, 0 em dashes. Coverage file `plan/prompt-coverage.json` { map, rows[{id, coveredBy, kind, reason}] } is what 5c
+  reads. Builder's out-of-list edits accepted (isIsoDate fix, GT count 13 to 14, approve kind prompt-map, docs). UNPROVEN: a real
+  map; platform page types situation and comparison (step 5); prompt pages linked from home only. Repo sync still waits for 4c.
+  Next: 5d (measure + blueprint 22; independent of tools/audit) while 4c finishes; 5c after the 4c builder is done.
+- 2026-11-01 13:00: report line changed: the head of operations is now HEAD-OF-OPERATIONS_Omnikom_2026-11-01b. 5d builder
+  BUILDER_seo_5d-measure running; 4c finish builder (in-session agent of this head) running.
+- 2026-11-01 14:20: QUEUED (DECISIONS 47, low priority, after 4c and the --target flip): 32 SEO files name a client (mostly the skill
+  and two audit briefs) and stay off the public check copy. List: `planning/anonymise-list.md` section seo-and-audits; neutral names:
+  `planning/anonymise-map.md` (private). Skill files change in the SOURCE, then sync and a SOURCE.md row. Done when the next copy dry
+  run shows zero client-named SEO files; report that line. One builder brief. Map rules added 14:37: clients/<slug>/ folders are
+  never renamed; a public file never points at a clients/<slug>/ path or an outside client folder path; read the map's "Extra terms".
+- 2026-11-01 14:50: HANDOVER (outgoing head HEAD_SEO-and-audits_2026-11-01, context about 245k; incoming head reports to
+  HEAD-OF-OPERATIONS_Omnikom_2026-11-01b).
+  - 4c BUILT AND RE-RUN, NOT COMMITTED (brief `tools/audit/briefs/slice-4c-finish.md`, proof `tools/audit/proof/4c.md`). Head re-run by
+    a Haiku runner on the working tree at 14:45: test/run.mjs `OK: 546 of 546`; --list 29 rules; build-fixtures `OK: 127 fixture(s)`;
+    good no target exit 0 with exactly `SKIP ENV-001 / no --target, so indexing is not judged`; good --target production 0 FAIL; good-preview
+    --target preview 0 FAIL; snapshot-bad-IDX-001-header exit 1 FAIL IDX-001; --target staging exit 2; factory/test/run.mjs `OK: 88 of 88`.
+    `node tools/omnikom-cli/test/run.mjs --unit` `OK: 373 of 373 checks passed` (head re-run, 14:53). MUTATE_ONLY by the builder: 4 of 4
+    caught. Full mutate.mjs and run-all-gates: on GitHub only.
+  - THE 4c COMMIT (head builds it in a PRIVATE index; the shared index holds other heads' staged files): tools/audit/** (includes the briefs
+    slice-4c-finish, slice-5-prompt-map, slice-5-facts and proofs 4c, 5a, 5b); this charter; ONLY the SEO blocks of
+    docs/blueprint/PROGRESS.md (4c, 5a, 5b; the file has 118 new lines, other departments' blocks too); the light follow-ons
+    `factory/test/run.mjs:317` (platform; the working copy has CRLF line endings: commit it LF) and `tools/omnikom-cli/test/run.mjs`
+    lines ~349 and ~354 ONLY (CLI; the file carries 281 lines of the CLI head's own in-flight edits: take HEAD's blob plus those two
+    literals, never the rest). Owners named in the message; the head of operations notifies platform and CLI when it is on its check
+    branch. Push once to `check/seo/4c-noindex-header`. Landing is BLOCKED on GitHub Actions minutes (entry 10:18); when billing is fixed:
+    `node tools/omnikom-cli/omnikom.mjs land check/seo/4c-noindex-header` (rebase on master first if master moved; master was c2811ee).
+  - THEN the skill: commit `scripts/lib-site.mjs` (4c's x-robots-tag read, uncommitted in the SOURCE; same text as tools/audit/lib/site.mjs)
+    in the skill SOURCE repo, then ONE `node skills/sync-skill.mjs programmatic-enterprise-web-performance` (Haiku runner) covering 5a
+    e3cfb65, 5b 120204c and that commit, a `skills/SOURCE.md` row, its own check branch. The sync copies the working tree: it must be clean.
+  - THEN: tell the head of operations 4c is on master; after the platform runner passes --target, flip `REQUIRE_TARGET_FOR_FOLDER` to true
+    in `tools/audit/index.mjs` on its own branch. The CLI's `omnikom audit --target` needs a notice to the CLI head (not sent).
+  - SLICE 5: 5a and 5b PROVEN in the skill source (entries above). 5d builder `BUILDER_seo_5d-measure` running (brief section 5d; reports
+    to this head's name: the incoming head re-tells it its head by SendMessage). 5c (tools/audit PMP-001, `--prompt-coverage`) NOT STARTED:
+    start it after the 4c commit, from the brief's 5c section; its SKIP needs the same follow-on literals as ENV-001's.
+  - NOTICES NOT YET SENT (slice 5, to the head of operations for the platform head): a read-only one-workspace text-only lead export for
+    research; page types situation and comparison (entities.json, partials, step 5); the runner passes --prompt-coverage; the ai-answers
+    writer and named/cited dashboard rows. Owner clicks for the list: PEWP_GEMINI_TERMS_ACK, the monthly schedule, AI answer captures,
+    GitHub Actions billing.
+  - FINDINGS: the skill's `stages/compare.md:38` has an em dash (older than slice 5); a `grep -c` with printf for the em dash returned 0 on a
+    file that had two (use a node counter: String.fromCharCode(0x2014)); the 4c builder ran from 07:30 to 14:30, mostly waiting on the heavy
+    lock (`--wait-min 120` needed). Queue after slice 5: anonymising (entry 14:20), then slice 4 (the six-question report).
+- 2026-11-01 15:00: head HEAD_SEO-and-audits_2026-11-01b (opus) took over from the 14:50 block; reports to HEAD-OF-OPERATIONS_Omnikom_2026-11-01b.
+  Corrections from the head of operations: landing waits on the DECISIONS 46 public code-only copy (CLI department), no longer on
+  billing; land with `omnikom land` once that copy runs green, rebased on master. Anonymising (DECISIONS 47) stays low priority, after
+  4c, --target and slice 5. BUILDER_seo_5d-measure re-told its head.

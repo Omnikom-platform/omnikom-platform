@@ -5,6 +5,7 @@
 //   3. Stripped regions (scripts, styles, comments, svg, templates, noscript) keep their newlines, so every token has a true line number.
 //   4. New page fields: raw, lines on headings/links/jsonld, titles[], descriptions[], mains[], imgs[], canonicals[], ogUrls[], hreflangs[].
 //   5. Slice 2 (2026-10-30): the snapshot branch of loadSite is rewritten (final-url keys, redirects map, body-less records, origin, meta, page fields slug/url/crawledUrl/ttfbMs/chain). Folder mode is untouched.
+//   6. Slice 4c (2026-11-01): googleRobotsDirectives and robotsNoindex (X-Robots-Tag); page fields metaRobots, metaNoindex, headerRobots[], headerNoindex, headerSource; a snapshot page's x-robots-tag header joins robots and noindex. These are also in the skill source (lib-site.mjs), same text.
 // Reads a built site into page records the gate can test: a static folder (index.html per directory) or a live snapshot
 // (made by snapshot-site.mjs: _site.json + pages/<slug>/raw.html.gz). Node built-ins only, tolerant HTML tokenizer.
 // A page: { path, status, title, metaDescription, canonical, robots, noindex, h1[], headings[{level,text,line}], blocks[{tag,text,region,seq}],
@@ -28,6 +29,26 @@ export const decode = (s) => s.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (m, e) => {
 });
 const ws = (s) => decode(s).replace(/\s+/g, " ").trim();
 const nl = (s) => s.replace(/[^\n]/g, ""); // only the newlines of a stripped region, so later line numbers stay true
+
+// X-Robots-Tag (audit engine slice 4c, 2026-11-01). The directives of one header value that apply to Google. `value` is a string or an array
+// (several header lines). Directives with no bot name in front of them count, and so do those after "googlebot:"; a value for another named
+// bot (bingbot:, googlebot-news:, ...) does not. A bot name holds until the next bot name in the same line (Google's own reading). "none"
+// means noindex and nofollow. unavailable_after and the max-* directives carry a colon but are not bot names.
+const ROBOTS_VALUE_DIRECTIVES = new Set(["unavailable_after", "max-snippet", "max-image-preview", "max-video-preview"]);
+export function googleRobotsDirectives(value) {
+  const out = [];
+  for (const line of Array.isArray(value) ? value : [value]) {
+    let scope = null; // null = every bot
+    for (const part of String(line ?? "").toLowerCase().split(",")) {
+      let tok = part.trim();
+      const m = /^([a-z0-9_-]+)\s*:\s*(.*)$/.exec(tok);
+      if (m && !ROBOTS_VALUE_DIRECTIVES.has(m[1])) { scope = m[1]; tok = m[2].trim(); }
+      if (tok && (scope === null || scope === "googlebot")) out.push(tok);
+    }
+  }
+  return out;
+}
+export const robotsNoindex = (directives) => directives.some((d) => d === "noindex" || d === "none");
 
 // Normal form of a page path so "/a", "/a/", "/a/index.html" and "/a.html" are one page.
 export function normPath(p) {
@@ -120,6 +141,8 @@ export function parseHtml(html) {
   page.blocks.sort((a, b) => a.seq - b.seq);
   page.headings.sort((a, b) => a.seq - b.seq);
   page.noindex = /\bnoindex\b/.test(page.robots);
+  // slice 4c: the meta robots reading stays in metaRobots/metaNoindex; the header fields are filled by loadSite (a snapshot) or by the audit engine (a folder's _headers)
+  page.metaRobots = page.robots; page.metaNoindex = page.noindex; page.headerRobots = []; page.headerNoindex = false; page.headerSource = null;
   page.text = ws(allText.join(" "));
   page.mainText = ws(mainText.join(" "));
   page.mainWords = words(page.mainText);
@@ -181,6 +204,11 @@ export function loadSite(dir) {
       pg.path = r.finalPath; pg.status = typeof r.resp.status === "number" ? r.resp.status : 0; pg.slug = r.slug; pg.url = r.fin.href; pg.crawledUrl = r.crawled.href;
       pg.ttfbMs = typeof r.resp.ttfbMs === "number" ? r.resp.ttfbMs : null; pg.chain = Array.isArray(r.resp.chain) ? r.resp.chain : [];
       pg.file = fs.existsSync(r.gz) ? path.relative(root, r.gz).split(path.sep).join("/") : `pages/${r.slug}/response.json`;
+      // slice 4c: the x-robots-tag header (any case of the name; several values or lines) joins the meta robots in page.robots, and page.noindex follows
+      const xr = []; if (r.resp.headers && typeof r.resp.headers === "object") for (const [k, v] of Object.entries(r.resp.headers)) if (k.toLowerCase() === "x-robots-tag") xr.push(...(Array.isArray(v) ? v : [v]).map(String));
+      pg.headerRobots = googleRobotsDirectives(xr); pg.headerNoindex = robotsNoindex(pg.headerRobots);
+      pg.headerSource = pg.headerNoindex ? `the response header x-robots-tag: ${xr.join(", ")}` : null;
+      pg.robots = [pg.metaRobots, ...pg.headerRobots].filter(Boolean).join(", "); pg.noindex = pg.metaNoindex || pg.headerNoindex;
       pages.set(pg.path, pg);
     };
     for (const r of recs) {

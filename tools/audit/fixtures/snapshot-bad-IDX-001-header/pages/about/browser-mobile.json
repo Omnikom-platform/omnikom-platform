@@ -1,0 +1,21 @@
+{
+ "url": "https://example-tea.invalid/about/",
+ "finalUrl": "https://example-tea.invalid/about/",
+ "profile": "mobile",
+ "measuredAt": "2026-10-30T08:05:00.000Z",
+ "timedOut": false,
+ "vitals": {
+  "lcpMs": 2010,
+  "cls": 0.01,
+  "tbtMs": 95,
+  "fcpMs": 1206,
+  "ttfbMs": 240,
+  "loadMs": 2610
+ },
+ "method": "median of 3 run(s); other fields from the median-LCP run",
+ "totals": {
+  "requests": 14,
+  "bytes": 412000
+ },
+ "errors": []
+}

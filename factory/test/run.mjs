@@ -314,7 +314,7 @@ await check('gates: the build runs them: a design whose hero adds a second <h1> 
 
 // ---------- 7. the audit engine judges the output ----------
 const auditGood = AUDIT.audit(GOOD);
-await check('audit: the good build has 0 FAIL on the whole dist (every line PASS or WARN)', () => (auditGood.exit === 0 && fails(auditGood).length === 0 && auditGood.lines.every((l) => /^(PASS|WARN) /.test(l))) || auditGood.lines.filter((l) => !l.startsWith('PASS')).join('\n'));
+await check('audit: the good build has 0 FAIL on the whole dist (every line PASS or WARN, plus the one SKIP ENV-001 no --target)', () => (auditGood.exit === 0 && fails(auditGood).length === 0 && auditGood.lines.every((l) => /^(PASS|WARN) /.test(l) || l.startsWith('SKIP ENV-001 / no --target')) && auditGood.lines.filter((l) => /ENV-001/.test(l)).length === 1) || auditGood.lines.filter((l) => !l.startsWith('PASS')).join('\n'));
 await check('audit: the live build has 0 FAIL too', () => { const r = AUDIT.audit(live.out); return (r.exit === 0 && fails(r).length === 0) || r.lines.filter((l) => !l.startsWith('PASS')).join('\n'); });
 const forced = build({ extra: ['--force-fail', 'heading'] });
 await check('force-fail heading: the build says FORCED FAILURE: heading and succeeds (the factory skipped its own heading check)', () => (forced.status === 0 && /^FORCED FAILURE: heading$/m.test(forced.stdout)) || `exit ${forced.status} ${forced.stdout} ${forced.stderr}`);

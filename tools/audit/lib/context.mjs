@@ -5,6 +5,7 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { loadSite, normPath } from "./site.mjs";
 import { lineAt } from "./lines.mjs";
+import { applyHeadersFile } from "./headers.mjs";
 
 function listFiles(root) {
   const out = [];
@@ -86,6 +87,17 @@ export function buildSite(dir, config, options = {}) {
   site.readBytes = (rel) => fs.readFileSync(path.join(site.dir, rel));
   site.readJson = (rel) => { try { return site.has(rel) ? JSON.parse(site.read(rel)) : null; } catch { return null; } };
   site.mtime = (rel) => fs.statSync(path.join(site.dir, rel)).mtimeMs;
+  // slice 4c: the build target decides whether an X-Robots-Tag noindex (a snapshot's response header, a folder's _headers file) feeds page.noindex,
+  // and so what IDX-001 and every rule that skips non-indexable pages judge. production: it feeds. preview: it does not (a preview carries it on
+  // purpose; the other rules judge the site as it will be in production). no target: a snapshot is what the live site says, so it feeds; a folder
+  // ignores _headers. A meta robots noindex always feeds. ENV-001 reads headerNoindex itself.
+  site.target = options.target || null;
+  site.headersFile = snap ? null : applyHeadersFile(site);
+  const headerFeeds = site.target === "production" || (!site.target && snap);
+  for (const p of site.pages.values()) {
+    p.noindex = p.metaNoindex || (headerFeeds && p.headerNoindex);
+    p.robots = [p.metaRobots, ...(headerFeeds ? p.headerRobots : [])].filter(Boolean).join(", ");
+  }
   // a snapshot judges the pages it saw answer 200; a 404 or redirect record is evidence for LNK-002 and IDX-001, not a page of the site
   site.pageList = [...site.pages.values()].filter((p) => !snap || p.status === 200).sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   site.indexable = (p) => p.status === 200 && !p.noindex;

@@ -11,6 +11,9 @@ import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const O = "https://www.brindlewood-tea.example";
+// The _headers file of the factory (factory/lib/launch.mjs headersText, shortened to four headers): a preview adds the X-Robots-Tag noindex line.
+const headersText = ({ preview }) => ["/*", "  Strict-Transport-Security: max-age=31536000; includeSubDomains", "  X-Content-Type-Options: nosniff", "  Referrer-Policy: strict-origin-when-cross-origin", "  X-Frame-Options: DENY",
+  ...(preview ? ["  X-Robots-Tag: noindex, nofollow"] : []), "/assets/*", "  Cache-Control: public, max-age=31536000, immutable", ""].join("\n");
 
 function readDir(dir) {
   const out = new Map();
@@ -199,6 +202,12 @@ export const FIXTURES = {
       '<p><span class="animate-pulse uppercase tracking-widest">Fresh</span> <span class="text-xs font-bold tracking-tight">small print</span> <span>PRO</span></p>',
       "<p>Our AI-powered blends are loved by 10,000+ tea drinkers and steep 3x faster.</p>",
     ].join("\n")) },
+
+  // ENV-001 (slice 4c): the build's indexing matches its target. `target` is passed to the audit for this fixture only (the one-rule check is not loosened).
+  // preview: a _headers file with no noindex line, so a preview would be indexed (one FAIL per page, four pages)
+  "bad-ENV-001-preview": { target: "preview", expect: "a preview would be indexed", count: 4, at: "<head", edit: (d) => add(d, "_headers", headersText({ preview: false })) },
+  // production: the preview's _headers (a /* noindex line) shipped to production. ENV-001 names every page, and IDX-001 now sees every sitemap page as noindex
+  "bad-ENV-001-production": { target: "production", multi: { "ENV-001": "FAIL", "IDX-001": "FAIL" }, edit: (d) => add(d, "_headers", headersText({ preview: true })) },
 };
 const HOME_ANCHOR = "<h2>Learn to steep</h2>";
 function homeAdd(d, html) { rep(d, "index.html", HOME_ANCHOR, html + "\n" + HOME_ANCHOR); }
@@ -309,17 +318,22 @@ export const SNAPSHOT_FIXTURES = {
   "snapshot-bad-PRF-001-psi-pass": { expect: "", status: "PASS", edit: (d) => { homeLab(d, "lcpMs", 3100); untrusted(d); add(d, "psi/2026-10-30.json", JSON.stringify(psiFile(1900), null, 1) + "\n"); } },
   // PRF-016: one cold request over ttfbMs is a WARN
   "snapshot-bad-PRF-016": { expect: "TTFB 1900 ms > 600 ms (single cold request", status: "WARN", edit: (d) => edJson(d, "pages/home/response.json", (m) => { m.ttfbMs = 1900; }) },
+  // slice 4c: the response header of every listed page says noindex, no target given: IDX-001 judges what the live site says (its meta tags say nothing)
+  "snapshot-bad-IDX-001-header": { expect: "is noindex", count: 4, edit: (d) => { for (const p of SNAP_PAGES) edJson(d, `pages/${p.slug}/response.json`, (m) => { m.headers["x-robots-tag"] = "noindex"; }); } },
   // DSN (slice 4b): the design tells run on a snapshot's HTML too (its stylesheets are not in the snapshot)
   "snapshot-bad-DSN-003": { expect: "emoji", at: "What we sell", edit: (d) => edHtml(d, "home", "<h2>What we sell</h2>", "<h2>\u{1F375} What we sell</h2>") },
 };
 
 const isSnapshotName = (n) => n === "snapshot-good" || n.startsWith("snapshot-bad-");
-const isFixtureName = (n) => n.startsWith("bad-") || isSnapshotName(n);
+// good-preview (slice 4c): the good site as a preview build ships it, with the /* noindex _headers; it passes with target preview
+const GOOD_PREVIEW = "good-preview";
+const isFixtureName = (n) => n === GOOD_PREVIEW || n.startsWith("bad-") || isSnapshotName(n);
 
 export function buildAll() {
   const good = readDir(path.join(HERE, "good"));
   const out = new Map();
   for (const [name, { edit }] of Object.entries(FIXTURES)) { const d = new Map(good); edit(d); out.set(name, d); }
+  const preview = new Map(good); add(preview, "_headers", headersText({ preview: true })); out.set(GOOD_PREVIEW, preview);
   const sg = snapshotGood(good);
   out.set("snapshot-good", sg);
   for (const [name, { edit }] of Object.entries(SNAPSHOT_FIXTURES)) { const d = new Map(sg); edit(d); out.set(name, d); }

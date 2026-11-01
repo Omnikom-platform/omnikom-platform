@@ -1,0 +1,101 @@
+{
+ "url": "https://example-tea.invalid",
+ "origin": "https://example-tea.invalid",
+ "startedAt": "2026-10-30T08:00:00.000Z",
+ "tool": "programmatic-enterprise-web-performance/snapshot-site.mjs",
+ "userAgent": "PEWP-SiteCheck/1.0",
+ "gapMs": 4000,
+ "runs": 3,
+ "maxPages": 16,
+ "perGroup": 2,
+ "profiles": [
+  "mobile"
+ ],
+ "ignoreRobots": false,
+ "note": "synthetic fixture",
+ "pages": [
+  {
+   "url": "https://example-tea.invalid/",
+   "slug": "home",
+   "status": 200,
+   "finalUrl": "https://example-tea.invalid/",
+   "redirects": 0,
+   "mobile": {
+    "lcpMs": 1840,
+    "cls": 0.02,
+    "tbtMs": 70,
+    "requests": 14,
+    "kb": 402,
+    "errors": 0,
+    "timedOut": false,
+    "runs": 3
+   },
+   "speedTrust": "trusted"
+  },
+  {
+   "url": "https://example-tea.invalid/about/",
+   "slug": "about",
+   "status": 200,
+   "finalUrl": "https://example-tea.invalid/about/",
+   "redirects": 0,
+   "mobile": {
+    "lcpMs": 2010,
+    "cls": 0.01,
+    "tbtMs": 95,
+    "requests": 14,
+    "kb": 402,
+    "errors": 0,
+    "timedOut": false,
+    "runs": 3
+   },
+   "speedTrust": "trusted"
+  },
+  {
+   "url": "https://example-tea.invalid/tasting-room/",
+   "slug": "tasting-room",
+   "status": 200,
+   "finalUrl": "https://example-tea.invalid/tasting-room/",
+   "redirects": 0,
+   "mobile": {
+    "lcpMs": 2230,
+    "cls": 0.04,
+    "tbtMs": 120,
+    "requests": 14,
+    "kb": 402,
+    "errors": 0,
+    "timedOut": false,
+    "runs": 3
+   },
+   "speedTrust": "trusted"
+  },
+  {
+   "url": "https://example-tea.invalid/journal/how-to-steep-oolong/",
+   "slug": "journal__how-to-steep-oolong",
+   "status": 200,
+   "finalUrl": "https://example-tea.invalid/journal/how-to-steep-oolong/",
+   "redirects": 0,
+   "mobile": {
+    "lcpMs": 1950,
+    "cls": 0,
+    "tbtMs": 60,
+    "requests": 14,
+    "kb": 402,
+    "errors": 0,
+    "timedOut": false,
+    "runs": 3
+   },
+   "speedTrust": "trusted"
+  }
+ ],
+ "skipped": [],
+ "stoppedEarly": null,
+ "machineLoad": {
+  "cpuPctAvg": 12.5,
+  "cpuPctMax": 31,
+  "samples": 40,
+  "thresholdPct": 35
+ },
+ "finishedAt": "2026-10-30T08:09:41.000Z",
+ "requests": 31,
+ "rateLimited": 0
+}

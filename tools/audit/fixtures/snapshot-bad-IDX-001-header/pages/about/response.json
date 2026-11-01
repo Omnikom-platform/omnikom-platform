@@ -1,0 +1,22 @@
+{
+ "url": "https://example-tea.invalid/about/",
+ "finalUrl": "https://example-tea.invalid/about/",
+ "status": 200,
+ "chain": [
+  {
+   "url": "https://example-tea.invalid/about/",
+   "status": 200,
+   "ttfbMs": 261
+  }
+ ],
+ "headers": {
+  "content-type": "text/html; charset=utf-8",
+  "x-robots-tag": "noindex"
+ },
+ "ttfbMs": 261,
+ "totalMs": 301,
+ "htmlBytes": 4096,
+ "mainTextHash": null,
+ "fetchedAt": "2026-10-30T08:02:00.000Z",
+ "userAgent": "PEWP-SiteCheck/1.0"
+}

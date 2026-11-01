@@ -40,6 +40,11 @@ const FAIL_SHAPE = /^FAIL [A-Z0-9-]+ \S+:\d+ .+ \(source: .+\)$/;
 const ruleOf = (name) => (name.match(/^(?:snapshot-)?bad-([A-Z0-9]+-\d{3})/) || [])[1];
 // rules that judge only a snapshot (a built folder has no browser and no server): they print no line in folder mode
 const SNAPSHOT_ONLY = new Set(["PRF-001", "PRF-016"]);
+// slice 4c, the ruling of 2026-11-01 (final): a run with no target prints exactly ONE ENV-001 line, the site-wide `SKIP ENV-001 / no --target ...`, and no other ENV-001 line
+const noTargetSkipOnly = (j) => { const own = j.findings.filter((f) => f.rule === "ENV-001"), ls = j.lines.filter((l) => /ENV-001/.test(l)); return own.length === 1 && own[0].status === "SKIP" && own[0].page === "/" && own[0].what.startsWith("no --target") && ls.length === 1 && ls[0].startsWith("SKIP ENV-001 / no --target"); };
+// the lines of a no-target run that are not the one ENV-001 SKIP (what the old "every line is PASS" checks look at)
+const exceptEnvSkip = (lines) => lines.filter((l) => !l.startsWith("SKIP ENV-001 / no --target"));
+const ENV_SOURCE = "factory/lib/launch.mjs headersText and factory/README.md (robots.txt always Allow, the preview kept out by X-Robots-Tag; head, 2026-10-31); head of operations, 2026-11-01 (slice 4c)";
 
 try {
   // the rules the engine has, from --list
@@ -51,22 +56,23 @@ try {
   // the source of each DSN rule: the line(s) of the unslop copy in skills/unslop/ that the head named, then DECISIONS 37 and the credit
   const SGN = "skills/unslop/references/signs.md", SKM = "skills/unslop/SKILL.md", TAIL = "; planning/DECISIONS.md 37 (owner, 2026-10-31); unslop by Damir Sokolovsky, CC BY 4.0";
   const DSN_SOURCES = { "DSN-001": `${SGN}:85-86 and ${SKM}:170-171`, "DSN-002": `${SGN}:7-8 and ${SKM}:89`, "DSN-003": `${SGN}:27`, "DSN-004": `${SGN}:19`, "DSN-005": `${SGN}:47 and ${SKM}:110`, "DSN-006": `${SGN}:44 and ${SKM}:105`, "DSN-007": `${SGN}:43 and ${SKM}:106`, "DSN-008": `${SGN}:54 and ${SKM}:113`, "DSN-009": `${SGN}:71 and ${SKM}:111`, "DSN-010": `${SKM}:118`, "DSN-011": `${SGN}:22 and ${SKM}:121` };
-  const sourceOk = (r) => (r.id.startsWith("DSN-") ? r.source === DSN_SOURCES[r.id] + TAIL : /^checklist\/\S+\.md [A-Z0-9-]+$/.test(r.source));
+  const sourceOk = (r) => (r.id === "ENV-001" ? r.source === ENV_SOURCE : r.id.startsWith("DSN-") ? r.source === DSN_SOURCES[r.id] + TAIL : /^checklist\/\S+\.md [A-Z0-9-]+$/.test(r.source));
   check("--list: exit 0 and one line per check file, each with its severity and a source", listed.status === 0 && rules.length === checkFiles.length && rules.length > 0 && rules.every((r) => /^(P0|P1|P2|W)$/.test(r.severity) && sourceOk(r) && checkFiles.includes(r.id.toLowerCase() + ".mjs")), listed.out + listed.err);
-  check("--list: 28 rules, the 11 DSN rules among them, each P1 with the DECISIONS 37 source and the unslop credit", rules.length === 28 && rules.filter((r) => r.id.startsWith("DSN-")).length === 11 && Array.from({ length: 11 }, (_, i) => "DSN-" + String(i + 1).padStart(3, "0")).every((id) => rules.some((r) => r.id === id && r.severity === "P1" && r.source === DSN_SOURCES[id] + TAIL)), listed.out);
+  check("--list: ENV-001 is listed as P0 with the factory source", rules.some((r) => r.id === "ENV-001" && r.severity === "P0" && r.source === ENV_SOURCE), listed.out);
+  check("--list: 29 rules, the 11 DSN rules among them, each P1 with the DECISIONS 37 source and the unslop credit", rules.length === 29 && rules.filter((r) => r.id.startsWith("DSN-")).length === 11 && Array.from({ length: 11 }, (_, i) => "DSN-" + String(i + 1).padStart(3, "0")).every((id) => rules.some((r) => r.id === id && r.severity === "P1" && r.source === DSN_SOURCES[id] + TAIL)), listed.out);
 
   // every check has its rules file, and the file carries the source and the spec path (a DSN rule: DECISIONS 37 and the unslop credit)
-  const sourceless = rules.filter((r) => { const p = join(AUDIT, "rules", r.id + ".md"); if (!existsSync(p)) return true; const t = readFileSync(p, "utf8"); const specOk = r.id.startsWith("DSN-") ? t.includes("skills/unslop/") && t.includes("CC BY 4.0") && t.includes("Damir Sokolovsky") : /shipgate\/spec\/packs\/(web-delivery|accessibility|search-engines|performance)\.md/.test(t); return !t.includes(r.source) || !specOk || !t.includes("## Rule text") || !t.includes("## Judged here") || !t.includes("## Not judged here"); });
+  const sourceless = rules.filter((r) => { const p = join(AUDIT, "rules", r.id + ".md"); if (!existsSync(p)) return true; const t = readFileSync(p, "utf8"); const specOk = r.id === "ENV-001" ? t.includes("factory/lib/launch.mjs headersText") : r.id.startsWith("DSN-") ? t.includes("skills/unslop/") && t.includes("CC BY 4.0") && t.includes("Damir Sokolovsky") : /shipgate\/spec\/packs\/(web-delivery|accessibility|search-engines|performance)\.md/.test(t); return !t.includes(r.source) || !specOk || !t.includes("## Rule text") || !t.includes("## Judged here") || !t.includes("## Not judged here"); });
   check("every rule has rules/<ID>.md with its source, the spec path (a DSN rule: the unslop credit) and the rule text", sourceless.length === 0, sourceless.map((r) => r.id).join(", "));
 
   // the good site passes every rule, in text mode and in JSON
   const good = cli([join(FIX, "good")]);
   const goodLines = good.out.split(/\r?\n/).filter(Boolean);
-  check("good site: exit 0 and every line is PASS (no WARN, no SKIP, no FAIL)", good.status === 0 && goodLines.length > 0 && goodLines.every((l) => l.startsWith("PASS ")), good.out + good.err);
+  check("good site: exit 0, every line is PASS except exactly one `SKIP ENV-001 / no --target` line (no WARN, no FAIL, no other SKIP)", good.status === 0 && goodLines.length > 0 && exceptEnvSkip(goodLines).every((l) => l.startsWith("PASS ")) && goodLines.length - exceptEnvSkip(goodLines).length === 1 && goodLines.filter((l) => /ENV-001/.test(l)).length === 1, good.out + good.err);
   const gj = json([join(FIX, "good")]);
   const pagesN = gj.j ? gj.j.pages.length : 0;
-  check("good site: one PASS line per rule per page or file, every rule present", gj.j && rules.filter((r) => !SNAPSHOT_ONLY.has(r.id)).every((r) => gj.j.lines.some((l) => l.startsWith(`PASS ${r.id} `))) && !gj.j.lines.some((l) => /^\w+ PRF-/.test(l)) && gj.j.lines.filter((l) => l.startsWith("PASS MET-003 ")).length === pagesN, gj.out.slice(0, 300));
-  check("good site: --json is valid JSON, exit equals the process exit, pass true, no findings", gj.j && gj.j.exit === gj.status && gj.status === 0 && gj.j.pass === true && gj.j.findings.length === 0 && Array.isArray(gj.j.pages) && Array.isArray(gj.j.rules) && gj.j.lines.length > 0, gj.out.slice(0, 300) + gj.err);
+  check("good site: one PASS line per rule per page or file, every rule present", gj.j && rules.filter((r) => !SNAPSHOT_ONLY.has(r.id) && r.id !== "ENV-001").every((r) => gj.j.lines.some((l) => l.startsWith(`PASS ${r.id} `))) && !gj.j.lines.some((l) => /^\w+ PRF-/.test(l)) && noTargetSkipOnly(gj.j) && gj.j.lines.filter((l) => l.startsWith("PASS MET-003 ")).length === pagesN, gj.out.slice(0, 300));
+  check("good site: --json is valid JSON, exit equals the process exit, pass true, no finding but the one ENV-001 SKIP", gj.j && gj.j.exit === gj.status && gj.status === 0 && gj.j.pass === true && gj.j.findings.length === 1 && noTargetSkipOnly(gj.j) && Array.isArray(gj.j.pages) && Array.isArray(gj.j.rules) && gj.j.lines.length > 0, gj.out.slice(0, 300) + gj.err);
 
   // the bad fixtures, driven by the generator's own table
   const gen = await import(pathToFileURL(join(FIX, "build-fixtures.mjs")).href);
@@ -84,14 +90,15 @@ try {
     // a fixture that carries several rules' tells (bad-DSN) lists every expected rule and its status; the check is exact in both directions:
     // each listed rule shows its status, no other rule shows anything, the exit is 1 (it is never a way to loosen a one-rule fixture)
     if (spec.multi) {
-      const mr = engine.audit(join(FIX, name));
+      const tgt = spec.target ? ["--target", spec.target] : [];
+      const mr = engine.audit(join(FIX, name), spec.target ? { target: spec.target } : undefined);
       const want = Object.entries(spec.multi);
       const missing = want.filter(([id, st]) => !mr.findings.some((f) => f.rule === id && f.status === st)).map(([id, st]) => `${id} ${st}`);
-      const stray = mr.findings.filter((f) => !(f.rule in spec.multi) || f.status === "SKIP").map((f) => `${f.rule} ${f.status} ${f.page}:${f.line}`);
+      const stray = mr.findings.filter((f) => !(f.rule in spec.multi) || f.status === "SKIP").filter((f) => spec.target || !(f.rule === "ENV-001" && f.status === "SKIP")).map((f) => `${f.rule} ${f.status} ${f.page}:${f.line}`);
       const wrongStatus = mr.findings.filter((f) => f.rule in spec.multi && f.status !== spec.multi[f.rule]).map((f) => `${f.rule} ${f.status}`);
-      const cl = cli([join(FIX, name)]);
+      const cl = cli([join(FIX, name), ...tgt]);
       const shown = cl.out.split(/\r?\n/).filter((l) => /^(FAIL|WARN) /.test(l)).map((l) => l.split(" ")[1]);
-      check(`${name}: names all ${want.length} rules (${want.map(([id]) => id.slice(4)).join(",")}) with FAIL or WARN lines as listed, nothing else, exit 1`, missing.length === 0 && stray.length === 0 && wrongStatus.length === 0 && mr.exit === 1 && cl.status === 1 && want.every(([id]) => shown.includes(id)) && cl.out.split(/\r?\n/).filter((l) => /^(FAIL|WARN) /.test(l)).every((l) => FAIL_SHAPE.test(l.replace(/^WARN /, "FAIL "))), `missing ${missing.join(", ")}; stray ${stray.join(" | ")}; wrong ${wrongStatus.join(", ")}; exit ${mr.exit}/${cl.status}`);
+      check(`${name}: names all ${want.length} rules (${want.map(([id]) => id.slice(4)).join(",")}) with FAIL or WARN lines as listed, nothing else, exit 1`, missing.length === 0 && stray.length === 0 && wrongStatus.length === 0 && (spec.target || noTargetSkipOnly(mr)) && mr.exit === 1 && cl.status === 1 && want.every(([id]) => shown.includes(id)) && cl.out.split(/\r?\n/).filter((l) => /^(FAIL|WARN) /.test(l)).every((l) => FAIL_SHAPE.test(l.replace(/^WARN /, "FAIL "))), `missing ${missing.join(", ")}; stray ${stray.join(" | ")}; wrong ${wrongStatus.join(", ")}; exit ${mr.exit}/${cl.status}`);
       continue;
     }
     const rule = ruleOf(name);
@@ -100,7 +107,8 @@ try {
     if (spec.setup) { dir = join(tmp(), name); cpSync(join(FIX, name), dir, { recursive: true }); spec.setup(dir); }
     // the first fixture of each rule goes through the real command line; the rest call audit() in this process (same engine, ~50x faster)
     let r;
-    if (!viaCli.has(rule)) { viaCli.add(rule); r = json([dir]); } else { try { const j0 = engine.audit(dir); r = { status: j0.exit, out: "", err: "", j: JSON.parse(JSON.stringify(j0)) }; } catch (e) { r = { status: null, out: "", err: String(e.stack), j: null }; } }
+    const tgtArgs = spec.target ? ["--target", spec.target] : [];
+    if (!viaCli.has(rule)) { viaCli.add(rule); r = json([dir, ...tgtArgs]); } else { try { const j0 = engine.audit(dir, spec.target ? { target: spec.target } : undefined); r = { status: j0.exit, out: "", err: "", j: JSON.parse(JSON.stringify(j0)) }; } catch (e) { r = { status: null, out: "", err: String(e.stack), j: null }; } }
     const j = r.j;
     // status: the status of the rule's own finding (FAIL, WARN, SKIP, or PASS = none); also: rules whose findings are expected too
     // (one fact breaks two rules). A snapshot fixture must give exactly its rule's finding and nothing else, of any status.
@@ -109,7 +117,9 @@ try {
     const allowed = new Set([rule, ...(spec.also || [])]);
     // the DSN fixtures are held to the strict form (no finding of any status from another rule), in folder mode as well
     const strict = snap || /^DSN-/.test(rule);
-    const foreignFails = j ? (strict ? j.findings.filter((f) => !allowed.has(f.rule)) : j.findings.filter((f) => f.rule !== rule && f.status === "FAIL")) : [];
+    const foreignFails = j ? (strict ? j.findings.filter((f) => !allowed.has(f.rule) && !(f.rule === "ENV-001" && f.status === "SKIP" && !spec.target)) : j.findings.filter((f) => f.rule !== rule && f.status === "FAIL")) : [];
+    // slice 4c: a fixture that gives no target must show exactly one ENV-001 line, the SKIP "no --target", and no other ENV-001 line
+    const ntOk = j ? !!spec.target || rule === "ENV-001" || noTargetSkipOnly(j) : false;
     const ownOther = strict && j ? j.findings.filter((f) => f.rule === rule).length - own.length : 0;
     let snapPages = null;
     const lineText = (pg, n) => {
@@ -127,7 +137,7 @@ try {
     const countOk = pass ? j && j.findings.filter((f) => f.rule === rule).length === 0 && j.lines.some((l) => l.startsWith(`PASS ${rule} `)) : own.length === (spec.count ?? 1);
     const wantExit = wantStatus === "FAIL" || (spec.also && spec.also.length) ? 1 : 0;
     check(`${name}: ${wantStatus} ${rule} naming "${spec.expect}", ${snap ? "no other rule's finding" + (spec.also && spec.also.length ? " but " + spec.also.join(", ") : "") : "no FAIL from any other rule"}, exit ${wantExit}`,
-      j && countOk && right && foreignFails.length === 0 && ownOther === 0 && r.status === wantExit && j.exit === r.status,
+      j && countOk && right && foreignFails.length === 0 && ntOk && ownOther === 0 && r.status === wantExit && j.exit === r.status,
       j ? `own ${own.map((f) => f.what).join(" | ")}; foreign ${foreignFails.map((f) => f.rule + " " + f.page + ":" + f.line + " " + f.what).join(" | ")}; exit ${r.status}` : r.out + r.err);
     if (j) {
       const failLines = j.lines.filter((l) => l.startsWith("FAIL "));
@@ -135,7 +145,7 @@ try {
     }
     if (first && wantStatus === "FAIL") { // text mode prints the same lines as --json, and exits 1
       first = false;
-      const t = cli([dir]);
+      const t = cli([dir, ...tgtArgs]);
       check(`${name}: text mode prints the --json lines and exits 1`, t.status === 1 && j && t.out.split(/\r?\n/).filter(Boolean).join("\n") === j.lines.join("\n"), t.out);
     }
   }
@@ -269,7 +279,7 @@ try {
   const putFile = (rel, text) => (dir) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), text); };
 
   const sgJson = json([SG]);
-  check("snapshot-good: exit 0, every line PASS, mode snapshot, all 28 rules present, no folder-only line", sgJson.status === 0 && sgJson.j && sgJson.j.mode === "snapshot" && sgJson.j.findings.length === 0 && rules.every((r) => sgJson.j.lines.some((l) => l.startsWith(`PASS ${r.id} `))) && sgJson.j.lines.every((l) => l.startsWith("PASS ")) && sgJson.j.pages.length === 4, sgJson.out.slice(0, 300) + sgJson.err);
+  check("snapshot-good: exit 0, every line PASS except the one `SKIP ENV-001 / no --target`, mode snapshot, all 28 other rules present, no folder-only line", sgJson.status === 0 && sgJson.j && sgJson.j.mode === "snapshot" && sgJson.j.findings.length === 1 && noTargetSkipOnly(sgJson.j) && rules.filter((r) => r.id !== "ENV-001").every((r) => sgJson.j.lines.some((l) => l.startsWith(`PASS ${r.id} `))) && exceptEnvSkip(sgJson.j.lines).every((l) => l.startsWith("PASS ")) && sgJson.j.pages.length === 4, sgJson.out.slice(0, 300) + sgJson.err);
   check("--list shows SE-001, PRF-001 and PRF-016 with their severity and source", ["SE-001 P0 checklist/search-engines.md SE-001", "PRF-001 P2 checklist/performance.md PRF-001", "PRF-016 P2 checklist/performance.md PRF-016"].every((s) => listed.out.split(/\r?\n/).some((l) => l.trim().split(/\s+/).join(" ") === s)), listed.out);
   check("the good folder prints no PRF line (the speed rules need a snapshot) and its audit() result says mode static", (() => { const r = engine.audit(join(FIX, "good")); return r.mode === "static" && !r.lines.some((l) => /PRF-/.test(l)); })());
 
@@ -339,10 +349,10 @@ try {
   snapAdhoc("LNK-002: 410 and 503 targets are status-mismatch", seq(addRec("g410", SO + "/g410/", SO + "/g410/", 410, [{ url: SO + "/g410/", status: 410 }]), addRec("g503", SO + "/g503/", SO + "/g503/", 503, [{ url: SO + "/g503/", status: 503 }]), linkTo("/g410/"), linkTo("/g503/")), (j) => ownOf(j, "LNK-002", "FAIL").length === 2 && ownOf(j, "LNK-002", "FAIL").every((f) => f.what.startsWith("status-mismatch")));
   snapAdhoc("LNK-002: a record whose final status is 302 (no Location followed) is redirect-target", seq(addRec("r302", SO + "/r302/", SO + "/r302/", 302, [{ url: SO + "/r302/", status: 302 }]), linkTo("/r302/")), (j) => ownOf(j, "LNK-002", "FAIL").length === 1 && ownOf(j, "LNK-002", "FAIL")[0].what.startsWith("redirect-target"));
   snapAdhoc("LNK-002: a page that exists only as the end of a followed redirect is a page (200), and the redirecting URL is a redirect-target", seq((d) => { cpSync(join(d, "pages", "tasting-room"), join(d, "pages", "old-tea"), { recursive: true }); rmSync(join(d, "pages", "tasting-room"), { recursive: true }); }, jedit("pages/old-tea/response.json", (m) => { m.url = SO + "/old-tea/"; m.chain = [{ url: SO + "/old-tea/", status: 301, location: "/tasting-room/" }, { url: SO + "/tasting-room/", status: 200 }]; }), linkTo("/old-tea/")), (j) => j.pages.includes("/tasting-room/") && ownOf(j, "LNK-002", "FAIL").length === 1 && ownOf(j, "LNK-002", "FAIL")[0].what.startsWith("redirect-target"));
-  snapAdhoc("a 404 record is not a judged page: no MET, A11, SCH or URL rule runs on it, and it is not indexable", seq(addRec("gone", SO + "/gone/", SO + "/gone/", 404, [{ url: SO + "/gone/", status: 404 }], blank), linkTo("/gone/")), (j) => !j.pages.includes("/gone/") && j.findings.every((f) => f.rule === "LNK-002"));
+  snapAdhoc("a 404 record is not a judged page: no MET, A11, SCH or URL rule runs on it, and it is not indexable", seq(addRec("gone", SO + "/gone/", SO + "/gone/", 404, [{ url: SO + "/gone/", status: 404 }], blank), linkTo("/gone/")), (j) => !j.pages.includes("/gone/") && noTargetSkipOnly(j) && j.findings.filter((f) => f.rule !== "ENV-001").every((f) => f.rule === "LNK-002"));
   snapAdhoc("IDX-001 (snapshot): a sitemap URL whose crawl record is 404 is a status-mismatch FAIL", seq(addRec("gone", SO + "/gone/", SO + "/gone/", 404, [{ url: SO + "/gone/", status: 404 }], blank), (d) => { const p = join(d, "site", "sitemap-1.xml"); writeFileSync(p, readFileSync(p, "utf8").replace("</urlset>", `  <url>\n    <loc>${SO}/gone/</loc>\n    <lastmod>2026-10-05T09:00:00Z</lastmod>\n  </url>\n</urlset>`)); }), (j) => ownOf(j, "IDX-001", "FAIL").length === 1 && ownOf(j, "IDX-001", "FAIL")[0].what.startsWith("status-mismatch"));
-  snapAdhoc("a gzipped sitemap (site/sitemap-1.xml.gz) is read: every rule still passes", (d) => { const p = join(d, "site", "sitemap-1.xml"); writeFileSync(p + ".gz", zlib.gzipSync(readFileSync(p))); unlinkSync(p); jedit("site/sitemaps.json", (m) => { m.fetched[0].file = "site/sitemap-1.xml.gz"; })(d); }, (j) => j.findings.length === 0 && j.lines.includes("PASS IDX-001 site/sitemap-1.xml.gz"));
-  snapAdhoc("the site origin is the home page's final url, not _site.json.url", jedit("_site.json", (m) => { m.url = "https://elsewhere.invalid"; }), (j) => j.findings.length === 0);
+  snapAdhoc("a gzipped sitemap (site/sitemap-1.xml.gz) is read: every rule still passes", (d) => { const p = join(d, "site", "sitemap-1.xml"); writeFileSync(p + ".gz", zlib.gzipSync(readFileSync(p))); unlinkSync(p); jedit("site/sitemaps.json", (m) => { m.fetched[0].file = "site/sitemap-1.xml.gz"; })(d); }, (j) => j.findings.length === 1 && noTargetSkipOnly(j) && j.lines.includes("PASS IDX-001 site/sitemap-1.xml.gz"));
+  snapAdhoc("the site origin is the home page's final url, not _site.json.url", jedit("_site.json", (m) => { m.url = "https://elsewhere.invalid"; }), (j) => j.findings.length === 1 && noTargetSkipOnly(j));
 
   snapAdhoc("URL-009 (snapshot): a home canonical on another origin than the one the page was fetched from is named", gzSub("home", `<link rel="canonical" href="${SO}/">`, `<link rel="canonical" href="https://www.example-tea.invalid/">`), (j) => ownOf(j, "URL-009", "FAIL").some((f) => f.page === "/" && f.what.includes("is not the origin")));
   // the live driver, through the stand-in for live-target.mjs (no request is made)
@@ -350,7 +360,7 @@ try {
   const live = (args, env = {}) => { const r = spawnSync(process.execPath, [join(AUDIT, "live.mjs"), ...args], { encoding: "utf8", timeout: 60000, env: { ...childEnv, OMNIKOM_AUDIT_LIVE_TARGET: STANDIN, ...env } }); return { status: r.status, out: r.stdout || "", err: r.stderr || "" }; };
   const direct = cli([SG]);
   const lv = live(["https://example-tea.invalid/"]);
-  check("live.mjs with the stand-in prints exactly the lines run.mjs prints on snapshot-good and exits the same (0)", lv.status === 0 && direct.status === 0 && lv.out === direct.out && lv.out.split(/\r?\n/).filter(Boolean).every((l) => l.startsWith("PASS ")) && lv.out.length > 0, lv.out.slice(0, 200) + lv.err);
+  check("live.mjs with the stand-in prints exactly the lines run.mjs prints on snapshot-good and exits the same (0)", lv.status === 0 && direct.status === 0 && lv.out === direct.out && exceptEnvSkip(lv.out.split(/\r?\n/).filter(Boolean)).every((l) => l.startsWith("PASS ")) && lv.out.split(/\r?\n/).filter((l) => /ENV-001/.test(l)).length === 1 && /^SKIP ENV-001 \/ no --target/m.test(lv.out) && lv.out.length > 0, lv.out.slice(0, 200) + lv.err);
   check("live.mjs: the progress lines of the child go to stderr, not stdout", /standin progress line/.test(lv.err) && /standin progress on stdout/.test(lv.err) && !/standin|REUSE/.test(lv.out) && /reusing snapshot/.test(lv.err), lv.err);
   const lvNew = live(["https://example-tea.invalid/"], { STANDIN_MODE: "new" });
   check("live.mjs: a NEW line is read the same way", lvNew.status === 0 && lvNew.out === direct.out && /new snapshot/.test(lvNew.err), lvNew.err);
@@ -600,7 +610,7 @@ try {
   adhoc("DSN-010 and DSN-011: the two WARN rules together on one element give two WARN lines and the run still exits 0", homeIns('<p class="text-xs font-bold tracking-tight">Tag</p>'), (j) => j.exit === 0 && j.lines.filter((l) => /^WARN DSN-01[01] /.test(l)).length === 2 && !j.lines.some((l) => l.startsWith("FAIL ")));
 
   // the style sources
-  adhoc("DSN styles: an unreadable or missing stylesheet link, a link without a href, and a stylesheet in a subfolder resolve without a crash", both(putDir("css/sub/b.css", "p { text-transform: uppercase; letter-spacing: 1px }\n"), headIns('<link rel="stylesheet" href="css/sub/b.css">\n<link rel="stylesheet">\n<link rel="stylesheet" href="/nope.css">\n<link rel="icon" href="/img/leaf.svg">')), (j) => onlyOf(j, "DSN-004").length > 0 && j.findings.every((f) => f.rule === "DSN-004"));
+  adhoc("DSN styles: an unreadable or missing stylesheet link, a link without a href, and a stylesheet in a subfolder resolve without a crash", both(putDir("css/sub/b.css", "p { text-transform: uppercase; letter-spacing: 1px }\n"), headIns('<link rel="stylesheet" href="css/sub/b.css">\n<link rel="stylesheet">\n<link rel="stylesheet" href="/nope.css">\n<link rel="icon" href="/img/leaf.svg">')), (j) => onlyOf(j, "DSN-004").length > 0 && noTargetSkipOnly(j) && j.findings.filter((f) => f.rule !== "ENV-001").every((f) => f.rule === "DSN-004"));
   adhoc("DSN styles: a page in a subfolder resolves a relative stylesheet from its own folder", both(putDir("about/local.css", "h2 { font-weight: 800; font-size: 11px }\n"), sub("about/index.html", '<meta name="viewport" content="width=device-width, initial-scale=1">', '<meta name="viewport" content="width=device-width, initial-scale=1">\n<link rel="stylesheet" href="local.css">')), (j) => warnsOf(j, "DSN-010").length === 3 && warnsOf(j, "DSN-010").every((f) => f.page === "/about/"));
   adhoc("DSN styles: a CSS declaration with a nested rule or a stray brace does not crash the reader", both(putDir("css/a.css", ".a { color: red; .b { color: blue } text-transform: uppercase; letter-spacing: 1px }\n}}} .c { \n"), linkSheet(), homeIns('<p class="a">x</p>')), (j) => Array.isArray(j.findings));
   const textOfWarn = (j) => warnsOf(j, "DSN-010").map((w) => w.what);
@@ -613,6 +623,144 @@ try {
   adhoc("DSN pages: a lone < in the text of a page does not break the reader (the heading after it is still found)", sub("tasting-room/index.html", "<h2>Before you come</h2>", `<h2>Before you come</h2>\n<p>5 < 6 and a < b</p>\n<h3>${EM} lone</h3>`), (j) => onlyOf(j, "DSN-003").length === 1 && onlyOf(j, "DSN-003")[0].page === "/tasting-room/");
   adhoc("DSN: audit({ rules: ['dsn-003'] }) runs that rule alone, case folded", homeIns(`<h3>${EM} x</h3>`), (j) => { const r = engine.audit(j.dir, { rules: ["dsn-003"] }); return r.rules.length === 1 && r.rules[0].id === "DSN-003" && r.exit === 1; });
   adhoc("DSN: a stylesheet linked from several pages is read once and its element rules reach every page", both(putDir("css/a.css", "h2 { text-transform: uppercase; letter-spacing: 0.1em }\n"), linkSheet(), sub("about/index.html", '<meta name="viewport" content="width=device-width, initial-scale=1">', '<meta name="viewport" content="width=device-width, initial-scale=1">\n<link rel="stylesheet" href="/css/a.css">')), (j) => onlyOf(j, "DSN-004").length === 6 && onlyOf(j, "DSN-004").every((f) => f.page === "/" || f.page === "/about/") && onlyOf(j, "DSN-004").filter((f) => f.page === "/about/").length === 3);
+
+  // ---- slice 4c: the noindex header and the build target ----
+  const idxFails = (j) => ownOf(j, "IDX-001", "FAIL");
+  const envFails = (j) => ownOf(j, "ENV-001", "FAIL");
+  const hdrOf = (slug, v) => jedit(`pages/${slug}/response.json`, (m) => { m.headers["x-robots-tag"] = v; });
+  const GOOD_DIR = join(FIX, "good");
+  // 1. which x-robots-tag values make the page noindex for Google (the home page, no target: an IDX-001 FAIL on its sitemap entry)
+  const HDR_CASES = [
+    ["noindex", 1], ["NoIndex", 1], ["noindex, nofollow", 1], ["nofollow, noindex", 1], ["none", 1], ["googlebot: noindex", 1], ["GoogleBot: NOINDEX", 1], ["googlebot: nofollow, noindex", 1],
+    ["bingbot: nofollow, googlebot: noindex", 1], ["unavailable_after: 25 Jun 2030 15:00:00 PST, noindex", 1],
+    ["bingbot: noindex", 0], ["googlebot-news: noindex", 0], ["bingbot: noindex, googlebot: nofollow", 0], ["googlebot: nofollow, bingbot: noindex", 0], ["bingbot: nofollow, noindex", 0],
+    ["nofollow", 0], ["max-snippet: 0", 0], ["unavailable_after: 25 Jun 2030 15:00:00 PST", 0], ["", 0],
+    [["noindex"], 1], [["bingbot: nofollow", "noindex"], 1], [["bingbot: noindex", "nofollow"], 0], [["nofollow", "googlebot: noindex"], 1],
+  ];
+  {
+    const wrong = [];
+    for (const [v, want] of HDR_CASES) {
+      const dir = tmp(); cpSync(SG, dir, { recursive: true });
+      hdrOf("home", v)(dir);
+      const got = idxFails(engine.audit(dir)).length;
+      if (got !== want) wrong.push(`${JSON.stringify(v)}: want ${want} IDX-001 FAIL, got ${got}`);
+    }
+    check(`snapshot x-robots-tag: noindex, none and a googlebot value make the page noindex; a value for another bot, nofollow and the max-* and unavailable_after directives do not (${HDR_CASES.length} values)`, wrong.length === 0, wrong.join("; "));
+  }
+  snapAdhoc("snapshot x-robots-tag: the header name in any case is read (X-Robots-Tag)", jedit("pages/home/response.json", (m) => { m.headers["X-Robots-Tag"] = "noindex"; }), (j) => idxFails(j).length === 1);
+  {
+    const dir = tmp(); cpSync(SG, dir, { recursive: true });
+    hdrOf("home", "googlebot: noindex, nofollow")(dir);
+    const pg = siteLib.loadSite(dir).pages.get("/");
+    check("loadSite (snapshot): the x-robots-tag header joins page.robots and page.noindex follows; the meta reading stays in metaRobots and metaNoindex", pg.noindex === true && pg.headerNoindex === true && pg.metaNoindex === false && pg.metaRobots === "" && /noindex/.test(pg.robots) && /x-robots-tag: googlebot: noindex, nofollow/.test(pg.headerSource), JSON.stringify([pg.noindex, pg.headerNoindex, pg.metaNoindex, pg.metaRobots, pg.robots, pg.headerSource]));
+    const other = siteLib.loadSite(join(FIX, "snapshot-good")).pages.get("/");
+    check("loadSite (snapshot): a page with no x-robots-tag header has no header noindex and no header source", other.noindex === false && other.headerNoindex === false && other.headerSource === null && other.headerRobots.length === 0);
+  }
+  // 2. snapshot mode and the target
+  const homeHdr = hdrOf("home", "noindex");
+  const metaNoindexAbout = gzSub("about", '<meta property="og:type" content="website">', '<meta property="og:type" content="website">\n<meta name="robots" content="noindex">');
+  snapAdhoc("target preview (snapshot): a header noindex on one page does not feed IDX-001, and ENV-001 fails the three pages that carry none", homeHdr, (j) => idxFails(j).length === 0 && envFails(j).map((f) => f.page).sort().join() === "/about/,/journal/how-to-steep-oolong/,/tasting-room/" && j.exit === 1, { target: "preview" });
+  snapAdhoc("target production (snapshot): the header noindex feeds IDX-001 and is one ENV-001 FAIL naming the page, the response header and the target", homeHdr, (j) => idxFails(j).length === 1 && envFails(j).length === 1 && envFails(j)[0].page === "/" && envFails(j)[0].what.includes("the response header x-robots-tag: noindex") && envFails(j)[0].what.includes("target production"), { target: "production" });
+  snapAdhoc("no target (snapshot): the header noindex feeds IDX-001 (it is what the live site says) and ENV-001 prints exactly one SKIP no --target line", homeHdr, (j) => idxFails(j).length === 1 && noTargetSkipOnly(j));
+  snapAdhoc("target preview (snapshot): a meta robots noindex still feeds IDX-001 and satisfies ENV-001 for that page", metaNoindexAbout, (j) => idxFails(j).length === 1 && !envFails(j).some((f) => f.page === "/about/") && envFails(j).length === 3, { target: "preview" });
+  snapAdhoc("target production (snapshot): a meta robots noindex is IDX-001's business, not ENV-001's", metaNoindexAbout, (j) => idxFails(j).length === 1 && ownOf(j, "ENV-001").length === 0, { target: "production" });
+  snapAdhoc("target preview (snapshot): every page answers noindex: four PASS ENV-001 lines and a clean run", seq(...["home", "about", "tasting-room", "journal__how-to-steep-oolong"].map((s) => hdrOf(s, "noindex, nofollow"))), (j) => j.exit === 0 && j.findings.length === 0 && j.lines.filter((l) => l.startsWith("PASS ENV-001 ")).length === 4, { target: "preview" });
+  snapAdhoc("target preview (snapshot): a header noindex for another bot only does not make a preview safe", hdrOf("home", "bingbot: noindex"), (j) => envFails(j).length === 4, { target: "preview" });
+  snapAdhoc("target preview (snapshot): a record that did not answer 200 is not judged by ENV-001", seq(addRec("gone", SO + "/gone/", SO + "/gone/", 404, [{ url: SO + "/gone/", status: 404 }], blank)), (j) => envFails(j).length === 4 && !envFails(j).some((f) => f.page === "/gone/"), { target: "preview" });
+  // 3. folder mode: the _headers file
+  const VP = '<meta name="viewport" content="width=device-width, initial-scale=1">';
+  const envRun = (headers, target, edit) => { const dir = tmp(); cpSync(GOOD_DIR, dir, { recursive: true }); if (headers !== null) writeFileSync(join(dir, "_headers"), headers); if (edit) edit(dir); return engine.audit(dir, { rules: ["ENV-001"], target }); };
+  const envPages = (j) => envFails(j).map((f) => f.page).sort().join();
+  const NI = (pattern) => `${pattern}\n  X-Robots-Tag: noindex\n`;
+  const ALL4 = "/,/about/,/journal/how-to-steep-oolong/,/tasting-room/";
+  check("_headers splat: /journal/* reaches the page two segments down, and only it", envPages(envRun(NI("/journal/*"), "production")) === "/journal/how-to-steep-oolong/", envPages(envRun(NI("/journal/*"), "production")));
+  check("_headers splat: /about/* matches /about/ itself (the splat may be empty)", envPages(envRun(NI("/about/*"), "production")) === "/about/");
+  check("_headers splat: /* matches every page including the home page", envPages(envRun(NI("/*"), "production")) === ALL4);
+  check("_headers placeholder: /:page/ matches one segment (/about/, /tasting-room/), not / and not the post two segments down", envPages(envRun(NI("/:page/"), "production")) === "/about/,/tasting-room/", envPages(envRun(NI("/:page/"), "production")));
+  check("_headers placeholder inside a path: /journal/:slug/ matches the post and nothing else", envPages(envRun(NI("/journal/:slug/"), "production")) === "/journal/how-to-steep-oolong/");
+  check("_headers exact path: / matches only the home page", envPages(envRun(NI("/"), "production")) === "/");
+  check("_headers exact path: /about (no trailing slash) is not the page /about/ (a pattern is matched exactly)", envPages(envRun(NI("/about"), "production")) === "");
+  check("_headers detach: ! X-Robots-Tag under /about/ takes the header off that page only", envPages(envRun("/*\n  X-Robots-Tag: noindex\n/about/\n  ! X-Robots-Tag\n", "production")) === "/,/journal/how-to-steep-oolong/,/tasting-room/", envPages(envRun("/*\n  X-Robots-Tag: noindex\n/about/\n  ! X-Robots-Tag\n", "production")));
+  check("_headers detach is read in file order: a detach before the rule that sets the header takes nothing off", envPages(envRun("/about/\n  ! X-Robots-Tag\n/*\n  X-Robots-Tag: noindex\n", "production")) === ALL4);
+  check("_headers: a host pattern is not judged (production: no finding), and a preview finding names it as not judged", envFails(envRun(NI("https://:project.pages.dev/*"), "production")).length === 0 && (() => { const j = envRun(NI("https://:project.pages.dev/*"), "preview"); return envFails(j).length === 4 && envFails(j).every((f) => f.what.includes("https://:project.pages.dev/*") && f.what.includes("not judged")); })());
+  check("_headers: a pattern with more than one splat is not judged", envFails(envRun(NI("/*/*"), "production")).length === 0);
+  check("_headers: a page built as foo.html is served at /foo (pattern /legal reaches legal.html, pattern /legal/ does not)", (() => {
+    const mk = (pat) => envPages(envRun(NI(pat), "production", (d) => writeFileSync(join(d, "legal.html"), readFileSync(join(d, "about", "index.html"), "utf8"))));
+    return mk("/legal") === "/legal/" && mk("/legal/") === "";
+  })());
+  check("_headers: comment lines, blank lines and CRLF line endings are read", envPages(envRun("# keep the preview out of the index\r\n\r\n/*\r\n  # a note\r\n  X-Robots-Tag: noindex, nofollow\r\n", "production")) === ALL4);
+  check("_headers: a commented-out X-Robots-Tag line is not a header", envPages(envRun("/*\n  # X-Robots-Tag: noindex\n  X-Frame-Options: DENY\n", "production")) === "");
+  check("_headers: the googlebot value counts, another bot's does not", envPages(envRun("/*\n  X-Robots-Tag: googlebot: noindex\n", "production")) === ALL4 && envPages(envRun("/*\n  X-Robots-Tag: bingbot: noindex\n", "production")) === "");
+  check("_headers: two rules set the header and the FAIL names the line and pattern of the one that says noindex", (() => {
+    const j = envRun("/*\n  X-Robots-Tag: nofollow\n/about/\n  X-Robots-Tag: noindex\n", "production");
+    return envFails(j).length === 1 && envFails(j)[0].page === "/about/" && envFails(j)[0].what.includes("_headers line 4 (pattern /about/)");
+  })());
+  check("ENV-001 preview: a folder with no _headers file fails every page and says so", (() => { const j = envRun(null, "preview"); return envPages(j) === ALL4 && envFails(j).every((f) => f.what.includes("the folder has no _headers file") && f.what.includes("target preview")); })());
+  check("ENV-001 preview: a meta robots noindex on every page (and no header) satisfies the rule", (() => {
+    const j = envRun(null, "preview", (d) => { for (const p of ["index.html", "about/index.html", "tasting-room/index.html", "journal/how-to-steep-oolong/index.html"]) sub(p, VP, VP + '\n<meta name="robots" content="noindex">')(d); });
+    return envFails(j).length === 0 && j.lines.filter((l) => l.startsWith("PASS ENV-001 ")).length === 4;
+  })());
+  check("ENV-001 production: a meta robots noindex on a page is not an ENV-001 finding (IDX-001 judges it)", envRun(null, "production", sub("about/index.html", VP, VP + '\n<meta name="robots" content="noindex">')).findings.length === 0);
+  check("ENV-001: the root 404.html of a folder is out of scope (preview, no header: four pages fail, not five)", envPages(envRun(null, "preview", (d) => writeFileSync(join(d, "404.html"), readFileSync(join(d, "about", "index.html"), "utf8")))) === ALL4);
+  // 4. the fixtures, the target on the command line, and what the other rules do under each target
+  const GP = join(FIX, "good-preview");
+  const allPass = (r) => r.out.split(/\r?\n/).filter(Boolean).every((l) => l.startsWith("PASS "));
+  const allPassButEnvSkip = (r) => exceptEnvSkip(r.out.split(/\r?\n/).filter(Boolean)).every((l) => l.startsWith("PASS "));
+  const gpPreview = cli([GP, "--target", "preview"]);
+  check("good-preview with --target preview: exit 0, every line PASS, four PASS ENV-001 lines (the header noindex is expected and the other rules judge the site as it will be in production)", gpPreview.status === 0 && allPass(gpPreview) && gpPreview.out.split(/\r?\n/).filter((l) => l.startsWith("PASS ENV-001 ")).length === 4, gpPreview.out + gpPreview.err);
+  const gProd = cli([GOOD_DIR, "--target", "production"]);
+  check("good with --target production: exit 0 and every line PASS (four PASS ENV-001 lines)", gProd.status === 0 && allPass(gProd) && gProd.out.split(/\r?\n/).filter((l) => l.startsWith("PASS ENV-001 ")).length === 4, gProd.out + gProd.err);
+  const gpNone = cli([GP]);
+  check("good-preview with no target: the folder ignores _headers (IDX-001 passes), exit 0, every line PASS except exactly one `SKIP ENV-001 / no --target` line (not judged as production)", gpNone.status === 0 && allPassButEnvSkip(gpNone) && gpNone.out.length > 0 && gpNone.out.split(/\r?\n/).filter((l) => /ENV-001/.test(l)).length === 1 && /^SKIP ENV-001 \/ no --target/m.test(gpNone.out) && /^PASS IDX-001 /m.test(gpNone.out), gpNone.out + gpNone.err);
+  const bpNone = cli([join(FIX, "bad-ENV-001-preview")]), bpNoneJ = json([join(FIX, "bad-ENV-001-preview")]);
+  check("bad-ENV-001-preview with no target: exactly one `SKIP ENV-001 / no --target` line, no FAIL, exit 0 (without a target the indexing is not judged); the result says target null", bpNone.status === 0 && allPassButEnvSkip(bpNone) && bpNone.out.length > 0 && bpNone.out.split(/\r?\n/).filter((l) => /ENV-001/.test(l)).length === 1 && /^SKIP ENV-001 \/ no --target/m.test(bpNone.out) && !/^FAIL /m.test(bpNone.out) && bpNoneJ.j && bpNoneJ.j.target === null && bpNoneJ.j.findings.length === 1 && noTargetSkipOnly(bpNoneJ.j), bpNone.out + bpNone.err);
+  const gpProd = engine.audit(GP, { target: "production" });
+  check("good-preview with target production (the preview's _headers shipped to production): ENV-001 fails the four pages and IDX-001 the four sitemap entries, exit 1", gpProd.exit === 1 && envFails(gpProd).length === 4 && idxFails(gpProd).length === 4 && gpProd.findings.filter((f) => f.status === "FAIL").length === 8, gpProd.lines.filter((l) => !l.startsWith("PASS")).join(" | "));
+  const bProd = engine.audit(join(FIX, "bad-ENV-001-production"), { target: "production" });
+  check("bad-ENV-001-production: each ENV-001 FAIL names the page, the _headers line and pattern, and the target", envFails(bProd).length === 4 && envFails(bProd).every((f) => f.what.includes("_headers line 6 (pattern /*): X-Robots-Tag: noindex, nofollow") && f.what.includes("target production") && f.line > 0), envFails(bProd).map((f) => f.what).join(" | "));
+  const bPrev = engine.audit(join(FIX, "bad-ENV-001-preview"), { target: "preview" });
+  check("bad-ENV-001-preview: each ENV-001 FAIL names the page and the target, and says a preview would be indexed", envFails(bPrev).length === 4 && envFails(bPrev).every((f) => f.what.includes("target preview") && f.what.includes("a preview would be indexed") && f.what.includes("_headers")), envFails(bPrev).map((f) => f.what).join(" | "));
+  const sHdr = join(FIX, "snapshot-bad-IDX-001-header");
+  {
+    const ctx = await import(pathToFileURL(join(AUDIT, "lib", "context.mjs")).href);
+    const homeOf = (dir, target) => ctx.buildSite(dir, {}, { target }).pages.get("/");
+    const hp = homeOf(GP, "production"), hv = homeOf(GP, "preview"), hn = homeOf(GP, undefined), hs = homeOf(sHdr, undefined), hsp = homeOf(sHdr, "preview");
+    check("buildSite: page.robots and page.noindex follow the target (production: the _headers noindex joins; preview, and no target on a folder: it does not); headerNoindex and headerSource are facts in every case",
+      hp.noindex === true && /noindex/.test(hp.robots) && hv.noindex === false && hv.robots === "" && hn.noindex === false && hn.robots === "" && [hp, hv, hn].every((p) => p.headerNoindex === true && /^_headers line 6 \(pattern \/\*\)/.test(p.headerSource)),
+      JSON.stringify([hp.noindex, hp.robots, hv.noindex, hv.robots, hn.noindex, hn.robots]));
+    check("buildSite (snapshot): no target feeds the response header into page.robots and page.noindex; target preview does not, and still knows it (headerNoindex)", hs.noindex === true && /noindex/.test(hs.robots) && hsp.noindex === false && hsp.robots === "" && hsp.headerNoindex === true, JSON.stringify([hs.noindex, hs.robots, hsp.noindex, hsp.robots, hsp.headerNoindex]));
+  }
+  const shPrev = engine.audit(sHdr, { target: "preview" });
+  check("snapshot-bad-IDX-001-header with target preview: the header is expected, exit 0 and no finding", shPrev.exit === 0 && shPrev.findings.length === 0, shPrev.lines.filter((l) => !l.startsWith("PASS")).join(" | "));
+  const shProd = engine.audit(sHdr, { target: "production" });
+  check("snapshot-bad-IDX-001-header with target production: four ENV-001 FAILs and four IDX-001 FAILs", shProd.exit === 1 && envFails(shProd).length === 4 && idxFails(shProd).length === 4, shProd.lines.filter((l) => !l.startsWith("PASS")).join(" | "));
+  check("audit(): the result says which target was judged (null when none)", engine.audit(GOOD_DIR, { target: "production" }).target === "production" && engine.audit(GOOD_DIR, { target: "preview" }).target === "preview" && engine.audit(GOOD_DIR).target === null && engine.audit(GOOD_DIR, { target: null }).target === null);
+  // 5. a bad --target is a usage error (exit 2)
+  check("--target with a value that is not preview or production exits 2 and names the two values", ["staging", "Preview", "PRODUCTION", "", "production "].every((v) => { const r = cli([GOOD_DIR, "--target", v]); return r.status === 2 && /--target needs preview or production/.test(r.err) && r.out === ""; }));
+  check("--target with no value, or followed by another option, exits 2", cli([GOOD_DIR, "--target"]).status === 2 && cli([GOOD_DIR, "--target", "--json"]).status === 2);
+  check("audit(dir, { target }) throws a usage error (exit 2) for a target that is not preview or production, an empty string included", ["staging", "", "Preview", 1, true, {}].every((t) => { try { engine.audit(GOOD_DIR, { target: t }); return false; } catch (e) { return e.exit === 2 && /bad --target/.test(e.message); } }));
+  check("run.mjs with --target and --only together: only that rule's lines, judged against the target", (() => { const r = json([GP, "--target", "preview", "--only", "ENV-001"]); return r.status === 0 && r.j && r.j.rules.length === 1 && r.j.lines.length === 4 && r.j.lines.every((l) => l.startsWith("PASS ENV-001 ")); })());
+  // 6. live.mjs passes --target on to the audit
+  {
+    const lvT = live(["https://example-tea.invalid/", "--target", "production"], { STANDIN_DIR: sHdr });
+    const dirT = cli([sHdr, "--target", "production"]);
+    check("live.mjs --target production: the same lines and exit as run.mjs --target production (ENV-001 FAIL lines present)", lvT.status === 1 && dirT.status === 1 && lvT.out === dirT.out && /^FAIL ENV-001 \//m.test(lvT.out), lvT.out.slice(0, 300) + lvT.err);
+    const lvP = live(["https://example-tea.invalid/", "--target", "preview"], { STANDIN_DIR: sHdr });
+    check("live.mjs --target preview on the same snapshot: exit 0, every line PASS", lvP.status === 0 && lvP.out.split(/\r?\n/).filter(Boolean).every((l) => l.startsWith("PASS ")) && lvP.out.length > 0, lvP.out.slice(0, 300) + lvP.err);
+    const lvBadT = live(["https://example-tea.invalid/", "--target", "staging"]);
+    check("live.mjs: a bad --target exits 2 and judges nothing; --target with no value exits 2", lvBadT.status === 2 && lvBadT.out === "" && /--target needs preview or production/.test(lvBadT.err) && live(["https://example-tea.invalid/", "--target"]).status === 2, lvBadT.err);
+  }
+  // 7. the one-line switch: with REQUIRE_TARGET_FOR_FOLDER true (index.mjs) a built folder without a target is a usage error; a snapshot never is
+  {
+    const reqCopy = tmp("omnikom-audit-req-");
+    for (const n of ["index.mjs", "run.mjs", "live.mjs", "checks", "lib", "rules"]) cpSync(join(AUDIT, n), join(reqCopy, n), { recursive: true });
+    const ix = readFileSync(join(reqCopy, "index.mjs"), "utf8");
+    const flag = "export const REQUIRE_TARGET_FOR_FOLDER = false;";
+    check("index.mjs has the switch REQUIRE_TARGET_FOR_FOLDER on one line, false in this slice", ix.split(flag).length === 2);
+    writeFileSync(join(reqCopy, "index.mjs"), ix.split(flag).join(flag.replace("false", "true")));
+    const q1 = cli([GOOD_DIR], reqCopy), q2 = cli([GOOD_DIR, "--target", "production"], reqCopy), q3 = cli([SG], reqCopy);
+    check("with the switch set to true: a folder with no target exits 2 naming --target, a folder with a target runs, a snapshot with no target runs", q1.status === 2 && /needs --target/.test(q1.err) && q2.status === 0 && q3.status === 0, `${q1.status} ${q1.err} | ${q2.status} | ${q3.status}`);
+  }
 
   // temp folders (slice 4b.1): every folder this run made is on disk inside its one root (read back from the root, not from the names kept in memory)
   const inRoot = readdirSync(ROOT);

@@ -1,5 +1,5 @@
 // The live driver: judge a LIVE site with the same rules as a built folder, through the skill's polite snapshot.
-//   node tools/audit/live.mjs <url> [--fresh] [--cwd DIR] [--max-age-days N] [--json] [--only MET-003,MET-001] [--psi FILE] [-- <snapshot-site options>]
+//   node tools/audit/live.mjs <url> [--fresh] [--cwd DIR] [--max-age-days N] [--json] [--only MET-003,MET-001] [--psi FILE] [--target preview|production] [-- <snapshot-site options>]
 // It runs the skill's scripts/live-target.mjs as a child process with the same arguments (that script reuses a complete snapshot younger than
 // 7 days, or takes a new one with snapshot-site.mjs: GET only, a gap between requests, robots.txt obeyed, one 429 allowance then stop), reads
 // the line it prints (REUSE <dir> | NEW <dir> | FAILED <dir> ...), then runs audit() on that folder and prints the lines.
@@ -16,14 +16,14 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const USAGE = "usage: node tools/audit/live.mjs <url> [--fresh] [--cwd DIR] [--max-age-days N] [--json] [--only MET-003,MET-001] [--psi FILE] [-- <snapshot-site options>]";
+const USAGE = "usage: node tools/audit/live.mjs <url> [--fresh] [--cwd DIR] [--max-age-days N] [--json] [--only MET-003,MET-001] [--psi FILE] [--target preview|production] [-- <snapshot-site options>]";
 const die = (msg, code = 2) => { console.error(msg); process.exit(code); };
 
 const all = process.argv.slice(2);
 const dd = all.indexOf("--");
 const args = dd >= 0 ? all.slice(0, dd) : all;
 const pass = dd >= 0 ? all.slice(dd + 1) : [];
-let url = null, fresh = false, cwd = null, maxAge = null, json = false, only = null, psi = null;
+let url = null, fresh = false, cwd = null, maxAge = null, json = false, only = null, psi = null, buildTarget = null;
 const value = (i, what) => { const v = args[i + 1]; if (v === undefined || v.startsWith("--")) die(`${what} needs a value\n${USAGE}`); return v; };
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
@@ -32,6 +32,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a === "--cwd") { cwd = value(i, a); i++; }
   else if (a === "--max-age-days") { maxAge = value(i, a); i++; }
   else if (a === "--psi") { psi = value(i, a); i++; }
+  else if (a === "--target") { buildTarget = value(i, a); i++; if (buildTarget !== "preview" && buildTarget !== "production") die(`--target needs preview or production (got ${JSON.stringify(buildTarget)})\n${USAGE}`); }
   else if (a === "--only") { only = value(i, a).split(",").map((s) => s.trim()).filter(Boolean); i++; if (!only.length) die(`--only needs a rule id list\n${USAGE}`); }
   else if (a.startsWith("--")) die(`unknown option ${a}\n${USAGE}`);
   else if (url === null) url = a;
@@ -84,7 +85,7 @@ let engine;
 try { engine = await import(new URL("./index.mjs", import.meta.url).href); }
 catch (e) { die(`engine refused to load: ${e.message}`); }
 try {
-  const res = engine.audit(dir, { rules: only || undefined, psi: psi || undefined });
+  const res = engine.audit(dir, { rules: only || undefined, psi: psi || undefined, target: buildTarget || undefined });
   if (json) console.log(JSON.stringify(res, null, 2));
   else {
     for (const l of res.lines) console.log(l);

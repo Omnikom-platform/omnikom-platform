@@ -10,6 +10,10 @@ import { buildSite } from "./lib/context.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SEVERITIES = new Set(["P0", "P1", "P2", "W"]);
+export const TARGETS = ["preview", "production"];
+// Slice 4c: a built folder may be audited with no target (ENV-001 then says SKIP, "no --target"). The head sets this to true, ONE LINE, once the
+// factory passes a target: a folder with no target is then a usage error (exit 2). A snapshot (a live site) is never refused for it.
+export const REQUIRE_TARGET_FOR_FOLDER = false;
 
 // An error with an exit code: 2 = usage or configuration error (the runner prints the message and exits with it).
 export class AuditError extends Error { constructor(message, exit = 2) { super(message); this.exit = exit; } }
@@ -76,7 +80,10 @@ export function audit(dir, options = {}) {
     if (unknown.length) throw new AuditError(`no such rule: ${unknown.map((u) => JSON.stringify(u)).join(", ")} (unknown rule id; node tools/audit/run.mjs --list shows them)`);
     selected = CHECKS.filter((c) => want.includes(c.id));
   }
-  const site = buildSite(dir, config, { psi: options.psi });
+  // the build target: "preview" or "production", no default. Anything else (an empty string, another word, a non-string) is a usage error.
+  if (options.target !== undefined && options.target !== null && !TARGETS.includes(options.target)) throw new AuditError(`bad --target ${JSON.stringify(options.target)}: it must be preview or production`);
+  const site = buildSite(dir, config, { psi: options.psi, target: options.target || null });
+  if (REQUIRE_TARGET_FOR_FOLDER && site.mode === "static" && !site.target) throw new AuditError("a built folder needs --target preview|production (the build's indexing is judged against it)");
   const findings = [];
   const lines = [];
   for (const c of selected) {
@@ -94,5 +101,5 @@ export function audit(dir, options = {}) {
     }
   }
   const pass = !findings.some((f) => f.status === "FAIL");
-  return { dir: site.dir, mode: site.mode, pages: site.pageList.map((p) => p.path), rules: selected.map((c) => ({ id: c.id, severity: c.severity, source: c.source })), findings, lines, pass, exit: pass ? 0 : 1 };
+  return { dir: site.dir, mode: site.mode, target: site.target, pages: site.pageList.map((p) => p.path), rules: selected.map((c) => ({ id: c.id, severity: c.severity, source: c.source })), findings, lines, pass, exit: pass ? 0 : 1 };
 }
