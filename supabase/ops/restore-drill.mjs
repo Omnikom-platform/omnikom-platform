@@ -25,13 +25,15 @@
 // Exit 0 DRILL PASS (every phase passed and the total is under the limit); 1 a phase failed (named); 2 usage; 3 blocked (a variable or tool missing).
 // Printed: counts, times, plain error classes. Never a URL, a key, a password or a row.
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, existsSync, statSync, readdirSync, copyFileSync, realpathSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync, readFileSync, mkdirSync, existsSync, statSync, readdirSync, copyFileSync, realpathSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = process.env.OMNIKOM_6B_REPO ? resolve(process.env.OMNIKOM_6B_REPO) : resolve(HERE, '..', '..');   // the override is for the mutation harness only (a copy of this file lives in the temp folder)
+// 5-H: the working folder (the throwaway cluster, the dump copies) is guarded: stopped and removed on every exit path, swept at start
+// when an earlier drill was killed. Loaded from REPO, not by a relative path: the mutation harness runs a copy of this file elsewhere.
+const { guardedTemp, sweep } = await import(pathToFileURL(join(REPO, 'tools', 'proc-guard', 'index.mjs')).href);
 const NAME_RE = /^[A-Z][A-Z0-9_]*$/;
 class Stop extends Error { constructor(code, message) { super(message); this.code = code; } }
 
@@ -156,7 +158,9 @@ export async function drill(argv, env = process.env, log = console.log) {
   if (url) { try { const u = new URL(url); [u.password, u.hostname, u.username].forEach(x => x && x.length >= 4 && secrets.push(x)); } catch { /* checked by pg_dump */ } }
   const scrub = t => { let s = String(t); for (const x of secrets) s = s.split(x).join('***'); return s; };
 
-  const work = mkdtempSync(join(tmpdir(), 'omnikom-drill-'));
+  sweep();
+  const guard = guardedTemp('omnikom-pg-', 'cluster', { label: 'restore-drill' });
+  const work = guard.dir;
   const phases = [];
   const failures = [];
   let cluster = null;
@@ -177,8 +181,8 @@ export async function drill(argv, env = process.env, log = console.log) {
     return r.status === 0 ? { ok: true, m: parseCounts(r.out) } : { ok: false, err: scrub(lastLine(r.err)) };
   };
   const cleanup = () => {
-    if (cluster) sh('pg_ctl', ['-D', cluster.data, '-m', 'immediate', '-w', 'stop'], { stdio: 'ignore' });
-    if (!o.keep) rmSync(work, { recursive: true, force: true });
+    // pg_ctl stop -m immediate for the cluster in the folder, any process naming the folder, then the folder (--keep leaves it, stopped)
+    guard.release({ keep: o.keep });
   };
   try {
     log(`restore drill ${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}: ${o.db ? `dump of ${o.db}` : 'dump file'}, site ${o.slug}, work folder in the system temp folder, limit ${o.limit} min`);

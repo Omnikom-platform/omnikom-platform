@@ -17,6 +17,7 @@ proven on staging through the CLI the testing department provides.
 - `tools/mint-site-key.mjs`
 - `tools/tick-sequence.mjs`
 - `tools/pages-project.mjs`
+- `tools/proc-guard/`
 - `tools/dns-upsert.mjs`
 - `tools/staging-extensions.mjs`
 - `tools/check-platform-keys.mjs`

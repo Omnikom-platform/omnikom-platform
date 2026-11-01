@@ -3,17 +3,21 @@
 //   node supabase/tests/test-apply.mjs
 // Checks: run 1 applies every file; run 2 applies none; --dry-run after that reports 0 pending; an applied file edited on disk
 // is refused; the script refuses to run without the URL variable; the tenancy tests pass on the database the script built.
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, cpSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, cpSync, readdirSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+// 5-H: the cluster folder is guarded (stopped and removed on every exit path, including process.exit and a throw; swept at start
+// when an earlier run was killed)
+import { guardedTemp, sweep } from '../../tools/proc-guard/index.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SUPABASE = resolve(HERE, '..');
 const PORT = String(56000 + Math.floor(Math.random() * 900));
 const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 300000, ...opts });
-const dir = mkdtempSync(join(tmpdir(), 'omnikom-apply-'));
+sweep();
+const guard = guardedTemp('omnikom-pg-', 'cluster', { label: 'test-apply' });
+const dir = guard.dir;
 const data = join(dir, 'data');
 let failed = 0;
 const check = (name, ok, detail = '') => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${ok ? '' : ': ' + detail}`); if (!ok) failed++; };
@@ -61,7 +65,6 @@ check('refuses when STAGING_DB_URL equals PROD_DB_URL', r.status === 2 && /equal
 r = apply(['--url-env', 'PROD_DB_URL'], { PROD_DB_URL: URL });
 check('production needs --i-mean-production', r.status === 2 && /i-mean-production/.test(r.stderr));
 
-run('pg_ctl', ['-D', data, '-m', 'fast', 'stop']);
-rmSync(dir, { recursive: true, force: true });
+guard.release();   // pg_ctl stop -m immediate, any process naming the folder, then the folder
 console.log(`\n${failed ? 'FAILED' : 'OK'}: apply-staging ${failed} problem(s)`);
 process.exit(failed ? 1 : 0);
