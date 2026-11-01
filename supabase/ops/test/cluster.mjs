@@ -4,11 +4,12 @@
 //   const c = startCluster('proven');          // { url, port, dir, sql(text), file(path), scalar(text), stop() }
 //   loadPlatform(c);                           // local-shim.sql, then every migration through supabase/apply-staging.mjs
 //   c.stop();                                  // pg_ctl stop and delete the folder
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+// 5-H: the cluster folder is guarded (stopped and removed on every exit path; swept when an earlier run was killed)
+import { guardedTemp, sweep } from '../../../tools/proc-guard/index.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const SUPABASE_DIR = resolve(HERE, '..', '..');
@@ -16,16 +17,19 @@ const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', t
 const used = new Set();
 const pickPort = () => { for (;;) { const p = 57000 + Math.floor(Math.random() * 1900); if (!used.has(p)) { used.add(p); return p; } } };
 
+let swept = false;
 export function startCluster(label = 'ops') {
-  const dir = mkdtempSync(join(tmpdir(), `omnikom-ops-${label}-`));
+  if (!swept) { swept = true; sweep(); }
+  const guard = guardedTemp('omnikom-pg-', 'cluster', { label: `ops-${label}` });
+  const dir = guard.dir;
   const data = join(dir, 'data');
   const port = pickPort();
   let r = run('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8']);
-  if (r.status !== 0) { rmSync(dir, { recursive: true, force: true }); throw new Error(`initdb failed: ${r.stderr || r.error}`); }
+  if (r.status !== 0) { guard.release(); throw new Error(`initdb failed: ${r.stderr || r.error}`); }
   r = run('pg_ctl', ['-D', data, '-o', `-p ${port} -k ""`, '-l', join(dir, 'pg.log'), '-w', 'start']);
   if (r.status !== 0) {
     let log = ''; try { log = readFileSync(join(dir, 'pg.log'), 'utf8'); } catch { /* no log */ }
-    rmSync(dir, { recursive: true, force: true });
+    guard.release();
     throw new Error(`pg_ctl start failed: ${r.stderr}\n${log}`);
   }
   const url = `postgres://postgres@127.0.0.1:${port}/postgres`;
@@ -36,8 +40,7 @@ export function startCluster(label = 'ops') {
     file(path) { const x = psql(['-f', path]); if (x.status !== 0) throw new Error(`file failed on ${label}: ${(x.stderr || '').trim()}`); return x.stdout; },
     scalar(text) { const x = psql(['-t', '-A', '-c', text]); if (x.status !== 0) throw new Error(`sql failed on ${label}: ${(x.stderr || '').trim()}`); return x.stdout.trim(); },
     stop() {
-      run('pg_ctl', ['-D', data, '-m', 'immediate', '-w', 'stop']);
-      rmSync(dir, { recursive: true, force: true });
+      guard.release();   // pg_ctl stop -m immediate, any process naming the folder, then the folder
       used.delete(port);
     },
   };

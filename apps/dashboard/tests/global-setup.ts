@@ -5,6 +5,9 @@
 import { chromium } from '@playwright/test';
 import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+// 5-H: a browser an earlier killed run left behind (Playwright's own playwright_chromiumdev_profile-* folders whose browser has no live
+// parent process, and our guarded folders whose owner is gone) is cleaned at the start of every run. Typed by tools/proc-guard/index.d.mts.
+import { sweep } from '../../../tools/proc-guard/index.mjs';
 import { BASE_URL, mintTokenHash, need, PEOPLE, supabaseHost, type Person } from './support/staging';
 
 const SIGNED_IN: Person[] = ['owner-a', 'member-a1', 'member-a2', 'owner-b'];
@@ -20,6 +23,7 @@ function checkBuild(root: string) {
 const ROOT = join(import.meta.dirname, '..');   // apps/dashboard
 
 export default async function globalSetup() {
+  sweep();
   need('STAGING_SUPABASE_SECRET_KEY'); need('STAGING_SUPABASE_PUBLISHABLE_KEY'); need('STAGING_SUPABASE_REF');
   checkBuild(ROOT);
   const authDir = join(ROOT, '.auth');
