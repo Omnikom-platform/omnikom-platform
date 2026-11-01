@@ -41,6 +41,9 @@ options, never a fix made here.
 - No client project folder is a test vehicle (DECISIONS 30): fixtures are synthetic sites under tools/audit/fixtures/ and the skill's own fixtures; a live public URL may be read politely for a measurement, never changed.
 - Shared laptop: a head or builder stops only processes it started, by their PID, never by a name or pattern (2026-10-31: a pattern kill in
   slice 4b may have ended another session's mutant run). The audit tests must remove every temp folder they make, killed runs included (slice 4b.1: one root per run; the live driver stops its child's whole tree).
+- Head's context is for planning, briefs, reviewing the chain, landing and two-line reports (owner, 2026-11-01 06:28): every hands-on
+  task (live runs, diagnosis, log reading, skill syncs, brief research) goes to a fresh builder or a Haiku runner. Builders keep their
+  report short and write the detail into the slice's proof file `tools/audit/proof/<slice>.md`.
 
 ## Proof
 - Gate 1, the tests: `node tools/audit/test/run.mjs` prints `ok  ` or `FAIL` per check and ends `OK: N of N checks passed`, exit 0.
@@ -176,3 +179,34 @@ options, never a fix made here.
   11 requests, 0 rate-limit responses, 28 rules, 0 FAIL, 0 WARN, 4 SKIP (speed UNTRUSTED, machine busy); PROGRESS "the first real live
   run". Closes the live-target UNPROVEN of slice 2; a trusted lab speed and a real PSI file stay UNPROVEN. FINDING for slice 4c: the
   `x-robots-tag` header is never read (meta robots only), so a header-noindexed site passes IDX-001.
+- 2026-11-01 07:05 HANDOVER (owner's order via head of operations; outgoing head `local_d0e65fa9...`, Opus 5.5, context 350k with 3
+  compactions; incoming head HEAD_SEO-and-audits_2026-11-01; report to HEAD-OF-OPERATIONS_Omnikom_2026-11-01).
+  - Master: a0c544d (the first real live run). Landed this session, each CI-green on a check branch (DECISIONS 45): 4d16ec1 slice 4b,
+    056d0d6 slice 4b.1, 73803db skill sync 83c1fe6, a0c544d live-run record. No check branch of this department is open.
+  - IN FLIGHT, NOT DONE: slice 4c (brief `tools/audit/briefs/slice-4c-noindex-header.md`). Its Sonnet builder died on an API
+    connection error at 06:3x, mid-fix; nothing is committed. Uncommitted in this checkout: `tools/audit/` README.md, index.mjs,
+    lib/context.mjs, lib/site.mjs, live.mjs, run.mjs, test/run.mjs, test/mutate.mjs, fixtures/build-fixtures.mjs and new fixtures;
+    new checks/env-001.mjs, rules/ENV-001.md, lib/headers.mjs; the skill SOURCE `scripts/lib-site.mjs` (x-robots-tag read, same text
+    as tools/audit/lib/site.mjs), uncommitted in the skill repo. Last builder outputs before the fix: test/run.mjs 545 of 545,
+    build-fixtures 127, 45 new mutants 45 caught, 29 rules, good --target production and good-preview --target preview 0 FAIL;
+    `node factory/test/run.mjs` FAILED 1 of 88 because a no-target run printed "SKIP ENV-001 (no target)".
+  - Head's decision for that red (sent to the builder, partly applied): with no target ENV-001 prints NOTHING (`checks/env-001.mjs:18`
+    now `if (!site.target) return [];` is in place); still to do: revert the builder's edits to existing tests that allowed one
+    no-target SKIP, flip the isNT expectations to zero, a test and mutant that a no-target run of bad-ENV-001-preview prints no
+    ENV-001 line, a mutant "no target judged as production", README "a run with no target does not judge indexing", and the proof
+    file `tools/audit/proof/4c.md` (not written). Then re-run test/run.mjs, build-fixtures --check, factory/test/run.mjs (must be 88
+    of 88), tools/omnikom-cli/test/run.mjs --unit (lines 268/273/285 expect 0 SKIP), MUTATE_ONLY through heavy.mjs; commit the
+    skill repo, sync by a Haiku runner, commit in a private index (the shared index holds other heads' staged files), push
+    check/seo-and-audits/4c, land on green.
+  - NOTICE sent (via head of operations) to the platform head: after 4c lands, the runner calls `node tools/audit/run.mjs <work>/dist
+    --target <preview|production>` and factory/test/run.mjs calls `AUDIT.audit(dir, { target })`. When their change lands: flip
+    `REQUIRE_TARGET_FOR_FOLDER` in `tools/audit/index.mjs` to true (a no-target folder run becomes exit 2), on its own check branch.
+    The CLI's `omnikom audit` also needs `--target` (CLI head; notice not yet sent).
+  - QUEUE after 4c: the --target flip above; then slice 5, the prompt map (DECISIONS 35; head of operations: reach prompt-map rows
+    with scenario/comparison/constraint, named and cited checks with one fix each, the `situation` and `comparison` page types, a
+    gate over the rows, the monthly measure stage); its brief is NOT WRITTEN and its research agent died on the same API error (start
+    a fresh read-only research agent); then slice 4, the six-question report.
+  - OPEN FINDINGS: a trusted lab speed and a real PSI file UNPROVEN; skill carried: vitals nesting in browser-mobile.json, robots
+    saved as utf8 (U+FFFD), psi.mjs output outside the snapshot, sitemaps fetched[].status unjudged, test-snapshot gap timing under
+    load; clean-launch-guard refuses read-only commands that name the session scratchpad path (`\Temp\claude\...`), reported;
+    `skills/SOURCE.md` and `skills/sync-skill.mjs` were flagged unowned by omnikom impact (now head-of-operations per impact).
