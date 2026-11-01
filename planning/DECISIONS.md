@@ -406,3 +406,44 @@
     runs only the tests the impact list names (fast feedback), never the full gates as the gate; `omnikom ci` stays for
     reproducing a GitHub failure locally. Builders still never push. Watch: Actions minutes on the private org repo; the
     head of operations checks usage weekly and says when it nears the plan's limit.
+
+46. **The checks run on a public, code-only copy under the owner's GitHub account; the private org repo stays the real one**
+    (2026-11-01 12:51, owner: "Public repo under my account", then "figure it out yourself" when asked how). What happened:
+    the org is on the GitHub Free plan and November's 2,000 included Actions minutes were used up by about 10:00 on the 1st
+    (gh billing usage "2026-11 Actions Linux: 2000 Minutes net=0"); every job then failed with "The job was not started
+    because recent account payments have failed or your spending limit needs to be increased". Public repos run Actions on
+    standard runners free. Chosen by the head of operations over moving the whole repo public, because the repo holds client
+    material (clients/ 28 files, docs/listings/ 11, sops/clients/ 5, planning/ 8 and their history; a full-history gitleaks
+    scan of 169 commits found no secrets). So: (a) a public repo under the owner's account receives, for each check branch,
+    one commit whose tree is the private tree minus a denylist kept in one file (client, listing, client SOP, planning, offer
+    and any other non-code folder), with no history; (b) a gate fails when a denylisted path, or a file naming a client from
+    clients/, would reach the copy; (c) the copy holds no repository secrets, and a job that needs one does not run there;
+    (d) `omnikom land` takes the verdict from the copy's run for the copy of that exact tree and keeps every other DECISIONS
+    45 rule (check branch, green run, fast-forward only, land lock); (e) heads keep pushing check branches to the private
+    repo as before. Built by the CLI and testing department, ahead of its slice 2, with a test watched failing and a mutant for
+    (b) and (d). This amends DECISIONS 45 part (c) only.
+
+47. **Client-named files stay off the public copy; the checks that need them run on the laptop for the exact commit until
+    their files are anonymised** (2026-11-01 14:15, head of operations, on the owner's standing "figure it out yourself" for
+    process questions). What happened: the DECISIONS 46 dry run on c2811ee was COPY-REFUSED: 135 files name a client; after
+    denying the plainly non-code folders, 107 still do, across five departments, 20 of them read by a CI job, and
+    contracts/examples/ has one folder per client, named by the client and read by gates. The gate was not relaxed (a client
+    slug is a client name; 46(b) stands). Chosen over "everyone anonymises first" (every landing would wait on five
+    departments at 80% weekly usage) and over "those checks run nowhere" (a check that runs nowhere proves nothing). So:
+    (a) every client-named file is on the copy's denylist now; (b) a ci.yml job that cannot run without those files is listed
+    in `jobsNotOnCopy` with the files that keep it there; (c) `omnikom land` runs each listed job on the laptop through
+    heavy.mjs for the exact commit being landed and refuses unless it passes, and the land report names those jobs as "laptop,
+    not GitHub" (this amends DECISIONS 45 (d) for listed jobs only); (d) anonymising is a notice to each owning department,
+    sequenced by its head as a slice (client names become neutral names such as `example-a`; fixtures keep their shape); a job
+    leaves the list when its files are clean and the copy runs it green; (e) a `jobsNotOnCopy` job that takes over 15 minutes
+    on the laptop (the database walls) is reported to the head of operations before (c) applies to it, because the laptop is
+    the bottleneck DECISIONS 45 moved off. Built by the CLI and testing department inside the D46 slice, with a test watched
+    failing and a mutant for (c).
+    (f) One exception to "never edit an applied migration", ruled 14:30: `supabase/migrations/20261029000002_crm.sql` line 7
+    names a client in a SQL comment only. The ledger (`ops.platform_migrations`, sha256 per file) makes even a comment edit a
+    content mismatch that promote-check refuses (R-CONTENT), and leaving the file denied would keep the functions and gates
+    jobs off the copy for good. Because no production database exists yet and the line is a comment (no schema change), the
+    platform department changes that comment to the neutral name and, in the same slice, updates that one file's sha256 row on
+    staging through a script that refuses unless the old and new files differ only in comment lines (test watched red, a
+    mutant); the run is recorded in its charter. This exception closes when the first production database exists: from then
+    on an applied migration is never edited, even a comment.
