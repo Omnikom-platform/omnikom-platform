@@ -1,5 +1,7 @@
 # Valley To Valley Realty (Francine Masudi): profile
 
+Also known as: Francine, Xpert Home Realty
+
 Record owner: Clients department (`docs/departments/clients.md`). Project folder (evidence and work, never written from here):
 `E:\Francine & Eli` (shared by two separate clients; this record covers only Francine, the other is `clients/eli`). Its `CLAUDE.md`
 is the brief, `.claude/POSITION.md` the run log, `icm/knowledge/` the verified facts and decisions, `deliverables/docs/` every

@@ -1,5 +1,7 @@
 # ELEV8 Real Estate Group (Alex Sevilla): profile
 
+Also known as: Sunny Azizi, Sunny buys homes, Alex buys homes, Xpert Home Realty, Xpert Home Lending
+
 Record owner: Clients department (`docs/departments/clients.md`). Project folder (evidence and work, never written from here):
 `E:\Alex Sevilla` (its `BRIEF.md` is the audit job, `.claude/POSITION.md` the run log, `facts/` the verified facts, `EVIDENCE.md`
 every report number to its source). Written 2026-10-30 by the Clients head from those files; every line names its source.
