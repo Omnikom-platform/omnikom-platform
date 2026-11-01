@@ -234,7 +234,7 @@ const MUTANTS = [
   // ---- the GitHub run is the gate (DECISIONS 45): the verdict of a commit, the pre-push hook, land, and ci on an exact tree
   ["ghrun: a skipped job is counted as green", "lib/ghrun.mjs", "for (const j of run.jobs) if (j.conclusion !== 'success') {", "for (const j of run.jobs) if (j.conclusion !== 'success' && j.conclusion !== 'skipped') {", 'unit'],
   ["ghrun: the ci.yml job-name list is not checked", "lib/ghrun.mjs", "for (const name of jobNames) if (!run.jobs.some(", "for (const name of []) if (!run.jobs.some(", 'unit'],
-  ["ghrun: a red run beside a green one is ignored", "lib/ghrun.mjs", "if (badRuns.size > 0) return", "if (badRuns.size > 0 && badRuns.size === runs.length) return", 'unit'],
+  ["ghrun: a red run beside a green one is ignored", "lib/ghrun.mjs", "if (badRuns.size > 0) {", "if (badRuns.size > 0 && badRuns.size === runs.length) {", 'unit'],
   ["ghrun: the headSha equality is off", "lib/ghrun.mjs", "String(r.headSha).toLowerCase() === String(sha).toLowerCase() &&", "true &&", 'unit'],
   ["ghrun: a failed gh call is read as no run, not Blocked", "lib/ghrun.mjs", "if (!r || !r.ok) throw new Blocked(", "if (!r || !r.ok) return [];\n    if (false) throw new Blocked(", 'unit'],
   ["ghrun: a cancelled run counts", "lib/ghrun.mjs", " && r.conclusion !== 'cancelled');", ");", 'unit'],
