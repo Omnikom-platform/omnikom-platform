@@ -261,12 +261,19 @@ set role service_role;
 update publish_job_events set at = now() - interval '2 hours' where job_id = test.id('jobQ');
 -- jobB has been waiting long since creation but changed state recently: not stale
 update publish_jobs set created_at = now() - interval '3 hours' where id = test.id('jobB');
-do $$ begin assert service.reap_stale_jobs() = 0, 'a job that changed state recently is not reaped (N2)'; end $$;
+-- only the fixture jobs (every id this file registered) are counted, as the change in how many of them are failed: on a database
+-- that holds other jobs (staging) the reaper may fail those too, and a fixture job may be failed already (jobPin)
+do $$ declare before int; begin
+  select count(*) into before from publish_jobs where id in (select v from test.ids) and state = 'failed';
+  perform service.reap_stale_jobs();                  -- run first, then look (one expression has no guaranteed order)
+  assert (select count(*) from publish_jobs where id in (select v from test.ids) and state = 'failed') = before, 'a job that changed state recently is not reaped (N2)';
+end $$;
 -- now its last state change is 31 minutes old: reaped
 update publish_job_events set at = now() - interval '31 minutes' where job_id = test.id('jobB');
-do $$ declare n int; begin
-  n := service.reap_stale_jobs();                     -- run first, then look (one expression has no guaranteed order)
-  assert n = 1, 'the reaper failed exactly one stale job';
+do $$ declare before int; begin
+  select count(*) into before from publish_jobs where id in (select v from test.ids) and state = 'failed';
+  perform service.reap_stale_jobs();
+  assert (select count(*) from publish_jobs where id in (select v from test.ids) and state = 'failed') = before + 1, 'the reaper failed exactly one stale job';
   assert (select state from publish_jobs where id = test.id('jobB')) = 'failed', 'stale job failed by the reaper';
 end $$;
 -- its deploy lands after all: done reconciles a reaped job, and the rows go live
@@ -363,7 +370,7 @@ set role authenticated;
 select test.act_as('00000000-0000-0000-0000-00000000000a');
 do $$ begin assert (select count(*) from api_keys) = 0, 'owners never see api keys'; end $$;
 select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
-do $$ begin assert (select count(*) from api_keys) = 2, 'staff with MFA see the registry'; end $$;
+do $$ begin assert (select count(*) from api_keys where vault_ref in ('site-demo-a-key-1', 'site-demo-a-key-0')) = 2, 'staff with MFA see the registry'; end $$;
 reset role;
 insert into api_keys (site_id, workspace_id, kind, label, key_hash, vault_ref) values ('bbbbbbbb-0000-0000-0000-00000000517e', 'bbbbbbbb-0000-0000-0000-000000000000', 'site-signing', 'Demo B live key', repeat('c', 64), 'site-demo-b-key-1');
 insert into api_keys (site_id, kind, label, key_hash, vault_ref) values ('bbbbbbbb-0000-0000-0000-00000000517e', 'site-signing', 'Demo B key without a workspace', repeat('d', 64), 'site-demo-b-key-0');   -- the shape of a key stored before workspaces were written: still found by its site
@@ -478,9 +485,9 @@ end $$;
 select test.expect_error($q$select service.webhook_received('cccccccc-0000-0000-0000-000000000002', 'x', 'evt-9', '{}')$q$, 'S-NOT-FOUND');
 set role authenticated;
 select test.act_as('00000000-0000-0000-0000-00000000000a');
-do $$ begin assert (select count(*) from webhook_events) = 0, 'owners never read the webhook inbox'; assert (select count(*) from connectors) = 1, 'the owner sees only their connectors'; end $$;
+do $$ begin assert (select count(*) from webhook_events) = 0, 'owners never read the webhook inbox'; assert (select count(*) from connectors where id in ('cccccccc-0000-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000002')) = 1, 'the owner sees only their connectors'; end $$;
 select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
-do $$ begin assert (select count(*) from webhook_events) = 1, 'staff read the webhook inbox'; end $$;
+do $$ begin assert (select count(*) from webhook_events where provider_event_id = 'evt-1' and connector_id = 'cccccccc-0000-0000-0000-000000000001') = 1, 'staff read the webhook inbox'; end $$;
 
 -- CRM templates: owner saves, member cannot, shape is checked, B cannot read A's
 select test.act_as('00000000-0000-0000-0000-00000000000a');
@@ -784,7 +791,7 @@ do $$ begin
   assert (select path from media where id = test.id('mediaA1')) like '%.png' and (select path from media where id = test.id('mediaStaff')) like '%.pdf', 'the extension follows the type';
   assert (select uploaded_by from media where id = test.id('mediaOwner')) = '00000000-0000-0000-0000-00000000000a', 'uploaded_by is the login from the claims';
   assert (select not processed and not exif_stripped and not rights_confirmed and width is null from media where id = test.id('mediaOwner')), 'a new record is unprocessed, unstripped, rights not confirmed, width unknown';
-  assert (select count(*) from audit_log where action = 'media-start' and workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 4, 'every recorded upload is audited (media-start)';
+  assert (select count(*) from audit_log where action = 'media-start' and workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and detail ->> 'filename' in ('front.jpg', 'a1.png', 'staff.pdf', 'edge.jpg')) = 4, 'every recorded upload is audited (media-start)';
   assert (select count(*) from media where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and path like '%/x.%') = 0, 'a refused upload left no row';
 end $$;
 -- finish_media: the uploader, an owner or staff of the workspace; the rights tick only; never the processor's facts
@@ -806,7 +813,7 @@ do $$ begin
   assert (select rights_confirmed from media where id = test.id('mediaOwner')) and (select rights_confirmed from media where id = test.id('mediaA1')), 'finish sets the rights tick';
   assert not (select rights_confirmed from media where id = test.id('mediaStaff')), 'a media nobody finished stays unticked';
   assert (select not processed and not exif_stripped and width is null from media where id = test.id('mediaOwner')), 'finish never touches width, processed or exif_stripped (ground rule 11)';
-  assert (select count(*) from audit_log where action = 'media-finish') = 4, 'every finish is audited (media-finish)';
+  assert (select count(*) from audit_log where action = 'media-finish' and target in (select v::text from test.ids where k like 'media%')) = 4, 'every finish is audited (media-finish)';
 end $$;
 -- an uploader who has left the workspace can no longer finish their upload
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000e1', 'ex-member@test');

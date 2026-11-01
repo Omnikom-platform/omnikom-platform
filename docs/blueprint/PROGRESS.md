@@ -1595,3 +1595,20 @@ planted preview without the X-Robots-Tag line (scratch copy) "FAIL ENV-001 /:3 m
 not noindex", audit exit 1, so the runner stops at gating. Head's re-run in the builder's worktree: 88 of 88 and 75 of 75, the
 two "audit target" checks ok. UNPROVEN: the 10 sharp media mutants (sharp not installed on the laptop; GitHub runs them).
 SEO can now flip `REQUIRE_TARGET_FOR_FOLDER` (theirs). SEO 5c's PMP-001 allowance on the same check is kept by whichever lands second.
+
+### 5-W the walls file counts only its own fixture rows (2026-11-01 13:05 to 20:40 local, builder `BUILDER_platform-build_5-W`; brief `factory/briefs/5-W-walls-reaper-scope.md`)
+`supabase/tests/tenancy.test.sql` asserted global counts, so `omnikom test walls --target staging` stopped at the reaper block on
+5 stale staging jobs (N2). Now both reaper blocks compare the failed count among every id in `test.ids` before and after the call
+(= before, = before + 1; relative because jobPin is already failed), and the same-kind counts are scoped to fixture rows: api_keys
+(vault_ref site-demo-a-key-1/-0), webhook_events (evt-1 on connector 01), the owner's connectors (01/02), audit_log media-start
+(the four fixture filenames) and media-finish (targets among the fixture media ids). Assertion messages unchanged. Builder's lines
+(local cluster, planted non-fixture rows in a scratch script, OLD = master's file, NEW = this one): "PASS OLD clean / PASS NEW
+clean ALL TENANCY TESTS PASSED"; stale job past 24 h "FAIL OLD line 271: a job that changed state recently is not reaped (N2)",
+"PASS NEW"; api_keys "FAIL OLD line 367: staff with MFA see the registry", PASS NEW; webhook_events + connectors "FAIL OLD line
+483: the owner sees only their connectors", PASS NEW; media-start "FAIL OLD line 790", PASS NEW; media-finish "FAIL OLD line 811",
+PASS NEW; scratch over-reap mutant red on both (NEW "line 270: ... (N2)"); the 7 existing reaper, api-key, webhook and finish
+mutants caught. Head's re-run (Haiku runner): `run-local.mjs --only "stale jobs are reaped"` "PASS real migration: ALL TENANCY
+TESTS PASSED", "caught stale jobs are reaped ERROR: the reaper failed exactly one stale job", "OK: real migration passes; 1 mutants".
+UNPROVEN: the staging-only `webhook_events` staff line (~487) was not watched red on its own (the connectors line fails first);
+the run on staging (`omnikom test walls --target staging`) is next. Findings, open: audit_log counts keyed by action and workspace A
+that a staging row could inflate, about lines 1149, 1214, 1242 ('alerts-set', 'crm-set' x2) and 1469 ('crm-test' = 3).

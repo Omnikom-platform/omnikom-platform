@@ -50,6 +50,8 @@ sent to the head of operations with options, never a fix made here.
 
 ## Builders
 - Model: sonnet for a mechanical, well-specified piece; opus when the piece is design or an unknown root cause.
+- Effort: start every builder with `--effort high` (`start-builder.mjs --effort high`); the machine default is low (head of
+  operations, 2026-11-01 20:48). A running builder keeps its effort; replace one at a slice boundary only if it struggles.
 - Mechanical runs (tests, mutants, gates, grep, fixture rebuilds, deploy and status commands) go to a haiku agent with the
   exact command; the head or builder reads the verdict lines back (DECISIONS 34).
 - One piece, one brief, discarded when done. The brief carries the spec file and line, the gate command, the rules below, and
@@ -123,6 +125,9 @@ Closed work (steps 1 to 4, 5.1 to 5.3, 6A, 6B, the Auth emails) is in the positi
   writer; a wall test watched red per missing field and a mutant in run-local.mjs. Month-on-month is two run-day rows.
   Why: the table was designed for exactly this, the RLS wall exists, and dozens of prompts times a few engines per month is
   small; a separate table would add a migration, a policy and a wall for no query the dashboard needs.
+  **5-P4 finding (head of operations, 2026-11-01 20:45, from SEO 5d; read `tools/audit/proof/5d.md` before writing the brief):**
+  a real row's evidence is a dated file pointer, not an answer quote, and named/cited may be null (Gemini's named is always
+  null). The CHECK must accept a dated file pointer as evidence and null for named and cited, or it refuses every real row.
 - **5-W round 1 (2026-11-01 15:16):** builder PROVEN locally (reaper asserts scoped to jobB/jobQ, watched red with a planted
   25 h job, 4 reaper mutants caught); head sent it back: scope to every fixture id in test.ids (so over-reaping another fixture
   job stays red) and fix the three same-kind global counts it found (tenancy.test.sql about 366-368 api_keys, 483-485
@@ -281,3 +286,4 @@ Closed work (steps 1 to 4, 5.1 to 5.3, 6A, 6B, the Auth emails) is in the positi
 - 2026-11-01 19:10, head: notice from the head of operations (DECISIONS 43(2)): SEO 5c commits a `SKIP PMP-001 / no --prompt-coverage` allowance at about `factory/test/run.mjs:317` (LF). 5-E drops only the ENV-001 allowance there and keeps PMP-001; whichever of 5-E and 5c lands second rebases and keeps the other's change. Builder told.
 - **2026-11-01 19:55, head `HEAD_Platform-build_2026-11-01c`: 5.4 LANDED** 9800616 (rebased from d6d9fb8 onto 3d7c0c3, CLI handover, no overlap; run 41331537425, 9 of 9 jobs success, "dashboard (type check, unit tests, plan gate) success" is the owed independent re-run of `apps/dashboard/scripts/ci.mjs`). Local master moved 4fde43a -> 9800616 with update-ref and `git restore --staged` of the landed paths (index clean, `apps/dashboard` equal to master). Branches deleted: `check/platform/5-4`, `5-4-r2`, `5-2b`, `5-2b-r2`, `5-h` to `5-h-r5`, `handover` to `handover-r3`. Next after 5.4: its 12 GAP lines (PROGRESS "5.4") into `16-DESIGN-PARTS.md` or to the owner; 5-W and 5-E with their builders.
 - 2026-11-01 20:25, head `HEAD_Platform-build_2026-11-01c`: 5-E ACCEPTED on the builder's pasted lines plus the head's re-run in its worktree (factory 88 of 88, runner 75 of 75; mutants 62 caught 0 survived per the builder); builder stopped (pid 19056, "left":[]). Committed on 9800616, pushed to `check/platform/5-e`, landing in the background. Head of operations told (SEO waits on it to flip REQUIRE_TARGET_FOR_FOLDER).
+- **2026-11-01 21:13, head `HEAD_Platform-build_2026-11-01c`: 5-E LANDED** e92684e (rebased from 18be0f4 onto f4923df; run 41338148094, 9 of 9 jobs success). Local master f4923df -> e92684e (update-ref, `git restore --staged` of the landed paths). Note: stopping a land job with TaskStop left its land lock held; the next try broke it as stale after the lock timeout, no action needed. **5-W round 2 ACCEPTED** on the builder's pasted lines (planted rows: OLD red, NEW green, 5 counts; over-reap mutant red; 7 mutants caught) plus the head's Haiku re-run (`--only "stale jobs are reaped"`: "PASS real migration: ALL TENANCY TESTS PASSED", "caught", "OK: real migration passes; 1 mutants"); builder stopped (pid 28428, "left":[]). Committing on e92684e, then `omnikom test walls --target staging`.
