@@ -85,6 +85,22 @@ try {
   check('new-department: a charter the check refuses is removed again, README restored', r.status === 1 && /check failed, nothing kept/.test(r.out) && !existsSync(join(d, 'other.md')) && !/\| other \|/.test(readFileSync(join(d, 'README.md'), 'utf8')), r.out);
   r = run('new-department.mjs', ['--slug', 'Bad Slug', '--name', 'x', '--mission', 'x', '--owns', 'x/'], d);
   check('new-department: a bad slug is a usage error (exit 2)', r.status === 2);
+
+  // the other suites of this folder run as child processes; each one's own "OK: N of N" / "FAILED: f of N" line is counted here.
+  // Not under test/mutate.mjs (OMNIKOM_DEPT_TOOLS set): those mutants break check.mjs / new-department.mjs, which these suites do not
+  // touch, and each suite has its own mutants file that mutate.mjs runs after its own list.
+  if (!process.env.OMNIKOM_DEPT_TOOLS) {
+    for (const suite of ['context-load.test.mjs', 'start-builder.test.mjs']) {
+      const c = spawnSync(process.execPath, [join(HERE, suite)], { encoding: 'utf8', timeout: 300000, env: { ...process.env, OMNIKOM_REPO_ROOT: REPO } });
+      const out = (c.stdout || '') + (c.stderr || '');
+      const sum = /^(OK|FAILED): (\d+)(?: of (\d+))?/m.exec(out);
+      const lines = out.split(/\r?\n/);
+      for (const l of lines) if (/^(FAIL|SKIP) /.test(l)) console.log(`  [${suite}] ${l}`);
+      const n = sum ? Number(sum[1] === 'OK' ? sum[2] : sum[3]) : 0, bad = sum ? (sum[1] === 'OK' ? 0 : Number(sum[2])) : 1;
+      total += Math.max(n, 1); failed += bad + (c.status !== 0 && bad === 0 ? 1 : 0);
+      console.log(`${c.status === 0 && sum && sum[1] === 'OK' ? 'ok  ' : 'FAIL'} ${suite}: ${sum ? sum[0] : 'no summary line'} (exit ${c.status})`);
+    }
+  }
 } finally {
   for (const d of dirs) rmSync(d, { recursive: true, force: true });
 }
