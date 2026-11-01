@@ -149,3 +149,36 @@ when the head of operations has released its slice.
   unit 186 of 186 and its 4 mutants caught on the unit suite; full suite and mutants held for the laptop's load (UNPROVEN). Open: a
   suite-wide guard that fails when a test run changes the repository's `.tools/` (a real download landed there at 15:43 from an
   unidentified run). Proof in PROGRESS.md "CLI: tools ensure, the cause of a failed download".
+- 2026-11-01 07:05: DECISIONS 45 slice LANDED as e2b0339 (master), via `omnikom land check/cli-and-testing/impact-hooks-4` itself: lock
+  taken, "ci green: e2b0339 run 41270989800, 9 of 9 jobs success", fast-forward a0c544d..e2b0339, lock released. Contents: ghrun verdict,
+  pre-push hook (check/** and land-lock allowed, master only with a green run), `omnikom land` with the land lock, gates and stamp removed,
+  impact laptop lines, short department names, test cluster sweep, `test/ci-heavy.mjs`, ci.yml (push branches-ignore land-lock; cli job
+  runs the full suite and mutants when the change reaches them; platform head OK'd). Clean copy: unit 356 of 356, watched red on the
+  branches-ignore line, the heavy step name, the old vault shim and the tar mutant. GitHub: full suite 476 of 476, mutants run on
+  41270989800 green; watch-red PROVEN (41267322475: planted db-part failure, cli job red, unit step green).
+  The tarPath survivor of 41267322498 (103a502's tar mutant, equivalent on linux) is fixed in e2b0339 (tarPath takes the platform).
+
+## HANDOVER 2026-11-01 07:10 (old head `local_b9f4c687...` to HEAD_CLI-and-testing_2026-11-01; report to HEAD-OF-OPERATIONS_Omnikom_2026-11-01)
+- In flight: nothing. No builder running, no open check branch of this department (impact-hooks-2/-3/-4 and watch-red/-2 all deleted).
+  Local master = e2b0339; this department has
+  nothing staged (the old DECISIONS 43 staging was replaced by the landed slice).
+- Uncommitted in the working tree, yours: `tools/omnikom-cli/briefs/seed-test-site-and-status.md` gained an "Update 2026-11-01" section
+  (base, the four parts, what a builder may run under the heavy lock, staging commands). Commit it with the seed-test slice.
+- Queue, in order (head of operations 2026-11-01 06:25):
+  1. `node tools/omnikom-cli/omnikom.mjs hooks install` only when the head of operations says the heads were told.
+  2. Seed-test slice: one builder on `briefs/seed-test-site-and-status.md` (closes "staging walls UNPROVEN").
+  3. Rewrite `briefs/slice-2-functions.md` against the 5.x functions, then build it.
+  4. The big-output hook (DECISIONS 41).
+- Rules added 2026-11-01: heavy proof on GitHub (check branch, `omnikom land`); heavy laptop runs only via
+  `node ~/.claude/scripts/heavy.mjs -- <cmd>`; the head plans, reviews, lands and reports in two lines; every hands-on task (diagnosing
+  a red run, reading CI logs, proof runs) goes to a builder or a Haiku runner. Scope frozen per slice: anything new is a new slice.
+- Open findings and items:
+  - The real kill test failed once on Linux (41263232641: ping false before the kill) and passed on the next two runs: cause UNPROVEN;
+    its detail now records each ping's error if it recurs.
+  - heavy.mjs crashed once with EPERM removing its own `.ready` file (routed by the head of operations to its builder).
+  - The head of operations' reaper matches `%TEMP%\omnikom-pg-*`; the CLI's clusters are `omnikom-cli-pg-*` (markers in
+    `%TEMP%\omnikom-cli-clusters`). Told; not confirmed fixed.
+  - SEO's uncommitted `tools/audit` edits make two CLI audit unit checks fail in the shared working tree; clean copies pass.
+  - `.claude/POSITION.md` still mentions the stamp; PROGRESS.md, spec 26 section 7 and a POSITION block for 103a502 onward are NOT DONE.
+  - `%TEMP%` holds about 225 old `omnikom-cli-mut-*` copies from earlier runs (not swept).
+  - Still open from before: a suite-wide guard against a test run changing `.tools/`.
