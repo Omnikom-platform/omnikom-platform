@@ -17,6 +17,11 @@ const GATES = [
   ['specs + traceability', 'docs/blueprint/specs/check-specs.mjs'],
   ['machine-call signature', 'supabase/functions/_shared/signature.test.mjs'],
   ['no model in runtime (D38)', 'docs/blueprint/specs/check-no-model.test.mjs'],   // DECISIONS 38 (1): planted tells, 10 mutants, then the real tree
+  // slice 5-H (after the 2026-11-01 restart: 1021 orphaned Edge processes, 40 Postgres): the guard's tests and mutants, then, LAST, no
+  // process may still run from a temp folder of ours after every gate above has ended
+  ['process guard tests', 'tools/proc-guard/test/run.mjs'],
+  ['process guard mutants', 'tools/proc-guard/test/mutate.mjs'],
+  ['no leaked browser or cluster', 'tools/proc-guard/check-leaks.mjs'],
 ];
 // Per-gate time limit. The wall gate ran 161 mutants in about 12 minutes on a quiet machine (2026-10-30); with 214 mutants (slice 4.2) and
 // other sessions loading the machine it passed 30 minutes twice on 2026-10-31, and this runner then printed the LAST STDOUT LINE (a "caught"

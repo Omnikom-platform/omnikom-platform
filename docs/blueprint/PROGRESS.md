@@ -182,6 +182,31 @@ yet: Storage files (the `media` bucket are not in a `pg_dump`).
 ## Step 5: the dashboard, backend first (2026-10-31, the standing Platform build head)
 Plan `factory/briefs/5-0-step-5-and-6-plan.md`; one in-session Sonnet builder per slice.
 
+### 5-H no browser or database outlives its run (2026-11-01 02:25 to 03:35 local; brief `factory/briefs/5-H-process-hygiene.md`)
+Why: the laptop was restarted at 02:07 (1021 orphaned headless Edge processes, 40 Postgres processes). Builder (in-session Sonnet,
+light work only): `tools/proc-guard/` (`guardedTemp` with an owner record and one cleanup on exit, signals and errors; `killTree` on
+a time limit; `sweep()` of our temp folders whose owner is dead or that are over 6 hours old with no owner; `leaks()`; `check-leaks.mjs`),
+wired into the two render scripts, `tools/site-backup/*`, `tools/design-engine/lib/browser.mjs`, `apps/dashboard/tests/global-setup.ts`,
+`publish-parity.mjs`, `test-apply.mjs`, `supabase/ops/test/cluster.mjs`, `6b-cluster.mjs`, `restore-drill.mjs`; the head applied
+`factory/briefs/5-H-wire-run-local.mjs` to `run-local.mjs` and `functions/test/harness.mjs` after 5.2 landed (8 targets, each once).
+Finding: the brief's first suspect did not reproduce (a plain kill of a headless Edge's main process left none of its 17 processes
+316 ms later); the leaks came from killed runs that never reached a `finally`, and nothing swept afterwards. The builder's one sweep on
+this machine removed 54 stale folders (4 `mmd-*`, 14 `omnikom-pg-*`, 36 `playwright_chromiumdev_profile-*`, all over 6 hours old with no
+process using them) and killed 0 processes.
+Head's check (light, through the machine-wide heavy-job lock for the mutants): `proc-guard tests: 47 passed, 0 failed`, `mutants: 17
+caught, 0 escaped, 0 broken, wrong or unclear`, `check-leaks: no process runs from a temp folder of ours`; both wired files parse.
+run-all-gates now ends with the guard's tests, its mutants and, last, the leak check (no ci.yml step names, so the CLI's step map is
+untouched). First GitHub run (check/platform/5-h 27daab9, run 41261688843): gates red, `proc-guard tests: 41 passed, 6 failed`: on Linux a real
+browser left `MainThread#8616` holding the profile after the time limit (Chrome's processes leave the parent's group, so a group kill
+misses them), and `mutate.mjs` reported 17 caught on that red baseline. Fix (builder, then the head): `killTree(pid, dir)` and
+`release()` also kill every process still holding the guarded folder (/proc on Linux, CIM on Windows), up to three rounds;
+`run.mjs` repeats every FAIL line at its end; `mutate.mjs` refuses a red baseline ("the unmutated copy does not pass; nothing to
+measure"). Watched red on Windows: without the holder kill `FAIL holder kill: ... leaks after the limit: 1`; a broken baseline
+`FAILED: the unmutated copy does not pass; nothing to measure`. Windows: `mutants: 19 caught, 0 escaped`. The owner.json marker
+is pinned by a test (the machine reaper reads it). Linux proof: the second check branch below. The wired cluster scripts and
+the restore drill: syntax only here (no drill on the laptop until the reaper reads the markers). Notice to the CLI head: `commands/ci.mjs:174`, `commands/apply.mjs:20` and `:33`, `test/ci-heavy.mjs:63`
+spawn with a time limit that kills only the top process; `tools/proc-guard` is there to use.
+
 ### 5.2 screens functions: landed and on staging (2026-11-01 02:20 to 02:55 local, the head; brief `factory/briefs/5-2-screens-functions.md`)
 Builder (in-session Sonnet; its run died in the 02:07 restart, resumed for light checks only): drafts, settings-save, crm-test (net
 guard, signed request, audit row), lead-export (the caller's RLS through `asCaller`, quoted CSV, `exported` event), invite-member
