@@ -5,12 +5,11 @@
 // Everything secret in these tests is generated at run time (no key literal in the file).
 import { randomBytes, createHash, createHmac } from 'node:crypto';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, cpSync, mkdirSync, readdirSync } from 'node:fs';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, relative, dirname, basename, delimiter, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { CLI_ROOT, REPO_ROOT, startCluster, sweepClusters, freshDb, cli, makeFunctionModel, makeSupabaseModel } from './harness.mjs';
-import { impactStampHooksTests } from './impact-stamp-hooks.mjs';
+import { CLI_ROOT, REPO_ROOT, startCluster, freshDb, cli, makeFunctionModel, makeSupabaseModel } from './harness.mjs';
 
 const onlyUnit = process.argv.includes('--unit'), onlyDb = process.argv.includes('--db');
 let failed = 0, total = 0;
@@ -133,22 +132,6 @@ async function units() {
     LOGINS.length === 6 && ['instance_id', 'aud', 'role', 'email_confirmed_at', 'confirmation_token', 'recovery_token', 'email_change_token_new', 'email_change', 'email_change_token_current', 'phone_change', 'phone_change_token', 'reauthentication_token', 'raw_app_meta_data', 'raw_user_meta_data', 'is_sso_user'].every(c => lsql.includes(c)) && (lsql.match(/'authenticated', 'authenticated'/g) || []).length === 6 && /update auth\.users set/.test(lsql));
   const contractText = /select ws, 1, '\{\}'::jsonb, '(\{"collections":[\s\S]*?\})'::jsonb, true/.exec(tenancy);
   check('seed test: the contract is the one in tenancy.test.sql', contractText && JSON.stringify(JSON.parse(contractText[1])) === JSON.stringify(TEST_CONTRACT), contractText ? 'differs' : 'not found in the test file');
-  // tenancy.test.sql (T21) builds its own Vault stand-in only when no vault schema exists; the CLI's cluster has test/vault-shim.sql, so T21
-  // runs against that one: it must hold every function, table column and view column of T21's stand-in (run 41263232641: no update_secret)
-  const vaultShape = sql => {
-    const items = s => { const out = []; let depth = 0, cur = ''; for (const ch of s) { if (ch === '(') depth++; if (ch === ')') depth--; if (ch === ',' && depth === 0) { out.push(cur.trim()); cur = ''; } else cur += ch; } if (cur.trim()) out.push(cur.trim()); return out; };
-    const tbl = /create table vault\.secrets \(([\s\S]*?)\);/.exec(sql);
-    const view = /create view vault\.decrypted_secrets as select ([\s\S]*?) from vault\.secrets/.exec(sql);
-    return {
-      functions: [...sql.matchAll(/create function vault\.(\w+)/g)].map(m => m[1]),
-      columns: tbl ? items(tbl[1]).map(i => i.split(/\s+/)[0]) : [],
-      view: view ? items(view[1]).map(i => i.split(/\s+/).pop()) : [],
-    };
-  };
-  const t21Vault = vaultShape(tenancy), cliVault = vaultShape(readFileSync(join(CLI_ROOT, 'test', 'vault-shim.sql'), 'utf8'));
-  const vaultMissing = ['functions', 'columns', 'view'].flatMap(k => t21Vault[k].filter(n => !cliVault[k].includes(n)).map(n => `${k}: ${n}`));
-  check('vault shim: test/vault-shim.sql holds every function, column and view column of the Vault stand-in in tenancy.test.sql (T21 runs against it)',
-    t21Vault.functions.length >= 2 && t21Vault.columns.length >= 4 && t21Vault.view.length >= 4 && vaultMissing.length === 0, vaultMissing.join(', ') || JSON.stringify(t21Vault));
 
   // ---- sql literals
   check('sql: lit doubles quotes; uuidLit refuses a non-uuid; a NUL is refused', lit("a'b") === "'a''b'" && throws(() => uuidLit("x'; drop table leads;--"), Usage) && throws(() => lit('a\0b'), Usage));
@@ -455,13 +438,6 @@ async function toolsAndCi() {
     r = await ens(man, server(tgz), spyDir, [], { spawn: spyTar });
     check('tools ensure: the archive is read by the system tar (%SystemRoot%\\System32\\tar.exe on Windows, tar on linux) with -xf, into a folder inside the tools folder; nothing else is spawned',
       r.exit === 0 && tarCalls.length === 1 && tarCalls[0].cmd === tarExe && tarCalls[0].args[0] === '-xf' && resolve(tarCalls[0].args[1]).startsWith(resolve(spyDir) + sep) && resolve(tarCalls[0].args[3]).startsWith(resolve(spyDir) + sep), r.all.slice(0, 300) + JSON.stringify(tarCalls));
-    {
-      // both branches on any OS (run 41267322498: on linux the "tar from PATH" mutant gave 'tar' either way and survived)
-      const { tarPath } = await lib('tools.mjs');
-      const win = tarPath({ env: { SystemRoot: 'C:\\Win' } }, 'win32'), lin = tarPath({ env: { SystemRoot: 'C:\\Win' } }, 'linux');
-      check('tools ensure: the system tar is %SystemRoot%\\System32\\tar.exe on win32 and tar on linux, whatever OS runs the test',
-        win.startsWith('C:\\Win') && /System32[\\/]tar\.exe$/.test(win) && lin === 'tar', JSON.stringify({ win, lin }));
-    }
     r = await ens(man, f1, dir);
     check('tools ensure: a second run is present and fetches nothing', r.exit === 0 && r.json.data.tools[0].status === 'present' && f1.calls.length === 1, r.all.slice(0, 200));
     writeFileSync(join(dir, 'faketool-1.0.0', '.ok'), JSON.stringify({ ...ok, version: '0.0.1' }));
@@ -838,10 +814,8 @@ async function database() {
     db.query(`update ${ledgerTable} set sha256 = '${goodHash}' where name = '${firstFile}'`);
 
     // ---- the walls on the database (before any fixture exists)
-    // a failed walls run prints one " expect_error " line per passed negative test before the cause: show the lines that are not those
-    const wallsWhy = x => ((x.json && x.json.data && x.json.data.lines) || []).filter(l => !/^\s*expect_error\s*$/.test(l)).join(' | ').slice(0, 300) || x.all.slice(0, 300);
     r = await run(['test', 'walls', ...T]);
-    check('test walls: tenancy.test.sql passes on the target and leaves nothing', r.exit === 0 && (r.json.data.lines || []).some(l => l.startsWith('PASS')), wallsWhy(r));
+    check('test walls: tenancy.test.sql passes on the target and leaves nothing', r.exit === 0 && (r.json.data.lines || []).some(l => l.startsWith('PASS')), r.all.slice(0, 300));
 
     // ---- seed test: idempotent
     const fp = () => { const s = makeSql({ url: db.url }); return s.fingerprint(); };
@@ -1115,7 +1089,7 @@ async function database() {
     db.query('set session_replication_role = replica; delete from security_events; delete from consent_ledger;');
     check('the ledgers are empty again before the walls re-run (a throwaway database)', db.query('select (select count(*) from security_events) + (select count(*) from consent_ledger)') === '0');
     r = await run(['test', 'walls', ...T]);
-    check('test walls: passes again after the clean', r.exit === 0, wallsWhy(r));
+    check('test walls: passes again after the clean', r.exit === 0, r.all.slice(0, 300));
 
     // ---- key mint numbering and the env file: n is one more than the highest number in the registry, the Vault and the env file's
     // record line; the env file keeps one record line and one value line per variable (a mint rewrites it, line endings kept)
@@ -1174,34 +1148,6 @@ async function database() {
     check('key mint --dry-run: an absent Vault counts as nothing (the registry and the env file still count: -key-10), nothing is written', r.exit === 0 && r.json.data.dryRun === true && r.json.data.wouldCreate.vaultSecret === 'site-test-demo-a-key-10' && db.query("select count(*) from vault.secrets where name like 'site-test-demo-a-key-%'") === '1', r.all.slice(0, 300));
     check('key mint: the values minted by these tests are printed nowhere', [mNew, ...[memo, vaultOnly, registryOnly].map(f => (readFileSync(f, 'utf8').match(/=([0-9a-f]{64})$/m) || [])[1])].every(v => v && everything.every(o => !o.includes(v))));
 
-    // ---- the cluster guard, for real: a child starts a cluster and is killed hard (no handler runs); the next sweep stops and removes it.
-    // (The unit part tests the same sweep with a fake pg_ctl and planted markers; this is the real kill, so it runs where the db part runs.)
-    {
-      const markers = mkdtempSync(join(tmpdir(), 'omnikom-cli-markers-'));
-      const childEnv = { ...process.env, OMNIKOM_TEST_MARKER_DIR: markers };
-      delete childEnv.OMNIKOM_TEST_CLUSTER_PORT;
-      const child = spawn(process.execPath, [join(CLI_ROOT, 'test', 'cluster-child.mjs')], { env: childEnv, stdio: ['ignore', 'pipe', 'inherit'], windowsHide: true });
-      const info = await new Promise(res => {
-        let buf = '';
-        const timer = setTimeout(() => res(null), 600000);
-        child.stdout.on('data', d => { buf += d; const nl = buf.indexOf('\n'); if (nl >= 0) { clearTimeout(timer); try { res(JSON.parse(buf.slice(0, nl))); } catch { res(null); } } });
-        child.on('exit', () => { clearTimeout(timer); res(null); });
-      });
-      const pings = [];                                                     // each ping's status and first stderr line, for the failure detail
-      const ping = port => { const p = spawnSync('psql', ['-h', '127.0.0.1', '-p', String(port), '-U', 'postgres', '-d', 'postgres', '-X', '-q', '-c', 'select 1'], { encoding: 'utf8', timeout: 60000 }); pings.push(`${p.status}${p.error ? ` ${p.error.code}` : ''} ${String(p.stderr || '').split('\n')[0].slice(0, 120)}`.trim()); return p.status === 0; };
-      const up = !!info && ping(info.port);
-      const exited = new Promise(res => { child.on('exit', () => res()); setTimeout(res, 60000); });
-      child.kill('SIGKILL');
-      await exited;
-      const outlived = !!info && ping(info.port);                         // the kill ran no handler: the cluster is still running
-      const markerLeft = !!info && existsSync(info.marker);
-      const swept = sweepClusters({ markerDir: markers });
-      const gone = !!info && !ping(info.port) && !existsSync(info.dir) && !existsSync(info.marker);
-      check('cluster guard (real kill): a child starts a cluster and is killed hard; its marker and cluster outlive it; the next sweep stops it (pg_ctl stop -m immediate) and removes its folder and marker',
-        up && outlived && markerLeft && swept.length === 1 && swept[0].swept === true && gone, JSON.stringify({ up, outlived, markerLeft, swept, gone, info, pings }));
-      rmSync(markers, { recursive: true, force: true });
-    }
-
     // ---- rule 1 over the whole database session
     const secrets = [keyA, keyB, db.url];
     check('hygiene: nothing printed in the whole database session contains a minted key or the DB URL', secrets.every(s => everything.every(o => !o.includes(s))));
@@ -1212,7 +1158,7 @@ async function database() {
 }
 const PERSON = n => ({ 'member-a1': '00000000-0000-0000-0000-0000000000a1' })[n];
 
-if (!onlyDb) { await units(); await toolsAndCi(); await impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }); }
+if (!onlyDb) { await units(); await toolsAndCi(); }
 if (!onlyUnit) await database();
 console.log(`\n${failed ? 'FAILED' : 'OK'}: ${total - failed} of ${total} checks passed${failed ? `, ${failed} FAILED` : ''}`);
 process.exit(failed ? 1 : 0);

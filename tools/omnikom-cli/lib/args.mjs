@@ -4,8 +4,6 @@ import { Usage } from './errors.mjs';
 
 export const SWITCHES = new Set(['json', 'retry', 'real', 'dry-run', 'i-mean-production', 'clean', 'unassign', 'help', 'install']);
 
-SWITCHES.add('staged');   // impact, ci: the tree of the index
-
 export function parseArgs(argv) {
   const positionals = [];
   const flags = {};
