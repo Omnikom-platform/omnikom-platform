@@ -1,6 +1,7 @@
 // test/port-bind-probe.mjs: a probe, not a suite check. Takes the port P, what holds it, and the start command, and prints what a Postgres
 // cluster started on P does when something else already holds P. One JSON line, exit 0 (it reports; it does not judge).
-//   node test/port-bind-probe.mjs --port 21500 --hold none|tw|est --start old|pinned|harness
+//   node test/port-bind-probe.mjs --port 21500 --hold none|tw|est|tw-reuse|est-reuse --start old|pinned|harness
+//   (tw, est: a plain socket made by port-hold.py, no SO_REUSEADDR, like psql's; tw-reuse, est-reuse: made by node, SO_REUSEADDR set)
 //   --hold  none: nothing; tw: a TIME_WAIT socket whose LOCAL port is P (the client closed first); est: an ESTABLISHED client socket with
 //           local port P, held open for the probe (a psql call still open, or any program that owns P)
 //   --start old: the command the harness used until 2026-11-01 (pg_ctl -o "-p P -k \"\"": listen_addresses stays 'localhost' = ::1 and 127.0.0.1)
@@ -10,8 +11,9 @@
 // start says ok and 127.0.0.1:P is refused for the cluster's life.
 import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawn, spawnSync } from 'node:child_process';
 import net from 'node:net';
 import { startCluster, CLUSTER_PREFIX } from './harness.mjs';
 
@@ -42,10 +44,24 @@ function socketsOn(p) {
   return out;
 }
 
-// a client socket whose LOCAL port is p, to a throwaway listener: closed at once (TIME_WAIT) or kept open (ESTABLISHED)
-async function makeHeld(p, keepOpen) {
+// a client socket whose LOCAL port is p, to a throwaway listener: closed at once (TIME_WAIT) or kept open (ESTABLISHED).
+// reuse true: made by node (libuv sets SO_REUSEADDR on it); false: made by port-hold.py, a plain socket like the one a psql call opens.
+let holderProc = null;
+async function makeHeld(p, keepOpen, reuse) {
   const server = net.createServer(s => { s.on('end', () => s.end()); s.on('error', () => {}); });
   await new Promise(r => server.listen(0, '127.0.0.1', r));
+  if (!reuse) {
+    const py = process.platform === 'win32' ? 'python' : 'python3';
+    holderProc = spawn(py, [join(dirname(fileURLToPath(import.meta.url)), 'port-hold.py'), String(p), String(server.address().port), keepOpen ? 'est' : 'tw', '90'], { stdio: ['ignore', 'pipe', 'inherit'] });
+    await new Promise((res, rej) => {
+      setTimeout(() => rej(new Error('the python holder printed nothing in 15 s')), 15000).unref();
+      holderProc.stdout.on('data', d => { if (String(d).includes('held')) res(); });
+      holderProc.on('error', rej);
+      holderProc.on('exit', code => rej(new Error('the python holder exited ' + code)));
+    });
+    await new Promise(r => setTimeout(r, 300));
+    return;
+  }
   await new Promise((res, rej) => {
     setTimeout(() => rej(new Error('the held socket was not made in 10 s')), 10000).unref();
     const c = net.connect({ host: '127.0.0.1', port: server.address().port, localPort: p }, () => { if (keepOpen) res(); else c.destroy(); });
@@ -76,10 +92,15 @@ if (process.argv.includes('--census')) {
       held.set(lp, [...(held.get(lp) || []), { '01': 'ESTABLISHED', '06': 'TIME_WAIT', '0A': 'LISTEN' }[col[3]] || col[3]]);
     }
   }
+  // can a server (node sets SO_REUSEADDR on a listener, as Postgres does) still listen on 127.0.0.1:p while a psql socket holds p?
+  const tryListen = p => new Promise(res => { const s = net.createServer(); s.once('error', e => res(e.code)); s.listen(p, '127.0.0.1', () => s.close(() => res('ok'))); });
+  const listenResult = {};
+  for (const p of held.keys()) { const r = await tryListen(p); const k = `${[...new Set(held.get(p))].sort().join('+')} -> ${r}`; listenResult[k] = (listenResult[k] || 0) + 1; }
+  const ports = [...held.keys()];
   const inBlock = (a, b) => [...held.keys()].filter(p => p >= a && p <= b);
   const states = ps => ps.flatMap(p => held.get(p)).reduce((m, s) => ({ ...m, [s]: (m[s] || 0) + 1 }), {});
   const oldPorts = inBlock(57000, 57899), newPorts = inBlock(21000, 21899).filter(p => String(p) !== String(c.port));
-  console.log(JSON.stringify({ census: { psqlCalls: n, ephemeral: ephemeralRange(), socketsHeld: held.size, oldBlock57000to57899: { ports: oldPorts.length, ofPorts: 900, states: states(oldPorts) }, newBlock21000to21899: { ports: newPorts.length, ofPorts: 900 } } }));
+  console.log(JSON.stringify({ census: { psqlCalls: n, ephemeral: ephemeralRange(), socketsHeld: held.size, localPortSpan: [Math.min(...ports), Math.max(...ports)], listenOnAHeldPort: listenResult, oldBlock57000to57899: { ports: oldPorts.length, ofPorts: 900, states: states(oldPorts) }, newBlock21000to21899: { ports: newPorts.length, ofPorts: 900 } } }));
   c.stop(); rmSync(markers, { recursive: true, force: true });
   process.exit(0);
 }
@@ -87,8 +108,8 @@ if (process.argv.includes('--census')) {
 const res = { port, hold, start, ephemeral: ephemeralRange() };
 let dir = '', stop = () => {};
 try {
-  if (hold === 'tw') await makeHeld(port, false);
-  if (hold === 'est') await makeHeld(port, true);
+  if (hold === 'tw' || hold === 'est') await makeHeld(port, hold === 'est', false);             // a plain socket (python), like a psql call's
+  if (hold === 'tw-reuse' || hold === 'est-reuse') await makeHeld(port, hold === 'est-reuse', true);   // a node socket (SO_REUSEADDR set)
   res.socketsBefore = socketsOn(port);
   let landed = port;
   if (start === 'harness') {
@@ -116,6 +137,7 @@ try {
 } catch (e) { res.error = String(e.message || e).slice(0, 600); if (dir) res.bindLines = bindLines(join(dir, 'pg.log')); }
 finally {
   try { stop(); } catch { /* best effort */ }
+  if (holderProc) holderProc.kill();
 }
 console.log(JSON.stringify(res));
 process.exit(0);   // the held socket and its listener would keep the loop alive

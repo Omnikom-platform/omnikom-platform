@@ -41,13 +41,17 @@ jobs:
       - name: Probe, a held port, every start command
         run: |
           cd tools/omnikom-cli/test
-          for args in "--hold none --start old" "--hold tw --start old" "--hold est --start old" "--hold est --start pinned" "--hold est --start harness" "--hold none --start harness"; do
-            echo "### $args (port 21500)"
-            node port-bind-probe.mjs --port 21500 $args
+          python3 --version
+          n=0
+          for args in "--hold none --start old" "--hold est-reuse --start old" "--hold tw --start old" "--hold est --start old" "--hold est --start pinned" "--hold est --start harness" "--hold tw --start harness" "--hold none --start harness"; do
+            n=$((n + 10))   # a new port per run: a TIME_WAIT left by one run must not block the next one's holder
+            echo "### $args (port $((21500 + n)))"
+            node port-bind-probe.mjs --port $((21500 + n)) $args
           done
           for args in "--hold none --start old" "--hold est --start old" "--hold est --start harness"; do
-            echo "### $args (port 57338, inside the ephemeral range)"
-            node port-bind-probe.mjs --port 57338 $args
+            n=$((n + 10))
+            echo "### $args (port $((57300 + n)), inside the ephemeral range)"
+            node port-bind-probe.mjs --port $((57300 + n)) $args
           done
       - name: Probe, how many ports of the old block the suite's own psql sockets hold
         run: node tools/omnikom-cli/test/port-bind-probe.mjs --census 1500
