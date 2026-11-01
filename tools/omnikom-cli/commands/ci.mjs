@@ -13,6 +13,8 @@ import { repoPath } from '../lib/repo.mjs';
 import { redact } from '../lib/redact.mjs';
 import { result } from '../lib/ctx.mjs';
 import { loadManifest, toolsDir, binDirOf, platformKey, ensureTools } from '../lib/tools.mjs';
+import { makeGit } from '../lib/git.mjs';
+import { GATES_ROOT, treeOf, withTreeCheckout } from '../lib/checkout.mjs';
 
 // ------------------------------------------------------------------------------------------------ the reader for ci.yml's shape
 const skip = l => l.trim() === '' || /^\s*#/.test(l);
@@ -330,7 +332,7 @@ const actions = {
 };
 
 const NODE_STEPS = ['All blueprint gates', 'Factory tests', 'Factory mutants', 'Runner tests', 'Runner mutants', 'Function tests', 'Function mutants',
-  'Audit tests', 'Audit mutants', 'CLI unit tests', 'One owner per path', 'Department tool tests', 'Client files', 'Dashboard tests'];
+  'Audit tests', 'Audit mutants', 'CLI unit tests', 'CLI full suite and mutants (when the change reaches them)', 'One owner per path', 'Department tool tests', 'Client files', 'Dashboard tests'];
 const ROWS = [
   { name: /^Check out the repository( with its whole history)?$/, run: actions.checkout },
   { name: 'Set up Node', run: actions['setup-node'] },
@@ -372,12 +374,28 @@ async function runJob(job, st0) {
   return { id: job.id, name: job.name, status, last, steps };
 }
 
+// ci [--staged | --commit <sha>] [--job <id>]: the same jobs on a throwaway checkout of that exact tree, to reproduce a red GitHub job on the
+// tree GitHub ran (DECISIONS 45). It is NOT the gate and writes no stamp: the gate is the green GitHub run (lib/ghrun.mjs, `omnikom land`).
+// Without those flags ci runs on the working tree as before.
 export async function ci(ctx) {
+  const f = ctx.flags;
+  if (f.staged !== true && f.commit === undefined) return ciRun(ctx, null);
+  if (f.staged === true && f.commit !== undefined) throw new Usage('ci takes --staged or --commit <sha>, not both');
+  if (f.root !== undefined) throw new Usage('ci --staged / --commit runs on its own checkout of the tree: --root cannot be combined with it');
+  const git = makeGit(ctx.repo);
+  if (!git.run(['rev-parse', '--git-dir']).ok) throw new Usage(`${ctx.repo} is not a git repository`);
+  const tree = treeOf(git, { commit: f.commit });
+  const info = {};
+  const res = await withTreeCheckout(git, { tree, root: ctx.gatesRoot || GATES_ROOT, info }, dir => ciRun(ctx, dir));
+  return { ...res, data: { ...res.data, tree, checkoutRemoved: info.removed === true } };
+}
+
+async function ciRun(ctx, checkout) {
   const f = ctx.flags;
   if (ctx.positionals.length > 1) throw new Usage(`ci: unexpected argument '${ctx.positionals[1]}'`);
   if (f.target !== undefined) throw new Usage('ci takes no --target: it runs the jobs of ci.yml on this checkout');
   if (f.expect !== undefined) throw new Usage('ci takes no --expect: a verdict that can be told to match a failure is not a gate');
-  const root = f.root !== undefined ? resolve(f.root) : repoPath();
+  const root = checkout || (f.root !== undefined ? resolve(f.root) : repoPath());
   const wf = join(root, '.github', 'workflows', 'ci.yml');
   if (!existsSync(wf)) throw new Usage(`no .github/workflows/ci.yml under ${root}`);
   const fail1 = error => result(false, 'CI-UNREADABLE', { root, error, jobs: [], total: 0, pass: 0, fail: 1 });
@@ -411,5 +429,6 @@ export function ciText(obj, env) {
     for (const j of d.jobs) out.push(redact(`${j.status} ${j.id}  ${j.last}`, env));
     out.push(`ci: ${d.total} jobs, ${d.pass} PASS, ${d.fail} FAIL`);
   }
+  if (d && d.tree && d.checkoutRemoved === false) out.push('warning: the checkout could not be removed; delete it by hand');
   return out.join('\n') + '\n';
 }

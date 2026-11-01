@@ -26,7 +26,8 @@ export const platformKey = () => `${process.platform === 'win32' ? 'windows' : p
 export const toolsDir = ctx => (ctx.env.OMNIKOM_TOOLS_DIR ? resolve(ctx.env.OMNIKOM_TOOLS_DIR) : join(REPO, '.tools'));
 export const binDirOf = dir => join(dir, 'bin');
 // the system tar, never one found on PATH: %SystemRoot%\System32\tar.exe on Windows (it reads zip too), tar on linux
-export const tarPath = ctx => (process.platform === 'win32' ? join(ctx.env.SystemRoot || process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe') : 'tar');
+// (platform is a parameter so a unit check on linux also covers the Windows branch: on linux both branches would otherwise give 'tar')
+export const tarPath = (ctx, platform = process.platform) => (platform === 'win32' ? join(ctx.env.SystemRoot || process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe') : 'tar');
 // A hash printed in full would be masked by lib/redact.mjs (a 64-digit hex is treated as a key), so results carry this short form.
 export const short = h => (typeof h === 'string' && h.length > 30 ? `${h.slice(0, 16)}...${h.slice(-8)}` : String(h));
 const sha256Of = buf => createHash('sha256').update(buf).digest('hex');

@@ -6,6 +6,8 @@ import { resolveTarget } from './target.mjs';
 import { makeSql, lit, uuidLit } from './sql.mjs';
 import { Usage, Blocked } from './errors.mjs';
 import { isUuid } from './args.mjs';
+import { REPO } from './repo.mjs';
+import { defaultGh } from './ghrun.mjs';
 
 export function makeCtx({ command, positionals, flags, deps = {} }) {
   const env = deps.env || process.env;
@@ -16,6 +18,12 @@ export function makeCtx({ command, positionals, flags, deps = {} }) {
     platform: deps.platform,   // tools and ci: 'windows-amd64' | 'linux-amd64' (a test names one; otherwise this machine's)
     manifest: deps.manifest,   // tools and ci: a test hands over its own tools.json
 
+    repo: deps.repo || REPO,   // impact, hooks, land and ci --staged: the repository to ask git about (a test hands a throwaway one)
+    gatesRoot: deps.gatesRoot,   // ci --staged / --commit: where the throwaway checkout goes
+    gh: deps.gh || defaultGh,  // hooks pre-push and land: the one place `gh` is spawned (a test hands a fake that answers from planted JSON)
+    ghRepo: deps.ghRepo,       // owner/name; only a test sets it (a throwaway bare remote is not on github.com), never an environment variable
+    gitSpy: deps.gitSpy,       // land: a test sees every git argument list
+    stdin: deps.stdin,         // hooks pre-push: git's lines
     now: deps.now || (() => Math.floor(Date.now() / 1000)),
     randomUUID: deps.randomUUID || randomUUID,
     sleep: deps.sleep || (ms => new Promise(r => setTimeout(r, ms))),

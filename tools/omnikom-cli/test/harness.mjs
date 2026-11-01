@@ -1,6 +1,6 @@
 // Test helpers: a throwaway local Postgres cluster (the pattern of supabase/tests/run-local.mjs and test-apply.mjs), a model of the
 // capture-lead function that runs over a fake fetch against that cluster, and a way to call the CLI in-process.
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -11,17 +11,82 @@ export const CLI_ROOT = process.env.OMNIKOM_CLI_DIR ? resolve(process.env.OMNIKO
 export const REPO_ROOT = process.env.OMNIKOM_REPO_ROOT ? resolve(process.env.OMNIKOM_REPO_ROOT) : resolve(HERE, '..', '..', '..');
 const sh = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 180000, ...opts });
 
-// start a cluster, or use the one a parent process (mutate.mjs) already started: OMNIKOM_TEST_CLUSTER_PORT
-export function startCluster() {
+// ---- the cluster guard
+// A test run that starts a throwaway Postgres cluster must leave none behind, whichever way it ends. A normal exit and SIGINT / SIGTERM /
+// SIGBREAK stop their own cluster and delete their marker; a HARD kill (the laptop's overload on 2026-11-01, a killed CI step) runs no handler
+// on Windows, so the guard is a sweep: every cluster records { pid of the owning node process, data dir, port } in a marker file under one
+// fixed folder, and every startCluster first stops (pg_ctl stop -m immediate) and removes the clusters whose owning process is dead.
+// The CLI tests start no browser (checked: nothing under test/, commands/ or lib/ names one); the Postgres clusters are the only children
+// that outlive a killed run.
+export const CLUSTER_MARKER_DIR = join(tmpdir(), 'omnikom-cli-clusters');
+export const CLUSTER_PREFIX = 'omnikom-cli-pg-';
+
+// is the process alive? (EPERM means it exists but is not ours to signal: alive)
+export function pidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; }
+}
+
+// a folder this guard may delete: inside the OS temp folder and made by startCluster (a planted marker cannot aim it elsewhere)
+const norm = p => resolve(p).replace(/\\/g, '/').toLowerCase();
+const ours = dir => typeof dir === 'string' && dir !== '' && norm(dir).startsWith(norm(tmpdir()) + '/') && norm(dir).split('/').pop().startsWith(CLUSTER_PREFIX);
+
+export function writeMarker(markerDir, info) {
+  mkdirSync(markerDir, { recursive: true });
+  const file = join(markerDir, `${info.pid}-${info.port}.json`);
+  writeFileSync(file, JSON.stringify(info));
+  return file;
+}
+
+// stop and remove every cluster whose owning process is dead; a live owner is left alone. -> [{ marker, port, swept }]
+// opts (tests only): markerDir, run (the pg_ctl runner), alive
+export function sweepClusters({ markerDir = CLUSTER_MARKER_DIR, run = sh, alive = pidAlive } = {}) {
+  const done = [];
+  let names = [];
+  try { names = readdirSync(markerDir).filter(f => f.endsWith('.json')); } catch { return done; }
+  for (const name of names) {
+    const file = join(markerDir, name);
+    let info = null;
+    try { info = JSON.parse(readFileSync(file, 'utf8')); } catch { /* a corrupt marker is removed below */ }
+    if (!info || typeof info !== 'object') { rmSync(file, { force: true }); done.push({ marker: file, swept: false, why: 'corrupt marker removed' }); continue; }
+    if (alive(info.pid)) continue;
+    if (!ours(info.dir)) { rmSync(file, { force: true }); done.push({ marker: file, swept: false, why: 'not a folder this guard made' }); continue; }
+    run('pg_ctl', ['-D', join(info.dir, 'data'), '-m', 'immediate', 'stop']);
+    rmSync(info.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+    rmSync(file, { force: true });
+    done.push({ marker: file, port: info.port, swept: true });
+  }
+  return done;
+}
+
+// start a cluster, or use the one a parent process (mutate.mjs) already started: OMNIKOM_TEST_CLUSTER_PORT.
+// opts (tests only): markerDir, run (initdb / pg_ctl runner), alive, signals (register exit handlers; default true)
+export function startCluster({ markerDir = CLUSTER_MARKER_DIR, run = sh, alive = pidAlive, signals = true } = {}) {
   if (process.env.OMNIKOM_TEST_CLUSTER_PORT) return { port: process.env.OMNIKOM_TEST_CLUSTER_PORT, stop() {}, shared: true };
-  const dir = mkdtempSync(join(tmpdir(), 'omnikom-cli-pg-'));
+  sweepClusters({ markerDir, run, alive });
+  const dir = mkdtempSync(join(tmpdir(), CLUSTER_PREFIX));
   const data = join(dir, 'data');
   const port = String(57000 + Math.floor(Math.random() * 900));
-  let r = sh('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8']);
-  if (r.status !== 0) throw new Error('initdb failed: ' + (r.stderr || r.error));
-  r = sh('pg_ctl', ['-D', data, '-o', `-p ${port} -k ""`, '-l', join(dir, 'pg.log'), '-w', 'start']);
-  if (r.status !== 0) throw new Error('pg_ctl start failed: ' + r.stderr);
-  return { port, dir, stop() { sh('pg_ctl', ['-D', data, '-m', 'fast', 'stop']); rmSync(dir, { recursive: true, force: true }); } };
+  const marker = writeMarker(markerDir, { pid: process.pid, dir, data, port, startedAt: new Date().toISOString() });   // before initdb: a kill during start is swept too
+  let stopped = false;
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    for (const [sig, fn] of handlers) process.removeListener(sig, fn);
+    run('pg_ctl', ['-D', data, '-m', 'fast', 'stop']);
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(marker, { force: true });
+  };
+  const onSignal = code => () => { stop(); process.exit(code); };
+  const handlers = signals ? [['exit', stop], ['SIGINT', onSignal(130)], ['SIGTERM', onSignal(143)], ['SIGBREAK', onSignal(149)]] : [];
+  for (const [sig, fn] of handlers) process.on(sig, fn);
+  try {
+    let r = run('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8']);
+    if (r.status !== 0) throw new Error('initdb failed: ' + (r.stderr || r.error));
+    r = run('pg_ctl', ['-D', data, '-o', `-p ${port} -k ""`, '-l', join(dir, 'pg.log'), '-w', 'start']);
+    if (r.status !== 0) throw new Error('pg_ctl start failed: ' + r.stderr);
+  } catch (e) { stop(); throw e; }
+  return { port, dir, marker, stop };
 }
 
 let dbCounter = 0;
