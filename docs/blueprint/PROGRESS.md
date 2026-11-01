@@ -1623,3 +1623,31 @@ TESTS PASSED", "caught stale jobs are reaped ERROR: the reaper failed exactly on
 UNPROVEN: the staging-only `webhook_events` staff line (~487) was not watched red on its own (the connectors line fails first);
 the run on staging (`omnikom test walls --target staging`) is next. Findings, open: audit_log counts keyed by action and workspace A
 that a staging row could inflate, about lines 1149, 1214, 1242 ('alerts-set', 'crm-set' x2) and 1469 ('crm-test' = 3).
+Staging, after landing (head 01c, be64510, exit 0): `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node
+tools/omnikom-cli/omnikom.mjs test walls --target staging` -> "PASS tenancy tests (isolated namespace walls-e28e04b9bc)", "PASS
+test site unchanged (13 tables compared)", "OK: 0 rows of the run left".
+
+### 5-L a visitor's form without script sends the lead (2026-11-01 21:41 to 22:02 local, builder `BUILDER_platform-build_5-L`; brief `factory/briefs/5-L-form-lead-no-js.md`)
+Finding HIGH from the first staging journey (J5 FAIL): a real visitor's submit got HTTP 400 and the raw JSON "Send the form as
+JSON.", because `factory/worker/lead-endpoint.mjs` only JSON.parsed and the page has no form script. Now an
+`application/x-www-form-urlencoded` post is turned into the JSON a script sends (LeadRequest names top level, every other field in
+`answers`), signed over that body and forwarded; JSON posts are unchanged byte for byte. `consentText` is forwarded only when
+`consent=yes` is ticked (unticked: capture-lead refuses it as REQUIRED); `marketingConsent` becomes `{given, text}`. A sent post
+answers 303 to `/api/lead?sent=1` (post-redirect-get, so a refresh does not resend); `THANKS_PATH` in Pages overrides the target,
+a bad path falls back. `GET ?sent=1` is a 200 thank-you page ("Thank you", "Your message was sent.", "Back to the site"); every other
+GET and non-POST stays 405 JSON. A bad field is a 400 page listing each problem in words with a link back to the form's own same-site
+path (else `/`); other outcomes are the existing plain-words messages as HTML; on a 5xx: "We could not send this. Nothing was sent.
+Go back and try again, or call us." Every answer carries noindex and no-store; echoed text is HTML-escaped. The test site's form
+field `pagePath` is now `page` (the LeadRequest name); `sites/test-demo-a/design/shell.mjs` links the logo as the icon (the
+favicon 404 on published pages). Builder's e2e (`factory/worker/test/e2e-form.mjs`, a real HTTP post, stub platform checking the
+signature with the platform's own verify()): "answer: 303 ... location=/api/lead?sent=1 x-robots-tag=noindex, nofollow
+cache-control=no-store", "signature verified by the platform's verify(): true", "follow GET /api/lead?sent=1: 200 ... <h1>Thank
+you</h1>", "GET /api/lead (no sent=1): 405", THANKS_PATH "303 ... location=/thanks/", consent unticked "400 ... (no consentText)",
+honeypot "400 ... forwarded: nothing", "E2E OK". Watched red: each new mutant (16 -> 35) red on the check that covers it; the
+favicon check (no mutant) red with the icon line removed ("FAILED: 1 of 89"), restored. Head's re-run in the builder's worktree
+(e92684e + the change): worker "31 passed, 0 failed", mutants "35 mutants, 35 caught, 0 survived or missing", "E2E OK", factory
+"OK: 89 of 89 checks passed". UNPROVEN: the journey on staging (`omnikom test journey --target staging --only J5,J6`, CLI head,
+after landing and the test site's republish). GAPs open: a no-JS post carries no idempotencyKey, so a double click can store two
+leads; anyone can open `/api/lead?sent=1` without posting (static, stores nothing); the contract's leads field is `pagePath`
+(contracts/core.json:162, the fixture, the dashboard) while LeadRequest says `page`, a rename for a later slice; the runner's
+media checks skip on this laptop (sharp not installed).
