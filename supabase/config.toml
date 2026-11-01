@@ -24,12 +24,15 @@ verify_jwt = false           # build runner: verifies X-Runner-Signature (HMAC o
 [functions.capture-lead]
 verify_jwt = false           # site Worker: verifies X-Site-Signature (HMAC with that site's signing key) in code
 
+# planned: W6.3 (05-BUILD-PLAN.md; no folder under supabase/functions yet)
 [functions.push-lead]
 verify_jwt = false           # pg_cron / queue: verifies the internal cron secret header in code
 
+# planned: M6 (05-BUILD-PLAN.md milestone M6 Leads + metrics; 02-BACKEND.md section 6; no work order names it yet)
 [functions.metrics-pull]
 verify_jwt = false           # pg_cron: verifies the internal cron secret header in code; one workspace per call
 
+# planned: M6 (02-BACKEND.md section 6: called by job-callback on done for a live site; no work order names it yet)
 [functions.sitemap-submit]
 verify_jwt = false           # job-callback (internal): verifies the internal secret header in code
 

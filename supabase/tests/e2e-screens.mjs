@@ -6,7 +6,8 @@
 //                                                                                                                   fake Auth admin API and the fake CRM webhook
 // It calls each new function once as owner-a (and member-a1 / owner-b for the refusals), over HTTP, the way the dashboard will. Prints one PASS/FAIL/INFO
 // line per check and never a token, a key, a signature or a secret. Exits 1 on any FAIL, 3 when a name is missing.
-// What it leaves on STAGING, on purpose: the saved listing (two content versions), the audit rows, and the invited login invite-test-5-2@omnikom.test as a
+// What it leaves on STAGING, on purpose: the two content VERSIONS of the saved listing (versions are append-only; the ROW is soft-deleted again in
+// the finally through service.unpublish, STAGING_DB_URL read by name, e2e-cleanup.mjs), the audit rows, and the invited login invite-test-5-2@omnikom.test as a
 // member of workspace A (no function removes a member before slice 5.6; remove it with: delete from members where user_id = (select id from auth.users
 // where email = 'invite-test-5-2@omnikom.test')). Its leads are deleted again through the CLI, and the alert list is put back as it was.
 // What staging does NOT get from it: a signed test request to a CRM (no public echo endpoint is used anywhere in this repository, so crm-test's request
@@ -18,6 +19,7 @@ import { resolveTarget } from '../../tools/omnikom-cli/lib/target.mjs';
 import { parseIdentity, personToken, claimsFor } from '../../tools/omnikom-cli/lib/identity.mjs';
 import { makeSql } from '../../tools/omnikom-cli/lib/sql.mjs';
 import { sign } from '../../tools/omnikom-cli/lib/sign.mjs';
+import { createCleanup, stagingDbUrl, stagingRemover } from './e2e-cleanup.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const LOCAL = process.argv.includes('--local');
@@ -32,6 +34,8 @@ const info = text => console.log(`INFO ${text}`);
 
 // ---------- the target ----------
 let base, token, q, localDb = null, fakeBase = null, stop = async () => {}, crmUrl;
+// every content row this run creates is removed in the finally (slice 5.2b); a --local run needs none removed: its harness database is thrown away
+let cleanup = createCleanup({ remove: async () => ({ ok: true }), report: () => {} });
 if (LOCAL) {
   const { startHarness } = await import(pathToHref(join(REPO, 'supabase', 'functions', 'test', 'harness.mjs')));
   const api = await startHarness();
@@ -55,6 +59,9 @@ if (LOCAL) {
 } else {
   const target = resolveTarget('staging', process.env, { needDb: false });
   if (!target.functionsBase) { console.error('BLOCKED: STAGING_SUPABASE_REF is not set (read by name)'); process.exit(3); }
+  let dbUrl;
+  try { dbUrl = stagingDbUrl(process.env); } catch (e) { console.error(e.message); process.exit(String(e.message).startsWith('BLOCKED') ? 3 : 2); }
+  cleanup = createCleanup({ remove: stagingRemover({ url: dbUrl }), report: line });
   base = target.functionsBase.replace(/\/$/, '');
   const pub = process.env[target.vars.publishableKey];
   const tokens = {};
@@ -112,7 +119,7 @@ try {
   const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
   const s1 = await call('save', 'owner-a', { workspace: WS_A, collection: 'listings', row: null, data: { street: `5.2 e2e ${stamp}` } });
   line(s1.status === 200 && s1.json && s1.json.version >= 1, 'save of a new row without a base is 200', `${brief(s1)} version ${s1.json && s1.json.version}`);
-  const row = s1.json && s1.json.row, v1 = s1.json && s1.json.version;
+  const row = cleanup.track(s1.json && s1.json.row), v1 = s1.json && s1.json.version;   // created by this save (row: null), so it is removed in the finally
   if (row) {
     const s2 = await call('save', 'owner-a', { workspace: WS_A, collection: 'listings', row, base: v1, data: { street: `5.2 e2e ${stamp} two` } });
     line(s2.status === 200 && s2.json.version === v1 + 1, 'save of the row with base = the newest version is 200 (one version later)', `${brief(s2)} version ${s2.json && s2.json.version}`);
@@ -235,6 +242,7 @@ try {
       if (previousAlerts) await call('settings-save', 'owner-a', { workspace: WS_A, alerts: { site: SITE_A, to: previousAlerts.lead_alert_to, assignee: previousAlerts.alert_assignee } });
     }
   } catch (e) { line(false, 'cleanup', String(e && e.message || e).slice(0, 200)); }
+  await cleanup.run();
   await stop();
 }
 console.log(`\n${failed ? 'FAILED' : 'PASS'}: ${LOCAL ? 'local' : 'staging'} end to end for the functions of the four screens, ${failed} problem(s)`);

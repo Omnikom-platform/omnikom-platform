@@ -4,15 +4,17 @@
 // will (tools/omnikom-cli/lib/sign.mjs is the same function). The job is started on the SQL path (`omnikom publish --as owner-a`, which does
 // NOT dispatch to GitHub, so no real runner races this script), and the dashboard side (save, upload-start) uses owner-a's real session token.
 // Prints one PASS/FAIL line per check and never a URL, token or key value (a signed URL carries a token). Exits 1 on any FAIL, 3 when a name is
-// missing. What it leaves on staging, on purpose: the saved listing (a content version), ONE job `done` (it moves published_version of the test
-// row) and ONE job `failed`, and ONE test media row of workspace A with its original and its three derivatives in Storage (processed, so the
-// export carries it).
+// missing. What it leaves on staging, on purpose: the content VERSION of the saved listing (versions are append-only), ONE job `done` and ONE
+// job `failed`, and ONE test media row of workspace A with its original and its three derivatives in Storage (processed, so the export carries
+// it). The listing ROW (published by the done job) is soft-deleted again in the finally through service.unpublish (STAGING_DB_URL, read by
+// name; e2e-cleanup.mjs), which also clears its published_version.
 import { resolveTarget } from '../../tools/omnikom-cli/lib/target.mjs';
 import { parseIdentity, personToken } from '../../tools/omnikom-cli/lib/identity.mjs';
 import { callFunction } from '../../tools/omnikom-cli/lib/fn.mjs';
 import { sign } from '../../tools/omnikom-cli/lib/sign.mjs';
 import { main as cli } from '../../tools/omnikom-cli/omnikom.mjs';
 import { makeSql } from '../../tools/omnikom-cli/lib/sql.mjs';
+import { createCleanup, stagingDbUrl, stagingRemover } from './e2e-cleanup.mjs';
 
 const WS_A = 'aaaaaaaa-0000-0000-0000-000000000000';
 const target = resolveTarget('staging', process.env, { needDb: false });
@@ -23,6 +25,9 @@ const pubKey = process.env[target.vars.publishableKey];
 const base = target.functionsBase.replace(/\/$/, '');
 let failed = 0;
 const line = (ok, name, detail = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? ': ' + detail : ''}`); if (!ok) failed++; };
+let dbUrl;
+try { dbUrl = stagingDbUrl(process.env); } catch (e) { console.error(e.message); process.exit(String(e.message).startsWith('BLOCKED') ? 3 : 2); }
+const cleanup = createCleanup({ remove: stagingRemover({ url: dbUrl }), report: line });   // every content row this run creates is removed in the finally (slice 5.2b)
 
 // ---- the runner's calls
 async function runner(method, name, { query = '', body = '', key = KEY, t, sendBody = body } = {}) {
@@ -117,6 +122,7 @@ try {
     description: 'A synthetic home saved by the staging export test; it is unpublished by the test site staging script.', area, agent,
     seo: { title: 'E2E test home in Alpha', description: 'A synthetic listing saved by the staging export test, used only to prove the runner export.' } };
   const s = await fn('save', 'owner-a', { workspace: WS_A, collection: 'listings', row: null, data: listing });
+  cleanup.track(s.json && s.json.row);   // created by this save (row: null), so it is removed in the finally
   line(s.status === 200 && s.json && s.json.row, 'save by owner-a is 200 (a row to publish)', brief(s));
   if (!(s.json && s.json.row)) throw new Error('no row to publish');
   const j1 = await startJob(s.json.row);
@@ -173,6 +179,8 @@ try {
   }
 } catch (e) {
   line(false, 'the run', String(e && e.message || e).slice(0, 200));
+} finally {
+  await cleanup.run();
 }
 console.log(`\n${failed ? 'FAILED' : 'PASS'}: staging end to end for the runner functions, ${failed} problem(s)`);
 process.exit(failed ? 1 : 0);

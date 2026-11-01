@@ -127,6 +127,11 @@
        }
       },
       "description": "staff only, when a locked field changes"
+     },
+     "base": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "the version the editor started from. Required when row is set (400 BODY without it); for a new row it is optional and, when sent, must be 0. A save on top of a newer version is refused 409 S-STALE (slice 5.2; service.save_as p_base)"
      }
     }
    },
@@ -648,6 +653,10 @@
      "unassign": {
       "type": "boolean",
       "description": "true takes the lead off its owner"
+     },
+     "read": {
+      "type": "boolean",
+      "description": "true marks the lead read for the caller (service.mark_lead_read: the lead is bold in their list until they open it), alone or with the other fields; together, both run in one transaction, so a refused change marks nothing. false does nothing (there is no \"unread\")"
      }
     },
     "description": "every field but lead is optional; each change writes its own event on the lead timeline (service.lead_update)"
@@ -907,6 +916,298 @@
       "description": "widths not made because the original is narrower (accepted, not stored)"
      }
     }
+   },
+   "DraftsRequest": {
+    "type": "object",
+    "required": [
+     "site"
+    ],
+    "properties": {
+     "site": {
+      "type": "string",
+      "format": "uuid"
+     }
+    }
+   },
+   "Draft": {
+    "type": "object",
+    "required": [
+     "row",
+     "collection",
+     "newest",
+     "published",
+     "editedBy",
+     "editedAt"
+    ],
+    "properties": {
+     "row": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "collection": {
+      "type": "string"
+     },
+     "newest": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "the newest saved version of the row"
+     },
+     "published": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "description": "the published version; null for a row never published"
+     },
+     "editedBy": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid"
+     },
+     "editedAt": {
+      "type": "string",
+      "format": "date-time"
+     }
+    }
+   },
+   "DraftsResponse": {
+    "type": "object",
+    "required": [
+     "drafts"
+    ],
+    "properties": {
+     "drafts": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/Draft"
+      },
+      "description": "newest edit first. Owner and staff see every waiting row, an agent only the rows they could publish themselves; inbox rows and deleted rows never"
+     }
+    }
+   },
+   "SettingsSaveRequest": {
+    "type": "object",
+    "required": [
+     "workspace"
+    ],
+    "anyOf": [
+     {
+      "required": [
+       "alerts"
+      ]
+     },
+     {
+      "required": [
+       "crm"
+      ]
+     }
+    ],
+    "description": "send alerts, crm, or both (400 BODY with neither); they are saved together or not at all. Owner or staff",
+    "properties": {
+     "workspace": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "alerts": {
+      "type": "object",
+      "required": [
+       "site",
+       "to"
+      ],
+      "properties": {
+       "site": {
+        "type": "string",
+        "format": "uuid",
+        "description": "must belong to workspace (404 S-NOT-FOUND otherwise)"
+       },
+       "to": {
+        "type": "array",
+        "maxItems": 100,
+        "items": {
+         "type": "string",
+         "maxLength": 320
+        },
+        "description": "lower-cased and de-duplicated; more than 10 addresses after that, or an address that is not valid, is 422 I-EMAIL"
+       },
+       "assignee": {
+        "type": [
+         "boolean",
+         "null"
+        ],
+        "description": "also alert the lead's owner; null or absent keeps the current tick"
+       }
+      }
+     },
+     "crm": {
+      "type": "object",
+      "required": [
+       "url"
+      ],
+      "properties": {
+       "url": {
+        "type": [
+         "string",
+         "null"
+        ],
+        "maxLength": 2000,
+        "description": "an https address that resolves to public addresses only (422 I-URL otherwise); null removes the connection and its Vault secret. A new signing secret is made on every save of an address and never returned"
+       }
+      }
+     }
+    }
+   },
+   "SettingsSaveResponse": {
+    "type": "object",
+    "required": [
+     "alerts",
+     "crm"
+    ],
+    "properties": {
+     "alerts": {
+      "type": "boolean",
+      "description": "true when this call changed the alerts"
+     },
+     "crm": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "enum": [
+       "set",
+       "removed",
+       null
+      ],
+      "description": "what this call did to the connection; null when it was not sent"
+     }
+    }
+   },
+   "CrmTestRequest": {
+    "type": "object",
+    "required": [
+     "workspace"
+    ],
+    "properties": {
+     "workspace": {
+      "type": "string",
+      "format": "uuid"
+     }
+    }
+   },
+   "CrmTestResponse": {
+    "type": "object",
+    "required": [
+     "ok",
+     "status",
+     "ms"
+    ],
+    "description": "one signed POST (header X-Omnikom-Signature, redirects never followed, 10 s limit) with the fixed body {\"test\":true,\"lead\":{\"name\":\"Test Lead\",\"email\":\"test@example.com\"}}; the CRM's answer body is never read or returned",
+    "properties": {
+     "ok": {
+      "type": "boolean",
+      "description": "true for a 2xx"
+     },
+     "status": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "description": "the CRM's HTTP status; null when nothing answered (timeout, refused connection)"
+     },
+     "ms": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "reason": {
+      "type": "string",
+      "description": "plain words, present when ok is false"
+     }
+    }
+   },
+   "LeadExportRequest": {
+    "type": "object",
+    "required": [
+     "site"
+    ],
+    "properties": {
+     "site": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "filter": {
+      "type": "string",
+      "enum": [
+       "new",
+       "all",
+       "mine",
+       "spam"
+      ],
+      "default": "all",
+      "description": "new = status new; all = every status except spam; mine = assigned to the caller, except spam; spam = spam"
+     },
+     "q": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "matches name, email and phone, case-insensitive, once it is at least 2 characters; shorter is ignored"
+     }
+    }
+   },
+   "InviteMemberRequest": {
+    "type": "object",
+    "required": [
+     "workspace",
+     "email",
+     "role"
+    ],
+    "properties": {
+     "workspace": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "email": {
+      "type": "string",
+      "format": "email",
+      "maxLength": 254,
+      "description": "trimmed and lower-cased"
+     },
+     "role": {
+      "type": "string",
+      "enum": [
+       "owner",
+       "member"
+      ]
+     },
+     "team_row": {
+      "type": "string",
+      "format": "uuid",
+      "description": "a team row of this workspace to link the person to"
+     }
+    }
+   },
+   "InviteMemberResponse": {
+    "type": "object",
+    "required": [
+     "user",
+     "invited",
+     "email_sent"
+    ],
+    "properties": {
+     "user": {
+      "type": "string",
+      "format": "uuid",
+      "description": "the login: found by email, or created through the Auth admin API (which sends nothing); the sign-in link is never stored, logged or returned"
+     },
+     "invited": {
+      "type": "boolean",
+      "const": true
+     },
+     "email_sent": {
+      "type": "boolean",
+      "const": false,
+      "description": "no email sender exists yet (decision D5), so this is always false for now"
+     }
+    }
    }
   },
   "responses": {
@@ -951,7 +1252,37 @@
     }
    },
    "Conflict": {
-    "description": "S-SINGLETON: there is already one; edit it",
+    "description": "S-SINGLETON: there is already one; edit it. S-STALE (save): the row was saved at a newer version by someone else; the message names the row id and the newest version",
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "#/components/schemas/Problem"
+      }
+     }
+    }
+   },
+   "MethodNotAllowed": {
+    "description": "METHOD: only POST (a browser preflight OPTIONS is answered 204 before anything else)",
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "#/components/schemas/Problem"
+      }
+     }
+    }
+   },
+   "TooLarge": {
+    "description": "SIZE: the body is over 256 KiB",
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "#/components/schemas/Problem"
+      }
+     }
+    }
+   },
+   "ServerError": {
+    "description": "SERVER or CONFIG: something went wrong on our side; the answer says nothing about the cause",
     "content": {
      "application/json": {
       "schema": {
@@ -989,6 +1320,16 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/SaveResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "BODY: the body is not a SaveRequest (a missing or negative base, a bad id, a field of the wrong type), with the field problems",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
         }
        }
       }
@@ -1476,7 +1817,8 @@
       "$ref": "#/components/responses/Unauthorized"
      }
     }
-   }
+   },
+   "x-planned": "M6 (05-BUILD-PLAN.md milestone M6 Leads + metrics; 02-BACKEND.md section 6; no work order names it yet)"
   },
   "/unpublish": {
    "post": {
@@ -1520,7 +1862,8 @@
       "$ref": "#/components/responses/NotFound"
      }
     }
-   }
+   },
+   "x-planned": "W3.5 (05-BUILD-PLAN.md: publish centre + history + restore + unpublish)"
   },
   "/lead-update": {
    "post": {
@@ -1619,6 +1962,397 @@
      },
      "404": {
       "description": "no such site, or the caller is not a member of its workspace",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/drafts": {
+   "post": {
+    "operationId": "drafts",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "summary": "The rows with changes waiting to be published, for \"Publish N changes\" (dashboard, read-only; supabase/functions/drafts)",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DraftsRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "the waiting rows, newest edit first",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/DraftsResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "BODY: site is missing or not an id",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "description": "S-NOT-FOUND: no such site, or one the caller cannot see",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "405": {
+      "$ref": "#/components/responses/MethodNotAllowed"
+     },
+     "413": {
+      "$ref": "#/components/responses/TooLarge"
+     },
+     "500": {
+      "$ref": "#/components/responses/ServerError"
+     }
+    }
+   }
+  },
+  "/settings-save": {
+   "post": {
+    "operationId": "settingsSave",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "summary": "Save the lead alerts and/or the CRM connection from Settings (dashboard; owner or staff; supabase/functions/settings-save)",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SettingsSaveRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "saved; what this call changed. The screen reads the new values back through RLS",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SettingsSaveResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "BODY: neither alerts nor crm, a bad id, a list of the wrong type, or a crm.url that is not text or null",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "description": "S-NOT-FOUND: the caller is not an owner of the workspace or staff, or the site is not in this workspace (an agent gets this too)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "405": {
+      "$ref": "#/components/responses/MethodNotAllowed"
+     },
+     "413": {
+      "$ref": "#/components/responses/TooLarge"
+     },
+     "422": {
+      "description": "I-EMAIL: an address is not valid, or more than ten remain after de-duplication. I-URL: the CRM address is not https, or its name resolves to a private, loopback, link-local or unique-local address, or the database refused its text. I-SECRET-REF: the secret for the connection is not valid",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "500": {
+      "$ref": "#/components/responses/ServerError"
+     }
+    }
+   }
+  },
+  "/crm-test": {
+   "post": {
+    "operationId": "crmTest",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "summary": "\"Send a test\" to the saved CRM address (dashboard; owner or staff; supabase/functions/crm-test)",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CrmTestRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "the test was attempted; ok says whether the CRM answered 2xx. One audit row records the outcome, the status and the host name",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CrmTestResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "BODY: workspace is missing or not an id",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "description": "S-NOT-FOUND: the caller is not an owner of the workspace or staff",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "405": {
+      "$ref": "#/components/responses/MethodNotAllowed"
+     },
+     "409": {
+      "description": "NO-CRM: no connection is set up, or the saved address is not valid (save it again)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "413": {
+      "$ref": "#/components/responses/TooLarge"
+     },
+     "422": {
+      "description": "CRM-HOST: the host is not https or resolves to a private, loopback, link-local or unique-local address, or does not resolve. No connection is made",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "500": {
+      "$ref": "#/components/responses/ServerError"
+     }
+    }
+   }
+  },
+  "/lead-export": {
+   "post": {
+    "operationId": "leadExport",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "summary": "Export the leads under the current filter as a CSV file (dashboard; supabase/functions/lead-export)",
+    "description": "The leads are read as the caller under Row Level Security: owner and staff get every lead of the site, an agent only the leads assigned to them. Newest first, at most 5000. Cells that start with = + - @ get a leading quote. One `exported` event is written per lead in the file.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LeadExportRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "the file: columns received (UTC ISO), name, email, phone, form, page, status, owner, answers (one JSON cell)",
+      "headers": {
+       "Content-Disposition": {
+        "schema": {
+         "type": "string"
+        },
+        "description": "attachment; filename=\"leads-YYYY-MM-DD.csv\""
+       },
+       "X-Omnikom-Export-Capped": {
+        "schema": {
+         "type": "integer"
+        },
+        "description": "5000, present only when there were more leads than that; the file holds the newest 5000"
+       }
+      },
+      "content": {
+       "text/csv": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "BODY: site is missing or not an id, filter is not one of new, all, mine, spam",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "description": "S-NOT-FOUND: no such site, or one the caller cannot see: no file",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "405": {
+      "$ref": "#/components/responses/MethodNotAllowed"
+     },
+     "413": {
+      "$ref": "#/components/responses/TooLarge"
+     },
+     "500": {
+      "$ref": "#/components/responses/ServerError"
+     }
+    }
+   }
+  },
+  "/invite-member": {
+   "post": {
+    "operationId": "inviteMember",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "summary": "Invite a person to the workspace (dashboard; owner or staff; supabase/functions/invite-member)",
+    "description": "Finds the login with this email or creates it through the Auth admin API (no email is sent), then makes the person a member. Inviting the same address again finds the same login.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/InviteMemberRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "they are a member",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/InviteMemberResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "BODY: a missing field, an email that is not valid, a role that is not owner or member",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "description": "S-NOT-FOUND: the caller is not an owner of the workspace or staff with MFA, or the team row is not one of this workspace's (an agent gets this too, and no login is created)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "405": {
+      "$ref": "#/components/responses/MethodNotAllowed"
+     },
+     "409": {
+      "description": "S-LAST-OWNER: an owner cannot demote themselves while they are the last one",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "413": {
+      "$ref": "#/components/responses/TooLarge"
+     },
+     "500": {
+      "$ref": "#/components/responses/ServerError"
+     },
+     "502": {
+      "description": "AUTH: the Auth admin API did not create the login; try again",
       "content": {
        "application/json": {
         "schema": {

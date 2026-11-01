@@ -13,8 +13,10 @@ const GATES = [
   ['industry run', 'contracts/industry-run/run.mjs'],
   ['database walls + mutants', 'supabase/tests/run-local.mjs'],
   ['publish-ready parity (SQL vs JS)', 'supabase/tests/publish-parity.mjs'],   // slice 4.6: the SQL port of the REQUIRED rules agrees with contracts/validate.mjs on every item
+  ['e2e cleanup + mutants', 'supabase/tests/e2e-cleanup.test.mjs'],   // slice 5.2b: the staging e2e scripts remove the content rows they create (a thrown assertion included); no staging, about 2 s
   ['function tests (Deno)', 'supabase/functions/test/run.mjs'],   // slice 4.2 harness: a local cluster + the Edge Functions under Deno, about 2 to 5 minutes; its mutants (mutate.mjs) are the slice gate, too long for here
   ['specs + traceability', 'docs/blueprint/specs/check-specs.mjs'],
+  ['specs: deployed-function rule', 'docs/blueprint/specs/check-specs.test.mjs'],   // slice 5.2b: every deployed function has an operation; planted faults in a temp copy
   ['machine-call signature', 'supabase/functions/_shared/signature.test.mjs'],
   ['no model in runtime (D38)', 'docs/blueprint/specs/check-no-model.test.mjs'],   // DECISIONS 38 (1): planted tells, 10 mutants, then the real tree
   // slice 5-H (after the 2026-11-01 restart: 1021 orphaned Edge processes, 40 Postgres): the guard's tests and mutants, then, LAST, no

@@ -3,12 +3,14 @@
 // Calls the deployed functions over HTTPS with real session tokens of the seeded test logins (the CLI's personToken: Auth admin
 // generate_link + verify, in memory only, never printed). Keys are read from the environment by name: STAGING_SUPABASE_REF,
 // STAGING_SUPABASE_SECRET_KEY, STAGING_SUPABASE_PUBLISHABLE_KEY (the CLI's names). Imports the CLI's modules read-only.
-// Prints one PASS/FAIL line per check and exits 1 on any FAIL. What it leaves on staging, on purpose: the saved listing (a content
-// version), the queued publish job (the runner does not exist yet), the media row. The lead it adds is deleted again through the CLI.
+// Prints one PASS/FAIL line per check and exits 1 on any FAIL. What it leaves on staging, on purpose: the content VERSION of the saved
+// listing (versions are append-only), the queued publish job (the runner does not exist yet), the media row. The listing ROW it creates is
+// soft-deleted again in the finally through service.unpublish (STAGING_DB_URL, read by name; e2e-cleanup.mjs); the lead goes through the CLI.
 import { resolveTarget } from '../../tools/omnikom-cli/lib/target.mjs';
 import { parseIdentity, personToken } from '../../tools/omnikom-cli/lib/identity.mjs';
 import { callFunction } from '../../tools/omnikom-cli/lib/fn.mjs';
 import { main as cli } from '../../tools/omnikom-cli/omnikom.mjs';
+import { createCleanup, stagingDbUrl, stagingRemover } from './e2e-cleanup.mjs';
 
 const WS_A = 'aaaaaaaa-0000-0000-0000-000000000000';
 const SITE_A = 'aaaaaaaa-0000-0000-0000-00000000517e';
@@ -17,6 +19,9 @@ if (!target.functionsBase) { console.error('BLOCKED: STAGING_SUPABASE_REF is not
 const pubKey = process.env[target.vars.publishableKey];
 let failed = 0;
 const line = (ok, name, detail = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? ': ' + detail : ''}`); if (!ok) failed++; };
+let dbUrl;
+try { dbUrl = stagingDbUrl(process.env); } catch (e) { console.error(e.message); process.exit(String(e.message).startsWith('BLOCKED') ? 3 : 2); }
+const cleanup = createCleanup({ remove: stagingRemover({ url: dbUrl }), report: line });   // every content row this run creates is removed in the finally (slice 5.2b)
 
 const tokens = {};
 async function as(person) { return tokens[person] ??= await personToken(parseIdentity(person), { target, env: process.env }); }
@@ -31,6 +36,7 @@ try {
   const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
   // save: owner-a 200 (version n), nobody 404
   const s = await fn('save', 'owner-a', { workspace: WS_A, collection: 'listings', row: null, data: { street: `4.2 e2e ${stamp}` } });
+  cleanup.track(s.json && s.json.row);   // created by this save (row: null), so it is removed in the finally
   line(s.status === 200 && s.json && s.json.version >= 1, 'save by owner-a is 200 with a version', `${brief(s)} version ${s.json && s.json.version}`);
   const n = await fn('save', 'nobody', { workspace: WS_A, collection: 'listings', row: null, data: { street: 'x', zzUnknownField: 1 } });
   line(n.status === 404 && !n.snippet.includes('zzUnknownField'), 'save by nobody is 404 and names no field', brief(n));
@@ -67,6 +73,8 @@ try {
   line(noJwt.status === 401, 'a call with no token is 401', brief(noJwt));
 } catch (e) {
   line(false, 'the run', String(e && e.message || e).slice(0, 200));
+} finally {
+  await cleanup.run();
 }
 console.log(`\n${failed ? 'FAILED' : 'PASS'}: staging end to end for the dashboard functions, ${failed} problem(s)`);
 process.exit(failed ? 1 : 0);

@@ -1543,3 +1543,18 @@ Every M0-M1 work order now has a local acceptance next to its cloud acceptance (
 Anything on real Supabase/Cloudflare/GitHub (no projects yet; `run-staging.mjs` is written, not run); Supabase's real `auth.users`
 accepting the named-column fixture insert; the default function secret name for the DB URL; ISO 29148 / 42010 clause content;
 ASVS per-requirement sheet (W0.2); OpenAPI official-schema validation; estimates (~99 engineer-days) are estimates.
+
+### 5.2b the staging e2e scripts clean up; openapi catches up (2026-11-01 10:20 to 10:39 local, builder `BUILDER_platform_5-2b`; brief `factory/briefs/5-2b-e2e-cleanup-and-openapi.md`)
+NOT LANDED (as 5.4). `supabase/tests/e2e-cleanup.mjs`: each of e2e-screens, e2e-functions and e2e-export tracks the rows its saves create
+and removes them in a finally through `service.unpublish` (read back: deleted_at set); the scripts now stop BLOCKED (exit 3) before
+creating anything without `STAGING_DB_URL`. `openapi.json`: `SaveRequest.base`, /drafts, /settings-save, /crm-test, /lead-export,
+/invite-member; `check-specs.mjs` now requires an operation for every deployed function. Head's runner re-run:
+```
+PASS: e2e cleanup, real code green, 20 of 20 mutants caught
+PASS: check-specs deployed-function rule, 19 checks, 0 problem(s)
+OK: 18 operations, 18 operationIds, 16 deployed functions covered; 47 FR/NFR rows, 40 work orders, 0 problem(s)
+```
+Watched red: `/lead-export` removed: "openapi: the deployed function lead-export has no operation at /lead-export ... exit 1". UNPROVEN until
+the head's staging run after landing: the three scripts on staging, then `reset-staging-drafts.mjs` (dry run) lists 0 e2e rows; unpublish
+of a published row (e2e-export); a queued test job naming a removed row.
+
