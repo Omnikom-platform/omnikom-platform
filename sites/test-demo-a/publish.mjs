@@ -46,11 +46,11 @@ const latest = () => new Map(q(`select row_id, max(n) as n from public.content_v
 if (hero) {
   const home = listed.find(r => r.key === 'page-home');
   if (!home) die(2, 'the rows file has no page-home row');
-  const [cur] = q(`select data from public.content_versions where row_id = ${uuidLit(home.id)} order by n desc limit 1`);
+  const [cur] = q(`select n, data from public.content_versions where row_id = ${uuidLit(home.id)} order by n desc limit 1`);
   const data = structuredClone(cur.data);
   data.sections = data.sections || {};
   data.sections.hero = { ...(data.sections.hero || {}), heading: hero };
-  const s = await call('save', { workspace: WS_A, collection: 'pages', row: home.id, data });
+  const s = await call('save', { workspace: WS_A, collection: 'pages', row: home.id, data, base: Number(cur.n) });   // 5.2: base is the version the edit started from
   if (s.status !== 200) die(1, `FAIL save: ${s.status} ${s.json && s.json.code || s.error || ''}`);
   console.log(`save 200: page-home ${home.id} now version ${s.json.version} (hero heading changed)`);
 }

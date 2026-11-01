@@ -2,11 +2,11 @@
 // service.start_publish (walls), then the GitHub dispatch, which is REPORTED when it did not happen (202 dispatched: false).
 import { handle as save } from '../save/index.ts';
 import { handle } from '../publish/index.ts';
-import { assert, call, eq, fake, mkMedia, photoContract, securityEvents, SITE_A, SITE_B, SUB, teamRows, t, WS_A, withSql } from './util.ts';
+import { assert, call, eq, fake, mkMedia, newest, photoContract, securityEvents, SITE_A, SITE_B, SUB, teamRows, t, WS_A, withSql } from './util.ts';
 
 const publish = (who: Parameters<typeof call>[3], body: Record<string, unknown>) => call(handle, 'publish', body, who);
 const saveRow = async (who: Parameters<typeof call>[3], collection: string, row: string | null, data: Record<string, unknown>) => {
-  const r = await call(save, 'save', { workspace: WS_A, collection, row, data }, who);
+  const r = await call(save, 'save', { workspace: WS_A, collection, row, data, ...(row ? { base: await newest(row) } : {}) }, who);   // slice 5.2: a save of an existing row says which version it started from
   eq(r.status, 200, `save ${collection}: ${r.text}`);
   return { row: String(r.json?.row), version: Number(r.json?.version) };
 };

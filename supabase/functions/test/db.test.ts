@@ -29,11 +29,18 @@ t('db: without a database URL connect() throws and nothing is run (fail closed)'
 t('db: refusal() maps the platform codes to statuses and never echoes the database message', () => {
   const want: [string, number][] = [['S-NOT-FOUND: not found', 404], ['S-OWN-ONLY: own items only', 403], ['S-ROLE: members cannot edit x', 403], ['S-LOCKED: "licence" is locked', 403],
     ['S-SIGNOFF: x', 403], ['S-SEED-ACTOR: x', 403], ['S-SINGLETON: x', 409], ['S-JOB-STATE: x', 409], ['S-JOB-BUSY: x', 409], ['S-WORKSPACE-STATE: x', 409], ['S-WORKSPACE-SUSPENDED: x', 409],
-    ['S-SITE-PAUSED: x', 409], ['S-KIND: x', 422], ['I-NOT-READY: 0000 status required', 422], ['S-QUOTA: x', 429], ['S-AUTH: x', 401], ['consent text required', 400], ['I-MEDIA-TYPE: x', 415], ['I-MEDIA-SIZE: x', 413]];
+    ['S-SITE-PAUSED: x', 409], ['S-KIND: x', 422], ['I-NOT-READY: 0000 status required', 422], ['S-QUOTA: x', 429], ['S-AUTH: x', 401], ['consent text required', 400], ['I-MEDIA-TYPE: x', 415], ['I-MEDIA-SIZE: x', 413],
+    ['I-EMAIL: someone@example.com', 422], ['I-URL: the address must start with https://', 422], ['I-SECRET-REF: a name of the secret', 422], ['S-LAST-OWNER: a workspace keeps at least one owner', 409]];
   for (const [msg, status] of want) { const r = refusal(msg); assert(r, msg); eq(r.status, status, msg); assert(!r.msg.includes('licence'), 'no echo'); }
   const nr = refusal('I-NOT-READY: 0000 status required');   // migration 11: the database refused a row that is not ready; the words are fixed, the field is not named
   eq(nr?.code, 'I-NOT-READY', 'I-NOT-READY keeps its code'); eq(nr?.msg, 'Some items are not ready to publish.', 'I-NOT-READY has plain words and names no field');
   eq(refusal('boom: something else'), null, 'an unknown error is not a refusal');
+  // slice 5.2: input problems are fixed words (the database message carries the value) and are not security events
+  for (const [msg, code] of [['I-EMAIL: someone@example.com', 'I-EMAIL'], ['I-URL: https://token.example/?key=abc', 'I-URL'], ['I-SECRET-REF: crm-webhook-secret', 'I-SECRET-REF']] as const) {
+    const r = refusal(msg);
+    eq(r?.code, code, msg); eq(r?.kind, null, code + ' is a plain input problem, not a wall'); assert(r && !/someone|token|key=abc|crm-webhook/.test(r.msg), code + ' does not echo the value: ' + r?.msg);
+  }
+  eq(refusal('S-LAST-OWNER: x')?.kind, null, 'a last-owner conflict is not a security event');
 });
 
 t('db: a database S-STALE becomes 409 S-STALE and keeps its words (the row id and the newest version, nothing else)', async () => {

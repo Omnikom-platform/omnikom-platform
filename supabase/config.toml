@@ -48,6 +48,24 @@ verify_jwt = true            # dashboard user
 [functions.media-export]
 verify_jwt = false           # build runner (media job): verifies X-Runner-Signature in code (supabase/functions/_shared/runner.ts)
 
+# Slice 5.2 (2026-10-31): the functions of the four screens. All take the user's JWT (verify_jwt = true) and check it again in code (_shared/auth.ts, the second
+# wall); all run in the dashboard frame (_shared/dashboard.ts), which also answers the browser's CORS preflight (OPTIONS) before any token is looked at. The
+# gateway lets a preflight through unauthenticated; that is UNPROVEN on staging until e2e-screens.mjs has run it.
+[functions.drafts]
+verify_jwt = true            # dashboard user
+
+[functions.settings-save]
+verify_jwt = true            # dashboard user
+
+[functions.crm-test]
+verify_jwt = true            # dashboard user
+
+[functions.lead-export]
+verify_jwt = true            # dashboard user
+
+[functions.invite-member]
+verify_jwt = true            # dashboard user
+
 # supabase/functions/test holds the Deno tests, not a function. A bare `supabase functions deploy` deploys every folder of supabase/functions
 # unless it is disabled here, so the test folder is switched off (deploys are by name through tools/deploy-functions.mjs anyway).
 [functions.test]

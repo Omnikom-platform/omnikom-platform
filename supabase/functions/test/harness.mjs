@@ -2,6 +2,10 @@
 // one (local-shim.sql + every migration in file order), seeded with the CLI's own fixtures (tools/omnikom-cli/commands/seed.mjs
 // seedTestSql, imported read-only), plus a tiny HTTP server that plays the three outside services the functions call:
 //   GET  /auth/v1/.well-known/jwks.json                       the project's JWKS (an ES256 public key generated for this run)
+//   POST /auth/v1/admin/generate_link                         Auth's admin invite (slice 5.2; creates the user in the database named by POST /__auth-user?...&db=<url> and answers
+//                                                             the id registered for the email; needs the secret key; records the email, never anything else)
+//   POST /hook/<path>, POST /hook-redirected                  a customer's CRM webhook (slice 5.2; records the path, the signature header and the body; answers the status you
+//                                                             set with POST /__hook?status=N&mode=redirect|slow; a redirect points at /hook-redirected, whose hits are counted)
 //   POST /storage/v1/object/upload/sign/media/<path>          Storage's signed-upload endpoint (answers { url, token }; needs the secret key)
 //   POST /storage/v1/object/sign/media/<path>                 Storage's signed-download endpoint (slice 4.3; answers { signedURL }; records the path, the
 //                                                             expiresIn asked for and how many calls ran at once; can be told to fail for a path or to be slow)
@@ -21,6 +25,16 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO = resolve(HERE, '..', '..', '..');
 const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 240000, ...opts });
 export const SECRET = 'test-not-a-secret';
+// The Supabase Vault does not exist on a plain Postgres. This models the part the migrations use (the same stand-in as tenancy.test.sql T21, which applies it
+// only when no vault schema exists): secrets by name, create_secret, update_secret, decrypted_secrets. The function role gets nothing on it.
+const VAULT_STANDIN = `create schema vault;
+create table vault.secrets (id uuid primary key default gen_random_uuid(), name text unique, description text not null default '', secret text not null, created_at timestamptz not null default now(), updated_at timestamptz not null default now());
+create view vault.decrypted_secrets as select id, name, description, secret as decrypted_secret, created_at, updated_at from vault.secrets;
+create function vault.create_secret(new_secret text, new_name text default null, new_description text default '', new_key_id uuid default null) returns uuid language sql as
+  $f$ insert into vault.secrets (name, description, secret) values (new_name, new_description, new_secret) returning id $f$;
+create function vault.update_secret(secret_id uuid, new_secret text default null, new_name text default null, new_description text default null, new_key_id uuid default null) returns void language sql as
+  $f$ update vault.secrets set secret = coalesce(new_secret, secret), name = coalesce(new_name, name), description = coalesce(new_description, description), updated_at = now() where id = secret_id $f$;
+`;
 export const RUNNER_KEY = 'test-runner-key-not-a-secret';
 
 export async function startHarness() {
@@ -38,7 +52,9 @@ export async function startHarness() {
     // the template database: shim, every migration in order, the CLI's fixtures
     psql('postgres', ['-c', 'create database tpl']);
     const migDir = join(REPO, 'supabase', 'migrations');
-    const files = [join(REPO, 'supabase', 'tests', 'local-shim.sql'), ...readdirSync(migDir).filter(f => f.endsWith('.sql')).sort().map(f => join(migDir, f))];
+    const vaultFile = join(dir, 'vault-standin.sql');
+    writeFileSync(vaultFile, VAULT_STANDIN);
+    const files = [join(REPO, 'supabase', 'tests', 'local-shim.sql'), vaultFile, ...readdirSync(migDir).filter(f => f.endsWith('.sql')).sort().map(f => join(migDir, f))];
     for (const f of files) { const x = psql('tpl', ['-f', f]); if (x.status !== 0) throw new Error(`applying ${f} failed: ${x.stderr}`); }
     const { seedTestSql } = await import(pathToFileURL(join(REPO, 'tools', 'omnikom-cli', 'commands', 'seed.mjs')).href);
     const seedFile = join(dir, 'seed.sql');
@@ -52,7 +68,9 @@ export async function startHarness() {
     const pub = { ...publicKey.export({ format: 'jwk' }), kid, alg: 'ES256', use: 'sig' };
     const priv = { ...privateKey.export({ format: 'jwk' }), kid, alg: 'ES256' };
 
-    const state = { github: [], storage: [], githubStatus: 204, signed: [], signFail: '', signDelayMs: 0, inflight: 0, maxInflight: 0 };
+    const state = { github: [], storage: [], githubStatus: 204, signed: [], signFail: '', signDelayMs: 0, inflight: 0, maxInflight: 0,
+      hooks: [], redirected: 0, hookStatus: 200, hookMode: '', hookDelayMs: 0, authLinks: [], authUsers: {}, authStatus: 200 };
+    let base = '';
     server = createServer((req, res) => {
       const chunks = [];
       req.on('data', c => chunks.push(c));
@@ -87,15 +105,39 @@ export async function startHarness() {
           state.github.push({ authorized: req.headers.authorization === `Bearer ${SECRET}`, accept: req.headers.accept, body: parsed });
           return state.githubStatus === 204 ? (res.writeHead(204), res.end()) : send(state.githubStatus, { message: 'refused' });
         }
+        if (req.method === 'POST' && u.pathname === '/auth/v1/admin/generate_link') {
+          let parsed = null; try { parsed = JSON.parse(body); } catch { /* recorded as null */ }
+          const authorized = req.headers.authorization === `Bearer ${SECRET}` && req.headers.apikey === SECRET;
+          state.authLinks.push({ authorized, type: parsed && parsed.type, email: parsed && parsed.email });
+          if (!authorized) return send(401, { message: 'no' });
+          if (state.authStatus !== 200) return send(state.authStatus, { message: 'refused' });
+          const reg = state.authUsers[parsed && parsed.email];
+          if (!reg) return send(500, { message: 'the test registered no id for this email' });
+          const id = reg.id;
+          if (reg.db) {   // GoTrue creates the user; the fake does the same in the database the test named
+            const x = run('psql', [reg.db, '-v', 'ON_ERROR_STOP=1', '-q', '-c', `insert into auth.users (id, email) values ('${id}', '${String(parsed.email).replace(/'/g, "''")}')`]);
+            if (x.status !== 0) return send(500, { message: 'the fake could not create the user: ' + String(x.stderr).slice(0, 200) });
+          }
+          return send(200, { action_link: 'https://fake.invalid/verify?token=THE-LINK-MUST-NEVER-BE-REPEATED', email_otp: '123456', id, email: parsed.email });
+        }
+        if (u.pathname === '/hook-redirected') { state.redirected++; return send(200, {}); }
+        if (req.method === 'POST' && u.pathname.startsWith('/hook/')) {
+          state.hooks.push({ path: u.pathname.slice('/hook'.length) + u.search, signature: req.headers['x-omnikom-signature'] ?? null, contentType: req.headers['content-type'] ?? null, body });
+          if (state.hookMode === 'redirect') { res.writeHead(302, { location: `${base}/hook-redirected` }); return res.end(); }
+          return setTimeout(() => (state.hookStatus === 204 ? (res.writeHead(204), res.end()) : send(state.hookStatus, { answer: 'THE-BODY-MUST-NEVER-BE-RETURNED' })), state.hookDelayMs);
+        }
         if (u.pathname === '/__recorded') return send(200, state);
-        if (u.pathname === '/__reset') { state.github = []; state.storage = []; state.githubStatus = 204; state.signed = []; state.signFail = ''; state.signDelayMs = 0; state.inflight = 0; state.maxInflight = 0; return send(200, {}); }
+        if (u.pathname === '/__reset') { state.github = []; state.storage = []; state.githubStatus = 204; state.signed = []; state.signFail = ''; state.signDelayMs = 0; state.inflight = 0; state.maxInflight = 0;
+          state.hooks = []; state.redirected = 0; state.hookStatus = 200; state.hookMode = ''; state.hookDelayMs = 0; state.authLinks = []; state.authUsers = {}; state.authStatus = 200; return send(200, {}); }
+        if (u.pathname === '/__hook') { state.hookStatus = Number(u.searchParams.get('status') ?? 200); state.hookMode = u.searchParams.get('mode') ?? ''; state.hookDelayMs = Number(u.searchParams.get('delay') ?? 0); return send(200, {}); }
+        if (u.pathname === '/__auth-user') { state.authUsers[u.searchParams.get('email')] = { id: u.searchParams.get('id'), db: u.searchParams.get('db') || null }; state.authStatus = Number(u.searchParams.get('status') ?? 200); return send(200, {}); }
         if (u.pathname === '/__sign') { state.signFail = u.searchParams.get('fail') ?? ''; state.signDelayMs = Number(u.searchParams.get('delay') ?? 0); return send(200, {}); }
         if (u.pathname === '/__github-status') { state.githubStatus = Number(u.searchParams.get('code')); return send(200, {}); }
         send(404, { message: 'no such fake endpoint' });
       });
     });
     await new Promise(ok => server.listen(0, '127.0.0.1', ok));
-    const base = `http://127.0.0.1:${server.address().port}`;
+    base = `http://127.0.0.1:${server.address().port}`;
 
     let n = 0;
     const api = {
@@ -113,7 +155,7 @@ export async function startHarness() {
           SUPABASE_URL: base, JWKS_URL: `${base}/auth/v1/.well-known/jwks.json`,
           SUPABASE_SECRET_KEY: SECRET, SUPABASE_SERVICE_ROLE_KEY: SECRET, RUNNER_KEY, GITHUB_DISPATCH_TOKEN: SECRET, GITHUB_REPO: 'test/test', GITHUB_API_BASE: base,
           TEST_JWK_PRIVATE: JSON.stringify(priv), TEST_FAKE_BASE: base, TEST_DB_URL: `postgres://postgres@127.0.0.1:${PORT}/${db}`,
-          NO_COLOR: '1',
+          DASHBOARD_ORIGINS: 'http://localhost:5173,http://localhost:5174,https://app.test-origin.example', NO_COLOR: '1',
         };
       },
       async stop() { await new Promise(ok => server.close(ok)); server.closeAllConnections?.(); stopDb(); },

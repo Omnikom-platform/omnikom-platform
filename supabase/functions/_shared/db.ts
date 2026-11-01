@@ -50,6 +50,12 @@ export function refusal(message: string): Refusal | null {
     const m = /S-STALE: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12} was saved at version [0-9]+ by someone else)/.exec(message);
     return { status: 409, code: 'S-STALE', kind: null, msg: m ? m[1] : 'Someone else saved a newer version.' };
   }
+  // migration 12 (slice 5.1): input the database refused. Plain input problems, not walls, so no security event (kind null); the words are fixed
+  // because the database message carries the value (an address, an email, a secret name).
+  if (has('I-EMAIL')) return { status: 422, code: 'I-EMAIL', kind: null, msg: 'An email address is not valid, or there are more than ten.' };
+  if (has('I-URL')) return { status: 422, code: 'I-URL', kind: null, msg: 'Use a public web address that starts with https://.' };
+  if (has('I-SECRET-REF')) return { status: 422, code: 'I-SECRET-REF', kind: null, msg: 'The secret for this connection is not valid.' };
+  if (has('S-LAST-OWNER')) return { status: 409, code: 'S-LAST-OWNER', kind: null, msg: 'A business keeps at least one owner.' };
   if (has('S-JOB-STATE')) return { status: 409, code: 'S-JOB-STATE', kind: 'refused', msg: 'That is not possible in the build\'s current state.' };
   if (has('S-JOB-BUSY')) return { status: 409, code: 'S-JOB-BUSY', kind: 'refused', msg: 'Another build of this site is running.' };
   if (has('S-WORKSPACE-SUSPENDED')) return { status: 409, code: 'S-WORKSPACE-SUSPENDED', kind: 'suspended', msg: 'This workspace is suspended.' };
@@ -72,4 +78,17 @@ export async function recordEvent(sql: Sql, kind: string, code: string, o: { wor
   try {
     await sql`select service.record_security_event(${kind}, ${code}, ${o.workspace ?? null}::uuid, ${o.site ?? null}::uuid, ${o.actor ?? null}::uuid, ${o.ipHash ?? null}, ${{ fn: o.fn, ...(o.reason ? { reason: o.reason } : {}) }}::jsonb)`;
   } catch (e) { console.error('security event not recorded', String(e).slice(0, 200)); }
+}
+
+/** Run `fn` on a transaction that acts as the CALLER under Row Level Security (slice 5.2: lead-export reads leads the way the dashboard would).
+ *  The connection has stepped down to omnikom_fn (no table is readable); inside this transaction only, it takes the role `authenticated` and the
+ *  caller's verified claims, which is exactly the state a signed-in browser's request has, so every policy answers as it does for that person.
+ *  `set local` ends with the transaction: afterwards the connection is omnikom_fn again. SET ROLE is checked against the session user (postgres),
+ *  which Supabase makes a member of authenticated; fail closed if it is not (the statement throws and nothing is read). */
+export async function asCaller<T>(sql: Sql, claims: { sub: string; aal: string; role: string; email: string | null }, fn: (tx: Sql) => Promise<T>): Promise<T> {
+  return await sql.begin(async (tx: Sql) => {
+    await tx.unsafe('set local role authenticated');
+    await tx`select set_config('request.jwt.claims', ${JSON.stringify(claims)}, true), set_config('request.jwt.claim.sub', ${claims.sub}, true)`;
+    return await fn(tx);
+  });
 }

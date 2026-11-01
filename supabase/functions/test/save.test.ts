@@ -1,7 +1,7 @@
 // save (slice 4.2): contract_for first, validateItem with the database's lookups, then service.save_as. Each check was watched red
 // (supabase/functions/test/mutate.mjs removes one wall of the source and requires one of these to fail).
 import { handle } from '../save/index.ts';
-import { assert, call, eq, mint, mkMedia, photoContract, securityEvents, SITE_A, SUB, teamRows, t, WS_A, WS_B, withSql } from './util.ts';
+import { assert, call, eq, mint, mkMedia, newest, photoContract, securityEvents, SITE_A, SUB, teamRows, t, WS_A, WS_B, withSql } from './util.ts';
 
 const listing = (street: string, agent: string) => ({ street, agent });
 const save = (who: Parameters<typeof call>[3], body: Record<string, unknown>) => call(handle, 'save', body, who);
@@ -11,7 +11,7 @@ t('save: owner-a saves a new listing (200, version 1), a second save of the row 
   const a = await save('owner-a', { workspace: WS_A, collection: 'listings', row: null, data: listing('1 Main Street', team.one) });
   eq(a.status, 200, 'first save'); eq(a.json?.version, 1, 'version 1');
   const row = String(a.json?.row);
-  const b = await save('owner-a', { workspace: WS_A, collection: 'listings', row, data: listing('1 Main Street, Unit 2', team.one) });
+  const b = await save('owner-a', { workspace: WS_A, collection: 'listings', row, base: 1, data: listing('1 Main Street, Unit 2', team.one) });
   eq(b.status, 200, 'second save'); eq(b.json?.version, 2, 'version 2'); eq(b.json?.row, row, 'the same row');
   await withSql(async sql => {
     const [r] = await sql`select count(*)::int as n from public.content_versions where row_id = ${row}::uuid`;
@@ -40,7 +40,7 @@ t('save: member-a1 saving a listing of agent two gets 403 S-OWN-ONLY (and one se
   const made = await save('owner-a', { workspace: WS_A, collection: 'listings', row: null, data: listing('2 Other Road', team.two) });
   eq(made.status, 200, 'owner makes agent two\'s listing');
   const before = await securityEvents({ actor: SUB['member-a1'], code: 'S-OWN-ONLY' });
-  const r = await save('member-a1', { workspace: WS_A, collection: 'listings', row: made.json?.row, data: listing('2 Other Road, changed', team.two) });
+  const r = await save('member-a1', { workspace: WS_A, collection: 'listings', row: made.json?.row, base: 1, data: listing('2 Other Road, changed', team.two) });
   eq(r.status, 403, 'status'); eq(r.json?.code, 'S-OWN-ONLY', 'code');
   eq(await securityEvents({ actor: SUB['member-a1'], code: 'S-OWN-ONLY' }), before + 1, 'one security event');
   const own = await save('member-a1', { workspace: WS_A, collection: 'listings', row: null, data: listing('3 Own Lane', team.one) });
@@ -77,7 +77,7 @@ t('save: a reference to a row that does not exist is 422 I-REF and the id is not
 
 t('save: a locked field changed by the owner is 403 S-LOCKED', async () => {
   const team = await teamRows();
-  const r = await save('owner-a', { workspace: WS_A, collection: 'team', row: team.one, data: { name: 'Agent One', licence: { number: 'X-1' } } });
+  const r = await save('owner-a', { workspace: WS_A, collection: 'team', row: team.one, base: await newest(team.one), data: { name: 'Agent One', licence: { number: 'X-1' } } });
   eq(r.status, 403, 'status: ' + r.text); eq(r.json?.code, 'S-LOCKED', 'code');
 });
 

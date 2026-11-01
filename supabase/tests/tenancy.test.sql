@@ -1335,6 +1335,191 @@ end $$;
 select test.expect_error($q$select count(*) from lead_reads$q$, 'permission denied');
 reset role;
 
+-- ===== T21 migration 13 (slice 5.2): what the Edge Functions of the four screens need and SQL alone could not give them =====
+-- Written before the migration (watched red, see PROGRESS 5.2). The CRM webhook's signing secret lives in Supabase Vault, so the function
+-- role needs a way to put it there and to read it for ONE signed test request, without any grant on the vault schema: five definer
+-- functions, each owner-or-staff, each with the Vault name derived inside (a caller can never name a secret). Plus the lookup the invite needs.
+-- The vault below is a stand-in that exists only on the local cluster (staging has the real one: the guard skips it there).
+do $v$ begin
+  if to_regnamespace('vault') is null then
+    create schema vault;
+    create table vault.secrets (id uuid primary key default gen_random_uuid(), name text unique, description text not null default '', secret text not null, created_at timestamptz not null default now(), updated_at timestamptz not null default now());
+    create view vault.decrypted_secrets as select id, name, description, secret as decrypted_secret, created_at, updated_at from vault.secrets;
+    create function vault.create_secret(new_secret text, new_name text default null, new_description text default '', new_key_id uuid default null) returns uuid language sql as
+      $f$ insert into vault.secrets (name, description, secret) values (new_name, new_description, new_secret) returning id $f$;
+    create function vault.update_secret(secret_id uuid, new_secret text default null, new_name text default null, new_description text default null, new_key_id uuid default null) returns void language sql as
+      $f$ update vault.secrets set secret = coalesce(new_secret, secret), name = coalesce(new_name, name), description = coalesce(new_description, description), updated_at = now() where id = secret_id $f$;
+  end if;
+end $v$;
+select vault.create_secret('keep-this-value-0000000000000000000', 'zz-t21-other-secret');            -- another secret: no call below may touch it
+select vault.create_secret('some-other-secret-0000000000000000000', 'crm-webhook-signing-a');          -- the name T20 stored as A's ref: it is not the derived name
+create function test.crm_put(p_ws uuid, p_secret text) returns text language sql security definer as $$ select service.crm_secret_put(test.claims(), p_ws, p_secret) $$;
+create function test.crm_drop(p_ws uuid) returns void language sql security definer as $$ select service.crm_secret_drop(test.claims(), p_ws) $$;
+create function test.crm_target(p_ws uuid) returns table (url text, secret text) language sql security definer as $$ select * from service.crm_target(test.claims(), p_ws) $$;
+create function test.crm_tested(p_ws uuid, p_outcome text, p_status int, p_host text) returns void language sql security definer as $$ select service.crm_tested(test.claims(), p_ws, p_outcome, p_status, p_host) $$;
+create function test.find_login(p_ws uuid, p_email text, p_team uuid default null) returns uuid language sql security definer as $$ select service.find_login(test.claims(), p_ws, p_email, p_team) $$;
+grant execute on all functions in schema test to anon, authenticated, service_role, omnikom_fn;
+
+-- ---------- (a) the signing secret: put (create or replace) under a derived name ----------
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin assert test.crm_put('aaaaaaaa-0000-0000-0000-000000000000', repeat('s', 40)) = 'crm-webhook-aaaaaaaa-0000-0000-0000-000000000000', 'the name is derived from the workspace and handed back'; end $$;
+reset role;
+do $$ begin
+  assert (select count(*) from vault.secrets where name = 'crm-webhook-aaaaaaaa-0000-0000-0000-000000000000') = 1, 'one secret under the derived name';
+  assert (select decrypted_secret from vault.decrypted_secrets where name = 'crm-webhook-aaaaaaaa-0000-0000-0000-000000000000') = repeat('s', 40), 'it holds the value';
+  assert (select decrypted_secret from vault.decrypted_secrets where name = 'zz-t21-other-secret') = 'keep-this-value-0000000000000000000', 'another secret is untouched';
+end $$;
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.crm_put('aaaaaaaa-0000-0000-0000-000000000000', repeat('t', 40));                       -- a second put replaces
+select test.expect_error($q$select test.crm_put('aaaaaaaa-0000-0000-0000-000000000000', 'short')$q$, 'I-SECRET-REF');
+select test.expect_error($q$select test.crm_put('aaaaaaaa-0000-0000-0000-000000000000', null)$q$, 'I-SECRET-REF');
+select test.expect_error(format($q$select test.crm_put('aaaaaaaa-0000-0000-0000-000000000000', %L)$q$, repeat('x', 201)), 'I-SECRET-REF');
+select test.act_as('00000000-0000-0000-0000-0000000000a1');                                         -- an agent
+select test.expect_error($q$select test.crm_put('aaaaaaaa-0000-0000-0000-000000000000', repeat('a', 40))$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000000b');                                         -- another workspace's owner
+select test.expect_error($q$select test.crm_put('aaaaaaaa-0000-0000-0000-000000000000', repeat('b', 40))$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000005f');                                         -- staff without MFA
+select test.expect_error($q$select test.crm_put('aaaaaaaa-0000-0000-0000-000000000000', repeat('c', 40))$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+select test.expect_error($q$select test.crm_put('99999999-0000-0000-0000-000000000000', repeat('d', 40))$q$, 'S-NOT-FOUND');   -- staff may not make a secret for a workspace that does not exist
+select test.crm_put('bbbbbbbb-0000-0000-0000-000000000000', repeat('u', 40));                       -- staff with MFA may, for a real one
+select test.set_crm('bbbbbbbb-0000-0000-0000-000000000000', 'https://hooks.example.com/staff-b-t21', 'crm-webhook-bbbbbbbb-0000-0000-0000-000000000000');   -- B's own connection, with B's own secret
+reset role;
+do $$ begin
+  assert (select count(*) from vault.secrets where name = 'crm-webhook-aaaaaaaa-0000-0000-0000-000000000000') = 1 and (select decrypted_secret from vault.decrypted_secrets where name = 'crm-webhook-aaaaaaaa-0000-0000-0000-000000000000') = repeat('t', 40), 'the second put replaced the value and made no second secret; every refusal above changed nothing';
+  assert (select count(*) from vault.secrets where name = 'crm-webhook-99999999-0000-0000-0000-000000000000') = 0, 'no secret for a workspace that does not exist';
+  assert (select decrypted_secret from vault.decrypted_secrets where name = 'crm-webhook-bbbbbbbb-0000-0000-0000-000000000000') = repeat('u', 40), 'staff with MFA made B''s secret';
+  assert (select decrypted_secret from vault.decrypted_secrets where name = 'crm-webhook-signing-a') = 'some-other-secret-0000000000000000000', 'a secret that is not the derived name is untouched';
+end $$;
+
+-- ---------- (b) the target of a test request: url and secret, owner or staff, the secret pinned to the derived name ----------
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', 'https://hooks.example.com/t21', 'crm-webhook-aaaaaaaa-0000-0000-0000-000000000000');
+do $$ begin
+  assert (select url from test.crm_target('aaaaaaaa-0000-0000-0000-000000000000')) = 'https://hooks.example.com/t21', 'the owner gets the address';
+  assert (select secret from test.crm_target('aaaaaaaa-0000-0000-0000-000000000000')) = repeat('t', 40), 'and the secret';
+  assert (select count(*) from test.crm_target('aaaaaaaa-0000-0000-0000-000000000000')) = 1, 'one row: B has a connection of its own with its own secret, and none of it comes back for A';
+end $$;
+select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', 'https://hooks.example.com/t21', 'crm-webhook-signing-a');                  -- a ref that names another Vault secret
+do $$ begin assert (select count(*) from test.crm_target('aaaaaaaa-0000-0000-0000-000000000000')) = 0, 'a connection whose ref is not the derived name hands out no secret, though that secret exists'; end $$;
+select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', 'https://hooks.example.com/t21', 'crm-webhook-aaaaaaaa-0000-0000-0000-000000000000');
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+select test.expect_error($q$select * from test.crm_target('aaaaaaaa-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+select test.expect_error($q$select * from test.crm_target('aaaaaaaa-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000005f');
+select test.expect_error($q$select * from test.crm_target('aaaaaaaa-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+do $$ begin assert (select secret from test.crm_target('aaaaaaaa-0000-0000-0000-000000000000')) = repeat('t', 40), 'staff with MFA gets it too'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+do $$ begin assert (select count(*) from test.crm_target('bbbbbbbb-0000-0000-0000-000000000000')) = 1 and (select secret from test.crm_target('bbbbbbbb-0000-0000-0000-000000000000')) = repeat('u', 40), 'B''s owner gets B''s own address and secret, and none of A''s'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', null);
+do $$ begin assert (select count(*) from test.crm_target('aaaaaaaa-0000-0000-0000-000000000000')) = 0, 'no connection, no target'; end $$;
+reset role;
+
+-- ---------- (c) drop: only the derived secret, only for an owner or staff ----------
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+select test.expect_error($q$select test.crm_drop('aaaaaaaa-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+select test.expect_error($q$select test.crm_drop('aaaaaaaa-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000005f');
+select test.expect_error($q$select test.crm_drop('aaaaaaaa-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+select test.expect_error($q$select test.crm_drop('99999999-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+reset role;
+do $$ begin assert (select count(*) from vault.secrets where name = 'crm-webhook-aaaaaaaa-0000-0000-0000-000000000000') = 1, 'every refusal left A''s secret where it was'; end $$;
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.crm_drop('aaaaaaaa-0000-0000-0000-000000000000');
+select test.crm_drop('aaaaaaaa-0000-0000-0000-000000000000');                                      -- dropping nothing is fine
+reset role;
+do $$ begin
+  assert (select count(*) from vault.secrets where name = 'crm-webhook-aaaaaaaa-0000-0000-0000-000000000000') = 0, 'the owner dropped the derived secret';
+  assert (select count(*) from vault.secrets where name in ('zz-t21-other-secret', 'crm-webhook-signing-a', 'crm-webhook-bbbbbbbb-0000-0000-0000-000000000000')) = 3, 'no other secret was dropped, B''s included';
+end $$;
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', 'https://hooks.example.com/t21b', 'crm-webhook-aaaaaaaa-0000-0000-0000-000000000000');
+do $$ begin assert (select count(*) from test.crm_target('aaaaaaaa-0000-0000-0000-000000000000')) = 0, 'a connection whose secret is gone sends nothing'; end $$;
+select test.set_crm('aaaaaaaa-0000-0000-0000-000000000000', null);
+reset role;
+
+-- ---------- (d) the audit row of a test request: what happened, never the address' path or query, never the secret ----------
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.crm_tested('aaaaaaaa-0000-0000-0000-000000000000', 'sent', 204, 'hooks.example.com');
+select test.crm_tested('aaaaaaaa-0000-0000-0000-000000000000', 'refused', null, 'hooks.example.com/path?token=abc');
+select test.crm_tested('aaaaaaaa-0000-0000-0000-000000000000', 'failed', null, repeat('h', 300));
+select test.expect_error($q$select test.crm_tested('aaaaaaaa-0000-0000-0000-000000000000', 'bogus', 200, 'hooks.example.com')$q$, 'I-OUTCOME');
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+select test.expect_error($q$select test.crm_tested('aaaaaaaa-0000-0000-0000-000000000000', 'sent', 200, 'hooks.example.com')$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+select test.expect_error($q$select test.crm_tested('aaaaaaaa-0000-0000-0000-000000000000', 'sent', 200, 'hooks.example.com')$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000005f');
+select test.expect_error($q$select test.crm_tested('aaaaaaaa-0000-0000-0000-000000000000', 'sent', 200, 'hooks.example.com')$q$, 'S-NOT-FOUND');
+reset role;
+do $$ begin
+  assert (select count(*) from audit_log where action = 'crm-test' and target = 'aaaaaaaa-0000-0000-0000-000000000000') = 3, 'three test requests are audited; the refused callers left nothing';
+  assert (select detail from audit_log where action = 'crm-test' and detail ->> 'outcome' = 'sent') = '{"host": "hooks.example.com", "status": 204, "outcome": "sent"}'::jsonb, 'the row says what happened and to which host, nothing else';
+  assert (select detail ->> 'host' from audit_log where action = 'crm-test' and detail ->> 'outcome' = 'refused') is null, 'a host that carries a path or a query is not stored';
+  assert (select detail ->> 'host' from audit_log where action = 'crm-test' and detail ->> 'outcome' = 'failed') is null, 'a host longer than a host can be is not stored';
+  assert (select actor from audit_log where action = 'crm-test' and detail ->> 'outcome' = 'sent') = '00000000-0000-0000-0000-00000000000a', 'and who';
+end $$;
+
+-- ---------- (e) find_login: does this email already have a login (the invite creates one only when not) ----------
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin
+  assert test.find_login('aaaaaaaa-0000-0000-0000-000000000000', 'owner-b@test') = '00000000-0000-0000-0000-00000000000b', 'an existing login is found by its email';
+  assert test.find_login('aaaaaaaa-0000-0000-0000-000000000000', '  OWNER-B@Test ') = '00000000-0000-0000-0000-00000000000b', 'case and spaces do not matter';
+  assert test.find_login('aaaaaaaa-0000-0000-0000-000000000000', 'nobody-here@test') is null, 'no login: null';
+  assert test.find_login('aaaaaaaa-0000-0000-0000-000000000000', 'agent2-a@test', test.id('team2')) = '00000000-0000-0000-0000-0000000000a2', 'a team row of this workspace is accepted';
+end $$;
+select test.expect_error(format($q$select test.find_login('aaaaaaaa-0000-0000-0000-000000000000', 'x@test', %L)$q$, test.id('teamB1')), 'S-NOT-FOUND');                  -- a team row of another workspace
+select test.expect_error($q$select test.find_login('aaaaaaaa-0000-0000-0000-000000000000', 'x@test', '99999999-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.expect_error(format($q$select test.find_login('aaaaaaaa-0000-0000-0000-000000000000', 'x@test', %L)$q$, test.id('dwPage')), 'S-NOT-FOUND');                    -- a row of this workspace that is not a team row
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+select test.expect_error($q$select test.find_login('aaaaaaaa-0000-0000-0000-000000000000', 'owner-b@test')$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+select test.expect_error($q$select test.find_login('aaaaaaaa-0000-0000-0000-000000000000', 'owner-b@test')$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000005f');
+select test.expect_error($q$select test.find_login('aaaaaaaa-0000-0000-0000-000000000000', 'owner-b@test')$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+select test.expect_error($q$select test.find_login('99999999-0000-0000-0000-000000000000', 'owner-b@test')$q$, 'S-NOT-FOUND');
+do $$ begin assert test.find_login('aaaaaaaa-0000-0000-0000-000000000000', 'owner-b@test') = '00000000-0000-0000-0000-00000000000b', 'staff with MFA may ask'; end $$;
+reset role;
+
+-- ---------- (f) the new functions are closed to anon, authenticated and PUBLIC, open to service_role and the function role, definer with an empty search_path ----------
+do $$ declare f text; begin
+  foreach f in array array['service.crm_secret_put(jsonb,uuid,text)', 'service.crm_secret_drop(jsonb,uuid)', 'service.crm_target(jsonb,uuid)', 'service.crm_tested(jsonb,uuid,text,int,text)', 'service.find_login(jsonb,uuid,text,uuid)'] loop
+    assert not has_function_privilege('anon', f, 'execute') and not has_function_privilege('authenticated', f, 'execute'), f || ' is closed to anon and authenticated';
+    assert has_function_privilege('service_role', f, 'execute') and has_function_privilege('omnikom_fn', f, 'execute'), f || ' is open to service_role and the function role';
+    assert (select prosecdef from pg_proc where oid = f::regprocedure) and (select proconfig from pg_proc where oid = f::regprocedure) = array['search_path=""'], f || ' is a definer function with an empty search_path';
+    assert (select proacl is not null and not exists (select 1 from aclexplode(proacl) a where a.grantee = 0) from pg_proc where oid = f::regprocedure), f || ' is not executable by PUBLIC';
+  end loop;
+end $$;
+-- the function role really calls them, and still has no grant on the vault
+set role omnikom_fn;
+do $$ begin
+  assert service.crm_secret_put(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', repeat('f', 40)) = 'crm-webhook-aaaaaaaa-0000-0000-0000-000000000000', 'the function role puts a secret';
+  perform service.set_crm_webhook(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 'https://hooks.example.com/fn2', 'crm-webhook-aaaaaaaa-0000-0000-0000-000000000000');
+  assert (select secret from service.crm_target(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000')) = repeat('f', 40), 'and reads it back for a test request';
+  perform service.crm_tested(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 'sent', 200, 'hooks.example.com');
+  assert service.find_login(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 'owner-b@test') is not null, 'and looks a login up';
+  perform service.crm_secret_drop(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000');
+end $$;
+select test.expect_error($q$select count(*) from vault.secrets$q$, 'permission denied');
+select test.expect_error($q$select decrypted_secret from vault.decrypted_secrets$q$, 'permission denied');
+reset role;
+set role authenticated;
+select test.expect_error($q$select count(*) from vault.secrets$q$, 'permission denied');
+reset role;
+
 -- ===== T17 migration 8: default privileges on private and service, the function role; search_path = '' is asserted in T14 =====
 create function service.zz_probe() returns int language sql as $$ select 1 $$;
 create function private.zz_probe() returns int language sql as $$ select 1 $$;
@@ -1390,7 +1575,8 @@ do $$ declare t record; n int; begin
     assert t.proname = any(array['use_claims', 'contract_for', 'save_as', 'start_publish', 'unpublish', 'lead_update', 'add_lead', 'activate_addon', 'set_addon_state', 'book', 'set_booking_state', 'save_crm_template', 'set_member', 'remove_member', 'delete_lead',
       'set_workspace_state', 'open_privacy_request', 'set_privacy_request_state',
       'record_media', 'finish_media', 'row_exists', 'media_facts', 'site_for', 'row_version',
-      'mark_lead_read', 'leads_exported', 'set_alerts', 'set_crm_webhook', 'drafts_waiting']),
+      'mark_lead_read', 'leads_exported', 'set_alerts', 'set_crm_webhook', 'drafts_waiting',
+      'crm_secret_put', 'crm_secret_drop', 'crm_target', 'crm_tested', 'find_login']),
       'service.' || t.proname || ' takes claims but has no outsider test listed in T14';
   end loop;
 end $$;

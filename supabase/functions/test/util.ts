@@ -90,6 +90,35 @@ export const fake = {
   async githubStatus(code: number) { await (await fetch(`${env('TEST_FAKE_BASE')}/__github-status?code=${code}`, { method: 'POST' })).text(); },
 };
 
+/** What the fake CRM webhook and the fake Auth admin API recorded (slice 5.2). */
+export type Hook = { path: string; signature: string | null; contentType: string | null; body: string };
+export const hooks = {
+  async recorded(): Promise<{ hooks: Hook[]; redirected: number; authLinks: { authorized: boolean; type: string | null; email: string | null }[] }> {
+    return await (await fetch(`${env('TEST_FAKE_BASE')}/__recorded`)).json();
+  },
+  /** the webhook answers this status; mode 'redirect' answers 302 to a second address whose hits are counted; delay in ms */
+  async answer(status: number, o: { mode?: 'redirect'; delay?: number } = {}) {
+    await (await fetch(`${env('TEST_FAKE_BASE')}/__hook?status=${status}&mode=${o.mode ?? ''}&delay=${o.delay ?? 0}`, { method: 'POST' })).text();
+  },
+  /** Auth's admin invite will create this login (id and email, in this run's database, as GoTrue would) and answer its id, or fail with this status */
+  async authUser(email: string, id: string, status = 200) {
+    await (await fetch(`${env('TEST_FAKE_BASE')}/__auth-user?email=${encodeURIComponent(email)}&id=${id}&status=${status}&db=${encodeURIComponent(env('TEST_DB_URL'))}`, { method: 'POST' })).text();
+  },
+};
+/** A fetch that sends a call meant for https://<any host>/<path> to the fake webhook instead (the function's own code, with its own headers and options, runs unchanged). */
+export const toFakeHook: typeof fetch = (input, init) => {
+  const u = new URL(String(input));
+  return fetch(`${env('TEST_FAKE_BASE')}/hook${u.pathname}${u.search}`, init);
+};
+/** the newest version number of a row (what an editor that has just loaded it would send as `base`) */
+export async function newest(row: string): Promise<number> {
+  return await withSql(async sql => (await sql`select max(n)::int as n from public.content_versions where row_id = ${row}::uuid`)[0].n);
+}
+/** the signing secret the platform stored in the vault stand-in for this workspace's CRM connection (the test reads it as the superuser) */
+export async function crmSecret(ws: string): Promise<string | null> {
+  return await withSql(async sql => (await sql`select decrypted_secret from vault.decrypted_secrets where name = ${'crm-webhook-' + ws}`)[0]?.decrypted_secret ?? null);
+}
+
 export function assert(cond: unknown, msg: string): asserts cond { if (!cond) throw new Error('ASSERT: ' + msg); }
 export function eq<T>(got: T, want: T, msg: string) { if (got !== want) throw new Error(`ASSERT: ${msg}: got ${JSON.stringify(got)}, wanted ${JSON.stringify(want)}`); }
 

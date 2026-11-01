@@ -409,6 +409,60 @@ const MUTANTS = [
         [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], [`revoke all on function private.${sig} from public, anon, authenticated;`, '-- (revoke removed)']]]),
     ];
   })(),
+  // Migration 13 (slice 5.2, 20261031000013_screens_functions.sql): the Vault secret of the CRM webhook, the test audit row, the invite lookup. Tests: tenancy.test.sql T21. Run only these: --only fn52:
+  ...(() => {
+    const OWN = "not private.is_owner_or_staff(p_workspace) or not exists (select 1 from public.workspaces w where w.id = p_workspace) then raise exception 'S-NOT-FOUND: not found'; end if;\n";
+    const own = (after) => OWN + after;
+    const noOwner = (after) => "not exists (select 1 from public.workspaces w where w.id = p_workspace) then raise exception 'S-NOT-FOUND: not found'; end if;\n" + after;
+    const noWs = (after) => "not private.is_owner_or_staff(p_workspace) then raise exception 'S-NOT-FOUND: not found'; end if;\n" + after;
+    const PUT = "  if p_secret is null or length(p_secret) < 32 or length(p_secret) > 200 then raise exception 'I-SECRET-REF: a secret of 32 to 200 characters'; end if;\n";
+    const DROP = "  nm := 'crm-webhook-' || p_workspace::text;\n  execute 'delete from vault.secrets where name = $1' using nm;";
+    const FIND = "  if p_team_row is not null and not exists (select 1 from public.content_rows c where c.id = p_team_row and c.workspace_id = p_workspace and c.collection = 'team' and c.deleted_at is null)\n    then raise exception 'S-NOT-FOUND: not found'; end if;\n  return (select u.id";
+    const TEAM = "c.id = p_team_row and c.workspace_id = p_workspace and c.collection = 'team' and c.deleted_at is null)\n    then raise exception 'S-NOT-FOUND: not found'; end if;\n  return (select u.id";
+    const TGT = "  if not private.is_owner_or_staff(p_workspace) then raise exception 'S-NOT-FOUND: not found'; end if;\n  -- the secret is pinned";
+    const TST = "  if not private.is_owner_or_staff(p_workspace) then raise exception 'S-NOT-FOUND: not found'; end if;\n  if p_outcome is null";
+    const pins = [
+      'crm_secret_put(p_claims jsonb, p_workspace uuid, p_secret text) returns text', 'crm_secret_drop(p_claims jsonb, p_workspace uuid) returns void',
+      'crm_target(p_claims jsonb, p_workspace uuid) returns table (url text, secret text)', 'crm_tested(p_claims jsonb, p_workspace uuid, p_outcome text, p_status int, p_host text) returns void',
+      'find_login(p_claims jsonb, p_workspace uuid, p_email text, p_team_row uuid default null) returns uuid',
+    ];
+    const sigs = ['crm_secret_put(jsonb, uuid, text)', 'crm_secret_drop(jsonb, uuid)', 'crm_target(jsonb, uuid)', 'crm_tested(jsonb, uuid, text, int, text)', 'find_login(jsonb, uuid, text, uuid)'];
+    return [
+      ['fn52: put, without the owner check', own("  if p_secret is null"), noOwner("  if p_secret is null")],
+      ['fn52: put, a workspace that does not exist gets a secret', own("  if p_secret is null"), noWs("  if p_secret is null")],
+      ['fn52: put, a short secret is accepted', PUT, "  null;\n"],
+      ['fn52: put, a very long secret is accepted', "or length(p_secret) > 200 then", "or false then"],
+      ['fn52: put, the name is not derived from the workspace', "  nm := 'crm-webhook-' || p_workspace::text;\n  execute 'select id from vault.secrets", "  nm := 'crm-webhook';\n  execute 'select id from vault.secrets"],
+      ['fn52: put, a second put makes a second secret', "  if sid is null then\n    execute 'select vault.create_secret", "  if true then\n    execute 'select vault.create_secret"],
+      ['fn52: put, a second put does not replace the value', "    execute 'select vault.update_secret($1, $2, $3, $4)' using sid, p_secret, nm, 'CRM webhook signing secret, workspace ' || p_workspace::text;", "    null;"],
+      ['fn52: drop, without the owner check', own("  nm := 'crm-webhook-'"), noOwner("  nm := 'crm-webhook-'")],
+      ['fn52: drop, a workspace that does not exist is accepted', own("  nm := 'crm-webhook-'"), noWs("  nm := 'crm-webhook-'")],
+      ['fn52: drop, every CRM secret is deleted', DROP, "  execute 'delete from vault.secrets where name like ''crm-webhook-%''';"],
+      ['fn52: drop, every secret is deleted', DROP, "  execute 'delete from vault.secrets';"],
+      ['fn52: drop, nothing is deleted', DROP, "  nm := null;"],
+      ['fn52: target, without the owner check', TGT, "  -- the secret is pinned"],
+      ['fn52: target, the secret is not pinned to the derived name', " and i.secret_ref = $2' using p_workspace, 'crm-webhook-' || p_workspace::text;", "' using p_workspace;"],
+      ['fn52: target, rows of every workspace (both layers)', [["' where i.workspace_id = $1 and i.kind = ''crm-webhook'' and i.secret_ref = $2' using p_workspace, 'crm-webhook-' || p_workspace::text;", "' where i.kind = ''crm-webhook''' using p_workspace;"]]],
+      ['fn52: tested, without the owner check', TST, "  if p_outcome is null"],
+      ['fn52: tested, any outcome is accepted', "  if p_outcome is null or p_outcome not in ('sent', 'refused', 'failed') then raise exception 'I-OUTCOME: sent, refused or failed'; end if;\n", ""],
+      ['fn52: tested, any host text is stored', "case when p_host ~ '^[A-Za-z0-9.-]{1,253}$' then p_host end", "p_host"],
+      ['fn52: tested, a host of any length is stored', "'^[A-Za-z0-9.-]{1,253}$'", "'^[A-Za-z0-9.-]+$'"],
+      ['fn52: tested, not audited under its name', "values (p_workspace, me, 'crm-test', p_workspace::text,", "values (p_workspace, me, 'crm-tested', p_workspace::text,"],
+      ['fn52: tested, the audit row does not say who', "values (p_workspace, me, 'crm-test', p_workspace::text,", "values (p_workspace, null, 'crm-test', p_workspace::text,"],
+      ['fn52: find_login, without the owner check', own("  if p_team_row is not null"), noOwner("  if p_team_row is not null")],
+      ['fn52: find_login, a workspace that does not exist is accepted', own("  if p_team_row is not null"), noWs("  if p_team_row is not null")],
+      ['fn52: find_login, the team row is not checked', FIND, "  return (select u.id"],
+      ['fn52: find_login, a team row of another workspace', TEAM, TEAM.replace("c.workspace_id = p_workspace and ", "")],
+      ['fn52: find_login, a row that is not a team row', TEAM, TEAM.replace("c.collection = 'team' and ", "")],
+      ['fn52: find_login, the email is case sensitive', "where lower(u.email) = lower(btrim(coalesce(p_email, '')))", "where u.email = btrim(coalesce(p_email, ''))"],
+      ['fn52: find_login, the email is not trimmed', "lower(btrim(coalesce(p_email, '')))", "lower(coalesce(p_email, ''))"],
+      ...pins.map(h => [`fn52: service.${h.split('(')[0]} does not pin the search_path`, `create function service.${h} language plpgsql security definer set search_path = '' as $$`, `create function service.${h} language plpgsql security definer as $$`]),
+      ...sigs.flatMap(sig => [
+        [`fn52: migration 13 closes service.${sig.split('(')[0]} to anon, authenticated, PUBLIC (both layers)`, [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], [`revoke all on function service.${sig} from public, anon, authenticated;`, '-- (revoke removed)']]],
+        [`fn52: migration 13 opens service.${sig.split('(')[0]} to the function role (both layers)`, [['alter default privileges in schema service grant execute on functions to service_role, omnikom_fn;', '-- (no default grant)'], [`grant execute on function service.${sig} to service_role, omnikom_fn;`, '-- (grant removed)']]],
+      ]),
+    ];
+  })(),
 ];
 
 // remove a wall from the original text and, when the wall lives in a function body, from its schema-qualified copy too

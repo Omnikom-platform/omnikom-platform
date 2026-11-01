@@ -1,4 +1,5 @@
 // The frame every dashboard function (user JWT) runs in (slice 4.2): one place for the steps that must not differ between them.
+//   OPTIONS (a browser's CORS preflight, slice 5.2) -> 204 before anything else, then
 //   POST only (405) -> body cap 256 KiB (413) -> the user's JWT checked in code (401 S-AUTH + an auth-refused security event (reason bad-jwt); the gateway's
 //   verify_jwt is the first wall, this is the second) -> JSON object body (400 BODY) -> the function's own steps with a connection
 //   already stepped down to omnikom_fn -> a refusal from the database becomes its platform code and status, and a security event
@@ -19,7 +20,35 @@ export function jwksUrl(): string {
   return Deno.env.get('JWKS_URL') || `${(Deno.env.get('SUPABASE_URL') ?? '').replace(/\/$/, '')}/auth/v1/.well-known/jwks.json`;
 }
 
+// ---------- CORS for the dashboard (slice 5.2 item 10) ----------
+// A browser asks first (OPTIONS) whether the dashboard's address may call the function. The answer names that one address, never '*', and only when
+// it is in DASHBOARD_ORIGINS (a function secret: a comma-separated list; staging holds the vite ports on localhost and the future app address).
+// An origin that is not in the list gets no CORS header at all, so the browser blocks the call; a call without an Origin header (a server, the CLI)
+// is unaffected. The same Allow-Origin goes on every answer of a call that had an allowed Origin, refusals included, or the browser would hide a
+// 401 or a 422 behind a CORS error.
+export function allowedOrigins(): string[] {
+  return (Deno.env.get('DASHBOARD_ORIGINS') ?? '').split(',').map(s => s.trim()).filter(s => s && s !== '*');
+}
+export function corsHeaders(req: Request): Record<string, string> | null {
+  const origin = req.headers.get('origin');
+  if (!origin || !allowedOrigins().includes(origin)) return null;
+  return { 'access-control-allow-origin': origin, vary: 'Origin' };
+}
+const PREFLIGHT = { 'access-control-allow-methods': 'POST', 'access-control-allow-headers': 'authorization, apikey, content-type, x-client-info', 'access-control-max-age': '600' };
+const EXPOSED = 'content-disposition, x-omnikom-export-capped';
+
 export async function dashboard(req: Request, fn: string, run: Run): Promise<Response> {
+  const cors = corsHeaders(req);
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: { 'cache-control': 'no-store', ...(cors ? { ...cors, ...PREFLIGHT } : {}) } });
+  const res = await answer(req, fn, run);
+  if (!cors) return res;
+  const headers = new Headers(res.headers);
+  for (const [k, v] of Object.entries(cors)) headers.set(k, v);
+  headers.set('access-control-expose-headers', EXPOSED);
+  return new Response(res.body, { status: res.status, headers });
+}
+
+async function answer(req: Request, fn: string, run: Run): Promise<Response> {
   if (req.method !== 'POST') return problem(405, 'METHOD', 'POST only.');
   const text = await req.text();
   if (text.length > MAX_BODY) return problem(413, 'SIZE', 'This request is too large.');
