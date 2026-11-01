@@ -11,6 +11,9 @@ export const TARGET_NAMES = Object.keys(PREFIX);
 // Production allows exactly these commands (spec section 2): read-only status, and apply with --i-mean-production.
 // Every other command (identity, seed, verify, key, lead, content, publish, job, test) is refused there.
 export const PRODUCTION_ALLOWED = new Set(['status', 'apply']);
+// audit and gate read a built folder and talk to no environment: for them --target names the BUILD (preview|production), so the guard
+// does not apply. A named set of exactly these two, not a widening of PRODUCTION_ALLOWED (commands/audit.mjs checks the value).
+export const BUILD_TARGET_COMMANDS = new Set(['audit', 'gate']);
 
 export const varNames = name => {
   const p = PREFIX[name];
@@ -28,6 +31,7 @@ const isLoopback = host => ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(h
 // The production guard. Called before anything is read or connected; a refusal is Blocked (exit 3).
 export function guardProduction(targetName, command, flags = {}) {
   if (targetName !== 'production') return;
+  if (BUILD_TARGET_COMMANDS.has(command)) return;
   if (!PRODUCTION_ALLOWED.has(command)) throw new Blocked(`production refused for '${command}': only status (read-only) and apply --i-mean-production run there`, 'run it against --target staging or --target local');
   if (command === 'apply' && !flags['i-mean-production']) throw new Blocked('production needs --i-mean-production (and the same migrations proven on staging first)', 'add --i-mean-production on purpose');
 }

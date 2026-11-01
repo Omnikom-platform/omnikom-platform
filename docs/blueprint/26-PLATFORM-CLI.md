@@ -172,3 +172,23 @@ holds ci.yml's actionlint, gitleaks and shellcheck version, URL and sha256 equal
 fails the publish-ready wall (migration 11) answers `I-NOT-READY` with the row id and the first missing path; a test pins it.
 PROVEN offline (PROGRESS.md "CLI: tools and local CI"). NOT DONE here: the real downloads and the real `omnikom ci` (the head of
 operations runs them in its session, where the owner said yes).
+
+**Small CLI fixes (2026-11-01 evening, CLI department head; builder brief `tools/omnikom-cli/briefs/small-cli-fixes.md`):** (a) after master holds
+the commit, `land` brings THIS checkout's local `master` to it when that loses nothing and touches nothing else: the local master is an
+ancestor of the commit, no path of `git diff --name-only --no-renames <local master> <commit>` is staged, modified or untracked here
+(`git status --porcelain -z -uall`, a rename or copy entry read with both paths), and master is not checked out in another worktree
+(an addition: `update-ref` there would leave that worktree's index behind). Checked out here: `git merge --ff-only` (git's refusal is
+reported, never forced); otherwise `git update-ref refs/heads/master <sha> <old>` (the old value as a lease). Output
+`land: the local master of this checkout moved <old>..<sha>` or `... was not moved: <reason>` (ten paths at most, then `+N more`); a
+skipped or failed move never changes the exit code (`data.localMaster`: moved, contains, none, not-moved). (b) A red run in which EVERY
+failed job has zero steps (GitHub did not start them: the Actions minutes or the spending limit) gets one more line after the red lines,
+`ci: no job ran a step; GitHub says: <first annotation message>` (one `gh api repos/<repo>/check-runs/<job id>/annotations` call; a fallback
+line when it fails or has no message); land and the pre-push hook both show it; the verdict stays red. (c) `audit` and `gate` take
+`--target preview|production`: for these two commands only, `--target` is the BUILD target the engine's ENV-001 judges (it replaces
+"takes no --target"; any other value is usage, exit 2), passed as `{ target }`; `lib/target.mjs` exempts exactly these two commands from the
+production guard (`BUILD_TARGET_COMMANDS`; `PRODUCTION_ALLOWED` is unchanged); the result still shows no environment target. (d) `land` waits in
+line for a held lock (`--lock-wait-minutes`, default 30, `0` refuses at once, max 180; the holder is printed once and again when it
+changes; the 90 minute stale rule is unchanged), and right after taking the lock it fetches master: a commit already in master finishes
+there (no ci wait), a master that is not an ancestor of the commit is refused at once (`not a fast-forward: rebase onto master <short> and
+push it again`); the post-ci check stays. (e) The release of the lock retries a delete that failed on the network (up to three tries, 10 s then 30 s through `ctx.sleep`; seen 2026-11-01 19:14, `Failed to connect to github.com:443 after 21179 ms` left a lock held after a green land); a lease refusal is never retried; the warning says how many tries were made. Tests: `test/run.mjs` and `test/impact-stamp-hooks.mjs` (fake gh learned `steps`, `databaseId`
+and the annotations call), 27 new mutants tagged `[small-fixes]` in `test/mutate.mjs`.

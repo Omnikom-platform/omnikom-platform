@@ -11,6 +11,12 @@ export function makeFakeGh(getState) {
     if (s.fail) return { ok: false, out: '', err: String(s.fail) };
     if (args[0] === 'run' && args[1] === 'list') return { ok: true, out: JSON.stringify(s.runs || []), err: '' };
     if (args[0] === 'run' && args[1] === 'view') return { ok: true, out: JSON.stringify({ jobs: (s.jobs || {})[Number(args[2])] || [] }), err: '' };
+    // gh api repos/<repo>/check-runs/<job id>/annotations (the billing line): { annotations: { <job id>: [ { message } ] } }, or { annotationsFail: 'text' }
+    const an = args[0] === 'api' && /^repos\/[^/]+\/[^/]+\/check-runs\/(\d+)\/annotations$/.exec(args[1] || '');
+    if (an) {
+      if (s.annotationsFail) return { ok: false, out: '', err: String(s.annotationsFail) };
+      return { ok: true, out: JSON.stringify((s.annotations || {})[Number(an[1])] || []), err: '' };
+    }
     return { ok: false, out: '', err: `fake gh: unexpected call ${args.join(' ')}` };
   };
   gh.calls = calls;
@@ -24,3 +30,8 @@ export const runRow = (sha, o = {}) => ({
 });
 // the jobs of one run; `over` maps a job name to its conclusion
 export const jobRows = (names, over = {}) => names.map(name => ({ name, status: 'completed', conclusion: over[name] || 'success' }));
+// the jobs as `gh run view --json jobs` gives them with databaseId and steps; `ran` maps a job name to how many steps it ran (default 2)
+export const stepRows = (names, over = {}, ran = {}) => names.map((name, i) => ({
+  databaseId: 100 + i, name, status: 'completed', conclusion: over[name] || 'success',
+  steps: Array.from({ length: name in ran ? ran[name] : 2 }, (_, k) => ({ name: `step ${k + 1}`, status: 'completed', conclusion: 'success', number: k + 1 })),
+}));

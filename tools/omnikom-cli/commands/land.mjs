@@ -1,11 +1,12 @@
-// land <branch> [--remote <name>] [--wait-minutes <n>] [--json]   (DECISIONS 45)
+// land <branch> [--remote <name>] [--wait-minutes <n>] [--lock-wait-minutes <n>] [--json]   (DECISIONS 45)
 // Moves master to the commit of a check branch, and only when GitHub's ci run of that exact commit had every ci.yml job green:
 //   1. <branch> is check/<department>/<slug> (the department is a charter in docs/departments/, read at run time, or a prefix of one that
 //      ends at a '-' and names only that charter: cli -> cli-and-testing; the output says which charter it resolved to); its commit is what the
 //      REMOTE holds (git ls-remote), fetched when it is not local;
 //   2. the LAND LOCK (the landing queue): refs/heads/land-lock on the remote. Two heads must never both move master. The lock is a ROOT commit
 //      (no parent) pushed with a plain `git push`: a root commit is never a fast-forward of another root, so git itself refuses a second
-//      creator. A lock held by another is LAND-LOCKED (exit 1) naming who and since when; one whose committer date is more than 90 minutes
+//      creator. A lock held by another is waited for in line (every POLL_MS, for --lock-wait-minutes, default 30; the holder is printed once
+//      and again when it changes), then LAND-LOCKED (exit 1) naming who and since when; one whose committer date is more than 90 minutes
 //      old is broken (deleted with a lease on that exact sha) and taken. It is released after the fast-forward and on EVERY refusal or
 //      Blocked after it was taken, with a lease on OUR lock's sha, so a lock broken and taken by someone else is never deleted by us;
 //   3. wait for the ci run (every 30 s; no run at all for more than 5 minutes is Blocked: was it pushed?; still running after
@@ -14,8 +15,15 @@
 //   5. green: master must fast-forward to the commit (land never rebases, merges or forces); `git push <remote> <sha>:refs/heads/master`,
 //      no --force and no --no-verify (the installed pre-push hook checks the run again, on purpose). --force-with-lease is used ONLY for
 //      the lock delete.
-// land never touches this checkout's working tree, its index or its refs/heads/master: heads share one checkout and master may be checked
-// out with other heads' unfinished files. It says in its output whether the local master contains the commit. All dates come from ctx.now.
+//   6. the local master of THIS checkout is a courtesy, never part of the verdict: after master holds the commit, land brings the local
+//      refs/heads/master to it only when that loses nothing (the local master is an ancestor of the commit), touches no path that is staged,
+//      modified or untracked here (git diff --name-only <local master> <commit> against git status), and master is not checked out in
+//      another worktree. Checked out here: `git merge --ff-only` (git's own refusal is reported, never forced); otherwise `git update-ref`
+//      with the old value as a lease. Anything else: one line saying why it was not moved. The working tree outside the diff, the index of
+//      other paths and every other ref are never touched; a failed or skipped local move leaves the land at exit 0.
+// A held lock is waited for (--lock-wait-minutes, default 30, 0 = refuse at once), and right after the lock is taken master is fetched: a commit
+// already in master finishes there, and a master that is not an ancestor of the commit is refused before the ci wait (the post-ci check stays).
+// All dates come from ctx.now.
 import { existsSync, readdirSync } from 'node:fs';
 import { hostname } from 'node:os';
 import { join } from 'node:path';
@@ -31,6 +39,8 @@ export const DEFAULT_REMOTE = 'backup-gh';               // DECISIONS 24
 export const POLL_MS = 30000;
 export const NONE_LIMIT_MS = 5 * 60000;
 export const DEFAULT_WAIT_MINUTES = 60;
+export const DEFAULT_LOCK_WAIT_MINUTES = 30;
+export const MAX_LOCK_WAIT_MINUTES = 180;
 export { LOCK_BRANCH, LOCK_REF, STALE_LOCK_MINUTES };
 
 const BRANCH = /^check\/([^/]+)\/([a-z0-9][a-z0-9._-]*)$/;
@@ -77,7 +87,7 @@ function readLock(ctx, git, remote) {
   return { sha, holder: m ? m[3] : 'an unknown holder', branch: m ? m[1] : 'an unknown branch', since, seconds: ctx.now() - since, minutes: Math.floor((ctx.now() - since) / 60) };
 }
 
-// Take the lock, or say who has it. -> { sha } (ours), or { refused: result }
+// Take the lock, or say who has it. -> { sha } (ours), or { held: { sha, holder, branch, since (iso), minutes } } (somebody else's, not stale)
 function takeLock(ctx, git, remote, { branch, sha, department }, lines) {
   for (let attempt = 0; attempt < 2; attempt++) {
     const empty = git.run(['hash-object', '-t', 'tree', '-w', '--stdin'], { input: '' });
@@ -98,23 +108,36 @@ function takeLock(ctx, git, remote, { branch, sha, department }, lines) {
       if (!del.ok) lines.push(`land: the stale lock could not be deleted (${firstLine(del.err)}); somebody else may have broken it first`);
       continue;
     }
-    lines.push(`land: ${held.holder} holds the land lock since ${since} (${held.minutes} min) for ${held.branch}`);
-    return { refused: result(false, 'LAND-LOCKED', { branch, department, sha, remote, state: 'locked', pushed: false, lines, holder: held.holder, lockSince: since, lockMinutes: held.minutes }) };
+    return { held: { sha: held.sha, holder: held.holder, branch: held.branch, since, minutes: held.minutes } };
   }
   throw new Blocked(`could not take the land lock on ${remote} after breaking a stale one`, 'run land again');
 }
 
+// A failed delete is tried again (RELEASE_WAITS_MS between the tries, through ctx.sleep) only when git's words say the NETWORK failed
+// (seen 2026-11-01 19:14: "Failed to connect to github.com:443 after 21179 ms" left a lock held after a green land). A lease refusal
+// (stale info: the ref is not our lock any more) is never tried again: it cannot become true by waiting.
+export const RELEASE_WAITS_MS = [10000, 30000];
+const LEASE_REFUSED = /stale info|\[rejected\]/i;
+const NETWORK_FAILED = /failed to connect|could not resolve|unable to access|connection (timed out|reset|refused|closed)|timed out|timeout|\btls\b|\bssl|\b443\b|\b408\b|network is unreachable|early eof|remote end hung up/i;
+export const looksLikeNetworkFailure = text => !LEASE_REFUSED.test(String(text)) && NETWORK_FAILED.test(String(text));
+
 // delete OUR lock (a lease on its sha: a lock broken and taken by somebody else is never deleted by us)
-function releaseLock(git, remote, lockSha) {
-  const del = leaseDelete(git, remote, lockSha);
-  if (del.ok) return { line: 'land: lock released' };
-  return { line: `land: WARNING the land lock was not released (${firstLine(del.err || `exit ${del.status}`)}); if it is still yours, release it by hand: git push --force-with-lease=${LOCK_REF}:${lockSha} ${remote} :${LOCK_REF}` };
+async function releaseLock(ctx, git, remote, lockSha) {
+  let del, tries = 0;
+  for (;;) {
+    del = leaseDelete(git, remote, lockSha);
+    tries++;
+    if (del.ok || tries > RELEASE_WAITS_MS.length || !looksLikeNetworkFailure(del.err || del.out)) break;
+    await ctx.sleep(RELEASE_WAITS_MS[tries - 1]);
+  }
+  if (del.ok) return { line: tries === 1 ? 'land: lock released' : `land: lock released (after ${tries} tries)` };
+  return { line: `land: WARNING the land lock was not released${tries === 1 ? '' : ` after ${tries} tries`} (${firstLine(del.err || `exit ${del.status}`)}); if it is still yours, release it by hand: git push --force-with-lease=${LOCK_REF}:${lockSha} ${remote} :${LOCK_REF}` };
 }
 
 // ------------------------------------------------------------------------------------------------ the command
 export async function land(ctx) {
   const f = ctx.flags;
-  if (ctx.positionals.length !== 2) throw new Usage('land takes exactly one branch: land check/<department>/<slug> [--remote <name>] [--wait-minutes <n>]');
+  if (ctx.positionals.length !== 2) throw new Usage('land takes exactly one branch: land check/<department>/<slug> [--remote <name>] [--wait-minutes <n>] [--lock-wait-minutes <n>]');
   if (f.target !== undefined || f.expect !== undefined) throw new Usage('land takes no --target and no --expect: a verdict that can be told to match a failure is not a gate');
   const branch = ctx.positionals[1];
   const m = BRANCH.exec(branch);
@@ -127,6 +150,11 @@ export async function land(ctx) {
   if (f['wait-minutes'] !== undefined) {
     waitMinutes = Number(f['wait-minutes']);
     if (!(waitMinutes > 0) || waitMinutes > 600) throw new Usage('--wait-minutes must be a number between 0 and 600');
+  }
+  let lockWaitMinutes = DEFAULT_LOCK_WAIT_MINUTES;
+  if (f['lock-wait-minutes'] !== undefined) {
+    lockWaitMinutes = String(f['lock-wait-minutes']).trim() === '' ? NaN : Number(f['lock-wait-minutes']);   // Number('') is 0: an empty value is not "refuse at once"
+    if (!(lockWaitMinutes >= 0) || lockWaitMinutes > MAX_LOCK_WAIT_MINUTES) throw new Usage(`--lock-wait-minutes must be a number between 0 and ${MAX_LOCK_WAIT_MINUTES} (0 refuses at once when the lock is held)`);
   }
   const git = makeGit(ctx.repo, ctx.gitSpy);
   if (!git.run(['rev-parse', '--git-dir']).ok) throw new Usage(`${ctx.repo} is not a git repository`);
@@ -145,26 +173,132 @@ export async function land(ctx) {
 
   // the queue: the lock first, before the ci wait
   const lines = [`land: department ${m[1]} is the charter ${charter}`, `land: ${branch} is ${sha} on ${remote}`];
-  const lock = takeLock(ctx, git, remote, { branch, sha, department: charter }, lines);
-  if (lock.refused) return lock.refused;
+  // a held lock is waited for in line: re-read every POLL_MS (ctx.sleep), the holder printed once and again only when it changes
+  const lockWaitMs = lockWaitMinutes * 60000;
+  let lock, waitedMs = 0, shown = '';
+  for (;;) {
+    lock = takeLock(ctx, git, remote, { branch, sha, department: charter }, lines);
+    if (!lock.held) break;
+    const h = lock.held;
+    if (h.sha !== shown) { shown = h.sha; lines.push(`land: ${h.holder} holds the land lock since ${h.since} (${h.minutes} min) for ${h.branch}`); }
+    if (waitedMs >= lockWaitMs) {
+      if (waitedMs > 0) lines.push(`land: waited ${Math.round(waitedMs / 6000) / 10} minutes for the land lock; it is still held`);
+      return result(false, 'LAND-LOCKED', { branch, department: charter, sha, remote, state: 'locked', pushed: false, lines, holder: h.holder, lockSince: h.since, lockMinutes: h.minutes });
+    }
+    await ctx.sleep(POLL_MS);
+    waitedMs += POLL_MS;
+  }
   let res;
   try {
     res = await landLocked(ctx, git, { branch, department: m[1], charter, sha, remote, url: url.out, waitMinutes, lines });
+    if (waitedMs > 0) res.data.lockWaitedMinutes = waitedMs / 60000;
   } catch (e) {
     // every Blocked (or crash) after the lock was taken releases it
-    const rel = releaseLock(git, remote, lock.sha);
+    const rel = await releaseLock(ctx, git, remote, lock.sha);
     if (e && typeof e.message === 'string' && rel.line.includes('WARNING')) e.message += ` (${rel.line})`;
     throw e;
   }
   // after the fast-forward and after every refusal: release; a failed release never turns a successful land into a failure
-  const rel = releaseLock(git, remote, lock.sha);
+  const rel = await releaseLock(ctx, git, remote, lock.sha);
   res.data.lines.push(rel.line);
   res.data.lockReleased = !rel.line.includes('WARNING');
   return res;
 }
 
+// the sha master has on the remote now ('' when it has none): fetched, so the ancestor checks can run here
+function readMaster(git, remote) {
+  const fm = git.run(['fetch', remote, 'master'], { timeout: 600000 });
+  if (!fm.ok) throw new Blocked(`could not fetch master from ${remote}: ${firstLine(fm.err || `exit ${fm.status}`)}`, 'check the network and the remote');
+  const lm = git.run(['ls-remote', remote, 'refs/heads/master'], { timeout: 180000 });
+  if (!lm.ok) throw new Blocked(`could not read master of ${remote}: ${firstLine(lm.err || `exit ${lm.status}`)}`, 'check the network and the remote');
+  const master = refOf(lm.out, 'refs/heads/master');
+  return SHA.test(master || '') ? master : '';
+}
+
+// ------------------------------------------------------------------------------------------------ the local master of this checkout
+// the path of the worktree that has the branch checked out, or ''
+function worktreeWith(git, ref) {
+  const r = git.run(['worktree', 'list', '--porcelain']);
+  if (!r.ok) return '';
+  let path = '';
+  for (const l of r.out.split('\n')) {
+    if (l.startsWith('worktree ')) path = l.slice(9).trim();
+    else if (l.trim() === `branch ${ref}`) return path;
+  }
+  return '';
+}
+
+// the paths `git status --porcelain -z` calls staged, modified, deleted or untracked; a rename or copy entry is followed by the path it came from
+export function dirtyPaths(out) {
+  const parts = String(out).split('\0');
+  const set = new Set();
+  for (let i = 0; i < parts.length; i++) {
+    const e = parts[i];
+    if (e.length < 4) continue;
+    set.add(e.slice(3));
+    if (/[RC]/.test(e.slice(0, 2))) { i++; if (parts[i]) set.add(parts[i]); }
+  }
+  return set;
+}
+
+const notMoved = why => ({ state: 'not-moved', line: `land: the local master of this checkout was not moved: ${why}` });
+
+function tryMoveLocal(git, sha) {
+  const lo = git.run(['rev-parse', '--verify', '--quiet', 'refs/heads/master']);
+  if (!lo.ok) return { state: 'none', line: 'land: this checkout has no local master; it was not touched' };
+  const old = lo.out;
+  if (git.run(['merge-base', '--is-ancestor', sha, old]).ok) return { state: 'contains', line: `land: the local master of this checkout contains ${sha}` };
+  if (!git.run(['merge-base', '--is-ancestor', old, sha]).ok) return notMoved(`it has commits that ${sha} does not contain`);
+  const head = git.run(['symbolic-ref', '-q', 'HEAD']);
+  const checkedOutHere = head.ok && head.out === 'refs/heads/master';
+  if (!checkedOutHere) {
+    const elsewhere = worktreeWith(git, 'refs/heads/master');
+    if (elsewhere) return notMoved(`master is checked out in ${elsewhere}, whose files land does not touch`);
+  }
+  const diff = git.run(['diff', '--name-only', '-z', '--no-renames', old, sha]);
+  const st = git.run(['status', '--porcelain', '-z', '-uall']);
+  if (!diff.ok || !st.ok) return notMoved(`git could not list the changed paths (${firstLine((!diff.ok ? diff.err : st.err) || 'no answer')})`);
+  const dirty = dirtyPaths(st.out);
+  const blocking = diff.out.split('\0').filter(Boolean).filter(p => dirty.has(p));
+  if (blocking.length) return notMoved(`${blocking.length} path${blocking.length === 1 ? '' : 's'} that differ${blocking.length === 1 ? 's' : ''} between it and ${sha} ${blocking.length === 1 ? 'is' : 'are'} staged, modified or untracked here: ${blocking.slice(0, 10).join(', ')}${blocking.length > 10 ? ` (+${blocking.length - 10} more)` : ''}`);
+  if (checkedOutHere) {
+    const mg = git.run(['merge', '--ff-only', sha], { timeout: 180000 });
+    if (!mg.ok) return notMoved(`git merge --ff-only refused: ${firstLine(mg.err || mg.out || `exit ${mg.status}`)}`);
+  } else {
+    const ur = git.run(['update-ref', 'refs/heads/master', sha, old]);
+    if (!ur.ok) return notMoved(`git update-ref refused: ${firstLine(ur.err || `exit ${ur.status}`)}`);
+  }
+  return { state: 'moved', line: `land: the local master of this checkout moved ${old}..${sha}` };
+}
+
+// never throws: a local move that cannot be done is a line, not a failure
+function moveLocal(git, sha) {
+  try { return tryMoveLocal(git, sha); } catch (e) { return notMoved(firstLine(e && e.message)); }
+}
+
+// master holds the commit: the local master of this checkout is a courtesy, and it never changes the verdict of a land that landed
+function settleLocal(git, sha, data, lines) {
+  const lm = moveLocal(git, sha);
+  lines.push(lm.line);
+  data.localMaster = lm.state;
+  return result(true, 'ok', data);
+}
+
+// ------------------------------------------------------------------------------------------------ everything after the lock
 // everything after the lock: the ci wait, the verdict, the fast-forward of master
 async function landLocked(ctx, git, { branch, department, charter, sha, remote, url, waitMinutes, lines }) {
+  // master as it is now, BEFORE the ci wait (the holder before us may just have moved it): a commit already in it is finished here, and a
+  // master that is not an ancestor of the commit is refused here instead of after up to an hour of waiting. The post-ci check below stays.
+  const early = readMaster(git, remote);
+  const queued = { branch, department, charter, sha, remote, state: 'queued', pushed: false, lines, master: early || null };
+  if (early && git.run(['merge-base', '--is-ancestor', sha, early]).ok) {
+    lines.push(`land: ${sha} is already in master`);
+    return settleLocal(git, sha, { ...queued, state: 'in-master' }, lines);
+  }
+  if (early && !git.run(['merge-base', '--is-ancestor', early, sha]).ok) {
+    lines.push(`land: REFUSED ${branch}: not a fast-forward: rebase onto master ${early.slice(0, 7)} and push it again`);
+    return result(false, 'LAND-REFUSED', queued);
+  }
   const repo = repoOfRemote(ctx, git, remote, url);
   const jobNames = jobNamesAt(git, sha);
 
@@ -192,23 +326,12 @@ async function landLocked(ctx, git, { branch, department, charter, sha, remote, 
   lines.push(v.lines[0]);
 
   // green: fast-forward master only
-  const fm = git.run(['fetch', remote, 'master'], { timeout: 600000 });
-  if (!fm.ok) throw new Blocked(`could not fetch master from ${remote}: ${firstLine(fm.err || `exit ${fm.status}`)}`, 'check the network and the remote');
-  const lm = git.run(['ls-remote', remote, 'refs/heads/master'], { timeout: 180000 });
-  if (!lm.ok) throw new Blocked(`could not read master of ${remote}: ${firstLine(lm.err || `exit ${lm.status}`)}`, 'check the network and the remote');
-  const master = refOf(lm.out, 'refs/heads/master');
-  const hasMaster = SHA.test(master || '');
+  const master = readMaster(git, remote);
+  const hasMaster = master !== '';
   data.master = hasMaster ? master : null;
-  const localNote = () => {
-    const lo = git.run(['rev-parse', '--verify', '--quiet', 'refs/heads/master']);
-    if (!lo.ok) return 'land: this checkout has no local master; it was not touched';
-    return git.run(['merge-base', '--is-ancestor', sha, lo.out]).ok
-      ? `land: the local master of this checkout contains ${sha}`
-      : `land: the local master of this checkout does not contain ${sha}; land does not touch it (fast-forward it yourself in a clean checkout)`;
-  };
   if (hasMaster && git.run(['merge-base', '--is-ancestor', sha, master]).ok) {
-    lines.push(`land: ${sha} is already in master`, localNote());
-    return result(true, 'ok', data);
+    lines.push(`land: ${sha} is already in master`);
+    return settleLocal(git, sha, data, lines);
   }
   if (hasMaster && !git.run(['merge-base', '--is-ancestor', master, sha]).ok) {
     lines.push(`land: REFUSED ${branch}: not a fast-forward: rebase ${branch} onto master and push it again`);
@@ -222,8 +345,8 @@ async function landLocked(ctx, git, { branch, department, charter, sha, remote, 
     return result(false, 'LAND-PUSH-FAILED', data);
   }
   data.pushed = true;
-  lines.push(`land: master is ${sha}`, localNote());
-  return result(true, 'ok', data);
+  lines.push(`land: master is ${sha}`);
+  return settleLocal(git, sha, data, lines);
 }
 
 export function landText(obj, env) {

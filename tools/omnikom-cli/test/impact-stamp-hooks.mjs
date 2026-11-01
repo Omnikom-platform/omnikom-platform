@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { makeFakeGh, runRow, jobRows } from './fake-gh.mjs';
+import { makeFakeGh, runRow, jobRows, stepRows } from './fake-gh.mjs';
 
 const cleanEnv = (() => {
   const e = { ...process.env, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never' };
@@ -254,6 +254,34 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       let bad;
       try { bad = await ciVerdict({ gh: () => ({ ok: true, out: 'not json', err: '' }) }, { repo: 'o/r', sha: SHA, jobNames: NAMES }); } catch (e) { bad = e; }
       check('ghrun: an answer that is not JSON is Blocked', bad && bad.name === 'Blocked', String(bad && bad.message));
+    }
+    // the billing line: GitHub never started the jobs (every failed job has zero steps), 2026-11-01 ~10:00
+    {
+      const BILL = 'The job was not started because recent account payments have failed or your spending limit needs to be increased.';
+      const dead = { unit: 'failure', reader: 'failure', 'secret scan': 'failure' };
+      const noRan = { unit: 0, reader: 0, 'secret scan': 0 };
+      const redLines = `${RUN1}  unit  failure|${RUN1}  reader  failure|${RUN1}  secret scan  failure`;
+      const apiCalls = x => x.gh.calls.filter(c => c[0] === 'api');
+      q = await verdict({ runs: [runRow(SHA, { conclusion: 'failure' })], jobs: { 1: stepRows(NAMES, dead, noRan) }, annotations: { 100: [{ message: `${BILL}\nsecond line` }] } });
+      check('ghrun: red and EVERY failed job has zero steps: one line after the red lines, "ci: no job ran a step; GitHub says: <first line of the first annotation>", the verdict stays red',
+        q.v && q.v.state === 'red' && q.v.lines.slice(0, -1).filter(l => l.startsWith(RUN1)).length >= 3 && q.v.lines.at(-1) === `ci: no job ran a step; GitHub says: ${BILL}` && q.v.lines.includes(`${RUN1}  unit  failure`), JSON.stringify(q.v || q.err));
+      check('ghrun: the billing line costs exactly one more gh call: gh api repos/<repo>/check-runs/<id of a failed job>/annotations',
+        q.gh.calls.length === 3 && apiCalls(q).length === 1 && apiCalls(q)[0].join(' ') === 'api repos/o/r/check-runs/100/annotations', JSON.stringify(q.gh.calls));
+      q = await verdict({ runs: [runRow(SHA)], jobs: { 1: stepRows(NAMES, dead, noRan) }, annotations: { 100: [{ message: `${'x'.repeat(300)}` }] } });
+      check('ghrun: the annotation message is cut to 200 characters', q.v && q.v.lines.at(-1) === `ci: no job ran a step; GitHub says: ${'x'.repeat(200)}`, JSON.stringify(q.v || q.err));
+      q = await verdict({ runs: [runRow(SHA)], jobs: { 1: stepRows(NAMES, dead, noRan) }, annotationsFail: 'gh: HTTP 403' });
+      const fallback = 'ci: no job ran a step (GitHub did not start them; check the Actions minutes and billing)';
+      check('ghrun: when the annotation call fails the line is the fallback, and the verdict is still red (a failed extra call is never Blocked)', q.v && q.v.state === 'red' && q.v.lines.at(-1) === fallback, JSON.stringify(q.v || q.err));
+      q = await verdict({ runs: [runRow(SHA)], jobs: { 1: stepRows(NAMES, dead, noRan) }, annotations: { 100: [] } });
+      check('ghrun: when the job has no annotation the line is the fallback', q.v && q.v.state === 'red' && q.v.lines.at(-1) === fallback, JSON.stringify(q.v || q.err));
+      q = await verdict({ runs: [runRow(SHA)], jobs: { 1: stepRows(NAMES, dead, { unit: 0, reader: 0 }) }, annotations: { 100: [{ message: BILL }] } });
+      check('ghrun: one failed job that DID run its steps means no billing line (and no extra gh call)', q.v && q.v.state === 'red' && !q.v.lines.some(l => l.startsWith('ci: no job')) && apiCalls(q).length === 0 && q.v.lines.join('|') === redLines, JSON.stringify(q.v || q.err));
+      q = await verdict({ runs: [runRow(SHA)], jobs: { 1: stepRows(NAMES, { reader: 'failure' }, { reader: 3 }) }, annotations: { 101: [{ message: BILL }] } });
+      check('ghrun: an ordinary red job (steps ran) has no billing line', q.v && q.v.state === 'red' && q.v.lines.join('|') === `${RUN1}  reader  failure` && apiCalls(q).length === 0, JSON.stringify(q.v || q.err));
+      q = await verdict({ runs: [runRow(SHA)], jobs: { 1: stepRows(NAMES, {}, noRan) } });
+      check('ghrun: a green run whose jobs list no steps is still green, with no extra call', q.v && q.v.state === 'green' && q.gh.calls.length === 2, JSON.stringify(q.v || q.err));
+      q = await verdict({ runs: [runRow(SHA)], jobs: { 1: jobRows(NAMES, dead) }, annotations: { 100: [{ message: BILL }] } });
+      check('ghrun: jobs whose step list is not given (an older gh) are never read as "no step"', q.v && q.v.state === 'red' && !q.v.lines.some(l => l.startsWith('ci: no job')) && apiCalls(q).length === 0, JSON.stringify(q.v || q.err));
     }
     const rf = u => { try { return repoFromUrl(u); } catch (e) { return e; } };
     check('ghrun: repoFromUrl reads https and ssh forms, with and without .git, and a user in the url',
@@ -567,7 +595,9 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
         && r.text.includes(`land: master is ${s2}`) && sc.remoteMasterOf() === s2 && r.d.pushed === true && lockSha(sc) === '' && r.text.split('\n').pop() === 'land: lock released' && r.text.split('\n').indexOf('land: lock released') > r.text.split('\n').findIndex(l => l.startsWith('land: master is ')), r.text + r.all.slice(0, 300));
       check('land: the commit was not local and was fetched; the master push is exactly <sha>:refs/heads/master, and no git call carries --force, -f, --no-verify, --mirror or --delete; --force-with-lease appears only in the lock delete, with a lease on the lock\'s sha',
         !hadObject && pushes.length === 1 && pushes[0].join(' ') === `push backup-gh ${s2}:refs/heads/master` && r.calls.filter(a => a.some(x => /^(--force|-f|--force-with-lease.*|--no-verify|--mirror|--delete|-d)$/.test(x))).every(a => a.length === 4 && a[0] === 'push' && /^--force-with-lease=refs\/heads\/land-lock:[0-9a-f]{40}$/.test(a[1]) && a[3] === ':refs/heads/land-lock') && r.calls.some(a => a[1] && a[1].startsWith('--force-with-lease')), JSON.stringify(pushes) + JSON.stringify(r.calls.filter(a => a[0] === 'fetch')));
-      check('land: it never touches this checkout\'s working tree, index, HEAD or refs/heads/master, and says the local master does not contain the commit', snap() === before && r.text.includes(`land: the local master of this checkout does not contain ${s2}`), `${snap()}\n!!\n${before}`.slice(0, 500));
+      check('land: marker.txt differs between the local master and the commit and is modified in this checkout, so the local move is refused for that path: working tree, index, HEAD and refs/heads/master are untouched, the land is still exit 0',
+        snap() === before && r.exit === 0 && r.json.code === 'ok' && r.d.localMaster === 'not-moved'
+        && r.text.includes(`land: the local master of this checkout was not moved: 1 path that differs between it and ${s2} is staged, modified or untracked here: marker.txt`), `${snap()}\n!!\n${before}\n${r.text}`.slice(0, 700));
     }
     {
       const sc = scenario();
@@ -589,7 +619,8 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       const m2 = commitFile(sc.Pu, 'marker.txt', 'master moved on', 'master on');
       git(sc.Pu, 'push', '-q', 'backup-gh', 'master');
       const r = await lrun(sc, [LB], landRuns(old));
-      check('land: a commit already in master (an ancestor of it) pushes nothing and says so (exit 0)', r.exit === 0 && r.text.includes(`land: ${old} is already in master`) && masterPushes(r.calls).length === 0 && sc.remoteMasterOf() === m2 && r.d.pushed === false && lockSha(sc) === '', r.text);
+      check('land: a commit already in master (an ancestor of it) pushes nothing and says so (exit 0), without waiting for ci: right after the lock, GitHub is asked nothing', r.exit === 0 && r.text.includes(`land: ${old} is already in master`) && masterPushes(r.calls).length === 0 && sc.remoteMasterOf() === m2 && r.d.pushed === false && lockSha(sc) === '' && r.gh.calls.length === 0 && r.sleeps.length === 0, r.text);
+      check('land: ... and the local master of this checkout (clean, behind) is moved to that commit', r.text.includes(`land: the local master of this checkout moved ${sc.base}..${old}`) && git(sc.L, 'rev-parse', 'master') === old && r.d.localMaster === 'moved', r.text);
       const sc2 = scenario();
       const eq = sc2.branchAt(LB, sc2.base, 'equal');
       git(sc2.Pu, 'push', '-q', 'backup-gh', `${eq}:refs/heads/master`);
@@ -603,14 +634,215 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       const m3 = commitFile(sc.Pu, 'other.txt', 'master moved on', 'master on');
       git(sc.Pu, 'push', '-q', 'backup-gh', 'master');
       const r = await lrun(sc, [LB], landRuns(s4));
-      check('land: master that is not an ancestor of the commit is refused as not a fast-forward ("rebase <branch> onto master and push it again"), nothing is pushed, nothing is rebased or merged',
-        r.exit === 1 && r.json.code === 'LAND-REFUSED' && r.text.includes(`not a fast-forward: rebase ${LB} onto master and push it again`) && masterPushes(r.calls).length === 0 && !r.calls.some(a => a[0] === 'rebase' || a[0] === 'merge') && sc.remoteMasterOf() === m3 && lockSha(sc) === '' && r.text.endsWith('land: lock released'), r.text);
+      check('land (early fast-forward check): master that is not an ancestor of the commit is refused right after the lock ("not a fast-forward: rebase onto master <short> and push it again"), BEFORE the ci wait: GitHub is asked nothing, nothing is pushed, rebased or merged, the lock is released',
+        r.exit === 1 && r.json.code === 'LAND-REFUSED' && r.text.includes(`not a fast-forward: rebase onto master ${m3.slice(0, 7)} and push it again`) && r.gh.calls.length === 0 && r.sleeps.length === 0 && masterPushes(r.calls).length === 0 && !r.calls.some(a => a[0] === 'rebase' || a[0] === 'merge') && sc.remoteMasterOf() === m3 && lockSha(sc) === '' && r.text.endsWith('land: lock released'), r.text);
+    }
+    {
+      // master can still move during the ci wait: the post-ci check stays
+      const sc = scenario();
+      const s5 = sc.branchAt(LB, sc.base, 'cut from master, which then moves');
+      let m5 = '';
+      const r = await lrun(sc, [LB], { runs: [runRow(s5, { status: 'in_progress', conclusion: null })], jobs: {} },
+        { onSleep: (k, st) => { if (k === 1) { git(sc.Pu, 'checkout', '-q', '-B', 'master', sc.base); m5 = commitFile(sc.Pu, 'other.txt', 'moved during the wait', 'master on'); git(sc.Pu, 'push', '-q', 'backup-gh', 'master'); st.v = landRuns(s5); } } });
+      check('land (post-ci fast-forward check): master that moved DURING the ci wait is refused as not a fast-forward ("rebase <branch> onto master and push it again"), nothing is pushed, the lock is released',
+        r.exit === 1 && r.json.code === 'LAND-REFUSED' && r.text.includes(`not a fast-forward: rebase ${LB} onto master and push it again`) && r.gh.calls.length > 0 && masterPushes(r.calls).length === 0 && sc.remoteMasterOf() === m5 && m5 !== '' && lockSha(sc) === '' && r.text.endsWith('land: lock released'), r.text);
+    }
+    {
+      // ... and the same commit can reach master by another hand during the wait: the post-ci "already in master" path pushes nothing
+      const sc = scenario();
+      const s6 = sc.branchAt(LB, sc.base, 'lands by another hand during the wait');
+      const r = await lrun(sc, [LB], { runs: [runRow(s6, { status: 'in_progress', conclusion: null })], jobs: {} },
+        { onSleep: (k, st) => { if (k === 1) { git(sc.Pu, 'push', '-q', 'backup-gh', `${s6}:refs/heads/master`); st.v = landRuns(s6); } } });
+      check('land (post-ci already in master): the commit reached master during the ci wait: nothing is pushed, "is already in master", exit 0, the lock is released',
+        r.exit === 0 && r.text.includes(`land: ${s6} is already in master`) && r.gh.calls.length > 0 && masterPushes(r.calls).length === 0 && r.d.pushed === false && r.d.state === 'green' && sc.remoteMasterOf() === s6 && lockSha(sc) === '' && r.text.endsWith('land: lock released'), r.text);
     }
     {
       const sc = scenario();
       sc.branchAt(LB, sc.base, 'gh down');
       const r = await lrun(sc, [LB], { fail: 'gh: not logged in' });
       check('land: gh failing is Blocked (exit 3) with the cause and nothing is pushed (fail closed)', r.exit === 3 && /not logged in/.test(r.json.error) && sc.remoteMasterOf() === sc.base && masterPushes(r.calls).length === 0 && lockSha(sc) === '', r.all.slice(0, 300));
+    }
+
+    // ============================================================================ land: the local master of this checkout (brief small-cli-fixes, part a)
+    {
+      const { dirtyPaths, DEFAULT_LOCK_WAIT_MINUTES, MAX_LOCK_WAIT_MINUTES } = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'land.mjs')).href);
+      const dp = [...dirtyPaths('R  new name.txt\0old name.txt\0 M x.txt\0?? y.txt\0C  copy.txt\0src.txt\0D  gone.txt\0')].sort();
+      check('land: dirtyPaths reads git status --porcelain -z: staged, modified and untracked paths, and BOTH paths of a rename or copy line (spaces kept)',
+        dp.join('|') === ['copy.txt', 'gone.txt', 'new name.txt', 'old name.txt', 'src.txt', 'x.txt', 'y.txt'].sort().join('|'), dp.join('|'));
+      check('land: the lock wait defaults to 30 minutes and is capped at 180', DEFAULT_LOCK_WAIT_MINUTES === 30 && MAX_LOCK_WAIT_MINUTES === 180);
+      const moves = calls => calls.filter(a => a[0] === 'merge' || a[0] === 'update-ref');
+      const treeOf = L => [git(L, 'rev-parse', 'HEAD'), git(L, 'status', '--porcelain'), git(L, 'branch', '--show-current')].join('\n');
+      {
+        // clean checkout, master checked out: git merge --ff-only
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'clean move');
+        const r = await lrun(sc, [LB], landRuns(s));
+        check('land: a clean checkout with master checked out: the local master is fast-forwarded by `git merge --ff-only <sha>`, the working tree follows, the output says moved <old>..<sha>, exit 0',
+          r.exit === 0 && r.json.code === 'ok' && r.text.includes(`land: the local master of this checkout moved ${sc.base}..${s}`) && git(sc.L, 'rev-parse', 'master') === s && git(sc.L, 'rev-parse', 'HEAD') === s
+          && readFileSync(join(sc.L, 'marker.txt'), 'utf8') === 'clean move' && git(sc.L, 'status', '--porcelain') === '' && r.d.localMaster === 'moved'
+          && moves(r.calls).length === 1 && moves(r.calls)[0].join(' ') === `merge --ff-only ${s}`, r.text);
+      }
+      {
+        // dirty paths OUTSIDE the diff do not block, and are not touched
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'move around dirty files');
+        put(sc.L, 'untracked.txt', 'not mine\n');
+        put(sc.L, 'staged.txt', 'staged\n'); git(sc.L, 'add', 'staged.txt');
+        put(sc.L, 'docs/departments/README.md', '# departments, edited here\n');
+        const status0 = git(sc.L, 'status', '--porcelain');
+        const r = await lrun(sc, [LB], landRuns(s));
+        check('land: staged, modified and untracked paths that are NOT in the diff do not block the move, and stay exactly as they were',
+          r.exit === 0 && git(sc.L, 'rev-parse', 'master') === s && readFileSync(join(sc.L, 'marker.txt'), 'utf8') === 'move around dirty files' && git(sc.L, 'status', '--porcelain') === status0
+          && readFileSync(join(sc.L, 'untracked.txt'), 'utf8') === 'not mine\n' && readFileSync(join(sc.L, 'staged.txt'), 'utf8') === 'staged\n' && readFileSync(join(sc.L, 'docs/departments/README.md'), 'utf8') === '# departments, edited here\n', `${r.text}\n${status0}`);
+      }
+      {
+        // master not checked out: update-ref with the old value as a lease, and the checked-out branch is not touched
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'master is not checked out');
+        git(sc.L, 'checkout', '-q', '-b', 'work');
+        put(sc.L, 'untracked.txt', 'mine\n');
+        const before = treeOf(sc.L);
+        const r = await lrun(sc, [LB], landRuns(s));
+        check('land: master not checked out here: `git update-ref refs/heads/master <sha> <old>` (the old value as a lease), HEAD, the index and the working tree of the checked-out branch untouched, no merge',
+          r.exit === 0 && r.text.includes(`land: the local master of this checkout moved ${sc.base}..${s}`) && git(sc.L, 'rev-parse', 'master') === s && treeOf(sc.L) === before
+          && moves(r.calls).length === 1 && moves(r.calls)[0].join(' ') === `update-ref refs/heads/master ${s} ${sc.base}` && readFileSync(join(sc.L, 'marker.txt'), 'utf8') !== 'master is not checked out', r.text);
+      }
+      {
+        // the local master has a commit the landed commit does not contain: nothing is lost, nothing moves
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'local master diverged');
+        git(sc.L, 'config', 'user.name', 'tester'); git(sc.L, 'config', 'user.email', 't@example.invalid');
+        const mine = commitFile(sc.L, 'mine.txt', 'a local commit', 'local only');
+        const r = await lrun(sc, [LB], landRuns(s));
+        check('land: a local master with a commit of its own (not an ancestor of the landed commit) is not moved, and the line says why; the land is exit 0',
+          r.exit === 0 && git(sc.L, 'rev-parse', 'master') === mine && r.text.includes(`land: the local master of this checkout was not moved: it has commits that ${s} does not contain`) && moves(r.calls).length === 0 && r.d.localMaster === 'not-moved', r.text);
+      }
+      {
+        // master is checked out in another worktree: its files are not ours to move
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'master elsewhere');
+        git(sc.L, 'checkout', '-q', '--detach');
+        const W = join(work, `wt${++n}`);
+        git(sc.L, 'worktree', 'add', '-q', W, 'master');
+        const r = await lrun(sc, [LB], landRuns(s));
+        check('land: master checked out in another worktree is not moved (update-ref would leave that worktree\'s index behind); the line names the worktree; exit 0',
+          r.exit === 0 && git(sc.L, 'rev-parse', 'master') === sc.base && git(W, 'status', '--porcelain') === '' && r.text.includes('land: the local master of this checkout was not moved: master is checked out in ') && moves(r.calls).length === 0 && sc.remoteMasterOf() === s, r.text);
+      }
+      {
+        // git itself refuses (a locked index): reported, never forced, and the land stays a success
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'git refuses');
+        writeFileSync(join(sc.L, '.git', 'index.lock'), '');
+        const r = await lrun(sc, [LB], landRuns(s));
+        rmSync(join(sc.L, '.git', 'index.lock'), { force: true });
+        check('land: when `git merge --ff-only` refuses, the refusal is reported ("was not moved: git merge --ff-only refused: ...") and the land is still exit 0, code ok, master pushed',
+          r.exit === 0 && r.json.code === 'ok' && sc.remoteMasterOf() === s && git(sc.L, 'rev-parse', 'master') === sc.base && /was not moved: git merge --ff-only refused: .*index\.lock/.test(r.text) && !r.calls.some(a => a.some(x => /^(--force|-f)$/.test(x) && a[0] === 'merge')), r.text);
+      }
+      {
+        // a staged rename: both paths count, so the orig path (in the diff) blocks
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'rename in the way');
+        git(sc.L, 'mv', 'marker.txt', 'moved.txt');
+        const r = await lrun(sc, [LB], landRuns(s));
+        check('land: a staged rename (R  moved.txt, marker.txt) blocks on the path it came from, marker.txt, which is in the diff', r.exit === 0 && git(sc.L, 'rev-parse', 'master') === sc.base && r.text.includes(`is staged, modified or untracked here: marker.txt`) && moves(r.calls).length === 0, r.text);
+      }
+      {
+        // more than 10 blocking paths: ten named, then "+N more"
+        const sc = scenario();
+        const names = Array.from({ length: 12 }, (_, i) => `many/f${String(i + 1).padStart(2, '0')}.txt`);
+        git(sc.Pu, 'checkout', '-q', '-B', 'topic', sc.base);
+        for (const p of names) put(sc.Pu, p, `from the branch ${p}\n`);
+        git(sc.Pu, 'add', '-A'); git(sc.Pu, 'commit', '-q', '-m', 'twelve files');
+        const s = git(sc.Pu, 'rev-parse', 'HEAD');
+        git(sc.Pu, 'push', '-q', 'backup-gh', `topic:refs/heads/${LB}`);
+        for (const p of names) put(sc.L, p, `untracked here ${p}\n`);
+        const r = await lrun(sc, [LB], landRuns(s));
+        const said = r.text.split('\n').find(l => l.includes('was not moved')) || '';
+        check('land: twelve blocking paths: the line names ten of them and says "(+2 more)"; none of the files was touched',
+          r.exit === 0 && git(sc.L, 'rev-parse', 'master') === sc.base && /^land: the local master of this checkout was not moved: 12 paths that differ between it and \w+ are staged, modified or untracked here: /.test(said)
+          && names.slice(0, 10).every(p => said.includes(p)) && !said.includes(names[10]) && said.endsWith('(+2 more)') && readFileSync(join(sc.L, names[11]), 'utf8') === `untracked here ${names[11]}\n`, said);
+      }
+      {
+        // the local master already has the commit; and a checkout without a local master
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'already local');
+        git(sc.L, 'fetch', '-q', 'backup-gh');
+        git(sc.L, 'merge', '-q', '--ff-only', s);
+        const r = await lrun(sc, [LB], landRuns(s));
+        check('land: a local master that already contains the commit says so and moves nothing', r.exit === 0 && r.text.includes(`land: the local master of this checkout contains ${s}`) && moves(r.calls).length === 0 && r.d.localMaster === 'contains', r.text);
+        const sc2 = scenario();
+        const s2 = sc2.branchAt(LB, sc2.base, 'no local master');
+        git(sc2.L, 'checkout', '-q', '-b', 'other');
+        git(sc2.L, 'branch', '-q', '-D', 'master');
+        const r2 = await lrun(sc2, [LB], landRuns(s2));
+        check('land: a checkout with no local master says so and creates none', r2.exit === 0 && r2.text.includes('land: this checkout has no local master; it was not touched') && !git(sc2.L, 'branch', '--list', 'master') && r2.d.localMaster === 'none', r2.text);
+      }
+    }
+
+    // ============================================================================ land waits in line for a held lock (brief small-cli-fixes, part d)
+    {
+      const holderLines = text => text.split('\n').filter(l => / holds the land lock since /.test(l));
+      {
+        // the default wait: a fresh lock held by somebody else, freed during the second poll
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'waits in line');
+        plantLock(sc, 5);
+        const r = await lrun(sc, [LB], landRuns(s), { onSleep: (k) => { if (k === 2) git(sc.bare, 'update-ref', '-d', 'refs/heads/land-lock'); } });
+        const lines = r.text.split('\n');
+        check('land lock wait (default 30 min): a lock held by another is re-read every 30 s through ctx.sleep, the holder line is printed ONCE, the lock is taken as soon as it is free, and the land goes through',
+          r.exit === 0 && r.sleeps.slice(0, 2).join(',') === '30000,30000' && r.sleeps.length === 2 && holderLines(r.text).length === 1 && lines.findIndex(l => / holds the land lock since /.test(l)) < lines.findIndex(l => l.startsWith('land: took the land lock'))
+          && sc.remoteMasterOf() === s && lockSha(sc) === '' && r.text.endsWith('land: lock released'), `${r.sleeps} ${r.text}`);
+      }
+      {
+        // the holder changes while we wait: the new holder is printed too
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'holder changes');
+        plantLock(sc, 5, { who: 'platform-build (zed@ZED-PC)' });
+        const r = await lrun(sc, [LB], landRuns(s), { onSleep: (k) => {
+          if (k === 1) git(sc.bare, 'update-ref', '-d', 'refs/heads/land-lock');
+          if (k === 1) plantLock(sc, 2, { branch: 'check/platform-build/next', who: 'platform-web (carol@CAROL-PC)' });
+          if (k === 3) git(sc.bare, 'update-ref', '-d', 'refs/heads/land-lock');
+        } });
+        const hl = holderLines(r.text);
+        check('land lock wait: the holder line is printed again only when the holder changes (two holders, two lines, none repeated)',
+          r.exit === 0 && hl.length === 2 && hl[0].includes('platform-build (zed@ZED-PC)') && hl[1].includes('platform-web (carol@CAROL-PC)') && r.sleeps.length === 3 && sc.remoteMasterOf() === s, `${r.sleeps} ${r.text}`);
+      }
+      {
+        // the limit: still held after --lock-wait-minutes -> LAND-LOCKED, naming how long it waited
+        const sc = scenario();
+        sc.branchAt(LB, sc.base, 'never free');
+        const kept = plantLock(sc, 5);
+        const r = await lrun(sc, [LB, '--lock-wait-minutes', '1'], { runs: [] });
+        check('land lock wait: still held after --lock-wait-minutes 1 is LAND-LOCKED (exit 1) after exactly 2 polls, the line names how long it waited, the holder is printed once, nothing is asked of GitHub or pushed, the other lock is untouched',
+          r.exit === 1 && r.json.code === 'LAND-LOCKED' && r.sleeps.join(',') === '30000,30000' && holderLines(r.text).length === 1 && /land: waited 1 minutes for the land lock; it is still held/.test(r.text) && r.gh.calls.length === 0 && masterPushes(r.calls).length === 0 && lockSha(sc) === kept, `${r.sleeps} ${r.text}`);
+        const r0 = await lrun(sc, [LB, '--lock-wait-minutes', '0'], { runs: [] });
+        check('land lock wait: --lock-wait-minutes 0 refuses at once as before (no sleep, no "waited" line)', r0.exit === 1 && r0.json.code === 'LAND-LOCKED' && r0.sleeps.length === 0 && !r0.text.includes('waited') && holderLines(r0.text).length === 1 && lockSha(sc) === kept, `${r0.sleeps} ${r0.text}`);
+      }
+      {
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'usage');
+        const bad = [];
+        for (const v of ['181', '-1', 'abc', '']) { const r = await lrun(sc, [LB, `--lock-wait-minutes=${v}`], landRuns(s)); bad.push(r.exit); }
+        check('land: --lock-wait-minutes outside 0..180 or not a number is Usage (exit 2): 181, -1, abc and empty', bad.join(',') === '2,2,2,2', bad.join(','));
+        const ok = await lrun(sc, [LB, '--lock-wait-minutes', '180'], landRuns(s));
+        check('land: --lock-wait-minutes 180 (the maximum) is accepted', ok.exit === 0 && ok.sleeps.length === 0, ok.text);
+      }
+    }
+
+    // ============================================================================ the billing line, seen by land and by the pre-push hook
+    {
+      const BILL = 'The job was not started because recent account payments have failed or your spending limit needs to be increased.';
+      const sc = scenario();
+      const s = sc.branchAt(LB, sc.base, 'billing');
+      const dead = { 'job one': 'failure', 'job two': 'failure' };
+      const state = { runs: [runRow(s, { conclusion: 'failure' })], jobs: { 1: stepRows(LNAMES, dead, { 'job one': 0, 'job two': 0 }) }, annotations: { 100: [{ message: BILL }] } };
+      const r = await lrun(sc, [LB], state);
+      const at = r.text.split('\n');
+      check('land: when GitHub never started the jobs the output has the red lines, then "ci: no job ran a step; GitHub says: ...", then the REFUSED line; exit 1, nothing pushed',
+        r.exit === 1 && r.json.code === 'LAND-REFUSED' && at.indexOf(`ci: no job ran a step; GitHub says: ${BILL}`) > at.findIndex(l => l.endsWith('  job two  failure')) && at.indexOf(`ci: no job ran a step; GitHub says: ${BILL}`) < at.findIndex(l => l.startsWith('land: REFUSED')) && masterPushes(r.calls).length === 0, r.text);
+      const hookState = { runs: [runRow(tip, { conclusion: 'failure' })], jobs: { 1: stepRows(NAMES, { unit: 'failure', reader: 'failure', 'secret scan': 'failure' }, { unit: 0, reader: 0, 'secret scan': 0 }) }, annotations: { 100: [{ message: BILL }] } };
+      const p3 = await pp(masterLine(tip), hookState);
+      check('pre-push: the same red run shows the billing line too (it shares ciVerdict), prefixed like every hook line, and the push is refused', p3.exit === 1 && p3.text.includes(`pre-push: ci: no job ran a step; GitHub says: ${BILL}`), p3.text);
     }
 
     // ============================================================================ the land lock: the landing queue (refs/heads/land-lock)
@@ -628,7 +860,7 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       const scB = { ...sc, L: L2 };
       let rb;
       const ra = await lrun(sc, ['check/cli-and-testing/a'], { runs: [runRow(sA, { status: 'in_progress', conclusion: null })], jobs: {} },
-        { onSleep: async (k, st) => { if (k === 1) { rb = await lrun(scB, ['check/cli-and-testing/b'], landRuns(sB)); st.v = landRuns(sA); } } });
+        { onSleep: async (k, st) => { if (k === 1) { rb = await lrun(scB, ['check/cli-and-testing/b', '--lock-wait-minutes', '0'], landRuns(sB)); st.v = landRuns(sA); } } });
       check('land lock: two landers race on one bare remote: exactly one takes the lock (A); the other (B) gets LAND-LOCKED (exit 1) with the holder\'s line, asks GitHub nothing and pushes nothing',
         ra.exit === 0 && ra.text.includes('land: took the land lock') && rb.exit === 1 && rb.json.code === 'LAND-LOCKED' && !rb.text.includes('took the land lock') && rb.gh.calls.length === 0 && masterPushes(rb.calls).length === 0
         && new RegExp(`^land: cli-and-testing \\(alice@.+\\) holds the land lock since ${isoOf(T0).replace(/\./g, '\\.')} \\(0 min\\) for check/cli-and-testing/a$`, 'm').test(rb.text), `${ra.text}\n--\n${rb && rb.text}`);
@@ -652,14 +884,14 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       const sc = scenario();
       const s = sc.branchAt(LB, sc.base, 'behind a fresh lock');
       const fresh = plantLock(sc, 89);
-      const r = await lrun(sc, [LB], landRuns(s));
+      const r = await lrun(sc, [LB, '--lock-wait-minutes', '0'], landRuns(s));
       check('land lock: a lock dated 89 minutes old is not broken: LAND-LOCKED (exit 1) with "land: <holder> holds the land lock since <time> (89 min) for <branch>", the lock is still there, nothing is deleted, pushed or asked of GitHub',
         r.exit === 1 && r.json.code === 'LAND-LOCKED' && r.text.includes(`land: platform-build (zed@ZED-PC) holds the land lock since ${isoOf(T0 - 89 * 60)} (89 min) for check/cli-and-testing/old`) && !r.text.includes('breaking')
         && lockSha(sc) === fresh && !r.calls.some(a => a[0] === 'push' && a.some(x => x.startsWith('--force'))) && masterPushes(r.calls).length === 0 && r.gh.calls.length === 0 && sc.remoteMasterOf() === sc.base, r.text);
       const sc2 = scenario();
       sc2.branchAt(LB, sc2.base, 'exactly ninety');
       const ninety = plantLock(sc2, 90);
-      const r90 = await lrun(sc2, [LB], landRuns(sc2.Pu ? git(sc2.Pu, 'rev-parse', 'HEAD') : ''));
+      const r90 = await lrun(sc2, [LB, '--lock-wait-minutes', '0'], landRuns(sc2.Pu ? git(sc2.Pu, 'rev-parse', 'HEAD') : ''));
       check('land lock: a lock exactly 90 minutes old is not "more than 90": not broken', r90.exit === 1 && r90.json.code === 'LAND-LOCKED' && lockSha(sc2) === ninety, r90.text);
     }
     {
@@ -670,7 +902,54 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       const r = await lrun(sc, [LB], { runs: [runRow(s, { status: 'in_progress', conclusion: null })], jobs: {} },
         { onSleep: (k, st) => { if (k === 1) { foreign = plantLock(sc, 1, { branch: 'check/platform-build/theirs', who: 'platform-build (carol@CAROL-PC)' }); st.v = landRuns(s); } } });
       check('land lock: a release never deletes a lock that is not ours: the lock was replaced during the wait, the land still succeeds (exit 0), the foreign lock is still on the remote, and the output warns with the manual command',
-        r.exit === 0 && sc.remoteMasterOf() === s && lockSha(sc) === foreign && foreign !== '' && r.d.lockReleased === false && /land: WARNING the land lock was not released/.test(r.text) && r.text.includes('git push --force-with-lease=refs/heads/land-lock:') && !r.text.includes('land: lock released'), r.text);
+        r.exit === 0 && sc.remoteMasterOf() === s && lockSha(sc) === foreign && foreign !== '' && r.d.lockReleased === false && /land: WARNING the land lock was not released/.test(r.text) && r.text.includes('git push --force-with-lease=refs/heads/land-lock:') && !r.text.includes('land: lock released')
+        && r.sleeps.length === 1 && r.calls.filter(a => a.some(x => x.startsWith('--force-with-lease'))).length === 1 && !/after \d+ tries/.test(r.text), r.text);
+    }
+    {
+      // part (e): a lock delete that fails on the NETWORK is tried again (10 s, then 30 s through ctx.sleep); the bare remote's pre-receive hook
+      // plays the network: it refuses the first N deletes of the lock with the words git printed on 2026-11-01 19:14
+      const netHook = (sc, failMax) => {
+        const hook = join(sc.bare, 'hooks', 'pre-receive');
+        mkdirSync(join(sc.bare, 'hooks'), { recursive: true });
+        writeFileSync(hook, [
+          '#!/bin/sh', 'while read old new ref; do',
+          '  if [ "$ref" = "refs/heads/land-lock" ] && [ "$new" = "0000000000000000000000000000000000000000" ]; then',
+          '    n=$(cat "$GIT_DIR/fail-count" 2>/dev/null || echo 0); max=$(cat "$GIT_DIR/fail-max" 2>/dev/null || echo 0)',
+          '    if [ "$n" -lt "$max" ]; then echo $((n+1)) > "$GIT_DIR/fail-count"; echo "fatal: unable to access \'https://github.com/o/r.git/\': Failed to connect to github.com port 443 after 21179 ms" >&2; exit 1; fi',
+          '  fi', 'done', 'exit 0', '',
+        ].join('\n'), { mode: 0o755 });
+        writeFileSync(join(sc.bare, 'fail-max'), String(failMax));
+        return () => Number(readFileSync(join(sc.bare, 'fail-count'), 'utf8'));
+      };
+      const leaseDeletes = calls => calls.filter(a => a[0] === 'push' && a.some(x => x.startsWith('--force-with-lease')));
+      {
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'release retried');
+        const failed = netHook(sc, 2);
+        const r = await lrun(sc, [LB], landRuns(s));
+        check('land release (e): two network failures of the lock delete, then success: three deletes, waits of exactly 10 s then 30 s, the lock is gone, "land: lock released (after 3 tries)", the land is exit 0',
+          r.exit === 0 && sc.remoteMasterOf() === s && failed() === 2 && leaseDeletes(r.calls).length === 3 && r.sleeps.join(',') === '10000,30000' && lockSha(sc) === '' && r.d.lockReleased === true && r.text.endsWith('land: lock released (after 3 tries)'), `${r.sleeps} ${r.text}`);
+      }
+      {
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'release never works');
+        netHook(sc, 99);
+        const r = await lrun(sc, [LB], landRuns(s));
+        check('land release (e): every try fails on the network: exactly three tries (no more), the WARNING says "after 3 tries" and keeps the hand-release command, the lock is still there, and the land that moved master is still exit 0',
+          r.exit === 0 && sc.remoteMasterOf() === s && leaseDeletes(r.calls).length === 3 && r.sleeps.join(',') === '10000,30000' && lockSha(sc) !== '' && r.d.lockReleased === false
+          && /land: WARNING the land lock was not released after 3 tries \(.*443/.test(r.text) && r.text.includes('git push --force-with-lease=refs/heads/land-lock:'), `${r.sleeps} ${r.text}`);
+      }
+      {
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'blocked release retried');
+        netHook(sc, 1);
+        const r = await lrun(sc, [LB, '--wait-minutes', '1'], { runs: [runRow(s, { status: 'in_progress', conclusion: null })], jobs: {} });
+        check('land release (e): the release after a Blocked (ci still pending) is retried the same way and the lock is gone', r.exit === 3 && leaseDeletes(r.calls).length === 2 && lockSha(sc) === '' && r.sleeps.slice(-1).join() === '10000', `${r.sleeps} ${r.all.slice(0, 300)}`);
+      }
+      const { looksLikeNetworkFailure } = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'land.mjs')).href);
+      check('land release (e): the classifier: connect, TLS, timeout, 443, HTTP 408 and "unable to access" are network failures; a lease refusal (stale info, [rejected]) and a plain refusal are not, even with a network word in it',
+        ['fatal: unable to access \'https://github.com/o/r.git/\': Failed to connect to github.com port 443 after 21179 ms', 'Connection timed out', 'error: RPC failed; HTTP 408 curl 22', 'SSL_ERROR_SYSCALL', 'gnutls TLS handshake failed'].every(looksLikeNetworkFailure)
+        && !looksLikeNetworkFailure(' ! [rejected]        land-lock (stale info)\nerror: failed to push some refs to \'https://github.com/o/r.git\'') && !looksLikeNetworkFailure('stale info while talking to github.com:443') && !looksLikeNetworkFailure('error: no such remote') && !looksLikeNetworkFailure(''));
     }
     {
       // the hook lets the queue through: create and delete of refs/heads/land-lock, with no gh call

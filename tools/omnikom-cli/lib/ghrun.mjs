@@ -39,6 +39,24 @@ export function jobNamesAt(git, sha) {
   return jobs.map(j => j.name);
 }
 
+// When EVERY failed job has zero steps, GitHub never started them (the Actions minutes or the spending limit, as on 2026-11-01 ~10:00): one
+// extra line says so, with the first annotation message of one failed job when `gh api` gives one. Information only: the verdict stays red,
+// and a gh call that fails here never turns into a Blocked. Jobs whose step list is unknown (steps null) are never read as "no step".
+async function noStepNote(gh, repo, runs) {
+  const failed = runs.flatMap(r => r.jobs).filter(j => j.conclusion !== 'success');
+  if (failed.length === 0 || !failed.every(j => j.steps === 0)) return '';
+  const fallback = 'ci: no job ran a step (GitHub did not start them; check the Actions minutes and billing)';
+  const id = failed.find(j => Number.isInteger(j.id));
+  if (!id) return fallback;
+  let msg = '';
+  try {
+    const r = await gh(['api', `repos/${repo}/check-runs/${id.id}/annotations`]);
+    const list = r && r.ok ? JSON.parse(r.out) : [];
+    msg = Array.isArray(list) && list[0] ? String(list[0].message || '').split('\n')[0].trim().slice(0, 200) : '';
+  } catch { msg = ''; }
+  return msg ? `ci: no job ran a step; GitHub says: ${msg}` : fallback;
+}
+
 export async function ciVerdict(ctx, { repo, sha, jobNames }) {
   if (!/^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/.test(String(repo))) throw new Blocked(`'${repo}' is not an owner/name repository`, 'the remote must be a github.com repository');
   const gh = ctx.gh;
@@ -61,13 +79,16 @@ export async function ciVerdict(ctx, { repo, sha, jobNames }) {
   const badRuns = new Set();
   for (const run of runs) {
     const view = await ask(['run', 'view', String(run.id), '--repo', repo, '--json', 'jobs']);
-    run.jobs = Array.isArray(view && view.jobs) ? view.jobs.map(j => ({ name: j.name, status: j.status, conclusion: j.conclusion || '' })) : [];
+    run.jobs = Array.isArray(view && view.jobs) ? view.jobs.map(j => ({ name: j.name, status: j.status, conclusion: j.conclusion || '', id: j.databaseId, steps: Array.isArray(j.steps) ? j.steps.length : null })) : [];
     jobCount += run.jobs.length;
     if (run.conclusion !== 'success') { bad.push(`${run.url}  (run)  ${run.conclusion || run.status}`); badRuns.add(run.id); }
     for (const j of run.jobs) if (j.conclusion !== 'success') { bad.push(`${run.url}  ${j.name}  ${j.conclusion || j.status}`); badRuns.add(run.id); }
     for (const name of jobNames) if (!run.jobs.some(j => j.name === name)) { bad.push(`${run.url}  ${name}  missing`); badRuns.add(run.id); }
   }
   // a failure on this commit is a signal even when another run of it passed; a flake is fixed by re-running that job on GitHub
-  if (badRuns.size > 0) return { state: 'red', runs, lines: bad };
+  if (badRuns.size > 0) {
+    const note = await noStepNote(gh, repo, runs);
+    return { state: 'red', runs, lines: note ? [...bad, note] : bad };
+  }
   return { state: 'green', runs, lines: [`ci green: ${sha} run ${runs.map(r => r.id).join(', ')}, ${jobCount} of ${jobCount} jobs success`] };
 }

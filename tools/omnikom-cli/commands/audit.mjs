@@ -1,7 +1,9 @@
-// audit --dir <folder> [--json] [--only <ids>]   the audit engine over a built folder (tools/audit), its lines printed as the engine made them
-// gate  --dir <folder> [--json]                  the publish gate: every rule, only the FAIL lines and one verdict line (23-GROUND-RULES rule 7)
+// audit --dir <folder> [--json] [--only <ids>] [--target preview|production]   the audit engine over a built folder (tools/audit), its lines printed as the engine made them
+// gate  --dir <folder> [--json] [--target preview|production]                  the publish gate: every rule, only the FAIL lines and one verdict line (23-GROUND-RULES rule 7)
 // Both are thin: the engine judges, this file adds no rule, rewrites no line and swallows no exit code. Both read a folder and write
-// nothing: no network, no database, no target. --dir is required (a gate that runs on the wrong folder passes silently).
+// nothing: no network, no database, no environment. --dir is required (a gate that runs on the wrong folder passes silently).
+// --target is the BUILD target (the engine's ENV-001 judges indexing against it), passed through as { target }; with none the engine
+// passes nothing on to ENV-001 (it prints its one SKIP line). lib/target.mjs exempts exactly these two commands from the production guard.
 // Exit: 0 no FAIL, 1 at least one FAIL (main derives both from result.ok), 2 usage, bad rule id, or a crash inside the engine
 // (a crash is never a pass and never a plain FAIL). In text mode (no --json) omnikom.mjs prints textOutput() instead of the JSON object.
 import { existsSync, statSync } from 'node:fs';
@@ -17,13 +19,15 @@ export class AuditCrash extends Error {
   constructor(message) { super(message); this.name = 'AuditCrash'; }
 }
 
+const BUILD_TARGETS = ['preview', 'production'];
 const isFail = line => /^FAIL /.test(line);
 const message = e => String((e && e.message) || e).slice(0, 300);
 
 function inputs(ctx, name, { only }) {
   const f = ctx.flags;
   if (ctx.positionals.length > 1) throw new Usage(`${name}: unexpected argument '${ctx.positionals[1]}' (the folder goes in --dir)`);
-  if (f.target !== undefined) throw new Usage(`${name} takes no --target: it reads a folder and nothing else`);
+  // --target here is the BUILD target the engine judges ENV-001 against, never a database environment (these two commands talk to none)
+  if (f.target !== undefined && !BUILD_TARGETS.includes(f.target)) throw new Usage(`${name} takes --target preview|production (the build's target); it talks to no environment`);
   if (f.expect !== undefined) throw new Usage(`${name} takes no --expect: a verdict that can be told to match a failure is not a gate`);
   if (!only && f.only !== undefined) throw new Usage(`${name} takes no --only: a gate with fewer rules is a weaker gate`);
   const dir = resolve(need(f, 'dir'));
@@ -35,7 +39,7 @@ function inputs(ctx, name, { only }) {
     rules = String(f.only).split(',').map(s => s.trim()).filter(Boolean);
     if (rules.length === 0) throw new Usage('--only needs at least one rule id');
   }
-  return { dir, rules };
+  return { dir, rules, target: f.target };
 }
 
 // the library call; a refusal of the engine (AuditError: unknown rule id, bad config) is usage, any other throw is a crash
@@ -64,14 +68,14 @@ const guarded = fn => async ctx => {
 };
 
 export const audit = guarded(async ctx => {
-  const { dir, rules } = inputs(ctx, 'audit', { only: true });
-  const r = await runLib(ctx, dir, rules ? { rules } : {});
+  const { dir, rules, target } = inputs(ctx, 'audit', { only: true });
+  const r = await runLib(ctx, dir, { ...(rules ? { rules } : {}), ...(target ? { target } : {}) });
   return result(r.pass, r.pass ? 'ok' : 'AUDIT-FAILED', r);
 });
 
 export const gate = guarded(async ctx => {
-  const { dir } = inputs(ctx, 'gate', { only: false });
-  const r = await runLib(ctx, dir, {});
+  const { dir, target } = inputs(ctx, 'gate', { only: false });
+  const r = await runLib(ctx, dir, target ? { target } : {});
   const fails = r.lines.filter(isFail);
   const pass = r.pass && fails.length === 0;
   const data = { pass, exit: pass ? 0 : 1, fails, pages: r.pages.length, rules: r.rules.length };

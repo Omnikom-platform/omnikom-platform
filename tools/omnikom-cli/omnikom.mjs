@@ -39,11 +39,11 @@ export const USAGE = [
   'contract validate --file <f> | contract place --file <f> --rows <f>',
   'lead send --site <slug> [--form contact] [--fixture <f>] [--retry] [--key <uuid>] | lead list|get|update|add|delete --as <person> ...',
   'content save|get|history --as <person> ... | publish --as <person> --site <slug> --rows <ids> | job get|wait|set --job <id>',
-  'audit --dir <built site folder> [--only <rule ids>] | gate --dir <built site folder>   (text lines by default; exit 0 pass, 1 FAIL, 2 usage or crash)',
+  'audit --dir <built site folder> [--only <rule ids>] [--target preview|production] | gate --dir <built site folder> [--target preview|production]   (text lines by default; --target is the build\'s target, not a database; exit 0 pass, 1 FAIL, 2 usage or crash)',
   'tools ensure [--only a,b] | tools list   (the binaries the checks need, from tools.json, into the git-ignored .tools/; no target)',
   'ci [--job <id>] [--root <dir>] [--install]   (every job of .github/workflows/ci.yml, locally, with those binaries; text lines by default; exit 0 all PASS, 1 FAIL, 2 usage)',
   'impact <files...> | --staged | --commit <sha>   (every tracked file that imports, reads or copies the changed files, with its owner and the gates that cover it; text lines, exit 0)',
-  'land check/<department>/<slug> [--remote backup-gh] [--wait-minutes 60]   (waits for GitHub\'s ci run of that branch\'s commit, refuses on any red job, then fast-forwards master and pushes; no target; exit 0 landed, 1 refused, 2 usage, 3 blocked)',
+  'land check/<department>/<slug> [--remote backup-gh] [--wait-minutes 60] [--lock-wait-minutes 30]   (waits in line for the land lock, then for GitHub\'s ci run of that branch\'s commit, refuses on any red job, then fast-forwards master and pushes and brings this checkout\'s local master along when that is safe; no target; exit 0 landed, 1 refused, 2 usage, 3 blocked)',
   'hooks install | uninstall | status   (the pre-push hook: master takes only a commit with a green GitHub ci run, check/** branches are allowed)   |   ci --staged | --commit <sha> [--job <id>] [--install]   (ci on that exact tree, to reproduce a red GitHub job; no stamp)',
   'flags: --target staging|local|production  --as <identity>  --expect <code>  --json  --fixture <file>  --real',
 ];
