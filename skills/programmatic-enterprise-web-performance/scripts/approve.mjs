@@ -1,6 +1,6 @@
-// Operator verbs `approve targets`, `approve plan` (shipgate 06 TR-235) and, from the overhaul mode, `approve business|competitors|seeds`,
+// Operator verbs `approve targets`, `approve plan` (shipgate 06 TR-235) and, from the overhaul mode, `approve business|competitors|seeds|prompt-map`,
 // and the lock check every later stage uses.
-// Usage: node approve.mjs <target> targets|plan|business|competitors|seeds [--by "<owner name>"] [--from proposals] [--run <research run id>] [--cwd DIR] [--pewp DIR]
+// Usage: node approve.mjs <target> targets|plan|business|competitors|seeds|prompt-map [--by "<owner name>"] [--from proposals] [--run <research run id>] [--cwd DIR] [--pewp DIR]
 //        node approve.mjs <target> --check            verify the lock only (exit 0 ok, 1 a file changed after approval, 2 nothing approved)
 // <target> = a URL (state in <cwd>/site-checks/<host>/.pewp/) or a repo path (state in <repo>/.pewp/); --pewp names the folder directly.
 // What it does: shows the diff of the source against the current approved copy, then (only with --by) writes
@@ -18,6 +18,7 @@
 //                                            brand.constraints, vocabulary) has a provenance other than "owner" (intake.mjs writes provenance; stages/intake.md)
 //   research/competitors-proposed.json    -> approved/competitors.json  REFUSED while a row lacks evidenceUrl, kind, closeness 1..5, or both domain and handle
 //   research/seeds.json                    -> approved/seeds.json        REFUSED while a query lacks `from` (where it came from)
+//   research/prompt-map.json               -> approved/prompt-map.json   REFUSED while a row fails the prompt-map validator (lib-prompt-map.mjs); plan-site.mjs reads the approved copy first
 // approvedMatches(pewp, kind) says whether the approved copy is current (sha256 of the source == the lock entry).
 // Exit 0 approved / no change / lock ok, 1 invalid source or lock failed, 2 cannot judge (file missing), 3 diff shown, not signed (no --by).
 import fs from "node:fs";
@@ -27,6 +28,7 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { locate } from "./state.mjs";
 import { validate, validateBusiness } from "./targets-validate.mjs";
+import { validateMap } from "./lib-prompt-map.mjs";
 
 export const sha256 = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
 const J = (p) => JSON.parse(fs.readFileSync(p, "utf8").replace(/^\uFEFF/, "")); // a BOM from a Windows editor is not "not JSON"
@@ -38,6 +40,7 @@ export const FILE_KINDS = {
   business: { src: "business.json", dst: "business.json" },
   competitors: { src: "research/competitors-proposed.json", dst: "competitors.json" },
   seeds: { src: "research/seeds.json", dst: "seeds.json" },
+  "prompt-map": { src: "research/prompt-map.json", dst: "prompt-map.json" }, // DECISIONS 35: plan-site.mjs reads the approved copy first
 };
 export const OWNER_ONLY = ["kind", "offer", "audience", "goals", "competitors", "brand.constraints", "vocabulary"];
 
@@ -184,8 +187,13 @@ function checkSeeds(doc) {
   if (!bad.length) return [];
   return [`${bad.length} of ${q.length} queries have no "from" (where the query came from): ${bad.slice(0, 6).map((x) => JSON.stringify(x?.query ?? x)).join(", ")}${bad.length > 6 ? ", ..." : ""}. ${FIX.seeds}`];
 }
-const CHECKS = { business: checkBusiness, competitors: checkCompetitors, seeds: checkSeeds };
-const NOTFOUND = { business: " (run intake.mjs)", competitors: " (run competitors-discover.mjs)", seeds: " (run research-seeds.mjs)" };
+function checkPromptMap(doc) {
+  const v = validateMap(doc);
+  if (!v.ok) return [`prompt-map.json is not a valid prompt map (${v.errors.length} error(s)); run research-prompts.mjs <target> --check`, ...v.errors.slice(0, 8).map((e) => `  ${e.rule} ${e.id}: ${e.message}`)];
+  return v.rows ? [] : ["prompt-map.json has no rows"];
+}
+const CHECKS = { business: checkBusiness, competitors: checkCompetitors, seeds: checkSeeds, "prompt-map": checkPromptMap };
+const NOTFOUND = { business: " (run intake.mjs)", competitors: " (run competitors-discover.mjs)", seeds: " (run research-seeds.mjs)", "prompt-map": " (write research/prompt-map.json: stages/research.md, Prompt map)" };
 
 function diffFile(kind, o, n) {
   const L = [];
@@ -197,6 +205,11 @@ function diffFile(kind, o, n) {
     for (const [k, r] of nm) if (!om.has(k)) L.push(`+ ${r.name} (${r.handle || r.domain}, ${r.kind}, closeness ${r.closeness})`);
     for (const [k, r] of om) if (!nm.has(k)) L.push(`- ${r.name} (${r.handle || r.domain})`);
     for (const [k, r] of nm) { const p = om.get(k); if (!p) continue; for (const f of ["kind", "closeness", "evidenceUrl", "domain", "handle"]) if (JSON.stringify(p[f]) !== JSON.stringify(r[f])) L.push(`~ ${r.name}.${f}: ${short(p[f])} -> ${short(r[f])}`); }
+  } else if (kind === "prompt-map") {
+    const om = new Map((rowsOf(o) || []).map((r) => [r.id, r])), nm = new Map((rowsOf(n) || []).map((r) => [r.id, r]));
+    for (const [k, r] of nm) if (!om.has(k)) L.push(`+ ${k} "${short(r.prompt)}" (${r.fix?.kind})`);
+    for (const [k, r] of om) if (!nm.has(k)) L.push(`- ${k} "${short(r.prompt)}"`);
+    for (const [k, r] of nm) { const p = om.get(k); if (p && JSON.stringify(p.fix) !== JSON.stringify(r.fix)) L.push(`~ ${k}.fix: ${short(p.fix?.kind)} -> ${short(r.fix?.kind)}`); }
   } else {
     const om = new Map((o.queries || []).map((q) => [q.query, q])), nm = new Map((n.queries || []).map((q) => [q.query, q]));
     for (const [k, q] of nm) if (!om.has(k)) L.push(`+ "${k}" (from ${short(q.from)})`);
@@ -224,7 +237,7 @@ function approveFile(pewp, kind, { by, log, lock, stamp }) {
   fs.writeFileSync(dstFile, buf);
   lock[kind] = { approvedAt: stamp, approvedBy: by, source: spec.src, files: { [spec.dst]: sha } };
   fs.writeFileSync(path.join(dir, "lock.json"), JSON.stringify(lock, null, 1) + "\n");
-  const n = kind === "competitors" ? `${rowsOf(doc).length} rows` : kind === "seeds" ? `${doc.queries.length} queries` : `${doc.name || doc.domain}`;
+  const n = kind === "competitors" || kind === "prompt-map" ? `${rowsOf(doc).length} rows` : kind === "seeds" ? `${doc.queries.length} queries` : `${doc.name || doc.domain}`;
   log(`PASS approve ${kind}: ${n} signed by ${by} at ${stamp} (sha256 ${sha.slice(0, 12)})`);
   return 0;
 }
@@ -240,7 +253,7 @@ export function approvedMatches(pewp, kind) {
     return JSON.stringify(Object.entries(nh).sort()) === JSON.stringify(Object.entries(oh).sort()) ? { ok: true, reason: "the approved plan matches plan/" } : { ok: false, reason: `plan/ changed since it was approved: ${how}` };
   }
   const spec = kind === "targets" ? { src: "targets.json", dst: "targets.json" } : FILE_KINDS[kind];
-  if (!spec) return { ok: false, reason: `unknown kind "${kind}" (targets, plan, business, competitors, seeds)` };
+  if (!spec) return { ok: false, reason: `unknown kind "${kind}" (targets, plan, business, competitors, seeds, prompt-map)` };
   if (!entry) return { ok: false, reason: `${kind} is not approved yet (no ${kind} entry in approved/lock.json): ${how}` };
   const want = entry.files?.[spec.dst], dstFile = path.join(dir, spec.dst), srcFile = path.join(pewp, ...spec.src.split("/"));
   if (!fs.existsSync(dstFile)) return { ok: false, reason: `approved/${spec.dst} is missing` };
@@ -312,7 +325,7 @@ function main() {
   const a = process.argv.slice(2);
   const opt = (k) => (a.includes(k) ? a[a.indexOf(k) + 1] : null);
   const pos = a.filter((x, i) => !x.startsWith("--") && !["--by", "--from", "--run", "--cwd", "--pewp"].includes(a[i - 1]));
-  if (!opt("--pewp") && pos.length < 1) { console.error('usage: node approve.mjs <target> targets|plan|business|competitors|seeds [--by "<name>"] [--from proposals] [--run ID] [--cwd DIR] [--pewp DIR] | <target> --check'); process.exit(2); }
+  if (!opt("--pewp") && pos.length < 1) { console.error('usage: node approve.mjs <target> targets|plan|business|competitors|seeds|prompt-map [--by "<name>"] [--from proposals] [--run ID] [--cwd DIR] [--pewp DIR] | <target> --check'); process.exit(2); }
   const pewp = opt("--pewp") ? path.resolve(opt("--pewp")) : locate(pos[0], { cwd: opt("--cwd") || process.cwd() }).pewp;
   if (a.includes("--check")) {
     const r = verifyLock(pewp);
@@ -325,7 +338,7 @@ function main() {
     process.exit(0);
   }
   const kind = pos[pos.length - 1];
-  if (!["targets", "plan", ...Object.keys(FILE_KINDS)].includes(kind)) { console.error("say what to approve: targets, plan, business, competitors or seeds"); process.exit(2); }
+  if (!["targets", "plan", ...Object.keys(FILE_KINDS)].includes(kind)) { console.error("say what to approve: targets, plan, business, competitors, seeds or prompt-map"); process.exit(2); }
   process.exit(approve(pewp, kind, { by: opt("--by"), from: opt("--from"), run: opt("--run") }));
 }
 if (isMain(import.meta.url)) main();

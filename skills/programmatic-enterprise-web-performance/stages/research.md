@@ -120,9 +120,45 @@ box, do NOT press Enter, save the list shown as `<pewp>/captures/autocomplete/<i
 `{"seed":"realtor in tracy","engine":"google|bing","capturedAt":"ISO","browser":"owner's Edge","language":"en","location":{"requested":"Tracy, CA","footer":"..."},"suggestions":["realtor in tracy ca", "..."]}`.
 A file without seed, engine, date, language, location or suggestions is rejected with the reason. Scripts never fetch an autocomplete endpoint.
 
+## Prompt map (DECISIONS 35; the schema is `schemas/prompt-map.md`)
+A **prompt** is a whole situation a buyer types into an AI engine: a scenario, a comparison and a constraint. `targets.json` plans a page per search; the prompt map
+is the other half: which real questions buyers ask, which page answers each, and what ChatGPT, Perplexity and Gemini say about us for it. Run it after the clusters
+exist, when the owner has at least one source of buyer words. **No invented rows**: a prompt with no source is not a row. No volume target, no "100 questions".
+1. **Gather the words.** `node scripts/research-prompts.mjs <target> --leads FILE.csv --reviews FILE.json` (either, both, or neither when `research/forums.json` or
+   `research/existing.json` exist). `--leads` is the CSV of the dashboard lead-export of ONE workspace, saved by the owner; `--reviews` is a JSON list of public reviews
+   the owner saved, `[{ "text", "url", "date", "platform" }]`. Only the free text of a lead's `answers` is read; no name, email, phone or id is read into any file, and an answer
+   that names the person or holds an email or a phone is dropped whole (counted in `inputs.leads.personalDataDropped`). Never across clients: one workspace's words never go
+   into another client's map. Output `<pewp>/private/prompt-candidates.json`: one candidate per distinct wording, every source with `file:row` or url, date and the quote (cut to 300 characters),
+   parts empty. The script drafts; it does not judge. **Lead text never reaches a file a repo target commits:** the candidates live only in `private/` (its own `.gitignore` is `*`, written first on every run),
+   and a lead source in `prompt-map.json` has `ref` and `seenAt` and NO `quote` (`--check` refuses one); review, forum, existing and owner sources keep their quote.
+2. **Split each candidate into the three parts (the session's judgement).** Read the buyer's words and write, in `research/prompt-map.json`, a row per candidate worth keeping:
+   - `scenario`: who the buyer is and what is happening to them. `comparison`: the two (or more) options they are weighing, or what they want compared to what they have.
+     `constraint`: the limit that decides it (a budget, a deadline, a size, a place, a rule). `location`: the city or region the buyer names ("" when none).
+   - Use the buyer's terms, not yours; a part you cannot find in the sentence is a sign the prompt is not a whole situation: do not make one up, leave the candidate out.
+   - **Reword in the buyer's terms, never copy a lead's sentence.** `prompt`, `scenario`, `comparison` and `constraint` are committed; a lead's text is not. `--check` refuses a row that holds 8 or more consecutive words of any lead quote in `private/prompt-candidates.json` (it names the row id and the source ref, never the words); without that file it prints `lead wording not checked: no private candidates`. A forum, review or existing question is public: its wording may be kept.
+   - For a candidate with a lead source write `prompt` in your own words (see the rule above); otherwise keep `prompt` as the candidate's text. When you change it, the `id` must be recomputed (`pm-` plus the first 8 hex of sha256 of the prompt); `--check` prints the id it expects.
+   Three worked examples (an invented tea shop, `kettleandleaf.test`; not a client):
+   - Lead quote "Looking for a gift box for an office of twelve people, is loose leaf better than bags for a gift?" -> scenario "buying a gift for an office team of twelve",
+     comparison "loose leaf tea versus tea bags as a gift", constraint "twelve recipients", location "".
+   - Review "Bought a sampler as a gift for my mother-in-law who only drinks black tea, she loved the Assam" -> scenario "choosing a gift for someone who drinks only black tea",
+     comparison "a sampler versus a single large tin", constraint "recipient drinks only black tea", location "". (A review is a past purchase: restate it as the question the buyer asked before buying; keep the review as the source and its words as the quote.)
+   - Forum "Is gyokuro worth the price compared to sencha for a beginner?" -> scenario "a beginner choosing a Japanese green tea", comparison "gyokuro versus sencha",
+     constraint "price against a beginner's palate", location "".
+3. **One fix per row**, exactly one kind: `new-page` (nothing on the site answers it: `target "new"`, `pageType` `situation` for a scenario page or `comparison` for an honest side by side),
+   `improve-page` (an existing page nearly answers it: `target` its path, say what to add in `note`), or `earn-mention` (the question is answered best by someone else's page, so we earn a mention:
+   `target` "new" or the page the mention should point to; the plan lists it in `plan/offsite.json`). Two fixes for one prompt means two prompts or the wrong split: pick one.
+4. **Unsourced goes to its own file.** Something the owner said with no record, or a guess, is not a row: put `{ "prompt", "why" }` in `research/prompt-unsourced.json`. If the owner states it directly and
+   there is a message or note to point at, it is a row with source kind `owner` and that file as `ref`.
+5. **Check, then fill the engines.** `node scripts/research-prompts.mjs <target> --check` (exit 1 names every refused row and rule). Then capture the answers: ChatGPT and Perplexity are owner captures in
+   the owner's browser (section 6 of "Capturing results pages", one file per run in `captures/ai/`, with the exact `prompt`, or a `promptId` field); Gemini runs only under its own gate
+   (`GEMINI_API_KEY` and `PEWP_GEMINI_TERMS_ACK=1`, the owner's yes) through `research-ai.mjs --questions-file` with the prompts. Then `node scripts/research-prompts.mjs <target> --engines` fills each row's
+   `engines` from `research/ai-citations.json` and `captures/ai/*.json`, matched by prompt id or the EXACT prompt text; a wording that differs matches nothing, and an engine nobody checked stays `null`.
+   The script makes no request. Run `--check` again.
+The monthly re-run of the map is the measure stage (`stages/measure.md`); the plan answers every row (`stages/plan.md`).
+
 ## Files written (`<pewp>/research/` unless said)
 `existing, seeds, gsc, bing, kwp, wiki, forums, serp, autocomplete, clusters, competitors, winners, ai-citations, assets, citations .json` (one per step; each starts with `step`, `status`
-`ok|blocked`, `generatedAt`, `market`, and a `blocked` text when blocked) · `ai-gemini-runs.json` (derived fields only) · `unmeasured.json` ·
+`ok|blocked`, `generatedAt`, `market`, and a `blocked` text when blocked) · `ai-gemini-runs.json` (derived fields only) · `private/prompt-candidates.json` (script draft, git-ignored, under `<pewp>/private/`), `prompt-map.json` and `prompt-unsourced.json` (the session's; schema `schemas/prompt-map.md`) · `unmeasured.json` ·
 `capture-requests.json` · `summary.json` (step results, why each cluster got its target page) · `report.md` · and `<pewp>/targets.json`,
 `<pewp>/authority.json`. Every response is cached under `<pewp>/cache/<source>/`; API keys and tokens are never stored.
 
@@ -182,4 +218,4 @@ name; competitors are never listed; `listed` needs proof in business.json (socia
 
 ## Proof for the run file (`runs/<date>-research.md`)
 The command, its exit code, the first 40 lines of output (the step table), `PASS targets-valid`, the count of captures and how many were
-`NOT LOCALIZED`, and the doctor result. Self-test: `node scripts/test-research.mjs`; watched-fail: `node scripts/mutants-research.mjs`.
+`NOT LOCALIZED`, and the doctor result. Self-test: `node scripts/test-research.mjs`; watched-fail: `node scripts/mutants-research.mjs`. Prompt map: `node scripts/test-prompt-map.mjs` (its own mutants run with it; `--no-mutants` skips them).

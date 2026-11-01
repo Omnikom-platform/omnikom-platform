@@ -56,7 +56,7 @@ if (args.includes("--mutants")) {
     { id: "grid-diff-ignores-lost-points", file: "local-grid.mjs", from: "left = (from != null && from <= 3) && !(to != null && to <= 3);", to: "left = false;", red: "grid diff: per point and per query" },
     { id: "grid-weak-coverage-silent", file: "measure.mjs", from: "if (s.solv3.value != null && s.solv3.value < th.gridSov3Floor)", to: "if (false)", red: "rules run B: MSR-010 reads the local grid" },
     { id: "grid-reimport-hides-diff", file: "local-grid.mjs", from: "if (lastG?.signature === signature) {", to: "if (false) {", red: "local run imports the grid when captures exist" },
-    { id: "main-check-exact-path", file: "measure-sources.mjs", from: "const a = real(arg);", to: "const a = null;", red: "junction: started through a junction" },
+    { id: "main-check-exact-path", file: "lib-main.mjs", from: "try { return norm(fs.realpathSync(arg)) === norm(fs.realpathSync(me)); }", to: "try { return norm(arg) === norm(fs.realpathSync(me)); }", red: "junction: started through a junction" },
     { id: "capture-bom-dropped", file: "measure-sources.mjs", from: "JSON.parse(stripBom(fs.readFileSync(p, \"utf8\")))", to: "JSON.parse(fs.readFileSync(p, \"utf8\"))", red: "captures: a capture file saved with a BOM" },
     { id: "tel-stray-percent", file: "measure-sources.mjs", from: "map((m) => safeDecode(m[1]))", to: "map((m) => decodeURIComponent(m[1]))", red: "html: a tel: link with a stray %" },
     { id: "map-stray-percent", file: "migrate.mjs", from: "const slugTokens = (p) => [...new Set(nfkc(safeDecode(p))", to: "const slugTokens = (p) => [...new Set(nfkc(decodeURIComponent(p))", red: "map: an old address with a stray %" },
@@ -424,7 +424,8 @@ try {
   const bingRows = bingCap ? S.rankingRowsFromCaptures([{ ...bingCap, _file: "C03.bing.json" }], { domain: "mysite.example" }) : { rows: [], rejected: [] };
   check("import-md: a Bing capture (no location setting) is kept under its 'NOT LOCALIZED' label, not rejected for a missing place", bingRows.rows.length === 1 && bingRows.rows[0].engine === "bing" && bingRows.rows[0].localized === false && /^NOT LOCALIZED/.test(bingRows.rows[0].location) && bingRows.rows[0].position.value === 2 && bingRows.rejected.length === 0, JSON.stringify(imd2) + JSON.stringify(bingRows).slice(0, 300));
   const aiMdDir = path.join(tmp, "ai-md");
-  w(path.join(aiMdDir, "AI-C03.chatgpt.md"), `# AI-C03.chatgpt — "who buys houses for cash in Tracy, CA" — ChatGPT — 2026-10-17 (night) — owner's Edge\n\n## Answer (verbatim, full)\nSome answer text.\n\n## Sources cited\n- maplehomebuyers.com\n- mysite.com\n`);
+  const EM = String.fromCharCode(0x2014); // the capture heading format uses an em dash; built from its code so the file carries none
+  w(path.join(aiMdDir, "AI-C03.chatgpt.md"), `# AI-C03.chatgpt ${EM} "who buys houses for cash in Tracy, CA" ${EM} ChatGPT ${EM} 2026-10-17 (night) ${EM} owner's Edge\n\n## Answer (verbatim, full)\nSome answer text.\n\n## Sources cited\n- maplehomebuyers.com\n- mysite.com\n`);
   w(path.join(aiMdDir, "x.json"), { question: "q json", engine: "perplexity", capturedAt: "2026-10-17", sources: ["https://www.zillow.com/a", { url: "https://redfin.com/b" }] });
   w(path.join(aiMdDir, "undated.json"), { question: "q undated", engine: "perplexity", citedDomains: ["a.com"] });
   const lac = await S.loadAiCaptures(aiMdDir); const aiR = S.aiRowsFromCaptures(lac.caps, { domain: "mysite.com", competitors: [] });

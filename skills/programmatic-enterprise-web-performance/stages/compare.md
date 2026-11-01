@@ -35,7 +35,7 @@ A repo has no running site, so its speed and weight are "n/a": audit its preview
 3. **Run the checker on each snapshot** (the coordinator, repo root = the snapshot folder) so each side has a `causes.json`. Without it the
    comparison still runs but the root-cause rows say NOT CHECKED. Show the owner the worker count first (`plan.mjs <snapshot dir> --dry`).
 4. **Authority, optional, free (15 to 30 minutes of disk reading):**
-   `node "<skill>/scripts/authority.mjs" site-checks/<hostA>/.pewp/authority.json --target <hostA> --competitor <hostB>` — one run
+   `node "<skill>/scripts/authority.mjs" site-checks/<hostA>/.pewp/authority.json --target <hostA> --competitor <hostB>`: one run
    covers both domains, and compare finds a side's domain in the other side's file. A preview is not in the web graph (0 links, by design).
 5. **Compare:** `node "<skill>/scripts/compare.mjs" <a> <b> [--cwd DIR] [--launch-state-b preview] [--strict]`.
    `--refresh` runs `live-target.mjs` for each URL first (REUSE or a new snapshot; options after `--` go to the crawler).

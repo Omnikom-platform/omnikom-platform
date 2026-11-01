@@ -22,9 +22,10 @@ import * as industry from "./gate-industry.mjs";
 import * as coverage from "./gate-coverage.mjs";
 import * as intentFit from "./gate-intent-fit.mjs";
 import * as freshness from "./gate-freshness.mjs";
+import * as promptCoverage from "./gate-prompt-coverage.mjs";
 import * as state from "./state.mjs";
 
-export const CHECKS = [targets, clusters, cannibal, queryMatch, brief, links, orphans, schema, programmatic, industry, coverage, intentFit, freshness];
+export const CHECKS = [targets, clusters, cannibal, queryMatch, brief, links, orphans, schema, programmatic, industry, coverage, intentFit, freshness, promptCoverage];
 const GLOSSARY = [
   ["cannibalisation", "two pages of one site competing for the same search, so neither ranks well"],
   ["orphan page", "a page no other page links to, so visitors and search engines rarely find it"],

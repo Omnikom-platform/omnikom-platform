@@ -16,6 +16,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { locate, markStage, load as loadState } from "./state.mjs";
 import { diffGrid } from "./local-grid.mjs";
 import { resolveInputs } from "./approve.mjs";
+import { ENGINES, observationsFrom, fillEngines, isIsoDate } from "./lib-prompt-map.mjs";
+import { loadPromptMap, PromptMapError } from "./lib-prompt-plan.mjs";
 import {
   DEFAULT_ENDPOINTS, Budget, ALPHA3, fact, nfkc, words, containsWords, domainOf, isOurs, ymd, addDays, readJson, writeJson, blocked, normPath,
   poissonInterval, clicksChanged, cwvStatus, gscQuery, gscInspect, bingCall, bingAggregate, cruxQuery, geminiAsk, loadCaptures,
@@ -30,7 +32,8 @@ export const DEFAULT_CONFIG = {
   gsc: { site: null, country: null /* gsc alpha-3 lower case, default from market */ },
   bing: { site: null },
   crux: { maxUrls: 8, formFactor: "PHONE" },
-  ai: { model: "gemini-2.5-flash", runs: 3, maxQuestions: 10, questionsPerCluster: 2, gapMs: 60000, geminiTermsAcknowledged: false, questions: null },
+  ai: { model: "gemini-2.5-flash", runs: 3, maxQuestions: 10, questionsPerCluster: 2, gapMs: 60000, geminiTermsAcknowledged: false, questions: null,
+    prompts: null /* null = every row of the (approved) prompt map; a list of row ids = only those */, promptWindowDays: 31 /* an observation older than this is not this month's */ },
   captures: { rankings: "captures/serp" /* shared with research-serp-import.mjs */, ai: "captures/ai", conversions: "captures/conversions.json" },
   rankDevices: ["mobile"], // devices that get a (null) row when a target query has no Search Console data for them
   authority: { maxAgeDays: 90, top: 100000, competitors: [], release: null, cache: null },
@@ -79,6 +82,111 @@ export function targetsInfo(loc) {
   return { present: true, raw: t, clusters, queries, questions, pages };
 }
 
+// ---------- the prompt map, monthly (DECISIONS 35, slice 5d) ----------
+// ai.prompts comes from the approved prompt map (research/prompt-map.json when nothing is approved): every row, or the rows whose ids config.json lists.
+// A month's engines block is built from what was OBSERVED inside the window (research/ai-citations.json, owner captures, this run's Gemini answers); the engines
+// the map itself carries are never copied, so an old observation cannot pass for this month's. null stays null: not checked is not "no".
+export const PROMPT_FILE = "prompt-map.json";
+export function promptMapInfo(loc, cfg, today) {
+  const none = { present: false, ok: true, rows: [], unknownIds: [] };
+  let pm;
+  try { pm = loadPromptMap(loc.pewp, { today }); }
+  catch (e) { if (e instanceof PromptMapError) return { present: true, ok: false, reason: e.message, lines: e.lines, rows: [], unknownIds: [] }; throw e; }
+  if (!pm) return none;
+  const lock = resolveInputs(loc.pewp).lock;
+  if (pm.approved && lock.exists && !lock.ok) return { present: true, ok: false, reason: `approved/prompt-map.json cannot be trusted: ${lock.problems.join("; ")}`, lines: lock.problems, rows: [], unknownIds: [] };
+  const want = Array.isArray(cfg.ai.prompts) ? cfg.ai.prompts : null;
+  const have = new Set(pm.rows.map((r) => r.id));
+  return { present: true, ok: true, rel: pm.rel, approved: pm.approved, sha: pm.sha, total: pm.rows.length, rows: want ? pm.rows.filter((r) => want.includes(r.id)) : pm.rows, unknownIds: want ? want.filter((x) => !have.has(x)) : [] };
+}
+// the Gemini questions a map adds to the AI part: the buyer's whole sentence, alone, like every other question
+export const promptQuestions = (rows) => rows.map((r) => ({ question: r.prompt, clusterId: null, promptId: r.id }));
+
+// every observation of an AI engine about a prompt: research/ai-citations.json, owner captures (captures/ai/*.json), this run's Gemini answers
+export function promptObservations({ pewp, capDir, name, domain, aiRows = [], runSource }) {
+  const captures = loadCaptures(capDir).map(({ _file, ...doc }) => ({ file: path.basename(_file), doc }));
+  const ai = readJson(path.join(pewp, "research", "ai-citations.json"));
+  const obs = observationsFrom({ aiRows: ai?.status === "ok" ? ai.rows || [] : [], captures, domain, name });
+  for (const r of aiRows) {
+    if (r.method !== "api" || !r.promptId) continue;
+    const at = (r.dates || []).map((x) => String(x).slice(0, 10)).filter(isIsoDate).sort().at(-1);
+    if (at) obs.push({ engine: "gemini", promptId: r.promptId, keys: [r.prompt], named: null /* the API answer text is never kept, so a name is not tested */, cited: r.ourDomainCited, pageCited: null, at, source: runSource, capture: false });
+  }
+  return obs;
+}
+// One month of the map: the rows with the engines block of the observations inside (date - windowDays, date].
+export function promptMonth(rows, obs, date, windowDays = 31) {
+  const from = ymd(addDays(date, -windowDays));
+  const inWin = obs.filter((o) => o.at <= date && o.at > from);
+  const out = rows.map((r) => ({ id: r.id, prompt: r.prompt, location: r.location, fix: r.fix?.kind || null })); // engines are NOT copied from the map
+  const f = fillEngines(out, inWin);
+  return { rows: out, from, to: date, tally: f.tally, observations: inWin.length, outsideWindow: obs.length - inWin.length };
+}
+export const promptObserved = (r) => ENGINES.some((e) => r.engines?.[e] && (r.engines[e].named !== null || r.engines[e].cited !== null));
+// The diff of two months. A flip needs a real observation on BOTH sides: first looks (null -> value) and lost looks (value -> null) are listed, never called changes.
+export function diffPromptMonths(prev, cur) {
+  if (!prev) return { baseline: true, note: "First prompt-map run: nothing to compare yet. This month is the baseline for the next." };
+  const d = { baseline: false, previousDate: prev.date, currentDate: cur.date, changes: [], firstLooks: [], lostLooks: [], rowsAdded: [], rowsRemoved: [] };
+  const was = new Map((prev.rows || []).map((r) => [r.id, r])), now = new Map((cur.rows || []).map((r) => [r.id, r]));
+  for (const r of cur.rows || []) {
+    const o = was.get(r.id);
+    if (!o) { d.rowsAdded.push({ id: r.id, prompt: r.prompt }); continue; }
+    for (const e of ENGINES) {
+      const a = o.engines?.[e] || {}, b = r.engines?.[e] || {};
+      const sawA = a.named != null || a.cited != null, sawB = b.named != null || b.cited != null;
+      if (!sawA && sawB) { d.firstLooks.push({ id: r.id, prompt: r.prompt, engine: e, named: b.named ?? null, cited: b.cited ?? null }); continue; }
+      if (sawA && !sawB) { d.lostLooks.push({ id: r.id, prompt: r.prompt, engine: e, named: a.named ?? null, cited: a.cited ?? null, lastSeen: a.at ?? null }); continue; }
+      for (const f of ["named", "cited"]) if (a[f] != null && b[f] != null && a[f] !== b[f]) d.changes.push({ id: r.id, prompt: r.prompt, engine: e, field: f, from: a[f], to: b[f], kind: b[f] ? "gained" : "lost" });
+      if (a.cited === true && b.cited === true && a.pageCited && b.pageCited && a.pageCited !== b.pageCited) d.changes.push({ id: r.id, prompt: r.prompt, engine: e, field: "pageCited", from: a.pageCited, to: b.pageCited, kind: "page" });
+    }
+  }
+  for (const r of prev.rows || []) if (!now.has(r.id)) d.rowsRemoved.push({ id: r.id, prompt: r.prompt });
+  const n = (f, k) => d.changes.filter((c) => c.field === f && c.kind === k).length;
+  d.counts = { namedGained: n("named", "gained"), namedLost: n("named", "lost"), citedGained: n("cited", "gained"), citedLost: n("cited", "lost"), pageChanged: d.changes.filter((c) => c.field === "pageCited").length, firstLooks: d.firstLooks.length, lostLooks: d.lostLooks.length };
+  return d;
+}
+// the newest earlier month that wrote a usable prompt-map.json
+export function previousPromptMonth(measureRoot, date) {
+  if (!fs.existsSync(measureRoot)) return null;
+  for (const d of fs.readdirSync(measureRoot).filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x) && x < date).sort().reverse()) {
+    const j = readJson(path.join(measureRoot, d, PROMPT_FILE));
+    if (j?.step === "prompt-map" && Array.isArray(j.rows) && j.rows.length) return { ...j, date: d }; // an all-null month is still a month: its rows are what the next one is compared with
+  }
+  return null;
+}
+// The platform's ai-answers snapshot (blueprint 22 section 7, platform ruling 2026-11-01): ONE metrics_snapshots row per workspace per run day, source
+// "ai-answers", the per-prompt per-engine rows inside data.rows[]. Each inner row carries promptId, engine, named, cited, asked_at and an evidence URL or a dated
+// excerpt; the platform's CHECK refuses a row without them, and so does this writer. A pair nobody looked at has no row (null stays "not checked", never a row).
+export const AI_ANSWERS_SOURCE = "ai-answers";
+export const AI_ANSWERS_FILE = "ai-answers.json";
+const isHttpUrl = (s) => typeof s === "string" && /^https?:\/\/\S+$/.test(s);
+export function validateAiAnswerRow(r) {
+  if (!r || typeof r !== "object") return ["the row is not an object"];
+  const p = [];
+  if (typeof r.promptId !== "string" || !r.promptId) p.push("promptId missing");
+  if (!ENGINES.includes(r.engine)) p.push("engine missing or unknown");
+  for (const k of ["named", "cited"]) if (!(k in r) || (r[k] !== null && typeof r[k] !== "boolean")) p.push(`${k} missing`);
+  if (r.named == null && r.cited == null) p.push("neither named nor cited was observed");
+  if (typeof r.asked_at !== "string" || !isIsoDate(r.asked_at)) p.push("asked_at missing");
+  if (!isHttpUrl(r.evidence_url) && !(typeof r.evidence_excerpt === "string" && r.evidence_excerpt.trim())) p.push("evidence (a URL or a dated excerpt) missing");
+  return p;
+}
+export function aiAnswersSnapshot(doc, date) {
+  const rows = [], refused = [];
+  for (const r of doc?.rows || []) for (const engine of ENGINES) {
+    const x = r.engines?.[engine];
+    if (!x || (x.named == null && x.cited == null)) continue;
+    const url = isHttpUrl(x.pageCited) ? x.pageCited : null;
+    const row = { promptId: r.id, prompt: r.prompt, engine, named: x.named ?? null, cited: x.cited ?? null, pageCited: x.pageCited ?? null, asked_at: x.at ?? null,
+      evidence_url: url, evidence_excerpt: url || !x.source || !x.at ? null : `${x.source}, seen ${x.at}` };
+    const problems = validateAiAnswerRow(row);
+    if (problems.length) refused.push({ promptId: r.id, engine, problems }); else rows.push(row);
+  }
+  return { source: AI_ANSWERS_SOURCE, day: date, data: { date, mapSha256: doc?.map?.sha256 || null, rows }, refused };
+}
+const tri = (v) => (v === true ? "yes" : v === false ? "no" : "not checked");
+const engineText = (name, e) => (e && (e.named != null || e.cited != null) ? `${name} named ${tri(e.named)}, cited ${tri(e.cited)}${e.pageCited ? ` (${e.pageCited})` : ""}, seen ${e.at}` : `${name} not checked this month`);
+
 // ---------- windows ----------
 export function windowsFor(now, cfg) {
   const end = addDays(now, -cfg.lagDays);
@@ -90,7 +198,8 @@ export function windowsFor(now, cfg) {
 // ---------- the plan (printed before every run; the stop is the budget) ----------
 export function buildPlan(cfg, tInfo, loc, opts = {}) {
   const w = windowsFor(opts.now || new Date(), cfg);
-  const qs = cfg.ai.questions || tInfo.questions.slice(0, cfg.ai.maxQuestions);
+  const pq = opts.promptQuestions || []; // the prompt map's rows: asked after the cluster questions, under the same cost stop
+  const qs = [...(cfg.ai.questions || tInfo.questions.slice(0, cfg.ai.maxQuestions)), ...pq];
   const aiAnswers = qs.length * cfg.ai.runs;
   const env = opts.env || process.env;
   const lines = [
@@ -98,13 +207,13 @@ export function buildPlan(cfg, tInfo, loc, opts = {}) {
     `  windows: current ${w.current.start}..${w.current.end}, previous ${w.previous.start}..${w.previous.end}`,
     `  Search Console: 12 queries (6 tables x 2 windows, paged) for ${cfg.gsc.site || "(no property set)"}; URL Inspection up to ${Math.min(cfg.budgets.inspect, tInfo.pages.length)} pages`,
     `  Bing Webmaster: 2 calls (${env.BING_WEBMASTER_KEY ? "key set" : "no key: BLOCKED"}); CrUX: ${1 + Math.min(cfg.crux.maxUrls, tInfo.pages.length)} calls (${env.CRUX_API_KEY ? "key set" : "no key: BLOCKED"})`,
-    `  AI citations: ${qs.length} questions x ${cfg.ai.runs} runs = ${aiAnswers} Gemini answers (cap ${cfg.budgets.ai}), ${Math.round(Math.max(0, aiAnswers - 1) * cfg.ai.gapMs / 60000)} min at ${cfg.ai.gapMs / 1000}s apart (${env.GEMINI_API_KEY ? "key set" : "no key"}; terms acknowledged: ${cfg.ai.geminiTermsAcknowledged})`,
+    `  AI citations: ${qs.length} questions${pq.length ? ` (${pq.length} of them prompts from the prompt map)` : ""} x ${cfg.ai.runs} runs = ${aiAnswers} Gemini answers (cap ${cfg.budgets.ai}), ${Math.round(Math.max(0, aiAnswers - 1) * cfg.ai.gapMs / 60000)} min at ${cfg.ai.gapMs / 1000}s apart (${env.GEMINI_API_KEY ? "key set" : "no key"}; terms acknowledged: ${cfg.ai.geminiTermsAcknowledged})`,
     `  Total API calls capped at ${cfg.budgets.api}; no paid source is used.`,
   ];
   const over = [];
   if (aiAnswers > cfg.budgets.ai) over.push(`AI answers ${aiAnswers} > cap ${cfg.budgets.ai}`);
   if (12 > cfg.budgets.api) over.push("API cap below the 12 Search Console queries");
-  return { lines, over, windows: w, aiAnswers };
+  return { lines, over, windows: w, aiAnswers, questions: qs };
 }
 
 // ---------- collection ----------
@@ -219,7 +328,7 @@ async function collectAi(ctx, cfg, tInfo, capDir, competitors, plan) {
   const out = { status: "ok", rows: [], notes: [], rejected: [], competitors };
   const { caps, skippedMd } = await loadAiCaptures(capDir);
   const ar = aiRowsFromCaptures(caps, { domain: cfg.domain, aliases: cfg.aliases, competitors }); out.rows.push(...ar.rows); out.rejected.push(...ar.rejected, ...skippedMd);
-  const qs = cfg.ai.questions || tInfo.questions.slice(0, cfg.ai.maxQuestions);
+  const qs = plan.questions; // cluster questions, then the prompt map's rows (buildPlan)
   const env = ctx.env || process.env;
   let gemBlock = null;
   if (!cfg.ai.geminiTermsAcknowledged) gemBlock = { source: "gemini", reason: "Gemini terms not acknowledged. The Gemini API terms forbid storing or monitoring grounded results (project research, TRACKER-PROPOSAL T1b, 2026-10-18); the owner decision of 2026-10-22 says to use the free tier. Only cited domains and an answer hash are kept, never the answer text.", unblock: "The owner confirms in writing, then set ai.geminiTermsAcknowledged=true in measure/config.json." };
@@ -250,7 +359,7 @@ async function collectAi(ctx, cfg, tInfo, capDir, competitors, plan) {
 function aiRowFromRuns(q, runs, cfg, competitors, cut) {
   const ours = runs.filter((r) => r.citedDomains.some((d) => isOurs(d, cfg.domain, cfg.aliases))).length;
   const counts = {}; for (const r of runs) for (const d of r.citedDomains) counts[d] = (counts[d] || 0) + 1;
-  return { question: q.question, clusterId: q.clusterId || null, engine: "gemini", model: runs[0].model, prompt: q.question, runs: runs.length, location: "not settable in the API (provider default)", method: "api", incomplete: cut,
+  return { question: q.question, clusterId: q.clusterId || null, ...(q.promptId ? { promptId: q.promptId } : {}), engine: "gemini", model: runs[0].model, prompt: q.question, runs: runs.length, location: "not settable in the API (provider default)", method: "api", incomplete: cut,
     citedShare: fact(ours / runs.length, `Gemini API (${runs[0].model}) with Google Search grounding, ${runs.length} answer(s)`, runs.at(-1).fetchedAt, null, { estimate: runs.length < 3 }), citedCount: ours,
     citedSources: Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([d]) => d), sourceCounts: counts, ourDomainCited: ours > 0,
     competitorsCited: competitors.filter((c) => counts[domainOf(c)]).map(domainOf), answerHashes: runs.map((r) => r.answerHash), dates: runs.map((r) => r.fetchedAt) };
@@ -483,12 +592,12 @@ export function diffRuns(prev, cur, cfg) {
 
 // ---------- plain-words report ----------
 export function writeReport(dir, ctx) {
-  const { cfg, cur, diff, rules, plan, date } = ctx;
+  const { cfg, cur, diff, rules, plan, date, prompts } = ctx; // prompts: { info, doc, part } when a prompt map exists (slice 5d)
   const used = new Set();
   const term = (t, def) => (used.has(t) ? t : (used.add(t), `${t} (${def})`));
   const L = [];
   const g = cur.gsc;
-  const blockedAll = [["Search Console", cur.gsc], ["URL Inspection", cur.index], ["Bing", cur.bing], ["Field speed", cur.crux], ["Rankings", cur.rankings], ["AI answers", cur.ai], ["Authority", cur.authority], ["Conversions", cur.conversions]].filter(([, s]) => s.status === "blocked");
+  const blockedAll = [["Search Console", cur.gsc], ["URL Inspection", cur.index], ["Bing", cur.bing], ["Field speed", cur.crux], ["Rankings", cur.rankings], ["AI answers", cur.ai], ["Authority", cur.authority], ["Conversions", cur.conversions], ...(prompts?.part ? [["Prompt map", prompts.part]] : [])].filter(([, s]) => s.status === "blocked");
   const nums = [];
   const num = (label, f) => nums.push({ label, ...f });
   let headline;
@@ -531,25 +640,53 @@ export function writeReport(dir, ctx) {
   L.push("", "## AI answers", "");
   if (cur.ai.rows?.length) for (const r of cur.ai.rows.slice(0, 15)) L.push(`- "${r.question}" on ${r.engine}: cited in ${r.citedCount} of ${r.runs} answers${r.lowSample ? " (too few answers to trust)" : ""}${r.competitorsCited.length ? `; cited instead: ${r.competitorsCited.join(", ")}` : ""}.`);
   else L.push(`NOT MEASURED. ${cur.ai.blocked?.reason || "no answers"}. To fix: ${cur.ai.blocked?.unblock || ""}`);
+  L.push("", "## Prompts (what each AI engine says to a buyer's whole question)", "");
+  if (!prompts?.info?.present) L.push("No prompt map yet (the research stage writes research/prompt-map.json): nothing to re-run this month.");
+  else if (!prompts.info.ok) L.push(`NOT MEASURED. ${prompts.info.reason}. To fix: run research-prompts.mjs --check, fix the rows it names, then approve the map again.`);
+  else {
+    const rs = prompts.doc.rows;
+    L.push(`${rs.length} prompt(s) from ${prompts.info.rel}${prompts.info.approved ? " (signed by the owner)" : " (not yet signed)"}; observations from ${prompts.doc.window.from} (not included) to ${prompts.doc.window.to}. "Not checked" means nobody looked this month; it is never a "no".`, "");
+    for (const r of rs.slice(0, 40)) L.push(`- ${r.id} "${r.prompt}"${r.location ? ` (${r.location})` : ""}: ${ENGINES.map((e) => engineText(e, r.engines[e])).join("; ")}.`);
+    if (rs.length > 40) L.push(`- ... and ${rs.length - 40} more in prompt-map.json`);
+    const pd = diff.promptMap;
+    if (pd && !pd.baseline) {
+      L.push("", `Since ${pd.previousDate}: named gained ${pd.counts.namedGained}, named lost ${pd.counts.namedLost}, cited gained ${pd.counts.citedGained}, cited lost ${pd.counts.citedLost}, cited page changed ${pd.counts.pageChanged}; ${pd.counts.firstLooks} first look(s), ${pd.counts.lostLooks} prompt/engine pair(s) not checked this month.`);
+      for (const c of pd.changes.slice(0, 20)) L.push(`- ${c.id} on ${c.engine}: ${c.field === "pageCited" ? `cited page ${c.from} -> ${c.to}` : `${c.field} ${tri(c.from)} -> ${tri(c.to)}`}`);
+    } else if (pd) L.push("", pd.note);
+  }
   L.push("", "## Not measured yet (BLOCKED)", "");
   if (!blockedAll.length && !rules.blocked.length) L.push("Nothing is blocked.");
   for (const [n, s] of blockedAll) L.push(`- **${n}**: ${s.blocked.reason}. To fix: ${s.blocked.unblock}`);
-  for (const [n, s] of [["Search Console", cur.gsc], ["Bing", cur.bing], ["Field speed", cur.crux], ["Rankings", cur.rankings], ["AI answers", cur.ai], ["URL Inspection", cur.index]].filter(([, s]) => s.status === "partial" && s.blocked)) L.push(`- **${n}** (only partly measured): ${s.blocked.reason}. To fix: ${s.blocked.unblock}`);
+  for (const [n, s] of [["Search Console", cur.gsc], ["Bing", cur.bing], ["Field speed", cur.crux], ["Rankings", cur.rankings], ["AI answers", cur.ai], ["URL Inspection", cur.index], ...(prompts?.part ? [["Prompt map", prompts.part]] : [])].filter(([, s]) => s.status === "partial" && s.blocked)) L.push(`- **${n}** (only partly measured): ${s.blocked.reason}. To fix: ${s.blocked.unblock}`);
   L.push("", `Cost of this run: ${plan.lines.slice(2, 5).map((x) => x.trim()).join(" | ")}. Re-run: \`node ${path.join(cfg.cwd || ".", "site-checks", cfg.domain || "", ".pewp", "measure", "run.mjs")}\` (no model needed).`);
   fs.writeFileSync(path.join(dir, "report.md"), L.join("\n") + "\n");
-  const rj = { generatedAt: new Date().toISOString(), date, target: cfg.target, headline, numbers: nums, sources: Object.fromEntries(blockedAll.map(([n, s]) => [n, { status: "BLOCKED", ...s.blocked }])), findings: rules.findings, rulesBlocked: rules.blocked, diffFile: "diff.json" };
+  const rj = { generatedAt: new Date().toISOString(), date, target: cfg.target, headline, numbers: nums, sources: Object.fromEntries(blockedAll.map(([n, s]) => [n, { status: "BLOCKED", ...s.blocked }])), findings: rules.findings, rulesBlocked: rules.blocked, diffFile: "diff.json",
+    ...(prompts?.info?.present ? { promptMap: { status: prompts.part?.status || "ok", file: PROMPT_FILE, rows: prompts.doc?.rows?.length ?? 0, observedRows: prompts.doc?.observedRows ?? 0, changes: diff.promptMap?.counts || null } } : {}) };
   writeJson(path.join(dir, "report.json"), rj);
   return rj;
 }
 
 // diff.md is plain, for people who open the folder
+function promptDiffMarkdown(pd) {
+  if (!pd) return [];
+  if (pd.baseline) return ["", "## Prompt map", "", pd.note, ""];
+  const L = ["", `## Prompt map ${pd.previousDate} -> ${pd.currentDate}`, ""];
+  for (const c of pd.changes) L.push(`- ${c.id} [${c.engine}] ${c.field}: ${c.field === "pageCited" ? `${c.from} -> ${c.to}` : `${tri(c.from)} -> ${tri(c.to)}`}`);
+  for (const x of pd.firstLooks) L.push(`- first look: ${x.id} [${x.engine}] named ${tri(x.named)}, cited ${tri(x.cited)}`);
+  for (const x of pd.lostLooks) L.push(`- not checked this month: ${x.id} [${x.engine}] (last seen ${x.lastSeen})`);
+  for (const x of pd.rowsAdded) L.push(`- new prompt: ${x.id} "${x.prompt}"`);
+  for (const x of pd.rowsRemoved) L.push(`- prompt gone from the map: ${x.id} "${x.prompt}"`);
+  if (!pd.changes.length) L.push("- no named, cited or cited-page flip");
+  return [...L, ""];
+}
 function diffMarkdown(diff) {
-  if (diff.baseline) return `# Diff\n\n${diff.note}\n`;
+  if (diff.baseline) return [`# Diff`, "", diff.note, ...promptDiffMarkdown(diff.promptMap)].join("\n") + "\n";
   const L = [`# Diff ${diff.previousDate} -> ${diff.currentDate}`, ""];
   if (diff.gsc?.queries) { for (const [n, t] of [["Queries", diff.gsc.queries], ["Pages", diff.gsc.pages]]) { L.push(`## ${n}: gains and losses (clicks)`, ""); for (const x of t.gains) L.push(`- + ${x.key}: ${x.clicksFrom} -> ${x.clicksTo}${x.significant ? " (significant)" : ""}`); for (const x of t.losses) L.push(`- - ${x.key}: ${x.clicksFrom} -> ${x.clicksTo}${x.significant ? " (significant)" : ""}`); for (const x of t.newKeys) L.push(`- new: ${x.key} (${x.clicks} clicks)`); for (const x of t.lostKeys) L.push(`- lost: ${x.key} (was ${x.clicks} clicks)`); L.push(""); } }
   L.push("## Rankings (same query, source, place, device, language)", ""); for (const c of diff.rankChanges) L.push(`- ${c.query} [${c.source}, ${c.location}, ${c.device}]: ${c.from ?? "-"} -> ${c.to ?? "-"}${c.significant ? " (significant)" : ""}`);
   L.push("", "## AI citations", ""); for (const c of diff.aiChanges) L.push(`- ${c.question} [${c.engine}]: ${c.from.cited}/${c.from.runs} -> ${c.to.cited}/${c.to.runs}${c.significant ? " (significant)" : ""}`); for (const c of diff.newCitations) L.push(`- new citation: ${c.domain}${c.ours ? " (OURS)" : ""} for "${c.question}"`); for (const c of diff.lostCitations) L.push(`- lost citation: ${c.domain}${c.ours ? " (OURS)" : ""} for "${c.question}"`);
   L.push("", "## Referring domains (domain level)", ""); if (diff.authority?.skipped) L.push(diff.authority.skipped); else { L.push(diff.authority.note || `${diff.authority.fromCount} -> ${diff.authority.toCount}`); for (const x of diff.authority.gained) L.push(`- new: ${x}`); for (const x of diff.authority.lost) L.push(`- lost: ${x}`); }
+  L.push(...promptDiffMarkdown(diff.promptMap));
   return L.join("\n") + "\n";
 }
 
@@ -565,7 +702,9 @@ export async function runMeasure(target, opts = {}) {
   const tInfo = targetsInfo(loc);
   const business = readJson(path.join(loc.pewp, "business.json")) || {};
   const competitors = [...new Set([...(cfg.competitors || []), ...(business.competitors || []), ...tInfo.clusters.flatMap((c) => (c.competitorsTop3 || []).map((x) => x.domain))].map(domainOf).filter(Boolean))];
-  const plan = buildPlan(cfg, tInfo, loc, { now, env: opts.env });
+  const pinfo = promptMapInfo(loc, cfg, date); // ai.prompts: the approved prompt map's rows, asked after the cluster questions
+  const plan = buildPlan(cfg, tInfo, loc, { now, env: opts.env, promptQuestions: promptQuestions(pinfo.rows) });
+  if (pinfo.present && pinfo.ok) plan.lines.splice(-1, 0, `  Prompt map: ${pinfo.rows.length} of ${pinfo.total} rows from ${pinfo.rel}${pinfo.unknownIds.length ? `; ai.prompts names ${pinfo.unknownIds.length} id(s) that are not in the map: ${pinfo.unknownIds.join(", ")}` : ""}`);
   for (const l of plan.lines) (opts.log || console.log)(l);
   if (opts.plan) return { plan };
   const ctx = { pewp: loc.pewp, endpoints: { ...DEFAULT_ENDPOINTS, ...(cfg.endpoints || {}) }, budget: new Budget(cfg.budgets), maxAgeDays: opts.fresh ? 0 : 1, env: opts.env || process.env, tokenFile: opts.tokenFile };
@@ -585,12 +724,34 @@ export async function runMeasure(target, opts = {}) {
   for (const [k, v] of Object.entries(cur)) writeJson(path.join(dir, k === "rankings" ? "rank-detail.json" : `${k}.json`), { fetchedAt: v.fetchedAt || new Date().toISOString(), ...v });
   writeJson(path.join(dir, "rankings.json"), contractRankings(cur.rankings, date));
   writeJson(path.join(dir, "citations.json"), contractCitations(cur.ai, date));
+  // the prompt map, this month (measure/<date>/prompt-map.json); no map means no file, and summary.json says so
+  const promptFile = path.join(dir, PROMPT_FILE);
+  let prompts = { info: pinfo, doc: null, part: null };
+  const aiFile = path.join(dir, AI_ANSWERS_FILE);
+  fs.rmSync(aiFile, { force: true }); // a stale snapshot of an earlier run of the same day never stays
+  if (!pinfo.present) fs.rmSync(promptFile, { force: true });
+  else if (!pinfo.ok) {
+    prompts.part = { status: "blocked", blocked: { source: "prompt-map", reason: pinfo.reason, unblock: "Run research-prompts.mjs <target> --check, fix the rows it names, and approve the map again (approve.mjs <target> prompt-map --by NAME)." } };
+    writeJson(promptFile, { step: "prompt-map", status: "blocked", date, blocked: prompts.part.blocked, rows: [] });
+  } else {
+    const obs = promptObservations({ pewp: loc.pewp, capDir: path.join(loc.pewp, cfg.captures.ai), name: business.name, domain: cfg.domain, aiRows: cur.ai.rows || [], runSource: `measure/${date}/ai.json (Gemini API)` });
+    const m = promptMonth(pinfo.rows, obs, date, cfg.ai.promptWindowDays);
+    const seen = m.rows.filter(promptObserved).length;
+    const status = !m.rows.length ? "blocked" : seen === 0 ? "blocked" : seen < m.rows.length ? "partial" : "ok";
+    const why = !m.rows.length ? "the prompt map has no row to measure" : `${m.rows.length - seen} of ${m.rows.length} prompts have no observation from ${m.from} (not included) to ${m.to}`;
+    if (status !== "ok") prompts.part = { status, blocked: { source: "ai-captures", reason: why, unblock: "Owner captures of ChatGPT and Perplexity answers go in captures/ai/ (one file per answer, with prompt or promptId, engine, capturedAt and sources; an `answer` text tests the business name); Gemini needs ai.geminiTermsAcknowledged and GEMINI_API_KEY." } };
+    prompts.doc = { step: "prompt-map", status, date, generatedAt: new Date().toISOString(), map: { file: pinfo.rel, approved: pinfo.approved, sha256: pinfo.sha }, window: { from: m.from, to: m.to, days: cfg.ai.promptWindowDays }, observations: m.observations, observationsOutsideWindow: m.outsideWindow, observedRows: seen, filled: m.tally, unknownIds: pinfo.unknownIds, rows: m.rows };
+    writeJson(promptFile, prompts.doc);
+    const snap = aiAnswersSnapshot(prompts.doc, date);
+    if (snap.data.rows.length || snap.refused.length) writeJson(aiFile, snap);
+  }
   const prevDir = previousRunDir(path.join(loc.pewp, "measure"), date);
   const prev = loadRun(prevDir);
   const curLoaded = { ...cur, date, dir };
   const diff = diffRuns(prev, curLoaded, cfg);
   const grids = gridRuns(loc); // the latest local grid against the one before it (local-grid.mjs import writes local/<date>/grid.json)
   diff.grid = grids.cur ? diffGrid(grids.prev, grids.cur, { positionDelta: cfg.thresholds.positionDelta }) : null;
+  if (prompts.doc) diff.promptMap = diffPromptMonths(previousPromptMonth(path.join(loc.pewp, "measure"), date), prompts.doc);
   writeJson(path.join(dir, "diff.json"), diff); fs.writeFileSync(path.join(dir, "diff.md"), diffMarkdown(diff));
   const ctrFile = cfg.ctrCurvePath || path.join(SKILL_DIR, "rules", "ctr-curve.json");
   const ctr = readJson(ctrFile) ? { source: `ruleset ${ctrFile}`, positions: readJson(ctrFile).positions } : DEFAULT_CTR_CURVE;
@@ -599,8 +760,10 @@ export async function runMeasure(target, opts = {}) {
   const summary = { date, target: cfg.target, domain: cfg.domain, windows: w, previousRun: prev?.date || null, ctrCurve: ctr.source,
     parts: Object.fromEntries(Object.entries(cur).map(([k, v]) => [k, { status: v.status === "ok" ? "ok" : v.status === "partial" ? "partial" : "BLOCKED", reason: v.blocked?.reason || null, unblock: v.blocked?.unblock || null }])),
     findings: rules.findings.length, rulesBlocked: rules.blocked.map((b) => b.rule), apiCalls: ctx.budget.used };
+  if (pinfo.present) summary.parts.promptMap = { status: prompts.part ? (prompts.part.status === "partial" ? "partial" : "BLOCKED") : "ok", reason: prompts.part?.blocked.reason || null, unblock: prompts.part?.blocked.unblock || null };
+  else summary.promptMap = { status: "none", note: "no research/prompt-map.json or approved/prompt-map.json: no prompt is re-run" };
   writeJson(path.join(dir, "summary.json"), summary);
-  writeReport(dir, { cfg, cur: curLoaded, diff, rules, plan, date });
+  writeReport(dir, { cfg, cur: curLoaded, diff, rules, plan, date, prompts });
   markStage(loc, "measure", { "measure dir": dir }, { date });
   (opts.log || console.log)(`measure ${date}: ${Object.entries(summary.parts).map(([k, v]) => `${k}=${v.status}`).join(" ")}; ${summary.findings} findings; diff against ${summary.previousRun || "nothing (baseline)"}; wrote ${dir}`);
   return { dir, summary, diff, rules, cur: curLoaded };

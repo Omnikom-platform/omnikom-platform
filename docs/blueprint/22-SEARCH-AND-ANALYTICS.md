@@ -57,3 +57,48 @@ launch ledger items L-B11, L-C (group C off-site) already name GSC and the sitem
 D14: Cloudflare Web Analytics by default and GA4 only on request (recommended: no consent banner, one toggle, free), or GA4 on
 every site (consent banner on every site, a Google property per client). D15: create the service account in the `omnikom-seo`
 Google Cloud project now (the owner's click; its JSON goes to the master .env), so W0.4 can test the verification path.
+
+## 7. Prompt map: what each AI engine says to a buyer's whole question (DECISIONS 35; skill slice 5d)
+A **prompt** is a whole situation a buyer types into ChatGPT, Perplexity or Gemini ("first-time buyer in Austin, renting vs
+buying, under 400k": a scenario, a comparison, a constraint). The map lists the prompts real buyers use, says which page (or
+off-site mention) answers each, and records what each engine said. The row (`schemas/prompt-map.md` in the skill):
+`{ id: "pm-<8 hex of sha256(prompt)>", prompt, scenario, comparison, constraint, location, sources[], engines, fix }`.
+- **Where it lives.** Research writes `research/prompt-map.json` in the site's `.pewp` folder (rows need at least one source;
+  a lead source carries a reference and a date, never the lead's words; no name, email or phone anywhere). The owner signs it
+  (`approved/prompt-map.json`). The plan answers every row (`plan/prompt-coverage.json`) and the publish audit refuses a build
+  that leaves a row unanswered without a written reason (rule PMP-001 in `tools/audit`). All of that is files in the skill's
+  state folder, not database rows.
+- **The monthly re-run.** `measure` (the skill's measure stage) re-runs the map once a month, on the owner's schedule: Gemini
+  under its existing gate and cost stop, ChatGPT and Perplexity from the owner's captures at human pace. Each run writes
+  `measure/<date>/prompt-map.json`: for each row the engines block of THAT month (`named`: the business name is in the answer text;
+  `cited`: our domain is among the cited sources; `pageCited`: the page of ours that was cited; `null` = not looked at, never "no";
+  only observations from the last 31 days count) and `diff.json` `promptMap`: named and cited flips and cited-page changes against
+  the last month. The report lists the rows per prompt.
+- **The `metrics_snapshots` shape** (platform ruling 2026-11-01, step 5-P4; the writer on the skill side is built, the platform's
+  writer and the dashboard's section 8, "Search and AI visibility" in `04-DASHBOARD.md`, are not). **One `metrics_snapshots` row per
+  workspace per run day**, `source = 'ai-answers'` (already in the table's CHECK), and the per-prompt per-engine rows inside the
+  `data` jsonb. No new table, no change to the primary key `(workspace_id, source, day)`
+  (`supabase/migrations/20261028000001_platform.sql:156-161`).
+  ```
+  { "source": "ai-answers", "day": "YYYY-MM-DD",
+    "data": { "date": "YYYY-MM-DD", "mapSha256": "<sha256 of the signed map>",
+      "rows": [ { "promptId": "pm-3fa9c1d2", "prompt": "<the buyer's whole sentence>", "engine": "chatgpt|perplexity|gemini",
+                  "named": true|false|null, "cited": true|false|null, "pageCited": "<our url>"|null,
+                  "asked_at": "YYYY-MM-DD", "evidence_url": "<url>"|null, "evidence_excerpt": "<text, seen YYYY-MM-DD>"|null }, ... ] } }
+  ```
+  Every inner row carries prompt id, engine, named, cited, asked_at and an evidence URL or a dated excerpt. 5-P4's migration adds a
+  CHECK that refuses an `ai-answers` row without them, and the skill's writer (`measure.mjs` `aiAnswersSnapshot`, file
+  `measure/<date>/ai-answers.json`) refuses the same rows first and lists them under `refused` instead of writing them. A
+  prompt and engine nobody looked at has no row: `null` in `named` or `cited` means "not tested" (the Gemini API answer text
+  is never kept, so its `named` is null), and a row with both null is refused. The evidence is the page of ours that was cited
+  (`evidence_url`), else a pointer to the capture or research file with the day it was seen (`evidence_excerpt`: a dated
+  pointer, not a quote of the answer). The table has no `site_id`: a workspace with more than one site keeps the site in
+  `data` until the platform decides otherwise.
+- **Shown** (section 8 of the dashboard, a later step; step 5's four screens have no visibility screen): per prompt, named / cited per
+  engine with the month and the source of each value, the flips since the last month, and "not checked this month" in plain words
+  for a null. Nothing is scored without its inputs.
+- **Honest limits.** The Gemini API answer text is never kept (its terms are UNVERIFIED), so Gemini's `named` comes from the
+  research stage's own check or stays null; ChatGPT and Perplexity are only as fresh as the owner's last capture; a flip is
+  one observation of an engine that varies from answer to answer, not a trend. UNPROVEN against any live engine: every
+  test runs on an invented shop and a fake Gemini.
+

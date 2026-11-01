@@ -8,7 +8,10 @@
 //        [--hub-min 4] [--home-max-links 40] [--prog-min-words 1000] [--prog-min-unique 600] [--prog-min-facts 5]
 //        [--prog-max-similarity 0.4] [--data-source "<text>"] [--require-approved-business]
 // --require-approved-business (put it after the folder): refuse (exit 1) unless approved/business.json exists and is the current business.json.
-// Exit 0 written, 1 targets.json / business.json invalid (nothing written), 2 cannot judge (file missing).
+// Prompt map (DECISIONS 35, schemas/prompt-map.md): when approved/prompt-map.json or research/prompt-map.json exists, every row is answered. improve-page adds the prompt to that
+// page's brief (## Prompts this page answers), new-page adds a `situation` or `comparison` page, earn-mention goes to plan/offsite.json; plan/prompt-coverage.json says which
+// page covers which row (GT-014 and the publish audit read it). A comparison page's facts about the other option come from plan/comparison-facts.json, each with a URL and a date.
+// Exit 0 written, 1 targets.json / business.json / prompt-map.json / comparison facts invalid (nothing written), 2 cannot judge (file missing).
 // Ported from this project's own specs (Francine & Eli): icm/work/seo-analyst/CODE-NEEDS-SEO.md (§1 page types, §2 schema per
 // page type, §5 internal-linking rules, §6 content templates and the city-page floor), icm/knowledge/market/must-have.md
 // (M-01..M-13), icm/phase-1/protocols/p1.2-site-plan (one target keyword per page, title <=60, description <=160).
@@ -22,6 +25,7 @@ import { loadIndustry, RULES_DIR } from "./lib-plan.mjs";
 import { compatibleTypes } from "./lib-growth.mjs";
 import * as state from "./state.mjs";
 import * as approveLib from "./approve.mjs";
+import { PromptMapError, loadPromptMap, routeRows, loadFacts, factLine, coverageDoc, mentionId, NO_FACTS, FACTS_FILE } from "./lib-prompt-plan.mjs";
 
 const args = process.argv.slice(2);
 const opt = (k, d = null) => (args.includes(k) ? args[args.indexOf(k) + 1] : d);
@@ -62,6 +66,8 @@ function outlineFor(kind, ctx) {
     case "home": return ["Who we are", "How we help", "Areas we serve", ...faq, `Talk to ${brand}`];
     case "city-landing": return [`Why work with ${brand} in ${City}`, `How we help in ${City}`, `${City} market and neighbourhood facts`, "What it costs", ...faq, `Talk to ${brand}`];
     case "guide": return ["The short answer", "What changes the answer", "Step by step", "Common mistakes", ...faq, "Next step"];
+    case "situation": return ["The short answer", "Your situation", "How the options compare", "What your limit changes", "Next step"];
+    case "comparison": return ["The short answer", "The options side by side", "Where each option is stronger", "Who each option suits", "Next step"];
     case "hub": return ["Where we work", "How we choose what to cover"];
     default: return ["How it works", "What you get", "Proof: reviews and results", ...faq, "Get started"];
   }
@@ -75,11 +81,12 @@ function schemaFor(kind, nQuestions, bizKind) {
     case "home": return [biz, "WebSite"];
     case "city-landing": return [bizKind === "real-estate-agent" ? "WebPage" : "Service", ...faq];
     case "guide": return ["Article", ...faq];
+    case "situation": case "comparison": return ["Article", ...faq];
     case "hub": return ["WebPage"];
     default: return ["Service", ...faq];
   }
 }
-const DEFAULT_WORDS = { home: [600, 1200], "city-landing": [1000, 1800], guide: [900, 2200], money: [700, 1400], hub: [250, 800] };
+const DEFAULT_WORDS = { home: [600, 1200], "city-landing": [1000, 1800], guide: [900, 2200], money: [700, 1400], hub: [250, 800], situation: [700, 1600], comparison: [800, 1800] };
 const CTA = { leads: "Get a free consultation", calls: "Call us", bookings: "Book a time", sales: "Get a quote" };
 
 // ---- load and validate ----
@@ -105,6 +112,10 @@ if (!vt.ok || !vb.ok) {
 }
 let industry = null;
 if (business.industry) { try { industry = loadIndustry(business.industry); } catch (e) { console.log(`ERROR plan cannot judge: ${e.message}`); process.exit(2); } }
+// the prompt map (approved copy first); a bad map or a bad fact stops the plan before anything is written
+const stopPrompt = (e) => { if (!(e instanceof PromptMapError)) throw e; console.log(e.code === 2 ? `ERROR plan cannot judge: ${e.message}` : `FAIL plan ${e.message}, nothing written`); for (const l of e.lines) console.log(`  ${l}`); process.exit(e.code); };
+let pm = null;
+try { pm = loadPromptMap(pewp, { today: OPTS.today }); } catch (e) { stopPrompt(e); }
 
 // ---- pages ----
 const brand = business.name;
@@ -125,12 +136,28 @@ if (!home) { usedPaths.add("/"); home = { cluster: null, path: "/", kind: "home"
 const cityPages = pages.filter((x) => x.kind === "city-landing");
 let hub = null;
 if (cityPages.length >= OPTS.hubMin) { hub = { cluster: null, path: uniquePath("/areas-we-serve/"), kind: "hub", isNew: true, role: "hub" }; pages.push(hub); }
+// prompt rows: improve-page rows join the brief of the page they name, new-page rows become `situation` / `comparison` pages (no cluster, a support page under home)
+const squash = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
+const promptHead = (r) => { const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1), a = squash(r.scenario), b = squash(r.comparison), c = squash(r.constraint); return r.fix.pageType === "comparison" ? `${cap(b)}: ${a}, ${c}` : `${cap(a)}: ${b}, ${c}`; };
+const cutSlug = (s, n) => (s.length <= n ? s : s.slice(0, n).replace(/-[^-]*$/, ""));
+let route = null, factsOf = new Map();
+if (pm) {
+  route = routeRows(pm.rows, new Set(pages.map((x) => x.path)), normPath);
+  if (route.problems.length) stopPrompt(new PromptMapError(`${pm.rel} names a page the plan does not have (${route.problems.length} row(s))`, 1, route.problems.slice(0, 12)));
+  try { factsOf = loadFacts(pewp, new Set(route.create.filter((r) => r.fix.pageType === "comparison").map((r) => r.id)), OPTS.today); } catch (e) { stopPrompt(e); }
+  for (const r of route.create) {
+    const head = promptHead(r), slug = cutSlug(slugify(head), 60) || r.id;
+    pages.push({ cluster: null, path: uniquePath(`/${r.fix.pageType === "comparison" ? "vs" : "situations"}/${slug}/`), kind: r.fix.pageType, isNew: true, promptRow: r, head, prompts: [r] });
+  }
+}
 const byPath = new Map(pages.map((x) => [x.path, x]));
+if (route) for (const { row, path: p } of route.improve) (byPath.get(p).prompts ||= []).push(row);
 
 // hubs and spokes: a cluster whose words are a strict subset of another's is that page's spoke; city pages go under the areas hub
 const qset = (x) => new Set(tokens(x.cluster.primaryQuery));
 for (const pg of pages) {
   if (pg === home || pg === hub) continue;
+  if (pg.promptRow) { pg.parent = "/"; continue; } // a prompt page has no cluster to compare words with: it hangs under home
   let parent = null, best = 0;
   for (const o of pages) {
     if (o === pg || !o.cluster || o === home) continue;
@@ -150,7 +177,7 @@ const progGroupOf = (pg) => (pg.kind === "city-landing" && cityPages.length >= 2
 for (const pg of pages) {
   const c = pg.cluster;
   const City = c?.location ? c.location.split(",")[0].trim() : (business.locations[0]?.serviceArea[0] || business.locations[0]?.name || "your area");
-  const pretty = c ? prettyQuery(c) : pg.kind === "hub" ? "Areas We Serve" : brand;
+  const pretty = c ? prettyQuery(c) : pg.promptRow ? pg.head : pg.kind === "hub" ? "Areas We Serve" : brand;
   pg.pretty = pretty;
   const headForTitle = pretty;
   const hasBrand = (x) => normName(x).includes(normName(brand));
@@ -167,6 +194,8 @@ for (const pg of pages) {
     guide: `${pretty}${/[?.!]$/.test(pretty) ? "" : "."} The plain answer, what changes it and the next step, from ${brand}.`,
     money: `${pretty}: how it works, what you get and what to do next with ${brand}. ${bizCta(pg.kind)}.`,
     hub: `Every area ${brand} works in, with a local page for each. ${bizCta(pg.kind)}.`,
+    situation: `${pretty}${/[?.!]$/.test(pretty) ? "" : "."} The plain answer and the next step, from ${brand}.`,
+    comparison: `${pretty}${/[?.!]$/.test(pretty) ? "" : "."} A fair side by side with sourced facts, from ${brand}.`,
   })[pg.kind];
   let body = bodies(true);
   if (body.length > 155) body = bodies(false);
@@ -231,15 +260,17 @@ const proofFor = (pg) => {
   return out;
 };
 const sections = (pg) => pg.outline.filter((h) => !/^(frequently asked questions|talk to|next step|get started)/i.test(h));
+// a prompt page has no cluster, so no intent from the research: a situation answers an informational ask, a comparison a commercial one (labelled, not measured)
+const intentOf = (pg) => (pg.cluster ? pg.cluster.intent : pg.promptRow ? (pg.kind === "comparison" ? "commercial" : "informational") : "navigational");
 function briefMd(pg) {
   const c = pg.cluster, L = [];
-  L.push(`# Brief: ${pg.h1}`, "", `> Written by plan-site.mjs on ${OPTS.today} from targets.json${c ? ` (cluster ${c.id})` : " (support page)"}. The S5 gate tests the built page against this file.`, "");
+  L.push(`# Brief: ${pg.h1}`, "", `> Written by plan-site.mjs on ${OPTS.today} from ${pg.promptRow ? "prompt-map.json" : "targets.json"}${c ? ` (cluster ${c.id})` : pg.promptRow ? ` (prompt page, row ${pg.promptRow.id})` : " (support page)"}. The S5 gate tests the built page against this file.`, "");
   L.push(`- Page: ${pg.path}`, `- Cluster: ${c ? c.id : "none"}`, `- Role: ${pg.role}${pg.parent ? ` (parent ${pg.parent})` : ""}`, `- Kind: ${pg.kind}`);
-  L.push(`- Primary query: ${c ? c.primaryQuery : "none (support page)"}`, `- Intent: ${c ? c.intent : "navigational"}`, `- Location: ${c?.location || "none"}`);
+  L.push(`- Primary query: ${c ? c.primaryQuery : pg.promptRow ? "none (prompt page, see Prompts this page answers)" : "none (support page)"}`, `- Intent: ${intentOf(pg)}`, `- Location: ${c?.location || pg.promptRow?.location || "none"}`);
   L.push(`- Title: ${pg.title}`, `- H1: ${pg.h1}`, `- Meta description: ${pg.metaDescription}`, `- Schema: ${pg.schema.join(", ")}`);
   L.push(`- Word range: ${pg.wordRange.min}-${pg.wordRange.max} (${pg.wordRange.source})`, `- CTA: ${pg.cta}`);
   // 03 section 22.2 / 06 section 9.3: the page types that fit this intent (the S5 gate, GT-012, judges the built page's type against them); every planned page has a CTA.
-  L.push(`- Page types that fit: ${compatibleTypes(c ? c.intent : "navigational", { cta: true }).join(", ")}`);
+  L.push(`- Page types that fit: ${compatibleTypes(intentOf(pg), { cta: true }).join(", ")}`);
   L.push(`- Programmatic: ${pg.programmatic ? "group " + pg.programmatic : "no"}`, `- New page: ${pg.isNew ? "yes" : "no, keep the URL"}`, "");
   L.push("## Outline", ...pg.outline.map((h) => `- H2: ${h}`), "");
   const sec = sections(pg);
@@ -247,6 +278,10 @@ function briefMd(pg) {
   if (c?.requiredTerms?.length) L.push("## Required terms", ...c.requiredTerms.map((t) => `- ${t}`), "");
   L.push("## Entities to cover", ...(c?.requiredEntities.length ? c.requiredEntities.map((e, i) => `- ${e} (in: ${sec[i % Math.max(sec.length, 1)] || pg.outline[0]})`) : ["- (none required)"]).filter((x) => x !== "- (none required)"), "");
   L.push("## Questions to answer", ...pg.questions.map((q) => `- ${q}`), "");
+  // DECISIONS 35: the buyer's whole sentences this page answers (id | prompt); GT-014 and the publish audit trace a row to this page by its path
+  if (pg.prompts?.length) L.push("## Prompts this page answers",...pg.prompts.map((r) => `- ${r.id} | ${squash(r.prompt)}`), "");
+  if (pg.promptRow) { const r = pg.promptRow; L.push("## What the buyer asked", `- Scenario: ${squash(r.scenario)}`, `- Comparison: ${squash(r.comparison)}`, `- Constraint: ${squash(r.constraint)}`, `- Location: ${squash(r.location) || "none named"}`, ""); }
+  if (pg.kind === "comparison") { const fl = factsOf.get(pg.promptRow.id) || []; L.push("## Facts about the other option", ...(fl.length ? fl.map((x) => `- ${factLine(x)}`) : [`- ${NO_FACTS}`]), ""); }
   L.push("## Proof and statistics to include", ...proofFor(pg).map((x) => `- ${x}`), "");
   L.push("## Links out", ...outOf(pg).map((l) => `- ${l.to} | anchor: "${l.anchor}"`), "");
   L.push("## Links in", ...inTo(pg).map((l) => `- ${l.from} | anchor: "${l.anchor}"`), "");
@@ -254,6 +289,11 @@ function briefMd(pg) {
   L.push("## Notes for the builder", "- Title, H1 and the first paragraph carry the primary query; one H1; one canonical URL (self).",
     "- The first paragraph answers the query in plain words (answer first), then the sections in the outline order.",
     `- Server-rendered HTML: content, links and JSON-LD (${pg.schema.join(", ")}) in the first response.`);
+  if (pg.prompts?.length) {
+    L.push("- Answer each prompt listed above in the first paragraph, in the buyer's own terms (answer first), then the sections in the outline order.");
+    for (const r of pg.prompts) L.push(`- Prompt ${r.id}: ${squash(r.fix.note)}`);
+  }
+  if (pg.kind === "comparison") L.push('- Claims about the other option are only the lines under "Facts about the other option": no other claim, no superlative, no price or rating without a line there (a claim with no public source URL and date is not published).');
   if (pg.programmatic) L.push(`- Programmatic page: it must pass plan/programmatic.json (unique words, sourced local facts, similarity). Real local content, never a swapped city name.`);
   if (business.launchState !== "live") L.push(`- Site is "${business.launchState}": noindex until launch is expected, not a defect.`);
   return L.join("\n") + "\n";
@@ -270,7 +310,7 @@ for (const pg of pages) fs.writeFileSync(path.join(pewp, pg.brief), briefMd(pg))
 writeJson("sitemap.json", {
   version: 1, business: business.domain, generatedAt: OPTS.today, source: "targets.json",
   summary: { pages: pages.length, clusterPages: pages.filter((x) => x.cluster).length, supportPages: pages.filter((x) => !x.cluster).length, links: links.length, programmaticPages: pages.filter((x) => x.programmatic).length },
-  pages: pages.map((pg) => ({ path: pg.path, slug: pg.slug, cluster: pg.cluster ? pg.cluster.id : null, role: pg.role, kind: pg.kind, parent: pg.parent, children: children(pg), primaryQuery: pg.cluster ? pg.cluster.primaryQuery : null, intent: pg.cluster ? pg.cluster.intent : null, location: pg.cluster?.location || null, title: pg.title, h1: pg.h1, metaDescription: pg.metaDescription, schema: pg.schema, programmatic: pg.programmatic, isNew: pg.isNew, wordRange: pg.wordRange, brief: pg.brief })),
+  pages: pages.map((pg) => ({ path: pg.path, slug: pg.slug, cluster: pg.cluster ? pg.cluster.id : null, role: pg.role, kind: pg.kind, parent: pg.parent, children: children(pg), primaryQuery: pg.cluster ? pg.cluster.primaryQuery : null, intent: pg.cluster ? pg.cluster.intent : null, location: pg.cluster?.location || null, title: pg.title, h1: pg.h1, metaDescription: pg.metaDescription, schema: pg.schema, programmatic: pg.programmatic, isNew: pg.isNew, wordRange: pg.wordRange, brief: pg.brief, ...(pg.prompts?.length ? { prompts: pg.prompts.map((r) => r.id) } : {}) })),
   links,
 });
 
@@ -286,6 +326,10 @@ writeJson("programmatic.json", {
 });
 const dataFile = path.join(planDir, "programmatic-data.json");
 if (progPages.length && !fs.existsSync(dataFile)) writeJson("programmatic-data.json", { note: "Fill from the chosen data source. A fact counts only with value, source and date.", records: Object.fromEntries(progPages.map((x) => [x.path, { facts: [] }])) });
+
+// comparison pages: the facts about the other option are hand-filled from public pages (value, URL, date), created empty once and never overwritten
+const comparisonRows = route ? route.create.filter((r) => r.fix.pageType === "comparison") : [];
+if (comparisonRows.length && !fs.existsSync(path.join(pewp, FACTS_FILE))) writeJson("comparison-facts.json", { note: "Facts about the OTHER option of each comparison page. A fact counts only with the fact text, a public source URL and a date (YYYY-MM-DD); no fact, no claim. Never overwritten by plan-site.mjs.", facts: Object.fromEntries(comparisonRows.map((r) => [r.id, []])) });
 
 // off-site plan: link gap (authority.json), local, AI visibility
 let authority = null; const af = opt("--authority", fs.existsSync(path.join(pewp, "authority.json")) ? path.join(pewp, "authority.json") : null);
@@ -319,7 +363,17 @@ const offsite = {
     sourcesEnginesCite: cited ? { status: "from citations file", domains: cited } : { status: "NOT MEASURED: needs AI citation rows (measure stage)", unblock: "re-run with --citations <citations.json>" },
   },
 };
+// earn-mention rows (DECISIONS 35): nothing on our site answers them, so the plan lists the mention to earn, by prompt id; the coverage reason names the item
+if (pm) offsite.promptMentions = route.mention.map((r) => ({ id: mentionId(r), promptId: r.id, prompt: squash(r.prompt), target: r.fix.target, note: squash(r.fix.note), rule: "earned, never bought: the owner or client asks, the tool creates no account and no listing" }));
 writeJson("offsite.json", offsite);
+// prompt-coverage.json: which planned page answers which row (a row with no page carries its reason); approve.mjs copies it with the rest of plan/
+const coveragePath = path.join(planDir, "prompt-coverage.json");
+if (pm) {
+  const pathOf = new Map([...route.improve.map(({ row, path: p }) => [row.id, p]), ...pages.filter((x) => x.promptRow).map((x) => [x.promptRow.id, x.path])]);
+  writeJson("prompt-coverage.json", coverageDoc({ today: OPTS.today, mapRel: pm.rel, sha: pm.sha, rows: pm.rows, pathOf }));
+} else fs.rmSync(coveragePath, { force: true }); // no map: a coverage file left from an earlier map would be read as a plan for rows that are gone
+
+const promptLine = pm ? `${pm.rows.length} prompt(s): ${route.improve.length} improve a page, ${route.create.length} new page(s), ${route.mention.length} off-site mention(s)` : "";
 
 // priorities: impact x effort, quick wins first
 const prios = targets.clusters.map((c) => c.priority).sort((a, b) => a - b);
@@ -342,11 +396,12 @@ fs.writeFileSync(path.join(planDir, "summary.md"), [`# Plan summary (${business.
   `${pages.length} pages (${pages.filter((x) => x.cluster).length} from clusters, ${pages.filter((x) => !x.cluster).length} support), ${links.length} planned internal links, ${progPages.length} programmatic pages.`, "",
   "This is the page plan (the file plan/sitemap.json): which pages the site should have and which search each one targets. It is not the sitemap file search engines read (sitemap.xml); that file is made later from the pages that are built.", "",
   "| Rank | Item | Impact | Effort | Quick win |", "|---|---|---|---|---|", ...order.map((x) => `| ${x.rank} | ${x.what} | ${x.impact} | ${x.effort} | ${x.quickWin ? "yes" : ""} |`), "",
-  `Programmatic data source: ${OPTS.dataSource || "TO DECIDE (plan/programmatic.json)"}.`, `Off-site link gap: ${offsite.links.status}.`, ""].join("\n"));
+  `Programmatic data source: ${OPTS.dataSource || "TO DECIDE (plan/programmatic.json)"}.`, `Off-site link gap: ${offsite.links.status}.`,
+  ...(pm ? [`Prompt map (${pm.rel}): ${promptLine}; the file plan/prompt-coverage.json says which page answers which prompt.`] : []), ""].join("\n"));
 
 // self-check: the plan itself must satisfy the rules the gate applies to pages
 const warn = [];
 for (const pg of pages) if (pg.cluster) { if (overlap(pg.cluster.primaryQuery, pg.title) < 0.8 && pg.title.length > 0) warn.push(`${pg.path}: title does not carry the primary query`); if (overlap(pg.cluster.primaryQuery, pg.metaDescription) < 0.8) warn.push(`${pg.path}: meta description does not carry the primary query`); }
 try { if (fs.existsSync(path.join(pewp, "state.json"))) state.markStage(state.locate(path.dirname(pewp)), "plan", { sitemap: "plan/sitemap.json", programmatic: "plan/programmatic.json", offsite: "plan/offsite.json", priorities: "plan/priorities.json" }); } catch {}
-console.log(`PASS plan ${pages.length} pages (${pages.filter((x) => x.cluster).length} clusters, ${hub ? "1 hub" : "no hub"}), ${links.length} links, ${progPages.length} programmatic, wrote ${planDir}`);
+console.log(`PASS plan ${pages.length} pages (${pages.filter((x) => x.cluster).length} clusters, ${hub ? "1 hub" : "no hub"}), ${links.length} links, ${progPages.length} programmatic, wrote ${planDir}${pm ? `, prompt map ${promptLine}` : ""}`);
 for (const w of warn) console.log(`  WARN ${w}`);

@@ -2,7 +2,7 @@
 // Self-test of the S3 plan stage, the targets.json validator and the S5 target gate, on the fixtures only (no network, no real site):
 //   V  validator: the fixtures pass, every rule rejects its broken input for its own reason, ranking and citation rows, the measure pair
 //   P  plan-site: one cluster = one page, hubs and spokes, briefs, links, programmatic.json, off-site, priorities, determinism, bad input
-//   G  gate: a clean 6-page site passes all twelve checks; the faulty site (cannibalisation, missing cluster page, orphan, wrong schema type,
+//   G  gate: a clean 6-page site passes all fourteen checks; the faulty site (cannibalisation, missing cluster page, orphan, wrong schema type,
 //      missing licence number) fails exactly the checks that own those faults; every check is also driven both ways by small mutations
 //   S  snapshot input, CLI exit codes, the stale-fixture guard
 //   M  watched-fail mutants: the scripts themselves are broken one rule at a time and this suite must turn red for that reason
@@ -210,11 +210,11 @@ async function suite(scriptsDir, { full }) {
 
     // the clean site passes everything, and the faulty one fails exactly what it plants
     const clean = G.gate(pewp, CLEAN);
-    check("G: clean 6-page site passes all thirteen checks (GT-001..GT-013)", clean.status === "PASS" && clean.results.length === 13 && clean.results.every((r) => r.status === "PASS"), clean.results.map((r) => `${r.id} ${r.status} ${text(r)}`).join("\n"));
+    check("G: clean 6-page site passes all fourteen checks (GT-001..GT-014)", clean.status === "PASS" && clean.results.length === 14 && clean.results.every((r) => r.status === "PASS"), clean.results.map((r) => `${r.id} ${r.status} ${text(r)}`).join("\n"));
     check("G: clean site still carries the disclosure-page WARNs (not failures)", /WARN RE-DISC-001/.test(text(clean.results[9])));
     const bad = G.gate(pewp, SITE);
     const st = Object.fromEntries(bad.results.map((r) => [r.id, r]));
-    const want = { "GT-001": "PASS", "GT-002": "FAIL", "GT-003": "FAIL", "GT-004": "PASS", "GT-005": "PASS", "GT-006": "FAIL", "GT-007": "FAIL", "GT-008": "FAIL", "GT-009": "PASS", "GT-010": "FAIL", "GT-011": "PASS", "GT-012": "FAIL", "GT-013": "PASS" };
+    const want = { "GT-001": "PASS", "GT-002": "FAIL", "GT-003": "FAIL", "GT-004": "PASS", "GT-005": "PASS", "GT-006": "FAIL", "GT-007": "FAIL", "GT-008": "FAIL", "GT-009": "PASS", "GT-010": "FAIL", "GT-011": "PASS", "GT-012": "FAIL", "GT-013": "PASS", "GT-014": "PASS" };
     check("G: faulty site: statuses are exactly the planted faults", ALL.every((id) => st[id].status === want[id]), ALL.map((id) => `${id}=${st[id].status}`).join(" "));
     check("G: planted missing cluster page is named (GT-002)", /c-sell-without-agent \/guides\/sell-my-house-without-a-realtor-california\//.test(text(st["GT-002"])));
     check("G: planted cannibalisation is named with the cluster, its planned page and the rival page (GT-003)", /"how much does a realtor cost in california" \(c-cost-of-realtor, informational\) is planned for \/sell\/cost-of-a-realtor\/ but 1 other page\(s\) have its head term .* \/blog\/realtor-fees-california\/ \(article\)/.test(text(st["GT-003"])));
@@ -691,14 +691,14 @@ async function suite(scriptsDir, { full }) {
       const pw1 = fresh("gp"); cp(pewp, pw1);
       r = cli("gate.mjs", [pw1, SITE]);
       const rep = path.join(pw1, "gate", "report.md"), repj = path.join(pw1, "gate", "report.json");
-      check("S: gate.mjs on the faulty site: exit 1, 13 check lines, report.md and report.json written", r.status === 1 && (r.stdout.match(/^(PASS|FAIL|ERROR) GT-0\d\d /gm) || []).length === 13 && /^FAIL gate 13 checks: 6 PASS, 7 FAIL, 0 ERROR/m.test(r.stdout) && fs.existsSync(rep) && fs.existsSync(repj), r.stdout);
+      check("S: gate.mjs on the faulty site: exit 1, 14 check lines, report.md and report.json written", r.status === 1 && (r.stdout.match(/^(PASS|FAIL|ERROR) GT-0\d\d /gm) || []).length === 14 && /^FAIL gate 14 checks: 7 PASS, 7 FAIL, 0 ERROR/m.test(r.stdout) && fs.existsSync(rep) && fs.existsSync(repj), r.stdout);
       const md = fs.existsSync(rep) ? fs.readFileSync(rep, "utf8") : "";
       check("S: report.md leads with the one-line answer, names what to fix, explains terms once", /^# Site gate: the built site does not match the plan \(7 checks failed\)/.test(md) && /### GT-007 no-orphans/.test(md) && /lincoln-ca/.test(md) && (md.match(/- cannibalisation: /g) || []).length === 1 && (md.match(/- orphan page: /g) || []).length === 1, md.slice(0, 600));
       const js = fs.existsSync(repj) ? J(repj) : null;
-      check("S: report.json has every check with status and details", js && js.status === "FAIL" && js.checks.length === 13 && js.checks.every((c) => c.id && c.status && Array.isArray(c.details)));
+      check("S: report.json has every check with status and details", js && js.status === "FAIL" && js.checks.length === 14 && js.checks.every((c) => c.id && c.status && Array.isArray(c.details)));
       const pw2 = fresh("gp"); cp(pewp, pw2);
       r = cli("gate.mjs", [pw2, CLEAN]);
-      check("S: gate.mjs on the clean site: exit 0, report says the site matches the plan", r.status === 0 && /^PASS gate 13 checks: 13 PASS/m.test(r.stdout) && /^# Site gate: the built site matches the plan/.test(fs.readFileSync(path.join(pw2, "gate", "report.md"), "utf8")), r.stdout);
+      check("S: gate.mjs on the clean site: exit 0, report says the site matches the plan", r.status === 0 && /^PASS gate 14 checks: 14 PASS/m.test(r.stdout) && /^# Site gate: the built site matches the plan/.test(fs.readFileSync(path.join(pw2, "gate", "report.md"), "utf8")), r.stdout);
       r = cli("gate.mjs", [pw2, CLEAN, "--strict", "--no-report"]);
       check("S: gate.mjs --strict on the clean site: exit 1", r.status === 1 && /FAIL GT-010/.test(r.stdout), r.stdout);
       const pwo = fresh("gp"); cp(pewp, pwo); const outd = path.join(pwo, "builder", "gate");
@@ -764,7 +764,7 @@ if (!args.includes("--no-mutants") && !opt("--scripts")) {
     ["gate-intent-fit.mjs", "const ok = isCompatible(c.intent, type, { cta }) ||", "const ok = true ||", /G: GT-012 FAIL an informational cluster whose page is a Product page/, "TGT-012: any page type fits any intent"],
     ["gate-intent-fit.mjs", "cta = !!brief?.fields?.cta;", "cta = true;", /G: GT-012 FAIL a transactional cluster whose brief has no CTA/, "TGT-012: a brief without a CTA is treated as having one"],
     ["gate-brief.mjs", "if (cov < minCov) {", "if (false) {", /G: GT-005 fewer than 60% of a brief's required terms/, "TGT-005: required-term coverage not checked"],
-    ["gate.mjs", "industry, coverage, intentFit, freshness];", "industry];", /G: clean 6-page site passes all thirteen checks/, "GT-011, GT-012 and GT-013 not wired into the gate"],
+    ["gate.mjs", "industry, coverage, intentFit, freshness, promptCoverage];", "industry];", /G: clean 6-page site passes all fourteen checks/, "GT-011, GT-012, GT-013 and GT-014 not wired into the gate"],
     ["gate-orphans.mjs", "if (!inbound.get(pg.path).size)", "if (false)", /G: GT-007 FAIL a page nobody links to/, "orphans no longer detected"],
     ["gate-orphans.mjs", "else if (!seen.has(pg.path))", "else if (false)", /G: GT-007 FAIL two pages that only link to each other/, "unreachable islands no longer detected"],
     ["lib-text.mjs", '"click here", "click", "here", "read more", ', "", /G: GT-006 FAIL a generic footer anchor/, "generic anchors allowed"],

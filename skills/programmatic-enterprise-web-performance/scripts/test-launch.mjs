@@ -203,7 +203,7 @@ async function scenarios(dir) {
 
     // ---- the strict gate: unapproved plan FAILs, approved PASSes ----
     const g1 = await run(["--check", pewp, "--only", "L-B7", ...CHK]);
-    check("strict gate: on an unapproved plan --check marks L-B7 FAIL with the gate's own lines (L-003 / GT-001), exit 3", g1.code === 3 && item("L-B7").status === "FAIL" && /FAIL gate 13 checks/.test(item("L-B7").results.gate.line) && /GT-001/.test(item("L-B7").results.gate.line), `${g1.code} ${JSON.stringify(item("L-B7").results)}`);
+    check("strict gate: on an unapproved plan --check marks L-B7 FAIL with the gate's own lines (L-003 / GT-001), exit 3", g1.code === 3 && item("L-B7").status === "FAIL" && /FAIL gate 14 checks/.test(item("L-B7").results.gate.line) && /GT-001/.test(item("L-B7").results.gate.line), `${g1.code} ${JSON.stringify(item("L-B7").results)}`);
     const ap1 = node("approve.mjs", ["x", "targets", "--pewp", pewp, "--by", "Test Owner"]);
     node("plan-site.mjs", [pewp, ...PLAN_FLAGS]);
     const ap2 = node("approve.mjs", ["x", "plan", "--pewp", pewp, "--by", "Test Owner"]);
@@ -212,7 +212,7 @@ async function scenarios(dir) {
     // ---- full check on the clean site ----
     const c1 = await run(["--check", pewp, ...CHK]);
     const l2 = L();
-    check("clean site: L-B7 PASS with the gate's summary line 'PASS gate 13 checks: 13 PASS' (strict, waived RE-DISC-001)", item("L-B7", l2).status === "PASS" && /^gate PASS gate 13 checks: 13 PASS, 0 FAIL, 0 ERROR \(strict, waived RE-DISC-001\)/.test(item("L-B7", l2).proofLine), item("L-B7", l2).proofLine || JSON.stringify(item("L-B7", l2).results));
+    check("clean site: L-B7 PASS with the gate's summary line 'PASS gate 14 checks: 14 PASS' (strict, waived RE-DISC-001)", item("L-B7", l2).status === "PASS" && /^gate PASS gate 14 checks: 14 PASS, 0 FAIL, 0 ERROR \(strict, waived RE-DISC-001\)/.test(item("L-B7", l2).proofLine), item("L-B7", l2).proofLine || JSON.stringify(item("L-B7", l2).results));
     check("clean site: L-B9 also carries the writing proof line 'writing PASS writing-gate 7 rules: 7 PASS, 0 FAIL, 0 NOT RUN' (the full gate on the launch build with the live URL and the ledger's 2 pages), and the report is saved under launch/writing/", /writing PASS writing-gate 7 rules: 7 PASS, 0 FAIL, 0 NOT RUN/.test(item("L-B9", l2).proofLine || "") && fs.existsSync(path.join(pewp, "launch", "writing", "report.json")), item("L-B9", l2).proofLine || JSON.stringify(item("L-B9", l2).results.writing));
     check("clean site: L-B8 live-headers PASS (200, indexable, robots allow, nosniff) with its proof line", item("L-B8", l2).status === "PASS" && /^live-headers PASS 2\/2 pages/.test(item("L-B8", l2).proofLine), JSON.stringify(item("L-B8", l2)));
     check("clean site: L-A6 redirects PASS 2/2 old URLs answer 301, the pattern rule listed as NOT CHECKED", item("L-A6", l2).status === "PASS" && /redirects PASS 2\/2 old URLs answer 301/.test(item("L-A6", l2).proofLine) && /1 pattern rule\(s\) NOT CHECKED/.test(item("L-A6", l2).proofLine), JSON.stringify(item("L-A6", l2)));

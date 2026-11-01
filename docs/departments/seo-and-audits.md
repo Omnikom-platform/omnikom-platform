@@ -24,7 +24,9 @@ options, never a fix made here.
   operations in two lines.
 
 ## Builders
-- Model: sonnet unless a slice is design-heavy (then the head does it, or an opus builder).
+- Model: sonnet unless a slice is design-heavy (then the head does it, or an opus builder). Start every builder with
+  `start-builder.mjs ... --effort high` (head of operations, 2026-11-01 20:48: the machine default effort is low); a running builder
+  keeps its effort and is replaced at a slice boundary only if it struggles.
 - Mechanical runs (tests, mutants, gates, grep, fixture rebuilds, deploy and status commands) go to a haiku agent with the
   exact command; the head or builder reads the verdict lines back (DECISIONS 34).
 - One slice, one brief, one set of files; discarded when the slice is done. The brief carries: the files, the spec, what done
@@ -346,3 +348,54 @@ options, never a fix made here.
   bad-PMP-001-missing-page exit 1 naming the row id and path; bad coverage file exit 2; factory 88 of 88; CLI --unit 373 of 373; 28 new
   mutants caught (MUTATE_TIMEOUT_S=900 under load). Light follow-ons (DECISIONS 43(2), ruled 19:10): factory/test/run.mjs:317 (platform),
   tools/omnikom-cli/test/run.mjs:349 and 354 (CLI). The head builds the commit on backup-gh/master in a private index and re-runs on it.
+- 2026-11-01 20:00: 5c ACCEPTED. Commit 90e9c6f on 3d7c0c3 (private index; 42 files, 0 CR, 0 em dashes, gitleaks no leaks; 5d excluded;
+  PROGRESS gets the 5c block only). Haiku runner on a detached worktree of 90e9c6f: audit 574 of 574; 30 rules; fixtures OK 130; good
+  no file 2 SKIP (ENV-001, PMP-001) exit 0; good-coverage 0 FAIL; bad-PMP-001-uncovered FAIL pm-5e6f7a8b exit 1; bad-PMP-001-missing-page
+  FAIL pm-1c2d3e4f /tasting-room/best-chai/ exit 1; README as coverage file exit 2; factory 88 of 88; CLI --unit 373 of 373. Builder
+  stopped (pid 27296, left []). Master had moved to 9800616 (platform 5.4): cherry-picked clean as fef13c5, pushed to
+  check/seo/5c-publish-rule, `omnikom land` started.
+- 2026-11-01 20:28: platform 5-E (ENV-001 --target) is on check/platform/5-e (18be0f4 on 9800616). Whichever of 5c and 5-E lands second
+  rebases: 5-E's good-build check allows no SKIP ENV-001; 5c's PMP-001 allowance goes next to /^(PASS|WARN) / in factory/test/run.mjs.
+  Flip brief written: tools/audit/briefs/slice-4c-flip.md. It needs BOTH 5-E on master AND the CLI's `omnikom audit --target`
+  (tools/omnikom-cli/commands/audit.mjs:26 refuses --target today, so the flip alone would make every `omnikom audit --dir` exit 2).
+  Builder starts when both shas arrive.
+- 2026-11-01 20:30: 5c LAND REFUSED (master untouched): run 41334355649 on fef13c5, audit job red: "425 mutants, 421 caught, 0 survived,
+  0 not run, 4 target text missing" (index.mjs psi, run.mjs --psi, live.mjs --psi, index.mjs target: 5c rewrote the pass-through lines).
+  Lesson: a slice that edits a line older mutants patch must run the whole list's target-text check, not only MUTATE_ONLY for its new
+  mutants. Fix builder BUILDER_seo-and-audits_5c-mutant-targets (pid 13232): repoint the four in test/mutate.mjs, run them, prove 0
+  target text missing over the whole list. Then rebuild 5c on master with it and land.
+- 2026-11-01 20:47: 5d ACCEPTED (builder's lines, all through heavy.mjs): test-measure-prompts 55/55 + mutants 34/34; test-measure 140/140,
+  --mutants 41/41 (main-check-exact-path retargeted to lib-main.mjs, red for the right reason); test-prompt-map 72/72 + 62/62;
+  test-prompt-plan --no-mutants 66/66; test-main 10 of 10; 0 em dashes in touched files. Blueprint 22 section 7 and the writer follow the
+  15:42 ruling (measure/<date>/ai-answers.json, data.rows with promptId, engine, named, cited, asked_at, evidence; a row missing any is
+  refused, watched red). SOURCE commit authorised for SKILL.md, scripts/measure.mjs, stages/measure.md, scripts/test-measure-prompts.mjs,
+  scripts/test-measure.mjs. Finding routed to platform 5-P4: evidence is a dated file pointer and named/cited may be null; the CHECK must
+  accept both. Next: one sync (fresh builder) with the head's re-run on the repo copy, then the 5d commit (blueprint 22, skill copy,
+  SOURCE.md row, proof 5d, PROGRESS 5d block, charter).
+- 2026-11-01 20:50: SOURCE 77aee20 (head checked: 5 files, 561+/20-; status clean). BUILDER_seo-and-audits_5d-finish stopped (pid 12096,
+  left []). Sync builder BUILDER_seo-and-audits_skill-sync-2 (pid 18040) briefed: one sync to 77aee20 (covers 4c d7997a3, 5a, 5b, 5d),
+  SOURCE.md row only, em dash count must not rise, five skill tests re-run from the repo copy.
+- 2026-11-01 21:18: mutant fix ACCEPTED (head read the diff: the same behaviour removed, anchors extended for promptCoverage):
+  MUTATE_ONLY 4 of 4 caught; whole list 425 mutants, 0 target text missing; run.mjs 574 of 574; builder stopped (pid 13232, left []).
+  Skill sync ACCEPTED: repo copy = SOURCE 77aee20 (22 copied, 0 removed), SOURCE.md diff only this skill's row, em dashes 79 to 74,
+  repo-copy tests main 10/10, measure-prompts mutants 34/34, measure 140/140, prompt-map mutants 62/62, prompt-plan 66/66; builder stopped
+  (pid 18040, left []). 22 paths uncommitted: committed with blueprint 22 as the 5d commit after 5c lands.
+  Platform 5-E LANDED (master e92684e, run 41338148094). 5c rebuild on e92684e: worktree E:\omk-wt-seo-5c, cherry-pick --no-commit of
+  fef13c5, one conflict (factory/test/run.mjs); builder BUILDER_seo-and-audits_5c-rebase (pid 20748, effort high) resolves it (5-E lines
+  kept, PMP-001 allowance next to /^(PASS|WARN) /), adds the mutant fix, re-runs. Flip builder starts on master after 5c lands (same
+  files); the flip lands after sha 2 (CLI `omnikom audit --target`).
+- 2026-11-01 21:19: LAND ORDER (head of operations): platform 5-W, then CLI small-fixes (sha 2, carries `omnikom audit --target`), then
+  SEO 5c, then the head of operations. Do not start a 5c land before the CLI's master sha is relayed. Expect a second rebase of 5c on
+  that sha: small-fixes edits tools/omnikom-cli/test/run.mjs where 5c's two literals (349, 354) sit; keep the CLI's lines and add only
+  the PMP-001 SKIP allowance.
+- 2026-11-01 21:28: 5c REBASE ACCEPTED: dd22555 on e92684e (worktree E:\omk-wt-seo-5c, kept for the next rebase), pushed to
+  check/seo/5c-publish-rule (lease on fef13c5); 42 files, 0 CR, 0 em dashes, gitleaks no leaks. Builder's worktree lines: audit 574 of
+  574, 30 rules, fixtures 130, factory 88 of 88 (PMP-001 allowance watched red 1 of 88 when removed), runner 75 of 75 (media checks
+  skipped: sharp not installed, UNPROVEN as for 5-E), CLI --unit 373 of 373, 425 mutants 0 target text missing, the four retargeted
+  caught. Head read the factory diff (one check line). Builder stopped (pid 20748). GitHub run on dd22555 watched as an early signal;
+  NO LAND until the CLI small-fixes sha is relayed (then rebase on it and land).
+- 2026-11-01 21:54: run 41341833182 on dd22555: success, 9 of 9 jobs (audit engine tests and mutants included). Held for the CLI sha.
+- 2026-11-01 21:56: LAND ORDER (head of operations): CLI small-fixes, then SEO 5c+5d stacked on one check branch and landed with one
+  run, then the head of operations' effort commit, then platform 5-L. 5d commit (blueprint 22, the skill copy at SOURCE 77aee20, proofs 5d
+  and skill-sync, the flip brief, PROGRESS 5d block, this charter; the skills/SOURCE.md row is a light follow-on in the head of
+  operations' file) built on dd22555 in E:\omk-wt-seo-5c.

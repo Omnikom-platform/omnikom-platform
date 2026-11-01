@@ -78,7 +78,7 @@ After fixes: `node .checks/run-all.mjs`. After big changes, run the skill again 
   V2 build must obey (critical CSS inline, wasted CSS under 8 KiB gzip, image sizes, no forced reflow, ARIA roles, `/llms.txt`, HSTS + COOP); rules and numbers in `stages/build.md`; launch runs it as the `writing` check of L-B9.
 - Every test blocks non-local network requests; fixtures only.
 - Proof of the tooling (counts come from the output): `node scripts/test-snapshot.mjs`, `test-plan-merge.mjs`,
-  `test-phase1.mjs`, `test-compare.mjs` (+ `--mutants`), `test-authority.mjs` (+ `--mutants`), `test-start.mjs`, `test-ref.mjs`, `test-research.mjs` (+ `mutants-research.mjs`), `test-plan-gate.mjs`, `test-measure.mjs`
+  `test-phase1.mjs`, `test-compare.mjs` (+ `--mutants`), `test-authority.mjs` (+ `--mutants`), `test-start.mjs`, `test-ref.mjs`, `test-research.mjs` (+ `mutants-research.mjs`), `test-plan-gate.mjs`, `test-prompt-plan.mjs` (the prompt map in the plan and gate GT-014, with its own mutants), `test-measure-prompts.mjs` (the monthly prompt-map re-run and its diff, with its own mutants), `test-measure.mjs`
   (+ `--mutants`), `test-refactor.mjs`, `test-freshness.mjs` (no fake freshness: check-stability, GT-013, built-in sitemap check; mutants built in),
   `test-launch.mjs` (the launch ledger on a local fixture site, a fixture PSI file and the real strict gate; mutants built in),
   `test-writing-gate.mjs` (the writing gate on a good fixture site and one mutant per rule, each watched red for the right reason; needs the render-gate Chromium),

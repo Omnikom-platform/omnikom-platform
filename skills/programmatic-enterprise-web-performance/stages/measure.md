@@ -19,6 +19,7 @@ it. A number is never filled in from memory, from an older run, or from a guess.
 | Gemini key | `GEMINI_API_KEY` | free key from aistudio.google.com | the API half of AI citations BLOCKED (owner captures still count) |
 | Browser captures (rankings) | `<pewp>/captures/serp/*.json` (the folder `research-serp-import.mjs` reads; both capture formats are accepted) | the owner or a supervised session, by hand, at human pace | no city/device ranks, only Search Console's country-level average |
 | Browser captures (AI answers) | `<pewp>/captures/ai/*.json` | same | only the Gemini API answers |
+| Prompt map | `<pewp>/approved/prompt-map.json` (signed), else `<pewp>/research/prompt-map.json` | the research stage, `schemas/prompt-map.md` | no prompt is re-run; `summary.json` says `promptMap: none` |
 | Conversions | `<pewp>/captures/conversions.json` | the owner exports from analytics | MSR-009 BLOCKED |
 | Authority | `<pewp>/authority.json` | `authority.mjs` (Common Crawl, domain level) | MSR-007 and referring-domain diff BLOCKED |
 | Local NAP run | `<pewp>/local/<date>/nap.json` | `local-run.mjs` (see `stages/local.md`) | MSR-010 BLOCKED |
@@ -33,8 +34,8 @@ content); a repo target in `<repo>/.pewp/`. Run from PowerShell.
 2. **Init (once per site).** `node "<skill>/scripts/measure.mjs" <url> --init --property sc-domain:example.com`. It writes
    `<pewp>/measure/config.json` and copies `run.mjs` next to it. Edit `config.json` for: the Search Console property (a
    domain property is `sc-domain:example.com`, a URL-prefix property is `https://example.com/`), `market` (country and
-   language; volumes and positions are per country), `ai.questions` / `ai.runs` / `ai.gapMs`, `thresholds`, `budgets`,
-   `competitors`, `authority.competitors`.
+   language; volumes and positions are per country), `ai.questions` / `ai.runs` / `ai.gapMs`, `ai.prompts` / `ai.promptWindowDays`
+   (below), `thresholds`, `budgets`, `competitors`, `authority.competitors`.
 3. **Plan.** `node <pewp>/measure/run.mjs --plan`. It prints the windows, the number of API calls, the number of AI answers
    and the minutes they take, and which keys are set. It makes no call and writes nothing. The cost stops are in
    `budgets` (API calls 80, AI answers 60, URL inspections 20 by default); a plan over a stop is refused for that part.
@@ -114,8 +115,45 @@ files of the same question and engine are grouped into one row, and fewer than 3
 The free API does not report Google AI Overviews: those are only visible in owner captures, and the project's owner decision
 (2026-10-18) is that AI Overviews are not tracked automatically. Say so instead of implying coverage.
 
+## The prompt map, monthly (DECISIONS 35, `schemas/prompt-map.md`)
+A prompt is a buyer's whole question (scenario, comparison, constraint); the research stage wrote the map and the owner signed it
+(`approve.mjs <target> prompt-map --by NAME`). Each month this stage asks what the AI engines say to every row and writes it down,
+so the dashboard can show "named / cited per prompt" and the next plan can see which answers moved.
+- **`ai.prompts`** in `measure/config.json` is `null` = every row of the approved map (the research copy when nothing is signed), or a
+  list of row ids = only those (a cost control; an id that is not in the map is named in the output, never asked). The text asked is
+  the row's `prompt` exactly, from the map: a free sentence typed into the config is not a prompt. A signed map changed after the
+  signature, or a map the 5a validator refuses, makes the prompt part BLOCKED with the reason (run `research-prompts.mjs <target> --check`).
+- **Gemini** asks each prompt like any AI question (alone, `ai.runs` times, grounded) under the same gate (`ai.geminiTermsAcknowledged`,
+  `GEMINI_API_KEY`) and the same cost stop: the plan line counts the prompts, and a plan over `budgets.ai` asks nothing. The API answer
+  text is never kept, so Gemini's `named` stays null from this stage (`named` for Gemini comes from `research/ai-citations.json`).
+  `cited` is true when our domain is among the cited sources of at least one of the `ai.runs` answers.
+- **ChatGPT and Perplexity** are owner captures (`captures/ai/*.json`, one file per answer, `prompt` or `promptId`, `engine`,
+  `capturedAt`, `sources`; an `answer` text lets the script test the business name for `named`). The monthly re-run of these two engines
+  is a human capture task at human pace; the owner's schedule (`/schedule` or a CI cron he clicks) starts the run, the slice creates none.
+- **Which month an observation belongs to.** Only an observation dated inside `(run date - ai.promptWindowDays, run date]` (31 days by
+  default) counts for this run, from `research/ai-citations.json`, the owner captures and this run's Gemini answers. The `engines`
+  block that the map row itself carries is never copied: it is an older month. A prompt and engine nobody looked at inside the window
+  is all `null`, printed "not checked this month", and is never a "no".
+- **Output** `measure/<date>/prompt-map.json`: `{ step, status, date, map: {file, approved, sha256}, window, observedRows, rows:
+  [ { id, prompt, location, fix, engines: { chatgpt|perplexity|gemini: { named, cited, pageCited, at, source } } } ] }`. Sources and
+  quotes of the map are not copied (a lead source's reference never leaves the map). `status` is `ok`, `partial` (some prompts have no
+  observation, with the capture step that unblocks it) or `blocked` (none has, or the map cannot be trusted).
+- **The diff against the last month** (`diff.json` `promptMap`, `diff.md`, `report.md`): `named` and `cited` flips (gained, lost), a
+  changed `pageCited` (cited both months, by another page of ours), prompts new to and gone from the map. A flip needs a real
+  observation in BOTH months: not checked -> observed is a "first look", observed -> not checked is "not checked this month", and
+  neither is a change. These are single observations of an engine that varies from answer to answer, not a significance test: read a
+  flip as "look at this prompt", not as a trend.
+- **The report** lists every row with named/cited per engine and the flips since the last month. A site with no map says so in one line.
+- **For the dashboard**: `measure/<date>/ai-answers.json` is the platform's snapshot, `{ source: "ai-answers", day, data: { date,
+  mapSha256, rows: [ { promptId, prompt, engine, named, cited, pageCited, asked_at, evidence_url, evidence_excerpt } ] }, refused }`:
+  one row per workspace per run day, the per-prompt per-engine rows inside `data` (platform ruling 2026-11-01; shape in
+  `docs/blueprint/22-SEARCH-AND-ANALYTICS.md`, section 7). A prompt and engine nobody looked at has no row; a row without
+  promptId, engine, named, cited, asked_at or evidence is refused (listed under `refused`, never written), as the platform's CHECK
+  refuses it. No file when no row was observed. The platform's writer and screen are not built here.
+
 ## Outputs (`<pewp>/measure/<date>/`; re-running the same day overwrites it)
-`gsc.json` `index.json` `bing.json` `crux.json` `rank-detail.json` `ai.json` `authority.json` `conversions.json` and the contract pair
+`gsc.json` `index.json` `bing.json` `crux.json` `rank-detail.json` `ai.json` `authority.json` `conversions.json`, `prompt-map.json`
+and `ai-answers.json` (only with a prompt map, the second only with an observed row) and the contract pair
 `rankings.json` + `citations.json` (each has `status`
 and, when not ok, `blocked: {source, reason, unblock}`), `findings.json` (findings by rule and the BLOCKED rules),
 `diff.json` + `diff.md`, `summary.json` (status of each part, API calls used), `report.md`, `report.json` (headline,
@@ -131,6 +169,7 @@ numbers as `{value, source, fetchedAt, cacheFile}`, findings, BLOCKED sources). 
 | AI citations | the cited count differs by 2 or more of the samples |
 | Core Web Vitals | the 75th-percentile status (good / needs improvement / poor) changed |
 | Referring domains | the new count is below the 95% Poisson interval of the old one (and only when the Common Crawl release differs) |
+| A prompt (prompt map) | `named`, `cited` or the cited page differs between two months that BOTH have an observation for that prompt and engine (single observations, no significance test; see the prompt map section) |
 Anything smaller is noise and is not turned into a finding. The diff lists gains and losses, new and lost queries and pages, new
 and lost citations, new and lost referring domains (if the linking-domain list was truncated the diff says so).
 
@@ -149,6 +188,8 @@ A run makes about 12 Search Console calls, up to 20 inspections, 2 Bing calls, a
 answers; no model tokens. Post-launch monitoring is this same run repeated: weekly is normal, **daily for the first 4 weeks
 after a migration** (`stages/migrate.md`). Schedule `node <pewp>/measure/run.mjs` with `/schedule` or a CI cron; the cost per run
 is the plan line. Do not run more often than the data changes (Search Console updates daily; Common Crawl quarterly).
+The prompt map's re-run is **monthly** (its window is 31 days): ask the owner to schedule it (`/schedule` or a CI cron he clicks) and to
+capture the ChatGPT and Perplexity answers a few days before it. This stage does not create a schedule.
 
 ## Pitfalls
 - Comparing a Tracy phone capture with a San Jose desktop capture. The scripts refuse; so must you.
@@ -167,5 +208,6 @@ unexpected reason. Do not describe a part as working until a real run has produc
 The folder `rankings.json` + `citations.json` follows the contract of `targets-validate.mjs --measure <dir>` (the plan stage reads
 it); `rank-detail.json` and `ai.json` hold the richer rows (tablet, local pack, per-answer hashes).
 `node scripts/test-measure.mjs` (fixtures only: a local server for the APIs, a fake Common Crawl graph, two measure dates,
-BLOCKED paths) and `node scripts/test-measure.mjs --mutants` (watched-fail). Real runs are BLOCKED until the owner connects
+BLOCKED paths) and `node scripts/test-measure.mjs --mutants` (watched-fail); `node scripts/test-measure-prompts.mjs` (the monthly
+prompt-map re-run and its diff on an invented tea shop and a fake Gemini, with its own mutants). Real runs are BLOCKED until the owner connects
 Search Console; say so in `runs/<date>-measure.md`.
