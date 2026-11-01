@@ -61,13 +61,13 @@ export function sweepClusters({ markerDir = CLUSTER_MARKER_DIR, run = sh, alive 
 
 // start a cluster, or use the one a parent process (mutate.mjs) already started: OMNIKOM_TEST_CLUSTER_PORT.
 // opts (tests only): markerDir, run (initdb / pg_ctl runner), alive, signals (register exit handlers; default true)
-export function startCluster({ markerDir = CLUSTER_MARKER_DIR, run = sh, alive = pidAlive, signals = true } = {}) {
-  if (process.env.OMNIKOM_TEST_CLUSTER_PORT) return { port: process.env.OMNIKOM_TEST_CLUSTER_PORT, stop() {}, shared: true };
+export function startCluster({ markerDir = CLUSTER_MARKER_DIR, run = sh, alive = pidAlive, signals = true, firstPort = null, say = console.log } = {}) {
+  if (process.env.OMNIKOM_TEST_CLUSTER_PORT) return { port: process.env.OMNIKOM_TEST_CLUSTER_PORT, dir: process.env.OMNIKOM_TEST_CLUSTER_DIR || '', stop() {}, shared: true };
   sweepClusters({ markerDir, run, alive });
   const dir = mkdtempSync(join(tmpdir(), CLUSTER_PREFIX));
   const data = join(dir, 'data');
-  const port = String(57000 + Math.floor(Math.random() * 900));
-  const marker = writeMarker(markerDir, { pid: process.pid, dir, data, port, startedAt: new Date().toISOString() });   // before initdb: a kill during start is swept too
+  let port = String(firstPort || CLUSTER_PORTS.first + Math.floor(Math.random() * CLUSTER_PORTS.count));
+  let marker = writeMarker(markerDir, { pid: process.pid, dir, data, port, startedAt: new Date().toISOString() });   // before initdb: a kill during start is swept too
   let stopped = false;
   const stop = () => {
     if (stopped) return;
@@ -83,10 +83,42 @@ export function startCluster({ markerDir = CLUSTER_MARKER_DIR, run = sh, alive =
   try {
     let r = run('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8']);
     if (r.status !== 0) throw new Error('initdb failed: ' + (r.stderr || r.error));
-    r = run('pg_ctl', ['-D', data, '-o', `-p ${port} -k ""`, '-l', join(dir, 'pg.log'), '-w', 'start']);
-    if (r.status !== 0) throw new Error('pg_ctl start failed: ' + r.stderr);
+    // listen_addresses is pinned to 127.0.0.1 (the address every psql here dials): a bind that fails makes pg_ctl -w start fail, loudly.
+    // With the default 'localhost' the server also listens on ::1, so a port already held on 127.0.0.1 left it half bound: pg_ctl said ok,
+    // the cluster ran, and 127.0.0.1 was refused for its whole life (the real-kill and mutate-baseline reds of 2026-11-01).
+    const log = join(dir, 'pg.log');
+    for (let tries = 1; ; tries++) {
+      rmSync(log, { force: true });
+      r = run('pg_ctl', ['-D', data, '-o', `-p ${port} -k "" -c listen_addresses=127.0.0.1`, '-l', log, '-w', 'start']);
+      if (r.status === 0) break;
+      // a failed bind (another program holds the port) moves on to the next port of the block, at most CLUSTER_PORTS.tries times, one line per try;
+      // any other start failure stops at once
+      if (!bindFailed(log) || tries >= CLUSTER_PORTS.tries) throw new Error(`pg_ctl start failed on port ${port}: ${r.stderr || r.error || ''}${clusterDiag({ dir, port })}`);
+      const next = String(CLUSTER_PORTS.first + (Number(port) - CLUSTER_PORTS.first + 1) % CLUSTER_PORTS.count);
+      say(`cluster: port ${port} in use (could not bind), trying ${next}`);
+      port = next;
+      rmSync(marker, { force: true });                                  // the marker file is named by its port: replace it, never keep two
+      marker = writeMarker(markerDir, { pid: process.pid, dir, data, port, startedAt: new Date().toISOString() });
+    }
   } catch (e) { stop(); throw e; }
-  return { port, dir, marker, stop };
+  return { port, dir, data, marker, stop };
+}
+
+// what a failed bind looks like in the server log
+const bindFailed = log => { try { return /could not bind|Address already in use|no socket created for listening/.test(readFileSync(log, 'utf8')); } catch { return false; } };
+
+// The block of ports this harness may use: outside the ephemeral ranges of Linux (32768-60999) and Windows (49152-65535), where a client
+// socket of a psql call can hold the very port a new server wants.
+export const CLUSTER_PORTS = { first: 21000, count: 900, tries: 5 };
+
+// What to print when a cluster is not answering: its data folder, whether its postmaster pid lives, the last 20 lines of its server log.
+export function clusterDiag({ dir, port }) {
+  if (!dir) return '\n  cluster: started by the parent process (no data folder known here)';
+  let pid = 0, state = 'no postmaster.pid';
+  try { pid = Number(readFileSync(join(dir, 'data', 'postmaster.pid'), 'utf8').split('\n')[0]); state = `postmaster pid ${pid} ${pidAlive(pid) ? 'alive' : 'not alive'}`; } catch { /* no file */ }
+  let tail = '(no pg.log)';
+  try { tail = readFileSync(join(dir, 'pg.log'), 'utf8').trimEnd().split('\n').slice(-20).join('\n  | '); } catch { /* no log */ }
+  return `\n  cluster: port ${port}, data ${join(dir, 'data')}, ${state}\n  server log, last 20 lines:\n  | ${tail}`;
 }
 
 let dbCounter = 0;
@@ -95,7 +127,7 @@ export function freshDb(cluster, { vault = true } = {}) {
   const name = `omk${process.pid}_${++dbCounter}`;
   const psql = (db, args) => sh('psql', ['-h', '127.0.0.1', '-p', cluster.port, '-U', 'postgres', '-d', db, '-X', '-q', '-v', 'ON_ERROR_STOP=1', ...args]);
   let r = psql('postgres', ['-c', `create database ${name}`]);
-  if (r.status !== 0) throw new Error('create database failed: ' + r.stderr);
+  if (r.status !== 0) throw new Error('create database failed: ' + r.stderr + clusterDiag(cluster));
   for (const f of [join(REPO_ROOT, 'supabase', 'tests', 'local-shim.sql'), ...(vault ? [join(CLI_ROOT, 'test', 'vault-shim.sql')] : [])]) {
     r = psql(name, ['-f', f]);
     if (r.status !== 0) throw new Error(`setup ${f} failed: ${r.stderr}`);
