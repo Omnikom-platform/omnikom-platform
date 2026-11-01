@@ -29,6 +29,8 @@ const MUTANTS = [
   ['publish: the audit exit code is ignored', `${R}publish.mjs`, "if (a.status !== 0) throw new Stop('audit failed'", "if (false) throw new Stop('audit failed'", 'gate'],
   ['publish: an audit usage error is not told apart', `${R}publish.mjs`, 'if (a.status === 2) throw', 'if (false) throw', 'gate'],
   ['publish: the audit FAIL lines are not collected', `${R}publish.mjs`, 'filter((l) => /^FAIL\\s/.test(l))', 'filter((l) => false)', 'gate'],
+  ['publish: the audit target is swapped (preview judged as production, live as preview)', `${R}publish.mjs`, "const auditTarget = branch === 'main' ? 'production' : 'preview';", "const auditTarget = branch === 'main' ? 'preview' : 'production';", 'gate'],
+  ['publish: the audit is not told the target', `${R}publish.mjs`, "'run.mjs'), dist, '--target', auditTarget]", "'run.mjs'), dist]", 'gate'],
   ['publish: no gating callback', `${R}publish.mjs`, "await callback('gating');", '', 'full'],
   ['publish: no deploying callback', `${R}publish.mjs`, "await callback('deploying');", '', 'full'],
   ['publish: a preview deploys to the production branch', `${R}publish.mjs`, "const branch = exp.site.state !== 'live' ? 'preview' : 'main';", "const branch = 'main';", 'wrangler'],

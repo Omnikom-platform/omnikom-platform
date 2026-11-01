@@ -140,16 +140,18 @@ async function run() {
 
   // ---- 4 gating: the audit engine judges the built folder, independent of the factory's own gates
   await callback('gating');
-  const a = runTool(process.execPath, [join(REPO, 'tools', 'audit', 'run.mjs'), dist], { timeoutMs: 180000 });
+  // one decision for the audit and the deploy: a site that is not live goes to the preview branch and is judged as a preview build (it must carry noindex), a live site goes to main and is judged as production (it must not)
+  const branch = exp.site.state !== 'live' ? 'preview' : 'main';
+  const auditTarget = branch === 'main' ? 'production' : 'preview';
+  const a = runTool(process.execPath, [join(REPO, 'tools', 'audit', 'run.mjs'), dist, '--target', auditTarget], { timeoutMs: 180000 });
   const fails = a.stdout.split(/\r?\n/).filter((l) => /^FAIL\s/.test(l));
   if (a.status === 2) throw new Stop('audit usage error', { factory: 'pass', audit: { exit: 2, fails, lines: tail(a.text, 10) } });
   if (a.status !== 0) throw new Stop('audit failed', { factory: 'pass', audit: { exit: a.status, fails } });
   const gateReport = { factory: 'pass', audit: { exit: 0, fails: [] } };
-  step('gating', `audit exit 0, ${tail(a.text, 1).join('')}`);
+  step('gating', `audit exit 0 (target ${auditTarget}), ${tail(a.text, 1).join('')}`);
 
   // ---- 5 deploying: preview branch unless the site is live; Functions of the site (/api/lead) travel with the deploy from a staged root
   await callback('deploying');
-  const branch = exp.site.state !== 'live' ? 'preview' : 'main';
   let deployId, deployUrl;
   if (opts['no-deploy']) {
     const dir = resolve(opts['no-deploy']);

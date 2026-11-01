@@ -220,6 +220,8 @@ await check('build: state live with no domain falls back to the preview address,
   return (ra.status === 0 && rb.status === 0 && read(ra.out, 'index.html').includes(`href="${ORIGIN}/"`) && read(rb.out, '_headers').includes('X-Robots-Tag: noindex') && /^preview: true$/m.test(rb.stdout)) || 'wrong';
 });
 
+// every build here but the live one is a preview (site state not live); ENV-001 judges indexing against the target the build was made for
+const PREVIEW = { target: 'preview' }, PRODUCTION = { target: 'production' };
 // the page-row rule
 const noContact = clone(baseExport); noContact.rows = noContact.rows.filter((r) => !(r.collection === 'pages' && r.data.path === '/contact/'));
 const skip = build({ exp: noContact });
@@ -228,11 +230,11 @@ await check('build: a contract page with no published row is SKIP, not built, no
   return (skip.stdout.includes('SKIP page /contact/: no published row') && !existsSync(join(skip.out, 'contact')) && !sitemapLocs(skip.out).some((u) => u.endsWith('/contact/'))
     && !walk(skip.out).some((f) => f.endsWith('.html') && read(skip.out, f).includes('href="/contact/"')) && skip.stdout.includes('BUILT 5 pages (3 contract pages + 2 item pages)')) || skip.stdout;
 });
-await check('build: the audit engine reports 0 FAIL on a site with an unpublished page', () => fails(AUDIT.audit(skip.out)).length === 0 || JSON.stringify(fails(AUDIT.audit(skip.out))));
+await check('build: the audit engine reports 0 FAIL on a site with an unpublished page', () => fails(AUDIT.audit(skip.out, PREVIEW)).length === 0 || JSON.stringify(fails(AUDIT.audit(skip.out, PREVIEW))));
 await check('build: a page row with seo.noindex is left out of the sitemap and carries a robots noindex meta', () => {
   const e = clone(baseExport); rowOf(e, 'pages', (d) => d.path === '/contact/').data.seo.noindex = true;
   const r = build({ exp: e }); if (r.status !== 0) return `exit ${r.status} ${r.stderr}`;
-  return (!sitemapLocs(r.out).some((u) => u.endsWith('/contact/')) && /<meta name="robots" content="noindex/.test(read(r.out, 'contact/index.html')) && fails(AUDIT.audit(r.out)).length === 0) || 'noindex wrong';
+  return (!sitemapLocs(r.out).some((u) => u.endsWith('/contact/')) && /<meta name="robots" content="noindex/.test(read(r.out, 'contact/index.html')) && fails(AUDIT.audit(r.out, PREVIEW)).length === 0) || 'noindex wrong';
 });
 
 // validation stops the build, nothing is written
@@ -313,13 +315,13 @@ await check('gates: the build runs them: a design whose hero adds a second <h1> 
 });
 
 // ---------- 7. the audit engine judges the output ----------
-const auditGood = AUDIT.audit(GOOD);
-await check('audit: the good build has 0 FAIL on the whole dist (every line PASS or WARN, plus the one SKIP ENV-001 no --target)', () => (auditGood.exit === 0 && fails(auditGood).length === 0 && auditGood.lines.every((l) => /^(PASS|WARN) /.test(l) || l.startsWith('SKIP ENV-001 / no --target')) && auditGood.lines.filter((l) => /ENV-001/.test(l)).length === 1) || auditGood.lines.filter((l) => !l.startsWith('PASS')).join('\n'));
-await check('audit: the live build has 0 FAIL too', () => { const r = AUDIT.audit(live.out); return (r.exit === 0 && fails(r).length === 0) || r.lines.filter((l) => !l.startsWith('PASS')).join('\n'); });
+const auditGood = AUDIT.audit(GOOD, PREVIEW);
+await check('audit: the good build has 0 FAIL on the whole dist (every line PASS or WARN, ENV-001 PASS: the preview build carries noindex)', () => (auditGood.exit === 0 && fails(auditGood).length === 0 && auditGood.lines.every((l) => /^(PASS|WARN) /.test(l)) && auditGood.lines.filter((l) => /ENV-001/.test(l)).length > 0 && auditGood.lines.filter((l) => /ENV-001/.test(l)).every((l) => /^PASS ENV-001 /.test(l))) || auditGood.lines.filter((l) => !l.startsWith('PASS')).join('\n'));
+await check('audit: the live build has 0 FAIL too', () => { const r = AUDIT.audit(live.out, PRODUCTION); return (r.exit === 0 && fails(r).length === 0) || r.lines.filter((l) => !l.startsWith('PASS')).join('\n'); });
 const forced = build({ extra: ['--force-fail', 'heading'] });
 await check('force-fail heading: the build says FORCED FAILURE: heading and succeeds (the factory skipped its own heading check)', () => (forced.status === 0 && /^FORCED FAILURE: heading$/m.test(forced.stdout)) || `exit ${forced.status} ${forced.stdout} ${forced.stderr}`);
 await check('force-fail heading: the audit engine reports a MET-003 FAIL on /contact/ with a line number', () => {
-  const r = AUDIT.audit(forced.out); const f = r.findings.find((x) => x.rule === 'MET-003' && x.status === 'FAIL');
+  const r = AUDIT.audit(forced.out, PREVIEW); const f = r.findings.find((x) => x.rule === 'MET-003' && x.status === 'FAIL');
   return (r.exit === 1 && f && f.page === '/contact/' && Number.isInteger(f.line) && r.lines.some((l) => /^FAIL MET-003 \/contact\/:\d+ /.test(l))) || r.lines.filter((l) => !l.startsWith('PASS')).join('\n');
 });
 await check('force-fail heading: only the contact page differs from the normal build', () => {

@@ -151,6 +151,7 @@ await check('full run: the export is fetched with GET /export-published?job=<id>
 });
 await check('full run: callbacks are gating, deploying, done in that order, each POST /job-callback, signed over its exact body, verified by the platform', () =>
   same(full.states, ['gating', 'deploying', 'done']) && full.log.callbacks.every((c) => c.sigOk === true && c.method === 'POST' && c.path === '/job-callback' && c.body.job === JOB) || JSON.stringify(full.states));
+await check('full run: the real audit judged the preview build as a preview (the gating step line names target preview)', () => /^STEP gating: audit exit 0 \(target preview\)/m.test(full.out) || full.out.split('\n').filter((l) => /STEP gating/.test(l)).join(' | '));
 await check('full run: done carries a local deploy id and the gate report (factory pass, audit exit 0, no FAIL lines)', () => {
   const d = full.last.body;
   return /^local-[0-9a-f]{12}$/.test(d.deployId) && d.gateReport && d.gateReport.factory === 'pass' && d.gateReport.audit.exit === 0 && d.gateReport.audit.fails.length === 0 || JSON.stringify(d);
@@ -222,6 +223,22 @@ for (const d of ['factory', 'sites', 'contracts']) symlinkSync(join(REPO, d), jo
 const usageAudit = await runPublish({ env: { OMNIKOM_REPO_ROOT: stubRepo } });
 await check('audit exit 2 (usage error): failed "audit usage error" after gating, nothing deploys, exit 1', () =>
   usageAudit.code === 1 && same(usageAudit.states, ['gating', 'failed']) && usageAudit.last.body.error === 'audit usage error' && usageAudit.last.body.gateReport.audit.exit === 2 && !existsSync(usageAudit.deployDir) || `${usageAudit.code} ${JSON.stringify(usageAudit.states)}\n${usageAudit.out.slice(-300)}`);
+// the build target the audit is told (ENV-001): a stub audit that records its arguments, then exits 2 so nothing deploys
+const argvRepo = tmp('repo-argv');
+mkdirSync(join(argvRepo, 'tools', 'audit'), { recursive: true });
+writeFileSync(join(argvRepo, 'tools', 'audit', 'run.mjs'),
+  "import { writeFileSync } from 'node:fs'; import { dirname, join } from 'node:path'; import { fileURLToPath } from 'node:url';\n"
+  + "writeFileSync(join(dirname(fileURLToPath(import.meta.url)), 'argv.json'), JSON.stringify(process.argv.slice(2))); process.exit(2);\n");
+for (const d of ['factory', 'sites', 'contracts']) symlinkSync(join(REPO, d), join(argvRepo, d), 'junction');
+const auditArgv = () => JSON.parse(readFileSync(join(argvRepo, 'tools', 'audit', 'argv.json'), 'utf8'));
+await runPublish({ env: { OMNIKOM_REPO_ROOT: argvRepo } });
+const previewArgv = auditArgv();
+await check('audit target: a preview export (site state not live) is audited with --target preview, after the built folder', () =>
+  (previewArgv.length === 3 && /dist$/.test(previewArgv[0]) && previewArgv[1] === '--target' && previewArgv[2] === 'preview') || `audit was called with ${JSON.stringify(previewArgv)}`);
+await runPublish({ env: { OMNIKOM_REPO_ROOT: argvRepo }, exportMut: (e) => { e.site.state = 'live'; e.site.domain = 'demo-a.example.com'; } });
+const liveArgv = auditArgv();
+await check('audit target: a live export is audited with --target production, after the built folder', () =>
+  (liveArgv.length === 3 && /dist$/.test(liveArgv[0]) && liveArgv[1] === '--target' && liveArgv[2] === 'production') || `audit was called with ${JSON.stringify(liveArgv)}`);
 
 }
 // ================= 6. refusals before any build =================

@@ -1583,3 +1583,15 @@ Backend finding: `publish_job_events` is not in the Realtime publication (the sc
 UNPROVEN: photo upload end to end; autosave after 10 s and the offline retry (unit parts only); the Open link (staging `preview_host` is
 the seed placeholder); Compare and Restore Undo; History for an agent.
 
+
+### 5-E the runner and the factory tests tell the audit the build target (2026-11-01 19:05 to 20:20 local, builder `BUILDER_platform-build_5-E`; brief `factory/briefs/5-E-env-001-target.md`)
+`factory/runner/publish.mjs` decides the deploy branch once, before gating (`preview` unless the site is live, then `main`), and
+passes `--target preview|production` from that same decision to `tools/audit/run.mjs`; the gating step line names the target.
+`factory/test/run.mjs` passes `{ target }` to every `AUDIT.audit` call (the live build is production, the rest preview) and the
+good-build check no longer allows `SKIP ENV-001`: every ENV-001 line must be PASS. Builder's lines: `node factory/test/run.mjs` "OK:
+88 of 88 checks passed"; `node factory/runner/test/run.mjs` "OK: 75 of 75 checks passed (media checks SKIPPED: sharp is not
+installed)"; `node factory/runner/test/mutate.mjs` "62 mutants, 62 caught, 0 survived" (2 new: target swapped, target not passed);
+planted preview without the X-Robots-Tag line (scratch copy) "FAIL ENV-001 /:3 missing-element: target preview, but the page is
+not noindex", audit exit 1, so the runner stops at gating. Head's re-run in the builder's worktree: 88 of 88 and 75 of 75, the
+two "audit target" checks ok. UNPROVEN: the 10 sharp media mutants (sharp not installed on the laptop; GitHub runs them).
+SEO can now flip `REQUIRE_TARGET_FOR_FOLDER` (theirs). SEO 5c's PMP-001 allowance on the same check is kept by whichever lands second.
