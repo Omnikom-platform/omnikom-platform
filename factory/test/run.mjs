@@ -186,6 +186,8 @@ await check('build: every page has canonical = origin + path, og:url, hreflang a
   return true;
 });
 await check('build: the footer carries the "powered by Omnikom" line on every page', () => [...pagePaths(GOOD), '/404.html'].every((p) => /[Pp]owered by <a [^>]*>Omnikom<\/a>/.test(read(GOOD, htmlFile(p)))));
+await check('build: every page links the logo as its icon (no /favicon.ico 404), and the logo file ships', () =>
+  [...pagePaths(GOOD), '/404.html'].every((p) => read(GOOD, htmlFile(p)).includes('<link rel="icon" href="/media/logo.png">')) && existsSync(join(GOOD, 'media', 'logo.png')) || 'icon link or logo file missing');
 await check('build: the 404 page is at the root with root-absolute paths and is not indexable', () => {
   const h = read(GOOD, '404.html'); return (/<meta name="robots" content="noindex/.test(h) && !/(href|src)="(?!\/|https?:|mailto:|tel:|#)/.test(h) && /href="\/"/.test(h)) || h.slice(0, 600);
 });
