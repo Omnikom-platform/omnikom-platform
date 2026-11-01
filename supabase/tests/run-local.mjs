@@ -9,6 +9,8 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { qualify } from './qualify.mjs';
+// 5-H: the cluster folder is guarded (stopped and removed on every exit path; swept at start when an earlier run was killed)
+import { guardedTemp, sweep } from '../../tools/proc-guard/index.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const arg = n => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : null; };
@@ -25,7 +27,9 @@ const src = migrationFiles.map(f => `-- >>> ${f}\n` + readFileSync(join(MIGRATIO
 const shimText = readFileSync(SHIM, 'utf8');
 const testText = readFileSync(TESTS, 'utf8');
 
-const dir = mkdtempSync(join(tmpdir(), 'omnikom-pg-'));
+sweep();
+const guard = guardedTemp('omnikom-pg-', 'cluster', { label: 'run-local' });
+const dir = guard.dir;
 const data = join(dir, 'data');
 // Starting the cluster gets 10 minutes: on 2026-10-31 a bare initdb took 123 s on the loaded laptop and the 120 s limit killed the
 // whole wall gate before a single test ran (combined 5.1/6A/6B tree). The per-statement limit below stays 120 s.
@@ -499,8 +503,7 @@ try {
   console.log(`CRASH ${e && e.code ? e.code + ' ' : ''}${String(e && e.stack || e).split('\n').slice(0, 4).join(' | ')}`);
   console.log(`server log:\n${pgLogTail()}`);
 } finally {
-  run('pg_ctl', ['-D', data, '-m', 'fast', 'stop']);   // always: a crash must not leave a server running
-  if (!process.argv.includes('--keep')) rmSync(dir, { recursive: true, force: true });
+  guard.release({ keep: process.argv.includes('--keep') });   // always: a crash must not leave a server running (pg_ctl stop -m immediate, every process naming the folder, then the folder)
 }
 console.log(`\n${failed ? 'FAILED' : 'OK'}: real migration ${real.ok ? 'passes' : 'fails'}; ${ran} mutants${crashed ? ' (CRASHED, see CRASH above)' : ''}`);
 process.exit(failed ? 1 : 0);

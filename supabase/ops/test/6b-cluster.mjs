@@ -1,23 +1,27 @@
 // A throwaway local Postgres cluster for the 6B tests and the restore drill: initdb + pg_ctl in the system temp folder (C:, never E:).
 // Same recipe as supabase/tests/run-local.mjs (trust auth, no locale, a random port, no unix socket). Nothing here touches a real project.
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+// 5-H: the cluster folder is guarded (stopped and removed on every exit path; swept when an earlier run was killed)
+import { guardedTemp, sweep } from '../../../tools/proc-guard/index.mjs';
 
 const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 10 * 60 * 1000, windowsHide: true, ...opts });
 const outOf = x => `${x.stdout ?? ''}${x.stderr ?? ''}${x.error ? `\n(${x.error.code || x.error.message})` : ''}`.trim();
 
+let swept = false;
 export function startCluster({ label = '6b' } = {}) {
-  const dir = mkdtempSync(join(tmpdir(), `omnikom-${label}-`));
+  if (!swept) { swept = true; sweep(); }
+  const guard = guardedTemp('omnikom-pg-', 'cluster', { label });
+  const dir = guard.dir;
   const data = join(dir, 'data');
   const port = String(55000 + Math.floor(Math.random() * 900));
   let r = run('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8']);
-  if (r.status !== 0) { rmSync(dir, { recursive: true, force: true }); throw new Error(`initdb failed: ${outOf(r).slice(0, 400)}`); }
+  if (r.status !== 0) { guard.release(); throw new Error(`initdb failed: ${outOf(r).slice(0, 400)}`); }
   r = run('pg_ctl', ['-D', data, '-o', `-p ${port} -k ""`, '-l', join(dir, 'pg.log'), '-w', 'start'], { stdio: 'ignore' });   // piped output would be held open by the server: spawnSync would wait for its timeout
   if (r.status !== 0) {
     let log = ''; try { log = readFileSync(join(dir, 'pg.log'), 'utf8').slice(-400); } catch { /* none */ }
-    rmSync(dir, { recursive: true, force: true });
+    guard.release();
     throw new Error(`pg_ctl start failed: ${outOf(r).slice(0, 300)} ${log}`);
   }
   const base = ['-h', '127.0.0.1', '-p', port, '-U', 'postgres'];
@@ -27,7 +31,7 @@ export function startCluster({ label = '6b' } = {}) {
     psql: (db, args, opts = {}) => run('psql', [...base, '-d', db, '-X', '-v', 'ON_ERROR_STOP=1', ...args], opts),
     sql: (db, text) => { const x = run('psql', [...base, '-d', db, '-X', '-q', '-t', '-A', '-v', 'ON_ERROR_STOP=1', '-f', '-'], { input: text }); return { ok: x.status === 0, out: (x.stdout || '').trim(), err: outOf(x) }; },
     createDb: name => c.sql('postgres', `create database ${name}`),
-    stop: () => { run('pg_ctl', ['-D', data, '-m', 'immediate', '-w', 'stop'], { stdio: 'ignore' }); rmSync(dir, { recursive: true, force: true }); },
+    stop: () => guard.release(),   // pg_ctl stop -m immediate, any process naming the folder, then the folder
   };
   return c;
 }
