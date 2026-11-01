@@ -44,7 +44,7 @@ for (const [name, file, find, repl] of MUTANTS) {
 console.log(`\n${MUTANTS.length} mutants, ${MUTANTS.length - survived - missing} caught, ${survived} survived, ${missing} target text missing`);
 // the other mutant lists of this folder, each its own child process; one that does not exit 0 fails this run
 let childFailed = 0;
-for (const f of ['context-load.mutants.mjs', 'start-builder.mutants.mjs']) {
+for (const f of ['context-load.mutants.mjs', 'start-builder.mutants.mjs', 'start-all.mutants.mjs']) {
   const c = spawnSync(process.execPath, [join(TOOLS, 'test', f)], { encoding: 'utf8', timeout: 1800000, maxBuffer: 16 * 1024 * 1024, env: process.env });
   const lines = ((c.stdout || '') + (c.stderr || '')).trim().split(/\r?\n/);
   for (const l of lines) if (/^(SURVIVED|MISSING)/.test(l)) console.log(`  [${f}] ${l}`);

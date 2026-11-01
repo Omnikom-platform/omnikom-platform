@@ -447,3 +447,41 @@
     staging through a script that refuses unless the old and new files differ only in comment lines (test watched red, a
     mutant); the run is recorded in its charter. This exception closes when the first production database exists: from then
     on an applied migration is never edited, even a comment.
+
+48. **One test-site journey, run through the CLI and looked at in a browser, is how every user-facing feature is proven**
+    (2026-11-01 16:20, owner: "create a really quick dummy website ... deploying it on Cloudflare ... use it to test the
+    connectors, test the pushing, the workflows, how things are being displayed ... create the test account using the Omnikom
+    CLI ... do everything using the CLI"; placement decided by the head of operations). What exists already (DECISIONS 30): the
+    synthetic test site `sites/test-demo-a/` is live at preview.test-site-demo-a.pages.dev (HEAD 200, `x-robots-tag: noindex,
+    nofollow`, checked 16:19), seeded by `omnikom seed test`, and the dashboard's Playwright files (`apps/dashboard/tests/
+    site.spec.ts`, `flows.spec.ts`, `plan-gate.spec.ts`) already edit, publish and send leads against it. No second dummy site is
+    made. What is missing is one run that strings it together end to end and is looked at. So: (a) the CLI and testing department
+    builds `omnikom test journey --target staging`: make the test accounts, sign in, edit content, publish, open the published
+    test site in a real browser (render gate: no console errors, screenshots phone and desktop), send a lead through the site's
+    form, see it in the dashboard inbox, push it through each connector built so far to a sink we own (never a client's CRM),
+    and print one line per step (PASS / FAIL / NOT BUILT YET) with the screenshot paths; (b) a step for a feature not built yet
+    prints NOT BUILT YET, never a pass; (c) every platform or SEO slice that adds a user-facing feature adds its journey step in
+    the same slice, as part of its done-when; (d) the head of operations reads the screenshots before accepting a step-5 slice;
+    (e) the test site is ours, so publishing to it needs no click; nothing in the journey touches a client's site or CRM. Slot:
+    the CLI queue right after D46 lands; the CLI head sequences it against 2a/2b and says if one must go first. Built with a
+    test watched failing and a mutant (a journey whose publish step is broken goes red at that step).
+
+49. **The real repository is public until there is budget for a paid GitHub plan; the public copy is parked; usage runs on
+    across two Claude accounts** (2026-11-01 16:30, owner: "Didn't I ask to flip the repo into public to utilize the open
+    limits", then "Copies would exist only if someone cloned it and that is not a problem ... we can flip it back to private when
+    we have the budget"; 16:27: "dw about usage we have another account to continue work just make sure that there is a cmd that
+    will actually open an orchestrator to start everything else on the other account after logging in"). Before the flip the
+    head of operations ran `gitleaks detect --log-opts=--all` over all 174 commits (every remote ref local: ls-remote 21 = 21
+    tracked): "no leaks found"; no .env, creds, .secrets, film/ or key file in any commit's paths; every workflow that reads a
+    secret starts only on schedule, workflow_dispatch or repository_dispatch (write access needed); ci.yml (push,
+    pull_request) reads none. Flipped 16:31 with `gh repo edit --visibility public` -> {"isPrivate":false,"visibility":"PUBLIC"};
+    the rerun of run 41308603685 then started all 9 jobs (before: "The job was not started because recent account payments have
+    failed"). So: (a) DECISIONS 45 stands as first written: the gate is the green run of the real repo for that exact commit; the
+    public copy (46) and the laptop runs for jobsNotOnCopy (47 (b), (c), (e)) are parked, kept on their branch, not deleted, and
+    come back if the repo goes private again; (b) publish, media, backup and the other secret workflows run on the real repo as
+    before; (c) the anonymising slices (47 (d), platform 5-A, SEO's 32 files) and the 47 (f) migration exception are parked too;
+    what is already anonymised stays; (d) client material in the repo is now readable by anyone: no new client personal data
+    (phone, email, home address) is added to the repo from now on; it lives in the database or the git-ignored folders; (e) the
+    weekly cap no longer stops work: at the cap, heads finish the slice and write HANDOVER, the owner logs in to the other account
+    and runs `E:\omk-launch\start-omnikom.cmd`, which starts one head of operations that restarts the heads from their HANDOVER
+    blocks (brief `docs/departments/briefs/account-switch.md`; still no standing orchestrator, DECISIONS 40).

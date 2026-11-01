@@ -74,15 +74,19 @@ a finished session gets `, DONE` appended. A session type not in this table is n
 say whom its head reports to and that its builders send findings back. When a department has no standing head (platform build
 today), the head of operations is the head and says so in the brief.
 
-## Context load and handover (owner, 2026-11-01 06:30)
-A head runs `node tools/departments/context-load.mjs` at every slice boundary and reads its own line; the head of operations
-runs it when it starts and at each report it reads. SWAP (context 250,000 tokens or more, 2 or more compactions, or a per-turn
-cost 5 times a fresh session's) means: at the next slice boundary, never mid-slice, the head writes a HANDOVER block at the end
-of its charter's position log (in-flight builders and branches, the next slice, open findings, anything waiting on the owner),
-stops starting work, and the head of operations starts a fresh head with the same charter. The old head is archived once its
-in-flight builders have reported and the new head has confirmed it read the block. WATCH (150,000 tokens or 1 compaction)
-means: plan the handover at the end of the current slice. There is no separate router session; the tool and the head of
-operations are the router (DECISIONS 40).
+## Context load and handover (owner, 2026-11-01 06:30; thresholds from prices 2026-11-01 15:27)
+A head runs `node tools/departments/context-load.mjs` at every slice boundary, reads its own line and sends it up as the CTX
+report line of `skills/context-economics/SKILL.md`; the head of operations runs it when it starts and at each report it reads.
+The thresholds come from Anthropic's prices (`tools/departments/prices.json`) and this project's measured fresh-start cost, with
+the math in the skill: SWAP when a fresh session pays back within 100 calls (Opus 5.5 and Sonnet 5.5: context 209,200 tokens or
+more; Fable 5.1: 273,200; Haiku 5.5: 177,200) or at 2 compactions; WATCH when it pays back within 200 calls (Opus and Sonnet
+170,600; Fable 202,600; Haiku 154,600) or at 1 compaction. SWAP means: at the next slice boundary, never mid-slice, the head
+writes a HANDOVER block at the end of its charter's position log (in-flight builders and branches with shas, the next slice, open
+findings, anything waiting on the owner; what not to carry is in the skill), stops starting work, and the head of operations
+starts a fresh head with the same charter. The old head is archived once its in-flight builders have reported and the new head
+has confirmed it read the block. WATCH means: plan the handover at the end of the current slice. COLD (idle past the 1 hour
+cache) means the next turn rewrites the whole context; above about 193,000 tokens (Opus, Sonnet) write the handover before a
+long idle instead. There is no separate router session; the tool and the head of operations are the router (DECISIONS 40).
 
 ## Starting and stopping a builder session (owner, 2026-11-01 06:26)
 A head starts a builder with `node tools/departments/start-builder.mjs --dept <slug> --slice <name>`: it writes a clean
@@ -93,6 +97,16 @@ by SendMessage to the head's name. When the report is in and the head has re-run
 `node tools/departments/stop-builder.mjs --pid <pid>` (a session cannot end itself) and confirms nothing is left. Hands-on work
 (diagnosis, settings, proof runs) belongs to builders or Haiku runners, never the head; a head that does it in its own session
 is filling the context this route exists to keep clear.
+
+## Switching Claude accounts (DECISIONS 49 (e); docs read 2026-11-01)
+1. Each head finishes its slice and writes its HANDOVER block; the head of operations writes its own in `.claude/POSITION.md`.
+2. Stop every session of ours: `node tools/departments/start-all.mjs --dry-run` lists them with the stop command for each.
+3. In any terminal: `claude auth logout`, then `claude auth login` and pick the other account in the browser. The login is one
+   file per config folder (`%USERPROFILE%\.claude\.credentials.json`), so hooks, skills, memory and settings stay as they are; the
+   docs do not say what an open session does when the account changes, which is why step 2 comes first
+   (code.claude.com/docs/en/authentication, "Credential management"; /errors#not-logged-in).
+4. Double-click "Start Omnikom" on the Desktop (`E:\omk-launch\start-omnikom.cmd`): it shows the account, refuses while anything
+   of ours is live, starts one head of operations and sends it `docs/departments/briefs/takeover-after-account-switch.md`.
 
 ## Starting a department
 `node tools/departments/new-department.mjs --slug <slug> --name "<Name>" --mission "<one sentence>" --owns <path> [--owns <path>]

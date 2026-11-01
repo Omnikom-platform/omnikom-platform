@@ -57,7 +57,7 @@ export function plan({ dept, slice, model, effort, cwd }) {
 export function launcherText(p, exe) {
   return [
     '@echo off',
-    `rem Starts a clean builder session ${p.name} (${p.model}). Written by tools/departments/start-builder.mjs; the task goes in as a message.`,
+    `rem ${p.what || `Starts a clean builder session ${p.name} (${p.model}). Written by tools/departments/start-builder.mjs`}; the task goes in as a message.`,
     ...CLEARED.map(n => `set ${n}=`),
     `title ${p.name}`,
     `cd /d "${p.cwd}"`,

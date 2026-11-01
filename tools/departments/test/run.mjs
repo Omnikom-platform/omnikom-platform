@@ -90,7 +90,7 @@ try {
   // Not under test/mutate.mjs (OMNIKOM_DEPT_TOOLS set): those mutants break check.mjs / new-department.mjs, which these suites do not
   // touch, and each suite has its own mutants file that mutate.mjs runs after its own list.
   if (!process.env.OMNIKOM_DEPT_TOOLS) {
-    for (const suite of ['context-load.test.mjs', 'start-builder.test.mjs']) {
+    for (const suite of ['context-load.test.mjs', 'start-builder.test.mjs', 'start-all.test.mjs']) {
       const c = spawnSync(process.execPath, [join(HERE, suite)], { encoding: 'utf8', timeout: 300000, env: { ...process.env, OMNIKOM_REPO_ROOT: REPO } });
       const out = (c.stdout || '') + (c.stderr || '');
       const sum = /^(OK|FAILED): (\d+)(?: of (\d+))?/m.exec(out);
