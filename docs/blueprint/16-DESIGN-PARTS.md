@@ -59,6 +59,28 @@ Design parts: the card, the two states, the "check your email" state, the expire
 field. Emails to design: the sign-in link mail, the invite mail (who invited you, which business, the button), the new-lead alert
 mail (section 1.3), each in plain text plus one HTML version.
 
+#### 1.2e The Auth emails (sent by Supabase Auth through Resend; templates in `supabase/auth-emails/`, applied by `supabase/set-auth-settings.mjs`)
+Sender (owner 2026-11-01): "Omnikom Dashboard" <login@notify.omnikom.io>. Link life (owner 2026-10-31): 600 s, `mailer_otp_exp`.
+Supabase sends these as HTML only (no plain-text part can be set through Auth): the plain-text version of DP-1.2-10 waits for our
+own sender. `{{ .Email }}`, `{{ .TokenHash }}` and `{{ .SiteURL }}` are filled in by Supabase.
+| Id | Slice | Element | Words |
+|---|---|---|---|
+| DP-email-01 | email | Sign-in email: subject | "Your sign-in link for the Omnikom dashboard" |
+| DP-email-02 | email | Sign-in email: heading | "Sign in to the Omnikom dashboard" |
+| DP-email-03 | email | Sign-in email: why it came | "Someone asked to sign in to the Omnikom dashboard with {{ .Email }}." |
+| DP-email-04 | email | Sign-in email: the button, to {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=magiclink (DP-1.2-06) | "Sign in" |
+| DP-email-05 | email | Both emails: the link's life (600 s; a token hash works once) | "The link works for 10 minutes and only once." |
+| DP-email-06 | email | Both emails: not asked for | "If you did not ask for this, you can ignore this email." |
+| DP-email-07 | email | Both emails: sender identity block | "Omnikom Dashboard, login@notify.omnikom.io" and "Sent by Omnikom, omnikom.io" |
+| DP-email-08 | email | Invite email (only when a login is invited from the Supabase dashboard; `invite-member` sends no email, DP-1.6-02): subject | "You are invited to the Omnikom dashboard" |
+| DP-email-09 | email | Invite email: heading | "You are invited to the Omnikom dashboard" |
+| DP-email-10 | email | Invite email: what happened | "A login for {{ .Email }} was made on the Omnikom dashboard." |
+| DP-email-11 | email | Invite email: the button, to {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite | "Accept and sign in" |
+| DP-email-12 | email | Invite email: after the link runs out | "After that, ask for a sign-in link with this address at {{ .SiteURL }}/login." |
+Settled 2026-11-01 (head of operations, from the owner's 10-minute link): an invite is a sign-in link; it lives 10 minutes; the person
+can ask for a new one at /login (04-DASHBOARD, Screens 1). Supabase gives every email link one life (`mailer_otp_exp`, 600 s). The invite mail of DP-1.6-02 (who invited you, which business)
+is a sign-in link sent by our own function once it sends email.
+
 ### 1.3 Screen 2: Leads (home)
 | Id | Slice | Element | Click or input | What happens | What the person sees | If it fails |
 |---|---|---|---|---|---|---|

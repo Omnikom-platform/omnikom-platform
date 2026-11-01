@@ -18,7 +18,7 @@ Needs `SUPABASE_ACCESS_TOKEN` with read access to the project's Auth configurati
 | Sign-ups (`disable_signup`) | off: true | invites only; no stranger burns the mail quota (24-GAP-HUNT C) | yes, off | 2026-10-30: BLOCKED, see below |
 | Anonymous sign-ins (`external_anonymous_users_enabled`) | off: false | no anonymous logins exist in the data model | yes, off | 2026-10-30: BLOCKED |
 | Email confirmation (`mailer_autoconfirm`) | required: false | a login is a confirmed address | yes, confirm email on | 2026-10-30: BLOCKED |
-| OTP and magic-link expiry (`mailer_otp_exp`) | 600 s (owner 2026-10-31: the link lives 10 minutes; the dashboard copy DP-1.2-02 says so) | the spec; the vendor's production checklist allows up to 3600 | 3600 on 2026-10-29; 600 pending on staging | 2026-10-30: BLOCKED |
+| OTP and magic-link expiry (`mailer_otp_exp`) | 600 s (owner 2026-10-31: the link lives 10 minutes; the dashboard copy DP-1.2-02 says so) | the spec; the vendor's production checklist allows up to 3600 | 3600 on 2026-10-29; 600 set 2026-11-01 by `supabase/set-auth-settings.mjs` (read back) | 2026-10-30: BLOCKED |
 | OTP length (`mailer_otp_length`) | 8 | brute-force margin | yes, 8 | 2026-10-30: BLOCKED |
 | Site URL (`site_url`) | `https://app-staging.omnikom.io` (production: the dashboard's domain) | magic links land on our dashboard only | yes | 2026-10-30: BLOCKED |
 | Redirect allow list (`uri_allow_list`) | `https://app-staging.omnikom.io/**` (production: its own) | no open redirect | yes | 2026-10-30: BLOCKED |
@@ -29,10 +29,17 @@ Needs `SUPABASE_ACCESS_TOKEN` with read access to the project's Auth configurati
 | Refresh token rotation (`refresh_token_rotation_enabled`) | on | a stolen refresh token dies at first reuse | not read | 2026-10-30: BLOCKED |
 | Sessions (`sessions_timebox`, `sessions_inactivity_timeout`) | recorded (paid feature; D19) | ASVS 7.x | not read | 2026-10-30: BLOCKED |
 | CAPTCHA (`security_captcha_enabled`) | recorded (Turnstile decision open, 24-GAP-HUNT C) | abuse | not read | 2026-10-30: BLOCKED |
+| Sender (`smtp_sender_name`, `smtp_admin_email`) | "Omnikom Dashboard" <login@notify.omnikom.io> (owner 2026-11-01) | the person sees who writes | set 2026-11-01 by `supabase/set-auth-settings.mjs` (read back) | 2026-11-01: PASS |
+| Email subjects and templates (`mailer_subjects_magic_link`, `mailer_templates_magic_link_content`, `mailer_subjects_invite`, `mailer_templates_invite_content`) | the files in `supabase/auth-emails/` (plan rows DP-email-01 to 12, 16-DESIGN-PARTS 1.2e; `check.mjs` gates them, 14 mutants) | nothing made up (DECISIONS 44); the link goes to `/auth/confirm?token_hash=` | set 2026-11-01 by `supabase/set-auth-settings.mjs` (read back) | 2026-11-01: PASS |
+| Resend link and open tracking (the provider, not Supabase) | off | tracking rewrites links and breaks magic links (24-GAP-HUNT) | not readable with the sending-only key (401 on the domain API) | 2026-11-01 02:40: OFF, read in the dashboard by the head of operations (domain notify.omnikom.io: Verified, eu-west-1, TLS Opportunistic; tracking not set up: "Enable tracking metrics ... configure a custom tracking subdomain" with only a Configure link) |
 | Custom SMTP (`smtp_host`) | Resend once D5 is wired (recorded until then) | the 95-a-day counter sees Auth mail only through our sender | not set 2026-10-29 | 2026-10-30: BLOCKED |
 | Enforce SSL on database connections | on | the vendor's production checklist | yes (confirmed by a probe, PROGRESS.md) | not an Auth setting; proven by the probe on 2026-10-29 |
 
 ## Check log
+- 2026-11-01 02:35 (platform build head): `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node supabase/set-auth-settings.mjs`
+  sent 7 keys, `PATCH 200`, then read back each: `OK: 7 Auth settings set and read back on STAGING_SUPABASE_REF, 0 differ`. Before it,
+  `check-auth-settings.mjs` showed `FAIL mailer_otp_exp observed 3600 expected 600` (24 read, 1 differed). Link-life proof:
+  `supabase/ops/prove-link-life.mjs` (PROGRESS.md "Auth emails").
 - 2026-10-31 (platform build head, after the owner banked a full-access `SUPABASE_ACCESS_TOKEN`): the command above read 24 settings; 23
   matched, 1 differed: `rate_limit_email_sent` observed 30, expected 2. The expectation was stale (the built-in mailer's cap; custom SMTP
   through Resend has been on since 2026-10-30 01:41 and Supabase quotes 30 per hour then). Expectation corrected to 30 here and in

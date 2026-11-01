@@ -6,7 +6,7 @@
 // --functions a,b,c   each one is `supabase functions deploy <name> --project-ref <ref>` (verify_jwt comes from supabase/config.toml)
 // --secrets A,B       secret names taken from the environment (default GITHUB_DISPATCH_TOKEN,GITHUB_REPO); a name missing in the
 //                     environment is printed as `NOT SET (missing in the env): NAME` and skipped, never invented
-// --set NAME=value    a NON-secret value given on the command line (only GITHUB_REPO, DASHBOARD_URL, LEAD_ALERT_FROM are accepted:
+// --set NAME=value    a NON-secret value given on the command line (only GITHUB_REPO, DASHBOARD_URL, DASHBOARD_ORIGINS, LEAD_ALERT_FROM are accepted:
 //                     a secret never travels on a command line); it wins over the environment
 // Secret values travel to the CLI through a temp env file that is deleted afterwards; the output is scrubbed of the token, the project
 // ref and every secret value before it is printed.
@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SET_OK = ['GITHUB_REPO', 'DASHBOARD_URL', 'LEAD_ALERT_FROM'];
+const SET_OK = ['GITHUB_REPO', 'DASHBOARD_URL', 'DASHBOARD_ORIGINS', 'LEAD_ALERT_FROM'];
 const FN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const argv = process.argv.slice(2);
 const opt = n => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : null; };

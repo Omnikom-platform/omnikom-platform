@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 // Reads the staging project's Auth settings through the Supabase Management API (read-only, GET only) and compares them with
 // supabase/auth-settings.md. Prints one line per setting: observed value, expected value, PASS / FAIL / RECORDED (no expectation,
 // the value is recorded). Only the allowlisted keys below are ever printed: the endpoint also returns SMTP and provider secrets.
@@ -35,6 +36,8 @@ const EXPECT = {
   sessions_inactivity_timeout: ['inactivity timeout (paid feature; D19)', null, 'recorded'],
   password_min_length: ['password minimum length (no passwords by D18; the dashboard never offers a password form)', null, 'recorded'],
   smtp_host: ['custom SMTP host set (Resend, D5)', null, 'recorded: a host name is not a secret; empty = built-in mailer'],
+  smtp_sender_name: ['the name the sign-in email comes from', 'Omnikom Dashboard', 'owner 2026-11-01'],
+  smtp_admin_email: ['the address the sign-in email comes from', 'login@notify.omnikom.io', 'owner 2026-11-01; PROGRESS.md 2026-10-30 01:41'],
   mailer_secure_email_change_enabled: ['secure email change (both addresses confirm)', true, 'Supabase default'],
 };
 
@@ -48,6 +51,16 @@ for (const [key, [words, expected, source]] of Object.entries(EXPECT)) {
   const verdict = expected === null ? 'RECORDED' : got === expected ? 'PASS' : 'FAIL';
   if (verdict === 'FAIL') fail++;
   console.log(`${verdict.padEnd(8)} ${key.padEnd(40)} observed ${shown}${expected === null ? '' : `  expected ${JSON.stringify(expected)}`}  (${words}; ${source})`);
+}
+// the email templates and subjects: the files in supabase/auth-emails/ (DP-email rows in 16-DESIGN-PARTS)
+const emails = JSON.parse(readFileSync(new URL('./auth-emails/emails.json', import.meta.url), 'utf8'));
+for (const [name, e] of Object.entries(emails.emails)) {
+  const want = { [`mailer_subjects_${name}`]: e.subject, [`mailer_templates_${name}_content`]: readFileSync(new URL(`./auth-emails/${e.file}`, import.meta.url), 'utf8') };
+  for (const [key, value] of Object.entries(want)) {
+    const ok = cfg[key] === value;
+    if (!ok) fail++;
+    console.log(`${ok ? 'PASS' : 'FAIL'}     ${key.padEnd(40)} ${ok ? 'matches' : 'differs from'} supabase/auth-emails/${key.includes('subjects') ? 'emails.json' : e.file}`);
+  }
 }
 const unknown = Object.keys(EXPECT).filter(k => !(k in cfg));
 if (unknown.length) console.log(`NOTE: the API did not return: ${unknown.join(', ')} (vendor differs from the docs; a finding)`);

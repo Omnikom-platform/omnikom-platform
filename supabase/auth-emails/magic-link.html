@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Sign in to the Omnikom dashboard</title></head>
+<body style="margin:0;padding:0;background:#ffffff;color:#111111;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr><td style="padding:32px 24px">
+<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;max-width:480px;width:100%">
+<tr><td><h1 data-plan="DP-email-02" style="margin:0 0 16px;font-size:22px;line-height:1.3;font-weight:600">Sign in to the Omnikom dashboard</h1></td></tr>
+<tr><td><p data-plan="DP-email-03" style="margin:0 0 24px">Someone asked to sign in to the Omnikom dashboard with {{ .Email }}.</p></td></tr>
+<tr><td style="padding:0 0 24px"><a data-plan="DP-email-04" href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=magiclink" style="display:inline-block;padding:12px 24px;background:#111111;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600">Sign in</a></td></tr>
+<tr><td><p data-plan="DP-email-05" style="margin:0 0 8px">The link works for 10 minutes and only once.</p></td></tr>
+<tr><td><p data-plan="DP-email-06" style="margin:0 0 32px">If you did not ask for this, you can ignore this email.</p></td></tr>
+<tr><td data-plan="DP-email-07" style="border-top:1px solid #dddddd;padding-top:16px;font-size:14px;color:#555555"><p style="margin:0">Omnikom Dashboard, login@notify.omnikom.io</p><p style="margin:0">Sent by Omnikom, omnikom.io</p></td></tr>
+</table>
+</td></tr></table>
+</body>
+</html>

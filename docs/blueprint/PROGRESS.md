@@ -182,6 +182,62 @@ yet: Storage files (the `media` bucket are not in a `pg_dump`).
 ## Step 5: the dashboard, backend first (2026-10-31, the standing Platform build head)
 Plan `factory/briefs/5-0-step-5-and-6-plan.md`; one in-session Sonnet builder per slice.
 
+### 5.2 screens functions: landed and on staging (2026-11-01 02:20 to 02:55 local, the head; brief `factory/briefs/5-2-screens-functions.md`)
+Builder (in-session Sonnet; its run died in the 02:07 restart, resumed for light checks only): drafts, settings-save, crm-test (net
+guard, signed request, audit row), lead-export (the caller's RLS through `asCaller`, quoted CSV, `exported` event), invite-member
+(generate_link type invite, no email); `save` requires `base` for an existing row (409 S-STALE); `lead-update` read; CORS in the
+`dashboard()` frame from `DASHBOARD_ORIGINS` (never `*`); I-EMAIL, I-URL, I-SECRET-REF 422 and S-LAST-OWNER 409; migration 13 (the
+CRM secret in Vault, the test audit row, `find_login`) with tenancy block T21 and 43 wall mutants. Follow-on in my area:
+`sites/test-demo-a/publish.mjs` now sends `base`.
+Heavy proof on GitHub (DECISIONS 45): check branch commit 9ceef8b, run 41256679604, 9 of 9 jobs green: `OK: real migration passes;
+379 mutants`, `OK: 137 of 137 checks passed (the Deno tests)`, `182 mutants, 182 caught, 0 survived`, `all gates passed`. Landed:
+`bfb89da..9ceef8b -> master`.
+Staging (the head, after the landing, DECISIONS 43): `apply-staging.mjs --url-env STAGING_DB_URL_DIRECT` `OK: applied 1 of 13 (12
+were already applied)`; `deploy-functions.mjs` deployed all 16 functions (`OK: <name> deployed` 16 times) and set `DASHBOARD_ORIGINS`
+(`--set` now accepts it: a one-word change in `tools/deploy-functions.mjs`). First `e2e-screens.mjs` run: 2 FAIL, both CORS
+(`allow-origin null`): I had set only the app address, the e2e calls from `http://localhost:5173`. With the brief's list
+(`http://localhost:5173,http://localhost:4173,https://app-staging.omnikom.io`, later `https://omnikom-app-staging.pages.dev`):
+`PASS: staging end to end for the functions of the four screens, 0 problem(s)` (40 PASS; crm-test's signed request INFO: proven
+locally only, no public echo endpoint). UNPROVEN (builder's list): DNS rebinding between the resolve and the fetch is not stopped.
+Open: `docs/blueprint/specs/openapi.json` lacks `SaveRequest.base` and the five new operations (check-specs does not require them).
+
+## Auth emails and the sign-in link (2026-11-01 02:25 to 03:05 local, the head; owner 2026-10-31 23:58 and 2026-11-01 00:05)
+Plan: 16-DESIGN-PARTS 1.2e, rows DP-email-01 to 12 (subjects, heading, why it came, the button and its `/auth/confirm?token_hash=`
+address, "The link works for 10 minutes and only once.", the sender identity block). Templates `supabase/auth-emails/magic-link.html`
+and `invite.html`, `emails.json`; `check.mjs` fails on a line outside a plan row, words not in the row's Words cell, an unknown id, an
+unused row, a wrong link, a link life that differs from `check-auth-settings.mjs`, or 04-DASHBOARD's invite sentence: `OK: 2 Auth
+emails, 12 plan rows, every line traced, link life 10 minutes, sender Omnikom Dashboard`; `mutate.mjs` `OK: 15 mutants, 15 caught`.
+Both run in the dashboard CI step. Supabase sends these as HTML only (no plain-text part), noted in the plan.
+Applied with `supabase/set-auth-settings.mjs` (Management API, full-access token, only the 7 keys): before it `check-auth-settings`
+showed `FAIL mailer_otp_exp observed 3600 expected 600`; then `PATCH 200` and `OK: 7 Auth settings set and read back on
+STAGING_SUPABASE_REF, 0 differ` (mailer_otp_exp 600, smtp_sender_name "Omnikom Dashboard", smtp_admin_email login@notify.omnikom.io,
+both subjects and templates). Resend tracking: OFF, read in the signed-in dashboard by the head of operations at 02:40.
+Invite links: settled (head of operations, from the owner's 10 minutes): an invite is a sign-in link; it lives 10 minutes; a new one
+at /login (04-DASHBOARD, gated by `check.mjs`). Link-life proof (`supabase/ops/prove-link-life.mjs`, two links made at the same moment
+through the Auth admin API, no email sent):
+```
+00:50:44 two sign-in links made (member-a2, owner-a); the link life under test is 600 s
+01:00:14 member-a2's link used after 571 s: HTTP 200
+01:01:14 owner-a's link used after 631 s: HTTP 403 otp_expired Email link is invalid or has expired
+PASS: a link works before 600 s and is refused as expired after it
+```
+First attempt spoiled: owner-b's link was refused at 571 s because e2e-screens made a new owner-b link meanwhile (a new link cancels
+the older one); and `tools/with-env.mjs` stops its child at 10 minutes, so the late half never ran. Fixed with `--detach` (the
+proof's own detached child keeps the keys in memory) and member-a2, a login nothing else used during the run.
+
+## The dashboard and the status page on Pages (2026-11-01 02:50 to 03:00 local, the head)
+`tools/pages-project.mjs` (new; refuses names that are not `omnikom-*`; creates the project when missing, attaches a domain, deploys
+with wrangler 4.152.0 as the runner does): `omnikom-status` deployed from `sites/omnikom-status` (https://omnikom-status.pages.dev,
+HTTP 200, 6332 bytes; the DRAFT data of 2026-10-31 15:18 with its check times; nothing refreshes status.json yet).
+`omnikom-app-staging`: the dashboard built with `build-staging.mjs --direct-functions` (new flag: the browser calls
+`https://<ref>.supabase.co/functions/v1` itself; the local build keeps the forward) and deployed (https://omnikom-app-staging.pages.dev);
+`app-staging.omnikom.io` attached, status initializing: the DNS record `CNAME app-staging.omnikom.io -> omnikom-app-staging.pages.dev
+(proxied)` is the owner's click. Read in the built-in browser: /login renders "Email / Send me a sign-in link / Use a password
+instead", no console errors; a cross-origin POST from the page to the functions answered 401 (the browser allowed it: CORS works from
+that origin). Sign-in links land on `site_url` (app-staging.omnikom.io), so a real email sign-in waits for the DNS record.
+GitHub secrets: the four staging names were already on the repository (`gh secret list`), nothing set. Backup key pair: NOT made here
+by design (supabase/ops/README.md: the private key is made on the owner's machine with his passphrase and never enters a session).
+
 ### 5.3 shell, sign-in and Leads (2026-10-31, builder then head; brief `factory/briefs/5-3-shell-and-leads.md`)
 Builder (in-session Sonnet): `apps/dashboard/` (Vite 8.3.5, React 18.3.1, TanStack Router and Query, supabase-js 2.118.0, TypeScript
 7.0.2, Vitest, Playwright 1.64.1 on Edge). Plain semantic markup, no styling (the Design department owns the look, DECISIONS 39).

@@ -23,7 +23,8 @@ The exact fields of each generated screen per site: `contracts/examples/<site>/s
 
 ## Screens
 ### 1. Login, invite, reset
-Email magic link by default, password optional; invite links expire in 7 days; staff need MFA. After login: last workspace, or the
+Email magic link by default, password optional; an invite is a sign-in link; it lives 10 minutes; the person can ask for a new one at
+/login (owner 2026-10-31: one link life of 600 s, `mailer_otp_exp`; settled 2026-11-01); staff need MFA. After login: last workspace, or the
 picker if the person belongs to more than one.
 
 ### 2. Overview `/w/:ws` ![overview](wireframes/overview.png)
