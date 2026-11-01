@@ -7,8 +7,17 @@
 //   --start old: the command the harness used until 2026-11-01 (pg_ctl -o "-p P -k \"\"": listen_addresses stays 'localhost' = ::1 and 127.0.0.1)
 //           pinned: the same with -c listen_addresses=127.0.0.1
 //           harness: harness.mjs startCluster() with its first try forced to P (it walks to P+1 on a failed bind and says so)
-// The 2026-11-01 reds: on Linux a held 127.0.0.1:P fails the IPv4 bind only; with 'localhost' the server still comes up on ::1, so pg_ctl -w
-// start says ok and 127.0.0.1:P is refused for the cluster's life.
+//   --census N   (Linux) N short psql calls against a cluster, then: how many local ports those sockets hold, and whether a server can still
+//           listen on each of them (node's listener sets SO_REUSEADDR like Postgres does)
+// WHAT IT PROVES (GitHub run 41350867780, Ubuntu 26.04, PG 18.6, ip_local_port_range 32768-60999): on Linux a plain client socket (what every
+// psql call opens) holding 127.0.0.1:P, even only in TIME_WAIT, makes the postmaster's IPv4 bind fail. With the default
+// listen_addresses='localhost' the server still comes up on ::1, so `pg_ctl -w start` says ok, the postmaster lives, and 127.0.0.1:P is
+// refused for the cluster's whole life. That was the "cluster guard (real kill)" red and the mutate "create database failed" red of
+// 2026-11-01: the harness took ports from 57000-57899, inside the ephemeral range the psql sockets come from. The same probe with no holder, or
+// with a holder that set SO_REUSEADDR, shows a healthy cluster. `--start pinned` shows the loud failure; `--start harness` the walk to P+1.
+// On Windows a held port fails both binds, so pg_ctl fails loudly there (the half-bound state is Linux only).
+// HOW TO RUN: needs initdb, pg_ctl, psql on PATH and python3 (python on Windows) for tw / est; run each case on its own port (a TIME_WAIT
+// lasts 60 s). The other harnesses with a fixed port range (supabase/**, see briefs/real-kill-flake.md "Port map") can be tried the same way.
 import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';

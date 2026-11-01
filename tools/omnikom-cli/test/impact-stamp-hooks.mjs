@@ -764,10 +764,12 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
         let said = [];
         const c4 = h.startCluster({ markerDir: mk, run: fakeBind(2), signals: false, firstPort: 21500, say: l => said.push(l) });
         const marker4 = JSON.parse(readFileSync(c4.marker, 'utf8'));
-        check('cluster guard: a failed bind named in the server log walks to the next port of the block, one printed line per try, and the marker follows the port',
-          startArgs().map(portOf).join() === '21500,21501,21502' && String(c4.port) === '21502' && String(marker4.port) === '21502'
-          && JSON.stringify(said) === JSON.stringify(['cluster: port 21500 in use (could not bind), trying 21501', 'cluster: port 21501 in use (could not bind), trying 21502']), JSON.stringify({ ports: startArgs().map(portOf), said, marker4 }));
+        const mine = () => readdirSync(mk).filter(f => f.startsWith(`${process.pid}-215`));   // marker files of this walk (the file is named by its port)
+        const before4 = mine();
         c4.stop();
+        check('cluster guard: a failed bind named in the server log walks to the next port of the block, one printed line per try, and the marker follows the port (one file, removed by stop)',
+          startArgs().map(portOf).join() === '21500,21501,21502' && String(c4.port) === '21502' && String(marker4.port) === '21502' && before4.join() === `${process.pid}-21502.json` && mine().length === 0
+          && JSON.stringify(said) === JSON.stringify(['cluster: port 21500 in use (could not bind), trying 21501', 'cluster: port 21501 in use (could not bind), trying 21502']), JSON.stringify({ ports: startArgs().map(portOf), said, marker4, before4, after: mine() }));
         calls.length = 0; said = [];
         let e5 = null;
         try { h.startCluster({ markerDir: mk, run: fakeBind(99, 'FATAL:  data directory "x" has wrong ownership'), signals: false, firstPort: 21500, say: l => said.push(l) }); } catch (e) { e5 = e; }

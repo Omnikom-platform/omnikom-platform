@@ -67,7 +67,7 @@ export function startCluster({ markerDir = CLUSTER_MARKER_DIR, run = sh, alive =
   const dir = mkdtempSync(join(tmpdir(), CLUSTER_PREFIX));
   const data = join(dir, 'data');
   let port = String(firstPort || CLUSTER_PORTS.first + Math.floor(Math.random() * CLUSTER_PORTS.count));
-  const marker = writeMarker(markerDir, { pid: process.pid, dir, data, port, startedAt: new Date().toISOString() });   // before initdb: a kill during start is swept too
+  let marker = writeMarker(markerDir, { pid: process.pid, dir, data, port, startedAt: new Date().toISOString() });   // before initdb: a kill during start is swept too
   let stopped = false;
   const stop = () => {
     if (stopped) return;
@@ -97,7 +97,8 @@ export function startCluster({ markerDir = CLUSTER_MARKER_DIR, run = sh, alive =
       const next = String(CLUSTER_PORTS.first + (Number(port) - CLUSTER_PORTS.first + 1) % CLUSTER_PORTS.count);
       say(`cluster: port ${port} in use (could not bind), trying ${next}`);
       port = next;
-      writeMarker(markerDir, { pid: process.pid, dir, data, port, startedAt: new Date().toISOString() });
+      rmSync(marker, { force: true });                                  // the marker file is named by its port: replace it, never keep two
+      marker = writeMarker(markerDir, { pid: process.pid, dir, data, port, startedAt: new Date().toISOString() });
     }
   } catch (e) { stop(); throw e; }
   return { port, dir, data, marker, stop };
