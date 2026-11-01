@@ -7,6 +7,8 @@ import { Shell } from './pages/Shell';
 import { LeadsLayout, NoLeadChosen } from './pages/Leads';
 import { LeadPanel } from './pages/LeadPanel';
 import { AddLead } from './pages/AddLead';
+import { SiteLayout, NoItemChosen } from './pages/SiteLayout';
+import { Editor } from './pages/Editor';
 import { NotFound } from './pages/NotFound';
 
 // Routes (03-FRONTEND B2), written in code so the dashboard needs no build plugin. Everything under /w needs a login.
@@ -72,6 +74,15 @@ const leadsIndexRoute = createRoute({ getParentRoute: () => leadsRoute, path: '/
 const addLeadRoute = createRoute({ getParentRoute: () => leadsRoute, path: 'new', component: AddLead });
 const leadRoute = createRoute({ getParentRoute: () => leadsRoute, path: '$id', component: LeadPanel });
 
+const siteRoute = createRoute({ getParentRoute: () => wsRoute, path: 'site', component: SiteLayout });
+const siteIndexRoute = createRoute({ getParentRoute: () => siteRoute, path: '/', component: NoItemChosen });
+const itemRoute = createRoute({
+  getParentRoute: () => siteRoute,
+  path: '$collection/$row',
+  validateSearch: (s: Record<string, unknown>): { field?: string } => (typeof s.field === 'string' && s.field ? { field: s.field } : {}),
+  component: Editor,
+});
+
 
 const notFound = () => (
   <main>
@@ -85,7 +96,7 @@ const routeTree = rootRoute.addChildren([
   confirmRoute,
   authedRoute.addChildren([
     workspacesRoute,
-    wsRoute.addChildren([wsIndexRoute, leadsRoute.addChildren([leadsIndexRoute, addLeadRoute, leadRoute])]),
+    wsRoute.addChildren([wsIndexRoute, leadsRoute.addChildren([leadsIndexRoute, addLeadRoute, leadRoute]), siteRoute.addChildren([siteIndexRoute, itemRoute])]),
   ]),
 ]);
 

@@ -42,9 +42,9 @@ function patch(file, find, replace) {
 }
 
 describe('the plan itself', () => {
-  it('has rows, and slice 5.3 is the built one', () => {
+  it('has rows, and slices 5.3 and 5.4 are the built ones', () => {
     expect(plan.size).toBeGreaterThan(60);
-    expect(built).toEqual(['5.3']);
+    expect(built).toEqual(['5.3', '5.4']);
     expect(plan.get('DP-1.2-05')?.slice).toBe('5.3');
     expect(plan.get('DP-1.3-05')?.slice).toBe('5.3b');
   });
@@ -146,8 +146,8 @@ describe('mutants of the real source: each must turn the gate red for its reason
   it('plant a button with no handler', () => {
     red('no-handler', scanReal(patch('src/pages/Leads.tsx', '<section data-live={live}>', '<section data-live={live}>\n          <button type="button" data-plan="DP-1.3-04">Add a lead</button>')), 'PLAN-6', '<button> does nothing');
   });
-  it('plant a link to a route that does not exist (the old Site entry)', () => {
-    red('dead-link', scanReal(patch('src/pages/Shell.tsx', '<Link to="/w/$ws/leads" params={{ ws }} data-plan="DP-1.2s-03"', '<Link to="/w/$ws/site" params={{ ws }} data-plan="DP-1.2s-03"')), 'PLAN-6', '/w/$ws/site');
+  it('plant a link to a route that does not exist (the Settings entry of slice 5.6)', () => {
+    red('dead-link', scanReal(patch('src/pages/Shell.tsx', '<Link to="/w/$ws/leads" params={{ ws }} data-plan="DP-1.2s-03"', '<Link to="/w/$ws/settings" params={{ ws }} data-plan="DP-1.2s-03"')), 'PLAN-6', '/w/$ws/settings');
   });
   it('plant a John Doe lead in source', () => {
     red('john-doe', scanReal(patch('src/data.ts', 'export type Workspace =', "export const sampleLead = { name: 'John Doe', phone: '(555) 010-0100' };\nexport type Workspace =")), 'PLAN-7', 'John');
@@ -155,8 +155,20 @@ describe('mutants of the real source: each must turn the gate red for its reason
   it('plant a fake count as text', () => {
     red('fake-count', scanReal(patch('src/pages/Shell.tsx', '<p data-plan="DP-1.2s-01"><strong>{workspace.name}</strong></p>', '<p data-plan="DP-1.2s-01"><strong>{workspace.name}</strong> <span>3</span></p>')), 'PLAN-7', 'bare number');
   });
-  it('show the Site nav entry of slice 5.4 before it is built', () => {
-    red('unbuilt-row', scanReal(patch('src/pages/Shell.tsx', '<SignOutButton />\n        </nav>', '<Link to="/w/$ws/leads" params={{ ws }} data-plan="DP-1.2s-04">Site</Link>\n          <SignOutButton />\n        </nav>')), 'PLAN-9', 'DP-1.2s-04');
+  it('show the Settings nav entry of slice 5.6 before it is built', () => {
+    red('unbuilt-row', scanReal(patch('src/pages/Shell.tsx', '<SignOutButton />\n        </nav>', '<Link to="/w/$ws/leads" params={{ ws }} data-plan="DP-1.2s-05">Settings</Link>\n          <SignOutButton />\n        </nav>')), 'PLAN-9', 'DP-1.2s-05');
+  });
+  it('slice 5.4: take the element of one row away (the Publish N changes button is the only carrier of DP-1.4-04)', () => {
+    red('delete-54-element', scanReal(patch('src/pages/SiteLayout.tsx', '<button type="button" data-plan="DP-1.4-04" disabled', '<button type="button" data-plan="DP-1.4-05" disabled')), 'PLAN-3', 'DP-1.4-04');
+  });
+  it('slice 5.4: plant words that are not in the sheet question', () => {
+    red('invented-sheet-words', scanReal(patch('src/pages/PublishSheet.tsx', 'Publish these {drafts.length} changes to {name}?', 'Publish all of these {drafts.length} changes to {name}?')), 'PLAN-4', 'DP-1.4c-02');
+  });
+  it('slice 5.4: show the Preview button of slice 5.5 in the editor', () => {
+    red('unbuilt-preview', scanReal(patch('src/pages/Editor.tsx', '<button type="button" data-plan="DP-1.4-19" aria-expanded={showHistory}', '<button type="button" data-plan="DP-1.4-18" onClick={() => undefined}>Preview</button>\n        <button type="button" data-plan="DP-1.4-19" aria-expanded={showHistory}')), 'PLAN-9', 'DP-1.4-18');
+  });
+  it('slice 5.4: plant a sentence of ours in the editor code (the stale sentence reworded)', () => {
+    red('invented-editor-string', scanReal(patch('src/pages/Editor.tsx', "const AUTOSAVE_MS = 10_000;", "const oops = 'Someone else edited this page';\nconst AUTOSAVE_MS = 10_000;")), 'PLAN-5', 'Someone else edited this page');
   });
   it('put words in index.html', () => {
     red('html-words', scanReal(files => files, indexHtml.replace('<title></title>', '<title>Omnikom</title>')), 'PLAN-8');

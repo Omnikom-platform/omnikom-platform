@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from './supabase';
+import { fetchDrafts, type Draft } from './api';
 import type { ContractForms, Lead, LeadEvent } from './lib/leads';
+import type { Contract, Job, JobEvent, SiteState } from './lib/site';
 
 export type Workspace = { id: string; slug: string; name: string };
 export type Role = 'owner' | 'member' | 'staff';
@@ -105,12 +107,12 @@ export function useTeam(wsId: string) {
   });
 }
 
-export type Site = { id: string; preview_host: string; domain: string | null };
+export type Site = { id: string; preview_host: string; domain: string | null; state: SiteState };
 
 export function useSites(wsId: string) {
   return useQuery({
     queryKey: ['sites', wsId],
-    queryFn: async (): Promise<Site[]> => must(await supabase.from('sites').select('id,preview_host,domain').eq('workspace_id', wsId).order('created_at')) as Site[],
+    queryFn: async (): Promise<Site[]> => must(await supabase.from('sites').select('id,preview_host,domain,state').eq('workspace_id', wsId).order('created_at')) as Site[],
   });
 }
 
@@ -193,4 +195,96 @@ export function useEventsLive(wsId: string, leadId: string) {
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [wsId, leadId, qc]);
+}
+
+// ---------- the Site screen (slice 5.4) ----------
+
+/** The workspace's active contract, core merged in (site_contracts.resolved; members may read it): the collections, page types and pages. */
+export function useContract(wsId: string) {
+  return useQuery({
+    queryKey: ['contract', wsId],
+    queryFn: async (): Promise<Contract | null> => {
+      const row = must(await supabase.from('site_contracts').select('resolved').eq('workspace_id', wsId).eq('active', true).maybeSingle()) as { resolved?: Contract } | null;
+      return row?.resolved && row.resolved.collections ? row.resolved : null;
+    },
+  });
+}
+
+export type RowVersion = { n: number; data: Record<string, unknown>; by: string; at: string };
+export type ContentRow = { id: string; collection: string; owner_team_row: string | null; published_version: number | null; created_at: string; newest: RowVersion | null };
+
+/** Every live row of the workspace with its newest version (row-level security decides what a login may read; an agent's list is narrowed on the screen). */
+export function useRows(wsId: string) {
+  return useQuery({
+    queryKey: ['rows', wsId],
+    queryFn: async (): Promise<ContentRow[]> => {
+      const rows = must(await supabase.from('content_rows')
+        .select('id,collection,owner_team_row,published_version,created_at,content_versions(n,data,by,at)')
+        .eq('workspace_id', wsId).is('deleted_at', null)
+        .order('n', { referencedTable: 'content_versions', ascending: false }).limit(1, { referencedTable: 'content_versions' })) as (Omit<ContentRow, 'newest'> & { content_versions: RowVersion[] })[];
+      return rows.map(({ content_versions, ...r }) => ({ ...r, newest: content_versions[0] ?? null }));
+    },
+  });
+}
+
+export type VersionSign = RowVersion & { sign_off: unknown };
+
+export async function fetchVersions(rowId: string): Promise<VersionSign[]> {
+  return must(await supabase.from('content_versions').select('n,data,by,at,sign_off').eq('row_id', rowId).order('n', { ascending: false })) as VersionSign[];
+}
+
+export function useVersions(wsId: string, rowId: string, enabled: boolean) {
+  return useQuery({ queryKey: ['versions', wsId, rowId], enabled: enabled && rowId !== 'new', queryFn: () => fetchVersions(rowId) });
+}
+
+/** The rows with changes waiting (the `drafts` function): the count of "Publish N changes" and the change list. */
+export function useDrafts(siteId: string) {
+  return useQuery({ queryKey: ['drafts', siteId], enabled: Boolean(siteId), queryFn: (): Promise<Draft[]> => fetchDrafts(siteId) });
+}
+
+/** The newest publish jobs of the workspace with their events. Realtime on publish_jobs refetches both (every state change writes its event in the same step). */
+export function useJobs(wsId: string) {
+  const qc = useQueryClient();
+  useEffect(() => {
+    const channel = supabase
+      .channel(`jobs-${wsId}-${Math.random().toString(36).slice(2, 8)}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'publish_jobs', filter: `workspace_id=eq.${wsId}` }, () => {
+        void qc.invalidateQueries({ queryKey: ['jobs', wsId] });
+        void qc.invalidateQueries({ queryKey: ['drafts'] });
+        void qc.invalidateQueries({ queryKey: ['rows', wsId] });
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [wsId, qc]);
+  return useQuery({
+    queryKey: ['jobs', wsId],
+    queryFn: async (): Promise<{ jobs: Job[]; events: JobEvent[] }> => {
+      const jobs = must(await supabase.from('publish_jobs').select('id,site_id,requested_by,rows,requested,state,gate_report,error,created_at,finished_at').eq('workspace_id', wsId).order('created_at', { ascending: false }).limit(10)) as Job[];
+      if (!jobs.length) return { jobs, events: [] };
+      const events = must(await supabase.from('publish_job_events').select('job_id,state,at').in('job_id', jobs.map(j => j.id)).order('at', { ascending: true })) as JobEvent[];
+      return { jobs, events };
+    },
+  });
+}
+
+export type MediaRow = { id: string; path: string; width: number | null; processed: boolean; rights_confirmed: boolean };
+
+/** One uploaded photo's record; while it is not processed the screen asks again every few seconds (the runner sets the width and the flag). */
+export function useMedia(id: string | undefined) {
+  return useQuery({
+    queryKey: ['media', id],
+    enabled: Boolean(id),
+    refetchInterval: q => (q.state.data && !q.state.data.processed ? 4000 : false),
+    queryFn: async (): Promise<MediaRow | null> => must(await supabase.from('media').select('id,path,width,processed,rights_confirmed').eq('id', id!).maybeSingle()) as MediaRow | null,
+  });
+}
+
+/** A short-lived address for a private photo. */
+export function useSignedUrl(path: string | undefined) {
+  return useQuery({
+    queryKey: ['media-url', path],
+    enabled: Boolean(path),
+    staleTime: 240_000,
+    queryFn: async (): Promise<string | null> => (await supabase.storage.from('media').createSignedUrl(path!, 300)).data?.signedUrl ?? null,
+  });
 }

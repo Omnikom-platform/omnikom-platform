@@ -1558,3 +1558,28 @@ Watched red: `/lead-export` removed: "openapi: the deployed function lead-export
 the head's staging run after landing: the three scripts on staging, then `reset-staging-drafts.mjs` (dry run) lists 0 e2e rows; unpublish
 of a published row (e2e-export); a queued test job naming a removed row.
 
+
+### 5.4 Site, editor and publish sheet (2026-11-01 07:40 to 10:25 local, builder `BUILDER_platform_5-4`; brief `factory/briefs/5-4-site-editor-publish.md`)
+NOT LANDED (GitHub Actions minutes used up, owner's click). Builder's lines: `node apps/dashboard/scripts/ci.mjs` "OK: dashboard install,
+type check, unit tests, plan gate and Auth email checks passed" (80 tests, 4 files; the first run failed on the unquoted repository path,
+fixed in `scripts/ci.mjs`). Playwright on staging, `tests/site.spec.ts`: contact save, History and Restore; over-limit and S-STALE; an
+invalid draft stops the sheet ("Nothing went live", I-REQUIRED, Fix; no job; the row removed in a finally); an agent sees Add only on own
+collections; owner Add; publish to done: job ced0868f (queued, building, gating, deploying, done 07:46:22, audit exit 0). The head's
+runner read the preview: `<h1>5.4 flows mvxizhs3 live</h1>` at https://preview.test-site-demo-a.pages.dev/contact/. Watched red: 5 new
+plan-gate mutants, 7 unit mutants of `lib/site.ts`, flow mutants save-lost, no-stale, publish-accepted, agent-add-everywhere,
+contract-empty. Bug found by the publish flow and fixed: the sheet could publish one save behind (drafts still refetching); Publish is
+now disabled while drafts refetch and the Saved toast follows the refresh.
+Staging data (head's OK on a dry run): 10 never-published e2e listings in workspace A soft-deleted through `service.unpublish` by
+`tests/support/reset-staging-drafts.mjs` (10 audit rows; a second dry run "0 row(s) would be removed"); team row "Agent Two" (seeded
+without role and slug, so every publish from the sheet failed 422) completed through `save` as owner-a (version 2, role "Agent", slug
+"agent-two") and published by the flow.
+GAP lines (plan silent; nothing invented; the head takes them into the plan or to the owner): DP-1.4-15 "Ask us" has no address (a link
+only when VITE_ASK_EMAIL is set); DP-1.4-09 only "Title is too long" (now "<label> is too long"); DP-1.4-14 fills-itself has no sentence;
+DP-1.4-19 Compare has no headings; DP-1.4c-03 the gate report lists failures only, no sentence per passing check; DP-1.4c-04 Fix on an
+audit failure has no field to open (opens the job's first row); DP-1.4c-05 the end toast has no words (reuses "Live since HH:MM. Open" and
+"Nothing went live"); DP-1.4-11 no words for the rights tick or other upload errors; form sections, legal-notice sections and the `file`
+field type have no row; no close control for the sheet after a job starts and no editor back control on a phone; the Site page title.
+Backend finding: `publish_job_events` is not in the Realtime publication (the screen refetches on each `publish_jobs` change).
+UNPROVEN: photo upload end to end; autosave after 10 s and the offline retry (unit parts only); the Open link (staging `preview_host` is
+the seed placeholder); Compare and Restore Undo; History for an agent.
+

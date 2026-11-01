@@ -4,12 +4,13 @@ import { useMemberships, useWorkspace } from '../data';
 import { WorkspaceContext } from '../workspace-context';
 import { UNREACHABLE } from '../lib/problems';
 import { NotFound } from './NotFound';
+import { JobWatcher } from './JobWatcher';
 import { SignOutButton } from './SignOutButton';
 
 /**
- * The shell (DP-1.2s-01 to -03, -06, -07): the business name, Leads, a switcher when there is more than one business, Sign out.
+ * The shell (DP-1.2s-01 to -03, -06, -07): the business name, Leads, Site, a switcher when there is more than one business, Sign out.
  * A workspace in the address that this login cannot read shows "Not found" and renders nothing below it, so no page under it asks for
- * data: the database decides (Row-Level Security), the screen only reports. Site and Settings are not shown: their screens are slices 5.4 and 5.6.
+ * data: the database decides (Row-Level Security), the screen only reports. Settings is not shown: its screen is slice 5.6.
  */
 export function Shell() {
   const { ws } = useParams({ from: '/authed/w/$ws' });
@@ -31,6 +32,7 @@ export function Shell() {
         <nav>
           <p data-plan="DP-1.2s-01"><strong>{workspace.name}</strong></p>
           <Link to="/w/$ws/leads" params={{ ws }} data-plan="DP-1.2s-03" activeProps={{ 'aria-current': 'page' }}>Leads</Link>
+          <Link to="/w/$ws/site" params={{ ws }} data-plan="DP-1.2s-04" activeProps={{ 'aria-current': 'page' }}>Site</Link>
           {others.length > 1 && (
             <select data-plan="DP-1.2s-02" aria-label="Workspace switcher" value={workspace.slug} onChange={e => void nav({ to: '/w/$ws/leads', params: { ws: e.target.value } })}>
               {others.map(m => <option key={m.workspace.id} value={m.workspace.slug}>{m.workspace.name}</option>)}
@@ -42,6 +44,7 @@ export function Shell() {
       <main>
         <Outlet />
       </main>
+      <JobWatcher />
     </WorkspaceContext.Provider>
   );
 }

@@ -11,6 +11,8 @@ const APP = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOT = resolve(APP, '..', '..');
 const win = process.platform === 'win32';
 const bin = (name) => join(APP, 'node_modules', '.bin', win ? `${name}.cmd` : name);
+// a path with a space (a checkout under "Program Files" or "Omnikom Platform") must be quoted for the Windows shell
+const quote = (p) => (win && /\s/.test(p) ? `"${p}"` : p);
 const steps = [
   ['install', win ? 'npm.cmd' : 'npm', ['ci', '--ignore-scripts', '--no-audit', '--no-fund']],
   ['type check', bin('tsc'), ['--noEmit']],
@@ -20,7 +22,7 @@ const steps = [
 ];
 for (const [name, cmd, args] of steps) {
   const t0 = Date.now();
-  const r = spawnSync(cmd, args, { cwd: APP, encoding: 'utf8', timeout: 900000, shell: win });
+  const r = spawnSync(quote(cmd), args.map(quote), { cwd: APP, encoding: 'utf8', timeout: 900000, shell: win });
   const out = `${r.stdout || ''}${r.stderr || ''}`.trim().split(/\r?\n/);
   const secs = Math.round((Date.now() - t0) / 1000);
   if (r.status !== 0) {

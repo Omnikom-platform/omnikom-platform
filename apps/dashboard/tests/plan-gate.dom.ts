@@ -22,7 +22,7 @@ export function planIds(): Map<string, string> {
  */
 export async function planProblems(page: Page, o: { required?: string[]; absent?: string[]; built?: string[] } = {}): Promise<string[]> {
   const plan = planIds();
-  const built = o.built ?? ['5.3'];
+  const built = o.built ?? ['5.3', '5.4'];
   const found = await page.evaluate(() => {
     const out = { ids: [] as string[], bare: [] as string[], text: [] as string[], tells: [] as string[] };
     const INTERACTIVE = 'button, a[href], input:not([type=hidden]), select, textarea, form, dialog, details, summary, [role=button], [role=radio], [onclick]';

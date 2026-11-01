@@ -9,9 +9,13 @@ const publishableKey = String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '
 // the project (vite.config.ts). VITE_FUNCTIONS_BASE overrides this once the functions send CORS.
 const functionsBase = String(import.meta.env.VITE_FUNCTIONS_BASE ?? '').replace(/\/$/, '') || '/functions/v1';
 
+// The address behind "Ask us" on a locked field (DP-1.4-15). The plan gives none: without VITE_ASK_EMAIL the words show without a link.
+const askEmail = String(import.meta.env.VITE_ASK_EMAIL ?? '');
+
 export const config = {
   ok: /^https?:\/\//.test(url) && publishableKey.length > 0,
   url,
   publishableKey,
   functionsBase,
+  askEmail,
 };

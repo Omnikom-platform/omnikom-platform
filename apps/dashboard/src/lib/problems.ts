@@ -5,7 +5,7 @@ import { t } from '../plan';
 export const UNREACHABLE = t('DP-1.2s-07', 'The service is not reachable. Your draft is safe here.');
 
 /** `plain` is true when the message is the function's own sentence (and not the banner standing in for one). */
-export type Problem = { status: number; code: string; message: string; plain: boolean; fields: { path: string; msg: string }[] };
+export type Problem = { status: number; code: string; message: string; plain: boolean; fields: { path: string; msg: string; code?: string; row?: string }[] };
 
 export function problemFrom(status: number, body: unknown): Problem {
   const b = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
@@ -14,7 +14,7 @@ export function problemFrom(status: number, body: unknown): Problem {
   const fields = Array.isArray(b.problems)
     ? b.problems.flatMap((p: unknown) => {
         const o = p && typeof p === 'object' ? (p as Record<string, unknown>) : {};
-        return typeof o.msg === 'string' ? [{ path: typeof o.path === 'string' ? o.path : '', msg: o.msg }] : [];
+        return typeof o.msg === 'string' ? [{ path: typeof o.path === 'string' ? o.path : '', msg: o.msg, ...(typeof o.code === 'string' ? { code: o.code } : {}), ...(typeof o.row === 'string' ? { row: o.row } : {}) }] : [];
       })
     : [];
   const message = fields.length && status === 400 ? [given, ...fields.map(f => f.msg)].filter(Boolean).join(' ') : given || UNREACHABLE;

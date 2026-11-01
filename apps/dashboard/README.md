@@ -1,8 +1,8 @@
-# Dashboard (step 5): the shell, sign in, and Leads
+# Dashboard (step 5): the shell, sign in, Leads, and the Site screen
 
 The client dashboard, built as plain semantic HTML on purpose (DECISIONS 21, 39): `main`, `nav`, `form`, `label`, `button`,
 `table`, `section`. There is no stylesheet and no class name, so the Design department can style it later without touching
-behaviour, and every test finds things by role and label. Slice 5.3 of `factory/briefs/5-0-step-5-and-6-plan.md`. Owned by the
+behaviour, and every test finds things by role and label. Slices 5.3 and 5.4 of `factory/briefs/5-0-step-5-and-6-plan.md`. Owned by the
 Platform build department (`docs/departments/platform-build.md`).
 
 Stack: Vite + React 18 + TypeScript, TanStack Router (code-based routes) and TanStack Query, supabase-js v2. Every direct version is
@@ -12,7 +12,7 @@ not, was published at least 7 days before 2026-10-31 (`~/.claude/reference/suppl
 ## Nothing on the dashboard is made up (DECISIONS 44)
 Every interactive element and every fixed piece of copy carries `data-plan="<Id>"` of its row in `docs/blueprint/16-DESIGN-PARTS.md`
 (Part 1). Copy that lives in code is wrapped in `t('<Id>', 'words')` (`src/plan.ts`). Only rows of the slices listed in
-`built-slices.json` (`["5.3"]`) are on screen; a row of another slice is not shown (no dead controls). There is no sample data in the
+`built-slices.json` (`["5.3", "5.4"]`) are on screen; a row of another slice is not shown (no dead controls). There is no sample data in the
 source. Where the plan has no words, the screen shows the data itself, the function's own message, or nothing, and the gap is a GAP
 line in the slice report. The gate (`tests/plan-gate.*`):
 - `tests/plan-gate.mjs` + `tests/plan-gate.test.mjs` (Vitest): a static scan of `src/` and `index.html` against the plan: PLAN-1 element
@@ -38,6 +38,22 @@ line in the slice report. The gate (`tests/plan-gate.*`):
 - Not built, by the plan: Export CSV and unread bold (5.3b, they wait for slice 5.2's functions).
 - `data-layout="wide|narrow"` on the Leads container and `data-live="connecting|live|paused"` are the only hooks the styling pass needs.
 
+## What is built (slice 5.4: the Site screen, the editor and the publish sheet)
+- Site (`/w/$ws/site`): the site switcher (2+ sites), the state line with Open, "Publish N changes" (from the `drafts` function), and the list:
+  Pages (with the changed mark), the contract's own collections with Add (an agent sees Add only on collections marked `own`, and only
+  their own rows; owner-only groups are not shown to them), Business details with locked fields greyed and the contract's reason.
+- The editor (`/w/$ws/site/$collection/$row`, `new` for a new item; `?field=<path>` focuses a field, which is what Fix uses): section
+  cards (one open at a time), one widget per contract field type (`src/pages/Widgets.tsx`), counters ("17 of 70") and the plan's
+  "is too long", the photo slot (`upload-start`, a PUT to the signed address, `upload-finish`, "Preparing sizes"), lists with add, remove,
+  move up and down, the search-result card, fills-itself and locked sections. Save sends the base version; autosave after 10 s idle for an
+  existing item; a dropped network keeps the draft in this browser and retries with a longer wait; S-STALE shows the plan's sentence and
+  "See their changes"; History with Compare and Restore (a new version, with Undo in the toast).
+- The publish sheet: the change list, "Publish these N changes to <site>?", the progress list live from `publish_jobs` (Realtime) and its
+  events, a failed check that stops the list with Fix and "Nothing went live". The Publish button says "Publishing" with the step while a
+  job runs, and a toast at the end shows on any screen (`JobWatcher` in the shell).
+- Not built, by the plan: Preview (5.5), item Delete, the search card with metrics, "see" links and Compare of preview sites (later).
+- Pure logic (`src/lib/site.ts`, `site.test.ts`): the cards of an editor, values by path, limits, compare, the state line, the progress lines.
+
 ## Known limits (each is a finding in the slice report)
 - **The functions send no CORS headers.** `lead-update` and `add-lead` answer a browser preflight with 405, so the dashboard calls them
   on its own origin, `/functions/v1`, and `vite dev` / `vite preview` forward that path to the project (`vite.config.ts`). A static
@@ -57,6 +73,15 @@ The scripts map `STAGING_SUPABASE_REF` and `STAGING_SUPABASE_PUBLISHABLE_KEY` to
 (`scripts/staging-env.mjs`; the only two the browser build reads). `npm run build` does `vite build` then
 `scripts/check-bundle-secrets.mjs`, which fails when any file in `dist/` contains the value of an environment variable whose name has
 SECRET, TOKEN, PASSWORD or DB_URL in it.
+
+## Staging data the Site flows use
+`tests/site.spec.ts` edits only the contact page of the test site of workspace A (new versions; the heading is put back). The sheet publishes
+every waiting draft (DP-1.4c-02), so the publish flow first runs `tests/support/reset-staging-drafts.mjs`: staging only, workspace A only, a soft
+delete through `service.unpublish` of the rows that were never published (never a team or settings row, never a row a member or a lead points
+at). Dry run by default; `--apply` removes. Published rows keep their versions: `content_versions` is append-only.
+```bash
+node ../../tools/with-env.mjs "../../creds and accounts login/omnikom.env" -- node tests/support/reset-staging-drafts.mjs           # dry run
+```
 
 ## Tests
 ```bash
