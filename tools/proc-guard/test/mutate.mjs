@@ -37,6 +37,8 @@ const MUTANTS = [
     [['  return isNodeProc(parent);', '  return true;']]],
   ['the journey prefix omnikom-jb- is not in PREFIXES', 'prefix', /omnikom-jb- \(the journey\): leaks\(\) lists/,
     [["'omnikom-fn-', 'omnikom-jb-', ", "'omnikom-fn-', "]]],
+  ['the CLI mutant prefix omnikom-cli-mut- is not in PREFIXES', 'prefix', /omnikom-cli-mut- \(the CLI mutant copies\): sweep\(\) lists and removes/,
+    [["'omnikom-jb-', 'omnikom-cli-mut-', ", "'omnikom-jb-', "]]],
   ['leaks() sees nothing', 'hardkill', /leaks\(\) lists the stand-in/,
     [['if (m) out.push(', 'if (false) out.push(']]],
   ['sweep() ignores a living owner', 'alive', /alive owner/,

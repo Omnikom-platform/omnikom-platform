@@ -8,7 +8,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -248,6 +248,41 @@ try {
     killTreeTest(standin.pid);
     try { G.killFolderProcs(dir); } catch { /* none left */ }
     rmSync(dir, { recursive: true, force: true });
+  }
+
+  // ---------- the CLI mutant runner's copies (omnikom-cli-mut-, tools/omnikom-cli/test/mutate.mjs) are known ----------
+  if (want('prefix')) {
+    // the real shape of these copies: a folder with the CLI inside, no owner.json, no process. Under the test's own root, never the real temp.
+    const mkCopy = name => { const d = join(root, name); mkdirSync(d); writeFileSync(join(d, 'cli.mjs'), '// a copy of the CLI\n'); return d; };
+    const copy = mkCopy('omnikom-cli-mut-Qa7Zk2');
+    const kept = mkCopy('omnikom-cli-mut-Kp5Ws1');
+    writeFileSync(join(kept, '.keep'), 'kept on request\n');
+    // the sweep's clock is set, as in the group "alive" (utimes cannot move a Windows creation time): 5 minutes in, a live mutate run
+    // is far under the 6 hours limit (the clock is ahead of Date.now(), so the age can never be negative); then 7 hours on, the same copy is old
+    logLines.length = 0;
+    const early = sweepRoot({ now: Date.now() + 5 * 60 * 1000 });
+    check('omnikom-cli-mut- (the CLI mutant copies): a copy under 6 hours old is kept and nothing is printed (a live mutate run keeps its tree)', early.length === 0 && logLines.length === 0 && existsSync(copy), `${JSON.stringify(early)} | copy ${existsSync(copy)} | ${logLines.join(' / ')}`);
+    logLines.length = 0;
+    // the clock 7 hours on also reaches a folder an earlier group left in the root (a Playwright profile): look only at ours
+    const ours = list => list.filter(x => String(typeof x === 'string' ? x : x.dir).includes('omnikom-cli-mut-'));
+    const late = ours(sweepRoot({ now: Date.now() + 7 * 3600 * 1000 })), lateLines = ours(logLines);
+    check('omnikom-cli-mut- (the CLI mutant copies): sweep() lists and removes a copy over 6 hours old, with one line naming it', late.length === 1 && late[0].dir === copy && lateLines.length === 1 && lateLines[0].includes(copy) && !existsSync(copy), `${JSON.stringify(late)} | copy ${existsSync(copy)} | ${lateLines.join(' / ')}`);
+    check('omnikom-cli-mut- (the CLI mutant copies): a .keep copy is kept, even over 6 hours old', existsSync(kept), 'it was removed');
+    // the coming shape: the CLI makes its copies with guardedTemp('omnikom-cli-mut-', 'cli-mutant'): the plain prefix, the pid only in owner.json
+    const gDead = G.guardedTemp('omnikom-cli-mut-', 'cli-mutant', { tmp: root });
+    const gLive = G.guardedTemp('omnikom-cli-mut-', 'cli-mutant', { tmp: root });
+    const ownerOf = g => JSON.parse(readFileSync(join(g.dir, 'owner.json'), 'utf8'));
+    const shapeOk = ownerOf(gLive).pid === process.pid && ownerOf(gLive).kind === 'cli-mutant' && /^omnikom-cli-mut-[A-Za-z0-9]{6}$/.test(basename(gLive.dir));
+    // the dead owner's run is gone: its owner.json names a pid no process has (the sweep reads the file; guardedTemp wrote this one for a live pid)
+    writeFileSync(join(gDead.dir, 'owner.json'), JSON.stringify({ ...ownerOf(gDead), pid: 2000000011 }));
+    const procs = [{ pid: process.pid, ppid: process.ppid, name: 'node', cmd: process.argv.join(' ') }];   // this test process is alive and runs this script
+    logLines.length = 0;
+    const owned = ours(sweepRoot({ now: Date.now() + 7 * 3600 * 1000, procs })), ownedLines = ours(logLines);
+    check('omnikom-cli-mut- (the CLI mutant copies): a guardedTemp copy has the plain name and this process in owner.json', shapeOk, `${gLive.dir} | ${JSON.stringify(ownerOf(gLive))}`);
+    check('omnikom-cli-mut- (the CLI mutant copies): a guardedTemp copy of a dead owner is removed, with one line naming it', owned.length === 1 && owned[0].dir === gDead.dir && ownedLines.length === 1 && ownedLines[0].includes(gDead.dir) && !existsSync(gDead.dir), `${JSON.stringify(owned)} | dead ${existsSync(gDead.dir)} | ${ownedLines.join(' / ')}`);
+    check('omnikom-cli-mut- (the CLI mutant copies): a guardedTemp copy of an alive owner is kept, however old', existsSync(gLive.dir), 'it was removed');
+    gLive.release();
+    for (const d of [copy, kept]) rmSync(d, { recursive: true, force: true });
   }
 
   // ---------- a cluster is stopped with pg_ctl ----------

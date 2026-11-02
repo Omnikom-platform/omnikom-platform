@@ -20,7 +20,7 @@ import os from 'node:os';
 import { join, basename } from 'node:path';
 
 // Folder prefixes of ours. mkdtemp adds six characters, so a folder counts only when it is exactly <prefix><6 characters>.
-export const PREFIXES = ['omnikom-pg-', 'omnikom-fn-', 'omnikom-jb-', 'mmd-', 'mmd-probe-', 'wf-', 'pw-dash-', 'pw-de-', 'site-backup-', 'playwright_chromiumdev_profile-'];
+export const PREFIXES = ['omnikom-pg-', 'omnikom-fn-', 'omnikom-jb-', 'omnikom-cli-mut-', 'mmd-', 'mmd-probe-', 'wf-', 'pw-dash-', 'pw-de-', 'site-backup-', 'playwright_chromiumdev_profile-'];
 // Folders another program makes (Playwright's browser profile) have no owner.json: they are ours to clean only when the browser's
 // parent process is dead. Every other prefix needs an owner.json naming a dead process, or no owner.json and an age over 6 hours.
 export const PARENT_CHECKED = ['playwright_chromiumdev_profile-'];

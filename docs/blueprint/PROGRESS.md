@@ -1887,3 +1887,26 @@ by the head of operations 2026-11-02 18:50.
 Open findings: F1 Unread is not in the data (DP-1.3-08, slice 5.3b), weight follows status new; F2 the render gate cannot sign
 in or set a viewport, the spec carries both sizes; F5 hand-added leads store page_path "dashboard", hidden by form = manual.
 Dropped by DECISIONS 52: Owner row layout shift, the long Site card on laptop, phone sign-in look.
+
+
+## 5-PX: proc-guard knows the CLI mutant runner's temp folders (`omnikom-cli-mut-`)
+
+Base master 4f91b52, builder `BUILDER_platform-build_5-PX`, worktree detached on 4f91b52, nothing committed. The CLI's mutant runner copies the CLI
+into `%TEMP%\omnikom-cli-mut-XXXXXX` (`tools/omnikom-cli/test/mutate.mjs`); the prefix was not in `PREFIXES`, so `sweep()` never saw the 303
+left in %TEMP% (no owner.json, no process). Change: `tools/proc-guard/index.mjs` PREFIXES + `'omnikom-cli-mut-'` (`git diff --numstat`: 1 1);
+`tools/proc-guard/test/run.mjs` new checks beside the `omnikom-jb-` group (6 checks, names start `omnikom-cli-mut- (the CLI mutant copies):`);
+`tools/proc-guard/test/mutate.mjs` one mutant "the CLI mutant prefix omnikom-cli-mut- is not in PREFIXES".
+Two shapes are tested, both under the test's own root, never the real %TEMP%: (1) the legacy copy, no owner.json: under 6 hours kept with no
+line, over 6 hours (sweep clock +7 h) listed, removed, one line naming it; a `.keep` copy kept; (2) the coming copy made by
+`guardedTemp('omnikom-cli-mut-', 'cli-mutant', { tmp })` (plain name, pid only in owner.json): dead owner removed with one line, alive owner
+(this test process) kept at +7 h. FINDING (head decision, option a): the CLI's `copyPrefix(pid)` makes `omnikom-cli-mut-<pid>-XXXXXX`, which
+`nameRe` (`<prefix>` + exactly 6 characters) never matches, so with that name the reaper would not see the copies even with the prefix; the head
+sends the `copyPrefix` change to the CLI department (their file); `nameRe` is not changed.
+Watched red on 4f91b52's index.mjs (prefix not added), group `prefix`: "FAIL omnikom-cli-mut- (the CLI mutant copies): sweep() lists and removes a
+copy over 6 hours old, with one line naming it: [] | copy true |", "FAIL ... a guardedTemp copy of a dead owner is removed, with one line naming
+it: [] | dead true |", "proc-guard tests: 7 passed, 2 failed". With the prefix: full `node tools/proc-guard/test/run.mjs` under heavy
+"proc-guard tests: 72 passed, 0 failed"; `node tools/proc-guard/test/mutate.mjs` under heavy "caught  the CLI mutant prefix omnikom-cli-mut- is
+not in PREFIXES" (by: FAIL omnikom-cli-mut- (the CLI mutant copies): sweep() lists and removes a copy over 6 hours old, ...), "mutants: 25 caught,
+0 escaped, 0 broken, wrong or unclear". Found on the way: the +7 h sweep also removes a Playwright profile an earlier group leaves in the test
+root, so the new checks count only `omnikom-cli-mut-` folders (first full run: "proc-guard tests: 71 passed, 1 failed", the baseline of mutate.mjs
+refused: "the unmutated copy does not pass").
