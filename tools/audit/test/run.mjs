@@ -25,7 +25,8 @@ const cliRaw = (args, audit = AUDIT) => { const r = spawnSync(process.execPath, 
 // slice 4c flip (REQUIRE_TARGET_FOR_FOLDER = true): a built folder run must name its target. cli() and engine.audit() add `production` to a folder run that names none,
 // so a test about another rule keeps judging what it judged; cliRaw and engineRaw.audit are the unchanged calls, used by the tests about the target itself.
 const isFolder = (d) => { try { return statSync(d).isDirectory() && !(existsSync(join(d, "_site.json")) && existsSync(join(d, "pages"))); } catch { return false; } };
-const cli = (args, audit = AUDIT) => (args.includes("--target") || !args.some((a) => !a.startsWith("--") && isFolder(a)) ? cliRaw(args, audit) : cliRaw([...args, "--target", "production"], audit));
+// The target goes right after the folder, never at the end: an option under test that is left with no value (--psi, --prompt-coverage) must stay valueless, or it would take --target as its value.
+const cli = (args, audit = AUDIT) => { const at = args.findIndex((a) => !a.startsWith("--") && isFolder(a)); return args.includes("--target") || at < 0 ? cliRaw(args, audit) : cliRaw([...args.slice(0, at + 1), "--target", "production", ...args.slice(at + 1)], audit); };
 const json = (args) => { const r = cli(["--json", ...args]); let j = null; try { j = JSON.parse(r.out); } catch {} return { ...r, j }; };
 // Every temp folder of this run lives under ONE root, omnikom-audit-run-*, inside OMNIKOM_AUDIT_TMP (test/mutate.mjs sets it inside the broken copy) or
 // the system temp folder. The root is removed in the finally below, at the first red check under FAILFAST, and on SIGINT/SIGTERM. A run that is killed
@@ -326,7 +327,8 @@ try {
   check("a PSI file that is not valid JSON exits 2", cli([psiBad, "--psi", join(psiBad, "psi.json")]).status === 2);
   writeFileSync(join(psiBad, "psi-nopages.json"), '{ "generatedAt": "2026-10-30" }', "utf8");
   check("a PSI file with no pages array exits 2", cli([psiBad, "--psi", join(psiBad, "psi-nopages.json")]).status === 2);
-  check("--psi with a missing file exits 2, and --psi with no value exits 2", cli([psiBad, "--psi", join(psiBad, "none.json")]).status === 2 && cli([psiBad, "--psi"]).status === 2);
+  const psiNone = cliRaw([psiBad, "--psi"]);
+  check("--psi with a missing file exits 2, and --psi with no value exits 2 naming --psi", cli([psiBad, "--psi", join(psiBad, "none.json")]).status === 2 && psiNone.status === 2 && /--psi needs/.test(psiNone.err), psiNone.err);
   writeFileSync(join(psiBad, "psi-ok.json"), psiDoc(3400), "utf8");
   const viaFlag = cli([psiBad, "--psi", join(psiBad, "psi-ok.json")]);
   check("--psi FILE is judged like psi/<date>.json: FAIL PRF-001 with the PSI source, exit 1", viaFlag.status === 1 && /^FAIL PRF-001 \/:1 .*\(source: PSI 2026-10-30\)/m.test(viaFlag.out), viaFlag.out);
@@ -843,7 +845,8 @@ try {
     check("audit(dir, { promptCoverage }) throws a usage error (exit 2) for each bad file", Object.values(badFiles).every((text) => { try { engine.audit(GOOD_DIR, { promptCoverage: covFile(text) }); return false; } catch (e) { return e.exit === 2; } }));
     const missingCov = cli([GOOD_DIR, "--prompt-coverage", join(ROOT, "no-such-coverage.json")]);
     check("a coverage file that does not exist exits 2 and says not found", missingCov.status === 2 && /prompt-coverage file not found/.test(missingCov.err) && missingCov.out === "", missingCov.err);
-    check("--prompt-coverage with no value, or followed by another option, exits 2 and judges nothing", cli([GOOD_DIR, "--prompt-coverage"]).status === 2 && cli([GOOD_DIR, "--prompt-coverage", "--json"]).status === 2 && cli([GOOD_DIR, "--prompt-coverage"]).out === "");
+    const pcNone = cliRaw([GOOD_DIR, "--target", "production", "--prompt-coverage"]), pcOpt = cliRaw([GOOD_DIR, "--target", "production", "--prompt-coverage", "--json"]);
+    check("--prompt-coverage with no value, or followed by another option, exits 2 and judges nothing (with --target given, so the error is about the option, not the target)", pcNone.status === 2 && pcOpt.status === 2 && pcNone.out === "" && pcOpt.out === "" && /--prompt-coverage needs/.test(pcNone.err) && /--prompt-coverage needs/.test(pcOpt.err) && !/a built folder needs --target/.test(pcNone.err + pcOpt.err), pcNone.err + pcOpt.err);
     check("a folder that is given as the coverage file is a usage error too", cli([GOOD_DIR, "--prompt-coverage", GC]).status === 2);
     // 6. live.mjs passes the file on
     {
