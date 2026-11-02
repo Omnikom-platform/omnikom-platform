@@ -5,7 +5,7 @@
 //        [--smoke-url <url>] [--smoke-tries <n>] [--smoke-interval-ms <ms>]       (the last three exist for tests of the smoke step)
 // Environment, by name: JOB_ID, SITE_ID (the dispatch payload), PLATFORM_FUNCTIONS_BASE (https://<ref>.supabase.co/functions/v1),
 // RUNNER_KEY, CLOUDFLARE_PAGES_TOKEN, CLOUDFLARE_ACCOUNT_ID. Test hooks: OMNIKOM_REPO_ROOT, RUNNER_WRANGLER_SCRIPT,
-// RUNNER_FETCH_TIMEOUT_MS, RUNNER_RETRY_BACKOFF_MS.
+// RUNNER_FETCH_TIMEOUT_MS, RUNNER_RETRY_BACKOFF_MS, RUNNER_CF_API_BASE (the Cloudflare API address the lead-settings check reads).
 // Exit 0 only after `done` was answered 2xx. A failed run exits 1 after its `failed` callback was answered. 2 = usage / environment.
 // Every line printed goes through the scrubber (secret values, the project ref and signed-URL tokens never reach a log).
 import { spawnSync } from 'node:child_process';
@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { UUID, SLUG, safeRelPath, checkBase, makeScrubber, makePlatform, numEnv } from './lib/common.mjs';
 
 const WRANGLER_VERSION = '4.152.0';   // 4.156.0 (the brief's pin) was 2 days old on 2026-10-31: supply-chain rule 1 (7 days); bump on purpose
+const LEAD_SETTINGS = ['SITE_ID', 'SITE_SIGNING_KEY', 'PLATFORM_BASE'];   // what factory/worker/pages-function-lead.js reads from the Pages project
 const REPO = process.env.OMNIKOM_REPO_ROOT ? resolve(process.env.OMNIKOM_REPO_ROOT) : resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const USAGE = 'usage: node factory/runner/publish.mjs [--force-fail heading] [--no-deploy <dir>] [--work <dir>] [--smoke-url <url>] [--smoke-tries <n>] [--smoke-interval-ms <ms>]';
 
@@ -149,6 +150,23 @@ async function run() {
   if (a.status !== 0) throw new Stop('audit failed', { factory: 'pass', audit: { exit: a.status, fails } });
   const gateReport = { factory: 'pass', audit: { exit: 0, fails: [] } };
   step('gating', `audit exit 0 (target ${auditTarget}), ${tail(a.text, 1).join('')}`);
+
+  // ---- 4b the lead function ships with every deploy and answers 503 "not configured" without its three settings (5-L round 2):
+  // read the target project's settings (names only) for the environment this deploy lands in and stop at gating if one is missing
+  if (!opts['no-deploy']) {
+    const envName = branch === 'main' ? 'production' : 'preview';
+    let cf = null, cfJson = null;
+    for (let n = 1; n <= 3 && !(cf && cf.status < 500); n++) {   // a dropped connection or a 5xx is tried again (like platform.call); a 4xx is an answer
+      if (n > 1) await new Promise((r) => setTimeout(r, numEnv('RUNNER_RETRY_BACKOFF_MS', 1000) * n));
+      cf = await fetch(`${env.RUNNER_CF_API_BASE || 'https://api.cloudflare.com/client/v4'}/accounts/${CF_ACCOUNT}/pages/projects/${target}`, { headers: { authorization: `Bearer ${CF_TOKEN}` }, signal: AbortSignal.timeout(30000) }).catch(() => null);
+      cfJson = cf ? await cf.json().catch(() => null) : null;
+    }
+    if (!cf || cf.status !== 200 || !cfJson || cfJson.success === false || !cfJson.result) throw new Stop(`lead endpoint settings could not be read from the ${target} project (${cf ? `HTTP ${cf.status}` : 'no answer'}): nothing was deployed`, { project: target, environment: envName });
+    const have = Object.keys((cfJson.result.deployment_configs && cfJson.result.deployment_configs[envName] && cfJson.result.deployment_configs[envName].env_vars) || {});
+    const lacking = LEAD_SETTINGS.filter((n) => !have.includes(n));
+    if (lacking.length) throw new Stop(`lead endpoint not configured: the ${target} ${envName} environment lacks ${lacking.join(', ')}; nothing was deployed`, { project: target, environment: envName, missing: lacking });
+    step('lead settings', `${target} ${envName} has ${LEAD_SETTINGS.join(', ')}`);
+  }
 
   // ---- 5 deploying: preview branch unless the site is live; Functions of the site (/api/lead) travel with the deploy from a staged root
   await callback('deploying');

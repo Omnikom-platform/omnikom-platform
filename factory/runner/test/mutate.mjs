@@ -43,6 +43,12 @@ const MUTANTS = [
   ['publish: the deploy id is not the deployment hash', `${R}publish.mjs`, 'deployId = m[1];', "deployId = 'unknown';", 'wrangler'],
   ['publish: wrangler is not pinned', `${R}publish.mjs`, "const WRANGLER_VERSION = '4.152.0';", "const WRANGLER_VERSION = 'latest';", 'wrangler'],
   ['publish: wrangler output is printed unscrubbed', `${R}publish.mjs`, "const out = (line) => console.log(scrub(line));", 'const out = (line) => console.log(line);', 'wrangler'],
+  ['publish: a project missing a lead setting is deployed anyway', `${R}publish.mjs`, 'if (lacking.length) throw new Stop(', 'if (false) throw new Stop(', 'wrangler'],
+  ['publish: the lead settings check does not ask for SITE_SIGNING_KEY', `${R}publish.mjs`, "const LEAD_SETTINGS = ['SITE_ID', 'SITE_SIGNING_KEY', 'PLATFORM_BASE'];", "const LEAD_SETTINGS = ['SITE_ID', 'PLATFORM_BASE'];", 'wrangler'],
+  ['publish: the lead settings are read from the wrong environment', `${R}publish.mjs`, "const envName = branch === 'main' ? 'production' : 'preview';", "const envName = branch === 'main' ? 'preview' : 'production';", 'wrangler'],
+  ['publish: a project whose settings cannot be read is deployed anyway', `${R}publish.mjs`, 'if (!cf || cf.status !== 200 || !cfJson || cfJson.success === false || !cfJson.result) throw new Stop(', 'if (false) throw new Stop(', 'wrangler'],
+  ['publish: the lead settings read is not tried again after a 5xx', `${R}publish.mjs`, 'for (let n = 1; n <= 3 && !(cf && cf.status < 500); n++)', 'for (let n = 1; n <= 1 && !(cf && cf.status < 500); n++)', 'wrangler'],
+  ['publish: the lead settings check is skipped altogether', `${R}publish.mjs`, "  if (!opts['no-deploy']) {\n    const envName", "  if (false) {\n    const envName", 'wrangler'],
   // publish.mjs: smoke
   ['publish: smoke gives up after one try', `${R}publish.mjs`, 'for (let n = 1; n <= tries && !smokeOk; n++)', 'for (let n = 1; n <= 1 && !smokeOk; n++)', 'smoke'],
   ['publish: smoke accepts any HTTP status', `${R}publish.mjs`, "if (res.status !== 200) smokeWhy", 'if (false) smokeWhy', 'smoke'],

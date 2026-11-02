@@ -15,7 +15,7 @@ export const FUNCTIONS_PREFIX = '/functions/v1';
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.xml': 'application/xml', '.txt': 'text/plain', '.png': 'image/png', '.json': 'application/json' };
 
 export async function startFake({ runnerKey, verify, cfg }) {
-  const log = { exportCalls: [], callbacks: [], mediaExports: [], mediaCallbacks: [], uploads: [], downloads: [], siteHits: [] };
+  const log = { exportCalls: [], callbacks: [], mediaExports: [], mediaCallbacks: [], uploads: [], downloads: [], siteHits: [], cfCalls: [] };
   const server = createServer(async (req, res) => {
     const chunks = [];
     for await (const c of req) chunks.push(c);
@@ -58,6 +58,15 @@ export async function startFake({ runnerKey, verify, cfg }) {
           return cfg.mediaCallbackStatus && cfg.mediaCallbackStatus !== 204 ? send(cfg.mediaCallbackStatus, { code: 'I-EXIF' }) : send(204, '');
         }
         return send(404, { code: 'NOT-FOUND' });
+      }
+      if (u.pathname.startsWith('/cf/')) {   // Cloudflare: GET /cf/accounts/<account>/pages/projects/<name>; cfg.cf = { status, names: { preview: [...], production: [...] } }
+        const c = cfg.cf || {};
+        log.cfCalls.push({ path: u.pathname, auth: req.headers.authorization });
+        if (c.failFirst && log.cfCalls.length <= c.failFirst) return send(503, 'busy');
+        if (c.status && c.status !== 200) return send(c.status, { success: false, errors: [{ code: 10000, message: 'Authentication error' }] });
+        const names = c.names || { preview: ['SITE_ID', 'SITE_SIGNING_KEY', 'PLATFORM_BASE'], production: ['SITE_ID', 'SITE_SIGNING_KEY', 'PLATFORM_BASE'] };
+        const vars = (list) => Object.fromEntries(list.map((n) => [n, n === 'SITE_SIGNING_KEY' ? { type: 'secret_text' } : { type: 'plain_text', value: 'LEAKCHECK-VALUE-' + n }]));
+        return send(200, { success: true, result: { name: u.pathname.split('/').pop(), deployment_configs: { preview: { env_vars: vars(names.preview) }, production: { env_vars: vars(names.production) } } } });
       }
       if (u.pathname.startsWith('/storage/upload/') && req.method === 'PUT') {
         log.uploads.push({ path: u.pathname, search: u.search, type: req.headers['content-type'], body });

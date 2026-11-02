@@ -86,7 +86,7 @@ async function runPublish(o = {}) {
   const smoke = ['--smoke-url', `${fake.origin}/site/`, '--smoke-tries', String(o.smokeTries ?? 2), '--smoke-interval-ms', '40'];
   const args = o.args ? o.args({ deployDir, work, smoke }) : ['--no-deploy', deployDir, '--work', work, ...smoke];
   const env = { ...BASE_ENV, JOB_ID: JOB, SITE_ID: SITE, PLATFORM_FUNCTIONS_BASE: fake.base, RUNNER_KEY, CLOUDFLARE_PAGES_TOKEN: CF_TOKEN, CLOUDFLARE_ACCOUNT_ID: CF_ACCOUNT,
-    OMNIKOM_REPO_ROOT: REPO, RUNNER_RETRY_BACKOFF_MS: '20', ...(o.env || {}) };
+    OMNIKOM_REPO_ROOT: REPO, RUNNER_RETRY_BACKOFF_MS: '20', RUNNER_CF_API_BASE: `${fake.origin}/cf`, ...(o.env || {}) };
   for (const k of o.unset || []) delete env[k];
   const r = await spawnNode(join(RUNNER, 'publish.mjs'), args, env, o.timeoutMs || 180000);
   await fake.close();
@@ -200,6 +200,32 @@ await check('deploy: wrangler exiting non-zero = callback failed "deploy failed"
 const wrNoUrl = await wranglerRun({ mode: 'nourl' });
 await check('deploy: wrangler printing no deployment address = failed, nothing is smoke tested', () =>
   wrNoUrl.code === 1 && wrNoUrl.states[wrNoUrl.states.length - 1] === 'failed' && /no deployment address/.test(wrNoUrl.last.body.error) && wrNoUrl.log.siteHits.length === 0 || `${wrNoUrl.code} ${JSON.stringify(wrNoUrl.states)}`);
+// ---- the lead function's three settings (5-L round 2): a project that lacks one is refused at gating, nothing is deployed
+await check('lead settings: all three on the preview environment = allowed; the runner read the project with the Cloudflare token, once, before deploying', () =>
+  wr.code === 0 && wr.log.cfCalls.length === 1 && wr.log.cfCalls[0].path === `/cf/accounts/${CF_ACCOUNT}/pages/projects/test-site-demo-a` && wr.log.cfCalls[0].auth === `Bearer ${CF_TOKEN}` && /STEP lead settings: test-site-demo-a preview has SITE_ID, SITE_SIGNING_KEY, PLATFORM_BASE/.test(wr.out) || `${wr.code} ${JSON.stringify(wr.log.cfCalls)}`);
+for (const lacks of ['SITE_ID', 'SITE_SIGNING_KEY', 'PLATFORM_BASE']) {
+  const names = ['SITE_ID', 'SITE_SIGNING_KEY', 'PLATFORM_BASE'].filter((n) => n !== lacks);
+  const rm = await wranglerRun({ cfg: { cf: { names: { preview: names, production: names } } } });
+  await check(`lead settings: ${lacks} missing = failed at gating naming only ${lacks}, no deploying callback, wrangler never ran, exit 1`, () =>
+    rm.code === 1 && same(rm.states, ['gating', 'failed']) && rm.wrangler === null && rm.last.body.error.includes(`lacks ${lacks};`) && same(rm.last.body.gateReport.missing, [lacks])
+    && !rm.out.includes('LEAKCHECK-VALUE') && !JSON.stringify(rm.last.body).includes('LEAKCHECK-VALUE') || `${rm.code} ${JSON.stringify(rm.states)} ${rm.last && rm.last.body.error}`);
+}
+const rmPreview = await wranglerRun({ cfg: { cf: { names: { preview: [], production: ['SITE_ID', 'SITE_SIGNING_KEY', 'PLATFORM_BASE'] } } } });
+await check('lead settings: a preview deploy is judged by the PREVIEW environment (names only on production do not help), all three named', () =>
+  rmPreview.code === 1 && rmPreview.wrangler === null && /preview environment lacks SITE_ID, SITE_SIGNING_KEY, PLATFORM_BASE;/.test(rmPreview.last.body.error) || `${rmPreview.code} ${rmPreview.last && rmPreview.last.body.error}`);
+const rmLive = await wranglerRun({ exportMut: (e) => { e.site.state = 'live'; e.site.domain = 'demo-a.example'; }, cfg: { cf: { names: { preview: ['SITE_ID', 'SITE_SIGNING_KEY', 'PLATFORM_BASE'], production: ['SITE_ID'] } } } });
+await check('lead settings: a live deploy is judged by the PRODUCTION environment (full names only on preview do not help)', () =>
+  rmLive.code === 1 && rmLive.wrangler === null && /production environment lacks SITE_SIGNING_KEY, PLATFORM_BASE;/.test(rmLive.last.body.error) || `${rmLive.code} ${rmLive.last && rmLive.last.body.error}`);
+const cfDown = await wranglerRun({ cfg: { cf: { status: 403 } } });
+await check('lead settings: a project whose settings cannot be read (HTTP 403) is refused too, nothing deployed', () =>
+  cfDown.code === 1 && same(cfDown.states, ['gating', 'failed']) && cfDown.wrangler === null && /could not be read from the test-site-demo-a project \(HTTP 403\)/.test(cfDown.last.body.error) || `${cfDown.code} ${cfDown.last && cfDown.last.body.error}`);
+const cfBusy = await wranglerRun({ cfg: { cf: { failFirst: 1 } } });
+await check('lead settings: one 503 from Cloudflare is tried again and the deploy goes ahead (two reads)', () =>
+  cfBusy.code === 0 && cfBusy.log.cfCalls.length === 2 && !!cfBusy.wrangler || `${cfBusy.code} ${cfBusy.log.cfCalls.length}`);
+await check('lead settings: --no-deploy (no Cloudflare in the run) does not ask Cloudflare', async () => {
+  const nd = await runPublish();
+  return nd.code === 0 && nd.log.cfCalls.length === 0 || `${nd.code} ${nd.log.cfCalls.length}`;
+});
 await check('deploy: the default command is npx --yes wrangler@<exact version> (no range, no latest)', () => {
   const src = readFileSync(join(RUNNER, 'publish.mjs'), 'utf8');
   return /const WRANGLER_VERSION = '\d+\.\d+\.\d+';/.test(src) && src.includes("['--yes', `wrangler@${WRANGLER_VERSION}`, ...wargs]");

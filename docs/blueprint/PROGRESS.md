@@ -1651,3 +1651,25 @@ after landing and the test site's republish). GAPs open: a no-JS post carries no
 leads; anyone can open `/api/lead?sent=1` without posting (static, stores nothing); the contract's leads field is `pagePath`
 (contracts/core.json:162, the fixture, the dashboard) while LeadRequest says `page`, a rename for a later slice; the runner's
 media checks skip on this laptop (sharp not installed).
+
+## 5-L round 2: the lead endpoint configured on the test preview, and publish refuses an unconfigured one (2026-11-02)
+Brief `factory/briefs/5-L-r2-lead-endpoint-config.md`. Why: after 5-L landed (a2570e2) and the test site was republished, the CLI journey
+said "J5 FAIL lead through the site form: the form answered HTTP 503"; the only 503 is `factory/worker/lead-endpoint.mjs:88` "lead endpoint
+not configured". Cause PROVEN (builder, Cloudflare API, names only): test-site-demo-a "preview: (no variables)", "production: (no variables)".
+Fixed on the test project's preview environment only (DECISIONS 48 (e)): "PATCH HTTP 200 success=true"; re-read "preview:
+PLATFORM_BASE(plain_text), SITE_ID(plain_text), SITE_SIGNING_KEY(secret_text)"; production left empty. Before writing, the key in the env
+file was checked to hash to the one active staging api_keys row of that site ("hashes to an active registry row: true"); no value printed.
+Code: `factory/runner/publish.mjs` reads the target Pages project's env var NAMES (GET .../accounts/{CLOUDFLARE_ACCOUNT_ID}/pages/projects/
+{deploy_target}, CLOUDFLARE_PAGES_TOKEN, both already passed by `.github/workflows/publish.yml:61-62`) for the environment the deploy uses
+(preview branch: preview; live: production), after the audit and before the deploying callback, when the build ships the lead function;
+a missing name stops at gating ("lead endpoint not configured: the <project> <env> environment lacks <names>; nothing was deployed"); an
+unreadable project is refused too; a dropped connection or 5xx is read again up to 3 times (a 4xx is an answer). Tests
+`factory/runner/test/run.mjs` with a fake Cloudflare route in `test/lib/fake-platform.mjs` (hook RUNNER_CF_API_BASE). Builder's lines:
+"OK: 84 of 84 checks passed (media checks SKIPPED: sharp is not installed)" three runs in a row; watched red with a2570e2's publish.mjs:
+"FAILED: 8 of 84" (e.g. "SITE_ID missing = failed at gating ... wrangler never ran" got ["gating","deploying","done"]); mutants "67 mutants,
+67 caught, 0 survived, 0 target text missing" before the retry; the retry's mutant run alone, caught ("FAILED: 3 of 17"). UNPROVEN until
+the check-branch run: the full mutant list with the retry mutant; that the GitHub secret CLOUDFLARE_PAGES_TOKEN can read project settings
+(the first real publish proves it; if not, the publish stops at gating, never deploys half-configured). Then the head republishes the test
+site and the CLI runs `omnikom test journey --target staging --only J5,J6,J7`; 5-L is done only on that PASS. Note: any other Pages project
+that ships the lead function without the three names is now refused at gating, by design.
+
