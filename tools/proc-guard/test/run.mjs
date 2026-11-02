@@ -2,7 +2,7 @@
 // folder path in its argv); the one real browser check is a headless Edge/Chrome with a time limit.
 //   node tools/proc-guard/test/run.mjs
 // Environment (for the mutants, test/mutate.mjs): PROC_GUARD_SUT = the module under test (default ../index.mjs),
-//   PROC_GUARD_ONLY = comma list of groups to run (exit, signal, limit, holder, hardkill, owner, alive, reuse, foreign, pg, browser).
+//   PROC_GUARD_ONLY = comma list of groups to run (exit, signal, limit, holder, hardkill, owner, alive, reuse, foreign, prefix, pg, browser).
 // Every child works in a private root folder (TEMP/TMP/TMPDIR point at it) and every leaks() / sweep() call here looks only there,
 // so another session's browsers or clusters are never seen and never touched.
 import { spawn, spawnSync } from 'node:child_process';
@@ -139,7 +139,9 @@ try {
     const young = mk('omnikom-pg-aB3dE9', null);
     const wrong = mk('wf-notours-xx', null);
     const odd = mk('mmd-probe-AbCdEf', null);
-    sweepRoot();
+    // Windows gives a new folder a creation time up to ~1.5 ms ahead of Date.now() and utimes cannot move it, so the sweep's clock is set
+    // a few seconds ahead (still far under 6 hours): the folder's age can then never be negative, which a mutant with a 0 limit relies on
+    sweepRoot({ now: Date.now() + 5000 });
     check('no owner.json, young folder: left alone', existsSync(young), '');
     logLines.length = 0;
     sweepRoot({ now: Date.now() + 7 * 3600 * 1000 });
@@ -218,6 +220,26 @@ try {
       for (const d of [liveDir, orphanDir]) { try { G.killFolderProcs(d); } catch { /* none left */ } }
     }
     await settled();
+  }
+
+  // ---------- the CLI journey's temp folder (omnikom-jb-, tools/omnikom-cli/lib/browser.mjs) is known ----------
+  if (want('prefix')) {
+    const dir = join(root, 'omnikom-jb-Jb7xQz');
+    mkdirSync(dir);
+    // a run that is gone: its owner.json names a pid no process has, while a stand-in (and its child) still carries the folder path
+    writeFileSync(join(dir, 'owner.json'), JSON.stringify({ pid: 2000000011, started: new Date().toISOString(), kind: 'browser', argv: [process.execPath, join(HERE, 'some-journey.mjs')] }));
+    const standin = spawn(process.execPath, [join(HERE, 'standin.mjs'), dir], { stdio: 'ignore', windowsHide: true, env, detached: !WIN });
+    await sleep(800);
+    const found = inRoot().filter(l => String(l.folder).toLowerCase().endsWith('omnikom-jb-jb7xqz'));
+    check('omnikom-jb- (the journey): leaks() lists the process that carries the folder', found.length >= 1, `leaks(): ${JSON.stringify(inRoot())}`);
+    logLines.length = 0;
+    const done = sweepRoot();
+    check('omnikom-jb- (the journey): sweep() cleans the folder of a gone owner and prints one line for it', done.length === 1 && logLines.length === 1 && logLines[0].includes(dir), `${JSON.stringify(done)} | ${logLines.join(' / ')}`);
+    const after = await settled();
+    check('omnikom-jb- (the journey): after the sweep the folder is gone, the stand-in is dead and leaks() is empty', !existsSync(dir) && !G.isAlive(standin.pid) && after.length === 0, `folder ${existsSync(dir)} alive ${G.isAlive(standin.pid)} | ${show(after)}`);
+    killTreeTest(standin.pid);
+    try { G.killFolderProcs(dir); } catch { /* none left */ }
+    rmSync(dir, { recursive: true, force: true });
   }
 
   // ---------- a cluster is stopped with pg_ctl ----------

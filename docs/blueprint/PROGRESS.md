@@ -1612,3 +1612,22 @@ TESTS PASSED", "caught stale jobs are reaped ERROR: the reaper failed exactly on
 UNPROVEN: the staging-only `webhook_events` staff line (~487) was not watched red on its own (the connectors line fails first);
 the run on staging (`omnikom test walls --target staging`) is next. Findings, open: audit_log counts keyed by action and workspace A
 that a staging row could inflate, about lines 1149, 1214, 1242 ('alerts-set', 'crm-set' x2) and 1469 ('crm-test' = 3).
+
+### 5-G proc-guard knows the journey's temp prefix; its mutant runner names what it missed (2026-11-01 22:14 to 2026-11-02 02:00 local, builder `BUILDER_platform-build_5-G`; brief `factory/briefs/5-G-proc-guard-prefix-and-mutant-name.md`)
+Scope narrowed by the head of operations (22:13): no change to how proc-guard decides a live owner or sweeps (the CLI department
+diagnoses that). (1) `omnikom-jb-` added to `PREFIXES` in `tools/proc-guard/index.mjs` (the CLI journey's `guardedTemp('omnikom-jb-', ...)`,
+`tools/omnikom-cli/commands/journey.mjs:255`, `lib/browser.mjs:159`); new test group `prefix` (planted folder, dead owner, a stand-in
+carrying the path) watched red on master's index.mjs "proc-guard tests: 0 passed, 3 failed", green "3 passed, 0 failed"; mutant
+"the journey prefix omnikom-jb- is not in PREFIXES" caught. (2) `test/mutate.mjs` repeats every mutant not caught as "NOT CAUGHT
+<kind> <name>" right before the summary and in the summary line, because `docs/blueprint/specs/run-all-gates.mjs:49` shows only the
+last 8 lines and the earlier "ESCAPED <name>" line scrolled out (run 41323582926 attempt 1, "20 caught, 1 escaped"). Planted survivor:
+"NOT CAUGHT ESCAPED PLANTED survivor (comment only)", "mutants: 0 caught, 1 escaped, 1 broken, wrong or unclear [ESCAPED PLANTED
+survivor (comment only); BROKEN  PLANTED broken (no such text)]", restored. (3) Flake fixed in the test: mutant "a folder with no
+owner is cleaned at any age" escaped at random because on Windows a fresh folder's max(birthtime, mtime) is ahead of Date.now() in
+175 of 200 folders by up to 1.46 ms; the 'alive' group's young-folder sweep now runs with `now: Date.now() + 5000` (utimes cannot
+move birthtime on Windows); index.mjs unchanged there. Contrast: master's test 6/4, 10/0 and 39/1 caught/escaped; the new test 10/0
+and 40/0. Builder's full runs (one heavy job): "proc-guard tests: 63 passed, 0 failed", "mutants: 22 caught, 0 escaped, 0 broken,
+wrong or unclear". Head's re-run (groups prefix and alive, on the builder's tree and on 41f6866): "3 passed, 0 failed", "5 passed,
+0 failed". Findings: run 41323687561 had no mutant escape; its red was publish-ready parity "port 55566 failed: Connection refused"
+(the port cause, slice 5-PORT). The real-browser group was red once under load ("61 passed, 2 failed"), green in every run after;
+cause UNPROVEN. UNPROVEN: the flake fix on the Linux runner (the check-branch run is that proof).
