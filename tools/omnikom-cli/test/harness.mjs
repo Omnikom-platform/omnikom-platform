@@ -40,9 +40,12 @@ export function writeMarker(markerDir, info) {
   return file;
 }
 
-// stop and remove every cluster whose owning process is dead; a live owner is left alone. -> [{ marker, port, swept }]
-// opts (tests only): markerDir, run (the pg_ctl runner), alive
-export function sweepClusters({ markerDir = CLUSTER_MARKER_DIR, run = sh, alive = pidAlive } = {}) {
+// stop and remove every cluster whose owning process is dead; a live owner is left alone. -> [{ marker, port, swept, why?, code? }]
+// A folder that cannot be removed (Windows: EPERM while the old postmaster still holds a file) is reported swept:false with the error code,
+// its marker stays so the next sweep tries again, and the sweep goes on; it never throws.
+// opts (tests only): markerDir, run (the pg_ctl runner), alive, remove (the folder remover)
+const removeFolder = dir => rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+export function sweepClusters({ markerDir = CLUSTER_MARKER_DIR, run = sh, alive = pidAlive, remove = removeFolder } = {}) {
   const done = [];
   let names = [];
   try { names = readdirSync(markerDir).filter(f => f.endsWith('.json')); } catch { return done; }
@@ -54,7 +57,9 @@ export function sweepClusters({ markerDir = CLUSTER_MARKER_DIR, run = sh, alive 
     if (alive(info.pid)) continue;
     if (!ours(info.dir)) { rmSync(file, { force: true }); done.push({ marker: file, swept: false, why: 'not a folder this guard made' }); continue; }
     run('pg_ctl', ['-D', join(info.dir, 'data'), '-m', 'immediate', 'stop']);
-    rmSync(info.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+    let removeErr = null;
+    try { remove(info.dir); } catch (e) { removeErr = e; }
+    if (removeErr) { done.push({ marker: file, port: info.port, swept: false, why: `could not remove ${info.dir}`, code: removeErr.code || 'ERR' }); continue; }
     rmSync(file, { force: true });
     done.push({ marker: file, port: info.port, swept: true });
   }
@@ -63,10 +68,10 @@ export function sweepClusters({ markerDir = CLUSTER_MARKER_DIR, run = sh, alive 
 
 // start a cluster, or use the one a parent process (mutate.mjs) already started: OMNIKOM_TEST_CLUSTER_PORT. A call that names its first
 // port (firstPort: the probe and the held-port check) asks for a cluster of its own and always gets one.
-// opts (tests only): markerDir, run (initdb / pg_ctl runner), alive, signals (register exit handlers; default true)
-export function startCluster({ markerDir = CLUSTER_MARKER_DIR, run = sh, alive = pidAlive, signals = true, firstPort = null, say = console.log } = {}) {
+// opts (tests only): markerDir, run (initdb / pg_ctl runner), alive, signals (register exit handlers; default true), remove (folder remover of the sweep)
+export function startCluster({ markerDir = CLUSTER_MARKER_DIR, run = sh, alive = pidAlive, signals = true, firstPort = null, say = console.log, remove = removeFolder } = {}) {
   if (process.env.OMNIKOM_TEST_CLUSTER_PORT && !firstPort) return { port: process.env.OMNIKOM_TEST_CLUSTER_PORT, dir: process.env.OMNIKOM_TEST_CLUSTER_DIR || '', stop() {}, shared: true };
-  sweepClusters({ markerDir, run, alive });
+  sweepClusters({ markerDir, run, alive, remove });
   const dir = mkdtempSync(join(tmpdir(), CLUSTER_PREFIX));
   const data = join(dir, 'data');
   let port = String(firstPort || CLUSTER_PORTS.first + Math.floor(Math.random() * CLUSTER_PORTS.count));

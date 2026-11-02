@@ -15,7 +15,8 @@
 // refused for the cluster's whole life. That was the "cluster guard (real kill)" red and the mutate "create database failed" red of
 // 2026-11-01: the harness took ports from 57000-57899, inside the ephemeral range the psql sockets come from. The same probe with no holder, or
 // with a holder that set SO_REUSEADDR, shows a healthy cluster. `--start pinned` shows the loud failure; `--start harness` the walk to P+1.
-// On Windows a held port fails both binds, so pg_ctl fails loudly there (the half-bound state is Linux only).
+// Windows half-binds too with an ESTABLISHED plain-socket holder (pg_ctl ok, 127.0.0.1 refused, ::1 answers); a TIME_WAIT holder does not block
+// the bind there, and a holder made by node (SO_REUSEADDR) shows nothing on either system.
 // HOW TO RUN: needs initdb, pg_ctl, psql on PATH and python3 (python on Windows) for tw / est; run each case on its own port (a TIME_WAIT
 // lasts 60 s). The other harnesses with a fixed port range (supabase/**, see briefs/real-kill-flake.md "Port map") can be tried the same way.
 import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
