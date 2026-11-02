@@ -1673,3 +1673,15 @@ the check-branch run: the full mutant list with the retry mutant; that the GitHu
 site and the CLI runs `omnikom test journey --target staging --only J5,J6,J7`; 5-L is done only on that PASS. Note: any other Pages project
 that ships the lead function without the three names is now refused at gating, by design.
 
+
+## 5-CL: the leftover "5.3 flows" test leads, and the flows test cleans up after itself (2026-11-02)
+Brief `factory/briefs/5-CL-flow-leads-cleanup.md`. `supabase/tests/e2e-cleanup.mjs` gains selectFlowLeads (workspace A's test site, answers
+test = "5.3 flows" only; with --ids a named lead also qualifies if its name starts "5.3 flows ", for the browser form's lead that has no
+answers), stagingLeadRemover (service.delete_lead as owner-a, reason 'test data: 5.3 flows', then a read back) and cleanFlowLeads; CLI
+`apps/dashboard/tests/support/clean-flow-leads.mjs` (dry run by default, --apply, --ids; staging only through stagingDbUrl; exit 3
+BLOCKED/REFUSED); `apps/dashboard/tests/flows.spec.ts` removes its own run's leads in a top-level afterAll and fails the run if that fails.
+Test `node supabase/tests/e2e-cleanup.test.mjs` (already a run-all-gates line): red with the marker filter dropped ("only the two leads
+marked in their answers are selected (got 11,22,33,44,55,66)"), green "PASS: e2e cleanup, real code green, 31 of 31 mutants caught"
+(20 before; head's Haiku re-run the same line). Staging dry run (read only): "30 lead(s) would be removed, 8 lead(s) of the test site would
+be left". After this commit the head runs --apply, then --apply --ids for the 5 unmarked "added by member-a1" leads; "5.3 probe member"
+and the CLI's Journey leads stay. CI runs no Playwright, so the afterAll runs only where `with-env` gives STAGING_DB_URL.

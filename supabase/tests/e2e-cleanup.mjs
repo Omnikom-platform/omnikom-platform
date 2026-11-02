@@ -55,3 +55,59 @@ export function createCleanup({ remove, report }) {
     },
   };
 }
+
+// ---- leads left behind by the dashboard flows test (slice 5-CL; brief factory/briefs/5-CL-flow-leads-cleanup.md)
+// apps/dashboard/tests/flows.spec.ts makes leads on the test site of workspace A marked {"test": "5.3 flows"} in their answers. They are
+// removed through the platform's own path, service.delete_lead(claims, id, reason) as owner-a (the audit row and the consent record stay as
+// designed), then a read back that the lead is gone. Selection is by the marker in answers on that one site, never by name alone, so the
+// CLI's "Journey ..." leads stay. `ids` (the flows test's own afterAll) narrows a run to leads it names; those may also be found by the
+// "5.3 flows " name prefix, because the browser's Add a lead form has no field for answers. Entry point: apps/dashboard/tests/support/clean-flow-leads.mjs.
+export const FLOW_MARK = '5.3 flows';
+export const FLOW_SITE = 'aaaaaaaa-0000-0000-0000-00000000517e';
+
+/** True for a lead the flows test made: the marker in its answers (or, only when the caller named its id, the name prefix). */
+export function isFlowLead(row, { named = false } = {}) {
+  if (!row) return false;
+  if (row.answers && typeof row.answers === 'object' && row.answers.test === FLOW_MARK) return true;
+  return named && typeof row.name === 'string' && row.name.startsWith(`${FLOW_MARK} `);
+}
+
+/** Reads the leads of the test site and splits them: { ok, selected: [{ id, name }], left } (left = leads of that site that stay). Reads only. */
+export function selectFlowLeads({ sql, ids = null }) {
+  const r = sql.rows(`select id, name, answers from public.leads where site_id = ${uuidLit(FLOW_SITE)} order by created_at`);
+  if (!r.ok) return { ok: false, message: `${r.code}: ${r.message}`, selected: [], left: 0 };
+  const want = ids ? new Set(ids) : null;
+  const selected = r.rows.filter(l => (want ? want.has(l.id) : true) && isFlowLead(l, { named: Boolean(want) })).map(l => ({ id: l.id, name: l.name }));
+  return { ok: true, message: '', selected, left: r.rows.length - selected.length };
+}
+
+/** remove(id) -> { ok, message } for the staging database: service.delete_lead as owner-a, then a read back that the lead is gone. */
+export function stagingLeadRemover({ url, spawn, who = 'owner-a' }) {
+  const claims = jsonLit(claimsFor(parseIdentity(who)));
+  const sql = makeSql({ url, ...(spawn ? { spawn } : {}) });
+  return async id => {
+    const r = sql.exec(`select service.delete_lead(${claims}, ${uuidLit(id)}, 'test data: ${FLOW_MARK}');`);
+    if (!r.ok) return { ok: false, message: `delete_lead ${r.code}: ${r.message}` };
+    const back = sql.rows(`select not exists (select 1 from public.leads where id = ${uuidLit(id)}) as gone`);
+    if (!back.ok || !back.rows[0]) return { ok: false, message: 'removed, but the read back found no answer' };
+    if (back.rows[0].gone !== true) return { ok: false, message: 'service.delete_lead answered, but the lead is still there' };
+    return { ok: true, message: '' };
+  };
+}
+
+/** Dry run by default. apply: removes each selected lead once through remove(id). Never throws on a removal. */
+export async function cleanFlowLeads({ sql, remove, apply = false, ids = null, report = () => {} }) {
+  const sel = selectFlowLeads({ sql, ids });
+  if (!sel.ok) return { ok: false, message: sel.message, selected: [], left: 0, removed: 0, failed: 0 };
+  let removed = 0, failed = 0;
+  if (apply) {
+    for (const l of sel.selected) {
+      let r;
+      try { r = await remove(l.id); } catch (e) { r = { ok: false, message: String(e && e.message || e).slice(0, 160) }; }
+      const ok = Boolean(r && r.ok);
+      if (ok) removed += 1; else failed += 1;
+      try { report(ok, l.id, l.name, ok ? '' : String(r && r.message || 'no answer')); } catch { /* the report must not stop the next removal */ }
+    }
+  }
+  return { ok: failed === 0, message: '', selected: sel.selected, left: sel.left, removed, failed };
+}

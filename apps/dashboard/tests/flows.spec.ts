@@ -2,6 +2,7 @@
 // Each finds things by role and label, never by a class. Signed-in states come from tests/global-setup.ts (the email-link path).
 // Test data: only leads on the test site of workspace A, each marked {"test": "5.3 flows"} in its answers (or, for the one the
 // browser form makes, in its name and notes: that form has no field for answers). Nothing else on staging is changed.
+// The leads this run made are removed in the afterAll below (slice 5-CL), through service.delete_lead, by the ids found for this run.
 import { expect, test, type Page } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -12,6 +13,7 @@ import { callAs, leadLabel, PEOPLE, personAccessToken, RUN, serviceGet, supabase
 import { active, installMutant } from './mutants';
 
 const CLI = resolve(import.meta.dirname, '..', '..', '..', 'tools', 'omnikom-cli', 'omnikom.mjs');
+const CLEAN_LEADS = resolve(import.meta.dirname, 'support', 'clean-flow-leads.mjs');
 
 type LeadRow = { id: string; name: string | null; email: string | null; phone: string | null; status?: string };
 
@@ -30,6 +32,16 @@ function watchSupabase(page: Page) {
 function expectNone(haystack: string, needles: string[], where: string) {
   for (const n of needles.filter(Boolean)) expect(haystack.includes(n), `${where} must not contain ${n}`).toBe(false);
 }
+
+// Every lead this run made (all named "5.3 flows <RUN> ..."), found with the service role and removed through the platform's own deletion.
+// A failed removal fails the run: a lead left on staging is exactly what this hook exists to stop.
+test.afterAll(async () => {
+  const made = await serviceGet<{ id: string }[]>(`/leads?site_id=eq.${WS.a.site}&name=like.${encodeURIComponent(`5.3 flows ${RUN}*`)}&select=id&limit=100`);
+  if (!made.length) return;
+  const out = spawnSync(process.execPath, [CLEAN_LEADS, '--apply', '--ids', made.map(l => l.id).join(',')], { encoding: 'utf8', env: process.env, timeout: 120_000, windowsHide: true });
+  console.log(`flows cleanup: ${(out.stdout || '').trim().split('\n').pop()}`);
+  expect(out.status, `removing the ${made.length} flows lead(s) answered ${out.status}: ${(out.stdout || out.stderr || '').trim().slice(0, 300)}`).toBe(0);
+});
 
 const radio = (page: Page, name: string) => page.getByRole('radio', { name: new RegExp(`^${name}\\b`) });
 const leadsLoaded = (page: Page) => expect(page.getByRole('link', { name: 'Add a lead' })).toBeVisible();
