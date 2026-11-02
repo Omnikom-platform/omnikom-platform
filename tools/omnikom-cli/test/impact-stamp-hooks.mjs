@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { makeFakeGh, runRow, jobRows, stepRows } from './fake-gh.mjs';
+import { checkTargets } from './mutant-targets.mjs';
 
 const cleanEnv = (() => {
   const e = { ...process.env, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never' };
@@ -1100,6 +1101,32 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       check('cluster guard: apart from the journey browser (lib/browser.mjs, commands/journey.mjs, test/journey.mjs) nothing under test/, commands/ or lib/ names a browser',
         ![...readdirSync(join(CLI_ROOT, 'test')).map(f => join(CLI_ROOT, 'test', f)), ...readdirSync(join(CLI_ROOT, 'commands')).map(f => join(CLI_ROOT, 'commands', f)), ...readdirSync(join(CLI_ROOT, 'lib')).map(f => join(CLI_ROOT, 'lib', f))]
           .filter(f => /\.mjs$/.test(f) && !/(impact-stamp-hooks|journey|browser|mutate)\.mjs$/.test(f)).some(f => /\b(puppeteer|playwright|msedge|chromium|chrome\.exe|--remote-debugging)/i.test(readFileSync(f, 'utf8'))));
+
+      // ---- mutate.mjs: every mutant still finds its target (the miss that shows only at the end of an hour-long mutate run, found twice on 2026-11-02)
+      {
+        // a tiny fixture list with one good mutant and four kinds of miss: no such text, the text twice, a replacement that changes nothing, no such file
+        const fx = join(work, 'mutant-targets-fixture');
+        mkdirSync(join(fx, 'test'), { recursive: true }); mkdirSync(join(fx, 'lib'), { recursive: true });
+        writeFileSync(join(fx, 'lib', 'a.mjs'), 'alpha beta beta gamma delta\n');
+        writeFileSync(join(fx, 'test', 'mutate.mjs'), [
+          'const MUTANTS = [',
+          "  ['good', 'lib/a.mjs', 'alpha', 'ALPHA', 'unit'],",
+          "  ['gone', 'lib/a.mjs', 'not there', 'x', 'unit'],",
+          "  ['twice', 'lib/a.mjs', 'beta', 'B', 'unit'],",
+          "  ['nochange', 'lib/a.mjs', 'gamma', 'gamma', 'unit'],",
+          "  ['layered', 'lib/a.mjs', [['alpha', 'A'], ['delta', 'D']], '', 'unit'],",
+          "  ['layered-miss', 'lib/a.mjs', [['alpha', 'A'], ['omega', 'O']], '', 'unit'],",
+          "  ['nofile', 'lib/zzz.mjs', 'x', 'y', 'unit'],",
+          '];', 'const unrelated = 1;', ''].join('\n'));
+        const fxr = checkTargets(fx);
+        const names = fxr.missing.map(m => m.split(' (')[0]).sort().join();
+        check('mutate targets: a mutant whose text is missing, found twice, replaced by itself, in a missing file, or in a layered rule with one text missing is named; the good ones are not',
+          fxr.count === 7 && names === 'gone,layered-miss,nochange,nofile,twice', JSON.stringify(fxr));
+        // the real list, read from the repository's own tree (a mutate copy has one file changed on purpose, so it is not the tree to read)
+        const real = checkTargets(join(REPO_ROOT, 'tools', 'omnikom-cli'));
+        check('mutate targets: every mutant of test/mutate.mjs finds its target text exactly once in its file and its replacement changes it',
+          real.count > 100 && real.missing.length === 0, `${real.count} mutants; ${real.missing.length} target text missing: ${real.missing.slice(0, 3).join(' | ')}`);
+      }
     }
 
     // ============================================================================ ci-heavy: the full suite and mutants run only when the change reaches them
