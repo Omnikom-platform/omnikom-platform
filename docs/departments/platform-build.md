@@ -128,6 +128,83 @@ Closed work (steps 1 to 4, 5.1 to 5.3, 6A, 6B, the Auth emails) is in the positi
   **5-P4 finding (head of operations, 2026-11-01 20:45, from SEO 5d; read `tools/audit/proof/5d.md` before writing the brief):**
   a real row's evidence is a dated file pointer, not an answer quote, and named/cited may be null (Gemini's named is always
   null). The CHECK must accept a dated file pointer as evidence and null for named and cited, or it refuses every real row.
+- **From 5-L (head of operations, 2026-11-01 22:11):** land order CLI small-fixes -> SEO 5c+5d -> platform 5-L (26e6963 on
+  be64510, `check/platform/5-l`, rebuilt on SEO's sha when told; keep SEO's PMP-001 line in `factory/test/run.mjs`) -> head of
+  operations' effort commit. 5-L is done only when the CLI's `omnikom test journey --target staging --only J5,J6` PASSES.
+  **5-D dedupe slice (queued, small):** a no-JS post carries no idempotencyKey, so a double click can store two leads; dedupe by
+  same email + site within a short window, or a hidden nonce field (decide in the brief; a test watched red with two identical
+  posts, a mutant). **Contract slice:** the leads collection field is `pagePath` (`contracts/core.json:162`, the fixture
+  `factory/test/fixtures/export-test-demo-a.json`, the dashboard) while LeadRequest and capture-lead say `page`; settle the name
+  there, not before.
+  **22:22 HOLD:** run 41345442144 on 26e6963: 7 jobs success (factory and runner, functions, dashboard, audit, departments,
+  gitleaks, actionlint), gates still running, platform CLI failure "BASELINE FAILS ... create database failed: psql ... port
+  57652 failed: Connection refused" (cluster-loss family, not 5-L's code; head of operations). No rerun loop; 5-L waits for the
+  CLI's fix, then rebuilds on master.
+  **22:37 heads-up (UNPROVEN, wait for CLI's evidence and a one-map port rule):** the cluster-loss reds may come from test ports
+  picked inside the OS ephemeral range. Our harnesses that pick ports that way: supabase/tests/run-local.mjs:21,
+  tests/publish-parity.mjs:27, functions/test/harness.mjs:47, ops/restore-drill.mjs:219, ops/test/6b-cluster.mjs:18,
+  tests/test-apply.mjs:16, tests/e2e-screens.mjs:44, ops/test/cluster.mjs:18. Likely the next platform slice once proven.
+  **23:20 5-PORT started:** CLI proved the cause on Linux (run 41350867780, 062d382; evidence `tools/omnikom-cli/briefs/to-platform-port-map.md`).
+  Brief `factory/briefs/5-PORT-cluster-ports.md` (the map, listen 127.0.0.1, a 5-try bind fallback in one shared module, a unit test,
+  3 mutants, a Linux probe the head runs on a check branch). Builder `BUILDER_platform-build_5-PORT` (pid 27436). In parallel:
+  `BUILDER_platform-build_5-G` (pid 6928, brief `factory/briefs/5-G-proc-guard-prefix-and-mutant-name.md`, narrowed by the head of
+  operations 22:13: prefix and mutant name only, no owner/sweep change).
+  **23:21 land order (head of operations; DECISIONS 50 records the port rule):** CLI real-kill fix -> CLI small-fixes -> SEO 5c+5d ->
+  platform 5-L -> platform 5-PORT -> head of operations' effort commit. 5-L and 5-PORT on separate check branches; each slot on
+  the head of operations' word.
+  **2026-11-02 00:43 5-G round 2 (worktree `C:/Users/DELL/AppData/Local/Temp/claude/wt-5G` on be64510, 3 files):** item 2 PROVEN
+  (planted survivor printed "NOT CAUGHT ESCAPED PLANTED survivor (comment only)" and in the summary); prefix watched red 3 failed
+  on master's index.mjs, green 3 passed, its mutant caught. Finding: run 41323687561 was the port problem (5-PORT), not a mutant.
+  Two reds not from 5-G: (a) mutant "a folder with no owner is cleaned at any age" escapes at random (master test 6 caught 4
+  escaped in 10) because a fresh folder's timestamp is up to 1.46 ms ahead of Date.now() on Windows; sent back to fix in the test
+  (mtime behind now), no index.mjs change; (b) the real-browser group red once under load ("61 passed, 2 failed"), green as the
+  mutate baseline seconds later; re-run asked, cause UNPROVEN.
+  **01:13 journey findings (head of operations opened j6-inbox-owner-a.png):** (a) MEDIUM-HIGH: the staging dashboard inbox renders
+  as raw unstyled HTML (no CSS); render-gate the staging dashboard (phone, desktop, console, .css 404s), fix by cause, add a
+  "styles loaded" assertion to a dashboard test watched red; its own slice after 5-PORT unless a one-line build fix folds into 5-L.
+  (b) LOW: Demo A's inbox holds 36 leftover "5.3 flows ..." test leads; the dashboard flow tests never clean their own marker
+  leads; add a cleanup like reset-staging-drafts.mjs, dry run first. Order: SEO -> 5-L -> CLI journey -> 5-PORT -> head of ops.
+  **01:21 (a) diagnosed (Haiku runner, read-only):** not a lost asset. The dashboard has never had styling: no .css file, no
+  Tailwind/PostCSS, no `className` or `style=` anywhere in `apps/dashboard/src` (0 matches), `index.html` links no stylesheet,
+  `src/pages/Widgets.tsx:10` "styles them later"; staging `https://omnikom-app-staging.pages.dev` serves one script and no CSS
+  (curl 200s pasted in the runner's report); render gate on `/` "pass": true (weak: 22 chars of body). The spec exists but was
+  never built: `03-FRONTEND.md` B5 (tokens in `apps/dashboard/src/styles/tokens.css`, left rail on laptop, bottom bar on phone,
+  cards >= 28 px padding, Poppins 600 headings). Not a one-line fix, so not folded into 5-L. Proposed slice **5-DS** (Opus builder,
+  design work): build B5 as written, a "styles loaded" Playwright assertion watched red, phone and desktop screenshots for the
+  head of operations and the owner before any production use.
+  **01:30 5-DS started (owner's pick via the head of operations 01:29: build B5 as written, show him screenshots):** brief
+  `factory/briefs/5-DS-dashboard-design-system.md`; `BUILDER_platform-build_5-DS` (pid 16032, Opus, high). Sample screen (Leads,
+  390x844 + 1536x730) to the head before the rest; head of operations reviews before the owner. Land order: SEO -> 5-L -> CLI
+  journey -> 5-PORT -> 5-DS -> head of operations. Phone rule used: the owner's newer one (2026-10-23, centre what needs centring;
+  body, cards, lists, forms left; buttons full width). 01:33 CLI correction relayed to 5-PORT: Windows also half-binds with a
+  plain-socket ESTABLISHED holder (`tools/omnikom-cli/test/port-hold.py`), so watched red is possible on this laptop too.
+  **02:00 5-G ACCEPTED:** builder's full runs "63 passed, 0 failed", "22 caught, 0 escaped"; flake fixed in the test (the sweep's
+  clock +5 s; utimes cannot move birthtime on Windows); head's re-run groups prefix and alive green on the builder's tree and on
+  41f6866. Builder stopped (pid 6928, left: none). Committed in worktree `C:\Users\DELL\AppData\Local\Temp\omk-wt-5-g-land` on
+  41f6866, branch `check/platform/5-g`; land slot asked of the head of operations. Cleanup after landing: that worktree and the
+  builder's `C:/Users/DELL/AppData/Local/Temp/claude/wt-5G`.
+  **02:01 land order (head of operations):** SEO 5c+5d (landing) -> 5-L -> 5-G -> CLI journey -> 5-PORT -> 5-DS -> head of
+  operations. Plan: on SEO's sha, cherry-pick 26e6963 (keep SEO's PMP-001 line in factory/test/run.mjs), then 07b5365 on top of it
+  (PROGRESS and this charter are append-only: keep both sections), re-run the impact tests, push both check branches, land 5-L then 5-G.
+  02:02 amended (head of operations): one stack, one check branch (`check/platform/5-l-5-g`), one green run for the top commit,
+  one land. Then the CLI runs `omnikom test journey --target staging --only J4,J5,J6`.
+  **02:17 5-PORT round 1 (worktree `C:\Users\DELL\AppData\Local\Temp\omk-wt-5-port` on be64510):** shared module
+  `supabase/tests/lib/cluster-port.mjs`, all 8 harnesses import it (e2e-screens: the Deno serve port, same 5-try rule); unit test
+  watched red on master's harnesses "FAILED: 8 check(s)", green "OK: every check passes" (24); 7 "port:" mutants in run-local.mjs
+  caught; Windows probe with an ESTABLISHED plain-socket holder: old "ping4 ... port 22400 failed: Connection refused" (half-up),
+  pinned loud ("pgctlStatus":1), new walks 22420 -> 22421 "ping4":"ok"; harnesses green (test-apply, publish-parity 14469 items,
+  e2e-screens --local, functions 137/137, 6b-drill 30/30, key-ages 24). Sent back 02:18 for: the Linux probe as a permanent ci.yml
+  gates step (tw and est), cluster-port.test.mjs as a run-all-gates line, and finding 1 folded in: promote-check.test.mjs:168
+  regex `!/_shared|test/` drops the real function `crm-test` (red on master too, "FAILED: 1 of 30"). Full run-local and 6b
+  mutant suites left to the check-branch run (heavy lock contention).
+  **02:45 5-PORT round 2 ACCEPTED** (jumped the queue: SEO's land refused on the same flake, run 41364432148 port 55402):
+  probe as ci.yml gates steps (`--hold tw`, `--hold est --base 22500`, the head's base so TIME_WAIT from the first step cannot
+  collide); run-all-gates lines "test cluster ports" and "promote-check tests" (promote-check ran nowhere before; regex fixed, red
+  first "FAILED: 1 of 30", then "OK: 30 checks"). Built on 41f6866 in `C:\Users\DELL\AppData\Local\Temp\omk-wt-5-port-land`,
+  branch `check/platform/5-port`. **Tests that run nowhere (builder's list, 02:43), candidates for a wiring slice:**
+  `supabase/ops/test/6b-drill.test.mjs` (local cluster, 30/30 today), `alerts.test.mjs`, `apply-dry.test.mjs`, `backup.test.mjs`
+  (needs openssl), `key-ages.test.mjs` (24 checks today), `6b-mutate.mjs` (57 mutants, manual), `supabase/tests/test-apply.mjs`,
+  `supabase/tests/e2e-screens.mjs --local`. Staging-only by design: e2e-export, e2e-functions, e2e-lead, run-staging.
 - **5-W round 1 (2026-11-01 15:16):** builder PROVEN locally (reaper asserts scoped to jobB/jobQ, watched red with a planted
   25 h job, 4 reaper mutants caught); head sent it back: scope to every fixture id in test.ids (so over-reaping another fixture
   job stays red) and fix the three same-kind global counts it found (tenancy.test.sql about 366-368 api_keys, 483-485
