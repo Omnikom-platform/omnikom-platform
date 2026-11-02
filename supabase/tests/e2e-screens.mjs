@@ -20,6 +20,7 @@ import { parseIdentity, personToken, claimsFor } from '../../tools/omnikom-cli/l
 import { makeSql } from '../../tools/omnikom-cli/lib/sql.mjs';
 import { sign } from '../../tools/omnikom-cli/lib/sign.mjs';
 import { createCleanup, stagingDbUrl, stagingRemover } from './e2e-cleanup.mjs';
+import { pickPort, nextPort, BIND_FAILURE, MAX_TRIES } from './lib/cluster-port.mjs';   // 5-PORT
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const LOCAL = process.argv.includes('--local');
@@ -41,12 +42,19 @@ if (LOCAL) {
   const api = await startHarness();
   const db = api.newDb();
   const env = api.env(db);
-  const port = String(56000 + Math.floor(Math.random() * 900));
-  const child = spawn('deno', ['run', '-A', join(REPO, 'supabase', 'functions', 'test', 'local-serve.ts')], { cwd: REPO, env: { ...process.env, ...env, LOCAL_SERVE_PORT: port }, windowsHide: true });
-  let out = '';
-  child.stdout.on('data', d => { out += d; }); child.stderr.on('data', d => { out += d; });
-  const until = Date.now() + 120000;
-  while (!/listening on/.test(out) && Date.now() < until && child.exitCode === null) await new Promise(r => setTimeout(r, 300));
+  // 5-PORT: a port of this script's block (lib/cluster-port.mjs, below 32768); only a bind failure moves to the next port (at most 5 tries)
+  let port = String(pickPort('e2e-screens')), child, out = '';
+  for (let tries = 1; ; tries++) {
+    child = spawn('deno', ['run', '-A', join(REPO, 'supabase', 'functions', 'test', 'local-serve.ts')], { cwd: REPO, env: { ...process.env, ...env, LOCAL_SERVE_PORT: port }, windowsHide: true });
+    out = '';
+    child.stdout.on('data', d => { out += d; }); child.stderr.on('data', d => { out += d; });
+    const until = Date.now() + 120000;
+    while (!/listening on/.test(out) && Date.now() < until && child.exitCode === null) await new Promise(r => setTimeout(r, 300));
+    if (/listening on/.test(out) || !BIND_FAILURE.test(out) || tries >= MAX_TRIES) break;
+    const next = String(nextPort('e2e-screens', Number(port)));
+    console.error(`cluster: port ${port} in use (could not bind), trying ${next}`);
+    child.kill(); port = next;
+  }
   if (!/listening on/.test(out)) { console.error('BLOCKED: the local server did not start:\n' + out.slice(-600)); child.kill(); await api.stop(); process.exit(3); }
   base = `http://127.0.0.1:${port}`;
   fakeBase = api.base;

@@ -34,6 +34,8 @@ const REPO = process.env.OMNIKOM_6B_REPO ? resolve(process.env.OMNIKOM_6B_REPO) 
 // 5-H: the working folder (the throwaway cluster, the dump copies) is guarded: stopped and removed on every exit path, swept at start
 // when an earlier drill was killed. Loaded from REPO, not by a relative path: the mutation harness runs a copy of this file elsewhere.
 const { guardedTemp, sweep } = await import(pathToFileURL(join(REPO, 'tools', 'proc-guard', 'index.mjs')).href);
+// 5-PORT: the port block, the listen pin and the bind fallback (same REPO-relative load as the guard above, for the mutation harness's copy)
+const { startOnBlock } = await import(pathToFileURL(join(REPO, 'supabase', 'tests', 'lib', 'cluster-port.mjs')).href);
 const NAME_RE = /^[A-Z][A-Z0-9_]*$/;
 class Stop extends Error { constructor(code, message) { super(message); this.code = code; } }
 
@@ -216,11 +218,12 @@ export async function drill(argv, env = process.env, log = console.log) {
     // 2 cluster
     const cl = await phase('cluster', async () => {
       const data = join(work, 'pgdata');
-      const port = String(55000 + Math.floor(Math.random() * 900));
-      let r = sh('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8']);
+      const r = sh('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8']);
       if (r.status !== 0) return { ok: false, detail: `initdb failed: ${lastLine(r.err || r.out)}` };
-      r = sh('pg_ctl', ['-D', data, '-o', `-p ${port} -k ""`, '-l', join(work, 'pg.log'), '-w', 'start'], { stdio: 'ignore' });   // piped output would be held open by the server
-      if (r.status !== 0) return { ok: false, detail: `pg_ctl start failed: ${lastLine(r.err || r.out)}` };
+      // 5-PORT: port block, listen pin, bind fallback; stdio ignored: piped output would be held open by the server
+      const started = startOnBlock('restore-drill', { data, log: join(work, 'pg.log'), run: sh, opts: { stdio: 'ignore' }, say: log });
+      if (!started.ok) return { ok: false, detail: `pg_ctl start failed: ${lastLine(started.log || started.error || '')}` };
+      const port = String(started.port);
       cluster = { data, port };
       const v = sh('psql', ['-h', '127.0.0.1', '-p', port, '-U', 'postgres', '-d', 'postgres', '-Atc', 'show server_version']);
       return { ok: true, detail: `PostgreSQL ${v.out.trim()} on port ${port}, folder ${work.split(/[\\/]/).slice(0, -1).join('/')}/...` };

@@ -45,6 +45,12 @@ jobs:
             sudo apt-get install -y postgresql
             printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
           fi
+      # slice 5-PORT: the Linux watched red/green of the test-cluster port rules, kept permanently. A plain client socket holding 127.0.0.1:P
+      # half-binds the postmaster (old setting red), the pinned listen fails loudly, the new start walks to the next port (green).
+      - name: Port probe, TIME_WAIT holder (Linux)
+        run: node supabase/tests/port-probe.mjs --hold tw
+      - name: Port probe, ESTABLISHED holder (Linux)
+        run: node supabase/tests/port-probe.mjs --hold est --base 22500
       # free disk before and after: run 41187071384 attempt 1 crashed two gates the way a full disk does (evidence for next time)
       - name: Free disk before the gates
         run: df -h /tmp "$RUNNER_TEMP" && free -m

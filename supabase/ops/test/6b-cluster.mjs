@@ -1,10 +1,10 @@
 // A throwaway local Postgres cluster for the 6B tests and the restore drill: initdb + pg_ctl in the system temp folder (C:, never E:).
 // Same recipe as supabase/tests/run-local.mjs (trust auth, no locale, a random port, no unix socket). Nothing here touches a real project.
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 // 5-H: the cluster folder is guarded (stopped and removed on every exit path; swept when an earlier run was killed)
 import { guardedTemp, sweep } from '../../../tools/proc-guard/index.mjs';
+import { startOnBlock } from '../../tests/lib/cluster-port.mjs';
 
 const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 10 * 60 * 1000, windowsHide: true, ...opts });
 const outOf = x => `${x.stdout ?? ''}${x.stderr ?? ''}${x.error ? `\n(${x.error.code || x.error.message})` : ''}`.trim();
@@ -15,15 +15,15 @@ export function startCluster({ label = '6b' } = {}) {
   const guard = guardedTemp('omnikom-pg-', 'cluster', { label });
   const dir = guard.dir;
   const data = join(dir, 'data');
-  const port = String(55000 + Math.floor(Math.random() * 900));
   let r = run('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8']);
   if (r.status !== 0) { guard.release(); throw new Error(`initdb failed: ${outOf(r).slice(0, 400)}`); }
-  r = run('pg_ctl', ['-D', data, '-o', `-p ${port} -k ""`, '-l', join(dir, 'pg.log'), '-w', 'start'], { stdio: 'ignore' });   // piped output would be held open by the server: spawnSync would wait for its timeout
-  if (r.status !== 0) {
-    let log = ''; try { log = readFileSync(join(dir, 'pg.log'), 'utf8').slice(-400); } catch { /* none */ }
+  // 5-PORT: port block, listen pin, bind fallback; stdio ignored: piped output would be held open by the server, spawnSync would wait for its timeout
+  const started = startOnBlock('6b-cluster', { data, log: join(dir, 'pg.log'), run, opts: { stdio: 'ignore' } });
+  if (!started.ok) {
     guard.release();
-    throw new Error(`pg_ctl start failed: ${outOf(r).slice(0, 300)} ${log}`);
+    throw new Error(`pg_ctl start failed: ${outOf(started).slice(0, 300)} ${started.log.slice(-400)}`);
   }
+  const port = String(started.port);
   const base = ['-h', '127.0.0.1', '-p', port, '-U', 'postgres'];
   const c = {
     dir, port,
