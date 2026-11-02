@@ -12,6 +12,7 @@ import { pathToFileURL } from 'node:url';
 import net from 'node:net';
 import { CLI_ROOT, REPO_ROOT, startCluster, sweepClusters, clusterDiag, freshDb, cli, makeFunctionModel, makeSupabaseModel } from './harness.mjs';
 import { impactStampHooksTests } from './impact-stamp-hooks.mjs';
+import { journeyTests } from './journey.mjs';
 
 const onlyUnit = process.argv.includes('--unit'), onlyDb = process.argv.includes('--db');
 let failed = 0, total = 0;
@@ -1575,7 +1576,7 @@ async function database() {
 }
 const PERSON = n => ({ 'member-a1': '00000000-0000-0000-0000-0000000000a1' })[n];
 
-if (!onlyDb) { await units(); await toolsAndCi(); await impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }); }
+if (!onlyDb) { await units(); await toolsAndCi(); await impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }); await journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }); }
 if (!onlyUnit) await database();
 console.log(`\n${failed ? 'FAILED' : 'OK'}: ${total - failed} of ${total} checks passed${failed ? `, ${failed} FAILED` : ''}`);
 process.exit(failed ? 1 : 0);

@@ -27,6 +27,7 @@ import { ci, ciText } from './commands/ci.mjs';
 import { impact, impactText } from './commands/impact.mjs';
 import { land, landText } from './commands/land.mjs';
 import { hooksGroup, hooksText } from './commands/hooks.mjs';
+import { journeyText } from './commands/journey.mjs';
 
 const COMMANDS = { status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate, tools: toolsGroup, ci, impact, land, hooks: hooksGroup };
 // the commands that print text lines by default (with --json: the result object), and the ones that talk to no target
@@ -45,6 +46,7 @@ export const USAGE = [
   'impact <files...> | --staged | --commit <sha>   (every tracked file that imports, reads or copies the changed files, with its owner and the gates that cover it; text lines, exit 0)',
   'land check/<department>/<slug> [--remote backup-gh] [--wait-minutes 60] [--lock-wait-minutes 30]   (waits in line for the land lock, then for GitHub\'s ci run of that branch\'s commit, refuses on any red job, then fast-forwards master and pushes and brings this checkout\'s local master along when that is safe; no target; exit 0 landed, 1 refused, 2 usage, 3 blocked)',
   'hooks install | uninstall | status   (the pre-push hook: master takes only a commit with a green GitHub ci run, check/** branches are allowed)   |   ci --staged | --commit <sha> [--job <id>] [--install]   (ci on that exact tree, to reproduce a red GitHub job; no stamp)',
+  'test journey --target staging [--only J4,J5] [--out <dir>] [--alert-to <our own email>]   (the test site end to end on staging, looked at in a browser: one line per step PASS | FAIL | BLOCKED | NOT BUILT YET | SKIPPED, then a summary; exit 0 only when no step failed; J5 and J6 send a real alert, so --alert-to is required for them; never looped)',
   'flags: --target staging|local|production  --as <identity>  --expect <code>  --json  --fixture <file>  --real',
 ];
 
@@ -84,6 +86,7 @@ export async function main(argv, deps = {}) {
     const first = parsed.positionals[0] || argv.find(a => !a.startsWith('--'));
     if (first === 'ci' && obj.command !== 'help' && !parsed.flags.json && !argv.includes('--json')) return { exit: obj.exit, stdout: ciText(obj, env), stderr: '' };
     if ((first === 'audit' || first === 'gate') && obj.command !== 'help' && !parsed.flags.json && !argv.includes('--json')) return { exit: obj.exit, stdout: textOutput(first, obj, env), stderr: '' };
+    if (first === 'test' && parsed.positionals[1] === 'journey' && obj.data && obj.data.steps && !parsed.flags.json && !argv.includes('--json')) return { exit: obj.exit, stdout: journeyText(obj, env), stderr: '' };
     if (TEXT[first] && obj.command !== 'help' && !parsed.flags.json && !argv.includes('--json')) return { exit: obj.exit, stdout: TEXT[first](obj, env), stderr: '' };
     const lines = obj.data && Array.isArray(obj.data.lines) && obj.command === 'verify' ? obj.data.lines.map(l => redact(l, env)).join('\n') + '\n' : '';
     return { exit: obj.exit, stdout: render(obj, { compact: Boolean(parsed.flags.json), env }), stderr: lines };

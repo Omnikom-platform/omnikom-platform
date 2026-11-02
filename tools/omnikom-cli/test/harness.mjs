@@ -16,8 +16,10 @@ const sh = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', ti
 // SIGBREAK stop their own cluster and delete their marker; a HARD kill (the laptop's overload on 2026-11-01, a killed CI step) runs no handler
 // on Windows, so the guard is a sweep: every cluster records { pid of the owning node process, data dir, port } in a marker file under one
 // fixed folder, and every startCluster first stops (pg_ctl stop -m immediate) and removes the clusters whose owning process is dead.
-// The CLI tests start no browser (checked: nothing under test/, commands/ or lib/ names one); the Postgres clusters are the only children
-// that outlive a killed run.
+// The only browser the CLI starts is the journey's (lib/browser.mjs, commands/journey.mjs, test/journey.mjs; the guard check in
+// test/impact-stamp-hooks.mjs says nothing else names one). It is started through tools/proc-guard (guardedTemp + killTree, folder omnikom-jb-*),
+// so a normal exit leaves none; after a HARD kill the Postgres clusters here are swept by startCluster, but a leftover journey browser is not
+// (proc-guard's PREFIXES has no omnikom-jb-: a finding for the charter that owns it).
 export const CLUSTER_MARKER_DIR = join(tmpdir(), 'omnikom-cli-clusters');
 export const CLUSTER_PREFIX = 'omnikom-cli-pg-';
 

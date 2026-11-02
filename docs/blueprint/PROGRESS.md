@@ -4,6 +4,41 @@ Task: build-ready product engineering package (owner, 2026-10-28), raised to eng
 then corrected by an independent fact-check (72 claims) and an independent M1 dry run (31 issues), and by DECISIONS 15
 (no Docker; one Supabase account, staging + production). **Status: complete for owner review. Nothing committed.**
 
+## CLI: test journey (2026-11-01 18:45 to 2026-11-02 03:00, CLI department; plan `tools/omnikom-cli/briefs/journey.md`, DECISIONS 48; builder BUILDER_cli-and-testing_journey, Sonnet)
+
+`omnikom test journey --target staging [--only J4,J5] [--out dir] [--alert-to <our own address>]` (`commands/journey.mjs`, `lib/browser.mjs`, `test/journey.mjs`): one line per step, PASS, FAIL, BLOCKED, NOT BUILT YET or SKIPPED (after Jn FAIL), each with its evidence and PNG paths, then one summary line; exit 0 only when no step failed or was blocked; NOT BUILT YET is never a pass. J3 is NOT BUILT YET only when `apps/dashboard/tests/site.spec.ts` is absent from the tree (head's ruling); a present file without the publish title is a FAIL. J6 and J7 use J5's lead, or, when J5 stored none, ONE lead made by `lead send` and say so in their lines (head's ruling 21:35). Staging only; J5 and J6 need `--alert-to` and the test site's alert list is read back and must equal it before anything is sent.
+
+Proof, offline (rebased tree on master 41f6866): `OK: 495 of 495 checks passed` (`run.mjs --unit`); `baseline: OK: 674 of 674 checks passed` and `27 mutants, 27 caught, 0 survived, 0 target text missing` (`mutate.mjs --only journey`). DECISIONS 48's named mutant "the J3 runner ignores the dashboard result" is caught by "journey: a broken publish (the dashboard test fails) goes red AT J3, not later, and the exit is 1". The J7 mutant "the lead send fallback is made without checking the alert list" is caught by its assertion: `caught   journey J7: the lead send fallback is made without checking the alert list (unit: 2 red: journey: J5, J6 and J7 are BLOCKED, and nothing is opened or sent (no browser, no lead send, no dashboard test), ...)`.
+
+Proof, staging, ONE full run on master 9800616 (dist rebuilt against staging by the run; alerts to our own address only, the one staging already held):
+```
+J1 PASS accounts: seed test ok, changed=false, contract v2, 14 rows, 6 logins
+J2 PASS sign-in: owner-a minted a session and reads exactly 1 workspace (its own); member-a1 minted a session and reads exactly 1 workspace (its own)
+J3 PASS edit and publish: dashboard test passed: "the publish sheet: the progress comes in live, the job ends done, the " (48.7 s)
+J4 FAIL published site renders: phone /: 1 console error(s), first: network https://preview.test-site-demo-a.pages.dev/favicon.ico: Failed to load resource: the server responded with a status of 404 () | png: <shots>\j4-phone-home.png; <shots>\j4-phone-contact.png; <shots>\j4-desktop-home.png; <shots>\j4-desktop-contact.png
+J5 FAIL lead through the site form: the form answered HTTP 400 "{"sent":false,"problems":[{"code":"BODY","path":"","msg":"Send the form as JSON."}]}"; lead rows with the marker: 0 | png: <shots>\j5-form-filled.png; <shots>\j5-form-answer.png
+J6 SKIPPED (after J5 FAIL) lead in the inbox
+J7 SKIPPED (after J5 FAIL) export
+J8 NOT BUILT YET CRM "send a test": no sink we own (crm-test refuses loopback; supabase/functions/crm-test/index.ts)
+J9 NOT BUILT YET lead pushed to the CRM: "Webhook out" is TO BUILD (planning/REQUIREMENTS.md:44,155)
+journey (staging): 3 PASS, 2 NOT BUILT YET, 2 FAIL, 2 SKIPPED
+```
+Repair run `--only J6,J7` (21:42, after the J6/J7 fallback; one alert from `lead send` and one from the dashboard test, both to our own address):
+```
+J6 PASS lead in the inbox: dashboard test passed: "owner-a has Leads open; a lead sent to the test site the way omnikom lead send does appears without a reload w" (8.8 s); the inbox of owner-a lists "Journey 8c12816a lead send" (lead from lead send: J5 did not store one) | png: <shots>\j6-inbox-owner-a.png
+J7 PASS export: lead-export as owner-a: HTTP 200, 1 data line(s), the marker lead is in it (lead from lead send: J5 did not store one)
+journey (staging): 2 PASS, 0 NOT BUILT YET, 0 FAIL; not run: J1, J2, J3, J4, J5, J8, J9
+```
+PNGs looked at by the head: j4-phone-contact.png, j5-form-answer.png, j6-inbox-owner-a.png. Findings for their owners, not fixed here: J4 the published site has no `/favicon.ico` (404, a console error); J5 the site's form posts urlencoded and `factory/worker/lead-endpoint.mjs` answers 400 "Send the form as JSON" (the page has no form script), so no visitor lead is ever stored; the Demo A inbox holds 36 leads left by earlier dashboard flow runs; `tools/proc-guard` PREFIXES lacked `omnikom-jb-` (a hard-killed journey leaves its browser; platform 5-G adds it). UNPROVEN on real staging: J6 and J7 on a lead that J5 itself stored (J5 fails on the product bug). NOT DONE here: `run-all-gates.mjs` and T14 (the GitHub run of the check branch is the gate, DECISIONS 45).
+
+## CLI: real-kill and cluster ports (2026-11-01 to 2026-11-02, CLI department)
+
+1. Real-kill and mutate-baseline reds (runs 41323582926, 41344229818, 41345442144) PROVEN: harness.mjs took cluster ports from 57000-57899, inside the Linux ephemeral range 32768-60999; a psql socket (no SO_REUSEADDR) holding 127.0.0.1:P, even in TIME_WAIT on Linux, fails the postmaster's IPv4 bind, and with listen_addresses=localhost the server still came up on ::1, so pg_ctl -w start said ok and 127.0.0.1:P was refused for the cluster's life. Probe run 41350867780; Windows reproduces it with an ESTABLISHED holder.
+2. Fix 4dc735a + ce587bc (run 41353911357, 9 of 9 jobs, landed be64510..ce587bc): ports 21000-21899 (DECISIONS 50), listen_addresses=127.0.0.1, a bind failure named in the log walks to the next port (max 5, one printed line per try), any other start failure stops with data folder, postmaster state and log tail.
+3. Proof: Linux mutate "285 mutants, 285 caught, 0 survived"; Windows run.mjs "OK: 557 of 557", mutants "11 caught" (cluster port), "1 caught" (cluster diag). First push red on run 41352480525 (a start naming firstPort fell into a mutate copy's shared cluster); fixed in ce587bc with a unit check and a db mutant.
+4. Kept: test/port-bind-probe.mjs + test/port-hold.py. The platform harnesses (supabase/**) have the same exposure: slice 5-PORT.
+5. Open: sweepClusters EPERM on Windows aborts startCluster (check/cli-and-testing/sweep-eperm); UNPROVEN that each past CI red was this exact collision (no server log kept).
+
 ## CLI: tools ensure, the cause of a failed download and the trusted .ok (2026-10-31 19:10 to 20:00, CLI department head `local_c8848ce4...`)
 Found by the head of operations' first real `tools ensure` at c25bdcd: gitleaks refused with only "the download failed: fetch failed" (curl
 reached the asset: 302, then 200, 8438883 bytes), and actionlint and shellcheck were already "present". Fixed in `lib/tools.mjs`: a failed

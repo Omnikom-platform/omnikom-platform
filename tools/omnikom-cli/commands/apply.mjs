@@ -12,6 +12,7 @@ import { pgEnv } from '../lib/sql.mjs';
 import { PERSONS } from '../lib/identity.mjs';
 import { mapNamespace, unmappedLiterals, complete, siteFingerprintSql, fingerprintDiff, diffLine, namespaceCountSql, failureLines, FINGERPRINT_TABLES } from '../lib/walls.mjs';
 import { WS_A, WS_B, SITE_A, SITE_B, LOGINS } from './seed.mjs';
+import { journeyGroup } from './journey.mjs';
 
 const firstLine = s => String(s || '').trim().split(/\r?\n/)[0].slice(0, 300);
 
@@ -96,5 +97,6 @@ export async function testWalls(ctx) {
 export function testGroup(ctx) {
   const verb = ctx.positionals[1];
   if (verb === 'walls') return testWalls(ctx);
-  throw new Usage('test <walls>');
+  if (verb === 'journey') return journeyGroup(ctx);
+  throw new Usage('test <walls|journey>');
 }

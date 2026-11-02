@@ -1072,9 +1072,10 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
         check('cluster guard: a bind that never works is tried on 5 ports at most, wraps inside the block (never outside 21000-21899), says so 4 times, then fails naming the log',
           !!e6 && tried.join() === '21898,21899,21000,21001,21002' && said.length === 4 && tried.every(p => p >= 21000 && p <= 21899) && /could not bind/.test(e6.message), JSON.stringify({ tried, said, msg: String(e6 && e6.message).slice(0, 200) }));
       } finally { if (savedPort !== undefined) process.env.OMNIKOM_TEST_CLUSTER_PORT = savedPort; }
-      check('cluster guard: the cli tests start no browser (nothing under test/, commands/ or lib/ names one)',
+      // `test journey` (lib/browser.mjs, commands/journey.mjs and its test) is the one place the CLI starts a browser; test/journey.mjs checks it goes through proc-guard (mutate.mjs only holds the text of the mutants)
+      check('cluster guard: apart from the journey browser (lib/browser.mjs, commands/journey.mjs, test/journey.mjs) nothing under test/, commands/ or lib/ names a browser',
         ![...readdirSync(join(CLI_ROOT, 'test')).map(f => join(CLI_ROOT, 'test', f)), ...readdirSync(join(CLI_ROOT, 'commands')).map(f => join(CLI_ROOT, 'commands', f)), ...readdirSync(join(CLI_ROOT, 'lib')).map(f => join(CLI_ROOT, 'lib', f))]
-          .filter(f => /\.mjs$/.test(f) && !f.endsWith('impact-stamp-hooks.mjs')).some(f => /\b(puppeteer|playwright|msedge|chromium|chrome\.exe|--remote-debugging)/i.test(readFileSync(f, 'utf8'))));
+          .filter(f => /\.mjs$/.test(f) && !/(impact-stamp-hooks|journey|browser|mutate)\.mjs$/.test(f)).some(f => /\b(puppeteer|playwright|msedge|chromium|chrome\.exe|--remote-debugging)/i.test(readFileSync(f, 'utf8'))));
     }
 
     // ============================================================================ ci-heavy: the full suite and mutants run only when the change reaches them
