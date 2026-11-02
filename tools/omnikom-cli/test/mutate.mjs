@@ -385,7 +385,7 @@ const MUTANTS = [
   ['journey J4: the noindex header is not checked', 'commands/journey.mjs', "if ((v.headers['x-robots-tag'] || '') !== 'noindex, nofollow') problems.push(", 'if (false) problems.push(', 'unit'],
   ['journey J4: the screenshot is printed without being written (browser reports success, writes nothing)', 'lib/browser.mjs', "    writeFileSync(file, Buffer.from(shot.data, 'base64'));\n    return statSync(file).size;", '    return 1;', 'unit'],
   ['journey J5: a stored lead row is not required', 'commands/journey.mjs', 'if (count !== 1) return {', 'if (false) return {', 'unit'],
-  ['journey J5: the form\'s answer is not required to say sent', 'commands/journey.mjs', R`if (sent.status !== 200 || !/"sent"\s*:\s*true/.test(sent.text)) return {`,'if (false) return {', 'unit'],
+  ['journey J5: the form\'s answer is not required to say sent', 'commands/journey.mjs', R`if (sent.status !== 200 || !SENT_ANSWER.test(sent.text)) return {`,'if (false) return {', 'unit'],
   ['journey J5/J6: the alert list is not checked before an alert is sent', 'commands/journey.mjs', 'if (!(await c.impl.alertsOnlyTo(c.alertTo))) return {', 'if (false) return {', 'unit'],
   ['journey: J5 and J6 need no --alert-to', 'commands/journey.mjs', "&& !alertTo) throw new Usage('J5 and J6", "&& false) throw new Usage('J5 and J6", 'unit'],
   ['journey: it runs on any target, not only staging', 'commands/journey.mjs', "if (ctx.targetName !== 'staging') throw new Blocked(", 'if (false) throw new Blocked(', 'unit'],
@@ -397,6 +397,9 @@ const MUTANTS = [
   ['journey J6/J7: the lead from lead send is reported as if J5 had stored it', 'commands/journey.mjs', "via: ' (lead from lead send: J5 did not store one)'", "via: ''", 'unit'],
   ['journey J6/J7: a pass with no lead at all (lead send stored nothing)', 'commands/journey.mjs', 'if (stored !== 1) return (c.state.fallbackFail', 'if (false) return (c.state.fallbackFail', 'unit'],
   ['journey J7: the lead send fallback is made without checking the alert list', 'commands/journey.mjs', 'const blocked = await alertGuard(c); if (blocked) return { fail: blocked };', '', 'unit'],
+  ['journey J6: the dashboard test starts although port 4173 is taken by another run', 'commands/journey.mjs', 'if (!(await c.impl.portFree(DASHBOARD_PORT))) return {', 'if (false) return {', 'unit'],
+  ['journey J6: a busy port is looked for on IPv4 only (a server on ::1 goes unseen)', 'commands/journey.mjs', "return Promise.all([tryHost('127.0.0.1'), tryHost('::1')]).then(([a, b]) => !(a || b));", "return Promise.all([tryHost('127.0.0.1')]).then(([a]) => !a);", 'unit'],
+  ['journey J5: the Thank-you page is not accepted as a sent answer', 'commands/journey.mjs', 'export const SENT_ANSWER = /"sent"\\s*:\\s*true|your message was sent/i;', 'export const SENT_ANSWER = /"sent"\\s*:\\s*true/;', 'unit'],
   ['journey J6/J7: the fallback is tried again by every step (a second alert)', 'commands/journey.mjs', 'if (c.state.fallbackFail) return c.state.fallbackFail;', '', 'unit'],
 ];
 

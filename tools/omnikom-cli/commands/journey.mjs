@@ -8,6 +8,7 @@ import { existsSync, readFileSync, writeFileSync, statSync, mkdirSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
+import { connect } from 'node:net';
 import { Usage, Blocked } from '../lib/errors.mjs';
 import { result } from '../lib/ctx.mjs';
 import { lit, uuidLit } from '../lib/sql.mjs';
@@ -26,6 +27,9 @@ export const TESTS = {
   J3: { file: 'site.spec.ts', title: 'the publish sheet: the progress comes in live, the job ends done, the preview shows the new heading' },
   J6: { file: 'flows.spec.ts', title: 'owner-a has Leads open; a lead sent to the test site the way omnikom lead send does appears without a reload within 15 s' },
 };
+// what a visitor's form may answer when the lead was sent: the Thank-you page the no-script submit lands on (303 to /api/lead?sent=1), or the JSON of the script path
+export const SENT_ANSWER = /"sent"\s*:\s*true|your message was sent/i;
+export const DASHBOARD_PORT = 4173;   // apps/dashboard/playwright.config.ts: fixed, reuseExistingServer false
 export const CSV_HEADER = 'received,name,email,phone,form,page,status,owner,answers';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const clip = (s, n = 120) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
@@ -144,13 +148,14 @@ export const STEPS = [
       count = await c.impl.leadCount(c.state.marker);
     } finally { await b.close(); }
     const said = `the form answered HTTP ${sent.status} "${clip(sent.text, 90)}"`;
-    if (sent.status !== 200 || !/"sent"\s*:\s*true/.test(sent.text)) return { status: 'FAIL', evidence: `${said}; lead rows with the marker: ${count}`, pngs };
+    if (sent.status !== 200 || !SENT_ANSWER.test(sent.text)) return { status: 'FAIL', evidence: `${said}; lead rows with the marker: ${count}`, pngs };
     if (count !== 1) return { status: 'FAIL', evidence: `${said}, but ${count} lead row(s) carry "${c.state.marker}" (wanted 1)`, pngs };
     c.state.stored = true;
     return { status: 'PASS', evidence: `${said}; 1 lead row "${c.state.marker}" stored for the test site`, pngs };
   } },
   { id: 'J6', name: 'lead in the inbox', needs: ['J1'], async run(c) {
     const blocked = await alertGuard(c); if (blocked) return blocked;
+    if (!(await c.impl.portFree(DASHBOARD_PORT))) return { status: 'FAIL', evidence: `port ${DASHBOARD_PORT} in use by another run (the dashboard config has a fixed port and reuseExistingServer false); nothing was sent or started` };
     const lead = await feedLead(c); if (lead.fail) return lead.fail;
     const { file, title } = TESTS.J6;
     const v = playwrightVerdict(await c.impl.playwright(file, title), title);
@@ -213,6 +218,17 @@ export function journeyText(obj, env = process.env) {
   return redact([...lines, summaryLine(d)].join('\n'), env) + '\n';
 }
 
+// is anything listening on this port on this machine (IPv4 or IPv6 loopback)? false = taken
+export function portFree(port) {
+  const tryHost = host => new Promise(resolve => {
+    const s = connect({ port, host });
+    const done = v => { s.destroy(); resolve(v); };
+    s.once('connect', () => done(true)); s.once('error', () => done(false));
+    s.setTimeout(2000, () => done(false));
+  });
+  return Promise.all([tryHost('127.0.0.1'), tryHost('::1')]).then(([a, b]) => !(a || b));
+}
+
 // ---------- the real capabilities (tests hand runJourney a fake of the same shape) ----------
 const DASH = () => repoPath('apps', 'dashboard');
 const guard = () => importRepo('tools/proc-guard/index.mjs');
@@ -248,6 +264,7 @@ export function makeImpl(ctx) {
       const j = await res.json().catch(() => null);
       return { status: res.status, ids: Array.isArray(j) ? j.map(x => x.id).sort() : [] };
     },
+    portFree: port => portFree(port),
     spec(file) { const p = join(dash, 'tests', file); return existsSync(p) ? { exists: true, text: readFileSync(p, 'utf8') } : { exists: false, text: '' }; },
     async playwright(file, title) {
       await build();

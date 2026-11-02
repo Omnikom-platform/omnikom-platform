@@ -60,6 +60,7 @@ Below both ephemeral ranges (Linux 32768-60999, Windows 49152-65535). Each harne
 | supabase/functions/test/harness.mjs | 24000-24899 |
 | supabase/tests/test-apply.mjs | 25000-25899 |
 | supabase/tests/e2e-screens.mjs | 26000-26899 |
+| apps/dashboard Playwright web server (DECISIONS 50 (e), platform slice 5-PW) | 27000-27899 |
 | supabase/ops/restore-drill.mjs | 29000-29899 |
 | supabase/ops/test/6b-cluster.mjs | 30000-30899 |
 | supabase/ops/test/cluster.mjs (needs about 1900) | 31000-32699 |

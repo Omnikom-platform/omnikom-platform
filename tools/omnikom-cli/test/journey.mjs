@@ -47,6 +47,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     launchBrowser: o.launchBrowser || fakeBrowser(),
     fileSize: () => 1000,
     async leadCount() { return o.leadCount === undefined ? 1 : o.leadCount; },
+    async portFree() { return o.portFree === undefined ? true : o.portFree; },
     async sendLead(marker) { this.calls.push('sendLead'); return o.sendLead ? o.sendLead(marker) : { ok: true, code: 'ok', statuses: [202] }; },
     async alertsOnlyTo() { return o.alertsOnlyTo === undefined ? true : o.alertsOnlyTo; },
     async exportCsv(who, marker) { return o.exportCsv ? o.exportCsv(marker) : { status: 200, text: `${J.CSV_HEADER}\n2026-11-01T00:00:00Z,${marker},a@example.com,,contact,/contact/,new,,\n` }; },
@@ -169,6 +170,18 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   check('journey: test with an unknown verb names both verbs', r7.exit === 2 && /walls\|journey/.test(r7.json.error), r7.all);
   check('journey: the usage list carries the command', USAGE.some(l => l.startsWith('test journey --target staging')));
 
+  // J6 needs localhost:4173 (the dashboard config: fixed port, reuseExistingServer false): taken by another run, it says so before anything is sent or started
+  const implP = fakeImpl({ portFree: false });
+  const busy = await run({ only: 'J6', 'alert-to': ALERT }, { ...base, impl: implP });
+  check('journey J6: port 4173 taken by another run is a FAIL that says so, and no lead is sent and no dashboard test is started', busy.byId.J6.status === 'FAIL' && /port 4173 in use by another run/.test(busy.byId.J6.evidence) && !implP.calls.includes('sendLead') && !implP.calls.some(c => c.startsWith('playwright')), busy.text);
+  const { createServer } = await import('node:net');
+  const listenOn = (host) => new Promise(resolve => { const s = createServer(); s.once('error', e => resolve({ error: e })); s.listen(0, host, () => resolve({ s, port: s.address().port })); });
+  const v4 = await listenOn('127.0.0.1');
+  check('journey: portFree sees a server on 127.0.0.1 and sees the port free again once it is closed', v4.s && (await J.portFree(v4.port)) === false && await new Promise(r => v4.s.close(r)) === undefined && (await J.portFree(v4.port)) === true, v4.error && v4.error.message);
+  const v6 = await listenOn('::1');
+  if (v6.error && /EADDRNOTAVAIL|EAFNOSUPPORT/.test(v6.error.code)) check('journey: portFree sees a server on ::1 (this machine has no IPv6 loopback: not exercised here)', true);
+  else check('journey: portFree sees a server on ::1 (a dashboard preview may listen on localhost = ::1)', Boolean(v6.s) && (await J.portFree(v6.port)) === false && await new Promise(r => v6.s.close(r)) === undefined, v6.error && v6.error.message);
+
   // the browser is started only through proc-guard (slice 5-H: no browser outlives its run) and killed with its tree and its folder
   const browserSrc = readFileSync(join(CLI_ROOT, 'lib', 'browser.mjs'), 'utf8');
   check('journey browser: it starts through proc-guard\'s guardedTemp and stops with killTree (the 5-H rule)', /guardedTemp\('omnikom-jb-'/.test(browserSrc) && /guard\.killTree\(child\.pid, folder\.dir\)/.test(browserSrc) && /--user-data-dir=\$\{folder\.dir\}/.test(browserSrc));
@@ -191,9 +204,13 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
       return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>fixture ${variant}${path}</title></head><body style="margin:0"><h1>fixture ${variant} ${path}</h1>${wide}${form}${bad}</body></html>`;
     };
     const srv = http.createServer((req, res) => {
+      if (req.method === 'GET' && req.url === '/api/lead?sent=1') { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end('<!doctype html><title>Thank you</title><h1>Thank you</h1><p>Your message was sent.</p><p><a href="/">Back to the site</a></p>'); return; }
       if (req.method === 'POST' && req.url === '/api/lead') {
         let b = ''; req.on('data', d => { b += d; }); req.on('end', () => {
           const name = new URLSearchParams(b).get('name');
+          if (leadMode === 'thanks' || leadMode === 'thanks-lost' || leadMode === 'thanks-two') { if (leadMode !== 'thanks-lost') leads.push(name); if (leadMode === 'thanks-two') leads.push(name); res.writeHead(303, { location: '/api/lead?sent=1' }); res.end(); return; }
+          if (leadMode === 'other200') { leads.push(name); res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end('<!doctype html><title>Welcome</title><h1>Welcome</h1><p>Nothing to say here.</p>'); return; }
+          if (leadMode === '503') { res.writeHead(503, { 'content-type': 'text/html; charset=utf-8' }); res.end('<!doctype html><title>We could not send this</title><h1>We could not send this</h1><p>We could not send this. Please call or email us.</p><p><a href="/">Back to the form</a></p>'); return; }
           if (leadMode === 'plain') { res.writeHead(400, { 'content-type': 'application/json' }); res.end('{"sent":false,"problems":[{"code":"BODY","msg":"Send the form as JSON."}]}'); return; }
           if (leadMode === 'ok') leads.push(name);
           res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"sent":true}');
@@ -265,6 +282,18 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
       check('journey J5: an endpoint that answers 400 is a FAIL with the status and the words on the page, and the answer PNG is kept', f2.byId.J5.status === 'FAIL' && /HTTP 400/.test(f2.byId.J5.evidence) && /lead rows with the marker: 0/.test(f2.byId.J5.evidence) && /Send the form as JSON/.test(f2.byId.J5.evidence) && f2.byId.J5.pngs.some(p => p.endsWith('j5-form-answer.png')), f2.text);
       const f3 = await j5('lost');
       check('journey J5: "sent" with no stored row is a FAIL (the page alone is not enough)', f3.byId.J5.status === 'FAIL' && /0 lead row/.test(f3.byId.J5.evidence), f3.text);
+      // the no-script path of the site (platform 5-L): the browser is sent on with a 303 to a Thank-you page; that page plus exactly one stored row is the pass
+      const f4 = await j5('thanks');
+      check('journey J5: a 303 to the Thank-you page (HTTP 200, "Your message was sent") with exactly one stored marker row is a PASS', f4.byId.J5.status === 'PASS' && /HTTP 200/.test(f4.byId.J5.evidence) && /Your message was sent/.test(f4.byId.J5.evidence) && /1 lead row "Journey abcdef12"/.test(f4.byId.J5.evidence) && leads.filter(x => x === 'Journey abcdef12').length === 1, f4.text);
+      const f6 = await j5('thanks-two');
+      check('journey J5: the Thank-you page with TWO stored rows is a FAIL (exactly one is the pass)', f6.byId.J5.status === 'FAIL' && /but 2 lead row/.test(f6.byId.J5.evidence), f6.text);
+      const f7 = await j5('other200');
+      check('journey J5: any HTTP 200 is not enough: a 200 page that does not say the message was sent is a FAIL even with one stored row', f7.byId.J5.status === 'FAIL' && /HTTP 200 "Welcome/.test(f7.byId.J5.evidence), f7.text);
+      const f8 = await j5('503');
+      check('journey J5: the old 503 "We could not send this" page is a FAIL that names the status and the page', f8.byId.J5.status === 'FAIL' && /HTTP 503 "We could not send this/.test(f8.byId.J5.evidence) && /lead rows with the marker: 0/.test(f8.byId.J5.evidence), f8.text);
+      check('journey J5: the old 400 "Send the form as JSON." answer is still a FAIL that names the status and the words (re-checked beside the new pages)', f2.byId.J5.status === 'FAIL' && /HTTP 400/.test(f2.byId.J5.evidence) && /Send the form as JSON/.test(f2.byId.J5.evidence));
+      const f5 = await j5('thanks-lost');
+      check('journey J5: the Thank-you page with no stored row is a FAIL (the page alone is not enough)', f5.byId.J5.status === 'FAIL' && /but 0 lead row/.test(f5.byId.J5.evidence), f5.text);
     } finally { srv.close(); }
   }
 
