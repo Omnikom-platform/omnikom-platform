@@ -18,6 +18,11 @@ where things stand in `.claude/POSITION.md`.
 - `skills/design-tournament/SKILL.md` (the skill's protocol file; the rest of that folder stays with its department)
 - `skills/icm-librarian.agent.md` (the librarian agent copy)
 - `CLAUDE.md`
+- `icm/` (the generated index and code map, plus hand-written layer 1 notes)
+- `tools/icm/` (the indexer, its hook, tests and mutants)
+- `docs/product/` (the one product book, layer 3)
+- `work/` (stage contracts and `work/STATE.md`, layers 2 and 4)
+- `archive/` (retired files, each with a .txt note)
 - `sops/` except `sops/clients/`
 
 ## Does not touch

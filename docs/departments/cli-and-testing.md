@@ -15,6 +15,12 @@ has to relearn it (README rule 5). Spec: `docs/blueprint/26-PLATFORM-CLI.md`.
 - `tools/crm-map/`
 - `tools/test/`
 - `tools/with-env.mjs`
+- `tools/bank-json-key.mjs`
+- `tools/check-api-keys.mjs`
+- `tools/compose-db-url.mjs`
+- `tools/lib/bank.mjs`
+- `tools/resend-test-email.mjs`
+- `tools/secret-receiver.mjs`
 - `tools/hooks/` (Claude Code hooks this department builds; DECISIONS 41)
 
 ## Does not touch
