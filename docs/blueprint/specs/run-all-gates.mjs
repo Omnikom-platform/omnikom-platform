@@ -13,6 +13,10 @@ const GATES = [
   ['industry run', 'contracts/industry-run/run.mjs'],
   ['database walls + mutants', 'supabase/tests/run-local.mjs'],
   ['publish-ready parity (SQL vs JS)', 'supabase/tests/publish-parity.mjs'],   // slice 4.6: the SQL port of the REQUIRED rules agrees with contracts/validate.mjs on every item
+  ['test cluster ports', 'supabase/tests/cluster-port.test.mjs'],   // slice 5-PORT: every test cluster listens on a port of its block below 32768, pinned to 127.0.0.1, with the bind fallback; a fake pg_ctl, no Postgres, about 1 s (its mutants run inside the walls gate above)
+  ['test cluster port probe', 'supabase/tests/port-probe.mjs'],   // slice 5-PORT: the Linux (and Windows) watched red/green of the port rules: a plain client socket holds 127.0.0.1:P, the old start is half-up, the pinned start fails loudly, the new start walks to P+1; picks --hold tw on Linux, est on Windows; has its own time limit (480 s), a few seconds on Linux
+  ['head land-script gate (gate-lib)', 'factory/briefs/gate-lib.test.mjs'],   // the head's land script stops at the first red step and never pushes after one (factory/briefs/gate-lib.sh)
+  ['promote-check tests','supabase/ops/test/promote-check.test.mjs'],   // slice 5-PORT: the promote script's own tests on a local cluster (ledger, dry run, read-only, function list, smoke judgement); no staging; it was run by no job before
   ['e2e cleanup + mutants', 'supabase/tests/e2e-cleanup.test.mjs'],   // slice 5.2b: the staging e2e scripts remove the content rows they create (a thrown assertion included); no staging, about 2 s
   ['function tests (Deno)', 'supabase/functions/test/run.mjs'],   // slice 4.2 harness: a local cluster + the Edge Functions under Deno, about 2 to 5 minutes; its mutants (mutate.mjs) are the slice gate, too long for here
   ['specs + traceability', 'docs/blueprint/specs/check-specs.mjs'],

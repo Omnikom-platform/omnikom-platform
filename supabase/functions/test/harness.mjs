@@ -22,6 +22,7 @@ import { spawnSync, spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 // 5-H: the cluster folder is guarded (stopped and removed on every exit path; swept at start when an earlier run was killed)
 import { guardedTemp, sweep } from '../../../tools/proc-guard/index.mjs';
+import { startOnBlock } from '../../tests/lib/cluster-port.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO = resolve(HERE, '..', '..', '..');
@@ -44,11 +45,11 @@ export async function startHarness() {
   const guard = guardedTemp('omnikom-pg-', 'cluster', { label: 'functions-harness' });
   const dir = guard.dir;
   const data = join(dir, 'data');
-  const PORT = String(55000 + Math.floor(Math.random() * 900));
   let r = run('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8']);
   if (r.status !== 0) { guard.release(); throw new Error('initdb failed: ' + (r.stderr || r.error)); }
-  r = run('pg_ctl', ['-D', data, '-o', `-p ${PORT} -k ""`, '-l', join(dir, 'pg.log'), '-w', 'start']);
-  if (r.status !== 0) { const why = 'pg_ctl start failed: ' + r.stderr + readFileSync(join(dir, 'pg.log'), 'utf8'); guard.release(); throw new Error(why); }
+  const started = startOnBlock('functions-harness', { data, log: join(dir, 'pg.log'), run });   // 5-PORT: port block, listen pin, bind fallback
+  if (!started.ok) { const why = 'pg_ctl start failed: ' + started.stderr + started.log; guard.release(); throw new Error(why); }
+  const PORT = String(started.port);
   const psql = (db, args) => run('psql', ['-h', '127.0.0.1', '-p', PORT, '-U', 'postgres', '-d', db, '-v', 'ON_ERROR_STOP=1', '-q', ...args]);
   const stopDb = () => guard.release();   // pg_ctl stop -m immediate, every process naming the folder, then the folder
   let server = null;

@@ -3,7 +3,7 @@
 // Needs initdb/pg_ctl/psql on PATH (Postgres 15+). The shim (default local-shim.sql) models Supabase's defaults.
 // Then runs each MUTANT (one wall removed from a copy of the migration) and requires the tests to fail: a wall whose
 // mutant passes has no test. Exit 0 = tests pass on the real migration AND every mutant is caught.
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -11,6 +11,8 @@ import { fileURLToPath } from 'node:url';
 import { qualify } from './qualify.mjs';
 // 5-H: the cluster folder is guarded (stopped and removed on every exit path; swept at start when an earlier run was killed)
 import { guardedTemp, sweep } from '../../tools/proc-guard/index.mjs';
+// 5-PORT: the port block, the listen pin and the bind fallback live in one module for every test cluster
+import { startOnBlock } from './lib/cluster-port.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const arg = n => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : null; };
@@ -18,7 +20,7 @@ const MIGRATIONS_DIR = resolve(HERE, '..', 'migrations');   // every migration, 
 const SHIM = arg('--shim') ? resolve(arg('--shim')) : join(HERE, 'local-shim.sql');
 const ONLY = arg('--only');
 const TESTS = join(HERE, 'tenancy.test.sql');
-const PORT = String(54000 + Math.floor(Math.random() * 900));
+let PORT;   // set once the cluster is up: a port of this harness's block (lib/cluster-port.mjs)
 const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 120000, ...opts });
 
 // Read every input ONCE at the start, so editing files during a run cannot mix versions.
@@ -36,8 +38,9 @@ const data = join(dir, 'data');
 const START_MS = 600000;
 let r = run('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8'], { timeout: START_MS });
 if (r.status !== 0) { console.error('initdb failed:', r.stderr || r.error); process.exit(2); }
-r = run('pg_ctl', ['-D', data, '-o', `-p ${PORT} -k ""`, '-l', join(dir, 'pg.log'), '-w', 'start'], { timeout: START_MS });
-if (r.status !== 0) { console.error('pg_ctl start failed:', r.stderr, readFileSync(join(dir, 'pg.log'), 'utf8')); process.exit(2); }
+const started = startOnBlock('run-local', { data, log: join(dir, 'pg.log'), run, opts: { timeout: START_MS } });
+if (!started.ok) { console.error('pg_ctl start failed:', started.stderr, started.log); process.exit(2); }
+PORT = String(started.port);
 for (const [n, t] of [['shim.sql', shimText], ['tests.sql', testText]]) writeFileSync(join(dir, n), t);
 
 const psql = (db, file) => run('psql', ['-h', '127.0.0.1', '-p', PORT, '-U', 'postgres', '-d', db, '-v', 'ON_ERROR_STOP=1', '-q', '-f', file]);
@@ -469,6 +472,19 @@ const MUTANTS = [
   })(),
 ];
 
+// 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]
+const PORT_HARNESS_FILES = ['tests/run-local.mjs', 'tests/publish-parity.mjs', 'functions/test/harness.mjs', 'tests/test-apply.mjs', 'tests/e2e-screens.mjs', 'ops/restore-drill.mjs', 'ops/test/6b-cluster.mjs', 'ops/test/cluster.mjs'];
+const PORT_MUTANTS = [
+  ['port: the old range is back', 'lib', "'run-local': [22000, 22899]", "'run-local': [54000, 54899]"],
+  ['port: the listen pin is removed', 'lib', ' -c listen_addresses=${LISTEN}`', '`'],
+  ['port: the bind fallback is removed', 'lib', "const bind = BIND_FAILURE.test(text) || BIND_FAILURE.test(`${r.stderr ?? ''}${r.stdout ?? ''}`);", 'const bind = false;'],
+  ['port: every failure counts as a bind failure', 'lib', "const bind = BIND_FAILURE.test(text) || BIND_FAILURE.test(`${r.stderr ?? ''}${r.stdout ?? ''}`);", 'const bind = true;'],
+  ['port: the tries have no cap', 'lib', 'if (tries >= MAX_TRIES) return', 'if (false) return'],
+  ['port: the walk leaves its block at the end', 'lib', 'return port >= hi ? lo : port + 1;', 'return port + 1;'],
+  // built from parts: cluster-port.test.mjs reads THIS file and must not find the old pick written out in it
+  ['port: this harness picks the old range again', 'harness', 'PORT = String(started.port);', `PORT = String(${'54' + '000'} + Math.floor(Math.random() * ${'9' + '00'}));`],
+];
+
 // remove a wall from the original text and, when the wall lives in a function body, from its schema-qualified copy too
 const mutate = (s, x, y) => { let t = s.split(x).join(y); const qx = qualify(x); if (qx !== x) t = t.split(qx).join(qualify(y)); return t; };
 
@@ -492,6 +508,37 @@ try {
     const why = (m.out.match(/(EXPECTED[^\n]*|Assertion[^\n]*|assert[^\n]*|ERROR:[^\n]*|\(E[A-Z]+\))/) || [''])[0].slice(0, 120);
     console.log(`${caught ? 'caught  ' : (m.setup ? 'SURVIVED' : 'SETUP-FAIL')} ${name.padEnd(44)} ${why}`);
     if (!m.setup) console.log(`  setup output: ${m.out.split('\n').slice(-3).join(' | ').slice(0, 300)}\n  server log:\n${pgLogTail(8).replace(/^/gm, '    ')}`);
+  }
+  // 5-PORT: the port rules are code, not SQL. Each mutant breaks a copy of lib/cluster-port.mjs (or of this file) and the unit test
+  // (cluster-port.test.mjs) must go red. The unit test runs unbroken first and must pass.
+  const portSel = PORT_MUTANTS.filter(m => !ONLY || m[0].includes(ONLY));
+  if (portSel.length) {
+    const unit = (env) => run(process.execPath, [join(HERE, 'cluster-port.test.mjs')], { env: { ...process.env, ...env } });
+    const u = unit({});
+    console.log(u.status === 0 ? 'PASS port unit test (cluster-port.test.mjs)' : `FAIL port unit test:\n${outOf(u).split('\n').filter(l => /^FAIL/.test(l)).join('\n')}`);
+    if (u.status !== 0) failed++;
+    const libText = readFileSync(join(HERE, 'lib', 'cluster-port.mjs'), 'utf8');
+    for (const [name, kind, x, y] of portSel) {
+      ran++;
+      const harnessRel = 'tests/run-local.mjs';
+      const text = kind === 'lib' ? libText : readFileSync(join(HERE, '..', harnessRel), 'utf8');
+      if (!text.includes(x)) { console.log(`MUTANT TARGET MISSING: ${name}: ${x.slice(0, 60)}`); failed++; continue; }
+      const broken = text.split(x).join(y);
+      const mdir = mkdtempSync(join(tmpdir(), 'omk-portmut-'));
+      let m;
+      try {
+        if (kind === 'lib') {
+          writeFileSync(join(mdir, 'cluster-port.mjs'), broken);
+          m = unit({ CLUSTER_PORT_MODULE: join(mdir, 'cluster-port.mjs') });
+        } else {
+          for (const f of PORT_HARNESS_FILES) { mkdirSync(dirname(join(mdir, f)), { recursive: true }); writeFileSync(join(mdir, f), f === harnessRel ? broken : readFileSync(join(HERE, '..', f))); }
+          m = unit({ CLUSTER_PORT_SUPABASE: mdir });
+        }
+      } finally { rmSync(mdir, { recursive: true, force: true }); }
+      const caught = m.status === 1;
+      if (!caught) failed++;
+      console.log(`${caught ? 'caught  ' : 'SURVIVED'} ${name.padEnd(44)} ${(outOf(m).match(/^FAIL[^\n]*/m) || [''])[0].slice(0, 120)}`);
+    }
   }
   // no mutant database may be left behind (the disk wall above); `real` is the only database of ours
   const q = sqlOn('postgres', "select count(*) from pg_database where datname ~ '^m[0-9]+$'");

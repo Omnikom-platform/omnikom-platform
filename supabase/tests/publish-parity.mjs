@@ -18,13 +18,14 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 // 5-H: the cluster folder is guarded (stopped and removed on every exit path; swept at start when an earlier run was killed)
 import { guardedTemp, sweep } from '../../tools/proc-guard/index.mjs';
+import { startOnBlock } from './lib/cluster-port.mjs';   // 5-PORT: port block, listen pin, bind fallback
 import { validateItem, mergeCore, validateContract, CORE } from '../../contracts/validate.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..', '..');
 const arg = n => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : null; };
 const BREAK = arg('--break');
-const PORT = String(55000 + Math.floor(Math.random() * 900));
+let PORT;   // set once the cluster is up: a port of this harness's block (lib/cluster-port.mjs)
 const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 300000, maxBuffer: 512 * 1024 * 1024, ...opts });
 const outOf = x => `${x.stdout ?? ''}${x.stderr ?? ''}${x.error ? `\n(${x.error.code || x.error.message})` : ''}`.trim();
 
@@ -201,8 +202,9 @@ let status = 2, sqlSets = null;
 try {
   let r = run('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8']);
   if (r.status !== 0) throw new Error('initdb failed: ' + outOf(r));
-  r = run('pg_ctl', ['-D', data, '-o', `-p ${PORT} -k ""`, '-l', join(dir, 'pg.log'), '-w', 'start']);
-  if (r.status !== 0) throw new Error('pg_ctl start failed: ' + outOf(r));
+  const started = startOnBlock('publish-parity', { data, log: join(dir, 'pg.log'), run });
+  if (!started.ok) throw new Error('pg_ctl start failed: ' + `${started.stdout ?? ''}${started.stderr ?? ''}`.trim() + started.log);
+  PORT = String(started.port);
   const psql = (file, db = 'parity') => run('psql', ['-h', '127.0.0.1', '-p', PORT, '-U', 'postgres', '-d', db, '-v', 'ON_ERROR_STOP=1', '-q', '-t', '-A', '-f', file]);
   run('psql', ['-h', '127.0.0.1', '-p', PORT, '-U', 'postgres', '-d', 'postgres', '-q', '-c', 'create database parity']);
   writeFileSync(join(dir, 'shim.sql'), shim);
