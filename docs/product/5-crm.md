@@ -1,0 +1,136 @@
+# The Omnikom CRM
+
+The CRM is one of the two products behind the user's magic-link sign-in (the other is the dashboard, `6-dashboard.md`). It is a
+full CRM, not an inbox: every lead field is visible and editable, the columns follow the business's industry, and the user
+has the views, filters, sorting, bulk edits, notes and history a CRM user expects. A lead reaches the client's own CRM as an
+export in that CRM's layout, which they upload, and their file comes back through the same map. There is no automatic push.
+
+Feature states (WORKS, PARTLY, MISSING) live in `1-product.md` Part A and are not repeated here. This file says how each piece
+works or must work.
+
+## How a lead travels
+
+```mermaid
+sequenceDiagram
+  participant V as Visitor
+  participant S as Website form
+  participant F as Site lead function (/api/lead)
+  participant E as capture-lead
+  participant D as Database
+  participant C as Omnikom CRM
+  participant X as Their CRM
+  V->>S: fills the form (industry fields from the contract)
+  S->>F: post (works with no script)
+  F->>E: signed request with the site's key
+  E->>D: store the lead with its consent text
+  E-->>V: thank-you page
+  E->>E: new-lead alert email (Resend)
+  D-->>C: the lead appears live, every field a column
+  C->>X: export in their CRM's layout (they upload it)
+  X->>C: import their file back through the same map
+```
+
+1. **Form.** The site's form sends form id, flow, page, cta, assignee, name, email, phone, answers, the consent text the visitor
+   saw, marketing consent, a honeypot and an idempotency key made when the form opened. A preview site never fakes success.
+2. **Site lead function.** Post only, size cap; a filled honeypot gets 400. A plain browser form (no script) is answered with a
+   303 to the thank-you page. It signs the body with the site's key and forwards it to `capture-lead?site=<id>`. Its Pages
+   project holds `SITE_ID`, `PLATFORM_BASE` and the secret `SITE_SIGNING_KEY`.
+3. **Signature.** `X-Site-Signature: t=<unix>,v1=<hex>`, HMAC-SHA256 over time, method, path with the site id, and body;
+   300 s window. Site A's signature fails on site B. A revoked key fails.
+4. **Capture.** `service.capture_lead` takes the workspace from the site, never from the body. Refused: no consent text (400),
+   unknown site (404), paused site or suspended workspace (409), over the hourly quota (60 a workspace by default, 429).
+   The same idempotency key stores nothing new and sends no second alert. The lead, a `received` event and a consent ledger row
+   are written in one transaction.
+5. **Alert.** One email to the site's alert addresses and, when set, the assigned agent, through Resend, branded with the
+   client's name and "powered by Omnikom". A failed alert never fails the lead; it is retried, never the visitor.
+6. **In the CRM.** The new row appears live (Realtime, still filtered by RLS).
+
+## The lead record
+
+**Core fields, on every lead:** name, email, phone, form, page (`page_path`), flow, cta, status, owner, consent (the exact
+wording, plus marketing and SMS consent), date received. The site the lead came from is shown when a workspace has two or more.
+
+**Industry fields:** every industry contract declares its lead form's fields (`forms.<id>.fields` with label, type, options);
+a realtor's form carries budget, timing and beds, a dentist's insurance and treatment. They are stored today in `answers`,
+keyed as in the contract, and shown read-only with their labels. They become real columns in the list, the record, the CSV
+export and the crm-map dictionary, by the same procedure for every industry: the contract declares, per field, whether it is
+a list column and whether it is editable. Nothing is written per industry in code. The CRM's columns follow from the contract.
+
+**Status:** new, contacted, qualified, closed, spam. Spam hides a lead from the default list and deletes nothing.
+
+**Who sees what:** the owner sees every lead of the workspace; a member (agent) sees only leads assigned to them. The database
+decides, not the screen. A member cannot hand a lead on. A member's hand-entered lead is their own; the owner can pick an owner.
+
+## What the CRM does
+
+| Piece | How it works |
+|---|---|
+| Lead list | newest first, live; one column per core and industry field; unread rows bold, opening a lead marks it read |
+| Lead record | every field visible; every core and industry field editable except the consent record; each edit is an `edited` event with field, old and new value |
+| Status and owner | changed in the record or in bulk, with Undo on a single change |
+| Notes | up to 2000 characters each, kept in the timeline, never edited or deleted |
+| Timeline | everything that happened, who, when: received, alert sent or failed, status, assigned, note, edited, exported |
+| Add a lead by hand | name, phone, email, how they reached you, what about, notes, and a required tick "the person agreed to be contacted", stored with its date |
+| Search | over any column, core or industry, on the server |
+| Filter and sort | on any column and value, on the server, under RLS |
+| Columns | the user picks which columns a view shows |
+| Saved views | filter, sort and columns saved by name, for the user or shared with the workspace |
+| Bulk edit | select many, set status, set owner, delete; one event per lead and one audit row |
+| Status board | the leads grouped by status; whether stages can be custom is an open owner question (status is a fixed 5-value list today) |
+| Follow-up | a follow-up date and tasks on a lead, with a "due" filter |
+| Duplicates | a new lead with the same email or phone as an existing one is flagged; merging is decided later |
+| Delete | removes the lead and writes an audit row; the consent ledger row stays (legal record) |
+| Export | CSV of the current view with every core and industry column, at most 5000 rows, cells starting with `= + - @` guarded; one `exported` event per lead |
+| Export in their CRM's layout | see below |
+| Import | see below |
+| Site switcher | shown only when the workspace has two or more sites |
+
+The CRM features named MISSING in `1-product.md`: A3 field edit, A12 sort on any column, A13 choose the columns, A14 saved views,
+A15 bulk edit, A16 status board, A17 follow-up date and tasks, A18 duplicates. PARTLY: A2 every field visible, A9 delete,
+A10 search, A11 filter, A19 unread bold, A20 CSV export (no button, fixed 9 columns), A21 export in their layout, A22 import,
+A24 industry fields as columns.
+
+Delete is a hard delete today (`service.delete_lead`: the row goes, an audit row and the consent ledger stay). The enum kind
+`deleted` therefore never appears in a timeline. Whether a delete should instead hide the lead (soft delete) is an open owner
+question; until it is answered the book describes the code.
+
+## Export in the client's layout, and import
+
+The client's CRM stays theirs. Omnikom never connects to it.
+
+```mermaid
+flowchart LR
+  H["Their CRM's export file<br/>(headers + a few rows)"] --> P["proposeMap<br/>tools/crm-map"]
+  P --> C["Client confirms the map once"]
+  C --> T[("crm_templates<br/>saved per workspace")]
+  T --> E["Every export comes out<br/>in their layout"]
+  E --> U["They upload it to their CRM"]
+  F["Their file"] --> I["importRows through<br/>the same map"] --> L["New leads, duplicates shown"]
+  T --> I
+```
+
+- **The map.** `tools/crm-map` (no dependencies, no network, runs in Node and the browser) reads the client's headers and
+  sample rows and proposes which of our fields goes in which of their columns: exact synonyms first, then word overlap, a
+  capped edit distance and a type check on the samples; a pair below 0.5 is never assigned. Compound headers ("State/Province")
+  are tried part by part. Warnings name a non-English sheet, unmapped headers and a semicolon file read as commas.
+- **The template.** `{columns: [{header, field, transform}], value_maps}`, saved by `service.save_crm_template` (owner) in
+  `crm_templates`. Transforms: first and last name, street, city, state, postal code, phone in E.164 or US form, dates in ISO, US
+  or EU form. Two templates ship (HubSpot, Google Contacts), each still to be checked against a real export.
+- **Export.** `exportRows` writes the leads in the template's column order, phones and dates in the client's form, the formula
+  guard on every cell. The export carries the industry fields once they are columns.
+- **Import.** `parseCsv` (RFC 4180, repeated headers renamed, `;` guessed) then `importRows` gives leads, duplicates by email or
+  phone, and warnings. The user sees the first 20 rows, chooses skip or add for duplicates, and the leads are created with form
+  `import`, owned by the owner unless a column names a team member. What consent text an imported lead carries is an open
+  owner question.
+- **What exists:** the library (with its tests and mutants), the table and the save function. **What is missing:** an Edge
+  Function to propose and save a map, `lead-export` using a template, the import function, and the screens.
+- **Removed:** the CRM webhook card in Settings, `settings-save`'s CRM part, `crm-test`, `set_crm_webhook` and
+  `crm_secret_put` belong to the dropped push. They are taken out of the dashboard path; the tables stay until a migration
+  removes them. OmniSuite by API key is the follow-up engine for calls and sequences once its API exists (`10-expansion.md`).
+
+## The test that proves the CRM
+
+Every CRM feature is proven on staging through the test site and the CLI journey (`9-blocks.md`): the test site's contract
+must carry an industry form with select, number and choice fields, so the journey can send a lead with industry fields and see
+them as columns, edit one, export it in a saved layout and import it back. The test site today has one form with four fields
+(name, email, phone, message), so no industry column can be shown on staging yet.

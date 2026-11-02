@@ -1,0 +1,106 @@
+# The dashboard
+
+The second product behind the user's magic-link sign-in (the first is the CRM, `5-crm.md`). It holds everything the business
+does other than working leads: edit and publish its website, its photos, its settings and team. Feature states are in
+`1-product.md` Part B. Routes are in `8-routing.md`.
+
+## Look
+
+No design work on the dashboard or the sign-in page until the owner brings his own styling. Screens are built for function:
+each renders clean (no console errors, nothing wider than the screen), does its job in the CLI journey, and its text is
+readable. The current interim look (`apps/dashboard/src/styles/tokens.css`) stays; when the owner's styling arrives it replaces
+the tokens and screen styles in one slice.
+
+## Stack
+
+React 18, TypeScript and Vite, built as a static single-page app on its own Pages project. TanStack Router (typed routes) and
+TanStack Query (cache, retries); supabase-js for sign-in, RLS reads, signed uploads and function calls. The contract validator
+`contracts/validate.mjs` is imported as is, so the browser and the server run the same rules. Server state only, keyed by
+workspace, resource and id; Realtime for new leads and publish jobs. Vitest for units, Playwright against staging for flows.
+
+## Rules every screen follows
+
+- **Nothing made up.** Every button, field and fixed line of text carries the id of the plan row it implements
+  (`data-plan="DP-..."`, plan rows in `docs/blueprint/16-DESIGN-PARTS.md`); a gate (`apps/dashboard/tests/plan-gate`) fails
+  on an element with no id, an id that names nothing, or a built plan row with no element. No sample data in the app source:
+  screens show real rows from staging or the plan's empty state. No dead control: a button for something not built is not
+  shown. Where the plan is silent, the builder stops and asks; it does not invent.
+- One primary action per screen. A left rail on a laptop, a bottom bar on a phone; tap targets 44 px.
+- Feedback is a toast (4 s, with Undo where undo exists), an inline field error in plain words, or a banner. No browser
+  `confirm()` dialogs. A confirm sheet only for what cannot be undone: publish, remove a person, delete an item.
+- Loading shows skeleton rows; a spinner only inside the pressed button. An empty state is one sentence and one button.
+- Plain-word messages live next to the rule that raises them and are the single source for sheet, toast and email.
+- WCAG 2.2 AA; Esc closes, Enter saves a note, Ctrl or Cmd+S saves.
+
+## Sign-in
+
+- Email magic link only; no passwords, no self sign-up (invites only). The link lives 10 minutes and works once; a new one can
+  be asked for after 60 s. A wrong email gets the same "check your email" text.
+- The mail is sent through Resend from the templates in `supabase/auth-emails/` (checked by `check.mjs` against the plan).
+- An invite is a sign-in link with the same life, not a separate token page.
+- After sign-in the person lands on their last workspace, or a picker when they belong to more than one.
+- Plain words: "That link expired. Send a new one."; "This login is not part of a business yet. Ask the business owner to
+  invite you."; "You were signed out. Sign in again."
+
+## Site and editor
+
+- The Site screen lists the pages and the client's own collections, generated from the workspace's active contract. No screen
+  or route is written per industry.
+- The item editor shows the fields the contract declares, with a widget per type: text and rich text with a counter, slug
+  (locked after first publish), number, money, yes or no, date, email, phone, link, file, choice (a select, or segmented for 4
+  or fewer), image (alt text required, rights tick), gallery, reference (search picker), address, list, group, and the
+  search-result card (title 60, description 160, live preview).
+- Locked fields (licences, legal notices) show read-only with the reason and "Ask Omnikom to change this"; sourced fields
+  carry a source link and date.
+- Members edit only their own items in `own` collections; the database enforces it.
+- Every save is a new version. Autosave after 10 s idle; consecutive autosaves by one person within 10 minutes are shown as
+  one. A save carries its base version and is refused on top of a newer one, keeping both ("Agent One saved a newer version at
+  14:02. See their changes, then save again."). An offline draft stays in the browser and retries.
+- History lists the versions; Restore makes a new version and deletes nothing.
+- Deleting a routed item makes its page redirect (301) to its parent on the next publish.
+
+## Publish
+
+- The publish sheet lists the changes waiting ("Publish these 3 changes to <site>?") and calls `publish` with those exact
+  versions. Progress shows one line per step: building, checking (one plain line per check), putting it live, "Live since
+  14:02. Open". A failed check stops at that line with a Fix link and the words "nothing went live". With nothing to publish
+  there is no button, only "Nothing to publish".
+- Publish history (MISSING): past jobs with their check reports, and putting the site back to an earlier publish.
+- Take an item off the site (MISSING): `service.unpublish`, live with the next publish.
+
+## Preview of a change (MISSING)
+
+First an instant frame: the factory's own renderer runs in a browser worker on the draft and shows it in a sandboxed frame
+(no site scripts, media through short signed links), the changed section outlined, phone and laptop widths. Then a preview
+site: the site's Pages project `preview` branch (`preview.<project>.pages.dev`), always noindex, built by the same pipeline
+without moving what is live. Before and after screenshots at 390 and 1366 px come last.
+
+## Photos and media
+
+- Upload in the editor: JPG, PNG or WebP; rights tick and alt text required; the processor strips EXIF and GPS and makes 2400,
+  1600 and 800 px WebP; an original under 800 px wide is refused ("This photo is 900 px wide; this spot needs 1600.").
+- Media library (MISSING): every file with its problems flagged (no alt, too small, no rights), where it is used, replace
+  everywhere, delete only when unused.
+
+## Settings
+
+One screen of cards. Save is on only when something changed; leaving with unsaved changes asks once.
+- **Lead alerts:** up to 10 addresses, one per line, and "also email the assigned agent" (function exists, screen missing).
+- **Team:** list, invite by email as owner or agent, remove (never the last owner). Invite exists with no mail; list and
+  remove are missing.
+- **Websites:** each site's preview address, domain and state, with an "Ask Omnikom" mail link.
+- **Business details:** name, phone, email, address, hours and socials editable; legal name, licences and footer notice locked.
+- **Account:** name, email, sign out everywhere.
+- No CRM connection card: leads leave as an export (`5-crm.md`).
+
+## Overview and visibility (MISSING, last)
+
+An overview at `/w/$ws`: site state, last publish and by whom, leads this week, changes waiting, and a to-do list built from
+real checks. A visibility page: Search Console clicks, impressions, top queries and pages; PageSpeed phone and desktop with the
+test date; AI-answer samples per prompt (named or cited, engine, date). Every number shows its source and date; nothing is
+shown without its inputs. Both wait on the metrics pull (`7-sites.md`).
+
+## Roles on screen
+
+The owner sees and edits everything in the workspace. A member sees its own rows in `own` collections, its assigned leads and
+its own uploads; pages are read-only for members, and site settings are hidden from them.

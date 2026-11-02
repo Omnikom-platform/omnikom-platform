@@ -8,6 +8,9 @@ platform step sessions, re-run every "done" before it is called done, record wha
 where things stand in `.claude/POSITION.md`.
 
 ## Owns
+- `docs/product/` (the product book)
+- `work/` (work orders and `work/STATE.md`)
+- `archive/` (superseded files, each folder with a README.txt)
 - `planning/`
 - `.claude/`
 - `docs/departments/`
