@@ -40,8 +40,8 @@ ci.yml job (ci.yml reads none, DECISIONS 49).
 | `test` verb group | `testGroup` in `commands/apply.mjs:96-100` (`walls` only), registered `omnikom.mjs:~39` | add `journey` |
 | Browser | Playwright 1.64.1 in `apps/dashboard`, `channel: 'msedge'`, no download (`playwright.config.ts:17`) | the dashboard steps |
 
-The dashboard specs run as they are: `apps/dashboard` builds against staging (`scripts/build-staging.mjs`), serves on localhost:4173
-(`scripts/preview-staging.mjs`), one worker, no retries; the journey invokes them through the dashboard's own runner and reads the JSON
+The dashboard specs run as they are: `apps/dashboard` builds against staging (`scripts/build-staging.mjs`), serves on 127.0.0.1 at a port of the block 27000-27899
+(`scripts/preview-staging.mjs`, port from `scripts/preview-port.mjs`), one worker, no retries; the journey invokes them through the dashboard's own runner and reads the JSON
 reporter. Screenshots are off in that config on purpose (`playwright.config.ts:19-21`), so the journey takes its own (section 4).
 
 ## 3. The steps

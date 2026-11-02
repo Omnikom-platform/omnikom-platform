@@ -8,7 +8,6 @@ import { existsSync, readFileSync, writeFileSync, statSync, mkdirSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
-import { connect } from 'node:net';
 import { Usage, Blocked } from '../lib/errors.mjs';
 import { result } from '../lib/ctx.mjs';
 import { lit, uuidLit } from '../lib/sql.mjs';
@@ -29,7 +28,6 @@ export const TESTS = {
 };
 // what a visitor's form may answer when the lead was sent: the Thank-you page the no-script submit lands on (303 to /api/lead?sent=1), or the JSON of the script path
 export const SENT_ANSWER = /"sent"\s*:\s*true|your message was sent/i;
-export const DASHBOARD_PORT = 4173;   // apps/dashboard/playwright.config.ts: fixed, reuseExistingServer false
 export const CSV_HEADER = 'received,name,email,phone,form,page,status,owner,answers';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const clip = (s, n = 120) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
@@ -155,7 +153,6 @@ export const STEPS = [
   } },
   { id: 'J6', name: 'lead in the inbox', needs: ['J1'], async run(c) {
     const blocked = await alertGuard(c); if (blocked) return blocked;
-    if (!(await c.impl.portFree(DASHBOARD_PORT))) return { status: 'FAIL', evidence: `port ${DASHBOARD_PORT} in use by another run (the dashboard config has a fixed port and reuseExistingServer false); nothing was sent or started` };
     const lead = await feedLead(c); if (lead.fail) return lead.fail;
     const { file, title } = TESTS.J6;
     const v = playwrightVerdict(await c.impl.playwright(file, title), title);
@@ -218,22 +215,17 @@ export function journeyText(obj, env = process.env) {
   return redact([...lines, summaryLine(d)].join('\n'), env) + '\n';
 }
 
-// is anything listening on this port on this machine (IPv4 or IPv6 loopback)? false = taken
-export function portFree(port) {
-  const tryHost = host => new Promise(resolve => {
-    const s = connect({ port, host });
-    const done = v => { s.destroy(); resolve(v); };
-    s.once('connect', () => done(true)); s.once('error', () => done(false));
-    s.setTimeout(2000, () => done(false));
-  });
-  return Promise.all([tryHost('127.0.0.1'), tryHost('::1')]).then(([a, b]) => !(a || b));
-}
-
 // ---------- the real capabilities (tests hand runJourney a fake of the same shape) ----------
 const DASH = () => repoPath('apps', 'dashboard');
 const guard = () => importRepo('tools/proc-guard/index.mjs');
 
-export function makeImpl(ctx) {
+// seams (tests only): spawn, importer, launch, httpUp, ensureBuilt; the defaults are the real ones
+export function makeImpl(ctx, seams = {}) {
+  const spawnProc = seams.spawn || spawn;
+  const importer = seams.importer || importRepo;
+  const launch = seams.launch || (() => launchBrowser({ env: ctx.env }));
+  const httpUp = seams.httpUp || (async url => { try { return (await fetch(url, { signal: AbortSignal.timeout(2000) })).ok; } catch { return false; } });
+  const guard = () => importer('tools/proc-guard/index.mjs');
   const target = ctx.target();
   const pub = () => ctx.env[target.vars.publishableKey];
   const dash = DASH();
@@ -248,6 +240,7 @@ export function makeImpl(ctx) {
     if (r.status !== 0) throw new Error(`the dashboard build against staging failed (exit ${r.status}): ${clip(String(r.stdout + r.stderr).trim().split(/\r?\n/).pop(), 160)}`);
     built = true;
   };
+  const ensureBuilt = seams.ensureBuilt || build;
   const mintHash = async who => {
     const id = parseIdentity(who);
     const r = await ctx.fetch(target.authBase.replace(/\/$/, '') + '/admin/generate_link', { method: 'POST', headers: { 'content-type': 'application/json', apikey: ctx.env[target.vars.secretKey], authorization: `Bearer ${ctx.env[target.vars.secretKey]}` }, body: JSON.stringify({ type: 'magiclink', email: id.email }), signal: AbortSignal.timeout(30000) });
@@ -264,10 +257,9 @@ export function makeImpl(ctx) {
       const j = await res.json().catch(() => null);
       return { status: res.status, ids: Array.isArray(j) ? j.map(x => x.id).sort() : [] };
     },
-    portFree: port => portFree(port),
     spec(file) { const p = join(dash, 'tests', file); return existsSync(p) ? { exists: true, text: readFileSync(p, 'utf8') } : { exists: false, text: '' }; },
     async playwright(file, title) {
-      await build();
+      await ensureBuilt();
       const g = await guard();
       const tmp = g.guardedTemp('omnikom-jb-', 'journey-playwright');
       try {
@@ -279,7 +271,7 @@ export function makeImpl(ctx) {
         try { return summarizePlaywright(JSON.parse(readFileSync(report, 'utf8'))); } catch (e) { return { ran: 0, rows: [], failed: 0, flaky: 0, error: 'the report is not JSON' }; }
       } finally { tmp.release(); }
     },
-    launchBrowser: () => launchBrowser({ env: ctx.env }),
+    launchBrowser: launch,
     fileSize: p => { try { return statSync(p).size; } catch { return 0; } },
     async leadCount(marker) {
       const r = ctx.sql().scalar(`select count(*) from leads where site_id = ${uuidLit(SITE_A)} and name = ${lit(marker)}`);
@@ -304,17 +296,20 @@ export function makeImpl(ctx) {
     },
     // sign owner in through the app's own /auth/confirm link (like the dashboard's global setup), wait for the marker lead, take the PNG
     async inboxShot(who, marker, file) {
-      await build();
+      await ensureBuilt();
       const g = await guard();
-      const server = spawn(process.execPath, [join(dash, 'scripts', 'preview-staging.mjs')], { cwd: dash, env: ctx.env, stdio: 'ignore', windowsHide: true, detached: process.platform !== 'win32' });
+      // the port comes from the dashboard's own rule (a block of its own on 127.0.0.1, one run one port): read from apps/dashboard, never copied or edited here
+      const pp = await importer('apps/dashboard/scripts/preview-port.mjs');
+      const port = await pp.choosePort({ say: () => {} });
+      const base = pp.baseUrl(port);
+      const server = spawnProc(process.execPath, [join(dash, 'scripts', 'preview-staging.mjs')], { cwd: dash, env: { ...ctx.env, [pp.PORT_ENV]: String(port) }, stdio: 'ignore', windowsHide: true, detached: process.platform !== 'win32' });
       let b = null;
       try {
-        const base = 'http://localhost:4173';
         let up = false;
-        for (let i = 0; i < 120 && !up; i++) { try { up = (await fetch(base + '/', { signal: AbortSignal.timeout(2000) })).ok; } catch { await ctx.sleep(500); } }
-        if (!up) throw new Error('the dashboard preview did not come up on localhost:4173 in 60 s (is the port taken?)');
+        for (let i = 0; i < 120 && !up; i++) { up = await httpUp(base + '/'); if (!up) await ctx.sleep(500); }
+        if (!up) throw new Error(`the dashboard preview did not come up at ${base} in 60 s (it was started on that port and did not answer)`);
         const hash = await mintHash(who);
-        b = await launchBrowser({ env: ctx.env });
+        b = await launch();
         const page = await b.newPage(VIEWPORTS[1]);
         await page.open(`${base}/auth/confirm?token_hash=${encodeURIComponent(hash)}&type=magiclink`);
         const leads = `location.pathname.startsWith('/w/test-demo-a/leads')`;

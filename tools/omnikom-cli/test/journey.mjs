@@ -48,7 +48,6 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     launchBrowser: o.launchBrowser || fakeBrowser(),
     fileSize: () => 1000,
     async leadCount() { return o.leadCount === undefined ? 1 : o.leadCount; },
-    async portFree() { return o.portFree === undefined ? true : o.portFree; },
     async sendLead(marker) { this.calls.push('sendLead'); return o.sendLead ? o.sendLead(marker) : { ok: true, code: 'ok', statuses: [202] }; },
     async alertsOnlyTo() { return o.alertsOnlyTo === undefined ? true : o.alertsOnlyTo; },
     async exportCsv(who, marker) { return o.exportCsv ? o.exportCsv(marker) : { status: 200, text: `${J.CSV_HEADER}\n2026-11-01T00:00:00Z,${marker},a@example.com,,contact,/contact/,new,,\n` }; },
@@ -171,17 +170,38 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   check('journey: test with an unknown verb names both verbs', r7.exit === 2 && /walls\|journey/.test(r7.json.error), r7.all);
   check('journey: the usage list carries the command', USAGE.some(l => l.startsWith('test journey --target staging')));
 
-  // J6 needs localhost:4173 (the dashboard config: fixed port, reuseExistingServer false): taken by another run, it says so before anything is sent or started
-  const implP = fakeImpl({ portFree: false });
-  const busy = await run({ only: 'J6', 'alert-to': ALERT }, { ...base, impl: implP });
-  check('journey J6: port 4173 taken by another run is a FAIL that says so, and no lead is sent and no dashboard test is started', busy.byId.J6.status === 'FAIL' && /port 4173 in use by another run/.test(busy.byId.J6.evidence) && !implP.calls.includes('sendLead') && !implP.calls.some(c => c.startsWith('playwright')), busy.text);
-  const { createServer } = await import('node:net');
-  const listenOn = (host) => new Promise(resolve => { const s = createServer(); s.once('error', e => resolve({ error: e })); s.listen(0, host, () => resolve({ s, port: s.address().port })); });
-  const v4 = await listenOn('127.0.0.1');
-  check('journey: portFree sees a server on 127.0.0.1 and sees the port free again once it is closed', v4.s && (await J.portFree(v4.port)) === false && await new Promise(r => v4.s.close(r)) === undefined && (await J.portFree(v4.port)) === true, v4.error && v4.error.message);
-  const v6 = await listenOn('::1');
-  if (v6.error && /EADDRNOTAVAIL|EAFNOSUPPORT/.test(v6.error.code)) check('journey: portFree sees a server on ::1 (this machine has no IPv6 loopback: not exercised here)', true);
-  else check('journey: portFree sees a server on ::1 (a dashboard preview may listen on localhost = ::1)', Boolean(v6.s) && (await J.portFree(v6.port)) === false && await new Promise(r => v6.s.close(r)) === undefined, v6.error && v6.error.message);
+  // J6's inbox shot starts the dashboard preview on a port the dashboard's own rule picks (apps/dashboard/scripts/preview-port.mjs, block 27000-27899 on 127.0.0.1,
+  // passed as OMNIKOM_DASHBOARD_PORT) and opens THAT address; with a stub spawn, browser and http check, no real preview or Edge
+  {
+    const pathToFileURLish = rel => import(pathToFileURL(join(REPO_ROOT, rel)).href);
+    const pp = await pathToFileURLish('apps/dashboard/scripts/preview-port.mjs');
+    const mkInbox = (up) => {
+      const calls = { spawn: [], opened: [], polled: [] };
+      const ictx = makeCtx({ command: 'test', positionals: ['test', 'journey'], flags: { target: 'staging' }, deps: { env: ENV, sleep: async () => {}, fetch: async () => ({ status: 200, json: async () => ({ hashed_token: 'hash-' + rand() }) }) } });
+      const impl = J.makeImpl(ictx, {
+        ensureBuilt: async () => {},
+        importer: async rel => (rel.includes('proc-guard') ? { killTree: () => true } : pathToFileURLish(rel)),
+        spawn: (cmd, args, opts) => { calls.spawn.push({ args, env: opts.env }); return { pid: 4000001 }; },
+        httpUp: async url => { calls.polled.push(url); return up; },
+        launch: async () => ({ newPage: async () => ({ open: async url => { calls.opened.push(url); }, waitFor: async () => true, screenshot: async f => { writeFileSync(f, 'png'); return 3; } }), close: async () => {} }),
+      });
+      return { calls, impl };
+    };
+    const ok = mkInbox(true);
+    const shot = await ok.impl.inboxShot('owner-a', 'Journey zz', join(work, 'inbox-stub.png'));
+    const sp = ok.calls.spawn[0] || { args: [], env: {} };
+    const port = Number(sp.env[pp.PORT_ENV]);
+    check('journey J6 inbox: the preview is started by preview-staging.mjs with the dashboard\'s own port variable set to a port of its block 27000-27899',
+      sp.args.some(a => /preview-staging\.mjs$/.test(a)) && Number.isInteger(port) && pp.inBlock(port), JSON.stringify({ args: sp.args, port: sp.env[pp.PORT_ENV] }));
+    check('journey J6 inbox: the address polled and the page opened are that port\'s URL (127.0.0.1:<port>), never localhost:4173',
+      ok.calls.polled[0] === pp.baseUrl(port) + '/' && ok.calls.opened.length === 1 && ok.calls.opened[0].startsWith(pp.baseUrl(port) + '/auth/confirm?token_hash=') && !JSON.stringify(ok.calls).includes('4173'), JSON.stringify(ok.calls.opened.concat(ok.calls.polled)));
+    check('journey J6 inbox: with the stubs the shot is found and written', shot.found === true && shot.written === true && existsSync(shot.file));
+    const down = mkInbox(false);
+    let why = '';
+    try { await down.impl.inboxShot('owner-a', 'Journey zz', join(work, 'inbox-stub2.png')); } catch (e) { why = e.message; }
+    const port2 = Number((down.calls.spawn[0] || { env: {} }).env[pp.PORT_ENV]);
+    check('journey J6 inbox: a preview that does not come up fails naming the URL it waited on', why.includes(pp.baseUrl(port2)) && /60 s/.test(why), why);
+  }
 
   // the browser is started only through proc-guard (slice 5-H: no browser outlives its run) and killed with its tree and its folder
   const browserSrc = readFileSync(join(CLI_ROOT, 'lib', 'browser.mjs'), 'utf8');

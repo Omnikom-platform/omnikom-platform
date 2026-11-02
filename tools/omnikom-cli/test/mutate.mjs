@@ -397,8 +397,8 @@ const MUTANTS = [
   ['journey J6/J7: the lead from lead send is reported as if J5 had stored it', 'commands/journey.mjs', "via: ' (lead from lead send: J5 did not store one)'", "via: ''", 'unit'],
   ['journey J6/J7: a pass with no lead at all (lead send stored nothing)', 'commands/journey.mjs', 'if (stored !== 1) return (c.state.fallbackFail', 'if (false) return (c.state.fallbackFail', 'unit'],
   ['journey J7: the lead send fallback is made without checking the alert list', 'commands/journey.mjs', 'const blocked = await alertGuard(c); if (blocked) return { fail: blocked };', '', 'unit'],
-  ['journey J6: the dashboard test starts although port 4173 is taken by another run', 'commands/journey.mjs', 'if (!(await c.impl.portFree(DASHBOARD_PORT))) return {', 'if (false) return {', 'unit'],
-  ['journey J6: a busy port is looked for on IPv4 only (a server on ::1 goes unseen)', 'commands/journey.mjs', "return Promise.all([tryHost('127.0.0.1'), tryHost('::1')]).then(([a, b]) => !(a || b));", "return Promise.all([tryHost('127.0.0.1')]).then(([a]) => !a);", 'unit'],
+  ['journey J6 inbox: the preview is started without the dashboard\'s port variable (it would listen elsewhere than the page opened)', 'commands/journey.mjs', 'env: { ...ctx.env, [pp.PORT_ENV]: String(port) }', 'env: ctx.env', 'unit'],
+  ['journey J6 inbox: the page is opened at localhost:4173 again', 'commands/journey.mjs', 'const base = pp.baseUrl(port);', "const base = 'http://localhost:4173';", 'unit'],
   ['journey J5: the Thank-you page is not accepted as a sent answer', 'commands/journey.mjs', 'export const SENT_ANSWER = /"sent"\\s*:\\s*true|your message was sent/i;', 'export const SENT_ANSWER = /"sent"\\s*:\\s*true/;', 'unit'],
   ['journey J6/J7: the fallback is tried again by every step (a second alert)', 'commands/journey.mjs', 'if (c.state.fallbackFail) return c.state.fallbackFail;', '', 'unit'],
   // ---- journey browser start (briefs/browser-start-deadline.md): the wait for the DevTools address is a measured wall clock
