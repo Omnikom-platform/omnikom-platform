@@ -281,6 +281,11 @@ const MUTANTS = [
   ["cluster sweep: a stuck folder is reported swept", "test/harness.mjs", "swept: false, why: `could not remove ${info.dir}`", "swept: true, why: `could not remove ${info.dir}`", 'unit'],
   ["cluster sweep: the error code is not reported", "test/harness.mjs", "code: removeErr.code || 'ERR' }", "code: 'ERR' }", 'unit'],
   ["cluster sweep: startCluster's sweep ignores the folder remover", "test/harness.mjs", "sweepClusters({ markerDir, run, alive, remove });", "sweepClusters({ markerDir, run, alive });", 'unit'],
+  // the check that every mutant above still finds its target (test/mutant-targets.mjs)
+  ["mutate targets: the exactly-once count is skipped", "test/mutant-targets.mjs", "if (counts.some(n => n !== 1)) { missing.push(", "if (false) { missing.push(", 'unit'],
+  ["mutate targets: a replacement that changes nothing is not a miss", "test/mutant-targets.mjs", "if (mutated === text) missing.push(", "if (false) missing.push(", 'unit'],
+  ["mutate targets: only the first text of a layered rule is counted", "test/mutant-targets.mjs", "const counts = pairs.map(([a]) => text.split(a).length - 1);", "const counts = pairs.slice(0, 1).map(([a]) => text.split(a).length - 1);", 'unit'],
+  ["mutate targets: the check reports no miss", "test/mutant-targets.mjs", "return { count: mutants.length, missing };", "return { count: mutants.length, missing: [] };", 'unit'],
   // the port wall (2026-11-01: a held 127.0.0.1:P left the server half bound on ::1, pg_ctl said ok, 127.0.0.1 was refused for its whole life)
   ["cluster port: the old ephemeral-range ports (57000+) are back", "test/harness.mjs", "export const CLUSTER_PORTS = { first: 21000, count: 900, tries: 5 };", "export const CLUSTER_PORTS = { first: 57000, count: 900, tries: 5 };", 'unit'],
   ["cluster port: the server listens on localhost again (half bound on ::1)", "test/harness.mjs", " -c listen_addresses=127.0.0.1`", "`", 'unit'],
