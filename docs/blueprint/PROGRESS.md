@@ -1730,3 +1730,34 @@ is pinned by a test (the machine reaper reads it). Linux proof: the second check
 the restore drill: syntax only here (no drill on the laptop until the reaper reads the markers). Notice to the CLI head: `commands/ci.mjs:174`, `commands/apply.mjs:20` and `:33`, `test/ci-heavy.mjs:63`
 spawn with a time limit that kills only the top process; `tools/proc-guard` is there to use.
 
+
+## 5-PW the dashboard Playwright web server leaves 4173 (2026-11-02, DECISIONS 50 (e))
+
+Why: two dashboard Playwright runs at once collided on the fixed `localhost:4173` (journey J6 07:05 "http://localhost:4173 is already used").
+Brief `factory/briefs/5-PW-dashboard-playwright-port.md`; builder `BUILDER_platform-build_5-PW` (Sonnet, high), worktree on c010c65,
+committed by the head on 34c3ceb (master moved only in docs between the two).
+
+What changed: `apps/dashboard/scripts/preview-port.mjs` (new) picks a random port of 27000-27899, tests it with a real bind on 127.0.0.1,
+walks to the next port on a taken one, at most 5 tries, one line each ("dashboard preview: port N in use, trying N+1"), then throws.
+`playwright.config.ts` calls `portForPlaywright()` and puts the pick in `OMNIKOM_DASHBOARD_PORT`, so the server command and the workers
+reuse it; `baseURL` and `webServer.url` are one value (`http://127.0.0.1:<port>`); the server is `vite preview` with host 127.0.0.1 and
+`strictPort`, `reuseExistingServer` false, `stdout: 'pipe'` so the port line shows. `scripts/preview-staging.mjs` by hand walks with
+`startOnBlock`. `tests/support/staging.ts` reads the port from the env. 4173 is gone from `apps/dashboard` (the test scans the tree).
+Honest limit: the config probes, then vite binds; a lost race between the two fails loudly with vite's "Port N is already in use" and the
+run is started again (Playwright's URL is fixed once chosen, so it cannot walk after start).
+
+Proof (builder, pasted):
+- Red on master's apps/dashboard: "FAILED: 5 of 31 check(s)" (4173 in 5 files, no port from the module).
+- Green: "PASS: dashboard preview port, 32 checks, 21 mutants, 21 caught" (walk removed in choosePort and in startOnBlock, probe always
+  free, block in the ephemeral range, block clash, no wrap, 50 tries, 0.0.0.0, env ignored, env not recorded, config back on 4173,
+  reuseExistingServer true, URL mismatch, server script hard-codes a port, and others; the first pass missed
+  server-script-hard-codes-a-port, the check was tightened and re-run).
+- run-all-gates line "dashboard preview port": "PASS dashboard preview port ... all gates passed". No ci.yml change.
+- `tsc --noEmit` exit 0; `playwright test --list` "Total: 13 tests in 3 files".
+- Real run through heavy.mjs, build against staging then `plan-gate.spec.ts -g "sign-in screens"`:
+  "[WebServer]   ➜  Local:   http://127.0.0.1:27376/", "1 passed (1.1m)".
+
+Findings: the origin is now 127.0.0.1 not localhost (the real run signed in all 4 seeded logins, no allowlist problem);
+`tests/support/staging.ts` throws at import when `OMNIKOM_DASHBOARD_PORT` is unset (only Playwright imports it; told 5-DS);
+the CLI adds 27000-27899 to its port map file and checks its own `tools/omnikom-cli/briefs/journey.md` for 4173 (sent to the head of
+operations).

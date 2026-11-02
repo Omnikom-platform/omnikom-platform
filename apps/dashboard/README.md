@@ -66,7 +66,7 @@ Keys are read by name from the master env file through `tools/with-env.mjs`; not
 ```bash
 npm ci --ignore-scripts
 node ../../tools/with-env.mjs "../../creds and accounts login/omnikom.env" -- node scripts/build-staging.mjs     # build + bundle-secret check
-node ../../tools/with-env.mjs "../../creds and accounts login/omnikom.env" -- node scripts/preview-staging.mjs   # http://localhost:4173
+node ../../tools/with-env.mjs "../../creds and accounts login/omnikom.env" -- node scripts/preview-staging.mjs   # http://127.0.0.1:<a port of 27000-27899>, printed
 ```
 
 The scripts map `STAGING_SUPABASE_REF` and `STAGING_SUPABASE_PUBLISHABLE_KEY` to `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`

@@ -2,8 +2,12 @@
 // screenshot or a log. Variables are read by NAME from the environment (run through tools/with-env.mjs); a missing one is BLOCKED.
 // The seeded logins and workspaces are the fixtures of supabase/tests/tenancy.test.sql, written by `omnikom seed test`
 // (tools/omnikom-cli/commands/seed.mjs, lib/identity.mjs): same ids and emails.
+import { baseUrl, PORT_ENV, portFromEnv } from '../../scripts/preview-port.mjs';
 
-export const BASE_URL = 'http://localhost:4173';
+// The dashboard server of this run: playwright.config.ts chose its port (scripts/preview-port.mjs) and put it in the environment.
+const dashboardPort = portFromEnv();
+if (dashboardPort === null) throw new Error(`BLOCKED: ${PORT_ENV} is not set (playwright.config.ts chooses the dashboard's port; run through playwright test)`);
+export const BASE_URL = baseUrl(dashboardPort);
 
 export const WS = {
   a: { id: 'aaaaaaaa-0000-0000-0000-000000000000', slug: 'test-demo-a', name: 'Demo A', site: 'aaaaaaaa-0000-0000-0000-00000000517e' },
