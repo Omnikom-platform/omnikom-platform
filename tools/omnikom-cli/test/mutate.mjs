@@ -401,6 +401,11 @@ const MUTANTS = [
   ['journey J6: a busy port is looked for on IPv4 only (a server on ::1 goes unseen)', 'commands/journey.mjs', "return Promise.all([tryHost('127.0.0.1'), tryHost('::1')]).then(([a, b]) => !(a || b));", "return Promise.all([tryHost('127.0.0.1')]).then(([a]) => !a);", 'unit'],
   ['journey J5: the Thank-you page is not accepted as a sent answer', 'commands/journey.mjs', 'export const SENT_ANSWER = /"sent"\\s*:\\s*true|your message was sent/i;', 'export const SENT_ANSWER = /"sent"\\s*:\\s*true/;', 'unit'],
   ['journey J6/J7: the fallback is tried again by every step (a second alert)', 'commands/journey.mjs', 'if (c.state.fallbackFail) return c.state.fallbackFail;', '', 'unit'],
+  // ---- journey browser start (briefs/browser-start-deadline.md): the wait for the DevTools address is a measured wall clock
+  ['journey browser start: the bound is back to the old 15 s', 'lib/browser.mjs', 'export const DEVTOOLS_WAIT_MS = 180000;', 'export const DEVTOOLS_WAIT_MS = 15000;', 'unit'],
+  ['journey browser start: the poll loop is a single check (gives up after the first look)', 'lib/browser.mjs', 'if (elapsed >= devtoolsWaitMs) throw new Error(', 'if (true) throw new Error(', 'unit'],
+  ['journey browser start: a read error of the DevTools file (EBUSY while the browser writes it) is thrown instead of looked at again', 'lib/browser.mjs', [['try { const [p, w] = readFileSync(portFile', '{ const [p, w] = readFileSync(portFile'], [' catch { /* the browser still holds the file (EBUSY on Windows): look again */ }', '']], null, 'unit'],
+  ['journey browser start: an exited browser is waited for until the bound', 'lib/browser.mjs', 'if (exited) throw new Error(', 'if (false) throw new Error(', 'unit'],
 ];
 
 const sh = (args, env) => new Promise(res => {

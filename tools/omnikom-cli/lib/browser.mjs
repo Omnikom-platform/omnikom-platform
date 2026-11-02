@@ -15,6 +15,11 @@ import { Blocked } from './errors.mjs';
 import { importRepo } from './repo.mjs';
 
 const WIN = process.platform === 'win32';
+
+// How long launchBrowser waits for the browser to write its DevTools address (the file DevToolsActivePort in its profile folder), as a wall clock.
+// Measured 2026-11-02 on this laptop, 22 real headless Edge launches, spawn to a readable DevToolsActivePort: idle 6 launches 0.7 to 1.5 s (median 1.1 s); 4 at once 8 launches 1.6 to 49.2 s (median 43.4 s); 4 at once with 8 CPU-busy processes 8 launches 2.8 to 74.5 s (median 45.2 s).
+// The bound is 180 s, 2.4 times the worst measured. A browser that exits or cannot start is reported at once (see launchBrowser), so the bound only costs time when a browser really hangs. Run 41404410237 went red on the old 15 s count.
+export const DEVTOOLS_WAIT_MS = 180000;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // OMNIKOM_BROWSER names a browser by path; otherwise the first of the usual places. Not found is BLOCKED with what to set (the tool is
@@ -153,13 +158,18 @@ class Page {
   async close() { try { await this.cdp.send('Target.closeTarget', { targetId: this.targetId }); } catch { /* the browser is going away */ } }
 }
 
-export async function launchBrowser({ env = process.env, spawnImpl = spawn, importer = importRepo } = {}) {
+// devtoolsWaitMs is for tests only (a stub browser and a short bound)
+export async function launchBrowser({ env = process.env, spawnImpl = spawn, importer = importRepo, devtoolsWaitMs = DEVTOOLS_WAIT_MS } = {}) {
   const exe = findBrowser(env);
   const guard = await importer('tools/proc-guard/index.mjs');
   const folder = guard.guardedTemp('omnikom-jb-', 'journey-browser');   // cleaned on every exit path of this process
   const args = ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${folder.dir}`, '--no-first-run', '--no-default-browser-check', '--disable-extensions', '--disable-background-networking', '--disable-sync', '--mute-audio', ...(process.platform === 'linux' ? ['--no-sandbox'] : []), 'about:blank'];
   const child = spawnImpl(exe, args, { stdio: 'ignore', windowsHide: true, detached: process.platform !== 'win32' });
   let closed = false;
+  // a browser that cannot start or has already exited is not waited for: both are said at once, with the reason
+  let exited = null, spawnError = null;
+  child.once('exit', (code, signal) => { exited = { code, signal }; });
+  child.once('error', e => { spawnError = e; });
   // kill the tree and everything naming the profile folder, then remove the folder; under load a late child can outlive the first pass,
   // so it is repeated until the folder is really gone (a folder that cannot be removed is a process that is still running)
   const stop = async () => {
@@ -176,11 +186,15 @@ export async function launchBrowser({ env = process.env, spawnImpl = spawn, impo
     // the browser writes its address into the profile folder when it is ready
     const portFile = join(folder.dir, 'DevToolsActivePort');
     let wsPath = null, port = null;
-    for (let i = 0; i < 150 && !wsPath; i++) {
-      if (existsSync(portFile)) { const [p, w] = readFileSync(portFile, 'utf8').split(/\r?\n/); if (p && w) { port = p; wsPath = w; } }
-      if (!wsPath) await sleep(100);
+    const waitStart = Date.now();
+    for (;;) {
+      if (existsSync(portFile)) { try { const [p, w] = readFileSync(portFile, 'utf8').split(/\r?\n/); if (p && w) { port = p; wsPath = w; break; } } catch { /* the browser still holds the file (EBUSY on Windows): look again */ } }
+      const elapsed = Date.now() - waitStart;
+      if (spawnError) throw new Error(`could not start the browser: ${spawnError.message}`);
+      if (exited) throw new Error(`the browser exited before it reported its DevTools address (${exited.signal ? `signal ${exited.signal}` : `exit code ${exited.code}`}) after ${(elapsed / 1000).toFixed(1)} s`);
+      if (elapsed >= devtoolsWaitMs) throw new Error(`the browser did not report its DevTools address in ${(elapsed / 1000).toFixed(1)} s (bound ${devtoolsWaitMs / 1000} s)`);
+      await sleep(100);
     }
-    if (!wsPath) throw new Error('the browser did not report its DevTools address in 15 s');
     const ws = new WebSocket(`ws://127.0.0.1:${port}${wsPath}`);
     await new Promise((resolve, reject) => { ws.addEventListener('open', resolve, { once: true }); ws.addEventListener('error', () => reject(new Error('could not connect to the browser')), { once: true }); });
     const cdp = new Cdp(ws);

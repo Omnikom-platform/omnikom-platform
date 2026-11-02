@@ -1,7 +1,8 @@
 // Tests for `omnikom test journey` and the journey browser (briefs/journey.md section 6). Called from run.mjs (units part), one import and one
 // line. No network and no staging: the steps run against fakes of the capabilities (runJourney is handed the same shape makeImpl returns),
 // and the browser runs against a fixture web server on 127.0.0.1 in the real installed Edge or Chrome (a missing browser is a FAIL here, never a skip).
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { EventEmitter } from 'node:events';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import http from 'node:http';
@@ -297,5 +298,54 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     } finally { srv.close(); }
   }
 
+  await browserStartTests({ check, CLI_ROOT, imp });
+
   rmSync(work, { recursive: true, force: true });
+}
+
+// The wait for the browser's DevTools address is a wall clock with a measured bound (briefs/browser-start-deadline.md; run 41404410237 went red
+// on a 15 s count). A stub browser through the spawnImpl and importer seams: no real Edge, no real proc-guard, and the runs are short.
+export async function browserStartTests({ check, CLI_ROOT, imp }) {
+  const B = await imp('lib/browser.mjs');
+  const fakeGuard = {   // guardedTemp makes a real folder (the stub writes into it); killTree touches nothing
+    guardedTemp: prefix => { const dir = mkdtempSync(join(tmpdir(), prefix)); return { dir, release: () => rmSync(dir, { recursive: true, force: true }) }; },
+    killTree: () => true,
+  };
+  const stub = behave => (exe, args) => {
+    const child = new EventEmitter(); child.pid = 4000000;
+    behave(child, args.find(a => a.startsWith('--user-data-dir=')).slice('--user-data-dir='.length));
+    return child;
+  };
+  const env = { OMNIKOM_BROWSER: process.execPath };   // any file that exists: findBrowser only checks the path
+  const start = async (behave, extra = {}) => {
+    const t0 = Date.now();
+    let error = null;
+    try { const b = await B.launchBrowser({ env, spawnImpl: stub(behave), importer: async () => fakeGuard, ...extra }); await b.close(); } catch (e) { error = e; }
+    return { ms: Date.now() - t0, message: error ? error.message : null };
+  };
+
+  check('journey browser start: the bound is a named exported constant of at least 120 s (1.5 times the worst measured launch, 74.5 s)', typeof B.DEVTOOLS_WAIT_MS === 'number' && B.DEVTOOLS_WAIT_MS >= 120000, String(B.DEVTOOLS_WAIT_MS));
+
+  // a: a browser that is slow under load (well past the old 15 s count) is waited for with the default bound; the old 15 s count gave up here
+  const late = await start((child, dir) => { setTimeout(() => { try { writeFileSync(join(dir, 'DevToolsActivePort'), '9\n/devtools/browser/stub\n'); } catch { /* the folder is gone: the implementation under test gave up first */ } }, 20000); });
+  check('journey browser start: a browser that writes its DevTools address after 20 s is waited for (the connect step is reached, not the "did not report" error)',
+    late.message === 'could not connect to the browser' && late.ms >= 19500 && late.ms < 30000, JSON.stringify(late));
+
+  // b: a browser that never reports fails with the real elapsed time and the bound in the line, in about the bound
+  const never = await start(() => {}, { devtoolsWaitMs: 1500 });
+  const m = /did not report its DevTools address in (\d+\.\d) s \(bound 1\.5 s\)/.exec(never.message || '');
+  check('journey browser start: a browser that never reports fails with "in <elapsed> s (bound 1.5 s)" after about the bound', Boolean(m) && Number(m[1]) >= 1.5 && Number(m[1]) < 4 && never.ms >= 1500 && never.ms < 4000, JSON.stringify(never));
+
+  // d: the browser still holds the file while it writes it (EBUSY on Windows; here the path is a folder for a moment, so reading it fails the same way): looked at again, not thrown
+  const busy = await start((child, dir) => { const f = join(dir, 'DevToolsActivePort'); mkdirSync(f); setTimeout(() => { try { rmSync(f, { recursive: true }); writeFileSync(f, '9\n/devtools/browser/stub\n'); } catch { /* the folder is gone */ } }, 1200); });
+  check('journey browser start: a DevTools file that cannot be read for a moment (EBUSY while the browser writes it) is looked at again, not thrown', busy.message === 'could not connect to the browser' && busy.ms >= 1000 && busy.ms < 8000, JSON.stringify(busy));
+
+  // c: a browser that has already exited fails at once naming the exit, not after the bound
+  const dead = await start((child) => { setImmediate(() => child.emit('exit', 3, null)); }, { devtoolsWaitMs: 5000 });
+  check('journey browser start: a browser that exited at once fails at once, naming the exit code (far under the bound)',
+    /exited before it reported its DevTools address \(exit code 3\)/.test(dead.message || '') && dead.ms < 3000, JSON.stringify(dead));
+  const killed = await start((child) => { setImmediate(() => child.emit('exit', null, 'SIGKILL')); }, { devtoolsWaitMs: 5000 });
+  check('journey browser start: a browser killed by a signal fails at once naming the signal', /exited before it reported its DevTools address \(signal SIGKILL\)/.test(killed.message || '') && killed.ms < 3000, JSON.stringify(killed));
+  const nospawn = await start((child) => { setImmediate(() => child.emit('error', Object.assign(new Error('spawn x ENOENT'), { code: 'ENOENT' }))); }, { devtoolsWaitMs: 5000 });
+  check('journey browser start: a browser that cannot be started fails at once with the reason', /could not start the browser: spawn x ENOENT/.test(nospawn.message || '') && nospawn.ms < 3000, JSON.stringify(nospawn));
 }
