@@ -16,6 +16,8 @@ charter `docs/departments/cli-and-testing.md` gets one position-log line.
 | `slice-2-functions.md` | the function paths: save, publish, lead-update, add-lead, upload-start, upload-finish (export-published and job-callback with 4.3); `verify` grows one check per wall | released 2026-10-31 06:40 (platform slice 4.2, ab2ed36, on staging); after the key-numbering slice and the model switch |
 | `stand-in-flows.md` | the client stand-in flows beyond leads: a content edit and publish as a member, a CRM webhook push, a booking when the add-on exists | slice 2 (publish path) and the `push-lead` function for the CRM part |
 | `slice-3-onboard.md` | `onboard`, `offboard`, `drift`, the Cloudflare API calls | build steps 6 and 7 |
+| `browser-start-deadline.md` | the journey browser waits for DevTools against a measured wall clock (180 s); part 2: J6's dashboard preview on the 5-PW port block | done 2026-11-02 (f23e418, 5481776 on journey-r2) |
+| `mutate-parallel.md` | `mutate.mjs --workers N` (private tree copy and port sub-block per worker), leaked `omnikom-cli-mut-*` copies swept | after journey-r2 lands |
 
 Every brief carries, verbatim: the five rules of spec section 5, the gate commands, and the line "anything outside this brief
 is a finding you send back, not a fix".
