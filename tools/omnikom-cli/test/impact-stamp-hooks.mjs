@@ -984,6 +984,21 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
         existsSync(dirLive) && existsSync(mLive) && !calls.some(c => c.join(' ').includes(dirLive)), JSON.stringify(calls));
       check('cluster guard: a planted marker cannot aim the sweep at a folder this guard did not make (nothing stopped, nothing deleted; the marker is dropped); a corrupt marker is dropped',
         existsSync(join(dirAway, 'keep.txt')) && !existsSync(mAway) && !calls.some(c => c.join(' ').includes('precious')) && !existsSync(join(mk, 'corrupt.json')), JSON.stringify(calls));
+      // a folder the sweep cannot remove (Windows EPERM while the old postmaster holds a file): reported, marker kept, the sweep goes on, nothing thrown
+      {
+        const dirStuck = mkDir('stuck'), dirNext = mkDir('next');
+        const mStuck = plant('stuck', deadPid, dirStuck, 57011), mNext = plant('next', deadPid + 2000000, dirNext, 57012);
+        const eperm = Object.assign(new Error('EPERM, Permission denied'), { code: 'EPERM' });
+        const stuckRemover = dir => { if (dir === dirStuck) throw eperm; rmSync(dir, { recursive: true, force: true }); };
+        let sweptErr = null, res1 = [];
+        try { res1 = h.sweepClusters({ markerDir: mk, run: fakeRun, remove: stuckRemover }); } catch (e) { sweptErr = e; }
+        const stuck = res1.find(s => s.marker === mStuck), next = res1.find(s => s.marker === mNext);
+        check('cluster guard: a folder the sweep cannot remove (EPERM) is reported swept:false with the code, its marker stays, the sweep goes on to the next cluster and nothing is thrown',
+          !sweptErr && !!stuck && stuck.swept === false && stuck.code === 'EPERM' && existsSync(mStuck) && existsSync(dirStuck) && !!next && next.swept === true && !existsSync(dirNext) && !existsSync(mNext), JSON.stringify({ sweptErr: sweptErr && sweptErr.message, res1 }));
+        const res2 = h.sweepClusters({ markerDir: mk, run: fakeRun });
+        check('cluster guard: the next sweep tries the stuck folder again and, once it can be removed, removes it and its marker',
+          res2.some(s => s.marker === mStuck && s.swept === true) && !existsSync(dirStuck) && !existsSync(mStuck), JSON.stringify(res2));
+      }
       check('cluster guard: pidAlive tells this process from an ended one', h.pidAlive(process.pid) === true && h.pidAlive(deadPid) === false && h.pidAlive(0) === false && h.pidAlive(NaN) === false);
 
       // startCluster, with a fake initdb / pg_ctl: it sweeps first, records its marker, and stops cleanly
@@ -1033,6 +1048,15 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
           }
           return { status: 0, stdout: '', stderr: '' };
         };
+        // a dead owner's folder the sweep cannot remove does not abort the start of a new cluster
+        const dirStuck2 = mkDir('stuck2'), mStuck2 = plant('stuck2', deadPid + 3000000, dirStuck2, 57013);
+        const eperm2 = Object.assign(new Error('EPERM, Permission denied'), { code: 'EPERM' });
+        let c7 = null, c7Err = null;
+        try { c7 = h.startCluster({ markerDir: mk, run: fakeStart, signals: false, remove: dir => { if (dir === dirStuck2) throw eperm2; rmSync(dir, { recursive: true, force: true }); } }); } catch (e) { c7Err = e; }
+        check('cluster guard: startCluster is not aborted by a dead owner\'s folder its sweep cannot remove (EPERM): the new cluster starts, the stuck folder and marker stay for the next sweep',
+          !c7Err && !!c7 && existsSync(dirStuck2) && existsSync(mStuck2), String(c7Err && c7Err.message));
+        if (c7) c7.stop();
+        rmSync(dirStuck2, { recursive: true, force: true }); rmSync(mStuck2, { force: true });
         calls.length = 0;
         const c3 = h.startCluster({ markerDir: mk, run: fakeStart, signals: false });
         const first = startArgs()[0];

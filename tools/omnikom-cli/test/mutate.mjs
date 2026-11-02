@@ -275,6 +275,12 @@ const MUTANTS = [
   ["cluster guard: the sweep also stops a live owner's cluster", "test/harness.mjs", "    if (alive(info.pid)) continue;\n", "", 'unit'],
   ["cluster guard: a planted marker can aim the sweep at any folder", "test/harness.mjs", "if (!ours(info.dir)) {", "if (false) {", 'unit'],
   ["cluster guard: a normal stop leaves its marker", "test/harness.mjs", "    rmSync(marker, { force: true });\n  };", "  };", 'unit'],
+  // the sweep never throws on a folder it cannot remove (Windows EPERM)
+  ["cluster sweep: a folder that cannot be removed aborts the sweep", "test/harness.mjs", "try { remove(info.dir); } catch (e) { removeErr = e; }", "try { remove(info.dir); } catch (e) { throw e; }", 'unit'],
+  ["cluster sweep: the marker of a stuck folder is removed anyway", "test/harness.mjs", "code: removeErr.code || 'ERR' }); continue; }", "code: removeErr.code || 'ERR' }); rmSync(file, { force: true }); continue; }", 'unit'],
+  ["cluster sweep: a stuck folder is reported swept", "test/harness.mjs", "swept: false, why: `could not remove ${info.dir}`", "swept: true, why: `could not remove ${info.dir}`", 'unit'],
+  ["cluster sweep: the error code is not reported", "test/harness.mjs", "code: removeErr.code || 'ERR' }", "code: 'ERR' }", 'unit'],
+  ["cluster sweep: startCluster's sweep ignores the folder remover", "test/harness.mjs", "sweepClusters({ markerDir, run, alive, remove });", "sweepClusters({ markerDir, run, alive });", 'unit'],
   // the port wall (2026-11-01: a held 127.0.0.1:P left the server half bound on ::1, pg_ctl said ok, 127.0.0.1 was refused for its whole life)
   ["cluster port: the old ephemeral-range ports (57000+) are back", "test/harness.mjs", "export const CLUSTER_PORTS = { first: 21000, count: 900, tries: 5 };", "export const CLUSTER_PORTS = { first: 57000, count: 900, tries: 5 };", 'unit'],
   ["cluster port: the server listens on localhost again (half bound on ::1)", "test/harness.mjs", " -c listen_addresses=127.0.0.1`", "`", 'unit'],
