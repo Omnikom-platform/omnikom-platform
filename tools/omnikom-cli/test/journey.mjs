@@ -9,6 +9,11 @@ import http from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
+// Does anything the J6 inbox shot did (spawn args and env, the address polled, the page opened) name the old fixed preview address? The calls also hold
+// random text (the magic-link token, the env's keys, temp paths), and a bare includes('4173') over all of it is red whenever that text happens to hold
+// the digits (a full --unit run went red on it 2026-11-02 18:19 with the URLs right; the journey tests alone passed). Only the address forms count.
+export const onOldPort = calls => /localhost:4173|127\.0\.0\.1:4173|"4173"/.test(JSON.stringify(calls));
+
 export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const imp = f => import(pathToFileURL(join(CLI_ROOT, f)).href);
   const J = await imp('commands/journey.mjs');
@@ -194,7 +199,13 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     check('journey J6 inbox: the preview is started by preview-staging.mjs with the dashboard\'s own port variable set to a port of its block 27000-27899',
       sp.args.some(a => /preview-staging\.mjs$/.test(a)) && Number.isInteger(port) && pp.inBlock(port), JSON.stringify({ args: sp.args, port: sp.env[pp.PORT_ENV] }));
     check('journey J6 inbox: the address polled and the page opened are that port\'s URL (127.0.0.1:<port>), never localhost:4173',
-      ok.calls.polled[0] === pp.baseUrl(port) + '/' && ok.calls.opened.length === 1 && ok.calls.opened[0].startsWith(pp.baseUrl(port) + '/auth/confirm?token_hash=') && !JSON.stringify(ok.calls).includes('4173'), JSON.stringify(ok.calls.opened.concat(ok.calls.polled)));
+      ok.calls.polled[0] === pp.baseUrl(port) + '/' && ok.calls.opened.length === 1 && ok.calls.opened[0].startsWith(pp.baseUrl(port) + '/auth/confirm?token_hash=') && !onOldPort(ok.calls), JSON.stringify(ok.calls.opened.concat(ok.calls.polled)));
+    // the regression: right URLs, but random text in the env holds the digits 4173 (the old bare includes('4173') was red here). Cause of the 18:19 red: the same
+    // kind of text (the calls hold ENV's random keys, the token and temp paths); the failing run's calls were not logged, so which value held it is UNPROVEN.
+    const right = { spawn: [{ args: ['x/preview-staging.mjs'], env: { SOME_KEY: 'ab4173cd', OMNIKOM_DASHBOARD_PORT: '27634' } }], polled: ['http://127.0.0.1:27634/'], opened: ['http://127.0.0.1:27634/auth/confirm?token_hash=hash-9f4173a0&type=magiclink'] };
+    check('journey J6 inbox: random text that holds the digits 4173 (a key, a token) is not the old address, and the old address in a URL or as the port variable still is',
+      !onOldPort(right) && JSON.stringify(right).includes('4173') && onOldPort({ ...right, opened: ['http://localhost:4173/auth/confirm'] }) && onOldPort({ ...right, polled: ['http://127.0.0.1:4173/'] }) && onOldPort({ spawn: [{ env: { OMNIKOM_DASHBOARD_PORT: '4173' } }] }),
+      JSON.stringify({ rightOnOldPort: onOldPort(right), bareIncludesWouldSay: JSON.stringify(right).includes('4173') }));
     check('journey J6 inbox: with the stubs the shot is found and written', shot.found === true && shot.written === true && existsSync(shot.file));
     const down = mkInbox(false);
     let why = '';
@@ -347,9 +358,13 @@ export async function browserStartTests({ check, CLI_ROOT, imp }) {
   check('journey browser start: the bound is a named exported constant of at least 120 s (1.5 times the worst measured launch, 74.5 s)', typeof B.DEVTOOLS_WAIT_MS === 'number' && B.DEVTOOLS_WAIT_MS >= 120000, String(B.DEVTOOLS_WAIT_MS));
 
   // a: a browser that is slow under load (well past the old 15 s count) is waited for with the default bound; the old 15 s count gave up here
-  const late = await start((child, dir) => { setTimeout(() => { try { writeFileSync(join(dir, 'DevToolsActivePort'), '9\n/devtools/browser/stub\n'); } catch { /* the folder is gone: the implementation under test gave up first */ } }, 20000); });
+  // The 20 s are the launch's own clock (the seam launchBrowser({ clock })): a clock the test advances by hand, so the check proves the same
+  // thing in a few ms. It took 20 s of real waiting in every run of the suite, and every mutant runs the suite (CI run 41453440713).
+  let fake = 0, due = null;
+  const clock = { now: () => fake, sleep: async ms => { fake += ms; if (due && fake >= due.at) { const fire = due.fire; due = null; fire(); } } };
+  const late = await start((child, dir) => { due = { at: 20000, fire: () => { try { writeFileSync(join(dir, 'DevToolsActivePort'), '9\n/devtools/browser/stub\n'); } catch { /* the folder is gone: the implementation under test gave up first */ } } }; }, { clock });
   check('journey browser start: a browser that writes its DevTools address after 20 s is waited for (the connect step is reached, not the "did not report" error)',
-    late.message === 'could not connect to the browser' && late.ms >= 19500 && late.ms < 30000, JSON.stringify(late));
+    late.message === 'could not connect to the browser' && fake >= 20000 && fake < 30000 && late.ms < 5000, JSON.stringify({ ...late, clockMs: fake }));
 
   // b: a browser that never reports fails with the real elapsed time and the bound in the line, in about the bound
   const never = await start(() => {}, { devtoolsWaitMs: 1500 });

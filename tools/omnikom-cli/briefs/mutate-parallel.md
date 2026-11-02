@@ -1,6 +1,14 @@
 # Brief: CLI mutants run in parallel workers, well inside the CI job's 120 minutes
 
 Head: HEAD_CLI-and-testing_2026-11-02. Written 2026-11-02 15:10. Starts after journey-r2 lands (HoO-02c's order).
+CHANGED 17:35 (head, kept from the shared tree's copy): this now BLOCKS the land. Run 41453440713 (62315d5) had its CLI job cancelled at 2h0m in
+"CLI full suite and mutants". Build in `D:\omk-gates\cli-stack` on the local branch `mutate-workers` over 62315d5; the head pushes.
+CHANGED 17:58 (head 2026-11-02b, after the builder's measurement): `--workers` and the port sub-blocks are DROPPED. `mutate.mjs` already runs 3 mutants
+at once in one process (`Array.from({ length: 3 }, ...)`, a tree copy per mutant, one shared cluster; since slice 1, 8414fcb), and the CI runner has 4 vCPU,
+so more workers add nothing. CI-log gaps between mutant lines (journey stack against SEO's run 41457156982): unit mutants 24.9 s against 9.4 s, db 5.7 s
+against 7.2 s, the 10 journey mutants only 4.6 min in all: the extra time is the unit suite itself, not the journey mutants. New order: (1) find and fix the
+slow unit checks (real waits, with a seam so each check proves the same thing); (2) fail-fast: a mutant's suite run stops at the first FAIL (a survivor still
+runs everything); (3) the leaked-copy sweep below. Per-mutant covering subsets only if 1+2 do not bring the step well under 60 min.
 
 ## Why
 The `cli` job (`.github/workflows/ci.yml:131-158`, `timeout-minutes: 120`) runs `test/ci-heavy.mjs`: `run.mjs` (full), then `mutate.mjs`, one

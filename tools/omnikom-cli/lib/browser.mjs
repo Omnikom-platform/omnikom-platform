@@ -158,8 +158,9 @@ class Page {
   async close() { try { await this.cdp.send('Target.closeTarget', { targetId: this.targetId }); } catch { /* the browser is going away */ } }
 }
 
-// devtoolsWaitMs is for tests only (a stub browser and a short bound)
-export async function launchBrowser({ env = process.env, spawnImpl = spawn, importer = importRepo, devtoolsWaitMs = DEVTOOLS_WAIT_MS } = {}) {
+// devtoolsWaitMs and clock are for tests only (a stub browser, a short bound, and a clock a test advances by hand so that a wait of
+// 20 s of "browser time" costs no real seconds; clock covers the DevTools wait only)
+export async function launchBrowser({ env = process.env, spawnImpl = spawn, importer = importRepo, devtoolsWaitMs = DEVTOOLS_WAIT_MS, clock = { now: () => Date.now(), sleep } } = {}) {
   const exe = findBrowser(env);
   const guard = await importer('tools/proc-guard/index.mjs');
   const folder = guard.guardedTemp('omnikom-jb-', 'journey-browser');   // cleaned on every exit path of this process
@@ -186,16 +187,16 @@ export async function launchBrowser({ env = process.env, spawnImpl = spawn, impo
     // the browser writes its address into the profile folder when it is ready
     const portFile = join(folder.dir, 'DevToolsActivePort');
     let wsPath = null, port = null;
-    const waitStart = Date.now();
+    const waitStart = clock.now();
     for (;;) {
       if (existsSync(portFile)) { try { const [p, w] = readFileSync(portFile, 'utf8').split(/\r?\n/); if (p && w) { port = p; wsPath = w; break; } } catch { /* the browser still holds the file (EBUSY on Windows): look again */ } }
-      const elapsed = Date.now() - waitStart;
+      const elapsed = clock.now() - waitStart;
       if (spawnError) throw new Error(`could not start the browser: ${spawnError.message}`);
       if (exited) throw new Error(`the browser exited before it reported its DevTools address (${exited.signal ? `signal ${exited.signal}` : `exit code ${exited.code}`}) after ${(elapsed / 1000).toFixed(1)} s`);
       if (elapsed >= devtoolsWaitMs) throw new Error(`the browser did not report its DevTools address in ${(elapsed / 1000).toFixed(1)} s (bound ${devtoolsWaitMs / 1000} s)`);
-      await sleep(100);
+      await clock.sleep(100);
     }
-    const ws = new WebSocket(`ws://127.0.0.1:${port}${wsPath}`);
+    const ws =new WebSocket(`ws://127.0.0.1:${port}${wsPath}`);
     await new Promise((resolve, reject) => { ws.addEventListener('open', resolve, { once: true }); ws.addEventListener('error', () => reject(new Error('could not connect to the browser')), { once: true }); });
     const cdp = new Cdp(ws);
     const pages = [];

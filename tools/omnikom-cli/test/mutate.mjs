@@ -1,6 +1,6 @@
 // Watched-fail for the CLI: make a broken COPY of the CLI with ONE rule removed, run test/run.mjs against it, and require the
 // suite to go red. A mutant that stays green means no test measures that rule.
-//   node tools/omnikom-cli/test/mutate.mjs [--only <name substring>]     exit 0 = every mutant caught
+//   node tools/omnikom-cli/test/mutate.mjs [--only <name substring>]...     exit 0 = every mutant caught; --only may be given more than once (a mutant is run when its name holds any of the texts)
 // The pattern of tools/crm-map/test/mutate.mjs: a copy in a temp dir (OMNIKOM_CLI_DIR points the tests at it, OMNIKOM_REPO_ROOT
 // keeps the real repository for the files the CLI reuses), one child process per mutant (a hang is cut off by the timeout and
 // counts as caught), [name, file, exactText, replacement, suite] with the text occurring exactly once in the file, applied with
@@ -8,16 +8,17 @@
 // One throwaway Postgres cluster is started here and shared; every database mutant run makes its own database in it.
 // Not mutated, because a second layer makes the first unobservable: the key printed by `key mint` (lib/redact.mjs masks it;
 // the redaction mutants prove that layer), and registerSecret() in key mint (same reason).
-import { readFileSync, writeFileSync, mkdtempSync, cpSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { startCluster } from './harness.mjs';
+import { startCluster, pidAlive } from './harness.mjs';
+import { importRepo } from '../lib/repo.mjs';
+import { makeCopy, suiteArgs, classify, sweepCopies, onlyFilters, pickMutants } from './mutate-run.mjs';
 
 const CLI = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = process.env.OMNIKOM_REPO_ROOT ? resolve(process.env.OMNIKOM_REPO_ROOT) : resolve(CLI, '..', '..');
-const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
+const only = onlyFilters(process.argv);
 const R = String.raw;
 // One run of the suite is cut off after this long (a hang counts as caught). 10 minutes was enough on a quiet laptop; the whole suite took
 // 16 minutes on 2026-10-31 under load, so the baseline failed with no FAIL line. OMNIKOM_MUTANT_TIMEOUT_MS raises it (milliseconds).
@@ -398,14 +399,30 @@ const MUTANTS = [
   ['journey J6/J7: a pass with no lead at all (lead send stored nothing)', 'commands/journey.mjs', 'if (stored !== 1) return (c.state.fallbackFail', 'if (false) return (c.state.fallbackFail', 'unit'],
   ['journey J7: the lead send fallback is made without checking the alert list', 'commands/journey.mjs', 'const blocked = await alertGuard(c); if (blocked) return { fail: blocked };', '', 'unit'],
   ['journey J6 inbox: the preview is started without the dashboard\'s port variable (it would listen elsewhere than the page opened)', 'commands/journey.mjs', 'env: { ...ctx.env, [pp.PORT_ENV]: String(port) }', 'env: ctx.env', 'unit'],
-  ['journey J6 inbox: the page is opened at localhost:4173 again', 'commands/journey.mjs', 'const base = pp.baseUrl(port);', "const base = 'http://localhost:4173';", 'unit'],
+  ['journey J6 inbox: the page is opened at localhost:4173 again [mw]', 'commands/journey.mjs', 'const base = pp.baseUrl(port);', "const base = 'http://localhost:4173';", 'unit'],
   ['journey J5: the Thank-you page is not accepted as a sent answer', 'commands/journey.mjs', 'export const SENT_ANSWER = /"sent"\\s*:\\s*true|your message was sent/i;', 'export const SENT_ANSWER = /"sent"\\s*:\\s*true/;', 'unit'],
   ['journey J6/J7: the fallback is tried again by every step (a second alert)', 'commands/journey.mjs', 'if (c.state.fallbackFail) return c.state.fallbackFail;', '', 'unit'],
   // ---- journey browser start (briefs/browser-start-deadline.md): the wait for the DevTools address is a measured wall clock
-  ['journey browser start: the bound is back to the old 15 s', 'lib/browser.mjs', 'export const DEVTOOLS_WAIT_MS = 180000;', 'export const DEVTOOLS_WAIT_MS = 15000;', 'unit'],
-  ['journey browser start: the poll loop is a single check (gives up after the first look)', 'lib/browser.mjs', 'if (elapsed >= devtoolsWaitMs) throw new Error(', 'if (true) throw new Error(', 'unit'],
-  ['journey browser start: a read error of the DevTools file (EBUSY while the browser writes it) is thrown instead of looked at again', 'lib/browser.mjs', [['try { const [p, w] = readFileSync(portFile', '{ const [p, w] = readFileSync(portFile'], [' catch { /* the browser still holds the file (EBUSY on Windows): look again */ }', '']], null, 'unit'],
-  ['journey browser start: an exited browser is waited for until the bound', 'lib/browser.mjs', 'if (exited) throw new Error(', 'if (false) throw new Error(', 'unit'],
+  ['journey browser start: the bound is back to the old 15 s [mw]', 'lib/browser.mjs', 'export const DEVTOOLS_WAIT_MS = 180000;', 'export const DEVTOOLS_WAIT_MS = 15000;', 'unit'],
+  ['journey browser start: the poll loop is a single check (gives up after the first look) [mw]', 'lib/browser.mjs', 'if (elapsed >= devtoolsWaitMs) throw new Error(', 'if (true) throw new Error(', 'unit'],
+  ['journey browser start: a read error of the DevTools file (EBUSY while the browser writes it) is thrown instead of looked at again [mw]', 'lib/browser.mjs', [['try { const [p, w] = readFileSync(portFile', '{ const [p, w] = readFileSync(portFile'], [' catch { /* the browser still holds the file (EBUSY on Windows): look again */ }', '']], null, 'unit'],
+  ['journey browser start: an exited browser is waited for until the bound [mw]', 'lib/browser.mjs', 'if (exited) throw new Error(', 'if (false) throw new Error(', 'unit'],
+  ['journey J6 inbox: the old-address check is a bare includes of 4173 (random text trips it) [mw]', 'test/journey.mjs', R`export const onOldPort = calls => /localhost:4173|127\.0\.0\.1:4173|"4173"/.test(JSON.stringify(calls));`, "export const onOldPort = calls => JSON.stringify(calls).includes('4173');", 'unit'],
+  ['journey J6 inbox: the old-address check no longer sees the address in a URL [mw]', 'test/journey.mjs', R`export const onOldPort = calls => /localhost:4173|127\.0\.0\.1:4173|"4173"/.test(JSON.stringify(calls));`, R`export const onOldPort = calls => /"4173"/.test(JSON.stringify(calls));`, 'unit'],
+  // ---- the mutant runner itself (briefs/mutate-parallel.md): stop at the first FAIL, the survivor is never reported caught, the sweep of leaked copies
+  ['mutant runner: a mutant\'s suite is started without --bail [mw]', 'test/mutate-run.mjs', "...(bail ? ['--bail'] : [])", '...[]', 'unit'],
+  ['mutant runner: a suite that exits 0 is reported caught (a survivor hidden) [mw]', 'test/mutate-run.mjs', 'const caught = r.status !== 0 || fails.length > 0;', 'const caught = true;', 'unit'],
+  ['mutant runner: a suite cut off by the timeout (no exit code) is reported survived [mw]', 'test/mutate-run.mjs', 'const caught = r.status !== 0 || fails.length > 0;', 'const caught = r.status === 1 || fails.length > 0;', 'unit'],
+  ['mutant runner: --bail does not stop the run at the first FAIL [mw]', 'test/mutate-run.mjs', "\n    exit(1);\n", "\n", 'unit'],
+  ['mutant runner: --bail stops with exit code 0 (the mutant would look like a survivor) [mw]', 'test/mutate-run.mjs', "\n    exit(1);\n", "\n    exit(0);\n", 'unit'],
+  ['mutant runner: --bail stops at the first check, FAIL or not [mw]', 'test/mutate-run.mjs', 'if (ok || !bail) { out(line); return; }', 'if (!bail) { out(line); return; }', 'unit'],
+  ['mutant runner: a suite that printed a FAIL line but exited 0 is reported survived [mw]', 'test/mutate-run.mjs', 'const caught = r.status !== 0 || fails.length > 0;', 'const caught = r.status !== 0;', 'unit'],
+  ['mutant runner: a second --only is ignored [mw]', 'test/mutate-run.mjs', 'argv.flatMap(', 'argv.slice(0, 2).flatMap(', 'unit'],
+  ['mutant runner: a mutant is picked only when its name holds all of the --only texts [mw]', 'test/mutate-run.mjs', 'only.some(o => m[0].includes(o))', 'only.every(o => m[0].includes(o))', 'unit'],
+  ['mutant runner: the copy name carries the pid (the reaper\'s <prefix>+6 shape no longer matches) [mw]', 'test/mutate-run.mjs', "guard.guardedTemp(COPY_PREFIX, 'cli-mutant', opts)", "guard.guardedTemp(COPY_PREFIX + process.pid + '-', 'cli-mutant', opts)", 'unit'],
+  ['mutant runner: the sweep removes the copy of a live owner [mw]', 'test/mutate-run.mjs', "if (alive(pid)) { done.push({ dir, pid, removed: false, why: 'owner alive' }); continue; }", '', 'unit'],
+  ['mutant runner: the sweep removes a copy with no owner marker [mw]', 'test/mutate-run.mjs', 'if (!Number.isInteger(pid) || pid <= 0) {', 'if (false) {', 'unit'],
+  ['mutant runner: the sweep removes any folder in the temp dir, not only the mutant copies [mw]', 'test/mutate-run.mjs', 'n.startsWith(COPY_PREFIX)', "n.startsWith('')", 'unit'],
 ];
 
 const sh = (args, env) => new Promise(res => {
@@ -416,10 +433,14 @@ const sh = (args, env) => new Promise(res => {
   c.on('close', code => { clearTimeout(timer); res({ status: code, out, err }); });
 });
 
+// copies a killed run (a stopped CI job, a closed terminal) left behind: 303 of them sat in %TEMP% on 2026-11-02. Only a dead owner's are removed.
+for (const s of sweepCopies({ alive: pidAlive })) if (s.removed) console.log(`swept the tree copy of a run that is gone (pid ${s.pid}): ${s.dir}`);
+const guard = await importRepo('tools/proc-guard/index.mjs');
 const cluster = startCluster();
 const env = { OMNIKOM_TEST_CLUSTER_PORT: String(cluster.port), OMNIKOM_TEST_CLUSTER_DIR: cluster.dir, OMNIKOM_REPO_ROOT: REPO };   // the dir lets a copy name this cluster's log when it cannot reach it
 const copies = [];
-const copyCli = () => { const d = mkdtempSync(join(tmpdir(), 'omnikom-cli-mut-')); copies.push(d); cpSync(CLI, d, { recursive: true }); return d; };
+// guardedTemp removes the folder on every exit path of this process and writes the owner.json (the pid) the sweep above reads
+const copyCli = () => { const g = makeCopy(guard, CLI); copies.push(g); return g.dir; };
 let missing = 0, survived = 0, done = 0;
 
 async function runMutant([name, file, find, repl, suite]) {
@@ -432,12 +453,10 @@ async function runMutant([name, file, find, repl, suite]) {
   const mutated = pairs.reduce((s, [a, b]) => s.split(a).join(b), src);
   if (mutated === src) { missing++; console.log(`MISSING  ${name.padEnd(62)} (the replacement changed nothing)`); return; }
   writeFileSync(target, mutated);
-  const r = await sh([join(dir, 'test', 'run.mjs'), suite === 'unit' ? '--unit' : '--db'], { ...env, OMNIKOM_CLI_DIR: dir });
-  const fails = r.out.split('\n').filter(l => l.startsWith('FAIL'));
-  const caught = r.status !== 0;
+  const r = await sh(suiteArgs(join(dir, 'test', 'run.mjs'), suite), { ...env, OMNIKOM_CLI_DIR: dir });   // stops at the first FAIL; a survivor has none and runs everything
+  const { caught, fails, why } = classify(r);
   if (!caught) survived++;
-  const why = fails[0] ? fails[0].slice(5, 100) : (r.err || '').split('\n').find(Boolean) || 'non-zero exit, no FAIL line';
-  console.log(`${caught ? 'caught  ' : 'SURVIVED'} ${name.padEnd(62)} ${caught ? `(${suite}: ${fails.length} red: ${why})` : `(${suite})`}`);
+  console.log(`${caught ? 'caught  ' : 'SURVIVED'} ${name.padEnd(62)} ${caught ? `(${suite}: ${fails} red: ${why})` : `(${suite})`}`);
   done++;
 }
 
@@ -448,7 +467,7 @@ try {
   if (b.status !== 0) { console.log(`BASELINE FAILS: the unbroken copy does not pass\n${b.out.split('\n').filter(l => l.startsWith('FAIL')).join('\n')}${b.err}`); process.exitCode = 1; }
   else {
     console.log(`baseline: ${b.out.trim().split('\n').pop()}`);
-    const list = MUTANTS.filter(m => !only || m[0].includes(only));
+    const list = pickMutants(MUTANTS, only);
     const queue = [...list];
     const workers = Array.from({ length: 3 }, async () => { while (queue.length) await runMutant(queue.shift()); });
     await Promise.all(workers);
@@ -457,5 +476,5 @@ try {
   }
 } finally {
   cluster.stop();
-  for (const d of copies) rmSync(d, { recursive: true, force: true });
+  for (const g of copies) { try { g.release(); } catch { /* the guard removes it at exit */ } rmSync(g.dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 }); }
 }

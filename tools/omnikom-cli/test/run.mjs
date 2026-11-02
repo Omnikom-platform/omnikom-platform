@@ -1,5 +1,5 @@
 // Tests for the omnikom CLI: units (no database) and an integration run on a throwaway local Postgres cluster with a fake fetch.
-//   node tools/omnikom-cli/test/run.mjs [--unit | --db]      exit 0 = every check passed
+//   node tools/omnikom-cli/test/run.mjs [--unit | --db] [--bail]      exit 0 = every check passed; --bail stops at the first FAIL (exit 1)
 // OMNIKOM_CLI_DIR points the tests at a copy of the CLI (test/mutate.mjs runs one broken copy at a time).
 // OMNIKOM_TEST_CLUSTER_PORT reuses a cluster a parent already started. Output lines start with "ok  " or "FAIL ".
 // Everything secret in these tests is generated at run time (no key literal in the file).
@@ -13,11 +13,11 @@ import net from 'node:net';
 import { CLI_ROOT, REPO_ROOT, startCluster, sweepClusters, clusterDiag, freshDb, cli, makeFunctionModel, makeSupabaseModel } from './harness.mjs';
 import { impactStampHooksTests } from './impact-stamp-hooks.mjs';
 import { journeyTests } from './journey.mjs';
+import { makeCheck, mutateRunTests } from './mutate-run.mjs';
 
 const onlyUnit = process.argv.includes('--unit'), onlyDb = process.argv.includes('--db');
-let failed = 0, total = 0;
-const t0 = Date.now();
-const check = (name, ok, detail = '') => { total++; if (!ok) failed++; console.log(`${ok ? 'ok  ' : 'FAIL'}${process.argv.includes('--time') ? ` [${((Date.now() - t0) / 1000).toFixed(0)}s]` : ''} ${name}${ok || !detail ? '' : ': ' + String(detail).slice(0, 300)}`); };
+// --bail stops at the first FAIL (test/mutate.mjs: a caught mutant needs one red check; a run with no FAIL still runs everything); see makeCheck
+const { check, counts } = makeCheck({ bail: process.argv.includes('--bail'), timed: process.argv.includes('--time') });
 const rand = (n = 24) => randomBytes(n).toString('hex');
 const lib = async f => import(pathToFileURL(join(CLI_ROOT, 'lib', f)).href);
 const UUID_X = '11111111-2222-3333-4444-555555555555';
@@ -1576,7 +1576,8 @@ async function database() {
 }
 const PERSON = n => ({ 'member-a1': '00000000-0000-0000-0000-0000000000a1' })[n];
 
-if (!onlyDb) { await units(); await toolsAndCi(); await impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }); await journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }); }
+if (!onlyDb) { await units(); await toolsAndCi(); await impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }); await journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }); await mutateRunTests({ check, CLI_ROOT, REPO_ROOT }); }
 if (!onlyUnit) await database();
+const { total, failed } = counts();
 console.log(`\n${failed ? 'FAILED' : 'OK'}: ${total - failed} of ${total} checks passed${failed ? `, ${failed} FAILED` : ''}`);
 process.exit(failed ? 1 : 0);
