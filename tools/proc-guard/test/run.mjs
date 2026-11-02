@@ -2,7 +2,7 @@
 // folder path in its argv); the one real browser check is a headless Edge/Chrome with a time limit.
 //   node tools/proc-guard/test/run.mjs
 // Environment (for the mutants, test/mutate.mjs): PROC_GUARD_SUT = the module under test (default ../index.mjs),
-//   PROC_GUARD_ONLY = comma list of groups to run (exit, signal, limit, holder, hardkill, owner, alive, reuse, foreign, pg, browser).
+//   PROC_GUARD_ONLY = comma list of groups to run (exit, signal, limit, holder, hardkill, owner, alive, reuse, foreign, prefix, pg, settle, browser).
 // Every child works in a private root folder (TEMP/TMP/TMPDIR point at it) and every leaks() / sweep() call here looks only there,
 // so another session's browsers or clusters are never seen and never touched.
 import { spawn, spawnSync } from 'node:child_process';
@@ -15,6 +15,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SUT = process.env.PROC_GUARD_SUT || join(HERE, '..', 'index.mjs');
 const ONLY = process.env.PROC_GUARD_ONLY ? process.env.PROC_GUARD_ONLY.split(',') : null;
 const G = await import(pathToFileURL(SUT).href);
+const { settle } = await import(pathToFileURL(process.env.PROC_GUARD_SETTLE || join(HERE, 'settle.mjs')).href);   // PROC_GUARD_SETTLE: the mutants of settle.mjs
 const WIN = process.platform === 'win32';
 
 let passed = 0, failed = 0, skipped = 0;
@@ -30,9 +31,7 @@ delete env.FAKE_PGCTL_FAIL;
 const inRoot = () => G.leaks(G.PREFIXES, { tmp: root });
 // leaks in the root until none is left or the time is up (a killed process leaves the table a moment later)
 async function settled(ms = 4000) {
-  let left = inRoot();
-  for (let t = 0; left.length && t < ms; t += 400) { await sleep(400); left = inRoot(); }
-  return left;
+  return settle(inRoot, ms, 400, sleep);
 }
 // every leftover with pid, parent, name and command line (cut at 200 characters), so a failing run says which process it is
 const show = left => left.map(l => `[pid ${l.pid} ppid ${l.ppid} name ${l.name} cmd ${l.cmd}]`).join(' ');
@@ -40,10 +39,10 @@ const show = left => left.map(l => `[pid ${l.pid} ppid ${l.ppid} name ${l.name} 
 // Starts a child; returns { proc, out, wait(regex, ms), done }.
 function child(mode, arg = '', extraEnv = {}, capMs = 90000) {
   const proc = spawn(process.execPath, [join(HERE, 'child.mjs'), mode, arg], { env: { ...env, ...extraEnv }, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
-  const c = { proc, out: '', err: '' };
+  const c = { proc, out: '', err: '', capped: false, started: Date.now() };   // capped: the cap below ended the child, not the child itself
   proc.stdout.on('data', d => { c.out += d; });
   proc.stderr.on('data', d => { c.err += d; });
-  c.done = new Promise(res => { let t = setTimeout(() => { if (WIN) spawnSync('taskkill', ['/PID', String(proc.pid), '/F'], { stdio: 'ignore', timeout: 30000 }); else proc.kill('SIGKILL'); }, capMs); proc.on('close', (code, signal) => { clearTimeout(t); res({ code, signal }); }); });
+  c.done = new Promise(res => { let t = setTimeout(() => { c.capped = true; if (WIN) spawnSync('taskkill', ['/PID', String(proc.pid), '/F'], { stdio: 'ignore', timeout: 30000 }); else proc.kill('SIGKILL'); }, capMs); proc.on('close', (code, signal) => { clearTimeout(t); res({ code, signal }); }); });
   c.wait = async (re, ms = 30000) => { for (let t = 0; t < ms; t += 100) { if (re.test(c.out)) return true; await sleep(100); } return false; };
   c.get = key => (c.out.match(new RegExp(`^${key} (.*)$`, 'm')) || [])[1];
   return c;
@@ -139,7 +138,9 @@ try {
     const young = mk('omnikom-pg-aB3dE9', null);
     const wrong = mk('wf-notours-xx', null);
     const odd = mk('mmd-probe-AbCdEf', null);
-    sweepRoot();
+    // Windows gives a new folder a creation time up to ~1.5 ms ahead of Date.now() and utimes cannot move it, so the sweep's clock is set
+    // a few seconds ahead (still far under 6 hours): the folder's age can then never be negative, which a mutant with a 0 limit relies on
+    sweepRoot({ now: Date.now() + 5000 });
     check('no owner.json, young folder: left alone', existsSync(young), '');
     logLines.length = 0;
     sweepRoot({ now: Date.now() + 7 * 3600 * 1000 });
@@ -220,6 +221,35 @@ try {
     await settled();
   }
 
+  // ---------- the CLI journey's temp folder (omnikom-jb-, tools/omnikom-cli/lib/browser.mjs) is known ----------
+  if (want('prefix')) {
+    const dir = join(root, 'omnikom-jb-Jb7xQz');
+    mkdirSync(dir);
+    // a run that is gone: its owner.json names a pid no process has, while a stand-in (and its child) still carries the folder path
+    writeFileSync(join(dir, 'owner.json'), JSON.stringify({ pid: 2000000011, started: new Date().toISOString(), kind: 'browser', argv: [process.execPath, join(HERE, 'some-journey.mjs')] }));
+    const standin = spawn(process.execPath, [join(HERE, 'standin.mjs'), dir], { stdio: 'ignore', windowsHide: true, env, detached: !WIN });
+    // the stand-in is THIS test's child: on POSIX a killed child stays a zombie (kill(pid, 0) still succeeds) until node reaps it on its
+    // 'exit' event, which needs a turn of the event loop that the synchronous sweep never gives. The other groups' stand-ins are
+    // grandchildren, handed to pid 1 and reaped there. So wait for the exit event, and say the process state if it never comes.
+    const exited = new Promise(res => { standin.once('exit', res); });
+    await sleep(800);
+    const found = inRoot().filter(l => String(l.folder).toLowerCase().endsWith('omnikom-jb-jb7xqz'));
+    check('omnikom-jb- (the journey): leaks() lists the process that carries the folder', found.length >= 1, `leaks(): ${JSON.stringify(inRoot())}`);
+    logLines.length = 0;
+    const done = sweepRoot();
+    check('omnikom-jb- (the journey): sweep() cleans the folder of a gone owner and prints one line for it', done.length === 1 && logLines.length === 1 && logLines[0].includes(dir), `${JSON.stringify(done)} | ${logLines.join(' / ')}`);
+    const stateOf = pid => { try { return readFileSync(`/proc/${pid}/stat`, 'utf8').replace(/^.*\) /, '')[0]; } catch { return 'none'; } };   // POSIX: Z = zombie
+    const aliveAtSweep = G.isAlive(standin.pid), stateAtSweep = stateOf(standin.pid);   // right after the synchronous kill, before any event-loop turn
+    const reaped = await Promise.race([exited.then(() => true), sleep(5000).then(() => false)]);
+    const after = await settled();
+    const stateNow = stateOf(standin.pid);
+    const zombie = stateAtSweep === 'Z' || stateNow === 'Z' ? ` ZOMBIE: killed but not reaped by this test (state Z${stateNow === 'Z' ? ' still after 5 s: no exit event' : ' at the sweep, reaped later'})` : '';
+    check('omnikom-jb- (the journey): after the sweep the folder is gone, the stand-in is dead and leaks() is empty', !existsSync(dir) && reaped && !G.isAlive(standin.pid) && after.length === 0, `folder ${existsSync(dir)} exit event ${reaped} | at the sweep: alive ${aliveAtSweep} state ${stateAtSweep} | now: alive ${G.isAlive(standin.pid)} state ${stateNow} | ${show(after)}${zombie}`);
+    killTreeTest(standin.pid);
+    try { G.killFolderProcs(dir); } catch { /* none left */ }
+    rmSync(dir, { recursive: true, force: true });
+  }
+
   // ---------- a cluster is stopped with pg_ctl ----------
   if (want('pg')) {
     writeFileSync(env.FAKE_PGCTL_LOG, '');
@@ -246,17 +276,34 @@ try {
   }
 
   // ---------- the one real browser ----------
+  // ---------- the wait for a killed process to leave the process table is bounded by time, not by the number of looks (settle.mjs) ----------
+  if (want('settle')) {
+    const spin = ms => { const end = Date.now() + ms; while (Date.now() < end); };   // a slow listing
+    let t = Date.now();
+    const stuck = await settle(() => { spin(200); return [1]; }, 1000, 50, sleep);
+    const took = Date.now() - t;
+    check('settle: a listing that stays full and takes 200 ms per look ends after about the time given (1 s), not after the number of looks', stuck.length === 1 && took >= 1000 && took < 2500, `took ${took} ms, ${stuck.length} left`);
+    let calls = 0;
+    const cleared = await settle(() => { spin(300); calls++; return calls >= 3 ? [] : [1]; }, 100, 10, sleep);
+    check('settle: when one listing takes longer than the time given, it still looks twice more before it gives up', cleared.length === 0 && calls === 3, `calls ${calls}, ${cleared.length} left`);
+    t = Date.now(); calls = 0;
+    const empty = await settle(() => { calls++; return []; }, 1000, 50, sleep);
+    check('settle: an empty first listing returns at once (one look, no pause)', empty.length === 0 && calls === 1 && Date.now() - t < 100, `calls ${calls}, took ${Date.now() - t} ms`);
+  }
+
   if (want('browser')) {
     const found = (WIN ? ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Google/Chrome/Application/chrome.exe']
       : ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/microsoft-edge']).find(existsSync);
     if (!found) { skipped++; console.log('SKIP browser: no Edge or Chrome found on this machine'); }
     else {
-      const c = child('browser', '', { PROC_GUARD_BROWSER: found }, 45000);
-      await c.done;
-      check('real browser: a --dump-dom with a 1 ms limit is cut by the limit and nothing of it is left', c.get('DUMP-TIMED-OUT') === 'true' && c.get('DUMP-LEAKS') === '0', c.out + c.err.slice(0, 300));
-      check('real browser: a browser that stays up is cut by a 5 s limit and none of its renderer, GPU or utility processes is left', c.get('HOLD-TIMED-OUT') === 'true' && c.get('HOLD-LEAKS') === '0', c.out + c.err.slice(0, 300));
+      const c = child('browser', '', { PROC_GUARD_BROWSER: found }, Number(process.env.PROC_GUARD_BROWSER_CAP_MS) || 240000);   // a good run takes 8-20 s here, a slow one reached the old 45 s cap (n4: 46407 ms) and under load 88 s (fix b1: 87989 ms)
+      const ended = await c.done;
+      const how = `child ended after ${Date.now() - c.started} ms, exit ${ended.code}/${ended.signal}, ended by the cap: ${c.capped}`;   // the cap kills the child itself: no HOLD-LEAKS line, no folder cleanup
+      console.log(`info real browser: ${how} | leaks() ms per call in the child: ${[...c.out.matchAll(/^LEAKS-MS (\d+)$/gm)].map(m => m[1]).join(' ')} | steps (ms): ${[...c.out.matchAll(/^AT-MS (\S+) (\d+)$/gm)].map(m => `${m[1]} ${m[2]}`).join(', ')}`);   // every run, red or green
+      check('real browser: a --dump-dom with a 1 ms limit is cut by the limit and nothing of it is left', c.get('DUMP-TIMED-OUT') === 'true' && c.get('DUMP-LEAKS') === '0', `${c.out + c.err.slice(0, 300)} | ${how}`);
+      check('real browser: a browser that stays up is cut by a 5 s limit and none of its renderer, GPU or utility processes is left', c.get('HOLD-TIMED-OUT') === 'true' && c.get('HOLD-LEAKS') === '0', `${c.out + c.err.slice(0, 300)} | ${how}`);
       const left = await settled(6000);
-      check('real browser: at the end leaks() is empty and the profile folder is gone', left.length === 0 && c.get('DIR') && !existsSync(c.get('DIR')), `left: ${show(left)}`);
+      check('real browser: at the end leaks() is empty and the profile folder is gone', left.length === 0 && c.get('DIR') && !existsSync(c.get('DIR')), `left: ${show(left)} | folder ${c.get('DIR') && existsSync(c.get('DIR'))} | ${how}`);
     }
   }
 } catch (e) {

@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const G = await import(pathToFileURL(process.env.PROC_GUARD_SUT).href);
+const { settle } = await import(pathToFileURL(process.env.PROC_GUARD_SETTLE || join(HERE, 'settle.mjs')).href);   // PROC_GUARD_SETTLE: the mutants of settle.mjs
 const say = (k, v = '') => writeSync(1, `${k} ${v}\n`);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const [mode, arg] = process.argv.slice(2);
@@ -28,8 +29,8 @@ async function startStandin(dir) {
 }
 // leaks() until it is empty or the time is up (a killed process leaves the table a moment later); returns what is left
 async function settledLeaks(ms = 3000) {
-  let left = G.leaks(G.PREFIXES);
-  for (let t = 0; left.length && t < ms; t += 300) { await sleep(300); left = G.leaks(G.PREFIXES); }
+  const timed = () => { const a = Date.now(); const r = G.leaks(G.PREFIXES); say('LEAKS-MS', Date.now() - a); return r; };   // how long each listing took, for the run's report
+  const left = await settle(timed, ms, 300, sleep);
   // diagnostics: say which processes are left (pid, ppid, name, command line)
   for (const l of left) say('LEFT', `[pid ${l.pid} ppid ${l.ppid} name ${l.name} cmd ${l.cmd}]`);
   return left;
@@ -49,15 +50,20 @@ if (mode === 'pg') {
   const g = G.guardedTemp('mmd-', 'browser');
   const common = ['--headless=new', '--disable-gpu', '--no-sandbox', `--user-data-dir=${join(g.dir, 'profile')}`];
   say('DIR', g.dir);
+  const t0 = Date.now(), at = label => say('AT-MS', `${label} ${Date.now() - t0}`);   // where the time goes: the last mark of a run that was cut says which step it was in
   // the check of the brief: --dump-dom of a one-line page with a 1 ms limit
   const a = await G.runLimited(process.env.PROC_GUARD_BROWSER, [...common, '--dump-dom', 'data:text/html,<p>ok</p>'], { timeout: 1, dir: g.dir });
+  at('dump-runLimited-done');
   say('DUMP-TIMED-OUT', a.timedOut);
   say('DUMP-LEAKS', (await settledLeaks()).length);
+  at('dump-leaks-done');
   // a browser that stays up (no --dump-dom: headless waits for ever): by the limit its renderer, GPU and utility children exist,
   // and a kill of the main process alone would leave them holding the profile
   const b = await G.runLimited(process.env.PROC_GUARD_BROWSER, [...common, 'about:blank'], { timeout: 5000, dir: g.dir });
+  at('hold-runLimited-done');
   say('HOLD-TIMED-OUT', b.timedOut);
   say('HOLD-LEAKS', (await settledLeaks()).length);
+  at('hold-leaks-done');
 } else {
   const g = G.guardedTemp('omnikom-pg-', 'browser');
   say('DIR', g.dir);

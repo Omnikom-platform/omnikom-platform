@@ -1761,3 +1761,55 @@ Findings: the origin is now 127.0.0.1 not localhost (the real run signed in all 
 `tests/support/staging.ts` throws at import when `OMNIKOM_DASHBOARD_PORT` is unset (only Playwright imports it; told 5-DS);
 the CLI adds 27000-27899 to its port map file and checks its own `tools/omnikom-cli/briefs/journey.md` for 4173 (sent to the head of
 operations).
+
+### 5-G proc-guard knows the journey's temp prefix; its mutant runner names what it missed (2026-11-01 22:14 to 2026-11-02 02:00 local, builder `BUILDER_platform-build_5-G`; brief `factory/briefs/5-G-proc-guard-prefix-and-mutant-name.md`)
+Scope narrowed by the head of operations (22:13): no change to how proc-guard decides a live owner or sweeps (the CLI department
+diagnoses that). (1) `omnikom-jb-` added to `PREFIXES` in `tools/proc-guard/index.mjs` (the CLI journey's `guardedTemp('omnikom-jb-', ...)`,
+`tools/omnikom-cli/commands/journey.mjs:255`, `lib/browser.mjs:159`); new test group `prefix` (planted folder, dead owner, a stand-in
+carrying the path) watched red on master's index.mjs "proc-guard tests: 0 passed, 3 failed", green "3 passed, 0 failed"; mutant
+"the journey prefix omnikom-jb- is not in PREFIXES" caught. (2) `test/mutate.mjs` repeats every mutant not caught as "NOT CAUGHT
+<kind> <name>" right before the summary and in the summary line, because `docs/blueprint/specs/run-all-gates.mjs:49` shows only the
+last 8 lines and the earlier "ESCAPED <name>" line scrolled out (run 41323582926 attempt 1, "20 caught, 1 escaped"). Planted survivor:
+"NOT CAUGHT ESCAPED PLANTED survivor (comment only)", "mutants: 0 caught, 1 escaped, 1 broken, wrong or unclear [ESCAPED PLANTED
+survivor (comment only); BROKEN  PLANTED broken (no such text)]", restored. (3) Flake fixed in the test: mutant "a folder with no
+owner is cleaned at any age" escaped at random because on Windows a fresh folder's max(birthtime, mtime) is ahead of Date.now() in
+175 of 200 folders by up to 1.46 ms; the 'alive' group's young-folder sweep now runs with `now: Date.now() + 5000` (utimes cannot
+move birthtime on Windows); index.mjs unchanged there. Contrast: master's test 6/4, 10/0 and 39/1 caught/escaped; the new test 10/0
+and 40/0. Builder's full runs (one heavy job): "proc-guard tests: 63 passed, 0 failed", "mutants: 22 caught, 0 escaped, 0 broken,
+wrong or unclear". Head's re-run (groups prefix and alive, on the builder's tree and on 41f6866): "3 passed, 0 failed", "5 passed,
+0 failed". Findings: run 41323687561 had no mutant escape; its red was publish-ready parity "port 55566 failed: Connection refused"
+(the port cause, slice 5-PORT). The real-browser group was red once under load ("61 passed, 2 failed"), green in every run after;
+cause UNPROVEN. UNPROVEN: the flake fix on the Linux runner (the check-branch run is that proof).
+
+Round 2 (2026-11-02, brief `factory/briefs/5-G-r2-linux-prefix-test.md`). (a) Linux red of the `prefix` group (run 41370578157,
+"folder false alive true | " with an empty leaks()): the check was too early, not a missed kill. The stand-in is the test runner's
+own child (`tools/proc-guard/test/run.mjs`, prefix group); sweep() kills it synchronously, and on Linux a killed child stays a zombie
+(kill(pid, 0) still succeeds, `isAlive` in `index.mjs:66`) until node reaps it on the 'exit' event, which needs an event-loop turn the
+synchronous sweep never gives; a zombie's command line is empty, so leaks() is empty. The other groups use grandchild stand-ins
+(handed to pid 1 and reaped there) or await `c.done`. Fix in the test only: the group waits up to 5 s for the stand-in's 'exit' event,
+and its failure detail prints alive and the /proc state at the sweep and now, plus "ZOMBIE: killed but not reaped by this test"
+when the state is Z. `index.mjs` unchanged. Windows: prefix group 3 runs "3 passed, 0 failed", full "63 passed, 0 failed". Linux
+mechanism UNPROVEN (the check-branch run is that proof). (b) Linux mutant escape (run 41404410237, c3927c2 without 5-G, attempt 1:
+"mutants: 20 caught, 1 escaped"; attempt 2, same sha: "21 caught, 0 escaped"): the log does not name the mutant. Cause candidate:
+"a folder with no owner is cleaned at any age" (`NO_OWNER_MAX_AGE_MS = 0`): `folderAge` (`index.mjs:361`) is a fractional
+max(birthtimeMs, mtimeMs) and `now` is the integer `Date.now()`, so a sweep in the same millisecond as the mkdir gives a negative
+age and the mutant skips the folder (Windows: 1510 of 2000 just-made folders had a negative age, smallest -1.468 ms). Fixed by
+`sweepRoot({ now: Date.now() + 5000 })` at `run.mjs:144` (already in 0a21991). Linux mechanism UNPROVEN; if another mutant escapes
+there, `mutate.mjs:109` prints "NOT CAUGHT <kind> <name>" on every platform and names it. (c) The `real browser` group is flaky
+on Windows, also on clean master 34c3ceb (browser group x3 under heavy: m1 "proc-guard tests: 1 passed, 2 failed", m2 "2 passed,
+1 failed", m3 "3 passed, 0 failed"). Cause, proven: the 45 s cap in `run.mjs` (`child('browser', ...)`) kills the child (taskkill /F)
+before it prints HOLD-LEAKS or removes its folder, so both FAILs ("a browser that stays up is cut by a 5 s limit ..." and "at the end
+leaks() is empty and the profile folder is gone: left: ", folder still there) share it. Natural red on the unfixed tree: "child ended
+after 46407 ms, exit 1/null, ended by the cap: true | leaks() ms per call in the child: 7583", "1 passed, 2 failed"; natural greens
+beside it: 20128, 13157 and 9794 ms, "ended by the cap: false", "3 passed, 0 failed"; forced caps: 8 s and 10 s "ended by the cap: true"
+-> "1 passed, 2 failed", 12 s and 14 s "false" -> "3 passed". Fix in the test only (`run.mjs`, `child.mjs`, new `settle.mjs`): cap 240 s
+(`PROC_GUARD_BROWSER_CAP_MS` overrides; it guards against a hang, it is not a speed target; 88 s seen, so 2.7x headroom), the wait for a
+killed process to leave the table moved to `test/settle.mjs` (`settledLeaks` in child.mjs, `settled` in run.mjs) and bounded by elapsed
+time (at least two more looks, then until the time is up) instead of counting loops, tested by the new group `settle` (3 checks) with two
+mutants in `mutate.mjs` (5th field 'settle' patches settle.mjs), and a permanent "info real browser:" line on every run (child elapsed
+ms, exit/signal, cap state, leaks() ms per call, step times from the child's AT-MS marks). OPEN FINDINGS (not fixed in this slice,
+both live in `index.mjs`, a later slice): (1) leaks() costs 0.6-7.6 s per call on Windows (n4 7583 ms) and that drives the 9.8-46.4 s
+swing; (2) runLimited latency: under load a run of the same child took "dump-runLimited-done 17059" ms for a --dump-dom with a 1 ms
+limit and "hold-runLimited-done 69790" ms (about 45 s after the dump's listing) for a hold with a 5 s limit (fix b1: child ended after
+87989 ms, "ended by the cap: false", "3 passed, 0 failed"; b2 65586 ms): a 5 s limit that takes about 45 s to cut is a proc-guard
+behaviour question.
