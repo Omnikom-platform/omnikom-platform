@@ -156,7 +156,7 @@ Every partial (header, section, card, footer) is built in this order, and a pass
 9. **Motion:** last, one trigger per moment named in the direction, transform and opacity only, nothing that loops.
 
 After the passes, run the design tells of the repo's `tools/audit` on the built folder:
-`node tools/audit/run.mjs <built folder> --only DSN-001,DSN-002,DSN-003,DSN-004,DSN-005,DSN-006,DSN-007,DSN-008,DSN-009,DSN-010,DSN-011`.
+`node tools/audit/run.mjs <built folder> --target preview --only DSN-001,DSN-002,DSN-003,DSN-004,DSN-005,DSN-006,DSN-007,DSN-008,DSN-009,DSN-010,DSN-011`.
 A finding sends the page back to its pass: DSN-001 to motion, DSN-002 to colour, DSN-003 to icons, DSN-004, DSN-010 and DSN-011 to type,
 DSN-005 to DSN-009 to copy. A built site that trips a FAIL does not publish.
 
