@@ -1685,3 +1685,48 @@ marked in their answers are selected (got 11,22,33,44,55,66)"), green "PASS: e2e
 (20 before; head's Haiku re-run the same line). Staging dry run (read only): "30 lead(s) would be removed, 8 lead(s) of the test site would
 be left". After this commit the head runs --apply, then --apply --ids for the 5 unmarked "added by member-a1" leads; "5.3 probe member"
 and the CLI's Journey leads stay. CI runs no Playwright, so the afterAll runs only where `with-env` gives STAGING_DB_URL.
+
+**5-L DONE (2026-11-02 07:44, accepted by the head of operations 07:48).** CLI journey on staging, run under heavy.mjs: "J5 PASS lead through
+the site form: the form answered HTTP 200 "Thank you Your message was sent. Back to the site"; 1 lead row "Journey 96804450" stored for the
+test site", "J6 PASS lead in the inbox: ... lists "Journey 96804450"", "J7 PASS export: ... HTTP 200, 1 data line(s), the marker lead is in
+it", "journey (staging): 3 PASS, 0 NOT BUILT YET, 0 FAIL"; inbox screenshot row "today 07:44 | Journey 96804450 | Contact | /contact/ | new"
+(opened by the CLI head and the head of operations). On master c010c65 (run 41386579972, 9 of 9), test site job aa694a92-bf31-440a-b157-2678ae4e7e08
+deploy cadc2897. Staging test data: the 5-CL cleanup removed 35 "5.3 flows" leads; the one "5.3 probe member" lead (4b8e56bb) removed
+through service.delete_lead as owner-a ("removed ... 5 lead(s) of the test site left": the CLI's Journey leads). Open from this slice: the
+thank-you and error pages are bare HTML (slice 5-TY, before ELEV8 live); the dashboard Playwright port (slice 5-PW, DECISIONS 50 (e)).
+
+## 5-H sections restored (2026-11-02; they were only in the shared tree's copy, head of operations' ruling 06:57)
+
+### 5-H round 3, the Linux orphan (2026-11-01 07:40 to 10:15 local, builder `BUILDER_platform_5-H-r3`; brief `factory/briefs/5-H-r3-linux-orphan.md`)
+A holder whose parent is pid 1, absent, dead or not a node process is no live owner of a guarded folder (`ownerAlive`, `isNodeProc`),
+unit-tested on a fake process list; the foreign group stops its stand-ins in a finally. Windows: `proc-guard tests: 60 passed, 0 failed`,
+`mutants: 21 caught, 0 escaped` (2 new). GitHub on Linux: the gates job green on 53dd012 (run 41280479804) and 110403f (run 41284384866);
+the only red was the CLI's real-kill cluster check, red before any 5-H change (8ad6e29, run 41263232641) and fixed by the CLI in c2811ee.
+LANDED 2026-11-01 17:00: 713b008 from `check/platform/5-h-r5`, run 41287879634 attempt 2, 9 of 9 jobs success (the first attempt never
+started: GitHub billing; re-run after the repository went public, DECISIONS 49).
+
+### 5-H no browser or database outlives its run (2026-11-01 02:25 to 03:35 local; brief `factory/briefs/5-H-process-hygiene.md`)
+Why: the laptop was restarted at 02:07 (1021 orphaned headless Edge processes, 40 Postgres processes). Builder (in-session Sonnet,
+light work only): `tools/proc-guard/` (`guardedTemp` with an owner record and one cleanup on exit, signals and errors; `killTree` on
+a time limit; `sweep()` of our temp folders whose owner is dead or that are over 6 hours old with no owner; `leaks()`; `check-leaks.mjs`),
+wired into the two render scripts, `tools/site-backup/*`, `tools/design-engine/lib/browser.mjs`, `apps/dashboard/tests/global-setup.ts`,
+`publish-parity.mjs`, `test-apply.mjs`, `supabase/ops/test/cluster.mjs`, `6b-cluster.mjs`, `restore-drill.mjs`; the head applied
+`factory/briefs/5-H-wire-run-local.mjs` to `run-local.mjs` and `functions/test/harness.mjs` after 5.2 landed (8 targets, each once).
+Finding: the brief's first suspect did not reproduce (a plain kill of a headless Edge's main process left none of its 17 processes
+316 ms later); the leaks came from killed runs that never reached a `finally`, and nothing swept afterwards. The builder's one sweep on
+this machine removed 54 stale folders (4 `mmd-*`, 14 `omnikom-pg-*`, 36 `playwright_chromiumdev_profile-*`, all over 6 hours old with no
+process using them) and killed 0 processes.
+Head's check (light, through the machine-wide heavy-job lock for the mutants): `proc-guard tests: 47 passed, 0 failed`, `mutants: 17
+caught, 0 escaped, 0 broken, wrong or unclear`, `check-leaks: no process runs from a temp folder of ours`; both wired files parse.
+run-all-gates now ends with the guard's tests, its mutants and, last, the leak check (no ci.yml step names, so the CLI's step map is
+untouched). First GitHub run (check/platform/5-h 27daab9, run 41261688843): gates red, `proc-guard tests: 41 passed, 6 failed`: on Linux a real
+browser left `MainThread#8616` holding the profile after the time limit (Chrome's processes leave the parent's group, so a group kill
+misses them), and `mutate.mjs` reported 17 caught on that red baseline. Fix (builder, then the head): `killTree(pid, dir)` and
+`release()` also kill every process still holding the guarded folder (/proc on Linux, CIM on Windows), up to three rounds;
+`run.mjs` repeats every FAIL line at its end; `mutate.mjs` refuses a red baseline ("the unmutated copy does not pass; nothing to
+measure"). Watched red on Windows: without the holder kill `FAIL holder kill: ... leaks after the limit: 1`; a broken baseline
+`FAILED: the unmutated copy does not pass; nothing to measure`. Windows: `mutants: 19 caught, 0 escaped`. The owner.json marker
+is pinned by a test (the machine reaper reads it). Linux proof: the second check branch below. The wired cluster scripts and
+the restore drill: syntax only here (no drill on the laptop until the reaper reads the markers). Notice to the CLI head: `commands/ci.mjs:174`, `commands/apply.mjs:20` and `:33`, `test/ci-heavy.mjs:63`
+spawn with a time limit that kills only the top process; `tools/proc-guard` is there to use.
+
