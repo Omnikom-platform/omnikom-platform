@@ -1813,3 +1813,35 @@ swing; (2) runLimited latency: under load a run of the same child took "dump-run
 limit and "hold-runLimited-done 69790" ms (about 45 s after the dump's listing) for a hold with a 5 s limit (fix b1: child ended after
 87989 ms, "ended by the cap: false", "3 passed, 0 failed"; b2 65586 ms): a 5 s limit that takes about 45 s to cut is a proc-guard
 behaviour question.
+
+LANDED 2026-11-02 18:58: 5-G r2 is 4f91b52 on master (check branch check/platform/5-g-r2, run 41480760534, "9 of 9 jobs success"). Linux, gates job: "PASS process guard tests        proc-guard tests: 66 passed, 0 failed", "PASS process guard mutants      mutants: 24 caught, 0 escaped, 0 broken, wrong or unclear". The old Linux escape (runs 41404410237 a1, 41447585998) did not recur, so it stays unnamed. Open for 5-PL: the runLimited and leaks() latency above. Open for 5-PX: PREFIXES lacks "omnikom-cli-mut-" (CLI finding, 303 pid-less mutant tree copies in %TEMP%).
+
+## 5-DS the dashboard design system (2026-11-01 to 2026-11-02; brief `factory/briefs/5-DS-dashboard-design-system.md`; builder `BUILDER_platform-build_5-DS`)
+
+What: one token file (`apps/dashboard/src/styles/tokens.css`: colour roles, Poppins 600 headings self-hosted with its OFL
+licence, system UI body, type 14/16/20/28, space 4-64, radius, control heights, motion 160 ms on transform and opacity only),
+`base.css`, a shared `controls.module.css`, one CSS module per screen (Shell, Leads, Panel, Login, Site, Editor, PublishSheet,
+toast). The r4 rulings: Owner empty choice "Unassigned" muted; no disabled "Nothing to publish" button, a muted status line,
+Publish only with changes; dividers inset to the text; Received the row size, muted; no tab counts while the list loads;
+"Publish 1 change" singular, "Publish this change to <site>?" in the sheet. Plan edits (head's, DECISIONS 44(4)) in
+`docs/blueprint/16-DESIGN-PARTS.md`: DP-1.3-13, DP-1.3-20, DP-1.3b-08, DP-1.4-04, DP-1.4-05/06, DP-1.4-08, DP-1.4c-02.
+New test `apps/dashboard/tests/styles.spec.ts`: 14 screens (7 x 390x844 and 1536x730) plus 6 ruling tests; each screen asserts a
+loaded stylesheet, render clean (0 console errors, 0 uncaught, no page wider than the screen), text >= 14 px, h1 Poppins 600,
+card padding, and on phone that Save ends above the bottom bar. Mutants in `tests/mutants.ts`: no-styles, no-bar-room.
+DECISIONS 52 (owner 2026-11-02 18:54): no more design work on the dashboard or login until the owner brings his own styling;
+5-DS lands as it stands; screens are proven by function from now on.
+
+Proof, head 02d's own re-run on the final tree (39fb39d + 27 changes, 2026-11-02 18:45-19:30, `head-5ds-check.sh`, under heavy):
+- A styles spec: "20 passed (4.0m)".
+- B mutant no-styles: "14 failed", each "<screen>: the document has no loaded stylesheet with rules".
+- C mutant no-bar-room: "1 failed", "Error: Save ends above the bottom bar".
+- D dashboard job: "OK: dashboard install, type check, unit tests, plan gate and Auth email checks passed".
+- E the same tests on master 39fb39d app source: "20 failed", including "(2) no disabled "Nothing to publish" button",
+  "(6) no count beside New / All / Mine / Spam while the list says Loading", "(7) the button says "Publish 1 change"".
+Builder, chain8 on the tree before the r4 fixes: "6 failed" ((2) Expected 0, Received 1; (7) Received "Publish 1 changes";
+(6) Expected pattern not /\d/). chain10 (18:32-18:41): tsc 0, vitest "Tests 80 passed (80)", styles "20 passed (2.8m)", plan-gate
+mutants delete-54-element and invented-sheet-words RED. Package `D:\omk-gates\5-ds-shots\r4-final3\` (15 PNG, one run), accepted
+by the head of operations 2026-11-02 18:50.
+Open findings: F1 Unread is not in the data (DP-1.3-08, slice 5.3b), weight follows status new; F2 the render gate cannot sign
+in or set a viewport, the spec carries both sizes; F5 hand-added leads store page_path "dashboard", hidden by form = manual.
+Dropped by DECISIONS 52: Owner row layout shift, the long Site card on laptop, phone sign-in look.

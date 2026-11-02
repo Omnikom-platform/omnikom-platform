@@ -6,6 +6,7 @@ import { useWide } from '../hooks';
 import { useWorkspaceValue } from '../workspace-context';
 import { UNREACHABLE } from '../lib/problems';
 import { activeSiteId, rememberSite, storedSite } from '../site-choice';
+import css from './Leads.module.css';
 
 /**
  * Leads (DP-1.3-01 to -10): the inbox, newest first, with the site switcher (two or more sites), search, the filter New / All / Mine / Spam
@@ -17,7 +18,7 @@ export function LeadsLayout() {
   const { ws } = useParams({ from: '/authed/w/$ws' });
   const wide = useWide();
   const panelOpen = useRouterState({ select: s => s.location.pathname.replace(/\/+$/, '') !== `/w/${ws}/leads` });
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<Filter>('new');
   const [query, setQuery] = useState('');
   const [site, setSite] = useState<string>(() => storedSite(userId, workspace.id));
 
@@ -41,32 +42,38 @@ export function LeadsLayout() {
   const ownerName = (id: string | null) => (id ? team.data?.names.get(id) ?? '' : '');
 
   return (
-    <div data-layout={wide ? 'wide' : 'narrow'}>
+    <div data-layout={wide ? 'wide' : 'narrow'} className={css.layout}>
       {showList && (
         <section data-live={live}>
-          {siteList.length > 1 && (
-            <select
-              data-plan="DP-1.3-01"
-              aria-label="Site switcher"
-              value={activeSite}
-              onChange={e => { setSite(e.target.value); rememberSite(userId, workspace.id, e.target.value); }}
-            >
-              {siteList.map(s => <option key={s.id} value={s.id}>{s.domain || s.preview_host}</option>)}
-            </select>
-          )}
-          <Link to="/w/$ws/leads/new" params={{ ws }} data-plan="DP-1.3-04">Add a lead</Link>
-          <input type="search" data-plan="DP-1.3-03" aria-label="Search" name="q" value={query} onChange={e => setQuery(e.target.value)} />
-          <div role="radiogroup" aria-label="Filter" data-plan="DP-1.3-02">
-            {FILTERS.map(f => (
-              <label key={f.id}>
-                <input type="radio" name="filter" value={f.id} checked={filter === f.id} onChange={() => setFilter(f.id)} />
-                {f.label} <span>{counts[f.id]}</span>
-              </label>
-            ))}
+          <div className={css.head}>
+            <h1 data-plan="DP-1.2s-09">Leads</h1>
+            <Link to="/w/$ws/leads/new" params={{ ws }} className={css.add} data-plan="DP-1.3-04">Add a lead</Link>
+          </div>
+          <div className={css.tools}>
+            {siteList.length > 1 && (
+              <select
+                data-plan="DP-1.3-01"
+                aria-label="Site switcher"
+                value={activeSite}
+                onChange={e => { setSite(e.target.value); rememberSite(userId, workspace.id, e.target.value); }}
+              >
+                {siteList.map(s => <option key={s.id} value={s.id}>{s.domain || s.preview_host}</option>)}
+              </select>
+            )}
+            <input type="search" data-plan="DP-1.3-03" aria-label="Search" placeholder="Search" name="q" value={query} onChange={e => setQuery(e.target.value)} />
+            <div role="radiogroup" aria-label="Filter" data-plan="DP-1.3-02" className={css.filter}>
+              {FILTERS.map(f => (
+                <label key={f.id}>
+                  <input type="radio" name="filter" value={f.id} checked={filter === f.id} onChange={() => setFilter(f.id)} />
+                  {f.label} {!leads.isLoading && <span>{counts[f.id]}</span>}
+                </label>
+              ))}
+            </div>
           </div>
 
           {leads.error && <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
           {live === 'paused' && <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
+          <div className={css.card} data-card="">
           {leads.isLoading && <p data-plan="DP-1.2s-10">Loading</p>}
           {!leads.isLoading && !leads.error && leads.data?.length === 0 && (
             <p data-plan="DP-1.3-10">No leads yet. When a visitor sends a form it appears here and you get an email.</p>
@@ -75,7 +82,7 @@ export function LeadsLayout() {
             <p data-plan="DP-1.3-21">No leads match this filter. <button type="button" onClick={() => { setFilter('all'); setQuery(''); }}>Show all</button></p>
           )}
           {visible.length > 0 && (
-            <table data-plan="DP-1.3-06">
+            <table data-plan="DP-1.3-06" className={css.table}>
               <thead>
                 <tr>
                   <th scope="col">Received</th>
@@ -88,20 +95,21 @@ export function LeadsLayout() {
               </thead>
               <tbody>
                 {visible.map(l => (
-                  <tr key={l.id}>
+                  <tr key={l.id} data-status={l.status}>
                     <td><time dateTime={l.created_at}>{receivedWords(l.created_at)}</time></td>
                     <th scope="row">
                       <Link to="/w/$ws/leads/$id" params={{ ws, id: l.id }} data-plan="DP-1.3-06">{l.name || l.email || l.phone || ''}</Link>
                     </th>
                     <td>{formLabel(l.form, forms.data ?? null)}</td>
-                    <td>{l.page_path}</td>
+                    <td>{l.form === 'manual' ? '' : l.page_path}</td>
                     <td>{l.status}</td>
-                    <td>{ownerName(l.owner_team_row)}</td>
+                    <td data-plan="DP-1.3-06" data-empty={l.owner_team_row ? undefined : 'true'}>{ownerName(l.owner_team_row) || 'Unassigned'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
+          </div>
         </section>
       )}
       <Outlet />

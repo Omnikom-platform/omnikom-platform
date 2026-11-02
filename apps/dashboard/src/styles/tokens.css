@@ -1,0 +1,64 @@
+/* The dashboard's design system (03-FRONTEND.md B5). Every colour, size, space and motion value the screens use is here; the
+   screen stylesheets use these names and nothing else. Values B5 fixes: Poppins 600 headings, card padding >= 28 px on laptop,
+   left rail on laptop and bottom bar on phone. Everything marked "choice for the owner" was left open by B5 and is a calm
+   neutral picked for now. Dark mode later (B5). */
+
+:root {
+  /* Colour: one role each. */
+  --page: #f4f4f1;          /* the page behind everything. choice for the owner */
+  --surface: #ffffff;       /* cards, the rail, the bottom bar, sheets */
+  --surface-quiet: #ecece8; /* the current nav entry, a row under the pointer. choice for the owner */
+  --ink: #17191c;           /* text */
+  --ink-muted: #5b6067;     /* secondary text: times, counts, column heads (6.3:1 on white) */
+  --line: #e3e3de;          /* hairlines between rows and around the rail */
+  --field-line: #8e939a;    /* the edge of a field a person types into (3:1 on white) */
+  --action: #17191c;        /* the accent, one meaning: the one primary action of a screen. choice for the owner */
+  --on-action: #ffffff;
+  --alert: #fbeee2;         /* a problem banner. choice for the owner */
+  --on-alert: #7d3410;
+  --focus: #2459d6;         /* the keyboard focus ring, and nothing else */
+  --scrim: rgb(23 25 28 / 0.32); /* the page dimmed behind a sheet */
+
+  /* Type: two faces, four sizes. */
+  --font-head: Poppins, system-ui, sans-serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; /* the neutral body face. choice for the owner */
+  --text-sm: 14px;          /* times, counts, column heads, captions */
+  --text-md: 16px;          /* body, controls */
+  --text-lg: 20px;          /* section headings, the business name */
+  --text-xl: 28px;          /* the screen title (the h1) */
+  --leading: 1.5;
+  --leading-head: 1.2;
+
+  /* Space: one scale. */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --card-pad: 32px;         /* B5 floor is 28 px on laptop */
+  --gutter: 48px;           /* the main area's side margin on laptop */
+
+  /* Shape. */
+  --radius: 12px;           /* cards and sheets. choice for the owner */
+  --radius-control: 10px;   /* buttons and fields. choice for the owner */
+  --control-h: 44px;
+
+  /* Frame. */
+  --rail-w: 248px;
+  --bar-h: 64px;            /* the phone's bottom bar, before the device's safe area */
+
+  /* Motion: transform and opacity only. */
+  --dur: 160ms;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (max-width: 899px) {
+  :root {
+    --card-pad: 16px;
+    --gutter: 16px;
+    --control-h: 48px;
+  }
+}

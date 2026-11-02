@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { t } from './plan';
+import css from './styles/toast.module.css';
 
 // The toast (DP-1.2s-08): the outcome of an action, 4 seconds, with Undo where undo exists.
 export const UNDO = t('DP-1.2s-08', 'Undo');
@@ -19,7 +20,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={show}>
       {children}
-      <div role="status" data-plan="DP-1.2s-08">
+      <div role="status" data-plan="DP-1.2s-08" className={css.toast}>
         {toast && (
           <p>
             {toast.text}{' '}

@@ -7,6 +7,7 @@ import { receivedWords } from '../lib/leads';
 import { CallFailed } from '../lib/problems';
 import { failureLines, progressLines, RUNNING, rowTitle, siteUrl, type Job, type JobEvent } from '../lib/site';
 import { useSiteValue } from '../site-context';
+import css from './PublishSheet.module.css';
 
 type Wrong = { row: string; path: string; msg: string; code?: string };
 
@@ -56,14 +57,14 @@ export function PublishSheet({ site, jobs, onClose }: { site: Site; jobs: { jobs
   const lines = job ? progressLines(jobs.events.filter(e => e.job_id === job.id)) : [];
 
   return (
-    <dialog open data-plan="DP-1.4c-02" aria-labelledby="publish-title">
+    <dialog open data-plan="DP-1.4c-02" aria-labelledby="publish-title" className={css.sheet}>
       {!job && (
         <>
-          <h2 id="publish-title">Publish these {drafts.length} changes to {name}?</h2>
+          <h2 id="publish-title">Publish {drafts.length === 1 ? 'this change' : `these ${drafts.length} changes`} to <span className={css.address}>{name}</span>?</h2>
           <ul data-plan="DP-1.4c-01">
             {drafts.map(d => (
               <li key={d.row}>
-                {nameOfRow(d.row)} {who(d.editedBy)} <time dateTime={d.editedAt}>{receivedWords(d.editedAt)}</time>
+                {nameOfRow(d.row)}<span>{who(d.editedBy)} <time dateTime={d.editedAt}>{receivedWords(d.editedAt)}</time></span>
               </li>
             ))}
           </ul>
@@ -82,7 +83,7 @@ export function PublishSheet({ site, jobs, onClose }: { site: Site; jobs: { jobs
           )}
           {notice && <p role="alert" data-plan="DP-1.4c-04">{notice}</p>}
           <button type="button" onClick={onClose}>Cancel</button>
-          <button type="button" disabled={busy || draftsBusy || drafts.length === 0} onClick={() => void publish()}>Publish</button>
+          <button type="button" disabled={busy || draftsBusy || drafts.length === 0} onClick={() => void publish()} className={css.go}>Publish</button>
         </>
       )}
       {job && (

@@ -9,6 +9,7 @@ import { SiteContext, type SiteValue } from '../site-context';
 import { useSession } from '../auth';
 import { useWorkspaceValue } from '../workspace-context';
 import { PublishSheet } from './PublishSheet';
+import css from './Site.module.css';
 
 /**
  * The Site screen (DP-1.4-01, -02, -04 to -07, DP-1.4c-05): the site switcher, the state line with Open, "Publish N changes", and the list
@@ -64,14 +65,14 @@ export function SiteLayout() {
   const group = (id: string, col: CollectionDef) => {
     const mine = rows.data.filter(r => r.collection === id && visibleTo(role, teamRow, col, r));
     return (
-      <section key={id}>
+      <section key={id} className={css.group}>
         <h2 data-plan="DP-1.4-06">{col.label}</h2>
-        {canAdd(role, col) && <Link to="/w/$ws/site/$collection/$row" params={{ ws, collection: id, row: 'new' }} data-plan="DP-1.4-06">Add</Link>}
+        {canAdd(role, col) && <Link to="/w/$ws/site/$collection/$row" params={{ ws, collection: id, row: 'new' }} className={css.add} data-plan="DP-1.4-06">Add</Link>}
         {mine.length === 0 && <p data-plan="DP-1.4-22">No {col.label.toLowerCase()} yet. Add your first one.</p>}
         <ul>
           {mine.map(r => (
             <li key={r.id}>
-              <Link to="/w/$ws/site/$collection/$row" params={{ ws, collection: id, row: r.id }} data-plan="DP-1.4-06">{rowTitle(c, id, r.newest?.data) || col.label}</Link>
+              <Link to="/w/$ws/site/$collection/$row" params={{ ws, collection: id, row: r.id }} data-plan="DP-1.4-06">{rowTitle(c, id, r.newest?.data) || col.label}<span aria-hidden="true">Edit</span></Link>
               {draftRows.has(r.id) && <> <mark data-plan="DP-1.4-17">changed</mark></>}
             </li>
           ))}
@@ -82,8 +83,9 @@ export function SiteLayout() {
 
   return (
     <SiteContext.Provider value={value}>
-    <div data-layout="site">
-      <section>
+    <div data-layout="site" className={css.layout}>
+      <section className={css.top}>
+        <h1 data-plan="DP-1.2s-04">Site</h1>
         {siteList.length > 1 && (
           <select data-plan="DP-1.4-01" aria-label="Site switcher" value={siteId} onChange={e => { setChosen(e.target.value); rememberSite(userId, workspace.id, e.target.value); }}>
             {siteList.map(s => <option key={s.id} value={s.id}>{s.domain || s.preview_host}</option>)}
@@ -96,23 +98,25 @@ export function SiteLayout() {
           </p>
         )}
         {running ? (
-          <button type="button" data-plan="DP-1.4c-05" onClick={() => setSheet(true)}>Publishing {stepWords(running.state)}</button>
+          <button type="button" data-plan="DP-1.4c-05" onClick={() => setSheet(true)} className={css.publish}>Publishing {stepWords(running.state)}</button>
+        ) : count === 0 ? (
+          <p data-plan="DP-1.4-04" className={css.idle}>Nothing to publish</p>
         ) : (
-          <button type="button" data-plan="DP-1.4-04" disabled={count === 0 || drafts.isLoading} onClick={() => setSheet(true)}>
-            {count === 0 ? 'Nothing to publish' : `Publish ${count} changes`}
+          <button type="button" data-plan="DP-1.4-04" disabled={drafts.isLoading} onClick={() => setSheet(true)} className={css.publish}>
+            {count === 1 ? 'Publish 1 change' : `Publish ${count} changes`}
           </button>
         )}
         {drafts.error && <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
       </section>
 
-      <div>
+      <div className={css.list} data-card="">
         {showPages && (
-          <section>
+          <section className={css.group}>
             <h2 data-plan="DP-1.4-05">Pages</h2>
             <ul>
               {pages.map(r => (
                 <li key={r.id}>
-                  <Link to="/w/$ws/site/$collection/$row" params={{ ws, collection: 'pages', row: r.id }} data-plan="DP-1.4-05">{rowTitle(c, 'pages', r.newest?.data)}</Link>
+                  <Link to="/w/$ws/site/$collection/$row" params={{ ws, collection: 'pages', row: r.id }} data-plan="DP-1.4-05">{rowTitle(c, 'pages', r.newest?.data)}<span aria-hidden="true">Edit</span></Link>
                   {draftRows.has(r.id) && <> <mark data-plan="DP-1.4-05">changed</mark></>}
                 </li>
               ))}
@@ -121,7 +125,7 @@ export function SiteLayout() {
         )}
         {listCollections(c).filter(([id, col]) => role !== 'member' || col.access.member !== 'none').map(([id, col]) => group(id, col))}
         {showSettings && settings && (
-          <section>
+          <section className={css.group}>
             <Link to="/w/$ws/site/$collection/$row" params={{ ws, collection: 'settings', row: settingsRow?.id ?? 'new' }} data-plan="DP-1.4-07">Business details</Link>
             {settingsRow && draftRows.has(settingsRow.id) && <> <mark data-plan="DP-1.4-17">changed</mark></>}
           </section>

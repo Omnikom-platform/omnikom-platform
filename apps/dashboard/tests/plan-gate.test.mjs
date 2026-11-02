@@ -1,9 +1,12 @@
 // Tests of the plan gate (tests/plan-gate.mjs): the real source passes; each rule has a small fixture that trips it; and each mutant below
 // is a one-line break of the REAL source that must turn the gate red for its own reason (the red lines are printed).
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve, relative } from 'node:path';
 import { loadBuilt, readPlan, routePaths, scanSources } from './plan-gate.mjs';
+
+// a full scan of the source per test: on a busy laptop one took longer than vitest's default 5 s (5-DS finding F4)
+vi.setConfig({ testTimeout: 60_000 });
 
 const ROOT = resolve(import.meta.dirname, '..');
 const plan = readPlan(readFileSync(resolve(ROOT, '..', '..', 'docs', 'blueprint', '16-DESIGN-PARTS.md'), 'utf8'));
@@ -135,7 +138,7 @@ describe('mutants of the real source: each must turn the gate red for its reason
     red('unknown-id', scanReal(patch('src/pages/Shell.tsx', 'data-plan="DP-1.2s-03"', 'data-plan="DP-9.9-99"')), 'PLAN-2', 'DP-9.9-99');
   });
   it('delete the element of a 5.3 row (the Search field)', () => {
-    red('delete-element', scanReal(patch('src/pages/Leads.tsx', '<input type="search" data-plan="DP-1.3-03" aria-label="Search" name="q" value={query} onChange={e => setQuery(e.target.value)} />', '')), 'PLAN-3', 'DP-1.3-03');
+    red('delete-element', scanReal(patch('src/pages/Leads.tsx', '<input type="search" data-plan="DP-1.3-03" aria-label="Search" placeholder="Search" name="q" value={query} onChange={e => setQuery(e.target.value)} />', '')), 'PLAN-3', 'DP-1.3-03');
   });
   it('plant an invented string (the Add a lead link)', () => {
     red('invented-string', scanReal(patch('src/pages/Leads.tsx', 'data-plan="DP-1.3-04">Add a lead</Link>', 'data-plan="DP-1.3-04">Add a brand new lead now</Link>')), 'PLAN-4', 'DP-1.3-04');
@@ -159,10 +162,10 @@ describe('mutants of the real source: each must turn the gate red for its reason
     red('unbuilt-row', scanReal(patch('src/pages/Shell.tsx', '<SignOutButton />\n        </nav>', '<Link to="/w/$ws/leads" params={{ ws }} data-plan="DP-1.2s-05">Settings</Link>\n          <SignOutButton />\n        </nav>')), 'PLAN-9', 'DP-1.2s-05');
   });
   it('slice 5.4: take the element of one row away (the Publish N changes button is the only carrier of DP-1.4-04)', () => {
-    red('delete-54-element', scanReal(patch('src/pages/SiteLayout.tsx', '<button type="button" data-plan="DP-1.4-04" disabled', '<button type="button" data-plan="DP-1.4-05" disabled')), 'PLAN-3', 'DP-1.4-04');
+    red('delete-54-element', scanReal(patch('src/pages/SiteLayout.tsx', '<p data-plan="DP-1.4-04" className={css.idle}>Nothing to publish</p>\n        ) : (\n          <button type="button" data-plan="DP-1.4-04" disabled', '<p data-plan="DP-1.4-05" className={css.idle}>Nothing to publish</p>\n        ) : (\n          <button type="button" data-plan="DP-1.4-05" disabled')), 'PLAN-3', 'DP-1.4-04');
   });
   it('slice 5.4: plant words that are not in the sheet question', () => {
-    red('invented-sheet-words', scanReal(patch('src/pages/PublishSheet.tsx', 'Publish these {drafts.length} changes to {name}?', 'Publish all of these {drafts.length} changes to {name}?')), 'PLAN-4', 'DP-1.4c-02');
+    red('invented-sheet-words', scanReal(patch('src/pages/PublishSheet.tsx', "Publish {drafts.length === 1 ? 'this change' : `these ${drafts.length} changes`} to <span className={css.address}>{name}</span>?", "Publish all of {drafts.length === 1 ? 'this change' : `these ${drafts.length} changes`} to <span className={css.address}>{name}</span>?")), 'PLAN-4', 'DP-1.4c-02');
   });
   it('slice 5.4: show the Preview button of slice 5.5 in the editor', () => {
     red('unbuilt-preview', scanReal(patch('src/pages/Editor.tsx', '<button type="button" data-plan="DP-1.4-19" aria-expanded={showHistory}', '<button type="button" data-plan="DP-1.4-18" onClick={() => undefined}>Preview</button>\n        <button type="button" data-plan="DP-1.4-19" aria-expanded={showHistory}')), 'PLAN-9', 'DP-1.4-18');

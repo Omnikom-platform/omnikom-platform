@@ -9,10 +9,13 @@
 //   agent-add-everywhere  the contract the agent's page reads says every collection is open to agents (access.member = own)
 //   publish-accepted      a publish is answered 202 by the test: nothing is refused, so the sheet cannot stop at a failed check
 //   contract-empty        the contract the owner's page reads has no collection of the client's own, so there is nothing to Add to
+// Slice 5-DS (tests/styles.spec.ts):
+//   no-styles             the built stylesheet is served empty, as if src/main.tsx no longer imported the styles
+//   no-bar-room           the main area has no bottom padding on the phone: the end of Add a lead sits under the bottom bar
 import type { Page } from '@playwright/test';
 import { serviceGet, serviceRepeat } from './support/staging';
 
-export type Mutant = 'leak-b' | 'no-live' | 'member-sees-all' | 'save-lost' | 'no-stale' | 'agent-add-everywhere' | 'publish-accepted' | 'contract-empty';
+export type Mutant = 'leak-b' | 'no-live' | 'member-sees-all' | 'save-lost' | 'no-stale' | 'agent-add-everywhere' | 'publish-accepted' | 'contract-empty' | 'no-styles' | 'no-bar-room';
 export const MUTANT = (process.env.FLOWS_MUTANT ?? '') as Mutant | '';
 
 export function active(name: Mutant): boolean {
@@ -71,6 +74,20 @@ export async function installMutant(page: Page, name: Mutant) {
       }
       return route.fulfill({ status: r.status, body: JSON.stringify(parsed), contentType: r.contentType });
     });
+  }
+  if (name === 'no-bar-room') {
+    // the phone layout keeps no room above the bottom bar: the main area loses its bottom padding
+    await page.addInitScript(() => {
+      document.addEventListener('DOMContentLoaded', () => {
+        const s = document.createElement('style');
+        s.textContent = 'main { padding-bottom: 0 !important; }';
+        document.head.append(s);
+      });
+    });
+  }
+  if (name === 'no-styles') {
+    // as if the stylesheet import were dropped from src/main.tsx: the built CSS file arrives empty
+    await page.route(/\/assets\/[^/?]+\.css(\?|$)/, route => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
   }
   if (name === 'publish-accepted') {
     await page.route(/\/functions\/v1\/publish$/, route => route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ job: '00000000-0000-0000-0000-000000000000', state: 'queued', dispatched: true }) }));

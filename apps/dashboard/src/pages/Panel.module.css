@@ -1,0 +1,278 @@
+/* The panel: an open lead, or Add a lead. Beside the list on laptop (a white card, sticky under the top), instead of the
+   list on phone (the screen itself). One column, one thing per row. */
+
+.panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  padding: var(--card-pad);
+  border-radius: var(--radius);
+  background: var(--surface);
+  animation: panel-in var(--dur) var(--ease);
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+
+@media (min-width: 900px) {
+  .panel {
+    position: sticky;
+    top: var(--s-5);
+    max-height: calc(100dvh - 2 * var(--s-5));
+    overflow-y: auto;
+  }
+}
+
+/* close: "Close" on the title's row on laptop, "Back" above the title on phone; quiet */
+.panel > button:first-child {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-muted);
+}
+
+@media (min-width: 900px) {
+  .panel > button:first-child {
+    position: absolute;
+    top: calc(var(--card-pad) - var(--s-2));
+    right: var(--card-pad);
+    padding: 0 var(--s-2);
+  }
+
+  .panel > :nth-child(2) {
+    padding-right: 96px;
+  }
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.who p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-4);
+}
+
+/* status: five words, the current one underlined (the same device as the inbox filter) */
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-5);
+}
+
+.status label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h);
+  color: var(--ink-muted);
+  text-transform: capitalize;
+  cursor: pointer;
+}
+
+.status input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.status label::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6px;
+  height: 2px;
+  background: var(--ink);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur) var(--ease);
+}
+
+.status label:has(input:checked) {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.status label:has(input:checked)::after {
+  transform: scaleX(1);
+}
+
+.status label:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.status p {
+  flex-basis: 100%;
+}
+
+/* a labelled field: the words above the control */
+.field,
+.form label,
+.note label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+/* "Unassigned" reads muted, as in the list (the lead panel and Add a lead) */
+.field select[data-empty='true'],
+.form label select[data-empty='true'] {
+  color: var(--ink-muted);
+}
+
+.field :is(input, select, textarea),
+.form :is(input:not([type='checkbox']), select, textarea),
+.note textarea {
+  width: 100%;
+  color: var(--ink);
+  font-size: var(--text-md);
+}
+
+.answers {
+  display: grid;
+  gap: var(--s-4);
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--line);
+}
+
+.answers div {
+  display: grid;
+  gap: var(--s-1);
+}
+
+.answers dt {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.answers dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.note {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--s-2) var(--s-4);
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--line);
+}
+
+.note label,
+.note [role='alert'] {
+  grid-column: 1 / -1;
+}
+
+/* the counter */
+.note > p:not([role]) {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.note > p[data-over='true'] {
+  color: var(--on-alert);
+}
+
+.timeline {
+  display: grid;
+  gap: var(--s-3);
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--line);
+}
+
+.timeline li {
+  font-size: var(--text-sm);
+}
+
+.timeline time {
+  margin-right: var(--s-2);
+  color: var(--ink-muted);
+}
+
+.consent {
+  display: grid;
+  gap: var(--s-2);
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--line);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.consent blockquote {
+  margin: 0;
+}
+
+/* Add a lead */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+/* the consent tick: box then words, in ink */
+.form label:has(input[type='checkbox']) {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--s-3);
+  color: var(--ink);
+  font-size: var(--text-md);
+}
+
+.form input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  flex: none;
+}
+
+.save {
+  composes: primary from '../styles/controls.module.css';
+}
+
+@media (max-width: 899px) {
+  .panel {
+    padding: 0;
+    background: transparent;
+  }
+
+  .panel > button:first-child {
+    align-self: flex-start;
+    padding: 0;
+    min-width: 0;
+  }
+
+  /* phone and email: two full-width rows, each a whole tap target */
+  .who p {
+    flex-direction: column;
+    gap: 0;
+    margin-top: var(--s-2);
+  }
+
+  .who p a {
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+    border-top: 1px solid var(--line);
+    text-decoration: none;
+  }
+
+  .who p a:last-child {
+    border-bottom: 1px solid var(--line);
+  }
+}

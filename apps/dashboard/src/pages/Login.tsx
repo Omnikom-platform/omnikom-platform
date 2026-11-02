@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { supabase } from '../supabase';
 import { useSession } from '../auth';
 import { t } from '../plan';
+import css from './Login.module.css';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const RESEND_AFTER_MS = 60_000;   // DP-1.2-03: "after 60 s"
@@ -72,7 +73,9 @@ export function Login({ expired = false, ended = false }: { expired?: boolean; e
   );
 
   return (
-    <main>
+    <main className={css.page}>
+      <div className={css.card} data-card="">
+      <h1 data-plan="DP-1.2s-09">Sign in</h1>
       {expired && <p role="alert" data-plan="DP-1.2-06">That link expired. Send a new one.</p>}
       {ended && <p role="alert" data-plan="DP-1.2-13">You were signed out. Sign in again.</p>}
       {sentAt !== null ? (
@@ -84,9 +87,9 @@ export function Login({ expired = false, ended = false }: { expired?: boolean; e
       ) : mode === 'link' ? (
         <form data-plan="DP-1.2-02" onSubmit={e => void sendLink(e)} noValidate>
           {emailField}
-          <button type="submit" data-plan="DP-1.2-02" disabled={busy}>{busy ? t('DP-1.2s-10', 'Sending') : 'Send me a sign-in link'}</button>
+          <button type="submit" data-plan="DP-1.2-02" disabled={busy} className={css.go}>{busy ? t('DP-1.2s-10', 'Sending') : 'Send me a sign-in link'}</button>
           {sendError && <p role="alert" data-plan="DP-1.2-02">We could not send the email. Try again in a minute.</p>}
-          <button type="button" data-plan="DP-1.2-04" onClick={() => { setMode('password'); setSendError(false); }}>Use a password instead</button>
+          <button type="button" data-plan="DP-1.2-04" className={css.quiet} onClick={() => { setMode('password'); setSendError(false); }}>Use a password instead</button>
         </form>
       ) : (
         <form data-plan="DP-1.2-05" onSubmit={e => void withPassword(e)} noValidate>
@@ -95,10 +98,11 @@ export function Login({ expired = false, ended = false }: { expired?: boolean; e
             Password
             <input type="password" name="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />
           </label>
-          <button type="submit" data-plan="DP-1.2-05" disabled={busy}>{busy ? t('DP-1.2s-10', 'Sending') : 'Sign in'}</button>
+          <button type="submit" data-plan="DP-1.2-05" disabled={busy} className={css.go}>{busy ? t('DP-1.2s-10', 'Sending') : 'Sign in'}</button>
           {passwordError && <p role="alert" data-plan="DP-1.2-05">Email or password is wrong.</p>}
         </form>
       )}
+      </div>
     </main>
   );
 }

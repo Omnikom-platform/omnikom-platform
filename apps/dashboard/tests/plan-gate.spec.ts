@@ -2,7 +2,7 @@
 // inside an element with a data-plan id; every id is in the plan and belongs to a built slice; the ids a screen must show are there.
 // The last test turns the gate on a page that breaks each rule on purpose and needs every one reported.
 import { expect, test } from '@playwright/test';
-import { planProblems } from './plan-gate.dom';
+import { builtSlices, planIds, planProblems } from './plan-gate.dom';
 import { WS } from './support/staging';
 
 const ok = async (page: import('@playwright/test').Page, o: Parameters<typeof planProblems>[1]) => expect(await planProblems(page, o)).toEqual([]);
@@ -65,7 +65,7 @@ test.describe('the owner\'s screens', () => {
     await expect(page.locator('ol li').first()).toBeVisible();   // the timeline has loaded
     await ok(page, { required: ['DP-1.3-11', 'DP-1.3-12', 'DP-1.3-13', 'DP-1.3-14', 'DP-1.3-15', 'DP-1.3-16', 'DP-1.3-17', 'DP-1.3-20', 'DP-1.3-22', 'DP-1.3-23', 'DP-1.3-24'] });
     await expect(page.getByText(/^\d+ of 2000$/)).toBeVisible();
-    await page.getByRole('button', { name: 'X', exact: true }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
 
     // no match: the plan's sentence and Show all
     await page.getByRole('searchbox', { name: 'Search' }).fill('zzzzzz');
@@ -105,10 +105,14 @@ test.describe('the agent\'s screens', () => {
 
 test.describe('the DOM gate itself', () => {
   test('reports every rule it has when a page breaks them (watched red)', async ({ page }) => {
+    // a row of a slice that is not built, taken from the plan and built-slices.json (a hard-coded one goes stale when its slice ships)
+    const built = builtSlices();
+    const [unbuiltId, unbuiltSlice] = [...planIds()].find(([, slice]) => !built.includes(slice)) ?? ['', ''];
+    expect(unbuiltId, 'the plan has a row of a slice that is not built').not.toBe('');
     await page.setContent(`<main>
       <button>No plan id</button>
       <p data-plan="DP-9.9-99">An id that is not in the plan</p>
-      <p data-plan="DP-1.2s-04">A row of a slice that is not built</p>
+      <p data-plan="${unbuiltId}">A row of a slice that is not built</p>
       <p>Text outside every plan element</p>
       <p data-plan="DP-1.2s-01">Lorem ipsum dolor</p>
       <input placeholder="Invented placeholder" />
@@ -117,7 +121,7 @@ test.describe('the DOM gate itself', () => {
     for (const want of [
       'interactive element outside any data-plan: <button>',
       'data-plan DP-9.9-99 is not in the plan',
-      'data-plan DP-1.2s-04 is a row of slice 5.4, which is not built',
+      `data-plan ${unbuiltId} is a row of slice ${unbuiltSlice}, which is not built`,
       'text outside any data-plan: Text outside every plan element',
       'placeholder tell: Lorem ipsum dolor',
       'interactive element outside any data-plan: <input>',

@@ -1,0 +1,128 @@
+/* The base: the face, the element defaults every screen starts from. Screen layout lives in each screen's CSS module. */
+
+@font-face {
+  font-family: Poppins;
+  src: url('./fonts/Poppins-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: var(--leading);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--font-head);
+  font-weight: 600;
+  line-height: var(--leading-head);
+}
+
+h1 {
+  font-size: var(--text-xl);
+}
+
+h2,
+h3 {
+  font-size: var(--text-lg);
+}
+
+p,
+ul,
+ol,
+dl,
+dd,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+
+a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* A button that is not the screen's primary action. */
+button {
+  min-height: var(--control-h);
+  padding: 0 var(--s-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  cursor: pointer;
+  transition: opacity var(--dur) var(--ease);
+}
+
+button:hover:not(:disabled) {
+  background: var(--surface-quiet);
+}
+
+input:not([type='radio'], [type='checkbox']),
+select,
+textarea {
+  min-height: var(--control-h);
+  padding: 0 var(--s-3);
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+
+textarea {
+  padding: var(--s-3);
+  line-height: var(--leading);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* A problem the screen reports (the unreachable banner, a refused action). */
+[role='alert'] {
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--radius-control);
+  background: var(--alert);
+  color: var(--on-alert);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}

@@ -6,6 +6,7 @@ import { UNREACHABLE } from '../lib/problems';
 import { NotFound } from './NotFound';
 import { JobWatcher } from './JobWatcher';
 import { SignOutButton } from './SignOutButton';
+import s from './Shell.module.css';
 
 /**
  * The shell (DP-1.2s-01 to -03, -06, -07): the business name, Leads, Site, a switcher when there is more than one business, Sign out.
@@ -21,27 +22,29 @@ export function Shell() {
   const mem = useMemberships(userId);
   const workspace = q.data;
 
-  if (q.isLoading) return <main><p data-plan="DP-1.2s-10">Loading</p></main>;
-  if (q.error) return <main><p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p></main>;
-  if (!workspace || !userId) return <main><NotFound /></main>;
+  if (q.isLoading) return <main className={s.bare}><p data-plan="DP-1.2s-10">Loading</p></main>;
+  if (q.error) return <main className={s.bare}><p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p></main>;
+  if (!workspace || !userId) return <main className={s.bare}><NotFound /></main>;
 
   const others = mem.data ?? [];
   return (
     <WorkspaceContext.Provider value={{ workspace, userId }}>
-      <header>
-        <nav>
+      <header className={s.rail}>
+        <nav className={s.nav}>
           <p data-plan="DP-1.2s-01"><strong>{workspace.name}</strong></p>
-          <Link to="/w/$ws/leads" params={{ ws }} data-plan="DP-1.2s-03" activeProps={{ 'aria-current': 'page' }}>Leads</Link>
-          <Link to="/w/$ws/site" params={{ ws }} data-plan="DP-1.2s-04" activeProps={{ 'aria-current': 'page' }}>Site</Link>
           {others.length > 1 && (
             <select data-plan="DP-1.2s-02" aria-label="Workspace switcher" value={workspace.slug} onChange={e => void nav({ to: '/w/$ws/leads', params: { ws: e.target.value } })}>
               {others.map(m => <option key={m.workspace.id} value={m.workspace.slug}>{m.workspace.name}</option>)}
             </select>
           )}
+          <div className={s.tabs}>
+            <Link to="/w/$ws/leads" params={{ ws }} data-plan="DP-1.2s-03" activeProps={{ 'aria-current': 'page' }} className={s.tab}>Leads</Link>
+            <Link to="/w/$ws/site" params={{ ws }} data-plan="DP-1.2s-04" activeProps={{ 'aria-current': 'page' }} className={s.tab}>Site</Link>
+          </div>
           <SignOutButton />
         </nav>
       </header>
-      <main>
+      <main className={s.main}>
         <Outlet />
       </main>
       <JobWatcher />

@@ -11,6 +11,7 @@ import { useWorkspaceValue } from '../workspace-context';
 import { t } from '../plan';
 import { UNDO, useToast } from '../toast';
 import { NotFound } from './NotFound';
+import css from './Panel.module.css';
 
 const NOTE_MAX = 2000;
 
@@ -25,7 +26,7 @@ export function PanelClose() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
-  return <button type="button" data-plan="DP-1.3-20" onClick={close}>{wide ? 'X' : 'Back'}</button>;
+  return <button type="button" data-plan="DP-1.3-20" onClick={close}>{wide ? 'Close' : 'Back'}</button>;
 }
 
 /**
@@ -44,6 +45,7 @@ export function LeadPanel() {
   const team = useTeam(workspace.id);
   const forms = useContractForms(workspace.id);
   const me = useMe(workspace.id, userId);
+  const wide = useWide();
   useEventsLive(workspace.id, id);
 
   const [statusError, setStatusError] = useState('');
@@ -127,11 +129,11 @@ export function LeadPanel() {
     }
   }
 
-  if (lead.isLoading) return <section><p data-plan="DP-1.2s-10">Loading</p></section>;
-  if (lead.error) return <section><p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p></section>;
+  if (lead.isLoading) return <section className={css.panel}><p data-plan="DP-1.2s-10">Loading</p></section>;
+  if (lead.error) return <section className={css.panel}><p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p></section>;
   if (!data) {
     return (
-      <section>
+      <section className={css.panel}>
         <PanelClose />
         {everListed.has(id) ? <p data-plan="DP-1.3-06">This lead was removed.</p> : <NotFound />}
       </section>
@@ -144,17 +146,21 @@ export function LeadPanel() {
   const lines = timelineLines(events.data ?? [], data, names);
   const marketing = data.marketing_consent;
   const over = note.length > NOTE_MAX;
+  // the lead's name is the screen title on a phone (the list is gone) and a section title beside the list on a laptop
+  const Title = wide ? 'h2' : 'h1';
 
   return (
-    <section aria-labelledby="lead-name">
+    <section aria-labelledby="lead-name" className={css.panel}>
       <PanelClose />
-      <p data-plan="DP-1.3-11">
-        <strong id="lead-name">{title}</strong>{' '}
-        {data.phone && <a href={telHref(data.phone)}>{data.phone}</a>}{' '}
-        {data.email && <a href={`mailto:${data.email}`}>{data.email}</a>}
-      </p>
+      <div data-plan="DP-1.3-11" className={css.who}>
+        <Title id="lead-name">{title}</Title>
+        <p>
+          {data.phone && <a href={telHref(data.phone)}>{data.phone}</a>}{' '}
+          {data.email && <a href={`mailto:${data.email}`}>{data.email}</a>}
+        </p>
+      </div>
 
-      <div role="radiogroup" aria-label="Status" data-plan="DP-1.3-12">
+      <div role="radiogroup" aria-label="Status" data-plan="DP-1.3-12" className={css.status}>
         {STATUSES.map(s => (
           <label key={s}>
             <input type="radio" name="status" value={s} checked={data.status === s} onChange={() => setStatus(s)} />
@@ -165,21 +171,21 @@ export function LeadPanel() {
       </div>
 
       {!isMember && (
-        <label data-plan="DP-1.3-13">
+        <label data-plan="DP-1.3-13" className={css.field}>
           Owner
-          <select name="owner" value={data.owner_team_row ?? ''} onChange={e => setOwner(e.target.value)}>
-            <option value="" />
+          <select name="owner" value={data.owner_team_row ?? ''} onChange={e => setOwner(e.target.value)} data-empty={data.owner_team_row ? undefined : 'true'}>
+            <option value="">Unassigned</option>
             {[...names.team.entries()].map(([tid, name]) => <option key={tid} value={tid}>{name}</option>)}
           </select>
         </label>
       )}
       {ownerError && <p role="alert" data-plan="DP-1.3-25">{ownerError}</p>}
 
-      <dl data-plan="DP-1.3-14">
+      <dl data-plan="DP-1.3-14" className={css.answers}>
         {answers.map(a => (<div key={a.label}><dt>{a.label}</dt><dd>{a.value}</dd></div>))}
       </dl>
 
-      <form data-plan="DP-1.3-15" onSubmit={e => void addNote(e)}>
+      <form data-plan="DP-1.3-15" onSubmit={e => void addNote(e)} className={css.note}>
         <label>
           Add a note
           <textarea name="note" rows={3} value={note} onChange={e => setNote(e.target.value)} aria-invalid={over} />
@@ -189,7 +195,7 @@ export function LeadPanel() {
         {noteError && <p role="alert" data-plan="DP-1.3-24">{noteError}</p>}
       </form>
 
-      <ol data-plan="DP-1.3-16">
+      <ol data-plan="DP-1.3-16" className={css.timeline}>
         {lines.map((l, i) => (
           <li key={`${l.at}-${i}`}>
             <time dateTime={l.at}>{receivedWords(l.at)}</time> {l.who} <span data-plan="DP-1.3-22">{l.what}</span>
@@ -197,7 +203,7 @@ export function LeadPanel() {
         ))}
       </ol>
 
-      <div data-plan="DP-1.3-17">
+      <div data-plan="DP-1.3-17" className={css.consent}>
         <blockquote>{data.consent_text}</blockquote>
         {marketing?.text && <blockquote>{marketing.text}</blockquote>}
         <p data-plan="DP-1.3-23">{marketingLine(marketing)}</p>

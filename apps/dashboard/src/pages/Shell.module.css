@@ -1,0 +1,186 @@
+/* The shell: a left rail on laptop, a top line and a bottom bar on phone (B5). */
+
+.rail {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: var(--rail-w);
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--s-6) var(--s-4) var(--s-5);
+  gap: var(--s-2);
+}
+
+/* the business name */
+.nav > p {
+  padding: 0 var(--s-3) var(--s-5);
+  font-family: var(--font-head);
+  font-size: var(--text-lg);
+  line-height: var(--leading-head);
+  overflow-wrap: anywhere;
+}
+
+.nav > p strong {
+  font-weight: 600;
+}
+
+/* the workspace switcher */
+.nav > select {
+  margin: 0 0 var(--s-5);
+}
+
+.tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--s-3);
+  border-radius: var(--radius-control);
+  color: var(--ink-muted);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.tab:hover {
+  color: var(--ink);
+}
+
+.tab[aria-current='page'] {
+  background: var(--surface-quiet);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Sign out: quiet, at the foot of the rail */
+.nav > button:last-child {
+  margin-top: auto;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  text-align: left;
+  padding: 0 var(--s-3);
+}
+
+.nav > button:last-child:hover {
+  background: var(--surface-quiet);
+  color: var(--ink);
+}
+
+/* a screen with no shell around it: loading, unreachable, not found */
+.bare {
+  padding: var(--s-7) var(--gutter);
+}
+
+.main {
+  min-height: 100dvh;
+  margin-left: var(--rail-w);
+  padding: var(--s-7) var(--gutter) var(--s-8);
+}
+
+@media (max-width: 899px) {
+  .rail {
+    position: static;
+    width: auto;
+    border-right: 0;
+    background: transparent;
+  }
+
+  .nav {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: center;
+    height: auto;
+    padding: var(--s-3) var(--gutter) 0;
+    gap: var(--s-2) var(--s-4);
+  }
+
+  .nav > p {
+    padding: 0;
+    font-size: var(--text-md);
+  }
+
+  .nav > select {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin: 0;
+  }
+
+  /* Sign out leaves the screen's header: it sits in the bottom bar's last third, after the places */
+  .nav > button:last-child {
+    position: fixed;
+    right: 0;
+    bottom: env(safe-area-inset-bottom);
+    z-index: 11;
+    width: 33.34%;
+    height: var(--bar-h);
+    min-height: 0;
+    margin: 0;
+    border-radius: 0;
+    font-size: var(--text-md);
+    text-align: center;
+  }
+
+  .nav > button:last-child:hover {
+    background: transparent;
+  }
+
+  /* the bottom bar: the places, centred, text only */
+  .tabs {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    height: calc(var(--bar-h) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+    /* a solid strip of the page above the bar: text scrolling down meets it before the bar's line, never under the line */
+    box-shadow: 0 -12px 0 var(--page);
+  }
+
+  .tab {
+    position: relative;
+    justify-content: center;
+    min-height: 0;
+    height: var(--bar-h);
+    border-radius: 0;
+  }
+
+  .tab[aria-current='page'] {
+    background: transparent;
+  }
+
+  .tab::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 30%;
+    right: 30%;
+    height: 2px;
+    background: var(--ink);
+    transform: scaleX(0);
+    transition: transform var(--dur) var(--ease);
+  }
+
+  .tab[aria-current='page']::before {
+    transform: scaleX(1);
+  }
+
+  .main {
+    margin-left: 0;
+    /* room for the bottom bar and an action docked above it, so the end of every screen can be reached */
+    padding: var(--s-4) var(--gutter) calc(var(--bar-h) + env(safe-area-inset-bottom) + var(--control-h) + var(--s-6));
+  }
+}

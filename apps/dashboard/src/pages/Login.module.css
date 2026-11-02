@@ -1,0 +1,96 @@
+/* Sign in and the business picker: one card in the middle of the page (a sign-in panel is a thing that is centred). */
+
+.page {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: var(--s-6) var(--gutter);
+}
+
+.card {
+  composes: card from '../styles/controls.module.css';
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  width: min(100%, 440px);
+}
+
+/* the page's own messages (a bare main with a sentence and Sign out) */
+.page > p {
+  max-width: 440px;
+  margin-bottom: var(--s-4);
+}
+
+.card form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.card label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.card label input {
+  width: 100%;
+  color: var(--ink);
+  font-size: var(--text-md);
+}
+
+.go {
+  composes: primary from '../styles/controls.module.css';
+  width: 100%;
+}
+
+.quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.picker {
+  display: grid;
+}
+
+.picker li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: 'name open' 'role open';
+  align-items: center;
+  padding: var(--s-4) 0;
+  border-top: 1px solid var(--line);
+}
+
+.picker li > span:first-child {
+  grid-area: name;
+  font-weight: 600;
+}
+
+.picker li > span:nth-child(2) {
+  grid-area: role;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+  text-transform: capitalize;
+}
+
+.picker li > a {
+  grid-area: open;
+}
+
+@media (max-width: 899px) {
+  .page {
+    place-items: start stretch;
+    padding-top: var(--s-7);
+  }
+
+  .card {
+    width: 100%;
+    padding: var(--s-5);
+  }
+}

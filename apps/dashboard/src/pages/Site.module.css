@@ -1,0 +1,183 @@
+/* The Site screen: title, the state line with Open, and Publish (the screen's one primary action); under it the list of what
+   can be edited, in one card. An open item's editor sits beside the list on laptop and replaces it on phone. */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-5) var(--s-6);
+  align-items: start;
+}
+
+.layout:has(> section[aria-labelledby='editor-title']) {
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+}
+
+.layout:has(> section[aria-labelledby='editor-title']) > .top {
+  grid-column: 1 / -1;
+}
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3) var(--s-5);
+}
+
+.top h1 {
+  flex: 1 1 auto;
+}
+
+/* the state line: "Live since ..." with Open */
+.top > p[data-plan='DP-1.4-02'] {
+  flex-basis: 100%;
+  order: 3;
+  color: var(--ink-muted);
+}
+
+/* nothing to publish: a muted line where the Publish button stands when there are changes */
+.idle {
+  color: var(--ink-muted);
+}
+
+.top > p a {
+  margin-left: var(--s-2);
+  color: var(--ink);
+}
+
+.top [role='alert'] {
+  flex-basis: 100%;
+  order: 4;
+}
+
+.publish {
+  composes: primary from '../styles/controls.module.css';
+}
+
+/* while an item is open, its Save is the primary action and Publish steps back */
+.layout:has(> section[aria-labelledby='editor-title']) .publish:not(:disabled) {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.list {
+  composes: card from '../styles/controls.module.css';
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+}
+
+.group {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--s-2) var(--s-4);
+}
+
+.group > ul,
+.group > p {
+  grid-column: 1 / -1;
+}
+
+.group > p {
+  color: var(--ink-muted);
+}
+
+.group ul {
+  display: grid;
+}
+
+/* a row is one link: the whole row opens the item, "Edit" muted on the right, "changed" just before it */
+.group li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 48px;
+  margin: 0 calc(-1 * var(--s-3));
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--radius-control);
+}
+
+/* the divider runs from the text's first letter to the end of "Edit": inset by the row's padding, straight ends */
+.group li + li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--s-3);
+  right: var(--s-3);
+  height: 1px;
+  background: var(--line);
+}
+
+.group li:hover {
+  background: var(--surface-quiet);
+}
+
+.group li a {
+  display: contents;
+  text-decoration: none;
+}
+
+.group li a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.group li a > span {
+  order: 2;
+  margin-left: auto;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.group li mark {
+  order: 1;
+}
+
+.group li:has(a:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.group > a:only-child {
+  text-decoration: none;
+}
+
+/* "changed": a quiet word, not a badge */
+.group mark {
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.add {
+  justify-self: end;
+}
+
+@media (max-width: 899px) {
+  .layout:has(> section[aria-labelledby='editor-title']) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* on phone the open item is the screen: the list steps out */
+  .layout:has(> section[aria-labelledby='editor-title']) > .top,
+  .layout:has(> section[aria-labelledby='editor-title']) > .list {
+    display: none;
+  }
+
+  .top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .top > p[data-plan='DP-1.4-02'] {
+    order: 0;
+  }
+
+  .publish,
+  .idle {
+    order: 5;
+  }
+}

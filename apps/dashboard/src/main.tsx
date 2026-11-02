@@ -1,5 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { config } from './config';
+import './styles/tokens.css';
+import './styles/base.css';
 
 // No StrictMode on purpose: a sign-in link works once, and StrictMode runs effects twice in development.
 const root = createRoot(document.getElementById('root')!);

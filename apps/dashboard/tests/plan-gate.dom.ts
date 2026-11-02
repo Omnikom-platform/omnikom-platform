@@ -5,6 +5,12 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const PLAN_FILE = resolve(import.meta.dirname, '..', '..', '..', 'docs', 'blueprint', '16-DESIGN-PARTS.md');
+const BUILT_FILE = resolve(import.meta.dirname, '..', 'built-slices.json');
+
+/** The slices that are on screen, from built-slices.json (the same file the static gate reads). */
+export function builtSlices(): string[] {
+  return JSON.parse(readFileSync(BUILT_FILE, 'utf8')) as string[];
+}
 
 /** Every Id of the plan with its Slice, read from the plan file the flows run against. */
 export function planIds(): Map<string, string> {
@@ -22,7 +28,7 @@ export function planIds(): Map<string, string> {
  */
 export async function planProblems(page: Page, o: { required?: string[]; absent?: string[]; built?: string[] } = {}): Promise<string[]> {
   const plan = planIds();
-  const built = o.built ?? ['5.3', '5.4'];
+  const built = o.built ?? builtSlices();
   const found = await page.evaluate(() => {
     const out = { ids: [] as string[], bare: [] as string[], text: [] as string[], tells: [] as string[] };
     const INTERACTIVE = 'button, a[href], input:not([type=hidden]), select, textarea, form, dialog, details, summary, [role=button], [role=radio], [onclick]';

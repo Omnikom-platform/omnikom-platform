@@ -1,0 +1,311 @@
+/* The editor (and the field widgets of Widgets.tsx, styled from here: one stylesheet for the screen). A white card with the
+   item's title, its parts one under another (one open at a time), and a bar at the foot with Save, the screen's one primary
+   action while an item is open. */
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--card-pad);
+  border-radius: var(--radius);
+  background: var(--surface);
+  animation: editor-in var(--dur) var(--ease);
+}
+
+/* opacity only: a transform here would hold the phone's fixed Save bar inside the card while it runs */
+@keyframes editor-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.editor > h1 {
+  margin-bottom: var(--s-4);
+  overflow-wrap: anywhere;
+}
+
+/* a part: its title is the button that opens it */
+.part {
+  border-top: 1px solid var(--line);
+}
+
+.part > h2 button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 56px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-head);
+  font-size: var(--text-md);
+  font-weight: 600;
+  text-align: left;
+}
+
+.part > h2 button:hover {
+  background: transparent;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* "Open" / "Close", muted, on the right of the header row */
+.part > h2 button > span {
+  color: var(--ink-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+
+.part[data-open='true'] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  padding-bottom: var(--s-5);
+}
+
+/* a field: its label above the control, the counter or the problem under it */
+.part [data-path] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.part [data-path] > label,
+.part [data-path] legend,
+.part [data-path] fieldset label {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.part [data-path] :is(input:not([type='checkbox'], [type='radio'], [type='file']), select, textarea) {
+  width: 100%;
+  font-size: var(--text-md);
+}
+
+.part [data-path] textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.part [data-path] [data-over] {
+  align-self: flex-end;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.part [data-path] [data-over='true'] {
+  color: var(--on-alert);
+}
+
+.part fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.part fieldset legend {
+  margin-bottom: var(--s-2);
+  padding: 0;
+}
+
+.part fieldset[role='radiogroup'] label,
+.part [data-path] label:has(input[type='checkbox']) {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  color: var(--ink);
+  font-size: var(--text-md);
+}
+
+.part input[type='checkbox'],
+.part input[type='radio'] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+}
+
+/* a list of items: each item ruled off, with its Remove / Move buttons quiet at its foot */
+.part ol {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.part ol > li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4) 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.part [data-plan='DP-1.4-12'] > span,
+.part li > span[data-plan='DP-1.4-12'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.part fieldset > button {
+  align-self: flex-start;
+}
+
+/* the photo slot */
+.part [data-plan='DP-1.4-11'] img {
+  width: 160px;
+  height: auto;
+  border-radius: var(--radius-control);
+}
+
+.part [data-plan='DP-1.4-11'] > label:has(input[type='file']) {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h);
+  padding: 0 var(--s-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  color: var(--ink);
+  font-size: var(--text-md);
+  cursor: pointer;
+}
+
+.part [data-plan='DP-1.4-11'] input[type='file'] {
+  width: 0;
+  height: 0;
+  opacity: 0;
+}
+
+/* the search-result card: how the page reads in a result list */
+.part [data-plan='DP-1.4-16'] meter {
+  width: 100%;
+  height: 6px;
+}
+
+.part [data-plan='DP-1.4-16'] figure {
+  display: grid;
+  gap: var(--s-1);
+  padding: var(--s-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+.part [data-plan='DP-1.4-16'] figure p:first-child {
+  font-size: var(--text-lg);
+}
+
+.part [data-plan='DP-1.4-16'] figure p:nth-child(2) {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+/* a locked field or part: greyed, with its reason */
+.part [data-locked='true'] {
+  color: var(--ink-muted);
+}
+
+.part [data-locked='true'] :is(input, textarea, select):disabled {
+  border-color: var(--line);
+  background: var(--page);
+}
+
+/* the foot: Save, History, the saving state */
+.bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+  margin: 0 calc(-1 * var(--card-pad)) calc(-1 * var(--card-pad));
+  padding: var(--s-4) var(--card-pad);
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--surface);
+}
+
+.bar mark {
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.bar > p {
+  flex-basis: 100%;
+}
+
+.save {
+  composes: primary from '../styles/controls.module.css';
+}
+
+.history ol {
+  display: grid;
+}
+
+.history li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+  padding: var(--s-3) 0;
+  border-top: 1px solid var(--line);
+}
+
+.history time {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.history li button:first-of-type {
+  margin-left: auto;
+}
+
+.compare dl {
+  display: grid;
+  gap: var(--s-3);
+}
+
+.compare dd {
+  margin: 0;
+}
+
+.compare del {
+  color: var(--ink-muted);
+}
+
+.compare ins {
+  text-decoration: none;
+  font-weight: 600;
+}
+
+@media (max-width: 899px) {
+  .editor {
+    padding: 0;
+    background: transparent;
+  }
+
+  .bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--bar-h) + env(safe-area-inset-bottom));
+    z-index: 9;
+    margin: 0;
+    padding: var(--s-3) var(--gutter);
+    border-radius: 0;
+  }
+
+  .save {
+    width: auto;
+    flex: 1;
+  }
+
+  .editor {
+    padding-bottom: calc(var(--control-h) + var(--s-6));
+  }
+}

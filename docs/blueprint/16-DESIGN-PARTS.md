@@ -86,24 +86,24 @@ is a sign-in link sent by our own function once it sends email.
 |---|---|---|---|---|---|---|
 | DP-1.3-01 | 5.3 | Site switcher (only with 2+ sites) | pick | the list filters to that site; remembered per person | the list reloads in place | |
 | DP-1.3-02 | 5.3 | Filter: New / All / Mine / Spam | tap | list filter; "Mine" = assigned to me | count next to each | |
-| DP-1.3-03 | 5.3 | Search | type | matches name, email, phone as you type (after 2 characters) | the list narrows | |
+| DP-1.3-03 | 5.3 | Search | type | matches name, email, phone as you type (after 2 characters); the empty field shows the hint "Search" | the list narrows | |
 | DP-1.3-04 | 5.3 | Add a lead | click | the panel opens with the short form (1.3b) | | |
 | DP-1.3-05 | 5.3b | Export CSV (under the filter) | click | downloads what the list shows (what RLS returns) through `lead-export` | the file; an `exported` event | "Could not export. Try again." |
-| DP-1.3-06 | 5.3 | The list: one row per lead, newest first, columns received (today 09:12, yesterday, Mon), name, what they asked for (form in plain words), page, status, owner | tap a row | the panel opens | the panel | lead gone meanwhile: "This lead was removed." and the list refreshes |
+| DP-1.3-06 | 5.3 | The list: one row per lead, newest first, columns received (today 09:12, yesterday, Mon), name, what they asked for (form in plain words), page, status, owner | tap a row | the panel opens | the panel | an empty owner reads "Unassigned" (muted); lead gone meanwhile: "This lead was removed." and the list refreshes |
 | DP-1.3-07 | later | The row's "sent to CRM: ok / retrying / failed" (only with a CRM connected) | read | | | needs the CRM push (14-LEAD-PATH) |
 | DP-1.3-08 | 5.3b | Unread leads in bold; opening a lead marks it read (`lead-update` read) | | | the row loses bold | |
 | DP-1.3-09 | 5.3 | New lead arrives (realtime): a row at the top; the tab title shows "(1) Leads" | | | | offline: on reconnect the list refetches |
 | DP-1.3-10 | 5.3 | Empty state: "No leads yet. When a visitor sends a form it appears here and you get an email." with Add a lead | | | | |
 | DP-1.3-11 | 5.3 | Panel: name, then phone and email as tel: / mailto: links | tap | the phone app / mail app | | |
 | DP-1.3-12 | 5.3 | Panel: Status (new, contacted, qualified, closed, spam) | tap one of five | `lead-update`; event written | the status changes in the panel and the row; toast "Marked contacted. Undo" | server refuses: the old value comes back with "Could not save. Try again." |
-| DP-1.3-13 | 5.3 | Panel: Owner (owners and staff only) | pick a team member | `lead-update`; event | toast "Given to Agent Two. Undo" | an agent never sees this control |
+| DP-1.3-13 | 5.3 | Panel: Owner (owners and staff only) | pick a team member | `lead-update`; event | toast "Given to Agent Two. Undo" | an empty owner reads "Unassigned" (muted); an agent never sees this control |
 | DP-1.3-14 | 5.3 | Panel: the answers, each with its plain label from the form | read | | | |
 | DP-1.3-15 | 5.3 | Panel: Add a note (text box, Save) | type, Save | `lead-update` with the note | the note at the top of the timeline | too long: counter turns red at 2000 |
 | DP-1.3-16 | 5.3 | Panel: the timeline (live): one line per event with time, who, what | read | | | |
 | DP-1.3-17 | 5.3 | Panel: consent: the exact wording the person saw, and whether they ticked marketing | read | | | |
 | DP-1.3-18 | later | Panel: Resend to CRM (only after a failed push) | click | queues a push; event `resent` | "Sending again" then the result in the timeline | needs the CRM push |
 | DP-1.3-19 | later | Panel: Delete (owner only, under a menu, confirm sheet) | click | soft delete + `deleted` event; export offered first | toast "Removed. Undo for 10 s" | needs a delete function (`service.delete_lead` exists) |
-| DP-1.3-20 | 5.3 | Panel: close (X, Esc; Back on phone) | tap | the panel closes; the list keeps its scroll | | |
+| DP-1.3-20 | 5.3 | Panel: close (Close, Esc; Back on phone) | tap | the panel closes; the list keeps its scroll | | |
 | DP-1.3-21 | 5.3 | No match: "No leads match this filter." with "Show all" (filter All, search cleared) | tap | | | |
 | DP-1.3-22 | 5.3 | The timeline wording, one line per event kind: received "Received from <page>" or "Added by hand by <who>"; alert-sent "Alert sent"; alert-failed "An alert could not be sent"; pushed "Sent to the CRM"; push-failed "Could not send to the CRM"; status "Status: <old> to <new>"; assigned "Given to <name>"; note "Note: <text>"; resent "Sending to the CRM again"; exported "Exported to a CSV file"; deleted "Removed". Who: the team member's name, else the login's email | read | | | |
 | DP-1.3-23 | 5.3 | Consent when the form did not ask about marketing: "Marketing: not asked on this form." ; when asked: "Marketing: yes" or "Marketing: no" | read | | | |
@@ -120,7 +120,7 @@ is a sign-in link sent by our own function once it sends email.
 | DP-1.3b-05 | 5.3 | What about: the website's own form choices from the contract (Home value, Buy, Sell, Cash offer, Other for a realtor) | from the contract, never typed into the app |
 | DP-1.3b-06 | 5.3 | Notes | text, 2000 |
 | DP-1.3b-07 | 5.3 | The consent tick "The person agreed to be contacted" | required; stored as the consent text with the date |
-| DP-1.3b-08 | 5.3 | Owner (owners only; an agent's lead is always their own) | a team member |
+| DP-1.3b-08 | 5.3 | Owner (owners only; an agent's lead is always their own; the empty choice reads "Unassigned", muted) | a team member |
 | DP-1.3b-09 | 5.3 | Save (primary) | `add-lead` (`service.add_lead`); the lead appears at the top with form "Added by hand"; toast "Lead added. Open"; a failure is a field error in plain words |
 | DP-1.3b-10 | 5.3 | Messages: no name, phone or email: "Enter a name, a phone or an email."; the tick not ticked: "Tick this to confirm the person agreed to be contacted."; the save refused: "Could not save. Try again." (or the function's own plain message) | under the field, or under Save |
 Design parts: the row (laptop and phone), the bold-unread rule, the panel header (name, phone, email as links), the five-state
@@ -135,11 +135,11 @@ and you get an email."), the spam state, the "Add a lead" form (1.3b), the expor
 | DP-1.4-01 | 5.4 | Site switcher | pick | the list and editor change to that site | | |
 | DP-1.4-02 | 5.4 | State line: "Preview, not live yet" or "Live, last published Tue 14:02 by Agent One" with Open | read, click Open | the site in a new tab | | |
 | DP-1.4-03 | later | Search card (live sites): clicks and impressions 28 days, PageSpeed phone and desktop with the date | read | | | needs the metrics pull |
-| DP-1.4-04 | 5.4 | Publish N changes (the count from `drafts`) | click | the publish sheet (1.4c) | | nothing to publish: disabled, "Nothing to publish" |
-| DP-1.4-05 | 5.4 | List: Pages, with the changed mark on pages that have drafts | tap a page | the editor opens on that page | | |
-| DP-1.4-06 | 5.4 | List: the client's own collections from the contract (Listings, Articles, Team, Reviews, Questions...) with Add | tap an item or Add | the item editor | | an agent sees Add only on collections marked `own` |
+| DP-1.4-04 | 5.4 | Publish N changes (the count from `drafts`; one change reads "Publish 1 change") | click | the publish sheet (1.4c) | | nothing to publish: no button; the muted line "Nothing to publish" in its place |
+| DP-1.4-05 | 5.4 | List: Pages, with the changed mark on pages that have drafts; each row says "Edit" | tap a page | the editor opens on that page | | |
+| DP-1.4-06 | 5.4 | List: the client's own collections from the contract (Listings, Articles, Team, Reviews, Questions...) with Add; each row says "Edit" | tap an item or Add | the item editor | | an agent sees Add only on collections marked `own` |
 | DP-1.4-07 | 5.4 | List: Business details | tap | the editor with the settings fields; locked ones greyed with the reason | | |
-| DP-1.4-08 | 5.4 | Editor: a section card | tap | expands to its fields; one section open at a time | | |
+| DP-1.4-08 | 5.4 | Editor: a section card; its header row says "Open" or "Close" | tap | expands to its fields; one section open at a time | | |
 | DP-1.4-09 | 5.4 | Editor: a text field with its counter ("17 of 70") | type | the counter; the live preview (1.5) updates once 5.5 is built | | over the limit: counter red, Save disabled with "Title is too long" |
 | DP-1.4-10 | 5.4 | Editor: long text | type | the same | | |
 | DP-1.4-11 | 5.4 | Editor: photo slot (drop or choose, alt text, rights tick, "Preparing sizes") | drop | `upload-start`, `upload-finish`; processing in the background | the photo, then ready | too small: "This photo is 900 px wide; this spot needs 1600."; wrong type: "Use a JPG, PNG or WebP." |
@@ -159,7 +159,7 @@ and you get an email."), the spam state, the "Add a lead" form (1.3b), the expor
 | Id | Slice | Element | What it does |
 |---|---|---|---|
 | DP-1.4c-01 | 5.4 | The change list (page or item, who, when) | from `drafts` |
-| DP-1.4c-02 | 5.4 | "Publish these N changes to <site>?" with Cancel and Publish | `publish` with the pinned versions |
+| DP-1.4c-02 | 5.4 | "Publish these N changes to <site>?" ("Publish this change to <site>?" for one) with Cancel and Publish | `publish` with the pinned versions |
 | DP-1.4c-03 | 5.4 | The progress list, one line per step as it finishes: Building the site, Checking (one line per check in plain words), Putting it live, "Live since 14:02. Open" | live from `publish_jobs` and its events |
 | DP-1.4c-04 | 5.4 | A failed check: the list stops at that line with Fix (opens the field) and one sentence: nothing went live | from the gate report |
 | DP-1.4c-05 | 5.4 | The Publish button while a job runs: "Publishing" with the step; a toast at the end even on another screen | |

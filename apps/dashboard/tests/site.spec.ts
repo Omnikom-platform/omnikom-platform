@@ -126,9 +126,9 @@ test.describe('the owner\'s Site screen', () => {
     try {
       await page.goto(`/w/${WS.a.slug}/site`);
       await expect(page.getByRole('link', { name: `5.4 flows ${RUN} invalid` })).toBeVisible();
-      await page.getByRole('button', { name: /^Publish \d+ changes$/ }).click();
+      await page.getByRole('button', { name: /^Publish \d+ changes?$/ }).click();
       const sheet = page.getByRole('dialog');
-      await expect(sheet.getByRole('heading')).toContainText(/^Publish these \d+ changes to /);
+      await expect(sheet.getByRole('heading')).toContainText(/^Publish (these \d+ changes|this change) to /);
       await expect(sheet.getByRole('listitem').filter({ hasText: `5.4 flows ${RUN} invalid` })).toBeVisible();
       await ok(page, { required: ['DP-1.4c-01', 'DP-1.4c-02'] });
       await sheet.getByRole('button', { name: 'Publish', exact: true }).click();
@@ -158,7 +158,7 @@ test.describe('the owner\'s Site screen', () => {
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByRole('status')).toContainText('Saved');
     // the contact page and the one row the reset keeps (Agent Two, member-a2's team row) are waiting
-    await page.getByRole('button', { name: /^Publish \d+ changes$/ }).click({ timeout: 30_000 });
+    await page.getByRole('button', { name: /^Publish \d+ changes?$/ }).click({ timeout: 30_000 });
     const sheet = page.getByRole('dialog');
     await sheet.getByRole('button', { name: 'Publish', exact: true }).click({ timeout: 30_000 });
     await expect(sheet.getByText(/Building the site|Nothing went live/)).toBeVisible({ timeout: 120_000 });

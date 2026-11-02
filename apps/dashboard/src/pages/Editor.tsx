@@ -11,6 +11,7 @@ import {
   type Change, type Path,
 } from '../lib/site';
 import { t } from '../plan';
+import css from './Editor.module.css';
 import { useSiteValue } from '../site-context';
 import { UNDO, useToast } from '../toast';
 import { useWorkspaceValue } from '../workspace-context';
@@ -193,14 +194,14 @@ function EditorBody({ collection, row, current }: { collection: string; row: str
   const saveDisabled = !dirty || busy || over.length > 0;
 
   return (
-    <section aria-labelledby="editor-title">
+    <section aria-labelledby="editor-title" className={css.editor}>
       {collection === 'pages' ? <h1 id="editor-title" data-plan="DP-1.4-05">{title}</h1> : <h1 id="editor-title" data-plan="DP-1.4-06">{title}</h1>}
 
       {cards.map(c => {
         const isOpen = c.id === openId;
         return (
-          <section key={c.id} data-plan="DP-1.4-08" data-open={isOpen ? 'true' : 'false'}>
-            <h2><button type="button" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? '-' : c.id)}>{c.title}</button></h2>
+          <section key={c.id} className={css.part} data-plan="DP-1.4-08" data-open={isOpen ? 'true' : 'false'}>
+            <h2><button type="button" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? '-' : c.id)}>{c.title}<span aria-hidden="true">{isOpen ? 'Close' : 'Open'}</span></button></h2>
             {isOpen && c.kind === 'fields' && c.fields.map(f => (
               <FieldWidget key={pathKey(f.path)} name={f.name} def={f.def} path={f.path} value={dataAt(data, f.path)} onChange={change} ctx={ctx} />
             ))}
@@ -214,8 +215,8 @@ function EditorBody({ collection, row, current }: { collection: string; row: str
         );
       })}
 
-      <div data-plan="DP-1.4-17" data-saving={busy ? 'true' : 'false'}>
-        <button type="button" disabled={saveDisabled} onClick={() => void save()}>Save</button>
+      <div data-plan="DP-1.4-17" data-saving={busy ? 'true' : 'false'} className={css.bar}>
+        <button type="button" disabled={saveDisabled} onClick={() => void save()} className={css.save}>Save</button>
         <button type="button" data-plan="DP-1.4-19" aria-expanded={showHistory} onClick={() => { setShowHistory(s => !s); setCompare(null); }}>History</button>
         {rowId && drafts.some(d => d.row === rowId) && <mark data-plan="DP-1.4-17">changed</mark>}
         {offline && <p role="status" data-plan="DP-1.4-17">Not saved yet, retrying</p>}
@@ -230,7 +231,7 @@ function EditorBody({ collection, row, current }: { collection: string; row: str
       {compare && <Changes changes={compare} />}
 
       {showHistory && (
-        <div data-plan="DP-1.4-19">
+        <div data-plan="DP-1.4-19" className={css.history}>
           <ol>
             {(versions.data ?? []).map((v, i) => (
               <li key={v.n}>
@@ -251,7 +252,7 @@ const dataAt = (data: Record<string, unknown>, path: Path): unknown => path.redu
 /** Compare (DP-1.4-19): each field that differs, with the two values. The plan gives no heading words for it, so it is the labels and the values only. */
 function Changes({ changes }: { changes: Change[] }) {
   return (
-    <div data-plan="DP-1.4-19">
+    <div data-plan="DP-1.4-19" className={css.compare}>
       <dl>
         {changes.map(c => (
           <div key={c.path}>

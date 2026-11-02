@@ -1,0 +1,56 @@
+/* The toast: the outcome of an action, at the foot of the screen, above the phone's bottom bar. */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: var(--s-6);
+  z-index: 30;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast > p {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: var(--control-h);
+  padding: var(--s-2) var(--s-2) var(--s-2) var(--s-5);
+  border-radius: var(--radius-control);
+  background: var(--ink);
+  color: var(--on-action);
+  pointer-events: auto;
+  animation: toast-in var(--dur) var(--ease);
+}
+
+.toast > p:not(:has(button)) {
+  padding-right: var(--s-5);
+}
+
+.toast button {
+  border: 0;
+  background: transparent;
+  color: var(--on-action);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.toast button:hover {
+  background: transparent;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (max-width: 899px) {
+  .toast {
+    left: var(--gutter);
+    right: var(--gutter);
+    bottom: calc(var(--bar-h) + env(safe-area-inset-bottom) + var(--s-3));
+    transform: none;
+  }
+}

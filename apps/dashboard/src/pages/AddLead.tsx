@@ -9,6 +9,8 @@ import { activeSiteId, storedSite } from '../site-choice';
 import { t } from '../plan';
 import { useToast } from '../toast';
 import { PanelClose } from './LeadPanel';
+import { useWide } from '../hooks';
+import css from './Panel.module.css';
 
 const REACHED = [t('DP-1.3b-04', 'Call'), t('DP-1.3b-04', 'Walk-in'), t('DP-1.3b-04', 'Referral'), t('DP-1.3b-04', 'Other')];
 const OTHER = t('DP-1.3b-05', 'Other');
@@ -27,6 +29,7 @@ export function AddLead() {
   const me = useMe(workspace.id, userId);
   const team = useTeam(workspace.id);
   const sites = useSites(workspace.id);
+  const Title = useWide() ? 'h2' : 'h1';
   const forms = useContractForms(workspace.id);
 
   const [name, setName] = useState('');
@@ -78,9 +81,10 @@ export function AddLead() {
   }
 
   return (
-    <section>
+    <section className={css.panel}>
       <PanelClose />
-      <form data-plan="DP-1.3b-09" onSubmit={e => void submit(e)}>
+      <Title data-plan="DP-1.3-04">Add a lead</Title>
+      <form data-plan="DP-1.3b-09" onSubmit={e => void submit(e)} className={css.form}>
         <label data-plan="DP-1.3b-01">Name <input type="text" name="name" autoComplete="off" maxLength={120} value={name} onChange={e => setName(e.target.value)} /></label>
         <label data-plan="DP-1.3b-02">Phone <input type="tel" name="phone" autoComplete="off" maxLength={40} value={phone} onChange={e => setPhone(e.target.value)} /></label>
         <label data-plan="DP-1.3b-03">Email <input type="email" name="email" autoComplete="off" maxLength={320} value={email} onChange={e => setEmail(e.target.value)} /></label>
@@ -101,8 +105,8 @@ export function AddLead() {
         {canPickOwner && (
           <label data-plan="DP-1.3b-08">
             Owner
-            <select name="owner" value={owner} onChange={e => setOwner(e.target.value)}>
-              <option value="" />
+            <select name="owner" value={owner} onChange={e => setOwner(e.target.value)} data-empty={owner ? undefined : 'true'}>
+              <option value="">Unassigned</option>
               {[...(team.data?.names ?? new Map<string, string>()).entries()].map(([tid, n]) => <option key={tid} value={tid}>{n}</option>)}
             </select>
           </label>
@@ -112,7 +116,7 @@ export function AddLead() {
           {CONSENT}
         </label>
         {consentError && <p role="alert" data-plan="DP-1.3b-10">Tick this to confirm the person agreed to be contacted.</p>}
-        <button type="submit" data-plan="DP-1.3b-09" disabled={busy || !siteId}>{busy ? t('DP-1.2s-10', 'Saving') : 'Save'}</button>
+        <button type="submit" data-plan="DP-1.3b-09" disabled={busy || !siteId} className={css.save}>{busy ? t('DP-1.2s-10', 'Saving') : 'Save'}</button>
         {error && <p role="alert" data-plan="DP-1.3b-10">{error}</p>}
       </form>
     </section>
