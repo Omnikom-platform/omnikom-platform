@@ -272,7 +272,7 @@ const MUTANTS = [
   ["land lock: the release has no lease (somebody else's lock gets deleted)", "commands/land.mjs", "['push', `--force-with-lease=${LOCK_REF}:${lockSha}`, remote,", "['push', '--force', remote,", 'unit'],
   ["land lock: the lock is a plain push of the lock but the holder is not read", "commands/land.mjs", "const m = /^land-lock: (\\S+) (\\S+) by (.+) at (\\S+)\\s*$/.exec(msg.join('\\n').trim());", "const m = null;", 'unit'],
   ["hooks: the land queue ref is refused", "commands/hooks.mjs", "if (ref === LOCK_REF) return { allowed: true,", "if (false) return { allowed: true,", 'unit'],
-  ["cluster guard: the sweep of dead owners is off", "test/harness.mjs", "  sweepClusters({ markerDir, run, alive });\n", "", 'unit'],
+  ["cluster guard: the sweep of dead owners is off", "test/harness.mjs", "  sweepClusters({ markerDir, run, alive, remove });\n", "", 'unit'],
   ["cluster guard: the sweep also stops a live owner's cluster", "test/harness.mjs", "    if (alive(info.pid)) continue;\n", "", 'unit'],
   ["cluster guard: a planted marker can aim the sweep at any folder", "test/harness.mjs", "if (!ours(info.dir)) {", "if (false) {", 'unit'],
   ["cluster guard: a normal stop leaves its marker", "test/harness.mjs", "    rmSync(marker, { force: true });\n  };", "  };", 'unit'],
