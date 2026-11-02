@@ -8,16 +8,16 @@ department (`docs/departments/seo-and-audits.md`). The CLI department wraps it a
 ```js
 import { audit, listRules } from "./tools/audit/index.mjs";
 
-const r = audit("path/to/built/site", { rules: ["MET-003", "MET-001"], config: { titleLength: { hardMax: 65 } } });
+const r = audit("path/to/built/site", { target: "production", rules: ["MET-003", "MET-001"], config: { titleLength: { hardMax: 65 } } });
 // r = { dir, pages: ["/", "/about/"], rules: [{ id, severity, source }], findings: [...], lines: [...], pass: boolean, exit: 0 | 1 }
 // r.findings[i] = { rule, page, line, what, status: "FAIL" | "WARN" | "SKIP" }
 console.log(r.lines.join("\n"));
 process.exit(r.exit);
 ```
 - `audit(dir, options)` is synchronous. `options.rules` (array of ids, any case) limits the run; `options.config` overrides the length and
-  speed numbers; `options.psi` is the path of a PageSpeed Insights file (see PRF-001). `options.target` is `"preview"` or `"production"` (slice 4c, see ENV-001; no default). `options.promptCoverage` is the path of the plan's coverage file (slice 5c, see PMP-001; no default, never searched for). `r.mode` is `"static"` or `"snapshot"`, `r.target` the target judged or `null`.
+  speed numbers; `options.psi` is the path of a PageSpeed Insights file (see PRF-001). `options.target` is `"preview"` or `"production"` (slice 4c, see ENV-001; no default). **A built folder needs it** (slice 4c flip, `REQUIRE_TARGET_FOR_FOLDER = true`): a folder call with no `target` throws an `AuditError` (exit 2); a snapshot never needs one. `options.promptCoverage` is the path of the plan's coverage file (slice 5c, see PMP-001; no default, never searched for). `r.mode` is `"static"` or `"snapshot"`, `r.target` the target judged (`null` only for a snapshot run with none).
 - It throws an `AuditError` with `.exit === 2` for a usage or configuration error: a missing folder, an unknown rule id, an empty `rules` list or an empty-string id (`no such rule: ""`; `rules` omitted or `null` runs every rule), a length config that
-  breaks WCF-004 (`warnMin < warnMax <= hardMax`), a `target` that is not `"preview"` or `"production"` (an empty string included), a `promptCoverage` file that is missing, not JSON or the wrong shape. A wrapper prints `error.message` and exits 2.
+  breaks WCF-004 (`warnMin < warnMax <= hardMax`), a built folder with no `target`, a `target` that is not `"preview"` or `"production"` (an empty string included), a `promptCoverage` file that is missing, not JSON or the wrong shape. A wrapper prints `error.message` and exits 2.
 - `import` itself throws (also `.exit === 2`) when a check file has no `rules/<ID>.md` or is malformed: `checks admitted only with a source`.
 - `listRules()` returns `[{ id, severity, source, notCovered }]`.
 - Config defaults (shipgate spec 8.0.0 web-delivery): `titleLength { warnMin 30, warnMax 60, hardMax 70 }`,
@@ -30,7 +30,7 @@ process.exit(r.exit);
 ```
 node tools/audit/run.mjs <folder> [--json] [--only MET-003,MET-001] [--psi FILE] [--target preview|production] [--prompt-coverage FILE] [--list]
 ```
-- `--target preview|production` says which kind of build is judged (slice 4c; see "The build target" below). Anything else, or no value, exits 2.
+- `--target preview|production` says which kind of build is judged (slice 4c; see "The build target" below). A built folder needs it: with none the run exits 2 naming `--target` and prints no line (slice 4c flip); a snapshot (`live.mjs`) does not. Anything else, or no value, exits 2.
 - `--prompt-coverage FILE` names the plan's `plan/prompt-coverage.json` (slice 5c; see "The prompt map" below). A missing file, bad JSON or the wrong shape exits 2; no value exits 2.
 - `--psi FILE` names a `psi/<date>.json` written by the skill's `psi.mjs` (only a snapshot uses it; a missing or malformed file exits 2).
 - Prints the `lines`; `--json` prints the `audit()` object and nothing else; `--only` limits the rules; `--list` prints every rule with
@@ -122,11 +122,9 @@ know which kind of build it judges. The target is given, never guessed: `audit(d
   cannot be matched exactly, such as a host pattern, is not judged). `lib/headers.mjs` reads the file.
 - `target: "production"`: a header noindex feeds `page.noindex`, so IDX-001 and every rule that skips non-indexable pages judge what Google will see.
 - `target: "preview"`: the header noindex is expected and does NOT feed `page.noindex` (the other rules judge the site as it will be in production); a meta robots noindex still does.
-- no target: a snapshot feeds the header into `page.noindex` (it is what the live site says); a built folder ignores `_headers`. **a run with no target prints one `SKIP ENV-001 / no --target ...`
+- no target: a snapshot feeds the header into `page.noindex` (it is what the live site says). **A built folder with no target is a usage error (exit 2) since the slice 4c flip; a snapshot run with no target prints one `SKIP ENV-001 / no --target ...`
   line and judges no indexing** (head of operations, 2026-11-01, final: a check that did not run is never silent; the subject is the site-wide `/`, in folder mode and in
-  snapshot mode). A preview with no noindex, or a production build with the preview's header, therefore passes the other rules. That lasts only until the factory and the CLI
-  pass a target; after that the head turns "no target for a folder" into a usage error with ONE line: `export const REQUIRE_TARGET_FOR_FOLDER = false;` in `index.mjs` (set it to `true`;
-  a snapshot is never refused). A test runs a copy of the engine with the switch on.
+  snapshot mode). A snapshot of a preview with no noindex, or of a production site with the preview's header, therefore passes the other rules. The factory runner and the CLI pass a target, so the head set the ONE line `export const REQUIRE_TARGET_FOR_FOLDER = true;` in `index.mjs` (slice 4c flip; a snapshot is never refused). A test runs the engine with no target on a folder (exit 2) and a mutant sets the line back to `false`.
 - ENV-001 (P0, `rules/ENV-001.md`): preview, every HTML page carries noindex (header or meta); production, no HTML page carries a header noindex. Each finding names the page,
   the source of the noindex (`_headers` line and pattern, or the response header) and the target. A folder's root `404.html` is out of scope.
 - Fixtures: `bad-ENV-001-preview`, `bad-ENV-001-production` (also an IDX-001 FAIL, so it lists both with `multi`), `snapshot-bad-IDX-001-header`, and `good-preview`
@@ -202,14 +200,14 @@ All P1; DSN-010 and DSN-011 print WARN (the exit stays 0), the other nine print 
 node tools/audit/test/run.mjs      ends "OK: N of N checks passed", exit 0
 node tools/audit/test/mutate.mjs   ends "N mutants, N caught, 0 survived, 0 not run, 0 target text missing", exit 0  (not run = the child was killed, exit null; exit 1)
 (`MUTATE_JOBS` mutants run at once, default 4; `MUTATE_TIMEOUT_S` raises the 180 s limit on a loaded machine; `MUTATE_ONLY=<regex>` runs only the mutants whose name matches; `MUTATE_FIRST=<regex>` starts those first. Temp folders: each run keeps all of them under one `omnikom-audit-run-*` root (in `OMNIKOM_AUDIT_TMP` if set, else the system temp folder) and removes it at the end, on a red check under FAILFAST, and on SIGINT/SIGTERM; `test/mutate.mjs` does the same with `omnikom-audit-mutate-*` and runs each child inside its own copy; a test in `test/run.mjs` fails if a killed mutant run leaves a folder.)
-node tools/audit/run.mjs tools/audit/fixtures/good              every line PASS but one `SKIP ENV-001 / no --target` and one `SKIP PMP-001 / no --prompt-coverage` line, exit 0
+node tools/audit/run.mjs tools/audit/fixtures/good              exit 2, stderr names `--target`, nothing on stdout (a built folder needs its target)
 node tools/audit/run.mjs tools/audit/fixtures/good --target production            every line PASS but the one `SKIP PMP-001` line, exit 0
-node tools/audit/run.mjs tools/audit/fixtures/good-coverage --prompt-coverage tools/audit/fixtures/good-coverage/plan/prompt-coverage.json   0 FAIL, four PASS PMP-001 lines, exit 0
-node tools/audit/run.mjs tools/audit/fixtures/bad-PMP-001-uncovered --prompt-coverage tools/audit/fixtures/bad-PMP-001-uncovered/plan/prompt-coverage.json   a FAIL PMP-001 line naming the row id, exit 1
+node tools/audit/run.mjs tools/audit/fixtures/good-coverage --prompt-coverage tools/audit/fixtures/good-coverage/plan/prompt-coverage.json --target production   0 FAIL, four PASS PMP-001 lines, exit 0
+node tools/audit/run.mjs tools/audit/fixtures/bad-PMP-001-uncovered --prompt-coverage tools/audit/fixtures/bad-PMP-001-uncovered/plan/prompt-coverage.json --target production   a FAIL PMP-001 line naming the row id, exit 1
 node tools/audit/run.mjs tools/audit/fixtures/good-preview --target preview       every line PASS but the one `SKIP PMP-001` line, exit 0
-node tools/audit/run.mjs tools/audit/fixtures/bad-MET-003       a FAIL MET-003 line with file:line and source, exit 1
+node tools/audit/run.mjs tools/audit/fixtures/bad-MET-003 --target production       a FAIL MET-003 line with file:line and source, exit 1
 node tools/audit/run.mjs tools/audit/fixtures/snapshot-good     every line PASS but one `SKIP ENV-001 / no --target` and one `SKIP PMP-001 / no --prompt-coverage` line, exit 0
 node tools/audit/run.mjs tools/audit/fixtures/snapshot-bad-PRF-001   a FAIL PRF-001 line (LCP 3100 ms > 2500 ms) with source, exit 1
-node tools/audit/run.mjs tools/audit/fixtures/bad-DSN           a FAIL or WARN line for each of DSN-001 to DSN-011, exit 1
+node tools/audit/run.mjs tools/audit/fixtures/bad-DSN --target production           a FAIL or WARN line for each of DSN-001 to DSN-011, exit 1
 ```
 No file in this folder may contain the em dash character. Fixtures are synthetic (an invented tea shop); no client folder is a test vehicle.

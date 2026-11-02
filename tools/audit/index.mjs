@@ -13,7 +13,7 @@ const SEVERITIES = new Set(["P0", "P1", "P2", "W"]);
 export const TARGETS = ["preview", "production"];
 // Slice 4c: a built folder may be audited with no target (ENV-001 then says SKIP, "no --target"). The head sets this to true, ONE LINE, once the
 // factory passes a target: a folder with no target is then a usage error (exit 2). A snapshot (a live site) is never refused for it.
-export const REQUIRE_TARGET_FOR_FOLDER = false;
+export const REQUIRE_TARGET_FOR_FOLDER = true;
 
 // An error with an exit code: 2 = usage or configuration error (the runner prints the message and exits with it).
 export class AuditError extends Error { constructor(message, exit = 2) { super(message); this.exit = exit; } }

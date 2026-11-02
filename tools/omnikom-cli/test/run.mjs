@@ -342,28 +342,30 @@ async function units() {
   const engine = await import(pathToFileURL(join(REPO_ROOT, 'tools', 'audit', 'index.mjs')).href);
   const out = x => x.stdout.split('\n').filter(Boolean);
   const FAIL_LINE = 'FAIL MET-003 /tasting-room/:48 ';
-  const engineGood = engine.audit(GOOD), engineBad = engine.audit(BAD);
+  // slice 4c flip: a built folder run names its target (the engine refuses one with none), so the runs that are not about the target pass production
+  const TP = ['--target', 'production'];
+  const engineGood = engine.audit(GOOD, { target: 'production' }), engineBad = engine.audit(BAD, { target: 'production' });
   // the counts come from the engine, not from a literal: the SEO department adds rules to tools/audit without touching this file (17 on 2026-10-31, 14 the day before)
   const NP = engineGood.pages.length, NR = engineGood.rules.length;
-  r = await cli(['audit', '--dir', GOOD], {});
+  r = await cli(['audit', '--dir', GOOD, ...TP], {});
   check('audit: the good site exits 0, every line but the summary starts with PASS, the summary counts the engine\'s pages and rules and 0 FAIL',
-    r.exit === 0 && out(r).slice(0, -1).every(l => l.startsWith('PASS ') || l.startsWith('SKIP ENV-001 / no --target') || l.startsWith('SKIP PMP-001 / no --prompt-coverage')) && out(r).filter(l => l.startsWith('SKIP ENV-001 / no --target')).length === 1 && out(r).filter(l => l.startsWith('SKIP PMP-001 / no --prompt-coverage')).length === 1 && out(r).length > 1 && out(r).at(-1).startsWith(`audit: ${NP} pages, ${NR} rules, 0 FAIL`), r.all.slice(-200));
+    r.exit === 0 && out(r).slice(0, -1).every(l => l.startsWith('PASS ') || l.startsWith('SKIP PMP-001 / no --prompt-coverage')) && out(r).filter(l => l.startsWith('SKIP PMP-001 / no --prompt-coverage')).length === 1 && out(r).length > 1 && out(r).at(-1).startsWith(`audit: ${NP} pages, ${NR} rules, 0 FAIL`), r.all.slice(-200));
   check('audit: text mode prints no JSON object and nothing on stderr', !r.stdout.trimStart().startsWith('{') && r.stderr === '');
-  r = await cli(['audit', '--dir', BAD], {});
+  r = await cli(['audit', '--dir', BAD, ...TP], {});
   check('audit: the bad site exits 1 and its lines (minus the summary) are the engine\'s lines, identical and in order',
     r.exit === 1 && JSON.stringify(out(r).slice(0, -1)) === JSON.stringify(engineBad.lines) && engineBad.lines.some(l => l.startsWith('FAIL ')), r.all.slice(-300));
-  check('audit: the last line counts the FAIL', out(r).at(-1) === `audit: ${NP} pages, ${NR} rules, 1 FAIL, 0 WARN, 2 SKIP`, out(r).at(-1));
-  r = await cli(['audit', '--dir', BAD, '--only', 'MET-003'], {});
+  check('audit: the last line counts the FAIL', out(r).at(-1) === `audit: ${NP} pages, ${NR} rules, 1 FAIL, 0 WARN, 1 SKIP`, out(r).at(-1));
+  r = await cli(['audit', '--dir', BAD, '--only', 'MET-003', ...TP], {});
   check('audit --only MET-003 prints the one FAIL MET-003 line with its source',
     r.exit === 1 && out(r).filter(l => l.startsWith('FAIL ')).length === 1 && out(r).some(l => l.startsWith(FAIL_LINE) && l.endsWith('(source: checklist/web-delivery.md MET-003)')) && out(r).slice(0, -1).every(l => l.includes(' MET-003 ')), r.all.slice(-300));
-  r = await cli(['audit', '--dir', BAD, '--only', ' MET-003 , ,met-003'], {});
+  r = await cli(['audit', '--dir', BAD, '--only', ' MET-003 , ,met-003', ...TP], {});
   check('audit --only: ids are split on commas, trimmed, empty ones dropped', r.exit === 1 && out(r).slice(0, -1).every(l => l.includes(' MET-003 ')) && out(r).at(-1).startsWith(`audit: ${NP} pages, 1 rules`), r.all.slice(-200));
-  r = await cli(['audit', '--dir', relative(process.cwd(), GOOD)], {});
+  r = await cli(['audit', '--dir', relative(process.cwd(), GOOD), ...TP], {});
   check('audit: --dir is resolved against the current working directory', r.exit === 0 && out(r).at(-1).startsWith(`audit: ${NP} pages`), r.all.slice(-200));
-  r = await cli(['gate', '--dir', BAD], {});
+  r = await cli(['gate', '--dir', BAD, ...TP], {});
   check('gate: the bad site exits 1; first line GATE FAIL 1 finding(s), then the engine\'s FAIL line unchanged, nothing else',
     r.exit === 1 && out(r).length === 2 && out(r)[0] === 'GATE FAIL 1 finding(s)' && out(r)[1] === engineBad.lines.find(l => l.startsWith('FAIL ')) && out(r)[1].startsWith(FAIL_LINE), r.all.slice(-300));
-  r = await cli(['gate', '--dir', GOOD], {});
+  r = await cli(['gate', '--dir', GOOD, ...TP], {});
   check('gate: the good site exits 0 with the one line GATE PASS <pages> pages, <rules> rules', r.exit === 0 && r.stdout === `GATE PASS ${NP} pages, ${NR} rules\n`, r.all.slice(-200));
   r = await cli(['gate'], {});
   check('gate without --dir exits 2 (no default to the current folder)', r.exit === 2 && r.stdout.startsWith('ERROR ') && r.stdout.includes('--dir'), r.all);
@@ -410,13 +412,13 @@ async function units() {
   }
   r = await cli(['gate', '--dir', GOOD], {}, { auditLib: { audit: () => ({ pass: false, lines: ['WARN X /a:1 y (source: z)'], pages: ['/'], rules: [{ id: 'X' }] }) } });
   check('gate: a library that says pass false is a failed gate even with no FAIL line (exit 1, GATE FAIL)', r.exit === 1 && r.stdout.startsWith('GATE FAIL 0 finding(s)'), r.all);
-  r = await cli(['audit', '--dir', GOOD, '--json'], {});
+  r = await cli(['audit', '--dir', GOOD, '--json', ...TP], {});
   check('audit --json: one JSON object whose data has the engine\'s lines, pages, rules, pass and exit', r.exit === 0 && r.json && r.json.command === 'audit' && r.json.target === undefined && JSON.stringify(r.json.data.lines) === JSON.stringify(engineGood.lines) && r.json.data.exit === 0 && r.json.data.pass === true && r.json.data.pages.length === NP && r.json.data.rules.length === NR, r.all.slice(0, 200));
-  r = await cli(['audit', '--dir', BAD, '--json'], {});
+  r = await cli(['audit', '--dir', BAD, '--json', ...TP], {});
   check('audit --json on the bad site: exit 1, code AUDIT-FAILED, data.exit 1, data.lines equals the engine\'s', r.exit === 1 && r.json.code === 'AUDIT-FAILED' && r.json.data.exit === 1 && r.json.data.pass === false && JSON.stringify(r.json.data.lines) === JSON.stringify(engineBad.lines), r.all.slice(0, 200));
-  r = await cli(['gate', '--dir', BAD, '--json'], {});
+  r = await cli(['gate', '--dir', BAD, '--json', ...TP], {});
   check('gate --json: data.pass false, data.exit 1, data.fails is the FAIL line', r.exit === 1 && r.json.data.pass === false && r.json.data.exit === 1 && r.json.data.fails.length === 1 && r.json.data.fails[0] === engineBad.lines.find(l => l.startsWith('FAIL ')), r.all.slice(0, 200));
-  r = await cli(['gate', '--dir', GOOD, '--json'], {});
+  r = await cli(['gate', '--dir', GOOD, '--json', ...TP], {});
   check('gate --json on the good site: data.pass true, data.exit 0, data.fails empty', r.exit === 0 && r.json.data.pass === true && r.json.data.exit === 0 && r.json.data.fails.length === 0 && r.json.target === undefined, r.all.slice(0, 200));
   // --target <preview|production> is the BUILD target (the engine's ENV-001), passed through; the lines are the engine's own for that target
   const FIX = name => join(REPO_ROOT, 'tools', 'audit', 'fixtures', name);
@@ -450,7 +452,9 @@ async function units() {
   r = await cli(['audit', '--dir', GOOD, '--target', 'production', '--json'], {});
   check('audit --target production --json: the engine\'s data.target is "production" and the result shows no environment target (ctxUsesTarget unchanged)', r.exit === 0 && r.json.data.target === 'production' && r.json.target === undefined, r.all.slice(0, 300));
   r = await cli(['audit', '--dir', GOOD, '--json'], {});
-  check('audit with no --target passes nothing to the engine (data.target is null, the one SKIP ENV-001 line stays)', r.json.data.target === null && r.json.data.lines.filter(l => l.startsWith('SKIP ENV-001 / no --target')).length === 1, r.all.slice(0, 300));
+  check('audit with no --target passes nothing to the engine, which refuses a built folder with none: exit 2 USAGE naming --target', r.exit === 2 && r.json && r.json.code === 'USAGE' && /--target/.test(r.json.error) && r.json.data === undefined, r.all.slice(0, 300));
+  r = await cli(['gate', '--dir', GOOD], {});
+  check('gate with no --target exits 2 as well, nothing judged (a gate that skipped the indexing check is not a gate)', r.exit === 2 && r.stdout.startsWith('ERROR ') && /--target/.test(r.stdout), r.all.slice(0, 300));
   const libOpts = [];
   const spyLib = { audit: (d, o) => { libOpts.push(o); return { pass: true, lines: [], pages: [], rules: [] }; } };
   await cli(['audit', '--dir', GOOD, '--target', 'preview', '--only', 'ENV-001'], {}, { auditLib: spyLib });
@@ -470,13 +474,13 @@ async function units() {
     cpSync(GOOD, leakDir, { recursive: true });
     cpSync(join(GOOD, 'about'), join(leakDir, SECRET), { recursive: true });
     const leakEnv = { SOME_SECRET_KEY: SECRET };
-    const withPage = engine.audit(leakDir);
+    const withPage = engine.audit(leakDir, { target: 'production' });
     check('audit hygiene: the setup puts the secret into the engine\'s own lines (else the test measures nothing)', withPage.lines.some(l => l.includes(SECRET)));
-    for (const argv of [['audit', '--dir', leakDir], ['gate', '--dir', leakDir], ['audit', '--dir', leakDir, '--json'], ['gate', '--dir', leakDir, '--json']]) {
+    for (const argv of [['audit', '--dir', leakDir, ...TP], ['gate', '--dir', leakDir, ...TP], ['audit', '--dir', leakDir, '--json', ...TP], ['gate', '--dir', leakDir, '--json', ...TP]]) {
       r = await cli(argv, leakEnv);
       check('audit hygiene: ' + argv.filter(x => x !== '--dir' && x !== leakDir).join(' ') + ' never prints the secret', !r.all.includes(SECRET) && r.stdout.length > 0, r.all.slice(0, 200));
     }
-    r = await cli(['audit', '--dir', leakDir], leakEnv);
+    r = await cli(['audit', '--dir', leakDir, ...TP], leakEnv);
     check('audit hygiene: the masked value is named, not blanked', r.stdout.includes('<redacted:SOME_SECRET_KEY>'), r.all.slice(0, 200));
   } finally { rmSync(leakDir, { recursive: true, force: true }); }
 

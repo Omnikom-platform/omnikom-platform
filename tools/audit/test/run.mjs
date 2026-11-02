@@ -3,7 +3,7 @@
 // "OK: N of N checks passed" (exit 0) or "FAILED: n of N" (exit 1).
 //   node tools/audit/test/run.mjs
 // OMNIKOM_AUDIT_DIR points at a copy of tools/audit/ (test/mutate.mjs runs one broken copy at a time).
-import { mkdtempSync, cpSync, rmSync, readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, unlinkSync, utimesSync } from "node:fs";
+import { mkdtempSync, cpSync, rmSync, readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, unlinkSync, utimesSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname, basename } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -21,7 +21,11 @@ const check = (name, ok, detail = "") => {
   // exits 1, which is all the mutant harness needs to call it caught; a green run is never shortened. A normal run never sets it.
   if (!ok && process.env.OMNIKOM_AUDIT_FAILFAST === "1") { removeRoot(); console.log(`FAILED: ${failed} of ${total} (stopped at the first failure, OMNIKOM_AUDIT_FAILFAST=1)`); process.exit(1); }
 };
-const cli = (args, audit = AUDIT) => { const r = spawnSync(process.execPath, [join(audit, "run.mjs"), ...args], { encoding: "utf8", timeout: 60000, env: childEnv }); return { status: r.status, out: r.stdout || "", err: r.stderr || "" }; };
+const cliRaw = (args, audit = AUDIT) => { const r = spawnSync(process.execPath, [join(audit, "run.mjs"), ...args], { encoding: "utf8", timeout: 60000, env: childEnv }); return { status: r.status, out: r.stdout || "", err: r.stderr || "" }; };
+// slice 4c flip (REQUIRE_TARGET_FOR_FOLDER = true): a built folder run must name its target. cli() and engine.audit() add `production` to a folder run that names none,
+// so a test about another rule keeps judging what it judged; cliRaw and engineRaw.audit are the unchanged calls, used by the tests about the target itself.
+const isFolder = (d) => { try { return statSync(d).isDirectory() && !(existsSync(join(d, "_site.json")) && existsSync(join(d, "pages"))); } catch { return false; } };
+const cli = (args, audit = AUDIT) => (args.includes("--target") || !args.some((a) => !a.startsWith("--") && isFolder(a)) ? cliRaw(args, audit) : cliRaw([...args, "--target", "production"], audit));
 const json = (args) => { const r = cli(["--json", ...args]); let j = null; try { j = JSON.parse(r.out); } catch {} return { ...r, j }; };
 // Every temp folder of this run lives under ONE root, omnikom-audit-run-*, inside OMNIKOM_AUDIT_TMP (test/mutate.mjs sets it inside the broken copy) or
 // the system temp folder. The root is removed in the finally below, at the first red check under FAILFAST, and on SIGINT/SIGTERM. A run that is killed
@@ -41,14 +45,16 @@ const ruleOf = (name) => (name.match(/^(?:snapshot-)?bad-([A-Z0-9]+-\d{3})/) || 
 // rules that judge only a snapshot (a built folder has no browser and no server): they print no line in folder mode
 const SNAPSHOT_ONLY = new Set(["PRF-001", "PRF-016"]);
 // slice 4c, the ruling of 2026-11-01 (final): a run with no target prints exactly ONE ENV-001 line, the site-wide `SKIP ENV-001 / no --target ...`, and no other ENV-001 line
-const noTargetSkipOnly = (j) => { const own = j.findings.filter((f) => f.rule === "ENV-001"), ls = j.lines.filter((l) => /ENV-001/.test(l)); return own.length === 1 && own[0].status === "SKIP" && own[0].page === "/" && own[0].what.startsWith("no --target") && ls.length === 1 && ls[0].startsWith("SKIP ENV-001 / no --target"); };
+const snapshotNoTargetSkipOnly = (j) => { const own = j.findings.filter((f) => f.rule === "ENV-001"), ls = j.lines.filter((l) => /ENV-001/.test(l)); return own.length === 1 && own[0].status === "SKIP" && own[0].page === "/" && own[0].what.startsWith("no --target") && ls.length === 1 && ls[0].startsWith("SKIP ENV-001 / no --target"); };
+// slice 4c flip: ENV-001 as it must show on a run the helpers gave a target: a snapshot with no target prints the one SKIP above; a folder (always run with a target now) has no ENV-001 SKIP and prints its PASS lines
+const envLineOk = (j) => (j.mode === "snapshot" ? snapshotNoTargetSkipOnly(j) : j.target !== null && !j.findings.some((f) => f.rule === "ENV-001" && f.status === "SKIP") && j.lines.some((l) => l.startsWith("PASS ENV-001 ")));
 // the lines of a no-target run that are not the one ENV-001 SKIP (what the old "every line is PASS" checks look at)
 // slice 5c: a run with no --prompt-coverage also prints exactly ONE site-wide `SKIP PMP-001 / no --prompt-coverage ...` line, and no other PMP-001 line
 const noCoverageSkipOnly = (j) => { const own = j.findings.filter((f) => f.rule === "PMP-001"), ls = j.lines.filter((l) => /PMP-001/.test(l)); return own.length === 1 && own[0].status === "SKIP" && own[0].page === "/" && own[0].what.startsWith("no --prompt-coverage") && ls.length === 1 && ls[0].startsWith("SKIP PMP-001 / no --prompt-coverage"); };
 // the lines of a no-target, no-coverage run that are not the two SKIP lines (what the old "every line is PASS" checks look at; the name is from slice 4c)
 const exceptEnvSkip = (lines) => lines.filter((l) => !l.startsWith("SKIP ENV-001 / no --target") && !l.startsWith("SKIP PMP-001 / no --prompt-coverage"));
 // the whole findings list of a no-target, no-coverage run on a clean site: exactly the two SKIPs
-const skipsOnly = (j) => j.findings.length === 2 && noTargetSkipOnly(j) && noCoverageSkipOnly(j);
+const skipsOnly = (j) => j.findings.length === (j.mode === "snapshot" ? 2 : 1) && envLineOk(j) && noCoverageSkipOnly(j);
 const PMP_SOURCE = "planning/DECISIONS.md 35 (the prompt map; owner, 2026-10-31)";
 const COVERAGE_REL = "plan/prompt-coverage.json";
 const ENV_SOURCE = "factory/lib/launch.mjs headersText and factory/README.md (robots.txt always Allow, the preview kept out by X-Robots-Tag; head, 2026-10-31); head of operations, 2026-11-01 (slice 4c)";
@@ -76,11 +82,13 @@ try {
   // the good site passes every rule, in text mode and in JSON
   const good = cli([join(FIX, "good")]);
   const goodLines = good.out.split(/\r?\n/).filter(Boolean);
-  check("good site: exit 0, every line is PASS except exactly one `SKIP ENV-001 / no --target` and exactly one `SKIP PMP-001 / no --prompt-coverage` line (no WARN, no FAIL, no other SKIP)", good.status === 0 && goodLines.length > 0 && exceptEnvSkip(goodLines).every((l) => l.startsWith("PASS ")) && goodLines.length - exceptEnvSkip(goodLines).length === 2 && goodLines.filter((l) => /ENV-001/.test(l)).length === 1 && goodLines.filter((l) => /PMP-001/.test(l)).length === 1, good.out + good.err);
+  check("good site with --target production: exit 0, every line is PASS except exactly one `SKIP PMP-001 / no --prompt-coverage` line (no WARN, no FAIL, no other SKIP), four PASS ENV-001 lines", good.status === 0 && goodLines.length > 0 && goodLines.filter((l) => !l.startsWith("PASS ")).length === 1 && goodLines.filter((l) => l.startsWith("SKIP PMP-001 / no --prompt-coverage")).length === 1 && goodLines.filter((l) => l.startsWith("PASS ENV-001 ")).length === 4, good.out + good.err);
+  const goodNone = cliRaw([join(FIX, "good")]);
+  check("good site with no --target: exit 2, nothing on stdout, stderr names --target (slice 4c flip)", goodNone.status === 2 && goodNone.out === "" && /needs --target/.test(goodNone.err), goodNone.status + goodNone.out + goodNone.err);
   const gj = json([join(FIX, "good")]);
   const pagesN = gj.j ? gj.j.pages.length : 0;
-  check("good site: one PASS line per rule per page or file, every rule present", gj.j && rules.filter((r) => !SNAPSHOT_ONLY.has(r.id) && r.id !== "ENV-001" && r.id !== "PMP-001").every((r) => gj.j.lines.some((l) => l.startsWith(`PASS ${r.id} `))) && !gj.j.lines.some((l) => /^\w+ PRF-/.test(l)) && noTargetSkipOnly(gj.j) && noCoverageSkipOnly(gj.j) && gj.j.lines.filter((l) => l.startsWith("PASS MET-003 ")).length === pagesN, gj.out.slice(0, 300));
-  check("good site: --json is valid JSON, exit equals the process exit, pass true, no finding but the ENV-001 SKIP and the PMP-001 SKIP", gj.j && gj.j.exit === gj.status && gj.status === 0 && gj.j.pass === true && skipsOnly(gj.j) && Array.isArray(gj.j.pages) && Array.isArray(gj.j.rules) && gj.j.lines.length > 0, gj.out.slice(0, 300) + gj.err);
+  check("good site: one PASS line per rule per page or file, every rule present", gj.j && rules.filter((r) => !SNAPSHOT_ONLY.has(r.id) && r.id !== "ENV-001" && r.id !== "PMP-001").every((r) => gj.j.lines.some((l) => l.startsWith(`PASS ${r.id} `))) && !gj.j.lines.some((l) => /^\w+ PRF-/.test(l)) && envLineOk(gj.j) && noCoverageSkipOnly(gj.j) && gj.j.lines.filter((l) => l.startsWith("PASS MET-003 ")).length === pagesN, gj.out.slice(0, 300));
+  check("good site: --json is valid JSON, exit equals the process exit, pass true, no finding but the PMP-001 SKIP", gj.j && gj.j.exit === gj.status && gj.status === 0 && gj.j.pass === true && skipsOnly(gj.j) && Array.isArray(gj.j.pages) && Array.isArray(gj.j.rules) && gj.j.lines.length > 0, gj.out.slice(0, 300) + gj.err);
 
   // the bad fixtures, driven by the generator's own table
   const gen = await import(pathToFileURL(join(FIX, "build-fixtures.mjs")).href);
@@ -91,7 +99,8 @@ try {
   check("fixtures: a folder exists for every generator entry and the other way round", names.every((n) => onDisk.includes(n)) && onDisk.every((n) => names.includes(n)), `generator ${names.length}, disk ${onDisk.length}`);
   for (const rule of rules) check(`fixtures: rule ${rule.id} has at least one bad fixture`, names.some((n) => ruleOf(n) === rule.id), rule.id);
   let first = true;
-  const engine = await import(pathToFileURL(join(AUDIT, "index.mjs")).href);
+  const engineRaw = await import(pathToFileURL(join(AUDIT, "index.mjs")).href);
+  const engine = { ...engineRaw, audit: (dir, o) => engineRaw.audit(dir, o && o.target !== undefined ? o : !isFolder(dir) ? o : { ...o, target: "production" }) };
   const viaCli = new Set();
   for (const name of names) {
     const spec = ALL[name];
@@ -106,7 +115,7 @@ try {
       const wrongStatus = mr.findings.filter((f) => f.rule in spec.multi && f.status !== spec.multi[f.rule]).map((f) => `${f.rule} ${f.status}`);
       const cl = cli([join(FIX, name), ...tgt]);
       const shown = cl.out.split(/\r?\n/).filter((l) => /^(FAIL|WARN) /.test(l)).map((l) => l.split(" ")[1]);
-      check(`${name}: names all ${want.length} rules (${want.map(([id]) => id.slice(4)).join(",")}) with FAIL or WARN lines as listed, nothing else, exit 1`, missing.length === 0 && stray.length === 0 && wrongStatus.length === 0 && (spec.target || noTargetSkipOnly(mr)) && noCoverageSkipOnly(mr) && mr.exit === 1 && cl.status === 1 && want.every(([id]) => shown.includes(id)) && cl.out.split(/\r?\n/).filter((l) => /^(FAIL|WARN) /.test(l)).every((l) => FAIL_SHAPE.test(l.replace(/^WARN /, "FAIL "))), `missing ${missing.join(", ")}; stray ${stray.join(" | ")}; wrong ${wrongStatus.join(", ")}; exit ${mr.exit}/${cl.status}`);
+      check(`${name}: names all ${want.length} rules (${want.map(([id]) => id.slice(4)).join(",")}) with FAIL or WARN lines as listed, nothing else, exit 1`, missing.length === 0 && stray.length === 0 && wrongStatus.length === 0 && (spec.target || envLineOk(mr)) && noCoverageSkipOnly(mr) && mr.exit === 1 && cl.status === 1 && want.every(([id]) => shown.includes(id)) && cl.out.split(/\r?\n/).filter((l) => /^(FAIL|WARN) /.test(l)).every((l) => FAIL_SHAPE.test(l.replace(/^WARN /, "FAIL "))), `missing ${missing.join(", ")}; stray ${stray.join(" | ")}; wrong ${wrongStatus.join(", ")}; exit ${mr.exit}/${cl.status}`);
       continue;
     }
     const rule = ruleOf(name);
@@ -128,7 +137,7 @@ try {
     const strict = snap || /^DSN-/.test(rule);
     const foreignFails = j ? (strict ? j.findings.filter((f) => !allowed.has(f.rule) && !(f.rule === "ENV-001" && f.status === "SKIP" && !spec.target) && !(f.rule === "PMP-001" && f.status === "SKIP" && !spec.coverage)) : j.findings.filter((f) => f.rule !== rule && f.status === "FAIL")) : [];
     // slice 4c: a fixture that gives no target must show exactly one ENV-001 line, the SKIP "no --target", and no other ENV-001 line
-    const ntOk = j ? (!!spec.target || rule === "ENV-001" || noTargetSkipOnly(j)) && (!!spec.coverage || rule === "PMP-001" || noCoverageSkipOnly(j)) : false;
+    const ntOk = j ? (!!spec.target || rule === "ENV-001" || envLineOk(j)) && (!!spec.coverage || rule === "PMP-001" || noCoverageSkipOnly(j)) : false;
     const ownOther = strict && j ? j.findings.filter((f) => f.rule === rule).length - own.length : 0;
     let snapPages = null;
     const lineText = (pg, n) => {
@@ -358,7 +367,7 @@ try {
   snapAdhoc("LNK-002: 410 and 503 targets are status-mismatch", seq(addRec("g410", SO + "/g410/", SO + "/g410/", 410, [{ url: SO + "/g410/", status: 410 }]), addRec("g503", SO + "/g503/", SO + "/g503/", 503, [{ url: SO + "/g503/", status: 503 }]), linkTo("/g410/"), linkTo("/g503/")), (j) => ownOf(j, "LNK-002", "FAIL").length === 2 && ownOf(j, "LNK-002", "FAIL").every((f) => f.what.startsWith("status-mismatch")));
   snapAdhoc("LNK-002: a record whose final status is 302 (no Location followed) is redirect-target", seq(addRec("r302", SO + "/r302/", SO + "/r302/", 302, [{ url: SO + "/r302/", status: 302 }]), linkTo("/r302/")), (j) => ownOf(j, "LNK-002", "FAIL").length === 1 && ownOf(j, "LNK-002", "FAIL")[0].what.startsWith("redirect-target"));
   snapAdhoc("LNK-002: a page that exists only as the end of a followed redirect is a page (200), and the redirecting URL is a redirect-target", seq((d) => { cpSync(join(d, "pages", "tasting-room"), join(d, "pages", "old-tea"), { recursive: true }); rmSync(join(d, "pages", "tasting-room"), { recursive: true }); }, jedit("pages/old-tea/response.json", (m) => { m.url = SO + "/old-tea/"; m.chain = [{ url: SO + "/old-tea/", status: 301, location: "/tasting-room/" }, { url: SO + "/tasting-room/", status: 200 }]; }), linkTo("/old-tea/")), (j) => j.pages.includes("/tasting-room/") && ownOf(j, "LNK-002", "FAIL").length === 1 && ownOf(j, "LNK-002", "FAIL")[0].what.startsWith("redirect-target"));
-  snapAdhoc("a 404 record is not a judged page: no MET, A11, SCH or URL rule runs on it, and it is not indexable", seq(addRec("gone", SO + "/gone/", SO + "/gone/", 404, [{ url: SO + "/gone/", status: 404 }], blank), linkTo("/gone/")), (j) => !j.pages.includes("/gone/") && noTargetSkipOnly(j) && j.findings.filter((f) => f.rule !== "ENV-001" && f.rule !== "PMP-001").every((f) => f.rule === "LNK-002"));
+  snapAdhoc("a 404 record is not a judged page: no MET, A11, SCH or URL rule runs on it, and it is not indexable", seq(addRec("gone", SO + "/gone/", SO + "/gone/", 404, [{ url: SO + "/gone/", status: 404 }], blank), linkTo("/gone/")), (j) => !j.pages.includes("/gone/") && envLineOk(j) && j.findings.filter((f) => f.rule !== "ENV-001" && f.rule !== "PMP-001").every((f) => f.rule === "LNK-002"));
   snapAdhoc("IDX-001 (snapshot): a sitemap URL whose crawl record is 404 is a status-mismatch FAIL", seq(addRec("gone", SO + "/gone/", SO + "/gone/", 404, [{ url: SO + "/gone/", status: 404 }], blank), (d) => { const p = join(d, "site", "sitemap-1.xml"); writeFileSync(p, readFileSync(p, "utf8").replace("</urlset>", `  <url>\n    <loc>${SO}/gone/</loc>\n    <lastmod>2026-10-05T09:00:00Z</lastmod>\n  </url>\n</urlset>`)); }), (j) => ownOf(j, "IDX-001", "FAIL").length === 1 && ownOf(j, "IDX-001", "FAIL")[0].what.startsWith("status-mismatch"));
   snapAdhoc("a gzipped sitemap (site/sitemap-1.xml.gz) is read: every rule still passes", (d) => { const p = join(d, "site", "sitemap-1.xml"); writeFileSync(p + ".gz", zlib.gzipSync(readFileSync(p))); unlinkSync(p); jedit("site/sitemaps.json", (m) => { m.fetched[0].file = "site/sitemap-1.xml.gz"; })(d); }, (j) => skipsOnly(j) && j.lines.includes("PASS IDX-001 site/sitemap-1.xml.gz"));
   snapAdhoc("the site origin is the home page's final url, not _site.json.url", jedit("_site.json", (m) => { m.url = "https://elsewhere.invalid"; }), (j) => skipsOnly(j));
@@ -619,7 +628,7 @@ try {
   adhoc("DSN-010 and DSN-011: the two WARN rules together on one element give two WARN lines and the run still exits 0", homeIns('<p class="text-xs font-bold tracking-tight">Tag</p>'), (j) => j.exit === 0 && j.lines.filter((l) => /^WARN DSN-01[01] /.test(l)).length === 2 && !j.lines.some((l) => l.startsWith("FAIL ")));
 
   // the style sources
-  adhoc("DSN styles: an unreadable or missing stylesheet link, a link without a href, and a stylesheet in a subfolder resolve without a crash", both(putDir("css/sub/b.css", "p { text-transform: uppercase; letter-spacing: 1px }\n"), headIns('<link rel="stylesheet" href="css/sub/b.css">\n<link rel="stylesheet">\n<link rel="stylesheet" href="/nope.css">\n<link rel="icon" href="/img/leaf.svg">')), (j) => onlyOf(j, "DSN-004").length > 0 && noTargetSkipOnly(j) && j.findings.filter((f) => f.rule !== "ENV-001" && f.rule !== "PMP-001").every((f) => f.rule === "DSN-004"));
+  adhoc("DSN styles: an unreadable or missing stylesheet link, a link without a href, and a stylesheet in a subfolder resolve without a crash", both(putDir("css/sub/b.css", "p { text-transform: uppercase; letter-spacing: 1px }\n"), headIns('<link rel="stylesheet" href="css/sub/b.css">\n<link rel="stylesheet">\n<link rel="stylesheet" href="/nope.css">\n<link rel="icon" href="/img/leaf.svg">')), (j) => onlyOf(j, "DSN-004").length > 0 && envLineOk(j) && j.findings.filter((f) => f.rule !== "ENV-001" && f.rule !== "PMP-001").every((f) => f.rule === "DSN-004"));
   adhoc("DSN styles: a page in a subfolder resolves a relative stylesheet from its own folder", both(putDir("about/local.css", "h2 { font-weight: 800; font-size: 11px }\n"), sub("about/index.html", '<meta name="viewport" content="width=device-width, initial-scale=1">', '<meta name="viewport" content="width=device-width, initial-scale=1">\n<link rel="stylesheet" href="local.css">')), (j) => warnsOf(j, "DSN-010").length === 3 && warnsOf(j, "DSN-010").every((f) => f.page === "/about/"));
   adhoc("DSN styles: a CSS declaration with a nested rule or a stray brace does not crash the reader", both(putDir("css/a.css", ".a { color: red; .b { color: blue } text-transform: uppercase; letter-spacing: 1px }\n}}} .c { \n"), linkSheet(), homeIns('<p class="a">x</p>')), (j) => Array.isArray(j.findings));
   const textOfWarn = (j) => warnsOf(j, "DSN-010").map((w) => w.what);
@@ -670,7 +679,7 @@ try {
   const metaNoindexAbout = gzSub("about", '<meta property="og:type" content="website">', '<meta property="og:type" content="website">\n<meta name="robots" content="noindex">');
   snapAdhoc("target preview (snapshot): a header noindex on one page does not feed IDX-001, and ENV-001 fails the three pages that carry none", homeHdr, (j) => idxFails(j).length === 0 && envFails(j).map((f) => f.page).sort().join() === "/about/,/journal/how-to-steep-oolong/,/tasting-room/" && j.exit === 1, { target: "preview" });
   snapAdhoc("target production (snapshot): the header noindex feeds IDX-001 and is one ENV-001 FAIL naming the page, the response header and the target", homeHdr, (j) => idxFails(j).length === 1 && envFails(j).length === 1 && envFails(j)[0].page === "/" && envFails(j)[0].what.includes("the response header x-robots-tag: noindex") && envFails(j)[0].what.includes("target production"), { target: "production" });
-  snapAdhoc("no target (snapshot): the header noindex feeds IDX-001 (it is what the live site says) and ENV-001 prints exactly one SKIP no --target line", homeHdr, (j) => idxFails(j).length === 1 && noTargetSkipOnly(j));
+  snapAdhoc("no target (snapshot): the header noindex feeds IDX-001 (it is what the live site says) and ENV-001 prints exactly one SKIP no --target line", homeHdr, (j) => idxFails(j).length === 1 && envLineOk(j));
   snapAdhoc("target preview (snapshot): a meta robots noindex still feeds IDX-001 and satisfies ENV-001 for that page", metaNoindexAbout, (j) => idxFails(j).length === 1 && !envFails(j).some((f) => f.page === "/about/") && envFails(j).length === 3, { target: "preview" });
   snapAdhoc("target production (snapshot): a meta robots noindex is IDX-001's business, not ENV-001's", metaNoindexAbout, (j) => idxFails(j).length === 1 && ownOf(j, "ENV-001").length === 0, { target: "production" });
   snapAdhoc("target preview (snapshot): every page answers noindex: four PASS ENV-001 lines and a clean run", seq(...["home", "about", "tasting-room", "journal__how-to-steep-oolong"].map((s) => hdrOf(s, "noindex, nofollow"))), (j) => j.exit === 0 && j.findings.length === 1 && noCoverageSkipOnly(j) && j.lines.filter((l) => l.startsWith("PASS ENV-001 ")).length === 4, { target: "preview" });
@@ -720,10 +729,10 @@ try {
   check("good-preview with --target preview: exit 0, every line PASS but the one SKIP PMP-001, four PASS ENV-001 lines (the header noindex is expected and the other rules judge the site as it will be in production)", gpPreview.status === 0 && allPassButPmpSkip(gpPreview) && gpPreview.out.split(/\r?\n/).filter((l) => l.startsWith("PASS ENV-001 ")).length === 4, gpPreview.out + gpPreview.err);
   const gProd = cli([GOOD_DIR, "--target", "production"]);
   check("good with --target production: exit 0 and every line PASS but the one SKIP PMP-001 (four PASS ENV-001 lines)", gProd.status === 0 && allPassButPmpSkip(gProd) && gProd.out.split(/\r?\n/).filter((l) => l.startsWith("PASS ENV-001 ")).length === 4, gProd.out + gProd.err);
-  const gpNone = cli([GP]);
-  check("good-preview with no target: the folder ignores _headers (IDX-001 passes), exit 0, every line PASS except exactly one `SKIP ENV-001 / no --target` line (not judged as production)", gpNone.status === 0 && allPassButEnvSkip(gpNone) && gpNone.out.length > 0 && gpNone.out.split(/\r?\n/).filter((l) => /ENV-001/.test(l)).length === 1 && /^SKIP ENV-001 \/ no --target/m.test(gpNone.out) && /^PASS IDX-001 /m.test(gpNone.out), gpNone.out + gpNone.err);
-  const bpNone = cli([join(FIX, "bad-ENV-001-preview")]), bpNoneJ = json([join(FIX, "bad-ENV-001-preview")]);
-  check("bad-ENV-001-preview with no target: exactly one `SKIP ENV-001 / no --target` line, no FAIL, exit 0 (without a target the indexing is not judged); the result says target null", bpNone.status === 0 && allPassButEnvSkip(bpNone) && bpNone.out.length > 0 && bpNone.out.split(/\r?\n/).filter((l) => /ENV-001/.test(l)).length === 1 && /^SKIP ENV-001 \/ no --target/m.test(bpNone.out) && !/^FAIL /m.test(bpNone.out) && bpNoneJ.j && bpNoneJ.j.target === null && skipsOnly(bpNoneJ.j), bpNone.out + bpNone.err);
+  const gpNone = cliRaw([GP]);
+  check("good-preview with no target: a folder run is a usage error, exit 2, nothing on stdout, stderr names --target (slice 4c flip)", gpNone.status === 2 && gpNone.out === "" && /needs --target/.test(gpNone.err), gpNone.status + gpNone.out + gpNone.err);
+  const bpNone = cliRaw([join(FIX, "bad-ENV-001-preview")]), bpNoneJ = cliRaw(["--json", join(FIX, "bad-ENV-001-preview")]);
+  check("bad-ENV-001-preview with no target: exit 2 as well (the indexing of a build is never left unjudged), also with --json; nothing on stdout", bpNone.status === 2 && bpNone.out === "" && /needs --target/.test(bpNone.err) && bpNoneJ.status === 2 && bpNoneJ.out === "" && /needs --target/.test(bpNoneJ.err), bpNone.err);
   const gpProd = engine.audit(GP, { target: "production" });
   check("good-preview with target production (the preview's _headers shipped to production): ENV-001 fails the four pages and IDX-001 the four sitemap entries, exit 1", gpProd.exit === 1 && envFails(gpProd).length === 4 && idxFails(gpProd).length === 4 && gpProd.findings.filter((f) => f.status === "FAIL").length === 8, gpProd.lines.filter((l) => !l.startsWith("PASS")).join(" | "));
   const bProd = engine.audit(join(FIX, "bad-ENV-001-production"), { target: "production" });
@@ -744,7 +753,7 @@ try {
   check("snapshot-bad-IDX-001-header with target preview: the header is expected, exit 0 and no finding", shPrev.exit === 0 && shPrev.findings.length === 1 && noCoverageSkipOnly(shPrev), shPrev.lines.filter((l) => !l.startsWith("PASS")).join(" | "));
   const shProd = engine.audit(sHdr, { target: "production" });
   check("snapshot-bad-IDX-001-header with target production: four ENV-001 FAILs and four IDX-001 FAILs", shProd.exit === 1 && envFails(shProd).length === 4 && idxFails(shProd).length === 4, shProd.lines.filter((l) => !l.startsWith("PASS")).join(" | "));
-  check("audit(): the result says which target was judged (null when none)", engine.audit(GOOD_DIR, { target: "production" }).target === "production" && engine.audit(GOOD_DIR, { target: "preview" }).target === "preview" && engine.audit(GOOD_DIR).target === null && engine.audit(GOOD_DIR, { target: null }).target === null);
+  check("audit(): the result says which target was judged (null for a snapshot with none); a folder with none is a usage error (exit 2)", engine.audit(GOOD_DIR, { target: "production" }).target === "production" && engine.audit(GOOD_DIR, { target: "preview" }).target === "preview" && engineRaw.audit(SG).target === null && engineRaw.audit(SG, { target: null }).target === null && [undefined, null].every((o) => { try { engineRaw.audit(GOOD_DIR, o === undefined ? undefined : { target: o }); return false; } catch (e) { return e.exit === 2 && /needs --target/.test(e.message); } }));
   // 5. a bad --target is a usage error (exit 2)
   check("--target with a value that is not preview or production exits 2 and names the two values", ["staging", "Preview", "PRODUCTION", "", "production "].every((v) => { const r = cli([GOOD_DIR, "--target", v]); return r.status === 2 && /--target needs preview or production/.test(r.err) && r.out === ""; }));
   check("--target with no value, or followed by another option, exits 2", cli([GOOD_DIR, "--target"]).status === 2 && cli([GOOD_DIR, "--target", "--json"]).status === 2);
@@ -760,16 +769,19 @@ try {
     const lvBadT = live(["https://example-tea.invalid/", "--target", "staging"]);
     check("live.mjs: a bad --target exits 2 and judges nothing; --target with no value exits 2", lvBadT.status === 2 && lvBadT.out === "" && /--target needs preview or production/.test(lvBadT.err) && live(["https://example-tea.invalid/", "--target"]).status === 2, lvBadT.err);
   }
-  // 7. the one-line switch: with REQUIRE_TARGET_FOR_FOLDER true (index.mjs) a built folder without a target is a usage error; a snapshot never is
+  // 7. the one-line switch (slice 4c flip, true since): REQUIRE_TARGET_FOR_FOLDER in index.mjs makes a built folder without a target a usage error; a snapshot never is
   {
     const reqCopy = tmp("omnikom-audit-req-");
+    // the engine in use (the copy test/mutate.mjs runs when it breaks one) has the switch on, on one line
     for (const n of ["index.mjs", "run.mjs", "live.mjs", "checks", "lib", "rules"]) cpSync(join(AUDIT, n), join(reqCopy, n), { recursive: true });
     const ix = readFileSync(join(reqCopy, "index.mjs"), "utf8");
-    const flag = "export const REQUIRE_TARGET_FOR_FOLDER = false;";
-    check("index.mjs has the switch REQUIRE_TARGET_FOR_FOLDER on one line, false in this slice", ix.split(flag).length === 2);
-    writeFileSync(join(reqCopy, "index.mjs"), ix.split(flag).join(flag.replace("false", "true")));
-    const q1 = cli([GOOD_DIR], reqCopy), q2 = cli([GOOD_DIR, "--target", "production"], reqCopy), q3 = cli([SG], reqCopy);
-    check("with the switch set to true: a folder with no target exits 2 naming --target, a folder with a target runs, a snapshot with no target runs", q1.status === 2 && /needs --target/.test(q1.err) && q2.status === 0 && q3.status === 0, `${q1.status} ${q1.err} | ${q2.status} | ${q3.status}`);
+    const flag = "export const REQUIRE_TARGET_FOR_FOLDER = true;";
+    check("index.mjs has the switch REQUIRE_TARGET_FOR_FOLDER on one line, true (slice 4c flip)", ix.split(flag).length === 2 && ix.split("REQUIRE_TARGET_FOR_FOLDER = false").length === 1);
+    const q1 = cliRaw([GOOD_DIR], reqCopy), q2 = cliRaw([GOOD_DIR, "--target", "production"], reqCopy), q3 = cliRaw([SG], reqCopy);
+    check("with the switch true: a folder with no target exits 2 naming --target and prints nothing on stdout, a folder with a target runs, a snapshot with no target runs", q1.status === 2 && q1.out === "" && /needs --target/.test(q1.err) && q2.status === 0 && q3.status === 0, `${q1.status} ${q1.err} | ${q2.status} | ${q3.status}`);
+    // the real run.mjs: the same three, on the engine under test
+    const r1 = cliRaw([GOOD_DIR]), r2 = cliRaw([GOOD_DIR, "--target", "production"]), r3 = cliRaw([SG]);
+    check("run.mjs on the engine under test: a folder with no target exits 2 naming --target, with --target production exits 0, a snapshot with no target exits 0", r1.status === 2 && r1.out === "" && /needs --target/.test(r1.err) && r2.status === 0 && r3.status === 0, `${r1.status} ${r1.err} | ${r2.status} | ${r3.status}`);
   }
 
   // ---- slice 5c: PMP-001, the publish rule of the prompt map ----
@@ -785,7 +797,7 @@ try {
 
     // 1. the good site with its coverage file
     const gcAll = cli([GC, "--prompt-coverage", GC_FILE]);
-    check("good-coverage with its coverage file: exit 0, 0 FAIL, four PASS PMP-001 lines named by row id, no SKIP PMP-001 line (only the ENV-001 SKIP is left)", gcAll.status === 0 && !/^FAIL /m.test(gcAll.out) && pmpLines(gcAll.out).join("|") === "PASS PMP-001 pm-1c2d3e4f|PASS PMP-001 pm-9a8b7c6d|PASS PMP-001 pm-3f4e5d6c|PASS PMP-001 pm-5e6f7a8b" && /^SKIP ENV-001 \/ no --target/m.test(gcAll.out) && gcAll.out.split(/\r?\n/).filter((l) => l.startsWith("SKIP ")).length === 1, gcAll.out + gcAll.err);
+    check("good-coverage with its coverage file: exit 0, 0 FAIL, four PASS PMP-001 lines named by row id, no SKIP line at all", gcAll.status === 0 && !/^FAIL /m.test(gcAll.out) && pmpLines(gcAll.out).join("|") === "PASS PMP-001 pm-1c2d3e4f|PASS PMP-001 pm-9a8b7c6d|PASS PMP-001 pm-3f4e5d6c|PASS PMP-001 pm-5e6f7a8b" && !/^SKIP /m.test(gcAll.out), gcAll.out + gcAll.err);
     const gcProd = cli([GC, "--prompt-coverage", GC_FILE, "--target", "production"]);
     check("good-coverage with its coverage file and --target production: exit 0 and every line PASS", gcProd.status === 0 && allPass(gcProd) && pmpLines(gcProd.out).length === 4, gcProd.out + gcProd.err);
     // 2. no file: one SKIP line, never silent, never a FAIL

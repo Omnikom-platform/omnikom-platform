@@ -126,6 +126,10 @@ options, never a fix made here.
 - Finding for the skill copy (own files, through sync): `checklist/*.md` lines are cut at about 260 characters by `build-checklist.mjs`,
   so the rule text with the numbers (`titleLength` 30/60/70, `descriptionLength` 70/160/180) lives only in the shipgate spec on D:.
   The audit's `rules/<id>.md` files carry the full text with the spec path and version (8.0.0) so no session needs D: again.
+- Finding (LOW, head of operations 2026-11-02 05:01; after the 4c flip): `tools/audit/test/mutate.mjs` prints nothing until its final
+  summary, so a slow run cannot be told from a hung one and no ETA can be given (pid 28520 held heavy.mjs 1h50 on the whole list and
+  was stopped 04:58). Wanted: one line every 25 mutants, "mutants: N of M, caught C, elapsed S s"; a test watched red and a mutant.
+  Rule from the same event: a builder runs only its new mutants locally (MUTATE_ONLY); the whole list runs on CI.
 
 ## Position log (append-only, newest last; one line per finished slice or blocked item: date, slice, PROVEN / BLOCKED, where the proof is)
 - 2026-10-30: department created.
@@ -399,3 +403,9 @@ options, never a fix made here.
   run, then the head of operations' effort commit, then platform 5-L. 5d commit (blueprint 22, the skill copy at SOURCE 77aee20, proofs 5d
   and skill-sync, the flip brief, PROGRESS 5d block, this charter; the skills/SOURCE.md row is a light follow-on in the head of
   operations' file) built on dd22555 in E:\omk-wt-seo-5c.
+- 2026-11-02 02:45: PROVEN 5c+5d on master 7690b59 (head HEAD_SEO-and-audits_2026-11-02): rebuilt on 41f6866 as 37b70f1 + 7690b59
+  (no conflicts; CLI test lines 350/355 the PMP-001 allowance only); head's re-run audit 574/574, fixtures 130, factory 88/88, CLI
+  --unit 427/427, gitleaks clean; run 41364432148 attempt 1 red on the D50 port flake (functions harness 55402), attempt 2 9 of 9.
+- 2026-11-02 05:01: 4c flip IN PROGRESS: BUILDER_seo-and-audits_4c-flip (pid 32908) on check/seo/4c-flip at 7690b59 in
+  E:\omk-wt-seo-5c. Land: the CLI lines it touches go to CLI-d for a yes (head of operations copied); queued behind platform 5-L and
+  5-PORT, rebased on master at push. Whole-list mutant run stopped at 04:58 (see Open items); only the new mutant re-runs locally.

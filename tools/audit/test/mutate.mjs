@@ -435,6 +435,7 @@ const MUTANTS = [
   ["index.mjs: an empty-string target means no target", "index.mjs", "if (options.target !== undefined && options.target !== null && !TARGETS", "if (options.target && !TARGETS"],
   ["index.mjs: the target is not passed to the site", "index.mjs", "target: options.target || null, promptCoverage", "target: null, promptCoverage"],
   ["index.mjs: the switch refuses a snapshot with no target too", "index.mjs", 'if (REQUIRE_TARGET_FOR_FOLDER && site.mode === "static" && !site.target) throw', "if (REQUIRE_TARGET_FOR_FOLDER && !site.target) throw"],
+  ["index.mjs: the switch is back to false (slice 4c flip; a folder with no target runs again)", "index.mjs", "export const REQUIRE_TARGET_FOR_FOLDER = true;", "export const REQUIRE_TARGET_FOR_FOLDER = false;"],
   ["index.mjs: the switch is ignored", "index.mjs", 'if (REQUIRE_TARGET_FOR_FOLDER && site.mode === "static" && !site.target) throw', 'if (false && site.mode === "static" && !site.target) throw'],
   ["index.mjs: the result does not say the target", "index.mjs", "mode: site.mode, target: site.target, pages:", "mode: site.mode, pages:"],
   ["run.mjs: --target is not passed to the engine", "run.mjs", "target: target || undefined", "target: undefined"],

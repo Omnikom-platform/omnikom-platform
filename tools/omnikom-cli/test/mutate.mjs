@@ -162,6 +162,7 @@ const MUTANTS = [
   ['audit and gate: text mode prints the JSON object', 'omnikom.mjs', "if ((first === 'audit' || first === 'gate') && obj.command", "if (false && obj.command", 'unit'],
   ['audit and gate: the result shows a target', 'omnikom.mjs', "const ctxUsesTarget = command => !['contract', 'audit', 'gate'].includes(command);", "const ctxUsesTarget = command => command !== 'contract';", 'unit'],
   ['audit: the summary line miscounts the FAIL lines', 'commands/audit.mjs', "${n('FAIL')} FAIL", "${n('WARN')} FAIL", 'unit'],
+  ['audit and gate: a built folder with no --target is given a default target [4c-flip]', 'commands/audit.mjs', "return { dir, rules, target: f.target };", "return { dir, rules, target: f.target ?? 'production' };", 'unit'],
   // ---- tools.json, tools ensure and ci (DECISIONS 42): the checks that refuse before a byte is fetched, the hash and size after, the table that maps every ci.yml step
   ["tools ensure: the sha256 comparison is always true", "lib/tools.mjs", "const shaOk = actualSha === plat.sha256;", "const shaOk = true;", 'unit'],
   ["tools ensure: the size comparison is always true", "lib/tools.mjs", "const sizeOk = onDisk.length === plat.size;", "const sizeOk = true;", 'unit'],

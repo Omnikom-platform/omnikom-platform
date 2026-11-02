@@ -2,8 +2,8 @@
 // gate  --dir <folder> [--json] [--target preview|production]                  the publish gate: every rule, only the FAIL lines and one verdict line (23-GROUND-RULES rule 7)
 // Both are thin: the engine judges, this file adds no rule, rewrites no line and swallows no exit code. Both read a folder and write
 // nothing: no network, no database, no environment. --dir is required (a gate that runs on the wrong folder passes silently).
-// --target is the BUILD target (the engine's ENV-001 judges indexing against it), passed through as { target }; with none the engine
-// passes nothing on to ENV-001 (it prints its one SKIP line). lib/target.mjs exempts exactly these two commands from the production guard.
+// --target is the BUILD target (the engine's ENV-001 judges indexing against it), passed through as { target }. A built folder (--dir) needs it
+// (preview or production): without it the engine refuses and both commands exit 2. A snapshot still runs without one (SKIP ENV-001). lib/target.mjs exempts exactly these two commands from the production guard.
 // Exit: 0 no FAIL, 1 at least one FAIL (main derives both from result.ok), 2 usage, bad rule id, or a crash inside the engine
 // (a crash is never a pass and never a plain FAIL). In text mode (no --json) omnikom.mjs prints textOutput() instead of the JSON object.
 import { existsSync, statSync } from 'node:fs';
