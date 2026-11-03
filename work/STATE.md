@@ -21,7 +21,8 @@ their CI runs, and `docs/blueprint/PROGRESS.md`.
 
 ## Next, in order
 
-1. Platform build: block 2 of its five (the head writes its work order); the CRM screens on the new backend are block 3.
+1. Platform build: block 2, CRM export and import in the client's own format (`work/02-crm-export-import/CONTEXT.md`, written,
+   no builder started yet); the CRM screens on the new backend are block 3.
 2. CLI and testing adds a journey step per CRM feature (field edit, server list, bulk, export columns) and removes the push
    steps J8 and J9.
 3. Head of operations: route the open findings (`service.add_lead` stores manual answers untyped, work order 01 F3); the repo

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "docs": 269,
+    "docs": 270,
     "unownedDocs": 7,
     "unplaced": 181,
     "over300": 9
@@ -89,7 +89,7 @@
     {"path":"docs/departments/cli-and-testing.md","title":"Department: CLI and testing tooling (`cli-and-testing`)","summary":"Created 2026-10-30 by the lead session (DECISIONS 33). Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":557,"loadFor":[]},
     {"path":"docs/departments/clients.md","title":"Department: Clients (`clients`)","summary":"Created 2026-10-30 by `tools/departments/new-department.mjs`. Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":121,"loadFor":[]},
     {"path":"docs/departments/head-of-operations.md","title":"Department: Head of operations (`head-of-operations`)","summary":"Created 2026-10-30 by the lead session (DECISIONS 33). Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":78,"loadFor":[]},
-    {"path":"docs/departments/platform-build.md","title":"Department: Platform build (`platform-build`)","summary":"Created 2026-10-30 by the lead session (DECISIONS 33). Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":552,"loadFor":[]},
+    {"path":"docs/departments/platform-build.md","title":"Department: Platform build (`platform-build`)","summary":"Created 2026-10-30 by the lead session (DECISIONS 33). Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":559,"loadFor":[]},
     {"path":"docs/departments/seo-and-audits.md","title":"Department: SEO and audits (`seo-and-audits`)","summary":"Created 2026-10-30 by `tools/departments/new-department.mjs`. Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":411,"loadFor":[]},
     {"path":"docs/listings/ARCHITECTURE.md","title":"MLS listings feature: architecture (v0.1, 2026-10-27)","summary":"Status: DRAFT, nothing built, no credentials exist. Fits the platform's decided stack (DECISIONS.md 7, 9, 11): one multi-tenant **Supabase** Postgres, client...","owner":"clients","layer":"unplaced","lines":216,"loadFor":[]},
     {"path":"docs/listings/REQUIREMENTS.md","title":"MLS listings feature: requirements (v0.1, 2026-10-27)","summary":"Status: DRAFT for the owner's review. Nothing here is built. First client: ELEV8 Real Estate Group (Alex Sevilla, Partner, CA DRE 02248556), 10 cities. The f...","owner":"clients","layer":"unplaced","lines":122,"loadFor":[]},
@@ -274,7 +274,8 @@
     {"path":"tools/team-kit/README.md","title":"Team kit: the ICM audit team (Lead, Researcher, SEO analyst, Reviewer)","summary":"Copied 2026-10-26 from `E:\\Alex Sevilla` (the ELEV8 prospect audit), where it ran end to end. How the team works: `sops/clients/prospect-audit-team.md`. Thes...","owner":"clients","layer":"unplaced","lines":24,"loadFor":[]},
     {"path":"tools/team-kit/boot-prompts.example.md","title":"Boot prompts: the opening message of each team session","summary":"An agent session's **first message** carries its role marker, an exact line `ICM-ROLE: <role>`. Two hooks read it (`.claude/settings.json`): `tools/agent-anc...","owner":"clients","layer":"unplaced","lines":35,"loadFor":[]},
     {"path":"work/01-crm-backend/CONTEXT.md","title":"01 CRM backend","summary":"Owner: platform-build. Model: Opus 5.5, effort high. Branch: check/platform/crm-1 (worktree `C:\\Users\\DELL\\AppData\\Local\\Temp\\omk-wt-crm1`, base master bb1db...","owner":"head-of-operations","layer":2,"lines":127,"loadFor":[]},
+    {"path":"work/02-crm-export-import/CONTEXT.md","title":"02 CRM export and import in the client's own format","summary":"Owner: platform-build. Model: Opus 5.5, effort high. Branch: check/platform/crm-2 (fresh worktree on master). Status: OPEN, not started (written 2026-11-03 b...","owner":"head-of-operations","layer":2,"lines":102,"loadFor":[]},
     {"path":"work/README.md","title":"Work orders","summary":"`work/` is layer 2 of the layout in `docs/product/README.md`: one folder per piece of work, plus `STATE.md` (where things stand now). A session loads `CLAUDE...","owner":"head-of-operations","layer":2,"lines":47,"loadFor":[]},
-    {"path":"work/STATE.md","title":"Where things stand","summary":"Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-03 after platform block 1 landed. What the product is and every feature's state: `...","owner":"head-of-operations","layer":4,"lines":39,"loadFor":[]}
+    {"path":"work/STATE.md","title":"Where things stand","summary":"Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-03 after platform block 1 landed. What the product is and every feature's state: `...","owner":"head-of-operations","layer":4,"lines":40,"loadFor":[]}
   ]
 }
