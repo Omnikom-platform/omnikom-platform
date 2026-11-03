@@ -42,28 +42,28 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 |---|---|---|
 | A1 Lead list, newest first, live new rows | WORKS | 6 fixed columns; D:pages/Leads.tsx |
 | A2 Every field of a lead visible | PARTLY | panel lacks form, page, flow, cta, site, date, SMS consent as fields; D:pages/LeadPanel.tsx |
-| A3 Every field editable (core and industry) | PARTLY | backend done locally (work order 01: M14, `tenancy.test.sql` T22, `crm.test.ts`); staging proof `e2e-crm.mjs` not run yet: `service.lead_set_fields` via F:lead-update `fields`; no screen |
+| A3 Every field editable (core and industry) | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:lead-update `fields` (M14 `lead_set_fields`), one `edited` event per changed field |
 | A4 Status change with Undo | WORKS | F:lead-update |
 | A5 Assign and unassign (owner only) | WORKS | M8 `lead_update` |
 | A6 Notes (append-only) | WORKS | lead panel |
-| A7 Activity timeline | WORKS | edit events (`edited`, one per changed field, M14) not yet proven on staging |
+| A7 Activity timeline | WORKS | edit events (`edited`, one per changed field) proven on staging (e2e-crm 2026-11-03) |
 | A8 Add a lead by hand, consent tick | WORKS | F:add-lead, `/w/$ws/leads/new` |
-| A9 Delete a lead | PARTLY | backend done locally (work order 01: M14, `tenancy.test.sql` T22, `crm.test.ts`); staging proof `e2e-crm.mjs` not run yet: F:leads-bulk delete (a bulk of one, confirm flag); no screen |
-| A10 Search | PARTLY | backend done locally (work order 01: M14, `tenancy.test.sql` T22, `crm.test.ts`); staging proof `e2e-crm.mjs` not run yet: F:lead-list search over every core and industry value; the screen still searches in the browser |
-| A11 Filter | PARTLY | backend done locally (work order 01: M14, `tenancy.test.sql` T22, `crm.test.ts`); staging proof `e2e-crm.mjs` not run yet: F:lead-list filters on any column (eq, in, range, empty); the screen has New, All, Mine, Spam only |
-| A12 Sort on any column | PARTLY | backend done locally (work order 01: M14, `tenancy.test.sql` T22, `crm.test.ts`); staging proof `e2e-crm.mjs` not run yet: F:lead-list sorts typed (a number as a number); no screen |
+| A9 Delete a lead | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:leads-bulk delete (a bulk of one, the confirm flag, one audit row per lead) |
+| A10 Search | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:lead-list search over every core and industry value |
+| A11 Filter | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:lead-list filters on any column (eq, in, range, empty) |
+| A12 Sort on any column | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:lead-list sorts typed (a number as a number) |
 | A13 Choose the columns of a view | MISSING | |
 | A14 Saved views | MISSING | no table, no function |
-| A15 Bulk edit (status, owner, delete) | PARTLY | backend done locally (work order 01: M14, `tenancy.test.sql` T22, `crm.test.ts`); staging proof `e2e-crm.mjs` not run yet: F:leads-bulk, all or nothing, up to 500; no screen |
+| A15 Bulk edit (status, owner, delete) | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:leads-bulk status, owner, delete; all or nothing, up to 500 |
 | A16 Status board | MISSING | |
 | A17 Follow-up date and tasks | MISSING | |
 | A18 Duplicate flag | MISSING | `idempotency_key` catches only the same submission |
 | A19 Unread bold, opening marks read | PARTLY | backend works (M12, F:lead-update `read`); no screen sends it |
-| A20 CSV export of the list | PARTLY | F:lead-export works on staging (journey J7); no button; fixed 9 columns, industry answers in one cell |
+| A20 CSV export of the list | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:lead-export writes one column per core and industry field in form order |
 | A21 Export in the client's CRM layout | PARTLY | `tools/crm-map`, `crm_templates`, `save_crm_template` work; no function, no screen |
 | A22 Import the client's file | PARTLY | parse and map exist; nothing creates leads from the rows |
 | A23 An agent sees only its own leads | WORKS | RLS `leads_read`; per-column visibility not specified |
-| A24 Industry lead fields as real columns | PARTLY | backend done locally (work order 01: M14, `tenancy.test.sql` T22, `crm.test.ts`); staging proof `e2e-crm.mjs` not run yet: typed at capture, own named columns in F:lead-list and F:lead-export, editable; no screen |
+| A24 Industry lead fields as real columns | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): typed at capture, own named columns in F:lead-list and F:lead-export, editable |
 | A25 Consent record with the lead | WORKS | lead panel, `consent_ledger` |
 | A26 Site switcher (2+ sites) | WORKS | shown only with 2+ sites; untested with two |
 
@@ -118,15 +118,15 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | Feature | State | Missing half, or where it lives |
 |---|---|---|
 | D1 Contract from an approved plan, validated | WORKS | 15 industries pass |
-| D2 Industry contracts declare their lead fields | PARTLY | types and the `column` / `editable` flags validated (C-FORM-*, 15 of 15 industries); waits for the staging proof |
+| D2 Industry contracts declare their lead fields | WORKS | types and the `column` / `editable` flags validated (C-FORM-*, 15 of 15 industries); e2e-crm on staging 2026-11-03 |
 | D3 Site build: pages, item pages, sitemap, JSON-LD, gates | WORKS | `factory/build.mjs` |
 | D4 Form posts with no script; site function signs and forwards | WORKS | journey J5 |
-| D5 Form field rendering | PARTLY | select, choice, number and reference drawn with no script (`factory/lib/fields.mjs`, factory tests); not yet seen on the published test site |
+| D5 Form field rendering | WORKS | select, choice, number and reference drawn with no script (`factory/lib/fields.mjs`), seen on the published test site; e2e-crm on staging 2026-11-03 |
 | D6 Capture: signature, consent, idempotent, quotas, paused site refused | WORKS | F:capture-lead |
-| D7 The test site proves contracts and forms | PARTLY | its contact form now has real-estate fields (budget, timing, beds, area, buying or selling); not yet published |
+| D7 The test site proves contracts and forms | WORKS | its contact form has real-estate fields (budget, timing, beds, area, buying or selling), published; e2e-crm on staging 2026-11-03 |
 | D8 New-lead alert to the business and the assigned agent | PARTLY | works; recipients set only by CLI |
 | D9 Site endpoint settings checked before a deploy | WORKS | `factory/runner/publish.mjs` |
-| D10 Contract lead fields flow into the CRM | PARTLY | backend done locally (work order 01: M14, `tenancy.test.sql` T22, `crm.test.ts`); staging proof `e2e-crm.mjs` not run yet; see A24 |
+| D10 Contract lead fields flow into the CRM | WORKS | a lead posted through the published form reaches the CRM typed, in its own columns, in form order; e2e-crm on staging 2026-11-03 |
 
 ### Counts
 | Part | WORKS | PARTLY | MISSING | Rows |
@@ -134,8 +134,8 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | A CRM | 9 | 12 | 5 | 26 |
 | B Dashboard | 8 | 7 | 7 | 22 |
 | C Backend and database | 12 | 4 | 1 | 17 |
-| D Factory and forms | 5 | 5 | 0 | 10 |
-| Total | 34 | 28 | 13 | 75 |
+| D Factory and forms | 9 | 1 | 0 | 10 |
+| Total | 38 | 24 | 13 | 75 |
 
 Completion is reported from these counts only.
 

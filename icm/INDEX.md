@@ -114,7 +114,7 @@ none
 |---|---|---|---|---|---|
 | .claude/POSITION.md | head-of-operations | 854 | Position | - **Repo born today.** Planning inputs banked verbatim, analysis written, owner decisions recorded, skills copied in. Git: `256cad0`, then `274351b` (session... |  |
 | docs/blueprint/PROGRESS.md | platform-build | 1912 | Blueprint progress (for the lead session) | Task: build-ready product engineering package (owner, 2026-10-28), raised to engineering practice, tied to published standards, then corrected by an independ... |  |
-| work/STATE.md | head-of-operations | 38 | Where things stand | Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-02 by the head of operations' book builder. What the product is and every feature'... |  |
+| work/STATE.md | head-of-operations | 39 | Where things stand | Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-03 after platform block 1 landed. What the product is and every feature's state: `... |  |
 
 ## Layer unplaced (181)
 
@@ -199,7 +199,7 @@ none
 | docs/departments/cli-and-testing.md | head-of-operations | 557 | Department: CLI and testing tooling (`cli-and-testing`) | Created 2026-10-30 by the lead session (DECISIONS 33). Rules for every department: `docs/departments/README.md`. |  |
 | docs/departments/clients.md | head-of-operations | 121 | Department: Clients (`clients`) | Created 2026-10-30 by `tools/departments/new-department.mjs`. Rules for every department: `docs/departments/README.md`. |  |
 | docs/departments/head-of-operations.md | head-of-operations | 78 | Department: Head of operations (`head-of-operations`) | Created 2026-10-30 by the lead session (DECISIONS 33). Rules for every department: `docs/departments/README.md`. |  |
-| docs/departments/platform-build.md | head-of-operations | 551 | Department: Platform build (`platform-build`) | Created 2026-10-30 by the lead session (DECISIONS 33). Rules for every department: `docs/departments/README.md`. |  |
+| docs/departments/platform-build.md | head-of-operations | 552 | Department: Platform build (`platform-build`) | Created 2026-10-30 by the lead session (DECISIONS 33). Rules for every department: `docs/departments/README.md`. |  |
 | docs/departments/seo-and-audits.md | head-of-operations | 411 | Department: SEO and audits (`seo-and-audits`) | Created 2026-10-30 by `tools/departments/new-department.mjs`. Rules for every department: `docs/departments/README.md`. |  |
 | docs/listings/ARCHITECTURE.md | clients | 216 | MLS listings feature: architecture (v0.1, 2026-10-27) | Status: DRAFT, nothing built, no credentials exist. Fits the platform's decided stack (DECISIONS.md 7, 9, 11): one multi-tenant **Supabase** Postgres, client... |  |
 | docs/listings/REQUIREMENTS.md | clients | 122 | MLS listings feature: requirements (v0.1, 2026-10-27) | Status: DRAFT for the owner's review. Nothing here is built. First client: ELEV8 Real Estate Group (Alex Sevilla, Partner, CA DRE 02248556), 10 cities. The f... |  |

@@ -1,7 +1,7 @@
 # 01 CRM backend
 
 Owner: platform-build. Model: Opus 5.5, effort high. Branch: check/platform/crm-1 (worktree
-`C:\Users\DELL\AppData\Local\Temp\omk-wt-crm1`, base master bb1dbe1). Status: OPEN: steps 1-6 built locally, not committed; staging steps handed to the head (e2e-crm.mjs not run).
+`C:\Users\DELL\AppData\Local\Temp\omk-wt-crm1`, base master bb1dbe1). Status: DONE 41ab89a, CI run 41589140733; staging e2e-crm 16/16 PASS 2026-11-03.
 Head: `HEAD_Platform-build_2026-11-03a`. Builder: `BUILDER_platform-build_crm-1`.
 
 ## Why
