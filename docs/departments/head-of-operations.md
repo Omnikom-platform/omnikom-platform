@@ -11,6 +11,8 @@ where things stand in `.claude/POSITION.md`.
 - `docs/product/` (the product book)
 - `work/` (work orders and `work/STATE.md`)
 - `archive/` (superseded files, each folder with a README.txt)
+- `icm/` (the generated index and code map, plus hand-written layer 1 notes)
+- `tools/icm/` (the indexer, its hook, tests and mutants)
 - `planning/`
 - `.claude/`
 - `docs/departments/`

@@ -1,0 +1,4 @@
+# fixture ignore rules
+ignored-dir/
+*.gen.mjs
+!keep.gen.mjs

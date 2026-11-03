@@ -1,0 +1,3 @@
+# Plan
+
+A stage contract.

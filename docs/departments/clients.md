@@ -12,6 +12,7 @@ Know every client and prospect better than any session's memory: who they are, w
 - `templates/client-questions/`
 - `tools/client-questions/`
 - `tools/team-kit/`
+- `tools/panel-mods/elev8-tracker/`
 
 ## Does not touch
 Every path not listed above. A bug or a need in another department's files is a finding sent to the head of operations with
