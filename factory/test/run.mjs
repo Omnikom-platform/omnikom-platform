@@ -24,9 +24,10 @@ async function check(name, fn) {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${ok ? '' : '  ' + detail}`);
 }
 
-let H, T, X, G, L, V, PL, AUDIT, SEED, MAKE_CONTRACT, MAKE_EXPORT;
+let H, FL, T, X, G, L, V, PL, AUDIT, SEED, MAKE_CONTRACT, MAKE_EXPORT;
 try {
   H = await load(FACTORY, 'lib/html.mjs');
+  FL = await load(FACTORY, 'lib/fields.mjs');
   T = await load(FACTORY, 'lib/template.mjs');
   X = await load(FACTORY, 'lib/export.mjs');
   G = await load(FACTORY, 'lib/gates.mjs');
@@ -276,6 +277,35 @@ await check('build: a missing --export is a usage error (exit 2)', () => spawnSy
 
 // ---------- 6. the factory gates, each red on a mutated page ----------
 const contactHtml = read(GOOD, 'contact/index.html');
+
+// ---------- 6a. the lead form's typed fields (D5): select, choice and number with no script ----------
+const formOf = (h) => (h.match(/<form\b[\s\S]*?<\/form>/) || [''])[0];
+const contactForm = formOf(contactHtml);
+await check('form fields: timing is a <select name="timing"> of the contract\'s 4 options', () => {
+  const s = (contactForm.match(/<select name="timing"[^>]*>([\s\S]*?)<\/select>/) || [])[1] || '';
+  const vals = [...s.matchAll(/<option value="([^"]*)">/g)].map((m) => m[1]);
+  return vals.join('|') === '|0-3 months|3-6 months|6-12 months|just looking' || vals.join('|');
+});
+await check('form fields: buying or selling is two radio buttons named "side"', () => {
+  const v = [...contactForm.matchAll(/<input type="radio" name="side" value="([^"]*)"/g)].map((m) => m[1]);
+  return v.join('|') === 'Buying|Selling' || v.join('|');
+});
+await check('form fields: budget and beds are number inputs with the contract\'s min and max', () =>
+  (/<input type="number" name="budget" inputmode="decimal" step="any" min="10000" max="50000000">/.test(contactForm)
+    && /<input type="number" name="beds" inputmode="decimal" step="any" min="0" max="10">/.test(contactForm)) || contactForm.slice(0, 1500));
+await check('form fields: area is a <select> of the site\'s areas (slug values from the rows)', () => {
+  const s = (contactForm.match(/<select name="area"[^>]*>([\s\S]*?)<\/select>/) || [])[1] || '';
+  return /<option value="alpha">Alpha<\/option><option value="beta">Beta<\/option>/.test(s) || s;
+});
+await check('form fields: the form holds no script and no on...= handler (it works with script off)', () =>
+  (contactForm.length > 0 && !/<script\b/i.test(contactForm) && !/\son[a-z]+=/i.test(contactForm)) || 'script inside the form');
+await check('form fields: a multi choice is tick boxes, a boolean is one tick "yes", a required select is required, values escaped', () => {
+  const m = String(FL.renderField('wants', { type: 'choice', options: ['Pool', 'A "view"'], multi: true }));
+  const b = String(FL.renderField('pre', { type: 'boolean', label: 'Pre-approved' }));
+  const e = String(FL.renderField('t', { type: 'enum', options: ['x'], required: true }));
+  return (/<input type="checkbox" name="wants" value="Pool">/.test(m) && m.includes('value="A &quot;view&quot;"') && !/type="radio"/.test(m)
+    && /<input type="checkbox" name="pre" value="yes">/.test(b) && /<select name="t" required>/.test(e)) || [m, b, e].join('\n');
+});
 const gateIds = (h, o = {}) => G.checkPage({ html: h, path: o.path || '/contact/', origin: ORIGIN, kind: o.kind || 'page' }).map((x) => x.gate);
 await check('gates: every built page and the 404 pass all gates', () => {
   for (const f of walk(GOOD).filter((x) => x.endsWith('.html'))) {

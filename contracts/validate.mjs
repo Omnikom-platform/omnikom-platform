@@ -76,6 +76,69 @@ function checkFields(out, path, fields, collections, { allowEmpty = false } = {}
   }
 }
 
+// Lead forms (D2, A24): what a lead form collects, typed, and how the CRM shows it. name, email and phone go to the lead's own
+// columns; every other key is an industry field kept in leads.answers under that key. service.capture_lead and
+// service.lead_set_fields read the same declaration from the active contract, so each rule here is one the database holds too.
+// "enum" is a select (one value), "choice" is radio buttons, or tick boxes with "multi": true; "phone" is a tel field,
+// "boolean" a tick; "reference" picks a row of a site collection (stored as its slug).
+export const FORM_FIELD_TYPES = ['text', 'email', 'phone', 'number', 'enum', 'choice', 'date', 'boolean', 'reference'];
+export const CORE_LEAD_FIELDS = { name: 'text', email: 'email', phone: 'phone' };
+// Names the lead endpoint and the CRM already use (factory/worker/lead-endpoint.mjs TOP, the consent ticks, the lead's own columns).
+const RESERVED_FORM_KEYS = new Set(['form', 'flow', 'page', 'cta', 'assignee', 'consentText', 'hp', 'idempotencyKey', 'consent',
+  'marketingConsent', 'marketingConsentText', 'smsConsent', 'status', 'owner', 'id', 'created_at', 'updated_at', 'workspace', 'site']);
+const FORM_KEY = /^[a-zA-Z][a-zA-Z0-9_]{0,39}$/;
+const FORM_FLAGS = ['required', 'column', 'editable', 'multi'];
+
+function checkFormFields(out, path, fields, collections) {
+  if (!fields || typeof fields !== 'object' || !Object.keys(fields).length) { err(out, 'C-FIELDS', path, 'fields must be a non-empty object'); return; }
+  for (const [name, f] of Object.entries(fields)) {
+    const p = `${path}.${name}`;
+    if (!f || !(FIELD_TYPES.includes(f.type) || FORM_FIELD_TYPES.includes(f.type))) { err(out, 'C-FIELD-TYPE', p, `unknown field type "${f && f.type}"`); continue; }
+    if (!FORM_FIELD_TYPES.includes(f.type)) { err(out, 'C-FORM-TYPE', p, `a lead form cannot collect a "${f.type}" field (it can: ${FORM_FIELD_TYPES.join(', ')})`); continue; }
+    if (!FORM_KEY.test(name) || RESERVED_FORM_KEYS.has(name))
+      err(out, 'C-FORM-KEY', p, `"${name}" cannot name a form field (letters, digits and _, up to 40, not a name the lead already uses)`);
+    if (CORE_LEAD_FIELDS[name] && f.type !== CORE_LEAD_FIELDS[name])
+      err(out, 'C-FORM-CORE', p, `"${name}" is the lead's own column: its type must be "${CORE_LEAD_FIELDS[name]}"`);
+    if ((f.type === 'enum' || f.type === 'choice') && (!Array.isArray(f.options) || !f.options.length
+      || new Set(f.options).size !== f.options.length || f.options.some(o => typeof o !== 'string' || !o.trim() || o.length > 120)))
+      err(out, 'C-ENUM', p, `${f.type} needs a non-empty list of unique options`);
+    if (f.type === 'reference' && !collections[f.to]) err(out, 'C-REF', p, `reference to unknown collection "${f.to}"`);
+    for (const k of ['min', 'max']) if (f[k] !== undefined && !(typeof f[k] === 'number' && Number.isFinite(f[k])))
+      err(out, 'C-RANGE', p, `${k} must be a number`);
+    if (typeof f.min === 'number' && typeof f.max === 'number' && f.min > f.max) err(out, 'C-RANGE', p, 'min is greater than max');
+    for (const k of FORM_FLAGS) if (f[k] !== undefined && typeof f[k] !== 'boolean') err(out, 'C-FORM-FLAG', p, `${k} must be true or false`);
+    if (f.multi !== undefined && f.type !== 'choice') err(out, 'C-FORM-FLAG', p, '"multi" applies to a choice field only');
+    if (f.label !== undefined && !(typeof f.label === 'string' && f.label.trim() && f.label.length <= 80))
+      err(out, 'C-FORM-LABEL', p, 'label must be text of 1 to 80 characters');
+  }
+}
+
+// The same key in two forms is one CRM column, so it needs one type and the same flags in both.
+const columnSig = d => `${d.type}${d.multi === true ? ' (multi)' : ''}${d.column === false ? ', not a column' : ''}${d.editable === false ? ', not editable' : ''}`;
+function checkFormKeysAgree(out, forms) {
+  const seen = {};
+  for (const [id, f] of Object.entries(forms)) for (const [k, d] of Object.entries((f && f.fields) || {})) {
+    if (!d || !FORM_FIELD_TYPES.includes(d.type)) continue;
+    const sig = columnSig(d);
+    if (!seen[k]) seen[k] = { sig, form: id };
+    else if (seen[k].sig !== sig) err(out, 'C-FORM-SAME-KEY', `forms.${id}.fields.${k}`, `"${k}" is ${sig} here and ${seen[k].sig} in form "${seen[k].form}": one CRM column has one type`);
+  }
+}
+
+// The CRM's industry columns: every form field key that is not one of the lead's own columns, in form order, typed, with the
+// options of every form that declares it. column/editable default to true. The database builds the same list (M14).
+export function leadColumns(contract) {
+  const cols = {};
+  for (const f of Object.values((contract && contract.forms) || {})) for (const [k, d] of Object.entries((f && f.fields) || {})) {
+    if (CORE_LEAD_FIELDS[k] || !d || !FORM_FIELD_TYPES.includes(d.type)) continue;
+    const c = cols[k] ||= { key: k, type: d.type, label: d.label || k, multi: d.multi === true, column: d.column !== false, editable: d.editable !== false, options: [] };
+    for (const o of d.options || []) if (!c.options.includes(o)) c.options.push(o);
+    if (d.type === 'number') { if (c.min === undefined && typeof d.min === 'number') c.min = d.min; if (c.max === undefined && typeof d.max === 'number') c.max = d.max; }
+    if (d.type === 'reference') c.to = d.to;
+  }
+  return Object.values(cols);
+}
+
 export function validateContract(contract) {
   const out = [];
   if (!contract || contract.contractVersion !== 1 || typeof contract.collections !== 'object' || typeof contract.pageTypes !== 'object'
@@ -150,12 +213,13 @@ export function validateContract(contract) {
   // Forms
   for (const [id, f] of Object.entries(contract.forms)) {
     const p = `forms.${id}`;
-    checkFields(out, `${p}.fields`, f.fields, cols);
-    const personal = Object.values(f.fields || {}).some(x => x && ['email', 'phone'].includes(x.type));
+    checkFormFields(out, `${p}.fields`, f.fields, cols);
+    const personal =Object.values(f.fields || {}).some(x => x && ['email', 'phone'].includes(x.type));
     if (personal && !(f.consent && typeof f.consent.notice === 'string' && SLUG.test(f.consent.notice)))
       err(out, 'C-CONSENT', p, 'a form that asks for email or phone needs consent.notice (slug of a locked notices row)');
     for (const k of Object.keys(f.crm || {})) if (!(f.fields || {})[k]) err(out, 'C-CRM', p, `crm map names unknown form field "${k}"`);
   }
+  checkFormKeysAgree(out, contract.forms);
 
   // Placements: where each published item goes
   const fed = new Set();

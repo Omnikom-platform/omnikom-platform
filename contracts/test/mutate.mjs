@@ -43,6 +43,13 @@ swap('validate.mjs', "if (collection === 'notices' && (o.mode || 'draft') === 'p
 swap('validate.mjs', 'if (rec.processed === false) img.exifStripped = false;', '', 'unprocessed photo treated as processed');
 swap('validate.mjs', 'const minWidth = o.sample ? 0 : m.minWidth;', 'const minWidth = m.minWidth;', 'sample listings held to the full photo width');
 swap('validate.mjs', 'ws.filter(w => w.expects.some(x => g.includes(x))).map(w => w.path)', 'ws.map(w => w.path)', 'waiver widens every group, not just the matching one');
+swap('validate.mjs', "    checkFormFields(out, `${p}.fields`, f.fields, cols);", "    checkFields(out, `${p}.fields`, f.fields, cols);", 'forms checked as collection fields (choice refused)');
+swap('validate.mjs', "if ((f.type === 'enum' || f.type === 'choice') && (!Array", "if ((f.type === 'enum') && (!Array", 'choice options unchecked');
+swap('validate.mjs', "for (const k of ['min', 'max']) if (f[k] !== undefined", "for (const k of []) if (f[k] !== undefined", 'form number min/max not checked as numbers');
+swap('validate.mjs', 'column: d.column !== false, editable: d.editable !== false', 'column: d.column === true, editable: d.editable !== false', 'leadColumns: column defaults to false');
+swap('validate.mjs', 'column: d.column !== false, editable: d.editable !== false', 'column: d.column !== false, editable: d.editable === true', 'leadColumns: editable defaults to false');
+swap('validate.mjs', 'if (CORE_LEAD_FIELDS[k] || !d ||', 'if (!d ||', 'leadColumns lists name/email/phone as industry columns');
+swap('validate.mjs', 'for (const o of d.options || []) if (!c.options.includes(o)) c.options.push(o);', 'if (!c.options.length) c.options.push(...(d.options || []));', 'leadColumns: options of the first form only');
 swap('validate.mjs', "if (empty(v)) { if (publish && f.required)", "if (empty(v)) { if (f.required)", 'required enforced on drafts too');
 
 // 3. coverage: every code raised in the source is named in the tests

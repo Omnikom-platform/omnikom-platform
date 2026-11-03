@@ -50,11 +50,14 @@ sequenceDiagram
 **Core fields, on every lead:** name, email, phone, form, page (`page_path`), flow, cta, status, owner, consent (the exact
 wording, plus marketing and SMS consent), date received. The site the lead came from is shown when a workspace has two or more.
 
-**Industry fields:** every industry contract declares its lead form's fields (`forms.<id>.fields` with label, type, options);
-a realtor's form carries budget, timing and beds, a dentist's insurance and treatment. They are stored today in `answers`,
-keyed as in the contract, and shown read-only with their labels. They become real columns in the list, the record, the CSV
-export and the crm-map dictionary, by the same procedure for every industry: the contract declares, per field, whether it is
-a list column and whether it is editable. Nothing is written per industry in code. The CRM's columns follow from the contract.
+**Industry fields:** every industry contract declares its lead form's fields (`forms.<id>.fields`: type, label, options,
+min/max, required, and the flags `column` and `editable`, both true unless the contract says false; `contracts/README.md`).
+A realtor's form carries budget, timing and beds, a dentist's insurance and treatment. They are stored in `answers`, keyed as
+in the contract, and typed by the database on capture and on every edit (M14): a number is a JSON number, a select value is
+one of its options, a key the form does not declare is dropped. `service.lead_list` returns each column under its own key,
+typed, with the column list as an array in contract form order; `lead-export` writes one CSV column per field; the record
+edits them through `lead-update` `fields`. Nothing is written per industry in code. The CRM's columns follow from the contract.
+Not yet: the crm-map dictionary entries and the screens (block 3).
 
 **Status:** new, contacted, qualified, closed, spam. Spam hides a lead from the default list and deletes nothing.
 
@@ -79,20 +82,21 @@ decides, not the screen. A member cannot hand a lead on. A member's hand-entered
 | Status board | the leads grouped by status; whether stages can be custom is an open owner question (status is a fixed 5-value list today) |
 | Follow-up | a follow-up date and tasks on a lead, with a "due" filter |
 | Duplicates | a new lead with the same email or phone as an existing one is flagged; merging is decided later |
-| Delete | removes the lead and writes an audit row; the consent ledger row stays (legal record) |
+| Delete | a hard delete, as privacy requires: one or many leads through `leads-bulk` (a single delete is a bulk of one), refused without the explicit confirm flag; one audit row per deleted lead; the consent ledger row stays (legal record) |
 | Export | CSV of the current view with every core and industry column, at most 5000 rows, cells starting with `= + - @` guarded; one `exported` event per lead |
 | Export in their CRM's layout | see below |
 | Import | see below |
 | Site switcher | shown only when the workspace has two or more sites |
 
-The CRM features named MISSING in `1-product.md`: A3 field edit, A12 sort on any column, A13 choose the columns, A14 saved views,
-A15 bulk edit, A16 status board, A17 follow-up date and tasks, A18 duplicates. PARTLY: A2 every field visible, A9 delete,
-A10 search, A11 filter, A19 unread bold, A20 CSV export (no button, fixed 9 columns), A21 export in their layout, A22 import,
-A24 industry fields as columns.
+The CRM features named MISSING in `1-product.md`: A13 choose the columns, A14 saved views, A16 status board, A17 follow-up
+date and tasks, A18 duplicates. PARTLY: A2 every field visible, A3 field edit, A9 delete, A10 search, A11 filter, A12 sort,
+A15 bulk edit, A19 unread bold, A20 CSV export (no button), A21 export in their layout, A22 import, A24 industry fields as
+columns (the backend of A3, A9-A12, A15 and A24 is done locally, work order 01; its staging proof and the screens are not).
 
-Delete is a hard delete today (`service.delete_lead`: the row goes, an audit row and the consent ledger stay). The enum kind
-`deleted` therefore never appears in a timeline. Whether a delete should instead hide the lead (soft delete) is an open owner
-question; until it is answered the book describes the code.
+Delete is a hard delete, as privacy requires (head of operations' ruling 2026-11-03, not an owner question): the row goes,
+the consent ledger row stays, one audit row per deleted lead names it (`lead-delete`, with a hash of the email). It needs an
+explicit confirm: `service.leads_bulk` refuses a delete without `p_confirm` true (S-CONFIRM); the screen's confirm step is
+block 3. The enum kind `deleted` therefore never appears in a timeline.
 
 ## Export in the client's layout, and import
 
@@ -117,7 +121,8 @@ flowchart LR
   `crm_templates`. Transforms: first and last name, street, city, state, postal code, phone in E.164 or US form, dates in ISO, US
   or EU form. Two templates ship (HubSpot, Google Contacts), each still to be checked against a real export.
 - **Export.** `exportRows` writes the leads in the template's column order, phones and dates in the client's form, the formula
-  guard on every cell. The export carries the industry fields once they are columns.
+  guard on every cell. The plain export (`lead-export`) already writes every industry field as its own column; the template
+  path does not yet read them.
 - **Import.** `parseCsv` (RFC 4180, repeated headers renamed, `;` guessed) then `importRows` gives leads, duplicates by email or
   phone, and warnings. The user sees the first 20 rows, chooses skip or add for duplicates, and the leads are created with form
   `import`, owned by the owner unless a column names a team member. What consent text an imported lead carries is an open
@@ -132,5 +137,9 @@ flowchart LR
 
 Every CRM feature is proven on staging through the test site and the CLI journey (`9-blocks.md`): the test site's contract
 must carry an industry form with select, number and choice fields, so the journey can send a lead with industry fields and see
-them as columns, edit one, export it in a saved layout and import it back. The test site today has one form with four fields
-(name, email, phone, message), so no industry column can be shown on staging yet.
+them as columns, edit one, export it in a saved layout and import it back. The test site's contact form carries
+budget (number), timing (select), beds (number), area (a select of the site's areas) and buying or selling (choice), drawn
+with no script. `supabase/tests/e2e-crm.mjs` proves the backend on staging: a lead posted through the published form, read
+back typed, a core and an industry field edited (two `edited` events), a member's edit of a lead not theirs refused, list with
+search, filter and sort on budget, bulk status, bulk delete refused without confirm and done with it. Locally the walls are
+`supabase/tests/tenancy.test.sql` T22 with their mutants. Status: the staging run has not happened yet (UNPROVEN on staging).

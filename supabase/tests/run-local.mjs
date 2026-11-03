@@ -1,5 +1,5 @@
 // Run the migration and the tenancy tests on a throwaway local Postgres cluster (no Supabase account needed).
-//   node supabase/tests/run-local.mjs [--keep] [--shim <file>] [--only <mutant name substring>]
+//   node supabase/tests/run-local.mjs [--keep] [--shim <file>] [--only <mutant name substring>] [--tests <sql file>]
 // Needs initdb/pg_ctl/psql on PATH (Postgres 15+). The shim (default local-shim.sql) models Supabase's defaults.
 // Then runs each MUTANT (one wall removed from a copy of the migration) and requires the tests to fail: a wall whose
 // mutant passes has no test. Exit 0 = tests pass on the real migration AND every mutant is caught.
@@ -19,7 +19,7 @@ const arg = n => { const i = process.argv.indexOf(n); return i > 0 ? process.arg
 const MIGRATIONS_DIR = resolve(HERE, '..', 'migrations');   // every migration, in file-name order, as Supabase applies them
 const SHIM = arg('--shim') ? resolve(arg('--shim')) : join(HERE, 'local-shim.sql');
 const ONLY = arg('--only');
-const TESTS = join(HERE, 'tenancy.test.sql');
+const TESTS = arg('--tests') ? resolve(arg('--tests')) : join(HERE, 'tenancy.test.sql');   // --tests: another SQL file (crm-scale.sql, work order 01)
 let PORT;   // set once the cluster is up: a port of this harness's block (lib/cluster-port.mjs)
 const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 120000, ...opts });
 
@@ -470,6 +470,54 @@ const MUTANTS = [
       ]),
     ];
   })(),
+  // Work order 01 (20261103000014_crm_fields.sql): one mutant per wall; tenancy.test.sql T22 must go red on each.
+  ['crm14: capture stores the raw answers (no typing)', "  typed := private.typed_answers(ws, p_form, p_answers);   -- migration 14", "  typed := coalesce(p_answers, '{}');   -- migration 14"],
+  ['crm14: an undeclared form stores its answers', "  if fields is null or jsonb_typeof(fields) <> 'object' then return '{}'::jsonb; end if;", "  if fields is null or jsonb_typeof(fields) <> 'object' then return coalesce(p_answers, '{}'::jsonb); end if;"],
+  ['crm14: a key the form does not declare is stored', "  return out;   -- a key the form does not declare is dropped here, never stored", "  return coalesce(p_answers, '{}'::jsonb) || out;"],
+  ['crm14: a required answer may be missing', "      if coalesce((d ->> 'required')::boolean, false) then raise exception 'I-ANSWER %: % is needed', k, coalesce(d ->> 'label', k); end if;", "      null;"],
+  ['crm14: a number outside min/max is stored', "    if (p_def ? 'min' and n < (p_def ->> 'min')::numeric) or (p_def ? 'max' and n > (p_def ->> 'max')::numeric) then", "    if false then"],
+  ['crm14: a number is stored as text', "    return to_jsonb(n);", "    return to_jsonb(s);"],
+  ['crm14: a select value is not checked against its options', "    if jsonb_typeof(p_v) <> 'string' or not ((p_def -> 'options') ? s) then raise exception 'I-ANSWER %: % must be one of the listed choices', p_key, lbl; end if;", "    if jsonb_typeof(p_v) <> 'string' then raise exception 'I-ANSWER %: % must be one of the listed choices', p_key, lbl; end if;"],
+  ['crm14: a multi choice is not checked against its options', "      if jsonb_typeof(e) <> 'string' or not ((p_def -> 'options') ? (e #>> '{}')) then", "      if jsonb_typeof(e) <> 'string' then"],
+  ['crm14: a single choice takes a list', "  if jsonb_typeof(p_v) in ('array', 'object') then raise exception 'I-ANSWER %: % must be a single value', p_key, lbl; end if;", "  if jsonb_typeof(p_v) = 'object' then raise exception 'I-ANSWER %: % must be a single value', p_key, lbl; end if;"],
+  ['crm14: a bad date is stored', "    begin d := s::date; exception when others then raise exception 'I-ANSWER %: % must be a date (year-month-day)', p_key, lbl; end;\n    return to_jsonb(d::text);", "    return to_jsonb(s);"],
+  ['crm14: a reference to a row that does not exist is stored (capture)', "    if d ->> 'type' = 'reference' and not private.reference_ok(p_ws, d, v #>> '{}') then", "    if false then"],
+  ['crm14: a reference to a row that does not exist is stored (edit)', "      if nv is not null and d ->> 'type' = 'reference' and not private.reference_ok(l.workspace_id, d, nv #>> '{}') then", "      if false then"],
+  ['crm14: a tick takes any word', "    raise exception 'I-ANSWER %: % must be ticked or not', p_key, lbl;", "    return 'true'::jsonb;"],
+  ['crm14: set_fields, a member edits a lead not theirs', "  if not found or not private.can_act_on_lead(l) then raise exception 'S-NOT-FOUND: not found'; end if;\n  if p_fields is null", "  if not found then raise exception 'S-NOT-FOUND: not found'; end if;\n  if p_fields is null"],
+  ['crm14: set_fields, a member changes the owner', "    elsif k = 'owner' then\n      if not staff and role = 'member' then raise exception 'S-OWN-ONLY: members cannot hand a lead to someone else'; end if;", "    elsif k = 'owner' then\n      null;"],
+  ['crm14: set_fields, the consent record is editable', "      raise exception 'S-CONSENT: the consent record cannot be edited'; end if;", "      null; end if;"],
+  ['crm14: set_fields, a non-editable field is editable', "      if not (d ->> 'editable')::boolean then raise exception 'S-LOCKED: \"%\" cannot be edited', k; end if;", "      null;"],
+  ['crm14: set_fields, an edit is not typed', "      nv := private.typed_value(k, d, v);\n", "      nv := v;\n"],
+  ['crm14: set_fields, an unknown key is accepted', "      if d is null then raise exception 'I-UNKNOWN: \"%\" is not a field of this lead', left(k, 40); end if;", "      if d is null then d := '{\"type\":\"text\",\"editable\":true}'; end if;"],
+  ['crm14: set_fields, a bad status is accepted', "        raise exception 'I-ANSWER status: Status must be one of the lead statuses'; end if;\n      nv := v;", "        null; end if;\n      nv := v;"],
+  ['crm14: set_fields, writes no edited event', "      insert into public.lead_events (lead_id, workspace_id, kind, by, detail) values (p_lead, l.workspace_id, 'edited', me, e);", "      null;"],
+  ['crm14: set_fields, an unchanged value writes an event', "    if old is distinct from nv and not (old is null and nv = 'null'::jsonb) then", "    if true then"],
+  ['crm14: set_fields, not audited', "values (l.workspace_id, me, 'lead-edit', p_lead::text,", "values (l.workspace_id, me, 'lead-edited', p_lead::text,"],
+  ['crm14: lead_list, a member sees every lead', "      and (see_all or (role = 'member' and l.owner_team_row = mine))", "      and (true or (role = 'member' and l.owner_team_row = mine))"],
+  ['crm14: lead_list, a non-member reads the workspace (both layers)', [["  if not staff and role is null then   -- not a member", "  if false then   -- not a member"], ["  see_all := staff or role = 'owner';", "  see_all := staff or role = 'owner' or role is null;"]]],
+  ['crm14: lead_list, every workspace is listed', "    where l.workspace_id = p_workspace\n", "    where true\n"],
+  ['crm14: lead_list, a sort key outside the contract is accepted', "  if not (types ? skey) then raise exception 'S-QUERY: \"%\" is not a column', left(skey, 40); end if;", "  null;"],
+  ['crm14: lead_list, a filter key outside the contract is accepted', "    if jsonb_typeof(f) <> 'object' or not (types ? coalesce(f ->> 'field', '')) then raise exception", "    if jsonb_typeof(f) <> 'object' then raise exception"],
+  ['crm14: lead_list, a number sorts as text', [["      case when stype = 'number' and jsonb_typeof(x.sv) = 'number' then (x.sv #>> '{}')::numeric end as sn,", "      null::numeric as sn,"], ["      case when stype not in ('number', 'boolean') and skey", "      case when stype not in ('boolean') and skey"]]],
+  ['crm14: lead_list, empty sorts first', "      case when sdir = 'asc' then m.sn end asc nulls last,", "      case when sdir = 'asc' then m.sn end asc nulls first,"],
+  ['crm14: lead_list, the page size is unbounded', "  if size < 1 or size > 200 then", "  if size < 1 then"],
+  ['crm14: lead_list, columns in jsonb order, not form order', "where sc2.workspace_id = p_ws and sc2.active and o.v ->> 'key' = first0.key limit 1), 1000000 + first0.ord) as ord", "where false limit 1), 1000000 + first0.ord) as ord"],
+  ['crm14: lead_list, a non-column field is filterable', "    into cols, types from private.lead_columns(p_workspace) c where (c.def ->> 'column')::boolean;", "    into cols, types from private.lead_columns(p_workspace) c;"],
+  ['crm14: lead_list, search ignores industry values', "            (select string_agg(a.value, ' ') from jsonb_each_text(l.answers) a)))) > 0)", "            null))) > 0)"],
+  ['crm14: lead_list, a filter is ignored', "            where not private.lead_filter_ok(l, types ->> (x ->> 'field'), x))", "            where false)"],
+  ['crm14: bulk, a foreign id does not refuse the call (partial write)', "  if seen <> cardinality(ids) then raise exception 'S-NOT-FOUND: not found'; end if;", "  null;"],
+  ['crm14: bulk, a member may hand on or delete', "  if p_action in ('owner', 'delete') and not coalesce(staff or role = 'owner', false) then", "  if false then"],
+  ['crm14: bulk, delete without the confirm flag', "  if p_action = 'delete' and p_confirm is not true then raise exception 'S-CONFIRM: deleting leads needs the confirm step'; end if;", "  null;"],
+  ['crm14: bulk, no audit row per deleted lead', "      insert into public.audit_log (workspace_id, actor, action, target, detail) values (l.workspace_id, me, 'lead-delete', l.id::text,", "      perform (l.workspace_id, me, 'lead-delete', l.id::text,"],
+  ['crm14: bulk, more than 500 ids', "  if cardinality(ids) = 0 or cardinality(ids) > 500 then", "  if cardinality(ids) = 0 then"],
+  ['crm14: bulk, a bad status is accepted', "    if p_value is null or not (p_value = any (enum_range(null::public.lead_status)::text[])) then raise exception", "    if p_value is null then raise exception"],
+  ['crm14: bulk, no status event per lead', "values (l.id, l.workspace_id, 'status', me, jsonb_build_object('from', l.status, 'to', st, 'bulk', true));", "values (l.id, l.workspace_id, 'note', me, jsonb_build_object('from', l.status, 'to', st, 'bulk', true));"],
+  ...['lead_set_fields(jsonb, uuid, jsonb)', 'lead_list(jsonb, uuid, jsonb)', 'leads_bulk(jsonb, uuid, uuid[], text, text, boolean)'].flatMap(sig => [
+    [`crm14: migration 14 closes service.${sig.split('(')[0]} to anon, authenticated, PUBLIC (both layers)`, [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], [`revoke all on function service.${sig} from public, anon, authenticated;`, '-- (revoke removed)']]],
+    [`crm14: migration 14 opens service.${sig.split('(')[0]} to the function role (both layers)`, [['alter default privileges in schema service grant execute on functions to service_role, omnikom_fn;', '-- (no default grant)'], [`grant execute on function service.${sig} to service_role, omnikom_fn;`, '-- (grant removed)']]],
+  ]),
+  ...['lead_set_fields(p_claims jsonb, p_lead uuid, p_fields jsonb) returns int', "lead_list(p_claims jsonb, p_workspace uuid, p_query jsonb default '{}') returns jsonb"].map(h => [`crm14: service.${h.split('(')[0]} does not pin the search_path`, `create function service.${h} language plpgsql security definer set search_path = '' as $$`, `create function service.${h} language plpgsql security definer as $$`]),
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

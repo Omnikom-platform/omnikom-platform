@@ -21,8 +21,13 @@ import { makeSql } from '../../tools/omnikom-cli/lib/sql.mjs';
 import { sign } from '../../tools/omnikom-cli/lib/sign.mjs';
 import { createCleanup, stagingDbUrl, stagingRemover } from './e2e-cleanup.mjs';
 import { pickPort, nextPort, BIND_FAILURE, MAX_TRIES } from './lib/cluster-port.mjs';   // 5-PORT
+import { readFileSync } from 'node:fs';
+import { leadColumns } from '../../contracts/validate.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+// work order 01: the export writes one column per field; the staged test site's contract decides the industry ones (sites/test-demo-a/stage.mjs)
+const EXPORT_HEADER = ['received', 'name', 'email', 'phone', 'form', 'page', 'status', 'owner',
+  ...leadColumns(JSON.parse(readFileSync(join(REPO, 'sites', 'test-demo-a', 'contract.json'), 'utf8'))).map((c) => c.key)].join();
 const LOCAL = process.argv.includes('--local');
 const WS_A = 'aaaaaaaa-0000-0000-0000-000000000000', WS_B = 'bbbbbbbb-0000-0000-0000-000000000000';
 const SITE_A = 'aaaaaaaa-0000-0000-0000-00000000517e';
@@ -212,7 +217,7 @@ try {
   // ---- G. lead-export
   const ex = await call('lead-export', 'owner-a', { site: SITE_A, q: tag });
   const csv = parseCsv(ex.text);
-  line(ex.status === 200 && (ex.headers.get('content-type') || '').startsWith('text/csv') && /^attachment; filename="leads-\d{4}-\d{2}-\d{2}\.csv"$/.test(ex.headers.get('content-disposition') || '') && csv[0] && csv[0].join() === 'received,name,email,phone,form,page,status,owner,answers', 'lead-export by owner-a is a text/csv file with the header and a filename', `${ex.status} ${ex.headers.get('content-type')}`);
+  line(ex.status === 200 && (ex.headers.get('content-type') || '').startsWith('text/csv') && /^attachment; filename="leads-\d{4}-\d{2}-\d{2}\.csv"$/.test(ex.headers.get('content-disposition') || '') && csv[0] && csv[0].join() === EXPORT_HEADER, 'lead-export by owner-a is a text/csv file with the header and a filename', `${ex.status} ${ex.headers.get('content-type')}`);
   const inj = csv.find(r => r[2] === `${tag}-owner@example.com`);
   line(csv.length === 3 && inj && inj[1] === '\'=HYPERLINK("http://e2e.example","x")', 'it holds the two leads of the tag and the formula comes out as text (leading quote)', `${csv.length - 1} rows`);
   const exA = await call('lead-export', 'member-a1', { site: SITE_A, q: tag });

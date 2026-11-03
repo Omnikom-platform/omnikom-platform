@@ -5,6 +5,23 @@
   "families": { "c-buy": "buyer-guide" },
   "pageTypeOf": { "/": "home", "/contact/": "contact" },
   "defaultForm": "contact",
+  "forms": {
+    "contact": {
+      "label": "Contact",
+      "fields": {
+        "name": { "type": "text", "required": true, "max": 120, "label": "Your name" },
+        "email": { "type": "email", "required": true, "label": "Email" },
+        "phone": { "type": "phone", "label": "Phone" },
+        "side": { "type": "choice", "options": ["Buying", "Selling"], "label": "Buying or selling" },
+        "budget": { "type": "number", "min": 10000, "max": 50000000, "label": "Budget (USD)" },
+        "timing": { "type": "enum", "options": ["0-3 months", "3-6 months", "6-12 months", "just looking"], "label": "Timing" },
+        "beds": { "type": "number", "min": 0, "max": 10, "label": "Bedrooms" },
+        "area": { "type": "reference", "to": "areas", "label": "Area" },
+        "message": { "type": "text", "max": 2000, "label": "Message", "column": false }
+      },
+      "consent": { "notice": "form-consent" }
+    }
+  },
   "collections": {
     "areas": { "type": "Place", "label": "Places" },
     "listings": {

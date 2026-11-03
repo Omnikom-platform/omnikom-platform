@@ -71,6 +71,7 @@ select ws, 1, '{}'::jsonb, '{"collections":{
     "free":{"type":"group","open":true,"of":{"x":{"type":"text","required":true}}},"fact":{"type":"group","sourced":true,"of":{"n":{"type":"text","required":true}}},"sections":{"type":"sections"}}},
   "settings":{"kind":"singleton","access":{"member":"none"},"fields":{"businessName":{"type":"text"},"licences":{"type":"list","locked":{"reason":"fact"}}}},
   "leads":{"kind":"inbox","access":{"member":"own"},"ownerField":"owner","fields":{"status":{"type":"enum"}}}},
+  "forms":{"contact":{"fields":{"name":{"type":"text"},"email":{"type":"email"},"phone":{"type":"phone"},"topic":{"type":"text"},"message":{"type":"text","max":2000}}}},
   "pageTypes":{"home":{"sections":[{"id":"hero","kind":"fields","fields":{"headline":{"type":"text","required":true}}},{"id":"extras","kind":"fields","fields":{"note":{"type":"text"}}},{"id":"feed","kind":"feed","accepts":"listings"}]}}}'::jsonb, true
 from (values ('aaaaaaaa-0000-0000-0000-000000000000'::uuid), ('bbbbbbbb-0000-0000-0000-000000000000'::uuid)) v(ws);
 insert into members (workspace_id, user_id, role) values
@@ -1583,7 +1584,8 @@ do $$ declare t record; n int; begin
       'set_workspace_state', 'open_privacy_request', 'set_privacy_request_state',
       'record_media', 'finish_media', 'row_exists', 'media_facts', 'site_for', 'row_version',
       'mark_lead_read', 'leads_exported', 'set_alerts', 'set_crm_webhook', 'drafts_waiting',
-      'crm_secret_put', 'crm_secret_drop', 'crm_target', 'crm_tested', 'find_login']),
+      'crm_secret_put', 'crm_secret_drop', 'crm_target', 'crm_tested', 'find_login',
+      'lead_set_fields', 'lead_list', 'leads_bulk']),   -- work order 01: owner B on each in T22
       'service.' || t.proname || ' takes claims but has no outsider test listed in T14';
   end loop;
 end $$;
@@ -1637,6 +1639,219 @@ select test.expect_error($q$select count(*) from consent_ledger$q$, 'permission 
 select test.expect_error($q$select service.suppress(null, 'email', 'x@test', 'dnc')$q$, 'permission denied');
 select test.expect_error($q$select * from service.site_signing_secrets('aaaaaaaa-0000-0000-0000-00000000517e')$q$, 'permission denied');
 reset role;
+
+-- ===== T22 work order 01 (migration 14): typed capture, the one edit call, the server list, bulk =====
+-- Workspace A's contract gains a real-estate form (synthetic) and its ordered leadColumns; agent one's team row is read from members.
+reset role;
+select test.act_as(null);
+create function test.c(s text) returns jsonb language sql as $$ select json_build_object('sub', s, 'aal', 'aal1')::jsonb $$;
+grant execute on function test.c(text) to anon, authenticated, service_role, omnikom_fn;
+create table test.r (k text primary key, v jsonb);
+grant all on test.r to anon, authenticated, service_role, omnikom_fn;
+update site_contracts set resolved = jsonb_set(resolved, '{collections,areas}',
+    '{"kind":"collection","access":{"member":"none"},"fields":{"name":{"type":"text","required":true},"slug":{"type":"slug","required":true}}}')
+  || jsonb_build_object('forms', '{
+    "contact":{"fields":{"name":{"type":"text"},"email":{"type":"email"},"phone":{"type":"phone"},"topic":{"type":"text"},"message":{"type":"text","max":2000},
+      "side":{"type":"choice","options":["Buying","Selling"]},"budget":{"type":"number","min":10000,"max":50000000,"label":"Budget"},
+      "timing":{"type":"enum","options":["0-3 months","3-6 months","6-12 months","just looking"]},"beds":{"type":"number","min":0,"max":10},
+      "area":{"type":"reference","to":"areas"},"wants":{"type":"choice","options":["Pool","Garden"],"multi":true},
+      "moveBy":{"type":"date","editable":false},"preApproved":{"type":"boolean"},"note":{"type":"text","column":false}}},
+    "valuation":{"fields":{"name":{"type":"text"},"address":{"type":"text","required":true,"max":200},"timing":{"type":"enum","options":["now"]}}}}'::jsonb,
+    'leadColumns', '[{"key":"topic"},{"key":"message"},{"key":"side"},{"key":"budget"},{"key":"timing"},{"key":"beds"},{"key":"area"},{"key":"wants"},
+      {"key":"moveBy"},{"key":"preApproved"},{"key":"note"},{"key":"address"}]'::jsonb)
+  where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and active;
+insert into test.ids select 'crm_t1', team_row_id from members where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and user_id = '00000000-0000-0000-0000-0000000000a1';
+do $$ begin assert test.id('crm_t1') is not null, 'T22 fixture: agent one has a team row'; end $$;
+set role service_role;
+insert into test.ids select 'crm_alpha', service.seed_version('aaaaaaaa-0000-0000-0000-000000000000', 'areas', '{"name":"Alpha","slug":"alpha"}', '00000000-0000-0000-0000-00000000005f', 'work order 01');
+reset role;
+
+-- (a) capture types every answer against the active contract's form; unknown keys are dropped; a bad value is refused naming the field
+set role omnikom_fn;
+insert into test.ids select 'c1', service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'Typed One', 't1@test', null,
+  '{"budget":"750000","timing":"0-3 months","side":"Buying","beds":3,"area":"alpha","wants":"Pool","preApproved":"yes","moveBy":"2027-01-15","note":"call after six","junk":"dropped"}', 'I agree');
+insert into test.ids select 'c2', service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'Typed Two', 't2@test', null, '{"budget":120000,"beds":"2"}', 'I agree');
+insert into test.ids select 'cB', service.capture_lead('bbbbbbbb-0000-0000-0000-00000000517e', 'contact', '/', 'B lead', 'b9@test', null, '{}', 'I agree');
+select test.expect_error($q$select service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'T22 refused', 'x@test', null, '{"budget":"lots"}', 'I agree')$q$, 'I-ANSWER budget: Budget must be a number');
+select test.expect_error($q$select service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'T22 refused', 'x@test', null, '{"budget":5}', 'I agree')$q$, 'I-ANSWER budget: Budget must be a number from 10000 to 50000000');
+select test.expect_error($q$select service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'T22 refused', 'x@test', null, '{"timing":"tomorrow"}', 'I agree')$q$, 'I-ANSWER timing');
+select test.expect_error($q$select service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'T22 refused', 'x@test', null, '{"side":["Buying","Selling"]}', 'I agree')$q$, 'I-ANSWER side: side must be a single value');
+select test.expect_error($q$select service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'T22 refused', 'x@test', null, '{"wants":["Pool","Sauna"]}', 'I agree')$q$, 'I-ANSWER wants');
+select test.expect_error($q$select service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'T22 refused', 'x@test', null, '{"area":"gamma"}', 'I agree')$q$, 'I-ANSWER area');
+select test.expect_error($q$select service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'T22 refused', 'x@test', null, '{"moveBy":"2026-13-40"}', 'I agree')$q$, 'I-ANSWER moveBy');
+select test.expect_error($q$select service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'T22 refused', 'x@test', null, '{"preApproved":"maybe"}', 'I agree')$q$, 'I-ANSWER preApproved');
+select test.expect_error($q$select service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'valuation', '/', 'T22 refused', 'x@test', null, '{"timing":"now"}', 'I agree')$q$, 'I-ANSWER address: address is needed');
+insert into test.ids select 'cNope', service.capture_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'nope', '/', 'Undeclared form', 'u@test', null, '{"budget":"lots","x":"y"}', 'I agree');
+reset role;
+do $$ declare a jsonb := (select answers from leads where id = test.id('c1')); b jsonb := (select answers from leads where id = test.id('c2')); begin
+  assert jsonb_typeof(a -> 'budget') = 'number' and (a ->> 'budget')::numeric = 750000, 'T22a a number answer is stored as a JSON number: ' || a::text;
+  assert jsonb_typeof(a -> 'beds') = 'number' and jsonb_typeof(b -> 'beds') = 'number' and (b ->> 'beds')::numeric = 2, 'T22a "2" becomes the number 2';
+  assert a -> 'wants' = '["Pool"]' and a -> 'preApproved' = 'true' and a ->> 'side' = 'Buying' and a ->> 'area' = 'alpha' and a ->> 'moveBy' = '2027-01-15', 'T22a choices, tick and date typed: ' || a::text;
+  assert not (a ? 'junk'), 'T22a a key the form does not declare is dropped, never stored';
+  assert (select answers from leads where id = test.id('cNope')) = '{}', 'T22a a form the contract does not declare: the lead is kept, every answer dropped';
+  assert (select count(*) from leads where name = 'T22 refused' and workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 0, 'T22a a refused capture stores nothing';
+end $$;
+
+-- (b) the one edit call: core and industry fields, one edited event per changed field, one audit row per call, all or nothing
+set role omnikom_fn;
+select service.lead_update(test.c('00000000-0000-0000-0000-00000000000a'), test.id('c2'), null, test.id('crm_t1'));   -- c2 is agent one's
+insert into test.r select 'e1', to_jsonb(service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), test.id('c1'), '{"name":"Typed Renamed","budget":800000,"timing":"3-6 months"}'));
+insert into test.r select 'e2', to_jsonb(service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), test.id('c1'), '{"name":"Typed Renamed","budget":"800000","timing":"3-6 months"}'));
+insert into test.r select 'e3', to_jsonb(service.lead_set_fields(test.c('00000000-0000-0000-0000-0000000000a1'), test.id('c2'), '{"beds":4,"status":"contacted"}'));
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-0000000000a1'), %L, '{"budget":900000}')$q$, test.id('c1')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-0000000000a1'), %L, '{"owner":null}')$q$, test.id('c2')), 'S-OWN-ONLY');
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000b'), %L, '{"name":"B was here"}')$q$, test.id('c1')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), %L, '{"consent_text":"I agree to everything"}')$q$, test.id('c1')), 'S-CONSENT');
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), %L, '{"smsConsent":true}')$q$, test.id('c1')), 'S-CONSENT');
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), %L, '{"moveBy":"2027-02-01"}')$q$, test.id('c1')), 'S-LOCKED');
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), %L, '{"name":"Should Not Stick","budget":"lots"}')$q$, test.id('c1')), 'I-ANSWER budget');
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), %L, '{"beds":11}')$q$, test.id('c1')), 'I-ANSWER beds');
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), %L, '{"area":"gamma"}')$q$, test.id('c1')), 'I-ANSWER area');
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), %L, '{"status":"bogus"}')$q$, test.id('c1')), 'I-ANSWER status');
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), %L, '{"junk":1}')$q$, test.id('c1')), 'I-UNKNOWN');
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), %L, '{"form":"other"}')$q$, test.id('c1')), 'I-UNKNOWN');
+insert into test.r select 'e4', to_jsonb(service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), test.id('c1'), '{"note":null}'));
+reset role;
+do $$ declare ev jsonb; l leads; begin
+  select * into l from leads where id = test.id('c1');
+  assert (select v from test.r where k = 'e1') = '3' and (select v from test.r where k = 'e2') = '0', 'T22b three changed fields, then none';
+  assert (select count(*) from lead_events where lead_id = l.id and kind = 'edited') = 4, 'T22b one edited event per changed field (3 + the cleared note), none for an unchanged value';
+  select detail into ev from lead_events where lead_id = l.id and kind = 'edited' and detail ->> 'field' = 'budget';
+  assert ev = '{"field":"budget","old":750000,"new":800000}', 'T22b the event says field, old and new: ' || coalesce(ev::text, 'none');
+  assert (select count(*) from audit_log where action = 'lead-edit' and target = l.id::text) = 3, 'T22b one audit row per call (refused calls write none)';
+  assert l.name = 'Typed Renamed' and l.answers -> 'budget' = '800000' and l.answers ->> 'timing' = '3-6 months' and not (l.answers ? 'note'), 'T22b the lead holds the edits, typed; a refused call changed nothing: ' || l.answers::text;
+  assert l.consent_text = 'I agree' and l.answers ->> 'moveBy' = '2027-01-15', 'T22b consent and a non-editable field are unchanged';
+  assert (select v from test.r where k = 'e3') = '2' and (select status from leads where id = test.id('c2')) = 'contacted'
+    and (select answers -> 'beds' from leads where id = test.id('c2')) = '4', 'T22b a member edits its own lead (an industry field and the status)';
+end $$;
+
+-- (c) the server list: a 200-lead seed (budgets whose text order differs from their number order), the caller's leads only
+insert into leads (workspace_id, site_id, form, page_path, name, email, answers, consent_text, owner_team_row, created_at)
+select 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'Seed ' || i, 'seed' || i || '@test',
+  jsonb_build_object('budget', 10000 + ((i * 7919) % 997) * 1000, 'timing', (array['0-3 months','3-6 months','6-12 months','just looking'])[1 + i % 4])
+    || case when i % 2 = 0 then '{"area":"alpha"}'::jsonb else '{}'::jsonb end,
+  'seeded', case when i % 5 = 0 then test.id('crm_t1') end, now() - make_interval(secs => i)
+from generate_series(1, 200) i;
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+insert into test.r select 'rls_a1', coalesce(jsonb_agg(to_jsonb(id::text) order by id::text), '[]') from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000';
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+insert into test.r select 'rls_owner', to_jsonb(count(*)) from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000';
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+insert into test.r select 'rls_b', to_jsonb(count(*)) from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000';
+select test.act_as(null);
+reset role;
+set role omnikom_fn;
+insert into test.r select 'l_asc', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"sort":{"field":"budget","dir":"asc"},"size":200}');
+insert into test.r select 'l_desc2', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"sort":{"field":"budget","dir":"desc"},"size":50,"page":2}');
+insert into test.r select 'l_a1', service.lead_list(test.c('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"size":200}');
+insert into test.r select 'l_b', service.lead_list(test.c('00000000-0000-0000-0000-00000000000b'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"size":200}');
+insert into test.r select 'f_timing', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"filters":[{"field":"timing","op":"eq","value":"0-3 MONTHS"}]}');
+insert into test.r select 'f_range', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"filters":[{"field":"budget","op":"range","from":100000,"to":300000}],"size":200}');
+insert into test.r select 'f_empty', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"filters":[{"field":"area","op":"empty"}],"size":1}');
+insert into test.r select 'f_in', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"filters":[{"field":"side","op":"in","values":["Buying"]},{"field":"moveBy","op":"range","from":"2027-01-01","to":"2027-12-31"}]}');
+insert into test.r select 's_name', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"search":"seed 17"}');
+insert into test.r select 's_answer', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"search":"3-6 MONTHS","filters":[{"field":"owner","op":"not_empty"}],"size":200}');
+select test.expect_error($q$select service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"sort":{"field":"junk"}}')$q$, 'S-QUERY');
+select test.expect_error($q$select service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"sort":{"field":"budget); drop table leads; --"}}')$q$, 'S-QUERY');
+select test.expect_error($q$select service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"filters":[{"field":"note","op":"eq","value":"x"}]}')$q$, 'S-QUERY');
+select test.expect_error($q$select service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"filters":[{"field":"timing","op":"range","from":1}]}')$q$, 'S-QUERY');
+select test.expect_error($q$select service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"filters":[{"field":"name","op":"like","value":"%"}]}')$q$, 'S-QUERY');
+select test.expect_error($q$select service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"size":201}')$q$, 'S-QUERY');
+reset role;
+do $$ declare r jsonb := (select v from test.r where k = 'l_asc'); want jsonb; got jsonb; prev numeric; cur numeric; nulls boolean := false; i int; cnt int;
+begin
+  -- lead by lead: the page equals the leads of A in number order (empty last, then newest first), and each budget is >= the one before
+  select jsonb_agg(to_jsonb(x.id) order by x.o) into want from (select id, row_number() over (order by
+      case when jsonb_typeof(answers -> 'budget') = 'number' then (answers ->> 'budget')::numeric end asc nulls last, created_at desc, id desc) o
+    from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') x where x.o <= 200;
+  select jsonb_agg(e -> 'id' order by n) into got from jsonb_array_elements(r -> 'rows') with ordinality t(e, n);
+  assert got = want, 'T22c the budget sort is the number order, lead by lead';
+  assert jsonb_array_length(r -> 'rows') = 200 and (r ->> 'total')::int = (select v from test.r where k = 'rls_owner')::text::int, 'T22c a page of 200; total = what the owner reads under RLS';
+  for i in 0 .. jsonb_array_length(r -> 'rows') - 1 loop
+    cur := case when jsonb_typeof(r -> 'rows' -> i -> 'budget') = 'number' then (r -> 'rows' -> i ->> 'budget')::numeric end;
+    if cur is null then nulls := true; else
+      assert not nulls, 'T22c an empty budget sorts last';
+      assert prev is null or cur >= prev, format('T22c lead %s: budget %s after %s is out of number order', i, cur, prev);
+      prev := cur;
+    end if;
+  end loop;
+  assert (select string_agg(e ->> 'key', ',' order by n) from jsonb_array_elements(r -> 'columns') with ordinality t(e, n))
+    = 'topic,message,side,budget,timing,beds,area,wants,moveBy,preApproved,address', 'T22c the columns are an array in contract form order (note is not a column): ' || (r -> 'columns')::text;
+  assert (select string_agg(e ->> 'key', ',' order by n) from jsonb_array_elements(r -> 'fields') with ordinality t(e, n))
+    = 'topic,message,side,budget,timing,beds,area,wants,moveBy,preApproved,note,address', 'T22c fields (for the export) lists every industry field in form order: ' || (r -> 'fields')::text;
+  assert (select e ->> 'type' from jsonb_array_elements(r -> 'columns') e where e ->> 'key' = 'budget') = 'number'
+    and (select e -> 'options' from jsonb_array_elements(r -> 'columns') e where e ->> 'key' = 'timing') = '["0-3 months","3-6 months","6-12 months","just looking","now"]', 'T22c a column carries its type and every form''s options';
+  assert (select jsonb_typeof(e -> 'budget') from jsonb_array_elements(r -> 'rows') e where e ->> 'id' = test.id('c1')::text) = 'number'
+    and not exists (select 1 from jsonb_array_elements(r -> 'rows') e where e ? 'note' or e ? 'answers'), 'T22c a row has each column under its own key, typed; no answers blob, no non-column field';
+  r := (select v from test.r where k = 'l_desc2');
+  select jsonb_agg(to_jsonb(x.id) order by x.o) into want from (select id, row_number() over (order by
+      case when jsonb_typeof(answers -> 'budget') = 'number' then (answers ->> 'budget')::numeric end desc nulls last, created_at desc, id desc) o
+    from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') x where x.o between 51 and 100;
+  assert (select jsonb_agg(e -> 'id' order by n) from jsonb_array_elements(r -> 'rows') with ordinality t(e, n)) = want, 'T22c page 2 of the descending sort';
+  -- RLS proof: the member's list is exactly what RLS shows that member; another workspace's owner gets nothing, as RLS does
+  r := (select v from test.r where k = 'l_a1');
+  assert (select coalesce(jsonb_agg(e -> 'id' order by e ->> 'id'), '[]') from jsonb_array_elements(r -> 'rows') e) = (select v from test.r where k = 'rls_a1')
+    and (r ->> 'total')::int = jsonb_array_length((select v from test.r where k = 'rls_a1')) and (r ->> 'total')::int >= 41, 'T22c a member lists exactly its own leads (RLS set)';
+  r := (select v from test.r where k = 'l_b');
+  assert (r ->> 'total')::int = 0 and r -> 'rows' = '[]' and r -> 'columns' = '[]' and (select v from test.r where k = 'rls_b') = '0', 'T22c another workspace''s list is empty, field names included';
+  select count(*) into cnt from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and lower(answers ->> 'timing') = '0-3 months';
+  assert ((select v from test.r where k = 'f_timing') ->> 'total')::int = cnt and cnt > 40, 'T22c filter eq on a select (case-insensitive)';
+  select count(*) into cnt from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and jsonb_typeof(answers -> 'budget') = 'number' and (answers ->> 'budget')::numeric between 100000 and 300000;
+  assert ((select v from test.r where k = 'f_range') ->> 'total')::int = cnt and cnt > 10, 'T22c filter range on a number';
+  select count(*) into cnt from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and coalesce(answers ->> 'area', '') = '';
+  assert ((select v from test.r where k = 'f_empty') ->> 'total')::int = cnt and jsonb_array_length((select v from test.r where k = 'f_empty') -> 'rows') = 1, 'T22c filter empty, page size 1';
+  assert ((select v from test.r where k = 'f_in') ->> 'total')::int = 1 and (select v from test.r where k = 'f_in') -> 'rows' -> 0 ->> 'id' = test.id('c1')::text, 'T22c filter in on a choice and a date range';
+  assert ((select v from test.r where k = 's_name') ->> 'total')::int = 11, 'T22c search finds Seed 17 and Seed 170-179';
+  select count(*) into cnt from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and owner_team_row is not null and answers ->> 'timing' = '3-6 months';
+  assert ((select v from test.r where k = 's_answer') ->> 'total')::int = cnt and cnt > 5, 'T22c search reads industry values, combined with a filter on the owner';
+end $$;
+-- timing on the seed (the written reason for no per-key index is the 20k run in crm-scale.sql)
+do $$ declare t0 timestamptz := clock_timestamp(); begin
+  perform service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"sort":{"field":"budget","dir":"asc"},"size":200}');
+  raise warning 'T22 timing: lead_list sort budget over % leads: % ms', (select count(*) from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000'),
+    round(extract(epoch from clock_timestamp() - t0) * 1000, 1);
+end $$;
+
+-- (d) bulk: all or nothing, owner-only owner and delete, delete needs the confirm flag and writes one audit row per lead
+set role omnikom_fn;
+select test.expect_error(format($q$select service.leads_bulk(test.c('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', array[%L, %L]::uuid[], 'status', 'qualified')$q$, test.id('c2'), test.id('c1')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select service.leads_bulk(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', array[%L, %L, %L]::uuid[], 'status', 'qualified')$q$, test.id('c1'), test.id('c2'), test.id('cB')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select service.leads_bulk(test.c('00000000-0000-0000-0000-00000000000b'), 'aaaaaaaa-0000-0000-0000-000000000000', array[%L]::uuid[], 'status', 'qualified')$q$, test.id('c1')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select service.leads_bulk(test.c('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', array[%L]::uuid[], 'owner', null)$q$, test.id('c2')), 'S-OWN-ONLY');
+select test.expect_error(format($q$select service.leads_bulk(test.c('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', array[%L]::uuid[], 'delete', null, true)$q$, test.id('c2')), 'S-OWN-ONLY');
+select test.expect_error(format($q$select service.leads_bulk(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', array[%L]::uuid[], 'status', 'bogus')$q$, test.id('c1')), 'I-ANSWER status');
+select test.expect_error($q$select service.leads_bulk(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', (select array_agg(gen_random_uuid()) from generate_series(1, 501)), 'status', 'new')$q$, 'S-QUERY');
+insert into test.r select 'b1', to_jsonb(service.leads_bulk(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', array[test.id('c1'), test.id('c2')], 'status', 'qualified'));
+insert into test.r select 'b2', to_jsonb(service.leads_bulk(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', array[test.id('c1')], 'owner', test.id('crm_t1')::text));
+select test.expect_error(format($q$select service.leads_bulk(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', array[%L, %L]::uuid[], 'delete')$q$, test.id('c1'), test.id('c2')), 'S-CONFIRM');
+select test.expect_error(format($q$select service.leads_bulk(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', array[%L, %L]::uuid[], 'delete', null, false)$q$, test.id('c1'), test.id('c2')), 'S-CONFIRM');
+reset role;
+do $$ begin
+  assert (select status from leads where id = test.id('cB')) = 'new', 'T22d a refused bulk call wrote nothing to the foreign lead (a partial write to c1 or c2 would make b1 below count less than 2)';
+  assert (select v from test.r where k = 'b1') = '2' and (select count(*) from leads where id in (test.id('c1'), test.id('c2')) and status = 'qualified') = 2, 'T22d bulk status';
+  assert (select count(*) from lead_events where lead_id in (test.id('c1'), test.id('c2')) and kind = 'status' and detail ->> 'to' = 'qualified') = 2, 'T22d one status event per lead';
+  assert (select count(*) from audit_log where action = 'leads-bulk') = 2, 'T22d one audit row per bulk call';
+  assert (select v from test.r where k = 'b2') = '1' and (select owner_team_row from leads where id = test.id('c1')) = test.id('crm_t1'), 'T22d bulk owner by the owner';
+  assert (select count(*) from leads where id in (test.id('c1'), test.id('c2'))) = 2, 'T22d a delete without the confirm flag deletes nothing';
+end $$;
+set role omnikom_fn;
+insert into test.r select 'b3', to_jsonb(service.leads_bulk(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', array[test.id('c1'), test.id('c2')], 'delete', null, true));
+reset role;
+do $$ begin
+  assert (select v from test.r where k = 'b3') = '2' and (select count(*) from leads where id in (test.id('c1'), test.id('c2'))) = 0, 'T22d confirmed bulk delete is a hard delete';
+  assert (select count(*) from audit_log where action = 'lead-delete' and target in (test.id('c1')::text, test.id('c2')::text)) = 2, 'T22d one audit row per deleted lead';
+  assert (select count(*) from consent_ledger where lead_id in (test.id('c1'), test.id('c2'))) = 2, 'T22d the consent ledger keeps its rows';
+end $$;
+
+-- (e) the new functions: closed to anon, authenticated and PUBLIC, open to the function role, definer with an empty search_path
+do $$ declare f text; begin
+  foreach f in array array['service.lead_set_fields(jsonb,uuid,jsonb)', 'service.lead_list(jsonb,uuid,jsonb)', 'service.leads_bulk(jsonb,uuid,uuid[],text,text,boolean)'] loop
+    assert not has_function_privilege('anon', f, 'execute') and not has_function_privilege('authenticated', f, 'execute') and not exists (select 1 from aclexplode((select proacl from pg_proc where oid = f::regprocedure)) a where a.grantee = 0), f || ' is closed to anon, authenticated and PUBLIC';
+    assert has_function_privilege('omnikom_fn', f, 'execute'), f || ' is open to the function role';
+    assert (select prosecdef from pg_proc where oid = f::regprocedure) and (select proconfig from pg_proc where oid = f::regprocedure) = array['search_path=""'], f || ' is a definer function with an empty search_path';
+  end loop;
+end $$;
 
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

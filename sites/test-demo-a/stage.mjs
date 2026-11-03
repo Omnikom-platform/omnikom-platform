@@ -23,7 +23,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validateContract, validateItem, mergeCore } from '../../contracts/validate.mjs';
+import { validateContract, validateItem, mergeCore, leadColumns } from '../../contracts/validate.mjs';
 import { makeSql, lit, uuidLit, jsonLit } from '../../tools/omnikom-cli/lib/sql.mjs';
 import { PERSONS } from '../../tools/omnikom-cli/lib/identity.mjs';
 
@@ -51,7 +51,8 @@ const wanted = JSON.parse(rowsText);
 const ref = `sites/test-demo-a/rows.json sha256 ${createHash('sha256').update(rowsText).digest('hex').slice(0, 16)}`;
 const cProblems = validateContract(contract);
 if (cProblems.length) die(1, `contract.json does not validate: ${cProblems[0].code} ${cProblems[0].msg || ''}`);
-const resolved = { ...contract, collections: mergeCore(contract) };
+// leadColumns: the CRM's industry columns in form order, as an array (jsonb keeps no key order; migration 14 reads the order from here)
+const resolved = { ...contract, collections: mergeCore(contract), leadColumns: leadColumns(contract) };
 
 // ---- state
 const staff = q('select user_id from staff');

@@ -73,7 +73,7 @@ async function answer(req: Request, fn: string, run: Run): Promise<Response> {
       const r = refusal(String(e));
       if (!r) throw e;
       if (r.kind) await recordEvent(sql, r.kind, r.code, { workspace: c.workspace, site: c.site, actor: c.sub, ipHash, fn });
-      return problem(r.status, r.code, r.msg);
+      return problem(r.status, r.code, r.msg, r.path !== undefined ? [{ code: r.code, path: r.path, msg: r.msg }] : undefined);
     }
   } catch (e) {
     console.error(fn, String(e).slice(0, 300));

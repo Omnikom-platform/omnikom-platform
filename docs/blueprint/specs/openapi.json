@@ -657,6 +657,12 @@
      "read": {
       "type": "boolean",
       "description": "true marks the lead read for the caller (service.mark_lead_read: the lead is bold in their list until they open it), alone or with the other fields; together, both run in one transaction, so a refused change marks nothing. false does nothing (there is no \"unread\")"
+     },
+     "fields": {
+      "type": "object",
+      "maxProperties": 50,
+      "additionalProperties": true,
+      "description": "Work order 01: core fields (name, email, phone, status, owner) and editable industry fields, typed by the contract; answers 200 { changed }"
      }
     },
     "description": "every field but lead is optional; each change writes its own event on the lead timeline (service.lead_update)"
@@ -1206,6 +1212,180 @@
       "type": "boolean",
       "const": false,
       "description": "no email sender exists yet (decision D5), so this is always false for now"
+     }
+    }
+   },
+   "LeadListRequest": {
+    "type": "object",
+    "required": [
+     "workspace"
+    ],
+    "properties": {
+     "workspace": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "search": {
+      "type": "string",
+      "maxLength": 200
+     },
+     "filters": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+       "type": "object",
+       "required": [
+        "field",
+        "op"
+       ],
+       "properties": {
+        "field": {
+         "type": "string"
+        },
+        "op": {
+         "type": "string",
+         "enum": [
+          "eq",
+          "in",
+          "range",
+          "empty",
+          "not_empty"
+         ]
+        },
+        "value": {},
+        "values": {
+         "type": "array",
+         "maxItems": 100
+        },
+        "from": {},
+        "to": {}
+       }
+      }
+     },
+     "sort": {
+      "type": "object",
+      "properties": {
+       "field": {
+        "type": "string"
+       },
+       "dir": {
+        "type": "string",
+        "enum": [
+         "asc",
+         "desc"
+        ]
+       }
+      }
+     },
+     "page": {
+      "type": "integer",
+      "minimum": 1
+     },
+     "size": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+     }
+    }
+   },
+   "LeadListResponse": {
+    "type": "object",
+    "properties": {
+     "total": {
+      "type": "integer"
+     },
+     "page": {
+      "type": "integer"
+     },
+     "size": {
+      "type": "integer"
+     },
+     "columns": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "key": {
+         "type": "string"
+        },
+        "label": {
+         "type": "string"
+        },
+        "type": {
+         "type": "string"
+        },
+        "options": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "editable": {
+         "type": "boolean"
+        }
+       }
+      }
+     },
+     "fields": {
+      "type": "array",
+      "items": {
+       "type": "object"
+      }
+     },
+     "rows": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "additionalProperties": true
+      }
+     }
+    }
+   },
+   "LeadsBulkRequest": {
+    "type": "object",
+    "required": [
+     "workspace",
+     "ids",
+     "action"
+    ],
+    "properties": {
+     "workspace": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+       "type": "string",
+       "format": "uuid"
+      }
+     },
+     "action": {
+      "type": "string",
+      "enum": [
+       "status",
+       "owner",
+       "delete"
+      ]
+     },
+     "value": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "confirm": {
+      "type": "boolean"
+     }
+    }
+   },
+   "LeadsBulkResponse": {
+    "type": "object",
+    "properties": {
+     "changed": {
+      "type": "integer"
      }
     }
    }
@@ -2360,6 +2540,112 @@
         }
        }
       }
+     }
+    }
+   }
+  },
+  "/lead-list": {
+   "post": {
+    "operationId": "leadList",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "summary": "The CRM lead list on the server: search, filter, sort and page (dashboard; supabase/functions/lead-list)",
+    "description": "Exactly the leads the caller may read (owner and staff: the workspace; a member: its own; anyone else: none, and no field names). Sort and filter keys are the core columns and the contract's industry columns; a number field sorts as a number; empty values last, then newest first. At most 200 a page. Columns come as an array in contract form order; each row carries each column under its own key, typed.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LeadListRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "The page, the total and the columns",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/LeadListResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "BODY: site is missing or not an id, filter is not one of new, all, mine, spam",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "422": {
+      "description": "S-QUERY: a sort or filter key that is not a column, a bad filter, or a page of more than 200"
+     }
+    }
+   }
+  },
+  "/leads-bulk": {
+   "post": {
+    "operationId": "leadsBulk",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "summary": "Set status or owner of, or delete, many leads at once (dashboard; supabase/functions/leads-bulk)",
+    "description": "All or nothing: an id the caller may not act on refuses the whole call (404) and writes nothing. Owner and delete are for an owner (403 S-OWN-ONLY). Delete is the hard delete and needs confirm: true (409 S-CONFIRM); one audit row per deleted lead, the consent ledger kept. A single delete is a bulk of one.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LeadsBulkRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "How many leads changed or were deleted",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/LeadsBulkResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "BODY: site is missing or not an id, filter is not one of new, all, mine, spam",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "403": {
+      "description": "S-OWN-ONLY"
+     },
+     "404": {
+      "description": "S-NOT-FOUND: an id the caller may not act on"
+     },
+     "409": {
+      "description": "S-CONFIRM: a delete without confirm"
      }
     }
    }

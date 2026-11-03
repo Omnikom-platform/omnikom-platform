@@ -5,7 +5,7 @@
 // cluster has no Vault, so the test makes the one table the key lookup reads.
 import { handle } from '../capture-lead/index.ts';
 import { sign } from '../_shared/signature.ts';
-import { assert, eq, SITE_A, t, WS_A, withSql } from './util.ts';
+import { assert, crmForms, eq, SITE_A, t, WS_A, withSql } from './util.ts';
 
 const KEY = 'test-site-signing-key-not-a-secret';
 const REF = 'site-test-demo-a-key-1';
@@ -32,7 +32,7 @@ async function post(body: unknown, key: string = KEY): Promise<{ status: number;
 }
 
 t('capture-lead: a captured lead stores answers and marketing consent as JSON OBJECTS (not as text), in the lead and in the consent ledger', async () => {
-  await seedKey();
+  await seedKey(); await crmForms();
   const r = await post({ form: 'contact', page: '/contact', consentText: 'I agree to be contacted', name: 'Cap Json Lead', email: 'cap@example.com',
     answers: { budget: 'high', rooms: 3 }, marketingConsent: { given: true, text: 'Send me news' } });
   eq(r.status, 202, 'status: ' + r.text);
@@ -43,6 +43,26 @@ t('capture-lead: a captured lead stores answers and marketing consent as JSON OB
     const [c] = await sql`select jsonb_typeof(marketing) as m from public.consent_ledger where lead_id = ${l.id}::uuid`;
     eq(c.m, 'object', 'the ledger copy is an object too');
   });
+});
+
+t('capture-lead (work order 01): answers are typed by the form (a number as a number, a tick list as a list), an unknown key is dropped', async () => {
+  await seedKey(); await crmForms();
+  const r = await post({ form: 'contact', page: '/contact', consentText: 'I agree to be contacted', name: 'Cap Typed', answers: { rooms: '4', wants: 'Pool', junk: 'x' } });
+  eq(r.status, 202, 'status: ' + r.text);
+  await withSql(async sql => {
+    const [l] = await sql`select jsonb_typeof(answers -> 'rooms') as n, answers -> 'wants' as w, answers ? 'junk' as junk from public.leads where name = 'Cap Typed'`;
+    eq(l.n, 'number', '"4" is stored as the number 4'); eq(JSON.stringify(l.w), '["Pool"]', 'one tick of a multi choice is a list'); eq(l.junk, false, 'a key the form does not declare is not stored');
+  });
+});
+
+t('capture-lead (work order 01): a value the form refuses is a 400 naming the field in plain words, and nothing is stored', async () => {
+  await seedKey(); await crmForms();
+  const r = await post({ form: 'contact', page: '/contact', consentText: 'I agree to be contacted', name: 'Cap Bad Value', answers: { rooms: 99 } });
+  eq(r.status, 400, 'status: ' + r.text);
+  const b = JSON.parse(r.text);
+  const p = (b.problems ?? [])[0] ?? {};
+  eq(p.code, 'I-ANSWER', 'the code'); eq(p.path, 'rooms', 'the field'); eq(p.msg, 'rooms must be a number from 0 to 20', 'plain words from the contract');
+  await withSql(async sql => { eq((await sql`select count(*)::int as n from public.leads where name = 'Cap Bad Value'`)[0].n, 0, 'no lead stored'); });
 });
 
 t('capture-lead: a lead with no marketing consent stores a null (not the text "null")', async () => {

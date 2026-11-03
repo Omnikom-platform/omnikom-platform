@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const DIR = process.env.CONTRACTS_DIR || resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const load = m => import(pathToFileURL(resolve(DIR, m)).href);
-const { validateContract, validateItem, mergeCore, applyWaivers } = await load('validate.mjs');
+const { validateContract, validateItem, mergeCore, applyWaivers, leadColumns } = await load('validate.mjs');
 const { generate, seedGaps } = await load('from-plan.mjs');
 const { createStore } = await load('store.mjs');
 const { place, publicData } = await load('place.mjs');
@@ -101,6 +101,22 @@ const contractCases = [
   ['C-PAGE-BIND', c => { delete c.pages.find(p => p.type === 'buyer-guide').bind; }],
   ['C-CONSENT', c => { delete c.forms.contact.consent; }],
   ['C-CRM', c => { c.forms.contact.crm = { nope: 'Target Area' }; }],
+  ['C-FIELD-TYPE', c => { c.forms.contact.fields.budget = { type: 'currency' }; }],
+  ['C-FORM-TYPE', c => { c.forms.contact.fields.photo = { type: 'image' }; }],
+  ['C-FORM-KEY', c => { c.forms.contact.fields.status = { type: 'text' }; }],
+  ['C-FORM-KEY', c => { c.forms.contact.fields['two words'] = { type: 'text' }; }],
+  ['C-FORM-CORE', c => { c.forms.contact.fields.phone = { type: 'text' }; }],
+  ['C-ENUM', c => { c.forms.contact.fields.side = { type: 'choice', options: ['Buying', 'Buying'] }; }],
+  ['C-ENUM', c => { c.forms.contact.fields.timing = { type: 'enum' }; }],
+  ['C-REF', c => { c.forms.contact.fields.area = { type: 'reference', to: 'cities' }; }],
+  ['C-RANGE', c => { c.forms.contact.fields.beds = { type: 'number', min: 'none' }; }],
+  ['C-RANGE', c => { c.forms.contact.fields.beds = { type: 'number', min: 10, max: 0 }; }],
+  ['C-FORM-FLAG', c => { c.forms.contact.fields.message.column = 'yes'; }],
+  ['C-FORM-FLAG', c => { c.forms.contact.fields.message.editable = 0; }],
+  ['C-FORM-FLAG', c => { c.forms.contact.fields.message.multi = true; }],
+  ['C-FORM-LABEL', c => { c.forms.contact.fields.message.label = ''; }],
+  ['C-FORM-SAME-KEY', c => { c.forms.other = { label: 'Other', fields: { message: { type: 'number' } } }; }],
+  ['C-FORM-SAME-KEY', c => { c.forms.other = { label: 'Other', fields: { message: { type: 'text', column: false } } }; }],
   ['C-PLACE-COLL', c => { c.placements[0].collection = 'nope'; }],
   ['C-PLACE-WHEN', c => { c.placements[0].when.status = ['rented']; }],
   ['C-PLACE-TARGET', c => { c.placements[0].to = { page: '/nope/', section: 'x' }; }],
@@ -121,6 +137,29 @@ for (const [code, mutate] of contractCases) {
   const c = clone(GOOD); mutate(c);
   const got = codes(validateContract(c));
   check(`contract ${code} ${mutate.toString().slice(6, 60)}`, got.includes(code), `got [${got.join(', ')}]`);
+}
+
+// ---------- lead form fields: a typed industry form is valid, and its columns are what the CRM shows ----------
+{
+  const c = clone(GOOD);
+  Object.assign(c.forms.contact.fields, {
+    budget: { type: 'number', min: 0, max: 5000000, label: 'Budget' },
+    timing: { type: 'enum', options: ['0-3 months', 'just looking'] },
+    side: { type: 'choice', options: ['Buying', 'Selling'] },
+    wants: { type: 'choice', options: ['Pool', 'Garden'], multi: true, column: false },
+    moveBy: { type: 'date', editable: false },
+    preApproved: { type: 'boolean' },
+    area: { type: 'reference', to: 'areas' },
+  });
+  c.forms.other = { label: 'Other', fields: { timing: { type: 'enum', options: ['6-12 months'] } } };
+  const p = validateContract(c);
+  check('form fields: number, enum, choice (single and multi), date, boolean and reference with flags validate', p.length === 0, JSON.stringify(p));
+  const cols = leadColumns(c), by = Object.fromEntries(cols.map(x => [x.key, x]));
+  check('form fields: leadColumns lists industry keys only (not name/email/phone), in form order',
+    cols.map(x => x.key).join() === 'message,budget,timing,side,wants,moveBy,preApproved,area', cols.map(x => x.key).join());
+  check('form fields: column and editable default to true; false stays false', by.budget.column && by.budget.editable && !by.wants.column && !by.moveBy.editable && by.wants.editable);
+  check('form fields: a key in two forms is one column with both forms\' options', JSON.stringify(by.timing.options) === '["0-3 months","just looking","6-12 months"]', JSON.stringify(by.timing.options));
+  check('form fields: number keeps min/max and label; reference keeps its collection; multi is carried', by.budget.min === 0 && by.budget.max === 5000000 && by.budget.label === 'Budget' && by.area.to === 'areas' && by.wants.multi === true && by.side.multi === false);
 }
 
 // ---------- items ----------

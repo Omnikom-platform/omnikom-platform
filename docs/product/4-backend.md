@@ -31,8 +31,10 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
 | `job-callback` | runner, signed | `set_job_state` (409 on an illegal move) |
 | `capture-lead` | the site's `/api/lead`, signed with that site's key | stores the lead (`5-crm.md`), sends the new-lead alert by Resend |
 | `add-lead` | dashboard | a lead entered by hand, consent tick required |
-| `lead-update` | dashboard | status, owner, unassign, note, mark read |
-| `lead-export` | dashboard | CSV of the leads the caller may see; one `exported` event per lead |
+| `lead-update` | dashboard | status, owner, unassign, note, mark read; `fields` edits any core or editable industry field (M14 `lead_set_fields`), 200 `{changed}` |
+| `lead-export` | dashboard | CSV of the leads the caller may see, one column per core and industry field in form order; one `exported` event per lead |
+| `lead-list` | dashboard | the CRM list on the server (M14 `lead_list`): search, filter, sort, page of at most 200, typed columns in form order; 422 `S-QUERY` for a key that is not a column |
+| `leads-bulk` | dashboard | status, owner or delete for up to 500 leads, all or nothing (M14 `leads_bulk`); delete needs `confirm: true` (409 `S-CONFIRM`); a single delete is a bulk of one |
 | `invite-member` | dashboard (owner) | creates or finds the login and adds the member; sends no mail yet |
 | `settings-save` | dashboard (owner) | lead alert addresses and "also email the assigned agent"; also still carries the CRM webhook card, which is removed (`5-crm.md`) |
 | `crm-test` | dashboard (owner) | sends a test to a CRM webhook; belongs to the dropped push and is removed |

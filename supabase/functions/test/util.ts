@@ -122,6 +122,18 @@ export async function crmSecret(ws: string): Promise<string | null> {
 export function assert(cond: unknown, msg: string): asserts cond { if (!cond) throw new Error('ASSERT: ' + msg); }
 export function eq<T>(got: T, want: T, msg: string) { if (got !== want) throw new Error(`ASSERT: ${msg}: got ${JSON.stringify(got)}, wanted ${JSON.stringify(want)}`); }
 
+// ---------- the lead form (work order 01) ----------
+// The CLI's seed contract has no forms; migration 14 keeps only the answers a form declares, so the tests that send answers give workspaces A and B
+// a contact form first (idempotent). leadColumns is the ordered list contracts/validate.mjs writes into a resolved contract.
+export const CRM_FORMS = { contact: { fields: { name: { type: 'text' }, email: { type: 'email' }, phone: { type: 'phone' },
+  budget: { type: 'enum', options: ['high', 'low'] }, rooms: { type: 'number', min: 0, max: 20 }, wants: { type: 'choice', options: ['Pool', 'Garden'], multi: true },
+  note: { type: 'text', column: false } } } };
+export async function crmForms() {
+  const lc = [{ key: 'budget' }, { key: 'rooms' }, { key: 'wants' }, { key: 'note' }];
+  await withSql(sql => sql`update public.site_contracts set resolved = resolved || jsonb_build_object('forms', ${CRM_FORMS}::jsonb, 'leadColumns', ${lc}::jsonb)
+    where workspace_id in (${WS_A}::uuid, ${WS_B}::uuid) and active`);
+}
+
 // ---------- photos ----------
 export async function photoContract() {
   await withSql(sql => sql`update public.site_contracts set resolved = jsonb_set(resolved, '{collections,listings,fields,photo}', '{"type":"image","media":{"minWidth":1200,"rightsConfirm":true}}'::jsonb) where workspace_id = ${WS_A} and active`);

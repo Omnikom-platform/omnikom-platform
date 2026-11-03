@@ -17,7 +17,7 @@
 // Tests: supabase/functions/test/capture.test.ts. This file keeps its own `refusal` (visitor wording and the 'SITE' code differ from _shared/db.ts).
 import postgres from 'npm:postgres@3.4.5';
 import { verify } from '../_shared/signature.ts';
-import type { Sql } from '../_shared/db.ts';
+import { answerProblem, type Sql } from '../_shared/db.ts';
 
 const MAX_BODY = 16 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -37,12 +37,14 @@ const problem = (status: number, problems: Problem[]) =>
 
 // What the database said no to, as the visitor's answer: the platform code becomes a named 4xx instead of a bare 500.
 // S-SITE-PAUSED and S-WORKSPACE-SUSPENDED: 409 (the site exists and is not taking requests); S-QUOTA: 429; unknown site: 404.
-export function refusal(message: string): { status: number; code: string; kind: string; msg: string } | null {
+export function refusal(message: string): { status: number; code: string; kind: string; msg: string; path?: string } | null {
   if (message.includes('S-SITE-PAUSED')) return { status: 409, code: 'S-SITE-PAUSED', kind: 'suspended', msg: 'This site is not taking requests right now. Please call or email us.' };
   if (message.includes('S-WORKSPACE-SUSPENDED')) return { status: 409, code: 'S-WORKSPACE-SUSPENDED', kind: 'suspended', msg: 'This site is not taking requests right now. Please call or email us.' };
   if (message.includes('S-QUOTA')) return { status: 429, code: 'S-QUOTA', kind: 'quota', msg: 'Please try again later.' };
   if (message.includes('unknown site')) return { status: 404, code: 'SITE', kind: 'refused', msg: 'Not found.' };
   if (message.includes('consent text required')) return { status: 400, code: 'REQUIRED', kind: 'bad-request', msg: 'This is needed.' };
+  // migration 14: an answer the form's contract refuses, named by its field, in the database's plain words
+  if (message.includes('I-ANSWER')) { const a = answerProblem(message); return { status: 400, code: 'I-ANSWER', kind: 'bad-request', msg: a ? a.msg : 'Please check your answers.', path: a ? a.path : '' }; }
   return null;
 }
 
@@ -163,7 +165,7 @@ export async function handle(req: Request): Promise<Response> {
       const r = refusal(String(e));
       if (!r) throw e;
       await event(r.kind, r.code);                                  // the refusal's own transaction rolled back; the record is a call of its own
-      return problem(r.status, [{ code: r.code, path: '', msg: r.msg }]);
+      return problem(r.status, [{ code: r.code, path: r.path ?? '', msg: r.msg }]);
     }
     await sql`select service.touch_key(${keyId}::uuid)`;
     try { await sendAlert(sql, site, row.id, L); } catch (e) { console.error('alert failed', String(e).slice(0, 200)); }

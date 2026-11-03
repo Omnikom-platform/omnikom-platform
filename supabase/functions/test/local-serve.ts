@@ -12,6 +12,8 @@ import { handle as drafts } from '../drafts/index.ts';
 import { makeHandle as settingsSave } from '../settings-save/index.ts';
 import { makeHandle as crmTest } from '../crm-test/index.ts';
 import { handle as leadExport } from '../lead-export/index.ts';
+import { handle as leadList } from '../lead-list/index.ts';
+import { handle as leadsBulk } from '../leads-bulk/index.ts';
 import { makeHandle as inviteMember } from '../invite-member/index.ts';
 import type { Resolve } from '../_shared/netguard.ts';
 import { env, mint, toFakeHook, type Who } from './util.ts';
@@ -20,7 +22,7 @@ const names: Record<string, string[]> = { 'localtest.me': ['127.0.0.1'] };
 const resolve: Resolve = (host, type) => Promise.resolve(type === 'A' ? (names[host] ?? ['93.184.216.34']) : []);
 
 const handlers: Record<string, (req: Request) => Promise<Response>> = {
-  'save': save, 'lead-update': leadUpdate, 'add-lead': addLead, 'drafts': drafts, 'lead-export': leadExport,
+  'save': save, 'lead-update': leadUpdate, 'add-lead': addLead, 'drafts': drafts, 'lead-export': leadExport, 'lead-list': leadList, 'leads-bulk': leadsBulk,
   'settings-save': settingsSave({ resolve }), 'crm-test': crmTest({ resolve, fetchImpl: toFakeHook }), 'invite-member': inviteMember(),
 };
 

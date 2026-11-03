@@ -1,12 +1,11 @@
 // form: the contract's form as a plain HTML form that posts to the site's own lead endpoint. The exact consent wording shown is
 // sent back with the lead (consentText), the way the platform stores it. Field names are the LeadRequest's (form, page, name, email,
-// phone, hp, consentText); the endpoint turns this urlencoded post into the JSON capture-lead takes (factory/worker/lead-endpoint.mjs).
+// phone, hp, consentText) and the contract's own keys (answers); the endpoint turns this urlencoded post into the JSON capture-lead
+// takes (factory/worker/lead-endpoint.mjs). Each field is drawn by factory/lib/fields.mjs: select, choice and number need no script.
 import { html } from '../../../../factory/lib/html.mjs';
+import { renderField } from '../../../../factory/lib/fields.mjs';
 
-const LABEL = { name: 'Your name', email: 'Email', phone: 'Phone', message: 'Message' };
-const TYPE = { email: 'email', phone: 'tel' };
-
-export default function render({ section, form, ctx }) {
+export default function render({ section, form, choices = {}, ctx }) {
   const consent = form.consent ? ctx.notices[form.consent.notice] : null;
   const marketing = ctx.notices['marketing-consent'];
   return html`<section class="form">
@@ -14,9 +13,8 @@ export default function render({ section, form, ctx }) {
 <form method="post" action="/api/lead">
 <input type="hidden" name="form" value="${section.form}">
 <input type="hidden" name="page" value="${ctx.page.path}">
-${Object.entries(form.fields).map(([key, f]) => html`<p><label>${LABEL[key] || key}${f.required ? ' (required)' : ''}
-${f.type === 'text' && f.max >= 1000 ? html`<textarea name="${key}" rows="5"${f.required ? ' required' : ''}></textarea>` : html`<input type="${TYPE[f.type] || 'text'}" name="${key}"${f.required ? ' required' : ''}>`}
-</label></p>`)}
+${Object.entries(form.fields).map(([key, f]) => html`${renderField(key, f, { refOptions: choices[key] || [] })}
+`)}
 <div class="hp" aria-hidden="true"><label>Leave this empty <input type="text" name="hp" tabindex="-1" autocomplete="off"></label></div>
 ${consent ? html`<p class="consent"><label><input type="checkbox" name="consent" value="yes" required> <span>${consent.text}</span></label></p>
 <input type="hidden" name="consentText" value="${consent.text}">` : ''}

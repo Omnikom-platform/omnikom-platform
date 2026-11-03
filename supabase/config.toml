@@ -66,6 +66,12 @@ verify_jwt = true            # dashboard user
 [functions.lead-export]
 verify_jwt = true            # dashboard user
 
+[functions.lead-list]
+verify_jwt = true            # dashboard user
+
+[functions.leads-bulk]
+verify_jwt = true            # dashboard user
+
 [functions.invite-member]
 verify_jwt = true            # dashboard user
 

@@ -9,6 +9,7 @@ import { planSite, resolveFeed, entryOf } from './plan.mjs';
 import { loadDesign, DesignError } from './design.mjs';
 import { raw, html } from './html.mjs';
 import { checkPage } from './gates.mjs';
+import { referenceOptions } from './fields.mjs';
 import { originOf, isPreview, headersText, robotsText, sitemapXml, llmsText, assetName, referencedMedia, readMedia, MediaError } from './launch.mjs';
 import { publicData } from '../../contracts/place.mjs';
 import { mergeCore } from '../../contracts/validate.mjs';
@@ -92,6 +93,7 @@ export async function buildSite({ exportFile, out, designDir, mediaDir, builtAt,
           data: s.kind === 'notice' ? (notices[s.notice] || {}) : ((d.sections || {})[s.id] || {}),
           feed: resolveFeed(contract, byId, feedIds),
           form: s.kind === 'form' ? contract.forms[s.form] : undefined,
+          choices: s.kind === 'form' ? referenceOptions(contract.forms[s.form], contract, rows) : undefined,
           ctx,
         })));
       }

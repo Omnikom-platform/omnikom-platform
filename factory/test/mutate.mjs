@@ -18,6 +18,13 @@ const MUTANTS = [
   ['html: raw() is escaped like any value', `${F}lib/html.mjs`, 'v instanceof Raw ? v.value : ', ''],
   ['html: an array is not joined by parts', `${F}lib/html.mjs`, "Array.isArray(v) ? v.map(part).join('') : ", ''],
   ['html: an apostrophe is not escaped', `${F}lib/html.mjs`, ".replace(/'/g, '&#39;')", ''],
+  // lead-form fields (D5)
+  ['fields: a choice is drawn as a text input', `${F}lib/fields.mjs`, "if (f.type === 'choice') {", 'if (false) {'],
+  ['fields: a multi choice is drawn as radio buttons', `${F}lib/fields.mjs`, "const box = f.multi === true ? 'checkbox' : 'radio';", "const box = 'radio';"],
+  ['fields: a select loses its options', `${F}lib/fields.mjs`, '${opts.map((o) => html`<option value="${o.value}">${o.label}</option>`)}', ''],
+  ['fields: a number input drops min', `${F}lib/fields.mjs`, '${typeof f.min === \'number\' ? html` min="${f.min}"` : \'\'}', ''],
+  ['fields: a required select is not required', `${F}lib/fields.mjs`, '<select name="${key}"${r ? html` required` : \'\'}>', '<select name="${key}">'],
+  ['fields: the build passes no reference options', `${F}lib/site.mjs`, "choices: s.kind === 'form' ? referenceOptions(contract.forms[s.form], contract, rows) : undefined,", 'choices: undefined,'],
   // template renderer
   ['template: {{{x}}} is escaped', `${F}lib/template.mjs`, 'out += raw ? String(v) : esc(v);', 'out += esc(v);'],
   ['template: {{x}} is not escaped', `${F}lib/template.mjs`, 'out += raw ? String(v) : esc(v);', 'out += String(v);'],

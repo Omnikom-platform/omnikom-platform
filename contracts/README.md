@@ -45,6 +45,13 @@ seeds        places / items the plan names (e.g. the 10 ELEV8 cities)
   `internal` (never on the site), `sourced` (value must be `{ value, source, date }`: client-facing facts carry their source),
   `media { minWidth, rightsConfirm }`, `visibleWhen { field: [values] }` (shown to visitors only then, e.g. a sold price only
   when "show sold price" is ticked; `place.mjs publicData` applies it and drops internal fields).
+- **Lead form fields** (`forms.<id>.fields`, D2): type is one of text, email, phone (a tel field), number (`min`/`max`), enum
+  (a select, `options`), choice (radio buttons, `options`; `multi: true` = tick boxes), date, boolean (one tick), reference
+  (`to`: a select of that collection's rows, stored as the slug). Flags: `required`, `label`, `column` (shown as a CRM list
+  column, default true), `editable` (the CRM may change it, default true). name/email/phone are the lead's own columns; every
+  other key is an industry field kept in `leads.answers` under that key, and the same key in two forms must agree on type and
+  flags (one CRM column). `leadColumns(contract)` lists them; the database reads the same declaration to type a capture and an
+  edit (M14). The factory draws each type with no script (`factory/lib/fields.mjs`).
 - **Section kinds:** `fields` (the client edits them), `feed` (fills itself from a collection through placements), `form`,
   `notice` (a locked legal text).
 - **Bound pages:** a page type with `bind` shows one row of that collection (ELEV8 city guides bound to a city; Rainmaker product
@@ -74,7 +81,8 @@ database checks so the app cannot skip them.
 ## Rule codes (each has a test that watches it fail)
 Contract: C-SHAPE C-CORE C-KIND C-FIELDS C-FIELD-TYPE C-ENUM C-REF C-LOCK C-RANGE C-MEDIA C-TITLE C-ROUTE C-STATUS C-ACCESS C-OWNER
 C-ONDELETE C-BIND C-SECTION C-FEED C-FORM-REF C-NOTICE C-PAGE-TYPE C-PATH C-PAGE-BIND C-CONSENT C-CRM C-PLACE-COLL C-PLACE-WHEN
-C-PLACE-TARGET C-PLACE-SECTION C-PLACE-MATCH C-PLACE-ROUTE C-FEED-ORPHAN C-SITEMAP C-VISIBLE C-WORDING C-SAMPLE C-WAIVER.
+C-PLACE-TARGET C-PLACE-SECTION C-PLACE-MATCH C-PLACE-ROUTE C-FEED-ORPHAN C-SITEMAP C-VISIBLE C-WORDING C-SAMPLE C-WAIVER
+C-FORM-TYPE C-FORM-KEY C-FORM-CORE C-FORM-FLAG C-FORM-LABEL C-FORM-SAME-KEY.
 Rows: I-REQUIRED I-TYPE I-ENUM I-MAX I-MIN I-SLUG I-ALT I-MEDIA-SIZE I-RIGHTS I-EXIF I-SOURCE I-PLACEHOLDER I-UNKNOWN I-REF I-COLLECTION I-MEDIA-UNKNOWN I-SAMPLE-LIVE.
 Store: S-WORKSPACE S-NOT-FOUND S-COLLECTION S-ROLE S-OWN-ONLY S-SINGLETON S-LOCKED S-SIGNOFF S-INVALID S-PUBLISH-INVALID S-KIND.
 The message text of each is in the source next to the code.

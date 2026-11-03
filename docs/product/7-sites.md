@@ -21,8 +21,10 @@ insurance agency; proof is a run of the contract generator against every industr
 - **pageTypes** with their sections (kinds: `fields`, `feed`, `form`, `notice`); **pages** from the approved plan (the client
   cannot add or move pages); **placements** (which rows show where, sorted and limited; for example active listings on the home
   page and city guide, sold listings in "Recently sold" with the price only when ticked).
-- **forms**: each lead form's fields (label, type, options), its consent notice, and, per field, whether it is a CRM list
-  column and whether it is editable (to be added; `5-crm.md`). These fields are the CRM's industry columns.
+- **forms**: each lead form's fields (type: text, email, phone, number with min/max, enum = a select, choice = radios or with
+  `multi` tick boxes, date, boolean = one tick, reference = a select of a collection's rows; label, options, required), its
+  consent notice, and per field the flags `column` (a CRM list column) and `editable`, both true unless false (C-FORM-* checks,
+  `contracts/README.md`). These fields are the CRM's industry columns, typed by the database on capture (`5-crm.md`).
 - Field rules: required (at publish only), max and min, options, `locked` with a reason, `internal` (never reaches the site),
   `sourced` (value, source, date), media minimum width and rights, `visibleWhen`.
 - Rule codes: `C-*` contract, `I-*` row, `S-*` store. Tests: `contracts/test/run.mjs` and `mutate.mjs`.
@@ -96,8 +98,9 @@ world, moments, signature). Look folders live in this repository and can be move
 
 The site's form posts to `/api/lead`, a Pages Function (`factory/worker/pages-function-lead.js` around `lead-endpoint.mjs`)
 that works with no script, signs and forwards to `capture-lead` (`5-crm.md`). A preview or draft site never fakes success. The
-form renders the contract's fields; text, email, phone and ticks render today, choice and reference fields must still be
-proven.
+form renders the contract's fields through `factory/lib/fields.mjs`: inputs for text, email, phone, date and number (min/max),
+a select for enum and reference (the collection's rows), radio buttons or tick boxes for a choice, one tick for a boolean; no
+script, the browser's own attributes carry the rules and the database checks them again (factory tests and mutants).
 
 ## Hosting and domains
 
@@ -126,5 +129,7 @@ domain property verified by DNS, a sitemap submit after every live publish, a da
 
 `sites/test-demo-a/` (synthetic "Demo A") is ours, live at `preview.test-site-demo-a.pages.dev`, seeded by `omnikom seed test`.
 Its contract and forms stand for every site's: every user-facing feature is proven on it through the CLI journey, never on a
-client's preview. It has one form with four fields today; it must gain an industry form with choice and number fields so the
-CRM's industry columns can be proven (`5-crm.md`). Its `contract.json` is checked to equal the output of `make-contract.mjs`.
+client's preview. Its contact form carries real-estate fields (synthetic): budget (number 10,000 to
+50,000,000), timing (select), beds (number 0 to 10), area (a select of the site's areas), buying or selling (choice), and a
+message that is not a list column, declared in `plan/entities.json`. `stage.mjs` writes the ordered `leadColumns` into the
+resolved contract. Proven by `supabase/tests/e2e-crm.mjs` once staged and published (not yet run). Its `contract.json` is checked to equal the output of `make-contract.mjs`.

@@ -27,7 +27,6 @@ their CI runs, and `docs/blueprint/PROGRESS.md`.
 
 ## Open owner questions
 
-- Delete a lead: hard (today: row removed, audit and consent ledger kept) or a hidden soft delete?
 - Imported leads: what consent text do they carry?
 - Status board: fixed five statuses or custom stages?
 - Which core lead fields are editable (the consent record never is).

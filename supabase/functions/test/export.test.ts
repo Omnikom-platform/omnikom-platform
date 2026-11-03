@@ -1,7 +1,7 @@
 // lead-export (slice 5.2): a CSV of exactly what the caller's own Row Level Security lets them read, with spreadsheet formulas neutralised and an `exported`
 // event for every lead in the file. Every lead these tests make carries the token zz52 (in the email), so the search box narrows to them.
 import { handle } from '../lead-export/index.ts';
-import { assert, eq, mint, securityEvents, SITE_A, SITE_B, SUB, teamRows, t, WS_A, WS_B, withSql, type Who } from './util.ts';
+import { assert, crmForms, eq, mint, securityEvents, SITE_A, SITE_B, SUB, teamRows, t, WS_A, WS_B, withSql, type Who } from './util.ts';
 
 type Out = { status: number; text: string; headers: Headers };
 async function exportCsv(who: Who | null, body: Record<string, unknown>): Promise<Out> {
@@ -25,7 +25,8 @@ function parse(text: string): string[][] {
   return rows;
 }
 const SITE_A2 = 'aaaaaaaa-0000-0000-0000-0000000052a2';
-const HEADER = ['received', 'name', 'email', 'phone', 'form', 'page', 'status', 'owner', 'answers'];
+// work order 01: the core columns, then every industry field of the contract in form order (util.ts crmForms), one column each
+const HEADER = ['received', 'name', 'email', 'phone', 'form', 'page', 'status', 'owner', 'budget', 'rooms', 'wants', 'note'];
 const emailsOf = (o: Out) => parse(o.text).slice(1).map(r => r[2]);
 
 async function mkLead(o: { site?: string; ws?: string; name: string; email: string; phone?: string | null; status?: string; owner?: string | null; answers?: unknown; at?: string }): Promise<string> {
@@ -44,9 +45,10 @@ let made: Promise<{ team: { one: string; two: string }; L: Record<'alice' | 'inj
 const world = () => made ??= build();
 async function build() {
   const team = await teamRows();
+  await crmForms();
   await withSql(sql => sql`insert into public.sites (id, workspace_id, deploy_target, preview_host) values (${SITE_A2}::uuid, ${WS_A}::uuid, 'test-site-a2-52', 'a2-52.preview.test')`);
   const L = {
-    alice: await mkLead({ name: 'Alice zz52', email: 'a-zz52@example.com', owner: team.one, answers: { budget: 'high' }, at: '2026-01-01T10:00:00Z' }),
+    alice: await mkLead({ name: 'Alice zz52', email: 'a-zz52@example.com', owner: team.one, answers: { budget: 'high', wants: ['Pool', 'Garden'], note: '=1+1', junk: 'x' }, at: '2026-01-01T10:00:00Z' }),
     inj: await mkLead({ name: '=HYPERLINK("http://evil.example","x")', email: 'inj-zz52@example.com', phone: '+1 555 0100', owner: team.two, status: 'contacted', at: '2026-01-02T10:00:00Z' }),
     spam: await mkLead({ name: 'Spammy', email: 'spam-zz52@example.com', status: 'spam', at: '2026-01-03T10:00:00Z' }),
     free: await mkLead({ name: 'Unowned', email: 'free-zz52@example.com', at: '2026-01-04T10:00:00Z' }),
@@ -56,7 +58,7 @@ async function build() {
   return { team, L };
 }
 
-t('lead-export: the owner gets a text/csv file with the header, the readable leads newest first, the owner\'s name, the answers as one JSON cell and a filename', async () => {
+t('lead-export: the owner gets a text/csv file with the header, the readable leads newest first, the owner\'s name, one column per field and a filename', async () => {
   const { L } = await world();
   const r = await exportCsv('owner-a', { site: SITE_A, q: 'zz52' });
   eq(r.status, 200, 'status: ' + r.text.slice(0, 200));
@@ -68,8 +70,10 @@ t('lead-export: the owner gets a text/csv file with the header, the readable lea
   eq(emailsOf(r).join(), 'free-zz52@example.com,inj-zz52@example.com,a-zz52@example.com', 'the three non-spam leads of this site, newest first; the spam lead and B\'s lead are absent');
   const alice = rows.find(x => x[2] === 'a-zz52@example.com')!;
   eq(alice[0], '2026-01-01T10:00:00.000Z', 'received, ISO'); eq(alice[1], 'Alice zz52', 'name'); eq(alice[4], 'contact', 'form'); eq(alice[5], '/contact', 'page'); eq(alice[6], 'new', 'status');
-  eq(alice[7], 'Agent One', 'the owner is the team member\'s name'); eq(alice[8], '{"budget":"high"}', 'the answers as one JSON cell');
-  eq(rows.find(x => x[2] === 'free-zz52@example.com')![7], '', 'an unassigned lead has no owner'); eq(rows.find(x => x[2] === 'free-zz52@example.com')![8], '', 'and no answers');
+  eq(alice[7], 'Agent One', 'the owner is the team member\'s name'); eq(alice[8], 'high', 'a select is its value'); eq(alice[9], '', 'a field with no value is empty');
+  eq(alice[10], 'Pool; Garden', 'a multi choice is its values joined'); eq(alice[11], "'=1+1", 'a non-column field is exported too, with the formula guard');
+  eq(alice.length, HEADER.length, 'no answers cell: a key the contract does not declare is not a column');
+  eq(rows.find(x => x[2] === 'free-zz52@example.com')![7], '', 'an unassigned lead has no owner'); eq(rows.find(x => x[2] === 'free-zz52@example.com')!.slice(8).join(''), '', 'and no answers');
   assert(!r.text.includes(L.other) && !r.text.includes('b-zz52'), 'nothing of another workspace');
   assert(!r.text.includes('second-zz52'), 'nothing of another site of the same workspace');
   assert(r.text.endsWith('\r\n'), 'CRLF line ends');

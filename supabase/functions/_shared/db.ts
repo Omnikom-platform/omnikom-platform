@@ -31,7 +31,12 @@ export async function withDb<T>(fn: (sql: Sql) => Promise<T>): Promise<T> {
   try { return await fn(sql); } finally { await sql.end({ timeout: 2 }); }
 }
 
-export type Refusal = { status: number; code: string; kind: 'refused' | 'quota' | 'suspended' | null; msg: string };
+export type Refusal = { status: number; code: string; kind: 'refused' | 'quota' | 'suspended' | null; msg: string; path?: string };
+/** migration 14: 'I-ANSWER <key>: <plain words>' -> the field and the words; anything that does not match the pattern gets fixed words */
+export function answerProblem(message: string): { path: string; msg: string } | null {
+  const m = /I-ANSWER ([A-Za-z][A-Za-z0-9_]{0,39}): ([A-Za-z0-9 ().,'\-]{1,160}?)(?:\n|$| CONTEXT)/.exec(message);
+  return m ? { path: m[1], msg: m[2] } : null;
+}
 
 // kind 'refused' = a wall said no (recorded in security_events); null = a plain input problem (not a security event)
 export function refusal(message: string): Refusal | null {
@@ -70,6 +75,12 @@ export function refusal(message: string): Refusal | null {
   if (has('I-MEDIA-TYPE')) return { status: 415, code: 'I-MEDIA-TYPE', kind: null, msg: 'Use a jpg, png, webp, heic or pdf file.' };
   if (has('I-MEDIA-SIZE')) return { status: 413, code: 'I-MEDIA-SIZE', kind: null, msg: 'This file is too large or empty.' };
   if (has('consent text required')) return { status: 400, code: 'REQUIRED', kind: null, msg: 'This is needed.' };
+  // migration 14 (work order 01): the CRM's edit, list and bulk calls
+  if (has('I-ANSWER')) { const a = answerProblem(message); return { status: 400, code: 'I-ANSWER', kind: null, msg: a ? a.msg : 'A value is not valid.', path: a ? a.path : '' }; }
+  if (has('I-UNKNOWN')) return { status: 400, code: 'I-UNKNOWN', kind: null, msg: 'This lead has no such field.' };
+  if (has('S-CONSENT')) return { status: 403, code: 'S-CONSENT', kind: 'refused', msg: 'The consent record cannot be changed.' };
+  if (has('S-CONFIRM')) return { status: 409, code: 'S-CONFIRM', kind: null, msg: 'Deleting leads needs the confirm step.' };
+  if (has('S-QUERY')) return { status: 422, code: 'S-QUERY', kind: null, msg: 'Sort and filter on the list\'s columns only; send 1 to 500 leads, at most 200 a page.' };
   return null;
 }
 

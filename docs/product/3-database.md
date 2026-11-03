@@ -1,11 +1,11 @@
 # Database
 
 One multi-tenant Postgres database on Supabase: a staging project now, a production project made from it once staging proves
-the product (`2-architecture.md`). The schema is the 13 migrations in `supabase/migrations/` (M1 to M13 below, in file order).
+the product (`2-architecture.md`). The schema is the 14 migrations in `supabase/migrations/` (M1 to M14 below, in file order).
 An applied migration is never edited; a change is a new migration (`11-rules.md`).
 
 M1 platform, M2 crm, M3 addons, M4 hardening, M5 vendor_defaults, M6 active_key_by_site, M7 hardening_leftovers,
-M8 search_path_and_roles, M9 media_and_export, M10 export_schema_key, M11 publish_ready_wall, M12 screens, M13 screens_functions.
+M8 search_path_and_roles, M9 media_and_export, M10 export_schema_key, M11 publish_ready_wall, M12 screens, M13 screens_functions, M14 crm_fields.
 
 ## The five words
 
@@ -61,16 +61,17 @@ needs no migration. Version history and rollback come from the append-only versi
 ### Leads (the CRM)
 | Table | Holds |
 |---|---|
-| `leads` | `site_id`, `form`, `page_path`, `name`, `email`, `phone`, `answers` (every other form field as JSON, keyed as in the contract), `consent_text`, `marketing_consent`, `sms_consent`, `sms_stopped_at`, `status` (new, contacted, qualified, closed, spam), `owner_team_row`, `flow`, `cta`, `idempotency_key`, `created_at` |
-| `lead_events` | the lead's timeline, one row per thing that happened: `kind`, `by`, `detail`, `at`. Kinds in the enum: received, alert-sent, alert-failed, status, assigned, note, resent, exported, deleted, sms-stop, plus kinds left from dropped plans (pushed, push-failed, booked, booking-changed, message-sent, message-failed) |
+| `leads` | `site_id`, `form`, `page_path`, `name`, `email`, `phone`, `answers` (every other form field as JSON, keyed as in the contract, typed by M14: a number is a JSON number; a key the form does not declare is never stored), `consent_text`, `marketing_consent`, `sms_consent`, `sms_stopped_at`, `status` (new, contacted, qualified, closed, spam), `owner_team_row`, `flow`, `cta`, `idempotency_key`, `created_at` |
+| `lead_events` | the lead's timeline, one row per thing that happened: `kind`, `by`, `detail`, `at`. Kinds in the enum: received, alert-sent, alert-failed, status, assigned, note, resent, exported, deleted, sms-stop, edited (M14: one per changed field, detail `{field, old, new}`), plus kinds left from dropped plans (pushed, push-failed, booked, booking-changed, message-sent, message-failed) |
 | `lead_reads` | which login has opened which lead (the unread mark) |
 | `consent_ledger` | the proof of consent per lead: wording and its sha256, sms and marketing consent, hashed address; outlives a deleted lead |
 | `suppressions` | do-not-contact entries by channel and hashed address |
 | `privacy_requests` | a person's request to know, delete, correct or opt out, with its 45-day clock |
+| (`leads` at scale) | every list query is cut by workspace first (`leads_ws_created`), then filtered and sorted in memory: no index per industry key (head's ruling 2026-11-03). Measured in `supabase/tests/crm-scale.sql` (20,000 leads in a workspace). Revisit when one workspace passes about 50,000 leads; the ready design is a side table `lead_values (workspace_id, lead_id, key, num, txt)` kept by a trigger, indexed `(workspace_id, key, num)` and `(workspace_id, key, txt)` |
 | `crm_templates` | a client's CRM column layout: ordered columns `[{header, field, transform}]` and value maps, used by export and import (`5-crm.md`) |
 
-What `5-crm.md` needs that the tables do not hold yet: industry lead fields as declared columns (today inside `answers`),
-saved views, follow-up dates and tasks, and an `edited` event kind for field edits.
+What `5-crm.md` needs that the tables do not hold yet: saved views, follow-up dates and tasks. Industry fields stay in
+`answers` by design (one key per contract field); the columns are made by `lead_list` and the export from the contract.
 
 ### Publishing
 | Table | Holds |
@@ -101,7 +102,7 @@ removed from the dashboard path (`5-crm.md`). The parked add-ons are described i
 | Content | `save_as` (the only way to save; calls `private.save_version`: role, own items, locked fields, stale base `S-STALE`), `seed_version`, `contract_for`, `unpublish` |
 | Publish | `start_publish` (pins versions, one atomic job), `freeze_snapshot`, `published_rows`, `export_bundle`, `set_job_state` (legal moves only), `reap_stale_jobs` (pg_cron every 5 minutes), `drafts_waiting` |
 | Media | `record_media`, `finish_media`, `media_processed`, `media_for_runner`, `media_facts` |
-| Leads | `capture_lead` (workspace from the site, consent required, idempotent, quota, paused site refused), `add_lead`, `lead_update` (status, owner, unassign, note only), `mark_lead_read`, `leads_exported`, `delete_lead` (hard delete plus an audit row), `lead_event`, `lead_sms_stop` |
+| Leads | `capture_lead` (workspace from the site, consent required, idempotent, quota, paused site refused; M14: answers typed against the active contract's form, `I-ANSWER <field>` refused in plain words), `add_lead`, `lead_update` (status, owner, unassign, note), `lead_set_fields` (M14: any core field and any editable industry field, typed; never the consent record; one `edited` event per changed field, one audit row per call), `lead_list` (M14: search, filter, sort and page on the server under the leads_read rule; keys checked against the contract; columns in form order), `leads_bulk` (M14: status, owner or delete for up to 500, all or nothing; delete needs `p_confirm`, one audit row per lead), `mark_lead_read`, `leads_exported`, `delete_lead` (hard delete plus an audit row), `lead_event`, `lead_sms_stop` |
 | Team and settings | `set_member`, `remove_member`, `find_login`, `set_alerts`, `alert_recipients`, `lead_alerted` |
 | CRM layout | `save_crm_template` (owner; shape checked) |
 | Keys and safety | `active_key`, `touch_key`, `site_signing_secrets`, `record_security_event`, `suppress`, `set_workspace_state`, `open_privacy_request`, `set_privacy_request_state` |
