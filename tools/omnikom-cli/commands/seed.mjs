@@ -34,6 +34,7 @@ export const TEST_CONTRACT = {
     settings: {"kind":"singleton","access":{"member":"none"},"fields":{"businessName":{"type":"text"},"licences":{"type":"list","locked":{"reason":"fact"}}}},
     leads: {"kind":"inbox","access":{"member":"own"},"ownerField":"owner","fields":{"status":{"type":"enum"}}},
   },
+  forms: {"contact":{"fields":{"name":{"type":"text"},"email":{"type":"email"},"phone":{"type":"phone"},"topic":{"type":"text"},"message":{"type":"text","max":2000}}}},
   pageTypes: {"home":{"sections":[{"id":"hero","kind":"fields","fields":{"headline":{"type":"text","required":true}}},{"id":"extras","kind":"fields","fields":{"note":{"type":"text"}}},{"id":"feed","kind":"feed","accepts":"listings"}]}},
 };
 const P = PERSONS;

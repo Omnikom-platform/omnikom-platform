@@ -153,7 +153,10 @@ const MUTANTS = [
   ['lead-export: oldest first', F + 'lead-export/index.ts', 'order by l.created_at desc, l.id', 'order by l.created_at asc, l.id', 'export.test.ts'],
   ['lead-export: the owner column is the team row id', F + 'lead-export/index.ts', '(names.get(l.owner_team_row) ?? l.owner_team_row)', 'l.owner_team_row', 'export.test.ts'],
   ['lead-export: the site is not in the filter', F + 'lead-export/index.ts', 'from public.leads l where l.site_id = ${site}::uuid ${byFilter}', 'from public.leads l where true ${byFilter}', 'export.test.ts'],
-  ['lead-export: the answers cell is empty', F + 'lead-export/index.ts', "l.answers && Object.keys(l.answers as object).length ? l.answers : ''", "''", 'export.test.ts'],
+  // work order 01: one column per industry field (each must turn export.test.ts red)
+  ['lead-export: every industry value is written empty', F + 'lead-export/index.ts', '...fields.map(x => plain(a[x.key]))', "...fields.map(() => '')", 'export.test.ts'],
+  ['lead-export: no industry columns at all', F + 'lead-export/index.ts', 'const fields: Field[] = ws ?', 'const fields: Field[] = false ?', 'export.test.ts'],
+  ['lead-export: a multi choice is one JSON cell', F + 'lead-export/index.ts', "  if (Array.isArray(v)) return v.map(x => String(x)).join('; ');\n", '', 'export.test.ts'],
   // invite-member
   ['invite-member: a login is made even when one exists', F + 'invite-member/index.ts', '    if (!user) {', '    if (true) {', 'invite.test.ts'],
   ['invite-member: the role is always member', F + 'invite-member/index.ts', '${role}::public.member_role', "'member'::public.member_role", 'invite.test.ts'],
