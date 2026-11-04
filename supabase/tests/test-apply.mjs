@@ -10,10 +10,11 @@ import { fileURLToPath } from 'node:url';
 // 5-H: the cluster folder is guarded (stopped and removed on every exit path, including process.exit and a throw; swept at start
 // when an earlier run was killed)
 import { guardedTemp, sweep } from '../../tools/proc-guard/index.mjs';
+import { startOnBlock } from './lib/cluster-port.mjs';   // 5-PORT: port block, listen pin, bind fallback
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SUPABASE = resolve(HERE, '..');
-const PORT = String(56000 + Math.floor(Math.random() * 900));
+let PORT;   // set once the cluster is up: a port of this harness's block (lib/cluster-port.mjs)
 const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 300000, ...opts });
 sweep();
 const guard = guardedTemp('omnikom-pg-', 'cluster', { label: 'test-apply' });
@@ -24,8 +25,9 @@ const check = (name, ok, detail = '') => { console.log(`${ok ? 'ok  ' : 'FAIL'} 
 
 let r = run('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8']);
 if (r.status !== 0) { console.error('initdb failed'); process.exit(2); }
-r = run('pg_ctl', ['-D', data, '-o', `-p ${PORT} -k ""`, '-l', join(dir, 'pg.log'), '-w', 'start']);
-if (r.status !== 0) { console.error('pg_ctl failed'); process.exit(2); }
+const started = startOnBlock('test-apply', { data, log: join(dir, 'pg.log'), run });
+if (!started.ok) { console.error('pg_ctl failed:', started.stderr, started.log); process.exit(2); }
+PORT = String(started.port);
 const URL = `postgres://postgres@127.0.0.1:${PORT}/postgres`;
 const psql = args => run('psql', [URL, '-v', 'ON_ERROR_STOP=1', '-X', '-q', ...args]);
 psql(['-f', join(HERE, 'local-shim.sql')]);

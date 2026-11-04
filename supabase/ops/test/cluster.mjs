@@ -4,18 +4,17 @@
 //   const c = startCluster('proven');          // { url, port, dir, sql(text), file(path), scalar(text), stop() }
 //   loadPlatform(c);                           // local-shim.sql, then every migration through supabase/apply-staging.mjs
 //   c.stop();                                  // pg_ctl stop and delete the folder
-import { readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 // 5-H: the cluster folder is guarded (stopped and removed on every exit path; swept when an earlier run was killed)
 import { guardedTemp, sweep } from '../../../tools/proc-guard/index.mjs';
+import { startOnBlock } from '../../tests/lib/cluster-port.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const SUPABASE_DIR = resolve(HERE, '..', '..');
 const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 300000, windowsHide: true, ...opts });
-const used = new Set();
-const pickPort = () => { for (;;) { const p = 57000 + Math.floor(Math.random() * 1900); if (!used.has(p)) { used.add(p); return p; } } };
+const used = new Set();   // ports of this process's live clusters (startOnBlock adds on success; stop() deletes)
 
 let swept = false;
 export function startCluster(label = 'ops') {
@@ -23,15 +22,14 @@ export function startCluster(label = 'ops') {
   const guard = guardedTemp('omnikom-pg-', 'cluster', { label: `ops-${label}` });
   const dir = guard.dir;
   const data = join(dir, 'data');
-  const port = pickPort();
-  let r = run('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8']);
+  const r = run('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8']);
   if (r.status !== 0) { guard.release(); throw new Error(`initdb failed: ${r.stderr || r.error}`); }
-  r = run('pg_ctl', ['-D', data, '-o', `-p ${port} -k ""`, '-l', join(dir, 'pg.log'), '-w', 'start']);
-  if (r.status !== 0) {
-    let log = ''; try { log = readFileSync(join(dir, 'pg.log'), 'utf8'); } catch { /* no log */ }
+  const started = startOnBlock('ops-cluster', { data, log: join(dir, 'pg.log'), run, used });   // 5-PORT: port block, listen pin, bind fallback; `used` keeps two clusters of this process apart
+  if (!started.ok) {
     guard.release();
-    throw new Error(`pg_ctl start failed: ${r.stderr}\n${log}`);
+    throw new Error(`pg_ctl start failed: ${started.stderr}\n${started.log}`);
   }
+  const port = started.port;
   const url = `postgres://postgres@127.0.0.1:${port}/postgres`;
   const psql = args => run('psql', [url, '-v', 'ON_ERROR_STOP=1', '-X', '-q', ...args]);
   const c = {
