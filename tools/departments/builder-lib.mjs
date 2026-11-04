@@ -16,6 +16,7 @@ export class BuilderError extends Error {}
 
 export const MODEL_IDS = { fable: 'claude-fable-5-1', opus: 'claude-opus-5-5', sonnet: 'claude-sonnet-5-5', haiku: 'claude-haiku-5-5' };
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
+export const DEFAULT_EFFORT = 'high';   // the machine default (~/.claude/settings.json effortLevel) is low; a builder starts on high unless the head passes --effort
 // Every marker the launcher clears (measured list of the launcher that started a builder). The guard checks the first four.
 export const CLEARED = ['CLAUDE_CODE_BRIDGE_SESSION_ID', 'CLAUDE_CODE_CHILD_SESSION', 'CLAUDE_CODE_ENABLE_CFC', 'CLAUDE_CODE_ENTRYPOINT',
   'CLAUDE_CODE_MESSAGING_SOCKET', 'CLAUDE_CODE_MESSAGING_TOKEN', 'CLAUDE_CODE_SESSION_ATTENDED', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_PID', 'CLAUDECODE'];
@@ -50,7 +51,7 @@ export function plan({ dept, slice, model, effort, cwd }) {
   const dir = resolve(cwd || ROOT);
   if (!existsSync(dir)) throw new BuilderError(`cwd ${dir} does not exist`);
   if (/["%\r\n]|claude/i.test(dir)) throw new BuilderError(`cwd ${dir} holds a character or word a launcher cannot carry (double quote, %, line break, "claude")`);
-  return { dept, slice, name: `BUILDER_${dept}_${slice}`, model: chosen, modelId: MODEL_IDS[chosen], effort: effort || null, cwd: dir };
+  return { dept, slice, name: `BUILDER_${dept}_${slice}`, model: chosen, modelId: MODEL_IDS[chosen], effort: effort || DEFAULT_EFFORT, cwd: dir };
 }
 
 /** The launcher text (CRLF): clears every marker, titles the window, claude with a name and a model and NO prompt. */

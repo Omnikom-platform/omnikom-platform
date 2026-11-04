@@ -399,3 +399,102 @@ options, never a fix made here.
   run, then the head of operations' effort commit, then platform 5-L. 5d commit (blueprint 22, the skill copy at SOURCE 77aee20, proofs 5d
   and skill-sync, the flip brief, PROGRESS 5d block, this charter; the skills/SOURCE.md row is a light follow-on in the head of
   operations' file) built on dd22555 in E:\omk-wt-seo-5c.
+- 2026-11-01 21:58: 5d committed as a111b86 on dd22555 (29 files, 0 CR, 0 em dashes in changed files, gitleaks no leaks; SOURCE.md diff is
+  this skill's row only; departments check "OK: 5 charter(s) valid", departments tests 128 of 128). Stack pushed to
+  check/seo/5c-publish-rule for an early run. When the CLI small-fixes sha arrives: cherry-pick dd22555 and a111b86 onto it in the
+  worktree (CLI test lines: the CLI's win, add only the PMP-001 allowance), re-run, push, `omnikom land check/seo/5c-publish-rule`.
+- 2026-11-01 22:12: early run 41344229818 on a111b86: 8 of 9 green; CLI job 548 of 549, the only red is the CLI's flaky "cluster guard
+  (real kill)" (first ping connection refused; same as the head of operations' run 41323582926; raised with CLI as its next slice). Rule:
+  `gh run rerun <id> --failed` (sent 22:11). Land order unchanged: CLI small-fixes, SEO 5c+5d, platform 5-L, head of operations.
+- 2026-11-01 22:15: BLOCKED (CLI's test, not SEO's code) - run 41344229818 attempt 2 on a111b86 red again, the same single check
+  "FAIL cluster guard (real kill)" (FAILED: 548 of 549) - unblocked by the CLI's fix of that test (its next slice) or a ruling from the
+  head of operations. 5c alone (dd22555, run 41341833182) is 9/9 green.
+- 2026-11-01 22:18: HANDOVER (head HEAD_SEO-and-audits_2026-11-01b, Opus 5.5, context about 250k; reports to
+  HEAD-OF-OPERATIONS_Omnikom_2026-11-01d; no builder of this department is running).
+  - ON MASTER from this head: 4c f75cc64 (run 41319446394, 9/9).
+  - READY, NOT LANDED: branch check/seo/5c-publish-rule = 5c dd22555 + 5d a111b86, both on master e92684e, built in the worktree
+    E:\omk-wt-seo-5c (keep it; remove it with `git worktree remove` once landed). 5c alone green (run 41341833182); the stack red only on the
+    CLI's flaky real-kill check (run 41344229818, attempts 1 and 2). WAITING on the head of operations' pick (22:15: a CLI fixes first,
+    b 5c alone now, c rule it a flake) and on the CLI small-fixes master sha (land order: CLI small-fixes, SEO 5c+5d, platform 5-L, head of
+    operations). Then: cherry-pick dd22555 and a111b86 onto that sha in the worktree (CLI test lines 349/354: the CLI's lines win, add only
+    the `SKIP PMP-001 / no --prompt-coverage` allowance; factory/test/run.mjs: keep master's lines, the PMP-001 allowance next to
+    /^(PASS|WARN) /), re-run (audit test/run.mjs, build-fixtures --check, factory test, runner test, CLI --unit, the whole-list target-text
+    check: 0 missing), push with a lease, `node tools/omnikom-cli/omnikom.mjs land check/seo/5c-publish-rule`.
+  - THE SHARED TREE still holds the 5c, 5d and sync files uncommitted (identical to the commits); never build a commit from HEAD there
+    (local master is the head of operations' and lags): build on backup-gh/master in a private index or a worktree (scratchpad scripts
+    build-5c-index.mjs and build-5d.mjs show the method: follow-on files on master's blob, PROGRESS blocks by anchor heading).
+  - NEXT after 5c+5d land: the REQUIRE_TARGET_FOR_FOLDER flip, brief tools/audit/briefs/slice-4c-flip.md; starts on master after 5c lands
+    (same files), lands only after the CLI's `omnikom audit --target` (sha 2) is on master. Then slice 4 (the six-question report).
+  - PARKED: anonymising (DECISIONS 49). Queued: the 50 older em dashes in the skill SOURCE (entry 15:33).
+  - FINDINGS OPEN: platform 5-P4 CHECK must accept a dated file pointer as evidence and null named/cited (sent 20:47); runner media checks
+    skipped on the laptop (sharp not installed), UNPROVEN; heavy.mjs exit 75 is "try again".
+  - RULES learned: a slice that edits a line older mutants patch runs the whole list's target-text check; start builders with
+    `--effort high`; stop each builder on acceptance; SOURCE commits by a builder only on the head's exact paths.
+  - Scratchpad scripts named above live in C:\Users\DELL\AppData\Local\Temp\claude\E--Omnikom-Platform\8bb4d19d-2452-467b-9b53-fc8b17a2af50\scratchpad\
+    (build-5c-index.mjs, build-5d.mjs, check-4c-tree.mjs: changed blobs, 0 CR, 0 em dash).
+- 2026-11-01 22:17: RULED (head of operations 01d): (a). The CLI fixes the real-kill test first (its next slice, after small-fixes); then a
+  fresh SEO head rebases 5c+5d on that sha and lands. (c) refused: no gate is passed over. HANDOVER accepted; this head is stopped by
+  the head of operations; the fresh SEO head starts when the CLI fix is on master.
+- 2026-11-02 02:45: PROVEN 5c+5d on master 7690b59 (run 41364432148 attempt 2, 9 of 9; attempt 1 red only on the D50 port flake).
+- 2026-11-02 15:08: HANDOVER (head HEAD_SEO-and-audits_2026-11-02, Opus 5.5, context about 205k; reports to
+  HEAD-OF-OPERATIONS_Omnikom_2026-11-02c).
+  - IN FLIGHT: the 4c REQUIRE_TARGET flip, branch check/seo/4c-flip on backup-gh = 0cdb026 (flip: index.mjs switch true, audit
+    tests/mutant/README, CLI test lines + CLI comment audit.mjs:5-6 + README.md:26 + one CLI mutant "[4c-flip]", proof
+    tools/audit/proof/4c-flip.md, charter lines) + e6b118b (skill stage design.md:159 `--target preview`, SOURCE 9d678f0, SOURCE.md
+    row), on master 39fb39d, worktree E:\omk-wt-seo-5c. CLI-d said YES to its run.mjs lines and the mutant; HoO ruled the skill
+    commit rides in the same land.
+  - PROVEN on c010c65 (builder): audit 576/576, CLI --unit 428/428, factory 89/89, runner 84/84, new audit mutant caught, target text
+    0 missing (audit 426, cli 313, runner 78, factory 85), CLI walls watched red "426 of 428, 2 FAILED", gitleaks clean.
+  - OPEN before land: (a) GitHub run 41447585998 on e6b118b: gates job FAILURE, cause pending (HoO 02c pulling the lines; if it
+    is the D50 port flake, re-run per D50); (b) the four suites on 39fb39d and "cli mutant 4c-flip" (MUTATE --only 4c-flip, the
+    ONLY proof of that mutant: ci.yml does not run the CLI mutants; HoO ruled no land without it) queued in heavy behind the CLI's
+    "journey mutants r2". Builder BUILDER_seo-and-audits_4c-flip (pid 32908) owns those runs and reports the lines; stop it after.
+    Then: head re-runs, `node tools/omnikom-cli/omnikom.mjs land check/seo/4c-flip` from the worktree, send the CLI-d the caught line.
+  - NEXT: slice 4 (the six-question report). Then the LOW finding: mutate.mjs progress line every 25 mutants (Open items).
+  - NOTE: this shared-tree charter is not master's; the flip commit 0cdb026 carries its own charter lines. Reconcile on the next
+    charter commit (master's text plus these blocks).
+- 2026-11-02 15:26: TAKEOVER by HEAD_SEO-and-audits_2026-11-02b (pid 37284, Opus 5.5), CTX "OK d5784b3d ctx= 91574". Read the
+  15:08 HANDOVER. Old head stopped (stop-builder pid 25248: "stopped" claude.exe 25248, "left" only this head 37284). HoO cause
+  for run 41447585998 on e6b118b: (1) audit engine "SURVIVED run.mjs: --prompt-coverage with no value is accepted (exit 0, 0 red)"
+  425/426, ours (hypothesis UNPROVEN: the bare-value test now exits 2 for the missing --target); fix routed to builder 32908 (new
+  commit on e6b118b, test red then caught, no push); (2) gates "process guard mutants ... 20 caught, 1 escaped" is platform 5-G
+  r2's, a rerun on the exact sha. Land needs: fix commit, fresh 9/9 on that sha, four suites + "cli mutant 4c-flip" on it.
+- 2026-11-02 15:56: 4c-flip red (1) cause PROVEN (builder): test helper cli() appended --target production at the end, so a bare
+  --prompt-coverage took "--target" as its value. Fix 8d9ff94 (tools/audit/test/run.mjs only): mutant "SURVIVED" on e6b118b,
+  "CAUGHT" after; head re-run "OK: 576 of 576 checks passed". Pushed with lease e6b118b, ls-remote 8d9ff94; CI run 41457156982
+  in progress. OPEN: 9/9 on 8d9ff94, four suites + "cli mutant 4c-flip" (builder 32908 in heavy queue), then land.
+- 2026-11-02 15:58: land order: CLI journey (62315d5) likely lands first; builder rebases on the new master before its heavy runs, CLI-file conflicts come to the head as hunks and go to HEAD_CLI-and-testing_2026-11-02 (CLI-d stopped 09:39, HoO 15:58). HoO accepted the plan.
+- 2026-11-02 16:07: builder "cli mutant 4c-flip" on 8d9ff94 (master 39fb39d): baseline "OK: 607 of 607", "1 mutants, 1 caught, 0 survived, 0 target text missing" (head to read the log). CI 41457156982: 6/9 success, CLI, audit engine, gates in progress. CLI --unit, factory, runner re-queued with a master-moved guard (exit 90).
+- 2026-11-02 16:09: head read the cli mutant log (builder scratchpad cli-mut2.txt): "heavy: running cli mutant 4c-flip", "baseline: OK: 607 of 607 checks passed", "caught   audit and gate: a built folder with no --target is given a default target [4c-flip] (unit: 4 red ...)", "1 mutants, 1 caught, 0 survived, 0 target text missing". Accepted for 8d9ff94 on master 39fb39d.
+- 2026-11-02 16:25: head read builder log gates-out3.txt on 8d9ff94, each after "GUARD: master is still 39fb39d": CLI --unit "OK: 428 of 428 checks passed", factory "OK: 89 of 89", runner "OK: 84 of 84 checks passed (media checks SKIPPED: sharp is not installed)". Local set complete for 8d9ff94. Builder 32908 kept until CI 41457156982 is read (stop after).
+- 2026-11-02 16:47: CI 41457156982 on 8d9ff94: 8/9 (audit engine, gates SUCCESS); platform CLI job FAILURE "313 mutants, 311 caught, 2 survived": "SURVIVED audit and gate: --expect is accepted (a FAIL can be told to match) (unit)", "SURVIVED audit: a stray argument is accepted (unit)" (master 39fb39d 9/9: the flip's). Hypothesis UNPROVEN: same missing-target exit-2 flaw in the flip's CLI test lines. Routed to builder 32908 (survive, fix, caught, sweep, one commit, no push); HEAD_CLI-and-testing_2026-11-02 and HoO told. NOT LANDABLE.
+- 2026-11-02 16:46: HEAD_CLI-and-testing_2026-11-02: no objection to our builder fixing the run.mjs test lines; reviews the diff before land. Their 62315d5 (run 41453440713) also edits tools/omnikom-cli/test/run.mjs and mutate.mjs; whoever lands second rebases; they send the master sha when it lands.
+- 2026-11-02 17:34: head of ops is now HEAD-OF-OPERATIONS_Omnikom_2026-11-02d (02c stopped). CLI journey 62315d5 timed out on CI, will not land soon; SEO may land first.
+- 2026-11-02 17:38: draft CLI fix (uncommitted, tools/omnikom-cli/test/run.mjs 14+/14-: 7 refusal tests pass the target and assert their own message) sent to HEAD_CLI-and-testing_2026-11-02 for review as scratchpad 4c-flip-cli-runmjs-draft.diff (that head is writing HANDOVER at 205k; if gone, the next CLI head). Mutant proof waits on heavy pid 17356.
+- 2026-11-02 17:41: CLI head review: APPROVED conditional on local lines showing both mutants SURVIVED on 8d9ff94 and CAUGHT with the diff, and run.mjs --unit OK (recorded in the CLI HANDOVER "reviewed YES (conditional)"). Both conditions already in builder 32908's done-when.
+- 2026-11-02 18:36: builder fix 2 = 68f2312 on 8d9ff94 (tools/omnikom-cli/test/run.mjs only; head: identical to the reviewed draft). Builder (single-mutant runner, not heavy): both mutants SURVIVED on 8d9ff94, CAUGHT on 68f2312, [4c-flip] still caught; CLI --unit "OK: 428 of 428"; sweep of all refusal tests listed. Head re-running --unit; then push and fresh CI.
+- 2026-11-02 18:57: HoO-02d: DECISIONS 52 (owner 18:54) no dashboard/login design work until the owner brings styling; no change to the 4c flip land.
+- 2026-11-02 19:03: head's own CLI --unit re-run on 68f2312 PARTIAL: killed by its 900 s timeout (exit 124) on the loaded box (heavy held by 5-DS), 380 ok, 0 FAIL lines; not retried a third time outside heavy. Builder's "OK: 428 of 428" stands as a claim; the CI CLI job is the proof. Pushed 68f2312 with lease 8d9ff94: ls-remote "68f23121b0b2... refs/heads/check/seo/4c-flip". Watching its CI run.
+- 2026-11-02 19:11: master moved to 4f91b52 (5-G r2, run 41480760534 9/9; HoO-02d). 68f2312 cannot fast-forward; its run 41487384598 cancel sent (first try: TLS timeout). git diff --name-only: no file touched by both 39fb39d..4f91b52 and 39fb39d..68f2312. Builder 32908 rebasing the four commits onto 4f91b52, no push.
+- 2026-11-02 19:20: rebased on 4f91b52 by builder, no conflicts: f4a3996, dc00546, 38f176b, ae8741d; head check: diff 4f91b52..ae8741d byte-identical to 39fb39d..68f2312; builder audit "OK: 576 of 576", gitleaks detect 4f91b52..HEAD "no leaks found"; CLI --unit NOT RUN (heavy held by cli-stack mutate). Pushed with lease 68f2312: ls-remote "ae8741d28ffd... refs/heads/check/seo/4c-flip". Waiting for its 9/9.
+- 2026-11-02 19:40: head of ops is now HEAD-OF-OPERATIONS_Omnikom_2026-11-02e (02d stopped 19:42). Run on ae8741d = 41490162139. This head is at WATCH (~186k): HANDOVER after the land.
+- 2026-11-02 20:06: 4c REQUIRE_TARGET flip LANDED. Run 41490162139 on ae8741d "completed success", 9 of 9 jobs. `omnikom land
+  check/seo/4c-flip`: first try exit 1 (pre-push "gh run view failed ... dial tcp 140.82.121.5:443", master not moved, lock
+  released); second try "4f91b52..ae8741d ... -> master", "land: master is ae8741d28ffd35b21ae6c96dea42e2c5d5689103", exit 0;
+  ls-remote master ae8741d. Builder 32908 stopped: "left": [], tasklist "No tasks".
+- 2026-11-02 20:08: HANDOVER (head HEAD_SEO-and-audits_2026-11-02b, Opus 5.5, context about 190k WATCH; reports to
+  HEAD-OF-OPERATIONS_Omnikom_2026-11-02e).
+  - IN FLIGHT: nothing. No builders running. Master ae8741d holds the flip (f4a3996 flip, dc00546 skill stage design.md
+    `--target preview`, 38f176b audit test helper fix, ae8741d CLI refusal tests). Worktree E:\omk-wt-seo-5c is at ae8741d, clean;
+    remove it or reuse it for slice 4.
+  - LESSON (keep): a switch that makes an option required can make refusal tests pass for the wrong reason (exit 2 from the
+    new requirement). Both survivors this time were that: audit `cli()` appended `--target` at the end so a bare
+    `--prompt-coverage` swallowed it; CLI refusal tests ran with no target. The local suites were green both times; only the
+    full mutant runs in CI saw it. For a flip, refusal tests assert their own message, and the mutant set runs before the push.
+  - NOT SENT: the CLI head asked for the caught line of "cli mutant 4c-flip"; it is "caught audit and gate: a built folder with
+    no --target is given a default target [4c-flip]" / "1 mutants, 1 caught, 0 survived" (head read 16:09), plus CI's CLI job
+    green on ae8741d. Send it to the current CLI head.
+  - NEXT: slice 4 (the six-question report). Then the LOW finding: mutate.mjs progress line every 25 mutants (Open items).
+    Weekly usage 92% (cap 95%): the head of operations decides whether slice 4 starts before the reset (Wed 18:00).
+  - NOTE: this shared-tree charter is not master's; master's copy carries the flip commit's charter lines only. Reconcile on the
+    next charter commit (master's text plus the blocks from 2026-11-01 14:50 onward here).

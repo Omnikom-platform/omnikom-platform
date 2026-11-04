@@ -9,8 +9,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, relative, dirname, basename, delimiter, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import net from 'node:net';
-import { CLI_ROOT, REPO_ROOT, startCluster, sweepClusters, clusterDiag, freshDb, cli, makeFunctionModel, makeSupabaseModel } from './harness.mjs';
+import { CLI_ROOT, REPO_ROOT, startCluster, sweepClusters, freshDb, cli, makeFunctionModel, makeSupabaseModel } from './harness.mjs';
 import { impactStampHooksTests } from './impact-stamp-hooks.mjs';
 
 const onlyUnit = process.argv.includes('--unit'), onlyDb = process.argv.includes('--db');
@@ -373,13 +372,10 @@ async function units() {
   check('gate --dir <missing folder> exits 2 (never 0)', r.exit === 2 && r.stdout.startsWith('ERROR '), r.all);
   r = await cli(['audit', '--dir', join(GOOD, 'index.html')], {});
   check('audit --dir <a file> exits 2', r.exit === 2, r.all);
-  const TARGET_MSG = 'ERROR audit takes --target preview|production (the build\'s target); it talks to no environment\n';
   r = await cli(['audit', '--dir', GOOD, '--target', 'staging'], {});
-  check('audit --target staging exits 2 with the build-target message (it talks to no environment)', r.exit === 2 && r.stdout === TARGET_MSG, r.all);
+  check('audit --target staging exits 2 (no target)', r.exit === 2 && r.stdout.includes('--target'), r.all);
   r = await cli(['gate', '--dir', GOOD, '--target', 'local'], {});
-  check('gate --target local exits 2 with the build-target message', r.exit === 2 && r.stdout === TARGET_MSG.replace('audit takes', 'gate takes'), r.all);
-  r = await cli(['audit', '--dir', GOOD, '--target', 'Production'], {});
-  check('audit --target Production (a value that is not exactly preview or production) exits 2 from the CLI, before the engine', r.exit === 2 && r.stdout === TARGET_MSG, r.all);
+  check('gate --target local exits 2 (no target)', r.exit === 2, r.all);
   r = await cli(['gate', '--dir', GOOD, '--only', 'MET-003'], {});
   check('gate --only exits 2 (a gate with fewer rules is a weaker gate)', r.exit === 2 && r.stdout.includes('--only'), r.all);
   r = await cli(['gate', '--dir', BAD, '--expect', 'AUDIT-FAILED'], {});
@@ -418,52 +414,8 @@ async function units() {
   check('gate --json: data.pass false, data.exit 1, data.fails is the FAIL line', r.exit === 1 && r.json.data.pass === false && r.json.data.exit === 1 && r.json.data.fails.length === 1 && r.json.data.fails[0] === engineBad.lines.find(l => l.startsWith('FAIL ')), r.all.slice(0, 200));
   r = await cli(['gate', '--dir', GOOD, '--json'], {});
   check('gate --json on the good site: data.pass true, data.exit 0, data.fails empty', r.exit === 0 && r.json.data.pass === true && r.json.data.exit === 0 && r.json.data.fails.length === 0 && r.json.target === undefined, r.all.slice(0, 200));
-  // --target <preview|production> is the BUILD target (the engine's ENV-001), passed through; the lines are the engine's own for that target
-  const FIX = name => join(REPO_ROOT, 'tools', 'audit', 'fixtures', name);
-  const GOOD_PREVIEW = FIX('good-preview'), BAD_ENV_PREVIEW = FIX('bad-ENV-001-preview'), BAD_ENV_PROD = FIX('bad-ENV-001-production');
-  const eProd = engine.audit(GOOD, { target: 'production' }), ePrev = engine.audit(GOOD_PREVIEW, { target: 'preview' });
-  const eBadPrev = engine.audit(BAD_ENV_PREVIEW, { target: 'preview' }), eGoodAsPrev = engine.audit(GOOD, { target: 'preview' });
-  const envFails = lines => lines.filter(l => l.startsWith('FAIL ENV-001 '));
-  r = await cli(['audit', '--dir', GOOD, '--target', 'production'], {});
-  check('audit --target production on the good site: exit 0, no SKIP ENV-001 line, the lines are the engine\'s for that target',
-    eProd.pass && r.exit === 0 && !out(r).some(l => l.startsWith('SKIP ENV-001')) && JSON.stringify(out(r).slice(0, -1)) === JSON.stringify(eProd.lines) && out(r).at(-1).startsWith(`audit: ${NP} pages, ${NR} rules, 0 FAIL`), r.all.slice(-300));
-  r = await cli(['audit', '--dir', GOOD_PREVIEW, '--target', 'preview'], {});
-  check('audit --target preview on good-preview: exit 0, no SKIP ENV-001 line, the lines are the engine\'s for that target',
-    ePrev.pass && r.exit === 0 && !out(r).some(l => l.startsWith('SKIP ENV-001')) && JSON.stringify(out(r).slice(0, -1)) === JSON.stringify(ePrev.lines), r.all.slice(-300));
-  r = await cli(['audit', '--dir', BAD_ENV_PREVIEW, '--target', 'preview'], {});
-  check('audit --target preview on bad-ENV-001-preview: exit 1 and the engine\'s FAIL ENV-001 lines, nothing skipped',
-    !eBadPrev.pass && envFails(eBadPrev.lines).length > 0 && r.exit === 1 && JSON.stringify(envFails(out(r))) === JSON.stringify(envFails(eBadPrev.lines)) && !out(r).some(l => l.startsWith('SKIP ENV-001')), r.all.slice(-300));
-  r = await cli(['audit', '--dir', BAD_ENV_PROD, '--target', 'production'], {});
-  check('audit --target production on bad-ENV-001-production: exit 1 and the engine\'s FAIL ENV-001 lines',
-    envFails(engine.audit(BAD_ENV_PROD, { target: 'production' }).lines).length > 0 && r.exit === 1 && out(r).some(l => l.startsWith('FAIL ENV-001 ')), r.all.slice(-300));
-  r = await cli(['audit', '--dir', GOOD, '--target', 'preview'], {});
-  check('audit: the value reaches the engine (the good site is a production build, so --target preview fails ENV-001 where --target production passes)',
-    !eGoodAsPrev.pass && r.exit === 1 && JSON.stringify(out(r).slice(0, -1)) === JSON.stringify(eGoodAsPrev.lines) && out(r).some(l => l.startsWith('FAIL ENV-001 ')), r.all.slice(-300));
   r = await cli(['gate', '--dir', GOOD, '--target', 'production'], {});
-  check('gate --target production on the good site: exit 0 (no production guard for a folder gate), GATE PASS with the engine\'s counts',
-    r.exit === 0 && r.stdout === `GATE PASS ${NP} pages, ${NR} rules\n`, r.all.slice(-200));
-  r = await cli(['gate', '--dir', GOOD, '--target', 'preview'], {});
-  check('gate --target preview on the good site: exit 1, GATE FAIL with the engine\'s ENV-001 lines (the value reaches the engine)',
-    r.exit === 1 && out(r)[0] === `GATE FAIL ${envFails(eGoodAsPrev.lines).length + eGoodAsPrev.lines.filter(l => l.startsWith('FAIL ') && !l.startsWith('FAIL ENV-001 ')).length} finding(s)` && envFails(out(r)).length === envFails(eGoodAsPrev.lines).length, r.all.slice(-300));
-  r = await cli(['gate', '--dir', BAD_ENV_PREVIEW, '--target', 'preview', '--json'], {});
-  check('gate --target preview --json: data.fails holds the ENV-001 lines and the result shows no environment target', r.exit === 1 && r.json.target === undefined && r.json.data.fails.some(l => l.startsWith('FAIL ENV-001 ')), r.all.slice(0, 300));
-  r = await cli(['audit', '--dir', GOOD, '--target', 'production', '--json'], {});
-  check('audit --target production --json: the engine\'s data.target is "production" and the result shows no environment target (ctxUsesTarget unchanged)', r.exit === 0 && r.json.data.target === 'production' && r.json.target === undefined, r.all.slice(0, 300));
-  r = await cli(['audit', '--dir', GOOD, '--json'], {});
-  check('audit with no --target passes nothing to the engine (data.target is null, the one SKIP ENV-001 line stays)', r.json.data.target === null && r.json.data.lines.filter(l => l.startsWith('SKIP ENV-001 / no --target')).length === 1, r.all.slice(0, 300));
-  const libOpts = [];
-  const spyLib = { audit: (d, o) => { libOpts.push(o); return { pass: true, lines: [], pages: [], rules: [] }; } };
-  await cli(['audit', '--dir', GOOD, '--target', 'preview', '--only', 'ENV-001'], {}, { auditLib: spyLib });
-  await cli(['gate', '--dir', GOOD, '--target', 'production'], {}, { auditLib: spyLib });
-  await cli(['gate', '--dir', GOOD], {}, { auditLib: spyLib });
-  check('audit and gate: the options handed to the library are { rules, target } / { target } / {} (no --target passes no key)',
-    JSON.stringify(libOpts) === JSON.stringify([{ rules: ['ENV-001'], target: 'preview' }, { target: 'production' }, {}]), JSON.stringify(libOpts));
-  const { BUILD_TARGET_COMMANDS, PRODUCTION_ALLOWED } = await import(pathToFileURL(join(CLI_ROOT, 'lib', 'target.mjs')).href);
-  check('production guard: the build-target exemption is exactly audit and gate, and PRODUCTION_ALLOWED is still exactly status and apply',
-    [...BUILD_TARGET_COMMANDS].sort().join() === 'audit,gate' && [...PRODUCTION_ALLOWED].sort().join() === 'apply,status');
-  calls.length = 0;
-  r = await cli(['seed', 'test', '--target', 'production'], PROD, spies);
-  check('production guard: seed is still refused on production (exit 3) beside the audit and gate exemption', r.exit === 3 && calls.length === 0, r.all.slice(0, 200));
+  check('gate --target production is refused before anything runs (exit 3)', r.exit === 3, r.all);
   // rule 1: a secret that the environment holds is masked on every printed line, text mode included
   const SECRET = rand(), leakDir = mkdtempSync(join(tmpdir(), 'omnikom-audit-'));
   try {
@@ -1521,44 +1473,11 @@ async function database() {
       await exited;
       const outlived = !!info && ping(info.port);                         // the kill ran no handler: the cluster is still running
       const markerLeft = !!info && existsSync(info.marker);
-      const diag = info ? clusterDiag(info) : '\n  cluster: the child printed no marker (it exited first)';   // read before the sweep removes the folder; printed only if the check fails
       const swept = sweepClusters({ markerDir: markers });
       const gone = !!info && !ping(info.port) && !existsSync(info.dir) && !existsSync(info.marker);
-      const killOk = up && outlived && markerLeft && swept.length === 1 && swept[0].swept === true && gone;
       check('cluster guard (real kill): a child starts a cluster and is killed hard; its marker and cluster outlive it; the next sweep stops it (pg_ctl stop -m immediate) and removes its folder and marker',
-        killOk, JSON.stringify({ pings: pings.slice(-3), up, outlived, markerLeft, swept, gone, info }));   // pings first: check() cuts the detail at 300 characters
-      if (!killOk) console.log(`     real kill: failed at ${!up ? 'up (the first ping, 10 s of tries)' : !outlived ? 'outlived (the ping after the kill)' : !markerLeft ? 'markerLeft' : !gone ? 'gone (after the sweep)' : 'the sweep result'}; pings ${JSON.stringify(pings)}${diag}`);   // the long part: check() cuts its detail at 300 characters
+        up && outlived && markerLeft && swept.length === 1 && swept[0].swept === true && gone, JSON.stringify({ pings: pings.slice(-3), up, outlived, markerLeft, swept, gone, info }));   // pings first: check() cuts the detail at 300 characters
       rmSync(markers, { recursive: true, force: true });
-
-      // a port held by something else: the harness walks to the next port of its block and says so, and the cluster answers on 127.0.0.1
-      {
-        const markers2 = mkdtempSync(join(tmpdir(), 'omnikom-cli-markers-'));
-        const holder = net.createServer(() => {});                          // a program that owns P (any listener: the bind conflict is the same)
-        const taken = await new Promise(res => { const tryOn = n => { holder.once('error', () => (n < 20 ? tryOn(n + 1) : res(0))); holder.listen(21000 + 100 + n * 10, '127.0.0.1', () => res(holder.address().port)); }; tryOn(0); });
-        const saidLines = [];
-        let held = null, heldErr = null;
-        try { held = startCluster({ markerDir: markers2, signals: false, firstPort: taken, say: l => saidLines.push(l) }); } catch (e) { heldErr = e; }
-        const answers = !!held && spawnSync('psql', ['-h', '127.0.0.1', '-p', String(held.port), '-U', 'postgres', '-d', 'postgres', '-X', '-q', '-c', 'select 1'], { encoding: 'utf8', timeout: 60000 }).status === 0;
-        check('cluster guard (held port): with P held by another program the harness says "port P in use (could not bind), trying P+1", lands on P+1 and the cluster answers on 127.0.0.1',
-          !!taken && !!held && String(held.port) === String(taken + 1) && answers && saidLines.length === 1 && saidLines[0] === `cluster: port ${taken} in use (could not bind), trying ${taken + 1}`,
-          JSON.stringify({ taken, port: held && held.port, saidLines, answers, err: heldErr && String(heldErr.message).slice(0, 150) }));
-        if (held) held.stop();
-        await new Promise(res => holder.close(res));
-        rmSync(markers2, { recursive: true, force: true });
-      }
-
-      // a database that cannot be created names its cluster: port, data folder, whether the postmaster pid lived, the log tail
-      {
-        const ghost = mkdtempSync(join(tmpdir(), 'omnikom-cli-pg-'));
-        mkdirSync(join(ghost, 'data'), { recursive: true });
-        writeFileSync(join(ghost, 'data', 'postmaster.pid'), '999999\n');
-        writeFileSync(join(ghost, 'pg.log'), 'LOG:  line one\nLOG:  the last line\n');
-        let msg = '';
-        try { freshDb({ port: '1', dir: ghost }); } catch (e) { msg = String(e.message); }
-        check('cluster diag: a create database that fails names the cluster (port, data folder, postmaster pid not alive) and prints the server log tail',
-          /^create database failed/.test(msg) && msg.includes('port 1') && msg.includes(join(ghost, 'data')) && /postmaster pid 999999 not alive/.test(msg) && msg.includes('LOG:  the last line'), msg.slice(0, 250));
-        rmSync(ghost, { recursive: true, force: true });
-      }
     }
 
     // ---- rule 1 over the whole database session

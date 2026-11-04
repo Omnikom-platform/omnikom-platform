@@ -17,6 +17,7 @@ const MUTANTS = [
   ['a slice may be 400 characters', L, '[A-Za-z0-9.-]{0,39}$/;', '[A-Za-z0-9.-]{0,399}$/;'],
   ['an unknown model is accepted', L, 'if (!MODELS.includes(chosen)) throw new BuilderError(', 'if (false) throw new BuilderError('],
   ['an unknown effort is accepted', L, 'if (effort && !EFFORTS.includes(effort)) throw new BuilderError(', 'if (false) throw new BuilderError('],
+  ['the default effort is removed (builders inherit the machine low)', L, 'effort: effort || DEFAULT_EFFORT, cwd: dir };', 'effort: effort || null, cwd: dir };'],
   ['the model ignores the charter', L, "const chosen = (model || charter.builderModel || '').toLowerCase();", "const chosen = (model || 'haiku').toLowerCase();"],
   ['a launcher folder with "claude" in it is accepted', L, 'if (/claude/i.test(d)) throw new BuilderError(', 'if (false) throw new BuilderError('],
   ['a cwd with a % or a quote is accepted', L, 'if (/["%\\r\\n]|claude/i.test(dir)) throw new BuilderError(', 'if (false) throw new BuilderError('],

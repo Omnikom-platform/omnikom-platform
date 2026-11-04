@@ -15,3 +15,4 @@ creds*/
 supabase/.temp/
 .wrangler/
 .tools/
+_work/

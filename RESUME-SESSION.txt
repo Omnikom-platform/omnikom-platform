@@ -1,0 +1,8 @@
+Resume the LATEST head of operations session (2026-11-02e, last active 2026-11-03 10:10):
+
+  cd "E:\Omnikom Platform"
+  claude --resume 7e47f4d5-8b4f-4280-b314-4a3d031a4582
+
+Or double-click E:\omk-launch\resume-hoo-02e.cmd
+
+Current head of operations (2026-11-04, Fable): claude --resume 129e8d46-6186-4444-b815-8bae5287c09d

@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Omnikom platform offer</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+/* system, from the reference: white pages, black panels over grey blocks, one geometric sans, five sizes, 0.7in margin.
+   lime appears once per page at most and always marks what is the client's. */
+:root { --ink:#111214; --ink-2:#4A4C52; --mute:#8A8C92; --grey:#E9E8E4; --grey-2:#F3F2EF; --white:#FFFFFF; --lime:#A8D41A;
+  --s1:46pt; --s2:28pt; --s3:14pt; --s4:10.5pt; --s5:8.5pt; --m:0.7in; }
+@page { size: 13.333in 7.5in; margin: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; font-family: Montserrat, Arial, sans-serif; font-weight: 300; color: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.p { width: 13.333in; height: 7.5in; overflow: hidden; position: relative; break-after: page; background: var(--white); }
+.p:last-child { break-after: auto; }
+.in { position: absolute; inset: var(--m); display: flex; flex-direction: column; }
+.top { height: 0.55in; flex: none; }
+b, strong { font-weight: 700; }
+h1 { font-size: var(--s1); line-height: 1.08; letter-spacing: -.02em; font-weight: 300; margin: 0; }
+h2 { font-size: var(--s2); line-height: 1.15; letter-spacing: -.015em; font-weight: 500; margin: 0; }
+.lead { font-size: var(--s3); line-height: 1.4; font-weight: 500; margin: 0; }
+.body { font-size: var(--s4); line-height: 1.55; color: var(--ink-2); margin: 0; }
+.cap { font-size: var(--s5); line-height: 1.5; color: var(--mute); margin: 0; }
+.caps { font-size: var(--s5); font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); margin: 0; }
+/* furniture: the mark top-left, the page number bottom-right, on every inner page at the same place */
+.mark { position: absolute; left: var(--m); top: var(--m); height: 0.3in; }
+.pn { position: absolute; right: var(--m); bottom: 0.42in; font-size: var(--s5); font-weight: 500; color: var(--mute); letter-spacing: .1em; }
+.dark { background: var(--ink); color: var(--white); }
+.dark .body { color: #C8C9CC; } .dark .cap, .dark .caps, .dark .pn { color: #9A9BA1; }
+.panel { background: var(--ink); color: var(--white); }
+.block { background: var(--grey); }
+.rule { border-top: 1px solid var(--ink); }
+.yours { display: inline-block; width: 9pt; height: 9pt; background: var(--lime); vertical-align: -1pt; margin-right: 8pt; }
+
+/* 1 cover: a tall grey block left with a black panel riding over its edge; the title on the white */
+.cover .block { position: absolute; left: 0; top: 0; bottom: 0; width: 4.6in; }
+.cover .panel { position: absolute; left: 3.5in; top: 1.5in; width: 2.3in; height: 3.6in; padding: 0.35in; display: flex; flex-direction: column; justify-content: flex-end; }
+.cover .panel .caps { color: #9A9BA1; margin-bottom: 8pt; }
+.cover .panel .lead { color: var(--white); font-weight: 400; }
+.cover .text { position: absolute; left: 6.6in; right: var(--m); top: 1.9in; }
+.cover .text h1 { max-width: 9em; }
+.cover .text .body { margin-top: 0.3in; max-width: 30em; }
+.cover .meta { position: absolute; left: 6.6in; right: var(--m); bottom: var(--m); display: flex; justify-content: space-between; }
+.cover .logo { position: absolute; left: 6.6in; top: var(--m); height: 0.32in; filter: invert(1) grayscale(1) brightness(0); }
+
+/* 2 what you get: numbered list left, the lead path as a black panel over a grey block right */
+.two { display: grid; grid-template-columns: 5.4in 1fr; gap: 0.6in; flex: 1; align-items: start; align-content: start; }
+.two > .stage + .later { grid-column: 1; margin-top: 0; padding-left: 0.45in; }
+.list { margin: 0; padding: 0; list-style: none; counter-reset: n; }
+.list li { counter-increment: n; display: grid; grid-template-columns: 0.45in 1fr; padding: 0.08in 0; border-top: 1px solid var(--grey); }
+.list li:last-child { border-bottom: 1px solid var(--grey); }
+.list li::before { content: counter(n, decimal-leading-zero); font-size: var(--s5); font-weight: 500; color: var(--mute); padding-top: 3pt; }
+.list .body { margin-top: 1pt; }
+.stage { position: relative; height: 3.6in; }
+.stage .block { position: absolute; left: 0.6in; top: 0.35in; right: 0; bottom: 0.2in; }
+.stage .panel { position: absolute; left: 0; top: 0; width: 4.1in; padding: 0.3in 0.35in; }
+.path { margin: 0; padding: 0; list-style: none; }
+.path li { padding: 0.12in 0; border-top: 1px solid rgba(255,255,255,.18); display: grid; grid-template-columns: 0.35in 1fr; }
+.path li:first-child { border-top: 0; padding-top: 0; }
+.path li i { font-size: var(--s5); font-weight: 500; color: #9A9BA1; padding-top: 3pt; font-style: normal; }
+.path .lead { color: var(--white); font-weight: 500; }
+.path .body { color: #C8C9CC; margin-top: 2pt; }
+.path li.y .lead::before { content: ""; display: inline-block; width: 8pt; height: 8pt; background: var(--lime); margin-right: 8pt; }
+.later { margin-top: 0.2in; }
+
+/* 3 how it happens: a ruled table, like the reference's schedule */
+table { width: 100%; border-collapse: collapse; margin-top: 0.2in; }
+th { text-align: left; font-size: var(--s5); font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); padding: 0 0.15in 8pt 0; border-bottom: 1px solid var(--ink); }
+td { padding: 5pt 0.15in 5pt 0; border-bottom: 1px solid var(--grey); vertical-align: top; font-size: 10pt; line-height: 1.4; color: var(--ink-2); }
+td.n { width: 0.45in; color: var(--mute); font-size: var(--s5); font-weight: 500; padding-top: 9pt; }
+td.t { width: 1.7in; color: var(--ink); font-weight: 500; font-size: var(--s3); }
+td.w { width: 1.3in; white-space: nowrap; }
+tr.loop td { background: var(--ink); color: var(--white); border: 1px solid var(--ink); padding: 9pt 0.15in; }
+tr.loop td.n { font-size: 13pt; padding-top: 6pt; }
+tr.loop td.n, tr.loop td.w { color: #9A9BA1; } tr.loop td.t { color: var(--white); }
+tr.loop td:first-child { padding-left: 0.15in; } tr.loop td:last-child { padding-right: 0.15in; }
+
+/* 4 proof: dark page, outlined stat boxes */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.25in; margin-top: 0.5in; }
+.stat { border: 1px solid rgba(255,255,255,.35); padding: 0.35in 0.3in 0.3in; min-height: 2.5in; display: flex; flex-direction: column; }
+.stat .big { font-size: 64pt; line-height: 1; letter-spacing: -.03em; font-weight: 300; margin: 0 0 0.15in; }
+.stat .big small { font-size: 18pt; letter-spacing: 0; margin-left: 6pt; color: #9A9BA1; }
+.stat .lead { color: var(--white); font-weight: 500; }
+.stat .cap { margin-top: auto; padding-top: 0.2in; }
+.proofnote { margin-top: 0.35in; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.4in; }
+
+/* 5 cost and leaving: three price columns, the middle one black; then a black band for the exit */
+.plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 0.25in; border-top: 1px solid var(--ink); }
+.plan { padding: 0.25in 0.3in 0.25in 0; border-right: 1px solid var(--grey); display: flex; flex-direction: column; min-height: 1.8in; }
+.plan + .plan { padding-left: 0.3in; }
+.plan:last-child { border-right: 0; }
+.plan.hl { background: var(--ink); color: var(--white); padding: 0.25in 0.3in; margin-top: -1px; border-right: 0; }
+.plan .caps { margin-bottom: 8pt; }
+.plan .lead { font-weight: 500; }
+.plan .how { font-size: var(--s3); font-weight: 300; margin: 6pt 0 10pt; }
+.plan.hl .how { color: #C8C9CC; }
+.plan .body { flex: 1; }
+.plan.hl .body { color: #C8C9CC; }
+.exit { margin-top: 0.25in; margin-bottom: 0; background: var(--ink); color: var(--white); padding: 0.25in 0.35in; display: grid; grid-template-columns: 1.9in repeat(4, 1fr); gap: 0.3in; align-items: start; }
+.exit .caps { color: #9A9BA1; }
+.exit h3 { font-size: var(--s3); font-weight: 500; margin: 0 0 4pt; color: var(--white); line-height: 1.3; }
+.exit .body { color: #C8C9CC; }
+.exit .head .lead { color: var(--white); font-weight: 500; margin-top: 6pt; }
+
+/* 6 closing: like the reference's welcome page, a black panel with the person replaced by the client's email */
+.close .two { grid-template-columns: 1fr 4.6in; }
+.close h2 { font-weight: 300; font-size: 34pt; max-width: 12em; }
+.close .body { margin-top: 0.3in; max-width: 32em; }
+.close .next { margin-top: 0.5in; border-top: 1px solid var(--ink); padding-top: 0.2in; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.3in; }
+.close .next .lead { font-weight: 500; }
+.close .stage { height: 5in; }
+.close .stage .panel { width: 3.6in; padding: 0.4in; }
+.mail { margin-top: 0.25in; background: var(--white); color: var(--ink); }
+.mail .h { padding: 10pt 12pt; border-bottom: 1px solid var(--grey); font-weight: 500; font-size: var(--s4); display: flex; justify-content: space-between; }
+.mail .h span { color: var(--mute); font-weight: 400; font-size: var(--s5); }
+.mail .b { padding: 10pt 12pt; }
+.mail .b i { display: block; height: 5px; background: var(--grey); margin: 5px 0; }
+.mail .b i:nth-child(2) { width: 70%; } .mail .b i:nth-child(3) { width: 45%; }
+.mail .f { padding: 8pt 12pt; border-top: 1px solid var(--grey); display: flex; align-items: center; justify-content: space-between; }
+.mail .f img { height: 10px; filter: invert(1) grayscale(1) brightness(0); }
+</style></head>
+<body>
+
+<!-- 1 cover -->
+<section class="p cover">
+  <div class="block"></div>
+  <div class="panel">
+    <p class="caps">Platform offer</p>
+    <p class="lead">A website that gets found. A CRM that holds every enquiry. Run by us. Owned by you.</p>
+  </div>
+  <img class="logo" src="../../brand/pdf-kit/omnikom-logo-full.png" alt="Omnikom">
+  <div class="text">
+    <h1>Your website.<br>Your leads.<br>Yours to keep.</h1>
+    <p class="body">Omnikom builds your website on its platform, puts every enquiry in a CRM you log into, keeps you visible on Google and in AI answers, and runs the hosting. If you ever leave, you leave with the code.</p>
+  </div>
+  <div class="meta"><p class="caps">Omnikom</p><p class="caps">October 2026</p></div>
+</section>
+
+<!-- 2 what you get -->
+<section class="p">
+  <img class="mark" src="../../brand/omnikom-mark-square.png" alt="">
+  <div class="in">
+    <div class="top"></div>
+    <h2>What you get</h2>
+    <p class="body" style="margin:0.12in 0 0.25in;max-width:40em">One login. Three screens: leads, site, settings.</p>
+    <div class="two">
+      <ol class="list">
+        <li><div><p class="lead">A website built for you, on your domain</p><p class="body">A page per place and service. Fast on phones, readable by Google and AI.</p></div></li>
+        <li><div><p class="lead">Every enquiry in your CRM, instantly</p><p class="body">Sorted by what they asked for. Status, owner, notes, timeline.</p></div></li>
+        <li><div><p class="lead">An alert to the person who should act</p><p class="body">One email: the answers and a link to the lead. Your name on it.</p></div></li>
+        <li><div><p class="lead">Your words and photos, changed by you</p><p class="body">Edit, post, publish. Every version kept, anything undone.</p></div></li>
+        <li><div><p class="lead">Your Google numbers, dated, plain</p><p class="body">How often you are shown, the clicks, the searches behind them.</p></div></li>
+      </ol>
+      <div class="stage">
+        <div class="block"></div>
+        <div class="panel">
+          <p class="caps" style="color:#9A9BA1;margin-bottom:0.2in">The path of one enquiry</p>
+          <ol class="path">
+            <li><i>01</i><div><p class="lead">A visitor fills a form on your website</p><p class="body">Signed on the way out, so nothing can be forged from outside.</p></div></li>
+            <li class="y"><i>02</i><div><p class="lead">It lands in your CRM</p><p class="body">Before the visitor has closed the page.</p></div></li>
+            <li><i>03</i><div><p class="lead">Your team is alerted by email</p><p class="body">Status, owner and notes go back on the lead's timeline.</p></div></li>
+          </ol>
+        </div>
+      </div>
+      <div class="later"><p class="caps">Later, if you want them</p><p class="body" style="margin-top:4pt">Concierge calls that book the meeting. Meeting texts and emails. Export and import in your own CRM's format.</p></div>
+    </div>
+  </div>
+  <span class="pn">02</span>
+</section>
+
+<!-- 3 how it happens -->
+<section class="p">
+  <img class="mark" src="../../brand/omnikom-mark-square.png" alt="">
+  <div class="in">
+    <div class="top"></div>
+    <h2>How it happens</h2>
+    <p class="body" style="margin:0.12in 0 0;max-width:60em">Seven steps to live, each ending with something you can see and check. Then every month.</p>
+    <table>
+      <tr><th></th><th>Step</th><th>What we do</th><th>What you get</th><th>Takes</th></tr>
+      <tr><td class="n">01</td><td class="t">Audit</td><td>Your website, Google results, AI answers, listings, reviews and your real local competitors. A "before" snapshot is saved.</td><td>A scored report, every fact sourced</td><td class="w">2 to 3 days</td></tr>
+      <tr><td class="n">02</td><td class="t">Draft</td><td>Your new site from your own content, every form wired to your CRM.</td><td>A private preview, hidden from Google</td><td class="w">1 to 2 weeks</td></tr>
+      <tr><td class="n">03</td><td class="t">Review</td><td>Legal pages and consent text drafted; every promise on the site listed for you and your lawyer.</td><td>A site you approved in writing</td><td class="w">Your pace</td></tr>
+      <tr><td class="n">04</td><td class="t">Launch</td><td>Old addresses forwarded, every page checked, every form tested; the old site stays up until the new one passes.</td><td>Live on your domain, your login</td><td class="w">1 to 2 days</td></tr>
+      <tr><td class="n">05</td><td class="t">Listed</td><td>Sitemap to Google and Bing, your Google Business Profile verified, your details matching everywhere.</td><td>Every listing pointing at you</td><td class="w">First week</td></tr>
+      <tr><td class="n">06</td><td class="t">Tune</td><td>The searches each page targets, watched; pages fixed where Google shows the wrong one.</td><td>The tracking report</td><td class="w">One week</td></tr>
+      <tr><td class="n">07</td><td class="t">Mentions</td><td>Trusted websites in your field name and link to you. Clean methods only.</td><td>The mentions won, the next to go after</td><td class="w">From launch on</td></tr>
+      <tr class="loop"><td class="n">&#8734;</td><td class="t">Growth loop</td><td>Measure, improve, measure again until free traffic from Google and AI answers levels off. Ads only then.</td><td>One report a month: what moved, what changed, what is next</td><td class="w">Every month</td></tr>
+    </table>
+  </div>
+  <span class="pn">03</span>
+</section>
+
+<!-- 4 proof -->
+<section class="p dark">
+  <img class="mark" src="../../brand/omnikom-mark-square.png" alt="">
+  <div class="in">
+    <div class="top"></div>
+    <h2 style="color:#fff">Measured, not promised</h2>
+    <p class="body" style="margin:0.12in 0 0;max-width:42em">What the platform has already done, with where the number comes from.</p>
+    <div class="stats">
+      <div class="stat"><p class="big">99<small>mobile</small></p><p class="lead">Google PageSpeed, phones</p><p class="cap">The latest site built on the platform, five pages: 99, 99, 97, 99, 98. PageSpeed Insights, 29 October 2026.</p></div>
+      <div class="stat"><p class="big">100<small>desktop</small></p><p class="lead">Google PageSpeed, computers</p><p class="cap">100 on all five pages. Same measurement, same day.</p></div>
+      <div class="stat"><p class="big">126<small>of 126</small></p><p class="lead">Break-in attempts caught</p><p class="cap">Our test suite tries 126 ways to read one client's data as another. Every one is stopped. Local run, 29 October 2026.</p></div>
+      <div class="stat"><p class="big">100<small>a11y</small></p><p class="lead">Accessibility, every page</p><p class="cap">Google Lighthouse accessibility score, 100 on all five pages. Same measurement, same day.</p></div>
+    </div>
+    <div class="proofnote">
+      <p class="cap"><b style="color:#fff;font-weight:500">Every form is signed.</b> A lead can only come from your website.</p>
+      <p class="cap"><b style="color:#fff;font-weight:500">Every change is versioned.</b> Nothing is lost; anything can be undone.</p>
+      <p class="cap"><b style="color:#fff;font-weight:500">Every secret is encrypted, every night backed up.</b> Hosting, deployment and Search Console run on our accounts.</p>
+    </div>
+  </div>
+  <span class="pn">04</span>
+</section>
+
+<!-- 5 cost and leaving -->
+<section class="p">
+  <img class="mark" src="../../brand/omnikom-mark-square.png" alt="">
+  <div class="in">
+    <div class="top"></div>
+    <h2>What it costs, and what leaving costs</h2>
+    <p class="body" style="margin:0.12in 0 0;max-width:70em">No price list: no two businesses need the same work. The same for everyone: what you get, and how you leave.</p>
+    <div class="plans">
+      <div class="plan"><p class="caps">One time</p><p class="lead">The setup</p><p class="how">Quoted after the audit</p><p class="body">Steps 1 to 7, from the audit to the first mentions. One price, agreed before we build.</p></div>
+      <div class="plan hl"><p class="caps" style="color:#9A9BA1">Monthly</p><p class="lead">The growth loop</p><p class="how">Quoted with the setup</p><p class="body">Measuring, improving, new pages, mentions, the monthly report, and the platform itself: hosting, dashboard, CRM, security, updates.</p></div>
+      <div class="plan"><p class="caps">Monthly, each</p><p class="lead">Add-ons</p><p class="how">Rent per add-on</p><p class="body">Concierge calls that book meetings, meeting texts and emails, export and import in your CRM's format. Each priced on its own. Stop any one, any time.</p></div>
+    </div>
+    <div class="exit">
+      <div class="head"><p class="caps">If you leave</p><p class="lead"><span class="yours"></span>Yours, the day you go</p></div>
+      <div><h3>The full code of your website</h3><p class="body">Handed over on request. No charge. Take it to any host.</p></div>
+      <div><h3>The site stays live with us</h3><p class="body">For a flat hosting fee, written in your quote. Cancel any time.</p></div>
+      <div><h3>Your login, CRM and every lead</h3><p class="body">New enquiries keep landing. Export whenever you like.</p></div>
+      <div><h3>Only what you stop, stops</h3><p class="body">The growth loop, the reports, the mentions, the add-ons.</p></div>
+    </div>
+  </div>
+  <span class="pn">05</span>
+</section>
+
+<!-- 6 closing -->
+<section class="p close">
+  <img class="mark" src="../../brand/omnikom-mark-square.png" alt="">
+  <div class="in">
+    <div class="top"></div>
+    <div class="two">
+      <div>
+        <h2>Your brand in front.<br>Ours underneath.</h2>
+        <p class="body">Every email the platform sends carries your name at the top and a small "powered by Omnikom" at the foot. We are not hidden, and we are not in your way.</p>
+        <div class="next">
+          <div><p class="caps">Next</p><p class="lead">1. A short call</p><p class="body">Thirty minutes. Where you want customers from, and what we see today.</p></div>
+          <div><p class="caps">Then</p><p class="lead">2. The audit</p><p class="body">Two to three days. The scored report is yours whatever you decide.</p></div>
+          <div><p class="caps">Then</p><p class="lead">3. Your quote</p><p class="body">One price for the setup, one for the growth loop. Then we build.</p></div>
+        </div>
+      </div>
+      <div class="stage">
+        <div class="block"></div>
+        <div class="panel">
+          <p class="caps" style="color:#9A9BA1">What a lead alert looks like</p>
+          <div class="mail">
+            <div class="h">Your Business Name <span>New lead</span></div>
+            <div class="b"><i></i><i></i><i></i></div>
+            <div class="f"><span class="caps">Powered by</span><img src="../../brand/pdf-kit/omnikom-logo-full.png" alt="Omnikom"></div>
+          </div>
+          <p class="body" style="color:#C8C9CC;margin-top:0.25in">Your name on top. Ours at the foot, the way any service you trust signs its work.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <span class="pn">06</span>
+</section>
+
+</body></html>

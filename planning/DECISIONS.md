@@ -485,3 +485,98 @@
     weekly cap no longer stops work: at the cap, heads finish the slice and write HANDOVER, the owner logs in to the other account
     and runs `E:\omk-launch\start-omnikom.cmd`, which starts one head of operations that restarts the heads from their HANDOVER
     blocks (brief `docs/departments/briefs/account-switch.md`; still no standing orchestrator, DECISIONS 40).
+
+50. **Every local test database listens on 127.0.0.1 at a port below 32768, from its own block of one port map, and fails
+    loudly when it cannot bind** (2026-11-01 23:20, head of operations, on the CLI department's proof). What happened: from
+    about 18:10 the CLI and gates jobs on GitHub went red at random with "psql: connection to server at 127.0.0.1 ... refused"
+    (runs 41323582926, 41323687561, 41344229818 twice, 41345442144), blocking every landing that reached those suites. Cause
+    PROVEN on a GitHub Linux runner (run 41350867780, 062d382, re-read by the head of operations): the harnesses picked ports
+    inside the OS ephemeral range ("ip_local_port_range: 32768 60999"); a leftover client socket on that port (TIME_WAIT or
+    ESTABLISHED) makes the postmaster's IPv4 bind fail while IPv6 binds, so `pg_ctl -w start` reports success
+    ("pgctlStatus":0, "postmasterPidAlive":true) and 127.0.0.1 is refused for the cluster's whole life. Windows does the same with
+    an ESTABLISHED holder (CLI probe 2026-11-02 01:30: port 21620, "pgctlStatus":0, ping4 "Connection refused (10061)", ping6 ok);
+    TIME_WAIT alone blocks only on Linux; Windows' ephemeral range is 49152-65535. A proc-guard cause was checked first and refuted (no proc-guard call reaches the
+    CLI clusters). So: (a) the port map (`tools/omnikom-cli/briefs/real-kill-flake.md`, "Port map"): CLI harness 21000-21899;
+    `supabase/tests/run-local.mjs` 22000; `publish-parity.mjs` 23000; `functions/test/harness.mjs` 24000; `test-apply.mjs`
+    25000; `e2e-screens.mjs` 26000; `ops/restore-drill.mjs` 29000; `ops/test/6b-cluster.mjs` 30000 (each block +899);
+    `ops/test/cluster.mjs` 31000-32699; a new harness takes a free block below 32768 and is added to the map; (b) the cluster
+    listens on 127.0.0.1 only, so a failed bind is a failed start; (c) on a bind failure named in the server log the harness
+    tries the next port in its own block, at most 5 times, one printed line per try, never leaving the block; any other start
+    failure stops at once; (d) each harness has a test watched red and a mutant (fallback removed). Owners: CLI and testing for
+    its harness, platform build for the eight under `supabase/` (slice 5-PORT). Until both land, a red of this kind is a
+    re-run, never a pass.
+    (e) 2026-11-02 07:12, head of operations: the dashboard Playwright web server (`apps/dashboard/playwright.config.ts`, fixed
+    localhost:4173 before; two runs at once collided, journey J6 07:05 "http://localhost:4173 is already used") takes block
+    27000-27899 under the same (b) to (d) rules (platform slice 5-PW); the CLI adds the line to the map file.
+
+51. **The dashboard is styled now to 03-FRONTEND.md B5 as written, and the owner rates it from screenshots** (2026-11-02 01:25,
+    owner's pick: "Build B5 now, show me"). What happened: the journey's inbox screenshot showed the staging dashboard as raw
+    unstyled HTML; platform's read-only check found it never had styles (no stylesheet, no className in apps/dashboard/src,
+    `Widgets.tsx:10` "styles them later"); DECISIONS 21 left the references to the owner and none were brought. So: slice 5-DS
+    (platform, Opus builder, after 5-PORT) builds B5 (left rail on laptop, bottom bar on phone, one primary action per screen,
+    cards with >= 28 px padding, Poppins 600 headings, neutral body face, no slop-list elements), tokens in
+    `apps/dashboard/src/styles/tokens.css`, a styles-loaded test watched red, render gate clean on phone and desktop for every
+    screen; the head of operations reviews the screenshots and a written self-critique before the owner sees them. When the owner
+    sends references, the dashboard is restyled to them (DECISIONS 21 stands; B5 is the interim look, not a silent swap).
+
+52. **No design work on the dashboard or login page until the owner brings his own styling; the screens are built for function**
+    (2026-11-02 18:54, owner, answering the six look choices of 5-DS: "why would the colors matter if we are not working on the
+    actual design yet ... anything will do for now", "work through the real stuff that makes this whole thing a platform write the
+    screens in whatever bland look or raw stuff it doesn't matter we will properly use something that I have been cooking to style
+    the user dashboard and login page when it's time for it"). So: (a) 5-DS lands as it stands (r4-final3, its tests and mutants),
+    because it is built and proven; no further look rounds, no look choices to the owner, no design critique items queued (the
+    r4 later list is dropped); (b) the six look choices of DECISIONS 51 are withdrawn; tokens.css stays the interim look; (c) every
+    later dashboard or login screen is proven by function: it renders clean (no console errors, nothing wider than the screen),
+    it does its job in the CLI journey, and its text is readable; screenshots are still read by the head of operations for broken
+    pages, not for taste; (d) heads spend their slices on the platform's working parts (build sequence steps 4 to 7: the build
+    machine, leads, connectors, publishing, production); (e) when the owner brings his styling it replaces tokens.css and the
+    screen styles as one slice (DECISIONS 21 stands). This amends DECISIONS 51.
+
+53. **Leads reach a client's CRM as an export in the client's own format, and the Omnikom CRM's lead columns come from the
+    industry contract** (2026-11-02 23:00, owner: "it is export in their format and they can upload that"; "Ofc ... Didn't we
+    decide on all this"). What happened: DECISIONS 23 had the export with a mapping wizard as a paid add-on, DECISIONS 25 froze
+    it, and DECISIONS 1 still said "push to any CRM", so the plan drifted from what the owner meant; industry lead columns were
+    never written down (checked: DECISIONS, 06-PRD, 15-CRM, 17-EXPANSION-MAP). So: (a) v1 has no automatic push to a client's
+    CRM: the client gives its CRM's export (headers), `tools/crm-map` proposes the column map, the client confirms it once, and
+    every lead export comes out in that layout for the client to upload; the same map imports their file back; this is core v1,
+    not an add-on, and DECISIONS 25's freeze no longer covers `tools/crm-map`, `crm_templates` or FR-31 (this amends DECISIONS 1,
+    23 and 25 for this block only; OmniSuite by API key stays the follow-up engine of DECISIONS 1 when its API exists);
+    (b) every industry contract declares its lead fields (realtor: budget, timing, beds; dentist: insurance, treatment; and so
+    on), and they are real columns in the inbox, the lead panel, the CSV export and the crm-map dictionary, the same procedure
+    for every industry (DECISIONS shape rule); the core columns (name, email, phone, form, page, flow, cta, status, owner,
+    consent, date) stay; (c) heads spend slices on the platform's working parts in this order: step 5's remaining functions
+    (Settings, publish history and restore, staff admin, upload in the dashboard, the CRM export and import of (a), the
+    industry lead columns of (b), lead alert email, unpublish, the step 5 done-when), then step 6; test and CI tooling only
+    when it blocks a land. Built with a test watched failing and a mutant per wall, as every slice.
+
+54. **The work is the platform itself: the backend, the user dashboard and a full CRM, proven on staging through the test
+    site; production comes only after that** (2026-11-02 23:10, owner: "focus on building the actual stuff and the dashboard,
+    the user dashboard"; "the purpose of the test site [is] to test the contracts that will be put into the code of those other
+    websites based on the forms that will exist inside of them"; "we need a full ... CRM ... This is not a CRM. Where is all the
+    columns, all the things that they can edit?"; "There's no staff account. It's a magic link"; "Production should be proven on
+    testing before we migrate to the production database that will be built off of that testing thing"; "clean up the repo from
+    anything that is random or doesn't add up"). So: (a) completion is measured on the platform's own parts (backend, user
+    dashboard, CRM, site factory), proven on staging with the test site, never on a client; the test site's contracts and forms
+    stand for every site's; (b) the CRM is a full CRM, not the four-screen inbox of 15-CRM.md: every lead field visible and
+    editable, columns per industry from the contract (DECISIONS 53 (b)), the views, filters, sorting and bulk edits a CRM user
+    expects, notes and history, and the export and import in the client's own format (DECISIONS 53 (a)); no new spec is written:
+    the dashboard is already specified (04-DASHBOARD.md, 15-CRM.md, the 114 plan rows of 16-DESIGN-PARTS.md, of which slices 1.3
+    and 1.4 are built), so platform amends only the lead rows for this item and DECISIONS 53 in the same slice that builds them,
+    backend first, then builds the remaining written rows (owner 23:13: "Isn't that already written?"); (c) the user dashboard is the one product screen set; sign-in is the
+    magic link; there is no staff account in it and no staff screens are built (the `staff` table stays as Omnikom's internal
+    access; it is not a user feature); (d) production is not worked on until the backend, dashboard and CRM are proven on
+    staging; the production database is then made from the proven staging one (this replaces DECISIONS 53 (c)'s "then step 6"
+    and parks step 6 until then); (e) one repo cleanup slice: every file and folder that does not belong to the platform, its
+    tests or its records is deleted or moved to `archive/` with a note (owner's standing cleanup rule), leftover worktrees
+    included, nothing in `film/` or the key folders touched; (f) the restyled dashboard (5-DS, landed 20:55) was built before
+    DECISIONS 52 and landed under 52 (a); it stays unless the owner says revert.
+
+55. **The user dashboard is two products under one magic-link sign-in: the Omnikom CRM, and the dashboard for every other
+    feature; one product map holds both** (2026-11-02 23:18, owner: "The user dashboard, it is two things. It is an Omnikom CRM
+    for them and what they ... use for the other features as a user dashboard"; 23:17: "restructure everything. Database backend
+    front end. List of features, building blocks, and routing"). So: (a) `planning/PRODUCT-MAP.md` is the single map of the
+    product: Part A the CRM, Part B the dashboard's other features, Part C backend and database, Part D the site factory and its
+    forms, Part E parked; per feature its tables, functions, screen, route and state (WORKS / PARTLY / MISSING, checked against
+    the code on master, never against a plan); (b) it outranks the blueprint files on what the product is and what exists; a
+    blueprint file that disagrees is corrected by its owning department, not followed; (c) completion is reported from that map
+    only, as counts of features that work; (d) the build order comes from it, CRM first, backend first within each feature.

@@ -53,6 +53,12 @@ this department then proves it over HTTP.
 - Keys by variable name only (CLAUDE.md rule 9); live things need the owner's click (rules 6 and 12); nothing against a client
   project or site; no em dashes in any file.
 
+- A test cluster takes its port from its block in the port map (DECISIONS 50; below every ephemeral range) and pins
+  listen_addresses to 127.0.0.1; a harness that can half-bind (pg_ctl ok, 127.0.0.1 refused) is a defect. Probe:
+  tools/omnikom-cli/test/port-bind-probe.mjs (2026-11-01 real-kill reds, runs 41350867780 and 41353911357).
+- Every SendMessage from the head to a builder sets `notify_when_idle: true`, so a builder going idle reaches the head
+  (HoO-02b, 2026-11-02 14:38, after a builder sat 3 h with uncommitted work and no report).
+
 ## Proof
 - `node tools/omnikom-cli/test/run.mjs`: "OK: N of N checks passed"; `node tools/omnikom-cli/test/mutate.mjs`: "N mutants, N caught,
   0 survived, 0 target text missing".
@@ -326,3 +332,306 @@ when the head of operations has released its slice.
 - Rules: plan and land, builders build (`tools/departments/start-builder.mjs`), Haiku runners for mechanical checks; unit runs are free in
   a worktree, only db parts and mutants go through heavy.mjs; commit only this department's files; never commit another department's
   in-flight lines; run `node tools/departments/context-load.mjs` at each slice boundary.
+- 2026-11-01 18:05 (HEAD_CLI-and-testing_2026-11-01c, Opus 5.5, took over from the HANDOVER above; reports to
+  HEAD-OF-OPERATIONS_Omnikom_2026-11-01c): block read, confirmed to the head of operations; 01b can be archived. Starting queue item 1
+  (small CLI fixes: brief, then one builder).
+- 2026-11-01 18:20: small CLI fixes briefed (`briefs/small-cli-fixes.md`: (a) land moves the local master when no diff path is dirty,
+  (b) "no job ran a step" line with GitHub's annotation, (c) audit/gate `--target preview|production` = the BUILD target, production guard
+  exempts exactly audit and gate (decided: same word as tools/audit and factory), (d) `--lock-wait-minutes` (default 30) plus an early
+  not-a-fast-forward refusal before the ci wait). Builder BUILDER_cli-and-testing_small-fixes (pid 23288, sonnet) in worktree
+  `D:\omk-gates\cli-small-fixes` at daa01d1. Next while it builds: the DECISIONS 48 JOURNEY plan to the head of operations.
+- 2026-11-01 18:08: in flight from 01b: its HANDOVER commit 5425d31 (charter only, +91 lines) on `check/cli-and-testing/handover-b`,
+  background land by 01b; remote master still daa01d1, land-lock 209b263 held. If 01b is gone before it lands, landing it is mine
+  (head of operations, 18:07). My uncommitted charter lines sit on top of it in the shared checkout.
+- 2026-11-01 18:23: head of operations is now HEAD-OF-OPERATIONS_Omnikom_2026-11-01d (01c stopped 18:22); report there. 5425d31: CLI-b's
+  land holds the lock since 17:56 (209b263), CLI-b alive; I tell 01d when master moves so CLI-b is stopped.
+- 2026-11-01 18:31: 5425d31 land REFUSED (run 41323687561: gates job red, "publish-ready parity (SQL vs JS) ... psql: connection to
+  127.0.0.1:55566 refused", the SQL side never ran; the other 8 jobs green). CLI-b handed the land to me and stops; it ran `gh run rerun
+  41323687561 --failed`. My `omnikom land check/cli-and-testing/handover-b --wait-minutes 60` waits on the rerun (background). If the
+  rerun is red the same way: finding to the platform head (CLI-b's guess: 713b008's proc-guard stopping the cluster early).
+- 2026-11-01 18:40: master moved to 4fde43a (platform 5.2b, run 41323887634); CLI-b stopped by 01d. My waiting land stopped (it held the
+  lock e3a8d6b; released by lease, "[deleted] land-lock"). 5425d31 cherry-picked onto 4fde43a in `D:\omk-gates\cli-seedtest` (charter
+  only, no overlap with 4fde43a's 11 files), gitleaks staged "no leaks found", committed 3d7c0c3, force-with-lease pushed to
+  `check/cli-and-testing/handover-b`; land running in the background on the fresh run. JOURNEY plan written: `briefs/journey.md`.
+- 2026-11-01 18:45: JOURNEY plan ACCEPTED by 01d (J8/J9 NOT BUILT YET, sink with webhook out; journey before 2a/2b); staging released
+  (one full run plus --only repairs, alerts to our --alert-to only). Builder BUILDER_cli-and-testing_journey (pid 21208, sonnet) in
+  `D:\omk-gates\cli-journey` at 4fde43a; tests in a new `test/journey.mjs` to keep the rebase on small-fixes mechanical. 01d's
+  acceptance needs: unit + mutant lines, PROGRESS lines, PNG paths (it opens them); every product-bug FAIL goes to 01d as a finding.
+- 2026-11-01 18:50: journey builder found site.spec.ts and the editor/publish screens are not on master (platform's uncommitted work in the
+  shared checkout; my survey read the shared checkout, a lesson: survey a clean worktree at master). J3 = NOT BUILT YET on a tree without
+  the file, FAIL if the file lacks the title; told the builder and 01d (asked which platform slice carries the editor).
+  01d: the editor is platform slice 5.4 (24 paths under apps/dashboard/), landing after 5-W round 2; 01d tells me when it lands; then
+  rebase the journey onto it (or re-run J3 on master if the journey landed first).
+- 2026-11-01 18:59: FINDING from 01d (low priority, after the journey): run 41323582926 cli job: run.mjs "OK: 549 of 549", then
+  mutate.mjs "BASELINE FAILS ... FAIL cluster guard (real kill): ... psql: connection to server at 127.0.0.1, port 57130 failed:
+  Connection refused ... FAILED: 548 of 549"; rerun green. Same family as the gates psql reds (platform has the proc-guard finding).
+  Question to answer: does the real-kill check share a cluster with anything the proc-guard may stop. Until known: `gh run rerun
+  --failed` is the rule, never a retry inside the test. Queued after the journey. The 18:51 handover land hit "TLS handshake timeout"
+  (failed closed); bounded retry running (`land-retry.sh`, 3 tries, scratchpad).
+- 2026-11-01 19:17: CLI-b's HANDOVER LANDED as 3d7c0c3 ("ci green: 3d7c0c3 run 41327517190, 9 of 9 jobs success", 4fde43a..3d7c0c3;
+  gates green, no 55566 recurrence). The lock release then failed on github.com:443; released by lease by hand ("[deleted] land-lock").
+  Worktree `D:\omk-gates\cli-seedtest` removed. Small-fixes slice gained (e): `releaseLock` retries a network failure (bounded, never a
+  lease refusal). My retry script mis-read the release WARNING as a land failure (fixed: "land: master is" ends it).
+- 2026-11-01 20:01: small-fixes interim: a-e coded, `run.mjs --unit` "OK: 422 of 422"; told to run only its 31 tagged mutants on the
+  laptop (D45 (d); --db and run-all-gates only if a db part reads a changed file), GitHub decides the rest. Platform 5.4 LANDED as
+  9800616 (run 41331537425, 9/9, per 01d): journey builder told to move its worktree onto 9800616 (stash, checkout, pop) so J3 runs for
+  real; the staging full run counts only after the rebase.
+- 2026-11-01 20:26: DEPENDENCY (01d): SEO's REQUIRE_TARGET_FOR_FOLDER flip waits on small-fixes (c) `audit --target` (today audit.mjs:26
+  refuses it). Tell 01d the master sha when small-fixes lands; if anything else holds it, carve (c) out and land it alone first.
+- 2026-11-01 20:48: RULE (01d, owner): start every builder with `--effort high` (`start-builder.mjs --effort high`; the machine default is
+  low). Running builders keep theirs (small-fixes and journey were started without it); replace one at a slice boundary only if struggling.
+- 2026-11-01 20:56: small-fixes: db "OK: 177 of 177" (lib/target.mjs is read by the db suite), unit "OK: 422 of 422". The 31-mutant laptop
+  run's baseline failed twice (real-kill pg_ctl flake; then mutate.mjs's 10-min LIMIT_MS, the suite ~25 min under load): stopped by me,
+  mutants go to GitHub's cli job on the check branch (D45). Watch: does LIMIT_MS bite on GitHub too.
+- 2026-11-01 21:10: small-fixes FINAL from the builder (a-e; only ONE new check watched red on the laptop, the empty --lock-wait-minutes;
+  the 31 [small-fixes] mutants are the watched reds and run on GitHub; known gap in (e): a delete that succeeded server-side but timed out
+  client-side reads "stale info" on retry and warns falsely). Rebased onto f4923df (no overlap), node --check clean on 9 files, impact
+  chain read (cli, departments, gates, factory, functions, workflows jobs; all 9 run on GitHub), gitleaks "no leaks found". Commit
+  8679ed6 pushed to `check/cli-and-testing/small-fixes`; land running (bounded retry). Builder pid 23288 to stop after the land.
+- 2026-11-01 21:16: land LAND-LOCKED by platform 5-E, which landed e92684e (no overlap). Rebased: 3ba2ef8 on e92684e, gitleaks "no leaks
+  found", force-with-lease pushed; land running on the fresh run.
+- 2026-11-01 21:18: land refused again (platform 5-W took the lock seconds before me; the "could not take the land lock: remote:" line was
+  that race). 01d GRANTED the order after 5-W: CLI small-fixes, then SEO 5c, then 01d's effort commit. Send 01d the master sha when
+  small-fixes lands (sha 2 for SEO's REQUIRE_TARGET flip). Watcher on master; then `rebase-push-land.sh` (scratchpad).
+- 2026-11-01 21:40: JOURNEY built (builder report): unit "OK: 437 of 437", `mutate.mjs --only journey` "23 mutants, 23 caught, 0 survived,
+  0 target text missing" (baseline 614 of 614). Full staging run on 9800616: "journey (staging): 3 PASS, 2 NOT BUILT YET, 2 FAIL, 2
+  SKIPPED" (J1-J3 PASS; J4 FAIL favicon 404; J5 FAIL form 400 "Send the form as JSON."; J6/J7 SKIPPED; J8/J9 NOT BUILT YET); 0 alert
+  emails. I opened j4-phone-contact.png and j5-form-answer.png: they match. Findings to 01d: J5 form (platform, HIGH), favicon (low),
+  proc-guard lacks `omnikom-jb-` (low), J3 leaves test text. Accepted out-of-plan: the "tests start no browser" guard check now names the
+  journey's 4 files. Follow-ups sent: drop the email address from spec 26 (public repo), harness.mjs:19 comment, J6/J7 fallback lead via
+  `lead send` plus one `--only J6,J7` repair run. Journey lands after small-fixes (rebase onto it; mechanical overlaps).
+- 2026-11-01 21:42: 5-W landed be64510 but left its lock ac4e729 held (since 19:16:46Z). small-fixes rebased to 4f2b602 on be64510
+  (gitleaks clean, pushed); land LAND-LOCKED behind the orphaned lock; asked 01d for a release or an OK to lease-delete it.
+  01d OK'd (master be64510 holds 5-W): lock ac4e729 lease-deleted; land of 4f2b602 running (bounded retry).
+
+## HANDOVER 2026-11-01 22:15 (HEAD_CLI-and-testing_2026-11-01c, session 356fee90, Opus 5.5, CTX SWAP 295,709 tokens, to the next CLI head; report to HEAD-OF-OPERATIONS_Omnikom_2026-11-01d)
+- Master = be64510 at 22:14. IN FLIGHT (finish these first):
+  1. small-fixes LAND: commit 4f2b602 on `check/cli-and-testing/small-fixes` (rebased on be64510, gitleaks clean); `land` running in this
+     session's background via the scratchpad `land-retry.sh`, holding lock 6c92c8a while it waits on GitHub. If this session is gone
+     before it lands: check `git ls-remote backup-gh refs/heads/master refs/heads/land-lock`; if master is not 4f2b602 and the lock is
+     still 6c92c8a, delete it by lease (`git push --force-with-lease=refs/heads/land-lock:6c92c8a0e860cb2b54be6a059195d9d446c26f5e
+     backup-gh :refs/heads/land-lock`) and run `node tools/omnikom-cli/omnikom.mjs land check/cli-and-testing/small-fixes` (if master
+     moved: rebase in worktree `D:\omk-gates\cli-small-fixes` with cherry-pick -n, gitleaks protect --staged, commit -C, force-with-lease
+     push). On land: send 01d the master sha (SEO's REQUIRE_TARGET flip waits on it: land order small-fixes, then SEO 5c, then 01d's
+     effort commit), tell the SEO head `omnikom audit --target` exists, stop BUILDER_cli-and-testing_small-fixes (pid 23288,
+     `node tools/departments/stop-builder.mjs --pid 23288`), remove the worktree. Its 31 [small-fixes] mutants are first proven by that
+     GitHub run (only one new check was watched red on the laptop).
+  2. JOURNEY builder BUILDER_cli-and-testing_journey (pid 21208, sonnet, low effort) in `D:\omk-gates\cli-journey` on 9800616,
+     uncommitted. Done: unit 437/437, 23/23 journey mutants, full staging run (3 PASS, 2 NOT BUILT YET, 2 FAIL product bugs, 2 SKIPPED).
+     Asked of it (21:38), report pending: drop the staff email address from spec 26 section 7 (public repo), fix harness.mjs:19 comment,
+     J6/J7 fallback lead via `lead send` when J5 stored none (+2 mutants), one `--only J6,J7` staging repair run with its lines and the
+     inbox PNG. Then: look at the inbox PNG yourself, send 01d the acceptance package (unit + mutant lines, PROGRESS lines, PNG paths:
+     full run's PNGs in `C:\Users\DELL\AppData\Local\Temp\claude\D--omk-gates-cli-journey\ee3fbc88-cc39-4b5b-9e1c-2c394dcf1236\scratchpad\shots\journey-20261101180857\`),
+     paste the staging lines into docs/blueprint/PROGRESS.md "CLI: test journey", rebase onto the landed small-fixes (overlaps in
+     omnikom.mjs, README.md, test/run.mjs, test/mutate.mjs are mechanical), commit with briefs/journey.md, check branch, land.
+- QUEUE after those: (1) REAL-KILL FLAKE slice, plan APPROVED by 01d 22:13 (my plan line in the 22:11 entry's message; read the 22:13
+  message summary here): the test at tools/omnikom-cli/test/run.mjs:1501-1528 deliberately orphans a live cluster (child SIGKILLed,
+  postmaster reparented to pid 1) then pings it; hypothesis: since 713b008 a concurrent proc-guard sweep (mutate.mjs runs 3 suite copies
+  at once) treats a pid-1-parented holder as no live owner and kills it before the "outlived" ping. Seen: run 41323582926 (mutate
+  baseline) and SEO run 41344229818 on a111b86 ("FAILED: 548 of 549", pings "2 psql: error: connection to server at 127.0.0.1 ...").
+  Steps: failure detail names which ping failed and whether the postmaster pid existed; prove/refute deterministically (a proc-guard
+  sweep between kill and ping, Linux on a check branch and Windows); fix by the proven cause, watched red + mutant, NO retry in the test.
+  This slice owns the diagnosis for BOTH families (CLI real-kill and the gates "psql ... 127.0.0.1 refused" reds, run 41323687561);
+  any proc-guard change goes to platform (5-G waits) as a brief with evidence; CLI changes only the test side. Builder `--effort high`.
+  (2) slice 2a, then 2b (`briefs/slice-2-functions.md`; check against master first). (3) `audit --prompt-coverage FILE` once SEO 5c lands.
+  (4) big-output hook (DECISIONS 41).
+- Findings routed to 01d (platform owns them): J5 form 400 "Send the form as JSON." (HIGH; platform's next slice; its done-when includes
+  our `--only J5,J6` re-run), favicon 404 (low), proc-guard PREFIXES lacks `omnikom-jb-` (low), proc-guard CIM listing 10+ s under load.
+- Rules learned today: start builders with `--effort high`; survey facts in a clean worktree at master, never the shared checkout (it holds
+  other departments' uncommitted work); a land whose master moved needs a rebase and a fresh run (small-fixes (d) narrows the window once
+  landed); GitHub :443 drops from this laptop: retry with a bound, and a lock release can fail after a successful land (check the lock).
+- Worktrees: `D:\omk-gates\cli-small-fixes` (small-fixes, remove after land), `D:\omk-gates\cli-journey` (journey, uncommitted),
+  `D:\omk-gates\cli-public-copy` (PARKED D46/D47, keep). Scratchpad scripts of this session (watch-master.sh, land-retry.sh,
+  rebase-push-land.sh): `C:\Users\DELL\AppData\Local\Temp\claude\E--Omnikom-Platform\356fee90-2b7b-4f5f-a2bf-0230880de8d0\scratchpad\`.
+- Uncommitted in the shared checkout (mine, commit with the journey or alone): this charter's lines from 18:05 on, briefs/journey.md,
+  briefs/README.md row. small-cli-fixes.md is in the small-fixes commit.
+- 2026-11-01 22:28 (after the block): small-fixes land REFUSED on run 41342972596 (cli job red only): mutate.mjs "300 mutants, 299 caught,
+  0 survived, 1 target text missing": `MISSING ghrun: a red run beside a green one is ignored (target text found 0 times in
+  lib/ghrun.mjs)` (an existing mutant whose line part (b) rewrote). All 31 [small-fixes] mutants caught on GitHub. Builder 23288 asked to
+  fix that mutant's target text; then amend-free new commit on 4f2b602, push, land.
+  01d rule: ONE more try. If the fresh run is red on the cluster-loss family (real kill, or mutate BASELINE "create database failed ...
+  Connection refused"), no retry: small-fixes waits for CLI-d's cluster-loss fix and lands after it. Send 01d the run id either way.
+- 2026-11-01 23:23: CLI-d: land order changed by 01d: real-kill fix FIRST (cause PROVEN: cluster ports in the Linux ephemeral range, run
+  41350867780), then small-fixes. No small-fixes land until CLI-d says real-kill landed; then rebase (harness.mjs, test/run.mjs,
+  test/mutate.mjs may overlap).
+- 2026-11-01 23:36: the MISSING mutant fixed by the builder (mutate.mjs:237, target "if (badRuns.size > 0) {", found once; "1 mutants, 1
+  caught, 0 survived, 0 target text missing", baseline 599 of 599); committed locally as 86db32f on 4f2b602 in
+  `D:\omk-gates\cli-small-fixes` (gitleaks clean), NOT pushed. To land: after real-kill lands, cherry-pick 4f2b602 and 86db32f onto
+  the new master (or squash), gitleaks, force-with-lease push to `check/cli-and-testing/small-fixes` (lease 4f2b602), land; one try.
+- 2026-11-01 22:32 (HEAD_CLI-and-testing_2026-11-01d, session 5452c08c, Opus 5.5, took over from the HANDOVER 22:15; reports to HEAD-OF-OPERATIONS_Omnikom_2026-11-01d): CLI-c still live and finishing small-fixes land + journey package. REAL-KILL slice STARTED: BUILDER_cli-and-testing_real-kill (pid 26412, sonnet, high), worktree D:\omk-gates\cli-real-kill at be64510, brief briefs/real-kill-flake.md (adds 01d's evidence: 5-L run 41345442144 mutate baseline lost its cluster, port 57652 refused). Head's doubt on the 713b008 hypothesis: CLI prefix omnikom-cli-pg- is not in proc-guard PREFIXES; job green 15:51-21:27. UNPROVEN.
+- 2026-11-01 23:20 (CLI-d): real-kill cause PROVEN on Linux, head re-read run 41350867780 (062d382, check/cli-and-testing/real-kill-probe): cluster ports 57000-57899 sit in the Linux ephemeral range (32768-60999); a psql TIME_WAIT socket on P makes the postmaster skip 127.0.0.1 and bind ::1 only, pg_ctl -w says ok, 127.0.0.1 refused ("could not bind IPv4 address"). proc-guard REFUTED (CLI prefix not in PREFIXES, no call). Port map from 01d (one block per harness below 32768; CLI 21000-21899) + listen 127.0.0.1 + 5-try bind fallback. Brief to platform: briefs/to-platform-port-map.md (sent to HEAD_Platform-build_2026-11-01d). Fix NOT DONE: builder building; each past CI red UNPROVEN as exactly this.
+- 2026-11-02 00:19 (CLI-d): REAL-KILL fix LANDED as ce587bc (be64510..ce587bc; run 41353911357, 9 of 9 jobs success; CLI job baseline "OK: 556 of 556", "285 mutants, 285 caught, 0 survived"). Commits 4dc735a (harness ports 21000-21899 per DECISIONS 50, listen 127.0.0.1, 5-try in-block walk, failure detail, test/port-bind-probe.mjs + port-hold.py) and ce587bc (a start naming its port never gets the mutate copy's shared cluster; first run 41352480525 red on that, fixed by cause). Brief to platform sent, taken as 5-PORT. PENDING: builder's Windows mutant/full/probe lines; follow-up branch check/cli-and-testing/sweep-eperm (Windows sweep EPERM aborts next startCluster), not pushed until the land queue clears. Small-fixes released to CLI-c for rebase + land.
+- 2026-11-02 00:23 (CLI-c): real-kill LANDED as ce587bc (CLI-d, run 41353911357). small-fixes rebased onto ce587bc with no conflict:
+  fe23f56 (the slice) + 41f6866 (the mutant text); both sides' mutants present (11 cluster-port lines, 31 [small-fixes]); node --check
+  clean on 6 files; gitleaks detect ce587bc..HEAD "no leaks found"; force-with-lease pushed (lease 4f2b602); the one allowed land running.
+- 2026-11-02 01:10 (CLI-d): small-fixes LANDED by CLI-c as 41f6866 (ce587bc..41f6866, run 41356964984, 9 of 9). JOURNEY handed to CLI-d by CLI-c at SWAP: BUILDER_cli-and-testing_journey (pid 21208, sonnet, low), D:\omk-gates\cli-journey on 9800616, uncommitted; 21:38 asks (staff email out of spec 26 s7, harness.mjs:19 comment, J6/J7 fallback lead + 2 mutants, --only J6,J7 staging repair run + inbox PNG) status asked. Then: read the PNG, acceptance package to 01d, rebase onto master, commit with briefs/journey.md + this charter's uncommitted lines (18:05 on) + briefs/README.md row, land in 01d's order.
+- 2026-11-02 01:10 (CLI-c): small-fixes LANDED as 41f6866 ("ci green: 41f6866 run 41356964984, 9 of 9 jobs success", ce587bc..41f6866,
+  lock released). Told 01d (sha 2 for SEO's flip), CLI-d and the SEO head (queued, its machine offline). Builder small-fixes stopped
+  ("left":[]); worktree `D:\omk-gates\cli-small-fixes` removed. JOURNEY handed to CLI-d with its builder (pid 21208; 21:38 follow-ups
+  still unreported); the builder told to report to CLI-d. CLI-c done.
+- 2026-11-02 01:16 (CLI-d): JOURNEY acceptance package sent; ACCEPTED by 01d with one condition (J7 'fallback without checking the alert list' mutant must be assertion-caught, not timeout; re-run queued). Head read j6-inbox-owner-a.png: row 'Journey 8c12816a lead send | Contact | /journey | new' present; page unstyled (platform finding), 36 leftover 5.3 flow leads (platform finding). Land slot: SEO 5c+5d -> 5-L -> JOURNEY -> 5-PORT -> 01d. After 5-L lands: --only J4,J5,J6 on staging, J5 must PASS on its own lead (closes UNPROVEN). CLI-c stopped by 01d. Builder told to rebase on 41f6866 and commit locally, no push yet. Shared-checkout tools/omnikom-cli/test/run.mjs edit (PMP-001 SKIP count) is SEO 5c's, not ours.
+- 2026-11-02 02:02 (CLI-d): land order from 01d: SEO 5c+5d (landing) -> platform 5-L -> platform 5-G -> JOURNEY -> 5-PORT -> 5-DS -> 01d. --only J4,J5,J6 staging re-run right after 5-L lands. Journey builder told: after 5-G its harness.mjs:19 comment on omnikom-jb- must match proc-guard PREFIXES.
+- 2026-11-02 02:17 (CLI-d): sweep-eperm built (4883e3c on 41f6866, Windows "baseline: OK: 609 of 609", "5 mutants, 5 caught, 0 survived"); Linux run pending on check/cli-and-testing/sweep-eperm. 01d: stack sweep-eperm on the journey commit, one check branch, one run. Order: SEO -> 5-L+5-G -> CLI journey+sweep-eperm -> 5-PORT -> 5-DS -> 01d.
+- 2026-11-02 03:07 (CLI-d): journey commit 32af9df on 41f6866 (local), J7 condition MET (assertion-caught; --only journey "27 mutants, 27 caught, 0 survived, 0 target text missing", baseline 674 of 674; --unit 495 of 495). sweep-eperm: 4883e3c red on stale mutant target (run 41366231860), cb3b3d4 fixes (run 41370103496), third commit = --unit check that every mutant target is found. Order (01d 03:06): 5-L+5-G (run 41370578157) -> 5-PORT -> CLI journey+sweep-eperm -> 5-DS -> 01d. After 5-L+5-G: --only J4,J5,J6 on staging (J5 own lead closes UNPROVEN).
+- 2026-11-02 03:20 (CLI-d): order (01d 03:19): 5-L alone -> 5-PORT -> CLI journey+sweep-eperm -> 5-G (its new Linux test went red) -> 5-DS -> 01d. J4,J5,J6 staging re-run after 5-L's sha. Journey harness.mjs:19 comment stays (omnikom-jb- not in PREFIXES until 5-G).
+## HANDOVER (PROVISIONAL, written early at SWAP 244k; final block follows when the stack lands) 2026-11-02 03:55 (HEAD_CLI-and-testing_2026-11-01d, session 5452c08c, Opus 5.5; report to HEAD-OF-OPERATIONS_Omnikom_2026-11-02)
+- Master 41f6866 at 03:55. Land order (01d 03:19, unchanged 03:54): platform 5-L -> 5-PORT -> CLI journey+sweep-eperm stack -> 5-G -> 5-DS -> HoO.
+- IN FLIGHT: (1) BUILDER_cli-and-testing_journey (pid 21208), worktree D:\omk-gates\cli-journey, local branch `journey-builder` = 32af9df on 41f6866
+  (journey, ACCEPTED by 01d incl. J7 condition; carries PROGRESS "CLI: test journey" + "CLI: real-kill and cluster ports", this charter, 4 briefs).
+  Steps it waits for: (A) after 5-L's sha: `omnikom test journey --target staging --only J4,J5,J6` (our --alert-to only); J5 must PASS on its own
+  lead (closes UNPROVEN), send the lines to HoO. (B) after 5-PORT's sha: rebase, keep harness.mjs:19 comment unless PREFIXES has omnikom-jb-,
+  re-copy this charter, `git cherry-pick 41f6866..sweep-eperm` (3 commits 4883e3c, cb3b3d4, 0aeb495), run --unit, mutate --only journey,
+  --only "cluster sweep", --only "mutate targets", gitleaks; push to check/cli-and-testing/journey on the head's word; land after a 9-of-9 run.
+  (2) BUILDER_cli-and-testing_real-kill (pid 26412), worktree D:\omk-gates\cli-real-kill: sweep-eperm 0aeb495 run 41374458556 pending
+  (cb3b3d4 run 41370103496 GREEN 9 of 9); owes the 4 "mutate targets" mutant lines on Windows. Stop it after that report (stop-builder --pid 26412),
+  then remove its worktree.
+- Done today: real-kill fix landed ce587bc (DECISIONS 50 port map); brief to platform briefs/to-platform-port-map.md (slice 5-PORT); small-fixes 41f6866.
+- QUEUE after the stack: slice 2a then 2b (briefs/slice-2-functions.md, check against master first); `audit --prompt-coverage FILE` (SEO 5c);
+  big-output hook (DECISIONS 41). Findings routed to platform: staging dashboard unstyled; 36 leftover 5.3 flow leads in Demo A; J5 form 400; favicon 404.
+- 2026-11-02 04:20 (CLI-d): step (A) on staging after 5-L (a2570e2, test site republished, deploy ce3eb1fa): J4 PASS (favicon closed), J5 FAIL HTTP 503 "We could not send this" 0 rows, J6 PASS on the lead-send fallback. Head read j5-form-answer.png and factory/worker/lead-endpoint.mjs:88 (only 503 = 'lead endpoint not configured': siteId/signingKey/platformBase missing), UNPROVEN until platform reads the Function log. Routed to platform + HoO-02. Re-run --only J5,J6,J7 after their fix. J5 own-lead UNPROVEN stays.
+- 2026-11-02 04:28 (CLI-d): QUEUED (LOW, from HoO-02; for the final HANDOVER queue): `omnikom land` retries a github.com:443 network failure BEFORE it takes the lock, bounded (3 tries, backoff), one printed line per try, never retries once the lock is held; test watched red + mutant (5-L took 5 tries, 5-PORT failed once; api.github.com fine). J5 fix with platform: BUILDER_platform-build_5-L-r2 (pid 21380) sets SITE_ID, SITE_SIGNING_KEY, PLATFORM_BASE on the test preview + a publish refusal; platform sends the go for --only J5,J6,J7.
+- 2026-11-02 04:35 (CLI-d): sweep-eperm final 0aeb495 (3 commits on 41f6866), run 41374458556 9 of 9 success, "321 mutants, 321 caught, 0 survived, 0 target text missing". BUILDER_cli-and-testing_real-kill stopped (stop-builder 26412: "left":[]), worktree D:\omk-gates\cli-real-kill removed, branch sweep-eperm kept. NOT DONE: Windows copy of the 4 'mutate targets' mutants (cut by the stop; the stacked journey run re-proves on Linux).
+- 2026-11-02 07:48 (CLI-d): J5,J6,J7 PASS on staging 07:44 on J5's own lead ("1 lead row \"Journey 96804450\" stored"; "3 PASS, 0 NOT BUILT YET, 0 FAIL"); head + HoO-02 read j6-inbox-owner-a.png; 5-L CLOSED. Stack a5a33c6 (journey + sweep-eperm on c010c65) run 41391587176: 8 of 9 green, CLI job running. Follow-up bd8280f on a5a33c6 (J5 accepts sent text + exactly 1 row; J6 port 4173 check), 3 new mutants UNPROVEN (local run going). SEO 4c flip: CLI yes given (run.mjs + commands/audit.mjs:5-6 + README.md:26 comment fixes + 1 CLI mutant entry, SEO's commit). QUEUE (LOW): journey removes the leads it made at the end of a run (5-CL pattern, by marker) after the screenshot; land network retry before the lock.
+## HANDOVER FINAL 2026-11-02 09:12 (HEAD_CLI-and-testing_2026-11-01d, session 5452c08c, Opus 5.5, SWAP ~330k, to HEAD_CLI-and-testing_2026-11-02; report to HEAD-OF-OPERATIONS_Omnikom_2026-11-02b). Supersedes the PROVISIONAL block of 03:55.
+- Master 34c3ceb at 09:12. IN FLIGHT (finish first): stack c3927c2 on check/cli-and-testing/journey (6 commits on 34c3ceb: a54794e journey,
+  79eb111 + b22bc69 + 4538531 sweep-eperm and the --unit "mutate targets" check, 49c1878 J5 Thank-you + exactly 1 row / J6 port-4173 check,
+  c3927c2 this charter to 07:48). Run 41404410237 (pushed 09:09). On 9 of 9: `node tools/omnikom-cli/omnikom.mjs land check/cli-and-testing/journey`
+  (bounded retry on a github.com:443 drop; check `git ls-remote backup-gh refs/heads/master refs/heads/land-lock` after), send the master sha to
+  HoO-02b. If master moved: rebase in worktree D:\omk-gates\cli-stack (cherry-pick 34c3ceb..c3927c2 onto new master), gitleaks, push with
+  --force-with-lease=...:c3927c2dbbd8f2b65d24b8693f1cbe2fcabf3f0d, fresh run. If the CLI job TIMES OUT (limit 120, ci.yml:134; last run 101 min):
+  that is a red: split or shard the CLI mutate step in this stack before landing (test + mutant), never a plain re-run (HoO rule).
+  UNPROVEN until that run: the follow-up's 3 new journey mutants (port check removed, IPv4-only port check, Thank-you not accepted).
+- Builder still live: BUILDER_cli-and-testing_journey (pid 21208, sonnet), worktree D:\omk-gates\cli-journey (branches journey-builder,
+  journey-followup; possibly a local `mutate.mjs --only journey` under the heavy lock). Stop it after the land (stop-builder --pid 21208), then
+  remove worktrees D:\omk-gates\cli-journey and D:\omk-gates\cli-stack; delete local branches sweep-eperm, journey-builder, journey-followup
+  once master holds them. Keep D:\omk-gates\cli-public-copy (PARKED D46/D47).
+- Proven today: real-kill reds = cluster ports inside the ephemeral range (run 41350867780), fix landed ce587bc, DECISIONS 50 port map (CLI
+  21000-21899; dashboard Playwright 27000-27899 = 50 (e), platform 5-PW); small-fixes 41f6866; journey J5,J6,J7 PASS on J5's own lead on staging
+  07:44 ("3 PASS, 0 NOT BUILT YET, 0 FAIL"), 5-L closed by HoO.
+- QUEUE, in order: (1) CLI mutate step near the 120-min CI limit: split or shard it (test + mutant). (2) slice 2a then 2b
+  (briefs/slice-2-functions.md; check against master first). (3) `audit --prompt-coverage FILE` (SEO 5c). (4) `omnikom land` retries a
+  github.com:443 failure BEFORE taking the lock, 3 tries with backoff, one line per try, never after the lock (test + mutant). (5) the journey
+  removes the leads it made at the end of a run, by marker, after the screenshot (5-CL pattern). (6) big-output hook (DECISIONS 41).
+- Consents given: SEO 4c flip edits tools/omnikom-cli/test/run.mjs (:346-:484), commands/audit.mjs:5-6 and README.md:26 comments, and adds one
+  CLI mutant "audit and gate: a built folder with no --target is given a default target [4c-flip]"; whoever lands second rebases (our run.mjs
+  hunks are ~12 and ~1572; both append to test/mutate.mjs).
+- Findings with platform: dashboard unstyled (5-DS); fixed 4173 Playwright port (5-PW); proc-guard PREFIXES lacks omnikom-jb- (5-G;
+  harness.mjs:19 comment says so, reword when 5-G lands).
+- Rules learned: poll a builder that goes quiet after a GO (the stack sat built but unpushed 84 min); check the WHOLE mutant list's target texts
+  before a push (now a --unit check); a green run is void once master moves: rebase, fresh run.
+- 2026-11-02 09:30 (CLI-d): stack c3927c2 run 41404410237 RED 7 of 9 (no timeout): gates "FAIL process guard mutants ... 20 caught, 1 escaped" (not our files; master 34c3ceb run 41400901148 green; the unnamed escape is platform 5-G's), CLI --unit "FAIL journey browser: ... did not report its DevTools address in 15 s" (ours: lib/browser.mjs:183 fixed 15 s deadline; a5a33c6 passed it). ONE bounded `gh run rerun --failed` for evidence. If green: land, and QUEUE (top, with the CI split): browser start deadline robust under load, watched red. If red again: BLOCKED, hand over.
+## HANDOVER FINAL, AMENDED 2026-11-02 09:34 (CLI-d; HoO-02b ruling 09:32). Replaces the IN FLIGHT and QUEUE parts of the 09:12 block.
+- DO NOT LAND c3927c2 (check/cli-and-testing/journey, on 34c3ceb), even on a green rerun. Run 41404410237 attempt 1 RED 7 of 9:
+  gates "FAIL process guard mutants      mutants: 20 caught, 1 escaped ..." (pre-existing: tools/proc-guard not in the diff, master 34c3ceb run
+  41400901148 success; routed by HoO to platform 5-G r2; a green gates job on a rerun is accepted for it) and CLI --unit "FAIL journey browser:
+  the browser tests ran to the end: the browser did not report its DevTools address in 15 s" / "FAILED: 485 of 486 checks passed, 1 FAILED".
+  Attempt 2 (`gh run rerun --failed`, requested 09:29) is EVIDENCE only; its result is the next line if this session saw it.
+- QUEUE, in order:
+  (1) In this stack, as its own commit on top of c3927c2: tools/omnikom-cli/lib/browser.mjs (new in this stack, :183) waits for the DevTools
+      address by polling the port file up to a longer bound picked from measurement (e.g. 60 s, the bound printed in the failure line); a test
+      watched red with a stub browser that reports late; a mutant (deadline back to 15 s, or the poll removed). Then push (lease c3927c2), fresh
+      run, land on 9 of 9 (bounded retry on :443), send the master sha to HoO.
+  (2) CLI mutate step near the 120-min CI limit (last full run 101 min, ci.yml:134): split or shard it (test + mutant).
+  (3) `omnikom land` retries a github.com:443 failure BEFORE taking the lock: 3 tries with backoff, one line per try, never after the lock.
+  (4) the journey removes the leads it made at the end of a run, by marker, after the screenshot (5-CL pattern).
+  (5) port map line 27000-27899 (dashboard Playwright, DECISIONS 50 (e)) is in briefs/real-kill-flake.md in commit 49c1878 of this stack:
+      confirm it lands with the stack.
+  then slice 2a/2b, `audit --prompt-coverage FILE`, big-output hook.
+- Live: BUILDER_cli-and-testing_journey (pid 21208, sonnet; worktree D:\omk-gates\cli-journey) is idle-able; reuse it or stop it
+  (stop-builder --pid 21208). Worktree D:\omk-gates\cli-stack holds c3927c2 checked out: build item (1) there or on a fresh worktree.
+- 2026-11-02 09:45 (HEAD_CLI-and-testing_2026-11-02, Opus 5.5, from HoO-02b): read the charter, the 09:12 and 09:34 blocks, DECISIONS 45-51; CLI-d stopped (stop-builder --pid 25196: "left":[]). Run 41404410237 attempt 2 still in progress at 09:40 (evidence only). Item (1) briefed to BUILDER_cli-and-testing_journey (pid 21208): tools/omnikom-cli/briefs/browser-start-deadline.md (wall-clock deadline from measurement, fail fast on browser exit, elapsed in the failure line, late-stub test watched red, 3 mutants); branch browser-deadline over c3927c2 in D:\omk-gates\cli-stack.
+- 09:41 builder: its local `mutate.mjs --only journey` on bd8280f was STOPPED for this slice: baseline "OK: 688 of 688", 15 of 30 run, 15 caught; the other 15 (incl. the 3 new journey mutants) UNPROVEN locally, to be proven by the stack's CI CLI job. Port map line 27000-27899 confirmed in c3927c2:tools/omnikom-cli/briefs/real-kill-flake.md (queue item 5 done). Weekly usage 89% at 09:41.
+- 11:40 (head): f23e418 (browser-deadline over c3927c2) reviewed and accepted: wall clock, DEVTOOLS_WAIT_MS 180000 from 22 measured Edge launches (worst 74.5 s under 4 at once + 8 CPU burners), exit/spawn error at once, EBUSY read retried; builder's lines: 6 tests watched red on c3927c2's browser.mjs ("did not report its DevTools address in 15 s" at 15.1 s), --unit "OK: 516 of 516", "4 mutants, 4 caught, 0 survived, 0 target text missing", gitleaks "no leaks found". NOT pushed: master moved to 39fb39d (platform 5-PW: dashboard preview off localhost:4173 onto 127.0.0.1:27000-27899), and on it J6's inboxShot (commands/journey.mjs:312) would poll localhost:4173 forever (laptop-only step, CI would not see it). Part 2 of the brief: journey-r2 = 39fb39d + the 7 stack commits + a J6 port fix, all journey mutants, one staging run J4-J7.
+- 14:37 (head): HoO asked for status (no report since 11:33). Found: journey-r2 = 39fb39d + 7 stack commits (782a74d) rebased; Part 2 edits uncommitted in 5 files; no test/mutate process running; builder 21208 alive. Polled it with an idle notice. Miss: no poll between 11:40 and 14:35 (rule from the 09:12 handover: poll a builder that goes quiet). Nothing pushed; check/cli-and-testing/journey still c3927c2.
+- 14:40 builder: Part 2 coded, uncommitted; 3 new J6-inbox tests watched red on f23e418 (e.g. "the dashboard preview did not come up on localhost:4173 in 60 s"), --unit "OK: 517 of 517"; `mutate.mjs --only journey` running since 11:52 under heavy.mjs (baseline "OK: 696 of 696", 24 caught, 0 survived so far). My 14:37 process check missed that run (it filtered node command lines; heavy.mjs hides it). Next: mutant line, gitleaks, commit, one staging run J4-J7.
+- 14:58 (head): reporting to HEAD-OF-OPERATIONS_Omnikom_2026-11-02c (02b stopped 14:55). Its list: land journey-r2 (lease c3927c2, 9/9), then the CLI mutate-step split (should also cut local journey mutant time). CTX OK ctx=149781 turns=38.
+- 15:10 (head): queue item (2) briefed, not started: tools/omnikom-cli/briefs/mutate-parallel.md (mutate.mjs --workers N, private tree copy and port sub-block per worker, inside tools/omnikom-cli/ only because .github/ is platform-build's; measure first). Starts after journey-r2 lands. Builder 15:02: journey mutants 27 caught, 0 survived, ~7 left.
+- 15:10 (head) DECIDED: local `mutate.mjs --only journey` on journey-r2 stopped at 27/34 caught, 0 survived (ETA to finish was ~15:55, holding heavy.lock since 11:52 with SEO, 5-G, 5-DS queued). The 7 unrun are proven by the stack's CI CLI job (ci-heavy runs all mutants when tools/omnikom-cli/ changes; DECISIONS 45 d: GitHub is the gate). Lesson: a local full mutant run of a group duplicates the CI gate; run locally only the new mutants (--only <tag>).
+- 15:14 builder: journey mutants stopped at 29 caught, 0 survived, 0 missing (baseline 696/696); heavy.lock released (pid 7964 gone; 5-DS pid 40356 took it). 5 unrun (J6/J7 fallback second alert; 4 browser-start ones already caught on f23e418) go to CI. Finding: 303 omnikom-cli-mut-* copies in %TEMP% from killed runs; added to briefs/mutate-parallel.md, nothing deleted (live owners possible).
+- 15:20 (head): 5481776 (J6 port via apps/dashboard/scripts/preview-port.mjs choosePort/baseUrl/PORT_ENV, 4173 precheck and portFree removed, seams for tests) reviewed, accepted; builder gitleaks "no leaks found". journey-r2 = 39fb39d + 7 cherry-picks + 5481776. Follow-up (queue, small): inboxShot's "preview up" wait is a count (120 x 500 ms + 2 s fetch timeouts), not a clock; same class as the browser fix: wall clock, fail fast if the preview process exits.
+- 15:30 (head): staging run from journey-r2 (5481776), no heavy, builder 15:27: "J4 PASS ... 4 PNGs", "J5 PASS ... 1 lead row "Journey d6fa9384"", "J6 PASS lead in the inbox ... lists "Journey d6fa9384"" (preview on the 5-PW port path; head read j6-inbox-owner-a.png), "J7 PASS export", "4 PASS, 0 NOT BUILT YET, 0 FAIL". Commit 62315d5 (this charter + briefs). Pushed check/cli-and-testing/journey c3927c2 -> 62315d5 with --force-with-lease ("pre-push: ... a check branch, allowed"); run 41453440713 created 13:29:38Z on base 39fb39d. Lands on 9/9.
+- 15:34 HoO-02c opened the 5 PNGs of the 15:27 run (j4 x4, j6): accepted; builder may stop after the 9/9 land. HoO finding for us (queue item 4, unchanged): the inbox holds 6 journey leads back to 2026-11-01 21:42; the journey removes its own lead after J7, by marker (5-CL pattern). Routed to platform by HoO: contact H1 leftover test title; desktop nav touches the right edge.
+- 16:45 SEO head (02b): 4c-flip (check/seo/4c-flip 8d9ff94 on 39fb39d) run 41457156982 CLI job "313 mutants, 311 caught, 2 survived" ("audit and gate: --expect is accepted", "audit: a stray argument is accepted"), cause their --target change in test/run.mjs. Agreed: their builder fixes those run.mjs lines, I review the diff before their land; whoever lands second rebases (our stack also edits run.mjs, mutate.mjs).
+- 17:31 (head): run 41453440713 (62315d5) attempt 1: 8 of 9 success; CLI job 125304089822 cancelled, annotation "The job has exceeded the maximum execution time of 2h0m0s" (13:29:51Z to 15:30:28Z, step "CLI full suite and mutants" cancelled; "CLI unit tests" success). HoO-02d ruling: not landable; no timeout raise; bring mutate-parallel into this stack, fresh 9/9 on the exact sha. SEO's run 41457156982 did the CLI job in 48 min (no journey stack), so the journey/browser mutants are the extra time.
+## HANDOVER 2026-11-02 17:40 (HEAD_CLI-and-testing_2026-11-02, session 71ad8ab5, Opus 5.5, CTX WATCH 205,699 at 17:33, swapAt 209.2k; to the next CLI head; report to HEAD-OF-OPERATIONS_Omnikom_2026-11-02d)
+- Master 39fb39d (ls-remote 15:29). IN FLIGHT: stack 62315d5 on check/cli-and-testing/journey (pushed 15:29 with lease c3927c2) = 39fb39d + c17766f, baa27ec,
+  1b29fc0, 5ba26a1, 842058a, 3a55084 (the CLI-d stack, rebased), 782a74d (DevTools wait: wall clock, DEVTOOLS_WAIT_MS 180000 from 22 measured
+  launches, exit/spawn error at once, EBUSY retry), 5481776 (J6 dashboard preview on the 5-PW port block via apps/dashboard/scripts/preview-port.mjs;
+  4173 precheck gone), 62315d5 (this charter, briefs). Local branch journey-r2 in worktree D:\omk-gates\cli-stack holds it.
+  NOT LANDABLE: run 41453440713 CLI job timed out (line above). Staging proof holds for this tree (HoO-02c checked 5481776..62315d5 docs only):
+  15:27 "4 PASS, 0 NOT BUILT YET, 0 FAIL" (J4-J7, lead "Journey d6fa9384"), HoO-02c opened the 5 PNGs and accepted.
+- NEXT (blocks the land): builder BUILDER_cli-and-testing_mutate-workers (pid 21268, sonnet, high), started 17:35, brief
+  tools/omnikom-cli/briefs/mutate-parallel.md (CHANGED 17:35 line), branch mutate-workers over 62315d5 in D:\omk-gates\cli-stack, no push. It
+  first sends its CI-log measurement (per mutant, unit vs db, journey vs rest) and N; check N against it, then GO. Plan sent to HoO-02d: --workers 4,
+  private tree copy and port sub-block per worker, summary line unchanged, leaked omnikom-cli-mut-* copies swept; expected CLI mutant step 45-60 min.
+  Then: re-run its unit tests and the small mutant run yourself or by a haiku runner, gitleaks, push check/cli-and-testing/journey with
+  --force-with-lease=refs/heads/check/cli-and-testing/journey:62315d5ff9172446b6c8ac848300b4360fcb4ba9 (rebase onto master first if it moved;
+  then the staging proof is void only if code outside tools/omnikom-cli/ changed under it), fresh run, land on 9 of 9 with
+  `node tools/omnikom-cli/omnikom.mjs land check/cli-and-testing/journey` (bounded retry on github.com:443), send HoO-02d the run URL, CLI job
+  duration, mutant summary line, master sha; send the master sha to HEAD_SEO-and-audits_2026-11-02b.
+- Builder BUILDER_cli-and-testing_journey (pid 21208, sonnet, ~23 h old) is on HOLD: stop it (stop-builder --pid 21208) once the stack lands
+  (HoO-02c allowed); it holds the 15:27 PNGs in its scratchpad (HoO already opened them). After the land: remove worktrees D:\omk-gates\cli-journey,
+  D:\omk-gates\cli-stack (it has a git-ignored junction apps/dashboard/node_modules -> E:\Omnikom Platform\apps\dashboard\node_modules: rmdir it,
+  never delete through it), delete local branches sweep-eperm, journey-builder, journey-followup, browser-deadline, journey-r2, mutate-workers once
+  master holds them. Keep D:\omk-gates\cli-public-copy (PARKED D46/D47).
+- SEO 4c flip (check/seo/4c-flip 8d9ff94 on 39fb39d, run 41457156982, CLI job "313 mutants, 311 caught, 2 survived": "audit and gate: --expect is
+  accepted", "audit: a stray argument is accepted"): their builder fixes those lines in tools/omnikom-cli/test/run.mjs; they send the diff to the
+  CLI head before their land; whoever lands second rebases (both edit run.mjs and mutate.mjs); any conflict hunk in tools/omnikom-cli/** comes to us.
+- QUEUE after the land: (1) the journey removes its own lead after J7, by marker (5-CL pattern; HoO-02c: 6 journey leads in the inbox back to
+  2026-11-01 21:42). (2) inboxShot's "preview up" wait (commands/journey.mjs, 120 x 500 ms) to a wall clock, fail fast if the preview exits.
+  (3) `omnikom land` retries a github.com:443 failure BEFORE taking the lock (3 tries, backoff, one line each, never after the lock). (4) slice 2a
+  then 2b (briefs/slice-2-functions.md; check against master first), `audit --prompt-coverage FILE` (SEO 5c), big-output hook (DECISIONS 41).
+- Rules learned this session: every SendMessage to a builder sets notify_when_idle (in "Rules that bind this department"); a local full mutant run
+  of a group duplicates the CI gate and holds the heavy lock for hours: locally run only the new mutants, CI proves the rest; a process check that
+  filters node command lines misses runs started through heavy.mjs (ask the builder or read ~/.claude/state/heavy.lock); PowerShell Add-Content
+  writes CRLF: normalise to LF before a commit (scratchpad copy-lf.mjs did it for 62315d5); a CI job "cancelled" at exactly timeout-minutes is a
+  timeout red, read the check-run annotation (gh api repos/<repo>/check-runs/<job id>/annotations).
+- 17:42 SEO 4c-flip run.mjs diff: reviewed YES, conditional (draft C:/Users/DELL/AppData/Local/Temp/claude/E--Omnikom-Platform/d5784b3d-8bfc-448f-b23f-582db673a2b2/scratchpad/4c-flip-cli-runmjs-draft.diff, 14+/14- in units() ~372-398: refusal tests pass ...TP and assert their own message). Conditions sent to SEO-02b: their local lines show the 2 survivors caught with the diff and `run.mjs --unit` OK. SEO may land before our stack; then we rebase onto them (conflicts likely in test/run.mjs, test/mutate.mjs). HoO-02d added to the mutate-workers done-when: a test watched red + a mutant for "two workers never share a port" (already brief items 3a and 4).
+- 17:48 (HEAD_CLI-and-testing_2026-11-02b, session c566f7ac, Opus 5.5, from HoO-02d): read CLAUDE.md, README "Context load and handover" and "Starting and stopping a builder session", this charter's Open items and the 17:40 HANDOVER, DECISIONS 45-50, briefs/mutate-parallel.md. Confirmed to HoO-02d; told BUILDER_cli-and-testing_mutate-workers (pid 21268) my name, report to me, measurement and N before any build (notify_when_idle). CTX OK ctx=94784 turns=4. Weekly usage 91%.
+- 17:52 builder measured (CI logs, jobs 125304089822 / 125316630900, 4-vCPU runner): stack 62315d5 mutants 115.6 min for 331 printed (unit n=252 mean 24.9 s, db n=69 5.7 s, journey/browser n=10 4.6 min total; baseline 83 s, 695 checks) vs SEO base 46.4 min for 313 (unit mean 9.4 s, baseline 40 s). Correction to the 17:31 line: the extra time is a ~15 s slower `run.mjs --unit` per unit mutant, not the journey mutants. Head GO: step 0 find and fix the slow unit checks (real-clock waits suspected, UNPROVEN; checks keep what they prove, watched red again), then --workers 3, sub-blocks 21000+100k after listing the ports already used. SEO run 41457156982's 48 min CLI job is red (2 survivors, their fix reviewed 17:42).
+- 17:58 (head) RE-CUT: mutate.mjs already runs 3 mutants concurrently, own tree copy each, one shared cluster (mutate.mjs:452 `Array.from({ length: 3 }`, :421 copyCli, :419; head grepped D:\omk-gates\cli-stack). The measured per-mutant gaps are throughput of 3: one unit mutant ~75 s wall on the stack vs ~28 s on SEO's base. --workers and port sub-blocks DROPPED. Slice now: (1) slow unit checks fixed (seams, watched red again), (2) fail-fast per mutant (first red stops its run; survivors still run all), (3) leaked-copy sweep. Covering subsets only if 1+2 fall short. HoO-02d told.
+- 18:06 builder (CI logs, gap between "ok" lines): SEO base --unit 605 checks 42 s, stack 694 checks 106 s; the 96 new checks cost 82 s: "journey browser: a planted console.error is counted" 22.8 s (real headless browser, cold start), "a browser that writes its DevTools address after 20 s is waited for" 20.1 s (real 20 s setTimeout, test/journey.mjs:350), six J4 real-browser checks ~3-3.6 s each. Head accepted: clock seam on launchBrowser + fake clock (same proof, watched red again, 2 covering mutants); J4 real-browser checks stay real, their cost goes to stop-at-first-red (journey checks run last, run.mjs:1575). HoO-02d accepted the re-cut at 17:59.
+- 18:55 builder (uncommitted on mutate-workers): local --unit before 1561 s, 517 checks, 1 FAIL (J6 "never localhost:4173" on right URLs; journey alone 85/85; narrowed to URL forms, cause UNPROVEN); step 1 launchBrowser clock seam, check 20.1 s -> 0.1 s, watched red ("did not report its DevTools address in 15.0 s (bound 15 s)"); step 2 test/mutate-run.mjs makeCheck + run.mjs --bail, mutate runs mutants with it (CI log: 259 of 261 caught unit mutants red before the first real-browser check #479/516); step 3 guardedTemp copies + sweepCopies. 9 runner mutants + 2 browser-start mutants running under heavy (~1 h). Head 18:50 conditions: 4173-mutant still caught, summary line words unchanged, pasted lines, old copies deleted only with no mutate alive and >2 h old. Finding to HoO: proc-guard PREFIXES lacks omnikom-cli-mut-.
+- 18:57 HoO-02d: proc-guard prefix routed to platform (after 5-G r2). J6 4173 flake: fix in this slice with the cause named (head asked builder for a deterministic repro + regression check). DECISIONS 52 (owner 18:54): no dashboard/login design work until the owner brings his styling; journey screenshots are broken-page checks (render clean, readable), not taste checks. No change to this slice.
+- 19:14 (head): master 4f91b52 (5-G r2, 9/9): 39fb39d..4f91b52 = tools/proc-guard (index.mjs PREFIXES += 'omnikom-jb-', the journey browser folder, commands/journey.mjs:264; its tests) + docs. Plan sent: after the local chain, rebase the whole stack (`--onto 4f91b52 39fb39d`), --unit, ONE fresh staging J4-J7 (proc-guard is under the journey, so the 15:27 proof is void). Builder told to name copies guardedTemp('omnikom-cli-mut-') (proc-guard matches exactly <prefix><6 chars>; owner.json holds the pid) so platform's prefix fix is one word.
+- 19:28 HoO-02d stopped BUILDER_cli-and-testing_journey (pid 21208; owner's machine cleanup). Its 15:27 PNGs are void anyway (fresh staging run after the rebase). Worktree D:\omk-gates\cli-journey still to remove after the land.
+- 19:40 builder: first local chain NOT a result (both runs "BASELINE FAILS": mutate.mjs LIMIT_MS 10 min cut the 26 min local baseline; rerun with OMNIKOM_MUTANT_TIMEOUT_MS=3600000). Rebased clean onto 4f91b52 (tip d6c96b4 = 62315d5's charter commit; 1b68565 DevTools wait, ddc828a J6 port); work uncommitted on top; copies now guardedTemp('omnikom-cli-mut-') per HoO-02d 19:31 ruling; J6 4173 regression check + 2 mutants. p1 `mutate.mjs --only "[mw]"` (16 mutants) running under heavy. Head 19:33: p2-p4 (local timings) dropped, the after-time comes from the push's CI job vs job 125304089822. Weekly usage 92%.
+- 19:40 report to HEAD-OF-OPERATIONS_Omnikom_2026-11-02e now (02d stopped 19:42 per its message). Builder 19:50: copies via makeCopy = guardedTemp('omnikom-cli-mut-'), name check watched red on the pid form ("omnikom-cli-mut-20636-L3fhbi"), mutant added; LIMIT_MS default unchanged (600000), env only on the laptop; p1 = 17 [mw] mutants waiting on heavy.lock.
+- 20:10 master ae8741d (SEO 4c flip, run 41490162139 9/9; SEO parked until the usage reset, SEO findings go to HoO-02e). 4f91b52..ae8741d in our tree: test/run.mjs, test/mutate.mjs (+[4c-flip]), commands/audit.mjs, README; outside: tools/audit, skills, docs (journey imports none). Builder ordered: after p1, commit, rebase --onto ae8741d 4f91b52, keep both sides, --unit + --only "[4c-flip]", then one staging J4-J7, gitleaks, shas.
+- 20:50 builder: p1 on the 4f91b52 tree, baseline "OK: 706 of 706", "17 mutants, 16 caught, 1 survived, 0 target text missing": survivor "mutant runner: --bail stops with exit code 0 [mw]" was real; fix classify() = caught iff exit != 0 OR a FAIL line printed; 3 new runner mutants; --only now repeatable. Committed 4face4e, gitleaks "INF no leaks found"; rebased --onto ae8741d with no conflicts (10 commits, 22 files +1952/-34 vs ae8741d). Running: one mutate.mjs, 6 --only filters ([4c-flip] + 7 changed/new runner mutants), its full baseline = the --unit proof. Then staging J4-J7, shas, old-copy cleanup.
+- 21:00 master 8de00a2 (platform 5-DS, run 41498591184 9/9; apps/dashboard UI + docs; no package*.json or tools/ change, head checked). Builder: rebase --onto 8de00a2 ae8741d after the running mutant run, then the staging J4-J7 on that tree (J6 opens the restyled inbox; a selector break is ours in commands/journey.mjs).
+- 21:45 builder: six-filter run on the ae8741d tree (heavy 20:47-21:40) "baseline: OK: 708 of 708 checks passed", "7 mutants, 7 caught, 0 survived, 0 target text missing" ([4c-flip] + 6 runner mutants incl. "--bail stops with exit code 0"). Rebased onto 8de00a2, no conflicts: tip 0937c67 (slice; 4173: mechanism proven by the regression check, occurrence in the 17:53 run not recorded), c005c33 charter, 10 commits, 22 files +1952/-34. Head re-ran `gitleaks detect --log-opts=8de00a2..mutate-workers`: "10 commits scanned ... no leaks found". Staging J4-J7 from 0937c67 running (one run, one real lead alert to the test site's alert address).
+- 21:50 builder: staging 21:43:30-21:45:36 from 0937c67 "J4 PASS ... 4 PNGs", "J5 PASS ... 1 lead row "Journey b8675550"", "J6 PASS lead in the inbox" (restyled inbox, no fix needed), "J7 PASS export", "journey (staging): 4 PASS, 0 NOT BUILT YET, 0 FAIL"; head opened j6-inbox-owner-a.png and j4-phone-home.png (render clean, readable; inbox now 7 journey leads). 303 leaked copies deleted, 0 left. 21:48 (head) PUSHED check/cli-and-testing/journey 62315d5 -> 0937c67 (lease, base 8de00a2 = master), run 41513353882. Lands on 9/9 with `omnikom land`. UNPROVEN: CI time; 12 [mw] mutants last run on 4f91b52 base.
+- 21:50 HoO-02e verified the push (ls-remote 0937c67, opened j6/j5/j4 PNGs). CTX: head WATCH 198,259; builder f9fd1a61 SWAP 325,278.
+## HANDOVER 2026-11-02 21:52 (HEAD_CLI-and-testing_2026-11-02b, session c566f7ac, Opus 5.5, CTX WATCH 198,259; written before the CI wait; to the next CLI head; report to HEAD-OF-OPERATIONS_Omnikom_2026-11-02e)
+- Master 8de00a2 at push time. IN FLIGHT: check/cli-and-testing/journey = 0937c6767ff57f12ae979b5cd7e8de38f57fd5be (pushed 21:48 with lease 62315d5), run 41513353882
+  (created 19:48:28Z). = 8de00a2 + c55f9f1, 14870ce, 7741a82, 2049e6b, afb2e37, 233f961 (journey stack), 0d2e25f (DevTools wait), 8b0e2b2 (J6 on the
+  5-PW port), c005c33 (charter), 0937c67 (this slice: run.mjs --bail via test/mutate-run.mjs makeCheck/classify, mutate.mjs runs mutants with --bail,
+  classify = caught iff exit != 0 OR a FAIL line, repeatable --only, lib/browser.mjs clock seam (DevTools-wait check 20.1 s -> 0.1 s), copies via
+  guardedTemp('omnikom-cli-mut-') + sweepCopies of dead owners, J6 "4173" check narrowed + regression check, 20 [mw] mutants). Local worktree
+  D:\omk-gates\cli-stack, branch mutate-workers.
+- Proof held: staging J4-J7 from 0937c67 "4 PASS, 0 NOT BUILT YET, 0 FAIL" (lead "Journey b8675550"; PNGs in builder scratchpad
+  f9fd1a61-.../journey-png/journey-20261102194355/, HoO-02e opened j4/j5/j6); local "7 mutants, 7 caught, 0 survived, 0 target text missing"
+  (baseline 708/708); gitleaks "10 commits scanned ... no leaks found".
+- NEXT if the run is 9/9: `node tools/omnikom-cli/omnikom.mjs land check/cli-and-testing/journey` (bounded retry on github.com:443), send HoO-02e
+  the land line, master sha, CLI job duration (compare: job 125304089822 cancelled at 2h0m) and the mutant summary line. If the CLI job is red or
+  slow: read the step log / annotation (gh api repos/<repo>/check-runs/<job id>/annotations), fix on a FRESH builder (mutate-workers is at SWAP).
+- After the land: stop BUILDER_cli-and-testing_mutate-workers (pid 21268); remove worktrees D:\omk-gates\cli-journey and D:\omk-gates\cli-stack
+  (rmdir the junction apps/dashboard/node_modules first, never delete through it); delete local branches sweep-eperm, journey-builder,
+  journey-followup, browser-deadline, journey-r2, mutate-workers once master holds them. Keep D:\omk-gates\cli-public-copy (PARKED D46/D47).
+- QUEUE (next slice first): (1) the journey removes its own lead after J7, by marker (5-CL pattern); the inbox holds 7 journey leads (2026-11-01
+  21:42 to 2026-11-02 21:44): clean them too. (2) inboxShot's "preview up" wait (commands/journey.mjs, 120 x 500 ms) to a wall clock, fail fast if
+  the preview exits. (3) `omnikom land` retries a github.com:443 failure before taking the lock. (4) slice 2a/2b, `audit --prompt-coverage`,
+  big-output hook. (5) If CI is still near the limit: run only the covering checks per mutant (deferred lever).
+- Findings out: proc-guard PREFIXES lacks 'omnikom-cli-mut-' (routed to platform by HoO-02d; our copies already use the plain name). J6 "4173"
+  flake: mechanism proven by the regression check, occurrence in the 17:53 run not recorded.
+- Rules learned: mutate.mjs already ran 3 mutants concurrently (mutate.mjs:452): read the runner before planning parallelism; local mutant runs
+  need OMNIKOM_MUTANT_TIMEOUT_MS (the 600 s default cuts a 26 min Windows baseline: "BASELINE FAILS" with no FAIL line is that, not a red); local
+  timings are dominated by real-git checks, so measure CI time from CI logs; a re-subscribe to an already-idle builder fires at once (do not loop).
+- 22:19 LANDED (supersedes the IN FLIGHT and "After the land" parts above): run 41513353882 "9 of 9 jobs success"; "git: 8de00a2..0937c67 ... -> master",
+  "land: master is 0937c6767ff57f12ae979b5cd7e8de38f57fd5be". CLI job 125510527737 28 min 19 s (19:48:41Z-20:17:00Z; before: cancelled at 2h0m),
+  mutant step 23 min 40 s, "baseline: OK: 707 of 707 checks passed", "371 mutants, 371 caught, 0 survived, 0 target text missing". PROVEN.
+  Done after the land: stop-builder --pid 21268 ("left":[]); junctions rmdir'd (E: node_modules intact), worktrees D:\omk-gates\cli-stack and
+  cli-journey removed; branches sweep-eperm, journey-builder, journey-followup, browser-deadline, journey-r2, mutate-workers deleted. No builder live.
+  NOT DONE: this charter's lines from 17:48 on (and the HANDOVER block) are uncommitted in the E: checkout (land left its local master at 4f91b52,
+  12 paths differ); the next head commits them on a check branch over 0937c67. NEXT slice: queue item (1).

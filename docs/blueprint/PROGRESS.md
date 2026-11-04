@@ -1813,3 +1813,5 @@ swing; (2) runLimited latency: under load a run of the same child took "dump-run
 limit and "hold-runLimited-done 69790" ms (about 45 s after the dump's listing) for a hold with a 5 s limit (fix b1: child ended after
 87989 ms, "ended by the cap: false", "3 passed, 0 failed"; b2 65586 ms): a 5 s limit that takes about 45 s to cut is a proc-guard
 behaviour question.
+
+LANDED 2026-11-02 18:58: 5-G r2 is 4f91b52 on master (check branch check/platform/5-g-r2, run 41480760534, "9 of 9 jobs success"). Linux, gates job: "PASS process guard tests        proc-guard tests: 66 passed, 0 failed", "PASS process guard mutants      mutants: 24 caught, 0 escaped, 0 broken, wrong or unclear". The old Linux escape (runs 41404410237 a1, 41447585998) did not recur, so it stays unnamed. Open for 5-PL: the runLimited and leaks() latency above. Open for 5-PX: PREFIXES lacks "omnikom-cli-mut-" (CLI finding, 303 pid-less mutant tree copies in %TEMP%).

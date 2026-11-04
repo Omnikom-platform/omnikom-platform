@@ -47,8 +47,9 @@ try {
   if (gate(GUARD, NEED_GUARD, 'start: --dry-run prints the launcher and the JSON, exit 0')) check('start: --dry-run prints the launcher and the JSON, exit 0', r.status === 0 && /DRY RUN/.test(r.out) && r.out.includes('--name BUILDER_cli-and-testing_slice-1') && r.out.includes('"name":"BUILDER_cli-and-testing_slice-1"'), r.out);
   check('start: --dry-run writes no launcher and creates no folder', !existsSync(LAUNCH), readdirSync(root).join(','));
   if (gate(GUARD, NEED_GUARD, 'start: the model defaults to the charter builder model (cli-and-testing = sonnet)')) check('start: the model defaults to the charter builder model (cli-and-testing = sonnet)', r.out.includes('--model claude-sonnet-5-5') && r.out.includes('--permission-mode bypassPermissions'), r.out);
-  r = cli('start-builder.mjs', ['--dept', 'cli-and-testing', '--slice', 'slice-1', '--model', 'haiku', '--effort', 'high', '--dry-run']);
-  if (gate(GUARD, NEED_GUARD, 'start: --model and --effort reach the claude command line')) check('start: --model and --effort reach the claude command line', r.status === 0 && r.out.includes('--model claude-haiku-5-5 --effort high --permission-mode'), r.out);
+  if (gate(GUARD, NEED_GUARD, 'start: no --effort given -> --effort high on the claude line and in the JSON')) check('start: no --effort given -> --effort high on the claude line and in the JSON', r.status === 0 && r.out.includes('--model claude-sonnet-5-5 --effort high --permission-mode') && r.out.includes('"effort":"high"'), r.out);
+  r = cli('start-builder.mjs', ['--dept', 'cli-and-testing', '--slice', 'slice-1', '--model', 'haiku', '--effort', 'low', '--dry-run']);
+  if (gate(GUARD, NEED_GUARD, 'start: --model and --effort low reach the claude command line (an explicit effort wins)')) check('start: --model and --effort low reach the claude command line (an explicit effort wins)', r.status === 0 && r.out.includes('--model claude-haiku-5-5 --effort low --permission-mode') && !r.out.includes('--effort high') && r.out.includes('"effort":"low"'), r.out);
 
   // --- the launcher text, judged by the real guard (not by builder-lib)
   const p = lib.plan({ dept: 'seo-and-audits', slice: 'audit-4c' });
@@ -57,7 +58,7 @@ try {
   if (gate(GUARD, NEED_GUARD, 'launcher: the guard lets Start-Process start it')) check('launcher: the guard lets Start-Process start it', guard.verdict(`Start-Process "${join(LAUNCH, 'x.cmd')}"`, () => text) === null);
   const missing = MARKERS.filter(n => !new RegExp(`^set ${n}=\\r?$`, 'm').test(text));
   check('launcher: every one of the 10 markers is cleared', missing.length === 0, missing.join(','));
-  check('launcher: CRLF lines, a title, a cd, the claude line with a name and no prompt', /\r\n/.test(text) && text.includes('title BUILDER_seo-and-audits_audit-4c') && /cd \/d "/.test(text) && / --name BUILDER_seo-and-audits_audit-4c --model claude-sonnet-5-5 --permission-mode bypassPermissions\r\n$/.test(text), JSON.stringify(text.slice(-200)));
+  check('launcher: CRLF lines, a title, a cd, the claude line with a name and no prompt', /\r\n/.test(text) && text.includes('title BUILDER_seo-and-audits_audit-4c') && /cd \/d "/.test(text) && / --name BUILDER_seo-and-audits_audit-4c --model claude-sonnet-5-5 --effort high --permission-mode bypassPermissions\r\n$/.test(text), JSON.stringify(text.slice(-200)));
   const stripped = text.replace(/^set CLAUDE_PID=\r?$/m, '');   // a marker the guard does not look at: only our own check can catch it
   if (gate(GUARD, NEED_GUARD, 'launcher: a launcher that keeps one marker is a problem (the check itself works)')) check('launcher: a launcher that keeps one marker is a problem (the check itself works)', stripped !== text && lib.launcherProblems(stripped).some(x => /CLAUDE_PID/.test(x)), JSON.stringify(lib.launcherProblems(stripped)));
   if (gate(GUARD, NEED_GUARD, 'launcher: a launcher that carries a prompt is a problem')) check('launcher: a launcher that carries a prompt is a problem', lib.launcherProblems(text.replace('--permission-mode', '"do the task now please" --permission-mode')).length > 0);
