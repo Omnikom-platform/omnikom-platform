@@ -111,7 +111,7 @@ with a publish.
    count (page titles and descriptions; headings and structure; indexing; addresses; links; accessibility; speed; structured
    data; AI question coverage; design; preview or live setting), and under a family with a problem one plain line per problem:
    what, which page. The plain family and problem words come from `tools/audit/` (one place, next slice), never written in the
-   screen. Backend: built (work order 06, M16 `site_audit`, function `site-audit` `latest.preview` and `latest.production`, the
+   screen. Backend: built (work order 10, M16 `site_audit`, function `site-audit` `latest.preview` and `latest.production`, the
    summary whole with its fails); staging proof: e2e-site-audit <date, the head fills it after the run>. No screen yet.
 2. **Check history:** the last 10 publishes, each with its date, pass or fail and counts; a failed one says "nothing went live"
    (`site-audit` `history`: the last 10 finished jobs, newest first, no fails; a job from before the stored summary shows no pass or counts

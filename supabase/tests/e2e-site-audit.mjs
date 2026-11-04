@@ -1,4 +1,4 @@
-// Staging proof of the stored audit (work order 06; migration 16; function site-audit; the runner stores the summary as gateReport.audit). Synthetic data only.
+// Staging proof of the stored audit (work order 10; migration 16; function site-audit; the runner stores the summary as gateReport.audit). Synthetic data only.
 //   node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node supabase/tests/e2e-site-audit.mjs --rows-file <stage.mjs --out file>
 //   node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node supabase/tests/e2e-site-audit.mjs --job <uuid>
 // STAGING ONLY, and the head runs it after the land, the migration apply (M16) and the deploy of `site-audit` (an outward action: the publish

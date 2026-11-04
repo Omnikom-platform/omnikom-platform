@@ -1,4 +1,4 @@
-// Work order 06 (migration 16): site-audit passes the verified claims and the site through and maps the walls to the right status. The walls and the
+// Work order 10 (migration 16): site-audit passes the verified claims and the site through and maps the walls to the right status. The walls and the
 // answer's content are proven in tenancy.test.sql T24; these tests prove the function reaches them and answers as documented.
 import { handle as siteAudit } from '../site-audit/index.ts';
 import { assert, call, eq, mint, SITE_A, SITE_B, SUB, t, withSql, type Sql } from './util.ts';

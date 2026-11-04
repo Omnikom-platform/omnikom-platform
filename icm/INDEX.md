@@ -22,7 +22,7 @@ none
 | work/02-crm-export-import/CONTEXT.md | head-of-operations | 108 | 02 CRM export and import in the client's own format | Owner: platform-build. Model: Opus 5.5, effort high. Branch: check/platform/crm-2 (fresh worktree on master). Status: OPEN, not started (written 2026-11-03 b... |  |
 | work/04-workspace-home/CONTEXT.md | head-of-operations | 93 | Work order 04: one home for all Omnikom Platform work (head of operations, builder) | Owner 2026-11-04 05:59: "do whatever is programmatically and engineeringly proper". Approved map: https://claude.ai/artifact/FkwY79m5MeBMsxKATsUHen . Ruling ... |  |
 | work/05-audit-results/CONTEXT.md | head-of-operations | 71 | 05 audit results | Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/audit-results. Status: OPEN. |  |
-| work/06-seo-read/CONTEXT.md | head-of-operations | 73 | 06 seo-read: every publish stores its audit summary, and a site's owner can read it | Owner: platform-build. Model: Sonnet 5.5, effort high. Branch: check/platform/seo-read (worktree on master after SEO's audit-results lands). Migration: M16 (... |  |
+| work/10-seo-read/CONTEXT.md | head-of-operations | 77 | 10 seo-read: every publish stores its audit summary, and a site's owner can read it | Owner: platform-build. Model: Sonnet 5.5, effort high. Branch: check/platform/seo-read (worktree on master after SEO's audit-results lands). Migration: M16 (... |  |
 | work/README.md | head-of-operations | 47 | Work orders | `work/` is layer 2 of the layout in `docs/product/README.md`: one folder per piece of work, plus `STATE.md` (where things stand now). A session loads `CLAUDE... |  |
 
 ## Layer 3 (82)

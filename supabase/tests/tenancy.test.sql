@@ -1587,7 +1587,7 @@ do $$ declare t record; n int; begin
       'crm_secret_put', 'crm_secret_drop', 'crm_target', 'crm_tested', 'find_login',
       'lead_set_fields', 'lead_list', 'leads_bulk',   -- work order 01: owner B on each in T22
       'crm_fields', 'import_leads',                    -- work order 02: owner B on each in T23
-      'site_audit']),                                  -- work order 06: member and owner B in T24
+      'site_audit']),                                  -- work order 10: member and owner B in T24
       'service.' || t.proname || ' takes claims but has no outsider test listed in T14';
   end loop;
 end $$;
@@ -1996,10 +1996,10 @@ do $$ declare f text; begin
   end loop;
 end $$;
 
--- ===== T24 work order 06 (migration 16): a site's stored audit summaries =====
+-- ===== T24 work order 10 (migration 16): a site's stored audit summaries =====
 -- A site of workspace A of its own (the jobs of the other tests must not count), with finished jobs made directly (finished_at set by hand: one
 -- transaction gives every now() the same value). Newest first:
---   J5 done 2026-10-05 audit WITHOUT v but with target, pass and counts (a job from before work order 06, or a bad write)   J4 done 2026-10-04 audit v 2
+--   J5 done 2026-10-05 audit WITHOUT v but with target, pass and counts (a job from before work order 10, or a bad write)   J4 done 2026-10-04 audit v 2
 --   J3 done 2026-10-03 preview v1 pass, no fails        J2 failed 2026-10-02 preview v1 fail, one fail        J1 done 2026-10-01 production v1 pass, one fail kept
 --   12 done jobs 2026-09-02 .. 2026-09-13 (preview v1, one fail each), and one job still building (not finished: never listed).
 --   The site's neighbour (site A, same workspace) has v1 jobs of both targets finished 2026-10-20, newer than all of these: they must never show here.

@@ -1,6 +1,6 @@
--- Omnikom Platform: work order 06 (seo-read), migration 16. Additive to migrations 1 to 15. No new table.
+-- Omnikom Platform: work order 10 (seo-read), migration 16. Additive to migrations 1 to 15. No new table.
 -- Every publish job stores its audit summary (tools/audit/summary.mjs, version 1) in publish_jobs.gate_report -> 'audit' (the runner does this
--- since work order 06); this migration reads it back for one site.
+-- since work order 10); this migration reads it back for one site.
 --  1. private.audit_row(job, finished_at, state, report, full)   one job as { job, finished_at, state, target, pass, counts, summary }. Only a
 --     report whose audit has v = 1 gives target, pass, counts (and summary when `full`); an older report (no v) gives nulls, never an error.
 --  2. service.site_audit(claims, site)   owner of the site's workspace, or staff with MFA, else S-NOT-FOUND (a member gets not found, as site

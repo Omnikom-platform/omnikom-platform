@@ -1,4 +1,4 @@
-// site-audit: a site's search check, read back from its publish jobs (work order 06; migration 16 service.site_audit). Body { site }.
+// site-audit: a site's search check, read back from its publish jobs (work order 10; migration 16 service.site_audit). Body { site }.
 // Steps: the user's JWT -> body (400: site a uuid) -> service.site_audit (the owner of the site's workspace, or staff with MFA; a member, another
 // workspace's owner or a site that does not exist gets 404 S-NOT-FOUND) -> 200 { latest: { preview, production }, history }.
 // A row is { job, finished_at, state, target, pass, counts, summary }. latest.<target> is the newest finished job of that target whose audit summary

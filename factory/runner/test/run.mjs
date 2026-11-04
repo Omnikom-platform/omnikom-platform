@@ -268,7 +268,7 @@ await runPublish({ env: { OMNIKOM_REPO_ROOT: argvRepo }, exportMut: (e) => { e.s
 const liveArgv = auditArgv();
 await check('audit target: a live export is audited with --target production, after the built folder', () =>
   (liveArgv.length === 4 && /dist$/.test(liveArgv[0]) && liveArgv[1] === '--target' && liveArgv[2] === 'production' && liveArgv[3] === '--summary') || `audit was called with ${JSON.stringify(liveArgv)}`);
-// the summary is stored whole (work order 06): a stub audit prints a known summary object and exits 0 or 1; what the platform is told must be that object, byte for byte
+// the summary is stored whole (work order 10): a stub audit prints a known summary object and exits 0 or 1; what the platform is told must be that object, byte for byte
 const stubAudit = (tag, script) => {
   const d = tmp(`repo-${tag}`);
   mkdirSync(join(d, 'tools', 'audit'), { recursive: true });

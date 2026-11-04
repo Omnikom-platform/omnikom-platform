@@ -186,7 +186,7 @@ const MUTANTS = [
   ['db: I-IMPORT does not name the line', F + '_shared/db.ts', "path: m ? m[2] : '', row: m ? m[1] : undefined };", "path: m ? m[2] : '' };", 'import.test.ts'],
   ['db: T-FIELD is not mapped (a 500)', F + '_shared/db.ts', "  if (has('T-FIELD')) {", "  if (has('T-FIELD-NEVER')) {", 'import.test.ts'],
   ['db: I-CONSENT is not mapped (a 500)', F + '_shared/db.ts', "  if (has('I-CONSENT')) return", "  if (has('I-CONSENT-NEVER')) return", 'import.test.ts'],
-  // site-audit (work order 06)
+  // site-audit (work order 10)
   ['site-audit: the body is not checked', F + 'site-audit/index.ts', "    if (f.problems.length || !site) return badBody(f.problems);\n", '', 'site-audit.test.ts'],
   ['site-audit: the claims are always the owner\'s, not the caller\'s', F + 'site-audit/index.ts', 'select service.site_audit(${c.jwtClaims}::jsonb,', "select service.site_audit('{\"sub\":\"00000000-0000-0000-0000-00000000000a\",\"aal\":\"aal1\",\"role\":\"authenticated\"}'::jsonb,", 'site-audit.test.ts'],
   ['site-audit: a refusal is not recorded against the site', F + 'site-audit/index.ts', '    c.site = site;\n', '', 'site-audit.test.ts'],

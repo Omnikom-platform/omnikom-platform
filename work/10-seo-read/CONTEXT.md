@@ -1,4 +1,4 @@
-# 06 seo-read: every publish stores its audit summary, and a site's owner can read it
+# 10 seo-read: every publish stores its audit summary, and a site's owner can read it
 
 Owner: platform-build. Model: Sonnet 5.5, effort high. Branch: check/platform/seo-read (worktree on master after SEO's
 audit-results lands). Migration: M16 (`20261104000016_site_audit.sql`). Status: OPEN (written 2026-11-04 by
@@ -71,3 +71,7 @@ the Search health screen is a later block (its plain family words come from `too
 
 ## Findings
 (the builder writes here, one line each, and sends them to the head)
+- F1 (accepted by the head, later migration): `set_job_state` (M8) copies the whole `p_report` into `audit_log.detail`, so every publish now writes the audit summary (up to ~60 KiB) into `audit_log`; trim it to `{ pass, counts }` for the audit key.
+- F2: the order says `e2e-screens.mjs` publishes the test site; it does not. `e2e-site-audit.mjs` publishes through `sites/test-demo-a/publish.mjs --rows-file <f> --wait` (or takes `--job <uuid>` of a publish the head already ran).
+- F3 (for SEO, optional): the stored summary has no `commit` (`run.mjs --summary` passes none); the runner could add it from `GITHUB_SHA` if the Search health card wants "checked at commit".
+- F4: `icm/` goes stale with every book edit (`node tools/icm/index.mjs --check`); regenerate once after the last doc edit.
