@@ -676,3 +676,8 @@ when the head of operations has released its slice.
   ({"total":176,"failed":1}). Platform: add-lead keeps 400 I-ANSWER (WO 02 Settled 8), J11 accepts 400 or 422.
   NEXT (QUEUE items 2-7): crm-map F1/F2; land retry + lock release backoff + own-lock takeover (today's blip is its case); with-env
   10-min cap; browser-close flake; journey step per platform block (next: seo-read). Usage 84% at 21:20; stop at 95% and tell HoO.
+- 22:19 HoO HELD SLOT (binding): platform's 07 (CRM screens) lands next (refused twice tonight). NO CLI land, head-log-3 included, until
+  platform says 07 is in. Builder BUILDER_cli-and-testing_crm-map-f1f2 (Sonnet, pid 25384) started 21:28 on crm-map F1/F2, option (a)
+  for both (head's decision): F1 the contract label as one more exact synonym in proposeMap; F2 hubspot.json headers in HubSpot's case.
+  It pushes, never lands; platform-owned files (supabase/functions/) come to the head as a request. Empty folder
+  departments\cli-and-testing\builders\crm-journey left "busy" (worktree and branches removed); delete when its process is gone.
