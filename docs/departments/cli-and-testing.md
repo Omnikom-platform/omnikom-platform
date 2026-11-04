@@ -605,3 +605,9 @@ when the head of operations has released its slice.
 - 09:01 STANDING ORDER (owner via HoO): for every block platform lands (crm-2 export/import next, then block 3 CRM screens, then the
   rest) add its journey step on staging the same day, so every book row that turns WORKS has a step showing it. Block order asked of
   HEAD_Platform-build_2026-11-04. Stop all work at 95% weekly usage and tell HoO.
+- 09:04 Platform's block order (HEAD_Platform-build_2026-11-04; it sends each land commit the day it lands): 1 crm-2 (backend only:
+  A21, A22 "backend proven", C11 import consent, F3; step drives crm-map-propose, crm-template-save owner only, lead-export with
+  `template`, lead-import dry_run true then false, duplicates "skip", consent tick required, a member refused, add-lead refusing a bad
+  typed answer; reference supabase/tests/e2e-crm-io.mjs); 2 seo-read (F1, F2); 3a CRM screens (A2, A21, A22, list/bulk/export screens
+  WORKS); 4 settings (B3, B16-B19, C13, D8); 3b (A13, A14, A17, A18); 5 site content (B8, B11-B15); 6 overview (B20, B21, C16);
+  7 onboarding (C14, C11).
