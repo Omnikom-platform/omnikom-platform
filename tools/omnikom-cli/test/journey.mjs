@@ -66,6 +66,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     const ok = (json, status = 200) => ({ status, text: JSON.stringify(json), json });
     const down = () => new Blocked('a session for owner-a: Auth verify answered 403: Email link is invalid or has expired', 'run again');
     if (o.preLead) lead('Journey abcdef12');
+    if (o.oldLead) { store.seen.add('Journey 8c12816a'); store.leads.push({ id: 'old-1', name: 'Journey 8c12816a', phone: '', status: 'new', owner: null, events: 0, answers: {} }); }
     return {
       store, fields, addLead: lead,
       async crm(who, name, body) {
@@ -76,7 +77,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
         if (name === 'lead-list') {
           if (body.search && /^Journey /.test(body.search)) lead(body.search);
           let rows = [...store.leads.map(rowOf), ...(body.search ? [] : (o.extraRows || []))];
-          if (body.search) rows = rows.filter(r => r.name.toLowerCase().includes(body.search.toLowerCase()));
+          if (body.search && !o.searchLoose) rows = rows.filter(r => r.name.toLowerCase().includes(body.search.toLowerCase()));
           if (!o.filtersIgnored) for (const f of body.filters || []) {
             if (o.eqBroken && f.op === 'eq') { rows = []; continue; }
             if (o.rangeBroken && f.op === 'range') { rows = []; continue; }
@@ -397,6 +398,12 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     g5.byId.J5.status === 'PASS' && /^cleanup BLOCKED: 1 journey lead\(s\) may be left \(Journey abcdef12\)/m.test(g5.text) && !g5.res.ok && g5.obj.exit === 1, g5.text);
   const k5 = await crmRun({ preLead: true }, { only: 'J5' });
   check('journey clean-up: a lead the run left behind (J5 only) is deleted with the confirm flag and counted: 1 removed, 0 left', /^cleanup: 1 journey lead\(s\) removed, 0 left$/m.test(k5.text) && k5.impl.store.leads.length === 0 && k5.res.ok, k5.text);
+  const keep = await crmRun({ deleteKeeps: true, preLead: true }, { only: 'J5' });
+  check('journey clean-up: a delete that answers 200 while lead-list still shows the lead is not "0 left": the line says the lead may be left and the run is not ok',
+    !/0 left/.test(keep.text) && /^cleanup BLOCKED: 1 journey lead\(s\) may be left \(Journey abcdef12\)/m.test(keep.text) && keep.res.data.cleanup.left.join() === 'Journey abcdef12' && keep.res.data.cleanup.removed === 0 && !keep.res.ok && keep.impl.store.leads.length === 1, keep.text);
+  const safe = await crmRun({ preLead: true, oldLead: true, searchLoose: true }, { only: 'J5' });
+  check('journey clean-up: a list that also returns a lead without the run id (one of the old Journey leads) never gets that lead deleted: only the run\'s own lead goes',
+    safe.impl.store.leads.map(x => x.name).join() === 'Journey 8c12816a' && /^cleanup: 1 journey lead\(s\) removed, 0 left$/m.test(safe.text) && safe.res.ok, safe.text + ' | left in the store: ' + safe.impl.store.leads.map(x => x.name).join());
   const none = await crmRun({}, { only: 'J4' });
   check('journey clean-up: a run that made no lead prints no clean-up line and touches no CRM function', !/cleanup/.test(none.text) && none.impl.store.log.length === 0, none.text);
   const alone = await crmRun({}, { only: 'J10' });
