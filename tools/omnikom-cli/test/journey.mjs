@@ -44,8 +44,80 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const fakeBrowser = (o = {}) => async () => ({ async newPage() { return fakePage(o); }, async close() { fakeBrowser.closed = (fakeBrowser.closed || 0) + 1; } });
   const goodTitle = J.TESTS.J3.title;
   const pwOk = (title) => ({ ran: 1, rows: [{ title, statuses: ['expected'], ms: 2000 }], failed: 0, flaky: 0, error: null });
+  // the test site's form contract as leadColumns lists it (sites/test-demo-a/contract.json), and a stateful fake of the CRM functions the new steps call
+  const FIELDS = [
+    { key: 'side', type: 'choice', multi: false, column: true, editable: true, options: ['Buying', 'Selling'] },
+    { key: 'budget', type: 'number', multi: false, column: true, editable: true, options: [], min: 10000, max: 50000000 },
+    { key: 'timing', type: 'enum', multi: false, column: true, editable: true, options: ['0-3 months', '3-6 months', '6-12 months', 'just looking'] },
+    { key: 'beds', type: 'number', multi: false, column: true, editable: true, options: [], min: 0, max: 10 },
+    { key: 'area', type: 'reference', multi: false, column: true, editable: true, options: [], to: 'areas' },
+    { key: 'message', type: 'text', multi: false, column: false, editable: true, options: [] },
+  ];
+  const csvOf = (fields, leads, o = {}) => [J.csvHeader(fields), ...leads.map(l => ['2026-11-01T00:00:00Z', l.name, 'a@example.com', l.phone || '', 'contact', '/contact/', l.status || 'new', '', ...fields.map(f => String((l.answers || {})[f.key] ?? ''))])]
+    .map(r => r.join(',')).join('\r\n') + '\r\n';
+  // o: fields (the contract), exportFields (what the export writes), stored (the lead's answers), extraRows (other leads in the workspace), and one switch per planted fault
+  const crmFake = (o = {}) => {
+    const fields = o.fields || FIELDS, store = { leads: [], seen: new Set(), log: [] };
+    const lead = marker => {
+      if (!store.seen.has(marker)) { store.seen.add(marker); store.leads.push({ id: `lead-${store.seen.size}`, name: marker, phone: '(555) 010-0153', status: 'new', owner: null, events: 0, answers: { ...(o.stored || J.journeyAnswers(fields)) } });
+        if (o.dupMarker) store.leads.push({ id: 'lead-dup', name: marker + ' again', phone: '', status: 'new', owner: null, events: 0, answers: {} }); }
+    };
+    const rowOf = l => ({ id: l.id, name: l.name, phone: l.phone, status: l.status, owner: l.owner, ...(o.stringNumbers ? Object.fromEntries(Object.entries(l.answers).map(([k, v]) => [k, typeof v === 'number' ? String(v) : v])) : l.answers) });
+    const ok = (json, status = 200) => ({ status, text: JSON.stringify(json), json });
+    return {
+      store, fields,
+      async crm(who, name, body) {
+        store.log.push(`${who}:${name}:${body.action || ''}${body.confirm ? '+confirm' : ''}`);
+        if (name !== 'lead-update' && body.workspace !== WS_A) return ok({ code: 'S-BODY' }, 400);
+        if (name === 'lead-list') {
+          if (body.search && /^Journey /.test(body.search)) lead(body.search);
+          let rows = [...store.leads.map(rowOf), ...(body.search ? [] : (o.extraRows || []))];
+          if (body.search) rows = rows.filter(r => r.name.toLowerCase().includes(body.search.toLowerCase()));
+          if (!o.filtersIgnored) for (const f of body.filters || []) {
+            if (o.eqBroken && f.op === 'eq') { rows = []; continue; }
+            if (o.rangeBroken && f.op === 'range') { rows = []; continue; }
+            if (o.rangeIgnored && f.op === 'range') continue;
+            rows = rows.filter(r => f.op === 'eq' ? String(r[f.field]).toLowerCase() === String(f.value).toLowerCase()
+              : (f.from === undefined || r[f.field] >= f.from) && (f.to === undefined || r[f.field] <= f.to));
+          }
+          if (body.sort) {
+            const dir = o.sortAlwaysAsc ? 'asc' : body.sort.dir, k = body.sort.field;
+            const key = v => (o.sortAsText ? String(v) : v);
+            rows = rows.filter(r => r[k] !== undefined).sort((a, b) => (key(a[k]) < key(b[k]) ? -1 : key(a[k]) > key(b[k]) ? 1 : 0) * (dir === 'desc' ? -1 : 1)).concat(rows.filter(r => r[k] === undefined));
+            if (o.sortStrings) rows = rows.map(r => (r[k] === undefined ? r : { ...r, [k]: String(r[k]) }));
+          }
+          return o.listStatus ? { status: o.listStatus, text: 'boom', json: null } : ok({ total: rows.length, page: 1, size: body.size || 50, columns: [], rows });
+        }
+        if (name === 'lead-update') {
+          const l = store.leads.find(x => x.id === body.lead); if (!l) return ok({ code: 'S-NOT-FOUND' }, 404);
+          const keys = Object.keys(body.fields || {});
+          if (!o.updateIgnored) for (const k of keys) { if (k === 'phone') l.phone = body.fields[k]; else if (!(o.skipField && k !== 'phone')) l.answers[k] = body.fields[k]; }
+          l.events += o.events === undefined ? keys.length : o.events;
+          return ok({ changed: o.updateChanged === undefined ? keys.length : o.updateChanged });
+        }
+        if (name === 'leads-bulk') {
+          const ls = store.leads.filter(x => body.ids.includes(x.id)); if (!ls.length) return ok({ code: 'S-NOT-FOUND' }, 404);
+          if (body.action === 'status') { if (!o.statusIgnored) ls.forEach(l => { l.status = body.value; }); return ok({ changed: o.bulkChanged === undefined ? ls.length : o.bulkChanged }); }
+          if (body.action === 'owner') { if (!o.ownerIgnored) ls.forEach(l => { l.owner = body.value; }); return ok({ changed: o.ownerChanged === undefined ? ls.length : o.ownerChanged }); }
+          if (!body.confirm) {
+            if (o.deleteNoConfirm) { store.leads = store.leads.filter(x => !body.ids.includes(x.id)); return ok({ changed: ls.length }); }
+            if (o.refuseButDelete) store.leads = store.leads.filter(x => !body.ids.includes(x.id));
+            return ok({ code: o.wrongCode || 'S-CONFIRM' }, 409);
+          }
+          if (!o.deleteKeeps) store.leads = store.leads.filter(x => !body.ids.includes(x.id));
+          return ok({ changed: o.deleteChanged === undefined ? ls.length : o.deleteChanged });
+        }
+        return ok({ code: 'S-NOT-FOUND' }, 404);
+      },
+      async crmFields() { return fields; },
+      async editedEvents(id) { const l = store.leads.find(x => x.id === id); return l ? l.events : 0; },
+      async teamRow() { return o.teamRow === undefined ? 'team-row-1' : o.teamRow; },
+      async exportCsv(who, marker) { lead(marker); return { status: 200, text: o.exportText ? o.exportText(csvOf(o.exportFields || fields, store.leads.filter(l => l.name.includes(marker)))) : csvOf(o.exportFields || fields, store.leads.filter(l => l.name.includes(marker))) }; },
+    };
+  };
   const fakeImpl = (o = {}) => ({
     calls: [],
+    ...crmFake(o),
     async seed() { return { ok: true, code: 'ok', data: { changed: false, logins: ['a', 'b'], testSite: { contractVersion: 2, rows: { pages: 3, team: 2 } } } }; },
     async workspacesAs() { return { status: 200, ids: [WS_A] }; },
     spec(file) { return o.spec ? o.spec(file) : { exists: false, text: '' }; },
@@ -55,7 +127,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     async leadCount() { return o.leadCount === undefined ? 1 : o.leadCount; },
     async sendLead(marker) { this.calls.push('sendLead'); return o.sendLead ? o.sendLead(marker) : { ok: true, code: 'ok', statuses: [202] }; },
     async alertsOnlyTo() { return o.alertsOnlyTo === undefined ? true : o.alertsOnlyTo; },
-    async exportCsv(who, marker) { return o.exportCsv ? o.exportCsv(marker) : { status: 200, text: `${J.CSV_HEADER}\n2026-11-01T00:00:00Z,${marker},a@example.com,,contact,/contact/,new,,\n` }; },
+    ...(o.exportCsv ? { async exportCsv(who, marker) { return o.exportCsv(marker); } } : {}),
     async inboxShot(who, marker, file) { return o.inboxShot ? o.inboxShot(marker, file) : { found: true, file, written: true }; },
     ...(o.seed ? { seed: o.seed } : {}), ...(o.workspacesAs ? { workspacesAs: o.workspacesAs } : {}),
   });
@@ -81,15 +153,52 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const real = J.makeImpl({ target: () => ({ vars: { publishableKey: 'X' } }), env: {} });
   check('journey: the real spec reader agrees with the disk about site.spec.ts and flows.spec.ts', real.spec('site.spec.ts').exists === siteSpec && real.spec('flows.spec.ts').exists === true && real.spec('flows.spec.ts').text.includes(J.TESTS.J6.title));
 
+  // ======================================================== the real seams of the CRM steps (a fake fetch and a fake database, no network)
+  {
+    const seen = [], sqls = [];
+    const reply = (status, body) => ({ status, text: async () => (typeof body === 'string' ? body : JSON.stringify(body)) });
+    const sctx = makeCtx({ command: 'test', positionals: ['test', 'journey'], flags: { target: 'staging' }, deps: { env: ENV, fetch: async (url, init) => {
+      seen.push({ url, init });
+      if (url.endsWith('/admin/generate_link')) return reply(200, { hashed_token: 'h' + rand() });
+      if (url.endsWith('/verify')) return reply(200, { access_token: 'tok' + rand() });
+      return url.endsWith('/lead-update') ? reply(204, '') : reply(200, { total: 0, rows: [] });
+    } } });
+    sctx.sql = () => ({ scalar: text => { sqls.push(text); return { ok: true, value: /members/.test(text) ? 'team-1' : '2' }; } });
+    const impl = J.makeImpl(sctx);
+    const listed = await impl.crm('owner-a', 'lead-list', { workspace: WS_A, search: 'x' });
+    const call = seen[seen.length - 1];
+    check('journey seam crm: a POST to the function of that name with the person\'s bearer token, the publishable key and the body as JSON; the answer is status, text and parsed JSON',
+      call.url === 'https://testref.supabase.co/functions/v1/lead-list' && call.init.method === 'POST' && /^Bearer tok/.test(call.init.headers.authorization) && call.init.headers.apikey === ENV.STAGING_SUPABASE_PUBLISHABLE_KEY
+        && call.init.body === JSON.stringify({ workspace: WS_A, search: 'x' }) && listed.status === 200 && listed.json.total === 0, JSON.stringify(call.init));
+    const empty = await impl.crm('owner-a', 'lead-update', { lead: 'l' });
+    check('journey seam crm: an answer with no body (204) is status 204 and json null, never a throw', empty.status === 204 && empty.json === null);
+    const cols = await impl.crmFields();
+    const contract = JSON.parse(readFileSync(join(REPO_ROOT, 'sites', 'test-demo-a', 'contract.json'), 'utf8'));
+    const { leadColumns } = await import(pathToFileURL(join(REPO_ROOT, 'contracts', 'validate.mjs')).href);
+    check('journey seam crmFields: the industry fields of sites/test-demo-a/contract.json in form order, from the validator\'s own leadColumns (none copied into the CLI)',
+      cols.length > 0 && JSON.stringify(cols.map(f => f.key)) === JSON.stringify(leadColumns(contract).map(f => f.key)) && cols.every(f => 'type' in f && 'editable' in f && 'column' in f), cols.map(f => f.key).join());
+    check('journey seam crmFields: the real test site\'s fields include a number and an enum column (what J8 and J9 need), so the steps can run on it', cols.some(f => f.type === 'number' && f.editable && f.column) && cols.some(f => f.type === 'enum' && f.column), cols.map(f => f.key + ':' + f.type).join());
+    const n = await impl.editedEvents('11111111-2222-3333-4444-555555555555');
+    check('journey seam editedEvents: counts the lead\'s edited events in lead_events', n === 2 && /from lead_events where lead_id = '11111111-2222-3333-4444-555555555555'::uuid and kind = 'edited'/.test(sqls[0]), sqls[0]);
+    const team = await impl.teamRow();
+    check('journey seam teamRow: a team row of the test workspace\'s members', team === 'team-1' && new RegExp(`from members where workspace_id = '${WS_A}'::uuid and team_row_id is not null`).test(sqls[1]), sqls[1]);
+    const file = join(work, 'seam-lead.json');
+    sctx.randomUUID = () => 'abcdef12-0000-0000-0000-000000000000';
+    try { await impl.sendLead('Journey seam', file, { budget: 10000, timing: '0-3 months' }); } catch { /* no network: only the fixture file is looked at */ }
+    const fx = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {};
+    check('journey seam sendLead: the fixture carries the industry answers with their types beside the message', fx.answers && fx.answers.budget === 10000 && fx.answers.timing === '0-3 months' && /Synthetic/.test(fx.answers.message) && fx.name === 'Journey seam', JSON.stringify(fx.answers));
+  }
+
   // ======================================================== the orchestrator, with fakes
   const pass = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl() });
-  const shape = /^J\d (PASS|FAIL|BLOCKED|NOT BUILT YET|SKIPPED \(after J\d (FAIL|BLOCKED)\)) \S.*/;
+  const shape = /^J\d+ (PASS|FAIL|BLOCKED|NOT BUILT YET|SKIPPED \(after J\d+ (FAIL|BLOCKED)\)) \S.*/;
   const lines = pass.text.trim().split('\n');
-  check('journey: one line per step J1..J9 in order, then one summary line', lines.length === 10 && lines.slice(0, 9).every((l, i) => l.startsWith(`J${i + 1} `) && shape.test(l)) && lines[9].startsWith('journey (staging): '), pass.text);
-  check('journey: with a good tree the result is 6 PASS, 3 NOT BUILT YET, 0 FAIL and the exit is 0', pass.res.ok && pass.obj.exit === 0 && lines[9].startsWith('journey (staging): 6 PASS, 3 NOT BUILT YET, 0 FAIL'), lines[9]);
+  check('journey: one line per step J1..J10 in order, then one summary line', lines.length === 11 && lines.slice(0, 10).every((l, i) => l.startsWith(`J${i + 1} `) && shape.test(l)) && lines[10].startsWith('journey (staging): '), pass.text);
+  check('journey: with a good tree the result is 9 PASS, 1 NOT BUILT YET (J3), 0 FAIL and the exit is 0', pass.res.ok && pass.obj.exit === 0 && lines[10].startsWith('journey (staging): 9 PASS, 1 NOT BUILT YET, 0 FAIL'), lines[10]);
   check('journey: J3 on a tree with no site.spec.ts prints NOT BUILT YET with the file named', pass.byId.J3.status === 'NOT BUILT YET' && /apps\/dashboard\/tests\/site\.spec\.ts missing/.test(pass.byId.J3.evidence));
-  check('journey: J8 and J9 print NOT BUILT YET and are never counted as a pass', pass.byId.J8.status === 'NOT BUILT YET' && pass.byId.J9.status === 'NOT BUILT YET' && pass.res.data.counts.PASS === 6);
-  check('journey: the summary names the screenshot folder', lines[9].includes(pass.res.data.out) && pass.res.data.out.startsWith(work));
+  check('journey: the steps are J1..J10 and none of them sends a test or pushes a lead to a CRM (leads are never pushed)', pass.res.data.steps.map(s => s.id).join() === 'J1,J2,J3,J4,J5,J6,J7,J8,J9,J10' && !pass.res.data.steps.some(s => /push|send a test/i.test(s.name)) && !/pushed|send a test|Webhook/i.test(pass.text), pass.text);
+  check('journey: J8 field edit, J9 server list and J10 bulk are real PASS lines, never a NOT BUILT YET', ['field edit', 'server list', 'bulk'].every((n, i) => pass.byId[`J${8 + i}`].name === n && pass.byId[`J${8 + i}`].status === 'PASS') && pass.res.data.counts.PASS === 9);
+  check('journey: the summary names the screenshot folder', lines[10].includes(pass.res.data.out) && pass.res.data.out.startsWith(work));
   check('journey: a screenshot path is printed on the step line that took it', /^J4 PASS .*\| png: .*j4-phone-home\.png; .*j4-phone-contact\.png; .*j4-desktop-home\.png; .*j4-desktop-contact\.png/.test(lines[3]) && /j5-form-answer\.png/.test(lines[4]) && /j6-inbox-owner-a\.png/.test(lines[5]), lines.slice(3, 6).join(' // '));
 
   const withSpec = { spec: () => ({ exists: true, text: `test('${goodTitle}')` }) };
@@ -103,8 +212,8 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   check('journey: J3 whose run executed 0 tests is a FAIL', zero.byId.J3.status === 'FAIL' && /0 tests ran/.test(zero.byId.J3.evidence));
 
   const j1bad = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ seed: async () => ({ ok: false, code: 'S-X', data: { error: 'nope' } }) }) });
-  check('journey: J1 FAIL skips J2, J3, J5, J6 and J7 with "SKIPPED (after J1 FAIL)", still runs J4, and the exit is 1',
-    j1bad.byId.J1.status === 'FAIL' && ['J2', 'J3', 'J5', 'J6', 'J7'].every(i => j1bad.byId[i].status === 'SKIPPED') && /^J2 SKIPPED \(after J1 FAIL\) /m.test(j1bad.text) && j1bad.byId.J4.status === 'PASS' && j1bad.obj.exit === 1, j1bad.text);
+  check('journey: J1 FAIL skips J2, J3, J5, J6, J7, J8, J9 and J10 with "SKIPPED (after J1 FAIL)", still runs J4, and the exit is 1',
+    j1bad.byId.J1.status === 'FAIL' && ['J2', 'J3', 'J5', 'J6', 'J7', 'J8', 'J9', 'J10'].every(i => j1bad.byId[i].status === 'SKIPPED') && /^J2 SKIPPED \(after J1 FAIL\) /m.test(j1bad.text) && j1bad.byId.J4.status === 'PASS' && j1bad.obj.exit === 1, j1bad.text);
   // a product bug at J5 must not leave J6 and J7 unproven: they use ONE lead made by `lead send`, and their lines say so
   const FALLBACK = '(lead from lead send: J5 did not store one)';
   const implB = fakeImpl({ leadCount: 0 });
@@ -132,20 +241,121 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const j2bad = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ workspacesAs: async () => ({ status: 200, ids: [WS_A, 'bbbbbbbb-0000-0000-0000-000000000000'] }) }) });
   check('journey: J2 FAIL when a login reads another workspace too', j2bad.byId.J2.status === 'FAIL' && /not exactly its own/.test(j2bad.byId.J2.evidence));
   const only = await run({ only: 'J4,j5', 'alert-to': ALERT }, { ...base, impl: fakeImpl() });
-  check('journey: --only J4,J5 runs just those and the summary names what was not run', only.res.data.steps.map(s => s.id).join() === 'J4,J5' && /; not run: J1, J2, J3, J6, J7, J8, J9; /.test(only.text) && only.res.ok, only.text);
+  check('journey: --only J4,J5 runs just those and the summary names what was not run', only.res.data.steps.map(s => s.id).join() === 'J4,J5' && /; not run: J1, J2, J3, J6, J7, J8, J9, J10; /.test(only.text) && only.res.ok, only.text);
   const implF = fakeImpl({ alertsOnlyTo: false });
   const noAlertList = await run({ 'alert-to': ALERT }, { ...base, impl: implF });
   check('journey: J5, J6 and J7 are BLOCKED, and nothing is opened or sent (no browser, no lead send, no dashboard test), when the test site\'s alert list is not exactly --alert-to',
-    noAlertList.byId.J5.status === 'BLOCKED' && noAlertList.byId.J6.status === 'BLOCKED' && noAlertList.byId.J7.status === 'BLOCKED' && !implF.calls.includes('sendLead') && !implF.calls.some(c => c.startsWith('playwright')) && !noAlertList.res.ok, noAlertList.text);
+    noAlertList.byId.J5.status === 'BLOCKED' && noAlertList.byId.J6.status === 'BLOCKED' && noAlertList.byId.J7.status === 'BLOCKED' && noAlertList.byId.J8.status === 'BLOCKED' && ['J9', 'J10'].every(i => noAlertList.byId[i].status === 'SKIPPED') && implF.store.leads.length === 0 && !implF.calls.includes('sendLead') && !implF.calls.some(c => c.startsWith('playwright')) && !noAlertList.res.ok, noAlertList.text);
   const implG = fakeImpl();
   const j6alone = await run({ only: 'J6,J7', 'alert-to': ALERT }, { ...base, impl: implG });
   check('journey: --only J6,J7 (no J5 in the run) uses one lead from lead send and says so', j6alone.byId.J6.status === 'PASS' && j6alone.byId.J7.status === 'PASS' && j6alone.byId.J6.evidence.includes(FALLBACK) && implG.calls.filter(c => c === 'sendLead').length === 1 && j6alone.res.ok, j6alone.text);
-  const j7bad = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ exportCsv: () => ({ status: 200, text: `${J.CSV_HEADER}\n` }) }) });
+  const j7bad = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ exportCsv: () => ({ status: 200, text: `${J.csvHeader(FIELDS).join(',')}\r\n` }) }) });
   check('journey: J7 FAIL when the CSV does not hold the marker lead', j7bad.byId.J7.status === 'FAIL' && /0 line/.test(j7bad.byId.J7.evidence));
   const j6bad = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ inboxShot: (m, f) => ({ found: false, file: f, written: true }) }) });
   check('journey: J6 FAIL when the inbox does not list the marker lead', j6bad.byId.J6.status === 'FAIL' && /does not list/.test(j6bad.byId.J6.evidence));
   const j6shot = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ inboxShot: (m, f) => ({ found: true, file: f, written: false }) }) });
   check('journey: J6 FAIL when the inbox screenshot was not written', j6shot.byId.J6.status === 'FAIL' && /not written/.test(j6shot.byId.J6.evidence));
+  // ======================================================== the CRM steps (J7 columns, J8 field edit, J9 server list, J10 bulk): a good run, then each planted fault goes red for its own reason
+  const crmRun = async (o, flags = {}) => { const impl = fakeImpl(o); const r = await run({ 'alert-to': ALERT, ...flags }, { ...base, impl }); return { ...r, impl }; };
+  const P = await J.parseCsv('a,"b ""q"" c","d\r\ne"\r\n\r\nx,,z');
+  check('journey csv: quotes, doubled quotes, an embedded line break, blank lines and an empty cell are read', JSON.stringify(P) === JSON.stringify([['a', 'b "q" c', 'd\r\ne'], ['x', '', 'z']]), JSON.stringify(P));
+  const AN = J.journeyAnswers(FIELDS);
+  check('journey answers: a number inside its range, the first option of an enum and of a single choice; a reference, a text and a multi choice stay empty',
+    JSON.stringify(AN) === JSON.stringify({ side: 'Buying', budget: 10000, timing: '0-3 months', beds: 10 }) && J.journeyAnswers([{ key: 'm', type: 'choice', multi: true, options: ['a'] }]).m === undefined, JSON.stringify(AN));
+  check('journey answers: the edit value is the neighbour inside the range (one up, one down at the top, a fresh number when none is held)',
+    J.nextNumber(FIELDS[1], 10000) === 10001 && J.nextNumber(FIELDS[3], 10) === 9 && J.nextNumber(FIELDS[1], undefined) === 10000 && J.nextNumber({ key: 'n', type: 'number' }, 5) === 6);
+
+  const good = await crmRun({});
+  check('journey CRM: with a working CRM J7, J8, J9 and J10 PASS, and the lead is gone at the end', ['J7', 'J8', 'J9', 'J10'].every(i => good.byId[i].status === 'PASS') && good.impl.store.leads.length === 0, good.text);
+  check('journey J7: the PASS line counts the contract\'s columns and the marker lead\'s industry values', /14 columns \(8 core \+ 6 industry/.test(good.byId.J7.evidence) && /with 4 industry value\(s\)/.test(good.byId.J7.evidence), good.byId.J7.evidence);
+  const oldHeader = await crmRun({ exportCsv: m => ({ status: 200, text: `received,name,email,phone,form,page,status,owner,answers\r\n2026,${m},a@example.com,,contact,/contact/,new,,\r\n` }) });
+  check('journey J7: the old fixed header (a column "answers") is a FAIL that names both headers', oldHeader.byId.J7.status === 'FAIL' && /the CSV header is "received,name,email,phone,form,page,status,owner,answers"/.test(oldHeader.byId.J7.evidence) && /the contract wants/.test(oldHeader.byId.J7.evidence), oldHeader.byId.J7.evidence);
+  const newField = await crmRun({ fields: [...FIELDS, { key: 'garage', type: 'number', multi: false, column: true, editable: true, options: [], min: 0, max: 5 }], exportFields: FIELDS });
+  check('journey J7: a field the contract has and the file lacks is a FAIL (the list is the contract\'s, not a copy)', newField.byId.J7.status === 'FAIL' && /garage/.test(newField.byId.J7.evidence), newField.byId.J7.evidence);
+  const reordered = await crmRun({ exportFields: [FIELDS[1], FIELDS[0], ...FIELDS.slice(2)] });
+  check('journey J7: the columns in another order than the form\'s are a FAIL', reordered.byId.J7.status === 'FAIL' && /the CSV header is/.test(reordered.byId.J7.evidence));
+  const shifted = await crmRun({ exportText: t => t.replace(/,Buying,10000,/, ',10000,Buying,') });
+  check('journey J7: an industry value in the wrong column is a FAIL that names the column and the value', shifted.byId.J7.status === 'FAIL' && /in the marker lead's line side is "10000" \(the lead said "Buying"\)/.test(shifted.byId.J7.evidence), shifted.byId.J7.evidence);
+  const emptied = await crmRun({ exportText: t => t.replace(/,0-3 months,/, ',,') });
+  check('journey J7: an industry value missing from the line is a FAIL', emptied.byId.J7.status === 'FAIL' && /timing is ""/.test(emptied.byId.J7.evidence), emptied.byId.J7.evidence);
+  const bare = await crmRun({ fields: [{ key: 'note', type: 'text', multi: false, column: true, editable: true, options: [] }] });
+  check('journey J7: a lead that carries no industry answer cannot pass (a header alone proves no value)', bare.byId.J7.status === 'FAIL' && /carries no industry answer/.test(bare.byId.J7.evidence), bare.byId.J7.evidence);
+  const other = await crmRun({ exportCsv: () => ({ status: 200, text: `${J.csvHeader(FIELDS).join(',')}\r\n2026,Somebody Else,a@example.com,,contact,/contact/,new,,Buying,10000,0-3 months,10,,\r\n` }) });
+  check('journey J7: a line of another lead is not the marker lead (the name column must be the marker)', other.byId.J7.status === 'FAIL' && /0 line\(s\) named "Journey abcdef12"/.test(other.byId.J7.evidence), other.byId.J7.evidence);
+  const quoted = await crmRun({ exportText: t => t.replace('Journey abcdef12', '"Journey abcdef12"') });
+  check('journey J7: a quoted cell is read as its text (the marker name is found in quotes)', quoted.byId.J7.status === 'PASS', quoted.byId.J7.evidence);
+
+  const ed = good;
+  check('journey J8: lead-update fields changes the phone and the first editable number field, both read back, exactly 2 edited events', ed.byId.J8.status === 'PASS' && /phone/.test(ed.byId.J8.evidence) && /budget 10000 -> 10001/.test(ed.byId.J8.evidence) && /2 edited events/.test(ed.byId.J8.evidence), ed.byId.J8.evidence);
+  const e1 = await crmRun({ updateChanged: 1 });
+  check('journey J8: an update that answers changed 1 for two fields is a FAIL', e1.byId.J8.status === 'FAIL' && /changed 2/.test(e1.byId.J8.evidence) && /answered HTTP 200/.test(e1.byId.J8.evidence), e1.byId.J8.evidence);
+  const e2 = await crmRun({ updateIgnored: true });
+  check('journey J8: an update that says changed 2 and writes nothing is a FAIL at the read back', e2.byId.J8.status === 'FAIL' && /read back through lead-list/.test(e2.byId.J8.evidence), e2.byId.J8.evidence);
+  const e3 = await crmRun({ skipField: true });
+  check('journey J8: only the core field changed (the industry field not) is a FAIL that names the field', e3.byId.J8.status === 'FAIL' && /budget 10000 \(wanted 10001\)/.test(e3.byId.J8.evidence), e3.byId.J8.evidence);
+  const e4 = await crmRun({ events: 1 });
+  check('journey J8: one edited event for two changed fields is a FAIL', e4.byId.J8.status === 'FAIL' && /holds 1 edited event\(s\) \(wanted exactly 2/.test(e4.byId.J8.evidence), e4.byId.J8.evidence);
+  const e5 = await crmRun({ events: 3 });
+  check('journey J8: three edited events for two changed fields is a FAIL too (exactly 2)', e5.byId.J8.status === 'FAIL' && /holds 3 edited event/.test(e5.byId.J8.evidence), e5.byId.J8.evidence);
+  const e6 = await crmRun({ stringNumbers: true });
+  check('journey J8: a number that reads back as text is a FAIL (typed)', e6.byId.J8.status === 'FAIL' && /read back/.test(e6.byId.J8.evidence), e6.byId.J8.evidence);
+  const e7 = await crmRun({ dupMarker: true });
+  check('journey J8: two leads found for the marker is a FAIL (the edit must hit the journey\'s own lead)', e7.byId.J8.status === 'FAIL' && /finds 2 lead\(s\)/.test(e7.byId.J8.evidence), e7.byId.J8.evidence);
+  const e8 = await crmRun({ fields: FIELDS.filter(f => f.type !== 'number') });
+  check('journey J8: a contract with no editable number field is a FAIL that says so', e8.byId.J8.status === 'FAIL' && /no editable number field/.test(e8.byId.J8.evidence), e8.byId.J8.evidence);
+  check('journey J8: a FAIL skips J9 and J10 (the later CRM steps), naming J8', e1.byId.J9.status === 'SKIPPED' && e1.byId.J10.status === 'SKIPPED' && /^J10 SKIPPED \(after J8 FAIL\)/m.test(e1.text), e1.text);
+
+  check('journey J9: search finds exactly 1, the filters keep and exclude, the sort is typed; the line says the order of two numbers is UNPROVEN when only the lead holds one',
+    good.byId.J9.status === 'PASS' && /search finds exactly 1/.test(good.byId.J9.evidence) && /eq keeps the lead and excludes "3-6 months"/.test(good.byId.J9.evidence) && /UNPROVEN/.test(good.byId.J9.evidence), good.byId.J9.evidence);
+  const rows9 = await crmRun({ extraRows: [{ id: 'x1', name: 'Other 1', budget: 9 }, { id: 'x2', name: 'Other 2', budget: 10 }, { id: 'x3', name: 'Other 3' }] });
+  check('journey J9: with other rows holding 9 and 10 the sort is compared as numbers over them and nothing is UNPROVEN', rows9.byId.J9.status === 'PASS' && /\(3 hold one\)/.test(rows9.byId.J9.evidence) && !/UNPROVEN/.test(rows9.byId.J9.evidence), rows9.byId.J9.evidence);
+  const txt9 = await crmRun({ extraRows: [{ id: 'x1', name: 'Other 1', budget: 9 }, { id: 'x2', name: 'Other 2', budget: 10 }], sortAsText: true });
+  check('journey J9: a sort that orders 10 before 9 (as text) is a FAIL that shows the order', txt9.byId.J9.status === 'FAIL' && /not in numeric order: 10, 10001, 9/.test(txt9.byId.J9.evidence), txt9.byId.J9.evidence);
+  const str9 = await crmRun({ extraRows: [{ id: 'x1', name: 'Other 1', budget: 9 }], sortStrings: true });
+  check('journey J9: numbers that come back as text are a FAIL (a number as a number)', str9.byId.J9.status === 'FAIL' && /comes back as string, not a number/.test(str9.byId.J9.evidence), str9.byId.J9.evidence);
+  const desc9 = await crmRun({ extraRows: [{ id: 'x1', name: 'Other 1', budget: 9 }, { id: 'x2', name: 'Other 2', budget: 10 }], sortAlwaysAsc: true });
+  check('journey J9: a descending sort that comes back ascending is a FAIL', desc9.byId.J9.status === 'FAIL' && /sort budget desc is not in numeric order/.test(desc9.byId.J9.evidence), desc9.byId.J9.evidence);
+  const dup9 = await crmRun({ dupMarker: true }, { only: 'J9' });
+  check('journey J9: a search that finds two leads is a FAIL (exactly 1)', dup9.byId.J9.status === 'FAIL' && /total 2 and 2 row/.test(dup9.byId.J9.evidence), dup9.byId.J9.evidence);
+  const eq1 = await crmRun({ eqBroken: true });
+  check('journey J9: a filter that drops the lead holding the value is a FAIL ("not kept")', eq1.byId.J9.status === 'FAIL' && /the marker lead is not kept/.test(eq1.byId.J9.evidence) && /timing/.test(eq1.byId.J9.evidence), eq1.byId.J9.evidence);
+  const eq2 = await crmRun({ filtersIgnored: true });
+  check('journey J9: a filter that keeps a non-match is a FAIL ("not excluded")', eq2.byId.J9.status === 'FAIL' && /a non-match is not excluded/.test(eq2.byId.J9.evidence), eq2.byId.J9.evidence);
+  const rg3 = await crmRun({ rangeIgnored: true });
+  check('journey J9: a range that keeps a lead outside it is a FAIL', rg3.byId.J9.status === 'FAIL' && /a lead holding 10001 is not excluded/.test(rg3.byId.J9.evidence), rg3.byId.J9.evidence);
+  const rg1 = await crmRun({ rangeBroken: true });
+  check('journey J9: a range that drops the lead inside it is a FAIL', rg1.byId.J9.status === 'FAIL' && /filter budget 10000 to 10002/.test(rg1.byId.J9.evidence), rg1.byId.J9.evidence);
+  const ls9 = await crmRun({ listStatus: 500 }, { only: 'J9' });
+  check('journey J9: a list that answers 500 is a FAIL with the status', ls9.byId.J9.status === 'FAIL' && /HTTP 500/.test(ls9.byId.J9.evidence), ls9.byId.J9.evidence);
+  check('journey J9: a FAIL skips J10, naming J9', (await crmRun({ filtersIgnored: true })).byId.J10.status === 'SKIPPED');
+
+  check('journey J10: status and owner are set and read back, the delete without confirm is refused (409 S-CONFIRM) with the lead still there, the delete with confirm removes it',
+    good.byId.J10.status === 'PASS' && /409 S-CONFIRM/.test(good.byId.J10.evidence) && /lead-list finds 0/.test(good.byId.J10.evidence) && good.impl.store.leads.length === 0, good.byId.J10.evidence);
+  const order = good.impl.store.log.filter(l => l.includes('leads-bulk'));
+  check('journey J10: the calls are status, owner, delete without confirm, delete with confirm, in that order, all as owner-a', order.join() === 'owner-a:leads-bulk:status,owner-a:leads-bulk:owner,owner-a:leads-bulk:delete,owner-a:leads-bulk:delete+confirm', order.join());
+  const b1 = await crmRun({ bulkChanged: 0 });
+  check('journey J10: a bulk status that changes 0 leads is a FAIL and the lead is still removed afterwards', b1.byId.J10.status === 'FAIL' && /changed 1/.test(b1.byId.J10.evidence) && /then removed/.test(b1.byId.J10.evidence) && b1.impl.store.leads.length === 0, b1.byId.J10.evidence);
+  const b2 = await crmRun({ statusIgnored: true });
+  check('journey J10: a bulk status that says changed 1 and writes nothing is a FAIL at the read back', b2.byId.J10.status === 'FAIL' && /lead-list still shows "new"/.test(b2.byId.J10.evidence) && b2.impl.store.leads.length === 0, b2.byId.J10.evidence);
+  const b3 = await crmRun({ ownerIgnored: true });
+  check('journey J10: a bulk owner that is not applied is a FAIL at the read back', b3.byId.J10.status === 'FAIL' && /lead-list shows owner null/.test(b3.byId.J10.evidence), b3.byId.J10.evidence);
+  const b4 = await crmRun({ teamRow: null });
+  check('journey J10: a workspace with no team row to be the owner is a FAIL that says so', b4.byId.J10.status === 'FAIL' && /no team row/.test(b4.byId.J10.evidence), b4.byId.J10.evidence);
+  const b5 = await crmRun({ deleteNoConfirm: true });
+  check('journey J10: a delete without the confirm flag that goes through is a FAIL (200, wanted 409 S-CONFIRM) and the clean-up says it could not remove what is already gone', b5.byId.J10.status === 'FAIL' && /answered HTTP 200/.test(b5.byId.J10.evidence) && /NOT removed \(HTTP 404\)/.test(b5.byId.J10.evidence), b5.byId.J10.evidence);
+  const b9 = await crmRun({ ownerChanged: 0 });
+  check('journey J10: a bulk owner that changes 0 leads is a FAIL', b9.byId.J10.status === 'FAIL' && /leads-bulk owner answered HTTP 200/.test(b9.byId.J10.evidence), b9.byId.J10.evidence);
+  const b10 = await crmRun({ deleteChanged: 0 });
+  check('journey J10: a confirmed delete that changes 0 leads is a FAIL', b10.byId.J10.status === 'FAIL' && /delete with the confirm flag answered HTTP 200/.test(b10.byId.J10.evidence), b10.byId.J10.evidence);
+  const b6 = await crmRun({ wrongCode: 'S-OWN-ONLY' });
+  check('journey J10: a 409 with another code than S-CONFIRM is a FAIL', b6.byId.J10.status === 'FAIL' && /wanted 409 S-CONFIRM/.test(b6.byId.J10.evidence), b6.byId.J10.evidence);
+  const b7 = await crmRun({ refuseButDelete: true });
+  check('journey J10: a delete that is refused and still removes the lead is a FAIL ("is gone after")', b7.byId.J10.status === 'FAIL' && /the lead is gone after a delete without the confirm flag was refused/.test(b7.byId.J10.evidence), b7.byId.J10.evidence);
+  const b8 = await crmRun({ deleteKeeps: true });
+  check('journey J10: a confirmed delete after which lead-list still finds the lead is a FAIL', b8.byId.J10.status === 'FAIL' && /still finds 1 lead/.test(b8.byId.J10.evidence) && b8.impl.store.leads.length === 1, b8.byId.J10.evidence);
+  const alone = await crmRun({}, { only: 'J10' });
+  check('journey J10: --only J10 uses one lead from lead send (one alert), removes it, and says so', alone.byId.J10.status === 'PASS' && /lead from lead send/.test(alone.byId.J10.evidence) && alone.impl.calls.filter(c => c === 'sendLead').length === 1 && alone.impl.store.leads.length === 0, alone.byId.J10.evidence);
+
   const crash = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ seed: async () => { throw new Error('socket hang up'); } }) });
   check('journey: a step that throws is a FAIL line saying journey error, the run goes on', crash.byId.J1.status === 'FAIL' && /journey error: socket hang up/.test(crash.byId.J1.evidence) && crash.byId.J4.status === 'PASS');
   const blockedStep = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ seed: async () => { throw new Blocked('STAGING_X is not set', 'set it'); } }) });
@@ -227,12 +437,12 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   if (browserOk) { try { await browserTests(); } catch (e) { check('journey browser: the browser tests ran to the end', false, e && e.message); } }
 
   async function browserTests() {
-    const leads = [];
+    const leads = [], bodies = {};
     let leadMode = 'ok';
     const doc = (variant, path) => {
       const bad = variant === 'console' && path === '/' ? '<script>console.error("planted console error")</script>' : variant === 'throws' && path === '/' ? '<script>throw new Error("planted uncaught")</script>' : '';
       const wide = variant === 'overflow' ? '<div style="width:3000px;height:20px">wide</div>' : '';
-      const form = path === '/contact/' ? `<form method="post" action="/api/lead"><label>name <input name="name" required></label><label>email <input type="email" name="email"></label><label>phone <input name="phone"></label><label>message <textarea name="message"></textarea></label><label><input type="checkbox" name="consent" value="yes" required> I agree</label><button type="submit">Send</button></form>` : '';
+      const form = path === '/contact/' ? `<form method="post" action="/api/lead"><label>name <input name="name" required></label><label>email <input type="email" name="email"></label><label>phone <input name="phone"></label><label>message <textarea name="message"></textarea></label><fieldset><label><input type="radio" name="side" value="Buying"> Buying</label><label><input type="radio" name="side" value="Selling"> Selling</label></fieldset><label>budget <input type="number" name="budget" min="10000"></label><label>bedrooms <input type="number" name="beds" min="0" max="10"></label><label>timing <select name="timing"><option value="">Choose</option><option value="0-3 months">0-3 months</option><option value="3-6 months">3-6 months</option></select></label><label><input type="checkbox" name="consent" value="yes" required> I agree</label><button type="submit">Send</button></form>` : '';
       return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>fixture ${variant}${path}</title></head><body style="margin:0"><h1>fixture ${variant} ${path}</h1>${wide}${form}${bad}</body></html>`;
     };
     const srv = http.createServer((req, res) => {
@@ -240,6 +450,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
       if (req.method === 'POST' && req.url === '/api/lead') {
         let b = ''; req.on('data', d => { b += d; }); req.on('end', () => {
           const name = new URLSearchParams(b).get('name');
+          bodies[name] = Object.fromEntries(new URLSearchParams(b));
           if (leadMode === 'thanks' || leadMode === 'thanks-lost' || leadMode === 'thanks-two') { if (leadMode !== 'thanks-lost') leads.push(name); if (leadMode === 'thanks-two') leads.push(name); res.writeHead(303, { location: '/api/lead?sent=1' }); res.end(); return; }
           if (leadMode === 'other200') { leads.push(name); res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end('<!doctype html><title>Welcome</title><h1>Welcome</h1><p>Nothing to say here.</p>'); return; }
           if (leadMode === '503') { res.writeHead(503, { 'content-type': 'text/html; charset=utf-8' }); res.end('<!doctype html><title>We could not send this</title><h1>We could not send this</h1><p>We could not send this. Please call or email us.</p><p><a href="/">Back to the form</a></p>'); return; }
@@ -310,6 +521,9 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
       const j5 = mode => { leadMode = mode; leads.length = 0; return run({ only: 'J5', 'alert-to': ALERT }, { ...base, previewBase: `${origin}/good`, impl: { ...fakeImpl({ leadCount: undefined }), leadCount: async m => leads.filter(x => x === m).length, launchBrowser: () => launchBrowser({ env: ENV }), fileSize: p => (existsSync(p) ? readFileSync(p).length : 0) } }); };
       const f1 = await j5('ok');
       check('journey J5: a lead filled in and sent through the form is stored once with the marker typed, and the step passes with 2 PNGs', f1.byId.J5.status === 'PASS' && /HTTP 200/.test(f1.byId.J5.evidence) && /Journey abcdef12/.test(f1.byId.J5.evidence) && f1.byId.J5.pngs.length === 2 && leads.filter(x => x === 'Journey abcdef12').length === 1, f1.text);
+      const sent = bodies['Journey abcdef12'] || {};
+      check('journey J5: the form\'s industry inputs are filled in the real browser (a radio ticked, a number box and a select set; the answers are the contract\'s, a reference is left empty)',
+        sent.side === 'Buying' && sent.budget === '10000' && sent.beds === '10' && sent.timing === '0-3 months' && !('area' in sent), JSON.stringify(sent));
       const f2 = await j5('plain');
       check('journey J5: an endpoint that answers 400 is a FAIL with the status and the words on the page, and the answer PNG is kept', f2.byId.J5.status === 'FAIL' && /HTTP 400/.test(f2.byId.J5.evidence) && /lead rows with the marker: 0/.test(f2.byId.J5.evidence) && /Send the form as JSON/.test(f2.byId.J5.evidence) && f2.byId.J5.pngs.some(p => p.endsWith('j5-form-answer.png')), f2.text);
       const f3 = await j5('lost');

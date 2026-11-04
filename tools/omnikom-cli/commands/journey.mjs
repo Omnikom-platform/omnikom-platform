@@ -1,6 +1,8 @@
 // test journey --target staging [--only J4,J5] [--out <dir>] [--alert-to <our own email>]   (DECISIONS 48; briefs/journey.md)
 // One command that strings the test site's life together on staging and is looked at: accounts, sign-in, edit and publish, the published
-// site in a real browser (phone and desktop PNGs), a lead through the site's own form, that lead in the dashboard inbox, the lead out.
+// site in a real browser (phone and desktop PNGs), a lead through the site's own form, that lead in the dashboard inbox, the lead out
+// (one column per field of the form contract), then every CRM feature of block 1 on that one lead as owner-a through the real functions:
+// field edit, server list (search, filter, sort), bulk status and owner, delete refused without the confirm flag and done with it.
 // One line per step: PASS | FAIL | BLOCKED | NOT BUILT YET | SKIPPED (after Jn FAIL), each with its evidence. Exit 0 only when no step
 // FAILED or was BLOCKED; NOT BUILT YET is never a pass. The step table below is the one place a slice adds its step (briefs/journey.md 8).
 // Laptop only: it needs staging secrets (variables by name), so it is not a ci.yml job. Never looped; production is refused.
@@ -28,10 +30,71 @@ export const TESTS = {
 };
 // what a visitor's form may answer when the lead was sent: the Thank-you page the no-script submit lands on (303 to /api/lead?sent=1), or the JSON of the script path
 export const SENT_ANSWER = /"sent"\s*:\s*true|your message was sent/i;
-export const CSV_HEADER = 'received,name,email,phone,form,page,status,owner,answers';
+// The export writes these columns, then one per industry field of the test site's form contract in form order (supabase/functions/lead-export). The
+// list comes from the contract through impl.crmFields, never copied here, so a field added to the form is expected in the file at once.
+export const CSV_CORE = ['received', 'name', 'email', 'phone', 'form', 'page', 'status', 'owner'];
+export const csvHeader = fields => [...CSV_CORE, ...fields.map(f => f.key)];
+// the phone a field edit writes (its neighbour when the lead already holds it)
+export const EDIT_PHONE = '(555) 010-0177', EDIT_PHONE_ALT = '(555) 010-0178';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const clip = (s, n = 120) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 const pageSlug = p => (p.replace(/\//g, '') || 'home');
+const within = (n, f) => Math.min(typeof f.max === 'number' ? f.max : n, Math.max(typeof f.min === 'number' ? f.min : n, n));
+
+// RFC 4180 reader for the export (quotes, doubled quotes, CRLF); blank lines are dropped
+export function parseCsv(text) {
+  const rows = []; let row = [], cell = '', q = false;
+  const end = () => { row.push(cell); cell = ''; if (!(row.length === 1 && row[0] === '')) rows.push(row); row = []; };
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch !== '"') cell += ch; else if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+    else if (ch === '"') q = true;
+    else if (ch === ',') { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; end(); }
+    else cell += ch;
+  }
+  if (cell !== '' || row.length) end();
+  return rows;
+}
+
+// What the journey's lead says about each industry field: a number inside the range the contract allows, the first option of a list or of a
+// single choice. Other types (a reference, a text, a multi choice) stay empty. The field list is the contract's (impl.crmFields).
+export function journeyAnswers(fields) {
+  const a = {};
+  for (const f of fields) {
+    if (f.type === 'number') a[f.key] = within(10, f);
+    else if ((f.type === 'enum' || (f.type === 'choice' && !f.multi)) && f.options && f.options.length) a[f.key] = f.options[0];
+  }
+  return a;
+}
+// the value a field edit writes: the neighbour of what the lead holds, inside the contract's range
+export const nextNumber = (f, cur) => (typeof cur !== 'number' ? within(10, f) : typeof f.max === 'number' && cur >= f.max ? cur - 1 : cur + 1);
+
+// fill the form's industry inputs the way a visitor would (a number box, a select, a radio); the ones this page has are returned, so J7 knows what to find
+async function fillAnswers(page, fields, answers) {
+  const filled = {};
+  for (const f of fields) {
+    if (!(f.key in answers)) continue;
+    const v = String(answers[f.key]), pick = f.type === 'choice' ? `form input[name=${f.key}][value=${JSON.stringify(v)}]` : `form ${f.type === 'enum' ? 'select' : 'input'}[name=${f.key}]`;
+    if (!(await page.has(pick))) continue;
+    if (f.type === 'choice') await page.check(pick); else await page.fill(pick, v);
+    filled[f.key] = answers[f.key];
+  }
+  return filled;
+}
+
+// owner-a looks for the journey's lead in the CRM list (the server list, search by the marker)
+const findLead = async (c, marker, extra = {}) => {
+  const r = await c.impl.crm('owner-a', 'lead-list', { workspace: WS_A, search: marker, ...extra });
+  const j = r.json || {};
+  return { status: r.status, text: r.text, total: j.total, rows: Array.isArray(j.rows) ? j.rows : [] };
+};
+// the journey's one lead as the list shows it now (exactly one row carries the marker, else the step fails)
+const ownLead = async (c, lead) => {
+  const first = await findLead(c, lead.marker);
+  if (first.rows.length !== 1) return { fail: { status: 'FAIL', evidence: `lead-list finds ${first.rows.length} lead(s) for "${lead.marker}" (HTTP ${first.status}, wanted 1)${lead.via}` } };
+  return { row: first.rows[0] };
+};
 
 // ---------- the pure parts: what a Playwright JSON report says, and what that means for a step ----------
 export function summarizePlaywright(report) {
@@ -70,9 +133,11 @@ const feedLead = async c => {
   if (c.state.fallbackFail) return c.state.fallbackFail;   // one try per run: one alert at most
   const blocked = await alertGuard(c); if (blocked) return { fail: blocked };
   const marker = `Journey ${c.runId} lead send`;
-  const sent = await c.impl.sendLead(marker, join(c.out, 'lead-send-fixture.json'));
+  const answers = journeyAnswers(await c.impl.crmFields());
+  const sent = await c.impl.sendLead(marker, join(c.out, 'lead-send-fixture.json'), answers);
   const stored = sent.ok ? await c.impl.leadCount(marker) : 0;
   if (stored !== 1) return (c.state.fallbackFail = { fail: { status: 'FAIL', evidence: `lead send did not store one lead for "${marker}" (${sent.ok ? 'ok' : sent.code}, ${stored} row(s))` } });
+  c.state.answers = answers;
   return (c.state.fallback = { marker, via: ' (lead from lead send: J5 did not store one)' });
 };
 
@@ -128,6 +193,7 @@ export const STEPS = [
   { id: 'J5', name: 'lead through the site form', needs: ['J1'], async run(c) {
     const blocked = await alertGuard(c); if (blocked) return blocked;
     c.state.marker = `Journey ${c.runId}`;
+    const fields = await c.impl.crmFields();
     const b = await c.impl.launchBrowser();
     const pngs = [];
     let sent, count;
@@ -137,6 +203,7 @@ export const STEPS = [
       if (open.status !== 200) return { status: 'FAIL', evidence: `/contact/ answered HTTP ${open.status}` };
       const values = { name: c.state.marker, email: `journey.${c.runId}@example.com`, phone: '(555) 010-0153', message: `Sent by omnikom test journey ${c.runId}. Synthetic. Safe to ignore.` };
       for (const [k, v] of Object.entries(values)) { const sel = k === 'message' ? 'form textarea[name=message], form input[name=message]' : `form input[name=${k}]`; if (await page.has(sel)) await page.fill(sel, v); }
+      c.state.answers = await fillAnswers(page, fields, journeyAnswers(fields));
       await page.check('form input[name=consent]');
       const filled = join(c.out, 'j5-form-filled.png');
       await page.screenshot(filled); if (c.impl.fileSize(filled) > 0) pngs.push(filled);
@@ -165,16 +232,87 @@ export const STEPS = [
   } },
   { id: 'J7', name: 'export', needs: ['J1'], async run(c) {
     const lead = await feedLead(c); if (lead.fail) return lead.fail;
+    const fields = await c.impl.crmFields();
     const r = await c.impl.exportCsv('owner-a', lead.marker);
     if (r.status !== 200) return { status: 'FAIL', evidence: `lead-export answered HTTP ${r.status}` };
-    const lines = r.text.split(/\r?\n/).filter(Boolean);
-    if (lines[0] !== CSV_HEADER) return { status: 'FAIL', evidence: `the CSV header is "${clip(lines[0], 80)}"` };
-    const hits = lines.slice(1).filter(l => l.includes(lead.marker));
-    if (hits.length !== 1) return { status: 'FAIL', evidence: `the CSV holds ${hits.length} line(s) with "${lead.marker}" (wanted 1)${lead.via}` };
-    return { status: 'PASS', evidence: `lead-export as owner-a: HTTP 200, ${lines.length - 1} data line(s), the marker lead is in it${lead.via}` };
+    const rows = parseCsv(r.text), want = csvHeader(fields);
+    if (JSON.stringify(rows[0] || []) !== JSON.stringify(want)) return { status: 'FAIL', evidence: `the CSV header is "${clip((rows[0] || []).join(','), 110)}", the contract wants "${clip(want.join(','), 110)}"` };
+    const hits = rows.slice(1).filter(x => x[1] === lead.marker);
+    if (hits.length !== 1) return { status: 'FAIL', evidence: `the CSV holds ${hits.length} line(s) named "${lead.marker}" (wanted 1)${lead.via}` };
+    const answers = Object.entries(c.state.answers || {});
+    const wrong = answers.filter(([k, v]) => hits[0][want.indexOf(k)] !== String(v));
+    if (wrong.length) return { status: 'FAIL', evidence: `in the marker lead's line ${wrong.slice(0, 3).map(([k, v]) => `${k} is "${clip(hits[0][want.indexOf(k)], 30)}" (the lead said "${v}")`).join('; ')}${lead.via}` };
+    if (!answers.length) return { status: 'FAIL', evidence: `the marker lead carries no industry answer to find in the file${lead.via}` };
+    return { status: 'PASS', evidence: `lead-export as owner-a: HTTP 200, ${want.length} columns (${CSV_CORE.length} core + ${fields.length} industry, the contract's, in form order), ${rows.length - 1} data line(s), the marker lead is in it with ${answers.length} industry value(s) in their columns${lead.via}` };
   } },
-  { id: 'J8', name: 'CRM "send a test"', needs: [], async run() { return { status: 'NOT BUILT YET', evidence: 'no sink we own (crm-test refuses loopback; supabase/functions/crm-test/index.ts)' }; } },
-  { id: 'J9', name: 'lead pushed to the CRM', needs: [], async run() { return { status: 'NOT BUILT YET', evidence: '"Webhook out" is TO BUILD (planning/REQUIREMENTS.md:44,155)' }; } },
+  { id: 'J8', name: 'field edit', needs: ['J1'], async run(c) {
+    const lead = await feedLead(c); if (lead.fail) return lead.fail;
+    const field = (await c.impl.crmFields()).find(f => f.type === 'number' && f.editable);
+    if (!field) return { status: 'FAIL', evidence: 'the form contract has no editable number field to edit' };
+    const own = await ownLead(c, lead); if (own.fail) return own.fail;
+    const row = own.row, phone = row.phone === EDIT_PHONE ? EDIT_PHONE_ALT : EDIT_PHONE, value = nextNumber(field, row[field.key]);
+    const e = await c.impl.crm('owner-a', 'lead-update', { lead: row.id, fields: { phone, [field.key]: value } });
+    if (e.status !== 200 || !e.json || e.json.changed !== 2) return { status: 'FAIL', evidence: `lead-update fields (phone and ${field.key}) answered HTTP ${e.status} ${clip(e.text, 90)} (wanted 200 with changed 2)${lead.via}` };
+    const back = (await findLead(c, lead.marker)).rows[0] || {};
+    if (back.phone !== phone || back[field.key] !== value) return { status: 'FAIL', evidence: `read back through lead-list: phone ${JSON.stringify(back.phone)} (wanted ${JSON.stringify(phone)}), ${field.key} ${JSON.stringify(back[field.key])} (wanted ${value})${lead.via}` };
+    const events = await c.impl.editedEvents(row.id);
+    if (events !== 2) return { status: 'FAIL', evidence: `the lead's timeline holds ${events} edited event(s) (wanted exactly 2, one per changed field)${lead.via}` };
+    return { status: 'PASS', evidence: `lead-update fields: one core field (phone) and one industry field (${field.key} ${row[field.key]} -> ${value}) changed, both read back through lead-list, 2 edited events${lead.via}` };
+  } },
+  { id: 'J9', name: 'server list', needs: ['J1', 'J8'], async run(c) {
+    const lead = await feedLead(c); if (lead.fail) return lead.fail;
+    const fields = await c.impl.crmFields();
+    const pick = fields.find(f => f.type === 'enum' && f.column), nf = fields.find(f => f.type === 'number' && f.column);
+    if (!pick || !nf) return { status: 'FAIL', evidence: 'the form contract has no enum column and number column to filter and sort on' };
+    const s = await findLead(c, lead.marker);
+    if (s.status !== 200 || s.total !== 1 || s.rows.length !== 1) return { status: 'FAIL', evidence: `search "${lead.marker}" answered HTTP ${s.status} with total ${s.total} and ${s.rows.length} row(s) (wanted exactly 1)${lead.via}` };
+    const row = s.rows[0], kind = row[pick.key], n = row[nf.key], other = (pick.options || []).find(o => o !== kind);
+    if (typeof kind !== 'string' || typeof n !== 'number' || other === undefined) return { status: 'FAIL', evidence: `the marker lead holds ${pick.key} ${JSON.stringify(kind)} and ${nf.key} ${JSON.stringify(n)}; a filter needs a text option and a number${lead.via}` };
+    const ids = r => r.rows.map(x => x.id).join();
+    const eqIn = await findLead(c, lead.marker, { filters: [{ field: pick.key, op: 'eq', value: kind }] });
+    if (eqIn.total !== 1 || ids(eqIn) !== row.id) return { status: 'FAIL', evidence: `filter ${pick.key} = "${kind}" (the lead's own value) answered HTTP ${eqIn.status}, total ${eqIn.total}: the marker lead is not kept${lead.via}` };
+    const eqOut = await findLead(c, lead.marker, { filters: [{ field: pick.key, op: 'eq', value: other }] });
+    if (eqOut.status !== 200 || eqOut.total !== 0) return { status: 'FAIL', evidence: `filter ${pick.key} = "${other}" (not the lead's value) answered HTTP ${eqOut.status}, total ${eqOut.total}: a non-match is not excluded${lead.via}` };
+    const inRange = await findLead(c, lead.marker, { filters: [{ field: nf.key, op: 'range', from: n - 1, to: n + 1 }] });
+    if (inRange.total !== 1 || ids(inRange) !== row.id) return { status: 'FAIL', evidence: `filter ${nf.key} ${n - 1} to ${n + 1} answered HTTP ${inRange.status}, total ${inRange.total}: the marker lead (${n}) is not kept${lead.via}` };
+    const outRange = await findLead(c, lead.marker, { filters: [{ field: nf.key, op: 'range', from: n + 1 }] });
+    if (outRange.status !== 200 || outRange.total !== 0) return { status: 'FAIL', evidence: `filter ${nf.key} from ${n + 1} answered HTTP ${outRange.status}, total ${outRange.total}: a lead holding ${n} is not excluded${lead.via}` };
+    const sorted = {};
+    for (const dir of ['asc', 'desc']) {
+      const r = await c.impl.crm('owner-a', 'lead-list', { workspace: WS_A, size: 200, sort: { field: nf.key, dir } });
+      const nums = ((r.json && r.json.rows) || []).map(x => x[nf.key]).filter(v => v !== undefined && v !== null);
+      if (r.status !== 200 || !r.json) return { status: 'FAIL', evidence: `sort ${nf.key} ${dir} answered HTTP ${r.status} ${clip(r.text, 90)}${lead.via}` };
+      if (nums.some(v => typeof v !== 'number')) return { status: 'FAIL', evidence: `sort ${nf.key} ${dir}: a value comes back as ${typeof nums.find(v => typeof v !== 'number')}, not a number${lead.via}` };
+      if (nums.some((v, i) => i && (dir === 'asc' ? v < nums[i - 1] : v > nums[i - 1]))) return { status: 'FAIL', evidence: `sort ${nf.key} ${dir} is not in numeric order: ${nums.slice(0, 8).join(', ')}${lead.via}` };
+      sorted[dir] = nums.length;
+    }
+    return { status: 'PASS', evidence: `search finds exactly 1; filter ${pick.key} eq keeps the lead and excludes "${other}"; filter ${nf.key} range keeps ${n} and excludes it above; sort ${nf.key} asc and desc are numbers in numeric order over the rows owner-a sees (${sorted.asc} hold one${sorted.asc < 2 ? '; the order of two numbers is UNPROVEN, no second row holds one' : ''})${lead.via}` };
+  } },
+  { id: 'J10', name: 'bulk', needs: ['J1', 'J9'], async run(c) {
+    const lead = await feedLead(c); if (lead.fail) return lead.fail;
+    const own = await ownLead(c, lead); if (own.fail) return own.fail;
+    const id = own.row.id, bulk = (action, extra = {}) => c.impl.crm('owner-a', 'leads-bulk', { workspace: WS_A, ids: [id], action, ...extra });
+    // a failed check still takes the journey's own lead away (confirmed delete), so staging keeps nothing of a run that went red
+    const fail = async why => { const d = await bulk('delete', { confirm: true }); return { status: 'FAIL', evidence: `${why}${lead.via}; the lead was then ${d.status === 200 ? 'removed' : `NOT removed (HTTP ${d.status})`}` }; };
+    const now = async () => (await findLead(c, lead.marker)).rows[0] || {};
+    const status = own.row.status === 'contacted' ? 'qualified' : 'contacted';
+    const st = await bulk('status', { value: status });
+    if (st.status !== 200 || !st.json || st.json.changed !== 1) return fail(`leads-bulk status ${status} answered HTTP ${st.status} ${clip(st.text, 90)} (wanted 200 with changed 1)`);
+    if ((await now()).status !== status) return fail(`leads-bulk status ${status}: lead-list still shows "${(await now()).status}"`);
+    const team = await c.impl.teamRow();
+    if (!team) return fail('the test workspace has no team row to make the owner');
+    const ow = await bulk('owner', { value: team });
+    if (ow.status !== 200 || !ow.json || ow.json.changed !== 1) return fail(`leads-bulk owner answered HTTP ${ow.status} ${clip(ow.text, 90)} (wanted 200 with changed 1)`);
+    if ((await now()).owner !== team) return fail(`leads-bulk owner: lead-list shows owner ${JSON.stringify((await now()).owner)}, not the team row`);
+    const nc = await bulk('delete');
+    if (nc.status !== 409 || !nc.json || nc.json.code !== 'S-CONFIRM') return fail(`delete without the confirm flag answered HTTP ${nc.status} ${clip(nc.text, 90)} (wanted 409 S-CONFIRM)`);
+    if ((await findLead(c, lead.marker)).rows.length !== 1) return { status: 'FAIL', evidence: `the lead is gone after a delete without the confirm flag was refused${lead.via}` };
+    const d = await bulk('delete', { confirm: true });
+    if (d.status !== 200 || !d.json || d.json.changed !== 1) return { status: 'FAIL', evidence: `delete with the confirm flag answered HTTP ${d.status} ${clip(d.text, 90)} (wanted 200 with changed 1)${lead.via}` };
+    const left = await findLead(c, lead.marker);
+    if (left.status !== 200 || left.rows.length !== 0) return { status: 'FAIL', evidence: `after the confirmed delete lead-list still finds ${left.rows.length} lead(s) for "${lead.marker}" (HTTP ${left.status})${lead.via}` };
+    return { status: 'PASS', evidence: `leads-bulk as owner-a: status ${status} and owner set (each read back), delete without confirm refused (409 S-CONFIRM, the lead still there), delete with confirm removed it (lead-list finds 0)${lead.via}` };
+  } },
 ];
 
 // ---------- the orchestrator ----------
@@ -279,9 +417,9 @@ export function makeImpl(ctx, seams = {}) {
       return Number(r.value);
     },
     // a lead the way `omnikom lead send` makes it (signed with the test site's key, over capture-lead), with a marker name
-    async sendLead(marker, file) {
+    async sendLead(marker, file, answers = {}) {
       writeFileSync(file, JSON.stringify({ form: 'contact', flow: 'contact', page: '/journey', cta: 'journey', name: marker, email: `journey.${ctx.randomUUID().slice(0, 8)}@example.com`, phone: '(555) 010-0153',
-        answers: { message: 'Sent by omnikom test journey (lead send). Synthetic. Safe to ignore.' }, consentText: 'I agree that the business may contact me about this request by email, phone or text.', marketingConsent: { given: false, text: 'marketing wording' }, hp: '' }));
+        answers: { message: 'Sent by omnikom test journey (lead send). Synthetic. Safe to ignore.', ...answers }, consentText: 'I agree that the business may contact me about this request by email, phone or text.', marketingConsent: { given: false, text: 'marketing wording' }, hp: '' }));
       const r = await leadGroup({ ...ctx, positionals: ['lead', 'send'], warnings: [], flags: { site: SITE_A, as: 'site:test-demo-a', fixture: file, real: true, key: ctx.randomUUID() } });
       return { ok: r.ok, code: r.code, statuses: ((r.data && r.data.attempts) || []).map(a => a.status) };
     },
@@ -293,6 +431,30 @@ export function makeImpl(ctx, seams = {}) {
       const token = await personToken(parseIdentity(who), { target, env: ctx.env, fetchImpl: ctx.fetch });
       const res = await ctx.fetch(target.functionsBase.replace(/\/$/, '') + '/lead-export', { method: 'POST', headers: { 'content-type': 'application/json', apikey: pub(), authorization: `Bearer ${token}` }, body: JSON.stringify({ site: SITE_A, filter: 'all', q: marker }), signal: AbortSignal.timeout(30000) });
       return { status: res.status, text: await res.text() };
+    },
+    // the industry fields of the test site's form contract in form order, every one a column or not (the export writes them all): from the file the
+    // site is staged from (sites/test-demo-a/contract.json) through the validator's own leadColumns, so the list is the contract's and never copied here
+    async crmFields() {
+      const v = await importer('contracts/validate.mjs');
+      return v.leadColumns(JSON.parse(readFileSync(repoPath('sites', 'test-demo-a', 'contract.json'), 'utf8')));
+    },
+    // one CRM function as a signed-in person (lead-list, lead-update, leads-bulk): the same request shapes supabase/tests/e2e-crm.mjs proves
+    async crm(who, name, body) {
+      const token = await personToken(parseIdentity(who), { target, env: ctx.env, fetchImpl: ctx.fetch });
+      const res = await ctx.fetch(target.functionsBase.replace(/\/$/, '') + '/' + name, { method: 'POST', headers: { 'content-type': 'application/json', apikey: pub(), authorization: `Bearer ${token}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(90000) });
+      const text = await res.text();
+      let json = null; try { json = JSON.parse(text); } catch { /* an empty or text answer */ }
+      return { status: res.status, text, json };
+    },
+    async editedEvents(leadId) {
+      const r = ctx.sql().scalar(`select count(*) from lead_events where lead_id = ${uuidLit(leadId)} and kind = 'edited'`);
+      if (!r.ok) throw new Error(`could not count the edited events: ${clip(r.message)}`);
+      return Number(r.value);
+    },
+    // a team member of the test workspace to make the owner of a lead (the id of its team row)
+    async teamRow() {
+      const r = ctx.sql().scalar(`select team_row_id from members where workspace_id = ${uuidLit(WS_A)} and team_row_id is not null order by team_row_id limit 1`);
+      return r.ok && r.value ? String(r.value) : null;
     },
     // sign owner in through the app's own /auth/confirm link (like the dashboard's global setup), wait for the marker lead, take the PNG
     async inboxShot(who, marker, file) {
