@@ -58,14 +58,14 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   // o: fields (the contract), exportFields (what the export writes), stored (the lead's answers), extraRows (other leads in the workspace), and one switch per planted fault
   const crmFake = (o = {}) => {
     const fields = o.fields || FIELDS, store = { leads: [], seen: new Set(), log: [] };
-    const lead = marker => {
-      if (!store.seen.has(marker)) { store.seen.add(marker); store.leads.push({ id: `lead-${store.seen.size}`, name: marker, phone: '(555) 010-0153', status: 'new', owner: null, events: 0, answers: { ...(o.stored || J.journeyAnswers(fields)) } });
+    const lead = (marker, ans) => {
+      if (!store.seen.has(marker)) { store.seen.add(marker); store.leads.push({ id: `lead-${store.seen.size}`, name: marker, phone: '(555) 010-0153', status: 'new', owner: null, events: 0, answers: { ...(ans || o.stored || J.journeyAnswers(fields)) } }); store.peak = Math.max(store.peak || 0, store.leads.length);
         if (o.dupMarker) store.leads.push({ id: 'lead-dup', name: marker + ' again', phone: '', status: 'new', owner: null, events: 0, answers: {} }); }
     };
     const rowOf = l => ({ id: l.id, name: l.name, phone: l.phone, status: l.status, owner: l.owner, ...(o.stringNumbers ? Object.fromEntries(Object.entries(l.answers).map(([k, v]) => [k, typeof v === 'number' ? String(v) : v])) : l.answers) });
     const ok = (json, status = 200) => ({ status, text: JSON.stringify(json), json });
     return {
-      store, fields,
+      store, fields, addLead: lead,
       async crm(who, name, body) {
         store.log.push(`${who}:${name}:${body.action || ''}${body.confirm ? '+confirm' : ''}`);
         if (name !== 'lead-update' && body.workspace !== WS_A) return ok({ code: 'S-BODY' }, 400);
@@ -125,8 +125,13 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     launchBrowser: o.launchBrowser || fakeBrowser(),
     fileSize: () => 1000,
     async leadCount() { return o.leadCount === undefined ? 1 : o.leadCount; },
-    async sendLead(marker) { this.calls.push('sendLead'); return o.sendLead ? o.sendLead(marker) : { ok: true, code: 'ok', statuses: [202] }; },
-    async alertsOnlyTo() { return o.alertsOnlyTo === undefined ? true : o.alertsOnlyTo; },
+    async sendLead(marker, file, answers) {
+      const order = /^Order check/.test(marker); this.calls.push(order ? 'sendOrder' : 'sendLead');
+      const r = order && o.orderSend === false ? { ok: false, code: 'S-X', statuses: [500] } : o.sendLead ? o.sendLead(marker) : { ok: true, code: 'ok', statuses: [202] };
+      if (r.ok) this.addLead(marker, answers);
+      return r;
+    },
+    async alertsOnlyTo() { return typeof o.alertsOnlyTo === 'function' ? o.alertsOnlyTo() : o.alertsOnlyTo === undefined ? true : o.alertsOnlyTo; },
     ...(o.exportCsv ? { async exportCsv(who, marker) { return o.exportCsv(marker); } } : {}),
     async inboxShot(who, marker, file) { return o.inboxShot ? o.inboxShot(marker, file) : { found: true, file, written: true }; },
     ...(o.seed ? { seed: o.seed } : {}), ...(o.workspacesAs ? { workspacesAs: o.workspacesAs } : {}),
@@ -217,7 +222,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   // a product bug at J5 must not leave J6 and J7 unproven: they use ONE lead made by `lead send`, and their lines say so
   const FALLBACK = '(lead from lead send: J5 did not store one)';
   const implB = fakeImpl({ leadCount: 0 });
-  implB.leadCount = async m => (/lead send/.test(m) ? 1 : 0);
+  implB.leadCount = async m => (/lead send|Order check/.test(m) ? 1 : 0);
   const j5bad = await run({ 'alert-to': ALERT }, { ...base, impl: implB });
   check('journey: J5 FAIL (no lead row): J6 and J7 still run on ONE lead made by lead send, and both lines say so',
     j5bad.byId.J5.status === 'FAIL' && j5bad.byId.J6.status === 'PASS' && j5bad.byId.J7.status === 'PASS' && j5bad.byId.J6.evidence.includes(FALLBACK) && j5bad.byId.J7.evidence.includes(FALLBACK) && implB.calls.filter(c => c === 'sendLead').length === 1 && !j5bad.res.ok, j5bad.text);
@@ -229,7 +234,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const nolead = await run({ 'alert-to': ALERT }, { ...base, impl: implD });
   check('journey: when J5 stored nothing and lead send stores nothing either, J6 and J7 are FAIL (a pass with no lead at all is impossible)', nolead.byId.J6.status === 'FAIL' && nolead.byId.J7.status === 'FAIL' && /did not store one lead/.test(nolead.byId.J6.evidence) && implD.calls.filter(c => c === 'sendLead').length === 1, nolead.text);
   const implE = fakeImpl({ sendLead: () => ({ ok: false, code: 'S-SIGNATURE', statuses: [401] }) });
-  implE.leadCount = async m => (/lead send/.test(m) ? 1 : 0);
+  implE.leadCount = async m => (/lead send|Order check/.test(m) ? 1 : 0);
   const sendfail = await run({ 'alert-to': ALERT }, { ...base, impl: implE });
   check('journey: a lead send that fails is a FAIL even when a row with the marker is there', sendfail.byId.J6.status === 'FAIL' && /S-SIGNATURE/.test(sendfail.byId.J6.evidence));
   // the skip chain names the ROOT failure: a step needing a skipped step says "after" the first real failure
@@ -305,10 +310,10 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   check('journey J8: a contract with no editable number field is a FAIL that says so', e8.byId.J8.status === 'FAIL' && /no editable number field/.test(e8.byId.J8.evidence), e8.byId.J8.evidence);
   check('journey J8: a FAIL skips J9 and J10 (the later CRM steps), naming J8', e1.byId.J9.status === 'SKIPPED' && e1.byId.J10.status === 'SKIPPED' && /^J10 SKIPPED \(after J8 FAIL\)/m.test(e1.text), e1.text);
 
-  check('journey J9: search finds exactly 1, the filters keep and exclude, the sort is typed; the line says the order of two numbers is UNPROVEN when only the lead holds one',
-    good.byId.J9.status === 'PASS' && /search finds exactly 1/.test(good.byId.J9.evidence) && /eq keeps the lead and excludes "3-6 months"/.test(good.byId.J9.evidence) && /UNPROVEN/.test(good.byId.J9.evidence), good.byId.J9.evidence);
+  check('journey J9: search finds exactly 1, the filters keep and exclude, the sort is typed; a second lead from lead send holds 9 where the lead holds 10 and 9 sorts before 10',
+    good.byId.J9.status === 'PASS' && /search finds exactly 1/.test(good.byId.J9.evidence) && /eq keeps the lead and excludes "3-6 months"/.test(good.byId.J9.evidence) && /asc 9 before 10, desc 10 before 9/.test(good.byId.J9.evidence) && good.impl.store.peak === 2 && good.impl.calls.filter(c => c === 'sendOrder').length === 1, good.byId.J9.evidence);
   const rows9 = await crmRun({ extraRows: [{ id: 'x1', name: 'Other 1', budget: 9 }, { id: 'x2', name: 'Other 2', budget: 10 }, { id: 'x3', name: 'Other 3' }] });
-  check('journey J9: with other rows holding 9 and 10 the sort is compared as numbers over them and nothing is UNPROVEN', rows9.byId.J9.status === 'PASS' && /\(3 hold one\)/.test(rows9.byId.J9.evidence) && !/UNPROVEN/.test(rows9.byId.J9.evidence), rows9.byId.J9.evidence);
+  check('journey J9: with other rows holding 9 and 10 the sort is compared as numbers over them', rows9.byId.J9.status === 'PASS' && /over the 3 row\(s\) holding one/.test(rows9.byId.J9.evidence), rows9.byId.J9.evidence);
   const txt9 = await crmRun({ extraRows: [{ id: 'x1', name: 'Other 1', budget: 9 }, { id: 'x2', name: 'Other 2', budget: 10 }], sortAsText: true });
   check('journey J9: a sort that orders 10 before 9 (as text) is a FAIL that shows the order', txt9.byId.J9.status === 'FAIL' && /not in numeric order: 10, 10001, 9/.test(txt9.byId.J9.evidence), txt9.byId.J9.evidence);
   const str9 = await crmRun({ extraRows: [{ id: 'x1', name: 'Other 1', budget: 9 }], sortStrings: true });
@@ -329,12 +334,14 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   check('journey J9: a list that answers 500 is a FAIL with the status', ls9.byId.J9.status === 'FAIL' && /HTTP 500/.test(ls9.byId.J9.evidence), ls9.byId.J9.evidence);
   check('journey J9: a FAIL skips J10, naming J9', (await crmRun({ filtersIgnored: true })).byId.J10.status === 'SKIPPED');
 
+  check('journey J10: both journey leads (the marker lead and the sort lead) are removed: two leads existed, none is left, and the line says both',
+    good.impl.store.peak === 2 && good.impl.store.leads.length === 0 && /both journey leads/.test(good.byId.J10.evidence) && /lead-list finds 0 of either/.test(good.byId.J10.evidence), good.byId.J10.evidence);
   check('journey J10: status and owner are set and read back, the delete without confirm is refused (409 S-CONFIRM) with the lead still there, the delete with confirm removes it',
     good.byId.J10.status === 'PASS' && /409 S-CONFIRM/.test(good.byId.J10.evidence) && /lead-list finds 0/.test(good.byId.J10.evidence) && good.impl.store.leads.length === 0, good.byId.J10.evidence);
   const order = good.impl.store.log.filter(l => l.includes('leads-bulk'));
   check('journey J10: the calls are status, owner, delete without confirm, delete with confirm, in that order, all as owner-a', order.join() === 'owner-a:leads-bulk:status,owner-a:leads-bulk:owner,owner-a:leads-bulk:delete,owner-a:leads-bulk:delete+confirm', order.join());
   const b1 = await crmRun({ bulkChanged: 0 });
-  check('journey J10: a bulk status that changes 0 leads is a FAIL and the lead is still removed afterwards', b1.byId.J10.status === 'FAIL' && /changed 1/.test(b1.byId.J10.evidence) && /then removed/.test(b1.byId.J10.evidence) && b1.impl.store.leads.length === 0, b1.byId.J10.evidence);
+  check('journey J10: a bulk status that changes 0 leads is a FAIL and the lead is still removed afterwards', b1.byId.J10.status === 'FAIL' && /changed 2/.test(b1.byId.J10.evidence) && /then removed/.test(b1.byId.J10.evidence) && b1.impl.store.leads.length === 0, b1.byId.J10.evidence);
   const b2 = await crmRun({ statusIgnored: true });
   check('journey J10: a bulk status that says changed 1 and writes nothing is a FAIL at the read back', b2.byId.J10.status === 'FAIL' && /lead-list still shows "new"/.test(b2.byId.J10.evidence) && b2.impl.store.leads.length === 0, b2.byId.J10.evidence);
   const b3 = await crmRun({ ownerIgnored: true });
@@ -342,7 +349,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const b4 = await crmRun({ teamRow: null });
   check('journey J10: a workspace with no team row to be the owner is a FAIL that says so', b4.byId.J10.status === 'FAIL' && /no team row/.test(b4.byId.J10.evidence), b4.byId.J10.evidence);
   const b5 = await crmRun({ deleteNoConfirm: true });
-  check('journey J10: a delete without the confirm flag that goes through is a FAIL (200, wanted 409 S-CONFIRM) and the clean-up says it could not remove what is already gone', b5.byId.J10.status === 'FAIL' && /answered HTTP 200/.test(b5.byId.J10.evidence) && /NOT removed \(HTTP 404\)/.test(b5.byId.J10.evidence), b5.byId.J10.evidence);
+  check('journey J10: a delete without the confirm flag that goes through is a FAIL (200, wanted 409 S-CONFIRM) and the clean-up says it could not remove what is already gone', b5.byId.J10.status === 'FAIL' && /answered HTTP 200/.test(b5.byId.J10.evidence) && /NOT removed \(HTTP 404/.test(b5.byId.J10.evidence), b5.byId.J10.evidence);
   const b9 = await crmRun({ ownerChanged: 0 });
   check('journey J10: a bulk owner that changes 0 leads is a FAIL', b9.byId.J10.status === 'FAIL' && /leads-bulk owner answered HTTP 200/.test(b9.byId.J10.evidence), b9.byId.J10.evidence);
   const b10 = await crmRun({ deleteChanged: 0 });
@@ -350,9 +357,20 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const b6 = await crmRun({ wrongCode: 'S-OWN-ONLY' });
   check('journey J10: a 409 with another code than S-CONFIRM is a FAIL', b6.byId.J10.status === 'FAIL' && /wanted 409 S-CONFIRM/.test(b6.byId.J10.evidence), b6.byId.J10.evidence);
   const b7 = await crmRun({ refuseButDelete: true });
-  check('journey J10: a delete that is refused and still removes the lead is a FAIL ("is gone after")', b7.byId.J10.status === 'FAIL' && /the lead is gone after a delete without the confirm flag was refused/.test(b7.byId.J10.evidence), b7.byId.J10.evidence);
+  check('journey J10: a delete that is refused and still removes the lead is a FAIL ("is gone after")', b7.byId.J10.status === 'FAIL' && /a lead is gone after a delete without the confirm flag was refused/.test(b7.byId.J10.evidence), b7.byId.J10.evidence);
   const b8 = await crmRun({ deleteKeeps: true });
-  check('journey J10: a confirmed delete after which lead-list still finds the lead is a FAIL', b8.byId.J10.status === 'FAIL' && /still finds 1 lead/.test(b8.byId.J10.evidence) && b8.impl.store.leads.length === 1, b8.byId.J10.evidence);
+  check('journey J10: a confirmed delete after which lead-list still finds the lead is a FAIL', b8.byId.J10.status === 'FAIL' && /still finds 1\+1 lead/.test(b8.byId.J10.evidence) && b8.impl.store.leads.length === 2, b8.byId.J10.evidence);
+  const o1 = await crmRun({ alertsOnlyTo: (() => { let k = 0; return () => ++k <= 2; })() });
+  check('journey J9: the second lead is not sent when the alert list no longer holds exactly --alert-to (the guard runs again before this alert): BLOCKED, nothing sent, J10 skipped',
+    o1.byId.J9.status === 'BLOCKED' && !o1.impl.calls.includes('sendOrder') && o1.byId.J10.status === 'SKIPPED' && o1.impl.store.peak === 1, o1.byId.J9.evidence);
+  const o2 = await crmRun({ orderSend: false });
+  check('journey J9: a second lead that lead send cannot store is a FAIL that names it, and J10 is skipped', o2.byId.J9.status === 'FAIL' && /did not store one lead for "Order check abcdef12"/.test(o2.byId.J9.evidence) && o2.byId.J10.status === 'SKIPPED', o2.byId.J9.evidence);
+  const o3 = await crmRun({ sortAsText: true });
+  check('journey J9: a sort that puts 10 before 9 (text order) over the two leads is a FAIL that shows both orders, and the second lead is removed again', o3.byId.J9.status === 'FAIL' && /sort beds asc over the two leads of this run/.test(o3.byId.J9.evidence) && /wanted Order check abcdef12=9, Journey abcdef12=10/.test(o3.byId.J9.evidence) && /second lead was then removed/.test(o3.byId.J9.evidence) && o3.impl.store.leads.length === 1 && o3.byId.J10.status === 'SKIPPED', o3.byId.J9.evidence);
+  const o4 = await crmRun({ sortAlwaysAsc: true });
+  check('journey J9: a descending sort that comes back ascending over the two leads is a FAIL', o4.byId.J9.status === 'FAIL' && /sort beds desc over the two leads/.test(o4.byId.J9.evidence), o4.byId.J9.evidence);
+  const o5 = await crmRun({ fields: FIELDS.map(f => (f.key === 'beds' ? { ...f, min: 5000, max: 6000 } : f)) });
+  check('journey J9: a contract with no number column that takes both 9 and 10 is a FAIL that says so', o5.byId.J9.status === 'FAIL' && /no number column that takes both 9 and 10/.test(o5.byId.J9.evidence), o5.byId.J9.evidence);
   const alone = await crmRun({}, { only: 'J10' });
   check('journey J10: --only J10 uses one lead from lead send (one alert), removes it, and says so', alone.byId.J10.status === 'PASS' && /lead from lead send/.test(alone.byId.J10.evidence) && alone.impl.calls.filter(c => c === 'sendLead').length === 1 && alone.impl.store.leads.length === 0, alone.byId.J10.evidence);
 

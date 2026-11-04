@@ -286,32 +286,61 @@ export const STEPS = [
       if (nums.some((v, i) => i && (dir === 'asc' ? v < nums[i - 1] : v > nums[i - 1]))) return { status: 'FAIL', evidence: `sort ${nf.key} ${dir} is not in numeric order: ${nums.slice(0, 8).join(', ')}${lead.via}` };
       sorted[dir] = nums.length;
     }
-    return { status: 'PASS', evidence: `search finds exactly 1; filter ${pick.key} eq keeps the lead and excludes "${other}"; filter ${nf.key} range keeps ${n} and excludes it above; sort ${nf.key} asc and desc are numbers in numeric order over the rows owner-a sees (${sorted.asc} hold one${sorted.asc < 2 ? '; the order of two numbers is UNPROVEN, no second row holds one' : ''})${lead.via}` };
+    // The order of two numbers: a second lead (made by lead send, one more alert to --alert-to only, the alert list checked first) holds 9 where the
+    // marker lead holds 10. A sort that compares text puts "10" before "9"; the typed sort puts 9 first. J10 removes both leads.
+    const sf = fields.find(f => f.type === 'number' && f.column && (f.min === undefined || f.min <= 9) && (f.max === undefined || f.max >= 10));
+    if (!sf) return { status: 'FAIL', evidence: `the form contract has no number column that takes both 9 and 10 to compare the sort on${lead.via}` };
+    if (row[sf.key] !== 10) return { status: 'FAIL', evidence: `the marker lead holds ${sf.key} ${JSON.stringify(row[sf.key])}, not 10, so 9 cannot be compared with it${lead.via}` };
+    const blocked = await alertGuard(c); if (blocked) return blocked;
+    const second = `Order check ${c.runId}`;
+    const sent = await c.impl.sendLead(second, join(c.out, 'lead-send-order.json'), { ...journeyAnswers(fields), [sf.key]: 9 });
+    const stored = sent.ok ? await c.impl.leadCount(second) : 0;
+    if (stored > 0) c.state.second = { marker: second };
+    if (stored !== 1) return { status: 'FAIL', evidence: `lead send did not store one lead for "${second}" (${sent.ok ? 'ok' : sent.code}, ${stored} row(s))${lead.via}` };
+    const cleanSecond = async why => {
+      const f = await findLead(c, second);
+      if (f.rows.length) await c.impl.crm('owner-a', 'leads-bulk', { workspace: WS_A, ids: f.rows.map(x => x.id), action: 'delete', confirm: true });
+      c.state.second = null;
+      return { status: 'FAIL', evidence: `${why}${lead.via}; the second lead was then removed` };
+    };
+    for (const dir of ['asc', 'desc']) {
+      const r = await c.impl.crm('owner-a', 'lead-list', { workspace: WS_A, search: c.runId, size: 200, sort: { field: sf.key, dir } });
+      const got = ((r.json && r.json.rows) || []).map(x => `${x.name}=${JSON.stringify(x[sf.key])}`);
+      const want = dir === 'asc' ? [`${second}=9`, `${lead.marker}=10`] : [`${lead.marker}=10`, `${second}=9`];
+      if (r.status !== 200 || JSON.stringify(got) !== JSON.stringify(want)) return cleanSecond(`sort ${sf.key} ${dir} over the two leads of this run answered HTTP ${r.status}: ${got.join(', ') || '(no rows)'} (wanted ${want.join(', ')}: 9 ${dir === 'asc' ? 'before' : 'after'} 10 as numbers)`);
+    }
+    return { status: 'PASS', evidence: `search finds exactly 1; filter ${pick.key} eq keeps the lead and excludes "${other}"; filter ${nf.key} range keeps ${n} and excludes it above; sort ${nf.key} is typed over the ${sorted.asc} row(s) holding one; sort ${sf.key} over two leads: asc 9 before 10, desc 10 before 9 (a second lead from lead send)${lead.via}` };
   } },
   { id: 'J10', name: 'bulk', needs: ['J1', 'J9'], async run(c) {
     const lead = await feedLead(c); if (lead.fail) return lead.fail;
     const own = await ownLead(c, lead); if (own.fail) return own.fail;
-    const id = own.row.id, bulk = (action, extra = {}) => c.impl.crm('owner-a', 'leads-bulk', { workspace: WS_A, ids: [id], action, ...extra });
-    // a failed check still takes the journey's own lead away (confirmed delete), so staging keeps nothing of a run that went red
-    const fail = async why => { const d = await bulk('delete', { confirm: true }); return { status: 'FAIL', evidence: `${why}${lead.via}; the lead was then ${d.status === 200 ? 'removed' : `NOT removed (HTTP ${d.status})`}` }; };
+    // the journey's own leads: the marker lead, and the second lead J9 made for the sort when it ran (both are removed at the end)
+    let sec = null;
+    if (c.state.second) { sec = await findLead(c, c.state.second.marker); if (sec.rows.length !== 1) return { status: 'FAIL', evidence: `lead-list finds ${sec.rows.length} lead(s) for the sort lead "${c.state.second.marker}" (wanted 1)${lead.via}` }; }
+    const ids = [own.row.id, ...(sec ? [sec.rows[0].id] : [])], n = ids.length;
+    const bulk = (action, extra = {}) => c.impl.crm('owner-a', 'leads-bulk', { workspace: WS_A, ids, action, ...extra });
+    // a failed check still takes the journey's own leads away (confirmed delete), so staging keeps nothing of a run that went red
+    const fail = async why => { const d = await bulk('delete', { confirm: true }); const left = await Promise.all([lead.marker, ...(sec ? [c.state.second.marker] : [])].map(m => findLead(c, m))); const gone = d.status === 200 && left.every(x => x.rows.length === 0); return { status: 'FAIL', evidence: `${why}${lead.via}; the lead${n > 1 ? 's were' : ' was'} then ${gone ? 'removed' : `NOT removed (HTTP ${d.status}, ${left.map(x => x.rows.length).join('+')} left)`}` }; };
     const now = async () => (await findLead(c, lead.marker)).rows[0] || {};
     const status = own.row.status === 'contacted' ? 'qualified' : 'contacted';
     const st = await bulk('status', { value: status });
-    if (st.status !== 200 || !st.json || st.json.changed !== 1) return fail(`leads-bulk status ${status} answered HTTP ${st.status} ${clip(st.text, 90)} (wanted 200 with changed 1)`);
+    if (st.status !== 200 || !st.json || st.json.changed !== n) return fail(`leads-bulk status ${status} answered HTTP ${st.status} ${clip(st.text, 90)} (wanted 200 with changed ${n})`);
     if ((await now()).status !== status) return fail(`leads-bulk status ${status}: lead-list still shows "${(await now()).status}"`);
     const team = await c.impl.teamRow();
     if (!team) return fail('the test workspace has no team row to make the owner');
     const ow = await bulk('owner', { value: team });
-    if (ow.status !== 200 || !ow.json || ow.json.changed !== 1) return fail(`leads-bulk owner answered HTTP ${ow.status} ${clip(ow.text, 90)} (wanted 200 with changed 1)`);
+    if (ow.status !== 200 || !ow.json || ow.json.changed !== n) return fail(`leads-bulk owner answered HTTP ${ow.status} ${clip(ow.text, 90)} (wanted 200 with changed ${n})`);
     if ((await now()).owner !== team) return fail(`leads-bulk owner: lead-list shows owner ${JSON.stringify((await now()).owner)}, not the team row`);
     const nc = await bulk('delete');
     if (nc.status !== 409 || !nc.json || nc.json.code !== 'S-CONFIRM') return fail(`delete without the confirm flag answered HTTP ${nc.status} ${clip(nc.text, 90)} (wanted 409 S-CONFIRM)`);
-    if ((await findLead(c, lead.marker)).rows.length !== 1) return { status: 'FAIL', evidence: `the lead is gone after a delete without the confirm flag was refused${lead.via}` };
+    const still = await Promise.all([lead.marker, ...(sec ? [c.state.second.marker] : [])].map(m => findLead(c, m)));
+    if (still.some(x => x.rows.length !== 1)) return { status: 'FAIL', evidence: `a lead is gone after a delete without the confirm flag was refused (${still.map(x => x.rows.length).join('+')} left, wanted 1${sec ? '+1' : ''})${lead.via}` };
     const d = await bulk('delete', { confirm: true });
-    if (d.status !== 200 || !d.json || d.json.changed !== 1) return { status: 'FAIL', evidence: `delete with the confirm flag answered HTTP ${d.status} ${clip(d.text, 90)} (wanted 200 with changed 1)${lead.via}` };
-    const left = await findLead(c, lead.marker);
-    if (left.status !== 200 || left.rows.length !== 0) return { status: 'FAIL', evidence: `after the confirmed delete lead-list still finds ${left.rows.length} lead(s) for "${lead.marker}" (HTTP ${left.status})${lead.via}` };
-    return { status: 'PASS', evidence: `leads-bulk as owner-a: status ${status} and owner set (each read back), delete without confirm refused (409 S-CONFIRM, the lead still there), delete with confirm removed it (lead-list finds 0)${lead.via}` };
+    if (d.status !== 200 || !d.json || d.json.changed !== n) return { status: 'FAIL', evidence: `delete with the confirm flag answered HTTP ${d.status} ${clip(d.text, 90)} (wanted 200 with changed ${n})${lead.via}` };
+    const left = await Promise.all([lead.marker, ...(sec ? [c.state.second.marker] : [])].map(m => findLead(c, m)));
+    if (left.some(x => x.status !== 200 || x.rows.length !== 0)) return { status: 'FAIL', evidence: `after the confirmed delete lead-list still finds ${left.map(x => x.rows.length).join('+')} lead(s) for the journey's ${n} lead(s) (wanted 0)${lead.via}` };
+    c.state.second = null;
+    return { status: 'PASS', evidence: `leads-bulk as owner-a: status ${status} and owner set (each read back), delete without confirm refused (409 S-CONFIRM, the lead still there), delete with confirm removed ${n > 1 ? 'both journey leads' : 'it'} (lead-list finds 0 of ${n > 1 ? 'either' : 'it'})${lead.via}` };
   } },
 ];
 
