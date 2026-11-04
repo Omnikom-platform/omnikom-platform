@@ -59,10 +59,10 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const crmFake = (o = {}) => {
     const fields = o.fields || FIELDS, store = { leads: [], seen: new Set(), log: [] };
     const lead = (marker, ans) => {
-      if (!store.seen.has(marker)) { store.seen.add(marker); store.leads.push({ id: `lead-${store.seen.size}`, name: marker, phone: '(555) 010-0153', status: 'new', owner: null, events: 0, answers: { ...(ans || o.stored || J.journeyAnswers(fields)) } }); store.peak = Math.max(store.peak || 0, store.leads.length);
+      if (!store.seen.has(marker)) { store.seen.add(marker); store.leads.push({ id: `lead-${store.seen.size}`, name: marker, phone: '(555) 010-0153', status: 'new', owner: null, events: 0, answers: { ...(ans || o.stored || J.journeyAnswers(fields)) } }); store.peak = Math.max(store.peak || 0, store.leads.filter(l => !/IO check/.test(l.name)).length);
         if (o.dupMarker) store.leads.push({ id: 'lead-dup', name: marker + ' again', phone: '', status: 'new', owner: null, events: 0, answers: {} }); }
     };
-    const rowOf = l => ({ id: l.id, name: l.name, phone: l.phone, status: l.status, owner: l.owner, ...(o.stringNumbers ? Object.fromEntries(Object.entries(l.answers).map(([k, v]) => [k, typeof v === 'number' ? String(v) : v])) : l.answers) });
+    const rowOf = l => ({ id: l.id, name: l.name, email: l.email || '', form: l.form || 'contact', phone: l.phone, status: l.status, owner: l.owner, ...(o.stringNumbers ? Object.fromEntries(Object.entries(l.answers).map(([k, v]) => [k, typeof v === 'number' ? String(v) : v])) : l.answers) });
     const ok = (json, status = 200) => ({ status, text: JSON.stringify(json), json });
     const down = () => new Blocked('a session for owner-a: Auth verify answered 403: Email link is invalid or has expired', 'run again');
     if (o.preLead) lead('Journey abcdef12');
@@ -71,9 +71,62 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
       store, fields, addLead: lead,
       async crm(who, name, body) {
         store.log.push(`${who}:${name}:${body.action || ''}${body.confirm ? '+confirm' : ''}`);
-        if (name !== 'lead-update' && body.workspace !== WS_A) return ok({ code: 'S-BODY' }, 400);
+        if (!['lead-update', 'add-lead'].includes(name) && body.workspace !== WS_A) return ok({ code: 'S-BODY' }, 400);
         if (o.bulkDown && store.down) throw down();
         if (name === 'leads-bulk' && (o.bulkDown || (o.bulkBlockedOnce && !store.blockedOnce))) { store.down = true; store.blockedOnce = true; throw down(); }
+        if (name === 'crm-map-propose') {
+          const hdr = J.parseCsv(body.csv)[0], byKey = new Map(fields.map(x => [x.key.toLowerCase(), x.key]));
+          const to = h => { const k = h.toLowerCase(); return k === 'first name' ? 'name' : k === 'email' ? 'email' : k === 'phone number' ? 'phone' : k === 'lead status' ? 'status' : byKey.has(k) ? `answers.${byKey.get(k)}` : null; };
+          return ok({ template: { columns: hdr.map(h => ({ header: h, field: o.proposeWrong && /budget/i.test(h) ? 'answers.timing' : to(h) })).filter(x => x.field), value_maps: {} } });
+        }
+        if (name === 'crm-template-save') {
+          if (who === 'member-a1' && !o.memberSaves) return ok({ code: 'S-OWN-ONLY' }, 403);
+          store.tpl = body.columns; return ok({ template: 'tpl-1' });
+        }
+        if (name === 'add-lead') {
+          const nk = fields.find(x => x.type === 'number').key, v = (body.answers || {})[nk];
+          if (v !== undefined && !Number.isFinite(Number(v)) && !o.badAnswerAccepted) return ok({ code: 'I-ANSWER', path: nk }, o.answerStatus || 400);
+          const typed = { ...(body.answers || {}) }; if (v !== undefined && Number.isFinite(Number(v))) typed[nk] = Number(v);
+          store.seen.add(body.name); store.leads.push({ id: `lead-add-${store.leads.length + 1}`, name: body.name, email: body.email, phone: body.phone, form: 'dashboard', status: 'new', owner: null, events: 0, answers: typed });
+          store.peak = Math.max(store.peak || 0, store.leads.filter(l => !/IO check/.test(l.name)).length);
+          return ok({ lead: { id: 'x' } }, 201);
+        }
+        if (name === 'lead-export' && body.template) {
+          const cols = o.exportReversed ? [...store.tpl].reverse() : store.tpl;
+          let ls = store.leads.filter(l => l.name.includes(body.search || ''));
+          if (body.sort) ls = ls.sort((a, b) => (a.answers[body.sort.field] - b.answers[body.sort.field]) * (body.sort.dir === 'desc' ? -1 : 1));
+          const cell = (c, l) => { const fl = c.field; if (fl === 'name') return l.name; if (fl === 'email') return l.email; if (fl === 'status') return l.status;
+            if (fl === 'phone') { const d = String(l.phone).replace(/\D/g, '').slice(-10); return c.transform === 'us' ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : l.phone; }
+            if (fl.startsWith('answers.')) { const v = l.answers[fl.slice(8)]; return o.exportBlankNumbers && typeof v === 'number' ? '' : String(v ?? ''); } return ''; };
+          const text = [cols.map(c => c.header), ...ls.map(l => cols.map(c => cell(c, l)))].map(r => r.join(',')).join('\r\n') + '\r\n';
+          return { status: 200, text, json: null };
+        }
+        if (name === 'lead-import') {
+          if (who === 'member-a1' && !o.memberImports) return ok({ code: 'S-OWN-ONLY' }, 403);
+          const rows = J.parseCsv(body.file), hdr = rows[0], data = rows.slice(1), ix = h => hdr.indexOf(h);
+          const dup = (r, seenIn) => store.leads.some(l => l.email && l.email.toLowerCase() === r[ix('Email')].toLowerCase()) || seenIn.has(r[ix('Email')].toLowerCase());
+          const dry = body.dry_run !== false;
+          if (dry) {
+            const dups = data.filter(r => dup(r, new Set())).length;
+            if (o.dryWrites) data.forEach((r, i) => store.leads.push({ id: `lead-dry-${i}`, name: r[0] + ' ' + r[1], email: r[ix('Email')], phone: '', form: 'import', status: 'new', owner: null, events: 0, answers: {} }));
+            return ok({ dry_run: true, rows: data.length, duplicates_count: dups, new: data.length - dups });
+          }
+          if (!body.consent && !o.noTickAccepted) return ok({ code: 'I-CONSENT' }, 422);
+          if (!body.duplicates) return ok({ code: 'I-DUPLICATES' }, 422);
+          const nk = fields.find(x => x.type === 'number').key, bi = ix(nk.charAt(0).toUpperCase() + nk.slice(1));
+          const badAt = data.findIndex(r => r[bi] !== '' && !Number.isFinite(Number(r[bi])));
+          if (badAt >= 0) return ok({ code: 'I-IMPORT', problems: [{ row: String(badAt + 2), path: nk }] }, 422);
+          let created = 0, skipped = 0; const seenIn = new Set();
+          for (const r of data) {
+            const d = dup(r, seenIn); seenIn.add(r[ix('Email')].toLowerCase());
+            if (d && body.duplicates === 'skip' && !o.dupsAdded) { skipped++; continue; }
+            store.leads.push({ id: `lead-imp-${store.leads.length + 1}`, name: r[0] + ' ' + r[1], email: r[ix('Email')], phone: '', form: 'import', status: /Attempted/.test(r[ix('Lead Status')]) ? 'contacted' : 'new', owner: null, events: 0,
+              answers: { [nk]: Number(r[bi]) }, consent_text: o.wrongConsent ? 'x' : `${J.CONSENT_START}2026-11-04. File: ${body.file_name}` });
+            created++;
+          }
+          store.peak = Math.max(store.peak || 0, store.leads.filter(l => !/IO check/.test(l.name)).length);
+          return ok({ rows: data.length, created, skipped });
+        }
         if (name === 'lead-list') {
           if (body.search && /^Journey /.test(body.search)) lead(body.search);
           let rows = [...store.leads.map(rowOf), ...(body.search ? [] : (o.extraRows || []))];
@@ -115,6 +168,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
         return ok({ code: 'S-NOT-FOUND' }, 404);
       },
       async crmFields() { return fields; },
+      async consentTexts(emails) { return store.leads.filter(l => emails.includes(l.email)).map(l => ({ email: l.email, consent_text: l.consent_text, sms_consent: false })); },
       async editedEvents(id) { const l = store.leads.find(x => x.id === id); return l ? l.events : 0; },
       async teamRow() { return o.teamRow === undefined ? 'team-row-1' : o.teamRow; },
       async exportCsv(who, marker) { lead(marker); return { status: 200, text: o.exportText ? o.exportText(csvOf(o.exportFields || fields, store.leads.filter(l => l.name.includes(marker)))) : csvOf(o.exportFields || fields, store.leads.filter(l => l.name.includes(marker))) }; },
@@ -234,12 +288,12 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const pass = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl() });
   const shape = /^J\d+ (PASS|FAIL|BLOCKED|NOT BUILT YET|SKIPPED \(after J\d+ (FAIL|BLOCKED)\)) \S.*/;
   const lines = pass.text.trim().split('\n');
-  check('journey: one line per step J1..J10 in order, then the clean-up line, then one summary line', lines.length === 12 && lines.slice(0, 10).every((l, i) => l.startsWith(`J${i + 1} `) && shape.test(l)) && lines[10] === 'cleanup: 0 journey lead(s) removed, 0 left' && lines[11].startsWith('journey (staging): '), pass.text);
-  check('journey: with a good tree the result is 9 PASS, 1 NOT BUILT YET (J3), 0 FAIL and the exit is 0', pass.res.ok && pass.obj.exit === 0 && lines[11].startsWith('journey (staging): 9 PASS, 1 NOT BUILT YET, 0 FAIL'), lines[10]);
+  check('journey: one line per step J1..J11 in order, then the clean-up line, then one summary line', lines.length === 13 && lines.slice(0, 11).every((l, i) => l.startsWith(`J${i + 1} `) && shape.test(l)) && lines[11] === 'cleanup: 0 journey lead(s) removed, 0 left' && lines[12].startsWith('journey (staging): '), pass.text);
+  check('journey: with a good tree the result is 10 PASS, 1 NOT BUILT YET (J3), 0 FAIL and the exit is 0', pass.res.ok && pass.obj.exit === 0 && lines[12].startsWith('journey (staging): 10 PASS, 1 NOT BUILT YET, 0 FAIL'), lines[10]);
   check('journey: J3 on a tree with no site.spec.ts prints NOT BUILT YET with the file named', pass.byId.J3.status === 'NOT BUILT YET' && /apps\/dashboard\/tests\/site\.spec\.ts missing/.test(pass.byId.J3.evidence));
-  check('journey: the steps are J1..J10 and none of them sends a test or pushes a lead to a CRM (leads are never pushed)', pass.res.data.steps.map(s => s.id).join() === 'J1,J2,J3,J4,J5,J6,J7,J8,J9,J10' && !pass.res.data.steps.some(s => /push|send a test/i.test(s.name)) && !/pushed|send a test|Webhook/i.test(pass.text), pass.text);
-  check('journey: J8 field edit, J9 server list and J10 bulk are real PASS lines, never a NOT BUILT YET', ['field edit', 'server list', 'bulk'].every((n, i) => pass.byId[`J${8 + i}`].name === n && pass.byId[`J${8 + i}`].status === 'PASS') && pass.res.data.counts.PASS === 9);
-  check('journey: the summary names the screenshot folder', lines[11].includes(pass.res.data.out) && pass.res.data.out.startsWith(work));
+  check('journey: the steps are J1..J11 and none of them sends a test or pushes a lead to a CRM (leads are never pushed)', pass.res.data.steps.map(s => s.id).join() === 'J1,J2,J3,J4,J5,J6,J7,J8,J9,J10,J11' && !pass.res.data.steps.some(s => /push|send a test/i.test(s.name)) && !/pushed|send a test|Webhook/i.test(pass.text), pass.text);
+  check('journey: J8 field edit, J9 server list, J10 bulk and J11 CRM export and import are real PASS lines, never a NOT BUILT YET', ['field edit', 'server list', 'bulk', 'CRM export and import'].every((n, i) => pass.byId[`J${8 + i}`].name === n && pass.byId[`J${8 + i}`].status === 'PASS') && pass.res.data.counts.PASS === 10);
+  check('journey: the summary names the screenshot folder', lines[12].includes(pass.res.data.out) && pass.res.data.out.startsWith(work));
   check('journey: a screenshot path is printed on the step line that took it', /^J4 PASS .*\| png: .*j4-phone-home\.png; .*j4-phone-contact\.png; .*j4-desktop-home\.png; .*j4-desktop-contact\.png/.test(lines[3]) && /j5-form-answer\.png/.test(lines[4]) && /j6-inbox-owner-a\.png/.test(lines[5]), lines.slice(3, 6).join(' // '));
 
   const withSpec = { spec: () => ({ exists: true, text: `test('${goodTitle}')` }) };
@@ -254,7 +308,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
 
   const j1bad = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ seed: async () => ({ ok: false, code: 'S-X', data: { error: 'nope' } }) }) });
   check('journey: J1 FAIL skips J2, J3, J5, J6, J7, J8, J9 and J10 with "SKIPPED (after J1 FAIL)", still runs J4, and the exit is 1',
-    j1bad.byId.J1.status === 'FAIL' && ['J2', 'J3', 'J5', 'J6', 'J7', 'J8', 'J9', 'J10'].every(i => j1bad.byId[i].status === 'SKIPPED') && /^J2 SKIPPED \(after J1 FAIL\) /m.test(j1bad.text) && j1bad.byId.J4.status === 'PASS' && j1bad.obj.exit === 1, j1bad.text);
+    j1bad.byId.J1.status === 'FAIL' && ['J2', 'J3', 'J5', 'J6', 'J7', 'J8', 'J9', 'J10', 'J11'].every(i => j1bad.byId[i].status === 'SKIPPED') && /^J2 SKIPPED \(after J1 FAIL\) /m.test(j1bad.text) && j1bad.byId.J4.status === 'PASS' && j1bad.obj.exit === 1, j1bad.text);
   // a product bug at J5 must not leave J6 and J7 unproven: they use ONE lead made by `lead send`, and their lines say so
   const FALLBACK = '(lead from lead send: J5 did not store one)';
   const implB = fakeImpl({ leadCount: 0 });
@@ -282,7 +336,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const j2bad = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ workspacesAs: async () => ({ status: 200, ids: [WS_A, 'bbbbbbbb-0000-0000-0000-000000000000'] }) }) });
   check('journey: J2 FAIL when a login reads another workspace too', j2bad.byId.J2.status === 'FAIL' && /not exactly its own/.test(j2bad.byId.J2.evidence));
   const only = await run({ only: 'J4,j5', 'alert-to': ALERT }, { ...base, impl: fakeImpl() });
-  check('journey: --only J4,J5 runs just those and the summary names what was not run', only.res.data.steps.map(s => s.id).join() === 'J4,J5' && /; not run: J1, J2, J3, J6, J7, J8, J9, J10; /.test(only.text) && only.res.ok, only.text);
+  check('journey: --only J4,J5 runs just those and the summary names what was not run', only.res.data.steps.map(s => s.id).join() === 'J4,J5' && /; not run: J1, J2, J3, J6, J7, J8, J9, J10, J11; /.test(only.text) && only.res.ok, only.text);
   const implF = fakeImpl({ alertsOnlyTo: false });
   const noAlertList = await run({ 'alert-to': ALERT }, { ...base, impl: implF });
   check('journey: J5, J6 and J7 are BLOCKED, and nothing is opened or sent (no browser, no lead send, no dashboard test), when the test site\'s alert list is not exactly --alert-to',
@@ -374,7 +428,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     good.impl.store.peak === 2 && good.impl.store.leads.length === 0 && /both journey leads/.test(good.byId.J10.evidence) && /lead-list finds 0 of either/.test(good.byId.J10.evidence), good.byId.J10.evidence);
   check('journey J10: status and owner are set and read back, the delete without confirm is refused (409 S-CONFIRM) with the lead still there, the delete with confirm removes it',
     good.byId.J10.status === 'PASS' && /409 S-CONFIRM/.test(good.byId.J10.evidence) && /lead-list finds 0/.test(good.byId.J10.evidence) && good.impl.store.leads.length === 0, good.byId.J10.evidence);
-  const order = good.impl.store.log.filter(l => l.includes('leads-bulk'));
+  const order = good.impl.store.log.filter(l => l.includes('leads-bulk')).slice(0, 4);   // J10's own four calls (J11 deletes its leads afterwards)
   check('journey J10: the calls are status, owner, delete without confirm, delete with confirm, in that order, all as owner-a', order.join() === 'owner-a:leads-bulk:status,owner-a:leads-bulk:owner,owner-a:leads-bulk:delete,owner-a:leads-bulk:delete+confirm', order.join());
   const b1 = await crmRun({ bulkChanged: 0 });
   check('journey J10: a bulk status that changes 0 leads is a FAIL and the lead is still removed afterwards', b1.byId.J10.status === 'FAIL' && /changed 2/.test(b1.byId.J10.evidence) && /then removed/.test(b1.byId.J10.evidence) && b1.impl.store.leads.length === 0, b1.byId.J10.evidence);
@@ -395,7 +449,29 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const b7 = await crmRun({ refuseButDelete: true });
   check('journey J10: a delete that is refused and still removes the lead is a FAIL ("is gone after")', b7.byId.J10.status === 'FAIL' && /a lead is gone after a delete without the confirm flag was refused/.test(b7.byId.J10.evidence), b7.byId.J10.evidence);
   const b8 = await crmRun({ deleteKeeps: true });
-  check('journey J10: a confirmed delete after which lead-list still finds the lead is a FAIL', b8.byId.J10.status === 'FAIL' && /still finds 1\+1 lead/.test(b8.byId.J10.evidence) && b8.impl.store.leads.length === 2, b8.byId.J10.evidence);
+  check('journey J10: a confirmed delete after which lead-list still finds the lead is a FAIL', b8.byId.J10.status === 'FAIL' && /still finds 1\+1 lead/.test(b8.byId.J10.evidence) && b8.impl.store.leads.filter(l => !/IO check/.test(l.name)).length === 2, b8.byId.J10.evidence);
+  // ---- J11: CRM export and import (crm-2): a good run, then each planted fault goes red for its own reason
+  const io = good;
+  check('journey J11: the export and import PASS, and every lead it made is gone (the marker is IO check <run id>)', io.byId.J11.status === 'PASS' && io.impl.store.leads.length === 0, io.byId.J11.evidence);
+  check('journey J11: the PASS line names the map, the typed number, the US phone, the dry run, the consent sentence and the removal', /Budget and Timing to the industry fields/.test(io.byId.J11.evidence) && /member refused 403/.test(io.byId.J11.evidence) && /I-ANSWER/.test(io.byId.J11.evidence) && /phone in US form/.test(io.byId.J11.evidence) && /dry run 2 rows 2 duplicates writes nothing/.test(io.byId.J11.evidence) && /I-CONSENT/.test(io.byId.J11.evidence) && /I-IMPORT line 4 budget/.test(io.byId.J11.evidence) && /2 created 1 skipped with the consent sentence/.test(io.byId.J11.evidence), io.byId.J11.evidence);
+  const callsOf = r => r.impl.store.log.filter(l => /crm-|lead-import|lead-export|add-lead/.test(l)).join();
+  check('journey J11: each function is called as the right person (propose and save as owner-a, the member refused on save and on import, the map saved under one fixed name)',
+    /owner-a:crm-map-propose/.test(callsOf(io)) && /owner-a:crm-template-save/.test(callsOf(io)) && /member-a1:crm-template-save/.test(callsOf(io)) && /member-a1:lead-import/.test(callsOf(io)) && J.IO_MAP === 'journey crm-io (synthetic)', callsOf(io));
+  const ioFail = async (o, flags, why, re, made = true) => { const r = await crmRun(o, flags); check(`journey J11: ${why}`, r.byId.J11.status === 'FAIL' && re.test(r.byId.J11.evidence) && r.impl.store.leads.length === 0 && (made ? /; \d+ lead\(s\) removed$/ : /; no lead to remove$/).test(r.byId.J11.evidence), r.byId.J11.evidence + ' | leads left: ' + r.impl.store.leads.length); return r; };
+  await ioFail({ proposeWrong: true }, { only: 'J11' }, 'a map that sends Budget to the Timing field is a FAIL, and the run leaves no lead', /crm-map-propose: Budget should map to answers\.budget/, false);
+  await ioFail({ memberSaves: true }, { only: 'J11' }, 'a member who can save a map (200, wanted 403) is a FAIL', /crm-template-save as member-a1 answered HTTP 200 \(wanted 403/, false);
+  await ioFail({ badAnswerAccepted: true }, { only: 'J11' }, 'an add-lead that accepts "lots" as a budget is a FAIL (and the lead it stored is removed)', /add-lead with budget "lots" answered/);
+  const st422 = await crmRun({ answerStatus: 422 }, { only: 'J11' });
+  check('journey J11: a refusal of the bad answer as 422 is as good as 400 (both are a refusal naming the field)', st422.byId.J11.status === 'PASS', st422.byId.J11.evidence);
+  await ioFail({ exportReversed: true }, { only: 'J11' }, 'an export whose columns are not in the map\'s order is a FAIL naming both headers', /lead-export with the map: the header is/);
+  await ioFail({ exportBlankNumbers: true }, { only: 'J11' }, 'an export whose Budget column is empty is a FAIL (the typed number must be in the file)', /Budget reads ","/);
+  await ioFail({ dryWrites: true }, { only: 'J11' }, 'a dry run that writes leads is a FAIL', /the dry run wrote a lead|dry run of the export/);
+  await ioFail({ noTickAccepted: true }, { only: 'J11' }, 'an import without the consent tick that goes through is a FAIL (wanted 422 I-CONSENT)', /without the consent tick answered/);
+  await ioFail({ memberImports: true }, { only: 'J11' }, 'a member who can import is a FAIL (wanted 403)', /lead-import as member-a1 answered HTTP 200/);
+  await ioFail({ dupsAdded: true }, { only: 'J11' }, 'an import that adds the duplicate instead of skipping it is a FAIL (created 3, skipped 0)', /lead-import of the fixed file answered/);
+  await ioFail({ wrongConsent: true }, { only: 'J11' }, 'imported leads without the owner\'s consent sentence are a FAIL', /the imported leads' consent text/);
+  const blkIo = await crmRun({ bulkBlockedOnce: true }, { only: 'J11' });
+  check('journey J11: when the clean-up call inside J11 is blocked mid-run the orchestrator\'s clean-up still removes the run\'s leads (they carry the run id)', blkIo.impl.store.leads.length === 0 && /^cleanup: 4 journey lead\(s\) removed, 0 left$/m.test(blkIo.text) && blkIo.byId.J11.status === 'BLOCKED', blkIo.text);
   const o1 = await crmRun({ alertsOnlyTo: (() => { let k = 0; return () => ++k <= 2; })() });
   check('journey J9: the second lead is not sent when the alert list no longer holds exactly --alert-to (the guard runs again before this alert): BLOCKED, nothing sent, J10 skipped',
     o1.byId.J9.status === 'BLOCKED' && !o1.impl.calls.includes('sendOrder') && o1.byId.J10.status === 'SKIPPED' && o1.impl.store.peak === 1, o1.byId.J9.evidence);

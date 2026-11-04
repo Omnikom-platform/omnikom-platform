@@ -2,7 +2,8 @@
 // One command that strings the test site's life together on staging and is looked at: accounts, sign-in, edit and publish, the published
 // site in a real browser (phone and desktop PNGs), a lead through the site's own form, that lead in the dashboard inbox, the lead out
 // (one column per field of the form contract), then every CRM feature of block 1 on that one lead as owner-a through the real functions:
-// field edit, server list (search, filter, sort), bulk status and owner, delete refused without the confirm flag and done with it.
+// field edit, server list (search, filter, sort), bulk status and owner, delete refused without the confirm flag and done with it; then the CRM export
+// and import in the client's own layout (propose and save a map, export in it, import it back with a dry run first and the owner's consent tick).
 // One line per step: PASS | FAIL | BLOCKED | NOT BUILT YET | SKIPPED (after Jn FAIL), each with its evidence. Exit 0 only when no step
 // FAILED or was BLOCKED; NOT BUILT YET is never a pass. The step table below is the one place a slice adds its step (briefs/journey.md 8).
 // Laptop only: it needs staging secrets (variables by name), so it is not a ci.yml job. Never looped; production is refused.
@@ -140,6 +141,12 @@ const feedLead = async c => {
   c.state.answers = answers;
   return (c.state.fallback = { marker, via: ' (lead from lead send: J5 did not store one)' });
 };
+
+// J11: the map is saved under one fixed name (a re-run updates one row), every lead it makes carries the run's marker in its name and email
+export const IO_MAP = 'journey crm-io (synthetic)';
+const cap = k => k.charAt(0).toUpperCase() + k.slice(1);
+const csvText = rows => rows.map(r => r.map(x => (/[",\r\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x)).join(',')).join('\r\n') + '\r\n';
+export const CONSENT_START = 'These people agreed to be contacted by my business. Ticked by the owner on ';
 
 export const STEPS = [
   { id: 'J1', name: 'accounts', needs: [], async run(c) {
@@ -343,6 +350,84 @@ export const STEPS = [
     c.state.second = null;
     return { status: 'PASS', evidence: `leads-bulk as owner-a: status ${status} and owner set (each read back), delete without confirm refused (409 S-CONFIRM, the lead still there), delete with confirm removed ${n > 1 ? 'both journey leads' : 'it'} (lead-list finds 0 of ${n > 1 ? 'either' : 'it'})${lead.via}` };
   } },
+  { id: 'J11', name: 'CRM export and import', needs: ['J1'], async run(c) {
+    const fields = await c.impl.crmFields();
+    const nf = fields.find(f => f.type === 'number' && f.editable && f.column), pick = fields.find(f => f.type === 'enum' && f.column && f.options.length);
+    if (!nf || !pick) return { status: 'FAIL', evidence: 'the form contract has no editable number column and enum column to carry through the export and the import' };
+    const mark = `IO check ${c.runId}`, em = n => `io-${c.runId}-${n}@example.com`;
+    const last = String(parseInt(c.runId.slice(0, 4), 16) % 1000).padStart(3, '0');   // the phones of this run: +1510555<3 digits><n>, so two runs never collide
+    const ph = n => `+1510555${last}${n}`, us = n => `(510) 555-${last}${n}`;
+    const slot = pick.options[Math.min(1, pick.options.length - 1)], H = { b: cap(nf.key), t: cap(pick.key) };
+    const HEAD = ['First Name', 'Last Name', 'Email', 'Phone Number', H.b, H.t, 'Lead Status', 'Contact owner'];
+    const call = (who, name, body) => c.impl.crm(who, name, { workspace: WS_A, ...body });
+    const mine = async () => (await findLead(c, mark)).rows;
+    c.state.io = true;
+    // a failed check still takes this run's leads away (confirmed delete), so staging keeps nothing of a run that went red
+    const fail = async why => {
+      let gone = 'no lead to remove';
+      const rows = await mine().catch(() => []);
+      if (rows.length) { const d = await call('owner-a', 'leads-bulk', { ids: rows.map(x => x.id), action: 'delete', confirm: true }); gone = d.status === 200 ? `${rows.length} lead(s) removed` : `NOT removed (HTTP ${d.status})`; }
+      return { status: 'FAIL', evidence: `${why}; ${gone}` };
+    };
+    const brief = r => `HTTP ${r.status} ${clip(r.text, 110)}`;
+    // 1. a map proposed from a synthetic HubSpot-style file, then confirmed and saved by the owner; a member's save is refused
+    const sample = csvText([HEAD, ['Jordan', `Reyes ${mark}`, em('sample'), '(510) 555-0142', '750000', slot, 'New', 'Agent One']]);
+    const p = await call('owner-a', 'crm-map-propose', { csv: sample });
+    const cols = (p.json && p.json.template && p.json.template.columns) || [], fieldOf = h => (cols.find(x => x.header === h) || {}).field;
+    if (p.status !== 200 || fieldOf(H.b) !== `answers.${nf.key}` || fieldOf(H.t) !== `answers.${pick.key}` || fieldOf('Email') !== 'email' || fieldOf('First Name') !== 'name')
+      return fail(`crm-map-propose: ${H.b} should map to answers.${nf.key}, ${H.t} to answers.${pick.key}, Email to email, First Name to name; got ${H.b} -> ${fieldOf(H.b)}, ${H.t} -> ${fieldOf(H.t)}, Email -> ${fieldOf('Email')}, First Name -> ${fieldOf('First Name')} (${brief(p)})`);
+    const columns = cols.map(x => (x.field === 'phone' ? { ...x, transform: 'us' } : x));   // the client wants (xxx) xxx-xxxx
+    const sv = await call('owner-a', 'crm-template-save', { name: IO_MAP, crm: 'hubspot', columns, value_maps: { status: { new: 'New', contacted: 'Attempted to Contact' } } });
+    const tpl = sv.json && sv.json.template;
+    if (sv.status !== 200 || typeof tpl !== 'string') return fail(`crm-template-save as owner-a answered ${brief(sv)} (wanted 200 with the map's id)`);
+    const ms = await call('member-a1', 'crm-template-save', { name: IO_MAP, crm: 'hubspot', columns });
+    if (ms.status !== 403) return fail(`crm-template-save as member-a1 answered HTTP ${ms.status} (wanted 403: only the owner confirms a map)`);
+    // 2. two marked leads added by hand with industry answers (typed by add-lead); a bad answer is refused and nothing is stored
+    for (const [n, v] of [[1, '600000'], [2, '800000']]) {
+      const a = await c.impl.crm('owner-a', 'add-lead', { site: SITE_A, name: `${mark} ${n}`, email: em(n), phone: ph(n), answers: { [nf.key]: v, [pick.key]: slot }, consentText: 'Synthetic journey lead: agreed to be contacted' });
+      if (a.status !== 201) return fail(`add-lead ${n} answered ${brief(a)} (wanted 201)`);
+    }
+    const typed = (await mine()).filter(x => typeof x[nf.key] === 'number');
+    if (typed.length !== 2) return fail(`the two hand-added leads hold ${nf.key} as a number in ${typed.length} of 2 rows`);
+    const bad = await c.impl.crm('owner-a', 'add-lead', { site: SITE_A, name: `${mark} bad`, email: em('bad'), answers: { [nf.key]: 'lots' }, consentText: 'Synthetic journey lead: agreed to be contacted' });
+    const badPath = bad.json && (bad.json.path || (bad.json.problems && bad.json.problems[0] && bad.json.problems[0].path));
+    if (![400, 422].includes(bad.status) || !bad.json || bad.json.code !== 'I-ANSWER' || badPath !== nf.key) return fail(`add-lead with ${nf.key} "lots" answered ${brief(bad)} (wanted a refusal I-ANSWER naming ${nf.key})`);
+    if ((await mine()).length !== 2) return fail('the refused add-lead stored a lead anyway');
+    // 3. the export in the map's layout: its header and order, the typed numbers, the phone in the map's US form
+    const e = await call('owner-a', 'lead-export', { template: tpl, search: mark, sort: { field: nf.key, dir: 'asc' } });
+    const out = e.status === 200 ? parseCsv(e.text) : [];
+    const want = columns.map(x => x.header), bi = want.indexOf(H.b), ti = want.indexOf(H.t), pi = want.indexOf('Phone Number');
+    if (e.status !== 200 || JSON.stringify(out[0] || []) !== JSON.stringify(want)) return fail(`lead-export with the map: the header is "${clip((out[0] || []).join(','), 100)}", the map's is "${clip(want.join(','), 100)}" (${brief(e)})`);
+    if (out.length !== 3 || out.slice(1).map(r => r[bi]).join() !== '600000,800000' || !out.slice(1).every(r => r[ti] === slot)) return fail(`lead-export with the map: ${H.b} reads "${out.slice(1).map(r => r[bi]).join()}" (wanted 600000,800000 in the sort asked for) and ${H.t} "${out.slice(1).map(r => r[ti]).join()}" (wanted ${slot})`);
+    if ((out[1] || [])[pi] !== us(1)) return fail(`lead-export with the map: the phone reads "${(out[1] || [])[pi]}", wanted the map's US form "${us(1)}"`);
+    // 4. that export comes back as a dry run: 2 rows, both duplicates, nothing written
+    const dry = await call('owner-a', 'lead-import', { template: tpl, file: e.text, file_name: `${mark}-export.csv` });
+    if (dry.status !== 200 || !dry.json || dry.json.dry_run !== true || dry.json.rows !== 2 || dry.json.duplicates_count !== 2 || dry.json.new !== 0) return fail(`lead-import dry run of the export: ${brief(dry)} (wanted dry_run true, 2 rows, 2 duplicates, 0 new)`);
+    if ((await mine()).length !== 2) return fail('the dry run wrote a lead');
+    // 5. a fresh file of 3 rows (one repeats lead 1's email, one has a bad number): no tick, a bad row and a member are each refused and write nothing
+    const fresh = v => csvText([HEAD, ['Ima', `${mark} 3`, em(3), us(3), '450000', slot, 'New', ''], ['Ima', `${mark} dup`, em(1).toUpperCase(), '', '', '', '', ''], ['Ima', `${mark} 4`, em(4), '', v, slot, 'Attempted to Contact', '']]);
+    const real = { template: tpl, file_name: `${mark}-fresh.csv`, dry_run: false, duplicates: 'skip' };
+    const noTick = await call('owner-a', 'lead-import', { ...real, file: fresh('900000') });
+    if (noTick.status !== 422 || !noTick.json || noTick.json.code !== 'I-CONSENT') return fail(`lead-import without the consent tick answered ${brief(noTick)} (wanted 422 I-CONSENT)`);
+    const badRow = await call('owner-a', 'lead-import', { ...real, consent: true, file: fresh('lots') });
+    const bp = badRow.json && badRow.json.problems && badRow.json.problems[0];
+    if (badRow.status !== 422 || !badRow.json || badRow.json.code !== 'I-IMPORT' || !bp || bp.row !== '4' || bp.path !== nf.key) return fail(`lead-import with a bad ${nf.key} on line 4 answered ${brief(badRow)} (wanted 422 I-IMPORT naming line 4 and ${nf.key})`);
+    const mi = await call('member-a1', 'lead-import', { ...real, consent: true, file: fresh('900000') });
+    if (mi.status !== 403) return fail(`lead-import as member-a1 answered HTTP ${mi.status} (wanted 403)`);
+    if ((await mine()).length !== 2) return fail('a refused import wrote a lead');
+    // 6. the fixed file with the tick: 2 leads created, the duplicate skipped; typed, form import, the consent sentence stored
+    const ok = await call('owner-a', 'lead-import', { ...real, consent: true, file: fresh('900000') });
+    if (ok.status !== 200 || !ok.json || ok.json.created !== 2 || ok.json.skipped !== 1) return fail(`lead-import of the fixed file answered ${brief(ok)} (wanted 200, created 2, skipped 1)`);
+    const rows = await mine(), made = rows.filter(x => x.email === em(3) || x.email === em(4));
+    if (rows.length !== 4 || made.length !== 2 || !made.every(x => x.form === 'import' && typeof x[nf.key] === 'number')) return fail(`after the import ${rows.length} lead(s) carry the marker (wanted 4), ${made.length} imported (wanted 2), form/typing: ${made.map(x => `${x.form}/${typeof x[nf.key]}`).join(', ')}`);
+    if (!made.some(x => x.status === 'contacted')) return fail('the status "Attempted to Contact" was not read through the value map as contacted');
+    const ct = await c.impl.consentTexts([em(3), em(4)]);
+    if (ct.length !== 2 || !ct.every(x => String(x.consent_text).startsWith(CONSENT_START) && String(x.consent_text).includes(`${mark}-fresh.csv`) && x.sms_consent === false)) return fail(`the imported leads' consent text: ${clip(JSON.stringify(ct.map(x => x.consent_text)), 160)} (wanted the owner's sentence, the date and the file's name, and no SMS consent)`);
+    // 7. this run's leads are removed
+    const gone = await call('owner-a', 'leads-bulk', { ids: rows.map(x => x.id), action: 'delete', confirm: true });
+    if (gone.status !== 200 || (await mine()).length !== 0) return fail(`the delete of this run's ${rows.length} leads answered HTTP ${gone.status}; ${(await mine()).length} left`);
+    return { status: 'PASS', evidence: `map proposed (${H.b} and ${H.t} to the industry fields) and saved by the owner (member refused 403); add-lead types its answers and refuses "lots" (I-ANSWER); lead-export in the map's ${want.length} columns and order with typed ${H.b}, the phone in US form; import: dry run 2 rows 2 duplicates writes nothing, no tick refused (I-CONSENT), a bad line refused whole (I-IMPORT line 4 ${nf.key}), member refused 403, then 2 created 1 skipped with the consent sentence; the ${rows.length} leads of this run removed` };
+  } },
 ];
 
 // ---------- the orchestrator ----------
@@ -373,7 +458,7 @@ export async function runJourney(c, { only = null, steps = STEPS } = {}) {
 // deletes it with leads-bulk (confirm flag) on the run's cached session, then looks again. Nothing is done when the run made no lead.
 export async function cleanupLeads(c) {
   const st = c.state, known = [st.marker, st.fallback && st.fallback.marker, st.second && st.second.marker].filter(Boolean);
-  if (!(st.marker || st.fallback || st.fallbackFail || st.second)) return null;
+  if (!(st.marker || st.fallback || st.fallbackFail || st.second || st.io)) return null;
   const mine = async () => {
     const r = await c.impl.crm('owner-a', 'lead-list', { workspace: WS_A, search: c.runId, size: 200 });
     if (r.status !== 200 || !r.json) throw new Error(`lead-list answered HTTP ${r.status}`);
@@ -518,6 +603,12 @@ export function makeImpl(ctx, seams = {}) {
       const r = ctx.sql().scalar(`select count(*) from lead_events where lead_id = ${uuidLit(leadId)} and kind = 'edited'`);
       if (!r.ok) throw new Error(`could not count the edited events: ${clip(r.message)}`);
       return Number(r.value);
+    },
+    // the consent text the import stored for each lead (read only; the owner's sentence, the date and the file's name)
+    async consentTexts(emails) {
+      const r = ctx.sql().rows(`select email, consent_text, sms_consent from public.leads where workspace_id = ${uuidLit(WS_A)} and email in (${emails.map(lit).join(', ')}) order by email`);
+      if (!r.ok) throw new Error(`could not read the consent texts: ${clip(r.message)}`);
+      return r.rows;
     },
     // a team member of the test workspace to make the owner of a lead (the id of its team row)
     async teamRow() {
