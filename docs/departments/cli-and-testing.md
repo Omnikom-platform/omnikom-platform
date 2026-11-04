@@ -587,3 +587,21 @@ when the head of operations has released its slice.
   cli-journey removed; branches sweep-eperm, journey-builder, journey-followup, browser-deadline, journey-r2, mutate-workers deleted. No builder live.
   NOT DONE: this charter's lines from 17:48 on (and the HANDOVER block) are uncommitted in the E: checkout (land left its local master at 4f91b52,
   12 paths differ); the next head commits them on a check branch over 0937c67. NEXT slice: queue item (1).
+- 2026-11-04 07:50 (HEAD_CLI-and-testing_2026-11-04, session 5b01fc1c, Opus 5.5; reports to HEAD-OF-OPERATIONS_Omnikom_2026-11-02e): took over from
+  the 21:52 HANDOVER (its 22:19 land PROVEN). The "NOT DONE: uncommitted" note is settled by HoO: that work is on GitHub branch
+  check/archive-2026-11-04/shared-tree (284f2f5), take only what master lacks, never merge it. Jobs from HoO: (1) a journey step per CRM
+  block-1 feature (field edit, server list filter and sort, bulk, export columns) and J8/J9 removed (leads are never pushed); (2) a ci.yml
+  step `node tools/icm/index.mjs --check`; (3) review platform's seed.mjs edit.
+- 07:55 job 3 ACCEPTED: 41ab89a's TEST_CONTRACT forms.contact equals tenancy.test.sql:74 by test/run.mjs:137's compare ("equal: true");
+  the compare without forms is "false" (watched fail).
+- 07:58 job 2: HoO ruling (a), one-time carve-out: one step in the `gates` job of .github/workflows/ci.yml (platform-build owns .github/,
+  HoO owns tools/icm/). Builder BUILDER_cli-and-testing_icm-ci pushed 9a2892b; head re-ran a clean clone: --check exit 0, a stale doc exit 1
+  ("STALE icm/index.json: changed: docs/product/README.md (lines)"), restored exit 0. Land REFUSED: run 41783980555 cli job "527 of 529
+  checks passed, 2 FAILED", "step not mapped: ICM index is fresh". RULE LEARNED: every new ci.yml step needs its row in
+  tools/omnikom-cli/commands/ci.mjs (NODE_STEPS / ROWS), or `omnikom ci`'s real-ci.yml checks go red. Fix sent to the same builder.
+- 07:55 job 1: builder BUILDER_cli-and-testing_crm-journey (pid 23004) briefed: J7 export checks one column per form field; new steps
+  field edit, server list, bulk (bulk delete with confirm is last, so the journey removes its own lead); J8/J9 removed, ids renumbered.
+  The 7 old journey leads on staging are NOT cleaned by it (a separate write, unreleased).
+- 09:01 STANDING ORDER (owner via HoO): for every block platform lands (crm-2 export/import next, then block 3 CRM screens, then the
+  rest) add its journey step on staging the same day, so every book row that turns WORKS has a step showing it. Block order asked of
+  HEAD_Platform-build_2026-11-04. Stop all work at 95% weekly usage and tell HoO.
