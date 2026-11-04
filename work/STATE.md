@@ -40,7 +40,6 @@ their CI runs, and `docs/blueprint/PROGRESS.md`.
 
 ## Open owner questions
 
-- Imported leads: what consent text do they carry?
 - Status board: fixed five statuses or custom stages?
 
 ## Blocked on the owner's click
