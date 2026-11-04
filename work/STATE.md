@@ -11,8 +11,9 @@ their CI runs, and `docs/blueprint/PROGRESS.md`.
   them); `omnikom land` fast-forwards `code\main` after a land when it is clean. Getting back in: `resume\RESUME.md`, Desktop
   "Start Omnikom" and "Resume Head of Ops". The old top-level checkout and launchers are frozen in `archive\`; a full copy of the
   old workspace is `E:\Omnikom Platform Backup 2026-11-04` (3456 files).
-- All departments are parked; no builder runs. Nothing is held only on this laptop: 14 `check/archive-2026-11-04/*` branches
-  on GitHub hold the old local work.
+- Running since 2026-11-04 07:50 (launchers in `resume\`): HEAD_Platform-build_2026-11-04, HEAD_CLI-and-testing_2026-11-04,
+  HEAD_SEO-and-audits_2026-11-04 (Opus 5.5), reporting to HEAD-OF-OPERATIONS_Omnikom_2026-11-02e. Clients has no head (no
+  HANDOVER). Nothing is held only on this laptop: 14 `check/archive-2026-11-04/*` branches on GitHub hold the old local work.
 
 ## Now
 
@@ -31,12 +32,14 @@ their CI runs, and `docs/blueprint/PROGRESS.md`.
 
 ## Next, in order
 
-1. Platform build: block 2, CRM export and import in the client's own format (`work/02-crm-export-import/CONTEXT.md`, written,
-   no builder started yet); the CRM screens on the new backend are block 3.
-2. CLI and testing adds a journey step per CRM feature (field edit, server list, bulk, export columns) and removes the push
-   steps J8 and J9.
-3. Head of operations: route the open findings (`service.add_lead` stores manual answers untyped, work order 01 F3); cut old
-   logs and charters to what is true now (leftover worktrees and launchers: done by work order 04).
+1. Platform build: block 2, CRM export and import in the client's own format (`work/02-crm-export-import/CONTEXT.md`; F3,
+   `add_lead` typed, is its setting 8), builder slice crm-2 started 2026-11-04; the CRM screens on the new backend are block 3.
+2. CLI and testing: slice crm-journey, a journey step per CRM feature (field edit, server list, bulk, export columns) and the
+   push steps J8 and J9 removed; then the ci.yml `tools/icm/index.mjs --check` step; then review platform's seed.mjs edit.
+3. SEO and audits: the skill's old paths, then slice audit-results (each publish's audit result per site, backend first); the
+   SEO tools page spec comes to the head of operations before any screen work; slice 4 after.
+4. Head of operations: cut old logs and charters to what is true now; remove the temporary GitHub hosts pin (owner's UAC
+   click) when the heads are idle.
 
 ## Open owner questions
 
