@@ -60,8 +60,8 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | A18 Duplicate flag | MISSING | `idempotency_key` catches only the same submission |
 | A19 Unread bold, opening marks read | PARTLY | backend works (M12, F:lead-update `read`); no screen sends it |
 | A20 CSV export of the list | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:lead-export writes one column per core and industry field in form order |
-| A21 Export in the client's CRM layout | PARTLY | backend proven on staging (e2e-crm-io <date>): F:crm-map-propose proposes the map, F:crm-template-save confirms it, F:lead-export `template` writes the caller's view in it; no screen (block 3) |
-| A22 Import the client's file | PARTLY | backend proven on staging (e2e-crm-io <date>): F:lead-import, a dry run first, rows typed as capture, duplicates by email or E.164 phone, all or nothing, the owner's consent tick; no screen (block 3) |
+| A21 Export in the client's CRM layout | PARTLY | backend proven on staging (e2e-crm-io 2026-11-04): F:crm-map-propose proposes the map, F:crm-template-save confirms it, F:lead-export `template` writes the caller's view in it; no screen (block 3) |
+| A22 Import the client's file | PARTLY | backend proven on staging (e2e-crm-io 2026-11-04): F:lead-import, a dry run first, rows typed as capture, duplicates by email or E.164 phone, all or nothing, the owner's consent tick; no screen (block 3) |
 | A23 An agent sees only its own leads | WORKS | RLS `leads_read`; per-column visibility not specified |
 | A24 Industry lead fields as real columns | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): typed at capture, own named columns in F:lead-list and F:lead-export, editable |
 | A25 Consent record with the lead | WORKS | lead panel, `consent_ledger` |

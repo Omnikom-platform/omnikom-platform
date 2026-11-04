@@ -19,7 +19,7 @@ none
 | Path | Owner | Lines | Title | Summary | Load for |
 |---|---|---|---|---|---|
 | work/01-crm-backend/CONTEXT.md | head-of-operations | 127 | 01 CRM backend | Owner: platform-build. Model: Opus 5.5, effort high. Branch: check/platform/crm-1 (worktree `C:\Users\DELL\AppData\Local\Temp\omk-wt-crm1`, base master bb1db... |  |
-| work/02-crm-export-import/CONTEXT.md | head-of-operations | 108 | 02 CRM export and import in the client's own format | Owner: platform-build. Model: Opus 5.5, effort high. Branch: check/platform/crm-2 (fresh worktree on master). Status: OPEN, not started (written 2026-11-03 b... |  |
+| work/02-crm-export-import/CONTEXT.md | head-of-operations | 119 | 02 CRM export and import in the client's own format | Owner: platform-build. Model: Opus 5.5, effort high. Branch: check/platform/crm-2 (fresh worktree on master). Status: DONE 2026-11-04 (landed 0d4f588, CI run... |  |
 | work/04-workspace-home/CONTEXT.md | head-of-operations | 93 | Work order 04: one home for all Omnikom Platform work (head of operations, builder) | Owner 2026-11-04 05:59: "do whatever is programmatically and engineeringly proper". Approved map: https://claude.ai/artifact/FkwY79m5MeBMsxKATsUHen . Ruling ... |  |
 | work/05-audit-results/CONTEXT.md | head-of-operations | 71 | 05 audit results | Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/audit-results. Status: OPEN. |  |
 | work/README.md | head-of-operations | 47 | Work orders | `work/` is layer 2 of the layout in `docs/product/README.md`: one folder per piece of work, plus `STATE.md` (where things stand now). A session loads `CLAUDE... |  |

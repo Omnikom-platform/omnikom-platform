@@ -93,10 +93,10 @@ try {
   line((await leadsOf()).length === 2, 'the refused import wrote nothing');
   const ok = await call('lead-import', 'owner-a', { ...real, file: fresh('900000') });
   line(ok.status === 200 && ok.json?.created === 2 && ok.json?.skipped === 1, 'the fixed file: 2 leads created, the duplicate skipped', `${ok.status} ${ok.text.slice(0, 200)}`);
-  const got = sql.rows(`select email, form, status, jsonb_typeof(answers -> 'budget') as t, consent_text, sms_consent from public.leads
+  const got = sql.rows(`select email, form, status, jsonb_typeof(answers -> 'budget') as budget_type, consent_text, sms_consent from public.leads
     where workspace_id = '${WS_A}' and email in ('${email(3)}', '${email(4)}') order by email`);
   const r = got.ok ? got.rows : [];
-  line(r.length === 2 && r.every((x) => x.form === 'import' && x.t === 'number' && x.sms_consent === false) && r[1].status === 'contacted',
+  line(r.length === 2 && r.every((x) => x.form === 'import' && x.budget_type === 'number' && x.sms_consent === false) && r[1].status === 'contacted',
     'the imported leads: form import, budget a number, status read through the value map, no SMS consent', JSON.stringify(got).slice(0, 300));
   line(r.length === 2 && r.every((x) => String(x.consent_text).startsWith('These people agreed to be contacted by my business. Ticked by the owner on ') && String(x.consent_text).includes(`${marker}-fresh.csv`)),
     'the consent sentence, the date and the file\'s name are each lead\'s consent text', JSON.stringify(r[0] ?? {}).slice(0, 300));

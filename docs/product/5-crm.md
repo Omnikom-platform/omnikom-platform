@@ -91,7 +91,7 @@ decides, not the screen. A member cannot hand a lead on. A member's hand-entered
 The CRM features named MISSING in `1-product.md`: A13 choose the columns, A14 saved views, A16 status board, A17 follow-up
 date and tasks, A18 duplicates. PARTLY: A2 every field visible, A3 field edit, A9 delete, A10 search, A11 filter, A12 sort,
 A15 bulk edit, A19 unread bold, A20 CSV export (no button), A21 export in their layout, A22 import, A24 industry fields as
-columns (the backend of A3, A9-A12, A15, A20 and A24 is proven on staging, work order 01, and of A21 and A22, e2e-crm-io <date>,
+columns (the backend of A3, A9-A12, A15, A20 and A24 is proven on staging, work order 01, and of A21 and A22, e2e-crm-io 2026-11-04,
 work order 02; the screens are block 3).
 
 Delete is a hard delete, as privacy requires (head of operations' ruling 2026-11-03, not an owner question): the row goes,
@@ -139,7 +139,7 @@ flowchart LR
 - **Consent of imported leads** (settled the way hand-entered leads were): the import is refused unless the owner ticks "These
   people agreed to be contacted by my business"; that sentence, the date and the file's name are each lead's `consent_text`;
   marketing and SMS consent are false.
-- **What exists:** the library, the table, the four functions above, backend proven on staging (e2e-crm-io <date>). **What is
+- **What exists:** the library, the table, the four functions above, backend proven on staging (e2e-crm-io 2026-11-04). **What is
   missing:** the screens (block 3).
   - An imported lead goes on the workspace's oldest site (the plain export and the export event work per site); a business with
     several sites cannot choose another.

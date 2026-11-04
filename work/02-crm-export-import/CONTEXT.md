@@ -1,7 +1,7 @@
 # 02 CRM export and import in the client's own format
 
-Owner: platform-build. Model: Opus 5.5, effort high. Branch: check/platform/crm-2 (fresh worktree on master). Status: OPEN, not
-started (written 2026-11-03 by `HEAD_Platform-build_2026-11-03a` at a usage stop; the next platform head starts the builder).
+Owner: platform-build. Model: Opus 5.5, effort high. Branch: check/platform/crm-2 (fresh worktree on master). Status: DONE 2026-11-04
+(landed 0d4f588, CI run 41838590596 9 of 9; staging proven the same day; written 2026-11-03 by `HEAD_Platform-build_2026-11-03a`).
 
 ## Why
 Block 2 of 5 of the platform department (head of operations, 2026-11-03). Moves `docs/product/1-product.md` A20 (CSV export),
@@ -97,6 +97,17 @@ the screens are block 3.
 
 ## Proof
 (filled by the head with pasted lines)
+- Builder, local, under heavy: run-local "PASS real migration: ALL TENANCY TESTS PASSED", "OK: real migration passes; 38 mutants" (crm15),
+  then "caught crm15: import, the site is the first by id, not the oldest"; functions "import.test.ts: ok | 6 passed | 0 failed",
+  "templates.test.ts: ok | 2 passed | 0 failed | 1 ignored" (F3), "cors.test.ts: ok | 6 passed | 0 failed", "export.test.ts: ok | 9 passed | 0 failed";
+  mutate --only "4 mutants, 4 caught, 0 survived, 0 target text missing" (crm-template-save). The full suites run on CI (head of operations' ruling 2026-11-04).
+- CI on 0d4f588 (run 41838590596): 9 of 9 jobs success. Landed by `omnikom land`: "git: 5809e85..0d4f588 ... -> master". (Run 41821648162 on
+  f9090d3 was red: "213 mutants, 212 caught, 1 survived" and CLI "707 of 708 checks passed, 1 FAILED" on T23c, both fixed before the land.)
+- Staging 2026-11-04, from the landed tree: apply-staging (M15), deploy-functions "OK: lead-import deployed", "OK: lead-export deployed",
+  "OK: add-lead deployed" (with crm-map-propose, crm-template-save); `e2e-crm-io.mjs` "PASS: CRM export and import on staging, 0 problem(s)"
+  (18 checks; the first run's 2 FAILs were the test's own readback, a column aliased `t` inside `sql.rows`' `jsonb_agg(t)`, fixed in
+  check/platform/crm-2b); `e2e-crm.mjs` "PASS: CRM backend on staging, 0 problem(s)"; `e2e-screens.mjs` "PASS: staging end to end for the
+  functions of the four screens, 0 problem(s)".
 
 ## Findings
 (the builder writes here, one line each, and sends them to the head)
