@@ -54,7 +54,7 @@ const MUTANTS = [
   ['two case variants are guessed between', 'return hits.length === 1 ? row[hits[0]] : undefined;', 'return hits.length >= 1 ? row[hits[0]] : undefined;'],
   ['an exact file header does not win over a case variant', 'if (has(row, header)) return row[header];', ''],
   // ---- proposeMap
-  ['greedy goes by field order, not best score', 'pairs.sort((x, y) => y.s - x.s || x.a - y.a || x.r - y.r || x.b - y.b);', 'pairs.sort((x, y) => x.a - y.a || x.r - y.r || x.b - y.b);'],
+  ['greedy goes by field order, not best score', 'pairs.sort((x, y) => y.s - x.s || x.l - y.l || x.a - y.a || x.r - y.r || x.b - y.b);', 'pairs.sort((x, y) => x.l - y.l || x.a - y.a || x.r - y.r || x.b - y.b);'],
   ['greedy takes the worst score first', 'pairs.sort((x, y) => y.s - x.s ||', 'pairs.sort((x, y) => x.s - y.s ||'],
   ['a tie ignores the dictionary rank', 'x.a - y.a || x.r - y.r || x.b - y.b', 'x.a - y.a || x.b - y.b'],
   ['a tie goes to the synonym listed last', 'x.a - y.a || x.r - y.r', 'x.a - y.a || y.r - x.r'],

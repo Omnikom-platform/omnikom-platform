@@ -193,6 +193,21 @@ jobs:
         run: node tools/departments/check.mjs
       - name: Department tool tests
         run: node tools/departments/test/run.mjs
+      # mutate.mjs first runs test/run.mjs on the unbroken copy and stops red if it fails, so this one step is both the tests and the mutants
+      - name: crm-map tests and mutants
+        run: node tools/crm-map/test/mutate.mjs
+      - name: Client record tests
+        run: node clients/test/run.mjs
+      - name: ICM tests
+        run: node tools/icm/test/run.mjs
+      - name: Lead endpoint tests
+        run: node factory/worker/test/run.mjs
+      - name: Lead endpoint mutants
+        run: node factory/worker/test/mutate.mjs
+      - name: Secret receiver tests
+        run: node tools/test/test-secret-receiver.mjs
+      - name: Secret receiver mutants
+        run: node tools/test/mutate-secret-receiver.mjs
       - name: Client files
         run: node clients/check.mjs
 
