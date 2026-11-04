@@ -1,6 +1,6 @@
 # Where things stand
 
-Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-04 17:50 by the head of operations.
+Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-05 01:25 by the head of operations.
 What the product is and every feature's state: `docs/product/1-product.md`. Proof of past work: the commit messages and
 their CI runs, and `docs/blueprint/PROGRESS.md`.
 
@@ -12,9 +12,10 @@ their CI runs, and `docs/blueprint/PROGRESS.md`.
   "Start Omnikom" and "Resume Head of Ops". The old top-level checkout and launchers are frozen in `archive\`; a full copy of the
   old workspace is `E:\Omnikom Platform Backup 2026-11-04` (3456 files).
 - Running (launchers in `resume\`, Opus 5.5): HEAD_Platform-build_2026-11-04b, HEAD_CLI-and-testing_2026-11-04b,
-  HEAD_SEO-and-audits_2026-11-04b, reporting to HEAD-OF-OPERATIONS_Omnikom_Platform (session 7e47f4d5). Clients has no head
-  (no HANDOVER). Nothing is held only on this laptop: 14 `check/archive-2026-11-04/*` branches on GitHub hold the old local work.
-- Lands: when two green branches race, the head of operations sets the order (a branch refused twice gets a held slot).
+  HEAD_SEO-and-audits_2026-11-04b, reporting to HEAD-OF-OPERATIONS_Omnikom_Platform (7e47f4d5); old local work: 14 GitHub
+  branches `check/archive-2026-11-04/*`.
+- 2026-11-05 01:20: week at 89%, wind-down ordered: each head finishes only its in-flight slice, pushes every builder's work
+  and writes a HANDOVER block in its charter before 94%. The next account starts from "Start Omnikom" (`resume\RESUME.md`).
 
 ## Now
 
@@ -22,24 +23,26 @@ their CI runs, and `docs/blueprint/PROGRESS.md`.
   `aca2542`; M15, `crm-map-propose`, `crm-template-save`, `lead-export` `template`, `lead-import`): proven on staging
   2026-11-04 ("PASS: CRM export and import on staging, 0 problem(s)", 18 checks; e2e-crm and e2e-screens still PASS).
   CLI journey J7 to J10 cover field edit, search, filter, typed sort, bulk and export columns on staging (`5809e85`, "10 PASS,
-  0 NOT BUILT YET, 0 FAIL"); push steps gone. No CRM screen uses any of this yet (block 3).
-- SEO work order 05 (`d6076e8`): every publish's audit gives a versioned summary (`tools/audit/summary.mjs`, `run.mjs
-  --summary`); the dashboard's "Search health" page is specified in `6-dashboard.md`. CI checks the icm index (`293e7fb`).
+  0 NOT BUILT YET, 0 FAIL"); J11 covers block 2 (`4bfaac7`); push steps gone. crm-map F1, F2 (`03a56b5`).
+- Block 3a, the CRM screens (`59e947e`, CI 9 of 9): UNPROVEN on staging. Its first staging flows showed 5 of 17 red; the
+  causes found were fragile tests (an ambiguous label, "Budget (USD)", tests relying on leads deleted that afternoon), fixed on
+  `check/platform/crm-screens-2`, whose staging flows were running at 01:15. No CRM row moves until they pass.
+- SEO work orders 05 (`d6076e8`, the audit summary per publish) and 06 (`c17af7b`, plain-word names in
+  `tools/audit/names.json`); 09, the six-question report, on `check/seo/six-question-report`. CI checks the icm index.
+- Known gap: CI runs no job for `tools/crm-map` tests or mutants (its full local run: 118 of 119 caught, 1 target text
+  missing, 0 survived); CLI's ci-coverage slice adds it and lists every other suite no CI job runs.
 - Product counts (`1-product.md`): CRM 9 works, 12 partly, 5 missing of 26; dashboard 8, 7, 7 of 22; backend and database
   12, 4, 1 of 17; factory and forms 9, 1, 0 of 10. Total 38 works of 75 (no row moved to WORKS yet: every new CRM part waits
   for its screen).
-- Leads scale: no index per industry key; revisit when one workspace passes about 50,000 leads (`3-database.md`).
-- The product book `docs/product/` replaces `docs/blueprint/` and `planning/DECISIONS.md` (old files in `archive/`); five
-  old files stay in `docs/blueprint/` because code reads them, superseded by the book where they disagree.
 
 ## Next, in order
 
-1. Platform build, in its charter's block order: seo-read (F1, F2: audit summary stored per site and read by the dashboard,
-   M16), 3a the CRM screens and 4 settings and account (builders 07 and 08 running), then 3b new CRM features, 5 site content,
-   6 overview and numbers, 7 onboarding.
-2. CLI and testing: seed workspace keeps the CRM column order, journey J11 for block 2, crm-map F1 and F2, land retries
-   (network, lock release, its own stale lock), then a journey step per block platform lands.
-3. SEO and audits: work order 06, plain-word names for the audit families; then slice 4, the six-question report.
+1. Platform build: land crm-screens-2 when its staging flows pass, then move the CRM rows; 08 settings and account (pushed,
+   its backend goes to staging only from a CI-green tip); 10 seo-read (audit summary per site for the dashboard, M16); then
+   3b new CRM features, 5 site content, 6 overview and numbers, 7 onboarding.
+2. CLI and testing: with-env's 10-minute cap (`WITH_ENV_TIMEOUT_MIN`, exit 124 on timeout); ci-coverage; land retries
+   (network, lock release, its own stale lock); a journey step per block platform lands.
+3. SEO and audits: land 09; then 4b, questions 2 to 5 of the report from the skill's files.
 4. Head of operations: cut old logs and charters to what is true now; remove the temporary GitHub hosts pin (owner's UAC
    click) when the heads are idle.
 
@@ -48,6 +51,7 @@ their CI runs, and `docs/blueprint/PROGRESS.md`.
 - Status board: fixed five statuses or custom stages? (A16 waits on it.)
 - The "Ask Omnikom" email address for the dashboard's Websites card (`VITE_ASK_EMAIL`; the link is hidden until set).
 - A real Google Contacts CSV export from a test account, to check `templates/google-contacts.json` (the test is skipped).
+- One inbox for the staging invite-mail proof (C13, `SETTINGS_INVITE_EMAIL`; one real mail, the login it makes stays).
 
 ## Blocked on the owner's click
 

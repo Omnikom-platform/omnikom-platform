@@ -46,6 +46,9 @@ that is written here.
    `check/<department>/<slug>` branch, never as a full local run: the laptop runs one heavy job at a time and a full Windows
    run took over an hour while it blocked every other department (2026-11-04). Master moves only to a commit GitHub passed
    (DECISIONS 45); every commit that changes a doc regenerates `icm/` itself (`node tools/icm/index.mjs`), since CI checks it.
+   A screen block also passes the dashboard flows on staging before its land, staging taking only a tip CI passed: CI's
+   mocked units passed the CRM screens while the staging flows showed 5 of 17 red (2026-11-04). When two green branches race
+   for master, the head of operations sets the order; a branch refused twice gets a held slot.
 
 ## Where sessions live and who they talk to (owner, 2026-10-30 19:51)
 - Sidebar: every session is filed under its department's group, named `Omnikom: <department name>` (head of operations,

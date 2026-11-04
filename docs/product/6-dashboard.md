@@ -110,7 +110,7 @@ with a publish.
    publish of <time> (live | preview): <n> of <m> checks pass on <p> pages." Then one line per family in plain words with its
    count (page titles and descriptions; headings and structure; indexing; addresses; links; accessibility; speed; structured
    data; AI question coverage; design; preview or live setting), and under a family with a problem one plain line per problem:
-   what, which page. The plain family and problem words come from `tools/audit/` (one place, next slice), never written in the
+   what, which page. The plain family and problem words come from `tools/audit/names.json` through the summary's `byTopic`, never written in the
    screen.
 2. **Check history:** the last 10 publishes, each with its date, pass or fail and counts; a failed one says "nothing went live"
    (reads `publish_jobs.gate_report`, already stored per job).
