@@ -294,8 +294,9 @@ export const STEPS = [
     const blocked = await alertGuard(c); if (blocked) return blocked;
     const second = `Order check ${c.runId}`;
     const sent = await c.impl.sendLead(second, join(c.out, 'lead-send-order.json'), { ...journeyAnswers(fields), [sf.key]: 9 });
+    if (sent.ok) c.state.second = { marker: second };
     const stored = sent.ok ? await c.impl.leadCount(second) : 0;
-    if (stored > 0) c.state.second = { marker: second };
+    if (!stored) c.state.second = null;
     if (stored !== 1) return { status: 'FAIL', evidence: `lead send did not store one lead for "${second}" (${sent.ok ? 'ok' : sent.code}, ${stored} row(s))${lead.via}` };
     const cleanSecond = async why => {
       const f = await findLead(c, second);
@@ -367,6 +368,31 @@ export async function runJourney(c, { only = null, steps = STEPS } = {}) {
   return { steps: out, counts, notRun };
 }
 
+// ---------- the clean-up: every lead this run made is gone when the run ends, whatever the steps did ----------
+// After the steps (any status, a throw or a Blocked inside J10 included) the orchestrator looks for every lead whose name carries this run's id and
+// deletes it with leads-bulk (confirm flag) on the run's cached session, then looks again. Nothing is done when the run made no lead.
+export async function cleanupLeads(c) {
+  const st = c.state, known = [st.marker, st.fallback && st.fallback.marker, st.second && st.second.marker].filter(Boolean);
+  if (!(st.marker || st.fallback || st.fallbackFail || st.second)) return null;
+  const mine = async () => {
+    const r = await c.impl.crm('owner-a', 'lead-list', { workspace: WS_A, search: c.runId, size: 200 });
+    if (r.status !== 200 || !r.json) throw new Error(`lead-list answered HTTP ${r.status}`);
+    return (r.json.rows || []).filter(x => String(x.name).includes(c.runId));
+  };
+  try {
+    const found = await mine();
+    if (found.length) {
+      const d = await c.impl.crm('owner-a', 'leads-bulk', { workspace: WS_A, ids: found.map(x => x.id), action: 'delete', confirm: true });
+      if (d.status !== 200) throw new Error(`leads-bulk delete answered HTTP ${d.status}`);
+    }
+    const left = (await mine()).map(x => x.name);
+    return { removed: found.length - left.length, left, error: null };
+  } catch (e) { return { removed: 0, left: known, error: clip(e && e.message || e, 160) }; }
+}
+export const cleanupLine = k => (k.error || k.left.length
+  ? `cleanup BLOCKED: ${k.left.length} journey lead(s) may be left (${k.left.join(', ') || 'none named'})${k.error ? `: ${k.error}` : ''}`
+  : `cleanup: ${k.removed} journey lead(s) removed, 0 left`);
+
 export const label = s => (s.status === 'SKIPPED' ? `SKIPPED (after ${s.after})` : s.status);
 
 export function summaryLine(data) {
@@ -379,7 +405,7 @@ export function summaryLine(data) {
 export function journeyText(obj, env = process.env) {
   const d = obj.data;
   const lines = d.steps.map(s => `${s.id} ${label(s)} ${s.name}${s.evidence ? ': ' + s.evidence : ''}${s.pngs.length ? ` | png: ${s.pngs.join('; ')}` : ''}`);
-  return redact([...lines, summaryLine(d)].join('\n'), env) + '\n';
+  return redact([...lines, ...(d.cleanup ? [cleanupLine(d.cleanup)] : []), summaryLine(d)].join('\n'), env) + '\n';
 }
 
 // ---------- the real capabilities (tests hand runJourney a fake of the same shape) ----------
@@ -408,6 +434,19 @@ export function makeImpl(ctx, seams = {}) {
     built = true;
   };
   const ensureBuilt = seams.ensureBuilt || build;
+  // One verified session (the access token) per person per run, minted when first needed and kept for the CRM calls: every call used to mint
+  // its own (about 25 links for owner-a), and a new link races the one the dashboard's Playwright sign-in is minting. The dashboard steps
+  // (J3 and J6) mint their own links, so the cache is dropped when they end and the CRM steps mint after them. Refreshed after 45 minutes
+  // (an access token lasts an hour); a failed mint is not kept.
+  const SESSION_MS = 45 * 60 * 1000, sessions = new Map();
+  const session = who => {
+    const hit = sessions.get(who);
+    if (hit && ctx.now() * 1000 - hit.at < SESSION_MS) return hit.token;
+    const token = personToken(parseIdentity(who), { target, env: ctx.env, fetchImpl: ctx.fetch });
+    sessions.set(who, { at: ctx.now() * 1000, token });
+    token.catch(() => { if (sessions.get(who) && sessions.get(who).token === token) sessions.delete(who); });
+    return token;
+  };
   const mintHash = async who => {
     const id = parseIdentity(who);
     const r = await ctx.fetch(target.authBase.replace(/\/$/, '') + '/admin/generate_link', { method: 'POST', headers: { 'content-type': 'application/json', apikey: ctx.env[target.vars.secretKey], authorization: `Bearer ${ctx.env[target.vars.secretKey]}` }, body: JSON.stringify({ type: 'magiclink', email: id.email }), signal: AbortSignal.timeout(30000) });
@@ -419,7 +458,7 @@ export function makeImpl(ctx, seams = {}) {
   return {
     async seed(alertTo) { return seedGroup({ ...ctx, positionals: ['seed', 'test'], flags: alertTo ? { 'alert-to': alertTo } : {} }); },
     async workspacesAs(who) {
-      const token = await personToken(parseIdentity(who), { target, env: ctx.env, fetchImpl: ctx.fetch });
+      const token = await session(who);
       const res = await ctx.fetch(target.restBase.replace(/\/$/, '') + '/workspaces?select=id', { headers: { apikey: pub(), authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30000) });
       const j = await res.json().catch(() => null);
       return { status: res.status, ids: Array.isArray(j) ? j.map(x => x.id).sort() : [] };
@@ -436,7 +475,7 @@ export function makeImpl(ctx, seams = {}) {
           { cwd: dash, env: { ...ctx.env, PLAYWRIGHT_JSON_OUTPUT_NAME: report, TEMP: tmp.dir, TMP: tmp.dir, TMPDIR: tmp.dir }, timeout: 600000, dir: tmp.dir, windowsHide: true });
         if (!existsSync(report)) return { ran: 0, rows: [], failed: 0, flaky: 0, error: `no report (exit ${r.status}${r.timedOut ? ', timed out' : ''}): ${clip(String(r.stdout + r.stderr).trim().split(/\r?\n/).pop(), 120)}` };
         try { return summarizePlaywright(JSON.parse(readFileSync(report, 'utf8'))); } catch (e) { return { ran: 0, rows: [], failed: 0, flaky: 0, error: 'the report is not JSON' }; }
-      } finally { tmp.release(); }
+      } finally { tmp.release(); sessions.clear(); }
     },
     launchBrowser: launch,
     fileSize: p => { try { return statSync(p).size; } catch { return 0; } },
@@ -457,7 +496,7 @@ export function makeImpl(ctx, seams = {}) {
       return r.ok && Number(r.value) === 1;
     },
     async exportCsv(who, marker) {
-      const token = await personToken(parseIdentity(who), { target, env: ctx.env, fetchImpl: ctx.fetch });
+      const token = await session(who);
       const res = await ctx.fetch(target.functionsBase.replace(/\/$/, '') + '/lead-export', { method: 'POST', headers: { 'content-type': 'application/json', apikey: pub(), authorization: `Bearer ${token}` }, body: JSON.stringify({ site: SITE_A, filter: 'all', q: marker }), signal: AbortSignal.timeout(30000) });
       return { status: res.status, text: await res.text() };
     },
@@ -469,7 +508,7 @@ export function makeImpl(ctx, seams = {}) {
     },
     // one CRM function as a signed-in person (lead-list, lead-update, leads-bulk): the same request shapes supabase/tests/e2e-crm.mjs proves
     async crm(who, name, body) {
-      const token = await personToken(parseIdentity(who), { target, env: ctx.env, fetchImpl: ctx.fetch });
+      const token = await session(who);
       const res = await ctx.fetch(target.functionsBase.replace(/\/$/, '') + '/' + name, { method: 'POST', headers: { 'content-type': 'application/json', apikey: pub(), authorization: `Bearer ${token}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(90000) });
       const text = await res.text();
       let json = null; try { json = JSON.parse(text); } catch { /* an empty or text answer */ }
@@ -509,6 +548,7 @@ export function makeImpl(ctx, seams = {}) {
         await page.screenshot(file);
         return { found, file, written: this.fileSize(file) > 0 };
       } finally {
+        sessions.clear();
         if (b) await b.close();
         try { g.killTree(server.pid); } catch { /* gone */ }
       }
@@ -541,6 +581,7 @@ export async function journeyGroup(ctx, overrides = {}) {
   mkdirSync(out, { recursive: true });
   const c = { ctx, impl: overrides.impl || makeImpl(ctx), previewBase: overrides.previewBase || PREVIEW, alertTo, out, runId, state: {} };
   const r = await runJourney(c, { only, steps: overrides.steps || STEPS });
-  const ok = r.counts.FAIL === 0 && r.counts.BLOCKED === 0;
-  return result(ok, ok ? 'ok' : 'JOURNEY-FAILED', { target: 'staging', out, runId, ...r });
+  const cleanup = await cleanupLeads(c);
+  const ok = r.counts.FAIL === 0 && r.counts.BLOCKED === 0 && !(cleanup && (cleanup.error || cleanup.left.length));
+  return result(ok, ok ? 'ok' : 'JOURNEY-FAILED', { target: 'staging', out, runId, ...r, cleanup });
 }

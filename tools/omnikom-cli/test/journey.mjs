@@ -64,11 +64,15 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     };
     const rowOf = l => ({ id: l.id, name: l.name, phone: l.phone, status: l.status, owner: l.owner, ...(o.stringNumbers ? Object.fromEntries(Object.entries(l.answers).map(([k, v]) => [k, typeof v === 'number' ? String(v) : v])) : l.answers) });
     const ok = (json, status = 200) => ({ status, text: JSON.stringify(json), json });
+    const down = () => new Blocked('a session for owner-a: Auth verify answered 403: Email link is invalid or has expired', 'run again');
+    if (o.preLead) lead('Journey abcdef12');
     return {
       store, fields, addLead: lead,
       async crm(who, name, body) {
         store.log.push(`${who}:${name}:${body.action || ''}${body.confirm ? '+confirm' : ''}`);
         if (name !== 'lead-update' && body.workspace !== WS_A) return ok({ code: 'S-BODY' }, 400);
+        if (o.bulkDown && store.down) throw down();
+        if (name === 'leads-bulk' && (o.bulkDown || (o.bulkBlockedOnce && !store.blockedOnce))) { store.down = true; store.blockedOnce = true; throw down(); }
         if (name === 'lead-list') {
           if (body.search && /^Journey /.test(body.search)) lead(body.search);
           let rows = [...store.leads.map(rowOf), ...(body.search ? [] : (o.extraRows || []))];
@@ -161,7 +165,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   // ======================================================== the real seams of the CRM steps (a fake fetch and a fake database, no network)
   {
     const seen = [], sqls = [];
-    const reply = (status, body) => ({ status, text: async () => (typeof body === 'string' ? body : JSON.stringify(body)) });
+    const reply = (status, body) => ({ status, text: async () => (typeof body === 'string' ? body : JSON.stringify(body)), json: async () => (typeof body === 'string' ? JSON.parse(body) : body) });
     const sctx = makeCtx({ command: 'test', positionals: ['test', 'journey'], flags: { target: 'staging' }, deps: { env: ENV, fetch: async (url, init) => {
       seen.push({ url, init });
       if (url.endsWith('/admin/generate_link')) return reply(200, { hashed_token: 'h' + rand() });
@@ -187,6 +191,17 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     check('journey seam editedEvents: counts the lead\'s edited events in lead_events', n === 2 && /from lead_events where lead_id = '11111111-2222-3333-4444-555555555555'::uuid and kind = 'edited'/.test(sqls[0]), sqls[0]);
     const team = await impl.teamRow();
     check('journey seam teamRow: a team row of the test workspace\'s members', team === 'team-1' && new RegExp(`from members where workspace_id = '${WS_A}'::uuid and team_row_id is not null`).test(sqls[1]), sqls[1]);
+    const mints = () => seen.filter(x => x.url.endsWith('/admin/generate_link')).length;
+    await impl.exportCsv('owner-a', 'x'); await impl.crm('owner-a', 'lead-list', { workspace: WS_A }); await impl.crm('owner-a', 'leads-bulk', { workspace: WS_A, ids: ['a'], action: 'status', value: 'new' });
+    check('journey seam session: owner-a is signed in once for all of the CRM calls and the export (one verified session kept, not one link per call)', mints() === 1, String(mints()));
+    await impl.workspacesAs('member-a1');
+    check('journey seam session: another person gets a session of their own', mints() === 2, String(mints()));
+    let t = 1793500000;
+    const tctx = makeCtx({ command: 'test', positionals: ['test', 'journey'], flags: { target: 'staging' }, deps: { env: ENV, now: () => t, fetch: async (url) => (url.endsWith('/admin/generate_link') ? (seen.push({ url }), reply(200, { hashed_token: 'h' + rand() })) : url.endsWith('/verify') ? reply(200, { access_token: 'tok' + rand() }) : reply(200, { total: 0, rows: [] })) } });
+    const timed = J.makeImpl(tctx), m0 = mints();
+    await timed.crm('owner-a', 'lead-list', {}); t += 44 * 60; await timed.crm('owner-a', 'lead-list', {});
+    const m1 = mints(); t += 2 * 60; await timed.crm('owner-a', 'lead-list', {});
+    check('journey seam session: the session is kept for 45 minutes and minted again after that (an access token lasts an hour)', m1 - m0 === 1 && mints() - m0 === 2, JSON.stringify({ m0, m1, now: mints() }));
     const file = join(work, 'seam-lead.json');
     sctx.randomUUID = () => 'abcdef12-0000-0000-0000-000000000000';
     try { await impl.sendLead('Journey seam', file, { budget: 10000, timing: '0-3 months' }); } catch { /* no network: only the fixture file is looked at */ }
@@ -198,12 +213,12 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const pass = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl() });
   const shape = /^J\d+ (PASS|FAIL|BLOCKED|NOT BUILT YET|SKIPPED \(after J\d+ (FAIL|BLOCKED)\)) \S.*/;
   const lines = pass.text.trim().split('\n');
-  check('journey: one line per step J1..J10 in order, then one summary line', lines.length === 11 && lines.slice(0, 10).every((l, i) => l.startsWith(`J${i + 1} `) && shape.test(l)) && lines[10].startsWith('journey (staging): '), pass.text);
-  check('journey: with a good tree the result is 9 PASS, 1 NOT BUILT YET (J3), 0 FAIL and the exit is 0', pass.res.ok && pass.obj.exit === 0 && lines[10].startsWith('journey (staging): 9 PASS, 1 NOT BUILT YET, 0 FAIL'), lines[10]);
+  check('journey: one line per step J1..J10 in order, then the clean-up line, then one summary line', lines.length === 12 && lines.slice(0, 10).every((l, i) => l.startsWith(`J${i + 1} `) && shape.test(l)) && lines[10] === 'cleanup: 0 journey lead(s) removed, 0 left' && lines[11].startsWith('journey (staging): '), pass.text);
+  check('journey: with a good tree the result is 9 PASS, 1 NOT BUILT YET (J3), 0 FAIL and the exit is 0', pass.res.ok && pass.obj.exit === 0 && lines[11].startsWith('journey (staging): 9 PASS, 1 NOT BUILT YET, 0 FAIL'), lines[10]);
   check('journey: J3 on a tree with no site.spec.ts prints NOT BUILT YET with the file named', pass.byId.J3.status === 'NOT BUILT YET' && /apps\/dashboard\/tests\/site\.spec\.ts missing/.test(pass.byId.J3.evidence));
   check('journey: the steps are J1..J10 and none of them sends a test or pushes a lead to a CRM (leads are never pushed)', pass.res.data.steps.map(s => s.id).join() === 'J1,J2,J3,J4,J5,J6,J7,J8,J9,J10' && !pass.res.data.steps.some(s => /push|send a test/i.test(s.name)) && !/pushed|send a test|Webhook/i.test(pass.text), pass.text);
   check('journey: J8 field edit, J9 server list and J10 bulk are real PASS lines, never a NOT BUILT YET', ['field edit', 'server list', 'bulk'].every((n, i) => pass.byId[`J${8 + i}`].name === n && pass.byId[`J${8 + i}`].status === 'PASS') && pass.res.data.counts.PASS === 9);
-  check('journey: the summary names the screenshot folder', lines[10].includes(pass.res.data.out) && pass.res.data.out.startsWith(work));
+  check('journey: the summary names the screenshot folder', lines[11].includes(pass.res.data.out) && pass.res.data.out.startsWith(work));
   check('journey: a screenshot path is printed on the step line that took it', /^J4 PASS .*\| png: .*j4-phone-home\.png; .*j4-phone-contact\.png; .*j4-desktop-home\.png; .*j4-desktop-contact\.png/.test(lines[3]) && /j5-form-answer\.png/.test(lines[4]) && /j6-inbox-owner-a\.png/.test(lines[5]), lines.slice(3, 6).join(' // '));
 
   const withSpec = { spec: () => ({ exists: true, text: `test('${goodTitle}')` }) };
@@ -366,11 +381,24 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const o2 = await crmRun({ orderSend: false });
   check('journey J9: a second lead that lead send cannot store is a FAIL that names it, and J10 is skipped', o2.byId.J9.status === 'FAIL' && /did not store one lead for "Order check abcdef12"/.test(o2.byId.J9.evidence) && o2.byId.J10.status === 'SKIPPED', o2.byId.J9.evidence);
   const o3 = await crmRun({ sortAsText: true });
-  check('journey J9: a sort that puts 10 before 9 (text order) over the two leads is a FAIL that shows both orders, and the second lead is removed again', o3.byId.J9.status === 'FAIL' && /sort beds asc over the two leads of this run/.test(o3.byId.J9.evidence) && /wanted Order check abcdef12=9, Journey abcdef12=10/.test(o3.byId.J9.evidence) && /second lead was then removed/.test(o3.byId.J9.evidence) && o3.impl.store.leads.length === 1 && o3.byId.J10.status === 'SKIPPED', o3.byId.J9.evidence);
+  check('journey J9: a sort that puts 10 before 9 (text order) over the two leads is a FAIL that shows both orders, and the second lead is removed again', o3.byId.J9.status === 'FAIL' && /sort beds asc over the two leads of this run/.test(o3.byId.J9.evidence) && /wanted Order check abcdef12=9, Journey abcdef12=10/.test(o3.byId.J9.evidence) && /second lead was then removed/.test(o3.byId.J9.evidence) && /^cleanup: 1 journey lead\(s\) removed, 0 left$/m.test(o3.text) && o3.impl.store.leads.length === 0 && o3.byId.J10.status === 'SKIPPED', o3.byId.J9.evidence);
   const o4 = await crmRun({ sortAlwaysAsc: true });
   check('journey J9: a descending sort that comes back ascending over the two leads is a FAIL', o4.byId.J9.status === 'FAIL' && /sort beds desc over the two leads/.test(o4.byId.J9.evidence), o4.byId.J9.evidence);
   const o5 = await crmRun({ fields: FIELDS.map(f => (f.key === 'beds' ? { ...f, min: 5000, max: 6000 } : f)) });
   check('journey J9: a contract with no number column that takes both 9 and 10 is a FAIL that says so', o5.byId.J9.status === 'FAIL' && /no number column that takes both 9 and 10/.test(o5.byId.J9.evidence), o5.byId.J9.evidence);
+  const blk = await crmRun({ bulkBlockedOnce: true });
+  check('journey clean-up: J10 throwing Blocked mid-step (after the bulk status) still ends with both journey leads removed and one line saying so',
+    blk.byId.J10.status === 'BLOCKED' && blk.impl.store.leads.length === 0 && /^cleanup: 2 journey lead\(s\) removed, 0 left$/m.test(blk.text) && !blk.res.ok && blk.res.data.cleanup.left.length === 0, blk.text);
+  const gone = await crmRun({ bulkDown: true });
+  check('journey clean-up: when the clean-up itself cannot run it prints a BLOCKED line naming the leads that may be left, and the run is not ok',
+    gone.byId.J10.status === 'BLOCKED' && /^cleanup BLOCKED: 2 journey lead\(s\) may be left \(Journey abcdef12, Order check abcdef12\): .*403/m.test(gone.text) && !gone.res.ok && gone.impl.store.leads.length === 2, gone.text);
+  const g5 = await crmRun({ bulkDown: true, preLead: true }, { only: 'J5' });
+  check('journey clean-up: every step green but the clean-up unable to run is still a not-ok run (exit 1), with the lead named',
+    g5.byId.J5.status === 'PASS' && /^cleanup BLOCKED: 1 journey lead\(s\) may be left \(Journey abcdef12\)/m.test(g5.text) && !g5.res.ok && g5.obj.exit === 1, g5.text);
+  const k5 = await crmRun({ preLead: true }, { only: 'J5' });
+  check('journey clean-up: a lead the run left behind (J5 only) is deleted with the confirm flag and counted: 1 removed, 0 left', /^cleanup: 1 journey lead\(s\) removed, 0 left$/m.test(k5.text) && k5.impl.store.leads.length === 0 && k5.res.ok, k5.text);
+  const none = await crmRun({}, { only: 'J4' });
+  check('journey clean-up: a run that made no lead prints no clean-up line and touches no CRM function', !/cleanup/.test(none.text) && none.impl.store.log.length === 0, none.text);
   const alone = await crmRun({}, { only: 'J10' });
   check('journey J10: --only J10 uses one lead from lead send (one alert), removes it, and says so', alone.byId.J10.status === 'PASS' && /lead from lead send/.test(alone.byId.J10.evidence) && alone.impl.calls.filter(c => c === 'sendLead').length === 1 && alone.impl.store.leads.length === 0, alone.byId.J10.evidence);
 

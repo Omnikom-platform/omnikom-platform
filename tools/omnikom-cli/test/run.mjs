@@ -136,6 +136,19 @@ async function units() {
   const contractText = /select ws, 1, '\{\}'::jsonb, '(\{"collections":[\s\S]*?\})'::jsonb, true/.exec(tenancy);
   check('seed test: the contract is the one in tenancy.test.sql', contractText && JSON.stringify(JSON.parse(contractText[1])) === JSON.stringify(TEST_CONTRACT), contractText ? 'differs' : 'not found in the test file');
 
+  {   // seed test and sites/test-demo-a/stage.mjs write the same resolved contract, the ordered leadColumns included (J7 of the journey found them rewriting each other)
+    const { loadTestSite } = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'seed.mjs')).href);
+    const V = await import(pathToFileURL(join(REPO_ROOT, 'contracts', 'validate.mjs')).href);
+    const site = await loadTestSite();
+    const stageResolved = { ...site.contract, collections: V.mergeCore(site.contract), leadColumns: V.leadColumns(site.contract) };
+    const stageSrc = readFileSync(join(REPO_ROOT, 'sites', 'test-demo-a', 'stage.mjs'), 'utf8');
+    check('seed test: the resolved contract equals the one stage.mjs builds for the same contract, the ordered leadColumns included (the two no longer rewrite each other)',
+      JSON.stringify(site.resolved) === JSON.stringify(stageResolved) && Array.isArray(site.resolved.leadColumns) && site.resolved.leadColumns.length > 0 && stageSrc.includes('collections: mergeCore(contract), leadColumns: leadColumns(contract)'),
+      JSON.stringify(Object.keys(site.resolved)));
+    check('seed test: leadColumns is in form order (side, budget, timing, beds, area, message), not the order jsonb would keep', site.resolved.leadColumns.map(c => c.key).join() === Object.values(site.contract.forms).flatMap(f => Object.keys(f.fields)).filter(k => !['name', 'email', 'phone'].includes(k)).join(),
+      site.resolved.leadColumns.map(c => c.key).join());
+  }
+
   // ---- test walls: the namespace map (lib/walls.mjs). The expectations come from the test's own patterns, not from the mapper's.
   {
     const walls = await lib('walls.mjs');

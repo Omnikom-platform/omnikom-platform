@@ -73,9 +73,10 @@ export async function loadTestSite() {
   const contract = JSON.parse(readFileSync(repoPath(...SITE_DIR, 'contract.json'), 'utf8'));
   const fileRows = JSON.parse(readFileSync(repoPath(...SITE_DIR, 'rows.json'), 'utf8'));
   const logoBytes = readFileSync(repoPath(...SITE_DIR, 'media', 'logo.png')).length;
-  const { validateContract, mergeCore } = await importRepo('contracts/validate.mjs');
+  const { validateContract, mergeCore, leadColumns } = await importRepo('contracts/validate.mjs');
   const problems = validateContract(contract);
-  const resolved = { ...contract, collections: mergeCore(contract) };
+  // leadColumns is the ordered list of the CRM's industry columns (jsonb keeps no key order; migration 14 reads the order from it): sites/test-demo-a/stage.mjs writes it too, so the two never rewrite each other
+  const resolved = { ...contract, collections: mergeCore(contract), leadColumns: leadColumns(contract) };
   const rows = SEED_ORDER.flatMap(collection => [...fileRows, AGENT_TWO].filter(r => r.collection === collection));
   return { contract, resolved, rows, logoBytes, problems, fileRows };
 }
