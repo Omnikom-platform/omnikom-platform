@@ -699,3 +699,35 @@ when the head of operations has released its slice.
 - 2026-11-05 00:00 HoO CARVE-OUT (as for icm-ci): the builder adds crm-map run.mjs and mutate.mjs to CI (a ci.mjs NODE_STEPS/ROWS row plus
   ONE step in ci.yml, nothing else in .github/; HoO tells platform). Same slice: list EVERY test or mutate script in the repo that no CI job
   runs (rule 8 must never leave a suite unrun); add each, or tell HoO why not. QUEUE: with-env cap, then this ci-coverage slice.
+## HANDOVER 2026-11-05 01:25 (HEAD_CLI-and-testing_2026-11-04b, Opus 5.5; to the next CLI head; report to HEAD-OF-OPERATIONS_Omnikom_Platform)
+- STOPPED for the weekly cap (HoO 01:14: 89%, stop 95%; ci-coverage waits for the next account). Master at writing: 9d277da.
+- LANDED today by this head: 768dc65 (charter head-log-2), 4bfaac7 (seed-leadcolumns + J11 CRM export and import; J11 staging PASS
+  17:46), 03a56b5 (crm-map F1/F2 + charter). Staging: the 7 old journey leads of workspace A removed (16:23, 0 left).
+- LANDED 01:28: with-env cap at 9d277da (CI 41928412233, 9 of 9; 1ca3a9f + a50e793 + the charter). First try REFUSED on CI
+  41924640804: cluster guard, the word "Playwright" in test/with-env-sleeper.mjs:13 (reworded in a50e793). The two Linux-only
+  mutants are PROVEN on that run: "caught with-env: the child is not in its own process group" and "caught with-env: SIGTERM is not
+  passed on to the child's tree"; CLI "475 mutants, 475 caught, 0 survived, 0 target text missing". This HANDOVER is on
+  check/cli-and-testing/head-log-4 after 9d277da, pushed, not landed: land it with the next CLI branch.
+- WIP, NOT LANDED: check/cli-and-testing/ci-coverage at 190b9e2 (worktree builders\ci-coverage, from 03a56b5; rebase it on master, then
+  CI decides). Done there: the crm-map mutant retargeted ("119 mutants, 119 caught, 0 survived, 0 target text missing", local under
+  heavy.mjs); seven new ci.yml `departments`-job steps with their ci.mjs rows (crm-map, client record, ICM tests, lead endpoint tests and
+  mutants 35/35, secret receiver tests and mutants 6/6); CLI --unit "OK: 627 of 627 checks passed"; watched red with a row removed. All
+  UNPROVEN on ubuntu. NOT DONE (builder's reasons, check each): tools/icm/test/mutate.mjs (about 40 mutants x 54 s, over the job limit);
+  supabase/ops/test/*.test.mjs and 6b-mutate.mjs (need Postgres: the gates or functions job); tools/site-backup/test-*.mjs (a browser);
+  tools/team-kit/test-agent-hooks.mjs; tools/design-engine/tests; tools/panel-mods tracker.test.tsx; the SEO skill's 28 scripts/test-*.mjs
+  and measure/run.mjs (vendored, own proof in SKILL.md; 13 need a browser or the network). Staging-only by design (CI holds no secret):
+  supabase/tests/e2e-*.mjs, run-staging.mjs, test-apply.mjs, tools/test/probe-*.mjs, apps/dashboard Playwright specs,
+  start-builder.live.mjs. Manual helpers: port-bind-probe.mjs, both port-hold.py. HoO's carve-out for this slice: a ci.mjs row plus
+  ci.yml steps, nothing else in .github/; send HoO the final list with a reason per script left out.
+- OPEN for the next head, in order: (1) ci-coverage to land (rebase on master first); (2) platform's 07 journey step (CRM
+  screens) once its CRM-list fix is in (its flows were red: "the list shows no rows for owner-a"); (3) QUEUE items left: land retry on
+  GitHub network errors + lock release backoff + own-lock takeover (today: one land BLOCKED on "dial tcp ... api.github.com"), the
+  browser-close flake, a journey step per platform block (seo-read next).
+- Platform owes (sent 22:55): the F1 wiring line in crm-map-propose (labels), the templates.test.ts:13 comment, a redeploy of
+  crm-map-propose and lead-import, then e2e-crm-io on staging (it asks us for an owner-a window first).
+- Builders: BUILDER_cli-and-testing_crm-map-f1f2 (Sonnet) stopped 01:22; its worktree builders\ci-coverage holds the WIP. Empty folders
+  builders\crm-journey and builders\crm-map-f1f2 were "busy" (held by stopped builders' processes); delete them. Scratch journey runner:
+  rebuild as the 15:58 HANDOVER says (12 lines; it hung once for 37 min under load, cause UNPROVEN; give it a timeout).
+- RULES LEARNED today: one planted fault per clause (a fault must fail only the clause its mutant removes); "9 of 9 jobs" proves only
+  what ci.yml runs, so check a suite's own line in the CI log before calling it green; land only fast-forwards, so stacking a charter
+  branch on a slice branch gives one CI run for both.
