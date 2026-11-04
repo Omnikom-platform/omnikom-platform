@@ -22,7 +22,12 @@ export function makeCtx({ command, positionals, flags, deps = {} }) {
     gatesRoot: deps.gatesRoot,   // ci --staged / --commit: where the throwaway checkout goes
     gh: deps.gh || defaultGh,  // hooks pre-push and land: the one place `gh` is spawned (a test hands a fake that answers from planted JSON)
     ghRepo: deps.ghRepo,       // owner/name; only a test sets it (a throwaway bare remote is not on github.com), never an environment variable
-    gitSpy: deps.gitSpy,       // land: a test sees every git argument list
+    copyRepo: deps.copyRepo,   // copy, land, hooks: the public repository as owner/name, and its git url; only a test sets them (a throwaway bare
+    copyUrl: deps.copyUrl,     // remote is not on github.com), never an environment variable, so no session can point the gate at another repository
+    laptop: deps.laptop,         // land: runs one jobsNotOnCopy job on the laptop (DECISIONS 47); a test hands a fake, the default is heavy.mjs + omnikom ci
+    copyPushSpy: deps.copyPushSpy,   // copy: a test sees every argument list of the temporary repository the copy is pushed from
+    gitleaks: deps.gitleaks,   // copy: the gitleaks binary (otherwise .tools/bin of this checkout or of its main checkout, then PATH)
+    gitSpy: deps.gitSpy,      // land: a test sees every git argument list
     stdin: deps.stdin,         // hooks pre-push: git's lines
     now: deps.now || (() => Math.floor(Date.now() / 1000)),
     randomUUID: deps.randomUUID || randomUUID,

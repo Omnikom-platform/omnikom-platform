@@ -1,11 +1,14 @@
-// hooks install | uninstall | status | pre-push   (DECISIONS 45, which amends 43 part 5)
+// hooks install | uninstall | status | pre-push   (DECISIONS 45, which amends 43 part 5; DECISIONS 46 moves the verdict to the public copy)
 // `install` writes <git common dir>/hooks/pre-push, a three-line shell shim that runs `hooks pre-push`; git calls that with the remote's name
 // and url as arguments and, on stdin, one line per pushed ref: "<local ref> <local sha> <remote ref> <remote sha>".
 // `pre-push` decides by the REMOTE ref:
 //   refs/heads/check/**   allowed (create, update or delete): a head pushes its commit there and GitHub runs ci on it;
 //   refs/heads/land-lock  allowed (create and delete): the landing queue of `omnikom land` (commands/land.mjs);
-//   refs/heads/master     only a fast-forward to a commit whose ci run on GitHub had every ci.yml job green (lib/ghrun.mjs, read with gh);
-//                         a delete is refused; no gh answer is a refusal (fail closed);
+//   refs/heads/master     only a fast-forward to a commit whose PUBLIC COPY had a ci run on GitHub with every ci.yml job green (lib/ghrun.mjs, read
+//                         with gh, from the public repository named in public-copy.json). The copy commit is a function of the pushed commit
+//                         (lib/copy.mjs: same tree minus the denylist, same author and dates, root commit), so the commit whose run is read is
+//                         COMPUTED here, never looked up by a branch name or a message: a run of a copy with another tree is another commit.
+//                         A delete is refused; no gh answer, no rules file and no public repository is a refusal (fail closed);
 //   any other ref         refused: master is reached only through `omnikom land`, work goes to check/**.
 // The impact graph has known gaps (runtime-built paths, import maps), so it cannot be the judge of "prose only": there is no prose exception.
 // `git push --no-verify` skips every hook. It is the owner's override alone; no session, head or builder ever uses it.
@@ -17,6 +20,7 @@ import { makeGit, ZERO_SHA } from '../lib/git.mjs';
 import { redact } from '../lib/redact.mjs';
 import { commonDirOf } from '../lib/checkout.mjs';
 import { ciVerdict, jobNamesAt, repoFromUrl } from '../lib/ghrun.mjs';
+import { expectedCopyCommit, publicRepoOf } from '../lib/copy.mjs';
 import { LOCK_REF } from '../lib/landlock.mjs';
 
 export const HOOK_MARK = '# omnikom pre-push';
@@ -87,16 +91,18 @@ export async function checkRef(ctx, git, where, [lref, lsha, rref, rsha]) {
     if (!known) return { allowed: false, lines: [`pre-push: REFUSED ${ref}: the remote master ${rsha} is not in this clone, so a fast-forward cannot be shown; fetch first`] };
     if (!git.run(['merge-base', '--is-ancestor', rsha, lsha]).ok) return { allowed: false, lines: [`pre-push: REFUSED ${ref}: ${lsha} is not a fast-forward of the remote master ${rsha}; rebase onto master and land again`] };
   }
-  let v;
+  let v, repo, copySha;
   try {
-    const repo = repoOfRemote(ctx, git, where.name, where.url);
-    v = await ciVerdict(ctx, { repo, sha: lsha, jobNames: jobNamesAt(git, lsha) });
+    const exp = expectedCopyCommit(git, lsha);
+    copySha = exp.copySha;
+    repo = publicRepoOf(ctx, exp.built.rules);
+    v = await ciVerdict(ctx, { repo, sha: copySha, jobNames: jobNamesAt(git, copySha) });
   } catch (e) {
     if (!(e instanceof Blocked)) throw e;
     return { allowed: false, lines: [`pre-push: REFUSED ${ref}: ${e.message}`, ...(e.unblock ? [`pre-push: to unblock: ${e.unblock}`] : [])] };
   }
-  if (v.state === 'green') return { allowed: true, lines: [`pre-push: ${v.lines[0]}`] };
-  return { allowed: false, lines: [`pre-push: REFUSED ${ref}: ${lsha} has no green ci run; push it to check/<department>/<slug> and run: node tools/omnikom-cli/omnikom.mjs land check/<department>/<slug>`, ...v.lines.map(l => `pre-push: ${l}`)] };
+  if (v.state === 'green') return { allowed: true, lines: [`pre-push: ${v.lines[0]}`, `pre-push: verdict from ${repo} of the copy ${copySha} of ${lsha}`] };
+  return { allowed: false, lines: [`pre-push: REFUSED ${ref}: ${lsha} has no green ci run on the public copy ${copySha} (${repo}); push it to check/<department>/<slug>, run: node tools/omnikom-cli/omnikom.mjs copy push check/<department>/<slug>, then: node tools/omnikom-cli/omnikom.mjs land check/<department>/<slug>`, ...v.lines.map(l => `pre-push: ${l}`)] };
 }
 
 async function prePush(ctx, git) {

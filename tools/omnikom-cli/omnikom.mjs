@@ -27,11 +27,12 @@ import { ci, ciText } from './commands/ci.mjs';
 import { impact, impactText } from './commands/impact.mjs';
 import { land, landText } from './commands/land.mjs';
 import { hooksGroup, hooksText } from './commands/hooks.mjs';
+import { copyGroup, copyText } from './commands/copy.mjs';
 
-const COMMANDS = { status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate, tools: toolsGroup, ci, impact, land, hooks: hooksGroup };
+const COMMANDS = { status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate, tools: toolsGroup, ci, impact, land, hooks: hooksGroup, copy: copyGroup };
 // the commands that print text lines by default (with --json: the result object), and the ones that talk to no target
-const TEXT = { impact: impactText, land: landText, hooks: hooksText };
-const NO_TARGET = new Set(['impact', 'land', 'hooks']);
+const TEXT = { impact: impactText, land: landText, hooks: hooksText, copy: copyText };
+const NO_TARGET = new Set(['impact', 'land', 'hooks', 'copy']);
 export const USAGE = [
   'status | apply [--dry-run] | test walls | verify --only lead|walls|people | mfa enroll-staff',
   'seed test [--alert-to <email>] [--clean] | seed workspace --slug --name --industry --deploy-target --preview-host (--contract <file> | --plan <dir> --entities <file>)',
@@ -45,6 +46,7 @@ export const USAGE = [
   'impact <files...> | --staged | --commit <sha>   (every tracked file that imports, reads or copies the changed files, with its owner and the gates that cover it; text lines, exit 0)',
   'land check/<department>/<slug> [--remote backup-gh] [--wait-minutes 60]   (waits for GitHub\'s ci run of that branch\'s commit, refuses on any red job, then fast-forwards master and pushes; no target; exit 0 landed, 1 refused, 2 usage, 3 blocked)',
   'hooks install | uninstall | status   (the pre-push hook: master takes only a commit with a green GitHub ci run, check/** branches are allowed)   |   ci --staged | --commit <sha> [--job <id>] [--install]   (ci on that exact tree, to reproduce a red GitHub job; no stamp)',
+  'copy build <sha|ref> [--dry-run] | copy push check/<department>/<slug> [--remote backup-gh]   (the public, code-only copy that runs CI, DECISIONS 46: build and gate it locally, or push it to the public repository; no target; exit 0 ok, 1 gate refused, 2 usage, 3 blocked)',
   'flags: --target staging|local|production  --as <identity>  --expect <code>  --json  --fixture <file>  --real',
 ];
 

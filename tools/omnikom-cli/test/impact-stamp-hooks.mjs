@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { makeFakeGh, runRow, jobRows } from './fake-gh.mjs';
+import { RULES } from './copy.mjs';
 
 const cleanEnv = (() => {
   const e = { ...process.env, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never' };
@@ -83,6 +84,7 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
     const { ciVerdict, jobNamesAt, repoFromUrl } = await lib('ghrun.mjs');
     const { treeOf } = await lib('checkout.mjs');
     const { makeGit } = await lib('git.mjs');
+    const copyLib = await lib('copy.mjs');
     const impactMod = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'impact.mjs')).href);
     const { HOOK_TEXT, NO_VERIFY_LINE } = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'hooks.mjs')).href);
 
@@ -355,7 +357,13 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
     check('hooks: an unknown verb is a usage error', (await cli(['hooks', 'frobnicate'], {}, { repo: H })).exit === 2);
 
     // ============================================================================ pre-push (DECISIONS 45): master only takes a green GitHub run
-    const P = mkRepo();
+    const PUB_FILES = { ...PLANT, 'tools/omnikom-cli/public-copy.json': RULES() };   // the rules file of the public copy (DECISIONS 46)
+    const cpRepos = [];                                                              // the repositories whose commits cpOf can map
+    const hasCommit = (dir, sha) => spawnSync('git', ['cat-file', '-e', `${sha}^{commit}`], { cwd: dir, env: cleanEnv, timeout: 60000 }).status === 0;
+    // the public copy commit of a private commit: the commit whose ci run the hook and land must read (a sha no repository has maps to itself)
+    const cpOf = sha => { const d = cpRepos.find(x => hasCommit(x, sha)); return d ? copyLib.expectedCopyCommit(makeGit(d), sha).copySha : sha; };
+    const P = mkRepo(PUB_FILES);
+    cpRepos.push(P);
     const remote = join(work, 'remote.git');
     git(work, 'init', '-q', '--bare', '-b', 'master', remote);
     git(P, 'remote', 'add', 'origin', remote);
@@ -364,27 +372,53 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
     const zeros = '0'.repeat(40);
     const commitFile = (dir, rel, text, msg) => { put(dir, rel, text); git(dir, 'add', rel); git(dir, 'commit', '-q', '-m', msg); return git(dir, 'rev-parse', 'HEAD'); };
     const tip = commitFile(P, 'lib/b.mjs', "import { c } from './special/c.mjs';\nexport const b = c + 1;\n", 'a gated change');
-    const RUNS = (sha, over = {}) => ({ runs: [runRow(sha)], jobs: { 1: jobRows(NAMES, over) } });
+    const RUNS = (sha, over = {}) => ({ runs: [runRow(cpOf(sha))], jobs: { 1: jobRows(NAMES, over) } });
     const pp = async (stdin, state, extra = {}) => {
       const gh = makeFakeGh(() => state);
-      const r = await cli(['hooks', 'pre-push', 'origin', remote, '--json'], {}, { repo: P, ghRepo: 'o/r', gh, stdin, ...extra });
+      const r = await cli(['hooks', 'pre-push', 'origin', remote, '--json'], {}, { repo: P, ghRepo: 'o/r', copyRepo: 'o/r', gh, stdin, ...extra });
       return { ...r, gh, text: r.json && r.json.data ? r.json.data.lines.join('\n') : r.all };
     };
     const masterLine = (sha, rsha = base0) => `refs/heads/master ${sha} refs/heads/master ${rsha}\n`;
     let p = await pp(masterLine(tip), { runs: [] });
     check('pre-push: master with NO ci run is REFUSED (exit 1) with the check-branch and land command line, the verdict line and the --no-verify line last',
-      p.exit === 1 && p.text.includes(`pre-push: REFUSED refs/heads/master: ${tip} has no green ci run; push it to check/<department>/<slug> and run: node tools/omnikom-cli/omnikom.mjs land check/<department>/<slug>`)
-      && p.text.includes(`pre-push: no ci run for ${tip}`) && p.json.data.lines[p.json.data.lines.length - 1] === NO_VERIFY_LINE && NO_VERIFY_LINE === "pre-push: --no-verify is the owner's alone; no session uses it.", p.text);
-    const textRun = await cli(['hooks', 'pre-push', 'origin', remote], {}, { repo: P, ghRepo: 'o/r', gh: makeFakeGh(() => ({ runs: [] })), stdin: masterLine(tip) });
+      p.exit === 1 && p.text.includes(`pre-push: REFUSED refs/heads/master: ${tip} has no green ci run on the public copy ${cpOf(tip)} (o/r); push it to check/<department>/<slug>, run: node tools/omnikom-cli/omnikom.mjs copy push check/<department>/<slug>, then: node tools/omnikom-cli/omnikom.mjs land check/<department>/<slug>`)
+      && p.text.includes(`pre-push: no ci run for ${cpOf(tip)}`) && p.json.data.lines[p.json.data.lines.length - 1] === NO_VERIFY_LINE && NO_VERIFY_LINE === "pre-push: --no-verify is the owner's alone; no session uses it.", p.text);
+    const textRun = await cli(['hooks', 'pre-push', 'origin', remote], {}, { repo: P, ghRepo: 'o/r', copyRepo: 'o/r', gh: makeFakeGh(() => ({ runs: [] })), stdin: masterLine(tip) });
     check('pre-push: the refusal is plain text lines (not the JSON object) and its last line is the --no-verify line', textRun.exit === 1 && textRun.stdout.trim().split('\n').pop() === NO_VERIFY_LINE && !textRun.stdout.startsWith('{'), textRun.stdout);
     p = await pp(masterLine(tip), RUNS(tip, { reader: 'failure' }));
     check('pre-push: master with a RED ci run is refused, and the failing job is named with the run url', p.exit === 1 && p.text.includes(`pre-push: ${RUN1}  reader  failure`) && p.text.includes('REFUSED refs/heads/master'), p.text);
-    p = await pp(masterLine(tip), { runs: [runRow(tip, { status: 'in_progress', conclusion: null })], jobs: {} });
+    p = await pp(masterLine(tip), { runs: [runRow(cpOf(tip), { status: 'in_progress', conclusion: null })], jobs: {} });
     check('pre-push: master with a ci run still in progress is refused (pending is not green)', p.exit === 1 && p.text.includes('ci run in_progress'), p.text);
     p = await pp(masterLine(tip), RUNS(tip));
-    check('pre-push: master with a GREEN ci run (every ci.yml job success) is allowed, and the line is the green line', p.exit === 0 && p.text === `pre-push: ci green: ${tip} run 1, 3 of 3 jobs success`, p.text);
+    check('pre-push: master with a GREEN ci run (every ci.yml job success) is allowed, and the line is the green line', p.exit === 0 && p.text === `pre-push: ci green: ${cpOf(tip)} run 1, 3 of 3 jobs success\npre-push: verdict from o/r of the copy ${cpOf(tip)} of ${tip}`, p.text);
     p = await pp(masterLine(tip), RUNS(OTHER));
     check('pre-push: a green run of ANOTHER commit does not allow this one (the commit sha names the exact tree)', p.exit === 1, p.text);
+    p = await pp(masterLine(tip), RUNS(base0));
+    check('pre-push: a green run of the public copy of ANOTHER private commit (another tree) does not allow this one: the copy commit is computed from the pushed commit', p.exit === 1 && p.text.includes(`no ci run for ${cpOf(tip)}`), p.text);
+    p = await pp(masterLine(tip), { runs: [runRow(tip)], jobs: { 1: jobRows(NAMES) } });
+    check('pre-push: a green run of the PRIVATE commit itself is not the verdict either (only the public copy is read)', p.exit === 1, p.text);
+    p = await pp(masterLine(tip), RUNS(tip));
+    check('pre-push: the verdict is asked of the PUBLIC repository (--repo o/r from the rules / copyRepo), never of the remote being pushed to', p.exit === 0 && p.gh.calls.length > 0 && p.gh.calls.every(c => c.includes('o/r')), JSON.stringify(p.gh.calls));
+    {
+      const rules = JSON.parse(RULES());
+      const mkSrc = (extra) => mkRepo({ ...PLANT, 'tools/omnikom-cli/public-copy.json': JSON.stringify({ ...rules, ...extra }) });
+      const NR = mkSrc({});
+      cpRepos.push(NR);
+      const nrTip = git(NR, 'rev-parse', 'HEAD');
+      const noRepo = await cli(['hooks', 'pre-push', 'origin', remote, '--json'], {}, { repo: NR, gh: makeFakeGh(() => RUNS(nrTip)), stdin: masterLine(nrTip, '0'.repeat(40)) });
+      check('pre-push: rules that name no public repository (and no test override) refuse master (fail closed), naming the file', noRepo.exit === 1 && /names no public "repo"/.test(noRepo.json.data.lines.join(String.fromCharCode(10))), noRepo.all.slice(0, 300));
+      const NF = mkRepo(PLANT);
+      cpRepos.push(NF);
+      const nfTip = git(NF, 'rev-parse', 'HEAD');
+      const noFile = await cli(['hooks', 'pre-push', 'origin', remote, '--json'], {}, { repo: NF, copyRepo: 'o/r', gh: makeFakeGh(() => RUNS(nfTip)), stdin: masterLine(nfTip, '0'.repeat(40)) });
+      check('pre-push: a commit without public-copy.json refuses master (fail closed)', noFile.exit === 1 && /public-copy\.json/.test(noFile.all), noFile.all.slice(0, 300));
+      const NG = mkSrc({ repo: 'Someone/omnikom-checks' });
+      cpRepos.push(NG);
+      const ngTip = git(NG, 'rev-parse', 'HEAD');
+      const ghg = makeFakeGh(() => RUNS(ngTip));
+      const named = await cli(['hooks', 'pre-push', 'origin', remote, '--json'], {}, { repo: NG, gh: ghg, stdin: masterLine(ngTip, '0'.repeat(40)) });
+      check('pre-push: without a test override the public repository is the "repo" of public-copy.json', named.exit === 0 && ghg.calls[0].includes('Someone/omnikom-checks'), named.all.slice(0, 300) + JSON.stringify(ghg.calls[0]));
+    }
     p = await pp(masterLine(tip), { fail: 'To use GitHub CLI, run: gh auth login' });
     check('pre-push: no gh answer is a refusal (fail closed), with the cause', p.exit === 1 && p.text.includes('REFUSED refs/heads/master') && /gh auth login/.test(p.text), p.text);
     p = await pp(`refs/heads/check/cli-and-testing/x ${tip} refs/heads/check/cli-and-testing/x ${zeros}\n`, { fail: 'offline' });
@@ -410,18 +444,12 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
     check('pre-push: a local check/** branch pushed to a remote branch that is not check/** is refused (the remote ref decides)', p.exit === 1, p.text);
     p = await pp('', { runs: [] });
     check('pre-push: nothing on stdin is nothing to check (exit 0)', p.exit === 0 && p.json.data.lines[0] === 'pre-push: nothing to check', p.text);
-    {
-      const gh = makeFakeGh(() => RUNS(tip));
-      const viaUrl = await cli(['hooks', 'pre-push', 'origin', 'https://github.com/Omnikom-IO/platform.git', '--json'], {}, { repo: P, gh, stdin: masterLine(tip) });
-      check('pre-push: without a test override the repository comes from the remote url git passes (github.com/<owner>/<name>.git)', viaUrl.exit === 0 && gh.calls[0].includes('Omnikom-IO/platform'), viaUrl.all + JSON.stringify(gh.calls[0]));
-      const notGh = await cli(['hooks', 'pre-push', 'origin', remote, '--json'], {}, { repo: P, gh: makeFakeGh(() => RUNS(tip)), stdin: masterLine(tip) });
-      check('pre-push: a remote that is not on github.com is refused for master (no run can be read), never allowed', notGh.exit === 1 && /not a github\.com repository/.test(notGh.all), notGh.all);
-    }
     p = await pp(masterLine(tip) + `refs/heads/check/cli-and-testing/y ${tip} refs/heads/check/cli-and-testing/y ${zeros}\n`, { runs: [] });
     check('pre-push: one refused ref refuses the whole push, and the check branch beside it is still reported as allowed', p.exit === 1 && /check branch, allowed/.test(p.text) && /REFUSED refs\/heads\/master/.test(p.text), p.text);
 
     // the shim itself: a real `git push` from a throwaway repository to a bare throwaway remote, through the installed hook
-    const S = mkRepo();
+    const S = mkRepo(PUB_FILES);
+    cpRepos.push(S);
     const sremote = join(work, 'sremote.git');
     git(work, 'init', '-q', '--bare', '-b', 'master', sremote);
     git(S, 'remote', 'add', 'origin', sremote);
@@ -440,7 +468,7 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       `const { makeFakeGh } = await import(${JSON.stringify(pathToFileURL(join(CLI_ROOT, 'test', 'fake-gh.mjs')).href)});`,
       `const { main } = await import(${JSON.stringify(pathToFileURL(join(CLI_ROOT, 'omnikom.mjs')).href)});`,
       `const gh = makeFakeGh(() => JSON.parse(readFileSync(${JSON.stringify(stateFile)}, 'utf8')));`,
-      "const r = await main(process.argv.slice(2), { repo: process.cwd(), gh, ghRepo: 'o/r' });",
+      "const r = await main(process.argv.slice(2), { repo: process.cwd(), gh, ghRepo: 'o/r', copyRepo: 'o/r' });",
       'process.stdout.write(r.stdout); if (r.stderr) process.stderr.write(r.stderr); process.exitCode = r.exit;',
       '',
     ].join('\n'));
@@ -477,22 +505,28 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       'docs/departments/README.md': '# departments\n', 'docs/departments/TEMPLATE.md': '# template\n', 'docs/departments/cli-and-testing.md': '# CLI\n\n## Owns\n- `tools/`\n',
       'docs/departments/platform-build.md': '# Platform build\n', 'docs/departments/platform-web.md': '# Platform web\n', 'docs/departments/clients.md': '# Clients\n',
       '.github/workflows/ci.yml': `name: ci\non: [push]\njobs:\n${LWF('one')}${LWF('two')}`, 'ok.mjs': "console.log('ok');\n", 'marker.txt': 'base\n',
+      'tools/omnikom-cli/public-copy.json': RULES(), 'planning/n.md': 'a planning note\n',
     };
     const LNAMES = ['job one', 'job two'];
     const LRUN = 'https://github.com/o/r/actions/runs/1';
-    const scenario = () => {
+    const scenario = (rulesText) => {
       const bare = join(work, `lb${++n}.git`);
       git(work, 'init', '-q', '--bare', '-b', 'master', bare);
-      const Pu = mkRepo(LFILES);                                         // the pusher: the head that made the commit
+      const pub = join(work, `lp${++n}.git`);                            // the PUBLIC copy repository (DECISIONS 46)
+      git(work, 'init', '-q', '--bare', '-b', 'master', pub);
+      const Pu = mkRepo(rulesText ? { ...LFILES, 'tools/omnikom-cli/public-copy.json': rulesText } : LFILES);                                         // the pusher: the head that made the commit
+      cpRepos.push(Pu);
       git(Pu, 'remote', 'add', 'backup-gh', bare);
       git(Pu, 'push', '-q', 'backup-gh', 'master');
       const L = join(work, `lc${++n}`);                                  // the checkout land runs in: it has not fetched anything the pusher pushes later
       git(work, 'clone', '-q', '-o', 'backup-gh', bare, L);
       const base = git(Pu, 'rev-parse', 'HEAD');
-      const branchAt = (name, from, text) => { git(Pu, 'checkout', '-q', '-B', 'topic', from); const s = commitFile(Pu, 'marker.txt', text, `commit for ${name}`); git(Pu, 'push', '-q', 'backup-gh', `topic:refs/heads/${name}`); return s; };
+      const branchAt = (name, from, text, { publish = true } = {}) => { git(Pu, 'checkout', '-q', '-B', 'topic', from); const s = commitFile(Pu, 'marker.txt', text, `commit for ${name}`); git(Pu, 'push', '-q', 'backup-gh', `topic:refs/heads/${name}`); if (publish) publishCopyOf(Pu, pub, s, name); return s; };
       const remoteMasterOf = () => git(bare, 'rev-parse', 'master');
-      return { bare, Pu, L, base, branchAt, remoteMasterOf };
+      return { bare, pub, Pu, L, base, branchAt, remoteMasterOf };
     };
+    const publishCopyOf = (dir, pub, sha, branch) => { const cm = copyLib.expectedCopyCommit(makeGit(dir), sha).copySha; git(dir, 'push', '-q', '--force', pub, `${cm}:refs/heads/${branch}`); return cm; };
+    const pubTip = (sc, branch) => { const r = spawnSync('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`], { cwd: sc.pub, encoding: 'utf8', env: cleanEnv, timeout: 60000 }); return r.status === 0 ? r.stdout.trim() : ''; };
     const LB = 'check/cli-and-testing/slice';
     const T0 = 1800000000;                                              // every land date comes through ctx.now: no test waits
     const isoOf = secs => new Date(secs * 1000).toISOString();
@@ -508,14 +542,14 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       git(sc.bare, 'update-ref', 'refs/heads/land-lock', c);
       return c;
     };
-    const lrun = async (sc, args, state, { onSleep } = {}) => {
+    const lrun = async (sc, args, state, { onSleep, laptop } = {}) => {
       const calls = [], sleeps = [];
       const st = { v: state };
       const gh = makeFakeGh(() => st.v);
-      const r = await cli(['land', ...args, '--json'], {}, { repo: sc.L, ghRepo: 'o/r', gh, gitSpy: a => calls.push(a), now: () => T0, sleep: async ms => { sleeps.push(ms); if (onSleep) await onSleep(sleeps.length, st); } });
+      const r = await cli(['land', ...args, '--json'], {}, { repo: sc.L, ghRepo: 'o/r', copyRepo: 'pub/checks', copyUrl: sc.pub, laptop, gh, gitSpy: a => calls.push(a), now: () => T0, sleep: async ms => { sleeps.push(ms); if (onSleep) await onSleep(sleeps.length, st); } });
       return { ...r, calls, sleeps, gh, st, d: r.json && r.json.data, text: r.json && r.json.data ? r.json.data.lines.join('\n') : r.all };
     };
-    const landRuns = (sha, over = {}) => ({ runs: [runRow(sha)], jobs: { 1: jobRows(LNAMES, over) } });
+    const landRuns = (sha, over = {}) => ({ runs: [runRow(cpOf(sha))], jobs: { 1: jobRows(LNAMES, over) } });
     {
       const sc = scenario();
       const s1 = sc.branchAt(LB, sc.base, 'one');
@@ -559,7 +593,7 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       const snap = () => [git(sc.L, 'rev-parse', 'refs/heads/master'), git(sc.L, 'rev-parse', 'HEAD'), git(sc.L, 'write-tree'), git(sc.L, 'status', '--porcelain'), readFileSync(join(sc.L, 'marker.txt'), 'utf8'), readFileSync(join(sc.L, 'untracked.txt'), 'utf8')].join('\n--\n');
       const before = snap();
       const hadObject = spawnSync('git', ['cat-file', '-e', `${s2}^{commit}`], { cwd: sc.L, env: cleanEnv, timeout: 60000 }).status === 0;
-      const pend = { runs: [runRow(s2, { status: 'in_progress', conclusion: null })], jobs: {} };
+      const pend = { runs: [runRow(cpOf(s2), { status: 'in_progress', conclusion: null })], jobs: {} };
       const r = await lrun(sc, [LB], pend, { onSleep: (k, st) => { if (k === 2) st.v = landRuns(s2); } });
       const pushes = masterPushes(r.calls);
       check('land: pending then green (a fake sleep, no real waiting): it polls every 30 s, prints one progress line per change of state, pushes the commit to master and says so (exit 0)',
@@ -573,13 +607,13 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       const sc = scenario();
       const s3 = sc.branchAt(LB, sc.base, 'nobody ran ci');
       const r = await lrun(sc, [LB], { runs: [] });
-      check('land: no ci run for more than 5 minutes is Blocked (exit 3): "no ci run for <sha>; was it pushed?" after 11 polls, nothing pushed',
-        r.exit === 3 && r.sleeps.length === 11 && r.json.error === `no ci run for ${s3}; was it pushed?` && sc.remoteMasterOf() === sc.base && lockSha(sc) === '', `${r.sleeps.length} ${r.all.slice(0, 300)}`);
+      check('land: no ci run for more than 5 minutes is Blocked (exit 3): "no ci run for the copy <copy sha> on <public repo>; was it pushed?" after 11 polls, nothing pushed',
+        r.exit === 3 && r.sleeps.length === 11 && r.json.error === `no ci run for the copy ${cpOf(s3)} on pub/checks; was it pushed?` && sc.remoteMasterOf() === sc.base && lockSha(sc) === '', `${r.sleeps.length} ${r.all.slice(0, 300)}`);
     }
     {
       const sc = scenario();
       const s = sc.branchAt(LB, sc.base, 'slow ci');
-      const r2 = await lrun(sc, [LB, '--wait-minutes', '1'], { runs: [runRow(s, { status: 'in_progress', conclusion: null })], jobs: {} });
+      const r2 = await lrun(sc, [LB, '--wait-minutes', '1'], { runs: [runRow(cpOf(s), { status: 'in_progress', conclusion: null })], jobs: {} });
       check('land: still pending after --wait-minutes is Blocked (exit 3) naming the run url, nothing pushed', r2.exit === 3 && r2.sleeps.length === 2 && r2.json.error.includes(LRUN) && /still pending after 1 minutes/.test(r2.json.error) && sc.remoteMasterOf() === sc.base && lockSha(sc) === '', r2.all.slice(0, 300));
     }
     {
@@ -613,6 +647,162 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       check('land: gh failing is Blocked (exit 3) with the cause and nothing is pushed (fail closed)', r.exit === 3 && /not logged in/.test(r.json.error) && sc.remoteMasterOf() === sc.base && masterPushes(r.calls).length === 0 && lockSha(sc) === '', r.all.slice(0, 300));
     }
 
+
+    // ============================================================================ land reads the PUBLIC copy's verdict (DECISIONS 46)
+    {
+      // a tree built by hand under a temporary index: base tree with one file replaced
+      const treeWith = (dir, baseTree, rel, text) => {
+        const idx = join(dir, '.git', `idx-${++n}`);
+        const env = { ...cleanEnv, GIT_INDEX_FILE: idx };
+        const run = (args, input) => { const r = spawnSync('git', args, { cwd: dir, encoding: 'utf8', env, input, timeout: 120000 }); if (r.status !== 0) throw new Error(r.stderr); return r.stdout.trim(); };
+        run(['read-tree', baseTree]);
+        run(['update-index', '--add', '--cacheinfo', `100644,${run(['hash-object', '-w', '--stdin'], text)},${rel}`]);
+        const out = run(['write-tree']);
+        rmSync(idx, { force: true });
+        return out;
+      };
+      const IDENT2 = { GIT_AUTHOR_NAME: 'x', GIT_AUTHOR_EMAIL: 'x@example.invalid', GIT_COMMITTER_NAME: 'x', GIT_COMMITTER_EMAIL: 'x@example.invalid' };
+      const forgeCopy = (sc, branch, tree, message) => { const c = gitIn(sc.Pu, message, IDENT2, 'commit-tree', tree, '-F', '-'); git(sc.Pu, 'push', '-q', '--force', sc.pub, `${c}:refs/heads/${branch}`); return c; };
+
+      {
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'copy green');
+        const cs = cpOf(s);
+        const r = await lrun(sc, [LB], landRuns(s));
+        check('land (copy): the run of the copy of this exact tree is green: master takes the private commit, the output names the public repository, the run and the copy commit',
+          r.exit === 0 && r.d.pushed === true && sc.remoteMasterOf() === s && r.text.includes(`land: verdict from pub/checks run 1 of copy ${cs}`) && r.text.includes(`land: the copy of ${s} is ${cs} on the public repository pub/checks`) && r.d.copySha === cs, r.text);
+        check('land (copy): every gh call asks the PUBLIC repository (pub/checks) and none asks the private one (o/r)', r.gh.calls.length > 0 && r.gh.calls.every(c => c.includes('pub/checks') && !c.includes('o/r')), JSON.stringify(r.gh.calls));
+        check('land (copy): the public master is then the copy of the new private master: a root commit, the copy tree, and it names the private sha',
+          r.d.copyMaster === 'pushed' && pubTip(sc, 'master') === cs && git(sc.pub, 'rev-list', '--parents', '-n', '1', cs).split(' ').length === 1 && /Private-Commit: / .test(git(sc.pub, 'log', '-1', '--format=%B', cs)) && r.text.includes(`copy: ${s} -> ${cs} (`), r.text + pubTip(sc, 'master'));
+        check('land (copy): the master push is still one plain push of the private sha, and the push to the public master did not go through this clone (no spied call carries the public master ref)',
+          masterPushes(r.calls).length === 1 && masterPushes(r.calls)[0].join(' ') === `push backup-gh ${s}:refs/heads/master`, JSON.stringify(masterPushes(r.calls)));
+      }
+      {
+        const sc = scenario();
+        sc.branchAt(LB, sc.base, 'copy never pushed', { publish: false });
+        const r = await lrun(sc, [LB], landRuns(sc.base));
+        check('land (copy): no branch of that name on the public repository is Blocked (exit 3) with "run: ... copy push <branch>"; nothing was asked of GitHub, no lock taken, nothing pushed',
+          r.exit === 3 && /has no branch/.test(r.json.error) && r.json.unblock.includes(`copy push ${LB}`) && r.gh.calls.length === 0 && lockSha(sc) === '' && sc.remoteMasterOf() === sc.base && masterPushes(r.calls).length === 0, r.all.slice(0, 300));
+      }
+      {
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'one file changed in the copy');
+        const cs = cpOf(s);
+        const tree = treeWith(sc.Pu, git(sc.Pu, 'rev-parse', `${cs}^{tree}`), 'ok.mjs', "console.log('changed after the run');\n");
+        const forged = forgeCopy(sc, LB, tree, `copy of ${s}\n\nPrivate-Commit: ${s}\n`);
+        const r = await lrun(sc, [LB], { runs: [runRow(forged)], jobs: { 1: jobRows(LNAMES) } });
+        check('land (copy): the public branch holds a tree that differs from the expected copy (one file changed) even though its message names the right commit and its run is green: Blocked (exit 3), nothing pushed',
+          r.exit === 3 && /different tree/.test(r.json.error) && sc.remoteMasterOf() === sc.base && masterPushes(r.calls).length === 0 && r.gh.calls.length === 0 && lockSha(sc) === '', r.all.slice(0, 300));
+      }
+      {
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'copy names another commit');
+        const cs = cpOf(s);
+        const forged = forgeCopy(sc, LB, git(sc.Pu, 'rev-parse', `${cs}^{tree}`), `copy of ${'a'.repeat(40)}\n\nPrivate-Commit: ${'a'.repeat(40)}\n`);
+        const r = await lrun(sc, [LB], { runs: [runRow(forged)], jobs: { 1: jobRows(LNAMES) } });
+        check('land (copy): the public branch has the right tree but its message names another private commit: Blocked (exit 3), nothing pushed',
+          r.exit === 3 && /does not name/.test(r.json.error) && sc.remoteMasterOf() === sc.base && masterPushes(r.calls).length === 0 && lockSha(sc) === '', r.all.slice(0, 300));
+      }
+      {
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'red copy');
+        const r = await lrun(sc, [LB], landRuns(s, { 'job two': 'failure' }));
+        check('land (copy): a red run of the copy is LAND-REFUSED (exit 1) naming the copy commit; master is not touched and the public master is not written',
+          r.exit === 1 && r.json.code === 'LAND-REFUSED' && r.text.includes(`ci is red on the copy ${cpOf(s)} of ${s}`) && sc.remoteMasterOf() === sc.base && pubTip(sc, 'master') === '' && masterPushes(r.calls).length === 0, r.text);
+      }
+      {
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'only the private commit has a green run');
+        const r = await lrun(sc, [LB], { runs: [runRow(s)], jobs: { 1: jobRows(LNAMES) } });
+        check('land (copy): a green run of the PRIVATE commit is not the verdict: no run of the copy is Blocked (exit 3), nothing pushed', r.exit === 3 && /no ci run for the copy/.test(r.json.error) && sc.remoteMasterOf() === sc.base && masterPushes(r.calls).length === 0, r.all.slice(0, 300));
+      }
+      {
+        const rules = JSON.stringify({ ...JSON.parse(RULES()), jobsNotOnCopy: { two: { reason: 'needs a secret', files: ['planning/n.md'] } } }, null, 2) + '\n';
+        const sc = scenario(rules);
+        const s = sc.branchAt(LB, sc.base, 'a job is not on the copy');
+        const r = await lrun(sc, [LB], { runs: [runRow(cpOf(s))], jobs: { 1: jobRows(['job one']) } }, { laptop: async () => ({ ok: true, tail: [] }) });
+        check('land (copy): the job names come from the COPY\'s ci.yml (a job in jobsNotOnCopy is not waited for) and the output lists it as "not run on the copy (DECISIONS 46): <job>: <reason>"',
+          r.exit === 0 && sc.remoteMasterOf() === s && r.text.includes('not run on the copy (DECISIONS 46): two: needs a secret'), r.text);
+      }
+    }
+
+
+    // ============================================================================ jobs that cannot run on the copy run on the laptop (DECISIONS 47)
+    {
+      const rules = JSON.stringify({ ...JSON.parse(RULES()), jobsNotOnCopy: { two: { reason: 'needs files the copy never holds', files: ['planning/n.md'] } } }, null, 2) + '\n';
+      const okRuns = s => ({ runs: [runRow(cpOf(s))], jobs: { 1: jobRows(['job one']) } });
+      {
+        const sc = scenario(rules);
+        const s = sc.branchAt(LB, sc.base, 'laptop passes');
+        const asked = [];
+        const r = await lrun(sc, [LB], okRuns(s), { laptop: async (c, a) => { asked.push(a); return { ok: true, tail: [] }; } });
+        const L = r.text.split('\n');
+        check('land (laptop): a jobsNotOnCopy job is run on the laptop for the EXACT private sha after the copy is green and before master moves; the report says "<job>: laptop, not GitHub (DECISIONS 47): PASS"',
+          r.exit === 0 && sc.remoteMasterOf() === s && asked.length === 1 && asked[0].job === 'two' && asked[0].sha === s && L.includes('two: laptop, not GitHub (DECISIONS 47): PASS') && L.indexOf('two: laptop, not GitHub (DECISIONS 47): PASS') < L.findIndex(l => l.startsWith('land: master is ')), r.text);
+      }
+      {
+        const sc = scenario(rules);
+        const s = sc.branchAt(LB, sc.base, 'laptop fails');
+        const r = await lrun(sc, [LB], okRuns(s), { laptop: async () => ({ ok: false, tail: ['FAIL two  something broke'] }) });
+        check('land (laptop): a failing laptop job is LAND-REFUSED naming the job, prints "<job>: laptop, not GitHub (DECISIONS 47): FAIL" and its last lines; master is not touched, nothing is pushed, the lock is released, the public master is not written',
+          r.exit === 1 && r.json.code === 'LAND-REFUSED' && r.text.includes('two: laptop, not GitHub (DECISIONS 47): FAIL') && r.text.includes('the laptop job two failed') && r.text.includes('FAIL two  something broke') && sc.remoteMasterOf() === sc.base && masterPushes(r.calls).length === 0 && lockSha(sc) === '' && pubTip(sc, 'master') === '', r.text);
+      }
+      {
+        const sc = scenario(rules);
+        const s = sc.branchAt(LB, sc.base, 'copy red');
+        const asked = [];
+        const r = await lrun(sc, [LB], { runs: [runRow(cpOf(s))], jobs: { 1: jobRows(['job one'], { 'job one': 'failure' }) } }, { laptop: async (c, a) => { asked.push(a); return { ok: true, tail: [] }; } });
+        check('land (laptop): a red copy run refuses before any laptop job is started', r.exit === 1 && r.json.code === 'LAND-REFUSED' && asked.length === 0, r.text);
+      }
+      {
+        // heavy.mjs exit 75 ("cannot read this process's creation time") is a refusal to start, not the job's verdict
+        const sc = scenario(rules);
+        const s = sc.branchAt(LB, sc.base, 'heavy refuses once');
+        const answers = [{ ok: false, blocked: true, tail: ['heavy: cannot read this process\'s creation time (pwsh)'] }, { ok: true, tail: [] }];
+        const asked = [];
+        const r = await lrun(sc, [LB], okRuns(s), { laptop: async (c, a) => { asked.push(a); return answers.shift(); } });
+        check('land (laptop): heavy refusing once (exit 75) is retried after 5 s and a pass then lands: two asks for the same exact sha, one 5000 ms pause',
+          r.exit === 0 && sc.remoteMasterOf() === s && asked.length === 2 && asked.every(a => a.job === 'two' && a.sha === s) && r.sleeps.filter(ms => ms === 5000).length === 1 && r.text.includes('two: laptop, not GitHub (DECISIONS 47): PASS'), r.text);
+      }
+      {
+        const sc = scenario(rules);
+        const s = sc.branchAt(LB, sc.base, 'heavy refuses always');
+        const asked = [];
+        const r = await lrun(sc, [LB], okRuns(s), { laptop: async (c, a) => { asked.push(a); return { ok: false, blocked: true, tail: ['heavy: cannot read this process\'s creation time (pwsh)'] }; } });
+        check('land (laptop): heavy refusing three times (exit 75) is BLOCKED (exit 3, not LAND-REFUSED) with the heavy line in the detail; three asks, two pauses, master not touched, nothing pushed, lock released',
+          r.exit === 3 && r.json.code === 'BLOCKED' && asked.length === 3 && r.sleeps.filter(ms => ms === 5000).length === 2 && r.all.includes('cannot read this process\'s creation time (pwsh)') && !r.all.includes('LAND-REFUSED')
+          && sc.remoteMasterOf() === sc.base && masterPushes(r.calls).length === 0 && lockSha(sc) === '' && pubTip(sc, 'master') === '', r.all.slice(0, 400));
+      }
+      {
+        // defaultLaptop itself: a fake heavy.mjs in a fake home folder answers with the exit code the test sets
+        const { defaultLaptop } = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'land.mjs')).href);
+        const fakeHome = mkdtempSync(join(tmpdir(), 'omnikom-heavy-'));
+        mkdirSync(join(fakeHome, '.claude', 'scripts'), { recursive: true });
+        writeFileSync(join(fakeHome, '.claude', 'scripts', 'heavy.mjs'), "process.stderr.write('heavy: cannot read this process\\'s creation time (pwsh)\\n'); process.exit(Number(process.env.FAKE_HEAVY_EXIT));\n");
+        const saved = { USERPROFILE: process.env.USERPROFILE, HOME: process.env.HOME, FAKE_HEAVY_EXIT: process.env.FAKE_HEAVY_EXIT };
+        const ask = code => { process.env.USERPROFILE = fakeHome; process.env.HOME = fakeHome; process.env.FAKE_HEAVY_EXIT = String(code); return defaultLaptop({ repo: work }, { job: 'two', sha: 'a'.repeat(40) }); };
+        let r75, r1, r0;
+        try { r75 = ask(75); r1 = ask(1); r0 = ask(0); }
+        finally { for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } rmSync(fakeHome, { recursive: true, force: true }); }
+        check('land (laptop): defaultLaptop maps heavy.mjs exit 75 to blocked (not ok), exit 1 to a plain failure and exit 0 to ok; the heavy line is in the tail',
+          r75.blocked === true && r75.ok === false && r75.tail.some(l => l.includes('cannot read this process')) && r1.blocked === false && r1.ok === false && r0.ok === true && r0.blocked === false, JSON.stringify([r75, r1, r0]));
+      }
+      {
+        const sc = scenario(rules);
+        const s = sc.branchAt(LB, sc.base, 'real failure no retry');
+        const asked = [];
+        const r = await lrun(sc, [LB], okRuns(s), { laptop: async (c, a) => { asked.push(a); return { ok: false, blocked: false, tail: ['FAIL two  something broke'] }; } });
+        check('land (laptop): a real failure (exit 1, not 75) is LAND-REFUSED at once: one ask, no 5000 ms pause', r.exit === 1 && r.json.code === 'LAND-REFUSED' && asked.length === 1 && !r.sleeps.includes(5000), r.text);
+      }
+      {
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'nothing on the laptop');
+        const asked = [];
+        const r = await lrun(sc, [LB], landRuns(s), { laptop: async (c, a) => { asked.push(a); return { ok: false, tail: [] }; } });
+        check('land (laptop): rules with no jobsNotOnCopy start no laptop job', r.exit === 0 && asked.length === 0 && !/laptop, not GitHub/.test(r.text), r.text);
+      }
+    }
+
     // ============================================================================ the land lock: the landing queue (refs/heads/land-lock)
     {
       const { LOCK_BRANCH, LOCK_REF } = await lib('landlock.mjs');
@@ -627,7 +817,7 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       git(L2, 'config', 'user.name', 'bob');
       const scB = { ...sc, L: L2 };
       let rb;
-      const ra = await lrun(sc, ['check/cli-and-testing/a'], { runs: [runRow(sA, { status: 'in_progress', conclusion: null })], jobs: {} },
+      const ra = await lrun(sc, ['check/cli-and-testing/a'], { runs: [runRow(cpOf(sA), { status: 'in_progress', conclusion: null })], jobs: {} },
         { onSleep: async (k, st) => { if (k === 1) { rb = await lrun(scB, ['check/cli-and-testing/b'], landRuns(sB)); st.v = landRuns(sA); } } });
       check('land lock: two landers race on one bare remote: exactly one takes the lock (A); the other (B) gets LAND-LOCKED (exit 1) with the holder\'s line, asks GitHub nothing and pushes nothing',
         ra.exit === 0 && ra.text.includes('land: took the land lock') && rb.exit === 1 && rb.json.code === 'LAND-LOCKED' && !rb.text.includes('took the land lock') && rb.gh.calls.length === 0 && masterPushes(rb.calls).length === 0
@@ -667,7 +857,7 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       const sc = scenario();
       const s = sc.branchAt(LB, sc.base, 'lock replaced');
       let foreign = '';
-      const r = await lrun(sc, [LB], { runs: [runRow(s, { status: 'in_progress', conclusion: null })], jobs: {} },
+      const r = await lrun(sc, [LB], { runs: [runRow(cpOf(s), { status: 'in_progress', conclusion: null })], jobs: {} },
         { onSleep: (k, st) => { if (k === 1) { foreign = plantLock(sc, 1, { branch: 'check/platform-build/theirs', who: 'platform-build (carol@CAROL-PC)' }); st.v = landRuns(s); } } });
       check('land lock: a release never deletes a lock that is not ours: the lock was replaced during the wait, the land still succeeds (exit 0), the foreign lock is still on the remote, and the output warns with the manual command',
         r.exit === 0 && sc.remoteMasterOf() === s && lockSha(sc) === foreign && foreign !== '' && r.d.lockReleased === false && /land: WARNING the land lock was not released/.test(r.text) && r.text.includes('git push --force-with-lease=refs/heads/land-lock:') && !r.text.includes('land: lock released'), r.text);

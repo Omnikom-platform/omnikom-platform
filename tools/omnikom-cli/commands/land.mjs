@@ -1,5 +1,6 @@
 // land <branch> [--remote <name>] [--wait-minutes <n>] [--json]   (DECISIONS 45)
-// Moves master to the commit of a check branch, and only when GitHub's ci run of that exact commit had every ci.yml job green:
+// Moves master to the commit of a check branch, and only when GitHub's ci run of the PUBLIC COPY of that exact commit had every ci.yml job green
+// (DECISIONS 46: the private org repo has no Actions minutes; the copy under the owner's account is code only, lib/copy.mjs):
 //   1. <branch> is check/<department>/<slug> (the department is a charter in docs/departments/, read at run time, or a prefix of one that
 //      ends at a '-' and names only that charter: cli -> cli-and-testing; the output says which charter it resolved to); its commit is what the
 //      REMOTE holds (git ls-remote), fetched when it is not local;
@@ -8,27 +9,36 @@
 //      creator. A lock held by another is LAND-LOCKED (exit 1) naming who and since when; one whose committer date is more than 90 minutes
 //      old is broken (deleted with a lease on that exact sha) and taken. It is released after the fast-forward and on EVERY refusal or
 //      Blocked after it was taken, with a lease on OUR lock's sha, so a lock broken and taken by someone else is never deleted by us;
+//   2b. the copy: the public repository's branch of the same name must stand for exactly this commit (its tip's TREE equals the expected copy
+//      tree and its message names the private sha; else BLOCKED: run omnikom copy push); the verdict is read from the PUBLIC repo's run of the
+//      copy commit, with the job names of the copy's ci.yml; jobs in jobsNotOnCopy are listed as not run there;
+//   2c. jobs in jobsNotOnCopy (they need files the copy never holds) run on the LAPTOP for the exact private sha, through heavy.mjs
+//      (omnikom ci --commit <sha> --job <id>), after the copy's run is green and before master is touched; any failure is LAND-REFUSED naming
+//      the job (DECISIONS 47). The report says "<job>: laptop, not GitHub (DECISIONS 47): PASS|FAIL";
 //   3. wait for the ci run (every 30 s; no run at all for more than 5 minutes is Blocked: was it pushed?; still running after
 //      --wait-minutes, default 60, is Blocked naming the run);
 //   4. any red job: refused (exit 1, LAND-REFUSED), nothing is pushed;
 //   5. green: master must fast-forward to the commit (land never rebases, merges or forces); `git push <remote> <sha>:refs/heads/master`,
 //      no --force and no --no-verify (the installed pre-push hook checks the run again, on purpose). --force-with-lease is used ONLY for
-//      the lock delete.
+//      the lock delete (and, in lib/copy.mjs, for the replacement of the PUBLIC master by the copy of the new private master).
 // land never touches this checkout's working tree, its index or its refs/heads/master: heads share one checkout and master may be checked
 // out with other heads' unfinished files. It says in its output whether the local master contains the commit. All dates come from ctx.now.
 import { existsSync, readdirSync } from 'node:fs';
-import { hostname } from 'node:os';
+import { hostname, homedir } from 'node:os';
 import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { Usage, Blocked } from '../lib/errors.mjs';
 import { result } from '../lib/ctx.mjs';
 import { makeGit } from '../lib/git.mjs';
 import { redact } from '../lib/redact.mjs';
 import { ciVerdict, jobNamesAt } from '../lib/ghrun.mjs';
-import { repoOfRemote } from './hooks.mjs';
+import { mapToPublic, publishCopy } from '../lib/copy.mjs';
+import { CLI_DIR } from '../lib/repo.mjs';
 import { LOCK_BRANCH, LOCK_REF, STALE_LOCK_MINUTES } from '../lib/landlock.mjs';
 
 export const DEFAULT_REMOTE = 'backup-gh';               // DECISIONS 24
 export const POLL_MS = 30000;
+const HEAVY_REFUSED = 75, HEAVY_RETRIES = 2, HEAVY_RETRY_MS = 5000;
 export const NONE_LIMIT_MS = 5 * 60000;
 export const DEFAULT_WAIT_MINUTES = 60;
 export { LOCK_BRANCH, LOCK_REF, STALE_LOCK_MINUTES };
@@ -58,6 +68,32 @@ export function departmentsOf(repo) {
 const refOf = (out, ref) => { for (const l of String(out).split('\n')) { const [sha, name] = l.trim().split(/\s+/); if (name === ref) return sha; } return ''; };
 const firstLine = s => String(s || '').split('\n')[0].slice(0, 200);
 const iso = secs => new Date(secs * 1000).toISOString();
+
+// ------------------------------------------------------------------------------------------------ jobs that run on the laptop (DECISIONS 47)
+// One jobsNotOnCopy job, for the exact private commit, through heavy.mjs (one heavy job at a time on this machine). -> { ok, tail }. A test hands
+// ctx.laptop instead. heavy.mjs lives in the user's .claude folder; without it the land is Blocked (a check that runs nowhere proves nothing).
+export function defaultLaptop(ctx, { job, sha }) {
+  const heavy = join(homedir(), '.claude', 'scripts', 'heavy.mjs');
+  if (!existsSync(heavy)) throw new Blocked(`${heavy} not found, so the laptop job ${job} cannot be run`, 'install the heavy-job gate, or ask the head of operations');
+  const r = spawnSync(process.execPath, [heavy, '--wait-min', '120', '--label', `land ${job} ${sha.slice(0, 8)}`, '--', process.execPath, join(CLI_DIR, 'omnikom.mjs'), 'ci', '--commit', sha, '--job', job],
+    { cwd: ctx.repo, encoding: 'utf8', timeout: 4 * 3600000, maxBuffer: 1 << 28, windowsHide: true, env: { ...process.env, OMNIKOM_REPO_ROOT: ctx.repo } });
+  const tail = `${r.stdout || ''}${r.stderr || ''}`.split('\n').map(l => l.trim()).filter(Boolean).slice(-6);
+  // exit 75 is heavy.mjs refusing to start the job (EX_TEMPFAIL, e.g. "cannot read this process's creation time"): not the job's verdict
+  return { ok: !r.error && r.status === 0, blocked: !r.error && r.status === HEAVY_REFUSED, tail: r.error ? [String(r.error.message)] : tail };
+}
+
+// One laptop job with the heavy.mjs refusal retried: a refusal (blocked) is retried up to HEAVY_RETRIES more times, HEAVY_RETRY_MS apart; still
+// refused -> Blocked (not LAND-REFUSED: the job never ran), with heavy's own line in the detail. A real failure is returned at once, never retried.
+async function runLaptopJob(ctx, job, sha) {
+  let run;
+  for (let attempt = 0; attempt <= HEAVY_RETRIES; attempt++) {
+    if (attempt > 0) await ctx.sleep(HEAVY_RETRY_MS);
+    run = await (ctx.laptop || defaultLaptop)(ctx, { job, sha });
+    if (!run.blocked) return run;
+  }
+  const why = (run.tail || []).filter(l => /^heavy:/.test(l)).pop() || (run.tail || []).slice(-1)[0] || 'heavy.mjs exited 75';
+  throw new Blocked(`heavy.mjs refused to start the laptop job ${job} ${HEAVY_RETRIES + 1} times (exit 75): ${firstLine(why)}`, 'run omnikom land again; nothing was pushed');
+}
 
 // ------------------------------------------------------------------------------------------------ the land lock
 const leaseDelete = (git, remote, lockSha) => git.run(['push', `--force-with-lease=${LOCK_REF}:${lockSha}`, remote, `:${LOCK_REF}`], { timeout: 180000 });
@@ -143,13 +179,16 @@ export async function land(ctx) {
     if (!fe.ok || !git.run(['cat-file', '-e', `${sha}^{commit}`]).ok) throw new Blocked(`could not fetch ${branch} from ${remote}: ${firstLine(fe.err || 'the commit is still missing')}`, 'check the network and the remote');
   }
 
+  // the copy: the public branch of the same name must stand for exactly this commit (Blocked otherwise), before the queue is entered
+  const mapped = mapToPublic(ctx, git, { sha, branch });
+  const lines = [`land: department ${m[1]} is the charter ${charter}`, `land: ${branch} is ${sha} on ${remote}`, `land: the copy of ${sha} is ${mapped.copySha} on the public repository ${mapped.repo}`];
+  for (const [job, why] of Object.entries(mapped.expected.rules.jobsNotOnCopy)) lines.push(`not run on the copy (DECISIONS 46): ${job}: ${why.reason}`);
   // the queue: the lock first, before the ci wait
-  const lines = [`land: department ${m[1]} is the charter ${charter}`, `land: ${branch} is ${sha} on ${remote}`];
   const lock = takeLock(ctx, git, remote, { branch, sha, department: charter }, lines);
   if (lock.refused) return lock.refused;
   let res;
   try {
-    res = await landLocked(ctx, git, { branch, department: m[1], charter, sha, remote, url: url.out, waitMinutes, lines });
+    res = await landLocked(ctx, git, { branch, department: m[1], charter, sha, remote, mapped, waitMinutes, lines });
   } catch (e) {
     // every Blocked (or crash) after the lock was taken releases it
     const rel = releaseLock(git, remote, lock.sha);
@@ -164,32 +203,42 @@ export async function land(ctx) {
 }
 
 // everything after the lock: the ci wait, the verdict, the fast-forward of master
-async function landLocked(ctx, git, { branch, department, charter, sha, remote, url, waitMinutes, lines }) {
-  const repo = repoOfRemote(ctx, git, remote, url);
-  const jobNames = jobNamesAt(git, sha);
+async function landLocked(ctx, git, { branch, department, charter, sha, remote, mapped, waitMinutes, lines }) {
+  const repo = mapped.repo, copySha = mapped.copySha;
+  const jobNames = jobNamesAt(git, copySha);
 
   // wait for the ci run
   const waitMs = waitMinutes * 60000;
   let elapsed = 0, noneMs = 0, last = '', v;
   for (;;) {
-    v = await ciVerdict(ctx, { repo, sha, jobNames });
+    v = await ciVerdict(ctx, { repo, sha: copySha, jobNames });
     if (v.state !== last) { last = v.state; lines.push(`land: ci ${v.state}${v.state === 'green' ? '' : `: ${v.lines[0]}`}`); }
     if (v.state === 'green' || v.state === 'red') break;
-    if (v.state === 'none' && noneMs > NONE_LIMIT_MS) throw new Blocked(`no ci run for ${sha}; was it pushed?`, `git push ${remote} ${sha}:refs/heads/${branch}, then run land again`);
-    if (elapsed >= waitMs) throw new Blocked(`ci for ${sha} is still ${v.state} after ${waitMinutes} minutes: ${v.lines[0]}`, 'run land again when the run has finished');
+    if (v.state === 'none' && noneMs > NONE_LIMIT_MS) throw new Blocked(`no ci run for the copy ${copySha} on ${repo}; was it pushed?`, `run: node tools/omnikom-cli/omnikom.mjs copy push ${branch}, then run land again`);
+    if (elapsed >= waitMs) throw new Blocked(`ci for the copy ${copySha} is still ${v.state} after ${waitMinutes} minutes: ${v.lines[0]}`, 'run land again when the run has finished');
     await ctx.sleep(POLL_MS);
     elapsed += POLL_MS;
     noneMs = v.state === 'none' ? noneMs + POLL_MS : 0;
   }
-  const data = { branch, department, charter, sha, remote, state: v.state, pushed: false, lines };
+  const data = { branch, department, charter, sha, remote, copySha, copyRepo: repo, state: v.state, pushed: false, lines };
 
   // red: refused, nothing pushed
   if (v.state === 'red') {
     lines.push(...v.lines);
-    lines.push(`land: REFUSED ${branch}: ci is red on ${sha}; master is not touched`);
+    lines.push(`land: REFUSED ${branch}: ci is red on the copy ${copySha} of ${sha}; master is not touched`);
     return result(false, 'LAND-REFUSED', data);
   }
-  lines.push(v.lines[0]);
+  lines.push(v.lines[0], `land: verdict from ${repo} run ${v.runs.map(r => r.id).join(', ')} of copy ${copySha}`);
+
+  // the jobs that cannot run on the copy run here, for the exact commit, before master is touched (DECISIONS 47)
+  for (const job of Object.keys(mapped.expected.rules.jobsNotOnCopy)) {
+    const run = await runLaptopJob(ctx, job, sha);
+    lines.push(`${job}: laptop, not GitHub (DECISIONS 47): ${run.ok ? 'PASS' : 'FAIL'}`);
+    if (!run.ok) {
+      lines.push(...(run.tail || []).map(l => `  ${l}`), `land: REFUSED ${branch}: the laptop job ${job} failed on ${sha} (DECISIONS 47); master is not touched`);
+      return result(false, 'LAND-REFUSED', data);
+    }
+  }
 
   // green: fast-forward master only
   const fm = git.run(['fetch', remote, 'master'], { timeout: 600000 });
@@ -223,6 +272,15 @@ async function landLocked(ctx, git, { branch, department, charter, sha, remote, 
   }
   data.pushed = true;
   lines.push(`land: master is ${sha}`, localNote());
+  // the public master is the copy of the private master (DECISIONS 46). The private master has moved: a failure here is reported, not a failed land
+  try {
+    const pub = await publishCopy(ctx, git, { sha, branch: 'master' });
+    data.copyMaster = pub.ok ? 'pushed' : 'refused';
+    lines.push(...pub.lines.map(l => `land: ${l}`));
+  } catch (e) {
+    data.copyMaster = 'failed';
+    lines.push(`land: WARNING the public master was not updated to the copy of ${sha}: ${firstLine(e && e.message)}; run it again by hand: node tools/omnikom-cli/omnikom.mjs copy push master`);
+  }
   return result(true, 'ok', data);
 }
 
