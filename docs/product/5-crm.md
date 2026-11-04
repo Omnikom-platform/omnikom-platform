@@ -91,7 +91,8 @@ decides, not the screen. A member cannot hand a lead on. A member's hand-entered
 The CRM features named MISSING in `1-product.md`: A13 choose the columns, A14 saved views, A16 status board, A17 follow-up
 date and tasks, A18 duplicates. PARTLY: A2 every field visible, A3 field edit, A9 delete, A10 search, A11 filter, A12 sort,
 A15 bulk edit, A19 unread bold, A20 CSV export (no button), A21 export in their layout, A22 import, A24 industry fields as
-columns (the backend of A3, A9-A12, A15 and A24 is done locally, work order 01; its staging proof and the screens are not).
+columns (the backend of A3, A9-A12, A15, A20 and A24 is proven on staging, work order 01, and of A21 and A22, e2e-crm-io <date>,
+work order 02; the screens are block 3).
 
 Delete is a hard delete, as privacy requires (head of operations' ruling 2026-11-03, not an owner question): the row goes,
 the consent ledger row stays, one audit row per deleted lead names it (`lead-delete`, with a hash of the email). It needs an
@@ -119,16 +120,31 @@ flowchart LR
   are tried part by part. Warnings name a non-English sheet, unmapped headers and a semicolon file read as commas.
 - **The template.** `{columns: [{header, field, transform}], value_maps}`, saved by `service.save_crm_template` (owner) in
   `crm_templates`. Transforms: first and last name, street, city, state, postal code, phone in E.164 or US form, dates in ISO, US
-  or EU form. Two templates ship (HubSpot, Google Contacts), each still to be checked against a real export.
-- **Export.** `exportRows` writes the leads in the template's column order, phones and dates in the client's form, the formula
-  guard on every cell. The plain export (`lead-export`) already writes every industry field as its own column; the template
-  path does not yet read them.
-- **Import.** `parseCsv` (RFC 4180, repeated headers renamed, `;` guessed) then `importRows` gives leads, duplicates by email or
-  phone, and warnings. The user sees the first 20 rows, chooses skip or add for duplicates, and the leads are created with form
-  `import`, owned by the owner unless a column names a team member. What consent text an imported lead carries is an open
-  owner question.
-- **What exists:** the library (with its tests and mutants), the table and the save function. **What is missing:** an Edge
-  Function to propose and save a map, `lead-export` using a template, the import function, and the screens.
+  or EU form. Our fields are the core lead fields, `owner` (a team member) and the workspace's industry fields in form order
+  (`crm_fields`). `crm-map-propose` proposes the map (owner, stores nothing); `crm-template-save` confirms it (owner): every
+  industry field it names must be on the business's forms, and saving a name again updates that map. Two templates ship
+  (HubSpot, Google Contacts); the HubSpot headers match HubSpot's published property labels (read 2026-11-04), the Google
+  headers and both status value maps are not yet checked against a real export.
+- **Export.** `lead-export` with a `template` writes the caller's CRM view (the list's search, filters and sort, exactly what
+  RLS shows the caller, at most 5000) through `exportRows`: the template's columns in its order, industry columns included,
+  phones and dates in the client's form, value maps applied, the formula guard on every cell, one `exported` event per lead.
+  Without a template it writes every core and industry field as its own column.
+- **Import.** `lead-import` (owner): `parseCsv` (RFC 4180, repeated headers renamed, `;` guessed) then `importRows`, then the
+  database types every row as a capture is typed and finds duplicates (same email, any case, or same phone in E.164, against
+  the workspace's leads and within the file). A dry run, the default, writes nothing and shows the first 20 rows as they would
+  be stored, the rows refused with the line and the field, the duplicates and the warnings. A real run needs skip or add for
+  duplicates and is all or nothing: one bad row refuses the file, naming its line. Leads are created with form `import`, owned
+  by the owner unless a column names a team member (by name, email or slug), one `received` event and one consent ledger row
+  each, one audit row for the call with the file's sha256. A file over the row cap (`4-backend.md`) is refused whole.
+- **Consent of imported leads** (settled the way hand-entered leads were): the import is refused unless the owner ticks "These
+  people agreed to be contacted by my business"; that sentence, the date and the file's name are each lead's `consent_text`;
+  marketing and SMS consent are false.
+- **What exists:** the library, the table, the four functions above, backend proven on staging (e2e-crm-io <date>). **What is
+  missing:** the screens (block 3).
+  - An imported lead goes on the workspace's oldest site (the plain export and the export event work per site); a business with
+    several sites cannot choose another.
+  - An import does not read the file's received date, form, page, flow or CTA columns: the lead has form `import` and is received
+    now (the report warns once per such column).
 - **Removed:** the CRM webhook card in Settings, `settings-save`'s CRM part, `crm-test`, `set_crm_webhook` and
   `crm_secret_put` belong to the dropped push. They are taken out of the dashboard path; the tables stay until a migration
   removes them. OmniSuite by API key is the follow-up engine for calls and sequences once its API exists (`10-expansion.md`).

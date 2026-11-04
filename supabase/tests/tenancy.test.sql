@@ -1585,7 +1585,8 @@ do $$ declare t record; n int; begin
       'record_media', 'finish_media', 'row_exists', 'media_facts', 'site_for', 'row_version',
       'mark_lead_read', 'leads_exported', 'set_alerts', 'set_crm_webhook', 'drafts_waiting',
       'crm_secret_put', 'crm_secret_drop', 'crm_target', 'crm_tested', 'find_login',
-      'lead_set_fields', 'lead_list', 'leads_bulk']),   -- work order 01: owner B on each in T22
+      'lead_set_fields', 'lead_list', 'leads_bulk',   -- work order 01: owner B on each in T22
+      'crm_fields', 'import_leads']),                  -- work order 02: owner B on each in T23
       'service.' || t.proname || ' takes claims but has no outsider test listed in T14';
   end loop;
 end $$;
@@ -1847,6 +1848,143 @@ end $$;
 -- (e) the new functions: closed to anon, authenticated and PUBLIC, open to the function role, definer with an empty search_path
 do $$ declare f text; begin
   foreach f in array array['service.lead_set_fields(jsonb,uuid,jsonb)', 'service.lead_list(jsonb,uuid,jsonb)', 'service.leads_bulk(jsonb,uuid,uuid[],text,text,boolean)'] loop
+    assert not has_function_privilege('anon', f, 'execute') and not has_function_privilege('authenticated', f, 'execute') and not exists (select 1 from aclexplode((select proacl from pg_proc where oid = f::regprocedure)) a where a.grantee = 0), f || ' is closed to anon, authenticated and PUBLIC';
+    assert has_function_privilege('omnikom_fn', f, 'execute'), f || ' is open to the function role';
+    assert (select prosecdef from pg_proc where oid = f::regprocedure) and (select proconfig from pg_proc where oid = f::regprocedure) = array['search_path=""'], f || ' is a definer function with an empty search_path';
+  end loop;
+end $$;
+
+-- ===== T23 work order 02 (migration 15): the map's fields, the map, the import, add_lead typed =====
+-- Workspace A keeps T22's real-estate forms (budget a number from 10000 to 50000000, timing a select) and its 200 seed leads (seed<i>@test).
+-- Synthetic rows only. Agent one (team1, crm_t1) is "Agent One".
+reset role;
+insert into test.r select 't1name', to_jsonb(v.data ->> 'name') from content_versions v where v.row_id = test.id('crm_t1') order by v.n desc limit 1;
+do $$ begin assert (select v #>> '{}' from test.r where k = 't1name') = 'Agent One', 'T23 fixture: agent one is named Agent One'; end $$;
+set role omnikom_fn;
+-- (a) crm_fields: the owner gets the industry fields in form order; a member is refused; another workspace's owner is not found
+insert into test.r select 'cf', service.crm_fields(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000');
+select test.expect_error($q$select service.crm_fields(test.c('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000')$q$, 'S-OWN-ONLY');
+select test.expect_error($q$select service.crm_fields(test.c('00000000-0000-0000-0000-00000000000b'), 'aaaaaaaa-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+-- (b) the map: owner is a field; every industry field must be on the forms; a re-save of a name is the same row; a member and B are refused
+insert into test.r select 'tplA', to_jsonb(service.save_crm_template(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', null, 'HubSpot T23', 'hubspot', 'both',
+  '[{"header":"First Name","field":"name","transform":"first"},{"header":"Last Name","field":"name","transform":"last"},{"header":"Email","field":"email"},
+    {"header":"Phone Number","field":"phone","transform":"e164"},{"header":"Budget","field":"answers.budget"},{"header":"Timing","field":"answers.timing"},{"header":"Contact owner","field":"owner"}]', '{}'));
+insert into test.r select 'tplA2', to_jsonb(service.save_crm_template(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', null, 'HubSpot T23', 'hubspot', 'both',
+  '[{"header":"Email","field":"email"},{"header":"Budget","field":"answers.budget"}]', '{}'));
+insert into test.r select 'tplTopic', to_jsonb(service.save_crm_template(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', null, 'Topic T23', 'custom', 'import',
+  '[{"header":"Email","field":"email"},{"header":"Topic","field":"answers.topic"}]', '{}'));
+select test.expect_error($q$select service.save_crm_template(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', null, 'Pool T23', 'custom', 'both', '[{"header":"Email","field":"email"},{"header":"Pool size","field":"answers.poolSize"}]', '{}')$q$, 'T-FIELD poolSize');
+select test.expect_error($q$select service.save_crm_template(test.c('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', null, 'Member T23', 'custom', 'both', '[{"header":"Email","field":"email"}]', '{}')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select service.save_crm_template(test.c('00000000-0000-0000-0000-00000000000b'), 'aaaaaaaa-0000-0000-0000-000000000000', null, 'B T23', 'custom', 'both', '[{"header":"Email","field":"email"}]', '{}')$q$, 'S-NOT-FOUND');
+insert into test.r select 'tplB', to_jsonb(service.save_crm_template(test.c('00000000-0000-0000-0000-00000000000b'), 'bbbbbbbb-0000-0000-0000-000000000000', null, 'B own T23', 'custom', 'both', '[{"header":"Email","field":"email"}]', '{}'));
+reset role;
+do $$ declare cf jsonb := (select v from test.r where k = 'cf'); begin
+  assert (select string_agg(e ->> 'key', ',' order by n) from jsonb_array_elements(cf) with ordinality t(e, n))
+    = 'topic,message,side,budget,timing,beds,area,wants,moveBy,preApproved,note,address', 'T23a crm_fields lists every industry field in form order: ' || cf::text;
+  assert (select e ->> 'label' from jsonb_array_elements(cf) e where e ->> 'key' = 'budget') = 'Budget' and (select e ->> 'type' from jsonb_array_elements(cf) e where e ->> 'key' = 'budget') = 'number', 'T23a a field carries its label and type';
+  assert (select v from test.r where k = 'tplA') = (select v from test.r where k = 'tplA2'), 'T23b a re-save of the same name is the same row';
+  assert (select jsonb_array_length(columns) from crm_templates where id = (select v #>> '{}' from test.r where k = 'tplA')::uuid) = 2
+    and (select count(*) from crm_templates where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and name = 'HubSpot T23') = 1, 'T23b the re-save updated the one row';
+  assert (select count(*) from crm_templates where name in ('Pool T23', 'Member T23', 'B T23')) = 0, 'T23b refused maps are not stored';
+end $$;
+set role omnikom_fn;
+select service.save_crm_template(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', null, 'HubSpot T23', 'hubspot', 'both',
+  '[{"header":"First Name","field":"name","transform":"first"},{"header":"Last Name","field":"name","transform":"last"},{"header":"Email","field":"email"},
+    {"header":"Phone Number","field":"phone","transform":"e164"},{"header":"Budget","field":"answers.budget"},{"header":"Timing","field":"answers.timing"},{"header":"Contact owner","field":"owner"}]', '{}');
+
+-- (c) the import. Seven rows as importRows makes them: line 2 has a seed lead's email (any case), line 4 repeats line 3's email, line 6 line 3's phone in
+-- another form, line 5 a bad budget, line 7 a key the forms do not have, line 8 an owner who is not on the team.
+reset role;
+insert into leads (workspace_id, site_id, form, page_path, name, email, consent_text) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'Have T23', 'have.t23@t23.test', 'I agree');
+set role omnikom_fn;
+insert into test.r select 'rows', jsonb_build_array(
+  jsonb_build_object('line', 2, 'name', 'Imp One', 'email', 'HAVE.T23@t23.test'),
+  jsonb_build_object('line', 3, 'name', 'Imp Two', 'email', 'imp2@t23.test', 'phone', '(510) 555-0102', 'answers', jsonb_build_object('budget', '250000', 'timing', '0-3 months'),
+    'owner', (select upper(v #>> '{}') from test.r where k = 't1name'), 'status', 'Qualified'),
+  jsonb_build_object('line', 4, 'name', 'Imp Three', 'email', 'IMP2@t23.test'),
+  jsonb_build_object('line', 5, 'name', 'Imp Bad', 'answers', jsonb_build_object('budget', 'lots')),
+  jsonb_build_object('line', 6, 'name', 'Imp Four', 'phone', '+1 510 555 0102'),
+  jsonb_build_object('line', 7, 'name', 'Imp Five', 'answers', jsonb_build_object('junk', 'x')),
+  jsonb_build_object('line', 8, 'email', 'imp6@t23.test', 'owner', 'Nobody Here'));
+insert into test.r select 'dry', service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', (select v #>> '{}' from test.r where k = 'tplA')::uuid,
+  (select v from test.r where k = 'rows'), '{}');
+insert into test.r select 'dry2', service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', (select v #>> '{}' from test.r where k = 'tplA')::uuid,
+  (select v from test.r where k = 'rows'), '{"dry_run":"no","duplicates":"add","consent":true,"file_name":"t23.csv","file_sha256":"0000000000000000000000000000000000000000000000000000000000000000"}');
+insert into test.r select 'dryS', service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', (select v #>> '{}' from test.r where k = 'tplA')::uuid,
+  '[{"line":2,"name":"Imp Hot","status":"Hot"},{"line":3,"answers":{"budget":20000}}]', '{}');
+select test.expect_error(format($q$select service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', %L, '[{"name":"x"}]', '{"dry_run":false,"duplicates":"skip","file_name":"t23.csv","file_sha256":"%s"}')$q$,
+  (select v #>> '{}' from test.r where k = 'tplA'), repeat('a', 64)), 'I-CONSENT');
+select test.expect_error(format($q$select service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', %L, '[{"name":"x"}]', '{"dry_run":false,"consent":"yes","duplicates":"skip","file_name":"t23.csv","file_sha256":"%s"}')$q$,
+  (select v #>> '{}' from test.r where k = 'tplA'), repeat('a', 64)), 'I-CONSENT');
+select test.expect_error(format($q$select service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', %L, '[{"name":"x"}]', '{"dry_run":false,"consent":true,"file_name":"t23.csv","file_sha256":"%s"}')$q$,
+  (select v #>> '{}' from test.r where k = 'tplA'), repeat('a', 64)), 'I-DUPLICATES');
+select test.expect_error(format($q$select service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', %L, %L, '{"dry_run":false,"consent":true,"duplicates":"skip","file_name":"t23.csv","file_sha256":"%s"}')$q$,
+  (select v #>> '{}' from test.r where k = 'tplA'), (select v from test.r where k = 'rows'), repeat('a', 64)), 'I-IMPORT line 5 budget: Budget must be a number');
+select test.expect_error(format($q$select service.import_leads(test.c('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', %L, '[{"name":"x"}]', '{}')$q$, (select v #>> '{}' from test.r where k = 'tplA')), 'S-OWN-ONLY');
+select test.expect_error(format($q$select service.import_leads(test.c('00000000-0000-0000-0000-00000000000b'), 'aaaaaaaa-0000-0000-0000-000000000000', %L, '[{"name":"x"}]', '{}')$q$, (select v #>> '{}' from test.r where k = 'tplA')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'bbbbbbbb-0000-0000-0000-000000000000', %L, '[{"name":"x"}]', '{}')$q$, (select v #>> '{}' from test.r where k = 'tplB')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', %L, '[{"name":"x"}]', '{}')$q$, (select v #>> '{}' from test.r where k = 'tplB')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', %L, (select jsonb_agg(jsonb_build_object('name', 'x')) from generate_series(1, 5001)), '{}')$q$, (select v #>> '{}' from test.r where k = 'tplA')), 'I-ROWS');
+reset role;
+do $$ declare d jsonb := (select v from test.r where k = 'dry'); s jsonb; begin
+  assert d ->> 'dry_run' = 'true' and (d ->> 'rows')::int = 7 and (d ->> 'valid')::int = 5 and (d ->> 'refused_count')::int = 2 and (d ->> 'new')::int = 2, 'T23c the dry run counts: ' || d::text;
+  assert d -> 'refused' = '[{"line":5,"field":"budget","reason":"Budget must be a number"},{"line":7,"field":"junk","reason":"this business has no such field"}]', 'T23c refused rows name the line, the field and the reason: ' || (d -> 'refused')::text;
+  assert d -> 'duplicates' = '[{"by":"email","line":2,"with":"a lead you already have"},{"by":"email","line":4,"with":"line 3"},{"by":"phone","line":6,"with":"line 3"}]',
+    'T23c duplicates: email against the workspace (any case), email and E.164 phone within the file: ' || (d -> 'duplicates')::text;
+  assert d -> 'warnings' = '[{"line":8,"field":"owner","reason":"not a team member of this business; the lead goes to you"}]', 'T23c an owner not on the team is a warning: ' || (d -> 'warnings')::text;
+  select e into s from jsonb_array_elements(d -> 'sample') e where (e ->> 'line')::int = 3;
+  assert jsonb_array_length(d -> 'sample') = 5 and jsonb_typeof(s -> 'answers' -> 'budget') = 'number' and (s -> 'answers' ->> 'budget')::numeric = 250000
+    and s ->> 'owner' = test.id('crm_t1')::text and s ->> 'status' = 'qualified' and s ->> 'duplicate' = 'false', 'T23c the sample is the rows as stored: typed, owner by name (any case), status read: ' || s::text;
+  assert (select v ->> 'dry_run' from test.r where k = 'dry2') = 'true', 'T23c only dry_run false is a real run';
+  assert (select v -> 'refused' from test.r where k = 'dryS') = '[{"line":2,"field":"status","reason":"Status must be one of the lead statuses"},{"line":3,"field":"name","reason":"a lead needs a name, an email or a phone"}]',
+    'T23c a status that is not ours and a lead with no name, email or phone are refused: ' || (select v -> 'refused' from test.r where k = 'dryS')::text;
+  assert (select count(*) from leads where form = 'import') = 0 and (select count(*) from audit_log where action = 'lead-import') = 0
+    and (select count(*) from consent_ledger where form = 'import') = 0, 'T23c a dry run and every refused real run write nothing';
+end $$;
+set role omnikom_fn;
+insert into test.r select 'real', service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', (select v #>> '{}' from test.r where k = 'tplA')::uuid,
+  (select jsonb_agg(e) from jsonb_array_elements((select v from test.r where k = 'rows')) e where (e ->> 'line')::int not in (5, 7)),
+  ('{"dry_run":false,"duplicates":"skip","consent":true,"file_name":"t23 \"leads\".csv","file_sha256":"' || repeat('b', 64) || '"}')::jsonb);
+insert into test.r select 'add', service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', (select v #>> '{}' from test.r where k = 'tplA')::uuid,
+  '[{"line":2,"name":"Have Again","email":"have.t23@t23.test"}]', ('{"dry_run":false,"duplicates":"add","consent":true,"file_name":"t23-add.csv","file_sha256":"' || repeat('c', 64) || '"}')::jsonb);
+reset role;
+do $$ declare r jsonb := (select v from test.r where k = 'real'); l leads; begin
+  assert r = '{"dry_run":false,"rows":5,"created":2,"skipped":3}', 'T23c the real run: two created, three duplicates skipped: ' || r::text;
+  select * into l from leads where email = 'imp2@t23.test';
+  assert l.form = 'import' and l.page_path = 'import' and l.status = 'qualified' and l.owner_team_row = test.id('crm_t1') and l.site_id = 'aaaaaaaa-0000-0000-0000-00000000517e'
+    and jsonb_typeof(l.answers -> 'budget') = 'number' and l.answers ->> 'timing' = '0-3 months', 'T23c an imported lead: form import, typed, owned by the named member';
+  assert l.consent_text = format('These people agreed to be contacted by my business. Ticked by the owner on %s for the import of the file "t23 leads.csv".', to_char(now() at time zone 'utc', 'YYYY-MM-DD'))
+    and l.sms_consent = false and l.marketing_consent = '{"given":false}', 'T23c the consent sentence, the date and the file''s name; marketing and SMS consent false: ' || l.consent_text;
+  assert (select owner_team_row from leads where email = 'imp6@t23.test') is not distinct from (select team_row_id from members where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and user_id = '00000000-0000-0000-0000-00000000000a'),
+    'T23c an unknown owner name: the lead goes to the importing owner';
+  assert (select count(*) from leads where name in ('Imp One', 'Imp Three', 'Imp Four')) = 0, 'T23c skip: no duplicate was created';
+  assert (select count(*) from lead_events e join leads x on x.id = e.lead_id where x.form = 'import' and e.kind = 'received' and e.detail ->> 'import' = 'true') = 3, 'T23c one received event per imported lead';
+  assert (select count(*) from consent_ledger c join leads x on x.id = c.lead_id where x.form = 'import' and c.consent_text = x.consent_text) = 3, 'T23c one consent ledger row per imported lead';
+  assert (select count(*) from audit_log where action = 'lead-import') = 2 and (select detail from audit_log where action = 'lead-import' and detail ->> 'file_sha256' = repeat('b', 64))
+    = jsonb_build_object('file_sha256', repeat('b', 64), 'rows', 5, 'created', 2, 'skipped', 3, 'duplicates', 3), 'T23c one audit row per call, with the file''s sha256 and the counts';
+  assert (select v from test.r where k = 'add') ->> 'created' = '1' and (select count(*) from leads where lower(email) = 'have.t23@t23.test') = 2, 'T23c add: a duplicate is created when asked';
+end $$;
+-- the map names a field the forms no longer have (the contract changed after the map was saved): the import is refused whole
+update site_contracts set resolved = jsonb_set(resolved, '{forms,contact,fields}', (resolved -> 'forms' -> 'contact' -> 'fields') - 'topic')
+  where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and active;
+set role omnikom_fn;
+select test.expect_error(format($q$select service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', %L, '[{"email":"t@t23.test"}]', '{}')$q$, (select v #>> '{}' from test.r where k = 'tplTopic')), 'T-FIELD topic');
+
+-- (d) add_lead types its answers against every industry field (work order 01 finding F3): typed, an unknown key dropped, a bad value refused
+insert into test.ids select 'mT', service.add_lead(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', 'Manual Typed', 'mt@test', null, '{"budget":"300000","beds":"2","junk":"x"}', 'Agreed on the phone');
+select test.expect_error($q$select service.add_lead(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', 'Manual Bad', 'mb@test', null, '{"budget":"lots"}', 'Agreed on the phone')$q$, 'I-ANSWER budget: Budget must be a number');
+select test.expect_error($q$select service.add_lead(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', 'Manual Bad', 'mb@test', null, '{"area":"gamma"}', 'Agreed on the phone')$q$, 'I-ANSWER area');
+reset role;
+do $$ begin
+  assert (select answers from leads where id = test.id('mT')) = '{"beds":2,"budget":300000}', 'T23d a manual lead''s answers are typed, an unknown key dropped: ' || (select answers from leads where id = test.id('mT'))::text;
+  assert (select count(*) from leads where name = 'Manual Bad') = 0, 'T23d a refused manual lead stores nothing';
+end $$;
+
+-- (e) the new and replaced functions: closed to anon, authenticated and PUBLIC, open to the function role, definer with an empty search_path
+do $$ declare f text; begin
+  foreach f in array array['service.crm_fields(jsonb,uuid)', 'service.import_leads(jsonb,uuid,uuid,jsonb,jsonb)', 'service.add_lead(jsonb,uuid,text,text,text,jsonb,text,text,uuid)',
+      'service.save_crm_template(jsonb,uuid,uuid,text,text,text,jsonb,jsonb)'] loop
     assert not has_function_privilege('anon', f, 'execute') and not has_function_privilege('authenticated', f, 'execute') and not exists (select 1 from aclexplode((select proacl from pg_proc where oid = f::regprocedure)) a where a.grantee = 0), f || ' is closed to anon, authenticated and PUBLIC';
     assert has_function_privilege('omnikom_fn', f, 'execute'), f || ' is open to the function role';
     assert (select prosecdef from pg_proc where oid = f::regprocedure) and (select proconfig from pg_proc where oid = f::regprocedure) = array['search_path=""'], f || ' is a definer function with an empty search_path';

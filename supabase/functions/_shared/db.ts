@@ -31,7 +31,7 @@ export async function withDb<T>(fn: (sql: Sql) => Promise<T>): Promise<T> {
   try { return await fn(sql); } finally { await sql.end({ timeout: 2 }); }
 }
 
-export type Refusal = { status: number; code: string; kind: 'refused' | 'quota' | 'suspended' | null; msg: string; path?: string };
+export type Refusal = { status: number; code: string; kind: 'refused' | 'quota' | 'suspended' | null; msg: string; path?: string; row?: string };
 /** migration 14: 'I-ANSWER <key>: <plain words>' -> the field and the words; anything that does not match the pattern gets fixed words */
 export function answerProblem(message: string): { path: string; msg: string } | null {
   const m = /I-ANSWER ([A-Za-z][A-Za-z0-9_]{0,39}): ([A-Za-z0-9 ().,'\-]{1,160}?)(?:\n|$| CONTEXT)/.exec(message);
@@ -75,6 +75,22 @@ export function refusal(message: string): Refusal | null {
   if (has('I-MEDIA-TYPE')) return { status: 415, code: 'I-MEDIA-TYPE', kind: null, msg: 'Use a jpg, png, webp, heic or pdf file.' };
   if (has('I-MEDIA-SIZE')) return { status: 413, code: 'I-MEDIA-SIZE', kind: null, msg: 'This file is too large or empty.' };
   if (has('consent text required')) return { status: 400, code: 'REQUIRED', kind: null, msg: 'This is needed.' };
+  // migration 15 (work order 02): the CRM map and the import. Input problems (kind null). The field a map names is a key the database already
+  // limited to [a-z][a-zA-Z0-9_], so it may be named; a row's reason is the contract's words (answerProblem's pattern), never a value from the file.
+  // I-IMPORT comes before I-ANSWER: its words are a row's I-ANSWER words.
+  if (has('T-FIELD')) {
+    const m = /T-FIELD ([a-z][a-zA-Z0-9_]{0,60}):/.exec(message);
+    return { status: 422, code: 'T-FIELD', kind: null, msg: m ? `"${m[1]}" is not a field of this business's forms.` : 'The map names a field this business does not have.', path: 'columns' };
+  }
+  if (has('T-COLUMNS') || has('T-VALUE-MAPS')) return { status: 422, code: 'T-COLUMNS', kind: null, msg: 'Each column needs a header and one of our fields, no two columns share a header, and value maps are an object.' };
+  if (has('T-NAME')) return { status: 409, code: 'T-NAME', kind: null, msg: 'Another map of this business has that name.' };
+  if (has('I-CONSENT')) return { status: 422, code: 'I-CONSENT', kind: null, msg: 'Tick "These people agreed to be contacted by my business" to import.' };
+  if (has('I-DUPLICATES')) return { status: 422, code: 'I-DUPLICATES', kind: null, msg: 'Choose skip or add for the duplicates.' };
+  if (has('I-ROWS')) return { status: 422, code: 'I-ROWS', kind: null, msg: 'An import takes 1 to 5000 rows, the file\'s name and its fingerprint.' };
+  if (has('I-IMPORT')) {
+    const m = /I-IMPORT line ([0-9]{1,7}) ([A-Za-z][A-Za-z0-9_]{0,60}): ([A-Za-z0-9 ().,'\-]{1,160}?)(?:\n|$| CONTEXT)/.exec(message);
+    return { status: 422, code: 'I-IMPORT', kind: null, msg: m ? `Line ${m[1]}: ${m[3]}. Nothing was imported.` : 'A row is not valid. Nothing was imported.', path: m ? m[2] : '', row: m ? m[1] : undefined };
+  }
   // migration 14 (work order 01): the CRM's edit, list and bulk calls
   if (has('I-ANSWER')) { const a = answerProblem(message); return { status: 400, code: 'I-ANSWER', kind: null, msg: a ? a.msg : 'A value is not valid.', path: a ? a.path : '' }; }
   if (has('I-UNKNOWN')) return { status: 400, code: 'I-UNKNOWN', kind: null, msg: 'This lead has no such field.' };

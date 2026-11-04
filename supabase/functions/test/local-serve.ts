@@ -15,6 +15,9 @@ import { handle as leadExport } from '../lead-export/index.ts';
 import { handle as leadList } from '../lead-list/index.ts';
 import { handle as leadsBulk } from '../leads-bulk/index.ts';
 import { makeHandle as inviteMember } from '../invite-member/index.ts';
+import { handle as crmMapPropose } from '../crm-map-propose/index.ts';
+import { handle as crmTemplateSave } from '../crm-template-save/index.ts';
+import { handle as leadImport } from '../lead-import/index.ts';
 import type { Resolve } from '../_shared/netguard.ts';
 import { env, mint, toFakeHook, type Who } from './util.ts';
 
@@ -24,6 +27,7 @@ const resolve: Resolve = (host, type) => Promise.resolve(type === 'A' ? (names[h
 const handlers: Record<string, (req: Request) => Promise<Response>> = {
   'save': save, 'lead-update': leadUpdate, 'add-lead': addLead, 'drafts': drafts, 'lead-export': leadExport, 'lead-list': leadList, 'leads-bulk': leadsBulk,
   'settings-save': settingsSave({ resolve }), 'crm-test': crmTest({ resolve, fetchImpl: toFakeHook }), 'invite-member': inviteMember(),
+  'crm-map-propose': crmMapPropose, 'crm-template-save': crmTemplateSave, 'lead-import': leadImport,
 };
 
 const port = Number(env('LOCAL_SERVE_PORT'));

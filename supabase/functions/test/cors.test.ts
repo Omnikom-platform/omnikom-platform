@@ -10,6 +10,9 @@ import { handle as leadExport } from '../lead-export/index.ts';
 import { handle as leadList } from '../lead-list/index.ts';
 import { handle as leadsBulk } from '../leads-bulk/index.ts';
 import { handle as invite } from '../invite-member/index.ts';
+import { handle as crmMapPropose } from '../crm-map-propose/index.ts';
+import { handle as crmTemplateSave } from '../crm-template-save/index.ts';
+import { handle as leadImport } from '../lead-import/index.ts';
 import { assert, eq, mint, SITE_A, t, WS_A } from './util.ts';
 
 const ALLOWED = 'http://localhost:5173';
@@ -87,7 +90,8 @@ t('cors: Allow-Origin is never *: a * in the list is ignored, an Origin of * get
 });
 
 t('cors: every dashboard function answers the preflight (they all run in the same frame)', async () => {
-  const all: [string, H][] = [['save', save], ['lead-update', leadUpdate], ['add-lead', addLead], ['drafts', drafts], ['settings-save', settings], ['crm-test', crmTest], ['lead-export', leadExport], ['lead-list', leadList], ['leads-bulk', leadsBulk], ['invite-member', invite]];
+  const all: [string, H][] = [['save', save], ['lead-update', leadUpdate], ['add-lead', addLead], ['drafts', drafts], ['settings-save', settings], ['crm-test', crmTest], ['lead-export', leadExport], ['lead-list', leadList], ['leads-bulk', leadsBulk], ['invite-member', invite],
+    ['crm-map-propose', crmMapPropose], ['crm-template-save', crmTemplateSave], ['lead-import', leadImport]];
   for (const [name, h] of all) {
     const r = await ask(h, { method: 'OPTIONS', origin: ALLOWED });
     eq(r.status, 204, `${name}: status`); eq(r.headers.get('access-control-allow-origin'), ALLOWED, `${name}: allow-origin`);

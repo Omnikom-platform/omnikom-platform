@@ -1133,9 +1133,7 @@
    },
    "LeadExportRequest": {
     "type": "object",
-    "required": [
-     "site"
-    ],
+    "required": [],
     "properties": {
      "site": {
       "type": "string",
@@ -1156,8 +1154,74 @@
       "type": "string",
       "maxLength": 100,
       "description": "matches name, email and phone, case-insensitive, once it is at least 2 characters; shorter is ignored"
+     },
+     "workspace": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "template": {
+      "type": "string",
+      "format": "uuid",
+      "description": "a crm_templates id of the workspace"
+     },
+     "search": {
+      "type": "string",
+      "maxLength": 200
+     },
+     "filters": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+       "type": "object",
+       "required": [
+        "field",
+        "op"
+       ],
+       "properties": {
+        "field": {
+         "type": "string"
+        },
+        "op": {
+         "type": "string",
+         "enum": [
+          "eq",
+          "in",
+          "range",
+          "empty",
+          "not_empty"
+         ]
+        },
+        "value": {},
+        "values": {
+         "type": "array",
+         "maxItems": 100
+        },
+        "from": {},
+        "to": {}
+       }
+      }
+     },
+     "sort": {
+      "type": "object",
+      "properties": {
+       "field": {
+        "type": "string"
+       },
+       "dir": {
+        "type": "string",
+        "enum": [
+         "asc",
+         "desc"
+        ]
+       }
+      }
+     },
+     "timezone": {
+      "type": "string",
+      "description": "IANA name; the day the us and eu date forms print"
      }
-    }
+    },
+    "description": "Without template: site (required), filter, q. With template: workspace and template (required), search, filters, sort, timezone."
    },
    "InviteMemberRequest": {
     "type": "object",
@@ -1385,6 +1449,338 @@
     "type": "object",
     "properties": {
      "changed": {
+      "type": "integer"
+     }
+    }
+   },
+   "CrmMapProposeRequest": {
+    "type": "object",
+    "required": [
+     "workspace"
+    ],
+    "properties": {
+     "workspace": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "headers": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": {
+       "type": "string",
+       "maxLength": 200
+      }
+     },
+     "rows": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {}
+     },
+     "csv": {
+      "type": "string",
+      "maxLength": 1048576,
+      "description": "instead of headers and rows"
+     }
+    }
+   },
+   "CrmMapProposeResponse": {
+    "type": "object",
+    "properties": {
+     "template": {
+      "type": "object",
+      "properties": {
+       "columns": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 200,
+        "items": {
+         "type": "object",
+         "required": [
+          "header",
+          "field"
+         ],
+         "properties": {
+          "header": {
+           "type": "string",
+           "maxLength": 120
+          },
+          "field": {
+           "type": "string",
+           "description": "name, email, phone, status, owner, created_at, form, page_path, flow, cta, or answers.<industry key>"
+          },
+          "transform": {
+           "type": "string",
+           "description": "first | last (name), street | city | state | postal_code (address), e164 | us (phone), iso | us | eu (date)"
+          }
+         }
+        }
+       },
+       "value_maps": {
+        "type": "object"
+       }
+      }
+     },
+     "scores": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "header": {
+         "type": "string"
+        },
+        "field": {
+         "type": "string"
+        },
+        "score": {
+         "type": "number"
+        }
+       }
+      }
+     },
+     "unmapped": {
+      "type": "object"
+     },
+     "splits": {
+      "type": "array",
+      "items": {
+       "type": "object"
+      }
+     },
+     "warnings": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "CrmTemplateSaveRequest": {
+    "type": "object",
+    "required": [
+     "workspace",
+     "name",
+     "crm",
+     "columns"
+    ],
+    "properties": {
+     "workspace": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "name": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "crm": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+     },
+     "direction": {
+      "type": "string",
+      "enum": [
+       "export",
+       "import",
+       "both"
+      ],
+      "default": "both"
+     },
+     "columns": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": {
+       "type": "object",
+       "required": [
+        "header",
+        "field"
+       ],
+       "properties": {
+        "header": {
+         "type": "string",
+         "maxLength": 120
+        },
+        "field": {
+         "type": "string",
+         "description": "name, email, phone, status, owner, created_at, form, page_path, flow, cta, or answers.<industry key>"
+        },
+        "transform": {
+         "type": "string",
+         "description": "first | last (name), street | city | state | postal_code (address), e164 | us (phone), iso | us | eu (date)"
+        }
+       }
+      }
+     },
+     "value_maps": {
+      "type": "object",
+      "description": "{ field: { ours: theirs } } or { \"field@Header\": {...} }"
+     }
+    }
+   },
+   "CrmTemplateSaveResponse": {
+    "type": "object",
+    "properties": {
+     "template": {
+      "type": "string",
+      "format": "uuid"
+     }
+    }
+   },
+   "LeadImportRequest": {
+    "type": "object",
+    "required": [
+     "workspace",
+     "template",
+     "file",
+     "file_name"
+    ],
+    "properties": {
+     "workspace": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "template": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "file": {
+      "type": "string",
+      "maxLength": 1048576,
+      "description": "the CSV text"
+     },
+     "file_name": {
+      "type": "string",
+      "maxLength": 200
+     },
+     "dry_run": {
+      "type": "boolean",
+      "default": true
+     },
+     "duplicates": {
+      "type": "string",
+      "enum": [
+       "skip",
+       "add"
+      ]
+     },
+     "consent": {
+      "type": "boolean"
+     },
+     "date": {
+      "type": "string",
+      "enum": [
+       "us",
+       "eu"
+      ]
+     },
+     "timezone": {
+      "type": "string"
+     }
+    }
+   },
+   "LeadImportResponse": {
+    "type": "object",
+    "properties": {
+     "dry_run": {
+      "type": "boolean"
+     },
+     "rows": {
+      "type": "integer"
+     },
+     "valid": {
+      "type": "integer"
+     },
+     "new": {
+      "type": "integer"
+     },
+     "refused_count": {
+      "type": "integer"
+     },
+     "refused": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "line": {
+         "type": [
+          "integer",
+          "null"
+         ]
+        },
+        "field": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "reason": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "duplicates_count": {
+      "type": "integer"
+     },
+     "duplicates": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "line": {
+         "type": "integer"
+        },
+        "by": {
+         "type": "string",
+         "enum": [
+          "email",
+          "phone"
+         ]
+        },
+        "with": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "warnings": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "line": {
+         "type": [
+          "integer",
+          "null"
+         ]
+        },
+        "field": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "reason": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "sample": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+       "type": "object"
+      }
+     },
+     "created": {
+      "type": "integer"
+     },
+     "skipped": {
       "type": "integer"
      }
     }
@@ -2387,7 +2783,7 @@
      }
     ],
     "summary": "Export the leads under the current filter as a CSV file (dashboard; supabase/functions/lead-export)",
-    "description": "The leads are read as the caller under Row Level Security: owner and staff get every lead of the site, an agent only the leads assigned to them. Newest first, at most 5000. Cells that start with = + - @ get a leading quote. One `exported` event is written per lead in the file.",
+    "description": "The leads are read as the caller under Row Level Security: owner and staff get every lead of the site, an agent only the leads assigned to them. Newest first, at most 5000. Cells that start with = + - @ get a leading quote. One `exported` event is written per lead in the file. With `template` (work order 02) the body is { workspace, template, search?, filters?, sort?, timezone? }: the leads of the caller's CRM view (service.lead_list: the same search, filters and sort, exactly what RLS shows the caller) in the map's columns and order, phones and dates in the client's form, value maps applied, industry columns included, the formula guard on every cell; at most 5000 (X-Omnikom-Export-Capped).",
     "requestBody": {
      "required": true,
      "content": {
@@ -2646,6 +3042,198 @@
      },
      "409": {
       "description": "S-CONFIRM: a delete without confirm"
+     }
+    }
+   }
+  },
+  "/crm-map-propose": {
+   "post": {
+    "operationId": "crmMapPropose",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "summary": "Propose how the columns of the client's CRM file map to our lead fields (dashboard; supabase/functions/crm-map-propose)",
+    "description": "Owner only (a member 403 S-OWN-ONLY, anyone else 404). Our fields are the core lead fields and the workspace's industry fields in form order. Send the headers and at most 20 sample rows, or the file (at most 1 MB; its first 20 rows are the samples). A pair under 0.5 is never assigned. Stores nothing.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CrmMapProposeRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "The proposed map, a score per pair, what was left unmapped and the warnings",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CrmMapProposeResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "BODY: a field is missing or not valid",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "403": {
+      "description": "S-OWN-ONLY"
+     },
+     "404": {
+      "description": "S-NOT-FOUND"
+     }
+    }
+   }
+  },
+  "/crm-template-save": {
+   "post": {
+    "operationId": "crmTemplateSave",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "summary": "Confirm and save a map of the client's CRM layout (dashboard; supabase/functions/crm-template-save)",
+    "description": "Owner only. The map is checked by tools/crm-map (validateTemplate, every transform known) and every industry field it names must be on this business's forms; the database checks the same. One map per workspace and name: saving a name again updates that row.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CrmTemplateSaveRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "The map's id",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CrmTemplateSaveResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "BODY: a field is missing or not valid",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "403": {
+      "description": "S-OWN-ONLY"
+     },
+     "404": {
+      "description": "S-NOT-FOUND"
+     },
+     "409": {
+      "description": "T-NAME: another map has that name"
+     },
+     "422": {
+      "description": "T-COLUMNS, T-TRANSFORM, T-FIELD (naming the field): the map is not valid",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/lead-import": {
+   "post": {
+    "operationId": "leadImport",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "summary": "Import the client's own CRM file through a saved map; a dry run first (dashboard; supabase/functions/lead-import)",
+    "description": "Owner only. The file (CSV, at most 1 MB and 5000 rows, work order 02 F6; a bigger file is refused whole before it is parsed, 413 I-FILE or I-ROWS) is parsed and mapped with tools/crm-map, then every row is typed as a capture is, and duplicates (same email, any case, or same phone in E.164, against the workspace and the file) are found. A dry run (the default) writes nothing and reports the first 20 rows as they would be stored. A real run (dry_run false) needs consent true (the owner's tick \"These people agreed to be contacted by my business\") and duplicates skip or add; it is all or nothing; each lead gets form import, that sentence with the date and the file's name as its consent text, one received event and one consent ledger row; one audit row holds the file's sha256 and the counts.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LeadImportRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "The dry run's report, or the real run's counts",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/LeadImportResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "BODY: a field is missing or not valid",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "403": {
+      "description": "S-OWN-ONLY"
+     },
+     "404": {
+      "description": "S-NOT-FOUND: the map is not this workspace's"
+     },
+     "413": {
+      "description": "I-ROWS: more rows than the cap (the answer says how many)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "I-CONSENT, I-DUPLICATES, I-IMPORT (the line and the field of the first bad row; nothing imported), T-FIELD (the map names a field the forms no longer have)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
      }
     }
    }

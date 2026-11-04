@@ -13,15 +13,21 @@
 import { dashboard, badBody, type Ctx } from '../_shared/dashboard.ts';
 import { asCaller } from '../_shared/db.ts';
 import { csvLine } from '../_shared/csv.ts';
-import { Fields } from '../_shared/http.ts';
+import { Fields, problem } from '../_shared/http.ts';
+import { exportRows, toCsv, type Template } from '../_shared/crm-map.ts';
 
 export const MAX_ROWS = 5000;
 const FILTERS = ['new', 'all', 'mine', 'spam'];
 type Field = { key: string };
 type Lead = { id: string; created_at: Date; name: string | null; email: string | null; phone: string | null; form: string; page_path: string; status: string; owner_team_row: string | null; answers: unknown };
 
-export async function handle(req: Request): Promise<Response> {
+/** maxRows: the cap of the export in a template's layout (a test injects a small one; the deployed function uses MAX_ROWS) */
+export const makeHandle = (o: { maxRows?: number } = {}) => (req: Request) => serve(req, o.maxRows ?? MAX_ROWS);
+export const handle = makeHandle();
+
+async function serve(req: Request, maxRows: number): Promise<Response> {
   return await dashboard(req, 'lead-export', async (c: Ctx, d) => {
+    if (d.template !== undefined) return await inLayout(c, d, maxRows);   // work order 02: the client's own layout
     const f = new Fields(d);
     const site = f.uuid('site'), filter = f.str('filter', { max: 10 }) ?? 'all', q = (f.str('q', { max: 100 }) ?? '').trim();
     if (!FILTERS.includes(filter)) f.problems.push({ code: 'ENUM', path: 'filter', msg: 'Not a lead filter.' });
@@ -66,6 +72,74 @@ export function plain(v: unknown): string {
   if (Array.isArray(v)) return v.map(x => String(x)).join('; ');
   if (typeof v === 'boolean') return v ? 'yes' : 'no';
   return typeof v === 'object' ? JSON.stringify(v) : String(v);
+}
+
+// ---------- work order 02 Settled 4: the export in the client's CRM layout ----------
+// Body { workspace, template, search?, filters?, sort?, timezone? (IANA; the day the us and eu date forms print) }; block 1's site, filter and q are not read.
+// The set and its order are service.lead_list's: the same query as the CRM screen (search, filters, sort), exactly the leads RLS shows the caller,
+// read 200 a page up to MAX_ROWS (X-Omnikom-Export-Capped beyond, the first MAX_ROWS of the view). The map and the leads are read as the caller
+// (asCaller): a member exports with its workspace's map and only its own leads; another workspace's map is not found (404). exportRows writes the
+// map's columns in its order (phones and dates in the client's form, value maps applied, industry fields as answers.<key>, owner as the team
+// member's name); toCsv puts the formula guard on every cell. One `exported` event per lead (service.leads_exported, per site).
+export const PAGE = 200;
+type Full = { id: string; site_id: string | null; created_at: Date; name: string | null; email: string | null; phone: string | null; form: string; page_path: string;
+  flow: string | null; cta: string | null; status: string; owner_team_row: string | null; answers: Record<string, unknown> | null };
+
+async function inLayout(c: Ctx, d: Record<string, unknown>, maxRows: number): Promise<Response> {
+  const f = new Fields(d);
+  const workspace = f.uuid('workspace'), template = f.uuid('template'), search = f.str('search', { max: 200 }), timezone = f.str('timezone', { max: 60 });
+  const filters = d.filters, sort = d.sort;
+  if (filters !== undefined && !(Array.isArray(filters) && filters.length <= 20)) f.problems.push({ code: 'TYPE', path: 'filters', msg: 'A list of at most 20 filters.' });
+  if (sort !== undefined && (sort === null || typeof sort !== 'object' || Array.isArray(sort))) f.problems.push({ code: 'TYPE', path: 'sort', msg: 'An object { field, dir }.' });
+  if (f.problems.length || !workspace || !template) return badBody(f.problems);
+  c.workspace = workspace;
+  const [tpl] = await asCaller(c.sql, c.jwtClaims, (tx) =>
+    tx`select t.id, t.name, t.crm, t.columns, t.value_maps from public.crm_templates t where t.id = ${template}::uuid and t.workspace_id = ${workspace}::uuid`) as Template[];
+  if (!tpl) return problem(404, 'S-NOT-FOUND', 'Not found.');
+  const q: Record<string, unknown> = { size: PAGE };
+  if (search) q.search = search;
+  if (filters !== undefined) q.filters = filters;
+  if (sort !== undefined) q.sort = sort;
+  const ids: string[] = [];
+  let total = 0;
+  for (let page = 1; ids.length < maxRows; page++) {
+    const [{ r }] = await c.sql`select service.lead_list(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${JSON.stringify({ ...q, page })}::jsonb) as r`;
+    total = Number(r.total);
+    for (const row of r.rows as { id: string }[]) ids.push(row.id);
+    if ((r.rows as unknown[]).length < PAGE || ids.length >= total) break;
+  }
+  const take = ids.slice(0, maxRows);
+  const { leads, names } = await asCaller(c.sql, c.jwtClaims, async (tx) => {
+    const rows: Full[] = take.length ? await tx`select l.id, l.site_id, l.created_at, l.name, l.email, l.phone, l.form, l.page_path, l.flow, l.cta, l.status, l.owner_team_row, l.answers
+      from public.leads l where l.id = any(${take}::uuid[]) and l.workspace_id = ${workspace}::uuid` : [];
+    const owners = [...new Set(rows.map(r => r.owner_team_row).filter((x): x is string => !!x))];
+    const named: { id: string; name: string | null }[] = owners.length
+      ? await tx`select c.id, v.data ->> 'name' as name from public.content_rows c
+          join lateral (select x.data from public.content_versions x where x.row_id = c.id order by x.n desc limit 1) v on true where c.id = any(${owners}::uuid[])`
+      : [];
+    return { leads: rows, names: new Map(named.map(n => [n.id, n.name])) };
+  });
+  const byId = new Map(leads.map(l => [l.id, l]));
+  const ordered = take.map(id => byId.get(id)).filter((l): l is Full => !!l);   // lead_list's order
+  const ours = ordered.map(l => ({ name: l.name, email: l.email, phone: l.phone, form: l.form, page_path: l.page_path, flow: l.flow, cta: l.cta, status: l.status,
+    created_at: l.created_at.toISOString(), owner: l.owner_team_row ? (names.get(l.owner_team_row) ?? '') : '',
+    answers: Object.fromEntries(Object.entries(l.answers ?? {}).map(([k, v]) => [k, plain(v)])) }));
+  let out: Record<string, string>[];
+  try { out = exportRows({ columns: tpl.columns, value_maps: tpl.value_maps }, ours, { timezone: timezone ?? undefined }); }
+  catch (e) {
+    const code = (/^(T-[A-Z-]+):/.exec(String((e as Error).message)) ?? [, 'T-COLUMNS'])[1] as string;
+    return problem(422, code, code === 'T-TIMEZONE' ? 'Not a time zone we know (use a name like America/Los_Angeles).' : 'The saved map cannot write this export; save the map again.');
+  }
+  // the event comes after the read and before the file leaves, one call per site (service.leads_exported checks each lead again)
+  const bySite = new Map<string, string[]>();
+  for (const l of ordered) if (l.site_id) bySite.set(l.site_id, [...(bySite.get(l.site_id) ?? []), l.id]);
+  for (const [site, list] of bySite) await c.sql`select service.leads_exported(${c.jwtClaims}::jsonb, ${site}::uuid, ${list}::uuid[])`;
+  const csv = toCsv(out, tpl.columns.map(col => col.header));
+  return new Response(csv, { status: 200, headers: {
+    'content-type': 'text/csv; charset=utf-8', 'cache-control': 'no-store',
+    'content-disposition': `attachment; filename="leads-${tpl.crm}-${new Date().toISOString().slice(0, 10)}.csv"`,
+    ...(total > maxRows ? { 'x-omnikom-export-capped': String(maxRows) } : {}),
+  } });
 }
 
 if (import.meta.main) Deno.serve(handle);

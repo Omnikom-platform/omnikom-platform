@@ -4,7 +4,7 @@
 // The copy lives in a temp folder (supabase/functions copied, contracts/ linked as a junction, deno.json copied); the real source is never
 // touched. Mutated runs use `deno test --no-check` (the real code is type-checked by `deno task check`), and a run that ends without a
 // test summary (a mutant that does not even load) counts as BROKEN, not as caught.
-import { cpSync, mkdtempSync, readFileSync, writeFileSync, symlinkSync, rmSync } from 'node:fs';
+import { cpSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, symlinkSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startHarness, denoTest, REPO } from './harness.mjs';
@@ -23,7 +23,8 @@ const MUTANTS = [
     "const tok = (req.headers.get('authorization') ?? '').split('.')[1]; const claims = tok ? JSON.parse(atob(tok.replace(/-/g, '+').replace(/_/g, '/'))) : null;"],
   ['dashboard: a refusal leaves no security event', F + '_shared/dashboard.ts', "      if (r.kind) await recordEvent(sql, r.kind, r.code, { workspace: c.workspace, site: c.site, actor: c.sub, ipHash, fn });", '      /* no event */'],
   ['dashboard: a bad token leaves no security event', F + '_shared/dashboard.ts', "      await recordEvent(sql, 'auth-refused', 'S-AUTH', { fn, ipHash, reason: 'bad-jwt' });\n", ''],
-  ['dashboard: no body cap (256 KiB)', F + '_shared/dashboard.ts', "  if (text.length > MAX_BODY) return problem(413, 'SIZE', 'This request is too large.');\n", ''],
+  ['dashboard: no body cap (256 KiB)', F + '_shared/dashboard.ts', "  if (text.length > (o.maxBody ?? MAX_BODY)) return problem(413, 'SIZE', 'This request is too large.');\n", ''],
+  ['dashboard: a function\'s own body cap is ignored (256 KiB for an import file)', F + '_shared/dashboard.ts', 'text.length > (o.maxBody ?? MAX_BODY)', 'text.length > MAX_BODY', 'import.test.ts'],
   ['dashboard: any method', F + '_shared/dashboard.ts', "  if (req.method !== 'POST') return problem(405, 'METHOD', 'POST only.');\n", ''],
   ['db: no step-down to omnikom_fn', F + '_shared/db.ts', "await sql.unsafe('set role omnikom_fn');", "await sql.unsafe('select 1');"],
   ['db: I-NOT-READY is not a 422 with its own code', F + '_shared/db.ts', "  if (has('I-NOT-READY')) return { status: 422, code: 'I-NOT-READY', kind: 'refused', msg: 'Some items are not ready to publish.' };\n", ''],
@@ -157,6 +158,31 @@ const MUTANTS = [
   ['lead-export: every industry value is written empty', F + 'lead-export/index.ts', '...fields.map(x => plain(a[x.key]))', "...fields.map(() => '')", 'export.test.ts'],
   ['lead-export: no industry columns at all', F + 'lead-export/index.ts', 'const fields: Field[] = ws ?', 'const fields: Field[] = false ?', 'export.test.ts'],
   ['lead-export: a multi choice is one JSON cell', F + 'lead-export/index.ts', "  if (Array.isArray(v)) return v.map(x => String(x)).join('; ');\n", '', 'export.test.ts'],
+  // work order 02: the export in the client's layout, the map, the import (each must turn import.test.ts red)
+  ['lead-export layout: the search of the view is dropped', F + 'lead-export/index.ts', '  if (search) q.search = search;\n', '', 'import.test.ts'],
+  ['lead-export layout: the sort of the view is dropped', F + 'lead-export/index.ts', '  if (sort !== undefined) q.sort = sort;\n', '', 'import.test.ts'],
+  ['lead-export layout: the columns are not in the map\'s order', F + 'lead-export/index.ts', 'toCsv(out, tpl.columns.map(col => col.header))', 'toCsv(out, tpl.columns.map(col => col.header).reverse())', 'import.test.ts'],
+  ['lead-export layout: no formula guard', F + 'lead-export/index.ts', 'toCsv(out, tpl.columns.map(col => col.header))', 'toCsv(out, tpl.columns.map(col => col.header), { formulaGuard: false })', 'import.test.ts'],
+  ['lead-export layout: no exported event', F + 'lead-export/index.ts', "  for (const [site, list] of bySite) await c.sql`select service.leads_exported(${c.jwtClaims}::jsonb, ${site}::uuid, ${list}::uuid[])`;\n", '', 'import.test.ts'],
+  ['lead-export layout: the owner is the team row id', F + 'lead-export/index.ts', "owner: l.owner_team_row ? (names.get(l.owner_team_row) ?? '') : ''", 'owner: l.owner_team_row ?? \'\'', 'import.test.ts'],
+  ['lead-export layout: no cap', F + 'lead-export/index.ts', 'const take = ids.slice(0, maxRows);', 'const take = ids;', 'import.test.ts'],
+  ['lead-export layout: the cap is said nowhere', F + 'lead-export/index.ts', "    ...(total > maxRows ? { 'x-omnikom-export-capped': String(maxRows) } : {}),\n", '', 'import.test.ts'],  ['crm-map-propose: no owner check', F + 'crm-map-propose/index.ts', '    const fields = await crmFields(c, workspace);   // the owner check comes before any parsing', '    const fields = [] as never[];', 'import.test.ts'],
+  ['crm-map-propose: the industry fields are not offered', F + 'crm-map-propose/index.ts', 'proposeMap(ourFields(fields),', 'proposeMap(ourFields([]),', 'import.test.ts'],
+  ['crm-template-save: the library\'s check is skipped', F + 'crm-template-save/index.ts', '    let problems = validateTemplate(template) as string[];', '    let problems: string[] = [];', 'import.test.ts'],
+  ['crm-template-save: an unknown transform is saved', F + 'crm-template-save/index.ts', '    if (!problems.length) { try { exportRows(template, []); }', '    if (false) { try { exportRows(template, []); }', 'import.test.ts'],
+  ['crm-template-save: a field not on the forms is left to the database', F + 'crm-template-save/index.ts', '    if (missing.length) {', '    if (false) {', 'import.test.ts'],
+  ['lead-import: the file is read before the owner check', F + 'lead-import/index.ts', '    await crmFields(c, workspace);   // owner only: a member or an outsider is refused before the file is read\n', '', 'import.test.ts'],
+  ['lead-import: no file size cap (F6: 1 MB)', F + 'lead-import/index.ts', '    if (new TextEncoder().encode(file).length > MAX_FILE) {', '    if (false) {', 'import.test.ts'],
+  ['lead-import: the file size is counted in characters, not bytes', F + 'lead-import/index.ts', 'new TextEncoder().encode(file).length > MAX_FILE', 'file.length > MAX_FILE', 'import.test.ts'],
+  ['lead-import: the file size cap is off by one', F + 'lead-import/index.ts', 'new TextEncoder().encode(file).length > MAX_FILE', 'new TextEncoder().encode(file).length >= MAX_FILE', 'import.test.ts'],
+  ['lead-import: no row cap (the database refuses with 422, not 413)', F + 'lead-import/index.ts', '    if (parsed.rows.length > MAX_ROWS) {', '    if (false) {', 'import.test.ts'],
+  ['lead-import: a real run is the default', F + 'lead-import/index.ts', "dryRun = f.bool('dry_run') ?? true", "dryRun = f.bool('dry_run') ?? false", 'import.test.ts'],
+  ['lead-import: the tick is always sent', F + 'lead-import/index.ts', 'dry_run: dryRun, duplicates, consent,', 'dry_run: dryRun, duplicates, consent: true,', 'import.test.ts'],
+  ['lead-import: line numbers count from 0', F + 'lead-import/index.ts', 'line: mapped.sourceRows[i] + 2,', 'line: mapped.sourceRows[i],', 'import.test.ts'],
+  ['lead-import: the fingerprint is not the file\'s', F + 'lead-import/index.ts', 'file_sha256: await sha256Hex(file)', 'file_sha256: await sha256Hex(fileName)', 'import.test.ts'],
+  ['db: I-IMPORT does not name the line', F + '_shared/db.ts', "path: m ? m[2] : '', row: m ? m[1] : undefined };", "path: m ? m[2] : '' };", 'import.test.ts'],
+  ['db: T-FIELD is not mapped (a 500)', F + '_shared/db.ts', "  if (has('T-FIELD')) {", "  if (has('T-FIELD-NEVER')) {", 'import.test.ts'],
+  ['db: I-CONSENT is not mapped (a 500)', F + '_shared/db.ts', "  if (has('I-CONSENT')) return", "  if (has('I-CONSENT-NEVER')) return", 'import.test.ts'],
   // invite-member
   ['invite-member: a login is made even when one exists', F + 'invite-member/index.ts', '    if (!user) {', '    if (true) {', 'invite.test.ts'],
   ['invite-member: the role is always member', F + 'invite-member/index.ts', '${role}::public.member_role', "'member'::public.member_role", 'invite.test.ts'],
@@ -213,6 +239,8 @@ const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf
 const work = mkdtempSync(join(tmpdir(), 'omnikom-fn-mut-'));
 cpSync(join(REPO, 'supabase', 'functions'), join(work, 'supabase', 'functions'), { recursive: true });
 symlinkSync(join(REPO, 'contracts'), join(work, 'contracts'), 'junction');
+mkdirSync(join(work, 'tools'));
+symlinkSync(join(REPO, 'tools', 'crm-map'), join(work, 'tools', 'crm-map'), 'junction');   // work order 02: _shared/crm-map.ts imports tools/crm-map
 cpSync(join(REPO, 'deno.json'), join(work, 'deno.json'));
 const testDir = join(work, 'supabase', 'functions', 'test');
 

@@ -16,7 +16,7 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
   code plus plain words (`_shared/problems`); the dashboard shows the words.
 - Shared validation imports `contracts/validate.mjs`, so the browser, the functions and the build run the same rules.
 
-## The Edge Functions (16 in `supabase/functions/`)
+## The Edge Functions (21 in `supabase/functions/`)
 
 | Function | Caller | Does |
 |---|---|---|
@@ -32,15 +32,30 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
 | `capture-lead` | the site's `/api/lead`, signed with that site's key | stores the lead (`5-crm.md`), sends the new-lead alert by Resend |
 | `add-lead` | dashboard | a lead entered by hand, consent tick required |
 | `lead-update` | dashboard | status, owner, unassign, note, mark read; `fields` edits any core or editable industry field (M14 `lead_set_fields`), 200 `{changed}` |
-| `lead-export` | dashboard | CSV of the leads the caller may see, one column per core and industry field in form order; one `exported` event per lead |
+| `lead-export` | dashboard | CSV of the leads the caller may see, one column per core and industry field in form order; one `exported` event per lead. With `template` (work order 02): the caller's CRM view (`lead_list`: search, filters, sort) in the saved map's columns and order, at most 5000 |
+| `crm-map-propose` | dashboard (owner) | proposes how the client's CRM file maps to our core and industry fields (`tools/crm-map` proposeMap; headers and 20 sample rows, or a file of at most 1 MB); stores nothing |
+| `crm-template-save` | dashboard (owner) | confirms the map (`validateTemplate`, every industry field on the forms) and saves it (M15 `save_crm_template`, one per name) |
+| `lead-import` | dashboard (owner) | the client's file (CSV, at most 1 MB and 5000 rows, measured below) through a saved map (M15 `import_leads`): a dry run first; a real run needs the consent tick, all or nothing |
 | `lead-list` | dashboard | the CRM list on the server (M14 `lead_list`): search, filter, sort, page of at most 200, typed columns in form order; 422 `S-QUERY` for a key that is not a column |
 | `leads-bulk` | dashboard | status, owner or delete for up to 500 leads, all or nothing (M14 `leads_bulk`); delete needs `confirm: true` (409 `S-CONFIRM`); a single delete is a bulk of one |
 | `invite-member` | dashboard (owner) | creates or finds the login and adds the member; sends no mail yet |
 | `settings-save` | dashboard (owner) | lead alert addresses and "also email the assigned agent"; also still carries the CRM webhook card, which is removed (`5-crm.md`) |
 | `crm-test` | dashboard (owner) | sends a test to a CRM webhook; belongs to the dropped push and is removed |
 
-Functions the book needs that do not exist (states in `1-product.md`): field edit and bulk edit for leads, saved views, CRM
-layout save and export in a layout, import, delete a lead, unpublish, publish history and restore, team list and remove,
+**The import's caps are measured** (work order 02, F6): parse + map in Deno, the functions' runtime (`supabase/functions/test/import-cpu.ts`,
+2026-11-04, idle laptop, 3 runs of 5 each; the worst CPU of the 3 runs):
+
+| Rows | File | Worst CPU |
+|---|---|---|
+| 1000 | 0.19 MB | 234 ms |
+| 2000 | 0.39 MB | 109 ms |
+| 5000 | 0.99 MB | 374 ms |
+| 5000 | 5.00 MB | 3704 ms |
+
+CPU follows file size, about 0.75 s per MB worst; cap 1 MB / 5000 rows, under 1 s of the 2 s CPU limit. A bigger file is refused whole
+with plain words before it is parsed (413 `I-FILE` over 1 MB, 413 `I-ROWS` over 5000 rows), never cut short.
+
+Functions the book needs that do not exist (states in `1-product.md`): field edit and bulk edit for leads, saved views, delete a lead, unpublish, publish history and restore, team list and remove,
 media library, metrics pull. There is no push function and none is to be built.
 
 ## Publishing a change

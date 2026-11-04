@@ -33,7 +33,7 @@ the screens are block 3.
    view (the same `lead_list` query: search, filters, sort; at most 5000 rows) in the template's column order, phones and dates in
    the client's form, value maps applied, the formula guard on every cell, industry columns included; without it, block 1's
    one-column-per-field CSV. One `exported` event per lead either way. Members export only what RLS shows them (as today).
-5. **Import, dry run first:** Edge Function `lead-import` (owner only): body = the file (CSV, at most 5 MB) and a template id;
+5. **Import, dry run first:** Edge Function `lead-import` (owner only): body = the file (CSV, at most 1 MB (F6)) and a template id;
    `dry_run` defaults to true. A dry run parses (`parseCsv`), maps (`importRows`) and returns the first 20 rows as they would be
    stored, the row count, duplicates (same email, lower-cased, or same phone in E.164, against the workspace's leads and within
    the file), rows refused with the field and reason (typing as capture: `private.typed_answers` against `lead_columns`), and the
@@ -100,3 +100,9 @@ the screens are block 3.
 
 ## Findings
 (the builder writes here, one line each, and sends them to the head)
+- F1 (cli-and-testing): `proposeMap` matches an industry field by its key only (`answers.budget` -> "budget"), never by the contract's label; a client header that is only the label ("Price range") maps nothing. Options: (a) the library takes an optional label per field as one more synonym, (b) leave it, the wizard maps by hand.
+- F2 (cli-and-testing): `templates/hubspot.json` headers match HubSpot's published contact property labels only case-insensitively ("First Name" vs "First name", read 2026-11-04, `supabase/functions/test/templates.test.ts`); its two status value maps are not on any public page. Options: (a) write the labels in HubSpot's case, (b) leave (whether HubSpot's import matches case-insensitively is UNVERIFIED).
+- F3 BLOCKED: Google publishes no first-party list of the Google CSV headers (support.google.com/contacts/answer/7199294 and /1069522, read 2026-11-04); checking `google-contacts.json` needs a real Google CSV export from a test account (a login: the owner's click). The test is in place and ignored with that reason.
+- F4: an imported lead gets the workspace's oldest site as `site_id` (block 1's plain export and `leads_exported` work per site); a workspace with several sites gets its imports on that one.
+- F6 (settled by the head 2026-11-04, option a): the CPU of parse + map follows the file's size, not its rows (idle, worst of 3: 5000 rows 0.99 MB 374 ms, 5000 rows 5.00 MB 3704 ms, over the 2 s limit), so `lead-import` takes at most 1 MB (bytes, checked before parsing, 413 `I-FILE`) and 5000 rows; Settled 5 says 1 MB.
+- F5: on an import, `created_at`, `form`, `page_path`, `flow` and `cta` columns are not read (an imported lead has form `import` and is received now); the report warns once per such column.
