@@ -80,6 +80,26 @@ test.describe('the owner\'s screens', () => {
     await expect(page.getByLabel('Notes')).toBeVisible();
     await ok(page, { required: ['DP-1.3b-01', 'DP-1.3b-02', 'DP-1.3b-03', 'DP-1.3b-04', 'DP-1.3b-05', 'DP-1.3b-06', 'DP-1.3b-07', 'DP-1.3b-08', 'DP-1.3b-09', 'DP-1.3-20'] });
   });
+
+  test('Settings: the five cards, then the remove sheet and the leave sheet', async ({ page }) => {
+    await page.goto(`/w/${WS.a.slug}/settings`);
+    await expect(page.getByRole('heading', { name: 'People', exact: true })).toBeVisible();
+    await expect(page.getByRole('listitem').first()).toBeVisible();   // the team list has loaded
+    await ok(page, { required: ['DP-1.2s-05', 'DP-1.2s-09', 'DP-1.6-01', 'DP-1.6-02', 'DP-1.6-04', 'DP-1.6-07', 'DP-1.6-08', 'DP-1.6-09', 'DP-1.6-10'] });
+
+    await page.getByRole('button', { name: 'Remove', exact: true }).first().click();
+    await expect(page.getByRole('dialog')).toContainText('Their leads and edits stay.');
+    await ok(page, { required: ['DP-1.6-12'] });
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+
+    await page.getByLabel('Addresses, one per line').first().fill('not-an-address');
+    await expect(page.getByRole('alert').filter({ hasText: 'is not an email address.' })).toBeVisible();
+    await ok(page, { required: ['DP-1.6-16'] });
+    await page.getByRole('navigation').getByRole('link', { name: 'Leads' }).click();
+    await expect(page.getByRole('dialog')).toContainText('Leave without saving?');
+    await ok(page, { required: ['DP-1.6-18'] });
+    await page.getByRole('button', { name: 'Stay', exact: true }).click();
+  });
 });
 
 test.describe('the agent\'s screens', () => {
@@ -100,6 +120,12 @@ test.describe('the agent\'s screens', () => {
     await ok(page, { required: ['DP-1.2s-06', 'DP-1.2s-11'] });
     await page.getByRole('link', { name: 'Go to your businesses' }).click();
     await expect(page).toHaveURL(new RegExp(`/w/${WS.a.slug}/leads`));   // one business: straight in
+  });
+
+  test('Settings: only Your account and Sign out everywhere', async ({ page }) => {
+    await page.goto(`/w/${WS.a.slug}/settings`);
+    await expect(page.getByRole('heading', { name: 'Your account', exact: true })).toBeVisible();
+    await ok(page, { required: ['DP-1.2s-05', 'DP-1.2s-09', 'DP-1.6-08', 'DP-1.6-09'], absent: ['DP-1.6-01', 'DP-1.6-02', 'DP-1.6-04', 'DP-1.6-07', 'DP-1.6-10'] });
   });
 });
 

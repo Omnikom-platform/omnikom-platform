@@ -145,9 +145,9 @@ flowchart LR
     several sites cannot choose another.
   - An import does not read the file's received date, form, page, flow or CTA columns: the lead has form `import` and is received
     now (the report warns once per such column).
-- **Removed:** the CRM webhook card in Settings, `settings-save`'s CRM part, `crm-test`, `set_crm_webhook` and
-  `crm_secret_put` belong to the dropped push. They are taken out of the dashboard path; the tables stay until a migration
-  removes them. OmniSuite by API key is the follow-up engine for calls and sequences once its API exists (`10-expansion.md`).
+- **Removed (work order 08):** the CRM webhook card in Settings, `settings-save`'s CRM part and the `crm-test` function are gone from the
+  dashboard, the functions, their tests and the OpenAPI file. `set_crm_webhook`, `crm_secret_put` and the `integrations` table stay,
+  called by nothing, until a migration removes them. OmniSuite by API key is the follow-up engine for calls and sequences once its API exists (`10-expansion.md`).
 
 ## The test that proves the CRM
 

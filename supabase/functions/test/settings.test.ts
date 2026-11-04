@@ -1,13 +1,13 @@
-// settings-save (slice 5.2): lead alerts and the CRM connection. The walls are in the database (migrations 12 and 13); these tests prove the function passes the
-// verified claims through, checks the host before anything is stored, keeps the secret out of every answer, and saves alerts and the connection all or nothing.
-import { assert, call, crmSecret, eq, securityEvents, SITE_A, SITE_B, SUB, t, WS_A, WS_B, withSql } from './util.ts';
-import { answers, auditRows, connectCrm, counting, crmRow, nowhere, publicHost, settingsSave } from './screens-util.ts';
+// settings-save (slice 5.2, work order 08): lead alerts. The walls are in the database (migrations 12 and 13); these tests prove the function passes the
+// verified claims through and that the CRM part is gone (leads leave as an export, docs/product/5-crm.md).
+import { assert, eq, securityEvents, SITE_A, SITE_B, SUB, t, WS_A, WS_B, withSql } from './util.ts';
+import { auditRows, settingsSave } from './screens-util.ts';
 
 const alertsOf = (site = SITE_A) => withSql(async sql => (await sql`select lead_alert_to, alert_assignee from public.sites where id = ${site}::uuid`)[0] as { lead_alert_to: string[]; alert_assignee: boolean });
 
-t('settings-save alerts: the owner saves the list (lower-cased, de-duplicated) and the agent tick; 200 { alerts: true, crm: null }', async () => {
+t('settings-save alerts: the owner saves the list (lower-cased, de-duplicated) and the agent tick; 200 { alerts: true }', async () => {
   const r = await settingsSave('owner-a', { workspace: WS_A, alerts: { site: SITE_A, to: ['Boss@Test.com', ' boss@test.com', 'second@test.com'], assignee: false } });
-  eq(r.status, 200, 'status: ' + r.text); eq(r.json?.alerts, true, 'alerts'); eq(r.json?.crm, null, 'crm untouched');
+  eq(r.status, 200, 'status: ' + r.text); eq(JSON.stringify(r.json), JSON.stringify({ alerts: true }), 'exactly { alerts: true }');
   const a = await alertsOf();
   eq(a.lead_alert_to.join(), 'boss@test.com,second@test.com', 'the list'); eq(a.alert_assignee, false, 'the tick');
   const keep = await settingsSave('owner-a', { workspace: WS_A, alerts: { site: SITE_A, to: ['boss@test.com'] } });
@@ -43,92 +43,17 @@ t('settings-save alerts: a bad address is 422 I-EMAIL that does not echo it; a b
   eq((await settingsSave('owner-a', { workspace: WS_A, alerts: { site: SITE_A, to: 'x@test.com' } })).status, 400, 'to must be a list');
   eq((await settingsSave('owner-a', { workspace: WS_A, alerts: { site: SITE_A, to: [5] } })).status, 400, 'each address is text');
   eq((await settingsSave('owner-a', { workspace: WS_A, alerts: { site: SITE_A, to: ['x@test.com'], assignee: 'yes' } })).status, 400, 'the tick is yes or no');
-  eq((await settingsSave('owner-a', { workspace: WS_A })).status, 400, 'neither alerts nor crm');
+  eq((await settingsSave('owner-a', { workspace: WS_A })).status, 400, 'no alerts');
   eq((await settingsSave('owner-a', { workspace: 'nope', alerts: { site: SITE_A, to: [] } })).status, 400, 'a workspace that is not an id');
 });
 
-t('settings-save crm: an address is saved with a fresh 64-character secret in the vault under the derived name; the answer, the table and the audit row never hold the secret', async () => {
-  const url = 'https://hooks.example.com/crm/abc?x=1';
-  const r = await settingsSave('owner-a', { workspace: WS_A, crm: { url } });
-  eq(r.status, 200, 'status: ' + r.text); eq(r.json?.crm, 'set', 'crm'); eq(r.json?.alerts, false, 'alerts untouched');
-  const row = await crmRow(WS_A);
-  eq(row?.config.url, url, 'the address is stored'); eq(row?.secret_ref, `crm-webhook-${WS_A}`, 'the secret is stored as a name, the derived one');
-  const secret = await crmSecret(WS_A);
-  assert(secret && /^[0-9a-f]{64}$/.test(secret), 'the vault holds a 64 character hex secret');
-  assert(!r.text.includes(secret), 'the answer does not hold the secret');
-  assert(!JSON.stringify(row).includes(secret), 'the table row does not hold the secret');
-  assert(!JSON.stringify(await auditRows('crm-set', WS_A)).includes(secret), 'the audit rows do not hold the secret');
-  const again = await settingsSave('owner-a', { workspace: WS_A, crm: { url: 'https://hooks.example.com/crm/def' } });
-  eq(again.status, 200, 'a second address: ' + again.text);
-  const second = await crmSecret(WS_A);
-  assert(second && second !== secret, 'every save of an address makes a fresh secret');
-  eq((await crmRow(WS_A))?.config.url, 'https://hooks.example.com/crm/def', 'the new address');
-});
-
-t('settings-save crm: an address the database refuses (after the secret was made) rolls the secret back; the old connection stays', async () => {
-  await connectCrm('https://hooks.example.com/crm/keep');
-  const secret = await crmSecret(WS_A);
-  const bad = await settingsSave('owner-a', { workspace: WS_A, crm: { url: 'https://hooks_underscore.example.com/x' } });
-  eq(bad.status, 422, 'status: ' + bad.text); eq(bad.json?.code, 'I-URL', 'code');
-  eq(await crmSecret(WS_A), secret, 'the secret is the old one: the new one was rolled back');
-  eq((await crmRow(WS_A))?.config.url, 'https://hooks.example.com/crm/keep', 'the old address');
-  const http = await settingsSave('owner-a', { workspace: WS_A, crm: { url: 'http://hooks.example.com/x' } });
-  eq(http.status, 422, 'plain http: ' + http.text); eq(http.json?.code, 'I-URL', 'code');
-  eq((await settingsSave('owner-a', { workspace: WS_A, crm: { url: 'not an address' } })).status, 422, 'text that is not an address');
-  eq(await crmSecret(WS_A), secret, 'still the old secret');
-});
-
-t('settings-save crm: the host is resolved first; any private, loopback, link-local or unique-local answer, or no answer, refuses it before anything is stored', async () => {
-  await connectCrm('https://hooks.example.com/crm/keep');
-  const secret = await crmSecret(WS_A);
-  const ev = await securityEvents({ actor: SUB['owner-a'], code: 'I-URL' });
-  for (const [why, resolve] of [
-    ['10.0.0.5', answers(['10.0.0.5'])], ['127.0.0.1', answers(['127.0.0.1'])], ['169.254.169.254', answers(['169.254.169.254'])], ['192.168.1.1', answers(['192.168.1.1'])],
-    ['172.16.0.1', answers(['172.16.0.1'])], ['::1', answers([], ['::1'])], ['fc00::1', answers([], ['fc00::1'])], ['fe80::1', answers([], ['fe80::1'])],
-    ['::ffff:127.0.0.1', answers([], ['::ffff:127.0.0.1'])], ['one public and one private answer', answers(['93.184.216.34', '10.1.1.1'])],
-    ['a private IPv6 beside a public IPv4', answers(['93.184.216.34'], ['fd00::5'])], ['no answer at all', nowhere],
-  ] as const) {
-    const r = await settingsSave('owner-a', { workspace: WS_A, crm: { url: 'https://rebinding.example.com/hook' } }, resolve);
-    eq(r.status, 422, `${why}: ${r.text}`); eq(r.json?.code, 'I-URL', `${why}: code`);
-  }
-  eq(await crmSecret(WS_A), secret, 'no refusal touched the secret');
-  eq((await crmRow(WS_A))?.config.url, 'https://hooks.example.com/crm/keep', 'no refusal touched the address');
-  assert(await securityEvents({ actor: SUB['owner-a'], code: 'I-URL' }) >= ev + 12, 'each refusal left a security event');
-  const literal = counting(publicHost);
-  const lit = await settingsSave('owner-a', { workspace: WS_A, crm: { url: 'https://169.254.169.254/latest/meta-data' } }, literal);
-  eq(lit.status, 422, 'a private address written as numbers: ' + lit.text); eq(literal.calls, 0, 'and no DNS lookup was made for it');
-  const ok = await settingsSave('owner-a', { workspace: WS_A, crm: { url: 'https://hooks.example.com/crm/public' } }, answers(['93.184.216.34'], ['2606:2800:220:1:248:1893:25c8:1946']));
-  eq(ok.status, 200, 'public IPv4 and IPv6 answers are fine: ' + ok.text);
-});
-
-t('settings-save crm: url null removes the connection and its secret; an agent, another workspace\'s owner and a login of nothing get 404 and change nothing', async () => {
-  await connectCrm('https://hooks.example.com/crm/keep');
-  const secret = await crmSecret(WS_A);
-  const ev = await securityEvents({ actor: SUB['member-a1'], code: 'S-NOT-FOUND' });
-  for (const who of ['member-a1', 'owner-b', 'nobody'] as const) {
-    const r = await settingsSave(who, { workspace: WS_A, crm: { url: null } });
-    eq(r.status, 404, `${who} removing: ${r.text}`);
-    const s = await settingsSave(who, { workspace: WS_A, crm: { url: 'https://hooks.example.com/theirs' } });
-    eq(s.status, 404, `${who} setting: ${s.text}`);
-  }
-  eq(await securityEvents({ actor: SUB['member-a1'], code: 'S-NOT-FOUND' }), ev + 2, 'two security events for the agent');
-  eq(await crmSecret(WS_A), secret, 'the secret is untouched'); eq((await crmRow(WS_A))?.config.url, 'https://hooks.example.com/crm/keep', 'so is the address');
-  const gone = await settingsSave('owner-a', { workspace: WS_A, crm: { url: null } });
-  eq(gone.status, 200, 'status: ' + gone.text); eq(gone.json?.crm, 'removed', 'crm');
-  eq(await crmRow(WS_A), null, 'the connection is gone'); eq(await crmSecret(WS_A), null, 'and so is its secret');
-});
-
-t('settings-save: alerts and the connection are saved together or not at all; a bad crm body is 400', async () => {
-  await settingsSave('owner-a', { workspace: WS_A, alerts: { site: SITE_A, to: ['before@test.com'], assignee: true } });
-  const before = await alertsOf();
-  const r = await settingsSave('owner-a', { workspace: WS_A, alerts: { site: SITE_A, to: ['after@test.com'], assignee: false }, crm: { url: 'https://hooks_underscore.example.com/x' } });
-  eq(r.status, 422, 'the connection is refused by the database: ' + r.text);
-  eq(JSON.stringify(await alertsOf()), JSON.stringify(before), 'so the alerts were not saved either');
-  const both = await settingsSave('owner-a', { workspace: WS_A, alerts: { site: SITE_A, to: ['after@test.com'], assignee: false }, crm: { url: 'https://hooks.example.com/both' } });
-  eq(both.status, 200, 'both fine: ' + both.text); eq(both.json?.alerts, true, 'alerts'); eq(both.json?.crm, 'set', 'crm');
-  eq((await alertsOf()).lead_alert_to.join(), 'after@test.com', 'the alerts were saved');
-  for (const bad of [5, '', '   ', 'x'.repeat(2001), {}, []]) {
-    const x = await settingsSave('owner-a', { workspace: WS_A, crm: { url: bad } });
-    eq(x.status, 400, `crm.url ${JSON.stringify(bad).slice(0, 30)}: ${x.text}`);
-  }
+t('settings-save: there is no CRM part any more; a crm key alone is 400 and stores nothing, beside alerts it is ignored', async () => {
+  const integrations = () => withSql(async sql => (await sql`select count(*)::int as n from public.integrations where workspace_id = ${WS_A}::uuid and kind = 'crm-webhook'`)[0].n as number);
+  const before = await integrations();
+  const only = await settingsSave('owner-a', { workspace: WS_A, crm: { url: 'https://hooks.example.com/crm/x' } });
+  eq(only.status, 400, 'a crm key alone: ' + only.text); eq(only.json?.code, 'BODY', 'code');
+  const both = await settingsSave('owner-a', { workspace: WS_A, alerts: { site: SITE_A, to: ['both@test.com'], assignee: true }, crm: { url: 'https://hooks.example.com/crm/x' } });
+  eq(both.status, 200, 'alerts with a crm key: ' + both.text); eq(JSON.stringify(both.json), JSON.stringify({ alerts: true }), 'crm is not in the answer');
+  eq(await integrations(), before, 'no connection was stored');
+  assert(!JSON.stringify(await auditRows('crm-set', WS_A)).includes('hooks.example.com'), 'nothing about the address was audited');
 });

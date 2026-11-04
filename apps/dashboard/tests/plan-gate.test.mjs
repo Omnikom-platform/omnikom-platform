@@ -45,9 +45,9 @@ function patch(file, find, replace) {
 }
 
 describe('the plan itself', () => {
-  it('has rows, and slices 5.3 and 5.4 are the built ones', () => {
+  it('has rows, and slices 5.3, 5.4 and 5.6 are the built ones', () => {
     expect(plan.size).toBeGreaterThan(60);
-    expect(built).toEqual(['5.3', '5.4']);
+    expect(built).toEqual(['5.3', '5.4', '5.6']);
     expect(plan.get('DP-1.2-05')?.slice).toBe('5.3');
     expect(plan.get('DP-1.3-05')?.slice).toBe('5.3b');
   });
@@ -149,8 +149,8 @@ describe('mutants of the real source: each must turn the gate red for its reason
   it('plant a button with no handler', () => {
     red('no-handler', scanReal(patch('src/pages/Leads.tsx', '<section data-live={live}>', '<section data-live={live}>\n          <button type="button" data-plan="DP-1.3-04">Add a lead</button>')), 'PLAN-6', '<button> does nothing');
   });
-  it('plant a link to a route that does not exist (the Settings entry of slice 5.6)', () => {
-    red('dead-link', scanReal(patch('src/pages/Shell.tsx', '<Link to="/w/$ws/leads" params={{ ws }} data-plan="DP-1.2s-03"', '<Link to="/w/$ws/settings" params={{ ws }} data-plan="DP-1.2s-03"')), 'PLAN-6', '/w/$ws/settings');
+  it('plant a link to a route that does not exist', () => {
+    red('dead-link', scanReal(patch('src/pages/Shell.tsx', '<Link to="/w/$ws/leads" params={{ ws }} data-plan="DP-1.2s-03"', '<Link to="/w/$ws/billing" params={{ ws }} data-plan="DP-1.2s-03"')), 'PLAN-6', '/w/$ws/billing');
   });
   it('plant a John Doe lead in source', () => {
     red('john-doe', scanReal(patch('src/data.ts', 'export type Workspace =', "export const sampleLead = { name: 'John Doe', phone: '(555) 010-0100' };\nexport type Workspace =")), 'PLAN-7', 'John');
@@ -158,8 +158,8 @@ describe('mutants of the real source: each must turn the gate red for its reason
   it('plant a fake count as text', () => {
     red('fake-count', scanReal(patch('src/pages/Shell.tsx', '<p data-plan="DP-1.2s-01"><strong>{workspace.name}</strong></p>', '<p data-plan="DP-1.2s-01"><strong>{workspace.name}</strong> <span>3</span></p>')), 'PLAN-7', 'bare number');
   });
-  it('show the Settings nav entry of slice 5.6 before it is built', () => {
-    red('unbuilt-row', scanReal(patch('src/pages/Shell.tsx', '<SignOutButton />\n        </nav>', '<Link to="/w/$ws/leads" params={{ ws }} data-plan="DP-1.2s-05">Settings</Link>\n          <SignOutButton />\n        </nav>')), 'PLAN-9', 'DP-1.2s-05');
+  it('show an element of a slice that is not built (the Preview button, slice 5.5)', () => {
+    red('unbuilt-row', scanReal(patch('src/pages/Shell.tsx', '<SignOutButton />\n        </nav>', '<Link to="/w/$ws/leads" params={{ ws }} data-plan="DP-1.4-18">Preview</Link>\n          <SignOutButton />\n        </nav>')), 'PLAN-9', 'DP-1.4-18');
   });
   it('slice 5.4: take the element of one row away (the Publish N changes button is the only carrier of DP-1.4-04)', () => {
     red('delete-54-element', scanReal(patch('src/pages/SiteLayout.tsx', '<p data-plan="DP-1.4-04" className={css.idle}>Nothing to publish</p>\n        ) : (\n          <button type="button" data-plan="DP-1.4-04" disabled', '<p data-plan="DP-1.4-05" className={css.idle}>Nothing to publish</p>\n        ) : (\n          <button type="button" data-plan="DP-1.4-05" disabled')), 'PLAN-3', 'DP-1.4-04');

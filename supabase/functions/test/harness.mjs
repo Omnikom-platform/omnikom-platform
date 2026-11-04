@@ -4,6 +4,8 @@
 //   GET  /auth/v1/.well-known/jwks.json                       the project's JWKS (an ES256 public key generated for this run)
 //   POST /auth/v1/admin/generate_link                         Auth's admin invite (slice 5.2; creates the user in the database named by POST /__auth-user?...&db=<url> and answers
 //                                                             the id registered for the email; needs the secret key; records the email, never anything else)
+//   POST /auth/v1/invite, POST /auth/v1/otp                   Auth's mail calls (work order 08; records which one, whether the secret key was sent, the email and the user data or
+//                                                             create_user; answers the status set with POST /__auth-mail?status=N; sends nothing)
 //   POST /hook/<path>, POST /hook-redirected                  a customer's CRM webhook (slice 5.2; records the path, the signature header and the body; answers the status you
 //                                                             set with POST /__hook?status=N&mode=redirect|slow; a redirect points at /hook-redirected, whose hits are counted)
 //   POST /storage/v1/object/upload/sign/media/<path>          Storage's signed-upload endpoint (answers { url, token }; needs the secret key)
@@ -74,7 +76,7 @@ export async function startHarness() {
     const priv = { ...privateKey.export({ format: 'jwk' }), kid, alg: 'ES256' };
 
     const state = { github: [], storage: [], githubStatus: 204, signed: [], signFail: '', signDelayMs: 0, inflight: 0, maxInflight: 0,
-      hooks: [], redirected: 0, hookStatus: 200, hookMode: '', hookDelayMs: 0, authLinks: [], authUsers: {}, authStatus: 200 };
+      hooks: [], redirected: 0, hookStatus: 200, hookMode: '', hookDelayMs: 0, authLinks: [], authUsers: {}, authStatus: 200, authMails: [], authMailStatus: 200 };
     let base = '';
     server = createServer((req, res) => {
       const chunks = [];
@@ -113,7 +115,7 @@ export async function startHarness() {
         if (req.method === 'POST' && u.pathname === '/auth/v1/admin/generate_link') {
           let parsed = null; try { parsed = JSON.parse(body); } catch { /* recorded as null */ }
           const authorized = req.headers.authorization === `Bearer ${SECRET}` && req.headers.apikey === SECRET;
-          state.authLinks.push({ authorized, type: parsed && parsed.type, email: parsed && parsed.email });
+          state.authLinks.push({ authorized, type: parsed && parsed.type, email: parsed && parsed.email, data: parsed && parsed.data !== undefined ? parsed.data : null });
           if (!authorized) return send(401, { message: 'no' });
           if (state.authStatus !== 200) return send(state.authStatus, { message: 'refused' });
           const reg = state.authUsers[parsed && parsed.email];
@@ -125,6 +127,13 @@ export async function startHarness() {
           }
           return send(200, { action_link: 'https://fake.invalid/verify?token=THE-LINK-MUST-NEVER-BE-REPEATED', email_otp: '123456', id, email: parsed.email });
         }
+        if (req.method === 'POST' && (u.pathname === '/auth/v1/invite' || u.pathname === '/auth/v1/otp')) {
+          let parsed = null; try { parsed = JSON.parse(body); } catch { /* recorded as null */ }
+          const authorized = req.headers.authorization === `Bearer ${SECRET}` && req.headers.apikey === SECRET;
+          state.authMails.push({ kind: u.pathname.slice('/auth/v1/'.length), authorized, email: parsed && parsed.email, data: parsed && parsed.data !== undefined ? parsed.data : null, create_user: parsed && parsed.create_user !== undefined ? parsed.create_user : null });
+          if (!authorized) return send(401, { message: 'no' });
+          return state.authMailStatus === 200 ? send(200, {}) : send(state.authMailStatus, { message: 'refused' });
+        }
         if (u.pathname === '/hook-redirected') { state.redirected++; return send(200, {}); }
         if (req.method === 'POST' && u.pathname.startsWith('/hook/')) {
           state.hooks.push({ path: u.pathname.slice('/hook'.length) + u.search, signature: req.headers['x-omnikom-signature'] ?? null, contentType: req.headers['content-type'] ?? null, body });
@@ -133,9 +142,10 @@ export async function startHarness() {
         }
         if (u.pathname === '/__recorded') return send(200, state);
         if (u.pathname === '/__reset') { state.github = []; state.storage = []; state.githubStatus = 204; state.signed = []; state.signFail = ''; state.signDelayMs = 0; state.inflight = 0; state.maxInflight = 0;
-          state.hooks = []; state.redirected = 0; state.hookStatus = 200; state.hookMode = ''; state.hookDelayMs = 0; state.authLinks = []; state.authUsers = {}; state.authStatus = 200; return send(200, {}); }
+          state.hooks = []; state.redirected = 0; state.hookStatus = 200; state.hookMode = ''; state.hookDelayMs = 0; state.authLinks = []; state.authUsers = {}; state.authStatus = 200; state.authMails = []; state.authMailStatus = 200; return send(200, {}); }
         if (u.pathname === '/__hook') { state.hookStatus = Number(u.searchParams.get('status') ?? 200); state.hookMode = u.searchParams.get('mode') ?? ''; state.hookDelayMs = Number(u.searchParams.get('delay') ?? 0); return send(200, {}); }
         if (u.pathname === '/__auth-user') { state.authUsers[u.searchParams.get('email')] = { id: u.searchParams.get('id'), db: u.searchParams.get('db') || null }; state.authStatus = Number(u.searchParams.get('status') ?? 200); return send(200, {}); }
+        if (u.pathname === '/__auth-mail') { state.authMailStatus = Number(u.searchParams.get('status') ?? 200); return send(200, {}); }
         if (u.pathname === '/__sign') { state.signFail = u.searchParams.get('fail') ?? ''; state.signDelayMs = Number(u.searchParams.get('delay') ?? 0); return send(200, {}); }
         if (u.pathname === '/__github-status') { state.githubStatus = Number(u.searchParams.get('code')); return send(200, {}); }
         send(404, { message: 'no such fake endpoint' });

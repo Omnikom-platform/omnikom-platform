@@ -37,8 +37,7 @@ screens).
 | `save`, `drafts`, `publish` | dashboard | user JWT |
 | `upload-start`, `upload-finish` | dashboard | user JWT |
 | `add-lead`, `lead-update`, `lead-export` | dashboard | user JWT |
-| `invite-member`, `settings-save` | dashboard (owner) | user JWT |
-| `crm-test` | dashboard | user JWT; to be removed with the push |
+| `invite-member`, `settings-save`, `team-list`, `member-remove` | dashboard (owner) | user JWT |
 | `capture-lead?site=<id>` | the site's `/api/lead` | `X-Site-Signature` |
 | `export-published?job=<uuid>` (GET) | publish runner | `X-Runner-Signature` |
 | `job-callback` (POST) | publish runner | `X-Runner-Signature` |

@@ -35,6 +35,9 @@ their CI runs, and `docs/blueprint/PROGRESS.md`.
 1. Platform build: block 2, CRM export and import in the client's own format (`work/02-crm-export-import/CONTEXT.md`; F3,
    `add_lead` typed, is its setting 8): built on `check/platform/crm-2` (M15, four functions, `e2e-crm-io.mjs`); the land and
    the staging proof are the head's. The CRM screens on the new backend are block 3.
+   Block 4, Settings and account (work order 08, `work/08-settings/CONTEXT.md`): built on `check/platform/settings` (M17 `list_members` and
+   `invite_context`; functions `team-list`, `member-remove`, `invite-member` with the mail, `settings-save` alerts only; `crm-test` removed;
+   the Settings screen). Landing, the staging proof and the real invite mail are the head's; findings are in the order.
 2. CLI and testing: slice crm-journey, a journey step per CRM feature (field edit, server list, bulk, export columns) and the
    push steps J8 and J9 removed; then the ci.yml `tools/icm/index.mjs --check` step; then review platform's seed.mjs edit.
 3. SEO and audits: the skill's old paths, then slice audit-results (each publish's audit result per site, backend first); the

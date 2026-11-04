@@ -84,13 +84,22 @@ without moving what is live. Before and after screenshots at 390 and 1366 px com
 
 ## Settings
 
-One screen of cards. Save is on only when something changed; leaving with unsaved changes asks once.
-- **Lead alerts:** up to 10 addresses, one per line, and "also email the assigned agent" (function exists, screen missing).
-- **Team:** list, invite by email as owner or agent, remove (never the last owner). Invite exists with no mail; list and
-  remove are missing.
-- **Websites:** each site's preview address, domain and state, with an "Ask Omnikom" mail link.
-- **Business details:** name, phone, email, address, hours and socials editable; legal name, licences and footer notice locked.
-- **Account:** name, email, sign out everywhere.
+Built (work order 08, `/w/$ws/settings`, plain markup in the existing tokens): one page of cards in this order, Your account, Lead alerts, People,
+Websites, Sign out everywhere. The owner sees all five; a member sees only Your account and Sign out everywhere. Save is on the
+Lead alerts card only and on only when it changed; leaving with unsaved changes asks once, in a sheet of the page. Staging proof
+(`supabase/tests/e2e-settings.mjs`, the Playwright flows) is the head's and was not run when this was written.
+- **Your account:** the name from your team profile (not shown with none) and the login's email.
+- **Lead alerts:** per site, up to 10 addresses, one per line (a bad line is named: "Line 2 is not an email address."), and "also
+  email the assigned agent".
+- **People:** the members (name, email, role, joined), Invite (email, Member or Owner, an optional team profile; sends the mail and
+  says whether Auth took it), Remove behind a confirm sheet on every row but your own. Never the last owner. There is no
+  role-change control: inviting an existing member as owner sets the role. A removed person's next request is refused by the wall;
+  open sessions are not ended (Supabase Auth has no admin logout by user id).
+- **Websites:** each site's preview address, domain and state; no edit. The "Ask Omnikom" link shows only when `VITE_ASK_EMAIL` is
+  set (no address exists in the repo yet: an owner item).
+- **Sign out everywhere:** `signOut({ scope: 'global' })`, then the sign-in card with "You were signed out. Sign in again."
+- **Business details** stay on the Site screen (name, phone, email, address, hours and socials editable; legal name, licences and
+  footer notice locked).
 - No CRM connection card: leads leave as an export (`5-crm.md`).
 
 ## Overview (MISSING)

@@ -165,9 +165,9 @@ async function suite({ integration }) {
 
   // the function list is the real folder's: always asked of the real script (a mutant copy lives in the temp folder)
   const fl = spawnSync(process.execPath, [REAL, 'functions'], { encoding: 'utf8', timeout: 30000, windowsHide: true });
-  // whole folder names: a function called crm-test is a function; only the folders named exactly _shared and test are not
+  // whole folder names: a function called team-list is a function; only the folders named exactly _shared and test are not
   const flNames = fl.stdout.trim().split(',').filter(Boolean);
-  t('functions lists the deployable folders and not _shared or test', fl.status === 0 && flNames.includes('capture-lead') && flNames.includes('crm-test') && !flNames.includes('_shared') && !flNames.includes('test'), fl.stdout + fl.stderr);
+  t('functions lists the deployable folders and not _shared or test', fl.status === 0 && flNames.includes('capture-lead') && flNames.includes('team-list') && !flNames.includes('_shared') && !flNames.includes('test'), fl.stdout + fl.stderr);
   t('smoke judgement: 405 and 401 answer; gateway NOT_FOUND, 502 and silence do not',
     mod.judgeSmoke(405, { code: 'METHOD' }).ok && mod.judgeSmoke(401, null).ok && !mod.judgeSmoke(404, { code: 'NOT_FOUND' }).ok && !mod.judgeSmoke(502, null).ok && !mod.judgeSmoke(0, null).ok, 'judgeSmoke');
   const fake = async url => ({ status: url.endsWith('/save') ? 404 : 405, text: async () => (url.endsWith('/save') ? '{"code":"NOT_FOUND"}' : '{"code":"METHOD"}') });

@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { callAs, leadLabel, PEOPLE, personAccessToken, RUN, serviceGet, supabaseHost, TEST_MARK, WS } from './support/staging';
+import { callAs, leadLabel, mintTokenHash, PEOPLE, personAccessToken, RUN, serviceGet, supabaseHost, TEST_MARK, WS } from './support/staging';
 import { active, installMutant } from './mutants';
 
 const CLI = resolve(import.meta.dirname, '..', '..', '..', 'tools', 'omnikom-cli', 'omnikom.mjs');
@@ -199,5 +199,120 @@ test.describe('a member sees only their leads', () => {
     const after = [...(await shown('All')), ...(await shown('Spam'))].sort();
     expect(after, 'still exactly what the service role counts, now with the new lead').toEqual(await expected());
     expect(after).toContain(mine);
+  });
+});
+
+// ---- Settings (work order 08; DP-1.6-01 to -20) ----
+// Staging, workspace A. The owner sees the five cards, saves alert addresses and reads them back, sees the inline error for a bad line, and (with an
+// address the head names in SETTINGS_INVITE_EMAIL: a real mail goes out through Auth, so only to that address) invites a person, sees them in the list
+// and removes them through the sheet. The alert addresses are put back as they were, in a finally. An agent sees only Your account and Sign out everywhere.
+// Sign out everywhere ends EVERY session of the login, so it runs as member-a2 on a FRESH sign-in (no other spec uses member-a2's saved state).
+const settingsUrl = `/w/${WS.a.slug}/settings`;
+const cards = (page: Page) => ({
+  account: page.getByRole('heading', { name: 'Your account', exact: true }), alerts: page.getByRole('heading', { name: 'Lead alerts', exact: true }),
+  people: page.getByRole('heading', { name: 'People', exact: true }), websites: page.getByRole('heading', { name: 'Websites', exact: true }),
+  signOut: page.getByRole('heading', { name: 'Sign out everywhere', exact: true }),
+});
+
+test.describe('settings: the owner', () => {
+  test.use({ storageState: '.auth/owner-a.json' });
+
+  test('owner-a sees the five cards, edits the alert addresses and reads them back; a bad line shows its inline error', async ({ page }) => {
+    const before = await serviceGet<{ lead_alert_to: string[]; alert_assignee: boolean }[]>(`/sites?id=eq.${WS.a.site}&select=lead_alert_to,alert_assignee`);
+    const token = await personAccessToken('owner-a');
+    try {
+      await page.goto(settingsUrl);
+      const c = cards(page);
+      for (const h of [c.account, c.alerts, c.people, c.websites, c.signOut]) await expect(h).toBeVisible();
+      await expect(page).toHaveTitle('Settings');
+      await expect(page.getByRole('navigation').getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
+      await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();   // nothing changed yet
+
+      const box = page.getByLabel('Addresses, one per line').first();
+      const mine = `settings.${RUN}@example.org`;
+      await box.fill(`${mine}\nnot-an-address`);
+      await expect(page.getByRole('alert').filter({ hasText: 'Line 2 is not an email address.' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+      await box.fill(`${mine.toUpperCase()}\n\n${mine}`);   // upper case and a repeat: stored once, lower-cased
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect(page.getByRole('status')).toContainText('Saved');
+      await page.reload();
+      await expect(page.getByLabel('Addresses, one per line').first()).toHaveValue(mine);
+      const stored = await serviceGet<{ lead_alert_to: string[] }[]>(`/sites?id=eq.${WS.a.site}&select=lead_alert_to`);
+      expect(stored[0]?.lead_alert_to).toEqual([mine]);
+
+      await page.getByLabel('Addresses, one per line').first().fill(Array.from({ length: 11 }, (_, i) => `many${i}.${RUN}@example.org`).join('\n'));
+      await expect(page.getByRole('alert').filter({ hasText: 'At most 10 addresses.' })).toBeVisible();
+
+      // leaving with an unsaved change asks once, in the page (no browser dialog)
+      await page.getByLabel('Addresses, one per line').first().fill(`${mine}\nunsaved.${RUN}@example.org`);
+      await page.getByRole('navigation').getByRole('link', { name: 'Leads' }).click();
+      await expect(page.getByRole('dialog')).toContainText('Leave without saving?');
+      await page.getByRole('button', { name: 'Stay', exact: true }).click();
+      await expect(page).toHaveURL(/\/settings$/);
+      await page.getByRole('navigation').getByRole('link', { name: 'Leads' }).click();
+      await page.getByRole('button', { name: 'Leave', exact: true }).click();
+      await expect(page).toHaveURL(new RegExp(`/w/${WS.a.slug}/leads`));
+    } finally {
+      const put = await callAs(token, 'settings-save', { workspace: WS.a.id, alerts: { site: WS.a.site, to: before[0]?.lead_alert_to ?? [], assignee: before[0]?.alert_assignee ?? true } });
+      expect(put.status, 'the alert addresses were put back: ' + put.text).toBe(200);
+    }
+  });
+
+  test('owner-a invites a person, sees them in the list and removes them through the sheet (only with SETTINGS_INVITE_EMAIL: a real mail goes out)', async ({ page }) => {
+    const invite = process.env.SETTINGS_INVITE_EMAIL ?? '';
+    test.skip(!invite, 'SETTINGS_INVITE_EMAIL is not set: the head names the one address a real invite may go to');
+    await page.goto(settingsUrl);
+    await expect(cards(page).people).toBeVisible();
+    await page.getByLabel('Email', { exact: true }).fill('not-an-address');
+    await page.getByRole('button', { name: 'Send invite', exact: true }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Enter a full email address.' })).toBeVisible();
+    await page.getByLabel('Email', { exact: true }).fill(invite);
+    await page.getByRole('button', { name: 'Send invite', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: invite.toLowerCase() })).toBeVisible();
+    const row = page.getByRole('listitem').filter({ hasText: invite.toLowerCase() });
+    await expect(row).toBeVisible();
+    await expect(row.getByRole('button', { name: 'Remove', exact: true })).toBeVisible();
+    await row.getByRole('button', { name: 'Remove', exact: true }).click();
+    await expect(page.getByRole('dialog')).toContainText('Their leads and edits stay.');
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(row).toBeVisible();   // Cancel removes nobody
+    await row.getByRole('button', { name: 'Remove', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Remove', exact: true }).click();
+    await expect(page.getByRole('listitem').filter({ hasText: invite.toLowerCase() })).toHaveCount(0);
+    // your own row has no Remove
+    await expect(page.getByRole('listitem').filter({ hasText: PEOPLE['owner-a'].email }).getByRole('button', { name: 'Remove' })).toHaveCount(0);
+  });
+});
+
+test.describe('settings: an agent', () => {
+  test.use({ storageState: '.auth/member-a1.json' });
+
+  test('member-a1 sees only Your account and Sign out everywhere, and no team or alert data comes back', async ({ page }) => {
+    const bodies = watchSupabase(page);
+    await page.goto(settingsUrl);
+    const c = cards(page);
+    await expect(c.account).toBeVisible();
+    await expect(c.signOut).toBeVisible();
+    for (const h of [c.alerts, c.people, c.websites]) await expect(h).toHaveCount(0);
+    await expect(page.getByLabel('Addresses, one per line')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Send invite' })).toHaveCount(0);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByRole('definition').filter({ hasText: PEOPLE['member-a1'].email })).toBeVisible();
+    expectNone(await bodies(), [PEOPLE['owner-a'].email, PEOPLE['member-a2'].email], 'the agent\'s settings page');
+  });
+});
+
+test.describe('settings: sign out everywhere', () => {
+  test('member-a2, freshly signed in, ends every session and lands on the sign-in card with the plan\'s sentence', async ({ page }) => {
+    const hash = await mintTokenHash('member-a2');
+    await page.goto(`/auth/confirm?token_hash=${encodeURIComponent(hash)}&type=magiclink`);
+    await page.waitForURL(new RegExp(`/w/${WS.a.slug}/leads`), { timeout: 30_000 });
+    await page.goto(settingsUrl);
+    await page.getByRole('button', { name: 'Sign out everywhere', exact: true }).click();
+    await expect(page).toHaveURL(/\/login\?ended=true$/);
+    await expect(page.getByText('You were signed out. Sign in again.')).toBeVisible();
+    await page.goto(settingsUrl);
+    await expect(page).toHaveURL(/\/login/);   // nothing of this login is left in the browser
   });
 });

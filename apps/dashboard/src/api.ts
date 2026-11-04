@@ -4,6 +4,7 @@ import { config } from './config';
 import { supabase } from './supabase';
 import { CallFailed, problemFrom, UNREACHABLE } from './lib/problems';
 import type { LeadStatus } from './lib/leads';
+import type { Member } from './lib/settings';
 
 async function call(name: string, body: Record<string, unknown>): Promise<unknown> {
   const { data } = await supabase.auth.getSession();
@@ -90,4 +91,28 @@ export async function putFile(uploadUrl: string, file: File): Promise<void> {
 
 export async function uploadFinish(media: string, rightsConfirmed: boolean, alt: string): Promise<void> {
   await call('upload-finish', { media, rightsConfirmed, ...(alt ? { alt } : {}) });
+}
+
+/** team-list: the members of the workspace, owners first (owner or staff only; anyone else gets 404). 200 { members }. */
+export async function fetchTeamList(workspace: string): Promise<Member[]> {
+  const out = (await call('team-list', { workspace })) as { members?: Member[] } | null;
+  if (!out || !Array.isArray(out.members)) throw new CallFailed(problemFrom(500, null));
+  return out.members;
+}
+
+/** invite-member: make the person a member and ask Auth to send the mail. 200 { user, invited, email_sent }; email_sent is Auth's own answer. */
+export async function inviteMember(workspace: string, email: string, role: 'owner' | 'member', teamRow: string): Promise<{ user: string; emailSent: boolean }> {
+  const out = (await call('invite-member', { workspace, email, role, ...(teamRow ? { team_row: teamRow } : {}) })) as { user?: string; email_sent?: boolean } | null;
+  if (!out || typeof out.user !== 'string' || typeof out.email_sent !== 'boolean') throw new CallFailed(problemFrom(500, null));
+  return { user: out.user, emailSent: out.email_sent };
+}
+
+/** member-remove: take a person out of the workspace (never the last owner: 409 S-LAST-OWNER). 200 { removed }. */
+export async function removeMember(workspace: string, user: string): Promise<void> {
+  await call('member-remove', { workspace, user });
+}
+
+/** settings-save: one site's lead alert addresses and the "also email the assigned agent" tick. 200 { alerts }. */
+export async function saveAlerts(workspace: string, site: string, to: string[], assignee: boolean): Promise<void> {
+  await call('settings-save', { workspace, alerts: { site, to, assignee } });
 }

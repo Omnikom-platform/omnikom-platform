@@ -5,7 +5,8 @@ import { handle as leadUpdate } from '../lead-update/index.ts';
 import { handle as addLead } from '../add-lead/index.ts';
 import { handle as drafts } from '../drafts/index.ts';
 import { handle as settings } from '../settings-save/index.ts';
-import { handle as crmTest } from '../crm-test/index.ts';
+import { handle as teamList } from '../team-list/index.ts';
+import { handle as memberRemove } from '../member-remove/index.ts';
 import { handle as leadExport } from '../lead-export/index.ts';
 import { handle as leadList } from '../lead-list/index.ts';
 import { handle as leadsBulk } from '../leads-bulk/index.ts';
@@ -90,7 +91,7 @@ t('cors: Allow-Origin is never *: a * in the list is ignored, an Origin of * get
 });
 
 t('cors: every dashboard function answers the preflight (they all run in the same frame)', async () => {
-  const all: [string, H][] = [['save', save], ['lead-update', leadUpdate], ['add-lead', addLead], ['drafts', drafts], ['settings-save', settings], ['crm-test', crmTest], ['lead-export', leadExport], ['lead-list', leadList], ['leads-bulk', leadsBulk], ['invite-member', invite],
+  const all: [string, H][] = [['save', save], ['lead-update', leadUpdate], ['add-lead', addLead], ['drafts', drafts], ['settings-save', settings], ['lead-export', leadExport], ['lead-list', leadList], ['leads-bulk', leadsBulk], ['invite-member', invite], ['team-list', teamList], ['member-remove', memberRemove],
     ['crm-map-propose', crmMapPropose], ['crm-template-save', crmTemplateSave], ['lead-import', leadImport]];
   for (const [name, h] of all) {
     const r = await ask(h, { method: 'OPTIONS', origin: ALLOWED });

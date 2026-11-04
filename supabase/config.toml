@@ -60,9 +60,6 @@ verify_jwt = true            # dashboard user
 [functions.settings-save]
 verify_jwt = true            # dashboard user
 
-[functions.crm-test]
-verify_jwt = true            # dashboard user
-
 [functions.lead-export]
 verify_jwt = true            # dashboard user
 
@@ -73,6 +70,13 @@ verify_jwt = true            # dashboard user
 verify_jwt = true            # dashboard user
 
 [functions.invite-member]
+verify_jwt = true            # dashboard user
+
+# Work order 08 (2026-11-05): the Team card of Settings. Owner only (checked in the database).
+[functions.team-list]
+verify_jwt = true            # dashboard user
+
+[functions.member-remove]
 verify_jwt = true            # dashboard user
 
 # Work order 02 (2026-11-04): the CRM export and import in the client's own layout. Dashboard functions, owner only (checked in the database).

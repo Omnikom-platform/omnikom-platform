@@ -1586,7 +1586,8 @@ do $$ declare t record; n int; begin
       'mark_lead_read', 'leads_exported', 'set_alerts', 'set_crm_webhook', 'drafts_waiting',
       'crm_secret_put', 'crm_secret_drop', 'crm_target', 'crm_tested', 'find_login',
       'lead_set_fields', 'lead_list', 'leads_bulk',   -- work order 01: owner B on each in T22
-      'crm_fields', 'import_leads']),                  -- work order 02: owner B on each in T23
+      'crm_fields', 'import_leads',                    -- work order 02: owner B on each in T23
+      'list_members', 'invite_context']),              -- work order 08: owner B and a member in T24
       'service.' || t.proname || ' takes claims but has no outsider test listed in T14';
   end loop;
 end $$;
@@ -1992,6 +1993,122 @@ do $$ declare f text; begin
     assert not has_function_privilege('anon', f, 'execute') and not has_function_privilege('authenticated', f, 'execute') and not exists (select 1 from aclexplode((select proacl from pg_proc where oid = f::regprocedure)) a where a.grantee = 0), f || ' is closed to anon, authenticated and PUBLIC';
     assert has_function_privilege('omnikom_fn', f, 'execute'), f || ' is open to the function role';
     assert (select prosecdef from pg_proc where oid = f::regprocedure) and (select proconfig from pg_proc where oid = f::regprocedure) = array['search_path=""'], f || ' is a definer function with an empty search_path';
+  end loop;
+end $$;
+
+-- ===== T24 work order 08 (migration 17): the team list, and the removal that counts the other workspaces =====
+-- Synthetic logins f1 (member of A, team profile "Agent One"), f2 (member of A and of B) and f3 (a second owner of A). Workspace B has one owner.
+reset role;
+select test.act_as(null);
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000f1', 'mt1@t24.test'), ('00000000-0000-0000-0000-0000000000f2', 'mt2@t24.test');
+insert into members (workspace_id, user_id, role, team_row_id) values
+ ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000f1', 'member', test.id('team1')),
+ ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000f2', 'member', null),
+ ('bbbbbbbb-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000f2', 'member', null);
+set role omnikom_fn;
+-- (a) the owner lists: owners first, email from auth.users, the team profile's name, the joined date
+insert into test.r select 'lmA', jsonb_agg(to_jsonb(m)) from service.list_members(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000') m;
+insert into test.r select 'lmStaff', jsonb_agg(to_jsonb(m)) from service.list_members(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), 'aaaaaaaa-0000-0000-0000-000000000000') m;
+insert into test.r select 'lmB', jsonb_agg(to_jsonb(m)) from service.list_members(test.c('00000000-0000-0000-0000-00000000000b'), 'bbbbbbbb-0000-0000-0000-000000000000') m;
+-- (b) walls: a member, another workspace's owner, a login with no membership, a workspace that does not exist, and staff without the second factor
+select test.expect_error($q$select * from service.list_members(test.c('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select * from service.list_members(test.c('00000000-0000-0000-0000-00000000000b'), 'aaaaaaaa-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select * from service.list_members(test.c('00000000-0000-0000-0000-00000000000e'), 'aaaaaaaa-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select * from service.list_members(test.c('00000000-0000-0000-0000-00000000000a'), '99999999-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select * from service.list_members(test.cl('00000000-0000-0000-0000-00000000005f', 'aal1'), 'aaaaaaaa-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select * from service.list_members(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), '99999999-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');   -- staff passes the owner-or-staff check anywhere: only the exists check tells a workspace that is not there
+reset role;
+do $$ declare a jsonb := (select v from test.r where k = 'lmA'); b jsonb := (select v from test.r where k = 'lmB'); begin
+  assert jsonb_array_length(a) = 5, 'T24a the owner lists the five members of A: ' || jsonb_array_length(a);
+  assert a -> 0 ->> 'role' = 'owner' and a -> 0 ->> 'email' = 'owner-a@test', 'T24a owners come first, with the login''s email: ' || (a -> 0)::text;
+  assert (select e ->> 'team_name' from jsonb_array_elements(a) e where e ->> 'email' = 'mt1@t24.test') = 'Agent One'
+    and (select e ->> 'team_row_id' from jsonb_array_elements(a) e where e ->> 'email' = 'mt1@t24.test') = test.id('team1')::text, 'T24a a member carries the name of their team profile';
+  assert (select e ->> 'team_name' from jsonb_array_elements(a) e where e ->> 'email' = 'mt2@t24.test') is null, 'T24a a member with no team profile has no name';
+  assert (select count(*) from jsonb_array_elements(a) e where (e ->> 'joined_at') is not null) = 5, 'T24a every row has a joined date';
+  assert jsonb_array_length(b) = 2 and not exists (select 1 from jsonb_array_elements(b) e where e ->> 'email' in ('owner-a@test', 'mt1@t24.test', 'agent1-a@test')), 'T24c another workspace''s owner lists only their own people: ' || b::text;
+  assert jsonb_array_length((select v from test.r where k = 'lmStaff')) = 5, 'T24b staff with the second factor lists';
+end $$;
+-- (c2) invite_context: the business's name and the inviter's (a team profile's name, else the login's email); the same wall as list_members
+set role omnikom_fn;
+insert into test.r select 'ctxA', to_jsonb(c) from service.invite_context(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000') c;
+insert into test.r select 'ctxStaff', to_jsonb(c) from service.invite_context(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), 'aaaaaaaa-0000-0000-0000-000000000000') c;
+select test.expect_error($q$select * from service.invite_context(test.c('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select * from service.invite_context(test.c('00000000-0000-0000-0000-00000000000b'), 'aaaaaaaa-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select * from service.invite_context(test.c('00000000-0000-0000-0000-00000000000e'), 'aaaaaaaa-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select * from service.invite_context(test.c('00000000-0000-0000-0000-00000000000a'), '99999999-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select * from service.invite_context(test.cl('00000000-0000-0000-0000-00000000005f', 'aal1'), 'aaaaaaaa-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select * from service.invite_context(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), '99999999-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+reset role;
+-- an owner with a team profile is named by it (owner A gets agent one's profile for this check)
+update members set team_row_id = test.id('team1') where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and user_id = '00000000-0000-0000-0000-00000000000a';
+set role omnikom_fn;
+insert into test.r select 'ctxA2', to_jsonb(c) from service.invite_context(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000') c;
+reset role;
+update members set team_row_id = null where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and user_id = '00000000-0000-0000-0000-00000000000a';
+do $$ begin
+  assert (select v from test.r where k = 'ctxA') = '{"business":"Demo A","inviter":"owner-a@test"}'::jsonb, 'T24c2 no team profile: the inviter is the login''s email: ' || (select v from test.r where k = 'ctxA')::text;
+  assert (select v from test.r where k = 'ctxA2') = '{"business":"Demo A","inviter":"Agent One"}'::jsonb, 'T24c2 a team profile names the inviter: ' || (select v from test.r where k = 'ctxA2')::text;
+  assert (select v ->> 'business' from test.r where k = 'ctxStaff') = 'Demo A' and (select v ->> 'inviter' from test.r where k = 'ctxStaff') = 'staff@omnikom', 'T24c2 staff with the second factor: the staff login''s email';
+end $$;
+-- (d) removal needs nothing new (service.remove_member): a second owner (f3) works in A, owner A removes f1, f2 and f3, and with the claims they had
+-- every read and write of f3 in A is refused. Open sessions are not ended (Supabase Auth has no admin logout by user id): the wall is the proof.
+reset role;
+select test.act_as(null);
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000f3', 'mt3@t24.test');
+insert into members (workspace_id, user_id, role) values ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000f3', 'owner');
+insert into test.ids select 'lead24', id from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' order by created_at, id limit 1;
+set role omnikom_fn;
+do $$ begin
+  assert (service.lead_list(test.c('00000000-0000-0000-0000-0000000000f3'), 'aaaaaaaa-0000-0000-0000-000000000000', '{}') ->> 'total')::int > 0, 'T24d before the removal the second owner reads leads';
+  perform service.lead_update(test.c('00000000-0000-0000-0000-0000000000f3'), test.id('lead24'), p_note => 'T24 before');
+  perform * from service.save_as(test.c('00000000-0000-0000-0000-0000000000f3'), 'aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"24 Wall Rd","status":"for-sale"}');
+end $$;
+select test.expect_error($q$select service.remove_member(test.c('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a2')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select service.remove_member(test.c('00000000-0000-0000-0000-00000000000b'), 'aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000f1')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select service.remove_member(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000000b')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select service.remove_member(test.c('00000000-0000-0000-0000-00000000000a'), 'bbbbbbbb-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000f2')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select service.remove_member(test.c('00000000-0000-0000-0000-00000000000b'), 'bbbbbbbb-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000000b')$q$, 'S-LAST-OWNER');
+select service.remove_member(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000f1');
+select service.remove_member(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000f2');
+select service.remove_member(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000f3');
+-- the removed owner, with the claims they had: a lead read finds nothing, a lead update, a save and the team list are refused
+do $$ begin
+  assert (service.lead_list(test.c('00000000-0000-0000-0000-0000000000f3'), 'aaaaaaaa-0000-0000-0000-000000000000', '{}') ->> 'total')::int = 0, 'T24d after the removal a lead read finds nothing';
+end $$;
+select test.expect_error($q$select service.lead_update(test.c('00000000-0000-0000-0000-0000000000f3'), test.id('lead24'), p_note => 'T24 after')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select * from service.save_as(test.c('00000000-0000-0000-0000-0000000000f3'), 'aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"24 After Rd","status":"for-sale"}')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select * from service.list_members(test.c('00000000-0000-0000-0000-0000000000f3'), 'aaaaaaaa-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+reset role;
+do $$ begin
+  assert exists (select 1 from members where workspace_id = 'bbbbbbbb-0000-0000-0000-000000000000' and user_id = '00000000-0000-0000-0000-00000000000b'), 'T24d the refused last-owner removal changed nothing';
+  assert exists (select 1 from members where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and user_id = '00000000-0000-0000-0000-0000000000a2'), 'T24d a refused removal by a member changed nothing';
+  assert (select count(*) from members where user_id in ('00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-0000000000f3')) = 0
+    and (select count(*) from members where user_id = '00000000-0000-0000-0000-0000000000f2') = 1, 'T24d f1 and f3 belong to no workspace now; f2 still belongs to B';
+  assert (select count(*) from audit_log where action = 'member-remove' and target in ('00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-0000000000f3')) = 3, 'T24d each removal is audited (member-remove)';
+  assert (select count(*) from leads where id = test.id('lead24')) = 1 and exists (select 1 from content_rows where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and collection = 'listings'), 'T24d the removed person''s rows stay';
+end $$;
+-- row-level security reads membership on every request, so the removed login's token (valid for its life) reads nothing of A; f2 still reads B
+select test.act_as('00000000-0000-0000-0000-0000000000f3');
+set role authenticated;
+do $$ begin
+  assert (select count(*) from workspaces where id = 'aaaaaaaa-0000-0000-0000-000000000000') = 0, 'T24d after the removal the same login reads nothing of the workspace';
+  assert (select count(*) from content_rows where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 0, 'T24d and no content rows of it';
+  assert (select count(*) from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 0, 'T24d and no leads of it';
+end $$;
+reset role;
+select test.act_as('00000000-0000-0000-0000-0000000000f2');
+set role authenticated;
+do $$ begin
+  assert (select count(*) from workspaces where id = 'bbbbbbbb-0000-0000-0000-000000000000') = 1 and (select count(*) from workspaces where id = 'aaaaaaaa-0000-0000-0000-000000000000') = 0, 'T24d a login removed from A still reads B and nothing of A';
+end $$;
+reset role;
+select test.act_as(null);
+-- (e) the function: closed to anon, authenticated and PUBLIC, open to the function role, definer with an empty search_path
+do $$ declare f text; begin
+  foreach f in array array['service.list_members(jsonb,uuid)', 'service.invite_context(jsonb,uuid)'] loop
+  assert not has_function_privilege('anon', f, 'execute') and not has_function_privilege('authenticated', f, 'execute') and not exists (select 1 from aclexplode((select proacl from pg_proc where oid = f::regprocedure)) a where a.grantee = 0), f || ' is closed to anon, authenticated and PUBLIC';
+  assert has_function_privilege('omnikom_fn', f, 'execute'), f || ' is open to the function role';
+  assert (select prosecdef from pg_proc where oid = f::regprocedure) and (select proconfig from pg_proc where oid = f::regprocedure) = array['search_path=""'], f || ' is a definer function with an empty search_path';
   end loop;
 end $$;
 

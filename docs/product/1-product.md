@@ -72,7 +72,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 |---|---|---|
 | B1 Sign in by magic link (10 minutes, single use) | PARTLY | screens and mail template work; a real link from an inbox to the staging app is UNPROVEN (waits on a DNS record) |
 | B2 Sign out | WORKS | D:pages/SignOutButton.tsx |
-| B3 Sign out everywhere; account name and email | MISSING | |
+| B3 Sign out everywhere; account name and email | PARTLY | D:pages/Settings.tsx (your account card, `signOut({ scope: 'global' })`, lands on `/login?ended=true`); built, unit and DOM-gate tested; the staging flow (member-a2, fresh sign-in) is written and NOT run |
 | B4 Pick or switch business | WORKS | `/w`, the rail switcher |
 | B5 Site screen: pages and collections from the contract | WORKS | `/w/$ws/site` |
 | B6 Item editor: every field type, limits, locked fields, own-only | WORKS | autosave and offline retry proven by unit tests only |
@@ -85,10 +85,9 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B13 Photo upload (rights, alt, sizes, EXIF stripped) | PARTLY | upload functions work on staging; photo to site end to end UNPROVEN |
 | B14 Media library | MISSING | |
 | B15 Preview a change before publishing | MISSING | |
-| B16 Settings: lead alert addresses | PARTLY | F:settings-save works; no screen |
-| B17 Settings: team list, invite, remove | PARTLY | invite works (no mail); no list, no remove function, no screen |
-| B18 Settings: websites | MISSING | screen only; the data is already read |
-| B19 Settings: CRM webhook card | PARTLY, to be removed | belongs to the dropped push (`5-crm.md`) |
+| B16 Settings: lead alert addresses | PARTLY | F:settings-save (alerts only) and the Lead alerts card (D:pages/SettingsAlerts.tsx: up to 10 per site, the agent tick, one Save, the leave question); the staging flow is written and NOT run |
+| B17 Settings: team list, invite, remove | PARTLY | F:team-list, F:invite-member, F:member-remove (M17 `list_members`; remove is `remove_member`), and the People card (D:pages/SettingsPeople.tsx). Remove refuses the last owner; a removed person's next request is refused by the wall, open sessions are not ended (Supabase Auth has no admin logout by user id). No role-change control: inviting an existing member as owner sets the role. Staging proof (`supabase/tests/e2e-settings.mjs`, the flows) is the head's and NOT run |
+| B18 Settings: websites | PARTLY | the Websites card (D:pages/Settings.tsx): preview address, domain and state, no edit; "Ask Omnikom" links to `VITE_ASK_EMAIL`, which is unset (no address in the repo: an owner item), so the link is not shown; staging flow NOT run |
 | B20 Overview | MISSING | `/w/$ws` redirects to leads |
 | B21 Search and AI visibility numbers | MISSING | only the empty `metrics_snapshots` table |
 | B23 Not found, service unreachable, loading states | WORKS | D:pages/NotFound.tsx, D:lib/problems.ts |
@@ -108,7 +107,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | C10 API key registry | WORKS | M2 |
 | C11 Consent ledger, suppressions, limits, workspace state, privacy requests | PARTLY | consent and limits in the lead path; an imported lead carries the owner's tick, stored like a hand-added lead (M15); the rest have functions and no caller |
 | C12 Realtime for leads, events, reads, publish jobs | WORKS | `publish_job_events` not in it |
-| C13 Email: sign-in and new-lead alert | PARTLY | no invite mail, no own sender domain proven |
+| C13 Email: sign-in, invite and new-lead alert | PARTLY | the invite mail is sent by `invite-member` through Auth (a new login: the invite mail with who invited them and to which business; an existing login: the sign-in mail, which cannot name either); `email_sent` is Auth's own answer; a real send is UNPROVEN until the head sends one to the named test address; the own sender domain stays an owner item |
 | C14 Onboard a client (workspace, site, contract, rows, logins) | PARTLY | CLI `omnikom seed`; proven for the two test workspaces only |
 | C15 Migrations and function deploy to staging | WORKS | 13 applied, 16 deployed |
 | C16 Metrics pull and sitemap submit | MISSING | |
@@ -124,7 +123,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | D5 Form field rendering | WORKS | select, choice, number and reference drawn with no script (`factory/lib/fields.mjs`), seen on the published test site; e2e-crm on staging 2026-11-03 |
 | D6 Capture: signature, consent, idempotent, quotas, paused site refused | WORKS | F:capture-lead |
 | D7 The test site proves contracts and forms | WORKS | its contact form has real-estate fields (budget, timing, beds, area, buying or selling), published; e2e-crm on staging 2026-11-03 |
-| D8 New-lead alert to the business and the assigned agent | PARTLY | works; recipients set only by CLI |
+| D8 New-lead alert to the business and the assigned agent | PARTLY | works; recipients are set from the Lead alerts card (B16) or the CLI; the card on staging is NOT run |
 | D9 Site endpoint settings checked before a deploy | WORKS | `factory/runner/publish.mjs` |
 | D10 Contract lead fields flow into the CRM | WORKS | a lead posted through the published form reaches the CRM typed, in its own columns, in form order; e2e-crm on staging 2026-11-03 |
 
@@ -132,10 +131,10 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | Part | WORKS | PARTLY | MISSING | Rows |
 |---|---|---|---|---|
 | A CRM | 9 | 12 | 5 | 26 |
-| B Dashboard | 8 | 7 | 7 | 22 |
+| B Dashboard | 8 | 8 | 5 | 21 |
 | C Backend and database | 12 | 4 | 1 | 17 |
 | D Factory and forms | 9 | 1 | 0 | 10 |
-| Total | 38 | 24 | 13 | 75 |
+| Total | 38 | 25 | 11 | 74 |
 
 Completion is reported from these counts only.
 
@@ -147,8 +146,7 @@ the backend, the dashboard and the CRM are proven on staging (`2-architecture.md
 1. CRM: field edit (backend, then the record screen); the test site gets a real industry form and D5 renders choice fields;
    saved views; columns, filter, sort and search on any column; bulk edit; delete; the export button with every column;
    export in the client's layout; import; follow-up and status board; duplicates; unread bold.
-2. Dashboard: one Settings screen (alerts, team with list and remove, websites, account, sign out everywhere; the CRM webhook
-   card removed); publish history and restore; unpublish and delete an item; media library with one photo proven end to end;
+2. Dashboard: the Settings screen is built (work order 08; staging proof to run); publish history and restore; unpublish and delete an item; media library with one photo proven end to end;
    preview of a change; a magic link from a real inbox; overview and visibility last.
 3. Then production, made from the proven staging setup.
 
