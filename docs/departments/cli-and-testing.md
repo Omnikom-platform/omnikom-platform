@@ -681,3 +681,9 @@ when the head of operations has released its slice.
   for both (head's decision): F1 the contract label as one more exact synonym in proposeMap; F2 hubspot.json headers in HubSpot's case.
   It pushes, never lands; platform-owned files (supabase/functions/) come to the head as a request. Empty folder
   departments\cli-and-testing\builders\crm-journey left "busy" (worktree and branches removed); delete when its process is gone.
+- 22:55 crm-map F1/F2 ACCEPTED at 639c5a4 (check/cli-and-testing/crm-map-f1f2; head re-ran tools/crm-map/test/run.mjs "160 passed,
+  0 failed"; 10 new mutants caught by the builder on temp copies; full local mutate.mjs BLOCKED on heavy.mjs, CI is its proof). Builder's
+  deviation accepted: importRows takes the exact header, else the one case variant (F2 is unsafe without it). Platform (22:55): no change
+  needed, land after 07; it wires F1 labels into crm-map-propose in its next order, fixes templates.test.ts:13's comment, redeploys
+  crm-map-propose and lead-import after our land and asks us for an owner-a window before its e2e-crm-io. LAND QUEUE after platform's
+  07: head-log-3 (this branch), then crm-map-f1f2 (rebase first), then remove both worktrees.
