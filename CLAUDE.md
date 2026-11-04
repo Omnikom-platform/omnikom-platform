@@ -41,6 +41,6 @@ files.
     `check/<department>/<slug>` branch to `backup-gh`; master moves only by `omnikom land` to a commit whose tree passed CI
     (`docs/product/11-rules.md`). Never `film/`, never anything the scanner flags.
 11. **A rule is a test with a mutant** (`docs/product/11-rules.md`): a new wall ships with a test watched failing and a mutant
-    in `supabase/tests/run-local.mjs`; the structural gate T14 must stay green. Run `node docs/blueprint/specs/run-all-gates.mjs`
-    before saying done.
+    in `supabase/tests/run-local.mjs`; the structural gate T14 must stay green. `node docs/blueprint/specs/run-all-gates.mjs` must
+    be green before saying done: on GitHub CI, never as a full local run (`docs/departments/README.md` rule 8).
 12. **Live things need the owner's click:** the ELEV8 preview's Pages project, any production project, DNS, email sending.

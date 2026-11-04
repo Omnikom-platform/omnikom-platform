@@ -41,8 +41,11 @@ that is written here.
 8. **Every change follows its chain; only the head pushes** (DECISIONS 43). Before a commit, `omnikom impact` lists who
    imports, reads or copies the changed files. A light follow-on in another department's file (a fixture value, a test
    literal) is made in the same commit and named in the report with its owner, whose head gets a notice; anything bigger is
-   a notice to that head, who sequences it. Builders never commit or push: the head reads the impact output, has a Haiku agent
-   run the full gates on the combined tree, then commits and pushes. The full checks run on GitHub on a `check/<department>/<slug>` branch; master moves only to a commit GitHub passed (DECISIONS 45).
+   a notice to that head, who sequences it. Builders never commit or push: the head reads the impact output, runs locally only the
+   suites the change touches, then commits and pushes. The full gates (`run-all-gates.mjs`, every mutant run) run on GitHub on a
+   `check/<department>/<slug>` branch, never as a full local run: the laptop runs one heavy job at a time and a full Windows
+   run took over an hour while it blocked every other department (2026-11-04). Master moves only to a commit GitHub passed
+   (DECISIONS 45); every commit that changes a doc regenerates `icm/` itself (`node tools/icm/index.mjs`), since CI checks it.
 
 ## Where sessions live and who they talk to (owner, 2026-10-30 19:51)
 - Sidebar: every session is filed under its department's group, named `Omnikom: <department name>` (head of operations,
