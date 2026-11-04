@@ -70,8 +70,9 @@ t('crm-template-save: saves once per name, refuses an unknown transform, a field
   const nf = await save('owner-a', { workspace: WS_A, name: 'Io zz02 bad', crm: 'custom', columns: [{ header: 'Email', field: 'email' }, { header: 'Pool', field: 'answers.poolSize' }] });
   eq(nf.status, 422, 'not a field: ' + nf.text); eq(nf.json?.code, 'T-FIELD', 'code'); eq(nf.json?.problems?.[0]?.path, 'columns.1.field', 'the column');
   eq(nf.json?.problems?.[0]?.msg, '"poolSize" is not a field of this business\'s forms.', 'naming the field');
-  const dup = await save('owner-a', { workspace: WS_A, name: 'Io zz02 bad', crm: 'custom', columns: [{ header: 'Email', field: 'email' }, { header: 'Email', field: 'phone' }] });
+  const dup = await save('owner-a', { workspace: WS_A, name: 'Io zz02 bad', crm: 'custom', columns: [{ header: 'Email', field: 'email' }, { header: 'Email', field: 'phone' }, { header: 'Fax' }] });
   eq(dup.status, 422, 'repeated header: ' + dup.text); eq(dup.json?.problems?.[0]?.code, 'T-COLUMNS', 'code');
+  eq(dup.json?.problems?.length, 2, 'every problem of the map is listed, not only the first: ' + dup.text);
   const m = await save('member-a1', { workspace: WS_A, name: 'Io zz02 member', crm: 'custom', columns: COLUMNS });
   eq(m.status, 403, 'a member: ' + m.text);
   eq(await count(`select count(*)::int as n from public.crm_templates where name in ('Io zz02 bad', 'Io zz02 member')`), 0, 'nothing refused was stored');

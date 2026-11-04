@@ -1942,6 +1942,9 @@ do $$ declare d jsonb := (select v from test.r where k = 'dry'); s jsonb; begin
   assert (select count(*) from leads where form = 'import') = 0 and (select count(*) from audit_log where action = 'lead-import') = 0
     and (select count(*) from consent_ledger where form = 'import') = 0, 'T23c a dry run and every refused real run write nothing';
 end $$;
+-- an import goes on the workspace's oldest site (work order 02 F4). Both sites of A were made in this transaction (the same created_at), so the
+-- second is made older: the choice is then the created_at alone, also when `omnikom test walls` gives the ids new random values
+update sites set created_at = created_at - interval '1 day' where id = 'aaaaaaaa-0000-0000-0000-0000000052e2';
 set role omnikom_fn;
 insert into test.r select 'real', service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', (select v #>> '{}' from test.r where k = 'tplA')::uuid,
   (select jsonb_agg(e) from jsonb_array_elements((select v from test.r where k = 'rows')) e where (e ->> 'line')::int not in (5, 7)),
@@ -1952,8 +1955,9 @@ reset role;
 do $$ declare r jsonb := (select v from test.r where k = 'real'); l leads; begin
   assert r = '{"dry_run":false,"rows":5,"created":2,"skipped":3}', 'T23c the real run: two created, three duplicates skipped: ' || r::text;
   select * into l from leads where email = 'imp2@t23.test';
-  assert l.form = 'import' and l.page_path = 'import' and l.status = 'qualified' and l.owner_team_row = test.id('crm_t1') and l.site_id = 'aaaaaaaa-0000-0000-0000-00000000517e'
+  assert l.form = 'import' and l.page_path = 'import' and l.status = 'qualified' and l.owner_team_row = test.id('crm_t1')
     and jsonb_typeof(l.answers -> 'budget') = 'number' and l.answers ->> 'timing' = '0-3 months', 'T23c an imported lead: form import, typed, owned by the named member';
+  assert l.site_id = 'aaaaaaaa-0000-0000-0000-0000000052e2', 'T23c an imported lead goes on the oldest site of the workspace: ' || l.site_id::text;
   assert l.consent_text = format('These people agreed to be contacted by my business. Ticked by the owner on %s for the import of the file "t23 leads.csv".', to_char(now() at time zone 'utc', 'YYYY-MM-DD'))
     and l.sms_consent = false and l.marketing_consent = '{"given":false}', 'T23c the consent sentence, the date and the file''s name; marketing and SMS consent false: ' || l.consent_text;
   assert (select owner_team_row from leads where email = 'imp6@t23.test') is not distinct from (select team_row_id from members where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and user_id = '00000000-0000-0000-0000-00000000000a'),

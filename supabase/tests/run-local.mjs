@@ -551,6 +551,7 @@ const MUTANTS = [
   ['crm15: import, a repeat within the file is not a duplicate', "    elsif ekey is not null and seen_e ? ekey then dupe := 'email'; dwith := 'line ' || (seen_e ->> ekey);\n", ''],
   ['crm15: import, duplicates are created on skip', "    elsif dupe is not null and dup = 'skip' then\n      skipped := skipped + 1;\n    else\n", "    else\n"],
   ['crm15: import, the owner column is ignored', "      if team ? lower(btrim(r ->> 'owner')) then n_owner := (team ->> lower(btrim(r ->> 'owner')))::uuid;", "      if false then null;"],
+  ['crm15: import, the site is the first by id, not the oldest', "where s.workspace_id = p_workspace order by s.created_at, s.id limit 1;", "where s.workspace_id = p_workspace order by s.id limit 1;"],
   ['crm15: import, no received event per lead', "      insert into public.lead_events (lead_id, workspace_id, kind, by, detail) values (lid, p_workspace, 'received', me, jsonb_build_object('import', true, 'form', 'import'));\n", ''],
   ['crm15: import, no consent ledger row per lead', "      perform private.record_consent(p_workspace, site, lid, 'import', 'import', consent, false, '{\"given\":false}'::jsonb, null, null, me);\n", ''],
   ['crm15: import, no audit row for the call', "  insert into public.audit_log (workspace_id, actor, action, target, detail) values (p_workspace, me, 'lead-import', p_template::text,", "  perform (p_workspace, me, 'lead-import', p_template::text,"],
