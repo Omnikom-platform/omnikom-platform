@@ -145,6 +145,18 @@ async function units() {
     check('seed test: the resolved contract equals the one stage.mjs builds for the same contract, the ordered leadColumns included (the two no longer rewrite each other)',
       JSON.stringify(site.resolved) === JSON.stringify(stageResolved) && Array.isArray(site.resolved.leadColumns) && site.resolved.leadColumns.length > 0 && stageSrc.includes('collections: mergeCore(contract), leadColumns: leadColumns(contract)'),
       JSON.stringify(Object.keys(site.resolved)));
+    {   // seed workspace builds its resolved contract through the same helper: a plan with industry form fields seeds leadColumns in form order
+      const { seedGroup, resolveContract } = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'seed.mjs')).href);
+      const { makeCtx } = await lib('ctx.mjs');
+      const elev8File = join(REPO_ROOT, 'contracts', 'examples', 'elev8', 'contract.json');
+      const plan = JSON.parse(readFileSync(elev8File, 'utf8'));
+      const dry = await seedGroup(makeCtx({ command: 'seed', positionals: ['seed', 'workspace'], flags: { slug: 'elev8', name: 'ELEV8', industry: 'real-estate-agent', 'deploy-target': 'elev8-site', 'preview-host': 'elev8.pages.dev', contract: elev8File, 'dry-run': true } }));
+      const want = V.leadColumns(plan).map(c => c.key), got = (dry.data && dry.data.leadColumns) || [];
+      check('seed workspace: a plan with industry form fields seeds leadColumns in form order (topic of the first form before address of the second before area of the third), the same list leadColumns of the contract gives',
+        dry.ok && got.length >= 10 && got.join() === want.join() && got.indexOf('topic') < got.indexOf('address') && got.indexOf('address') < got.indexOf('area'), JSON.stringify({ ok: dry.ok, code: dry.code, got }));
+      check('seed workspace and seed test build the resolved contract through one helper (resolveContract: contract, merged core, ordered leadColumns)',
+        JSON.stringify(resolveContract(plan, V)) === JSON.stringify({ ...plan, collections: V.mergeCore(plan), leadColumns: V.leadColumns(plan) }));
+    }
     check('seed test: leadColumns is in form order (side, budget, timing, beds, area, message), not the order jsonb would keep', site.resolved.leadColumns.map(c => c.key).join() === Object.values(site.contract.forms).flatMap(f => Object.keys(f.fields)).filter(k => !['name', 'email', 'phone'].includes(k)).join(),
       site.resolved.leadColumns.map(c => c.key).join());
   }

@@ -69,14 +69,20 @@ const AGENT_ONE = 'team-agent-one';                                             
 // Agent Two is the CLI's fixture for member A2, not site content (it is not in rows.json)
 const AGENT_TWO = { id: 'team-agent-two', collection: 'team', data: { name: 'Agent Two', slug: 'agent-two', role: 'Agent' } };
 
+// The resolved contract the database reads: the contract, the core collections merged in, and the CRM's ordered industry columns (jsonb keeps no
+// key order; migration 14 reads the form order from leadColumns). seed test and seed workspace both build it here, so they cannot drift apart, and
+// sites/test-demo-a/stage.mjs writes the same three parts.
+export function resolveContract(contract, { mergeCore, leadColumns }) {
+  return { ...contract, collections: mergeCore(contract), leadColumns: leadColumns(contract) };
+}
+
 export async function loadTestSite() {
   const contract = JSON.parse(readFileSync(repoPath(...SITE_DIR, 'contract.json'), 'utf8'));
   const fileRows = JSON.parse(readFileSync(repoPath(...SITE_DIR, 'rows.json'), 'utf8'));
   const logoBytes = readFileSync(repoPath(...SITE_DIR, 'media', 'logo.png')).length;
-  const { validateContract, mergeCore, leadColumns } = await importRepo('contracts/validate.mjs');
-  const problems = validateContract(contract);
-  // leadColumns is the ordered list of the CRM's industry columns (jsonb keeps no key order; migration 14 reads the order from it): sites/test-demo-a/stage.mjs writes it too, so the two never rewrite each other
-  const resolved = { ...contract, collections: mergeCore(contract), leadColumns: leadColumns(contract) };
+  const V = await importRepo('contracts/validate.mjs');
+  const problems = V.validateContract(contract);
+  const resolved = resolveContract(contract, V);
   const rows = SEED_ORDER.flatMap(collection => [...fileRows, AGENT_TWO].filter(r => r.collection === collection));
   return { contract, resolved, rows, logoBytes, problems, fileRows };
 }
@@ -295,17 +301,17 @@ async function seedWorkspace(ctx) {
   const deployTarget = need(f, 'deploy-target'), previewHost = need(f, 'preview-host');
   if (!SLUG.test(slug)) throw new Usage('--slug must be lowercase words joined with dashes');
   const contract = await loadContract(ctx);
-  const { validateContract, mergeCore } = await importRepo('contracts/validate.mjs');
-  const problems = validateContract(contract);
+  const V = await importRepo('contracts/validate.mjs');
+  const problems = V.validateContract(contract);
   if (problems.length) return result(false, problems[0].code, { problems: problems.slice(0, 20), total: problems.length });
 
-  const resolved = { ...contract, collections: mergeCore(contract) };
+  const resolved = resolveContract(contract, V);
   const ref = `plan sitemap sha256 ${(contract.site && contract.site.generatedFrom && contract.site.generatedFrom.sitemapSha256) || createHash('sha256').update(JSON.stringify(contract)).digest('hex').slice(0, 16)}`;
   const seeds = contract.pageSeeds || {};
   const pages = contract.pages.map(p => ({ path: p.path, type: p.type, ...(seeds[p.path] ? { title: seeds[p.path].title, seo: seeds[p.path].seo } : {}) }));
   const places = Object.entries(contract.seeds || {}).flatMap(([collection, list]) => list.map(s => ({ collection, data: { name: title(s), slug: s } })));
   const plan = { pages: pages.length, places: places.length };
-  if (f['dry-run']) return result(true, 'ok', { dryRun: true, workspace: slug, ...plan, contractCollections: Object.keys(contract.collections).length });
+  if (f['dry-run']) return result(true, 'ok', { dryRun: true, workspace: slug, ...plan, contractCollections: Object.keys(contract.collections).length, leadColumns: (resolved.leadColumns || []).map(c => c.key) });
 
   const sql = ctx.sql();
   let actor = f.actor;

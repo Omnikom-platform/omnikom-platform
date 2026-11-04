@@ -203,6 +203,26 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     await timed.crm('owner-a', 'lead-list', {}); t += 44 * 60; await timed.crm('owner-a', 'lead-list', {});
     const m1 = mints(); t += 2 * 60; await timed.crm('owner-a', 'lead-list', {});
     check('journey seam session: the session is kept for 45 minutes and minted again after that (an access token lasts an hour)', m1 - m0 === 1 && mints() - m0 === 2, JSON.stringify({ m0, m1, now: mints() }));
+    // the dashboard steps (J3's publish test, J6's test and inbox shot) mint their own links: the next CRM call signs in afresh, not on the session kept before
+    const urls = [];
+    const verifies = () => urls.filter(u => u.endsWith('/verify')).length;
+    const dctx = () => makeCtx({ command: 'test', positionals: ['test', 'journey'], flags: { target: 'staging' }, deps: { env: ENV, fetch: async (url) => { urls.push(url); return url.endsWith('/admin/generate_link') ? reply(200, { hashed_token: 'h' + rand() }) : url.endsWith('/verify') ? reply(200, { access_token: 'tok' + rand() }) : reply(200, { total: 0, rows: [] }); } } });
+    const proc = { guardedTemp: prefix => { const dir = mkdtempSync(join(tmpdir(), prefix)); return { dir, release: () => rmSync(dir, { recursive: true, force: true }) }; }, runLimited: async () => ({ status: 1, stdout: '', stderr: '' }), killTree: () => true };
+    const viaPlaywright = J.makeImpl(dctx(), { ensureBuilt: async () => {}, importer: async rel => (rel.includes('proc-guard') ? proc : import(pathToFileURL(join(REPO_ROOT, rel)).href)) });
+    const v0 = verifies();
+    await viaPlaywright.crm('owner-a', 'lead-list', {}); await viaPlaywright.crm('owner-a', 'lead-list', {});
+    const v1 = verifies();
+    await viaPlaywright.playwright('site.spec.ts', 'a title');
+    await viaPlaywright.crm('owner-a', 'lead-list', {});
+    check('journey seam session: after the dashboard test run (J3, J6) the next CRM call signs in afresh (2 sessions in all, not the one kept before)', v1 - v0 === 1 && verifies() - v0 === 2, JSON.stringify({ v0, v1, now: verifies() }));
+    const viaShot = J.makeImpl(dctx(), { ensureBuilt: async () => {}, importer: async rel => (rel.includes('proc-guard') ? proc : import(pathToFileURL(join(REPO_ROOT, rel)).href)),
+      spawn: () => ({ pid: 4000003 }), httpUp: async () => true, launch: async () => ({ newPage: async () => ({ open: async () => {}, waitFor: async () => true, screenshot: async f => { writeFileSync(f, 'png'); return 3; } }), close: async () => {} }) });
+    const w0 = verifies();
+    await viaShot.crm('owner-a', 'lead-list', {}); await viaShot.crm('owner-a', 'lead-list', {});
+    const w1 = verifies();
+    await viaShot.inboxShot('owner-a', 'Journey zz', join(work, 'inbox-session.png'));
+    await viaShot.crm('owner-a', 'lead-list', {});
+    check('journey seam session: after the inbox shot (J6) the next CRM call signs in afresh too', w1 - w0 === 1 && verifies() - w0 === 2, JSON.stringify({ w0, w1, now: verifies() }));
     const file = join(work, 'seam-lead.json');
     sctx.randomUUID = () => 'abcdef12-0000-0000-0000-000000000000';
     try { await impl.sendLead('Journey seam', file, { budget: 10000, timing: '0-3 months' }); } catch { /* no network: only the fixture file is looked at */ }
