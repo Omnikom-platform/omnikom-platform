@@ -65,7 +65,7 @@ Exit: 0 every item PASS or allowed BLOCKED; 3 items open; 2 usage; 1 crash.`;
 
 // ---------------- the items (sops/clients/launch.md is the same list in words) ----------------
 export const ITEMS = [
-  ["L-A1", "A", "Client answers applied", "Every answer from the client question sheet (at most 12 questions, sops/client-questions.md) is applied as a content row; the internal view shows 0 open questions; the rebuild passes the strict gate.", { checks: ["command"] }],
+  ["L-A1", "A", "Client answers applied", "Every answer from the client question sheet (at most 12 questions, sops/clients/client-questions.md) is applied as a content row; the internal view shows 0 open questions; the rebuild passes the strict gate.", { checks: ["command"] }],
   ["L-A2", "A", "Platform dashboard and CRM live", "One real test lead goes form -> /api/lead -> captureLead -> a CRM record with every mapped field, plus the alert email, on staging and then on production.", { owner: true }],
   ["L-A3", "A", "Legal sign-off", "The client's approver (broker, lawyer or compliance) approved Privacy, Terms and Accessibility in writing; the approval is filed and the effective date is set on the pages.", { owner: true }],
   ["L-A4", "A", "Third-party logo permissions", "A written OK is filed for every partner or brand logo on the site, or the logo strip falls back to names only.", { owner: true }],

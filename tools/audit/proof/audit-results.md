@@ -9,8 +9,8 @@ Branch `check/seo/audit-results`, built on master `bb60318`. Order: `work/05-aud
 | `test-launch.mjs` | DONE: `LAUNCH TEST PASS: 55 of 55`, `MUTANTS PASS: 16 of 16 caught`, exit 0 |
 | `node tools/audit/test/run.mjs` | DONE: `OK: 589 of 589 checks passed`, exit 0 (13 new checks) |
 | the 11 new mutants (`MUTATE_ONLY`) | DONE: `11 mutants, 11 caught, 0 survived, 0 not run, 0 target text missing` |
-| `node tools/audit/test/mutate.mjs` (all 426 mutants) | RUNNING when this file was first pushed; see "Full mutant run" at the end for the result or NOT DONE |
-| `node docs/blueprint/specs/run-all-gates.mjs` | see "run-all-gates" at the end |
+| `node tools/audit/test/mutate.mjs` (all 426 mutants) | NOT DONE locally (stopped at the head's ruling); CI run 41803555037 per the head; see the end |
+| `node docs/blueprint/specs/run-all-gates.mjs` | NOT DONE locally (stopped at the head's ruling; partial output with two non-green lines at the end); CI per the head |
 
 ## Two places where the order's numbers cannot both hold (decided, measured, reported)
 1. **200 fails x 300-character `what` cannot fit in 60 KiB.** The order asks for up to 200 fails, each `what` cut to 300 characters, and JSON under
@@ -134,4 +134,37 @@ README section "The summary (stored per site)" in `tools/audit/README.md` (the c
 No file written by this order contains an em dash (`grep -c` for the U+2014 character on summary.mjs, run.mjs, README.md, test/run.mjs, test/mutate.mjs and CONTEXT.md prints 0 for each).
 
 ## Full mutant run and run-all-gates
-(filled in below once they finish; if this line is still the last one, they had not finished when the branch was pushed and are NOT DONE)
+Both were stopped by the head's rulings, not finished locally:
+- Full `mutate.mjs` (426 mutants): NOT DONE locally. Stopped at the head's ruling (11:00); it had printed only `caught` lines (26 of 426, none survived) and no summary line. CI is the gate: the head
+  reports CI run 41803555037 ran the full audit mutants and `run-all-gates` on ff21e70, green. Locally the 11 new mutants above are the evidence.
+- `run-all-gates.mjs`: NOT DONE locally, stopped at the head's ruling (12:23) because it held the machine lock that platform's walls waited on. What it had printed (`gates.out`), no gate here touches `tools/audit/`:
+  ```
+  PASS contract tests             168 passed, 0 failed
+  PASS contract mutants           101 mutants, 101 caught, 0 survived; 0 codes untested
+  PASS industry run               15/15 PASS
+  FAIL database walls + mutants   TIMEOUT after 3600 s (limit 3600 s; not a test failure, the gate was killed; last line: caught   fn52: ...)
+  PASS publish-ready parity (SQL vs JS) OK: 14469 items, SQL and JS agree on every required path
+  PASS test cluster ports         OK: every check passes
+  PASS test cluster port probe    PORT PROBE: OK ...
+  PASS head land-script gate (gate-lib) GATE-LIB TESTS OK
+  FAIL promote-check tests           (exit 1, 985 s)
+  ```
+  The two FAIL lines are a 3600 s time-out of the walls gate on a loaded laptop (the runner says "not a test failure") and `promote-check tests` at 985 s (a local-cluster test on the same
+  loaded machine; not investigated, and not a file of this order). They are NOT green and are not claimed green; CI's run of the same gates is the evidence.
+  The run also rewrote `contracts/industry-run/RESULTS.md` in the worktree; restored with `git checkout`, not committed.
+
+## Finding 4, head's ruling: fixed inside this order
+The head ruled finding 4 in scope. Outside copy `scripts/launch.mjs:68` now says `sops/clients/client-questions.md`:
+```
+$ git -C C:/Users/DELL/.claude/skills/programmatic-enterprise-web-performance log --oneline -1
+3cbe331 Platform work order 05 (audit results), head's ruling on finding 4: scripts/launch.mjs:68 names sops/clients/client-questions.md
+$ node skills/sync-skill.mjs programmatic-enterprise-web-performance
+copy   scripts\launch.mjs
+SYNC programmatic-enterprise-web-performance: 1 copied, 0 removed, 259 files in the source; SOURCE.md row -> `3cbe331` ...
+$ grep -rn "sops/client-questions" skills/programmatic-enterprise-web-performance        (nothing)
+$ diff -rq <outside copy> skills/programmatic-enterprise-web-performance                   only .git and site-checks
+$ node skills/programmatic-enterprise-web-performance/scripts/test-launch.mjs   (re-run after the fix, last lines)
+LAUNCH TEST PASS: 55 of 55
+MUTANTS PASS: 16 of 16 caught
+exit=0
+```
