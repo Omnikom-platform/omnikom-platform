@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 587,
+    "sources": 591,
     "unowned": 0
   },
   "files": [
@@ -540,6 +540,7 @@
     {"path":"tools/omnikom-cli/lib/tools.mjs","owner":"cli-and-testing","exports":["MIN_AGE_DAYS","binDirOf","ensureTools","installState","listTools","loadManifest","platformKey","refusal","short","tarPath","toolsDir"],"tests":["tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/lib/totp.mjs","owner":"cli-and-testing","exports":["base32Decode","totp"],"tests":["tools/omnikom-cli/test/harness.mjs","tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/lib/walls.mjs","owner":"cli-and-testing","exports":["FINGERPRINT_TABLES","RUN","complete","diffLine","failureLines","fingerprintDiff","mapNamespace","namespaceCountSql","siteFingerprintSql","unmappedLiterals"],"tests":["tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs"],"feature":""},
+    {"path":"tools/omnikom-cli/lib/with-env.mjs","owner":"cli-and-testing","exports":["DEFAULT_MIN","TIMEOUT_EXIT","limitMs","main","parseMinutes"],"tests":["apps/dashboard/tests/global-setup.ts","apps/dashboard/tests/support/clean-flow-leads.mjs","apps/dashboard/tests/support/reset-staging-drafts.mjs","apps/dashboard/tests/support/staging.ts","supabase/tests/e2e-export.mjs","supabase/tests/e2e-functions.mjs","supabase/tests/e2e-screens.mjs","tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/with-env-main.mjs","tools/omnikom-cli/test/with-env-sleeper.mjs","tools/omnikom-cli/test/with-env.mjs","tools/test/probe-anon-exec.mjs","tools/test/probe-db.mjs","tools/test/probe-function.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/omnikom.mjs","owner":"cli-and-testing","exports":["USAGE","main"],"tests":["apps/dashboard/tests/flows.spec.ts","factory/runner/test/run.mjs","supabase/tests/e2e-export.mjs","supabase/tests/e2e-functions.mjs","supabase/tests/e2e-screens.mjs","tools/omnikom-cli/test/harness.mjs","tools/omnikom-cli/test/impact-stamp-hooks.mjs","tools/omnikom-cli/test/journey.mjs","tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/test/ci-heavy.mjs","owner":"cli-and-testing","exports":["ciHeavy","decide"],"tests":[],"feature":""},
     {"path":"tools/omnikom-cli/test/cluster-child.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
@@ -553,6 +554,9 @@
     {"path":"tools/omnikom-cli/test/port-bind-probe.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/omnikom-cli/test/run.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/omnikom-cli/test/vault-shim.sql","owner":"cli-and-testing","exports":["fn:vault.create_secret","fn:vault.update_secret","table:vault.secrets"],"tests":[],"feature":""},
+    {"path":"tools/omnikom-cli/test/with-env-main.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
+    {"path":"tools/omnikom-cli/test/with-env-sleeper.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
+    {"path":"tools/omnikom-cli/test/with-env.mjs","owner":"cli-and-testing","exports":["withEnvTests"],"tests":[],"feature":""},
     {"path":"tools/pages-project.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"tools/panel-mods/elev8-tracker/hooks/register.tsx","owner":"clients","exports":["register"],"tests":[],"feature":""},
     {"path":"tools/panel-mods/elev8-tracker/tests/tracker.test.tsx","owner":"clients","exports":[],"tests":[],"feature":""},
@@ -591,6 +595,6 @@
     {"path":"tools/test/probe-function.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/test/test-secret-receiver.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/tick-sequence.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
-    {"path":"tools/with-env.mjs","owner":"cli-and-testing","exports":[],"tests":["apps/dashboard/tests/global-setup.ts","apps/dashboard/tests/support/clean-flow-leads.mjs","apps/dashboard/tests/support/reset-staging-drafts.mjs","apps/dashboard/tests/support/staging.ts","supabase/tests/e2e-export.mjs","supabase/tests/e2e-functions.mjs","supabase/tests/e2e-screens.mjs","tools/test/probe-anon-exec.mjs","tools/test/probe-db.mjs","tools/test/probe-function.mjs"],"feature":""}
+    {"path":"tools/with-env.mjs","owner":"cli-and-testing","exports":[],"tests":["apps/dashboard/tests/global-setup.ts","apps/dashboard/tests/support/clean-flow-leads.mjs","apps/dashboard/tests/support/reset-staging-drafts.mjs","apps/dashboard/tests/support/staging.ts","supabase/tests/e2e-export.mjs","supabase/tests/e2e-functions.mjs","supabase/tests/e2e-screens.mjs","tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/with-env-main.mjs","tools/omnikom-cli/test/with-env-sleeper.mjs","tools/omnikom-cli/test/with-env.mjs","tools/test/probe-anon-exec.mjs","tools/test/probe-db.mjs","tools/test/probe-function.mjs"],"feature":""}
   ]
 }

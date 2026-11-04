@@ -14,7 +14,7 @@ has to relearn it (README rule 5). Spec: `docs/blueprint/26-PLATFORM-CLI.md`.
 - `docs/blueprint/26-PLATFORM-CLI.md`
 - `tools/crm-map/`
 - `tools/test/`
-- `tools/with-env.mjs`
+- `tools/with-env.mjs` (a wrapper; its body is `tools/omnikom-cli/lib/with-env.mjs`)
 - `tools/bank-json-key.mjs`
 - `tools/check-api-keys.mjs`
 - `tools/compose-db-url.mjs`
@@ -626,7 +626,9 @@ when the head of operations has released its slice.
   "0 left"; never delete a lead without the run id, head watched it red). Builder crm-journey kept for the follow-up.
 - RULES LEARNED today: a `--unit` local run misses the DB part, CI catches it (HoO ruling: local = touched suites only, CI is the gate;
   one heavy job at a time on the laptop); journey checks alone run in ~1 min via a scratch runner of journeyTests (no lock);
-  tools/with-env.mjs caps a child at 10 min (with-env.mjs:18), too short for the journey.
+  tools/with-env.mjs stops a child after WITH_ENV_TIMEOUT_MIN minutes (caller's environment; default 10, 0 = no limit; a fraction is fine;
+  a timeout is exit 124 with its own stderr line and the whole process tree is stopped; 127 only for a command that cannot start;
+  the body is tools/omnikom-cli/lib/with-env.mjs). A long journey run sets WITH_ENV_TIMEOUT_MIN=0 or a larger number.
 - QUEUE (in order): (1) seed workspace leadColumns (seed.mjs:301, a real client loses column order) + session-cache-drop test, builder
   crm-journey on check/cli-and-testing/seed-leadcolumns; (2) crm-map F1 (contract label as synonym in proposeMap) and F2 (HubSpot exact
   case headers), each watched red; (3) land: bounded retry of GitHub network errors, lock release retried with backoff, a rerun takes

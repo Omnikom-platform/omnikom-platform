@@ -510,6 +510,25 @@ const MUTANTS = [
   ['mutant runner: the sweep removes the copy of a live owner [mw]', 'test/mutate-run.mjs', "if (alive(pid)) { done.push({ dir, pid, removed: false, why: 'owner alive' }); continue; }", '', 'unit'],
   ['mutant runner: the sweep removes a copy with no owner marker [mw]', 'test/mutate-run.mjs', 'if (!Number.isInteger(pid) || pid <= 0) {', 'if (false) {', 'unit'],
   ['mutant runner: the sweep removes any folder in the temp dir, not only the mutant copies [mw]', 'test/mutate-run.mjs', 'n.startsWith(COPY_PREFIX)', "n.startsWith('')", 'unit'],
+  // ---- tools/with-env.mjs (body: lib/with-env.mjs): the time limit, its own outcome, the tree stop
+  ["with-env: the default limit is 1 minute, not 10", "lib/with-env.mjs", "export const DEFAULT_MIN = 10;", "export const DEFAULT_MIN = 1;", 'unit'],
+  ["with-env: an empty WITH_ENV_TIMEOUT_MIN is an error, not the default", "lib/with-env.mjs", "if (raw === undefined || raw === '') return { min: DEFAULT_MIN };", "if (raw === undefined) return { min: DEFAULT_MIN };", 'unit'],
+  ["with-env: 0 is a one-millisecond timer, not no limit", "lib/with-env.mjs", "export const limitMs = min => (min === 0 ? 0 :", "export const limitMs = min => (false ? 0 :", 'unit'],
+  ["with-env: a value that is not a number of minutes is accepted", "lib/with-env.mjs", "if (!/^\\d+(\\.\\d+)?$/.test(s)) return { bad: true };", "", 'unit'],
+  ["with-env: a fraction of a minute is refused", "lib/with-env.mjs", "if (!/^\\d+(\\.\\d+)?$/.test(s)) return { bad: true };", "if (!/^\\d+$/.test(s)) return { bad: true };", 'unit'],
+  ["with-env: the limit is read from the env file as well (the file wins)", "lib/with-env.mjs", "parseMinutes(procEnv.WITH_ENV_TIMEOUT_MIN)", "parseMinutes(env.WITH_ENV_TIMEOUT_MIN)", 'unit'],
+  ["with-env: minutes are taken as seconds", "lib/with-env.mjs", "Math.round(min * 60000)", "Math.round(min * 1000)", 'unit'],
+  ["with-env: a huge limit is not held at the largest timer", "lib/with-env.mjs", "Math.min(Math.max(1, Math.round(min * 60000)), MAX_MS)", "Math.max(1, Math.round(min * 60000))", 'unit'],
+  ["with-env: a timeout exits 127 like a command that cannot start", "lib/with-env.mjs", "export const TIMEOUT_EXIT = 124;", "export const TIMEOUT_EXIT = 127;", 'unit'],
+  ["with-env: a timeout prints no line", "lib/with-env.mjs", "err(`with-env: ${cmd} timed out after ${t.min} min and was stopped (set WITH_ENV_TIMEOUT_MIN, 0 = no limit)`);", "", 'unit'],
+  ["with-env: the timeout line gives the limit in milliseconds", "lib/with-env.mjs", "timed out after ${t.min} min", "timed out after ${ms} min", 'unit'],
+  ["with-env: a timeout stops only the child, not its tree", "lib/with-env.mjs", "  killTree(pid);\n", "  process.kill(pid);\n", 'unit'],
+  ["with-env: a timeout stops nothing", "lib/with-env.mjs", "await stopTree(child.pid);\n        finish(TIMEOUT_EXIT);", "finish(TIMEOUT_EXIT);", 'unit'],
+  ["with-env: a command that cannot start exits 1, not 127", "lib/with-env.mjs", "finish(127); });", "finish(1); });", 'unit'],
+  ["with-env: the child's exit status is lost", "lib/with-env.mjs", "finish(over ? TIMEOUT_EXIT : code ?? 1)", "finish(over ? TIMEOUT_EXIT : 0)", 'unit'],
+  ["with-env: the timer is left running when the child ends", "lib/with-env.mjs", "if (timer !== null) timers.clear(timer);", "", 'unit'],
+  ["with-env: the child is not in its own process group (POSIX only: caught on Linux CI)", "lib/with-env.mjs", "detached: !win", "detached: false", 'unit'],
+  ["with-env: SIGTERM is not passed on to the child's tree (POSIX only: caught on Linux CI)", "lib/with-env.mjs", "[['SIGINT', 130], ['SIGTERM', 143]]", "[['SIGINT', 130]]", 'unit'],
 ];
 
 const sh = (args, env) => new Promise(res => {

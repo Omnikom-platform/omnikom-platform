@@ -13,6 +13,7 @@ import net from 'node:net';
 import { CLI_ROOT, REPO_ROOT, startCluster, sweepClusters, clusterDiag, freshDb, cli, makeFunctionModel, makeSupabaseModel } from './harness.mjs';
 import { impactStampHooksTests } from './impact-stamp-hooks.mjs';
 import { journeyTests } from './journey.mjs';
+import { withEnvTests } from './with-env.mjs';
 import { makeCheck, mutateRunTests } from './mutate-run.mjs';
 
 const onlyUnit = process.argv.includes('--unit'), onlyDb = process.argv.includes('--db');
@@ -1601,7 +1602,7 @@ async function database() {
 }
 const PERSON = n => ({ 'member-a1': '00000000-0000-0000-0000-0000000000a1' })[n];
 
-if (!onlyDb) { await units(); await toolsAndCi(); await impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }); await journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }); await mutateRunTests({ check, CLI_ROOT, REPO_ROOT }); }
+if (!onlyDb) { await units(); await toolsAndCi(); await impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }); await journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }); await mutateRunTests({ check, CLI_ROOT, REPO_ROOT }); await withEnvTests({ check, CLI_ROOT, REPO_ROOT, lib }); }
 if (!onlyUnit) await database();
 const { total, failed } = counts();
 console.log(`\n${failed ? 'FAILED' : 'OK'}: ${total - failed} of ${total} checks passed${failed ? `, ${failed} FAILED` : ''}`);
