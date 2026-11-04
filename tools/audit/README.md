@@ -28,8 +28,9 @@ process.exit(r.exit);
 
 ## The runner
 ```
-node tools/audit/run.mjs <folder> [--json] [--only MET-003,MET-001] [--psi FILE] [--target preview|production] [--prompt-coverage FILE] [--list]
+node tools/audit/run.mjs <folder> [--json | --summary] [--only MET-003,MET-001] [--psi FILE] [--target preview|production] [--prompt-coverage FILE] [--list]
 ```
+- `--summary` prints the small summary object ("The summary" below) as one line and nothing else (stdout and stderr), with the same exit codes; `--summary` with `--json` exits 2.
 - `--target preview|production` says which kind of build is judged (slice 4c; see "The build target" below). A built folder needs it: with none the run exits 2 naming `--target` and prints no line (slice 4c flip); a snapshot (`live.mjs`) does not. Anything else, or no value, exits 2.
 - `--prompt-coverage FILE` names the plan's `plan/prompt-coverage.json` (slice 5c; see "The prompt map" below). A missing file, bad JSON or the wrong shape exits 2; no value exits 2.
 - `--psi FILE` names a `psi/<date>.json` written by the skill's `psi.mjs` (only a snapshot uses it; a missing or malformed file exits 2).
@@ -37,6 +38,29 @@ node tools/audit/run.mjs <folder> [--json] [--only MET-003,MET-001] [--psi FILE]
   its severity and source and exits 0.
 - A one-line summary goes to stderr, never stdout.
 - Exit codes: 0 no FAIL (WARN and SKIP do not fail), 1 at least one FAIL, 2 usage error, missing folder, unknown rule id or bad config.
+
+## The summary (stored per site)
+`summary.mjs` turns the `audit()` object into one small, versioned object that a publish job can store, so a site's audit can be shown
+later (`docs/product/9-blocks.md`: "audit results stored per site for the dashboard"). Node built-ins only, nothing written.
+```
+import { audit } from "./tools/audit/index.mjs"; import { summarize } from "./tools/audit/summary.mjs";
+const s = summarize(audit("dist", { target: "preview" }), { commit: "bb60318" });   // commit is optional
+```
+```
+{ v: 1, target, mode, pass, exit, pages, rules,                         // pages and rules are counts; target is null for a snapshot run without one
+  counts: { PASS, FAIL, SKIP, ...},                                     // PASS = the PASS lines (one per rule and page)
+  byFamily: { MET: { PASS, FAIL, SKIP, ...}, ... },                     // the family is the rule id up to the first "-"
+  fails: [{ rule, page, line, what, source }], truncated, commit? }
+```
+- A status that is not PASS, FAIL or SKIP (WARN today) is counted under its own key in `counts` and in its family, never dropped.
+- Limits: `fails` keeps the FAILs in rule order, at most 200 (`MAX_FAILS`); every `what` is cut to 300 characters (the cut ends in `...`);
+  `truncated` is the number of FAILs left out (0 when none). The JSON stays under 60 KiB (`MAX_BYTES`) for any input, because the callback
+  refuses a gate report over 64 KiB (`supabase/functions/job-callback/index.ts` `MAX_REPORT`): when 200 long fails would pass that, fewer are kept and
+  `truncated` says so (measured: with texts up to 200 characters all 200 fit, 60,188 bytes; with texts cut to 300 characters 153 fit, 61,341 bytes). Rule ids, pages, sources, family and status names are
+  cut too, and more than 40 distinct families or unusual statuses are counted under `OTHER`.
+- The runner's line: `node tools/audit/run.mjs <dist> --target <preview|production> --summary` (exit 0 no FAIL, 1 a FAIL, 2 usage error; stdout is the JSON).
+  It carries no commit; a caller that knows it adds `commit` to the parsed object, or calls `summarize` with it.
+- Storing it per publish job (`gateReport.audit`) and reading it per site are the platform build's files, not this tool's.
 
 ## Snapshot mode (slice 2)
 A folder that holds `_site.json` and `pages/<slug>/raw.html.gz` is a snapshot made by the skill's polite `snapshot-site.mjs`, and the same
@@ -175,7 +199,7 @@ All P1; DSN-010 and DSN-011 print WARN (the exit stays 0), the other nine print 
 - The design stage of the skill (`stages/design.md`) requires the five-line direction and the nine passes, and runs this family after them.
 
 ## Layout
-- `index.mjs` the engine, `run.mjs` the runner, `live.mjs` the live driver.
+- `index.mjs` the engine, `run.mjs` the runner, `live.mjs` the live driver, `summary.mjs` the small summary of an audit (work order 05).
 - `lib/site.mjs` the site reader: a copy of the skill's `scripts/lib-site.mjs` (header says which changes). `lib/context.mjs` folder
   facts, sitemap reading, `resolveLink`, the build target. `lib/headers.mjs` the `_headers` file (slice 4c). `lib/lines.mjs` line numbers. `lib/schema.mjs`, `lib/xml.mjs`, `lib/check.mjs` helpers.
   `lib/sitemap-lastmod.mjs` a copy of the skill's built-in SE-004/IDX-003 check with its logic lifted into functions.
@@ -206,6 +230,7 @@ node tools/audit/run.mjs tools/audit/fixtures/good-coverage --prompt-coverage to
 node tools/audit/run.mjs tools/audit/fixtures/bad-PMP-001-uncovered --prompt-coverage tools/audit/fixtures/bad-PMP-001-uncovered/plan/prompt-coverage.json --target production   a FAIL PMP-001 line naming the row id, exit 1
 node tools/audit/run.mjs tools/audit/fixtures/good-preview --target preview       every line PASS but the one `SKIP PMP-001` line, exit 0
 node tools/audit/run.mjs tools/audit/fixtures/bad-MET-003 --target production       a FAIL MET-003 line with file:line and source, exit 1
+node tools/audit/run.mjs tools/audit/fixtures/bad-MET-003 --target preview --summary   one JSON object, "pass":false, exit 1
 node tools/audit/run.mjs tools/audit/fixtures/snapshot-good     every line PASS but one `SKIP ENV-001 / no --target` and one `SKIP PMP-001 / no --prompt-coverage` line, exit 0
 node tools/audit/run.mjs tools/audit/fixtures/snapshot-bad-PRF-001   a FAIL PRF-001 line (LCP 3100 ms > 2500 ms) with source, exit 1
 node tools/audit/run.mjs tools/audit/fixtures/bad-DSN --target production           a FAIL or WARN line for each of DSN-001 to DSN-011, exit 1

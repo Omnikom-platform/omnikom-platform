@@ -1,13 +1,15 @@
 // The runner: node tools/audit/run.mjs <folder> [--json] [--only MET-003,MET-001] [--psi FILE] [--target preview|production] [--prompt-coverage FILE] [--list]
 // Prints PASS / WARN / FAIL / SKIP lines. Exit 0 = no FAIL (WARN and SKIP do not fail), 1 = at least one FAIL, 2 = usage error or missing folder.
-const USAGE = "usage: node tools/audit/run.mjs <folder> [--json] [--only MET-003,MET-001] [--psi FILE] [--target preview|production] [--prompt-coverage FILE] [--list]";
+// --summary prints the one small summary object (summary.mjs) and nothing else, with the same exits; it cannot be combined with --json.
+const USAGE = "usage: node tools/audit/run.mjs <folder> [--json | --summary] [--only MET-003,MET-001] [--psi FILE] [--target preview|production] [--prompt-coverage FILE] [--list]";
 const die = (msg) => { console.error(msg); process.exit(2); };
 
 const args = process.argv.slice(2);
-let folder = null, json = false, list = false, only = null, psi = null, target = null, promptCoverage = null;
+let folder = null, json = false, summary = false, list = false, only = null, psi = null, target = null, promptCoverage = null;
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
   if (a === "--json") json = true;
+  else if (a === "--summary") summary = true;
   else if (a === "--list") list = true;
   else if (a === "--psi") { psi = args[++i]; if (!psi || psi.startsWith("--")) die(`--psi needs a PageSpeed Insights file (the psi/<date>.json psi.mjs writes)
 ${USAGE}`); }
@@ -27,10 +29,12 @@ if (list) {
   for (const r of engine.listRules()) console.log(`${r.id.padEnd(8)} ${r.severity.padEnd(3)} ${r.source}`);
   process.exit(0);
 }
+if (json && summary) die(`--summary and --json cannot be combined (--json prints the whole result, --summary the small one)\n${USAGE}`);
 if (!folder) die(USAGE);
 try {
   const r = engine.audit(folder, { rules: only || undefined, psi: psi || undefined, target: target || undefined, promptCoverage: promptCoverage || undefined });
   if (json) console.log(JSON.stringify(r, null, 2));
+  else if (summary) console.log(JSON.stringify((await import(new URL("./summary.mjs", import.meta.url).href)).summarize(r)));
   else {
     for (const l of r.lines) console.log(l);
     const n = (s) => r.findings.filter((f) => f.status === s).length;

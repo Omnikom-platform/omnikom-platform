@@ -2,7 +2,7 @@
 
 Load this file when a built, gated preview must become the production site ("launch it", "go live", "make it production").
 It runs after `build` (or `overhaul`) and before `measure`. The SOP in plain words, with every item and the access list:
-`E:\Omnikom Platform\sops\launch.md`. Architecture: `E:\Omnikom Platform\docs\blueprint\12-LAUNCH.md` (DECISIONS 19).
+`E:\Omnikom Platform\code\main\sops\clients\launch.md`. Architecture: `E:\Omnikom Platform\code\main\docs\product\7-sites.md` section "Launch" (DECISIONS 19).
 
 ## What it is
 A ledger, `<pewp>/launch.json`, with 22 items (L-A1 to L-D22: A before launch, B launch day, C first 30 days off-site, D ongoing).

@@ -2,7 +2,7 @@
 
 | Copy here | Copied from | Version at copy | Date |
 |---|---|---|---|
-| `programmatic-enterprise-web-performance/` | `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance` (own git repo; its `.git` was not copied) | `9d678f0` "design stage: the DSN audit names --target preview (audit 4c flip)" | 2026-11-02 |
+| `programmatic-enterprise-web-performance/` | `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance` (own git repo; its `.git` was not copied) | `9759d24` "Platform work order 05 (audit results), step 1: skill paths follow the move to E:\\Omnikom " | 2026-11-04 |
 | `design-tournament/` | `C:\Users\DELL\.claude\skills\design-tournament` | (no git) | 2026-10-24 |
 | `icm-librarian.agent.md` | the Example B and D project's `.claude\agents\icm-librarian.md` | Example B and D repo | 2026-10-24 |
 | `context-economics/` | written here (no outside copy): BUILDER_head-of-operations_context-economics, brief `docs/departments/briefs/context-economics.md`; prices from platform.claude.com pricing, read 2026-11-01 | (new) | 2026-11-01 |

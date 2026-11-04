@@ -859,6 +859,43 @@ try {
     check("the usage line of run.mjs and live.mjs names --prompt-coverage", /--prompt-coverage FILE/.test(cli([]).err) && /--prompt-coverage FILE/.test(live([]).err));
   }
 
+  // work order 05: the summary (summary.mjs and run.mjs --summary), the small versioned object a publish job stores per site
+  {
+    const { summarize, MAX_BYTES } = await import(pathToFileURL(join(AUDIT, "summary.mjs")).href);
+    const parse = (r) => { try { return JSON.parse(r.out); } catch { return null; } };
+    const KIB = (v) => Buffer.byteLength(JSON.stringify(v), "utf8");
+    const sumOf = (c) => Object.values(c).reduce((a, b) => a + b, 0);
+    const sumGood = cli([GOOD_DIR, "--summary"]), sg = parse(sumGood), fullGood = json([GOOD_DIR]).j;
+    check("--summary on the good site: exit 0, one JSON object and nothing else (empty stderr), v 1, pass true, exit 0, counts.FAIL 0, no fails, truncated 0",
+      sumGood.status === 0 && sg && sumGood.err === "" && sumGood.out.trim().split("\n").length === 1 && sg.v === 1 && sg.pass === true && sg.exit === 0 && sg.counts.FAIL === 0 && Array.isArray(sg.fails) && sg.fails.length === 0 && sg.truncated === 0 && !("commit" in sg), sumGood.out.slice(0, 300) + sumGood.err);
+    check("--summary on the good site: target, mode, pages and rules agree with --json; counts.PASS is the number of PASS lines; every status of the findings is counted",
+      sg && fullGood && sg.target === fullGood.target && sg.mode === fullGood.mode && sg.pages === fullGood.pages.length && sg.rules === fullGood.rules.length && sg.counts.PASS === fullGood.lines.filter((l) => l.startsWith("PASS ")).length && sg.counts.SKIP === fullGood.findings.filter((f) => f.status === "SKIP").length && sumOf(sg.counts) === fullGood.lines.filter((l) => l.startsWith("PASS ")).length + fullGood.findings.length, JSON.stringify(sg && sg.counts));
+    check("--summary on the good site: byFamily has every rule family (MET, SE, DSN) and its counts add up to counts", sg && ["MET", "SE", "DSN"].every((f) => sg.byFamily[f]) && ["PASS", "FAIL", "SKIP"].every((k) => Object.values(sg.byFamily).reduce((a, v) => a + v[k], 0) === sg.counts[k]), JSON.stringify(sg && sg.byFamily));
+    const sumBad = cli([join(FIX, "bad-MET-003"), "--summary"]), sb = parse(sumBad);
+    check("--summary on bad-MET-003: exit 1, pass false, exactly one MET FAIL (page /tasting-room/, line 48) with its source, counts.FAIL 1 and byFamily.MET.FAIL 1",
+      sumBad.status === 1 && sb && sb.pass === false && sb.exit === 1 && sb.fails.length === 1 && sb.fails[0].rule === "MET-003" && sb.fails[0].page === "/tasting-room/" && sb.fails[0].line === 48 && sb.fails[0].source === "checklist/web-delivery.md MET-003" && /skips a level/.test(sb.fails[0].what) && sb.counts.FAIL === 1 && sb.byFamily.MET.FAIL === 1 && Object.entries(sb.byFamily).every(([f, v]) => f === "MET" || v.FAIL === 0), sumBad.out.slice(0, 400));
+    const sumJson = cli([GOOD_DIR, "--summary", "--json"]), sumJson2 = cli([GOOD_DIR, "--json", "--summary"]);
+    check("--summary with --json (either order) exits 2, prints nothing on stdout and says they cannot be combined", [sumJson, sumJson2].every((r) => r.status === 2 && r.out === "" && /cannot be combined/.test(r.err)), sumJson.err + sumJson2.err);
+    check("the usage line of run.mjs names --summary", /--summary/.test(cli([]).err), cli([]).err);
+    check("run.mjs --summary prints what summarize() returns for the same audit", sg && JSON.stringify(sg) === JSON.stringify(summarize(engine.audit(GOOD_DIR, { target: "production" }))));
+    // the limits, on synthetic audit objects
+    const synth = (n, whatLen, extra = {}) => ({ dir: "/x", mode: "static", target: "production", pages: ["/", "/a/"], rules: [{ id: "MET-003", severity: "P1", source: "checklist/web-delivery.md MET-003" }, { id: "SE-004", severity: "P0", source: "checklist/search-engines.md SE-004" }], findings: Array.from({ length: n }, (_, i) => ({ rule: i % 2 ? "SE-004" : "MET-003", page: `/p${i}/`, line: i + 1, what: "x".repeat(whatLen), status: "FAIL" })), lines: [], pass: false, exit: 1, ...extra });
+    const small = summarize(synth(5000, 20));
+    check("summarize: 5,000 FAILs with short text keep 200 fails in rule order and say truncated 4800", small.fails.length === 200 && small.truncated === 4800 && small.counts.FAIL === 5000 && small.fails.every((f, i) => f.line === i + 1) && KIB(small) < MAX_BYTES, `${small.fails.length} fails, truncated ${small.truncated}`);
+    const huge = summarize(synth(5000, 2000)), hugeBytes = KIB(huge);
+    check("summarize: 5,000 FAILs with 2,000-character text: at most 200 fails, fails + truncated is 5000, every what is cut to 300 characters, JSON under 60 KiB",
+      huge.fails.length <= 200 && huge.fails.length > 0 && huge.fails.length + huge.truncated === 5000 && huge.fails.every((f) => f.what.length === 300 && f.what.endsWith("...")) && hugeBytes < 60 * 1024 && MAX_BYTES === 60 * 1024, `${huge.fails.length} fails, truncated ${huge.truncated}, ${hugeBytes} bytes`);
+    const cutAt = summarize(synth(3, 0, { findings: [300, 301, 299].map((n, i) => ({ rule: "MET-003", page: "/", line: i + 1, what: "y".repeat(n), status: "FAIL" })) }));
+    check("summarize: a what of 300 characters stays whole, one of 301 is cut to 300", cutAt.fails[0].what === "y".repeat(300) && cutAt.fails[1].what.length === 300 && cutAt.fails[1].what.endsWith("...") && cutAt.fails[2].what === "y".repeat(299), cutAt.fails.map((f) => f.what.length).join(","));
+    const odd = summarize(synth(0, 0, { findings: [{ rule: "MET-003", page: "/", line: 1, what: "w", status: "WARN" }, { rule: "SE-004", page: "/", line: 2, what: "w", status: "WEIRD" }, { rule: "SE-004", page: "/a/", line: 3, what: "w", status: "WEIRD" }, { rule: "SE-004", page: "/a/", line: 4, what: "w", status: "constructor" }, { rule: "MET-003", page: "/", line: 5, what: "f", status: "FAIL" }], lines: ["PASS MET-003 /a/", "PASS SE-004 /", "WARN MET-003 / w"], pass: false }));
+    check("summarize: a status that is not PASS, FAIL or SKIP is counted under its own key, in counts and in its family, and nothing is dropped",
+      odd.counts.WARN === 1 && odd.counts.WEIRD === 2 && odd.counts.constructor === 1 && odd.counts.FAIL === 1 && odd.counts.PASS === 2 && odd.byFamily.SE.WEIRD === 2 && odd.byFamily.MET.WARN === 1 && sumOf(odd.counts) === 7 && odd.fails.length === 1, JSON.stringify(odd.counts));
+    const many = summarize(synth(0, 0, { findings: Array.from({ length: 500 }, (_, i) => ({ rule: `F${i}-001`, page: "/", line: 1, what: "w", status: `S${i}`.repeat(30) })) }));
+    check("summarize: 500 different statuses and 500 different families stay bounded (the rest is counted under OTHER) and the JSON stays under 60 KiB", sumOf(many.counts) === 500 && many.counts.OTHER > 0 && Object.keys(many.counts).length <= 3 + 40 + 1 && Object.keys(many.byFamily).length <= 40 + 1 && KIB(many) < MAX_BYTES, `${Object.keys(many.counts).length} count keys, ${Object.keys(many.byFamily).length} families, ${KIB(many)} bytes`);
+    const sc = summarize(synth(1, 5, { target: null, mode: "snapshot" }), { commit: "bb60318" });
+    check("summarize: commit is kept when given (cut to 64 characters), a snapshot target stays null, a finding with no line number has line null", sc.commit === "bb60318" && sc.target === null && sc.mode === "snapshot" && summarize(synth(1, 5), { commit: "c".repeat(200) }).commit.length === 64 && summarize(synth(0, 0, { findings: [{ rule: "MET-003", page: "/", what: "w", status: "FAIL" }] })).fails[0].line === null, JSON.stringify(sc).slice(0, 200));
+  }
+
   // temp folders (slice 4b.1): every folder this run made is on disk inside its one root (read back from the root, not from the names kept in memory)
   const inRoot = readdirSync(ROOT);
   check("temp folders: the run has one root omnikom-audit-run-* and every temp folder it made is inside it", /^omnikom-audit-run-/.test(basename(ROOT)) && tmps.length > 0 && tmps.every((d) => inRoot.includes(basename(d)) && existsSync(d)), `root ${ROOT}; ${tmps.length} folders made; in the root: ${inRoot.length}`);

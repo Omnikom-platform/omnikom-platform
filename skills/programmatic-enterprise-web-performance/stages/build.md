@@ -79,7 +79,7 @@ the claim rules the builder follows. `launchState` decides indexability: a previ
 design" and the handoff tells the builder to put noindex on every page.
 
 ## Site scope by industry (DECISIONS 18)
-The SOP `E:\Omnikom Platform\sops\site-scope.md` sets three things:
+The SOP `E:\Omnikom Platform\code\main\sops\clients\site-scope.md` sets three things:
 - what every V2 site contains;
 - who writes what. Omnikom writes the structure and the wording. The client feeds services, articles, their industry
   collection and reviews, all through their dashboard;
@@ -91,9 +91,9 @@ Old-site features (IDX, home search, widgets) are cut.
 An unsourced claim found during the build is OUR research task, never a client question:
 1. Research it from a public source and record it with its source and date.
 2. If no source exists, use the safe default (leave it out, use neutral wording, or drop the section).
-3. Only a fact in the catalogue of `E:\Omnikom Platform\sops\client-questions.md` becomes ONE merged question.
+3. Only a fact in the catalogue of `E:\Omnikom Platform\code\main\sops\clients\client-questions.md` becomes ONE merged question.
 
-The client sheet has at most 12 questions, in the format of `E:\Omnikom Platform\templates\client-questions\`, and is checked
+The client sheet has at most 12 questions, in the format of `E:\Omnikom Platform\code\main\templates\client-questions\`, and is checked
 with `tools/client-questions/questions-pdf.mjs --check`.
 
 Never asked of a client: page wording, cut features (listings, IDX, search), or a failing checker or gate rule.

@@ -713,7 +713,7 @@ function cmdTask(pewp) {
     `# Launch task: ${l.config.siteUrl} (one shot)`,
     ``,
     `You take this site from preview to production. Work the ledger ${ledgerPath(path.resolve(pewp))} to the end, in one session.`,
-    `Sources: stages/launch.md (skill), E:\\Omnikom Platform\\sops\\launch.md (what each item means), docs/blueprint/12-LAUNCH.md.`,
+    `Sources: stages/launch.md (skill), E:\\Omnikom Platform\\code\\main\\sops\\clients\\launch.md (what each item means), docs/product/7-sites.md "Launch".`,
     ``,
     `## Stop condition (the only way this task ends)`,
     `Every L-item is PASS with its proof line, or BLOCKED with an allowed reason and what unblocks it. Nothing else ends the task:`,
