@@ -144,12 +144,20 @@ async function run() {
   // one decision for the audit and the deploy: a site that is not live goes to the preview branch and is judged as a preview build (it must carry noindex), a live site goes to main and is judged as production (it must not)
   const branch = exp.site.state !== 'live' ? 'preview' : 'main';
   const auditTarget = branch === 'main' ? 'production' : 'preview';
-  const a = runTool(process.execPath, [join(REPO, 'tools', 'audit', 'run.mjs'), dist, '--target', auditTarget], { timeoutMs: 180000 });
-  const fails = a.stdout.split(/\r?\n/).filter((l) => /^FAIL\s/.test(l));
-  if (a.status === 2) throw new Stop('audit usage error', { factory: 'pass', audit: { exit: 2, fails, lines: tail(a.text, 10) } });
-  if (a.status !== 0) throw new Stop('audit failed', { factory: 'pass', audit: { exit: a.status, fails } });
-  const gateReport = { factory: 'pass', audit: { exit: 0, fails: [] } };
-  step('gating', `audit exit 0 (target ${auditTarget}), ${tail(a.text, 1).join('')}`);
+  // --summary prints one small versioned JSON object (tools/audit/summary.mjs, under 60 KiB); it is stored whole as gateReport.audit for a pass and a fail
+  const a = runTool(process.execPath, [join(REPO, 'tools', 'audit', 'run.mjs'), dist, '--target', auditTarget, '--summary'], { timeoutMs: 180000 });
+  if (a.status === 2) throw new Stop('audit usage error', { factory: 'pass', audit: { exit: 2, lines: tail(a.text, 10) } });
+  let audit = null;
+  try { audit = JSON.parse(a.stdout); } catch { /* reported below */ }
+  if (!audit || typeof audit !== 'object' || Array.isArray(audit) || audit.v !== 1 || typeof audit.pass !== 'boolean' || !Array.isArray(audit.fails)) throw new Stop('audit output unreadable', { factory: 'pass', audit: { exit: a.status, lines: tail(a.text, 10) } });
+  const counts = audit.counts || {};
+  const countsLine = `PASS ${counts.PASS ?? 0}, FAIL ${counts.FAIL ?? 0}, SKIP ${counts.SKIP ?? 0}`;
+  if (a.status !== 0) {
+    for (const f of audit.fails.slice(0, 20)) out(`  FAIL ${f.rule} ${f.page}${f.line == null ? '' : `:${f.line}`} ${f.what}`);
+    throw new Stop('audit failed', { factory: 'pass', audit });
+  }
+  const gateReport = { factory: 'pass', audit };
+  step('gating', `audit exit 0 (target ${auditTarget}), ${countsLine}`);
 
   // ---- 4b the lead function ships with every deploy and answers 503 "not configured" without its three settings (5-L round 2):
   // read the target project's settings (names only) for the environment this deploy lands in and stop at gating if one is missing

@@ -561,6 +561,33 @@ const MUTANTS = [
   ]),
   ['crm15: service.crm_fields does not pin the search_path', "create function service.crm_fields(p_claims jsonb, p_workspace uuid) returns jsonb language plpgsql security definer set search_path = '' as $$", "create function service.crm_fields(p_claims jsonb, p_workspace uuid) returns jsonb language plpgsql security definer as $$"],
   ['crm15: service.import_leads does not pin the search_path', "returns jsonb\nlanguage plpgsql security definer set search_path = '' as $$\ndeclare me uuid; staff boolean; role public.member_role; o jsonb", "returns jsonb\nlanguage plpgsql security definer as $$\ndeclare me uuid; staff boolean; role public.member_role; o jsonb"],
+  // work order 06 (migration 16): a site's stored audit summaries (tenancy.test.sql T24)
+  ['audit16: site_audit, a member reads', "not private.is_owner_or_staff(ws) then", "not coalesce(private.is_owner_or_staff(ws) or private.is_member(ws), false) then"],
+  ['audit16: site_audit, any owner of any workspace reads', "not private.is_owner_or_staff(ws) then", "not coalesce(private.is_owner_or_staff(ws) or exists (select 1 from public.members m where m.user_id = me and m.role = 'owner'), false) then"],
+  ['audit16: site_audit, staff without MFA reads', "not private.is_owner_or_staff(ws) then", "not coalesce(private.my_role(ws) = 'owner' or exists (select 1 from public.staff st where st.user_id = me), false) then"],
+  ['audit16: site_audit, a site that does not exist is told apart for staff', "if ws is null or not private.is_owner_or_staff(ws) then", "if not private.is_owner_or_staff(ws) then"],
+  ['audit16: site_audit, latest.preview takes a job without v 1', "where j.site_id = p_site and j.state in ('done', 'failed') and j.gate_report #>> '{audit,v}' = '1' and j.gate_report #>> '{audit,target}' = 'preview'", "where j.site_id = p_site and j.state in ('done', 'failed') and j.gate_report #>> '{audit,target}' = 'preview'"],
+  ['audit16: site_audit, latest.production takes a job without v 1', "where j.site_id = p_site and j.state in ('done', 'failed') and j.gate_report #>> '{audit,v}' = '1' and j.gate_report #>> '{audit,target}' = 'production'", "where j.site_id = p_site and j.state in ('done', 'failed') and j.gate_report #>> '{audit,target}' = 'production'"],
+  ['audit16: site_audit, latest.preview reads every site', "where j.site_id = p_site and j.state in ('done', 'failed') and j.gate_report #>> '{audit,v}' = '1' and j.gate_report #>> '{audit,target}' = 'preview'", "where j.state in ('done', 'failed') and j.gate_report #>> '{audit,v}' = '1' and j.gate_report #>> '{audit,target}' = 'preview'"],
+  ['audit16: site_audit, latest.production reads every site', "where j.site_id = p_site and j.state in ('done', 'failed') and j.gate_report #>> '{audit,v}' = '1' and j.gate_report #>> '{audit,target}' = 'production'", "where j.state in ('done', 'failed') and j.gate_report #>> '{audit,v}' = '1' and j.gate_report #>> '{audit,target}' = 'production'"],
+  ['audit16: site_audit, latest is the oldest, not the newest', "order by j.finished_at desc nulls last, j.id desc limit 1;", "order by j.finished_at nulls last, j.id desc limit 1;"],
+  ['audit16: site_audit, history holds 11', "limit 10) h;", "limit 11) h;"],
+  ['audit16: site_audit, history keeps fails', "private.audit_row(j.id, j.finished_at, j.state, j.gate_report, false) as r", "private.audit_row(j.id, j.finished_at, j.state, j.gate_report, true) as r"],
+  ['audit16: site_audit, history picks the 10 oldest', "order by j.finished_at desc nulls last, j.id desc limit 10) h;", "order by j.finished_at nulls last, j.id desc limit 10) h;"],
+  ['audit16: site_audit, history is oldest first', "jsonb_agg(h.r order by h.finished_at desc nulls last, h.id desc)", "jsonb_agg(h.r order by h.finished_at nulls last, h.id desc)"],
+  ['audit16: site_audit, history reads every site', "where j.site_id = p_site and j.state in ('done', 'failed') order by", "where j.state in ('done', 'failed') order by"],
+  ['audit16: site_audit, history lists a job not finished', "where j.site_id = p_site and j.state in ('done', 'failed') order by", "where j.site_id = p_site order by"],
+  ['audit16: audit_row, a summary of another version is trusted', "coalesce(p_report #>> '{audit,v}' = '1', false) as v", "coalesce(p_report #>> '{audit,v}' is not null, false) as v"],
+  ['audit16: audit_row, target is read without v 1', "'target', case when x.v then x.a ->> 'target' end,", "'target', x.a ->> 'target',"],
+  ['audit16: audit_row, pass is read without v 1', "'pass', case when x.v and jsonb_typeof(x.a -> 'pass') = 'boolean' then x.a -> 'pass' end,", "'pass', x.a -> 'pass',"],
+  ['audit16: audit_row, counts are read without v 1', "'counts', case when x.v and jsonb_typeof(x.a -> 'counts') = 'object' then x.a -> 'counts' end,", "'counts', x.a -> 'counts',"],
+  ...['site_audit(jsonb, uuid)'].flatMap(sig => [
+    [`audit16: migration 16 closes service.${sig.split('(')[0]} to anon, authenticated, PUBLIC (both layers)`, [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], [`revoke all on function service.${sig} from public, anon, authenticated;`, '-- (revoke removed)']]],
+    [`audit16: migration 16 opens service.${sig.split('(')[0]} to the function role (both layers)`, [['alter default privileges in schema service grant execute on functions to service_role, omnikom_fn;', '-- (no default grant)'], [`grant execute on function service.${sig} to service_role, omnikom_fn;`, '-- (grant removed)']]],
+  ]),
+  ['audit16: private.audit_row is open to anon, authenticated, PUBLIC (both layers)', [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], ['revoke all on function private.audit_row(uuid, timestamptz, public.job_state, jsonb, boolean) from public, anon, authenticated;', '-- (revoke removed)']]],
+  ['audit16: service.site_audit does not pin the search_path', "create function service.site_audit(p_claims jsonb, p_site uuid) returns jsonb language plpgsql security definer set search_path = '' as $$", "create function service.site_audit(p_claims jsonb, p_site uuid) returns jsonb language plpgsql security definer as $$"],
+  ['audit16: private.audit_row does not pin the search_path', "returns jsonb language sql stable security definer set search_path = '' as $$\n  select jsonb_build_object('job', p_job", "returns jsonb language sql stable security definer as $$\n  select jsonb_build_object('job', p_job"],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

@@ -1586,7 +1586,8 @@ do $$ declare t record; n int; begin
       'mark_lead_read', 'leads_exported', 'set_alerts', 'set_crm_webhook', 'drafts_waiting',
       'crm_secret_put', 'crm_secret_drop', 'crm_target', 'crm_tested', 'find_login',
       'lead_set_fields', 'lead_list', 'leads_bulk',   -- work order 01: owner B on each in T22
-      'crm_fields', 'import_leads']),                  -- work order 02: owner B on each in T23
+      'crm_fields', 'import_leads',                    -- work order 02: owner B on each in T23
+      'site_audit']),                                  -- work order 06: member and owner B in T24
       'service.' || t.proname || ' takes claims but has no outsider test listed in T14';
   end loop;
 end $$;
@@ -1993,6 +1994,84 @@ do $$ declare f text; begin
     assert has_function_privilege('omnikom_fn', f, 'execute'), f || ' is open to the function role';
     assert (select prosecdef from pg_proc where oid = f::regprocedure) and (select proconfig from pg_proc where oid = f::regprocedure) = array['search_path=""'], f || ' is a definer function with an empty search_path';
   end loop;
+end $$;
+
+-- ===== T24 work order 06 (migration 16): a site's stored audit summaries =====
+-- A site of workspace A of its own (the jobs of the other tests must not count), with finished jobs made directly (finished_at set by hand: one
+-- transaction gives every now() the same value). Newest first:
+--   J5 done 2026-10-05 audit WITHOUT v but with target, pass and counts (a job from before work order 06, or a bad write)   J4 done 2026-10-04 audit v 2
+--   J3 done 2026-10-03 preview v1 pass, no fails        J2 failed 2026-10-02 preview v1 fail, one fail        J1 done 2026-10-01 production v1 pass, one fail kept
+--   12 done jobs 2026-09-02 .. 2026-09-13 (preview v1, one fail each), and one job still building (not finished: never listed).
+--   The site's neighbour (site A, same workspace) has v1 jobs of both targets finished 2026-10-20, newer than all of these: they must never show here.
+reset role;
+insert into sites (id, workspace_id, deploy_target, preview_host) values ('aaaaaaaa-0000-0000-0000-0000000a0d17', 'aaaaaaaa-0000-0000-0000-000000000000', 'test-site-audit-a', 'audit-a.preview.test');
+create function test.audit_sum(p_target text, p_pass boolean, p_fails jsonb) returns jsonb language sql as $$
+  select jsonb_build_object('v', 1, 'target', p_target, 'mode', 'test', 'pass', p_pass, 'exit', case when p_pass then 0 else 1 end, 'pages', 3, 'rules', 7,
+    'counts', jsonb_build_object('PASS', 20, 'FAIL', jsonb_array_length(p_fails), 'SKIP', 1), 'byFamily', '{}'::jsonb, 'fails', p_fails, 'truncated', 0) $$;
+create function test.audit_job(p_site uuid, p_state job_state, p_finished timestamptz, p_report jsonb) returns uuid language sql as $$
+  insert into publish_jobs (workspace_id, site_id, requested_by, rows, requested, state, gate_report, finished_at)
+  values ('aaaaaaaa-0000-0000-0000-000000000000', p_site, '00000000-0000-0000-0000-00000000000a', '{}', '{}', p_state, p_report, p_finished) returning id $$;
+insert into test.ids select 'auJ1', test.audit_job('aaaaaaaa-0000-0000-0000-0000000a0d17', 'done', '2026-10-01 10:00+00', jsonb_build_object('factory', 'pass', 'audit', test.audit_sum('production', true, '[{"rule":"MET-003","page":"/x/","line":4,"what":"w","source":"s"}]')));
+insert into test.ids select 'auJ2', test.audit_job('aaaaaaaa-0000-0000-0000-0000000a0d17', 'failed', '2026-10-02 10:00+00', jsonb_build_object('reason', 'audit failed', 'factory', 'pass', 'audit', test.audit_sum('preview', false, '[{"rule":"MET-003","page":"/y/","line":9,"what":"w2","source":"s2"}]')));
+insert into test.ids select 'auJ3', test.audit_job('aaaaaaaa-0000-0000-0000-0000000a0d17', 'done', '2026-10-03 10:00+00', jsonb_build_object('factory', 'pass', 'audit', test.audit_sum('preview', true, '[]')));
+insert into test.ids select 'auJ4', test.audit_job('aaaaaaaa-0000-0000-0000-0000000a0d17', 'done', '2026-10-04 10:00+00', jsonb_build_object('factory', 'pass', 'audit', test.audit_sum('production', true, '[]') || '{"v":2}'));
+insert into test.ids select 'auJ5', test.audit_job('aaaaaaaa-0000-0000-0000-0000000a0d17', 'done', '2026-10-05 10:00+00', '{"factory":"pass","audit":{"target":"preview","pass":true,"exit":0,"counts":{"PASS":1,"FAIL":0,"SKIP":0},"fails":[]}}');
+insert into test.ids select 'auJ6', test.audit_job('aaaaaaaa-0000-0000-0000-0000000a0d17', 'building', null, null);
+insert into test.ids select 'auOtherP', test.audit_job('aaaaaaaa-0000-0000-0000-00000000517e', 'done', '2026-10-20 10:00+00', jsonb_build_object('factory', 'pass', 'audit', test.audit_sum('preview', true, '[]')));
+insert into test.ids select 'auOtherQ', test.audit_job('aaaaaaaa-0000-0000-0000-00000000517e', 'done', '2026-10-20 11:00+00', jsonb_build_object('factory', 'pass', 'audit', test.audit_sum('production', true, '[]')));
+insert into publish_jobs (workspace_id, site_id, requested_by, rows, requested, state, gate_report, finished_at)
+  select 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000a0d17', '00000000-0000-0000-0000-00000000000a', '{}', '{}', 'done',
+    jsonb_build_object('factory', 'pass', 'audit', test.audit_sum('preview', true, '[{"rule":"MET-003","page":"/z/","line":1,"what":"w3","source":"s3"}]')), '2026-09-01 10:00+00'::timestamptz + g * interval '1 day'
+  from generate_series(1, 12) g;
+set role omnikom_fn;
+insert into test.r select 'au', service.site_audit(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-0000000a0d17');
+insert into test.r select 'auStaff', service.site_audit(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), 'aaaaaaaa-0000-0000-0000-0000000a0d17');
+-- the walls: a member, another workspace's owner, staff without MFA, a site that does not exist, a site of another workspace: all not found
+select test.expect_error($q$select service.site_audit(test.c('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-0000000a0d17')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select service.site_audit(test.c('00000000-0000-0000-0000-00000000000b'), 'aaaaaaaa-0000-0000-0000-0000000a0d17')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select service.site_audit(test.cl('00000000-0000-0000-0000-00000000005f', 'aal1'), 'aaaaaaaa-0000-0000-0000-0000000a0d17')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select service.site_audit(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-0000000a0d18')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select service.site_audit(test.c('00000000-0000-0000-0000-00000000000a'), 'bbbbbbbb-0000-0000-0000-00000000517e')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select service.site_audit(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), 'aaaaaaaa-0000-0000-0000-0000000a0d18')$q$, 'S-NOT-FOUND');   -- staff with MFA: a site that does not exist is still not found
+select test.expect_error($q$select service.site_audit(null, 'aaaaaaaa-0000-0000-0000-0000000a0d17')$q$, 'S-AUTH');
+reset role;
+do $$ declare a jsonb := (select v from test.r where k = 'au'); begin
+  assert (select v from test.r where k = 'au') = (select v from test.r where k = 'auStaff'), 'T24 staff with MFA reads the same answer as the owner';
+  assert (select array_agg(k order by k) from jsonb_object_keys(a) k) = array['history', 'latest'] and (select array_agg(k order by k) from jsonb_object_keys(a -> 'latest') k) = array['preview', 'production'], 'T24 the answer is { latest: { preview, production }, history }';
+  -- latest: the newest job of each target that has v 1; the newer J5 (no v, target preview), J4 (v 2, target production) and the other site's jobs are skipped
+  assert (a #>> '{latest,preview,job}')::uuid = test.id('auJ3'), 'T24 latest.preview is J3 (the newest of this site with v 1), not J5 (no v) or the neighbour site''s job: ' || (a #>> '{latest,preview,job}');
+  assert (a #>> '{latest,production,job}')::uuid = test.id('auJ1'), 'T24 latest.production is J1 (not J4 with v 2, not the neighbour site''s job): ' || (a #>> '{latest,production,job}');
+  assert a #>> '{latest,preview,summary,v}' = '1' and a #>> '{latest,preview,target}' = 'preview' and (a #>> '{latest,preview,pass}')::boolean and a #>> '{latest,preview,state}' = 'done' and a #>> '{latest,preview,finished_at}' is not null, 'T24 latest.preview row is { job, finished_at, state, target, pass, counts, summary } of J3';
+  assert a #>> '{latest,preview,counts,PASS}' = '20' and jsonb_array_length(a #> '{latest,preview,summary,fails}') = 0, 'T24 latest.preview carries counts and its (empty) fails';
+  assert jsonb_array_length(a #> '{latest,production,summary,fails}') = 1 and a #>> '{latest,production,summary,fails,0,rule}' = 'MET-003', 'T24 latest keeps fails (the summary whole)';
+  -- history: at most 10 finished jobs, newest first, no fails, a job without v has nulls, a failed job says it, a building job is never listed
+  assert jsonb_array_length(a -> 'history') = 10, 'T24 history holds at most 10 jobs (17 finished): ' || jsonb_array_length(a -> 'history');
+  assert a::text !~ '"building"', 'T24 a job still building is not in the answer';
+  assert not exists (select 1 from jsonb_array_elements(a -> 'history') h where h ? 'fails' or h -> 'summary' <> 'null'::jsonb or (h::text ~ '"fails"')), 'T24 history carries no fails and no summary';
+  assert (a #>> '{history,0,job}')::uuid = test.id('auJ5') and a #>> '{history,0,state}' = 'done' and a #> '{history,0,pass}' = 'null'::jsonb and a #> '{history,0,target}' = 'null'::jsonb, 'T24 history[0] is J5, no v: pass and target null even though its audit names them';
+  assert a #> '{history,0,counts}' = 'null'::jsonb and a #> '{history,1,counts}' = 'null'::jsonb, 'T24 history[0] (no v) and history[1] (v 2) have counts null';
+  assert (a #>> '{history,1,job}')::uuid = test.id('auJ4') and a #> '{history,1,pass}' = 'null'::jsonb and a #> '{history,1,target}' = 'null'::jsonb, 'T24 history[1] is J4, v 2: nothing of its audit is trusted';
+  assert (a #>> '{history,2,job}')::uuid = test.id('auJ3') and (a #>> '{history,2,pass}')::boolean and a #>> '{history,2,counts,FAIL}' = '0' and a #>> '{history,2,target}' = 'preview', 'T24 history[2] is J3 with its pass, target and counts';
+  assert (a #>> '{history,3,job}')::uuid = test.id('auJ2') and a #>> '{history,3,state}' = 'failed' and not (a #>> '{history,3,pass}')::boolean and a #>> '{history,3,counts,FAIL}' = '1', 'T24 history[3] is the failed J2: state failed, pass false';
+  assert (a #>> '{history,4,job}')::uuid = test.id('auJ1') and a #>> '{history,4,target}' = 'production', 'T24 history[4] is J1';
+  assert (select array_agg((h ->> 'finished_at')::timestamptz order by o) = array_agg((h ->> 'finished_at')::timestamptz order by (h ->> 'finished_at')::timestamptz desc) from jsonb_array_elements(a -> 'history') with ordinality x(h, o)), 'T24 history is newest first';
+  assert not exists (select 1 from jsonb_array_elements(a -> 'history') h join publish_jobs p on p.id = (h ->> 'job')::uuid where p.site_id <> 'aaaaaaaa-0000-0000-0000-0000000a0d17'), 'T24 history holds only this site''s jobs';
+  assert (a #>> '{history,9,job}')::uuid = (select id from publish_jobs where site_id = 'aaaaaaaa-0000-0000-0000-0000000a0d17' and state = 'done' and finished_at = '2026-09-09 10:00+00'), 'T24 history[9] is the job of 2026-09-09 (the 10 newest of 17 are J5, J4, J3, J2, J1 and September 13 down to 9)';
+end $$;
+-- a site that has never finished a publish (one job is still building): both targets null, history empty
+insert into sites (id, workspace_id, deploy_target, preview_host) values ('aaaaaaaa-0000-0000-0000-0000000a0d19', 'aaaaaaaa-0000-0000-0000-000000000000', 'test-site-audit-empty', 'audit-e.preview.test');
+select test.audit_job('aaaaaaaa-0000-0000-0000-0000000a0d19', 'building', null, null);
+set role omnikom_fn;
+insert into test.r select 'auEmpty', service.site_audit(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-0000000a0d19');
+reset role;
+do $$ begin assert (select v from test.r where k = 'auEmpty') = '{"latest":{"preview":null,"production":null},"history":[]}'::jsonb, 'T24 a site with no finished publish answers null, null, []: ' || (select v from test.r where k = 'auEmpty')::text; end $$;
+-- the function: closed to anon, authenticated and PUBLIC, open to the function role, definer with an empty search_path; its helper is closed too
+do $$ declare f text; begin
+  foreach f in array array['service.site_audit(jsonb,uuid)', 'private.audit_row(uuid,timestamptz,public.job_state,jsonb,boolean)'] loop
+    assert not has_function_privilege('anon', f, 'execute') and not has_function_privilege('authenticated', f, 'execute') and not exists (select 1 from aclexplode((select proacl from pg_proc where oid = f::regprocedure)) a where a.grantee = 0), f || ' is closed to anon, authenticated and PUBLIC';
+    assert (select prosecdef from pg_proc where oid = f::regprocedure) and (select proconfig from pg_proc where oid = f::regprocedure) = array['search_path=""'], f || ' is a definer function with an empty search_path';
+  end loop;
+  assert has_function_privilege('omnikom_fn', 'service.site_audit(jsonb,uuid)', 'execute'), 'service.site_audit is open to the function role';
 end $$;
 
 select 'ALL TENANCY TESTS PASSED' as result;

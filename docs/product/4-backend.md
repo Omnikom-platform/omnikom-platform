@@ -28,7 +28,7 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
 | `media-export` | runner, signed | hands the runner one original to process |
 | `media-process-callback` | runner, signed | sets width, height, `exif_stripped`, `processed` |
 | `export-published` | runner, signed | `freeze_snapshot` then the frozen rows, the contract, the media list and the site's Pages project |
-| `job-callback` | runner, signed | `set_job_state` (409 on an illegal move) |
+| `job-callback` | runner, signed | `set_job_state` (409 on an illegal move); the gate report (at most 64 KiB) carries `audit`, the audit summary version 1, for a pass and a fail |
 | `capture-lead` | the site's `/api/lead`, signed with that site's key | stores the lead (`5-crm.md`), sends the new-lead alert by Resend |
 | `add-lead` | dashboard | a lead entered by hand, consent tick required |
 | `lead-update` | dashboard | status, owner, unassign, note, mark read; `fields` edits any core or editable industry field (M14 `lead_set_fields`), 200 `{changed}` |
@@ -36,6 +36,7 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
 | `crm-map-propose` | dashboard (owner) | proposes how the client's CRM file maps to our core and industry fields (`tools/crm-map` proposeMap; headers and 20 sample rows, or a file of at most 1 MB); stores nothing |
 | `crm-template-save` | dashboard (owner) | confirms the map (`validateTemplate`, every industry field on the forms) and saves it (M15 `save_crm_template`, one per name) |
 | `lead-import` | dashboard (owner) | the client's file (CSV, at most 1 MB and 5000 rows, measured below) through a saved map (M15 `import_leads`): a dry run first; a real run needs the consent tick, all or nothing |
+| `site-audit` | dashboard (owner) | a site's stored search check (M16 `site_audit`): `{ latest: { preview, production }, history }`, the newest audit summary per target and the last 10 publishes (date, state, pass, counts); 404 for a member, another workspace and a missing site; read by the dashboard's Search health (`6-dashboard.md`) |
 | `lead-list` | dashboard | the CRM list on the server (M14 `lead_list`): search, filter, sort, page of at most 200, typed columns in form order; 422 `S-QUERY` for a key that is not a column |
 | `leads-bulk` | dashboard | status, owner or delete for up to 500 leads, all or nothing (M14 `leads_bulk`); delete needs `confirm: true` (409 `S-CONFIRM`); a single delete is a bulk of one |
 | `invite-member` | dashboard (owner) | creates or finds the login and adds the member; sends no mail yet |

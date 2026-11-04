@@ -90,7 +90,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B18 Settings: websites | MISSING | screen only; the data is already read |
 | B19 Settings: CRM webhook card | PARTLY, to be removed | belongs to the dropped push (`5-crm.md`) |
 | B20 Overview | MISSING | `/w/$ws` redirects to leads |
-| B21 Search and AI visibility numbers | MISSING | only the empty `metrics_snapshots` table |
+| B21 Search and AI visibility numbers | MISSING | only the empty `metrics_snapshots` table; the site-check half is stored per publish (work order 06: the runner puts the audit summary in `gate_report.audit`, M16 `site_audit`, function `site-audit`), no screen yet |
 | B23 Not found, service unreachable, loading states | WORKS | D:pages/NotFound.tsx, D:lib/problems.ts |
 
 ### C. Backend and database

@@ -85,6 +85,10 @@ verify_jwt = true            # dashboard user
 [functions.lead-import]
 verify_jwt = true            # dashboard user
 
+# Work order 06 (2026-11-04): a site's stored audit summaries. Dashboard function, owner (or staff with MFA) of the site's workspace only (checked in the database).
+[functions.site-audit]
+verify_jwt = true            # dashboard user
+
 # supabase/functions/test holds the Deno tests, not a function. A bare `supabase functions deploy` deploys every folder of supabase/functions
 # unless it is disabled here, so the test folder is switched off (deploys are by name through tools/deploy-functions.mjs anyway).
 [functions.test]
