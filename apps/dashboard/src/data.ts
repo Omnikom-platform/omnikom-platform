@@ -1,10 +1,11 @@
 // Reads. Every read goes through the Data API as the signed-in login, so Row-Level Security decides what comes back; nothing here
 // filters for safety, it only narrows for the screen. Server state only, keyed by workspace (03-FRONTEND B3).
 import { useEffect, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from './supabase';
-import { fetchDrafts, type Draft } from './api';
-import type { ContractForms, Lead, LeadEvent } from './lib/leads';
+import { fetchDrafts, listLeads, type Draft } from './api';
+import { countQuery, PAGE_SIZE, viewQuery, type Column, type ListAnswer, type View } from './lib/crm';
+import { FILTERS, type ContractForms, type Filter, type Lead, type LeadEvent } from './lib/leads';
 import type { Contract, Job, JobEvent, SiteState } from './lib/site';
 
 export type Workspace = { id: string; slug: string; name: string };
@@ -128,7 +129,7 @@ export function useContractForms(wsId: string) {
   });
 }
 
-const LEAD_COLUMNS = 'id,workspace_id,site_id,form,flow,page_path,name,email,phone,answers,consent_text,marketing_consent,status,owner_team_row,created_at';
+const LEAD_COLUMNS = 'id,workspace_id,site_id,form,flow,cta,page_path,name,email,phone,answers,consent_text,marketing_consent,sms_consent,status,owner_team_row,created_at';
 
 /** Ids that have been on a list in this tab: a lead that was listed and is now gone was removed, one that never was is not found. */
 export const everListed = new Set<string>();
@@ -141,6 +142,64 @@ export function useLeads(wsId: string) {
       for (const l of rows) everListed.add(l.id);
       return rows;
     },
+  });
+}
+
+/** The CRM list: one page of the view as lead-list answers it (search, filter, sort on the server, typed). The page before stays on screen while the next loads. */
+export function useLeadList(wsId: string, view: View, myTeamRow: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ['leadlist', wsId, view, myTeamRow],
+    enabled,
+    placeholderData: keepPreviousData,
+    queryFn: async (): Promise<ListAnswer> => {
+      const a = await listLeads({ workspace: wsId, ...viewQuery(view, myTeamRow), page: view.page, size: PAGE_SIZE });
+      for (const r of a.rows) everListed.add(r.id);
+      return a;
+    },
+  });
+}
+
+/** The number next to each filter (DP-1.3-02): that filter's total in the current site, four calls of size 1. */
+export function useFilterCounts(wsId: string, site: string, myTeamRow: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ['leadcounts', wsId, site, myTeamRow],
+    enabled,
+    placeholderData: keepPreviousData,
+    queryFn: async (): Promise<Record<Filter, number>> => {
+      const totals = await Promise.all(FILTERS.map(async f => [f.id, (await listLeads({ workspace: wsId, ...countQuery(f.id, site, myTeamRow), size: 1 })).total] as const));
+      return Object.fromEntries(totals) as Record<Filter, number>;
+    },
+  });
+}
+
+/** The workspace's lead columns and every industry field (label, type, options, editable), from lead-list: what the record and the filters need. */
+export function useLeadColumns(wsId: string) {
+  return useQuery({
+    queryKey: ['leadcolumns', wsId],
+    queryFn: async (): Promise<{ columns: Column[]; fields: Column[] }> => {
+      const a = await listLeads({ workspace: wsId, size: 1 });
+      return { columns: a.columns, fields: a.fields };
+    },
+  });
+}
+
+/** Which of these leads this login has opened (lead_reads: own rows only). A lead with no row of mine is unread and shows in bold (DP-1.3-08). */
+export function useReadIds(ids: string[], userId: string | undefined) {
+  return useQuery({
+    queryKey: ['reads', userId, ids.join(',')],
+    enabled: Boolean(userId) && ids.length > 0,
+    placeholderData: keepPreviousData,
+    queryFn: async (): Promise<Set<string>> => new Set((must(await supabase.from('lead_reads').select('lead_id').in('lead_id', ids)) as { lead_id: string }[]).map(r => r.lead_id)),
+  });
+}
+
+export type Template = { id: string; name: string; crm: string };
+
+/** The workspace's saved CRM layouts by name (crm_templates; a member may read them): the export layout choice (DP-1.3-26). */
+export function useTemplates(wsId: string) {
+  return useQuery({
+    queryKey: ['templates', wsId],
+    queryFn: async (): Promise<Template[]> => must(await supabase.from('crm_templates').select('id,name,crm').eq('workspace_id', wsId).order('name')) as Template[],
   });
 }
 
@@ -171,6 +230,8 @@ export function useLeadsLive(wsId: string): LiveState {
       .channel(`leads-${wsId}-${Math.random().toString(36).slice(2, 8)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leads', filter: `workspace_id=eq.${wsId}` }, payload => {
         void qc.invalidateQueries({ queryKey: ['leads', wsId] });
+        void qc.invalidateQueries({ queryKey: ['leadlist', wsId] });
+        void qc.invalidateQueries({ queryKey: ['leadcounts', wsId] });
         const id = (payload.new as { id?: string } | null)?.id;
         if (id) void qc.invalidateQueries({ queryKey: ['lead', wsId, id] });
       })

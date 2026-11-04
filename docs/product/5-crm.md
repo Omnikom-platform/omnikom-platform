@@ -92,7 +92,7 @@ The CRM features named MISSING in `1-product.md`: A13 choose the columns, A14 sa
 date and tasks, A18 duplicates. PARTLY: A2 every field visible, A3 field edit, A9 delete, A10 search, A11 filter, A12 sort,
 A15 bulk edit, A19 unread bold, A20 CSV export (no button), A21 export in their layout, A22 import, A24 industry fields as
 columns (the backend of A3, A9-A12, A15, A20 and A24 is proven on staging, work order 01, and of A21 and A22, e2e-crm-io 2026-11-04,
-work order 02; the screens are block 3).
+work order 02; the screens are built in block 3a, work order 07, and move these rows to WORKS when the staging flows pass).
 
 Delete is a hard delete, as privacy requires (head of operations' ruling 2026-11-03, not an owner question): the row goes,
 the consent ledger row stays, one audit row per deleted lead names it (`lead-delete`, with a hash of the email). It needs an

@@ -1,4 +1,8 @@
-// lead-export: "Export CSV" under the lead filter (DP-1.3-05; 15-CRM section 7; slice 5.2). Body { site, filter?: 'new' | 'all' | 'mine' | 'spam', q?: string }.
+// lead-export: the CRM's Export (DP-1.3-05; 15-CRM section 7; slice 5.2). Two body shapes:
+//   { site, filter?: 'new' | 'all' | 'mine' | 'spam', q?: string }   block 1's: one site under the New / All / Mine / Spam filter (the CLI and the e2e files use it).
+//   { workspace, search?, filters?, sort?, template?, timezone? }    the CRM view (work orders 02 and 07): the leads exactly as service.lead_list shows them to the caller
+//     (search over every column, filters and sort on any column, the same query as the screen), with the client's saved layout when `template` is given and, without it,
+//     in block 1's one-column-per-field layout (the columns below). A body with `workspace` always takes this shape; `template` without `workspace` is a 400.
 // What the caller gets is exactly what the database lets them read: the leads are selected on a connection that acts AS THE CALLER under Row Level
 // Security (db.ts asCaller: role authenticated + their verified claims), never as the service role. An owner or staff reads every lead of the
 // site, an agent only the leads assigned to them.
@@ -27,7 +31,7 @@ export const handle = makeHandle();
 
 async function serve(req: Request, maxRows: number): Promise<Response> {
   return await dashboard(req, 'lead-export', async (c: Ctx, d) => {
-    if (d.template !== undefined) return await inLayout(c, d, maxRows);   // work order 02: the client's own layout
+    if (d.template !== undefined || d.workspace !== undefined) return await inLayout(c, d, maxRows);   // work orders 02 and 07: the CRM view, in the client's layout or block 1's plain one
     const f = new Fields(d);
     const site = f.uuid('site'), filter = f.str('filter', { max: 10 }) ?? 'all', q = (f.str('q', { max: 100 }) ?? '').trim();
     if (!FILTERS.includes(filter)) f.problems.push({ code: 'ENUM', path: 'filter', msg: 'Not a lead filter.' });
@@ -55,15 +59,20 @@ async function serve(req: Request, maxRows: number): Promise<Response> {
     await c.sql`select service.leads_exported(${c.jwtClaims}::jsonb, ${site}::uuid, ${leads.map(l => l.id)}::uuid[])`;
     // the industry fields, in form order, from the same function the list uses (a caller who cannot see the workspace gets none, and 404 above)
     const fields: Field[] = ws ? (((await c.sql`select service.lead_list(${c.jwtClaims}::jsonb, ${ws}::uuid, '{"size":1}'::jsonb) as r`)[0].r as { fields?: Field[] }).fields ?? []) : [];
-    const csv = csvLine(['received', 'name', 'email', 'phone', 'form', 'page', 'status', 'owner', ...fields.map(x => x.key)])
-      + leads.map(l => { const a = (l.answers ?? {}) as Record<string, unknown>; return csvLine([l.created_at.toISOString(), l.name, l.email, l.phone, l.form, l.page_path, l.status,
-        l.owner_team_row ? (names.get(l.owner_team_row) ?? l.owner_team_row) : '', ...fields.map(x => plain(a[x.key]))]); }).join('');
+    const csv = plainFile(leads, names, fields);
     return new Response(csv, { status: 200, headers: {
       'content-type': 'text/csv; charset=utf-8', 'cache-control': 'no-store',
       'content-disposition': `attachment; filename="leads-${new Date().toISOString().slice(0, 10)}.csv"`,
       ...(capped ? { 'x-omnikom-export-capped': String(MAX_ROWS) } : {}),
     } });
   });
+}
+
+/** block 1's file: the core columns, then every industry field of the contract in form order (the leads are in the order to write them) */
+function plainFile(leads: Lead[], names: Map<string, string | null>, fields: Field[]): string {
+  return csvLine(['received', 'name', 'email', 'phone', 'form', 'page', 'status', 'owner', ...fields.map(x => x.key)])
+    + leads.map(l => { const a = (l.answers ?? {}) as Record<string, unknown>; return csvLine([l.created_at.toISOString(), l.name, l.email, l.phone, l.form, l.page_path, l.status,
+      l.owner_team_row ? (names.get(l.owner_team_row) ?? l.owner_team_row) : '', ...fields.map(x => plain(a[x.key]))]); }).join('');
 }
 
 /** one answer as a spreadsheet cell: a list joined by "; ", a tick yes or no, anything else as text (csv.ts adds the formula guard) */
@@ -75,7 +84,8 @@ export function plain(v: unknown): string {
 }
 
 // ---------- work order 02 Settled 4: the export in the client's CRM layout ----------
-// Body { workspace, template, search?, filters?, sort?, timezone? (IANA; the day the us and eu date forms print) }; block 1's site, filter and q are not read.
+// Body { workspace, template?, search?, filters?, sort?, timezone? (IANA; the day the us and eu date forms print) }; block 1's site, filter and q are not read.
+// Without `template` (work order 07) the file is block 1's plain CSV of the same view: the same columns in the same order, the same cap and header, one `exported` event per lead.
 // The set and its order are service.lead_list's: the same query as the CRM screen (search, filters, sort), exactly the leads RLS shows the caller,
 // read 200 a page up to MAX_ROWS (X-Omnikom-Export-Capped beyond, the first MAX_ROWS of the view). The map and the leads are read as the caller
 // (asCaller): a member exports with its workspace's map and only its own leads; another workspace's map is not found (404). exportRows writes the
@@ -87,24 +97,28 @@ type Full = { id: string; site_id: string | null; created_at: Date; name: string
 
 async function inLayout(c: Ctx, d: Record<string, unknown>, maxRows: number): Promise<Response> {
   const f = new Fields(d);
-  const workspace = f.uuid('workspace'), template = f.uuid('template'), search = f.str('search', { max: 200 }), timezone = f.str('timezone', { max: 60 });
+  const workspace = f.uuid('workspace'), template = f.uuid('template', false), search = f.str('search', { max: 200 }), timezone = f.str('timezone', { max: 60 });
   const filters = d.filters, sort = d.sort;
   if (filters !== undefined && !(Array.isArray(filters) && filters.length <= 20)) f.problems.push({ code: 'TYPE', path: 'filters', msg: 'A list of at most 20 filters.' });
   if (sort !== undefined && (sort === null || typeof sort !== 'object' || Array.isArray(sort))) f.problems.push({ code: 'TYPE', path: 'sort', msg: 'An object { field, dir }.' });
-  if (f.problems.length || !workspace || !template) return badBody(f.problems);
+  if (f.problems.length || !workspace) return badBody(f.problems);
   c.workspace = workspace;
-  const [tpl] = await asCaller(c.sql, c.jwtClaims, (tx) =>
-    tx`select t.id, t.name, t.crm, t.columns, t.value_maps from public.crm_templates t where t.id = ${template}::uuid and t.workspace_id = ${workspace}::uuid`) as Template[];
-  if (!tpl) return problem(404, 'S-NOT-FOUND', 'Not found.');
+  const tpl: Template | undefined = template ? ((await asCaller(c.sql, c.jwtClaims, (tx) =>
+    tx`select t.id, t.name, t.crm, t.columns, t.value_maps from public.crm_templates t where t.id = ${template}::uuid and t.workspace_id = ${workspace}::uuid`)) as Template[])[0] : undefined;
+  // no template: the caller must be able to see the workspace (RLS), as a site they cannot see is a 404 in block 1's shape; lead_list alone would answer an empty file
+  const seen = template ? true : ((await asCaller(c.sql, c.jwtClaims, (tx) => tx`select w.id from public.workspaces w where w.id = ${workspace}::uuid`)) as unknown[]).length > 0;
+  if (template ? !tpl : !seen) return problem(404, 'S-NOT-FOUND', 'Not found.');
   const q: Record<string, unknown> = { size: PAGE };
   if (search) q.search = search;
   if (filters !== undefined) q.filters = filters;
   if (sort !== undefined) q.sort = sort;
   const ids: string[] = [];
   let total = 0;
+  let fields: Field[] = [];
   for (let page = 1; ids.length < maxRows; page++) {
     const [{ r }] = await c.sql`select service.lead_list(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${{ ...q, page }}::jsonb) as r`;
     total = Number(r.total);
+    if (page === 1) fields = (r.fields as Field[] | undefined) ?? [];   // the contract's industry fields in form order, the plain CSV's columns
     for (const row of r.rows as { id: string }[]) ids.push(row.id);
     if ((r.rows as unknown[]).length < PAGE || ids.length >= total) break;
   }
@@ -124,8 +138,8 @@ async function inLayout(c: Ctx, d: Record<string, unknown>, maxRows: number): Pr
   const ours = ordered.map(l => ({ name: l.name, email: l.email, phone: l.phone, form: l.form, page_path: l.page_path, flow: l.flow, cta: l.cta, status: l.status,
     created_at: l.created_at.toISOString(), owner: l.owner_team_row ? (names.get(l.owner_team_row) ?? '') : '',
     answers: Object.fromEntries(Object.entries(l.answers ?? {}).map(([k, v]) => [k, plain(v)])) }));
-  let out: Record<string, string>[];
-  try { out = exportRows({ columns: tpl.columns, value_maps: tpl.value_maps }, ours, { timezone: timezone ?? undefined }); }
+  let out: Record<string, string>[] = [];
+  if (tpl) try { out = exportRows({ columns: tpl.columns, value_maps: tpl.value_maps }, ours, { timezone: timezone ?? undefined }); }
   catch (e) {
     const code = (/^(T-[A-Z-]+):/.exec(String((e as Error).message)) ?? [, 'T-COLUMNS'])[1] as string;
     return problem(422, code, code === 'T-TIMEZONE' ? 'Not a time zone we know (use a name like America/Los_Angeles).' : 'The saved map cannot write this export; save the map again.');
@@ -134,6 +148,13 @@ async function inLayout(c: Ctx, d: Record<string, unknown>, maxRows: number): Pr
   const bySite = new Map<string, string[]>();
   for (const l of ordered) if (l.site_id) bySite.set(l.site_id, [...(bySite.get(l.site_id) ?? []), l.id]);
   for (const [site, list] of bySite) await c.sql`select service.leads_exported(${c.jwtClaims}::jsonb, ${site}::uuid, ${list}::uuid[])`;
+  if (!tpl) {   // block 1's plain file from the same view
+    return new Response(plainFile(ordered, names, fields), { status: 200, headers: {
+      'content-type': 'text/csv; charset=utf-8', 'cache-control': 'no-store',
+      'content-disposition': `attachment; filename="leads-${new Date().toISOString().slice(0, 10)}.csv"`,
+      ...(total > maxRows ? { 'x-omnikom-export-capped': `${maxRows}` } : {}),
+    } });
+  }
   const csv = toCsv(out, tpl.columns.map(col => col.header));
   return new Response(csv, { status: 200, headers: {
     'content-type': 'text/csv; charset=utf-8', 'cache-control': 'no-store',

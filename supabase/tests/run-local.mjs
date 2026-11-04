@@ -519,7 +519,7 @@ const MUTANTS = [
     [`crm14: migration 14 closes service.${sig.split('(')[0]} to anon, authenticated, PUBLIC (both layers)`, [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], [`revoke all on function service.${sig} from public, anon, authenticated;`, '-- (revoke removed)']]],
     [`crm14: migration 14 opens service.${sig.split('(')[0]} to the function role (both layers)`, [['alter default privileges in schema service grant execute on functions to service_role, omnikom_fn;', '-- (no default grant)'], [`grant execute on function service.${sig} to service_role, omnikom_fn;`, '-- (grant removed)']]],
   ]),
-  ...['lead_set_fields(p_claims jsonb, p_lead uuid, p_fields jsonb) returns int', "lead_list(p_claims jsonb, p_workspace uuid, p_query jsonb default '{}') returns jsonb"].map(h => [`crm14: service.${h.split('(')[0]} does not pin the search_path`, `create function service.${h} language plpgsql security definer set search_path = '' as $$`, `create function service.${h} language plpgsql security definer as $$`]),
+  ...['lead_set_fields(p_claims jsonb, p_lead uuid, p_fields jsonb) returns int'].map(h => [`crm14: service.${h.split('(')[0]} does not pin the search_path`, `create function service.${h} language plpgsql security definer set search_path = '' as $$`, `create function service.${h} language plpgsql security definer as $$`]),
 
   // ---- work order 02 (migration 15): the map's fields, the map, the import, add_lead typed; tests in tenancy.test.sql T23 ----
   ['crm15: add_lead stores the raw answers (F3)', "  typed := private.typed_lead_answers(ws, private.lead_column_defs(ws), p_answers, false);", "  typed := coalesce(p_answers, '{}');"],
@@ -561,6 +561,14 @@ const MUTANTS = [
   ]),
   ['crm15: service.crm_fields does not pin the search_path', "create function service.crm_fields(p_claims jsonb, p_workspace uuid) returns jsonb language plpgsql security definer set search_path = '' as $$", "create function service.crm_fields(p_claims jsonb, p_workspace uuid) returns jsonb language plpgsql security definer as $$"],
   ['crm15: service.import_leads does not pin the search_path', "returns jsonb\nlanguage plpgsql security definer set search_path = '' as $$\ndeclare me uuid; staff boolean; role public.member_role; o jsonb", "returns jsonb\nlanguage plpgsql security definer as $$\ndeclare me uuid; staff boolean; role public.member_role; o jsonb"],
+
+  // ---- work order 07 (migration 18): `site` is a filterable key of lead_list; tests in tenancy.test.sql T24 ----
+  ['crm18: service.lead_list does not pin the search_path (migrations 14 and 18)', [["create function service.lead_list(p_claims jsonb, p_workspace uuid, p_query jsonb default '{}') returns jsonb language plpgsql security definer set search_path = '' as $", "create function service.lead_list(p_claims jsonb, p_workspace uuid, p_query jsonb default '{}') returns jsonb language plpgsql security definer as $"], ["create or replace function service.lead_list(p_claims jsonb, p_workspace uuid, p_query jsonb default '{}') returns jsonb language plpgsql security definer set search_path = '' as $", "create or replace function service.lead_list(p_claims jsonb, p_workspace uuid, p_query jsonb default '{}') returns jsonb language plpgsql security definer as $"]]],
+  ['crm18: the site key is not a filterable key', ",\"page\":\"text\",\"site\":\"text\"}'::jsonb;", ",\"page\":\"text\"}'::jsonb;"],
+  ['crm18: the site key is not in lead_value', " when 'site' then to_jsonb(l.site_id::text) else", " else"],
+  ['crm18: the site key reads the workspace, not the site', "when 'site' then to_jsonb(l.site_id::text)", "when 'site' then to_jsonb(l.workspace_id::text)"],
+  ['crm18: a site filter reaches across workspaces (both layers)', "    where l.workspace_id = p_workspace\n      and (see_all or", "    where true\n      and (see_all or"],
+  ['crm18: an answer named site overwrites the row\'s site', "'owner', 'form', 'page', 'site')", "'owner', 'form', 'page')"],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

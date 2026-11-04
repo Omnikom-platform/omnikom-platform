@@ -2,18 +2,97 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { updateLead, type LeadChange } from '../api';
-import { everListed, useContractForms, useEvents, useEventsLive, useLead, useMe, useTeam } from '../data';
-import { answerRows, marketingLine, receivedWords, STATUSES, telHref, timelineLines, type Lead, type LeadEvent, type LeadStatus } from '../lib/leads';
-import { UNREACHABLE } from '../lib/problems';
+import { everListed, useContractForms, useEvents, useEventsLive, useLead, useLeadColumns, useMe, useSites, useTeam } from '../data';
+import { editText, editValue, recordFields, type RecordField } from '../lib/crm';
+import { marketingLine, receivedWords, smsLine, STATUSES, telHref, timelineLines, type Lead, type LeadEvent, type LeadStatus } from '../lib/leads';
+import { CallFailed, UNREACHABLE } from '../lib/problems';
 import { useSession } from '../auth';
 import { useWide } from '../hooks';
 import { useWorkspaceValue } from '../workspace-context';
 import { t } from '../plan';
 import { UNDO, useToast } from '../toast';
+import { DeleteSheet } from './DeleteSheet';
 import { NotFound } from './NotFound';
 import css from './Panel.module.css';
+import crm from './Crm.module.css';
 
 const NOTE_MAX = 2000;
+const FIELD_FAILED = t('DP-1.3-38', 'Could not save. Try again.');
+
+const said = (e: unknown): string => (e instanceof CallFailed && e.problem.plain ? e.problem.message : FIELD_FAILED);
+
+/** The box a field is edited in, by its kind (DP-1.3-37): text, a number with its limits, a pick of its options, yes or no, a date, several options as ticks. */
+function FieldBox({ f, text, onText }: { f: RecordField; text: string | string[]; onText: (v: string | string[]) => void }) {
+  const label = f.label;
+  if (f.type === 'multi' && f.options?.length) {
+    const picked = Array.isArray(text) ? text : [];
+    return (
+      <span data-plan="DP-1.3-37">
+        {f.options.map(o => (
+          <label key={o}>
+            <input type="checkbox" checked={picked.includes(o)} onChange={e => onText(e.target.checked ? [...picked, o] : picked.filter(x => x !== o))} />
+            {o}
+          </label>
+        ))}
+      </span>
+    );
+  }
+  const one = typeof text === 'string' ? text : '';
+  if (f.type === 'boolean') {
+    return (
+      <select data-plan="DP-1.3-37" aria-label={label} value={one} onChange={e => onText(e.target.value)}>
+        <option value="" />
+        <option value="yes">{t('DP-1.3-37', 'Yes')}</option>
+        <option value="no">{t('DP-1.3-37', 'No')}</option>
+      </select>
+    );
+  }
+  if (f.options?.length) {
+    return (
+      <select data-plan="DP-1.3-37" aria-label={label} value={one} onChange={e => onText(e.target.value)}>
+        <option value="" />
+        {f.options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    );
+  }
+  const kind = f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'email' ? 'email' : f.type === 'phone' ? 'tel' : 'text';
+  return <input data-plan="DP-1.3-37" type={kind} aria-label={label} value={one} min={f.min} max={f.max} onChange={e => onText(e.target.value)} />;
+}
+
+/** One field of the record (DP-1.3-14): its label and value; an editable one has Edit, then a box with Save and Cancel (Esc too). A refusal shows under the box. */
+function FieldRow({ f, onSave }: { f: RecordField; onSave: (f: RecordField, value: unknown) => Promise<string> }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState<string | string[]>('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  function open() { setText(editText(f)); setError(''); setEditing(true); }
+  async function save() {
+    const v = editValue(f, text);
+    if (!v.ok) { setError(FIELD_FAILED); return; }
+    setBusy(true);
+    const problem = await onSave(f, v.value);
+    setBusy(false);
+    if (problem) setError(problem); else setEditing(false);
+  }
+  return (
+    <div className={crm.fieldRow}>
+      <dt>{f.label}</dt>
+      {editing ? (
+        <dd onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setEditing(false); } }}>
+          <FieldBox f={f} text={text} onText={setText} />
+          <button type="button" data-plan="DP-1.3-37" disabled={busy} onClick={() => void save()}>{t('DP-1.3-37', 'Save')}</button>
+          <button type="button" data-plan="DP-1.3-37" onClick={() => setEditing(false)}>{t('DP-1.3-37', 'Cancel')}</button>
+          {error && <p role="alert" data-plan="DP-1.3-38">{error}</p>}
+        </dd>
+      ) : (
+        f.editable
+          ? <dd data-empty={f.empty ? 'true' : undefined}>{f.display}</dd>
+          : <dd data-plan="DP-1.3-39" data-empty={f.empty ? 'true' : undefined}>{f.display}</dd>
+      )}
+      {f.editable && !editing && <dd><button type="button" data-plan="DP-1.3-37" aria-label={`${t('DP-1.3-37', 'Edit')} ${f.label}`} onClick={open}>{t('DP-1.3-37', 'Edit')}</button></dd>}
+    </div>
+  );
+}
 
 /** The panel's close (DP-1.3-20): X on a wide screen, Back on a narrow one, and Esc. */
 export function PanelClose() {
@@ -45,8 +124,13 @@ export function LeadPanel() {
   const team = useTeam(workspace.id);
   const forms = useContractForms(workspace.id);
   const me = useMe(workspace.id, userId);
+  const columns = useLeadColumns(workspace.id);
+  const sites = useSites(workspace.id);
+  const nav = useNavigate();
+  const { ws } = useParams({ from: '/authed/w/$ws' });
   const wide = useWide();
   useEventsLive(workspace.id, id);
+  const [deleting, setDeleting] = useState(false);
 
   const [statusError, setStatusError] = useState('');
   const [ownerError, setOwnerError] = useState('');
@@ -70,8 +154,30 @@ export function LeadPanel() {
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ['lead', workspace.id, id] });
     void qc.invalidateQueries({ queryKey: ['leads', workspace.id] });
+    void qc.invalidateQueries({ queryKey: ['leadlist', workspace.id] });
+    void qc.invalidateQueries({ queryKey: ['leadcounts', workspace.id] });
     void qc.invalidateQueries({ queryKey: ['events', workspace.id, id] });
   };
+
+  // opening a lead marks it read for this login (DP-1.3-08); the row in the list loses its bold. A refusal changes nothing the person can see.
+  const present = Boolean(lead.data);
+  useEffect(() => {
+    if (!present) return;
+    void updateLead({ lead: id, read: true }).then(() => qc.invalidateQueries({ queryKey: ['reads'] })).catch(() => undefined);
+  }, [id, present, qc]);
+
+  /** One field through lead-update `fields`; the answer is the function's plain-word problem, or '' when it saved (and the toast offers Undo). */
+  async function saveField(f: RecordField, value: unknown): Promise<string> {
+    const before = f.value ?? null;
+    try {
+      await updateLead({ lead: id, fields: { [f.key]: value } });
+    } catch (e) {
+      return said(e);
+    }
+    refresh();
+    toast(`${f.label} ${t('DP-1.3-37', 'saved.')}`, { label: UNDO, run: () => void updateLead({ lead: id, fields: { [f.key]: before } }).catch(() => undefined).finally(refresh) });
+    return '';
+  }
 
   /** Change status or owner at once; on a refusal put the old value back and say so. `said` is the toast, with Undo when `undo` is given. */
   async function change(kind: 'status' | 'owner', call: LeadChange, patch: Partial<Lead>, back: Partial<Lead>, said: string, undo: (() => void) | null) {
@@ -142,8 +248,10 @@ export function LeadPanel() {
 
   const isMember = me.data?.role === 'member';
   const title = data.name || data.email || data.phone || '';
-  const answers = answerRows(data.answers, data.form, forms.data ?? null);
-  const lines = timelineLines(events.data ?? [], data, names);
+  const fields = columns.data?.fields ?? [];
+  const siteList = sites.data ?? [];
+  const recordRows = recordFields(data, fields, { forms: forms.data ?? null, siteName: sid => siteList.find(s => s.id === sid)?.domain || siteList.find(s => s.id === sid)?.preview_host || '', manySites: siteList.length > 1 });
+  const lines = timelineLines(events.data ?? [], data, names, key => fields.find(x => x.key === key)?.label ?? ({ name: t('DP-1.3-14', 'Name'), email: t('DP-1.3-14', 'Email'), phone: t('DP-1.3-14', 'Phone') } as Record<string, string>)[key] ?? key);
   const marketing = data.marketing_consent;
   const over = note.length > NOTE_MAX;
   // the lead's name is the screen title on a phone (the list is gone) and a section title beside the list on a laptop
@@ -182,7 +290,7 @@ export function LeadPanel() {
       {ownerError && <p role="alert" data-plan="DP-1.3-25">{ownerError}</p>}
 
       <dl data-plan="DP-1.3-14" className={css.answers}>
-        {answers.map(a => (<div key={a.label}><dt>{a.label}</dt><dd>{a.value}</dd></div>))}
+        {recordRows.map(f => <FieldRow key={f.key} f={f} onSave={saveField} />)}
       </dl>
 
       <form data-plan="DP-1.3-15" onSubmit={e => void addNote(e)} className={css.note}>
@@ -207,7 +315,13 @@ export function LeadPanel() {
         <blockquote>{data.consent_text}</blockquote>
         {marketing?.text && <blockquote>{marketing.text}</blockquote>}
         <p data-plan="DP-1.3-23">{marketingLine(marketing)}</p>
+        <p data-plan="DP-1.3-40">{smsLine(data.sms_consent)}</p>
       </div>
+
+      {!isMember && <button type="button" data-plan="DP-1.3-19" onClick={() => setDeleting(true)}>{t('DP-1.3-19', 'Delete this lead')}</button>}
+      {deleting && (
+        <DeleteSheet workspaceId={workspace.id} ids={[id]} onClose={() => setDeleting(false)} onDeleted={() => { setDeleting(false); void nav({ to: '/w/$ws/leads', params: { ws } }); }} />
+      )}
     </section>
   );
 }

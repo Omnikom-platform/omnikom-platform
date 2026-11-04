@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "docs": 275,
+    "docs": 276,
     "unownedDocs": 7,
     "unplaced": 183,
     "over300": 9
@@ -66,7 +66,7 @@
     {"path":"docs/blueprint/04-DASHBOARD.md","title":"04 User dashboard: every screen and flow","summary":"Wireframes: `wireframes/wireframes.html` (open in a browser; `?s=<id>` shows one screen), rendered PNGs next to it (`node docs/blueprint/wireframes/render.mj...","owner":"platform-build","layer":"unplaced","lines":92,"loadFor":[]},
     {"path":"docs/blueprint/05-BUILD-PLAN.md","title":"05 Build plan","summary":"Order agreed with the owner (2026-10-28): (1) thin end-to-end pipeline, (2) ELEV8's 42 pages on the approved V4 design with the launch gates, (3) dashboard v...","owner":"platform-build","layer":"unplaced","lines":171,"loadFor":[]},
     {"path":"docs/blueprint/06-PRD.md","title":"06 Product requirements (PRD)","summary":"Version 1.0 (2026-10-28). Owner: Abdo (CTO). Written to ISO/IEC/IEEE 29148:2018 5.2.5-5.2.6 (each requirement verifiable by a named test and traceable to a w...","owner":"platform-build","layer":"unplaced","lines":106,"loadFor":[]},
-    {"path":"docs/blueprint/16-DESIGN-PARTS.md","title":"16 What needs designing, how preview works, and how it runs without breaking","summary":"Written 2026-10-29 for the owner (their ask: list every part that needs designing so the platform is functional with top-tier engineering, every button and c...","owner":"platform-build","layer":"unplaced","lines":316,"loadFor":[]},
+    {"path":"docs/blueprint/16-DESIGN-PARTS.md","title":"16 What needs designing, how preview works, and how it runs without breaking","summary":"Written 2026-10-29 for the owner (their ask: list every part that needs designing so the platform is functional with top-tier engineering, every button and c...","owner":"platform-build","layer":"unplaced","lines":339,"loadFor":[]},
     {"path":"docs/blueprint/25-BUILD-SEQUENCE.md","title":"25 The build sequence: what you do, what I do, what \"done\" looks like, in order","summary":"Written 2026-10-29 23:35 for the owner (\"let's create a building implementation sequence that I can work in hand to hand with you; what would be the first th...","owner":"platform-build","layer":"unplaced","lines":165,"loadFor":[]},
     {"path":"docs/blueprint/PROGRESS.md","title":"Blueprint progress (for the lead session)","summary":"Task: build-ready product engineering package (owner, 2026-10-28), raised to engineering practice, tied to published standards, then corrected by an independ...","owner":"platform-build","layer":4,"lines":1912,"loadFor":[]},
     {"path":"docs/blueprint/adr/0001-one-multi-tenant-supabase.md","title":"ADR 0001: One multi-tenant Supabase database","summary":"Status: Accepted (owner, DECISIONS 11, 2026-10-26). Date: 2026-10-28.","owner":"platform-build","layer":"unplaced","lines":15,"loadFor":[]},
@@ -280,6 +280,7 @@
     {"path":"work/04-workspace-home/CONTEXT.md","title":"Work order 04: one home for all Omnikom Platform work (head of operations, builder)","summary":"Owner 2026-11-04 05:59: \"do whatever is programmatically and engineeringly proper\". Approved map: https://claude.ai/artifact/FkwY79m5MeBMsxKATsUHen . Ruling ...","owner":"head-of-operations","layer":2,"lines":93,"loadFor":[]},
     {"path":"work/05-audit-results/CONTEXT.md","title":"05 audit results","summary":"Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/audit-results. Status: OPEN.","owner":"head-of-operations","layer":2,"lines":71,"loadFor":[]},
     {"path":"work/06-plain-names/CONTEXT.md","title":"06 plain names","summary":"Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/plain-names. Status: OPEN.","owner":"head-of-operations","layer":2,"lines":74,"loadFor":[]},
+    {"path":"work/07-crm-screens/CONTEXT.md","title":"07 CRM screens on the block 1 and 2 backend (block 3a)","summary":"Owner: platform-build. Model: Sonnet 5.5, effort high. Branch: check/platform/crm-screens (worktree on master). Migration: M18 (`supabase/migrations/20261105...","owner":"head-of-operations","layer":2,"lines":127,"loadFor":[]},
     {"path":"work/README.md","title":"Work orders","summary":"`work/` is layer 2 of the layout in `docs/product/README.md`: one folder per piece of work, plus `STATE.md` (where things stand now). A session loads `CLAUDE...","owner":"head-of-operations","layer":2,"lines":47,"loadFor":[]},
     {"path":"work/STATE.md","title":"Where things stand","summary":"Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-04 17:50 by the head of operations. What the product is and every feature's state:...","owner":"head-of-operations","layer":4,"lines":56,"loadFor":[]}
   ]

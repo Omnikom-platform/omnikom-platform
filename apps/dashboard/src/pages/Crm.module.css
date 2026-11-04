@@ -1,0 +1,175 @@
+/* The CRM controls over and around the list (work order 07): column filters, the export choice, the bulk bar, the delete sheet, the
+   import steps. Plain: the existing tokens, no new look (DECISIONS 52). Nothing here is wider than the screen at 390 px. */
+
+.filters,
+.export,
+.bar,
+.addFilter,
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-4);
+  min-width: 0;
+}
+
+.filters {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.addFilter label,
+.export label {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.addFilter :is(select, input) {
+  max-width: 100%;
+}
+
+.chips {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bar {
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-quiet);
+}
+
+.bar > p {
+  margin: 0;
+}
+
+.bar [role='alert'] {
+  flex-basis: 100%;
+}
+
+/* a wide table scrolls inside its box; the page never does */
+.scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.paging {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3) var(--s-4);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.paging p {
+  margin: 0;
+}
+
+/* the delete sheet: over everything, one box */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--gutter);
+  background: rgb(0 0 0 / 0.4);
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  width: 100%;
+  max-width: 440px;
+  padding: var(--card-pad);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.sheet h2,
+.sheet p {
+  margin: 0;
+}
+
+.sheetButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+
+.danger {
+  color: var(--danger, #b3261e);
+  border-color: currentColor;
+}
+
+/* the import screen */
+.import {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  max-width: 760px;
+  min-width: 0;
+}
+
+.import h1,
+.import h2,
+.import p,
+.import ul {
+  margin: 0;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.pairs {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+}
+
+.pairs th,
+.pairs td {
+  padding: var(--s-2) var(--s-3) var(--s-2) 0;
+  text-align: left;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+.import label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.import [role='alert'] {
+  color: var(--danger, #b3261e);
+}
+
+.fieldRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-2) var(--s-3);
+}
+
+.fieldRow dd {
+  margin: 0;
+}
+
+.fieldRow [data-empty='true'] {
+  color: var(--ink-muted);
+}

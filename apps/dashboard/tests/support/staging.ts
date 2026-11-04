@@ -80,6 +80,12 @@ export async function serviceGet<T = unknown>(path: string): Promise<T> {
   return a.json as T;
 }
 
+/** A delete as the service role: the one saved layout the import flow makes on staging, found by its exact name. */
+export async function serviceDelete(path: string): Promise<void> {
+  const res = await fetch(`${supabaseUrl()}/rest/v1${path}`, { method: 'DELETE', headers: secretHeaders(), signal: AbortSignal.timeout(30_000) });
+  if (res.status !== 200 && res.status !== 204) throw new Error(`service delete ${path.split('?')[0]} answered ${res.status}`);
+}
+
 /** The same request a page made, repeated with the service role. Used only by the watched-red mutants (tests/mutants.ts). */
 export async function serviceRepeat(url: string, accept: string | undefined): Promise<{ status: number; body: string; contentType: string }> {
   const res = await fetch(url, { headers: { ...secretHeaders(), ...(accept ? { accept } : {}) }, signal: AbortSignal.timeout(30_000) });

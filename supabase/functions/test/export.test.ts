@@ -1,6 +1,6 @@
 // lead-export (slice 5.2): a CSV of exactly what the caller's own Row Level Security lets them read, with spreadsheet formulas neutralised and an `exported`
 // event for every lead in the file. Every lead these tests make carries the token zz52 (in the email), so the search box narrows to them.
-import { handle } from '../lead-export/index.ts';
+import { handle, makeHandle } from '../lead-export/index.ts';
 import { assert, crmForms, eq, mint, securityEvents, SITE_A, SITE_B, SUB, teamRows, t, WS_A, WS_B, withSql, type Who } from './util.ts';
 
 type Out = { status: number; text: string; headers: Headers };
@@ -164,4 +164,71 @@ t('lead-export: at most 5000 rows, the newest; the header X-Omnikom-Export-Cappe
   eq(parse(over.text).length - 1, 5000, 'still 5000 rows'); eq(over.headers.get('x-omnikom-export-capped'), '5000', 'the header says so');
   eq(parse(over.text)[1][2], 'capnewest-zz52cap@example.com', 'the newest lead comes first');
   assert(!over.text.includes('cap1-zz52cap@'), 'the oldest was left out');
+});
+
+// ---------- work order 07 (Settled 9): the same file from the CRM view { workspace, search, filters, sort }, with no template ----------
+// Three leads on SITE_A carry the token zz07v in the name; the second is not high budget, so a filter on budget leaves it out.
+let viewMade: Promise<{ v1: string; v2: string; v3: string }> | null = null;
+const viewWorld = () => viewMade ??= (async () => {
+  const { team } = await world();
+  return {
+    v1: await mkLead({ name: 'View One zz07v', email: 'v1-zz07v@example.com', owner: team.one, answers: { budget: 'high', rooms: 3 }, at: '2026-04-01T10:00:00Z' }),
+    v2: await mkLead({ name: 'View Two zz07v', email: 'v2-zz07v@example.com', answers: { budget: 'low', rooms: 12 }, at: '2026-04-02T10:00:00Z' }),
+    v3: await mkLead({ name: 'View Three zz07v', email: 'v3-zz07v@example.com', answers: { budget: 'high', rooms: 7 }, at: '2026-04-03T10:00:00Z' }),
+  };
+})();
+const VIEW = { workspace: WS_A, search: 'zz07v' };
+
+t('lead-export without a template: the view\'s column filter decides which leads are in the file, and each gets an exported event', async () => {
+  const { v1, v2, v3 } = await viewWorld();
+  const r = await ok('owner-a', { ...VIEW, filters: [{ field: 'budget', op: 'eq', value: 'high' }] });
+  eq(parse(r.text)[0].join(), HEADER.join(), 'block 1\'s columns, in block 1\'s order');
+  eq(emailsOf(r).join(), 'v3-zz07v@example.com,v1-zz07v@example.com', 'only the high budget leads, newest first');
+  for (const id of [v1, v3]) assert((await exportedBy(id)).includes(SUB['owner-a']), 'an exported event by the owner for ' + id);
+  eq((await exportedBy(v2)).length, 0, 'the lead the filter left out has no event');
+});
+
+t('lead-export without a template: the view\'s sort sets the order of the file (a number sorts as a number)', async () => {
+  await viewWorld();
+  eq(emailsOf(await ok('owner-a', VIEW)).join(), 'v3-zz07v@example.com,v2-zz07v@example.com,v1-zz07v@example.com', 'the default is newest first');
+  eq(emailsOf(await ok('owner-a', { ...VIEW, sort: { field: 'rooms', dir: 'desc' } })).join(), 'v2-zz07v@example.com,v3-zz07v@example.com,v1-zz07v@example.com', 'rooms, largest first (12, 7, 3)');
+  eq(emailsOf(await ok('owner-a', { ...VIEW, sort: { field: 'rooms', dir: 'asc' } })).join(), 'v1-zz07v@example.com,v3-zz07v@example.com,v2-zz07v@example.com', 'rooms, smallest first');
+});
+
+t('lead-export without a template: the file is block 1\'s plain file, byte for byte what { site, filter, q } writes for the same leads', async () => {
+  await viewWorld();
+  const old = await ok('owner-a', { site: SITE_A, filter: 'all', q: 'zz07v' });
+  const view = await ok('owner-a', VIEW);
+  eq(view.text, old.text, 'the same bytes from the old body and from the view');
+  eq(parse(old.text)[1].join('|'), ['2026-04-03T10:00:00.000Z', 'View Three zz07v', 'v3-zz07v@example.com', '', 'contact', '/contact', 'new', '', 'high', '7', '', ''].join('|'), 'the old shape\'s first line, as it always was');
+  eq(view.headers.get('content-disposition')?.startsWith('attachment; filename="leads-'), true, 'a leads-<date>.csv filename'); eq(view.headers.get('cache-control'), 'no-store', 'no-store');
+});
+
+t('lead-export without a template: an agent gets only its own leads, and only those get an event', async () => {
+  const { v1, v3 } = await viewWorld();
+  const before = (await exportedBy(v3)).filter(x => x === SUB['member-a1']).length;
+  eq(emailsOf(await ok('member-a1', VIEW)).join(), 'v1-zz07v@example.com', 'agent one\'s lead only');
+  assert((await exportedBy(v1)).includes(SUB['member-a1']), 'an event for the agent\'s lead');
+  eq((await exportedBy(v3)).filter(x => x === SUB['member-a1']).length, before, 'and none for a lead the agent cannot read');
+});
+
+t('lead-export without a template: the 5000 cap and its header hold on the view (a cap of 2 injected; the deployed one is MAX_ROWS)', async () => {
+  await viewWorld();
+  const small = makeHandle({ maxRows: 2 });
+  const res = await small(new Request('http://localhost/lead-export', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${await mint('owner-a')}` }, body: JSON.stringify(VIEW) }));
+  const text = await res.text();
+  eq(res.status, 200, 'status: ' + text.slice(0, 160)); eq(parse(text).length - 1, 2, 'the first 2 of the 3'); eq(res.headers.get('x-omnikom-export-capped'), '2', 'the header says so');
+  const all = await ok('owner-a', VIEW);
+  eq(parse(all.text).length - 1, 3, 'under the deployed cap: all 3'); eq(all.headers.get('x-omnikom-export-capped'), null, 'not capped');
+});
+
+t('lead-export without a template: a workspace the caller cannot see is 404 and no file; a template with no workspace stays 400; a bad view is 400', async () => {
+  await viewWorld();
+  eq((await exportCsv('owner-b', VIEW)).status, 404, 'another workspace\'s owner');
+  eq((await exportCsv('nobody', VIEW)).status, 404, 'a login of nothing');
+  eq((await exportCsv(null, VIEW)).status, 401, 'no token');
+  eq((await exportCsv('owner-a', { template: 'aaaaaaaa-0000-0000-0000-0000000007aa' })).status, 400, 'a template alone has no workspace');
+  eq((await exportCsv('owner-a', { workspace: 'nope' })).status, 400, 'a workspace that is not an id');
+  eq((await exportCsv('owner-a', { ...VIEW, filters: 'budget' })).status, 400, 'filters that are not a list');
+  eq((await exportCsv('owner-a', { ...VIEW, filters: [{ field: 'nothere', op: 'eq', value: 1 }] })).status >= 400, true, 'a filter on a column that does not exist is refused');
 });

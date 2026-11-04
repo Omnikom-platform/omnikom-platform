@@ -71,6 +71,8 @@ export function AddLead() {
         ...(canPickOwner && owner ? { owner } : {}),
       });
       await qc.invalidateQueries({ queryKey: ['leads', workspace.id] });
+      void qc.invalidateQueries({ queryKey: ['leadlist', workspace.id] });
+      void qc.invalidateQueries({ queryKey: ['leadcounts', workspace.id] });
       toast(t('DP-1.3b-09', 'Lead added.'), { label: t('DP-1.3b-09', 'Open'), run: () => void nav({ to: '/w/$ws/leads/$id', params: { ws, id } }) });
       void nav({ to: '/w/$ws/leads', params: { ws } });
     } catch (err) {

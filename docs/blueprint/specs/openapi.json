@@ -1221,7 +1221,7 @@
       "description": "IANA name; the day the us and eu date forms print"
      }
     },
-    "description": "Without template: site (required), filter, q. With template: workspace and template (required), search, filters, sort, timezone."
+    "description": "Without workspace: site (required), filter, q (block 1's body). With workspace (the CRM view): search, filters, sort, timezone, and optionally template; with template the file is in that CRM's layout, without it block 1's plain file from the same view."
    },
    "InviteMemberRequest": {
     "type": "object",
@@ -2783,7 +2783,7 @@
      }
     ],
     "summary": "Export the leads under the current filter as a CSV file (dashboard; supabase/functions/lead-export)",
-    "description": "The leads are read as the caller under Row Level Security: owner and staff get every lead of the site, an agent only the leads assigned to them. Newest first, at most 5000. Cells that start with = + - @ get a leading quote. One `exported` event is written per lead in the file. With `template` (work order 02) the body is { workspace, template, search?, filters?, sort?, timezone? }: the leads of the caller's CRM view (service.lead_list: the same search, filters and sort, exactly what RLS shows the caller) in the map's columns and order, phones and dates in the client's form, value maps applied, industry columns included, the formula guard on every cell; at most 5000 (X-Omnikom-Export-Capped).",
+    "description": "The leads are read as the caller under Row Level Security: owner and staff get every lead of the site, an agent only the leads assigned to them. Newest first, at most 5000. Cells that start with = + - @ get a leading quote. One `exported` event is written per lead in the file. A body with `workspace` (work orders 02 and 07) is { workspace, template?, search?, filters?, sort?, timezone? }: the leads of the caller's CRM view (service.lead_list: the same search, filters and sort, exactly what RLS shows the caller; a workspace the caller cannot see is 404), at most 5000 (X-Omnikom-Export-Capped), one `exported` event per lead. With `template` they come in the map's columns and order, phones and dates in the client's form, value maps applied, industry columns included, the formula guard on every cell. Without `template` the file is this same plain file (the columns below), written from the view. A `template` without `workspace` is a 400.",
     "requestBody": {
      "required": true,
      "content": {
@@ -2949,7 +2949,7 @@
      }
     ],
     "summary": "The CRM lead list on the server: search, filter, sort and page (dashboard; supabase/functions/lead-list)",
-    "description": "Exactly the leads the caller may read (owner and staff: the workspace; a member: its own; anyone else: none, and no field names). Sort and filter keys are the core columns and the contract's industry columns; a number field sorts as a number; empty values last, then newest first. At most 200 a page. Columns come as an array in contract form order; each row carries each column under its own key, typed.",
+    "description": "Exactly the leads the caller may read (owner and staff: the workspace; a member: its own; anyone else: none, and no field names). Sort and filter keys are the core columns (created_at, name, email, phone, status, owner, form, page, site: the site's id, work order 07) and the contract's industry columns; a number field sorts as a number; empty values last, then newest first. At most 200 a page. Columns come as an array in contract form order; each row carries each column under its own key, typed.",
     "requestBody": {
      "required": true,
      "content": {

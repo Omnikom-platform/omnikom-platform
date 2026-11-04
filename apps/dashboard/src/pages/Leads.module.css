@@ -115,29 +115,11 @@
   margin-left: var(--s-2);
 }
 
+/* as wide as its cells need and no narrower than its box: the box scrolls sideways, a cell never breaks letter by letter */
 .table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
-}
-
-/* Received, Name, What they asked for, Page, Status, Owner: Name takes what is left (about 30%) */
-.table thead th:nth-child(1) { width: 14%; }
-.table thead th:nth-child(3) { width: 17%; }
-.table thead th:nth-child(4) { width: 13%; }
-.table thead th:nth-child(5) { width: 11%; }
-.table thead th:nth-child(6) { width: 15%; }
-
-/* with a lead open beside it, the list keeps Received, Name and What they asked for */
-.layout:has(> section + *) .table :is(th, td):nth-child(n + 4) {
-  display: none;
-}
-
-.layout:has(> section + *) .table thead th:nth-child(1) { width: 26%; }
-.layout:has(> section + *) .table thead th:nth-child(3) { width: 34%; }
-
-.layout:has(> section + *) .table :is(th, td):nth-child(3) {
-  padding-right: 0;
 }
 
 .table thead th {
@@ -147,6 +129,18 @@
   font-weight: 500;
   text-align: left;
   white-space: nowrap;
+}
+
+.table thead th button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.table thead th[aria-sort] button {
+  color: var(--ink);
 }
 
 .table tbody tr {
@@ -164,61 +158,36 @@
   padding: var(--s-4) var(--s-4) var(--s-4) 0;
   text-align: left;
   vertical-align: baseline;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
 .table :is(th, td):last-child {
   padding-right: 0;
 }
 
-/* the name: 600 while the lead is new, 400 once someone has moved it on */
+/* the name: 600 while the lead is unread (not opened by this login yet), 400 once it has been */
 .table tbody th {
   font-weight: 400;
 }
 
-.table tbody tr[data-status='new'] th {
+.table tbody tr[data-unread='true'] th {
   font-weight: 600;
 }
 
-/* the whole row opens the lead */
 .table tbody th a {
   text-decoration: none;
-}
-
-.table tbody th a::after {
-  content: '';
-  position: absolute;
-  inset: 0;
 }
 
 .table tbody tr:hover th a {
   text-decoration: underline;
 }
 
-/* Received: the row's size, muted. Page: ink at the small size */
-.table td:nth-of-type(1) {
-  color: var(--ink-muted);
-}
-
-.table td:nth-of-type(3) {
-  font-size: var(--text-sm);
-}
-
-.table td:nth-of-type(1) {
+.table td time {
   white-space: nowrap;
 }
 
 /* "Unassigned" (DP-1.3-06): muted */
 .table td[data-empty='true'] {
-  color: var(--ink-muted);
-}
-
-.table td:nth-of-type(4) {
-  text-transform: capitalize;
-}
-
-/* a new lead's status reads "New", muted: the name's weight already says it */
-.table tr[data-status='new'] td:nth-of-type(4) {
   color: var(--ink-muted);
 }
 
@@ -250,93 +219,5 @@
   .filter {
     justify-content: space-between;
     gap: var(--s-2);
-  }
-
-  /* one lead in two lines: name and time; what they asked for · page (· status when not new), muted */
-  .table thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-
-  .table,
-  .table tbody {
-    display: block;
-  }
-
-  .table tbody tr {
-    display: grid;
-    grid-template-columns: auto minmax(0, auto) auto minmax(0, 1fr) auto;
-    align-items: baseline;
-    row-gap: var(--s-1);
-    padding: var(--s-3) 0;
-  }
-
-  .table tbody tr:first-child {
-    border-top: 0;
-    padding-top: 0;
-  }
-
-  .table tbody tr:last-child {
-    padding-bottom: 0;
-  }
-
-  .table tbody tr:hover {
-    background: transparent;
-  }
-
-  .table tbody th,
-  .table tbody td {
-    padding: 0;
-  }
-
-  .table tbody th {
-    grid-column: 1 / 5;
-    grid-row: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    padding-right: var(--s-3);
-  }
-
-  .table td:nth-of-type(1) {
-    grid-column: 5;
-    grid-row: 1;
-    justify-self: end;
-    color: var(--ink-muted);
-    font-size: var(--text-sm);
-  }
-
-  .table td:nth-of-type(2),
-  .table td:nth-of-type(3),
-  .table td:nth-of-type(4) {
-    grid-row: 2;
-    color: var(--ink-muted);
-    font-size: var(--text-sm);
-    white-space: nowrap;
-  }
-
-  .table td:nth-of-type(2) { grid-column: 1; }
-  .table td:nth-of-type(3) { grid-column: 2; overflow: hidden; text-overflow: ellipsis; }
-  .table td:nth-of-type(4) { grid-column: 3; }
-
-  .table td:nth-of-type(3):not(:empty)::before,
-  .table td:nth-of-type(4):not(:empty)::before {
-    content: '\00b7';
-    padding: 0 var(--s-2);
-  }
-
-  /* the status shows on the phone row only when it is not new */
-  .table tr[data-status='new'] td:nth-of-type(4) {
-    display: none;
-  }
-
-  /* the owner is in the panel; the phone row stays two lines */
-  .table td:nth-of-type(5),
-  .table td:empty {
-    display: none;
   }
 }

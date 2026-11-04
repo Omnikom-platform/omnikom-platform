@@ -4,8 +4,10 @@ import { config } from './config';
 import { supabase } from './supabase';
 import { CallFailed, problemFrom, UNREACHABLE } from './lib/problems';
 import type { LeadStatus } from './lib/leads';
+import type { ListAnswer, ListFilter, SortSpec } from './lib/crm';
+import type { MapColumn, Proposal, Report } from './lib/importmap';
 
-async function call(name: string, body: Record<string, unknown>): Promise<unknown> {
+async function request(name: string, body: Record<string, unknown>): Promise<{ text: string; res: Response }> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) throw new CallFailed(problemFrom(401, null));
@@ -21,17 +23,70 @@ async function call(name: string, body: Record<string, unknown>): Promise<unknow
     throw new CallFailed({ status: 0, code: 'NETWORK', message: UNREACHABLE, plain: false, fields: [] });
   }
   const text = await res.text();
-  let json: unknown = null;
-  try { json = text ? JSON.parse(text) : null; } catch { /* not JSON: a gateway page */ }
-  if (!res.ok) throw new CallFailed(problemFrom(res.status, json));
-  return json;
+  if (!res.ok) throw new CallFailed(problemFrom(res.status, parseJson(text)));
+  return { text, res };
 }
 
-export type LeadChange = { lead: string; status?: LeadStatus; owner?: string; unassign?: boolean; note?: string };
+function parseJson(text: string): unknown {
+  try { return text ? JSON.parse(text) : null; } catch { return null; /* not JSON: a gateway page */ }
+}
 
-/** lead-update: status, owner (a team row id), unassign, or a note. 204 on success. */
+async function call(name: string, body: Record<string, unknown>): Promise<unknown> {
+  return parseJson((await request(name, body)).text);
+}
+
+export type LeadChange = { lead: string; status?: LeadStatus; owner?: string; unassign?: boolean; note?: string; read?: boolean; fields?: Record<string, unknown> };
+
+/** lead-update: status, owner (a team row id), unassign, a note, read, or fields (one edit call for any core or industry field). 204 on success, 200 { changed } with fields. */
 export async function updateLead(change: LeadChange): Promise<void> {
   await call('lead-update', change);
+}
+
+/** lead-list: the CRM list on the server (search, filters on any column, sort, one page) as the caller; the workspace's own columns come with it. */
+export async function listLeads(q: { workspace: string; search?: string; filters?: ListFilter[]; sort?: SortSpec; page?: number; size?: number }): Promise<ListAnswer> {
+  const out = (await call('lead-list', q)) as Partial<ListAnswer> | null;
+  if (!out || !Array.isArray(out.rows) || typeof out.total !== 'number') throw new CallFailed(problemFrom(500, null));
+  return { total: out.total, page: out.page ?? q.page ?? 1, size: out.size ?? q.size ?? 0, columns: out.columns ?? [], fields: out.fields ?? [], rows: out.rows };
+}
+
+export type BulkAction = { workspace: string; ids: string[]; action: 'status' | 'owner' | 'delete'; value?: string | null; confirm?: boolean };
+
+/** leads-bulk: set status, set owner (owner only) or delete (owner only, with confirm: true), all or nothing. 200 { changed }. */
+export async function bulkLeads(b: BulkAction): Promise<number> {
+  const out = (await call('leads-bulk', b)) as { changed?: number } | null;
+  return typeof out?.changed === 'number' ? out.changed : 0;
+}
+
+export type Exported = { csv: string; filename: string; capped: boolean };
+
+/** lead-export on the view: { workspace, search, filters, sort } and, for a client's own layout, a template id. The file comes back as text. */
+export async function exportLeads(body: { workspace: string; search?: string; filters?: ListFilter[]; sort?: SortSpec; template?: string; timezone?: string }): Promise<Exported> {
+  const { text, res } = await request('lead-export', body);
+  const named = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '');
+  return { csv: text, filename: named?.[1] ?? 'leads.csv', capped: res.headers.has('x-omnikom-export-capped') };
+}
+
+/** crm-map-propose (owner): the client's file in, how its columns match ours out. Stores nothing. */
+export async function proposeMap(workspace: string, csv: string): Promise<Proposal> {
+  const out = (await call('crm-map-propose', { workspace, csv })) as Proposal | null;
+  if (!out || !out.template || !Array.isArray(out.template.columns)) throw new CallFailed(problemFrom(500, null));
+  return { template: out.template, scores: out.scores ?? [], unmapped: out.unmapped, warnings: out.warnings ?? [] };
+}
+
+/** crm-template-save (owner): confirm the matches as a layout of that CRM's name; the same name again updates it. 200 { template }. */
+export async function saveTemplate(b: { workspace: string; name: string; crm: string; columns: MapColumn[]; value_maps?: Record<string, unknown> }): Promise<string> {
+  const out = (await call('crm-template-save', { ...b, direction: 'both' })) as { template?: string } | null;
+  if (!out || typeof out.template !== 'string') throw new CallFailed(problemFrom(500, null));
+  return out.template;
+}
+
+export type ImportCall = { workspace: string; template: string; file: string; file_name: string; dry_run: boolean; duplicates?: 'skip' | 'add'; consent?: boolean };
+
+/** lead-import (owner): a dry run (writes nothing) or the real, all-or-nothing import. */
+export async function importLeads(b: ImportCall): Promise<Report> {
+  const out = (await call('lead-import', b)) as Report | null;
+  if (!out || typeof out.rows !== 'number') throw new CallFailed(problemFrom(500, null));
+  return { ...out, refused: out.refused ?? [], duplicates: out.duplicates ?? [], warnings: out.warnings ?? [], sample: out.sample ?? [] };
 }
 
 export type NewLead = { site: string; name?: string; email?: string; phone?: string; answers: Record<string, unknown>; consentText: string; owner?: string };

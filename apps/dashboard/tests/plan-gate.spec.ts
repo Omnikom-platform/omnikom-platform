@@ -58,12 +58,33 @@ test.describe('the owner\'s screens', () => {
     await page.goto(`/w/${WS.a.slug}/leads`);
     await expect(page.getByRole('link', { name: 'Add a lead' })).toBeVisible();
     await expect(page.locator('tbody tr').first()).toBeVisible();
-    await ok(page, { required: ['DP-1.2s-01', 'DP-1.2s-03', 'DP-1.2-09', 'DP-1.3-02', 'DP-1.3-03', 'DP-1.3-04', 'DP-1.3-06'], absent: ['DP-1.2s-02', 'DP-1.3-01'] });
+    await ok(page, { required: ['DP-1.2s-01', 'DP-1.2s-03', 'DP-1.2-09', 'DP-1.3-02', 'DP-1.3-03', 'DP-1.3-04', 'DP-1.3-05', 'DP-1.3-06', 'DP-1.3-08', 'DP-1.3-26', 'DP-1.3-27', 'DP-1.3-28', 'DP-1.3-30', 'DP-1.3-36', 'DP-1.3-41'], absent: ['DP-1.2s-02', 'DP-1.3-01', 'DP-1.3-31'] });
+
+    // one lead ticked: the bar for an owner, then the delete sheet (nothing is sent: Cancel)
+    await page.getByRole('checkbox', { name: /^Select / }).first().check();
+    await expect(page.getByLabel('Set status')).toBeVisible();
+    await ok(page, { required: ['DP-1.3-30', 'DP-1.3-31', 'DP-1.3-32', 'DP-1.3-33', 'DP-1.3-34'] });
+    await page.getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await ok(page, { required: ['DP-1.3-35'] });
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByRole('button', { name: 'Clear selection' }).click();
+
+    // a filter on a column: the control, then the filter in use
+    await page.getByLabel('Filter by').selectOption({ index: 1 });
+    await ok(page, { required: ['DP-1.3-28'] });
+    await page.getByLabel('Condition').selectOption('empty');
+    await page.getByRole('button', { name: 'Add filter' }).click();
+    await ok(page, { required: ['DP-1.3-28', 'DP-1.3-29'] });
+    await page.getByRole('button', { name: 'Remove' }).click();
 
     await page.locator('tbody th a').first().click();
     await expect(page.locator('#lead-name')).toBeVisible();
     await expect(page.locator('ol li').first()).toBeVisible();   // the timeline has loaded
-    await ok(page, { required: ['DP-1.3-11', 'DP-1.3-12', 'DP-1.3-13', 'DP-1.3-14', 'DP-1.3-15', 'DP-1.3-16', 'DP-1.3-17', 'DP-1.3-20', 'DP-1.3-22', 'DP-1.3-23', 'DP-1.3-24'] });
+    await ok(page, { required: ['DP-1.3-11', 'DP-1.3-12', 'DP-1.3-13', 'DP-1.3-14', 'DP-1.3-15', 'DP-1.3-16', 'DP-1.3-17', 'DP-1.3-19', 'DP-1.3-20', 'DP-1.3-22', 'DP-1.3-23', 'DP-1.3-24', 'DP-1.3-37', 'DP-1.3-39', 'DP-1.3-40'] });
+    await page.locator('dl').getByRole('button', { name: /^Edit / }).first().click();   // a field's box, with Save and Cancel (nothing is saved)
+    await ok(page, { required: ['DP-1.3-37'] });
+    await page.locator('dl').getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(page.getByText(/^\d+ of 2000$/)).toBeVisible();
     await page.getByRole('button', { name: 'Close', exact: true }).click();
 
@@ -88,9 +109,14 @@ test.describe('the agent\'s screens', () => {
   test('an agent never sees the Owner control, and Not found for the other business', async ({ page }) => {
     await page.goto(`/w/${WS.a.slug}/leads`);
     await expect(page.locator('tbody th a').first()).toBeVisible();
+    await ok(page, { required: ['DP-1.3-05', 'DP-1.3-26', 'DP-1.3-27', 'DP-1.3-28', 'DP-1.3-30'], absent: ['DP-1.3-41'] });
+    await page.getByRole('checkbox', { name: /^Select / }).first().check();
+    await expect(page.getByLabel('Set status')).toBeVisible();
+    await ok(page, { required: ['DP-1.3-31', 'DP-1.3-32'], absent: ['DP-1.3-33', 'DP-1.3-34'] });
+    await page.getByRole('button', { name: 'Clear selection' }).click();
     await page.locator('tbody th a').first().click();
     await expect(page.locator('#lead-name')).toBeVisible();
-    await ok(page, { required: ['DP-1.3-11', 'DP-1.3-12', 'DP-1.3-15'], absent: ['DP-1.3-13'] });
+    await ok(page, { required: ['DP-1.3-11', 'DP-1.3-12', 'DP-1.3-15', 'DP-1.3-37'], absent: ['DP-1.3-13', 'DP-1.3-19'] });
     await page.getByRole('link', { name: 'Add a lead' }).click();
     await expect(page.getByLabel('Notes')).toBeVisible();
     await ok(page, { required: ['DP-1.3b-01', 'DP-1.3b-09'], absent: ['DP-1.3b-08'] });

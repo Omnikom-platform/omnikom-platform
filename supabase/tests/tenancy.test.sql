@@ -1995,5 +1995,45 @@ do $$ declare f text; begin
   end loop;
 end $$;
 
+-- ===== T24 work order 07 (migration 18): the site switcher is a lead_list filter =====
+-- (a) a site filter returns only that site's leads; (b) a site of another workspace returns none
+-- (the leads are inserted directly: capture_lead is refused by the workspace's hourly lead limit after the scale tests above)
+with n as (insert into leads (workspace_id, site_id, form, page_path, name, email, consent_text) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'T24 on A', 't24a@test', 'I agree') returning id) insert into test.ids select 'sA', id from n;
+with n as (insert into leads (workspace_id, site_id, form, page_path, name, email, consent_text) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000052e2', 'contact', '/', 'T24 on A2', 't24a2@test', 'I agree') returning id) insert into test.ids select 'sA2', id from n;
+with n as (insert into leads (workspace_id, site_id, form, page_path, name, email, consent_text) values ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-00000000517e', 'contact', '/', 'T24 on B', 't24b@test', 'I agree') returning id) insert into test.ids select 'sB', id from n;
+insert into test.r select 'st_a2', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"filters":[{"field":"site","op":"eq","value":"aaaaaaaa-0000-0000-0000-0000000052e2"}],"size":200}');
+insert into test.r select 'st_a', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"filters":[{"field":"site","op":"eq","value":"aaaaaaaa-0000-0000-0000-00000000517e"}],"size":200}');
+insert into test.r select 'st_in', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"filters":[{"field":"site","op":"in","values":["aaaaaaaa-0000-0000-0000-0000000052e2","bbbbbbbb-0000-0000-0000-00000000517e"]}],"size":200}');
+insert into test.r select 'st_other', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"filters":[{"field":"site","op":"eq","value":"bbbbbbbb-0000-0000-0000-00000000517e"}],"size":200}');
+insert into test.r select 'st_b', service.lead_list(test.c('00000000-0000-0000-0000-00000000000b'), 'bbbbbbbb-0000-0000-0000-000000000000', '{"filters":[{"field":"site","op":"eq","value":"bbbbbbbb-0000-0000-0000-00000000517e"}],"size":200}');
+insert into test.r select 'st_b_a', service.lead_list(test.c('00000000-0000-0000-0000-00000000000b'), 'bbbbbbbb-0000-0000-0000-000000000000', '{"filters":[{"field":"site","op":"eq","value":"aaaaaaaa-0000-0000-0000-0000000052e2"}],"size":200}');
+insert into test.r select 'st_sort', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"sort":{"field":"site","dir":"asc"},"size":200}');
+do $$
+declare a2 jsonb := (select v from test.r where k = 'st_a2'); a jsonb := (select v from test.r where k = 'st_a' limit 1); i jsonb := (select v from test.r where k = 'st_in');
+  o jsonb := (select v from test.r where k = 'st_other'); b jsonb := (select v from test.r where k = 'st_b'); ba jsonb := (select v from test.r where k = 'st_b_a'); s jsonb := (select v from test.r where k = 'st_sort');
+begin
+  assert (a2 ->> 'total')::int >= 2 and (a2 ->> 'total')::int = (select count(*) from leads where site_id = 'aaaaaaaa-0000-0000-0000-0000000052e2'),
+    'T24a the second site''s filter counts exactly its leads: ' || (a2 ->> 'total');
+  assert jsonb_array_length(a2 -> 'rows') = (a2 ->> 'total')::int and not exists (select 1 from jsonb_array_elements(a2 -> 'rows') x where x ->> 'site' is distinct from 'aaaaaaaa-0000-0000-0000-0000000052e2'),
+    'T24a every row of a site filter is of that site';
+  assert (a ->> 'total')::int = (select count(*) from leads where site_id = 'aaaaaaaa-0000-0000-0000-00000000517e') and (a ->> 'total')::int > (a2 ->> 'total')::int
+    and not exists (select 1 from jsonb_array_elements(a -> 'rows') x where x ->> 'site' is distinct from 'aaaaaaaa-0000-0000-0000-00000000517e'),
+    'T24a the first site''s filter counts its leads and none of the second''s: ' || (a ->> 'total');
+  assert (i ->> 'total') = (a2 ->> 'total'), 'T24a "in" takes a list of sites (the other workspace''s site adds nothing): ' || (i ->> 'total');
+  assert (o ->> 'total') = '0' and jsonb_array_length(o -> 'rows') = 0, 'T24b a site of another workspace returns none: ' || (o ->> 'total');
+  assert (b ->> 'total')::int >= 1 and not exists (select 1 from jsonb_array_elements(b -> 'rows') x where x ->> 'site' is distinct from 'bbbbbbbb-0000-0000-0000-00000000517e'),
+    'T24b the other workspace''s own owner lists its own site (the wall is not an empty answer): ' || (b ->> 'total');
+  assert (ba ->> 'total') = '0', 'T24b and A''s site is none of B''s: ' || (ba ->> 'total');
+  assert (s -> 'rows' -> 0 ->> 'site') <= (s -> 'rows' -> (jsonb_array_length(s -> 'rows') - 1) ->> 'site'), 'T24c sorting by site works';
+end $$;
+
+-- (d) a stored answer named like a core key never replaces the row's own value
+update leads set answers = '{"site":"zzz"}' where id = test.id('sA2');
+insert into test.r select 'st_ans', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"filters":[{"field":"site","op":"eq","value":"aaaaaaaa-0000-0000-0000-0000000052e2"}],"size":200}');
+do $$ begin
+  assert (select x ->> 'site' from jsonb_array_elements((select v -> 'rows' from test.r where k = 'st_ans')) x where x ->> 'id' = test.id('sA2')::text) = 'aaaaaaaa-0000-0000-0000-0000000052e2',
+    'T24d an answer named site does not overwrite the row''s site';
+end $$;
+
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

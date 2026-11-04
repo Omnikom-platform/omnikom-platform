@@ -28,6 +28,8 @@ export type Lead = {
   status: LeadStatus;
   owner_team_row: string | null;
   created_at: string;
+  cta?: string | null;
+  sms_consent?: boolean;
 };
 
 export type LeadEvent = {
@@ -138,6 +140,20 @@ export function answerRows(answers: Record<string, unknown> | null | undefined, 
 
 export type Names = { me: { id: string; email: string | null } | null; byUser: ReadonlyMap<string, string>; team: ReadonlyMap<string, string> };
 
+/** A value in words for a cell, a field of the record or a line of the timeline: a tick is Yes or No, a list is its values, nothing is an empty string. */
+export function plainValue(v: unknown): string {
+  if (v === null || v === undefined || v === '') return '';
+  if (typeof v === 'boolean') return v ? t('DP-1.3-14', 'Yes') : t('DP-1.3-14', 'No');
+  if (Array.isArray(v)) return v.map(x => String(x)).join(', ');
+  return typeof v === 'object' ? JSON.stringify(v) : String(v);
+}
+
+/** "Changed <field>: <old> to <new>" (DP-1.3-22); a value with nothing in it reads "empty". */
+export function editedLine(d: Record<string, unknown>, labelOf: (key: string) => string): string {
+  const word = (v: unknown) => (plainValue(v) === '' ? t('DP-1.3-22', 'empty') : plainValue(v));
+  return `${t('DP-1.3-22', 'Changed')} ${labelOf(String(d.field ?? ''))}: ${word(d.old)} ${t('DP-1.3-22', 'to')} ${word(d.new)}`;
+}
+
 export type TimelineLine = { at: string; who: string; what: string };
 
 /**
@@ -145,7 +161,7 @@ export type TimelineLine = { at: string; who: string; what: string };
  * (only this login's own email is known to the browser; another login without a team name shows no name). The note's text and the
  * statuses are the data itself.
  */
-export function timelineLines(events: Pick<LeadEvent, 'id' | 'kind' | 'by' | 'detail' | 'at'>[], lead: Pick<Lead, 'page_path'> | null, n: Names): TimelineLine[] {
+export function timelineLines(events: Pick<LeadEvent, 'id' | 'kind' | 'by' | 'detail' | 'at'>[], lead: Pick<Lead, 'page_path'> | null, n: Names, labelOf: (key: string) => string = k => k): TimelineLine[] {
   const nameOf = (id: unknown) => (typeof id === 'string' ? n.team.get(id) ?? '' : '');
   return [...events]
     .sort((a, b) => (a.at === b.at ? b.id - a.id : a.at < b.at ? 1 : -1))
@@ -157,14 +173,11 @@ export function timelineLines(events: Pick<LeadEvent, 'id' | 'kind' | 'by' | 'de
         case 'received': what = d.manual ? `${t('DP-1.3-22', 'Added by hand by')} ${who}` : `${t('DP-1.3-22', 'Received from')} ${lead?.page_path ?? ''}`; break;
         case 'alert-sent': what = t('DP-1.3-22', 'Alert sent'); break;
         case 'alert-failed': what = t('DP-1.3-22', 'An alert could not be sent'); break;
-        case 'pushed': what = t('DP-1.3-22', 'Sent to the CRM'); break;
-        case 'push-failed': what = t('DP-1.3-22', 'Could not send to the CRM'); break;
         case 'status': what = `${t('DP-1.3-22', 'Status:')} ${String(d.from ?? '')} ${t('DP-1.3-22', 'to')} ${String(d.to ?? '')}`; break;
         case 'assigned': what = `${t('DP-1.3-22', 'Given to')} ${nameOf(d.to)}`; break;
         case 'note': what = `${t('DP-1.3-22', 'Note:')} ${String(d.text ?? '')}`; break;
-        case 'resent': what = t('DP-1.3-22', 'Sending to the CRM again'); break;
+        case 'edited': what = editedLine(d, labelOf); break;
         case 'exported': what = t('DP-1.3-22', 'Exported to a CSV file'); break;
-        case 'deleted': what = t('DP-1.3-22', 'Removed'); break;
         default: what = e.kind;
       }
       return { at: e.at, who: e.kind === 'received' && d.manual ? '' : who, what };
@@ -175,6 +188,11 @@ export function timelineLines(events: Pick<LeadEvent, 'id' | 'kind' | 'by' | 'de
 export function marketingLine(m: { given?: boolean } | null): string {
   if (!m) return t('DP-1.3-23', 'Marketing: not asked on this form.');
   return m.given ? t('DP-1.3-23', 'Marketing: yes') : t('DP-1.3-23', 'Marketing: no');
+}
+
+/** The text-message line of the consent block (DP-1.3-40). */
+export function smsLine(given: boolean | undefined): string {
+  return given ? t('DP-1.3-40', 'Text messages: yes') : t('DP-1.3-40', 'Text messages: no');
 }
 
 /** tel: link target: digits and a leading plus only. */

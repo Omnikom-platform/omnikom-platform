@@ -134,11 +134,10 @@ describe('the timeline (DP-1.3-22 wording, newest first)', () => {
       ['', 'Received from /sell'],
     ]);
   });
-  it('has a sentence for the events a CRM and an alert will write', () => {
+  it('has a sentence for the events an alert and an export write; the dropped push kinds have none (work order 07)', () => {
     const w = (kind: string) => timelineLines([ev(1, kind, null, {}, 0)], L, names)[0]?.what;
-    expect([w('alert-sent'), w('alert-failed'), w('pushed'), w('push-failed'), w('resent'), w('exported'), w('deleted')]).toEqual([
-      'Alert sent', 'An alert could not be sent', 'Sent to the CRM', 'Could not send to the CRM', 'Sending to the CRM again', 'Exported to a CSV file', 'Removed',
-    ]);
+    expect([w('alert-sent'), w('alert-failed'), w('exported')]).toEqual(['Alert sent', 'An alert could not be sent', 'Exported to a CSV file']);
+    expect([w('pushed'), w('push-failed'), w('resent')]).toEqual(['pushed', 'push-failed', 'resent']);
   });
   it('says what the form asked about marketing (DP-1.3-23)', () => {
     expect([marketingLine(null), marketingLine({ given: true }), marketingLine({ given: false })]).toEqual([

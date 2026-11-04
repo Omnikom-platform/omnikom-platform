@@ -45,9 +45,9 @@ function patch(file, find, replace) {
 }
 
 describe('the plan itself', () => {
-  it('has rows, and slices 5.3 and 5.4 are the built ones', () => {
+  it('has rows, and slices 5.3, 5.3b, 5.3c and 5.4 are the built ones', () => {
     expect(plan.size).toBeGreaterThan(60);
-    expect(built).toEqual(['5.3', '5.4']);
+    expect(built).toEqual(['5.3', '5.3b', '5.3c', '5.4']);
     expect(plan.get('DP-1.2-05')?.slice).toBe('5.3');
     expect(plan.get('DP-1.3-05')?.slice).toBe('5.3b');
   });
@@ -138,7 +138,7 @@ describe('mutants of the real source: each must turn the gate red for its reason
     red('unknown-id', scanReal(patch('src/pages/Shell.tsx', 'data-plan="DP-1.2s-03"', 'data-plan="DP-9.9-99"')), 'PLAN-2', 'DP-9.9-99');
   });
   it('delete the element of a 5.3 row (the Search field)', () => {
-    red('delete-element', scanReal(patch('src/pages/Leads.tsx', '<input type="search" data-plan="DP-1.3-03" aria-label="Search" placeholder="Search" name="q" value={query} onChange={e => setQuery(e.target.value)} />', '')), 'PLAN-3', 'DP-1.3-03');
+    red('delete-element', scanReal(patch('src/pages/Leads.tsx', '<input type="search" data-plan="DP-1.3-03" aria-label="Search" placeholder="Search" name="q" value={typed} onChange={e => setTyped(e.target.value)} />', '')), 'PLAN-3', 'DP-1.3-03');
   });
   it('plant an invented string (the Add a lead link)', () => {
     red('invented-string', scanReal(patch('src/pages/Leads.tsx', 'data-plan="DP-1.3-04">Add a lead</Link>', 'data-plan="DP-1.3-04">Add a brand new lead now</Link>')), 'PLAN-4', 'DP-1.3-04');

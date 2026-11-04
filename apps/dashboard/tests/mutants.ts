@@ -2,7 +2,7 @@
 // exactly the thing one flow claims to prove, and that flow must go red for its own reason. With no FLOWS_MUTANT nothing here runs.
 //   leak-b           flow 1: B's workspace row is served to member-a1's page from a SERVICE-ROLE read, as if the wall were missing
 //   no-live          flow 2: the Realtime socket is closed, so a new lead can only appear by a reload
-//   member-sees-all  flow 3: member-a1's list of leads is served from a SERVICE-ROLE read (every lead of A, not only theirs)
+//   member-sees-all  flow 3: member-a1's list of leads (lead-list) is answered with owner-a's list (every lead of A, not only theirs)
 // Slice 5.4 (tests/site.spec.ts):
 //   save-lost             a save is answered 200 by the test and never reaches the function, so no new version exists
 //   no-stale              a save goes out with the base version of the newest version, as if the editor never went stale
@@ -13,7 +13,7 @@
 //   no-styles             the built stylesheet is served empty, as if src/main.tsx no longer imported the styles
 //   no-bar-room           the main area has no bottom padding on the phone: the end of Add a lead sits under the bottom bar
 import type { Page } from '@playwright/test';
-import { serviceGet, serviceRepeat } from './support/staging';
+import { callAs, personAccessToken, serviceGet, serviceRepeat } from './support/staging';
 
 export type Mutant = 'leak-b' | 'no-live' | 'member-sees-all' | 'save-lost' | 'no-stale' | 'agent-add-everywhere' | 'publish-accepted' | 'contract-empty' | 'no-styles' | 'no-bar-room';
 export const MUTANT = (process.env.FLOWS_MUTANT ?? '') as Mutant | '';
@@ -35,7 +35,13 @@ async function serveAsServiceRole(page: Page, urlPart: RegExp) {
 export async function installMutant(page: Page, name: Mutant) {
   if (!active(name)) return;
   if (name === 'leak-b') await serveAsServiceRole(page, /\/rest\/v1\/workspaces\?.*slug=eq\.test-demo-b/);
-  if (name === 'member-sees-all') await serveAsServiceRole(page, /\/rest\/v1\/leads\?/);
+  if (name === 'member-sees-all') {
+    const owner = await personAccessToken('owner-a');
+    await page.route(/\/functions\/v1\/lead-list$/, async route => {
+      const r = await callAs(owner, 'lead-list', JSON.parse(route.request().postData() ?? '{}') as Record<string, unknown>);
+      return route.fulfill({ status: r.status, body: r.text, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' } });
+    });
+  }
   if (name === 'no-live') await page.routeWebSocket(/realtime/, ws => { void ws.close(); });
   if (name === 'save-lost') {
     await page.route(/\/functions\/v1\/save$/, route => {

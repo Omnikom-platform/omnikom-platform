@@ -7,6 +7,7 @@ import { Shell } from './pages/Shell';
 import { LeadsLayout, NoLeadChosen } from './pages/Leads';
 import { LeadPanel } from './pages/LeadPanel';
 import { AddLead } from './pages/AddLead';
+import { ImportLeads } from './pages/ImportLeads';
 import { SiteLayout, NoItemChosen } from './pages/SiteLayout';
 import { Editor } from './pages/Editor';
 import { NotFound } from './pages/NotFound';
@@ -72,6 +73,7 @@ const wsIndexRoute = createRoute({
 const leadsRoute = createRoute({ getParentRoute: () => wsRoute, path: 'leads', component: LeadsLayout });
 const leadsIndexRoute = createRoute({ getParentRoute: () => leadsRoute, path: '/', component: NoLeadChosen });
 const addLeadRoute = createRoute({ getParentRoute: () => leadsRoute, path: 'new', component: AddLead });
+const importRoute = createRoute({ getParentRoute: () => leadsRoute, path: 'import', component: ImportLeads });
 const leadRoute = createRoute({ getParentRoute: () => leadsRoute, path: '$id', component: LeadPanel });
 
 const siteRoute = createRoute({ getParentRoute: () => wsRoute, path: 'site', component: SiteLayout });
@@ -96,7 +98,7 @@ const routeTree = rootRoute.addChildren([
   confirmRoute,
   authedRoute.addChildren([
     workspacesRoute,
-    wsRoute.addChildren([wsIndexRoute, leadsRoute.addChildren([leadsIndexRoute, addLeadRoute, leadRoute]), siteRoute.addChildren([siteIndexRoute, itemRoute])]),
+    wsRoute.addChildren([wsIndexRoute, leadsRoute.addChildren([leadsIndexRoute, addLeadRoute, importRoute, leadRoute]), siteRoute.addChildren([siteIndexRoute, itemRoute])]),
   ]),
 ]);
 
