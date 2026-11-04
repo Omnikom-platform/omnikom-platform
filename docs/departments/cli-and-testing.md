@@ -662,3 +662,6 @@ when the head of operations has released its slice.
   gives the go. Still held: every CLI land until SEO says audit-results is in.
 - 16:26 HoO: platform head is now HEAD_Platform-build_2026-11-04b. LAND ORDER (binding): SEO's audit-results, then platform's crm-2b,
   then ours (this charter branch, then seed-leadcolumns with J11).
+- 16:58 SEO: audit-results landed, master d6076e8, lock released (adds `run.mjs --summary`; --summary with --json exits 2). Owed line
+  for "cli mutant 4c-flip": "caught audit and gate: a built folder with no --target is given a default target [4c-flip]" / "1 mutants,
+  1 caught, 0 survived"; CI's CLI job green on ae8741d. Next land: platform's crm-2b, then ours.
