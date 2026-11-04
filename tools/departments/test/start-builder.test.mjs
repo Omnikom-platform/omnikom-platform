@@ -26,7 +26,10 @@ const DEPTS = join(root, 'depts'), LAUNCH = join(root, 'launch'), SESSIONS = joi
 cpSync(join(REPO, 'docs', 'departments'), DEPTS, { recursive: true });
 writeFileSync(join(root, 'claude-dummy.exe'), '', 'utf8');
 const EXE = join(root, 'claude-dummy.exe');
-Object.assign(process.env, { OMNIKOM_REPO_ROOT: REPO, OMNIKOM_DEPT_DIR: DEPTS, OMNIKOM_LAUNCH_DIR: LAUNCH, OMNIKOM_SESSIONS_DIR: SESSIONS, OMNIKOM_CLAUDE_EXE: EXE });
+const WS = join(root, 'ws');   // the workspace whose departments\<dept>\builders\<slice> folders the builders' worktrees go to (work order 04)
+const wtOf = (dept, slice) => join(WS, 'departments', dept, 'builders', slice);
+Object.assign(process.env, { OMNIKOM_REPO_ROOT: REPO, OMNIKOM_DEPT_DIR: DEPTS, OMNIKOM_LAUNCH_DIR: LAUNCH, OMNIKOM_SESSIONS_DIR: SESSIONS, OMNIKOM_CLAUDE_EXE: EXE, OMNIKOM_WORKSPACE: WS });
+delete process.env.OMNIKOM_BUILDER_BASE;
 mkdirSync(SESSIONS);
 
 const cli = (script, args, env = {}) => { const r = spawnSync(process.execPath, [join(TOOLS, script), ...args], { encoding: 'utf8', timeout: 60000, env: { ...process.env, ...env } }); return { status: r.status, out: (r.stdout || '') + (r.stderr || '') }; };
@@ -47,6 +50,8 @@ try {
   if (gate(GUARD, NEED_GUARD, 'start: --dry-run prints the launcher and the JSON, exit 0')) check('start: --dry-run prints the launcher and the JSON, exit 0', r.status === 0 && /DRY RUN/.test(r.out) && r.out.includes('--name BUILDER_cli-and-testing_slice-1') && r.out.includes('"name":"BUILDER_cli-and-testing_slice-1"'), r.out);
   check('start: --dry-run writes no launcher and creates no folder', !existsSync(LAUNCH), readdirSync(root).join(','));
   if (gate(GUARD, NEED_GUARD, 'start: the model defaults to the charter builder model (cli-and-testing = sonnet)')) check('start: the model defaults to the charter builder model (cli-and-testing = sonnet)', r.out.includes('--model claude-sonnet-5-5') && r.out.includes('--permission-mode bypassPermissions'), r.out);
+  if (gate(GUARD, NEED_GUARD, 'start: --dry-run names the worktree under <workspace>\\departments\\<dept>\\builders\\<slice>, the launcher cds there, nothing is made')) check('start: --dry-run names the worktree under <workspace>\\departments\\<dept>\\builders\\<slice>, the launcher cds there, nothing is made',
+    r.out.includes(`worktree would be ${wtOf('cli-and-testing', 'slice-1')} (git worktree add --detach, from backup-gh/master`) && r.out.includes(`cd /d "${wtOf('cli-and-testing', 'slice-1')}"`) && !existsSync(WS), r.out);
   r = cli('start-builder.mjs', ['--dept', 'cli-and-testing', '--slice', 'slice-1', '--model', 'haiku', '--effort', 'high', '--dry-run']);
   if (gate(GUARD, NEED_GUARD, 'start: --model and --effort reach the claude command line')) check('start: --model and --effort reach the claude command line', r.status === 0 && r.out.includes('--model claude-haiku-5-5 --effort high --permission-mode'), r.out);
 
@@ -84,6 +89,35 @@ try {
   check('start: a cwd that does not exist is refused', r.status === 1 && /does not exist/.test(r.out), r.out);
   r = cli('start-builder.mjs', ['--slice', 'a']);
   check('start: no --dept is a refusal', r.status === 1 && /--dept is required/.test(r.out), r.out);
+
+  // --- the builder's worktree (work order 04): where it goes, how the workspace is found, how it is made
+  let pw = lib.plan({ dept: 'platform-build', slice: 'crm-io' });
+  check('worktree: without --cwd the builder\'s cwd is <workspace>\\departments\\<dept>\\builders\\<slice> and it is a worktree (it need not exist yet)', pw.cwd === wtOf('platform-build', 'crm-io') && pw.worktree === true, JSON.stringify(pw));
+  pw = lib.plan({ dept: 'platform-build', slice: 'crm-io', cwd: root });
+  check('worktree: with --cwd the builder starts there and no worktree is made', pw.cwd === resolve(root) && pw.worktree === false, JSON.stringify(pw));
+  {
+    const ws2 = join(root, 'ws2');
+    mkdirSync(join(ws2, 'code', 'main', '.git'), { recursive: true });
+    delete process.env.OMNIKOM_WORKSPACE;
+    const found = [lib.findWorkspace(join(ws2, 'code', 'main')), lib.findWorkspace(join(ws2, 'departments', 'platform-build', 'builders', 'x')), lib.findWorkspace(join(root, 'elsewhere'))];
+    process.env.OMNIKOM_WORKSPACE = WS;
+    check('worktree: the workspace is found by walking up to the folder whose code\\main is a checkout, from code\\main and from a builder\'s worktree; none above a plain folder', found[0] === ws2 && found[1] === ws2 && found[2] === null, JSON.stringify(found));
+  }
+  const fakeGit = (listed, { fetchOk = true } = {}) => { const calls = []; return { calls, git: (args) => { calls.push(args.join(' ')); if (args[0] === 'worktree' && args[1] === 'list') return { ok: true, out: listed.map(p => `worktree ${p.replace(/\\/g, '/')}\nHEAD abc`).join('\n\n'), err: '' }; if (args[0] === 'fetch') return { ok: fetchOk, out: '', err: fetchOk ? '' : 'fatal: unable to access' }; return { ok: true, out: '', err: '' }; } }; };
+  const nd = wtOf('platform-build', 'new-one');
+  let fg = fakeGit([REPO]);
+  let wr = lib.ensureWorktree(nd, fg.git);
+  check('worktree: a new one is made from backup-gh/master after a fetch of master, detached (the builder names its own branch)', wr.made === true && fg.calls.join(' | ') === `worktree list --porcelain | fetch backup-gh master | worktree add --detach ${nd} backup-gh/master`, fg.calls.join(' | '));
+  fg = fakeGit([REPO, nd]);
+  wr = lib.ensureWorktree(nd, fg.git);
+  check('worktree: one that is already a worktree of the repository is kept (a restarted slice): nothing fetched or added', wr.made === false && fg.calls.length === 1, fg.calls.join(' | '));
+  mkdirSync(join(root, 'squatter'));
+  fg = fakeGit([REPO]);
+  let werr = null; try { lib.ensureWorktree(join(root, 'squatter'), fg.git); } catch (e) { werr = e; }
+  check('worktree: a folder that exists and is not a worktree is refused, nothing added', werr && /exists and is not a worktree/.test(werr.message) && !fg.calls.some(c => c.startsWith('worktree add')), werr && werr.message);
+  fg = fakeGit([REPO], { fetchOk: false });
+  werr = null; try { lib.ensureWorktree(nd, fg.git); } catch (e) { werr = e; }
+  check('worktree: a failed fetch is BLOCKED and nothing is added (never a worktree of a stale master)', werr && /^BLOCKED: git fetch backup-gh master failed/.test(werr.message) && !fg.calls.some(c => c.startsWith('worktree add')), werr && werr.message);
   r = cli('start-builder.mjs', ['--bogus']);
   check('start: an unknown flag is a usage error (exit 2)', r.status === 2, r.out);
   r = cli('stop-builder.mjs', []);
@@ -95,11 +129,14 @@ try {
   let err = null;
   const N = { ret: 'start: returns {name, pid, model, cwd} once the session is registered', file: 'start: the launcher file was written, opened by that path, and is CRLF',
     twin: 'start: a second session with a live name is refused', dry: 'start: a dry run never opens a window', never: 'start: a session that never registers is BLOCKED and its launcher is removed' };
+  const made = [];
+  const fakeWt = (dir) => { made.push(dir); return { dir, made: true }; };
   if (GUARD) {
-    const res = await start.startBuilder({ dept: 'platform-build', slice: 'step-7' }, { open: fakeOpen, wait: async () => {} });
-    check(N.ret, res.name === 'BUILDER_platform-build_step-7' && res.pid === process.pid && res.model === 'claude-sonnet-5-5' && res.cwd === resolve(REPO), JSON.stringify(res));
+    const res = await start.startBuilder({ dept: 'platform-build', slice: 'step-7' }, { open: fakeOpen, wait: async () => {}, worktree: fakeWt });
+    check(N.ret, res.name === 'BUILDER_platform-build_step-7' && res.pid === process.pid && res.model === 'claude-sonnet-5-5' && res.cwd === wtOf('platform-build', 'step-7'), JSON.stringify(res));
+    check('start: the worktree is made (once, at the builder\'s folder) before the window opens, and the launcher cds into it', made.length === 1 && made[0] === wtOf('platform-build', 'step-7') && opened && readFileSync(opened.path, 'utf8').includes(`cd /d "${wtOf('platform-build', 'step-7')}"`), JSON.stringify(made));
     check(N.file, opened && opened.path === join(LAUNCH, 'BUILDER_platform-build_step-7.cmd') && existsSync(opened.path) && /\r\n/.test(readFileSync(opened.path, 'utf8')), JSON.stringify(opened));
-    try { await start.startBuilder({ dept: 'platform-build', slice: 'step-7' }, { open: () => { throw new Error('must not open'); }, wait: async () => {} }); } catch (e) { err = e; }
+    try { await start.startBuilder({ dept: 'platform-build', slice: 'step-7' }, { open: () => { throw new Error('must not open'); }, wait: async () => {}, worktree: fakeWt }); } catch (e) { err = e; }
     check(N.twin, err && /already running/.test(err.message), err && err.message);
     clearSessions();
     err = null;
@@ -108,7 +145,7 @@ try {
   } else for (const k of ['ret', 'file', 'twin', 'dry']) gate(false, NEED_GUARD, N[k]);
   if (gate(GUARD && WIN, WIN ? NEED_GUARD : NEED_WIN, N.never)) {   // the cleanup after a timeout lists processes through processes.ps1
     err = null;
-    try { await start.startBuilder({ dept: 'platform-build', slice: 'never' }, { open: () => {}, wait: async () => {}, waitMs: 2000 }); } catch (e) { err = e; }
+    try { await start.startBuilder({ dept: 'platform-build', slice: 'never' }, { open: () => {}, wait: async () => {}, waitMs: 2000, worktree: fakeWt }); } catch (e) { err = e; }
     check(N.never, err && /BLOCKED: no session named BUILDER_platform-build_never/.test(err.message) && !existsSync(join(LAUNCH, 'BUILDER_platform-build_never.cmd')), err && err.message);
   }
 

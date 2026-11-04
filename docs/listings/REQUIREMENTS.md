@@ -64,7 +64,7 @@ brivityidx.com; disclaimer "Bay East MLS, or CCAR MLS, or bridgeMLS", read from 
 | N7 | Accessibility | WCAG 2.1 AA on all listing UI (tabs, cards, map alternative list, 44 px targets; the design lab already uses roles and focus styles) | 05 (Unruh exposure) |
 | N8 | Anti-scraping | No public bulk JSON endpoint; rate limits on the search API; result cap per query; robots allow HTML, disallow the API | 01 (4.15), 05 checklist 23 |
 | N9 | Multi-tenant | One system serves every client: per-MLS stores shared across clients licensed on that MLS, per-tenant display rights and rule sets, tenant isolation enforced in the DB (RLS) and in the renderer | ARCHITECTURE section 3 |
-| N10 | Secrets | MLS credentials only in `E:\Omnikom Platform\.secrets\` (local tools) and in Worker / Supabase secrets (production). Never in code, DB rows, logs or chat | `sops/credentials.md` |
+| N10 | Secrets | MLS credentials only in `E:\Omnikom Platform\code\main\.secrets\` (local tools) and in Worker / Supabase secrets (production). Never in code, DB rows, logs or chat | `sops/credentials.md` |
 | N11 | Auditability | Every sync run logged (source, window, counts, errors); every render of a rule-bearing block traceable to the rule set version; monthly customer-list report producible from the DB | 01 (1.7) |
 | N12 | Cost | Infrastructure under about $75/month for one client with 3 feeds, about $8/client at 20 clients on shared stores (ESTIMATE, research/06), excluding MLS fees | 06 |
 

@@ -9,7 +9,8 @@ runs it from a client dashboard with a lead inbox, while AI operators keep impro
 book: one fact, one home, edited in place; open only the book files your work needs) → your work order or brief →
 `docs/departments/README.md` (who owns which files; a session reads its own department's charter and edits only what it owns).
 `.claude/POSITION.md` is the head of operations' running log until it is cut down; the old blueprint and decision log are in
-`archive/` and are not current.
+`archive/` and are not current. Where things live on disk (this repo is `E:\Omnikom Platform\code\main`; builders work in
+worktrees under `E:\Omnikom Platform\departments\`): `docs/departments/README.md` "The workspace".
 
 **Sessions:** one orientation session decides and reviews; one builder session per work order, discarded when the order is
 done. The files are the memory, never a session: a builder writes what it learned into `work/STATE.md` and its work order, and

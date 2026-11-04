@@ -2,19 +2,21 @@
 // session is registered and prints one JSON line {name, pid, model, cwd, launcher}. The head sends the task with SendMessage.
 //   node tools/departments/start-builder.mjs --dept <slug> --slice <name> [--model fable|opus|sonnet|haiku] [--effort low|medium|high|xhigh|max]
 //        [--cwd <dir>] [--dry-run]
-// The model defaults to the department charter's builder model. Exit 0 = started (or dry run), 1 = refused or not listed in 90 s, 2 = usage.
+// The model defaults to the department charter's builder model. Without --cwd the builder starts in its own git worktree,
+// <workspace>\departments\<dept>\builders\<slice> (work order 04), made from backup-gh/master when it is not there yet.
+// Exit 0 = started (or dry run), 1 = refused or not listed in 90 s, 2 = usage.
 import { mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { BuilderError, plan, launcherText, launcherProblems, launchDir, claudeExe, readSessions, listProcesses, treeOf, killProcs, pidAlive } from './builder-lib.mjs';
+import { BuilderError, plan, launcherText, launcherProblems, launchDir, claudeExe, readSessions, listProcesses, treeOf, killProcs, pidAlive, ensureWorktree, BUILDER_BASE } from './builder-lib.mjs';
 
 export const WAIT_MS = 90000;
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 const defaultOpen = (name, path) => spawn('cmd.exe', ['/d', '/s', '/c', `start "${name}" "${path}"`], { windowsVerbatimArguments: true, detached: true, stdio: 'ignore' }).unref();
 
-/** deps: { open(name, path), wait(ms), now(), waitMs } so tests start nothing. */
+/** deps: { open(name, path), wait(ms), now(), waitMs, worktree(dir) } so tests start nothing and make no worktree. */
 export async function startBuilder(opts, deps = {}) {
   const p = plan(opts);
   const exe = claudeExe();
@@ -22,7 +24,8 @@ export async function startBuilder(opts, deps = {}) {
   const path = join(launchDir(), `${p.name}.cmd`);
   const problems = launcherProblems(text, path);
   if (problems.length) throw new BuilderError(`the launcher is not clean: ${problems.join('; ')}`);
-  if (opts.dryRun) return { dryRun: true, name: p.name, model: p.modelId, effort: p.effort, cwd: p.cwd, launcher: path, text };
+  if (opts.dryRun) return { dryRun: true, name: p.name, model: p.modelId, effort: p.effort, cwd: p.cwd, worktree: p.worktree, launcher: path, text };
+  if (p.worktree) (deps.worktree || ensureWorktree)(p.cwd);
   const s = await launchSession({ name: p.name, path, text, twinHint: ' or pick another slice name' }, deps);
   return { name: p.name, pid: s.pid, model: p.modelId, cwd: p.cwd, launcher: path };
 }
@@ -76,7 +79,7 @@ if (isMain) {
   else {
     try {
       const r = await startBuilder(opts);
-      if (r.dryRun) console.log(`DRY RUN: nothing written, nothing started\nlauncher would be ${r.launcher}\n${r.text}\n${JSON.stringify({ name: r.name, model: r.model, cwd: r.cwd })}`);
+      if (r.dryRun) console.log(`DRY RUN: nothing written, nothing started\n${r.worktree ? `worktree would be ${r.cwd} (git worktree add --detach, from ${BUILDER_BASE()}, unless it is one already)\n` : ''}launcher would be ${r.launcher}\n${r.text}\n${JSON.stringify({ name: r.name, model: r.model, cwd: r.cwd })}`);
       else console.log(JSON.stringify(r));
     } catch (e) {
       if (!(e instanceof BuilderError)) throw e;

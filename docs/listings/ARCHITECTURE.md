@@ -171,7 +171,7 @@ flowchart LR
   MLS sends a rule change (7 days' notice in the bridgeMLS agreement).
 
 ### 3.7 Secrets
-- Local tools read `E:\Omnikom Platform\.secrets\api-keys.env` (git-ignored, `sops/credentials.md`): `MLS_<SOURCE_ID>_BASE_URL`,
+- Local tools read `E:\Omnikom Platform\code\main\.secrets\api-keys.env` (git-ignored, `sops/credentials.md`): `MLS_<SOURCE_ID>_BASE_URL`,
   `MLS_<SOURCE_ID>_CLIENT_ID`, `MLS_<SOURCE_ID>_CLIENT_SECRET`, `MLS_<SOURCE_ID>_TOKEN` (whichever the platform issues), saved with
   `tools/save-secret-from-clipboard.ps1`, checked with a one-call `tools/check-api-keys.mjs` extension (`$metadata` or `$top=1`).
 - Production: Worker secrets (`wrangler secret put`) for the renderer's Supabase anon key and the sync Worker's MLS credentials;

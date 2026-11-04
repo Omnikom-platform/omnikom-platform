@@ -17,10 +17,11 @@
 //      the lock delete.
 //   6. the local master of THIS checkout is a courtesy, never part of the verdict: after master holds the commit, land brings the local
 //      refs/heads/master to it only when that loses nothing (the local master is an ancestor of the commit), touches no path that is staged,
-//      modified or untracked here (git diff --name-only <local master> <commit> against git status), and master is not checked out in
-//      another worktree. Checked out here: `git merge --ff-only` (git's own refusal is reported, never forced); otherwise `git update-ref`
-//      with the old value as a lease. Anything else: one line saying why it was not moved. The working tree outside the diff, the index of
-//      other paths and every other ref are never touched; a failed or skipped local move leaves the land at exit 0.
+//      modified or untracked here (git diff --name-only <local master> <commit> against git status). Checked out here: `git merge --ff-only`
+//      (git's own refusal is reported, never forced). Checked out in another worktree (the main checkout code\main of the workspace, when
+//      land runs from a builder's worktree, work order 04): the same, in that worktree (`git -C <it>`, its own status decides); otherwise
+//      `git update-ref` with the old value as a lease. Anything else: one line saying why it was not moved. The working tree outside the
+//      diff, the index of other paths and every other ref are never touched; a failed or skipped local move leaves the land at exit 0.
 // A held lock is waited for (--lock-wait-minutes, default 30, 0 = refuse at once), and right after the lock is taken master is fetched: a commit
 // already in master finishes there, and a master that is not an ancestor of the commit is refused before the ci wait (the post-ci check stays).
 // All dates come from ctx.now.
@@ -251,24 +252,24 @@ function tryMoveLocal(git, sha) {
   if (!git.run(['merge-base', '--is-ancestor', old, sha]).ok) return notMoved(`it has commits that ${sha} does not contain`);
   const head = git.run(['symbolic-ref', '-q', 'HEAD']);
   const checkedOutHere = head.ok && head.out === 'refs/heads/master';
-  if (!checkedOutHere) {
-    const elsewhere = worktreeWith(git, 'refs/heads/master');
-    if (elsewhere) return notMoved(`master is checked out in ${elsewhere}, whose files land does not touch`);
-  }
+  // master checked out in another worktree: that worktree is moved the same way, by git -C <it>, and ITS status decides
+  const elsewhere = checkedOutHere ? '' : worktreeWith(git, 'refs/heads/master');
+  const at = elsewhere ? ['-C', elsewhere] : [];
+  const where = elsewhere ? `in ${elsewhere}` : 'here';
   const diff = git.run(['diff', '--name-only', '-z', '--no-renames', old, sha]);
-  const st = git.run(['status', '--porcelain', '-z', '-uall']);
+  const st = git.run([...at, 'status', '--porcelain', '-z', '-uall']);
   if (!diff.ok || !st.ok) return notMoved(`git could not list the changed paths (${firstLine((!diff.ok ? diff.err : st.err) || 'no answer')})`);
   const dirty = dirtyPaths(st.out);
   const blocking = diff.out.split('\0').filter(Boolean).filter(p => dirty.has(p));
-  if (blocking.length) return notMoved(`${blocking.length} path${blocking.length === 1 ? '' : 's'} that differ${blocking.length === 1 ? 's' : ''} between it and ${sha} ${blocking.length === 1 ? 'is' : 'are'} staged, modified or untracked here: ${blocking.slice(0, 10).join(', ')}${blocking.length > 10 ? ` (+${blocking.length - 10} more)` : ''}`);
-  if (checkedOutHere) {
-    const mg = git.run(['merge', '--ff-only', sha], { timeout: 180000 });
-    if (!mg.ok) return notMoved(`git merge --ff-only refused: ${firstLine(mg.err || mg.out || `exit ${mg.status}`)}`);
+  if (blocking.length) return notMoved(`${blocking.length} path${blocking.length === 1 ? '' : 's'} that differ${blocking.length === 1 ? 's' : ''} between it and ${sha} ${blocking.length === 1 ? 'is' : 'are'} staged, modified or untracked ${where}: ${blocking.slice(0, 10).join(', ')}${blocking.length > 10 ? ` (+${blocking.length - 10} more)` : ''}`);
+  if (checkedOutHere || elsewhere) {
+    const mg = git.run([...at, 'merge', '--ff-only', sha], { timeout: 180000 });
+    if (!mg.ok) return notMoved(`git merge --ff-only refused${elsewhere ? ` ${where}` : ''}: ${firstLine(mg.err || mg.out || `exit ${mg.status}`)}`);
   } else {
     const ur = git.run(['update-ref', 'refs/heads/master', sha, old]);
     if (!ur.ok) return notMoved(`git update-ref refused: ${firstLine(ur.err || `exit ${ur.status}`)}`);
   }
-  return { state: 'moved', line: `land: the local master of this checkout moved ${old}..${sha}` };
+  return { state: 'moved', line: elsewhere ? `land: the local master moved ${old}..${sha} in ${elsewhere}, where it is checked out` : `land: the local master of this checkout moved ${old}..${sha}` };
 }
 
 // never throws: a local move that cannot be done is a line, not a failure

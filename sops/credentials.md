@@ -3,10 +3,10 @@
 All keys are on Omnikom's own accounts (work email amer@omnikom.io, 2026-10-26), reused for every client. None belongs to a client.
 
 ## The file
-`E:\Omnikom Platform\.secrets\api-keys.env`. The `.secrets/` folder and every `.env` are in `.gitignore` (checked:
+`E:\Omnikom Platform\code\main\.secrets\api-keys.env`. The `.secrets/` folder and every `.env` are in `.gitignore` (checked:
 `git check-ignore -v .secrets/api-keys.env` -> `.gitignore:2:.secrets/`). Never commit, print, paste into chat or copy into a client
-folder. Tools read it by path, e.g. the audit skill: `doctor.mjs <url> --dotenv "E:\Omnikom Platform\.secrets\api-keys.env"`,
-`start.mjs ... --env-file "E:\Omnikom Platform\.secrets\api-keys.env"`.
+folder. Tools read it by path, e.g. the audit skill: `doctor.mjs <url> --dotenv "E:\Omnikom Platform\code\main\.secrets\api-keys.env"`,
+`start.mjs ... --env-file "E:\Omnikom Platform\code\main\.secrets\api-keys.env"`.
 
 | Name in the file | Service | Account / project | Limits |
 |---|---|---|---|

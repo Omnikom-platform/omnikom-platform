@@ -209,4 +209,4 @@ All read 2026-10-27.
 - S19: NAR, "Does the ADA apply to your website" (2017-10-27): https://www.nar.realtor/realtor-ae-magazine/does-the-ada-apply-to-your-website
 - S20: Website accessibility lawsuit counts (secondary): https://www.accessibilitychecker.org/blog/ada-website-lawsuits-by-state/
 - Also read: CPPA threshold adjustment https://www.cppa.ca.gov/regulations/cpi_adjustment.html ; NAR 2025 MLS policy announcement https://www.nar.realtor/news/real-estate-news/nar-modernizes-mls-policies ; NAR archived sold-data page https://www.nar.realtor/about-nar/policies/copyright-considerations-related-to-proposed-changes-to-display-of-sold-information ; Orrick on HUD withdrawals https://infobytes.orrick.com/2026-04-10/hud-withdraws-eight-fair-housing-guidance-documents-as-part-of-deregulatory-review/ ; NAR on HUD school and crime letter https://www.nar.realtor/washington-report/hud-issues-dear-colleague-letter-on-school-and-crime-data
-- Sibling dossiers: E:\Omnikom Platform\docs\listings\research\01-bridgemls.md, 02-bareis.md, 03-metrolist.md
+- Sibling dossiers: E:\Omnikom Platform\code\main\docs\listings\research\01-bridgemls.md, 02-bareis.md, 03-metrolist.md

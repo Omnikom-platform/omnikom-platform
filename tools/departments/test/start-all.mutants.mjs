@@ -29,7 +29,11 @@ const MUTANTS = [
   ['not logged in still starts', A, 'if (acct.known && !acct.loggedIn) throw new BuilderError(', 'if (false) throw new BuilderError(', 'not logged in -> refused'],
   ['the takeover brief is never sent', A, 'const sent = (deps.send || headlessSend)(name, message);', 'const sent = { ok: true };', 'sends the takeover brief to the new name'],
   ['a brief that was not delivered is reported as fine', A, 'const tail = sent.ok ?', 'const tail = true ?', 'a brief that was not delivered is BLOCKED'],
-  ['the message does not name the brief', A, 'Read ${BRIEF} and do what it says.`;', 'Carry on.`;', 'sends the takeover brief to the new name'],
+  ['the message does not name the brief', A, 'Read ${brief} and do what it says.`;', 'Carry on.`;', 'sends the takeover brief to the new name'],
+  // the workspace (work order 04)
+  ['the head opens in the repository, not the workspace top level', A, 'export const headCwd = () => findWorkspace() || ROOT;', 'export const headCwd = () => ROOT;', 'the head\'s launcher cds to the workspace top level'],
+  ['the brief is named from the repository, not from where the head opens', A, 'const brief = briefFrom(cwd);', 'const brief = BRIEF;', 'the head\'s launcher cds to the workspace top level'],
+  ['a session at the workspace top level is not ours', A, ' || sameDir(s.cwd, headCwd()))', ')', 'an unnamed session at the workspace top level is listed as ours'],
 ];
 let survived = 0, missing = 0;
 const only = process.env.MUTANT_ONLY;

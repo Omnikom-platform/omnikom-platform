@@ -1,5 +1,6 @@
 // Restarts the whole build on whichever Claude account is logged in (DECISIONS 49 (e), brief docs/departments/briefs/account-switch.md).
-// The owner logs in to the other account and double-clicks "Start Omnikom" (E:\omk-launch\start-omnikom.cmd), which runs this:
+// The owner logs in to the other account and double-clicks "Start Omnikom" (E:\Omnikom Platform\resume\start-omnikom.cmd), which runs this
+// (the head of operations opens at the workspace top level, E:\Omnikom Platform, work order 04; the repository is code\main in it):
 //   1. shows the logged-in account (email, organisation, plan, as `claude auth status --json` reports them; nothing else from that
 //      output is ever printed); if it cannot be read, it asks the owner y/n in the window and never guesses;
 //   2. lists every live session of ours (the session registry ~/.claude/sessions, one line per session id; live = its pid holds a
@@ -12,11 +13,11 @@
 //   node tools/departments/start-all.mjs [--dry-run]
 // Exit 0 = started (or a dry run with nothing in the way), 1 = refused or not started, 2 = usage.
 import { readFileSync, existsSync, readdirSync, realpathSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, resolve, relative, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { BuilderError, MODEL_IDS, CLEARED, launcherText, launcherProblems, launchDir, claudeExe, readSessions, listProcesses, filetimeToMs } from './builder-lib.mjs';
+import { BuilderError, MODEL_IDS, CLEARED, launcherText, launcherProblems, launchDir, claudeExe, readSessions, listProcesses, filetimeToMs, findWorkspace } from './builder-lib.mjs';
 import { launchSession } from './start-builder.mjs';
 import { CREATED_SLACK_MS } from './stop-builder.mjs';
 import { ROOT, DEPT_DIR, parseCharters } from './lib.mjs';
@@ -73,6 +74,10 @@ export function roleOf(name, slugs) {
 }
 
 const sameDir = (a, b) => { try { return resolve(a).toLowerCase() === resolve(b).toLowerCase(); } catch { return false; } };
+// where the head of operations opens: the workspace top level when there is one (work order 04), else the repository
+export const headCwd = () => findWorkspace() || ROOT;
+// the takeover brief as the head reads it from there (code/main/docs/... at the workspace top level)
+export const briefFrom = (cwd) => relative(cwd, join(ROOT, BRIEF)).split(sep).join('/');
 
 /** The process table: builder-lib listProcesses, or a fixture file in the same shape (OMNIKOM_PROCESSES_FILE, tests only). */
 const processTable = () => process.env.OMNIKOM_PROCESSES_FILE ? JSON.parse(readFileSync(process.env.OMNIKOM_PROCESSES_FILE, 'utf8')) : listProcesses();
@@ -102,7 +107,7 @@ export function liveSessions(deps = {}) {
   const order = { head: 0, builder: 1, other: 2 };
   const rows = [...byId.values()]
     .map(s => ({ name: s.name || '(unnamed)', pid: s.pid, cwd: s.cwd || '', status: s.status || '', stale: staleWhy(s, procs), ...roleOf(s.name, slugs) }))
-    .filter(s => s.role !== 'other' || sameDir(s.cwd, ROOT))
+    .filter(s => s.role !== 'other' || sameDir(s.cwd, ROOT) || sameDir(s.cwd, headCwd()))
     .sort((a, b) => order[a.role] - order[b.role] || a.name.localeCompare(b.name));
   return { live: rows.filter(s => s.stale === null), stale: rows.filter(s => s.stale !== null) };
 }
@@ -132,7 +137,7 @@ const localDate = (ms) => { const d = new Date(ms); const z = (x) => String(x).p
 
 function cleanEnv() { const e = { ...process.env }; for (const n of CLEARED) delete e[n]; return e; }
 
-export const briefMessage = (name, acct) => `You are ${name}, the head of operations of the Omnikom Platform, started by tools/departments/start-all.mjs after a Claude account switch (${acct}). Read ${BRIEF} and do what it says.`;
+export const briefMessage = (name, acct, brief = BRIEF) => `You are ${name}, the head of operations of the Omnikom Platform, started by tools/departments/start-all.mjs after a Claude account switch (${acct}). Read ${brief} and do what it says.`;
 
 /** Default messenger: a one-shot headless Haiku session whose only job is one SendMessage. Returns { ok, detail }. */
 export function headlessSend(to, text) {
@@ -191,13 +196,15 @@ export async function startAll(opts = {}, deps = {}) {
   if (!existsSync(join(ROOT, BRIEF))) throw new BuilderError(`the takeover brief ${BRIEF} is missing`);
   const dir = launchDir();
   const name = nextName(localDate((deps.now || Date.now)()), takenNames(dir));
-  const p = { name, model: charter.headModel, modelId: MODEL_IDS[charter.headModel], effort: null, cwd: ROOT,
+  const cwd = headCwd();
+  const brief = briefFrom(cwd);
+  const p = { name, model: charter.headModel, modelId: MODEL_IDS[charter.headModel], effort: null, cwd,
     what: `Starts a clean, independent ${MODEL_IDS[charter.headModel]} session: Head of operations of the Omnikom Platform, named ${name}. Written by tools/departments/start-all.mjs` };
   const text = launcherText(p, claudeExe());
   const path = join(dir, `${name}.cmd`);
   const problems = launcherProblems(text, path);
   if (problems.length) throw new BuilderError(`the launcher is not clean: ${problems.join('; ')}`);
-  const message = briefMessage(name, accountLine(acct));
+  const message = briefMessage(name, accountLine(acct), brief);
   if (opts.dryRun) {
     log(`DRY RUN: nothing written, nothing started${refusal ? ' (and it would refuse, above)' : ''}`);
     log(`launcher it would write${refusal ? ' once those are stopped' : ''}: ${path}`);
@@ -208,7 +215,7 @@ export async function startAll(opts = {}, deps = {}) {
   const s = await launchSession({ name, path, text }, deps);
   const sent = (deps.send || headlessSend)(name, message);
   const tail = sent.ok ? 'it starts the department heads from their HANDOVER blocks'
-    : `BLOCKED: the takeover brief was not delivered (${sent.detail}); type in its window: Read ${BRIEF} and do what it says`;
+    : `BLOCKED: the takeover brief was not delivered (${sent.detail}); type in its window: Read ${brief} and do what it says`;
   log(`started ${name} pid ${s.pid} on ${accountLine(acct).replace(/^account: /, 'account ')}; ${tail}`);
   return { name, pid: s.pid, sent: sent.ok };
 }

@@ -37,7 +37,45 @@ export const claudeExe = () => {
   return p;
 };
 
-/** Checks the arguments and returns { dept, slice, name, model, modelId, effort, cwd }; throws BuilderError on the first refusal. */
+// The workspace (work order 04): E:\Omnikom Platform holds code\main (the main checkout of this repository) and
+// departments\<dept>\builders\<slice> (one git worktree of it per builder, removed after it lands). Found by walking up from the
+// repository (code\main itself, or a builder's worktree) to the first folder whose code\main is a checkout; OMNIKOM_WORKSPACE overrides.
+export function findWorkspace(from = ROOT) {
+  if (process.env.OMNIKOM_WORKSPACE) return resolve(process.env.OMNIKOM_WORKSPACE);
+  for (let d = resolve(from); ; d = dirname(d)) {
+    if (existsSync(join(d, 'code', 'main', '.git'))) return d;
+    if (dirname(d) === d) return null;
+  }
+}
+export const builderDir = (ws, dept, slice) => join(ws, 'departments', dept, 'builders', slice);
+export const BUILDER_BASE = () => process.env.OMNIKOM_BUILDER_BASE || 'backup-gh/master';
+
+const gitIn = (dir) => (args) => {
+  const r = spawnSync('git', args, { cwd: dir, encoding: 'utf8', timeout: 300000, windowsHide: true });
+  return { ok: !r.error && r.status === 0, out: String(r.stdout || '').trim(), err: String(r.stderr || r.error || '').trim() };
+};
+
+/** The builder's worktree: kept when it is already a worktree of this repository (a restarted slice), refused when the folder is
+ *  something else, otherwise `git worktree add --detach <dir> <base>` after a fetch of master (the builder names its own
+ *  check/<dept>/<slug> branch). git: (args) => { ok, out, err }. Returns { dir, made, base }. */
+export function ensureWorktree(dir, git = gitIn(ROOT)) {
+  const list = git(['worktree', 'list', '--porcelain']);
+  if (!list.ok) throw new BuilderError(`git worktree list failed in ${ROOT}: ${list.err.split('\n')[0]}`);
+  const key = (p) => resolve(p).toLowerCase();
+  if (list.out.split('\n').some(l => l.startsWith('worktree ') && key(l.slice(9).trim()) === key(dir))) return { dir, made: false, base: null };
+  if (existsSync(dir)) throw new BuilderError(`${dir} exists and is not a worktree of ${ROOT}; move it away or pick another slice name`);
+  const base = BUILDER_BASE();
+  if (!process.env.OMNIKOM_BUILDER_BASE) {
+    const fe = git(['fetch', 'backup-gh', 'master']);
+    if (!fe.ok) throw new BuilderError(`BLOCKED: git fetch backup-gh master failed: ${fe.err.split('\n')[0]}`);
+  }
+  const add = git(['worktree', 'add', '--detach', dir, base]);
+  if (!add.ok) throw new BuilderError(`git worktree add ${dir} ${base} failed: ${add.err.split('\n')[0]}`);
+  return { dir, made: true, base };
+}
+
+/** Checks the arguments and returns { dept, slice, name, model, modelId, effort, cwd, worktree }; throws BuilderError on the first refusal.
+ *  No --cwd: the builder works in its own worktree, departments\<dept>\builders\<slice> of the workspace (worktree: true). */
 export function plan({ dept, slice, model, effort, cwd }) {
   if (!dept) throw new BuilderError('--dept is required');
   if (!slice) throw new BuilderError('--slice is required');
@@ -47,10 +85,17 @@ export function plan({ dept, slice, model, effort, cwd }) {
   const chosen = (model || charter.builderModel || '').toLowerCase();
   if (!MODELS.includes(chosen)) throw new BuilderError(`model "${chosen || '(none)'}" is not one of ${MODELS.join(', ')}${model ? '' : ` (the ${dept} charter names no valid builder model)`}`);
   if (effort && !EFFORTS.includes(effort)) throw new BuilderError(`effort "${effort}" is not one of ${EFFORTS.join(', ')}`);
-  const dir = resolve(cwd || ROOT);
-  if (!existsSync(dir)) throw new BuilderError(`cwd ${dir} does not exist`);
+  const worktree = !cwd;
+  let dir;
+  if (cwd) dir = resolve(cwd);
+  else {
+    const ws = findWorkspace();
+    if (!ws) throw new BuilderError(`no workspace above ${ROOT} (a folder whose code\\main is a checkout); give --cwd or set OMNIKOM_WORKSPACE`);
+    dir = builderDir(ws, dept, slice);
+  }
+  if (!worktree && !existsSync(dir)) throw new BuilderError(`cwd ${dir} does not exist`);
   if (/["%\r\n]|claude/i.test(dir)) throw new BuilderError(`cwd ${dir} holds a character or word a launcher cannot carry (double quote, %, line break, "claude")`);
-  return { dept, slice, name: `BUILDER_${dept}_${slice}`, model: chosen, modelId: MODEL_IDS[chosen], effort: effort || null, cwd: dir };
+  return { dept, slice, name: `BUILDER_${dept}_${slice}`, model: chosen, modelId: MODEL_IDS[chosen], effort: effort || null, cwd: dir, worktree };
 }
 
 /** The launcher text (CRLF): clears every marker, titles the window, claude with a name and a model and NO prompt. */

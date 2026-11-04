@@ -88,8 +88,24 @@ has confirmed it read the block. WATCH means: plan the handover at the end of th
 cache) means the next turn rewrites the whole context; above about 193,000 tokens (Opus, Sonnet) write the handover before a
 long idle instead. There is no separate router session; the tool and the head of operations are the router (DECISIONS 40).
 
+## The workspace: one home for all Omnikom Platform work (work order 04, 2026-11-04)
+```
+E:\Omnikom Platform\                    heads and the head of operations open here (short CLAUDE.md, README.md)
+  code\main\                            THE repository: a clone of GitHub master (remote backup-gh); the git-ignored key folders
+                                        ("creds and accounts login", .secrets), film\ and .tools\ live here, never committed
+  departments\<slug>\builders\<slice>\  one git worktree of code\main per builder, made by start-builder.mjs, removed after it lands
+  resume\                               RESUME.md (how to get back in), start-omnikom.cmd, resume-head-of-operations.cmd
+  archive\                              the old top-level checkout (2026-11-04-old-checkout) and the old launchers, frozen
+```
+Everything that must survive a lost laptop is versioned in the repository (charters, the book, `work/STATE.md`, `icm/`); the top
+level holds only folders, launchers and a short CLAUDE.md. Heads run the tools from the top level as `node code/main/tools/...`.
+After every land, `omnikom land` fast-forwards `code\main` to master when none of the changed paths is dirty there (it is where
+master is checked out). A builder's worktree is removed (`git worktree remove`) once its commit is in master.
+
 ## Starting and stopping a builder session (owner, 2026-11-01 06:26)
-A head starts a builder with `node tools/departments/start-builder.mjs --dept <slug> --slice <name>`: it writes a clean
+A head starts a builder with `node tools/departments/start-builder.mjs --dept <slug> --slice <name>`: it makes the builder's
+worktree `departments\<slug>\builders\<slice>` (detached at backup-gh/master, the builder names its `check/<department>/<slug>`
+branch; `--cwd <dir>` starts it elsewhere instead), writes a clean
 launcher, opens the session in its own window, waits until the session is registered and prints {name, pid, model, cwd}. The
 head then sends the brief with SendMessage to `BUILDER_<dept>_<slice>` (the brief names the files to read, the done-when, and
 "anything outside this brief is a finding you send back, not a fix") and carries on with other work; the builder reports back
@@ -105,7 +121,7 @@ is filling the context this route exists to keep clear.
    file per config folder (`%USERPROFILE%\.claude\.credentials.json`), so hooks, skills, memory and settings stay as they are; the
    docs do not say what an open session does when the account changes, which is why step 2 comes first
    (code.claude.com/docs/en/authentication, "Credential management"; /errors#not-logged-in).
-4. Double-click "Start Omnikom" on the Desktop (`E:\omk-launch\start-omnikom.cmd`): it shows the account, refuses while anything
+4. Double-click "Start Omnikom" on the Desktop (`E:\Omnikom Platform\resume\start-omnikom.cmd`): it shows the account, refuses while anything
    of ours is live, starts one head of operations and sends it `docs/departments/briefs/takeover-after-account-switch.md`.
 
 ## Starting a department

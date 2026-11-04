@@ -15,3 +15,6 @@ creds*/
 supabase/.temp/
 .wrangler/
 .tools/
+
+# owner's film work (moved into this checkout 2026-11-04, work order 04): never committed
+film/

@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
 const args = process.argv.slice(2);
 const opt = (k) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : ''; };
@@ -37,7 +37,7 @@ if (problems.length) { console.error('SHEET REFUSED:\n- ' + problems.join('\n- '
 if (args.includes('--check')) { console.log(`SHEET OK: ${qs.length} questions, every one with "Why we ask"`); process.exit(0); }
 
 const { toHtml } = await import(pathToFileURL('E:/Francine & Eli/tools/partner-pdf.mjs').href);
-const LOGO = 'E:/Omnikom Platform/brand/omnikom-logo-full.png';
+const LOGO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'brand', 'pdf-kit', 'omnikom-logo-full.png');   // the repo's own copy, wherever the checkout lives
 const logoFile = fs.existsSync(LOGO) ? LOGO : 'E:/Francine & Eli/deliverables/brand/omnikom-logo-full.png';
 const logo = 'data:image/png;base64,' + fs.readFileSync(logoFile).toString('base64');
 const sheet = { client: true, who, band: 'Website · Questions before launch', foot: `Prepared by Omnikom for ${who}.` };

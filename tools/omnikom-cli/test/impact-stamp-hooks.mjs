@@ -719,15 +719,34 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
           r.exit === 0 && git(sc.L, 'rev-parse', 'master') === mine && r.text.includes(`land: the local master of this checkout was not moved: it has commits that ${s} does not contain`) && moves(r.calls).length === 0 && r.d.localMaster === 'not-moved', r.text);
       }
       {
-        // master is checked out in another worktree: its files are not ours to move
+        // master is checked out in another worktree (land run from a builder's worktree, code\main has master; work order 04):
+        // a clean one is fast-forwarded there by git -C <it> merge --ff-only, never by update-ref (that would leave its index behind)
         const sc = scenario();
         const s = sc.branchAt(LB, sc.base, 'master elsewhere');
         git(sc.L, 'checkout', '-q', '--detach');
         const W = join(work, `wt${++n}`);
         git(sc.L, 'worktree', 'add', '-q', W, 'master');
+        const here = git(sc.L, 'rev-parse', 'HEAD');
         const r = await lrun(sc, [LB], landRuns(s));
-        check('land: master checked out in another worktree is not moved (update-ref would leave that worktree\'s index behind); the line names the worktree; exit 0',
-          r.exit === 0 && git(sc.L, 'rev-parse', 'master') === sc.base && git(W, 'status', '--porcelain') === '' && r.text.includes('land: the local master of this checkout was not moved: master is checked out in ') && moves(r.calls).length === 0 && sc.remoteMasterOf() === s, r.text);
+        const wMerge = r.calls.filter(a => a[0] === '-C' && a[2] === 'merge');
+        check('land: master checked out in another worktree, clean there: that worktree is fast-forwarded (git -C <it> merge --ff-only <sha>), its files follow, this checkout\'s HEAD is untouched, no update-ref; the line names the worktree; exit 0',
+          r.exit === 0 && r.d.localMaster === 'moved' && git(sc.L, 'rev-parse', 'master') === s && git(W, 'rev-parse', 'HEAD') === s && readFileSync(join(W, 'marker.txt'), 'utf8') === 'master elsewhere' && git(W, 'status', '--porcelain') === ''
+          && git(sc.L, 'rev-parse', 'HEAD') === here && wMerge.length === 1 && wMerge[0].slice(2).join(' ') === `merge --ff-only ${s}` && moves(r.calls).length === 0
+          && r.text.includes(`land: the local master moved ${sc.base}..${s} in `) && r.text.includes(', where it is checked out') && sc.remoteMasterOf() === s, r.text);
+      }
+      {
+        // ... and a path of the diff that is modified THERE blocks the move, though this checkout is clean
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'master elsewhere, dirty there');
+        git(sc.L, 'checkout', '-q', '--detach');
+        const W = join(work, `wt${++n}`);
+        git(sc.L, 'worktree', 'add', '-q', W, 'master');
+        put(W, 'marker.txt', 'edited in the main checkout\n');
+        const r = await lrun(sc, [LB], landRuns(s));
+        check('land: master checked out in another worktree with a diff path modified there: not moved, the line names the path and the worktree, the file is untouched, no merge; exit 0',
+          r.exit === 0 && r.d.localMaster === 'not-moved' && git(sc.L, 'rev-parse', 'master') === sc.base && readFileSync(join(W, 'marker.txt'), 'utf8') === 'edited in the main checkout\n'
+          && /land: the local master of this checkout was not moved: 1 path that differs between it and \w+ is staged, modified or untracked in .+: marker\.txt/.test(r.text)
+          && !r.calls.some(a => a.includes('merge')) && sc.remoteMasterOf() === s, r.text);
       }
       {
         // git itself refuses (a locked index): reported, never forced, and the land stays a success

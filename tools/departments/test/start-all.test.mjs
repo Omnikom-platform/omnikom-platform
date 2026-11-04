@@ -5,7 +5,8 @@
 // OMNIKOM_DEPT_TOOLS points at a copy of the tools (test/start-all.mutants.mjs runs one broken copy at a time).
 import { mkdtempSync, mkdirSync, cpSync, rmSync, writeFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
-import { join, resolve, dirname } from 'node:path';
+import { join, resolve, dirname, relative, sep } from 'node:path';
+delete process.env.OMNIKOM_WORKSPACE;   // the workspace checks below set it themselves
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -116,6 +117,21 @@ try {
   r = cli(['--dry-run']);
   check('dry run: no launcher folder is created', !existsSync(LAUNCH), r.out);
   gated('launcher: name, the charter head model (opus), bypassPermissions, no prompt; passes the clean-launch guard', () => check('launcher: name, the charter head model (opus), bypassPermissions, no prompt; passes the clean-launch guard', r.status === 0 && /--name HEAD-OF-OPERATIONS_Omnikom_\d{4}-\d{2}-\d{2}[a-z]? --model claude-opus-5-5 --permission-mode bypassPermissions\s*$/m.test(r.out) && /^set CLAUDE_CODE_CHILD_SESSION=$/m.test(r.out) && r.out.includes(sa.BRIEF), r.out));
+
+  // --- the workspace (work order 04): the head opens at its top level, a session there is ours, the brief is named from there
+  {
+    const WSP = join(tmp, 'ws'), REPO2 = join(WSP, 'code', 'main');
+    mkdirSync(REPO2, { recursive: true });
+    process.env.OMNIKOM_WORKSPACE = WSP;
+    putSession({ pid: process.pid, sessionId: 's-top', name: 'a chat at the top', cwd: WSP });
+    r = cli(['--dry-run']);
+    delete process.env.OMNIKOM_WORKSPACE;
+    clearSessions();
+    const want = relative(WSP, join(ROOT, sa.BRIEF)).split(sep).join('/');
+    gated('workspace: the head\'s launcher cds to the workspace top level and the message names the brief as read from there', () => check('workspace: the head\'s launcher cds to the workspace top level and the message names the brief as read from there',
+      r.status === 0 && r.out.includes(`cd /d "${WSP}"`) && r.out.includes(`Read ${want} and do what it says`) && want.endsWith(sa.BRIEF) && want !== sa.BRIEF, r.out));
+    check('workspace: an unnamed session at the workspace top level is listed as ours (not blocking)', /^ {2}other {3}a chat at the top pid \d+/m.test(r.out), r.out);
+  }
 
   // --- the whole run with fakes: window, registration, messenger
   await gated('run: opens the launcher, waits for the session, sends the takeover brief to the new name, prints one line', async () => {

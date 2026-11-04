@@ -20,7 +20,17 @@ const MUTANTS = [
   ['the model ignores the charter', L, "const chosen = (model || charter.builderModel || '').toLowerCase();", "const chosen = (model || 'haiku').toLowerCase();"],
   ['a launcher folder with "claude" in it is accepted', L, 'if (/claude/i.test(d)) throw new BuilderError(', 'if (false) throw new BuilderError('],
   ['a cwd with a % or a quote is accepted', L, 'if (/["%\\r\\n]|claude/i.test(dir)) throw new BuilderError(', 'if (false) throw new BuilderError('],
-  ['a cwd that does not exist is accepted', L, 'if (!existsSync(dir)) throw new BuilderError(', 'if (false) throw new BuilderError('],
+  ['a cwd that does not exist is accepted', L, 'if (!worktree && !existsSync(dir)) throw new BuilderError(', 'if (false) throw new BuilderError('],
+  // the builder's worktree (work order 04)
+  ['without --cwd the builder starts in the repository again', L, 'dir = builderDir(ws, dept, slice);', 'dir = ROOT;'],
+  ['without --cwd no worktree is asked for', L, 'const worktree = !cwd;', 'const worktree = false;'],
+  ['the worktree is not made before the launch', S, 'if (p.worktree) (deps.worktree || ensureWorktree)(p.cwd);', ''],
+  ['the workspace is not found by walking up', L, "if (existsSync(join(d, 'code', 'main', '.git'))) return d;", 'return null;'],
+  ['an existing worktree is added again', L, 'key(dir))) return { dir, made: false, base: null };', 'key(dir))) { /* mutant */ }'],
+  ['a folder that is not a worktree is taken over', L, 'if (existsSync(dir)) throw new BuilderError(`${dir} exists', 'if (false) throw new BuilderError(`${dir} exists'],
+  ['master is not fetched before the worktree is made', L, 'if (!process.env.OMNIKOM_BUILDER_BASE) {', 'if (false) {'],
+  ['a failed fetch still makes the worktree', L, 'if (!fe.ok) throw new BuilderError(`BLOCKED: git fetch', 'if (false) throw new BuilderError(`BLOCKED: git fetch'],
+  ['the worktree is not detached', L, "'worktree', 'add', '--detach', dir, base]", "'worktree', 'add', dir, base]"],
   // the launcher
   ['the launcher clears one marker too few (own check gone)', L, 'for (const n of CLEARED) if (!new RegExp(', 'for (const n of CLEARED.slice(0, 0)) if (!new RegExp('],
   ['the launcher never clears CLAUDE_PID', L, "'CLAUDE_CODE_SESSION_ID', 'CLAUDE_PID', 'CLAUDECODE'];", "'CLAUDE_CODE_SESSION_ID', 'CLAUDECODE'];"],

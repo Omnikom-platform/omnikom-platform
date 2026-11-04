@@ -1,12 +1,22 @@
 # Where things stand
 
-Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-03 after platform block 1 landed.
+Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-04 by work order 04 (one home for all work).
 What the product is and every feature's state: `docs/product/1-product.md`. Proof of past work: the commit messages and
 their CI runs, and `docs/blueprint/PROGRESS.md`.
 
+## Where things live (work order 04, `work/04-workspace-home/CONTEXT.md`)
+
+- Sessions open at `E:\Omnikom Platform` (short CLAUDE.md, README.md). This repository is `code\main` there, a clone of
+  GitHub master (remote `backup-gh`); builders work in worktrees `departments\<slug>\builders\<slice>` (start-builder.mjs makes
+  them); `omnikom land` fast-forwards `code\main` after a land when it is clean. Getting back in: `resume\RESUME.md`, Desktop
+  "Start Omnikom" and "Resume Head of Ops". The old top-level checkout and launchers are frozen in `archive\`; a full copy of the
+  old workspace is `E:\Omnikom Platform Backup 2026-11-04` (3456 files).
+- All departments are parked; no builder runs. Nothing is held only on this laptop: 14 `check/archive-2026-11-04/*` branches
+  on GitHub hold the old local work.
+
 ## Now
 
-- master: `41ab89a` (platform block 1, the CRM backend, landed; CI run 41589140733, 9 of 9 jobs). Proven on staging
+- master before work order 04: `51a0a10` (work order 02 written). Block 1 `41ab89a` (the CRM backend; CI run 41589140733, 9 of 9 jobs). Proven on staging
   2026-11-03: `node supabase/tests/e2e-crm.mjs` 16 of 16 PASS ("PASS: CRM backend on staging, 0 problem(s)") and
   `e2e-screens.mjs` "PASS: staging end to end for the functions of the four screens, 0 problem(s)".
 - What block 1 gave: lead form fields typed by the contract (C-FORM-*), drawn with no script; capture types every answer (M14);
@@ -25,8 +35,8 @@ their CI runs, and `docs/blueprint/PROGRESS.md`.
    no builder started yet); the CRM screens on the new backend are block 3.
 2. CLI and testing adds a journey step per CRM feature (field edit, server list, bulk, export columns) and removes the push
    steps J8 and J9.
-3. Head of operations: route the open findings (`service.add_lead` stores manual answers untyped, work order 01 F3); the repo
-   cleanup slice (leftover worktrees, stray files; old logs and charters cut to what is true now).
+3. Head of operations: route the open findings (`service.add_lead` stores manual answers untyped, work order 01 F3); cut old
+   logs and charters to what is true now (leftover worktrees and launchers: done by work order 04).
 
 ## Open owner questions
 
