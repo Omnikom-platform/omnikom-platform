@@ -172,6 +172,44 @@ check('proposeMap: best score first, whatever the column order', () => {
   eq(proposeMap(['phone'], ['Home Phone', 'Phone']).columns, [{ header: 'Phone', field: 'phone', score: 1 }]);
   eq(proposeMap(['phone'], ['Phone', 'Home Phone']).columns, [{ header: 'Phone', field: 'phone', score: 1 }]);
 });
+// ---- labels (F1): the contract's label for an industry field is one more exact synonym
+const ROOF = 'answers.roof_age', ROOF_LABEL = 'How old is your roof?';
+check('labels: a header that is only the contract label maps, and without the label it does not (F1)', () => {
+  const heads = ['Email', ROOF_LABEL];
+  eq(proposeMap(['email', ROOF], heads).columns, [{ header: 'Email', field: 'email', score: 1 }]);
+  assert.ok(score(ROOF, ROOF_LABEL) < 0.5);
+  eq(proposeMap(['email', ROOF], heads, [], { [ROOF]: ROOF_LABEL }).columns, [{ header: 'Email', field: 'email', score: 1 }, { header: ROOF_LABEL, field: ROOF, score: 1 }]);
+  eq(score(ROOF, ROOF_LABEL, undefined, ROOF_LABEL), 1);
+});
+check('labels: the label is matched the way a synonym is, in any case or punctuation, and in one part of a compound header', () => {
+  const lab = { [ROOF]: ROOF_LABEL };
+  eq(proposeMap([ROOF], ['HOW OLD IS YOUR ROOF'], [], lab).columns.map(c => c.field), [ROOF]);
+  eq(proposeMap([ROOF], ['how-old  is your roof'], [], lab).columns.map(c => c.field), [ROOF]);
+  eq(proposeMap([ROOF], ['Notes | How old is your roof?'], [], lab).columns.map(c => c.field), [ROOF]);
+});
+check('labels: a label is not fuzzy, only exact; a non-string label or none changes nothing', () => {
+  eq(proposeMap([ROOF], ['How old is the roof'], [], { [ROOF]: ROOF_LABEL }).columns, []);
+  eq(proposeMap([ROOF], ['42'], [], { [ROOF]: 42 }).columns, []);
+  const heads = ['First Name', 'Last Name', 'Email', 'Phone Number', 'Lead Status', 'Message', 'Price range'];
+  const plain = proposeMap(LEAD_FIELDS, heads, []);
+  for (const labels of [undefined, null, {}, { 'answers.nothing': 'Email' }, { [ROOF]: 'Nothing like a header' }]) eq(proposeMap(LEAD_FIELDS, heads, [], labels), plain);
+});
+check('labels: on a tie a dictionary synonym of another field beats a label, whatever the field order, and the loser keeps its best', () => {
+  for (const fields of [['x_field', 'email'], ['email', 'x_field']]) {
+    const r = proposeMap(fields, ['Email'], [], { x_field: 'E-mail' });
+    eq(r.columns, [{ header: 'Email', field: 'email', score: 1 }]);
+    eq(r.unmapped.fields, [{ field: 'x_field', best: null }]);
+  }
+});
+check('labels: a header that lost to an equal one shows the label field as its best', () => {
+  const r = proposeMap([ROOF], ['Shingle condition', 'SHINGLE CONDITION'], [], { [ROOF]: 'Shingle condition' });
+  eq(r.columns, [{ header: 'Shingle condition', field: ROOF, score: 1 }]);
+  eq(r.unmapped.headers, [{ header: 'SHINGLE CONDITION', best: { field: ROOF, score: 1 } }]);
+});
+check('labels: a label that equals a dictionary synonym of its own field keeps the dictionary rank', () => {
+  eq(proposeMap(['answers.budget'], ['Price range', 'Budget'], [], { 'answers.budget': 'Price range' }).columns[0].header, 'Budget');
+});
+
 check('proposeMap: a pair under 0.5 is refused, with its best candidate kept', () => {
   const r = proposeMap(['phone'], ['Mobile Phone Verified Flag']);
   eq(r.columns, []);
@@ -639,7 +677,7 @@ check('template: the shipped files carry source, a readOn verification note and 
     assert.match(t.crm, /^[a-z0-9]+(-[a-z0-9]+)*$/); assert.ok(t.name.length <= 120); assert.ok(typeof t.value_maps === 'object');
     for (const c of t.columns) assert.ok(typeof c.header === 'string' && typeof c.field === 'string');
   }
-  eq(hubspot.columns.map(c => c.header).sort(), ['Email', 'First Name', 'Last Name', 'Lead Status', 'Lifecycle Stage', 'Message', 'Phone Number']);
+  eq(hubspot.columns.map(c => c.header).sort(), ['Email', 'First name', 'Last name', 'Lead status', 'Lifecycle stage', 'Message', 'Phone number']); // HubSpot's own case (F2, read 2026-11-04)
   eq(google.columns.map(c => c.header), ['Name', 'Given Name', 'Family Name', 'E-mail 1 - Value', 'Phone 1 - Value', 'Notes']);
 });
 
@@ -739,10 +777,19 @@ check('csv: default headers are every key in first-seen order; a missing key is 
 // ================================================================= end to end
 check('hubspot: export row, values and statuses', () => {
   eq(exportRows(hubspot, [lead()])[0], {
-    'First Name': 'Jordan', 'Last Name': 'Reyes', Email: 'jordan@example.com', 'Phone Number': '+15105550142',
-    'Lead Status': 'New', 'Lifecycle Stage': 'Lead', Message: 'Call me, please.\nThanks "soon"',
+    'First name': 'Jordan', 'Last name': 'Reyes', Email: 'jordan@example.com', 'Phone number': '+15105550142',
+    'Lead status': 'New', 'Lifecycle stage': 'Lead', Message: 'Call me, please.\nThanks "soon"',
   });
-  eq(exportRows(hubspot, ['new', 'contacted', 'qualified', 'closed', 'spam'].map(status => lead({ status }))).map(r => r['Lead Status']), ['New', 'Attempted to Contact', 'Connected', 'Open Deal', 'Unqualified']);
+  eq(exportRows(hubspot, ['new', 'contacted', 'qualified', 'closed', 'spam'].map(status => lead({ status }))).map(r => r['Lead status']), ['New', 'Attempted to Contact', 'Connected', 'Open Deal', 'Unqualified']);
+});
+check('hubspot: headers are in the HubSpot case, a file whose headers differ only in case still imports (HubSpot exports "First Name")', () => {
+  const r = importRows(hubspot, [{ 'First Name': 'Jordan', 'LAST NAME': 'Reyes', EMAIL: 'j@example.com', 'Lifecycle Stage': 'Customer' }]);
+  eq(r.leads, [{ name: 'Jordan Reyes', email: 'j@example.com', status: 'closed' }]);
+});
+check('import: an exact header beats a case variant, and two case variants with no exact one are not guessed between', () => {
+  const t = cols(['Email', 'email'], ['Name', 'name']);
+  eq(importRows(t, [{ Email: 'a@x.com', EMAIL: 'b@x.com', Name: 'Ann' }]).leads, [{ email: 'a@x.com', name: 'Ann' }]);
+  eq(importRows(t, [{ EMAIL: 'b@x.com', eMail: 'c@x.com', Name: 'Ann' }]).leads, [{ name: 'Ann' }]);
 });
 check('hubspot: export, CSV, parse, import gives the same lead fields back', () => {
   const statuses = ['new', 'contacted', 'qualified', 'closed', 'spam'];

@@ -21,11 +21,16 @@ refuse the template). A field name may not be an `Object.prototype` name (`toStr
 `__proto__`, `constructor` and the rest) or `prototype`; such a template is refused with `T-FIELD`.
 
 ## Proposing a map
-`proposeMap(ourFields, theirHeaders, sampleRows)` returns `{ columns, unmapped, splits, warnings }`.
+`proposeMap(ourFields, theirHeaders, sampleRows, labels)` returns `{ columns, unmapped, splits, warnings }`.
 - When two headers score the same for one field (HubSpot "Lifecycle Stage" and "Lead Status" for `status`), the header that
   matches the synonym listed first for that field in `dictionary.mjs` wins, whatever the column order. If the rank is equal too,
   the lower column wins. The loser is in `unmapped.headers` and its `best` names the field it lost (`best` is taken over all
   fields, taken or not).
+- `labels` (optional) is `{ field: label }`, the label our contract shows for an industry field (`{ 'answers.budget': 'Price range' }`).
+  A header equal to the label (any case or punctuation) is an exact match, score 1, as if the label were one more synonym of that field;
+  it is exact only, never fuzzy. On a tie a match from the dictionary goes before one from a label, so a label never takes a header
+  away from a dictionary synonym of another field. With no `labels` (or a label that matches nothing) the proposal is the same as
+  before. `score(ourField, theirHeader, sampleValues, ourLabel)` takes the label too.
 - A compound header ("State/Province", "Fax | Phone") is also tried part by part, split on `/` and `|`.
 - `warnings` are sentences: the sheet looks non-English (fewer than half the headers hold a word the dictionary knows) and some
   headers mapped nothing; or there is a single header that holds `;` (a semicolon file read with commas).
@@ -56,6 +61,11 @@ unknown name throws `T-TIMEZONE`.
 - Import: a timestamp with no offset and no `Z` (`2026-11-03 23:30`) is read as that zone and stored as a UTC instant; one with
   an offset or `Z` keeps its own. A date with no time (`10/29/2026`, `2026-10-29`) has no zone to move and stays that day.
 
+## Header case on import
+`importRows` finds a template header in a file row by the exact header first, else by the one header that differs from it only in
+case (HubSpot's docs write "First name", its exports "First Name"). Two case variants and no exact one are not guessed between: the
+cell is skipped. Value-map keys `field@Header` stay exact on the header.
+
 ## Duplicate headers
 `parseCsv` renames a repeated header (`Phone`, `Phone (2)`). `importRows` adds a warning (`row: null`, `header: "Phone (2)"`)
 when the file holds such a renamed header next to its base, since the second column is ignored unless the template names it.
@@ -77,7 +87,18 @@ Not handled, on purpose or not yet:
   that is also a particle sits with the last name (`Hoa Le Nguyen` is Hoa / Le Nguyen), and a name with three or more commas
   that is not `Last, First, Suffix` is split on spaces.
 
+## Sources
+- `templates/hubspot.json` column labels, in HubSpot's case ("First name", "Last name", "Email", "Phone number", "Lead status",
+  "Lifecycle stage", "Message"), read 2026-11-04:
+  https://knowledge.hubspot.com/properties/hubspots-default-contact-properties (page "last updated September 21, 2026", default contact
+  property labels) and https://knowledge.hubspot.com/import-and-export/set-up-your-import-file (page "last updated September 11, 2026":
+  Email required, First name and Last name accepted, a phone as +[country code][number]). The same sources are cited in
+  `supabase/functions/test/templates.test.ts`. Matching on import stays case-insensitive (see "Header case on import").
+- The two HubSpot status value maps (Lead status and Lifecycle stage option labels) are on no public page: **UNVERIFIED**.
+- `templates/google-contacts.json`: Google publishes no first-party header list (BLOCKED, needs a real export from a test account).
+
 ## UNVERIFIED
-Written 2026-10-29 with no browser. Every vendor header in `dictionary.mjs`, both template files (column names, source
-URLs, status value maps) and the HubSpot and Google import rules are from memory and marked `"readOn": "UNVERIFIED"`.
+Written 2026-10-29 with no browser. Every vendor header in `dictionary.mjs`, the Google template (column names, source URLs) and
+the HubSpot status value maps and Google import rules are from memory and marked `"readOn"` UNVERIFIED (the HubSpot column labels were
+checked 2026-11-04, see Sources).
 No kvCORE or Follow Up Boss template is shipped. The lead checks each against the vendor's import page before a client sees it.

@@ -3,16 +3,16 @@
   "crm": "hubspot",
   "direction": "both",
   "source": "https://knowledge.hubspot.com/import-and-export/set-up-your-import-file",
-  "readOn": "2026-10-29 PARTLY: the import page confirms Email is required, First name and Last name are accepted, phone as +countrycode; the header Phone Number and the Lead Status and Lifecycle Stage labels are UNVERIFIED (the page says enum values must match the internal value or the English label)",
-  "note": "Written 2026-10-29 from memory, no browser. Column labels and the two status value maps are proposals until the lead checks them against the import page. Lead Status comes before Lifecycle Stage on purpose: on import the first filled column wins, and Lead Status maps back one to one while Lifecycle Stage does not.",
+  "readOn": "2026-11-04 PARTLY: the column labels are HubSpot's default contact property labels in HubSpot's own case (hubspots-default-contact-properties, page last updated September 21, 2026); Email required and First name / Last name accepted (set-up-your-import-file); the two status value maps (Lead status and Lifecycle stage option labels) are UNVERIFIED, on no public page",
+  "note": "Column labels written in HubSpot's case 2026-11-04 (see README \"Sources\"); matching on import stays case-insensitive. The two status value maps are proposals until the lead checks them. Lead status comes before Lifecycle stage on purpose: on import the first filled column wins, and Lead status maps back one to one while Lifecycle stage does not.",
   "columns": [
     {
-      "header": "First Name",
+      "header": "First name",
       "field": "name",
       "transform": "first"
     },
     {
-      "header": "Last Name",
+      "header": "Last name",
       "field": "name",
       "transform": "last"
     },
@@ -21,16 +21,16 @@
       "field": "email"
     },
     {
-      "header": "Phone Number",
+      "header": "Phone number",
       "field": "phone",
       "transform": "e164"
     },
     {
-      "header": "Lead Status",
+      "header": "Lead status",
       "field": "status"
     },
     {
-      "header": "Lifecycle Stage",
+      "header": "Lifecycle stage",
       "field": "status"
     },
     {
@@ -46,7 +46,7 @@
       "closed": "Open Deal",
       "spam": "Unqualified"
     },
-    "status@Lifecycle Stage": {
+    "status@Lifecycle stage": {
       "new": "Lead",
       "contacted": "Lead",
       "qualified": "Sales Qualified Lead",

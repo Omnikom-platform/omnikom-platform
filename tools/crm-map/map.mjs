@@ -118,19 +118,23 @@ function sampleType(values) {
   return null;
 }
 
-const NONE = { score: 0, rank: Infinity };
+const NONE = { score: 0, rank: Infinity, label: 0 };
 
-// One header against one field: { score 0..1, rank }. rank is the position, in the dictionary's synonym list for the
-// field, of the synonym that gave the score (the first one on a tie); it only settles ties between equal scores.
-function scoreOne(ourField, theirHeader, sampleValues) {
+// One header against one field: { score 0..1, rank, label }. rank is the position, in the dictionary's synonym list for the
+// field, of the synonym that gave the score (the first one on a tie); it only settles ties between equal scores. label is 1
+// when the score came only from the optional label (one more exact synonym, below every dictionary match on a tie), else 0.
+function scoreOne(ourField, theirHeader, sampleValues, ourLabel) {
   const nh = normaliseHeader(theirHeader);
   if (!nh) return NONE;
   const syn = synonymsOf(ourField);
   const ht = nh.split(' ');
-  let base = 0, rank = Infinity;
+  let base = 0, rank = Infinity, fromLabel = 0;
   const at = syn.glued.indexOf(nh.replace(/ /g, ''));
+  const nl = typeof ourLabel === 'string' ? normaliseHeader(ourLabel).replace(/ /g, '') : '';
   if (at >= 0) {
     base = 1; rank = at;
+  } else if (nl && nl === nh.replace(/ /g, '')) {
+    base = 1; rank = syn.list.length; fromLabel = 1;
   } else {
     let best = 0, bestAt = Infinity;
     syn.tokens.forEach((st, i) => { if (compatible(ht, st)) { const j = jaccard(ht, st); if (j > best) { best = j; bestAt = i; } } });
@@ -150,35 +154,36 @@ function scoreOne(ourField, theirHeader, sampleValues) {
     const t = sampleType(sampleValues);
     if (t && t !== 'text' && !syn.accepts.includes(t)) base -= TYPE_PENALTY;
   }
-  return { score: round3(Math.max(0, Math.min(1, base))), rank: base > 0 ? rank : Infinity };
+  return { score: round3(Math.max(0, Math.min(1, base))), rank: base > 0 ? rank : Infinity, label: base > 0 ? fromLabel : 0 };
 }
 
 // A compound header such as "State/Province" or "Fax | Phone" is also tried part by part; the best part counts when it
 // beats the header taken whole.
 const COMPOUND = /[/|]/;
-function scoreDetail(ourField, theirHeader, sampleValues) {
-  const whole = scoreOne(ourField, theirHeader, sampleValues);
+function scoreDetail(ourField, theirHeader, sampleValues, ourLabel) {
+  const whole = scoreOne(ourField, theirHeader, sampleValues, ourLabel);
   if (theirHeader === null || theirHeader === undefined || !COMPOUND.test(String(theirHeader))) return whole;
   let part = NONE;
   for (const piece of String(theirHeader).split(COMPOUND)) {
-    const c = scoreOne(ourField, piece, sampleValues);
+    const c = scoreOne(ourField, piece, sampleValues, ourLabel);
     if (c.score > part.score || (c.score === part.score && c.rank < part.rank)) part = c;
   }
   return part.score > whole.score ? part : whole;
 }
 
-// How well does their column fit our field? 0..1.
-export function score(ourField, theirHeader, sampleValues) {
-  return scoreDetail(ourField, theirHeader, sampleValues).score;
+// How well does their column fit our field? 0..1. ourLabel (optional) is the field's label, read as one more exact synonym.
+export function score(ourField, theirHeader, sampleValues, ourLabel) {
+  return scoreDetail(ourField, theirHeader, sampleValues, ourLabel).score;
 }
 
 // ---------------------------------------------------------------- propose
 
-// Greedy best-first: highest score first, one `a` and one `b` each. On equal scores the lower field `a` goes first and,
-// for one field, the column whose header matches the synonym listed earliest in the dictionary (`r`); only then the lower column.
+// Greedy best-first: highest score first, one `a` and one `b` each. On equal scores a match from the dictionary goes before one
+// from a label only (`l`), then the lower field `a` and, for one field, the column whose header matches the synonym listed
+// earliest in the dictionary (`r`); only then the lower column.
 function assign(pairs) {
   const usedA = new Set(), usedB = new Set(), picked = [];
-  pairs.sort((x, y) => y.s - x.s || x.a - y.a || x.r - y.r || x.b - y.b);
+  pairs.sort((x, y) => y.s - x.s || x.l - y.l || x.a - y.a || x.r - y.r || x.b - y.b);
   for (const p of pairs) {
     if (usedA.has(p.a) || usedB.has(p.b)) continue;
     usedA.add(p.a); usedB.add(p.b); picked.push(p);
@@ -209,11 +214,14 @@ function dictionaryWords() {
   return knownWords;
 }
 
-// ourFields: the field names to map; theirHeaders: their column headers; sampleRows: a few of their rows (optional).
+// ourFields: the field names to map; theirHeaders: their column headers; sampleRows: a few of their rows (optional);
+// labels (optional): { field: label }, the label our contract shows for an industry field ("Price range" for answers.budget),
+// matched as one more exact synonym. Without labels nothing changes.
 // Returns { columns, unmapped, splits, warnings }. unmapped.headers[].best is the best field for that header among ALL
 // the fields, taken or not, so a header that lost a tie shows what it lost. warnings are plain sentences.
-export function proposeMap(ourFields, theirHeaders, sampleRows) {
+export function proposeMap(ourFields, theirHeaders, sampleRows, labels) {
   const fields = [...new Set(ourFields)];
+  const labelOf = f => (labels !== null && typeof labels === 'object' && has(labels, f) ? labels[f] : undefined);
   const headers = theirHeaders.map(h => (h === null || h === undefined ? '' : String(h)));
   const samples = headers.map((h, i) => samplesFor(sampleRows, h, i));
   const taken = new Set();
@@ -230,7 +238,7 @@ export function proposeMap(ourFields, theirHeaders, sampleRows) {
     def.parts.forEach((part, a) => headers.forEach((h, b) => {
       if (taken.has(b)) return;
       const d = scoreDetail(part.key, h, samples[b]);
-      if (d.score >= MIN_SCORE) pairs.push({ a, b, s: d.score, r: d.rank });
+      if (d.score >= MIN_SCORE) pairs.push({ a, b, s: d.score, r: d.rank, l: d.label });
     }));
     const picked = assign(pairs);
     const got = new Set(picked.map(p => def.parts[p.a].transform));
@@ -248,8 +256,8 @@ export function proposeMap(ourFields, theirHeaders, sampleRows) {
   const pairs = [];
   fields.forEach((f, a) => headers.forEach((h, b) => {
     if (taken.has(b)) return;
-    const d = scoreDetail(f, h, samples[b]);
-    if (d.score >= MIN_SCORE) pairs.push({ a, b, s: d.score, r: d.rank });
+    const d = scoreDetail(f, h, samples[b], labelOf(f));
+    if (d.score >= MIN_SCORE) pairs.push({ a, b, s: d.score, r: d.rank, l: d.label });
   }));
   const single = assign(pairs);
   const mappedFields = new Set(), mappedHeaders = new Set();
@@ -261,7 +269,7 @@ export function proposeMap(ourFields, theirHeaders, sampleRows) {
   // 3. what is left, each with its best candidate (for the wizard)
   const freeH = headers.map((_, b) => b).filter(b => !taken.has(b) && !mappedHeaders.has(b));
   const freeF = fields.filter((f, a) => !mappedFields.has(a) && !splitFields.has(f));
-  const fit = (f, b) => Math.max(score(f, headers[b], samples[b]), ...(has(PARTS, f) ? PARTS[f].parts.map(p => score(p.key, headers[b], samples[b])) : [0]));
+  const fit = (f, b) => Math.max(score(f, headers[b], samples[b], labelOf(f)), ...(has(PARTS, f) ? PARTS[f].parts.map(p => score(p.key, headers[b], samples[b])) : [0]));
   const unmapped = {
     headers: freeH.map(b => ({ header: headers[b], best: bestOf(fields.map(f => ({ field: f, score: fit(f, b) }))) })),
     fields: freeF.map(f => ({ field: f, best: bestOf(freeH.map(b => ({ header: headers[b], score: fit(f, b) }))) })),
@@ -637,6 +645,15 @@ function phoneKey(p) {
 // left as they were, or (row null) a header the file repeated, which parseCsv renamed to "Phone (2)".
 // options: { date: 'us' | 'eu' } settles a date like 03/04/2026 that could be either;
 // { defaultCountry: 'US' } as in exportRows; { timezone: 'UTC' } the zone a timestamp with no offset is read in.
+// A row's cell for a template header: the exact header, else the one header that differs from it only in case
+// (HubSpot writes "First name" in its docs and "First Name" in its exports); two such headers and no exact one: no guess.
+function cellOf(row, header) {
+  if (has(row, header)) return row[header];
+  const low = header.toLowerCase();
+  const hits = Object.keys(row).filter(k => k.toLowerCase() === low);
+  return hits.length === 1 ? row[hits[0]] : undefined;
+}
+
 export function importRows(template, rows, options) {
   assertTemplate(template);
   const opts = options || {};
@@ -660,7 +677,8 @@ export function importRows(template, rows, options) {
     const put = (field, value) => { if (!toText(getPath(lead, field)).trim()) setPath(lead, field, value); };
     const part = (into, field, key, text) => { if (!into.has(field)) into.set(field, {}); const o = into.get(field); o[key] = o[key] || text; };
     template.columns.forEach((col, i) => {
-      const text = row !== null && typeof row === 'object' && has(row, col.header) ? toText(row[col.header]).trim() : '';
+      const cell = row !== null && typeof row === 'object' ? cellOf(row, col.header) : undefined;
+      const text = cell === undefined ? '' : toText(cell).trim();
       if (!text) return;
       const p = plans[i];
       if (p.op === 'namepart') part(names, col.field, p.part, text);

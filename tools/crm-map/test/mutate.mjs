@@ -5,7 +5,8 @@
 // process per mutant (so a mutant that loops forever is cut off by the timeout and counts as caught).
 // Each mutant is [name, exactSourceText, replacementText], applied with split(a).join(b) (no `$` replacement patterns).
 // The exact text must occur exactly once in map.mjs, so a mutant cannot quietly change two places.
-// Not mutated, because no test can tell the difference: building the temporary name and address objects in importRows as
+// Not mutated, because no test can tell the difference: the own-property guard on labels in proposeMap (an inherited value is
+// never a string, so score ignores it anyway); building the temporary name and address objects in importRows as
 // Maps (a field named toString is refused before they are used), and the `has(cur, k)` guard in setPath (same reason).
 import { readFileSync, writeFileSync, mkdtempSync, copyFileSync, rmSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
@@ -41,6 +42,17 @@ const MUTANTS = [
   ['a type needs only 30% of the values', 'const TYPE_SHARE = 0.6;', 'const TYPE_SHARE = 0.3;'],
   ['compound headers are not tried part by part', '!COMPOUND.test(String(theirHeader))) return whole;', 'true) return whole;'],
   ['a compound header never counts its parts', 'return part.score > whole.score ? part : whole;', 'return whole;'],
+  // ---- labels and case-insensitive file headers
+  ['a label is never read as a synonym', "} else if (nl && nl === nh.replace(/ /g, '')) {", '} else if (false) {'],
+  ['a label match is not a clean 1.0', 'base = 1; rank = syn.list.length; fromLabel = 1;', 'base = 0.9; rank = syn.list.length; fromLabel = 1;'],
+  ['a non-string label is read as text', "typeof ourLabel === 'string' ? normaliseHeader(ourLabel)", 'ourLabel !== undefined ? normaliseHeader(ourLabel)'],
+  ['a label match ranks with the dictionary on a tie', 'y.s - x.s || x.l - y.l || x.a - y.a', 'y.s - x.s || x.a - y.a'],
+  ['proposeMap does not pass the label to the pairing', 'const d = scoreDetail(f, h, samples[b], labelOf(f));', 'const d = scoreDetail(f, h, samples[b]);'],
+  ['the label is lost for the unmapped best', 'const fit = (f, b) => Math.max(score(f, headers[b], samples[b], labelOf(f)),', 'const fit = (f, b) => Math.max(score(f, headers[b], samples[b]),'],
+  ['the label is lost for a part of a compound header', 'const c = scoreOne(ourField, piece, sampleValues, ourLabel);', 'const c = scoreOne(ourField, piece, sampleValues);'],
+  ['file headers are matched in exact case only', 'const hits = Object.keys(row).filter(k => k.toLowerCase() === low);', 'const hits = [];'],
+  ['two case variants are guessed between', 'return hits.length === 1 ? row[hits[0]] : undefined;', 'return hits.length >= 1 ? row[hits[0]] : undefined;'],
+  ['an exact file header does not win over a case variant', 'if (has(row, header)) return row[header];', ''],
   // ---- proposeMap
   ['greedy goes by field order, not best score', 'pairs.sort((x, y) => y.s - x.s || x.a - y.a || x.r - y.r || x.b - y.b);', 'pairs.sort((x, y) => x.a - y.a || x.r - y.r || x.b - y.b);'],
   ['greedy takes the worst score first', 'pairs.sort((x, y) => y.s - x.s ||', 'pairs.sort((x, y) => x.s - y.s ||'],
