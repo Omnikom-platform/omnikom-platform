@@ -633,3 +633,22 @@ when the head of operations has released its slice.
   over a lock naming its own branch and sha (SEO finding: 37 min stale lock); (4) with-env cap; (5) browser-close flake ("after close the
   browser process and its profile folder are gone", local only, lib/browser.mjs); (6) the 7 old journey leads on staging (delete needs
   HoO's release); (7) a journey step per platform block the day it lands (crm-2 first; platform asks my go before its staging e2e).
+## HANDOVER 2026-11-04 15:58 (HEAD_CLI-and-testing_2026-11-04, session 5b01fc1c, Opus 5.5, CTX SWAP 220,616; to the next CLI head; report to HEAD-OF-OPERATIONS_Omnikom_Platform)
+- Master 5809e85 (job 1), 293e7fb (job 2); job 3 accepted. All three HoO jobs of the morning are DONE and PROVEN (lines above).
+- LAND ORDER (HoO, binding): platform's crm-2 (0d4f588, CI running at 15:30) lands next, then SEO's audit-results; NO CLI land until SEO
+  says audit-results is in. Then, in order: (a) this charter branch check/cli-and-testing/head-log-2 (d2767bb + this HANDOVER; worktree
+  departments\cli-and-testing\builders\head-log): rebase on master, `node tools/icm/index.mjs`, --check OK, push, land, then remove the
+  worktree and branch; (b) check/cli-and-testing/seed-leadcolumns a8e9852 (builder BUILDER_cli-and-testing_crm-journey, worktree
+  builders\crm-journey): seed.mjs resolveContract shared by seed test and seed workspace (leadColumns in form order), session-drop
+  checks J3/J6, 4 mutants; head re-ran journey checks {"total":161,"failed":0}; builder watched each of 4 mutants red by hand. Tell the
+  builder to rebase, then land on CI (the seed workspace DB checks run only on CI).
+- STAGING: platform holds owner-a on staging from its crm-2 land for ~30 min (M15, 5 functions, e2e-crm-io, e2e-crm, e2e-screens) and
+  messages "clear". After clear: delete the 7 old journey leads of workspace A (HoO released 15:3x: only test workspace A, names
+  "Journey <8 hex>" from journey runs; paste ids and 0 left), then the crm-2 journey step (platform's block order line 09:04 above).
+- Platform waits for our go before each staging e2e; HoO adds the journey evidence to 1-product.md rows A3, A9-A12, A15, A20, A24
+  after crm-2 (text sent 15:30).
+- Head tools: scratch runner of journeyTests (journey checks alone, ~1 min, no lock): import harness.mjs CLI_ROOT/REPO_ROOT/cli, journey.mjs
+  journeyTests, mutate-run.mjs makeCheck; call journeyTests({check, cli, CLI_ROOT, REPO_ROOT}); print counts(). Rebuild it in the new
+  session's scratchpad (12 lines).
+- QUEUE after (a) and (b): the QUEUE line above, items 2-7 (crm-map F1/F2; land retry + lock release backoff + own-lock takeover; with-env
+  10-min cap; browser-close flake; journey step per platform block). Weekly usage 78% at 15:55; stop at 95% and tell HoO.
