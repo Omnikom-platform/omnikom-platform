@@ -652,3 +652,11 @@ when the head of operations has released its slice.
   session's scratchpad (12 lines).
 - QUEUE after (a) and (b): the QUEUE line above, items 2-7 (crm-map F1/F2; land retry + lock release backoff + own-lock takeover; with-env
   10-min cap; browser-close flake; journey step per platform block). Weekly usage 78% at 15:55; stop at 95% and tell HoO.
+- 16:21 (HEAD_CLI-and-testing_2026-11-04b, Opus 5.5; reports to HEAD-OF-OPERATIONS_Omnikom_Platform): took over from the 15:58 HANDOVER.
+  Scratch journey runner rebuilt; on master 5809e85 {"total":159,"failed":0} (161 on a8e9852: J3/J6 session-drop checks). Platform
+  "clear" 16:21: crm-2 landed, master 0d4f588 (CI 41838590596, 9 of 9); its e2e-crm-io.mjs readback bug (column alias `t` inside
+  sql.rows) is fixed on check/platform/crm-2b, lands after SEO's slot.
+- 16:23 the 7 old journey leads of staging workspace A removed (service.delete_lead as owner-a, each read back gone; dry run listed the
+  same 7 first): "removed 7, failed 0; journey leads left in workspace A: 0". Ids sent to HoO. Builder crm-journey told: rebase a8e9852
+  on 0d4f588 and push (no land), then J11 "CRM export and import" (crm-2 step) on the same branch; it sends the staging command, head
+  gives the go. Still held: every CLI land until SEO says audit-results is in.
