@@ -34,6 +34,8 @@ const MUTANTS = [
     [['  if (!(p.ppid > 1)) return false;\n', '']]],
   ['a live parent that is not node is an owner', 'owner', /not node/,
     [['  return isNodeProc(parent);', '  return true;']]],
+  ['the journey prefix omnikom-jb- is not in PREFIXES', 'prefix', /omnikom-jb- \(the journey\): leaks\(\) lists/,
+    [["'omnikom-fn-', 'omnikom-jb-', ", "'omnikom-fn-', "]]],
   ['leaks() sees nothing', 'hardkill', /leaks\(\) lists the stand-in/,
     [['if (m) out.push(', 'if (false) out.push(']]],
   ['sweep() ignores a living owner', 'alive', /alive owner/,
@@ -65,6 +67,8 @@ const MUTANTS = [
 
 const work = mkdtempSync(join(os.tmpdir(), 'proc-guard-mut-'));
 let caught = 0, escaped = 0, broken = 0;
+const notCaught = [];   // one line per mutant that was not caught, repeated at the end (the gate shows only the last lines of this output)
+const bad = (kind, name, text) => { const line = `${kind} ${name}${text}`; console.log(line); notCaught.push(`${kind} ${name}`); };
 try {
   // The unmutated guard must pass every group first: a mutant measured against a red baseline proves nothing (on a Linux runner this
   // script once reported every mutant caught while the baseline was red).
@@ -84,22 +88,24 @@ try {
     for (const [find, replace] of edits) {
       const hits = text.split(find).length - 1;
       // an edit that only exists for the other platform is allowed to be a no-op there, but its text must still be in the file once
-      if (hits !== 1) { broken++; console.log(`BROKEN  ${name}: the target text occurs ${hits} times (needs exactly 1): ${find.slice(0, 70)}`); return; }
+      if (hits !== 1) { broken++; bad('BROKEN ', name, `: the target text occurs ${hits} times (needs exactly 1): ${find.slice(0, 70)}`); return; }
       text = text.split(find).join(replace);
     }
-    if (text === SRC) { broken++; console.log(`BROKEN  ${name}: the patch changed nothing`); return; }
+    if (text === SRC) { broken++; bad('BROKEN ', name, ': the patch changed nothing'); return; }
     const file = join(work, `m${i}.mjs`);
     writeFileSync(file, text);
     const r = spawnSync(process.execPath, [join(HERE, 'run.mjs')], { env: { ...process.env, PROC_GUARD_SUT: file, PROC_GUARD_ONLY: group }, encoding: 'utf8', timeout: 10 * 60 * 1000, maxBuffer: 32 * 1024 * 1024 });
     const out = `${r.stdout || ''}${r.stderr || ''}`;
     const fails = out.split(/\r?\n/).filter(l => /^FAIL /.test(l));
-    if (r.status === 0) { escaped++; console.log(`ESCAPED ${name} (group ${group} stayed green)`); }
-    else if (!fails.length) { broken++; console.log(`UNCLEAR ${name}: exit ${r.status}, no FAIL line: ${out.trim().split(/\r?\n/).slice(-4).join(' / ').slice(0, 400)}`); }
-    else if (!expect.test(fails[0])) { broken++; console.log(`WRONG REASON ${name}: first FAIL is "${fails[0].slice(0, 200)}" (wanted ${expect})`); }
+    if (r.status === 0) { escaped++; bad('ESCAPED', name, ` (group ${group} stayed green)`); }
+    else if (!fails.length) { broken++; bad('UNCLEAR', name, `: exit ${r.status}, no FAIL line: ${out.trim().split(/\r?\n/).slice(-4).join(' / ').slice(0, 400)}`); }
+    else if (!expect.test(fails[0])) { broken++; bad('WRONG REASON', name, `: first FAIL is "${fails[0].slice(0, 200)}" (wanted ${expect})`); }
     else { caught++; console.log(`caught  ${name}\n          by: ${fails[0].slice(0, 170)}${fails.length > 1 ? ` (+${fails.length - 1} more)` : ''}`); }
   });
 } finally {
   rmSync(work, { recursive: true, force: true });
 }
-console.log(`mutants: ${caught} caught, ${escaped} escaped, ${broken} broken, wrong or unclear${WIN ? '' : ' (non-Windows: the taskkill half of a two-part mutant is a no-op here)'}`);
+// the names again, right before the summary: a gate that prints only the tail of this output still says which mutant it was
+for (const l of notCaught) console.log(`NOT CAUGHT ${l}`);
+console.log(`mutants: ${caught} caught, ${escaped} escaped, ${broken} broken, wrong or unclear${notCaught.length ? ` [${notCaught.join('; ')}]` : ''}${WIN ? '' : ' (non-Windows: the taskkill half of a two-part mutant is a no-op here)'}`);
 process.exit(escaped || broken ? 1 : 0);
