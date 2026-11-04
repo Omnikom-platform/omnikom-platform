@@ -665,3 +665,14 @@ when the head of operations has released its slice.
 - 16:58 SEO: audit-results landed, master d6076e8, lock released (adds `run.mjs --summary`; --summary with --json exits 2). Owed line
   for "cli mutant 4c-flip": "caught audit and gate: a built folder with no --target is given a default target [4c-flip]" / "1 mutants,
   1 caught, 0 survived"; CI's CLI job green on ae8741d. Next land: platform's crm-2b, then ours.
+- 21:20 LANDED (HEAD_CLI-and-testing_2026-11-04b): (a) charter branch head-log-2 at 768dc65 (CI 41861737490, 9 of 9; worktree and branch
+  removed); (b) seed-leadcolumns with J11 at 4bfaac7 (CI 41888371894, 9 of 9). Between them HoO's book-rows (2d0f909) landed. First
+  try of (b) REFUSED on CI 41872270463: "455 mutants, 453 caught, 2 survived" (J11: add-lead need not refuse a bad typed answer; the
+  consent sentence is not checked). Cause: each planted fault also tripped the NEXT clause, so the mutated clause was never the one that
+  caught it. RULE LEARNED: one planted fault per clause; a fault must fail only the clause its mutant removes. Fixed in 4bfaac7 (457
+  mutants). Second try BLOCKED before CI (api.github.com connection timed out, no lock taken); the retry landed.
+  J11 on staging 17:46: J1 and J11 PASS, exit 0, "cleanup: 0 journey lead(s) removed, 0 left". Head re-ran the journey checks on
+  c110817 {"total":176,"failed":0} and 4bfaac7 {"total":179,"failed":0}; head watched the mutant "member may save a map" red on c110817
+  ({"total":176,"failed":1}). Platform: add-lead keeps 400 I-ANSWER (WO 02 Settled 8), J11 accepts 400 or 422.
+  NEXT (QUEUE items 2-7): crm-map F1/F2; land retry + lock release backoff + own-lock takeover (today's blip is its case); with-env
+  10-min cap; browser-close flake; journey step per platform block (next: seo-read). Usage 84% at 21:20; stop at 95% and tell HoO.
