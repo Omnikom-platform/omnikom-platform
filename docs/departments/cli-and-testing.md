@@ -660,3 +660,5 @@ when the head of operations has released its slice.
   same 7 first): "removed 7, failed 0; journey leads left in workspace A: 0". Ids sent to HoO. Builder crm-journey told: rebase a8e9852
   on 0d4f588 and push (no land), then J11 "CRM export and import" (crm-2 step) on the same branch; it sends the staging command, head
   gives the go. Still held: every CLI land until SEO says audit-results is in.
+- 16:26 HoO: platform head is now HEAD_Platform-build_2026-11-04b. LAND ORDER (binding): SEO's audit-results, then platform's crm-2b,
+  then ours (this charter branch, then seed-leadcolumns with J11).
