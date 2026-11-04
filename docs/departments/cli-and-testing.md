@@ -689,3 +689,13 @@ when the head of operations has released its slice.
   needed, land after 07; it wires F1 labels into crm-map-propose in its next order, fixes templates.test.ts:13's comment, redeploys
   crm-map-propose and lead-import after our land and asks us for an owner-a window before its e2e-crm-io. LAND QUEUE after platform's
   07: head-log-3 (this branch), then crm-map-f1f2 (rebase first), then remove both worktrees.
+- 2026-11-04 23:52 LANDED crm-map F1/F2 with the charter log at 03a56b5 (CI 41913599728, 9 of 9). CORRECTION sent to HoO: CI never runs
+  tools/crm-map/test (no line in that run's log; "457 mutants" is the CLI's own list), so crm-map's full mutate.mjs had run nowhere;
+  head runs it locally under ~/.claude/scripts/heavy.mjs. Empty folders builders\crm-journey and builders\crm-map-f1f2 held "busy" by
+  stopped builders' processes (worktrees and branches removed); delete when those processes are gone.
+- 23:42 HoO: with-env cap moved up to next (it killed platform's staging flows at test 18: exit 127 "could not start node: spawnSync node
+  ETIMEDOUT"). Builder BUILDER_cli-and-testing_crm-map-f1f2 works it in builders\with-env-cap (branch check/cli-and-testing/with-env-cap):
+  WITH_ENV_TIMEOUT_MIN (default 10, 0 = none, bad value exit 2), timeout = exit 124 with its own line, the whole tree stopped.
+- 2026-11-05 00:00 HoO CARVE-OUT (as for icm-ci): the builder adds crm-map run.mjs and mutate.mjs to CI (a ci.mjs NODE_STEPS/ROWS row plus
+  ONE step in ci.yml, nothing else in .github/; HoO tells platform). Same slice: list EVERY test or mutate script in the repo that no CI job
+  runs (rule 8 must never leave a suite unrun); add each, or tell HoO why not. QUEUE: with-env cap, then this ci-coverage slice.
