@@ -58,7 +58,7 @@ export async function handle(req: Request): Promise<Response> {
       ...tpl.columns.filter(col => SET_ON_IMPORT.includes(col.field)).map(col => ({ line: null, field: col.header, reason: 'not read on an import: an imported lead has form import and is received now' })),
     ];
     const opts = { dry_run: dryRun, duplicates, consent, file_name: fileName, file_sha256: await sha256Hex(file) };
-    const [{ r }] = await c.sql`select service.import_leads(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${template}::uuid, ${JSON.stringify(rows)}::jsonb, ${JSON.stringify(opts)}::jsonb) as r`;
+    const [{ r }] = await c.sql`select service.import_leads(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${template}::uuid, ${{ v: rows }}::jsonb -> 'v', ${opts}::jsonb) as r`;   // objects, never JSON text (capture-lead, slice 4.3)
     const report = r as Record<string, unknown>;
     return json(200, { ...report, warnings: [...warnings, ...((report.warnings as unknown[] | undefined) ?? [])] });
   }, { maxBody: 2 * MAX_FILE + 64 * 1024 });   // JSON escapes line ends and quotes: the body of a 1 MB file can be up to twice its size

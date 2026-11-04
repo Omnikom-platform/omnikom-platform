@@ -34,7 +34,7 @@ export async function handle(req: Request): Promise<Response> {
         msg: /^[a-z][a-zA-Z0-9_]{0,60}$/.test(x.key as string) ? `"${x.key}" is not a field of this business's forms.` : 'This is not a field of this business\'s forms.' })));
     }
     const [{ t }] = await c.sql`select service.save_crm_template(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${id}::uuid, ${name}, ${crm}, ${direction},
-      ${JSON.stringify(template.columns)}::jsonb, ${JSON.stringify(template.value_maps)}::jsonb) as t`;   // as text: a JS array would be sent as a Postgres array
+      ${{ v: template.columns }}::jsonb -> 'v', ${template.value_maps}::jsonb) as t`;   // objects, never JSON text (capture-lead, slice 4.3); a bare JS array would be sent as a Postgres array
     return json(200, { template: t });
   });
 }

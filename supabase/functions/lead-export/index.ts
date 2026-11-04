@@ -103,7 +103,7 @@ async function inLayout(c: Ctx, d: Record<string, unknown>, maxRows: number): Pr
   const ids: string[] = [];
   let total = 0;
   for (let page = 1; ids.length < maxRows; page++) {
-    const [{ r }] = await c.sql`select service.lead_list(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${JSON.stringify({ ...q, page })}::jsonb) as r`;
+    const [{ r }] = await c.sql`select service.lead_list(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${{ ...q, page }}::jsonb) as r`;
     total = Number(r.total);
     for (const row of r.rows as { id: string }[]) ids.push(row.id);
     if ((r.rows as unknown[]).length < PAGE || ids.length >= total) break;
