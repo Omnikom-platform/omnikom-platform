@@ -12,6 +12,11 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PEOPLE, WS } from './support/staging';
 import { installMutant } from './mutants';
+import { makeOwnLead, removeOwnLeads } from './support/own-lead';
+
+// The rows the list and the panel show are this file's own (a test that needs a row makes one); the file's one afterAll removes them.
+const TAG = 'styles';
+test.afterAll(async () => { await removeOwnLeads(TAG); });
 
 const SIZES = [
   { name: 'phone', width: 390, height: 844, desktop: false },
@@ -114,6 +119,7 @@ for (const size of SIZES) {
 
       test(`leads is styled at ${size.name}`, async ({ page }) => {
         await installMutant(page, 'no-styles');
+        await makeOwnLead(TAG, `list ${size.name}`);
         await page.goto(leads);
         await expect(page.getByRole('link', { name: 'Add a lead' })).toBeVisible();
         await expect(page.locator('tbody tr').first()).toBeVisible();
@@ -122,6 +128,7 @@ for (const size of SIZES) {
 
       test(`the lead panel is styled at ${size.name}`, async ({ page }) => {
         await installMutant(page, 'no-styles');
+        await makeOwnLead(TAG, `panel ${size.name}`);
         await page.goto(leads);
         await page.locator('tbody th a').first().click();
         await expect(page.locator('#lead-name')).toBeVisible();
@@ -222,8 +229,9 @@ for (const size of SIZES) {
     });
 
     test(`(6) the filter shows no counts while the list is loading, at ${size.name}`, async ({ page }) => {
-      // the leads read is held for 4 s, so the screen sits in its Loading state
-      await page.route(/\/rest\/v1\/leads\?/, async route => { await new Promise(r => setTimeout(r, 4000)); await route.continue(); });
+      // the list's read (lead-list) is held for 4 s, so the screen sits in its Loading state
+      await makeOwnLead(TAG, `loading ${size.name}`);
+      await page.route(/\/functions\/v1\/lead-list$/, async route => { await new Promise(r => setTimeout(r, 4000)); await route.continue(); });
       await page.goto(leads);
       const filter = page.getByRole('radiogroup', { name: 'Filter' });
       await expect(page.getByText('Loading', { exact: true })).toBeVisible();

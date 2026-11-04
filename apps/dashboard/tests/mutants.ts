@@ -9,13 +9,15 @@
 //   agent-add-everywhere  the contract the agent's page reads says every collection is open to agents (access.member = own)
 //   publish-accepted      a publish is answered 202 by the test: nothing is refused, so the sheet cannot stop at a failed check
 //   contract-empty        the contract the owner's page reads has no collection of the client's own, so there is nothing to Add to
+// Work order 07 (tests/support/own-lead.ts):
+//   no-own-lead      the add-lead a test uses to make its own row is skipped, so every test that waits for a first row must go red for want of one
 // Slice 5-DS (tests/styles.spec.ts):
 //   no-styles             the built stylesheet is served empty, as if src/main.tsx no longer imported the styles
 //   no-bar-room           the main area has no bottom padding on the phone: the end of Add a lead sits under the bottom bar
 import type { Page } from '@playwright/test';
 import { callAs, personAccessToken, serviceGet, serviceRepeat } from './support/staging';
 
-export type Mutant = 'leak-b' | 'no-live' | 'member-sees-all' | 'save-lost' | 'no-stale' | 'agent-add-everywhere' | 'publish-accepted' | 'contract-empty' | 'no-styles' | 'no-bar-room';
+export type Mutant = 'leak-b' | 'no-live' | 'member-sees-all' | 'save-lost' | 'no-stale' | 'agent-add-everywhere' | 'publish-accepted' | 'contract-empty' | 'no-styles' | 'no-bar-room' | 'no-own-lead';
 export const MUTANT = (process.env.FLOWS_MUTANT ?? '') as Mutant | '';
 
 export function active(name: Mutant): boolean {

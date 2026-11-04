@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 591,
+    "sources": 592,
     "unowned": 0
   },
   "files": [
@@ -70,6 +70,7 @@
     {"path":"apps/dashboard/tests/site.spec.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/styles.spec.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/support/clean-flow-leads.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"apps/dashboard/tests/support/own-lead.ts","owner":"platform-build","exports":["OwnLead","makeOwnLead","removeOwnLeads"],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/support/reset-staging-drafts.mjs","owner":"platform-build","exports":["WORKSPACE_A","plan","removeRows","stagingOnly"],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/support/staging.ts","owner":"platform-build","exports":["BASE_URL","PEOPLE","Person","RUN","TEST_MARK","WS","callAs","leadLabel","mintTokenHash","need","personAccessToken","serviceDelete","serviceGet","serviceRepeat","supabaseHost","supabaseUrl"],"tests":[],"feature":""},
     {"path":"apps/dashboard/vite.config.ts","owner":"platform-build","exports":["default"],"tests":["apps/dashboard/tests/preview-port.mutants.mjs","apps/dashboard/tests/preview-port.test.mjs"],"feature":""},

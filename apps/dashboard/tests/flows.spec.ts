@@ -185,7 +185,7 @@ test.describe('a member sees only their leads', () => {
     // Add a lead: an agent's lead is always their own, and the screen does not offer an owner to pick
     await page.getByRole('link', { name: 'Add a lead' }).click();
     await expect(page.getByLabel('Notes')).toBeVisible();
-    await expect(page.getByLabel('Owner')).toHaveCount(0);
+    await expect(page.getByLabel('Owner', { exact: true })).toHaveCount(0);
     const mine = `5.3 flows ${RUN} added by member-a1`;
     await page.getByLabel('Name', { exact: true }).fill(mine);
     await page.getByLabel('Phone').fill('(555) 010-0155');
@@ -252,11 +252,20 @@ async function columnOf(page: Page, heading: RegExp): Promise<string[]> {
   return page.locator('tbody tr').evaluateAll((rows, i) => rows.map(r => (r.children[i]?.textContent ?? '').trim()), at);
 }
 
-/** Filter by the budget column, from a value: the column's label is the contract's own, so it is found by its words. */
-async function budgetFrom(page: Page, from: string) {
+/** The contract's own label of an industry field, as lead-list answers it (fields[].label): "Budget (USD)", not "budget". A label change then changes the test with it. */
+async function contractLabel(key: string): Promise<string> {
+  const token = await personAccessToken('owner-a');
+  const r = await callAs(token, 'lead-list', { workspace: WS.a.id, size: 1 });
+  expect(r.status, `lead-list answered ${r.status}: ${r.text.slice(0, 120)}`).toBe(200);
+  const label = (r.json as { fields?: { key: string; label: string }[] }).fields?.find(f => f.key === key)?.label;
+  expect(label, `${key} is a field of the test site's contract`).toBeTruthy();
+  return label as string;
+}
+const exactly = (s: string) => new RegExp(`^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+
+/** Filter by the column with that label, from a value. */
+async function columnFrom(page: Page, label: string, from: string) {
   const column = page.getByLabel('Filter by');
-  const label = (await column.locator('option').allInnerTexts()).find(o => /^budget$/i.test(o.trim()));
-  expect(label, 'budget is a column of the list').toBeTruthy();
   await column.selectOption({ label });
   await page.getByLabel('Condition').selectOption('between');
   await page.getByLabel('From').fill(from);
@@ -283,6 +292,7 @@ test.describe('the CRM screens as the owner', () => {
     for (const [n, budget, beds] of [['alpha', 300000, 2], ['bravo', 900000, 4], ['charlie', 600000, 3]] as const) {
       sendCrmLead(`${CRM_MARK} ${n}`, { budget, beds, timing: '0-3 months', side: 'Buying', area: 'alpha' });
     }
+    const budgetLabel = await contractLabel('budget');
     const made = await crmLeads();
     expect(made.map(l => l.name), 'the three leads are in the database').toEqual([`${CRM_MARK} alpha`, `${CRM_MARK} bravo`, `${CRM_MARK} charlie`]);
     const byName = (n: string) => made.find(l => l.name === `${CRM_MARK} ${n}`)!;
@@ -302,22 +312,22 @@ test.describe('the CRM screens as the owner', () => {
     await expect(page.locator('tbody tr')).toHaveCount(3);
 
     // a filter on an industry column: budget from 500000 leaves bravo and charlie; Remove brings alpha back
-    await budgetFrom(page, '500000');
-    await expect(page.getByText(/budget is between 500000 and/i)).toBeVisible();
+    await columnFrom(page, budgetLabel, '500000');
+    await expect(page.getByText(`${budgetLabel} is between 500000 and`)).toBeVisible();
     await expect(page.locator('tbody tr')).toHaveCount(2);
     await expect(rowOf(page, `${CRM_MARK} alpha`)).toHaveCount(0);
     await page.getByRole('button', { name: 'Remove' }).click();
     await expect(page.locator('tbody tr')).toHaveCount(3);
 
     // sort by budget: ascending as numbers, then descending
-    const heading = page.locator('thead').getByRole('button', { name: /^budget$/i });
+    const heading = page.locator('thead').getByRole('button', { name: budgetLabel, exact: true });
     await heading.click();
     await settled(page);
-    await expect.poll(() => columnOf(page, /^budget$/i)).toEqual(['300000', '600000', '900000']);
+    await expect.poll(() => columnOf(page, exactly(budgetLabel))).toEqual(['300000', '600000', '900000']);
     await expect(page.locator('thead th[aria-sort="ascending"]')).toHaveCount(1);
     await heading.click();
     await settled(page);
-    await expect.poll(() => columnOf(page, /^budget$/i)).toEqual(['900000', '600000', '300000']);
+    await expect.poll(() => columnOf(page, exactly(budgetLabel))).toEqual(['900000', '600000', '300000']);
     await expect(page.locator('thead th[aria-sort="descending"]')).toHaveCount(1);
 
     // a lead nobody has opened is bold (data-unread); opening it marks it read; an edit of one industry field shows as an edited line
@@ -327,11 +337,11 @@ test.describe('the CRM screens as the owner', () => {
     await expect(page.locator('#lead-name')).toHaveText(`${CRM_MARK} bravo`);
     await expect(bravo).not.toHaveAttribute('data-unread', 'true');
     const fields = page.locator('dl');
-    await fields.getByRole('button', { name: /^Edit budget$/i }).click();
-    await page.getByLabel(/^budget$/i).fill('950000');
+    await fields.getByRole('button', { name: `Edit ${budgetLabel}`, exact: true }).click();
+    await page.getByLabel(budgetLabel, { exact: true }).fill('950000');
     await fields.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.getByRole('status').last()).toContainText(/budget saved\./i);
-    await expect(page.locator('ol li').first()).toContainText(/Changed budget: 900000 to 950000/i);
+    await expect(page.getByRole('status').last()).toContainText(`${budgetLabel} saved.`);
+    await expect(page.locator('ol li').first()).toContainText(`Changed ${budgetLabel}: 900000 to 950000`);
     expect((await crmLeads()).find(l => l.id === byName('bravo').id)?.answers.budget, 'the edit is in the database as a number').toBe(950000);
     await page.getByRole('button', { name: 'Close', exact: true }).click();
 
@@ -360,7 +370,7 @@ test.describe('the CRM screens as the owner', () => {
     await expect.poll(async () => (await crmLeads()).length).toBe(2);
 
     // export the view: the filter and the sort are the file's (budget from 500000 leaves bravo only), the header row has the contract's columns
-    await budgetFrom(page, '500000');
+    await columnFrom(page, budgetLabel, '500000');
     await expect(page.locator('tbody tr')).toHaveCount(1);
     const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export', exact: true }).click()]);
     const file = readFileSync((await download.path()) ?? '', 'utf8').trim().split(/\r?\n/);

@@ -4,6 +4,11 @@
 import { expect, test } from '@playwright/test';
 import { builtSlices, planIds, planProblems } from './plan-gate.dom';
 import { WS } from './support/staging';
+import { makeOwnLead, removeOwnLeads } from './support/own-lead';
+
+// The rows these screens show are this file's own (a test that needs a row makes one); the file's one afterAll removes them.
+const TAG = 'plan-gate';
+test.afterAll(async () => { await removeOwnLeads(TAG); });
 
 const ok = async (page: import('@playwright/test').Page, o: Parameters<typeof planProblems>[1]) => expect(await planProblems(page, o)).toEqual([]);
 
@@ -55,6 +60,7 @@ test.describe('the owner\'s screens', () => {
   test.use({ storageState: '.auth/owner-a.json' });
 
   test('Leads, a lead, Add a lead', async ({ page }) => {
+    await makeOwnLead(TAG, 'owner screens');
     await page.goto(`/w/${WS.a.slug}/leads`);
     await expect(page.getByRole('link', { name: 'Add a lead' })).toBeVisible();
     await expect(page.locator('tbody tr').first()).toBeVisible();
@@ -107,6 +113,7 @@ test.describe('the agent\'s screens', () => {
   test.use({ storageState: '.auth/member-a1.json' });
 
   test('an agent never sees the Owner control, and Not found for the other business', async ({ page }) => {
+    await makeOwnLead(TAG, 'agent screens', true);
     await page.goto(`/w/${WS.a.slug}/leads`);
     await expect(page.locator('tbody th a').first()).toBeVisible();
     await ok(page, { required: ['DP-1.3-05', 'DP-1.3-26', 'DP-1.3-27', 'DP-1.3-28', 'DP-1.3-30'], absent: ['DP-1.3-41'] });
