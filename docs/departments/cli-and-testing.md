@@ -611,3 +611,25 @@ when the head of operations has released its slice.
   typed answer; reference supabase/tests/e2e-crm-io.mjs); 2 seo-read (F1, F2); 3a CRM screens (A2, A21, A22, list/bulk/export screens
   WORKS); 4 settings (B3, B16-B19, C13, D8); 3b (A13, A14, A17, A18); 5 site content (B8, B11-B15); 6 overview (B20, B21, C16);
   7 onboarding (C14, C11).
+- 10:50 job 2 LANDED, PROVEN: master 293e7fb ("ci green: 293e7fb run 41799105889, 9 of 9 jobs success"): the gates job runs
+  `node tools/icm/index.mjs --check` (stale doc watched red: "STALE icm/index.json", exit 1), mapped in commands/ci.mjs NODE_STEPS.
+  Every commit that edits a doc now regenerates icm/ (`node tools/icm/index.mjs`) or goes red. Land needed 3 tries ("gh run list failed
+  ... TLS handshake timeout"); builder icm-ci stopped, worktree removed.
+- 15:16 job 1 LANDED, PROVEN: master 5809e85 (run 41832234978, 9 of 9; cli "OK: 783 of 783 checks passed", "439 mutants, 439 caught,
+  0 survived, 0 target text missing"). Staging journey from fac6390: "10 PASS, 0 NOT BUILT YET, 0 FAIL", cleanup "0 journey lead(s)
+  removed, 0 left", 2 alerts to amer@omnikom.io. J7 export = the contract's leadColumns in form order, J8 field edit (2 edited events),
+  J9 server list (search 1, filter eq and range, typed sort 9 before 10 over a second `lead send` lead), J10 bulk status, owner,
+  delete refused without confirm (409 S-CONFIRM) and done with it; push steps removed (leads are never pushed). Rounds: r1 staging red
+  found OUR bug, `seed test` wrote resolved without leadColumns (seed.mjs:78 vs stage.mjs:55; migration 14 reads order from it) and
+  per-call magic links raced J6's own sign-in (a new link voids the last: 403); r2 one verified session per person per run and a
+  clean-up that always runs; r3 the stale DB check run.mjs:1077 (CI "778 of 781"); r4 two cleanup survivors killed (re-look before
+  "0 left"; never delete a lead without the run id, head watched it red). Builder crm-journey kept for the follow-up.
+- RULES LEARNED today: a `--unit` local run misses the DB part, CI catches it (HoO ruling: local = touched suites only, CI is the gate;
+  one heavy job at a time on the laptop); journey checks alone run in ~1 min via a scratch runner of journeyTests (no lock);
+  tools/with-env.mjs caps a child at 10 min (with-env.mjs:18), too short for the journey.
+- QUEUE (in order): (1) seed workspace leadColumns (seed.mjs:301, a real client loses column order) + session-cache-drop test, builder
+  crm-journey on check/cli-and-testing/seed-leadcolumns; (2) crm-map F1 (contract label as synonym in proposeMap) and F2 (HubSpot exact
+  case headers), each watched red; (3) land: bounded retry of GitHub network errors, lock release retried with backoff, a rerun takes
+  over a lock naming its own branch and sha (SEO finding: 37 min stale lock); (4) with-env cap; (5) browser-close flake ("after close the
+  browser process and its profile folder are gone", local only, lib/browser.mjs); (6) the 7 old journey leads on staging (delete needs
+  HoO's release); (7) a journey step per platform block the day it lands (crm-2 first; platform asks my go before its staging e2e).
