@@ -93,12 +93,38 @@ One screen of cards. Save is on only when something changed; leaving with unsave
 - **Account:** name, email, sign out everywhere.
 - No CRM connection card: leads leave as an export (`5-crm.md`).
 
-## Overview and visibility (MISSING, last)
+## Overview (MISSING)
 
 An overview at `/w/$ws`: site state, last publish and by whom, leads this week, changes waiting, and a to-do list built from
-real checks. A visibility page: Search Console clicks, impressions, top queries and pages; PageSpeed phone and desktop with the
-test date; AI-answer samples per prompt (named or cited, engine, date). Every number shows its source and date; nothing is
-shown without its inputs. Both wait on the metrics pull (`7-sites.md`).
+real checks; it may show the Search health headline (card 1 below) with a link to that page. Every number shows its source and
+date; nothing is shown without its inputs.
+
+## Search health (MISSING)
+
+One page per site, `/w/$ws/sites/$site/search`, for the workspace owner (site settings are hidden from members, so this is too).
+Every number shows its source and date; a card whose input does not exist yet is not shown (no dead control, no sample data).
+The client cannot change the site's code, so a problem never gets a fix button: it reads "Omnikom fixes this" and the fix ships
+with a publish.
+
+1. **Site check** (the latest audit summary of the site, work order 05 plus platform findings F1 and F2): "Checked <date> on the
+   publish of <time> (live | preview): <n> of <m> checks pass on <p> pages." Then one line per family in plain words with its
+   count (page titles and descriptions; headings and structure; indexing; addresses; links; accessibility; speed; structured
+   data; AI question coverage; design; preview or live setting), and under a family with a problem one plain line per problem:
+   what, which page. The plain family and problem words come from `tools/audit/` (one place, next slice), never written in the
+   screen.
+2. **Check history:** the last 10 publishes, each with its date, pass or fail and counts; a failed one says "nothing went live"
+   (reads `publish_jobs.gate_report`, already stored per job).
+3. **AI questions:** the plan's prompt map (`plan/prompt-coverage.json`): each question a buyer asks an AI engine, and the page
+   that answers it or "not answered yet". Needs the map stored with the site (today it exists only in the build folder): a
+   platform finding when this card is built.
+4. **Visibility** (the existing text, unchanged): Search Console clicks, impressions, top queries and pages; PageSpeed phone and
+   desktop with the test date; AI-answer samples per prompt (named or cited, engine, date). Waits on the metrics pull (`7-sites.md`).
+5. **Monthly report:** the six-question report in plain words (SEO slice 4), one per month, opened from the page. Waits on slice 4
+   and on stored reports.
+
+Order of build: cards 1 and 2 first (they need only work order 05, F1 and F2, and the route); 3 when the map is stored; 4 and 5
+when the metrics pull and slice 4 exist. The overview at `/w/$ws` keeps its own line in the book ("site state, last publish ...")
+and may show the card 1 headline with a link here.
 
 ## Roles on screen
 
