@@ -19,7 +19,7 @@ none
 | Path | Owner | Lines | Title | Summary | Load for |
 |---|---|---|---|---|---|
 | work/01-crm-backend/CONTEXT.md | head-of-operations | 127 | 01 CRM backend | Owner: platform-build. Model: Opus 5.5, effort high. Branch: check/platform/crm-1 (worktree `C:\Users\DELL\AppData\Local\Temp\omk-wt-crm1`, base master bb1db... |  |
-| work/02-crm-export-import/CONTEXT.md | head-of-operations | 102 | 02 CRM export and import in the client's own format | Owner: platform-build. Model: Opus 5.5, effort high. Branch: check/platform/crm-2 (fresh worktree on master). Status: OPEN, not started (written 2026-11-03 b... |  |
+| work/02-crm-export-import/CONTEXT.md | head-of-operations | 108 | 02 CRM export and import in the client's own format | Owner: platform-build. Model: Opus 5.5, effort high. Branch: check/platform/crm-2 (fresh worktree on master). Status: OPEN, not started (written 2026-11-03 b... |  |
 | work/04-workspace-home/CONTEXT.md | head-of-operations | 93 | Work order 04: one home for all Omnikom Platform work (head of operations, builder) | Owner 2026-11-04 05:59: "do whatever is programmatically and engineeringly proper". Approved map: https://claude.ai/artifact/FkwY79m5MeBMsxKATsUHen . Ruling ... |  |
 | work/README.md | head-of-operations | 47 | Work orders | `work/` is layer 2 of the layout in `docs/product/README.md`: one folder per piece of work, plus `STATE.md` (where things stand now). A session loads `CLAUDE... |  |
 
@@ -32,8 +32,8 @@ none
 | docs/product/11-rules.md | head-of-operations | 94 | Engineering rules | The rules every change is held to. A rule that can be checked by a tool is a check, not a sentence: each rule below names its check where one exists. How ses... |  |
 | docs/product/2-architecture.md | head-of-operations | 131 | Architecture | Three kinds of people touch it. The business uses one magic-link sign-in for two products: the Omnikom CRM and the dashboard. Visitors only ever see the busi... |  |
 | docs/product/3-database.md | head-of-operations | 134 | Database | One multi-tenant Postgres database on Supabase: a staging project now, a production project made from it once staging proves the product (`2-architecture.md`... |  |
-| docs/product/4-backend.md | head-of-operations | 131 | Backend | Everything server-side: the Supabase Edge Functions, the database functions they call (`3-database.md`), the publish and media runners on GitHub Actions, and... |  |
-| docs/product/5-crm.md | head-of-operations | 145 | The Omnikom CRM | The CRM is one of the two products behind the user's magic-link sign-in (the other is the dashboard, `6-dashboard.md`). It is a full CRM, not an inbox: every... |  |
+| docs/product/4-backend.md | head-of-operations | 146 | Backend | Everything server-side: the Supabase Edge Functions, the database functions they call (`3-database.md`), the publish and media runners on GitHub Actions, and... |  |
+| docs/product/5-crm.md | head-of-operations | 161 | The Omnikom CRM | The CRM is one of the two products behind the user's magic-link sign-in (the other is the dashboard, `6-dashboard.md`). It is a full CRM, not an inbox: every... |  |
 | docs/product/6-dashboard.md | head-of-operations | 106 | The dashboard | The second product behind the user's magic-link sign-in (the first is the CRM, `5-crm.md`). It holds everything the business does other than working leads: e... |  |
 | docs/product/7-sites.md | head-of-operations | 135 | The site factory | Every business website is built by one shared factory from two inputs: the content in the database, in the shape of the business's contract, and the business... |  |
 | docs/product/8-routing.md | head-of-operations | 69 | Routing | Every route in the product, in one place. "Now" means the route is in the code on master; "MISSING" means a feature in `1-product.md` needs it and no code se... |  |
@@ -116,7 +116,7 @@ none
 |---|---|---|---|---|---|
 | .claude/POSITION.md | head-of-operations | 854 | Position | - **Repo born today.** Planning inputs banked verbatim, analysis written, owner decisions recorded, skills copied in. Git: `256cad0`, then `274351b` (session... |  |
 | docs/blueprint/PROGRESS.md | platform-build | 1912 | Blueprint progress (for the lead session) | Task: build-ready product engineering package (owner, 2026-10-28), raised to engineering practice, tied to published standards, then corrected by an independ... |  |
-| work/STATE.md | head-of-operations | 52 | Where things stand | Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-04 by work order 04 (one home for all work). What the product is and every feature... |  |
+| work/STATE.md | head-of-operations | 53 | Where things stand | Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-04 by work order 04 (one home for all work). What the product is and every feature... |  |
 
 ## Layer unplaced (181)
 
