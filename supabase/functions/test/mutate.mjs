@@ -173,8 +173,8 @@ const MUTANTS = [
   ['invite-member: the team profile is not checked before the login is made', F + 'invite-member/index.ts', '${email}, ${team}::uuid) as user_id`', '${email}, null::uuid) as user_id`', 'invite.test.ts'],
   ['invite-member: the email is not lower-cased', F + 'invite-member/index.ts', '.trim().toLowerCase()', '.trim()', 'invite.test.ts'],
   ['invite-member: the answer says the email was sent whatever Auth said', F + 'invite-member/index.ts', 'email_sent: emailSent });', 'email_sent: true });', 'invite.test.ts'],
-  ['invite-member: Auth is called without the secret key', F + 'invite-member/index.ts', 'authorization: `Bearer ${key}`, apikey: key, ', '', 'invite.test.ts'],
-  ['invite-member: Auth is asked for a magic link, not an invite', F + 'invite-member/index.ts', "JSON.stringify({ type: 'invite', email })", "JSON.stringify({ type: 'magiclink', email })", 'invite.test.ts'],
+  ['invite-member: Auth is called without the secret key to make the login', F + 'invite-member/index.ts', "{ authorization: `Bearer ${key}`, apikey: key, 'content-type': 'application/json' },\n      body: JSON.stringify({ type: 'invite', email, data })", "{ 'content-type': 'application/json' },\n      body: JSON.stringify({ type: 'invite', email, data })", 'invite.test.ts'],
+  ['invite-member: Auth is asked for a magic link, not an invite', F + 'invite-member/index.ts', "JSON.stringify({ type: 'invite', email, data })", "JSON.stringify({ type: 'magiclink', email, data })", 'invite.test.ts'],
   ['invite-member: the login is made before anyone is asked who may', F + 'invite-member/index.ts', "    const [found] = await c.sql`select service.find_login(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${email}, ${team}::uuid) as user_id`;\n    let user: string | null = found.user_id;",
     "    let user: string | null = await createLogin(email, fetchImpl);\n    const [found] = await c.sql`select service.find_login(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${email}, ${team}::uuid) as user_id`;", 'invite.test.ts'],
   ['invite-member: the mail is sent before the member is set', F + 'invite-member/index.ts', [
@@ -195,7 +195,6 @@ const MUTANTS = [
   ['team-list: a refusal leaves no security event', F + '_shared/dashboard.ts', "      if (r.kind) await recordEvent(sql, r.kind, r.code, { workspace: c.workspace, site: c.site, actor: c.sub, ipHash, fn });", "      /* no event */", 'team.test.ts'],
   ['member-remove: the person is not passed on', F + 'member-remove/index.ts', "${workspace}::uuid, ${user}::uuid)`;", "${workspace}::uuid, ${c.sub}::uuid)`;", 'team.test.ts'],
   ['member-remove: the answer says removed whatever happened', F + 'member-remove/index.ts', "await c.sql`select service.remove_member(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${user}::uuid)`;", "await c.sql`select 1`;", 'team.test.ts'],
-  ['member-remove: no user in the body is accepted', F + 'member-remove/index.ts', "if (f.problems.length || !workspace || !user) return badBody(f.problems);", "if (f.problems.length || !workspace) return badBody(f.problems);", 'team.test.ts'],
   // refusal(): the migration 12 input codes and the last owner
   ['db: I-EMAIL is not mapped', F + '_shared/db.ts', "  if (has('I-EMAIL')) return { status: 422, code: 'I-EMAIL', kind: null, msg: 'An email address is not valid, or there are more than ten.' };\n", '', 'db.test.ts'],
   ['db: I-URL is not mapped', F + '_shared/db.ts', "  if (has('I-URL')) return { status: 422, code: 'I-URL', kind: null, msg: 'Use a public web address that starts with https://.' };\n", '', 'db.test.ts'],

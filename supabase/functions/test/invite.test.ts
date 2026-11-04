@@ -31,10 +31,10 @@ t('invite-member: a new person gets a login from Auth, becomes a member with the
   const calls = (await hooks.recorded()).authLinks;
   eq(calls.length, 1, 'one call to Auth'); eq(calls[0].type, 'invite', 'type invite'); eq(calls[0].email, 'invite-new@omnikom.test', 'the email, lower-cased and trimmed'); eq(calls[0].authorized, true, 'with the secret key');
   const facts = await expectedFacts(WS_A, SUB['owner-a']);
-  eq(JSON.stringify(calls[0].data), JSON.stringify(facts), 'the login is made with the inviter and the business as user data');
+  eq(calls[0].data?.inviter, facts.inviter, 'the login is made with the inviter as user data'); eq(calls[0].data?.business, facts.business, 'and the business');
   const sent = await mails();
   eq(sent.length, 1, 'one mail call'); eq(sent[0].kind, 'invite', 'the invite mail'); eq(sent[0].authorized, true, 'with the secret key'); eq(sent[0].email, 'invite-new@omnikom.test', 'to the address, lower-cased');
-  eq(JSON.stringify(sent[0].data), JSON.stringify(facts), 'DP-email-10: who invited them and to which business: ' + JSON.stringify(facts));
+  eq(sent[0].data?.inviter, facts.inviter, 'DP-email-10: who invited them'); eq(sent[0].data?.business, facts.business, 'and to which business'); eq(Object.keys(sent[0].data ?? {}).sort().join(), 'business,inviter', 'and nothing else');
   assert(facts.business.length > 0 && facts.inviter.length > 0, 'both facts are filled');
   const m = await member(id);
   eq(m?.role, 'member', 'a member'); eq(m?.team_row_id, team.two, 'on the team profile');

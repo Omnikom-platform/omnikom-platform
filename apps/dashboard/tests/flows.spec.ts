@@ -259,6 +259,38 @@ test.describe('settings: the owner', () => {
     }
   });
 
+  test('owner-a\'s cards show what the database holds: the people, the sites and the alert addresses are the service role\'s own reads, not a shape', async ({ page }) => {
+    const members = await serviceGet<{ user_id: string; role: string; team_row_id: string | null }[]>(`/members?workspace_id=eq.${WS.a.id}&select=user_id,role,team_row_id`);
+    const sites = await serviceGet<{ id: string; preview_host: string; domain: string | null; state: string; lead_alert_to: string[]; alert_assignee: boolean }[]>(`/sites?workspace_id=eq.${WS.a.id}&select=id,preview_host,domain,state,lead_alert_to,alert_assignee&order=created_at`);
+    const teamNames = await serviceGet<{ id: string; content_versions: { n: number; data: { name?: string } }[] }[]>(`/content_rows?workspace_id=eq.${WS.a.id}&collection=eq.team&deleted_at=is.null&select=id,content_versions(n,data)`);
+    const nameOf = (row: string | null) => { const r = teamNames.find(x => x.id === row); return r ? [...r.content_versions].sort((a, b) => b.n - a.n)[0]?.data.name ?? null : null; };
+    expect(members.length, 'staging workspace A has members').toBeGreaterThan(2);
+    expect(sites.length, 'staging workspace A has a site').toBeGreaterThan(0);
+
+    await page.goto(settingsUrl);
+    await expect(cards(page).people).toBeVisible();
+    const rows = page.locator('ul[data-plan="DP-1.6-01"] > li');
+    await expect(rows).toHaveCount(members.length);   // one row per member row in the database
+    const shown = await rows.allInnerTexts();
+    for (const m of members) {
+      const known = Object.values(PEOPLE).find(p => p.id === m.user_id);
+      if (!known) continue;
+      expect(shown.some(t => t.includes(known.email)), `the list shows ${known.email}`).toBe(true);
+      const profile = nameOf(m.team_row_id);
+      if (profile) expect(shown.some(t => t.includes(profile) && t.includes(known.email)), `${known.email} is listed with the name ${profile}`).toBe(true);
+    }
+    expect(shown[0], 'owners come first').toContain(PEOPLE['owner-a'].email);
+    expect(shown.filter(t => t.includes('Owner')).length, 'the owners on screen are the owner rows of the database').toBe(members.filter(m => m.role === 'owner').length);
+
+    for (const site of sites) {
+      await expect(page.getByText(site.preview_host, { exact: true }).first()).toBeVisible();   // the Websites card and the Lead alerts legend both name it
+      if (site.domain) await expect(page.getByText(site.domain, { exact: true })).toBeVisible();
+    }
+    await expect(page.getByLabel('Addresses, one per line').first()).toHaveValue(sites[0]!.lead_alert_to.join('\n'));
+    expect(await page.getByLabel('Also email the assigned agent').first().isChecked()).toBe(sites[0]!.alert_assignee);
+    await expect(page.getByRole('definition').filter({ hasText: PEOPLE['owner-a'].email })).toBeVisible();
+  });
+
   test('owner-a invites a person, sees them in the list and removes them through the sheet (only with SETTINGS_INVITE_EMAIL: a real mail goes out)', async ({ page }) => {
     const invite = process.env.SETTINGS_INVITE_EMAIL ?? '';
     test.skip(!invite, 'SETTINGS_INVITE_EMAIL is not set: the head names the one address a real invite may go to');
