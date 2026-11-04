@@ -37,6 +37,7 @@ function expectNone(haystack: string, needles: string[], where: string) {
 // Every lead this run made (all named "5.3 flows <RUN> ..."), found with the service role and removed through the platform's own deletion.
 // A failed removal fails the run: a lead left on staging is exactly what this hook exists to stop.
 test.afterAll(async () => {
+  await removeCrmScreensTestData();
   const made = await serviceGet<{ id: string }[]>(`/leads?site_id=eq.${WS.a.site}&name=like.${encodeURIComponent(`5.3 flows ${RUN}*`)}&select=id&limit=100`);
   if (!made.length) return;
   const out = spawnSync(process.execPath, [CLEAN_LEADS, '--apply', '--ids', made.map(l => l.id).join(',')], { encoding: 'utf8', env: process.env, timeout: 120_000, windowsHide: true });
@@ -262,7 +263,8 @@ async function budgetFrom(page: Page, from: string) {
   await page.getByRole('button', { name: 'Add filter' }).click();
 }
 
-test.afterAll(async () => {
+/** The CRM screens' teardown, called from the file's one afterAll: the flow leads go through leads-bulk with confirm, the saved layout by its exact name. */
+async function removeCrmScreensTestData() {
   const made = await crmLeads();
   if (made.length) {
     const token = await personAccessToken('owner-a');
@@ -271,7 +273,7 @@ test.afterAll(async () => {
     expect(r.status, `removing the crm-screens leads answered ${r.status}: ${r.text.slice(0, 200)}`).toBe(200);
   }
   await serviceDelete(`/crm_templates?workspace_id=eq.${WS.a.id}&name=eq.${encodeURIComponent(CRM_LAYOUT)}`);
-});
+}
 
 test.describe('the CRM screens as the owner', () => {
   test.use({ storageState: '.auth/owner-a.json' });
