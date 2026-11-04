@@ -23,7 +23,7 @@ none
 | work/04-workspace-home/CONTEXT.md | head-of-operations | 93 | Work order 04: one home for all Omnikom Platform work (head of operations, builder) | Owner 2026-11-04 05:59: "do whatever is programmatically and engineeringly proper". Approved map: https://claude.ai/artifact/FkwY79m5MeBMsxKATsUHen . Ruling ... |  |
 | work/05-audit-results/CONTEXT.md | head-of-operations | 71 | 05 audit results | Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/audit-results. Status: OPEN. |  |
 | work/06-plain-names/CONTEXT.md | head-of-operations | 74 | 06 plain names | Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/plain-names. Status: OPEN. |  |
-| work/07-crm-screens/CONTEXT.md | head-of-operations | 127 | 07 CRM screens on the block 1 and 2 backend (block 3a) | Owner: platform-build. Model: Sonnet 5.5, effort high. Branch: check/platform/crm-screens (worktree on master). Migration: M18 (`supabase/migrations/20261105... |  |
+| work/07-crm-screens/CONTEXT.md | head-of-operations | 128 | 07 CRM screens on the block 1 and 2 backend (block 3a) | Owner: platform-build. Model: Sonnet 5.5, effort high. Branch: check/platform/crm-screens (worktree on master). Migration: M18 (`supabase/migrations/20261105... |  |
 | work/README.md | head-of-operations | 47 | Work orders | `work/` is layer 2 of the layout in `docs/product/README.md`: one folder per piece of work, plus `STATE.md` (where things stand now). A session loads `CLAUDE... |  |
 
 ## Layer 3 (82)
