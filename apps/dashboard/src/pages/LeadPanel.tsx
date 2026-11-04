@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { updateLead, type LeadChange } from '../api';
@@ -131,6 +131,7 @@ export function LeadPanel() {
   const wide = useWide();
   useEventsLive(workspace.id, id);
   const [deleting, setDeleting] = useState(false);
+  const ownerId = useId();
 
   const [statusError, setStatusError] = useState('');
   const [ownerError, setOwnerError] = useState('');
@@ -279,13 +280,13 @@ export function LeadPanel() {
       </div>
 
       {!isMember && (
-        <label data-plan="DP-1.3-13" className={css.field}>
-          Owner
-          <select name="owner" value={data.owner_team_row ?? ''} onChange={e => setOwner(e.target.value)} data-empty={data.owner_team_row ? undefined : 'true'}>
+        <div data-plan="DP-1.3-13" className={css.field}>
+          <label htmlFor={ownerId}>Owner</label>
+          <select id={ownerId} name="owner" value={data.owner_team_row ?? ''} onChange={e => setOwner(e.target.value)} data-empty={data.owner_team_row ? undefined : 'true'}>
             <option value="">Unassigned</option>
             {[...names.team.entries()].map(([tid, name]) => <option key={tid} value={tid}>{name}</option>)}
           </select>
-        </label>
+        </div>
       )}
       {ownerError && <p role="alert" data-plan="DP-1.3-25">{ownerError}</p>}
 

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 592,
+    "sources": 593,
     "unowned": 0
   },
   "files": [
@@ -49,6 +49,7 @@
     {"path":"apps/dashboard/src/pages/SiteLayout.tsx","owner":"platform-build","exports":["NoItemChosen","SiteLayout"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/Widgets.tsx","owner":"platform-build","exports":["AskUs","FieldError","FieldWidget","WidgetCtx"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/Workspaces.tsx","owner":"platform-build","exports":["Workspaces"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/pages/labels.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/plan.ts","owner":"platform-build","exports":["t"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/router.tsx","owner":"platform-build","exports":["router"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/session-flag.ts","owner":"platform-build","exports":["markSignOutByPerson","takeSignOutByPerson"],"tests":[],"feature":""},

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from 'react';
+import { useId, useMemo, useState, type ChangeEvent } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { importLeads, proposeMap, saveTemplate } from '../api';
@@ -32,6 +32,7 @@ export function ImportLeads() {
   const { ws } = useParams({ from: '/authed/w/$ws' });
   const { workspace, userId } = useWorkspaceValue();
   const qc = useQueryClient();
+  const base = useId();
   const me = useMe(workspace.id, userId);
   const cols = useLeadColumns(workspace.id);
 
@@ -167,14 +168,12 @@ export function ImportLeads() {
                 <ul>
                   {pairs.map((p, i) => (
                     <li key={`${p.header}-${i}`}>
-                      <label>
-                        {p.header}
-                        <select name={`map-${i}`} aria-label={p.header} value={p.field} onChange={e => setPairs(changePair(pairs, i, e.target.value))}>
-                          <option value="">{t('DP-1.3-44', 'Do not import this column')}</option>
-                          {choices.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                        </select>
-                        {matchWords(p.score)}
-                      </label>
+                      <label htmlFor={`${base}-map-${i}`}>{p.header}</label>{' '}
+                      <select id={`${base}-map-${i}`} name={`map-${i}`} value={p.field} onChange={e => setPairs(changePair(pairs, i, e.target.value))}>
+                        <option value="">{t('DP-1.3-44', 'Do not import this column')}</option>
+                        {choices.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                      </select>{' '}
+                      <span>{matchWords(p.score)}</span>
                     </li>
                   ))}
                 </ul>

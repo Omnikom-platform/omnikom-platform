@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { choicesFor, conditionsFor, CONDITION_WORDS, describeFilter, type Column, type ColumnFilter, type Condition } from '../lib/crm';
 import { t } from '../plan';
 import css from './Crm.module.css';
@@ -17,8 +17,10 @@ const inputType = (type: string) => (type === 'number' ? 'number' : type === 'da
 /**
  * Filter by a column (DP-1.3-28): pick a column, a condition and its value, then Add filter; and the filters in use (DP-1.3-29) with Remove
  * and Clear filters. The filters are the view's; lead-list does the narrowing, so the control only builds them.
+ * A label sits BESIDE its select (htmlFor and id), never around it: a wrapping label gives the select the text of every option as its name.
  */
 export function ColumnFilters({ columns, filters, team, onChange }: { columns: Column[]; filters: ColumnFilter[]; team: ReadonlyMap<string, string>; onChange: (next: ColumnFilter[]) => void }) {
+  const base = useId();
   const [key, setKey] = useState('');
   const col = columns.find(c => c.key === key) ?? null;
   const conditions = col ? conditionsFor(col.type) : [];
@@ -46,38 +48,44 @@ export function ColumnFilters({ columns, filters, team, onChange }: { columns: C
   return (
     <div className={css.filters}>
       <div data-plan="DP-1.3-28" className={css.addFilter}>
-        <label>
-          {t('DP-1.3-28', 'Filter by')}
-          <select name="filter-column" value={key} onChange={e => pick(e.target.value)}>
+        <span className={css.pair}>
+          <label htmlFor={`${base}-column`}>{t('DP-1.3-28', 'Filter by')}</label>
+          <select id={`${base}-column`} name="filter-column" value={key} onChange={e => pick(e.target.value)}>
             <option value="" />
             {columns.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
           </select>
-        </label>
+        </span>
         {col && (
           <>
-            <label>
-              {t('DP-1.3-28', 'Condition')}
-              <select name="filter-condition" value={effective} onChange={e => setCond(e.target.value as Condition)}>
+            <span className={css.pair}>
+              <label htmlFor={`${base}-condition`}>{t('DP-1.3-28', 'Condition')}</label>
+              <select id={`${base}-condition`} name="filter-condition" value={effective} onChange={e => setCond(e.target.value as Condition)}>
                 {conditions.map(c => <option key={c} value={c}>{CONDITION_WORDS[c]}</option>)}
               </select>
-            </label>
+            </span>
             {effective === 'is' && (
-              choices
-                ? (
-                  <label>
-                    {t('DP-1.3-28', 'value')}
-                    <select name="filter-value" value={value} onChange={e => setValue(e.target.value)}>
+              <span className={css.pair}>
+                <label htmlFor={`${base}-value`}>{t('DP-1.3-28', 'value')}</label>
+                {choices
+                  ? (
+                    <select id={`${base}-value`} name="filter-value" value={value} onChange={e => setValue(e.target.value)}>
                       <option value="" />
                       {choices.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
-                  </label>
-                )
-                : <label>{t('DP-1.3-28', 'value')}<input type="text" name="filter-value" value={value} onChange={e => setValue(e.target.value)} /></label>
+                  )
+                  : <input id={`${base}-value`} type="text" name="filter-value" value={value} onChange={e => setValue(e.target.value)} />}
+              </span>
             )}
             {effective === 'between' && (
               <>
-                <label>{t('DP-1.3-28', 'From')}<input type={inputType(col.type)} name="filter-from" value={from} onChange={e => setFrom(e.target.value)} /></label>
-                <label>{t('DP-1.3-28', 'To')}<input type={inputType(col.type)} name="filter-to" value={to} onChange={e => setTo(e.target.value)} /></label>
+                <span className={css.pair}>
+                  <label htmlFor={`${base}-from`}>{t('DP-1.3-28', 'From')}</label>
+                  <input id={`${base}-from`} type={inputType(col.type)} name="filter-from" value={from} onChange={e => setFrom(e.target.value)} />
+                </span>
+                <span className={css.pair}>
+                  <label htmlFor={`${base}-to`}>{t('DP-1.3-28', 'To')}</label>
+                  <input id={`${base}-to`} type={inputType(col.type)} name="filter-to" value={to} onChange={e => setTo(e.target.value)} />
+                </span>
               </>
             )}
             <button type="button" disabled={!complete} onClick={add}>{t('DP-1.3-28', 'Add filter')}</button>

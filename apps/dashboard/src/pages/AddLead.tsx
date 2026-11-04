@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { addLead } from '../api';
@@ -31,6 +31,7 @@ export function AddLead() {
   const sites = useSites(workspace.id);
   const Title = useWide() ? 'h2' : 'h1';
   const forms = useContractForms(workspace.id);
+  const base = useId();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -91,27 +92,27 @@ export function AddLead() {
         <label data-plan="DP-1.3b-02">Phone <input type="tel" name="phone" autoComplete="off" maxLength={40} value={phone} onChange={e => setPhone(e.target.value)} /></label>
         <label data-plan="DP-1.3b-03">Email <input type="email" name="email" autoComplete="off" maxLength={320} value={email} onChange={e => setEmail(e.target.value)} /></label>
         {contactError && <p role="alert" data-plan="DP-1.3b-10">Enter a name, a phone or an email.</p>}
-        <label data-plan="DP-1.3b-04">
-          How did they reach you
-          <select name="reachedBy" value={reached} onChange={e => setReached(e.target.value)}>
+        <div data-plan="DP-1.3b-04" className={css.field}>
+          <label htmlFor={`${base}-reached`}>How did they reach you</label>
+          <select id={`${base}-reached`} name="reachedBy" value={reached} onChange={e => setReached(e.target.value)}>
             {REACHED.map(label => <option key={label} value={label}>{label}</option>)}
           </select>
-        </label>
-        <label data-plan="DP-1.3b-05">
-          What about
-          <select name="about" value={about || aboutChoices[0]?.value} onChange={e => setAbout(e.target.value)}>
+        </div>
+        <div data-plan="DP-1.3b-05" className={css.field}>
+          <label htmlFor={`${base}-about`}>What about</label>
+          <select id={`${base}-about`} name="about" value={about || aboutChoices[0]?.value} onChange={e => setAbout(e.target.value)}>
             {aboutChoices.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
-        </label>
+        </div>
         <label data-plan="DP-1.3b-06">Notes <textarea name="notes" rows={3} maxLength={2000} value={notes} onChange={e => setNotes(e.target.value)} /></label>
         {canPickOwner && (
-          <label data-plan="DP-1.3b-08">
-            Owner
-            <select name="owner" value={owner} onChange={e => setOwner(e.target.value)} data-empty={owner ? undefined : 'true'}>
+          <div data-plan="DP-1.3b-08" className={css.field}>
+            <label htmlFor={`${base}-owner`}>Owner</label>
+            <select id={`${base}-owner`} name="owner" value={owner} onChange={e => setOwner(e.target.value)} data-empty={owner ? undefined : 'true'}>
               <option value="">Unassigned</option>
               {[...(team.data?.names ?? new Map<string, string>()).entries()].map(([tid, n]) => <option key={tid} value={tid}>{n}</option>)}
             </select>
-          </label>
+          </div>
         )}
         <label data-plan="DP-1.3b-07">
           <input type="checkbox" name="consent" checked={consent} onChange={e => setConsent(e.target.checked)} />

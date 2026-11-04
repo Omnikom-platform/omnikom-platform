@@ -18,8 +18,8 @@
   align-items: stretch;
 }
 
-.addFilter label,
-.export label {
+/* a label and its control side by side; the label is beside the control, never around it (a wrapping label gives a select the text of all its options as its name) */
+.pair {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;

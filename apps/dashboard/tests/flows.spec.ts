@@ -185,7 +185,7 @@ test.describe('a member sees only their leads', () => {
     // Add a lead: an agent's lead is always their own, and the screen does not offer an owner to pick
     await page.getByRole('link', { name: 'Add a lead' }).click();
     await expect(page.getByLabel('Notes')).toBeVisible();
-    await expect(page.getByLabel('Owner', { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel('Owner')).toHaveCount(0);
     const mine = `5.3 flows ${RUN} added by member-a1`;
     await page.getByLabel('Name', { exact: true }).fill(mine);
     await page.getByLabel('Phone').fill('(555) 010-0155');

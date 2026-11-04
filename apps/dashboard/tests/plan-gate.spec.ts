@@ -66,6 +66,10 @@ test.describe('the owner\'s screens', () => {
     await expect(page.locator('tbody tr').first()).toBeVisible();
     await ok(page, { required: ['DP-1.2s-01', 'DP-1.2s-03', 'DP-1.2-09', 'DP-1.3-02', 'DP-1.3-03', 'DP-1.3-04', 'DP-1.3-05', 'DP-1.3-06', 'DP-1.3-08', 'DP-1.3-26', 'DP-1.3-27', 'DP-1.3-28', 'DP-1.3-30', 'DP-1.3-36', 'DP-1.3-41'], absent: ['DP-1.2s-02', 'DP-1.3-01', 'DP-1.3-31'] });
 
+    // a control's name is its label alone (a label around a select gives it every option's text): the screen reader hears exactly this
+    await expect(page.getByRole('combobox', { name: 'Filter by', exact: true })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Export layout', exact: true })).toBeVisible();
+
     // one lead ticked: the bar for an owner, then the delete sheet (nothing is sent: Cancel)
     await page.getByRole('checkbox', { name: /^Select / }).first().check();
     await expect(page.getByLabel('Set status')).toBeVisible();
