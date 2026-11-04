@@ -1050,7 +1050,7 @@ async function database() {
     const siteContract = JSON.parse(readFileSync(join(SITE_DIR, 'contract.json'), 'utf8'));
     const siteRows = JSON.parse(readFileSync(join(SITE_DIR, 'rows.json'), 'utf8'));
     const logoSize = readFileSync(join(SITE_DIR, 'media', 'logo.png')).length;
-    const { mergeCore } = await import(pathToFileURL(join(REPO_ROOT, 'contracts', 'validate.mjs')).href);
+    const { mergeCore, leadColumns } = await import(pathToFileURL(join(REPO_ROOT, 'contracts', 'validate.mjs')).href);
     const COLLECTIONS = ['settings', 'team', 'areas', 'notices', 'pages', 'listings'];
     const AGENT_TWO = { name: 'Agent Two', slug: 'agent-two', role: 'Agent' };   // the CLI's fixture for member A2; not in rows.json
     const wantRows = [...siteRows.map(x => ({ id: x.id, collection: x.collection, data: x.data })), { id: 'team-agent-two', collection: 'team', data: AGENT_TWO }];
@@ -1074,8 +1074,8 @@ async function database() {
       const f = siteFacts(), actA = activeContract(WS_A), actB = activeContract(WS_B);
       check(`seed test (${tag}): A's active contract is the file sites/test-demo-a/contract.json as version ${contractVersion}, made by the staff login; the version before is inactive`,
         actA.version === contractVersion && canon(actA.contract) === canon(siteContract) && actA.created_by === STAFF && db.query(`select count(*) from site_contracts where workspace_id = '${WS_A}' and active`) === '1' && db.query(`select count(*) from site_contracts where workspace_id = '${WS_A}' and version = ${contractVersion - 1} and not active`) === '1', JSON.stringify(actA).slice(0, 200));
-      check(`seed test (${tag}): A's resolved contract is the file with the core merged in (mergeCore)`,
-        canon(actA.resolved.collections) === canon(mergeCore(siteContract)) && canon({ ...actA.resolved, collections: 0 }) === canon({ ...siteContract, collections: 0 }));
+      check(`seed test (${tag}): A's resolved contract is the file with the core merged in (mergeCore) and the ordered leadColumns (leadColumns of the file, the way sites/test-demo-a/stage.mjs writes them)`,
+        canon(actA.resolved.collections) === canon(mergeCore(siteContract)) && canon({ ...actA.resolved, collections: 0 }) === canon({ ...siteContract, collections: 0, leadColumns: leadColumns(siteContract) }));
       check(`seed test (${tag}): workspace B keeps contract version 1 with the contract text of tenancy.test.sql`, actB.version === 1 && canon(actB.resolved) === canon(TC) && canon(actB.contract) === '{}');
       const counts = Object.fromEntries(COLLECTIONS.map(c => [c, f.rows.filter(x => x.collection === c).length]));
       const wantCounts = Object.fromEntries(COLLECTIONS.map(c => [c, wantRows.filter(x => x.collection === c).length]));
