@@ -279,6 +279,6 @@
     {"path":"work/04-workspace-home/CONTEXT.md","title":"Work order 04: one home for all Omnikom Platform work (head of operations, builder)","summary":"Owner 2026-11-04 05:59: \"do whatever is programmatically and engineeringly proper\". Approved map: https://claude.ai/artifact/FkwY79m5MeBMsxKATsUHen . Ruling ...","owner":"head-of-operations","layer":2,"lines":93,"loadFor":[]},
     {"path":"work/05-audit-results/CONTEXT.md","title":"05 audit results","summary":"Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/audit-results. Status: OPEN.","owner":"head-of-operations","layer":2,"lines":71,"loadFor":[]},
     {"path":"work/README.md","title":"Work orders","summary":"`work/` is layer 2 of the layout in `docs/product/README.md`: one folder per piece of work, plus `STATE.md` (where things stand now). A session loads `CLAUDE...","owner":"head-of-operations","layer":2,"lines":47,"loadFor":[]},
-    {"path":"work/STATE.md","title":"Where things stand","summary":"Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-04 by work order 04 (one home for all work). What the product is and every feature...","owner":"head-of-operations","layer":4,"lines":53,"loadFor":[]}
+    {"path":"work/STATE.md","title":"Where things stand","summary":"Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-04 17:50 by the head of operations. What the product is and every feature's state:...","owner":"head-of-operations","layer":4,"lines":56,"loadFor":[]}
   ]
 }

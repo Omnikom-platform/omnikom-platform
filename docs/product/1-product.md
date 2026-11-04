@@ -42,28 +42,28 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 |---|---|---|
 | A1 Lead list, newest first, live new rows | WORKS | 6 fixed columns; D:pages/Leads.tsx |
 | A2 Every field of a lead visible | PARTLY | panel lacks form, page, flow, cta, site, date, SMS consent as fields; D:pages/LeadPanel.tsx |
-| A3 Every field editable (core and industry) | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:lead-update `fields` (M14 `lead_set_fields`), one `edited` event per changed field |
+| A3 Every field editable (core and industry) | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:lead-update `fields` (M14 `lead_set_fields`), one `edited` event per changed field; journey J8 on staging 2026-11-04: a core and an industry field changed, both read back, 2 edited events |
 | A4 Status change with Undo | WORKS | F:lead-update |
 | A5 Assign and unassign (owner only) | WORKS | M8 `lead_update` |
 | A6 Notes (append-only) | WORKS | lead panel |
 | A7 Activity timeline | WORKS | edit events (`edited`, one per changed field) proven on staging (e2e-crm 2026-11-03) |
 | A8 Add a lead by hand, consent tick | WORKS | F:add-lead, `/w/$ws/leads/new` |
-| A9 Delete a lead | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:leads-bulk delete (a bulk of one, the confirm flag, one audit row per lead) |
-| A10 Search | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:lead-list search over every core and industry value |
-| A11 Filter | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:lead-list filters on any column (eq, in, range, empty) |
-| A12 Sort on any column | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:lead-list sorts typed (a number as a number) |
+| A9 Delete a lead | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:leads-bulk delete (a bulk of one, the confirm flag, one audit row per lead); journey J10: delete without confirm refused (409 S-CONFIRM), with confirm removed, 0 left |
+| A10 Search | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:lead-list search over every core and industry value; journey J9: search by the run marker finds exactly 1 |
+| A11 Filter | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:lead-list filters on any column (eq, in, range, empty); journey J9: filter eq and range keep the lead and exclude a non-match |
+| A12 Sort on any column | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:lead-list sorts typed (a number as a number); journey J9: typed sort over two leads, 9 before 10 ascending, reverse descending |
 | A13 Choose the columns of a view | MISSING | |
 | A14 Saved views | MISSING | no table, no function |
-| A15 Bulk edit (status, owner, delete) | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:leads-bulk status, owner, delete; all or nothing, up to 500 |
+| A15 Bulk edit (status, owner, delete) | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:leads-bulk status, owner, delete; all or nothing, up to 500; journey J10: bulk status and owner read back, bulk delete with confirm |
 | A16 Status board | MISSING | |
 | A17 Follow-up date and tasks | MISSING | |
 | A18 Duplicate flag | MISSING | `idempotency_key` catches only the same submission |
 | A19 Unread bold, opening marks read | PARTLY | backend works (M12, F:lead-update `read`); no screen sends it |
-| A20 CSV export of the list | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:lead-export writes one column per core and industry field in form order |
+| A20 CSV export of the list | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): F:lead-export writes one column per core and industry field in form order; journey J7: the export header is the contract's 14 columns in form order, industry values in their columns |
 | A21 Export in the client's CRM layout | PARTLY | backend proven on staging (e2e-crm-io 2026-11-04): F:crm-map-propose proposes the map, F:crm-template-save confirms it, F:lead-export `template` writes the caller's view in it; no screen (block 3) |
 | A22 Import the client's file | PARTLY | backend proven on staging (e2e-crm-io 2026-11-04): F:lead-import, a dry run first, rows typed as capture, duplicates by email or E.164 phone, all or nothing, the owner's consent tick; no screen (block 3) |
 | A23 An agent sees only its own leads | WORKS | RLS `leads_read`; per-column visibility not specified |
-| A24 Industry lead fields as real columns | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): typed at capture, own named columns in F:lead-list and F:lead-export, editable |
+| A24 Industry lead fields as real columns | PARTLY | backend proven on staging (e2e-crm 2026-11-03); no screen (block 3): typed at capture, own named columns in F:lead-list and F:lead-export, editable; journey J7 and J8: industry values typed at capture, own columns, editable |
 | A25 Consent record with the lead | WORKS | lead panel, `consent_ledger` |
 | A26 Site switcher (2+ sites) | WORKS | shown only with 2+ sites; untested with two |
 
