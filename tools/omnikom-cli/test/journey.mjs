@@ -85,7 +85,8 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
         }
         if (name === 'add-lead') {
           const nk = fields.find(x => x.type === 'number').key, v = (body.answers || {})[nk];
-          if (v !== undefined && !Number.isFinite(Number(v)) && !o.badAnswerAccepted) return ok({ code: 'I-ANSWER', path: nk }, o.answerStatus || 400);
+          if (v !== undefined && !Number.isFinite(Number(v)) && !o.badAnswerAccepted && !o.answerRefusedWithOk) return ok({ code: 'I-ANSWER', path: nk }, o.answerStatus || 400);
+          if (v !== undefined && !Number.isFinite(Number(v)) && o.answerRefusedWithOk) return ok({ code: 'I-ANSWER', path: nk }, 201);
           const typed = { ...(body.answers || {}) }; if (v !== undefined && Number.isFinite(Number(v))) typed[nk] = Number(v);
           store.seen.add(body.name); store.leads.push({ id: `lead-add-${store.leads.length + 1}`, name: body.name, email: body.email, phone: body.phone, form: 'dashboard', status: 'new', owner: null, events: 0, answers: typed });
           store.peak = Math.max(store.peak || 0, store.leads.filter(l => !/IO check/.test(l.name)).length);
@@ -121,7 +122,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
             const d = dup(r, seenIn); seenIn.add(r[ix('Email')].toLowerCase());
             if (d && body.duplicates === 'skip' && !o.dupsAdded) { skipped++; continue; }
             store.leads.push({ id: `lead-imp-${store.leads.length + 1}`, name: r[0] + ' ' + r[1], email: r[ix('Email')], phone: '', form: 'import', status: /Attempted/.test(r[ix('Lead Status')]) ? 'contacted' : 'new', owner: null, events: 0,
-              answers: { [nk]: Number(r[bi]) }, consent_text: o.wrongConsent ? 'x' : `${J.CONSENT_START}2026-11-04. File: ${body.file_name}` });
+              answers: { [nk]: Number(r[bi]) }, consent_text: o.wrongConsent ? `Imported from ${body.file_name}` : o.consentNoFile ? `${J.CONSENT_START}2026-11-04.` : `${J.CONSENT_START}2026-11-04. File: ${body.file_name}` });
             created++;
           }
           store.peak = Math.max(store.peak || 0, store.leads.filter(l => !/IO check/.test(l.name)).length);
@@ -168,7 +169,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
         return ok({ code: 'S-NOT-FOUND' }, 404);
       },
       async crmFields() { return fields; },
-      async consentTexts(emails) { return store.leads.filter(l => emails.includes(l.email)).map(l => ({ email: l.email, consent_text: l.consent_text, sms_consent: false })); },
+      async consentTexts(emails) { return store.leads.filter(l => emails.includes(l.email)).map(l => ({ email: l.email, consent_text: l.consent_text, sms_consent: !!o.smsConsent })); },
       async editedEvents(id) { const l = store.leads.find(x => x.id === id); return l ? l.events : 0; },
       async teamRow() { return o.teamRow === undefined ? 'team-row-1' : o.teamRow; },
       async exportCsv(who, marker) { lead(marker); return { status: 200, text: o.exportText ? o.exportText(csvOf(o.exportFields || fields, store.leads.filter(l => l.name.includes(marker)))) : csvOf(o.exportFields || fields, store.leads.filter(l => l.name.includes(marker))) }; },
@@ -469,7 +470,10 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   await ioFail({ noTickAccepted: true }, { only: 'J11' }, 'an import without the consent tick that goes through is a FAIL (wanted 422 I-CONSENT)', /without the consent tick answered/);
   await ioFail({ memberImports: true }, { only: 'J11' }, 'a member who can import is a FAIL (wanted 403)', /lead-import as member-a1 answered HTTP 200/);
   await ioFail({ dupsAdded: true }, { only: 'J11' }, 'an import that adds the duplicate instead of skipping it is a FAIL (created 3, skipped 0)', /lead-import of the fixed file answered/);
-  await ioFail({ wrongConsent: true }, { only: 'J11' }, 'imported leads without the owner\'s consent sentence are a FAIL', /the imported leads' consent text/);
+  await ioFail({ wrongConsent: true }, { only: 'J11' }, 'imported leads whose consent text names the file but lacks the owner\'s sentence are a FAIL', /the imported leads' consent text/);
+  await ioFail({ consentNoFile: true }, { only: 'J11' }, 'imported leads with the owner\'s sentence but without the file\'s name are a FAIL', /the imported leads' consent text/);
+  await ioFail({ smsConsent: true }, { only: 'J11' }, 'imported leads that carry an SMS consent are a FAIL (the tick covers contact by the business, not texts)', /the imported leads' consent text/);
+  await ioFail({ answerRefusedWithOk: true }, { only: 'J11' }, 'an add-lead that answers success (201) while its body says I-ANSWER is a FAIL: the status must be a refusal too', /add-lead with budget "lots" answered HTTP 201/);
   const blkIo = await crmRun({ bulkBlockedOnce: true }, { only: 'J11' });
   check('journey J11: when the clean-up call inside J11 is blocked mid-run the orchestrator\'s clean-up still removes the run\'s leads (they carry the run id)', blkIo.impl.store.leads.length === 0 && /^cleanup: 4 journey lead\(s\) removed, 0 left$/m.test(blkIo.text) && blkIo.byId.J11.status === 'BLOCKED', blkIo.text);
   const o1 = await crmRun({ alertsOnlyTo: (() => { let k = 0; return () => ++k <= 2; })() });

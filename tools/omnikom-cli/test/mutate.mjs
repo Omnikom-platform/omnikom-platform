@@ -487,6 +487,8 @@ const MUTANTS = [
   ['journey J11: the consent sentence is not checked [crm-io]', 'commands/journey.mjs', ".startsWith(CONSENT_START) && ", ".length > 0 && ", 'unit'],
   ['journey J11: a failed check leaves the leads of this run [crm-io]', 'commands/journey.mjs', "if (rows.length) { const d = await call(", "if (false) { const d = await call(", 'unit'],
   ['journey J11: the clean-up of the orchestrator ignores a run that only made import leads [crm-io]', 'commands/journey.mjs', "st.second || st.io)) return null;", "st.second)) return null;", 'unit'],
+  ['journey J11: the consent text need not name the file [crm-io]', 'commands/journey.mjs', "String(x.consent_text).includes(`${mark}-fresh.csv`) && ", "", 'unit'],
+  ['journey J11: the imported leads may carry an SMS consent [crm-io]', 'commands/journey.mjs', " && x.sms_consent === false", "", 'unit'],
   // ---- journey browser start (briefs/browser-start-deadline.md): the wait for the DevTools address is a measured wall clock
   ['journey browser start: the bound is back to the old 15 s [mw]', 'lib/browser.mjs', 'export const DEVTOOLS_WAIT_MS = 180000;', 'export const DEVTOOLS_WAIT_MS = 15000;', 'unit'],
   ['journey browser start: the poll loop is a single check (gives up after the first look) [mw]', 'lib/browser.mjs', 'if (elapsed >= devtoolsWaitMs) throw new Error(', 'if (true) throw new Error(', 'unit'],
