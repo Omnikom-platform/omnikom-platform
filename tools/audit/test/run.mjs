@@ -896,6 +896,49 @@ try {
     check("summarize: commit is kept when given (cut to 64 characters), a snapshot target stays null, a finding with no line number has line null", sc.commit === "bb60318" && sc.target === null && sc.mode === "snapshot" && summarize(synth(1, 5), { commit: "c".repeat(200) }).commit.length === 64 && summarize(synth(0, 0, { findings: [{ rule: "MET-003", page: "/", what: "w", status: "FAIL" }] })).fails[0].line === null, JSON.stringify(sc).slice(0, 200));
   }
 
+  // work order 06: the plain names (names.json, read by names.mjs) and the byTopic field of the summary
+  {
+    const names = await import(pathToFileURL(join(AUDIT, "names.mjs")).href);
+    const { summarize } = await import(pathToFileURL(join(AUDIT, "summary.mjs")).href);
+    const table = JSON.parse(readFileSync(join(AUDIT, "names.json"), "utf8"));
+    const listed = cli(["--list"]).out.split(/\r?\n/).map((l) => l.split(/\s+/)[0]).filter(Boolean);
+    const ORDER = [["titles", "Page titles and descriptions"], ["headings", "Headings and structure"], ["indexing", "Indexing"], ["addresses", "Addresses"], ["links", "Links"], ["accessibility", "Accessibility"], ["speed", "Speed"], ["structured-data", "Structured data"], ["ai-questions", "AI question coverage"], ["design", "Design"], ["setting", "Preview or live setting"]];
+    // the words a business owner would not know (and rule ids, file names, digits); the em dash is written as an escape so this file holds none
+    const EM_DASH = String.fromCharCode(0x2014);
+    const JARGON = /canonical|\bh[1-6]\b|ld\+json|json-ld|\bLCP\b|\bCLS\b|\bTBT\b|\bTTFB\b|lastmod|x-robots|robots\.txt|noindex|nofollow|sitemap|hreflang|\balt\b|\bmeta\b|\bjson\b|\bhtml\b|\burl\b|\bseo\b|\bschema\b/i;
+    const sentenceOk = (s) => typeof s === "string" && s.length > 0 && s.length <= 120 && s.endsWith(".") && !s.includes(EM_DASH) && !/\d/.test(s) && !JARGON.test(s) && !/[A-Z0-9]+-\d{3}/.test(s) && !/\.(mjs|json|md|html|txt|xml)\b/i.test(s);
+    check("plain names: the sentence check itself refuses no final period, 121 characters, an em dash, a digit, jargon, a rule id and a file name",
+      sentenceOk("A page has a problem.") && !sentenceOk("A page has a problem") && !sentenceOk("a".repeat(120) + ".") && sentenceOk("a".repeat(119) + ".") && !sentenceOk("A page " + EM_DASH + " has a problem.") && !sentenceOk("A page has 3 problems.") && !sentenceOk("The canonical link is wrong.") && !sentenceOk("See MET-003.") && !sentenceOk("See robots.txt.") && !sentenceOk(""), "");
+    // 4a: every rule the engine has (as run.mjs --list prints it) has a topic and a plain sentence
+    const wrong = listed.filter((id) => { const e = table.rules[id]; return !e || !table.topics.some((t) => t.id === e.topic) || !sentenceOk(e.problem) || names.topicOf(id) !== e.topic || names.problemOf(id) !== e.problem; });
+    check("plain names: every rule that run.mjs --list prints has a known topic and a sentence of at most 120 characters, a final period, no digit, no em dash and no jargon",
+      listed.length > 0 && JSON.stringify(listed) === JSON.stringify(engine.listRules().map((r) => r.id)) && wrong.length === 0, `no good entry for: ${wrong.join(", ")}; listed ${listed.length}`);
+    // 4b: the table has no rule the engine lacks, uses every topic, and keeps the topics in the spec's order
+    const extra = Object.keys(table.rules).filter((id) => !listed.includes(id));
+    check("plain names: the table names no rule the engine does not have", extra.length === 0, `not in the engine: ${extra.join(", ")}`);
+    const unused = table.topics.filter((t) => !Object.values(table.rules).some((e) => e.topic === t.id)).map((t) => t.id);
+    check("plain names: every topic is used by at least one rule", table.topics.length > 0 && unused.length === 0, `unused: ${unused.join(", ")}`);
+    check("plain names: v is 1, the topics are the spec's eleven with their names in the spec's order, and TOPICS of names.mjs is that list",
+      table.v === 1 && JSON.stringify(table.topics.map((t) => [t.id, t.name])) === JSON.stringify(ORDER) && JSON.stringify(names.TOPICS) === JSON.stringify(table.topics), JSON.stringify(table.topics.map((t) => t.id)));
+    // 4d: an id outside the table
+    check("plain names: topicOf of an unknown id is other and problemOf of it is null (also for a name from Object.prototype)",
+      names.topicOf("XYZ-999") === "other" && names.problemOf("XYZ-999") === null && names.topicOf("constructor") === "other" && names.problemOf("__proto__") === null && names.problemOf("MET-003") === "A page has no main heading, more than one, or headings that skip a level." && names.topicOf("MET-003") === "headings", `${names.topicOf("XYZ-999")} ${names.problemOf("XYZ-999")}`);
+    // 4c: byTopic in the summary
+    const goodSum = summarize(engine.audit(GOOD_DIR, { target: "preview" })), goodTopic = goodSum.byTopic || {};   // `|| {}`: a summary with no byTopic is a red check, not a crash
+    const statuses = [...new Set([...Object.keys(goodSum.counts), ...Object.values(goodTopic).flatMap((v) => Object.keys(v))])];
+    const sums = statuses.map((s) => [s, Object.values(goodTopic).reduce((a, v) => a + (v[s] || 0), 0), goodSum.counts[s] || 0]);
+    check("summarize on the good site (--target preview): every topic of names.mjs is in byTopic, and the sum over byTopic equals counts for each status (PASS, FAIL, SKIP and any other)",
+      names.TOPICS.every((t) => goodTopic[t.id]) && goodSum.counts.PASS > 0 && goodSum.counts.SKIP > 0 && sums.every(([, a, b]) => a === b), JSON.stringify(sums));
+    const badSum = summarize(engine.audit(join(FIX, "bad-MET-003"), { target: "preview" })), badTopic = badSum.byTopic || {};
+    check("summarize on bad-MET-003: byTopic.headings.FAIL is 1 or more and byTopic.titles.FAIL is 0, and the sum over byTopic equals counts.FAIL",
+      badTopic.headings?.FAIL >= 1 && badTopic.titles?.FAIL === 0 && Object.values(badTopic).reduce((a, v) => a + v.FAIL, 0) === badSum.counts.FAIL, JSON.stringify(badSum.byTopic));
+    const fakeAudit = { dir: "/x", mode: "static", target: "production", pages: ["/"], rules: [{ id: "MET-003", severity: "P0", source: "s" }], findings: [{ rule: "XYZ-999", page: "/", line: 1, what: "w", status: "FAIL" }, { rule: "MET-003", page: "/", line: 2, what: "w", status: "WARN" }, { rule: "MET-003", page: "/", line: 3, what: "w", status: "WEIRD" }], lines: ["PASS MET-001 /", "PASS XYZ-999 /"], pass: false, exit: 1 };
+    const odd = summarize(fakeAudit), oddTopic = odd.byTopic || {};
+    check("summarize: a rule id outside the table is counted under byTopic.other, a WARN or an unusual status under its own key in its topic, and a PASS line by the topic of its rule",
+      oddTopic.other?.FAIL === 1 && oddTopic.other?.PASS === 1 && oddTopic.headings?.WARN === 1 && oddTopic.headings?.WEIRD === 1 && oddTopic.titles?.PASS === 1 && odd.v === 1, JSON.stringify(odd.byTopic));
+    check("summarize: byTopic has no other key when every rule id is in the table", goodSum.byTopic !== undefined && !("other" in goodTopic) && !("other" in badTopic), Object.keys(goodTopic).join(","));
+  }
+
   // temp folders (slice 4b.1): every folder this run made is on disk inside its one root (read back from the root, not from the names kept in memory)
   const inRoot = readdirSync(ROOT);
   check("temp folders: the run has one root omnikom-audit-run-* and every temp folder it made is inside it", /^omnikom-audit-run-/.test(basename(ROOT)) && tmps.length > 0 && tmps.every((d) => inRoot.includes(basename(d)) && existsSync(d)), `root ${ROOT}; ${tmps.length} folders made; in the root: ${inRoot.length}`);

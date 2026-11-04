@@ -425,3 +425,25 @@ options, never a fix made here.
     Weekly usage 92% (cap 95%): the head of operations decides whether slice 4 starts before the reset (Wed 18:00).
   - NOTE: this shared-tree charter is not master's; master's copy carries the flip commit's charter lines only. Reconcile on the
     next charter commit (master's text plus the blocks from 2026-11-01 14:50 onward here).
+- 2026-11-04 17:06: HANDOVER (head HEAD_SEO-and-audits_2026-11-04, Opus 5.5, context 188k WATCH, swap at 209k; reports to
+  HEAD-OF-OPERATIONS_Omnikom_Platform).
+  - LANDED: work order 05 audit results, master d6076e8 (CI run 41845803027, 9 of 9): skill paths moved to code\main (outside copy
+    3cbe331, synced, SOURCE.md row), `tools/audit/summary.mjs` + `run.mjs --summary` (v1, under 60 KiB, byte budget besides the
+    200 fails / 300 characters caps), 13 new checks (589 of 589), 11 new mutants caught. Head re-ran: test/run.mjs 589 of 589 exit 0;
+    `--summary` on bad-MET-003 one object pass false exit 1; `--summary --json` exit 2. Worktree and branch removed, builder stopped.
+  - ROUTED: the Search health spec is in `docs/product/6-dashboard.md` (0d4f588, platform). F1 (runner stores the summary in
+    gate_report.audit) and F2 (per-site read + function) are platform-build's, after crm-2 (landed). Lesson sent for the CLI head:
+    `omnikom land` keeps its lock on a GitHub 500 and a rerun then waits on its own lock.
+  - RULE (head of operations, 2026-11-04 12:35, docs/departments/README.md rule 8 on master): locally run only the suites a change
+    touches; full run-all-gates and mutant lists run on CI; a land needs that green CI run. Every branch regenerates icm/ in its own
+    commit before its CI run (CI checks it since 293e7fb). Heads never build, small fixes included.
+  - NEXT 1: work order 06, plain-word names: one table in tools/audit/ (family prefix -> plain name; each rule id -> one plain
+    sentence of what is wrong), read by the Search health page and by the six-question report; a test that every rule in
+    `run.mjs --list` has a name, with a mutant. Card 1 of the spec names the families.
+  - NEXT 2: slice 4, the six-question report as a generated document from the audit JSON (the skill's `report-live.mjs` wording).
+  - THEN: the LOW finding, mutate.mjs progress line every 25 mutants.
+  - CHARTER: this block goes into docs/departments/seo-and-audits.md (position log, last) in the first commit of work order 06.
+- 2026-11-04 19:40: head HEAD_SEO-and-audits_2026-11-04b (opus) took over from the 17:06 block; reports to HEAD-OF-OPERATIONS_Omnikom_Platform.
+  Work order 06 (`work/06-plain-names/CONTEXT.md`): `tools/audit/names.json` (11 topics, one plain sentence per rule), `names.mjs`, the
+  summary's `byTopic`; builder BUILDER_seo-and-audits_plain-names (pid 35820, sonnet, effort high). Head re-run: test/run.mjs "OK: 599 of
+  599 checks passed"; bad-MET-003 `--summary` pass false, byTopic.headings.FAIL 1, titles.FAIL 0. Factory, CLI and full mutants on CI.

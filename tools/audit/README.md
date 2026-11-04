@@ -50,6 +50,7 @@ const s = summarize(audit("dist", { target: "preview" }), { commit: "bb60318" })
 { v: 1, target, mode, pass, exit, pages, rules,                         // pages and rules are counts; target is null for a snapshot run without one
   counts: { PASS, FAIL, SKIP, ...},                                     // PASS = the PASS lines (one per rule and page)
   byFamily: { MET: { PASS, FAIL, SKIP, ...}, ... },                     // the family is the rule id up to the first "-"
+  byTopic: { headings: { PASS, FAIL, SKIP, ...}, ... },                 // the plain topic of names.json (work order 06), every topic present
   fails: [{ rule, page, line, what, source }], truncated, commit? }
 ```
 - A status that is not PASS, FAIL or SKIP (WARN today) is counted under its own key in `counts` and in its family, never dropped.
@@ -61,6 +62,25 @@ const s = summarize(audit("dist", { target: "preview" }), { commit: "bb60318" })
 - The runner's line: `node tools/audit/run.mjs <dist> --target <preview|production> --summary` (exit 0 no FAIL, 1 a FAIL, 2 usage error; stdout is the JSON).
   It carries no commit; a caller that knows it adds `commit` to the parsed object, or calls `summarize` with it.
 - Storing it per publish job (`gateReport.audit`) and reading it per site are the platform build's files, not this tool's.
+
+## Plain names (for the dashboard and the report)
+`names.json` is the one place that says, in words a business owner understands, what each topic is called and what is wrong when a rule
+fails. The dashboard's "Search health" card and the six-question report read this file; the screen never carries its own copy of the words.
+`names.mjs` is the Node call (`topicOf(ruleId)`, `problemOf(ruleId)`, `TOPICS`; built-ins only).
+```
+{ "v": 1,
+  "topics": [ { "id": "titles", "name": "Page titles and descriptions" }, ... ],         // in the order the screen shows them
+  "rules": { "MET-003": { "topic": "headings", "problem": "A page has no main heading, more than one, or headings that skip a level." }, ... } }
+```
+- Topics, in order: `titles` Page titles and descriptions; `headings` Headings and structure; `indexing` Indexing; `addresses` Addresses;
+  `links` Links; `accessibility` Accessibility; `speed` Speed; `structured-data` Structured data; `ai-questions` AI question coverage;
+  `design` Design; `setting` Preview or live setting. `topicOf` of an id not in the table is `"other"`, `problemOf` of it is `null`.
+- `problem` says what is wrong when the rule FAILS or WARNs, true to the rule file's "Judged here": one sentence, at most 120 characters,
+  a final period, no rule id, file name, digit, em dash or jargon (canonical, h1, LCP, noindex, sitemap and the like).
+- **A new rule ships with its entry.** `test/run.mjs` fails when a rule that `run.mjs --list` prints has no entry, an unknown topic or a sentence
+  outside those limits, and when the table names a rule the engine lacks or a topic no rule uses.
+- The summary carries `byTopic` next to `byFamily`: the same lines counted per topic, every topic present (zeros when none), a rule id outside
+  the table under `other`. `v` stays 1 (the field was added, nothing renamed).
 
 ## Snapshot mode (slice 2)
 A folder that holds `_site.json` and `pages/<slug>/raw.html.gz` is a snapshot made by the skill's polite `snapshot-site.mjs`, and the same
@@ -199,7 +219,7 @@ All P1; DSN-010 and DSN-011 print WARN (the exit stays 0), the other nine print 
 - The design stage of the skill (`stages/design.md`) requires the five-line direction and the nine passes, and runs this family after them.
 
 ## Layout
-- `index.mjs` the engine, `run.mjs` the runner, `live.mjs` the live driver, `summary.mjs` the small summary of an audit (work order 05).
+- `index.mjs` the engine, `run.mjs` the runner, `live.mjs` the live driver, `summary.mjs` the small summary of an audit (work order 05), `names.json` and `names.mjs` the plain words (work order 06).
 - `lib/site.mjs` the site reader: a copy of the skill's `scripts/lib-site.mjs` (header says which changes). `lib/context.mjs` folder
   facts, sitemap reading, `resolveLink`, the build target. `lib/headers.mjs` the `_headers` file (slice 4c). `lib/lines.mjs` line numbers. `lib/schema.mjs`, `lib/xml.mjs`, `lib/check.mjs` helpers.
   `lib/sitemap-lastmod.mjs` a copy of the skill's built-in SE-004/IDX-003 check with its logic lifted into functions.

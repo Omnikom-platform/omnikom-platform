@@ -57,6 +57,11 @@ const MUTANTS = [
   ["summary.mjs: the family is the whole rule id", "summary.mjs", 'String(id).split("-")[0]', "String(id)"],
   ["run.mjs: --summary prints the whole audit object", "run.mjs", 'JSON.stringify((await import(new URL("./summary.mjs", import.meta.url).href)).summarize(r))', "JSON.stringify(r)"],
   ["run.mjs: the usage line does not name --summary", "run.mjs", "[--json | --summary]", "[--json]"],
+  // the plain names (work order 06)
+  ["names.json: the MET-003 entry is dropped", "names.json", '    "MET-003": { "topic": "headings", "problem": "A page has no main heading, more than one, or headings that skip a level." },\n', ""],
+  ["names.json: MET-003 points at the titles topic", "names.json", '"MET-003": { "topic": "headings"', '"MET-003": { "topic": "titles"'],
+  ["summary.mjs: byTopic skips a status", "summary.mjs", "    add(topic(f.rule), status);\n", ""],
+  ["names.mjs: topicOf returns the family prefix, not the topic", "names.mjs", "(has(ruleId) ? NAMES.rules[ruleId].topic : \"other\")", "String(ruleId).split(\"-\")[0]"],
   ["lines.mjs: line numbers start at 0", "lib/lines.mjs", "let n = 1;\n  const end", "let n = 0;\n  const end"],
   ["site.mjs: the tokenizer never counts a newline", "lib/site.mjs", "if (html.charCodeAt(ptr++) === 10) ln++;", "ptr++;"],
   ["site.mjs: an <svg> is not stripped (its <title> counts)", "lib/site.mjs", "<(style|noscript|template|svg)\\b", "<(style|noscript|template)\\b"],

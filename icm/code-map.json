@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 575,
+    "sources": 576,
     "unowned": 0
   },
   "files": [
@@ -429,6 +429,7 @@
     {"path":"tools/audit/lib/typography.mjs","owner":"seo-and-audits","exports":["declaredSize","declaredTracking","declaredUppercase","declaredWeight","shortText"],"tests":["tools/audit/test/mutate.mjs"],"feature":""},
     {"path":"tools/audit/lib/xml.mjs","owner":"seo-and-audits","exports":["xmlProblems"],"tests":["tools/audit/test/mutate.mjs"],"feature":""},
     {"path":"tools/audit/live.mjs","owner":"seo-and-audits","exports":[],"tests":["tools/audit/test/mutate.mjs","tools/audit/test/run.mjs"],"feature":""},
+    {"path":"tools/audit/names.mjs","owner":"seo-and-audits","exports":["TOPICS","problemOf","topicOf"],"tests":["tools/audit/test/mutate.mjs","tools/audit/test/run.mjs"],"feature":""},
     {"path":"tools/audit/run.mjs","owner":"seo-and-audits","exports":[],"tests":["factory/runner/test/run.mjs","tools/audit/test/mutate.mjs","tools/audit/test/run.mjs"],"feature":""},
     {"path":"tools/audit/summary.mjs","owner":"seo-and-audits","exports":["MAX_BYTES","MAX_FAILS","MAX_WHAT","summarize"],"tests":["tools/audit/test/mutate.mjs","tools/audit/test/run.mjs"],"feature":""},
     {"path":"tools/audit/test/mutate.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
