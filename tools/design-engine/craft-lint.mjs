@@ -1,4 +1,4 @@
-// craft-lint: measures a RENDERED page against tools/design-engine/CRAFT.md (Omnikom design SOP; first run: ELEV8, 2026-10-27). Opens the page
+// craft-lint: measures a RENDERED page against tools/design-engine/CRAFT.md (Omnikom design SOP; first run: Example A, 2026-10-27). Opens the page
 // in a real Chromium at each viewport (default 1366x900, 1536x864, 390x844), settles it (#still, fonts, images), and checks what the
 // eye would see, from computed styles and layout boxes, inside the scope (default `main`):
 //   tokens   font-size, padding, margin-block, gap, border-radius, box-shadow must equal a :root token (--fs-*, --sp-*, --r-*, --sh-*),
@@ -9,7 +9,7 @@
 //   family   <= 3 distinct radii (pills >= 999px and 50% circles exempt), <= 3 distinct shadows
 //   images   no distortion: rendered ratio = natural ratio unless object-fit cover/contain
 //   layout   no horizontal overflow; alignment lines per section (warning above 4 laptop / 2 phone)
-// Ported from tasteskill (github.com/Leonxlnx/taste-skill, MIT, v2.1.5 read 2026-10-28; CRAFT.md 10), with its false positives on ELEV8 fixed:
+// Ported from tasteskill (github.com/Leonxlnx/taste-skill, MIT, v2.1.5 read 2026-10-28; CRAFT.md 10), with its false positives on Example A fixed:
 //   edge-text      text inside the viewport within 16px of its left/right edge (sideways scrollers exempt: CRAFT 8 wants a peek)
 //   broken-image   an <img> that finished loading with no pixels
 //   covered-text   at every screen-height scroll stop, text under another painted element (fixed/sticky bars exempt: content
@@ -137,7 +137,7 @@ function audit({ scope, phone, max: MAX }) {
   const emoji = els.filter((e) => directText(e) && /^\p{Extended_Pictographic}[️‍\p{Extended_Pictographic}]*$/u.test(e.textContent.trim()));
   if (emoji.length) warn('tell-emoji', emoji[0], `${emoji.length} emoji used as icons or bullets`);
   // one pair of page margins: the leftmost and rightmost text blocks (not in a sideways scroller) sit equally far in. Images are left out:
-  // CRAFT 7 lets them bleed to an edge on purpose (ELEV8 laptop: a photo at 0px read as "0px from the left", 2026-10-28)
+  // CRAFT 7 lets them bleed to an edge on purpose (Example A laptop: a photo at 0px read as "0px from the left", 2026-10-28)
   const box = els.filter((e) => directText(e) && !inScroller(e)).map((e) => e.getBoundingClientRect()).filter((r) => r.left >= 0 && r.right <= innerWidth && r.width < innerWidth - 2);
   if (box.length) { const L = Math.min(...box.map((r) => r.left)), Rm = innerWidth - Math.max(...box.map((r) => r.right)); if (Math.abs(L - Rm) > 32) warn('off-centre', sc, `content sits ${Math.round(L)}px from the left and ${Math.round(Rm)}px from the right: give the page one pair of margins`); }
   if (counts.tokenFs > MAX) out.errors.push({ rule: 'token-type', at: '(more)', msg: `${counts.tokenFs - MAX} more off-scale font sizes` });
@@ -180,8 +180,8 @@ async function coverPass({ scope }) {
     for (const el of sc.querySelectorAll('*')) {
       if (done.has(el)) continue;
       const texts = [...el.childNodes].filter((n) => n.nodeType === 3 && n.textContent.trim().length > 2); if (!texts.length) continue;
-      // a closed <details> still lays its content out, unpainted, over what follows (ELEV8 phone footer, 2026-10-28: 4 false errors on v4
-      // and v2, 0 after): checkVisibility() knows. Not reproduced in a fixture (two tries), so the ELEV8 run is its only proof
+      // a closed <details> still lays its content out, unpainted, over what follows (Example A phone footer, 2026-10-28: 4 false errors on v4
+      // and v2, 0 after): checkVisibility() knows. Not reproduced in a fixture (two tries), so the Example A run is its only proof
       const cs = getComputedStyle(el); if (!el.checkVisibility() || cs.visibility === 'hidden' || +cs.opacity < 0.3 || pinned(el) || hiddenText(el)) continue;
       // lines of one heading or link set as separate spans overlap each other's boxes: not a collision
       const unit = el.closest('h1, h2, h3, h4, h5, h6, p, li, a, button, label');

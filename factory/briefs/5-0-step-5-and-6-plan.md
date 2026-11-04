@@ -62,4 +62,4 @@ Collected in this file's section below as slices find them; sent when step 6 pre
 - An email sender for alerts and new-lead emails (D5 named Resend), its domain records.
 - A status page provider, or yes to the static page on Pages.
 - Whether the staging keys may live in GitHub for a `flows` CI job.
-- (Already waiting) the ELEV8 preview Pages project.
+- (Already waiting) the Example A preview Pages project.

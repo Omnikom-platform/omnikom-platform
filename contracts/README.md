@@ -22,9 +22,9 @@ from a library keyed by schema.org type.
 | `place.mjs` | Publish-time placement: published rows -> page sections, item pages, sitemap, page schema |
 | `screens.mjs` | Dashboard screens from the contract: `node screens.mjs <contract.json> --out screens.md` |
 | `test/run.mjs` | 138 checks on a synthetic fixture ("Demo Homes"); `test/mutate.mjs` breaks each rule and requires the tests to go red |
-| `examples/elev8/` | ELEV8: entity declaration, contract generated from its **approved plan**, screens, mapping |
-| `examples/rainmaker/` | Rainmaker: same, plus `check.mjs` run against its real pages (read only) |
-| `examples/vtv/` | VTV: same, plus `adapter.mjs` run against its real `data.json` (read only); front end only (its project rule) |
+| `examples/example-a/` | Example A: entity declaration, contract generated from its **approved plan**, screens, mapping |
+| `examples/example-c/` | Example C: same, plus `check.mjs` run against its real pages (read only) |
+| `examples/example-d/` | Example D: same, plus `adapter.mjs` run against its real `data.json` (read only); front end only (its project rule) |
 | `industry-run/` | The same procedure on 15 industries: `RESULTS.md`, one contract and one screens file each |
 
 ## The site contract
@@ -37,7 +37,7 @@ pages        [ { path, type, bind <slug> } ]        from the approved plan; the 
 forms        { id: { label, fields, consent { notice <slug> }, crm { formField: "OmniSuite field" } } }
 placements   [ { id, collection, when { field: [values] }, to { page | pageType (+ match) | sitemap | schema, section }, sort, limit } ]
 clientWording [ { where, status "[client to confirm]", note } ]   INTERNAL build notes only: never shown to the client; client questions come only from sops/clients/client-questions.md (DECISIONS 17)
-seeds        places / items the plan names (e.g. the 10 ELEV8 cities)
+seeds        places / items the plan names (e.g. the 10 Example A cities)
 ```
 - **Field types:** text, richtext, slug, number, money, boolean, date, datetime, enum, email, phone, url, image, gallery, file,
   reference (`to`, `multiple`), address, geo, list (`of`), group (`of`, or `open`), seo, sections.
@@ -47,7 +47,7 @@ seeds        places / items the plan names (e.g. the 10 ELEV8 cities)
   when "show sold price" is ticked; `place.mjs publicData` applies it and drops internal fields).
 - **Section kinds:** `fields` (the client edits them), `feed` (fills itself from a collection through placements), `form`,
   `notice` (a locked legal text).
-- **Bound pages:** a page type with `bind` shows one row of that collection (ELEV8 city guides bound to a city; Rainmaker product
+- **Bound pages:** a page type with `bind` shows one row of that collection (Example A city guides bound to a city; Example C product
   guides bound to a product). The plan owns the URL, the row owns the facts.
 - **Placement:** "a listing's area puts it on that area's page" is `to { pageType, section, match: "area" }`; status rules are
   `when { status: [...] }`. The generator **derives** the common ones: FAQ feeds, "an item that references the page's place goes
@@ -84,24 +84,24 @@ The message text of each is in the source next to the code.
 node contracts/test/run.mjs          # 138 checks, exit 1 on any failure
 node contracts/test/mutate.mjs       # 82 broken copies (every rule off + 11 behaviour breaks); all must be caught
 node contracts/industry-run/run.mjs  # 15 industries
-node contracts/from-plan.mjs --plan "E:/Alex Sevilla/site-checks/elev8ca.com/.pewp/approved" --entities contracts/examples/elev8/entities.json --out contracts/examples/elev8/contract.json
-node contracts/examples/rainmaker/check.mjs
-node contracts/examples/vtv/adapter.mjs
+node contracts/from-plan.mjs --plan "E:/Agent A/site-checks/example-a.example/.pewp/approved" --entities contracts/examples/example-a/entities.json --out contracts/examples/example-a/contract.json
+node contracts/examples/example-c/check.mjs
+node contracts/examples/example-d/adapter.mjs
 ```
 
 ## What was proven (2026-10-28, outputs pasted from the runs)
 - Tests: `138 passed, 0 failed`. Mutants: `82 mutants, 82 caught, 0 survived; 0 codes untested`; every mutant was caught by a
   failing assertion, none by a crash.
-- **ELEV8**, generated from its approved plan: `VALID ... 12 collections (4 site), 14 page types, 42 pages, 3 forms, 24
+- **Example A**, generated from its approved plan: `VALID ... 12 collections (4 site), 14 page types, 42 pages, 3 forms, 24
   placements` (42 = the plan's 31 + 10 of the 18 kept live pages + the `/blog` articles index; the other 8 kept pages are agent
   profiles, now team item pages at their live addresses). Listings rules from LISTINGS-DECISION are placements: active -> home "Our listings", city guide, "Realtor in
   <city>"; sold -> "Recently sold" on home, city guide, "Sell in <city>" (4 each, newest first; sold price only when ticked); delete -> 301
   to the city guide. Four wordings are listed for the client review email (budget ranges, closing-form topics, consent, search address).
-- **Rainmaker** (real pages, read only): `source pages 11; mapped 11`; 3/3 product pages carry a product disclosure block (each
+- **Example C** (real pages, read only): `source pages 11; mapped 11`; 3/3 product pages carry a product disclosure block (each
   becomes a locked notice the product requires); 11 fixed-text sections on the disclosures page -> notices rows; lead forms 3 on 2
   pages = 3 form sections. Found by the check: the contact page has two forms (first declaration had one; fixed, and the check was
   watched failing on the old one). 2 page descriptions are over 160 characters (contact, insurance-disclosures).
-- **VTV** (real `data.json`, read only): contract `VALID`; its 81 sitemap URLs = 22 pages + 28 listing pages + 31 articles, and the
+- **Example D** (real `data.json`, read only): contract `VALID`; its 81 sitemap URLs = 22 pages + 28 listing pages + 31 articles, and the
   contract's build would produce all 81 (`would NOT produce: 0`). As drafts: listings 28/28, reviews 6/6 clean; neighborhoods 0/11
   (126 census facts carry no source + date), articles 25/31 (6 SEO titles over 60 characters, 2 excerpts over 200). For publish,
   what is missing is real: reviews need a date and the reviewer's permission; 414 of 442 listing photos have no alt text; photo
@@ -115,9 +115,9 @@ node contracts/examples/vtv/adapter.mjs
 2. **Database (step 3):** `store.mjs` is an in-memory model. RLS, the tables above, storage-prefix rules and the four tests of
    TENANCY-AND-PUBLISHING 4 run against real Supabase are NOT DONE.
 3. **Upload pipeline:** width, EXIF stripping and the rights tick are required at publish but nothing sets them yet.
-4. **Interactive tools** (Rainmaker's coverage estimator, VTV's mortgage calculator) are code; only their text is content. No
+4. **Interactive tools** (Example C's coverage estimator, Example D's mortgage calculator) are code; only their text is content. No
    "widget" section kind yet.
 5. **Locked values inside lists/sections** are compared at whole-field level, not per row.
-6. **ELEV8:** answered 2026-10-28 by the lead session (Recently sold placement, wording list, `/blog`). `/blog` is declared in
-   `examples/elev8/entities.json`; it still has to be added to the approved plan itself (the ELEV8 project, not this repo).
-7. VTV is front end only until its blueprint sign-off; its adapter only reads.
+6. **Example A:** answered 2026-10-28 by the lead session (Recently sold placement, wording list, `/blog`). `/blog` is declared in
+   `examples/example-a/entities.json`; it still has to be added to the approved plan itself (the Example A project, not this repo).
+7. Example D is front end only until its blueprint sign-off; its adapter only reads.

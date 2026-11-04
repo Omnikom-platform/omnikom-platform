@@ -41,7 +41,7 @@ presses Publish. Humans only approve the design and sign off facts and legal tex
 | Google Search Console / PSI | One Omnikom Search Console account for all sites (DECISIONS 11); speed from PageSpeed Insights |
 | OmniSuite | Lead follow-up and voice agent by API key. **Its API does not exist yet** (DECISIONS 8): adapter BLOCKED |
 | Client CRM | Generic signed webhook |
-| Client IDX (e.g. Brivity) | Linked out, never copied (ELEV8 LISTINGS-DECISION) |
+| Client IDX (e.g. Brivity) | Linked out, never copied (Example A LISTINGS-DECISION) |
 | Anthropic API | AI operators (step D), with a per-workspace spend cap |
 
 ## 3. Containers (C4 level 2)
@@ -112,7 +112,7 @@ reason in plain words; the deploy target comes from the site registry, never fro
 ## 9. Decisions this blueprint takes (small, reversible; change them in one place)
 | Decision | Choice | Why |
 |---|---|---|
-| Deploy target per site | One Cloudflare **Pages project per site** (revised by DECISIONS 28, 2026-10-29; this reverses ADR 0002) | Pages project creation works again (`deploy-pages.mjs` created `elev8-omnikom-website`); preview deployments per branch, Pages Functions for `/api/lead`, custom domains from the account's zones (`20-SHAPE.md` 3) |
+| Deploy target per site | One Cloudflare **Pages project per site** (revised by DECISIONS 28, 2026-10-29; this reverses ADR 0002) | Pages project creation works again (`deploy-pages.mjs` created `example-a-omnikom-website`); preview deployments per branch, Pages Functions for `/api/lead`, custom domains from the account's zones (`20-SHAPE.md` 3) |
 | Dashboard stack | React + Vite SPA on a Pages project; no server framework | All security is in Postgres (RLS + functions), so the app needs no server of its own; smaller attack surface (2026 framework RCEs, `~/.claude/reference/supply-chain-2026-10.md`) |
 | Server code | Supabase Edge Functions (Deno) | Next to the data; one place for service-role code |
 | Build runner | GitHub Actions | Gates need headless Chrome; free minutes; logs per job |

@@ -1,6 +1,6 @@
 # 14 The lead path, end to end: from a website form to the client's CRM screen
 
-Written 2026-10-29 for the owner's approval. It follows what exists: the ELEV8 draft site's wizard (`E:\Alex Sevilla\draft-site\site\src\pages\wizard.js`),
+Written 2026-10-29 for the owner's approval. It follows what exists: the Example A draft site's wizard (`E:\Agent A\draft-site\site\src\pages\wizard.js`),
 its preview stub (`tools/deploy-preview.mjs`, the Worker answers `{ preview: true, sent: false }`), the API
 (`docs/blueprint/specs/openapi.json`, operation `captureLead`), the signature (`supabase/functions/_shared/signature.ts`, tests
 `signature.test.mjs`), the database function `service.capture_lead` (migration, tested T7) and the endpoints SOP
@@ -32,14 +32,14 @@ visitor's browser ──POST /api/lead──> the site's own Worker (same domain
                    CRM screen "Leads": new row appears live (Realtime), per site, with its timeline
 ```
 
-## 1. On the website (BUILT on ELEV8, preview mode)
-The ELEV8 site has four wizards (`contact`, `home-finder`, `home-value`, `sell`), one question per step, opened from the hero
+## 1. On the website (BUILT on Example A, preview mode)
+The Example A site has four wizards (`contact`, `home-finder`, `home-value`, `sell`), one question per step, opened from the hero
 tabs, the home-value box, the home finder and the contact form. On Send the wizard builds one JSON object, the `LeadRequest`:
 `form`, `flow`, `page`, `cta`, `assignee` (when the visitor asked for a named agent), `name`, `email`, `phone`, `answers` (every
 other answer, keyed as in the contract), `consentText` (the exact consent wording shown), `marketingConsent { given, text }`,
 `hp` (the honeypot, empty for a person) and `idempotencyKey` (a uuid made when the wizard opened, reused on a retry).
 It sends `POST /api/lead` to the same site and shows one of three messages: "Preview: nothing was sent." (preview), "Sent."
-(202) or "Not sent: please call (510) 209-6930." (anything else). Draft rule: a draft site sends nothing, so a test never lands
+(202) or "Not sent: please call +1 555 0100." (anything else). Draft rule: a draft site sends nothing, so a test never lands
 in a client's CRM (CLAUDE.md rule 2, `sops/design-engine.md`).
 
 What changes at launch (DECISIONS 16, 19): the stub Worker is replaced by the real Worker (section 2); the message table in

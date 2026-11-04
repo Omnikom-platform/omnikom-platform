@@ -6,11 +6,11 @@ Both read the same site contract (`contracts/`).
 ## A. Website factory
 
 ### A1. Inputs
-| Input | Comes from | Example (ELEV8) |
+| Input | Comes from | Example (Example A) |
 |---|---|---|
-| Site contract (resolved) | `contracts/from-plan.mjs` from the approved plan + `entities.json` | `contracts/examples/elev8/contract.json` (42 pages, 14 page types) |
+| Site contract (resolved) | `contracts/from-plan.mjs` from the approved plan + `entities.json` | `contracts/examples/example-a/contract.json` (42 pages, 14 page types) |
 | Published rows | `export-published` (one workspace) | pages, listings, cities, team, notices... |
-| Design package | approved design, turned into partials | `E:\Alex Sevilla\draft-site\design\variants\v4.html` + the lab sections |
+| Design package | approved design, turned into partials | `E:\Agent A\draft-site\design\variants\v4.html` + the lab sections |
 | Site settings | `sites` row | deploy target, preview host, domain, live or preview |
 
 ### A2. Design package (per site, in the platform repo: `sites/<slug>/design/`)
@@ -34,7 +34,7 @@ by a visual-equivalence screenshot diff (A6).
 1. Load export: contract + rows + media list. Re-validate every row in publish mode (defence in depth); any error stops the build.
 2. `place(contract, rows)` (`contracts/place.mjs`) -> sections per page, item pages, sitemap, schema.
 3. Render every contract page (`pages` + its page type's sections) and every item page.
-4. Launch layer (proven on Rainmaker, `E:\Rainmaker\site-src\build.mjs`): WebP + phone sizes for every referenced image, the phone
+4. Launch layer (proven on Example C, `E:\Example C\site-src\build.mjs`): WebP + phone sizes for every referenced image, the phone
    hero as its own small preloaded file, woff2 subsets, hashed asset names with year-long cache, `_headers` (one `/*` block for clarity; on Workers static assets matching rules merge, so the Pages-era "second block replaces the
    first" lesson does not apply; responses from the Worker script, i.e. `/api/lead`, set their own headers in code),
    `_redirects` (from the `redirects` collection), root `/404.html` with root-absolute paths, `robots.txt` (noindex + Disallow on
@@ -43,7 +43,7 @@ by a visual-equivalence screenshot diff (A6).
    `method="post"`; on a preview host forms never fake success.
 6. Gates (A5). 7. Deploy (Worker with static assets) only if every gate passed. 8. Smoke test on the deployed URL.
 
-### A4. Item pages and placement (ELEV8)
+### A4. Item pages and placement (Example A)
 Listing detail `/listings/<slug>/`: gallery, price, beds, baths, sqft, lot, year, description, map pin, open houses, listing agent,
 "Ask about this home" form, RealEstateListing JSON-LD; sold listings stay, move to "Recently sold" feeds (4 newest per place) and
 show the sold price only when ticked. City guides list the city's own listings, the home finder preset to the city, and a button
@@ -55,15 +55,15 @@ to the IDX search (`settings.homeSearchUrl`). No MLS data is copied (LISTINGS-DE
 | SEO launch gate GT-001..013 | `skills/programmatic-enterprise-web-performance/scripts/gate.mjs` (strict) | 13/13 on the built site; previews run it with the noindex exception |
 | Render gate | `render-gate.mjs` / wf-shots pattern | 0 console errors, 0 uncaught exceptions, no horizontal overflow, no never-settling animation, at 1536x730, 390x844, 360x740 |
 | Accessibility | axe-core in headless Chrome | 0 violations |
-| Media | `E:\Rainmaker\tests\media.e2e.mjs` pattern | no collapsed (0x0) images, every image has alt |
+| Media | `E:\Example C\tests\media.e2e.mjs` pattern | no collapsed (0x0) images, every image has alt |
 | Forms | `forms.e2e` pattern | every form posts to `/api/lead`, consent text present, preview never fakes success |
 | Live guard | `deploy-live.mjs` pattern | live deploy refused if: noindex present, any placeholder text, draft banner, missing form backend |
 | Programmatic quality | plan's `programmatic.json` gate | >= 1,000 words non-template text, <= 40% similar to sibling pages, >= 5 sourced local facts |
-| Visual equivalence (migrations only) | screenshot diff vs. the approved design / old site | per-section difference under the set threshold (VTV, Rainmaker moves) |
+| Visual equivalence (migrations only) | screenshot diff vs. the approved design / old site | per-section difference under the set threshold (Example D, Example C moves) |
 
-### A6. Visual equivalence for moving VTV and Rainmaker
+### A6. Visual equivalence for moving Example D and Example C
 Before: screenshots of the current preview at the 3 sizes per page. After: same pages built from rows. Pass = no section differs
-beyond the threshold (set in W4.1 after a calibration run; pixel diff with anti-aliasing tolerance). VTV stays front end only
+beyond the threshold (set in W4.1 after a calibration run; pixel diff with anti-aliasing tolerance). Example D stays front end only
 until its blueprint sign-off (its CLAUDE.md rule 1): its move means "renders from content files", not "connected to the database".
 
 ## B. Dashboard app
@@ -124,4 +124,4 @@ Plain, calm, app-like on the phone (owner bar): left rail on laptop, bottom bar 
 
 ### B6. Per-industry screens
 Generated, not designed per industry. Proof that the generator covers every industry: `contracts/industry-run/screens/*.md`
-(15 industries) and `contracts/examples/{elev8,rainmaker,vtv}/screens.md` (3 real sites).
+(15 industries) and `contracts/examples/{example-a,example-c,example-d}/screens.md` (3 real sites).

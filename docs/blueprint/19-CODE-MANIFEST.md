@@ -50,7 +50,7 @@ request body size cap; all machine-called ones verify their credential before re
 ## 3. The site's lead endpoint: `factory/worker/lead-endpoint.mjs` (+ `pages-function-lead.js`)
 In: the form's request. Out: the plain-words answer. Honeypot, size cap, not-JSON refused; the body signed with the site key
 (same canonical form as `signature.ts`, proven by the tests with the platform's own `verify`); forwarded to `capture-lead`; only
-a 202 becomes "sent". Config: `SITE_ID`, `SITE_SIGNING_KEY` (secret), `PLATFORM_BASE`. Runs as a Pages Function (what the ELEV8
+a 202 becomes "sent". Config: `SITE_ID`, `SITE_SIGNING_KEY` (secret), `PLATFORM_BASE`. Runs as a Pages Function (what the Example A
 preview uses today) or inside a Worker (D2). Proven by `factory/worker/test/run.mjs` (17) and `mutate.mjs` (15 of 15);
 end to end by `supabase/tests/e2e-lead.mjs` on staging. Deploy steps: `factory/worker/README.md`. Status: BUILT (DECISIONS 25),
 UNPROVEN on a real site. Rate limiting per IP stays SPEC (the Edge Function's own limit first).
@@ -68,11 +68,11 @@ UNPROVEN on a real site. Rate limiting per IP stays SPEC (the Edge Function's ow
 ## 5. Website factory (Node): `factory/`
 | Artifact | In -> out | Proven by | Status |
 |---|---|---|---|
-| `factory/build.mjs` | export JSON -> `dist/` (every page, item pages, sitemap, robots, llms.txt, `_headers`, `_redirects`, 404) | render gate, SEO gate 13/13, writing gate WG-1..7 | SPEC; the ELEV8 `build.mjs` is the working precedent (BUILT in the client project) |
+| `factory/build.mjs` | export JSON -> `dist/` (every page, item pages, sitemap, robots, llms.txt, `_headers`, `_redirects`, 404) | render gate, SEO gate 13/13, writing gate WG-1..7 | SPEC; the Example A `build.mjs` is the working precedent (BUILT in the client project) |
 | `factory/render.mjs`, `factory/place` (uses `contracts/place.mjs`) | rows + partials -> HTML; dependency-free so the dashboard preview (16-DESIGN-PARTS 2.2) runs the same code in a Worker thread | a test imports it in a browser-like environment and fails on any Node built-in | SPEC |
-| `sites/<slug>/design/` (per site) | tokens.css, base.css, `sections/*.mjs`, `item/*.mjs`, `shell.mjs`, `motion.js` | visual-equivalence diff against the approved design (A6) | SPEC; ELEV8's V4 partials exist in the client project |
+| `sites/<slug>/design/` (per site) | tokens.css, base.css, `sections/*.mjs`, `item/*.mjs`, `shell.mjs`, `motion.js` | visual-equivalence diff against the approved design (A6) | SPEC; Example A's V4 partials exist in the client project |
 | `factory/gates/*.mjs` | `dist/` -> pass or a plain-words report | each gate has a `--force-fail` or a mutant fixture | SPEC; the skill's `gate.mjs`, `writing-gate.mjs`, `launch.mjs` are BUILT |
-| `factory/launch-layer.mjs` | images, fonts, hashing, headers | the ELEV8 writing gate (BUILT there) | SPEC |
+| `factory/launch-layer.mjs` | images, fonts, hashing, headers | the Example A writing gate (BUILT there) | SPEC |
 
 ## 6. Dashboard (React + Vite + TypeScript): `apps/dashboard/`
 Compiles with `tsc --noEmit` and `vite build` to one static bundle; deployed as the Worker `app` (static assets) by CI to

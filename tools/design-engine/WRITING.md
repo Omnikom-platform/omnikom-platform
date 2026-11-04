@@ -1,6 +1,6 @@
 # WRITING.md: how the engine writes code that is fast and agent-readable (the writing gate)
 
-Owner, 2026-10-29 (ELEV8 launch): fix the habits, not the report. The lead's decision is DECISIONS 20: the first real V2 site scored
+Owner, 2026-10-29 (Example A launch): fix the habits, not the report. The lead's decision is DECISIONS 20: the first real V2 site scored
 97 on mobile PageSpeed (PSI-FINDINGS.md, 2026-10-29), and every red item came from how the build writes code. So these 7 rules apply
 while the engine writes a site. Each is a number or a yes/no. Each has a check that stops the build, a second check that does not
 trust the first, and a live check at launch. A site that fails a rule is not shown to the owner.
@@ -10,12 +10,12 @@ Where each rule is measured:
 - **[gate]** the skill's `scripts/writing-gate.mjs <built site dir> [--url] [--psi-dir]`, independent of the build.
 - **[live]** the launch ledger (`sops/clients/launch.md`): `live-headers` on L-B8 and `writing` on L-B9.
 
-Source for every ELEV8 number below: `E:\Alex Sevilla\site-checks\live-audit-2026-10-29\PSI-FINDINGS.md` (PSI-FINDINGS.md, 2026-10-29).
+Source for every Example A number below: `E:\Agent A\site-checks\live-audit-2026-10-29\PSI-FINDINGS.md` (PSI-FINDINGS.md, 2026-10-29).
 
 ## WG-1. Critical CSS inline, the rest deferred
 - **Rule:** the CSS a page needs for its first screen (critical CSS) is inline in `<head>` and is 14 KiB gzip or less per page (compressed, as it travels; raw is often 2-4x). The rest
   loads without blocking paint. No render-blocking stylesheet in `<head>`. PageSpeed render-blocking savings: 0 ms.
-- **Why:** ELEV8 had one site-wide `app.css` (24.3 KiB) in `<head>`. PageSpeed measured 870 ms of render blocking on mobile
+- **Why:** Example A had one site-wide `app.css` (24.3 KiB) in `<head>`. PageSpeed measured 870 ms of render blocking on mobile
   (PSI-FINDINGS.md, 2026-10-29).
 - **How to write it right:** split by coverage. Load the page in Chromium, record which rules the first screen uses at 390 and 1366,
   inline those. Load the remainder with `<link rel="stylesheet" media="print" onload="this.media='all'">` and a `<noscript>`
@@ -26,8 +26,8 @@ Source for every ELEV8 number below: `E:\Alex Sevilla\site-checks\live-audit-202
 ## WG-2. CSS per template or purged per page
 - **Rule:** a page does not carry another template's rules. Wasted CSS is under 8 KiB gzip per page, as PageSpeed flags it (the unused share of each sheet by coverage, times its gzip size; calibrated 2026-10-29: 34-52% unused by coverage was green, its one red was 10.2 KiB wasted; the raw % was the wrong proxy
   after load).
-- **Why:** the same ELEV8 stylesheet carried every page's rules. About half was unused on the home page: 10 KiB on mobile and
-  14 KiB on desktop (PSI-FINDINGS.md, 2026-10-29). The 14 KiB is read as gzip: the ELEV8 home page inlines 32.6 KiB raw at 7.3 KiB gzip (2026-10-29).
+- **Why:** the same Example A stylesheet carried every page's rules. About half was unused on the home page: 10 KiB on mobile and
+  14 KiB on desktop (PSI-FINDINGS.md, 2026-10-29). The 14 KiB is read as gzip: the Example A home page inlines 32.6 KiB raw at 7.3 KiB gzip (2026-10-29).
 - **How to write it right:** build one CSS file per template (home, team, service, article, legal) from shared tokens, or purge each
   page's CSS against its own HTML. Keep a safelist for classes that only our JS toggles (menu open, tab selected, wizard step,
   sticky bar), because a purge sees only the HTML at load. A rule for a toggled class that is missing from the safelist is a bug.
@@ -38,7 +38,7 @@ Source for every ELEV8 number below: `E:\Alex Sevilla\site-checks\live-audit-202
 - **Rule:** `sizes` comes from the real slot width at each breakpoint. `100vw` only for a full-bleed image (rendered width 95% of
   the viewport or more). Format WebP or AVIF at quality 60-70. The candidate the browser picks is at most 1.5x the rendered width
   plus one step of the width ladder. PageSpeed image-delivery savings: under 10 KiB.
-- **Why:** the ELEV8 hero `stock__home-blue-porch` was 139 KiB and could be 81 KiB smaller on mobile (13 KiB on desktop). It was
+- **Why:** the Example A hero `stock__home-blue-porch` was 139 KiB and could be 81 KiB smaller on mobile (13 KiB on desktop). It was
   larger than displayed, lightly compressed, and `sizes="100vw"` was too broad (PSI-FINDINGS.md, 2026-10-29).
 - **How to write it right:** measure the slot in the rendered layout (the container width minus gutters, per breakpoint) and write
   `sizes` as a list: `(min-width: 1240px) 600px, (min-width: 768px) 50vw, 100vw`. Generate the width ladder from the slot, not from
@@ -49,7 +49,7 @@ Source for every ELEV8 number below: `E:\Alex Sevilla\site-checks\live-audit-202
 ## WG-4. No layout read after a style write in our JS
 - **Rule:** our scripts read layout first and write styles after (batch reads, then writes). Forced reflows caused by our own scripts:
   0 in a Chromium trace of load, scroll and menu open.
-- **Why:** `site.js:64` in ELEV8 read layout (`offsetHeight`, `getBoundingClientRect`) right after writing styles. PageSpeed measured
+- **Why:** `site.js:64` in Example A read layout (`offsetHeight`, `getBoundingClientRect`) right after writing styles. PageSpeed measured
   53 ms of forced reflow on mobile (PSI-FINDINGS.md, 2026-10-29).
 - **How to write it right:** in each handler, collect every measurement into variables first, then apply every style change. Do
   not alternate. For work on scroll or resize, read in the handler and write in `requestAnimationFrame`. Prefer
@@ -60,7 +60,7 @@ Source for every ELEV8 number below: `E:\Alex Sevilla\site-checks\live-audit-202
 ## WG-5. ARIA roles only on compatible elements
 - **Rule:** a role goes only on an element the ARIA in HTML allowed-roles table permits. Never `role=tabpanel` on a `<form>`.
   axe `aria-allowed-role` violations: 0.
-- **Why:** the ELEV8 hero put `role="tabpanel"` on `<form class="hro-form" id="hro-p">`. PageSpeed flagged it under Accessibility
+- **Why:** the Example A hero put `role="tabpanel"` on `<form class="hro-form" id="hro-p">`. PageSpeed flagged it under Accessibility
   (informative) and failed the Agentic Browsing accessibility-tree check on mobile and desktop (PSI-FINDINGS.md, 2026-10-29).
 - **How to write it right:** put roles on `<div>` or `<section>`. For a tab panel that holds a form, write
   `<div role="tabpanel"><form>...</form></div>`. Do not give `<a>`, `<button>` or `<form>` a role that conflicts with its own.
@@ -70,7 +70,7 @@ Source for every ELEV8 number below: `E:\Alex Sevilla\site-checks\live-audit-202
 ## WG-6. Agent readiness
 - **Rule:** the accessibility tree is clean (WG-5 is 0). `/llms.txt` exists and is generated from the contract: an H1, a one-line
   description, the pages with one line each, and the sitemap link. Lighthouse "Agentic Browsing" scores 2/2.
-- **Why:** ELEV8 scored 1/2 on Agentic Browsing on mobile and desktop. The accessibility-tree check failed (WG-5) and `llms-txt` had
+- **Why:** Example A scored 1/2 on Agentic Browsing on mobile and desktop. The accessibility-tree check failed (WG-5) and `llms-txt` had
   no `/llms.txt` (PSI-FINDINGS.md, 2026-10-29).
 - **How to write it right:** the build writes `llms.txt` from the same contract rows that make the pages and the sitemap, so it
   cannot drift from them. One line per page: `- [Title](url): what the page is for.` Never hand-edit it.
@@ -80,7 +80,7 @@ Source for every ELEV8 number below: `E:\Alex Sevilla\site-checks\live-audit-202
 ## WG-7. Security headers
 - **Rule:** `_headers` carries `Strict-Transport-Security` and `Cross-Origin-Opener-Policy: same-origin`, and the live response
   carries both.
-- **Why:** ELEV8 had no HSTS (`has-hsts`) and no COOP (`origin-isolation`) in PageSpeed Best Practices (informative)
+- **Why:** Example A had no HSTS (`has-hsts`) and no COOP (`origin-isolation`) in PageSpeed Best Practices (informative)
   (PSI-FINDINGS.md, 2026-10-29). Each is one header line.
 - **How to write it right:** in `_headers`, under `/*`:
   `Strict-Transport-Security: max-age=31536000; includeSubDomains` and `Cross-Origin-Opener-Policy: same-origin`. HSTS is for a

@@ -91,7 +91,7 @@ the site already runs (`sops/clients/launch.md`, the 13 gates; craft-lint; the 7
 these versions. The screen shows one line per check in plain words as they finish: "Photos have alt text: ok", "Page titles
 under 60 characters: 1 to fix", with a Fix link that opens the field. A failed check publishes nothing; the live site is
 unchanged; the draft stays. When every check passes, the site deploys and the line reads "Live since 14:02". Takes about the
-time of a site build (ELEV8: 2 to 4 minutes on GitHub Actions, UNPROVEN until W1.5).
+time of a site build (Example A: 2 to 4 minutes on GitHub Actions, UNPROVEN until W1.5).
 Database: Save = `service.save_as` (version n+1, validated by the contract); Publish = `service.start_publish` (one job,
 pinned versions) -> build runner -> `service.set_job_state` done or failed. Tests T1-T6, T11.
 

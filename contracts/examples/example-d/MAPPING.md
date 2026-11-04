@@ -1,11 +1,11 @@
-# VTV (Valley To Valley Realty) -> the contract
+# Example D (Example D Realty) -> the contract
 
-Front end only: VTV's project rule forbids backend or database work before its blueprint sign-off, so this is a read-only
-mapping. Sources: `E:/Francine & Eli/proposals/vtv/sitemap.xml` (its own page list, used as a stand-in plan because VTV has no
+Front end only: Example D's project rule forbids backend or database work before its blueprint sign-off, so this is a read-only
+mapping. Sources: `E:/Agent D & Example B/proposals/example-d/sitemap.xml` (its own page list, used as a stand-in plan because Example D has no
 approved SEO plan) and the field names of `_build/data.json`. Generated: `contract.json`, `screens.md`. Proof: `adapter.mjs` -> `RUN.txt`.
 
 ## Pages (22) and item pages (59)
-| VTV page | Page type | Bound to |
+| Example D page | Page type | Bound to |
 |---|---|---|
 | `/` | home: hero (video), stats (sourced), featured listings, neighborhoods, reviews, award logos, contact | |
 | `/neighborhoods/<slug>/` x11 | neighborhood guide: intro, listings in it (derived), contact | neighborhood |

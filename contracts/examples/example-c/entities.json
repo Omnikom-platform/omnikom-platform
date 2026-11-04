@@ -1,6 +1,6 @@
 {
- "workspace": "rainmaker",
- "source": "contracts/examples/rainmaker/entities.json: from E:/Rainmaker site-src/pages (section ids, form field names) and its CLAUDE.md rule 3 (compliance text fixed); structure only, no client copy",
+ "workspace": "example-c",
+ "source": "contracts/examples/example-c/entities.json: from E:/Example C site-src/pages (section ids, form field names) and its CLAUDE.md rule 3 (compliance text fixed); structure only, no client copy",
  "pageTypeOf": { "/": "home", "/careers/": "careers", "/about/": "about", "/contact/": "contact", "/faq/": "faq",
   "/insurance-disclosures/": "disclosures", "/privacy/": "privacy", "/terms/": "terms" },
  "bindPages": {

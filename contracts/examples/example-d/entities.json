@@ -1,6 +1,6 @@
 {
- "workspace": "vtv",
- "source": "contracts/examples/vtv/entities.json: from the VTV preview's own page list (sitemap.xml) and the field names of its proposals/vtv/_build/data.json; structure only. VTV has no approved SEO plan yet (front end only, its CLAUDE.md rule 1)",
+ "workspace": "example-d",
+ "source": "contracts/examples/example-d/entities.json: from the Example D preview's own page list (sitemap.xml) and the field names of its proposals/example-d/_build/data.json; structure only. Example D has no approved SEO plan yet (front end only, its CLAUDE.md rule 1)",
  "locations": { "collection": "areas" },
  "families": { "c-hood": "neighborhood" },
  "pageTypeOf": { "/": "home", "/about/": "about", "/buy/": "buyer-guide", "/sell/": "seller-guide", "/home-valuation/": "home-value",

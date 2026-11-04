@@ -2,13 +2,13 @@
  "contractVersion": 1,
  "core": 1,
  "site": {
-  "workspace": "vtv",
+  "workspace": "example-d",
   "industry": "real-estate-agent",
   "generatedFrom": {
-   "plan": "stand-in: proposals/vtv/sitemap.xml (no approved plan)",
+   "plan": "stand-in: proposals/example-d/sitemap.xml (no approved plan)",
    "sitemapSha256": "b7936e6c8a4323f9",
    "planGeneratedAt": "from sitemap.xml",
-   "entities": "contracts/examples/vtv/entities.json: from the VTV preview's own page list (sitemap.xml) and the field names of its proposals/vtv/_build/data.json; structure only. VTV has no approved SEO plan yet (front end only, its CLAUDE.md rule 1)"
+   "entities": "contracts/examples/example-d/entities.json: from the Example D preview's own page list (sitemap.xml) and the field names of its proposals/example-d/_build/data.json; structure only. Example D has no approved SEO plan yet (front end only, its CLAUDE.md rule 1)"
   }
  },
  "collections": {

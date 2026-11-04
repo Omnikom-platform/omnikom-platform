@@ -11,7 +11,7 @@ export const isPreview = (site) => site.state !== 'live';
 export const hashOf = (content) => createHash('sha256').update(content).digest('hex').slice(0, 10);
 export const assetName = (name, ext, content) => `/assets/${name}.${hashOf(content)}.${ext}`;
 
-// The security lines of the ELEV8 build, one /* block (on Workers static assets matching rules merge). A preview adds the noindex
+// The security lines of the Example A build, one /* block (on Workers static assets matching rules merge). A preview adds the noindex
 // header: the preview is kept out of the index by this header, not by robots.txt (decision of the head, 2026-10-31).
 export function headersText({ preview }) {
   return ['/*',

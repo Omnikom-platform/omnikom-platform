@@ -560,7 +560,7 @@
       "type": "string",
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
       "maxLength": 60,
-      "description": "Optional. Which journey on the site produced this lead (a hero tab, a calculator, a landing flow). A lower-case slug, not a closed list, because one procedure serves every industry (DECISIONS 3, 14). Real-estate example (ELEV8): home-value, home-finder, sell, cash-offer, contact. Another industry names its own flows. Checking the value against the site contract is UNPROVEN (not built). Different from form, which is the contract form id.",
+      "description": "Optional. Which journey on the site produced this lead (a hero tab, a calculator, a landing flow). A lower-case slug, not a closed list, because one procedure serves every industry (DECISIONS 3, 14). Real-estate example (Example A): home-value, home-finder, sell, cash-offer, contact. Another industry names its own flows. Checking the value against the site contract is UNPROVEN (not built). Different from form, which is the contract form id.",
       "examples": [
        "home-value",
        "home-finder",

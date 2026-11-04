@@ -2,13 +2,13 @@
  "contractVersion": 1,
  "core": 1,
  "site": {
-  "workspace": "rainmaker",
+  "workspace": "example-c",
   "industry": "insurance-agency",
   "generatedFrom": {
-   "plan": "E:/Rainmaker/.pewp/approved",
+   "plan": "E:/Example C/.pewp/approved",
    "sitemapSha256": "dafabb9e45e8a071",
    "planGeneratedAt": "2026-10-23",
-   "entities": "contracts/examples/rainmaker/entities.json: from E:/Rainmaker site-src/pages (section ids, form field names) and its CLAUDE.md rule 3 (compliance text fixed); structure only, no client copy"
+   "entities": "contracts/examples/example-c/entities.json: from E:/Example C site-src/pages (section ids, form field names) and its CLAUDE.md rule 3 (compliance text fixed); structure only, no client copy"
   }
  },
  "collections": {

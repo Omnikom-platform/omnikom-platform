@@ -5,7 +5,7 @@
 // (specs/openapi.json), stored through service.capture_lead (workspace from the site, consent required, idempotent by key),
 // and the new-lead email alert goes out through Resend to sites.lead_alert_to (recorded in messages, never fails the lead;
 // one alert per lead: a retry of the same idempotency key alerts nobody again, found 2026-10-30 by the lead session).
-// First proof target (DECISIONS 25): the ELEV8 preview form -> this -> staging database -> the owner's inbox.
+// First proof target (DECISIONS 25): the Example A preview form -> this -> staging database -> the owner's inbox.
 // Environment, read by name only: SUPABASE_DB_URL (set by Supabase for every function), RESEND_API_KEY, LEAD_ALERT_FROM
 // (a sender on a verified Resend domain, or onboarding@resend.dev for the first test), DASHBOARD_URL (optional, for the link).
 // The path string this function sees equals what the endpoint signs (proven on staging 2026-10-30, step 2).

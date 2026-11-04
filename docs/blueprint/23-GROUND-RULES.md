@@ -92,7 +92,7 @@ Nothing here is a certification of the platform; these are the published rule se
 | Health checks, uptime monitoring, a kill switch | a way to stop the bleeding in one move | `platform_limits` holds caps; the per-tenant switch BUILT (`workspaces.state = suspended`: no leads, no sends, no publish, step 3); a global kill switch (stop all sends and deploys) NOT BUILT (add `platform_limits` keys `sends_enabled`, `deploys_enabled` read by every consumer) |
 | Recovery objectives written down (RPO, RTO) | the backup schedule follows from them, not the other way round | NOT WRITTEN: owner decision D17 (proposed: 24 hours of data at most, back within 4 hours) |
 | A second reader on every change, in a fresh context | the author cannot see their own blind spot (proven tonight) | the `unit-reviewer` run is the model; make it a step in section 4 |
-| Legal surface: privacy policy, terms, data processing agreement, consent records | clients and their visitors are owed it | consent records BUILT; the documents NOT DRAFTED (`LAWYER-PACKET` precedent in the Francine project) |
+| Legal surface: privacy policy, terms, data processing agreement, consent records | clients and their visitors are owed it | consent records BUILT; the documents NOT DRAFTED (`LAWYER-PACKET` precedent in the Agent D project) |
 
 ## 4. How a new piece of code is admitted (the procedure)
 1. Name the rule it touches (section 2) and the gate (section 3).

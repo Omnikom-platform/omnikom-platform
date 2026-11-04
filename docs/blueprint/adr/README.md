@@ -12,7 +12,7 @@ plus MADR 4.0.0's "Considered Options" (https://adr.github.io/madr/). Statuses: 
 | [0005](0005-content-in-db-rows-with-versions.md) | Content master copy in database rows with append-only versions | Accepted (owner, DECISIONS 6) |
 | [0006](0006-contract-generated-screens.md) | Dashboard screens generated from the site contract | Accepted (DECISIONS 3 and 14) |
 | [0007](0007-omnisuite-lead-adapter.md) | Lead follow-up through OmniSuite by API key, via an adapter | Accepted, implementation BLOCKED (DECISIONS 1, 8, 12) |
-| [0008](0008-no-own-idx-at-launch.md) | No own MLS/IDX feed at launch; link to the client's IDX | Accepted (owner, 2026-10-28, ELEV8 LISTINGS-DECISION) |
+| [0008](0008-no-own-idx-at-launch.md) | No own MLS/IDX feed at launch; link to the client's IDX | Accepted (owner, 2026-10-28, Example A LISTINGS-DECISION) |
 | [0009](0009-validation-shared-browser-and-server.md) | One validation library in the browser and the Edge Functions | Accepted (this blueprint) |
 | [0010](0010-staff-table-not-client-role.md) | Omnikom staff as a platform table, not a client role | Accepted (TENANCY 2) |
 | [0011](0011-job-token-for-builds.md) | Builds read one job's data with the runner key; the runner is trusted | Accepted (this blueprint) |

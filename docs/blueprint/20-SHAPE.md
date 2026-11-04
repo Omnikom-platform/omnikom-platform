@@ -29,15 +29,15 @@ data behind the database wall; one Cloudflare account hosts every client site as
 - **Secrets in GitHub:** the runner key (signs runner -> platform calls), the Supabase secret key per environment (migrations),
   the Cloudflare deploy token (section 3), the R2 backup credentials. Never a client key, never the site signing keys (those
   live in Vault and on the site's Pages project).
-- **Minutes budget:** a site build is minutes (ELEV8: UNPROVEN until W1.5, estimate 3 to 5). 2,000 free minutes is roughly 400
+- **Minutes budget:** a site build is minutes (Example A: UNPROVEN until W1.5, estimate 3 to 5). 2,000 free minutes is roughly 400
   builds a month across all clients; the trigger to a paid plan is 1,500 minutes used in a month (`usage.yml`).
 
 ## 3. Cloudflare: one account, one Pages project per site, one zone per client domain
 - **The account** is Omnikom's (DECISIONS 7, 9, 11). It holds: one **Pages project per client site** (`<slug>-omnikom-website`,
-  what the ELEV8 and Rainmaker previews use today), the **dashboard** as one more Pages project (`app`), the **media host**
+  what the Example A and Example C previews use today), the **dashboard** as one more Pages project (`app`), the **media host**
   (R2 bucket with a custom domain, D9), and one **zone per client domain** that we serve.
 - **Why Pages per site, not a Worker per site (this reverses ADR 0002):** ADR 0002 chose Workers because Pages project
-  creation failed on this account on 2026-10-23; it works now (`deploy-pages.mjs` created `elev8-omnikom-website`). Pages gives
+  creation failed on this account on 2026-10-23; it works now (`deploy-pages.mjs` created `example-a-omnikom-website`). Pages gives
   what the platform needs for free: a project-named address (`<name>.pages.dev`, no personal account name, the owner's rule),
   **preview deployments per branch** (the "preview site" of `16-DESIGN-PARTS.md` 2.3 is `wrangler pages deploy --branch preview`:
   a fixed `preview.<name>.pages.dev` address, no second project, no extra Worker slot), Pages Functions for `/api/lead` (the
@@ -46,7 +46,7 @@ data behind the database wall; one Cloudflare account hosts every client site as
   whether Pages tokens can be narrowed per project) and 100,000 files per site instead of 20,000; neither matters before a
   hundred sites. Limits that bind (https://developers.cloudflare.com/pages/platform/limits/, read 2026-10-29): 100 Pages
   projects per account (so about 95 client sites per account; the next account is the horizontal step), 20,000 files per site
-  on Free (ELEV8 is 259), 500 builds a month (git-triggered builds only; our direct uploads from the runner are not documented
+  on Free (Example A is 259), 500 builds a month (git-triggered builds only; our direct uploads from the runner are not documented
   as counting: UNVERIFIED), 25 MiB per file, requests to Pages Functions count toward the Workers quota (100,000 a day on Free,
   `18-BUDGET-ARCHITECTURE.md` 2.5), static files do not.
 - **The deploy token:** one Cloudflare API token with "Cloudflare Pages: Edit" on the account (plus "Zone: DNS: Edit" for
@@ -54,8 +54,8 @@ data behind the database wall; one Cloudflare account hosts every client site as
   export, never from the request; the runner refuses a mismatch. The tradeoff against per-site tokens is accepted and written
   here: the runner is trusted (ADR 0011) and is the only holder.
 - **Client domains (DECISIONS 9: the client keeps the domain):** the client keeps the registrar account and ownership; they
-  point the **nameservers** to our Cloudflare account, which makes the domain a zone there (free plan). Then `elev8ca.com` and
-  `www.elev8ca.com` both serve the Pages project, Cloudflare manages the DNS (we add their mail records exactly as they were,
+  point the **nameservers** to our Cloudflare account, which makes the domain a zone there (free plan). Then `example-a.example` and
+  `www.example-a.example` both serve the Pages project, Cloudflare manages the DNS (we add their mail records exactly as they were,
   checked by the launch ledger L-B), and leaving means pointing the nameservers back. Facts (custom domains page, read
   2026-10-29): an external-DNS CNAME works for a subdomain such as `www`, "To deploy your Pages project to a custom apex
   domain, that custom domain must be a zone on the Cloudflare account". So the fallback for a client who will not move
@@ -67,7 +67,7 @@ data behind the database wall; one Cloudflare account hosts every client site as
 ## 4. How the parts talk (the only crossings there are)
 | From | To | How | Credential | Built? |
 |---|---|---|---|---|
-| Visitor's browser | the site (Pages) | static files | none | yes (ELEV8, Rainmaker previews) |
+| Visitor's browser | the site (Pages) | static files | none | yes (Example A, Example C previews) |
 | Form on the site | the site's `/api/lead` (Pages Function) | same-origin POST | none (honeypot, size cap) | yes, tested |
 | `/api/lead` | platform `capture-lead` (Supabase Edge Function) | HTTPS POST, body signed | the site's key (Vault + registry) | yes, tested; UNPROVEN on a project |
 | `capture-lead` | Postgres | direct connection, `service.*` functions | the function's own DB URL | yes |

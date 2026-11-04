@@ -1,7 +1,7 @@
 # design-engine
 
 Omnikom's client website design engine: tools that turn real material into gated, measured design. The process is `sops/design-engine.md`;
-the quality standard is `CRAFT.md`. First run: ELEV8 Real Estate Group (2026-10-27), kept as `examples/elev8/` (places + map overlay config).
+the quality standard is `CRAFT.md`. First run: Example A Realty Group (2026-10-27), kept as `examples/example-a/` (places + map overlay config).
 
 - `render-asset.mjs`: draw in code, render in Chromium, extract the pixels.
 - `craft-lint.mjs`: measure a rendered page against CRAFT.md (type/space tokens, contrast, tap targets, orphans, distortion, families, overflow).

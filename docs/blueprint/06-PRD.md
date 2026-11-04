@@ -7,8 +7,8 @@ NFRs classified by ISO/IEC 25010:2023 quality characteristics (section 5). Scope
 
 ## 1. Problem
 Local businesses rent websites from builders (Luxury Presence, Duda, WordPress templates) that lock them in, rank poorly in search
-and AI answers, and turn few visitors into leads. Omnikom builds search-correct sites by hand today (three clients: VTV, Eli,
-Rainmaker); each took many sessions and the content lives inside the HTML, so clients cannot edit it and Omnikom cannot run many
+and AI answers, and turn few visitors into leads. Omnikom builds search-correct sites by hand today (three clients: Example D, Example B,
+Example C); each took many sessions and the content lives inside the HTML, so clients cannot edit it and Omnikom cannot run many
 sites. The platform makes this one repeatable procedure for any industry, with a dashboard the client uses.
 
 ## 2. Users and roles
@@ -23,8 +23,8 @@ sites. The platform makes this one repeatable procedure for any industry, with a
 ## 3. Goals and non-goals
 Goals (v1): G1 one procedure from approved plan to a live preview for any industry; G2 clients edit and publish without touching
 code or breaking the site; G3 no client can see or change another's data; G4 every published page passes the launch gates; G5
-leads captured with consent and pushed onward; G6 ELEV8 is the first site built this way, VTV and Rainmaker moved onto it.
-Non-goals (v1): a full CRM (inbox + push only, DECISIONS 1); our own MLS/IDX feed (phase 2, ELEV8 LISTINGS-DECISION); paid ads;
+leads captured with consent and pushed onward; G6 Example A is the first site built this way, Example D and Example C moved onto it.
+Non-goals (v1): a full CRM (inbox + push only, DECISIONS 1); our own MLS/IDX feed (phase 2, Example A LISTINGS-DECISION); paid ads;
 self-serve signup and payments (M9); AI operators (M8); per-industry hand-written schemas (DECISIONS 3); a page builder (clients
 edit content, never layout).
 
@@ -46,11 +46,11 @@ edit content, never layout).
 | FR-13 | Lead capture from site forms with the exact consent text; workspace from the site | W2.4 | T6 `capture_lead`; preview form test |
 | FR-14 | Lead inbox: status, owner, notes, CSV export; members see assigned leads | W3.6 | T7; Playwright inbox |
 | FR-15 | Push leads to a CRM webhook (signed), retries; OmniSuite when its API exists | M6 | webhook signature + retry tests; BLOCKED for OmniSuite |
-| FR-16 | Dashboard screens generated from the contract for any industry | W3.3 | ELEV8 screens match `screens.md`; a dental contract renders with no code change |
+| FR-16 | Dashboard screens generated from the contract for any industry | W3.3 | Example A screens match `screens.md`; a dental contract renders with no code change |
 | FR-17 | Staff admin: create workspace from a plan, sign-off queue, audit log, all jobs | W1.1, W3.7 | seed idempotency; audit rows on save/publish |
 | FR-18 | Search and AI visibility numbers with source and date | W3.8, M6 | values carry source + date (UI test) |
 | FR-19 | Client wording to confirm collected for the review email, drafted for the owner to send | W5.1, W5.2 | list count = placeholder grep; draft exists, nothing sent without the owner's click |
-| FR-20 | Move existing sites (VTV, Rainmaker) with no visible change | W4.1-W4.3 | visual-equivalence diff |
+| FR-20 | Move existing sites (Example D, Example C) with no visible change | W4.1-W4.3 | visual-equivalence diff |
 | FR-21 | Delete of a routed item redirects its page (e.g. listing -> its city guide) | W3.3 | store remove test; `_redirects` check |
 | FR-22 | Sold price shown only when ticked; internal fields never reach the site | W2.2 | `publicData` tests |
 | FR-23 | The site renders the approved design without silent changes | W2.1 | visual-equivalence diff vs the approved design at 3 sizes |
@@ -90,7 +90,7 @@ and were watched failing once. CI keeps this table honest: `docs/blueprint/specs
 
 ## 7. Release criteria for v1
 All FR rows for M0-M5 pass; NFR-1, 3, 8, 9, 10, 12, 13 pass; NFR-2, 4, 5 measured and reported (fail = a ticket, not a hidden
-number); owner sign-off on the ELEV8 preview (design + facts).
+number); owner sign-off on the Example A preview (design + facts).
 
 ## 8. NFR classification (ISO/IEC 25010:2023)
 | 25010:2023 characteristic | NFRs |

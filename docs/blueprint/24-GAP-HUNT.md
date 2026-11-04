@@ -132,7 +132,7 @@ no secret key in the browser; indexes; Realtime limits; staging instead of branc
 Reasons: (1) most of what the four readers found is either an account setting applied at setup (Auth configuration, SSL
 enforcement, MFA and a second owner, Data API exposure, SMTP tracking off) or a build item with a named migration or work
 order; none of it is a reason to delay the accounts, and several of them cannot be verified without the accounts. (2) The
-first real proof (the lead path from the ELEV8 preview into staging and to the owner's inbox, DECISIONS 25) depends only on
+first real proof (the lead path from the Example A preview into staging and to the owner's inbox, DECISIONS 25) depends only on
 the accounts and the code already written. (3) The truly new blocks the hunt surfaced (consent ledger and suppressions, security
 events, tenant lifecycle and quotas, the legal documents, the SMS registration gate) are additions to the plan, not changes to
 its shape.

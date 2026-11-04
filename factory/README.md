@@ -55,7 +55,7 @@ motion.js             optional; transform and opacity only, respects prefers-red
 `shell.mjs` writes the whole document: `<head>` with `<title>`, meta description, canonical, `og:url`, `hreflang`, ONE JSON-LD
 `@graph` holding Organization, WebSite and WebPage (the WebPage `@id` is `<canonical>#webpage`); the header; `<main>` around
 `main`; the footer with the "powered by Omnikom" line (DECISIONS 31). A partial may use a `.html` template with the ported Mustache
-subset (`lib/template.mjs`, ported from the ELEV8 build); the module decides.
+subset (`lib/template.mjs`, ported from the Example A build); the module decides.
 
 What a module is given:
 - `html` tag (`lib/html.mjs`): every interpolated value is HTML-escaped unless wrapped by `raw()` or produced by another `html`

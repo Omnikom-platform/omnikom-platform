@@ -56,7 +56,7 @@ One `send-message` function: takes (workspace, lead or user, channel sms or emai
 (plain text, the client's name, never another client's data), checks the daily counters, sends through the provider, writes
 `messages` with the provider id, and updates it from the delivery receipt (webhook inbox). Templates live in a `message_templates`
 collection of the contract (editable wording per client, locked legal footer). Consent: SMS only to a lead whose consent text
-covers texting (the ELEV8 wizard's consent sentence names SMS); the function refuses otherwise (`M-CONSENT`) and the timeline
+covers texting (the Example A wizard's consent sentence names SMS); the function refuses otherwise (`M-CONSENT`) and the timeline
 says so. Quiet hours per workspace (no SMS 21:00 to 08:00 local). Reply handling: STOP always honoured and recorded on the
 lead; other replies land as a `note` event and an email to the assignee.
 

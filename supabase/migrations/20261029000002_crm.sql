@@ -4,7 +4,7 @@
 -- Rules kept from the first migration: RLS on every table, every policy names its role, no client write path except a
 -- SECURITY DEFINER function that checks membership itself, service functions closed to anon/authenticated.
 
--- ---------- leads: what the first real site's form already sends (ELEV8 wizard.js) ----------
+-- ---------- leads: what the first real site's form already sends (Example A wizard.js) ----------
 alter table leads
   add column flow text check (flow ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and length(flow) <= 60),   -- the journey (home-value, cash-offer); a slug, not a closed list
   add column cta text check (length(cta) <= 120),                                            -- the button label the visitor used

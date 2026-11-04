@@ -8,7 +8,7 @@ application code yet.**
 A platform that replaces services like Luxury Presence for any local business: it researches a business's online presence,
 builds it a search-correct website from an approved SEO plan and an approved design, hosts it on Omnikom's Cloudflare account,
 and gives the client a dashboard to edit content, add listings/products/articles, see leads and search numbers, and publish.
-One procedure for every industry; the client's collections come from its own plan. First client on it: ELEV8 Real Estate Group.
+One procedure for every industry; the client's collections come from its own plan. First client on it: Example A Realty Group.
 
 ## Read in this order
 | # | File | What you get |
@@ -34,7 +34,7 @@ One procedure for every industry; the client's collections come from its own pla
 | 13f | `docs/blueprint/19-CODE-MANIFEST.md` | every artifact to produce in code (migrations, 20 Edge Functions, Workers, workflows, factory, dashboard modules, tools): in and out, how it compiles and deploys, how it is proven, BUILT / SPEC / BLOCKED |
 | 13g | `docs/blueprint/20-SHAPE.md` | the shape: one GitHub repo as the build runner and how promotion works; one Cloudflare account with a Pages project per site and a zone per client domain; every crossing between the parts with its credential; environments |
 | 13h | `docs/blueprint/21-PROTOCOLS.md`, `22-SEARCH-AND-ANALYTICS.md`, `REVIEW-2026-10-29.md` | the vendor-sourced protocols between platform, GitHub and Cloudflare with what the first real project must prove; Search Console, analytics and speed data wired into the launch and the dashboard; the fresh-eyes review findings and their fix status |
-| 13i | `docs/blueprint/25-BUILD-SEQUENCE.md` | the hand-in-hand sequence: step 1 the accounts with every setting (owner), step 2 the lead-path proof on staging, then hardening leftovers, the build machine, the dashboard, production, the ELEV8 launch, add-ons when sold; each with its "done when" |
+| 13i | `docs/blueprint/25-BUILD-SEQUENCE.md` | the hand-in-hand sequence: step 1 the accounts with every setting (owner), step 2 the lead-path proof on staging, then hardening leftovers, the build machine, the dashboard, production, the Example A launch, add-ons when sold; each with its "done when" |
 | 13j | `docs/blueprint/26-PLATFORM-CLI.md` | the `omnikom` command-line client: the harness sessions test with (every endpoint with expectations, the wall suite over HTTP), the staff tool (seed, keys, onboarding), built in three slices |
 | 14 | `docs/blueprint/05-BUILD-PLAN.md` | milestones M0-M5, work orders with acceptance tests, estimates, critical path, RACI, risks, open decisions |
 | 15 | `planning/CONTEXT.md` | lessons from three real client sites (Cloudflare, forms, speed, design rules) |
@@ -90,6 +90,6 @@ relationship; client emails go through him. Questions to the owner as pickable o
 | SEO / build skill (plan, gates, snapshot, research) | `skills/programmatic-enterprise-web-performance/` |
 | Design method | `skills/design-tournament/` |
 | SOPs (backup, audit team, credentials, listings feed, launch) | `sops/` |
-| ELEV8 approved plan + design (outside this repo, read only) | `E:\Alex Sevilla\site-checks\elev8ca.com\.pewp\approved`, `E:\Alex Sevilla\draft-site\design\variants\v4.html` |
-| Rainmaker / VTV sources (outside, read only) | `E:\Rainmaker\site-src`, `E:\Francine & Eli\proposals\vtv` |
+| Example A approved plan + design (outside this repo, read only) | `E:\Agent A\site-checks\example-a.example\.pewp\approved`, `E:\Agent A\draft-site\design\variants\v4.html` |
+| Example C / Example D sources (outside, read only) | `E:\Example C\site-src`, `E:\Agent D & Example B\proposals\example-d` |
 The `E:\` client folders live on the owner's machine; a team on another machine gets copies from the owner (never mix them).

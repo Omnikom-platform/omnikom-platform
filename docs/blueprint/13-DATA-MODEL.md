@@ -12,7 +12,7 @@ to a real Supabase project yet (owner decision D1 in `05-BUILD-PLAN.md`), so eve
 model of Supabase only.
 
 ## 0. The five words
-- **Workspace**: one client business (ELEV8 Real Estate Group is the first). Everything the client owns belongs to exactly one.
+- **Workspace**: one client business (Example A Realty Group is the first). Everything the client owns belongs to exactly one.
 - **Site**: one website of a workspace, one deploy target on Omnikom's Cloudflare account. A workspace can have several sites.
 - **Row**: one piece of content (a page, a listing, an article, the business details). Its text lives in versions.
 - **Lead**: one form submission from a site, with the exact consent wording the visitor saw.
@@ -43,7 +43,7 @@ One row per client business.
 | Column | Meaning | Written by |
 |---|---|---|
 | `id` | the workspace id used everywhere | database |
-| `slug` | short name for URLs (`elev8`); lower-case letters, digits, hyphens | staff at onboarding |
+| `slug` | short name for URLs (`example-a`); lower-case letters, digits, hyphens | staff at onboarding |
 | `name` | the business name as shown in the dashboard | staff |
 | `industry` | the industry word from the plan (`real-estate`) | staff |
 | `created_at` | when | database |
@@ -77,7 +77,7 @@ The site registry: where a workspace's website is deployed.
 | `id` | the site id; the site's Worker holds it as configuration and sends it with every lead | database |
 | `workspace_id` | the owner workspace | staff at onboarding |
 | `deploy_target` | the Cloudflare Worker name, unique | staff |
-| `preview_host` | the preview address (`elev8-omnikom-website.pages.dev` today for ELEV8) | staff |
+| `preview_host` | the preview address (`example-a-omnikom-website.pages.dev` today for Example A) | staff |
 | `domain` | the client's own domain once attached (launch, last step) | staff |
 | `deploy_token_ref` | the NAME of the Vault secret holding this site's deploy token. Never the token | staff |
 | `state` | `preview`, `live`, `paused` | staff; `live` only through the launch ledger (DECISIONS 19) |
@@ -145,7 +145,7 @@ One row per form submission.
 | `id` | the lead id; also the idempotency key sent to the client's CRM | database | BUILT |
 | `workspace_id` | taken from the site, never from the form | `capture_lead` | BUILT |
 | `site_id` | which website sent it | `capture_lead` | BUILT |
-| `form` | the contract form id (`home-value`, `home-finder`, `sell`, `contact` on ELEV8) | `capture_lead` | BUILT |
+| `form` | the contract form id (`home-value`, `home-finder`, `sell`, `contact` on Example A) | `capture_lead` | BUILT |
 | `page_path` | the page the visitor was on (`/sell/oakland/`) | `capture_lead` | BUILT |
 | `name`, `email`, `phone` | the person | `capture_lead` | BUILT |
 | `answers` | every other field of the form as JSON, keyed as in the contract (address, budget, beds, timing...) | `capture_lead` | BUILT |
@@ -158,7 +158,7 @@ One row per form submission.
 | `marketing_consent` | `{ given, text }`, separate from `consent_text` | `capture_lead` | PROPOSED |
 | `idempotency_key` | the uuid the form made for this submission; unique per site; a retry with the same key stores nothing and answers 202 again | `capture_lead` | PROPOSED (sops/site-endpoints.md 2.5 marks it NOT BUILT) |
 | `source_ip_hash`, `user_agent` | spam forensics (hashed IP, not the IP) | `capture-lead` function | PROPOSED, needs the retention decision D6 |
-The ELEV8 wizard already sends `flow`, `cta`, `assignee`, `marketingConsent` and `idempotencyKey` (`draft-site/site/src/pages/wizard.js`,
+The Example A wizard already sends `flow`, `cta`, `assignee`, `marketingConsent` and `idempotencyKey` (`draft-site/site/src/pages/wizard.js`,
 the `lead` object), so the PROPOSED columns are what the first real site needs on day one.
 
 ### `lead_events` (PROPOSED)
@@ -247,10 +247,10 @@ Vault name (for keys we present to others, like deploy tokens).
 | `workspace_id` | empty for platform-wide keys (runner key, cron secret); a per-site key carries its site's workspace too (so staff see the registry per workspace) | staff |
 | `site_id` | set for per-site keys (lead signing key, deploy token). The lookup `service.active_key(kind, site)` is by site alone: the workspace narrows it only when given (migration 6; before it, a site key stored with its workspace was never found, found on staging 2026-10-30) | staff |
 | `kind` | `site-signing`, `deploy-token`, `runner`, `cron`, `crm-webhook`, `omnisuite`, `client-api` (a client's own key to read its leads by API, later) | staff |
-| `label` | plain name shown to staff ("ELEV8 production lead key") | staff |
+| `label` | plain name shown to staff ("Example A production lead key") | staff |
 | `key_hash` | SHA-256 of the key, for kinds we verify ourselves; empty otherwise | the issuing function |
 | `vault_ref` | the Vault secret name, for kinds we present to a third party; empty otherwise | the issuing function |
-| `scope` | what it may do, as JSON (`{ "worker": "elev8-prod" }` for a deploy token) | staff |
+| `scope` | what it may do, as JSON (`{ "worker": "example-a-prod" }` for a deploy token) | staff |
 | `created_by`, `created_at` | who issued it, when | database |
 | `last_used_at` | updated by the verifying function at most once a minute | `capture-lead`, `export-published`... |
 | `expires_at`, `revoked_at` | rotation and revocation; a revoked key fails verification even if Vault still has it | staff |

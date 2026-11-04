@@ -75,7 +75,7 @@ function variant(edit) {
 const patch = (file, from, to) => { const t = readFileSync(file, 'utf8'); if (!t.includes(from)) throw new Error(`patch target missing in ${file}: ${from}`); writeFileSync(file, t.replace(from, to)); };
 for (const d of readdirSync(SITE)) if (/^design-variant-/.test(d)) rmSync(join(SITE, d), { recursive: true, force: true });
 
-// ---------- 1. the template renderer (ported from the ELEV8 build) ----------
+// ---------- 1. the template renderer (ported from the Example A build) ----------
 const R = (src, ctx, partials) => T.render(src, ctx, partials);
 await check('template: {{a.b}} prints a value, escaped', () => R('<p>{{a.b}}</p>', { a: { b: '<i>"x" & y</i>' } }) === '<p>&lt;i&gt;&quot;x&quot; &amp; y&lt;/i&gt;</p>');
 await check('template: {{{a.b}}} prints a value raw', () => R('{{{a.b}}}', { a: { b: '<i>x</i>' } }) === '<i>x</i>');

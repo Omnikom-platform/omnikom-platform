@@ -205,7 +205,7 @@ for (const ind of INDUSTRIES) {
 
 const out = ['# Industry run: one contract procedure, 15 industries', '',
   `Run: \`node contracts/industry-run/run.mjs\` (${new Date().toISOString().slice(0, 10)}). Generated, not hand-written: each row below is the output of the same`,
-  'generator, validator and screen builder used for ELEV8, Rainmaker and VTV. The plans are **paper plans** (what a typical plan for that',
+  'generator, validator and screen builder used for Example A, Example C and Example D. The plans are **paper plans** (what a typical plan for that',
   'business declares; no real client), so this proves the contract can express each industry, not that a real plan for it was run.', '',
   'Per industry: contract valid · one synthetic row per collection and per page passes the **publish** checks · the lead form feeds the',
   'OmniSuite niche custom fields a website can ask for (fields the CRM keeps itself, like Last Intent Signal or Conflict Check Status, are excluded).', '',

@@ -50,7 +50,7 @@ receives only migrations already proven on staging (DECISIONS 27). Nothing relie
 | staging (Supabase project "testing") | real Supabase | every cloud acceptance in the build plan; E2E; tenancy tests via `run-staging.mjs` (rolled back, no fixtures left) | CI on merge to `master` |
 | production (Supabase project "production") | real Supabase, Free plan, no PITR (own nightly dumps, section 5 and `18-BUDGET-ARCHITECTURE.md` 2.4) | clients | the owner-run `promote` workflow only |
 Rules: no Docker anywhere (no `supabase start`); prod data never copied to staging or local; staging uses synthetic workspaces plus
-an ELEV8 copy seeded from the contract (no client leads); every environment has its own keys; preview hosts always noindex.
+an Example A copy seeded from the contract (no client leads); every environment has its own keys; preview hosts always noindex.
 
 ## 5. Migrations policy and promotion
 - Supabase CLI migrations in `supabase/migrations/`, timestamped, forward-only; no editing a merged migration.

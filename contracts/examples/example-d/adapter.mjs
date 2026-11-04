@@ -1,11 +1,11 @@
-// VTV proof run: does the real content of the VTV preview fit its contract? READ ONLY on the VTV project.
-//   node examples/vtv/adapter.mjs [--vtv "E:/Francine & Eli/proposals/vtv"]
-// 1. builds a stand-in plan from VTV's own sitemap.xml (VTV has no approved SEO plan yet) and generates the contract
-//    (written to examples/vtv/contract.json: structure only);
+// Example D proof run: does the real content of the Example D preview fit its contract? READ ONLY on the Example D project.
+//   node examples/example-d/adapter.mjs [--example-d "E:/Agent D & Example B/proposals/example-d"]
+// 1. builds a stand-in plan from Example D's own sitemap.xml (Example D has no approved SEO plan yet) and generates the contract
+//    (written to examples/example-d/contract.json: structure only);
 // 2. maps every listing, neighborhood, article and review in its _build/data.json to a contract row and validates it
 //    as a draft and for publish;
 // 3. places the rows (as if all were published) and counts where they land.
-// Prints counts and rule codes only; no VTV content is written into this repo.
+// Prints counts and rule codes only; no Example D content is written into this repo.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,10 +14,10 @@ import { validateContract, validateItem } from '../../validate.mjs';
 import { place } from '../../place.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const i = process.argv.indexOf('--vtv');
-const VTV = i > 0 ? process.argv[i + 1] : 'E:/Francine & Eli/proposals/vtv';
-const data = JSON.parse(readFileSync(join(VTV, '_build', 'data.json'), 'utf8'));
-const paths = [...readFileSync(join(VTV, 'sitemap.xml'), 'utf8').matchAll(/<loc>https?:\/\/[^/<]+([^<]*)<\/loc>/g)].map(m => m[1]);
+const i = process.argv.indexOf('--example-d');
+const EXAMPLE_D = i > 0 ? process.argv[i + 1] : 'E:/Agent D & Example B/proposals/example-d';
+const data = JSON.parse(readFileSync(join(EXAMPLE_D, '_build', 'data.json'), 'utf8'));
+const paths = [...readFileSync(join(EXAMPLE_D, 'sitemap.xml'), 'utf8').matchAll(/<loc>https?:\/\/[^/<]+([^<]*)<\/loc>/g)].map(m => m[1]);
 
 // 1. stand-in plan
 const hoods = new Map(data.neighborhoods.map(n => [n.slug, n]));
@@ -28,7 +28,7 @@ const sitemap = { generatedAt: 'from sitemap.xml', pages: paths.filter(p => !ite
   return { path: p, kind: p === '/' ? 'home' : 'page', schema: [] };
 }) };
 const entities = JSON.parse(readFileSync(join(HERE, 'entities.json'), 'utf8'));
-const contract = generate({ sitemap, business: { industry: 'real-estate-agent' }, existing: null, entities, planDir: 'stand-in: proposals/vtv/sitemap.xml (no approved plan)' });
+const contract = generate({ sitemap, business: { industry: 'real-estate-agent' }, existing: null, entities, planDir: 'stand-in: proposals/example-d/sitemap.xml (no approved plan)' });
 writeFileSync(join(HERE, 'contract.json'), JSON.stringify(contract, null, 1) + '\n');
 const cp = validateContract(contract);
 console.log(`contract: ${cp.length ? 'INVALID ' + cp.map(p => p.code + ' ' + p.path).join('; ') : 'VALID'}; ${contract.pages.length} pages; ` +
@@ -43,7 +43,7 @@ const STATUS = { 'For Sale': 'active', 'Coming Soon': 'coming-soon', Sold: 'sold
 const TYPE = { Residential: 'single-family', Townhouse: 'townhouse', Condo: 'condo' };
 const lot = s => { if (!s) return undefined; const n = num(s); return /acre/i.test(s) ? Math.round(n * 43560) : n; };
 const rows = [];
-const add = (collection, d) => { const r = { id: `vtv:${collection}:${rows.length + 1}`, collection, data: Object.fromEntries(Object.entries(d).filter(([, v]) => v !== undefined)) }; rows.push(r); return r; };
+const add = (collection, d) => { const r = { id: `example-d:${collection}:${rows.length + 1}`, collection, data: Object.fromEntries(Object.entries(d).filter(([, v]) => v !== undefined)) }; rows.push(r); return r; };
 
 const areaId = {};
 for (const n of data.neighborhoods) areaId[n.name.toLowerCase()] = add('areas', {

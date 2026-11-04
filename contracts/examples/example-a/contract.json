@@ -2,13 +2,13 @@
  "contractVersion": 1,
  "core": 1,
  "site": {
-  "workspace": "elev8",
+  "workspace": "example-a",
   "industry": "real-estate-agent",
   "generatedFrom": {
-   "plan": "E:/Alex Sevilla/site-checks/elev8ca.com/.pewp/approved",
+   "plan": "E:/Agent A/site-checks/example-a.example/.pewp/approved",
    "sitemapSha256": "60c8cc3afe2a2d14",
    "planGeneratedAt": "2026-10-27",
-   "entities": "contracts/examples/elev8/entities.json: approved home design V4 (2026-10-28) + LISTINGS-DECISION.md (2026-10-28); structure only, no client copy"
+   "entities": "contracts/examples/example-a/entities.json: approved home design V4 (2026-10-28) + LISTINGS-DECISION.md (2026-10-28); structure only, no client copy"
   }
  },
  "collections": {
@@ -1408,7 +1408,7 @@
     },
     "financingHelp": {
      "type": "boolean",
-     "help": "asked to talk to Sunny Azizi about financing"
+     "help": "asked to talk to Lender A about financing"
     },
     "name": {
      "type": "text",
@@ -1865,90 +1865,90 @@
  ],
  "pageSeeds": {
   "/": {
-   "title": "ELEV8 Real Estate Group",
+   "title": "Example A Realty Group",
    "seo": {
-    "title": "ELEV8 Real Estate Group",
-    "description": "ELEV8 Real Estate Group helps Households in the service area. Get a free consultation."
+    "title": "Example A Realty Group",
+    "description": "Example A Realty Group helps Households in the service area. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/realtor-american-canyon/": {
    "title": "Realtor in American Canyon",
    "seo": {
-    "title": "Realtor in American Canyon | ELEV8 Real Estate Group",
-    "description": "Realtor in American Canyon: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "title": "Realtor in American Canyon | Example A Realty Group",
+    "description": "Realtor in American Canyon: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/realtor-in-benicia-ca/": {
    "title": "Realtor in in Benicia, CA",
    "seo": {
-    "title": "Realtor in in Benicia, CA | ELEV8 Real Estate Group",
-    "description": "Realtor in in Benicia, CA: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "title": "Realtor in in Benicia, CA | Example A Realty Group",
+    "description": "Realtor in in Benicia, CA: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/realtor-in-concord-ca/": {
    "title": "Realtor in in Concord, CA",
    "seo": {
-    "title": "Realtor in in Concord, CA | ELEV8 Real Estate Group",
-    "description": "Realtor in in Concord, CA: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "title": "Realtor in in Concord, CA | Example A Realty Group",
+    "description": "Realtor in in Concord, CA: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/realtor-in-fairfield-ca/": {
    "title": "Realtor in in Fairfield, CA",
    "seo": {
-    "title": "Realtor in in Fairfield, CA | ELEV8 Real Estate Group",
-    "description": "Realtor in in Fairfield, CA: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "title": "Realtor in in Fairfield, CA | Example A Realty Group",
+    "description": "Realtor in in Fairfield, CA: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/realtor-in-napa/": {
    "title": "Realtor in in Napa",
    "seo": {
-    "title": "Realtor in in Napa | ELEV8 Real Estate Group",
-    "description": "Realtor in in Napa: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "title": "Realtor in in Napa | Example A Realty Group",
+    "description": "Realtor in in Napa: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/realtor-in-sacramento-ca/": {
    "title": "Realtor in in Sacramento, CA",
    "seo": {
-    "title": "Realtor in in Sacramento, CA | ELEV8 Real Estate Group",
-    "description": "Realtor in in Sacramento, CA: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "title": "Realtor in in Sacramento, CA | Example A Realty Group",
+    "description": "Realtor in in Sacramento, CA: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/realtor-in-suisun-city-ca/": {
    "title": "Realtor in in Suisun City, CA",
    "seo": {
-    "title": "Realtor in in Suisun City, CA | ELEV8 Real Estate Group",
-    "description": "Realtor in in Suisun City, CA: ELEV8 Real Estate Group helps Households in the service area. Get a free consultation."
+    "title": "Realtor in in Suisun City, CA | Example A Realty Group",
+    "description": "Realtor in in Suisun City, CA: Example A Realty Group helps Households in the service area. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/realtor-in-vacaville-ca/": {
    "title": "Realtor in in Vacaville, CA",
    "seo": {
-    "title": "Realtor in in Vacaville, CA | ELEV8 Real Estate Group",
-    "description": "Realtor in in Vacaville, CA: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "title": "Realtor in in Vacaville, CA | Example A Realty Group",
+    "description": "Realtor in in Vacaville, CA: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/realtor-in-vallejo-ca/": {
    "title": "Realtor in in Vallejo, CA",
    "seo": {
-    "title": "Realtor in in Vallejo, CA | ELEV8 Real Estate Group",
-    "description": "Realtor in in Vallejo, CA: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "title": "Realtor in in Vallejo, CA | Example A Realty Group",
+    "description": "Realtor in in Vallejo, CA: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/realtor-in-walnut-creek-ca/": {
    "title": "Realtor in in Walnut Creek, CA",
    "seo": {
-    "title": "Realtor in in Walnut Creek, CA | ELEV8 Real Estate Group",
-    "description": "Realtor in in Walnut Creek, CA: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "title": "Realtor in in Walnut Creek, CA | Example A Realty Group",
+    "description": "Realtor in in Walnut Creek, CA: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
@@ -1956,39 +1956,39 @@
    "title": "Homes for Sale in in American Canyon, CA",
    "seo": {
     "title": "Homes for Sale in in American Canyon, CA",
-    "description": "Homes for Sale in in American Canyon, CA: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "description": "Homes for Sale in in American Canyon, CA: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/homes-for-sale-in-benicia-ca/": {
    "title": "Homes for Sale in in Benicia, CA",
    "seo": {
-    "title": "Homes for Sale in in Benicia, CA | ELEV8 Real Estate Group",
-    "description": "Homes for Sale in in Benicia, CA: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "title": "Homes for Sale in in Benicia, CA | Example A Realty Group",
+    "description": "Homes for Sale in in Benicia, CA: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/homes-for-sale-in-concord-ca/": {
    "title": "Homes for Sale in in Concord, CA",
    "seo": {
-    "title": "Homes for Sale in in Concord, CA | ELEV8 Real Estate Group",
-    "description": "Homes for Sale in in Concord, CA: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "title": "Homes for Sale in in Concord, CA | Example A Realty Group",
+    "description": "Homes for Sale in in Concord, CA: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/homes-for-sale-in-fairfield-ca/": {
    "title": "Homes for Sale in in Fairfield, CA",
    "seo": {
-    "title": "Homes for Sale in in Fairfield, CA | ELEV8 Real Estate Group",
-    "description": "Homes for Sale in in Fairfield, CA: ELEV8 Real Estate Group helps Households in the service area. Get a free consultation."
+    "title": "Homes for Sale in in Fairfield, CA | Example A Realty Group",
+    "description": "Homes for Sale in in Fairfield, CA: Example A Realty Group helps Households in the service area. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/homes-for-sale-in-napa-ca/": {
    "title": "Homes for Sale in in Napa, CA",
    "seo": {
-    "title": "Homes for Sale in in Napa, CA | ELEV8 Real Estate Group",
-    "description": "Homes for Sale in in Napa, CA: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "title": "Homes for Sale in in Napa, CA | Example A Realty Group",
+    "description": "Homes for Sale in in Napa, CA: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
@@ -1996,7 +1996,7 @@
    "title": "Homes for Sale in in Sacramento, CA",
    "seo": {
     "title": "Homes for Sale in in Sacramento, CA",
-    "description": "Homes for Sale in in Sacramento, CA: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "description": "Homes for Sale in in Sacramento, CA: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
@@ -2004,23 +2004,23 @@
    "title": "Homes for Sale in in Suisun City, CA",
    "seo": {
     "title": "Homes for Sale in in Suisun City, CA",
-    "description": "Homes for Sale in in Suisun City, CA: ELEV8 Real Estate Group helps Households in the service area. Get a free consultation."
+    "description": "Homes for Sale in in Suisun City, CA: Example A Realty Group helps Households in the service area. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/homes-for-sale-in-vacaville-ca/": {
    "title": "Homes for Sale in in Vacaville, CA",
    "seo": {
-    "title": "Homes for Sale in in Vacaville, CA | ELEV8 Real Estate Group",
-    "description": "Homes for Sale in in Vacaville, CA: ELEV8 Real Estate Group helps Households in the service area. Get a free consultation."
+    "title": "Homes for Sale in in Vacaville, CA | Example A Realty Group",
+    "description": "Homes for Sale in in Vacaville, CA: Example A Realty Group helps Households in the service area. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/homes-for-sale-in-vallejo-ca/": {
    "title": "Homes for Sale in in Vallejo, CA",
    "seo": {
-    "title": "Homes for Sale in in Vallejo, CA | ELEV8 Real Estate Group",
-    "description": "Homes for Sale in in Vallejo, CA: ELEV8 Real Estate Group helps Households in the service area. Get a free consultation."
+    "title": "Homes for Sale in in Vallejo, CA | Example A Realty Group",
+    "description": "Homes for Sale in in Vallejo, CA: Example A Realty Group helps Households in the service area. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
@@ -2028,7 +2028,7 @@
    "title": "Homes for Sale in in Walnut Creek, CA",
    "seo": {
     "title": "Homes for Sale in in Walnut Creek, CA",
-    "description": "Homes for Sale in in Walnut Creek, CA: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "description": "Homes for Sale in in Walnut Creek, CA: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
@@ -2036,7 +2036,7 @@
    "title": "Sell My House Fast in in Benicia, CA",
    "seo": {
     "title": "Sell My House Fast in in Benicia, CA",
-    "description": "Sell My House Fast in in Benicia, CA: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "description": "Sell My House Fast in in Benicia, CA: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
@@ -2044,7 +2044,7 @@
    "title": "Sell My House Fast in in Concord, CA",
    "seo": {
     "title": "Sell My House Fast in in Concord, CA",
-    "description": "Sell My House Fast in in Concord, CA: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "description": "Sell My House Fast in in Concord, CA: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
@@ -2052,15 +2052,15 @@
    "title": "Sell My House Fast in in Fairfield, CA",
    "seo": {
     "title": "Sell My House Fast in in Fairfield, CA",
-    "description": "Sell My House Fast in in Fairfield, CA: ELEV8 Real Estate Group helps Households in the service area. Get a free consultation."
+    "description": "Sell My House Fast in in Fairfield, CA: Example A Realty Group helps Households in the service area. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/sell-my-house-fast-in-napa-ca/": {
    "title": "Sell My House Fast in in Napa, CA",
    "seo": {
-    "title": "Sell My House Fast in in Napa, CA | ELEV8 Real Estate Group",
-    "description": "Sell My House Fast in in Napa, CA: ELEV8 Real Estate Group helps Households in the service area. Get a free consultation."
+    "title": "Sell My House Fast in in Napa, CA | Example A Realty Group",
+    "description": "Sell My House Fast in in Napa, CA: Example A Realty Group helps Households in the service area. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
@@ -2068,7 +2068,7 @@
    "title": "Sell My House Fast in in Sacramento, CA",
    "seo": {
     "title": "Sell My House Fast in in Sacramento, CA",
-    "description": "Sell My House Fast in in Sacramento, CA: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "description": "Sell My House Fast in in Sacramento, CA: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
@@ -2076,7 +2076,7 @@
    "title": "Sell My House Fast in in Suisun City, CA",
    "seo": {
     "title": "Sell My House Fast in in Suisun City, CA",
-    "description": "Sell My House Fast in in Suisun City, CA: ELEV8 Real Estate Group helps Households in the service area. Get a free consultation."
+    "description": "Sell My House Fast in in Suisun City, CA: Example A Realty Group helps Households in the service area. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
@@ -2084,7 +2084,7 @@
    "title": "Sell My House Fast in in Vacaville, CA",
    "seo": {
     "title": "Sell My House Fast in in Vacaville, CA",
-    "description": "Sell My House Fast in in Vacaville, CA: ELEV8 Real Estate Group helps Households in the service area. Get a free consultation."
+    "description": "Sell My House Fast in in Vacaville, CA: Example A Realty Group helps Households in the service area. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
@@ -2092,7 +2092,7 @@
    "title": "Sell My House Fast in in Vallejo, CA",
    "seo": {
     "title": "Sell My House Fast in in Vallejo, CA",
-    "description": "Sell My House Fast in in Vallejo, CA: ELEV8 Real Estate Group helps Households in the service area. Get a free consultation."
+    "description": "Sell My House Fast in in Vallejo, CA: Example A Realty Group helps Households in the service area. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
@@ -2100,31 +2100,31 @@
    "title": "Sell My House Fast in in Walnut Creek, CA",
    "seo": {
     "title": "Sell My House Fast in in Walnut Creek, CA",
-    "description": "Sell My House Fast in in Walnut Creek, CA: how it works, what you get and what to do next with ELEV8 Real Estate Group. Get a free consultation."
+    "description": "Sell My House Fast in in Walnut Creek, CA: how it works, what you get and what to do next with Example A Realty Group. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/areas-we-serve/": {
    "title": "Areas We Serve",
    "seo": {
-    "title": "Areas We Serve | ELEV8 Real Estate Group",
-    "description": "Every area ELEV8 Real Estate Group works in, with a local page for each. Get a free consultation."
+    "title": "Areas We Serve | Example A Realty Group",
+    "description": "Every area Example A Realty Group works in, with a local page for each. Get a free consultation."
    },
    "source": "approved plan sitemap.json"
   },
   "/buying": {
-   "title": "Buy a Home with Elev8 Real Estate Group",
+   "title": "Buy a Home with Example A Realty Group",
    "seo": {
-    "title": "Buy a Home with Elev8 Real Estate Group",
-    "description": "Looking to buy a home? Elev8 Real Estate Group can help! Search listings, sign up for alerts, and find the perfect property with our expert guidance."
+    "title": "Buy a Home with Example A Realty Group",
+    "description": "Looking to buy a home? Example A Realty Group can help! Search listings, sign up for alerts, and find the perfect property with our expert guidance."
    },
    "source": "live page, backup 2026-10-26 (shortened)"
   },
   "/selling": {
-   "title": "Sell Your Home with Elev8 Real Estate Group",
+   "title": "Sell Your Home with Example A Realty Group",
    "seo": {
-    "title": "Sell Your Home with Elev8 Real Estate Group",
-    "description": "Considering selling your home in California? Elev8 Real Estate Group provides a hassle-free experience."
+    "title": "Sell Your Home with Example A Realty Group",
+    "description": "Considering selling your home in California? Example A Realty Group provides a hassle-free experience."
    },
    "source": "live page, backup 2026-10-26 (shortened)"
   },
@@ -2132,78 +2132,78 @@
    "title": "Free Home Value Estimate & Property Marketing Plan",
    "seo": {
     "title": "Free Home Value Estimate & Property Marketing Plan",
-    "description": "Get a free property marketing plan from Elev8 Real Estate Group to sell your home for the most money in the least amount of time."
+    "description": "Get a free property marketing plan from Example A Realty Group to sell your home for the most money in the least amount of time."
    },
    "source": "live page, backup 2026-10-26 (shortened)"
   },
   "/financing": {
    "title": "Home Financing",
    "seo": {
-    "title": "Home Financing | Elev8 Real Estate Group",
+    "title": "Home Financing | Example A Realty Group",
     "description": "Demystifying the home loan process. Learn about getting pre-approved, finding the best loan, the application process, and signing the deal."
    },
    "source": "live page, backup 2026-10-26 (shortened)"
   },
   "/connect": {
-   "title": "Contact Elev8 Real Estate Group",
+   "title": "Contact Example A Realty Group",
    "seo": {
-    "title": "Contact Elev8 Real Estate Group: Your Real Estate Experts",
-    "description": "Connect with Elev8 Real Estate Group! Contact us to buy, sell, or rent a home."
+    "title": "Contact Example A Realty Group: Your Real Estate Experts",
+    "description": "Connect with Example A Realty Group! Contact us to buy, sell, or rent a home."
    },
    "source": "live page, backup 2026-10-26 (shortened)"
   },
   "/faq": {
    "title": "Frequently Asked Questions",
    "seo": {
-    "title": "Frequently Asked Questions | Elev8 Real Estate Group",
+    "title": "Frequently Asked Questions | Example A Realty Group",
     "description": "Get answers to common real estate questions about buying, selling, financing, closing costs, home value and down payments."
    },
    "source": "live page, backup 2026-10-26 (shortened)"
   },
   "/reviews": {
-   "title": "Elev8 Real Estate Group Reviews",
+   "title": "Example A Realty Group Reviews",
    "seo": {
-    "title": "Elev8 Real Estate Group Reviews",
-    "description": "Read real client reviews and testimonials for Elev8 Real Estate Group."
+    "title": "Example A Realty Group Reviews",
+    "description": "Read real client reviews and testimonials for Example A Realty Group."
    },
    "source": "live page, backup 2026-10-26 (shortened)"
   },
   "/tos": {
    "title": "Terms of Use",
    "seo": {
-    "title": "Terms of Use | Elev8 Real Estate Group",
-    "description": "View the terms of service for Elev8 CA. Learn about your rights and responsibilities when using our real estate platform."
+    "title": "Terms of Use | Example A Realty Group",
+    "description": "View the terms of service for Example A CA. Learn about your rights and responsibilities when using our real estate platform."
    },
    "source": "live page, backup 2026-10-26 (title replaced: live title was \"terms-conditions\")"
   },
   "/team": {
    "title": "Our Team",
    "seo": {
-    "title": "Our Team | Elev8 Real Estate Group",
-    "description": "Meet the Elev8 Real Estate Group team and the cities each agent serves."
+    "title": "Our Team | Example A Realty Group",
+    "description": "Meet the Example A Realty Group team and the cities each agent serves."
    },
    "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording"
   },
   "/privacy_policy": {
    "title": "Privacy Policy",
    "seo": {
-    "title": "Privacy Policy - Elev8 Real Estate Group",
-    "description": "How Elev8 Real Estate Group handles your personal information and how to make a privacy request."
+    "title": "Privacy Policy - Example A Realty Group",
+    "description": "How Example A Realty Group handles your personal information and how to make a privacy request."
    },
    "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording (live description was cut off)"
   },
   "/blog": {
    "title": "Articles",
    "seo": {
-    "title": "Articles | Elev8 Real Estate Group",
-    "description": "Local real estate articles from Elev8 Real Estate Group."
+    "title": "Articles | Example A Realty Group",
+    "description": "Local real estate articles from Example A Realty Group."
    },
    "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording"
   },
   "/accessibility-statement/": {
    "title": "Accessibility Statement",
    "seo": {
-    "title": "Accessibility Statement | Elev8 Real Estate Group",
+    "title": "Accessibility Statement | Example A Realty Group",
     "description": "Our commitment to an accessible website and how to tell us if something does not work for you."
    },
    "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording"

@@ -1,6 +1,6 @@
 {
- "workspace": "elev8",
- "source": "contracts/examples/elev8/entities.json: approved home design V4 (2026-10-28) + LISTINGS-DECISION.md (2026-10-28); structure only, no client copy",
+ "workspace": "example-a",
+ "source": "contracts/examples/example-a/entities.json: approved home design V4 (2026-10-28) + LISTINGS-DECISION.md (2026-10-28); structure only, no client copy",
  "locations": {
   "collection": "areas"
  },
@@ -169,18 +169,18 @@
  ],
  "pageSeo": {
   "/buying": {
-   "title": "Buy a Home with Elev8 Real Estate Group",
+   "title": "Buy a Home with Example A Realty Group",
    "seo": {
-    "title": "Buy a Home with Elev8 Real Estate Group",
-    "description": "Looking to buy a home? Elev8 Real Estate Group can help! Search listings, sign up for alerts, and find the perfect property with our expert guidance."
+    "title": "Buy a Home with Example A Realty Group",
+    "description": "Looking to buy a home? Example A Realty Group can help! Search listings, sign up for alerts, and find the perfect property with our expert guidance."
    },
    "source": "live page, backup 2026-10-26 (shortened)"
   },
   "/selling": {
-   "title": "Sell Your Home with Elev8 Real Estate Group",
+   "title": "Sell Your Home with Example A Realty Group",
    "seo": {
-    "title": "Sell Your Home with Elev8 Real Estate Group",
-    "description": "Considering selling your home in California? Elev8 Real Estate Group provides a hassle-free experience."
+    "title": "Sell Your Home with Example A Realty Group",
+    "description": "Considering selling your home in California? Example A Realty Group provides a hassle-free experience."
    },
    "source": "live page, backup 2026-10-26 (shortened)"
   },
@@ -188,78 +188,78 @@
    "title": "Free Home Value Estimate & Property Marketing Plan",
    "seo": {
     "title": "Free Home Value Estimate & Property Marketing Plan",
-    "description": "Get a free property marketing plan from Elev8 Real Estate Group to sell your home for the most money in the least amount of time."
+    "description": "Get a free property marketing plan from Example A Realty Group to sell your home for the most money in the least amount of time."
    },
    "source": "live page, backup 2026-10-26 (shortened)"
   },
   "/financing": {
    "title": "Home Financing",
    "seo": {
-    "title": "Home Financing | Elev8 Real Estate Group",
+    "title": "Home Financing | Example A Realty Group",
     "description": "Demystifying the home loan process. Learn about getting pre-approved, finding the best loan, the application process, and signing the deal."
    },
    "source": "live page, backup 2026-10-26 (shortened)"
   },
   "/connect": {
-   "title": "Contact Elev8 Real Estate Group",
+   "title": "Contact Example A Realty Group",
    "seo": {
-    "title": "Contact Elev8 Real Estate Group: Your Real Estate Experts",
-    "description": "Connect with Elev8 Real Estate Group! Contact us to buy, sell, or rent a home."
+    "title": "Contact Example A Realty Group: Your Real Estate Experts",
+    "description": "Connect with Example A Realty Group! Contact us to buy, sell, or rent a home."
    },
    "source": "live page, backup 2026-10-26 (shortened)"
   },
   "/faq": {
    "title": "Frequently Asked Questions",
    "seo": {
-    "title": "Frequently Asked Questions | Elev8 Real Estate Group",
+    "title": "Frequently Asked Questions | Example A Realty Group",
     "description": "Get answers to common real estate questions about buying, selling, financing, closing costs, home value and down payments."
    },
    "source": "live page, backup 2026-10-26 (shortened)"
   },
   "/reviews": {
-   "title": "Elev8 Real Estate Group Reviews",
+   "title": "Example A Realty Group Reviews",
    "seo": {
-    "title": "Elev8 Real Estate Group Reviews",
-    "description": "Read real client reviews and testimonials for Elev8 Real Estate Group."
+    "title": "Example A Realty Group Reviews",
+    "description": "Read real client reviews and testimonials for Example A Realty Group."
    },
    "source": "live page, backup 2026-10-26 (shortened)"
   },
   "/tos": {
    "title": "Terms of Use",
    "seo": {
-    "title": "Terms of Use | Elev8 Real Estate Group",
-    "description": "View the terms of service for Elev8 CA. Learn about your rights and responsibilities when using our real estate platform."
+    "title": "Terms of Use | Example A Realty Group",
+    "description": "View the terms of service for Example A CA. Learn about your rights and responsibilities when using our real estate platform."
    },
    "source": "live page, backup 2026-10-26 (title replaced: live title was \"terms-conditions\")"
   },
   "/team": {
    "title": "Our Team",
    "seo": {
-    "title": "Our Team | Elev8 Real Estate Group",
-    "description": "Meet the Elev8 Real Estate Group team and the cities each agent serves."
+    "title": "Our Team | Example A Realty Group",
+    "description": "Meet the Example A Realty Group team and the cities each agent serves."
    },
    "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording"
   },
   "/privacy_policy": {
    "title": "Privacy Policy",
    "seo": {
-    "title": "Privacy Policy - Elev8 Real Estate Group",
-    "description": "How Elev8 Real Estate Group handles your personal information and how to make a privacy request."
+    "title": "Privacy Policy - Example A Realty Group",
+    "description": "How Example A Realty Group handles your personal information and how to make a privacy request."
    },
    "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording (live description was cut off)"
   },
   "/blog": {
    "title": "Articles",
    "seo": {
-    "title": "Articles | Elev8 Real Estate Group",
-    "description": "Local real estate articles from Elev8 Real Estate Group."
+    "title": "Articles | Example A Realty Group",
+    "description": "Local real estate articles from Example A Realty Group."
    },
    "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording"
   },
   "/accessibility-statement/": {
    "title": "Accessibility Statement",
    "seo": {
-    "title": "Accessibility Statement | Elev8 Real Estate Group",
+    "title": "Accessibility Statement | Example A Realty Group",
     "description": "Our commitment to an accessible website and how to tell us if something does not work for you."
    },
    "source": "draft by Omnikom (no usable live text): [client to confirm] via clientWording"
@@ -520,7 +520,7 @@
     },
     "financingHelp": {
      "type": "boolean",
-     "help": "asked to talk to Sunny Azizi about financing"
+     "help": "asked to talk to Lender A about financing"
     },
     "name": {
      "type": "text",

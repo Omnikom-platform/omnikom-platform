@@ -33,7 +33,7 @@ waiting to publish, a to-do list built from real checks (publish-blocking proble
 lead pushes), latest leads.
 
 ### 3. Pages `/w/:ws/pages` and page editor ![page editor](wireframes/page.png)
-List grouped by page type with counts (ELEV8: home 1, Realtor in <city> 10, city guides 10, sell in <city> 9...). Editor: left the
+List grouped by page type with counts (Example A: home 1, Realtor in <city> 10, city guides 10, sell in <city> 9...). Editor: left the
 page type's sections in order; "edit" sections open their generated fields; "fills itself" sections say from which collection and
 by which rule ("active listings in this city, newest first"); form sections show the form and where answers go; legal sections show
 the locked text. Search-result text (title 60, description 160) with a live preview. Publish bar at the bottom.
@@ -47,7 +47,7 @@ Widgets per field type (`03-FRONTEND.md` B4); errors next to the field in plain 
 "Shows on" line computed from the placement rules; locked fields read-only with the reason; owner field filled from the login;
 publish bar: Save draft, Preview (the item rendered with the site's partials), Publish, History (versions, compare two versions,
 restore = new version).
-**Flow, ELEV8 agent adds a listing:** Our listings -> Add -> address (fills city + pin) -> status, price, beds, baths, sqft, lot,
+**Flow, Example A agent adds a listing:** Our listings -> Add -> address (fills city + pin) -> status, price, beds, baths, sqft, lot,
 year, type -> description (optional "draft it for me" from the fields; the agent edits) -> photos (drag in, order, cover, alt
 suggested, rights tick; upload strips EXIF and makes sizes) -> Preview -> Publish -> the job rebuilds the listing page, home "Our
 listings", the city guide, "Realtor in <city>", sitemap -> "Published" with the link. Status change is one click and publishes the

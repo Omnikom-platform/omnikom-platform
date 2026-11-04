@@ -30,7 +30,7 @@ and hands long work to a queue.
 | Static asset requests | free and unlimited (https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/) | | pages, images, CSS, JS of every site cost nothing and do not count |
 | CPU time / invocation | 10 ms | 30 s default | the lead Worker signs one HMAC and forwards: well under 10 ms (UNPROVEN until measured in W2.4) |
 | Workers per account | 100 | 500 | one Worker per site plus the dashboard: about 95 sites on Free if staging sites are not separate Workers (section 2.5) |
-| Static assets | 20,000 files per Worker version, 25 MiB per file | 100,000 files | ELEV8 preview is 259 files; a 1,000-page site with 5 image sizes is about 6,000 files: fits |
+| Static assets | 20,000 files per Worker version, 25 MiB per file | 100,000 files | Example A preview is 259 files; a 1,000-page site with 5 image sizes is about 6,000 files: fits |
 | Cron Triggers | 5 per account | 250 | we use none on Cloudflare; schedules live in pg_cron |
 | Environment variables | 64 per Worker, 5 KB each | 128 | a site Worker holds 3 (site id, signing key, platform base URL) |
 Queues (https://developers.cloudflare.com/queues/platform/pricing/, read 2026-10-29): 10,000 operations / day on Free. We do not
@@ -127,7 +127,7 @@ and go Pro ($25 / month) at the first client with more than 300 photos. Needs: a
 `media` host, and `02-BACKEND.md` section 5 rewritten; the migration keeps the `media` table as is.
 
 ## 5. What is UNPROVEN here
-The per-row size estimates (measure on ELEV8's rows once seeded); the lead Worker's CPU time (measure in W2.4); that
+The per-row size estimates (measure on Example A's rows once seeded); the lead Worker's CPU time (measure in W2.4); that
 `wrangler versions upload` preview URLs serve static assets without a Worker slot (read the docs again before W0.4); whether
 pg_cron and pgmq are enabled on a Free project without a support ticket (check at W0.3); the R2 presigned PUT from an Edge
 Function (W3.2).

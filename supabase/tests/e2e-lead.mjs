@@ -1,7 +1,7 @@
 // End-to-end proof of the lead path (DECISIONS 25): a test lead sent to a site's live /api/lead must land in the staging
 // database (leads + the received event) and produce a new-lead email (messages row sent). Then it is deleted again so staging
 // keeps no fixture.
-//   STAGING_DB_URL=... SITE_URL=https://elev8-omnikom-website.pages.dev node supabase/tests/e2e-lead.mjs [--keep] [--no-alert]
+//   STAGING_DB_URL=... SITE_URL=https://example-a-omnikom-website.pages.dev node supabase/tests/e2e-lead.mjs [--keep] [--no-alert]
 // Runs only against STAGING_DB_URL (refuses PROD_DB_URL). The site must be deployed with factory/worker/pages-function-lead.js
 // and its SITE_ID / SITE_SIGNING_KEY / PLATFORM_BASE; capture-lead must be deployed on the staging project with
 // SUPABASE_DB_URL, RESEND_API_KEY and LEAD_ALERT_FROM; the site's sites.lead_alert_to must hold the owner's address.

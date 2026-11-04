@@ -83,9 +83,9 @@ const CONTRACTS = [
     placements: CORE_PLACEMENTS }],
   ['stress (inline)', STRESS],
   ['sites/test-demo-a', load('sites/test-demo-a/contract.json')],
-  ['examples/elev8', load('contracts/examples/elev8/contract.json')],
-  ['examples/rainmaker', load('contracts/examples/rainmaker/contract.json')],
-  ['examples/vtv', load('contracts/examples/vtv/contract.json')],
+  ['examples/example-a', load('contracts/examples/example-a/contract.json')],
+  ['examples/example-c', load('contracts/examples/example-c/contract.json')],
+  ['examples/example-d', load('contracts/examples/example-d/contract.json')],
 ];
 
 // ---------- a complete item for a collection, from its field definitions ----------

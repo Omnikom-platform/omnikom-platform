@@ -45,7 +45,7 @@ if (fs.existsSync(badJson)) {
   for (const want of ['token-type', 'token-space', 'contrast', 'orphan', 'distortion', 'radius-family', 'shadow-family', 'overflow', 'tap-target', 'phone-body', 'min-size', 'families', 'label-wrap'])
     check(`craft-lint: catches ${want}`, rules.has(want), `rules seen: ${[...rules].join(', ')}`);
 }
-// tasteskill ports (CRAFT.md 10): every planted rule is reported on the bad fixture; the good fixture (which carries the ELEV8 false
+// tasteskill ports (CRAFT.md 10): every planted rule is reported on the bad fixture; the good fixture (which carries the Example A false
 // positives: a fixed bottom bar over text, tab-swapped labels, a reveal done right, a chip cut at the edge in a scroller) shows none of them
 const NEW_ERR = ['edge-text', 'broken-image', 'covered-text', 'reduced-hidden'];
 const NEW_WARN = ['first-action', 'off-centre', 'headline-lines', 'tell-gradient', 'tell-mono', 'tell-eyebrow', 'tell-mixed', 'tell-em-dash', 'tell-buzzword', 'tell-not-just', 'tell-emoji'];
@@ -89,9 +89,9 @@ if (fs.existsSync(goodJson)) {
 }
 
 // basemap: cached tiles only (the example ships them); compare one place with an independent computation
-const ex = path.join(DE, 'examples/elev8'), tdir = path.join(ex, 'map/tiles');
+const ex = path.join(DE, 'examples/example-a'), tdir = path.join(ex, 'map/tiles');
 // tiles are never committed (provider terms); on a fresh clone run basemap.mjs once with network, then this check runs offline
-if (!fs.existsSync(tdir) || fs.readdirSync(tdir).length === 0) { console.log('SKIP  basemap + map-overlay: no cached tiles in examples/elev8/map/tiles (run basemap.mjs once with network)'); fs.rmSync(tmp, { recursive: true, force: true }); console.log(`\n${fails ? 'FAIL' : 'PASS'}: design-engine self-test, ${fails} failing check(s)`); process.exit(fails ? 1 : 0); }
+if (!fs.existsSync(tdir) || fs.readdirSync(tdir).length === 0) { console.log('SKIP  basemap + map-overlay: no cached tiles in examples/example-a/map/tiles (run basemap.mjs once with network)'); fs.rmSync(tmp, { recursive: true, force: true }); console.log(`\n${fails ? 'FAIL' : 'PASS'}: design-engine self-test, ${fails} failing check(s)`); process.exit(fails ? 1 : 0); }
 const tilesBefore = fs.readdirSync(tdir).length;
 const bm = run([path.join(DE, 'basemap.mjs'), '--places', path.join(ex, 'places.json'), '--out', path.join(ex, 'map'), '--zoom', '11', '--source', 'esri']);
 const tilesAfter = fs.readdirSync(path.join(ex, 'map/tiles')).length;
@@ -102,7 +102,7 @@ const ex_x = ((-122.04 + 180) / 360) * N * 256 - meta.origin[0], ex_y = ((1 - Ma
 check('basemap: Fairfield pixel equals an independent Web Mercator computation', Math.abs(ff.x - ex_x) < 0.2 && Math.abs(ff.y - ex_y) < 0.2, `${ff.x},${ff.y} vs ${ex_x.toFixed(1)},${ex_y.toFixed(1)}`);
 
 // map-overlay: renders the example with no page errors
-const mo = run([path.join(DE, 'render-asset.mjs'), '--root', DE, 'templates/map-overlay.html?map=../examples/elev8/map/basemap.json&cfg=../examples/elev8/overlay.json', '--out', path.join(tmp, 'map.png'), '--w', String(meta.width), '--h', String(meta.height), '--scale', '1', '--selector', '#art']);
+const mo = run([path.join(DE, 'render-asset.mjs'), '--root', DE, 'templates/map-overlay.html?map=../examples/example-a/map/basemap.json&cfg=../examples/example-a/overlay.json', '--out', path.join(tmp, 'map.png'), '--w', String(meta.width), '--h', String(meta.height), '--scale', '1', '--selector', '#art']);
 check('map-overlay: example renders with 0 page errors', mo.status === 0 && /^OK/m.test(mo.stdout), mo.stdout + mo.stderr);
 
 fs.rmSync(tmp, { recursive: true, force: true });

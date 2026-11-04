@@ -1,6 +1,6 @@
-# Rainmaker -> the contract
+# Example C -> the contract
 
-Sources (read only): approved plan `E:/Rainmaker/.pewp/approved` (5 pages), `.pewp/business.json`, `site-src/pages/*.html` (section ids,
+Sources (read only): approved plan `E:/Example C/.pewp/approved` (5 pages), `.pewp/business.json`, `site-src/pages/*.html` (section ids,
 front matter, form field names), its CLAUDE.md rule 3 ("compliance text is fixed and marked").
 Generated: `contract.json`, `screens.md`. Declared: `entities.json`. Proof: `check.mjs` -> `RUN.txt`.
 

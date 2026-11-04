@@ -3,7 +3,7 @@
 //      (kind site-signing, the sha256 of the key, the Vault name, the site id) so capture-lead can verify it;
 //   2. the owner's master .env (the file named by OMNIKOM_ENV_FILE), appended as SITE_SIGNING_KEY_<SLUG>=..., so the owner can
 //      set it on the site's Pages project with `wrangler pages secret put SITE_SIGNING_KEY --project-name <name>`.
-//   STAGING_DB_URL=... OMNIKOM_ENV_FILE=... node tools/mint-site-key.mjs --site <sites.id uuid> --slug elev8 [--n 1] [--dry-run]
+//   STAGING_DB_URL=... OMNIKOM_ENV_FILE=... node tools/mint-site-key.mjs --site <sites.id uuid> --slug example-a [--n 1] [--dry-run]
 //   STAGING_DB_URL=... OMNIKOM_ENV_FILE=... node tools/mint-site-key.mjs --runner [--dry-run]       the build runner's key (below)
 // A second active key for the same site is allowed on purpose (rotation: both verify until the old one is revoked by staff).
 // Status: UNPROVEN on a real project (no project yet, W0.3). Needs vault.create_secret, which exists on Supabase projects.

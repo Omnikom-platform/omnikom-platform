@@ -1,5 +1,5 @@
 // Logic-less templates (a small Mustache subset), so the same partials can move into the platform's build unchanged.
-// Ported from E:\Alex Sevilla\draft-site\site\lib\render.mjs 2026-10-31; the same partials move into the platform unchanged.
+// Ported from E:\Agent A\draft-site\site\lib\render.mjs 2026-10-31; the same partials move into the platform unchanged.
 //   {{a.b}}  value, HTML-escaped        {{{a.b}}}  value, raw (already HTML)        {{.}}  the current list item
 //   {{#a}}...{{/a}}  list: once per item (the item is the context); object/true: once; empty/false: skipped
 //   {{^a}}...{{/a}}  only when a is empty or false

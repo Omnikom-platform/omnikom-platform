@@ -169,7 +169,7 @@ check('consent wording: tags in the richtext do not hide the words', ncodes(`<p>
 const forged = listing({ photos: [img({ width: 5000, exifStripped: true, rightsConfirmed: true })] });
 const fromRecord = codes(validateItem(GOOD, 'listings', forged, { mode: 'publish', media: () => ({ width: 300, exifStripped: false, rightsConfirmed: false }) }));
 check('item: media record overrides forged photo facts', ['I-MEDIA-SIZE', 'I-EXIF', 'I-RIGHTS'].every(c => fromRecord.includes(c)), `got [${fromRecord.join(', ')}]`);
-// sample/placeholder listings: smaller photos allowed on previews, never on a live site (ELEV8 preview, lead 2026-10-28)
+// sample/placeholder listings: smaller photos allowed on previews, never on a live site (Example A preview, lead 2026-10-28)
 const small = [img({ width: 600 })];
 check('item: sample listing may use photos below the minimum width', !codes(validateItem(GOOD, 'listings', listing({ sample: true, photos: small }), { mode: 'publish' })).includes('I-MEDIA-SIZE'));
 check('item: a real listing still needs the minimum width', codes(validateItem(GOOD, 'listings', listing({ photos: small }), { mode: 'publish' })).includes('I-MEDIA-SIZE'));
@@ -179,25 +179,25 @@ const WAIVED = { ...GOOD, gateWaivers: [{ rule: 'RE-DISC-001', path: '/contact',
 check('contract: a complete waiver is valid', validateContract(WAIVED).length === 0, JSON.stringify(validateContract(WAIVED)));
 check('waiver widens only the matching rule group', JSON.stringify(applyWaivers(WAIVED, 'RE-DISC-001', [['/privacy/', '/privacy-policy/'], ['/accessibility/']])) === '[["/privacy/","/privacy-policy/","/contact"],["/accessibility/"]]'
   && JSON.stringify(applyWaivers(WAIVED, 'GT-001', [['/privacy/']])) === '[["/privacy/"]]', JSON.stringify(applyWaivers(WAIVED, 'RE-DISC-001', [['/privacy/', '/privacy-policy/'], ['/accessibility/']])));
-// ELEV8 team categories (lead, 2026-10-28): group, sourced specialties, photo credit, licences (DRE/NMLS) on the real contract
+// Example A team categories (lead, 2026-10-28): group, sourced specialties, photo credit, licences (DRE/NMLS) on the real contract
 const { readFileSync } = await import('node:fs');
-const ELEV8 = JSON.parse(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'examples', 'elev8', 'contract.json'), 'utf8'));   // the real file, also under mutation runs
+const EXAMPLE_A = JSON.parse(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'examples', 'example-a', 'contract.json'), 'utf8'));   // the real file, also under mutation runs
 const src = (value) => ({ value, source: 'https://example.test/profile', date: '2026-10-28' });
 const member = (o = {}) => ({ name: 'Demo Agent', slug: 'demo-agent', role: 'Agent', group: 'agents', specialties: [{ name: src('buyers') }], photoCredit: 'Studio X',
   licences: [{ type: 'DRE', number: '00000000', status: 'active', source: 'https://example.test/dre', readOn: '2026-10-28' }], ...o });
-const tcodes = (d, mode = 'publish') => codes(validateItem(ELEV8, 'team', d, { mode }));
-check('ELEV8 team: a categorized member validates', tcodes(member()).length === 0, JSON.stringify(validateItem(ELEV8, 'team', member(), { mode: 'publish' })));
-check('ELEV8 team: group is required', tcodes(member({ group: undefined })).includes('I-REQUIRED'));
-check('ELEV8 team: group must be leadership/financing/agents', tcodes(member({ group: 'brokers' })).includes('I-ENUM'));
-check('ELEV8 team: a specialty needs a source and date', tcodes(member({ specialties: [{ name: 'buyers' }] })).includes('I-SOURCE'));
-check('ELEV8 team: specialty must be a known one', tcodes(member({ specialties: [{ name: src('luxury') }] })).includes('I-ENUM'));
-check('ELEV8 team: a licence needs its source URL and read date', tcodes(member({ licences: [{ type: 'NMLS', number: '1', status: 'active' }] })).includes('I-REQUIRED'));
-check('ELEV8 team: licence type is DRE or NMLS', tcodes(member({ licences: [{ type: 'CPA', number: '1', status: 'active', source: 'https://example.test/x', readOn: '2026-10-28' }] })).includes('I-ENUM'));
+const tcodes = (d, mode = 'publish') => codes(validateItem(EXAMPLE_A, 'team', d, { mode }));
+check('Example A team: a categorized member validates', tcodes(member()).length === 0, JSON.stringify(validateItem(EXAMPLE_A, 'team', member(), { mode: 'publish' })));
+check('Example A team: group is required', tcodes(member({ group: undefined })).includes('I-REQUIRED'));
+check('Example A team: group must be leadership/financing/agents', tcodes(member({ group: 'brokers' })).includes('I-ENUM'));
+check('Example A team: a specialty needs a source and date', tcodes(member({ specialties: [{ name: 'buyers' }] })).includes('I-SOURCE'));
+check('Example A team: specialty must be a known one', tcodes(member({ specialties: [{ name: src('luxury') }] })).includes('I-ENUM'));
+check('Example A team: a licence needs its source URL and read date', tcodes(member({ licences: [{ type: 'NMLS', number: '1', status: 'active' }] })).includes('I-REQUIRED'));
+check('Example A team: licence type is DRE or NMLS', tcodes(member({ licences: [{ type: 'CPA', number: '1', status: 'active', source: 'https://example.test/x', readOn: '2026-10-28' }] })).includes('I-ENUM'));
 // N3: every page the seed creates must arrive with a title + SEO text within the limits, or the first publish fails (422)
 check('seed: a page with no title/SEO is reported', seedGaps(GOOD).some(g => g.path === '/contact'), JSON.stringify(seedGaps(GOOD)).slice(0, 200));
 check('seed: an over-long SEO title is reported', seedGaps({ ...GOOD, pageSeeds: { ...(GOOD.pageSeeds || {}), '/contact': { title: 'Contact', seo: { title: 'x'.repeat(61), description: 'ok' } } } }).some(g => g.path === '/contact' && /60/.test(g.why)));
-check('seed: ELEV8 seeds every one of its pages completely', seedGaps(ELEV8).length === 0, JSON.stringify(seedGaps(ELEV8)).slice(0, 400));
-check('ELEV8 team: licences are locked (staff sign-off)', !!mergeCore(ELEV8).team.fields.licences?.locked);
+check('seed: Example A seeds every one of its pages completely', seedGaps(EXAMPLE_A).length === 0, JSON.stringify(seedGaps(EXAMPLE_A)).slice(0, 400));
+check('Example A team: licences are locked (staff sign-off)', !!mergeCore(EXAMPLE_A).team.fields.licences?.locked);
 check('item: a photo the processor has not finished blocks publish (N12)', codes(validateItem(GOOD, 'listings', forged, { mode: 'publish', media: () => ({ width: 2400, exifStripped: true, rightsConfirmed: true, processed: false }) })).includes('I-EXIF'));
 check('item I-MEDIA-UNKNOWN: photo with no uploaded file', codes(validateItem(GOOD, 'listings', forged, { mode: 'publish', media: () => null })).includes('I-MEDIA-UNKNOWN'));
 // a resolved contract (core merged, as stored for SQL) validates the same rows as the generated one (dry run 2.5 / 4.1)

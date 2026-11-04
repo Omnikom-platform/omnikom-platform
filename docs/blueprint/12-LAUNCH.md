@@ -2,7 +2,7 @@
 
 Status 2026-10-29. DECISIONS 16 (build once, launch by edits) and 19 (launch is a command with a ledger and a stop condition).
 The SOP in plain words: `sops/clients/launch.md`. The tool: the skill's `scripts/launch.mjs`, stage file `stages/launch.md`, proof
-`scripts/test-launch.mjs`. First instance: ELEV8 (`E:\Alex Sevilla\draft-site\LAUNCH-ENTERPRISE.md`).
+`scripts/test-launch.mjs`. First instance: Example A (`E:\Agent A\draft-site\LAUNCH-ENTERPRISE.md`).
 
 ## 1. Why a ledger
 Launch was a list in a document. A list has no end test: an agent stops when it feels done. The ledger is a file with one row
@@ -90,4 +90,4 @@ the fixture (noindex on and off, a missing redirect, a robots disallow) and of t
 - **NOT BUILT:** automated checks for the email DNS records, the end-to-end test lead and CrUX. They are OWNER-PROOF.
 - **NOT BUILT:** `start.mjs launch <target>`.
 - **UNPROVEN:** the live PageSpeed Insights call and the real Detailed SEO CLI through `launch.mjs` (tested against stand-ins).
-- **NOT DONE:** a run on a real site. ELEV8's ledger has not been started.
+- **NOT DONE:** a run on a real site. Example A's ledger has not been started.

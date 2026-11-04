@@ -78,7 +78,7 @@ lint is not shown to the owner. The rest are checked by eye in the section revie
 ## 10. Generated-look checks (ported from tasteskill)
 Source: tasteskill v2.1.5 by Leon Lin, https://github.com/Leonxlnx/taste-skill, MIT licence (read 2026-10-28: `scripts/lib/probe.mjs`,
 `references/tells.md`). Evaluation: `docs/research/design-addons-2026-10-28.md`. Taken over: the browser probes that measure a defect and
-its "tells" registry as advisory warnings. Each probe was rewritten for craft-lint, with the false positives it raised on ELEV8 fixed.
+its "tells" registry as advisory warnings. Each probe was rewritten for craft-lint, with the false positives it raised on Example A fixed.
 - **[lint] Edge text**: text that is wholly on screen sits >= 16 px from the left and right edges (rule in section 2, now measured). Text in a
   sideways scroller is exempt (section 8 wants a peek of the next card); screen-reader-only text is exempt.
 - **[lint] Broken image**: every `<img>` that finished loading has pixels.
@@ -96,7 +96,7 @@ its "tells" registry as advisory warnings. Each probe was rewritten for craft-li
   effortless, cutting-edge, all-in-one, game-changer, world-class ...); "not just X, it's Y"; emoji as icons or bullets. A tell is a device
   produced by default, everywhere, without a reason. Keep one only with a reason written in the design's DECISIONS.md.
 
-Advisory only, by decision. These tasteskill bans contradict directions the owner approved (ELEV8 v4 uses eyebrows, mono labels, hairline
+Advisory only, by decision. These tasteskill bans contradict directions the owner approved (Example A v4 uses eyebrows, mono labels, hairline
 rules, resting card shadows, a photo scrim and three families) or the owner's "whitespace first" rule, so they are not linted: hairlines
 and 1 px outlined boxes, resting shadows, glass, gradients, index numbering, more than two families, text under 13 px (section 3 allows
 12 px captions), empty screens and hero voids, "still page" (no motion) and "no footage". Raise them in the section review only when a

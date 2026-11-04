@@ -1,6 +1,6 @@
-# ELEV8 -> the contract
+# Example A -> the contract
 
-Sources (read only): approved plan `E:/Alex Sevilla/site-checks/elev8ca.com/.pewp/approved` (sitemap.json 31 pages, existing-pages.json
+Sources (read only): approved plan `E:/Agent A/site-checks/example-a.example/.pewp/approved` (sitemap.json 31 pages, existing-pages.json
 18 kept live pages, business.json), approved home design `draft-site/design/variants/v4.html`, `LISTINGS-DECISION.md`.
 Generated: `contract.json` (`node contracts/from-plan.mjs ...`), `screens.md`. Declared by hand: `entities.json`.
 
@@ -48,7 +48,7 @@ timing -> "Move Timeframe"). All need the locked consent notice `form-consent` (
 budget ranges · closing-form topics · consent wording · home-search address (Brivity subdomain unverified).
 
 ## Still to do outside this repo
-Add `/blog` to the approved plan in the ELEV8 project (it is declared here in `entities.json`).
+Add `/blog` to the approved plan in the Example A project (it is declared here in `entities.json`).
 
 ## Gate waivers and samples (2026-10-28, from the preview build)
 `/privacy_policy` stands in for RE-DISC-001's `/privacy/` (live URL kept; contract `gateWaivers`). Sample listings (`sample: true`) may use

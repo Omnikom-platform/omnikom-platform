@@ -379,7 +379,7 @@ node tools/audit/run.mjs <scratch>/dist-bad                 FAIL MET-003 /contac
                                                             FAILED: 7 page(s), 17 rule(s), 1 FAIL, 1 WARN, 0 SKIP               exit 1
 ```
 `ls <scratch>/dist`: `404.html _headers assets contact homes-in-alpha homes-in-beta index.html listings llms.txt media robots.txt sitemap.xml`.
-`robots.txt`: `User-agent: *` / `Allow: /` / `Sitemap: https://preview.test-site-demo-a.pages.dev/sitemap.xml`. `_headers` carries the ELEV8 security
+`robots.txt`: `User-agent: *` / `Allow: /` / `Sitemap: https://preview.test-site-demo-a.pages.dev/sitemap.xml`. `_headers` carries the Example A security
 block plus `X-Robots-Tag: noindex, nofollow` (preview) and the immutable cache line for `/assets/*`. The head's design decision (preview stays out of the
 index by header only, robots.txt always Allow + Sitemap so IDX-004 judges the files that deploy) is written in `factory/lib/launch.mjs` and the README.
 
@@ -401,7 +401,7 @@ escaped until the dashboard editor defines its tags (open item). (6) a page row 
 Files: `factory/README.md` (the export shape and the look-folder convention, written for slice 4.3 and the designs), `factory/build.mjs`,
 `factory/lib/{html,template,export,plan,design,launch,gates,site}.mjs`, `factory/test/{run,mutate,make-export}.mjs` +
 `fixtures/export-test-demo-a.json`, `sites/test-demo-a/` (plan, make-contract, contract, rows, media/logo.png, design). No dependency.
-Local only: nothing deployed, no network, `E:\Alex Sevilla` read only.
+Local only: nothing deployed, no network, `E:\Agent A` read only.
 
 **Watched red before any code existed (run.mjs written first; the one line seen).**
 ```
@@ -981,7 +981,7 @@ PREVIEW preview.test-site-demo-a.pages.dev/: HTTP 200; x-robots-tag "noindex, no
 No deploy step ran (no wrangler line, no deploy id), and the preview still shows deploy 1321b598's heading.
 
 **Done-when 3, ci.yml's workflows job on GitHub:** green on a303a89 and 8504771 (pasted above). Step 4 is DONE on the test site.
-Not covered, on purpose: the ELEV8 preview (its Pages project needs the owner's click; DECISIONS, head of operations' order of 2026-10-31).
+Not covered, on purpose: the Example A preview (its Pages project needs the owner's click; DECISIONS, head of operations' order of 2026-10-31).
 Findings: the sites row's `preview_host` on staging is the seed's placeholder `demo-a.preview.test` (the runner deploys to
 `preview.test-site-demo-a.pages.dev`; publish.mjs checks that address): for the CLI head's `seed test`. A row published on the SQL path skips
 publish validation and then breaks every later build of the site (the factory stops it, nothing deploys): open item.
@@ -1032,7 +1032,7 @@ consent wording and sample items stay in JS), layer one a trigger before insert 
   `MUTANT TARGET MISSING` was my own typo in a target, fixed). The existing fixtures that published bare rows were made complete (the test contract gained
   `required` on listings street and status and team name; a `pages` collection and a `home` page type for the seo, group, list, section rules); no assertion was weakened.
 - Parity: `node supabase/tests/publish-parity.mjs` ends `OK: 14469 items, SQL and JS agree on every required path` (6 contracts: core only, an inline stress contract,
-  sites/test-demo-a, elev8, rainmaker, vtv; every collection; every node of a complete item damaged ten ways). Watched red with a deliberate in-memory break:
+  sites/test-demo-a, example-a, example-c, example-d; every collection; every node of a complete item damaged ten ways). Watched red with a deliberate in-memory break:
   `--break seo-description` -> `FAILED: 696 of 14469 items differ between the JS validator and private.publish_problems (deliberate break: seo-description)` (`JS only: ["seo.description"]`);
   `--break group` -> `FAILED: 90 of 14469 items differ ... (deliberate break: group)` (`JS only: ["sections.cta.box.a"]`). Gate line added to `run-all-gates.mjs`.
 - Deno: `OK: 87 of 87 checks passed (the Deno tests), exit 0`; new check in db.test.ts (`I-NOT-READY` -> 422, its own code, plain words) and a mutant for it; mutants run on the
@@ -1447,7 +1447,7 @@ Each fixed item got a test that went red first, then green; database walls also 
 - N1 outsider learns field names: `service.contract_for` (404 before any validation), save/publish order fixed in docs + diagram (T12).
 - N2 reaper failed live deploys: counts from the last state change (running 30 min, queued 24 h); a reaped job whose deploy lands
   reconciles to done; a NULL in the transition check let an illegal jump through (found by the test, fixed).
-- N3 pages outside the plan seeded without title/SEO: contract `pageSeeds` + `seedGaps()`; ELEV8 seeds all 43 pages within the limits
+- N3 pages outside the plan seeded without title/SEO: contract `pageSeeds` + `seedGaps()`; Example A seeds all 43 pages within the limits
   (12 from the live backup, shortened; 4 drafted pages listed in `clientWording` for the client).
 - N4 publish shipped an unvalidated version: `start_publish` takes and pins the validated versions (T13).
 - N5 `deno check` broke with a root package.json: reproduced the exact `npm:@types/node` error, fixed with `deno.json`

@@ -14,14 +14,14 @@
     "intent": "home-value",
     "leadType": "seller"
   },
-  "consentText": "I agree that ELEV8 Real Estate Group may contact me about this request by email, phone or text message.",
+  "consentText": "I agree that Example A Realty Group may contact me about this request by email, phone or text message.",
   "hp": "",
   "flow": "home-value",
   "cta": "Get my home value",
   "assignee": "example-agent",
   "marketingConsent": {
     "given": false,
-    "text": "Send me market updates and news from ELEV8 Real Estate Group. I can unsubscribe at any time."
+    "text": "Send me market updates and news from Example A Realty Group. I can unsubscribe at any time."
   },
   "idempotencyKey": "00000000-0000-4000-8000-000000000000"
 }

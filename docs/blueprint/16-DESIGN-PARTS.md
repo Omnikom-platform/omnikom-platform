@@ -207,7 +207,7 @@ the keyboard map (Esc closes, Enter saves a note, Cmd+S saves), the accessibilit
 
 ### 2.1 What exists that makes this cheap (BUILT)
 The factory's partials are plain functions with no dependencies (`03-FRONTEND.md` A2): the same code runs in Node for the build
-and in a browser. The contract's `place()` and `publicData()` (`contracts/place.mjs`) decide what goes where. ELEV8's build
+and in a browser. The contract's `place()` and `publicData()` (`contracts/place.mjs`) decide what goes where. Example A's build
 already renders every page from `rows.json` through the same partials (`draft-site/site/build.mjs`). So a preview is "run the
 same render on draft rows", not a second rendering system.
 
@@ -223,7 +223,7 @@ same render on draft rows", not a second rendering system.
   Photos not yet processed show the original with a "preparing" mark.
 - Changed sections get a dashed outline (from a data attribute the renderer already emits per section id); clicking one scrolls
   the editor.
-- Time: under 100 ms per keystroke for ELEV8-size pages (UNPROVEN until W3.x measures it; the whole 42-page ELEV8 build takes
+- Time: under 100 ms per keystroke for Example A-size pages (UNPROVEN until W3.x measures it; the whole 42-page Example A build takes
   seconds in Node, one page in a Worker is far less).
 - Cost: zero server work. No publish, no job, nothing stored.
 What it takes: the design-package bundle per site (new build step, W2), the Worker-side render (reuses the factory's
@@ -238,7 +238,7 @@ environment and fails on any `fs`, `fetch` or `process` use).
   `preview | live`, default live). It is the same pipeline as a live publish (export with the draft versions pinned, build, the
   gates, deploy) but the target is the preview Worker and `published_version` never moves. A preview job that fails shows the
   same check lines, so the person sees what a real publish would say before pressing Publish.
-- Time: a full build (ELEV8: minutes, measured in W1.5). The sheet shows the steps; the person keeps working.
+- Time: a full build (Example A: minutes, measured in W1.5). The sheet shows the steps; the person keeps working.
 - The preview address is one per site and shows the latest preview job's output; the sheet shows "Preview from 14:02 (3
   changes)". A link with a 7-day token can be sent to the team.
 

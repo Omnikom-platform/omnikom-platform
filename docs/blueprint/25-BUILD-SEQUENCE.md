@@ -39,7 +39,7 @@ Done when: `STAGING_DB_URL` is in the .env and you tell me "staging is up".
 - [x] Settings > Actions: allow actions; Dependabot on for the repo. (DONE 2026-10-29: Actions enabled (allowed_actions all), Dependabot vulnerability alerts + automated security fixes PUT 204; members cannot create repos, default repo permission none)
 Done when: the repo is in the org and you tell me the org name.
 
-**1.3 Cloudflare tokens and R2** (the account that already holds `elev8-omnikom-website`)
+**1.3 Cloudflare tokens and R2** (the account that already holds `example-a-omnikom-website`)
 - [x] MFA on the account. Add a second member with admin rights (same reason as 1.1). (DONE 2026-10-29: email 2FA active on the new account; TOTP app added 02:38 (owner scanned the QR; backup codes moved into creds and accounts login/, git-ignored); second member: dave@omnikom.io invited as Super Administrator 01:43, status Pending until Dave accepts)
 - [x] Create API token `omnikom-pages-deploy`: permission Account > Cloudflare Pages > Edit, this account only, TTL 90 days. (DONE 2026-10-29: account API token omnikom-pages-deploy (Account API tokens, not a user token: survives the user; verified at /accounts/<id>/tokens/verify HTTP 200), Entire Account, Pages Write, 90 days, rolled once after a tool echoed its first value; banked as CLOUDFLARE_PAGES_TOKEN; CLOUDFLARE_ACCOUNT_ID written)
       Into the .env as `CLOUDFLARE_PAGES_TOKEN`.
@@ -48,7 +48,7 @@ Done when: the repo is in the org and you tell me the org name.
 - [ ] (DEFERRED 2026-10-30, owner: "is R2 necessary?" - not until step 4 media or step 6 backups; enabling R2 asks for a card on file; D9 stays open) R2: create bucket `omnikom-media` and bucket `omnikom-backups`; create an R2 API token with Object Read and Write on both;
       into the .env as `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`. (D9, R2 for media, is assumed yes here;
       say so if not.)
-- [ ] (DEFERRED to step 7 per DECISIONS 30: the ELEV8 project lives in the old Cloudflare account and is not touched before launch) Web Analytics: enable for the `elev8-omnikom-website` Pages project.
+- [ ] (DEFERRED to step 7 per DECISIONS 30: the Example A project lives in the old Cloudflare account and is not touched before launch) Web Analytics: enable for the `example-a-omnikom-website` Pages project.
 Done when: the three tokens and the R2 keys are in the .env.
 
 **1.4 Resend mail**
@@ -62,7 +62,7 @@ Done when: a test email from the Resend dashboard arrives.
 
 ## Step 2. The first lead is proven: through the platform's own CLI on a test workspace, to staging, to your inbox
 No client preview is a test vehicle (DECISIONS 30): the proof runs on the platform's seeded test workspaces A and B through the
-`omnikom` CLI (`26-PLATFORM-CLI.md`, slice 1, built by the `cli-slice-1` session). The ELEV8 preview is touched only in step 7.
+`omnikom` CLI (`26-PLATFORM-CLI.md`, slice 1, built by the `cli-slice-1` session). The Example A preview is touched only in step 7.
 1. `omnikom apply --target staging` (the four migrations through `apply-staging.mjs`); `omnikom test walls --target staging`
    (`run-staging.mjs`). First time the walls run on real Supabase (closes REVIEW 15 and the UNPROVEN items in 21-PROTOCOLS 7).
 2. `omnikom seed test --target staging`: workspaces A and B, their sites (`test-site-demo-a` with `lead_alert_to` = your
@@ -85,10 +85,10 @@ Still open from this step: `S-SITE-PAUSED` answers 500 over HTTP (recorded, not 
 (the builder's part 2).
 Done when: the `verify` output (every line PASS) is pasted in PROGRESS.md and you have the email. Until slice 1 of the CLI lands,
 the same proof runs with the scripts directly (`apply-staging.mjs`, `run-staging.mjs`, a seed SQL, `mint-site-key.mjs`,
-`e2e-lead.mjs` pointed at a test site instead of the ELEV8 preview). ESTIMATE: one session, two if a vendor behaves differently
+`e2e-lead.mjs` pointed at a test site instead of the Example A preview). ESTIMATE: one session, two if a vendor behaves differently
 from its docs (the signed path string, the pooler, Vault from a function are the three UNVERIFIED points).
 Collision rule for the two sessions running now: the setup assistant owns step 1 and the staging project; the CLI builder owns
-`tools/omnikom-cli/`; neither touches the ELEV8 Pages project.
+`tools/omnikom-cli/`; neither touches the Example A Pages project.
 
 ## Step 3. The database is finished: the hardening leftovers (me)
 Migration 5 (security events, consent ledger and suppressions, privacy requests, workspace lifecycle, per-workspace quotas,
@@ -114,15 +114,15 @@ leftovers are migrations 7 (`20261030000007_hardening_leftovers.sql`) and 8 (`20
 Done when, observed: `run-all-gates.mjs` "all gates passed" (161 database mutants), `test walls` PASS on staging again, the three verify
 suites PASS on the restored fixtures.
 
-## Step 4. Sites build themselves: the build machine, ELEV8 first (me, with Sonnet builders; you review previews)
-The factory ported from ELEV8's build script (rows in, pages out), `publish.yml` (export, build, gates, `wrangler pages
+## Step 4. Sites build themselves: the build machine, Example A first (me, with Sonnet builders; you review previews)
+The factory ported from Example A's build script (rows in, pages out), `publish.yml` (export, build, gates, `wrangler pages
 deploy`, callback), `ci.yml` (every test and scan on every change), `media.yml` (photo sizes, EXIF off), `backup.yml`,
 `keepalive.yml`, the remaining Edge Functions (save, publish, export-published, job-callback, upload, lead-update, add-lead).
-Done when: a content change made by a database save publishes to the ELEV8 preview through GitHub and the preview shows it;
+Done when: a content change made by a database save publishes to the Example A preview through GitHub and the preview shows it;
 a forced gate failure deploys nothing. ESTIMATE: four to six sessions.
 STATUS 2026-10-31 11:50: DONE on the test site (Pages project test-site-demo-a, staging), PROGRESS.md "4.5 done-when on the test
 site": a save reached the preview through GitHub (job 3f0a94e5), a forced heading failure deployed nothing (job c8b1ca8d failed).
-The ELEV8 preview half waits on the owner's click (its Pages project).
+The Example A preview half waits on the owner's click (its Pages project).
 
 ## Step 5. Clients can work: the dashboard (me, after you bring the design references, DECISIONS 21)
 The four screens on the engineered plan (15-CRM, 16-DESIGN-PARTS): sign in, Leads with the lead panel and "add a lead",
@@ -136,10 +136,10 @@ secrets, backups to R2 plus a second copy elsewhere, the monthly restore drill, 
 rotation reminder, the production keep-alive. Done when: a promote run applies a proven commit to production and the restore
 drill passes. ESTIMATE: two sessions plus your account clicks.
 
-## Step 7. ELEV8 is live on its domain (you with the client; me with the launch ledger)
-First the preview's lead endpoint: replace the ELEV8 Pages Function stub with `factory/worker/pages-function-lead.js` +
+## Step 7. Example A is live on its domain (you with the client; me with the launch ledger)
+First the preview's lead endpoint: replace the Example A Pages Function stub with `factory/worker/pages-function-lead.js` +
 `lead-endpoint.mjs`, set `SITE_ID`, `PLATFORM_BASE` and the encrypted `SITE_SIGNING_KEY` on the Pages project (your yes: it is
-the live preview), and `omnikom lead send --site elev8` proves it, the same way step 2 proved the test site. Then the launch
+the live preview), and `omnikom lead send --site example-a` proves it, the same way step 2 proved the test site. Then the launch
 ledger (sops/clients/launch.md): zone in Cloudflare, nameservers changed by the client (DECISIONS 26), mail records copied
 and checked, Search Console verified by the service account, sitemap submitted, noindex off, headers and speed gates on the
 live site, the end-to-end lead on the live site. Done when: every ledger item is PASS with its output line.

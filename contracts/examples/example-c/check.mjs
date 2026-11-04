@@ -1,8 +1,8 @@
-// Rainmaker proof run: do its real pages fit the contract generated from its approved plan? READ ONLY on E:/Rainmaker.
-//   node examples/rainmaker/check.mjs [--site E:/Rainmaker]
+// Example C proof run: do its real pages fit the contract generated from its approved plan? READ ONLY on E:/Example C.
+//   node examples/example-c/check.mjs [--site E:/Example C]
 // Checks: every source page maps to exactly one contract page (and back); each page's real title + description pass the
 // contract's SEO rules; every product page carries its product disclosure block (the text that becomes a locked notice);
-// the notices the forms need are named. Prints counts and codes only; no Rainmaker copy is written into this repo.
+// the notices the forms need are named. Prints counts and codes only; no Example C copy is written into this repo.
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,7 +10,7 @@ import { validateContract, validateItem } from '../../validate.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const i = process.argv.indexOf('--site');
-const SITE = i > 0 ? process.argv[i + 1] : 'E:/Rainmaker';
+const SITE = i > 0 ? process.argv[i + 1] : 'E:/Example C';
 const ci = process.argv.indexOf("--contract");
 const contract = JSON.parse(readFileSync(ci > 0 ? process.argv[ci + 1] : join(HERE, "contract.json"), "utf8"));
 const cp = validateContract(contract);

@@ -3,7 +3,7 @@
 Written 2026-10-31 00:05 by the head of the Platform build department (session `local_cade0add-3389-4314-b7b5-83333d26a97a`).
 You report to that head only (your final message is your report). Anything outside this brief is a finding you send back with
 options, never a fix. You edit only: `factory/**` (except `factory/worker/**` and `factory/briefs/**`), `sites/test-demo-a/**`,
-and your own paragraph under "## Step 4" in `docs/blueprint/PROGRESS.md`. Nothing in `E:\Alex Sevilla` is ever written (read-only).
+and your own paragraph under "## Step 4" in `docs/blueprint/PROGRESS.md`. Nothing in `E:\Agent A` is ever written (read-only).
 No em dash character anywhere. No dependency (Node 20 built-ins only). Scripts go in files, never inline `node -e`.
 
 ## Read first, in order (file:line matters; do not skim)
@@ -18,8 +18,8 @@ No em dash character anywhere. No dependency (Node 20 built-ins only). Scripts g
    staging (team, listings, settings, leads). Read-only for you.
 6. `tools/audit/README.md` (the publish gate your output must pass: 14 rules), `tools/audit/fixtures/good/` (a site that passes:
    copy its head shape, its JSON-LD `@graph` with Organization, WebSite, WebPage, its robots.txt and sitemap). Read-only for you.
-7. The ELEV8 build you port from, read-only: `E:\Alex Sevilla\draft-site\site\build.mjs` (609 lines: how pages are emitted, the
-   `_headers`, robots, sitemap, llms.txt, the writing-gate checks), `E:\Alex Sevilla\draft-site\site\lib\render.mjs` (71 lines, the
+7. The Example A build you port from, read-only: `E:\Agent A\draft-site\site\build.mjs` (609 lines: how pages are emitted, the
+   `_headers`, robots, sitemap, llms.txt, the writing-gate checks), `E:\Agent A\draft-site\site\lib\render.mjs` (71 lines, the
    logic-less template renderer you port verbatim), `lib\content.mjs` (how rows are validated: draft and publish), `lib\wg.mjs`.
 
 ## What exists and what you make
@@ -46,8 +46,8 @@ line per DECISIONS 31), `sections/<section-id>.mjs` (default export `render({ se
 Templates as `.html` partials (the ported Mustache-subset renderer) are allowed inside a partial module; the module decides.
 
 ### 2. `factory/lib/html.mjs`, `factory/lib/template.mjs`
-`html` tagged template: every interpolated value is escaped unless wrapped by `raw()`; arrays join. `template.mjs` = the ELEV8
-`lib/render.mjs` ported with its header comment kept and the source path named ("ported from E:\Alex Sevilla\draft-site\site\lib\render.mjs
+`html` tagged template: every interpolated value is escaped unless wrapped by `raw()`; arrays join. `template.mjs` = the Example A
+`lib/render.mjs` ported with its header comment kept and the source path named ("ported from E:\Agent A\draft-site\site\lib\render.mjs
 2026-10-31; the same partials move into the platform unchanged"): `{{a.b}}` `{{{a.b}}}` `{{.}}` `{{#a}}` `{{^a}}` `{{?a}}` `{{>name}}`,
 a missing value throws. Tests for each tag and for the throw.
 
@@ -66,7 +66,7 @@ Steps (03-FRONTEND A3), each one a function in `factory/lib/*.mjs` so the tests 
    `sections[id]`, `feed` = the placed row ids resolved to `publicData(contract, collection, data)` (internal fields never reach a template),
    `form` = `contract.forms[section.form]`; then `shell.mjs`. Item pages through `item/<collection>.mjs`. `404.html` at the root with
    root-absolute paths.
-5. Launch layer (`factory/lib/launch.mjs`): `_headers` with the security lines of the ELEV8 build (HSTS, nosniff, Referrer-Policy,
+5. Launch layer (`factory/lib/launch.mjs`): `_headers` with the security lines of the Example A build (HSTS, nosniff, Referrer-Policy,
    Permissions-Policy, X-Frame-Options DENY, COOP same-origin, CSP, `/assets/*` immutable cache) and, on a preview build only,
    `X-Robots-Tag: noindex, nofollow`; `robots.txt` ALWAYS `User-agent: *` / `Allow: /` / `Sitemap: <origin>/sitemap.xml` (decision of the
    head, 2026-10-31: the audit engine's IDX-004 judges robots.txt and must judge the same files that deploy, so the preview is kept out
