@@ -33,6 +33,7 @@ ${page.kind === '404' ? '' : html`<link rel="canonical" href="${url}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${title}">
 <meta property="og:description" content="${page.description}">
+${logo ? html`<link rel="icon" href="${logo.url}">` : ''}
 ${assets.css.map((h) => html`<link rel="stylesheet" href="${h}">`)}
 <script type="application/ld+json">
 ${json({ '@context': 'https://schema.org', '@graph': graph })}

@@ -4,8 +4,14 @@ What it is: `lead-endpoint.mjs`, one handler that takes the form's JSON, refuses
 key and forwards it to the platform's `capture-lead`; `pages-function-lead.js` wraps it as a Cloudflare Pages Function.
 Design: `docs/blueprint/14-LEAD-PATH.md` section 2; answers and wording: `sops/site-endpoints.md` 2.3. No dependencies.
 
-Prove it: `node factory/worker/test/run.mjs` (17 checks; the signature is verified with the platform's own `verify`) and
-`node factory/worker/test/mutate.mjs` (15 mutants, each must be caught).
+The plain browser form (`application/x-www-form-urlencoded`, no script; brief 5-L) is accepted as well: its fields become the same
+JSON a script sends (names in `TOP` are LeadRequest fields, the rest go to `answers`; `consentText` is forwarded only with the
+`consent` box ticked; `marketingConsent` becomes `{ given, text }`), that JSON is what is signed and forwarded, and the answer is a page:
+303 (post-redirect-get) to `THANKS_PATH` when the site has a thank-you page, otherwise to `GET /api/lead?sent=1`, a small thank-you page the same function serves (every other GET stays 405); a worded list of problems with a link back;
+the plain-words messages as HTML. JSON callers are unchanged.
+
+Prove it: `node factory/worker/test/run.mjs` (the signature is verified with the platform's own `verify`) and
+`node factory/worker/test/mutate.mjs` (every mutant must be caught).
 
 ## Putting it on a site (the ELEV8 preview first, DECISIONS 25)
 1. The site exists in the staging database (`sites` row) and has a signing key:

@@ -113,5 +113,111 @@ await check('only a 202 becomes sent: a 200 from the platform does not', async (
   const j = await r.json(); assert.equal(j.sent, false);
 });
 
+// ---- brief 5-L: the plain browser form (application/x-www-form-urlencoded, no script) ----
+// What the factory's form partial posts (sites/test-demo-a/design/sections/form.mjs): the LeadRequest's own names, the contact
+// consent as a tick-box plus the wording shown, the marketing consent the same way.
+const formFields = { form: 'contact', page: '/', name: 'Lead A', email: 'a@example.test', consent: 'yes', consentText: 'I agree', hp: '', idempotencyKey: lead.idempotencyKey };
+const formPost = (fields, init = {}) => new Request('https://site.test/api/lead', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(fields).toString(), ...init });
+const typeOf = (r) => r.headers.get('content-type') || '';
+const textOf = (r) => r.text();
+
+await check('a plain form post forwards the same JSON a script sends, signed over that body, and a sent one is answered 303 (post-redirect-get)', async () => {
+  const pj = platform(202), pf = platform(202);
+  await handler(pj)(post(lead));
+  const r = await handler(pf)(formPost(formFields));
+  assert.equal(pf.seen.length, 1);
+  assert.deepEqual(JSON.parse(pf.seen[0].init.body), JSON.parse(pj.seen[0].init.body), 'same object as the JSON caller');
+  assert.equal(pf.seen[0].init.headers['content-type'], 'application/json');
+  assert.ok(await verify(pf.seen[0].init.headers['x-site-signature'], KEY, 'POST', `/capture-lead?site=${SITE}`, pf.seen[0].init.body, NOW), 'the platform verifies the signature over the forwarded JSON');
+  assert.equal(r.status, 303); assert.equal(r.headers.get('location'), '/api/lead?sent=1'); assert.doesNotMatch(typeOf(r), /json/);
+});
+await check('the thank-you page: GET /api/lead?sent=1 is 200 HTML, noindex and no-store, and says the message was sent', async () => {
+  const p = platform(202);
+  const r = await handler(p)(new Request('https://site.test/api/lead?sent=1'));
+  assert.equal(r.status, 200); assert.match(typeOf(r), /^text\/html/);
+  assert.equal(r.headers.get('x-robots-tag'), 'noindex, nofollow'); assert.equal(r.headers.get('cache-control'), 'no-store');
+  const h = await textOf(r); assert.match(h, /Thank you/); assert.match(h, /Your message was sent\./); assert.match(h, /Back to the site/); assert.doesNotMatch(h, /Back to the form/); assert.equal(p.seen.length, 0, 'a GET forwards nothing');
+});
+await check('every other GET stays 405 JSON, and nothing is forwarded', async () => {
+  for (const u of ['https://site.test/api/lead', 'https://site.test/api/lead?sent=0', 'https://site.test/api/lead?x=1']) {
+    const p = platform(202); const r = await handler(p)(new Request(u));
+    assert.equal(r.status, 405, u); assert.match(typeOf(r), /json/, u); assert.equal(p.seen.length, 0);
+  }
+  const put = await handler(platform(202))(new Request('https://site.test/api/lead?sent=1', { method: 'PUT' })); assert.equal(put.status, 405, 'only a GET gets the thank-you page');
+});
+await check('with THANKS_PATH set, a sent plain form post answers 303 there instead; a bad path falls back to the default thank-you GET', async () => {
+  const r = await handler(platform(202), { thanksPath: '/thanks/' })(formPost(formFields));
+  assert.equal(r.status, 303); assert.equal(r.headers.get('location'), '/thanks/'); assert.equal(r.headers.get('cache-control'), 'no-store');
+  assert.equal(r.headers.get('x-robots-tag'), 'noindex, nofollow'); assert.doesNotMatch(typeOf(r), /json/);
+  const bad =await handler(platform(202), { thanksPath: 'https://evil.test/' })(formPost(formFields));
+  assert.equal(bad.status, 303); assert.equal(bad.headers.get('location'), '/api/lead?sent=1');
+  const refused = await handler(platform(400, { problems: [{ code: 'X', path: '', msg: 'no' }] }), { thanksPath: '/thanks/' })(formPost(formFields));
+  assert.equal(refused.status, 400, 'only a sent lead redirects');
+  const j = await handler(platform(202), { thanksPath: '/thanks/' })(post(lead)); assert.equal(j.status, 200, 'a JSON caller is never redirected');
+});
+await check('a plain form post carries the contact consent: ticked sends consentText, not ticked sends none', async () => {
+  const p = platform(202); await handler(p)(formPost(formFields));
+  assert.equal(JSON.parse(p.seen[0].init.body).consentText, 'I agree');
+  const { consent, ...unticked } = formFields;
+  const q = platform(400, { status: 400, problems: [{ code: 'REQUIRED', path: 'consentText', msg: 'This is needed.' }] });
+  const r = await handler(q)(formPost(unticked));
+  assert.equal('consentText' in JSON.parse(q.seen[0].init.body), false, 'no consentText without the tick');
+  assert.equal(r.status, 400); assert.match(await textOf(r), /Consent: This is needed\./);
+});
+await check('a plain form post carries the marketing consent as { given, text }, given false when its box is empty, and the form\'s other fields as answers', async () => {
+  const sent = async (extra) => { const p = platform(202); await handler(p)(formPost({ ...formFields, ...extra })); return JSON.parse(p.seen[0].init.body); };
+  assert.deepEqual((await sent({ marketingConsent: 'yes', marketingConsentText: 'Send me news' })).marketingConsent, { given: true, text: 'Send me news' });
+  assert.deepEqual((await sent({ marketingConsentText: 'Send me news' })).marketingConsent, { given: false, text: 'Send me news' });
+  assert.equal('marketingConsent' in await sent({}), false);
+  const body = await sent({ marketingConsent: 'yes', marketingConsentText: 'Send me news', message: 'Hello there', phone: '555' });
+  assert.deepEqual(body.answers, { message: 'Hello there' }); assert.equal(body.phone, '555'); assert.equal('consent' in body, false); assert.equal('message' in body, false);
+});
+await check('a bad field gives a page that names each problem in words, escaped, with a link back to the form', async () => {
+  const p = platform(400, { status: 400, problems: [{ code: 'EMAIL', path: 'email', msg: 'Enter an email like name@example.com' }, { code: 'X', path: 'phone', msg: '<script>alert(1)</script>' }] });
+  const r = await handler(p)(formPost({ ...formFields, page: '/contact/', email: 'nope' }));
+  assert.equal(r.status, 400); assert.match(typeOf(r), /^text\/html/);
+  const h = await textOf(r);
+  assert.match(h, /<li>Email: Enter an email like name@example\.com<\/li>/); assert.match(h, /<li>Phone: &lt;script&gt;alert\(1\)&lt;\/script&gt;<\/li>/);
+  assert.doesNotMatch(h, /<script>/); assert.match(h, /<a href="\/contact\/">Back to the form<\/a>/);
+});
+await check('the link back is only ever a path on this site', async () => {
+  for (const page of ['https://evil.test/', '//evil.test/', 'javascript:alert(1)', '/a"b']) {
+    const h = await textOf(await handler(platform(400, { problems: [{ code: 'X', path: '', msg: 'no' }] }))(formPost({ ...formFields, page })));
+    assert.match(h, /<a href="\/">Back to the form<\/a>/, page);
+  }
+});
+await check('every other outcome of a plain form post is a page with the plain-words message, never JSON', async () => {
+  const cases = [[429, /minute/], [409, /call or email/], [401, /call or email/], [500, /Nothing was sent\. Go back and try again/]];
+  for (const [status, re] of cases) {
+    const r = await handler(platform(status, {}))(formPost(formFields));
+    assert.match(typeOf(r), /^text\/html/, String(status)); assert.match(await textOf(r), re, String(status));
+  }
+  const u = await makeLeadHandler({ siteId: SITE, signingKey: KEY, platformBase: BASE, fetchImpl: async () => { throw new Error('ECONNRESET'); } })(formPost(formFields));
+  assert.equal(u.status, 502); assert.match(typeOf(u), /^text\/html/); const uh = await textOf(u); assert.match(uh, /Nothing was sent\. Go back and try again/); assert.doesNotMatch(uh, /answers are still here/i);
+  const n = await makeLeadHandler({ siteId: SITE, signingKey: '', platformBase: BASE })(formPost(formFields));
+  assert.equal(n.status, 503); assert.match(typeOf(n), /^text\/html/); assert.match(await textOf(n), /call or email/);
+});
+await check('a plain form post over the cap is refused with a page and nothing is forwarded', async () => {
+  const p = platform(202); const r = await handler(p)(formPost({ ...formFields, message: 'x'.repeat(20000) }));
+  assert.equal(r.status, 413); assert.match(typeOf(r), /^text\/html/); assert.equal(p.seen.length, 0);
+});
+await check('a filled honeypot is refused on both paths: nothing is forwarded, a page for the form and JSON for the script', async () => {
+  const p = platform(202);
+  const f = await handler(p)(formPost({ ...formFields, hp: 'http://spam' }));
+  assert.equal(f.status, 400); assert.match(typeOf(f), /^text\/html/); assert.match(await textOf(f), /Something is missing/);
+  const j = await handler(p)(post({ ...lead, hp: 'http://spam' }));
+  assert.equal(j.status, 400); assert.match(typeOf(j), /json/); assert.equal(p.seen.length, 0);
+});
+await check('every page answer carries noindex and no-store', async () => {
+  for (const r of [await handler(platform(202))(formPost(formFields)), await handler(platform(400, {}))(formPost(formFields)), await handler(platform(202))(formPost({ ...formFields, hp: 'x' }))]) {
+    assert.equal(r.headers.get('x-robots-tag'), 'noindex, nofollow'); assert.equal(r.headers.get('cache-control'), 'no-store');
+  }
+});
+await check('a JSON post is unchanged: JSON in the answer, the body forwarded byte for byte', async () => {
+  const p = platform(202); const r = await handler(p)(post(lead, { headers: { 'content-type': 'application/json' } }));
+  assert.match(typeOf(r), /json/); assert.deepEqual(await r.json(), { sent: true }); assert.equal(p.seen[0].init.body, JSON.stringify(lead));
+  const bad = await handler(platform(500, {}))(post(lead)); assert.match(typeOf(bad), /json/);
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
