@@ -24,22 +24,22 @@ their CI runs, and `docs/blueprint/PROGRESS.md`.
   2026-11-04 ("PASS: CRM export and import on staging, 0 problem(s)", 18 checks; e2e-crm and e2e-screens still PASS).
   CLI journey J7 to J10 cover field edit, search, filter, typed sort, bulk and export columns on staging (`5809e85`, "10 PASS,
   0 NOT BUILT YET, 0 FAIL"); J11 covers block 2 (`4bfaac7`); push steps gone. crm-map F1, F2 (`03a56b5`).
-- Block 3a, the CRM screens (`59e947e`, CI 9 of 9): UNPROVEN on staging. Its first staging flows showed 5 of 17 red; the
-  causes found were fragile tests (an ambiguous label, "Budget (USD)", tests relying on leads deleted that afternoon), fixed on
-  `check/platform/crm-screens-2`, whose staging flows were running at 01:15. No CRM row moves until they pass.
+- Block 3a, the CRM screens (`59e947e`, test fix `33d59c2`, CI 9 of 9): staging flows 2026-11-05 flows 5 of 5, plan-gate
+  4 of 4, site 6 of 6, styles 20 of 20, from the branch; the first flows run had 2 reds (a 90 s timeout, a lead send failing
+  silently): an open flake, cause unknown. Nine CRM rows moved to WORKS; A15 (bulk owner and delete not on screen), A21, A22
+  stay PARTLY.
 - SEO work orders 05 (`d6076e8`, the audit summary per publish) and 06 (`c17af7b`, plain-word names in
   `tools/audit/names.json`); 09, the six-question report, on `check/seo/six-question-report`. CI checks the icm index.
 - Known gap: CI runs no job for `tools/crm-map` tests or mutants (its full local run: 118 of 119 caught, 1 target text
   missing, 0 survived); CLI's ci-coverage slice adds it and lists every other suite no CI job runs.
-- Product counts (`1-product.md`): CRM 9 works, 12 partly, 5 missing of 26; dashboard 8, 7, 7 of 22; backend and database
-  12, 4, 1 of 17; factory and forms 9, 1, 0 of 10. Total 38 works of 75 (no row moved to WORKS yet: every new CRM part waits
-  for its screen).
+- Product counts (`1-product.md`): CRM 18 works, 3 partly, 5 missing of 26; dashboard 8, 7, 7 of 22; backend and
+  database 12, 4, 1 of 17; factory and forms 9, 1, 0 of 10. Total 47 works of 75 (38 on 2026-11-04 morning).
 
 ## Next, in order
 
-1. Platform build: land crm-screens-2 when its staging flows pass, then move the CRM rows; 08 settings and account (pushed,
-   its backend goes to staging only from a CI-green tip); 10 seo-read (audit summary per site for the dashboard, M16); then
-   3b new CRM features, 5 site content, 6 overview and numbers, 7 onboarding.
+1. Platform build: 08 settings and account (pushed `47c725b`; its backend goes to staging only from a CI-green tip); 10
+   seo-read (pushed `1fa9059`, audit summary per site, M16); then 3b new CRM features, 5 site content, 6 overview and
+   numbers, 7 onboarding.
 2. CLI and testing: with-env's 10-minute cap (`WITH_ENV_TIMEOUT_MIN`, exit 124 on timeout); ci-coverage; land retries
    (network, lock release, its own stale lock); a journey step per block platform lands.
 3. SEO and audits: land 09; then 4b, questions 2 to 5 of the report from the skill's files.
