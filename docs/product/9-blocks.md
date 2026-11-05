@@ -70,9 +70,53 @@ NOT BUILT YET, never a pass. Steps today: J1 accounts, J2 sign-in, J3 publish, J
 J6 lead in the CRM, J7 export. Every slice that adds a user-facing feature adds its journey step in the same slice, and the
 journey removes its own test leads. The old push steps (a CRM test sink, a lead pushed to a CRM) are dropped.
 
+## Hardening steps (enterprise gaps, found 2026-11-05)
+
+Each step brings today's code up to `11-rules.md` 30-36 and closes a row of `1-product.md` part E. Evidence (path:line) and
+the full reasoning: `work/11-enterprise-audit/CONTEXT.md`. Stage: **H0** now, cheap and dangerous; **H1** before the first
+real client's traffic or data; **H2** before about 50 tenants or 50,000 leads in one tenant; **H3** later. A department
+starts its next slice from its lowest open stage. A step lands with its test and mutant, and moves its part E row.
+
+| Step | Stage | The gap, in short | Owner | Row |
+|---|---|---|---|---|
+| H0-1 | H0 | the stale-job reaper is never scheduled; a stuck job blocks every later publish of that site | platform build | E4 |
+| H0-2 | H0 | bad-signature posts add undeletable security_events rows; a flood fills the Free plan's size cap | platform build | E5 |
+| H0-3 | H0 | build and audit run with RUNNER_KEY and the account-wide Pages token in their environment | platform build | E9 |
+| H0-4 | H0 | the media bucket has no size or type limit; direct inserts skip upload-start's caps | platform build | E10 |
+| H0-5 | H0 | the dispatch token can write the repo whose workflows hold the Cloudflare token; master unprotected (UNVERIFIED) | platform build | E9 |
+| H0-6 | H0 | the book's counts are typed by hand; a check in `tools/icm` recomputes them, checks WORKS paths and step owners | head of operations | E20 |
+| H1-1 | H1 | no backup of any kind: database, media, Vault; Free plan (the plan is the owner's call) | platform build | E1 |
+| H1-2 | H1 | production does not exist; no scripted bring-up of dashboard, secrets, Auth settings, runner | platform build | E2 |
+| H1-3 | H1 | alerts go nowhere; no error reporting, no request id | platform build | E3 |
+| H1-4 | H1 | lead alerts can be lost: no outbox worker, Resend has no timeout; KNOWN-4 the form waits for mail, quota is `count(*)` | platform build | E4 |
+| H1-5 | H1 | dashboard: no CSP or security headers, no error boundary | platform build | E7 |
+| H1-6 | H1 | a live publish goes live before its smoke; no rollback; the smoke reads only the title | platform build | E8 |
+| H1-7 | H1 | staff reads are not audited; session and refresh settings unread | platform build | E11 |
+| KNOWN-1 | H1 | the public form has no per-visitor limit or bot check; the site endpoint signs anything and forwards no visitor IP | platform build | E5 |
+| KNOWN-2 | H1 | a direct Postgres connection per function call | platform build | E6 |
+| KNOWN-5 | H1 | dashboard: no cache rules, 3 realtime channels per tab | platform build | E7 |
+| KNOWN-3 | H2 | lead_list scans the whole workspace, offset paging, industry fields in jsonb | platform build | E13 |
+| H2-1 | H2 | no retention or partitioning on append-only tables | platform build | E12 |
+| H2-2 | H2 | every publish ships the whole media library; one Actions run per photo | platform build | E13 |
+| H2-3 | H2 | RLS helpers run once per row | platform build | E13 |
+| H2-4 | H2 | publish validation is a round trip per row; export holds 5,001 rows in memory | platform build | E13 |
+| H2-5 | H2 | one global RUNNER_KEY and an account-wide Pages token (ADR 0011): OIDC and per-project tokens | platform build | E9 |
+| H2-6 | H2 | no offboarding: data export, Pages project, Storage, Vault keys, domain | platform build | E14 |
+| H2-7 | H2 | client Pages projects, domains and keys made by hand; `sites.domain` not unique | platform build | E15 |
+| H2-8 | H2 | erasure blocked by NO ACTION foreign keys to auth.users; privacy requests are only tickets | platform build | E14 |
+| H2-9 | H2 | no limits on sites, media bytes or publishes; no billing | platform build | E16 |
+| H2-10 | H2 | no dependency scan; CI installs with `--no-audit` | CLI and testing | E17 |
+| H2-11 | H2 | key rotation only reported, and RUNNER_KEY is one value: accept two keys | platform build | E9 |
+| H2-12 | H2 | restore drill manual; runbooks R1-R5 only in the archive | platform build | E1 |
+| H2-13 | H2 | richtext accepted as any string; no sanitiser; no gate on `raw()` for tenant fields | platform build | E18 |
+| H2-14 | H2 | migrations: no lock lint, no expand-contract, no CONCURRENTLY possible | platform build | E19 |
+| H2-15 | H2 | mail: no bounce or complaint handling, no erasure executor | platform build | E21 |
+| H3 | H3 | the audit's remaining items (C3, U0, U3, U4, U6-U10, U12, U13, U15, U16, U20, U24, U30-U34) | each area's owner | as found |
+
 ## What each department builds next
 
-CRM first; inside each block the backend first. A block is done when the code on master does it on the test site.
+Hardening first: each department starts from its lowest open stage above (H0, then H1), then its feature blocks. CRM
+first; inside each block the backend first. A block is done when the code on master does it on the test site.
 - **Head of operations:** this book; the work-order layout in `work/` and `work/STATE.md`; the indexer and code map run on
   every edit, session start, commit and in CI; the librarian reading the index; cleanup of the old logs, charters and
   leftover worktrees.
@@ -84,4 +128,9 @@ CRM first; inside each block the backend first. A block is done when the code on
   import a file); one journey step per new feature, failing at that step when it breaks; tooling fixes only when a check blocks
   a landing.
 - **SEO and audits:** audit results stored per site for the dashboard; the six-question site report; AI-prompt coverage.
+- **omnikom.ai, the platform's own website (owner, 2026-11-05):** planned and built through the same procedure as a client
+  site: the SEO skill's research and prompt map, an approved plan and design, the factory build, every audit gate green
+  (programmatic SEO, AEO and GEO correctness, speed, accessibility), static on Cloudflare under the rules in `11-rules.md`
+  "Built to scale". Contact and mail addresses on omnikom.ai. Planning starts with the domain setup; DNS and the Resend
+  domain need the owner's click.
 - **Clients:** nothing until the product works on the test site.

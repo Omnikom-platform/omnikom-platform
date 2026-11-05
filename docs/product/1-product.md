@@ -128,6 +128,31 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | D9 Site endpoint settings checked before a deploy | WORKS | `factory/runner/publish.mjs` |
 | D10 Contract lead fields flow into the CRM | WORKS | a lead posted through the published form reaches the CRM typed, in its own columns, in form order; e2e-crm on staging 2026-11-03 |
 
+### E. Hardening (enterprise grade; owner 2026-11-05, steps in `9-blocks.md`, evidence in `work/11-enterprise-audit/`)
+| Feature | State | Missing half, or where it lives |
+|---|---|---|
+| E1 Backups and restore: database, media, Vault; a scheduled restore drill | MISSING | `backup.yml` off, production backup not installed, media and Vault in no dump (H1-1, H2-12) |
+| E2 Production made from staging by script (dashboard, secrets, Auth settings, runner) | MISSING | `promote.yml` covers migrations and functions only (H1-2) |
+| E3 Monitoring: alerts delivered, error reporting, a request id per call | PARTLY | alerts computed hourly on staging, delivered nowhere (H1-3) |
+| E4 Background jobs: the stale-job reaper scheduled, a mail outbox worker, retries | MISSING | the reaper exists, nothing schedules it; no outbox (H0-1, H1-4) |
+| E5 Abuse protection: per-visitor limits and a bot check at the edge; bounded security events | MISSING | the site endpoint signs any body (H0-2, KNOWN-1) |
+| E6 Pooled database connections for every function | MISSING | a direct connection per call (KNOWN-2) |
+| E7 Dashboard hardening: CSP and security headers, error boundary, cache rules, realtime only where shown | MISSING | no `public/_headers`, no error component (H1-5, KNOWN-5) |
+| E8 Safe live publish: smoke on the deployment by content hash, automatic rollback | PARTLY | a title smoke after going live (H1-6) |
+| E9 Least-privilege secrets: minimal build environment, dispatch token scope, two-key rotation, per-project tokens | PARTLY | wrangler alone gets a clean environment (H0-3, H0-5, H2-5, H2-11) |
+| E10 Media bucket limits on size and type | MISSING | upload-start checks, the bucket does not (H0-4) |
+| E11 Staff access audited; production session and refresh settings | PARTLY | MFA enforced and writes audited; reads not (H1-7) |
+| E12 Data retention and partitioning for growing tables | MISSING | `11-rules.md` 12 asks for it; no table has one (H2-1) |
+| E13 Large-tenant performance: lead list side table and keyset paging, RLS helper cost, publish and export at size | PARTLY | measured at 20,000 leads (KNOWN-3, H2-2, H2-3, H2-4) |
+| E14 Tenant offboarding, full data export, privacy erasure carried out | PARTLY | the states and privacy tickets exist (H2-6, H2-8) |
+| E15 Client infrastructure by script: Pages project, domain, TLS, site keys | PARTLY | one-off scripts for staging (H2-7) |
+| E16 Plan limits and billing per workspace | PARTLY | caps for leads, mail and SMS only (H2-9) |
+| E17 Dependency and supply-chain scanning | PARTLY | actions SHA-pinned; no dependency scan (H2-10) |
+| E18 Tenant rich text sanitised before it reaches a site | PARTLY | html escapes by default; richtext open (H2-13) |
+| E19 Migration safety: lock lint, expand-contract, concurrent indexes | PARTLY | CI replays every migration; the ledger refuses an edited one (H2-14) |
+| E20 The book checks itself: counts from rows, WORKS rows cite real paths, every step has an owner and a row | MISSING | counts typed by hand (H0-6) |
+| E21 Mail deliverability: bounces, complaints, suppression on both | PARTLY | suppressions and the consent ledger exist (H2-15) |
+
 ### Counts
 | Part | WORKS | PARTLY | MISSING | Rows |
 |---|---|---|---|---|
@@ -135,7 +160,8 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B Dashboard | 8 | 7 | 7 | 22 |
 | C Backend and database | 12 | 4 | 1 | 17 |
 | D Factory and forms | 9 | 1 | 0 | 10 |
-| Total | 47 | 15 | 13 | 75 |
+| E Hardening | 0 | 12 | 9 | 21 |
+| Total | 47 | 27 | 22 | 96 |
 
 Completion is reported from these counts only.
 

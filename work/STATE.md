@@ -1,6 +1,6 @@
 # Where things stand
 
-Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-05 01:25 by the head of operations.
+Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-05 05:30 by the head of operations (work order 11).
 What the product is and every feature's state: `docs/product/1-product.md`. Proof of past work: the commit messages and
 their CI runs, and `docs/blueprint/PROGRESS.md`.
 
@@ -32,29 +32,26 @@ their CI runs, and `docs/blueprint/PROGRESS.md`.
   `tools/audit/names.json`); 09, the six-question report, on `check/seo/six-question-report`. CI checks the icm index.
 - Known gap: CI runs no job for `tools/crm-map` tests or mutants (its full local run: 118 of 119 caught, 1 target text
   missing, 0 survived); CLI's ci-coverage slice adds it and lists every other suite no CI job runs.
-- Product counts (`1-product.md`): CRM 18 works, 3 partly, 5 missing of 26; dashboard 8, 7, 7 of 22; backend and
-  database 12, 4, 1 of 17; factory and forms 9, 1, 0 of 10. Total 47 works of 75 (38 on 2026-11-04 morning).
+- Product counts (`1-product.md`, computed from the rows): CRM 18, 3, 5 of 26; dashboard 8, 7, 7 of 22; backend 12, 4, 1
+  of 17; factory 9, 1, 0 of 10; hardening (part E, new 2026-11-05) 0, 12, 9 of 21. Total 47 works of 96.
 
 ## Next, in order
 
-1. Platform build: 08 settings and account (pushed `47c725b`; its backend goes to staging only from a CI-green tip); 10
-   seo-read (pushed `1fa9059`, audit summary per site, M16); then 3b new CRM features, 5 site content, 6 overview and
-   numbers, 7 onboarding.
-2. CLI and testing: with-env's 10-minute cap (`WITH_ENV_TIMEOUT_MIN`, exit 124 on timeout); ci-coverage; land retries
-   (network, lock release, its own stale lock); a journey step per block platform lands.
-3. SEO and audits: land 09; then 4b, questions 2 to 5 of the report from the skill's files.
-4. Head of operations: cut old logs and charters to what is true now; remove the temporary GitHub hosts pin (owner's UAC
-   click) when the heads are idle.
+Every department starts from its lowest open hardening stage (`9-blocks.md` "Hardening steps", work order 11), then its
+feature blocks.
+1. Platform build: H0-1 to H0-5; land 08 settings (`47c725b`) and 10 seo-read (`1fa9059`); H1 steps; then 3b, 5, 6, 7.
+2. CLI and testing: ci-coverage (`190b9e2`), land retries, H2-10; a journey step per block platform lands.
+3. SEO and audits: 4b, questions 2 to 5 of the report; then the omnikom.ai site plan (`9-blocks.md`).
+4. Head of operations: H0-6, the book's self-check in `tools/icm` (a builder); cut old logs and charters.
 
 ## Open owner questions
 
 - Status board: fixed five statuses or custom stages? (A16 waits on it.)
-- The "Ask Omnikom" email address for the dashboard's Websites card (`VITE_ASK_EMAIL`; the link is hidden until set).
-- A real Google Contacts CSV export from a test account, to check `templates/google-contacts.json` (the test is skipped).
-- One inbox for the staging invite-mail proof (C13, `SETTINGS_INVITE_EMAIL`; one real mail, the login it makes stays).
+- Backups (H1-1): Supabase Pro with point-in-time restore, or the nightly dump with an R2 bucket (money, his call).
+- Answered 2026-11-05: invite-mail proof to abdoamer683@gmail.com; "Ask Omnikom" address after the omnikom.ai setup;
+  Google Contacts export low priority; the platform's domain is omnikom.ai (`8-routing.md`), omnikom.io stays the company's.
 
 ## Blocked on the owner's click
 
-- A magic link from a real inbox to the staging app: the DNS record for `app-staging`.
-- Backups: the R2 bucket, a second provider and the offline key (`backup.yml` waits).
-- Production: parked by ruling until staging proves the backend, the dashboard and the CRM.
+- omnikom.ai DNS and the Resend sending domain (then a real magic link from an inbox to staging).
+- Production: parked by ruling until staging proves the backend, the dashboard and the CRM (H1-2 scripts it).

@@ -66,4 +66,6 @@ GitHub entry points: `repository_dispatch` types `publish` (`{job_id, site_id}`)
 | `/media/<path>`, `/assets/<name>.<sha>.css` and `.js` | photos and hashed assets |
 
 Addresses: `<project>.pages.dev` (noindex until launch), `preview.<project>.pages.dev` (staging, always noindex), the client's
-domain once attached. The dashboard is `app-staging.omnikom.io` now and `app` in production.
+domain once attached. The platform's domain is `omnikom.ai` (owner, 2026-11-05): the dashboard is `app.omnikom.ai` in
+production; staging runs on its Pages address (`app-staging.pages.dev`) until a staging name is set. `omnikom.io` is the
+company's own domain and is not used by the platform.

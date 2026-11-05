@@ -1,0 +1,904 @@
+{
+ "confirmed": [
+  {
+   "title": "No retention or partitioning on any append-only table; the only scheduled job is a comment",
+   "severity": "medium",
+   "files": [
+    "supabase/migrations/20261028000001_platform.sql",
+    "supabase/migrations/20261029000002_crm.sql",
+    "supabase/migrations/20261029000003_addons.sql",
+    "supabase/migrations/20261030000007_hardening_leftovers.sql"
+   ],
+   "evidence": "Unbounded tables: audit_log (platform.sql:163), publish_job_events (:151), content_versions (:82, 'append-only: no update or delete is ever granted'), lead_events (crm.sql:25), messages and webhook_events (addons.sql:82,132), security_events and consent_ledger (leftovers.sql:23,58). A grep of all 16 migrations for retention|partition|pg_cron|cron. finds a single hit, a comment at platform.sql:452 ('pg_cron every 5 minutes') above reap_stale_jobs. No cron.schedule call exists, and no table is declared partitioned.",
+   "problem": "Every table that grows per event, per save or per message grows forever. The comment implies reap_stale_jobs runs on a schedule, but no migration creates the schedule, so stuck publish jobs depend on something outside the migrations. Several tables are written by hostile or high-volume paths (webhook_events, security_events, messages), so a flood from one tenant bloats shared tables, indexes and backups. Because content_versions and audit_log are append-only by grant, deleting them later needs a privileged job.",
+   "fix": "Add a retention migration. Schedule reap_stale_jobs with cron.schedule inside the migration. Add per-table retention functions plus a pg_cron job that deletes in small batches: webhook_events processed over 30 days, security_events over 180 days, publish_job_events over 90 days, and an audit_log policy that archives rather than deletes. Partition audit_log, lead_events, messages and security_events by month on 'at' or 'created_at' before they hold real data, because converting a populated table later means a rewrite.",
+   "when": "before-first-client",
+   "dim": "database",
+   "verdict": {
+    "real": true,
+    "severity": "medium",
+    "reason": "Confirmed: no cron.schedule, retention, prune or purge exists anywhere under supabase/ (grep found none), and reap_stale_jobs is only referenced in the platform.sql:452 comment, docs/product/3-database.md:103 and the tests, never scheduled. docs/product/11-rules.md:35 also mandates \"a retention rule\" for every growing table, so the gap breaks the repo's own rule. I rate it medium rather than high: it is a latent growth problem that bites at scale, not now, and the reaper-never-runs part makes stuck publish jobs the more urgent half (before-first-client)."
+   }
+  },
+  {
+   "title": "NO ACTION foreign keys to auth.users make user deletion fail and block privacy erasure",
+   "severity": "medium",
+   "files": [
+    "supabase/migrations/20261028000001_platform.sql",
+    "supabase/migrations/20261029000002_crm.sql",
+    "supabase/migrations/20261029000003_addons.sql",
+    "supabase/migrations/20261030000007_hardening_leftovers.sql"
+   ],
+   "evidence": "Plain references to auth.users(id) with no ON DELETE clause: content_versions.by (platform.sql:87, NOT NULL), lead_notes.by (:124, NOT NULL), publish_jobs.requested_by (:140, NOT NULL), content_rows.created_by (:64), media.uploaded_by (:102), api_keys.created_by (crm.sql:149), add_ons.activated_by and bookings.created_by (addons.sql:22,66), privacy_requests.opened_by and handled_by (leftovers.sql:332-333). By contrast members.user_id (:40) and lead_reads.user_id (screens.sql:108) cascade.",
+   "problem": "Deleting an auth user, for example a team member who leaves or a person who asks for erasure, fails with an FK violation once that user has saved a version, written a note or requested a publish. Making them NOT NULL rules out set null as a fix. The platform has no way to remove a user without deleting history. This directly conflicts with the privacy-request and consent features the same schema builds.",
+   "fix": "Decide per column: make the author columns nullable and use ON DELETE SET NULL, or copy a display name and user hash into the row at write time. Add a test to tenancy.test.sql that deletes a user who has authored a version, a note and a publish job.",
+   "when": "before-first-client",
+   "dim": "database",
+   "verdict": {
+    "real": true,
+    "severity": "medium",
+    "reason": "Confirmed that content_versions.by (platform.sql:87), lead_notes.by (:124) and publish_jobs.requested_by (:140) are NOT NULL references to auth.users with no ON DELETE clause, so deleting such a user fails with an FK violation (tools/omnikom-cli/commands/seed.mjs:243 already catches foreign_key_violation for exactly this case); but no code path deletes auth users (grep found no deleteUser or erasure code), and the privacy erasure feature in leftovers.sql:322-336 operates on lead rows, not staff accounts, so the \"blocks privacy erasure\" part is overstated and high should be medium (fix before first client)."
+   }
+  },
+  {
+   "title": "Unauthenticated requests open a Postgres connection before the credential is checked",
+   "severity": "medium",
+   "files": [
+    "supabase/functions/_shared/dashboard.ts",
+    "supabase/functions/_shared/runner.ts",
+    "supabase/functions/capture-lead/index.ts"
+   ],
+   "evidence": "dashboard.ts:169-170 runs `sql = await connect()` and only then `verifyUserJwt(...)`. runner.ts:76-78 computes the signature check, then does `sql = await connect()` before acting on `!signed` at line 79. capture-lead/index.ts:134-139 builds `postgres(dbUrl)` and runs `set role omnikom_fn`, and only then reads the site's signing keys and verifies X-Site-Signature (line ~144). The JWT and HMAC checks need no database. connect() (db.ts:16-27) is a full connection plus a `set role` round trip.",
+   "problem": "A forged token, a bad signature or an anonymous request each costs a Postgres connection and a role switch. Bad-signature and bad-JWT floods therefore consume connection slots (functions are verify_jwt=false for runner and capture-lead), so an attacker with no credentials can exhaust the pool for every tenant. This is separate from the known missing per-IP limit and the missing pooler: the connection is spent before any authentication. The wasted work is also why the cheap checks cannot protect the database.",
+   "fix": "Verify the credential first and open the connection only after it passes. Do the JWT check, the runner HMAC check and the body shape check before connect(). Where the capture-lead key lookup needs the database, keep the cheap checks (UUID, size, header format) first and, longer term, cache site signing secrets (short TTL) so a bad signature never needs a connection. Record bad-signature events through a bounded, sampled path instead of one connection per bad request.",
+   "when": "before-first-client",
+   "dim": "api",
+   "verdict": {
+    "real": true,
+    "severity": "medium",
+    "reason": "Confirmed in code, though at different lines than cited: runner.ts:47-50 computes `signed` then runs `sql = await connect()` before the `!signed` branch at :51, dashboard.ts:60-61 connects before verifyUserJwt, and capture-lead/index.ts:136-152 opens postgres() and `set role` before the key lookup and signature check. The connection is partly deliberate, since the failure path writes a security event with record_security_event (runner.ts:54, dashboard.ts:63). An unauthenticated flood still costs a connection per bad request. I rate it medium rather than high because it largely overlaps the known per-IP-limit and no-pooler gaps, and the cheap fix is to reject before connecting or to open the connection only for the audit write."
+   }
+  },
+  {
+   "title": "Public capture-lead has its own error model and a private copy of the shared helpers",
+   "severity": "medium",
+   "files": [
+    "supabase/functions/capture-lead/index.ts",
+    "supabase/functions/_shared/http.ts",
+    "supabase/functions/_shared/db.ts"
+   ],
+   "evidence": "capture-lead/index.ts:22-28 redefines MAX_BODY, UUID, SLUG, EMAIL and H, which already exist in _shared/http.ts:4-8. Lines 32-33 define a different `problem()` that answers `{status, problems:[...]}`, while _shared/http.ts:14 answers `{code, message, problems?}` (the documented Problem). Line ~92 has its own sha256Hex (http.ts:71 has one). Lines 36-48 hold a second `refusal()` and lines 52-54 a second pathForSignature (runner.ts:48). db.ts:9 admits it: 'capture-lead keeps its own copy of refusal ... the follow-up is one refusal in _shared'. The two refusal tables already differ in kinds, messages and statuses (for example S-QUOTA kind, 'unknown site' handling).",
+   "problem": "Two error shapes come out of one API, so a client or SDK cannot have one error parser. Every new rule (a new refusal code, a stricter email regex, a size limit) must be edited in two places and will drift. capture-lead is the only endpoint real client traffic hits, so drift there is the costliest.",
+   "fix": "Make capture-lead import problem(), Fields, UUID/SLUG/EMAIL, sha256Hex, pathForSignature and refusal() from _shared. Keep one Problem shape and a thin adapter if the site worker needs the old shape. Add a test that fails if two refusal tables disagree.",
+   "when": "before-first-client",
+   "dim": "api",
+   "verdict": {
+    "real": true,
+    "severity": "medium",
+    "reason": "Confirmed: capture-lead/index.ts:22-26 redefines MAX_BODY/UUID/SLUG/EMAIL/H already in _shared/http.ts:4-8 (MAX_BODY already drifted, 16 KiB vs 256 KiB), answers {status, problems} (index.ts:35-36) versus the shared {code, message, problems?} (http.ts:14-15), and keeps private refusal/sha256Hex/pathForSignature, which db.ts:9 admits; but the split is partly deliberate (index.ts:17) and the caller is the site's own worker rather than a third-party SDK, so it is a drift/maintenance risk, not a live defect, and I did not check openapi.json for the documented shape."
+   }
+  },
+  {
+   "title": "No error boundary anywhere: one render throw blanks the whole dashboard",
+   "severity": "medium",
+   "files": [
+    "apps/dashboard/src/router.tsx",
+    "apps/dashboard/src/App.tsx",
+    "apps/dashboard/src/main.tsx"
+   ],
+   "evidence": "router.tsx:104 createRouter({ routeTree, defaultNotFoundComponent: notFound, defaultPreload: false }) sets no defaultErrorComponent and no route has errorComponent. App.tsx wraps the tree in QueryClientProvider/SessionProvider/ToastProvider/RouterProvider with no ErrorBoundary. A grep of apps/dashboard (excluding node_modules) for ErrorBoundary and componentDidCatch finds no matches. main.tsx:14 renders App with no fallback, and a rejected dynamic import (a failed App chunk after a deploy) is also unhandled (void import(...).then).",
+   "problem": "Any uncaught exception while rendering (an unexpected jsonb shape in a lead's industry fields, a bad widget value, a stale chunk after a deploy) unmounts the React tree. The user sees a white page with no recovery action and nothing is reported. For a multi-tenant SaaS, one malformed row in one tenant would blank that tenant's whole CRM.",
+   "fix": "Set defaultErrorComponent on the router and an errorComponent on the shell and each page route. Add a top-level ErrorBoundary around RouterProvider that shows a reload action and reports the error. Add .catch to the dynamic import in main.tsx. Add an error-reporting sink (see the finding on observability).",
+   "when": "before-first-client",
+   "dim": "frontend",
+   "verdict": {
+    "real": true,
+    "severity": "medium",
+    "reason": "No ErrorBoundary or errorComponent exists anywhere in apps/dashboard (grep returned no matches), and main.tsx:14 has no .catch on the dynamic import, so a failed App chunk leaves a blank page. The claim is overstated at \"high\": TanStack Router wraps route components in its own catch boundary and falls back to a built-in default error component (my recollection of the library, not checked in node_modules), so a render throw inside a route normally shows a bare error message instead of unmounting the whole tree. Only throws in the providers or root, or the failed import, give a white page, and nothing is reported (router.tsx:105 sets no custom error UI)."
+   }
+  },
+  {
+   "title": "Production has no way to reach the platform functions: the dashboard depends on a dev/preview proxy that a static host does not have",
+   "severity": "medium",
+   "files": [
+    "apps/dashboard/src/config.ts",
+    "apps/dashboard/vite.config.ts",
+    "apps/dashboard/README.md",
+    "apps/dashboard/scripts/staging-env.mjs"
+   ],
+   "evidence": "config.ts defaults functionsBase to '/functions/v1' on the dashboard's own origin. The only forward is vite.config.ts server.proxy and preview.proxy (lines 14-19). README.md:58-60 says 'A static host needs the same forward, or the functions need to send CORS'. Only the staging Pages project is built with --direct-functions (build-staging.mjs:3, staging-env.mjs:15), which sets VITE_FUNCTIONS_BASE to the Supabase URL. No production build or deploy path is in the dashboard scripts. config.ts:14 reads VITE_FUNCTIONS_BASE with no check that a production build has it.",
+   "problem": "A production build without VITE_FUNCTIONS_BASE POSTs to <pages-host>/functions/v1/lead-update, which Cloudflare Pages answers with the SPA fallback or a 404. Every lead edit, add, bulk action, list and export would fail. The staging workaround (direct calls to Supabase, which sends no CORS headers per README) is itself flagged as unfinished in the config comments, so the intended production path is undefined.",
+   "fix": "Choose one: (a) make the shared functions answer OPTIONS and send Access-Control-Allow-Origin for an allow-list of dashboard origins, then build with VITE_FUNCTIONS_BASE; or (b) add a Cloudflare Pages Function or _redirects proxy for /functions/v1. Make config.ts mark the build invalid (config.ok false) when a production build has no explicit functions base, and add a CI check on the built bundle.",
+   "when": "before-first-client",
+   "dim": "frontend",
+   "verdict": {
+    "real": true,
+    "severity": "medium",
+    "reason": "Confirmed that config.ts:10 defaults functionsBase to '/functions/v1', the only forward is the vite dev/preview proxy (vite.config.ts:12-18), and apps/dashboard has no public/_redirects or Pages Functions to forward it. README.md:58-60 already documents the gap, and the staging build sidesteps it with VITE_FUNCTIONS_BASE (staging-env.mjs:15). That is why I rate it medium, not high: no production project exists yet (CLAUDE.md rule 12), so nothing is broken today, but a production build with no VITE_FUNCTIONS_BASE would silently hit the Pages origin. The remaining fix is a required-variable check at build time, or CORS on the functions."
+   }
+  },
+  {
+   "title": "No Content-Security-Policy or any security headers for the dashboard (no _headers or equivalent)",
+   "severity": "medium",
+   "files": [
+    "apps/dashboard/index.html",
+    "apps/dashboard/dist",
+    "apps/dashboard/vite.config.ts"
+   ],
+   "evidence": "A find for _headers outside node_modules returns only tools/audit/fixtures/*/_headers (test fixtures). apps/dashboard has no public/ folder and dist/ contains only index.html and assets/. index.html has no CSP meta tag. The Supabase session (access and refresh token) is stored in browser storage under 'omnikom-dashboard-auth' (supabase.ts:7).",
+   "problem": "The auth tokens are readable by any script that runs in the origin, and nothing stops injected or third-party script, inline script, framing (clickjacking of the delete and publish sheets) or MIME sniffing. There is also no Referrer-Policy, X-Content-Type-Options, frame-ancestors or Permissions-Policy. This is the security-header half, not the cache-header half, of the known item 5. The bundle is pure static and its only network targets are the Supabase project and its own origin, so a strict CSP is cheap now and hard to retrofit later.",
+   "fix": "Add public/_headers: Content-Security-Policy (default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://<project>.supabase.co; connect-src 'self' https://<ref>.supabase.co wss://<ref>.supabase.co; frame-ancestors 'none'; base-uri 'none'; form-action 'self'), X-Content-Type-Options nosniff, Referrer-Policy, Permissions-Policy. Make tools/audit assert them on the built output.",
+   "when": "before-first-client",
+   "dim": "frontend",
+   "verdict": {
+    "real": true,
+    "severity": "medium",
+    "reason": "Confirmed: apps/dashboard has no public/ folder, there is no _headers file (only tools/audit/fixtures/*/_headers), and apps/dashboard/index.html, vite.config.ts and the CI workflows set no CSP or frame-ancestors, while apps/dashboard/src/supabase.ts:7 persists the session under 'omnikom-dashboard-auth'. The security-header policy in docs/product/7-sites.md:64 covers client sites only. I rate it medium rather than high because no XSS sink was shown, but it should be fixed before the first client."
+   }
+  },
+  {
+   "title": "Unauthenticated requests write unbounded rows to an append-only security_events table",
+   "severity": "medium",
+   "files": [
+    "supabase/functions/capture-lead/index.ts",
+    "supabase/functions/_shared/runner.ts",
+    "supabase/migrations/20261030000008_search_path_and_roles.sql",
+    "supabase/migrations/20261030000007_hardening_leftovers.sql"
+   ],
+   "evidence": "capture-lead/index.ts:~131-142 and runner.ts:~49-58 call service.record_security_event on every bad signature. The function (migration 8:645-652) is a plain INSERT with no throttle or dedupe. Migration 7:40-44 revokes delete/update/truncate from service_role and adds a refuse_change trigger, so rows can never be removed. capture-lead only needs a valid-format UUID in ?site= to reach the insert. verify_jwt=false for these functions (config.toml:19-40).",
+   "problem": "Anyone on the internet can send POSTs with a bogus signature and grow the table without limit, and nothing is ever allowed to prune it. Each request also opens a DB connection and reads Vault secrets (service.site_signing_secrets) before the signature is checked. This gives a storage and cost DoS, and the audit table the staff would read becomes noise. It is also a data-retention problem: ip_hash rows live forever.",
+   "fix": "Verify cheap things first and rate-limit the insert: keep one aggregated row per (site, ip_hash, kind, minute) with a counter, or only record the first N per window. Add a retention path, such as partitioning by month and dropping old partitions through a privileged job, while keeping the append-only guarantee for the live partition. Do an edge-side IP throttle before opening any DB connection.",
+   "when": "before-first-client",
+   "dim": "security",
+   "verdict": {
+    "real": true,
+    "severity": "medium",
+    "reason": "Confirmed: capture-lead/index.ts:131-152 reaches service.record_security_event on any bad signature with only a UUID-format ?site=, and migration 8:649-650 is a bare INSERT with no throttle or dedupe. Migration 7:43-45 makes the table undeletable, and docs/product/11-rules.md:35 requires a retention rule on every growing table, which security_events lacks. I rate it medium rather than high because rows are small, nothing is lost beyond log noise and ip_hash retention, and the missing per-IP limit is already known gap 1."
+   }
+  },
+  {
+   "title": "One global RUNNER_KEY authorises every workspace's build and media data, and it sits in GitHub Actions secrets",
+   "severity": "medium",
+   "files": [
+    "supabase/functions/_shared/runner.ts",
+    ".github/workflows/publish.yml",
+    ".github/workflows/media.yml",
+    "supabase/functions/_shared/dispatch.ts"
+   ],
+   "evidence": "runner.ts:~44-52 verifies X-Runner-Signature against a single Deno.env RUNNER_KEY, and the signature covers only method, path and body. The workflow publish.yml:59-61 and media.yml:39-40 put RUNNER_KEY plus CLOUDFLARE_PAGES_TOKEN into the job environment. The repository_dispatch client_payload (site_id, job_id, media_id, workspace_id) is the only thing that scopes a run. The Pages token is also account-wide per publish.yml:5.",
+   "problem": "The key is not scoped to a tenant or a job. Anyone who gets it (a compromised workflow step or runner dependency, a leaked log) can call export-published, media-export and job-callback for any job or workspace id. Anyone with a token that can trigger repository_dispatch can run the build for any site. The account-wide Cloudflare Pages token can overwrite every client's site. A single runner compromise therefore means cross-tenant read and deploy.",
+   "fix": "Issue per-job short-lived credentials: the backend mints a job-scoped HMAC key (derived as HMAC(master, job_id+workspace_id+expiry)) and passes only that through the dispatch. The runner endpoints check the job id in the path matches. Scope the Cloudflare token to the Pages projects it needs, or move to a Pages deploy per-project token. Use GitHub environments with required reviewers for the publish secrets.",
+   "when": "before-first-client",
+   "dim": "security",
+   "verdict": {
+    "real": true,
+    "severity": "medium",
+    "reason": "Confirmed that one global RUNNER_KEY (supabase/functions/_shared/runner.ts:44-47, signature over method, path and body only, no tenant or job binding) and an account-wide CLOUDFLARE_PAGES_TOKEN both go into the publish job env (.github/workflows/publish.yml:60-61), so a runner compromise reaches every tenant, but I rate it medium rather than high because the key is held only in GitHub and Supabase secrets, bad signatures are logged as security events (runner.ts:54), the workflow runs from the default branch with pinned actions and contents:read, and I found no docs/product ruling that scopes it per tenant."
+   }
+  },
+  {
+   "title": "The stale-job reaper is documented as a 5-minute pg_cron job but nothing in the repo schedules it, so one stuck job blocks that site's publishes",
+   "severity": "medium",
+   "files": [
+    "supabase/migrations/20261030000008_search_path_and_roles.sql",
+    "supabase/migrations/20261028000001_platform.sql",
+    "docs/product/4-backend.md"
+   ],
+   "evidence": "20261030000008_search_path_and_roles.sql:255-266 defines service.reap_stale_jobs(). A grep of supabase/ (sql and toml) for cron.schedule / cron.job finds nothing. The only mentions are a comment at 20261028000001_platform.sql:452 and docs (4-backend.md:96, 3-database.md:103 say 'pg_cron every 5 minutes'). The only callers are in tests (tenancy.test.sql:269,276). freeze_snapshot (migration 20261030000008:233-234) raises S-JOB-BUSY while any other job of the site is in building/gating/deploying. The runner makes the 'done' callback last (publish.mjs:227). If that callback is not delivered, the job stays in 'deploying'. The platform's own handover notes record 5 stale staging jobs from 2026-10-31 (platform-build.md:398).",
+   "problem": "A runner crash, a cancelled GitHub run, or a lost 'done' callback leaves a job in building/gating/deploying with no automatic recovery. That job makes every later publish for the same site fail with S-JOB-BUSY. A job whose dispatch failed stays 'queued' with no reaper either. I only read the repo. If the schedule was created by hand on the live database, that is invisible to the repo and the gate suite.",
+   "fix": "Add a migration that runs cron.schedule('reap-stale-jobs','*/5 * * * *', 'select service.reap_stale_jobs()'). Add a structural test that fails if the schedule is absent. Alert on jobs idle in a non-terminal state for longer than 35 minutes.",
+   "when": "before-first-client",
+   "dim": "factory",
+   "verdict": {
+    "real": true,
+    "severity": "medium",
+    "reason": "Confirmed in the repo: service.reap_stale_jobs() is defined at supabase/migrations/20261030000008_search_path_and_roles.sql:255 and nothing schedules it. A repo-wide grep for cron.schedule and reap_stale_jobs finds only the definition, tests (supabase/tests/tenancy.test.sql:269,276) and docs. The workflows under .github/workflows (keepalive, backup, alerts, key-rotation) do not call it, and tools/staging-extensions.mjs:8 only installs pg_cron. freeze_snapshot raises S-JOB-BUSY while another job of the site is building/gating/deploying (line 233), so a stuck job does block that site's publishes. I rate it medium, not high, because the impact is limited to one site's publishing with no data loss, and the reaper function is tested; it must be scheduled before the first client, and a hand-made schedule on the live database would not show up in the repo."
+   }
+  },
+  {
+   "title": "A live-site publish deploys straight to production with no rollback path. A failed smoke or a lost 'done' callback leaves the live site out of step with the database",
+   "severity": "medium",
+   "files": [
+    "factory/runner/publish.mjs",
+    "supabase/migrations/20261030000008_search_path_and_roles.sql"
+   ],
+   "evidence": "publish.mjs:145 sets branch='main' for a live site, and :186-192 runs wrangler pages deploy, which makes that deployment production immediately. The smoke runs after the deploy (:202-223). On failure it throws Stop('deployed but smoke failed') and the runner only reports 'failed'. Nothing rolls back. The only 'rollback' hit in factory/README.md is unrelated. A failed job does not advance published_version, because set_job_state moves it only on 'done' (migration 20261030000008:213-217). The one reconcile path is a failed job whose reason is 'timeout' (:210). A failed callback after 'done' (publish.mjs:227) throws a plain Error that skips the 'failed' callback (:242-244).",
+   "problem": "The audit gate protects against bad builds, but anything that goes wrong after deploy is not undone. Smoke failure, wrangler partial failure or a lost callback leave Cloudflare serving content the database says is not published. The dashboard and the next snapshot then disagree with what visitors see. There is no operator action or code path to re-promote the previous known-good deployment.",
+   "fix": "Deploy live sites to a preview/candidate deployment first, smoke it by its unique deployment URL, then promote it. Record the previous production deployment id so a failed smoke or callback triggers a Pages rollback. Make the runner retry the 'done' callback and, if that fails, record 'deployed-unreported' so the reconcile path accepts it.",
+   "when": "before-first-client",
+   "dim": "factory",
+   "verdict": {
+    "real": true,
+    "severity": "medium",
+    "reason": "Confirmed that a live site deploys to main (publish.mjs:145, :186) and a post-deploy smoke failure only throws Stop and reports 'failed' (:223, :236) with no re-promotion of the previous deployment. The harm is overstated: the build already passed the audit gate (:149-150), a retry re-publishes, a lost 'done' callback is partly covered by the timeout reconcile (migration 20261030000008:210), and no client is live yet, so medium rather than high and before-first-client."
+   }
+  },
+  {
+   "title": "No error reporting, correlation IDs or structured logs in any runtime",
+   "severity": "medium",
+   "files": [
+    "supabase/functions/capture-lead/index.ts",
+    "apps/dashboard"
+   ],
+   "evidence": "capture-lead/index.ts:142,146,171,174 use bare console.error with String(e).slice(0,200-300) as the only failure signal. A grep for Sentry|request_id|requestId|x-request-id across apps/, supabase/ and factory/ (ts, tsx, mjs) returned 0 matches.",
+   "problem": "Production failures (a lead lost at line 174, a failed alert email at 171) leave one truncated unstructured line in Supabase function logs, which have short retention. There is no request ID to follow one lead through the edge function, the database and the email, no tenant/site field to filter on, and no external error tracker for the edge functions or the SPA. Nobody is told when the lead-capture path starts failing.",
+   "fix": "Add a shared _shared/log.ts that emits one JSON line per event (ts, level, fn, request_id, site_id/workspace_id, code, no PII). Generate or accept an x-request-id and return it in the response. Wire an error tracker (Sentry or a free self-hosted option, consistent with the no-paid-tools rule) into the edge functions and the dashboard. Make a failure in capture-lead write a row the alert checks can count.",
+   "when": "before-first-client",
+   "dim": "operations",
+   "verdict": {
+    "real": true,
+    "severity": "medium",
+    "reason": "Confirmed: capture-lead/index.ts:142,146,171,174 only use bare console.error with a truncated String(e), and my grep for Sentry|request_id|requestId|x-request-id|correlation across supabase, apps, docs/product and .github found nothing. supabase/ops/README.md:55 admits function error rate and uptime are \"not answerable from our tables\", so it is a known gap. Severity is overstated at high: line 174 returns an error to the submitter rather than losing the lead silently, and the gap matters mainly once real client traffic arrives, so it is medium (before-first-client)."
+   }
+  },
+  {
+   "title": "Alerts are computed hourly but delivered nowhere; the only channel is a red CI job, off by default",
+   "severity": "medium",
+   "files": [
+    ".github/workflows/alerts.yml",
+    "supabase/ops/alerts.mjs"
+   ],
+   "evidence": "alerts.yml:4-7 says 'SENDING IS OFF: no sender exists' and that ALERTS_RED is off by default; alerts.mjs:3 and :116 'sending is off: no sender exists ... an owner decision, D5'; alerts.mjs:26 says repeat-firing alerts are left to 'the sender'. The workflow checks only STAGING_DB_URL (alerts.yml:27) and no production alert workflow exists.",
+   "problem": "A failed deploy, a stuck lead or a quota breach on a real client's site would be seen only if someone opens the Actions summary. The GitHub schedule is best-effort and can be delayed or dropped, with no heartbeat that notices a check that did not run. Nothing de-duplicates or escalates and no on-call is defined.",
+   "fix": "Choose and build the sender now: a small script posting to a Telegram/Slack webhook or an email, with de-duplication state (a table of last-fired per alert) and a 'dead man' check that alerts when no alert run happened in 3 hours. Add a production copy of the alerts workflow in the production repository, with the same promote pattern as backup.",
+   "when": "before-first-client",
+   "dim": "operations",
+   "verdict": {
+    "real": true,
+    "severity": "medium",
+    "reason": "Confirmed at .github/workflows/alerts.yml:3-5 and supabase/ops/alerts.mjs:3,116 (sending is off, the only channel is an opt-in red job, only STAGING_DB_URL is checked, and no other workflow or heartbeat references alerts or on-call). But it is a deliberate, documented owner decision (D5) with no real client yet, so it is a before-first-client gap rather than a high-severity defect today."
+   }
+  },
+  {
+   "title": "Backups are disabled and the production backup exists only as an uninstalled template",
+   "severity": "medium",
+   "files": [
+    ".github/workflows/backup.yml",
+    ".github/production/backup.yml"
+   ],
+   "evidence": "backup.yml:3 'BLOCKED: R2 is deferred', :8 'Until then the job is skipped', gated at :28 by vars.BACKUP_ENABLED == 'true'. production/backup.yml:1 'THIS FILE DOES NOT RUN IN THE PLATFORM REPOSITORY', :6 'UNPROVEN: how the files get into the production repository', :11 'Until then the job is skipped'.",
+   "problem": "No database is currently backed up off-platform. The stated RPO/RTO (24h loss, 4h recovery, production/backup.yml:12) is a design target, not a running system. Before a client's leads are in production the first real data loss would be unrecoverable beyond whatever the Supabase plan retains by itself. A skipped job shows green, so nothing signals the backups are not happening.",
+   "fix": "Do the four owner steps in backup.yml:4-8 before the first client's data lands. Make a skipped backup visible: add a freshness check to alerts (newest object in the bucket older than 26h) and make it fire when BACKUP_ENABLED is unset on production. Record the Supabase plan's own PITR/backup retention in the runbook as the interim safety net.",
+   "when": "before-first-client",
+   "dim": "operations",
+   "verdict": {
+    "real": true,
+    "severity": "medium",
+    "reason": "Confirmed: .github/workflows/backup.yml:28 gates on vars.BACKUP_ENABLED == 'true' and :3-8 say R2 is deferred, and .github/production/backup.yml:1 says it does not run in this repo, so no off-platform backup runs; but this is a documented, deliberate deferral (docs/product/4-backend.md:116, 2-architecture.md:125) and no production client data exists yet, so it is a before-first-client item, not high today."
+   }
+  },
+  {
+   "title": "Storage bucket 'media' has no size or type limit and a direct-insert policy that bypasses upload-start's caps",
+   "severity": "medium",
+   "files": [
+    "supabase/migrations/20261028000001_platform.sql",
+    "supabase/functions/upload-start/index.ts"
+   ],
+   "evidence": "platform.sql:505-509 creates bucket 'media' with only (id, name, public); grep for file_size_limit / allowed_mime_types across supabase/ finds nothing. media_objects_insert allows any 'authenticated' user for whom private.can_see(workspace folder) is true, and can_see (platform.sql:190-191) is just is_staff() or is_member(ws), so any member role qualifies. The 25 MB cap and MIME list live only in upload-start/index.ts:10-11 and :24-25, in the function, not in Storage. grep for 'quota|storage_bytes' in migrations hits only unrelated migrations 7, 8 and 14.",
+   "problem": "A signed-in member of one tenant can call the Storage API directly with their JWT and upload unlimited, arbitrary-type objects (HTML, executables, multi-GB files) into their workspace folder without a media row. Nothing meters or caps per-tenant storage, so one tenant can inflate cost or abuse the shared bucket, and there is no recorded media row for the cleanup jobs to find.",
+   "fix": "Set file_size_limit and allowed_mime_types on the bucket in a migration. Replace the broad insert policy with one that allows only paths that already have an unprocessed media row (written by service.record_media), or drop the insert policy and rely on the signed upload URL. Add a per-workspace storage-bytes quota checked in record_media. Add a tenancy test that a direct upload of a 30 MB or text/html object is refused.",
+   "when": "before-first-client",
+   "dim": "architecture",
+   "verdict": {
+    "real": true,
+    "severity": "medium",
+    "reason": "Confirmed: the bucket is created with no file_size_limit or allowed_mime_types (platform.sql:505) and media_objects_insert (platform.sql:508-509) lets any member insert into their workspace folder directly, while the 25 MB cap and MIME list exist only in upload-start/index.ts:10,18-20; no other storage.objects policy, config.toml limit or quota exists in supabase/ or the migrations. Impact is limited to a signed-in member's own tenant folder (no cross-tenant access), and the project's global Storage upload limit still applies, so I rate it medium (fix before first client) rather than high."
+   }
+  },
+  {
+   "title": "Stale-job reaper is never scheduled; queued publish and media jobs can hang forever",
+   "severity": "medium",
+   "files": [
+    "supabase/migrations/20261030000008_search_path_and_roles.sql",
+    "supabase/functions/_shared/dispatch.ts",
+    ".github/workflows/keepalive.yml"
+   ],
+   "evidence": "dispatch.ts:3 and publish/index.ts:7 promise 'the reaper fails it after 24 hours (service.reap_stale_jobs)'. The function is defined at 20261030000008_search_path_and_roles.sql:255, but a repo-wide grep finds no caller outside supabase/tests/tenancy.test.sql:269/276: no pg_cron call in any migration and no workflow (the only crons are alerts.yml:12, backup.yml:16, keepalive.yml:8, key-rotation.yml:11). Media has no reaper at all: upload-finish/index.ts:19-20 only reports dispatched:false, nothing retries an unprocessed media row.",
+   "problem": "The queue is GitHub repository_dispatch with no persistent retry. A dropped dispatch (GitHub 5xx, token expiry, rate limit) leaves a publish job 'queued' forever and a photo 'unprocessed' forever. Publish validation then blocks on I-MEDIA-NOT-PROCESSED with no recovery path. The documented safety net does not run.",
+   "fix": "Schedule reap_stale_jobs (pg_cron or a scheduled workflow calling a runner-signed function). Add a media sweeper that re-dispatches rows that are uploaded and unprocessed for more than N minutes. Longer term, move to a real job table with claim and lease (FOR UPDATE SKIP LOCKED) and make GitHub only the worker.",
+   "when": "before-first-client",
+   "dim": "performance",
+   "verdict": {
+    "real": true,
+    "severity": "medium",
+    "reason": "A grep of supabase/ and .github/ finds no cron.schedule call or workflow that runs service.reap_stale_jobs (defined at supabase/migrations/20261030000008_search_path_and_roles.sql:255; the only callers are in supabase/tests/tenancy.test.sql:269/276), even though dispatch.ts:3 and docs/product/3-database.md:103 say pg_cron runs it every 5 minutes; severity is medium rather than high because dispatch failures are returned to the caller as dispatched:false (dispatch.ts:21-26) and the job could be re-run, and a schedule set directly in the Supabase project would not show in the repo."
+   }
+  },
+  {
+   "title": "Every publish exports, signs, downloads and ships the whole workspace media library",
+   "severity": "medium",
+   "files": [
+    "supabase/migrations/20261031000010_export_schema_key.sql",
+    "supabase/functions/export-published/index.ts",
+    "factory/runner/publish.mjs"
+   ],
+   "evidence": "export_bundle selects 'media' from public.media m where m.workspace_id = j.workspace_id (20261031000010:23-25), with no filter on what the snapshot's rows reference. export-published/index.ts:28-34 signs every processed one (8 at a time, HTTP call each) in a single request. publish.mjs:101-133 downloads all of them at 6 concurrent into the runner, inside a 240 s step deadline (publish.mjs:108); line 101 states the factory 'copies only what a built row references'.",
+   "problem": "Publish cost and latency grow with total library size, not with the change. A tenant with 500 photos at 2400 px, about 400 KB each, means 500 sign calls inside one edge request (about 63 sequential batches of 8, 10 s timeout each). Then about 200 MB is downloaded in a 240 s window. Past the deadline the step drops files ('step time spent') and the build fails if a referenced one was dropped.",
+   "fix": "Have export_bundle return only media referenced by the snapshot rows (join on the media ids found in the row data via the contract's media fields). Cache the downloaded derivatives between runs by id and slot (immutable, content-addressed), and fetch only the missing ones.",
+   "when": "before-scale",
+   "dim": "performance",
+   "verdict": {
+    "real": true,
+    "severity": "medium",
+    "reason": "The code does export, sign and download every processed media row of the workspace regardless of what the snapshot references (export_bundle at 20261031000010_export_schema_key.sql:23-25, signing in export-published/index.ts:28-34, download in factory/runner/publish.mjs:101-133 with a 240 s deadline at line 106). The \"high\" severity is overstated because the 10 s figure is a per-call cap, not typical latency: 500 signs at 8 at a time would take seconds, and 200 MB at 6 concurrent fits easily in 240 s. This is a cost that grows with library size and is worth fixing before scale, not a near-term failure."
+   }
+  }
+ ],
+ "unverified": [
+  {
+   "title": "Foreign keys used by cascades and deletes have no supporting index",
+   "severity": "medium",
+   "files": [
+    "supabase/migrations/20261029000003_addons.sql",
+    "supabase/migrations/20261028000001_platform.sql",
+    "supabase/migrations/20261029000004_hardening.sql"
+   ],
+   "evidence": "bookings.lead_id (addons.sql:58, cascade) and messages.lead_id (:85, set null) have no index. The booking indexes are (workspace_id, starts_at) and (with_team_row, starts_at) at :72-73, and the message indexes are (workspace_id, created_at), (channel, created_at) and (workspace_id, state, created_at). leads.site_id (platform.sql:110) and publish_jobs.requested_by (:140) have no index. The hardening index block (hardening.sql:454-466) covers only workspace-leading lookups.",
+   "problem": "service.delete_lead (hardening.sql:216-227) runs 'delete from leads', which cascades to bookings and sets messages.lead_id to null. Each of those is a sequential scan of the whole table, once per deleted lead. Privacy deletions and workspace offboarding will therefore slow down as messages and bookings grow across all tenants. Filtering leads by site (the multi-site lead list) also has no index.",
+   "fix": "Add indexes on messages(lead_id), bookings(lead_id), leads(site_id, created_at desc) and publish_jobs(requested_by). Create them with CREATE INDEX CONCURRENTLY, outside a transaction block, once tables hold data. Add a catalog query to the test suite that fails when any FK column lacks a leading index.",
+   "when": "before-scale",
+   "dim": "database"
+  },
+  {
+   "title": "RLS policies on leads recompute role lookups per row and call helpers without an initPlan wrapper",
+   "severity": "medium",
+   "files": [
+    "supabase/migrations/20261028000001_platform.sql"
+   ],
+   "evidence": "leads_read and leads_update (platform.sql:226-232) call private.is_staff(), private.my_role(workspace_id) twice and private.my_team_row(workspace_id) per row. Each of these is a SECURITY DEFINER function that queries members (:182-189). Only auth.uid() inside the helpers is wrapped in (select ...). Other tables use private.can_see(workspace_id) per row (:218-224), and job_events_read adds a correlated subquery on publish_jobs per row (:222).",
+   "problem": "Because the helpers take a per-row argument, Postgres cannot hoist them to an initPlan. Every candidate lead row can trigger up to three extra lookups on members, so an authenticated direct read costs several times what it should as a tenant's lead count grows. The same applies to the audit_log, content_versions and lead_events reads.",
+   "fix": "Wrap role calls in (select private.my_role(workspace_id)) where the argument is a column, or denormalise the member's role into JWT claims. Add a workspace_id-leading index (they already exist) and check the plan with EXPLAIN on a 100k-row workspace in crm-scale.sql. Add a members(user_id, workspace_id) index to serve my_role.",
+   "when": "before-scale",
+   "dim": "database"
+  },
+  {
+   "title": "Several SECURITY DEFINER helpers still run with search_path = public",
+   "severity": "medium",
+   "files": [
+    "supabase/migrations/20261028000001_platform.sql",
+    "supabase/migrations/20261029000003_addons.sql",
+    "supabase/migrations/20261030000008_search_path_and_roles.sql"
+   ],
+   "evidence": "private.is_staff, my_role, is_member, my_team_row and collection_def are all declared 'security definer set search_path = public' (platform.sql:182-192), as are private.can_act_on_lead and is_owner_or_staff (addons.sql:157,162). Migration 8's header (lines 10-12) says every SECURITY DEFINER function was redefined with search_path = '', and cites tenancy test T14 as the check. I found no redefinition of these seven helpers in migration 8 or later.",
+   "problem": "Either the header overstates what was done, or the helpers were redefined in a place I did not read. The seven helpers are the ones every RLS policy calls, which makes them the most sensitive definer functions. If any are still on 'public', a role that can create objects in public could shadow the objects they use. The mitigation that exists is that authenticated has no CREATE on public.",
+   "fix": "Run the T14 query by hand against the migrated database and confirm all definer functions report search_path=''. If any report 'public', redefine them with schema-qualified names in a new migration. Add pg_temp last to every definer function and a CI check that fails the migration if any definer function is missing it.",
+   "when": "before-first-client",
+   "dim": "database"
+  },
+  {
+   "title": "Soft-delete exists only on content_rows, and one hard-delete path destroys more than it should",
+   "severity": "low",
+   "files": [
+    "supabase/migrations/20261028000001_platform.sql",
+    "supabase/migrations/20261029000004_hardening.sql"
+   ],
+   "evidence": "deleted_at appears only on content_rows (platform.sql:77); no other table has it. Hard delete of leads (hardening.sql:225, 'delete from leads') cascades to lead_events, lead_notes, bookings and lead_reads. Soft-deleted content rows keep unique references from other rows (leads.owner_team_row at :115 has no FK at all).",
+   "problem": "There is one convention for rows that disappear (soft) and another for leads (hard). leads.owner_team_row and content_rows.owner_team_row point at content_rows with no foreign key, so a team row removed by unpublish(p_delete) leaves leads pointing at it. The code compensates by re-checking deleted_at is null in each function, but nothing at the schema level enforces it.",
+   "fix": "Add a real FK (or a trigger) from the owner columns to content_rows, and write the retention and erasure rules into one doc: which tables are soft-deleted, which are purged, and on what schedule. Put the rule in a migration comment next to each table.",
+   "when": "later",
+   "dim": "database"
+  },
+  {
+   "title": "crm-test checks DNS and then lets fetch resolve again (DNS rebinding SSRF window)",
+   "severity": "medium",
+   "files": [
+    "supabase/functions/crm-test/index.ts",
+    "supabase/functions/_shared/netguard.ts"
+   ],
+   "evidence": "crm-test/index.ts:36 calls `hostProblem(url.hostname, resolve)`, which resolves A/AAAA records (netguard.ts:81-83) and judges those addresses. Line 45 then calls `fetchImpl(url.toString(), ...)`, which resolves the name a second time. The code comments (lines 5-6) say 'No connection is made to a refused host', but nothing pins the connection to the addresses that were checked. The status code and timing go back to the caller (line 59: `{ok,status,ms,reason}`).",
+   "problem": "A customer-controlled hostname with a short TTL can answer a public IP for the check and a private or metadata IP (169.254.x, internal Supabase hosts) for the fetch. The caller learns status and timing, which is a blind SSRF probe of the function runtime's network. The guard also covers only this one function; the planned push-lead outbound CRM delivery will have the same exposure unless the check is made reusable.",
+   "fix": "Resolve once and connect to the validated IP (Deno.createHttpClient with a pinned resolver, or fetch by IP with a Host header and SNI set), then re-verify on connect. Put it in one `safeFetch(url, opts)` in _shared that every outbound customer URL goes through (crm-test now, push-lead later).",
+   "when": "before-first-client",
+   "dim": "api"
+  },
+  {
+   "title": "Outbound calls lack a uniform timeout, retry and secret-handling policy; capture-lead's Resend call has no timeout at all",
+   "severity": "medium",
+   "files": [
+    "supabase/functions/capture-lead/index.ts",
+    "supabase/functions/_shared/dispatch.ts",
+    "supabase/functions/_shared/storage.ts",
+    "supabase/functions/invite-member/index.ts",
+    "supabase/functions/upload-start/index.ts"
+   ],
+   "evidence": "capture-lead/index.ts (sendAlert, `fetch('https://api.resend.com/emails', {...})`) passes no `signal`; every other outbound call uses AbortSignal.timeout (dispatch.ts:18 8s, storage.ts:118 10s, invite-member:26 10s, upload-start:88 10s, crm-test 10s). Nothing retries: dispatch.ts:21-26 returns dispatched:false and relies on a 24-hour reaper; storage sign (storage.ts:120-124) and invite createLogin return null on the first failure. SUPABASE_URL and the service-role key are read at request time and the same three lines are copied in storage.ts:11-12, invite-member:20-21 and upload-start:23-24 and :82-83 (upload-start bypasses storageCfg and signUpload, which already exist).",
+   "problem": "A hung email provider holds the lead request open with its database connection until the platform kills the function, and the visitor may then retry the submission. A transient 5xx from GitHub or Storage becomes a user-visible failure, or a job that waits up to 24 hours. The service-role key is read and handled in four places, so a rotation or a logging mistake has four places to go wrong.",
+   "fix": "Create one `_shared/outbound.ts` (fetch with a per-call timeout, one retry with jitter on 5xx/network errors for idempotent calls, status-only logging) and one config module that reads the secrets once at module load. Make upload-start use signUpload from storage.ts. Add the timeout to the Resend call and move alert sending off the request path (a queue, already noted separately).",
+   "when": "before-first-client",
+   "dim": "api"
+  },
+  {
+   "title": "Body size cap is applied after the whole body is read, and counts characters, not bytes",
+   "severity": "medium",
+   "files": [
+    "supabase/functions/_shared/dashboard.ts",
+    "supabase/functions/_shared/runner.ts",
+    "supabase/functions/capture-lead/index.ts"
+   ],
+   "evidence": "dashboard.ts:163-164 `const text = await req.text(); if (text.length > (o.maxBody ?? MAX_BODY)) return 413`. runner.ts:70-71 and capture-lead/index.ts (`const body = await req.text(); if (body.length > MAX_BODY)`) do the same. Nothing looks at Content-Length first or limits the stream. `.length` counts UTF-16 units, so 256 KiB means up to roughly 3x that many bytes for multi-byte text. lead-import has to re-measure bytes itself (lead-import:103) and allows 2 MB+64 KiB bodies.",
+   "problem": "The 413 limit protects only the JSON parse, not memory or bandwidth: a client can stream a very large body, which is fully buffered in the isolate, before it is rejected. The unauthenticated endpoints (capture-lead, runner functions) are exposed to this, and the check happens after connect() in the dashboard order of work. The documented limits are also not what is enforced.",
+   "fix": "Reject on a Content-Length above the cap before reading, then read the stream with a running byte counter that aborts at the limit (a shared `readCapped(req, maxBytes)` in _shared/http.ts). Use bytes consistently in every frame.",
+   "when": "before-first-client",
+   "dim": "api"
+  },
+  {
+   "title": "Manual lead creation and publish are not idempotent; only the public capture path has an idempotency key",
+   "severity": "medium",
+   "files": [
+    "supabase/functions/add-lead/index.ts",
+    "supabase/functions/publish/index.ts",
+    "supabase/functions/invite-member/index.ts",
+    "supabase/functions/leads-bulk/index.ts"
+   ],
+   "evidence": "capture-lead takes `idempotencyKey` (checkBody) and passes it to service.capture_lead. add-lead/index.ts:49-56 reads site, consentText, owner, name, email, phone, form, answers and no key, then calls service.add_lead and returns 201. publish/index.ts:32-34 calls service.start_publish and dispatch() with no client key. invite-member:46-52 runs find_login, generate_link and set_member in separate statements without a transaction. The Fields helper (http.ts:18-68) has no support for a request id.",
+   "problem": "A double-click, a flaky mobile network or a client retry after a timeout creates a duplicate lead (an add-lead 201 is not safe to repeat), an extra publish job and dispatch, or a half-finished invite (a login created, member not set). These are the normal failure mode of a dashboard on a phone, and they pollute a client's CRM data.",
+   "fix": "Accept an optional `Idempotency-Key` (uuid) on every state-changing function and store it with a unique constraint in the service function, returning the original result on repeat. Run the invite steps as one service function or a transaction. Document the behaviour in the OpenAPI spec.",
+   "when": "before-first-client",
+   "dim": "api"
+  },
+  {
+   "title": "Refusals are mapped by substring search on the raw Postgres error text",
+   "severity": "low",
+   "files": [
+    "supabase/functions/_shared/db.ts",
+    "supabase/functions/_shared/dashboard.ts"
+   ],
+   "evidence": "db.ts:42-100 `refusal(message)` uses `message.includes('S-NOT-FOUND')` ... `has('S-QUERY')` over `String(e)`, in a fixed order (first match wins), for more than 40 codes. dashboard.ts:183 passes `String(e)` and runner.ts:98 does the same. The messages can contain context from the database (line 91 expects 'CONTEXT' lines) that is partly caller-supplied text.",
+   "problem": "The error contract depends on the order of 40 substring checks and on message text. A value in an error message that contains another code, or a new code that contains an older one as a substring, silently becomes the wrong status; a wrongly mapped security refusal is also written to security_events. Adding a code needs reading the whole ladder.",
+   "fix": "Raise errors from the service functions with a machine code in SQLSTATE or `errcode` and a structured `detail`/`hint`, and map on `e.code`/`e.hint` through a lookup table (one place that also feeds the OpenAPI error list). Keep the substring path only as a fallback during migration.",
+   "when": "before-scale",
+   "dim": "api"
+  },
+  {
+   "title": "No API versioning and no per-user rate limit on authenticated, expensive endpoints",
+   "severity": "low",
+   "files": [
+    "supabase/functions/_shared/dashboard.ts",
+    "supabase/functions/lead-import/index.ts",
+    "supabase/functions/lead-export/index.ts",
+    "supabase/config.toml"
+   ],
+   "evidence": "Functions are published at /functions/v1/<name> with no version of their own: the only 'v1' is Supabase's gateway prefix (runner.ts:48 strips it; capture-lead strips it too). The signature canonical text is fixed by signature.ts:128-130 with a 'v1' tag only on the signature. dashboard.ts:161-195 applies no per-user, per-workspace or per-function call limit; lead-import does CPU-bound CSV parsing up to 2 MB (lead-import:81-83) and lead-export builds up to 5000 rows (lead-export:23, :50). The ipHash computed at dashboard.ts:166 is only stored in security events.",
+   "problem": "The site worker and the build runner are deployed separately from the platform and will be on different versions in the field. Without a version in the capture-lead contract, changing the LeadRequest shape or the signing canonical form breaks live client sites at once. A single owner or a stolen session can loop import/export and use the shared CPU and database of all tenants (every function shares one project quota).",
+   "fix": "Add an explicit `x-omnikom-api` version header (or /v1 in the site endpoint path) for capture-lead and the runner functions, with a stated deprecation window. Add a per-user / per-workspace token-bucket (a small service.rate_check function) in the dashboard frame, with stricter limits for import and export.",
+   "when": "before-scale",
+   "dim": "api"
+  },
+  {
+   "title": "Unsaved site-editor drafts (tenant content) stay in localStorage after sign-out and survive on shared machines",
+   "severity": "medium",
+   "files": [
+    "apps/dashboard/src/lib/site.ts",
+    "apps/dashboard/src/pages/SignOutButton.tsx",
+    "apps/dashboard/src/App.tsx",
+    "apps/dashboard/src/site-choice.ts"
+   ],
+   "evidence": "site.ts:289-301 stores drafts in localStorage under `omnikom-draft:${ws}:${row}` as JSON { base, data }. The key has no user id. site-choice.ts:5-9 also stores per-user/workspace choices in localStorage. App.tsx:18 clears the React Query cache on SIGNED_OUT ('Another login's data must never outlive this one') but nothing removes the draft or choice keys. SignOutButton.tsx:12 only calls supabase.auth.signOut().",
+   "problem": "The code states the rule that one login's data must not outlive it, then breaks it for the editor drafts: content a client was editing stays on the device in clear text after sign-out. A second person on the same browser who has access to that workspace id gets the first person's draft offered back, which can be loaded and published. Together with the missing CSP, any script in the origin can read it.",
+   "fix": "On SIGNED_OUT remove every key with the omnikom-draft: and site-choice prefixes (or key drafts by user id and clear them on sign-out). Add a unit test that drafts are gone after sign-out.",
+   "when": "before-first-client",
+   "dim": "frontend"
+  },
+  {
+   "title": "No runtime error or telemetry reporting from the dashboard",
+   "severity": "medium",
+   "files": [
+    "apps/dashboard/src/main.tsx",
+    "apps/dashboard/src/App.tsx",
+    "apps/dashboard/src/api.ts"
+   ],
+   "evidence": "main.tsx:11 only console.error for a missing config. App.tsx has no window.onerror or unhandledrejection handler, no reporting call and no error-boundary hook. api.ts:24-25 maps any network failure to a generic CallFailed NETWORK problem and drops the cause. A grep for Sentry, report, or beacon shows no reporting client in the source files read.",
+   "problem": "Failures in a real client's browser (render crashes, failed API calls, unreachable functions, failed chunk loads) are invisible to the team. Combined with the lack of an error boundary, the first sign of a broken dashboard would be a customer call.",
+   "fix": "Add a small reporter: window error and unhandledrejection handlers, the ErrorBoundary's componentDidCatch and the API layer's failures, posting to a platform edge function or a log sink with the release id, route and workspace id (no lead content).",
+   "when": "before-first-client",
+   "dim": "frontend"
+  },
+  {
+   "title": "The whole app is one 427 KB eager chunk with no per-route code splitting",
+   "severity": "medium",
+   "files": [
+    "apps/dashboard/src/router.tsx",
+    "apps/dashboard/src/main.tsx",
+    "apps/dashboard/dist/assets/App-Cy87E42x.js"
+   ],
+   "evidence": "router.tsx:3-14 statically imports every page (Login, Workspaces, Shell, Leads, LeadPanel, AddLead, ImportLeads, SiteLayout, Editor, NotFound). The only dynamic import is main.tsx:14, which splits just App from the config check. dist/assets holds App-Cy87E42x.js (426,808 bytes, unminified-size, before gzip) and index-elgg49JF.js (143,242 bytes). The Editor (with Widgets.tsx, around 400+ lines), the CSV import with the mapping logic, and the site editor are loaded by every user on the login page.",
+   "problem": "The login page and the first CRM view download the site editor, the CSV importer and every widget. On a phone on a slow connection this costs several hundred ms of parse time before anything useful shows. The cost grows with each new feature, and only the first-visit cost is paid by every user.",
+   "fix": "Use TanStack Router lazy routes (createLazyRoute or lazyRouteComponent) for Editor/SiteLayout, ImportLeads, and the login/confirm pages. Add a bundle-size budget to apps/dashboard/scripts/ci.mjs that fails when the initial chunk goes over a number.",
+   "when": "before-scale",
+   "dim": "frontend"
+  },
+  {
+   "title": "Cache invalidation uses unscoped and hand-duplicated key lists, so related views drift apart",
+   "severity": "medium",
+   "files": [
+    "apps/dashboard/src/data.ts",
+    "apps/dashboard/src/pages/AddLead.tsx",
+    "apps/dashboard/src/pages/BulkBar.tsx",
+    "apps/dashboard/src/pages/DeleteSheet.tsx",
+    "apps/dashboard/src/pages/ImportLeads.tsx",
+    "apps/dashboard/src/pages/LeadPanel.tsx"
+   ],
+   "evidence": "The same three-key invalidation ['leads', ws], ['leadlist', ws], ['leadcounts', ws] is copied by hand in AddLead.tsx:74-76, BulkBar.tsx:31-33, DeleteSheet.tsx:38-40, ImportLeads.tsx:123-125 and data.ts:232-234. LeadPanel.tsx:156-157 invalidates only ['lead',..] and ['leads',..] and not leadlist or leadcounts. data.ts:314 invalidates ['drafts'] with no workspace in the key. Query keys are string literals scattered across the files; there is no key factory. App.tsx:10 sets staleTime 5000 and refetchOnWindowFocus true for all queries.",
+   "problem": "A new view or mutation that forgets one of the copies leaves the list or the counters stale until the 5 s stale time and a refocus. LeadPanel's lead edit changes status and owner but not the list or counters shown beside it. The unscoped ['drafts'] key refetches every workspace's drafts on one workspace's publish event.",
+   "fix": "Create one query-key factory and one invalidateLeads(qc, ws) helper used by all mutations, scope the drafts key by workspace, and replace per-component invalidation with it. Add a unit test that lists the keys each mutation touches.",
+   "when": "later",
+   "dim": "frontend"
+  },
+  {
+   "title": "Three Supabase realtime channels are given random names, so every remount opens a new subscription",
+   "severity": "low",
+   "files": [
+    "apps/dashboard/src/data.ts"
+   ],
+   "evidence": "data.ts:230, 252, 311 name each channel with Math.random().toString(36).slice(2, 8) (for example `leads-${wsId}-${...}`). This is a different issue from the known 3-channels-per-tab count: the random suffix means no two mounts share a channel and nothing guarantees an old one was removed before a new one opens. I confirmed only the names, not the cleanup path.",
+   "problem": "Re-mounting hooks (route changes between leads and site, workspace switches) can briefly hold more channels than intended against the per-connection and per-project realtime limits, which matter at many tenants. Two tabs per user doubles it again.",
+   "fix": "Use one stable, topic-based channel per workspace shared through a single context, with explicit removeChannel on unmount, and derive refetches from it.",
+   "when": "before-scale",
+   "dim": "frontend"
+  },
+  {
+   "title": "Env config accepts any VITE_ values without validation, and the publishable-key and URL checks are shallow",
+   "severity": "low",
+   "files": [
+    "apps/dashboard/src/config.ts",
+    "apps/dashboard/src/main.tsx",
+    "apps/dashboard/scripts/check-bundle-secrets.mjs"
+   ],
+   "evidence": "config.ts:11 ok = /^https?:\\/\\// test on the URL plus a non-empty key; http:// is accepted for any build. main.tsx:11-13 renders an empty <main /> and a console.error when config is not ok. check-bundle-secrets.mjs:12 only looks for the values of variables whose NAME matches SECRET|TOKEN|PASSWORD|DB_URL, so a secret placed under another name (for example a service-role key stored as VITE_SERVICE_KEY or SUPABASE_SERVICE_ROLE) would not be found.",
+   "problem": "A production build with an http URL, a wrong project, or a mis-named secret passes the build gate. A misconfigured deploy shows a blank page to the client with no message.",
+   "fix": "In the production build require https and a decoded JWT/key shape for the publishable role (reject role service_role), fail the build on any VITE_ variable that decodes to a service-role key, and show a visible 'this build is misconfigured' message instead of an empty main.",
+   "when": "before-first-client",
+   "dim": "frontend"
+  },
+  {
+   "title": "Accessibility is only partly verified: no automated axe/keyboard check, and the page <title> is empty in index.html",
+   "severity": "low",
+   "files": [
+    "apps/dashboard/index.html",
+    "apps/dashboard/playwright.config.ts",
+    "apps/dashboard/package.json"
+   ],
+   "evidence": "index.html:7 has <title></title>, set later by pages. package.json devDependencies list playwright and vitest but no axe-core or accessibility plugin. Source uses role='status' (Editor.tsx:222) and semantic markup, but I found no automated accessibility test in the scripts or the dependencies. The README says the look comes later from a Design department.",
+   "problem": "Enterprise and public-sector customers ask for WCAG 2.1 AA, and a plain-markup dashboard can slip without a gate (focus management in sheets and dialogs, contrast once the design lands). An empty static title is also what screen readers and the history announce until JavaScript runs.",
+   "fix": "Add @axe-core/playwright to the existing flows and run it per route in CI, add a keyboard-only flow for the sheets, and set a default document title in index.html.",
+   "when": "later",
+   "dim": "frontend"
+  },
+  {
+   "title": "Auth configuration for the magic-link and staff path is not in version control",
+   "severity": "medium",
+   "files": [
+    "supabase/config.toml"
+   ],
+   "evidence": "A grep of supabase/config.toml for site_url, additional_redirect_urls, enable_signup, jwt_expiry, otp_expiry and mfa returns no matches. The file holds only per-function verify_jwt entries. The code relies on private.is_staff() reading aal2 from the JWT (auth.ts header) and the invite-member docs assume sign-in by emailed link.",
+   "problem": "Whether open signup is disabled, which redirect URLs the magic link may land on, the OTP/link lifetime, and whether MFA is enforced for staff live only in the hosted Supabase dashboard, so nothing in CI or review can catch drift. An open redirect allow-list or enabled self-signup in production would let outsiders create logins or steal sign-in links, and the repo cannot prove it is off.",
+   "fix": "Declare [auth] in config.toml (site_url, an exact additional_redirect_urls list, enable_signup=false for the invite-only model, short otp_expiry, MFA enrol settings) and add a CI/gate check that diffs the live project's auth settings through the Management API against it. Also add a test that a user with aal1 cannot reach any is_staff path.",
+   "when": "before-first-client",
+   "dim": "security"
+  },
+  {
+   "title": "Signature scheme has a 300-second replay window and no nonce on non-idempotent calls",
+   "severity": "medium",
+   "files": [
+    "supabase/functions/_shared/signature.ts",
+    "factory/worker/lead-endpoint.mjs",
+    "supabase/functions/capture-lead/index.ts"
+   ],
+   "evidence": "signature.ts:5-6, 31-37 accepts any t within +/-300 s and keeps no seen-signature record. lead-endpoint.mjs forwards idempotencyKey only if the browser supplied it (TOP set, line ~28), and capture-lead treats idempotencyKey as optional (str('idempotencyKey') not required, line ~99).",
+   "problem": "A captured signed request (a logging proxy, a misconfigured CDN or origin log, an intermediate hop) can be replayed for 5 minutes. For leads without an idempotency key each replay creates a fresh lead and consumes the workspace's hourly quota, and runner POSTs to job-callback can be replayed too. The comment claims replay is prevented, but it is only bounded.",
+   "fix": "Have the site endpoint always generate the idempotency key server-side (derive it from the signed timestamp plus a body hash if the browser sent none) and make the platform reject a duplicate (site, key). For runner callbacks add a per-job nonce or sequence number recorded in the job row. Shrink the window to 60 s with clock-skew tolerance reported by the 401 path.",
+   "when": "before-scale",
+   "dim": "security"
+  },
+  {
+   "title": "Edge function holds the full service-role key to create auth users, bypassing the omnikom_fn least-privilege design",
+   "severity": "medium",
+   "files": [
+    "supabase/functions/invite-member/index.ts",
+    "supabase/functions/_shared/storage.ts",
+    "supabase/functions/upload-start/index.ts"
+   ],
+   "evidence": "invite-member/index.ts:~18-26 reads SUPABASE_SERVICE_ROLE_KEY (falling back to SUPABASE_SECRET_KEY) and calls /auth/v1/admin/generate_link. storage.ts and upload-start/index.ts use the same secret key for storage signing. By contrast capture-lead steps its connection down to omnikom_fn so it can only call service.* functions.",
+   "problem": "These functions are reachable by workspace owners with a user JWT, and a single logic bug or injection in them runs with a key that bypasses all RLS and can administer every user and every storage object across tenants. The careful role step-down used for the public endpoint is not applied to the privileged endpoints that arguably need it most. The service-role key is also a legacy-style key that cannot be scoped.",
+   "fix": "Move user creation behind a narrow SQL function or a dedicated tiny admin function with its own secret, and sign storage uploads through a storage-scoped path (signed URL RPC) rather than the global key. If the key must stay, restrict it to those two functions and add a CI grep gate that fails when SERVICE_ROLE or SECRET_KEY appears in any other function.",
+   "when": "before-scale",
+   "dim": "security"
+  },
+  {
+   "title": "Public lead endpoint reflects visitor text into alert emails and a plain-text subject with no sanitising",
+   "severity": "low",
+   "files": [
+    "supabase/functions/capture-lead/index.ts"
+   ],
+   "evidence": "capture-lead/index.ts:~105-116 builds subject `New lead: ${lead.name ?? 'a visitor'} (${lead.form})` and the text body from name, phone, email, page and the first 12 answers, sliced to 200 characters but otherwise raw, then sends via Resend to the workspace's lead_alert_to.",
+   "problem": "Anyone can submit a form (no Turnstile today) and place attacker-chosen text, including phishing URLs and lookalike wording, into an email that arrives from the client's trusted sender domain. That is a reputation and abuse vector for the sender domain, separate from the bot-flood issue already known.",
+   "fix": "Strip control characters and newlines from subject fields, cap and neutralise URLs in the alert body, and send the alert from a dedicated subdomain so abuse cannot damage the client's own mail reputation.",
+   "when": "later",
+   "dim": "security"
+  },
+  {
+   "title": "The smoke check proves little: it matches only the page title against a fixed address, so a stale deployment or an unchanged title passes",
+   "severity": "medium",
+   "files": [
+    "factory/runner/publish.mjs"
+   ],
+   "evidence": "publish.mjs:204-218. The smoke fetches https://<domain>/ or https://preview.<target>.pages.dev/ (the fixed branch alias), not the deployment URL wrangler printed (deployUrl, :197). The only content check is body.includes('<title>'+wantTitle+'</title>') on the home page.",
+   "problem": "On a republish where the title does not change, which is the common case, the smoke passes against the previous deployment while the new one is broken or not yet promoted. Only the home page is checked. The fixed-alias fetch can also hit CDN-cached content. The step reports success without confirming that the new build is what is being served.",
+   "fix": "Have the build write a build id (the treeHash already computed for --no-deploy) into the page, for example a meta tag or /build.json. Smoke the printed deployment URL for that id first. After promotion, check the fixed address for the same id, plus the sitemap and /api/lead.",
+   "when": "before-first-client",
+   "dim": "factory"
+  },
+  {
+   "title": "Two publishes of one site can race: the runner turns the platform's 'busy, retry' answer into a permanent failed job, and the GitHub queue key is unverified",
+   "severity": "medium",
+   "files": [
+    "factory/runner/publish.mjs",
+    ".github/workflows/publish.yml",
+    "supabase/functions/export-published/index.ts"
+   ],
+   "evidence": "export-published/index.ts:5 and factory/README.md:169 say S-JOB-BUSY (409) means 'retry later' and 'the runner's queue retries'. publish.mjs:86-87 treats any non-200 export as Stop('export failed: HTTP 409'), which sends a 'failed' callback. publish.yml:35-37 uses 'queue: max'; the comment at :33-34 admits GitHub may reject it. media.yml:15 uses the same key.",
+   "problem": "The only protection against two concurrent builds of one site is the concurrency group, which relies on a key the file itself says has not been confirmed. If it is ignored or the fallback is applied, the second dispatch fails permanently, and the user's edit is not published until they re-publish. The 409 path was designed as wait-and-retry but is implemented as fail. Separately, when two runs queue, the second one fetches its export at run time, so it ships whatever the snapshot rules produce at that moment. Order of delivery relies entirely on GitHub.",
+   "fix": "In the runner, retry export on 409 with backoff for up to about 10 minutes before failing. Confirm the 'queue: max' behavior on a real run, or fall back to a documented `cancel-in-progress: false`. Add a unique partial index or advisory lock on in-flight jobs per site so the database enforces one at a time.",
+   "when": "before-first-client",
+   "dim": "factory"
+  },
+  {
+   "title": "The build, audit and design code run with every deploy secret in their environment",
+   "severity": "medium",
+   "files": [
+    "factory/runner/publish.mjs",
+    "factory/lib/template.mjs"
+   ],
+   "evidence": "publish.mjs:61-63 runTool defaults to env: envOverride || env, which is the full process.env. The build (:137) and audit (:147) calls pass no envOverride, so RUNNER_KEY, CLOUDFLARE_PAGES_TOKEN and CLOUDFLARE_ACCOUNT_ID are present. The build imports the per-site design code from sites/<slug>/design (:96), and only the wrangler call strips the secrets (:190-191). The workflow passes all four secrets to the single step (publish.yml:59-62).",
+   "problem": "Design modules (JS render functions, per the factory README) are executed in-process with the platform signing key and an account-wide Cloudflare Pages token. Today the code is committed by the team. Once agents or other people write designs per client, one malicious or buggy design file or dependency can exfiltrate the token and can deploy to or damage every other client's Pages project. The scrubber only hides secrets in logs.",
+   "fix": "Pass the build and audit an environment with no secrets. Use a Cloudflare token scoped to the specific Pages project (or a minimal env per deploy), and fetch it only in the deploy step. Separate the build job from the deploy job in the workflow so the build step never sees the credentials.",
+   "when": "before-scale",
+   "dim": "factory"
+  },
+  {
+   "title": "Builds are not reproducible: they use whatever is on the default branch, stamp the current time, and run an unlocked wrangler tree",
+   "severity": "low",
+   "files": [
+    "factory/build.mjs",
+    "factory/runner/publish.mjs",
+    ".github/workflows/publish.yml"
+   ],
+   "evidence": "The workflow checks out the default branch with no ref pin (publish.yml:44-47). build.mjs:20 sets builtAt = new Date().toISOString() unless --built-at is passed, and the runner never passes it (:137). publish.mjs:189 runs `npx --yes wrangler@4.152.0`, which pins wrangler only; there is no lockfile for its transitive dependencies. The snapshot comment promises 'reruns ship exactly this' (platform.sql:143), but that covers content only.",
+   "problem": "A rerun of the same job after a factory or design change ships different HTML. The same input never yields byte-identical output, so a deploy cannot be compared or verified by hash, and an incident cannot be reproduced. The unlocked wrangler tree is a supply-chain exposure in the step that holds the deploy token.",
+   "fix": "Record the commit SHA in the job and check out that SHA on rerun. Derive builtAt from the job's snapshot time. Install wrangler from a committed lockfile with `npm ci --ignore-scripts`. Store the output tree hash with the job as deploy evidence.",
+   "when": "before-scale",
+   "dim": "factory"
+  },
+  {
+   "title": "The restore drill is manual and local only; it is not scheduled or measured in CI",
+   "severity": "medium",
+   "files": [
+    "supabase/ops/restore-drill.mjs",
+    "supabase/ops/README.md"
+   ],
+   "evidence": "restore-drill.mjs:1 calls it 'the monthly restore drill' and :4 shows it is run by hand via tools/with-env.mjs; a grep for 'drill' in .github/ returned no matches. README.md:11 describes it as a script, with a 2 hour target (the production RTO is 4 hours).",
+   "problem": "A drill nobody is forced to run decays, and a restore proven on a developer laptop with a local Postgres cluster does not prove the encrypted object in R2/B2 can be fetched, decrypted with the offline key, and restored. Nothing records the date of the last passing drill, so 'monthly' is a promise.",
+   "fix": "Add a monthly workflow that downloads the latest object from the backup bucket and restores it into a throwaway Postgres service container (decrypting with a drill-only key pair, since the real private key stays offline), writes the timing into the job summary, and an alert that fires when the last successful drill is over 40 days old.",
+   "when": "before-scale",
+   "dim": "operations"
+  },
+  {
+   "title": "Staging-only operations: alerts, keepalive and backup are all pinned to the staging database, no production monitoring path",
+   "severity": "medium",
+   "files": [
+    ".github/workflows/alerts.yml",
+    ".github/workflows/keepalive.yml",
+    ".github/workflows/backup.yml"
+   ],
+   "evidence": "alerts.yml:27 STAGING_DB_URL only; keepalive.yml:35-37 and :39 'status --target staging'; backup.yml:11 'this one never holds a production key'. No external uptime or synthetic probe of the capture endpoint or a client site was found in .github/workflows (7 files: alerts, backup, keepalive, key-rotation, media, publish, ci).",
+   "problem": "The production environment is deliberately separated (good), but its observability is only a copy-in template for backup. Alerts, health and the status data are not defined for production, so a production outage would be found by a client's complaint. The status page has no host (alerts.yml:7), and no black-box probe checks that a client site loads and a test lead path is up.",
+   "fix": "Add a health endpoint (DB reachable, version) to the edge functions and an external probe (free Cloudflare health check or a scheduled Worker) on each client site and on the capture endpoint, reporting to the same sender. Ship production alerts and keepalive via the existing promote pattern, and choose the status page host.",
+   "when": "before-first-client",
+   "dim": "operations"
+  },
+  {
+   "title": "Cost and quota controls on paid or capped APIs are checked only by the hourly count in staging, with no hard circuit breaker",
+   "severity": "medium",
+   "files": [
+    "supabase/functions/capture-lead/index.ts",
+    "supabase/ops/alerts.mjs",
+    ".github/workflows/alerts.yml"
+   ],
+   "evidence": "capture-lead/index.ts:171 sends the alert email in the request path with only a console.error on failure; alerts.yml:3-4 states the hourly cadence was chosen because 'Every 15 minutes would spend too many of the free Actions minutes'.",
+   "problem": "A spike (bots or a tenant's real traffic) can exhaust the email provider's daily cap or the Supabase free-plan quotas between hourly checks, and the alert for it is not delivered anywhere (see the alert-delivery finding). There is no per-tenant spend or usage ceiling that stops sending automatically, and no dashboard of Resend, Supabase egress/database size or Cloudflare build minutes against their limits.",
+   "fix": "Add a usage-snapshot job that records Resend sends, database size, storage and function invocations per day, with warnings at 70% and 90% of each plan limit. Add a per-workspace daily send cap that degrades to 'store the lead, queue the email' instead of failing.",
+   "when": "before-scale",
+   "dim": "operations"
+  },
+  {
+   "title": "No incident-response runbooks in docs, only a head-of-operations charter and alert names pointing to runbook IDs",
+   "severity": "low",
+   "files": [
+    "supabase/ops/alerts.mjs",
+    "docs/departments/head-of-operations.md"
+   ],
+   "evidence": "alerts.mjs:163 prints 'link to runbook ${alert.runbook}'. A glob for runbook, incident, restore, disaster, backup and staging file names under docs/ returned no files.",
+   "problem": "Every alert names a runbook, but no runbook files were found under docs/ by name, so the on-call person (the CTO today) gets 'First step' text only. There is no severity scale, no client-communication template, no post-incident review practice and no key-compromise procedure beyond key-rotation.yml.",
+   "fix": "Write one short file per alert under docs/runbooks/ (symptom, check, fix, who to tell) and an incident template. Add a test that every alert's runbook id resolves to a file, with a watched-fail mutant per repo rule 11.",
+   "when": "before-first-client",
+   "dim": "operations"
+  },
+  {
+   "title": "One account-wide Cloudflare token and one runner key, held as repo secrets, serve every tenant's Pages project; per-site keys pile up in a single master .env",
+   "severity": "medium",
+   "files": [
+    ".github/workflows/publish.yml",
+    "factory/runner/publish.mjs",
+    "tools/mint-site-key.mjs"
+   ],
+   "evidence": "publish.yml:59-62 passes RUNNER_KEY, CLOUDFLARE_PAGES_TOKEN and CLOUDFLARE_ACCOUNT_ID from repo-level secrets. publish.mjs:35 and :186-190 run 'wrangler pages deploy --project-name <target>' with that token, where <target> comes from the export answer (publish.mjs:95). mint-site-key.mjs:5-6 and :48 append every site's SITE_SIGNING_KEY_<SLUG> to the owner's master .env.",
+   "problem": "The credential that deploys one client's site can deploy to or read every other client's Pages project and its secrets (publish.mjs:155-167 reads project settings with it). A bug in the target-name path, or a compromise of the build job, reaches all tenants at once. The signing keys for all sites share a single file on a laptop, so there is no per-tenant blast-radius boundary outside the database.",
+   "fix": "Short term: a Cloudflare API token scoped to Pages edit only, in a GitHub Environment with reviewers, and a hard allow-list check that target equals the site's recorded pages_project before deploy. Medium term: one project-scoped token or a Worker-based deploy proxy per tenant, and move site keys from the .env into the secret manager, written at mint time.",
+   "when": "before-scale",
+   "dim": "architecture"
+  },
+  {
+   "title": "ADR 0009 (one validator shared by browser and server) is not implemented: the dashboard never imports contracts/",
+   "severity": "medium",
+   "files": [
+    "docs/blueprint/adr/0009-validation-shared-browser-and-server.md",
+    "apps/dashboard/src/lib/site.ts",
+    "supabase/functions/_shared/contracts.ts",
+    "tools/omnikom-cli/impact-copies.json"
+   ],
+   "evidence": "ADR 0009 says 'Import contracts/*.mjs unchanged in the dashboard and in the Deno functions'. A grep for 'contracts' import paths, validateItem or validate.mjs across apps/dashboard/src, vite.config.ts, scripts and package.json finds no import. Instead site.ts:160-162 hard-codes SEO_TITLE_MAX = 60 and SEO_DESCRIPTION_MAX = 160 with the comment 'are the validator's'. The same rules also exist as a SQL port (impact-copies.json PUBLISH_REQUIRED: contracts/validate.mjs and migration 20261031000011).",
+   "problem": "The rules are copied three times: JS validator, SQL port, and dashboard constants. The only guard is a parity test for JS versus SQL; the browser copy has none. A contract change (a limit or a required field) shows the editor one rule while the server and the publish wall enforce another. The ADR's stated consequence is not true in the code.",
+   "fix": "Either import contracts/validate.mjs and core.json in the dashboard (Vite can alias the folder; it is dependency-free per the ADR), or generate the dashboard constants from core.json at build and add a CI check that they match. Update or supersede the ADR to say what is actually true.",
+   "when": "before-first-client",
+   "dim": "architecture"
+  },
+  {
+   "title": "Request and response types between dashboard and functions are hand-written; the OpenAPI gate checks only that paths exist",
+   "severity": "medium",
+   "files": [
+    "apps/dashboard/src/api.ts",
+    "docs/blueprint/specs/check-specs.mjs",
+    "docs/blueprint/specs/openapi.json",
+    "supabase/functions/_shared/http.ts"
+   ],
+   "evidence": "api.ts:38-146 declares LeadChange, BulkAction, ImportCall, NewLead, ItemSave and the like by hand, with the comment citing openapi.json only as a pointer. check-specs.mjs:2-3 verifies $refs resolve, operationIds are unique, every operation has security, a 2xx and a 401, and that function directories and openapi paths match. Each function validates its body with an ad-hoc Fields helper (lead-update/index.ts, leads-bulk/index.ts), not from the schema.",
+   "problem": "openapi.json (3,242 lines), the Fields validation in each function, and the dashboard's TypeScript types are three independent descriptions of the same contract. Nothing fails if a function adds a required field, renames one, or the spec drifts. The break shows up as a runtime 400 in the browser.",
+   "fix": "Make openapi.json the source: generate TypeScript types for api.ts (openapi-typescript, pinned) in CI and fail on a diff. Add a contract test per function that replays the spec's request examples against the handler and checks the response shape. Optionally generate the Fields checks from the same schema.",
+   "when": "before-scale",
+   "dim": "architecture"
+  },
+  {
+   "title": "The CLI's capture-lead test runs against a hand-written MODEL of the function, not the function",
+   "severity": "medium",
+   "files": [
+    "tools/omnikom-cli/test/harness.mjs",
+    "tools/omnikom-cli/impact-copies.json",
+    "supabase/functions/capture-lead/index.ts"
+   ],
+   "evidence": "harness.mjs:156 says 'A MODEL of supabase/functions/capture-lead/index.ts (the TS file needs Deno and Postgres on a project): same order of checks...', and :184 defines model(). impact-copies.json lists CAPTURE_LEAD_MODEL with the note 'a change to the function's behaviour must change the model'. The file also tracks four other duplicated pairs (TEST_CONTRACT, TEST_IDENTITIES, PUBLISH_REQUIRED, TOOL_PINS) kept in step by hand.",
+   "problem": "Part of the internal CLI's lead-path verification proves the model, not production code. If the function and the model diverge, the CLI test stays green. The repo already tracks five such hand-maintained copies. The check that detects them shares its answer with the thing it checks, so a model that is wrong in the same way as its author's assumptions passes.",
+   "fix": "Run the real handler (supabase/functions/capture-lead handle(), already exported with import.meta.main guard in sibling functions) under Deno in the CLI test, as supabase/functions/test/local-serve.ts does. Delete the model. Convert the other copy pairs into single sources (a shared JSON read by both sides) where possible.",
+   "when": "before-scale",
+   "dim": "architecture"
+  },
+  {
+   "title": "Lead status enum and other constants are duplicated across functions, dashboard, CLI and SQL",
+   "severity": "low",
+   "files": [
+    "supabase/functions/lead-update/index.ts",
+    "supabase/functions/leads-bulk/index.ts",
+    "apps/dashboard/src/lib/leads.ts",
+    "tools/omnikom-cli/commands/lead.mjs",
+    "supabase/migrations/20261028000001_platform.sql"
+   ],
+   "evidence": "The list 'new, contacted, qualified, closed, spam' appears as const STATUS in lead-update/index.ts (top of file), as const STATUS in leads-bulk/index.ts (line 10), as STATUSES in leads.ts:5, in tools/omnikom-cli/commands/lead.mjs, and in the lead_status enum in platform.sql. MIME list and 25 MB cap are defined in upload-start/index.ts:10-11 and the same sizes are described again in the dashboard.",
+   "problem": "Adding or renaming a status (a normal product change) means editing five places in four languages. Only the SQL enum is authoritative, and a missed copy fails silently: a function rejects a valid status with 400 ENUM, or the dashboard shows a status the server refuses.",
+   "fix": "Put the enums in one file in contracts/ (or core.json), import it in _shared and the dashboard, and add a CI test that compares it with the SQL enum's labels from the local test database.",
+   "when": "later",
+   "dim": "architecture"
+  },
+  {
+   "title": "Configuration is read ad hoc in 15 places with no validated config module; upload-start re-implements the storage helper",
+   "severity": "low",
+   "files": [
+    "supabase/functions/upload-start/index.ts",
+    "supabase/functions/_shared/storage.ts",
+    "deno.json",
+    "supabase/functions/_shared/dashboard.ts"
+   ],
+   "evidence": "A grep for Deno.env.get in non-test function code finds 15 call sites for 11 names (SUPABASE_SECRET_KEY x3, SUPABASE_DB_URL x3, RUNNER_KEY x3...). upload-start/index.ts:22-30 repeats the SUPABASE_URL and service-key lookup and the sign-URL fetch that _shared/storage.ts:11-35 already implements as storageCfg and signUpload. dashboard.ts:24-26 and :31-33 read JWKS_URL and DASHBOARD_ORIGINS per request. deno.json 'check' task lists 33 files by hand in a single line.",
+   "problem": "A missing or misspelled secret surfaces as a 500 CONFIG on the first real request, not at deploy. The two upload paths can drift (storage.ts sets x-upsert, upload-start does not). A function added to supabase/functions but not to the deno.json list is never type-checked, and nothing enforces that the list is complete.",
+   "fix": "Add _shared/config.ts with one typed, validated reader per function (required names declared per function) and a deploy-time smoke check that every declared name is set. Make upload-start call signUpload. Generate the deno check list from the directory, or add a test that fails when a function directory is missing from it.",
+   "when": "later",
+   "dim": "architecture"
+  },
+  {
+   "title": "Dashboard page components have no unit or component tests; behaviour is covered only by Playwright flows that need staging",
+   "severity": "low",
+   "files": [
+    "apps/dashboard/src/pages/Editor.tsx",
+    "apps/dashboard/src/pages/Leads.tsx",
+    "apps/dashboard/src/pages/PublishSheet.tsx",
+    "apps/dashboard/tests/flows.spec.ts",
+    "apps/dashboard/scripts/ci.mjs"
+   ],
+   "evidence": "The unit tests in apps/dashboard are crm.test.ts, importmap.test.ts, leads.test.ts, site.test.ts and pages/labels.test.ts, plus plan-gate and preview-port in tests/. The 25 page files (Editor, Leads, ImportLeads, LeadPanel, BulkBar, PublishSheet, ...) have no test file next to them. The browser specs are flows.spec.ts, site.spec.ts and styles.spec.ts, run by the 'flows' script.",
+   "problem": "The most stateful UI (the editor with drafts and base versions, bulk actions, import mapping, publish) is exercised only end to end against a live backend. A regression in state handling is found late, and CI cannot say which page broke. The backend side is well covered by comparison (17 Deno test files plus mutation testing), so the gap is lopsided.",
+   "fix": "Add vitest component tests with jsdom and a stubbed api.ts for Editor, Leads, BulkBar and PublishSheet, covering the conflict, error and empty states. Run them in the existing dashboard CI job and add the dashboard to the mutation-testing set the other components use.",
+   "when": "before-scale",
+   "dim": "architecture"
+  },
+  {
+   "title": "Publish validation is sequential N+1: up to 200 rows, each with its own round trips",
+   "severity": "medium",
+   "files": [
+    "supabase/functions/publish/index.ts",
+    "supabase/functions/_shared/validate.ts"
+   ],
+   "evidence": "publish/index.ts:27-30 loops up to 200 rows (line 17) and awaits service.row_version per row, then validator.check. validate.ts:30 awaits service.row_exists per distinct reference and validate.ts:36 awaits service.media_facts per distinct asset, all sequential. Each call is a separate round trip on a new direct connection (db.ts:19, max: 1), capped only by MAX_LOOKUPS.",
+   "problem": "A 200-row publish costs hundreds of serial Postgres round trips before any job starts. Latency is per-RTT times row count, and it adds to the cold start and per-request connect. The dashboard waits on this request, so large sites feel slow and risk the edge wall-clock limit.",
+   "fix": "Add set-based service functions: row_versions(rows[], versions[]) returning all pinned versions at once, and refs_exist(refs[]) and media_facts(assets[]) returning arrays. Validate in memory after one or two queries. Alternatively move validation into one SQL function.",
+   "when": "before-scale",
+   "dim": "performance"
+  },
+  {
+   "title": "One GitHub Actions run per photo, with a fresh checkout and npm ci each time, and a per-publish npx wrangler download",
+   "severity": "medium",
+   "files": [
+    ".github/workflows/media.yml",
+    ".github/workflows/publish.yml",
+    "factory/runner/publish.mjs",
+    "supabase/functions/upload-finish/index.ts"
+   ],
+   "evidence": "upload-finish/index.ts:19 dispatches one 'media' event per file. media.yml:19-33 starts a full ubuntu runner for each: checkout, setup-node, 'npm ci --prefix factory/runner' (no cache configured; the setup-node step at lines 27-30 has no 'cache:'). The concurrency group is per media_id (media.yml:14), so uploads of one tenant run fully in parallel with no tenant-level limit. publish.mjs:186-189 runs 'npx --yes wrangler@...' on every publish.",
+   "problem": "A client uploading a 40-photo gallery fires 40 simultaneous runners. This hits GitHub's concurrent job limits (shared with CI and publish across all tenants), costs 40 runner-minutes of mostly install overhead, and starves publish jobs. Processing latency is runner start-up time (tens of seconds) rather than image time. Wrangler is downloaded fresh on every publish.",
+   "fix": "Batch: one media job drains all unprocessed rows for a workspace (or a small queue of ids per dispatch). Cache npm with setup-node 'cache: npm' or vendor wrangler into factory/runner/package.json with npm ci. Long term, process images in an edge or Cloudflare worker (Images or WASM) and keep GitHub only for the site build.",
+   "when": "before-scale",
+   "dim": "performance"
+  },
+  {
+   "title": "Lead export holds 5,000 full lead rows in edge-function memory and writes one event row per lead in a PL/pgSQL loop",
+   "severity": "medium",
+   "files": [
+    "supabase/functions/lead-export/index.ts",
+    "supabase/migrations/20261031000012_screens.sql"
+   ],
+   "evidence": "lead-export/index.ts:49-50 selects up to MAX_ROWS+1=5001 rows including the 'answers' jsonb, builds the whole CSV as one string (line 62) and returns it. Line 59 then sends all ids to service.leads_exported, which at 20261031000012_screens.sql:146-151 loops per lead: a select into l, a can_act_on_lead check, an insert into lead_events.",
+   "problem": "One export means thousands of row-by-row statements in a single transaction and a CSV buffered in memory. With wide industry answers this is exposed to the edge memory and CPU limits, and the 5,000 cap silently truncates a large tenant's own data (header only). Concurrent exports from several users multiply the load, and the unbounded lead_events growth feeds the lead timeline.",
+   "fix": "Make leads_exported a single set-based insert...select (join leads to unnest(ids), filtered by the policy predicate). Stream the CSV (ReadableStream with keyset pagination on created_at,id). Run exports above N rows as an async job that writes to Storage and returns a signed link.",
+   "when": "before-scale",
+   "dim": "performance"
+  },
+  {
+   "title": "Publish dispatch and the user-facing 202 are tied to a synchronous call to GitHub with an 8 s timeout; there is no outbox",
+   "severity": "low",
+   "files": [
+    "supabase/functions/_shared/dispatch.ts",
+    "supabase/functions/publish/index.ts"
+   ],
+   "evidence": "publish/index.ts:32-34 commits the job (service.start_publish), then awaits dispatch() inline (dispatch.ts:14-19, AbortSignal.timeout(8000)) before answering. A failure is only reported as dispatched:false (dispatch.ts:23-26); the job is not retried by anything that runs (see the reaper finding).",
+   "problem": "The request thread is held up to 8 s on a third-party API on every publish and every photo finish. A GitHub outage becomes a dashboard latency spike plus silently stranded jobs. Dispatch is not atomic with the job insert, so there is no at-least-once guarantee.",
+   "fix": "Write the job and an outbox row in one transaction. A scheduled dispatcher (cron) sends pending outbox rows with retry and backoff and marks them sent. The request returns 202 immediately.",
+   "when": "before-scale",
+   "dim": "performance"
+  }
+ ],
+ "refuted": [
+  {
+   "title": "Deploy and key-minting tooling is hard-wired to one staging project, with no environment model for production",
+   "dim": "architecture",
+   "reason": "The staging-only naming in tools/deploy-functions.mjs:5,24 is by design: docs/product/2-architecture.md:94-100 rules that the working repo never holds a production key and that production changes only through the owner-run promote workflow in a separate private repo, and .github/production/promote.yml:164-172 already deploys functions to production with PROD_SUPABASE_REF through that same tool (plus read-only smoke checks), so the production path exists and the \"no environment model\" claim is wrong (at most a low naming/env-var-aliasing nit)."
+  }
+ ],
+ "notCovered": [
+  "Tenant-owned content rendered into the static sites (factory/ templates and renderer, plus the public form script): is every client-supplied string (headings, rich text, image URLs, JSON-LD, form labels) escaped or sanitised per output context? A grep for escapeHtml, sanitize and innerHTML in factory/ returned zero hits, so the escaping strategy is unconfirmed. Also whether a compromised or malicious workspace member can inject script into a live production client site.",
+  "Custom domains and TLS lifecycle: docs/product/2-architecture.md:80 says domains are handled by pointing nameservers at an Omnikom Cloudflare zone, but a repo grep for custom_domain, domain verification and custom-hostnames found nothing. Where is domain add, verify, DNS and certificate renewal automated, how is domain takeover or dangling-record risk handled on offboarding, and how is one tenant stopped from claiming another's hostname?",
+  "Tenant lifecycle, offboarding and data portability: supabase/migrations and functions have no visible workspace-delete, export-everything or off-boarding path. Does the architecture's 'leaving is pointing the nameservers back' promise hold for leads, media and content, and who deletes the Pages project, the storage objects and the DNS zone? Also whether the shipped CSV export is a full export. This is distinct from the auth.users FK finding because it is about the whole workspace.",
+  "Lead-data compliance and email deliverability: capture-lead stores consent text (supabase/functions/capture-lead/index.ts:69), but is there any suppression or unsubscribe record, consent withdrawal, consent version history, DMARC/SPF/DKIM setup for the alert sender, bounce or complaint handling for Resend, or a data-subject access path (GDPR, CCPA, TCPA, CAN-SPAM)? Grep for unsubscribe, bounce and dmarc in supabase/functions returned only the consent text.",
+  "Billing, plans and entitlements: no Stripe, plan-limit or entitlement code exists in supabase/ or apps/dashboard/src (grep returned nothing). Where are per-tenant quotas (sites, leads, media bytes, publishes per day) defined and enforced, and what stops one tenant exhausting shared Cloudflare, Resend and GitHub Actions capacity? The existing quota-circuit-breaker finding covers vendor spend, not per-tenant fairness or the paid product model.",
+  "Staff and admin authority model and audit trail: supabase/functions/_shared/dashboard.ts and the staff path. Is there an append-only audit log of privileged staff actions (cross-workspace reads, support access, role grants), staff MFA enforcement, session lifetime and revocation, and a documented break-glass procedure? A grep of migrations for audit_log, staff_action and impersonation matched only platform.sql, crm.sql and addons.sql, so confirm whether those are real audit tables.",
+  "Cross-origin trust for the public capture endpoint: _shared/dashboard.ts:36 reflects an Origin into access-control-allow-origin, and capture-lead is called from every client's domain. Is there a per-site allowed-origin list checked against the site's registered domains, or can any page post leads to any workspace's site key? Also check how the site key is minted, rotated and revoked.",
+  "Schema change and release governance: migrations are forward-only (latest supabase/migrations/20261105000018_lead_list_site.sql) and apply-staging.mjs applies them to staging. Is there a CI job that replays all migrations on a clean database, checks drift between staging and production, runs a migration linter for locks and backward compatibility, and defines a rollback or expand-contract policy? Also no .github/dependabot.yml or equivalent automated dependency-update and vulnerability-audit job exists, though actions are SHA-pinned."
+ ],
+ "finderDied": []
+}

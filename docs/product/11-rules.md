@@ -92,3 +92,27 @@ its check where one exists. How sessions and departments work (heads, builders, 
 
 29. Skills live in `skills/`, the platform's copy. `skills/SOURCE.md` records where each came from; a change made outside is
     synced back on purpose, never silently.
+
+## Built to scale (owner, 2026-11-05)
+
+Every block, and the omnikom.ai site, is built to these from its first commit; a work order that touches one of them names how
+it keeps it, and the hardening steps in `9-blocks.md` bring today's code up to them.
+30. **The edge takes the load, the database takes only real work.** Anything public (a form post, a page) is rate limited
+    per visitor and per site at Cloudflare, with a bot check, before it reaches a function; a flood never costs a database
+    connection.
+31. **Pooled connections only.** Functions reach Postgres through the Supabase pooler (transaction mode), never a direct
+    connection per request.
+32. **Lists scale with the tenant.** Every list a user pages through uses an index for its filter and sort, pages by
+    position (keyset), never counts every row per view, and has a measured size it was tested at.
+33. **No outbound call or heavy count inside a hot request.** Mail, webhooks and heavy work go to a queue or a scheduled job;
+    quotas use a counter, not `count(*)`.
+34. **Static is cached hard, live is opened only where used.** Built assets carry `immutable` cache headers and the app
+    shell `no-cache`; a realtime channel is opened only on the screen that shows it.
+35. **Credentials before connections; least privilege everywhere.** A request is checked (signature, token, shape) before it
+    costs a database connection; every job and step gets only the secrets it uses; every key can be rotated with two
+    values live at once.
+36. **The book's numbers are computed, never typed.** Every count in `1-product.md` is recomputed from its rows by the
+    `tools/icm` check in CI (H0-6); a WORKS row cites a path that exists; every hardening step has an owner and a part E
+    row. A new capability any review names becomes a row the day it is found, so the total grows with the truth. When the
+    numbers, the code and the text disagree, the session that sees it stops, routes it to the owning department, and the
+    owner fixes the text or builds the code.
