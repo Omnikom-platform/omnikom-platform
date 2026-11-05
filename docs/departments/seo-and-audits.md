@@ -447,3 +447,30 @@ options, never a fix made here.
   Work order 06 (`work/06-plain-names/CONTEXT.md`): `tools/audit/names.json` (11 topics, one plain sentence per rule), `names.mjs`, the
   summary's `byTopic`; builder BUILDER_seo-and-audits_plain-names (pid 35820, sonnet, effort high). Head re-run: test/run.mjs "OK: 599 of
   599 checks passed"; bad-MET-003 `--summary` pass false, byTopic.headings.FAIL 1, titles.FAIL 0. Factory, CLI and full mutants on CI.
+- 2026-11-04 22:10: WORK ORDER 06 LANDED: master c17af7b (run 41896948937, 9 of 9), after two rebases (2d0f909, 4bfaac7); branch, worktree
+  and builder removed. RULE (head of operations, 22:16): take the next free work order number from `work/` (all branches' folders)
+  before writing one; 06-plain-names keeps its number. Slice 4 first part started as work order 09 (`work/09-six-question-report`):
+  BUILDER_seo-and-audits_six-question-report (pid 15836, sonnet high). Stop all work at 95% weekly usage.
+- 2026-11-04 22:19: LAND HOLD (head of operations): platform's work order 07 (CRM screens) lands next; no SEO land until platform
+  says 07 is on master. Work order 09 may be built, pushed and run on CI meanwhile, then rebased on master after 07.
+- 2026-11-05 01:12: work order 09 (slice 4 first part) ACCEPTED: `tools/audit/report.mjs` (the six-question report from the stored
+  summary; Q2 to Q5 "not measured yet" cards in report-live.mjs's words; every number a fact with its summary path). Head re-run:
+  test/run.mjs "OK: 653 of 653 checks passed" exit 0; bad-MET-003 production report read (one heading problem on `/tasting-room/`,
+  first in the fix order; a bad --checked-at exit 2). Builder's 4 new mutants caught; builder stopped (pid 15836). Next part (slice
+  4b): questions 2 to 5 from the skill's research and measure files. Waits on the land hold (platform 07 first).
+- 2026-11-05 01:20: HANDOVER (head HEAD_SEO-and-audits_2026-11-04b, Opus 5.5; reports to HEAD-OF-OPERATIONS_Omnikom_Platform; idle at
+  the head of operations' order, weekly usage 89%, stop at 95%).
+  - LANDED this session: work order 06 plain names (c17af7b, run 41896948937, 9 of 9); work order 09 lands with this block (its commit
+    message and run carry the sha). No builder runs; no SEO worktree but `departments\seo-and-audits\builders\six-question-report`
+    (remove it after this land).
+  - NEXT 1: slice 4b, questions 2 to 5 of `tools/audit/report.mjs` from the skill's research and measure files (report-live.mjs's
+    report.json facts: targets.json, competitor audits, authority.json, ai-citations and measure citations), each number a fact with
+    its source; NOT STARTED (head of operations, 01:13: not before the weekly reset). Take the next free work order number from
+    `work/` on every branch.
+  - NEXT 2: the LOW finding, mutate.mjs progress line every 25 mutants (Open items).
+  - OPEN for others: the book's `docs/product/6-dashboard.md:113` names names.json and byTopic (head of operations' next book
+    commit); dashboard card 5 reads `report.mjs` once reports are stored (platform). Heavy lock: other sessions held it 1h+ on
+    2026-11-04, so builders ran `tools/audit/test/run.mjs` directly (it does not need the lock) and only mutants through heavy.mjs.
+  - LESSONS: a land after another head's land needs a rebase; build the commit on the fresh master with a cherry-pick, take master's
+    icm/ and regenerate it, and compare the non-icm diff with the old commit before pushing. A topic with no checks reads "not
+    checked this time", never "0 pass, 0 problems".

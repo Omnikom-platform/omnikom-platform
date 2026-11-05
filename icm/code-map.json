@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 593,
+    "sources": 594,
     "unowned": 0
   },
   "files": [
@@ -216,7 +216,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/ref-sw.mjs","owner":"seo-and-audits","exports":["captureRegistrations","checkServiceWorkers","detectServiceWorkers","swMarkdown"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/ref-visual.mjs","owner":"seo-and-audits","exports":["DEFAULT_MAX_DIFF_RATIO","VIEWPORTS","captureSite","compareCaptures","compareSites","decodePng","diffImage","discoverGroups","encodePng","parseAllow","pixelDiff","regionsOf","screenshotPage","serveDir","urlPathOf","visualMarkdown"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/refactor.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/report-live.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/report-live.mjs","owner":"seo-and-audits","exports":[],"tests":["tools/audit/test/run.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/research-ai.mjs","owner":"seo-and-audits","exports":["GEMINI_GAP_MS","fromSerp","geminiRuns","importOwner","parseOwnerMarkdown","run"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/research-assets.mjs","owner":"seo-and-audits","exports":["MIN","deriveIdeas","run"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/research-autocomplete.mjs","owner":"seo-and-audits","exports":["run","tierFromSuggestion"],"tests":[],"feature":""},
@@ -443,6 +443,7 @@
     {"path":"tools/audit/lib/xml.mjs","owner":"seo-and-audits","exports":["xmlProblems"],"tests":["tools/audit/test/mutate.mjs"],"feature":""},
     {"path":"tools/audit/live.mjs","owner":"seo-and-audits","exports":[],"tests":["tools/audit/test/mutate.mjs","tools/audit/test/run.mjs"],"feature":""},
     {"path":"tools/audit/names.mjs","owner":"seo-and-audits","exports":["TOPICS","problemOf","topicOf"],"tests":["tools/audit/test/mutate.mjs","tools/audit/test/run.mjs"],"feature":""},
+    {"path":"tools/audit/report.mjs","owner":"seo-and-audits","exports":["report"],"tests":["tools/audit/test/mutate.mjs","tools/audit/test/run.mjs"],"feature":""},
     {"path":"tools/audit/run.mjs","owner":"seo-and-audits","exports":[],"tests":["factory/runner/test/run.mjs","tools/audit/test/mutate.mjs","tools/audit/test/run.mjs"],"feature":""},
     {"path":"tools/audit/summary.mjs","owner":"seo-and-audits","exports":["MAX_BYTES","MAX_FAILS","MAX_WHAT","summarize"],"tests":["tools/audit/test/mutate.mjs","tools/audit/test/run.mjs"],"feature":""},
     {"path":"tools/audit/test/mutate.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},

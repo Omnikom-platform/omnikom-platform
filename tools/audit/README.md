@@ -82,6 +82,35 @@ fails. The dashboard's "Search health" card and the six-question report read thi
 - The summary carries `byTopic` next to `byFamily`: the same lines counted per topic, every topic present (zeros when none), a rule id outside
   the table under `other`. `v` stays 1 (the field was added, nothing renamed).
 
+## The six-question report
+`report.mjs` turns a stored summary (above, with `byTopic`) into the owner's monthly report in plain words: a short answer, then the six
+questions in the headings of the skill's `report-live.mjs`. Node built-ins only, nothing written. Work order 09 (SEO slice 4, first part).
+```
+import { report } from "./tools/audit/report.mjs";
+const { md, facts } = report(summary, { checkedAt: "2026-11-04" });    // checkedAt optional: without it the text has no date part
+```
+```
+node tools/audit/report.mjs <summary.json> [--checked-at YYYY-MM-DD] [--json]
+```
+- The CLI prints the markdown (exit 0); `--json` prints `{ md, facts }` as one JSON object. A missing or unreadable file, a file that is not a summary
+  (not JSON, `v` other than 1, no `byTopic`, which a summary stored before work order 06 lacks), a bad date or an unknown option exits 2 with one line on stderr.
+  The library throws an `AuditError` (`.exit === 2`) for the same.
+- The text: `# Search check`, the short answer ("Yes" when `pass` and no FAIL, else "Not yet: n problems stop a publish"), the line "Checked <date> on the
+  <preview | live> site: n of m checks pass on p pages" (m leaves out the skipped checks; they are said on their own: "1 check did not run"), then
+  section 1 (one line per topic of `names.mjs` `TOPICS` with its PASS, FAIL and WARN counts, or "not checked this time" when none of the three is above 0, and under a topic with a problem the rule's plain
+  sentence and its pages, at most 5, then "and k more"), sections 2 to 5 and section 6, "What to fix, in order": the FAIL rules by severity
+  (P0, P1, P2, W), then by the number of pages, then by rule id; at most 10 bullets, then "And k more problems"; "k more problems were found but not
+  stored with this check" when `truncated` is above 0; "Nothing to fix" when no check failed. No rule id, file name or jargon word, and no em dash.
+- **The source rule: the report never states a number without its source.** Every number in `md` is recorded in `facts` as `{ id, value, source }`.
+  `source` says where the value was read: a path in the summary (`summary.byTopic.headings.FAIL`, `summary.fails[3].page`), `listRules()["MET-003"].severity`,
+  `checkedAt`, or a sum or difference of such terms (`summary.counts.PASS + summary.counts.FAIL`, `distinct(summary.fails[2,5].page) - 5`; `distinct`
+  counts different values, `[*]` is every entry, `[2,5]` the listed ones). `test/run.mjs` reads every source back in the input summary with its own reader
+  and compares it with the value, and checks that every run of digits in the text (the heading numbers and the backtick spans taken out, the date removed
+  whole) equals a fact.
+- Questions 2 to 5 (is there a page for what people search, is each page better than what ranks, authority, AI citations) need the skill's research and
+  measure files. Here each is a card "Not measured yet. <why>" with "What unblocks it: <what>", in the words of `report-live.mjs`. Reading those files
+  is the next part.
+
 ## Snapshot mode (slice 2)
 A folder that holds `_site.json` and `pages/<slug>/raw.html.gz` is a snapshot made by the skill's polite `snapshot-site.mjs`, and the same
 rules judge it. What differs from a built folder:
@@ -219,7 +248,7 @@ All P1; DSN-010 and DSN-011 print WARN (the exit stays 0), the other nine print 
 - The design stage of the skill (`stages/design.md`) requires the five-line direction and the nine passes, and runs this family after them.
 
 ## Layout
-- `index.mjs` the engine, `run.mjs` the runner, `live.mjs` the live driver, `summary.mjs` the small summary of an audit (work order 05), `names.json` and `names.mjs` the plain words (work order 06).
+- `index.mjs` the engine, `run.mjs` the runner, `live.mjs` the live driver, `summary.mjs` the small summary of an audit (work order 05), `names.json` and `names.mjs` the plain words (work order 06), `report.mjs` the six-question report (work order 09).
 - `lib/site.mjs` the site reader: a copy of the skill's `scripts/lib-site.mjs` (header says which changes). `lib/context.mjs` folder
   facts, sitemap reading, `resolveLink`, the build target. `lib/headers.mjs` the `_headers` file (slice 4c). `lib/lines.mjs` line numbers. `lib/schema.mjs`, `lib/xml.mjs`, `lib/check.mjs` helpers.
   `lib/sitemap-lastmod.mjs` a copy of the skill's built-in SE-004/IDX-003 check with its logic lifted into functions.

@@ -62,6 +62,11 @@ const MUTANTS = [
   ["names.json: MET-003 points at the titles topic", "names.json", '"MET-003": { "topic": "headings"', '"MET-003": { "topic": "titles"'],
   ["summary.mjs: byTopic skips a status", "summary.mjs", "    add(topic(f.rule), status);\n", ""],
   ["names.mjs: topicOf returns the family prefix, not the topic", "names.mjs", "(has(ruleId) ? NAMES.rules[ruleId].topic : \"other\")", "String(ruleId).split(\"-\")[0]"],
+  // the six-question report (work order 09)
+  ["report.mjs: section 1 prints a number that is no fact (pages + 1)", "report.mjs", "`${n(`s1.${id}.PASS`, b.PASS, `${at}.PASS`)} pass`", "`${summary.pages + 1} pass`"],
+  ["report.mjs: the pass count fact is read from counts.FAIL", "report.mjs", "n(\"pass\", c.PASS, \"summary.counts.PASS\")", "n(\"pass\", c.PASS, \"summary.counts.FAIL\")"],
+  ["report.mjs: section 6 ignores severity", "report.mjs", "(rank(x) - rank(y)) || (y.pages.length - x.pages.length)", "(y.pages.length - x.pages.length)"],
+  ["report.mjs: the truncated line is dropped", "report.mjs", "if (summary.truncated > 0) md.push(", "if (false) md.push("],
   ["lines.mjs: line numbers start at 0", "lib/lines.mjs", "let n = 1;\n  const end", "let n = 0;\n  const end"],
   ["site.mjs: the tokenizer never counts a newline", "lib/site.mjs", "if (html.charCodeAt(ptr++) === 10) ln++;", "ptr++;"],
   ["site.mjs: an <svg> is not stripped (its <title> counts)", "lib/site.mjs", "<(style|noscript|template|svg)\\b", "<(style|noscript|template)\\b"],

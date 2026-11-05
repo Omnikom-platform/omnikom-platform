@@ -939,6 +939,182 @@ try {
     check("summarize: byTopic has no other key when every rule id is in the table", goodSum.byTopic !== undefined && !("other" in goodTopic) && !("other" in badTopic), Object.keys(goodTopic).join(","));
   }
 
+  // work order 09: the six-question report (report.mjs): the source rule, the six headings, the order of section 6, no jargon, the CLI
+  {
+    const { report } = await import(pathToFileURL(join(AUDIT, "report.mjs")).href);
+    const { summarize } = await import(pathToFileURL(join(AUDIT, "summary.mjs")).href);
+    const names = await import(pathToFileURL(join(AUDIT, "names.mjs")).href);
+    const EM = String.fromCharCode(0x2014);
+    const ruleById = Object.fromEntries(engine.listRules().map((r) => [r.id, r]));
+    // The test's own reader of a fact's source (it shares no code with report.mjs): a path in the summary, listRules()["ID"].severity, checkedAt, distinct(path),
+    // [*] for every entry and [2,5] for the listed ones, and a sum or difference of such terms.
+    const resolveSource = (src, summary, date) => {
+      const split = (s) => {
+        const out = []; let depth = 0, quoted = false, cur = "";
+        for (let i = 0; i < s.length; i++) {
+          const ch = s[i];
+          if (quoted) { cur += ch; if (ch === "\\") cur += s[++i]; else if (ch === '"') quoted = false; continue; }
+          if (ch === '"') quoted = true;
+          if (ch === "[" || ch === "(") depth++;
+          if (ch === "]" || ch === ")") depth--;
+          if (depth === 0 && (s.startsWith(" + ", i) || s.startsWith(" - ", i))) { out.push(cur, s[i + 1]); cur = ""; i += 2; continue; }
+          cur += ch;
+        }
+        out.push(cur);
+        return out;
+      };
+      const walk = (expr) => {
+        const root = /^(summary|listRules\(\))/.exec(expr);
+        if (!root) throw new Error("no such source root: " + expr);
+        let nodes = [root[1] === "summary" ? summary : ruleById];
+        const step = /\.(\w+)|\[("(?:[^"\\]|\\.)*")\]|\[(\*|\d+(?:,\d+)*)\]/y;
+        step.lastIndex = root[0].length;
+        while (step.lastIndex < expr.length) {
+          const at = step.lastIndex, s = step.exec(expr);
+          if (!s || s.index !== at) throw new Error("cannot read the source at: " + expr.slice(at));
+          if (s[3] === undefined) {
+            const k = s[1] ?? JSON.parse(s[2]);
+            nodes = nodes.map((o) => { if (o === null || typeof o !== "object" || !Object.hasOwn(o, k)) throw new Error(`nothing at ${k} in ${expr}`); return o[k]; });
+          } else {
+            const idx = s[3] === "*" ? null : s[3].split(",").map(Number);
+            nodes = nodes.flatMap((o) => { if (!Array.isArray(o)) throw new Error("not a list in " + expr); return idx === null ? o : idx.map((i) => { if (!(i in o)) throw new Error(`no entry ${i} in ${expr}`); return o[i]; }); });
+          }
+        }
+        return nodes;
+      };
+      const term = (t) => {
+        t = t.trim();
+        if (/^\d+$/.test(t)) return Number(t);
+        if (t === "checkedAt") { if (!date) throw new Error("checkedAt was not given"); return date; }
+        const d = /^distinct\((.*)\)$/s.exec(t);
+        if (d) return new Set(walk(d[1])).size;
+        const nodes = walk(t);
+        if (nodes.length !== 1) throw new Error(`${t} reads ${nodes.length} values, not one`);
+        return nodes[0];
+      };
+      const parts = split(src);
+      let v = term(parts[0]);
+      for (let i = 1; i < parts.length; i += 2) v = parts[i] === "+" ? v + term(parts[i + 1]) : v - term(parts[i + 1]);
+      return v;
+    };
+    // THE SOURCE RULE, read back: what is wrong with the report of this summary (an empty list = nothing)
+    const sourceProblems = (summary, date) => {
+      const { md, facts } = report(summary, date ? { checkedAt: date } : {});
+      const bad = [];
+      let text = md.replace(/^## \d\. /gm, "## ").replace(/`[^`]*`/g, "");
+      if (date) text = text.split(date).join("");   // the date is printed whole, once, and is the checkedAt fact
+      const runs = text.match(/\d+/g) || [];
+      const values = new Set(facts.map((f) => String(f.value)));
+      if (!facts.length) bad.push("no facts at all");
+      for (const r of new Set(runs)) if (!values.has(r)) bad.push(`the digits ${r} in the text are no fact`);
+      for (const f of facts) {
+        let got;
+        try { got = resolveSource(f.source, summary, date); } catch (e) { bad.push(`${f.id}: ${e.message}`); continue; }
+        if (got !== f.value) bad.push(`${f.id}: ${f.source} gives ${JSON.stringify(got)}, the fact says ${JSON.stringify(f.value)}`);
+      }
+      for (const f of facts) if (typeof f.value === "number" && !runs.includes(String(f.value))) bad.push(`${f.id}: the fact ${f.value} is not in the text`);
+      if (date && !facts.some((f) => f.value === date && f.source === "checkedAt")) bad.push("no checkedAt fact");
+      return { md, facts, bad };
+    };
+    // the inputs: the real summaries of fixtures (made here, never stored) and synthetic ones
+    const sumGood = summarize(engine.audit(GOOD_DIR, { target: "production" }));
+    const badDir = join(FIX, "bad-MET-003");
+    const sumBadPreview = summarize(engine.audit(badDir, { target: "preview" }));
+    const sumBadLive = summarize(engine.audit(badDir, { target: "production" }));
+    const synthAudit = (findings, ids, extra = {}) => ({ dir: "/x", mode: "static", target: "production", pages: ["/", "/a/"], rules: ids.map((id) => ({ id, severity: ruleById[id].severity, source: "s" })), findings, lines: ids.map((id) => `PASS ${id} /`), pass: !findings.some((f) => f.status === "FAIL"), exit: findings.some((f) => f.status === "FAIL") ? 1 : 0, ...extra });
+    const fail = (rule, page, line) => ({ rule, page, line, what: "w", status: "FAIL" });
+    const manyFindings = [
+      ...Array.from({ length: 20 }, (_, i) => fail("DSN-005", `/d${i}/`, i + 1)),
+      ...Array.from({ length: 7 }, (_, i) => fail("MET-003", `/m${i % 6}/`, i + 1)),     // 7 findings on 6 pages
+      ...Array.from({ length: 3 }, (_, i) => fail("SE-004", `/s${i}/`, i + 1)),
+      { rule: "MET-004", page: "/", line: 1, what: "w", status: "WARN" },
+    ];
+    const sumMany = { ...summarize(synthAudit(manyFindings, ["DSN-005", "MET-003", "SE-004", "MET-004"])), truncated: 12 };
+    const thirteen = engine.listRules().slice(0, 13).map((r) => r.id);
+    const sumThirteen = summarize(synthAudit(thirteen.map((id, i) => fail(id, `/t${i}/`, 1)), thirteen));
+    const sumWarn = summarize(synthAudit([{ rule: "DSN-010", page: "/", line: 1, what: "w", status: "WARN" }], ["DSN-010"], { pass: true, exit: 0 }));
+    const inputs = [["good", sumGood, "2026-11-04"], ["good without a date", sumGood, null], ["bad-MET-003 preview", sumBadPreview, "2026-11-04"], ["bad-MET-003 live", sumBadLive, "2026-11-04"], ["30 FAILs over 3 rules", sumMany, "2026-11-04"], ["13 rules", sumThirteen, "2026-11-04"], ["a WARN only", sumWarn, "2026-11-04"]];
+    const reports = Object.fromEntries(inputs.map(([name, s, date]) => [name, sourceProblems(s, date)]));
+    const sections = (md) => { const out = {}; let at = null; for (const l of md.split("\n")) { const h = /^## (\d)\./.exec(l); if (h) at = out[h[1]] = []; else if (at) at.push(l); } return out; };
+    const bullets = (md) => (sections(md)[6] || []).filter((l) => l.startsWith("- "));
+
+    // 4a THE SOURCE RULE
+    for (const [name, , date] of inputs) check(`report: ${name}: every number in the text is the value of a fact, every fact's source gives its value, every numeric fact is in the text`, reports[name].bad.length === 0, reports[name].bad.slice(0, 3).join(" | "));
+    check("report: the source reader itself works (a sum, a difference, distinct, a list of entries, a quoted key, a severity, the date) and refuses a wrong path",
+      resolveSource("summary.counts.PASS + summary.counts.FAIL", sumBadLive, null) === sumBadLive.counts.PASS + sumBadLive.counts.FAIL && resolveSource("distinct(summary.fails[*].rule) - 1", sumMany, null) === 2 && resolveSource("distinct(summary.fails[20,21,22].page)", sumMany, null) === 3
+      && resolveSource('summary.byTopic["structured-data"].PASS', sumGood, null) === sumGood.byTopic["structured-data"].PASS && resolveSource('listRules()["MET-003"].severity', sumGood, null) === "P0" && resolveSource("checkedAt", sumGood, "2026-11-04") === "2026-11-04"
+      && (() => { try { resolveSource("summary.counts.NOPE", sumGood, null); return false; } catch { return true; } })() && (() => { try { resolveSource("summary.fails[999].page", sumGood, null); return false; } catch { return true; } })());
+    check("report: a wrong source is seen by the source check (the check itself is not blind): a printed number with no fact, and a fact read from the wrong path, both come back as problems",
+      (() => { const r = report(sumBadLive, { checkedAt: "2026-11-04" }); const lie = r.facts.map((f) => (f.id === "pass" ? { ...f, source: "summary.counts.FAIL" } : f)); return lie.some((f) => f.id === "pass" && resolveSource(f.source, sumBadLive, "2026-11-04") !== f.value) && !new Set(r.facts.map((f) => String(f.value))).has(String(sumBadLive.pages + 7000)); })());
+
+    // 4b the headings, the order, the topics
+    const HEADINGS = ["## 1. Can search engines and AI crawlers reach and read the site?", "## 2. Is there a page for what people actually search?", "## 3. Is each page better than what ranks now?", "## 4. Does the site have the authority to rank?", "## 5. Is it cited by AI engines? If not, who is, and why?", "## 6. What to fix, in order"];
+    for (const [name] of inputs) check(`report: ${name}: starts with "# Search check" and the short answer, then the six headings exactly as report-live.mjs words them, in order`,
+      (() => { const md = reports[name].md, ls = md.split("\n"); return ls[0] === "# Search check" && ls[2].startsWith("**Short answer:** ") && JSON.stringify(ls.filter((l) => l.startsWith("## "))) === JSON.stringify(HEADINGS) && ls.filter((l) => l.startsWith("# ")).length === 1; })(), reports[name].md.slice(0, 200));
+    for (const [name, s] of inputs) check(`report: ${name}: section 1 has one line per topic in the order of TOPICS, with its name and its PASS, FAIL and WARN counts from byTopic`,
+      (() => { const lines = (sections(reports[name].md)[1] || []).filter((l) => l.startsWith("- ")); const want = names.TOPICS.map((t) => { const b = s.byTopic[t.id], w = b.WARN || 0; if (b.PASS + b.FAIL + w === 0) return `- ${t.name}: not checked this time`; return `- ${t.name}: ${b.PASS} pass, ${b.FAIL} ${b.FAIL === 1 ? "problem" : "problems"}, ${w ? w + " " + (w === 1 ? "warning" : "warnings") : "no warnings"}`; }); return lines.length === want.length && want.every((w, i) => lines[i].startsWith(w)); })(), (sections(reports[name].md)[1] || []).join(" | ").slice(0, 300));
+    check("report: sections 2 to 5 are each a Not measured yet card with a What unblocks it line, and say nothing measured",
+      ["2", "3", "4", "5"].every((k) => { const t = (sections(reports["good"].md)[k] || []).join("\n"); return t.includes("**Not measured yet.** ") && /\nWhat unblocks it: .+/.test(t) && !/\d/.test(t); }));
+    check("report: bad-MET-003 (production): Speed, which a built folder never judges, reads exactly Speed: not checked this time; AI question coverage with only a SKIP reads not checked this time, 1 not run; a topic with checks still shows its counts; no report says 0 pass, 0 problems",
+      (() => { const l = (sections(reports["bad-MET-003 live"].md)[1] || []).filter((x) => x.startsWith("- ")); const sumL = sumBadLive.byTopic; return sumL.speed.PASS + sumL.speed.FAIL + sumL.speed.SKIP === 0 && l.includes("- Speed: not checked this time") && l.includes("- AI question coverage: not checked this time, 1 not run") && l.some((x) => x.startsWith("- Headings and structure: ") && x.includes(" 1 problem,")) && !l.some((x) => x.startsWith("- Headings and structure: not checked")) && inputs.every(([name]) => !/\b0 pass, 0 problems/.test(reports[name].md)); })(), (sections(reports["bad-MET-003 live"].md)[1] || []).join(" | ").slice(0, 400));
+    check("report: the kind of site is said in plain words: production is live, preview is preview", /on the live site:/.test(reports["good"].md) && /on the preview site:/.test(reports["bad-MET-003 preview"].md) && /^Checked the live site: /m.test(reports["good without a date"].md) && !/20\d\d-/.test(reports["good without a date"].md) && /^Checked 2026-11-04 on the live site: /m.test(reports["good"].md));
+
+    // 4c the real fixtures
+    const first = (md) => (bullets(md)[0] || "");
+    check("report: bad-MET-003 (live, one FAIL): the short answer says not yet with 1 problem, and the first bullet of section 6 is MET-003's plain sentence on 1 page",
+      /^\*\*Short answer:\*\* Not yet: 1 problem stops a publish\.$/m.test(reports["bad-MET-003 live"].md) && first(reports["bad-MET-003 live"].md).startsWith("- " + names.problemOf("MET-003") + " On 1 page: `/tasting-room/`.") && bullets(reports["bad-MET-003 live"].md).length === 1, first(reports["bad-MET-003 live"].md));
+    check("report: bad-MET-003 (preview, which also trips ENV-001 on every page): not yet, MET-003's sentence is in section 6, and ENV-001 comes first (same severity, more pages)",
+      /^\*\*Short answer:\*\* Not yet: 5 problems stop a publish\.$/m.test(reports["bad-MET-003 preview"].md) && (() => { const b = bullets(reports["bad-MET-003 preview"].md); return b.length === 2 && b[0].includes(names.problemOf("ENV-001")) && b[1].includes(names.problemOf("MET-003")); })(), bullets(reports["bad-MET-003 preview"].md).join(" | "));
+    check("report: good: the short answer is yes and section 6 says there is nothing to fix and has no bullet",
+      /^\*\*Short answer:\*\* Yes, nothing stops a publish\.$/m.test(reports["good"].md) && bullets(reports["good"].md).length === 0 && (sections(reports["good"].md)[6] || []).includes("Nothing to fix: no check failed.") && !/more problems? (was|were) found/.test(reports["good"].md));
+    check("report: a WARN-only summary is still yes, and says the warning is worth a look (the WARN count is a fact)", /^\*\*Short answer:\*\* Yes, nothing stops a publish; 1 warning is worth a look\.$/m.test(reports["a WARN only"].md) && reports["a WARN only"].facts.some((f) => f.id === "warnings" && f.value === 1 && f.source === "summary.counts.WARN"));
+    check("report: a check that did not run is said, not hidden (good: the one PMP-001 SKIP), and is not counted in the total", /checks pass on \d+ pages\. 1 check did not run\.$/m.test(reports["good"].md) && reports["good"].facts.find((f) => f.id === "total").value === sumGood.counts.PASS + sumGood.counts.FAIL);
+
+    // 4d the synthetic summary: 30 FAILs over 3 rules, a WARN, truncated 12
+    check("report: 30 FAILs over 3 rules: section 6 has 3 bullets in the order P0 first (MET-003, 6 pages), then the P1 rule with more pages (DSN-005, 20 pages), then SE-004 (3 pages)",
+      (() => { const b = bullets(reports["30 FAILs over 3 rules"].md); return b.length === 3 && b[0].includes(names.problemOf("MET-003")) && b[1].includes(names.problemOf("DSN-005")) && b[2].includes(names.problemOf("SE-004")) && b[0].includes(" On 6 pages: ") && b[1].includes(" On 20 pages: ") && b[2].includes(" On 3 pages: "); })(), bullets(reports["30 FAILs over 3 rules"].md).map((l) => l.slice(0, 40)).join(" | "));
+    check("report: at most 5 pages on a line, then and <k> more (20 pages: 5 and 15 more; 6 pages: 5 and 1 more; 3 pages: all three), in section 6 and in section 1",
+      (() => { const md = reports["30 FAILs over 3 rules"].md; const b = bullets(md); const spans = (l) => (l.match(/`[^`]*`/g) || []).length; const s1 = (sections(md)[1] || []).filter((l) => l.startsWith("  - ")); return spans(b[1]) === 5 && b[1].includes("`/d4/` and 15 more.") && spans(b[0]) === 5 && b[0].includes("and 1 more.") && spans(b[2]) === 3 && !/ more\./.test(b[2]) && s1.length === 3 && s1.filter((l) => spans(l) === 5).length === 2 && s1.some((l) => l.includes("and 15 more")); })(), bullets(reports["30 FAILs over 3 rules"].md).join(" | "));
+    check("report: summary.truncated 12 gives the line 12 more problems were found but not stored with this check; a summary with truncated 0 has no such line",
+      /^12 more problems were found but not stored with this check\.$/m.test(reports["30 FAILs over 3 rules"].md) && reports["30 FAILs over 3 rules"].facts.some((f) => f.id === "truncated" && f.value === 12 && f.source === "summary.truncated") && !/not stored with this check/.test(reports["good"].md + reports["bad-MET-003 live"].md));
+    check("report: more than 10 problems: 10 bullets, then And 3 more problems (the 13 rules), and no numbered list anywhere",
+      bullets(reports["13 rules"].md).length === 10 && /^And 3 more problems, lower in the same order\.$/m.test(reports["13 rules"].md) && inputs.every(([name]) => !/^\s*\d+\. /m.test(reports[name].md)));
+    check("report: the WARN of the synthetic summary is in section 1 (MET-004 is in the titles or headings topic) and not in section 6 (a WARN is not a fix-first problem)",
+      (sections(reports["30 FAILs over 3 rules"].md)[1] || []).some((l) => l.startsWith("- " + names.TOPICS.find((t) => t.id === names.topicOf("MET-004")).name + ": ") && / 1 warning/.test(l)) && bullets(reports["30 FAILs over 3 rules"].md).every((l) => !l.includes(names.problemOf("MET-004"))));
+    check("report: a rule id outside names.json is counted in an Other checks line and its problem has a fallback plain sentence, never a rule id or null",
+      (() => { const a = synthAudit([fail("XYZ-999", "/x/", 1)], ["MET-003"]); const r = report(summarize(a), { checkedAt: "2026-11-04" }); return /^- Other checks: 0 pass, 1 problem, no warnings/m.test(r.md) && /A check found a problem that has no plain description yet\./.test(r.md) && !/XYZ|null|undefined/.test(r.md); })());
+
+    check("report: a summary that says pass but carries a FAIL is not yes (the short answer needs pass and no FAIL), and a page with a backtick or a line break in its name stays inside one backtick span on one line",
+      (() => { const r = report({ ...sumBadLive, pass: true }, { checkedAt: "2026-11-04" }); const odd = report(summarize(synthAudit([fail("MET-003", "/a`b\nc/", 1)], ["MET-003"])), { checkedAt: "2026-11-04" }); const b = bullets(odd.md); return /^\*\*Short answer:\*\* Not yet: 1 problem stops a publish\.$/m.test(r.md) && b.length === 1 && (b[0].match(/`/g) || []).length === 2 && b[0].includes("`/a b c/`"); })());
+    // 4e no rule ids, file names, jargon or em dash; the library and the CLI refuse what is not a summary
+    const JARGON = /canonical|\bh[1-6]\b|ld\+json|json-ld|\bLCP\b|\bCLS\b|\bTBT\b|\bTTFB\b|lastmod|x-robots|robots\.txt|noindex|nofollow|sitemap|hreflang|\balt\b|\bmeta\b|\bjson\b|\bhtml\b|\burl\b|\bseo\b|\bschema\b/i;
+    for (const [name] of inputs) {
+      const outside = reports[name].md.replace(/`[^`]*`/g, "");
+      check(`report: ${name}: no rule id, file name, jargon word or em dash outside the backtick spans`, !/[A-Z]{2,3}-\d{3}/.test(outside) && !/\.(mjs|json|md|html|txt|xml)\b/i.test(outside) && !JARGON.test(outside) && !outside.includes(EM), (outside.match(/[A-Z]{2,3}-\d{3}|\.(mjs|json|md|html|txt|xml)\b|canonical|sitemap/i) || [outside.includes(EM) ? "em dash" : ""])[0]);
+    }
+    check("report: the lines of the text never carry a rule id even for a rule with no plain sentence (the fallback), and the pages sit in backticks only", reports["30 FAILs over 3 rules"].md.split("\n").filter((l) => l.startsWith("- ") && l.includes("Omnikom fixes this")).every((l) => /: `\/[^`]*`[^`]*$|: `\/[^`]*`(, `\/[^`]*`)*( and (`\/[^`]*`|\d+ more))?\. Omnikom fixes this; the fix ships with the next publish\.$/.test(l)));
+    check("report: the same summary and date give the same text and the same facts (nothing random, nothing read from the clock)", JSON.stringify(report(sumMany, { checkedAt: "2026-11-04" })) === JSON.stringify(report(sumMany, { checkedAt: "2026-11-04" })) && report(sumMany).md === report(sumMany, { checkedAt: undefined }).md);
+    const refused = (s, o) => { try { report(s, o); return null; } catch (e) { return e; } };
+    const notSummaries = [null, undefined, 5, "text", [], {}, { ...sumGood, v: 2 }, { ...sumGood, v: undefined }, { ...sumGood, byTopic: undefined }, { ...sumGood, counts: { PASS: 1 } }, { ...sumGood, fails: "x" }, { ...sumGood, fails: [{ rule: 5, page: "/" }] }, { ...sumGood, pages: -1 }, { ...sumGood, pass: "yes" }, { ...sumGood, truncated: 1.5 }, { ...sumGood, byTopic: { ...sumGood.byTopic, headings: undefined } }];
+    check(`report: ${notSummaries.length} things that are not a work order 05 summary with byTopic throw an AuditError with exit 2 (nothing printed)`, notSummaries.every((s) => { const e = refused(s); return e && e.exit === 2 && e instanceof engine.AuditError && !e.message.includes("\n"); }), notSummaries.map((s) => { const e = refused(s); return e ? e.exit : "no error"; }).join(","));
+    check("report: a bad date (not YYYY-MM-DD, or not a real day) throws an AuditError with exit 2; null and undefined mean no date", ["2026-13-01", "2026-02-30", "2026-2-3", "yesterday", "", "20261104", 20261104].every((d) => { const e = refused(sumGood, { checkedAt: d }); return e && e.exit === 2; }) && refused(sumGood, { checkedAt: null }) === null && refused(sumGood, { checkedAt: undefined }) === null);
+    // the CLI
+    const sumFile = join(tmp("omnikom-audit-report-"), "summary.json");
+    writeFileSync(sumFile, JSON.stringify(sumBadLive));
+    const reportCli = (args) => { const r = spawnSync(process.execPath, [join(AUDIT, "report.mjs"), ...args], { encoding: "utf8", timeout: 60000, env: childEnv }); return { status: r.status, out: r.stdout || "", err: r.stderr || "" }; };
+    const plain = reportCli([sumFile, "--checked-at", "2026-11-04"]), asJson = reportCli([sumFile, "--json", "--checked-at", "2026-11-04"]), noDate = reportCli([sumFile]);
+    let parsed = null; try { parsed = JSON.parse(asJson.out); } catch {}
+    check("report CLI: <summary.json> --checked-at prints the markdown of report() and exits 0 with nothing on stderr", plain.status === 0 && plain.err === "" && plain.out === report(sumBadLive, { checkedAt: "2026-11-04" }).md, plain.status + plain.err);
+    check("report CLI: --json prints { md, facts } as one JSON object and exits 0; without --checked-at the text has no date", asJson.status === 0 && asJson.out.trim().split("\n").length === 1 && parsed && JSON.stringify(parsed) === JSON.stringify(report(sumBadLive, { checkedAt: "2026-11-04" })) && noDate.status === 0 && noDate.out === report(sumBadLive).md && !/20\d\d-\d\d-\d\d/.test(noDate.out), asJson.status + asJson.err);
+    const writeBad = (name, text) => { const f = join(dirname(sumFile), name); writeFileSync(f, text); return f; };
+    const oldSummary = (() => { const { byTopic, ...rest } = sumBadLive; return rest; })();
+    const cliBad = [["no arguments", []], ["a missing file", [join(dirname(sumFile), "missing.json")]], ["a file that is not JSON", [writeBad("text.json", "not json")]], ["JSON that is not a summary", [writeBad("empty.json", "{}")]], ["a summary of another version", [writeBad("v2.json", JSON.stringify({ ...sumBadLive, v: 2 }))]], ["a summary with no byTopic (stored before work order 06)", [writeBad("old.json", JSON.stringify(oldSummary))]],
+      ["a bad date", [sumFile, "--checked-at", "2026-02-30"]], ["a date in the wrong shape", [sumFile, "--checked-at", "4 Nov"]], ["--checked-at with no value", [sumFile, "--checked-at"]], ["an unknown option", [sumFile, "--pdf"]], ["two files", [sumFile, sumFile]]].map(([what, args]) => ({ what, r: reportCli(args) }));
+    check(`report CLI: ${cliBad.length} wrong calls exit 2, print nothing on stdout and say why in one line on stderr`, cliBad.every((b) => b.r.status === 2 && b.r.out === "" && b.r.err.trim().split("\n").length === 1 && b.r.err.startsWith("report: ")), cliBad.filter((b) => !(b.r.status === 2 && b.r.out === "" && b.r.err.trim().split("\n").length === 1)).map((b) => `${b.what}: ${b.r.status} ${b.r.err.slice(0, 100)}`).join(" | "));
+    check("report CLI: the usage line names --checked-at and --json", /--checked-at YYYY-MM-DD/.test(reportCli([]).err) && /--json/.test(reportCli([]).err));
+    check("report CLI: the run.mjs --summary output of a fixture goes through the CLI to the same text as report()", (() => { const f = join(dirname(sumFile), "real.json"); const s = cli([badDir, "--target", "preview", "--summary"]); writeFileSync(f, s.out); const r = reportCli([f, "--checked-at", "2026-11-04"]); return s.status === 1 && r.status === 0 && r.out === reports["bad-MET-003 preview"].md; })());
+  }
+
   // temp folders (slice 4b.1): every folder this run made is on disk inside its one root (read back from the root, not from the names kept in memory)
   const inRoot = readdirSync(ROOT);
   check("temp folders: the run has one root omnikom-audit-run-* and every temp folder it made is inside it", /^omnikom-audit-run-/.test(basename(ROOT)) && tmps.length > 0 && tmps.every((d) => inRoot.includes(basename(d)) && existsSync(d)), `root ${ROOT}; ${tmps.length} folders made; in the root: ${inRoot.length}`);

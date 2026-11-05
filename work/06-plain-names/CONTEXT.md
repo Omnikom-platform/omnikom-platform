@@ -1,6 +1,6 @@
 # 06 plain names
 
-Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/plain-names. Status: OPEN.
+Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/plain-names. Status: DONE c17af7b (CI run 41896948937, 9 of 9).
 
 ## Why
 `docs/product/6-dashboard.md` "Search health", card 1: one line per family of checks in plain words with its count, and under a
