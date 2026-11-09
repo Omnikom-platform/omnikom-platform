@@ -150,7 +150,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | E17 Dependency and supply-chain scanning | PARTLY | actions SHA-pinned; no dependency scan (H2-10) |
 | E18 Tenant rich text sanitised before it reaches a site | PARTLY | html escapes by default; richtext open (H2-13) |
 | E19 Migration safety: lock lint, expand-contract, concurrent indexes | PARTLY | CI replays every migration; the ledger refuses an edited one (H2-14) |
-| E20 The book checks itself: counts from rows, WORKS rows cite real paths, every step has an owner and a row | MISSING | counts typed by hand (H0-6) |
+| E20 The book checks itself: counts from rows, WORKS rows cite real paths, every step has an owner and a row | WORKS | `tools/icm/book-check.mjs` runs inside `node tools/icm/index.mjs --check` (CI gates job, 2026-11-09): Counts vs rows, WORKS paths, step owners and part E rows; `tools/icm/test/book.mjs` 30 of 30 (and red through `test/run.mjs`), 19 of 19 book mutants caught; `work/12-book-check/CONTEXT.md` (H0-6) |
 | E21 Mail deliverability: bounces, complaints, suppression on both | PARTLY | suppressions and the consent ledger exist (H2-15) |
 
 ### Counts
@@ -160,8 +160,8 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B Dashboard | 8 | 7 | 7 | 22 |
 | C Backend and database | 12 | 4 | 1 | 17 |
 | D Factory and forms | 9 | 1 | 0 | 10 |
-| E Hardening | 0 | 12 | 9 | 21 |
-| Total | 47 | 27 | 22 | 96 |
+| E Hardening | 1 | 12 | 8 | 21 |
+| Total | 48 | 27 | 21 | 96 |
 
 Completion is reported from these counts only.
 

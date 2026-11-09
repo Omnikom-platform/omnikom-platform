@@ -3,12 +3,14 @@
 // unchanged tree changes nothing (and writes nothing).
 //   node tools/icm/index.mjs                 write the four files (prints one counts line; --quiet prints nothing)
 //   node tools/icm/index.mjs --check         exit 1, one line per difference, when the written files are stale versus the tree,
-//                                            a doc in docs/product/ is over 300 lines, or a source file has no owner
+//                                            a doc in docs/product/ is over 300 lines, a source file has no owner, or the
+//                                            product book disagrees with itself (book-check.mjs: counts, WORKS paths, steps)
 //   node tools/icm/index.mjs --root <dir>    index another tree (the tests use a fixture)
 // Owner = longest matching prefix in the "Owns" lists of docs/departments/*.md (an "except `x`" on a line removes x from that entry).
 import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync, realpathSync } from 'node:fs';
 import { join, resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checkBook } from './book-check.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SKIP_DIRS = new Set(['node_modules', '.git', 'film', 'creds and accounts login', '.secrets', 'archive']);
@@ -332,7 +334,7 @@ function entryDiff(rel, key, oldText, fresh) {
 export function check(root) {
   root = resolve(root);
   const b = build(root);
-  const lines = [...b.problems];
+  const lines = [...b.problems, ...checkBook(root)];
   const keys = { 'icm/index.json': ['docs', b.docs], 'icm/code-map.json': ['files', b.files] };
   for (const [rel, text] of Object.entries(b.outputs)) {
     const abs = join(root, rel);

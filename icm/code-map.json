@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 594,
+    "sources": 596,
     "unowned": 0
   },
   "files": [
@@ -278,7 +278,7 @@
     {"path":"skills/sync-skill.mjs","owner":"head-of-operations","exports":[],"tests":[],"feature":""},
     {"path":"supabase/apply-staging.mjs","owner":"platform-build","exports":[],"tests":["supabase/ops/test/apply-dry.test.mjs","supabase/ops/test/cluster.mjs","supabase/tests/test-apply.mjs","tools/omnikom-cli/test/ci-heavy.mjs","tools/omnikom-cli/test/run.mjs"],"feature":""},
     {"path":"supabase/auth-emails/check.mjs","owner":"platform-build","exports":[],"tests":["clients/test/run.mjs","tools/departments/test/mutate.mjs","tools/departments/test/run.mjs"],"feature":""},
-    {"path":"supabase/auth-emails/mutate.mjs","owner":"platform-build","exports":[],"tests":["contracts/test/mutate.mjs","contracts/test/run.mjs","factory/runner/test/mutate.mjs","factory/runner/test/run.mjs","factory/test/mutate.mjs","factory/test/run.mjs","factory/worker/test/mutate.mjs","supabase/functions/test/mutate.mjs","supabase/functions/test/save.test.ts","tools/audit/test/mutate.mjs","tools/audit/test/run.mjs","tools/crm-map/test/mutate.mjs","tools/crm-map/test/run.mjs","tools/departments/test/context-load.mutants.mjs","tools/departments/test/mutate.mjs","tools/departments/test/run.mjs","tools/departments/test/start-builder.mutants.mjs","tools/icm/test/mutate.mjs","tools/icm/test/run.mjs","tools/omnikom-cli/test/ci-heavy.mjs","tools/omnikom-cli/test/harness.mjs","tools/omnikom-cli/test/impact-stamp-hooks.mjs","tools/omnikom-cli/test/mutant-targets.mjs","tools/omnikom-cli/test/mutate-run.mjs","tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs","tools/proc-guard/test/mutate.mjs","tools/proc-guard/test/run.mjs","tools/proc-guard/test/settle.mjs"],"feature":""},
+    {"path":"supabase/auth-emails/mutate.mjs","owner":"platform-build","exports":[],"tests":["contracts/test/mutate.mjs","contracts/test/run.mjs","factory/runner/test/mutate.mjs","factory/runner/test/run.mjs","factory/test/mutate.mjs","factory/test/run.mjs","factory/worker/test/mutate.mjs","supabase/functions/test/mutate.mjs","supabase/functions/test/save.test.ts","tools/audit/test/mutate.mjs","tools/audit/test/run.mjs","tools/crm-map/test/mutate.mjs","tools/crm-map/test/run.mjs","tools/departments/test/context-load.mutants.mjs","tools/departments/test/mutate.mjs","tools/departments/test/run.mjs","tools/departments/test/start-builder.mutants.mjs","tools/icm/test/book.mjs","tools/icm/test/mutate.mjs","tools/icm/test/run.mjs","tools/omnikom-cli/test/ci-heavy.mjs","tools/omnikom-cli/test/harness.mjs","tools/omnikom-cli/test/impact-stamp-hooks.mjs","tools/omnikom-cli/test/mutant-targets.mjs","tools/omnikom-cli/test/mutate-run.mjs","tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs","tools/proc-guard/test/mutate.mjs","tools/proc-guard/test/run.mjs","tools/proc-guard/test/settle.mjs"],"feature":""},
     {"path":"supabase/check-auth-settings.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/_shared/auth.ts","owner":"platform-build","exports":["Claims","VerifyOptions","resetJwksCache","sqlClaims","verifyUserJwt"],"tests":["supabase/functions/test/auth.test.ts","supabase/functions/test/mutate.mjs","tools/omnikom-cli/test/run.mjs"],"feature":""},
     {"path":"supabase/functions/_shared/contracts.ts","owner":"platform-build","exports":["applyWaivers","mergeCore","place","publicData","validateContract","validateItem"],"tests":[],"feature":""},
@@ -487,8 +487,10 @@
     {"path":"tools/design-engine/tests/test-design-engine.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"tools/dns-upsert.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"tools/github-secrets.mjs","owner":"platform-build","exports":[],"tests":["factory/runner/test/lib/fake-gh.mjs","factory/runner/test/mutate.mjs","factory/runner/test/run.mjs"],"feature":""},
+    {"path":"tools/icm/book-check.mjs","owner":"head-of-operations","exports":["checkBook","parseProduct"],"tests":["tools/icm/test/book.mjs","tools/icm/test/mutate.mjs"],"feature":""},
     {"path":"tools/icm/hook.mjs","owner":"head-of-operations","exports":[],"tests":[],"feature":""},
-    {"path":"tools/icm/index.mjs","owner":"head-of-operations","exports":["build","check"],"tests":["tools/icm/test/fixture/src/deep/test/own.test.mjs","tools/icm/test/fixture/src/test/all.test.mjs","tools/icm/test/mutate.mjs","tools/icm/test/run.mjs"],"feature":""},
+    {"path":"tools/icm/index.mjs","owner":"head-of-operations","exports":["build","check"],"tests":["tools/icm/test/book.mjs","tools/icm/test/fixture/src/deep/test/own.test.mjs","tools/icm/test/fixture/src/test/all.test.mjs","tools/icm/test/mutate.mjs","tools/icm/test/run.mjs"],"feature":""},
+    {"path":"tools/icm/test/book.mjs","owner":"head-of-operations","exports":[],"tests":[],"feature":""},
     {"path":"tools/icm/test/fixture/sql/001_init.sql","owner":"head-of-operations","exports":["fn:public.do_it","table:public.leads","table:public.quoted"],"tests":[],"feature":""},
     {"path":"tools/icm/test/fixture/src/app.ts","owner":"head-of-operations","exports":["Bar","Foo","fetchIt"],"tests":[],"feature":""},
     {"path":"tools/icm/test/fixture/src/deep/index.mjs","owner":"head-of-operations","exports":["DEEP"],"tests":[],"feature":""},

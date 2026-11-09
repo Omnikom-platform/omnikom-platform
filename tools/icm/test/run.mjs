@@ -160,6 +160,14 @@ try {
   index(u);
   r = index(u, '--check');
   check('unowned: removed again, the check passes', r.status === 0, r.out);
+
+  // the book check's own tests (test/book.mjs), so whatever runs this file runs them too. mutate.mjs sets OMNIKOM_ICM_NO_BOOK for
+  // the mutants that cannot touch the book check, to save a minute each.
+  if (!process.env.OMNIKOM_ICM_NO_BOOK) {
+    const bk = spawnSync(process.execPath, [join(TOOLS, 'test', 'book.mjs')], { encoding: 'utf8', timeout: 170000 });
+    const red = ((bk.stdout || '').match(/^FAIL .*$/gm) || []).slice(0, 3).map(l => l.slice(5, 120));
+    check('book: test/book.mjs passes', bk.status === 0, red.join(' | ') || bk.stderr);
+  }
 } finally {
   for (const x of dirs) rmSync(x, { recursive: true, force: true });
 }
