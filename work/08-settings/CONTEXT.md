@@ -106,7 +106,19 @@ screen of cards.
   window from the CLI head): every line PASS, DOM plan gate 0 problems; `e2e-screens.mjs` still 0 problems.
 
 ## Proof
-(filled by the head with pasted lines)
+The head, staging 2026-11-09 from `check/platform/settings` (CI 42606049501, 9 of 9 on c83ef4c; the backend is unchanged since):
+- `apply-staging.mjs`: "apply 20261105000017_team.sql" / "OK: applied 1 of 18 (17 were already applied)"; `deploy-functions.mjs`:
+  "OK: invite-member deployed", "OK: settings-save deployed" (with team-list and member-remove); `crm-test` deleted ("Deleted
+  Function crm-test from project"); `set-auth-settings.mjs`: "OK: 7 Auth settings set and read back on STAGING_SUPABASE_REF, 0 differ".
+- `e2e-settings.mjs` (no mail): first run "FAIL crm-test answers 404 ... 409 NO-CRM" (the delete came after it); after the delete
+  "PASS crm-test answers 404: the function is no longer deployed", "PASS: Settings backend on staging, 0 problem(s)", with
+  "SKIP: invite mail (C13) UNPROVEN: SETTINGS_INVITE_EMAIL not set".
+- `e2e-screens.mjs`: "PASS: staging end to end for the functions of the four screens, 0 problem(s)".
+- `flows.spec.ts`: 8 passed, 1 skipped (the invite: a real mail), 1 failed: sign out everywhere ("Received string:
+  .../login", expected `/login?ended=true`). Cause: Login went on to /w on a stale session, the guard sent it to a bare /login.
+  Fixed in Login.tsx; the two settings-agent flows "2 passed"; with the old Login "1 failed" (same URL); fix restored.
+- `plan-gate.spec.ts`: "6 passed" (the Settings cards, the remove and leave sheets, the agent's Settings; the gate's own watched red).
+- UNPROVEN: the invite mail and the invite and remove flow on screen (C13, B17): they wait for the inbox the owner names.
 
 ## Findings
 (the builder writes here, one line each, and sends them to the head)

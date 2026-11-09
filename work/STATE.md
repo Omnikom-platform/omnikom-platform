@@ -32,8 +32,10 @@ their CI runs, and `docs/blueprint/PROGRESS.md`.
   `tools/audit/names.json`); 09, the six-question report, on `check/seo/six-question-report`. CI checks the icm index.
 - Known gap: CI runs no job for `tools/crm-map` tests or mutants (its full local run: 118 of 119 caught, 1 target text
   missing, 0 survived); CLI's ci-coverage slice adds it and lists every other suite no CI job runs.
-- Product counts (`1-product.md`, computed from the rows): CRM 18, 3, 5 of 26; dashboard 8, 7, 7 of 22; backend 12, 4, 1
-  of 17; factory 9, 1, 0 of 10; hardening (part E) 1, 12, 8 of 21. Total 48 works of 96 (the book now checks its own counts, H0-6).
+- Settings, block 4 (work order 08): staging 2026-11-09 from its branch, e2e-settings 0 problems, flows 9 of 10, plan gate
+  6 of 6; B3, B16, D8 WORKS; the invite (C13, B17) waits for the owner's inbox. Staging runs master again from this land.
+- Product counts (`1-product.md`, computed from the rows): CRM 18, 3, 5 of 26; dashboard 10, 6, 5 of 21; backend 12, 4, 1
+  of 17; factory 10, 0, 0 of 10; hardening (part E) 2, 12, 7 of 21. Total 52 works of 95 (the book checks its own counts, H0-6).
 
 ## Next, in order
 

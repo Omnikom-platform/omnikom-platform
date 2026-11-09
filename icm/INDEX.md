@@ -24,7 +24,7 @@ none
 | work/05-audit-results/CONTEXT.md | head-of-operations | 71 | 05 audit results | Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/audit-results. Status: OPEN. |  |
 | work/06-plain-names/CONTEXT.md | head-of-operations | 74 | 06 plain names | Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/plain-names. Status: DONE c17af7b (CI run 41896948937, 9 of 9). |  |
 | work/07-crm-screens/CONTEXT.md | head-of-operations | 128 | 07 CRM screens on the block 1 and 2 backend (block 3a) | Owner: platform-build. Model: Sonnet 5.5, effort high. Branch: check/platform/crm-screens (worktree on master). Migration: M18 (`supabase/migrations/20261105... |  |
-| work/08-settings/CONTEXT.md | head-of-operations | 124 | 08 Settings and account (block 4) | Owner: platform-build. Model: Sonnet 5.5, effort high. Branch: check/platform/settings (worktree on master). Migration: M17 (`20261105000017_team.sql`; if se... |  |
+| work/08-settings/CONTEXT.md | head-of-operations | 136 | 08 Settings and account (block 4) | Owner: platform-build. Model: Sonnet 5.5, effort high. Branch: check/platform/settings (worktree on master). Migration: M17 (`20261105000017_team.sql`; if se... |  |
 | work/09-six-question-report/CONTEXT.md | head-of-operations | 81 | 09 six-question report (SEO slice 4, first part) | Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/six-question-report. Status: OPEN. |  |
 | work/11-enterprise-audit/CONTEXT.md | head-of-operations | 119 | Work order 11: enterprise gap audit (head of operations, 2026-11-05) | Owner 2026-11-05 05:00: nothing in the platform may sit below enterprise practice; every gap found goes into its stage, its block and its book row so it gets... |  |
 | work/12-book-check/CONTEXT.md | head-of-operations | 42 | Work order 12: the book checks itself (hardening step H0-6, row E20; builder BUILDER_head-of-operations_book-check, 2026-11-09) | Rule 36 (`docs/product/11-rules.md`): the book's numbers are computed, never typed. Built on master `d6353e9`. |  |
@@ -131,7 +131,7 @@ none
 |---|---|---|---|---|---|
 | .claude/POSITION.md | head-of-operations | 854 | Position | - **Repo born today.** Planning inputs banked verbatim, analysis written, owner decisions recorded, skills copied in. Git: `256cad0`, then `274351b` (session... |  |
 | docs/blueprint/PROGRESS.md | platform-build | 1912 | Blueprint progress (for the lead session) | Task: build-ready product engineering package (owner, 2026-10-28), raised to engineering practice, tied to published standards, then corrected by an independ... |  |
-| work/STATE.md | head-of-operations | 57 | Where things stand | Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-05 05:30 by the head of operations (work order 11). What the product is and every ... |  |
+| work/STATE.md | head-of-operations | 59 | Where things stand | Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-05 05:30 by the head of operations (work order 11). What the product is and every ... |  |
 
 ## Layer unplaced (186)
 

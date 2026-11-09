@@ -72,7 +72,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 |---|---|---|
 | B1 Sign in by magic link (10 minutes, single use) | PARTLY | screens and mail template work; a real link from an inbox to the staging app is UNPROVEN (waits on a DNS record) |
 | B2 Sign out | WORKS | D:pages/SignOutButton.tsx |
-| B3 Sign out everywhere; account name and email | PARTLY | D:pages/Settings.tsx (your account card, `signOut({ scope: 'global' })`, lands on `/login?ended=true`); built, unit and DOM-gate tested; the staging flow (member-a2, fresh sign-in) is written and NOT run |
+| B3 Sign out everywhere; account name and email | WORKS | D:pages/Settings.tsx (your account card, `signOut({ scope: 'global' })`, lands on `/login?ended=true`; D:pages/Login.tsx reads the session again before going on to /w, the race the first staging run caught); staging 2026-11-09 from the settings branch: the flow (member-a2, fresh sign-in) passes, and member-a1 sees only Your account and Sign out everywhere |
 | B4 Pick or switch business | WORKS | `/w`, the rail switcher |
 | B5 Site screen: pages and collections from the contract | WORKS | `/w/$ws/site` |
 | B6 Item editor: every field type, limits, locked fields, own-only | WORKS | autosave and offline retry proven by unit tests only |
@@ -85,9 +85,9 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B13 Photo upload (rights, alt, sizes, EXIF stripped) | PARTLY | upload functions work on staging; photo to site end to end UNPROVEN |
 | B14 Media library | MISSING | |
 | B15 Preview a change before publishing | MISSING | |
-| B16 Settings: lead alert addresses | PARTLY | F:settings-save (alerts only) and the Lead alerts card (D:pages/SettingsAlerts.tsx: up to 10 per site, the agent tick, one Save, the leave question); the staging flow is written and NOT run |
-| B17 Settings: team list, invite, remove | PARTLY | F:team-list, F:invite-member, F:member-remove (M17 `list_members`; remove is `remove_member`), and the People card (D:pages/SettingsPeople.tsx). Remove refuses the last owner; a removed person's next request is refused by the wall, open sessions are not ended (Supabase Auth has no admin logout by user id). No role-change control: inviting an existing member as owner sets the role. Staging proof (`supabase/tests/e2e-settings.mjs`, the flows) is the head's and NOT run |
-| B18 Settings: websites | PARTLY | the Websites card (D:pages/Settings.tsx): preview address, domain and state, no edit; "Ask Omnikom" links to `VITE_ASK_EMAIL`, which is unset (no address in the repo: an owner item), so the link is not shown; staging flow NOT run |
+| B16 Settings: lead alert addresses | WORKS | F:settings-save (alerts only) and the Lead alerts card (D:pages/SettingsAlerts.tsx: up to 10 per site, the agent tick, one Save, the leave question); staging 2026-11-09 from the settings branch: owner-a edits the addresses and reads them back, a bad line shows its inline error, the card shows the service role's own read |
+| B17 Settings: team list, invite, remove | PARTLY | F:team-list, F:invite-member, F:member-remove (M17 `list_members`; remove is `remove_member`), and the People card (D:pages/SettingsPeople.tsx). Remove refuses the last owner; a removed person's next request is refused by the wall, open sessions are not ended (Supabase Auth has no admin logout by user id). No role-change control: inviting an existing member as owner sets the role. staging 2026-11-09 from the settings branch: `e2e-settings.mjs` 0 problems (list, last-owner 409, remove, the wall after removal) and the card shows the service role's people; the invite and the remove sheet on screen are UNPROVEN: that flow sends a real mail and waits for the owner's named inbox (C13) |
+| B18 Settings: websites | PARTLY | the Websites card (D:pages/Settings.tsx): preview address, domain and state, no edit, shown on staging 2026-11-09 from the settings branch as the service role reads them; "Ask Omnikom" links to `VITE_ASK_EMAIL`, which is unset (no address in the repo: an owner item), so the link is not shown |
 | B20 Overview | MISSING | `/w/$ws` redirects to leads |
 | B21 Search and AI visibility numbers | MISSING | only the empty `metrics_snapshots` table |
 | B23 Not found, service unreachable, loading states | WORKS | D:pages/NotFound.tsx, D:lib/problems.ts |
@@ -123,7 +123,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | D5 Form field rendering | WORKS | select, choice, number and reference drawn with no script (`factory/lib/fields.mjs`), seen on the published test site; e2e-crm on staging 2026-11-03 |
 | D6 Capture: signature, consent, idempotent, quotas, paused site refused | WORKS | F:capture-lead |
 | D7 The test site proves contracts and forms | WORKS | its contact form has real-estate fields (budget, timing, beds, area, buying or selling), published; e2e-crm on staging 2026-11-03 |
-| D8 New-lead alert to the business and the assigned agent | PARTLY | works; recipients are set from the Lead alerts card (B16) or the CLI; the card on staging is NOT run |
+| D8 New-lead alert to the business and the assigned agent | WORKS | works; recipients are set from the Lead alerts card (B16, proven on staging 2026-11-09 from the settings branch) or the CLI |
 | D9 Site endpoint settings checked before a deploy | WORKS | `factory/runner/publish.mjs` |
 | D10 Contract lead fields flow into the CRM | WORKS | a lead posted through the published form reaches the CRM typed, in its own columns, in form order; e2e-crm on staging 2026-11-03 |
 
@@ -156,11 +156,11 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | Part | WORKS | PARTLY | MISSING | Rows |
 |---|---|---|---|---|
 | A CRM | 18 | 3 | 5 | 26 |
-| B Dashboard | 8 | 8 | 5 | 21 |
+| B Dashboard | 10 | 6 | 5 | 21 |
 | C Backend and database | 12 | 4 | 1 | 17 |
-| D Factory and forms | 9 | 1 | 0 | 10 |
+| D Factory and forms | 10 | 0 | 0 | 10 |
 | E Hardening | 2 | 12 | 7 | 21 |
-| Total | 49 | 28 | 18 | 95 |
+| Total | 52 | 25 | 18 | 95 |
 
 Completion is reported from these counts only.
 
