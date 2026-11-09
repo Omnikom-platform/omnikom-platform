@@ -44,7 +44,7 @@ if (args.includes("--mutants")) {
     { id: "q5-portal-flag-lost", file: "report-live.mjs", from: 'kind: portals.has(domain) ? "portal or directory"', to: 'kind: false ? "portal or directory"', red: "report: Q5 who is cited" },
     { id: "since-last-never-differs", file: "report-live.mjs", from: "if (b === n || noise) { same++; continue; }", to: "if (true) { same++; continue; }", red: "report: what changed" },
     { id: "q2-always-answered-without-targets", file: "report-live.mjs", from: "if (!targets?.clusters?.length) return null;", to: "if (false) return null;", red: "report: Q2, Q3 and Q5 stay BLOCKED" },
-    { id: "main-check-exact-path", file: "measure-sources.mjs", from: "const a = real(arg);", to: "const a = null;", red: "compare: started through a junction" },
+    { id: "main-check-exact-path", file: "lib-main.mjs", from: "try { return norm(fs.realpathSync(arg)) === norm(fs.realpathSync(me)); }", to: "try { return norm(arg) === norm(fs.realpathSync(me)); }", red: "compare: started through a junction" },
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-cmut-"));
   let ok = 0;

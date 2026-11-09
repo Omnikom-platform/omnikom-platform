@@ -203,7 +203,11 @@ export function report(summary, { checkedAt, live } = {}) {
         comps.slice(0, MAX_LIVE).forEach((c, j) => lines.push(`  - ${word(`q4.competitors.${j}.domain`, c?.domain, `${cPath}.value[${j}].domain`, cNode, cPath)}: ${c?.inGraph === false ? NOT_FOUND : item(`q4.competitors.${j}.referringDomains`, c?.referringDomains, `${cPath}.value[${j}].referringDomains`, cNode, cPath)}`));
         if (comps.length > MAX_LIVE) lines.push(`  - and ${item("q4.competitors.more", comps.length - MAX_LIVE, `${cPath}.value.length - ${MAX_LIVE}`, cNode, cPath)} more`);
       }
-      lines.push(`- Websites that link to at least two competitors but not to this site: ${num("q4.linkGap", f.linkGap, `${base}.facts.linkGap`)}`);
+      // a target the link data does not hold: "but not to this site" cannot be judged, the count of sites that link to two competitors stays
+      const gap = num("q4.linkGap", f.linkGap, `${base}.facts.linkGap`);
+      lines.push(f.inGraph?.value === false && gap !== NOT
+        ? `- Websites that link to at least two competitors: ${gap} (whether they already link to this site cannot be judged: the site is ${NOT_FOUND})`
+        : `- Websites that link to at least two competitors but not to this site: ${gap}`);
     }
     if (k === 5) {
       const share = pct("q5.citedShare", f.citedShare, `${base}.facts.citedShare`);

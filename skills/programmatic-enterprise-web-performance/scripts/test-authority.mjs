@@ -88,7 +88,7 @@ if (args.includes("--mutants")) {
     { id: "cc-stream-error-dropped", file: "authority.mjs", from: 'src.on("error", (e) => gunzip.destroy(e));', to: "", red: "authority.mjs: a connection cut" },
     { id: "cc-part-cleared-on-error", file: "authority.mjs", from: "    src.destroy();\n    if (cacheDone) { out.destroy();", to: "    src.destroy(); if (file) fs.rmSync(file + \".part\", { force: true });\n    if (cacheDone) { out.destroy();", red: "authority.mjs: a download that arrives whole but truncated" },
     { id: "cc-part-never-cleared", file: "authority.mjs", from: "if (cacheDone) { await cacheDone; fs.rmSync(file + \".part\", { force: true }); }", to: "if (cacheDone) { await cacheDone; }", red: "authority.mjs: a complete download is read" },
-    { id: "main-check-exact-path", file: "measure-sources.mjs", from: "const a = real(arg);", to: "const a = null;", red: "authority.mjs: started through a junction" },
+    { id: "main-check-exact-path", file: "lib-main.mjs", from: "try { return norm(fs.realpathSync(arg)) === norm(fs.realpathSync(me)); }", to: "try { return norm(arg) === norm(fs.realpathSync(me)); }", red: "authority.mjs: started through a junction" },
     { id: "vet-bad-regex-crash", file: "authority-vet.mjs", from: "const excludes = compileExcludes(o.exclude);", to: "const excludes = (o.exclude || []).map((r) => new RegExp(r));", red: "vet: an --exclude that is not a valid" },
     { id: "listing-candidate-bad-percent", file: "authority-lib.mjs", from: "const hay = `${l.text} ${safeDecode(p)}`;", to: "const hay = `${l.text} ${decodeURIComponent(p)}`;", red: "vet: a link with a stray %" },
   ];

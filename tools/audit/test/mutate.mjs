@@ -79,6 +79,8 @@ const MUTANTS = [
   ["report.mjs: inGraph false is ignored (the target)", "report.mjs", "f.inGraph?.value === false ? NOT_FOUND : num(", "false ? NOT_FOUND : num("],
   ["report.mjs: inGraph false is ignored (a competitor)", "report.mjs", "c?.inGraph === false ? NOT_FOUND : item(", "false ? NOT_FOUND : item("],
   ["report.mjs: every site is called not found in the link data", "report.mjs", "f.inGraph?.value === false ? NOT_FOUND : num(", "true ? NOT_FOUND : num("],
+  // the link gap line for a target the link data does not hold (work order 31)
+  ["report.mjs: the old gap line is back for a target not in the link data", "report.mjs", "lines.push(f.inGraph?.value === false && gap !== NOT\n", "lines.push(false && gap !== NOT\n"],
   ["lines.mjs: line numbers start at 0", "lib/lines.mjs", "let n = 1;\n  const end", "let n = 0;\n  const end"],
   ["site.mjs: the tokenizer never counts a newline", "lib/site.mjs", "if (html.charCodeAt(ptr++) === 10) ln++;", "ptr++;"],
   ["site.mjs: an <svg> is not stripped (its <title> counts)", "lib/site.mjs", "<(style|noscript|template|svg)\\b", "<(style|noscript|template)\\b"],

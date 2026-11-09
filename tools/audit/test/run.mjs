@@ -1252,9 +1252,14 @@ try {
     // c2 (work order 27): a site the link graph does not hold is not found, which is not 0 and not "not measured yet"
     check("report --live: a target and a competitor the link data does not hold read 'not found in the link data' with no digit and no fact (never 0); a competitor in the link data, or with no inGraph key, keeps its number and its fact",
       (() => { const r = withLive(sumGood, null, liveNotFound), a = sections(r.md), ids = new Set(r.facts.map((f) => f.id)), NF = "not found in the link data";
-        return a["4"].includes(`- Websites that link to this site: ${NF}`) && a["4"].includes(`  - \`rival-1.test\`: ${NF}`) && a["4"].filter((l) => l.includes(NF)).every((l) => !/\d/.test(l.replace(/`[^`]*`/g, "")))
+        return a["4"].includes(`- Websites that link to this site: ${NF}`) && a["4"].includes(`  - \`rival-1.test\`: ${NF}`) && a["4"].filter((l) => l.includes(NF) && !l.includes("link to at least two competitors")).every((l) => !/\d/.test(l.replace(/`[^`]*`/g, "")))
           && !ids.has("q4.referringDomains") && !ids.has("q4.competitors.1.referringDomains") && a["4"].includes("  - `rival-2.test`: 134") && ids.has("q4.competitors.2.referringDomains") && a["4"].includes("  - `rival-3.test`: 0") && ids.has("q4.competitors.3.referringDomains")
-          && a["4"].includes("- Websites that link to at least two competitors but not to this site: 33") && !a["4"].some((l) => l.includes("not measured yet")); })());
+          && !a["4"].some((l) => l.includes("not measured yet")); })());
+    // work order 31: the gap line for a target the link data does not hold. The count of sites that link to two competitors stays a fact; "but not to this site" cannot be judged
+    check("report --live: with the target not in the link data the gap line says the sites link to at least two competitors and that whether they link to this site cannot be judged (not found in the link data); the count stays a fact, and 'but not to this site' is not said",
+      (() => { const r = withLive(sumGood, null, liveNotFound), a = sections(r.md), f = r.facts.find((x) => x.id === "q4.linkGap");
+        return a["4"].includes("- Websites that link to at least two competitors: 33 (whether they already link to this site cannot be judged: the site is not found in the link data)") && f?.value === 33
+          && !a["4"].some((l) => l.includes("but not to this site")); })());
     check("report --live: with inGraph true or absent the card is what it was: the count is printed, and 'not found in the link data' appears nowhere in the report",
       (() => { const md = withLive(sumGood, null, liveSynth).md, withTrue = structuredClone(liveSynth); withTrue.questions.find((x) => x.n === 4).facts.inGraph = F(true); const a = sections(withLive(sumGood, null, withTrue).md);
         return !md.includes("not found in the link data") && sections(md)["4"].includes("- Websites that link to this site: 14") && a["4"].includes("- Websites that link to this site: 14") && !a["4"].some((l) => l.includes("not found in the link data")); })());

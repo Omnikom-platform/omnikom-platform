@@ -501,3 +501,12 @@ options, never a fix made here.
   - Leftover worktrees: `builders/authority-rest` and `builders/lead-types` (remove after their land),
     `builders/omnikom-ai-intake` (26, on `check/seo/omnikom-ai-plan` `67f2bb5`, clean; keep for part 2).
   - Machine hook skill-stage-guard blocks a `cmp` naming a skill script: the head of operations owns it; do not work around it.
+- 2026-11-10 02:15: HANDOVER update (head HEAD_SEO-and-audits_2026-11-09; week at 91%; PAUSED after this land, by the head of
+  operations' order). This block replaces the "Pushed, NOT landed" and "Open" lines of the 2026-11-09 21:20 block.
+  - Landed: 28 and 29 (in the head of operations' chain, master `cbffa6e`); 31 (`work/31-gap-line-and-mutant`: the Q4 gap line
+    when the site is not found in the link data, and `main-check-exact-path` patching `lib-main.mjs`; skill SOURCE `a15be7a`)
+    in this commit. Worktrees of 28 and 29 removed.
+  - Open, in order: 26 part 2 (omnikom.ai research and prompt map) after the owner's four answers and his `approve.mjs business`;
+    worktree `builders/omnikom-ai-intake` (`check/seo/omnikom-ai-plan` `67f2bb5`, clean). The 29 choices stay open (the
+    policy-review source; 59 of 91 quotes UNPROVEN beyond the first reader). `scripts/authority.mjs:22` has an empty import
+    (look only). No builder is running.
