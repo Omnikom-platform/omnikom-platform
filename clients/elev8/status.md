@@ -44,6 +44,10 @@ The sheet: `go-live-2026-11-09.md` (what is proven, what blocks with its holder,
   2, 3 and 5 are now out of date there (not edited; this record and the sheet are current).
 - The builder moved 13 ELEV8 tool paths to `E:\Omnikom Platform\code\main` (the platform repo moved); they failed on import before.
 - DNS: `evidence-2026-11-09/dns-elev8ca.md` and the draft zone `elev8ca.com.zone-draft.txt` (checked against public DNS, 7 of 7).
+- 2026-11-09 21:30 (SEO work order 29 gap): "Ask about this home" is its own lead type `listing-question`, never "buy": the
+  wizard sends flow `listing-question` and no preset topic; the Apps Script stores Lead type `listing-question` in "Listing
+  questions" (no Topic column). apps-script tests 32/32, watched red 31/32 with the line removed, lead-chain 8/8. The browser
+  side has no page to run on until a real listing exists (UNPROVEN in a browser).
 - UNPROVEN: the Apps Script and the Function on real Google and Cloudflare; `_redirects` on real Pages; who gets the alert (Q9).
 - Open, added 2026-11-09:
   - Owner: deploy the Apps Script; "set and redeploy" the preview (variables, today's build, one test lead); "switch"; "deploy"; "submit".
