@@ -138,7 +138,7 @@ none
 |---|---|---|---|---|---|
 | .claude/POSITION.md | head-of-operations | 854 | Position | - **Repo born today.** Planning inputs banked verbatim, analysis written, owner decisions recorded, skills copied in. Git: `256cad0`, then `274351b` (session... |  |
 | docs/blueprint/PROGRESS.md | platform-build | 1912 | Blueprint progress (for the lead session) | Task: build-ready product engineering package (owner, 2026-10-28), raised to engineering practice, tied to published standards, then corrected by an independ... |  |
-| work/STATE.md | head-of-operations | 59 | Where things stand | Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-05 05:30 by the head of operations (work order 11). What the product is and every ... |  |
+| work/STATE.md | head-of-operations | 60 | Where things stand | Rewritten in place, never appended, under 60 lines; last 2026-11-09 21:30 by the head of operations. Every feature's state: `docs/product/1-product.md`; proo... |  |
 
 ## Layer unplaced (193)
 
@@ -223,7 +223,7 @@ none
 | docs/blueprint/adr/0012-open-decisions.md | platform-build | 15 | ADR 0012: Open decisions (Proposed): Supabase org, domains, GitHub org, email, retention, address provider | Status: Proposed. Date: 2026-10-28. |  |
 | docs/blueprint/adr/README.md | platform-build | 21 | Architecture decision records | Format: Michael Nygard's ADR (Title, Status, Context, Decision, Consequences; https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions) p... |  |
 | docs/blueprint/design/BOARD.md | platform-build | 22 | Dashboard design: the reference board (step 2 of the design stage) | Method: `skills/programmatic-enterprise-web-performance/stages/design.md` step 2 (lean direction round), not the design-tournament Workflow pipeline. Five So... |  |
-| docs/departments/README.md | head-of-operations | 148 | Departments: who owns what, and how sessions are organised (DECISIONS 33) | Written 2026-10-30 from the owner's steer: "a master session that spins up builder sessions ... an orchestrator for that department that creates the tools th... |  |
+| docs/departments/README.md | head-of-operations | 150 | Departments: who owns what, and how sessions are organised (DECISIONS 33) | Written 2026-10-30 from the owner's steer: "a master session that spins up builder sessions ... an orchestrator for that department that creates the tools th... |  |
 | docs/departments/TEMPLATE.md | head-of-operations | 46 | Department: {{NAME}} (`{{SLUG}}`) | Created {{DATE}} by `tools/departments/new-department.mjs`. Rules for every department: `docs/departments/README.md`. |  |
 | docs/departments/briefs/takeover-after-account-switch.md | head-of-operations | 39 | Takeover brief: the build restarts on another Claude account (sent by `tools/departments/start-all.mjs`) | You are the new head of operations. The message that pointed you here names you (`HEAD-OF-OPERATIONS_Omnikom_<date><letter>`) and the Claude account this mac... |  |
 | docs/departments/cli-and-testing.md | head-of-operations | 767 | Department: CLI and testing tooling (`cli-and-testing`) | Created 2026-10-30 by the lead session (DECISIONS 33). Rules for every department: `docs/departments/README.md`. |  |

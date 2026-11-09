@@ -1,59 +1,60 @@
 # Where things stand
 
-Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-05 05:30 by the head of operations (work order 11).
-What the product is and every feature's state: `docs/product/1-product.md`. Proof of past work: the commit messages and
-their CI runs, and `docs/blueprint/PROGRESS.md`.
+Rewritten in place, never appended, under 60 lines; last 2026-11-09 21:30 by the head of operations. Every feature's state:
+`docs/product/1-product.md`; proof of past work: the commit messages, their CI runs, `docs/blueprint/PROGRESS.md`.
 
 ## Where things live (work order 04, `work/04-workspace-home/CONTEXT.md`)
 
-- Sessions open at `E:\Omnikom Platform` (short CLAUDE.md, README.md). This repository is `code\main` there, a clone of
-  GitHub master (remote `backup-gh`); builders work in worktrees `departments\<slug>\builders\<slice>` (start-builder.mjs makes
-  them); `omnikom land` fast-forwards `code\main` after a land when it is clean. Getting back in: `resume\RESUME.md`, Desktop
-  "Start Omnikom" and "Resume Head of Ops". The old top-level checkout and launchers are frozen in `archive\`; a full copy of the
-  old workspace is `E:\Omnikom Platform Backup 2026-11-04` (3456 files).
-- Running (launchers in `resume\`, Opus 5.5): HEAD_Platform-build_2026-11-04b, HEAD_CLI-and-testing_2026-11-04b,
-  HEAD_SEO-and-audits_2026-11-04b, reporting to HEAD-OF-OPERATIONS_Omnikom_Platform (7e47f4d5); old local work: 14 GitHub
-  branches `check/archive-2026-11-04/*`.
-- 2026-11-05 01:20: week at 89%, wind-down ordered: each head finishes only its in-flight slice, pushes every builder's work
-  and writes a HANDOVER block in its charter before 94%. The next account starts from "Start Omnikom" (`resume\RESUME.md`).
+- Sessions open at `E:\Omnikom Platform`. This repository is `code\main` there, a clone of GitHub master (remote `backup-gh`,
+  a PUBLIC repo: owner 2026-11-09, it stays public, nothing moves, he handles it; do not raise it again). Builders work in
+  worktrees `departments\<slug>\builders\<slice>`; `omnikom land` fast-forwards `code\main`. Getting back in: `resume\RESUME.md`.
+- Running 2026-11-09 (launchers `resume\start-HEAD_*_2026-11-09.cmd`, Opus 5.5): HEAD_Platform-build, HEAD_CLI-and-testing,
+  HEAD_SEO-and-audits, HEAD_Clients (each `_2026-11-09`), reporting to HEAD-OF-OPERATIONS_Omnikom_Platform (7e47f4d5).
+- Drive E: filled twice on 2026-11-09 (`E:\web video` cache, ~6 GB an hour): check free space before a land or a big write.
+- GitHub Actions major outage from 2026-11-09 20:29: no lands until githubstatus shows Actions operational. Land order then:
+  platform 10 seo-read (`check/platform/seo-read`, carries the A16 ruling 421a343), CLI J13, SEO 28 (`40ca9ff`, with its HANDOVER), SEO 29 (`1bbfe00`).
+
+## Landed 2026-11-09 (each CI 9 of 9 on its exact tip)
+
+CLI ci-coverage `671b4ee`, land retries 20 `edc9563`, dep-scan 21 `862f50c` (E17 WORKS), journey J12 CRM screens 22 `91910b6`,
+land lock only around the push 23 `4c14d0d`. Head of operations: book check 12 `ad95891` (H0-6). Platform: reaper 13 `526058e`
+(H0-1, E4 PARTLY), minimal build environment 14 `890a33d` (H0-3), settings 08 `6742d24` (B3, B16, D8 WORKS), security events
+15 `7373524` (H0-2, E5 PARTLY). SEO: report questions 2 to 5 25 `03464ae`, "not found in the link data" 27 `5cef4f1` (skill
+SOURCE then c41d767; 28 moves it to 78d8b3d).
 
 ## Now
 
-- Block 1, the CRM backend (`41ab89a`), and block 2, export and import in the client's own format (crm-2 `0d4f588`, fix
-  `aca2542`; M15, `crm-map-propose`, `crm-template-save`, `lead-export` `template`, `lead-import`): proven on staging
-  2026-11-04 ("PASS: CRM export and import on staging, 0 problem(s)", 18 checks; e2e-crm and e2e-screens still PASS).
-  CLI journey J7 to J10 cover field edit, search, filter, typed sort, bulk and export columns on staging (`5809e85`, "10 PASS,
-  0 NOT BUILT YET, 0 FAIL"); J11 covers block 2 (`4bfaac7`); push steps gone. crm-map F1, F2 (`03a56b5`).
-- Block 3a, the CRM screens (`59e947e`, test fix `33d59c2`, CI 9 of 9): staging flows 2026-11-05 flows 5 of 5, plan-gate
-  4 of 4, site 6 of 6, styles 20 of 20, from the branch; the first flows run had 2 reds (a 90 s timeout, a lead send failing
-  silently): an open flake, cause unknown. Nine CRM rows moved to WORKS; A15 (bulk owner and delete not on screen), A21, A22
-  stay PARTLY.
-- SEO work orders 05 (`d6076e8`, the audit summary per publish) and 06 (`c17af7b`, plain-word names in
-  `tools/audit/names.json`); 09, the six-question report, on `check/seo/six-question-report`. CI checks the icm index.
-- Known gap: CI runs no job for `tools/crm-map` tests or mutants (its full local run: 118 of 119 caught, 1 target text
-  missing, 0 survived); CLI's ci-coverage slice adds it and lists every other suite no CI job runs.
-- Settings, block 4 (work order 08): staging 2026-11-09 from its branch, e2e-settings 0 problems, flows 9 of 10, plan gate
-  6 of 6; B3, B16, D8 WORKS; the invite (C13, B17) waits for the owner's inbox. Staging runs master again from this land.
-- Product counts (`1-product.md`, computed from the rows): CRM 18, 3, 5 of 26; dashboard 10, 6, 5 of 21; backend 12, 4, 1
-  of 17; factory 10, 0, 0 of 10; hardening (part E) 2, 12, 7 of 21. Total 52 works of 95 (the book checks its own counts, H0-6).
+- Product counts (`1-product.md`, computed from the rows, checked by `tools/icm`): CRM 18, 3, 5 of 26; dashboard 10, 6, 5 of
+  21; backend 12, 4, 1 of 17; factory 10, 0, 0 of 10; hardening (part E) 2, 13, 6 of 21. Total 52 works of 95 (B19, the webhook
+  card of the dropped push, removed by 08). Hardening steps H0: 4 of 6 done (H0-4 media limits building as 16; H0-5 waits on
+  the owner's token).
+- Platform building: 16 media limits (H0-4, migration 21), 18 CRM block 3b backend (A13, A14, A17, A18; migration 22); then 19
+  the 3b screens and 20 the status board (A16).
+- A16, owner 2026-11-09: two columns. Lead type, per industry, set from the form and what was asked ("Enquiry" for just
+  asking); Status, what happened: not contacted yet, contacted (by whom), answering machine, no answer, voicemail left, wrong
+  number, call back, follow-up (both dated), qualified, not qualified, not interested, interested in something specific,
+  appointment set, do not contact. Notes carry time and author. Lists are data per industry, never code: SEO 29
+  `work/29-lead-types/` (real estate 15 types, insurance and financial 15, statuses 19, each sourced).
+- Clients (`clients/<slug>/go-live-2026-11-09.md`, branch `check/clients/go-live-2026-11-09` `e95fcc3`): both sites go live
+  standalone, wired to the platform later. ELEV8 not live: listings empty state, 22 old-site redirects, Sheet-plus-alert forms
+  built and checked offline; the "Ask about this home" lead type is being fixed. Rainmaker: rwifinancial.com has served an
+  edited, indexable copy of our preview from another Cloudflare account since 2026-11-06 19:51 UTC, legal blanks public; who
+  moved it is BLOCKED (Dave, or Monica's GoDaddy log); consent tick REQUIRED (`E:\Rainmaker` 48da581, local), needs Monica's OK.
+- Open: the CRM screens flows' first run on 2026-11-05 had 2 reds, cause unknown; `tools/team-kit/test-agent-hooks.mjs`
+  is broken (ENOENT, `tools/icm/agents/roles.json` does not exist), no owner yet.
 
 ## Next, in order
 
-Every department starts from its lowest open hardening stage (`9-blocks.md` "Hardening steps", work order 11), then its
-feature blocks.
-1. Platform build: H0-1 to H0-5; land 08 settings (`47c725b`) and 10 seo-read (`1fa9059`); H1 steps; then 3b, 5, 6, 7.
-2. CLI and testing: ci-coverage (`190b9e2`), land retries, H2-10; a journey step per block platform lands.
-3. SEO and audits: 4b, questions 2 to 5 of the report; then the omnikom.ai site plan (`9-blocks.md`).
-4. Head of operations: H0-6 done (work order 12); cut old logs and charters.
+1. Platform build: land 10; 16, 18, 19, 20; H0-5 after the owner's token; H1 steps; then blocks 5, 6, 7.
+2. CLI and testing: J13 settings (pushed when built), a journey step per block platform lands, osv-scanner ensure on the laptop.
+3. SEO and audits: land 28 and 29; work order 31 (report.mjs:206 "but not to this site", the never-applied test-compare mutant);
+   then the omnikom.ai plan (26 part 2) after the owner's four answers.
+4. Clients: the ELEV8 lead-type fix; the owner's clicks in each go-live sheet.
 
-## Open owner questions
+## Open owner questions and clicks
 
-- Status board: fixed five statuses or custom stages? (A16 waits on it.)
-- Backups (H1-1): Supabase Pro with point-in-time restore, or the nightly dump with an R2 bucket (money, his call).
-- Answered 2026-11-05: invite-mail proof to abdoamer683@gmail.com; "Ask Omnikom" address after the omnikom.ai setup;
-  Google Contacts export low priority; the platform's domain is omnikom.ai (`8-routing.md`), omnikom.io stays the company's.
-
-## Blocked on the owner's click
-
-- omnikom.ai DNS and the Resend sending domain (then a real magic link from an inbox to staging).
-- Production: parked by ruling until staging proves the backend, the dashboard and the CRM (H1-2 scripts it).
+- Backups (H1-1): Supabase Pro with point-in-time restore, or the nightly dump to an R2 bucket (money). Production stays
+  parked until staging proves the backend, the dashboard and the CRM (H1-2 scripts it).
+- GitHub fine-grained token `GITHUB_DISPATCH_TOKEN_V2` (Actions R/W, Metadata R, this repo only) in the master `.env`; then
+  the ruleset from 17 dispatch-scope. omnikom.ai DNS and the Resend domain; the omnikom.ai answers (country and language,
+  cities, first step, Search Console status). ELEV8 and Rainmaker clicks: the last section of each go-live sheet.

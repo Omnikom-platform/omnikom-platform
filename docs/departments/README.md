@@ -34,7 +34,9 @@ that is written here.
 5. **Mechanically enforceable means a tool, not a document.** What a department learns to check becomes a CLI command or a
    gate with tests (the PEWP audit rules become `omnikom audit` gates, not a prompt a session may skip); what is judgement stays
    a skill or a document.
-6. **Live things need the owner's click** (CLAUDE.md rule 6 and 12); a department never widens its own permissions.
+6. **Live things need the owner's click** (CLAUDE.md rule 6 and 12); a department never widens its own permissions. Files
+   outside `E:\Omnikom Platform` are report-only: a department never deletes or edits them, it tells the head of operations,
+   who takes it to the owner (2026-11-09: drive E: filled from another project's cache and a head deleted part of it).
 7. **Mechanical runs go to Haiku 5.5 agents** (DECISIONS 34): test suites, mutant runs, the gates, greps and listings, fixture
    rebuilds, deploy and status commands. The head or builder gives the Haiku agent the exact command and reads the verdict
    lines back; the beefy models spend their turns on judgement, code and reading results, never on waiting for a run.

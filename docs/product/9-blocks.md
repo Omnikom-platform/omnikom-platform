@@ -84,7 +84,7 @@ starts its next slice from its lowest open stage. A step lands with its test and
 | H0-3 | H0 | done, 7b71b50: build and audit run with RUNNER_KEY and the account-wide Pages token in their environment | platform build | E9 |
 | H0-4 | H0 | the media bucket has no size or type limit; direct inserts skip upload-start's caps | platform build | E10 |
 | H0-5 | H0 | the dispatch token can write the repo whose workflows hold the Cloudflare token; master unprotected (UNVERIFIED) | platform build | E9 |
-| H0-6 | H0 | the book's counts are typed by hand; a check in `tools/icm` recomputes them, checks WORKS paths and step owners | head of operations | E20 |
+| H0-6 | H0 | done, f5e7af8: the book's counts are typed by hand; a check in `tools/icm` recomputes them, checks WORKS paths and step owners | head of operations | E20 |
 | H1-1 | H1 | no backup of any kind: database, media, Vault; Free plan (the plan is the owner's call) | platform build | E1 |
 | H1-2 | H1 | production does not exist; no scripted bring-up of dashboard, secrets, Auth settings, runner | platform build | E2 |
 | H1-3 | H1 | alerts go nowhere; no error reporting, no request id | platform build | E3 |
