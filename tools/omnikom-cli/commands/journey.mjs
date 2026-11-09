@@ -3,7 +3,8 @@
 // site in a real browser (phone and desktop PNGs), a lead through the site's own form, that lead in the dashboard inbox, the lead out
 // (one column per field of the form contract), then every CRM feature of block 1 on that one lead as owner-a through the real functions:
 // field edit, server list (search, filter, sort), bulk status and owner, delete refused without the confirm flag and done with it; then the CRM export
-// and import in the client's own layout (propose and save a map, export in it, import it back with a dry run first and the owner's consent tick).
+// and import in the client's own layout (propose and save a map, export in it, import it back with a dry run first and the owner's consent tick);
+// J12 then runs the two dashboard tests of the CRM screens (owner, agent) and takes owner-a's Leads list at phone and desktop width (rows must be on screen).
 // One line per step: PASS | FAIL | BLOCKED | NOT BUILT YET | SKIPPED (after Jn FAIL), each with its evidence. Exit 0 only when no step
 // FAILED or was BLOCKED; NOT BUILT YET is never a pass. The step table below is the one place a slice adds its step (briefs/journey.md 8).
 // Laptop only: it needs staging secrets (variables by name), so it is not a ci.yml job. Never looped; production is refused.
@@ -28,6 +29,8 @@ export const PAGES = ['/', '/contact/'];
 export const TESTS = {
   J3: { file: 'site.spec.ts', title: 'the publish sheet: the progress comes in live, the job ends done, the preview shows the new heading' },
   J6: { file: 'flows.spec.ts', title: 'owner-a has Leads open; a lead sent to the test site the way omnikom lead send does appears without a reload within 15 s' },
+  J12a: { file: 'flows.spec.ts', title: 'search, a filter on an industry column, sort by budget, edit a field, bulk status, delete through the sheet, export the view, and a dry-run import' },
+  J12b: { file: 'flows.spec.ts', title: 'member-a1 sees no Import, no Delete and no Set owner, and Not found on the import address' },
 };
 // what a visitor's form may answer when the lead was sent: the Thank-you page the no-script submit lands on (303 to /api/lead?sent=1), or the JSON of the script path
 export const SENT_ANSWER = /"sent"\s*:\s*true|your message was sent/i;
@@ -428,6 +431,30 @@ export const STEPS = [
     if (gone.status !== 200 || (await mine()).length !== 0) return fail(`the delete of this run's ${rows.length} leads answered HTTP ${gone.status}; ${(await mine()).length} left`);
     return { status: 'PASS', evidence: `map proposed (${H.b} and ${H.t} to the industry fields) and saved by the owner (member refused 403); add-lead types its answers and refuses "lots" (I-ANSWER); lead-export in the map's ${want.length} columns and order with typed ${H.b}, the phone in US form; import: dry run 2 rows 2 duplicates writes nothing, no tick refused (I-CONSENT), a bad line refused whole (I-IMPORT line 4 ${nf.key}), member refused 403, then 2 created 1 skipped with the consent sentence; the ${rows.length} leads of this run removed` };
   } },
+  // J12: the CRM screens of work order 07. Both dashboard tests and the two shots always run, so one line names every part that is red. It sends no lead
+  // and no email (the dashboard tests make their own marked leads and remove them), so it needs no --alert-to.
+  { id: 'J12', name: 'CRM screens', needs: ['J1'], async run(c) {
+    const first = (v, tag) => `${tag}: ${v.evidence}`;
+    const bad = [], ok = [], pngs = [];
+    for (const [tag, who, t] of [['J12a', 'the owner test', TESTS.J12a], ['J12b', 'the agent test', TESTS.J12b]]) {
+      const sum = await c.impl.playwright(t.file, t.title), v = playwrightVerdict(sum, t.title);
+      if (v.status === 'PASS') ok.push(`${who} passed: "${t.title}" (${(sum.rows.reduce((a, r) => a + r.ms, 0) / 1000).toFixed(1)} s)`);
+      else bad.push(first(v, `${who} (${tag})`));
+    }
+    const files = { phone: join(c.out, 'j12-crm-owner-a-phone.png'), desktop: join(c.out, 'j12-crm-owner-a-desktop.png') };
+    const shots = await c.impl.crmShots('owner-a', files);
+    const seen = [], shotBad = [];
+    for (const [name, label] of [['phone', 'phone (390 px)'], ['desktop', 'desktop']]) {
+      const s = (shots && shots[name]) || { file: files[name], written: false, rows: 0 };
+      if (s.written) pngs.push(s.file);
+      if (!s.written) shotBad.push(`${label}: ${s.file} was not written`);
+      else if (!(s.rows > 0)) shotBad.push(`${label}: the list shows no rows for owner-a`);
+      else seen.push(`${label} ${s.rows} row(s) in ${s.file.split(/[\\/]/).pop()}`);
+    }
+    if (shotBad.length) bad.push(`the Leads list shots (shots): ${shotBad.join('; ')}`);
+    if (bad.length) return { status: 'FAIL', evidence: `${bad.length} of 3 parts red: ${bad.join('; ')}`, pngs };
+    return { status: 'PASS', evidence: `${ok.join('; ')}; owner-a's Leads list on screen with rows: ${seen.join(', ')}`, pngs };
+  } },
 ];
 
 // ---------- the orchestrator ----------
@@ -540,6 +567,28 @@ export function makeImpl(ctx, seams = {}) {
     registerSecret(j.hashed_token, 'magic-link token hash');
     return j.hashed_token;
   };
+  // The dashboard preview on a port of its own for the shots that sign a person in (J6 inboxShot, J12 crmShots): body(base, open) gets the preview's address
+  // and a function that starts the browser; the preview, the browser and the kept sessions go away when body ends, whatever it did.
+  const withPreview = async body => {
+    await ensureBuilt();
+    const g = await guard();
+    // the port comes from the dashboard's own rule (a block of its own on 127.0.0.1, one run one port): read from apps/dashboard, never copied or edited here
+    const pp = await importer('apps/dashboard/scripts/preview-port.mjs');
+    const port = await pp.choosePort({ say: () => {} });
+    const base = pp.baseUrl(port);
+    const server = spawnProc(process.execPath, [join(dash, 'scripts', 'preview-staging.mjs')], { cwd: dash, env: { ...ctx.env, [pp.PORT_ENV]: String(port) }, stdio: 'ignore', windowsHide: true, detached: process.platform !== 'win32' });
+    let b = null;
+    try {
+      let up = false;
+      for (let i = 0; i < 120 && !up; i++) { up = await httpUp(base + '/'); if (!up) await ctx.sleep(500); }
+      if (!up) throw new Error(`the dashboard preview did not come up at ${base} in 60 s (it was started on that port and did not answer)`);
+      return await body(base, async () => (b = await launch()));
+    } finally {
+      sessions.clear();
+      if (b) await b.close();
+      try { g.killTree(server.pid); } catch { /* gone */ }
+    }
+  };
   return {
     async seed(alertTo) { return seedGroup({ ...ctx, positionals: ['seed', 'test'], flags: alertTo ? { 'alert-to': alertTo } : {} }); },
     async workspacesAs(who) {
@@ -617,20 +666,9 @@ export function makeImpl(ctx, seams = {}) {
     },
     // sign owner in through the app's own /auth/confirm link (like the dashboard's global setup), wait for the marker lead, take the PNG
     async inboxShot(who, marker, file) {
-      await ensureBuilt();
-      const g = await guard();
-      // the port comes from the dashboard's own rule (a block of its own on 127.0.0.1, one run one port): read from apps/dashboard, never copied or edited here
-      const pp = await importer('apps/dashboard/scripts/preview-port.mjs');
-      const port = await pp.choosePort({ say: () => {} });
-      const base = pp.baseUrl(port);
-      const server = spawnProc(process.execPath, [join(dash, 'scripts', 'preview-staging.mjs')], { cwd: dash, env: { ...ctx.env, [pp.PORT_ENV]: String(port) }, stdio: 'ignore', windowsHide: true, detached: process.platform !== 'win32' });
-      let b = null;
-      try {
-        let up = false;
-        for (let i = 0; i < 120 && !up; i++) { up = await httpUp(base + '/'); if (!up) await ctx.sleep(500); }
-        if (!up) throw new Error(`the dashboard preview did not come up at ${base} in 60 s (it was started on that port and did not answer)`);
+      return withPreview(async (base, open) => {
         const hash = await mintHash(who);
-        b = await launch();
+        const b = await open();
         const page = await b.newPage(VIEWPORTS[1]);
         await page.open(`${base}/auth/confirm?token_hash=${encodeURIComponent(hash)}&type=magiclink`);
         const leads = `location.pathname.startsWith('/w/test-demo-a/leads')`;
@@ -638,11 +676,28 @@ export function makeImpl(ctx, seams = {}) {
         const found = await page.waitFor(`document.body && document.body.innerText.includes(${JSON.stringify(marker)})`, 20000);
         await page.screenshot(file);
         return { found, file, written: this.fileSize(file) > 0 };
-      } finally {
-        sessions.clear();
-        if (b) await b.close();
-        try { g.killTree(server.pid); } catch { /* gone */ }
-      }
+      });
+    },
+    // J12: owner's Leads list on "All" at the phone width and at the desktop width, one signed-in page per width (a sign-in link is used once). Per width:
+    // the PNG, and how many lead rows were on screen (0 = the list rendered no rows, which J12 calls a FAIL)
+    async crmShots(who, files) {
+      return withPreview(async (base, open) => {
+        const b = await open(), out = {};
+        for (const vp of VIEWPORTS) {
+          const page = await b.newPage(vp);
+          await page.open(`${base}/auth/confirm?token_hash=${encodeURIComponent(await mintHash(who))}&type=magiclink`);
+          if (!(await page.waitFor(`location.pathname.startsWith('/w/test-demo-a/leads')`, 30000))) throw new Error('the sign-in link did not lead to the Leads page in 30 s');
+          const all = 'input[name=filter][value=all]';
+          if (await page.waitFor(`document.querySelector(${JSON.stringify(all)})`, 20000)) await page.check(all);
+          await page.waitFor(`document.querySelectorAll('tbody tr').length > 0 && !document.querySelector('[data-busy="true"]')`, 20000);
+          const rows = Number(await page.eval(`document.querySelectorAll('tbody tr').length`)) || 0;
+          const file = files[vp.name];
+          await page.screenshot(file);
+          out[vp.name] = { file, written: this.fileSize(file) > 0, rows };
+          await page.close();
+        }
+        return out;
+      });
     },
   };
 }

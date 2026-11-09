@@ -194,6 +194,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     async alertsOnlyTo() { return typeof o.alertsOnlyTo === 'function' ? o.alertsOnlyTo() : o.alertsOnlyTo === undefined ? true : o.alertsOnlyTo; },
     ...(o.exportCsv ? { async exportCsv(who, marker) { return o.exportCsv(marker); } } : {}),
     async inboxShot(who, marker, file) { return o.inboxShot ? o.inboxShot(marker, file) : { found: true, file, written: true }; },
+    async crmShots(who, files) { this.calls.push('crmShots'); return o.crmShots ? o.crmShots(files) : { phone: { file: files.phone, written: true, rows: 5 }, desktop: { file: files.desktop, written: true, rows: 5 } }; },
     ...(o.seed ? { seed: o.seed } : {}), ...(o.workspacesAs ? { workspacesAs: o.workspacesAs } : {}),
   });
   const base = { alertTo: ALERT, previewBase: 'http://x.invalid' };
@@ -289,12 +290,12 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const pass = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl() });
   const shape = /^J\d+ (PASS|FAIL|BLOCKED|NOT BUILT YET|SKIPPED \(after J\d+ (FAIL|BLOCKED)\)) \S.*/;
   const lines = pass.text.trim().split('\n');
-  check('journey: one line per step J1..J11 in order, then the clean-up line, then one summary line', lines.length === 13 && lines.slice(0, 11).every((l, i) => l.startsWith(`J${i + 1} `) && shape.test(l)) && lines[11] === 'cleanup: 0 journey lead(s) removed, 0 left' && lines[12].startsWith('journey (staging): '), pass.text);
-  check('journey: with a good tree the result is 10 PASS, 1 NOT BUILT YET (J3), 0 FAIL and the exit is 0', pass.res.ok && pass.obj.exit === 0 && lines[12].startsWith('journey (staging): 10 PASS, 1 NOT BUILT YET, 0 FAIL'), lines[10]);
+  check('journey: one line per step J1..J12 in order, then the clean-up line, then one summary line', lines.length === 14 && lines.slice(0, 12).every((l, i) => l.startsWith(`J${i + 1} `) && shape.test(l)) && lines[12] === 'cleanup: 0 journey lead(s) removed, 0 left' && lines[13].startsWith('journey (staging): '), pass.text);
+  check('journey: with a good tree the result is 11 PASS, 1 NOT BUILT YET (J3), 0 FAIL and the exit is 0', pass.res.ok && pass.obj.exit === 0 && lines[13].startsWith('journey (staging): 11 PASS, 1 NOT BUILT YET, 0 FAIL'), lines[13]);
   check('journey: J3 on a tree with no site.spec.ts prints NOT BUILT YET with the file named', pass.byId.J3.status === 'NOT BUILT YET' && /apps\/dashboard\/tests\/site\.spec\.ts missing/.test(pass.byId.J3.evidence));
-  check('journey: the steps are J1..J11 and none of them sends a test or pushes a lead to a CRM (leads are never pushed)', pass.res.data.steps.map(s => s.id).join() === 'J1,J2,J3,J4,J5,J6,J7,J8,J9,J10,J11' && !pass.res.data.steps.some(s => /push|send a test/i.test(s.name)) && !/pushed|send a test|Webhook/i.test(pass.text), pass.text);
-  check('journey: J8 field edit, J9 server list, J10 bulk and J11 CRM export and import are real PASS lines, never a NOT BUILT YET', ['field edit', 'server list', 'bulk', 'CRM export and import'].every((n, i) => pass.byId[`J${8 + i}`].name === n && pass.byId[`J${8 + i}`].status === 'PASS') && pass.res.data.counts.PASS === 10);
-  check('journey: the summary names the screenshot folder', lines[12].includes(pass.res.data.out) && pass.res.data.out.startsWith(work));
+  check('journey: the steps are J1..J12 and none of them sends a test or pushes a lead to a CRM (leads are never pushed)', pass.res.data.steps.map(s => s.id).join() === 'J1,J2,J3,J4,J5,J6,J7,J8,J9,J10,J11,J12' &&!pass.res.data.steps.some(s => /push|send a test/i.test(s.name)) && !/pushed|send a test|Webhook/i.test(pass.text), pass.text);
+  check('journey: J8 field edit, J9 server list, J10 bulk and J11 CRM export and import are real PASS lines, never a NOT BUILT YET', ['field edit', 'server list', 'bulk', 'CRM export and import'].every((n, i) => pass.byId[`J${8 + i}`].name === n && pass.byId[`J${8 + i}`].status === 'PASS') && pass.res.data.counts.PASS === 11);
+  check('journey: the summary names the screenshot folder', lines[13].includes(pass.res.data.out) && pass.res.data.out.startsWith(work));
   check('journey: a screenshot path is printed on the step line that took it', /^J4 PASS .*\| png: .*j4-phone-home\.png; .*j4-phone-contact\.png; .*j4-desktop-home\.png; .*j4-desktop-contact\.png/.test(lines[3]) && /j5-form-answer\.png/.test(lines[4]) && /j6-inbox-owner-a\.png/.test(lines[5]), lines.slice(3, 6).join(' // '));
 
   const withSpec = { spec: () => ({ exists: true, text: `test('${goodTitle}')` }) };
@@ -309,7 +310,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
 
   const j1bad = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ seed: async () => ({ ok: false, code: 'S-X', data: { error: 'nope' } }) }) });
   check('journey: J1 FAIL skips J2, J3, J5, J6, J7, J8, J9 and J10 with "SKIPPED (after J1 FAIL)", still runs J4, and the exit is 1',
-    j1bad.byId.J1.status === 'FAIL' && ['J2', 'J3', 'J5', 'J6', 'J7', 'J8', 'J9', 'J10', 'J11'].every(i => j1bad.byId[i].status === 'SKIPPED') && /^J2 SKIPPED \(after J1 FAIL\) /m.test(j1bad.text) && j1bad.byId.J4.status === 'PASS' && j1bad.obj.exit === 1, j1bad.text);
+    j1bad.byId.J1.status === 'FAIL' && ['J2', 'J3', 'J5', 'J6', 'J7', 'J8', 'J9', 'J10', 'J11', 'J12'].every(i => j1bad.byId[i].status === 'SKIPPED') && /^J2 SKIPPED \(after J1 FAIL\) /m.test(j1bad.text) && j1bad.byId.J4.status === 'PASS' && j1bad.obj.exit === 1, j1bad.text);
   // a product bug at J5 must not leave J6 and J7 unproven: they use ONE lead made by `lead send`, and their lines say so
   const FALLBACK = '(lead from lead send: J5 did not store one)';
   const implB = fakeImpl({ leadCount: 0 });
@@ -337,11 +338,11 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const j2bad = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ workspacesAs: async () => ({ status: 200, ids: [WS_A, 'bbbbbbbb-0000-0000-0000-000000000000'] }) }) });
   check('journey: J2 FAIL when a login reads another workspace too', j2bad.byId.J2.status === 'FAIL' && /not exactly its own/.test(j2bad.byId.J2.evidence));
   const only = await run({ only: 'J4,j5', 'alert-to': ALERT }, { ...base, impl: fakeImpl() });
-  check('journey: --only J4,J5 runs just those and the summary names what was not run', only.res.data.steps.map(s => s.id).join() === 'J4,J5' && /; not run: J1, J2, J3, J6, J7, J8, J9, J10, J11; /.test(only.text) && only.res.ok, only.text);
+  check('journey: --only J4,J5 runs just those and the summary names what was not run', only.res.data.steps.map(s => s.id).join() === 'J4,J5' && /; not run: J1, J2, J3, J6, J7, J8, J9, J10, J11, J12; /.test(only.text) && only.res.ok, only.text);
   const implF = fakeImpl({ alertsOnlyTo: false });
   const noAlertList = await run({ 'alert-to': ALERT }, { ...base, impl: implF });
   check('journey: J5, J6 and J7 are BLOCKED, and nothing is opened or sent (no browser, no lead send, no dashboard test), when the test site\'s alert list is not exactly --alert-to',
-    noAlertList.byId.J5.status === 'BLOCKED' && noAlertList.byId.J6.status === 'BLOCKED' && noAlertList.byId.J7.status === 'BLOCKED' && noAlertList.byId.J8.status === 'BLOCKED' && ['J9', 'J10'].every(i => noAlertList.byId[i].status === 'SKIPPED') && implF.store.leads.length === 0 && !implF.calls.includes('sendLead') && !implF.calls.some(c => c.startsWith('playwright')) && !noAlertList.res.ok, noAlertList.text);
+    noAlertList.byId.J5.status === 'BLOCKED' && noAlertList.byId.J6.status === 'BLOCKED' && noAlertList.byId.J7.status === 'BLOCKED' && noAlertList.byId.J8.status === 'BLOCKED' && ['J9', 'J10'].every(i => noAlertList.byId[i].status === 'SKIPPED') && implF.store.leads.length === 0 && !implF.calls.includes('sendLead') && implF.calls.filter(c => c.startsWith('playwright')).length === 2 && !noAlertList.res.ok, noAlertList.text);
   const implG = fakeImpl();
   const j6alone = await run({ only: 'J6,J7', 'alert-to': ALERT }, { ...base, impl: implG });
   check('journey: --only J6,J7 (no J5 in the run) uses one lead from lead send and says so', j6alone.byId.J6.status === 'PASS' && j6alone.byId.J7.status === 'PASS' && j6alone.byId.J6.evidence.includes(FALLBACK) && implG.calls.filter(c => c === 'sendLead').length === 1 && j6alone.res.ok, j6alone.text);
@@ -509,6 +510,36 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const alone = await crmRun({}, { only: 'J10' });
   check('journey J10: --only J10 uses one lead from lead send (one alert), removes it, and says so', alone.byId.J10.status === 'PASS' && /lead from lead send/.test(alone.byId.J10.evidence) && alone.impl.calls.filter(c => c === 'sendLead').length === 1 && alone.impl.store.leads.length === 0, alone.byId.J10.evidence);
 
+  // ---- J12: the CRM screens (work order 22): both dashboard tests of block 3a and owner-a's Leads list at two widths; sends no lead and no email
+  {
+    const flowsText = readFileSync(tests('flows.spec.ts'), 'utf8');
+    const times = s => flowsText.split(s).length - 1;
+    check('journey J12: the J12a and J12b test titles each exist exactly once in apps/dashboard/tests/flows.spec.ts (a rename turns this red; the -g match is a substring, so once also means no other title holds it)',
+      times(J.TESTS.J12a.title) === 1 && times(J.TESTS.J12b.title) === 1, JSON.stringify({ a: times(J.TESTS.J12a.title), b: times(J.TESTS.J12b.title) }));
+    check('journey J12: the real spec reader sees both titles in flows.spec.ts', real.spec('flows.spec.ts').text.includes(J.TESTS.J12a.title) && real.spec('flows.spec.ts').text.includes(J.TESTS.J12b.title));
+    const pwRed = which => (f, t) => (t === J.TESTS[which].title ? { ran: 1, rows: [{ title: t, statuses: ['unexpected'], ms: 10 }], failed: 1, flaky: 0, error: null } : pwOk(t));
+    const j = await crmRun({}, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12: PASS when both tests pass and both shots show rows; the line names both test titles and both PNGs, the run needs no --alert-to and sends no lead',
+      j.byId.J12.status === 'PASS' && j.byId.J12.evidence.includes(J.TESTS.J12a.title) && j.byId.J12.evidence.includes(J.TESTS.J12b.title) && j.byId.J12.evidence.includes('j12-crm-owner-a-phone.png') && j.byId.J12.evidence.includes('j12-crm-owner-a-desktop.png')
+        && j.byId.J12.pngs.length === 2 && j.byId.J12.pngs.every(p => p.startsWith(j.res.data.out)) && j.impl.calls.filter(x => x === 'playwright:flows.spec.ts').length === 2 && j.impl.calls.filter(x => x === 'crmShots').length === 1 && !j.impl.calls.includes('sendLead') && j.res.ok, j.text);
+    const a = await crmRun({ playwright: pwRed('J12a') }, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12: the owner test red is a FAIL that names J12a and its first line, and says 1 of 3 parts', a.byId.J12.status === 'FAIL' && /^1 of 3 parts red: the owner test \(J12a\): the dashboard test ".{20}/.test(a.byId.J12.evidence) && !/J12b/.test(a.byId.J12.evidence) && a.byId.J12.pngs.length === 2 && !a.res.ok, a.byId.J12.evidence);
+    const bb = await crmRun({ playwright: pwRed('J12b') }, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12: the agent test red is a FAIL that names J12b and not J12a', bb.byId.J12.status === 'FAIL' && /^1 of 3 parts red: the agent test \(J12b\): /.test(bb.byId.J12.evidence) && !/J12a/.test(bb.byId.J12.evidence), bb.byId.J12.evidence);
+    const noRows = await crmRun({ crmShots: f => ({ phone: { file: f.phone, written: true, rows: 0 }, desktop: { file: f.desktop, written: true, rows: 5 } }) }, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12: a Leads list with no rows at the phone width is a FAIL that says "the list shows no rows for owner-a" and names the width', noRows.byId.J12.status === 'FAIL' && /^1 of 3 parts red: the Leads list shots \(shots\): phone \(390 px\): the list shows no rows for owner-a$/.test(noRows.byId.J12.evidence), noRows.byId.J12.evidence);
+    const noRowsD = await crmRun({ crmShots: f => ({ phone: { file: f.phone, written: true, rows: 5 }, desktop: { file: f.desktop, written: true, rows: 0 } }) }, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12: no rows at the desktop width is a FAIL too', noRowsD.byId.J12.status === 'FAIL' && /shots\): desktop: the list shows no rows for owner-a$/.test(noRowsD.byId.J12.evidence), noRowsD.byId.J12.evidence);
+    const noPng = await crmRun({ crmShots: f => ({ phone: { file: f.phone, written: true, rows: 5 }, desktop: { file: f.desktop, written: false, rows: 5 } }) }, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12: a shot that was not written is a FAIL naming the file, and only the written PNG is listed', noPng.byId.J12.status === 'FAIL' && /shots\): desktop: .*j12-crm-owner-a-desktop\.png was not written$/.test(noPng.byId.J12.evidence) && noPng.byId.J12.pngs.length === 1, noPng.byId.J12.evidence);
+    const all3 = await crmRun({ playwright: (f, t) => ({ ran: 1, rows: [{ title: t, statuses: ['unexpected'], ms: 10 }], failed: 1, flaky: 0, error: null }), crmShots: f => ({ phone: { file: f.phone, written: true, rows: 0 }, desktop: { file: f.desktop, written: true, rows: 0 } }) }, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12: all three parts red are all reported, not only the first ("3 of 3 parts red", J12a, J12b and both widths named)', all3.byId.J12.status === 'FAIL' && /^3 of 3 parts red: .*\(J12a\).*\(J12b\).*\(shots\): phone .*; desktop: /.test(all3.byId.J12.evidence), all3.byId.J12.evidence);
+    const renamed = await crmRun({ playwright: () => ({ ran: 0, rows: [], failed: 0, flaky: 0, error: null }) }, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12: a renamed test (0 tests ran) is a FAIL that says 0 tests ran, never a pass on "no tests found"', renamed.byId.J12.status === 'FAIL' && /0 tests ran for "search, a filter/.test(renamed.byId.J12.evidence) && /0 tests ran for "member-a1 sees no Import/.test(renamed.byId.J12.evidence), renamed.byId.J12.evidence);
+    const other = await crmRun({ playwright: (f, t) => ({ ran: 2, rows: [{ title: t, statuses: ['expected'], ms: 10 }, { title: 'another test', statuses: ['expected'], ms: 10 }], failed: 0, flaky: 0, error: null }) }, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12: a run that also ran another test is a FAIL', other.byId.J12.status === 'FAIL' && /a test other than the named one ran/.test(other.byId.J12.evidence), other.byId.J12.evidence);
+  }
+
   const crash = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ seed: async () => { throw new Error('socket hang up'); } }) });
   check('journey: a step that throws is a FAIL line saying journey error, the run goes on', crash.byId.J1.status === 'FAIL' && /journey error: socket hang up/.test(crash.byId.J1.evidence) && crash.byId.J4.status === 'PASS');
   const blockedStep = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ seed: async () => { throw new Blocked('STAGING_X is not set', 'set it'); } }) });
@@ -575,6 +606,34 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     try { await down.impl.inboxShot('owner-a', 'Journey zz', join(work, 'inbox-stub2.png')); } catch (e) { why = e.message; }
     const port2 = Number((down.calls.spawn[0] || { env: {} }).env[pp.PORT_ENV]);
     check('journey J6 inbox: a preview that does not come up fails naming the URL it waited on', why.includes(pp.baseUrl(port2)) && /60 s/.test(why), why);
+
+    // J12's shots (crmShots): the same preview, then one signed-in page per width (390 phone, 1536 desktop) on the Leads list set to "All", rows counted, PNG written
+    const mkShots = (rowCount) => {
+      const calls = { spawn: [], opened: [], viewports: [], checked: [], png: [], closed: 0 };
+      const sctx = makeCtx({ command: 'test', positionals: ['test', 'journey'], flags: { target: 'staging' }, deps: { env: ENV, sleep: async () => {}, fetch: async () => ({ status: 200, json: async () => ({ hashed_token: 'hash-' + rand() }) }) } });
+      const impl = J.makeImpl(sctx, {
+        ensureBuilt: async () => {},
+        importer: async rel => (rel.includes('proc-guard') ? { killTree: () => true } : pathToFileURLish(rel)),
+        spawn: (cmd, args, opts) => { calls.spawn.push({ args, env: opts.env }); return { pid: 4000002 }; },
+        httpUp: async () => true,
+        launch: async () => ({ newPage: async vp => { calls.viewports.push(vp.width); return { open: async url => { calls.opened.push(url); }, waitFor: async () => true, has: async () => true, check: async s => { calls.checked.push(s); }, eval: async () => rowCount, screenshot: async f => { writeFileSync(f, 'png'); calls.png.push(f); return 3; }, close: async () => { calls.closed++; } }; }, close: async () => {} }),
+      });
+      return { calls, impl };
+    };
+    const sh = mkShots(7);
+    const files = { phone: join(work, 'shots-phone.png'), desktop: join(work, 'shots-desktop.png') };
+    const got = await sh.impl.crmShots('owner-a', files);
+    const spx = sh.calls.spawn[0] || { args: [], env: {} }, portx = Number(spx.env[pp.PORT_ENV]);
+    check('journey J12 shots: one page per width (390 and 1536), each signed in with its own link on the preview\'s port, the Leads list set to All, rows counted, both PNGs written',
+      JSON.stringify(sh.calls.viewports) === '[390,1536]' && sh.calls.opened.length === 2 && sh.calls.opened.every(u => u.startsWith(pp.baseUrl(portx) + '/auth/confirm?token_hash=')) && new Set(sh.calls.opened).size === 2 && sh.calls.checked.join() === 'input[name=filter][value=all],input[name=filter][value=all]'
+        && pp.inBlock(portx) && !onOldPort(sh.calls) && got.phone.rows === 7 && got.desktop.rows === 7 && got.phone.written && got.desktop.written && got.phone.file === files.phone && got.desktop.file === files.desktop && existsSync(files.phone) && existsSync(files.desktop) && sh.calls.closed === 2, JSON.stringify(sh.calls));
+    const none = await mkShots(0).impl.crmShots('owner-a', files);
+    check('journey J12 shots: a list with no row on screen is reported as rows 0 (the step calls it a FAIL)', none.phone.rows === 0 && none.desktop.rows === 0 && none.phone.written === true);
+    const downShots = mkShots(1);
+    downShots.impl = J.makeImpl(makeCtx({ command: 'test', positionals: ['test', 'journey'], flags: { target: 'staging' }, deps: { env: ENV, sleep: async () => {} } }), { ensureBuilt: async () => {}, importer: async rel => (rel.includes('proc-guard') ? { killTree: () => true } : pathToFileURLish(rel)), spawn: () => ({ pid: 4000003 }), httpUp: async () => false, launch: async () => { throw new Error('no browser should start'); } });
+    let whyShots = '';
+    try { await downShots.impl.crmShots('owner-a', files); } catch (e) { whyShots = e.message; }
+    check('journey J12 shots: a preview that does not come up fails naming its URL and starts no browser', /did not come up at http:\/\/127\.0\.0\.1:\d+ in 60 s/.test(whyShots), whyShots);
   }
 
   // the browser is started only through proc-guard (slice 5-H: no browser outlives its run) and killed with its tree and its folder
