@@ -765,3 +765,10 @@ when the head of operations has released its slice.
   "master moved to <sha>: rebase onto it and push again"); its own land is the first real run of the new order. Given to platform,
   with conditions: `commands/verify.mjs` events(kind) becomes sum(n) from security_event_counts in their work order 15 (migration 20
   buckets events per minute); they watch "each refused signature is recorded once" red.
+- 2026-11-09 22:00 Work order 23 landed 4c14d0d (run 42619221874: CLI 874 of 874, "527 mutants, 527 caught"). Platform's 15 changed our
+  `commands/verify.mjs` events(kind) with my OK (red "got 0, deltas=0,0,0,0", green "got 4, deltas=1,1,1,1"). J13 (settings,
+  platform 08) pushed as check/cli/journey-settings with the walls re-run also emptying security_event_counts (platform's finding on
+  15); NOT LANDED. UNPROVEN: its mutants (the local run gave up on the heavy lock; CI runs them) and its staging run (J1,J13 was
+  stopped by Claude Code for low memory before any output; if it started, e2e-settings may have left a marked synthetic member on
+  staging: look before the rerun). Lands after platform's 10 (fca018e, not on master at 21:58). Then: J14 for 10 seo-read, then
+  `tools ensure --only osv-scanner`. Week usage 92% at 21:58: stop at 95% and tell the head of operations.
