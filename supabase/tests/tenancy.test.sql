@@ -2044,6 +2044,7 @@ do $$ begin
   assert (select count(*) from cron.stub_jobs) = 1, 'T25 the migrations schedule no other job';
   assert (select schedule from cron.stub_jobs where jobname = 'reap-stale-jobs') = '*/5 * * * *', 'T25 the reaper runs every 5 minutes';
   assert (select command from cron.stub_jobs where jobname = 'reap-stale-jobs') ~ 'service\.reap_stale_jobs\(\)', 'T25 the job calls service.reap_stale_jobs()';
+end $$;
 
 -- ===== T27 work order 08 (migration 17): the team list, and the removal that counts the other workspaces =====
 -- Synthetic logins f1 (member of A, team profile "Agent One"), f2 (member of A and of B) and f3 (a second owner of A). Workspace B has one owner.
