@@ -69,3 +69,9 @@ The sheet: `go-live-2026-11-09.md` (what is proven, what blocks with its holder,
   memory; last pass 16/16 is from before the listing-question change); (2) the owner's clicks in `go-live-2026-11-09.md`
   section 5. Files changed outside the repo today (no git there): `draft-site\site\src\pages\wizard.js`,
   `integrations\apps-script\Code.gs`, `tests\apps-script.test.mjs` (copies before the 21:30 change are in this session's scratchpad only).
+- HANDOVER update 2026-11-09 22:45: the listing-question change is PROVEN in a browser. `tools/wizard-test.mjs` has a new case
+  "listing question (Ask about this home)" (runs only where the button exists) and a flow check. Real build: `WIZARD TEST PASS:
+  16 runs ... 4 skipped`; scratch build with one real listing: `WIZARD TEST PASS: 20 runs`; watched red with the old line:
+  `FAIL listing question ... leadType is "buyer", expected "listing-question"`, `WIZARD TEST FAIL: 2 of 20`; restored and
+  rebuilt. Finding for Platform build (owns `contracts/`): the ELEV8 contract's contact `leadType` enum is buyer, seller,
+  both, other; it needs `listing-question` before the platform wiring. Nothing else open without an owner click.
