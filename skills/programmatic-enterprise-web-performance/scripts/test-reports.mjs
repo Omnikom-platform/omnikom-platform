@@ -6,6 +6,7 @@
 //   A  approval   plan-site.mjs --require-approved-business refuses until approved/business.json is the current business.json
 //   D  doctor     report-live.mjs says the date of the doctor result and says STALE when the env/token files changed since (doctor.json inputs)
 //   S  speed      report-live.mjs shows lab and PageSpeed Insights side by side; PSI is the trusted number when the lab run was UNTRUSTED
+//   Q  authority  report-live.mjs question 4: a site (target or competitor) the Common Crawl link graph does not hold is "not found in the link data", never 0
 // Fixtures only: no network, no model. Chrome is used only for the PNG check (local file:// page). Mutants: each patches ONE string in a copy of the
 // skill (the patch must apply exactly once, so "the patch never applied" cannot pass as green), the named assertions must go red.
 // Exit 0 = every assertion passed and every mutant was caught.
@@ -223,6 +224,52 @@ async function runScenarios(skill, groups = null) {
     check("S", "a quiet machine: nothing is called UNTRUSTED, both numbers are shown", !/UNTRUSTED/.test(c3.md) && /both are shown/.test(c3.md) && rowOf(c3.md, "| /faq/ | phone").endsWith("| lab and PSI |") && /CPU use 9% on average/.test(c3.md), rowOf(c3.md, "| /faq/ | phone") + c3.md.split("## 2.")[0].slice(-600));
   }
 
+  // =============================== Q: authority, "not in the link data" is not zero (work order 27) ===============================
+  if (want("Q")) {
+    const NOT = "not found in the link data";
+    // the shapes authority.mjs writes: a site in the graph has role, counts and ranks; a site NOT in the graph has only domain, inGraph:false and note (no role, no count)
+    const IN = (domain, role, n, pos) => ({ domain, role, inGraph: true, hosts: 1, harmonicPos: pos, pageRankPos: pos, linkingDomains: n, strongestLinkingDomains: [{ domain: "l1.example", harmonicPos: 5 }] });
+    const OUT = (domain) => ({ domain, inGraph: false, note: "not in this Common Crawl release (too few links or not crawled)" });
+    const authDoc = (results) => ({ fetchedAt: "2026-10-23T08:00:00Z", source: "Common Crawl web graph cc-test (domain level)", release: "cc-test", target: results[0].domain, results, linkGap: [{ domain: "g1.example", linksToCompetitors: 2, harmonicPos: 50 }] });
+    const put = (s, results) => w(path.join(s.pewp, "authority.json"), authDoc(results));
+    const pagesQ = [{ path: "/", slug: "home", lcp: 1500 }];
+    const q4Of = (c) => c.json?.questions?.find((x) => x.n === 4);
+    const line = (sec, start) => sec.split("\n").find((l) => l.startsWith(start)) || "";
+
+    // Q1: the target and one of two competitors are not in the graph; no site cites the target (so the "why" sentence about links is written)
+    const s1 = snapshot("q1.example", { pages: pagesQ });
+    put(s1, [OUT("q1.example"), IN("rival-a.example", "competitor", 120, 900), OUT("rival-b.example")]);
+    w(path.join(s1.pewp, "research", "ai-citations.json"), { rows: [{ question: "who is the best", engine: "gemini", runs: 3, citedShare: { value: 0 }, ourDomainCited: false, citedSources: ["other.example"] }] });
+    const c1 = report(s1, BASE_ENV), f1 = q4Of(c1)?.facts || {}, sec1 = section(c1.md, 4), rows1 = f1.competitors?.value || [];
+    const a = rows1.find((r) => r.domain === "rival-a.example"), b = rows1.find((r) => r.domain === "rival-b.example");
+    check("Q", "target not in the graph: referringDomains is null (never 0), inGraph is false, strengthRank is null", c1.r.status === 0 && f1.referringDomains?.value === null && f1.inGraph?.value === false && f1.strengthRank?.value === null, JSON.stringify(f1).slice(0, 400) + c1.r.stderr);
+    check("Q", "competitors: the one in the graph keeps its count and rank (inGraph true); the one not in the graph, which authority.json gives no role, is still listed with referringDomains null and inGraph false", rows1.length === 2 && a?.referringDomains === 120 && a.inGraph === true && a.strengthRank === 900 && b?.referringDomains === null && b.inGraph === false && b.strengthRank === null, JSON.stringify(rows1));
+    check("Q", "section 4 says 'not found in the link data' for the target and for the competitor, and prints no 0 for either", /referring domains: not found in the link data/.test(sec1) && line(sec1, "- Competitor rival-b.example").includes(NOT) && !/: 0\b/.test(sec1) && !/\b0 referring domains/.test(sec1), sec1.slice(0, 900));
+    check("Q", "section 4: a competitor in the graph still shows its number and rank; strongest linkers of the target are 'not found', not 'none'", line(sec1, "- Competitor rival-a.example").includes("120 referring domains, strength rank 900") && line(sec1, "- Strongest sites linking here").includes(NOT), sec1.slice(0, 900));
+    check("Q", "the short answer says the site is not found in the link data and does not say '0 other websites link to it'", String(c1.json?.shortAnswer).includes(NOT) && !/\b0 other websites/.test(c1.json?.shortAnswer), c1.json?.shortAnswer);
+    const why1 = (c1.json?.questions?.find((x) => x.n === 5)?.why || []).find((x) => /too few other sites linking/.test(x)) || "";
+    check("Q", "question 5's 'why' sentence about too few links says not found in the link data, not '0 referring domains'", why1.includes(NOT) && !/\b0 referring domain/.test(why1), why1 || JSON.stringify(c1.json?.questions?.find((x) => x.n === 5)).slice(0, 300));
+
+    // Q2: everything in the graph: today's behaviour
+    const s2 = snapshot("q2.example", { pages: pagesQ });
+    put(s2, [IN("q2.example", "target", 14, 900), IN("rival-a.example", "competitor", 120, 800)]);
+    const c2 = report(s2, BASE_ENV), f2 = q4Of(c2)?.facts || {}, sec2 = section(c2.md, 4);
+    check("Q", "target and competitor in the graph: counts, ranks and inGraph true as before, and the words 'not found in the link data' appear nowhere", f2.referringDomains?.value === 14 && f2.inGraph?.value === true && f2.competitors?.value?.[0]?.referringDomains === 120 && f2.competitors.value[0].inGraph === true && /referring domains: 14 \(strength rank 900;/.test(sec2) && line(sec2, "- Competitor rival-a.example").includes("120 referring domains, strength rank 800") && String(c2.json?.shortAnswer).includes("14 other websites link to it") && !c2.md.includes(NOT), sec2.slice(0, 700) + c2.json?.shortAnswer);
+
+    // Q3: the "since the last report" line across a change between counted and not found, both ways, never a number made from the null
+    const s3 = snapshot("q3.example", { pages: pagesQ });
+    put(s3, [IN("q3.example", "target", 14, 900)]); report(s3, BASE_ENV);
+    put(s3, [OUT("q3.example")]);
+    const c3 = report(s3, BASE_ENV), ch3 = c3.json?.sinceLast?.changes?.find((x) => x.metric === "refdom");
+    check("Q", "since the last report, counted -> not found: 'referring domains: 14 to not found in the link data'", c3.md.includes(`referring domains: 14 to ${NOT}`) && ch3?.beforeText === "14" && ch3.afterText === NOT && ch3.afterValue === null, c3.md.split("\n").find((l) => l.includes("Since the last")) + JSON.stringify(ch3));
+    put(s3, [IN("q3.example", "target", 20, 700)]);
+    const c4 = report(s3, BASE_ENV), ch4 = c4.json?.sinceLast?.changes?.find((x) => x.metric === "refdom");
+    check("Q", "since the last report, not found -> counted: 'referring domains: not found in the link data to 20'", c4.md.includes(`referring domains: ${NOT} to 20`) && ch4?.beforeText === NOT && ch4.afterText === "20" && ch4.before?.value === null, c4.md.split("\n").find((l) => l.includes("Since the last")) + JSON.stringify(ch4));
+    put(s3, [OUT("q3.example")]); report(s3, BASE_ENV);
+    const c5 = report(s3, BASE_ENV);
+    check("Q", "since the last report, not found twice: no change line for referring domains, counted as unchanged", !/Since the last report[^\n]*referring domains/.test(c5.md), c5.md.split("\n").find((l) => l.includes("Since the last")));
+  }
+
   function firstOf(sec) { return sec.split("\n").map((l) => l.trim()).find(Boolean) || ""; }
   fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 });
   return results;
@@ -275,6 +322,17 @@ const MUTANTS = [
   { name: "S: PSI's own slow phone speed is not reported", file: S0, from: "psiMedianLcp != null && psiMedianLcp > 2500", to: "psiMedianLcp != null && psiMedianLcp > 25000000", sc: "S", expect: [/^S: the untrusted lab speed is not counted/] },
   { name: "S: PSI rows are not read", file: S0, from: 'const psiRows = ((psiFile && J(psiFile))?.pages || []).filter((r) => r && r.url);', to: "const psiRows = [];", sc: "S", expect: [/^S: lab and PSI side by side/, /^S: a page whose lab run was trusted/, /^S: a quiet machine/] },
   { name: "S: a quiet machine is called untrusted", file: S0, from: 'const untrustedPages = measured.filter(isUntrusted);', to: "const untrustedPages = measured;", sc: "S", expect: [/^S: a quiet machine/] },
+  { name: "Q: the target not in the graph is 0 again", file: S0, from: "referringDomains: f(me.inGraph ? me.linkingDomains : null),", to: "referringDomains: f(me.inGraph ? me.linkingDomains : 0),", sc: "Q", expect: [/^Q: target not in the graph/] },
+  { name: "Q: a competitor not in the graph is 0 again", file: S0, from: "referringDomains: c.inGraph ? c.linkingDomains : null,", to: "referringDomains: c.inGraph ? c.linkingDomains : 0,", sc: "Q", expect: [/^Q: competitors: the one in the graph/] },
+  { name: "Q: a competitor with no role is dropped again", file: S0, from: "const comps = auth.results.filter((r) => r !== me);", to: 'const comps = auth.results.filter((r) => r.role === "competitor");', sc: "Q", expect: [/^Q: competitors: the one in the graph/, /^Q: section 4 says/] },
+  { name: "Q: inGraph false is not recorded", file: S0, from: "inGraph: f(!!me.inGraph),", to: "inGraph: f(true),", sc: "Q", expect: [/^Q: target not in the graph/, /^Q: section 4 says/, /^Q: the short answer says/] },
+  { name: "Q: section 4 prints a competitor not in the graph as a count", file: S0, from: "c.inGraph === false ? `- Competitor ${c.domain}: ${NOT_IN_GRAPH}`", to: "false ? `- Competitor ${c.domain}: ${NOT_IN_GRAPH}`", sc: "Q", expect: [/^Q: section 4 says/] },
+  { name: "Q: section 4 prints the target not in the graph as a count", file: S0, from: "    ? [inGraphQ4 ? `- ${term(", to: "    ? [true ? `- ${term(", sc: "Q", expect: [/^Q: section 4 says/] },
+  { name: "Q: section 4 says none for the strongest linkers of a site not found", file: S0, from: 'inGraphQ4 ? q4.strongestLinkers.join(", ") || "none" : NOT_IN_GRAPH}', to: 'q4.strongestLinkers.join(", ") || "none"}', sc: "Q", expect: [/^Q: section 4: a competitor in the graph/] },
+  { name: "Q: the short answer counts the null", file: S0, from: '"" : inGraphQ4 ? `; ${q4.facts.referringDomains.value} other websites', to: '"" : true ? `; ${q4.facts.referringDomains.value} other websites', sc: "Q", expect: [/^Q: the short answer says/] },
+  { name: "Q: question 5's why sentence counts the null", file: S0, from: '"" : inGraphQ4 ? ` (${q4.facts.referringDomains.value} referring domain', to: '"" : true ? ` (${q4.facts.referringDomains.value} referring domain', sc: "Q", expect: [/^Q: question 5's 'why' sentence/] },
+  { name: "Q: the change line drops a site not found", file: S0, from: "if (f4.inGraph?.value === false) out.refdom =", to: "if (false) out.refdom =", sc: "Q", expect: [/^Q: since the last report, counted -> not found/, /^Q: since the last report, not found -> counted/] },
+  { name: "Q: the change line prints the null as a number", file: S0, from: "(m.notFound ? NOT_IN_GRAPH : m.pct", to: "(m.pct", sc: "Q", expect: [/^Q: since the last report, counted -> not found/, /^Q: since the last report, not found -> counted/] },
 ];
 
 if (isMain(import.meta.url)) {

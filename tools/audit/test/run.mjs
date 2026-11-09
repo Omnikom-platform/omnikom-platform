@@ -1174,9 +1174,16 @@ try {
     { const q = (k) => liveNulls.questions.find((x) => x.n === k).facts;
       delete q(2).clustersWithPage; q(2).weakPages.value = null; q(4).referringDomains.value = null; delete q(4).linkGap;
       q(5).citedShare.value = null; q(5).engines.value = null; q(5).questionsAsked.value = "ten"; q(5).answersChecked.value = 0; }
+    // the same with sites the link graph does not hold (work order 27): the target and rival-1 are "not found in the link data" (null, inGraph false); rival-2 is in the graph (inGraph true);
+    // rival-3 is a real zero with no inGraph key (an older report.json), which keeps today's behaviour
+    const liveNotFound = structuredClone(liveSynth);
+    { const f4 = liveNotFound.questions.find((x) => x.n === 4).facts, cs = f4.competitors.value;
+      f4.referringDomains.value = null; f4.inGraph = F(false, { fetchedAt: "2026-10-23T08:00:00Z" }); f4.strengthRank.value = null;
+      cs[1] = { domain: "rival-1.test", referringDomains: null, inGraph: false, strengthRank: null }; cs[2].inGraph = true; }
     const liveAllBlocked = { questions: [liveSynth.questions[0], ...[[2, "x"], [3, "x"], [4, "x"], [5, "x"]].map(([k, t]) => blockedQ(k, t)), liveSynth.questions[5]] };
     const liveInputs = [["the real report.json (report-live.mjs on the skill's fixtures) with bad-MET-003 (preview), dated", sumBadPreview, "2026-11-04", liveReal], ["the synthetic report.json (Q3 BLOCKED) with good, no date", sumGood, null, liveSynth],
-      ["the synthetic report.json with parts that have no value, with 30 FAILs, dated", sumMany, "2026-11-04", liveNulls]];
+      ["the synthetic report.json with parts that have no value, with 30 FAILs, dated", sumMany, "2026-11-04", liveNulls],
+      ["the synthetic report.json with sites not found in the link data, with good, dated", sumGood, "2026-11-04", liveNotFound]];
     // THE SOURCE RULE over a report with live: every digit run outside the heading numbers, backtick spans and day facts is the value of a fact (and of a fact of its own card in 2 to 5),
     // every source reads back in summary, listRules() or live as exactly its value, every live fact carries fetchedAt and origin, every number and day fact is in the text
     const readBack = (summary, date, live, md, facts) => {
@@ -1242,6 +1249,15 @@ try {
       (() => { const r = withLive(sumGood, null, liveSynth), a = sections(r.md); const share = r.facts.find((f) => f.id === "q5.citedShare"), zero = r.facts.find((f) => f.id === "q4.competitors.3.referringDomains");
         return a["5"].includes("- Share of AI answers that cite this site: 67% (an estimate)") && share.value === 67 && share.source.endsWith("(x100, rounded)") && a["5"].includes("  - `portal-4.test`: 1 answer") && a["5"].includes("  - `portal-0.test`: 9 answers")
           && a["4"].includes("  - `rival-3.test`: 0") && zero.value === 0; })());
+    // c2 (work order 27): a site the link graph does not hold is not found, which is not 0 and not "not measured yet"
+    check("report --live: a target and a competitor the link data does not hold read 'not found in the link data' with no digit and no fact (never 0); a competitor in the link data, or with no inGraph key, keeps its number and its fact",
+      (() => { const r = withLive(sumGood, null, liveNotFound), a = sections(r.md), ids = new Set(r.facts.map((f) => f.id)), NF = "not found in the link data";
+        return a["4"].includes(`- Websites that link to this site: ${NF}`) && a["4"].includes(`  - \`rival-1.test\`: ${NF}`) && a["4"].filter((l) => l.includes(NF)).every((l) => !/\d/.test(l.replace(/`[^`]*`/g, "")))
+          && !ids.has("q4.referringDomains") && !ids.has("q4.competitors.1.referringDomains") && a["4"].includes("  - `rival-2.test`: 134") && ids.has("q4.competitors.2.referringDomains") && a["4"].includes("  - `rival-3.test`: 0") && ids.has("q4.competitors.3.referringDomains")
+          && a["4"].includes("- Websites that link to at least two competitors but not to this site: 33") && !a["4"].some((l) => l.includes("not measured yet")); })());
+    check("report --live: with inGraph true or absent the card is what it was: the count is printed, and 'not found in the link data' appears nowhere in the report",
+      (() => { const md = withLive(sumGood, null, liveSynth).md, withTrue = structuredClone(liveSynth); withTrue.questions.find((x) => x.n === 4).facts.inGraph = F(true); const a = sections(withLive(sumGood, null, withTrue).md);
+        return !md.includes("not found in the link data") && sections(md)["4"].includes("- Websites that link to this site: 14") && a["4"].includes("- Websites that link to this site: 14") && !a["4"].some((l) => l.includes("not found in the link data")); })());
     // c: a part with no value
     check("report --live: a part that is null, missing or not a whole number reads not measured yet with no digit and no fact (never 0), while a real zero is printed as 0 with its fact",
       (() => { const r = withLive(sumGood, null, liveNulls), a = sections(r.md), ids = new Set(r.facts.map((f) => f.id));

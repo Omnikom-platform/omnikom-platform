@@ -2,7 +2,7 @@
 
 | Copy here | Copied from | Version at copy | Date |
 |---|---|---|---|
-| `programmatic-enterprise-web-performance/` | `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance` (own git repo; its `.git` was not copied) | `3cbe331` "Platform work order 05 (audit results), head's ruling on finding 4: scripts/launch.mjs:68 " | 2026-11-04 |
+| `programmatic-enterprise-web-performance/` | `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance` (own git repo; its `.git` was not copied) | `c41d767` "Omnikom work order 27 (authority): a site the Common Crawl link graph does not hold is \"no" | 2026-11-09 |
 | `design-tournament/` | `C:\Users\DELL\.claude\skills\design-tournament` | (no git) | 2026-10-24 |
 | `icm-librarian.agent.md` | the Example B and D project's `.claude\agents\icm-librarian.md` | Example B and D repo | 2026-10-24 |
 | `context-economics/` | written here (no outside copy): BUILDER_head-of-operations_context-economics, brief `docs/departments/briefs/context-economics.md`; prices from platform.claude.com pricing, read 2026-11-01 | (new) | 2026-11-01 |

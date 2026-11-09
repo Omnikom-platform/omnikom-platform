@@ -60,6 +60,7 @@ const plural = (k, one, many) => (k === 1 ? one : many);
 
 // questions 2 to 5 from the skill's report.json (work order 25)
 const NOT = "not measured yet";
+const NOT_FOUND = "not found in the link data";   // question 4: inGraph false = the link graph does not hold the site; not a count of 0, so no digit and no fact
 const MAX_LIVE = 5;       // missing searches, competitors, cited domains named in a card, then "and <k> more"
 const MAX_WINNERS = 3;    // winning sites set beside ours
 const LIVE_NAMES = { 2: "the research and a snapshot of the site", 3: "an audit of the winning sites and a snapshot of this one", 4: "the Common Crawl link graph", 5: "AI engine answers" };
@@ -193,13 +194,13 @@ export function report(summary, { checkedAt, live } = {}) {
       }
     }
     if (k === 4) {
-      lines.push(`- Websites that link to this site: ${num("q4.referringDomains", f.referringDomains, `${base}.facts.referringDomains`)}`);
+      lines.push(`- Websites that link to this site: ${f.inGraph?.value === false ? NOT_FOUND : num("q4.referringDomains", f.referringDomains, `${base}.facts.referringDomains`)}`);
       const cNode = f.competitors, cPath = `${base}.facts.competitors`, comps = cNode?.value;
       if (!Array.isArray(comps)) lines.push(`- Websites that link to the competitors: ${NOT}`);
       else if (!comps.length) lines.push("- Websites that link to the competitors: no competitor was checked");
       else {
         lines.push("- Websites that link to the competitors:");
-        comps.slice(0, MAX_LIVE).forEach((c, j) => lines.push(`  - ${word(`q4.competitors.${j}.domain`, c?.domain, `${cPath}.value[${j}].domain`, cNode, cPath)}: ${item(`q4.competitors.${j}.referringDomains`, c?.referringDomains, `${cPath}.value[${j}].referringDomains`, cNode, cPath)}`));
+        comps.slice(0, MAX_LIVE).forEach((c, j) => lines.push(`  - ${word(`q4.competitors.${j}.domain`, c?.domain, `${cPath}.value[${j}].domain`, cNode, cPath)}: ${c?.inGraph === false ? NOT_FOUND : item(`q4.competitors.${j}.referringDomains`, c?.referringDomains, `${cPath}.value[${j}].referringDomains`, cNode, cPath)}`));
         if (comps.length > MAX_LIVE) lines.push(`  - and ${item("q4.competitors.more", comps.length - MAX_LIVE, `${cPath}.value.length - ${MAX_LIVE}`, cNode, cPath)} more`);
       }
       lines.push(`- Websites that link to at least two competitors but not to this site: ${num("q4.linkGap", f.linkGap, `${base}.facts.linkGap`)}`);

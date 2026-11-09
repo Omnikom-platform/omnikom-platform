@@ -73,6 +73,12 @@ const MUTANTS = [
   ["report.mjs: a flattened competitor source points at entry 0 for every competitor", "report.mjs", "`${cPath}.value[${j}].referringDomains`", "`${cPath}.value[0].referringDomains`"],
   ["report.mjs: a live number with no value is printed as 0", "report.mjs", "{ if (!isCount(v)) return NOT; emit(id, v, source, node, path); return String(v); }", "{ if (!isCount(v)) return \"0\"; emit(id, v, source, node, path); return String(v); }"],
   ["report.mjs: a BLOCKED live question is rendered as answered", "report.mjs", "lq && lq.q.status !== \"BLOCKED\"", "lq"],
+  // a site the link data does not hold is "not found", not 0 (work order 27)
+  ["report.mjs: inGraph false printed as 0 (the target)", "report.mjs", "f.inGraph?.value === false ? NOT_FOUND : num(", "f.inGraph?.value === false ? \"0\" : num("],
+  ["report.mjs: inGraph false printed as 0 (a competitor)", "report.mjs", "c?.inGraph === false ? NOT_FOUND : item(", "c?.inGraph === false ? \"0\" : item("],
+  ["report.mjs: inGraph false is ignored (the target)", "report.mjs", "f.inGraph?.value === false ? NOT_FOUND : num(", "false ? NOT_FOUND : num("],
+  ["report.mjs: inGraph false is ignored (a competitor)", "report.mjs", "c?.inGraph === false ? NOT_FOUND : item(", "false ? NOT_FOUND : item("],
+  ["report.mjs: every site is called not found in the link data", "report.mjs", "f.inGraph?.value === false ? NOT_FOUND : num(", "true ? NOT_FOUND : num("],
   ["lines.mjs: line numbers start at 0", "lib/lines.mjs", "let n = 1;\n  const end", "let n = 0;\n  const end"],
   ["site.mjs: the tokenizer never counts a newline", "lib/site.mjs", "if (html.charCodeAt(ptr++) === 10) ln++;", "ptr++;"],
   ["site.mjs: an <svg> is not stripped (its <title> counts)", "lib/site.mjs", "<(style|noscript|template|svg)\\b", "<(style|noscript|template)\\b"],

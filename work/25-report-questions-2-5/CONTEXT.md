@@ -1,6 +1,6 @@
 # 25 six-question report, questions 2 to 5 (SEO slice 4b of the report)
 
-Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/report-questions-2-5. Status: BUILT 2026-11-09, not committed (proof `tools/audit/proof/report-questions-2-5.md`: "OK: 673 of 673 checks passed", "4 mutants, 4 caught, 0 survived, 0 not run, 0 target text missing").
+Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/report-questions-2-5. Status: LANDED 2026-11-09 as 03464ae, CI run 42577278854 9 of 9 (proof `tools/audit/proof/report-questions-2-5.md`: "OK: 673 of 673 checks passed", "4 mutants, 4 caught, 0 survived, 0 not run, 0 target text missing").
 
 ## Why
 Work order 09 built `tools/audit/report.mjs` from the stored audit summary; questions 2 to 5 are "Not measured yet" cards.

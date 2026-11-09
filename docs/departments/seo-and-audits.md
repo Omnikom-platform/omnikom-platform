@@ -480,3 +480,7 @@ options, never a fix made here.
   BUILDER_seo-and-audits_report-questions-2-5 (pid 1688, sonnet high). Work order 26 part 1 (`work/26-omnikom-ai-plan`, the
   omnikom.ai intake pack: pickable options for the owner's seven intake answers, each sourced; research waits on those answers,
   since `approve.mjs business` needs them answered by the owner): BUILDER_seo-and-audits_omnikom-ai-intake (pid 26060, sonnet high).
+- 2026-11-09 10:20: work order 25 landed as `03464ae` (CI run 42577278854, 9 of 9); its worktree and branch removed. Work order
+  26 part 1 done, part 2 waits on the owner's four answers and his `approve.mjs business`. Work order 27
+  (`work/27-authority-not-in-graph`, a site not in the link graph reads "not found in the link data", never 0; skill SOURCE then
+  `report.mjs`): BUILDER_seo-and-audits_authority-not-in-graph (pid 43940, sonnet high). Week at 31%.

@@ -133,13 +133,17 @@ const authFile = opt("--authority") || path.join(loc.pewp, "authority.json");
 const auth = J(authFile);
 let q4;
 if (auth) {
+  // a site the link graph does not hold has no role and no count in authority.json: it is "not found in the link data" (null, inGraph false), never 0
   const me = auth.results.find((r) => r.role === "target") || auth.results[0];
-  const comps = auth.results.filter((r) => r.role === "competitor");
+  const comps = auth.results.filter((r) => r !== me);
   const f = (v) => fact(v, auth.source, auth.fetchedAt, rel(path.resolve(authFile)));
-  q4 = { status: "answered", facts: { referringDomains: f(me.inGraph ? me.linkingDomains : 0), strengthRank: f(me.harmonicPos ?? null),
-    competitors: f(comps.map((c) => ({ domain: c.domain, referringDomains: c.inGraph ? c.linkingDomains : 0, strengthRank: c.harmonicPos ?? null }))), linkGap: f(auth.linkGap.length) },
+  q4 = { status: "answered", facts: { referringDomains: f(me.inGraph ? me.linkingDomains : null), inGraph: f(!!me.inGraph), strengthRank: f(me.harmonicPos ?? null),
+    competitors: f(comps.map((c) => ({ domain: c.domain, referringDomains: c.inGraph ? c.linkingDomains : null, inGraph: !!c.inGraph, strengthRank: c.harmonicPos ?? null }))), linkGap: f(auth.linkGap.length) },
     strongestLinkers: me.inGraph ? me.strongestLinkingDomains.slice(0, 10).map((l) => l.domain) : [], gapTop: auth.linkGap.slice(0, 15) };
 } else q4 = { status: "BLOCKED", why: "the authority step has not run for this site", unblock: `node scripts/authority.mjs "${rel(path.join(loc.pewp, "authority.json"))}" --target ${loc.host} --competitor <competitor domain>... (free, reads the Common Crawl graph on disk; about 15 to 30 minutes)` };
+
+const NOT_IN_GRAPH = "not found in the link data"; // question 4: Common Crawl's link graph does not hold the site; this is not a count of 0
+const inGraphQ4 = q4.status === "answered" && q4.facts.inGraph.value !== false; // false only when the graph does not hold the target
 
 // ---------- research and measure outputs (Q2, Q3, Q5) ----------
 const doctor = J(path.join(loc.pewp, "doctor.json"));
@@ -355,7 +359,7 @@ function computeQ5() {
   const why = [];
   if (blockedBots.length) why.push(`our robots.txt blocks ${blockedBots.join(", ")}, so those engines cannot read the site at all`);
   if (portals.size && totalCites && portalCites / totalCites >= 0.3) why.push(`${Math.round((portalCites / totalCites) * 100)}% of the sources the engines cite are big portals and directories (${[...portals].slice(0, 4).join(", ")}); a local site is cited when it is the clearest local source`);
-  if (!ourCited) why.push("no answer cites this site: it has too few other sites linking to or mentioning it for the engines to treat it as a source" + (q4.status === "answered" ? ` (${q4.facts.referringDomains.value} referring domain${s(q4.facts.referringDomains.value)} in Common Crawl)` : ""));
+  if (!ourCited) why.push("no answer cites this site: it has too few other sites linking to or mentioning it for the engines to treat it as a source" + (q4.status !== "answered" ? "" : inGraphQ4 ? ` (${q4.facts.referringDomains.value} referring domain${s(q4.facts.referringDomains.value)} in Common Crawl)` : ` (the site is ${NOT_IN_GRAPH}, in Common Crawl)`));
   if (lowRuns) why.push(`${lowRuns} of ${rows.length} rows were asked fewer than 3 times, so read the shares as hints, not rates`);
   const blockedParts = [citationsM?.blocked && `${citationsM.blocked.source}: ${citationsM.blocked.reason} (unblock: ${citationsM.blocked.unblock})`, aiR?.gemini?.status === "blocked" && `gemini: ${aiR.gemini.blocked || "blocked"}`].filter(Boolean);
   return {
@@ -432,7 +436,7 @@ const researchBits = [];
 if (q2.status === "answered") researchBits.push(`${q2.facts.clustersMissingPage.value} of the ${q2.facts.clustersTotal.value} searches that matter have no page yet${q2.facts.weakPages.value ? ` and ${q2.facts.weakPages.value} page${s(q2.facts.weakPages.value)} do not match their search` : ""}`);
 if (q5.status === "answered") researchBits.push(`AI engines cite it in ${pctTxt(q5.facts.citedShare.value)} of the ${q5.facts.answersChecked.value} answers read${q5.facts.rowsCitingUs.value === 0 ? " (none)" : ""}`);
 const tail = blockedQs.length ? `${researchBits.length ? `${researchBits.join("; ")}. ` : ""}Whether it ranks${blockedQs.includes(5) ? " and gets cited by AI" : ""} is not fully measured yet (BLOCKED, see ${blockedQs.length === 1 ? blockedQs[0] : blockedQs.slice(0, -1).join(", ") + " and " + blockedQs.at(-1)}).` : `${researchBits.join("; ")}.`;
-const oneLine = `${loc.host}: ${problemsQ1.length ? `search engines can reach it, but ${problemsQ1.length} thing${s(problemsQ1.length)} hold${problemsQ1.length === 1 ? "s" : ""} it back` : "search engines and AI crawlers can reach and read it"}${causes ? `; the checker found ${causes.length} root causes (${highCauses} serious)` : ""}${q4.status === "answered" ? `; ${q4.facts.referringDomains.value} other websites link to it (Common Crawl)` : ""}. ${tail}`;
+const oneLine = `${loc.host}: ${problemsQ1.length ? `search engines can reach it, but ${problemsQ1.length} thing${s(problemsQ1.length)} hold${problemsQ1.length === 1 ? "s" : ""} it back` : "search engines and AI crawlers can reach and read it"}${causes ? `; the checker found ${causes.length} root causes (${highCauses} serious)` : ""}${q4.status !== "answered" ? "" : inGraphQ4 ? `; ${q4.facts.referringDomains.value} other websites link to it (Common Crawl)` : `; the site is ${NOT_IN_GRAPH} (Common Crawl)`}. ${tail}`;
 
 const doctorLines = doctorStale ? [`**STALE doctor result (${doctorDate}): the env or token files changed since; run doctor again.**`, ""]
   : doctorDate ? [`Source status below is from the doctor result of ${doctorDate}${doctorCheck.hashed ? "" : " (it records no file hashes, so it cannot show whether the env or token files changed since)"}.`, ""] : [];
@@ -499,14 +503,14 @@ function metricsOf(rep) {
   add("noLd", "pages without structured data", f1.pagesWithoutStructuredData);
   add("noCanon", "pages without a canonical tag", f1.pagesWithoutCanonical);
   const f4 = qn(4)?.facts || {};
-  add("refdom", "referring domains", f4.referringDomains); add("linkgap", "link gap (sites to ask for a link)", f4.linkGap);
+  add("refdom", "referring domains", f4.referringDomains); if (f4.inGraph?.value === false) out.refdom = { label: "referring domains", fact: f4.referringDomains, v: null, notFound: true }; add("linkgap", "link gap (sites to ask for a link)", f4.linkGap);
   const f2 = qn(2)?.facts || {};
   add("missing", "searches with no page yet", f2.clustersMissingPage); add("weak", "pages that do not match their search", f2.weakPages); add("cannibal", "pages competing for one search", f2.cannibalisation);
   const f5 = qn(5)?.facts || {};
   add("cited", "share of AI answers that cite the site", f5.citedShare, { pct: true });
   return out;
 }
-const show = (m, v) => (m.pct ? pctTxt(v) : String(v));
+const show = (m, v) => (m.notFound ? NOT_IN_GRAPH : m.pct ? pctTxt(v) : String(v));
 
 // ---------- write ----------
 const q6 = { n: 6, q: "What to fix, in order", status: fixes.length || plan.length ? "answered" : "partial", fixes, plan };
@@ -532,7 +536,7 @@ if (prevReport?.writtenAt && prevReport.questions) {
     const b = pm[key].v, n = cm[key].v;
     const noise = cm[key].noise && b ? Math.abs(n - b) / b < cm[key].noise : false;
     if (b === n || noise) { same++; continue; }
-    changes.push({ metric: key, label: cm[key].label, before: fact(b, `previous report.json written ${dayOf(prevReport.writtenAt)}`, prevReport.writtenAt, rel(prevFile)), after: cm[key].fact, afterValue: n, beforeText: show(cm[key], b), afterText: show(cm[key], n) });
+    changes.push({ metric: key, label: cm[key].label, before: fact(b, `previous report.json written ${dayOf(prevReport.writtenAt)}`, prevReport.writtenAt, rel(prevFile)), after: cm[key].fact, afterValue: n, beforeText: show(pm[key], b), afterText: show(cm[key], n) });
   }
   for (const q of report.questions) { const was = prevReport.questions.find((x) => x.n === q.n)?.status; if (was && q.status !== was) statusChanges.push({ n: q.n, before: was, after: q.status }); }
   report.sinceLast = { since: prevReport.writtenAt, previousSnapshot: prevReport.snapshot, changes, statusChanges, unchangedMetrics: same };
@@ -574,10 +578,10 @@ const md = [
   "## 4. Does the site have the authority to rank?",
   "",
   ...(q4.status === "answered"
-    ? [`- ${term("referring domain")}s: ${q4.facts.referringDomains.value} (strength rank ${q4.facts.strengthRank.value?.toLocaleString("en-US") ?? "not ranked"}; 1 = strongest site on the web)`,
-       ...q4.facts.competitors.value.map((c) => `- Competitor ${c.domain}: ${c.referringDomains} referring domains, strength rank ${c.strengthRank?.toLocaleString("en-US") ?? "not ranked"}`),
+    ? [inGraphQ4 ? `- ${term("referring domain")}s: ${q4.facts.referringDomains.value} (strength rank ${q4.facts.strengthRank.value?.toLocaleString("en-US") ?? "not ranked"}; 1 = strongest site on the web)` : `- ${term("referring domain")}s: ${NOT_IN_GRAPH} (the link data holds no record of this site; that is not the same as 0)`,
+       ...q4.facts.competitors.value.map((c) => c.inGraph === false ? `- Competitor ${c.domain}: ${NOT_IN_GRAPH}` : `- Competitor ${c.domain}: ${c.referringDomains} referring domains, strength rank ${c.strengthRank?.toLocaleString("en-US") ?? "not ranked"}`),
        `- ${term("link gap")}: ${q4.facts.linkGap.value} sites${q4.gapTop.length ? `, strongest first: ${q4.gapTop.slice(0, 8).map((g) => g.domain).join(", ")}` : ""}`,
-       `- Strongest sites linking here: ${q4.strongestLinkers.join(", ") || "none"}`,
+       `- Strongest sites linking here: ${inGraphQ4 ? q4.strongestLinkers.join(", ") || "none" : NOT_IN_GRAPH}`,
        "", `Source: ${auth.source}, ${auth.fetchedAt.slice(0, 10)}. Common Crawl sees fewer links than paid tools: compare sites with each other, not as absolute numbers.`]
     : [`**BLOCKED.** ${q4.why}.`, "", `What unblocks it: ${q4.unblock}`]),
   "",
