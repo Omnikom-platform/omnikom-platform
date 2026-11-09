@@ -1,0 +1,343 @@
+  accepted domain: "omnikom.ai"  [target https://omnikom.ai/]
+  accepted existing.site: "https://omnikom.ai/"  [target https://omnikom.ai/]
+  default  rankTracking.devices: ["mobile"]  (most local searches are on phones)
+  default  rankTracking.source: "browser-capture"  (Search Console when connected, else captured in the browser)
+QUESTIONS 15
+[
+ {
+  "id": "q1",
+  "field": "name",
+  "header": "Business",
+  "question": "What is the business called (the name customers know)?",
+  "options": [
+   {
+    "label": "Use \"omnikom.ai\"",
+    "description": "pick Other to type the exact name",
+    "value": null
+   }
+  ],
+  "recommended": 0,
+  "freeText": true
+ },
+ {
+  "id": "q2",
+  "field": "kind",
+  "header": "Business type",
+  "question": "What kind of business is it?",
+  "options": [
+   {
+    "label": "real-estate-agent",
+    "description": "licensed agent or brokerage",
+    "value": "real-estate-agent"
+   },
+   {
+    "label": "cash-home-buyer",
+    "description": "buys houses directly for cash",
+    "value": "cash-home-buyer"
+   },
+   {
+    "label": "editorial-media",
+    "description": "publisher or media platform with paid features",
+    "value": "editorial-media"
+   },
+   {
+    "label": "local-service",
+    "description": "plumber, dentist, lawyer, contractor ...",
+    "value": "local-service"
+   }
+  ],
+  "recommended": 0,
+  "freeText": true
+ },
+ {
+  "id": "q3",
+  "field": "offer",
+  "header": "Offer",
+  "question": "What does it sell, in one line?",
+  "options": [
+   {
+    "label": "I will type it",
+    "description": "pick Other and type one line",
+    "value": null
+   }
+  ],
+  "recommended": 0,
+  "freeText": true
+ },
+ {
+  "id": "q4",
+  "field": "audience",
+  "header": "Audience",
+  "question": "Who is it for?",
+  "options": [
+   {
+    "label": "Households in the service area",
+    "description": "people deciding about their own home or service",
+    "value": "Households in the service area"
+   },
+   {
+    "label": "Businesses (B2B)",
+    "description": "companies buying a service",
+    "value": "Businesses"
+   },
+   {
+    "label": "Both",
+    "description": "households and businesses",
+    "value": "Households and businesses"
+   }
+  ],
+  "recommended": 0,
+  "freeText": true
+ },
+ {
+  "id": "q5",
+  "field": "market.country",
+  "header": "Country",
+  "question": "Which country do the searchers live in? (every volume is per country)",
+  "options": [
+   {
+    "label": "US",
+    "description": "United States",
+    "value": "US"
+   },
+   {
+    "label": "CA",
+    "description": "Canada",
+    "value": "CA"
+   },
+   {
+    "label": "GB",
+    "description": "United Kingdom",
+    "value": "GB"
+   },
+   {
+    "label": "AU",
+    "description": "Australia",
+    "value": "AU"
+   }
+  ],
+  "recommended": 0,
+  "freeText": true
+ },
+ {
+  "id": "q6",
+  "field": "market.language",
+  "header": "Language",
+  "question": "Which language do the searchers use?",
+  "options": [
+   {
+    "label": "en",
+    "description": "English",
+    "value": "en"
+   },
+   {
+    "label": "es",
+    "description": "Spanish",
+    "value": "es"
+   },
+   {
+    "label": "fr",
+    "description": "French",
+    "value": "fr"
+   }
+  ],
+  "recommended": 0,
+  "freeText": true
+ },
+ {
+  "id": "q7",
+  "field": "locations",
+  "header": "Where",
+  "question": "Where does the business work? Name the main place and the cities or areas it serves.",
+  "options": [
+   {
+    "label": "I will list them",
+    "description": "pick Other: 'Tracy, CA; serves Manteca, Lathrop'",
+    "value": null
+   }
+  ],
+  "recommended": 0,
+  "freeText": true
+ },
+ {
+  "id": "q8",
+  "field": "goals",
+  "header": "Goals",
+  "multiSelect": true,
+  "question": "What should the website produce? (pick all that apply)",
+  "options": [
+   {
+    "label": "leads",
+    "description": "form fills and enquiries",
+    "value": "leads"
+   },
+   {
+    "label": "calls",
+    "description": "phone calls",
+    "value": "calls"
+   },
+   {
+    "label": "bookings",
+    "description": "appointments",
+    "value": "bookings"
+   },
+   {
+    "label": "sales",
+    "description": "online sales",
+    "value": "sales"
+   }
+  ],
+  "recommended": 0,
+  "freeText": true
+ },
+ {
+  "id": "q9",
+  "field": "competitors",
+  "header": "Competitors",
+  "question": "Which competitors do you already know (domains)?",
+  "options": [
+   {
+    "label": "None known: research will find them",
+    "description": "the search results show who wins",
+    "value": []
+   },
+   {
+    "label": "I will type them",
+    "description": "pick Other: 'a.com, b.com'",
+    "value": null
+   }
+  ],
+  "recommended": 0,
+  "freeText": true
+ },
+ {
+  "id": "q10",
+  "field": "vocabulary",
+  "header": "Your words",
+  "multiSelect": true,
+  "question": "Which words do you and the people who read you use for what you do? (pick the right ones; type more under Other)",
+  "options": [
+   {
+    "label": "I will type them",
+    "description": "pick Other: the words, one per line",
+    "value": null
+   }
+  ],
+  "recommended": 0,
+  "freeText": true
+ },
+ {
+  "id": "q11",
+  "field": "brand.constraints",
+  "header": "Brand limits",
+  "question": "Anything the content must or must not say (legal, tone, words to avoid)?",
+  "options": [
+   {
+    "label": "Nothing special",
+    "description": "no constraints beyond the industry rules",
+    "value": []
+   },
+   {
+    "label": "Regulated industry",
+    "description": "real estate, finance, health or legal claim rules apply",
+    "value": [
+     "regulated industry: follow rules/industries"
+    ]
+   },
+   {
+    "label": "I will type them",
+    "description": "pick Other",
+    "value": null
+   }
+  ],
+  "recommended": 0,
+  "freeText": true
+ },
+ {
+  "id": "q12",
+  "field": "existing.searchConsole",
+  "header": "Search Console",
+  "question": "Do we have Google Search Console access for this site?",
+  "options": [
+   {
+    "label": "No",
+    "description": "research uses captured search results instead",
+    "value": false
+   },
+   {
+    "label": "Yes",
+    "description": "the owner can connect it (OAuth)",
+    "value": true
+   }
+  ],
+  "recommended": 0,
+  "freeText": true
+ },
+ {
+  "id": "q13",
+  "field": "existing.businessProfile",
+  "header": "Google profile",
+  "question": "Is there a Google Business Profile (the map listing)?",
+  "options": [
+   {
+    "label": "None / not sure",
+    "description": "recorded as none",
+    "value": null
+   },
+   {
+    "label": "Yes, I will paste the link",
+    "description": "pick Other",
+    "value": null
+   }
+  ],
+  "recommended": 0,
+  "freeText": true
+ },
+ {
+  "id": "q14",
+  "field": "launchState",
+  "header": "Site state",
+  "question": "Is the site live, a preview copy, or only planned?",
+  "options": [
+   {
+    "label": "live",
+    "description": "public and meant to be found",
+    "value": "live"
+   },
+   {
+    "label": "preview",
+    "description": "a copy kept out of search on purpose",
+    "value": "preview"
+   },
+   {
+    "label": "planned",
+    "description": "nothing built yet",
+    "value": "planned"
+   }
+  ],
+  "recommended": 0,
+  "freeText": true
+ },
+ {
+  "id": "q15",
+  "field": "notOffer",
+  "header": "Not this",
+  "question": "What is the business NOT? (so research does not chase the wrong searches)",
+  "options": [
+   {
+    "label": "Nothing to rule out",
+    "description": "no exclusions",
+    "value": ""
+   },
+   {
+    "label": "I will type it",
+    "description": "pick Other: one line",
+    "value": null
+   }
+  ],
+  "optional": true,
+  "recommended": 0,
+  "freeText": true
+ }
+]
+BLOCKED: 14 answers missing (and 1 optional, asked with them). The main session asks them as pickable options, appends the picks to work\26-omnikom-ai-plan\pewp-root\site-checks\omnikom.ai\.pewp\intake-answers.json (field -> value), then re-runs intake.

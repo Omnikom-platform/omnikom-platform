@@ -1,0 +1,82 @@
+{
+ "name": "Omnikom Platform",
+ "domain": "omnikom.ai",
+ "kind": "software-platform",
+ "industry": null,
+ "offer": "Researches and scores a local business's presence in search and AI answers, builds its website from an approved SEO plan and design, hosts it, and gives one sign-in to the Omnikom CRM (every lead from the website) and the dashboard (edit and publish the site, photos, settings)",
+ "audience": "Local businesses: the business owner and their team members",
+ "market": {
+  "country": "",
+  "language": ""
+ },
+ "locations": [],
+ "goals": [],
+ "competitors": [
+  "luxurypresence.com"
+ ],
+ "vocabulary": [
+  "lead generation",
+  "lead management",
+  "convert more leads",
+  "lead capture",
+  "manage leads",
+  "all-in-one",
+  "CRM",
+  "website builder",
+  "personalized website",
+  "custom websites",
+  "local businesses",
+  "home service businesses",
+  "get found",
+  "web presence",
+  "grow your business",
+  "high-converting landing pages",
+  "AI and search",
+  "own your leads"
+ ],
+ "notOffer": "Not a white-label tool, no automatic push of leads to a client's CRM, and no SMS or email to leads, bookings, payments, AI concierge or ads until the owner unparks them",
+ "brand": {
+  "constraints": [
+   "Client-facing claims are never invented: no fake reviews, results, licences or numbers",
+   "Nothing is promised to clients until a paid tier",
+   "No white label: every site and mail says powered by Omnikom",
+   "Plain words, no em dashes"
+  ]
+ },
+ "existing": {
+  "site": "https://omnikom.ai/",
+  "searchConsole": false,
+  "businessProfile": null,
+  "socials": []
+ },
+ "launchState": "planned",
+ "rankTracking": {
+  "source": "browser-capture",
+  "locations": [],
+  "devices": [
+   "mobile"
+  ]
+ },
+ "provenance": {
+  "name": "unstated",
+  "domain": "site",
+  "kind": "unstated",
+  "offer": "unstated",
+  "audience": "unstated",
+  "market.country": "default",
+  "market.language": "default",
+  "locations": "default",
+  "goals": "default",
+  "competitors": "unstated",
+  "brand.constraints": "unstated",
+  "existing.site": "site",
+  "existing.searchConsole": "default",
+  "existing.socials": "default",
+  "launchState": "unstated",
+  "vocabulary": "unstated",
+  "notOffer": "unstated",
+  "rankTracking.source": "default",
+  "rankTracking.locations": "default",
+  "rankTracking.devices": "default"
+ }
+}

@@ -1,0 +1,16 @@
+{
+  "name": {"value": "Omnikom Platform", "answeredBy": "document", "source": "docs/product/1-product.md:3"},
+  "kind": {"value": "software-platform", "answeredBy": "document", "source": "docs/product/1-product.md:3-6"},
+  "offer": {"value": "Researches and scores a local business's presence in search and AI answers, builds its website from an approved SEO plan and design, hosts it, and gives one sign-in to the Omnikom CRM (every lead from the website) and the dashboard (edit and publish the site, photos, settings)", "answeredBy": "document", "source": "docs/product/1-product.md:3-8"},
+  "audience": {"value": "Local businesses: the business owner and their team members", "answeredBy": "document", "source": "docs/product/1-product.md:3,17-18"},
+  "competitors": {"value": ["luxurypresence.com"], "answeredBy": "document", "source": "docs/product/1-product.md:3; README.md:3; CLAUDE.md:3"},
+  "brand.constraints": {"value": [
+    "Client-facing claims are never invented: no fake reviews, results, licences or numbers",
+    "Nothing is promised to clients until a paid tier",
+    "No white label: every site and mail says powered by Omnikom",
+    "Plain words, no em dashes"
+  ], "answeredBy": "document", "source": "CLAUDE.md:27-28; docs/product/2-architecture.md:131; docs/product/10-expansion.md:42; docs/product/README.md:33"},
+  "launchState": {"value": "planned", "answeredBy": "document", "source": "docs/product/9-blocks.md:131,134"},
+  "notOffer": {"value": "Not a white-label tool, no automatic push of leads to a client's CRM, and no SMS or email to leads, bookings, payments, AI concierge or ads until the owner unparks them", "answeredBy": "document", "source": "docs/product/1-product.md:183-186; docs/product/10-expansion.md:42"},
+  "vocabulary": {"value": ["lead generation", "lead management", "convert more leads", "lead capture", "manage leads", "all-in-one", "CRM", "website builder", "personalized website", "custom websites", "local businesses", "home service businesses", "get found", "web presence", "grow your business", "high-converting landing pages", "AI and search", "own your leads"], "answeredBy": "document", "source": "public competitor pages read 2026-11-09, one URL per phrase in work/26-omnikom-ai-plan/intake-answers-draft.md section V"}
+}

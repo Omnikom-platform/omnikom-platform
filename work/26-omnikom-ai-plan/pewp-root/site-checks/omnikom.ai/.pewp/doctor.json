@@ -1,0 +1,211 @@
+{
+ "checkedAt": "2026-11-09T02:31:13.489Z",
+ "policy": "free sources only (owner decision 2026-10-22)",
+ "env": {
+  "file": null,
+  "loaded": [],
+  "source": "none"
+ },
+ "inputs": {
+  "envFileSha1": "absent",
+  "tokenFileSha1": "ae3103a96d30d40c4abbb223019422ceec34745e",
+  "serviceAccountFileSha1": "absent"
+ },
+ "sources": [
+  {
+   "id": "node",
+   "label": "Node.js",
+   "status": "connected",
+   "detail": "v24.22.1",
+   "setBy": null,
+   "unblock": null,
+   "usedBy": [
+    "every script"
+   ]
+  },
+  {
+   "id": "claude-cli",
+   "label": "Claude CLI (headless check workers)",
+   "status": "connected",
+   "detail": "2.1.312 (Claude Code)",
+   "setBy": null,
+   "unblock": null,
+   "usedBy": [
+    "audit workers"
+   ]
+  },
+  {
+   "id": "chrome",
+   "label": "Chrome or Edge (lab speed, rendered pages)",
+   "status": "connected",
+   "detail": "C:/Program Files/Google/Chrome/Application/chrome.exe",
+   "setBy": null,
+   "unblock": null,
+   "usedBy": [
+    "snapshot-site",
+    "audit-live Q1",
+    "speed"
+   ]
+  },
+  {
+   "id": "commoncrawl-graph",
+   "label": "Common Crawl web graph (free backlinks and authority)",
+   "status": "connected",
+   "detail": "release cc-main-2026-aug-sep-oct in D:/seo-kit-cache (latest)",
+   "setBy": null,
+   "unblock": null,
+   "usedBy": [
+    "audit-live Q4",
+    "research authority"
+   ]
+  },
+  {
+   "id": "search-console",
+   "label": "Google Search Console API (real queries, clicks, positions)",
+   "status": "connected",
+   "detail": "C:\\Users\\DELL\\.config\\pewp\\gsc-token.json",
+   "setBy": "token file C:\\Users\\DELL\\.config\\pewp\\gsc-token.json",
+   "unblock": null,
+   "usedBy": [
+    "audit-live Q2",
+    "research demand",
+    "measure"
+   ],
+   "lastSuccessfulCall": null
+  },
+  {
+   "id": "bing-webmaster",
+   "label": "Bing Webmaster Tools API (free key; keyword volumes)",
+   "status": "needs",
+   "detail": "no key",
+   "setBy": null,
+   "unblock": "Verify the site in Bing Webmaster Tools, create an API key (Settings > API access), set BING_WEBMASTER_KEY (in the environment or in the .env file given with --env-file).",
+   "usedBy": [
+    "research demand",
+    "measure"
+   ],
+   "lastSuccessfulCall": null
+  },
+  {
+   "id": "crux",
+   "label": "Chrome UX Report API (free; real-visitor speed)",
+   "status": "needs",
+   "detail": "no key",
+   "setBy": null,
+   "unblock": "Google Cloud console: enable 'Chrome UX Report API', create a free API key, set CRUX_API_KEY. Low-traffic sites may have no field data (a result, not a failure).",
+   "usedBy": [
+    "audit-live Q1 speed",
+    "measure"
+   ],
+   "lastSuccessfulCall": null
+  },
+  {
+   "id": "psi",
+   "label": "PageSpeed Insights API (free key; Google's own phone speed test, the trusted number when this machine is busy)",
+   "status": "needs",
+   "detail": "no key",
+   "setBy": null,
+   "unblock": "Google Cloud console: enable 'PageSpeed Insights API', create a free API key, set PSI_API_KEY (in the environment or in the .env file given with --env-file).",
+   "usedBy": [
+    "psi.mjs",
+    "audit-live Q1 speed",
+    "report-live"
+   ]
+  },
+  {
+   "id": "gemini",
+   "label": "Gemini API free tier with Google Search grounding (AI citations)",
+   "status": "needs",
+   "detail": "no key",
+   "setBy": null,
+   "unblock": "aistudio.google.com: create a free API key, set GEMINI_API_KEY.",
+   "usedBy": [
+    "audit-live Q5",
+    "measure AI citations"
+   ]
+  },
+  {
+   "id": "keyword-planner",
+   "label": "Google Ads Keyword Planner export (free account; volume ranges)",
+   "status": "needs",
+   "detail": "imported as a CSV file",
+   "setBy": null,
+   "unblock": "In Google Ads > Keyword Planner, export the keyword ideas as CSV and give the file path to the research stage.",
+   "usedBy": [
+    "research demand"
+   ]
+  },
+  {
+   "id": "business-profile",
+   "label": "Business Profile data (owner's free API export or a dated manual capture)",
+   "status": "needs",
+   "detail": "imported as a file",
+   "setBy": null,
+   "unblock": "The owner exports the Business Profile (categories, services, reviews) or the main session saves a dated capture of the public listing; give the file to local-profile.mjs.",
+   "usedBy": [
+    "local",
+    "research",
+    "measure"
+   ]
+  },
+  {
+   "id": "map-pack-captures",
+   "label": "Google map-pack captures per city and device (owner-supervised)",
+   "status": "main session",
+   "detail": "saved captures under <pewp>/captures/local/",
+   "setBy": null,
+   "unblock": "The main session captures the map pack for each service-area city at human pace and saves them; local-pack.mjs imports them.",
+   "usedBy": [
+    "local",
+    "measure"
+   ]
+  },
+  {
+   "id": "gemini-terms",
+   "label": "Gemini terms acknowledged for storing derived citation data",
+   "status": "needs",
+   "detail": "not acknowledged",
+   "setBy": null,
+   "unblock": "The owner confirms we may keep derived fields (cited domains, whether we are cited) from grounded Gemini answers; then set PEWP_GEMINI_TERMS_ACK=1 (or ai.geminiTermsAcknowledged in the measure config).",
+   "usedBy": [
+    "measure AI citations",
+    "research AI citations"
+   ]
+  },
+  {
+   "id": "local-grid",
+   "label": "Local grid captures (owner-supervised map-pack captures at grid points around each service-area city, mobile)",
+   "status": "main session",
+   "detail": "captures/local/grid/*.json read by scripts/local-grid.mjs import; plan with scripts/local-grid.mjs plan",
+   "setBy": null,
+   "unblock": "Add the city centres (lat, lng, source, date) to captures/local/grid/cities.json, run local-grid.mjs plan, then capture requests.json at human pace (45 s apart, stop at the first robot check) with the browser's location override set to each point and the page footer confirming the place.",
+   "usedBy": [
+    "measure MSR-010",
+    "local"
+   ]
+  },
+  {
+   "id": "browser-capture",
+   "label": "Owner-supervised browser capture (Google results, People Also Ask, local pack, ChatGPT, Perplexity)",
+   "status": "main session",
+   "detail": "checked by the main session (claude-in-chrome); human pace, stop at the first robot check",
+   "setBy": null,
+   "unblock": "The main session confirms the claude-in-chrome extension is connected and the owner is present.",
+   "usedBy": [
+    "research SERP",
+    "audit-live Q3/Q5"
+   ]
+  },
+  {
+   "id": "analytics",
+   "label": "Conversions (the owner's analytics export, e.g. GA4; no API)",
+   "status": "needs",
+   "detail": "imported as a file",
+   "setBy": null,
+   "unblock": "The owner exports conversions per landing page as JSON [{ page, goal, conversions, start, end }] to <pewp>/captures/conversions.json (stages/measure.md); measure rule MSR-009 reads it.",
+   "usedBy": [
+    "measure MSR-009"
+   ]
+  }
+ ]
+}

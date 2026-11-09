@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "docs": 279,
+    "docs": 283,
     "unownedDocs": 7,
     "unplaced": 184,
     "over300": 9
@@ -284,6 +284,10 @@
     {"path":"work/07-crm-screens/CONTEXT.md","title":"07 CRM screens on the block 1 and 2 backend (block 3a)","summary":"Owner: platform-build. Model: Sonnet 5.5, effort high. Branch: check/platform/crm-screens (worktree on master). Migration: M18 (`supabase/migrations/20261105...","owner":"head-of-operations","layer":2,"lines":128,"loadFor":[]},
     {"path":"work/09-six-question-report/CONTEXT.md","title":"09 six-question report (SEO slice 4, first part)","summary":"Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/six-question-report. Status: OPEN.","owner":"head-of-operations","layer":2,"lines":81,"loadFor":[]},
     {"path":"work/11-enterprise-audit/CONTEXT.md","title":"Work order 11: enterprise gap audit (head of operations, 2026-11-05)","summary":"Owner 2026-11-05 05:00: nothing in the platform may sit below enterprise practice; every gap found goes into its stage, its block and its book row so it gets...","owner":"head-of-operations","layer":2,"lines":119,"loadFor":[]},
+    {"path":"work/26-omnikom-ai-plan/CONTEXT.md","title":"26 omnikom.ai site plan, part 1: the intake pack","summary":"Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/omnikom-ai-plan. Status: OPEN.","owner":"head-of-operations","layer":2,"lines":71,"loadFor":[]},
+    {"path":"work/26-omnikom-ai-plan/discovery.md","title":"omnikom.ai discovery: what the research stage needs later, and where it comes from","summary":"Read 2026-11-09 (UTC). Public data only, politely; nothing submitted; no search-engine or AI-engine result page fetched.","owner":"head-of-operations","layer":2,"lines":78,"loadFor":[]},
+    {"path":"work/26-omnikom-ai-plan/intake-answers-draft.md","title":"omnikom.ai intake: answers read from written files (work order 26, part 1)","summary":"Status: DRAFT. Every answer is stamped `answeredBy: \"document\"`, never `\"owner\"`. Nothing here is the owner's word. The owner signs the one-screen definition...","owner":"head-of-operations","layer":2,"lines":77,"loadFor":[]},
+    {"path":"work/26-omnikom-ai-plan/proof.md","title":"Proof, work order 26 part 1 (2026-11-09)","summary":"Nothing was committed or pushed. No answer is stamped `owner`. Run from the worktree root.","owner":"head-of-operations","layer":2,"lines":113,"loadFor":[]},
     {"path":"work/README.md","title":"Work orders","summary":"`work/` is layer 2 of the layout in `docs/product/README.md`: one folder per piece of work, plus `STATE.md` (where things stand now). A session loads `CLAUDE...","owner":"head-of-operations","layer":2,"lines":47,"loadFor":[]},
     {"path":"work/STATE.md","title":"Where things stand","summary":"Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-05 05:30 by the head of operations (work order 11). What the product is and every ...","owner":"head-of-operations","layer":4,"lines":57,"loadFor":[]}
   ]

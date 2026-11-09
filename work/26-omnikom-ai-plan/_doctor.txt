@@ -1,0 +1,29 @@
+env: no env file
+CONNECTED     Node.js: v24.22.1
+CONNECTED     Claude CLI (headless check workers): 2.1.312 (Claude Code)
+CONNECTED     Chrome or Edge (lab speed, rendered pages): C:/Program Files/Google/Chrome/Application/chrome.exe
+CONNECTED     Common Crawl web graph (free backlinks and authority): release cc-main-2026-aug-sep-oct in D:/seo-kit-cache (latest)
+CONNECTED     Google Search Console API (real queries, clicks, positions): C:\Users\DELL\.config\pewp\gsc-token.json (last successful call for this target: none)
+NEEDS         Bing Webmaster Tools API (free key; keyword volumes): no key (last successful call for this target: none)
+              -> Verify the site in Bing Webmaster Tools, create an API key (Settings > API access), set BING_WEBMASTER_KEY (in the environment or in the .env file given with --env-file).
+NEEDS         Chrome UX Report API (free; real-visitor speed): no key (last successful call for this target: none)
+              -> Google Cloud console: enable 'Chrome UX Report API', create a free API key, set CRUX_API_KEY. Low-traffic sites may have no field data (a result, not a failure).
+NEEDS         PageSpeed Insights API (free key; Google's own phone speed test, the trusted number when this machine is busy): no key
+              -> Google Cloud console: enable 'PageSpeed Insights API', create a free API key, set PSI_API_KEY (in the environment or in the .env file given with --env-file).
+NEEDS         Gemini API free tier with Google Search grounding (AI citations): no key
+              -> aistudio.google.com: create a free API key, set GEMINI_API_KEY.
+NEEDS         Google Ads Keyword Planner export (free account; volume ranges): imported as a CSV file
+              -> In Google Ads > Keyword Planner, export the keyword ideas as CSV and give the file path to the research stage.
+NEEDS         Business Profile data (owner's free API export or a dated manual capture): imported as a file
+              -> The owner exports the Business Profile (categories, services, reviews) or the main session saves a dated capture of the public listing; give the file to local-profile.mjs.
+MAIN SESSION  Google map-pack captures per city and device (owner-supervised): saved captures under <pewp>/captures/local/
+              -> The main session captures the map pack for each service-area city at human pace and saves them; local-pack.mjs imports them.
+NEEDS         Gemini terms acknowledged for storing derived citation data: not acknowledged
+              -> The owner confirms we may keep derived fields (cited domains, whether we are cited) from grounded Gemini answers; then set PEWP_GEMINI_TERMS_ACK=1 (or ai.geminiTermsAcknowledged in the measure config).
+MAIN SESSION  Local grid captures (owner-supervised map-pack captures at grid points around each service-area city, mobile): captures/local/grid/*.json read by scripts/local-grid.mjs import; plan with scripts/local-grid.mjs plan
+              -> Add the city centres (lat, lng, source, date) to captures/local/grid/cities.json, run local-grid.mjs plan, then capture requests.json at human pace (45 s apart, stop at the first robot check) with the browser's location override set to each point and the page footer confirming the place.
+MAIN SESSION  Owner-supervised browser capture (Google results, People Also Ask, local pack, ChatGPT, Perplexity): checked by the main session (claude-in-chrome); human pace, stop at the first robot check
+              -> The main session confirms the claude-in-chrome extension is connected and the owner is present.
+NEEDS         Conversions (the owner's analytics export, e.g. GA4; no API): imported as a file
+              -> The owner exports conversions per landing page as JSON [{ page, goal, conversions, start, end }] to <pewp>/captures/conversions.json (stages/measure.md); measure rule MSR-009 reads it.
+wrote work\26-omnikom-ai-plan\pewp-root\site-checks\omnikom.ai\.pewp\doctor.json

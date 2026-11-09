@@ -1,0 +1,206 @@
+{
+ "generatedAt": "2026-11-09T02:22:17.440Z",
+ "target": "https://omnikom.ai/",
+ "siteSource": null,
+ "facts": [],
+ "accepted": [
+  {
+   "field": "domain",
+   "value": "omnikom.ai",
+   "source": "target https://omnikom.ai/"
+  },
+  {
+   "field": "existing.site",
+   "value": "https://omnikom.ai/",
+   "source": "target https://omnikom.ai/"
+  }
+ ],
+ "defaulted": [
+  {
+   "field": "rankTracking.devices",
+   "value": [
+    "mobile"
+   ],
+   "why": "most local searches are on phones"
+  },
+  {
+   "field": "rankTracking.source",
+   "value": "browser-capture",
+   "why": "Search Console when connected, else captured in the browser"
+  }
+ ],
+ "missing": [
+  "market.country",
+  "market.language",
+  "locations",
+  "goals",
+  "existing.searchConsole",
+  "existing.businessProfile"
+ ],
+ "invalid": [],
+ "questions": [
+  {
+   "id": "q1",
+   "field": "market.country",
+   "header": "Country",
+   "question": "Which country do the searchers live in? (every volume is per country)",
+   "options": [
+    {
+     "label": "US",
+     "description": "United States",
+     "value": "US"
+    },
+    {
+     "label": "CA",
+     "description": "Canada",
+     "value": "CA"
+    },
+    {
+     "label": "GB",
+     "description": "United Kingdom",
+     "value": "GB"
+    },
+    {
+     "label": "AU",
+     "description": "Australia",
+     "value": "AU"
+    }
+   ],
+   "recommended": 0,
+   "freeText": true
+  },
+  {
+   "id": "q2",
+   "field": "market.language",
+   "header": "Language",
+   "question": "Which language do the searchers use?",
+   "options": [
+    {
+     "label": "en",
+     "description": "English",
+     "value": "en"
+    },
+    {
+     "label": "es",
+     "description": "Spanish",
+     "value": "es"
+    },
+    {
+     "label": "fr",
+     "description": "French",
+     "value": "fr"
+    }
+   ],
+   "recommended": 0,
+   "freeText": true
+  },
+  {
+   "id": "q3",
+   "field": "locations",
+   "header": "Where",
+   "question": "Where does the business work? Name the main place and the cities or areas it serves.",
+   "options": [
+    {
+     "label": "I will list them",
+     "description": "pick Other: 'Tracy, CA; serves Manteca, Lathrop'",
+     "value": null
+    }
+   ],
+   "recommended": 0,
+   "freeText": true
+  },
+  {
+   "id": "q4",
+   "field": "goals",
+   "header": "Goals",
+   "multiSelect": true,
+   "question": "What should the website produce? (pick all that apply)",
+   "options": [
+    {
+     "label": "leads",
+     "description": "form fills and enquiries",
+     "value": "leads"
+    },
+    {
+     "label": "calls",
+     "description": "phone calls",
+     "value": "calls"
+    },
+    {
+     "label": "bookings",
+     "description": "appointments",
+     "value": "bookings"
+    },
+    {
+     "label": "sales",
+     "description": "online sales",
+     "value": "sales"
+    }
+   ],
+   "recommended": 0,
+   "freeText": true
+  },
+  {
+   "id": "q5",
+   "field": "existing.searchConsole",
+   "header": "Search Console",
+   "question": "Do we have Google Search Console access for this site?",
+   "options": [
+    {
+     "label": "No",
+     "description": "research uses captured search results instead",
+     "value": false
+    },
+    {
+     "label": "Yes",
+     "description": "the owner can connect it (OAuth)",
+     "value": true
+    }
+   ],
+   "recommended": 0,
+   "freeText": true
+  },
+  {
+   "id": "q6",
+   "field": "existing.businessProfile",
+   "header": "Google profile",
+   "question": "Is there a Google Business Profile (the map listing)?",
+   "options": [
+    {
+     "label": "None / not sure",
+     "description": "recorded as none",
+     "value": null
+    },
+    {
+     "label": "Yes, I will paste the link",
+     "description": "pick Other",
+     "value": null
+    }
+   ],
+   "recommended": 0,
+   "freeText": true
+  }
+ ],
+ "provenance": {
+  "name": "unstated",
+  "domain": "site",
+  "kind": "unstated",
+  "offer": "unstated",
+  "audience": "unstated",
+  "market.country": "default",
+  "market.language": "default",
+  "locations": "default",
+  "goals": "default",
+  "competitors": "unstated",
+  "brand.constraints": "unstated",
+  "existing.site": "site",
+  "existing.searchConsole": "default",
+  "existing.socials": "default",
+  "launchState": "unstated",
+  "vocabulary": "unstated",
+  "notOffer": "unstated",
+  "rankTracking.source": "default",
+  "rankTracking.locations": "default",
+  "rankTracking.devices": "default"
+ }
+}

@@ -1,0 +1,370 @@
+[
+ {
+  "host": "www.luxurypresence.com",
+  "readAt": "2026-11-09T02:16:51.722Z",
+  "robotsStatus": 200,
+  "robotsBlocksHome": false,
+  "status": 403,
+  "finalUrl": "https://www.luxurypresence.com/",
+  "error": null
+ },
+ {
+  "host": "placester.com",
+  "readAt": "2026-11-09T02:16:55.708Z",
+  "robotsStatus": 403,
+  "robotsBlocksHome": false,
+  "status": 403,
+  "finalUrl": "https://placester.com/",
+  "error": null
+ },
+ {
+  "host": "www.agentimage.com",
+  "readAt": "2026-11-09T02:16:59.164Z",
+  "robotsStatus": 403,
+  "robotsBlocksHome": false,
+  "status": 403,
+  "finalUrl": "https://www.agentimage.com/",
+  "error": null
+ },
+ {
+  "host": "www.scorpion.co",
+  "readAt": "2026-11-09T02:17:02.842Z",
+  "robotsStatus": 200,
+  "robotsBlocksHome": false,
+  "status": 403,
+  "finalUrl": "https://www.scorpion.co/",
+  "error": null
+ },
+ {
+  "host": "www.thryv.com",
+  "readAt": "2026-11-09T02:17:06.528Z",
+  "robotsStatus": 200,
+  "robotsBlocksHome": false,
+  "status": 403,
+  "finalUrl": "https://www.thryv.com/",
+  "error": null
+ },
+ {
+  "host": "www.hibu.com",
+  "readAt": "2026-11-09T02:17:10.294Z",
+  "robotsStatus": 403,
+  "robotsBlocksHome": false,
+  "status": 403,
+  "finalUrl": "https://www.hibu.com/",
+  "error": null
+ },
+ {
+  "host": "www.duda.co",
+  "readAt": "2026-11-09T02:17:14.085Z",
+  "robotsStatus": 200,
+  "robotsBlocksHome": false,
+  "status": 200,
+  "finalUrl": "https://www.duda.co/",
+  "error": null,
+  "title": "Duda | The AI Web Presence Platform for Pros",
+  "description": "Build, get found, and convert with Duda. Scale your business with an AI-powered platform purpose-built for creating high-ranking client websites that drive results.",
+  "ogDescription": "Build, get found, and convert with Duda. Scale your business with an AI-powered platform purpose-built for creating high-ranking client websites that drive results.",
+  "h1": [],
+  "h2": [],
+  "bytes": 397556
+ },
+ {
+  "host": "podium.com",
+  "readAt": "2026-11-09T02:17:18.088Z",
+  "robotsStatus": 200,
+  "robotsBlocksHome": false,
+  "status": 200,
+  "finalUrl": "https://www.podium.com/",
+  "error": null,
+  "title": "Podium: AI Lead Generation & Lead Management Platform",
+  "description": "AI-powered lead generation and management platform that helps you convert more leads and make more money.",
+  "ogDescription": "AI-powered lead generation and management platform that helps you convert more leads and make more money.",
+  "h1": [
+   "The #1 converting AI Employee for local businesses",
+   "80%",
+   "10%",
+   "57"
+  ],
+  "h2": [
+   "AI that keeps your calendar full",
+   "AI that keeps your calendar full",
+   "AI built for your industry. Designed to convert.",
+   "What businesses are saying about Podium",
+   "What businesses are saying about Podium"
+  ],
+  "bytes": 790292
+ },
+ {
+  "host": "birdeye.com",
+  "readAt": "2026-11-09T02:17:22.258Z",
+  "robotsStatus": 403,
+  "robotsBlocksHome": false,
+  "status": 403,
+  "finalUrl": "https://birdeye.com/",
+  "error": null
+ },
+ {
+  "host": "www.wix.com",
+  "readAt": "2026-11-09T02:17:26.411Z",
+  "robotsStatus": 200,
+  "robotsBlocksHome": false,
+  "status": 200,
+  "finalUrl": "https://www.wix.com/",
+  "error": null,
+  "title": "Wix.com - The platform trusted by millions of businesses",
+  "description": "Build the business you have in mind on a platform trusted by millions. Hosting, business tools, domains and marketing built in. Try it for free.",
+  "ogDescription": "Build the business you have in mind on a platform trusted by millions. Hosting, business tools, domains and marketing built in. Try it for free.",
+  "h1": [
+   "Create your future on the leading website builder"
+  ],
+  "h2": [
+   "Wix Harmony is where you create a site that means business.",
+   "Website creation, as natural as thinking",
+   "Solutions to fuel every business move",
+   "Templates for any industry",
+   "Radical customization, remarkably simple",
+   "Meet Aria, your unfair advantage.",
+   "Build your website on unshakeable foundations",
+   "Create a website, get the perfect domain to match",
+   "Spot the gaps, grab the opportunities",
+   "A better way to run your day-to-day",
+   "Turn first click into repeat visits",
+   "Manage it all, wherever you are"
+  ],
+  "bytes": 2672465
+ },
+ {
+  "host": "www.squarespace.com",
+  "readAt": "2026-11-09T02:18:10.938Z",
+  "robotsStatus": 200,
+  "robotsBlocksHome": false,
+  "status": 200,
+  "finalUrl": "https://www.squarespace.com/",
+  "error": null,
+  "title": "Website Builder – Easily Create Your Own Website &mdash; Squarespace",
+  "description": "Create a website and grow your business with a free Squarespace trial. Start with customizable website templates, AI website builder tools, or a domain name.",
+  "ogDescription": null,
+  "h1": [
+   "A website makes it real"
+  ],
+  "h2": [
+   "Grow your business",
+   "Everything you need on one platform",
+   "Getting started has never been easier with AI",
+   "Start with a website template designed for your business",
+   "Find the perfect domain for your website",
+   "Trusted by 14 million entrepreneurs worldwide",
+   "Websites made with Squarespace",
+   "How to build a website",
+   "Frequently asked questions",
+   "24/7 Support",
+   "Start your free website trial today"
+  ],
+  "bytes": 625535
+ },
+ {
+  "host": "www.godaddy.com",
+  "readAt": "2026-11-09T02:18:17.361Z",
+  "robotsStatus": 403,
+  "robotsBlocksHome": false,
+  "status": 403,
+  "finalUrl": "https://www.godaddy.com/",
+  "error": null
+ },
+ {
+  "host": "www.gohighlevel.com",
+  "readAt": "2026-11-09T02:18:21.284Z",
+  "robotsStatus": 200,
+  "robotsBlocksHome": false,
+  "status": 200,
+  "finalUrl": "https://www.gohighlevel.com/7658b9",
+  "error": null,
+  "title": "GoHighLevel - It's time to take your Agency to the Next Level",
+  "description": "HighLevel is the all-in-one sales & marketing platform that agencies can white-label and resell to their clients!",
+  "ogDescription": "HighLevel is the all-in-one sales & marketing platform that agencies can white-label and resell to their clients!",
+  "h1": [
+   "The AI-powered business operating system behind agencies, founders and the businesses they grow",
+   "The AI-powered business operating system behind agencies, founders and the businesses they grow"
+  ],
+  "h2": [
+   "We’re in the business of helping you grow your business",
+   "Your all-in-one solution for business growth",
+   "Get more leads in the door",
+   "Build relationships that convert",
+   "Close deals with less back-and-forth",
+   "Create fans, not just customers",
+   "Get back on their radar",
+   "We exist to remove friction from growth and give business owners the systems they need to operate, scale and win",
+   "Join the movement",
+   "What's included with HighLevel",
+   "Everything you need to grow your business; even on the go!",
+   "See Our Pricing"
+  ],
+  "bytes": 1194416
+ },
+ {
+  "host": "www.housecallpro.com",
+  "readAt": "2026-11-09T02:18:26.449Z",
+  "robotsStatus": 200,
+  "robotsBlocksHome": false,
+  "status": 200,
+  "finalUrl": "https://www.housecallpro.com/",
+  "error": null,
+  "title": "Home Services Business Management Software - Housecall Pro",
+  "description": "Housecall Pro is a top-rated software solution for home service businesses. Over 200,000 field service professionals trust Housecall Pro. Join them today.",
+  "ogDescription": "Housecall Pro is a top-rated software solution for home service businesses. Over 200,000 field service professionals trust Housecall Pro. Join them today.",
+  "h1": [
+   "Everything to run and grow your business"
+  ],
+  "h2": [
+   "Built for how you actually work",
+   "Trusted by 200K+ pros. Tailored for teams of 1 to 100+.",
+   "A community built by Pros, for Pros",
+   "Top-rated software for the trades",
+   "Hear from Housecall Pros",
+   "Your business, at its best.",
+   "Get $50 gift card"
+  ],
+  "bytes": 378185
+ },
+ {
+  "host": "getjobber.com",
+  "readAt": "2026-11-09T02:18:30.115Z",
+  "robotsStatus": 200,
+  "robotsBlocksHome": false,
+  "status": 403,
+  "finalUrl": "https://www.getjobber.com/",
+  "error": null
+ },
+ {
+  "host": "www.leadpages.com",
+  "readAt": "2026-11-09T02:18:34.992Z",
+  "robotsStatus": 200,
+  "robotsBlocksHome": false,
+  "status": 200,
+  "finalUrl": "https://leadpages.com/",
+  "error": null,
+  "title": "The AI Landing Page Builder | Leadpages",
+  "description": "Create high-converting landing pages with AI, templates, testing, analytics, and built-in marketing integrations. Launch faster with Leadpages.",
+  "ogDescription": "Create high-converting landing pages with AI, templates, testing, analytics, and built-in marketing integrations. Launch faster with Leadpages.",
+  "h1": [
+   "The AI landing page builder CRO platform."
+  ],
+  "h2": [
+   "Landing pages that improve themselves with A/B testing, Smart Traffic and more.",
+   "Connect your email marketing, CRM, ads, and analytics.",
+   "Landing page templates that look designed, not generated.",
+   "Everything you need for lead generation and lead capture, built in.",
+   "Start where you are. Scale with the right landing page tools.",
+   "See the landing page builder in action",
+   "Questions about building better landing pages",
+   "Your next page is one prompt away.",
+   "Product",
+   "Solutions",
+   "Compare",
+   "Resources"
+  ],
+  "bytes": 666018
+ },
+ {
+  "host": "www.yext.com",
+  "readAt": "2026-11-09T02:18:39.254Z",
+  "robotsStatus": 200,
+  "robotsBlocksHome": false,
+  "status": 200,
+  "finalUrl": "https://www.yext.com/",
+  "error": null,
+  "title": "Yext | Enterprise Agentic Marketing Platform | Yext",
+  "description": "Yext is the enterprise agentic marketing platform - intelligence, verified data, and distribution to win every discovery moment across AI and search.",
+  "ogDescription": "Yext is the enterprise agentic marketing platform - intelligence, verified data, and distribution to win every discovery moment across AI and search.",
+  "h1": [
+   "Agents aren’t the edge. It’s you."
+  ],
+  "h2": [
+   "10x your growth, not your workload",
+   "A flexible foundation for agentic marketing",
+   "How the world's leading brands win with Yext",
+   "Visibility insights you can actually act on",
+   "The brands building a strong AI foundation today will be easier to discover tomorrow"
+  ],
+  "bytes": 219703
+ },
+ {
+  "host": "www.realgeeks.com",
+  "readAt": "2026-11-09T02:18:43.422Z",
+  "robotsStatus": 200,
+  "robotsBlocksHome": false,
+  "status": 200,
+  "finalUrl": "https://www.realgeeks.com/",
+  "error": null,
+  "title": "Real Geeks - Real Estate CRM and Website solution.",
+  "description": "Grow your real estate business with all-in-one software. Manage leads, track activity, and build a personalized website to boost your success. Get a demo today.",
+  "ogDescription": "Grow your real estate business with all-in-one software. Manage leads, track activity, and build a personalized website to boost your success. Get a demo today.",
+  "h1": [
+   "“We love Real Geeks for its simplicity, but also because it's a lead generating machine .”",
+   "“We love Real Geeks for its simplicity, but also because it's a lead generating machine .”"
+  ],
+  "h2": [
+   "Own Your Leads & Manage Them Easily",
+   "Own Your Leads & Manage Them Easily",
+   "See Why Thousands of Agents Trust Real Geeks",
+   "Don't rest your dreams on luck and networking."
+  ],
+  "bytes": 385461
+ },
+ {
+  "host": "ylopo.com",
+  "readAt": "2026-11-09T02:18:48.140Z",
+  "robotsStatus": 200,
+  "robotsBlocksHome": false,
+  "status": 200,
+  "finalUrl": "https://www.ylopo.com/",
+  "error": null,
+  "title": "AI-Driven Digital Marketing Platform for Real Estate Lead Generation | Ylopo",
+  "description": "Ylopo's Complete Digital Marketing Solution generates and nurtures buyer and seller real estate leads using advanced AI tools, custom websites, and comprehensive CRM integration.",
+  "ogDescription": "Ylopo's Complete Digital Marketing Solution generates and nurtures buyer and seller real estate leads using advanced AI tools, custom websites, and comprehensive CRM integration.",
+  "h1": [
+   "A team of AI agents working your pipeline. You close the deals."
+  ],
+  "h2": [
+   "It takes 7 calls to connect with a lead",
+   "Keep your CRM. Replace the rest with AI agents.",
+   "From dormant lead to live phone call",
+   "Not a beta. A track record.",
+   "Don't take our word for it.",
+   "Loved by thousands of agents",
+   "Everyone's about to copy this. We've done it for years.",
+   "Three plans. Your number is built from three things.",
+   "Talk to a strategist - or see your number first",
+   "The questions everyone asks",
+   "Your next closing is already in your database."
+  ],
+  "bytes": 165608
+ },
+ {
+  "host": "www.cincpro.com",
+  "readAt": "2026-11-09T02:18:52.707Z",
+  "robotsStatus": 200,
+  "robotsBlocksHome": false,
+  "status": 200,
+  "finalUrl": "https://www.cincpro.com/",
+  "error": null,
+  "title": "All-In-One Real Estate CRM Platform | CINC (Commissions Inc)",
+  "description": "All-in-one real estate lead generation and CRM platform. See why teams and top agents choose CINC (Commissions, Inc.) to turn more leads into closings!",
+  "ogDescription": "All-in-one real estate lead generation and CRM platform. See why teams and top agents choose CINC (Commissions, Inc.) to turn more leads into closings!",
+  "h1": [
+   "All-In-One Real Estate Lead Generation & CRM Platform"
+  ],
+  "h2": [
+   "Real Estate Lead Generation Is One Thing. Converting Buyer & Seller Leads Into Clients is Another.",
+   "More Real Estate Leads in Less Time",
+   "Scalable All-In-One Real Estate Software for Lead Generation & Conversion",
+   "Complete Real Estate Lead Generation Cycle",
+   "Excellence in Real Estate Lead Generation & Conversion",
+   "The Support You Need to Scale Your Real Estate Business",
+   "More from our Real Estate Team Clients",
+   "See the Results CINC’s All-In-One Real Estate Platform Can Bring You"
+  ],
+  "bytes": 252084
+ }
+]
