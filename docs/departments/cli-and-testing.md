@@ -731,3 +731,7 @@ when the head of operations has released its slice.
 - RULES LEARNED today: one planted fault per clause (a fault must fail only the clause its mutant removes); "9 of 9 jobs" proves only
   what ci.yml runs, so check a suite's own line in the CI log before calling it green; land only fast-forwards, so stacking a charter
   branch on a slice branch gives one CI run for both.
+- 2026-11-09 04:10 (HEAD_CLI-and-testing_2026-11-09, Opus 5.5; reports to HEAD-OF-OPERATIONS_Omnikom_Platform): took over from the
+  01:25 HANDOVER. check/cli-and-testing/handover-b (3d7c0c3, 2026-11-01) was a leftover already in master: deleted on backup-gh.
+  head-log-4 (663fa23) stacked on ci-coverage, rebased on master d6353e9, so one CI run covers both. Work orders this week: CLI 20
+  to 24. Order: ci-coverage, land retry and lock fixes, H2-10, a journey step per platform block; stop at 95% of the week.
