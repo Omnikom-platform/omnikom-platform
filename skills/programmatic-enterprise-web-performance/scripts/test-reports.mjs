@@ -1,4 +1,4 @@
-// Usage: node test-reports.mjs [--scripts <dir>] [--no-mutants] [--mutant <name part>] [--keep]
+// Usage: node test-reports.mjs [--scripts <dir>] [--no-mutants] [--mutant <name part>] [--group <letter>[,<letter>]]
 // Proof of the owner-facing reports of the overhaul (contract C7, brief G9 display, G10, G18, G22):
 //   W  words      plan/summary.md, report.md and the stage files call plan/sitemap.json "the page plan"; the real file is "the sitemap file (sitemap.xml)"
 //   P  picture    plan-picture.mjs: the page plan drawn as SVG (every page, NEW/EXISTING, volume, parents, legend, 6 boxes a row, wrapped text) + table
@@ -6,7 +6,10 @@
 //   A  approval   plan-site.mjs --require-approved-business refuses until approved/business.json is the current business.json
 //   D  doctor     report-live.mjs says the date of the doctor result and says STALE when the env/token files changed since (doctor.json inputs)
 //   S  speed      report-live.mjs shows lab and PageSpeed Insights side by side; PSI is the trusted number when the lab run was UNTRUSTED
-//   Q  authority  report-live.mjs question 4: a site (target or competitor) the Common Crawl link graph does not hold is "not found in the link data", never 0
+//   Q  authority  report-live.mjs question 4: a site (target or competitor) the Common Crawl link graph does not hold is "not found in the link data", never 0;
+//                 with the target not found, the link gap line and the links plan row do not claim "but not to you"
+//   G  groups     this file's own --group option: only the chosen scenario groups run, and only the mutants whose group is among them
+//   --group Q,W runs just those groups and the mutants whose group is among them
 // Fixtures only: no network, no model. Chrome is used only for the PNG check (local file:// page). Mutants: each patches ONE string in a copy of the
 // skill (the patch must apply exactly once, so "the patch never applied" cannot pass as green), the named assertions must go red.
 // Exit 0 = every assertion passed and every mutant was caught.
@@ -31,10 +34,19 @@ const BARE_SITEMAP = /\bsitemap\b(?!\.json|\.xml| file)/gi; // "sitemap" alone: 
 const bare = (text) => [...String(text).matchAll(BARE_SITEMAP)].map((m) => text.slice(Math.max(0, m.index - 30), m.index + 30).replace(/\s+/g, " "));
 const section = (md, n) => (md.split(new RegExp(`^## ${n}\\. `, "m"))[1] || "").split(/^## \d\. /m)[0].split("\n").slice(1).join("\n"); // without the heading's own words
 
+const GROUPS = ["W", "P", "N", "A", "D", "S", "Q", "G"];
+function parseGroups(raw) { // "q, w" -> ["Q", "W"]; an unknown letter is an error, never a silent empty run
+  const gs = [...new Set(String(raw).split(",").map((x) => x.trim().toUpperCase()).filter(Boolean))];
+  const bad = gs.filter((g) => !GROUPS.includes(g));
+  if (bad.length || !gs.length) throw new Error(`unknown group ${bad.join(", ") || `"${raw}"`}; the groups are ${GROUPS.join(", ")}`);
+  return gs;
+}
+
 async function runScenarios(skill, groups = null) {
   const scripts = path.join(skill, "scripts");
   const results = [];
-  const want = (g) => !groups || groups.includes(g);
+  // G starts this file again; the child must not start it a third time
+  const want = (g) => (!groups || groups.includes(g)) && !(g === "G" && process.env.PEWP_REPORTS_NESTED);
   const check = (g, name, ok, detail = "") => results.push({ name: `${g}: ${name}`, ok: !!ok, detail: ok ? "" : String(detail).slice(0, 900) });
   const run = (script, args, env = {}) => spawnSync(nodeBin, [path.join(scripts, script), ...args], { encoding: "utf8", timeout: 120_000, windowsHide: true, env: { ...process.env, NODE_OPTIONS: "", ...env } });
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-reports-"));
@@ -234,6 +246,7 @@ async function runScenarios(skill, groups = null) {
     const put = (s, results) => w(path.join(s.pewp, "authority.json"), authDoc(results));
     const pagesQ = [{ path: "/", slug: "home", lcp: 1500 }];
     const q4Of = (c) => c.json?.questions?.find((x) => x.n === 4);
+    const q6Of = (c) => c.json?.questions?.find((x) => x.n === 6);
     const line = (sec, start) => sec.split("\n").find((l) => l.startsWith(start)) || "";
 
     // Q1: the target and one of two competitors are not in the graph; no site cites the target (so the "why" sentence about links is written)
@@ -249,12 +262,19 @@ async function runScenarios(skill, groups = null) {
     check("Q", "the short answer says the site is not found in the link data and does not say '0 other websites link to it'", String(c1.json?.shortAnswer).includes(NOT) && !/\b0 other websites/.test(c1.json?.shortAnswer), c1.json?.shortAnswer);
     const why1 = (c1.json?.questions?.find((x) => x.n === 5)?.why || []).find((x) => /too few other sites linking/.test(x)) || "";
     check("Q", "question 5's 'why' sentence about too few links says not found in the link data, not '0 referring domains'", why1.includes(NOT) && !/\b0 referring domain/.test(why1), why1 || JSON.stringify(c1.json?.questions?.find((x) => x.n === 5)).slice(0, 300));
+    // work order 28: the link gap is the sites that link to 2+ competitors and "not to you"; for a target the graph does not hold, that second half cannot be judged
+    const gapLine1 = sec1.split("\n").find((l) => l.includes("g1.example")) || "";
+    check("Q", "target not in the graph: the link gap line lists the sites that link to two or more competitors, says whether they link here cannot be judged (not found in the link data), and never says 'not to you'", gapLine1.includes("two or more competitors") && gapLine1.includes("cannot be judged") && gapLine1.includes(NOT) && !/not to (you|this site|us)/.test(gapLine1), gapLine1 || sec1);
+    const links1 = (q6Of(c1)?.plan || []).find((p) => p.kind === "links");
+    check("Q", "target not in the graph: the 'links' plan row does not say 'but not to you', says it cannot be judged, and is proved by the site appearing in the next authority run (not by referring domains rising)", !!links1 && !/but not to you/.test(links1.what) && /cannot be judged/.test(links1.what) && links1.what.includes(NOT) && links1.what.includes("g1.example") && /appears in the next authority run/.test(links1.provedBy) && !/referring domains rise/.test(links1.provedBy) && !/but not to you/.test(c1.md), JSON.stringify(links1) + " | in report.md: " + (c1.md.match(/.{30}but not to you.{20}/) || [""])[0]);
 
     // Q2: everything in the graph: today's behaviour
     const s2 = snapshot("q2.example", { pages: pagesQ });
     put(s2, [IN("q2.example", "target", 14, 900), IN("rival-a.example", "competitor", 120, 800)]);
     const c2 = report(s2, BASE_ENV), f2 = q4Of(c2)?.facts || {}, sec2 = section(c2.md, 4);
     check("Q", "target and competitor in the graph: counts, ranks and inGraph true as before, and the words 'not found in the link data' appear nowhere", f2.referringDomains?.value === 14 && f2.inGraph?.value === true && f2.competitors?.value?.[0]?.referringDomains === 120 && f2.competitors.value[0].inGraph === true && /referring domains: 14 \(strength rank 900;/.test(sec2) && line(sec2, "- Competitor rival-a.example").includes("120 referring domains, strength rank 800") && String(c2.json?.shortAnswer).includes("14 other websites link to it") && !c2.md.includes(NOT), sec2.slice(0, 700) + c2.json?.shortAnswer);
+    const links2 = (q6Of(c2)?.plan || []).find((p) => p.kind === "links");
+    check("Q", "target in the graph: the link gap line and the 'links' plan row keep today's words ('link gap: 1 sites', 'but not to you', proved by referring domains rising)", line(sec2, "- link gap").startsWith("- link gap: 1 sites, strongest first: g1.example") && !!links2 && /but not to you: g1\.example/.test(links2.what) && links2.provedBy === "referring domains rise in the next authority run" && !/cannot be judged/.test(c2.md), line(sec2, "- link gap") + JSON.stringify(links2));
 
     // Q3: the "since the last report" line across a change between counted and not found, both ways, never a number made from the null
     const s3 = snapshot("q3.example", { pages: pagesQ });
@@ -268,6 +288,23 @@ async function runScenarios(skill, groups = null) {
     put(s3, [OUT("q3.example")]); report(s3, BASE_ENV);
     const c5 = report(s3, BASE_ENV);
     check("Q", "since the last report, not found twice: no change line for referring domains, counted as unchanged", !/Since the last report[^\n]*referring domains/.test(c5.md), c5.md.split("\n").find((l) => l.includes("Since the last")));
+  }
+
+  // =============================== G: --group (work order 28) ===============================
+  if (want("G")) {
+    const self = path.join(scripts, "test-reports.mjs");
+    const sub = (args) => run("test-reports.mjs", args, { PEWP_REPORTS_NESTED: "1" });
+    const lines = (r) => (r.stdout || "").split("\n");
+    const help = sub(["--help"]);
+    check("G", "usage lines (the comment on line 1 and --help) name --group and no longer name --keep, which nothing read", help.status === 0 && /--group/.test(help.stdout) && !/--keep/.test(help.stdout) && /--group/.test(rt(self).split("\n")[0]) && !/--keep/.test(rt(self).split("\n")[0]), (help.stdout + help.stderr).slice(0, 300) + " | line 1: " + rt(self).split("\n")[0]);
+    const ad = sub(["--group", "A,D", "--no-mutants"]);
+    const adLines = lines(ad).filter((l) => /^(PASS|FAIL) [A-Z]:/.test(l));
+    check("G", "--group A,D runs only the scenarios of groups A and D (no W, P, N, S, Q line) and exits 0", ad.status === 0 && adLines.some((l) => l.startsWith("PASS A:")) && adLines.some((l) => l.startsWith("PASS D:")) && adLines.every((l) => /^PASS [AD]:/.test(l)) && /REPORTS TEST PASS: \d+ of \d+/.test(ad.stdout), `${ad.status} ${adLines.map((l) => l.slice(0, 40)).join(" | ")}`.slice(0, 500) + ad.stderr.slice(0, 200));
+    const bad = sub(["--group", "Z"]);
+    check("G", "--group with an unknown letter is refused with exit 2 and names the groups, not run as an empty pass", bad.status === 2 && /unknown group Z/.test(bad.stderr) && !/TEST PASS/.test(bad.stdout), `${bad.status} ${bad.stdout.slice(0, 120)} ${bad.stderr.slice(0, 200)}`);
+    const inG = sub(["--group", "A", "--mutant", "A: the refusal exits 0"]);
+    const outG = sub(["--group", "D", "--mutant", "A: the refusal exits 0"]);
+    check("G", "--group selects mutants too: an A mutant runs under --group A and not under --group D", inG.status === 0 && /RED \(caught\) A: the refusal exits 0/.test(inG.stdout) && /MUTANTS PASS: 1 of 1 caught/.test(inG.stdout) && outG.status === 0 && !/RED \(caught\)/.test(outG.stdout) && /MUTANTS PASS: 0 of 0 caught/.test(outG.stdout), `${inG.status}: ${inG.stdout.split("\n").slice(-4).join(" | ")} || ${outG.status}: ${outG.stdout.split("\n").slice(-4).join(" | ")}`.slice(0, 600));
   }
 
   function firstOf(sec) { return sec.split("\n").map((l) => l.trim()).find(Boolean) || ""; }
@@ -333,12 +370,24 @@ const MUTANTS = [
   { name: "Q: question 5's why sentence counts the null", file: S0, from: '"" : inGraphQ4 ? ` (${q4.facts.referringDomains.value} referring domain', to: '"" : true ? ` (${q4.facts.referringDomains.value} referring domain', sc: "Q", expect: [/^Q: question 5's 'why' sentence/] },
   { name: "Q: the change line drops a site not found", file: S0, from: "if (f4.inGraph?.value === false) out.refdom =", to: "if (false) out.refdom =", sc: "Q", expect: [/^Q: since the last report, counted -> not found/, /^Q: since the last report, not found -> counted/] },
   { name: "Q: the change line prints the null as a number", file: S0, from: "(m.notFound ? NOT_IN_GRAPH : m.pct", to: "(m.pct", sc: "Q", expect: [/^Q: since the last report, counted -> not found/, /^Q: since the last report, not found -> counted/] },
+  { name: "Q: the link gap line claims 'not to you' for a site not found", file: S0, from: "       inGraphQ4 ? `- ${term(\"link gap\")}:", to: "       true ? `- ${term(\"link gap\")}:", sc: "Q", expect: [/^Q: target not in the graph: the link gap line/] },
+  { name: "Q: the links plan row claims 'but not to you' for a site not found", file: S0, from: "plan.push(inGraphQ4\n  ?", to: "plan.push(true\n  ?", sc: "Q", expect: [/^Q: target not in the graph: the 'links' plan row/] },
+  { name: "Q: the links plan row is proved by referring domains rising for a site not found", file: S0, from: 'provedBy: "this site appears in the next authority run (it is found in the link data)" }', to: 'provedBy: "referring domains rise in the next authority run" }', sc: "Q", expect: [/^Q: target not in the graph: the 'links' plan row/] },
+  { name: "Q: the links plan row for a site in the graph is proved by the site appearing", file: S0, from: 'provedBy: "referring domains rise in the next authority run" }\n  :', to: 'provedBy: "this site appears in the next authority run (it is found in the link data)" }\n  :', sc: "Q", expect: [/^Q: target in the graph: the link gap line and the 'links' plan row/] },
+  { name: "G: --group is ignored", file: "scripts/test-reports.mjs", from: "  const main = await runScenarios(skill0, " + "groups);", to: "  const main = await runScenarios(skill0, null);", sc: "G", expect: [/^G: --group A,D runs only/] },
+  { name: "G: an unknown group letter is accepted", file: "scripts/test-reports.mjs", from: "if (bad.length || " + "!gs.length) throw new Error(", to: "if (false) throw new Error(", sc: "G", expect: [/^G: --group with an unknown letter/] },
+  { name: "G: a mutant outside the chosen groups still runs", file: "scripts/test-reports.mjs", from: '!groups || m.sc.split("+").' + 'every((g) => groups.includes(g))', to: "true", sc: "G", expect: [/^G: --group selects mutants too/] },
+  { name: "G: --keep is back in the usage line", file: "scripts/test-reports.mjs", from: '[--group <letter>[,<letter>]]"); ' + 'process.exit(0); }', to: '[--keep]"); process.exit(0); }', sc: "G", expect: [/^G: usage lines/] },
 ];
 
+const mutantsIn = (groups) => MUTANTS.filter((m) => !groups || m.sc.split("+").every((g) => groups.includes(g))); // all of a mutant's groups must be chosen
+
 if (isMain(import.meta.url)) {
-  if (A.includes("--help")) { console.log("usage: node test-reports.mjs [--scripts <dir>] [--no-mutants] [--mutant <name part>] [--keep]"); process.exit(0); }
+  if (A.includes("--help")) { console.log("usage: node test-reports.mjs [--scripts <dir>] [--no-mutants] [--mutant <name part>] [--group <letter>[,<letter>]]"); process.exit(0); }
+  let groups = null;
+  if (A.includes("--group")) { try { groups = parseGroups(opt("--group")); } catch (e) { console.error(e.message); process.exit(2); } }
   const skill0 = path.dirname(scriptsDir0);
-  const main = await runScenarios(skill0);
+  const main = await runScenarios(skill0, groups);
   for (const r of main) console.log(`${r.ok ? "PASS" : "FAIL"} ${r.name}${r.ok ? "" : `\n     ${r.detail.slice(0, 700)}`}`);
   let failed = main.filter((r) => !r.ok).length;
   const branch = main.find((r) => r.branch)?.branch;
@@ -348,7 +397,7 @@ if (isMain(import.meta.url)) {
     console.log("\nWatched-fail mutants (each must turn the named assertions red; the unmutated tree is green above):");
     let caught = 0, ran = 0;
     const cdp0 = await import(pathToFileURL(path.join(scriptsDir0, "cdp-measure.mjs")).href);
-    for (const mu of MUTANTS.filter((m) => !opt("--mutant") || m.name.includes(opt("--mutant")))) {
+    for (const mu of mutantsIn(groups).filter((m) => !opt("--mutant") || m.name.includes(opt("--mutant")))) {
       if (mu.needsChrome && !cdp0.CHROME_PATH) { console.log(`SKIP (no Chrome on this machine) ${mu.name}`); continue; }
       ran++;
       const mdir = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-reports-mutant-"));

@@ -138,6 +138,8 @@ function metricsOf(side) {
   return m;
 }
 
+const NOT_FOUND = "not found in the link data"; // the Common Crawl graph does not hold the site: that is not a count of 0
+
 function authorityOf(side, other) {
   for (const holder of [side, other]) {
     const f = holder.authFile, a = J(f);
@@ -145,7 +147,9 @@ function authorityOf(side, other) {
     if (r) {
       const via = holder === side ? "" : ` (found in ${holder.host}'s authority run)`;
       const src = `${a.source}${via}`;
-      return { referring: fact(r.inGraph ? r.linkingDomains : 0, `${src}${r.inGraph ? "" : "; the domain is not in the graph"}`, a.fetchedAt, side.rel(f), { byDesign: side.launchState === "preview" }), strength: fact(r.inGraph ? (r.harmonicPos ?? null) : null, `${src}: harmonic-centrality rank, 1 = strongest`, a.fetchedAt, side.rel(f)) };
+      // a site the graph does not hold has no count: null (never 0), flagged so the table says "not found in the link data"; nothing is computed with it
+      const notIn = r.inGraph ? {} : { notInGraph: true };
+      return { referring: fact(r.inGraph ? r.linkingDomains : null, `${src}${r.inGraph ? "" : `; ${NOT_FOUND}`}`, a.fetchedAt, side.rel(f), { byDesign: side.launchState === "preview", ...notIn }), strength: fact(r.inGraph ? (r.harmonicPos ?? null) : null, `${src}: harmonic-centrality rank, 1 = strongest`, a.fetchedAt, side.rel(f), notIn) };
     }
   }
   const nm = fact(null, `NOT MEASURED: run authority.mjs --target ${side.host} (free, reads the Common Crawl graph on disk)`, side.at, side.rel(side.authFile));
@@ -297,7 +301,7 @@ export function compare(A, B, o) {
 function fmtCell(f, r) {
   if (!f) return "n/a";
   const v = f.value;
-  if (v == null) return "n/a";
+  if (v == null) return f.notInGraph ? NOT_FOUND : "n/a";
   if (Array.isArray(v)) return v.length ? `${v.length} (${v.slice(0, 4).join(", ")}${v.length > 4 ? ", ..." : ""})` : "0";
   if (r?.unit === "ms") return sec(v);
   if (r?.unit === "KB") return v >= 1024 ? `${(v / 1024).toFixed(1)} MB` : `${v} KB`;
@@ -367,6 +371,7 @@ function main() {
   if (ld.a.value != null && ld.b.value != null) bits.push(`structured data covers ${ld.b.value}% of B's pages against ${ld.a.value}% of A's`);
   const ref = get("referring");
   if (ref.a.value != null && ref.b.value != null) bits.push(`${ref.b.value} websites link to B against ${ref.a.value} to A${ref.byDesign ? " (a preview, by design)" : ""}`);
+  else for (const [x, f] of [[A, ref.a], [B, ref.b]]) if (f?.notInGraph) bits.push(`${x.host} is ${NOT_FOUND}, so the links to the two sites cannot be compared`);
   const shortAnswer = `A is ${A.host}${A.launchState === "preview" ? " (a preview)" : ""}, B is ${B.host}${B.launchState === "preview" ? " (a preview)" : ""}: ${bits.length ? bits.join("; ") : "not enough measured data on both sides to compare"}.${c.warnings.some((w) => w.level === "warn") ? ` ${c.warnings.filter((w) => w.level === "warn").length} warning${s(c.warnings.filter((w) => w.level === "warn").length)}: read them before trusting a difference.` : ""}`;
 
   const who = (x) => `| ${x.role} | ${x.host} | ${x.kind === "url" ? "live URL snapshot" : "repo"} | ${x.kind === "url" ? `${dayOf(x.at)}, ${x.pages.length} pages, ${x.site.runs || 1} run${s(x.site.runs || 1)} each` : `checked ${dayOf(x.causesAt)}`} | ${x.launchState} |`;

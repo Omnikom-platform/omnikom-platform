@@ -1,6 +1,6 @@
 # 27 authority: "not in the link data" is not zero (skill report-live.mjs Q4, then report.mjs)
 
-Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/authority-not-in-graph. Status: BUILT, NOT COMMITTED in this repo (2026-11-09; proof `tools/audit/proof/authority-not-in-graph.md`; SOURCE commit `c41d767`, not pushed).
+Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/authority-not-in-graph. Status: LANDED 2026-11-09 as 5cef4f1, CI run 42609772456 9 of 9 (proof `tools/audit/proof/authority-not-in-graph.md`; SOURCE commit `c41d767`, not pushed: the SOURCE repo has no remote).
 
 ## Why
 Finding of work order 25: the skill's `scripts/report-live.mjs:139-140` writes `referringDomains: me.inGraph ? me.linkingDomains : 0`

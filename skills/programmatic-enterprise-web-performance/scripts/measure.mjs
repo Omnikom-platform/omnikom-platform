@@ -378,13 +378,16 @@ async function collectAuthority(cfg, loc, opts, now, extraCompetitors = []) {
   }
   const doc = readJson(file);
   if (!doc) return { status: "blocked", blocked: { source: "commoncrawl-graph", reason: "no authority.json yet (the Common Crawl read takes 15 to 30 minutes and is not run on every measure)", unblock: `Run: node scripts/measure.mjs ${cfg.target} --refresh-authority   (or scripts/authority.mjs ${file} --target ${cfg.domain} --competitor <domain>...)` } };
-  const me = (doc.results || []).find((r) => r.role === "target");
+  // authority.mjs lists the target first; a site the graph does not hold has no role and no count, so the target is found by role or by position and the competitors are every other result
+  const results = doc.results || [];
+  const me = results.find((r) => r.role === "target") || results[0];
+  const competitors = results.filter((r) => r !== me).map((r) => ({ domain: r.domain, inGraph: !!r.inGraph, linkingDomains: r.inGraph ? r.linkingDomains ?? null : null }));
   const ageDays = Math.round((now - Date.parse(doc.fetchedAt)) / 86400000);
-  if (!me?.inGraph) return { status: "ok", inGraph: false, release: doc.release, fetchedAt: doc.fetchedAt, ageDays, source: doc.source, cacheFile: file, note: me?.note || "target not in this Common Crawl release", competitors: [] };
+  if (!me?.inGraph) return { status: "ok", inGraph: false, release: doc.release, fetchedAt: doc.fetchedAt, ageDays, source: doc.source, cacheFile: file, note: me?.note || "target not in this Common Crawl release", competitors, linkGap: (doc.linkGap || []).slice(0, 50) };
   const list = me.strongestLinkingDomains || [];
   return { status: "ok", inGraph: true, release: doc.release, fetchedAt: doc.fetchedAt, ageDays, stale: ageDays > cfg.authority.maxAgeDays, source: doc.source, cacheFile: file, level: "domain",
     referringDomains: fact(me.linkingDomains, doc.source, doc.fetchedAt, file), harmonicPos: me.harmonicPos ?? null, linkingDomains: list.map((l) => l.domain), truncated: me.linkingDomains > list.length,
-    competitors: (doc.results || []).filter((r) => r.role === "competitor").map((r) => ({ domain: r.domain, inGraph: r.inGraph, linkingDomains: r.linkingDomains ?? null })), linkGap: (doc.linkGap || []).slice(0, 50) };
+    competitors, linkGap: (doc.linkGap || []).slice(0, 50) };
 }
 
 function collectConversions(cfg, loc) {
@@ -479,7 +482,9 @@ export function evaluateRules(cur, prev, diff, cfg, tInfo, loc, ctr) {
   }
   if (cur.authority.status === "ok" && cur.authority.linkGap?.length) {
     const prospects = cfg.prospects?.length ? cur.authority.linkGap.filter((g) => cfg.prospects.includes(g.domain)) : cur.authority.linkGap.slice(0, 10);
-    if (prospects.length) add("MSR-007", "Link prospects still not linking", `${prospects.length} sites link to 2 or more competitors and not to us: ${prospects.slice(0, 8).map((p) => p.domain).join(", ")}.`, { prospects: prospects.slice(0, 20), source: cur.authority.source, level: "domain" }, "link-intersect list from the domain-level web graph (not a significance test)", "Outreach list for the off-site plan.");
+    // with the target not in the graph "not linking to us" cannot be judged: the list is the sites that link to competitors
+    const judged = cur.authority.inGraph !== false;
+    if (prospects.length) add("MSR-007", judged ? "Link prospects still not linking" : "Link prospects (not judged: the site is not found in the link data)", judged ? `${prospects.length} sites link to 2 or more competitors and not to us: ${prospects.slice(0, 8).map((p) => p.domain).join(", ")}.` : `${prospects.length} sites link to 2 or more competitors; whether they already link to this site cannot be judged (the site is not found in the link data): ${prospects.slice(0, 8).map((p) => p.domain).join(", ")}.`, { prospects: prospects.slice(0, 20), source: cur.authority.source, level: "domain" }, "link-intersect list from the domain-level web graph (not a significance test)", "Outreach list for the off-site plan.");
   }
   // MSR-008
   if (gsc.status !== "ok") block("MSR-008", gsc.blocked.source, gsc.blocked.reason, gsc.blocked.unblock);
