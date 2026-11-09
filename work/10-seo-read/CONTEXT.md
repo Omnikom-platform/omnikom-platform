@@ -67,7 +67,17 @@ the Search health screen is a later block (its plain family words come from `too
   `e2e-screens.mjs` still 0 problems.
 
 ## Proof
-(filled by the head with pasted lines)
+The head, staging 2026-11-09 from `check/platform/seo-read` (CI 9 of 9 on 39ae8b3, run 42616788482; the backend is unchanged by
+the later rebase onto 08):
+- `apply-staging.mjs`: "OK: applied 1 of 18 (17 were already applied)" (M16; it adds two functions only, so its place after
+  17 to 20 on staging changes nothing); `deploy-functions.mjs`: "OK: site-audit deployed".
+- One publish of the test site from the branch (workflow_dispatch, run 42649862028, job be08e7b8): "STEP gating: audit exit 0
+  (target preview), PASS 151, FAIL 0, SKIP 1", "STEP done: deploy c8ff1f24".
+- `e2e-site-audit.mjs --job be08e7b8-...`: 8 PASS lines, "PASS: site-audit on staging, 0 problem(s)".
+- `e2e-screens.mjs` (from the tree rebased on 08, so without the invite mail path): "PASS: staging end to end for the
+  functions of the four screens, 0 problem(s)".
+- CI red twice before the land, both in the factory mutants and both already red on the builder's tip 1fa9059 (CI 41906691070):
+  a stale mutant target and an equivalent mutant; fixed by the head (39ae8b3).
 
 ## Findings
 (the builder writes here, one line each, and sends them to the head)
