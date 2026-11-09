@@ -7,6 +7,7 @@
 // RUNNER_KEY, CLOUDFLARE_PAGES_TOKEN, CLOUDFLARE_ACCOUNT_ID. Test hooks: OMNIKOM_REPO_ROOT, RUNNER_WRANGLER_SCRIPT,
 // RUNNER_FETCH_TIMEOUT_MS, RUNNER_RETRY_BACKOFF_MS, RUNNER_CF_API_BASE (the Cloudflare API address the lead-settings check reads),
 // RUNNER_BUSY_BACKOFF_MS (the first S-JOB-BUSY wait, default 30000; then x2, x4, x4 ...). RUNNER_BUSY_WAIT_MS (default 1200000) is the total S-JOB-BUSY wait.
+// Every child process (build, audit, wrangler) gets childEnv(): an allow list plus what that step needs, never this process's whole environment (H0-3).
 // Exit 0 only after `done` was answered 2xx. A failed run exits 1 after its `failed` callback was answered. 2 = usage / environment.
 // Every line printed goes through the scrubber (secret values, the project ref and signed-URL tokens never reach a log).
 import { spawnSync } from 'node:child_process';
@@ -15,7 +16,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFil
 import { dirname, join, resolve, sep, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { UUID, SLUG, safeRelPath, checkBase, makeScrubber, makePlatform, numEnv } from './lib/common.mjs';
+import { UUID, SLUG, safeRelPath, checkBase, makeScrubber, makePlatform, numEnv, childEnv } from './lib/common.mjs';
 
 const WRANGLER_VERSION = '4.152.0';   // 4.156.0 (the brief's pin) was 2 days old on 2026-10-31: supply-chain rule 1 (7 days); bump on purpose
 const LEAD_SETTINGS = ['SITE_ID', 'SITE_SIGNING_KEY', 'PLATFORM_BASE'];   // what factory/worker/pages-function-lead.js reads from the Pages project
@@ -59,8 +60,9 @@ async function callback(state, extra = {}) {
   throw new Error(`the ${state} callback was not delivered (${r.status || r.error}): ${r.text.slice(0, 200)}`);
 }
 
-function runTool(cmd, args, { cwd = REPO, timeoutMs, envOverride } = {}) {
-  const r = spawnSync(cmd, args, { cwd, env: envOverride || env, encoding: 'utf8', timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024, windowsHide: true, shell: false });
+function runTool(cmd, args, { cwd = REPO, timeoutMs, toolEnv } = {}) {
+  if (!toolEnv) throw new Error('runTool: the child needs its environment passed (childEnv)');
+  const r = spawnSync(cmd, args, { cwd, env: toolEnv, encoding: 'utf8', timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024, windowsHide: true, shell: false });
   return { status: r.status, text: (r.stdout || '') + (r.stderr || ''), stdout: r.stdout || '', error: r.error ? String(r.error.message || r.error) : null };
 }
 
@@ -150,7 +152,7 @@ async function run() {
 
   // ---- 3 build
   const b = runTool(process.execPath, [join(REPO, 'factory', 'build.mjs'), '--export', join(work, 'export.json'), '--out', dist, '--design', design, '--media', mediaDir,
-    ...(opts['force-fail'] ? ['--force-fail', opts['force-fail']] : [])], { timeoutMs: 180000 });
+    ...(opts['force-fail'] ? ['--force-fail', opts['force-fail']] : [])], { timeoutMs: 180000, toolEnv: childEnv() });
   if (b.status !== 0) throw new Stop('build failed', { factory: { exit: b.status, lines: tail(b.text, 20) } });
   step('build', tail(b.text, 2).join(' | '));
 
@@ -159,7 +161,7 @@ async function run() {
   // one decision for the audit and the deploy: a site that is not live goes to the preview branch and is judged as a preview build (it must carry noindex), a live site goes to main and is judged as production (it must not)
   const branch = exp.site.state !== 'live' ? 'preview' : 'main';
   const auditTarget = branch === 'main' ? 'production' : 'preview';
-  const a = runTool(process.execPath, [join(REPO, 'tools', 'audit', 'run.mjs'), dist, '--target', auditTarget], { timeoutMs: 180000 });
+  const a = runTool(process.execPath, [join(REPO, 'tools', 'audit', 'run.mjs'), dist, '--target', auditTarget], { timeoutMs: 180000, toolEnv: childEnv() });
   const fails = a.stdout.split(/\r?\n/).filter((l) => /^FAIL\s/.test(l));
   if (a.status === 2) throw new Stop('audit usage error', { factory: 'pass', audit: { exit: 2, fails, lines: tail(a.text, 10) } });
   if (a.status !== 0) throw new Stop('audit failed', { factory: 'pass', audit: { exit: a.status, fails } });
@@ -202,9 +204,8 @@ async function run() {
     const [cmd, args] = process.env.RUNNER_WRANGLER_SCRIPT
       ? [process.execPath, [process.env.RUNNER_WRANGLER_SCRIPT, ...wargs]]
       : [process.platform === 'win32' ? 'npx.cmd' : 'npx', ['--yes', `wrangler@${WRANGLER_VERSION}`, ...wargs]];
-    const wenv = { ...env, CLOUDFLARE_API_TOKEN: CF_TOKEN, CLOUDFLARE_ACCOUNT_ID: CF_ACCOUNT, WRANGLER_SEND_METRICS: 'false', CI: 'true', npm_config_ignore_scripts: 'true' };
-    delete wenv.RUNNER_KEY; delete wenv.CLOUDFLARE_PAGES_TOKEN; delete wenv.PLATFORM_FUNCTIONS_BASE;
-    const w = runTool(cmd, args, { cwd: join(work, 'pages-root'), timeoutMs: 420000, envOverride: wenv });
+    const wenv = childEnv({ CLOUDFLARE_API_TOKEN: CF_TOKEN, CLOUDFLARE_ACCOUNT_ID: CF_ACCOUNT, WRANGLER_SEND_METRICS: 'false', CI: 'true', npm_config_ignore_scripts: 'true' });
+    const w = runTool(cmd, args, { cwd: join(work, 'pages-root'), timeoutMs: 420000, toolEnv: wenv });
     for (const l of tail(w.text, 6)) out(`  wrangler: ${l}`);
     if (w.status !== 0) throw new Stop('deploy failed', { wrangler: { exit: w.status, lines: tail(w.text, 10).map(scrub) } });
     const m = new RegExp(`https://([a-z0-9]+)\\.${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.pages\\.dev`).exec(w.text);

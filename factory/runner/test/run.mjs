@@ -8,7 +8,7 @@
 import { spawn } from 'node:child_process';
 import { createHmac } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -55,7 +55,11 @@ const JOB = FIXTURE.job.id, SITE = FIXTURE.site.id;
 const SITE_B = 'bbbbbbbb-0000-0000-0000-00000000517e';
 const RUNNER_KEY = 'runner-key-NOT-A-SECRET-for-tests-0123456789';
 const CF_TOKEN = 'cf-token-NOT-A-SECRET-9876543210', CF_ACCOUNT = 'acct0123456789abcdef0123456789ab';
-const HAS_SHARP = existsSync(join(REAL_RUNNER, 'node_modules', 'sharp')) && existsSync(join(RUNNER, 'node_modules', 'sharp'));
+const PLANTED = 'planted-NOT-A-SECRET-0123456789';   // put into the runner's own environment by the child-environment checks
+const CHILD_ALLOWED = new Set(['PATH', 'HOME', 'USERPROFILE', 'TEMP', 'TMP', 'TMPDIR', 'SYSTEMROOT', 'WINDIR', 'COMSPEC', 'PATHEXT', 'LANG', 'TZ',
+  // Windows adds these six to any process it starts, whatever the parent passed (measured 2026-11-09: node with env { PATH } sees them); none holds a secret. The runner itself runs on ubuntu.
+  ...(process.platform === 'win32' ? ['HOMEDRIVE', 'HOMEPATH', 'LOGONSERVER', 'SYSTEMDRIVE', 'USERDOMAIN', 'USERNAME'] : [])]);   // the spec's list, upper case: not read from the code under test
+const HAS_SHARP =existsSync(join(REAL_RUNNER, 'node_modules', 'sharp')) && existsSync(join(RUNNER, 'node_modules', 'sharp'));
 
 // ---------- running a child process while the fake server in this process keeps answering ----------
 function spawnNode(script, args, env, timeoutMs = 180000) {
@@ -137,6 +141,16 @@ await check('paths: a media path may not climb, be empty, absolute or hold a bac
 await check('base: https accepted, plain http only for a loopback address', () =>
   COMMON.checkBase('https://x.supabase.co/functions/v1') === null && COMMON.checkBase('http://127.0.0.1:9/functions/v1') === null
   && COMMON.checkBase('http://example.com/functions/v1') !== null && COMMON.checkBase('not a url') !== null);
+await check('childEnv: only the allow-listed names pass from the source, the caller adds its own, an undefined extra is dropped', () => {
+  const src = { PATH: '/bin', HOME: '/h', LANG: 'C', TZ: 'UTC', RUNNER_KEY: 'k', CLOUDFLARE_PAGES_TOKEN: 't', GITHUB_TOKEN: 'g', OMNIKOM_PLANTED_SECRET: 's', NODE_OPTIONS: '--x', FAKE_ANYTHING: '1' };
+  const e = COMMON.childEnv({ NEEDED: '1', MISSING: undefined }, src);
+  return same(Object.keys(e).sort(), ['HOME', 'LANG', 'NEEDED', 'PATH', 'TZ']) && e.PATH === '/bin' && e.NEEDED === '1' || JSON.stringify(e);
+});
+await check('childEnv: a caller value wins over the source, and the source object is not changed', () => {
+  const src = { PATH: '/bin', HOME: '/h' };
+  const e = COMMON.childEnv({ HOME: '/other' }, src);
+  return e.HOME === '/other' && src.HOME === '/h' && Object.keys(src).length === 2;
+});
 
 }
 // ================= 3. a full publish =================
@@ -167,19 +181,55 @@ await check('full run: no secret, no signed-URL token and no project ref in anyt
   !full.out.includes(RUNNER_KEY) && !full.out.includes(CF_TOKEN) && !full.out.includes(CF_ACCOUNT) && !full.out.includes('SIGNEDTOKEN123') || 'a secret reached the output');
 
 }
+// ================= 3b. the environment of the build and the audit (work order 14, H0-3) =================
+// The design code the build imports and the audit run as children of the runner; neither may see a key. A fake repo root holds the real
+// factory (a junction), a copy of the Demo A look whose shell.mjs first writes the names in its environment to a file, and a fake audit
+// that does the same. The record paths are baked into those files: the children's own environment cannot carry them any more.
+if (on('childenv')) {
+const SECRET_NAMES = ['RUNNER_KEY', 'CLOUDFLARE_PAGES_TOKEN', 'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID', 'PLATFORM_FUNCTIONS_BASE', 'GITHUB_TOKEN', 'OMNIKOM_PLANTED_SECRET', 'JOB_ID', 'SITE_ID'];
+const seenSecrets = (names) => SECRET_NAMES.filter((n) => names.map((x) => x.toUpperCase()).includes(n));
+const unknownNames = (names, extra = []) => names.filter((x) => !CHILD_ALLOWED.has(x.toUpperCase()) && !extra.includes(x.toUpperCase()));
+const root = tmp('envroot'), seenDir = join(root, 'seen');
+mkdirSync(seenDir, { recursive: true });
+symlinkSync(join(REPO, 'factory'), join(root, 'factory'), 'junction');
+const lookDir = join(root, 'sites', 'test-demo-a', 'design');
+cpSync(join(REPO, 'sites', 'test-demo-a', 'design'), lookDir, { recursive: true });
+const shellFile = join(lookDir, 'shell.mjs');
+writeFileSync(shellFile, `import { writeFileSync as recordEnv } from 'node:fs';\nrecordEnv(${JSON.stringify(join(seenDir, 'build.json'))}, JSON.stringify(Object.keys(process.env)));\n${readFileSync(shellFile, 'utf8')}`);
+mkdirSync(join(root, 'tools', 'audit'), { recursive: true });
+writeFileSync(join(root, 'tools', 'audit', 'run.mjs'),
+  `import { writeFileSync } from 'node:fs';\nwriteFileSync(${JSON.stringify(join(seenDir, 'audit.json'))}, JSON.stringify(Object.keys(process.env)));\nconsole.log('OK: fake audit, 0 problems');\n`);
+const er = await runPublish({ env: { OMNIKOM_REPO_ROOT: root, GITHUB_TOKEN: `${PLANTED}-gh`, OMNIKOM_PLANTED_SECRET: PLANTED, CLOUDFLARE_API_TOKEN: `${PLANTED}-cf` } });
+const readSeen = (f) => (existsSync(join(seenDir, f)) ? JSON.parse(readFileSync(join(seenDir, f), 'utf8')) : null);
+const buildSeen = readSeen('build.json'), auditSeen = readSeen('audit.json');
+await check('child env: the publish through the fake root ran to done, so the design and the audit really recorded their environment', () =>
+  (er.code === 0 && !!buildSeen && !!auditSeen) || `exit ${er.code} build:${!!buildSeen} audit:${!!auditSeen}\n${er.out.slice(-500)}`);
+await check('child env: the design code the build runs sees none of RUNNER_KEY, the Pages token, the API token, the account, the platform address, GITHUB_TOKEN or the planted secret', () =>
+  !!buildSeen && seenSecrets(buildSeen).length === 0 || JSON.stringify(seenSecrets(buildSeen || [])));
+await check('child env: the audit sees none of them either', () => !!auditSeen && seenSecrets(auditSeen).length === 0 || JSON.stringify(seenSecrets(auditSeen || [])));
+await check('child env: the build and the audit see only allow-listed names (no job, site, test or CI variable)', () =>
+  !!buildSeen && !!auditSeen && unknownNames(buildSeen).length === 0 && unknownNames(auditSeen).length === 0 || JSON.stringify([unknownNames(buildSeen || []), unknownNames(auditSeen || [])]));
+await check('child env: the build still gets what it needs to start (PATH)', () => !!buildSeen && buildSeen.some((n) => n.toUpperCase() === 'PATH'));
+
+}
 // ================= 4. the deploy command, with a fake wrangler =================
 if (on('wrangler')) {
+// The fake is started through a per-run wrapper: it records the names in the environment wrangler was given, THEN adds the fake's own
+// settings (a smaller environment no longer carries FAKE_* names) and imports the fake itself.
 async function wranglerRun(o = {}) {
-  const rec = join(tmp('wr'), 'record.json');
+  const dir = tmp('wr'), rec = join(dir, 'record.json'), seen = join(dir, 'env-names.json'), wrapper = join(dir, 'wrapper.mjs');
+  const fakeSettings = { FAKE_WRANGLER_RECORD: rec, FAKE_EXPECT_TOKEN: CF_TOKEN, FAKE_EXPECT_ACCOUNT: CF_ACCOUNT, FAKE_WRANGLER_DEPLOY_DIR: join(dir, 'deployed'), FAKE_WRANGLER_MODE: o.mode || 'ok' };
+  writeFileSync(wrapper, `import { writeFileSync } from 'node:fs';\nwriteFileSync(${JSON.stringify(seen)}, JSON.stringify(Object.keys(process.env)));\n`
+    + `Object.assign(process.env, ${JSON.stringify(fakeSettings)});\nawait import(${JSON.stringify(pathToFileURL(join(HERE, 'lib', 'fake-wrangler.mjs')).href)});\n`);
   const r = await runPublish({
     ...o,
     exportMut: o.exportMut,
     args: ({ work, smoke }) => ['--work', work, ...smoke],
-    env: { RUNNER_WRANGLER_SCRIPT: join(HERE, 'lib', 'fake-wrangler.mjs'), FAKE_WRANGLER_RECORD: rec, FAKE_EXPECT_TOKEN: CF_TOKEN, FAKE_EXPECT_ACCOUNT: CF_ACCOUNT,
-      FAKE_WRANGLER_DEPLOY_DIR: join(dirname(rec), 'deployed'), FAKE_WRANGLER_MODE: o.mode || 'ok', ...(o.env || {}) },
-    cfg: { siteDir: join(dirname(rec), 'deployed'), ...(o.cfg || {}) },
+    env: { RUNNER_WRANGLER_SCRIPT: wrapper, GITHUB_TOKEN: `${PLANTED}-gh`, OMNIKOM_PLANTED_SECRET: PLANTED,...(o.env || {}) },
+    cfg: { siteDir: join(dir, 'deployed'), ...(o.cfg || {}) },
   });
   r.wrangler = existsSync(rec) ? JSON.parse(readFileSync(rec, 'utf8')) : null;
+  r.wranglerEnvNames = existsSync(seen) ? JSON.parse(readFileSync(seen, 'utf8')) : null;
   return r;
 }
 const wr = await wranglerRun();
@@ -187,6 +237,17 @@ await check('deploy: wrangler gets pages deploy <work>/dist --project-name <depl
   !!wr.wrangler && same(wr.wrangler.argv, ['pages', 'deploy', join(wr.work, 'dist'), '--project-name', 'test-site-demo-a', '--branch', 'preview', '--commit-dirty=true']));
 await check('deploy: the Cloudflare token and account reach wrangler as CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID, and the runner key and platform address do not', () =>
   !!wr.wrangler && wr.wrangler.tokenOk && wr.wrangler.accountOk && !wr.wrangler.hasRunnerKey && !wr.wrangler.hasPagesToken && !wr.wrangler.hasBase || JSON.stringify(wr.wrangler));
+const WR_EXTRA = ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID', 'WRANGLER_SEND_METRICS', 'CI', 'NPM_CONFIG_IGNORE_SCRIPTS'];
+await check('deploy: wrangler is given exactly the allow list plus CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, WRANGLER_SEND_METRICS, CI and npm_config_ignore_scripts, nothing else', () => {
+  const names = (wr.wranglerEnvNames || []).map((n) => n.toUpperCase());
+  const stray = names.filter((n) => !CHILD_ALLOWED.has(n) && !WR_EXTRA.includes(n));
+  return !!wr.wranglerEnvNames && WR_EXTRA.every((n) => names.includes(n)) && stray.length === 0 || `stray: ${JSON.stringify(stray)} missing: ${JSON.stringify(WR_EXTRA.filter((n) => !names.includes(n)))}`;
+});
+await check('deploy: wrangler does not see the planted secret, GITHUB_TOKEN, the job or site id, or the runner\'s own test settings', () => {
+  const names = (wr.wranglerEnvNames || []).map((n) => n.toUpperCase());
+  const bad = ['OMNIKOM_PLANTED_SECRET', 'GITHUB_TOKEN', 'JOB_ID', 'SITE_ID', 'RUNNER_KEY', 'PLATFORM_FUNCTIONS_BASE', 'CLOUDFLARE_PAGES_TOKEN', 'OMNIKOM_REPO_ROOT', 'RUNNER_WRANGLER_SCRIPT'].filter((n) => names.includes(n));
+  return !!wr.wranglerEnvNames && bad.length === 0 || JSON.stringify(bad);
+});
 await check("deploy: the site's /api/lead function travels with the deploy (functions/api/lead.js and lead-endpoint.mjs in wrangler's folder)", () => !!wr.wrangler && wr.wrangler.leadFunction && wr.wrangler.leadEndpoint);
 await check('deploy: the deployment hash is parsed from wrangler output and sent as the deploy id; a token wrangler printed is scrubbed', () =>
   wr.code === 0 && same(wr.states, ['gating', 'deploying', 'done']) && wr.last.body.deployId === '1a2b3c4d' && !wr.out.includes(CF_TOKEN) && !wr.out.includes(CF_ACCOUNT)

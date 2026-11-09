@@ -65,4 +65,17 @@ export function makePlatform({ base, key, timeoutMs = 30000, retries = 3, backof
   };
 }
 
+// The environment of a child process (the build and the design code it imports, the audit, wrangler): an ALLOW list, never a deny list, so a
+// secret added to the workflow later never reaches a child by default. The source's allow-listed names (just enough to run node and find
+// a temp folder), then what the caller says that one step needs. NODE_OPTIONS is not passed: neither workflow sets it.
+const CHILD_BASE = ['PATH', 'Path', 'HOME', 'USERPROFILE', 'TEMP', 'TMP', 'TMPDIR', 'SystemRoot', 'windir', 'ComSpec', 'PATHEXT', 'LANG', 'TZ'];
+const IS_WIN = process.platform === 'win32';   // Windows names are case-insensitive ("Path"), others are exact
+const CHILD_ALLOW = new Set(IS_WIN ? CHILD_BASE.map((n) => n.toUpperCase()) : CHILD_BASE);
+export function childEnv(extra = {}, source = process.env) {
+  const out = {};
+  for (const [k, v] of Object.entries(source)) if (CHILD_ALLOW.has(IS_WIN ? k.toUpperCase() : k)) out[k] = v;
+  for (const [k, v] of Object.entries(extra)) if (v !== undefined) out[k] = v;
+  return out;
+}
+
 export const numEnv = (name, dflt) => { const v = Number(process.env[name]); return Number.isFinite(v) && v > 0 ? v : dflt; };
