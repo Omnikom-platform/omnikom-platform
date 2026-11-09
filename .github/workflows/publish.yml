@@ -1,13 +1,12 @@
 # One publish job: export -> build -> audit gate -> Cloudflare Pages deploy -> smoke -> callback (02-BACKEND section 7, 21-PROTOCOLS 1 to 3).
-# Started by the platform's `publish` Edge Function (repository_dispatch, type publish, client_payload { job_id, site_id }) and by hand
-# with workflow_dispatch (the done-when test of step 4: `gh workflow run publish.yml -f job_id=... -f site_id=... [-f force_fail=heading]`).
-# GitHub runs a dispatch-triggered workflow only from the DEFAULT branch. Four secrets, by name: PLATFORM_FUNCTIONS_BASE, RUNNER_KEY,
+# Started by workflow_dispatch only: by the platform's `publish` Edge Function (POST .../actions/workflows/publish.yml/dispatches with
+# { ref, inputs { job_id, site_id } }; its token has Actions: write and nothing else, work order 17) and by hand
+# (`gh workflow run publish.yml -f job_id=... -f site_id=... [-f force_fail=heading]`; the platform never sends force_fail).
+# The workflow file is read from the ref the function names (GITHUB_DISPATCH_REF, default master). Four secrets, by name: PLATFORM_FUNCTIONS_BASE, RUNNER_KEY,
 # CLOUDFLARE_PAGES_TOKEN, CLOUDFLARE_ACCOUNT_ID (tools/github-secrets.mjs sets them). Nothing here echoes a secret; the runner scrubs its own output.
 name: publish
 
 on:
-  repository_dispatch:
-    types: [publish]
   workflow_dispatch:
     inputs:
       job_id:
@@ -33,7 +32,7 @@ permissions:
 # one build per site, up to 100 waiting, none replaced (21-PROTOCOLS section 1). If GitHub rejects `queue` on the first run, the exact
 # error goes to the head as a finding and this falls back to `cancel-in-progress: false` (one pending run per group).
 concurrency:
-  group: site-${{ github.event.client_payload.site_id || inputs.site_id }}
+  group: site-${{ inputs.site_id }}
   queue: max
 
 jobs:
@@ -53,8 +52,8 @@ jobs:
 
       - name: Run the publish runner
         env:
-          JOB_ID: ${{ github.event.client_payload.job_id || inputs.job_id }}
-          SITE_ID: ${{ github.event.client_payload.site_id || inputs.site_id }}
+          JOB_ID: ${{ inputs.job_id }}
+          SITE_ID: ${{ inputs.site_id }}
           FORCE_FAIL: ${{ inputs.force_fail }}
           PLATFORM_FUNCTIONS_BASE: ${{ secrets.PLATFORM_FUNCTIONS_BASE }}
           RUNNER_KEY: ${{ secrets.RUNNER_KEY }}

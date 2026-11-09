@@ -86,7 +86,7 @@ const MUTANTS = [
   ['workflows: ci.yml has no permissions block', '.github/workflows/ci.yml', 'permissions:\n  contents: read\n\nconcurrency:\n  group: ci-', 'concurrency:\n  group: ci-', 'workflows'],
   ['workflows: a job has no timeout', '.github/workflows/keepalive.yml', '    timeout-minutes: 10\n', '', 'workflows'],
   ['workflows: a secret is put on a command line', '.github/workflows/publish.yml', 'node factory/runner/publish.mjs "${args[@]}"', 'node factory/runner/publish.mjs "${args[@]}" ${{ secrets.RUNNER_KEY }}', 'workflows'],
-  ['workflows: the payload is expanded inside the script', '.github/workflows/media.yml', 'run: node factory/runner/media.mjs', 'run: node factory/runner/media.mjs ${{ github.event.client_payload.media_id }}', 'workflows'],
+  ['workflows: the payload is expanded inside the script', '.github/workflows/media.yml', 'run: node factory/runner/media.mjs', 'run: node factory/runner/media.mjs ${{ inputs.media_id }}', 'workflows'],
   ['workflows: the backup job is not switched off', '.github/workflows/backup.yml', "    if: ${{ vars.BACKUP_ENABLED == 'true' }}\n", '', 'workflows'],
   ['workflows: publish loses its per-site queue', '.github/workflows/publish.yml', '  queue: max\n', '', 'workflows'],
   ['workflows: the gitleaks download is not checked against its sha256', '.github/workflows/ci.yml', '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb', '0000000000000000000000000000000000000000000000000000000000000000', 'workflows'],

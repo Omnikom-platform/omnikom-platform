@@ -25,7 +25,9 @@ t('publish: owner-a publishes a team row at its saved version: 202, a queued job
   });
   const got = (await fake.recorded()).github;
   eq(got.length, 1, 'GitHub got one dispatch');
-  eq(got[0].body?.event_type, 'publish', 'event type'); eq(got[0].body?.client_payload.job_id, job, 'job_id'); eq(got[0].body?.client_payload.site_id, SITE_A, 'site_id');
+  eq(got[0].workflow, 'publish.yml', 'workflow'); eq(got[0].method, 'POST', 'method'); eq(got[0].body?.ref, 'master', 'ref (GITHUB_DISPATCH_REF unset: master)');
+  eq(got[0].body?.inputs.job_id, job, 'job_id'); eq(got[0].body?.inputs.site_id, SITE_A, 'site_id');
+  eq(Object.keys(got[0].body?.inputs ?? {}).sort().join(','), 'job_id,site_id', 'exactly these inputs'); eq(Object.values(got[0].body?.inputs ?? {}).every((v) => typeof v === 'string'), true, 'strings only');
   eq(got[0].authorized, true, 'the dispatch token was sent'); eq(got[0].accept, 'application/vnd.github+json', 'accept header');
 });
 

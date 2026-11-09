@@ -49,8 +49,8 @@ The runner signs the path after `PLATFORM_FUNCTIONS_BASE`, never the `/functions
 SIGNATURE`, `404 S-NOT-FOUND`, `409 S-JOB-BUSY`, `409 S-JOB-STATE`, `413`, `422 I-*`, `429 S-QUOTA`, `500 CONFIG`. The OpenAPI
 file `docs/blueprint/specs/openapi.json` describes the functions and is checked by the gates.
 
-GitHub entry points: `repository_dispatch` types `publish` (`{job_id, site_id}`) and `media` (`{media_id, workspace_id}`);
-`workflow_dispatch` on `publish.yml` with `job_id`, `site_id`, `force_fail`.
+GitHub entry points: `workflow_dispatch` only (the function token has Actions: write and nothing else, H0-5): `publish.yml` with `job_id`,
+`site_id`, `force_fail` (by hand only) and `media.yml` with `media_id`, `workspace_id`; the ref is `GITHUB_DISPATCH_REF`, default `master`.
 
 ## A business website (built by `factory/build.mjs`)
 

@@ -22,7 +22,7 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
 |---|---|---|
 | `save` | dashboard, user JWT | `contract_for` first (404 for non-members before any field name can leak), validate the draft, `save_as` |
 | `drafts` | dashboard | lists the changes waiting to publish |
-| `publish` | dashboard | validate exactly the given versions, `start_publish` pins them, `repository_dispatch` to `publish.yml` |
+| `publish` | dashboard | validate exactly the given versions, `start_publish` pins them, `workflow_dispatch` of `publish.yml` |
 | `upload-start` | dashboard | a signed upload URL under `media/<workspace_id>/` (jpg, png, webp; 25 MB) |
 | `upload-finish` | dashboard | records the media row, the rights tick and alt text, dispatches `media.yml` |
 | `media-export` | runner, signed | hands the runner one original to process |
@@ -74,7 +74,7 @@ sequenceDiagram
   U->>DS: publish
   DS->>E: publish
   E->>D: start_publish pins the versions (ready wall checks fields, sources, placeholders)
-  E->>R: repository_dispatch {job_id, site_id}
+  E->>R: workflow_dispatch {job_id, site_id}
   R->>E: export-published (signed)
   E->>D: freeze_snapshot, published_rows
   R->>R: build the site, run the gates
@@ -109,8 +109,8 @@ private; a build copies only the media a snapshot row uses.
 | Workflow | Runs | Does |
 |---|---|---|
 | `ci.yml` | every push and pull request | the checks (`11-rules.md`): gates, factory, functions, audit, cli, dashboard, departments, secrets, workflows |
-| `publish.yml` | `repository_dispatch` publish, or by hand | export, build, audit gate, Pages deploy, smoke, callback |
-| `media.yml` | `repository_dispatch` media | photo processing |
+| `publish.yml` | `workflow_dispatch` from the publish function, or by hand | export, build, audit gate, Pages deploy, smoke, callback |
+| `media.yml` | `workflow_dispatch` from upload-finish | photo processing |
 | `keepalive.yml` | Mondays 06:00 UTC | one read-only CLI `status` so the free staging project is not paused |
 | `alerts.yml` | hourly | read-only alert queries on staging; sending is off until a sender exists |
 | `backup.yml` | nightly | encrypted dump of staging to two buckets; skipped until the owner sets up the buckets and key |

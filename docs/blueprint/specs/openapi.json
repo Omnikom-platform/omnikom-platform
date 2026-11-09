@@ -404,7 +404,7 @@
        "id": {
         "type": "string",
         "format": "uuid",
-        "description": "the runner refuses if this differs from client_payload.site_id"
+        "description": "the runner refuses if this differs from inputs.site_id"
        },
        "deploy_target": {
         "type": "string",

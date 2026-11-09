@@ -128,7 +128,7 @@ A V2 site's own code never calls these. They are listed so a build knows what fe
 
 What the build must do (these are rules from ADR 0011, `03-FRONTEND.md` and `07-SPECS.md`):
 - Build from the export only. A rerun ships the same snapshot. Nothing goes live until the job is `done`.
-- Refuse if `export.site.id` differs from `client_payload.site_id`, or if the deploy token's Worker differs from
+- Refuse if `export.site.id` differs from `inputs.site_id`, or if the deploy token's Worker differs from
   `site.deployTarget`.
 - Build the lead form from the contract's `forms.<id>`: its fields, and the `consent.notice` text taken from the locked
   notice row. Ship `/api/lead` in the site Worker (section 2) with the site id and key as Worker configuration.

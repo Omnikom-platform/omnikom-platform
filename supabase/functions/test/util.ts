@@ -83,7 +83,7 @@ export async function securityEvents(where: { actor?: string; code?: string; kin
 
 // ---------- the fake outside services ----------
 export const fake = {
-  async recorded(): Promise<{ github: { authorized: boolean; accept: string; body: { event_type: string; client_payload: Record<string, unknown> } | null }[]; storage: { path: string; authorized: boolean }[] }> {
+  async recorded(): Promise<{ github: { workflow: string; method: string; authorized: boolean; accept: string; body: { ref: string; inputs: Record<string, unknown> } | null }[]; storage: { path: string; authorized: boolean }[] }> {
     return await (await fetch(`${env('TEST_FAKE_BASE')}/__recorded`)).json();
   },
   async reset() { await (await fetch(`${env('TEST_FAKE_BASE')}/__reset`, { method: 'POST' })).text(); },

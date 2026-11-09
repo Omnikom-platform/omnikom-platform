@@ -70,9 +70,9 @@ t('dispatch: no token, no repository, GitHub 204, GitHub 500 and an unreachable 
   await fake.reset();
   const token = Deno.env.get('GITHUB_DISPATCH_TOKEN'), repo = Deno.env.get('GITHUB_REPO'), api = Deno.env.get('GITHUB_API_BASE');
   try {
-    eq((await dispatch('publish', { a: 1 })).dispatched, true, '204');
+    eq((await dispatch('publish', { a: '1' })).dispatched, true, '204');
     await fake.githubStatus(500);
-    const bad = await dispatch('publish', { a: 1 });
+    const bad = await dispatch('publish', { a: '1' });
     eq(bad.dispatched, false, '500'); eq(bad.reason, 'github 500', 'reason');
     await fake.reset();
     Deno.env.set('GITHUB_REPO', 'not a repo');
@@ -85,5 +85,30 @@ t('dispatch: no token, no repository, GitHub 204, GitHub 500 and an unreachable 
     eq((await dispatch('publish', {})).reason, 'no dispatch token', 'no token');
   } finally {
     Deno.env.set('GITHUB_DISPATCH_TOKEN', token!); Deno.env.set('GITHUB_REPO', repo!); Deno.env.set('GITHUB_API_BASE', api!); await fake.reset();
+  }
+});
+
+t('dispatch: workflow_dispatch to the workflow file, POST { ref, inputs }, string inputs, ref from GITHUB_DISPATCH_REF (default master); a 403 (token lacks Actions: write) is reported as github 403', async () => {
+  await fake.reset();
+  const ref = Deno.env.get('GITHUB_DISPATCH_REF');
+  try {
+    Deno.env.delete('GITHUB_DISPATCH_REF');
+    eq((await dispatch('publish', { job_id: 'j1', site_id: 's1' })).dispatched, true, 'publish: 204');
+    eq((await dispatch('media', { media_id: 'm1', workspace_id: 'w1' })).dispatched, true, 'media: 204');
+    Deno.env.set('GITHUB_DISPATCH_REF', 'staging-branch');
+    eq((await dispatch('publish', { job_id: 'j2', site_id: 's2' })).dispatched, true, 'publish with a set ref: 204');
+    const got = (await fake.recorded()).github;
+    eq(got.length, 3, 'three calls');
+    eq(got.map((g) => g.workflow).join(','), 'publish.yml,media.yml,publish.yml', 'the workflow file of each');
+    eq(got.every((g) => g.method === 'POST' && g.authorized), true, 'POST with the token');
+    eq(got.map((g) => g.body?.ref).join(','), 'master,master,staging-branch', 'ref: default master, then GITHUB_DISPATCH_REF');
+    eq(JSON.stringify(got[0].body), JSON.stringify({ ref: 'master', inputs: { job_id: 'j1', site_id: 's1' } }), 'the body is exactly { ref, inputs }');
+    eq(got.every((g) => Object.values(g.body?.inputs ?? {}).every((v) => typeof v === 'string')), true, 'strings only');
+    await fake.reset(); await fake.githubStatus(403);
+    const denied = await dispatch('publish', { job_id: 'j3', site_id: 's3' });
+    eq(denied.dispatched, false, '403 is not a dispatch'); eq(denied.reason, 'github 403', '403 reason');
+  } finally {
+    if (ref) Deno.env.set('GITHUB_DISPATCH_REF', ref); else Deno.env.delete('GITHUB_DISPATCH_REF');
+    await fake.reset();
   }
 });

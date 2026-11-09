@@ -2,8 +2,8 @@
 // Steps: the user's JWT -> the body shape (400) -> service.site_for (the workspace of the site; 404 for a non-member) -> service.contract_for
 // (404) -> for each row, its pinned version through service.row_version (404 when the row or the version is not this workspace's)
 // and validateItem in publish mode (422 { problems }, every problem carries the row id) -> service.start_publish (it pins exactly these
-// versions, N4; the walls: 403 S-OWN-ONLY / S-ROLE, 409 S-WORKSPACE-STATE, 422 S-KIND) -> GitHub repository_dispatch
-// { event_type: 'publish', client_payload: { job_id, site_id } } -> 202 { job, state: 'queued', dispatched, reason }.
+// versions, N4; the walls: 403 S-OWN-ONLY / S-ROLE, 409 S-WORKSPACE-STATE, 422 S-KIND) -> GitHub workflow_dispatch of publish.yml
+// { ref, inputs: { job_id, site_id } } (string inputs) -> 202 { job, state: 'queued', dispatched, reason }.
 // dispatched: false (no token, GitHub refused, GitHub unreachable) is REPORTED, not hidden: the job stays queued and the reaper fails it
 // after 24 hours. A missing version is 404 S-NOT-FOUND (service.row_version), the same answer as a row of another workspace.
 import { dashboard, badBody } from '../_shared/dashboard.ts';

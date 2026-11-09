@@ -83,7 +83,8 @@ t('upload-finish: owner-a sets rights_confirmed, processed stays false, and the 
     eq(m.rights_confirmed, true, 'rights'); eq(m.processed, false, 'processed stays false'); eq(m.exif_stripped, false, 'exif'); eq(m.width, null, 'width stays unknown');
   });
   const got = (await fake.recorded()).github;
-  eq(got.length, 1, 'one dispatch'); eq(got[0].body?.event_type, 'media', 'event type'); eq(got[0].body?.client_payload.media_id, media, 'media_id'); eq(got[0].body?.client_payload.workspace_id, WS_A, 'workspace_id');
+  eq(got.length, 1, 'one dispatch'); eq(got[0].workflow, 'media.yml', 'workflow'); eq(got[0].body?.ref, 'master', 'ref'); eq(got[0].body?.inputs.media_id, media, 'media_id'); eq(got[0].body?.inputs.workspace_id, WS_A, 'workspace_id');
+  eq(Object.keys(got[0].body?.inputs ?? {}).sort().join(','), 'media_id,workspace_id', 'exactly these inputs');
 });
 
 t('upload-finish: rightsConfirmed false is stored as false; the uploader (a member) may finish their own upload', async () => {

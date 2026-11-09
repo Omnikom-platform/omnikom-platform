@@ -420,15 +420,29 @@ if (on('workflows')) {
     const bad = files.flatMap((f) => lines(f).filter((l) => /\$\{\{[^}]*(client_payload|inputs\.)/.test(l) && !/^\s+[A-Z][A-Z0-9_]*: \$\{\{/.test(l) && !/^\s+group: /.test(l)).map((l) => f + ': ' + l.trim()));
     return bad.length === 0 || bad[0];
   });
-  await check('publish.yml: repository_dispatch publish and a manual run with job_id, site_id, force_fail; one 30 minute job; one build per site, queue max', () => {
+  await check('publish.yml and media.yml: no repository_dispatch trigger and no client_payload (the platform token has Actions: write only, work order 17)', () => {
+    const bad = ['publish.yml', 'media.yml'].filter((f) => /repository_dispatch|client_payload/.test(wf[f]));
+    return bad.length === 0 || bad.join(',');
+  });
+  const ciJobNames = () => lines('ci.yml').filter((l) => /^    name: /.test(l)).map((l) => l.replace(/^    name: /, '').trim());
+  await check('ci.yml: no job name carries a version number (a tool bump must not rename a required check)', () => {
+    const bad = ciJobNames().filter((n) => /\d+\.\d+/.test(n));
+    return (ciJobNames().length >= 9 && bad.length === 0) || bad.join(' | ');
+  });
+  await check('ci.yml: every required check named in work/17-dispatch-scope/master-ruleset.json is a ci.yml job name', () => {
+    const want = JSON.parse(readFileSync(join(REPO, 'work', '17-dispatch-scope', 'master-ruleset.json'), 'utf8')).rules.find((r) => r.type === 'required_status_checks').parameters.required_status_checks.map((c) => c.context);
+    const have = ciJobNames(), missing = want.filter((n) => !have.includes(n));
+    return (want.length >= 9 && missing.length === 0) || missing.join(' | ');
+  });
+  await check('publish.yml: workflow_dispatch with job_id, site_id, force_fail; one 30 minute job; one build per site, queue max', () => {
     const t = wf['publish.yml'];
-    return /repository_dispatch:\n    types: \[publish\]/.test(t) && /workflow_dispatch:/.test(t) && ['job_id', 'site_id', 'force_fail'].every((n) => new RegExp('^      ' + n + ':', 'm').test(t))
-      && /^    timeout-minutes: 30$/m.test(t) && /group: site-\$\{\{ github\.event\.client_payload\.site_id \|\| inputs\.site_id \}\}\n  queue: max/.test(t)
+    return /^on:\n  workflow_dispatch:\n/m.test(t) && ['job_id', 'site_id', 'force_fail'].every((n) => new RegExp('^      ' + n + ':', 'm').test(t))
+      && /^    timeout-minutes: 30$/m.test(t) && /group: site-\$\{\{ inputs\.site_id \}\}\n  queue: max/.test(t)
       && /node factory\/runner\/publish\.mjs/.test(t) && ['PLATFORM_FUNCTIONS_BASE', 'RUNNER_KEY', 'CLOUDFLARE_PAGES_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'].every((n) => t.includes('secrets.' + n));
   });
-  await check('media.yml: repository_dispatch media, a locked install of sharp with scripts off, one build per media id', () => {
+  await check('media.yml: workflow_dispatch with media_id and workspace_id, a locked install of sharp with scripts off, one build per media id', () => {
     const t = wf['media.yml'];
-    return /repository_dispatch:\n    types: \[media\]/.test(t) && t.includes('npm ci --prefix factory/runner --ignore-scripts') && /group: media-\$\{\{ github\.event\.client_payload\.media_id \}\}\n  queue: max/.test(t) && t.includes('node factory/runner/media.mjs');
+    return /^on:\n  workflow_dispatch:\n/m.test(t) && ['media_id', 'workspace_id'].every((n) => new RegExp('^      ' + n + ':', 'm').test(t)) && t.includes('npm ci --prefix factory/runner --ignore-scripts') && /group: media-\$\{\{ inputs\.media_id \}\}\n  queue: max/.test(t) && t.includes('node factory/runner/media.mjs');
   });
   await check('backup.yml: the job is off unless the variable BACKUP_ENABLED is true (R2 is deferred)', () => /^    if: \$\{\{ vars\.BACKUP_ENABLED == 'true' \}\}$/m.test(wf['backup.yml']) && /BLOCKED: R2/.test(wf['backup.yml']));
   await check('keepalive.yml: Mondays 06:00 UTC and by hand, one status call per target staging with the four staging names', () =>

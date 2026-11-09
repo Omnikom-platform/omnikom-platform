@@ -9,7 +9,8 @@
 //   POST /storage/v1/object/upload/sign/media/<path>          Storage's signed-upload endpoint (answers { url, token }; needs the secret key)
 //   POST /storage/v1/object/sign/media/<path>                 Storage's signed-download endpoint (slice 4.3; answers { signedURL }; records the path, the
 //                                                             expiresIn asked for and how many calls ran at once; can be told to fail for a path or to be slow)
-//   POST /repos/test/test/dispatches                          GitHub repository_dispatch (records what it got; answers the status you set)
+//   POST /repos/test/test/actions/workflows/{publish,media}.yml/dispatches   GitHub workflow_dispatch (records the workflow and the body; 422 unless
+//                                                             { ref, inputs } with string inputs; otherwise answers the status you set; any other path is 404)
 //   GET  /__recorded, POST /__reset, POST /__github-status?code=N, POST /__sign?fail=<path part>&delay=<ms>     control, for the tests
 // The cluster holds a template database (migrations + fixtures); every run gets its own copy, so tests and mutants never see each
 // other's rows. Needs initdb / pg_ctl / psql / deno on PATH.
@@ -105,9 +106,13 @@ export async function startHarness() {
             send(200, { signedURL: `/object/sign/media/${path}?token=fake-download-token` });
           }, state.signDelayMs);
         }
-        if (req.method === 'POST' && u.pathname === '/repos/test/test/dispatches') {
+        const wfPath = /^\/repos\/test\/test\/actions\/workflows\/(publish|media)\.yml\/dispatches$/.exec(u.pathname);
+        if (req.method === 'POST' && wfPath) {
           let parsed = null; try { parsed = JSON.parse(body); } catch { /* recorded as null */ }
-          state.github.push({ authorized: req.headers.authorization === `Bearer ${SECRET}`, accept: req.headers.accept, body: parsed });
+          state.github.push({ workflow: wfPath[1] + '.yml', method: req.method, authorized: req.headers.authorization === `Bearer ${SECRET}`, accept: req.headers.accept, body: parsed });
+          // GitHub answers 422 to inputs that are not strings (and to a missing ref); the fake does the same so a wrong body is a refusal, not a pass
+          const inputs = parsed && parsed.inputs;
+          if (!parsed || typeof parsed.ref !== 'string' || !inputs || typeof inputs !== 'object' || Object.values(inputs).some((v) => typeof v !== 'string')) return send(422, { message: 'invalid body' });
           return state.githubStatus === 204 ? (res.writeHead(204), res.end()) : send(state.githubStatus, { message: 'refused' });
         }
         if (req.method === 'POST' && u.pathname === '/auth/v1/admin/generate_link') {

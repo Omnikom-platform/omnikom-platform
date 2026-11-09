@@ -1,0 +1,29 @@
+{
+  "name": "protect master",
+  "target": "branch",
+  "enforcement": "active",
+  "bypass_actors": [],
+  "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [
+          { "context": "platform CLI (unit tests; full suite and mutants when the change reaches them)", "integration_id": 15368 },
+          { "context": "secret scan (gitleaks)", "integration_id": 15368 },
+          { "context": "gates (contracts, database walls, specs, signature, deno check)", "integration_id": 15368 },
+          { "context": "functions (Deno tests and mutants)", "integration_id": 15368 },
+          { "context": "workflow files (actionlint, shellcheck)", "integration_id": 15368 },
+          { "context": "departments and client files", "integration_id": 15368 },
+          { "context": "audit engine (tests and mutants)", "integration_id": 15368 },
+          { "context": "factory and runner (tests and mutants)", "integration_id": 15368 },
+          { "context": "dashboard (type check, unit tests, plan gate)", "integration_id": 15368 }
+        ]
+      }
+    }
+  ]
+}

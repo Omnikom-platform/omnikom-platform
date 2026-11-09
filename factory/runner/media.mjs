@@ -1,5 +1,5 @@
 // The media runner (02-BACKEND section 5, ground rule 11): one uploaded photo in, three WebP sizes out, EXIF and GPS gone.
-// Started by .github/workflows/media.yml (repository_dispatch type "media", payload { media_id, workspace_id }).
+// Started by .github/workflows/media.yml (workflow_dispatch, inputs { media_id, workspace_id }).
 //   node factory/runner/media.mjs
 // Environment, by name: MEDIA_ID, WORKSPACE_ID, PLATFORM_FUNCTIONS_BASE, RUNNER_KEY. Test hooks: RUNNER_FETCH_TIMEOUT_MS, RUNNER_RETRY_BACKOFF_MS.
 // 1. GET <base>/media-export?media=<id> (signed) -> { id, path, workspace_id, url, uploads: { "2400": url, "1600": url, "800": url } }
