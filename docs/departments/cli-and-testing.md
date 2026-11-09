@@ -735,3 +735,14 @@ when the head of operations has released its slice.
   01:25 HANDOVER. check/cli-and-testing/handover-b (3d7c0c3, 2026-11-01) was a leftover already in master: deleted on backup-gh.
   head-log-4 (663fa23) stacked on ci-coverage, rebased on master d6353e9, so one CI run covers both. Work orders this week: CLI 20
   to 24. Order: ci-coverage, land retry and lock fixes, H2-10, a journey step per platform block; stop at 95% of the week.
+- 2026-11-09 05:05 ci-coverage, ready to land: CI run 42549105322 9 of 9 on 23277ef with each suite's own line read (crm-map "119
+  mutants, 119 caught", icm tests 66 passed, lead endpoint 35 of 35 mutants, secret receiver 6 of 6, CLI full 819 of 819 and 475 of 475
+  mutants). Added after it: "ICM mutants" (23 mutants; ICM tests took 1 s on ubuntu, so the builder's "over the job limit" was wrong;
+  watched red: the ci.mjs row removed gives FAIL "ci on the real ci.yml ... ICM mutants", restored "OK: 640 of 640") and "Site backup
+  URL tests" (offline, 1 s). Left out, one reason each: supabase/ops/test alerts, apply-dry, backup, key-ages, 6b-drill and
+  6b-mutate (platform's, need a Postgres cluster: offered to platform as functions-job steps, its call since a red blocks every land);
+  site-backup test-loaders and design-engine tests (a browser); site-backup test-verify-gates (needs a real backup folder, --out);
+  team-kit test-agent-hooks (BROKEN: copies tools/icm/agents/roles.json, which does not exist; finding for the clients department);
+  panel-mods tracker.test.tsx (runs only in Claude Code's plugin harness); the SEO skill's scripts (vendored, own proof in SKILL.md);
+  staging-only by design (no secret in CI): supabase/tests/e2e-*.mjs, run-staging.mjs, test-apply.mjs, tools/test/probe-*.mjs, the
+  dashboard Playwright specs, start-builder.live.mjs; manual helpers port-bind-probe.mjs and both port-hold.py.

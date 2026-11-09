@@ -200,6 +200,8 @@ jobs:
         run: node clients/test/run.mjs
       - name: ICM tests
         run: node tools/icm/test/run.mjs
+      - name: ICM mutants
+        run: node tools/icm/test/mutate.mjs
       - name: Lead endpoint tests
         run: node factory/worker/test/run.mjs
       - name: Lead endpoint mutants
@@ -208,6 +210,8 @@ jobs:
         run: node tools/test/test-secret-receiver.mjs
       - name: Secret receiver mutants
         run: node tools/test/mutate-secret-receiver.mjs
+      - name: Site backup URL tests
+        run: node tools/site-backup/test-urls.mjs
       - name: Client files
         run: node clients/check.mjs
 

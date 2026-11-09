@@ -332,7 +332,7 @@ const actions = {
 };
 
 const NODE_STEPS = ['ICM index is fresh', 'All blueprint gates', 'Factory tests', 'Factory mutants', 'Runner tests', 'Runner mutants', 'Function tests', 'Function mutants',
-  'Audit tests', 'Audit mutants', 'CLI unit tests', 'CLI full suite and mutants (when the change reaches them)', 'One owner per path', 'Department tool tests', 'crm-map tests and mutants', 'Client record tests', 'ICM tests', 'Lead endpoint tests', 'Lead endpoint mutants', 'Secret receiver tests', 'Secret receiver mutants', 'Client files', 'Dashboard tests'];
+  'Audit tests', 'Audit mutants', 'CLI unit tests', 'CLI full suite and mutants (when the change reaches them)', 'One owner per path', 'Department tool tests', 'crm-map tests and mutants', 'Client record tests', 'ICM tests', 'ICM mutants', 'Lead endpoint tests', 'Lead endpoint mutants', 'Secret receiver tests', 'Secret receiver mutants', 'Site backup URL tests', 'Client files', 'Dashboard tests'];
 const ROWS = [
   { name: /^Check out the repository( with its whole history)?$/, run: actions.checkout },
   { name: 'Set up Node', run: actions['setup-node'] },
