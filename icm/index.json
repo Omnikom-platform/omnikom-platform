@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "docs": 284,
+    "docs": 286,
     "unownedDocs": 7,
     "unplaced": 185,
     "over300": 10
@@ -86,7 +86,7 @@
     {"path":"docs/departments/README.md","title":"Departments: who owns what, and how sessions are organised (DECISIONS 33)","summary":"Written 2026-10-30 from the owner's steer: \"a master session that spins up builder sessions ... an orchestrator for that department that creates the tools th...","owner":"head-of-operations","layer":"unplaced","lines":148,"loadFor":[]},
     {"path":"docs/departments/TEMPLATE.md","title":"Department: {{NAME}} (`{{SLUG}}`)","summary":"Created {{DATE}} by `tools/departments/new-department.mjs`. Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":46,"loadFor":[]},
     {"path":"docs/departments/briefs/takeover-after-account-switch.md","title":"Takeover brief: the build restarts on another Claude account (sent by `tools/departments/start-all.mjs`)","summary":"You are the new head of operations. The message that pointed you here names you (`HEAD-OF-OPERATIONS_Omnikom_<date><letter>`) and the Claude account this mac...","owner":"head-of-operations","layer":"unplaced","lines":39,"loadFor":[]},
-    {"path":"docs/departments/cli-and-testing.md","title":"Department: CLI and testing tooling (`cli-and-testing`)","summary":"Created 2026-10-30 by the lead session (DECISIONS 33). Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":748,"loadFor":[]},
+    {"path":"docs/departments/cli-and-testing.md","title":"Department: CLI and testing tooling (`cli-and-testing`)","summary":"Created 2026-10-30 by the lead session (DECISIONS 33). Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":756,"loadFor":[]},
     {"path":"docs/departments/clients.md","title":"Department: Clients (`clients`)","summary":"Created 2026-10-30 by `tools/departments/new-department.mjs`. Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":121,"loadFor":[]},
     {"path":"docs/departments/head-of-operations.md","title":"Department: Head of operations (`head-of-operations`)","summary":"Created 2026-10-30 by the lead session (DECISIONS 33). Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":78,"loadFor":[]},
     {"path":"docs/departments/platform-build.md","title":"Department: Platform build (`platform-build`)","summary":"Created 2026-10-30 by the lead session (DECISIONS 33). Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":586,"loadFor":[]},
@@ -288,6 +288,8 @@
     {"path":"work/12-book-check/CONTEXT.md","title":"Work order 12: the book checks itself (hardening step H0-6, row E20; builder BUILDER_head-of-operations_book-check, 2026-11-09)","summary":"Rule 36 (`docs/product/11-rules.md`): the book's numbers are computed, never typed. Built on master `d6353e9`.","owner":"head-of-operations","layer":2,"lines":42,"loadFor":[]},
     {"path":"work/13-reaper/CONTEXT.md","title":"13 reaper","summary":"Owner: platform build. Model: Sonnet (high). Branch: check/platform/reaper. Status: staging PROVEN 2026-11-09 (64dafd9, CI 42555739334 9/9): migration 19 app...","owner":"head-of-operations","layer":2,"lines":62,"loadFor":[]},
     {"path":"work/20-land-retry/CONTEXT.md","title":"20 land retry","summary":"Owner: cli-and-testing. Model: sonnet, effort high. Branch: check/cli/land-retry. Status: OPEN (built; CI decides the 21 [land-retry] mutants).","owner":"head-of-operations","layer":2,"lines":57,"loadFor":[]},
+    {"path":"work/21-dep-scan/CONTEXT.md","title":"21 dep scan","summary":"Owner: cli-and-testing. Model: sonnet, effort high. Branch: check/cli/dep-scan. Status: DONE (secrets job green on run 42566847935; E17 WORKS on its land).","owner":"head-of-operations","layer":2,"lines":68,"loadFor":[]},
+    {"path":"work/23-land-lock-after-ci/CONTEXT.md","title":"23 land lock after ci","summary":"Owner: cli-and-testing. Model: sonnet, effort high. Branch: check/cli/land-lock-after-ci. Status: OPEN (starts after work order 22 lands; head of operations'...","owner":"head-of-operations","layer":2,"lines":31,"loadFor":[]},
     {"path":"work/25-report-questions-2-5/CONTEXT.md","title":"25 six-question report, questions 2 to 5 (SEO slice 4b of the report)","summary":"Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/report-questions-2-5. Status: BUILT 2026-11-09, not committed (proof `tools/audit/proof/...","owner":"head-of-operations","layer":2,"lines":95,"loadFor":[]},
     {"path":"work/README.md","title":"Work orders","summary":"`work/` is layer 2 of the layout in `docs/product/README.md`: one folder per piece of work, plus `STATE.md` (where things stand now). A session loads `CLAUDE...","owner":"head-of-operations","layer":2,"lines":47,"loadFor":[]},
     {"path":"work/STATE.md","title":"Where things stand","summary":"Rewritten in place, never appended. Under 60 lines. Last rewritten 2026-11-05 05:30 by the head of operations (work order 11). What the product is and every ...","owner":"head-of-operations","layer":4,"lines":57,"loadFor":[]}

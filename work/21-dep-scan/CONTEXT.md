@@ -1,6 +1,6 @@
 # 21 dep scan
 
-Owner: cli-and-testing. Model: sonnet, effort high. Branch: check/cli/dep-scan. Status: OPEN (built; first CI run of the secrets-job steps decides; E17 moves after it).
+Owner: cli-and-testing. Model: sonnet, effort high. Branch: check/cli/dep-scan. Status: DONE (secrets job green on run 42566847935; E17 WORKS on its land).
 
 ## Why
 Hardening step H2-10, book row E17 (`docs/product/1-product.md`, PARTLY: "actions SHA-pinned; no dependency scan"). CI installs

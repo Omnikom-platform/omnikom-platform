@@ -746,3 +746,11 @@ when the head of operations has released its slice.
   panel-mods tracker.test.tsx (runs only in Claude Code's plugin harness); the SEO skill's scripts (vendored, own proof in SKILL.md);
   staging-only by design (no secret in CI): supabase/tests/e2e-*.mjs, run-staging.mjs, test-apply.mjs, tools/test/probe-*.mjs, the
   dashboard Playwright specs, start-builder.live.mjs; manual helpers port-bind-probe.mjs and both port-hold.py.
+- 2026-11-09 09:10 ci-coverage landed 671b4ee (run 42554228288). Work order 20, land retries, landed edc9563 (run 42559915266,
+  CLI 842 of 842, 496 of 496 mutants). Follow-up: the mutant "land retry: the retry helper never retries" is caught only by a crash
+  in impact-stamp-hooks.mjs, not by a named check. Work order 21, dep-scan (H2-10): secrets job green on 43776f7, run 42566847935
+  ("27 mutants, 27 caught", "dep-scan: 4 lockfile(s), 0 finding(s), 0 allowed", no NOT COVERED); the two red jobs there were HTTP
+  504 downloads. E17 to WORKS on this land, counts recomputed (book check exit 0). UNPROVEN: `tools ensure --only osv-scanner`
+  on the laptop against the real release asset (blocked twice on the heavy lock). Work order 22, J12: 85569a5 pushed; the first
+  staging run J1,J12 (08:52) had both dashboard tests PASS and the shots red because owner-a has 0 leads on staging, so the step's
+  "rows > 0" tested the data; the builder is making J12 create and remove its own marked lead.
