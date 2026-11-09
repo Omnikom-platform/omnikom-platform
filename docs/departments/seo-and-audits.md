@@ -484,3 +484,20 @@ options, never a fix made here.
   26 part 1 done, part 2 waits on the owner's four answers and his `approve.mjs business`. Work order 27
   (`work/27-authority-not-in-graph`, a site not in the link graph reads "not found in the link data", never 0; skill SOURCE then
   `report.mjs`): BUILDER_seo-and-audits_authority-not-in-graph (pid 43940, sonnet high). Week at 31%.
+- 2026-11-09 21:20: HANDOVER (head HEAD_SEO-and-audits_2026-11-09, Opus 5.5; week at 87%, stop at 95%; reports to
+  HEAD-OF-OPERATIONS_Omnikom_Platform). No builder is running.
+  - Landed: 25 `03464ae` (report questions 2 to 5), 27 `5cef4f1` (Q4 "not found in the link data", skill SOURCE `c41d767`).
+  - Pushed, NOT landed (GitHub Actions outage from 20:29; head of operations lands them after platform 10 and CLI J13):
+    28 `check/seo/authority-rest` `c3052c6` (the rest of "not found in the link data", `test-reports.mjs --group`, SOURCE
+    `78d8b3d`; this block rides on it) and 29 `check/seo/lead-types` `1bbfe00` (lead types: real estate 15, insurance and
+    financial 15; statuses 19; every one sourced; handed to platform, whose work order 20 builds A16 on them). Before a land:
+    fetch, rebase, take master's icm/INDEX.md and icm/index.json on conflict, `node tools/icm/index.mjs`, push with lease, land.
+  - Open, in order: work order 31 (head of operations' number): `tools/audit/report.mjs:206` still says "but not to this site"
+    when `inGraph` is false (28 finding 1); the `test-compare.mjs` mutant `main-check-exact-path` never applies, target text
+    missing in `measure-sources.mjs` since before `c41d767` (28 finding 4). Then 26 part 2 (omnikom.ai research and prompt map)
+    after the owner's four answers and his `approve.mjs business`; doctor with `--env-file`; the 9 bot-wall hosts stay BLOCKED.
+  - 29 open choices (mine): the policy-review source is a recruiting article whose URL now redirects (store the final URL or
+    find a better source); 59 of 91 quotes are UNPROVEN beyond the first reader.
+  - Leftover worktrees: `builders/authority-rest` and `builders/lead-types` (remove after their land),
+    `builders/omnikom-ai-intake` (26, on `check/seo/omnikom-ai-plan` `67f2bb5`, clean; keep for part 2).
+  - Machine hook skill-stage-guard blocks a `cmp` naming a skill script: the head of operations owns it; do not work around it.
