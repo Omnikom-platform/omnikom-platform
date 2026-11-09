@@ -166,7 +166,7 @@ async function run() {
   if (a.status === 2) throw new Stop('audit usage error', { factory: 'pass', audit: { exit: 2, lines: tail(a.text, 10) } });
   let audit = null;
   try { audit = JSON.parse(a.stdout); } catch { /* reported below */ }
-  if (!audit || typeof audit !== 'object' || Array.isArray(audit) || audit.v !== 1 || typeof audit.pass !== 'boolean' || !Array.isArray(audit.fails)) throw new Stop('audit output unreadable', { factory: 'pass', audit: { exit: a.status, lines: tail(a.text, 10) } });
+  if (!audit || typeof audit !== 'object' || audit.v !== 1 || typeof audit.pass !== 'boolean' || !Array.isArray(audit.fails)) throw new Stop('audit output unreadable', { factory: 'pass', audit: { exit: a.status, lines: tail(a.text, 10) } });
   const counts = audit.counts || {};
   const countsLine = `PASS ${counts.PASS ?? 0}, FAIL ${counts.FAIL ?? 0}, SKIP ${counts.SKIP ?? 0}`;
   if (a.status !== 0) {
