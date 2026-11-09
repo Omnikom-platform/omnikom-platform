@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { inviteMember, removeMember } from '../api';
 import { useTeam, useTeamList } from '../data';
@@ -20,6 +20,7 @@ export function SettingsPeople({ workspace, business, me }: { workspace: string;
   const list = useTeamList(workspace, true);
   const profiles = useTeam(workspace);
   const qc = useQueryClient();
+  const roleId = useId(), teamId = useId();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'member' | 'owner'>('member');
   const [teamRow, setTeamRow] = useState('');
@@ -92,20 +93,20 @@ export function SettingsPeople({ workspace, business, me }: { workspace: string;
           Email
           <input type="email" name="invite-email" autoComplete="off" maxLength={254} value={email} onChange={e => setEmail(e.target.value)} />
         </label>
-        <label>
-          Role
-          <select name="invite-role" value={role} onChange={e => setRole(e.target.value === 'owner' ? 'owner' : 'member')}>
+        <div className={css.field}>
+          <label htmlFor={roleId}>Role</label>
+          <select id={roleId} name="invite-role" value={role} onChange={e => setRole(e.target.value === 'owner' ? 'owner' : 'member')}>
             <option value="member">Member</option>
             <option value="owner">Owner</option>
           </select>
-        </label>
-        <label>
-          Team profile
-          <select name="invite-team" value={teamRow} onChange={e => setTeamRow(e.target.value)}>
+        </div>
+        <div className={css.field}>
+          <label htmlFor={teamId}>Team profile</label>
+          <select id={teamId} name="invite-team" value={teamRow} onChange={e => setTeamRow(e.target.value)}>
             <option value="">Optional</option>
             {[...(profiles.data?.names ?? new Map<string, string>()).entries()].map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>
-        </label>
+        </div>
         <button type="submit" disabled={busy} className={css.save}>{busy ? t('DP-1.2s-10', 'Sending') : 'Send invite'}</button>
         {error && <p role="alert" data-plan="DP-1.6-15">{error}</p>}
         {result && <p role="status" data-plan="DP-1.6-14">{result}</p>}

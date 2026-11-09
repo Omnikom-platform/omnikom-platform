@@ -40,7 +40,9 @@
   gap: var(--s-3);
 }
 
-.form label {
+/* a select's label sits beside it (htmlFor), never around it (labels.test.ts): the field keeps the label's column layout */
+.form label,
+.field {
   display: flex;
   flex-direction: column;
   gap: var(--s-1);
