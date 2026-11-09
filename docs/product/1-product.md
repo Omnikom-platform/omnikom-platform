@@ -139,7 +139,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | E7 Dashboard hardening: CSP and security headers, error boundary, cache rules, realtime only where shown | MISSING | no `public/_headers`, no error component (H1-5, KNOWN-5) |
 | E8 Safe live publish: smoke on the deployment by content hash, automatic rollback | PARTLY | a title smoke after going live (H1-6) |
 | E9 Least-privilege secrets: minimal build environment, dispatch token scope, two-key rotation, per-project tokens | PARTLY | every runner step gets an allow-listed environment (H0-3, work order 14) (H0-5, H2-5, H2-11) |
-| E10 Media bucket limits on size and type | MISSING | the bucket enforces 25 MB and the five types on every upload, signed URLs included; no direct insert by a signed-in user (H0-4, work order 16, migration 21) |
+| E10 Media bucket limits on size and type | WORKS | the bucket enforces 25 MB and the five types of upload-start on every upload, signed URLs included, and no signed-in user inserts into Storage directly (H0-4, work order 16, migration 21, walls T10 and T30); staging 2026-11-09 (e2e-media-limits): 26214401 bytes refused 413, text/html refused 415, a small png accepted, a direct insert refused 403 |
 | E11 Staff access audited; production session and refresh settings | PARTLY | MFA enforced and writes audited; reads not (H1-7) |
 | E12 Data retention and partitioning for growing tables | MISSING | `11-rules.md` 12 asks for it; no table has one (H2-1) |
 | E13 Large-tenant performance: lead list side table and keyset paging, RLS helper cost, publish and export at size | PARTLY | measured at 20,000 leads (KNOWN-3, H2-2, H2-3, H2-4) |
@@ -159,8 +159,8 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B Dashboard | 10 | 6 | 5 | 21 |
 | C Backend and database | 12 | 4 | 1 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
-| E Hardening | 2 | 13 | 6 | 21 |
-| Total | 52 | 26 | 17 | 95 |
+| E Hardening | 3 | 13 | 5 | 21 |
+| Total | 53 | 26 | 16 | 95 |
 
 Completion is reported from these counts only.
 

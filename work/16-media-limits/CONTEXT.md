@@ -101,3 +101,9 @@ type is missing (application/pdf)", "caught media limits: the insert policy is k
 SUCCEEDED", "OK: real migration passes; 4 mutants". The retargeted old mutant (`--only "storage folder"`): "caught storage folder
 must be a visible workspace ERROR: B reads only its own folder's object". Still NOT RUN: CI, staging (migration 21 and the first
 `e2e-media-limits.mjs`).
+
+Staging (head, 2026-11-09 23:43, CI 9 of 9 on 7062e1d, run 42695340394): `apply-staging.mjs` "OK: applied 1 of 21 (20 were
+already applied)"; `e2e-media-limits.mjs`: "PUT 26214401 bytes: 400 {"statusCode":"413",...,"code":"EntityTooLarge"}", "PUT
+text/html: 400 {"statusCode":"415","error":"invalid_mime_type",...}", "a PUT of a real small png to the signed URL is accepted
+(2xx)", "direct POST: 400 {"statusCode":"403",...,"new row violates row-level security policy"}", "PASS: staging media limits, 0
+problem(s)". (The cleanup's three 404 lines are the objects that were refused, so they never existed.) E10 to WORKS, H0-4 done.
