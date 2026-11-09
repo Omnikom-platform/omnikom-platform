@@ -134,7 +134,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | E2 Production made from staging by script (dashboard, secrets, Auth settings, runner) | MISSING | `promote.yml` covers migrations and functions only (H1-2) |
 | E3 Monitoring: alerts delivered, error reporting, a request id per call | PARTLY | alerts computed hourly on staging, delivered nowhere (H1-3) |
 | E4 Background jobs: the stale-job reaper scheduled, a mail outbox worker, retries | PARTLY | the reaper runs every 5 minutes on staging (H0-1, work order 13); no outbox (H1-4) |
-| E5 Abuse protection: per-visitor limits and a bot check at the edge; bounded security events | MISSING | security events are bucketed per source and minute, at most 11 new rows a minute per kind from anonymous callers (H0-2, work order 15); no edge limits or bot check (KNOWN-1) |
+| E5 Abuse protection: per-visitor limits and a bot check at the edge; bounded security events | PARTLY | security events are bucketed per source, function and minute, at most 11 new rows a minute per kind from anonymous callers (H0-2, work order 15, migration 20, walls T26a-e); staging 2026-11-09: 25 bad-signature posts to capture-lead on one fresh site wrote 2 security_events rows (2 minute buckets, n 14 and 11), where the same flood wrote 25 before; no edge limits or bot check (KNOWN-1) |
 | E6 Pooled database connections for every function | MISSING | a direct connection per call (KNOWN-2) |
 | E7 Dashboard hardening: CSP and security headers, error boundary, cache rules, realtime only where shown | MISSING | no `public/_headers`, no error component (H1-5, KNOWN-5) |
 | E8 Safe live publish: smoke on the deployment by content hash, automatic rollback | PARTLY | a title smoke after going live (H1-6) |
@@ -159,8 +159,8 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B Dashboard | 10 | 6 | 5 | 21 |
 | C Backend and database | 12 | 4 | 1 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
-| E Hardening | 2 | 12 | 7 | 21 |
-| Total | 52 | 25 | 18 | 95 |
+| E Hardening | 2 | 13 | 6 | 21 |
+| Total | 52 | 26 | 17 | 95 |
 
 Completion is reported from these counts only.
 

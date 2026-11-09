@@ -86,6 +86,17 @@ recordEvent, `_shared/runner.ts`) is bounded without a change to any function.
 - The watched-red lines of step 4.
 - The staging read-back of step 5 (the head).
 
+Filled by the head, 2026-11-09:
+- Builder (addendum 1): run-local "PASS real migration: ALL TENANCY TESTS PASSED", "OK: real migration passes; 6 mutants" (6 of 6
+  "security buckets" caught, T26e new); Deno "OK: 157 of 157 checks passed"; CLI unit "OK: 666 of 666", CLI db "OK: 179 of 179".
+- CI 9 of 9 on c6c6a1f (run 42638812183); the first tip d94e038 was red (42598329474: the readers counted rows).
+- Staging before migration 20 (12:15): 25 bad-signature posts to capture-lead on one fresh site, "security_events rows for the
+  site: 25 (new)", then "relation "public.security_event_counts" does not exist". After `apply-staging.mjs` ("apply
+  20261109000020_security_event_buckets.sql" / "OK: applied 1 of 18"): "25 POSTs answered {"401":25}", "security_events rows for
+  the site: 2 (new)", buckets "bad-signature | SIGNATURE | 14" and "bad-signature | SIGNATURE | 11" (the flood crossed a minute).
+- NOT RUN on staging: `run-staging.mjs` (the walls) refuses by design, "staging already holds 9 test fixture row(s): clean them
+  first" (the shared test accounts and sites the flows use); the walls are CI's gates job and the builder's run-local.
+
 ## Findings
 Send to the head; never fix here.
 - verify.mjs (CLI's file) changed by work order 15 with the CLI head's OK (2026-11-09 12:26): line 43 `events(kind)` reads sum(n) of security_event_counts, and the comment at :10-12 says what is counted.
