@@ -773,20 +773,20 @@ when the head of operations has released its slice.
   staging: look before the rerun). Lands after platform's 10 (fca018e, not on master at 21:58). Then: J14 for 10 seo-read, then
   `tools ensure --only osv-scanner`. Week usage 92% at 21:58: stop at 95% and tell the head of operations.
 
-## HANDOVER 2026-11-09 22:05 (HEAD_CLI-and-testing_2026-11-09, Opus 5.5, week at 92%; to the next CLI head; report to HEAD-OF-OPERATIONS_Omnikom_Platform)
+## HANDOVER 2026-11-09 23:00 (HEAD_CLI-and-testing_2026-11-09, Opus 5.5, week at 79%; to the next CLI head; report to HEAD-OF-OPERATIONS_Omnikom_Platform). Paused by the head of operations after this.
 
-In order:
-1. FIRST: check staging for a synthetic member left by an e2e-settings run that may have been killed (J1,J13 staging run stopped by
-   Claude Code for low memory at about 21:55, no output kept). Look at workspace A's members and auth.users for a login this script
-   makes (`supabase/tests/e2e-settings.mjs`, the madeLogin path in its finally) that is not one of the named test people; remove it
-   only if it is that script's synthetic login. Read keys by variable name only.
-2. Run `node tools/with-env.mjs "<code/main>/creds and accounts login/omnikom.env" -- node tools/omnikom-cli/omnikom.mjs test journey
-   --target staging --only J1,J13` from the worktree `departments/cli-and-testing/builders/journey-settings` (branch
-   check/cli/journey-settings, its apps/dashboard/node_modules is a junction to code/main's: remove it with `cmd /c rmdir` before
-   removing the worktree). Ask HEAD_Platform-build for the staging window first (:450 writes owner-a's alert addresses and puts them
-   back). Paste the J13 line.
-3. Read the CI run on the branch tip (the cli job: "[journey-settings]" mutants all caught, unit count); rebase on master (take
-   master's icm/INDEX.md and icm/index.json, regenerate), push, land with `omnikom land check/cli/journey-settings`, one at a time,
-   after the head of operations' chain (platform 10, SEO 28 and 29). Then tell HEAD_SEO-and-audits that J13 is in.
-4. Next: J14 for 10 seo-read; `tools ensure --only osv-scanner` end to end (UNPROVEN); the work order 20 follow-up (the "retry helper
-   never retries" mutant is caught only by a crash, not a named check).
+State: J13 (settings, platform 08) is READY TO LAND and NOT LANDED, branch check/cli/journey-settings, worktree
+`departments/cli-and-testing/builders/journey-settings` (its apps/dashboard/node_modules is a junction to code/main's: `cmd /c rmdir`
+it before removing the worktree). Builder stopped. Proven on code 2912186:
+- staging 2026-11-09 22:12 (window from platform): "J1 PASS", "J13 PASS ... e2e-settings passed (21 checks); SKIP the invite test
+  (flows.spec.ts): invite mail (C13) UNPROVEN: SETTINGS_INVITE_EMAIL not set", "journey (staging): 2 PASS, 0 NOT BUILT YET, 0 FAIL".
+- the leftover check (read-only, auth.users where email like 'e2e-settings-%@omnikom.test'): 0 rows before the run and 0 after.
+- CI run 42688877100 on 7a4e419, 9 of 9 success: CLI "OK: 905 of 905", "549 mutants, 549 caught, 0 survived, 0 target text missing";
+  every [journey-settings] mutant caught, and "walls re-run: the security_event_counts are not emptied" caught (db).
+Steps, in order:
+1. Wait until the head of operations says its land chain (platform 10, SEO 28 and 29, Clients, its state file) is done.
+2. Rebase on master (take master's icm/INDEX.md and icm/index.json, then `node tools/icm/index.mjs` and `--check`), gitleaks, push,
+   `omnikom land check/cli/journey-settings` (it waits for CI on the new tip without the lock). Then tell HEAD_SEO-and-audits that J13 is
+   in, and the head of operations.
+3. Nothing new until the head of operations resumes us. Then: J14 for 10 seo-read; `tools ensure --only osv-scanner` end to end
+   (UNPROVEN); the work order 20 follow-up (the "retry helper never retries" mutant is caught only by a crash, not a named check).
