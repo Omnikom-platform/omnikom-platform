@@ -1,6 +1,6 @@
 # 13 reaper
 
-Owner: platform build. Model: Sonnet (high). Branch: check/platform/reaper. Status: staging PROVEN 2026-11-09 (64dafd9, CI 42555739334 9/9): migration 19 applied; `cron.job` "1 | reap-stale-jobs | */5 * * * * | select service.reap_stale_jobs() | t"; `cron.job_run_details` "succeeded | 2026-11-09 04:15:00 UTC | 1 row"; the 5 stale queued jobs on staging went to failed (none left open). DONE at the land.
+Owner: platform build. Model: Sonnet (high). Branch: check/platform/reaper. Status: staging PROVEN 2026-11-09 (64dafd9, CI 42555739334 9/9): migration 19 applied; `cron.job` "1 | reap-stale-jobs | */5 * * * * | select service.reap_stale_jobs() | t"; `cron.job_run_details` "succeeded | 2026-11-09 04:15:00 UTC | 1 row"; the 5 stale queued jobs on staging went to failed (none left open). Rebased on ad95891 (code e056cc5); E4 to PARTLY and H0-1 marked done in the land commit. DONE at the land.
 
 ## Why
 Hardening H0-1, `docs/product/1-product.md` part E row E4. The stale-job reaper `service.reap_stale_jobs()` exists

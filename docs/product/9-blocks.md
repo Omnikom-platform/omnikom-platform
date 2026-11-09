@@ -79,7 +79,7 @@ starts its next slice from its lowest open stage. A step lands with its test and
 
 | Step | Stage | The gap, in short | Owner | Row |
 |---|---|---|---|---|
-| H0-1 | H0 | the stale-job reaper is never scheduled; a stuck job blocks every later publish of that site | platform build | E4 |
+| H0-1 | H0 | done, e056cc5: the stale-job reaper is never scheduled; a stuck job blocks every later publish of that site | platform build | E4 |
 | H0-2 | H0 | bad-signature posts add undeletable security_events rows; a flood fills the Free plan's size cap | platform build | E5 |
 | H0-3 | H0 | build and audit run with RUNNER_KEY and the account-wide Pages token in their environment | platform build | E9 |
 | H0-4 | H0 | the media bucket has no size or type limit; direct inserts skip upload-start's caps | platform build | E10 |
