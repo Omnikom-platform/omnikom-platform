@@ -760,3 +760,8 @@ when the head of operations has released its slice.
   osv-scanner` end to end is still UNPROVEN (the machine heavy lock was held by another project all morning). Work order 22, J12:
   staging J1,J12 at 10:50 "2 PASS, 0 NOT BUILT YET, 0 FAIL"; lands now, after platform's 14 (890a33d). Next: work order 23 (land takes
   the lock only after CI is green, the head of operations' finding).
+- 2026-11-09 14:45 J12 landed 91910b6 (run 42600032145: CLI 870 of 870, "519 mutants, 519 caught, 0 survived, 0 target text
+  missing"). Work order 23 built: land waits for CI without the lock, then holds it for seconds (master re-read under it; moved is
+  "master moved to <sha>: rebase onto it and push again"); its own land is the first real run of the new order. Given to platform,
+  with conditions: `commands/verify.mjs` events(kind) becomes sum(n) from security_event_counts in their work order 15 (migration 20
+  buckets events per minute); they watch "each refused signature is recorded once" red.

@@ -527,6 +527,7 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
     const isoOf = secs => new Date(secs * 1000).toISOString();
     const lockSha = sc => { const r = spawnSync('git', ['rev-parse', '--verify', '--quiet', 'refs/heads/land-lock'], { cwd: sc.bare, encoding: 'utf8', timeout: 60000, env: cleanEnv }); return r.status === 0 ? r.stdout.trim() : ''; };
     const masterPushes = calls => calls.filter(a => a[0] === 'push' && a.some(x => /:refs\/heads\/master$/.test(x)));
+    const lockPushes = calls => calls.filter(a => a[0] === 'push' && !a.some(x => x.startsWith('--force')) && a.some(x => /:refs\/heads\/land-lock$/.test(x)));   // taking the lock (the release is a --force-with-lease delete)
     const gitIn = (cwd, input, extra, ...args) => { const r = spawnSync('git', args, { cwd, input, encoding: 'utf8', timeout: 120000, env: { ...cleanEnv, ...extra } }); if (r.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${r.stderr}`); return r.stdout.trim(); };
     // a lock somebody else took ageMin minutes before T0: a root commit on the empty tree, dated then, as land makes it
     const plantLock = (sc, ageMin, { branch = 'check/cli-and-testing/old', who = 'platform-build (zed@ZED-PC)', sha = 'e'.repeat(40) } = {}) => {
@@ -537,11 +538,13 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       git(sc.bare, 'update-ref', 'refs/heads/land-lock', c);
       return c;
     };
-    const lrun = async (sc, args, state, { onSleep } = {}) => {
+    // onGit(call, calls) sees every git call BEFORE it runs, synchronously (land work order 23: a test can change the remote at an exact step)
+    // onGh() runs on every gh call (before it answers): a test can look at the remote while GitHub is being asked
+    const lrun = async (sc, args, state, { onSleep, onGit, onGh } = {}) => {
       const calls = [], sleeps = [];
       const st = { v: state };
-      const gh = makeFakeGh(() => st.v);
-      const r = await cli(['land', ...args, '--json'], {}, { repo: sc.L, ghRepo: 'o/r', gh, gitSpy: a => calls.push(a), now: () => T0, sleep: async ms => { sleeps.push(ms); if (onSleep) await onSleep(sleeps.length, st); } });
+      const gh = makeFakeGh(() => { if (onGh) onGh(); return st.v; });
+      const r = await cli(['land', ...args, '--json'], {}, { repo: sc.L, ghRepo: 'o/r', gh, gitSpy: a => { calls.push(a); if (onGit) onGit(a, calls); }, now: () => T0, sleep: async ms => { sleeps.push(ms); if (onSleep) await onSleep(sleeps.length, st); } });
       return { ...r, calls, sleeps, gh, st, d: r.json && r.json.data, text: r.json && r.json.data ? r.json.data.lines.join('\n') : r.all };
     };
     const landRuns = (sha, over = {}) => ({ runs: [runRow(sha)], jobs: { 1: jobRows(LNAMES, over) } });
@@ -576,7 +579,9 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       const s1 = sc.branchAt(LB, sc.base, 'red');
       const r = await lrun(sc, [LB], landRuns(s1, { 'job two': 'failure' }));
       check('land: a red job is refused (exit 1, LAND-REFUSED) with the verdict line, and NOTHING is pushed (the remote master is unchanged)',
-        r.exit === 1 && r.json.code === 'LAND-REFUSED' && r.text.includes(`${LRUN}  job two  failure`) && sc.remoteMasterOf() === sc.base && masterPushes(r.calls).length === 0 && r.d.pushed === false && lockSha(sc) === '' && r.text.endsWith('land: lock released'), r.text + r.all.slice(0, 200));
+        r.exit === 1 && r.json.code === 'LAND-REFUSED' && r.text.includes(`${LRUN}  job two  failure`) && sc.remoteMasterOf() === sc.base && masterPushes(r.calls).length === 0 && r.d.pushed === false && lockSha(sc) === '', r.text + r.all.slice(0, 200));
+      check('land lock after ci (work order 23): a red ci takes NO lock at all: no push to the lock ref, no "took the land lock", no release line, and the output ends with the REFUSED line',
+        lockPushes(r.calls).length === 0 && r.calls.every(a => !a.some(x => x.startsWith('--force-with-lease'))) && !r.text.includes('took the land lock') && !r.text.includes('lock released') && r.text.split('\n').pop() === `land: REFUSED ${LB}: ci is red on ${s1}; master is not touched`, r.text);
     }
     {
       const sc = scenario();
@@ -589,8 +594,15 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       const before = snap();
       const hadObject = spawnSync('git', ['cat-file', '-e', `${s2}^{commit}`], { cwd: sc.L, env: cleanEnv, timeout: 60000 }).status === 0;
       const pend = { runs: [runRow(s2, { status: 'in_progress', conclusion: null })], jobs: {} };
-      const r = await lrun(sc, [LB], pend, { onSleep: (k, st) => { if (k === 2) st.v = landRuns(s2); } });
+      const lockAtGh = [], lockAtSleep = [], lockAtPush = [];             // is the lock on the remote when GitHub is asked, when land sleeps, and at the master push?
+      const r = await lrun(sc, [LB], pend, { onSleep: (k, st) => { lockAtSleep.push(lockSha(sc) !== ''); if (k === 2) st.v = landRuns(s2); },
+        onGh: () => lockAtGh.push(lockSha(sc) !== ''), onGit: a => { if (a[0] === 'push' && a.some(x => /:refs\/heads\/master$/.test(x))) lockAtPush.push(lockSha(sc) !== ''); } });
       const pushes = masterPushes(r.calls);
+      check('land lock after ci (work order 23): while the ci is pending the lock is NOT on the remote: no gh call (3 polls) and none of the 2 sleeps saw it (it is free for every other department)',
+        lockAtGh.length >= 3 && lockAtGh.every(x => x === false) && lockAtSleep.length === 2 && lockAtSleep.every(x => x === false) && r.exit === 0, `${lockAtGh} ${lockAtSleep} ${r.text}`);
+      check('land lock after ci (work order 23): the green path holds the lock only around the push: it is taken after the "ci green" line, is on the remote at the master push (and nowhere before), and is released after "master is <sha>"',
+        lockAtPush.length === 1 && lockAtPush[0] === true && lockPushes(r.calls).length === 1 && r.text.indexOf('land: ci green') < r.text.indexOf('land: took the land lock') && r.text.indexOf('land: took the land lock') < r.text.indexOf(`land: master is ${s2}`) && r.text.indexOf(`land: master is ${s2}`) < r.text.indexOf('land: lock released')
+        && r.calls.findIndex(a => lockPushes([a]).length) > r.calls.findIndex(a => a[0] === 'fetch' && a[2] === 'master') && r.calls.findIndex(a => lockPushes([a]).length) < r.calls.findIndex(a => masterPushes([a]).length), `${lockAtPush} ${r.text}`);
       check('land: pending then green (a fake sleep, no real waiting): it polls every 30 s, prints one progress line per change of state, pushes the commit to master and says so (exit 0)',
         r.exit === 0 && r.sleeps.join(',') === '30000,30000' && r.text.split('\n').filter(l => l.startsWith('land: ci pending')).length === 1 && r.text.split('\n').filter(l => l === 'land: ci green').length === 1
         && r.text.includes(`land: master is ${s2}`) && sc.remoteMasterOf() === s2 && r.d.pushed === true && lockSha(sc) === '' && r.text.split('\n').pop() === 'land: lock released' && r.text.split('\n').indexOf('land: lock released') > r.text.split('\n').findIndex(l => l.startsWith('land: master is ')), r.text + r.all.slice(0, 300));
@@ -605,13 +617,13 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       const s3 = sc.branchAt(LB, sc.base, 'nobody ran ci');
       const r = await lrun(sc, [LB], { runs: [] });
       check('land: no ci run for more than 5 minutes is Blocked (exit 3): "no ci run for <sha>; was it pushed?" after 11 polls, nothing pushed',
-        r.exit === 3 && r.sleeps.length === 11 && r.json.error === `no ci run for ${s3}; was it pushed?` && sc.remoteMasterOf() === sc.base && lockSha(sc) === '', `${r.sleeps.length} ${r.all.slice(0, 300)}`);
+        r.exit === 3 && r.sleeps.length === 11 && r.json.error === `no ci run for ${s3}; was it pushed?` && sc.remoteMasterOf() === sc.base && lockSha(sc) === '' && lockPushes(r.calls).length === 0, `${r.sleeps.length} ${r.all.slice(0, 300)}`);
     }
     {
       const sc = scenario();
       const s = sc.branchAt(LB, sc.base, 'slow ci');
       const r2 = await lrun(sc, [LB, '--wait-minutes', '1'], { runs: [runRow(s, { status: 'in_progress', conclusion: null })], jobs: {} });
-      check('land: still pending after --wait-minutes is Blocked (exit 3) naming the run url, nothing pushed', r2.exit === 3 && r2.sleeps.length === 2 && r2.json.error.includes(LRUN) && /still pending after 1 minutes/.test(r2.json.error) && sc.remoteMasterOf() === sc.base && lockSha(sc) === '', r2.all.slice(0, 300));
+      check('land: still pending after --wait-minutes is Blocked (exit 3) naming the run url, nothing pushed', r2.exit === 3 && r2.sleeps.length === 2 && r2.json.error.includes(LRUN) && /still pending after 1 minutes/.test(r2.json.error) && sc.remoteMasterOf() === sc.base && lockSha(sc) === '' && lockPushes(r2.calls).length === 0, r2.all.slice(0, 300));
     }
     {
       const sc = scenario();
@@ -620,7 +632,7 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       const m2 = commitFile(sc.Pu, 'marker.txt', 'master moved on', 'master on');
       git(sc.Pu, 'push', '-q', 'backup-gh', 'master');
       const r = await lrun(sc, [LB], landRuns(old));
-      check('land: a commit already in master (an ancestor of it) pushes nothing and says so (exit 0), without waiting for ci: right after the lock, GitHub is asked nothing', r.exit === 0 && r.text.includes(`land: ${old} is already in master`) && masterPushes(r.calls).length === 0 && sc.remoteMasterOf() === m2 && r.d.pushed === false && lockSha(sc) === '' && r.gh.calls.length === 0 && r.sleeps.length === 0, r.text);
+      check('land: a commit already in master (an ancestor of it) pushes nothing and says so (exit 0), without waiting for ci and without a lock: GitHub is asked nothing', r.exit === 0 && r.text.includes(`land: ${old} is already in master`) && masterPushes(r.calls).length === 0 && sc.remoteMasterOf() === m2 && r.d.pushed === false && lockSha(sc) === '' && lockPushes(r.calls).length === 0 && r.gh.calls.length === 0 && r.sleeps.length === 0, r.text);
       check('land: ... and the local master of this checkout (clean, behind) is moved to that commit', r.text.includes(`land: the local master of this checkout moved ${sc.base}..${old}`) && git(sc.L, 'rev-parse', 'master') === old && r.d.localMaster === 'moved', r.text);
       const sc2 = scenario();
       const eq = sc2.branchAt(LB, sc2.base, 'equal');
@@ -635,18 +647,21 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       const m3 = commitFile(sc.Pu, 'other.txt', 'master moved on', 'master on');
       git(sc.Pu, 'push', '-q', 'backup-gh', 'master');
       const r = await lrun(sc, [LB], landRuns(s4));
-      check('land (early fast-forward check): master that is not an ancestor of the commit is refused right after the lock ("not a fast-forward: rebase onto master <short> and push it again"), BEFORE the ci wait: GitHub is asked nothing, nothing is pushed, rebased or merged, the lock is released',
-        r.exit === 1 && r.json.code === 'LAND-REFUSED' && r.text.includes(`not a fast-forward: rebase onto master ${m3.slice(0, 7)} and push it again`) && r.gh.calls.length === 0 && r.sleeps.length === 0 && masterPushes(r.calls).length === 0 && !r.calls.some(a => a[0] === 'rebase' || a[0] === 'merge') && sc.remoteMasterOf() === m3 && lockSha(sc) === '' && r.text.endsWith('land: lock released'), r.text);
+      check('land (early fast-forward check): master that is not an ancestor of the commit is refused before the ci wait ("not a fast-forward: rebase onto master <short> and push it again"): GitHub is asked nothing, no lock is taken, nothing is pushed, rebased or merged',
+        r.exit === 1 && r.json.code === 'LAND-REFUSED' && r.text.includes(`not a fast-forward: rebase onto master ${m3.slice(0, 7)} and push it again`) && r.gh.calls.length === 0 && r.sleeps.length === 0 && masterPushes(r.calls).length === 0 && !r.calls.some(a => a[0] === 'rebase' || a[0] === 'merge') && sc.remoteMasterOf() === m3 && lockSha(sc) === '' && lockPushes(r.calls).length === 0 && !r.text.includes('lock'), r.text);
     }
     {
-      // master can still move during the ci wait: the post-ci check stays
+      // master can still move during the ci wait, now that the wait holds no lock: the check under the lock
       const sc = scenario();
       const s5 = sc.branchAt(LB, sc.base, 'cut from master, which then moves');
       let m5 = '';
       const r = await lrun(sc, [LB], { runs: [runRow(s5, { status: 'in_progress', conclusion: null })], jobs: {} },
         { onSleep: (k, st) => { if (k === 1) { git(sc.Pu, 'checkout', '-q', '-B', 'master', sc.base); m5 = commitFile(sc.Pu, 'other.txt', 'moved during the wait', 'master on'); git(sc.Pu, 'push', '-q', 'backup-gh', 'master'); st.v = landRuns(s5); } } });
-      check('land (post-ci fast-forward check): master that moved DURING the ci wait is refused as not a fast-forward ("rebase <branch> onto master and push it again"), nothing is pushed, the lock is released',
-        r.exit === 1 && r.json.code === 'LAND-REFUSED' && r.text.includes(`not a fast-forward: rebase ${LB} onto master and push it again`) && r.gh.calls.length > 0 && masterPushes(r.calls).length === 0 && sc.remoteMasterOf() === m5 && m5 !== '' && lockSha(sc) === '' && r.text.endsWith('land: lock released'), r.text);
+      const lockAt = r.calls.findIndex(a => lockPushes([a]).length), relAt = r.calls.findIndex(a => a.some(x => x.startsWith('--force-with-lease')));
+      check('land lock after ci (work order 23): master that moved during the ci wait, found after green under the lock, is refused with "master moved to <sha>: rebase onto it and push again" (LAND-REFUSED), nothing is pushed, and the lock is released at once: taken once, no sleep after it, released last',
+        r.exit === 1 && r.json.code === 'LAND-REFUSED' && r.text.includes(`land: REFUSED ${LB}: master moved to ${m5}: rebase onto it and push again`) && m5 !== '' && r.gh.calls.length > 0 && masterPushes(r.calls).length === 0 && sc.remoteMasterOf() === m5 && lockSha(sc) === ''
+        && lockPushes(r.calls).length === 1 && lockAt > -1 && relAt > lockAt && r.calls.slice(lockAt + 1, relAt).every(a => a[0] !== 'push') && r.sleeps.length === 1 && r.text.endsWith('land: lock released')
+        && r.text.indexOf('land: ci green') < r.text.indexOf('land: took the land lock'), r.text);
     }
     {
       // ... and the same commit can reach master by another hand during the wait: the post-ci "already in master" path pushes nothing
@@ -661,7 +676,7 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       const sc = scenario();
       sc.branchAt(LB, sc.base, 'gh down');
       const r = await lrun(sc, [LB], { fail: 'gh: not logged in' });
-      check('land: gh failing is Blocked (exit 3) with the cause and nothing is pushed (fail closed)', r.exit === 3 && /not logged in/.test(r.json.error) && sc.remoteMasterOf() === sc.base && masterPushes(r.calls).length === 0 && lockSha(sc) === '', r.all.slice(0, 300));
+      check('land: gh failing is Blocked (exit 3) with the cause and nothing is pushed (fail closed)', r.exit === 3 && /not logged in/.test(r.json.error) && sc.remoteMasterOf() === sc.base && masterPushes(r.calls).length === 0 && lockSha(sc) === '' && lockPushes(r.calls).length === 0, r.all.slice(0, 300));
     }
 
     // ============================================================================ land: the local master of this checkout (brief small-cli-fixes, part a)
@@ -830,12 +845,12 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       {
         // the limit: still held after --lock-wait-minutes -> LAND-LOCKED, naming how long it waited
         const sc = scenario();
-        sc.branchAt(LB, sc.base, 'never free');
+        const sNever = sc.branchAt(LB, sc.base, 'never free');
         const kept = plantLock(sc, 5);
-        const r = await lrun(sc, [LB, '--lock-wait-minutes', '1'], { runs: [] });
-        check('land lock wait: still held after --lock-wait-minutes 1 is LAND-LOCKED (exit 1) after exactly 2 polls, the line names how long it waited, the holder is printed once, nothing is asked of GitHub or pushed, the other lock is untouched',
-          r.exit === 1 && r.json.code === 'LAND-LOCKED' && r.sleeps.join(',') === '30000,30000' && holderLines(r.text).length === 1 && /land: waited 1 minutes for the land lock; it is still held/.test(r.text) && r.gh.calls.length === 0 && masterPushes(r.calls).length === 0 && lockSha(sc) === kept, `${r.sleeps} ${r.text}`);
-        const r0 = await lrun(sc, [LB, '--lock-wait-minutes', '0'], { runs: [] });
+        const r = await lrun(sc, [LB, '--lock-wait-minutes', '1'], landRuns(sNever));
+        check('land lock wait: still held after --lock-wait-minutes 1 is LAND-LOCKED (exit 1) after exactly 2 polls (the ci was green first, the lock comes after it), the line names how long it waited, the holder is printed once, nothing is pushed, the other lock is untouched',
+          r.exit === 1 && r.json.code === 'LAND-LOCKED' && r.sleeps.join(',') === '30000,30000' && holderLines(r.text).length === 1 && /land: waited 1 minutes for the land lock; it is still held/.test(r.text) && r.text.includes('land: ci green') && masterPushes(r.calls).length === 0 && lockSha(sc) === kept, `${r.sleeps} ${r.text}`);
+        const r0 = await lrun(sc, [LB, '--lock-wait-minutes', '0'], landRuns(sNever));
         check('land lock wait: --lock-wait-minutes 0 refuses at once as before (no sleep, no "waited" line)', r0.exit === 1 && r0.json.code === 'LAND-LOCKED' && r0.sleeps.length === 0 && !r0.text.includes('waited') && holderLines(r0.text).length === 1 && lockSha(sc) === kept, `${r0.sleeps} ${r0.text}`);
       }
       {
@@ -869,7 +884,8 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
     {
       const { LOCK_BRANCH, LOCK_REF } = await lib('landlock.mjs');
       check('land lock: the lock is refs/heads/<one constant> (lib/landlock.mjs)', LOCK_BRANCH === 'land-lock' && LOCK_REF === `refs/heads/${LOCK_BRANCH}`);
-      // two landers, one bare remote: A waits for ci; while A waits, B (another checkout, another person) tries to land
+      // two landers, one bare remote (work order 23): A waits for ci WITHOUT the lock, so while A waits B (another checkout, another person) takes the
+      // lock, lands and releases it; A's ci then turns green, A takes the lock, reads master under it and finds that it moved
       const sc = scenario();
       const sA = sc.branchAt('check/cli-and-testing/a', sc.base, 'lander a');
       const sB = sc.branchAt('check/cli-and-testing/b', sc.base, 'lander b');
@@ -881,14 +897,17 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       let rb;
       const ra = await lrun(sc, ['check/cli-and-testing/a'], { runs: [runRow(sA, { status: 'in_progress', conclusion: null })], jobs: {} },
         { onSleep: async (k, st) => { if (k === 1) { rb = await lrun(scB, ['check/cli-and-testing/b', '--lock-wait-minutes', '0'], landRuns(sB)); st.v = landRuns(sA); } } });
-      check('land lock: two landers race on one bare remote: exactly one takes the lock (A); the other (B) gets LAND-LOCKED (exit 1) with the holder\'s line, asks GitHub nothing and pushes nothing',
-        ra.exit === 0 && ra.text.includes('land: took the land lock') && rb.exit === 1 && rb.json.code === 'LAND-LOCKED' && !rb.text.includes('took the land lock') && rb.gh.calls.length === 0 && masterPushes(rb.calls).length === 0
-        && new RegExp(`^land: cli-and-testing \\(alice@.+\\) holds the land lock since ${isoOf(T0).replace(/\./g, '\\.')} \\(0 min\\) for check/cli-and-testing/a$`, 'm').test(rb.text), `${ra.text}\n--\n${rb && rb.text}`);
+      check('land lock after ci (work order 23): while A waits for ci the lock is free: B takes it, lands (exit 0, no LAND-LOCKED, no wait for A) and releases it',
+        rb && rb.exit === 0 && rb.text.includes('land: took the land lock') && !rb.text.includes('holds the land lock') && rb.sleeps.length === 0 && masterPushes(rb.calls).length === 1 && rb.d.lockReleased === true && rb.text.split('\n').pop() === 'land: lock released', `${ra.text}\n--\n${rb && rb.text}`);
+      check('land lock after ci (work order 23): A, green after B landed, takes the lock, reads master again and is refused with "master moved to <B\'s sha>: rebase onto it and push again" (LAND-REFUSED, exit 1); nothing of A is pushed to master, the lock is released',
+        ra.exit === 1 && ra.json.code === 'LAND-REFUSED' && ra.text.includes(`land: REFUSED check/cli-and-testing/a: master moved to ${sB}: rebase onto it and push again`) && masterPushes(ra.calls).length === 0 && ra.d.pushed === false && ra.d.lockReleased === true && lockSha(sc) === '' && ra.text.split('\n').pop() === 'land: lock released', ra.text);
       const movedTo = sc.remoteMasterOf();
-      check('land lock: master is moved once (to A\'s commit; B\'s commit is not in it), and the lock is released after the success, last line "land: lock released"',
-        movedTo === sA && spawnSync('git', ['merge-base', '--is-ancestor', sB, movedTo], { cwd: sc.bare, env: cleanEnv, timeout: 60000 }).status !== 0 && masterPushes(ra.calls).length === 1 && lockSha(sc) === '' && ra.text.split('\n').pop() === 'land: lock released' && ra.d.lockReleased === true, ra.text);
-      const lockPush = ra.calls.find(a => a[0] === 'push' && /:refs\/heads\/land-lock$/.test(a[a.length - 1]) && !a[1].startsWith('--'));
-      check('land lock: the lock is a plain git push of a root commit (no --force, no parent) before the ci wait', !!lockPush && lockPush.length === 3 && ra.calls.indexOf(lockPush) < ra.calls.findIndex(a => a[0] === 'fetch' && a[2] === 'master'), JSON.stringify(ra.calls.filter(a => a[0] === 'push')));
+      check('land lock: master is moved once (to B\'s commit; A\'s commit is not in it)',
+        movedTo === sB && spawnSync('git', ['merge-base', '--is-ancestor', sA, movedTo], { cwd: sc.bare, env: cleanEnv, timeout: 60000 }).status !== 0, `${movedTo} ${sB}`);
+      const lockPush = rb.calls.find(a => a[0] === 'push' && /:refs\/heads\/land-lock$/.test(a[a.length - 1]) && !a[1].startsWith('--'));
+      const fetchMasters = rb.calls.map((a, i) => (a[0] === 'fetch' && a[2] === 'master' ? i : -1)).filter(i => i >= 0);
+      check('land lock: the lock is a plain git push of a root commit (no --force, no parent) taken AFTER the first read of master (before the ci wait) and BEFORE the second one (under the lock) and the master push',
+        !!lockPush && lockPush.length === 3 && fetchMasters.length === 2 && fetchMasters[0] < rb.calls.indexOf(lockPush) && rb.calls.indexOf(lockPush) < fetchMasters[1] && fetchMasters[1] < rb.calls.findIndex(a => masterPushes([a]).length), JSON.stringify(rb.calls.filter(a => a[0] === 'push' || a[0] === 'fetch')));
     }
     {
       // the lock after a red verdict, a not-fast-forward refusal and a Blocked is covered in the land tests above (lockSha(sc) === ''); here the stale bound
@@ -905,9 +924,9 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       const s = sc.branchAt(LB, sc.base, 'behind a fresh lock');
       const fresh = plantLock(sc, 89);
       const r = await lrun(sc, [LB, '--lock-wait-minutes', '0'], landRuns(s));
-      check('land lock: a lock dated 89 minutes old is not broken: LAND-LOCKED (exit 1) with "land: <holder> holds the land lock since <time> (89 min) for <branch>", the lock is still there, nothing is deleted, pushed or asked of GitHub',
+      check('land lock: a lock dated 89 minutes old is not broken: LAND-LOCKED (exit 1) with "land: <holder> holds the land lock since <time> (89 min) for <branch>", the lock is still there, nothing is deleted or pushed',
         r.exit === 1 && r.json.code === 'LAND-LOCKED' && r.text.includes(`land: platform-build (zed@ZED-PC) holds the land lock since ${isoOf(T0 - 89 * 60)} (89 min) for check/cli-and-testing/old`) && !r.text.includes('breaking')
-        && lockSha(sc) === fresh && !r.calls.some(a => a[0] === 'push' && a.some(x => x.startsWith('--force'))) && masterPushes(r.calls).length === 0 && r.gh.calls.length === 0 && sc.remoteMasterOf() === sc.base, r.text);
+        && lockSha(sc) === fresh && !r.calls.some(a => a[0] === 'push' && a.some(x => x.startsWith('--force'))) && masterPushes(r.calls).length === 0 && sc.remoteMasterOf() === sc.base, r.text);
       const sc2 = scenario();
       sc2.branchAt(LB, sc2.base, 'exactly ninety');
       const ninety = plantLock(sc2, 90);
@@ -915,15 +934,16 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       check('land lock: a lock exactly 90 minutes old is not "more than 90": not broken', r90.exit === 1 && r90.json.code === 'LAND-LOCKED' && lockSha(sc2) === ninety, r90.text);
     }
     {
-      // a release never deletes a lock that is not ours: while A waits, its lock is replaced by somebody else's
+      // a release never deletes a lock that is not ours: our lock is replaced by somebody else's at the moment of the master push (the lock is held
+      // for that push only, work order 23, so the push is where a break-and-retake would land)
       const sc = scenario();
       const s = sc.branchAt(LB, sc.base, 'lock replaced');
       let foreign = '';
-      const r = await lrun(sc, [LB], { runs: [runRow(s, { status: 'in_progress', conclusion: null })], jobs: {} },
-        { onSleep: (k, st) => { if (k === 1) { foreign = plantLock(sc, 1, { branch: 'check/platform-build/theirs', who: 'platform-build (carol@CAROL-PC)' }); st.v = landRuns(s); } } });
-      check('land lock: a release never deletes a lock that is not ours: the lock was replaced during the wait, the land still succeeds (exit 0), the foreign lock is still on the remote, and the output warns with the manual command',
+      const r = await lrun(sc, [LB], landRuns(s),
+        { onGit: a => { if (!foreign && masterPushes([a]).length) { git(sc.bare, 'update-ref', '-d', 'refs/heads/land-lock'); foreign = plantLock(sc, 1, { branch: 'check/platform-build/theirs', who: 'platform-build (carol@CAROL-PC)' }); } } });
+      check('land lock: a release never deletes a lock that is not ours: the lock was replaced under the master push, the land still succeeds (exit 0), the foreign lock is still on the remote, and the output warns with the manual command',
         r.exit === 0 && sc.remoteMasterOf() === s && lockSha(sc) === foreign && foreign !== '' && r.d.lockReleased === false && /land: WARNING the land lock was not released/.test(r.text) && r.text.includes('git push --force-with-lease=refs/heads/land-lock:') && !r.text.includes('land: lock released')
-        && r.sleeps.length === 1 && r.calls.filter(a => a.some(x => x.startsWith('--force-with-lease'))).length === 1 && !/after \d+ tries/.test(r.text), r.text);
+        && r.sleeps.length === 0 && r.calls.filter(a => a.some(x => x.startsWith('--force-with-lease'))).length === 1 && !/after \d+ tries/.test(r.text), r.text);
     }
     {
       // part (e): a lock delete that fails on the NETWORK is tried again (10 s, then 30 s through ctx.sleep); the bare remote's pre-receive hook
@@ -961,10 +981,17 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       }
       {
         const sc = scenario();
+        // work order 23: a Blocked in the ci wait holds no lock any more, so the Blocked that must release one is a read of master UNDER the lock:
+        // the first land-lock push (receive-pack) works, then upload-pack is made to refuse for a reason that is not the network
         const s = sc.branchAt(LB, sc.base, 'blocked release retried');
         netHook(sc, 1);
-        const r = await lrun(sc, [LB, '--wait-minutes', '1'], { runs: [runRow(s, { status: 'in_progress', conclusion: null })], jobs: {} });
-        check('land release (e): the release after a Blocked (ci still pending) is retried the same way and the lock is gone', r.exit === 3 && leaseDeletes(r.calls).length === 2 && lockSha(sc) === '' && r.sleeps.slice(-1).join() === '10000', `${r.sleeps} ${r.all.slice(0, 300)}`);
+        const failDir = join(work, `fu${++n}`);
+        mkdirSync(failDir);
+        const failScript = join(failDir, 'fail.sh');
+        writeFileSync(failScript, ['#!/bin/sh', 'echo "fatal: repository not found" >&2', 'exit 1', ''].join('\n'), { mode: 0o755 });
+        const r = await lrun(sc, [LB], landRuns(s), { onGit: a => { if (lockPushes([a]).length) git(sc.L, 'config', 'remote.backup-gh.uploadpack', `sh ${failScript.replace(/\\/g, '/')}`); } });
+        check('land release (e): the release after a Blocked under the lock (the second read of master refused) is retried the same way and the lock is gone',
+          r.exit === 3 && /could not fetch master from backup-gh/.test(r.json.error) && lockPushes(r.calls).length === 1 && leaseDeletes(r.calls).length === 2 && lockSha(sc) === '' && r.sleeps.join() === '10000' && masterPushes(r.calls).length === 0, `${r.sleeps} ${r.all.slice(0, 300)}`);
       }
       const { looksLikeNetworkFailure } = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'land.mjs')).href);
       check('land release (e): the classifier: connect, TLS, timeout, 443, HTTP 408 and "unable to access" are network failures; a lease refusal (stale info, [rejected]) and a plain refusal are not, even with a network word in it',
@@ -1079,20 +1106,20 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       {
         // a lock held by another: the push is refused for real, the lock read fails once on the network, so the push is tried again; then the holder is read
         const sc = scenario();
-        sc.branchAt(LB, sc.base, 'lock read retried');
+        const sRead = sc.branchAt(LB, sc.base, 'lock read retried');
         const kept = plantLock(sc, 5);
-        netGate(sc, 'uploadpack', { skip: 2, max: 1 });
-        const r = await lrun(sc, [LB, '--lock-wait-minutes', '0'], { runs: [] });
+        netGate(sc, 'uploadpack', { skip: 4, max: 1 });                    // 0 ls-remote of the branch, 1 its fetch, 2 and 3 the first read of master, 4 the read of the lock
+        const r = await lrun(sc, [LB, '--lock-wait-minutes', '0'], landRuns(sRead));
         const rl = retryLines(r.text);
         check('land retry: the read of the lock fails once on the network: waits 10 s, the retry line says "could not read the land lock", the holder is then read and the land is LAND-LOCKED as without the blip; the other lock is untouched',
-          r.exit === 1 && r.json.code === 'LAND-LOCKED' && r.sleeps.join(',') === '10000' && rl.length === 1 && rl[0].includes('could not read the land lock on backup-gh') && / holds the land lock since /.test(r.text) && lockSha(sc) === kept && r.gh.calls.length === 0, `${r.sleeps} ${r.text}`);
+          r.exit === 1 && r.json.code === 'LAND-LOCKED' && r.sleeps.join(',') === '10000' && rl.length === 1 && rl[0].includes('could not read the land lock on backup-gh') && / holds the land lock since /.test(r.text) && lockSha(sc) === kept && masterPushes(r.calls).length === 0, `${r.sleeps} ${r.text}`);
       }
       {
         // the lock push fails on the network AND the read after it does: the push is tried again and takes the lock
         const sc = scenario();
         const s = sc.branchAt(LB, sc.base, 'lock push retried');
         netGate(sc, 'receivepack', { skip: 0, max: 1 });
-        netGate(sc, 'uploadpack', { skip: 2, max: 1 });
+        netGate(sc, 'uploadpack', { skip: 4, max: 1 });
         const r = await lrun(sc, [LB], landRuns(s));
         const rl = retryLines(r.text);
         check('land retry: the lock push fails on the network and so does the read of the lock after it: waits 10 s, the push is tried again, the lock is taken ("land: took the land lock"), the land goes through and the lock is released',
@@ -1114,15 +1141,15 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
         const sc = scenario();
         sc.branchAt(LB, sc.base, 'ci unknown for good');
         const r = await lrun(sc, [LB], { fail: GHDOWN });
-        check('land retry: gh unreachable for 5 minutes of consecutive polls: Blocked (exit 3) after exactly 10 sleeps of 30 s, the message names the 5 minutes and the last error, nothing is pushed, the lock is released (fail closed: unknown is never green)',
-          r.exit === 3 && r.sleeps.length === 10 && r.sleeps.every(x => x === 30000) && CI_UNKNOWN_LIMIT_MS === 300000 && /stayed unknown for 5 minutes/.test(r.json.error) && r.json.error.includes('no such host') && sc.remoteMasterOf() === sc.base && masterPushes(r.calls).length === 0 && lockSha(sc) === '', `${r.sleeps.length} ${r.all.slice(0, 400)}`);
+        check('land retry: gh unreachable for 5 minutes of consecutive polls: Blocked (exit 3) after exactly 10 sleeps of 30 s, the message names the 5 minutes and the last error, nothing is pushed and NO lock was ever taken (fail closed: unknown is never green)',
+          r.exit === 3 && r.sleeps.length === 10 && r.sleeps.every(x => x === 30000) && CI_UNKNOWN_LIMIT_MS === 300000 && /stayed unknown for 5 minutes/.test(r.json.error) && r.json.error.includes('no such host') && sc.remoteMasterOf() === sc.base && masterPushes(r.calls).length === 0 && lockSha(sc) === '' && lockPushes(r.calls).length === 0, `${r.sleeps.length} ${r.all.slice(0, 400)}`);
       }
       {
         const sc = scenario();
         sc.branchAt(LB, sc.base, 'ci unknown counts toward the wait');
         const r = await lrun(sc, [LB, '--wait-minutes', '1'], { fail: GHDOWN });
         check('land retry: the time spent unknown counts toward --wait-minutes: with 1 minute the land is Blocked after 2 polls, "ci for <sha> is still unknown after 1 minutes", not after the 5 minute bound',
-          r.exit === 3 && r.sleeps.length === 2 && /is still unknown after 1 minutes/.test(r.json.error) && lockSha(sc) === '' && masterPushes(r.calls).length === 0, `${r.sleeps.length} ${r.all.slice(0, 300)}`);
+          r.exit === 3 && r.sleeps.length === 2 && /is still unknown after 1 minutes/.test(r.json.error) && lockSha(sc) === '' && lockPushes(r.calls).length === 0 && masterPushes(r.calls).length === 0, `${r.sleeps.length} ${r.all.slice(0, 300)}`);
       }
       {
         const sc = scenario();
@@ -1131,8 +1158,8 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
         const sc2 = scenario();
         sc2.branchAt(LB, sc2.base, 'gh missing');
         const r2 = await lrun(sc2, [LB], { fail: 'gh is not installed (not found on PATH)' });
-        check('land retry: a Blocked of gh that is not the network (not logged in, gh missing) still ends the land at once: no sleep, one gh call, no "ci unknown" line, the lock is released',
-          r.exit === 3 && r.sleeps.length === 0 && r.gh.calls.length === 1 && !r.all.includes('ci unknown') && lockSha(sc) === '' && r2.exit === 3 && r2.sleeps.length === 0 && r2.gh.calls.length === 1 && lockSha(sc2) === '', `${r.sleeps} ${r.gh.calls.length} ${r2.sleeps}`);
+        check('land retry: a Blocked of gh that is not the network (not logged in, gh missing) still ends the land at once: no sleep, one gh call, no "ci unknown" line, no lock taken',
+          r.exit === 3 && r.sleeps.length === 0 && r.gh.calls.length === 1 && !r.all.includes('ci unknown') && lockSha(sc) === '' && lockPushes(r.calls).length === 0 && lockPushes(r2.calls).length === 0 && r2.exit === 3 && r2.sleeps.length === 0 && r2.gh.calls.length === 1 && lockSha(sc2) === '', `${r.sleeps} ${r.gh.calls.length} ${r2.sleeps}`);
       }
 
       // step 4: a rerun takes over its own lock
@@ -1150,8 +1177,8 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
         const s = sc.branchAt(LB, sc.base, 'older push of mine');
         const old = plantLock(sc, 5, { branch: LB, sha: 'd'.repeat(40) });
         const r = await lrun(sc, [LB, '--lock-wait-minutes', '0'], landRuns(s));
-        check('land retry: a lock for this branch at ANOTHER commit is somebody\'s older push: waited for as before, here LAND-LOCKED (exit 1) with the holder line, no take-over, the lock is untouched, nothing is asked of GitHub or pushed',
-          r.exit === 1 && r.json.code === 'LAND-LOCKED' && !r.text.includes('taking it over') && r.text.includes(`for ${LB}`) && lockSha(sc) === old && r.gh.calls.length === 0 && masterPushes(r.calls).length === 0, r.text);
+        check('land retry: a lock for this branch at ANOTHER commit is somebody\'s older push: waited for as before, here LAND-LOCKED (exit 1) with the holder line, no take-over, the lock is untouched, nothing is pushed',
+          r.exit === 1 && r.json.code === 'LAND-LOCKED' && !r.text.includes('taking it over') && r.text.includes(`for ${LB}`) && lockSha(sc) === old && masterPushes(r.calls).length === 0, r.text);
         const sc2 = scenario();
         const s2 = sc2.branchAt(LB, sc2.base, 'same commit other branch');
         const other = plantLock(sc2, 5, { branch: 'check/cli-and-testing/other', sha: s2 });

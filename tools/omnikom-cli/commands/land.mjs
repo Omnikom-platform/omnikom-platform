@@ -3,18 +3,23 @@
 //   1. <branch> is check/<department>/<slug> (the department is a charter in docs/departments/, read at run time, or a prefix of one that
 //      ends at a '-' and names only that charter: cli -> cli-and-testing; the output says which charter it resolved to); its commit is what the
 //      REMOTE holds (git ls-remote), fetched when it is not local;
-//   2. the LAND LOCK (the landing queue): refs/heads/land-lock on the remote. Two heads must never both move master. The lock is a ROOT commit
-//      (no parent) pushed with a plain `git push`: a root commit is never a fast-forward of another root, so git itself refuses a second
-//      creator. A lock held by another is waited for in line (every POLL_MS, for --lock-wait-minutes, default 30; the holder is printed once
-//      and again when it changes), then LAND-LOCKED (exit 1) naming who and since when; one whose committer date is more than 90 minutes
-//      old is broken (deleted with a lease on that exact sha) and taken. It is released after the fast-forward and on EVERY refusal or
-//      Blocked after it was taken, with a lease on OUR lock's sha, so a lock broken and taken by someone else is never deleted by us;
-//   3. wait for the ci run (every 30 s; no run at all for more than 5 minutes is Blocked: was it pushed?; still running after
-//      --wait-minutes, default 60, is Blocked naming the run);
-//   4. any red job: refused (exit 1, LAND-REFUSED), nothing is pushed;
-//   5. green: master must fast-forward to the commit (land never rebases, merges or forces); `git push <remote> <sha>:refs/heads/master`,
-//      no --force and no --no-verify (the installed pre-push hook checks the run again, on purpose). --force-with-lease is used ONLY for
-//      the lock delete.
+//   2. wait for the ci run WITHOUT the lock (work order 23: a land used to hold the lock for a whole 40-70 minute CI run and every other
+//      department timed out behind it): every 30 s; no run at all for more than 5 minutes is Blocked: was it pushed?; still running after
+//      --wait-minutes, default 60, is Blocked naming the run. Before the wait master is read once: a commit already in it finishes there,
+//      and a master that is not an ancestor of the commit is refused there (no hour of waiting for a land that cannot go). Neither the
+//      early read nor a Blocked takes or leaves a lock;
+//   3. any red job: refused (exit 1, LAND-REFUSED), nothing is pushed, no lock was taken;
+//   4. green: only now the LAND LOCK (the landing queue): refs/heads/land-lock on the remote. Two heads must never both move master. The lock is
+//      a ROOT commit (no parent) pushed with a plain `git push`: a root commit is never a fast-forward of another root, so git itself refuses a
+//      second creator. A lock held by another is waited for in line (every POLL_MS, for --lock-wait-minutes, default 30; the holder is printed
+//      once and again when it changes), then LAND-LOCKED (exit 1) naming who and since when; one whose committer date is more than 90 minutes
+//      old is broken (deleted with a lease on that exact sha) and taken. It is held for seconds: master is read again under it, and it is
+//      released after the fast-forward and on EVERY refusal or Blocked after it was taken, with a lease on OUR lock's sha, so a lock broken
+//      and taken by someone else is never deleted by us;
+//   5. under the lock, master must fast-forward to the commit (land never rebases, merges or forces): master an ancestor of the commit, decided
+//      by git. Master moved on since the ci verdict is "master moved to <sha>: rebase onto it and push again" (LAND-REFUSED, lock released at
+//      once); otherwise `git push <remote> <sha>:refs/heads/master`, no --force and no --no-verify (the installed pre-push hook checks the run
+//      again, on purpose). --force-with-lease is used ONLY for the lock delete.
 //   6. the local master of THIS checkout is a courtesy, never part of the verdict: after master holds the commit, land brings the local
 //      refs/heads/master to it only when that loses nothing (the local master is an ancestor of the commit), touches no path that is staged,
 //      modified or untracked here (git diff --name-only <local master> <commit> against git status). Checked out here: `git merge --ff-only`
@@ -22,8 +27,7 @@
 //      land runs from a builder's worktree, work order 04): the same, in that worktree (`git -C <it>`, its own status decides); otherwise
 //      `git update-ref` with the old value as a lease. Anything else: one line saying why it was not moved. The working tree outside the
 //      diff, the index of other paths and every other ref are never touched; a failed or skipped local move leaves the land at exit 0.
-// A held lock is waited for (--lock-wait-minutes, default 30, 0 = refuse at once), and right after the lock is taken master is fetched: a commit
-// already in master finishes there, and a master that is not an ancestor of the commit is refused before the ci wait (the post-ci check stays).
+// A held lock is waited for (--lock-wait-minutes, default 30, 0 = refuse at once); the ci verdict stays valid while it is waited for.
 // A read that fails on the NETWORK (looksLikeNetworkFailure on git's or gh's words) is asked again after 10, 30 and 60 s (withNetworkRetry, through
 // ctx.sleep, one line per retry): the git reads before the lock, the lock read, the lock push when its read failed on the network too, and
 // master. A failure that is not the network is Blocked at once. In the ci wait a network failure of gh is "ci unknown": it is printed once per
@@ -208,9 +212,11 @@ export async function land(ctx) {
     if (!git.run(['cat-file', '-e', `${sha}^{commit}`]).ok) throw new Blocked(`could not fetch ${branch} from ${remote}: the commit is still missing`, 'check the network and the remote');
   }
 
-  // the queue: the lock first, before the ci wait
   lines.push(`land: ${branch} is ${sha} on ${remote}`);
-  // a held lock is waited for in line: re-read every POLL_MS (ctx.sleep), the holder printed once and again only when it changes
+  // the ci verdict first, WITHOUT the lock: a red, an unknown, a Blocked and an early finish all end here with no lock taken
+  const ci = await waitForCi(ctx, git, { branch, department: m[1], charter, sha, remote, url: url.out, waitMinutes, lines });
+  if (ci.done) return ci.done;
+  // the queue: green, so the lock now. A held lock is waited for in line: re-read every POLL_MS (ctx.sleep), the holder printed once and again only when it changes
   const lockWaitMs = lockWaitMinutes * 60000;
   let lock, waitedMs = 0, shown = '';
   for (;;) {
@@ -227,7 +233,7 @@ export async function land(ctx) {
   }
   let res;
   try {
-    res = await landLocked(ctx, git, { branch, department: m[1], charter, sha, remote, url: url.out, waitMinutes, lines });
+    res = await landLocked(ctx, git, { branch, sha, remote, data: ci.data, lines });
     if (waitedMs > 0) res.data.lockWaitedMinutes = waitedMs / 60000;
   } catch (e) {
     // every Blocked (or crash) after the lock was taken releases it
@@ -323,20 +329,21 @@ function settleLocal(git, sha, data, lines) {
   return result(true, 'ok', data);
 }
 
-// ------------------------------------------------------------------------------------------------ everything after the lock
-// everything after the lock: the ci wait, the verdict, the fast-forward of master
-async function landLocked(ctx, git, { branch, department, charter, sha, remote, url, waitMinutes, lines }) {
-  // master as it is now, BEFORE the ci wait (the holder before us may just have moved it): a commit already in it is finished here, and a
-  // master that is not an ancestor of the commit is refused here instead of after up to an hour of waiting. The post-ci check below stays.
+// ------------------------------------------------------------------------------------------------ the ci verdict, without the lock
+// -> { done: <the result> } when the land ends here (a commit already in master, a master that is not a fast-forward, a red verdict), or
+// { data } on green, for landLocked. A Blocked goes up as it is. No lock exists yet, so nothing is released.
+async function waitForCi(ctx, git, { branch, department, charter, sha, remote, url, waitMinutes, lines }) {
+  // master as it is now, BEFORE the ci wait (someone may just have moved it): a commit already in it is finished here, and a
+  // master that is not an ancestor of the commit is refused here instead of after up to an hour of waiting. The check under the lock stays.
   const early = await readMaster(ctx, git, remote, lines);
   const queued = { branch, department, charter, sha, remote, state: 'queued', pushed: false, lines, master: early || null };
   if (early && git.run(['merge-base', '--is-ancestor', sha, early]).ok) {
     lines.push(`land: ${sha} is already in master`);
-    return settleLocal(git, sha, { ...queued, state: 'in-master' }, lines);
+    return { done: settleLocal(git, sha, { ...queued, state: 'in-master' }, lines) };
   }
   if (early && !git.run(['merge-base', '--is-ancestor', early, sha]).ok) {
     lines.push(`land: REFUSED ${branch}: not a fast-forward: rebase onto master ${early.slice(0, 7)} and push it again`);
-    return result(false, 'LAND-REFUSED', queued);
+    return { done: result(false, 'LAND-REFUSED', queued) };
   }
   const repo = repoOfRemote(ctx, git, remote, url);
   const jobNames = jobNamesAt(git, sha);
@@ -373,11 +380,16 @@ async function landLocked(ctx, git, { branch, department, charter, sha, remote, 
   if (v.state === 'red') {
     lines.push(...v.lines);
     lines.push(`land: REFUSED ${branch}: ci is red on ${sha}; master is not touched`);
-    return result(false, 'LAND-REFUSED', data);
+    return { done: result(false, 'LAND-REFUSED', data) };
   }
   lines.push(v.lines[0]);
+  return { data };
+}
 
-  // green: fast-forward master only
+// ------------------------------------------------------------------------------------------------ everything under the lock
+// green is known and the lock is ours: master is read again, and it either fast-forwards to the commit or the land is refused, at once.
+// The lock is held for these few git calls, never for a ci run.
+async function landLocked(ctx, git, { branch, sha, remote, data, lines }) {
   const master = await readMaster(ctx, git, remote, lines);
   const hasMaster = master !== '';
   data.master = hasMaster ? master : null;
@@ -386,7 +398,7 @@ async function landLocked(ctx, git, { branch, department, charter, sha, remote, 
     return settleLocal(git, sha, data, lines);
   }
   if (hasMaster && !git.run(['merge-base', '--is-ancestor', master, sha]).ok) {
-    lines.push(`land: REFUSED ${branch}: not a fast-forward: rebase ${branch} onto master and push it again`);
+    lines.push(`land: REFUSED ${branch}: master moved to ${master}: rebase onto it and push again`);
     return result(false, 'LAND-REFUSED', data);
   }
   const push = git.run(['push', remote, `${sha}:refs/heads/master`], { timeout: 600000 });

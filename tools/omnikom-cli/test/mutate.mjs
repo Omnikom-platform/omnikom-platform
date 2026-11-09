@@ -576,6 +576,15 @@ const MUTANTS = [
   ['land retry: a lock for this branch and commit is not taken over [land-retry]', 'commands/land.mjs', 'if (held.branch === branch && held.landSha === sha) {', 'if (false) {', 'unit'],
   ['land retry: a lock for this branch at another commit is taken over [land-retry]', 'commands/land.mjs', 'if (held.branch === branch && held.landSha === sha) {', 'if (held.branch === branch) {', 'unit'],
   ['land retry: a lock for this commit under another branch is taken over [land-retry]', 'commands/land.mjs', 'if (held.branch === branch && held.landSha === sha) {', 'if (held.landSha === sha) {', 'unit'],
+  // ---- the lock after the ci wait (work order 23); mutate.mjs --only land-lock. Each mutant is the old order or a hole in the new one, one per check.
+  ['land lock after ci: the lock is taken before the ci wait (the old order) [land-lock]', 'commands/land.mjs', '  const early = await readMaster(ctx, git, remote, lines);\n  const queued =', '  await takeLock(ctx, git, remote, { branch, sha, department: charter }, lines);\n  const early = await readMaster(ctx, git, remote, lines);\n  const queued =', 'unit'],
+  ['land lock after ci: a red ci takes the lock [land-lock]', 'commands/land.mjs', "  if (v.state === 'red') {\n", "  if (v.state === 'red') {\n    await takeLock(ctx, git, remote, { branch, sha, department: charter }, lines);\n", 'unit'],
+  ['land lock after ci: a ci with no run takes the lock before it is Blocked [land-lock]', 'commands/land.mjs', "if (v.state === 'none' && noneMs > NONE_LIMIT_MS) throw new Blocked(", "if (v.state === 'none' && noneMs > NONE_LIMIT_MS && await takeLock(ctx, git, remote, { branch, sha, department: charter }, lines)) throw new Blocked(", 'unit'],
+  ['land lock after ci: a ci that stays unknown takes the lock before it is Blocked [land-lock]', 'commands/land.mjs', 'if (unknownMs >= CI_UNKNOWN_LIMIT_MS) throw new Blocked(', 'if (unknownMs >= CI_UNKNOWN_LIMIT_MS && await takeLock(ctx, git, remote, { branch, sha, department: charter }, lines)) throw new Blocked(', 'unit'],
+  ['land lock after ci: master is not read again under the lock [land-lock]', 'commands/land.mjs', "async function landLocked(ctx, git, { branch, sha, remote, data, lines }) {\n  const master = await readMaster(ctx, git, remote, lines);", "async function landLocked(ctx, git, { branch, sha, remote, data, lines }) {\n  const master = '';", 'unit'],
+  ['land lock after ci: the refusal of a master that moved does not name its sha [land-lock]', 'commands/land.mjs', 'master moved to ${master}: rebase onto it and push again', 'master moved: rebase onto it and push again', 'unit'],
+  ['land lock after ci: the green path pushes master without taking the lock [land-lock]', 'commands/land.mjs', "const p = git.run(['push', remote, `${made.out}:${LOCK_REF}`], { timeout: 180000 });", "const p = { ok: true };", 'unit'],
+  ['land lock after ci: a rerun takes over a lock of its own branch and commit but keeps no lease on it [land-lock]', 'commands/land.mjs', 'return { sha: held.sha };', 'return { sha: made.out };', 'unit'],
 ];
 
 const sh = (args, env) => new Promise(res => {
