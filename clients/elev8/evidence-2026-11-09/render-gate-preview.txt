@@ -1,0 +1,21 @@
+render-gate pass=false 15/16
+  / ok=true consoleErrors=0 uncaught=0 load_ms=3904
+  /team/ ok=true consoleErrors=0 uncaught=0 load_ms=1838
+  /buying/ ok=true consoleErrors=0 uncaught=0 load_ms=2425
+  /selling/ ok=true consoleErrors=0 uncaught=0 load_ms=2115
+  /financing/ ok=true consoleErrors=0 uncaught=0 load_ms=1242
+  /home_value/ ok=true consoleErrors=0 uncaught=0 load_ms=1492
+  /reviews/ ok=true consoleErrors=0 uncaught=0 load_ms=1083
+  /faq/ ok=true consoleErrors=0 uncaught=0 load_ms=854
+  /blog/ ok=true consoleErrors=0 uncaught=0 load_ms=996
+  /connect/ ok=true consoleErrors=0 uncaught=0 load_ms=2451
+  /areas-we-serve/ ok=true consoleErrors=0 uncaught=0 load_ms=2055
+  /realtor-in-fairfield/ ok=false consoleErrors=1 uncaught=0 load_ms=2282
+  /homes-for-sale-in-napa-ca/ ok=true consoleErrors=0 uncaught=0 load_ms=1340
+  /sell-my-house-fast-in-vallejo-ca/ ok=true consoleErrors=0 uncaught=0 load_ms=1136
+  /privacy_policy/ ok=true consoleErrors=0 uncaught=0 load_ms=1054
+  /tos/ ok=true consoleErrors=0 uncaught=0 load_ms=963
+rerun with corrected routes: pass=true
+  /realtor-in-fairfield-ca/ ok=true consoleErrors=0 uncaught=0
+  /realtor-american-canyon/ ok=true consoleErrors=0 uncaught=0
+  /listings/sample-listing-1/ ok=true consoleErrors=0 uncaught=0

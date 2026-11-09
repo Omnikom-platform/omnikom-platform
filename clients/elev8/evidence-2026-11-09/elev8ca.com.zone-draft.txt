@@ -1,0 +1,33 @@
+; elev8ca.com: DRAFT zone for a Cloudflare import (prepared 2026-11-09 by HEAD_Clients_2026-11-09; nothing imported).
+; Source: public DNS read 2026-11-09 (dns-elev8ca.md next to this file). Do NOT import before the GoDaddy DNS export is read:
+; it shows the real records behind the wildcard and the SendGrid numbered CNAMEs this file cannot see.
+; Step 1 of the switch is zero-change: the web rows still point at the old site (34.210.134.29). The website moves at the deploy
+; step, when the Pages custom domain replaces the apex and www rows.
+; Every row is DNS only (grey cloud): cf_tags=cf-proxied:false.
+$ORIGIN elev8ca.com.
+$TTL 3600
+
+; web (old site, unchanged at the switch)
+@          600  IN A      34.210.134.29        ; cf_tags=cf-proxied:false
+www        600  IN A      34.210.134.29        ; cf_tags=cf-proxied:false
+homes      600  IN A      34.210.134.29        ; cf_tags=cf-proxied:false  old IDX, keep until retired
+*          600  IN A      34.210.134.29        ; cf_tags=cf-proxied:false  wildcard, review after the export
+
+; mail: Google Workspace (never break)
+@          3600 IN MX 1   aspmx.l.google.com.
+@          3600 IN MX 5   alt1.aspmx.l.google.com.
+@          3600 IN MX 5   alt2.aspmx.l.google.com.
+@          3600 IN MX 10  alt3.aspmx.l.google.com.
+@          3600 IN MX 10  alt4.aspmx.l.google.com.
+; SPF: the GoDaddy helper dc-aa8e722993._spfm stops answering when the NS leave GoDaddy; this is what it expands to today
+@          3600 IN TXT    "v=spf1 include:_spf.google.com ~all"
+_dmarc     600  IN TXT    "v=DMARC1; p=none;"
+google._domainkey 600 IN TXT "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApIJ3+QOSMcHhM9zLN6+fWb+1mdhRbTLt/X8PE0N5bWIurVghexDjE4y+aYt8Fs1j0A845p810SoXBjVY43LzF+/Ze/YkOuRsZYennXx8EGkN+5AMiz1WbXRNe7cfgcSZxhDb0YuNK8e9ZINYps4m2Feyzfackpi8YLVRZVTHhcDKKcEv9d4Jx6w4JyiuJk8s7" "M8EoKGDYYoNLg0g4tAGgCBGvpTk9eEDJRxpFfV59gpMiL9t04Voxa2qAoqVWASYzHFU0mNvPsAJldiPHBYkJQugWYT6rC3Q1wFVueLr8etd7Nte7xZoboMv87uksEwKXG9+0ez5r4Xy7EBnw3Ly6wIDAQAB"
+; SendGrid DKIM (account u52617406), DNS only or SendGrid's check fails
+s1._domainkey 600 IN CNAME s1.domainkey.u52617406.wl157.sendgrid.net. ; cf_tags=cf-proxied:false
+s2._domainkey 600 IN CNAME s2.domainkey.u52617406.wl157.sendgrid.net. ; cf_tags=cf-proxied:false
+
+; ownership proof (Search Console and/or Workspace)
+@          3600 IN TXT    "google-site-verification=0eur3RXEX8y-MeFDmIPx-y0dBDVyGi3YdhUWEa-8Rvo"
+
+; not copied: NS, SOA (Cloudflare writes them), dc-aa8e722993._spfm (GoDaddy helper), _domainconnect (GoDaddy one-click).

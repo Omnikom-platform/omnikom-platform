@@ -1,8 +1,6 @@
 # ELEV8 Real Estate Group: status
 
-**One line (copied into `clients/README.md`):** Client in onboarding: audit done, 42-page preview live (noindex) and paused since
-2026-10-29 20:48; Launch Information Request waiting on Alex; the split into two or three sites waits on the agreement (owner
-2026-10-30 21:32).
+**One line (copied into `clients/README.md`):** Go-live prepared 2026-11-09, not live: the launch build has no sample listings (empty state, checked), 22 old-site redirects and the Sheet-plus-alert lead path built and tested offline (strict gate 14 of 14); go-live waits on Alex's answers and the agreement, GoDaddy access, and the owner's clicks to deploy the Apps Script and redeploy the preview for one test lead.
 
 ## Phase
 | Phase | State | Proof (file or output) | Waits on |
@@ -20,10 +18,10 @@
 | # | Block | State | Waits on |
 |---|---|---|---|
 | 1 | Approved wording | our drafts on every page; client facts as row edits | Alex's answers (DECISIONS 17) |
-| 2 | Real media | licensed stock with credits, team monograms, 4 marked sample listings | headshots (Q6), their own listings as rows |
-| 3 | Live forms | wizards post LeadRequest to `/api/lead`; the preview stub sends nothing | the platform's `captureLead` behind the site's endpoint (step 7) |
+| 2 | Real media | licensed stock with credits, team monograms; listings: samples retired 2026-11-09, empty state until real rows | headshots (Q6), their own listings as rows |
+| 3 | Live forms | 2026-11-09: `/api/lead` Function forwards to an Apps Script Sheet plus alert, tested offline; standalone per the owner, the platform later | owner's clicks: Apps Script deploy, preview variables, one test lead |
 | 4 | Search link | old IDX cut; Buy tab opens the home-finder wizard | nothing |
-| 5 | Redirects from the old site | old routes known from the backup | a `redirects` row per old URL before the domain switch |
+| 5 | Redirects from the old site | 2026-11-09: 47 old URLs, 22 rules in `_redirects`, redirects check PASS | proof on real Pages at the preview redeploy |
 | 6 | noindex off | `node build.mjs --launch` | blocks 1 to 5 |
 | 7 | Strict gate | 13/13 on the preview build | re-run on the final launch build |
 | 8 | Search Console + domain | not started | the client's domain access (nameservers, DECISIONS 26); Search Console on the Omnikom account |
@@ -37,6 +35,28 @@
 - Known gaps in the draft: C124 (home_value title suffix, the owner's rows.json); WG-2 wasted CSS 11.7 KiB gzip on the home desktop sheet vs the 8 KiB rule (one PageSpeed flag); Fairfield city page at 97 by the owner's "Accept 97".
 - Film "The Signal Finds You": on hold (owner).
 
+## Go-live 2026-11-09 (owner: "soon today we will be going live with elev8 and rainmaker websites"; 06:33 standalone, platform later; 06:34 domain access not ready, sample listings must not go live)
+The sheet: `go-live-2026-11-09.md` (what is proven, what blocks with its holder, the forms, the domain steps, the owner's clicks).
+- DONE in `E:\Alex Sevilla` (no git there; source backup `backups\draft-site-src-2026-11-09-0640` taken first), by two Sonnet
+  builders, gates re-run by the head: listings empty state and no sample anywhere (launch blocks 2 and 6 for listings); 22
+  old-site redirects in `_redirects` (block 5); the lead path wizard to `/api/lead` to a Pages Function to an Apps Script Sheet
+  plus alert, and a launch deploy that refuses without it (block 3, standalone form per the owner). `LAUNCH-CHECKLIST.md` blocks
+  2, 3 and 5 are now out of date there (not edited; this record and the sheet are current).
+- The builder moved 13 ELEV8 tool paths to `E:\Omnikom Platform\code\main` (the platform repo moved); they failed on import before.
+- DNS: `evidence-2026-11-09/dns-elev8ca.md` and the draft zone `elev8ca.com.zone-draft.txt` (checked against public DNS, 7 of 7).
+- UNPROVEN: the Apps Script and the Function on real Google and Cloudflare; `_redirects` on real Pages; who gets the alert (Q9).
+- Open, added 2026-11-09:
+  - Owner: deploy the Apps Script; "set and redeploy" the preview (variables, today's build, one test lead); "switch"; "deploy"; "submit".
+  - Alex (via Dave): Q1 to Q11 including the alert address; GoDaddy access, the DNS export and a date; the SendGrid sender;
+    whether `homes.elev8ca.com` must stay.
+  - LATER (owner 2026-11-09 06:33): wire the site to the platform when it is ready: `functions/api/lead.js` swaps the Apps
+    Script for the platform's `captureLead` (only that file and `LEAD_SHEET_ENDPOINT` change), the Sheet's leads move into the
+    platform inbox; the site moves to its look-folder and content load.
+  - LATER (owner 2026-11-09 06:34): listings move to the dashboard's own listings screen when it exists; until then a real
+    listing the client sends is one row in `content/rows.json` and a rebuild (`draft-site\ADD-A-LISTING.md`).
+  - Omnikom (Clients) after launch: WG-2 home CSS 12.4 KiB vs 8 KiB, WG-4 flaky; C124 stays with the owner's rows.
+
 ## Last updated
 - 2026-10-30: record created by the Clients head (slice 1) from `E:\Alex Sevilla` read-only; the split recorded in `sites.md` as waiting for the agreement.
 - 2026-10-30 21:58: the owner's answers written into `decisions.md` and `sites.md` (workspace per site; pages and sharing after the client meeting).
+- 2026-11-09: go-live check by HEAD_Clients_2026-11-09 (status line, launch blocks 2, 3 and 5, the section above, `go-live-2026-11-09.md`, `evidence-2026-11-09/`).

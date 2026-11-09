@@ -1,0 +1,18 @@
+Head re-run 2026-11-09, clone of E:\Rainmaker at 44a7cc7 after RMK_LIVE=1 node site-src/build.mjs
+$ node ~/.claude/skills/programmatic-enterprise-web-performance/scripts/gate.mjs .pewp site --strict
+PASS GT-001 4 clusters, 5 pages, 18 planned links consistent (approved copy, lock ok)
+PASS GT-002 all 5 planned pages exist
+PASS GT-003 11 pages, no page other than a cluster's planned page competes for its head term
+PASS GT-004 4 page(s) carry their query
+PASS GT-005 5 page(s) cover their briefs
+PASS GT-006 18 planned link(s) present with descriptive anchors, no broken internal links
+PASS GT-007 12 pages, all linked and reachable from /
+PASS GT-008 5 page(s) carry their planned schema
+PASS GT-009 no programmatic pages planned
+PASS GT-010 no industry rules selected in business.json
+PASS GT-011 the top 4 priority cluster(s) all have a built page
+PASS GT-012 4 page(s) fit their cluster's intent
+PASS GT-013 11 sitemap URL(s): lastmod format right, no build-clock signature (one build read)
+PASS GT-014 no prompt map in this project (research/prompt-map.json): no prompt rows to cover
+PASS gate 14 checks: 14 PASS, 0 FAIL, 0 ERROR
+exit 0

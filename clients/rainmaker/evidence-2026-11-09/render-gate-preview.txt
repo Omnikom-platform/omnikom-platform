@@ -1,0 +1,12 @@
+render-gate pass=true 11/11
+  / ok=true consoleErrors=0 uncaught=0 load_ms=1424
+  /mortgage-protection/ ok=true consoleErrors=0 uncaught=0 load_ms=857
+  /life-insurance/ ok=true consoleErrors=0 uncaught=0 load_ms=1128
+  /annuities/ ok=true consoleErrors=0 uncaught=0 load_ms=1962
+  /careers/ ok=true consoleErrors=0 uncaught=0 load_ms=1777
+  /about/ ok=true consoleErrors=0 uncaught=0 load_ms=636
+  /contact/ ok=true consoleErrors=0 uncaught=0 load_ms=1172
+  /faq/ ok=true consoleErrors=0 uncaught=0 load_ms=922
+  /privacy/ ok=true consoleErrors=0 uncaught=0 load_ms=581
+  /terms/ ok=true consoleErrors=0 uncaught=0 load_ms=1390
+  /insurance-disclosures/ ok=true consoleErrors=0 uncaught=0 load_ms=1260

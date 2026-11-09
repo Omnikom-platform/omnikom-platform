@@ -1,0 +1,10 @@
+# node zone-vs-dns.mjs elev8ca.com.zone-draft.txt (1.1.1.1, 2026-11-09); watched-fail: one DKIM character changed -> 1 differ, exit 1
+ok   elev8ca.com SPF replacement equals the GoDaddy helper's answer (v=spf1 include:_spf.google.com ~all)
+ok   elev8ca.com TXT google-site-verification=0eur3RXEX8y-MeF... (68 chars)
+ok   _dmarc.elev8ca.com TXT v=DMARC1; p=none; (17 chars)
+ok   google._domainkey.elev8ca.com TXT v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQ... (410 chars)
+ok   elev8ca.com MX set (5)
+ok   s1._domainkey.elev8ca.com CNAME s1.domainkey.u52617406.wl157.sendgrid.net
+ok   s2._domainkey.elev8ca.com CNAME s2.domainkey.u52617406.wl157.sendgrid.net
+7 ok, 0 differ
+exit 0

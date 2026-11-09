@@ -1,0 +1,89 @@
+heavy: waiting for contact sheet scene 18 by PID 4624 since 13:01
+heavy: waiting for contact sheet scene 20 by PID 33564 since 12:52
+heavy: waiting for contact sheet scene 20 by PID 33564 since 12:52
+heavy: waiting for contact sheet scene 22 by PID 16028 since 12:59
+heavy: waiting for contact sheet scene 22 by PID 16028 since 12:59
+heavy: waiting for contact sheet scene 18 by PID 15628 since 13:05
+heavy: running elev8 render gate local (lock C:\Users\DELL\.claude\state\heavy.lock)
+heavy: Job Object ready in 2917 ms
+{
+  "pass": true,
+  "timeout_ms": 40000,
+  "per": [
+    {
+      "route": "/",
+      "ok": true,
+      "load_ms": 238,
+      "consoleErrors": 0,
+      "uncaught": 0,
+      "grewUnbounded": false,
+      "ongoing": false,
+      "bodyStart": 7862,
+      "bodyMid": 7862,
+      "bodyEnd": 7862,
+      "canvasEnd": 0,
+      "errsSample": [],
+      "uncaughtSample": []
+    },
+    {
+      "route": "/listings/",
+      "ok": true,
+      "load_ms": 57,
+      "consoleErrors": 0,
+      "uncaught": 0,
+      "grewUnbounded": false,
+      "ongoing": false,
+      "bodyStart": 2204,
+      "bodyMid": 2204,
+      "bodyEnd": 2204,
+      "canvasEnd": 0,
+      "errsSample": [],
+      "uncaughtSample": []
+    },
+    {
+      "route": "/realtor-in-fairfield-ca/",
+      "ok": true,
+      "load_ms": 48,
+      "consoleErrors": 0,
+      "uncaught": 0,
+      "grewUnbounded": false,
+      "ongoing": false,
+      "bodyStart": 7335,
+      "bodyMid": 7335,
+      "bodyEnd": 7335,
+      "canvasEnd": 0,
+      "errsSample": [],
+      "uncaughtSample": []
+    },
+    {
+      "route": "/homes-for-sale-in-fairfield-ca/",
+      "ok": true,
+      "load_ms": 55,
+      "consoleErrors": 0,
+      "uncaught": 0,
+      "grewUnbounded": false,
+      "ongoing": false,
+      "bodyStart": 6269,
+      "bodyMid": 6269,
+      "bodyEnd": 6269,
+      "canvasEnd": 0,
+      "errsSample": [],
+      "uncaughtSample": []
+    },
+    {
+      "route": "/homes-for-sale-in-vacaville-ca/",
+      "ok": true,
+      "load_ms": 49,
+      "consoleErrors": 0,
+      "uncaught": 0,
+      "grewUnbounded": false,
+      "ongoing": false,
+      "bodyStart": 6005,
+      "bodyMid": 6005,
+      "bodyEnd": 6005,
+      "canvasEnd": 0,
+      "errsSample": [],
+      "uncaughtSample": []
+    }
+  ]
+}

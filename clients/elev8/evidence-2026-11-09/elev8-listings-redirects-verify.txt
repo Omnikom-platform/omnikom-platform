@@ -1,0 +1,31 @@
+# head's re-run 2026-11-09 13:0x, E:\Alex Sevilla\draft-site\site, under heavy.mjs
+build exit 0
+build-launch exit 0
+gate exit 0
+listings exit 0
+redirects exit 0
+== build
+CLIENT view (no markers, no home search; samples marked)
+BUILT 54 pages (43 contract pages + 9 item pages + the /listings/ page + 404) -> dist (preview: noindex)
+content: contract VALID, 107 rows, draft problems 0; not yet publishable: 71 rows {"I-EXIF":22,"I-REQUIRED":9,"I-PLACEHOLDER":68,"I-RIGHTS":20,"I-MEDIA-SIZE":9,"I-CONSENT-TCPA":1}
+== build-launch
+LAUNCH view (no markers, no home search, no samples)
+BUILT 54 pages (43 contract pages + 9 item pages + the /listings/ page + 404) -> dist-launch (launch build: indexable, for the gate only)
+content: contract VALID, 103 rows, draft problems 0; not yet publishable: 71 rows {"I-EXIF":22,"I-REQUIRED":9,"I-PLACEHOLDER":68,"I-RIGHTS":20,"I-MEDIA-SIZE":9,"I-CONSENT-TCPA":1}
+== gate
+  NOTE the two-build comparison is NOT CHECKED: no build command known (gate.mjs --build "<cmd>"; build-site.mjs reads it from .pewp/builder/build-command.txt)
+PASS GT-014 no prompt map in this project (research/prompt-map.json): no prompt rows to cover
+PASS gate 14 checks: 14 PASS, 0 FAIL, 0 ERROR
+report: E:\Alex Sevilla\site-checks\elev8ca.com\.pewp\gate\report.md
+== listings
+rows: content\rows.json (0 listings rows, 0 real, 0 marked sample)
+PASS dist: 54 pages, 0 real listing(s); sitemap 52 URLs, llms.txt 53 links
+PASS dist-launch: 54 pages, 0 real listing(s); sitemap 52 URLs, llms.txt 53 links
+LISTINGS-CHECK PASS: 2 build(s), no sample listing, no listing link, URL or JSON-LD without a real row
+== redirects
+301   /homes-for-sale/CA/napa/94558/1-example-st/bid-79-1 -> /connect (200)
+301   /myportal/anything -> / (200)
+old URLs: 47; same path 200: 19; 301 to an existing page: 28; rules: 22 (17 static, 5 dynamic)
+REDIRECTS PASS: 47 old URLs, 28 redirect with 301 to an existing page, 19 keep their path
+== watched-fail: rows.json + listing-sample-1, scratch build, listings-check
+LISTINGS-CHECK FAIL: 1 of 1 build(s) (LC-1 x2, LC-2, LC-3 x2), exit 1

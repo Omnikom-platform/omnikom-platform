@@ -44,7 +44,7 @@ try {
   check('mutant: a facts row without a source fails', r.status === 1 && /elev8: facts\.md ledger row 1 .* has no source/.test(r.out), r.out);
 
   d = fresh(); dirs.push(d);
-  edit(d, join('elev8', 'status.md'), 'Client in onboarding', 'Client — in onboarding');
+  edit(d, join('elev8', 'status.md'), '# ELEV8 Real Estate Group: status', '# ELEV8 Real Estate Group — status');
   r = run(d);
   check('mutant: an em dash fails', r.status === 1 && /status\.md: contains an em dash/.test(r.out), r.out);
 } finally {
