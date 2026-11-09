@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const R = 'factory/runner/';
 const HAS_SHARP = existsSync(join(REPO, R, 'node_modules', 'sharp'));
-const MUTANTS = [
+const ALL_MUTANTS = [
   // publish.mjs: the refusals before any build
   ['publish: a different site is accepted', `${R}publish.mjs`, 'if (exp.site.id !== SITE_ID) throw', 'if (false) throw', 'refusals'],
   ['publish: a different job is accepted', `${R}publish.mjs`, 'if (exp.job.id !== JOB_ID) throw', 'if (false) throw', 'refusals'],
@@ -24,6 +24,9 @@ const MUTANTS = [
   ['publish: a media path that climbs out is accepted', `${R}publish.mjs`, 'if (!m || !safeRelPath(m.path)) throw', 'if (!m) throw', 'media-export'],
   ['publish: a media url on another host is fetched', `${R}publish.mjs`, "else if (new URL(m.url, origin).origin !== origin) why = 'url on another host';", '', 'media-export'],
   ['publish: a failure sends no failed callback', `${R}publish.mjs`, "await callback('failed', {", 'void ({', 'refusals'],
+  // publish.mjs: a busy site is waited for (work order 13, H0-1)
+  ['publish: a busy site (S-JOB-BUSY) is not waited for', `${R}publish.mjs`, 'for (let tries = 0, waited = 0; isBusy(ex); tries++) {', 'for (let tries = 0, waited = 0; false; tries++) {', 'refusals'],
+  ['publish: every 409 on the export counts as busy', `${R}publish.mjs`, "try { return JSON.parse(r.text).code === 'S-JOB-BUSY'; }", 'try { return true; }', 'refusals'],
   // publish.mjs: build, gate, deploy
   ['publish: --force-fail is not passed to the factory', `${R}publish.mjs`, "...(opts['force-fail'] ? ['--force-fail', opts['force-fail']] : [])", '...[]', 'gate'],
   ['publish: the audit exit code is ignored', `${R}publish.mjs`, "if (a.status !== 0) throw new Stop('audit failed'", "if (false) throw new Stop('audit failed'", 'gate'],
@@ -103,6 +106,8 @@ const MUTANTS = [
   ['secrets: a failed set still exits 0', 'tools/github-secrets.mjs', 'process.exit(failed ? 1 : 0);', 'process.exit(0);', 'secrets'],
 ];
 
+const ONLY = process.env.MUTANT_ONLY;   // a substring of the mutant names: only those run (a scoped run; the whole list is the CI run)
+const MUTANTS = ONLY ? ALL_MUTANTS.filter((m) => m[0].includes(ONLY)) : ALL_MUTANTS;
 const JOBS = Number(process.env.MUTANT_JOBS) || 3;
 const made = [];
 function makeCopy(i) {

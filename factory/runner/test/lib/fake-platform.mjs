@@ -1,5 +1,6 @@
 // A fake of everything the runner talks to, in one local HTTP server (no staging, no Cloudflare, nothing outside this machine):
-//   GET  /functions/v1/export-published?job=...     the slice 4.1 fixture export (plus media[].url pointing back here)
+//   GET  /functions/v1/export-published?job=...     the slice 4.1 fixture export (plus media[].url pointing back here); cfg.exportBusy = n answers
+//                                                   409 S-JOB-BUSY to the first n signed calls (work order 13), cfg.exportStatus any other status
 //   POST /functions/v1/job-callback                 recorded in order; the answer comes from cfg.callbackStatus(n, body)
 //   GET  /functions/v1/media-export?media=...       cfg.mediaExport
 //   POST /functions/v1/media-process-callback       recorded
@@ -36,6 +37,7 @@ export async function startFake({ runnerKey, verify, cfg }) {
           log.exportCalls.push({ sigOk, path: signedPath, method: req.method, hasBody: body.length > 0 });
           if (cfg.exportHang) return;                                  // never answers: the runner's timeout has to end the call
           if (!sigOk) return send(401, { code: 'SIGNATURE' });
+          if (cfg.exportBusy && log.exportCalls.filter((c) => c.sigOk).length <= cfg.exportBusy) return send(409, { code: 'S-JOB-BUSY', msg: 'Another build of this site is running.' });   // the first cfg.exportBusy signed calls (Infinity = always)
           if (cfg.exportStatus && cfg.exportStatus !== 200) return send(cfg.exportStatus, { code: 'X', msg: 'refused by the fake' });
           return send(200, cfg.exportBody());
         }

@@ -2035,5 +2035,15 @@ do $$ begin
     'T24d an answer named site does not overwrite the row''s site';
 end $$;
 
+-- T25 (work order 13, migration 19): the reaper is scheduled. run-local.mjs gives the database a cron stand-in (cron.stub_jobs) before the
+-- migrations run; where there is none (the CLI's cluster, staging, which has the real pg_cron) this reads the real thing in step 5 of the order.
+do $$ begin
+  if to_regclass('cron.stub_jobs') is null then raise notice 'T25 skipped: no cron stand-in here'; return; end if;
+  assert (select count(*) from cron.stub_jobs where jobname = 'reap-stale-jobs') = 1, 'T25 exactly one job named reap-stale-jobs is scheduled';
+  assert (select count(*) from cron.stub_jobs) = 1, 'T25 the migrations schedule no other job';
+  assert (select schedule from cron.stub_jobs where jobname = 'reap-stale-jobs') = '*/5 * * * *', 'T25 the reaper runs every 5 minutes';
+  assert (select command from cron.stub_jobs where jobname = 'reap-stale-jobs') ~ 'service\.reap_stale_jobs\(\)', 'T25 the job calls service.reap_stale_jobs()';
+end $$;
+
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

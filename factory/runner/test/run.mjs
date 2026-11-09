@@ -289,6 +289,22 @@ await check('a runner key the platform does not know: the export is refused by t
 const hang = await runPublish({ cfg: { exportHang: true }, env: { RUNNER_FETCH_TIMEOUT_MS: '600' }, timeoutMs: 40000 });
 await check('an export that never answers is cut by the timeout (tried again), the run fails with a signed callback and exits 1', () =>
   hang.code === 1 && same(hang.states, ['failed']) && /export failed/.test(hang.last.body.error) && hang.log.exportCalls.length >= 2 || `${hang.code} ${JSON.stringify(hang.states)} calls ${hang.log.exportCalls.length}`);
+// work order 13 (H0-1): S-JOB-BUSY (409, another build of the site is running or stuck until the reaper fails it) is waited out, not made a permanent failed.
+// The waits shrink through RUNNER_BUSY_BACKOFF_MS (first wait; then x2, x4, x4) and RUNNER_BUSY_WAIT_MS (total); the real ones are 30 s, 60 s, 120 s and 20 minutes.
+const busy2 = await runPublish({ cfg: { exportBusy: 2 }, env: { RUNNER_BUSY_BACKOFF_MS: '30', RUNNER_BUSY_WAIT_MS: '5000' } });
+await check('export busy (409 S-JOB-BUSY) twice, then 200: waits twice (one STEP line each, tries 1 and 2), then builds and ends done, exit 0', () =>
+  busy2.code === 0 && same(busy2.states, ['gating', 'deploying', 'done']) && busy2.log.exportCalls.length === 3
+  && (busy2.out.match(/^STEP export: site busy \(S-JOB-BUSY\), waiting [\d.]+ s, try \d+$/gm) || []).length === 2 && /waiting [\d.]+ s, try 1\b/.test(busy2.out) && /waiting [\d.]+ s, try 2\b/.test(busy2.out)
+  || `${busy2.code} ${JSON.stringify(busy2.states)} calls ${busy2.log.exportCalls.length}\n${busy2.out.slice(0, 600)}`);
+const busyForever = await runPublish({ cfg: { exportBusy: Infinity }, env: { RUNNER_BUSY_BACKOFF_MS: '30', RUNNER_BUSY_WAIT_MS: '200' } });
+await check('export busy past RUNNER_BUSY_WAIT_MS: failed "site busy: another build of this site is still running after N min (the reaper clears a stuck one within 35 min)", every wait printed, no build, exit 1', () =>
+  busyForever.code === 1 && same(busyForever.states, ['failed']) && /^site busy: another build of this site is still running after [\d.]+ min \(the reaper clears a stuck one within 35 min\)$/.test(busyForever.last.body.error)
+  && (busyForever.out.match(/waiting [\d.]+ s, try \d+/g) || []).length === 3 && busyForever.log.exportCalls.length === 4 && !existsSync(join(busyForever.work, 'dist'))
+  || `${busyForever.code} ${JSON.stringify(busyForever.states)} ${busyForever.last && busyForever.last.body.error} calls ${busyForever.log.exportCalls.length}\n${busyForever.out.slice(0, 600)}`);
+const other409 = await runPublish({ cfg: { exportStatus: 409 }, env: { RUNNER_BUSY_BACKOFF_MS: '30', RUNNER_BUSY_WAIT_MS: '200' } });
+await check('a 409 that is not S-JOB-BUSY on the export: failed at once with the status, one call, no wait printed, exit 1', () =>
+  other409.code === 1 && same(other409.states, ['failed']) && /HTTP 409/.test(other409.last.body.error) && other409.log.exportCalls.length === 1 && !/site busy|waiting/.test(other409.out)
+  || `${other409.code} ${JSON.stringify(other409.states)} calls ${other409.log.exportCalls.length}\n${other409.out.slice(0, 400)}`);
 // RUNNER_WRANGLER_SCRIPT is set even here: if the credentials check were gone, the run would reach the FAKE wrangler, never the real npx
 const noCf = await runPublish({ args: ({ work, smoke }) => ['--work', work, ...smoke], unset: ['CLOUDFLARE_PAGES_TOKEN'],
   env: { RUNNER_WRANGLER_SCRIPT: join(HERE, 'lib', 'fake-wrangler.mjs'), FAKE_WRANGLER_RECORD: join(tmp('wr0'), 'record.json') } });

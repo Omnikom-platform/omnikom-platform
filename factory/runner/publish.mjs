@@ -5,7 +5,8 @@
 //        [--smoke-url <url>] [--smoke-tries <n>] [--smoke-interval-ms <ms>]       (the last three exist for tests of the smoke step)
 // Environment, by name: JOB_ID, SITE_ID (the dispatch payload), PLATFORM_FUNCTIONS_BASE (https://<ref>.supabase.co/functions/v1),
 // RUNNER_KEY, CLOUDFLARE_PAGES_TOKEN, CLOUDFLARE_ACCOUNT_ID. Test hooks: OMNIKOM_REPO_ROOT, RUNNER_WRANGLER_SCRIPT,
-// RUNNER_FETCH_TIMEOUT_MS, RUNNER_RETRY_BACKOFF_MS, RUNNER_CF_API_BASE (the Cloudflare API address the lead-settings check reads).
+// RUNNER_FETCH_TIMEOUT_MS, RUNNER_RETRY_BACKOFF_MS, RUNNER_CF_API_BASE (the Cloudflare API address the lead-settings check reads),
+// RUNNER_BUSY_BACKOFF_MS (the first S-JOB-BUSY wait, default 30000; then x2, x4, x4 ...). RUNNER_BUSY_WAIT_MS (default 1200000) is the total S-JOB-BUSY wait.
 // Exit 0 only after `done` was answered 2xx. A failed run exits 1 after its `failed` callback was answered. 2 = usage / environment.
 // Every line printed goes through the scrubber (secret values, the project ref and signed-URL tokens never reach a log).
 import { spawnSync } from 'node:child_process';
@@ -83,7 +84,21 @@ async function run() {
 
   // ---- 1 export
   if (!opts['no-deploy'] && (!CF_TOKEN || !CF_ACCOUNT)) throw new Stop('missing deploy credentials', { missing: ['CLOUDFLARE_PAGES_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'].filter((n) => !env[n]) });
-  const ex = await platform.call('GET', `/export-published?job=${JOB_ID}`);
+  let ex = await platform.call('GET', `/export-published?job=${JOB_ID}`);
+  // S-JOB-BUSY (409): another build of this site is still running, or was killed and waits for the reaper (pg_cron, every 5 minutes, fails a job stuck
+  // for 30 minutes). Wait 30 s, 60 s, then 120 s per try, up to RUNNER_BUSY_WAIT_MS in all; any other 409 and every other status is handled below as before.
+  const busyWaitMs = numEnv('RUNNER_BUSY_WAIT_MS', 20 * 60000), busyBaseMs = numEnv('RUNNER_BUSY_BACKOFF_MS', 30000);
+  const isBusy = (r) => { if (r.status !== 409) return false; try { return JSON.parse(r.text).code === 'S-JOB-BUSY'; } catch { return false; } };
+  const tenth = (ms, unit) => Math.round(ms / unit * 10) / 10;
+  for (let tries = 0, waited = 0; isBusy(ex); tries++) {
+    const remaining = busyWaitMs - waited;
+    if (remaining <= 0) throw new Stop(`site busy: another build of this site is still running after ${tenth(waited, 60000)} min (the reaper clears a stuck one within 35 min)`, { status: 409, waitedMs: waited });
+    const wait = Math.min(busyBaseMs * Math.min(2 ** tries, 4), remaining);
+    step('export', `site busy (S-JOB-BUSY), waiting ${tenth(wait, 1000)} s, try ${tries + 1}`);
+    await new Promise((r) => setTimeout(r, wait));
+    waited += wait;
+    ex = await platform.call('GET', `/export-published?job=${JOB_ID}`);
+  }
   if (ex.status !== 200) throw new Stop(`export failed: HTTP ${ex.status || ex.error}`, { status: ex.status });
   let exp;
   try { exp = JSON.parse(ex.text); } catch { throw new Stop('export failed: the answer is not JSON'); }

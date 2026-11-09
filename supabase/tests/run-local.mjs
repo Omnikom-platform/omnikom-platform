@@ -48,11 +48,19 @@ const sqlOn = (db, cmd) => run('psql', ['-h', '127.0.0.1', '-p', PORT, '-U', 'po
 // A child that could not run at all (spawn error, timeout) has null output: say why instead of crashing on null.
 const outOf = x => `${x.stdout ?? ''}${x.stderr ?? ''}${x.error ? `\n(${x.error.code || x.error.message})` : ''}`.trim();
 const pgLogTail = (n = 15) => { try { return readFileSync(join(dir, 'pg.log'), 'utf8').trim().split(/\r?\n/).slice(-n).join('\n'); } catch { return '(no pg.log)'; } };
+// Work order 13: local Postgres has no pg_cron. This stand-in (the test harness, never a migration) has cron.schedule(text, text, text) record its
+// arguments, one row per job name like pg_cron's named form, so migration 19's call can be asserted (tenancy.test.sql T25).
+const CRON_STUB = `create schema cron;
+create table cron.stub_jobs (jobname text primary key, schedule text not null, command text not null);
+create function cron.schedule(job_name text, schedule text, command text) returns bigint language sql as
+  $$ insert into cron.stub_jobs values (job_name, schedule, command) on conflict (jobname) do update set schedule = excluded.schedule, command = excluded.command returning 1::bigint $$;
+`;
 const fresh = (name, migrationText) => {
   sqlOn('postgres', `create database ${name}`);
   const m = join(dir, `${name}.sql`);
   writeFileSync(m, migrationText);
-  for (const f of [join(dir, 'shim.sql'), m]) { const x = psql(name, f); if (x.status !== 0) return { setup: false, out: outOf(x) }; }
+  writeFileSync(join(dir, 'cron-stub.sql'), CRON_STUB);
+  for (const f of [join(dir, 'shim.sql'), join(dir, 'cron-stub.sql'), m]) { const x = psql(name, f); if (x.status !== 0) return { setup: false, out: outOf(x) }; }
   const t = psql(name, join(dir, 'tests.sql'));
   return { setup: true, ok: t.status === 0, out: outOf(t) };
 };
@@ -569,6 +577,9 @@ const MUTANTS = [
   ['crm18: the site key reads the workspace, not the site', "when 'site' then to_jsonb(l.site_id::text)", "when 'site' then to_jsonb(l.workspace_id::text)"],
   ['crm18: a site filter reaches across workspaces (both layers)', "    where l.workspace_id = p_workspace\n      and (see_all or", "    where true\n      and (see_all or"],
   ['crm18: an answer named site overwrites the row\'s site', "'owner', 'form', 'page', 'site')", "'owner', 'form', 'page')"],
+
+  // ---- work order 13 (migration 19): the reaper is scheduled; tests in tenancy.test.sql T25 against the cron stand-in above ----
+  ['reaper: the schedule call is removed (migration 19)', "    perform cron.schedule('reap-stale-jobs', '*/5 * * * *', 'select service.reap_stale_jobs()');", "    null;"],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

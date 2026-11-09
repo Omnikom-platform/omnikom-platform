@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 596,
+    "sources": 597,
     "unowned": 0
   },
   "files": [
@@ -359,6 +359,7 @@
     {"path":"supabase/migrations/20261103000014_crm_fields.sql","owner":"platform-build","exports":["fn:private.lead_columns","fn:private.lead_filter_ok","fn:private.lead_value","fn:private.reference_ok","fn:private.typed_answers","fn:private.typed_value","fn:service.capture_lead","fn:service.lead_list","fn:service.lead_set_fields","fn:service.leads_bulk"],"tests":["supabase/tests/run-local.mjs"],"feature":""},
     {"path":"supabase/migrations/20261104000015_crm_export_import.sql","owner":"platform-build","exports":["fn:private.lead_column_defs","fn:private.phone_key","fn:private.typed_lead_answers","fn:service.add_lead","fn:service.crm_fields","fn:service.import_leads","fn:service.save_crm_template"],"tests":[],"feature":""},
     {"path":"supabase/migrations/20261105000018_lead_list_site.sql","owner":"platform-build","exports":["fn:private.lead_value","fn:service.lead_list"],"tests":[],"feature":""},
+    {"path":"supabase/migrations/20261109000019_reaper_schedule.sql","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/ops/alerts.mjs","owner":"platform-build","exports":["ALERTS","RULES","Stop","environmentOf","main","parseArgs","pgEnv","render","runQueries","statusData"],"tests":["supabase/ops/test/6b-alerts-fixture.mjs","supabase/ops/test/6b-mutate.mjs","supabase/ops/test/alerts.test.mjs"],"feature":""},
     {"path":"supabase/ops/backup.mjs","owner":"platform-build","exports":["DEFAULT_RECIPIENT","MAX_BYTES","Stop","labelOf","main","parseArgs","pgEnv","readRecipient","regionOf","scrubber","signV4","sizeS3","stampOf","uploadS3"],"tests":["supabase/ops/test/6b-fake-s3.mjs","supabase/ops/test/6b-mutate.mjs","supabase/ops/test/backup.test.mjs"],"feature":""},
     {"path":"supabase/ops/key-ages.mjs","owner":"platform-build","exports":["assess","main","table"],"tests":["supabase/ops/test/key-ages.test.mjs"],"feature":""},

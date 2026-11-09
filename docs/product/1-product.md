@@ -134,7 +134,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | E1 Backups and restore: database, media, Vault; a scheduled restore drill | MISSING | `backup.yml` off, production backup not installed, media and Vault in no dump (H1-1, H2-12) |
 | E2 Production made from staging by script (dashboard, secrets, Auth settings, runner) | MISSING | `promote.yml` covers migrations and functions only (H1-2) |
 | E3 Monitoring: alerts delivered, error reporting, a request id per call | PARTLY | alerts computed hourly on staging, delivered nowhere (H1-3) |
-| E4 Background jobs: the stale-job reaper scheduled, a mail outbox worker, retries | MISSING | the reaper exists, nothing schedules it; no outbox (H0-1, H1-4) |
+| E4 Background jobs: the stale-job reaper scheduled, a mail outbox worker, retries | MISSING | the reaper runs every 5 minutes on staging (H0-1, work order 13); no outbox (H1-4) |
 | E5 Abuse protection: per-visitor limits and a bot check at the edge; bounded security events | MISSING | the site endpoint signs any body (H0-2, KNOWN-1) |
 | E6 Pooled database connections for every function | MISSING | a direct connection per call (KNOWN-2) |
 | E7 Dashboard hardening: CSP and security headers, error boundary, cache rules, realtime only where shown | MISSING | no `public/_headers`, no error component (H1-5, KNOWN-5) |
