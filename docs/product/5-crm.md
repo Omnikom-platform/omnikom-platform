@@ -63,7 +63,9 @@ Not yet: the crm-map dictionary entries and the screens (block 3).
 Owner ruling 2026-11-09 (A16, work order 20): a lead carries two separate columns. **Lead type** is what the lead is about, set from
 the form and what the visitor asked, from a list per industry (real estate has about 13 to 15 types; "Enquiry" is one, for a
 visitor who is just asking). **Status** is the acquisition state, what happened with the lead: not contacted yet, contacted (and
-by whom), not interested, interested in something specific, and so on. Both lists are data per industry, never written in code;
+by whom), not interested, interested in something specific, and so on. The owner's set (2026-11-09 20:48): not contacted yet,
+contacted (by whom), answering machine, no answer, voicemail left, wrong number, call back, follow-up, qualified, not qualified,
+not interested, interested in something specific, appointment set, do not contact; call back and follow-up carry a date. Both lists are data per industry, never written in code;
 SEO and audits research them (work order 29: real estate first, then insurance) and hand the lists to platform build. Today's
 five statuses become the status column's starting set or are replaced by a migration (work order 20 decides).
 
