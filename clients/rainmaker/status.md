@@ -58,3 +58,6 @@ The sheet: `go-live-2026-11-09.md` (what is proven, what blocks with its holder,
 ## Last updated
 - 2026-10-30: record created by the slice 2a builder (Sonnet) from `E:\Rainmaker` read-only; preview headers read the same day.
 - 2026-11-09: go-live check by HEAD_Clients_2026-11-09 (status line, the section above, `go-live-2026-11-09.md`, `evidence-2026-11-09/`).
+- HANDOVER 2026-11-09 22:00 (HEAD_Clients_2026-11-09 stops): waiting on Dave (who moved the name servers) and Monica (phone,
+  address, compliance OK incl. the required consent wording). `E:\Rainmaker` 48da581 (consent REQUIRED) stays local until the
+  switch. No investment-management lead type exists (forms and the Apps Script allowlist: 6 interests).

@@ -64,3 +64,8 @@ The sheet: `go-live-2026-11-09.md` (what is proven, what blocks with its holder,
 - 2026-10-30: record created by the Clients head (slice 1) from `E:\Alex Sevilla` read-only; the split recorded in `sites.md` as waiting for the agreement.
 - 2026-10-30 21:58: the owner's answers written into `decisions.md` and `sites.md` (workspace per site; pages and sharing after the client meeting).
 - 2026-11-09: go-live check by HEAD_Clients_2026-11-09 (status line, launch blocks 2, 3 and 5, the section above, `go-live-2026-11-09.md`, `evidence-2026-11-09/`).
+- HANDOVER 2026-11-09 22:00 (HEAD_Clients_2026-11-09 stops, week at 92%): next for ELEV8, in order: (1) re-run `node build.mjs`
+  and `node tools/wizard-test.mjs` in `E:\Alex Sevilla\draft-site\site` under `heavy.mjs` (the 21:40 run was stopped for low
+  memory; last pass 16/16 is from before the listing-question change); (2) the owner's clicks in `go-live-2026-11-09.md`
+  section 5. Files changed outside the repo today (no git there): `draft-site\site\src\pages\wizard.js`,
+  `integrations\apps-script\Code.gs`, `tests\apps-script.test.mjs` (copies before the 21:30 change are in this session's scratchpad only).
