@@ -474,3 +474,9 @@ options, never a fix made here.
   - LESSONS: a land after another head's land needs a rebase; build the commit on the fresh master with a cherry-pick, take master's
     icm/ and regenerate it, and compare the non-icm diff with the old commit before pushing. A topic with no checks reads "not
     checked this time", never "0 pass, 0 problems".
+- 2026-11-09 04:20: head HEAD_SEO-and-audits_2026-11-09 (opus) took over from the 2026-11-05 01:20 block; reports to
+  HEAD-OF-OPERATIONS_Omnikom_Platform. This week's SEO work order numbers: 25 to 29. Work order 25 (`work/25-report-questions-2-5`,
+  slice 4b of the report: `report.mjs` renders questions 2 to 5 from the skill's report.json, every number a fact):
+  BUILDER_seo-and-audits_report-questions-2-5 (pid 1688, sonnet high). Work order 26 part 1 (`work/26-omnikom-ai-plan`, the
+  omnikom.ai intake pack: pickable options for the owner's seven intake answers, each sourced; research waits on those answers,
+  since `approve.mjs business` needs them answered by the owner): BUILDER_seo-and-audits_omnikom-ai-intake (pid 26060, sonnet high).

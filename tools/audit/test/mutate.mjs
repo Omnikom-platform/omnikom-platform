@@ -19,6 +19,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const AUDIT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const SKILL = process.env.OMNIKOM_SKILL_DIR ? resolve(process.env.OMNIKOM_SKILL_DIR) : resolve(AUDIT, "..", "..", "skills", "programmatic-enterprise-web-performance");   // the skill's own fixtures (work order 25); a mutant's copy of tools/audit/ is not inside the repo
 const MUTANTS = [
   // the engine and the runner
   ["the exit code is always 0", "index.mjs", "exit: pass ? 0 : 1", "exit: 0"],
@@ -67,6 +68,11 @@ const MUTANTS = [
   ["report.mjs: the pass count fact is read from counts.FAIL", "report.mjs", "n(\"pass\", c.PASS, \"summary.counts.PASS\")", "n(\"pass\", c.PASS, \"summary.counts.FAIL\")"],
   ["report.mjs: section 6 ignores severity", "report.mjs", "(rank(x) - rank(y)) || (y.pages.length - x.pages.length)", "(y.pages.length - x.pages.length)"],
   ["report.mjs: the truncated line is dropped", "report.mjs", "if (summary.truncated > 0) md.push(", "if (false) md.push("],
+  // questions 2 to 5 from the skill's report.json (work order 25)
+  ["report.mjs: question 4 prints a live number that is no fact (referring domains + 1)", "report.mjs", "num(\"q4.referringDomains\", f.referringDomains, `${base}.facts.referringDomains`)", "String((f.referringDomains?.value ?? 0) + 1)"],
+  ["report.mjs: a flattened competitor source points at entry 0 for every competitor", "report.mjs", "`${cPath}.value[${j}].referringDomains`", "`${cPath}.value[0].referringDomains`"],
+  ["report.mjs: a live number with no value is printed as 0", "report.mjs", "{ if (!isCount(v)) return NOT; emit(id, v, source, node, path); return String(v); }", "{ if (!isCount(v)) return \"0\"; emit(id, v, source, node, path); return String(v); }"],
+  ["report.mjs: a BLOCKED live question is rendered as answered", "report.mjs", "lq && lq.q.status !== \"BLOCKED\"", "lq"],
   ["lines.mjs: line numbers start at 0", "lib/lines.mjs", "let n = 1;\n  const end", "let n = 0;\n  const end"],
   ["site.mjs: the tokenizer never counts a newline", "lib/site.mjs", "if (html.charCodeAt(ptr++) === 10) ln++;", "ptr++;"],
   ["site.mjs: an <svg> is not stripped (its <title> counts)", "lib/site.mjs", "<(style|noscript|template|svg)\\b", "<(style|noscript|template)\\b"],
@@ -517,7 +523,7 @@ function runOne([name, file, find, repl]) {
       if (n !== 1) { missing++; finish(`MISSING  ${name} (target text found ${n} times in ${file})`); return; }
       writeFileSync(p, t.split(find).join(repl), "utf8");
       const tmpIn = join(dir, ".tmp");
-      const child = spawn(process.execPath, [join(dir, "test", "run.mjs")], { env: { ...process.env, OMNIKOM_AUDIT_DIR: dir, OMNIKOM_AUDIT_FAILFAST: "1", OMNIKOM_AUDIT_TMP: tmpIn, TMPDIR: tmpIn, TEMP: tmpIn, TMP: tmpIn }, timeout: (Number(process.env.MUTATE_TIMEOUT_S) || 180) * 1000, killSignal: "SIGKILL" });
+      const child = spawn(process.execPath, [join(dir, "test", "run.mjs")], { env: { ...process.env, OMNIKOM_AUDIT_DIR: dir, OMNIKOM_SKILL_DIR: SKILL, OMNIKOM_AUDIT_FAILFAST: "1", OMNIKOM_AUDIT_TMP: tmpIn, TMPDIR: tmpIn, TEMP: tmpIn, TMP: tmpIn }, timeout: (Number(process.env.MUTATE_TIMEOUT_S) || 180) * 1000, killSignal: "SIGKILL" });
       kids.add(child);
       let out = "", err = "";
       child.stdout.on("data", (c) => { out += c; });

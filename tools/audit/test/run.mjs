@@ -948,7 +948,8 @@ try {
     const ruleById = Object.fromEntries(engine.listRules().map((r) => [r.id, r]));
     // The test's own reader of a fact's source (it shares no code with report.mjs): a path in the summary, listRules()["ID"].severity, checkedAt, distinct(path),
     // [*] for every entry and [2,5] for the listed ones, and a sum or difference of such terms.
-    const resolveSource = (src, summary, date) => {
+    // work order 25 adds the root live (the skill's report.json), a path ending .length, " (x100, rounded)" (Math.round(v * 100)) and " (day)" (the first 10 characters)
+    const resolveSource = (src, summary, date, live) => {
       const split = (s) => {
         const out = []; let depth = 0, quoted = false, cur = "";
         for (let i = 0; i < s.length; i++) {
@@ -964,9 +965,10 @@ try {
         return out;
       };
       const walk = (expr) => {
-        const root = /^(summary|listRules\(\))/.exec(expr);
+        const root = /^(summary|listRules\(\)|live)/.exec(expr);
         if (!root) throw new Error("no such source root: " + expr);
-        let nodes = [root[1] === "summary" ? summary : ruleById];
+        if (root[1] === "live" && live === undefined) throw new Error("no live report was given for " + expr);
+        let nodes = [root[1] === "summary" ? summary : root[1] === "live" ? live : ruleById];
         const step = /\.(\w+)|\[("(?:[^"\\]|\\.)*")\]|\[(\*|\d+(?:,\d+)*)\]/y;
         step.lastIndex = root[0].length;
         while (step.lastIndex < expr.length) {
@@ -986,6 +988,8 @@ try {
         t = t.trim();
         if (/^\d+$/.test(t)) return Number(t);
         if (t === "checkedAt") { if (!date) throw new Error("checkedAt was not given"); return date; }
+        const sfx = /^(.*) \((x100, rounded|day)\)$/s.exec(t);
+        if (sfx) { const v = term(sfx[1]); return sfx[2] === "day" ? String(v).slice(0, 10) : Math.round(v * 100); }
         const d = /^distinct\((.*)\)$/s.exec(t);
         if (d) return new Set(walk(d[1])).size;
         const nodes = walk(t);
@@ -1113,6 +1117,164 @@ try {
     check(`report CLI: ${cliBad.length} wrong calls exit 2, print nothing on stdout and say why in one line on stderr`, cliBad.every((b) => b.r.status === 2 && b.r.out === "" && b.r.err.trim().split("\n").length === 1 && b.r.err.startsWith("report: ")), cliBad.filter((b) => !(b.r.status === 2 && b.r.out === "" && b.r.err.trim().split("\n").length === 1)).map((b) => `${b.what}: ${b.r.status} ${b.r.err.slice(0, 100)}`).join(" | "));
     check("report CLI: the usage line names --checked-at and --json", /--checked-at YYYY-MM-DD/.test(reportCli([]).err) && /--json/.test(reportCli([]).err));
     check("report CLI: the run.mjs --summary output of a fixture goes through the CLI to the same text as report()", (() => { const f = join(dirname(sumFile), "real.json"); const s = cli([badDir, "--target", "preview", "--summary"]); writeFileSync(f, s.out); const r = reportCli([f, "--checked-at", "2026-11-04"]); return s.status === 1 && r.status === 0 && r.out === reports["bad-MET-003 preview"].md; })());
+
+    // work order 25: questions 2 to 5 from the skill's report.json (report(summary, { live }), report.mjs --live)
+    const SKILL = process.env.OMNIKOM_SKILL_DIR ? resolve(process.env.OMNIKOM_SKILL_DIR) : resolve(HERE, "..", "..", "..", "skills", "programmatic-enterprise-web-performance");
+    // the real one: report-live.mjs run on the skill's own fixtures in a temp folder of this run (the snapshot is the fixture site; targets.json and measure/ are the fixtures' own; no fixture holds
+    // an authority.json or a competitors.json, so those two are written here in the shape authority.mjs and research.mjs write them: 4 winners, to see the cap of 3)
+    const makeRealLive = () => {
+      try {
+        const host = "sample-valley-realty.test", root = tmp("pewp-live-"), base = join(root, "site-checks", host), sd = join(base, "snapshots", "2026-10-24"), pewp = join(base, ".pewp");
+        const put = (p, o) => { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, typeof o === "string" ? o : JSON.stringify(o, null, 1)); };
+        const site = join(SKILL, "fixtures", "site"), found = [];
+        const walkSite = (d, rel = "") => { for (const f of readdirSync(d)) { const p = join(d, f); if (statSync(p).isDirectory()) walkSite(p, rel + f + "/"); else if (f === "index.html") found.push(rel); } };
+        walkSite(site);
+        const pages = found.map((rel) => ({ url: `https://${host}/${rel}`, slug: rel.replace(/\/$/, "").replace(/\//g, "_") || "home", status: 200, rel }));
+        put(join(sd, "_site.json"), { url: `https://${host}/`, finishedAt: "2026-10-24T10:00:00Z", runs: 1, stoppedEarly: null, machineLoad: null, pages: pages.map(({ rel, ...p }) => p) });
+        put(join(sd, "site", "robots.json"), { status: 200, groups: [{ agents: ["*"], rules: [] }] });
+        put(join(sd, "site", "sitemaps.json"), { urlCount: 3 });
+        put(join(sd, "site", "probes.json"), { notFound: { finalStatus: 404 } });
+        for (const p of pages) {
+          put(join(sd, "pages", p.slug, "response.json"), { url: p.url, finalUrl: p.url, status: 200, headers: {} });
+          writeFileSync(join(sd, "pages", p.slug, "raw.html.gz"), zlib.gzipSync(readFileSync(join(site, p.rel, "index.html"))));
+        }
+        cpSync(join(SKILL, "fixtures", "pewp"), pewp, { recursive: true });
+        cpSync(join(SKILL, "fixtures", "measure", "2026-10-22"), join(pewp, "measure", "2026-10-22"), { recursive: true });
+        put(join(pewp, "authority.json"), { fetchedAt: "2026-10-23T08:00:00Z", source: "Common Crawl web graph cc-main-fixture (domain level)", release: "fixture", target: host, linkGap: [{ domain: "a.test", linksToCompetitors: 2, harmonicPos: 5 }],
+          results: [{ domain: host, role: "target", inGraph: true, harmonicPos: 900, linkingDomains: 14, strongestLinkingDomains: [] }, { domain: "example-competitor-one.test", role: "competitor", inGraph: true, harmonicPos: 400, linkingDomains: 120, strongestLinkingDomains: [] }, { domain: "example-competitor-two.test", role: "competitor", inGraph: false }] });
+        put(join(pewp, "research", "competitors.json"), { generatedAt: "2026-10-21T09:00:00Z", sites: ["one", "two", "three", "four"].map((w, i) => ({ domain: `example-competitor-${w}.test`, status: 200, fetchedAt: "2026-10-21T09:00:00Z", page: { words: 900 + 100 * i, h2: Array.from({ length: 4 + i }, (_, k) => "h" + k) }, schema: { types: ["RealEstateAgent", "WebSite"].slice(0, 1 + (i % 2)), questions: i } })) });
+        const r = spawnSync(process.execPath, [join(SKILL, "scripts", "report-live.mjs"), `https://${host}/`, "--cwd", root, "--snapshot", sd], { encoding: "utf8", timeout: 120000, env: { ...childEnv, NODE_OPTIONS: "", GSC_TOKEN_FILE: "", GSC_SERVICE_ACCOUNT_FILE: "", GSC_SERVICE_ACCOUNT_JSON_B64: "" } });
+        return { status: r.status, err: String(r.stderr || "").slice(0, 300), live: JSON.parse(readFileSync(join(pewp, "report.json"), "utf8")) };
+      } catch (e) { return { status: null, err: String(e.message).slice(0, 300), live: null }; }
+    };
+    const real = makeRealLive(), liveReal = real.live;
+    // the synthetic one, in report-live.mjs's exact shape: Q2, Q4 and Q5 answered, Q3 BLOCKED (its texts carry file names and command lines, which the report never shows)
+    const F = (value, extra = {}) => ({ value, source: "fixture source text", fetchedAt: "2026-10-22T09:00:00Z", cacheFile: ".pewp/fixture.json", ...extra });
+    const blockedQ = (n, q) => ({ n, q, status: "BLOCKED", why: "Needs the research stage (`research.mjs`): who ranks now for each search, and their pages, to compare against.", needs: [{ id: "browser-capture", what: "the top 10 results per search", status: "needs-setup" }] });
+    const liveSynth = {
+      url: "https://x.test/", host: "x.test", writtenAt: "2026-11-09T04:00:00Z",
+      questions: [
+        { n: 1, q: "Can search engines and AI crawlers reach and read the site?", status: "answered", problems: [], facts: {} },
+        { n: 2, q: "Is there a page for what people actually search?", status: "answered",
+          facts: { clustersTotal: F(40, { fetchedAt: "2026-10-20T09:00:00Z" }), clustersWithPage: F(25), clustersMissingPage: F(15), pageNotInSnapshot: F(0), weakPages: F(0),
+            cannibalisation: { status: "NOT CHECKED", why: "the gate has not run for this site", unblock: "node scripts/gate.mjs \".pewp\" \"snapshots/2026-10-24\"" } },
+          missing: Array.from({ length: 12 }, (_, j) => ({ id: `c${j}`, search: `best agent ${j + 1} near me`, intent: "local", place: null, priority: F(4 + j), volume: F(100), closestPage: null })), weak: [], unverified: [] },
+        blockedQ(3, "Is each page better than what ranks now?"),
+        { n: 4, q: "Does the site have the authority to rank?", status: "answered",
+          facts: { referringDomains: F(14, { fetchedAt: "2026-10-23T08:00:00Z" }), strengthRank: F(900, { fetchedAt: "2026-10-23T08:00:00Z" }),
+            competitors: F(Array.from({ length: 7 }, (_, j) => ({ domain: `rival-${j}.test`, referringDomains: j === 3 ? 0 : 100 + 17 * j, strengthRank: j === 3 ? null : 10 + j })), { fetchedAt: "2026-10-23T08:00:00Z" }), linkGap: F(33, { fetchedAt: "2026-10-23T08:00:00Z" }) }, strongestLinkers: [], gapTop: [] },
+        { n: 5, q: "Is it cited by AI engines? If not, who is, and why?", status: "answered",
+          facts: { citedShare: F(0.666, { estimate: true, unit: "0 to 1", fetchedAt: "2026-10-22" }), answersChecked: F(30), questionsAsked: F(10), engines: F(["gemini", "chatgpt"]), rowsCitingUs: F(0),
+            citedInstead: F(Array.from({ length: 8 }, (_, j) => ({ domain: `portal-${j}.test`, answers: j === 4 ? 1 : 9 - j, kind: "other" }))) }, why: [], blocked: [] },
+        { n: 6, q: "What to fix, in order", status: "answered", fixes: [], plan: [] },
+      ],
+    };
+    // the same with parts that have no value: null, missing, not a whole number; and one real zero
+    const liveNulls = structuredClone(liveSynth);
+    { const q = (k) => liveNulls.questions.find((x) => x.n === k).facts;
+      delete q(2).clustersWithPage; q(2).weakPages.value = null; q(4).referringDomains.value = null; delete q(4).linkGap;
+      q(5).citedShare.value = null; q(5).engines.value = null; q(5).questionsAsked.value = "ten"; q(5).answersChecked.value = 0; }
+    const liveAllBlocked = { questions: [liveSynth.questions[0], ...[[2, "x"], [3, "x"], [4, "x"], [5, "x"]].map(([k, t]) => blockedQ(k, t)), liveSynth.questions[5]] };
+    const liveInputs = [["the real report.json (report-live.mjs on the skill's fixtures) with bad-MET-003 (preview), dated", sumBadPreview, "2026-11-04", liveReal], ["the synthetic report.json (Q3 BLOCKED) with good, no date", sumGood, null, liveSynth],
+      ["the synthetic report.json with parts that have no value, with 30 FAILs, dated", sumMany, "2026-11-04", liveNulls]];
+    // THE SOURCE RULE over a report with live: every digit run outside the heading numbers, backtick spans and day facts is the value of a fact (and of a fact of its own card in 2 to 5),
+    // every source reads back in summary, listRules() or live as exactly its value, every live fact carries fetchedAt and origin, every number and day fact is in the text
+    const readBack = (summary, date, live, md, facts) => {
+      const bad = [];
+      const days = [...new Set(facts.filter((f) => typeof f.value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(f.value)).map((f) => f.value))];
+      const bare = (lines) => { let t = lines.join("\n").replace(/^## \d\. /gm, "## ").replace(/`[^`]*`/g, ""); for (const d of days) t = t.split(d).join(""); return t; };
+      for (const d of days) if (!md.includes(d)) bad.push(`the day fact ${d} is not in the text`);
+      const runs = bare(md.split("\n")).match(/\d+/g) || [];
+      const values = new Set(facts.map((f) => String(f.value)));
+      for (const r of new Set(runs)) if (!values.has(r)) bad.push(`the digits ${r} in the text are no fact`);
+      for (const k of ["2", "3", "4", "5"]) {
+        const own = new Set(facts.filter((f) => f.id.startsWith(`q${k}.`)).map((f) => String(f.value)));
+        for (const r of new Set(bare(sections(md)[k] || []).match(/\d+/g) || [])) if (!own.has(r)) bad.push(`card ${k}: the digits ${r} are no fact of that card`);
+      }
+      for (const f of facts) {
+        let got;
+        try { got = resolveSource(f.source, summary, date, live); } catch (e) { bad.push(`${f.id}: ${e.message}`); continue; }
+        if (got !== f.value) bad.push(`${f.id}: ${f.source} gives ${JSON.stringify(got)}, the fact says ${JSON.stringify(f.value)}`);
+      }
+      for (const f of facts) if (typeof f.value === "number" && !runs.includes(String(f.value))) bad.push(`${f.id}: the fact ${f.value} is not in the text`);
+      const liveFacts = facts.filter((f) => /^q[2-5]\./.test(f.id));
+      if (!liveFacts.length) bad.push("no live fact at all");
+      for (const f of liveFacts) if (!("fetchedAt" in f && "origin" in f)) bad.push(`${f.id}: no fetchedAt or origin`);
+      return bad;
+    };
+    const withLive = (summary, date, live) => report(summary, { ...(date ? { checkedAt: date } : {}), live });
+    check("report --live: the skill's own fixtures run through report-live.mjs in a temp folder: exit 0 and questions 2, 3, 4 and 5 all answered (the real input of the tests below)",
+      real.status === 0 && !!liveReal && [2, 3, 4, 5].every((k) => liveReal.questions.find((q) => q.n === k)?.status === "answered") && liveReal.questions.find((q) => q.n === 3).siteLevel.length === 5, `exit ${real.status}: ${real.err}`);
+    for (const [name, summary, date, live] of liveInputs) {
+      const r = live ? withLive(summary, date, live) : { md: "", facts: [] };
+      check(`report --live: ${name}: the source rule holds over the whole report`, !!live && readBack(summary, date, live, r.md, r.facts).length === 0, live ? readBack(summary, date, live, r.md, r.facts).slice(0, 3).join(" | ") : "no input");
+    }
+    check("report --live: the source reader reads live (a nested value, a list length, the percentage rule, the day rule, a difference) and refuses a wrong index or a wrong path",
+      (() => { const v = (s) => resolveSource(s, sumGood, null, liveSynth); return v("live.questions[3].facts.competitors.value[1].referringDomains") === 117 && v("live.questions[3].facts.competitors.value.length") === 7 && v("live.questions[4].facts.citedShare.value (x100, rounded)") === 67
+        && v("live.questions[1].facts.clustersTotal.fetchedAt (day)") === "2026-10-20" && v("live.questions[1].facts.clustersMissingPage.value - 5") === 10 && v("live.questions[4].facts.engines.value[1]") === "chatgpt"
+        && (() => { try { v("live.questions[9].facts.x.value"); return false; } catch { return true; } })() && (() => { try { v("live.questions[3].facts.competitors.value[7].domain"); return false; } catch { return true; } })() && (() => { try { resolveSource("live.questions[1]", sumGood, null); return false; } catch { return true; } })(); })());
+    check("report --live: a wrong source and a number with no fact are seen by the check (it is not blind): a competitor read from entry 0, a dropped fact and a made-up number all come back as problems",
+      (() => { const r = withLive(sumGood, null, liveSynth);
+        const lie = r.facts.map((f) => (f.id === "q4.competitors.1.referringDomains" ? { ...f, source: f.source.replace("value[1]", "value[0]") } : f));
+        const hole = r.facts.filter((f) => f.id !== "q4.linkGap");
+        const lied = readBack(sumGood, null, liveSynth, r.md, lie), dropped = readBack(sumGood, null, liveSynth, r.md, hole), made = readBack(sumGood, null, liveSynth, r.md.replace("link to this site: 14", "link to this site: 15"), r.facts);
+        return lied.some((p) => p.startsWith("q4.competitors.1.referringDomains")) && dropped.some((p) => /digits 33 /.test(p)) && made.some((p) => /digits 15 /.test(p)); })());
+    // b: BLOCKED, and no live
+    const plainGood = report(sumGood, { checkedAt: "2026-11-04" });
+    check("report --live: a live report whose questions 2 to 5 are all BLOCKED prints exactly the report without live (text and facts), and so do live: null and live: undefined",
+      (() => { const a = report(sumGood, { checkedAt: "2026-11-04", live: liveAllBlocked }); const again = (live) => { try { return report(sumGood, { checkedAt: "2026-11-04", live }); } catch { return null; } }; const b = again(null); const c = again(undefined);
+        const s = JSON.stringify(plainGood); return JSON.stringify(a) === s && JSON.stringify(b) === s && JSON.stringify(c) === s; })());
+    check("report --live: live: null and live: undefined do not throw (they are no live)",
+      (() => { try { report(sumGood, { checkedAt: "2026-11-04", live: null }); report(sumGood, { checkedAt: "2026-11-04", live: undefined }); return true; } catch { return false; } })());
+    check("report --live: a BLOCKED question 3 prints exactly the Not measured yet card of the report without live (no file name, no command line), while questions 2, 4 and 5 are answered and sections 1 and 6 do not change",
+      (() => { const r = withLive(sumGood, "2026-11-04", liveSynth), a = sections(r.md), p = sections(plainGood.md);
+        return JSON.stringify(a["3"]) === JSON.stringify(p["3"]) && a["3"].join("\n").includes("**Not measured yet.** ") && !r.md.includes("research.mjs") && !r.md.includes("gate.mjs") && !r.md.includes("browser-capture")
+          && ["2", "4", "5"].every((k) => JSON.stringify(a[k]) !== JSON.stringify(p[k]) && !a[k].join("\n").includes("Not measured yet.")) && JSON.stringify(a["1"]) === JSON.stringify(p["1"]) && JSON.stringify(a["6"]) === JSON.stringify(p["6"]); })());
+    check("report --live: each answered card ends with Measured <day> from <the plain name of the source>, the day being the oldest of the facts printed in it; a BLOCKED card has no Measured line",
+      (() => { const a = sections(withLive(sumGood, null, liveSynth).md); const last = (k) => a[k].filter((l) => l.trim()).at(-1);
+        return last("2") === "Measured 2026-10-20 from the research and a snapshot of the site." && last("4") === "Measured 2026-10-23 from the Common Crawl link graph." && last("5") === "Measured 2026-10-22 from AI engine answers." && !a["3"].join("\n").includes("Measured "); })());
+    check("report --live: the lists are capped: 5 of 12 missing searches then and 10 more (15 need a page); 5 of 7 competitors then and 2 more; 5 of 8 cited domains then and 3 more; 3 winners of 4 per row and the line saying so",
+      (() => { const a = sections(withLive(sumGood, null, liveSynth).md), t = sections(withLive(sumBadPreview, null, liveReal).md)["3"], sp = (l) => (l.match(/`[^`]*`/g) || []).length;
+        const subs = (k, re) => a[k].filter((l) => re.test(l));
+        return subs("2", /^ {2}- `best agent/).length === 5 && a["2"].includes("  - `best agent 1 near me`") && a["2"].includes("  - and 10 more") && subs("4", /^ {2}- `rival-/).length === 5 && a["4"].includes("  - and 2 more") && subs("5", /^ {2}- `portal-/).length === 5 && a["5"].includes("  - and 3 more")
+          && t.filter((l) => l.startsWith("- ")).length === 5 && t.filter((l) => l.startsWith("- ")).every((l) => sp(l) === 3) && t.includes("Only the first three winning sites are shown."); })());
+    check("report --live: a share is printed as a rounded percentage (0.666 is 67%, a fact 67 whose source ends (x100, rounded)), marked an estimate when the skill says so; 1 answer is singular; a competitor with 0 referring domains prints 0 as a fact",
+      (() => { const r = withLive(sumGood, null, liveSynth), a = sections(r.md); const share = r.facts.find((f) => f.id === "q5.citedShare"), zero = r.facts.find((f) => f.id === "q4.competitors.3.referringDomains");
+        return a["5"].includes("- Share of AI answers that cite this site: 67% (an estimate)") && share.value === 67 && share.source.endsWith("(x100, rounded)") && a["5"].includes("  - `portal-4.test`: 1 answer") && a["5"].includes("  - `portal-0.test`: 9 answers")
+          && a["4"].includes("  - `rival-3.test`: 0") && zero.value === 0; })());
+    // c: a part with no value
+    check("report --live: a part that is null, missing or not a whole number reads not measured yet with no digit and no fact (never 0), while a real zero is printed as 0 with its fact",
+      (() => { const r = withLive(sumGood, null, liveNulls), a = sections(r.md), ids = new Set(r.facts.map((f) => f.id));
+        const want = [["2", "- Searches that already have a page: not measured yet"], ["2", "- Pages that do not match their search: not measured yet"], ["4", "- Websites that link to this site: not measured yet"], ["4", "- Websites that link to at least two competitors but not to this site: not measured yet"],
+          ["5", "- Share of AI answers that cite this site: not measured yet"], ["5", "- Different questions asked: not measured yet"], ["5", "- AI engines asked: not measured yet"], ["5", "- AI answers read: 0"]];
+        const lines = ["2", "3", "4", "5"].flatMap((k) => a[k]).filter((l) => l.includes("not measured yet"));
+        return want.every(([k, l]) => a[k].includes(l)) && lines.length >= 7 && lines.every((l) => !/\d/.test(l.replace(/`[^`]*`/g, "")))
+          && ["q2.withPage", "q2.weakPages", "q4.referringDomains", "q4.linkGap", "q5.citedShare", "q5.questionsAsked", "q5.engines.0"].every((id) => !ids.has(id)) && r.facts.find((f) => f.id === "q5.answersChecked")?.value === 0; })());
+    // d: the words
+    for (const [name, summary, date, live] of liveInputs) {
+      const md = live ? withLive(summary, date, live).md : "", outside = md.replace(/`[^`]*`/g, "");
+      check(`report --live: ${name}: no rule id, file name, command line, jargon word, em dash, table or numbered list outside the backtick spans, and nothing of the BLOCKED texts`,
+        md !== "" && !/[A-Z]{2,3}-\d{3}/.test(outside) && !/\.(mjs|json|md|html|txt|xml)\b/i.test(outside) && !/\bnode\b|\bnpm\b|\s--[a-z]/.test(outside) && !JARGON.test(outside) && !outside.includes(EM) && !/^\s*\|/m.test(md) && !/^\s*\d+\. /m.test(md.replace(/^## \d\. /gm, "## "))
+        && !md.includes("research.mjs") && !md.includes("browser-capture"), (outside.match(/[A-Z]{2,3}-\d{3}|\.(mjs|json|md|html|txt|xml)\b|\bnode\b|canonical|sitemap|\bh2\b|robots/i) || [outside.includes(EM) ? "em dash" : "a table or list"])[0]);
+    }
+    // e: a live report that is not one, in the library and on the command line
+    const badLives = ["text", 5, [], {}, { questions: "x" }, { questions: [] }, { questions: liveSynth.questions.filter((q) => q.n !== 4) }, { questions: [...liveSynth.questions, liveSynth.questions[1]] },
+      { questions: liveSynth.questions.map((q) => (q.n === 5 ? { ...q, facts: undefined } : q)) }, { questions: liveSynth.questions.map((q) => (q.n === 2 ? { ...q, status: undefined } : q)) }, { questions: liveSynth.questions.map((q) => (q.n === 4 ? { ...q, facts: "no" } : q)) }];
+    check(`report --live: ${badLives.length} things that are not a live report (not an object, no questions list, question 4 missing, question 2 twice, question 5 answered with no facts, no status) throw an AuditError with exit 2 and one line`,
+      badLives.every((l) => { const e = refused(sumGood, { live: l }); return e && e.exit === 2 && e instanceof engine.AuditError && !e.message.includes("\n"); }), badLives.map((l) => { const e = refused(sumGood, { live: l }); return e ? e.exit : "no error"; }).join(","));
+    const liveDir = tmp("omnikom-audit-live-"), liveFile = join(liveDir, "report.json"), blockedFile = join(liveDir, "blocked.json");
+    writeFileSync(liveFile, JSON.stringify(liveReal)); writeFileSync(blockedFile, JSON.stringify(liveAllBlocked));
+    const withFile = reportCli([sumFile, "--live", liveFile, "--checked-at", "2026-11-04"]), asJsonLive = reportCli([sumFile, "--live", liveFile, "--json", "--checked-at", "2026-11-04"]), blockedCli = reportCli([sumFile, "--live", blockedFile, "--checked-at", "2026-11-04"]);
+    let parsedLive = null; try { parsedLive = JSON.parse(asJsonLive.out); } catch {}
+    check("report CLI --live: <summary.json> --live <report.json> prints the markdown of report() with that live, exit 0, nothing on stderr; --json carries the live facts with fetchedAt and origin; all questions BLOCKED there prints the report without --live",
+      withFile.status === 0 && withFile.err === "" && withFile.out === report(sumBadLive, { checkedAt: "2026-11-04", live: liveReal }).md && asJsonLive.status === 0 && parsedLive && JSON.stringify(parsedLive) === JSON.stringify(report(sumBadLive, { checkedAt: "2026-11-04", live: liveReal }))
+      && parsedLive.facts.filter((f) => /^q[2-5]\./.test(f.id)).length > 20 && parsedLive.facts.filter((f) => /^q[2-5]\./.test(f.id)).every((f) => "fetchedAt" in f && "origin" in f) && blockedCli.status === 0 && blockedCli.out === plain.out, `${withFile.status} ${withFile.err}`);
+    const liveBad = [["a missing live file", [sumFile, "--live", join(liveDir, "missing.json")]], ["a live file that is not JSON", [sumFile, "--live", writeBad("live-text.json", "not json")]], ["a live file that is an array", [sumFile, "--live", writeBad("live-array.json", "[]")]], ["a live file with no questions", [sumFile, "--live", writeBad("live-empty.json", "{}")]],
+      ["a live file without question 4", [sumFile, "--live", writeBad("live-no4.json", JSON.stringify({ questions: liveSynth.questions.filter((q) => q.n !== 4) }))]], ["a live file whose answered question 5 has no facts", [sumFile, "--live", writeBad("live-nofacts.json", JSON.stringify({ questions: liveSynth.questions.map((q) => (q.n === 5 ? { ...q, facts: undefined } : q)) }))]],
+      ["--live with no value", [sumFile, "--live"]], ["--live followed by another option", [sumFile, "--live", "--json"]], ["--live twice", [sumFile, "--live", liveFile, "--live", liveFile]]].map(([what, args]) => ({ what, r: reportCli(args) }));
+    check(`report CLI --live: ${liveBad.length} wrong calls exit 2, print nothing on stdout and say why in one line on stderr`, liveBad.every((b) => b.r.status === 2 && b.r.out === "" && b.r.err.trim().split("\n").length === 1 && b.r.err.startsWith("report: ")),
+      liveBad.filter((b) => !(b.r.status === 2 && b.r.out === "" && b.r.err.trim().split("\n").length === 1)).map((b) => `${b.what}: ${b.r.status} ${b.r.err.slice(0, 100)}`).join(" | "));
+    check("report CLI --live: the usage line names --live", /\[--live <report\.json>\]/.test(reportCli([]).err));
   }
 
   // temp folders (slice 4b.1): every folder this run made is on disk inside its one root (read back from the root, not from the names kept in memory)

@@ -84,13 +84,13 @@ fails. The dashboard's "Search health" card and the six-question report read thi
 
 ## The six-question report
 `report.mjs` turns a stored summary (above, with `byTopic`) into the owner's monthly report in plain words: a short answer, then the six
-questions in the headings of the skill's `report-live.mjs`. Node built-ins only, nothing written. Work order 09 (SEO slice 4, first part).
+questions in the headings of the skill's `report-live.mjs`. Node built-ins only, nothing written. Work order 09 (SEO slice 4, first part); questions 2 to 5 from the skill's `report.json`, work order 25.
 ```
 import { report } from "./tools/audit/report.mjs";
-const { md, facts } = report(summary, { checkedAt: "2026-11-04" });    // checkedAt optional: without it the text has no date part
+const { md, facts } = report(summary, { checkedAt: "2026-11-04", live });    // both optional: without checkedAt the text has no date part; live is the skill's parsed report.json
 ```
 ```
-node tools/audit/report.mjs <summary.json> [--checked-at YYYY-MM-DD] [--json]
+node tools/audit/report.mjs <summary.json> [--live <report.json>] [--checked-at YYYY-MM-DD] [--json]
 ```
 - The CLI prints the markdown (exit 0); `--json` prints `{ md, facts }` as one JSON object. A missing or unreadable file, a file that is not a summary
   (not JSON, `v` other than 1, no `byTopic`, which a summary stored before work order 06 lacks), a bad date or an unknown option exits 2 with one line on stderr.
@@ -107,9 +107,27 @@ node tools/audit/report.mjs <summary.json> [--checked-at YYYY-MM-DD] [--json]
   counts different values, `[*]` is every entry, `[2,5]` the listed ones). `test/run.mjs` reads every source back in the input summary with its own reader
   and compares it with the value, and checks that every run of digits in the text (the heading numbers and the backtick spans taken out, the date removed
   whole) equals a fact.
-- Questions 2 to 5 (is there a page for what people search, is each page better than what ranks, authority, AI citations) need the skill's research and
-  measure files. Here each is a card "Not measured yet. <why>" with "What unblocks it: <what>", in the words of `report-live.mjs`. Reading those files
-  is the next part.
+- **Questions 2 to 5 and the `live` input (work order 25).** Is there a page for what people search, is each page better than what ranks, authority, AI
+  citations: the skill computes these (`skills/programmatic-enterprise-web-performance/scripts/report-live.mjs` writes `<pewp>/report.json`); this report only
+  renders them, so there is one computation. Without `live` (or `--live`) each is the card "Not measured yet. <why>" with "What unblocks it: <what>" in the
+  words of `report-live.mjs`, byte for byte as before. With `live` (a parsed `report.json`; the CLI reads the file of `--live`) `questions` must hold an entry
+  for n 2, 3, 4 and 5, each with a `status`, and a status other than `BLOCKED` must have `facts`: anything else is an `AuditError`, exit 2, one line (the CLI also
+  exits 2 for a missing or unreadable `--live` file, a second `--live` or `--live` with no file). A question with `status: "BLOCKED"` keeps the same
+  Not-measured-yet card (its own texts carry command lines and file names, which this report never shows). Any other status is said in plain words, in `-`
+  bullets (the dashboard card renders lists, not tables): Q2 searches worth a page, with a page, needing a new one, pages that do not match their search, the first 5
+  searches with no page then "and k more"; Q3 the comparison rows of the home page against the winning sites, at most 3 winners per row; Q4 websites linking
+  to the site, to each competitor (5, then "and k more") and the link gap; Q5 the cited share, answers read, different questions, the engines and the first 5
+  domains cited instead. A part whose value is null, missing or not a whole number reads "not measured yet", never 0 (a real 0 is printed as 0). Each answered card
+  ends "Measured <day> from <plain name of the source>": the day is the oldest `fetchedAt` among the facts printed in the card (no fresher than its oldest part), and
+  the card has no such line when none of its facts has a date. A comparison row the skill adds later (Q3 `siteLevel[].measure`) is not shown until
+  `report.mjs` has plain words for it.
+- **The flattening convention.** Every number printed from `live` is a scalar fact `{ id, value, source, fetchedAt, origin }` next to the 09 facts: `source` is a
+  path in `live` (`live.questions[3].facts.competitors.value[0].referringDomains`; the index is the position of the question in `questions`, not its `n`);
+  a list counted by its length ends `.length` (`...winners[1].value.length`); a "k more" is a difference (`live.questions[1].facts.clustersMissingPage.value - 5`);
+  a percentage is printed as `Math.round(v * 100)`, the fact holds that rounded number and its source ends ` (x100, rounded)`; a day is the first 10 characters of
+  a `fetchedAt` and its source ends ` (day)`; a name (a search, a domain, an engine) is a fact too, printed in backticks. `fetchedAt` and `origin` are the skill
+  fact's own `fetchedAt` and `source` text (null when it has none). The source rule above holds over the whole report: `test/run.mjs` reads every `source` back
+  with its own reader, and each digit run of a card in 2 to 5 (headings, backtick spans and day facts taken out) must equal a fact of that card.
 
 ## Snapshot mode (slice 2)
 A folder that holds `_site.json` and `pages/<slug>/raw.html.gz` is a snapshot made by the skill's polite `snapshot-site.mjs`, and the same

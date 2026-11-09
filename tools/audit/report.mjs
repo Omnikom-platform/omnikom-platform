@@ -1,13 +1,18 @@
 // The six-question report in plain words: report(summary, { checkedAt }) turns a stored audit summary (work order 05, with byTopic from work order 06)
 // into { md, facts }. Node built-ins only, nothing written.
 //   import { report } from "./report.mjs";
-//   const { md, facts } = report(summary, { checkedAt: "2026-11-04" });      // checkedAt is optional; without it the text has no date part
-//   node tools/audit/report.mjs <summary.json> [--checked-at YYYY-MM-DD] [--json]     prints md (or { md, facts } as one JSON object); exit 2 on a usage error
+//   const { md, facts } = report(summary, { checkedAt: "2026-11-04", live });      // both optional: without checkedAt the text has no date part; live is the parsed report.json
+//   node tools/audit/report.mjs <summary.json> [--live <report.json>] [--checked-at YYYY-MM-DD] [--json]     prints md (or { md, facts } as one JSON object); exit 2 on a usage error
 // THE SOURCE RULE: a report never states a number without its source. Every number in md goes through n(), which records a fact { id, value, source }.
 // source is where the value was read: a path in the summary (summary.byTopic.headings.FAIL, summary.fails[3].page), or listRules()["MET-003"].severity,
 // or checkedAt, or a small sum or difference of those (summary.counts.PASS + summary.counts.FAIL; distinct(summary.fails[2,5].page) - 5).
 // distinct(path) is the number of different values at the path; [*] means every entry, [2,5] the listed entries. test/run.mjs resolves each source itself.
-// Questions 2 to 5 need the skill's research and measure files; here they are "Not measured yet" cards, in the words of the skill's report-live.mjs.
+// Questions 2 to 5 (work order 25): report(summary, { checkedAt, live }) where live is the skill's parsed report.json (report-live.mjs writes it; the skill keeps the one
+// computation, this file only renders). Without live, or for a question whose status is BLOCKED, they are "Not measured yet" cards in the words of report-live.mjs.
+// A live question that is answered is said in plain words and ends "Measured <day> from <plain name of the source>". Its numbers are facts too, flattened to scalars:
+//   { id, value, source, fetchedAt, origin }: source is a path in live (live.questions[3].facts.competitors.value[0].referringDomains), a percentage is printed as
+//   Math.round(v * 100) and its source ends " (x100, rounded)", a day is the first 10 characters of a fetchedAt and its source ends " (day)"; origin is the skill fact's own source text.
+// A part with no value (null, missing, not a whole number) reads "not measured yet", never 0.
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { AuditError, listRules } from "./index.mjs";
@@ -53,9 +58,41 @@ const key = (k) => (/^[A-Za-z_]\w*$/.test(k) ? `.${k}` : `[${JSON.stringify(k)}]
 const show = (s) => String(s).replace(/[`\r\n\t]+/g, " ");   // a page inside a backtick span, on one line
 const plural = (k, one, many) => (k === 1 ? one : many);
 
-export function report(summary, { checkedAt } = {}) {
+// questions 2 to 5 from the skill's report.json (work order 25)
+const NOT = "not measured yet";
+const MAX_LIVE = 5;       // missing searches, competitors, cited domains named in a card, then "and <k> more"
+const MAX_WINNERS = 3;    // winning sites set beside ours
+const LIVE_NAMES = { 2: "the research and a snapshot of the site", 3: "an audit of the winning sites and a snapshot of this one", 4: "the Common Crawl link graph", 5: "AI engine answers" };
+// the skill's comparison rows (report-live.mjs computeQ3) in plain words; a row it adds later is not shown until it has words here
+const ROWS3 = {
+  "words of text on the home page": "Words of text on the home page",
+  "sections (H2 headings) on the home page": "Sections on the home page",
+  "kinds of structured data on the home page": "Kinds of structured data on the home page",
+  "FAQ questions marked up in structured data": "Questions and answers marked up for search engines",
+  "AI search crawlers blocked by robots.txt": "AI search crawlers blocked from the site (fewer is better)",
+};
+const badLive = (why) => { throw new AuditError(`not a live report: ${why}`); };
+function liveIndex(live) {
+  if (!isObj(live)) badLive("it is not a JSON object");
+  if (!Array.isArray(live.questions)) badLive("it has no questions list");
+  const out = new Map();
+  for (const k of [2, 3, 4, 5]) {
+    const here = live.questions.map((q, at) => [q, at]).filter(([q]) => isObj(q) && q.n === k);
+    if (here.length === 0) badLive(`it has no question ${k}`);
+    if (here.length > 1) badLive(`question ${k} is there ${here.length} times`);
+    const [q, at] = here[0];
+    if (typeof q.status !== "string") badLive(`question ${k} has no status`);
+    if (q.status !== "BLOCKED" && !isObj(q.facts)) badLive(`question ${k} is answered but has no facts`);
+    out.set(k, { q, at });
+  }
+  return out;
+}
+const dayOf = (s) => (typeof s === "string" && validDate(s.slice(0, 10)) ? s.slice(0, 10) : null);
+
+export function report(summary, { checkedAt, live } = {}) {
   valid(summary);
   if (checkedAt !== undefined && checkedAt !== null && !validDate(checkedAt)) throw new AuditError(`bad checked-at date ${JSON.stringify(checkedAt)}: it must be YYYY-MM-DD`);
+  const liveQ = live === undefined || live === null ? null : liveIndex(live);
   const facts = [];
   const n = (id, value, source) => { facts.push({ id, value, source }); return String(value); };
   const c = summary.counts;
@@ -114,8 +151,91 @@ export function report(summary, { checkedAt } = {}) {
   }
   md.push("");
 
-  // 2 to 5: not measured yet
-  for (const [heading, why, unblock] of QUESTIONS.slice(1)) md.push(`## ${heading}`, "", `**Not measured yet.** ${why}`, "", `What unblocks it: ${unblock}`, "");
+  // 2 to 5: said in plain words from the skill's report.json when it answers them; otherwise (no live, or BLOCKED there) the not-measured-yet card
+  // the text of a live question: plain lines, each number a flattened scalar fact { id, value, source, fetchedAt, origin }; a part with no value says "not measured yet"
+  const liveLines = (k, q, at) => {
+    const base = `live.questions[${at}]`, f = isObj(q.facts) ? q.facts : {}, days = [];
+    const emit = (id, value, source, node, path) => {
+      facts.push({ id, value, source, fetchedAt: node?.fetchedAt ?? null, origin: node?.source ?? null });
+      const d = dayOf(node?.fetchedAt);
+      if (d) days.push({ d, node, path: `${path}.fetchedAt (day)` });
+    };
+    // a whole number from a list item, which takes its date and origin from the fact that holds the list
+    const item = (id, v, source, node, path) => { if (!isCount(v)) return NOT; emit(id, v, source, node, path); return String(v); };
+    // a whole number from a fact node ({ value, source, fetchedAt }); len: a list there counts as its length
+    const num = (id, node, path, len = false) => { const v = node?.value; return Array.isArray(v) && len ? item(id, v.length, `${path}.value.length`, node, path) : item(id, v, `${path}.value`, node, path); };
+    const pct = (id, node, path) => { const v = node?.value; if (typeof v !== "number" || !(v >= 0 && v <= 1)) return NOT; const r = Math.round(v * 100); emit(id, r, `${path}.value (x100, rounded)`, node, path); return `${r}%`; };
+    const word = (id, v, source, node, path) => { if (typeof v !== "string" || !v.trim()) return NOT; emit(id, v, source, node, path); return "`" + show(v) + "`"; };
+    const lines = [];
+    if (k === 2) {
+      lines.push(`- Searches worth a page: ${num("q2.total", f.clustersTotal, `${base}.facts.clustersTotal`)}`,
+        `- Searches that already have a page: ${num("q2.withPage", f.clustersWithPage, `${base}.facts.clustersWithPage`)}`,
+        `- Searches that need a new page: ${num("q2.missingPage", f.clustersMissingPage, `${base}.facts.clustersMissingPage`)}`,
+        `- Pages that do not match their search: ${num("q2.weakPages", f.weakPages, `${base}.facts.weakPages`)}`);
+      const mNode = f.clustersMissingPage, mPath = `${base}.facts.clustersMissingPage`, missing = Array.isArray(q.missing) ? q.missing.slice(0, MAX_LIVE) : [];
+      if (missing.length) {
+        lines.push("- The first searches with no page yet, most valuable first:");
+        missing.forEach((m, j) => lines.push(`  - ${word(`q2.missing.${j}`, m?.search, `${base}.missing[${j}].search`, mNode, mPath)}`));
+        if (isCount(mNode?.value) && mNode.value > missing.length) lines.push(`  - and ${item("q2.missing.more", mNode.value - missing.length, `${mPath}.value - ${missing.length}`, mNode, mPath)} more`);
+      } else lines.push(`- Searches with no page yet: ${mNode?.value === 0 ? "none" : NOT}`);
+    }
+    if (k === 3) {
+      const rows = (Array.isArray(q.siteLevel) ? q.siteLevel : []).map((r, j) => [r, j]).filter(([r]) => isObj(r) && Object.hasOwn(ROWS3, r.measure) && Array.isArray(r.winners));
+      if (!rows.length) lines.push(`- Our home page against the sites that win: ${NOT}`);
+      else {
+        lines.push("Our home page against the sites that win these searches (home page figures only; the winners' deeper pages are not audited):", "");
+        for (const [r, j] of rows) {
+          const rp = `${base}.siteLevel[${j}]`;
+          const theirs = r.winners.slice(0, MAX_WINNERS).map((w, m) => `${word(`q3.${j}.winner.${m}`, w?.domain, `${rp}.winners[${m}].domain`, w, `${rp}.winners[${m}]`)} ${num(`q3.${j}.winner.${m}.value`, w, `${rp}.winners[${m}]`, true)}`);
+          lines.push(`- ${ROWS3[r.measure]}: this site ${num(`q3.${j}.ours`, r.ours, `${rp}.ours`)}${theirs.length ? ", " + theirs.join(", ") : ""}`);
+        }
+        if (rows.some(([r]) => r.winners.length > MAX_WINNERS)) lines.push("", "Only the first three winning sites are shown.");
+      }
+    }
+    if (k === 4) {
+      lines.push(`- Websites that link to this site: ${num("q4.referringDomains", f.referringDomains, `${base}.facts.referringDomains`)}`);
+      const cNode = f.competitors, cPath = `${base}.facts.competitors`, comps = cNode?.value;
+      if (!Array.isArray(comps)) lines.push(`- Websites that link to the competitors: ${NOT}`);
+      else if (!comps.length) lines.push("- Websites that link to the competitors: no competitor was checked");
+      else {
+        lines.push("- Websites that link to the competitors:");
+        comps.slice(0, MAX_LIVE).forEach((c, j) => lines.push(`  - ${word(`q4.competitors.${j}.domain`, c?.domain, `${cPath}.value[${j}].domain`, cNode, cPath)}: ${item(`q4.competitors.${j}.referringDomains`, c?.referringDomains, `${cPath}.value[${j}].referringDomains`, cNode, cPath)}`));
+        if (comps.length > MAX_LIVE) lines.push(`  - and ${item("q4.competitors.more", comps.length - MAX_LIVE, `${cPath}.value.length - ${MAX_LIVE}`, cNode, cPath)} more`);
+      }
+      lines.push(`- Websites that link to at least two competitors but not to this site: ${num("q4.linkGap", f.linkGap, `${base}.facts.linkGap`)}`);
+    }
+    if (k === 5) {
+      const share = pct("q5.citedShare", f.citedShare, `${base}.facts.citedShare`);
+      lines.push(`- Share of AI answers that cite this site: ${share}${share !== NOT && f.citedShare.estimate === true ? " (an estimate)" : ""}`,
+        `- AI answers read: ${num("q5.answersChecked", f.answersChecked, `${base}.facts.answersChecked`)}`,
+        `- Different questions asked: ${num("q5.questionsAsked", f.questionsAsked, `${base}.facts.questionsAsked`)}`);
+      const eNode = f.engines, ePath = `${base}.facts.engines`;
+      lines.push(`- AI engines asked: ${Array.isArray(eNode?.value) && eNode.value.length ? eNode.value.map((e, j) => word(`q5.engines.${j}`, e, `${ePath}.value[${j}]`, eNode, ePath)).join(", ") : NOT}`);
+      const dNode = f.citedInstead, dPath = `${base}.facts.citedInstead`, cited = dNode?.value;
+      if (!Array.isArray(cited)) lines.push(`- Cited instead, most often: ${NOT}`);
+      else if (!cited.length) lines.push("- Cited instead, most often: no other site was named");
+      else {
+        lines.push("- Cited instead, most often:");
+        cited.slice(0, MAX_LIVE).forEach((c, j) => { const a = item(`q5.cited.${j}.answers`, c?.answers, `${dPath}.value[${j}].answers`, dNode, dPath); lines.push(`  - ${word(`q5.cited.${j}.domain`, c?.domain, `${dPath}.value[${j}].domain`, dNode, dPath)}: ${a}${a === NOT ? "" : ` ${plural(c.answers, "answer", "answers")}`}`); });
+        if (cited.length > MAX_LIVE) lines.push(`  - and ${item("q5.cited.more", cited.length - MAX_LIVE, `${dPath}.value.length - ${MAX_LIVE}`, dNode, dPath)} more`);
+      }
+    }
+    // the day it was measured: the oldest day among the facts printed here (the card is no fresher than its oldest part)
+    const oldest = days.reduce((a, d) => (!a || d.d < a.d ? d : a), null);
+    if (oldest) {
+      facts.push({ id: `q${k}.measuredAt`, value: oldest.d, source: oldest.path, fetchedAt: oldest.node.fetchedAt, origin: oldest.node.source ?? null });
+      lines.push("", `Measured ${oldest.d} from ${LIVE_NAMES[k]}.`);
+    }
+    lines.push("");
+    return lines;
+  };
+  QUESTIONS.slice(1).forEach(([heading, why, unblock], i) => {
+    md.push(`## ${heading}`, "");
+    const lq = liveQ && liveQ.get(i + 2);
+    // a BLOCKED question keeps the report's own card: the BLOCKED texts of report.json carry command lines and file names
+    if (lq && lq.q.status !== "BLOCKED") md.push(...liveLines(i + 2, lq.q, lq.at));
+    else md.push(`**Not measured yet.** ${why}`, "", `What unblocks it: ${unblock}`, "");
+  });
 
   // 6: what to fix, FAIL rules by severity, then by the number of pages, then by rule id
   md.push("## 6. What to fix, in order", "");
@@ -139,12 +259,13 @@ export function report(summary, { checkedAt } = {}) {
 // the command line
 const die = (msg) => { console.error(`report: ${String(msg).split(/\r?\n/)[0]}`); process.exit(2); };
 async function main() {
-  const USAGE = "usage: node tools/audit/report.mjs <summary.json> [--checked-at YYYY-MM-DD] [--json]";
+  const USAGE = "usage: node tools/audit/report.mjs <summary.json> [--live <report.json>] [--checked-at YYYY-MM-DD] [--json]";
   const args = process.argv.slice(2);
-  let file = null, checkedAt, json = false;
+  let file = null, liveFile = null, checkedAt, json = false;
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === "--json") json = true;
+    else if (a === "--live") { if (liveFile !== null) die(`--live given twice\n${USAGE}`); liveFile = args[++i]; if (!liveFile || liveFile.startsWith("--")) die(`--live needs the report.json file of the skill\n${USAGE}`); }
     else if (a === "--checked-at") { checkedAt = args[++i]; if (!validDate(checkedAt)) die(`--checked-at needs a date as YYYY-MM-DD (got ${checkedAt === undefined ? "nothing" : JSON.stringify(checkedAt)})\n${USAGE}`); }
     else if (a.startsWith("--")) die(`unknown option ${a}\n${USAGE}`);
     else if (file === null) file = a;
@@ -153,8 +274,10 @@ async function main() {
   if (!file) die(USAGE);
   let summary;
   try { summary = JSON.parse(fs.readFileSync(file, "utf8")); } catch (e) { die(`cannot read ${file} as JSON: ${e.code || e.message}`); }
+  let live;
+  if (liveFile !== null) { try { live = JSON.parse(fs.readFileSync(liveFile, "utf8").replace(/^\uFEFF/, "")); } catch (e) { die(`cannot read ${liveFile} as JSON: ${e.code || e.message}`); } }
   try {
-    const r = report(summary, { checkedAt });
+    const r = report(summary, { checkedAt, live });
     process.stdout.write(json ? JSON.stringify(r) + "\n" : r.md);
   } catch (e) { if (e instanceof AuditError) die(e.message); throw e; }
 }
