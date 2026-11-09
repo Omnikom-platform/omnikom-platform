@@ -120,9 +120,11 @@ with a publish.
    count (page titles and descriptions; headings and structure; indexing; addresses; links; accessibility; speed; structured
    data; AI question coverage; design; preview or live setting), and under a family with a problem one plain line per problem:
    what, which page. The plain family and problem words come from `tools/audit/names.json` through the summary's `byTopic`, never written in the
-   screen.
+   screen. Backend: built (work order 10, M16 `site_audit`, function `site-audit` `latest.preview` and `latest.production`, the
+   summary whole with its fails); staging proof: e2e-site-audit <date, the head fills it after the run>. No screen yet.
 2. **Check history:** the last 10 publishes, each with its date, pass or fail and counts; a failed one says "nothing went live"
-   (reads `publish_jobs.gate_report`, already stored per job).
+   (`site-audit` `history`: the last 10 finished jobs, newest first, no fails; a job from before the stored summary shows no pass or counts
+   and says only its date and state). Backend: built with card 1 (staging proof as card 1).
 3. **AI questions:** the plan's prompt map (`plan/prompt-coverage.json`): each question a buyer asks an AI engine, and the page
    that answers it or "not answered yet". Needs the map stored with the site (today it exists only in the build folder): a
    platform finding when this card is built.

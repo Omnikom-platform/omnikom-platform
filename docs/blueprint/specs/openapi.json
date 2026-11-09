@@ -1800,6 +1800,216 @@
       "const": true
      }
     }
+   },
+   "SiteAuditRequest": {
+    "type": "object",
+    "required": [
+     "site"
+    ],
+    "properties": {
+     "site": {
+      "type": "string",
+      "format": "uuid"
+     }
+    }
+   },
+   "SiteAuditResponse": {
+    "type": "object",
+    "required": [
+     "latest",
+     "history"
+    ],
+    "properties": {
+     "latest": {
+      "type": "object",
+      "required": [
+       "preview",
+       "production"
+      ],
+      "properties": {
+       "preview": {
+        "oneOf": [
+         {
+          "$ref": "#/components/schemas/SiteAuditRow"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "production": {
+        "oneOf": [
+         {
+          "$ref": "#/components/schemas/SiteAuditRow"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       }
+      },
+      "description": "the newest finished job per target whose audit summary is version 1; summary is the whole summary, fails included"
+     },
+     "history": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+       "$ref": "#/components/schemas/SiteAuditRow"
+      },
+      "description": "the last 10 finished jobs (done or failed), newest first; summary is null in every row and no fails are carried"
+     }
+    }
+   },
+   "SiteAuditRow": {
+    "type": "object",
+    "required": [
+     "job",
+     "finished_at",
+     "state",
+     "target",
+     "pass",
+     "counts",
+     "summary"
+    ],
+    "properties": {
+     "job": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "finished_at": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date-time"
+     },
+     "state": {
+      "type": "string",
+      "enum": [
+       "done",
+       "failed"
+      ],
+      "description": "a failed job says it"
+     },
+     "target": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "enum": [
+       "preview",
+       "production",
+       null
+      ],
+      "description": "null for a job from before the summary (no version 1)"
+     },
+     "pass": {
+      "type": [
+       "boolean",
+       "null"
+      ],
+      "description": "null for a job from before the summary"
+     },
+     "counts": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "description": "{ PASS, FAIL, SKIP } and any other status the audit counted; null for a job from before the summary"
+     },
+     "summary": {
+      "oneOf": [
+       {
+        "$ref": "#/components/schemas/AuditSummary"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "only in latest"
+     }
+    }
+   },
+   "AuditSummary": {
+    "type": "object",
+    "required": [
+     "v",
+     "target",
+     "pass",
+     "counts",
+     "fails",
+     "truncated"
+    ],
+    "description": "tools/audit/summary.mjs, version 1 (tools/audit/README.md \"The summary (stored per site)\")",
+    "properties": {
+     "v": {
+      "type": "integer",
+      "enum": [
+       1
+      ]
+     },
+     "target": {
+      "type": "string"
+     },
+     "mode": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "pass": {
+      "type": "boolean"
+     },
+     "exit": {
+      "type": "integer"
+     },
+     "pages": {
+      "type": "integer"
+     },
+     "rules": {
+      "type": "integer"
+     },
+     "counts": {
+      "type": "object"
+     },
+     "byFamily": {
+      "type": "object"
+     },
+     "fails": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+       "type": "object",
+       "properties": {
+        "rule": {
+         "type": "string"
+        },
+        "page": {
+         "type": "string"
+        },
+        "line": {
+         "type": [
+          "integer",
+          "null"
+         ]
+        },
+        "what": {
+         "type": "string"
+        },
+        "source": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "truncated": {
+      "type": "integer",
+      "description": "how many FAILs were left out of fails"
+     },
+     "commit": {
+      "type": "string"
+     }
+    }
    }
   },
   "responses": {
@@ -3306,6 +3516,56 @@
         }
        }
       }
+     }
+    }
+   }
+  },
+  "/site-audit": {
+   "post": {
+    "operationId": "siteAudit",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "summary": "A site's stored search check: the latest audit summary per target and the last 10 publishes (dashboard; supabase/functions/site-audit)",
+    "description": "Read back from the site's publish jobs (every publish stores its audit summary, tools/audit/summary.mjs version 1, in the job's gate report). Owner of the site's workspace, or staff with MFA; a member, another workspace's owner and a site that does not exist all get 404, as site settings are hidden from members. latest.<target> is the newest finished job of that target whose summary is version 1 (the summary whole, fails included), or null; history is the last 10 finished jobs (done or failed) newest first, each without fails; a job from before the summary has pass and counts null and never appears in latest.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SiteAuditRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "The latest summary per target and the history",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SiteAuditResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "BODY: site is missing or not an id",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "$ref": "#/components/responses/NotFound"
      }
     }
    }

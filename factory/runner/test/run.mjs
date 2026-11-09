@@ -166,10 +166,11 @@ await check('full run: the export is fetched with GET /export-published?job=<id>
 await check('full run: callbacks are gating, deploying, done in that order, each POST /job-callback, signed over its exact body, verified by the platform', () =>
   same(full.states, ['gating', 'deploying', 'done']) && full.log.callbacks.every((c) => c.sigOk === true && c.method === 'POST' && c.path === '/job-callback' && c.body.job === JOB) || JSON.stringify(full.states));
 await check('full run: the real audit judged the preview build as a preview (the gating step line names target preview)', () => /^STEP gating: audit exit 0 \(target preview\)/m.test(full.out) || full.out.split('\n').filter((l) => /STEP gating/.test(l)).join(' | '));
-await check('full run: done carries a local deploy id and the gate report (factory pass, audit exit 0, no FAIL lines)', () => {
-  const d = full.last.body;
-  return /^local-[0-9a-f]{12}$/.test(d.deployId) && d.gateReport && d.gateReport.factory === 'pass' && d.gateReport.audit.exit === 0 && d.gateReport.audit.fails.length === 0 || JSON.stringify(d);
+await check('full run: done carries a local deploy id and the gate report (factory pass, the audit summary v 1: target preview, pass true, exit 0, counts.FAIL 0, no fails)', () => {
+  const d = full.last.body, a = d.gateReport && d.gateReport.audit;
+  return /^local-[0-9a-f]{12}$/.test(d.deployId) && d.gateReport.factory === 'pass' && !!a && a.v === 1 && a.target === 'preview' && a.pass === true && a.exit === 0 && a.counts.FAIL === 0 && a.counts.PASS > 0 && a.fails.length === 0 && a.truncated === 0 || JSON.stringify(d).slice(0, 600);
 });
+await check('full run: the stored gate report is under the callback\'s 64 KiB', () => JSON.stringify(full.last.body.gateReport).length < 64 * 1024);
 await check('full run: the deploy folder holds the built site (index.html, _headers with noindex, the media file) and the record names the preview branch', () => {
   const rec = JSON.parse(readFileSync(join(full.work, 'deploy-record.json'), 'utf8'));
   return existsSync(join(full.deployDir, 'index.html')) && /X-Robots-Tag: noindex/.test(readFileSync(join(full.deployDir, '_headers'), 'utf8'))
@@ -297,10 +298,12 @@ await check('deploy: the default command is npx --yes wrangler@<exact version> (
 if (on('gate')) {
 const bad = await runPublish({ args: ({ deployDir, work, smoke }) => ['--no-deploy', deployDir, '--work', work, ...smoke, '--force-fail', 'heading'] });
 await check('force-fail heading: callbacks gating then failed, nothing deploys, exit 1', () => bad.code === 1 && same(bad.states, ['gating', 'failed']) || `${bad.code} ${JSON.stringify(bad.states)}`);
-await check('force-fail heading: the failed report carries the audit engine\'s MET-003 FAIL line in gateReport.audit.fails', () => {
-  const g = bad.last.body.gateReport;
-  return bad.last.body.state === 'failed' && g.audit.exit === 1 && g.audit.fails.some((l) => /^FAIL MET-003 \/contact\//.test(l)) && g.factory === 'pass' || JSON.stringify(g);
+await check('force-fail heading: the failed report carries the audit summary v 1 (pass false, exit 1, counts.FAIL > 0) with the MET-003 FAIL of /contact/ in gateReport.audit.fails', () => {
+  const g = bad.last.body.gateReport, a = g.audit;
+  return bad.last.body.state === 'failed' && g.reason === 'audit failed' && g.factory === 'pass' && a.v === 1 && a.pass === false && a.exit === 1 && a.counts.FAIL > 0
+    && a.fails.some((f) => f.rule === 'MET-003' && /^\/contact\//.test(f.page)) || JSON.stringify(g).slice(0, 600);
 });
+await check('force-fail heading: the FAIL is printed in the log (rule, page) from the summary', () => /^\s+FAIL MET-003 \/contact\//m.test(bad.out) || bad.out.slice(-500));
 await check('force-fail heading: nothing was written to the deploy folder and the site was never smoke tested', () => !existsSync(bad.deployDir) && bad.log.siteHits.length === 0);
 // an audit engine that answers exit 2 (usage / bad config): a checkout whose tools/audit/run.mjs is a stub, everything else the real factory and sites
 const stubRepo = tmp('repo');
@@ -321,11 +324,43 @@ const auditArgv = () => JSON.parse(readFileSync(join(argvRepo, 'tools', 'audit',
 await runPublish({ env: { OMNIKOM_REPO_ROOT: argvRepo } });
 const previewArgv = auditArgv();
 await check('audit target: a preview export (site state not live) is audited with --target preview, after the built folder', () =>
-  (previewArgv.length === 3 && /dist$/.test(previewArgv[0]) && previewArgv[1] === '--target' && previewArgv[2] === 'preview') || `audit was called with ${JSON.stringify(previewArgv)}`);
+  (previewArgv.length === 4 && /dist$/.test(previewArgv[0]) && previewArgv[1] === '--target' && previewArgv[2] === 'preview' && previewArgv[3] === '--summary') || `audit was called with ${JSON.stringify(previewArgv)}`);
 await runPublish({ env: { OMNIKOM_REPO_ROOT: argvRepo }, exportMut: (e) => { e.site.state = 'live'; e.site.domain = 'demo-a.example.com'; } });
 const liveArgv = auditArgv();
 await check('audit target: a live export is audited with --target production, after the built folder', () =>
-  (liveArgv.length === 3 && /dist$/.test(liveArgv[0]) && liveArgv[1] === '--target' && liveArgv[2] === 'production') || `audit was called with ${JSON.stringify(liveArgv)}`);
+  (liveArgv.length === 4 && /dist$/.test(liveArgv[0]) && liveArgv[1] === '--target' && liveArgv[2] === 'production' && liveArgv[3] === '--summary') || `audit was called with ${JSON.stringify(liveArgv)}`);
+// the summary is stored whole (work order 10): a stub audit prints a known summary object and exits 0 or 1; what the platform is told must be that object, byte for byte
+const stubAudit = (tag, script) => {
+  const d = tmp(`repo-${tag}`);
+  mkdirSync(join(d, 'tools', 'audit'), { recursive: true });
+  writeFileSync(join(d, 'tools', 'audit', 'run.mjs'), script);
+  for (const x of ['factory', 'sites', 'contracts']) symlinkSync(join(REPO, x), join(d, x), 'junction');
+  return d;
+};
+const SUMMARY = { v: 1, target: 'preview', mode: 'stub', pass: true, exit: 0, pages: 3, rules: 7, counts: { PASS: 20, FAIL: 0, SKIP: 1 }, byFamily: { MET: { PASS: 20, FAIL: 0, SKIP: 1 } }, fails: [], truncated: 0, commit: 'stub0001' };
+const SUMMARY_FAIL = { ...SUMMARY, pass: false, exit: 1, counts: { PASS: 19, FAIL: 1, SKIP: 1 }, byFamily: { MET: { PASS: 19, FAIL: 1, SKIP: 1 } }, fails: [{ rule: 'MET-003', page: '/x/', line: 4, what: 'stub finding', source: 'stub' }] };
+const printing = (o, code) => `console.log(${JSON.stringify(JSON.stringify(o))}); process.exit(${code});\n`;
+const stubPass = await runPublish({ env: { OMNIKOM_REPO_ROOT: stubAudit('pass', printing(SUMMARY, 0)) } });
+await check('audit summary: a pass stores the summary whole as gateReport.audit in the done callback (and the log line gives its counts)', () =>
+  stubPass.code === 0 && same(stubPass.states, ['gating', 'deploying', 'done']) && same(stubPass.last.body.gateReport, { factory: 'pass', audit: SUMMARY }) && /STEP gating: audit exit 0 \(target preview\), PASS 20, FAIL 0, SKIP 1/.test(stubPass.out)
+  || `${stubPass.code} ${JSON.stringify(stubPass.states)} ${JSON.stringify(stubPass.last.body).slice(0, 400)}`);
+const stubFail = await runPublish({ env: { OMNIKOM_REPO_ROOT: stubAudit('fail', printing(SUMMARY_FAIL, 1)) } });
+await check('audit summary: a fail stores the summary whole in the failed callback and still stops (exit 1, nothing deploys, no smoke)', () =>
+  stubFail.code === 1 && same(stubFail.states, ['gating', 'failed']) && stubFail.last.body.error === 'audit failed' && same(stubFail.last.body.gateReport, { reason: 'audit failed', factory: 'pass', audit: SUMMARY_FAIL })
+  && !existsSync(stubFail.deployDir) && stubFail.log.siteHits.length === 0 || `${stubFail.code} ${JSON.stringify(stubFail.states)} ${JSON.stringify(stubFail.last.body).slice(0, 400)}`);
+for (const [label, script, exit] of [
+  ['not JSON, exit 0', "console.log('PASS MET-001 /'); process.exit(0);\n", 0],
+  ['not JSON, exit 1', "console.log('FAIL MET-003 /contact/ 4 x'); process.exit(1);\n", 1],
+  ['nothing printed, exit 1', 'process.exit(1);\n', 1],
+  ['a JSON list', "console.log('[]'); process.exit(0);\n", 0],
+  ['a summary of another version (v 2)', printing({ ...SUMMARY, v: 2 }, 0), 0],
+  ['a summary without a pass flag', printing({ v: 1, fails: [] }, 0), 0],
+]) {
+  const un = await runPublish({ env: { OMNIKOM_REPO_ROOT: stubAudit('unreadable', script) } });
+  await check(`audit summary: ${label} = failed "audit output unreadable" after gating (never a silent pass), the exit and the last lines kept, nothing deploys`, () =>
+    un.code === 1 && same(un.states, ['gating', 'failed']) && un.last.body.error === 'audit output unreadable' && un.last.body.gateReport.audit.exit === exit && Array.isArray(un.last.body.gateReport.audit.lines)
+    && !existsSync(un.deployDir) || `${un.code} ${JSON.stringify(un.states)} ${JSON.stringify(un.last.body).slice(0, 300)}`);
+}
 
 }
 // ================= 6. refusals before any build =================

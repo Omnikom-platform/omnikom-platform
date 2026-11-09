@@ -17,12 +17,14 @@ import { makeHandle as inviteMember } from '../invite-member/index.ts';
 import { handle as crmMapPropose } from '../crm-map-propose/index.ts';
 import { handle as crmTemplateSave } from '../crm-template-save/index.ts';
 import { handle as leadImport } from '../lead-import/index.ts';
+import { handle as siteAudit } from '../site-audit/index.ts';
 import { env, mint, type Who } from './util.ts';
 
 const handlers: Record<string, (req: Request) => Promise<Response>> = {
   'save': save, 'lead-update': leadUpdate, 'add-lead': addLead, 'drafts': drafts, 'lead-export': leadExport, 'lead-list': leadList, 'leads-bulk': leadsBulk,
   'settings-save': settingsSave, 'invite-member': inviteMember(), 'team-list': teamList, 'member-remove': memberRemove,
   'crm-map-propose': crmMapPropose, 'crm-template-save': crmTemplateSave, 'lead-import': leadImport,
+  'site-audit': siteAudit,
 };
 
 const port = Number(env('LOCAL_SERVE_PORT'));

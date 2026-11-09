@@ -1,11 +1,11 @@
 # Database
 
 One multi-tenant Postgres database on Supabase: a staging project now, a production project made from it once staging proves
-the product (`2-architecture.md`). The schema is the 14 migrations in `supabase/migrations/` (M1 to M14 below, in file order).
+the product (`2-architecture.md`). The schema is the 16 migrations in `supabase/migrations/` (M1 to M16 below, in file order).
 An applied migration is never edited; a change is a new migration (`11-rules.md`).
 
 M1 platform, M2 crm, M3 addons, M4 hardening, M5 vendor_defaults, M6 active_key_by_site, M7 hardening_leftovers,
-M8 search_path_and_roles, M9 media_and_export, M10 export_schema_key, M11 publish_ready_wall, M12 screens, M13 screens_functions, M14 crm_fields.
+M8 search_path_and_roles, M9 media_and_export, M10 export_schema_key, M11 publish_ready_wall, M12 screens, M13 screens_functions, M14 crm_fields, M15 crm_export_import, M16 site_audit.
 
 ## The five words
 
@@ -67,6 +67,7 @@ needs no migration. Version history and rollback come from the append-only versi
 | `consent_ledger` | the proof of consent per lead: wording and its sha256, sms and marketing consent, hashed address; outlives a deleted lead |
 | `suppressions` | do-not-contact entries by channel and hashed address |
 | `privacy_requests` | a person's request to know, delete, correct or opt out, with its 45-day clock |
+| (`publish_jobs` read per site) | `service.site_audit` (M16) reads one site's finished jobs: the existing `publish_jobs_site_state (site_id, state)` finds them and the few hundred a site makes in a year are sorted in memory, so M16 adds no index (checked 2026-11-04). Revisit when one site passes about 10,000 jobs; the index then is `(site_id, finished_at desc)`. |
 | (`leads` at scale) | every list query is cut by workspace first (`leads_ws_created`), then filtered and sorted in memory: no index per industry key (head's ruling 2026-11-03). Measured in `supabase/tests/crm-scale.sql` (20,000 leads in a workspace). Revisit when one workspace passes about 50,000 leads; the ready design is a side table `lead_values (workspace_id, lead_id, key, num, txt)` kept by a trigger, indexed `(workspace_id, key, num)` and `(workspace_id, key, txt)` |
 | `crm_templates` | a client's CRM column layout: ordered columns `[{header, field, transform}]` and value maps, used by export and import (`5-crm.md`) |
 
@@ -76,7 +77,7 @@ What `5-crm.md` needs that the tables do not hold yet: saved views, follow-up da
 ### Publishing
 | Table | Holds |
 |---|---|
-| `publish_jobs` | one per Publish: `rows` and `requested` versions, `snapshot` frozen when the build starts, `state` (queued, building, gating, deploying, done, failed), `gate_report`, `deploy_id`, `error` |
+| `publish_jobs` | one per Publish: `rows` and `requested` versions, `snapshot` frozen when the build starts, `state` (queued, building, gating, deploying, done, failed), `gate_report` (for a finished job: `factory`, and `audit`, the runner's audit summary version 1 of `tools/audit/summary.mjs`, at most 60 KiB, for a pass and a fail; M16 reads it back), `deploy_id`, `error` |
 | `publish_job_events` | one row per state change |
 
 Two database triggers refuse a job or a version that is not ready to publish (required fields, sources, placeholders):
@@ -105,6 +106,7 @@ functions calls them any more (work order 08), and the table, its rows and these
 | Media | `record_media`, `finish_media`, `media_processed`, `media_for_runner`, `media_facts` |
 | Leads | `capture_lead` (workspace from the site, consent required, idempotent, quota, paused site refused; M14: answers typed against the active contract's form, `I-ANSWER <field>` refused in plain words), `add_lead` (M15: answers typed against every industry field, an unknown key dropped), `import_leads` (M15, owner: a dry run by default; a real run needs the consent tick and skip or add for duplicates, all or nothing, form `import`, one `received` event and one consent ledger row per lead, one audit row with the file's sha256), `lead_update` (status, owner, unassign, note), `lead_set_fields` (M14: any core field and any editable industry field, typed; never the consent record; one `edited` event per changed field, one audit row per call), `lead_list` (M14: search, filter, sort and page on the server under the leads_read rule; keys checked against the contract; columns in form order), `leads_bulk` (M14: status, owner or delete for up to 500, all or nothing; delete needs `p_confirm`, one audit row per lead), `mark_lead_read`, `leads_exported`, `delete_lead` (hard delete plus an audit row), `lead_event`, `lead_sms_stop` |
 | Team and settings | `set_member`, `remove_member`, `find_login`, `list_members` (M17: owner or staff, email from `auth.users`, the team profile's name), `invite_context` (M17: the business's and the inviter's name for the invite mail), `set_alerts`, `alert_recipients`, `lead_alerted` |
+| Site check | `site_audit` (M16: the owner of the site's workspace, or staff with MFA, else `S-NOT-FOUND`, so a member, another workspace's owner and a missing site all get not found; answers `{ latest: { preview, production }, history }`: `latest` is the newest finished job per target whose `gate_report.audit` is version 1, its summary whole with fails; `history` the last 10 finished jobs, newest first, each without fails, a job from before version 1 with `pass` and `counts` null). No new table. |
 | CRM layout | `save_crm_template` (owner; shape checked; M15: a field may be `owner`, every industry field must be on the forms (`T-FIELD`), one map per workspace and name), `crm_fields` (M15, owner: the industry fields in form order, for the map) |
 | Keys and safety | `active_key`, `touch_key`, `site_signing_secrets`, `record_security_event`, `suppress`, `set_workspace_state`, `open_privacy_request`, `set_privacy_request_state` |
 
