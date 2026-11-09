@@ -53,7 +53,7 @@ How the wall is built (each part has a test and a mutant in `supabase/tests/run-
 | `site_contracts` | the content contract per workspace, versioned; `contract` as generated, `resolved` with the shared core merged; one `active` |
 | `content_rows` | one item: `collection`, `owner_team_row`, `published_version` (moves only when a publish job finishes), `deleted_at` |
 | `content_versions` | every save as a new version, never updated or deleted: `data` in the contract's shape, `by`, `at`, `sign_off` for a locked field |
-| `media` | an uploaded file under `media/<workspace_id>/`: `width`, `height`, `bytes`, `processed`, `exif_stripped`, `rights_confirmed`, alt text |
+| `media` | an uploaded file under `media/<workspace_id>/`: `width`, `height`, `bytes`, `processed`, `exif_stripped`, `rights_confirmed`, alt text. The Storage bucket `media` is private, caps a file at 26214400 bytes and allows only jpeg, png, webp, heic and pdf (the same constants as `upload-start`, compared by `run-local.mjs`); a signed-in user may read their workspace's folder but has no insert policy (migration 21), so uploads go only through the signed URL |
 
 Content is one generic table pair because the contract, not the schema, defines the collections: a new client or industry
 needs no migration. Version history and rollback come from the append-only versions.

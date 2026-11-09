@@ -158,11 +158,17 @@ reset role;
 set role authenticated;
 select test.act_as('00000000-0000-0000-0000-00000000000b');
 
--- ===== T10 storage objects: the first folder must be a workspace you can see; a non-uuid folder is denied, not an error =====
+-- ===== T10 storage objects: nobody signed in writes an object directly, not even into their own workspace's folder (migration 21 drops
+-- media_objects_insert; uploads go through upload-start's signed URL, which Storage writes as the service role); reading is still limited to
+-- the folders of workspaces you can see, and a non-uuid folder is denied, not an error =====
 select test.expect_error($q$insert into storage.objects (bucket_id, name) values ('media', 'aaaaaaaa-0000-0000-0000-000000000000/x.jpg')$q$, 'row-level security');
 select test.expect_error($q$insert into storage.objects (bucket_id, name) values ('media', 'not-a-uuid/x.jpg')$q$, 'row-level security');
-insert into storage.objects (bucket_id, name) values ('media', 'bbbbbbbb-0000-0000-0000-000000000000/ok.jpg');
-do $$ begin assert (select count(*) from storage.objects) = 1, 'B sees only its own object'; end $$;
+select test.expect_error($q$insert into storage.objects (bucket_id, name) values ('media', 'bbbbbbbb-0000-0000-0000-000000000000/ok.jpg')$q$, 'row-level security');
+reset role;
+insert into storage.objects (bucket_id, name) values ('media', 'bbbbbbbb-0000-0000-0000-000000000000/ok.jpg'), ('media', 'aaaaaaaa-0000-0000-0000-000000000000/other.jpg');
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+do $$ begin assert (select count(*) from storage.objects) = 1 and (select count(*) from storage.objects where name like 'bbbbbbbb-%') = 1, 'B reads only its own folder''s object'; end $$;
 
 -- ===== T4 versions append-only; no client can write content except through the save function =====
 select test.expect_error($q$update content_versions set data = '{}'$q$, 'permission denied');
@@ -2316,6 +2322,25 @@ do $$ begin assert (select count(*) from security_event_counts) = 0, 'T26d owner
 select test.expect_error($q$update security_event_counts set n = 0$q$, 'permission denied');
 select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
 do $$ begin assert (select n from security_event_counts where site_id = current_setting('test.t26_site')::uuid and kind = 'suspended') = 50, 'T26d staff with MFA read the buckets'; end $$;
+reset role;
+
+-- ===== T30 the media bucket limits (work order 16, migration 21): the bucket itself refuses a body over 25 MB or of another type, signed upload URLs
+-- included; no signed-in user, member or owner, writes an object directly. The two limits equal upload-start's MAX_BYTES and MIMES (run-local.mjs reads them) =====
+do $$ begin
+  assert (select file_size_limit from storage.buckets where id = 'media') = 26214400, 'T30a the media bucket caps a file at 26214400 bytes';
+  assert (select count(*) from storage.buckets where id = 'media' and allowed_mime_types @> array['image/jpeg','image/png','image/webp','image/heic','application/pdf'] and allowed_mime_types <@ array['image/jpeg','image/png','image/webp','image/heic','application/pdf']) = 1,
+    'T30a the media bucket allows exactly the five types: ' || coalesce((select allowed_mime_types::text from storage.buckets where id = 'media'), 'null');
+  assert (select cardinality(allowed_mime_types) from storage.buckets where id = 'media') = 5, 'T30a no type is listed twice';
+end $$;
+-- T30b: an owner and a member each get a refusal for a direct insert into their own workspace's folder (the policy is gone, so no policy admits it)
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.expect_error($q$insert into storage.objects (bucket_id, name) values ('media', 'aaaaaaaa-0000-0000-0000-000000000000/owner.png')$q$, 'row-level security');
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+select test.expect_error($q$insert into storage.objects (bucket_id, name) values ('media', 'aaaaaaaa-0000-0000-0000-000000000000/member.png')$q$, 'row-level security');
+do $$ begin assert (select count(*) from pg_policies where schemaname = 'storage' and tablename = 'objects' and cmd in ('INSERT', 'ALL')) = 0, 'T30b no policy on storage.objects admits an insert'; end $$;
+-- T30b: reading survives: the member sees A's folder (the object the superuser inserted in T10)
+do $$ begin assert (select count(*) from storage.objects where name like 'aaaaaaaa-%') = 1, 'T30b a member still reads their workspace''s folder'; end $$;
 reset role;
 
 select 'ALL TENANCY TESTS PASSED' as result;

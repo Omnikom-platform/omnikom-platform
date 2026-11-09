@@ -37,7 +37,8 @@ alter default privileges in schema public grant execute on functions to anon, au
 
 -- Storage (minimal model)
 create schema storage;
-create table storage.buckets (id text primary key, name text not null, public boolean not null default false);
+-- file_size_limit and allowed_mime_types are the real columns (both nullable, as in Supabase); the shim models no upload, so it cannot enforce them
+create table storage.buckets (id text primary key, name text not null, public boolean not null default false, file_size_limit bigint, allowed_mime_types text[]);
 create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets(id), name text not null, owner uuid);
 alter table storage.objects enable row level security;
 create function storage.foldername(name text) returns text[] language sql immutable as

@@ -227,7 +227,8 @@ const MUTANTS = [
   ['jobs and leads stream through Realtime', "    alter publication supabase_realtime add table publish_jobs, leads;", "    null;"],
   ['consent required on leads', "if coalesce(p_consent, '') = '' then raise", "if false then raise"],
   ['media key under its workspace', "constraint media_path_in_workspace check (path like workspace_id::text || '/%')", "constraint media_path_in_workspace check (true)"],
-  ['storage folder must be a visible workspace', "  with check (bucket_id = 'media' and private.try_uuid((storage.foldername(name))[1]) is not null and private.can_see(private.try_uuid((storage.foldername(name))[1])));", "  with check (bucket_id = 'media');"],
+  // (retargeted by work order 16: migration 21 drops the insert policy this mutant used to weaken, so it now weakens the read policy; tests: T10)
+  ['storage folder must be a visible workspace', "  using (bucket_id = 'media' and private.try_uuid((storage.foldername(name))[1]) is not null and private.can_see(private.try_uuid((storage.foldername(name))[1])));", "  using (bucket_id = 'media');"],
   // Migration 7 (step 3 leftovers): append-only audit, security events, consent ledger, suppressions, lifecycle, quotas, privacy requests.
   ['audit trail append-only for every role (trigger)', [["create trigger audit_log_append_only before update or delete on audit_log for each row execute function private.refuse_change();", ''], ["create trigger audit_log_no_truncate before truncate on audit_log for each statement execute function private.refuse_change();", '']]],
   ['audit trail: service role cannot rewrite it', 'revoke update, delete, truncate on audit_log from service_role;', '-- (service_role keeps update and delete on audit_log)'],
@@ -640,6 +641,12 @@ const MUTANTS = [
   ['audit16: private.audit_row is open to anon, authenticated, PUBLIC (both layers)', [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], ['revoke all on function private.audit_row(uuid, timestamptz, public.job_state, jsonb, boolean) from public, anon, authenticated;', '-- (revoke removed)']]],
   ['audit16: service.site_audit does not pin the search_path', "create function service.site_audit(p_claims jsonb, p_site uuid) returns jsonb language plpgsql security definer set search_path = '' as $$", "create function service.site_audit(p_claims jsonb, p_site uuid) returns jsonb language plpgsql security definer as $$"],
   ['audit16: private.audit_row does not pin the search_path', "returns jsonb language sql stable security definer set search_path = '' as $$\n  select jsonb_build_object('job', p_job", "returns jsonb language sql stable security definer as $$\n  select jsonb_build_object('job', p_job"],
+
+  // ---- work order 16 (migration 21): the media bucket's size and type limits, no direct insert; tests in tenancy.test.sql T10 and T30. Run only these: --only "media limits" ----
+  ['media limits: the size limit is one byte too high', "file_size_limit = 26214400,", "file_size_limit = 26214401,"],
+  ['media limits: one more type is allowed (text/html)', "'image/heic', 'application/pdf']", "'image/heic', 'application/pdf', 'text/html']"],
+  ['media limits: one type is missing (application/pdf)', "'image/heic', 'application/pdf']", "'image/heic']"],
+  ['media limits: the insert policy is kept', "drop policy media_objects_insert on storage.objects;", ""],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]
@@ -663,6 +670,17 @@ try {
   real = fresh('real', src);
   console.log(real.setup && real.ok ? `PASS real migration: ${real.out.split('\n').filter(l => /PASSED/.test(l)).join(' ').trim()}` : `FAIL real migration:\n${real.out.split('\n').filter(l => /ERROR|EXPECTED|assert|\(E[A-Z]+\)/i.test(l)).join('\n')}`);
   if (!(real.setup && real.ok)) failed++;
+  // Work order 16 (T30c): the media bucket's two limits must equal upload-start's MAX_BYTES and MIMES, so the two cannot drift apart.
+  if (real.setup) {
+    const us = readFileSync(join(HERE, '..', 'functions', 'upload-start', 'index.ts'), 'utf8');
+    const maxBytes = (us.match(/export const MAX_BYTES = (\d+);/) || [])[1];
+    const mimes = ((us.match(/export const MIMES = \[([^\]]*)\];/) || [])[1] || '').split(',').map(s => s.trim().replace(/^'|'$/g, '')).filter(Boolean).sort();
+    const b = sqlOn('real', "select file_size_limit || '|' || array_to_string(array(select unnest(allowed_mime_types) order by 1), ',') from storage.buckets where id = 'media'");
+    const want = `${maxBytes}|${mimes.join(',')}`, got = (b.stdout ?? '').trim();
+    const same = !!maxBytes && mimes.length > 0 && got === want;
+    console.log(same ? `PASS T30c media bucket limits equal upload-start (${maxBytes} bytes, ${mimes.length} types)` : `FAIL T30c media bucket limits differ from upload-start: bucket '${got || outOf(b)}' vs upload-start '${want}'`);
+    if (!same) failed++;
+  }
   let n = 0;
   for (const [name, a, b] of MUTANTS) {
     if (ONLY && !name.includes(ONLY)) continue;
