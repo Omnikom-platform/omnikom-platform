@@ -199,7 +199,7 @@ const shellFile = join(lookDir, 'shell.mjs');
 writeFileSync(shellFile, `import { writeFileSync as recordEnv } from 'node:fs';\nrecordEnv(${JSON.stringify(join(seenDir, 'build.json'))}, JSON.stringify(Object.keys(process.env)));\n${readFileSync(shellFile, 'utf8')}`);
 mkdirSync(join(root, 'tools', 'audit'), { recursive: true });
 writeFileSync(join(root, 'tools', 'audit', 'run.mjs'),
-  `import { writeFileSync } from 'node:fs';\nwriteFileSync(${JSON.stringify(join(seenDir, 'audit.json'))}, JSON.stringify(Object.keys(process.env)));\nconsole.log('OK: fake audit, 0 problems');\n`);
+  `import { writeFileSync } from 'node:fs';\nwriteFileSync(${JSON.stringify(join(seenDir, 'audit.json'))}, JSON.stringify(Object.keys(process.env)));\nconsole.log(JSON.stringify({ v: 1, target: 'preview', mode: 'fake', pass: true, exit: 0, pages: 1, rules: 1, counts: { PASS: 1, FAIL: 0, SKIP: 0 }, byFamily: {}, fails: [], truncated: 0, commit: 'fake0001' }));\n`);   // the runner reads the audit's --summary JSON (work order 10)
 const er = await runPublish({ env: { OMNIKOM_REPO_ROOT: root, GITHUB_TOKEN: `${PLANTED}-gh`, OMNIKOM_PLANTED_SECRET: PLANTED, CLOUDFLARE_API_TOKEN: `${PLANTED}-cf` } });
 const readSeen = (f) => (existsSync(join(seenDir, f)) ? JSON.parse(readFileSync(join(seenDir, f), 'utf8')) : null);
 const buildSeen = readSeen('build.json'), auditSeen = readSeen('audit.json');
