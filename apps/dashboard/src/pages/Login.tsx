@@ -26,7 +26,14 @@ export function Login({ expired = false, ended = false }: { expired?: boolean; e
   const [passwordError, setPasswordError] = useState(false);
 
   useEffect(() => { document.title = t('DP-1.2s-09', 'Sign in'); }, []);
-  useEffect(() => { if (session) void nav({ to: '/w', replace: true }); }, [session, nav]);
+  // A signed-in person goes on to /w. The session is read again first: right after "Sign out everywhere" the context can still hold
+  // the old session for a render, and going to /w then would bounce back to a bare /login and lose the "signed out" sentence.
+  useEffect(() => {
+    if (!session) return;
+    let live = true;
+    void supabase.auth.getSession().then(({ data }) => { if (live && data.session) void nav({ to: '/w', replace: true }); });
+    return () => { live = false; };
+  }, [session, nav]);
   useEffect(() => {
     if (sentAt === null) return;
     setCanResend(false);
