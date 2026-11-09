@@ -138,7 +138,7 @@ none
 |---|---|---|---|---|---|
 | .claude/POSITION.md | head-of-operations | 854 | Position | - **Repo born today.** Planning inputs banked verbatim, analysis written, owner decisions recorded, skills copied in. Git: `256cad0`, then `274351b` (session... |  |
 | docs/blueprint/PROGRESS.md | platform-build | 1912 | Blueprint progress (for the lead session) | Task: build-ready product engineering package (owner, 2026-10-28), raised to engineering practice, tied to published standards, then corrected by an independ... |  |
-| work/STATE.md | head-of-operations | 60 | Where things stand | Rewritten in place, never appended, under 60 lines; last 2026-11-09 21:30 by the head of operations. Every feature's state: `docs/product/1-product.md`; proo... |  |
+| work/STATE.md | head-of-operations | 59 | Where things stand | Rewritten in place, never appended, under 60 lines; last 2026-11-09 21:30 by the head of operations. Every feature's state: `docs/product/1-product.md`; proo... |  |
 
 ## Layer unplaced (193)
 

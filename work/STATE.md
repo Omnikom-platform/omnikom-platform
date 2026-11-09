@@ -11,11 +11,10 @@ Rewritten in place, never appended, under 60 lines; last 2026-11-09 21:30 by the
 - Running 2026-11-09 (launchers `resume\start-HEAD_*_2026-11-09.cmd`, Opus 5.5): HEAD_Platform-build, HEAD_CLI-and-testing,
   HEAD_SEO-and-audits, HEAD_Clients (each `_2026-11-09`), reporting to HEAD-OF-OPERATIONS_Omnikom_Platform (7e47f4d5).
 - Drive E: filled twice on 2026-11-09 (`E:\web video` cache, ~6 GB an hour): check free space before a land or a big write.
-- GitHub Actions major outage from 2026-11-09 20:29: no lands until githubstatus shows Actions operational. Land order then:
-  platform 10 seo-read (`check/platform/seo-read`, carries the A16 ruling 421a343), CLI J13, SEO 28 (`40ca9ff`, with its HANDOVER), SEO 29 (`1bbfe00`).
+- GitHub Actions major outage from 2026-11-09 20:29: no lands until githubstatus shows Actions operational. Then, in order:
+  platform 10 (`check/platform/seo-read`, with the A16 ruling 421a343), CLI J13, SEO 28 `40ca9ff`, SEO 29 `1bbfe00`, this file.
 
 ## Landed 2026-11-09 (each CI 9 of 9 on its exact tip)
-
 CLI ci-coverage `671b4ee`, land retries 20 `edc9563`, dep-scan 21 `862f50c` (E17 WORKS), journey J12 CRM screens 22 `91910b6`,
 land lock only around the push 23 `4c14d0d`. Head of operations: book check 12 `ad95891` (H0-6). Platform: reaper 13 `526058e`
 (H0-1, E4 PARTLY), minimal build environment 14 `890a33d` (H0-3), settings 08 `6742d24` (B3, B16, D8 WORKS), security events
