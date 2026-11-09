@@ -86,6 +86,28 @@
         }
       }
     },
+    "osv-scanner": {
+      "version": "2.7.0",
+      "published": "2026-10-12T01:32:07Z",
+      "repo": "google/osv-scanner",
+      "raw": true,
+      "bin": {
+        "windows-amd64": "osv-scanner.exe",
+        "linux-amd64": "osv-scanner"
+      },
+      "platforms": {
+        "windows-amd64": {
+          "url": "https://github.com/google/osv-scanner/releases/download/v2.7.0/osv-scanner_windows_amd64.exe",
+          "sha256": "9964ed64ec9a387391eb4cc006ad5c531154821aef29b793e02c448de4686438",
+          "size": 58999296
+        },
+        "linux-amd64": {
+          "url": "https://github.com/google/osv-scanner/releases/download/v2.7.0/osv-scanner_linux_amd64",
+          "sha256": "160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b",
+          "size": 57725088
+        }
+      }
+    },
     "node": {
       "version": "24.22.1"
     }

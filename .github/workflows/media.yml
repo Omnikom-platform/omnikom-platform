@@ -30,7 +30,7 @@ jobs:
           node-version: 24.22.1
 
       - name: Install the pinned dependencies (sharp), install scripts off
-        run: npm ci --prefix factory/runner --ignore-scripts --no-audit --no-fund
+        run: npm ci --prefix factory/runner --ignore-scripts --no-fund
 
       - name: Process the photo
         env:

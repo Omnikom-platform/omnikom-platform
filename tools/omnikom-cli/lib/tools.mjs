@@ -3,6 +3,7 @@
 //   <repo>/.tools/bin/<bin>           the executable, a copy
 // OMNIKOM_TOOLS_DIR moves the folder (tests only). Nothing here touches PATH, the registry, a profile or anything outside that folder.
 // Node built-ins and fetch only; the archive is read by the system tar (bsdtar reads zip as well as tar.gz on Windows).
+// A tool whose release publishes the bare executable has "raw": true in tools.json: the download is checked, then copied as bin/<bin>.
 // A tool is downloaded only after every refusal below has passed, and used only after its size and sha256 matched the manifest.
 import { readFileSync, existsSync, mkdirSync, writeFileSync, rmSync, renameSync, readdirSync, copyFileSync, chmodSync } from 'node:fs';
 import { createHash, randomBytes } from 'node:crypto';
@@ -145,8 +146,11 @@ async function ensureOne(ctx, manifest, name) {
     }
     const out = join(tmp, 'out');
     mkdirSync(out);
-    const x = ctx.spawn(tarPath(ctx), ['-xf', archive, '-C', out], { encoding: 'utf8', env: ctx.env, timeout: 300000, windowsHide: true });
-    if (x.error || x.status !== 0) { rm(tmp); return refuse(`extraction with the system tar failed: ${String((x.error && x.error.message) || x.stderr || `exit ${x.status}`).trim().split(/\r?\n/)[0].slice(0, 160)}`); }
+    if (entry.raw === true) copyFileSync(archive, join(out, bin));   // "raw": the asset is the executable itself (osv-scanner publishes no archive)
+    else {
+      const x = ctx.spawn(tarPath(ctx), ['-xf', archive, '-C', out], { encoding: 'utf8', env: ctx.env, timeout: 300000, windowsHide: true });
+      if (x.error || x.status !== 0) { rm(tmp); return refuse(`extraction with the system tar failed: ${String((x.error && x.error.message) || x.stderr || `exit ${x.status}`).trim().split(/\r?\n/)[0].slice(0, 160)}`); }
+    }
     const found = findFiles(out, bin);
     if (found.length === 0) { rm(tmp); return refuse(`the archive holds no file named ${bin}`); }
     const top = Math.min(...found.map(f => f.depth));

@@ -563,7 +563,7 @@ async function toolsAndCi() {
       const bad = [];
       const urls = [...ciText.matchAll(/https:\/\/github\.com\/([^\s"/]+)\/([^\s"/]+)\/releases\/download\/v([0-9.]+)\/[^\s"]+/g)];
       const shas = [...ciText.matchAll(/echo "([0-9a-f]{64})  /g)].map(m => m[1]);
-      if (urls.length !== 3 || shas.length !== 3) bad.push(`ci.yml has ${urls.length} download urls and ${shas.length} sha256 lines (expected 3 and 3)`);
+      if (urls.length !== 4 || shas.length !== 4) bad.push(`ci.yml has ${urls.length} download urls and ${shas.length} sha256 lines (expected 4 and 4)`);
       urls.forEach((m, i) => {
         const name = m[2].toLowerCase(), e = man.tools[name], linux = e && e.platforms && e.platforms['linux-amd64'];
         if (!e) { bad.push(`${name}: not in tools.json`); return; }
@@ -579,10 +579,10 @@ async function toolsAndCi() {
       return bad;
     };
     const diffs = agree(ciReal, manReal);
-    check('tools.json and ci.yml agree: actionlint, gitleaks and shellcheck (version, linux url, sha256), node-version and deno-version', diffs.length === 0, diffs.join('; '));
+    check('tools.json and ci.yml agree: actionlint, gitleaks, osv-scanner and shellcheck (version, linux url, sha256), node-version and deno-version', diffs.length === 0, diffs.join('; '));
     const firstSha = /echo "([0-9a-f]{64})  /.exec(ciReal)[1];
     const flipped = agree(ciReal.replace(firstSha, firstSha.replace(/^./, c => (c === '0' ? '1' : '0'))), manReal);
-    check('tools.json and ci.yml agree: watched red, one changed hash in a copy of ci.yml is named (tool and "sha256")', flipped.length === 1 && /sha256 differs/.test(flipped[0]) && /^(actionlint|gitleaks|shellcheck|deno):/.test(flipped[0]), flipped.join('; '));
+    check('tools.json and ci.yml agree: watched red, one changed hash in a copy of ci.yml is named (tool and "sha256")', flipped.length === 1 && /sha256 differs/.test(flipped[0]) && /^(actionlint|gitleaks|osv-scanner|shellcheck|deno):/.test(flipped[0]), flipped.join('; '));
     check('tools.json and ci.yml agree: watched red, another node-version in a copy is named', agree(ciReal.replace('node-version: 24', 'node-version: 23'), manReal).some(m => m.startsWith('node:')));
     // the manifest's own rules (the head's design): every download has an official github.com release url, a sha256 and a size; node is checked only
     const rules = [];
@@ -595,7 +595,7 @@ async function toolsAndCi() {
       }
       if (!Number.isFinite(Date.parse(e.published))) rules.push(`${name}: published`);
     }
-    check('tools.json: every download is an official github.com release asset with a sha256, a size, an executable name and a published date; node is a bare version', rules.length === 0 && ['actionlint', 'gitleaks', 'deno', 'shellcheck', 'node'].every(n => manReal.tools[n]), rules.join('; '));
+    check('tools.json: every download is an official github.com release asset with a sha256, a size, an executable name and a published date; node is a bare version', rules.length === 0 && ['actionlint', 'gitleaks', 'deno', 'shellcheck', 'osv-scanner', 'node'].every(n => manReal.tools[n]), rules.join('; '));
 
     // ---- tools ensure over a fake fetch
     const tgz = archiveOf('tgz', 'faketool', body);
@@ -729,6 +729,17 @@ async function toolsAndCi() {
       r = await ens({ ...manifestOf(zip, { plat: 'windows-amd64', bin: 'faketool.exe', url: 'https://github.com/acme/faketool/releases/download/v1.0.0/faketool-1.0.0.zip' }) }, server(zip), dir, [], { platform: 'windows-amd64' });
       check('tools ensure: a zip (windows-amd64) is extracted by %SystemRoot%\\System32\\tar.exe and bin/faketool.exe holds the file', r.exit === 0 && r.json.data.tools[0].status === 'downloaded' && readFileSync(join(dir, 'bin', 'faketool.exe')).equals(body), r.all.slice(0, 300));
     } else console.log('skip  tools ensure: the zip case (GNU tar on this system cannot read zip; the Windows tar.exe can)');
+    // "raw": true (osv-scanner publishes the bare executable): checked against size and sha256, then copied; no tar
+    const rawM = manifestOf(body, { url: 'https://github.com/acme/faketool/releases/download/v1.0.0/faketool_linux_amd64' });
+    rawM.tools.faketool.raw = true;
+    dir = fresh();
+    r = await ens(rawM, server(body), dir);
+    check('tools ensure: a "raw" tool (the asset is the executable) is installed as bin/faketool with the downloaded bytes', r.exit === 0 && r.json.data.tools[0].status === 'downloaded' && readFileSync(join(dir, 'bin', 'faketool')).equals(body), r.all.slice(0, 300));
+    r = await ens(rawM, server(body), dir);
+    check('tools ensure: a raw tool already installed is "present" and nothing is fetched again', r.exit === 0 && r.json.data.tools[0].status === 'present', r.all.slice(0, 300));
+    dir = fresh();
+    r = await ens({ ...rawM, tools: { ...rawM.tools, faketool: { ...rawM.tools.faketool, platforms: { 'linux-amd64': { ...rawM.tools.faketool.platforms['linux-amd64'], sha256: sha(Buffer.from('other')) } } } } }, server(body), dir);
+    check('tools ensure: a raw tool whose bytes do not match the sha256 is refused and leaves nothing behind', r.exit === 1 && /sha256 mismatch/.test(r.json.data.tools[0].reason) && tree(dir).length === 0, r.all.slice(0, 300));
     r = await ens(man, server(tgz), fresh(), ['--only', 'node']);
     check('tools ensure --only node: present when the running node is the manifest\'s; refused (never downloaded) when it is not',
       r.exit === 0 && r.json.data.tools[0].status === 'present' && (await ens({ ...man, tools: { ...man.tools, node: { version: '1.1.1' } } }, server(tgz), fresh(), ['--only', 'node'])).json.data.tools[0].status === 'refused');

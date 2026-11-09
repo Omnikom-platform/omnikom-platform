@@ -147,7 +147,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | E14 Tenant offboarding, full data export, privacy erasure carried out | PARTLY | the states and privacy tickets exist (H2-6, H2-8) |
 | E15 Client infrastructure by script: Pages project, domain, TLS, site keys | PARTLY | one-off scripts for staging (H2-7) |
 | E16 Plan limits and billing per workspace | PARTLY | caps for leads, mail and SMS only (H2-9) |
-| E17 Dependency and supply-chain scanning | PARTLY | actions SHA-pinned; no dependency scan (H2-10) |
+| E17 Dependency and supply-chain scanning | PARTLY | actions SHA-pinned; `tools/test/dep-scan.mjs` (pinned osv-scanner 2.7.0, fails closed) scans the 3 package-lock.json and deno.lock (via its npm entries; a jsr or https entry there would print NOT COVERED, none today), 0 findings on the laptop 2026-11-09; the `secrets` CI job runs it, WORKS once that job has run green (H2-10, work order 21) |
 | E18 Tenant rich text sanitised before it reaches a site | PARTLY | html escapes by default; richtext open (H2-13) |
 | E19 Migration safety: lock lint, expand-contract, concurrent indexes | PARTLY | CI replays every migration; the ledger refuses an edited one (H2-14) |
 | E20 The book checks itself: counts from rows, WORKS rows cite real paths, every step has an owner and a row | WORKS | `tools/icm/book-check.mjs` runs inside `node tools/icm/index.mjs --check` (CI gates job, 2026-11-09): Counts vs rows, WORKS paths, step owners and part E rows; `tools/icm/test/book.mjs` 30 of 30 (and red through `test/run.mjs`), 19 of 19 book mutants caught; `work/12-book-check/CONTEXT.md` (H0-6) |

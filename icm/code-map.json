@@ -595,10 +595,13 @@
     {"path":"tools/team-kit/boot.mjs","owner":"clients","exports":["TEAM","bootPrompt"],"tests":[],"feature":""},
     {"path":"tools/team-kit/test-agent-hooks.mjs","owner":"clients","exports":[],"tests":[],"feature":""},
     {"path":"tools/team-kit/write-guard.mjs","owner":"clients","exports":[],"tests":[],"feature":""},
+    {"path":"tools/test/dep-scan.mjs","owner":"cli-and-testing","exports":["LOCKFILES","MAX_ALLOW_DAYS","checkAllow","denoToPackageLock","evaluate","judgeRun","main","parseOsv","runOsv"],"tests":[],"feature":""},
+    {"path":"tools/test/mutate-dep-scan.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/test/mutate-secret-receiver.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/test/probe-anon-exec.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/test/probe-db.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/test/probe-function.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
+    {"path":"tools/test/test-dep-scan.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/test/test-secret-receiver.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/tick-sequence.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"tools/with-env.mjs","owner":"cli-and-testing","exports":[],"tests":["apps/dashboard/tests/global-setup.ts","apps/dashboard/tests/support/clean-flow-leads.mjs","apps/dashboard/tests/support/reset-staging-drafts.mjs","apps/dashboard/tests/support/staging.ts","supabase/tests/e2e-export.mjs","supabase/tests/e2e-functions.mjs","supabase/tests/e2e-screens.mjs","tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/with-env-main.mjs","tools/omnikom-cli/test/with-env-sleeper.mjs","tools/omnikom-cli/test/with-env.mjs","tools/test/probe-anon-exec.mjs","tools/test/probe-db.mjs","tools/test/probe-function.mjs"],"feature":""}

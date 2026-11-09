@@ -1,6 +1,6 @@
 # CI (02-BACKEND section 11, 10-DELIVERY section 3, 23-GROUND-RULES section 3): the same gates the head runs by hand, on every push and
 # pull request. Every job is independent, has a timeout, holds no secret, and starts from a clean checkout. Every third-party action
-# is pinned by commit SHA (supply-chain rule 7); the three downloaded binaries (gitleaks, actionlint, shellcheck) are pinned by version AND sha256.
+# is pinned by commit SHA (supply-chain rule 7); the four downloaded binaries (gitleaks, osv-scanner, actionlint, shellcheck) are pinned by version AND sha256.
 # Expected red on the first run: see factory/README.md "Runner" (the `functions` and `gates` jobs depend on work that may not be merged).
 name: ci
 
@@ -71,7 +71,7 @@ jobs:
         with:
           node-version: 24.22.1
       - name: Install the runner's pinned dependency (sharp), install scripts off
-        run: npm ci --prefix factory/runner --ignore-scripts --no-audit --no-fund
+        run: npm ci --prefix factory/runner --ignore-scripts --no-fund
       - name: Factory tests
         run: node factory/test/run.mjs
       - name: Factory mutants
@@ -233,6 +233,24 @@ jobs:
           tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP/gitleaks" gitleaks
       - name: Scan the history and the tree
         run: '"$RUNNER_TEMP/gitleaks/gitleaks" detect --source . --redact --no-banner'
+      # H2-10 (book row E17): every lockfile the platform installs from is checked for a known vulnerable or malicious package. osv-scanner
+      # publishes the bare executable (tools.json says "raw"); it goes to .tools/bin, where tools/test/dep-scan.mjs looks first.
+      - name: Download osv-scanner 2.7.0 and check its sha256
+        run: |
+          mkdir -p .tools/bin
+          curl -fsSL -o .tools/bin/osv-scanner https://github.com/google/osv-scanner/releases/download/v2.7.0/osv-scanner_linux_amd64
+          echo "160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b  .tools/bin/osv-scanner" | sha256sum --check -
+          chmod +x .tools/bin/osv-scanner
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Dependency scan tests
+        run: node tools/test/test-dep-scan.mjs
+      - name: Dependency scan mutants
+        run: node tools/test/mutate-dep-scan.mjs
+      - name: Dependency scan
+        run: node tools/test/dep-scan.mjs
 
   workflows:
     name: workflow files (actionlint 1.7.12, shellcheck 0.11.0)
