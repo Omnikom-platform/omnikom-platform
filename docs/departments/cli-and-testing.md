@@ -754,3 +754,9 @@ when the head of operations has released its slice.
   on the laptop against the real release asset (blocked twice on the heavy lock). Work order 22, J12: 85569a5 pushed; the first
   staging run J1,J12 (08:52) had both dashboard tests PASS and the shots red because owner-a has 0 leads on staging, so the step's
   "rows > 0" tested the data; the builder is making J12 create and remove its own marked lead.
+- 2026-11-09 12:20 dep-scan landed 862f50c (run 42584683354, 9 of 9: "PASS dep-scan", "27 mutants, 27 caught", "dep-scan: 4
+  lockfile(s), 0 finding(s), 0 allowed"); E17 WORKS. The osv-scanner pin checked against the real Windows release asset by hand
+  (curl: sha256 9964ed64...4686438 and size 58999296 equal tools.json; it prints "osv-scanner version: 2.7.0"); `tools ensure --only
+  osv-scanner` end to end is still UNPROVEN (the machine heavy lock was held by another project all morning). Work order 22, J12:
+  staging J1,J12 at 10:50 "2 PASS, 0 NOT BUILT YET, 0 FAIL"; lands now, after platform's 14 (890a33d). Next: work order 23 (land takes
+  the lock only after CI is green, the head of operations' finding).
