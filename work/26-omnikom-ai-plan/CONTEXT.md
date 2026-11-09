@@ -69,3 +69,18 @@ start after the owner's answers.
 - F10 (head, 2026-11-09 04:45): `discovery.md` lists Bing, CrUX, PSI and Gemini as NEEDS because doctor ran without `--env-file`;
   all four key names are present in the master env file (checked by name, values never read out). Part 2 runs doctor with
   `--env-file` on that file and corrects discovery.md.
+
+## Rulings for part 2 (head of operations, 2026-11-09 04:41)
+- F6 answered: the old offer is read only at `E:\Omnikom Platform\archive\2026-11-04-old-checkout\docs\offer\`
+  (omnikom-platform-offer.html and .pdf, the two briefs) and `docs\research\design-addons-2026-10-28.md` there (also on branch
+  `check/archive-2026-11-04/shared-tree`, 284f2f5). It is the OLD offer: the book wins where they disagree. The 12-month scope
+  email is not in the repo: skip it.
+- F7 ruled: the 9 hosts that refused a script are a bot wall. Record each BLOCKED with what refused (host, status, date); do NOT
+  read them through the owner's browser; use what public search results and their public listings say about them instead
+  (CLAUDE.md rule 4).
+- Old offer read 2026-11-09 04:42 (in-session Sonnet reader; head re-read line 247): it answers none of Q1, Q2, Q4 (no country,
+  currency, city or Search Console statement for Omnikom itself; `lang="en"` is markup only). For Q3 it gives a written next step
+  that differs from the book: [[1. A short call]] @ archive/2026-11-04-old-checkout/docs/offer/omnikom-platform-offer.html:247
+  (then "2. The audit", "3. Your quote", lines 248-249), while the book plans [[the presence report as the entry, then payment]]
+  @ docs/product/10-expansion.md:40. The book wins by rule, but it is marked "later", so Q3 goes to the owner as that choice.
+  No prices in the old offer (line 220: "No price list").
