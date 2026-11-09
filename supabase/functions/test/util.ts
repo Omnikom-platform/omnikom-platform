@@ -75,7 +75,8 @@ export async function teamRows(): Promise<{ one: string; two: string }> {
 }
 export async function securityEvents(where: { actor?: string; code?: string; kind?: string } = {}): Promise<number> {
   return await withSql(async sql => {
-    const [r] = await sql`select count(*)::int as n from public.security_events
+    // events, not rows: a bucket of one source and minute holds one security_events row and counts every event in n (migration 20)
+    const [r] = await sql`select coalesce(sum(n), 0)::int as n from public.security_event_counts
       where (${where.actor ?? null}::uuid is null or actor = ${where.actor ?? null}::uuid) and (${where.code ?? null}::text is null or code = ${where.code ?? null}::text) and (${where.kind ?? null}::text is null or kind = ${where.kind ?? null}::text)`;
     return r.n;
   });

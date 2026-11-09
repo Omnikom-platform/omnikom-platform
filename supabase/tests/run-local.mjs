@@ -604,6 +604,14 @@ const MUTANTS = [
       ['team17: service.list_members does not pin the search_path', "returns table (user_id uuid, email text, role public.member_role, team_row_id uuid, team_name text, joined_at timestamptz)\nlanguage plpgsql security definer set search_path = '' as $$", "returns table (user_id uuid, email text, role public.member_role, team_row_id uuid, team_name text, joined_at timestamptz)\nlanguage plpgsql security definer as $$"],
     ];
   })(),
+
+  // ---- work order 15 (migration 20): security events are bucketed per source and minute; tests in tenancy.test.sql T26. Run only these: --only "security buckets" ----
+  ['security buckets: the bucket lookup is skipped (every call writes a row)', "  if found then return eid; end if;\n  -- 2. a new anonymous bucket past the ceiling", "  -- 2. a new anonymous bucket past the ceiling"],
+  ['security buckets: the ceiling is removed (anonymous calls never fold)', "actor = zero and not overflow) >= cap then", "actor = zero and not overflow) < 0 then"],
+  ['security buckets: signed-in calls fold too', "if p_actor is null and (select count(*) from public.security_event_counts", "if (select count(*) from public.security_event_counts"],
+  ['security buckets: the counts are readable by every signed-in user', 'create policy security_event_counts_staff_read on security_event_counts for select to authenticated using (private.is_staff());', 'create policy security_event_counts_staff_read on security_event_counts for select to authenticated using (true);'],
+  ['security buckets: service_role and the function role may write the counts', 'revoke all on security_event_counts from public, anon, authenticated, service_role, omnikom_fn;', 'grant insert, update, delete on security_event_counts to service_role, omnikom_fn;'],
+  ['security buckets: fn is out of the key (two functions in one minute share a bucket)', "f text := coalesce(left(p_detail ->> 'fn', 60), '');", "f text := '';"],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

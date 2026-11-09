@@ -7,8 +7,9 @@
 //   5 the same signature after 301 s is refused (401)      6 no signature is refused (401)
 //   7 a garbled signature is refused (401)                 8 an unknown site id is refused (401), a malformed one is 404
 //   9 a lead to a paused site is refused (409) and not stored   10 GET is refused (405)
-// The ledgers migration 7 added are counted before and after (read-only): each refused signature adds one security_events row
-// (kind bad-signature, the site), the paused refusal adds one (kind suspended), an accepted lead has exactly one consent_ledger
+// The ledgers migration 7 added are counted before and after (read-only). Security events are counted as sum(n) of security_event_counts
+// (migration 20: one bucket per source and minute, n counts every event of it, the first included; a bucket writes one security_events row):
+// each refused signature adds one event (kind bad-signature, the site), the paused refusal adds one (kind suspended), an accepted lead has exactly one consent_ledger
 // row and a retry of the same key adds none. Both ledgers are append-only: a run leaves its rows behind, by design.
 import { Usage, Blocked } from '../lib/errors.mjs';
 import { uuidLit, lit } from '../lib/sql.mjs';
@@ -40,7 +41,7 @@ export async function verify(ctx) {
   // alert rows recorded for that submission: a retry must not alert the client again
   const alerts = k => Number(sql.scalar(`select count(*) from messages m join leads l on l.id = m.lead_id where l.idempotency_key = ${uuidLit(k)} and m.template = 'new-lead'`).value);
   // the ledgers of migration 7: security events of this site by kind, and the consent rows of the lead stored under an idempotency key
-  const events = kind => Number(sql.scalar(`select count(*) from security_events where kind = ${lit(kind)} and site_id = ${uuidLit(a.id)}`).value);
+  const events = kind => Number(sql.scalar(`select coalesce(sum(n), 0) from security_event_counts where kind = ${lit(kind)} and site_id = ${uuidLit(a.id)}`).value);
   const consents = k => Number(sql.scalar(`select count(*) from consent_ledger c join leads l on l.id = c.lead_id where l.idempotency_key = ${uuidLit(k)} and c.site_id = ${uuidLit(a.id)}`).value);
 
   const checks = [];

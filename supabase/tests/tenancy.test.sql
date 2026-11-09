@@ -2162,5 +2162,82 @@ do $$ declare f text; begin
   end loop;
 end $$;
 
+-- ===== T26 work order 15 (migration 20): security events are bucketed per source and minute =====
+-- Fresh uuids per run and deltas, never totals: security_events is append-only, so staging already holds events. The whole file is one transaction, so now() (and
+-- the bucket minute) is the same throughout. Each part uses its own kind and code, so the walls do not depend on the events of T1 to T25.
+set role service_role;
+-- T26a: 50 calls from one source in one minute write one security_events row and one bucket with n = 50, and every call returns the same id
+select set_config('test.t26_site', gen_random_uuid()::text, false) is not null as site;
+do $$ declare i int; ids bigint[] := '{}'; begin
+  for i in 1..50 loop ids := ids || service.record_security_event('suspended', 'T26A', null, current_setting('test.t26_site')::uuid, null, repeat('a', 64), '{"path":"/capture-lead"}'); end loop;
+  perform set_config('test.t26_first', ids[1]::text, false);
+  assert (select count(distinct x) from unnest(ids) x) = 1, 'T26a every call of one bucket returned the same id: ' || (select string_agg(distinct x::text, ',') from unnest(ids) x);
+end $$;
+-- T26b: 30 anonymous calls from 30 fresh sites: at most 10 plain buckets plus one overflow bucket write a row; the counts still add up to 30
+select set_config('test.t26b_before', (select count(*) from security_events where kind = 'bad-request' and code = 'T26B')::text, false) is not null as before;
+do $$ declare i int; begin
+  for i in 1..30 loop perform service.record_security_event('bad-request', 'T26B', null, gen_random_uuid(), null, repeat('b', 64)); end loop;
+end $$;
+-- T26c: the ceiling of one kind is full of anonymous buckets (10 fresh sites), then 15 signed-in refusals from 15 fresh sites: 15 rows, never folded
+select set_config('test.t26_actor', gen_random_uuid()::text, false) is not null as actor;
+do $$ declare i int; begin
+  for i in 1..10 loop perform service.record_security_event('auth-refused', 'T26C', null, gen_random_uuid(), null, repeat('c', 64)); end loop;
+  for i in 1..15 loop perform service.record_security_event('auth-refused', 'T26C', null, gen_random_uuid(), current_setting('test.t26_actor')::uuid, repeat('c', 64)); end loop;
+end $$;
+reset role;
+do $$ begin
+  assert (select count(*) from security_events where site_id = current_setting('test.t26_site')::uuid) = 1, 'T26a 50 calls from one source wrote exactly one security_events row';
+  assert (select count(*) from security_event_counts where site_id = current_setting('test.t26_site')::uuid) = 1, 'T26a one bucket';
+  assert (select n from security_event_counts where site_id = current_setting('test.t26_site')::uuid and kind = 'suspended') = 50, 'T26a the bucket counts all 50 calls';
+  assert (select event_id from security_event_counts where site_id = current_setting('test.t26_site')::uuid) = current_setting('test.t26_first')::bigint, 'T26a the bucket points at the row of its first event';
+  assert (select detail ->> 'path' from security_events where id = current_setting('test.t26_first')::bigint) = '/capture-lead', 'T26a the row keeps the first event''s detail';
+end $$;
+do $$ declare grown int; plain int; folded int; begin
+  select count(*) - current_setting('test.t26b_before')::int into grown from security_events where kind = 'bad-request' and code = 'T26B';
+  assert grown between 1 and 11, 'T26b 30 anonymous sources wrote at most 11 rows (10 buckets and the overflow one), not 30: ' || grown;
+  select coalesce(sum(n), 0) into plain from security_event_counts where kind = 'bad-request' and code = 'T26B' and not overflow;
+  select coalesce(sum(n), 0) into folded from security_event_counts where kind = 'bad-request' and code = 'T26B' and overflow;
+  assert plain + folded = 30, 'T26b the plain buckets and the overflow bucket count all 30 events: ' || plain || ' + ' || folded;
+  assert plain <= 10 and folded >= 20, 'T26b at most 10 plain buckets, the rest folded: ' || plain || ' plain, ' || folded || ' folded';
+  assert (select count(*) from security_events where kind = 'bad-request' and code = 'T26B' and detail = '{"overflow": true}') = 1, 'T26b the overflow bucket has one row marked overflow';
+end $$;
+do $$ begin
+  assert (select count(*) from security_events where kind = 'auth-refused' and code = 'T26C' and actor = current_setting('test.t26_actor')::uuid) = 15, 'T26c 15 signed-in refusals from 15 sites wrote 15 rows';
+  assert (select count(*) from security_event_counts where kind = 'auth-refused' and code = 'T26C' and actor = current_setting('test.t26_actor')::uuid and not overflow) = 15, 'T26c 15 buckets, none folded into the overflow bucket';
+end $$;
+-- T26e: two calls from one source in one minute with a different detail->>'fn' are two buckets and two rows (fn is part of the key); the same fn twice is one
+set role service_role;
+select set_config('test.t26e_site', gen_random_uuid()::text, false) is not null as site;
+do $$ declare s uuid := current_setting('test.t26e_site')::uuid; begin
+  perform service.record_security_event('bad-signature', 'T26E', null, s, null, repeat('e', 64), '{"fn":"alpha"}');
+  perform service.record_security_event('bad-signature', 'T26E', null, s, null, repeat('e', 64), '{"fn":"beta"}');
+  perform service.record_security_event('bad-signature', 'T26E', null, s, null, repeat('e', 64), '{"fn":"beta"}');
+end $$;
+reset role;   -- service_role cannot read the counts: the superuser reads them
+do $$ declare s uuid := current_setting('test.t26e_site')::uuid; begin
+  assert (select count(*) from security_event_counts where site_id = s and kind = 'bad-signature') = 2, 'T26e two functions in one minute are two buckets';
+  assert (select count(*) from security_events where site_id = s and kind = 'bad-signature') = 2, 'T26e two buckets wrote two rows';
+  assert (select n from security_event_counts where site_id = s and fn = 'alpha') = 1 and (select n from security_event_counts where site_id = s and fn = 'beta') = 2, 'T26e each bucket counts its own function''s calls';
+end $$;
+-- T26d: only the definer function writes the buckets; an owner reads none; staff with MFA read them
+set role service_role;
+select test.expect_error($q$insert into security_event_counts (kind, minute, event_id) values ('refused', now(), 1)$q$, 'permission denied');
+select test.expect_error($q$update security_event_counts set n = 0$q$, 'permission denied');
+select test.expect_error($q$delete from security_event_counts$q$, 'permission denied');
+select test.expect_error($q$select count(*) from security_event_counts$q$, 'permission denied');
+reset role;
+set role omnikom_fn;
+select test.expect_error($q$insert into security_event_counts (kind, minute, event_id) values ('refused', now(), 1)$q$, 'permission denied');
+select test.expect_error($q$update security_event_counts set n = 0$q$, 'permission denied');
+select test.expect_error($q$delete from security_event_counts$q$, 'permission denied');
+reset role;
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin assert (select count(*) from security_event_counts) = 0, 'T26d owners never read the security event counts'; end $$;
+select test.expect_error($q$update security_event_counts set n = 0$q$, 'permission denied');
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+do $$ begin assert (select n from security_event_counts where site_id = current_setting('test.t26_site')::uuid and kind = 'suspended') = 50, 'T26d staff with MFA read the buckets'; end $$;
+reset role;
+
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

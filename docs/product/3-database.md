@@ -33,7 +33,7 @@ How the wall is built (each part has a test and a mutant in `supabase/tests/run-
   table. Every definer function pins `search_path = ''` with schema-qualified names. A new function is closed to PUBLIC by
   default privileges.
 - Every "may this login act" check goes through `coalesce(..., false)`, so a login that is not a member at all is refused.
-- `audit_log`, `security_events` and `consent_ledger` are append-only for every role (a trigger refuses update and delete).
+- `audit_log`, `security_events` and `consent_ledger` are append-only for every role (a trigger refuses update and delete). `security_event_counts` is not: one row per source and minute holds how many times an event repeated (only `service.record_security_event` writes it).
 
 ## Tables by area
 
@@ -87,7 +87,8 @@ Two database triggers refuse a job or a version that is not ready to publish (re
 |---|---|
 | `api_keys` | every machine credential: a sha256 hash (keys we verify) or a Vault name (keys we present), never the value; `kind`, `site_id`, `last_used_at`, `expires_at`, `revoked_at`; one active site-signing key per site |
 | `audit_log` | who did what, when: every save, publish, lead change, delete, sign-off; written by the service functions only |
-| `security_events` | every refused call, failed signature and quota hit; staff only |
+| `security_events` | every refused call, failed signature and quota hit (the first of each source and minute); staff only |
+| `security_event_counts` | how often each security event repeated, per kind, site, source and minute; anonymous sources past 10 a minute per kind share one overflow row; staff only |
 | `metrics_snapshots` | observed numbers per workspace, source and day (search, speed, AI answers); empty until the metrics pull exists |
 
 ### Built and parked (no caller until the owner unparks them)

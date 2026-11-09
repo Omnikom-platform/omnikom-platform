@@ -58,7 +58,9 @@ export const storageBehaviour = async (fail: string, delayMs: number) => { await
 /** a security event of the runner's bad-signature kind, counted by function */
 export async function runnerEvents(fn: string): Promise<number> {
   return await withSql(async sql => {
-    const [r] = await sql`select count(*)::int as n from public.security_events where kind = 'bad-signature' and code = 'SIGNATURE' and detail ->> 'kind' = 'runner' and detail ->> 'fn' = ${fn}`;
+    // events, not rows (migration 20): n of every bucket of this function; the runner marks its first event's detail kind = 'runner'
+    const [r] = await sql`select coalesce(sum(c.n), 0)::int as n from public.security_event_counts c join public.security_events e on e.id = c.event_id
+      where c.kind = 'bad-signature' and c.code = 'SIGNATURE' and c.fn = ${fn} and e.detail ->> 'kind' = 'runner'`;
     return r.n;
   });
 }
