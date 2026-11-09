@@ -48,12 +48,12 @@ Slice says which build slice puts it on the screen; `later` rows are not built i
 | DP-1.2s-02 | 5.3 | Workspace switcher (only with two or more businesses) | opens another business |
 | DP-1.2s-03 | 5.3 | Nav: Leads | the Leads screen |
 | DP-1.2s-04 | 5.4 | Nav: Site | the Site screen (shown only once 5.4 is built) |
-| DP-1.2s-05 | 5.6 | Nav: Settings | the Settings screen (shown only once 5.6 is built) |
+| DP-1.2s-05 | 5.6 | Nav: Settings (every role: a member's Settings holds only Your account and Sign out everywhere, DP-1.6-08, -09) | the Settings screen (shown only once 5.6 is built) |
 | DP-1.2s-06 | 5.3 | "Not found" (a workspace or lead the login cannot read) | says the thing does not exist for this login; no data |
 | DP-1.2s-07 | 5.3 | The banner: "The service is not reachable. Your draft is safe here." | Supabase unreachable (16-DESIGN-PARTS 3.2) |
 | DP-1.2s-08 | 5.3 | The toast (4 s, with Undo where undo exists) | the outcome of an action |
-| DP-1.2s-09 | 5.3 | The page title of each screen: "Sign in", "Choose a business", "Leads" (with the count, DP-1.3-09) | the browser tab |
-| DP-1.2s-10 | 5.3 | Loading: a list shows "Loading" in place of its rows; a pressed button says what it is doing ("Sending", "Saving") and is disabled until the answer | the screen never blanks (1.1 Loading) |
+| DP-1.2s-09 | 5.3 | The page title of each screen: "Sign in", "Choose a business", "Leads" (with the count, DP-1.3-09), "Settings" | the browser tab |
+| DP-1.2s-10 | 5.3 | Loading: a list shows "Loading" in place of its rows; a pressed button says what it is doing ("Sending", "Saving", "Removing") and is disabled until the answer | the screen never blanks (1.1 Loading) |
 | DP-1.2s-11 | 5.3 | On "Not found": the link "Go to your businesses" | the picker (or Leads of the only business) |
 Design parts: the card, the two states, the "check your email" state, the expired-link state, the picker list, the second-factor
 field. Emails to design: the sign-in link mail, the invite mail (who invited you, which business, the button), the new-lead alert
@@ -72,14 +72,14 @@ own sender. `{{ .Email }}`, `{{ .TokenHash }}` and `{{ .SiteURL }}` are filled i
 | DP-email-05 | email | Both emails: the link's life (600 s; a token hash works once) | "The link works for 10 minutes and only once." |
 | DP-email-06 | email | Both emails: not asked for | "If you did not ask for this, you can ignore this email." |
 | DP-email-07 | email | Both emails: sender identity block | "Omnikom Dashboard, login@notify.omnikom.io" and "Sent by Omnikom, omnikom.io" |
-| DP-email-08 | email | Invite email (only when a login is invited from the Supabase dashboard; `invite-member` sends no email, DP-1.6-02): subject | "You are invited to the Omnikom dashboard" |
+| DP-email-08 | email | Invite email (sent by `invite-member`, DP-1.6-02, to a new login through Auth's invite; an existing login gets the sign-in email DP-email-01 to 07 instead): subject | "You are invited to the Omnikom dashboard" |
 | DP-email-09 | email | Invite email: heading | "You are invited to the Omnikom dashboard" |
-| DP-email-10 | email | Invite email: what happened | "A login for {{ .Email }} was made on the Omnikom dashboard." |
+| DP-email-10 | email | Invite email: what happened (`{{ .Data.inviter }}` is the inviter's name, or their email when they have no team profile; `{{ .Data.business }}` the business name; both set from the invite's user data) | "{{ .Data.inviter }} invited {{ .Email }} to {{ .Data.business }} on the Omnikom dashboard." |
 | DP-email-11 | email | Invite email: the button, to {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite | "Accept and sign in" |
 | DP-email-12 | email | Invite email: after the link runs out | "After that, ask for a sign-in link with this address at {{ .SiteURL }}/login." |
 Settled 2026-11-01 (head of operations, from the owner's 10-minute link): an invite is a sign-in link; it lives 10 minutes; the person
 can ask for a new one at /login (04-DASHBOARD, Screens 1). Supabase gives every email link one life (`mailer_otp_exp`, 600 s). The invite mail of DP-1.6-02 (who invited you, which business)
-is a sign-in link sent by our own function once it sends email.
+is a sign-in link sent by `invite-member` through Auth (2026-11-05); Resend stays the transport, our own sender domain stays an owner item.
 
 ### 1.3 Screen 2: Leads (home)
 | Id | Slice | Element | Click or input | What happens | What the person sees | If it fails |
@@ -203,19 +203,31 @@ articles yet. Add your first one."), the agent view (fewer groups, Add only wher
 | DP-1.5-05 | later | Open the preview site; Compare | click | 2.3 and 2.4, not in step 5 |
 
 ### 1.6 Screen 4: Settings
-One page of cards, Save at the bottom, enabled only when something changed; leaving with unsaved changes asks once.
+One page of cards in this order: Your account, Lead alerts, People, Websites, Sign out everywhere. The owner sees every card; a member
+sees only Your account and Sign out everywhere (site settings and the team are hidden from members, `6-dashboard.md` "Roles on
+screen"). Business details stay on the Site screen (DP-1.4-07). There is no CRM connection card: leads leave as an export
+(`5-crm.md`); DP-1.6-05 and DP-1.6-06 (the CRM connection) are removed and their ids are not reused. Save sits on the Lead alerts card
+only (it is the one card that changes something), enabled only when that card changed; leaving with unsaved changes asks once.
 | Id | Slice | Element | What it does |
 |---|---|---|---|
-| DP-1.6-01 | 5.6 | People: the list (name, email, role, team profile) | members of the workspace |
-| DP-1.6-02 | 5.6 | People: Invite (email + role, owner picks the team profile) | `invite-member` (no email is sent until the sender exists: the card says so) |
-| DP-1.6-03 | 5.6 | People: Remove (confirm sheet) | `service.remove_member` through a function; never the last owner |
-| DP-1.6-04 | 5.6 | Lead alerts: the addresses, one per line, and "also email the assigned agent" | `settings-save` alerts |
-| DP-1.6-05 | 5.6 | CRM connection: none / webhook URL | `settings-save` crm |
-| DP-1.6-06 | 5.6 | CRM connection: Send a test, the result in plain words | `crm-test` |
-| DP-1.6-07 | 5.6 | Websites: each site's preview address, domain and state; "Ask Omnikom" mail link | read from `sites` |
-| DP-1.6-08 | 5.6 | Your account: name, email | read |
-| DP-1.6-09 | 5.6 | Sign out everywhere | ends every session of this login |
-| DP-1.6-10 | 5.6 | Save (enabled only when something changed) and the leave-with-unsaved-changes question | |
+| DP-1.6-01 | 5.6 | People: the list, one row per member: name (the team profile's, else the email again), email, role (Owner or Member), joined date | `team-list` (owner only) |
+| DP-1.6-02 | 5.6 | People: Invite: email field, role (Member, or Owner), the team profile to attach (optional, from this business's profiles), the button "Send invite" | `invite-member`, which makes the person a member and sends the mail (a new login gets the invite mail, DP-email-08 to 12; an existing login gets the sign-in link mail, DP-email-01 to 07); the answer's `email_sent` decides the line in DP-1.6-14 |
+| DP-1.6-03 | 5.6 | People: Remove on each row but your own | opens the confirm sheet (DP-1.6-12) |
+| DP-1.6-04 | 5.6 | Lead alerts: for each site (its preview address as the heading, so two sites are two blocks): the addresses, one per line, and "also email the assigned agent" | `settings-save` alerts |
+| DP-1.6-07 | 5.6 | Websites: each site's preview address, domain and state (read as the Site screen reads them); the link "Ask Omnikom" (a mail link to the dashboard's `askEmail` setting, as DP-1.4-15; with no address set the words show without a link) | read from `sites`; no edit |
+| DP-1.6-08 | 5.6 | Your account: name (your team profile's name; the line is not shown when you have no profile) and email (the login's) | read |
+| DP-1.6-09 | 5.6 | Sign out everywhere (the button) | ends every session of this login (`supabase.auth.signOut({ scope: 'global' })`) and shows the sign-in card with DP-1.2-13 |
+| DP-1.6-10 | 5.6 | Save on the Lead alerts card (disabled until an address line or the tick differs from what is stored) | `settings-save` alerts; the toast is DP-1.6-17 |
+| DP-1.6-11 | 5.6 | People: the empty state when you are the only member: "Only you so far. Invite someone to share this business." | read; the Invite fields of DP-1.6-02 sit under it |
+| DP-1.6-12 | 5.6 | People: the remove confirm sheet: "Remove <name or email> from <business>? They lose access to this business now. Their leads and edits stay." with Cancel and Remove | `member-remove` (`service.remove_member`) |
+| DP-1.6-13 | 5.6 | People: Remove refused (the last owner): "A business needs at least one owner. Add another owner first." (under the sheet's button, the sheet stays open); "not found" (already removed): "That person is no longer a member." and the list reloads | `member-remove` 409 S-LAST-OWNER, 404 S-NOT-FOUND |
+| DP-1.6-14 | 5.6 | People: the Invite result line under the form, `email_sent` true: "Invite sent to <email>." (the field clears; the person appears in the list); false: "<email> is a member now, but the email could not be sent. Ask them to sign in at the login page." | the answer of `invite-member` |
+| DP-1.6-15 | 5.6 | People: the Invite field errors: a bad address "Enter a full email address." under the field; Auth down on a new login: "Could not create the login right now. Please try again." | the problems `invite-member` answers (EMAIL, AUTH) |
+| DP-1.6-16 | 5.6 | Lead alerts: field errors under the box, in plain words: a bad line "Line 2 is not an email address." (the first bad line); more than 10 after removing repeats "At most 10 addresses." | checked on the screen with the same rule as the function; Save stays disabled while an error shows |
+| DP-1.6-17 | 5.6 | Lead alerts: the toast after Save "Saved"; on failure a banner on the card "Not saved. Try again." and the typed text is kept | the outcome of DP-1.6-10 |
+| DP-1.6-18 | 5.6 | The leave question (an in-page sheet, never the browser's): "Leave without saving? Your changes to the lead alerts are not saved." with Stay and Leave | shown once when leaving the screen (any link, back, switching business) with a changed card |
+| DP-1.6-19 | 5.6 | Websites: the empty state when the business has no site: "No website yet. Ask Omnikom to set one up." with the same link (DP-1.6-07) | read from `sites` |
+| DP-1.6-20 | 5.6 | Sign out everywhere failed (the server could not be told): "Could not sign you out everywhere. Try again." (a banner on that card) | the card stays; nothing is signed out |
 
 ### 1.7 Staff admin (Omnikom only; not the client's dashboard)
 Keeps `04-DASHBOARD.md` section 11: workspaces, sign-off queue, jobs across sites, audit log, read-only "view as", plus the
@@ -306,7 +318,7 @@ equivalence gate, `03-FRONTEND.md` A6). NOT BUILT; it is a step in `publish.yml`
 | Lead: alert mail fails | 3 retries; then an `alert-failed` event and a to-do line on Leads | "An alert could not be sent for Lead A" |
 | Lead: CRM push fails | 4 tries over 2 h, each an event; then "failed" with Resend | the row's "sent to CRM" says so |
 | Session expires mid-edit | the draft stays locally; sign in again returns to the same page | the sign-in card with "Your changes are kept." |
-| A person is removed from the team | their rows stay; their session ends at the next request | nothing for them; the owner sees the person gone |
+| A person is removed from the team | their rows stay; their next request in this workspace is refused by the wall; open sessions are not ended (Supabase Auth has no admin logout by user id: api.go and GoTrueAdminApi.ts, read 2026-11-04) | nothing for them; the owner sees the person gone |
 | Supabase itself is down | the dashboard shows one banner; nothing is lost because nothing was written | "The service is not reachable. Your draft is safe here." |
 | A client site's Worker is down | Cloudflare error page; the alert R3 fires | staff act; the client is told |
 | Wrong site id or signature on a lead call | 401; the alert fires; the visitor sees the phone-us text | |

@@ -38,9 +38,10 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
 | `lead-import` | dashboard (owner) | the client's file (CSV, at most 1 MB and 5000 rows, measured below) through a saved map (M15 `import_leads`): a dry run first; a real run needs the consent tick, all or nothing |
 | `lead-list` | dashboard | the CRM list on the server (M14 `lead_list`): search, filter, sort, page of at most 200, typed columns in form order; 422 `S-QUERY` for a key that is not a column |
 | `leads-bulk` | dashboard | status, owner or delete for up to 500 leads, all or nothing (M14 `leads_bulk`); delete needs `confirm: true` (409 `S-CONFIRM`); a single delete is a bulk of one |
-| `invite-member` | dashboard (owner) | creates or finds the login and adds the member; sends no mail yet |
-| `settings-save` | dashboard (owner) | lead alert addresses and "also email the assigned agent"; also still carries the CRM webhook card, which is removed (`5-crm.md`) |
-| `crm-test` | dashboard (owner) | sends a test to a CRM webhook; belongs to the dropped push and is removed |
+| `invite-member` | dashboard (owner) | finds the login or creates it (Auth admin `generate_link`, which sends nothing), adds the member (`set_member`), then asks Auth to send the mail: a new login gets the invite mail with the inviter's name and the business as user data (`POST /auth/v1/invite`, DP-email-08 to 12), an existing login the sign-in mail (`POST /auth/v1/otp`, `create_user` false; it cannot name either). `email_sent` is Auth's own answer; a mail that did not go does not undo the membership. The facts come from M17 `invite_context` |
+| `team-list` | dashboard (owner) | the members of the workspace, owners first: user, email, role, team profile and name, joined date (M17 `list_members`); 404 for anyone else |
+| `member-remove` | dashboard (owner) | takes a person out (`remove_member`): never the last owner (409 `S-LAST-OWNER`), audited, their rows stay. Open sessions are not ended: Supabase Auth has no admin logout by user id (`api.go`, `GoTrueAdminApi.ts`, read 2026-11-04); every request is checked against `members`, so their next request in the workspace is refused (T27 proves it with the claims the person had) |
+| `settings-save` | dashboard (owner) | one site's lead alert addresses (up to 10) and "also email the assigned agent"; no CRM part (a `crm` key alone is 400) |
 
 **The import's caps are measured** (work order 02, F6): parse + map in Deno, the functions' runtime (`supabase/functions/test/import-cpu.ts`,
 2026-11-04, idle laptop, 3 runs of 5 each; the worst CPU of the 3 runs):
@@ -55,7 +56,7 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
 CPU follows file size, about 0.75 s per MB worst; cap 1 MB / 5000 rows, under 1 s of the 2 s CPU limit. A bigger file is refused whole
 with plain words before it is parsed (413 `I-FILE` over 1 MB, 413 `I-ROWS` over 5000 rows), never cut short.
 
-Functions the book needs that do not exist (states in `1-product.md`): field edit and bulk edit for leads, saved views, delete a lead, unpublish, publish history and restore, team list and remove,
+Functions the book needs that do not exist (states in `1-product.md`): field edit and bulk edit for leads, saved views, delete a lead, unpublish, publish history and restore,
 media library, metrics pull. There is no push function and none is to be built.
 
 ## Publishing a change

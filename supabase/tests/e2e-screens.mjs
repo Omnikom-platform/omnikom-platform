@@ -3,15 +3,15 @@
 //                                                                                                                   the migration apply and the deploy: DECISIONS 43)
 //   node supabase/tests/e2e-screens.mjs --local                                                                    this machine: the harness database, the real handlers
 //                                                                                                                   served over HTTP (functions/test/local-serve.ts), the
-//                                                                                                                   fake Auth admin API and the fake CRM webhook
+//                                                                                                                   fake Auth admin API (its mail calls included)
 // It calls each new function once as owner-a (and member-a1 / owner-b for the refusals), over HTTP, the way the dashboard will. Prints one PASS/FAIL/INFO
 // line per check and never a token, a key, a signature or a secret. Exits 1 on any FAIL, 3 when a name is missing.
 // What it leaves on STAGING, on purpose: the two content VERSIONS of the saved listing (versions are append-only; the ROW is soft-deleted again in
 // the finally through service.unpublish, STAGING_DB_URL read by name, e2e-cleanup.mjs), the audit rows, and the invited login invite-test-5-2@omnikom.test as a
 // member of workspace A (no function removes a member before slice 5.6; remove it with: delete from members where user_id = (select id from auth.users
 // where email = 'invite-test-5-2@omnikom.test')). Its leads are deleted again through the CLI, and the alert list is put back as it was.
-// What staging does NOT get from it: a signed test request to a CRM (no public echo endpoint is used anywhere in this repository, so crm-test's request
-// is proven locally only; on staging the script proves its refusals and that the connection and its Vault secret can be made and removed).
+// What staging does NOT get from it: the 200 path of invite-member, which sends a real mail through Auth (work order 08). It is proven locally by --local and on
+// staging by supabase/tests/e2e-settings.mjs, with the address the head names. There is no CRM connection any more (docs/product/5-crm.md).
 import { spawn } from 'node:child_process';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,7 +39,7 @@ const line = (ok, name, detail = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} $
 const info = text => console.log(`INFO ${text}`);
 
 // ---------- the target ----------
-let base, token, q, localDb = null, fakeBase = null, stop = async () => {}, crmUrl;
+let base, token, q, localDb = null, fakeBase = null, stop = async () => {};
 // every content row this run creates is removed in the finally (slice 5.2b); a --local run needs none removed: its harness database is thrown away
 let cleanup = createCleanup({ remove: async () => ({ ok: true }), report: () => {} });
 if (LOCAL) {
@@ -67,7 +67,6 @@ if (LOCAL) {
   q = (query, who) => sql.rows(query, who ? { claims: claimsFor(parseIdentity(who)) } : {});
   localDb = env.SUPABASE_DB_URL;
   token = async who => (await (await fetch(`${base}/__token?who=${who}`, { signal: AbortSignal.timeout(15000) })).text()).trim();
-  crmUrl = 'https://hooks.example.com/e2e/5-2?x=1';
   stop = async () => { child.kill(); await api.stop(); };
 } else {
   const target = resolveTarget('staging', process.env, { needDb: false });
@@ -81,7 +80,6 @@ if (LOCAL) {
   token = async who => tokens[who] ??= await personToken(parseIdentity(who), { target, env: process.env });
   const sql = target.dbUrl ? makeSql({ url: target.dbUrl, readOnly: true }) : null;
   q = sql ? (query, who) => sql.rows(query, who ? { claims: claimsFor(parseIdentity(who)) } : {}) : null;
-  crmUrl = 'https://example.com/omnikom-e2e-5-2';
   globalThis.__pub = pub;
 }
 
@@ -180,40 +178,6 @@ try {
   const badMail = await call('settings-save', 'owner-a', { workspace: WS_A, alerts: { site: SITE_A, to: ['not-an-email'] } });
   line(badMail.status === 422 && badMail.json && badMail.json.code === 'I-EMAIL', 'a bad address is 422 I-EMAIL', brief(badMail));
 
-  // ---- F. settings: the CRM connection and its Vault secret
-  const loop = await call('settings-save', 'owner-a', { workspace: WS_A, crm: { url: 'https://localtest.me/hook' } });
-  line(loop.status === 422 && loop.json && loop.json.code === 'I-URL' && /private network/.test(String(loop.json.message)), 'a public name that resolves to 127.0.0.1 is refused as a private address (the host is resolved on this runtime)', `${brief(loop)} ${loop.json && loop.json.message}`);
-  const set = await call('settings-save', 'owner-a', { workspace: WS_A, crm: { url: crmUrl } });
-  line(set.status === 200 && set.json && set.json.crm === 'set' && !/[0-9a-f]{64}/.test(set.text), 'settings-save crm by owner-a is 200 and the answer holds no secret', brief(set));
-  const integ = await rows(`select config ->> 'url' as url, secret_ref from public.integrations where workspace_id = '${WS_A}' and kind = 'crm-webhook'`, 'owner-a');
-  if (integ) line(integ.length === 1 && integ[0].url === crmUrl && integ[0].secret_ref === `crm-webhook-${WS_A}`, 'the connection is stored with the Vault NAME crm-webhook-<workspace> (owner reads it through RLS)', JSON.stringify(integ[0] && integ[0].secret_ref)); else noDb('integrations');
-  const vault = await rows(`select count(*)::int as n from vault.secrets where name = 'crm-webhook-${WS_A}'`);
-  if (vault) line(vault[0].n === 1, 'and exactly one Vault secret of that name exists', `${vault[0].n}`); else noDb('vault.secrets');
-  line((await call('crm-test', 'member-a1', { workspace: WS_A })).status === 404, 'crm-test by the agent is 404');
-  const noCrm = await call('crm-test', 'owner-b', { workspace: WS_B });
-  line(noCrm.status === 409 && noCrm.json && noCrm.json.code === 'NO-CRM', 'crm-test by owner-b (B has no connection) is 409 NO-CRM', brief(noCrm));
-  if (LOCAL) {
-    await ctl(`/__reset`, { method: 'POST' }); await ctl(`/__hook?status=200`, { method: 'POST' });
-    const t = await call('crm-test', 'owner-a', { workspace: WS_A });
-    line(t.status === 200 && t.json && t.json.ok === true && t.json.status === 200 && typeof t.json.ms === 'number', 'crm-test by owner-a is 200 { ok, status, ms }', brief(t));
-    const rec = await (await ctl(`/__recorded`)).json();
-    const hook = rec.hooks[0];
-    const secretRow = await rows(`select decrypted_secret as s from vault.decrypted_secrets where name = 'crm-webhook-${WS_A}'`);
-    let signatureOk = false;
-    if (hook && secretRow && secretRow[0]) { const tt = Number(/^t=(\d+),/.exec(hook.signature || '')[1]); signatureOk = (await sign(secretRow[0].s, 'POST', hook.path, hook.body, tt)) === hook.signature; }
-    line(rec.hooks.length === 1 && signatureOk && hook.body === '{"test":true,"lead":{"name":"Test Lead","email":"test@example.com"}}', 'the CRM got ONE request with the fixed body and a signature that verifies with the stored secret', `${rec.hooks.length} request(s)`);
-    await ctl(`/__hook?status=302&mode=redirect`, { method: 'POST' });
-    const rd = await call('crm-test', 'owner-a', { workspace: WS_A });
-    const rec2 = await (await ctl(`/__recorded`)).json();
-    line(rd.json && rd.json.ok === false && rd.json.status === 302 && rec2.redirected === 0, 'a redirect is reported (ok false, 302) and not followed', `${brief(rd)} redirected ${rec2.redirected}`);
-  } else info('crm-test\'s request to a CRM was NOT sent on staging: no public echo endpoint is used anywhere in this repository (proven locally: run with --local)');
-  const gone = await call('settings-save', 'owner-a', { workspace: WS_A, crm: { url: null } });
-  line(gone.status === 200 && gone.json && gone.json.crm === 'removed', 'settings-save crm url null is 200 removed', brief(gone));
-  const integ2 = await rows(`select 1 from public.integrations where workspace_id = '${WS_A}' and kind = 'crm-webhook'`, 'owner-a');
-  if (integ2) line(integ2.length === 0, 'and the connection is gone', `${integ2.length}`); else noDb('integrations after removal');
-  const vault2 = await rows(`select count(*)::int as n from vault.secrets where name = 'crm-webhook-${WS_A}'`);
-  if (vault2) line(vault2[0].n === 0, 'and its Vault secret is deleted', `${vault2[0].n}`); else noDb('vault.secrets after removal');
-
   // ---- G. lead-export
   const ex = await call('lead-export', 'owner-a', { site: SITE_A, q: tag });
   const csv = parseCsv(ex.text);
@@ -233,15 +197,18 @@ try {
   if (LOCAL) {
     const id = '52520002-0000-0000-0000-000000000000';
     await ctl(`/__reset`, { method: 'POST' }); await ctl(`/__auth-user?email=${encodeURIComponent(INVITE)}&id=${id}&db=${encodeURIComponent(localDb)}`, { method: 'POST' });   // the fake Auth creates the login when asked, as GoTrue does
-  }
-  const inv = await call('invite-member', 'owner-a', { workspace: WS_A, email: INVITE, role: 'member' });
-  const keys = inv.json ? Object.keys(inv.json).sort().join() : '';
-  line(inv.status === 200 && keys === 'email_sent,invited,user' && inv.json.invited === true && inv.json.email_sent === false && !/action_link|token|http/.test(inv.text), 'invite-member by owner-a is 200 { user, invited: true, email_sent: false } and no link', brief(inv));
-  const mem = inv.json && inv.json.user ? await rows(`select role::text as role from public.members where workspace_id = '${WS_A}' and user_id = '${inv.json.user}'`, 'owner-a') : null;
-  if (mem) line(mem.length === 1 && mem[0].role === 'member', 'and they are a member of workspace A (read through RLS)', JSON.stringify(mem[0])); else noDb('members');
-  const again = await call('invite-member', 'owner-a', { workspace: WS_A, email: INVITE.toUpperCase(), role: 'member' });
-  line(again.status === 200 && inv.json && again.json.user === inv.json.user, 'inviting the same address again finds the same login (200, same user)', brief(again));
-  if (LOCAL) { const rec = await (await ctl(`/__recorded`)).json(); line(rec.authLinks.length === 1, 'and Auth was asked only once, by the first invite (the login existed the second time)', `${rec.authLinks.length} call(s)`); }
+    const inv = await call('invite-member', 'owner-a', { workspace: WS_A, email: INVITE, role: 'member' });
+    const keys = inv.json ? Object.keys(inv.json).sort().join() : '';
+    line(inv.status === 200 && keys === 'email_sent,invited,user' && inv.json.invited === true && inv.json.email_sent === true && !/action_link|token|http/.test(inv.text), 'invite-member by owner-a is 200 { user, invited: true, email_sent: true } and no link', brief(inv));
+    const mem = inv.json && inv.json.user ? await rows(`select role::text as role from public.members where workspace_id = '${WS_A}' and user_id = '${inv.json.user}'`, 'owner-a') : null;
+    if (mem) line(mem.length === 1 && mem[0].role === 'member', 'and they are a member of workspace A (read through RLS)', JSON.stringify(mem[0])); else noDb('members');
+    const again = await call('invite-member', 'owner-a', { workspace: WS_A, email: INVITE.toUpperCase(), role: 'member' });
+    line(again.status === 200 && inv.json && again.json.user === inv.json.user, 'inviting the same address again finds the same login (200, same user)', brief(again));
+    const rec = await (await ctl(`/__recorded`)).json();
+    line(rec.authLinks.length === 1, 'and Auth was asked to create a login only once, by the first invite (the login existed the second time)', `${rec.authLinks.length} call(s)`);
+    const kinds = rec.authMails.map(m => m.kind).join();
+    line(rec.authMails.length === 2 && kinds === 'invite,otp' && rec.authMails[0].data && rec.authMails[0].data.business && rec.authMails[0].data.inviter && rec.authMails.every(m => m.authorized), 'the first invite asked Auth for the invite mail with the inviter and the business, the second for the sign-in mail', kinds);
+  } else info("invite-member's 200 path was NOT run on staging: it sends a real mail through Auth. Proven locally (--local) and by supabase/tests/e2e-settings.mjs with the address the head names");
   line((await call('invite-member', 'member-a1', { workspace: WS_A, email: 'agent-invites@omnikom.test', role: 'member' })).status === 404, 'invite-member by the agent is 404 (and creates no login)');
   line((await call('invite-member', 'owner-a', { workspace: WS_A, email: 'not-an-email', role: 'member' })).status === 400, 'a bad email is 400');
 } catch (e) {

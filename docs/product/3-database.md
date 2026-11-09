@@ -92,8 +92,8 @@ Two database triggers refuse a job or a version that is not ready to publish (re
 
 ### Built and parked (no caller until the owner unparks them)
 `add_ons`, `connectors`, `bookings`, `messages`, `webhook_events`, and the `integrations` table with its CRM webhook settings
-(`set_crm_webhook`, `crm_secret_put`, `crm_target`). The webhook settings belong to the dropped automatic push and are to be
-removed from the dashboard path (`5-crm.md`). The parked add-ons are described in `10-expansion.md`.
+(`set_crm_webhook`, `crm_secret_put`, `crm_target`). The webhook settings belong to the dropped automatic push; nothing in the dashboard or the
+functions calls them any more (work order 08), and the table, its rows and these functions stay until a migration removes them (`5-crm.md`). The parked add-ons are described in `10-expansion.md`.
 
 ## Database functions by job
 
@@ -103,7 +103,7 @@ removed from the dashboard path (`5-crm.md`). The parked add-ons are described i
 | Publish | `start_publish` (pins versions, one atomic job), `freeze_snapshot`, `published_rows`, `export_bundle`, `set_job_state` (legal moves only), `reap_stale_jobs` (pg_cron every 5 minutes), `drafts_waiting` |
 | Media | `record_media`, `finish_media`, `media_processed`, `media_for_runner`, `media_facts` |
 | Leads | `capture_lead` (workspace from the site, consent required, idempotent, quota, paused site refused; M14: answers typed against the active contract's form, `I-ANSWER <field>` refused in plain words), `add_lead` (M15: answers typed against every industry field, an unknown key dropped), `import_leads` (M15, owner: a dry run by default; a real run needs the consent tick and skip or add for duplicates, all or nothing, form `import`, one `received` event and one consent ledger row per lead, one audit row with the file's sha256), `lead_update` (status, owner, unassign, note), `lead_set_fields` (M14: any core field and any editable industry field, typed; never the consent record; one `edited` event per changed field, one audit row per call), `lead_list` (M14: search, filter, sort and page on the server under the leads_read rule; keys checked against the contract; columns in form order), `leads_bulk` (M14: status, owner or delete for up to 500, all or nothing; delete needs `p_confirm`, one audit row per lead), `mark_lead_read`, `leads_exported`, `delete_lead` (hard delete plus an audit row), `lead_event`, `lead_sms_stop` |
-| Team and settings | `set_member`, `remove_member`, `find_login`, `set_alerts`, `alert_recipients`, `lead_alerted` |
+| Team and settings | `set_member`, `remove_member`, `find_login`, `list_members` (M17: owner or staff, email from `auth.users`, the team profile's name), `invite_context` (M17: the business's and the inviter's name for the invite mail), `set_alerts`, `alert_recipients`, `lead_alerted` |
 | CRM layout | `save_crm_template` (owner; shape checked; M15: a field may be `owner`, every industry field must be on the forms (`T-FIELD`), one map per workspace and name), `crm_fields` (M15, owner: the industry fields in form order, for the map) |
 | Keys and safety | `active_key`, `touch_key`, `site_signing_secrets`, `record_security_event`, `suppress`, `set_workspace_state`, `open_privacy_request`, `set_privacy_request_state` |
 

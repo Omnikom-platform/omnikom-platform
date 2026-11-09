@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from './supabase';
-import { fetchDrafts, listLeads, type Draft } from './api';
+import { fetchDrafts, fetchTeamList, listLeads, type Draft } from './api';
 import { countQuery, PAGE_SIZE, viewQuery, type Column, type ListAnswer, type View } from './lib/crm';
 import { FILTERS, type ContractForms, type Filter, type Lead, type LeadEvent } from './lib/leads';
 import type { Contract, Job, JobEvent, SiteState } from './lib/site';
+import type { Member } from './lib/settings';
 
 export type Workspace = { id: string; slug: string; name: string };
 export type Role = 'owner' | 'member' | 'staff';
@@ -347,5 +348,21 @@ export function useSignedUrl(path: string | undefined) {
     enabled: Boolean(path),
     staleTime: 240_000,
     queryFn: async (): Promise<string | null> => (await supabase.storage.from('media').createSignedUrl(path!, 300)).data?.signedUrl ?? null,
+  });
+}
+
+/** The members of the workspace for the People card (the team-list function; the owner's call, so it is only asked for when `enabled`). */
+export function useTeamList(wsId: string, enabled: boolean) {
+  return useQuery({ queryKey: ['team-list', wsId], enabled, queryFn: async (): Promise<Member[]> => await fetchTeamList(wsId) });
+}
+
+export type SiteAlerts = { id: string; preview_host: string; lead_alert_to: string[]; alert_assignee: boolean };
+
+/** Each site's lead alert addresses and tick for the Lead alerts card (the owner reads them through RLS). */
+export function useSiteAlerts(wsId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['site-alerts', wsId],
+    enabled,
+    queryFn: async (): Promise<SiteAlerts[]> => must(await supabase.from('sites').select('id,preview_host,lead_alert_to,alert_assignee').eq('workspace_id', wsId).order('created_at')) as SiteAlerts[],
   });
 }

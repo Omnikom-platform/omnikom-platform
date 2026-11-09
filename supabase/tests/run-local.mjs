@@ -580,6 +580,30 @@ const MUTANTS = [
 
   // ---- work order 13 (migration 19): the reaper is scheduled; tests in tenancy.test.sql T25 against the cron stand-in above ----
   ['reaper: the schedule call is removed (migration 19)', "    perform cron.schedule('reap-stale-jobs', '*/5 * * * *', 'select service.reap_stale_jobs()');", "    null;"],
+
+  // work order 08, migration 17: the team list and the removal (tenancy.test.sql T27)
+  ...(() => {
+    const GUARD = "  if not private.is_owner_or_staff(p_workspace) or not exists (select 1 from public.workspaces w where w.id = p_workspace) then raise exception 'S-NOT-FOUND: not found'; end if;\n  return query";
+    return [
+      ['team17: list_members, a member lists', GUARD, GUARD.replace('not private.is_owner_or_staff(p_workspace)', 'not coalesce(private.is_staff() or private.is_member(p_workspace), false)')],
+      ['team17: list_members, staff without the second factor lists', GUARD, GUARD.replace('not private.is_owner_or_staff(p_workspace)', "not coalesce(private.my_role(p_workspace) = 'owner' or exists (select 1 from public.staff s where s.user_id = (select auth.uid())), false)")],
+      ['team17: list_members, a workspace that does not exist is told apart', GUARD, GUARD.replace(' or not exists (select 1 from public.workspaces w where w.id = p_workspace)', '')],
+      ['team17: list_members, every workspace\'s people', "     where m.workspace_id = p_workspace\n     order by (m.role = 'owner') desc", "     where true\n     order by (m.role = 'owner') desc"],
+      ['team17: list_members, owners are not first', "order by (m.role = 'owner') desc, m.created_at, u.email;", "order by m.created_at, u.email;"],
+      ['team17: list_members, no team profile name', "(select v.data ->> 'name' from public.content_versions v", "(select v.data ->> 'nom' from public.content_versions v"],
+      ['team17: list_members, the id in place of the email', "select m.user_id, u.email::text, m.role,", "select m.user_id, m.user_id::text, m.role,"],
+      ['team17: remove_member deletes nothing, so the removed person still reads', "  delete from public.members m where m.workspace_id = p_workspace and m.user_id = p_user;\n  insert into public.audit_log (workspace_id, actor, action, target) values (p_workspace, me, 'member-remove'", "  null;\n  insert into public.audit_log (workspace_id, actor, action, target) values (p_workspace, me, 'member-remove'"],
+      ...['list_members(jsonb, uuid)', 'invite_context(jsonb, uuid)'].flatMap(sig => [
+        [`team17: migration 17 closes service.${sig.split('(')[0]} to anon, authenticated, PUBLIC (both layers)`, [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], [`revoke all on function service.${sig} from public, anon, authenticated;`, '-- (revoke removed)']]],
+        [`team17: migration 17 opens service.${sig.split('(')[0]} to the function role (both layers)`, [['alter default privileges in schema service grant execute on functions to service_role, omnikom_fn;', '-- (no default grant)'], [`grant execute on function service.${sig} to service_role, omnikom_fn;`, '-- (grant removed)']]],
+      ]),
+      ['team17: invite_context, a member asks', "  if not private.is_owner_or_staff(p_workspace) or not exists (select 1 from public.workspaces w where w.id = p_workspace) then raise exception 'S-NOT-FOUND: not found'; end if;\n  return query\n    select w.name::text,", "  if not coalesce(private.is_staff() or private.is_member(p_workspace), false) or not exists (select 1 from public.workspaces w where w.id = p_workspace) then raise exception 'S-NOT-FOUND: not found'; end if;\n  return query\n    select w.name::text,"],
+      ['team17: invite_context, another workspace\'s name', "      from public.workspaces w where w.id = p_workspace;\nend $$;", "      from public.workspaces w where w.id <> p_workspace limit 1;\nend $$;"],
+      ['team17: invite_context, the inviter has no team name', "coalesce(nullif(btrim((select v.data ->> 'name'", "coalesce(nullif(btrim((select v.data ->> 'nom'"],
+      ['team17: invite_context, a workspace that does not exist is told apart', "  if not private.is_owner_or_staff(p_workspace) or not exists (select 1 from public.workspaces w where w.id = p_workspace) then raise exception 'S-NOT-FOUND: not found'; end if;\n  return query\n    select w.name::text,", "  if not private.is_owner_or_staff(p_workspace) then raise exception 'S-NOT-FOUND: not found'; end if;\n  return query\n    select w.name::text,"],
+      ['team17: service.list_members does not pin the search_path', "returns table (user_id uuid, email text, role public.member_role, team_row_id uuid, team_name text, joined_at timestamptz)\nlanguage plpgsql security definer set search_path = '' as $$", "returns table (user_id uuid, email text, role public.member_role, team_row_id uuid, team_name text, joined_at timestamptz)\nlanguage plpgsql security definer as $$"],
+    ];
+  })(),
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

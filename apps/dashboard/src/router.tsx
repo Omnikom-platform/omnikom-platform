@@ -10,6 +10,7 @@ import { AddLead } from './pages/AddLead';
 import { ImportLeads } from './pages/ImportLeads';
 import { SiteLayout, NoItemChosen } from './pages/SiteLayout';
 import { Editor } from './pages/Editor';
+import { Settings } from './pages/Settings';
 import { NotFound } from './pages/NotFound';
 
 // Routes (03-FRONTEND B2), written in code so the dashboard needs no build plugin. Everything under /w needs a login.
@@ -85,6 +86,7 @@ const itemRoute = createRoute({
   component: Editor,
 });
 
+const settingsRoute = createRoute({ getParentRoute: () => wsRoute, path: 'settings', component: Settings });
 
 const notFound = () => (
   <main>
@@ -98,7 +100,7 @@ const routeTree = rootRoute.addChildren([
   confirmRoute,
   authedRoute.addChildren([
     workspacesRoute,
-    wsRoute.addChildren([wsIndexRoute, leadsRoute.addChildren([leadsIndexRoute, addLeadRoute, importRoute, leadRoute]), siteRoute.addChildren([siteIndexRoute, itemRoute])]),
+    wsRoute.addChildren([wsIndexRoute, leadsRoute.addChildren([leadsIndexRoute, addLeadRoute, importRoute, leadRoute]), siteRoute.addChildren([siteIndexRoute, itemRoute]), settingsRoute]),
   ]),
 ]);
 
