@@ -7,6 +7,15 @@ export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 export const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+/** an ISO date-time with an offset (2026-11-20T10:00:00Z, 2026-11-20T10:00+02:00) on a real calendar day: what a follow-up or a task's due time is sent as */
+export function isInstant(v: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,6})?)?(?:Z|[+-](?:0\d|1[0-5]):[0-5]\d)$/.exec(v);
+  if (!m) return false;
+  const [y, mo, d, h, mi, s] = [m[1], m[2], m[3], m[4], m[5], m[6] ?? '0'].map(Number);
+  const t = new Date(Date.UTC(y, mo - 1, d, h, mi, s));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d && mi < 60 && s < 60;   // an hour of 24 or more rolls the day over, so the date check refuses it
+}
+
 export type FieldProblem = { code: string; path: string; msg: string; row?: string };
 
 export const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: H });
@@ -43,6 +52,13 @@ export class Fields {
     const v = this.d[k];
     if (v == null) return o.required ? this.bad('REQUIRED', k, 'This is needed.') : null;
     if (typeof v !== 'number' || !Number.isInteger(v)) return this.bad('TYPE', k, 'Must be a whole number.');
+    return v;
+  }
+  /** a date and time with an offset (isInstant); null when absent or null */
+  instant(k: string): string | null {
+    const v = this.d[k];
+    if (v == null) return null;
+    if (typeof v !== 'string' || !isInstant(v)) return this.bad('TYPE', k, 'A date and time like 2026-11-20T10:00:00Z.');
     return v;
   }
   obj(k: string, required = true): Record<string, unknown> | null {

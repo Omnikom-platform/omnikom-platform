@@ -663,6 +663,14 @@
       "maxProperties": 50,
       "additionalProperties": true,
       "description": "Work order 01: core fields (name, email, phone, status, owner) and editable industry fields, typed by the contract; answers 200 { changed }"
+     },
+     "follow_up": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date-time",
+      "description": "Work order 18: the lead's follow-up date and time (with an offset, 2026-11-20T10:00:00Z); null clears it; absent leaves it alone. One `follow-up` event with old and new when it changes, in the same transaction as the other changes"
      }
     },
     "description": "every field but lead is optional; each change writes its own event on the lead timeline (service.lead_update)"
@@ -1266,6 +1274,14 @@
       "type": "integer",
       "minimum": 1,
       "maximum": 200
+     },
+     "due": {
+      "type": "boolean",
+      "description": "Work order 18: true keeps the leads whose follow-up date has come or that have an open task whose time has come"
+     },
+     "duplicates": {
+      "type": "boolean",
+      "description": "Work order 18: true keeps the flagged leads (a duplicate of an older lead of the business, by email or phone)"
      }
     }
    },
@@ -1318,7 +1334,8 @@
       "items": {
        "type": "object",
        "additionalProperties": true
-      }
+      },
+      "description": "Each row: id, created_at, name, email, phone, status, owner, form, page, site, follow_up (date-time or null), duplicate (boolean), duplicate_of (the older lead's id, only when the caller may read that lead too, else null), and one key per industry column"
      }
     }
    },
@@ -2008,6 +2025,119 @@
      },
      "commit": {
       "type": "string"
+     }
+    }
+   },
+   "ViewSaveRequest": {
+    "type": "object",
+    "required": [
+     "workspace",
+     "name"
+    ],
+    "properties": {
+     "workspace": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "change this view in place"
+     },
+     "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60
+     },
+     "query": {
+      "type": "object",
+      "description": "the shape LeadListRequest takes without the workspace: search, filters, sort (page and size are kept but unused); default {}",
+      "additionalProperties": true
+     },
+     "columns": {
+      "type": "array",
+      "maxItems": 60,
+      "items": {
+       "type": "string"
+      },
+      "description": "the list's column keys in order: core keys, industry columns, follow_up, duplicate"
+     },
+     "shared": {
+      "type": "boolean",
+      "description": "true: a view for the whole business (owner or staff with MFA). Default false"
+     }
+    }
+   },
+   "ViewSaveResponse": {
+    "type": "object",
+    "properties": {
+     "view": {
+      "type": "string",
+      "format": "uuid"
+     }
+    }
+   },
+   "ViewDeleteRequest": {
+    "type": "object",
+    "required": [
+     "view"
+    ],
+    "properties": {
+     "view": {
+      "type": "string",
+      "format": "uuid"
+     }
+    }
+   },
+   "LeadTaskRequest": {
+    "type": "object",
+    "description": "Exactly one shape: { lead, text, due? } adds, { task, done } marks",
+    "properties": {
+     "lead": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+     },
+     "due": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date-time",
+      "description": "with an offset: 2026-11-20T10:00:00Z"
+     },
+     "task": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "done": {
+      "type": "boolean",
+      "description": "true finishes the task, false reopens it"
+     }
+    }
+   },
+   "LeadTaskAddResponse": {
+    "type": "object",
+    "properties": {
+     "task": {
+      "type": "string",
+      "format": "uuid"
+     }
+    }
+   },
+   "LeadTaskMarkResponse": {
+    "type": "object",
+    "properties": {
+     "task": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "done": {
+      "type": "boolean"
      }
     }
    }
@@ -3566,6 +3696,168 @@
      },
      "404": {
       "$ref": "#/components/responses/NotFound"
+     }
+    }
+   }
+  },
+  "/view-save": {
+   "post": {
+    "operationId": "viewSave",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "summary": "Save a CRM view: a lead-list query plus an ordered column list (dashboard; supabase/functions/view-save)",
+    "description": "Migration 22 service.view_save. A member saves their own views; shared: true (a view for the whole business) is for an owner or staff with the second factor (403 S-OWN-ONLY). The query is checked by the very code lead-list uses (422 S-QUERY: a saved view can never hold a query lead-list refuses); every column key must be a column of the list (400 I-ANSWER on `columns`, naming the key; follow_up and duplicate are columns too). With `id` the view is changed in place; another person's private view, another workspace's view and an unknown id are 404 S-NOT-FOUND. A name is 1 to 60 characters, unique per person (and among the shared views): 400 I-ANSWER on `name`. At most 100 views per person and workspace. Views are listed by the dashboard with a plain select (row level security: your own and the shared ones), not by a function.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ViewSaveRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "The id of the saved view",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ViewSaveResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "BODY: a field is missing or not valid; I-ANSWER: a name, column or limit the database refused, with the words in problems",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "403": {
+      "description": "S-OWN-ONLY: a member shares a view or changes a shared one"
+     },
+     "404": {
+      "description": "S-NOT-FOUND: not a member of the workspace, or a view that is not the caller's to change"
+     },
+     "422": {
+      "description": "S-QUERY: a query lead-list would refuse"
+     }
+    }
+   }
+  },
+  "/view-delete": {
+   "post": {
+    "operationId": "viewDelete",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "summary": "Delete a saved CRM view (dashboard; supabase/functions/view-delete)",
+    "description": "Migration 22 service.view_delete. The caller's own view, or a shared view for an owner (a member 403 S-OWN-ONLY). Another person's private view, another workspace's view and an unknown id are 404 S-NOT-FOUND.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ViewDeleteRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "204": {
+      "description": "deleted"
+     },
+     "400": {
+      "description": "BODY: view is missing or not an id",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "403": {
+      "description": "S-OWN-ONLY: a member deletes a shared view"
+     },
+     "404": {
+      "description": "S-NOT-FOUND"
+     }
+    }
+   }
+  },
+  "/lead-task": {
+   "post": {
+    "operationId": "leadTask",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "summary": "Add a task to a lead, or finish or reopen one (dashboard; supabase/functions/lead-task)",
+    "description": "Migration 22 service.task_add / service.task_done. Send { lead, text, due? } to add (201) or { task, done } to mark (200); both shapes or neither is 400. The lead must be one the caller may act on (an owner: any; a member: leads assigned to them), else 404 S-NOT-FOUND, also for another workspace. A task is read exactly where its lead is (row level security). Each change writes a `task` event (added, done, reopened) on the lead timeline; asking for the state a task is already in writes none. A lead keeps at most 100 tasks.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LeadTaskRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "The task was finished or reopened",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/LeadTaskMarkResponse"
+        }
+       }
+      }
+     },
+     "201": {
+      "description": "The task was added",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/LeadTaskAddResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "BODY: not exactly one shape, a text of 0 or over 500 characters, due not a date and time with an offset, done not a yes or no",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "description": "S-NOT-FOUND: a lead or task the caller may not act on"
      }
     }
    }

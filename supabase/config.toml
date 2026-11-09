@@ -69,6 +69,16 @@ verify_jwt = true            # dashboard user
 [functions.leads-bulk]
 verify_jwt = true            # dashboard user
 
+# Work order 18 (2026-11-09): saved views, follow-up and tasks of the CRM. Dashboard functions (the walls are in the database).
+[functions.view-save]
+verify_jwt = true            # dashboard user
+
+[functions.view-delete]
+verify_jwt = true            # dashboard user
+
+[functions.lead-task]
+verify_jwt = true            # dashboard user
+
 [functions.invite-member]
 verify_jwt = true            # dashboard user
 

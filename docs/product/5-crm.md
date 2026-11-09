@@ -84,12 +84,12 @@ decides, not the screen. A member cannot hand a lead on. A member's hand-entered
 | Add a lead by hand | name, phone, email, how they reached you, what about, notes, and a required tick "the person agreed to be contacted", stored with its date |
 | Search | over any column, core or industry, on the server |
 | Filter and sort | on any column and value, on the server, under RLS |
-| Columns | the user picks which columns a view shows |
-| Saved views | filter, sort and columns saved by name, for the user or shared with the workspace |
+| Columns | the user picks which columns a view shows (backend built, work order 18: a view's `columns`; the unsaved choice lives in the page address; screens in work order 19) |
+| Saved views | filter, sort and columns saved by name, for the user or shared with the workspace (backend built, work order 18: `crm_views`, `view-save`, `view-delete`; screens in work order 19) |
 | Bulk edit | select many, set status, set owner, delete; one event per lead and one audit row |
 | Status board | the leads grouped by status, with lead type as a second column; both lists are per-industry data (owner ruling 2026-11-09 above; work order 20) |
-| Follow-up | a follow-up date and tasks on a lead, with a "due" filter |
-| Duplicates | a new lead with the same email or phone as an existing one is flagged; merging is decided later |
+| Follow-up | a follow-up date and tasks on a lead, with a "due" filter (backend built, work order 18: `follow_up_at`, `lead_tasks`, `lead-update` `follow_up`, `lead-task`, `lead-list` `due`; screens in work order 19) |
+| Duplicates | a new lead with the same email (any case) or phone (any format) as an older lead of the business points at the oldest such lead and is flagged, whichever way it arrived (form, add-lead, import); merging is decided later (backend built, work order 18: `leads.duplicate_of`, `lead-list` `duplicates`; a member sees "a duplicate" but not the other lead unless it is theirs too; leads from before are not flagged; screens in work order 19) |
 | Delete | a hard delete, as privacy requires: one or many leads through `leads-bulk` (a single delete is a bulk of one), refused without the explicit confirm flag; one audit row per deleted lead; the consent ledger row stays (legal record) |
 | Export | CSV of the current view with every core and industry column, at most 5000 rows, cells starting with `= + - @` guarded; one `exported` event per lead |
 | Export in their CRM's layout | see below |

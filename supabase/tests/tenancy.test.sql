@@ -1593,6 +1593,7 @@ do $$ declare t record; n int; begin
       'crm_secret_put', 'crm_secret_drop', 'crm_target', 'crm_tested', 'find_login',
       'lead_set_fields', 'lead_list', 'leads_bulk',   -- work order 01: owner B on each in T22
       'crm_fields', 'import_leads',                    -- work order 02: owner B on each in T23
+      'view_save', 'view_delete', 'lead_follow_up', 'task_add', 'task_done',   -- work order 18: owner B, a login of nothing and a member on each in T29
       'list_members', 'invite_context',                -- work order 08: owner B and a member in T24
       'site_audit']),                                  -- work order 10: member and owner B in T24
       'service.' || t.proname || ' takes claims but has no outsider test listed in T14';
@@ -1603,6 +1604,9 @@ end $$;
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000e', 'nobody@test');
 insert into integrations (workspace_id, kind, config) values ('aaaaaaaa-0000-0000-0000-000000000000', 'idx-link', '{"url":"https://idx.test"}');
 insert into metrics_snapshots (workspace_id, source, day, data) values ('aaaaaaaa-0000-0000-0000-000000000000', 'uptime', '2026-11-01', '{"up":true}');
+-- work order 18 (migration 22): a shared view and a task of A, so the loop below sees a policy opened to "true" on crm_views and lead_tasks (walls in T29)
+insert into crm_views (workspace_id, user_id, name) values ('aaaaaaaa-0000-0000-0000-000000000000', null, 'T14 fixture view');
+insert into lead_tasks (lead_id, workspace_id, text) select id, workspace_id, 'T14 fixture task' from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' order by created_at, id limit 1;
 do $$ declare t record; n int; begin
   for t in select c.relname from pg_class c join pg_namespace s on s.oid = c.relnamespace join pg_attribute a on a.attrelid = c.oid and a.attname = 'workspace_id' and not a.attisdropped
            where s.nspname = 'public' and c.relkind = 'r' loop
@@ -2244,6 +2248,393 @@ do $$ declare f text; begin
   assert not has_function_privilege('anon', f, 'execute') and not has_function_privilege('authenticated', f, 'execute') and not exists (select 1 from aclexplode((select proacl from pg_proc where oid = f::regprocedure)) a where a.grantee = 0), f || ' is closed to anon, authenticated and PUBLIC';
   assert has_function_privilege('omnikom_fn', f, 'execute'), f || ' is open to the function role';
   assert (select prosecdef from pg_proc where oid = f::regprocedure) and (select proconfig from pg_proc where oid = f::regprocedure) = array['search_path=""'], f || ' is a definer function with an empty search_path';
+  end loop;
+end $$;
+
+-- ===================================================================================================================================
+-- ===== T29 work order 18 (migration 22): saved views, follow-up, tasks, duplicates (own block; mutants "crm22: ..." in run-local.mjs) =====
+-- ===================================================================================================================================
+-- Fixture rows for crm_views and lead_tasks of workspace A are inserted before T14's isolation loop (look for "work order 18" there).
+-- Directly inserted leads fire the duplicate trigger too: capture_lead is refused here by the hourly lead limit of A, and the trigger is on the table, so the
+-- paths capture, add-lead and import are each also run below (capture on B, whose limit is not used up).
+reset role;
+select test.act_as(null);
+create function test.t29_save(p_sub text, p_ws uuid, p_view jsonb) returns uuid language sql as $$ select service.view_save(test.c(p_sub), p_ws, p_view) $$;
+create function test.t29_vdel(p_sub text, p_view uuid) returns void language sql as $$ select service.view_delete(test.c(p_sub), p_view) $$;
+create function test.t29_fu(p_sub text, p_lead uuid, p_at timestamptz) returns boolean language sql as $$ select service.lead_follow_up(test.c(p_sub), p_lead, p_at) $$;
+create function test.t29_task(p_sub text, p_lead uuid, p_text text, p_due timestamptz default null) returns uuid language sql as $$ select service.task_add(test.c(p_sub), p_lead, p_text, p_due) $$;
+create function test.t29_done(p_sub text, p_task uuid, p_done boolean) returns void language sql as $$ select service.task_done(test.c(p_sub), p_task, p_done) $$;
+create function test.t29_lead(p_name text, p_email text, p_phone text default null, p_team uuid default null, p_ws uuid default 'aaaaaaaa-0000-0000-0000-000000000000', p_at timestamptz default now(), p_id uuid default gen_random_uuid())
+returns uuid language sql as $$
+  insert into leads (id, workspace_id, site_id, form, page_path, name, email, phone, consent_text, owner_team_row, created_at)
+  values (p_id, p_ws, case when p_ws = 'aaaaaaaa-0000-0000-0000-000000000000' then 'aaaaaaaa-0000-0000-0000-00000000517e'::uuid else 'bbbbbbbb-0000-0000-0000-00000000517e'::uuid end,
+    'contact', '/', p_name, p_email, p_phone, 'I agree', p_team, p_at) returning id $$;
+grant execute on function test.t29_save(text, uuid, jsonb), test.t29_vdel(text, uuid), test.t29_fu(text, uuid, timestamptz), test.t29_task(text, uuid, text, timestamptz),
+  test.t29_done(text, uuid, boolean), test.t29_lead(text, text, text, uuid, uuid, timestamptz, uuid) to anon, authenticated, service_role, omnikom_fn;
+
+-- (a) saved views: write walls
+set role omnikom_fn;
+insert into test.ids select 'v_mine', test.t29_save('00000000-0000-0000-0000-0000000000a1', 'aaaaaaaa-0000-0000-0000-000000000000',
+  '{"name":"T29 mine","query":{"filters":[{"field":"status","op":"eq","value":"new"}],"sort":{"field":"name","dir":"asc"},"search":"t29"},"columns":["name","email","budget","follow_up","duplicate"]}');
+insert into test.ids select 'v_shared', test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000',
+  '{"name":"T29 shared","shared":true,"query":{"sort":{"field":"created_at","dir":"desc"}},"columns":["name","status","owner"]}');
+insert into test.ids select 'v_ownerpriv', test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T29 owner private","columns":["email"]}');
+insert into test.ids select 'v_staff', service.view_save(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T29 staff shared","shared":true}');
+insert into test.ids select 'v_a2', test.t29_save('00000000-0000-0000-0000-0000000000a2', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T29 mine"}');   -- the same name as a1's: names are unique per person
+insert into test.ids select 'v_b', test.t29_save('00000000-0000-0000-0000-00000000000b', 'bbbbbbbb-0000-0000-0000-000000000000', '{"name":"T29 shared","shared":true}');   -- and per workspace
+select test.expect_error($q$select test.t29_save('00000000-0000-0000-0000-0000000000a1', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T29 try shared","shared":true}')$q$, 'S-OWN-ONLY');
+select test.expect_error(format($q$select test.t29_save('00000000-0000-0000-0000-0000000000a1', 'aaaaaaaa-0000-0000-0000-000000000000', jsonb_build_object('id', %L, 'name', 'T29 hijack', 'shared', false))$q$, test.id('v_shared')), 'S-OWN-ONLY');
+select test.expect_error(format($q$select test.t29_save('00000000-0000-0000-0000-0000000000a1', 'aaaaaaaa-0000-0000-0000-000000000000', jsonb_build_object('id', %L, 'name', 'T29 hijack'))$q$, test.id('v_ownerpriv')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', jsonb_build_object('id', %L, 'name', 'T29 hijack'))$q$, test.id('v_mine')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select test.t29_save('00000000-0000-0000-0000-00000000000b', 'bbbbbbbb-0000-0000-0000-000000000000', jsonb_build_object('id', %L, 'name', 'T29 cross', 'shared', true))$q$, test.id('v_shared')), 'S-NOT-FOUND');
+select test.expect_error($q$select test.t29_save('00000000-0000-0000-0000-00000000000b', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T29 B into A"}')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select test.t29_save('00000000-0000-0000-0000-00000000000e', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T29 nobody"}')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select service.view_save(test.cl('00000000-0000-0000-0000-00000000005f', 'aal1'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T29 staff no mfa","shared":true}')$q$, 'S-NOT-FOUND');
+select test.expect_error(format($q$select test.t29_vdel('00000000-0000-0000-0000-0000000000a1', %L)$q$, test.id('v_shared')), 'S-OWN-ONLY');
+select test.expect_error(format($q$select test.t29_vdel('00000000-0000-0000-0000-0000000000a1', %L)$q$, test.id('v_ownerpriv')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select test.t29_vdel('00000000-0000-0000-0000-00000000000b', %L)$q$, test.id('v_shared')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select test.t29_vdel('00000000-0000-0000-0000-00000000000e', %L)$q$, test.id('v_shared')), 'S-NOT-FOUND');
+select test.expect_error($q$select test.t29_vdel('00000000-0000-0000-0000-00000000000a', '99999999-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+-- what is refused is refused with the words of the problem; a name is 1 to 60 characters and unique per person (and per workspace for the shared ones)
+select test.expect_error($q$select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T29 bad col","columns":["name","zzz_nope"]}')$q$, 'I-ANSWER columns: zzz_nope is not a column');
+select test.expect_error($q$select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T29 bad col","columns":["note"]}')$q$, 'I-ANSWER columns: note is not a column');   -- a field the contract keeps out of the list
+select test.expect_error($q$select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T29 bad col","columns":["name","name"]}')$q$, 'I-ANSWER columns: name is listed twice');
+select test.expect_error($q$select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T29 bad col","columns":["na me"]}')$q$, 'I-ANSWER columns: A key is not a column');
+select test.expect_error($q$select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T29 bad col","columns":[5]}')$q$, 'I-ANSWER columns: A column is a key');
+select test.expect_error($q$select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T29 bad col","columns":"name"}')$q$, 'I-ANSWER columns: Columns are a list');
+select test.expect_error(format($q$select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', jsonb_build_object('name', 'T29 many', 'columns', %L::jsonb))$q$,
+  (select jsonb_agg('k' || i) from generate_series(1, 61) i)::text), 'I-ANSWER columns: At most 60 columns');
+select test.expect_error(format($q$select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', jsonb_build_object('name', 'T29 big', 'query', %L::jsonb))$q$,
+  (select jsonb_build_object('filters', jsonb_build_array(jsonb_build_object('field', 'name', 'op', 'in', 'values', jsonb_agg(repeat('v', 200) || i))))::text from generate_series(1, 100) i)), 'I-ANSWER query: The query is too large');
+select test.expect_error($q$select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"   "}')$q$, 'I-ANSWER name: A view name is 1 to 60 characters');
+select test.expect_error(format($q$select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', jsonb_build_object('name', %L))$q$, repeat('n', 61)), 'I-ANSWER name: A view name is 1 to 60 characters');
+select test.expect_error($q$select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"columns":["name"]}')$q$, 'I-ANSWER name: A view needs a name');
+select test.expect_error($q$select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":5}')$q$, 'I-ANSWER name: A view needs a name');
+select test.expect_error($q$select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T29 shared flag","shared":"yes"}')$q$, 'I-ANSWER shared');
+select test.expect_error($q$select test.t29_save('00000000-0000-0000-0000-0000000000a1', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T29 mine"}')$q$, 'I-ANSWER name: A view with that name already exists');
+select test.expect_error($q$select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T29 shared","shared":true}')$q$, 'I-ANSWER name: A view with that name already exists');
+select test.expect_error(format($q$select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', jsonb_build_object('id', %L, 'name', 'T29 shared', 'shared', true))$q$, test.id('v_staff')), 'I-ANSWER name: A view with that name already exists');   -- renaming onto another shared view
+-- one function checks the query: whatever lead_list refuses, a view refuses (S-QUERY), and a query lead_list accepts is saved and listed
+do $$ declare qs jsonb[] := array[
+    '{"sort":{"field":"nope"}}', '{"sort":{"field":"name","dir":"sideways"}}', '{"filters":[{"field":"nope","op":"eq","value":1}]}', '{"filters":[{"field":"name","op":"like","value":"a"}]}',
+    '{"filters":[{"field":"name","op":"range","from":1}]}', '{"filters":{"field":"name"}}', '{"search":"' || repeat('x', 201) || '"}', '{"size":201}', '{"size":0}', '{"page":0}', '[]', '"text"',
+    '{"due":"maybe"}', '{"duplicates":1}', '{"filters":[{"field":"name","op":"in","values":"a"}]}']::jsonb[];
+  ok jsonb[] := array['{}', '{"search":"x"}', '{"due":true,"duplicates":false}', '{"filters":[{"field":"budget","op":"range","from":1,"to":9}],"sort":{"field":"budget","dir":"desc"}}']::jsonb[];
+  q jsonb; a text; b text; i int := 0; begin
+  foreach q in array qs loop
+    i := i + 1;
+    begin perform service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', q); a := 'accepted'; exception when others then a := left(sqlerrm, 7); end;
+    begin perform service.view_save(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', jsonb_build_object('name', 'T29 q' || i, 'query', q)); b := 'accepted'; exception when others then b := left(sqlerrm, 7); end;
+    assert a = 'S-QUERY' and b = 'S-QUERY', format('T29a a query lead_list refuses is refused by view_save too: %s lead_list %s, view_save %s', q, a, b);
+  end loop;
+  foreach q in array ok loop
+    i := i + 1;
+    perform service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', q);
+    perform service.view_save(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', jsonb_build_object('name', 'T29 ok' || i, 'query', q));
+  end loop;
+end $$;
+reset role;
+do $$ begin
+  assert (select count(*) from crm_views where name like 'T29 q%') = 0, 'T29a a refused view stored nothing';
+  assert (select count(*) from crm_views where name like 'T29 ok%') = 4, 'T29a the accepted queries were saved';
+end $$;
+set role omnikom_fn;
+-- an owner changes the shared view in place: the same row, the new name, the columns in the order sent
+select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', jsonb_build_object('id', test.id('v_shared'), 'name', 'T29 shared 2', 'shared', true, 'columns', '["status","name"]'::jsonb));
+reset role;
+do $$ declare v public.crm_views; begin
+  select * into v from crm_views where id = test.id('v_shared');
+  assert v.name = 'T29 shared 2' and v.user_id is null and v.columns = array['status', 'name'] and v.updated_at >= v.created_at, 'T29a the shared view changed in place, still shared, the columns in the order sent: ' || v::text;
+  assert (select count(*) from crm_views where name in ('T29 shared', 'T29 shared 2') and workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 1, 'T29a a change is not a copy';
+  select * into v from crm_views where id = test.id('v_mine');
+  assert v.user_id = '00000000-0000-0000-0000-0000000000a1' and v.columns = array['name', 'email', 'budget', 'follow_up', 'duplicate'] and v.query -> 'sort' ->> 'field' = 'name', 'T29a a member''s view is theirs, with the columns and the query as saved: ' || v::text;
+  assert (select user_id from crm_views where id = test.id('v_staff')) is null and (select user_id from crm_views where id = test.id('v_ownerpriv')) = '00000000-0000-0000-0000-00000000000a', 'T29a staff with MFA shares; an owner''s default is private';
+  assert (select count(*) from audit_log where action = 'view-save' and target in (select id::text from crm_views where name like 'T29%')) >= 5, 'T29a every save is audited';
+end $$;
+-- reads: row level security. a1 sees their own and the shared ones, never the owner's private view; the owner of B and a login of nothing see none of A's
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+do $$ begin
+  assert (select array_agg(name order by name) from crm_views where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and name like 'T29%') = array['T29 mine', 'T29 shared 2', 'T29 staff shared'], 'T29b a1 reads their own view and the shared ones: ' || (select array_agg(name order by name)::text from crm_views where name like 'T29%');
+  assert not exists (select 1 from crm_views where id = test.id('v_ownerpriv') or id = test.id('v_a2')), 'T29b a1 does not read the owner''s or a2''s private view';
+end $$;
+select test.expect_error($q$insert into crm_views (workspace_id, user_id, name) values ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a1', 'T29 direct')$q$, 'permission denied');
+select test.expect_error($q$update crm_views set name = 'T29 direct' where user_id is null$q$, 'permission denied');
+select test.expect_error($q$delete from crm_views$q$, 'permission denied');
+select test.act_as('00000000-0000-0000-0000-0000000000a2');
+do $$ begin
+  assert (select count(*) from crm_views where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and name like 'T29%') = 3 and (select count(*) from crm_views where user_id = '00000000-0000-0000-0000-0000000000a2') = 1
+    and not exists (select 1 from crm_views where id in (test.id('v_mine'), test.id('v_ownerpriv'))), 'T29b a2 reads their own view and the two shared ones, none of a1''s or the owner''s';
+end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin
+  assert (select array_agg(name order by name) from crm_views where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and name like 'T29 %' and name not like 'T29 ok%') = array['T29 owner private', 'T29 shared 2', 'T29 staff shared'], 'T29b the owner reads theirs and the shared ones, not the members'' private views: ' || (select array_agg(name order by name)::text from crm_views where name like 'T29%');
+end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  assert (select count(*) from crm_views where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 0 and (select count(*) from crm_views where name like 'T29%') = 1, 'T29b owner B reads nothing of A''s views, only their own';
+end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000e');
+do $$ begin assert (select count(*) from crm_views) = 0, 'T29b a login of nothing reads no view'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+do $$ begin assert (select array_agg(name order by name) from crm_views where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and name like 'T29 %' and name not like 'T29 ok%') = array['T29 shared 2', 'T29 staff shared'], 'T29b staff with MFA reads the shared views and their own, not the private ones of the business''s people'; end $$;
+reset role;
+select test.act_as(null);
+-- the 100-view limit, then deletes: own, an owner's for a shared view
+insert into crm_views (workspace_id, user_id, name) select 'aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a2', 'T29 cap ' || i from generate_series(1, 99) i;
+set role omnikom_fn;
+select test.expect_error($q$select test.t29_save('00000000-0000-0000-0000-0000000000a2', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T29 cap one too many"}')$q$, 'I-ANSWER views: At most 100 views');
+select test.t29_vdel('00000000-0000-0000-0000-0000000000a1', test.id('v_mine'));
+select test.t29_vdel('00000000-0000-0000-0000-00000000000a', test.id('v_shared'));
+select test.t29_vdel('00000000-0000-0000-0000-00000000000a', test.id('v_staff'));
+reset role;
+delete from crm_views where name like 'T29 cap%';
+do $$ begin
+  assert not exists (select 1 from crm_views where id in (test.id('v_mine'), test.id('v_shared'), test.id('v_staff'))) and exists (select 1 from crm_views where id = test.id('v_ownerpriv')), 'T29b own and shared deletes took effect and nothing else';
+  assert (select count(*) from audit_log where action = 'view-delete' and target in (test.id('v_mine')::text, test.id('v_shared')::text, test.id('v_staff')::text)) = 3, 'T29b each delete is audited';
+  assert exists (select 1 from crm_views where id = test.id('v_b')), 'T29b A''s deletes touched nothing of B''s';
+end $$;
+
+-- (c) duplicates: the oldest earlier match, by email (any case) or phone (any format), in the same workspace
+-- (c1) the oldest by created_at, not the first inserted: y_old is made second but is older; z follows with the email in capitals
+select test.t29_lead('T29 Y young', 'old.t29@t29.test', null, null, 'aaaaaaaa-0000-0000-0000-000000000000', now() - interval '1 day') is not null as y1;
+insert into test.ids select 'y_young', id from leads where name = 'T29 Y young';
+insert into test.ids select 'y_old', test.t29_lead('T29 Y old', 'old.t29@t29.test', null, null, 'aaaaaaaa-0000-0000-0000-000000000000', now() - interval '10 days');
+insert into test.ids select 'y_z', test.t29_lead('T29 Z', 'OLD.T29@T29.TEST');
+-- (c2) leads of one moment (an import is one transaction): a flagged lead never stands in for its root, whatever the ids say (the root has the LARGEST id)
+insert into test.ids select 'tie_r', test.t29_lead('T29 tie root', 'tie.t29@t29.test', null, null, 'aaaaaaaa-0000-0000-0000-000000000000', '2026-01-01 10:00+00', 'ffffffff-0000-4000-8000-000000000001');
+insert into test.ids select 'tie_b', test.t29_lead('T29 tie b', 'tie.t29@t29.test', null, null, 'aaaaaaaa-0000-0000-0000-000000000000', '2026-01-01 10:00+00', '00000000-0000-4000-8000-0000000000b1');
+insert into test.ids select 'tie_c', test.t29_lead('T29 tie c', 'tie.t29@t29.test', null, null, 'aaaaaaaa-0000-0000-0000-000000000000', '2026-01-01 10:00+00', '00000000-0000-4000-8000-0000000000c1');
+-- (c3) phones in any format; empty emails and no phones never match; another workspace never matches; the flag cannot be sent in
+insert into test.ids select 'p1', test.t29_lead('T29 P1', 'p1.t29@t29.test', '(555) 010-0199');
+insert into test.ids select 'p2', test.t29_lead('T29 P2', 'p2.t29@t29.test', '+1 555 010 0199');
+insert into test.ids select 'p3', test.t29_lead('T29 P3', 'p3.t29@t29.test', '555.010.0199');
+insert into test.ids select 'p4', test.t29_lead('T29 P4', 'p4.t29@t29.test', '555 010 0198');
+insert into test.ids select 'e1', test.t29_lead('T29 E1', '', null);
+insert into test.ids select 'e2', test.t29_lead('T29 E2', '', null);
+insert into test.ids select 'e3', test.t29_lead('T29 E3', null, null);
+insert into test.ids select 'e4', test.t29_lead('T29 E4', null, null);
+insert into test.ids select 'xb', test.t29_lead('T29 X in B', 'old.t29@t29.test', null, null, 'bbbbbbbb-0000-0000-0000-000000000000');
+insert into leads (workspace_id, site_id, form, page_path, name, email, consent_text, duplicate_of)
+  values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'T29 sent in', 'unique.t29@t29.test', 'I agree', (select v from test.ids where k = 'y_young'));
+do $$ begin
+  assert (select duplicate_of from leads where id = test.id('y_young')) is null, 'T29c the first lead is nobody''s duplicate';
+  assert (select duplicate_of from leads where id = test.id('y_old')) = test.id('y_young'), 'T29c a lead made older than the one before it points at it (only it existed)';
+  assert (select duplicate_of from leads where id = test.id('y_z')) = test.id('y_old'), 'T29c the email in capitals matches, and the pointer is the OLDEST earlier lead by created_at, not the first inserted or the newest';
+  assert (select duplicate_of from leads where id = test.id('tie_b')) = test.id('tie_r') and (select duplicate_of from leads where id = test.id('tie_c')) = test.id('tie_r'), 'T29c leads of one moment: the third points at the root, not at the flagged second';
+  assert (select duplicate_of from leads where id = test.id('p2')) = test.id('p1') and (select duplicate_of from leads where id = test.id('p3')) = test.id('p1'), 'T29c a phone matches in any format (E.164)';
+  assert (select duplicate_of from leads where id = test.id('p4')) is null, 'T29c another number does not match';
+  assert (select count(*) from leads where id in (test.id('e1'), test.id('e2'), test.id('e3'), test.id('e4')) and duplicate_of is not null) = 0, 'T29c empty emails and missing phones never match';
+  assert (select duplicate_of from leads where id = test.id('xb')) is null, 'T29c the same email in another workspace is not a duplicate';
+  assert (select duplicate_of from leads where name = 'T29 sent in') is null, 'T29c a flag sent with the insert is ignored: the rule decides';
+end $$;
+-- (c3b) a direct write by the service role works with the phone index (the index expression runs as the writing role) and is flagged the same
+set role service_role;
+insert into test.ids select 'sr1', test.t29_lead('T29 SR 1', 'sr.t29@t29.test', '555 010 0150');
+insert into test.ids select 'sr2', test.t29_lead('T29 SR 2', 'SR.t29@t29.test', null);
+insert into test.ids select 'sr3', test.t29_lead('T29 SR 3', 'sr3.t29@t29.test', '+1 (555) 010-0150');
+update leads set name = 'T29 SR 3 renamed', phone = '555-010-0150' where id = test.id('sr3');
+reset role;
+do $$ begin assert (select duplicate_of from leads where id = test.id('sr2')) = test.id('sr1') and (select duplicate_of from leads where id = test.id('sr3')) = test.id('sr1') and (select name from leads where id = test.id('sr3')) = 'T29 SR 3 renamed', 'T29c the service role writes and updates leads (the phone index), and the rule flags them'; end $$;
+-- (c4) the three paths: add-lead, capture (workspace B), import (add)
+set role omnikom_fn;
+insert into test.ids select 'ad1', service.add_lead(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', 'T29 Add One', 'add.t29@t29.test', null, '{}', 'Said yes', 'manual', null);
+insert into test.ids select 'ad2', service.add_lead(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', 'T29 Add Two', 'ADD.t29@T29.test', null, '{}', 'Said yes', 'manual', null);
+insert into test.ids select 'cp1', service.capture_lead('bbbbbbbb-0000-0000-0000-00000000517e', 'contact', '/', 'T29 Cap One', 'cap.t29@t29.test', '(555) 010-0177', '{}', 'I agree');
+insert into test.ids select 'cp2', service.capture_lead('bbbbbbbb-0000-0000-0000-00000000517e', 'contact', '/', 'T29 Cap Two', 'CAP.T29@t29.test', null, '{}', 'I agree');
+insert into test.ids select 'cp3', service.capture_lead('bbbbbbbb-0000-0000-0000-00000000517e', 'contact', '/', 'T29 Cap Three', 'other.t29@t29.test', '+1 555 010 0177', '{}', 'I agree');
+insert into test.r select 'imp_dry', service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', (select v #>> '{}' from test.r where k = 'tplA')::uuid,
+  '[{"line":2,"name":"T29 Imp One","email":"imp.t29@t29.test"},{"line":3,"name":"T29 Imp Two","email":"IMP.t29@T29.test"},{"line":4,"name":"T29 Imp Three","email":"imp.t29@t29.test"},{"line":5,"name":"T29 Imp Known","email":"ADD.T29@t29.test"}]',
+  '{"dry_run":true}');
+insert into test.r select 'imp', service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', (select v #>> '{}' from test.r where k = 'tplA')::uuid,
+  '[{"line":2,"name":"T29 Imp One","email":"imp.t29@t29.test"},{"line":3,"name":"T29 Imp Two","email":"IMP.t29@T29.test"},{"line":4,"name":"T29 Imp Three","email":"imp.t29@t29.test"},{"line":5,"name":"T29 Imp Known","email":"ADD.T29@t29.test"}]',
+  ('{"dry_run":false,"duplicates":"add","consent":true,"file_name":"t29.csv","file_sha256":"' || repeat('d', 64) || '"}')::jsonb);
+reset role;
+do $$ declare i1 uuid := (select id from leads where name = 'T29 Imp One'); begin
+  assert (select duplicate_of from leads where id = test.id('ad1')) is null and (select duplicate_of from leads where id = test.id('ad2')) = test.id('ad1'), 'T29c add-lead flags a second lead with the email in capitals';
+  assert (select duplicate_of from leads where id = test.id('cp1')) is null and (select duplicate_of from leads where id = test.id('cp2')) = test.id('cp1') and (select duplicate_of from leads where id = test.id('cp3')) = test.id('cp1'),
+    'T29c capture flags by email in capitals and by phone in another format, in the same transaction';
+  assert (select duplicate_of from leads where id = test.id('cp1')) is null and not exists (select 1 from leads where workspace_id = 'bbbbbbbb-0000-0000-0000-000000000000' and duplicate_of in (select id from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000')), 'T29c a flag never crosses workspaces';
+  assert (select v ->> 'duplicates_count' from test.r where k = 'imp_dry') = '3' and (select count(*) from leads where name like 'T29 Imp%' and duplicate_of is not null) = 3, 'T29c the import''s dry run counts the same duplicates the real run flags: ' || (select v::text from test.r where k = 'imp_dry');
+  assert (select duplicate_of from leads where name = 'T29 Imp Two') = i1 and (select duplicate_of from leads where name = 'T29 Imp Three') = i1 and (select duplicate_of from leads where id = i1) is null, 'T29c the import (add) points the later rows at the first row of the file';
+  assert (select duplicate_of from leads where name = 'T29 Imp Known') = test.id('ad1'), 'T29c an imported row points at the lead the workspace already had';
+end $$;
+-- deleting the lead a flag points at clears the flag (nothing dangles, nothing is refused)
+delete from leads where id = test.id('y_young');
+do $$ begin assert (select duplicate_of from leads where id = test.id('y_old')) is null and (select duplicate_of from leads where id = test.id('y_z')) = test.id('y_old'), 'T29c deleting the lead a flag points at clears that flag only'; end $$;
+
+-- (d) the filters `due` and `duplicates`, as owner and as member; the duplicate pointer is shown only to who can read both leads
+insert into test.ids select 'f_a1_past', test.t29_lead('T29 F a1 past', 'f1.t29@t29.test', null, test.id('crm_t1'));
+insert into test.ids select 'f_a1_next', test.t29_lead('T29 F a1 next', 'f2.t29@t29.test', null, test.id('crm_t1'));
+insert into test.ids select 'f_a2_past', test.t29_lead('T29 F a2 past', 'f3.t29@t29.test', null, test.id('team2'));
+insert into test.ids select 'f_none_past', test.t29_lead('T29 F none past', 'f4.t29@t29.test');
+insert into test.ids select 't_a1_open', test.t29_lead('T29 T a1 open', 't1.t29@t29.test', null, test.id('crm_t1'));
+insert into test.ids select 't_a1_done', test.t29_lead('T29 T a1 done', 't2.t29@t29.test', null, test.id('crm_t1'));
+insert into test.ids select 't_a1_future', test.t29_lead('T29 T a1 future', 't3.t29@t29.test', null, test.id('crm_t1'));
+insert into test.ids select 't_a2_open', test.t29_lead('T29 T a2 open', 't4.t29@t29.test', null, test.id('team2'));
+insert into test.ids select 'n_a1', test.t29_lead('T29 N a1', 'n1.t29@t29.test', null, test.id('crm_t1'));
+update leads set follow_up_at = now() - interval '1 day' where id in (test.id('f_a1_past'), test.id('f_a2_past'), test.id('f_none_past'));
+update leads set follow_up_at = now() + interval '1 day' where id = test.id('f_a1_next');
+insert into lead_tasks (lead_id, workspace_id, text, due_at, done_at) values
+  (test.id('t_a1_open'), 'aaaaaaaa-0000-0000-0000-000000000000', 'T29 open and due', now() - interval '1 hour', null),
+  (test.id('t_a1_done'), 'aaaaaaaa-0000-0000-0000-000000000000', 'T29 done and due', now() - interval '1 hour', now()),
+  (test.id('t_a1_future'), 'aaaaaaaa-0000-0000-0000-000000000000', 'T29 open, due later', now() + interval '1 hour', null),
+  (test.id('t_a2_open'), 'aaaaaaaa-0000-0000-0000-000000000000', 'T29 a2 open and due', now() - interval '1 hour', null),
+  (test.id('n_a1'), 'aaaaaaaa-0000-0000-0000-000000000000', 'T29 open, no due time', null, null);
+insert into test.ids select 'vis1', test.t29_lead('T29 Vis 1', 'vis.t29@t29.test', null, test.id('crm_t1'));
+insert into test.ids select 'vis2', test.t29_lead('T29 Vis 2', 'vis.t29@t29.test', null, test.id('team2'));
+insert into test.ids select 'vis3', test.t29_lead('T29 Vis 3', 'VIS.t29@t29.test', null, test.id('crm_t1'));
+set role omnikom_fn;
+insert into test.r select 'due_o', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"due":true,"size":200}');
+insert into test.r select 'due_1', service.lead_list(test.c('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"due":true,"size":200}');
+insert into test.r select 'due_2', service.lead_list(test.c('00000000-0000-0000-0000-0000000000a2'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"due":true,"size":200}');
+insert into test.r select 'due_b', service.lead_list(test.c('00000000-0000-0000-0000-00000000000b'), 'bbbbbbbb-0000-0000-0000-000000000000', '{"due":true,"size":200}');
+insert into test.r select 'due_off', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"due":false,"size":1}');
+insert into test.r select 'dup_o', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"duplicates":true,"size":200}');
+insert into test.r select 'dup_1', service.lead_list(test.c('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"duplicates":true,"size":200}');
+insert into test.r select 'dup_2', service.lead_list(test.c('00000000-0000-0000-0000-0000000000a2'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"duplicates":true,"size":200}');
+insert into test.r select 'dup_b', service.lead_list(test.c('00000000-0000-0000-0000-00000000000b'), 'bbbbbbbb-0000-0000-0000-000000000000', '{"duplicates":true,"size":200}');
+insert into test.r select 'all_o', service.lead_list(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"search":"T29 Vis","size":200}');
+insert into test.r select 'all_2', service.lead_list(test.c('00000000-0000-0000-0000-0000000000a2'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"search":"T29 Vis","size":200}');
+reset role;
+do $$ declare ids uuid[]; want uuid[]; rows jsonb; begin
+  ids := array(select (x ->> 'id')::uuid from jsonb_array_elements((select v -> 'rows' from test.r where k = 'due_o')) x order by 1);
+  want := array(select v from test.ids where k in ('f_a1_past', 'f_a2_past', 'f_none_past', 't_a1_open', 't_a2_open') order by 1);
+  assert ids = want and (select v ->> 'total' from test.r where k = 'due_o') = '5', 'T29d due, as the owner: a follow-up date that has come or an open task whose time has come, nothing else (a future date, a finished task, a task with no time, a task due later): ' || cardinality(ids);
+  ids := array(select (x ->> 'id')::uuid from jsonb_array_elements((select v -> 'rows' from test.r where k = 'due_1')) x order by 1);
+  want := array(select v from test.ids where k in ('f_a1_past', 't_a1_open') order by 1);
+  assert ids = want, 'T29d due, as a1: only the due leads assigned to a1';
+  ids := array(select (x ->> 'id')::uuid from jsonb_array_elements((select v -> 'rows' from test.r where k = 'due_2')) x order by 1);
+  want := array(select v from test.ids where k in ('f_a2_past', 't_a2_open') order by 1);
+  assert ids = want, 'T29d due, as a2: only the due leads assigned to a2';
+  assert (select v ->> 'total' from test.r where k = 'due_b') = '0' and jsonb_array_length((select v -> 'rows' from test.r where k = 'due_b')) = 0, 'T29d due, as owner B: nothing of A, and B has nothing due';
+  assert (select v ->> 'total' from test.r where k = 'due_off')::int > 5, 'T29d due: false filters nothing';
+  rows := (select v -> 'rows' from test.r where k = 'due_o');
+  assert (select (x ->> 'follow_up')::timestamptz from jsonb_array_elements(rows) x where x ->> 'id' = test.id('f_a1_past')::text) = (select follow_up_at from leads where id = test.id('f_a1_past')), 'T29d a row carries its follow_up';
+  -- duplicates: exactly the flagged leads the caller reads
+  ids := array(select (x ->> 'id')::uuid from jsonb_array_elements((select v -> 'rows' from test.r where k = 'dup_o')) x order by 1);
+  want := array(select id from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and duplicate_of is not null order by id);
+  assert ids = want and cardinality(want) >= 11 and (select v ->> 'total' from test.r where k = 'dup_o')::int = cardinality(want), 'T29d duplicates, as the owner: exactly the flagged leads (' || cardinality(want) || ')';
+  ids := array(select (x ->> 'id')::uuid from jsonb_array_elements((select v -> 'rows' from test.r where k = 'dup_1')) x order by 1);
+  want := array(select id from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and duplicate_of is not null and owner_team_row = test.id('crm_t1') order by id);
+  assert ids = want and test.id('vis3') = any (ids) and not (test.id('vis2') = any (ids)), 'T29d duplicates, as a1: the flagged leads assigned to a1 (vis3), not a2''s (vis2)';
+  ids := array(select (x ->> 'id')::uuid from jsonb_array_elements((select v -> 'rows' from test.r where k = 'dup_2')) x order by 1);
+  want := array(select id from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and duplicate_of is not null and owner_team_row = test.id('team2') order by id);
+  assert ids = want and test.id('vis2') = any (ids), 'T29d duplicates, as a2: the flagged leads assigned to a2';
+  ids := array(select (x ->> 'id')::uuid from jsonb_array_elements((select v -> 'rows' from test.r where k = 'dup_b')) x order by 1);
+  want := array(select id from leads where workspace_id = 'bbbbbbbb-0000-0000-0000-000000000000' and duplicate_of is not null order by id);
+  assert ids = want and test.id('cp2') = any (ids) and test.id('cp3') = any (ids) and not (test.id('xb') = any (ids)), 'T29d duplicates, as owner B: only B''s own flagged leads (cp2, cp3; the lead with an email of A''s is none)';
+  -- the pointer: the owner sees every other lead; a member sees it only when the other lead is theirs too
+  rows := (select v -> 'rows' from test.r where k = 'all_o');
+  assert (select x ->> 'duplicate_of' from jsonb_array_elements(rows) x where x ->> 'id' = test.id('vis2')::text) = test.id('vis1')::text
+     and (select x ->> 'duplicate_of' from jsonb_array_elements(rows) x where x ->> 'id' = test.id('vis3')::text) = test.id('vis1')::text
+     and (select x ->> 'duplicate' from jsonb_array_elements(rows) x where x ->> 'id' = test.id('vis1')::text) = 'false', 'T29d the owner sees the pointer of every duplicate, and a lead nobody duplicates is not flagged';
+  rows := (select v -> 'rows' from test.r where k = 'all_2');
+  assert jsonb_array_length(rows) = 1 and (rows -> 0 ->> 'id') = test.id('vis2')::text and (rows -> 0 ->> 'duplicate') = 'true' and (rows -> 0 -> 'duplicate_of') = 'null'::jsonb,
+    'T29d a member of another lead sees "a duplicate" and nothing of the lead it duplicates: ' || rows::text;
+  rows := (select v -> 'rows' from test.r where k = 'dup_1');
+  assert (select x ->> 'duplicate_of' from jsonb_array_elements(rows) x where x ->> 'id' = test.id('vis3')::text) = test.id('vis1')::text, 'T29d a member sees the pointer when both leads are theirs';
+end $$;
+set role omnikom_fn;
+select test.expect_error($q$select service.lead_list(test.c('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-000000000000', '{"due":"maybe"}')$q$, 'S-QUERY');
+reset role;
+
+-- (e) follow-up and tasks: the walls and the timeline
+insert into test.ids select 'fx', test.t29_lead('T29 FX', 'fx.t29@t29.test', null, test.id('crm_t1'));
+insert into test.ids select 'fy', test.t29_lead('T29 FY', 'fy.t29@t29.test');
+insert into test.ids select 'fz', test.t29_lead('T29 FZ', 'fz.t29@t29.test', null, test.id('team2'));
+set role omnikom_fn;
+do $$ begin
+  assert test.t29_fu('00000000-0000-0000-0000-0000000000a1', test.id('fx'), '2026-12-01 10:00+00') = true, 'T29e a1 sets the follow-up of their lead';
+  assert test.t29_fu('00000000-0000-0000-0000-0000000000a1', test.id('fx'), '2026-12-01 10:00+00') = false, 'T29e the same time again changes nothing';
+  assert test.t29_fu('00000000-0000-0000-0000-0000000000a1', test.id('fx'), '2026-12-02 09:30+00') = true, 'T29e a new time changes it';
+  assert test.t29_fu('00000000-0000-0000-0000-0000000000a1', test.id('fx'), null) = true and test.t29_fu('00000000-0000-0000-0000-0000000000a1', test.id('fx'), null) = false, 'T29e null clears it, once';
+  assert test.t29_fu('00000000-0000-0000-0000-00000000000a', test.id('fy'), '2026-12-03 08:00+00') = true, 'T29e the owner sets the follow-up of an unassigned lead';
+end $$;
+select test.expect_error(format($q$select test.t29_fu('00000000-0000-0000-0000-0000000000a1', %L, now())$q$, test.id('fz')), 'S-NOT-FOUND');   -- a lead assigned to a2
+select test.expect_error(format($q$select test.t29_fu('00000000-0000-0000-0000-0000000000a1', %L, now())$q$, test.id('fy')), 'S-NOT-FOUND');   -- an unassigned lead
+select test.expect_error(format($q$select test.t29_fu('00000000-0000-0000-0000-00000000000b', %L, now())$q$, test.id('fx')), 'S-NOT-FOUND');   -- owner B
+select test.expect_error(format($q$select test.t29_fu('00000000-0000-0000-0000-00000000000e', %L, now())$q$, test.id('fx')), 'S-NOT-FOUND');   -- a login of nothing
+select test.expect_error($q$select test.t29_fu('00000000-0000-0000-0000-00000000000a', '99999999-0000-0000-0000-000000000000', now())$q$, 'S-NOT-FOUND');
+reset role;
+do $$ declare ev jsonb[]; begin
+  ev := array(select detail from lead_events where lead_id = test.id('fx') and kind = 'follow-up' order by id);
+  assert cardinality(ev) = 3, 'T29e one follow-up event per change, none for an unchanged value: ' || cardinality(ev);
+  assert ev[1] -> 'old' = 'null'::jsonb and (ev[1] ->> 'new')::timestamptz = '2026-12-01 10:00+00' and (ev[2] ->> 'old')::timestamptz = '2026-12-01 10:00+00' and (ev[2] ->> 'new')::timestamptz = '2026-12-02 09:30+00'
+    and ev[3] -> 'new' = 'null'::jsonb and (ev[3] ->> 'old')::timestamptz = '2026-12-02 09:30+00', 'T29e the event says old and new: ' || ev::text;
+  assert (select follow_up_at from leads where id = test.id('fx')) is null and (select follow_up_at from leads where id = test.id('fy')) = '2026-12-03 08:00+00', 'T29e the lead holds the last value';
+  assert (select follow_up_at from leads where id = test.id('fz')) is null and not exists (select 1 from lead_events where lead_id = test.id('fz') and kind = 'follow-up'), 'T29e a refused call changed nothing and wrote no event';
+end $$;
+set role omnikom_fn;
+insert into test.ids select 'tk1', test.t29_task('00000000-0000-0000-0000-0000000000a1', test.id('fx'), '  Call back about the survey  ', now() + interval '3 days');
+insert into test.ids select 'tk2', test.t29_task('00000000-0000-0000-0000-00000000000a', test.id('fx'), 'Owner task, no time');
+select test.expect_error(format($q$select test.t29_task('00000000-0000-0000-0000-0000000000a1', %L, 'Not mine')$q$, test.id('fz')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select test.t29_task('00000000-0000-0000-0000-00000000000b', %L, 'Not B''s')$q$, test.id('fx')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select test.t29_task('00000000-0000-0000-0000-00000000000e', %L, 'Nobody''s')$q$, test.id('fx')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select test.t29_task('00000000-0000-0000-0000-0000000000a1', %L, '   ')$q$, test.id('fx')), 'I-ANSWER text: A task is 1 to 500 characters');
+select test.expect_error(format($q$select test.t29_task('00000000-0000-0000-0000-0000000000a1', %L, %L)$q$, test.id('fx'), repeat('t', 501)), 'I-ANSWER text: A task is 1 to 500 characters');
+select test.expect_error(format($q$select test.t29_done('00000000-0000-0000-0000-0000000000a2', %L, true)$q$, test.id('tk1')), 'S-NOT-FOUND');   -- a2 on a1's lead's task
+select test.expect_error(format($q$select test.t29_done('00000000-0000-0000-0000-00000000000b', %L, true)$q$, test.id('tk1')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select test.t29_done('00000000-0000-0000-0000-0000000000a1', %L, null)$q$, test.id('tk1')), 'I-ANSWER done');
+select test.expect_error($q$select test.t29_done('00000000-0000-0000-0000-00000000000a', '99999999-0000-0000-0000-000000000000', true)$q$, 'S-NOT-FOUND');
+select test.t29_done('00000000-0000-0000-0000-0000000000a1', test.id('tk1'), true);
+select test.t29_done('00000000-0000-0000-0000-0000000000a1', test.id('tk1'), true);    -- already done: nothing
+select test.t29_done('00000000-0000-0000-0000-00000000000a', test.id('tk2'), false);   -- already open: nothing
+reset role;
+do $$ declare t public.lead_tasks; begin
+  select * into t from lead_tasks where id = test.id('tk1');
+  assert t.text = 'Call back about the survey' and t.done_at is not null and t.due_at > now() + interval '2 days' and t.created_by = '00000000-0000-0000-0000-0000000000a1' and t.workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000', 'T29e the task is trimmed, done, with its time and its author: ' || t::text;
+  assert (select array_agg(detail ->> 'action' order by id) from lead_events where lead_id = test.id('fx') and kind = 'task') = array['added', 'added', 'done'], 'T29e the timeline: added, added, done once (asking for the state it is in writes nothing): ' || (select array_agg(detail ->> 'action' order by id)::text from lead_events where lead_id = test.id('fx') and kind = 'task');
+  assert (select detail ->> 'text' from lead_events where lead_id = test.id('fx') and detail ->> 'action' = 'done') = 'Call back about the survey' and (select detail ->> 'task' from lead_events where lead_id = test.id('fx') and detail ->> 'action' = 'done') = test.id('tk1')::text, 'T29e the event names the task';
+end $$;
+set role omnikom_fn;
+select test.t29_done('00000000-0000-0000-0000-0000000000a1', test.id('tk1'), false);
+reset role;
+do $$ begin
+  assert (select done_at from lead_tasks where id = test.id('tk1')) is null and (select array_agg(detail ->> 'action' order by id) from lead_events where lead_id = test.id('fx') and kind = 'task') = array['added', 'added', 'done', 'reopened'], 'T29e reopening writes one reopened event';
+end $$;
+-- who reads a lead's tasks: the leads_read rule
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+do $$ begin assert (select count(*) from lead_tasks where lead_id = test.id('fx')) = 2 and (select count(*) from lead_tasks) >= 2, 'T29f a1 reads the tasks of their own lead'; end $$;
+select test.act_as('00000000-0000-0000-0000-0000000000a2');
+do $$ begin assert (select count(*) from lead_tasks where lead_id = test.id('fx')) = 0 and (select count(*) from lead_tasks where lead_id = test.id('t_a2_open')) = 1 and (select count(*) from lead_tasks where lead_id = test.id('t_a1_open')) = 0, 'T29f a2 reads the tasks of leads assigned to a2 and none of a1''s'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin assert (select count(*) from lead_tasks where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = (select count(*) from lead_tasks), 'T29f the owner reads every task of the workspace'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+do $$ begin assert (select count(*) from lead_tasks where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 0, 'T29f owner B reads no task of A'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000e');
+do $$ begin assert (select count(*) from lead_tasks) = 0, 'T29f a login of nothing reads no task'; end $$;
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+select test.expect_error($q$insert into lead_tasks (lead_id, workspace_id, text) select id, workspace_id, 'T29 direct' from leads limit 1$q$, 'permission denied');
+select test.expect_error($q$update lead_tasks set done_at = now()$q$, 'permission denied');
+select test.expect_error($q$delete from lead_tasks$q$, 'permission denied');
+reset role;
+select test.act_as(null);
+-- a lead keeps at most 100 tasks
+insert into lead_tasks (lead_id, workspace_id, text) select test.id('fy'), 'aaaaaaaa-0000-0000-0000-000000000000', 'T29 filler ' || i from generate_series(1, 100) i;
+set role omnikom_fn;
+select test.expect_error(format($q$select test.t29_task('00000000-0000-0000-0000-00000000000a', %L, 'one too many')$q$, test.id('fy')), 'I-ANSWER tasks: A lead keeps at most 100 tasks');
+reset role;
+-- deleting a lead takes its tasks with it; deleting a workspace's people is not needed here
+delete from leads where id = test.id('fy');
+do $$ begin assert (select count(*) from lead_tasks where text like 'T29 filler%') = 0, 'T29f deleting a lead deletes its tasks'; end $$;
+
+-- (g) the new tables and functions are closed as the rest: no client write, nothing for anon, the function role has no table, definer with an empty search_path
+do $$ declare f text; t text; begin
+  foreach f in array array['service.view_save(jsonb,uuid,jsonb)', 'service.view_delete(jsonb,uuid)', 'service.lead_follow_up(jsonb,uuid,timestamptz)', 'service.task_add(jsonb,uuid,text,timestamptz)', 'service.task_done(jsonb,uuid,boolean)'] loop
+    assert not has_function_privilege('anon', f, 'execute') and not has_function_privilege('authenticated', f, 'execute') and not exists (select 1 from aclexplode((select proacl from pg_proc where oid = f::regprocedure)) a where a.grantee = 0), f || ' is closed to anon, authenticated and PUBLIC';
+    assert has_function_privilege('omnikom_fn', f, 'execute'), f || ' is open to the function role';
+    assert (select prosecdef from pg_proc where oid = f::regprocedure) and (select proconfig from pg_proc where oid = f::regprocedure) = array['search_path=""'], f || ' is a definer function with an empty search_path';
+  end loop;
+  foreach f in array array['service.lead_list(jsonb,uuid,jsonb)', 'private.lead_duplicate_of(uuid,text,text)', 'private.lead_set_duplicate()', 'private.lead_query_check(uuid,jsonb)'] loop
+    assert not has_function_privilege('anon', f, 'execute') and not has_function_privilege('authenticated', f, 'execute') and not exists (select 1 from aclexplode((select proacl from pg_proc where oid = f::regprocedure)) a where a.grantee = 0), f || ' is closed to anon, authenticated and PUBLIC';
+    assert (select prosecdef from pg_proc where oid = f::regprocedure) and (select proconfig from pg_proc where oid = f::regprocedure) = array['search_path=""'], f || ' is a definer function with an empty search_path';
+  end loop;
+  foreach t in array array['public.crm_views', 'public.lead_tasks'] loop
+    assert (select relrowsecurity from pg_class where oid = t::regclass), t || ' has row level security';
+    assert not has_table_privilege('anon', t, 'select') and has_table_privilege('authenticated', t, 'select') and not has_table_privilege('authenticated', t, 'insert') and not has_table_privilege('authenticated', t, 'update')
+      and not has_table_privilege('authenticated', t, 'delete') and not has_table_privilege('omnikom_fn', t, 'select'), t || ' is read-only for logins, closed to anon and to the function role';
   end loop;
 end $$;
 

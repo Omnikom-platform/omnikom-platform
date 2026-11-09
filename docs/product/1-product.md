@@ -52,12 +52,12 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | A10 Search | WORKS | staging flows 2026-11-05 (flows.spec.ts:291, 5 of 5 on a re-run; first run 3 of 5, an open flake): search narrows on the server over every column; F:lead-list, journey J9 |
 | A11 Filter | WORKS | staging flows 2026-11-05 (flows.spec.ts:291, 5 of 5 on a re-run; first run 3 of 5, an open flake): a filter on an industry column (budget from 500000) and Remove; F:lead-list, journey J9 |
 | A12 Sort on any column | WORKS | staging flows 2026-11-05 (flows.spec.ts:291, 5 of 5 on a re-run; first run 3 of 5, an open flake): sort by budget ascending as numbers, then descending; F:lead-list, journey J9 |
-| A13 Choose the columns of a view | MISSING | |
-| A14 Saved views | MISSING | no table, no function |
+| A13 Choose the columns of a view | MISSING | backend built (work order 18), screens in work order 19: a view's `columns` (F:view-save) |
+| A14 Saved views | MISSING | backend built (work order 18), screens in work order 19: `crm_views`, F:view-save, F:view-delete |
 | A15 Bulk edit (status, owner, delete) | PARTLY | staging flows 2026-11-05 (flows.spec.ts:291, 5 of 5 on a re-run; first run 3 of 5, an open flake): bulk status on two marked leads in one call; bulk owner and bulk delete are not driven on the screen (backend journey J10) |
 | A16 Status board | MISSING | owner ruling 2026-11-09: two columns, lead type and status, both per-industry lists held as data (`5-crm.md` "The lead record"); work order 20 after 18; the lists come from SEO work order 29 |
-| A17 Follow-up date and tasks | MISSING | |
-| A18 Duplicate flag | MISSING | `idempotency_key` catches only the same submission |
+| A17 Follow-up date and tasks | MISSING | backend built (work order 18), screens in work order 19: `follow_up_at`, `lead_tasks`, F:lead-update `follow_up`, F:lead-task, F:lead-list `due` |
+| A18 Duplicate flag | MISSING | backend built (work order 18), screens in work order 19: `leads.duplicate_of` set on every insert, F:lead-list `duplicates` (`idempotency_key` still catches the same submission) |
 | A19 Unread bold, opening marks read | WORKS | staging flows 2026-11-05 (flows.spec.ts:291, 5 of 5 on a re-run; first run 3 of 5, an open flake): an unopened lead is bold (data-unread), opening it marks it read; M12 |
 | A20 CSV export of the list | WORKS | staging flows 2026-11-05 (flows.spec.ts:291, 5 of 5 on a re-run; first run 3 of 5, an open flake): export of the view carries its filter and sort, header = the contract's columns; F:lead-export, journey J7 |
 | A21 Export in the client's CRM layout | PARTLY | screen built (block 3a, the Export layout pick); no flow exports in a saved layout yet; backend e2e-crm-io 2026-11-04 and journey J11 |

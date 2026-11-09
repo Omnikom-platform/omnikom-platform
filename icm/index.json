@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "docs": 320,
+    "docs": 321,
     "unownedDocs": 7,
     "unplaced": 204,
     "over300": 10
@@ -110,8 +110,8 @@
     {"path":"docs/product/10-expansion.md","title":"Expansion","summary":"The only place that says how the product grows. Two directions: vertical (more value for one business, through add-ons it switches on) and horizontal (more i...","owner":"head-of-operations","layer":3,"lines":64,"loadFor":[]},
     {"path":"docs/product/11-rules.md","title":"Engineering rules","summary":"The rules every change is held to. A rule that can be checked by a tool is a check, not a sentence: each rule below names its check where one exists. How ses...","owner":"head-of-operations","layer":3,"lines":118,"loadFor":[]},
     {"path":"docs/product/2-architecture.md","title":"Architecture","summary":"Three kinds of people touch it. The business uses one magic-link sign-in for two products: the Omnikom CRM and the dashboard. Visitors only ever see the busi...","owner":"head-of-operations","layer":3,"lines":131,"loadFor":[]},
-    {"path":"docs/product/3-database.md","title":"Database","summary":"One multi-tenant Postgres database on Supabase: a staging project now, a production project made from it once staging proves the product (`2-architecture.md`...","owner":"head-of-operations","layer":3,"lines":137,"loadFor":[]},
-    {"path":"docs/product/4-backend.md","title":"Backend","summary":"Everything server-side: the Supabase Edge Functions, the database functions they call (`3-database.md`), the publish and media runners on GitHub Actions, and...","owner":"head-of-operations","layer":3,"lines":148,"loadFor":[]},
+    {"path":"docs/product/3-database.md","title":"Database","summary":"One multi-tenant Postgres database on Supabase: a staging project now, a production project made from it once staging proves the product (`2-architecture.md`...","owner":"head-of-operations","layer":3,"lines":140,"loadFor":[]},
+    {"path":"docs/product/4-backend.md","title":"Backend","summary":"Everything server-side: the Supabase Edge Functions, the database functions they call (`3-database.md`), the publish and media runners on GitHub Actions, and...","owner":"head-of-operations","layer":3,"lines":151,"loadFor":[]},
     {"path":"docs/product/5-crm.md","title":"The Omnikom CRM","summary":"The CRM is one of the two products behind the user's magic-link sign-in (the other is the dashboard, `6-dashboard.md`). It is a full CRM, not an inbox: every...","owner":"head-of-operations","layer":3,"lines":169,"loadFor":[]},
     {"path":"docs/product/6-dashboard.md","title":"The dashboard","summary":"The second product behind the user's magic-link sign-in (the first is the CRM, `5-crm.md`). It holds everything the business does other than working leads: e...","owner":"head-of-operations","layer":3,"lines":144,"loadFor":[]},
     {"path":"docs/product/7-sites.md","title":"The site factory","summary":"Every business website is built by one shared factory from two inputs: the content in the database, in the shape of the business's contract, and the business...","owner":"head-of-operations","layer":3,"lines":135,"loadFor":[]},
@@ -311,6 +311,7 @@
     {"path":"work/14-build-env/CONTEXT.md","title":"14 build env","summary":"Owner: platform build. Model: Sonnet (high). Branch: check/platform/build-env (built on check/platform/reaper, work order 13, which also edits `factory/runne...","owner":"head-of-operations","layer":2,"lines":51,"loadFor":[]},
     {"path":"work/15-security-events/CONTEXT.md","title":"15 security events","summary":"Owner: platform build. Model: Sonnet (high). Branch: check/platform/security-events. Status: BUILT 2026-11-09, head reviewed (migration, walls T26a-d, 5 muta...","owner":"head-of-operations","layer":2,"lines":134,"loadFor":[]},
     {"path":"work/16-media-limits/CONTEXT.md","title":"16 media limits","summary":"Owner: platform build. Model: Sonnet (high). Branch: check/platform/media-limits. Status: BUILT 2026-11-09, local proof only (migration 21, T10/T27, 4 mutant...","owner":"head-of-operations","layer":2,"lines":109,"loadFor":[]},
+    {"path":"work/18-crm-3b-backend/CONTEXT.md","title":"18 CRM block 3b backend: columns, saved views, follow-up and tasks, duplicates","summary":"Owner: platform build. Model: Sonnet (high). Branch: check/platform/crm-3b-backend. Migration: 22 (`supabase/migrations/20261109000022_crm_views_followup.sql...","owner":"head-of-operations","layer":2,"lines":125,"loadFor":[]},
     {"path":"work/20-crm-a16/CONTEXT.md","title":"20 CRM A16: lead type and status, per-industry lists held as data (backend)","summary":"Owner: platform build. Model: Sonnet (high). Branch: check/platform/crm-a16. Migration: 23 (`supabase/migrations/20261109000023_lead_type_status.sql`, reserv...","owner":"head-of-operations","layer":2,"lines":55,"loadFor":[]},
     {"path":"work/20-land-retry/CONTEXT.md","title":"20 land retry","summary":"Owner: cli-and-testing. Model: sonnet, effort high. Branch: check/cli/land-retry. Status: OPEN (built; CI decides the 21 [land-retry] mutants).","owner":"head-of-operations","layer":2,"lines":57,"loadFor":[]},
     {"path":"work/21-dep-scan/CONTEXT.md","title":"21 dep scan","summary":"Owner: cli-and-testing. Model: sonnet, effort high. Branch: check/cli/dep-scan. Status: DONE (secrets job green on run 42566847935; E17 WORKS on its land).","owner":"head-of-operations","layer":2,"lines":68,"loadFor":[]},

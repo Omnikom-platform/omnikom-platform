@@ -582,6 +582,95 @@ const MUTANTS = [
   // ---- work order 13 (migration 19): the reaper is scheduled; tests in tenancy.test.sql T25 against the cron stand-in above ----
   ['reaper: the schedule call is removed (migration 19)', "    perform cron.schedule('reap-stale-jobs', '*/5 * * * *', 'select service.reap_stale_jobs()');", "    null;"],
 
+  // ---- work order 18 (migration 22): saved views, follow-up, tasks, duplicates; tests in tenancy.test.sql T29. Run only these: --only "crm22" ----
+  ...(() => {
+    const VS = 'service.view_save', GRANT = (sig, how) => [`crm22: migration 22 ${how === 'close' ? 'closes' : 'opens'} service.${sig.split('(')[0]} to ${how === 'close' ? 'anon, authenticated, PUBLIC' : 'the function role'} (both layers)`,
+      how === 'close' ? [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], [`revoke all on function service.${sig} from public, anon, authenticated;`, '-- (revoke removed)']]
+                      : [['alter default privileges in schema service grant execute on functions to service_role, omnikom_fn;', '-- (no default grant)'], [`grant execute on function service.${sig} to service_role, omnikom_fn;`, '-- (grant removed)']]];
+    const DUE_FILTER = `      and (not due or l.follow_up_at <= now()\n           or exists (select 1 from public.lead_tasks t where t.lead_id = l.id and t.done_at is null and t.due_at <= now()))`;
+    const ORDER = 'order by l.created_at, (l.duplicate_of is not null), l.id';
+    return [
+      // service.view_save
+      ['crm22: view_save, a member shares a view', `  if shared and not owner_ok then raise exception 'S-OWN-ONLY: only an owner shares a view with the business'; end if;`, '  null;'],
+      ['crm22: view_save, a member changes the owner\'s shared view', `      if old.user_id is null and not owner_ok then raise exception 'S-OWN-ONLY: only an owner changes a shared view'; end if;`, '      null;'],
+      ['crm22: view_save, another person\'s private view is changed', `      if not found or (old.user_id is not null and old.user_id is distinct from me) then raise exception 'S-NOT-FOUND: not found'; end if;`, `      if not found then raise exception 'S-NOT-FOUND: not found'; end if;`],
+      ['crm22: view_save, a view of another workspace is changed', `where c.id = vid and c.workspace_id = p_workspace for update;`, `where c.id = vid for update;`],
+      ['crm22: view_save, a non-member saves a view', `  if not staff and role is null then raise exception 'S-NOT-FOUND: not found'; end if;\n  owner_ok :=`, `  owner_ok :=`],
+      ['crm22: view_save, staff with the second factor cannot share', `  owner_ok := coalesce(staff or role = 'owner', false);`, `  owner_ok := coalesce(role = 'owner', false);`],
+      ['crm22: view_save, the query is not checked by lead_list\'s code', `known := private.lead_query_check(p_workspace, q) -> 'types';`, `known := private.lead_query_check(p_workspace, '{}'::jsonb) -> 'types';`],
+      ['crm22: view_save, a column key is not checked', `    if not (known ? k) and k not in ('follow_up', 'duplicate') then`, `    if false then`],
+      ['crm22: view_save, a column may be listed twice', `    if k = any (keys) then raise exception 'I-ANSWER columns: % is listed twice', k; end if;`, `    null;`],
+      ['crm22: view_save, any number of columns', `  if jsonb_array_length(cols) > 60 then raise exception 'I-ANSWER columns: At most 60 columns'; end if;`, `  null;`],
+      ['crm22: view_save, a column need not be a text', `    if jsonb_typeof(e) <> 'string' then raise exception 'I-ANSWER columns: A column is a key'; end if;`, `    null;`],
+      ['crm22: view_save, columns need not be a list', `  if jsonb_typeof(cols) <> 'array' then raise exception 'I-ANSWER columns: Columns are a list of keys'; end if;`, `  null;`],
+      ['crm22: view_save, the name length is not checked', `  if length(nm) not between 1 and 60 then raise exception 'I-ANSWER name: A view name is 1 to 60 characters'; end if;`, `  null;`],
+      ['crm22: view_save, the name need not be a text', `  if jsonb_typeof(v -> 'name') is distinct from 'string' then raise exception 'I-ANSWER name: A view needs a name'; end if;`, `  null;`],
+      ['crm22: view_save, shared need not be a yes or no', `    if jsonb_typeof(v -> 'shared') <> 'boolean' then raise exception 'I-ANSWER shared: Shared is yes or no'; end if;`, `    null;`],
+      ['crm22: view_save, the query size is not limited', `  if pg_column_size(q) > 16384 then raise exception 'I-ANSWER query: The query is too large'; end if;`, `  null;`],
+      ['crm22: view_save, no limit of 100 views', `  if n > 100 then raise exception 'I-ANSWER views: At most 100 views here, delete one first'; end if;`, `  null;`],
+      ['crm22: crm_views, a name may repeat for one person', `create unique index crm_views_name on public.crm_views`, `create index crm_views_name on public.crm_views`],
+      ['crm22: crm_views, a name is unique across workspaces', `on public.crm_views (workspace_id, coalesce(user_id, `, `on public.crm_views (coalesce(user_id, `],
+      ['crm22: view_save does not pin the search_path', `create function service.view_save(p_claims jsonb, p_workspace uuid, p_view jsonb) returns uuid language plpgsql security definer set search_path = '' as $$`, `create function service.view_save(p_claims jsonb, p_workspace uuid, p_view jsonb) returns uuid language plpgsql security definer as $$`],
+      // service.view_delete
+      ['crm22: view_delete, a member deletes a shared view', `  if old.user_id is null and not coalesce(staff or role = 'owner', false) then raise exception 'S-OWN-ONLY: only an owner deletes a shared view'; end if;`, `  null;`],
+      ['crm22: view_delete, another person\'s private view is deleted', `  if old.user_id is not null and old.user_id is distinct from me then raise exception 'S-NOT-FOUND: not found'; end if;   -- someone else's private view is not there`, `  null;`],
+      ['crm22: view_delete, a non-member deletes a shared view', `  if not staff and role is null then raise exception 'S-NOT-FOUND: not found'; end if;\n  if old.user_id is not null and old.user_id is distinct from me then`, `  if old.user_id is not null and old.user_id is distinct from me then`],
+      // the views table
+      ['crm22: crm_views, everyone reads every private view', `  using (private.can_see(workspace_id) and (user_id is null or user_id = (select auth.uid())));`, `  using (private.can_see(workspace_id));`],
+      ['crm22: crm_views, any workspace\'s shared views are read', `  using (private.can_see(workspace_id) and (user_id is null or user_id = (select auth.uid())));`, `  using (user_id is null or user_id = (select auth.uid()));`],
+      ['crm22: crm_views, logins may write views directly', `revoke insert, update, delete, truncate, references, trigger on public.crm_views from authenticated;`, `grant insert, update, delete on public.crm_views to authenticated;`],
+      // follow-up
+      ['crm22: lead_follow_up, any lead of the workspace', `  if not found or not private.can_act_on_lead(l) then raise exception 'S-NOT-FOUND: not found'; end if;\n  if p_at is not distinct from l.follow_up_at then return false; end if;`, `  if not found then raise exception 'S-NOT-FOUND: not found'; end if;\n  if p_at is not distinct from l.follow_up_at then return false; end if;`],
+      ['crm22: lead_follow_up, an unchanged time is a change', `  if p_at is not distinct from l.follow_up_at then return false; end if;`, `  null;`],
+      ['crm22: lead_follow_up, no timeline event', `  insert into public.lead_events (lead_id, workspace_id, kind, by, detail) values (p_lead, l.workspace_id, 'follow-up', me, jsonb_build_object('old', l.follow_up_at, 'new', p_at));\n`, ''],
+      ['crm22: lead_follow_up, the event has no old time', `jsonb_build_object('old', l.follow_up_at, 'new', p_at)`, `jsonb_build_object('new', p_at)`],
+      // tasks
+      ['crm22: task_add, any lead of the workspace', `  if not found or not private.can_act_on_lead(l) then raise exception 'S-NOT-FOUND: not found'; end if;\n  if length(tx) not between`, `  if not found then raise exception 'S-NOT-FOUND: not found'; end if;\n  if length(tx) not between`],
+      ['crm22: task_add, the text is not trimmed', `tx text := btrim(coalesce(p_text, ''))`, `tx text := coalesce(p_text, '')`],
+      ['crm22: task_add, the text length is left to the table', `  if length(tx) not between 1 and 500 then raise exception 'I-ANSWER text: A task is 1 to 500 characters'; end if;`, `  null;`],
+      ['crm22: task_add, a lead keeps any number of tasks', `  if (select count(*) from public.lead_tasks t where t.lead_id = p_lead) >= 100 then raise exception 'I-ANSWER tasks: A lead keeps at most 100 tasks'; end if;`, `  null;`],
+      ['crm22: task_add, no timeline event', `  insert into public.lead_events (lead_id, workspace_id, kind, by, detail) values (p_lead, l.workspace_id, 'task', me, jsonb_build_object('action', 'added', 'task', tid, 'text', tx, 'due', p_due));\n`, ''],
+      ['crm22: task_done, any task of the workspace', `  if not found or not private.can_act_on_lead(l) then raise exception 'S-NOT-FOUND: not found'; end if;\n  if p_done is null`, `  if not found then raise exception 'S-NOT-FOUND: not found'; end if;\n  if p_done is null`],
+      ['crm22: task_done, done may be empty', `  if p_done is null then raise exception 'I-ANSWER done: Done is yes or no'; end if;`, `  null;`],
+      ['crm22: task_done, a finished task is finished again (an event each time)', `  if p_done and tk.done_at is null then`, `  if p_done then`],
+      ['crm22: task_done, an open task is reopened again (an event each time)', `  elsif not p_done and tk.done_at is not null then`, `  elsif not p_done then`],
+      ['crm22: task_done, no done event', `    insert into public.lead_events (lead_id, workspace_id, kind, by, detail) values (tk.lead_id, tk.workspace_id, 'task', me, jsonb_build_object('action', 'done', 'task', p_task, 'text', tk.text));\n`, ''],
+      ['crm22: task_done, no reopened event', `    insert into public.lead_events (lead_id, workspace_id, kind, by, detail) values (tk.lead_id, tk.workspace_id, 'task', me, jsonb_build_object('action', 'reopened', 'task', p_task, 'text', tk.text));\n`, ''],
+      ['crm22: lead_tasks, the task RLS is opened to the workspace', `create policy lead_tasks_read on public.lead_tasks for select to authenticated using (exists (select 1 from public.leads l where l.id = lead_id));`, `create policy lead_tasks_read on public.lead_tasks for select to authenticated using (private.can_see(workspace_id));`],
+      ['crm22: lead_tasks, logins may write tasks directly', `revoke insert, update, delete, truncate, references, trigger on public.lead_tasks from authenticated;`, `grant insert, update, delete on public.lead_tasks to authenticated;`],
+      ['crm22: task_add does not pin the search_path', `create function service.task_add(p_claims jsonb, p_lead uuid, p_text text, p_due timestamptz default null) returns uuid language plpgsql security definer set search_path = '' as $$`, `create function service.task_add(p_claims jsonb, p_lead uuid, p_text text, p_due timestamptz default null) returns uuid language plpgsql security definer as $$`],
+      // the due and duplicates filters of lead_list
+      ['crm22: lead_list, the due filter ignores follow-up dates', `      and (not due or l.follow_up_at <= now()`, `      and (not due or false`],
+      ['crm22: lead_list, the due filter ignores tasks', `\n           or exists (select 1 from public.lead_tasks t where t.lead_id = l.id and t.done_at is null and t.due_at <= now()))`, `)`],
+      ['crm22: lead_list, the due filter counts finished tasks', `t.done_at is null and t.due_at <= now()))`, `t.due_at <= now()))`],
+      ['crm22: lead_list, the due filter counts tasks with no time', `t.done_at is null and t.due_at <= now()))`, `t.done_at is null and (t.due_at <= now() or t.due_at is null)))`],
+      ['crm22: lead_list, the due filter counts later tasks', `t.done_at is null and t.due_at <= now()))`, `t.done_at is null and t.due_at >= now()))`],
+      ['crm22: lead_list, the due filter counts later follow-ups', `      and (not due or l.follow_up_at <= now()`, `      and (not due or l.follow_up_at >= now()`],
+      ['crm22: lead_list, the due flag is never read', `due := coalesce((q ->> 'due')::boolean, false);`, `due := false;`],
+      ['crm22: lead_list, the duplicates filter is ignored', `      and (not dups or l.duplicate_of is not null)`, `      and (true or l.duplicate_of is not null)`],
+      ['crm22: lead_list, the duplicates flag is never read', `dups := coalesce((q ->> 'duplicates')::boolean, false);`, `dups := false;`],
+      ['crm22: lead_list, a member sees the other lead of a duplicate', `when see_all or exists (select 1 from public.leads d where d.id = l.duplicate_of and mine is not null and d.owner_team_row = mine) then l.duplicate_of end as dv`, `when true then l.duplicate_of end as dv`],
+      ['crm22: lead_list, "a duplicate" is told only to who sees both leads', `'duplicate', p.duplicate_of is not null`, `'duplicate', p.dv is not null`],
+      ['crm22: lead_list, a row has no follow_up', `'follow_up', p.follow_up_at, 'duplicate'`, `'follow_up', null::timestamptz, 'duplicate'`],
+      ['crm22: lead_list, due and duplicates may be anything', `  if (q ? 'due' and jsonb_typeof(q -> 'due') <> 'boolean') or (q ? 'duplicates' and jsonb_typeof(q -> 'duplicates') <> 'boolean') then\n    raise exception 'S-QUERY: due and duplicates are true or false'; end if;\n`, ''],
+      ['crm22: lead_query_check does not pin the search_path', `create function private.lead_query_check(p_workspace uuid, p_query jsonb) returns jsonb language plpgsql stable security definer set search_path = '' as $$`, `create function private.lead_query_check(p_workspace uuid, p_query jsonb) returns jsonb language plpgsql stable security definer as $$`],
+      // the duplicate rule
+      ['crm22: duplicates, no trigger (nothing is flagged)', `create trigger leads_duplicate before insert on public.leads for each row execute function private.lead_set_duplicate();`, `-- (no trigger)`],
+      ['crm22: duplicates, the flag can be sent in', `new.duplicate_of := private.lead_duplicate_of(new.workspace_id, new.email, new.phone);`, `new.duplicate_of := coalesce(new.duplicate_of, private.lead_duplicate_of(new.workspace_id, new.email, new.phone));`],
+      ['crm22: duplicates, the email match is case sensitive', `lower(btrim(l.email)) = lower(btrim(p_email))`, `btrim(l.email) = btrim(p_email)`],
+      ['crm22: duplicates, empty emails match', `((coalesce(btrim(p_email), '') <> '' and lower(`, `((lower(`],
+      ['crm22: duplicates, the phone match is on the raw text', `private.phone_key(l.phone) = private.phone_key(p_phone)`, `l.phone = p_phone`],
+      ['crm22: duplicates, the match crosses workspaces', `  where l.workspace_id = p_ws\n    and ((`, `  where true\n    and ((`],
+      ['crm22: duplicates, the newest earlier lead, not the oldest', ORDER, ORDER.replace('l.created_at,', 'l.created_at desc,')],
+      ['crm22: duplicates, a flagged lead stands in for its root', ORDER, 'order by l.created_at, l.id'],
+      ['crm22: duplicates, the service role cannot write a lead (the phone index)', `grant execute on function private.phone_key(text) to service_role;`, `-- (no grant)`],
+      ['crm22: lead_duplicate_of does not pin the search_path', `create function private.lead_duplicate_of(p_ws uuid, p_email text, p_phone text) returns uuid language sql stable security definer set search_path = '' as $$`, `create function private.lead_duplicate_of(p_ws uuid, p_email text, p_phone text) returns uuid language sql stable security definer as $$`],
+      ['crm22: lead_set_duplicate does not pin the search_path', `create function private.lead_set_duplicate() returns trigger language plpgsql security definer set search_path = '' as $$`, `create function private.lead_set_duplicate() returns trigger language plpgsql security definer as $$`],
+      // grants of the five service functions
+      ...['view_save(jsonb, uuid, jsonb)', 'view_delete(jsonb, uuid)', 'lead_follow_up(jsonb, uuid, timestamptz)', 'task_add(jsonb, uuid, text, timestamptz)', 'task_done(jsonb, uuid, boolean)'].flatMap(sig => [GRANT(sig, 'close'), GRANT(sig, 'open')]),
+    ];
+  })(),
+
   // work order 08, migration 17: the team list and the removal (tenancy.test.sql T27)
   ...(() => {
     const GUARD = "  if not private.is_owner_or_staff(p_workspace) or not exists (select 1 from public.workspaces w where w.id = p_workspace) then raise exception 'S-NOT-FOUND: not found'; end if;\n  return query";
