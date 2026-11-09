@@ -4,7 +4,9 @@
 // (one column per field of the form contract), then every CRM feature of block 1 on that one lead as owner-a through the real functions:
 // field edit, server list (search, filter, sort), bulk status and owner, delete refused without the confirm flag and done with it; then the CRM export
 // and import in the client's own layout (propose and save a map, export in it, import it back with a dry run first and the owner's consent tick);
-// J12 then runs the two dashboard tests of the CRM screens (owner, agent) and takes owner-a's Leads list at phone and desktop width (rows must be on screen).
+// J12 then runs the two dashboard tests of the CRM screens (owner, agent) and takes owner-a's Leads list at phone and desktop width (rows must be on screen);
+// J13 runs the three Settings screen tests (the owner's five cards and alert addresses, the cards against the database, the agent's view) and
+// supabase/tests/e2e-settings.mjs without SETTINGS_INVITE_EMAIL (no mail at all): the invite test is reported SKIP and never run from here.
 // One line per step: PASS | FAIL | BLOCKED | NOT BUILT YET | SKIPPED (after Jn FAIL), each with its evidence. Exit 0 only when no step
 // FAILED or was BLOCKED; NOT BUILT YET is never a pass. The step table below is the one place a slice adds its step (briefs/journey.md 8).
 // Laptop only: it needs staging secrets (variables by name), so it is not a ci.yml job. Never looped; production is refused.
@@ -31,7 +33,16 @@ export const TESTS = {
   J6: { file: 'flows.spec.ts', title: 'owner-a has Leads open; a lead sent to the test site the way omnikom lead send does appears without a reload within 15 s' },
   J12a: { file: 'flows.spec.ts', title: 'search, a filter on an industry column, sort by budget, edit a field, bulk status, delete through the sheet, export the view, and a dry-run import' },
   J12b: { file: 'flows.spec.ts', title: 'member-a1 sees no Import, no Delete and no Set owner, and Not found on the import address' },
+  J13a: { file: 'flows.spec.ts', title: 'owner-a sees the five cards, edits the alert addresses and reads them back; a bad line shows its inline error' },
+  J13b: { file: 'flows.spec.ts', title: "owner-a's cards show what the database holds: the people, the sites and the alert addresses are the service role's own reads, not a shape" },
+  J13c: { file: 'flows.spec.ts', title: 'member-a1 sees only Your account and Sign out everywhere, and no team or alert data comes back' },
 };
+// The invite test of the same file sends a real mail through Auth: the journey never runs it, J13 reports it SKIP with one of these reasons (the title is kept here so
+// a unit check sees it still exists). SETTINGS_INVITE_EMAIL is taken out of the environment of every child the journey starts (withoutInviteMail).
+export const INVITE_TEST_TITLE = 'owner-a invites a person, sees them in the list and removes them through the sheet (only with SETTINGS_INVITE_EMAIL: a real mail goes out)';
+export const INVITE_SKIP = 'invite mail (C13) UNPROVEN: SETTINGS_INVITE_EMAIL not set';
+export const INVITE_SKIP_SET = 'invite mail (C13) UNPROVEN: the invite test is not run from the journey in this slice (SETTINGS_INVITE_EMAIL is set and unused here)';
+export const withoutInviteMail = env => { const e = { ...env }; delete e.SETTINGS_INVITE_EMAIL; return e; };
 // what a visitor's form may answer when the lead was sent: the Thank-you page the no-script submit lands on (303 to /api/lead?sent=1), or the JSON of the script path
 export const SENT_ANSWER = /"sent"\s*:\s*true|your message was sent/i;
 // The export writes these columns, then one per industry field of the test site's form contract in form order (supabase/functions/lead-export). The
@@ -120,6 +131,22 @@ export function playwrightVerdict(sum, title) {
   if (other.length) return { status: 'FAIL', evidence: `a test other than the named one ran: "${clip(other[0].title, 70)}"` };
   if (sum.failed || sum.flaky) return { status: 'FAIL', evidence: `the dashboard test "${clip(title, 60)}" ${sum.failed ? 'failed' : 'was flaky'}` };
   return { status: 'PASS', evidence: `dashboard test passed: "${clip(title, 110)}" (${(sum.rows.reduce((a, r) => a + r.ms, 0) / 1000).toFixed(1)} s)` };
+}
+
+// What one run of supabase/tests/e2e-settings.mjs says (r = { status, stdout, stderr, timedOut }). Check lines start "PASS " or "FAIL " (its summary line starts
+// "PASS:", "FAILED:" or "BLOCKED:" and is not a check). Exit 3 is BLOCKED, never a pass; a FAIL line is red whatever the exit code was; a run that ended with
+// no check line proves nothing and is red. -> { red: [text], blocked: [text], skips: [line], passes: n }
+export function settingsE2eVerdict(r) {
+  const lines = String((r && r.stdout) || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const fails = lines.filter(l => /^FAIL /.test(l)), blockedLines = lines.filter(l => /^BLOCKED/.test(l) && !/^BLOCKED: Settings backend/.test(l));
+  const skips = lines.filter(l => /^SKIP/.test(l)), passes = lines.filter(l => /^PASS /.test(l)).length;
+  const last = clip(`${(r && r.stderr) || ''}\n${(r && r.stdout) || ''}`.trim().split(/\r?\n/).pop(), 120);
+  const red = fails.map(l => clip(l, 160)), blocked = [], status = r ? r.status : null;
+  if (r && r.timedOut) red.push('timed out');
+  else if (status === 3 || blockedLines.length) blocked.push(...(blockedLines.length ? blockedLines.map(l => clip(l, 160)) : [`exited 3 (BLOCKED): ${last}`]));
+  else if (status !== 0 && !fails.length) red.push(`exited ${status} with no FAIL line: ${last}`);
+  if (status === 0 && !red.length && !blocked.length && passes === 0) red.push('ran 0 checks (no PASS line)');
+  return { red, blocked, skips, passes };
 }
 
 // ---------- the steps (the one table) ----------
@@ -483,6 +510,31 @@ export const STEPS = [
     if (bad.length) return { status: 'FAIL', evidence: `${bad.length} of 3 parts red: ${bad.join('; ')}`, pngs };
     return { status: 'PASS', evidence: `${ok.join('; ')}; the lead "${marker}" made for owner-a was on the Leads list at both widths (${seen.join(', ')}) and was removed again`, pngs };
   } },
+  // J13: the Settings screen of work order 08. The three dashboard tests and the backend script always run, so one line names every part that is red. It sends no
+  // mail: the invite test is reported SKIP and never run, and e2e-settings.mjs runs with SETTINGS_INVITE_EMAIL taken out of its environment. The owner test edits the
+  // site's alert addresses and puts them back itself in a finally (flows.spec.ts, "settings: the owner"; a unit check reads that finally), so J13 records and restores
+  // nothing. FAIL outranks BLOCKED: exit 3 of the script is BLOCKED only when no part is red.
+  { id: 'J13', name: 'Settings screen', needs: ['J1'], async run(c) {
+    const bad = [], blocked = [], ok = [];
+    for (const [tag, who, t] of [['J13a', 'the owner test', TESTS.J13a], ['J13b', 'the cards-against-database test', TESTS.J13b], ['J13c', 'the agent test', TESTS.J13c]]) {
+      const sum = await c.impl.playwright(t.file, t.title), v = playwrightVerdict(sum, t.title);
+      if (v.status === 'PASS') ok.push(`${who} passed: "${clip(t.title, 60)}" (${(sum.rows.reduce((a, r) => a + r.ms, 0) / 1000).toFixed(1)} s)`);
+      else bad.push(`${who} (${tag}): ${v.evidence}`);
+    }
+    let e2e = null;
+    try { e2e = settingsE2eVerdict(await c.impl.settingsE2e()); }
+    catch (e) { (e instanceof Blocked ? blocked : bad).push(`the backend script (e2e-settings): ${clip(e && e.message || e, 160)}`); }
+    if (e2e) {
+      bad.push(...e2e.red.map(x => `the backend script (e2e-settings): ${x}`));
+      blocked.push(...e2e.blocked.map(x => `the backend script (e2e-settings): ${x}`));
+      if (!e2e.red.length && !e2e.blocked.length) ok.push(`e2e-settings passed (${e2e.passes} checks)`);
+    }
+    const skip = `SKIP the invite test (flows.spec.ts): ${c.ctx.env && c.ctx.env.SETTINGS_INVITE_EMAIL ? INVITE_SKIP_SET : INVITE_SKIP}`;
+    const says = e2e && e2e.skips.length ? `; e2e-settings says: ${e2e.skips.join(' | ')}` : '';
+    if (bad.length) return { status: 'FAIL', evidence: `${bad.length} part(s) red: ${bad.join('; ')}${blocked.length ? `; also BLOCKED: ${blocked.join('; ')}` : ''}; ${skip}${says}` };
+    if (blocked.length) return { status: 'BLOCKED', evidence: `${blocked.join('; ')}${ok.length ? `; passed: ${ok.join('; ')}` : ''}; ${skip}${says}` };
+    return { status: 'PASS', evidence: `${ok.join('; ')}; ${skip}${says}` };
+  } },
 ];
 
 // ---------- the orchestrator ----------
@@ -626,6 +678,14 @@ export function makeImpl(ctx, seams = {}) {
       return { status: res.status, ids: Array.isArray(j) ? j.map(x => x.id).sort() : [] };
     },
     spec(file) { const p = join(dash, 'tests', file); return existsSync(p) ? { exists: true, text: readFileSync(p, 'utf8') } : { exists: false, text: '' }; },
+    // supabase/tests/e2e-settings.mjs the way the journey runs it: SETTINGS_INVITE_EMAIL taken out of its environment, so it sends no mail (it prints its SKIP line)
+    async settingsE2e() {
+      const script = repoPath('supabase', 'tests', 'e2e-settings.mjs');
+      if (!existsSync(script)) throw new Blocked('supabase/tests/e2e-settings.mjs is missing', 'it comes with work order 08 (master 6742d24)');
+      const g = await guard();
+      const r = await g.runLimited(process.execPath, [script], { cwd: repoPath(), env: withoutInviteMail(ctx.env), timeout: 300000, windowsHide: true });
+      return { status: r.status, stdout: String(r.stdout || ''), stderr: String(r.stderr || ''), timedOut: Boolean(r.timedOut) };
+    },
     async playwright(file, title) {
       await ensureBuilt();
       const g = await guard();
@@ -634,7 +694,7 @@ export function makeImpl(ctx, seams = {}) {
         const report = join(tmp.dir, 'pw.json');
         const grep = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const r = await g.runLimited(process.execPath, [join(dash, 'node_modules', '@playwright', 'test', 'cli.js'), 'test', `tests/${file}`, '-g', grep, '--reporter=json'],
-          { cwd: dash, env: { ...ctx.env, PLAYWRIGHT_JSON_OUTPUT_NAME: report, TEMP: tmp.dir, TMP: tmp.dir, TMPDIR: tmp.dir }, timeout: 600000, dir: tmp.dir, windowsHide: true });
+          { cwd: dash, env: { ...withoutInviteMail(ctx.env), PLAYWRIGHT_JSON_OUTPUT_NAME: report, TEMP: tmp.dir, TMP: tmp.dir, TMPDIR: tmp.dir }, timeout: 600000, dir: tmp.dir, windowsHide: true });
         if (!existsSync(report)) return { ran: 0, rows: [], failed: 0, flaky: 0, error: `no report (exit ${r.status}${r.timedOut ? ', timed out' : ''}): ${clip(String(r.stdout + r.stderr).trim().split(/\r?\n/).pop(), 120)}` };
         try { return summarizePlaywright(JSON.parse(readFileSync(report, 'utf8'))); } catch (e) { return { ran: 0, rows: [], failed: 0, flaky: 0, error: 'the report is not JSON' }; }
       } finally { tmp.release(); sessions.clear(); }

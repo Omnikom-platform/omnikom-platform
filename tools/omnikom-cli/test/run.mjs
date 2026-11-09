@@ -1477,8 +1477,8 @@ async function database() {
     // does (bad-signature events of site A, whose id is the fixture id of tenancy.test.sql). That test counts that site's events
     // (line 633: exactly the one it makes itself), so this throwaway database is emptied of the ledgers first (replica role: the
     // append-only triggers are skipped; the test database only). On staging the same collision is a finding, not something to delete.
-    db.query('set session_replication_role = replica; delete from security_events; delete from consent_ledger;');
-    check('the ledgers are empty again before the walls re-run (a throwaway database)', db.query('select (select count(*) from security_events) + (select count(*) from consent_ledger)') === '0');
+    db.query('set session_replication_role = replica; delete from security_events; delete from consent_ledger; delete from security_event_counts;');
+    check('the ledgers and the security event counts are empty again before the walls re-run (a throwaway database)', db.query('select (select count(*) from security_events) + (select count(*) from consent_ledger) + (select count(*) from security_event_counts)') === '0');
     r = await run(['test', 'walls', ...T]);
     check('test walls: passes again after the clean', r.exit === 0, wallsWhy(r));
 

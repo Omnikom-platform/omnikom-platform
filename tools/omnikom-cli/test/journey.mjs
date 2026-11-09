@@ -43,6 +43,9 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   });
   const fakeBrowser = (o = {}) => async () => ({ async newPage() { return fakePage(o); }, async close() { fakeBrowser.closed = (fakeBrowser.closed || 0) + 1; } });
   const goodTitle = J.TESTS.J3.title;
+  // what supabase/tests/e2e-settings.mjs prints without SETTINGS_INVITE_EMAIL: check lines, its SKIP line, a blank line, the summary line
+  const E2E_OUT = 'PASS team-list as owner-a: owners first\nPASS team-list as member-a1 and owner-b: 404\nSKIP: invite mail (C13) UNPROVEN: SETTINGS_INVITE_EMAIL not set\nPASS the marked member is listed and removed\n\nPASS: Settings backend on staging, 0 problem(s)\n';
+  const E2E_OK = { status: 0, stdout: E2E_OUT, stderr: '', timedOut: false };
   const pwOk = (title) => ({ ran: 1, rows: [{ title, statuses: ['expected'], ms: 2000 }], failed: 0, flaky: 0, error: null });
   // the test site's form contract as leadColumns lists it (sites/test-demo-a/contract.json), and a stateful fake of the CRM functions the new steps call
   const FIELDS = [
@@ -182,7 +185,8 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     async seed() { return { ok: true, code: 'ok', data: { changed: false, logins: ['a', 'b'], testSite: { contractVersion: 2, rows: { pages: 3, team: 2 } } } }; },
     async workspacesAs() { return { status: 200, ids: [WS_A] }; },
     spec(file) { return o.spec ? o.spec(file) : { exists: false, text: '' }; },
-    async playwright(file, title) { this.calls.push(`playwright:${file}`); return o.playwright ? o.playwright(file, title) : pwOk(title); },
+    async playwright(file, title) { this.calls.push(`playwright:${file}`); (this.titles ||= []).push(title); return o.playwright ? o.playwright(file, title) : pwOk(title); },
+    async settingsE2e() { this.calls.push('settingsE2e'); return o.settingsE2e ? o.settingsE2e() : E2E_OK; },
     launchBrowser: o.launchBrowser || fakeBrowser(),
     fileSize: () => 1000,
     async leadCount() { return o.leadCount === undefined ? 1 : o.leadCount; },
@@ -296,12 +300,12 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const pass = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl() });
   const shape = /^J\d+ (PASS|FAIL|BLOCKED|NOT BUILT YET|SKIPPED \(after J\d+ (FAIL|BLOCKED)\)) \S.*/;
   const lines = pass.text.trim().split('\n');
-  check('journey: one line per step J1..J12 in order, then the clean-up line, then one summary line', lines.length === 14 && lines.slice(0, 12).every((l, i) => l.startsWith(`J${i + 1} `) && shape.test(l)) && lines[12] === 'cleanup: 0 journey lead(s) removed, 0 left' && lines[13].startsWith('journey (staging): '), pass.text);
-  check('journey: with a good tree the result is 11 PASS, 1 NOT BUILT YET (J3), 0 FAIL and the exit is 0', pass.res.ok && pass.obj.exit === 0 && lines[13].startsWith('journey (staging): 11 PASS, 1 NOT BUILT YET, 0 FAIL'), lines[13]);
+  check('journey: one line per step J1..J13 in order, then the clean-up line, then one summary line', lines.length === 15 && lines.slice(0, 13).every((l, i) => l.startsWith(`J${i + 1} `) && shape.test(l)) && lines[13] === 'cleanup: 0 journey lead(s) removed, 0 left' && lines[14].startsWith('journey (staging): '), pass.text);
+  check('journey: with a good tree the result is 12 PASS, 1 NOT BUILT YET (J3), 0 FAIL and the exit is 0', pass.res.ok && pass.obj.exit === 0 && lines[14].startsWith('journey (staging): 12 PASS, 1 NOT BUILT YET, 0 FAIL'), lines[14]);
   check('journey: J3 on a tree with no site.spec.ts prints NOT BUILT YET with the file named', pass.byId.J3.status === 'NOT BUILT YET' && /apps\/dashboard\/tests\/site\.spec\.ts missing/.test(pass.byId.J3.evidence));
-  check('journey: the steps are J1..J12 and none of them sends a test or pushes a lead to a CRM (leads are never pushed)', pass.res.data.steps.map(s => s.id).join() === 'J1,J2,J3,J4,J5,J6,J7,J8,J9,J10,J11,J12' &&!pass.res.data.steps.some(s => /push|send a test/i.test(s.name)) && !/pushed|send a test|Webhook/i.test(pass.text), pass.text);
-  check('journey: J8 field edit, J9 server list, J10 bulk and J11 CRM export and import are real PASS lines, never a NOT BUILT YET', ['field edit', 'server list', 'bulk', 'CRM export and import'].every((n, i) => pass.byId[`J${8 + i}`].name === n && pass.byId[`J${8 + i}`].status === 'PASS') && pass.res.data.counts.PASS === 11);
-  check('journey: the summary names the screenshot folder', lines[13].includes(pass.res.data.out) && pass.res.data.out.startsWith(work));
+  check('journey: the steps are J1..J13 and none of them sends a test or pushes a lead to a CRM (leads are never pushed)', pass.res.data.steps.map(s => s.id).join() === 'J1,J2,J3,J4,J5,J6,J7,J8,J9,J10,J11,J12,J13' &&!pass.res.data.steps.some(s => /push|send a test/i.test(s.name)) && !/pushed|send a test|Webhook/i.test(pass.text), pass.text);
+  check('journey: J8 field edit, J9 server list, J10 bulk and J11 CRM export and import are real PASS lines, never a NOT BUILT YET', ['field edit', 'server list', 'bulk', 'CRM export and import'].every((n, i) => pass.byId[`J${8 + i}`].name === n && pass.byId[`J${8 + i}`].status === 'PASS') && pass.res.data.counts.PASS === 12);
+  check('journey: the summary names the screenshot folder', lines[14].includes(pass.res.data.out) && pass.res.data.out.startsWith(work));
   check('journey: a screenshot path is printed on the step line that took it', /^J4 PASS .*\| png: .*j4-phone-home\.png; .*j4-phone-contact\.png; .*j4-desktop-home\.png; .*j4-desktop-contact\.png/.test(lines[3]) && /j5-form-answer\.png/.test(lines[4]) && /j6-inbox-owner-a\.png/.test(lines[5]), lines.slice(3, 6).join(' // '));
 
   const withSpec = { spec: () => ({ exists: true, text: `test('${goodTitle}')` }) };
@@ -316,7 +320,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
 
   const j1bad = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ seed: async () => ({ ok: false, code: 'S-X', data: { error: 'nope' } }) }) });
   check('journey: J1 FAIL skips J2, J3, J5, J6, J7, J8, J9 and J10 with "SKIPPED (after J1 FAIL)", still runs J4, and the exit is 1',
-    j1bad.byId.J1.status === 'FAIL' && ['J2', 'J3', 'J5', 'J6', 'J7', 'J8', 'J9', 'J10', 'J11', 'J12'].every(i => j1bad.byId[i].status === 'SKIPPED') && /^J2 SKIPPED \(after J1 FAIL\) /m.test(j1bad.text) && j1bad.byId.J4.status === 'PASS' && j1bad.obj.exit === 1, j1bad.text);
+    j1bad.byId.J1.status === 'FAIL' && ['J2', 'J3', 'J5', 'J6', 'J7', 'J8', 'J9', 'J10', 'J11', 'J12', 'J13'].every(i => j1bad.byId[i].status === 'SKIPPED') && /^J2 SKIPPED \(after J1 FAIL\) /m.test(j1bad.text) && j1bad.byId.J4.status === 'PASS' && j1bad.obj.exit === 1, j1bad.text);
   // a product bug at J5 must not leave J6 and J7 unproven: they use ONE lead made by `lead send`, and their lines say so
   const FALLBACK = '(lead from lead send: J5 did not store one)';
   const implB = fakeImpl({ leadCount: 0 });
@@ -344,11 +348,11 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const j2bad = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ workspacesAs: async () => ({ status: 200, ids: [WS_A, 'bbbbbbbb-0000-0000-0000-000000000000'] }) }) });
   check('journey: J2 FAIL when a login reads another workspace too', j2bad.byId.J2.status === 'FAIL' && /not exactly its own/.test(j2bad.byId.J2.evidence));
   const only = await run({ only: 'J4,j5', 'alert-to': ALERT }, { ...base, impl: fakeImpl() });
-  check('journey: --only J4,J5 runs just those and the summary names what was not run', only.res.data.steps.map(s => s.id).join() === 'J4,J5' && /; not run: J1, J2, J3, J6, J7, J8, J9, J10, J11, J12; /.test(only.text) && only.res.ok, only.text);
+  check('journey: --only J4,J5 runs just those and the summary names what was not run', only.res.data.steps.map(s => s.id).join() === 'J4,J5' && /; not run: J1, J2, J3, J6, J7, J8, J9, J10, J11, J12, J13; /.test(only.text) && only.res.ok, only.text);
   const implF = fakeImpl({ alertsOnlyTo: false });
   const noAlertList = await run({ 'alert-to': ALERT }, { ...base, impl: implF });
   check('journey: J5, J6 and J7 are BLOCKED, and nothing is opened or sent (no browser, no lead send, no dashboard test), when the test site\'s alert list is not exactly --alert-to',
-    noAlertList.byId.J5.status === 'BLOCKED' && noAlertList.byId.J6.status === 'BLOCKED' && noAlertList.byId.J7.status === 'BLOCKED' && noAlertList.byId.J8.status === 'BLOCKED' && ['J9', 'J10'].every(i => noAlertList.byId[i].status === 'SKIPPED') && implF.store.leads.length === 0 && !implF.calls.includes('sendLead') && implF.calls.filter(c => c.startsWith('playwright')).length === 2 && !noAlertList.res.ok, noAlertList.text);
+    noAlertList.byId.J5.status === 'BLOCKED' && noAlertList.byId.J6.status === 'BLOCKED' && noAlertList.byId.J7.status === 'BLOCKED' && noAlertList.byId.J8.status === 'BLOCKED' && ['J9', 'J10'].every(i => noAlertList.byId[i].status === 'SKIPPED') && implF.store.leads.length === 0 && !implF.calls.includes('sendLead') && implF.calls.filter(c => c.startsWith('playwright')).length === 5 && !noAlertList.res.ok, noAlertList.text);
   const implG = fakeImpl();
   const j6alone = await run({ only: 'J6,J7', 'alert-to': ALERT }, { ...base, impl: implG });
   check('journey: --only J6,J7 (no J5 in the run) uses one lead from lead send and says so', j6alone.byId.J6.status === 'PASS' && j6alone.byId.J7.status === 'PASS' && j6alone.byId.J6.evidence.includes(FALLBACK) && implG.calls.filter(c => c === 'sendLead').length === 1 && j6alone.res.ok, j6alone.text);
@@ -567,6 +571,92 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     check('journey J12 marker lead: an add-lead that fails is a FAIL naming HTTP 500, and no shot is taken', noAdd.byId.J12.status === 'FAIL' && /add-lead for the shots answered HTTP 500/.test(noAdd.byId.J12.evidence) && !noAdd.impl.calls.includes('crmShots'), noAdd.byId.J12.evidence);
     const unseen = await crmRun({ markerNotShown: true }, { only: 'J1,J12', 'alert-to': undefined });
     check('journey J12 marker lead: found false at both widths (the lead was made, the screen shows rows without it) names both widths', unseen.byId.J12.status === 'FAIL' && /at phone \(390 px\); desktop: the lead Screens check abcdef12 made for owner-a is not on the list at desktop$/.test(unseen.byId.J12.evidence), unseen.byId.J12.evidence);
+  }
+
+  // ---- J13: the Settings screen (work order 08): three dashboard tests and supabase/tests/e2e-settings.mjs; sends no mail; the invite test is a SKIP, never run
+  {
+    const unescaped = s => s.split("\\'").join("'");   // the spec writes an apostrophe inside a single-quoted title as \'
+    const flowsText = unescaped(readFileSync(tests('flows.spec.ts'), 'utf8'));
+    const times = s => flowsText.split(s).length - 1;
+    const titles = ['J13a', 'J13b', 'J13c'].map(k => J.TESTS[k].title);
+    check('journey J13: the J13a, J13b and J13c test titles and the invite test title each exist exactly once in apps/dashboard/tests/flows.spec.ts (a rename turns this red; the -g match is a substring)',
+      [...titles, J.INVITE_TEST_TITLE].every(t => times(t) === 1), JSON.stringify([...titles, J.INVITE_TEST_TITLE].map(times)));
+    check('journey J13: no J13 title is part of the invite test\'s title (the -g match could not pick the invite test, which sends a real mail)', titles.every(t => !J.INVITE_TEST_TITLE.includes(t) && !t.includes(J.INVITE_TEST_TITLE)));
+    check('journey J13: the real spec reader sees the three titles in flows.spec.ts', titles.every(t => unescaped(real.spec('flows.spec.ts').text).includes(t)));
+    // the invite test skips itself without SETTINGS_INVITE_EMAIL (so even a stray run of it sends nothing), and the owner test restores the alert addresses it edits in a finally
+    const bodyOf = title => { const at = flowsText.indexOf(title), end = flowsText.indexOf('\n  test(', at + 1); return flowsText.slice(at, end < 0 ? undefined : end); };
+    const skipsItself = body => /test\.skip\(!invite,/.test(body) && /process\.env\.SETTINGS_INVITE_EMAIL/.test(body);
+    const restoresAlerts = body => {
+      const rec = body.indexOf('select=lead_alert_to,alert_assignee'), fin = body.indexOf('} finally {'), tail = fin < 0 ? '' : body.slice(fin);
+      return rec >= 0 && fin > rec && /settings-save/.test(tail) && /before\[0\]\?\.lead_alert_to/.test(tail) && /before\[0\]\?\.alert_assignee/.test(tail) && /expect\(put\.status[^)]*\)\.toBe\(200\)/.test(tail);
+    };
+    const ownerBody = bodyOf(J.TESTS.J13a.title);
+    check('journey J13: the owner test (:450) records the alert addresses before it edits them and puts them back in a finally that expects HTTP 200, so J13 restores nothing itself', restoresAlerts(ownerBody), ownerBody.slice(-300));
+    check('journey J13: that restore guard is red for a test with no finally, one that never calls settings-save, one that restores nothing recorded, and one that does not expect the 200',
+      !restoresAlerts(ownerBody.replace('} finally {', '} {')) && !restoresAlerts(ownerBody.replace("'settings-save'", "'team-list'")) && !restoresAlerts(ownerBody.split('before[0]?.lead_alert_to').join('[]')) && !restoresAlerts(ownerBody.replace('.toBe(200)', '.toBeTruthy()')));
+    check('journey J13: the invite test (:524) skips itself without SETTINGS_INVITE_EMAIL', skipsItself(bodyOf(J.INVITE_TEST_TITLE)) && !skipsItself(bodyOf(J.INVITE_TEST_TITLE).replace('test.skip(!invite,', 'test.step(')));
+
+    // the pure reading of the script's output
+    const V = J.settingsE2eVerdict;
+    const vOk = V(E2E_OK);
+    check('journey J13 e2e verdict: PASS lines count, the SKIP line is kept and is not red, the summary line is not a check', vOk.red.length === 0 && vOk.blocked.length === 0 && vOk.passes === 3 && vOk.skips.join() === 'SKIP: invite mail (C13) UNPROVEN: SETTINGS_INVITE_EMAIL not set', JSON.stringify(vOk));
+    const vFail = V({ status: 1, stdout: 'PASS a\nFAIL member-remove of the last owner refused  got 200\n\nFAILED: Settings backend on staging, 1 problem(s)\n', stderr: '' });
+    check('journey J13 e2e verdict: a FAIL line is red and named (the FAILED summary line is not a second check)', vFail.red.length === 1 && /^FAIL member-remove of the last owner refused/.test(vFail.red[0]), JSON.stringify(vFail));
+    check('journey J13 e2e verdict: a FAIL line is red even when the exit code was 0', V({ status: 0, stdout: 'PASS a\nFAIL b  x\n', stderr: '' }).red.length === 1);
+    const v3 = V({ status: 3, stdout: 'PASS a\n\nBLOCKED: Settings backend on staging, 0 problem(s), 1 blocked step(s)\n', stderr: '' });
+    check('journey J13 e2e verdict: exit 3 is blocked and not red, and is never a pass even when every check line before it passed', v3.blocked.length === 1 && v3.red.length === 0 && /exited 3/.test(v3.blocked[0]), JSON.stringify(v3));
+    const vB = V({ status: 3, stdout: 'PASS a\nBLOCKED the marked member: STAGING_DB_URL_DIRECT is not set\n\nBLOCKED: Settings backend on staging, 0 problem(s), 1 blocked step(s)\n', stderr: '' });
+    check('journey J13 e2e verdict: a BLOCKED line is quoted once (the summary line is not a second one)', vB.blocked.length === 1 && /^BLOCKED the marked member: STAGING_DB_URL_DIRECT is not set$/.test(vB.blocked[0]), JSON.stringify(vB));
+    check('journey J13 e2e verdict: exit 2, a timeout, no result at all and a run with 0 checks are each red',
+      V({ status: 2, stdout: '', stderr: 'bad url' }).red.length === 1 && V({ status: null, stdout: '', stderr: '', timedOut: true }).red[0] === 'timed out' && V(null).red.length === 1 && /ran 0 checks/.test(V({ status: 0, stdout: '', stderr: '' }).red.join()));
+
+    // the step
+    const pwRed = which => (f, t) => (t === J.TESTS[which].title ? { ran: 1, rows: [{ title: t, statuses: ['unexpected'], ms: 10 }], failed: 1, flaky: 0, error: null } : pwOk(t));
+    const j13 = (o, flags = {}) => crmRun(o, { only: 'J1,J13', 'alert-to': undefined, ...flags });
+    const g = await j13({});
+    check('journey J13: PASS when the three tests and the script pass; the line says SKIP for the invite test with the reason and quotes the script\'s own SKIP line',
+      g.byId.J13.status === 'PASS' && g.byId.J13.evidence.includes('; SKIP the invite test (flows.spec.ts): invite mail (C13) UNPROVEN: SETTINGS_INVITE_EMAIL not set') && g.byId.J13.evidence.includes('e2e-settings passed (3 checks)') && g.byId.J13.evidence.includes('; e2e-settings says: SKIP: invite mail (C13) UNPROVEN: SETTINGS_INVITE_EMAIL not set') && g.res.ok, g.byId.J13.evidence);
+    check('journey J13: it runs exactly the three named tests (never the invite test) and the script once, makes no lead and no clean-up line',
+      JSON.stringify(g.impl.titles) === JSON.stringify(titles) && g.impl.calls.join() === 'playwright:flows.spec.ts,playwright:flows.spec.ts,playwright:flows.spec.ts,settingsE2e' && !g.impl.titles.includes(J.INVITE_TEST_TITLE) && g.impl.store.log.length === 0 && !/cleanup/.test(g.text), g.impl.calls.join());
+    for (const [k, who] of [['J13a', 'the owner test'], ['J13b', 'the cards-against-database test'], ['J13c', 'the agent test']]) {
+      const r = await j13({ playwright: pwRed(k) });
+      check(`journey J13: ${who} red is a FAIL that names ${k} and no other test, and says 1 part(s)`, r.byId.J13.status === 'FAIL' && r.byId.J13.evidence.startsWith(`1 part(s) red: ${who} (${k}): the dashboard test`) && !['J13a', 'J13b', 'J13c'].filter(x => x !== k).some(x => r.byId.J13.evidence.includes(`(${x})`)) && !r.res.ok && r.impl.calls.includes('settingsE2e'), r.byId.J13.evidence);
+    }
+    const none = await j13({ playwright: () => ({ ran: 0, rows: [], failed: 0, flaky: 0, error: null }) });
+    check('journey J13: 0 tests ran is a FAIL for each of the three (never a pass on "no tests found")', none.byId.J13.status === 'FAIL' && none.byId.J13.evidence.startsWith('3 part(s) red: ') && (none.byId.J13.evidence.match(/0 tests ran for/g) || []).length === 3, none.byId.J13.evidence);
+    const eFail = await j13({ settingsE2e: () => ({ status: 1, stdout: 'PASS a\nFAIL settings-save refuses a body that has only a crm key  HTTP 200\n\nFAILED: Settings backend on staging, 1 problem(s)\n', stderr: '', timedOut: false }) });
+    check('journey J13: a FAIL line of e2e-settings makes J13 a FAIL that quotes the line, and the three tests are still reported passing', eFail.byId.J13.status === 'FAIL' && /^1 part\(s\) red: the backend script \(e2e-settings\): FAIL settings-save refuses a body that has only a crm key/.test(eFail.byId.J13.evidence) && !eFail.res.ok, eFail.byId.J13.evidence);
+    const eFail0 = await j13({ settingsE2e: () => ({ status: 0, stdout: 'PASS a\nFAIL b  x\n', stderr: '', timedOut: false }) });
+    check('journey J13: a FAIL line with exit code 0 is a FAIL too', eFail0.byId.J13.status === 'FAIL', eFail0.byId.J13.evidence);
+    const e3 = await j13({ settingsE2e: () => ({ status: 3, stdout: 'PASS a\nBLOCKED the marked member: STAGING_DB_URL_DIRECT is not set\n\nBLOCKED: Settings backend on staging, 0 problem(s), 1 blocked step(s)\n', stderr: '', timedOut: false }) });
+    check('journey J13: exit 3 of the script is BLOCKED (not PASS, the run is not ok), the line quotes the BLOCKED line and still carries the invite SKIP', e3.byId.J13.status === 'BLOCKED' && /the backend script \(e2e-settings\): BLOCKED the marked member: STAGING_DB_URL_DIRECT is not set/.test(e3.byId.J13.evidence) && e3.byId.J13.evidence.includes('SKIP the invite test') && !e3.res.ok && e3.obj.exit === 1, e3.byId.J13.evidence);
+    const e3only = await j13({ settingsE2e: () => ({ status: 3, stdout: 'PASS a\n', stderr: '', timedOut: false }) });
+    check('journey J13: exit 3 with only PASS lines before it is BLOCKED, never PASS', e3only.byId.J13.status === 'BLOCKED', e3only.byId.J13.evidence);
+    const both = await j13({ playwright: pwRed('J13a'), settingsE2e: () => ({ status: 3, stdout: 'BLOCKED x\n', stderr: '', timedOut: false }) });
+    check('journey J13: a red test outranks the script\'s BLOCKED (FAIL, and the BLOCKED part is still named)', both.byId.J13.status === 'FAIL' && /; also BLOCKED: the backend script \(e2e-settings\): BLOCKED x/.test(both.byId.J13.evidence), both.byId.J13.evidence);
+    const eMiss = await j13({ settingsE2e: () => { throw new Blocked('supabase/tests/e2e-settings.mjs is missing', 'x'); } });
+    check('journey J13: a script that cannot be started because it is missing is BLOCKED, not a pass', eMiss.byId.J13.status === 'BLOCKED' && /e2e-settings.mjs is missing/.test(eMiss.byId.J13.evidence), eMiss.byId.J13.evidence);
+    const eBoom = await j13({ settingsE2e: () => { throw new Error('spawn EPERM'); } });
+    check('journey J13: a script that throws is a FAIL saying why', eBoom.byId.J13.status === 'FAIL' && /spawn EPERM/.test(eBoom.byId.J13.evidence), eBoom.byId.J13.evidence);
+    const eEmpty = await j13({ settingsE2e: () => ({ status: 0, stdout: '', stderr: '', timedOut: false }) });
+    check('journey J13: a script that ends with exit 0 and no check line proves nothing and is a FAIL', eEmpty.byId.J13.status === 'FAIL' && /ran 0 checks/.test(eEmpty.byId.J13.evidence), eEmpty.byId.J13.evidence);
+    // SETTINGS_INVITE_EMAIL set in the environment of the run: the invite test is still a SKIP and still not run
+    const withInvite = await J.journeyGroup(makeCtx({ command: 'test', positionals: ['test', 'journey'], flags: { target: 'staging', out: work, only: 'J1,J13' }, deps: { env: { ...ENV, SETTINGS_INVITE_EMAIL: 'invite-me@example.com' }, randomUUID: () => 'abcdef12-0000-0000-0000-000000000000', now: () => 1793500000 } }), { ...base, impl: fakeImpl() });
+    const wi = withInvite.data.steps.find(s => s.id === 'J13');
+    check('journey J13: with SETTINGS_INVITE_EMAIL set the invite test is still a SKIP with its own reason, the same three tests run, and the address is not printed', wi.status === 'PASS' && wi.evidence.includes(J.INVITE_SKIP_SET) && !wi.evidence.includes('invite-me@example.com') && !wi.evidence.includes('SETTINGS_INVITE_EMAIL not set; '), wi.evidence);
+    check('journey J13: J1 failing skips it (it needs J1), and --only J13 alone is accepted', (await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ seed: async () => ({ ok: false, code: 'S-X', data: { error: 'nope' } }) }) })).byId.J13.status === 'SKIPPED' && (await j13({}, { only: 'J13' })).byId.J13.status === 'PASS');
+
+    // the real seam: neither the dashboard tests nor the script get SETTINGS_INVITE_EMAIL in their environment, and the script is e2e-settings.mjs
+    const spawned = [];
+    const sGuard = { guardedTemp: prefix => { const dir = mkdtempSync(join(tmpdir(), prefix)); return { dir, release: () => rmSync(dir, { recursive: true, force: true }) }; }, killTree: () => true,
+      runLimited: async (cmd, args, opts) => { spawned.push({ args, env: opts.env }); return { status: 0, stdout: E2E_OUT, stderr: '' }; } };
+    const sctx = makeCtx({ command: 'test', positionals: ['test', 'journey'], flags: { target: 'staging' }, deps: { env: { ...ENV, SETTINGS_INVITE_EMAIL: 'invite-me@example.com' } } });
+    const sImpl = J.makeImpl(sctx, { ensureBuilt: async () => {}, importer: async rel => (rel.includes('proc-guard') ? sGuard : import(pathToFileURL(join(REPO_ROOT, rel)).href)) });
+    const e2eRun = await sImpl.settingsE2e();
+    await sImpl.playwright('flows.spec.ts', J.TESTS.J13c.title);
+    check('journey J13 seams: the script is supabase/tests/e2e-settings.mjs, and its environment has the staging variables but no SETTINGS_INVITE_EMAIL', /e2e-settings\.mjs$/.test((spawned[0] || { args: [] }).args[0] || '') && spawned[0].env.STAGING_SUPABASE_REF === 'testref' && !('SETTINGS_INVITE_EMAIL' in spawned[0].env) && e2eRun.status === 0 && e2eRun.stdout === E2E_OUT, JSON.stringify({ args: (spawned[0] || {}).args, keys: Object.keys((spawned[0] || { env: {} }).env).filter(k => /INVITE/.test(k)) }));
+    check('journey J13 seams: the dashboard tests run without SETTINGS_INVITE_EMAIL in their environment too (the exact title is the -g)', spawned.length === 2 && spawned[1].args.includes('tests/flows.spec.ts') && !('SETTINGS_INVITE_EMAIL' in spawned[1].env) && spawned[1].env.STAGING_SUPABASE_REF === 'testref', JSON.stringify(spawned[1] && spawned[1].args));
+    check('journey J13 seams: withoutInviteMail leaves the other variables alone and does not change the env it was given', (() => { const e = { A: '1', SETTINGS_INVITE_EMAIL: 'x@example.com' }; const o = J.withoutInviteMail(e); return o.A === '1' && !('SETTINGS_INVITE_EMAIL' in o) && e.SETTINGS_INVITE_EMAIL === 'x@example.com'; })());
   }
 
   const crash = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ seed: async () => { throw new Error('socket hang up'); } }) });
