@@ -55,7 +55,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | A13 Choose the columns of a view | MISSING | |
 | A14 Saved views | MISSING | no table, no function |
 | A15 Bulk edit (status, owner, delete) | PARTLY | staging flows 2026-11-05 (flows.spec.ts:291, 5 of 5 on a re-run; first run 3 of 5, an open flake): bulk status on two marked leads in one call; bulk owner and bulk delete are not driven on the screen (backend journey J10) |
-| A16 Status board | MISSING | |
+| A16 Status board | MISSING | owner ruling 2026-11-09: two columns, lead type and status, both per-industry lists held as data (`5-crm.md` "The lead record"); work order 20 after 18; the lists come from SEO work order 29 |
 | A17 Follow-up date and tasks | MISSING | |
 | A18 Duplicate flag | MISSING | `idempotency_key` catches only the same submission |
 | A19 Unread bold, opening marks read | WORKS | staging flows 2026-11-05 (flows.spec.ts:291, 5 of 5 on a re-run; first run 3 of 5, an open flake): an unopened lead is bold (data-unread), opening it marks it read; M12 |

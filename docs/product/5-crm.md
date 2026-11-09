@@ -59,7 +59,13 @@ typed, with the column list as an array in contract form order; `lead-export` wr
 edits them through `lead-update` `fields`. Nothing is written per industry in code. The CRM's columns follow from the contract.
 Not yet: the crm-map dictionary entries and the screens (block 3).
 
-**Status:** new, contacted, qualified, closed, spam. Spam hides a lead from the default list and deletes nothing.
+**Status:** new, contacted, qualified, closed, spam today (a fixed list). Spam hides a lead from the default list and deletes nothing.
+Owner ruling 2026-11-09 (A16, work order 20): a lead carries two separate columns. **Lead type** is what the lead is about, set from
+the form and what the visitor asked, from a list per industry (real estate has about 13 to 15 types; "Enquiry" is one, for a
+visitor who is just asking). **Status** is the acquisition state, what happened with the lead: not contacted yet, contacted (and
+by whom), not interested, interested in something specific, and so on. Both lists are data per industry, never written in code;
+SEO and audits research them (work order 29: real estate first, then insurance) and hand the lists to platform build. Today's
+five statuses become the status column's starting set or are replaced by a migration (work order 20 decides).
 
 **Who sees what:** the owner sees every lead of the workspace; a member (agent) sees only leads assigned to them. The database
 decides, not the screen. A member cannot hand a lead on. A member's hand-entered lead is their own; the owner can pick an owner.
@@ -71,7 +77,7 @@ decides, not the screen. A member cannot hand a lead on. A member's hand-entered
 | Lead list | newest first, live; one column per core and industry field; unread rows bold, opening a lead marks it read |
 | Lead record | every field visible; every core and industry field editable except the consent record; each edit is an `edited` event with field, old and new value |
 | Status and owner | changed in the record or in bulk, with Undo on a single change |
-| Notes | up to 2000 characters each, kept in the timeline, never edited or deleted |
+| Notes | up to 2000 characters each, kept in the timeline, never edited or deleted; every note shows its time and its author, the user or the agent (owner, 2026-11-09) |
 | Timeline | everything that happened, who, when: received, alert sent or failed, status, assigned, note, edited, exported |
 | Add a lead by hand | name, phone, email, how they reached you, what about, notes, and a required tick "the person agreed to be contacted", stored with its date |
 | Search | over any column, core or industry, on the server |
@@ -79,7 +85,7 @@ decides, not the screen. A member cannot hand a lead on. A member's hand-entered
 | Columns | the user picks which columns a view shows |
 | Saved views | filter, sort and columns saved by name, for the user or shared with the workspace |
 | Bulk edit | select many, set status, set owner, delete; one event per lead and one audit row |
-| Status board | the leads grouped by status; whether stages can be custom is an open owner question (status is a fixed 5-value list today) |
+| Status board | the leads grouped by status, with lead type as a second column; both lists are per-industry data (owner ruling 2026-11-09 above; work order 20) |
 | Follow-up | a follow-up date and tasks on a lead, with a "due" filter |
 | Duplicates | a new lead with the same email or phone as an existing one is flagged; merging is decided later |
 | Delete | a hard delete, as privacy requires: one or many leads through `leads-bulk` (a single delete is a bulk of one), refused without the explicit confirm flag; one audit row per deleted lead; the consent ledger row stays (legal record) |
