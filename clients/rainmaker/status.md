@@ -31,7 +31,13 @@ The sheet: `go-live-2026-11-09.md` (what is proven, what blocks with its holder,
 - PROVEN today: preview render gate 11 of 11; launch build (clone at 44a7cc7) strict gate 14 of 14, head's re-run; the live
   deploy tool still refuses the placeholders (that refusal is correct).
 - Open, added 2026-11-09:
-  - Owner: who changed the name servers on 2026-11-06; the consent tick (Optional or Required); the switch, deploy and submit clicks.
+  - Owner: the switch, deploy and submit clicks. Consent tick DECIDED 2026-11-09: REQUIRED, built in `E:\Rainmaker` 48da581
+    (forms e2e 40/40, watched red 38/40 without it; kept local until the switch; needs Monica's OK on the wording).
+  - Who changed the name servers on 2026-11-06: BLOCKED (investigated 2026-11-09, read-only). The live site is another
+    account's Cloudflare Pages direct upload of our preview, edited (robots index,follow; og:image .webp; no `_headers`,
+    `_redirects`, 404 page or .jpg). Not our Cloudflare account, no session log on this machine, no mail in the owner's Gmail.
+    The preview link went to Monica and Dave; the switch needed the GoDaddy login. Settles it: Dave's answer (the owner asks
+    him) or Monica's GoDaddy activity log.
   - Monica (via Dave): phone, mailing address, publication date, written compliance OK; GoDaddy or zone access and a date;
     whether `pay.rwifinancial.com` is still used.
   - Omnikom (Clients) at the switch: our zone gets `google._domainkey`, the live MX set, `pay` and `google-site-verification`
@@ -42,7 +48,8 @@ The sheet: `go-live-2026-11-09.md` (what is proven, what blocks with its holder,
 - Draft for Monica (owner's click 2, sent by Dave; a draft only, nothing sent; drop point 3 if click 1 shows it was our side):
   > Hi Monica, your new site is ready to go live. Three things are left before we switch it on:
   > 1. The business phone number and mailing address to print on the privacy, terms and disclosures pages.
-  > 2. Your written OK on those pages, the consent wording on the forms and the site copy.
+  > 2. Your written OK on those pages, the site copy, and the consent wording on the forms: the marketing consent box is now
+  >    required to send a form (it still says consent is not a condition of any purchase).
   > 3. Who changed the rwifinancial.com name servers on November 6? The domain now points to a Cloudflare account that is not
   >    ours, and a draft copy of the site is showing there. If it was your side, please tell us who holds that account; if not,
   >    please let us know and we will help you secure it. Also: is pay.rwifinancial.com (your GoDaddy payment page) still in use?
