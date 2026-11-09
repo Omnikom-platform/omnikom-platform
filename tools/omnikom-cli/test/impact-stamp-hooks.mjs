@@ -529,11 +529,11 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
     const masterPushes = calls => calls.filter(a => a[0] === 'push' && a.some(x => /:refs\/heads\/master$/.test(x)));
     const gitIn = (cwd, input, extra, ...args) => { const r = spawnSync('git', args, { cwd, input, encoding: 'utf8', timeout: 120000, env: { ...cleanEnv, ...extra } }); if (r.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${r.stderr}`); return r.stdout.trim(); };
     // a lock somebody else took ageMin minutes before T0: a root commit on the empty tree, dated then, as land makes it
-    const plantLock = (sc, ageMin, { branch = 'check/cli-and-testing/old', who = 'platform-build (zed@ZED-PC)' } = {}) => {
+    const plantLock = (sc, ageMin, { branch = 'check/cli-and-testing/old', who = 'platform-build (zed@ZED-PC)', sha = 'e'.repeat(40) } = {}) => {
       const date = `${T0 - ageMin * 60} +0000`;
       const tree = gitIn(sc.bare, '', {}, 'hash-object', '-t', 'tree', '-w', '--stdin');
       const c = gitIn(sc.bare, '', { GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date, GIT_AUTHOR_NAME: 'zed', GIT_AUTHOR_EMAIL: 'z@example.invalid', GIT_COMMITTER_NAME: 'zed', GIT_COMMITTER_EMAIL: 'z@example.invalid' },
-        'commit-tree', tree, '-m', `land-lock: ${branch} ${'e'.repeat(40)} by ${who} at ${isoOf(T0 - ageMin * 60)}`);
+        'commit-tree', tree, '-m', `land-lock: ${branch} ${sha} by ${who} at ${isoOf(T0 - ageMin * 60)}`);
       git(sc.bare, 'update-ref', 'refs/heads/land-lock', c);
       return c;
     };
@@ -971,6 +971,195 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
         ['fatal: unable to access \'https://github.com/o/r.git/\': Failed to connect to github.com port 443 after 21179 ms', 'Connection timed out', 'error: RPC failed; HTTP 408 curl 22', 'SSL_ERROR_SYSCALL', 'gnutls TLS handshake failed'].every(looksLikeNetworkFailure)
         && !looksLikeNetworkFailure(' ! [rejected]        land-lock (stale info)\nerror: failed to push some refs to \'https://github.com/o/r.git\'') && !looksLikeNetworkFailure('stale info while talking to github.com:443') && !looksLikeNetworkFailure('error: no such remote') && !looksLikeNetworkFailure(''));
     }
+    {
+      // ============================================================================ land retry (work order 20)
+      // The bare remote plays the network for the READS and the lock push: remote.backup-gh.uploadpack / .receivepack name a script that refuses calls
+      // number skip .. skip+max-1 (counted over every call) with the words in `msg`, then hands over to git. A refused call is what gh/git print on a blip.
+      const NETMSG = "fatal: unable to access 'https://github.com/o/r.git/': Failed to connect to github.com port 443 after 21179 ms";
+      const netGate = (sc, key, { skip = 0, max = 99, msg = NETMSG } = {}) => {
+        const dir = join(work, `ng${++n}`);
+        mkdirSync(dir);
+        const service = key === 'uploadpack' ? 'upload-pack' : 'receive-pack';
+        const script = join(dir, 'gate.sh');
+        writeFileSync(script, ['#!/bin/sh', 'd=$(dirname "$0")', 'n=$(cat "$d/count" 2>/dev/null || echo 0)', 'echo $((n+1)) > "$d/count"',
+          `if [ "$n" -ge ${skip} ] && [ "$n" -lt ${skip + max} ]; then cat "$d/msg" >&2; exit 1; fi`, `exec git ${service} "$@"`, ''].join('\n'), { mode: 0o755 });
+        writeFileSync(join(dir, 'msg'), `${msg}\n`);
+        git(sc.L, 'config', `remote.backup-gh.${key}`, `sh ${script.replace(/\\/g, '/')}`);
+        return () => Number(readFileSync(join(dir, 'count'), 'utf8'));
+      };
+      const retryLines = text => text.split('\n').filter(l => l.startsWith('land: network error ('));
+      const { looksLikeNetworkFailure: isNet, withNetworkRetry, READ_WAITS_MS, CI_UNKNOWN_LIMIT_MS } = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'land.mjs')).href);
+      const { Blocked: BlockedErr } = await lib('errors.mjs');
+
+      // step 1: the words
+      check('land retry: the words of gh and Go are network failures: dial tcp, no such host, i/o timeout, EOF at the end of a line (also on a line that is not the last), 502, 503, 504, bad gateway, service unavailable',
+        ['dial tcp 10.0.0.1:80: connect failed', 'lookup api.github.com: no such host', 'read tcp 10.0.0.1:80: i/o timeout', 'Get "https://api.github.com/x": EOF', 'Post "https://api.github.com/x": EOF\nsecond line', 'gh: HTTP 502', 'gh: HTTP 503', 'gh: HTTP 504', 'Bad Gateway', 'Service Unavailable'].every(isNet),
+        JSON.stringify(['dial tcp 10.0.0.1:80: connect failed', 'Post "https://api.github.com/x": EOF\nsecond line', 'gh: HTTP 502'].map(isNet)));
+      check('land retry: EOF in the middle of a line, HTTP 500, 5020 and an empty text are not network failures',
+        !isNet('EOF reading the config\nsecond line') && !isNet('gh: HTTP 500 internal server error') && !isNet('gh: HTTP 5020') && !isNet(''));
+      check('land retry: a login that is refused is never a network failure, even with a network word beside it (authentication, 401, 403, not logged in)',
+        ["remote: Invalid username or password.\nfatal: Authentication failed for 'https://github.com/o/r.git/'", 'gh: HTTP 401: Bad credentials', "fatal: unable to access 'https://github.com/o/r.git/': The requested URL returned error: 403", 'gh: not logged in', 'HTTP 403 dial tcp 10.0.0.1:443: i/o timeout'].every(t => !isNet(t)));
+      check('land retry: a lease refusal is never a network failure, even with a network word beside it',
+        !isNet(' ! [rejected]        land-lock (stale info)\nerror: dial tcp 10.0.0.1:80: i/o timeout') && !isNet('stale info: no such host'));
+
+      // step 2: the helper
+      {
+        const mk = (okAfter, text = 'could not read backup-gh: dial tcp 10.0.0.1:80: i/o timeout') => { let calls = 0; return { fn: () => { calls++; if (calls > okAfter) return 'value'; throw new BlockedErr(text, 'x'); }, calls: () => calls }; };
+        const sleepsOf = () => { const s = []; return { ctx: { sleep: async ms => { s.push(ms); } }, s }; };
+        const a = mk(2), sa = sleepsOf(), la = [];
+        const ra = await withNetworkRetry(sa.ctx, a.fn, undefined, la);
+        check('land retry: withNetworkRetry: two network failures then success: the value comes back, three calls, waits 10 s then 30 s through ctx.sleep, one line per retry in the exact words',
+          ra === 'value' && a.calls() === 3 && sa.s.join(',') === '10000,30000' && la.join('|') === 'land: network error (could not read backup-gh: dial tcp 10.0.0.1:80: i/o timeout); trying again in 10 s|land: network error (could not read backup-gh: dial tcp 10.0.0.1:80: i/o timeout); trying again in 30 s', `${ra} ${sa.s} ${la}`);
+        const b = mk(99), sb = sleepsOf(); let eb = null;
+        try { await withNetworkRetry(sb.ctx, b.fn); } catch (e) { eb = e; }
+        check('land retry: withNetworkRetry: a network failure that never ends is asked 4 times (waits 10 s, 30 s, 60 s) and then goes up as it was (the same Blocked)',
+          eb && eb.name === 'Blocked' && /dial tcp/.test(eb.message) && b.calls() === 4 && sb.s.join(',') === '10000,30000,60000' && READ_WAITS_MS.join(',') === '10000,30000,60000', `${b.calls()} ${sb.s}`);
+        const c = mk(99, 'gh: not logged in'), sc2 = sleepsOf(); let ec = null;
+        try { await withNetworkRetry(sc2.ctx, c.fn); } catch (e) { ec = e; }
+        check('land retry: withNetworkRetry: a Blocked that is not the network is thrown at once: one call, no sleep, no line', ec && /not logged in/.test(ec.message) && c.calls() === 1 && sc2.s.length === 0, `${c.calls()} ${sc2.s}`);
+        let plain = 0, ep = null; const sp = sleepsOf();
+        try { await withNetworkRetry(sp.ctx, () => { plain++; throw new Error('dial tcp: i/o timeout'); }); } catch (e) { ep = e; }
+        check('land retry: withNetworkRetry: an error that is not a Blocked is never tried again, whatever its words', ep && plain === 1 && sp.s.length === 0, `${plain} ${sp.s}`);
+      }
+
+      // step 2: the reads, through a real bare remote whose upload-pack refuses (the first call is ls-remote of the branch, then the branch fetch,
+      // then the early master fetch and ls-remote, then the same two after ci)
+      {
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'branch read retried');
+        const calls = netGate(sc, 'uploadpack', { skip: 0, max: 2 });
+        const r = await lrun(sc, [LB], landRuns(s));
+        const rl = retryLines(r.text);
+        check('land retry: the ls-remote of the branch fails twice on the network, then works: waits 10 s then 30 s, one "land: network error (...); trying again in <n> s" line each, placed before the "is <sha> on" line, and the land goes through (exit 0, master moved, lock released)',
+          r.exit === 0 && r.sleeps.join(',') === '10000,30000' && rl.length === 2 && rl[0].startsWith('land: network error (could not read backup-gh: fatal: unable to access') && rl[0].endsWith('; trying again in 10 s') && rl[1].endsWith('; trying again in 30 s')
+          && r.text.indexOf(rl[1]) < r.text.indexOf(`land: ${LB} is ${s} on backup-gh`) && sc.remoteMasterOf() === s && lockSha(sc) === '' && calls() >= 3, `${r.sleeps} ${r.text}`);
+      }
+      {
+        const sc = scenario();
+        sc.branchAt(LB, sc.base, 'branch read never works');
+        const calls = netGate(sc, 'uploadpack', { skip: 0, max: 99 });
+        const r = await lrun(sc, [LB], { runs: [] });
+        check('land retry: the ls-remote of the branch fails on the network every time: exactly 4 tries (waits 10 s, 30 s, 60 s), then Blocked (exit 3) "could not read backup-gh", no lock was taken, GitHub was not asked, nothing was pushed',
+          r.exit === 3 && r.sleeps.join(',') === '10000,30000,60000' && /could not read backup-gh: fatal: unable to access/.test(r.json.error) && calls() === 4 && lockSha(sc) === '' && r.gh.calls.length === 0 && masterPushes(r.calls).length === 0 && sc.remoteMasterOf() === sc.base, `${r.sleeps} ${calls()} ${r.all.slice(0, 300)}`);
+      }
+      {
+        const sc = scenario();
+        sc.branchAt(LB, sc.base, 'branch read refused');
+        const calls = netGate(sc, 'uploadpack', { skip: 0, max: 99, msg: "fatal: Authentication failed for 'https://github.com/o/r.git/'" });
+        const r = await lrun(sc, [LB], { runs: [] });
+        const sc2 = scenario();
+        sc2.branchAt(LB, sc2.base, 'branch read has no repository');
+        const calls2 = netGate(sc2, 'uploadpack', { skip: 0, max: 99, msg: "fatal: repository 'o/r' not found" });
+        const r2 = await lrun(sc2, [LB], { runs: [] });
+        check('land retry: a read that fails for a reason that is not the network (a refused login, a missing repository) is Blocked at once: one try, no sleep, no retry line',
+          r.exit === 3 && r.sleeps.length === 0 && calls() === 1 && retryLines(r.all).length === 0 && r2.exit === 3 && r2.sleeps.length === 0 && calls2() === 1, `${r.sleeps} ${calls()} ${r2.sleeps} ${calls2()}`);
+      }
+      {
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'fetch retried');
+        const calls = netGate(sc, 'uploadpack', { skip: 1, max: 1 });
+        const r = await lrun(sc, [LB], landRuns(s));
+        const rl = retryLines(r.text);
+        check('land retry: the fetch of the branch (the commit is not local) fails once on the network: waits 10 s, the retry line says "could not fetch <branch>", the land goes through', r.exit === 0 && r.sleeps.join(',') === '10000' && rl.length === 1 && rl[0].includes(`could not fetch ${LB} from backup-gh`) && sc.remoteMasterOf() === s && calls() >= 2, `${r.sleeps} ${r.text}`);
+      }
+      {
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'master read retried');
+        netGate(sc, 'uploadpack', { skip: 3, max: 1 });
+        const r = await lrun(sc, [LB], landRuns(s));
+        const rl = retryLines(r.text);
+        check('land retry: the early read of master (its ls-remote) fails once on the network: waits 10 s, the retry line says "could not read master of backup-gh", the land goes through', r.exit === 0 && r.sleeps.join(',') === '10000' && rl.length === 1 && rl[0].includes('could not read master of backup-gh') && sc.remoteMasterOf() === s, `${r.sleeps} ${r.text}`);
+        const sc2 = scenario();
+        const s2 = sc2.branchAt(LB, sc2.base, 'master read after ci retried');
+        netGate(sc2, 'uploadpack', { skip: 4, max: 1 });
+        const r2 = await lrun(sc2, [LB], landRuns(s2));
+        const rl2 = retryLines(r2.text);
+        check('land retry: the read of master after the ci verdict fails once on the network: waits 10 s, "could not fetch master from backup-gh", and the fast-forward still happens', r2.exit === 0 && r2.sleeps.join(',') === '10000' && rl2.length === 1 && rl2[0].includes('could not fetch master from backup-gh') && sc2.remoteMasterOf() === s2 && lockSha(sc2) === '', `${r2.sleeps} ${r2.text}`);
+      }
+      {
+        // a lock held by another: the push is refused for real, the lock read fails once on the network, so the push is tried again; then the holder is read
+        const sc = scenario();
+        sc.branchAt(LB, sc.base, 'lock read retried');
+        const kept = plantLock(sc, 5);
+        netGate(sc, 'uploadpack', { skip: 2, max: 1 });
+        const r = await lrun(sc, [LB, '--lock-wait-minutes', '0'], { runs: [] });
+        const rl = retryLines(r.text);
+        check('land retry: the read of the lock fails once on the network: waits 10 s, the retry line says "could not read the land lock", the holder is then read and the land is LAND-LOCKED as without the blip; the other lock is untouched',
+          r.exit === 1 && r.json.code === 'LAND-LOCKED' && r.sleeps.join(',') === '10000' && rl.length === 1 && rl[0].includes('could not read the land lock on backup-gh') && / holds the land lock since /.test(r.text) && lockSha(sc) === kept && r.gh.calls.length === 0, `${r.sleeps} ${r.text}`);
+      }
+      {
+        // the lock push fails on the network AND the read after it does: the push is tried again and takes the lock
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'lock push retried');
+        netGate(sc, 'receivepack', { skip: 0, max: 1 });
+        netGate(sc, 'uploadpack', { skip: 2, max: 1 });
+        const r = await lrun(sc, [LB], landRuns(s));
+        const rl = retryLines(r.text);
+        check('land retry: the lock push fails on the network and so does the read of the lock after it: waits 10 s, the push is tried again, the lock is taken ("land: took the land lock"), the land goes through and the lock is released',
+          r.exit === 0 && r.sleeps.join(',') === '10000' && rl.length === 1 && rl[0].includes('could not read the land lock on backup-gh') && r.text.includes('land: took the land lock') && sc.remoteMasterOf() === s && lockSha(sc) === '' && r.text.endsWith('land: lock released'), `${r.sleeps} ${r.text}`);
+      }
+
+      // step 3: the ci wait survives a blip
+      const GHDOWN = 'Post "https://api.github.com/graphql": dial tcp: lookup api.github.com: no such host';
+      {
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'ci blip');
+        const pend = { runs: [runRow(s, { status: 'in_progress', conclusion: null })], jobs: {} };
+        const r = await lrun(sc, [LB], { fail: GHDOWN }, { onSleep: (k, st) => { if (k === 2) st.v = pend; if (k === 3) st.v = { fail: GHDOWN }; if (k === 4) st.v = landRuns(s); } });
+        const unknown = r.text.split('\n').filter(l => l.startsWith('land: ci unknown: '));
+        check('land retry: gh cannot reach GitHub for two polls, then answers pending, fails again, then green: polling goes on every 30 s, "land: ci unknown: gh run list failed: ..." is printed once per run of failures (twice here), the land goes through and master moves',
+          r.exit === 0 && r.sleeps.join(',') === '30000,30000,30000,30000' && unknown.length === 2 && unknown[0].includes('gh run list failed: Post') && r.text.includes('land: ci pending') && r.text.includes('land: ci green') && sc.remoteMasterOf() === s && lockSha(sc) === '', `${r.sleeps} ${r.text}`);
+      }
+      {
+        const sc = scenario();
+        sc.branchAt(LB, sc.base, 'ci unknown for good');
+        const r = await lrun(sc, [LB], { fail: GHDOWN });
+        check('land retry: gh unreachable for 5 minutes of consecutive polls: Blocked (exit 3) after exactly 10 sleeps of 30 s, the message names the 5 minutes and the last error, nothing is pushed, the lock is released (fail closed: unknown is never green)',
+          r.exit === 3 && r.sleeps.length === 10 && r.sleeps.every(x => x === 30000) && CI_UNKNOWN_LIMIT_MS === 300000 && /stayed unknown for 5 minutes/.test(r.json.error) && r.json.error.includes('no such host') && sc.remoteMasterOf() === sc.base && masterPushes(r.calls).length === 0 && lockSha(sc) === '', `${r.sleeps.length} ${r.all.slice(0, 400)}`);
+      }
+      {
+        const sc = scenario();
+        sc.branchAt(LB, sc.base, 'ci unknown counts toward the wait');
+        const r = await lrun(sc, [LB, '--wait-minutes', '1'], { fail: GHDOWN });
+        check('land retry: the time spent unknown counts toward --wait-minutes: with 1 minute the land is Blocked after 2 polls, "ci for <sha> is still unknown after 1 minutes", not after the 5 minute bound',
+          r.exit === 3 && r.sleeps.length === 2 && /is still unknown after 1 minutes/.test(r.json.error) && lockSha(sc) === '' && masterPushes(r.calls).length === 0, `${r.sleeps.length} ${r.all.slice(0, 300)}`);
+      }
+      {
+        const sc = scenario();
+        sc.branchAt(LB, sc.base, 'ci blocked for another reason');
+        const r = await lrun(sc, [LB], { fail: 'gh: not logged in' });
+        const sc2 = scenario();
+        sc2.branchAt(LB, sc2.base, 'gh missing');
+        const r2 = await lrun(sc2, [LB], { fail: 'gh is not installed (not found on PATH)' });
+        check('land retry: a Blocked of gh that is not the network (not logged in, gh missing) still ends the land at once: no sleep, one gh call, no "ci unknown" line, the lock is released',
+          r.exit === 3 && r.sleeps.length === 0 && r.gh.calls.length === 1 && !r.all.includes('ci unknown') && lockSha(sc) === '' && r2.exit === 3 && r2.sleeps.length === 0 && r2.gh.calls.length === 1 && lockSha(sc2) === '', `${r.sleeps} ${r.gh.calls.length} ${r2.sleeps}`);
+      }
+
+      // step 4: a rerun takes over its own lock
+      {
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'own lock');
+        const mine = plantLock(sc, 5, { branch: LB, sha: s, who: 'cli-and-testing (alice@A-PC)' });
+        const r = await lrun(sc, [LB, '--lock-wait-minutes', '0'], landRuns(s));
+        check('land retry: a lock held for this same branch AND this same commit is taken over at once ("land: the land lock is held for this same branch and commit (<holder> since <time>); taking it over"): no wait, the land goes through, and the release is a delete with a lease on that very lock',
+          r.exit === 0 && r.sleeps.length === 0 && r.text.includes(`land: the land lock is held for this same branch and commit (cli-and-testing (alice@A-PC) since ${isoOf(T0 - 300)}); taking it over`) && !r.text.includes('took the land lock') && !r.text.includes('holds the land lock since')
+          && sc.remoteMasterOf() === s && lockSha(sc) === '' && r.calls.some(a => a.join(' ') === `push --force-with-lease=refs/heads/land-lock:${mine} backup-gh :refs/heads/land-lock`) && r.text.endsWith('land: lock released'), `${r.sleeps} ${r.text}`);
+      }
+      {
+        const sc = scenario();
+        const s = sc.branchAt(LB, sc.base, 'older push of mine');
+        const old = plantLock(sc, 5, { branch: LB, sha: 'd'.repeat(40) });
+        const r = await lrun(sc, [LB, '--lock-wait-minutes', '0'], landRuns(s));
+        check('land retry: a lock for this branch at ANOTHER commit is somebody\'s older push: waited for as before, here LAND-LOCKED (exit 1) with the holder line, no take-over, the lock is untouched, nothing is asked of GitHub or pushed',
+          r.exit === 1 && r.json.code === 'LAND-LOCKED' && !r.text.includes('taking it over') && r.text.includes(`for ${LB}`) && lockSha(sc) === old && r.gh.calls.length === 0 && masterPushes(r.calls).length === 0, r.text);
+        const sc2 = scenario();
+        const s2 = sc2.branchAt(LB, sc2.base, 'same commit other branch');
+        const other = plantLock(sc2, 5, { branch: 'check/cli-and-testing/other', sha: s2 });
+        const r2 = await lrun(sc2, [LB, '--lock-wait-minutes', '0'], landRuns(s2));
+        check('land retry: a lock for this commit under ANOTHER branch is not ours either: LAND-LOCKED, no take-over, the lock is untouched', r2.exit === 1 && r2.json.code === 'LAND-LOCKED' && !r2.text.includes('taking it over') && lockSha(sc2) === other, r2.text);
+      }
+    }
+
     {
       // the hook lets the queue through: create and delete of refs/heads/land-lock, with no gh call
       const zeros2 = '0'.repeat(40);

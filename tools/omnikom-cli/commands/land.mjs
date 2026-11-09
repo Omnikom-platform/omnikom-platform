@@ -24,6 +24,12 @@
 //      diff, the index of other paths and every other ref are never touched; a failed or skipped local move leaves the land at exit 0.
 // A held lock is waited for (--lock-wait-minutes, default 30, 0 = refuse at once), and right after the lock is taken master is fetched: a commit
 // already in master finishes there, and a master that is not an ancestor of the commit is refused before the ci wait (the post-ci check stays).
+// A read that fails on the NETWORK (looksLikeNetworkFailure on git's or gh's words) is asked again after 10, 30 and 60 s (withNetworkRetry, through
+// ctx.sleep, one line per retry): the git reads before the lock, the lock read, the lock push when its read failed on the network too, and
+// master. A failure that is not the network is Blocked at once. In the ci wait a network failure of gh is "ci unknown": it is printed once per
+// run of failures, polling goes on every POLL_MS, and only 5 minutes of consecutive failures end the land (Blocked, naming the last error); the
+// time spent unknown counts toward --wait-minutes, and unknown is never green. A lock held for this same branch AND this same commit is ours
+// from an earlier run of this land: it is taken over (and released with the lease on its sha); the same branch at another commit is waited for.
 // All dates come from ctx.now.
 import { existsSync, readdirSync } from 'node:fs';
 import { hostname } from 'node:os';
@@ -39,6 +45,7 @@ import { LOCK_BRANCH, LOCK_REF, STALE_LOCK_MINUTES } from '../lib/landlock.mjs';
 export const DEFAULT_REMOTE = 'backup-gh';               // DECISIONS 24
 export const POLL_MS = 30000;
 export const NONE_LIMIT_MS = 5 * 60000;
+export const CI_UNKNOWN_LIMIT_MS = 5 * 60000;
 export const DEFAULT_WAIT_MINUTES = 60;
 export const DEFAULT_LOCK_WAIT_MINUTES = 30;
 export const MAX_LOCK_WAIT_MINUTES = 180;
@@ -73,7 +80,7 @@ const iso = secs => new Date(secs * 1000).toISOString();
 // ------------------------------------------------------------------------------------------------ the land lock
 const leaseDelete = (git, remote, lockSha) => git.run(['push', `--force-with-lease=${LOCK_REF}:${lockSha}`, remote, `:${LOCK_REF}`], { timeout: 180000 });
 
-// who holds the lock the remote has now: { sha, holder, branch, since, minutes } (sha '' when there is none)
+// who holds the lock the remote has now: { sha, holder, branch, landSha, since, minutes } (sha '' when there is none; landSha is the commit its land is for)
 function readLock(ctx, git, remote) {
   const ls = git.run(['ls-remote', remote, LOCK_REF], { timeout: 180000 });
   if (!ls.ok) throw new Blocked(`could not read the land lock on ${remote}: ${firstLine(ls.err || `exit ${ls.status}`)}`, 'check the network and the remote');
@@ -85,11 +92,11 @@ function readLock(ctx, git, remote) {
   const [ct, ...msg] = info.out.split('\n');
   const m = /^land-lock: (\S+) (\S+) by (.+) at (\S+)\s*$/.exec(msg.join('\n').trim());
   const since = Number(ct);
-  return { sha, holder: m ? m[3] : 'an unknown holder', branch: m ? m[1] : 'an unknown branch', since, seconds: ctx.now() - since, minutes: Math.floor((ctx.now() - since) / 60) };
+  return { sha, holder: m ? m[3] : 'an unknown holder', branch: m ? m[1] : 'an unknown branch', landSha: m ? m[2] : '', since, seconds: ctx.now() - since, minutes: Math.floor((ctx.now() - since) / 60) };
 }
 
 // Take the lock, or say who has it. -> { sha } (ours), or { held: { sha, holder, branch, since (iso), minutes } } (somebody else's, not stale)
-function takeLock(ctx, git, remote, { branch, sha, department }, lines) {
+async function takeLock(ctx, git, remote, { branch, sha, department }, lines) {
   for (let attempt = 0; attempt < 2; attempt++) {
     const empty = git.run(['hash-object', '-t', 'tree', '-w', '--stdin'], { input: '' });
     if (!empty.ok) throw new Blocked(`could not build the land lock: ${firstLine(empty.err)}`, 'check the repository');
@@ -98,9 +105,12 @@ function takeLock(ctx, git, remote, { branch, sha, department }, lines) {
     const date = `${ctx.now()} +0000`;
     const made = git.run(['commit-tree', empty.out, '-m', message], { extraEnv: { ...IDENT, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date } });
     if (!made.ok) throw new Blocked(`could not build the land lock: ${firstLine(made.err)}`, 'check the repository');
-    const push = git.run(['push', remote, `${made.out}:${LOCK_REF}`], { timeout: 180000 });
+    // a push that failed is followed by a read of the lock; a read that fails on the network throws, and then the push is tried again
+    const { push, held } = await withNetworkRetry(ctx, () => {
+      const p = git.run(['push', remote, `${made.out}:${LOCK_REF}`], { timeout: 180000 });
+      return p.ok ? { push: p } : { push: p, held: readLock(ctx, git, remote) };
+    }, READ_WAITS_MS, lines);
     if (push.ok) { lines.push(`land: took the land lock ${made.out}`); return { sha: made.out }; }
-    const held = readLock(ctx, git, remote);
     if (!held.sha) throw new Blocked(`could not take the land lock on ${remote}: ${firstLine(push.err || `exit ${push.status}`)}`, 'check the network and the remote');
     const since = iso(held.since);
     if (held.seconds > STALE_LOCK_MINUTES * 60 && attempt === 0) {
@@ -108,6 +118,11 @@ function takeLock(ctx, git, remote, { branch, sha, department }, lines) {
       const del = leaseDelete(git, remote, held.sha);
       if (!del.ok) lines.push(`land: the stale lock could not be deleted (${firstLine(del.err)}); somebody else may have broken it first`);
       continue;
+    }
+    // the lock names this branch AND this commit: an earlier run of this same land took it and died; it is ours
+    if (held.branch === branch && held.landSha === sha) {
+      lines.push(`land: the land lock is held for this same branch and commit (${held.holder} since ${since}); taking it over`);
+      return { sha: held.sha };
     }
     return { held: { sha: held.sha, holder: held.holder, branch: held.branch, since, minutes: held.minutes } };
   }
@@ -119,8 +134,22 @@ function takeLock(ctx, git, remote, { branch, sha, department }, lines) {
 // (stale info: the ref is not our lock any more) is never tried again: it cannot become true by waiting.
 export const RELEASE_WAITS_MS = [10000, 30000];
 const LEASE_REFUSED = /stale info|\[rejected\]/i;
-const NETWORK_FAILED = /failed to connect|could not resolve|unable to access|connection (timed out|reset|refused|closed)|timed out|timeout|\btls\b|\bssl|\b443\b|\b408\b|network is unreachable|early eof|remote end hung up/i;
-export const looksLikeNetworkFailure = text => !LEASE_REFUSED.test(String(text)) && NETWORK_FAILED.test(String(text));
+const AUTH_FAILED = /authentication|\b40[13]\b|not logged in/i;   // a refused login never becomes true by waiting, even when git adds "unable to access"
+const NETWORK_FAILED = /failed to connect|could not resolve|unable to access|connection (timed out|reset|refused|closed)|timed out|timeout|\btls\b|\bssl|\b443\b|\b408\b|network is unreachable|early eof|remote end hung up|dial tcp|i\/o timeout|no such host|\beof\s*$|\b50[234]\b|bad gateway|service unavailable/im;
+export const looksLikeNetworkFailure = text => !LEASE_REFUSED.test(String(text)) && !AUTH_FAILED.test(String(text)) && NETWORK_FAILED.test(String(text));
+
+// A read that fails on the network is asked again after each wait of `waits` (through ctx.sleep), one line per retry in `lines`. Only a Blocked
+// whose words looksLikeNetworkFailure is tried again; any other failure, and the failure after the last wait, goes up as it is.
+export const READ_WAITS_MS = [10000, 30000, 60000];
+export async function withNetworkRetry(ctx, fn, waits = READ_WAITS_MS, lines = []) {
+  for (let i = 0; ; i++) {
+    try { return await fn(); } catch (e) {
+      if (!(e instanceof Blocked) || i >= waits.length || !looksLikeNetworkFailure(e.message)) throw e;
+      lines.push(`land: network error (${firstLine(e.message)}); trying again in ${waits[i] / 1000} s`);
+      await ctx.sleep(waits[i]);
+    }
+  }
+}
 
 // delete OUR lock (a lease on its sha: a lock broken and taken by somebody else is never deleted by us)
 async function releaseLock(ctx, git, remote, lockSha) {
@@ -163,22 +192,29 @@ export async function land(ctx) {
   if (!url.ok) throw new Usage(`no remote named '${remote}' in ${ctx.repo}`);
 
   // the commit the REMOTE holds for the branch
-  const ls = git.run(['ls-remote', remote, `refs/heads/${branch}`], { timeout: 180000 });
-  if (!ls.ok) throw new Blocked(`could not read ${remote}: ${firstLine(ls.err || `exit ${ls.status}`)}`, 'check the network and the remote');
+  const lines = [`land: department ${m[1]} is the charter ${charter}`];
+  const ls = await withNetworkRetry(ctx, () => {
+    const r = git.run(['ls-remote', remote, `refs/heads/${branch}`], { timeout: 180000 });
+    if (!r.ok) throw new Blocked(`could not read ${remote}: ${firstLine(r.err || `exit ${r.status}`)}`, 'check the network and the remote');
+    return r;
+  }, READ_WAITS_MS, lines);
   const sha = refOf(ls.out, `refs/heads/${branch}`);
   if (!SHA.test(sha || '')) throw new Usage(`no branch ${branch} on ${remote}; push the commit there first: git push ${remote} <sha>:refs/heads/${branch}`);
   if (!git.run(['cat-file', '-e', `${sha}^{commit}`]).ok) {
-    const fe = git.run(['fetch', remote, branch], { timeout: 600000 });
-    if (!fe.ok || !git.run(['cat-file', '-e', `${sha}^{commit}`]).ok) throw new Blocked(`could not fetch ${branch} from ${remote}: ${firstLine(fe.err || 'the commit is still missing')}`, 'check the network and the remote');
+    await withNetworkRetry(ctx, () => {
+      const fe = git.run(['fetch', remote, branch], { timeout: 600000 });
+      if (!fe.ok) throw new Blocked(`could not fetch ${branch} from ${remote}: ${firstLine(fe.err || `exit ${fe.status}`)}`, 'check the network and the remote');
+    }, READ_WAITS_MS, lines);
+    if (!git.run(['cat-file', '-e', `${sha}^{commit}`]).ok) throw new Blocked(`could not fetch ${branch} from ${remote}: the commit is still missing`, 'check the network and the remote');
   }
 
   // the queue: the lock first, before the ci wait
-  const lines = [`land: department ${m[1]} is the charter ${charter}`, `land: ${branch} is ${sha} on ${remote}`];
+  lines.push(`land: ${branch} is ${sha} on ${remote}`);
   // a held lock is waited for in line: re-read every POLL_MS (ctx.sleep), the holder printed once and again only when it changes
   const lockWaitMs = lockWaitMinutes * 60000;
   let lock, waitedMs = 0, shown = '';
   for (;;) {
-    lock = takeLock(ctx, git, remote, { branch, sha, department: charter }, lines);
+    lock = await takeLock(ctx, git, remote, { branch, sha, department: charter }, lines);
     if (!lock.held) break;
     const h = lock.held;
     if (h.sha !== shown) { shown = h.sha; lines.push(`land: ${h.holder} holds the land lock since ${h.since} (${h.minutes} min) for ${h.branch}`); }
@@ -207,13 +243,15 @@ export async function land(ctx) {
 }
 
 // the sha master has on the remote now ('' when it has none): fetched, so the ancestor checks can run here
-function readMaster(git, remote) {
-  const fm = git.run(['fetch', remote, 'master'], { timeout: 600000 });
-  if (!fm.ok) throw new Blocked(`could not fetch master from ${remote}: ${firstLine(fm.err || `exit ${fm.status}`)}`, 'check the network and the remote');
-  const lm = git.run(['ls-remote', remote, 'refs/heads/master'], { timeout: 180000 });
-  if (!lm.ok) throw new Blocked(`could not read master of ${remote}: ${firstLine(lm.err || `exit ${lm.status}`)}`, 'check the network and the remote');
-  const master = refOf(lm.out, 'refs/heads/master');
-  return SHA.test(master || '') ? master : '';
+function readMaster(ctx, git, remote, lines) {
+  return withNetworkRetry(ctx, () => {
+    const fm = git.run(['fetch', remote, 'master'], { timeout: 600000 });
+    if (!fm.ok) throw new Blocked(`could not fetch master from ${remote}: ${firstLine(fm.err || `exit ${fm.status}`)}`, 'check the network and the remote');
+    const lm = git.run(['ls-remote', remote, 'refs/heads/master'], { timeout: 180000 });
+    if (!lm.ok) throw new Blocked(`could not read master of ${remote}: ${firstLine(lm.err || `exit ${lm.status}`)}`, 'check the network and the remote');
+    const master = refOf(lm.out, 'refs/heads/master');
+    return SHA.test(master || '') ? master : '';
+  }, READ_WAITS_MS, lines);
 }
 
 // ------------------------------------------------------------------------------------------------ the local master of this checkout
@@ -290,7 +328,7 @@ function settleLocal(git, sha, data, lines) {
 async function landLocked(ctx, git, { branch, department, charter, sha, remote, url, waitMinutes, lines }) {
   // master as it is now, BEFORE the ci wait (the holder before us may just have moved it): a commit already in it is finished here, and a
   // master that is not an ancestor of the commit is refused here instead of after up to an hour of waiting. The post-ci check below stays.
-  const early = readMaster(git, remote);
+  const early = await readMaster(ctx, git, remote, lines);
   const queued = { branch, department, charter, sha, remote, state: 'queued', pushed: false, lines, master: early || null };
   if (early && git.run(['merge-base', '--is-ancestor', sha, early]).ok) {
     lines.push(`land: ${sha} is already in master`);
@@ -305,9 +343,22 @@ async function landLocked(ctx, git, { branch, department, charter, sha, remote, 
 
   // wait for the ci run
   const waitMs = waitMinutes * 60000;
-  let elapsed = 0, noneMs = 0, last = '', v;
+  let elapsed = 0, noneMs = 0, unknownMs = 0, unknownShown = false, last = '', v;
   for (;;) {
-    v = await ciVerdict(ctx, { repo, sha, jobNames });
+    try {
+      v = await ciVerdict(ctx, { repo, sha, jobNames });
+      unknownMs = 0; unknownShown = false;
+    } catch (e) {
+      // gh could not reach GitHub: the verdict is unknown, which is never green. Polling goes on; a Blocked that is not the network ends the land at once.
+      if (!(e instanceof Blocked) || !looksLikeNetworkFailure(e.message)) throw e;
+      if (!unknownShown) { unknownShown = true; lines.push(`land: ci unknown: ${firstLine(e.message)}`); }
+      if (unknownMs >= CI_UNKNOWN_LIMIT_MS) throw new Blocked(`ci for ${sha} stayed unknown for ${unknownMs / 60000} minutes because GitHub could not be reached; the last error: ${firstLine(e.message)}`, 'check the network, then run land again');
+      if (elapsed >= waitMs) throw new Blocked(`ci for ${sha} is still unknown after ${waitMinutes} minutes because GitHub could not be reached; the last error: ${firstLine(e.message)}`, 'check the network, then run land again');
+      await ctx.sleep(POLL_MS);
+      elapsed += POLL_MS;
+      unknownMs += POLL_MS;
+      continue;
+    }
     if (v.state !== last) { last = v.state; lines.push(`land: ci ${v.state}${v.state === 'green' ? '' : `: ${v.lines[0]}`}`); }
     if (v.state === 'green' || v.state === 'red') break;
     if (v.state === 'none' && noneMs > NONE_LIMIT_MS) throw new Blocked(`no ci run for ${sha}; was it pushed?`, `git push ${remote} ${sha}:refs/heads/${branch}, then run land again`);
@@ -327,7 +378,7 @@ async function landLocked(ctx, git, { branch, department, charter, sha, remote, 
   lines.push(v.lines[0]);
 
   // green: fast-forward master only
-  const master = readMaster(git, remote);
+  const master = await readMaster(ctx, git, remote, lines);
   const hasMaster = master !== '';
   data.master = hasMaster ? master : null;
   if (hasMaster && git.run(['merge-base', '--is-ancestor', sha, master]).ok) {
