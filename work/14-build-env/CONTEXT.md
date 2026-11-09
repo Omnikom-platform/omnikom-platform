@@ -1,7 +1,7 @@
 # 14 build env
 
 Owner: platform build. Model: Sonnet (high). Branch: check/platform/build-env (built on check/platform/reaper, work order 13,
-which also edits `factory/runner/publish.mjs`). Status: BUILT 2026-11-09, head reviewed: run.mjs 96 of 96 re-run by the head, watched red by the head (build given the whole environment: 2 of 5 childenv checks FAIL), 4 new mutants caught (builder, heavy lock); CI and staging publish proof next. DONE at the land.
+which also edits `factory/runner/publish.mjs`). Status: staging PROVEN 2026-11-09 (7195dd0, CI 42577304600 9/9): publish.yml run from the branch (42584237792, workflow_dispatch) took job ebff9673 on test-site-demo-a: build, audit (0 FAIL), the real `npx wrangler` under the allow list ("Deployment complete! ... d7fab569.test-site-demo-a.pages.dev"), smoke 200 with noindex, "STEP done: deploy d7fab569"; job events queued -> building -> gating -> deploying -> done. Head reviewed: run.mjs 96 of 96, watched red (build given the whole environment: 2 of 5 childenv checks FAIL), 4 new mutants caught. Rebased on 862f50c (code 7b71b50); H0-3 marked done in the land commit. DONE at the land.
 
 ## Why
 Hardening H0-3, `docs/product/1-product.md` part E row E9. The build (`factory/runner/publish.mjs:137`, `factory/build.mjs`, which

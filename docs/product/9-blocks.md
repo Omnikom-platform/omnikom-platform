@@ -81,7 +81,7 @@ starts its next slice from its lowest open stage. A step lands with its test and
 |---|---|---|---|---|
 | H0-1 | H0 | done, e056cc5: the stale-job reaper is never scheduled; a stuck job blocks every later publish of that site | platform build | E4 |
 | H0-2 | H0 | bad-signature posts add undeletable security_events rows; a flood fills the Free plan's size cap | platform build | E5 |
-| H0-3 | H0 | build and audit run with RUNNER_KEY and the account-wide Pages token in their environment | platform build | E9 |
+| H0-3 | H0 | done, 7b71b50: build and audit run with RUNNER_KEY and the account-wide Pages token in their environment | platform build | E9 |
 | H0-4 | H0 | the media bucket has no size or type limit; direct inserts skip upload-start's caps | platform build | E10 |
 | H0-5 | H0 | the dispatch token can write the repo whose workflows hold the Cloudflare token; master unprotected (UNVERIFIED) | platform build | E9 |
 | H0-6 | H0 | the book's counts are typed by hand; a check in `tools/icm` recomputes them, checks WORKS paths and step owners | head of operations | E20 |
