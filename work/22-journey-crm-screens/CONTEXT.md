@@ -1,6 +1,6 @@
 # 22 journey crm screens
 
-Owner: cli-and-testing. Model: sonnet, effort high. Branch: check/cli/journey-crm-screens. Status: OPEN (built, unit run 654 of 654; CI, then the staging run J1,J12 decide).
+Owner: cli-and-testing. Model: sonnet, effort high. Branch: check/cli/journey-crm-screens. Status: OPEN (built; staging J1,J12 PASS 2026-11-09 10:50; lands after platform's 14).
 
 ## Why
 Block 3a, the CRM screens (work order 07, landed `59e947e` and `33d59c2`), has no step in `omnikom test journey`, so the one
@@ -50,3 +50,13 @@ A red in the dashboard tests themselves, or anything outside these files, is a f
   existing mutants need their target text once); the sessions.clear mutant text re-indented, UNPROVEN until CI's cli job. The
   "J5, J6 and J7 BLOCKED, nothing sent" check now asserts exactly 2 playwright calls (J12's). UNPROVEN: the real crmShots against
   a browser and staging (only stubbed seams ran); it reads rows as `tbody tr` after ticking the All radio, at both widths.
+- Head, 2026-11-09: CI on 85569a5 9 of 9 (CLI 856 of 856, "508 mutants, 508 caught, 0 survived, 0 target text missing", so the
+  re-indented sessions.clear mutant is proven). First staging run 08:52: both dashboard tests PASS, shots red "the list shows no
+  rows for owner-a": owner-a holds no lead on staging, so "rows > 0" tested the data. Fixed: J12 adds one marked lead as owner-a
+  (add-lead, no email), the shots must find it at both widths, it is removed with the confirm flag (also when the shots throw);
+  unit run 688 of 688, 7 more mutants watched red. Staging run 10:50, pasted:
+  "J12 PASS CRM screens: the owner test passed: ... (87.8 s); the agent test passed: ... (9.7 s); the lead "Screens check 5a96ce51"
+  made for owner-a was on the Leads list at both widths (phone (390 px) 1 row(s) ..., desktop 1 row(s) ...) and was removed again",
+  "cleanup: 0 journey lead(s) removed, 0 left", "journey (staging): 2 PASS, 0 NOT BUILT YET, 0 FAIL". The phone PNG was looked at:
+  the lead's row is on the list. Still UNPROVEN: the J12 "0 tests ran" check has no mutant of its own (the zero-tests-guard mutant
+  covers the same text).

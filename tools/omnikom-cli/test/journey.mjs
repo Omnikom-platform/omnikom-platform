@@ -59,7 +59,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const crmFake = (o = {}) => {
     const fields = o.fields || FIELDS, store = { leads: [], seen: new Set(), log: [] };
     const lead = (marker, ans) => {
-      if (!store.seen.has(marker)) { store.seen.add(marker); store.leads.push({ id: `lead-${store.seen.size}`, name: marker, phone: '(555) 010-0153', status: 'new', owner: null, events: 0, answers: { ...(ans || o.stored || J.journeyAnswers(fields)) } }); store.peak = Math.max(store.peak || 0, store.leads.filter(l => !/IO check/.test(l.name)).length);
+      if (!store.seen.has(marker)) { store.seen.add(marker); store.leads.push({ id: `lead-${store.seen.size}`, name: marker, phone: '(555) 010-0153', status: 'new', owner: null, events: 0, answers: { ...(ans || o.stored || J.journeyAnswers(fields)) } }); store.peak = Math.max(store.peak || 0, store.leads.filter(l => !/IO check|Screens check/.test(l.name)).length);
         if (o.dupMarker) store.leads.push({ id: 'lead-dup', name: marker + ' again', phone: '', status: 'new', owner: null, events: 0, answers: {} }); }
     };
     const rowOf = l => ({ id: l.id, name: l.name, email: l.email || '', form: l.form || 'contact', phone: l.phone, status: l.status, owner: l.owner, ...(o.stringNumbers ? Object.fromEntries(Object.entries(l.answers).map(([k, v]) => [k, typeof v === 'number' ? String(v) : v])) : l.answers) });
@@ -84,12 +84,13 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
           store.tpl = body.columns; return ok({ template: 'tpl-1' });
         }
         if (name === 'add-lead') {
+          if (o.screensAddFails && /^Screens check/.test(body.name)) return ok({ code: 'S-X' }, 500);
           const nk = fields.find(x => x.type === 'number').key, v = (body.answers || {})[nk];
           if (v !== undefined && !Number.isFinite(Number(v)) && !o.badAnswerAccepted && !o.answerRefusedWithOk) return ok({ code: 'I-ANSWER', path: nk }, o.answerStatus || 400);
           if (v !== undefined && !Number.isFinite(Number(v)) && o.answerRefusedWithOk) return ok({ code: 'I-ANSWER', path: nk }, 201);
           const typed = { ...(body.answers || {}) }; if (v !== undefined && Number.isFinite(Number(v))) typed[nk] = Number(v);
           store.seen.add(body.name); store.leads.push({ id: `lead-add-${store.leads.length + 1}`, name: body.name, email: body.email, phone: body.phone, form: 'dashboard', status: 'new', owner: null, events: 0, answers: typed });
-          store.peak = Math.max(store.peak || 0, store.leads.filter(l => !/IO check/.test(l.name)).length);
+          store.peak = Math.max(store.peak || 0, store.leads.filter(l => !/IO check|Screens check/.test(l.name)).length);
           return ok({ lead: { id: 'x' } }, 201);
         }
         if (name === 'lead-export' && body.template) {
@@ -125,7 +126,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
               answers: { [nk]: Number(r[bi]) }, consent_text: o.wrongConsent ? `Imported from ${body.file_name}` : o.consentNoFile ? `${J.CONSENT_START}2026-11-04.` : `${J.CONSENT_START}2026-11-04. File: ${body.file_name}` });
             created++;
           }
-          store.peak = Math.max(store.peak || 0, store.leads.filter(l => !/IO check/.test(l.name)).length);
+          store.peak = Math.max(store.peak || 0, store.leads.filter(l => !/IO check|Screens check/.test(l.name)).length);
           return ok({ rows: data.length, created, skipped });
         }
         if (name === 'lead-list') {
@@ -194,7 +195,12 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     async alertsOnlyTo() { return typeof o.alertsOnlyTo === 'function' ? o.alertsOnlyTo() : o.alertsOnlyTo === undefined ? true : o.alertsOnlyTo; },
     ...(o.exportCsv ? { async exportCsv(who, marker) { return o.exportCsv(marker); } } : {}),
     async inboxShot(who, marker, file) { return o.inboxShot ? o.inboxShot(marker, file) : { found: true, file, written: true }; },
-    async crmShots(who, files) { this.calls.push('crmShots'); return o.crmShots ? o.crmShots(files) : { phone: { file: files.phone, written: true, rows: 5 }, desktop: { file: files.desktop, written: true, rows: 5 } }; },
+    async crmShots(who, files, marker) {
+      this.calls.push('crmShots'); this.store.log.push(`shots:${marker}:${this.store.leads.some(l => l.name === marker) ? 'lead-there' : 'no-lead'}`);
+      if (o.shotsThrow) throw new Error('the browser died');
+      const found = o.markerNotShown ? false : this.store.leads.some(l => l.name === marker);
+      return o.crmShots ? o.crmShots(files, found) : { phone: { file: files.phone, written: true, rows: 5, found }, desktop: { file: files.desktop, written: true, rows: 5, found } };
+    },
     ...(o.seed ? { seed: o.seed } : {}), ...(o.workspacesAs ? { workspacesAs: o.workspacesAs } : {}),
   });
   const base = { alertTo: ALERT, previewBase: 'http://x.invalid' };
@@ -451,7 +457,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const b7 = await crmRun({ refuseButDelete: true });
   check('journey J10: a delete that is refused and still removes the lead is a FAIL ("is gone after")', b7.byId.J10.status === 'FAIL' && /a lead is gone after a delete without the confirm flag was refused/.test(b7.byId.J10.evidence), b7.byId.J10.evidence);
   const b8 = await crmRun({ deleteKeeps: true });
-  check('journey J10: a confirmed delete after which lead-list still finds the lead is a FAIL', b8.byId.J10.status === 'FAIL' && /still finds 1\+1 lead/.test(b8.byId.J10.evidence) && b8.impl.store.leads.filter(l => !/IO check/.test(l.name)).length === 2, b8.byId.J10.evidence);
+  check('journey J10: a confirmed delete after which lead-list still finds the lead is a FAIL', b8.byId.J10.status === 'FAIL' && /still finds 1\+1 lead/.test(b8.byId.J10.evidence) && b8.impl.store.leads.filter(l => !/IO check|Screens check/.test(l.name)).length === 2, b8.byId.J10.evidence);
   // ---- J11: CRM export and import (crm-2): a good run, then each planted fault goes red for its own reason
   const io = good;
   check('journey J11: the export and import PASS, and every lead it made is gone (the marker is IO check <run id>)', io.byId.J11.status === 'PASS' && io.impl.store.leads.length === 0, io.byId.J11.evidence);
@@ -493,7 +499,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     blk.byId.J10.status === 'BLOCKED' && blk.impl.store.leads.length === 0 && /^cleanup: 2 journey lead\(s\) removed, 0 left$/m.test(blk.text) && !blk.res.ok && blk.res.data.cleanup.left.length === 0, blk.text);
   const gone = await crmRun({ bulkDown: true });
   check('journey clean-up: when the clean-up itself cannot run it prints a BLOCKED line naming the leads that may be left, and the run is not ok',
-    gone.byId.J10.status === 'BLOCKED' && /^cleanup BLOCKED: 2 journey lead\(s\) may be left \(Journey abcdef12, Order check abcdef12\): .*403/m.test(gone.text) && !gone.res.ok && gone.impl.store.leads.length === 2, gone.text);
+    gone.byId.J10.status === 'BLOCKED' && /^cleanup BLOCKED: 2 journey lead\(s\) may be left \(Journey abcdef12, Order check abcdef12\): .*403/m.test(gone.text) && !gone.res.ok && gone.impl.store.leads.length === 2, gone.text);   // J12 is BLOCKED at its add-lead here: it made no lead, so none is named
   const g5 = await crmRun({ bulkDown: true, preLead: true }, { only: 'J5' });
   check('journey clean-up: every step green but the clean-up unable to run is still a not-ok run (exit 1), with the lead named',
     g5.byId.J5.status === 'PASS' && /^cleanup BLOCKED: 1 journey lead\(s\) may be left \(Journey abcdef12\)/m.test(g5.text) && !g5.res.ok && g5.obj.exit === 1, g5.text);
@@ -526,18 +532,41 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     check('journey J12: the owner test red is a FAIL that names J12a and its first line, and says 1 of 3 parts', a.byId.J12.status === 'FAIL' && /^1 of 3 parts red: the owner test \(J12a\): the dashboard test ".{20}/.test(a.byId.J12.evidence) && !/J12b/.test(a.byId.J12.evidence) && a.byId.J12.pngs.length === 2 && !a.res.ok, a.byId.J12.evidence);
     const bb = await crmRun({ playwright: pwRed('J12b') }, { only: 'J1,J12', 'alert-to': undefined });
     check('journey J12: the agent test red is a FAIL that names J12b and not J12a', bb.byId.J12.status === 'FAIL' && /^1 of 3 parts red: the agent test \(J12b\): /.test(bb.byId.J12.evidence) && !/J12a/.test(bb.byId.J12.evidence), bb.byId.J12.evidence);
-    const noRows = await crmRun({ crmShots: f => ({ phone: { file: f.phone, written: true, rows: 0 }, desktop: { file: f.desktop, written: true, rows: 5 } }) }, { only: 'J1,J12', 'alert-to': undefined });
+    const noRows = await crmRun({ crmShots: f => ({ phone: { file: f.phone, written: true, rows: 0, found: true }, desktop: { file: f.desktop, written: true, rows: 5, found: true } }) }, { only: 'J1,J12', 'alert-to': undefined });
     check('journey J12: a Leads list with no rows at the phone width is a FAIL that says "the list shows no rows for owner-a" and names the width', noRows.byId.J12.status === 'FAIL' && /^1 of 3 parts red: the Leads list shots \(shots\): phone \(390 px\): the list shows no rows for owner-a$/.test(noRows.byId.J12.evidence), noRows.byId.J12.evidence);
-    const noRowsD = await crmRun({ crmShots: f => ({ phone: { file: f.phone, written: true, rows: 5 }, desktop: { file: f.desktop, written: true, rows: 0 } }) }, { only: 'J1,J12', 'alert-to': undefined });
+    const noRowsD = await crmRun({ crmShots: f => ({ phone: { file: f.phone, written: true, rows: 5, found: true }, desktop: { file: f.desktop, written: true, rows: 0, found: true } }) }, { only: 'J1,J12', 'alert-to': undefined });
     check('journey J12: no rows at the desktop width is a FAIL too', noRowsD.byId.J12.status === 'FAIL' && /shots\): desktop: the list shows no rows for owner-a$/.test(noRowsD.byId.J12.evidence), noRowsD.byId.J12.evidence);
-    const noPng = await crmRun({ crmShots: f => ({ phone: { file: f.phone, written: true, rows: 5 }, desktop: { file: f.desktop, written: false, rows: 5 } }) }, { only: 'J1,J12', 'alert-to': undefined });
+    const noPng = await crmRun({ crmShots: f => ({ phone: { file: f.phone, written: true, rows: 5, found: true }, desktop: { file: f.desktop, written: false, rows: 5, found: true } }) }, { only: 'J1,J12', 'alert-to': undefined });
     check('journey J12: a shot that was not written is a FAIL naming the file, and only the written PNG is listed', noPng.byId.J12.status === 'FAIL' && /shots\): desktop: .*j12-crm-owner-a-desktop\.png was not written$/.test(noPng.byId.J12.evidence) && noPng.byId.J12.pngs.length === 1, noPng.byId.J12.evidence);
-    const all3 = await crmRun({ playwright: (f, t) => ({ ran: 1, rows: [{ title: t, statuses: ['unexpected'], ms: 10 }], failed: 1, flaky: 0, error: null }), crmShots: f => ({ phone: { file: f.phone, written: true, rows: 0 }, desktop: { file: f.desktop, written: true, rows: 0 } }) }, { only: 'J1,J12', 'alert-to': undefined });
+    const all3 = await crmRun({ playwright: (f, t) => ({ ran: 1, rows: [{ title: t, statuses: ['unexpected'], ms: 10 }], failed: 1, flaky: 0, error: null }), crmShots: f => ({ phone: { file: f.phone, written: true, rows: 0, found: true }, desktop: { file: f.desktop, written: true, rows: 0, found: true } }) }, { only: 'J1,J12', 'alert-to': undefined });
     check('journey J12: all three parts red are all reported, not only the first ("3 of 3 parts red", J12a, J12b and both widths named)', all3.byId.J12.status === 'FAIL' && /^3 of 3 parts red: .*\(J12a\).*\(J12b\).*\(shots\): phone .*; desktop: /.test(all3.byId.J12.evidence), all3.byId.J12.evidence);
     const renamed = await crmRun({ playwright: () => ({ ran: 0, rows: [], failed: 0, flaky: 0, error: null }) }, { only: 'J1,J12', 'alert-to': undefined });
     check('journey J12: a renamed test (0 tests ran) is a FAIL that says 0 tests ran, never a pass on "no tests found"', renamed.byId.J12.status === 'FAIL' && /0 tests ran for "search, a filter/.test(renamed.byId.J12.evidence) && /0 tests ran for "member-a1 sees no Import/.test(renamed.byId.J12.evidence), renamed.byId.J12.evidence);
     const other = await crmRun({ playwright: (f, t) => ({ ran: 2, rows: [{ title: t, statuses: ['expected'], ms: 10 }, { title: 'another test', statuses: ['expected'], ms: 10 }], failed: 0, flaky: 0, error: null }) }, { only: 'J1,J12', 'alert-to': undefined });
     check('journey J12: a run that also ran another test is a FAIL', other.byId.J12.status === 'FAIL' && /a test other than the named one ran/.test(other.byId.J12.evidence), other.byId.J12.evidence);
+    // the marker lead: owner-a holds no lead of its own on staging, so J12 makes one before the shots and removes it after
+    const log = j.impl.store.log, ia = log.indexOf('owner-a:add-lead:'), is = log.findIndex(x => x.startsWith('shots:')), id = log.lastIndexOf('owner-a:leads-bulk:delete+confirm');
+    check('journey J12 marker lead: add-lead as owner-a first, the shots find it there, then a confirmed delete; none is left, the run id is in its name, the PASS line names it',
+      ia >= 0 && ia < is && is < id && log[is] === 'shots:Screens check abcdef12:lead-there' && j.impl.store.leads.length === 0 && j.byId.J12.evidence.includes('"Screens check abcdef12"') && /and was removed again$/.test(j.byId.J12.evidence), log.join(' | '));
+    const thrown = await crmRun({ shotsThrow: true }, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12 marker lead: when the shots throw the lead is removed anyway, and the step is a FAIL that says what happened', thrown.byId.J12.status === 'FAIL' && /journey error: the browser died/.test(thrown.byId.J12.evidence) && thrown.impl.store.leads.length === 0 && thrown.impl.store.log.includes('owner-a:leads-bulk:delete+confirm'), thrown.byId.J12.evidence + ' | left: ' + thrown.impl.store.leads.length);
+    const thrownKeep = await crmRun({ shotsThrow: true, deleteKeeps: true }, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12 marker lead: when the shots throw and the removal fails too, the FAIL names both', thrownKeep.byId.J12.status === 'FAIL' && /the browser died; the lead "Screens check abcdef12" was NOT removed \(1 left\)/.test(thrownKeep.byId.J12.evidence), thrownKeep.byId.J12.evidence);
+    const hidden = await crmRun({ crmShots: (f2) => ({ phone: { file: f2.phone, written: true, rows: 5, found: false }, desktop: { file: f2.desktop, written: true, rows: 5, found: true } }) }, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12 marker lead: the lead not on the list at the phone width (rows there, but not this one) is a FAIL naming the lead and the width, and the lead is removed',
+      hidden.byId.J12.status === 'FAIL' && /^1 of 3 parts red: the Leads list shots \(shots\): phone \(390 px\): the lead Screens check abcdef12 made for owner-a is not on the list at phone \(390 px\)$/.test(hidden.byId.J12.evidence) && hidden.impl.store.leads.length === 0, hidden.byId.J12.evidence);
+    const hiddenD = await crmRun({ crmShots: (f2) => ({ phone: { file: f2.phone, written: true, rows: 5, found: true }, desktop: { file: f2.desktop, written: true, rows: 5, found: false } }) }, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12 marker lead: not on the list at the desktop width is a FAIL naming desktop', hiddenD.byId.J12.status === 'FAIL' && /shots\): desktop: the lead Screens check abcdef12 made for owner-a is not on the list at desktop$/.test(hiddenD.byId.J12.evidence), hiddenD.byId.J12.evidence);
+    const emptyList = await crmRun({ crmShots: (f2) => ({ phone: { file: f2.phone, written: true, rows: 0, found: false }, desktop: { file: f2.desktop, written: true, rows: 0, found: false } }) }, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12 marker lead: an empty list still reads "the list shows no rows for owner-a" (the 2026-11-04 red), then names the lead', /phone \(390 px\): the list shows no rows for owner-a; the lead Screens check abcdef12 made for owner-a is not on the list at phone \(390 px\); desktop: the list shows no rows for owner-a; the lead/.test(emptyList.byId.J12.evidence), emptyList.byId.J12.evidence);
+    const keeps = await crmRun({ deleteKeeps: true }, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12 marker lead: a removal that answers 200 while the lead is still listed is a FAIL naming the lead', keeps.byId.J12.status === 'FAIL' && /^1 of 3 parts red: the Leads list shots \(shots\): the lead "Screens check abcdef12" was NOT removed \(1 left\)$/.test(keeps.byId.J12.evidence) && keeps.byId.J12.pngs.length === 2, keeps.byId.J12.evidence);
+    const noDelete = await crmRun({ bulkDown: true }, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12 marker lead: a removal that cannot run is a FAIL saying the lead may be left (and the clean-up line says so too)', noDelete.byId.J12.status === 'FAIL' && /the lead "Screens check abcdef12" may be left: /.test(noDelete.byId.J12.evidence) && /^cleanup BLOCKED: 1 journey lead\(s\) may be left/m.test(noDelete.text) && !noDelete.res.ok, noDelete.byId.J12.evidence + ' | ' + noDelete.text);
+    const noAdd = await crmRun({ screensAddFails: true }, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12 marker lead: an add-lead that fails is a FAIL naming HTTP 500, and no shot is taken', noAdd.byId.J12.status === 'FAIL' && /add-lead for the shots answered HTTP 500/.test(noAdd.byId.J12.evidence) && !noAdd.impl.calls.includes('crmShots'), noAdd.byId.J12.evidence);
+    const unseen = await crmRun({ markerNotShown: true }, { only: 'J1,J12', 'alert-to': undefined });
+    check('journey J12 marker lead: found false at both widths (the lead was made, the screen shows rows without it) names both widths', unseen.byId.J12.status === 'FAIL' && /at phone \(390 px\); desktop: the lead Screens check abcdef12 made for owner-a is not on the list at desktop$/.test(unseen.byId.J12.evidence), unseen.byId.J12.evidence);
   }
 
   const crash = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ seed: async () => { throw new Error('socket hang up'); } }) });
@@ -608,31 +637,33 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     check('journey J6 inbox: a preview that does not come up fails naming the URL it waited on', why.includes(pp.baseUrl(port2)) && /60 s/.test(why), why);
 
     // J12's shots (crmShots): the same preview, then one signed-in page per width (390 phone, 1536 desktop) on the Leads list set to "All", rows counted, PNG written
-    const mkShots = (rowCount) => {
-      const calls = { spawn: [], opened: [], viewports: [], checked: [], png: [], closed: 0 };
+    const mkShots = (rowCount, markerShown = true) => {
+      const calls = { spawn: [], opened: [], viewports: [], checked: [], png: [], waited: [], closed: 0 };
       const sctx = makeCtx({ command: 'test', positionals: ['test', 'journey'], flags: { target: 'staging' }, deps: { env: ENV, sleep: async () => {}, fetch: async () => ({ status: 200, json: async () => ({ hashed_token: 'hash-' + rand() }) }) } });
       const impl = J.makeImpl(sctx, {
         ensureBuilt: async () => {},
         importer: async rel => (rel.includes('proc-guard') ? { killTree: () => true } : pathToFileURLish(rel)),
         spawn: (cmd, args, opts) => { calls.spawn.push({ args, env: opts.env }); return { pid: 4000002 }; },
         httpUp: async () => true,
-        launch: async () => ({ newPage: async vp => { calls.viewports.push(vp.width); return { open: async url => { calls.opened.push(url); }, waitFor: async () => true, has: async () => true, check: async s => { calls.checked.push(s); }, eval: async () => rowCount, screenshot: async f => { writeFileSync(f, 'png'); calls.png.push(f); return 3; }, close: async () => { calls.closed++; } }; }, close: async () => {} }),
+        launch: async () => ({ newPage: async vp => { calls.viewports.push(vp.width); return { open: async url => { calls.opened.push(url); }, waitFor: async e => { calls.waited.push(e); return /innerText\.includes/.test(e) ? markerShown : true; }, has: async () => true, check: async s => { calls.checked.push(s); }, eval: async () => rowCount, screenshot: async f => { writeFileSync(f, 'png'); calls.png.push(f); return 3; }, close: async () => { calls.closed++; } }; }, close: async () => {} }),
       });
       return { calls, impl };
     };
     const sh = mkShots(7);
     const files = { phone: join(work, 'shots-phone.png'), desktop: join(work, 'shots-desktop.png') };
-    const got = await sh.impl.crmShots('owner-a', files);
+    const got = await sh.impl.crmShots('owner-a', files, 'Screens check zz');
     const spx = sh.calls.spawn[0] || { args: [], env: {} }, portx = Number(spx.env[pp.PORT_ENV]);
     check('journey J12 shots: one page per width (390 and 1536), each signed in with its own link on the preview\'s port, the Leads list set to All, rows counted, both PNGs written',
       JSON.stringify(sh.calls.viewports) === '[390,1536]' && sh.calls.opened.length === 2 && sh.calls.opened.every(u => u.startsWith(pp.baseUrl(portx) + '/auth/confirm?token_hash=')) && new Set(sh.calls.opened).size === 2 && sh.calls.checked.join() === 'input[name=filter][value=all],input[name=filter][value=all]'
-        && pp.inBlock(portx) && !onOldPort(sh.calls) && got.phone.rows === 7 && got.desktop.rows === 7 && got.phone.written && got.desktop.written && got.phone.file === files.phone && got.desktop.file === files.desktop && existsSync(files.phone) && existsSync(files.desktop) && sh.calls.closed === 2, JSON.stringify(sh.calls));
-    const none = await mkShots(0).impl.crmShots('owner-a', files);
+        && pp.inBlock(portx) && !onOldPort(sh.calls) && got.phone.rows === 7 && got.desktop.rows === 7 && got.phone.found === true && got.desktop.found === true && sh.calls.waited.filter(e => e.includes('"Screens check zz"')).length === 2 && got.phone.written && got.desktop.written && got.phone.file === files.phone && got.desktop.file === files.desktop && existsSync(files.phone) && existsSync(files.desktop) && sh.calls.closed === 2, JSON.stringify(sh.calls));
+    const none = await mkShots(0).impl.crmShots('owner-a', files, 'Screens check zz');
+    const unfound = await mkShots(7, false).impl.crmShots('owner-a', files, 'Screens check zz');
+    check('journey J12 shots: a marker lead that never shows on the list is found false at both widths (rows still counted)', unfound.phone.found === false && unfound.desktop.found === false && unfound.phone.rows === 7);
     check('journey J12 shots: a list with no row on screen is reported as rows 0 (the step calls it a FAIL)', none.phone.rows === 0 && none.desktop.rows === 0 && none.phone.written === true);
     const downShots = mkShots(1);
     downShots.impl = J.makeImpl(makeCtx({ command: 'test', positionals: ['test', 'journey'], flags: { target: 'staging' }, deps: { env: ENV, sleep: async () => {} } }), { ensureBuilt: async () => {}, importer: async rel => (rel.includes('proc-guard') ? { killTree: () => true } : pathToFileURLish(rel)), spawn: () => ({ pid: 4000003 }), httpUp: async () => false, launch: async () => { throw new Error('no browser should start'); } });
     let whyShots = '';
-    try { await downShots.impl.crmShots('owner-a', files); } catch (e) { whyShots = e.message; }
+    try { await downShots.impl.crmShots('owner-a', files, 'Screens check zz'); } catch (e) { whyShots = e.message; }
     check('journey J12 shots: a preview that does not come up fails naming its URL and starts no browser', /did not come up at http:\/\/127\.0\.0\.1:\d+ in 60 s/.test(whyShots), whyShots);
   }
 

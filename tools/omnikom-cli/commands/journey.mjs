@@ -432,7 +432,9 @@ export const STEPS = [
     return { status: 'PASS', evidence: `map proposed (${H.b} and ${H.t} to the industry fields) and saved by the owner (member refused 403); add-lead types its answers and refuses "lots" (I-ANSWER); lead-export in the map's ${want.length} columns and order with typed ${H.b}, the phone in US form; import: dry run 2 rows 2 duplicates writes nothing, no tick refused (I-CONSENT), a bad line refused whole (I-IMPORT line 4 ${nf.key}), member refused 403, then 2 created 1 skipped with the consent sentence; the ${rows.length} leads of this run removed` };
   } },
   // J12: the CRM screens of work order 07. Both dashboard tests and the two shots always run, so one line names every part that is red. It sends no lead
-  // and no email (the dashboard tests make their own marked leads and remove them), so it needs no --alert-to.
+  // alert and no email (the dashboard tests make their own marked leads and remove them), so it needs no --alert-to. owner-a holds no lead of its own on
+  // staging, so the shots would find an empty list whatever the screen does: J12 adds one marked lead as owner-a (add-lead, as J11 does), the shots must
+  // find that lead on screen at both widths, and it is removed again (confirmed delete) whether the shots worked or threw.
   { id: 'J12', name: 'CRM screens', needs: ['J1'], async run(c) {
     const first = (v, tag) => `${tag}: ${v.evidence}`;
     const bad = [], ok = [], pngs = [];
@@ -442,18 +444,44 @@ export const STEPS = [
       else bad.push(first(v, `${who} (${tag})`));
     }
     const files = { phone: join(c.out, 'j12-crm-owner-a-phone.png'), desktop: join(c.out, 'j12-crm-owner-a-desktop.png') };
-    const shots = await c.impl.crmShots('owner-a', files);
+    const marker = `Screens check ${c.runId}`;   // the run id is in the name, so the orchestrator's clean-up finds it too
+    c.state.io = true;   // the orchestrator's clean-up looks for this run's leads
+    const removeMine = async () => {
+      try {
+        const f = await findLead(c, marker);
+        if (f.rows.length) {
+          const d = await c.impl.crm('owner-a', 'leads-bulk', { workspace: WS_A, ids: f.rows.map(x => x.id), action: 'delete', confirm: true });
+          if (d.status !== 200) return `the lead "${marker}" was NOT removed (leads-bulk answered HTTP ${d.status})`;
+        }
+        const left = (await findLead(c, marker)).rows.length;
+        return left ? `the lead "${marker}" was NOT removed (${left} left)` : null;
+      } catch (e) { return `the lead "${marker}" may be left: ${clip(e && e.message || e, 100)}`; }
+    };
+    const added = await c.impl.crm('owner-a', 'add-lead', { site: SITE_A, name: marker, email: `screens-${c.runId}@example.com`, answers: journeyAnswers(await c.impl.crmFields()), consentText: 'Synthetic journey lead: agreed to be contacted' });
+    if (added.status === 201) c.state.screens = marker;   // named by the orchestrator's clean-up line if the lead cannot be removed
     const seen = [], shotBad = [];
-    for (const [name, label] of [['phone', 'phone (390 px)'], ['desktop', 'desktop']]) {
-      const s = (shots && shots[name]) || { file: files[name], written: false, rows: 0 };
-      if (s.written) pngs.push(s.file);
-      if (!s.written) shotBad.push(`${label}: ${s.file} was not written`);
-      else if (!(s.rows > 0)) shotBad.push(`${label}: the list shows no rows for owner-a`);
-      else seen.push(`${label} ${s.rows} row(s) in ${s.file.split(/[\\/]/).pop()}`);
+    if (added.status !== 201) shotBad.push(`add-lead for the shots answered HTTP ${added.status} ${clip(added.text, 90)} (wanted 201), so no shot was taken`);
+    else {
+      let shots;
+      try { shots = await c.impl.crmShots('owner-a', files, marker); }
+      catch (e) { const left = await removeMine(); throw left ? new Error(`${clip(e && e.message || e, 120)}; ${left}`) : e; }
+      const left = await removeMine();
+      for (const [name, label] of [['phone', 'phone (390 px)'], ['desktop', 'desktop']]) {
+        const s = (shots && shots[name]) || { file: files[name], written: false, rows: 0, found: false };
+        if (s.written) pngs.push(s.file);
+        const why = [];
+        if (!s.written) why.push(`${s.file} was not written`);
+        else {
+          if (!(s.rows > 0)) why.push('the list shows no rows for owner-a');
+          if (!s.found) why.push(`the lead ${marker} made for owner-a is not on the list at ${label}`);
+        }
+        if (why.length) shotBad.push(`${label}: ${why.join('; ')}`); else seen.push(`${label} ${s.rows} row(s) in ${s.file.split(/[\\/]/).pop()}`);
+      }
+      if (left) shotBad.push(left);
     }
     if (shotBad.length) bad.push(`the Leads list shots (shots): ${shotBad.join('; ')}`);
     if (bad.length) return { status: 'FAIL', evidence: `${bad.length} of 3 parts red: ${bad.join('; ')}`, pngs };
-    return { status: 'PASS', evidence: `${ok.join('; ')}; owner-a's Leads list on screen with rows: ${seen.join(', ')}`, pngs };
+    return { status: 'PASS', evidence: `${ok.join('; ')}; the lead "${marker}" made for owner-a was on the Leads list at both widths (${seen.join(', ')}) and was removed again`, pngs };
   } },
 ];
 
@@ -484,7 +512,7 @@ export async function runJourney(c, { only = null, steps = STEPS } = {}) {
 // After the steps (any status, a throw or a Blocked inside J10 included) the orchestrator looks for every lead whose name carries this run's id and
 // deletes it with leads-bulk (confirm flag) on the run's cached session, then looks again. Nothing is done when the run made no lead.
 export async function cleanupLeads(c) {
-  const st = c.state, known = [st.marker, st.fallback && st.fallback.marker, st.second && st.second.marker].filter(Boolean);
+  const st = c.state, known = [st.marker, st.fallback && st.fallback.marker, st.second && st.second.marker, st.screens].filter(Boolean);
   if (!(st.marker || st.fallback || st.fallbackFail || st.second || st.io)) return null;
   const mine = async () => {
     const r = await c.impl.crm('owner-a', 'lead-list', { workspace: WS_A, search: c.runId, size: 200 });
@@ -679,8 +707,8 @@ export function makeImpl(ctx, seams = {}) {
       });
     },
     // J12: owner's Leads list on "All" at the phone width and at the desktop width, one signed-in page per width (a sign-in link is used once). Per width:
-    // the PNG, and how many lead rows were on screen (0 = the list rendered no rows, which J12 calls a FAIL)
-    async crmShots(who, files) {
+    // the PNG, how many lead rows were on screen, and whether the marker lead (made for the owner before the shots) is on the list (found)
+    async crmShots(who, files, marker) {
       return withPreview(async (base, open) => {
         const b = await open(), out = {};
         for (const vp of VIEWPORTS) {
@@ -690,10 +718,11 @@ export function makeImpl(ctx, seams = {}) {
           const all = 'input[name=filter][value=all]';
           if (await page.waitFor(`document.querySelector(${JSON.stringify(all)})`, 20000)) await page.check(all);
           await page.waitFor(`document.querySelectorAll('tbody tr').length > 0 && !document.querySelector('[data-busy="true"]')`, 20000);
+          const found = await page.waitFor(`document.body && document.body.innerText.includes(${JSON.stringify(marker)})`, 20000);
           const rows = Number(await page.eval(`document.querySelectorAll('tbody tr').length`)) || 0;
           const file = files[vp.name];
           await page.screenshot(file);
-          out[vp.name] = { file, written: this.fileSize(file) > 0, rows };
+          out[vp.name] = { file, written: this.fileSize(file) > 0, rows, found };
           await page.close();
         }
         return out;
