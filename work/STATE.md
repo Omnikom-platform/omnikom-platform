@@ -33,7 +33,7 @@ their CI runs, and `docs/blueprint/PROGRESS.md`.
 - Known gap: CI runs no job for `tools/crm-map` tests or mutants (its full local run: 118 of 119 caught, 1 target text
   missing, 0 survived); CLI's ci-coverage slice adds it and lists every other suite no CI job runs.
 - Product counts (`1-product.md`, computed from the rows): CRM 18, 3, 5 of 26; dashboard 8, 7, 7 of 22; backend 12, 4, 1
-  of 17; factory 9, 1, 0 of 10; hardening (part E, new 2026-11-05) 0, 12, 9 of 21. Total 47 works of 96.
+  of 17; factory 9, 1, 0 of 10; hardening (part E) 1, 12, 8 of 21. Total 48 works of 96 (the book now checks its own counts, H0-6).
 
 ## Next, in order
 
@@ -42,7 +42,7 @@ feature blocks.
 1. Platform build: H0-1 to H0-5; land 08 settings (`47c725b`) and 10 seo-read (`1fa9059`); H1 steps; then 3b, 5, 6, 7.
 2. CLI and testing: ci-coverage (`190b9e2`), land retries, H2-10; a journey step per block platform lands.
 3. SEO and audits: 4b, questions 2 to 5 of the report; then the omnikom.ai site plan (`9-blocks.md`).
-4. Head of operations: H0-6, the book's self-check in `tools/icm` (a builder); cut old logs and charters.
+4. Head of operations: H0-6 done (work order 12); cut old logs and charters.
 
 ## Open owner questions
 
