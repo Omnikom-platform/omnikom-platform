@@ -1,0 +1,206 @@
+{
+  "industry": "real-estate",
+  "readAt": "2026-11-09",
+  "note": "Quotes were fetched and copied by sub-agent readers (WebFetch) on 2026-11-09 and spot-checked by a second reader (see proof.md). 'examples' are plain phrasings written for this list, not quotes. The 'Enquiry' type is the owner's, see its source.",
+  "types": [
+    {
+      "id": "buy",
+      "name": "Buy a home",
+      "producedBy": "Home finder wizard (Buy tab of the hero), contact wizard with topic Buy, any buyer registration or home-search sign-up",
+      "examples": ["I want to buy a house in Napa under $750k", "Send me homes that match what I am looking for"],
+      "sources": [
+        { "url": "https://help.insiderealestate.com/en/articles/4626537-boldtrail-lead-types-overview", "readAt": "2026-11-09", "says": "There are five available lead types in BoldTrail:" },
+        { "url": "https://developer.lofty.com/concepts/leads", "readAt": "2026-11-09", "says": "Type IDs: Buyer (2), Seller (1), Renter (5), Investor (6), Agent (7), Homeowner (8), Landlord (9), Other (-1)" },
+        { "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms", "readAt": "2026-11-09", "says": "Buyer Registration Forms" }
+      ]
+    },
+    {
+      "id": "sell",
+      "name": "Sell a home",
+      "producedBy": "Sell wizard (Sell tab of the hero, offerType list), contact wizard with topic Sell, a seller lead form",
+      "examples": ["I want to sell my house", "Can an agent call me about listing my home"],
+      "sources": [
+        { "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms", "readAt": "2026-11-09", "says": "Seller Lead Forms" },
+        { "url": "https://support.realgeeks.com/customize-your-crm", "readAt": "2026-11-09", "says": "Lead Type identifies the role or intent of a contact in your CRM" },
+        { "url": "https://help.sierrainteractive.com/helpcenter/seller-lead-sites-setup-and-best-practices", "readAt": "2026-11-09", "says": "like \"Sell in 3-6 Months\"" }
+      ]
+    },
+    {
+      "id": "home-value",
+      "name": "Home value",
+      "producedBy": "Home value wizard (Value tab of the hero, /home_value), contact wizard with topic Home value, a valuation tool that asks for the address",
+      "examples": ["What is my home worth", "Give me a free estimate for 12 Oak Street"],
+      "sources": [
+        { "url": "https://support.realgeeks.com/what-is-a-potential-seller-lead", "readAt": "2026-11-09", "says": "Address Only Leads are created when someone enters their property address in the Home Valuation Tool but does not complete full registration" },
+        { "url": "https://support.realgeeks.com/seller-signals", "readAt": "2026-11-09", "says": "Homeowners who provide their address automatically receive a home valuation via email." },
+        { "url": "https://help.sierrainteractive.com/helpcenter/capture-seller-leads-with-instant-home-valuations", "readAt": "2026-11-09", "says": "capture contact information from potential sellers in the immediate area who are just beginning to research the market" }
+      ]
+    },
+    {
+      "id": "cash-offer",
+      "name": "Cash offer",
+      "producedBy": "Sell wizard opened from the Cash tab or a Cash offer link (offerType cash-offer), contact wizard with topic Cash offer",
+      "examples": ["I need to sell fast, will you make a cash offer", "Sell my house as is for cash"],
+      "sources": [
+        { "url": "https://leadcapture.io/templates/cash-home-offer-form/", "readAt": "2026-11-09", "says": "ASAP sellers route to same-day callbacks; flexible sellers enter the follow-up cadence." },
+        { "url": "https://leadcapture.io/templates/cash-home-offer-form/", "readAt": "2026-11-09", "says": "Cash buyers pay for motivation, and motivation is exactly what a generic contact form cannot see." }
+      ]
+    },
+    {
+      "id": "showing-request",
+      "name": "Showing request",
+      "producedBy": "A 'Schedule Showing' button or showing request form on a listing page: property address, preferred date, whether the visitor has an agent",
+      "examples": ["Can I see 12 Oak Street on Saturday", "Book a tour of this home"],
+      "sources": [
+        { "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms", "readAt": "2026-11-09", "says": "Showing Request Forms" },
+        { "url": "https://wpforms.com/templates/real-estate-showing-request-form-template/", "readAt": "2026-11-09", "says": "Preferred Showing Date(s)" }
+      ]
+    },
+    {
+      "id": "listing-question",
+      "name": "Question about a listing",
+      "producedBy": "'Ask about this home' or 'Request Info' on a listing page (ELEV8 opens the contact wizard with the home's title as the message)",
+      "examples": ["Is this home still available", "Does 12 Oak Street have a garage"],
+      "sources": [
+        { "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms", "readAt": "2026-11-09", "says": "Property Inquiry Forms (specific listing)" },
+        { "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms", "readAt": "2026-11-09", "says": "\"Request Info\" button on listings" }
+      ]
+    },
+    {
+      "id": "rent",
+      "name": "Rent a home",
+      "producedBy": "A rental search or rental inquiry form (a visitor who wants to rent, not buy)",
+      "examples": ["I am looking for a 2 bedroom to rent", "Do you have rentals in Vallejo"],
+      "sources": [
+        { "url": "https://help.insiderealestate.com/en/articles/4626537-boldtrail-lead-types-overview", "readAt": "2026-11-09", "says": "There are five available lead types in BoldTrail:" },
+        { "url": "https://developer.lofty.com/concepts/leads", "readAt": "2026-11-09", "says": "Type IDs: Buyer (2), Seller (1), Renter (5), Investor (6), Agent (7), Homeowner (8), Landlord (9), Other (-1)" }
+      ]
+    },
+    {
+      "id": "rent-out",
+      "name": "Rent out a property",
+      "producedBy": "A landlord or owner form: 'I own a property and want to rent it out'",
+      "examples": ["I want to rent out my condo", "Can you find a tenant for my house"],
+      "sources": [
+        { "url": "https://developer.lofty.com/concepts/leads", "readAt": "2026-11-09", "says": "Type IDs: Buyer (2), Seller (1), Renter (5), Investor (6), Agent (7), Homeowner (8), Landlord (9), Other (-1)" }
+      ]
+    },
+    {
+      "id": "financing",
+      "name": "Financing or pre-approval",
+      "producedBy": "The pre-approval question in a buyer form ('Are you pre-approved for a loan?'), the Financing topic of the contact wizard, or a first-time buyer / pre-approval form",
+      "examples": ["How much can I borrow", "I need to get pre-approved before I look at homes"],
+      "sources": [
+        { "url": "https://leadcapture.io/templates/first-time-home-buyer-form/", "readAt": "2026-11-09", "says": "Already pre-approved buyers route to agents; the rest route to lender partners first." },
+        { "url": "https://wpforms.com/templates/real-estate-showing-request-form-template/", "readAt": "2026-11-09", "says": "Are you pre-approved for a mortgage?" }
+      ]
+    },
+    {
+      "id": "relocation",
+      "name": "Relocation",
+      "producedBy": "A 'moving to <city>' or relocation guide form, or the first question 'Where are you coming from?' answered with another state",
+      "examples": ["We are moving from Texas for work in Fairfield", "Send me your relocation guide"],
+      "sources": [
+        { "url": "https://www.nar.realtor/magazine/broker-news/network/how-to-help-out-of-state-buyers", "readAt": "2026-11-09", "says": "creating a relocation guide is a terrific way to give out-of-state buyers all the information they need in one place" },
+        { "url": "https://www.cincpro.com/blog/real-estate-lead-generations-strategies-for-out-of-state-buyers", "readAt": "2026-11-09", "says": "The first question out of the gate is: Where are you coming from? What state? What town are you in?" },
+        { "url": "https://www.newhomestar.com/blog/the-best-home-builder-websites-guide-practices-examples-strategy", "readAt": "2026-11-09", "says": "TOFU website content that would resonate with this audience includes area guides, relocation content" }
+      ]
+    },
+    {
+      "id": "open-house",
+      "name": "Open house",
+      "producedBy": "The sign-in form at an open house (buyer, agent or neighbor style), reached by QR code or on a tablet",
+      "examples": ["Signing in at the open house on Elm Street", "I live next door and want to know what it sells for"],
+      "sources": [
+        { "url": "https://help.sierrainteractive.com/helpcenter/set-up-open-house-lead-capture-forms", "readAt": "2026-11-09", "says": "Leads from open house forms are automatically tagged with Source: Open House" },
+        { "url": "https://help.sierrainteractive.com/helpcenter/set-up-open-house-lead-capture-forms", "readAt": "2026-11-09", "says": "Open House Style for Neighbor" }
+      ]
+    },
+    {
+      "id": "new-construction",
+      "name": "New construction",
+      "producedBy": "A community inquiry form or a 'request pricing' button on a new-build community page",
+      "examples": ["What are the prices at the new Benicia community", "I want to see the floor plans of the new homes"],
+      "sources": [
+        { "url": "https://www.newhomestar.com/blog/the-best-home-builder-websites-guide-practices-examples-strategy", "readAt": "2026-11-09", "says": "Community inquiry forms and “request pricing” buttons should enroll prospects in inventory alerts" }
+      ]
+    },
+    {
+      "id": "investor",
+      "name": "Investing",
+      "producedBy": "A question or form for buyers of investment property, rentals or multi-unit ('I am an investor')",
+      "examples": ["I am looking for a rental property to buy", "Do you have multi-unit buildings under $1M"],
+      "sources": [
+        { "url": "https://developer.lofty.com/concepts/leads", "readAt": "2026-11-09", "says": "Type IDs: Buyer (2), Seller (1), Renter (5), Investor (6), Agent (7), Homeowner (8), Landlord (9), Other (-1)" }
+      ]
+    },
+    {
+      "id": "agent-recruiting",
+      "name": "Join the team",
+      "producedBy": "A 'Join Our Team' or careers form for agents who want to work with the brokerage or team",
+      "examples": ["I am a licensed agent and want to join your team", "What is your split for new agents"],
+      "sources": [
+        { "url": "https://help.sierrainteractive.com/helpcenter/how-can-i-recruit-new-agents-using-sierra", "readAt": "2026-11-09", "says": "Select the Careers form template and rename it to something specific, such as \"Join Our Team\"" },
+        { "url": "https://help.sierrainteractive.com/helpcenter/how-can-i-recruit-new-agents-using-sierra", "readAt": "2026-11-09", "says": "Confirm new leads from the recruiting form arrive tagged Recruiting" },
+        { "url": "https://help.insiderealestate.com/en/articles/4626537-boldtrail-lead-types-overview", "readAt": "2026-11-09", "says": "There are five available lead types in BoldTrail:" }
+      ]
+    },
+    {
+      "id": "enquiry",
+      "name": "Enquiry",
+      "producedBy": "The contact form or contact wizard when the visitor picks Other or only writes a message; the default when no form says more",
+      "examples": ["I have a question", "Can someone call me back"],
+      "sources": [
+        { "url": "owner:2026-11-09 20:40 through the head of operations (work/29-lead-types/CONTEXT.md, Why and Steps 1)", "readAt": "2026-11-09", "says": "plus \"Enquiry\" (a visitor only asking; source: the owner, 2026-11-09 20:40, through the head of operations)" },
+        { "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms", "readAt": "2026-11-09", "says": "Contact Forms (general inquiries)" },
+        { "url": "https://developer.lofty.com/concepts/leads", "readAt": "2026-11-09", "says": "Type IDs: Buyer (2), Seller (1), Renter (5), Investor (6), Agent (7), Homeowner (8), Landlord (9), Other (-1)" }
+      ]
+    }
+  ],
+  "unsourced": [
+    { "name": "Property management quote", "why": "A search snippet mentioned 'property management quotes' on a form-template vendor page; that page was not read, so no quote. Not listed." },
+    { "name": "Guide or ebook download", "why": "Luxury Presence names 'gated resource downloads' as a lead capture placement in a search result, but www.luxurypresence.com answered 403 (BLOCKED), so no quote. Not listed." },
+    { "name": "Buyer consultation", "why": "Sierra's glossary page (www.sierrainteractive.com) answered 403 (BLOCKED); only a search snippet says its lead forms can cover 'buyer consultations'. Not listed; a consultation is covered by buy and sell." },
+    { "name": "Foreclosure, probate or inherited home", "why": "leadcapture.io lists 'inheritance, foreclosure risk' as seller motivations, not as a lead type; ELEV8 asks it as the 'reason' on the sell form. Treated as an answer on sell and cash-offer, not a type." },
+    { "name": "Land purchase", "why": "ELEV8 has 'Land' only as a property type answer. No source names it as a lead type. Not listed." }
+  ],
+  "merged": [
+    { "names": ["Buyer", "Buyer Registration Forms", "Home search registration", "home-finder"], "into": "buy" },
+    { "names": ["Seller", "Seller Lead Forms", "Seller Lead Site inquiry", "Homeowner (Lofty)"], "into": "sell", "note": "Lofty 'Homeowner' is a role; a homeowner who asks about value goes to home-value, one who wants to list goes to sell." },
+    { "names": ["Home Valuation Tool lead", "Address Only Lead", "Valuation Inquiry", "Seller Signals valuation", "instant home valuation", "home-value"], "into": "home-value", "note": "An address with no name, email or consent is not a lead the platform can store (capture refuses a lead without consent text, 5-crm.md); it is a Finding." },
+    { "names": ["Property Inquiry Forms", "Request Info", "listing inquiry", "Ask about this home"], "into": "listing-question" },
+    { "names": ["Showing Request Forms", "Schedule Showing", "tour scheduling", "book a tour"], "into": "showing-request" },
+    { "names": ["Renter"], "into": "rent" },
+    { "names": ["Landlord"], "into": "rent-out" },
+    { "names": ["Investor"], "into": "investor" },
+    { "names": ["Agent (BoldTrail, Lofty)", "Recruiting tag", "Careers form", "Join Our Team"], "into": "agent-recruiting", "note": "In BoldTrail and Lofty 'Agent' is the contact's role; the only source that says what produces it is Sierra's recruiting page." },
+    { "names": ["Contact Forms (general inquiries)", "Other (Lofty)", "contact", "Talk to a local agent"], "into": "enquiry" },
+    { "names": ["pre-approval", "mortgage pre-qualification", "financingHelp", "first-time buyer"], "into": "financing" },
+    { "names": ["Open House Style for Buyer", "Open House Style for Agent", "Open House Style for Neighbor", "Source: Open House"], "into": "open-house", "note": "Sierra tags the buyer style Lead Type = Buyer and the neighbor style Lead Type = Seller. We keep one type; the follow-up kind is in the answers." },
+    { "names": ["Vendor (BoldTrail)"], "into": null, "note": "A contact role for service providers, not something a visitor asks. Not listed." },
+    { "names": ["Both (Real Geeks)"], "into": null, "note": "Real Geeks' buy and sell together. Not a type: a lead that asks both gets the type of its form, and the CRM shows the other as a second form." }
+  ],
+  "blocked": [
+    { "host": "help.followupboss.com", "status": 403, "date": "2026-11-09", "what": "Changing a Lead Stage (360012456793) and article 4402121268631; not retried" },
+    { "host": "help.lofty.com", "status": 403, "date": "2026-11-09", "what": "Lead Organization with Filters (360055290571); not retried" },
+    { "host": "www.sierrainteractive.com", "status": 403, "date": "2026-11-09", "what": "glossary-term/real-estate-lead-forms; not retried (help.sierrainteractive.com, a different host, was read)" },
+    { "host": "www.luxurypresence.com", "status": 403, "date": "2026-11-09", "what": "three blog and product pages (home-valuation-landing-pages..., ?p=28443, ?p=9605); not retried" },
+    { "host": "www.zillow.com", "status": 403, "date": "2026-11-09", "what": "premier-agent/contact-tags; not retried" },
+    { "host": "developer.salesforce.com", "status": 403, "date": "2026-11-09", "what": "LeadStatus object reference; not retried" }
+  ],
+  "checkedAgainst": {
+    "elev8": [
+      { "form": "Hero tab Buy -> home finder wizard (6 steps)", "file": "E:\\Alex Sevilla\\draft-site\\site\\src\\pages\\wizard.js:172 and lib\\wizards.mjs:30", "type": "buy" },
+      { "form": "Hero tab Sell -> sell wizard, offerType list", "file": "wizard.js:172 and lib\\wizards.mjs:37", "type": "sell" },
+      { "form": "Hero tab Value, /home_value -> home value wizard (6 steps)", "file": "wizard.js:172 and lib\\wizards.mjs:23", "type": "home-value" },
+      { "form": "Hero tab Cash, and 'Cash offer' mega-menu link (data-wz-flow) -> sell wizard, offerType cash-offer", "file": "wizard.js:172 and :196, build.mjs:241", "type": "cash-offer" },
+      { "form": "Contact wizard 'Talk to a local agent', topic Buy / Sell / Home value / Cash offer", "file": "lib\\wizards.mjs:41, wizard.js:130 (leadType seller or buyer by topic); topics in contracts/examples/elev8/contract.json:1203", "type": "buy, sell, home-value or cash-offer, by the topic picked" },
+      { "form": "Contact wizard, topic Financing", "file": "contracts/examples/elev8/contract.json:1203 (topic enum has financing); wizard.js:130 gives it leadType other", "type": "financing" },
+      { "form": "Contact wizard, topic Other, or a message only", "file": "wizard.js:130 (leadType other)", "type": "enquiry" },
+      { "form": "'Send <agent> a message' on a team profile -> contact wizard with the agent as assignee", "file": "wizard.js:195", "type": "enquiry (or the topic the visitor picks)" },
+      { "form": "'Ask about this home' on a listing -> contact wizard, topic forced to Buy, message 'About this home: <title>'", "file": "wizard.js:191 and :202", "type": "listing-question (GAP: the form sets topic buy, so a platform reading topic alone would store 'buy'; the type must come from the message source or a new flow value)" },
+      { "form": "Home finder step 5 'Are you pre-approved for a loan?' with the Sunny Azizi checkbox (financingHelp)", "file": "lib\\wizards.mjs:35", "type": "financing (GAP: it is an answer inside a buy lead, not a lead of its own)" },
+      { "form": "No ELEV8 form for these types", "file": "searched wizard.js, lib/wizards.mjs, contract.json forms: contact, home-value, home-finder, sell", "type": "GAPS: showing-request, rent, rent-out, relocation, open-house, new-construction, investor, agent-recruiting" }
+    ]
+  }
+}

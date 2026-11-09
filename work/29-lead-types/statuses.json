@@ -1,0 +1,268 @@
+{
+  "readAt": "2026-11-09",
+  "note": "Quotes were fetched and copied by sub-agent readers (WebFetch) on 2026-11-09; 10 of them were re-checked by a second reader, all exact (see proof.md). Owner source for the first ten names: the owner, 2026-11-09 20:48, through the head of operations (work/29-lead-types/CONTEXT.md, step 6). Stage: new = nobody has tried yet, working = being worked, outcome = the lead path ended (a lead in an outcome status stays in the CRM).",
+  "fieldNotes": {
+    "needsDate": "true when the status schedules a next touch: the screen must ask for a date (and time) and the lead shows in the 'due' filter (A17).",
+    "needsWho": "true when the status records which team member did it (who called, who spoke to the lead, who will meet them).",
+    "needsText": "extra key, not in the order's shape: true when the screen should ask one short line (here only 'interested in something specific': in what)."
+  },
+  "statuses": [
+    {
+      "id": "not-contacted",
+      "name": "Not contacted yet",
+      "stage": "new",
+      "means": "The lead arrived and nobody has reached out yet.",
+      "needsDate": false, "needsWho": false, "needsText": false,
+      "sources": [
+        { "url": "owner:2026-11-09 20:48 through the head of operations", "readAt": "2026-11-09", "says": "not contacted yet" },
+        { "url": "https://help.insiderealestate.com/en/articles/285957-kvcore-lead-contact-statuses", "readAt": "2026-11-09", "says": "the default lead status will be 'New Lead'" },
+        { "url": "https://www.fullcircleinsights.com/resource/lead-status-values-for-sales-and-marketing", "readAt": "2026-11-09", "says": "This status indicates that a record requires follow up. This would be the state that the rep first interacts with the lead." }
+      ]
+    },
+    {
+      "id": "contacted",
+      "name": "Contacted",
+      "stage": "working",
+      "means": "A team member spoke with the lead (call, text, email reply); the status records who.",
+      "needsDate": false, "needsWho": true, "needsText": false,
+      "sources": [
+        { "url": "owner:2026-11-09 20:48 through the head of operations", "readAt": "2026-11-09", "says": "contacted (by whom)" },
+        { "url": "https://developer.lofty.com/concepts/leads", "readAt": "2026-11-09", "says": "Common stages include New Lead, Contacted, Qualified, Under Contract, and Closed." },
+        { "url": "https://support.agencyzoom.com/en/articles/5668389-how-to-manage-and-build-pipelines", "readAt": "2026-11-09", "says": "New, Contacted, Quoted and Sold" }
+      ]
+    },
+    {
+      "id": "answering-machine",
+      "name": "Answering machine",
+      "stage": "working",
+      "means": "A call reached voicemail or an answering machine; the status records who called.",
+      "needsDate": false, "needsWho": true, "needsText": false,
+      "sources": [
+        { "url": "owner:2026-11-09 20:48 through the head of operations", "readAt": "2026-11-09", "says": "answering machine" },
+        { "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions", "readAt": "2026-11-09", "says": "The call was answered by an answering machine." },
+        { "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/", "readAt": "2026-11-09", "says": "Voicemail left for the prospect" }
+      ]
+    },
+    {
+      "id": "no-answer",
+      "name": "No answer",
+      "stage": "working",
+      "means": "A try (call, text or email) did not reach the person and nothing was left; the status records who tried.",
+      "needsDate": false, "needsWho": true, "needsText": false,
+      "sources": [
+        { "url": "owner:2026-11-09 20:48 through the head of operations", "readAt": "2026-11-09", "says": "no answer" },
+        { "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions", "readAt": "2026-11-09", "says": "The called party did not answer within the No Answer timeout." },
+        { "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/", "readAt": "2026-11-09", "says": "Call not answered; no voicemail left" },
+        { "url": "https://support.realgeeks.com/customize-your-crm", "readAt": "2026-11-09", "says": "Attempted Contact" }
+      ]
+    },
+    {
+      "id": "call-back",
+      "name": "Call back",
+      "stage": "working",
+      "means": "The lead asked to be called at a later time; the status holds that time.",
+      "needsDate": true, "needsWho": false, "needsText": false,
+      "sources": [
+        { "url": "owner:2026-11-09 20:48 through the head of operations", "readAt": "2026-11-09", "says": "call back" },
+        { "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/", "readAt": "2026-11-09", "says": "Prospect requested a call back" },
+        { "url": "https://batchdialer.com/blog/what-is-a-call-disposition", "readAt": "2026-11-09", "says": "When the prospect expresses interest but has yet to commit to a deal" }
+      ]
+    },
+    {
+      "id": "follow-up",
+      "name": "Follow-up",
+      "stage": "working",
+      "means": "The team decided to reach out again on a set date (not asked for by the lead); also the place for a long wait.",
+      "needsDate": true, "needsWho": false, "needsText": false,
+      "sources": [
+        { "url": "owner:2026-11-09 20:48 through the head of operations", "readAt": "2026-11-09", "says": "follow-up" },
+        { "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/", "readAt": "2026-11-09", "says": "Follow-up call scheduled" },
+        { "url": "https://support.agencyzoom.com/en/articles/3459657-use-smart-cycle-to-automatically-recycle-leads", "readAt": "2026-11-09", "says": "is a bucket that you can drop unsold quotes into and we'll make sure they automatically recycle back at the perfect time." }
+      ]
+    },
+    {
+      "id": "appointment-set",
+      "name": "Appointment set",
+      "stage": "working",
+      "means": "A meeting, showing or call is booked with the lead; the status holds the time and who will meet them.",
+      "needsDate": true, "needsWho": true, "needsText": false,
+      "sources": [
+        { "url": "https://support.realgeeks.com/customize-your-crm", "readAt": "2026-11-09", "says": "Appointment Set" },
+        { "url": "https://www.agencybloc.com/ams/sales-enablement/lead-nurturing-automation/3-ways-to-convert-more-online-insurance-leads/", "readAt": "2026-11-09", "says": "How many of the requested quotes became scheduled appointments?" }
+      ]
+    },
+    {
+      "id": "interested",
+      "name": "Interested in something specific",
+      "stage": "working",
+      "means": "The lead showed real interest in one named thing (a home, a plan, a product); the status holds what.",
+      "needsDate": false, "needsWho": false, "needsText": true,
+      "sources": [
+        { "url": "owner:2026-11-09 20:48 through the head of operations", "readAt": "2026-11-09", "says": "interested in something specific" },
+        { "url": "https://batchdialer.com/blog/what-is-a-call-disposition", "readAt": "2026-11-09", "says": "When the prospect shows the highest level of interest and is ready to move forward." },
+        { "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/", "readAt": "2026-11-09", "says": "Prospect expressed interest" }
+      ]
+    },
+    {
+      "id": "qualified",
+      "name": "Qualified",
+      "stage": "working",
+      "means": "The team judged the lead a real prospect (wants it, can act, is in the area or the licensed state).",
+      "needsDate": false, "needsWho": false, "needsText": false,
+      "sources": [
+        { "url": "owner:2026-11-09 20:48 through the head of operations", "readAt": "2026-11-09", "says": "qualified" },
+        { "url": "https://knowledge.hubspot.com/records/use-lifecycle-stages", "readAt": "2026-11-09", "says": "a contact or company that your sales team has qualified as a potential customer." },
+        { "url": "https://support.freshsales.io/support/solutions/articles/229439-how-to-use-the-status-field-of-contacts-in-freshsales-", "readAt": "2026-11-09", "says": "A lead who has shown genuine interest in your product, replied to emails, answered calls and actively interacting with you." }
+      ]
+    },
+    {
+      "id": "not-qualified",
+      "name": "Not qualified",
+      "stage": "outcome",
+      "means": "The team judged the lead not a fit (outside the area, no budget, cannot be served); the interaction ends.",
+      "needsDate": false, "needsWho": false, "needsText": false,
+      "sources": [
+        { "url": "owner:2026-11-09 20:48 through the head of operations", "readAt": "2026-11-09", "says": "not qualified" },
+        { "url": "https://knowledge.hubspot.com/records/use-lifecycle-stages", "readAt": "2026-11-09", "says": "Unqualified" },
+        { "url": "https://www.fullcircleinsights.com/resource/lead-status-values-for-sales-and-marketing", "readAt": "2026-11-09", "says": "This status is used to specify the end of an interaction." }
+      ]
+    },
+    {
+      "id": "not-interested",
+      "name": "Not interested",
+      "stage": "outcome",
+      "means": "The lead said they do not want what was offered; no follow-up is expected.",
+      "needsDate": false, "needsWho": false, "needsText": false,
+      "sources": [
+        { "url": "owner:2026-11-09 20:48 through the head of operations", "readAt": "2026-11-09", "says": "not interested" },
+        { "url": "https://batchdialer.com/blog/what-is-a-call-disposition", "readAt": "2026-11-09", "says": "When the prospect says they’re not interested" },
+        { "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions", "readAt": "2026-11-09", "says": "The business purpose of the call/chat was not fulfilled, but no follow up is required or expected by the customer." }
+      ]
+    },
+    {
+      "id": "wrong-number",
+      "name": "Wrong number",
+      "stage": "outcome",
+      "means": "The phone number is wrong or dead, or the wrong person answered; the lead cannot be reached on it.",
+      "needsDate": false, "needsWho": false, "needsText": false,
+      "sources": [
+        { "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions", "readAt": "2026-11-09", "says": "The person for whom the call was intended cannot be reached at this number." },
+        { "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/", "readAt": "2026-11-09", "says": "Invalid or wrong contact number" },
+        { "url": "https://batchdialer.com/blog/what-is-a-call-disposition", "readAt": "2026-11-09", "says": "When the number is no longer assigned to a phone carrier subscriber" }
+      ]
+    },
+    {
+      "id": "do-not-contact",
+      "name": "Do not contact",
+      "stage": "outcome",
+      "means": "The lead asked not to be contacted again; nobody reaches out and no automated message goes.",
+      "needsDate": false, "needsWho": false, "needsText": false,
+      "sources": [
+        { "url": "https://batchdialer.com/blog/what-is-a-call-disposition", "readAt": "2026-11-09", "says": "When a prospect requests not to be contacted or is listed on the DNC registry" },
+        { "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions", "readAt": "2026-11-09", "says": "The remote party requested that no further calls be made to his numbers." }
+      ]
+    },
+    {
+      "id": "spam",
+      "name": "Spam",
+      "stage": "outcome",
+      "means": "Not a real enquiry (a bot, a test, an unrelated pitch); hidden from the default list, nothing deleted.",
+      "needsDate": false, "needsWho": false, "needsText": false,
+      "sources": [
+        { "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions", "readAt": "2026-11-09", "says": "The content of the customer email had no connection to any services provided by the contact center." },
+        { "url": "docs/product/5-crm.md:62 in this repository", "readAt": "2026-11-09", "says": "Status: new, contacted, qualified, closed, spam. Spam hides a lead from the default list and deletes nothing." }
+      ]
+    },
+    {
+      "id": "lost",
+      "name": "Lost",
+      "stage": "outcome",
+      "means": "The lead was a real prospect but the deal will not happen (chose someone else, stopped replying); not the same as not interested.",
+      "needsDate": false, "needsWho": false, "needsText": false,
+      "sources": [
+        { "url": "https://support.agencyzoom.com/en/articles/5669585-managing-leads", "readAt": "2026-11-09", "says": "The “Dead” section of the AgencyZoom pipeline is for leads that are a “No Go”." },
+        { "url": "https://ankotahelp.helpsite.com/articles/44371-crm-status-for-prospect-management", "readAt": "2026-11-09", "says": "Closed Lost" }
+      ]
+    },
+    {
+      "id": "closed",
+      "name": "Closed",
+      "stage": "outcome",
+      "means": "The lead became a client: a sale closed, a policy was bound, a listing signed.",
+      "needsDate": false, "needsWho": false, "needsText": false,
+      "sources": [
+        { "url": "https://developer.lofty.com/concepts/leads", "readAt": "2026-11-09", "says": "Common stages include New Lead, Contacted, Qualified, Under Contract, and Closed." },
+        { "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/", "readAt": "2026-11-09", "says": "Sale successfully completed" },
+        { "url": "https://batchdialer.com/blog/what-is-a-call-disposition", "readAt": "2026-11-09", "says": "When a prospect completes a successful sale" }
+      ]
+    },
+    {
+      "id": "showing-or-listing",
+      "name": "Showing or listing",
+      "stage": "working",
+      "means": "Real estate only: the team is showing homes to a buyer or preparing the listing for a seller.",
+      "needsDate": false, "needsWho": false, "needsText": false,
+      "sources": [
+        { "url": "https://support.realgeeks.com/customize-your-crm", "readAt": "2026-11-09", "says": "Showing or Listing" },
+        { "url": "https://help.insiderealestate.com/en/articles/285957-kvcore-lead-contact-statuses", "readAt": "2026-11-09", "says": "Contacts you are actually working with, and showing homes, etc." }
+      ]
+    },
+    {
+      "id": "under-contract",
+      "name": "Under contract",
+      "stage": "working",
+      "means": "Real estate only: an offer was accepted and the sale or purchase is in progress.",
+      "needsDate": false, "needsWho": false, "needsText": false,
+      "sources": [
+        { "url": "https://developer.lofty.com/concepts/leads", "readAt": "2026-11-09", "says": "Common stages include New Lead, Contacted, Qualified, Under Contract, and Closed." },
+        { "url": "https://help.insiderealestate.com/en/articles/285957-kvcore-lead-contact-statuses", "readAt": "2026-11-09", "says": "Contacts who are in the buying or selling transaction process." },
+        { "url": "https://support.realgeeks.com/customize-your-crm", "readAt": "2026-11-09", "says": "Under Contract" }
+      ]
+    },
+    {
+      "id": "quoted",
+      "name": "Quoted",
+      "stage": "working",
+      "means": "Insurance and financial only: a quote or proposal was sent and the lead has not decided.",
+      "needsDate": false, "needsWho": false, "needsText": false,
+      "sources": [
+        { "url": "https://support.agencyzoom.com/en/articles/5668389-how-to-manage-and-build-pipelines", "readAt": "2026-11-09", "says": "New, Contacted, Quoted and Sold" },
+        { "url": "https://support.agencyzoom.com/en/articles/3459657-use-smart-cycle-to-automatically-recycle-leads", "readAt": "2026-11-09", "says": "is a bucket that you can drop unsold quotes into and we'll make sure they automatically recycle back at the perfect time." }
+      ]
+    }
+  ],
+  "perIndustry": {
+    "real-estate": ["not-contacted", "contacted", "answering-machine", "no-answer", "call-back", "follow-up", "appointment-set", "interested", "qualified", "showing-or-listing", "under-contract", "not-qualified", "not-interested", "wrong-number", "do-not-contact", "spam", "lost", "closed"],
+    "insurance-financial": ["not-contacted", "contacted", "answering-machine", "no-answer", "call-back", "follow-up", "appointment-set", "interested", "qualified", "quoted", "not-qualified", "not-interested", "wrong-number", "do-not-contact", "spam", "lost", "closed"]
+  },
+  "unsourced": [
+    { "name": "Contact in Future, Junk Lead, Lost Lead, Pre-Qualified (Zoho CRM defaults)", "why": "Only a search listing named them; the Zoho help page was not read, so there is no quote. The same meanings are covered by follow-up, spam, lost and qualified." },
+    { "name": "Salesforce 'Open - Not Contacted', 'Working - Contacted', 'Closed - Converted', 'Closed - Not Converted'", "why": "developer.salesforce.com answered 403 (BLOCKED); the labels appear only in third-party search summaries. Covered by not-contacted, contacted, closed, lost." },
+    { "name": "Follow Up Boss default stages", "why": "help.followupboss.com answered 403 (BLOCKED); search summaries say stages are customizable per team with no fixed default list. Not used." },
+    { "name": "Wealthbox Opportunity Stages (Evaluation, Identify Decision Makers, Qualification, Needs Analysis, Review, Proposal)", "why": "help.wealthbox.com answered 403 (BLOCKED); only a search summary lists them. Advisor sales-process stages are not lead-path outcomes; 'Proposal' is covered by quoted." }
+  ],
+  "merged": [
+    { "names": ["New", "New Lead", "Open", "Open - Not Contacted", "Not Contacted"], "into": "not-contacted" },
+    { "names": ["Contacted", "Connected (HubSpot)", "Working", "Active Lead (BoldTrail)", "In Progress (HubSpot)"], "into": "contacted" },
+    { "names": ["Attempted Contact", "Attempted to Contact", "Attempting Contact", "Busy", "No Answer/No Voicemail", "Not Engaged"], "into": "no-answer", "note": "Where the try reached a machine and a message was left, it is answering-machine." },
+    { "names": ["Left Voicemail (LVM)", "Voicemail left", "Answering Machine"], "into": "answering-machine" },
+    { "names": ["Call Back", "Call Back Later", "Callback Requested", "Callback Required", "Callback Scheduled"], "into": "call-back" },
+    { "names": ["Follow-Up Needed", "Follow-Up Required", "Nurture", "Smart Cycle (formerly X-date)", "Bad Timing (HubSpot)", "Pending"], "into": "follow-up", "note": "The date separates a short follow-up from a long nurture." },
+    { "names": ["Hot Lead", "Interested", "Prospect expressed interest"], "into": "interested" },
+    { "names": ["Qualified", "Qualified Lead", "Sales Qualified Lead", "Open Deal (HubSpot)", "Prospect (BoldTrail, Freshsales)", "Converted/Qualified"], "into": "qualified", "note": "'Prospect' is used by some CRMs as a stage for a lead who is a real possibility; kept as qualified." },
+    { "names": ["Unqualified", "Disqualified", "Not Eligible"], "into": "not-qualified" },
+    { "names": ["Not Interested", "Declined", "Offer rejected", "No Payment Commitment"], "into": "not-interested" },
+    { "names": ["Wrong Number", "Wrong Party", "Wrong person", "Invalid number", "Disconnected Number", "Bad record"], "into": "wrong-number" },
+    { "names": ["Do Not Call", "Add to DNC", "Customer Requests Do Not Contact", "Archive (BoldTrail: unsubscribes from automation)"], "into": "do-not-contact", "note": "BoldTrail's Archive stops all automated messages, which is this status's effect." },
+    { "names": ["Dead", "No Go", "Closed Lost", "Lost"], "into": "lost" },
+    { "names": ["Closed", "Sold", "Successful Sale", "Sale Closed", "Product sold", "Customer (HubSpot)", "Closed Won"], "into": "closed" },
+    { "names": ["Escalated", "Transferred", "Pending Information", "Complaint Logged", "Fax or modem", "Silence", "System folder values"], "into": null, "note": "Call-centre or support dispositions with no meaning on a lead's path. Not listed." },
+    { "names": ["Sphere", "Active Client", "Inactive Client", "Past Client"], "into": null, "note": "Contact roles after or outside the lead path (BoldTrail, Redtail style). Not listed; a client is a lead whose status is closed." }
+  ],
+  "blocked": [
+    { "host": "help.followupboss.com", "status": 403, "date": "2026-11-09", "what": "Changing a Lead Stage; not retried" },
+    { "host": "developer.salesforce.com", "status": 403, "date": "2026-11-09", "what": "LeadStatus object reference; not retried" },
+    { "host": "help.wealthbox.com", "status": 403, "date": "2026-11-09", "what": "Opportunity Stages articles; not retried" },
+    { "host": "help.lofty.com, www.sierrainteractive.com, www.luxurypresence.com, www.zillow.com", "status": 403, "date": "2026-11-09", "what": "see real-estate.json blocked; not retried" }
+  ]
+}

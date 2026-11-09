@@ -1,0 +1,193 @@
+{
+  "industry": "insurance-financial",
+  "readAt": "2026-11-09",
+  "note": "Quotes were fetched and copied by sub-agent readers (WebFetch) on 2026-11-09 and 9 of them were re-checked by a second reader (all exact), see proof.md; the others were not re-checked. 'examples' are plain phrasings written for this list, not quotes. Rainmaker sells only mortgage protection, life insurance, annuities and agent recruiting, so a site uses a subset of this list (see checkedAgainst).",
+  "types": [
+    {
+      "id": "auto-quote",
+      "name": "Auto insurance quote",
+      "producedBy": "Auto quote form: vehicle, driver and current policy details",
+      "examples": ["I need a quote for my car", "What would it cost to insure two cars and a teenage driver"],
+      "sources": [
+        { "url": "https://agencyheight.com/insurance-intake-form/", "readAt": "2026-11-09", "says": "Collect the key vehicle, driver, and current policy details needed to generate a faster, more accurate auto insurance quote." },
+        { "url": "https://www.uplead.com/?p=16167", "readAt": "2026-11-09", "says": "Auto Insurance Leads" }
+      ]
+    },
+    {
+      "id": "home-quote",
+      "name": "Home insurance quote",
+      "producedBy": "Home quote form: property, coverage and declaration details",
+      "examples": ["Quote for insuring my house", "I just bought a home and need coverage"],
+      "sources": [
+        { "url": "https://agencyheight.com/insurance-intake-form/", "readAt": "2026-11-09", "says": "Gather property, coverage, declaration, and contact details so agents can review the home insurance need with less back-and-forth." },
+        { "url": "https://www.uplead.com/?p=16167", "readAt": "2026-11-09", "says": "Home Insurance Leads" }
+      ]
+    },
+    {
+      "id": "life-insurance",
+      "name": "Life insurance",
+      "producedBy": "Life quote form or the 'Life Insurance' choice of 'I'm interested in' (Rainmaker contact page); term, whole or any life cover",
+      "examples": ["I want a life insurance quote", "How much life cover do I need for my family"],
+      "sources": [
+        { "url": "https://agencyheight.com/insurance-intake-form/", "readAt": "2026-11-09", "says": "Capture basic coverage needs and contact preferences to help agents follow up with the right life insurance options." },
+        { "url": "https://www.uplead.com/?p=16167", "readAt": "2026-11-09", "says": "A life insurance lead is a person who expresses a desire for it." }
+      ]
+    },
+    {
+      "id": "health-insurance",
+      "name": "Health insurance",
+      "producedBy": "Health quote or enrollment inquiry form",
+      "examples": ["I lost my job and need health coverage", "Compare health plans for my family"],
+      "sources": [
+        { "url": "https://www.uplead.com/?p=16167", "readAt": "2026-11-09", "says": "Health Insurance Leads" },
+        { "url": "https://www.involve.me/template-categories/insurance-form", "readAt": "2026-11-09", "says": "Gather personal information, coverage preferences, and risk factors for new policy applications across health, auto, home, or life insurance." }
+      ]
+    },
+    {
+      "id": "commercial-quote",
+      "name": "Business insurance quote",
+      "producedBy": "Commercial quote form: business, structure, financial, policy and coverage details; lines such as general liability or workers comp",
+      "examples": ["I need general liability for my shop", "Workers comp quote for 6 employees"],
+      "sources": [
+        { "url": "https://agencyheight.com/insurance-intake-form/", "readAt": "2026-11-09", "says": "BOP, General Liability, Workers Comp, E&O, Commercial Auto, Umbrella, Cyber Liability" },
+        { "url": "https://www.uplead.com/?p=16167", "readAt": "2026-11-09", "says": "Commercial Insurance Leads" }
+      ]
+    },
+    {
+      "id": "mortgage-protection",
+      "name": "Mortgage protection",
+      "producedBy": "The 'Mortgage Protection' choice of 'I'm interested in' (Rainmaker contact page), or a mortgage protection quote form",
+      "examples": ["What happens to my mortgage if I die", "I want mortgage protection for my new home loan"],
+      "sources": [
+        { "url": "https://agenttech.io/blog/mortgage-protection-agency-leadgen", "readAt": "2026-11-09", "says": "MPI is term life with mortgage framing" },
+        { "url": "https://agenttech.io/blog/mortgage-protection-agency-leadgen", "readAt": "2026-11-09", "says": "it has its own predictable lead channels" },
+        { "url": "https://www.policygenius.com/life-insurance/mortgage-protection-life-insurance/", "readAt": "2026-11-09", "says": "Mortgage protection insurance (MPI), also known as mortgage life insurance, is a policy designed to cover your mortgage balance if you die before paying it off." }
+      ]
+    },
+    {
+      "id": "annuity",
+      "name": "Annuities",
+      "producedBy": "The 'Annuities' choice of 'I'm interested in' (Rainmaker contact page), an annuity questions page, or an annuity quote form",
+      "examples": ["I want guaranteed income in retirement", "Tell me about fixed annuities"],
+      "sources": [
+        { "url": "https://blog.agent-crm.com/how-to-generate-annuity-leads-online-step-by-step-guide-with-funnel-templates-and-software-recommendation/", "readAt": "2026-11-09", "says": "Selling annuities requires having a steady stream of qualified leads." },
+        { "url": "https://blog.agent-crm.com/how-to-generate-annuity-leads-online-step-by-step-guide-with-funnel-templates-and-software-recommendation/", "readAt": "2026-11-09", "says": "Use these to provide valuable info to prospects and nudge them to book a consultation." }
+      ]
+    },
+    {
+      "id": "retirement-planning",
+      "name": "Retirement planning",
+      "producedBy": "A retirement planning page form or a 'retirement income review' booking; advice offered only by a licensed adviser",
+      "examples": ["Can I retire at 62", "I want a review of my retirement income"],
+      "sources": [
+        { "url": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen", "readAt": "2026-11-09", "says": "Schedule a 20-Minute Retirement Income Review" },
+        { "url": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen", "readAt": "2026-11-09", "says": "A firm might create separate pages for retirement planning, business exit planning and investment management." }
+      ]
+    },
+    {
+      "id": "investment-management",
+      "name": "Investment management",
+      "producedBy": "An investment management page form, for an advisory firm only",
+      "examples": ["I have a rollover and want it managed", "Who manages my savings"],
+      "sources": [
+        { "url": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen", "readAt": "2026-11-09", "says": "A firm might create separate pages for retirement planning, business exit planning and investment management." }
+      ]
+    },
+    {
+      "id": "consultation",
+      "name": "Consultation booking",
+      "producedBy": "A 'book a call' or 'free consultation' form with a calendar slot",
+      "examples": ["Book a free 20-minute call", "I would like to talk to someone on Thursday"],
+      "sources": [
+        { "url": "https://www.agencybloc.com/ams/sales-enablement/lead-nurturing-automation/3-ways-to-convert-more-online-insurance-leads/", "readAt": "2026-11-09", "says": "Quote or consultation inquiry" },
+        { "url": "https://paperform.co/templates/financial-advisor-free-consultation-form/", "readAt": "2026-11-09", "says": "Book appointments directly using integrated calendar scheduling" },
+        { "url": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen", "readAt": "2026-11-09", "says": "A free 20- or 30-minute call can work when the page explains the scope, discussion topics and next steps." }
+      ]
+    },
+    {
+      "id": "policy-review",
+      "name": "Policy review",
+      "producedBy": "A 'review my policy' call to action, for a person who already has cover",
+      "examples": ["Can you check if my life policy is still right", "I want a second opinion on my coverage"],
+      "sources": [
+        { "url": "https://www.agencybloc.com/ams/sales-enablement/lead-and-sales-management/how-to-recruit-insurance-agents", "readAt": "2026-11-09", "says": "like scheduling a policy review" },
+        { "url": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen", "readAt": "2026-11-09", "says": "Schedule a 20-Minute Retirement Income Review" }
+      ]
+    },
+    {
+      "id": "claim",
+      "name": "Claim",
+      "producedBy": "A claim form or 'file a claim' page, from an existing policyholder",
+      "examples": ["My car was hit, how do I file", "I need to report water damage"],
+      "sources": [
+        { "url": "https://www.insurancewebsitebuilder.com/products/websites/features/lead-generating-quote-forms", "readAt": "2026-11-09", "says": "Our modules include forms that can be submitted for quotes, endorsements, ID card and declaration page requests, and claim forms." },
+        { "url": "https://www.involve.me/template-categories/insurance-form", "readAt": "2026-11-09", "says": "Insurance Claim Form" }
+      ]
+    },
+    {
+      "id": "policy-service",
+      "name": "Policy change or document request",
+      "producedBy": "An endorsement, ID card, declarations page or certificate of insurance request form, from an existing policyholder",
+      "examples": ["I need a new ID card", "Add my son to my policy", "Send me a certificate of insurance"],
+      "sources": [
+        { "url": "https://www.insurancewebsitebuilder.com/products/websites/features/lead-generating-quote-forms", "readAt": "2026-11-09", "says": "Our modules include forms that can be submitted for quotes, endorsements, ID card and declaration page requests, and claim forms." },
+        { "url": "https://www.involve.me/template-categories/insurance-form", "readAt": "2026-11-09", "says": "Certificate of Insurance Request Form" }
+      ]
+    },
+    {
+      "id": "agent-recruiting",
+      "name": "Join the agency",
+      "producedBy": "The agent form (Rainmaker contact page and Join Rainmaker page): licensing status, experience, interest Agent opportunity or Agency partnership",
+      "examples": ["I am licensed and looking for an agency", "I lead a small agency and want to partner"],
+      "sources": [
+        { "url": "https://careers.healthmarkets.com/getting-started", "readAt": "2026-11-09", "says": "Complete the form" },
+        { "url": "https://careers.healthmarkets.com/getting-started", "readAt": "2026-11-09", "says": "Talk to a recruiter" },
+        { "url": "https://paperform.co/templates/insurance-agent-application-form/", "readAt": "2026-11-09", "says": "Hiring the right insurance agents is critical for growing your agency" }
+      ]
+    },
+    {
+      "id": "enquiry",
+      "name": "Enquiry",
+      "producedBy": "A contact form, or the 'Not Sure' choice of 'I'm interested in' (Rainmaker, which files it under General inquiries); the default when no form says more",
+      "examples": ["I am not sure what I need", "Can someone call me about my options"],
+      "sources": [
+        { "url": "owner:2026-11-09 20:40 through the head of operations (work/29-lead-types/CONTEXT.md, Why and Steps 1)", "readAt": "2026-11-09", "says": "plus \"Enquiry\" (a visitor only asking; source: the owner, 2026-11-09 20:40, through the head of operations)" },
+        { "url": "https://www.agencybloc.com/ams/sales-enablement/lead-nurturing-automation/3-ways-to-convert-more-online-insurance-leads/", "readAt": "2026-11-09", "says": "Contact form" }
+      ]
+    }
+  ],
+  "unsourced": [
+    { "name": "Final expense", "why": "Lead vendors sell it (boberdoo.com/final-expense-leads, read 2026-11-09), but the sentences that page returned do not name the product, and the Ritter and New Horizons pages answered 404. Rainmaker does not sell it. Not listed." },
+    { "name": "Mortgage (loan)", "why": "A Salesforce Financial Services Cloud partner post (blog.coforge.com/blog/salesforce-fsc-leads-and-referrals) says a customer 'expresses a need' for a mortgage, but its sentence contains a dash this work order forbids copying, and Rainmaker does not originate loans. Not listed; ELEV8's mortgage line is a separate site." },
+    { "name": "Group benefits or employer enrollment", "why": "involve.me lists an 'Insurance Enrollment Form' for group enrollment; that is an application by an employer's staff, not a visitor lead. Not listed." },
+    { "name": "Lead-vendor channels (internet, live transfer, aged, pre-set appointment, referrals)", "why": "UpLead lists these as ways to buy leads (uplead.com/?p=16167); they are lead sources, not what a visitor asks. They belong in a Source column, not here." },
+    { "name": "Business exit planning, estate planning, tax", "why": "SmartAsset names business exit planning as a separate page; Salesforce partner posts mention estate planning as an interest. Neither was read as a clean quote, and Rainmaker must not claim advice outside its licences. Not listed." }
+  ],
+  "merged": [
+    { "names": ["Quote request", "Quote or consultation inquiry", "Insurance Quote Form", "Insurance Intake Form", "Insurance Quote Request"], "into": "the type of its line (auto-quote, home-quote, life-insurance, health-insurance, commercial-quote, mortgage-protection, annuity)", "note": "A quote request is not one type: the line of cover is the type." },
+    { "names": ["Life Insurance Leads", "life quote", "term life", "Life & Health forms"], "into": "life-insurance", "note": "Health is kept apart (health-insurance)." },
+    { "names": ["MPI", "mortgage life insurance", "Mortgage Protection (Rainmaker)"], "into": "mortgage-protection" },
+    { "names": ["Annuities (Rainmaker)", "Annuities & retirement (Rainmaker sheet tab)", "annuity appointment"], "into": "annuity", "note": "Rainmaker puts annuities and retirement in one sheet tab; here they are two types because advisers sell retirement planning without an annuity." },
+    { "names": ["Retirement Income Review", "retirement planning page", "retirement calculator lead"], "into": "retirement-planning" },
+    { "names": ["Book Your Free Consultation", "Schedule a Free Discovery Call", "Quote or consultation inquiry", "free consultation"], "into": "consultation" },
+    { "names": ["Endorsements", "ID card request", "Declaration page request", "Certificate of Insurance Request"], "into": "policy-service" },
+    { "names": ["Insurance Claim Form", "claim forms"], "into": "claim" },
+    { "names": ["Agent opportunity", "Agency partnership", "Insurance Agent Application", "Start becoming an Agent", "Recruitment (Rainmaker sheet tab)"], "into": "agent-recruiting" },
+    { "names": ["Contact form", "General inquiries (Rainmaker sheet tab)", "Not Sure (Rainmaker)"], "into": "enquiry" }
+  ],
+  "blocked": [
+    { "host": "help.wealthbox.com", "status": 403, "date": "2026-11-09", "what": "Opportunity Stages articles (29980449946523, 29980367800859); not retried" },
+    { "host": "developer.salesforce.com", "status": 403, "date": "2026-11-09", "what": "LeadStatus object reference; not retried" },
+    { "host": "www.sierrainteractive.com, help.lofty.com, help.followupboss.com, www.luxurypresence.com, www.zillow.com", "status": 403, "date": "2026-11-09", "what": "see real-estate.json blocked; not retried" }
+  ],
+  "checkedAgainst": {
+    "rainmaker": [
+      { "form": "Contact page consumer form, 'I'm interested in' = Mortgage Protection (sheet tab 'Mortgage protection')", "file": "E:\\Rainmaker\\site-src\\pages\\contact.html:124 and integrations\\apps-script\\Code.gs:27", "type": "mortgage-protection" },
+      { "form": "Contact page consumer form, 'I'm interested in' = Life Insurance (sheet tab 'Life insurance')", "file": "contact.html:124, Code.gs:28", "type": "life-insurance" },
+      { "form": "Contact page consumer form, 'I'm interested in' = Annuities (sheet tab 'Annuities & retirement')", "file": "contact.html:124, Code.gs:29", "type": "annuity" },
+      { "form": "Contact page consumer form, 'I'm interested in' = Not Sure (sheet tab 'General inquiries')", "file": "contact.html:124, Code.gs:24 and :30", "type": "enquiry" },
+      { "form": "Agent form (contact page and Join Rainmaker page), interest Agent opportunity or Agency partnership (sheet tab 'Recruitment')", "file": "contact.html:140 and :150, careers.html:194 and :204, Code.gs:25", "type": "agent-recruiting" },
+      { "form": "No Rainmaker form for these types", "file": "searched contact.html, careers.html, Code.gs", "type": "GAPS: claim, policy-service, policy-review, consultation (no booking slot), retirement-planning (no separate form: its annuity choice shares a tab with retirement), investment-management (Rainmaker must not claim investment-adviser status, clients/rainmaker/sites.md:26, so it should never be offered there), auto-quote, home-quote, health-insurance, commercial-quote (not sold)" }
+    ]
+  }
+}
