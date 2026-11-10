@@ -85,4 +85,4 @@ Send to the head; never fix here. (Builder, 2026-11-10.)
 - CI 42850062911 green on 2491738.
 - Book: A13, A14, A17 and A18 are WORKS. A20 notes finding 4 (the export ignores the Due and Duplicates ticks).
 - Finding 9 (`ci.mjs`): GitHub's dashboard job ran it (CI above), not run locally (rule 8).
-- NOT CHECKED: the look at 390 px wide.
+- The 390 px look (head of operations: part of acceptance), run after the land was stopped. styles.spec.ts with SHOTS found four faults: the picker's Move buttons wrapped under each label, Columns and Views each took a row, the Due and Duplicates ticks had no gap (`css.ticks` was undefined; the class is in Crm.module.css), and the phone bar's Sign out sat on Settings (since 08). Fixed in a2ba2c4, with checks for the bar overlap (red on the old build: "Settings / Sign out") and for the picker lines (red with its CSS removed: 17 columns flagged). Full styles.spec.ts: 26 passed.
