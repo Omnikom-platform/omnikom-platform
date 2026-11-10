@@ -805,3 +805,7 @@ Steps, in order:
   caught only by a crash, not a named check); C13 invite mail stays UNPROVEN (J13 never runs the invite test).
 - Known gaps of work order 23: a hand push to master between the re-read and the push gives LAND-PUSH-FAILED; LAND-LOCKED after
   green does not cache the verdict.
+- 2026-11-10 07:40 (resumed on the new account, same session): `tools ensure --only osv-scanner` PROVEN end to end into a scratch
+  OMNIKOM_TOOLS_DIR: "status": "downloaded", 2.7.0, 58999296 bytes; the binary prints "osv-scanner version: 2.7.0"; a second run
+  "status": "present". Building: J14 stored site audit (check/cli/journey-seo-read, from J3's publish job, never publishes) and the
+  CLI CI mutants in 6 parallel jobs (check/cli/cli-ci-shards, head of operations' order: 53 to 78 min to near 15).
