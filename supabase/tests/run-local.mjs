@@ -755,6 +755,7 @@ const PORT_MUTANTS = [
 const mutate = (s, x, y) => { let t = s.split(x).join(y); const qx = qualify(x); if (qx !== x) t = t.split(qx).join(qualify(y)); return t; };
 
 let failed = 0, crashed = null, real = { setup: false, ok: false, out: '' }, ran = 0, left = '?';
+const bad = [];   // the mutants not caught, named again on the last line (CI keeps only the last lines of a gate)
 try {
   real = fresh('real', src);
   console.log(real.setup && real.ok ? `PASS real migration: ${real.out.split('\n').filter(l => /PASSED/.test(l)).join(' ').trim()}` : `FAIL real migration:\n${real.out.split('\n').filter(l => /ERROR|EXPECTED|assert|\(E[A-Z]+\)/i.test(l)).join('\n')}`);
@@ -776,12 +777,12 @@ try {
     ran++;
     const pairs = Array.isArray(a) ? a : [[a, b]];
     const missing = pairs.find(([x]) => !src.includes(x) && !src.includes(qualify(x)));
-    if (missing) { console.log(`MUTANT TARGET MISSING: ${name}: ${missing[0].slice(0, 60)}`); failed++; continue; }
+    if (missing) { console.log(`MUTANT TARGET MISSING: ${name}: ${missing[0].slice(0, 60)}`); failed++; bad.push(`${name} (target missing)`); continue; }
     const db = `m${++n}`;
     const m = fresh(db, pairs.reduce((s, [x, y]) => mutate(s, x, y), src));
     done(db);
     const caught = m.setup && !m.ok;
-    if (!caught) failed++;
+    if (!caught) { failed++; bad.push(`${name} (${m.setup ? 'survived' : 'setup failed'})`); }
     const why = (m.out.match(/(EXPECTED[^\n]*|Assertion[^\n]*|assert[^\n]*|ERROR:[^\n]*|\(E[A-Z]+\))/) || [''])[0].slice(0, 120);
     console.log(`${caught ? 'caught  ' : (m.setup ? 'SURVIVED' : 'SETUP-FAIL')} ${name.padEnd(44)} ${why}`);
     if (!m.setup) console.log(`  setup output: ${m.out.split('\n').slice(-3).join(' | ').slice(0, 300)}\n  server log:\n${pgLogTail(8).replace(/^/gm, '    ')}`);
@@ -799,7 +800,7 @@ try {
       ran++;
       const harnessRel = 'tests/run-local.mjs';
       const text = kind === 'lib' ? libText : readFileSync(join(HERE, '..', harnessRel), 'utf8');
-      if (!text.includes(x)) { console.log(`MUTANT TARGET MISSING: ${name}: ${x.slice(0, 60)}`); failed++; continue; }
+      if (!text.includes(x)) { console.log(`MUTANT TARGET MISSING: ${name}: ${x.slice(0, 60)}`); failed++; bad.push(`${name} (target missing)`); continue; }
       const broken = text.split(x).join(y);
       const mdir = mkdtempSync(join(tmpdir(), 'omk-portmut-'));
       let m;
@@ -813,7 +814,7 @@ try {
         }
       } finally { rmSync(mdir, { recursive: true, force: true }); }
       const caught = m.status === 1;
-      if (!caught) failed++;
+      if (!caught) { failed++; bad.push(`${name} (survived)`); }
       console.log(`${caught ? 'caught  ' : 'SURVIVED'} ${name.padEnd(44)} ${(outOf(m).match(/^FAIL[^\n]*/m) || [''])[0].slice(0, 120)}`);
     }
   }
@@ -829,5 +830,5 @@ try {
 } finally {
   guard.release({ keep: process.argv.includes('--keep') });   // always: a crash must not leave a server running (pg_ctl stop -m immediate, every process naming the folder, then the folder)
 }
-console.log(`\n${failed ? 'FAILED' : 'OK'}: real migration ${real.ok ? 'passes' : 'fails'}; ${ran} mutants${crashed ? ' (CRASHED, see CRASH above)' : ''}`);
+console.log(`\n${failed ? 'FAILED' : 'OK'}: real migration ${real.ok ? 'passes' : 'fails'}; ${ran} mutants${crashed ? ' (CRASHED, see CRASH above)' : ''}${bad.length ? `; not caught: ${bad.join('; ')}` : ''}`);
 process.exit(failed ? 1 : 0);
