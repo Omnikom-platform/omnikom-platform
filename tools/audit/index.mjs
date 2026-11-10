@@ -25,6 +25,8 @@ export const DEFAULT_CONFIG = {
   sitemap: { maxUrlsPerFile: 50000, maxBytesPerFile: 52428800 },
   // shipgate spec 8.0.0 packs/performance.md defaults block (read 2026-10-30): lcpMs, cls, tbtMs (PRF-001), ttfbMs (PRF-016, warm server response).
   speed: { lcpMs: 2500, cls: 0.1, tbtMs: 200, ttfbMs: 600 },
+  // shipgate spec 8.0.0 packs/security.md line 36 (the csp block), read 2026-11-10: SEC-010 and SEC-075. required false makes the CSP parts notApplicable.
+  csp: { required: true, allowUnsafeInlineScripts: false, allowUnsafeEval: false },
 };
 
 async function loadChecks() {
@@ -61,6 +63,7 @@ function resolveConfig(dir, override) {
   }
   for (const [k, v] of Object.entries(cfg.speed)) if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) throw new AuditError(`WCF-004: speed.${k} must be a number above zero (got ${JSON.stringify(v)})`);
   for (const [k, v] of Object.entries(cfg.sitemap)) if (!Number.isInteger(v) || v < 1) throw new AuditError(`sitemap.${k} must be a whole number above zero`);
+  for (const [k, v] of Object.entries(cfg.csp)) if (typeof v !== "boolean") throw new AuditError(`csp.${k} must be true or false (got ${JSON.stringify(v)})`);
   return cfg;
 }
 

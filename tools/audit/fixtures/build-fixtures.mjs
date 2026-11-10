@@ -11,9 +11,27 @@ import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const O = "https://www.brindlewood-tea.example";
-// The _headers file of the factory (factory/lib/launch.mjs headersText, shortened to four headers): a preview adds the X-Robots-Tag noindex line.
-const headersText = ({ preview }) => ["/*", "  Strict-Transport-Security: max-age=31536000; includeSubDomains", "  X-Content-Type-Options: nosniff", "  Referrer-Policy: strict-origin-when-cross-origin", "  X-Frame-Options: DENY",
-  ...(preview ? ["  X-Robots-Tag: noindex, nofollow"] : []), "/assets/*", "  Cache-Control: public, max-age=31536000, immutable", ""].join("\n");
+// The security headers of the factory (factory/lib/launch.mjs headersText, the same seven, same values; work order 38 made SEC-010 and SEC-075 judge them).
+export const SEC_HEADERS = [
+  ["Strict-Transport-Security", "max-age=31536000; includeSubDomains"],
+  ["X-Content-Type-Options", "nosniff"],
+  ["Referrer-Policy", "strict-origin-when-cross-origin"],
+  ["X-Frame-Options", "DENY"],
+  ["Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()"],
+  ["Cross-Origin-Opener-Policy", "same-origin"],
+  ["Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"],
+];
+const CSP_GOOD = SEC_HEADERS[6][1];
+// The _headers file of the factory: a preview adds the X-Robots-Tag noindex line. `over` changes one security header for a SEC fixture: { Name: "new value" } or
+// { Name: null } to drop it; `extra` adds header lines (strings "Name: value"). A name that is not one of the seven throws, so a fixture cannot silently equal the good one.
+export const headersText = ({ preview, over = {}, extra = [] } = {}) => {
+  for (const k of Object.keys(over)) if (!SEC_HEADERS.some(([n]) => n === k)) throw new Error(`fixture edit: _headers has no header ${k}`);
+  // the X-Robots-Tag line of a preview stays on line 6 of the file (after the first four headers): the ENV-001 tests of run.mjs name "_headers line 6"
+  const lines = SEC_HEADERS.map(([n, v]) => (over[n] === null ? null : `  ${n}: ${over[n] ?? v}`));
+  return ["/*", ...lines.slice(0, 4).filter(Boolean), ...(preview ? ["  X-Robots-Tag: noindex, nofollow"] : []), ...lines.slice(4).filter(Boolean), ...extra.map((l) => `  ${l}`),
+    "/assets/*", "  Cache-Control: public, max-age=31536000, immutable", ""].join("\n");
+};
+const cspOf = (edit) => { const v = edit(CSP_GOOD); if (v === CSP_GOOD) throw new Error("fixture edit: the CSP edit changed nothing"); return v; };
 
 function readDir(dir) {
   const out = new Map();
@@ -225,6 +243,14 @@ export const FIXTURES = {
   "bad-PMP-001-uncovered": { coverage: COVERAGE_FILE, expect: "row pm-5e6f7a8b (earn-mention) has no page", count: 1, edit: (d) => add(d, COVERAGE_FILE, coverageText((rows) => rows.map((r) => (r.id === "pm-5e6f7a8b" ? { ...r, reason: "" } : r)))) },
   // a row whose page is not in the build (the plan promised /tasting-room/best-chai/, the build has no such page): one FAIL naming the row id and the path
   "bad-PMP-001-missing-page": { coverage: COVERAGE_FILE, expect: "row pm-1c2d3e4f (improve-page) says /tasting-room/best-chai/ answers it, but the build has no page at /tasting-room/best-chai/", count: 1, edit: (d) => add(d, COVERAGE_FILE, coverageText((rows) => rows.map((r) => (r.id === "pm-1c2d3e4f" ? { ...r, coveredBy: "/tasting-room/best-chai/" } : r)))) },
+
+  // SEC-010 and SEC-075 (work order 38): the headers a built folder's _headers file gives each page. One defect per fixture; every page carries it (four findings).
+  // The other defects of each rule (a missing header, a bad value, each CSP condition) are tested on temporary folders in test/sec.mjs.
+  "bad-SEC-010-no-csp": { expect: "Content-Security-Policy is not sent", count: 4, at: "<head", edit: (d) => add(d, "_headers", headersText({ over: { "Content-Security-Policy": null } })) },
+  "bad-SEC-010-unsafe-inline": { expect: "allows 'unsafe-inline' with no nonce or hash source", count: 4, at: "<head", edit: (d) => add(d, "_headers", headersText({ over: { "Content-Security-Policy": cspOf((c) => c.replace("script-src 'self'", "script-src 'self' 'unsafe-inline'")) } })) },
+  "bad-SEC-010-permissions-syntax": { expect: "does not parse as an RFC 8941 dictionary", count: 4, at: "<head", edit: (d) => add(d, "_headers", headersText({ over: { "Permissions-Policy": "camera 'none', microphone 'none'" } })) },
+  "bad-SEC-075-wildcard": { expect: '"*" is not allowed (allows every host)', count: 4, at: "<head", edit: (d) => add(d, "_headers", headersText({ over: { "Content-Security-Policy": cspOf((c) => c.replace("script-src 'self'", "script-src 'self' *")) } })) },
+  "bad-SEC-075-bypass-host": { expect: "cdn.jsdelivr.net serves any file of any npm package", count: 4, at: "<head", edit: (d) => add(d, "_headers", headersText({ over: { "Content-Security-Policy": cspOf((c) => c.replace("script-src 'self'", "script-src 'self' https://cdn.jsdelivr.net")) } })) },
 };
 const HOME_ANCHOR = "<h2>Learn to steep</h2>";
 function homeAdd(d, html) { rep(d, "index.html", HOME_ANCHOR, html + "\n" + HOME_ANCHOR); }
@@ -260,7 +286,8 @@ const SNAP_PAGES = [
   { file: "journal/how-to-steep-oolong/index.html", slug: "journal__how-to-steep-oolong", path: "/journal/how-to-steep-oolong/", ttfb: 275, lcp: 1950, cls: 0, tbt: 60 },
 ];
 const TRUSTED = "trusted";
-const responseJson = (url, finalUrl, status, ttfbMs, extra = {}) => ({ url, finalUrl, status, chain: [{ url, status, ttfbMs }], headers: { "content-type": "text/html; charset=utf-8" }, ttfbMs, totalMs: ttfbMs + 40, htmlBytes: 4096, mainTextHash: null, fetchedAt: "2026-10-30T08:02:00.000Z", userAgent: "PEWP-SiteCheck/1.0", ...extra });
+const SNAP_SEC = Object.fromEntries(SEC_HEADERS.map(([n, v]) => [n.toLowerCase(), v]));
+const responseJson = (url, finalUrl, status, ttfbMs, extra = {}) => ({ url, finalUrl, status, chain: [{ url, status, ttfbMs }], headers: { "content-type": "text/html; charset=utf-8", ...SNAP_SEC }, ttfbMs, totalMs: ttfbMs + 40, htmlBytes: 4096, mainTextHash: null, fetchedAt: "2026-10-30T08:02:00.000Z", userAgent: "PEWP-SiteCheck/1.0", ...extra });
 const browserJson = (url, lcpMs, cls, tbtMs) => ({ url, finalUrl: url, profile: "mobile", measuredAt: "2026-10-30T08:05:00.000Z", timedOut: false, vitals: { lcpMs, cls, tbtMs, fcpMs: Math.round(lcpMs * 0.6), ttfbMs: 240, loadMs: lcpMs + 600 }, method: "median of 3 run(s); other fields from the median-LCP run", totals: { requests: 14, bytes: 412000 }, errors: [] });
 
 export function snapshotGood(good) {

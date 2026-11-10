@@ -1,0 +1,7 @@
+[
+  { "host": "www.google.com", "reason": "serves JSONP endpoints that run a caller-chosen function name as script" },
+  { "host": "ajax.googleapis.com", "reason": "hosts AngularJS, whose templates run script from page content (a script gadget)" },
+  { "host": "cdnjs.cloudflare.com", "reason": "hosts AngularJS and other libraries with script gadgets, and anyone can be served from it" },
+  { "host": "cdn.jsdelivr.net", "reason": "serves any file of any npm package or GitHub repository, so an attacker can host the script there" },
+  { "host": "unpkg.com", "reason": "serves any file of any npm package, so an attacker can host the script there" }
+]

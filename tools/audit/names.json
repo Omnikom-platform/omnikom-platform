@@ -43,6 +43,8 @@
     "DSN-009": { "topic": "design", "problem": "The page text makes a claim such as loved by thousands or ten times faster that cannot be checked." },
     "DSN-010": { "topic": "design", "problem": "Small text is set in a heavy bold weight, which is hard to read." },
     "DSN-011": { "topic": "design", "problem": "Small text has its letters squeezed too tightly together." },
-    "ENV-001": { "topic": "setting", "problem": "A preview could be found by search engines, or a live page is hidden from them." }
+    "ENV-001": { "topic": "setting", "problem": "A preview could be found by search engines, or a live page is hidden from them." },
+    "SEC-010": { "topic": "setting", "problem": "A page is sent without the safety settings that browsers expect, or with weak ones." },
+    "SEC-075": { "topic": "setting", "problem": "A page lets too many sources run scripts, which weakens its protection for visitors." }
   }
 }

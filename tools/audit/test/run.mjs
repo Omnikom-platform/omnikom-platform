@@ -45,6 +45,8 @@ const FAIL_SHAPE = /^FAIL [A-Z0-9-]+ \S+:\d+ .+ \(source: .+\)$/;
 const ruleOf = (name) => (name.match(/^(?:snapshot-)?bad-([A-Z0-9]+-\d{3})/) || [])[1];
 // rules that judge only a snapshot (a built folder has no browser and no server): they print no line in folder mode
 const SNAPSHOT_ONLY = new Set(["PRF-001", "PRF-016"]);
+// work order 38: rules that judge the response headers: a snapshot has them, a folder only through its _headers file; the good folder has none, so it prints no line for them
+const HEADERS_ONLY = new Set(["SEC-010", "SEC-075"]);
 // slice 4c, the ruling of 2026-11-01 (final): a run with no target prints exactly ONE ENV-001 line, the site-wide `SKIP ENV-001 / no --target ...`, and no other ENV-001 line
 const snapshotNoTargetSkipOnly = (j) => { const own = j.findings.filter((f) => f.rule === "ENV-001"), ls = j.lines.filter((l) => /ENV-001/.test(l)); return own.length === 1 && own[0].status === "SKIP" && own[0].page === "/" && own[0].what.startsWith("no --target") && ls.length === 1 && ls[0].startsWith("SKIP ENV-001 / no --target"); };
 // slice 4c flip: ENV-001 as it must show on a run the helpers gave a target: a snapshot with no target prints the one SKIP above; a folder (always run with a target now) has no ENV-001 SKIP and prints its PASS lines
@@ -63,6 +65,8 @@ const ENV_SOURCE = "factory/lib/launch.mjs headersText and factory/README.md (ro
 try {
   // work order 33: the metrics collectors (tools/audit/metrics/); first, so a mutant of them is caught before the long checks run
   await (await import(pathToFileURL(join(AUDIT, "test", "metrics.mjs")).href)).metricsChecks({ check, AUDIT, SKILL: process.env.OMNIKOM_SKILL_DIR ? resolve(process.env.OMNIKOM_SKILL_DIR) : resolve(HERE, "..", "..", "..", "skills", "programmatic-enterprise-web-performance") });
+  // work order 38: SEC-010 and SEC-075 (test/sec.mjs runs alone too: node tools/audit/test/sec.mjs)
+  await (await import(pathToFileURL(join(AUDIT, "test", "sec.mjs")).href)).secChecks({ check, AUDIT, tmp });
   // the rules the engine has, from --list
   const listed = cli(["--list"]);
   const rules = listed.out.split(/\r?\n/).filter(Boolean).map((l) => { const [id, severity, ...src] = l.trim().split(/\s+/); return { id, severity, source: src.join(" ") }; });
@@ -76,10 +80,10 @@ try {
   check("--list: exit 0 and one line per check file, each with its severity and a source", listed.status === 0 && rules.length === checkFiles.length && rules.length > 0 && rules.every((r) => /^(P0|P1|P2|W)$/.test(r.severity) && sourceOk(r) && checkFiles.includes(r.id.toLowerCase() + ".mjs")), listed.out + listed.err);
   check("--list: ENV-001 is listed as P0 with the factory source", rules.some((r) => r.id === "ENV-001" && r.severity === "P0" && r.source === ENV_SOURCE), listed.out);
   check("--list: PMP-001 is listed as P0 with the DECISIONS 35 source", rules.some((r) => r.id === "PMP-001" && r.severity === "P0" && r.source === PMP_SOURCE), listed.out);
-  check("--list: 30 rules, the 11 DSN rules among them, each P1 with the DECISIONS 37 source and the unslop credit", rules.length === 30 && rules.filter((r) => r.id.startsWith("DSN-")).length === 11 && Array.from({ length: 11 }, (_, i) => "DSN-" + String(i + 1).padStart(3, "0")).every((id) => rules.some((r) => r.id === id && r.severity === "P1" && r.source === DSN_SOURCES[id] + TAIL)), listed.out);
+  check("--list: 32 rules, the 11 DSN rules among them, each P1 with the DECISIONS 37 source and the unslop credit", rules.length === 32 && rules.filter((r) => r.id.startsWith("DSN-")).length === 11 && Array.from({ length: 11 }, (_, i) => "DSN-" + String(i + 1).padStart(3, "0")).every((id) => rules.some((r) => r.id === id && r.severity === "P1" && r.source === DSN_SOURCES[id] + TAIL)), listed.out);
 
   // every check has its rules file, and the file carries the source and the spec path (a DSN rule: DECISIONS 37 and the unslop credit)
-  const sourceless = rules.filter((r) => { const p = join(AUDIT, "rules", r.id + ".md"); if (!existsSync(p)) return true; const t = readFileSync(p, "utf8"); const specOk = r.id === "ENV-001" ? t.includes("factory/lib/launch.mjs headersText") : r.id === "PMP-001" ? t.includes("planning/DECISIONS.md 35") : r.id.startsWith("DSN-") ? t.includes("skills/unslop/") && t.includes("CC BY 4.0") && t.includes("Damir Sokolovsky") : /shipgate\/spec\/packs\/(web-delivery|accessibility|search-engines|performance)\.md/.test(t); return !t.includes(r.source) || !specOk || !t.includes("## Rule text") || !t.includes("## Judged here") || !t.includes("## Not judged here"); });
+  const sourceless = rules.filter((r) => { const p = join(AUDIT, "rules", r.id + ".md"); if (!existsSync(p)) return true; const t = readFileSync(p, "utf8"); const specOk = r.id === "ENV-001" ? t.includes("factory/lib/launch.mjs headersText") : r.id === "PMP-001" ? t.includes("planning/DECISIONS.md 35") : r.id.startsWith("DSN-") ? t.includes("skills/unslop/") && t.includes("CC BY 4.0") && t.includes("Damir Sokolovsky") : /shipgate\/spec\/packs\/(web-delivery|accessibility|search-engines|performance|security)\.md/.test(t); return !t.includes(r.source) || !specOk || !t.includes("## Rule text") || !t.includes("## Judged here") || !t.includes("## Not judged here"); });
   check("every rule has rules/<ID>.md with its source, the spec path (a DSN rule: the unslop credit) and the rule text", sourceless.length === 0, sourceless.map((r) => r.id).join(", "));
 
   // the good site passes every rule, in text mode and in JSON
@@ -90,7 +94,7 @@ try {
   check("good site with no --target: exit 2, nothing on stdout, stderr names --target (slice 4c flip)", goodNone.status === 2 && goodNone.out === "" && /needs --target/.test(goodNone.err), goodNone.status + goodNone.out + goodNone.err);
   const gj = json([join(FIX, "good")]);
   const pagesN = gj.j ? gj.j.pages.length : 0;
-  check("good site: one PASS line per rule per page or file, every rule present", gj.j && rules.filter((r) => !SNAPSHOT_ONLY.has(r.id) && r.id !== "ENV-001" && r.id !== "PMP-001").every((r) => gj.j.lines.some((l) => l.startsWith(`PASS ${r.id} `))) && !gj.j.lines.some((l) => /^\w+ PRF-/.test(l)) && envLineOk(gj.j) && noCoverageSkipOnly(gj.j) && gj.j.lines.filter((l) => l.startsWith("PASS MET-003 ")).length === pagesN, gj.out.slice(0, 300));
+  check("good site: one PASS line per rule per page or file, every rule present", gj.j && rules.filter((r) => !SNAPSHOT_ONLY.has(r.id) && !HEADERS_ONLY.has(r.id) && r.id !== "ENV-001" && r.id !== "PMP-001").every((r) => gj.j.lines.some((l) => l.startsWith(`PASS ${r.id} `))) && !gj.j.lines.some((l) => /^\w+ PRF-/.test(l)) && envLineOk(gj.j) && noCoverageSkipOnly(gj.j) && gj.j.lines.filter((l) => l.startsWith("PASS MET-003 ")).length === pagesN, gj.out.slice(0, 300));
   check("good site: --json is valid JSON, exit equals the process exit, pass true, no finding but the PMP-001 SKIP", gj.j && gj.j.exit === gj.status && gj.status === 0 && gj.j.pass === true && skipsOnly(gj.j) && Array.isArray(gj.j.pages) && Array.isArray(gj.j.rules) && gj.j.lines.length > 0, gj.out.slice(0, 300) + gj.err);
 
   // the bad fixtures, driven by the generator's own table
@@ -300,7 +304,7 @@ try {
   const putFile = (rel, text) => (dir) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), text); };
 
   const sgJson = json([SG]);
-  check("snapshot-good: exit 0, every line PASS except the one `SKIP ENV-001 / no --target` and the one `SKIP PMP-001 / no --prompt-coverage`, mode snapshot, all 28 other rules present, no folder-only line", sgJson.status === 0 && sgJson.j && sgJson.j.mode === "snapshot" && skipsOnly(sgJson.j) && rules.filter((r) => r.id !== "ENV-001" && r.id !== "PMP-001").every((r) => sgJson.j.lines.some((l) => l.startsWith(`PASS ${r.id} `))) && exceptEnvSkip(sgJson.j.lines).every((l) => l.startsWith("PASS ")) && sgJson.j.pages.length === 4, sgJson.out.slice(0, 300) + sgJson.err);
+  check("snapshot-good: exit 0, every line PASS except the one `SKIP ENV-001 / no --target` and the one `SKIP PMP-001 / no --prompt-coverage`, mode snapshot, all 30 other rules present, no folder-only line", sgJson.status === 0 && sgJson.j && sgJson.j.mode === "snapshot" && skipsOnly(sgJson.j) && rules.filter((r) => r.id !== "ENV-001" && r.id !== "PMP-001").every((r) => sgJson.j.lines.some((l) => l.startsWith(`PASS ${r.id} `))) && exceptEnvSkip(sgJson.j.lines).every((l) => l.startsWith("PASS ")) && sgJson.j.pages.length === 4, sgJson.out.slice(0, 300) + sgJson.err);
   check("--list shows SE-001, PRF-001 and PRF-016 with their severity and source", ["SE-001 P0 checklist/search-engines.md SE-001", "PRF-001 P2 checklist/performance.md PRF-001", "PRF-016 P2 checklist/performance.md PRF-016"].every((s) => listed.out.split(/\r?\n/).some((l) => l.trim().split(/\s+/).join(" ") === s)), listed.out);
   check("the good folder prints no PRF line (the speed rules need a snapshot) and its audit() result says mode static", (() => { const r = engine.audit(join(FIX, "good")); return r.mode === "static" && !r.lines.some((l) => /PRF-/.test(l)); })());
 

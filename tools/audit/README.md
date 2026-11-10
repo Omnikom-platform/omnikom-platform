@@ -235,8 +235,24 @@ A prompt is a whole situation a buyer types into an AI engine. The skill's resea
   (the file's path inside the fixture), passed to the audit for that fixture only.
 - Not a checklist rule: its source line is DECISIONS 35, so `--list` shows that text. The factory and the CLI pass no coverage file today and so get the one SKIP line.
 
+## Security headers (work order 38): SEC-010 and SEC-075
+Two checklist rules (`rules/SEC-010.md`, `rules/SEC-075.md`, readers in `lib/secheaders.mjs`, bypass hosts in `lib/csp-bypass-hosts.json`), P1 each. SEC-010 judges the security headers of
+every 2xx page (an enforced Content-Security-Policy without `'unsafe-inline'` scripts unless a nonce or hash comes with it and with a `frame-ancestors`; `X-Content-Type-Options: nosniff`;
+a Referrer-Policy whose last valid token is strict enough; a Permissions-Policy that parses as an RFC 8941 dictionary; Strict-Transport-Security of at least a year). SEC-075 judges the
+strength of that policy (no `*`, scheme-only or bypass-host script source, no `'unsafe-eval'`, `object-src 'none'`, `base-uri`; `form-action` is a WARN).
+- Where the headers come from: a snapshot's `response.json` (`headers`, every response header, which `snapshot-site.mjs` already keeps), or, for a built folder, the headers its `_headers` file
+  (Cloudflare Pages format, as ENV-001 reads it) gives each page. **A folder with no `_headers` file is not judged and prints no SEC line** (its host may add the headers); the head of operations
+  decides whether it should print a SKIP line instead.
+- Config (spec's `csp` block): `csp.required` (default true), `csp.allowUnsafeInlineScripts`, `csp.allowUnsafeEval`, in `options.config` or the folder's `audit.config.json`; a value that is not true or false is exit 2.
+- Fixtures: `bad-SEC-010-no-csp`, `-unsafe-inline`, `-permissions-syntax`, `bad-SEC-075-wildcard`, `-bypass-host`; every snapshot fixture now carries the security headers in its `response.json`
+  (`SEC_HEADERS` in the generator, the seven headers the factory's `headersText` writes). Tests: `node tools/audit/test/sec.mjs` runs alone (98 checks on temporary copies of `good` and `snapshot-good`);
+  `test/run.mjs` calls it; its mutants are `test/mutants-sec.mjs` (72), whose target texts `node tools/audit/test/check-mutant-targets.mjs` checks without running them.
+- The live driver is unchanged: `live.mjs` reads the snapshot the skill's `snapshot-site.mjs` makes, and that already saves every page's response headers. It does not fetch an asset's headers
+  (the cache rule is not judged by these rules).
+- `tools/audit/dashboard-csp/`: the dashboard's Playwright flows against a deployed origin with a CSP guard (`run.mjs`, see its header).
+
 ## Design tells (slice 4b): the DSN rules
-30 rules now (29 before slice 5c, 28 before slice 4c): the 17 checklist rules above, ENV-001, PMP-001 and DSN-001 to DSN-011, the machine-checkable tells of generic AI-made design (DECISIONS 37; origin: the open skill
+32 rules now (30 before work order 38, 29 before slice 5c, 28 before slice 4c): the 17 checklist rules above, SEC-010 and SEC-075 (work order 38, below), ENV-001, PMP-001 and DSN-001 to DSN-011, the machine-checkable tells of generic AI-made design (DECISIONS 37; origin: the open skill
 unslop by Damir Sokolovsky, CC BY 4.0, copied to `skills/unslop/`, rewritten here in our own words). The source line of each DSN rule names the line(s) of
 that copy and the decision, e.g. DSN-005: `skills/unslop/references/signs.md:47 and skills/unslop/SKILL.md:110; planning/DECISIONS.md 37 (owner, 2026-10-31); unslop by Damir Sokolovsky, CC BY 4.0`.
 All P1; DSN-010 and DSN-011 print WARN (the exit stays 0), the other nine print FAIL. A built site that trips one does not publish.

@@ -18,6 +18,7 @@ import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { METRICS_MUTANTS } from "./mutants-metrics.mjs";   // work order 33: the mutants of tools/audit/metrics/
+import { SEC_MUTANTS } from "./mutants-sec.mjs";   // work order 38: the mutants of SEC-010 and SEC-075
 
 const AUDIT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SKILL = process.env.OMNIKOM_SKILL_DIR ? resolve(process.env.OMNIKOM_SKILL_DIR) : resolve(AUDIT, "..", "..", "skills", "programmatic-enterprise-web-performance");   // the skill's own fixtures (work order 25); a mutant's copy of tools/audit/ is not inside the repo
@@ -450,7 +451,7 @@ const MUTANTS = [
   ["headers.mjs: a placeholder matches across path segments", "lib/headers.mjs", 'if (ph) { re += "[^/]+"; i += ph[0].length; continue; }', 'if (ph) { re += ".+"; i += ph[0].length; continue; }'],
   ["headers.mjs: a detach (! Name) takes nothing off", "lib/headers.mjs", "if (h.detach) lines = []; else lines.push(", "if (h.detach) { /* ignored */ } else lines.push("],
   ["headers.mjs: a pattern with two splats is matched anyway", "lib/headers.mjs", String.raw`if ((pattern.match(/\*/g) || []).length > 1) return null;`, ""],
-  ["headers.mjs: a pattern that cannot be matched is not listed as not judged", "lib/headers.mjs", 'if (!compiled[i] && r.headers.some((h) => h.name === "x-robots-tag")) out.skipped.push(r.pattern);', "if (false) out.skipped.push(r.pattern);"],
+  ["headers.mjs: a pattern that cannot be matched is not listed as not judged", "lib/headers.mjs", 'if (r.headers.some((h) => h.name === "x-robots-tag")) out.skipped.push(r.pattern);', "if (false) out.skipped.push(r.pattern);"],
   ["headers.mjs: a host pattern is compiled as a path pattern", "lib/headers.mjs", 'if (!pattern.startsWith("/")) return null;', ""],
   ["headers.mjs: foo.html is served at /foo.html", "lib/headers.mjs", String.raw`return p.replace(/\.html?$/i, "");`, "return p;"],
   ["headers.mjs: index.html is served at /index.html", "lib/headers.mjs", String.raw`if (/\/index\.html?$/i.test(p)) return p.replace(/index\.html?$/i, "");`, "if (false) return p;"],
@@ -509,6 +510,7 @@ const MUTANTS = [
   ["live.mjs: --prompt-coverage is not passed to the engine", "live.mjs", "promptCoverage: promptCoverage || undefined", "promptCoverage: undefined"],
   ["live.mjs: --prompt-coverage with no value is accepted", "live.mjs", 'promptCoverage = value(i, a); i++;', "promptCoverage = args[i + 1]; i++;"],
   ...METRICS_MUTANTS,
+  ...SEC_MUTANTS,
 ];
 let survived = 0, missing = 0, notRun = 0;
 const TMP_BASE = process.env.OMNIKOM_AUDIT_TMP ? resolve(process.env.OMNIKOM_AUDIT_TMP) : tmpdir();

@@ -116,6 +116,17 @@ export function buildSite(dir, config, options = {}) {
   // purpose; the other rules judge the site as it will be in production). no target: a snapshot is what the live site says, so it feeds; a folder
   // ignores _headers. A meta robots noindex always feeds. ENV-001 reads headerNoindex itself.
   site.target = options.target || null;
+  // work order 38 (SEC-010, SEC-075): p.headers = { name (lower case): [{ value, where }] } and p.headersKnown. A snapshot page knows the headers its response
+  // carried (response.json, kept by snapshot-site.mjs); a folder page knows them only through the folder's _headers file (applyHeadersFile).
+  for (const p of site.pages.values()) { p.headers = {}; p.headersKnown = false; }
+  if (snap) {
+    for (const p of site.pages.values()) {
+      const j = p.slug ? site.readJson(`pages/${p.slug}/response.json`) : null;
+      if (!j || !j.headers || typeof j.headers !== "object" || Array.isArray(j.headers)) continue;
+      p.headersKnown = true;
+      for (const [k, v] of Object.entries(j.headers)) (p.headers[k.toLowerCase()] ||= []).push(...(Array.isArray(v) ? v : [v]).map((x) => ({ value: String(x), where: `the response header ${k}` })));
+    }
+  }
   site.headersFile = snap ? null : applyHeadersFile(site);
   const headerFeeds = site.target === "production" || (!site.target && snap);
   for (const p of site.pages.values()) {

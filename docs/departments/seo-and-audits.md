@@ -561,3 +561,9 @@ options, never a fix made here.
     skill's measure stage, allowed by D38, or an owner's capture); no model key in `tools/audit/`. Suite `OK: 802 of 802`, D38 check
     OK locally, changed mutants all caught. Rule for every SEO brief from now on: nothing under `tools/audit/` calls a model; run
     `node docs/blueprint/specs/check-no-model.mjs` before a land.
+- 2026-11-10 20:50: 33 landed `30f0dcb` (after the D38 fix); the skill sync for the dead Gemini default landed `788f1a4` (skill repo
+  `98cca19`, not pushed to its own GitHub). 38 (E7 dashboard hardening) building, builder `dashboard-hardening`, brief
+  `work/38-dashboard-hardening/CONTEXT.md`; platform OK'd plan rows DP-1.2s-12/13 (landing on our branch with `src/ErrorScreen.tsx`;
+  text at least 14 px and an h1, for `styles.spec.ts`). **Rule from the head of operations, 20:49:** locally run only the tests of
+  the files changed plus gitleaks; full suites and mutant runs go to CI by pushing the branch; the heavy lock only for what CI cannot
+  do (a staging proof). The head's own re-check is then the CI run on the exact tip plus a read of the diff.

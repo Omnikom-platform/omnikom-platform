@@ -55,6 +55,8 @@ Slice says which build slice puts it on the screen; `later` rows are not built i
 | DP-1.2s-09 | 5.3 | The page title of each screen: "Sign in", "Choose a business", "Leads" (with the count, DP-1.3-09), "Settings" | the browser tab |
 | DP-1.2s-10 | 5.3 | Loading: a list shows "Loading" in place of its rows; a pressed button says what it is doing ("Sending", "Saving", "Removing") and is disabled until the answer | the screen never blanks (1.1 Loading) |
 | DP-1.2s-11 | 5.3 | On "Not found": the link "Go to your businesses" | the picker (or Leads of the only business) |
+| DP-1.2s-12 | 5.3 | The error screen: when a screen fails to draw it replaces the screen and says "Something went wrong. Reload the page to try again." (no error text, no stack, no blame) | a render error in any route |
+| DP-1.2s-13 | 5.3 | On the error screen: the button "Reload" | reloads the page |
 Design parts: the card, the two states, the "check your email" state, the expired-link state, the picker list, the second-factor
 field. Emails to design: the sign-in link mail, the invite mail (who invited you, which business, the button), the new-lead alert
 mail (section 1.3), each in plain text plus one HTML version.

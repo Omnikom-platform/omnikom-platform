@@ -70,17 +70,39 @@ export function robotsHeaderFor(rules, compiled, path) {
   return { lines, directives, noindex: !!source, source };
 }
 
-// Fill headerRobots, headerNoindex and headerSource on every page of a folder from its _headers file (a folder with none: nothing is set).
-// Returns { present, rules, skipped: [patterns not judged] }.
+// Every header a served path gets from the rules (work order 38, SEC-010 and SEC-075): { name (lower case): [{ value, where }] }, one entry per header line
+// that is left after the detaches; `where` names the line and the pattern. A header set by two matching rules is two entries (Cloudflare joins them with a comma).
+export function headersFor(rules, compiled, path) {
+  const out = {};
+  rules.forEach((rule, i) => {
+    const re = compiled[i];
+    if (!re || !re.test(path)) return;
+    for (const h of rule.headers) {
+      if (h.detach) { delete out[h.name]; continue; }
+      (out[h.name] ||= []).push({ value: h.value, where: `_headers line ${h.line} (pattern ${rule.pattern})` });
+    }
+  });
+  return out;
+}
+
+// Fill headerRobots, headerNoindex and headerSource on every page of a folder from its _headers file (a folder with none: nothing is set), and, for
+// SEC-010 and SEC-075, headers (every header the file gives that page) and headersKnown (true only when the folder has a _headers file: the folder
+// itself says nothing about the headers a host adds).
+// Returns { present, rules, skipped: [patterns not judged], skippedAll: [every pattern that sets a header and cannot be matched exactly] }.
 export function applyHeadersFile(site) {
-  const out = { present: site.has("_headers"), rules: [], skipped: [] };
+  const out = { present: site.has("_headers"), rules: [], skipped: [], skippedAll: [] };
   if (!out.present) return out;
   out.rules = parseHeadersFile(site.read("_headers"));
   const compiled = out.rules.map((r) => compilePattern(r.pattern));
-  out.rules.forEach((r, i) => { if (!compiled[i] && r.headers.some((h) => h.name === "x-robots-tag")) out.skipped.push(r.pattern); });
+  out.rules.forEach((r, i) => {
+    if (compiled[i]) return;
+    if (r.headers.some((h) => h.name === "x-robots-tag")) out.skipped.push(r.pattern);
+    if (r.headers.length) out.skippedAll.push(r.pattern);
+  });
   for (const p of site.pages.values()) {
     const r = robotsHeaderFor(out.rules, compiled, servedPath(p.file));
     p.headerRobots = r.directives; p.headerNoindex = r.noindex; p.headerSource = r.source;
+    p.headers = headersFor(out.rules, compiled, servedPath(p.file)); p.headersKnown = true;
   }
   return out;
 }

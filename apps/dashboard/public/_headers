@@ -1,0 +1,18 @@
+# Response headers of the dashboard (Cloudflare Pages reads this file from the root of the built folder; Vite copies public/ into dist/).
+# Rules: https://developers.cloudflare.com/pages/configuration/headers/ (read 2026-11-10): every matching rule adds its headers and a header
+# set twice is joined with a comma, so /assets/* detaches the /* Cache-Control with "! Cache-Control" before it sets its own.
+# The Supabase hosts are a wildcard because this file is static and the project ref differs per environment (staging, production); an exact
+# host per environment needs a build step (platform's). Sources, with file:line: work/38-dashboard-hardening/ (tools/audit/proof/dashboard-hardening.md).
+# HSTS carries no preload on purpose: submitting the domain to the preload list is the owner's call.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://*.supabase.co; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cache-Control: no-cache
+/assets/*
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable
