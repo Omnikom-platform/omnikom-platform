@@ -13,6 +13,7 @@ has to relearn it (README rule 5). Spec: `docs/blueprint/26-PLATFORM-CLI.md`.
 - `tools/omnikom-cli/`
 - `docs/blueprint/26-PLATFORM-CLI.md`
 - `tools/crm-map/`
+- `tools/migration-lint/` (the migration lock lint, book row E19: it READS `supabase/migrations/` and never edits it)
 - `tools/test/`
 - `tools/with-env.mjs` (a wrapper; its body is `tools/omnikom-cli/lib/with-env.mjs`)
 - `tools/bank-json-key.mjs`
@@ -68,6 +69,9 @@ this department then proves it over HTTP.
   `gitleaks ... | tail && git commit && git push` (the pipe hides the exit). On 2026-11-10 15:17 that chain pushed a flagged commit
   (a fake jwt.io sample, a355cab) to the public repo; the branch was deleted through `gh api -X DELETE .../git/refs/heads/<branch>`
   2 min later (the push-gate refuses even a delete push). Accepted by the head of operations 15:25.
+- Product lands go first. Before starting `omnikom land` for this department's branch, check that no product branch has CI running
+  on current master, and hold if one does; never leave a `land --wait-minutes` waiting unattended. On 2026-11-10 21:23 team-kit-ci
+  landed while platform 19's CI ran on 788f1a4 and forced 19 to rebase and re-run (head of operations, 21:51).
 
 ## Proof
 - `node tools/omnikom-cli/test/run.mjs`: "OK: N of N checks passed"; `node tools/omnikom-cli/test/mutate.mjs`: "N mutants, N caught,
@@ -93,6 +97,9 @@ when the head of operations has released its slice.
   Export-published and job-callback (runner-facing) come with 4.3.
 - Client stand-in flows beyond leads (brief `briefs/stand-in-flows.md`; waits for slice 2 and `push-lead`): a content edit and
   publish as a member, a CRM webhook push through `tools/crm-map`, `lead day`; a booking when the add-on exists.
+- Lead type through the CLI import (finding from platform 20, A16, 2026-11-10 22:20): migration 23 lets the import template and
+  `import_leads` take `lead_type`, but `tools/crm-map` drops it in `proposeMap` and `importRows`, so a client file's type column is lost
+  on the CLI path. Scheduled after platform 20 lands; until then the type comes from the form (or 'enquiry').
 - Slice 3 (placeholder `briefs/slice-3-onboard.md`; build steps 6 and 7): `onboard`, `offboard` (DECISIONS 31), `drift`, the
   Cloudflare API calls.
 - UNPROVEN on staging: `mfa enroll-staff` removing a stale TOTP factor (model only). Known: a paused site answers 500 over HTTP

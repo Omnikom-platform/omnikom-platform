@@ -1,0 +1,261 @@
+[
+  {
+    "file": "20261028000001_platform.sql",
+    "rule": "L7",
+    "line": 506,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; no lock_timeout was set before the first statement on the table: storage.objects is Supabase's own table in a project created that day; this migration made the media bucket and its first policy, so no upload could exist before it. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000002_crm.sql",
+    "rule": "L2",
+    "line": 8,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; an inline column CHECK, validated at once (no NOT VALID): leads was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000002_crm.sql",
+    "rule": "L7",
+    "line": 8,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; no lock_timeout was set before the first statement on the table: leads was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000002_crm.sql",
+    "rule": "L1",
+    "line": 15,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; a plain CREATE INDEX (no CONCURRENTLY): leads was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000002_crm.sql",
+    "rule": "E1",
+    "line": 22,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; drop table lead_notes was the contract step of DECISIONS 21 (notes and pushes folded into lead_events, \"no real lead exists yet\", 20261029000002_crm.sql:21); the tables came from migration 1 in the same run: lead_notes was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000002_crm.sql",
+    "rule": "E1",
+    "line": 23,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; drop table lead_pushes was the contract step of DECISIONS 21 (notes and pushes folded into lead_events, \"no real lead exists yet\", 20261029000002_crm.sql:21); the tables came from migration 1 in the same run: lead_pushes was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000003_addons.sql",
+    "rule": "L7",
+    "line": 6,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; no lock_timeout was set before the first statement on the table: workspaces was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L7",
+    "line": 30,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; no lock_timeout was set before the first statement on the table: members was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L2",
+    "line": 170,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; an ADD CONSTRAINT that validates at once (no NOT VALID): leads was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L2",
+    "line": 261,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; an inline column CHECK, validated at once (no NOT VALID): messages was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L1",
+    "line": 262,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; a plain CREATE INDEX (no CONCURRENTLY): messages was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L2",
+    "line": 451,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; an ADD CONSTRAINT that validates at once (no NOT VALID): connectors was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L1",
+    "line": 454,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; a plain CREATE INDEX (no CONCURRENTLY): leads was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L1",
+    "line": 455,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; a plain CREATE INDEX (no CONCURRENTLY): leads was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L1",
+    "line": 456,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; a plain CREATE INDEX (no CONCURRENTLY): lead_events was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L1",
+    "line": 457,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; a plain CREATE INDEX (no CONCURRENTLY): audit_log was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L1",
+    "line": 458,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; a plain CREATE INDEX (no CONCURRENTLY): content_versions was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L1",
+    "line": 459,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; a plain CREATE INDEX (no CONCURRENTLY): media was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L1",
+    "line": 460,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; a plain CREATE INDEX (no CONCURRENTLY): publish_jobs was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L1",
+    "line": 461,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; a plain CREATE INDEX (no CONCURRENTLY): publish_jobs was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L1",
+    "line": 462,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; a plain CREATE INDEX (no CONCURRENTLY): publish_job_events was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L1",
+    "line": 463,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; a plain CREATE INDEX (no CONCURRENTLY): sites was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L1",
+    "line": 464,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; a plain CREATE INDEX (no CONCURRENTLY): api_keys was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L1",
+    "line": 465,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; a plain CREATE INDEX (no CONCURRENTLY): webhook_events was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L1",
+    "line": 466,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; a plain CREATE INDEX (no CONCURRENTLY): messages was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L2",
+    "line": 469,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; an ADD CONSTRAINT that validates at once (no NOT VALID): webhook_events was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261029000004_hardening.sql",
+    "rule": "L2",
+    "line": 470,
+    "date": "2026-11-10",
+    "reason": "Applied 2026-10-29 to the brand-new, empty staging project in one run with migrations 1 to 4 (docs/blueprint/PROGRESS.md:1361-1386), before the lint existed; an ADD CONSTRAINT that validates at once (no NOT VALID): lead_events was created minutes earlier in that same run and held no rows. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261030000007_hardening_leftovers.sql",
+    "rule": "L7",
+    "line": 17,
+    "date": "2026-11-10",
+    "reason": "Applied to staging 2026-10-30 (\"applied 2 of 8\", docs/blueprint/PROGRESS.md:1147-1181), before the lint existed; no lock_timeout was set before the first statement on the table: audit_log held only the synthetic fixtures of test workspaces A and B (omnikom seed test, docs/blueprint/PROGRESS.md:1310-1316); no client is wired to the platform (work/STATE.md, Clients line); staging was not queried, so the absence of client rows is UNPROVEN by a query. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261030000007_hardening_leftovers.sql",
+    "rule": "L2",
+    "line": 148,
+    "date": "2026-11-10",
+    "reason": "Applied to staging 2026-10-30 (\"applied 2 of 8\", docs/blueprint/PROGRESS.md:1147-1181), before the lint existed; an inline column CHECK, validated at once (no NOT VALID): workspaces held only the synthetic fixtures of test workspaces A and B (omnikom seed test, docs/blueprint/PROGRESS.md:1310-1316); no client is wired to the platform (work/STATE.md, Clients line); staging was not queried, so the absence of client rows is UNPROVEN by a query. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261031000011_publish_ready_wall.sql",
+    "rule": "L7",
+    "line": 134,
+    "date": "2026-11-10",
+    "reason": "Applied to staging 2026-10-31 (\"applied 1 of 11\", docs/blueprint/PROGRESS.md:1143), before the lint existed; no lock_timeout was set before the first statement on the table: publish_jobs held only the synthetic fixtures of test workspaces A and B (omnikom seed test, docs/blueprint/PROGRESS.md:1310-1316); no client is wired to the platform (work/STATE.md, Clients line); staging was not queried, so the absence of client rows is UNPROVEN by a query. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261031000012_screens.sql",
+    "rule": "L7",
+    "line": 157,
+    "date": "2026-11-10",
+    "reason": "Applied to staging 2026-10-31 (\"applied 1 of 12\", docs/blueprint/PROGRESS.md:385), before the lint existed; no lock_timeout was set before the first statement on the table: sites held only the synthetic fixtures of test workspaces A and B (omnikom seed test, docs/blueprint/PROGRESS.md:1310-1316); no client is wired to the platform (work/STATE.md, Clients line); staging was not queried, so the absence of client rows is UNPROVEN by a query. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261109000021_media_limits.sql",
+    "rule": "L7",
+    "line": 13,
+    "date": "2026-11-10",
+    "reason": "Applied to staging 2026-11-09 (docs/product/1-product.md row E10: \"staging 2026-11-09 (e2e-media-limits)\"), before the lint existed; no lock_timeout was set before the first statement on the table: storage.objects held only the uploads of the staging test runs (e2e-media-limits); staging was not queried, so the absence of client uploads is UNPROVEN by a query. No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261109000022_crm_views_followup.sql",
+    "rule": "L7",
+    "line": 23,
+    "date": "2026-11-10",
+    "reason": "Applied to staging 2026-11-10 10:28 UTC (ops.platform_migrations, read-only query by the head of CLI and testing 2026-11-10 20:55), the day the lint was built and before it was on master; the ledger refuses an edited applied file, so the fix cannot go into this migration. no lock_timeout was set before the first statement on public.leads. On 2026-11-10 20:55 staging held 2 leads across 2 workspaces in total (a count, nothing else read). No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261109000022_crm_views_followup.sql",
+    "rule": "L1",
+    "line": 26,
+    "date": "2026-11-10",
+    "reason": "Applied to staging 2026-11-10 10:28 UTC (ops.platform_migrations, read-only query by the head of CLI and testing 2026-11-10 20:55), the day the lint was built and before it was on master; the ledger refuses an edited applied file, so the fix cannot go into this migration. the index was built without CONCURRENTLY on public.leads; the applier could not run a CONCURRENTLY file then (FINDING-apply-staging.md). On 2026-11-10 20:55 staging held 2 leads across 2 workspaces in total (a count, nothing else read). No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261109000022_crm_views_followup.sql",
+    "rule": "L1",
+    "line": 27,
+    "date": "2026-11-10",
+    "reason": "Applied to staging 2026-11-10 10:28 UTC (ops.platform_migrations, read-only query by the head of CLI and testing 2026-11-10 20:55), the day the lint was built and before it was on master; the ledger refuses an edited applied file, so the fix cannot go into this migration. the index was built without CONCURRENTLY on public.leads; the applier could not run a CONCURRENTLY file then (FINDING-apply-staging.md). On 2026-11-10 20:55 staging held 2 leads across 2 workspaces in total (a count, nothing else read). No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261109000022_crm_views_followup.sql",
+    "rule": "L1",
+    "line": 31,
+    "date": "2026-11-10",
+    "reason": "Applied to staging 2026-11-10 10:28 UTC (ops.platform_migrations, read-only query by the head of CLI and testing 2026-11-10 20:55), the day the lint was built and before it was on master; the ledger refuses an edited applied file, so the fix cannot go into this migration. the index was built without CONCURRENTLY on public.leads; the applier could not run a CONCURRENTLY file then (FINDING-apply-staging.md). On 2026-11-10 20:55 staging held 2 leads across 2 workspaces in total (a count, nothing else read). No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261109000022_crm_views_followup.sql",
+    "rule": "L1",
+    "line": 32,
+    "date": "2026-11-10",
+    "reason": "Applied to staging 2026-11-10 10:28 UTC (ops.platform_migrations, read-only query by the head of CLI and testing 2026-11-10 20:55), the day the lint was built and before it was on master; the ledger refuses an edited applied file, so the fix cannot go into this migration. the index was built without CONCURRENTLY on public.leads; the applier could not run a CONCURRENTLY file then (FINDING-apply-staging.md). On 2026-11-10 20:55 staging held 2 leads across 2 workspaces in total (a count, nothing else read). No production project exists (docs/product/9-blocks.md:89)."
+  }
+]

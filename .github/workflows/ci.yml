@@ -508,6 +508,13 @@ jobs:
         run: node tools/site-backup/test-urls.mjs
       - name: Client files
         run: node clients/check.mjs
+      # H2-14 (book row E19): the lock lint over the real supabase/migrations, in seconds, with its tests and mutants. Reads the folder, never edits it.
+      - name: Migration lint (the real folder)
+        run: node tools/migration-lint/lint.mjs
+      - name: Migration lint tests
+        run: node tools/migration-lint/test/run.mjs
+      - name: Migration lint mutants
+        run: node tools/migration-lint/test/mutate.mjs
 
   secrets:
     name: secret scan (gitleaks 8.30.1)
