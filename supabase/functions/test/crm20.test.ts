@@ -63,6 +63,9 @@ t('lead-update (work order 20): a body that is not valid is 400 and names the fi
     const r = await upd('owner-a', { lead, status: 'call-back', status_date: '2026-12-24', [k]: v });
     eq(r.status, 400, `${k}=${JSON.stringify(v)}: ${r.text}`); eq(r.json?.problems?.[0]?.path, path, `${k}: the field named`);
   }
+  // the shape of a key is checked here, before the database (which would refuse it too, as I-ANSWER): ENUM says the edge refused it
+  const shape = await upd('owner-a', { lead, status: 'Contacted' });
+  eq(shape.json?.problems?.[0]?.code, 'ENUM', `a status that is not a key is refused at the edge: ${shape.text}`);
   eq((await row(lead)).status, 'not-contacted', 'nothing changed');
 });
 
