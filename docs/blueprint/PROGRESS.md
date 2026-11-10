@@ -1441,7 +1441,7 @@ the user endpoint answers 401 "Invalid API Token" for account-owned tokens: chec
 Resend: HTTP 401 "This API key is restricted to only send emails" = a valid sending-only key (checker reads it as OK)
 
 node tools/dns-upsert.mjs --zone omnikom.io --records sops/dns/notify.omnikom.io-resend.json --token-env CLOUDFLARE_DNS_TOKEN_LEGACY
-zone omnikom.io (a7c8acea...) in account "Abdoamer683@gmail.com's Account"
+zone omnikom.io (a7c8acea...) in account "<the owner's test inbox>'s Account"
 create TXT resend._domainkey.notify.omnikom.io / create CNAME rsend.notify... / create CNAME send.notify... / create MX notify.omnikom.io
 done: 4 created, 0 skipped, 0 failed
 Resend domain page 01:30: STATUS Verified (region eu-west-1)

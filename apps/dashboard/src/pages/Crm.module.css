@@ -217,6 +217,46 @@
   gap: var(--s-2) var(--s-3);
 }
 
+/* the Columns picker (work order 19, 390 px look): one line per column, the tick and its label on the left (wrapping inside its own
+   room), Move up and Move down together on the right, never wrapped under the label */
+[data-plan='DP-1.3-52'] .pickerList li {
+  flex-wrap: nowrap;
+  justify-content: space-between;
+}
+
+[data-plan='DP-1.3-52'] .pickerList li > label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+[data-plan='DP-1.3-52'] .pickerList li > span {
+  flex: none;
+  flex-wrap: nowrap;
+  gap: var(--s-2);
+}
+
+[data-plan='DP-1.3-52'] .pickerList li > span button {
+  padding-inline: var(--s-3);
+}
+
+/* Columns and Views share one row of buttons; an open box takes the full width under that row */
+.viewTools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.viewTools > .picker {
+  display: contents;
+}
+
+.viewTools .pickerBox {
+  order: 1;
+  flex-basis: 100%;
+}
+
 .saveAs {
   display: flex;
   flex-wrap: wrap;

@@ -26,10 +26,10 @@ export function ColumnsPicker({ all, chosen, onChange }: { all: Column[]; chosen
                   {' '}{`${t('DP-1.3-52', 'Show')} ${l.column.label}`}
                 </label>
                 {l.shown && (
-                  <>
+                  <span>
                     <button type="button" disabled={!l.canUp} aria-label={`${t('DP-1.3-52', 'Move')} ${l.column.label} ${t('DP-1.3-52', 'up')}`} onClick={() => set(moveColumn(all, chosen, l.column.key, 'up'))}>{t('DP-1.3-52', 'Move up')}</button>
                     <button type="button" disabled={!l.canDown} aria-label={`${t('DP-1.3-52', 'Move')} ${l.column.label} ${t('DP-1.3-52', 'down')}`} onClick={() => set(moveColumn(all, chosen, l.column.key, 'down'))}>{t('DP-1.3-52', 'Move down')}</button>
-                  </>
+                  </span>
                 )}
               </li>
             ))}

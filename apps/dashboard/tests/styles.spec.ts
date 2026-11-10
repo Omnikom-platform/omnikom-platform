@@ -84,6 +84,23 @@ async function check(page: Page, screen: string, size: Size) {
   expect(problems.get(page) ?? [], `${screen}: console errors or uncaught exceptions`).toEqual([]);
   const wider = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(wider, `${screen}: the page is wider than the screen by this many px`).toBeLessThanOrEqual(0);
+  if (!size.desktop) {
+    // the phone's bottom bar: no two of its items (the places and Sign out) overlap (work order 19: Sign out sat on Settings)
+    const overlaps = await page.evaluate(() => {
+      const nav = document.querySelector('header nav');
+      if (!nav) return [];
+      const items = [...nav.querySelectorAll('a'), ...nav.querySelectorAll(':scope > button')]
+        .filter(e => getComputedStyle(e).position === 'fixed' || getComputedStyle(e.parentElement!).position === 'fixed')
+        .map(e => ({ name: (e.textContent ?? '').trim(), r: e.getBoundingClientRect() }));
+      const out: string[] = [];
+      for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) {
+        const a = items[i]!.r, b = items[j]!.r;
+        if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) out.push(`${items[i]!.name} / ${items[j]!.name}`);
+      }
+      return out;
+    });
+    expect(overlaps, `${screen}: bottom bar items that overlap`).toEqual([]);
+  }
 }
 
 const problems = new WeakMap<Page, string[]>();
@@ -134,6 +151,49 @@ for (const size of SIZES) {
         await expect(page.locator('#lead-name')).toBeVisible();
         await expect(page.getByRole('radiogroup', { name: 'Status' })).toBeVisible();
         await check(page, 'lead-panel', size);
+      });
+
+      // block 3b (work order 19): the Columns picker, the Views panel, and the record's follow-up and tasks, each open, at both sizes
+      test(`the columns picker is styled at ${size.name}`, async ({ page }) => {
+        await installMutant(page, 'no-styles');
+        await makeOwnLead(TAG, `columns ${size.name}`);
+        await page.goto(leads);
+        await expect(page.locator('tbody tr').first()).toBeVisible();
+        await page.getByRole('button', { name: 'Columns', exact: true }).click();
+        await expect(page.getByLabel('Show Email')).toBeVisible();
+        await check(page, 'leads-columns', size);
+        // each shown column is one line: its Move up and Move down sit side by side, right of the label (they wrapped under it at 390 px)
+        const split = await page.locator('[data-plan="DP-1.3-52"] li').evaluateAll(lis => lis.flatMap(li => {
+          const [up, down] = [...li.querySelectorAll('button')].map(b => b.getBoundingClientRect());
+          const label = li.querySelector('label')!.getBoundingClientRect();
+          if (!up || !down) return [];
+          return Math.abs(up.top - down.top) > 1 || up.left < label.right ? [(li.textContent ?? '').trim().slice(0, 30)] : [];
+        }));
+        expect(split, 'columns whose Move buttons are not on the label\'s line').toEqual([]);
+      });
+
+      test(`the views panel is styled at ${size.name}`, async ({ page }) => {
+        await installMutant(page, 'no-styles');
+        await makeOwnLead(TAG, `views ${size.name}`);
+        await page.goto(leads);
+        await expect(page.locator('tbody tr').first()).toBeVisible();
+        await page.getByRole('button', { name: 'Views', exact: true }).click();
+        await expect(page.getByLabel('View name')).toBeVisible();
+        await check(page, 'leads-views', size);
+      });
+
+      test(`the follow-up and tasks are styled at ${size.name}`, async ({ page }) => {
+        await installMutant(page, 'no-styles');
+        await makeOwnLead(TAG, `tasks ${size.name}`);
+        await page.goto(leads);
+        await page.locator('tbody th a').first().click();
+        await expect(page.locator('#lead-name')).toBeVisible();
+        // one task on this file's own lead (the afterAll removes the lead and its tasks), then the tasks block in view
+        await page.getByLabel('Task', { exact: true }).fill('call back about the viewing');
+        await page.getByRole('button', { name: 'Add task' }).click();
+        await expect(page.getByRole('checkbox', { name: 'Done call back about the viewing' })).toBeVisible();
+        await page.getByRole('heading', { name: 'Tasks', exact: true }).scrollIntoViewIfNeeded();
+        await check(page, 'lead-tasks', size);
       });
 
       test(`add a lead is styled at ${size.name}`, async ({ page }) => {

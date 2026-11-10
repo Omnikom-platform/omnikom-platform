@@ -150,7 +150,7 @@ export function LeadsLayout() {
                   </label>
                 ))}
               </div>
-              <span className={css.ticks}>
+              <span className={crm.ticks}>
                 <span data-plan="DP-1.3-55">
                   <label><input type="checkbox" name="due" checked={view.due} onChange={e => change({ due: e.target.checked })} /> {t('DP-1.3-55', 'Due')}</label>
                 </span>
@@ -161,11 +161,13 @@ export function LeadsLayout() {
             </div>
             <ColumnFilters columns={filterable} filters={view.columnFilters} team={owners} onChange={setColumnFilters} />
             <ExportControl workspaceId={workspace.id} template={template} onTemplate={setTemplate} />
-            <ColumnsPicker all={everyColumn} chosen={screen.columns} onChange={keys => go({ ...screen, columns: keys })} />
-            <ViewsPanel
-              workspaceId={workspace.id} userId={userId} isOwner={canOwn} view={effective} shown={columns} myTeamRow={myTeamRow} viewId={screen.viewId}
-              onApply={applyView} onApplied={id => go({ ...screen, viewId: id })}
-            />
+            <div className={crm.viewTools}>
+              <ColumnsPicker all={everyColumn} chosen={screen.columns} onChange={keys => go({ ...screen, columns: keys })} />
+              <ViewsPanel
+                workspaceId={workspace.id} userId={userId} isOwner={canOwn} view={effective} shown={columns} myTeamRow={myTeamRow} viewId={screen.viewId}
+                onApply={applyView} onApplied={id => go({ ...screen, viewId: id })}
+              />
+            </div>
 
             {(list.error || counts.error) && <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
             {live === 'paused' && <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
