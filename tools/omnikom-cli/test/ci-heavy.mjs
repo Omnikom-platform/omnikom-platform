@@ -1,5 +1,7 @@
-// ci-heavy.mjs: the cli job's step "CLI full suite and mutants (when the change reaches them)".
-//   node tools/omnikom-cli/test/ci-heavy.mjs
+// ci-heavy.mjs: the cli job's step "CLI full suite (when the change reaches it)" and the steps of the six jobs cli-mutants-1..6.
+//   node tools/omnikom-cli/test/ci-heavy.mjs               run.mjs, then mutate.mjs (all mutants): what a person runs, and what omnikom ci runs for a job with neither flag
+//   node tools/omnikom-cli/test/ci-heavy.mjs --suite       run.mjs only: the cli job (the mutants run in the shard jobs, in parallel)
+//   node tools/omnikom-cli/test/ci-heavy.mjs --shard i/N   mutate.mjs --shard i/N only: the job cli-mutants-i of N (53 to 78 minutes in one job, runs 42680701873, 42688877100, 42693457902)
 // The CLI's unit run stays on every push; its full suite (test/run.mjs: units plus the database part) and its mutants (test/mutate.mjs) take
 // long and cost Actions minutes, so they run only when the change can reach them (DECISIONS 45, head of operations). The script decides, not
 // ci.yml (`omnikom ci` does not model `if:`).
@@ -9,7 +11,8 @@
 //   needed    any changed file under tools/omnikom-cli/, or .github/workflows/ci.yml, or a file that `omnikom impact` (analyse of
 //             commands/impact.mjs: the one graph) says the `cli` job reaches (seed.mjs, tenancy.test.sql, apply-staging.mjs, whatever the graph sees).
 //   then      node test/run.mjs, then node test/mutate.mjs, as children, one after the other; the exit code is the first failure's (a failed
-//             run.mjs stops there: the mutants' baseline would fail the same way).
+//             run.mjs stops there: the mutants' baseline would fail the same way). --suite and --shard run one of the two.
+//   Every shard decides for itself: a change that does not reach the CLI makes each shard say so in its log and succeed (a skipped shard is a green job).
 import { spawnSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -17,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { makeGit } from '../lib/git.mjs';
 import { treeSource } from '../lib/graph.mjs';
 import { analyse } from '../commands/impact.mjs';
+import { parseShard } from './mutate-run.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI_DIR = 'tools/omnikom-cli/';
@@ -55,12 +59,19 @@ export function decide({ repo, env = process.env }) {
 }
 
 // -> the exit code. `spawn` runs a child (a test hands a fake); `log` prints a line.
-export function ciHeavy({ repo, env = process.env, spawn = spawnSync, log = console.log, cliDir = HERE } = {}) {
+// argv: the flags after the script name (--suite, --shard i/N); a bad flag is exit 2 and nothing runs.
+export function ciHeavy({ repo, env = process.env, spawn = spawnSync, log = console.log, cliDir = HERE, argv = [] } = {}) {
+  let shard = null;
+  try { shard = parseShard(argv); } catch (e) { log(`ci-heavy: ${e.message}`); return 2; }
+  const suite = argv.includes('--suite');
+  const stray = argv.filter((a, k) => a !== '--suite' && a !== '--shard' && argv[k - 1] !== '--shard');
+  if (stray.length || (suite && shard)) { log(`ci-heavy: usage: [--suite | --shard i/N] (got ${argv.join(' ') || 'nothing'})`); return 2; }
   const v = decide({ repo, env });
-  if (!v.needed) { log(`ci-heavy: not needed (${v.reason})`); return 0; }
+  if (!v.needed) { log(`ci-heavy: not needed (${v.reason})`); if (suite || shard) log(`ci-heavy: ${shard ? `shard ${shard.i}/${shard.n}` : 'the full suite'} skipped: the change does not reach the CLI suite`); return 0; }
   log(`ci-heavy: needed (${v.reason})`);
-  for (const script of ['run.mjs', 'mutate.mjs']) {
-    const r = spawn(process.execPath, [join(cliDir, script)], { cwd: repo, env, stdio: 'inherit', timeout: 6 * 3600 * 1000, windowsHide: true });
+  const plan = shard ? [['mutate.mjs', ['--shard', `${shard.i}/${shard.n}`]]] : suite ? [['run.mjs', []]] : [['run.mjs', []], ['mutate.mjs', []]];
+  for (const [script, args] of plan) {
+    const r = spawn(process.execPath, [join(cliDir, script), ...args], { cwd: repo, env, stdio: 'inherit', timeout: 6 * 3600 * 1000, windowsHide: true });
     const code = r.error ? 1 : (r.status === null || r.status === undefined ? 1 : r.status);
     if (code !== 0) { log(`ci-heavy: ${script} failed (exit ${code})${script === 'run.mjs' ? '; mutate.mjs not run' : ''}`); return code; }
     log(`ci-heavy: ${script} passed`);
@@ -69,4 +80,4 @@ export function ciHeavy({ repo, env = process.env, spawn = spawnSync, log = cons
 }
 
 const isMain = (() => { try { return process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } })();
-if (isMain) process.exitCode = ciHeavy({ repo: resolve(HERE, '..', '..', '..') });
+if (isMain) process.exitCode = ciHeavy({ repo: resolve(HERE, '..', '..', '..'), argv: process.argv.slice(2) });

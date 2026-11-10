@@ -1,11 +1,14 @@
 // Watched-fail for the CLI: make a broken COPY of the CLI with ONE rule removed, run test/run.mjs against it, and require the
 // suite to go red. A mutant that stays green means no test measures that rule.
-//   node tools/omnikom-cli/test/mutate.mjs [--only <name substring>]...     exit 0 = every mutant caught; --only may be given more than once (a mutant is run when its name holds any of the texts)
+//   node tools/omnikom-cli/test/mutate.mjs [--only <name substring>]... [--shard i/N]     exit 0 = every mutant caught; --only may be given more than once (a mutant is run when its name holds any of the texts)
+// --shard i/N runs share i of N (index modulo N, round-robin: mutate-run.mjs shardMutants); the ci.yml jobs cli-mutants-1..N run one share each, in parallel. A share with
+// no mutant to run is a FAILURE, never a green; --list prints the selected mutants and stops (no run); the last line "shard i/N: k mutants, k caught, 0 survived, 0 target text missing" lets a reader add the shards up.
 // The pattern of tools/crm-map/test/mutate.mjs: a copy in a temp dir (OMNIKOM_CLI_DIR points the tests at it, OMNIKOM_REPO_ROOT
 // keeps the real repository for the files the CLI reuses), one child process per mutant (a hang is cut off by the timeout and
 // counts as caught), [name, file, exactText, replacement, suite] with the text occurring exactly once in the file, applied with
 // split(a).join(b) (no `$` replacement patterns). A layered rule gives a list of [text, replacement] pairs in place of the two. `suite` is the part of run.mjs that must go red: unit (no database) or db.
 // One throwaway Postgres cluster is started here and shared; every database mutant run makes its own database in it.
+// A shard that selects no mutant ends before any cluster is started (below the list): a job that ran nothing must not look green.
 // Not mutated, because a second layer makes the first unobservable: the key printed by `key mint` (lib/redact.mjs masks it;
 // the redaction mutants prove that layer), and registerSecret() in key mint (same reason).
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
@@ -14,11 +17,13 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { startCluster, pidAlive } from './harness.mjs';
 import { importRepo } from '../lib/repo.mjs';
-import { makeCopy, suiteArgs, classify, sweepCopies, onlyFilters, pickMutants } from './mutate-run.mjs';
+import { makeCopy, suiteArgs, classify, sweepCopies, onlyFilters, pickMutants, parseShard, shardMutants } from './mutate-run.mjs';
 
 const CLI = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = process.env.OMNIKOM_REPO_ROOT ? resolve(process.env.OMNIKOM_REPO_ROOT) : resolve(CLI, '..', '..');
 const only = onlyFilters(process.argv);
+let shard = null;
+try { shard = parseShard(process.argv); } catch (e) { console.log(`mutate: ${e.message}`); process.exit(2); }
 const R = String.raw;
 // One run of the suite is cut off after this long (a hang counts as caught). 10 minutes was enough on a quiet laptop; the whole suite took
 // 16 minutes on 2026-10-31 under load, so the baseline failed with no FAIL line. OMNIKOM_MUTANT_TIMEOUT_MS raises it (milliseconds).
@@ -306,7 +311,8 @@ const MUTANTS = [
   ["cluster port: a start that names its port gets the shared cluster (the held-port check in a mutate copy)", "test/harness.mjs", "if (process.env.OMNIKOM_TEST_CLUSTER_PORT && !firstPort) return {", "if (process.env.OMNIKOM_TEST_CLUSTER_PORT) return {", 'db'],
   ["cluster diag: a failed create database names no cluster", "test/harness.mjs", " + r.stderr + clusterDiag(cluster));", " + r.stderr);", 'db'],
   ["cluster guard (real kill): a dead owner's cluster is never stopped by the sweep", "test/harness.mjs", "    if (alive(info.pid)) continue;\n", "    continue;\n", 'db'],
-  ["ci: the CLI full suite step is not mapped", "commands/ci.mjs", "'CLI full suite and mutants (when the change reaches them)', ", "", 'unit'],
+  ["ci: the CLI full suite step is not mapped", "commands/ci.mjs", "'CLI full suite (when the change reaches it)', ", "", 'unit'],
+  ["ci: the CLI mutants shard step is not mapped [ci-shards]", "commands/ci.mjs", "'CLI mutants, one shard (when the change reaches them)', ", "", 'unit'],
   ["ci-heavy: the scope check always says not needed", "test/ci-heavy.mjs", "if (!v.needed) {", "if (true) {", 'unit'],
   ["ci-heavy: the child exit code is ignored", "test/ci-heavy.mjs", "if (code !== 0) {", "if (false) {", 'unit'],
   ["ci-heavy: a file the cli job reads through impact is not counted", "test/ci-heavy.mjs", "reached = a.changed.filter(c => c.gates.includes('job cli')).map(c => c.path);", "reached = [];", 'unit'],
@@ -609,7 +615,29 @@ const MUTANTS = [
   ['land lock after ci: the refusal of a master that moved does not name its sha [land-lock]', 'commands/land.mjs', 'master moved to ${master}: rebase onto it and push again', 'master moved: rebase onto it and push again', 'unit'],
   ['land lock after ci: the green path pushes master without taking the lock [land-lock]', 'commands/land.mjs', "const p = git.run(['push', remote, `${made.out}:${LOCK_REF}`], { timeout: 180000 });", "const p = { ok: true };", 'unit'],
   ['land lock after ci: a rerun takes over a lock of its own branch and commit but keeps no lease on it [land-lock]', 'commands/land.mjs', 'return { sha: held.sha };', 'return { sha: made.out };', 'unit'],
+  // ---- the mutant shards (--shard i/N, the jobs cli-mutants-1..N of ci.yml) [ci-shards]
+  ['shard: share i takes index mod N = i, not i - 1 (shard N is empty, index 0 is nobody\'s) [ci-shards]', 'test/mutate-run.mjs', 'idx % shard.n === shard.i - 1', 'idx % shard.n === shard.i', 'unit'],
+  ['shard: the last mutant of the list is in no shard [ci-shards]', 'test/mutate-run.mjs', '(shard ? list.filter(', '(shard ? list.slice(0, -1).filter(', 'unit'],
+  ['shard: every shard from the second on runs the same mutants [ci-shards]', 'test/mutate-run.mjs', 'idx % shard.n === shard.i - 1', 'idx % shard.n === Math.min(shard.i - 1, 1)', 'unit'],
+  ['shard: i greater than N is accepted [ci-shards]', 'test/mutate-run.mjs', " || Number(m[1]) > Number(m[2])) throw", ") throw", 'unit'],
+  ['shard: shard 0 is accepted [ci-shards]', 'test/mutate-run.mjs', 'const m = /^([1-9]\\d*)\\/([1-9]\\d*)$/.exec(', 'const m = /^(\\d+)\\/([1-9]\\d*)$/.exec(', 'unit'],
+  ['shard: mutate.mjs ignores --shard (every shard runs every mutant) [ci-shards]', 'test/mutate.mjs', 'pickMutants(shardMutants(MUTANTS, ' + 'shard), only)', 'pickMutants(MUTANTS, only)', 'unit'],   // (a target in this very file is written in two pieces: whole, it would be found twice, once in this line)
+  ['shard: a shard with no mutant is a pass [ci-shards]', 'test/mutate.mjs', 'if (shard && ' + 'list.length === 0) {', 'if (false) {', 'unit'],
+  ['shard: a bad --shard value exits 0 [ci-shards]', 'test/mutate.mjs', 'console.log(`mutate: ${e.message}`); ' + 'process.exit(2); }', 'console.log(`mutate: ${e.message}`); process.exit(0); }', 'unit'],
+  ['shard: the sharded run does not say which shard it is [ci-shards]', 'test/mutate.mjs', "const label = shard ? `shard ${shard.i}/${shard.n}: ` " + ": '';", "const label = '';", 'unit'],
+  ['ci-heavy: --shard is not handed to mutate.mjs (every shard job runs every mutant) [ci-shards]', 'test/ci-heavy.mjs', "[['mutate.mjs', ['--shard', `${shard.i}/${shard.n}`]]]", "[['mutate.mjs', []]]", 'unit'],
+  ['ci-heavy: --suite runs the mutants too (the cli job takes 50 minutes again) [ci-shards]', 'test/ci-heavy.mjs', "suite ? [['run.mjs', []]] :", "suite ? [['run.mjs', []], ['mutate.mjs', []]] :", 'unit'],
+  ['ci-heavy: a skipped shard is silent [ci-shards]', 'test/ci-heavy.mjs', 'if (suite || shard) log(', 'if (false) log(', 'unit'],
+  ['ci-heavy: a bad flag runs anyway [ci-shards]', 'test/ci-heavy.mjs', 'if (stray.length || (suite && shard)) {', 'if (false) {', 'unit'],
+  ['ci-heavy: a bad --shard value exits 0 [ci-shards]', 'test/ci-heavy.mjs', 'log(`ci-heavy: ${e.message}`); return 2; }', 'log(`ci-heavy: ${e.message}`); return 0; }', 'unit'],
 ];
+
+const list = pickMutants(shardMutants(MUTANTS, shard), only);   // sharded by the index in the whole list, then narrowed by --only
+const label = shard ? `shard ${shard.i}/${shard.n}: ` : '';
+if (shard) console.log(`${label}${list.length} of ${MUTANTS.length} mutants${only.length ? ' (after --only)' : ''}`);
+if (shard && list.length === 0) { console.log(`${label}FAIL: no mutant is assigned to this shard (${MUTANTS.length} mutants, ${shard.n} shards): a job that ran nothing is not a pass`); process.exit(1); }
+// --list: print the selected mutants (their index in the whole list, then the name) and stop, with no cluster and no run: how the tests check the real list's shards
+if (process.argv.includes('--list')) { for (const m of list) console.log(`mutant ${MUTANTS.indexOf(m)}\t${m[0]}`); process.exit(0); }
 
 const sh = (args, env) => new Promise(res => {
   const c = spawn(process.execPath, args, { env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -653,11 +681,10 @@ try {
   if (b.status !== 0) { console.log(`BASELINE FAILS: the unbroken copy does not pass\n${b.out.split('\n').filter(l => l.startsWith('FAIL')).join('\n')}${b.err}`); process.exitCode = 1; }
   else {
     console.log(`baseline: ${b.out.trim().split('\n').pop()}`);
-    const list = pickMutants(MUTANTS, only);
     const queue = [...list];
     const workers = Array.from({ length: 3 }, async () => { while (queue.length) await runMutant(queue.shift()); });
     await Promise.all(workers);
-    console.log(`\n${list.length} mutants, ${list.length - survived - missing} caught, ${survived} survived, ${missing} target text missing`);
+    console.log(`\n${label}${list.length} mutants, ${list.length - survived - missing} caught, ${survived} survived, ${missing} target text missing`);
     process.exitCode = survived || missing ? 1 : 0;
   }
 } finally {

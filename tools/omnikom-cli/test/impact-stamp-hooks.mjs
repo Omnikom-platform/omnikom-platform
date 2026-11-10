@@ -333,10 +333,10 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
     c = await cli(['ci', '--commit', 'deadbeefdeadbeef'], cenv, cdeps);
     check('ci: --commit with an unknown sha is a usage error (exit 2) and runs nothing', c.exit === 2, c.all);
     {
-      const heavyJob = "  cli:\n    name: cli\n    runs-on: ubuntu-latest\n    timeout-minutes: 5\n    steps:\n      - name: Check out the repository with its whole history\n        uses: actions/checkout@abc\n        with:\n          persist-credentials: false\n          fetch-depth: 0\n      - name: CLI full suite and mutants (when the change reaches them)\n        run: node ok.mjs\n";
+      const heavyJob = "  cli:\n    name: cli\n    runs-on: ubuntu-latest\n    timeout-minutes: 5\n    steps:\n      - name: Check out the repository with its whole history\n        uses: actions/checkout@abc\n        with:\n          persist-credentials: false\n          fetch-depth: 0\n      - name: CLI full suite (when the change reaches it)\n        run: node ok.mjs\n      - name: CLI mutants, one shard (when the change reaches them)\n        run: node ok.mjs\n";
       const HV = mkRepo({ 'ok.mjs': "console.log('heavy step ran');\n", '.github/workflows/ci.yml': `name: ci\non: [push]\njobs:\n${heavyJob}` });
       const hv = await cli(['ci', '--commit', 'HEAD', '--job', 'cli'], cenv, { ...cdeps, repo: HV });
-      check('ci: the step "CLI full suite and mutants (when the change reaches them)" is mapped, and a checkout step with fetch-depth: 0 under with: is accepted', hv.exit === 0 && /^PASS cli {2}heavy step ran$/m.test(hv.stdout) && !/not mapped/.test(hv.all), hv.all);
+      check('ci: the steps "CLI full suite (when the change reaches it)" and "CLI mutants, one shard (when the change reaches them)" are mapped, and a checkout step with fetch-depth: 0 under with: is accepted', hv.exit === 0 && /^PASS cli {2}heavy step ran$/m.test(hv.stdout) && !/not mapped/.test(hv.all), hv.all);
     }
     const bad = join(work, 'Claude-Gates');
     const eRoot = (await cli(['ci', '--staged'], cenv, { ...cdeps, gatesRoot: 'E:/omk-gates-test' }));
@@ -1378,11 +1378,11 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       const HR = mkRepo(HFILES);
       const hBase = git(HR, 'rev-parse', 'HEAD');
       const hCommit = (files, msg) => { for (const [k, v] of Object.entries(files)) put(HR, k, v); git(HR, 'add', '-A'); git(HR, 'commit', '-q', '-m', msg); return git(HR, 'rev-parse', 'HEAD'); };
-      const runHeavy = (env, fails = {}) => {
-        const lines = [], spawned = [];
-        const spawn = (cmd, args) => { const name = args[0].split(/[\\/]/).pop(); spawned.push(name); return { status: fails[name] || 0 }; };
-        const code = heavy.ciHeavy({ repo: HR, env, spawn, log: l => lines.push(l), cliDir: join(CLI_ROOT, 'test') });
-        return { code, lines, spawned };
+      const runHeavy = (env, fails = {}, argv = []) => {
+        const lines = [], spawned = [], argsOf = [];
+        const spawn = (cmd, args) => { const name = args[0].split(/[\\/]/).pop(); spawned.push(name); argsOf.push(args.slice(1).join(' ')); return { status: fails[name] || 0 }; };
+        const code = heavy.ciHeavy({ repo: HR, env, spawn, log: l => lines.push(l), cliDir: join(CLI_ROOT, 'test'), argv });
+        return { code, lines, spawned, argsOf };
       };
       const E = { OMNIKOM_CI_BASE: hBase };
       hCommit({ 'tools/omnikom-cli/lib/x.mjs': 'export const x = 2;\n' }, 'cli change');
@@ -1426,6 +1426,23 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       check('ci-heavy: run.mjs passing and a failing mutate.mjs gives its exit code (5)', q1.code === 5 && q1.spawned.join() === 'run.mjs,mutate.mjs', JSON.stringify(q1));
       const crash = heavy.ciHeavy({ repo: HR, env: E, spawn: () => ({ error: new Error('spawn failed'), status: null }), log: () => {}, cliDir: join(CLI_ROOT, 'test') });
       check('ci-heavy: a child that cannot start is a failure (exit 1), not a pass', crash === 1, String(crash));
+      // --suite (the cli job) and --shard i/N (the jobs cli-mutants-1..N): one child each, the same scope gate
+      q1 = runHeavy(E, {}, ['--suite']);
+      check('ci-heavy --suite: a needed change runs run.mjs only (the mutants belong to the shard jobs)', q1.code === 0 && q1.spawned.join() === 'run.mjs' && q1.argsOf.join('|') === '', JSON.stringify(q1));
+      q1 = runHeavy(E, {}, ['--shard', '2/6']);
+      check('ci-heavy --shard 2/6: a needed change runs mutate.mjs only, with --shard 2/6 handed on, and no run.mjs', q1.code === 0 && q1.spawned.join() === 'mutate.mjs' && q1.argsOf.join('|') === '--shard 2/6', JSON.stringify(q1));
+      q1 = runHeavy(E, { 'mutate.mjs': 5 }, ['--shard', '6/6']);
+      check('ci-heavy --shard: a failing shard gives its exit code (5)', q1.code === 5 && q1.spawned.join() === 'mutate.mjs', JSON.stringify(q1));
+      git(HR, 'checkout', '-q', '-B', 'work6', hBase);
+      hCommit({ 'notes/readme.md': 'prose again\n' }, 'prose only');
+      q1 = runHeavy(E, {}, ['--shard', '3/6']);
+      check('ci-heavy --shard: a change that does not reach the CLI skips the shard (exit 0, nothing spawned) and the log says which shard was skipped', q1.code === 0 && q1.spawned.length === 0 && q1.lines.some(l => l === 'ci-heavy: shard 3/6 skipped: the change does not reach the CLI suite'), JSON.stringify(q1));
+      q1 = runHeavy(E, {}, ['--suite']);
+      check('ci-heavy --suite: a change that does not reach the CLI skips the full suite and says so', q1.code === 0 && q1.spawned.length === 0 && q1.lines.some(l => l === 'ci-heavy: the full suite skipped: the change does not reach the CLI suite'), JSON.stringify(q1));
+      git(HR, 'checkout', '-q', '-B', 'work7', hBase);
+      hCommit({ 'tools/omnikom-cli/lib/x.mjs': 'export const x = 9;\n' }, 'cli change again');
+      const bads = [['--shard', '7/6'], ['--shard', '0/6'], ['--shard', 'two'], ['--shard'], ['--suite', '--shard', '1/2'], ['--suit'], ['--shard', '1/2', 'x']].map(a => ({ a: a.join(' '), r: runHeavy(E, {}, a) }));
+      check('ci-heavy: a bad flag (shard out of range, not i/N, missing, --suite with --shard, an unknown flag, a stray word) is exit 2 and nothing is spawned', bads.every(b => b.r.code === 2 && b.r.spawned.length === 0), JSON.stringify(bads));
     }
 
     // ============================================================================ ci.yml must not run on pushes of the land lock

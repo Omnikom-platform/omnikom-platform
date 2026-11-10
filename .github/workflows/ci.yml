@@ -131,9 +131,9 @@ jobs:
         run: node tools/audit/test/mutate.mjs
 
   cli:
-    name: platform CLI (unit tests; full suite and mutants when the change reaches them)
+    name: platform CLI (unit tests; full suite when the change reaches it)
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 40
     steps:
       - name: Check out the repository with its whole history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -155,9 +155,169 @@ jobs:
           fi
       - name: CLI unit tests
         run: node tools/omnikom-cli/test/run.mjs --unit
-      # the full suite (with the database part) and the mutants run only when the change can reach them (test/ci-heavy.mjs decides)
-      - name: CLI full suite and mutants (when the change reaches them)
-        run: node tools/omnikom-cli/test/ci-heavy.mjs
+      # the full suite (with the database part) runs only when the change can reach it (test/ci-heavy.mjs decides); the mutants run in the
+      # cli-mutants-1..6 jobs below, in parallel (one job took 53 to 78 minutes, runs 42680701873, 42688877100, 42693457902)
+      - name: CLI full suite (when the change reaches it)
+        run: node tools/omnikom-cli/test/ci-heavy.mjs --suite
+
+  # The CLI mutants, 6 shards in parallel (test/mutate.mjs --shard i/6: the mutant at index x of the list goes to shard (x mod 6) + 1). Written out, not a
+  # matrix: omnikom ci models no strategy, and land (lib/ghrun.mjs) reads each job by its own name, so every shard is a job that must be green.
+  # A change that does not reach the CLI makes each shard skip and succeed. test/mutate-run.mjs shardJobsProblems keeps the six copies identical.
+  cli-mutants-1:
+    name: platform CLI mutants, shard 1 of 6
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out the repository with its whole history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: PostgreSQL 16 binaries on PATH (the image's own; apt install postgresql only if the image lacks them)
+        run: |
+          if [ -x /usr/lib/postgresql/16/bin/initdb ]; then
+            echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          else
+            sudo apt-get update
+            sudo apt-get install -y postgresql
+            printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
+          fi
+      - name: CLI mutants, one shard (when the change reaches them)
+        run: node tools/omnikom-cli/test/ci-heavy.mjs --shard 1/6
+
+  cli-mutants-2:
+    name: platform CLI mutants, shard 2 of 6
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out the repository with its whole history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: PostgreSQL 16 binaries on PATH (the image's own; apt install postgresql only if the image lacks them)
+        run: |
+          if [ -x /usr/lib/postgresql/16/bin/initdb ]; then
+            echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          else
+            sudo apt-get update
+            sudo apt-get install -y postgresql
+            printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
+          fi
+      - name: CLI mutants, one shard (when the change reaches them)
+        run: node tools/omnikom-cli/test/ci-heavy.mjs --shard 2/6
+
+  cli-mutants-3:
+    name: platform CLI mutants, shard 3 of 6
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out the repository with its whole history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: PostgreSQL 16 binaries on PATH (the image's own; apt install postgresql only if the image lacks them)
+        run: |
+          if [ -x /usr/lib/postgresql/16/bin/initdb ]; then
+            echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          else
+            sudo apt-get update
+            sudo apt-get install -y postgresql
+            printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
+          fi
+      - name: CLI mutants, one shard (when the change reaches them)
+        run: node tools/omnikom-cli/test/ci-heavy.mjs --shard 3/6
+
+  cli-mutants-4:
+    name: platform CLI mutants, shard 4 of 6
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out the repository with its whole history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: PostgreSQL 16 binaries on PATH (the image's own; apt install postgresql only if the image lacks them)
+        run: |
+          if [ -x /usr/lib/postgresql/16/bin/initdb ]; then
+            echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          else
+            sudo apt-get update
+            sudo apt-get install -y postgresql
+            printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
+          fi
+      - name: CLI mutants, one shard (when the change reaches them)
+        run: node tools/omnikom-cli/test/ci-heavy.mjs --shard 4/6
+
+  cli-mutants-5:
+    name: platform CLI mutants, shard 5 of 6
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out the repository with its whole history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: PostgreSQL 16 binaries on PATH (the image's own; apt install postgresql only if the image lacks them)
+        run: |
+          if [ -x /usr/lib/postgresql/16/bin/initdb ]; then
+            echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          else
+            sudo apt-get update
+            sudo apt-get install -y postgresql
+            printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
+          fi
+      - name: CLI mutants, one shard (when the change reaches them)
+        run: node tools/omnikom-cli/test/ci-heavy.mjs --shard 5/6
+
+  cli-mutants-6:
+    name: platform CLI mutants, shard 6 of 6
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out the repository with its whole history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: PostgreSQL 16 binaries on PATH (the image's own; apt install postgresql only if the image lacks them)
+        run: |
+          if [ -x /usr/lib/postgresql/16/bin/initdb ]; then
+            echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          else
+            sudo apt-get update
+            sudo apt-get install -y postgresql
+            printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
+          fi
+      - name: CLI mutants, one shard (when the change reaches them)
+        run: node tools/omnikom-cli/test/ci-heavy.mjs --shard 6/6
 
   dashboard:
     name: dashboard (type check, unit tests, plan gate)
