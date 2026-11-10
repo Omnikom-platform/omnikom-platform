@@ -13,6 +13,11 @@ new client:
 | `roles.example.json` | `icm/agents/roles.json` | each role's write scopes, the backup-gate file and marker, `closedPaths` |
 | `boot-prompts.example.md` | `icm/agents/boot-prompts.md` | project name and folder in each prompt |
 | `test-agent-hooks.mjs` | `tools/` | run it inside the project (it reads that project's `icm/`): all checks + mutants must pass |
+| `test-fixture/` | nowhere | the made-up project the test uses when run here in the kit |
+
+Test the kit itself, before copying it out: `node tools/team-kit/test-agent-hooks.mjs`. Beside `roles.example.json`, with no `icm/`
+above it, the test runs the kit's own hook files against `test-fixture/` and `roles.example.json` (51 checks and 10 mutants, about
+8 minutes on the owner's laptop on 2026-11-10; its throwaway folder is `~/.cache/team-kit-hooktest/<pid>`, removed at the end).
 
 Hooks wiring (project `.claude/settings.json`): PreToolUse -> `node tools/write-guard.mjs`; SessionStart and UserPromptSubmit ->
 `node tools/agent-anchor.mjs`. A session's role is the line `ICM-ROLE: <role>` in its first prompt.

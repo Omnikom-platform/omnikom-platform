@@ -2,15 +2,29 @@
 // Proves tools/agent-anchor.mjs and tools/write-guard.mjs behave, then breaks copies of them on purpose
 // and proves the checks go red (watched-fail). Runs in a throwaway root under .claude/state/hooktest/,
 // never touches the real gap log or session cache. Usage: node tools/test-agent-hooks.mjs
+// Inside the platform kit: node tools/team-kit/test-agent-hooks.mjs (tests the kit's own files against test-fixture/).
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-const REAL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const T = path.join(REAL, '.claude/state/hooktest');
-const COPY = ['icm/agents/roles.json', 'icm/agents/_common.md', 'icm/agents/researcher.md', 'icm/agents/seo-analyst.md',
+// Two homes. In a client project (tools/test-agent-hooks.mjs) it tests that project's icm/ and tools/. In the platform kit
+// (tools/team-kit/, beside roles.example.json, no icm/ above it) it tests the kit's files against test-fixture/. Fixed 2026-11-10:
+// in the kit it looked for tools/icm/agents/roles.json, which never existed there, and stopped on ENOENT.
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const KIT = !fs.existsSync(path.join(HERE, '..', 'icm/agents/roles.json')) && fs.existsSync(path.join(HERE, 'roles.example.json'));
+const REAL = KIT ? path.resolve(HERE, '../..') : path.resolve(HERE, '..');
+// The throwaway root must not sit in the temp folder: the guard lets every role write there, so the checks would pass for the wrong reason.
+const T = KIT ? path.join(os.homedir(), '.cache', 'team-kit-hooktest', String(process.pid)) : path.join(REAL, '.claude/state/hooktest');
+const FIXTURE_NAME = { 'CLAUDE.md': 'CLAUDE.fixture.md', '.claude/POSITION.md': 'POSITION.fixture.md' };
+function source(f) {
+  if (!KIT) return path.join(REAL, f);
+  if (f === 'icm/agents/roles.json') return path.join(HERE, 'roles.example.json');
+  if (f.startsWith('tools/')) return path.join(HERE, path.basename(f));
+  return path.join(HERE, 'test-fixture', FIXTURE_NAME[f] || f);
+}
+const COPY =['icm/agents/roles.json', 'icm/agents/_common.md', 'icm/agents/researcher.md', 'icm/agents/seo-analyst.md',
   'icm/agents/reviewer.md', 'icm/agents/lead.md', 'icm/phase-0/CONTEXT.md', 'icm/work/gaps/LOG.md', '.claude/POSITION.md', 'CLAUDE.md',
   'tools/agent-role.mjs', 'tools/agent-anchor.mjs', 'tools/write-guard.mjs'];
 
@@ -18,7 +32,7 @@ function setup() {
   fs.rmSync(T, { recursive: true, force: true });
   for (const f of COPY) {
     fs.mkdirSync(path.dirname(path.join(T, f)), { recursive: true });
-    fs.copyFileSync(path.join(REAL, f), path.join(T, f));
+    fs.copyFileSync(source(f), path.join(T, f));
   }
   const logF = path.join(T, 'icm/work/gaps/LOG.md'); // start from the header only: real agents' rows must not change the test
   fs.writeFileSync(logF, fs.readFileSync(logF, 'utf8').split('\n').filter(l => !/^\| G-/.test(l)).join('\n'));

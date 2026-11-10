@@ -1,9 +1,9 @@
 {
   "version": 1,
   "counts": {
-    "docs": 310,
+    "docs": 320,
     "unownedDocs": 7,
-    "unplaced": 194,
+    "unplaced": 204,
     "over300": 10
   },
   "docs": [
@@ -284,8 +284,18 @@
     {"path":"tools/omnikom-cli/README.md","title":"omnikom: the platform CLI (slice 1)","summary":"Spec: `docs/blueprint/26-PLATFORM-CLI.md`. One Node 20+ program, no dependencies, `psql` on the path. `node tools/omnikom-cli/omnikom.mjs <command> [--target...","owner":"cli-and-testing","layer":"unplaced","lines":73,"loadFor":[]},
     {"path":"tools/panel-mods/README.md","title":"Panel mods (Claude app side panels)","summary":"`elev8-tracker/`: the phase tracker panel from the ELEV8 audit (2026-10-26). It reads a project's `icm/TRACKER.json` every 20 s and shows each phase, its ite...","owner":null,"layer":"unplaced","lines":10,"loadFor":[]},
     {"path":"tools/site-backup/README.md","title":"site-backup: browser-rendered website backup that checks itself","summary":"> ELEV8 copy (2026-10-26): copied from `E:\\Francine & Eli\\tools\\site-backup`; the user agent is renamed `OmnikomSiteBackup/1.0` > (lib.mjs) so no other clien...","owner":"platform-build","layer":"unplaced","lines":49,"loadFor":[]},
-    {"path":"tools/team-kit/README.md","title":"Team kit: the ICM audit team (Lead, Researcher, SEO analyst, Reviewer)","summary":"Copied 2026-10-26 from `E:\\Alex Sevilla` (the ELEV8 prospect audit), where it ran end to end. How the team works: `sops/clients/prospect-audit-team.md`. Thes...","owner":"clients","layer":"unplaced","lines":24,"loadFor":[]},
+    {"path":"tools/team-kit/README.md","title":"Team kit: the ICM audit team (Lead, Researcher, SEO analyst, Reviewer)","summary":"Copied 2026-10-26 from `E:\\Alex Sevilla` (the ELEV8 prospect audit), where it ran end to end. How the team works: `sops/clients/prospect-audit-team.md`. Thes...","owner":"clients","layer":"unplaced","lines":29,"loadFor":[]},
     {"path":"tools/team-kit/boot-prompts.example.md","title":"Boot prompts: the opening message of each team session","summary":"An agent session's **first message** carries its role marker, an exact line `ICM-ROLE: <role>`. Two hooks read it (`.claude/settings.json`): `tools/agent-anc...","owner":"clients","layer":"unplaced","lines":35,"loadFor":[]},
+    {"path":"tools/team-kit/test-fixture/CLAUDE.fixture.md","title":"Fixture project rules (test only)","summary":"","owner":"clients","layer":"unplaced","lines":1,"loadFor":[]},
+    {"path":"tools/team-kit/test-fixture/POSITION.fixture.md","title":"Fixture position (test only)","summary":"| Session | Id | |---|---| | **Lead** | the owner's desktop session (no id recorded) |","owner":"clients","layer":"unplaced","lines":5,"loadFor":[]},
+    {"path":"tools/team-kit/test-fixture/README.md","title":"Test fixture for test-agent-hooks.mjs","summary":"A made-up project the kit's hook test runs against when it runs inside the platform (`node tools/team-kit/test-agent-hooks.mjs`). The roles come from `../rol...","owner":"clients","layer":"unplaced","lines":6,"loadFor":[]},
+    {"path":"tools/team-kit/test-fixture/icm/agents/_common.md","title":"Every agent on this project","summary":"Fixture rules shared by every role (test only).","owner":"clients","layer":"unplaced","lines":3,"loadFor":[]},
+    {"path":"tools/team-kit/test-fixture/icm/agents/lead.md","title":"Lead (fixture charter, test only)","summary":"**Writes only:** the paths listed for this role in `icm/agents/roles.json`.","owner":"clients","layer":"unplaced","lines":3,"loadFor":[]},
+    {"path":"tools/team-kit/test-fixture/icm/agents/researcher.md","title":"Researcher (fixture charter, test only)","summary":"**Writes only:** the paths listed for this role in `icm/agents/roles.json`.","owner":"clients","layer":"unplaced","lines":3,"loadFor":[]},
+    {"path":"tools/team-kit/test-fixture/icm/agents/reviewer.md","title":"Number reviewer (fixture charter, test only)","summary":"**Writes only:** the paths listed for this role in `icm/agents/roles.json`.","owner":"clients","layer":"unplaced","lines":3,"loadFor":[]},
+    {"path":"tools/team-kit/test-fixture/icm/agents/seo-analyst.md","title":"SEO analyst (fixture charter, test only)","summary":"**Writes only:** the paths listed for this role in `icm/agents/roles.json`.","owner":"clients","layer":"unplaced","lines":3,"loadFor":[]},
+    {"path":"tools/team-kit/test-fixture/icm/phase-0/CONTEXT.md","title":"Phase 0 (fixture, test only)","summary":"| Step | What | Owner | Input | Output | Status | |---|---|---|---|---|---| | P0.1 | Back up the site | Researcher | live site | `backups/` | DONE | | P0.5 |...","owner":"clients","layer":"unplaced","lines":8,"loadFor":[]},
+    {"path":"tools/team-kit/test-fixture/icm/work/gaps/LOG.md","title":"Gap log (fixture, test only)","summary":"| ID | Date | Agent | Where | Gap | Recommend | Status | Resolution | |---|---|---|---|---|---|---|---|","owner":"clients","layer":"unplaced","lines":4,"loadFor":[]},
     {"path":"work/01-crm-backend/CONTEXT.md","title":"01 CRM backend","summary":"Owner: platform-build. Model: Opus 5.5, effort high. Branch: check/platform/crm-1 (worktree `C:\\Users\\DELL\\AppData\\Local\\Temp\\omk-wt-crm1`, base master bb1db...","owner":"head-of-operations","layer":2,"lines":127,"loadFor":[]},
     {"path":"work/02-crm-export-import/CONTEXT.md","title":"02 CRM export and import in the client's own format","summary":"Owner: platform-build. Model: Opus 5.5, effort high. Branch: check/platform/crm-2 (fresh worktree on master). Status: DONE 2026-11-04 (landed 0d4f588, CI run...","owner":"head-of-operations","layer":2,"lines":119,"loadFor":[]},
     {"path":"work/04-workspace-home/CONTEXT.md","title":"Work order 04: one home for all Omnikom Platform work (head of operations, builder)","summary":"Owner 2026-11-04 05:59: \"do whatever is programmatically and engineeringly proper\". Approved map: https://claude.ai/artifact/FkwY79m5MeBMsxKATsUHen . Ruling ...","owner":"head-of-operations","layer":2,"lines":93,"loadFor":[]},
