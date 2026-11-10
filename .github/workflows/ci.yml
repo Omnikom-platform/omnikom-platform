@@ -6,8 +6,10 @@ name: ci
 
 on:
   push:
-    # the land lock (tools/omnikom-cli/lib/landlock.mjs) is a queue marker, not code: its push starts no run
-    branches-ignore: [land-lock]
+    # the land lock (tools/omnikom-cli/lib/landlock.mjs) is a queue marker, not code: its push starts no run. master starts none either:
+    # omnikom land moves it only to a commit whose check branch run was green on that exact sha (lib/ghrun.mjs), so a second run of the
+    # same tree took about 20 runner slots for nothing (runs on 887f9dd and 2486091, 2026-11-10; head of operations 22:52)
+    branches-ignore: [land-lock, master]
   pull_request:
 
 permissions:
@@ -110,6 +112,8 @@ jobs:
       - name: Function tests
         run: node supabase/functions/test/run.mjs
 
+  # The function mutants run only when the change touches what they read (tools/omnikom-cli/test/ci-functions.mjs FUNCTION_INPUTS decides, then
+  # calls supabase/functions/test/mutate.mjs --shard i/4 unchanged); any other change makes each shard say so and succeed (head of operations 2026-11-10 23:18).
   functions-mutants-1:
     name: functions mutants, shard 1 of 4
     runs-on: ubuntu-latest
@@ -119,6 +123,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -137,7 +142,7 @@ jobs:
             printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
           fi
       - name: Function mutants, one shard
-        run: node supabase/functions/test/mutate.mjs --shard 1/4
+        run: node tools/omnikom-cli/test/ci-functions.mjs --shard 1/4
 
   functions-mutants-2:
     name: functions mutants, shard 2 of 4
@@ -148,6 +153,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -166,7 +172,7 @@ jobs:
             printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
           fi
       - name: Function mutants, one shard
-        run: node supabase/functions/test/mutate.mjs --shard 2/4
+        run: node tools/omnikom-cli/test/ci-functions.mjs --shard 2/4
 
   functions-mutants-3:
     name: functions mutants, shard 3 of 4
@@ -177,6 +183,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -195,7 +202,7 @@ jobs:
             printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
           fi
       - name: Function mutants, one shard
-        run: node supabase/functions/test/mutate.mjs --shard 3/4
+        run: node tools/omnikom-cli/test/ci-functions.mjs --shard 3/4
 
   functions-mutants-4:
     name: functions mutants, shard 4 of 4
@@ -206,6 +213,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -224,7 +232,7 @@ jobs:
             printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
           fi
       - name: Function mutants, one shard
-        run: node supabase/functions/test/mutate.mjs --shard 4/4
+        run: node tools/omnikom-cli/test/ci-functions.mjs --shard 4/4
 
   audit:
     name: audit engine (tests and mutants)

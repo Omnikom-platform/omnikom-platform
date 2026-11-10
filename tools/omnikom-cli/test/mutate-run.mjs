@@ -284,15 +284,17 @@ export async function mutateRunTests({ check, CLI_ROOT, REPO_ROOT }) {
   // the jobs of the real ci.yml
   const fnReal = functionsShardJobsProblems(ciReal);
   const fnNumber = ciReal.split(/\r?\n/).filter(l => /^ {2}functions-mutants-\d+:/.test(l)).length;
-  check('functions shard: ci.yml has the jobs functions-mutants-1..N, identical apart from their number, each running functions/test/mutate.mjs --shard i/N with N the job count; the functions job runs the Deno tests and no mutants; no mutate.mjs line is bare', fnReal.length === 0 && fnNumber >= 2, JSON.stringify({ fnReal, fnNumber }));
+  check('functions shard: ci.yml has the jobs functions-mutants-1..N, identical apart from their number, each running test/ci-functions.mjs --shard i/N with N the job count (never mutate.mjs itself); the functions job runs the Deno tests and no mutants; no mutate.mjs line is bare', fnReal.length === 0 && fnNumber >= 2, JSON.stringify({ fnReal, fnNumber }));
   const fnBlock = n => { const m = new RegExp(`^  functions-mutants-${n}:\\n(?:(?: {3,}.*|\\s*)\\n)*`, 'm').exec(ciReal); return m ? m[0] : ''; };
   const fnWrong = {
     'a shard job is missing (3 of 4)': ciReal.replace(fnBlock(3), ''),
     'a shard job is a copy of another (job 4 runs 3/4)': ciReal.replace(fnBlock(4), fnBlock(4).replace(/--shard 4\//, '--shard 3/')),
-    'N differs from the job count (every run line says /5)': ciReal.replace(/(functions\/test\/mutate\.mjs --shard \d+)\/4/g, '$1/5'),
+    'N differs from the job count (every run line says /5)': ciReal.replace(/(test\/ci-functions\.mjs --shard \d+)\/4/g, '$1/5'),
     'a shard job has an extra step': ciReal.replace(fnBlock(2), fnBlock(2) + '      - name: Extra\n        run: node x.mjs\n'),
     'a shard job has another timeout': ciReal.replace(fnBlock(2), fnBlock(2).replace('timeout-minutes: 45', 'timeout-minutes: 99')),
-    'a shard job runs a bare mutate.mjs': ciReal.replace(/functions\/test\/mutate\.mjs --shard 1\/4/, 'functions/test/mutate.mjs'),
+    'a shard job runs ci-functions.mjs with no --shard': ciReal.replace(/test\/ci-functions\.mjs --shard 1\/4/, 'test/ci-functions.mjs'),
+    'a shard job calls mutate.mjs itself (no scope check) [ci-runners]': ciReal.replace(/tools\/omnikom-cli\/test\/ci-functions\.mjs --shard 2\/4/, 'supabase/functions/test/mutate.mjs --shard 2/4'),
+    'a shard job calls both (the wrapper and mutate.mjs) [ci-runners]': ciReal.replace(fnBlock(3), fnBlock(3) + '      - name: Again\n        run: node supabase/functions/test/mutate.mjs --shard 3/4\n'),
     'the functions job runs the mutants too': ciReal.replace('        run: node supabase/functions/test/run.mjs\n', '        run: node supabase/functions/test/run.mjs\n      - name: Function mutants\n        run: node supabase/functions/test/mutate.mjs\n'),
     'the functions job no longer runs the Deno tests': ciReal.replace('        run: node supabase/functions/test/run.mjs\n', '        run: node supabase/functions/test/other.mjs\n'),
     'no shard job at all': ciReal.replace(/functions-mutants-\d+/g, 'functions-other'),
@@ -420,9 +422,11 @@ export function functionsShardJobsProblems(ciText) {
   const norm = (b, n) => b.lines.join('\n').split(`shard ${n} of`).join('shard # of').split(`--shard ${n}/`).join('--shard #/');
   shards.forEach((b, j) => {
     if (norm(b, nums[j]) !== norm(shards[0], nums[0])) problems.push(`${b.id} differs from ${shards[0].id} by more than its number`);
-    const r = [...b.lines.join('\n').matchAll(/functions\/test\/mutate\.mjs --shard (\d+)\/(\d+)\s*$/gm)];
-    if (r.length !== 1 || Number(r[0][1]) !== nums[j] || Number(r[0][2]) !== k) problems.push(`${b.id} must run supabase/functions/test/mutate.mjs --shard ${nums[j]}/${k} exactly once`);
+    const r = [...b.lines.join('\n').matchAll(/test\/ci-functions\.mjs --shard (\d+)\/(\d+)\s*$/gm)];
+    if (r.length !== 1 || Number(r[0][1]) !== nums[j] || Number(r[0][2]) !== k) problems.push(`${b.id} must run tools/omnikom-cli/test/ci-functions.mjs --shard ${nums[j]}/${k} exactly once`);
+    if (b.lines.some(l => /functions\/test\/mutate\.mjs/.test(l))) problems.push(`${b.id} calls functions/test/mutate.mjs itself, past the scope check of ci-functions.mjs`);
   });
+  for (const b of blocks) for (const l of b.lines) if (/ci-functions\.mjs/.test(l) && !/ci-functions\.mjs --shard \d+\/\d+\s*$/.test(l)) problems.push(`${b.id}: ci-functions.mjs without --shard (a usage error, exit 2)`);
   for (const b of blocks) for (const l of b.lines) if (/functions\/test\/mutate\.mjs/.test(l) && !/mutate\.mjs --shard \d+\/\d+\s*$/.test(l)) problems.push(`${b.id}: functions/test/mutate.mjs without --shard (it would run every function mutant in this job)`);
   const fn = blocks.find(b => b.id === 'functions');
   if (!fn || !fn.lines.some(l => /functions\/test\/run\.mjs\s*$/.test(l))) problems.push('the functions job must run functions/test/run.mjs (the Deno tests)');

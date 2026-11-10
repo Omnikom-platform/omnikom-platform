@@ -12,6 +12,10 @@
 //             commands/impact.mjs: the one graph) says the `cli` job reaches (seed.mjs, tenancy.test.sql, apply-staging.mjs, whatever the graph sees).
 //   then      node test/run.mjs, then node test/mutate.mjs, as children, one after the other; the exit code is the first failure's (a failed
 //             run.mjs stops there: the mutants' baseline would fail the same way). --suite and --shard run one of the two.
+//   shards    the mutants (--shard) are narrower than the suite: a reached file that is prose (*.md) or the dashboard app outside
+//             apps/dashboard/e2e/ (read only by `omnikom journey` on staging, never by a CI test) runs the suite but not the mutants, since a
+//             mutant's verdict changes only when the CLI code or what its tests read changes. A file under tools/omnikom-cli/ or ci.yml runs both.
+//             (an SEO dashboard change ran 6 shards, about 90 runner minutes, 2026-11-10 run 42893061077; head of operations 22:52)
 //   Every shard decides for itself: a change that does not reach the CLI makes each shard say so in its log and succeed (a skipped shard is a green job).
 import { spawnSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
@@ -27,8 +31,11 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI_DIR = 'tools/omnikom-cli/';
 const CI_YML = '.github/workflows/ci.yml';
 
-// -> { needed, reason, changed }   (never throws: anything unreadable means needed)
-export function decide({ repo, env = process.env }) {
+// a reached file that runs the suite but not the mutants (the shards line above)
+export const suiteOnly = f => /\.md$/i.test(f) || (f.startsWith('apps/dashboard/') && !f.startsWith('apps/dashboard/e2e/'));
+
+// -> { needed, reason, changed }   (never throws: anything unreadable means needed). mutants: the shard gate (suiteOnly files do not count)
+export function decide({ repo, env = process.env, mutants = false }) {
   const git = makeGit(repo);
   const c = changedSinceBase({ repo, env });
   if (!c.ok) return { needed: true, reason: c.reason, changed: [] };
@@ -41,7 +48,9 @@ export function decide({ repo, env = process.env }) {
     const a = analyse({ git, source: treeSource(git, 'HEAD'), changed, extraPaths: changed });
     reached = a.changed.filter(c => c.gates.includes('job cli')).map(c => c.path);
   } catch (e) { return { needed: true, reason: `impact could not be computed (${String(e && e.message).slice(0, 100)}), fail safe`, changed }; }
-  if (reached.length) return { needed: true, reason: reached.slice(0, 5).join(', '), changed };
+  const counted = mutants ? reached.filter(f => !suiteOnly(f)) : reached;
+  if (counted.length) return { needed: true, reason: counted.slice(0, 5).join(', '), changed };
+  if (reached.length) return { needed: false, reason: `${reached.length} reached file(s), prose or the dashboard app only: the suite runs, the mutants do not (${reached.slice(0, 3).join(', ')})`, changed };
   return { needed: false, reason: `${changed.length} changed files, none read by the CLI suite`, changed };
 }
 
@@ -53,7 +62,7 @@ export function ciHeavy({ repo, env = process.env, spawn = spawnSync, log = cons
   const suite = argv.includes('--suite');
   const stray = argv.filter((a, k) => a !== '--suite' && a !== '--shard' && argv[k - 1] !== '--shard');
   if (stray.length || (suite && shard)) { log(`ci-heavy: usage: [--suite | --shard i/N] (got ${argv.join(' ') || 'nothing'})`); return 2; }
-  const v = decide({ repo, env });
+  const v = decide({ repo, env, mutants: !!shard });
   if (!v.needed) { log(`ci-heavy: not needed (${v.reason})`); if (suite || shard) log(`ci-heavy: ${shard ? `shard ${shard.i}/${shard.n}` : 'the full suite'} skipped: the change does not reach the CLI suite`); return 0; }
   log(`ci-heavy: needed (${v.reason})`);
   const plan = shard ? [['mutate.mjs', ['--shard', `${shard.i}/${shard.n}`]]] : suite ? [['run.mjs', []]] : [['run.mjs', []], ['mutate.mjs', []]];

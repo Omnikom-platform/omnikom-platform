@@ -1368,7 +1368,9 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
     {
       const heavy = await import(pathToFileURL(join(CLI_ROOT, 'test', 'ci-heavy.mjs')).href);
       const HFILES = {
-        'tools/omnikom-cli/test/run.mjs': "import { dep } from '../../../shared/dep.mjs';\nexport const r = dep;\n",
+        'tools/omnikom-cli/test/run.mjs': "import { dep } from '../../../shared/dep.mjs';\nimport { app } from '../../../apps/dashboard/src/app.mjs';\nimport { spec } from '../../../apps/dashboard/e2e/spec.mjs';\nexport const r = [dep, app, spec];\n",
+        'apps/dashboard/src/app.mjs': 'export const app = 1;\n',
+        'apps/dashboard/e2e/spec.mjs': 'export const spec = 1;\n',
         'tools/omnikom-cli/lib/x.mjs': 'export const x = 1;\n',
         'shared/dep.mjs': 'export const dep = 1;\n',
         'other/unrelated.mjs': 'export const u = 1;\n',
@@ -1439,6 +1441,57 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       check('ci-heavy --shard: a change that does not reach the CLI skips the shard (exit 0, nothing spawned) and the log says which shard was skipped', q1.code === 0 && q1.spawned.length === 0 && q1.lines.some(l => l === 'ci-heavy: shard 3/6 skipped: the change does not reach the CLI suite'), JSON.stringify(q1));
       q1 = runHeavy(E, {}, ['--suite']);
       check('ci-heavy --suite: a change that does not reach the CLI skips the full suite and says so', q1.code === 0 && q1.spawned.length === 0 && q1.lines.some(l => l === 'ci-heavy: the full suite skipped: the change does not reach the CLI suite'), JSON.stringify(q1));
+      // the shards are narrower than the suite: prose and the dashboard app (outside apps/dashboard/e2e/) run the suite, not the mutants [ci-runners]
+      git(HR, 'checkout', '-q', '-B', 'work7', hBase);
+      hCommit({ 'apps/dashboard/src/app.mjs': 'export const app = 2;\n' }, 'dashboard app only');
+      q1 = runHeavy(E, {}, ['--suite']);
+      check('ci-heavy --suite: a dashboard app file the suite reads is needed (the suite keeps the whole graph) [ci-runners]', q1.code === 0 && q1.spawned.join() === 'run.mjs' && q1.lines[0] === 'ci-heavy: needed (apps/dashboard/src/app.mjs)', JSON.stringify(q1));
+      q1 = runHeavy(E, {}, ['--shard', '4/6']);
+      check('ci-heavy --shard: the same dashboard app change skips the shard: nothing spawned, exit 0, the reason names the dashboard file and says the suite runs [ci-runners]',
+        q1.code === 0 && q1.spawned.length === 0 && q1.lines[0] === 'ci-heavy: not needed (1 reached file(s), prose or the dashboard app only: the suite runs, the mutants do not (apps/dashboard/src/app.mjs))' && q1.lines.includes('ci-heavy: shard 4/6 skipped: the change does not reach the CLI suite'), JSON.stringify(q1));
+      git(HR, 'checkout', '-q', '-B', 'work8', hBase);
+      hCommit({ 'apps/dashboard/e2e/spec.mjs': 'export const spec = 2;\n' }, 'e2e spec');
+      q1 = runHeavy(E, {}, ['--shard', '4/6']);
+      check('ci-heavy --shard: a file under apps/dashboard/e2e/ the suite reads runs the shard [ci-runners]', q1.code === 0 && q1.spawned.join() === 'mutate.mjs' && q1.lines[0] === 'ci-heavy: needed (apps/dashboard/e2e/spec.mjs)', JSON.stringify(q1));
+      git(HR, 'checkout', '-q', '-B', 'work9', hBase);
+      hCommit({ 'apps/dashboard/src/app.mjs': 'export const app = 3;\n', 'shared/dep.mjs': 'export const dep = 4;\n' }, 'dashboard and a shared file');
+      q1 = runHeavy(E, {}, ['--shard', '1/6']);
+      check('ci-heavy --shard: a dashboard app file together with another reached file runs the shard, naming only the counted file [ci-runners]', q1.spawned.join() === 'mutate.mjs' && q1.lines[0] === 'ci-heavy: needed (shared/dep.mjs)', JSON.stringify(q1));
+      git(HR, 'checkout', '-q', '-B', 'work10', hBase);
+      hCommit({ 'tools/omnikom-cli/README.md': 'cli prose\n' }, 'cli prose');
+      q1 = runHeavy(E, {}, ['--shard', '2/6']);
+      check('ci-heavy --shard: prose under tools/omnikom-cli/ still runs the shard (a file of the CLI folder always counts) [ci-runners]', q1.spawned.join() === 'mutate.mjs' && q1.lines[0] === 'ci-heavy: needed (tools/omnikom-cli/README.md)', JSON.stringify(q1));
+      check('ci-heavy suiteOnly: *.md (any case) and apps/dashboard/ outside e2e/ are suite-only; e2e specs, code and ci.yml are not [ci-runners]',
+        heavy.suiteOnly('docs/blueprint/16-DESIGN-PARTS.md') && heavy.suiteOnly('tools/audit/README.MD') && heavy.suiteOnly('apps/dashboard/public/_headers') && heavy.suiteOnly('apps/dashboard/src/ErrorScreen.tsx')
+        && !heavy.suiteOnly('apps/dashboard/e2e/site.spec.ts') && !heavy.suiteOnly('supabase/functions/lead/index.ts') && !heavy.suiteOnly('.github/workflows/ci.yml') && !heavy.suiteOnly('apps/dashboard.md.mjs'));
+      // ci-functions: the function mutant shards run only when the change touches what they read [ci-runners]
+      const fnw = await import(pathToFileURL(join(CLI_ROOT, 'test', 'ci-functions.mjs')).href);
+      const runFn = (env, argv, status = 0) => {
+        const lines = [], calls = [];
+        const code = fnw.ciFunctions({ repo: HR, env, argv, log: l => lines.push(l), spawn: (cmd, args) => { calls.push(args.map(a => a.replace(/\\/g, '/'))); return { status }; } });
+        return { code, lines, calls };
+      };
+      const fnCase = (name, files) => { git(HR, 'checkout', '-q', '-B', name, hBase); hCommit(files, name); };
+      fnCase('fn1', { 'supabase/functions/lead/index.ts': 'export const l = 1;\n' });
+      let f1 = runFn(E, ['--shard', '2/4']);
+      check('ci-functions: a change under supabase/functions/ runs mutate.mjs --shard 2/4 once, from the repository root, and says why [ci-runners]',
+        f1.code === 0 && f1.calls.length === 1 && f1.calls[0][0].endsWith('supabase/functions/test/mutate.mjs') && f1.calls[0].slice(1).join(' ') === '--shard 2/4' && f1.lines[0] === 'ci-functions: needed (supabase/functions/lead/index.ts)', JSON.stringify(f1));
+      f1 = runFn(E, ['--shard', '2/4'], 7);
+      check('ci-functions: a failing mutate.mjs gives its exit code (7) [ci-runners]', f1.code === 7 && f1.lines.includes('ci-functions: mutate.mjs failed (exit 7)'), JSON.stringify(f1));
+      fnCase('fn2', { 'apps/dashboard/src/app.mjs': 'export const app = 9;\n', 'notes/readme.md': 'p\n', 'tools/omnikom-cli/commands/lead.mjs': 'export const x = 9;\n' });
+      f1 = runFn(E, ['--shard', '3/4']);
+      check('ci-functions: a dashboard, prose and CLI change skips the shard: nothing spawned, exit 0, the log names the shard [ci-runners]',
+        f1.code === 0 && f1.calls.length === 0 && f1.lines.join('|') === 'ci-functions: not needed (3 changed files, none read by the function mutants)|ci-functions: shard 3/4 skipped: the change does not reach the function mutants', JSON.stringify(f1));
+      const inputs = ['supabase/migrations/20990101000001_x.sql', 'supabase/tests/seed.sql', 'contracts/validate.mjs', 'tools/crm-map/map.mjs', 'tools/proc-guard/index.mjs', 'tools/omnikom-cli/test/mutate-run.mjs', 'tools/omnikom-cli/test/ci-functions.mjs', 'tools/omnikom-cli/lib/ci-base.mjs', 'tools/omnikom-cli/lib/sql.mjs', 'tools/omnikom-cli/commands/seed.mjs', 'sites/test-demo-a/contract.json', 'sites/test-demo-a/media/logo.png', 'deno.json', 'deno.lock', '.github/workflows/ci.yml'];
+      const notInputs = ['tools/omnikom-cli/commands/lead.mjs', 'tools/omnikom-cli/commands/seed.mjs.bak', 'sites/test-demo-b/contract.json', 'sites/test-demo-a.md', 'apps/dashboard/src/app.mjs', 'supabase/apply-staging.mjs', 'contracts.md', 'deno.jsonc', 'tools/crm-mapper/x.mjs', 'docs/product/1-product.md'];
+      check('ci-functions: every input named in FUNCTION_INPUTS counts (migrations, seeds, contracts, crm-map, proc-guard, the shard planner, the wrapper, the CLI seed.mjs and lib/, sites/test-demo-a/, deno.json/lock, ci.yml) and near misses do not [ci-runners]',
+        inputs.every(fnw.isFunctionInput) && !notInputs.some(fnw.isFunctionInput), JSON.stringify({ missed: inputs.filter(f => !fnw.isFunctionInput(f)), wrong: notInputs.filter(fnw.isFunctionInput) }));
+      f1 = runFn({ OMNIKOM_CI_BASE: 'deadbeefdeadbeefdeadbeef' }, ['--shard', '1/4']);
+      check('ci-functions: an unusable base is needed (fail safe), even for a change it would skip [ci-runners]', f1.calls.length === 1 && f1.lines[0].startsWith('ci-functions: needed (') && f1.lines[0].includes('is not a commit here'), JSON.stringify(f1));
+      f1 = runFn(E, []);
+      const f2 = runFn(E, ['--shard', '5/4']), f3 = runFn(E, ['--shard', '1/4', '--all']);
+      check('ci-functions: no --shard, a bad shard and a stray flag are usage (exit 2) and spawn nothing [ci-runners]',
+        f1.code === 2 && f2.code === 2 && f3.code === 2 && f1.calls.length + f2.calls.length + f3.calls.length === 0, JSON.stringify([f1, f2, f3]));
       git(HR, 'checkout', '-q', '-B', 'work7', hBase);
       hCommit({ 'tools/omnikom-cli/lib/x.mjs': 'export const x = 9;\n' }, 'cli change again');
       const bads = [['--shard', '7/6'], ['--shard', '0/6'], ['--shard', 'two'], ['--shard'], ['--suite', '--shard', '1/2'], ['--suit'], ['--shard', '1/2', 'x']].map(a => ({ a: a.join(' '), r: runHeavy(E, {}, a) }));
@@ -1558,8 +1611,11 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
         && pushIgnored('name: ci\non:\n  push:\n  pull_request:\njobs:\n') === null && pushIgnored(good.replace(LOCK_BRANCH, 'other')).join() !== LOCK_BRANCH && pushIgnored(good.replace(`[${LOCK_BRANCH}]`, `[${LOCK_BRANCH}, extra]`)).join() !== LOCK_BRANCH);
       const realCi = (() => { try { return readFileSync(join(REPO_ROOT, '.github', 'workflows', 'ci.yml'), 'utf8'); } catch { return ''; } })();
       const got = pushIgnored(realCi);
-      check(`ci.yml check: the repository's .github/workflows/ci.yml has push: branches-ignore: [${LOCK_BRANCH}] (a push of the land lock must not start a ci run); expected red until the head's ci.yml line`,
-        !!got && got.length === 1 && got[0] === LOCK_BRANCH, `branches-ignore under push: ${JSON.stringify(got)}, triggers ${JSON.stringify(triggers(realCi))}`);
+      const pinned = list => !!list && list.length === 2 && [...list].sort().join() === [LOCK_BRANCH, 'master'].sort().join();
+      check('ci.yml check (the pin itself): [land-lock, master] in either order passes; land-lock alone, master alone, a third branch, a doubled land-lock or no list fails [ci-runners]',
+        pinned([LOCK_BRANCH, 'master']) && pinned(['master', LOCK_BRANCH]) && !pinned([LOCK_BRANCH]) && !pinned(['master']) && !pinned([LOCK_BRANCH, 'master', 'x']) && !pinned([LOCK_BRANCH, LOCK_BRANCH]) && !pinned(null));
+      check(`ci.yml check: the repository's .github/workflows/ci.yml has push: branches-ignore: exactly [${LOCK_BRANCH}, master] (a push of the land lock must not start a ci run; nor a land to master, whose tree already ran green on its check branch)`,
+        pinned(got), `branches-ignore under push: ${JSON.stringify(got)}, triggers ${JSON.stringify(triggers(realCi))}`);
       const others = (() => { try { return readdirSync(join(REPO_ROOT, '.github', 'workflows')).filter(x => /\.ya?ml$/.test(x) && x !== 'ci.yml'); } catch { return []; } })();
       const pushers = others.filter(x => triggers(readFileSync(join(REPO_ROOT, '.github', 'workflows', x), 'utf8')).includes('push'));
       check('ci.yml check: ci.yml is the only workflow triggered on push (the others are schedule, dispatch or repository_dispatch)', others.length > 0 && pushers.length === 0, `triggered on push: ${pushers.join(', ')}`);
