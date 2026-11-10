@@ -129,3 +129,14 @@ Git Bash turns an environment value starting with "/" into a Windows path: set F
 preview through private.lead_duplicate_of). 2 accepted: no backfill; the flag starts with leads created after migration 22
 (said in 5-crm.md "Duplicates" when the screens land). 3, 4, 5, 6, 7, 8, 10 accepted as built. 9 accepted: staff with MFA act
 as an owner everywhere else, so a staff view in any workspace is consistent.
+
+Staging (head, 2026-11-10): migration 22 applied ("OK: applied 1 of 22"); view-save, view-delete, lead-task, lead-update,
+lead-list deployed. First run 12:30: 31 of 32, "FAIL a column that is not one is refused naming it (400) 400 {...,"path":""...}"
+(an I-ANSWER naming a key with an underscore lost its words; fixed in _shared/db.ts, watched red and green, mutant caught).
+After the fix (CI 42825402673, 19 of 19 on 94528a4) the five functions redeployed and `e2e-crm-3b.mjs` again: "PASS a column
+that is not one is refused naming it (400)", "PASS the second lead is flagged as a duplicate of the first (owner-a is told
+which)", "PASS: CRM block 3b backend on staging, 0 problem(s)" (32 checks). CI on the way: 42718958766 red (the workspace-index
+mutant survived: migration 22's indexes also lead with workspace_id; run-local now names uncaught mutants), 42775482582 and
+the next run hit the functions job's time limit (crm3b.test.ts made every whole-folder mutant slower; fixed by CLI's 75-minute
+limit, then its 4 functions mutant shards, and the isInstant mutants moved to instant.test.ts).
+Status: DONE at the land. A13, A14, A17, A18 stay MISSING until work order 19's screens pass their staging flows.
