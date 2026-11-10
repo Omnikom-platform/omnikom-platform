@@ -16,8 +16,8 @@
 
 ## Open items (who holds each)
 - The owner or Dave: who our contact at Paragon is, the agreement, and what they want from us.
-- The owner: the NMLS search (its human check stops us) and the Instagram counts (BLOCKED twice), or his OK to download the
-  entity's Statement of Information for the managers' names (`facts.md`).
+- The owner can check: the NMLS search (its human check stops us) and the managers' names on the entity's Statement of
+  Information (bizfile now shows us a bot block page) (`facts.md`). SEO and audits: the Instagram counts.
 - Research before anything client-facing: which licences and disclosure rules apply to a business funding broker in California and
   Florida; why the terms name Palm Beach County, Florida, and why the filed address differs from the site's (`facts.md` "Not facts yet").
 
