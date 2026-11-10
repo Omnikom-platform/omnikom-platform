@@ -22,7 +22,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const { PRODUCTION_ALLOWED } = await imp('lib/target.mjs');
   const { Blocked } = await imp('lib/errors.mjs');
   const { USAGE } = await imp('omnikom.mjs');
-  const { WS_A } = await imp('commands/seed.mjs');
+  const { WS_A, SITE_A } = await imp('commands/seed.mjs');
   const rand = () => randomBytes(12).toString('hex');
   const work = mkdtempSync(join(tmpdir(), 'omnikom-journey-test-'));
   const SECRET = rand();
@@ -46,6 +46,10 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   // what supabase/tests/e2e-settings.mjs prints without SETTINGS_INVITE_EMAIL: check lines, its SKIP line, a blank line, the summary line
   const E2E_OUT = 'PASS team-list as owner-a: owners first\nPASS team-list as member-a1 and owner-b: 404\nSKIP: invite mail (C13) UNPROVEN: SETTINGS_INVITE_EMAIL not set\nPASS the marked member is listed and removed\n\nPASS: Settings backend on staging, 0 problem(s)\n';
   const E2E_OK = { status: 0, stdout: E2E_OUT, stderr: '', timedOut: false };
+  // what supabase/tests/e2e-site-audit.mjs --job prints when every check passes: its INFO line, eight check lines, a blank line, the summary line
+  const AUDIT_JOB = '5e1c0de1-0000-4000-8000-0000000000a1';
+  const AUDIT_OUT = `INFO job ${AUDIT_JOB}\n${Array.from({ length: 8 }, (_, i) => `PASS check ${i + 1} of the stored audit`).join('\n')}\n\nPASS: site-audit on staging, 0 problem(s)\n`;
+  const AUDIT_OK = { status: 0, stdout: AUDIT_OUT, stderr: '', timedOut: false };
   const pwOk = (title) => ({ ran: 1, rows: [{ title, statuses: ['expected'], ms: 2000 }], failed: 0, flaky: 0, error: null });
   // the test site's form contract as leadColumns lists it (sites/test-demo-a/contract.json), and a stateful fake of the CRM functions the new steps call
   const FIELDS = [
@@ -187,6 +191,9 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     spec(file) { return o.spec ? o.spec(file) : { exists: false, text: '' }; },
     async playwright(file, title) { this.calls.push(`playwright:${file}`); (this.titles ||= []).push(title); return o.playwright ? o.playwright(file, title) : pwOk(title); },
     async settingsE2e() { this.calls.push('settingsE2e'); return o.settingsE2e ? o.settingsE2e() : E2E_OK; },
+    // the newest publish job of the test site: none before J3's test, the done job AUDIT_JOB after it (o.latestPublishJob(n) answers the n-th read instead)
+    async latestPublishJob() { const n = this.jobReads = (this.jobReads || 0) + 1; if (o.latestPublishJob) return o.latestPublishJob(n); return n === 1 ? null : { id: AUDIT_JOB, state: 'done' }; },
+    async siteAuditE2e(job) { this.calls.push('siteAuditE2e'); (this.auditJobs ||= []).push(job); return o.siteAuditE2e ? o.siteAuditE2e(job) : AUDIT_OK; },
     launchBrowser: o.launchBrowser || fakeBrowser(),
     fileSize: () => 1000,
     async leadCount() { return o.leadCount === undefined ? 1 : o.leadCount; },
@@ -297,18 +304,20 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   }
 
   // ======================================================== the orchestrator, with fakes
-  const pass = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl() });
+  const withSpec = { spec: () => ({ exists: true, text: `test('${goodTitle}')` }) };
+  // a good tree has site.spec.ts (J3 runs and keeps its job id, so J14 can run); `noSpec` is the tree without it (J3 NOT BUILT YET, so J14 is BLOCKED)
+  const pass = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl(withSpec) });
+  const noSpec = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl() });
   const shape = /^J\d+ (PASS|FAIL|BLOCKED|NOT BUILT YET|SKIPPED \(after J\d+ (FAIL|BLOCKED)\)) \S.*/;
   const lines = pass.text.trim().split('\n');
-  check('journey: one line per step J1..J13 in order, then the clean-up line, then one summary line', lines.length === 15 && lines.slice(0, 13).every((l, i) => l.startsWith(`J${i + 1} `) && shape.test(l)) && lines[13] === 'cleanup: 0 journey lead(s) removed, 0 left' && lines[14].startsWith('journey (staging): '), pass.text);
-  check('journey: with a good tree the result is 12 PASS, 1 NOT BUILT YET (J3), 0 FAIL and the exit is 0', pass.res.ok && pass.obj.exit === 0 && lines[14].startsWith('journey (staging): 12 PASS, 1 NOT BUILT YET, 0 FAIL'), lines[14]);
-  check('journey: J3 on a tree with no site.spec.ts prints NOT BUILT YET with the file named', pass.byId.J3.status === 'NOT BUILT YET' && /apps\/dashboard\/tests\/site\.spec\.ts missing/.test(pass.byId.J3.evidence));
-  check('journey: the steps are J1..J13 and none of them sends a test or pushes a lead to a CRM (leads are never pushed)', pass.res.data.steps.map(s => s.id).join() === 'J1,J2,J3,J4,J5,J6,J7,J8,J9,J10,J11,J12,J13' &&!pass.res.data.steps.some(s => /push|send a test/i.test(s.name)) && !/pushed|send a test|Webhook/i.test(pass.text), pass.text);
-  check('journey: J8 field edit, J9 server list, J10 bulk and J11 CRM export and import are real PASS lines, never a NOT BUILT YET', ['field edit', 'server list', 'bulk', 'CRM export and import'].every((n, i) => pass.byId[`J${8 + i}`].name === n && pass.byId[`J${8 + i}`].status === 'PASS') && pass.res.data.counts.PASS === 12);
-  check('journey: the summary names the screenshot folder', lines[14].includes(pass.res.data.out) && pass.res.data.out.startsWith(work));
+  check('journey: one line per step J1..J14 in order, then the clean-up line, then one summary line', lines.length === 16 && lines.slice(0, 14).every((l, i) => l.startsWith(`J${i + 1} `) && shape.test(l)) && lines[14] === 'cleanup: 0 journey lead(s) removed, 0 left' && lines[15].startsWith('journey (staging): '), pass.text);
+  check('journey: with a good tree the result is 14 PASS, 0 NOT BUILT YET, 0 FAIL and the exit is 0', pass.res.ok && pass.obj.exit === 0 && lines[15].startsWith('journey (staging): 14 PASS, 0 NOT BUILT YET, 0 FAIL'), lines[15]);
+  check('journey: J3 on a tree with no site.spec.ts prints NOT BUILT YET with the file named, and J14 (which needs the publish job J3 kept) is then BLOCKED, never a pass', noSpec.byId.J3.status === 'NOT BUILT YET' && /apps\/dashboard\/tests\/site\.spec\.ts missing/.test(noSpec.byId.J3.evidence) && noSpec.byId.J14.status === 'BLOCKED' && !noSpec.res.ok, noSpec.byId.J14.evidence);
+  check('journey: the steps are J1..J14 and none of them sends a test or pushes a lead to a CRM (leads are never pushed)', pass.res.data.steps.map(s => s.id).join() === 'J1,J2,J3,J4,J5,J6,J7,J8,J9,J10,J11,J12,J13,J14' &&!pass.res.data.steps.some(s => /push|send a test/i.test(s.name)) && !/pushed|send a test|Webhook/i.test(pass.text), pass.text);
+  check('journey: J8 field edit, J9 server list, J10 bulk and J11 CRM export and import are real PASS lines, never a NOT BUILT YET', ['field edit', 'server list', 'bulk', 'CRM export and import'].every((n, i) => pass.byId[`J${8 + i}`].name === n && pass.byId[`J${8 + i}`].status === 'PASS') && pass.res.data.counts.PASS === 14);
+  check('journey: the summary names the screenshot folder', lines[15].includes(pass.res.data.out) && pass.res.data.out.startsWith(work));
   check('journey: a screenshot path is printed on the step line that took it', /^J4 PASS .*\| png: .*j4-phone-home\.png; .*j4-phone-contact\.png; .*j4-desktop-home\.png; .*j4-desktop-contact\.png/.test(lines[3]) && /j5-form-answer\.png/.test(lines[4]) && /j6-inbox-owner-a\.png/.test(lines[5]), lines.slice(3, 6).join(' // '));
 
-  const withSpec = { spec: () => ({ exists: true, text: `test('${goodTitle}')` }) };
   const okJ3 = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl(withSpec) });
   check('journey: J3 with the spec file present and a passing run is a PASS (the file is the only thing that decides NOT BUILT YET)', okJ3.byId.J3.status === 'PASS');
   const brokenJ3 = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ ...withSpec, playwright: t => ({ ran: 1, rows: [{ title: t, statuses: ['unexpected'], ms: 10 }], failed: 1, flaky: 0, error: null }) }) });
@@ -320,7 +329,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
 
   const j1bad = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ seed: async () => ({ ok: false, code: 'S-X', data: { error: 'nope' } }) }) });
   check('journey: J1 FAIL skips J2, J3, J5, J6, J7, J8, J9 and J10 with "SKIPPED (after J1 FAIL)", still runs J4, and the exit is 1',
-    j1bad.byId.J1.status === 'FAIL' && ['J2', 'J3', 'J5', 'J6', 'J7', 'J8', 'J9', 'J10', 'J11', 'J12', 'J13'].every(i => j1bad.byId[i].status === 'SKIPPED') && /^J2 SKIPPED \(after J1 FAIL\) /m.test(j1bad.text) && j1bad.byId.J4.status === 'PASS' && j1bad.obj.exit === 1, j1bad.text);
+    j1bad.byId.J1.status === 'FAIL' && ['J2', 'J3', 'J5', 'J6', 'J7', 'J8', 'J9', 'J10', 'J11', 'J12', 'J13', 'J14'].every(i => j1bad.byId[i].status === 'SKIPPED') && /^J2 SKIPPED \(after J1 FAIL\) /m.test(j1bad.text) && j1bad.byId.J4.status === 'PASS' && j1bad.obj.exit === 1, j1bad.text);
   // a product bug at J5 must not leave J6 and J7 unproven: they use ONE lead made by `lead send`, and their lines say so
   const FALLBACK = '(lead from lead send: J5 did not store one)';
   const implB = fakeImpl({ leadCount: 0 });
@@ -348,7 +357,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const j2bad = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ workspacesAs: async () => ({ status: 200, ids: [WS_A, 'bbbbbbbb-0000-0000-0000-000000000000'] }) }) });
   check('journey: J2 FAIL when a login reads another workspace too', j2bad.byId.J2.status === 'FAIL' && /not exactly its own/.test(j2bad.byId.J2.evidence));
   const only = await run({ only: 'J4,j5', 'alert-to': ALERT }, { ...base, impl: fakeImpl() });
-  check('journey: --only J4,J5 runs just those and the summary names what was not run', only.res.data.steps.map(s => s.id).join() === 'J4,J5' && /; not run: J1, J2, J3, J6, J7, J8, J9, J10, J11, J12, J13; /.test(only.text) && only.res.ok, only.text);
+  check('journey: --only J4,J5 runs just those and the summary names what was not run', only.res.data.steps.map(s => s.id).join() === 'J4,J5' && /; not run: J1, J2, J3, J6, J7, J8, J9, J10, J11, J12, J13, J14; /.test(only.text) && only.res.ok, only.text);
   const implF = fakeImpl({ alertsOnlyTo: false });
   const noAlertList = await run({ 'alert-to': ALERT }, { ...base, impl: implF });
   check('journey: J5, J6 and J7 are BLOCKED, and nothing is opened or sent (no browser, no lead send, no dashboard test), when the test site\'s alert list is not exactly --alert-to',
@@ -657,6 +666,83 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     check('journey J13 seams: the script is supabase/tests/e2e-settings.mjs, and its environment has the staging variables but no SETTINGS_INVITE_EMAIL', /e2e-settings\.mjs$/.test((spawned[0] || { args: [] }).args[0] || '') && spawned[0].env.STAGING_SUPABASE_REF === 'testref' && !('SETTINGS_INVITE_EMAIL' in spawned[0].env) && e2eRun.status === 0 && e2eRun.stdout === E2E_OUT, JSON.stringify({ args: (spawned[0] || {}).args, keys: Object.keys((spawned[0] || { env: {} }).env).filter(k => /INVITE/.test(k)) }));
     check('journey J13 seams: the dashboard tests run without SETTINGS_INVITE_EMAIL in their environment too (the exact title is the -g)', spawned.length === 2 && spawned[1].args.includes('tests/flows.spec.ts') && !('SETTINGS_INVITE_EMAIL' in spawned[1].env) && spawned[1].env.STAGING_SUPABASE_REF === 'testref', JSON.stringify(spawned[1] && spawned[1].args));
     check('journey J13 seams: withoutInviteMail leaves the other variables alone and does not change the env it was given', (() => { const e = { A: '1', SETTINGS_INVITE_EMAIL: 'x@example.com' }; const o = J.withoutInviteMail(e); return o.A === '1' && !('SETTINGS_INVITE_EMAIL' in o) && e.SETTINGS_INVITE_EMAIL === 'x@example.com'; })());
+  }
+
+  // ---- J14: the stored site audit (work order 10): supabase/tests/e2e-site-audit.mjs --job <the job J3's publish ended with>; it never publishes (no --rows-file)
+  {
+    // the pure reading of the script's output
+    const A = J.auditE2eVerdict;
+    const aOk = A(AUDIT_OK);
+    check('journey J14 audit verdict: PASS lines count (the INFO line and the "PASS:" summary line are not checks), nothing red, nothing blocked', aOk.red.length === 0 && aOk.blocked.length === 0 && aOk.passes === 8, JSON.stringify(aOk));
+    const aFail = A({ status: 1, stdout: 'INFO job x\nPASS a\nFAIL latest.preview is this job: v 1, pass true  {"job":"other"}\n\nFAILED: 1 check(s) failed\n', stderr: '' });
+    check('journey J14 audit verdict: a FAIL line is red and named (the FAILED summary line is not a second one)', aFail.red.length === 1 && /^FAIL latest\.preview is this job/.test(aFail.red[0]) && aFail.blocked.length === 0, JSON.stringify(aFail));
+    check('journey J14 audit verdict: a FAIL line is red even when the exit code was 0', A({ status: 0, stdout: 'PASS a\nFAIL b  x\n', stderr: '' }).red.length === 1);
+    const a3 = A({ status: 3, stdout: 'PASS a\n', stderr: 'BLOCKED: STAGING_SUPABASE_REF is not set (read by name)' });
+    check('journey J14 audit verdict: exit 3 is blocked and not red (even with only PASS lines before it), and quotes the script\'s last line', a3.blocked.length === 1 && a3.red.length === 0 && /^exited 3 \(BLOCKED\): .*STAGING_SUPABASE_REF is not set/.test(a3.blocked[0]), JSON.stringify(a3));
+    check('journey J14 audit verdict: exit 1 with no FAIL line, exit 2, a timeout, no result at all and a run with 0 checks are each red',
+      A({ status: 1, stdout: 'PASS a\n', stderr: '' }).red.length === 1 && A({ status: 2, stdout: '', stderr: 'usage: e2e-site-audit.mjs' }).red.length === 1 && A({ status: null, stdout: '', stderr: '', timedOut: true }).red[0] === 'timed out' && A(null).red.length === 1 && /ran 0 checks/.test(A({ status: 0, stdout: 'INFO job x\n', stderr: '' }).red.join()));
+
+    // the step
+    const j14 = (o = {}, flags = {}) => crmRun({ ...withSpec, ...o }, { only: 'J1,J3,J14', 'alert-to': undefined, ...flags });
+    const g = await j14();
+    check('journey J14: PASS when J3 kept the job and the script passed; the line names the job and the number of checks, the run is ok',
+      g.byId.J14.status === 'PASS' && g.byId.J14.evidence === `e2e-site-audit passed (8 checks) for the publish job ${AUDIT_JOB}` && g.res.ok && g.obj.exit === 0, g.byId.J14.evidence);
+    check('journey J14: J3 keeps the id of the job its publish ended with (the first read found none, the second a new done job) and says so on its line', g.byId.J3.status === 'PASS' && g.byId.J3.evidence.endsWith(`; publish job ${AUDIT_JOB}`) && g.impl.jobReads === 2, g.byId.J3.evidence);
+    check('journey J14: the script is run once, with the job id J3 kept (never no id, never another), and nothing else is called (no publish, no lead, no clean-up line)',
+      JSON.stringify(g.impl.auditJobs) === JSON.stringify([AUDIT_JOB]) && g.impl.calls.join() === 'playwright:site.spec.ts,siteAuditE2e' && g.impl.store.log.length === 0 && !/cleanup/.test(g.text), g.impl.calls.join());
+    const aRed = await j14({ siteAuditE2e: () => ({ status: 1, stdout: 'INFO job x\nPASS a\nFAIL history\'s first row is this job, and history carries no fails  []\nFAIL member-a1 gets not found  200 {}\n\nFAILED: 2 check(s) failed\n', stderr: '', timedOut: false }) });
+    check('journey J14: FAIL lines make J14 a FAIL that says how many parts are red and names every one of them in one line, and the run is not ok',
+      aRed.byId.J14.status === 'FAIL' && /^2 part\(s\) red: e2e-site-audit: FAIL history's first row is this job.*; e2e-site-audit: FAIL member-a1 gets not found/.test(aRed.byId.J14.evidence) && !/\n/.test(aRed.byId.J14.evidence) && !aRed.res.ok && aRed.obj.exit === 1, aRed.byId.J14.evidence);
+    const aFail0 = await j14({ siteAuditE2e: () => ({ status: 0, stdout: 'PASS a\nFAIL b  x\n', stderr: '', timedOut: false }) });
+    check('journey J14: a FAIL line with exit code 0 is a FAIL too', aFail0.byId.J14.status === 'FAIL', aFail0.byId.J14.evidence);
+    const a3b = await j14({ siteAuditE2e: () => ({ status: 3, stdout: 'INFO job x\nPASS a\n', stderr: 'BLOCKED: STAGING_SUPABASE_REF is not set (read by name)', timedOut: false }) });
+    check('journey J14: exit 3 of the script is BLOCKED (not PASS), with only PASS lines before it too; the run is not ok and the exit is 1', a3b.byId.J14.status === 'BLOCKED' && /STAGING_SUPABASE_REF is not set/.test(a3b.byId.J14.evidence) && /1 check\(s\) passed before it/.test(a3b.byId.J14.evidence) && !a3b.res.ok && a3b.obj.exit === 1, a3b.byId.J14.evidence);
+    const aBoth = await j14({ siteAuditE2e: () => ({ status: 3, stdout: 'FAIL a  x\nBLOCKED y\n', stderr: '', timedOut: false }) });
+    check('journey J14: a red part outranks BLOCKED (FAIL, and the BLOCKED part is still named)', aBoth.byId.J14.status === 'FAIL' && /; also BLOCKED: e2e-site-audit: BLOCKED y/.test(aBoth.byId.J14.evidence), aBoth.byId.J14.evidence);
+    const aEmpty = await j14({ siteAuditE2e: () => ({ status: 0, stdout: 'INFO job x\n\nPASS: site-audit on staging, 0 problem(s)\n', stderr: '', timedOut: false }) });
+    check('journey J14: a script that ends with exit 0 and no PASS check line proves nothing and is a FAIL (the "PASS:" summary line is not a check)', aEmpty.byId.J14.status === 'FAIL' && /ran 0 checks/.test(aEmpty.byId.J14.evidence), aEmpty.byId.J14.evidence);
+    const aMiss = await j14({ siteAuditE2e: () => { throw new Blocked('supabase/tests/e2e-site-audit.mjs is missing', 'x'); } });
+    check('journey J14: a script that cannot be started because it is missing is BLOCKED, not a pass', aMiss.byId.J14.status === 'BLOCKED' && /e2e-site-audit\.mjs is missing/.test(aMiss.byId.J14.evidence), aMiss.byId.J14.evidence);
+    const aBoom = await j14({ siteAuditE2e: () => { throw new Error('spawn EPERM'); } });
+    check('journey J14: a script that throws is a FAIL saying why', aBoom.byId.J14.status === 'FAIL' && /spawn EPERM/.test(aBoom.byId.J14.evidence), aBoom.byId.J14.evidence);
+
+    // no job id: BLOCKED, the script is never run (and so never the --rows-file path that publishes)
+    const never = r => r.impl.auditJobs === undefined && !r.impl.calls.includes('siteAuditE2e');
+    const sameJob = await j14({ latestPublishJob: () => ({ id: AUDIT_JOB, state: 'done' }) });
+    check('journey J14: J3 passed but no NEW job exists after its test (the newest job is the one from before): no job id kept, J14 is BLOCKED and the script is never run', sameJob.byId.J3.status === 'PASS' && !/publish job/.test(sameJob.byId.J3.evidence) && sameJob.byId.J14.status === 'BLOCKED' && /kept no publish job id/.test(sameJob.byId.J14.evidence) && never(sameJob) && !sameJob.res.ok, sameJob.byId.J14.evidence);
+    const notDone = await j14({ latestPublishJob: n => (n === 1 ? null : { id: AUDIT_JOB, state: 'failed' }) });
+    check('journey J14: a new job that did not end done is not kept: J14 is BLOCKED and the script is never run', notDone.byId.J14.status === 'BLOCKED' && never(notDone), notDone.byId.J14.evidence);
+    const noJob = await j14({ latestPublishJob: () => null });
+    check('journey J14: no job at all after J3 is BLOCKED and the script is never run', noJob.byId.J14.status === 'BLOCKED' && never(noJob), noJob.byId.J14.evidence);
+    const readFails = await j14({ latestPublishJob: n => { if (n === 1) throw new Error('psql: connection refused'); return { id: AUDIT_JOB, state: 'done' }; } });
+    check('journey J14: a failed read of the newest job before the test (the new job cannot be told from an old one) keeps no id: J3 still passes, J14 is BLOCKED, the script is never run', readFails.byId.J3.status === 'PASS' && readFails.byId.J14.status === 'BLOCKED' && never(readFails), readFails.byId.J14.evidence);
+    const readFails2 = await j14({ latestPublishJob: n => { if (n === 2) throw new Error('psql: connection refused'); return null; } });
+    check('journey J14: a failed read after the test keeps no id either (J3 passes, J14 is BLOCKED, the script is never run)', readFails2.byId.J3.status === 'PASS' && readFails2.byId.J14.status === 'BLOCKED' && never(readFails2), readFails2.byId.J14.evidence);
+    const only14 = await j14({}, { only: 'J14' });
+    check('journey J14: --only J14 (J3 did not run in this run, so no job id) is BLOCKED and the script is never run', only14.byId.J14.status === 'BLOCKED' && never(only14) && only14.impl.jobReads === undefined, only14.byId.J14.evidence);
+    const j3red = await j14({ playwright: t => ({ ran: 1, rows: [{ title: t, statuses: ['unexpected'], ms: 10 }], failed: 1, flaky: 0, error: null }) });
+    check('journey J14: J3 red means J14 is SKIPPED (after J3 FAIL), no job id is read after the failed test and the script is never run', j3red.byId.J3.status === 'FAIL' && j3red.byId.J14.status === 'SKIPPED' && /^J14 SKIPPED \(after J3 FAIL\) /m.test(j3red.text) && j3red.impl.jobReads === 1 && never(j3red), j3red.text);
+    const j1red = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ ...withSpec, seed: async () => ({ ok: false, code: 'S-X', data: { error: 'nope' } }) }) });
+    check('journey J14: J1 red means J3 and then J14 are SKIPPED (the chain names J1 as the root)', j1red.byId.J14.status === 'SKIPPED' && /^J14 SKIPPED \(after J1 FAIL\) /m.test(j1red.text));
+    check('journey J14: it needs J3 and nothing else (a SKIPPED J3 skips it, a J3 that did not run does not run it)', J.STEPS.find(s => s.id === 'J14').needs.join() === 'J3');
+
+    // the real seams: the script runs with --job and never --rows-file; the newest-job read is the test site's publish_jobs, newest first
+    const spawned14 = [];
+    const aGuard = { guardedTemp: prefix => { const dir = mkdtempSync(join(tmpdir(), prefix)); return { dir, release: () => rmSync(dir, { recursive: true, force: true }) }; }, killTree: () => true,
+      runLimited: async (cmd, args, opts) => { spawned14.push({ args, env: opts.env }); return { status: 0, stdout: AUDIT_OUT, stderr: '' }; } };
+    const sqls14 = [];
+    const actx = makeCtx({ command: 'test', positionals: ['test', 'journey'], flags: { target: 'staging' }, deps: { env: ENV } });
+    actx.sql = () => ({ rows: text => { sqls14.push(text); return sqls14.length === 1 ? { ok: true, rows: [{ id: AUDIT_JOB, state: 'done' }] } : sqls14.length === 2 ? { ok: true, rows: [] } : { ok: false, message: 'psql: connection refused', rows: [] }; } });
+    const aImpl = J.makeImpl(actx, { ensureBuilt: async () => {}, importer: async rel => (rel.includes('proc-guard') ? aGuard : import(pathToFileURL(join(REPO_ROOT, rel)).href)) });
+    const ran14 = await aImpl.siteAuditE2e(AUDIT_JOB);
+    check('journey J14 seams: the script is supabase/tests/e2e-site-audit.mjs with --job and the id (never --rows-file, which publishes), run with the staging variables in its environment', /e2e-site-audit\.mjs$/.test((spawned14[0] || { args: [] }).args[0] || '') && JSON.stringify(spawned14[0].args.slice(1)) === JSON.stringify(['--job', AUDIT_JOB]) && !spawned14[0].args.includes('--rows-file') && spawned14[0].env.STAGING_SUPABASE_REF === 'testref' && ran14.status === 0 && ran14.stdout === AUDIT_OUT, JSON.stringify(spawned14[0] && spawned14[0].args));
+    const journeySrc = readFileSync(join(CLI_ROOT, 'commands', 'journey.mjs'), 'utf8');
+    check('journey J14 seams: commands/journey.mjs never names the --rows-file option in code (only in comments), so no path of the journey publishes through the audit script', !/['"`]--rows-file/.test(journeySrc));
+    check('journey J14 seams: the script that gives the audit its job is the one on this tree (it takes --job <uuid>)', /--job <uuid>/.test(readFileSync(join(REPO_ROOT, 'supabase', 'tests', 'e2e-site-audit.mjs'), 'utf8')));
+    const newest = await aImpl.latestPublishJob(), none = await aImpl.latestPublishJob();
+    check('journey J14 seams: the newest job is read from public.publish_jobs of the test site, newest first, one row; a site with no job answers null', newest && newest.id === AUDIT_JOB && newest.state === 'done' && none === null && sqls14[0].includes(`from public.publish_jobs where site_id = '${SITE_A}'::uuid order by created_at desc limit 1`) && /^select id::text as id, state::text as state /.test(sqls14[0]), sqls14[0]);
+    let readErr = ''; try { await aImpl.latestPublishJob(); } catch (e) { readErr = String(e.message); }
+    check('journey J14 seams: a failed database read throws (J3 then keeps no job id), it never answers "no job"', /could not read the newest publish job: psql: connection refused/.test(readErr), readErr);
   }
 
   const crash = await run({ 'alert-to': ALERT }, { ...base, impl: fakeImpl({ seed: async () => { throw new Error('socket hang up'); } }) });

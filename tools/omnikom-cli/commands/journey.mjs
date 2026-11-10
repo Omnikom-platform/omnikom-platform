@@ -6,7 +6,9 @@
 // and import in the client's own layout (propose and save a map, export in it, import it back with a dry run first and the owner's consent tick);
 // J12 then runs the two dashboard tests of the CRM screens (owner, agent) and takes owner-a's Leads list at phone and desktop width (rows must be on screen);
 // J13 runs the three Settings screen tests (the owner's five cards and alert addresses, the cards against the database, the agent's view) and
-// supabase/tests/e2e-settings.mjs without SETTINGS_INVITE_EMAIL (no mail at all): the invite test is reported SKIP and never run from here.
+// supabase/tests/e2e-settings.mjs without SETTINGS_INVITE_EMAIL (no mail at all): the invite test is reported SKIP and never run from here;
+// J14 runs supabase/tests/e2e-site-audit.mjs --job <the job J3's publish ended with> (work order 10): the stored audit as the owner reads it. It never publishes
+// and never uses --rows-file (that publishes): with no job id kept by J3 it is BLOCKED.
 // One line per step: PASS | FAIL | BLOCKED | NOT BUILT YET | SKIPPED (after Jn FAIL), each with its evidence. Exit 0 only when no step
 // FAILED or was BLOCKED; NOT BUILT YET is never a pass. The step table below is the one place a slice adds its step (briefs/journey.md 8).
 // Laptop only: it needs staging secrets (variables by name), so it is not a ci.yml job. Never looped; production is refused.
@@ -149,6 +151,22 @@ export function settingsE2eVerdict(r) {
   return { red, blocked, skips, passes };
 }
 
+// What one run of supabase/tests/e2e-site-audit.mjs --job says (r as above). Same reading as settingsE2eVerdict: a FAIL line is red whatever the exit code was, exit 3
+// is BLOCKED and never a pass, any other non-zero exit with no FAIL line is red, a run with no PASS line is red. -> { red: [text], blocked: [text], passes: n }
+export function auditE2eVerdict(r) {
+  const out = String((r && r.stdout) || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const failed = out.filter(l => /^FAIL /.test(l)), held = out.filter(l => /^BLOCKED /.test(l)), passed = out.filter(l => /^PASS /.test(l)).length;
+  // the script says why it stopped on stderr (BLOCKED: <name>, usage), so the last stderr line is quoted, else the last stdout line
+  const said = String((r && r.stderr) || '').trim() || String((r && r.stdout) || '').trim();
+  const tail = clip(said.split(/\r?\n/).pop(), 120), code = r ? r.status : null;
+  const why = failed.map(l => clip(l, 160)), stuck = [];
+  if (r && r.timedOut) why.push('timed out');
+  else if (code === 3) stuck.push(...(held.length ? held.map(l => clip(l, 160)) : [`exited 3 (BLOCKED): ${tail}`]));
+  else if (code !== 0 && !failed.length) why.push(`exited ${code} with no FAIL line: ${tail}`);
+  if (code === 0 && !why.length && !stuck.length && passed === 0) why.push('ran 0 checks (no PASS line)');
+  return { red: why, blocked: stuck, passes: passed };
+}
+
 // ---------- the steps (the one table) ----------
 const alertGuard = async c => {
   if (!c.alertTo) return { status: 'BLOCKED', evidence: 'no --alert-to: this step sends a real alert email and it may go only to our own address' };
@@ -200,8 +218,15 @@ export const STEPS = [
     const spec = c.impl.spec(file);
     if (!spec.exists) return { status: 'NOT BUILT YET', evidence: `the editor and publish screens are not on this tree: apps/dashboard/tests/${file} missing` };
     if (!spec.text.includes(title)) return { status: 'FAIL', evidence: `apps/dashboard/tests/${file} has no test titled "${clip(title, 60)}" (renamed? the journey runs it by that title)` };
+    // J14 audits the job this publish ends with and never publishes again, so the newest job of the test site is read before and after the run; the id is kept
+    // only when a new job exists after it and it is done (a failed read before the run keeps nothing: undefined is "unknown", null is "no job yet")
+    let before; try { before = await c.impl.latestPublishJob(); } catch { before = undefined; }
     const sum = await c.impl.playwright(file, title);
-    return playwrightVerdict(sum, title);
+    const verdict = playwrightVerdict(sum, title);
+    if (verdict.status !== 'PASS') return verdict;
+    let after = null; try { after = await c.impl.latestPublishJob(); } catch { /* J14 reports that no job id was kept */ }
+    if (before !== undefined && after && after.state === 'done' && after.id !== (before && before.id)) { c.state.publishJob = after.id; return { ...verdict, evidence: `${verdict.evidence}; publish job ${after.id}` }; }
+    return verdict;
   } },
   { id: 'J4', name: 'published site renders', needs: [], async run(c) {
     const problems = [], pngs = [];
@@ -535,6 +560,19 @@ export const STEPS = [
     if (blocked.length) return { status: 'BLOCKED', evidence: `${blocked.join('; ')}${ok.length ? `; passed: ${ok.join('; ')}` : ''}; ${skip}${says}` };
     return { status: 'PASS', evidence: `${ok.join('; ')}; ${skip}${says}` };
   } },
+  // J14: the stored site audit (work order 10 seo-read). It audits the publish J3 just made, by its job id (c.state.publishJob), so it never publishes: no job id
+  // (J3 did not run, was NOT BUILT YET, or kept none) is BLOCKED, and the script's --rows-file path (which publishes) is never used.
+  { id: 'J14', name: 'stored site audit', needs: ['J3'], async run(c) {
+    const job = c.state.publishJob;
+    if (!job) return { status: 'BLOCKED', evidence: 'J3 kept no publish job id (it did not run, was NOT BUILT YET, or found no new done job), so there is no job to audit; J14 never publishes and never uses --rows-file' };
+    let v;
+    try { v = auditE2eVerdict(await c.impl.siteAuditE2e(job)); }
+    catch (e) { return { status: e instanceof Blocked ? 'BLOCKED' : 'FAIL', evidence: `e2e-site-audit: ${clip(e && e.message || e, 160)}` }; }
+    const held = v.blocked.map(x => `e2e-site-audit: ${x}`);
+    if (v.red.length) return { status: 'FAIL', evidence: `${v.red.length} part(s) red: ${v.red.map(x => `e2e-site-audit: ${x}`).join('; ')}${held.length ? `; also BLOCKED: ${held.join('; ')}` : ''}` };
+    if (held.length) return { status: 'BLOCKED', evidence: `${held.join('; ')}${v.passes ? `; ${v.passes} check(s) passed before it` : ''}` };
+    return { status: 'PASS', evidence: `e2e-site-audit passed (${v.passes} checks) for the publish job ${job}` };
+  } },
 ];
 
 // ---------- the orchestrator ----------
@@ -684,6 +722,20 @@ export function makeImpl(ctx, seams = {}) {
       if (!existsSync(script)) throw new Blocked('supabase/tests/e2e-settings.mjs is missing', 'it comes with work order 08 (master 6742d24)');
       const g = await guard();
       const r = await g.runLimited(process.execPath, [script], { cwd: repoPath(), env: withoutInviteMail(ctx.env), timeout: 300000, windowsHide: true });
+      return { status: r.status, stdout: String(r.stdout || ''), stderr: String(r.stderr || ''), timedOut: Boolean(r.timedOut) };
+    },
+    // the newest publish job of the test site (read only); J3 reads it around its publish test to keep the job it ended with
+    async latestPublishJob() {
+      const r = ctx.sql().rows(`select id::text as id, state::text as state from public.publish_jobs where site_id = ${uuidLit(SITE_A)} order by created_at desc limit 1`);
+      if (!r.ok) throw new Error(`could not read the newest publish job: ${clip(r.message)}`);
+      return r.rows[0] || null;
+    },
+    // supabase/tests/e2e-site-audit.mjs the way the journey runs it: --job <the id J3 kept>, never --rows-file (that publishes the test site)
+    async siteAuditE2e(job) {
+      const script = repoPath('supabase', 'tests', 'e2e-site-audit.mjs');
+      if (!existsSync(script)) throw new Blocked('supabase/tests/e2e-site-audit.mjs is missing', 'it comes with work order 10 (platform seo-read)');
+      const g = await guard();
+      const r = await g.runLimited(process.execPath, [script, '--job', job], { cwd: repoPath(), env: ctx.env, timeout: 300000, windowsHide: true });
       return { status: r.status, stdout: String(r.stdout || ''), stderr: String(r.stderr || ''), timedOut: Boolean(r.timedOut) };
     },
     async playwright(file, title) {
