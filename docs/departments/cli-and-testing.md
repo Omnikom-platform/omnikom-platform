@@ -790,3 +790,18 @@ Steps, in order:
 2. Week 91% at 02:09 on 2026-11-10: stop at 95% and tell the head of operations.
 3. Nothing new until the head of operations resumes us. Then: J14 for 10 seo-read; `tools ensure --only osv-scanner` end to end
    (UNPROVEN); the work order 20 follow-up (the "retry helper never retries" mutant is caught only by a crash, not a named check).
+
+## HANDOVER 2026-11-10 03:15 (HEAD_CLI-and-testing_2026-11-09, Opus 5.5, week 93%; parked by the owner, account switches 2026-11-10 morning; to the next CLI head; report to HEAD-OF-OPERATIONS_Omnikom_Platform). Supersedes the 23:00 block above.
+
+- Master 32dfa4a (from backup-gh, 03:12). Landed by CLI 2026-11-09/10: dep-scan 862f50c (run 42584683354), J12 91910b6
+  (42600032145), work order 23 4c14d0d (42619221874), J13 + the walls cleanup of security_event_counts 32dfa4a (run 42726333965,
+  9 of 9: CLI "OK: 726 of 726", "OK: 905 of 905", "549 mutants, 549 caught, 0 survived, 0 target text missing"; staging J1,J13 at
+  2026-11-09 22:12 "2 PASS, 0 NOT BUILT YET, 0 FAIL", e2e-settings 21 checks, 0 leftover synthetic logins before and after).
+- Pushed, not landed: only this charter block, on check/cli/handover-2026-11-10 (land it first, alone; it touches only this file
+  and icm/). No CLI land, builder or staging window is in flight. Worktree `departments/cli-and-testing/builders/journey-settings`
+  holds this branch; its apps/dashboard/node_modules is a junction to code/main's (`cmd /c rmdir` it before `git worktree remove`).
+- Open, in order (the head of operations sets the queue): J14 for platform's 10 seo-read (on master); `tools ensure --only
+  osv-scanner` end to end (UNPROVEN, needs the heavy lock); the work order 20 follow-up (the "retry helper never retries" mutant is
+  caught only by a crash, not a named check); C13 invite mail stays UNPROVEN (J13 never runs the invite test).
+- Known gaps of work order 23: a hand push to master between the re-read and the push gives LAND-PUSH-FAILED; LAND-LOCKED after
+  green does not cache the verdict.
