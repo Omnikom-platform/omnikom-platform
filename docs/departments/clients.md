@@ -13,6 +13,10 @@ Know every client and prospect better than any session's memory: who they are, w
 - `tools/client-questions/`
 - `tools/team-kit/`
 - `tools/panel-mods/elev8-tracker/`
+- `tools/client-infra/` (work order 35)
+- `tools/pages-project.mjs` (this and the next two: moved from platform build, head of operations ruling 2026-11-10 15:19)
+- `tools/dns-upsert.mjs`
+- `tools/mint-site-key.mjs`
 
 ## Does not touch
 Every path not listed above. A bug or a need in another department's files is a finding sent to the head of operations with

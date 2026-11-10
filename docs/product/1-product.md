@@ -144,7 +144,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | E12 Data retention and partitioning for growing tables | MISSING | `11-rules.md` 12 asks for it; no table has one (H2-1) |
 | E13 Large-tenant performance: lead list side table and keyset paging, RLS helper cost, publish and export at size | PARTLY | measured at 20,000 leads (KNOWN-3, H2-2, H2-3, H2-4) |
 | E14 Tenant offboarding, full data export, privacy erasure carried out | PARTLY | the states and privacy tickets exist (H2-6, H2-8) |
-| E15 Client infrastructure by script: Pages project, domain, TLS, site keys | PARTLY | one-off scripts for staging (H2-7) |
+| E15 Client infrastructure by script: Pages project, domain, TLS, site keys | WORKS | `tools/client-infra/provision.mjs`: one command from a bare sites row to a Pages project with its lead settings, a signing key (Vault, registry, Pages secret) and a domain with TLS; `--dry-run`; a second run changes nothing. Proven on staging 2026-11-10 with the test client `test-site-wo35` and `wo35-test.omnikom.io` (TLS active, HTTPS 200, cleaned up, zone diff empty): `work/35-client-infra/proof.md`. Staging only: production clients and real domains are the owner's click; `sites.domain` unique is platform's migration 23 (H2-7) |
 | E16 Plan limits and billing per workspace | PARTLY | caps for leads, mail and SMS only (H2-9) |
 | E17 Dependency and supply-chain scanning | WORKS | actions SHA-pinned; `tools/test/dep-scan.mjs` (pinned osv-scanner 2.7.0, sha256 checked, fails closed) scans the 3 package-lock.json and deno.lock (via its npm entries; a jsr or https entry there would print NOT COVERED, none today); the `secrets` CI job runs its tests, 27 mutants and the scan, green on run 42566847935 ("4 lockfile(s), 0 finding(s), 0 allowed"); `npm ci` no longer passes --no-audit (H2-10, work order 21) |
 | E18 Tenant rich text sanitised before it reaches a site | PARTLY | html escapes by default; richtext open (H2-13) |
@@ -159,8 +159,8 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B Dashboard | 10 | 6 | 5 | 21 |
 | C Backend and database | 12 | 4 | 1 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
-| E Hardening | 3 | 13 | 5 | 21 |
-| Total | 53 | 26 | 16 | 95 |
+| E Hardening | 4 | 12 | 5 | 21 |
+| Total | 54 | 25 | 16 | 95 |
 
 Completion is reported from these counts only.
 

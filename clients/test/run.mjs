@@ -50,5 +50,14 @@ try {
 } finally {
   for (const d of dirs) rmSync(d, { recursive: true, force: true });
 }
+
+// The department's other tested tool: tools/client-infra (work order 35). Its tests and mutants run here so CI's "Client record
+// tests" step covers them (ci.yml is not this department's file).
+for (const f of ['test/run.mjs', 'test/mutate.mjs']) {
+  const p = join(REAL, '..', 'tools', 'client-infra', f);
+  const r = spawnSync(process.execPath, [p], { encoding: 'utf8', timeout: 300000 });
+  const last = (r.stdout || '').trim().split('\n').pop();
+  check(`tools/client-infra/${f}: ${last}`, r.status === 0, (r.stdout || '').split('\n').filter((l) => l.startsWith('FAIL')).join(' | ') + (r.stderr || ''));
+}
 console.log(`${failed ? 'FAIL' : 'PASS'} clients tests: ${total - failed} of ${total}`);
 process.exit(failed ? 1 : 0);

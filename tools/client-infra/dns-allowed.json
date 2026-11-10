@@ -1,0 +1,4 @@
+{
+  "_doc": "Hostnames tools/client-infra/provision.mjs may attach and give a DNS record on staging. Each entry is an owner ruling: exact host, its zone, until (the last day it counts; after it the entry is ignored), and the ruling. A client's real domain is never listed here: it is the owner's click. Past: wo35-test.omnikom.io (owner 2026-11-10 15:27, work order 35 proof only; removed after it, work/35-client-infra/proof.md).",
+  "hosts": []
+}
