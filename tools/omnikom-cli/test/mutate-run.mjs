@@ -285,7 +285,7 @@ export async function mutateRunTests({ check, CLI_ROOT, REPO_ROOT }) {
     'a shard job is a copy of another (job 4 runs 3/4)': ciReal.replace(fnBlock(4), fnBlock(4).replace(/--shard 4\//, '--shard 3/')),
     'N differs from the job count (every run line says /5)': ciReal.replace(/(functions\/test\/mutate\.mjs --shard \d+)\/4/g, '$1/5'),
     'a shard job has an extra step': ciReal.replace(fnBlock(2), fnBlock(2) + '      - name: Extra\n        run: node x.mjs\n'),
-    'a shard job has another timeout': ciReal.replace(fnBlock(2), fnBlock(2).replace('timeout-minutes: 30', 'timeout-minutes: 99')),
+    'a shard job has another timeout': ciReal.replace(fnBlock(2), fnBlock(2).replace('timeout-minutes: 45', 'timeout-minutes: 99')),
     'a shard job runs a bare mutate.mjs': ciReal.replace(/functions\/test\/mutate\.mjs --shard 1\/4/, 'functions/test/mutate.mjs'),
     'the functions job runs the mutants too': ciReal.replace('        run: node supabase/functions/test/run.mjs\n', '        run: node supabase/functions/test/run.mjs\n      - name: Function mutants\n        run: node supabase/functions/test/mutate.mjs\n'),
     'the functions job no longer runs the Deno tests': ciReal.replace('        run: node supabase/functions/test/run.mjs\n', '        run: node supabase/functions/test/other.mjs\n'),

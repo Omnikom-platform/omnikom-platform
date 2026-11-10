@@ -809,3 +809,13 @@ Steps, in order:
   OMNIKOM_TOOLS_DIR: "status": "downloaded", 2.7.0, 58999296 bytes; the binary prints "osv-scanner version: 2.7.0"; a second run
   "status": "present". Building: J14 stored site audit (check/cli/journey-seo-read, from J3's publish job, never publishes) and the
   CLI CI mutants in 6 parallel jobs (check/cli/cli-ci-shards, head of operations' order: 53 to 78 min to near 15).
+- 2026-11-10 13:05: landed the HANDOVER 5211eac (run 42763429139); CLI mutant shards 12e9111 (run 42772069337, 15 of 15: 6 x 94 =
+  564 caught, each shard 11 to 14.5 min; the run's wall time was 26.6 min because shards waited for runners); J14 plus a 75 min
+  stopgap for the functions job 52aeddc (run 42788414621). J14 staging on master 4a5e817: "J1 PASS", "J3 PASS ... publish job
+  c4727bed", "J14 PASS stored site audit: e2e-site-audit passed (8 checks)", "3 PASS, 0 NOT BUILT YET, 0 FAIL" (the two earlier J3
+  reds were platform's 120 s sheet wait, fixed in 4a5e817). Building with this block: the functions mutants in 4 parallel jobs
+  (check/cli/functions-shards; platform OK'd the argument and loop edit of their mutate.mjs; run 42796806349, 19 of 19, shards
+  57/57/56/56 all caught, each 3 to 4 min; shard limit 45 min, since 18 makes each shard about 30; lands before 18 at platform's request). Lands race: two J14 lands were refused because master moved
+  during CI; heads now hold lands while one is in CI. Open: the journey drops Playwright's error text on a J3 FAIL
+  (commands/journey.mjs playwrightVerdict says only "failed"); the mutate baseline prints no FAIL line when it fails (two
+  builders could not diagnose a local baseline fail); C13 invite mail UNPROVEN; the work order 20 follow-up.
