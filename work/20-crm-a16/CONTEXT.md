@@ -16,7 +16,7 @@ author, the user or the agent. Row A16 in `1-product.md`.
 - This file; `docs/product/5-crm.md`; `contracts/README.md` (how an industry contract declares data; forms.<id>.fields);
   `contracts/core.json` and `contracts/examples/`; `supabase/migrations/20261029000002_crm.sql` (lead_status enum,
   `service.lead_update`), the newest `service.lead_list`, work order 18's migration 22 once it is on master.
-- SEO's researched lists (work order 29, branch `check/seo/lead-types` 1bbfe00 until it lands): `work/29-lead-types/`
+- SEO's researched lists (work order 29, now on master: `work/29-lead-types/`
   `real-estate.json` (15 types), `insurance-financial.json` (15 types), `statuses.json` (19 statuses, 16 shared; flags
   `needsDate`, `needsWho`, `needsText`), `draft-5-crm-section.md`, `proof.md`. Read their Findings (ELEV8's "Ask about this
   home" form forces topic Buy; 8 real-estate types have no ELEV8 form yet; Rainmaker may never show investment-management).
@@ -53,3 +53,8 @@ As work order 18: the builder never commits, pushes, applies, deploys or publish
 mutants only; keys by name; scripts in files; check free space on E: first.
 
 ## Findings
+- (head, 2026-11-10, from the clients department through the head of operations) ELEV8's lead contract allows only `buyer`,
+  `seller`, `both`, `other` as the contact form's lead type; `listing-question` must be added to that contract (a contract
+  change in this order: its `leadTypeFrom` map sends "Ask about this home" to `listing-question`, not `buy`), and the other
+  three values map to the real-estate list (buyer -> buy, seller -> sell, both -> the type the clients department names,
+  other -> enquiry). A wall proves an "Ask about this home" submission is stored as `listing-question`.

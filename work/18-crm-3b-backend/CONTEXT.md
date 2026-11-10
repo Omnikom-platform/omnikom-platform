@@ -123,3 +123,9 @@ Proof (head, 2026-11-09 22:58 to 2026-11-10 01:08, through heavy.mjs, one run at
 - NOT RUN yet: CI; staging (migration 22, view-save, view-delete, lead-task, lead-update, lead-list deployed; `e2e-crm-3b.mjs`);
   the head's ruling on the builder's findings 1-10 above; work order 19 (the screens).
 Git Bash turns an environment value starting with "/" into a Windows path: set FN_TEST_FILTER from PowerShell.
+
+## The head's rulings on the builder's findings (2026-11-10)
+1 accepted: the dry-run preview keeps migration 15's inline rule, and T29c holds the two equal (a later cleanup may route the
+preview through private.lead_duplicate_of). 2 accepted: no backfill; the flag starts with leads created after migration 22
+(said in 5-crm.md "Duplicates" when the screens land). 3, 4, 5, 6, 7, 8, 10 accepted as built. 9 accepted: staff with MFA act
+as an owner everywhere else, so a staff view in any workspace is consistent.

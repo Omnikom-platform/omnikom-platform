@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "docs": 321,
+    "docs": 322,
     "unownedDocs": 7,
     "unplaced": 204,
     "over300": 10
@@ -311,8 +311,9 @@
     {"path":"work/14-build-env/CONTEXT.md","title":"14 build env","summary":"Owner: platform build. Model: Sonnet (high). Branch: check/platform/build-env (built on check/platform/reaper, work order 13, which also edits `factory/runne...","owner":"head-of-operations","layer":2,"lines":51,"loadFor":[]},
     {"path":"work/15-security-events/CONTEXT.md","title":"15 security events","summary":"Owner: platform build. Model: Sonnet (high). Branch: check/platform/security-events. Status: BUILT 2026-11-09, head reviewed (migration, walls T26a-d, 5 muta...","owner":"head-of-operations","layer":2,"lines":134,"loadFor":[]},
     {"path":"work/16-media-limits/CONTEXT.md","title":"16 media limits","summary":"Owner: platform build. Model: Sonnet (high). Branch: check/platform/media-limits. Status: BUILT 2026-11-09, local proof only (migration 21, T10/T27, 4 mutant...","owner":"head-of-operations","layer":2,"lines":109,"loadFor":[]},
-    {"path":"work/18-crm-3b-backend/CONTEXT.md","title":"18 CRM block 3b backend: columns, saved views, follow-up and tasks, duplicates","summary":"Owner: platform build. Model: Sonnet (high). Branch: check/platform/crm-3b-backend. Migration: 22 (`supabase/migrations/20261109000022_crm_views_followup.sql...","owner":"head-of-operations","layer":2,"lines":125,"loadFor":[]},
-    {"path":"work/20-crm-a16/CONTEXT.md","title":"20 CRM A16: lead type and status, per-industry lists held as data (backend)","summary":"Owner: platform build. Model: Sonnet (high). Branch: check/platform/crm-a16. Migration: 23 (`supabase/migrations/20261109000023_lead_type_status.sql`, reserv...","owner":"head-of-operations","layer":2,"lines":55,"loadFor":[]},
+    {"path":"work/18-crm-3b-backend/CONTEXT.md","title":"18 CRM block 3b backend: columns, saved views, follow-up and tasks, duplicates","summary":"Owner: platform build. Model: Sonnet (high). Branch: check/platform/crm-3b-backend. Migration: 22 (`supabase/migrations/20261109000022_crm_views_followup.sql...","owner":"head-of-operations","layer":2,"lines":131,"loadFor":[]},
+    {"path":"work/19-crm-3b-screens/CONTEXT.md","title":"19 CRM block 3b screens: columns, saved views, follow-up and tasks, duplicates","summary":"Owner: platform build. Model: Sonnet (high). Branch: check/platform/crm-3b-screens (a worktree on master once work order 18 has landed). No migration. Status...","owner":"head-of-operations","layer":2,"lines":63,"loadFor":[]},
+    {"path":"work/20-crm-a16/CONTEXT.md","title":"20 CRM A16: lead type and status, per-industry lists held as data (backend)","summary":"Owner: platform build. Model: Sonnet (high). Branch: check/platform/crm-a16. Migration: 23 (`supabase/migrations/20261109000023_lead_type_status.sql`, reserv...","owner":"head-of-operations","layer":2,"lines":60,"loadFor":[]},
     {"path":"work/20-land-retry/CONTEXT.md","title":"20 land retry","summary":"Owner: cli-and-testing. Model: sonnet, effort high. Branch: check/cli/land-retry. Status: OPEN (built; CI decides the 21 [land-retry] mutants).","owner":"head-of-operations","layer":2,"lines":57,"loadFor":[]},
     {"path":"work/21-dep-scan/CONTEXT.md","title":"21 dep scan","summary":"Owner: cli-and-testing. Model: sonnet, effort high. Branch: check/cli/dep-scan. Status: DONE (secrets job green on run 42566847935; E17 WORKS on its land).","owner":"head-of-operations","layer":2,"lines":68,"loadFor":[]},
     {"path":"work/22-journey-crm-screens/CONTEXT.md","title":"22 journey crm screens","summary":"Owner: cli-and-testing. Model: sonnet, effort high. Branch: check/cli/journey-crm-screens. Status: OPEN (built; staging J1,J12 PASS 2026-11-09 10:50; lands a...","owner":"head-of-operations","layer":2,"lines":62,"loadFor":[]},
