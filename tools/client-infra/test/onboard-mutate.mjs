@@ -11,7 +11,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = join(HERE, '..', 'onboard.mjs');
 const MUTANTS = [
   ['a half-filled intake goes ahead', 'if (problems.length) throw', 'if (false) throw'],
-  ['an address that is not a test inbox is invited', 'if (!(o.inboxes || []).includes(hashEmail(email))) throw', 'if (false) throw'],
+  ['an address that is not a test inbox is invited', '!(o.inboxes || []).includes(hashEmail(email))) throw', 'false) throw'],
   ['the allow-list holds addresses, not hashes', "x.sha256 || '')).map((x) => x.sha256);", "x.sha256 || '')).map((x) => x.sha256).concat((j.inboxes || []).map((x) => x.email));"],
   ['a member is invited again', 'if (m) log(', 'if (false) log('],
   ['the details row is written again', 'if (!s.length) {', 'if (true) {'],
