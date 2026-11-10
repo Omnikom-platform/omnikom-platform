@@ -536,3 +536,14 @@ options, never a fix made here.
     prompt map) waits on the owner's four answers and his `approve.mjs business`.
   - Worktrees: `builders/omnikom-ai-intake` (26, `check/seo/omnikom-ai-plan` `67f2bb5`, clean; keep) and
     `builders/handover-1110` (this block; remove after its land).
+- 2026-11-10 11:00: the HANDOVER above landed as `5468198`; its worktree and branch are removed. Platform's 16 had already
+  landed before 10:27 (`7cab0bb`), so that ping was stale; platform was told to ignore it.
+  - 32 (`work/32-lead-types-second-read`, number from the head of operations 10:32) rides on this commit: every quote in the
+    29 lists re-read by `check-quotes.mjs`, which fetches each page itself (40 URLs, one request each): 97 of 104 rows EXACT,
+    3 NOT-FOUND (mortgage-protection fixed and one dropped, appointment-set's agencybloc quote dropped), 4 agencyheight.com rows
+    BLOCKED (403, left in place unchecked; each of those types keeps another exact source). policy-review now rests on
+    erdmaninsurance.com, chrisbonnerinsurance.com and jotform.com. Ids and names unchanged against `478a129`. Head re-ran the
+    test (5 of 5) and sanity, and checked the four new quotes with curl. agencyheight.com joins the never-request hosts.
+    UNPROVEN: 24 exact quotes are under 30 characters (a label on the page, not proof it is used as a lead type or status).
+  - Open after 32 lands: 26 part 2 only (owner's four answers and `approve.mjs business`). Worktrees: `omnikom-ai-intake` (keep),
+    `lead-types-second-read` (remove after 32 lands).
