@@ -518,3 +518,21 @@ options, never a fix made here.
     recruiting article, its URL redirects) and 59 of 91 quotes UNPROVEN beyond the first reader. `scripts/authority.mjs:22` has
     an empty import (look only).
   - Worktrees: `builders/gap-line-and-mutant` (31; remove after its land) and `builders/omnikom-ai-intake` (26).
+- 2026-11-10 10:30: HANDOVER (head HEAD_SEO-and-audits_2026-11-09, Opus 5.5; new account, week at 31%). This block replaces
+  the 02:40 block's "Pushed, NOT landed", "Open" and "Worktrees" lines. No builder is running.
+  - 31 landed: master `8640f12` (CI run 42779756735, 15 of 15 jobs). Before the push the head re-ran on the rebased tree:
+    audit run.mjs "OK: 678 of 678 checks passed", gitleaks "no leaks found". The first land try timed out waiting 60 minutes
+    on the slow platform CLI job (run 42772098293); the rebase onto CLI's 6-way split `12e9111` then passed in about 20 minutes.
+    A first test run at 08:54 was stopped by Claude Code for low machine memory (video session); re-run under heavy.mjs.
+  - HEAD_Platform-build told at 10:27 that its 16 is next.
+  - Cleanup: worktree and branch `gap-line-and-mutant` removed; remote branches deleted after checking each is in master:
+    4c-flip, 4c-noindex-header, 5c-publish-rule, authority-not-in-graph, authority-rest, lead-types, report-questions-2-5.
+  - `scripts/authority.mjs:22` `import {  } from "./measure-sources.mjs"`: dead. It only loads the module, and
+    `measure-sources.mjs` has no top-level side effects (its top level is imports, constants and function/class definitions).
+    It came in with the skill copy `653c81b`. Remove it the next time a work order touches that file; not worth its own.
+  - Open, in order: 29 follow-up (a second reader for the 59 of 91 lead-type and status quotes still UNPROVEN, and a better
+    source than the redirecting agencybloc recruiting article for insurance `policy-review`; public sources only, the 7
+    BLOCKED hosts stay blocked); needs a work order number from the head of operations. 26 part 2 (omnikom.ai research and
+    prompt map) waits on the owner's four answers and his `approve.mjs business`.
+  - Worktrees: `builders/omnikom-ai-intake` (26, `check/seo/omnikom-ai-plan` `67f2bb5`, clean; keep) and
+    `builders/handover-1110` (this block; remove after its land).
