@@ -44,7 +44,7 @@ The older one-off scripts stay for their own jobs: `tools/pages-project.mjs` (ou
 ## Onboarding a client (work order 36, product row C14)
 
 ```
-node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/client-infra/onboard.mjs --intake <file.json> [--dry-run]
+node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/client-infra/onboard.mjs --intake <file.json> [--no-invite] [--dry-run]
 ```
 
 The intake (`intake.example.json`) names the workspace (slug, name, industry), the site (deploy target, preview host, optional
@@ -60,5 +60,28 @@ A half-filled intake is refused with every missing or wrong field named, before 
 | site infrastructure | `provision.mjs` (above) | `changed 0` |
 
 On staging the invite goes only to an address in `test-inboxes.json` (owner rulings with an `until` day); anything else is
-refused before any step runs. Tests: `test/onboard-run.mjs` (in-memory fakes) and `test/onboard-mutate.mjs`, both inside
+refused before any step runs. `--no-invite` (work order 37) makes everything but the login: no invite, no mail, and the owner's
+address need not be a test inbox. Tests: `test/onboard-run.mjs` (in-memory fakes) and `test/onboard-mutate.mjs`, both inside
 `node clients/test/run.mjs`.
+
+## Offboarding a client (work order 37, product row E14)
+
+```
+node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/client-infra/offboard.mjs --workspace <slug> --out <dir>
+     [--erase <privacy request id>] [--teardown] [--dry-run]
+```
+
+Only a workspace listed in `offboard-marked.json` (a ruling with an `until` day; a real client only on the owner's word) is
+touched; any other, an `--out` folder inside a git checkout, or a malformed request id is refused before any connection (exit 2).
+
+| Step, in this order | How | A second run |
+|---|---|---|
+| state | active or suspended -> offboarding: `service.set_workspace_state` as staff, the ruling as the reason | offboarding: nothing |
+| privacy delete request (`--erase`) | `set_privacy_request_state` to in-progress, `service.delete_lead` for each of the person's leads, then a scan of every table of the workspace for the address; done only when nothing is found, else it stays in-progress (exit 1) | done: the scan runs again and must still be clean |
+| teardown (`--teardown`) | per site: Pages custom domains detached, `sites.domain` cleared (by id, exactly 1 row, audit row), signing keys revoked (`api_keys.revoked_at`, by id, exactly 1 row, audit row), the Pages project deleted (then a 404 is required) | nothing left: `ok` lines |
+| export | every row of every table with `workspace_id`, plus `lead_reads` and `publish_job_events`, the logins, and the Storage files, to `<out>/<slug>/export.json` and `files/`; each table checked against its `count(*)`, read back, and the erased person must be absent outside `privacy_requests` (which keeps the request, to answer the person); `api_keys` without `key_hash` | same content hash: not rewritten |
+
+The export runs last so it is the final state and never holds an erased person. It holds personal data: keep it out of the
+repository (this repository is public). Not built (need database functions, platform's, H2-6): deleting the Storage files and the
+move to deleted. DNS records are never touched. Tests: `test/offboard-run.mjs` (fakes) and `test/offboard-mutate.mjs`, inside
+`node clients/test/run.mjs`. Staging proof: `proof-offboard.mjs` (`--seed`, then `--check --out <dir>`).

@@ -32,7 +32,10 @@ try {
   copyFileSync(SRC, lib);
   const base = runTests();
   console.log(`${base.status === 0 ? 'ok  ' : 'FAIL'} baseline: the unbroken copy passes`);
-  if (base.status !== 0) { failed++; console.log(base.stdout.split('\n').filter((l) => l.startsWith('FAIL')).join('\n')); }
+  if (base.status !== 0) {
+    console.log(base.stdout.split('\n').filter((l) => l.startsWith('FAIL')).join('\n'));
+    throw new Error('the unbroken copy fails, so no mutant result would mean anything; fix the tests first');
+  }
   const src = readFileSync(SRC, 'utf8');
   for (const [name, from, to] of MUTANTS) {
     if (src.split(from).length !== 2) { failed++; console.log(`FAIL mutant "${name}": target text not found exactly once`); continue; }

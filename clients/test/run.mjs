@@ -51,9 +51,9 @@ try {
   for (const d of dirs) rmSync(d, { recursive: true, force: true });
 }
 
-// The department's other tested tools: tools/client-infra (provision, work order 35; onboard, work order 36). Their tests and mutants
+// The department's other tested tools: tools/client-infra (provision, work order 35; onboard, work order 36; offboard, work order 37). Their tests and mutants
 // run here so CI's "Client record tests" step covers them (ci.yml is not this department's file).
-for (const f of ['test/run.mjs', 'test/mutate.mjs', 'test/onboard-run.mjs', 'test/onboard-mutate.mjs']) {
+for (const f of ['test/run.mjs', 'test/mutate.mjs', 'test/onboard-run.mjs', 'test/onboard-mutate.mjs', 'test/offboard-run.mjs', 'test/offboard-mutate.mjs']) {
   const p = join(REAL, '..', 'tools', 'client-infra', f);
   const r = spawnSync(process.execPath, [p], { encoding: 'utf8', timeout: 300000 });
   const last = (r.stdout || '').trim().split('\n').pop();

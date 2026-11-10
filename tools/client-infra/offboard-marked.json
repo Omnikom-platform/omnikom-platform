@@ -1,0 +1,6 @@
+{
+  "_doc": "Workspaces tools/client-infra/offboard.mjs may offboard: set to offboarding, carry out privacy delete requests, take down (--teardown) and export. Each entry is a ruling with an until day (the last day it counts) and the reason, which becomes the state reason. A workspace not listed here is refused before any connection. A real client is listed only on the owner's word.",
+  "workspaces": [
+    { "slug": "test-wo37", "until": "2026-11-13", "ruling": "head of operations 2026-11-10 (work order 37): the test client test-wo37 is offboarded to prove E14 on staging" }
+  ]
+}

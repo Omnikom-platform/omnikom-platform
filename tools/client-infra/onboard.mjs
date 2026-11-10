@@ -1,7 +1,8 @@
 // Onboard a client from an intake file (work order 36, product row C14): workspace, site row, contract and pages (through the CLI's
 // `omnikom seed workspace`, called, never edited), the starting rows (business details, the owner's team profile), the owner's
 // login invite (invite-member, as Omnikom staff), then the site's infrastructure (provision.mjs).
-//   node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/client-infra/onboard.mjs --intake <file.json> [--dry-run]
+//   node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/client-infra/onboard.mjs --intake <file.json> [--no-invite] [--dry-run]
+// --no-invite (work order 37): no login is invited and no mail is sent, so owner.email need not be a test inbox.
 // A half-filled intake is refused with every missing field named, before anything is read or written. Every step reads first and
 // writes only what is missing, so a second run changes nothing ("RESULT: changed 0") and sends no second mail. Rows the client may
 // already have edited are never overwritten: a difference is reported as a note. --dry-run reads and prints each write it would make.
@@ -65,13 +66,13 @@ export function loadInboxes(file = join(HERE, 'test-inboxes.json'), today = new 
 const canon = (v) => (Array.isArray(v) ? v.map(canon) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])])) : v);
 const same = (a, b) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
 
-// o: { intake, dryRun, inboxes }   d: { cli, db, invite, provision, log }   (onboard-live.mjs builds the real ones, test/fakes.mjs the others)
+// o: { intake, dryRun, inboxes, noInvite }   d: { cli, db, invite, provision, log }   (onboard-live.mjs builds the real ones, test/fakes.mjs the others)
 // The refusals that need nothing but the intake and the rulings: run before any connection is made.
 export function precheck(o) {
   const problems = checkIntake(o.intake);
   if (problems.length) throw new Refused(`the intake is not complete (${problems.length}): ${problems.join('; ')}`);
   const email = o.intake.owner.email.toLowerCase();
-  if (!(o.inboxes || []).includes(hashEmail(email))) throw new Refused(`owner.email ${email} is not in test-inboxes.json: on staging the invite goes to a test inbox only, never a person`);
+  if (!o.noInvite && !(o.inboxes || []).includes(hashEmail(email))) throw new Refused(`owner.email ${email} is not in test-inboxes.json: on staging the invite goes to a test inbox only, never a person`);
 }
 
 export async function onboard(o, d) {
@@ -121,7 +122,8 @@ export async function onboard(o, d) {
 
   // 4 the owner's login: a member already = nothing to do and no mail; otherwise invite-member (one mail, to the test inbox)
   const m = ws ? await d.db.memberByEmail(ws.id, email) : null;
-  if (m) log(m.role === 'owner' ? `ok     ${email} is an owner of ${j.workspace.slug} (no mail sent)` : `note   ${email} is a ${m.role} of ${j.workspace.slug}, not an owner: changing a role is the owner's call (no mail sent)`);
+  if (o.noInvite && !m) log(`skip   invite ${email} (--no-invite): no login is invited and no mail is sent`);
+  else if (m) log(m.role === 'owner' ? `ok     ${email} is an owner of ${j.workspace.slug} (no mail sent)` : `note   ${email} is a ${m.role} of ${j.workspace.slug}, not an owner: changing a role is the owner's call (no mail sent)`);
   else if (o.dryRun) would(`invite ${email} as owner of ${j.workspace.slug}, linked to team profile ${teamSlug} (ONE real mail, from Auth, to that test inbox)`, 'POST <functions>/invite-member as Omnikom staff');
   else {
     const r = await d.invite({ workspace: ws.id, email, role: 'owner', team_row: teamRow });
@@ -150,10 +152,11 @@ export function parseArgs(argv) {
     const a = argv[i];
     if (a === '--intake') { o.intakeFile = argv[++i]; if (!o.intakeFile) throw new Refused('--intake needs a file'); }
     else if (a === '--dry-run') o.dryRun = true;
+    else if (a === '--no-invite') o.noInvite = true;
     else if (a === '--target') { if (argv[++i] !== 'staging') throw new Refused(`--target ${argv[i]}: only staging is built (work order 36); production is the owner's click`); }
     else throw new Refused(`unknown argument ${a}`);
   }
-  if (!o.intakeFile) throw new Refused('usage: --intake <file.json> [--dry-run]');
+  if (!o.intakeFile) throw new Refused('usage: --intake <file.json> [--no-invite] [--dry-run]');
   return o;
 }
 

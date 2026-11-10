@@ -134,6 +134,16 @@ t('inboxes: expired or malformed entries ignored; slugify; arguments', async () 
   } finally { rmSync(d, { recursive: true, force: true }); }
 });
 
+t('--no-invite: everything else is made, no login and no mail, and the owner need not be a test inbox', async () => {
+  const w = newWorld();
+  const intakeOther = { ...intake(), owner: { name: 'Test Owner', email: 'owner@test-wo37.example.com', teamRole: 'Owner' } };
+  const lines = []; let err = null;
+  try { await onboard({ intake: intakeOther, inboxes: [hashEmail(INBOX)], noInvite: true }, onboardFakeDeps(w, lines)); } catch (e) { err = e; }
+  const text = lines.join('\n');
+  return [!err && w.mails.length === 0 && w.members.length === 0 && w.workspaces.length === 1 && w.provisioned['test-site-wo36'] && /skip {3}invite .*--no-invite/.test(text)
+    && parseArgs(['--intake', 'x', '--no-invite']).noInvite === true, err ? err.message : text];
+});
+
 for (const [name, fn] of cases) {
   let ok = false, detail = '';
   try { [ok, detail] = await fn(); } catch (e) { detail = e.stack; }

@@ -1,0 +1,13 @@
+{
+  "intakeVersion": 1,
+  "workspace": { "slug": "test-wo37", "name": "WO37 Test Realty", "industry": "real-estate" },
+  "site": { "deployTarget": "test-site-wo37", "previewHost": "preview.test-site-wo37.pages.dev" },
+  "contract": { "file": "contracts/industry-run/contracts/real-estate.json" },
+  "settings": {
+    "businessName": "WO37 Test Realty",
+    "phone": "(555) 555-0170",
+    "email": "office@example.com",
+    "address": { "street": "37 Test Way", "city": "Testville", "region": "ST", "postalCode": "00037" }
+  },
+  "owner": { "name": "Test Owner", "email": "owner@example.com", "teamRole": "Owner" }
+}

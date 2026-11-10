@@ -24,6 +24,8 @@ const MUTANTS = [
   ['an expired inbox ruling still counts', 'today <= x.until', 'true'],
   ['key order counts as a difference', 'const same = (a, b) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));', 'const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);'],
   ['production is accepted', "if (argv[++i] !== 'staging') throw", 'if (++i < 0) throw'],
+  ['--no-invite still invites', 'if (o.noInvite && !m) log(', 'if (false) log('],
+  ['--no-invite still demands a test inbox', 'if (!o.noInvite && !(o.inboxes', 'if (!(o.inboxes'],
 ];
 
 const dir = mkdtempSync(join(tmpdir(), 'onboard-mut-'));
@@ -34,7 +36,10 @@ try {
   copyFileSync(SRC, lib);
   const base = runTests();
   console.log(`${base.status === 0 ? 'ok  ' : 'FAIL'} baseline: the unbroken copy passes`);
-  if (base.status !== 0) { failed++; console.log(base.stdout.split('\n').filter((l) => l.startsWith('FAIL')).join('\n')); }
+  if (base.status !== 0) {
+    console.log(base.stdout.split('\n').filter((l) => l.startsWith('FAIL')).join('\n'));
+    throw new Error('the unbroken copy fails, so no mutant result would mean anything; fix the tests first');
+  }
   const src = readFileSync(SRC, 'utf8');
   for (const [name, from, to] of MUTANTS) {
     if (src.split(from).length !== 2) { failed++; console.log(`FAIL mutant "${name}": target text not found exactly once`); continue; }

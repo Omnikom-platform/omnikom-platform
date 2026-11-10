@@ -106,6 +106,16 @@ select vault_ref from public.api_keys where vault_ref = :'key_name' and key_hash
     addDomain: (name, host) => { allowedOnly(host); return pages('POST', `/${name}/domains`, { name: host }); },
     getDomain: (name, host) => pages('GET', `/${name}/domains/${host}`),
     deleteDomain: (name, host) => { allowedOnly(host); return pages('DELETE', `/${name}/domains/${host}`); },
+    // offboarding (offboard.mjs, a marked workspace's own project): the host is detached only when that project lists it; no DNS
+    detachDomain: async (name, host) => {
+      const on = (await pages('GET', `/${name}/domains`)) || [];
+      if (!on.some((x) => x.name === host)) throw new Error(`${host} is not a custom domain of ${name}; nothing detached`);
+      return pages('DELETE', `/${name}/domains/${encodeURIComponent(host)}`);
+    },
+    deleteProject: async (name) => {
+      if (!(await pages('GET', `/${name}`))) throw new Error(`Pages project ${name} does not exist; nothing deleted`);
+      return pages('DELETE', `/${name}`);
+    },
     dnsRecords: async (zone, host) => {
       const id = await zoneId(zone);
       return (await call(dnsToken, 'GET', `/zones/${id}/dns_records?name=${encodeURIComponent(host)}&per_page=100`)) || [];
