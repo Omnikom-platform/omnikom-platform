@@ -59,10 +59,16 @@ for (const f of files) {
   }
   pending++;
   if (dry) { console.log(`would apply ${f}`); continue; }
-  // one transaction per file; the ledger row is written inside it, so a failed file leaves no record
-  const body = `begin;\n${text}\ninsert into ops.platform_migrations (name, sha256) values ('${f}', '${sha}');\ncommit;\n`;
+  // one transaction per file; the ledger row is written inside it, so a failed file leaves no record. A file whose header (the comment lines
+  // before its first statement) holds the line `-- no-transaction` (migration-lint rule C1: CREATE INDEX CONCURRENTLY and VACUUM cannot run
+  // inside a transaction) runs outside one: psql sends each statement on its own, in the one session, and the ledger row is written after the
+  // last. A failure part way keeps what the earlier statements did (a failed CONCURRENTLY build leaves an INVALID index): the file is not
+  // recorded and a re-run starts it again, so such a file is written to be re-run (drop index concurrently if exists, then create).
+  const noTx = /^\s*--\s*no-transaction\s*$/m.test((text.match(/^(?:[ \t\r]*(?:--[^\n]*)?\n)*/) || [''])[0]);
+  const ledgerRow = `insert into ops.platform_migrations (name, sha256) values ('${f}', '${sha}');\n`;
+  const body = noTx ? `${text}\n;\n${ledgerRow}` : `begin;\n${text}\n${ledgerRow}commit;\n`;
   r = psql(['-f', '-'], body);
-  if (r.status !== 0) fail(`FAILED ${f}: nothing of it was kept (the transaction rolled back)`, r);
+  if (r.status !== 0) fail(noTx ? `FAILED ${f}: it runs outside a transaction, so what ran before the failing statement is kept and the file is not recorded (a re-run starts it again)` : `FAILED ${f}: nothing of it was kept (the transaction rolled back)`, r);
   console.log(`apply ${f}`);
   done++;
 }
