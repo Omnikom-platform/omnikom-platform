@@ -547,3 +547,12 @@ options, never a fix made here.
     UNPROVEN: 24 exact quotes are under 30 characters (a label on the page, not proof it is used as a lead type or status).
   - Open after 32 lands: 26 part 2 only (owner's four answers and `approve.mjs business`). Worktrees: `omnikom-ai-intake` (keep),
     `lead-types-second-read` (remove after 32 lands).
+- 2026-11-10 17:35: 32 landed as `d7572f2`. 33 (`work/33-metrics-collectors`, B21 and C16) is committed on
+  `check/seo/metrics-collectors` and landing after clients' 35: `tools/audit/metrics/` collectors for search-console (with the
+  sitemap submit), pagespeed (CrUX inside), bing (IndexNow inside) and ai-answers (5-P4 shape), validators, the monthly report,
+  a README of every row shape. Head re-ran: `OK: 812 of 812 checks passed`; `MUTATE_ONLY="^metrics"`: 218 of 218 caught.
+  PROVEN live: PageSpeed on five pages, the CrUX 404 path. UNPROVEN: Search Console (no verified property), the IndexNow ping
+  (key file not hosted), Bing stats (only GetUserSites was called; one site is verified). BLOCKED: Gemini (gemini-2.5-flash
+  404 "no longer available to new users", gemini-3.8-flash 429 on the first request). Only `bing` differs from 5-P4 (platform's
+  block 6 migration adds it). Finding for the next skill touch: the skill's default model in `scripts/measure.mjs` is that dead
+  gemini-2.5-flash. Still open: 26 part 2 (owner). Remove `builders/metrics-collectors` after the land.
