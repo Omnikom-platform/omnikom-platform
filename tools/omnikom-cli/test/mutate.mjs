@@ -102,6 +102,9 @@ const MUTANTS = [
   // ---- the SQL path acts AS the person (claims), so the database walls decide
   ['lead list runs without the person\'s claims', 'commands/lead.mjs', 'order by created_at desc limit ${limit}`, { claims: claimsFor(id) });', 'order by created_at desc limit ${limit}`);', 'db'],
   ['lead get runs without the person\'s claims', 'commands/lead.mjs', 'from leads where id = ${uuidLit(lead)}`, { claims });', 'from leads where id = ${uuidLit(lead)}`);', 'db'],
+  // work order 20 (migration 23): the status is text and the database owns the list
+  ['lead update casts the status to the dropped enum', 'commands/lead.mjs', "${f.status ? lit(f.status) : 'null'}::text,", "${f.status ? lit(f.status) : 'null'}::lead_status,", 'db'],
+  ['lead update keeps a status list of its own', 'commands/lead.mjs', "  if (f.owner && !isUuid(f.owner)) throw new Usage('--owner must be a team row uuid');", "  if (f.status && !['not-contacted', 'contacted', 'qualified', 'closed', 'spam'].includes(f.status)) throw new Usage('--status must be one of the floor statuses');\n  if (f.owner && !isUuid(f.owner)) throw new Usage('--owner must be a team row uuid');", 'db'],
   ['content get runs without the person\'s claims', 'commands/content.mjs', 'where r.id = ${uuidLit(row)}`, { claims: claimsFor(id) });', 'where r.id = ${uuidLit(row)}`);', 'db'],
   ['job get runs without the person\'s claims', 'commands/publish.mjs', 'const claims = identity ? { claims: claimsFor(identity) } : {};', 'const claims = {};', 'db'],
   ['content save skips the validator', 'commands/content.mjs', "if (problems.length) return result(false, problems[0].code, { as: id.name, problems: problems.slice(0, 20), stored: false });", '', 'db'],

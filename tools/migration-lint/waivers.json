@@ -257,5 +257,40 @@
     "line": 32,
     "date": "2026-11-10",
     "reason": "Applied to staging 2026-11-10 10:28 UTC (ops.platform_migrations, read-only query by the head of CLI and testing 2026-11-10 20:55), the day the lint was built and before it was on master; the ledger refuses an edited applied file, so the fix cannot go into this migration. the index was built without CONCURRENTLY on public.leads; the applier could not run a CONCURRENTLY file then (FINDING-apply-staging.md). On 2026-11-10 20:55 staging held 2 leads across 2 workspaces in total (a count, nothing else read). No production project exists (docs/product/9-blocks.md:89)."
+  },
+  {
+    "file": "20261109000023_lead_type_status.sql",
+    "rule": "L1",
+    "line": 32,
+    "date": "2026-11-10",
+    "reason": "The unique index on lower(sites.domain) (one domain, one site); sites has a handful of rows on staging. Not yet applied anywhere when waived (2026-11-10 23:10 UTC); written before the lint reached master (a3846cf) and kept as one transaction because the applier cannot run a -- no-transaction file until the applier change lands (FINDING-apply-staging.md, platform, queued after work order 20). Small tables: on 2026-11-10 20:55 staging held 2 leads across 2 workspaces in total; no production project exists (docs/product/9-blocks.md:89). set lock_timeout = 5s at line 29 bounds the wait."
+  },
+  {
+    "file": "20261109000023_lead_type_status.sql",
+    "rule": "L4",
+    "line": 36,
+    "date": "2026-11-10",
+    "reason": "A one-time conversion of leads.status from the lead_status enum to text (business-defined status keys, ruling F); expand-contract buys nothing with no production traffic and 2 staging rows. Not yet applied anywhere when waived (2026-11-10 23:10 UTC); written before the lint reached master (a3846cf) and kept as one transaction because the applier cannot run a -- no-transaction file until the applier change lands (FINDING-apply-staging.md, platform, queued after work order 20). Small tables: on 2026-11-10 20:55 staging held 2 leads across 2 workspaces in total; no production project exists (docs/product/9-blocks.md:89). set lock_timeout = 5s at line 29 bounds the wait."
+  },
+  {
+    "file": "20261109000023_lead_type_status.sql",
+    "rule": "L2",
+    "line": 38,
+    "date": "2026-11-10",
+    "reason": "The key-shape checks on leads.status, lead_type and status_text are added with the columns they guard; validating 2 staging rows is instant. Not yet applied anywhere when waived (2026-11-10 23:10 UTC); written before the lint reached master (a3846cf) and kept as one transaction because the applier cannot run a -- no-transaction file until the applier change lands (FINDING-apply-staging.md, platform, queued after work order 20). Small tables: on 2026-11-10 20:55 staging held 2 leads across 2 workspaces in total; no production project exists (docs/product/9-blocks.md:89). set lock_timeout = 5s at line 29 bounds the wait."
+  },
+  {
+    "file": "20261109000023_lead_type_status.sql",
+    "rule": "L1",
+    "line": 44,
+    "date": "2026-11-10",
+    "reason": "The (workspace_id, status) index on public.leads, for the per-business status board. Not yet applied anywhere when waived (2026-11-10 23:10 UTC); written before the lint reached master (a3846cf) and kept as one transaction because the applier cannot run a -- no-transaction file until the applier change lands (FINDING-apply-staging.md, platform, queued after work order 20). Small tables: on 2026-11-10 20:55 staging held 2 leads across 2 workspaces in total; no production project exists (docs/product/9-blocks.md:89). set lock_timeout = 5s at line 29 bounds the wait."
+  },
+  {
+    "file": "20261109000023_lead_type_status.sql",
+    "rule": "L1",
+    "line": 45,
+    "date": "2026-11-10",
+    "reason": "The (workspace_id, lead_type) index on public.leads, for the lead-type filter. Not yet applied anywhere when waived (2026-11-10 23:10 UTC); written before the lint reached master (a3846cf) and kept as one transaction because the applier cannot run a -- no-transaction file until the applier change lands (FINDING-apply-staging.md, platform, queued after work order 20). Small tables: on 2026-11-10 20:55 staging held 2 leads across 2 workspaces in total; no production project exists (docs/product/9-blocks.md:89). set lock_timeout = 5s at line 29 bounds the wait."
   }
 ]
