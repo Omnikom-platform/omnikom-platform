@@ -95,8 +95,8 @@ t('view-save: a body that is not valid is 400 at the edge (the problem named), a
   const q = await save('owner-a', { workspace: WS_A, name: `Q ${n}`, query: { sort: { field: 'nope' } } });
   eq(q.status, 422, 'bad query: ' + q.text); eq(q.json?.code, 'S-QUERY', 'code');
   await crmForms();
-  const c = await save('owner-a', { workspace: WS_A, name: `C ${n}`, columns: ['name', 'zzUnknown'] });
-  eq(c.status, 400, 'bad column: ' + c.text); eq(c.json?.code, 'I-ANSWER', 'code'); eq(c.json?.problems?.[0]?.path, 'columns', 'path'); eq(c.json?.problems?.[0]?.msg, 'zzUnknown is not a column', 'the key is named');
+  const c = await save('owner-a', { workspace: WS_A, name: `C ${n}`, columns: ['name', 'zz_unknown'] });
+  eq(c.status, 400, 'bad column: ' + c.text); eq(c.json?.code, 'I-ANSWER', 'code'); eq(c.json?.problems?.[0]?.path, 'columns', 'path'); eq(c.json?.problems?.[0]?.msg, 'zz_unknown is not a column', 'the key is named (an underscore too: industry keys have them)');
   const note = await save('owner-a', { workspace: WS_A, name: `N ${n}`, columns: ['note'] });
   eq(note.status, 400, 'a field the contract keeps out of the list: ' + note.text);
   await withSql(async sql => eq((await sql`select count(*)::int as n from public.crm_views where name in (${`Q ${n}`}, ${`C ${n}`}, ${`N ${n}`})`)[0].n, 0, 'a refused view stored nothing'));
