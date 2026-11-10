@@ -501,12 +501,20 @@ options, never a fix made here.
   - Leftover worktrees: `builders/authority-rest` and `builders/lead-types` (remove after their land),
     `builders/omnikom-ai-intake` (26, on `check/seo/omnikom-ai-plan` `67f2bb5`, clean; keep for part 2).
   - Machine hook skill-stage-guard blocks a `cmp` naming a skill script: the head of operations owns it; do not work around it.
-- 2026-11-10 02:15: HANDOVER update (head HEAD_SEO-and-audits_2026-11-09; week at 91%; PAUSED after this land, by the head of
-  operations' order). This block replaces the "Pushed, NOT landed" and "Open" lines of the 2026-11-09 21:20 block.
-  - Landed: 28 and 29 (in the head of operations' chain, master `cbffa6e`); 31 (`work/31-gap-line-and-mutant`: the Q4 gap line
-    when the site is not found in the link data, and `main-check-exact-path` patching `lib-main.mjs`; skill SOURCE `a15be7a`)
-    in this commit. Worktrees of 28 and 29 removed.
-  - Open, in order: 26 part 2 (omnikom.ai research and prompt map) after the owner's four answers and his `approve.mjs business`;
-    worktree `builders/omnikom-ai-intake` (`check/seo/omnikom-ai-plan` `67f2bb5`, clean). The 29 choices stay open (the
-    policy-review source; 59 of 91 quotes UNPROVEN beyond the first reader). `scripts/authority.mjs:22` has an empty import
-    (look only). No builder is running.
+- 2026-11-10 02:40: HANDOVER (head HEAD_SEO-and-audits_2026-11-09, Opus 5.5; week at 92%; PARKED by the owner 02:34, the
+  account switches in the morning). This block replaces the "Pushed, NOT landed" and "Open" lines of the 2026-11-09 21:20 block.
+  No builder is running.
+  - Master `cbffa6e` (CI run 42726087866 success). SEO landed this week: 25 `03464ae` (run 42577278854), 27 `5cef4f1`
+    (run 42609772456, skill SOURCE `c41d767`), 28 `6972b1e` plus HANDOVER `0d382f5` and icm `8e00339` (branch run 42693457902,
+    skill SOURCE `78d8b3d`), 29 `478a129` (branch run 42705233177); 28 and 29 landed in the head of operations' chain.
+  - Pushed, NOT landed: 31 `check/seo/gap-line-and-mutant` (`work/31-gap-line-and-mutant`: the Q4 gap line when the site is
+    not found in the link data; `main-check-exact-path` patches `lib-main.mjs`; skill SOURCE `a15be7a`). This block rides on
+    it. Head re-ran: audit run.mjs 678 of 678, new mutant caught, compare 38 of 38, authority 137/137. Its CI run 42726462724 on
+    9b8cefd was in progress at 02:35; this commit starts a new one. Land order: after CLI's J13; fetch, rebase onto master, take
+    master's icm on conflict, `node tools/icm/index.mjs`, push with lease, `omnikom land check/seo/gap-line-and-mutant`.
+  - Open, in order: land 31; then tell HEAD_Platform-build that its 16 is next (head of operations' order; not sent tonight).
+    26 part 2 (omnikom.ai research and prompt map) after the owner's four answers and his `approve.mjs business`; worktree
+    `builders/omnikom-ai-intake` (`check/seo/omnikom-ai-plan` `67f2bb5`, clean). 29 choices: the policy-review source (a
+    recruiting article, its URL redirects) and 59 of 91 quotes UNPROVEN beyond the first reader. `scripts/authority.mjs:22` has
+    an empty import (look only).
+  - Worktrees: `builders/gap-line-and-mutant` (31; remove after its land) and `builders/omnikom-ai-intake` (26).
