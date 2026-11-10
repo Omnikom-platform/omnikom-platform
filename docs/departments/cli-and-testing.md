@@ -775,7 +775,8 @@ when the head of operations has released its slice.
 
 ## HANDOVER 2026-11-09 23:00 (HEAD_CLI-and-testing_2026-11-09, Opus 5.5, week at 79%; to the next CLI head; report to HEAD-OF-OPERATIONS_Omnikom_Platform). Paused by the head of operations after this.
 
-State: J13 (settings, platform 08) is READY TO LAND and NOT LANDED, branch check/cli/journey-settings, worktree
+State 2026-11-10 02:15: J13 (settings, platform 08) rebased on master cbffa6e (the head of operations chain done) and landed with this
+block by `omnikom land check/cli/journey-settings`: if this block is on master, J13 is in (look for the land line in git log). Worktree
 `departments/cli-and-testing/builders/journey-settings` (its apps/dashboard/node_modules is a junction to code/main's: `cmd /c rmdir`
 it before removing the worktree). Builder stopped. Proven on code 2912186:
 - staging 2026-11-09 22:12 (window from platform): "J1 PASS", "J13 PASS ... e2e-settings passed (21 checks); SKIP the invite test
@@ -784,9 +785,8 @@ it before removing the worktree). Builder stopped. Proven on code 2912186:
 - CI run 42688877100 on 7a4e419, 9 of 9 success: CLI "OK: 905 of 905", "549 mutants, 549 caught, 0 survived, 0 target text missing";
   every [journey-settings] mutant caught, and "walls re-run: the security_event_counts are not emptied" caught (db).
 Steps, in order:
-1. Wait until the head of operations says its land chain (platform 10, SEO 28 and 29, Clients, its state file) is done.
-2. Rebase on master (take master's icm/INDEX.md and icm/index.json, then `node tools/icm/index.mjs` and `--check`), gitleaks, push,
-   `omnikom land check/cli/journey-settings` (it waits for CI on the new tip without the lock). Then tell HEAD_SEO-and-audits that J13 is
-   in, and the head of operations.
+1. If J13 is on master: remove the worktree (junction first) and the branch. If not: read the land output and CI of the branch tip,
+   fix, land again. SEO's 31 lands next, then platform's 16.
+2. Week 91% at 02:09 on 2026-11-10: stop at 95% and tell the head of operations.
 3. Nothing new until the head of operations resumes us. Then: J14 for 10 seo-read; `tools ensure --only osv-scanner` end to end
    (UNPROVEN); the work order 20 follow-up (the "retry helper never retries" mutant is caught only by a crash, not a named check).
