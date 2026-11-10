@@ -82,10 +82,9 @@ jobs:
         run: node factory/runner/test/mutate.mjs
 
   functions:
-    name: functions (Deno tests and mutants)
+    name: functions (Deno tests)
     runs-on: ubuntu-latest
-    # stopgap 2026-11-10: work order 18 makes the functions mutants about 55 to 65 min in one job (run 42775482582 cancelled at 40m15s); sharding them is next
-    timeout-minutes: 75
+    timeout-minutes: 40
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -110,8 +109,122 @@ jobs:
           fi
       - name: Function tests
         run: node supabase/functions/test/run.mjs
-      - name: Function mutants
-        run: node supabase/functions/test/mutate.mjs
+
+  functions-mutants-1:
+    name: functions mutants, shard 1 of 4
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Set up Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: 2.8.1
+      - name: PostgreSQL 16 binaries on PATH (the image's own; apt install postgresql only if the image lacks them)
+        run: |
+          if [ -x /usr/lib/postgresql/16/bin/initdb ]; then
+            echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          else
+            sudo apt-get update
+            sudo apt-get install -y postgresql
+            printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
+          fi
+      - name: Function mutants, one shard
+        run: node supabase/functions/test/mutate.mjs --shard 1/4
+
+  functions-mutants-2:
+    name: functions mutants, shard 2 of 4
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Set up Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: 2.8.1
+      - name: PostgreSQL 16 binaries on PATH (the image's own; apt install postgresql only if the image lacks them)
+        run: |
+          if [ -x /usr/lib/postgresql/16/bin/initdb ]; then
+            echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          else
+            sudo apt-get update
+            sudo apt-get install -y postgresql
+            printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
+          fi
+      - name: Function mutants, one shard
+        run: node supabase/functions/test/mutate.mjs --shard 2/4
+
+  functions-mutants-3:
+    name: functions mutants, shard 3 of 4
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Set up Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: 2.8.1
+      - name: PostgreSQL 16 binaries on PATH (the image's own; apt install postgresql only if the image lacks them)
+        run: |
+          if [ -x /usr/lib/postgresql/16/bin/initdb ]; then
+            echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          else
+            sudo apt-get update
+            sudo apt-get install -y postgresql
+            printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
+          fi
+      - name: Function mutants, one shard
+        run: node supabase/functions/test/mutate.mjs --shard 3/4
+
+  functions-mutants-4:
+    name: functions mutants, shard 4 of 4
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Set up Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: 2.8.1
+      - name: PostgreSQL 16 binaries on PATH (the image's own; apt install postgresql only if the image lacks them)
+        run: |
+          if [ -x /usr/lib/postgresql/16/bin/initdb ]; then
+            echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          else
+            sudo apt-get update
+            sudo apt-get install -y postgresql
+            printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
+          fi
+      - name: Function mutants, one shard
+        run: node supabase/functions/test/mutate.mjs --shard 4/4
 
   audit:
     name: audit engine (tests and mutants)

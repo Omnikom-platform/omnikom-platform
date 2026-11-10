@@ -41,6 +41,30 @@ export function parseShard(argv) {
 }
 export const shardMutants = (list, shard) => (shard ? list.filter((_, idx) => idx % shard.n === shard.i - 1) : list);
 
+// The functions mutants (supabase/functions/test/mutate.mjs, the jobs functions-mutants-1..N): [name, file, find, to, scope]. A mutant with no `scope` (index 4)
+// runs the whole Deno test folder, about 10 times the cost of one that names its test file (38 of them; work order 18 adds more), so a plain index modulo N could
+// hand one shard most of them. The rule: deal the unscoped mutants round-robin on their own (the k-th unscoped one, by list order, goes to shard (k mod N) + 1),
+// then the scoped ones round-robin on their own, the same way. Share i keeps the list order; a mutant added anywhere lands in exactly one share with no table.
+export function shardBalanced(list, shard, heavy = m => !m[4]) {
+  if (!shard) return list;
+  let h = 0, l = 0;
+  return list.filter(m => (heavy(m) ? h++ : l++) % shard.n === shard.i - 1);
+}
+
+// What supabase/functions/test/mutate.mjs does with its arguments, here so that it is tested (and mutated, in test/mutate.mjs [functions-shards]) with the CLI:
+// that file lives outside the CLI tree the mutants copy. `only` is its --only text (a|b), or null. -> { list, label, lines, exit }: print `lines`; a non-null `exit` ends the
+// process with it (2 a bad --shard, 1 a share with no mutant, 0 for --list, which prints the selected mutants and stops), null means run `list`.
+export function planShard(argv, mutants, only) {
+  let shard = null;
+  try { shard = parseShard(argv); } catch (e) { return { list: [], label: '', lines: [`mutate: ${e.message}`], exit: 2 }; }
+  const list = shardBalanced(mutants.filter(([name]) => !only || only.split('|').some(s => name.includes(s))), shard);
+  const label = shard ? `shard ${shard.i}/${shard.n}: ` : '';
+  const lines = shard ? [`${label}${list.length} of ${mutants.length} mutants${only ? ' (after --only)' : ''}`] : [];
+  if (shard && list.length === 0) return { list, label, lines: [...lines, `${label}FAIL: no mutant is assigned to this shard (${mutants.length} mutants, ${shard.n} shards): a job that ran nothing is not a pass`], exit: 1 };
+  if (argv.includes('--list')) return { list, label, lines: [...lines, ...list.map(m => `mutant ${mutants.indexOf(m)}\t${m[4] ? 'scoped' : 'whole'}\t${m[0]}`)], exit: 0 };
+  return { list, label, lines, exit: null };
+}
+
 // r = { status, out, err } of one suite run. Caught = the process did not exit 0 (a hang cut off by the timeout is caught too), or it printed a
 // FAIL line whatever it exited with: a run that saw a red check and still exited 0 (a --bail stop that exits 0 was a survivor in the first
 // version of this runner's own mutant list) has been caught by that check.
@@ -190,6 +214,92 @@ export async function mutateRunTests({ check, CLI_ROOT, REPO_ROOT }) {
     vOld.state === 'red' && shardNames.every(n => vOld.lines.some(l => l.includes(`${n}  missing`))),
     JSON.stringify({ shardNames, g: vGreen.state, m: vMissing.lines, r: vRed.lines, s: vSkipped.lines, o: vOld.state }));
 
+  // ---- the function mutants' shards [functions-shards]: shardBalanced (the unscoped mutants dealt on their own, then the scoped ones), planShard (the arguments of
+  // supabase/functions/test/mutate.mjs), the real list through that script's --list, and the jobs functions-mutants-1..N of ci.yml
+  const mixed = (len, every = 3) => Array.from({ length: len }, (_, k) => [`m${k}`, 'f.ts', 'a', 'b', k % every === 0 ? undefined : 'x.test.ts']);   // no scope = the whole folder (the expensive class)
+  const idsOf = (all, s, fn = shardBalanced) => fn(all, s).map(m => m[0]);
+  const fcov = (all, n, fn) => { const seen = new Map(); for (let i = 1; i <= n; i++) for (const id of idsOf(all, { i, n }, fn)) seen.set(id, (seen.get(id) || 0) + 1); return all.every(m => seen.get(m[0]) === 1) && seen.size === all.length; };
+  const badCov = [];
+  for (let n = 1; n <= 8; n++) for (const len of [0, 1, 5, 9, 38, 250]) for (const every of [1, 2, 3, 7]) if (!fcov(mixed(len, every), n, shardBalanced)) badCov.push(`${len}/${n}/${every}`);
+  check('functions shard: for N = 1..8 and lists of 0, 1, 5, 9, 38 and 250 mutants (all unscoped, half, a third, a seventh) every mutant is in exactly one share and the shares add up to the list', badCov.length === 0, badCov.join());
+  // the rule, by hand: list H S S H S H H S S H (H = no scope), N = 3: the H's (indexes 0 3 5 6 9) go to shards 1 2 3 1 2, the S's (1 2 4 7 8) to 1 2 3 1 2, the list order kept
+  const rule = ['H', 'S', 'S', 'H', 'S', 'H', 'H', 'S', 'S', 'H'].map((c, k) => [`m${k}`, 'f.ts', 'a', 'b', c === 'S' ? 'x.test.ts' : '']);
+  const ruled = [1, 2, 3].map(i => idsOf(rule, { i, n: 3 }).join(' ')).join(' | ');
+  check('functions shard: the unscoped mutants are dealt round-robin on their own and then the scoped ones, the list order kept (H S S H S H H S S H over 3: "m0 m1 m6 m7 | m2 m3 m8 m9 | m4 m5"); no shard is the whole list', ruled === 'm0 m1 m6 m7 | m2 m3 m8 m9 | m4 m5' && shardBalanced(rule, null) === rule, ruled);
+  // the case a plain index modulo gets wrong: every 4th mutant is unscoped and N = 4, so the index rule gives shard 1 all of them
+  const every4 = mixed(80, 4).map((m, k) => (k % 4 === 0 ? [m[0], m[1], m[2], m[3], ''] : m));
+  const spread = (fn, n) => { const w = [], s = []; for (let i = 1; i <= n; i++) { const r = fn(every4, { i, n }); w.push(r.filter(m => !m[4]).length); s.push(r.filter(m => m[4]).length); } return { w, s }; };
+  const even = ({ w, s }) => Math.max(...w) - Math.min(...w) <= 1 && Math.max(...s) - Math.min(...s) <= 1;
+  const balOk = [2, 3, 4, 5, 6, 8].filter(n => !even(spread(shardBalanced, n)));
+  const plainIndex = (all, s) => shardMutants(all, s);   // the watched red: one index modulo N over the whole list, the unscoped class not dealt on its own
+  check('functions shard: each share gets the same number of unscoped mutants (to within one) and the same number of scoped ones, also when every 4th mutant is unscoped (N = 2, 3, 4, 5, 6, 8)', balOk.length === 0, JSON.stringify({ balOk, w4: spread(shardBalanced, 4) }));
+  check('functions shard: the balance check goes red for a plain index modulo N (every unscoped mutant in one share), a dropped mutant and a mutant run in two shares (a check that cannot fail proves nothing)',
+    !even(spread(plainIndex, 4)) && !fcov(mixed(37), 4, (all, s) => shardBalanced(all, s).slice(0, -1)) && !fcov(mixed(37), 4, (all, s) => [...shardBalanced(all, s), ...(s.i === 1 ? shardBalanced(all, { i: 2, n: s.n }) : [])]),
+    JSON.stringify(spread(plainIndex, 4)));
+  // planShard: what the script's arguments do, with a fake list
+  const fm = mixed(9), pl = (args, only = null) => planShard(args, fm, only);
+  const p1 = pl(['--shard', '2/3']), p2 = pl(['--shard', '4/3']), p3 = pl(['--shard', '0/3']), p4 = pl(['--shard', '1/20']), p5 = pl(['--shard', '2/3', '--list']), p6 = pl([]), p7 = pl(['--shard', '3/3'], 'm1|m2');   // m1 and m2 are scoped: ranks 0 and 1 of the scoped class, so shard 3 of 3 has nothing
+  check('functions shard: --shard i/N selects its share and says so (label "shard 2/3: ", first line "shard 2/3: 3 of 9 mutants"); no flag runs the whole list with no label; --only narrows after the split ("(after --only)")',
+    p1.exit === null && p1.list.length === 3 && p1.label === 'shard 2/3: ' && p1.lines[0] === 'shard 2/3: 3 of 9 mutants' && p6.exit === null && p6.list.length === 9 && p6.label === '' && p6.lines.length === 0 && p7.exit === 1 && /\(after --only\)/.test(p7.lines[0]), JSON.stringify([p1, p6, p7]));
+  check('functions shard: a bad --shard value (4/3, 0/3, a word, no value) is exit 2 and nothing is selected; a share assigned no mutant (shard 1/20 of 9 has mutants, 10/20 has none) is exit 1 with a FAIL line, never a pass',
+    p2.exit === 2 && p3.exit === 2 && pl(['--shard', 'two']).exit === 2 && pl(['--shard']).exit === 2 && p2.list.length === 0 && /--shard needs i\/N/.test(p2.lines[0]) && p4.exit === null && pl(['--shard', '10/20']).exit === 1 && /FAIL: no mutant is assigned/.test(pl(['--shard', '10/20']).lines.join('\n')), JSON.stringify([p2.exit, p3.exit, p4.exit, pl(['--shard', '10/20'])]));
+  check('functions shard: --list prints one "mutant <index in the whole list><TAB>whole|scoped<TAB><name>" line per selected mutant and ends with exit 0, run nothing',
+    p5.exit === 0 && p5.lines.slice(1).join('|') === pl(['--shard', '2/3']).list.map(m => `mutant ${fm.indexOf(m)}\t${m[4] ? 'scoped' : 'whole'}\t${m[0]}`).join('|') && p5.lines.length === 4, JSON.stringify(p5.lines));
+  // the REAL function mutant list, through supabase/functions/test/mutate.mjs --list (it stops before any harness or run)
+  const fnScript = join(REPO_ROOT, 'supabase', 'functions', 'test', 'mutate.mjs');
+  const fnList = args => {
+    const r = spawnSync(process.execPath, [fnScript, '--list', ...args], { encoding: 'utf8', timeout: 90000 });
+    const out = String(r.stdout || '') + String(r.stderr || '');
+    return { status: r.status, out, rows: out.split('\n').filter(l => /^mutant \d+\t/.test(l)).map(l => { const [a, b] = l.split('\t'); return { idx: Number(a.slice(7)), whole: b === 'whole' }; }) };
+  };
+  const fnWhole = fnList([]), fnTotal = fnWhole.rows.length;
+  const fnBad = [];
+  for (const n of [1, 2, 4, 6]) {
+    const seen = new Map(), W = [], S = [];
+    for (let i = 1; i <= n; i++) {
+      const s = fnList(['--shard', `${i}/${n}`]);
+      if (s.status !== 0 || s.rows.length === 0) fnBad.push(`${i}/${n}: exit ${s.status}, ${s.rows.length} mutants`);
+      W.push(s.rows.filter(x => x.whole).length); S.push(s.rows.filter(x => !x.whole).length);
+      for (const x of s.rows) seen.set(x.idx, (seen.get(x.idx) || 0) + 1);
+    }
+    if (seen.size !== fnTotal || [...seen.values()].some(c => c !== 1)) fnBad.push(`N=${n}: ${seen.size} different mutants of ${fnTotal}, ${[...seen.values()].filter(c => c !== 1).length} run more than once`);
+    if (Math.max(...W) - Math.min(...W) > 1 || Math.max(...S) - Math.min(...S) > 1) fnBad.push(`N=${n}: unscoped ${W.join('/')}, scoped ${S.join('/')}`);
+  }
+  check('functions shard: the real mutant list (functions/test/mutate.mjs --list) split by --shard i/N for N = 1, 2, 4, 6: every share has mutants, none is in two shares, the shares add up to the whole list, and the unscoped and the scoped mutants are each spread to within one',
+    fnWhole.status === 0 && fnTotal > 150 && fnWhole.rows.every((x, k) => x.idx === k) && fnWhole.rows.some(x => x.whole) && fnBad.length === 0, JSON.stringify({ fnTotal, status: fnWhole.status, fnBad }));
+  const fnEmpty = fnList(['--shard', `${fnTotal + 1}/${fnTotal + 1}`]), fnBadArgs = [['--shard', '0/3'], ['--shard', '4/3'], ['--shard']].map(a => ({ a: a.join(' '), s: fnList(a) }));
+  check('functions shard: the real script ends with exit 1 and a FAIL line for a share with no mutant, and with exit 2 for a bad --shard value',
+    fnEmpty.status === 1 && /shard \d+\/\d+: FAIL: no mutant is assigned/.test(fnEmpty.out) && fnBadArgs.every(b => b.s.status === 2 && /--shard needs i\/N/.test(b.s.out)), JSON.stringify({ empty: [fnEmpty.status, fnEmpty.out.slice(0, 160)], bad: fnBadArgs.map(b => [b.a, b.s.status]) }));
+  // the run path cannot be run here (it needs Deno and a cluster), so its two lines are read as text: the plan comes from the real argv and list, and the loop walks the plan's list
+  const fnText = (() => { try { return readFileSync(fnScript, 'utf8'); } catch { return ''; } })();
+  check('functions shard: the script plans from process.argv and its own MUTANTS, exits with the plan\'s exit code, and its loop walks the planned list (not MUTANTS), so a --shard cannot run every mutant',
+    /const plan = planShard\(process\.argv, MUTANTS, only\);/.test(fnText) && /if \(plan\.exit !== null\) process\.exit\(plan\.exit\);/.test(fnText) && /const \{ list, label \} = plan;/.test(fnText) &&
+    /for \(const \[name, file, find, to, scope\] of list\) \{/.test(fnText) && !/of MUTANTS\) \{/.test(fnText), 'supabase/functions/test/mutate.mjs');
+  // the jobs of the real ci.yml
+  const fnReal = functionsShardJobsProblems(ciReal);
+  const fnNumber = ciReal.split(/\r?\n/).filter(l => /^ {2}functions-mutants-\d+:/.test(l)).length;
+  check('functions shard: ci.yml has the jobs functions-mutants-1..N, identical apart from their number, each running functions/test/mutate.mjs --shard i/N with N the job count; the functions job runs the Deno tests and no mutants; no mutate.mjs line is bare', fnReal.length === 0 && fnNumber >= 2, JSON.stringify({ fnReal, fnNumber }));
+  const fnBlock = n => { const m = new RegExp(`^  functions-mutants-${n}:\\n(?:(?: {3,}.*|\\s*)\\n)*`, 'm').exec(ciReal); return m ? m[0] : ''; };
+  const fnWrong = {
+    'a shard job is missing (3 of 4)': ciReal.replace(fnBlock(3), ''),
+    'a shard job is a copy of another (job 4 runs 3/4)': ciReal.replace(fnBlock(4), fnBlock(4).replace(/--shard 4\//, '--shard 3/')),
+    'N differs from the job count (every run line says /5)': ciReal.replace(/(functions\/test\/mutate\.mjs --shard \d+)\/4/g, '$1/5'),
+    'a shard job has an extra step': ciReal.replace(fnBlock(2), fnBlock(2) + '      - name: Extra\n        run: node x.mjs\n'),
+    'a shard job has another timeout': ciReal.replace(fnBlock(2), fnBlock(2).replace('timeout-minutes: 30', 'timeout-minutes: 99')),
+    'a shard job runs a bare mutate.mjs': ciReal.replace(/functions\/test\/mutate\.mjs --shard 1\/4/, 'functions/test/mutate.mjs'),
+    'the functions job runs the mutants too': ciReal.replace('        run: node supabase/functions/test/run.mjs\n', '        run: node supabase/functions/test/run.mjs\n      - name: Function mutants\n        run: node supabase/functions/test/mutate.mjs\n'),
+    'the functions job no longer runs the Deno tests': ciReal.replace('        run: node supabase/functions/test/run.mjs\n', '        run: node supabase/functions/test/other.mjs\n'),
+    'no shard job at all': ciReal.replace(/functions-mutants-\d+/g, 'functions-other'),
+  };
+  const fnMissed = Object.entries(fnWrong).filter(([k, t]) => t === ciReal || functionsShardJobsProblems(t).length === 0).map(([k]) => k);
+  check('functions shard: the ci.yml check goes red on each broken copy (a missing shard, a duplicated shard number, N that differs from the job count, an extra step, another timeout, a bare mutate.mjs line, the functions job running the mutants or not the tests, no shard job)', fnMissed.length === 0 && !fnWrong['a shard job is missing (3 of 4)'].includes('functions-mutants-3:'), fnMissed.join());
+  const fnNames = parseJobs(ciReal).map(j => j.name);
+  const fnShardNames = fnNames.filter(n => /^functions mutants, shard \d+ of \d+$/.test(n));
+  const fvMissing = await verdict(fnNames.filter(n => n !== fnShardNames[1])), fvRed = await verdict(fnNames, { [fnShardNames[3]]: 'failure' }), fvOld = await verdict(fnNames.filter(n => !fnShardNames.includes(n)));
+  check('land verdict over the real ci.yml names: a functions mutant shard that is missing or red, or a run from before the shards existed, is red and names it',
+    fnShardNames.length === fnNumber && fvMissing.state === 'red' && fvMissing.lines.some(l => l.includes(`${fnShardNames[1]}  missing`)) && fvRed.state === 'red' && fvRed.lines.some(l => l.includes(`${fnShardNames[3]}  failure`)) &&
+    fvOld.state === 'red' && fnShardNames.every(n => fvOld.lines.some(l => l.includes(`${n}  missing`))), JSON.stringify({ fnShardNames, m: fvMissing.lines, r: fvRed.lines }));
+
   // stop at the first FAIL, with a fake exit and a fake output
   const run = (bail, results) => {
     const said = [], stopped = [], exits = []; let ran = 0;
@@ -258,7 +368,7 @@ export async function mutateRunTests({ check, CLI_ROOT, REPO_ROOT }) {
 // each shard is a named job that land reads as success, red or missing. What keeps six copies honest is this check: the numbers are 1..N, N is the job
 // count and the one in every run line, and the jobs are identical apart from their number. Every ci-heavy.mjs line carries --suite or --shard (a bare
 // one would run every mutant in that job again).
-export function shardJobsProblems(ciText) {
+function ciJobBlocks(ciText) {
   const lines = String(ciText).split(/\r?\n/);
   const at = lines.findIndex(l => /^jobs:\s*$/.test(l));
   const blocks = [];
@@ -268,6 +378,10 @@ export function shardJobsProblems(ciText) {
     const m = /^ {2}([A-Za-z0-9_-]+):\s*(?:#.*)?$/.exec(lines[i]);
     if (m) { cur = { id: m[1], lines: [] }; blocks.push(cur); } else if (cur && lines[i].trim() !== '' && !/^\s*#/.test(lines[i])) cur.lines.push(lines[i]);
   }
+  return blocks;
+}
+export function shardJobsProblems(ciText) {
+  const blocks = ciJobBlocks(ciText);
   const shards = blocks.filter(b => /^cli-mutants-\d+$/.test(b.id));
   const k = shards.length;
   if (k === 0) return ['ci.yml has no cli-mutants-<n> job'];
@@ -283,5 +397,28 @@ export function shardJobsProblems(ciText) {
   for (const b of blocks) for (const l of b.lines) if (/ci-heavy\.mjs/.test(l) && !/ci-heavy\.mjs --(suite|shard \d+\/\d+)\s*$/.test(l)) problems.push(`${b.id}: ci-heavy.mjs without --suite or --shard (it would run every mutant in this job)`);
   const cli = blocks.find(b => b.id === 'cli');
   if (!cli || !cli.lines.some(l => /ci-heavy\.mjs --suite\s*$/.test(l))) problems.push('the cli job must run ci-heavy.mjs --suite (the mutants belong to the shard jobs)');
+  return problems;
+}
+
+// ---- the shard jobs of the Deno function mutants (functions-mutants-1..N), the twin of the check above: the same shape (numbers 1..N, N the job count and the one in
+// every run line, the jobs identical apart from their number; written out because omnikom ci models no `strategy`) and the two other ways the split goes wrong:
+// the functions job still running the mutants (every one twice, 40 minutes again) and a bare mutate.mjs line (every mutant in that job).
+export function functionsShardJobsProblems(ciText) {
+  const blocks = ciJobBlocks(ciText);
+  const shards = blocks.filter(b => /^functions-mutants-\d+$/.test(b.id));
+  const k = shards.length;
+  if (k === 0) return ['ci.yml has no functions-mutants-<n> job'];
+  const problems = [];
+  const nums = shards.map(b => Number(b.id.slice('functions-mutants-'.length)));
+  if (nums.join() !== Array.from({ length: k }, (_, j) => j + 1).join()) problems.push(`the functions shard jobs are numbered ${nums.join(',')}, not 1..${k}`);
+  const norm = (b, n) => b.lines.join('\n').split(`shard ${n} of`).join('shard # of').split(`--shard ${n}/`).join('--shard #/');
+  shards.forEach((b, j) => {
+    if (norm(b, nums[j]) !== norm(shards[0], nums[0])) problems.push(`${b.id} differs from ${shards[0].id} by more than its number`);
+    const r = [...b.lines.join('\n').matchAll(/functions\/test\/mutate\.mjs --shard (\d+)\/(\d+)\s*$/gm)];
+    if (r.length !== 1 || Number(r[0][1]) !== nums[j] || Number(r[0][2]) !== k) problems.push(`${b.id} must run supabase/functions/test/mutate.mjs --shard ${nums[j]}/${k} exactly once`);
+  });
+  for (const b of blocks) for (const l of b.lines) if (/functions\/test\/mutate\.mjs/.test(l) && !/mutate\.mjs --shard \d+\/\d+\s*$/.test(l)) problems.push(`${b.id}: functions/test/mutate.mjs without --shard (it would run every function mutant in this job)`);
+  const fn = blocks.find(b => b.id === 'functions');
+  if (!fn || !fn.lines.some(l => /functions\/test\/run\.mjs\s*$/.test(l))) problems.push('the functions job must run functions/test/run.mjs (the Deno tests)');
   return problems;
 }

@@ -1,6 +1,8 @@
 // Mutation test of the dashboard Edge Functions (slice 4.2): remove ONE check from a COPY of the source and require the Deno tests to go
 // red. A check whose mutant stays green has no test. Ends: `N mutants, N caught, 0 survived, 0 target text missing`.
-//   node supabase/functions/test/mutate.mjs [--only <name substring>[|<another>]]
+//   node supabase/functions/test/mutate.mjs [--only <name substring>[|<another>]] [--shard i/N] [--list]
+// --shard i/N runs share i of N (the ci.yml jobs functions-mutants-1..N): the whole-folder mutants dealt round-robin on their own, then the scoped ones
+// (tools/omnikom-cli/test/mutate-run.mjs shardBalanced); an empty share exits 1, a bad value 2; --list prints the selected mutants and stops.
 // The copy lives in a temp folder (supabase/functions copied, contracts/ linked as a junction, deno.json copied); the real source is never
 // touched. Mutated runs use `deno test --no-check` (the real code is type-checked by `deno task check`), and a run that ends without a
 // test summary (a mutant that does not even load) counts as BROKEN, not as caught.
@@ -8,6 +10,7 @@ import { cpSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, symlinkSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startHarness, denoTest, REPO } from './harness.mjs';
+import { planShard } from '../../../tools/omnikom-cli/test/mutate-run.mjs';   // --shard i/N and --list: tested and mutated with the CLI (test/mutate-run.mjs, mutate.mjs [functions-shards])
 
 const F = 'supabase/functions/';
 // [name, file, text that must occur exactly once, what replaces it]
@@ -253,6 +256,10 @@ const MUTANTS = [
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
+const plan = planShard(process.argv, MUTANTS, only);   // --only a|b (any of the substrings), then the share of --shard i/N; --list prints and stops
+for (const l of plan.lines) console.log(l);
+if (plan.exit !== null) process.exit(plan.exit);
+const { list, label } = plan;
 const work = mkdtempSync(join(tmpdir(), 'omnikom-fn-mut-'));
 cpSync(join(REPO, 'supabase', 'functions'), join(work, 'supabase', 'functions'), { recursive: true });
 symlinkSync(join(REPO, 'contracts'), join(work, 'contracts'), 'junction');
@@ -271,8 +278,7 @@ try {
     process.exitCode = 1;
   } else {
     console.log(`baseline (the unmutated copy): ${base.passed} passed, 0 failed`);
-    for (const [name, file, find, to, scope] of MUTANTS) {
-      if (only && !only.split('|').some(s => name.includes(s))) continue;   // --only a|b: any of the substrings
+    for (const [name, file, find, to, scope] of list) {
       ran++;
       const path = join(work, file);
       const orig = readFileSync(join(REPO, file), 'utf8');
@@ -291,7 +297,7 @@ try {
         console.log(`caught   ${name.padEnd(62)} red: ${first}`);
       } else { survived++; console.log(`SURVIVED ${name}`); }
     }
-    console.log(`\n${ran} mutants, ${caught} caught, ${survived} survived, ${missing} target text missing${broken ? `, ${broken} broken` : ''}`);
+    console.log(`\n${label}${ran} mutants,${caught} caught, ${survived} survived, ${missing} target text missing${broken ? `, ${broken} broken` : ''}`);
     process.exitCode = (caught === ran && !survived && !missing && !broken) ? 0 : 1;
   }
 } finally { await api.stop(); rmSync(work, { recursive: true, force: true }); }

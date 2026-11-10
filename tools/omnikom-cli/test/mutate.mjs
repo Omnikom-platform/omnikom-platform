@@ -649,6 +649,21 @@ const MUTANTS = [
   ['ci-heavy: a skipped shard is silent [ci-shards]', 'test/ci-heavy.mjs', 'if (suite || shard) log(', 'if (false) log(', 'unit'],
   ['ci-heavy: a bad flag runs anyway [ci-shards]', 'test/ci-heavy.mjs', 'if (stray.length || (suite && shard)) {', 'if (false) {', 'unit'],
   ['ci-heavy: a bad --shard value exits 0 [ci-shards]', 'test/ci-heavy.mjs', 'log(`ci-heavy: ${e.message}`); return 2; }', 'log(`ci-heavy: ${e.message}`); return 0; }', 'unit'],
+  // ---- the function mutants' shards (functions/test/mutate.mjs --shard i/N, the jobs functions-mutants-1..N of ci.yml) [functions-shards]
+  ['functions shard: share i takes the rank mod N = i, not i - 1 (the last share is empty, rank 0 is nobody\'s) [functions-shards]', 'test/mutate-run.mjs', '(heavy(m) ? h++ : l++) % shard.n === shard.i - 1', '(heavy(m) ? h++ : l++) % shard.n === shard.i', 'unit'],
+  ['functions shard: the last mutant of the list is in no share [functions-shards]', 'test/mutate-run.mjs', 'return list.filter(m => (heavy(m)', 'return list.slice(0, -1).filter(m => (heavy(m)', 'unit'],
+  ['functions shard: every share from the second on runs the same mutants [functions-shards]', 'test/mutate-run.mjs', '(heavy(m) ? h++ : l++) % shard.n === shard.i - 1', '(heavy(m) ? h++ : l++) % shard.n === Math.min(shard.i - 1, 1)', 'unit'],
+  ['functions shard: the unscoped mutants are not dealt on their own (one index over the whole list) [functions-shards]', 'test/mutate-run.mjs', '(heavy(m) ? h++ : l++)', '(heavy(m) ? h++ : h++)', 'unit'],
+  ['functions shard: the unscoped class is read from the wrong slot of a mutant (the replacement text, not the scope) [functions-shards]', 'test/mutate-run.mjs', 'heavy = m => !m[4]', 'heavy = m => !m[3]', 'unit'],
+  ['functions shard: a bad --shard value exits 0 [functions-shards]', 'test/mutate-run.mjs', 'lines: [`mutate: ${e.message}`], exit: 2 }', 'lines: [`mutate: ${e.message}`], exit: 0 }', 'unit'],
+  ['functions shard: a share with no mutant is a pass [functions-shards]', 'test/mutate-run.mjs', 'if (shard && list.length === 0) return {', 'if (false) return {', 'unit'],
+  ['functions shard: --list does not stop (every listed mutant is then run) [functions-shards]', 'test/mutate-run.mjs', '${m[0]}`)], exit: 0 };', '${m[0]}`)], exit: null };', 'unit'],
+  ['functions shard: --only is ignored when a share is picked [functions-shards]', 'test/mutate-run.mjs', 'shardBalanced(mutants.filter(([name]) => !only || only.split(\'|\').some(s => name.includes(s))), shard)', 'shardBalanced(mutants, shard)', 'unit'],
+  ['functions shard: the sharded run does not say which shard it is [functions-shards]', 'test/mutate-run.mjs', "const label = shard ? `shard ${shard.i}/${shard.n}: ` " + ": '';", "const label = '';", 'unit'],   // (written in two pieces: whole, the [ci-shards] mutant of the same line would find its target twice in this file)
+  ['functions shard: a functions job that still runs the mutants (or a bare mutate.mjs line) is accepted [functions-shards]', 'test/mutate-run.mjs', R`if (/functions\/test\/mutate\.mjs/.test(l) && !/mutate\.mjs --shard \d+\/\d+\s*$/.test(l)) problems.push(`, 'if (false) problems.push(', 'unit'],
+  ['functions shard: a functions job without the Deno tests is accepted [functions-shards]', 'test/mutate-run.mjs', R`if (!fn || !fn.lines.some(l => /functions\/test\/run\.mjs\s*$/.test(l))) problems.push(`, 'if (false) problems.push(', 'unit'],
+  ['functions shard: N need not be the job count in a run line [functions-shards]', 'test/mutate-run.mjs', '|| Number(r[0][2]) !== k) problems.push(`${b.id} must run supabase', ') problems.push(`${b.id} must run supabase', 'unit'],
+  ['ci: the function mutants shard step is not mapped [functions-shards]', 'commands/ci.mjs', "'Function mutants, one shard',", "", 'unit'],
 ];
 
 const list = pickMutants(shardMutants(MUTANTS, shard), only);   // sharded by the index in the whole list, then narrowed by --only

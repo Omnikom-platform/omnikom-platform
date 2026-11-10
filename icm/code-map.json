@@ -570,7 +570,7 @@
     {"path":"tools/omnikom-cli/test/impact-stamp-hooks.mjs","owner":"cli-and-testing","exports":["impactStampHooksTests"],"tests":[],"feature":""},
     {"path":"tools/omnikom-cli/test/journey.mjs","owner":"cli-and-testing","exports":["browserStartTests","journeyTests","onOldPort"],"tests":[],"feature":""},
     {"path":"tools/omnikom-cli/test/mutant-targets.mjs","owner":"cli-and-testing","exports":["checkTargets","loadMutants"],"tests":[],"feature":""},
-    {"path":"tools/omnikom-cli/test/mutate-run.mjs","owner":"cli-and-testing","exports":["COPY_PREFIX","classify","makeCheck","makeCopy","mutateRunTests","onlyFilters","parseShard","pickMutants","shardJobsProblems","shardMutants","suiteArgs","sweepCopies"],"tests":[],"feature":""},
+    {"path":"tools/omnikom-cli/test/mutate-run.mjs","owner":"cli-and-testing","exports":["COPY_PREFIX","classify","functionsShardJobsProblems","makeCheck","makeCopy","mutateRunTests","onlyFilters","parseShard","pickMutants","planShard","shardBalanced","shardJobsProblems","shardMutants","suiteArgs","sweepCopies"],"tests":[],"feature":""},
     {"path":"tools/omnikom-cli/test/mutate.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/omnikom-cli/test/port-bind-probe.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/omnikom-cli/test/run.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
