@@ -165,7 +165,7 @@
         "phone": { "type": "phone" },
         "answers": { "type": "group", "of": {} , "open": true },
         "consentText": { "type": "text", "required": true, "help": "The exact consent wording shown when the form was sent (copied at send time)." },
-        "status": { "type": "enum", "required": true, "options": ["new", "contacted", "qualified", "closed", "spam"] },
+        "status": { "type": "text", "required": true, "help": "A key of the business's own status list (crm.statuses in its contract; the floor is not-contacted, contacted, qualified, closed), or spam. Checked by the database on every write." },
         "owner": { "type": "reference", "to": "team" },
         "notes": { "type": "list", "of": { "at": { "type": "datetime", "required": true }, "by": { "type": "text", "required": true }, "text": { "type": "text", "required": true, "max": 2000 } } },
         "pushes": { "type": "list", "internal": true, "of": { "target": { "type": "text", "required": true }, "at": { "type": "datetime", "required": true }, "ok": { "type": "boolean", "required": true } } }

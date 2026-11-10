@@ -4,6 +4,9 @@
 // every sort and filter key against the contract's columns (422 S-QUERY otherwise; no caller text reaches SQL text) -> 200 { total, page, size,
 // columns: [{ key, label, type, options, editable, ... }] in contract form order, fields (every industry field, for the export), rows: [{ id,
 // created_at, name, email, phone, status, owner, form, page, site, follow_up, duplicate, duplicate_of, <column key>: typed value }] }.
+// Work order 20 (migration 23): a row also carries lead_type, status_date, status_who and status_text, and the answer carries the business's two lists as the contract
+// holds them (lead_types: [{ key, label }], statuses: [{ key, label, stage, needsDate, needsWho, needsText }], in order); the filters and the sort take lead_type, status
+// and status_date, and a status sorts by its place in the list.
 // Work order 18 (migration 22): body `due: true` keeps the leads whose follow-up date or an open task's due time has come, `duplicates: true` the flagged ones;
 // a row's duplicate_of is the other lead's id only when the caller may read that lead too (else null, with duplicate true).
 import { dashboard, badBody } from '../_shared/dashboard.ts';

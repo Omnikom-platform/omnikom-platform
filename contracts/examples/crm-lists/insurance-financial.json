@@ -1,0 +1,842 @@
+{
+ "industry": "insurance-financial",
+ "readAt": "2026-11-09",
+ "source": "work/29-lead-types/insurance-financial.json and statuses.json (perIndustry.insurance-financial); copied by this script, never edited by hand",
+ "crm": {
+  "lead_types": [
+   {
+    "key": "auto-quote",
+    "label": "Auto insurance quote"
+   },
+   {
+    "key": "home-quote",
+    "label": "Home insurance quote"
+   },
+   {
+    "key": "life-insurance",
+    "label": "Life insurance"
+   },
+   {
+    "key": "health-insurance",
+    "label": "Health insurance"
+   },
+   {
+    "key": "commercial-quote",
+    "label": "Business insurance quote"
+   },
+   {
+    "key": "mortgage-protection",
+    "label": "Mortgage protection"
+   },
+   {
+    "key": "annuity",
+    "label": "Annuities"
+   },
+   {
+    "key": "retirement-planning",
+    "label": "Retirement planning"
+   },
+   {
+    "key": "investment-management",
+    "label": "Investment management"
+   },
+   {
+    "key": "consultation",
+    "label": "Consultation booking"
+   },
+   {
+    "key": "policy-review",
+    "label": "Policy review"
+   },
+   {
+    "key": "claim",
+    "label": "Claim"
+   },
+   {
+    "key": "policy-service",
+    "label": "Policy change or document request"
+   },
+   {
+    "key": "agent-recruiting",
+    "label": "Join the agency"
+   },
+   {
+    "key": "enquiry",
+    "label": "Enquiry"
+   }
+  ],
+  "statuses": [
+   {
+    "key": "not-contacted",
+    "label": "Not contacted yet",
+    "stage": "new",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "contacted",
+    "label": "Contacted",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": true,
+    "needsText": false
+   },
+   {
+    "key": "answering-machine",
+    "label": "Answering machine",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": true,
+    "needsText": false
+   },
+   {
+    "key": "voicemail-left",
+    "label": "Voicemail left",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": true,
+    "needsText": false
+   },
+   {
+    "key": "no-answer",
+    "label": "No answer",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": true,
+    "needsText": false
+   },
+   {
+    "key": "call-back",
+    "label": "Call back",
+    "stage": "working",
+    "needsDate": true,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "follow-up",
+    "label": "Follow-up",
+    "stage": "working",
+    "needsDate": true,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "appointment-set",
+    "label": "Appointment set",
+    "stage": "working",
+    "needsDate": true,
+    "needsWho": true,
+    "needsText": false
+   },
+   {
+    "key": "interested",
+    "label": "Interested in something specific",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": true
+   },
+   {
+    "key": "qualified",
+    "label": "Qualified",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "quoted",
+    "label": "Quoted",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "not-qualified",
+    "label": "Not qualified",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "not-interested",
+    "label": "Not interested",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "wrong-number",
+    "label": "Wrong number",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "do-not-contact",
+    "label": "Do not contact",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "spam",
+    "label": "Spam",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "lost",
+    "label": "Lost",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "closed",
+    "label": "Closed",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   }
+  ]
+ },
+ "notes": {
+  "lead_types": {
+   "auto-quote": {
+    "producedBy": "Auto quote form: vehicle, driver and current policy details",
+    "examples": [
+     "I need a quote for my car",
+     "What would it cost to insure two cars and a teenage driver"
+    ],
+    "sources": [
+     {
+      "url": "https://agencyheight.com/insurance-intake-form/",
+      "readAt": "2026-11-09",
+      "says": "Collect the key vehicle, driver, and current policy details needed to generate a faster, more accurate auto insurance quote."
+     },
+     {
+      "url": "https://www.uplead.com/?p=16167",
+      "readAt": "2026-11-09",
+      "says": "Auto Insurance Leads"
+     }
+    ]
+   },
+   "home-quote": {
+    "producedBy": "Home quote form: property, coverage and declaration details",
+    "examples": [
+     "Quote for insuring my house",
+     "I just bought a home and need coverage"
+    ],
+    "sources": [
+     {
+      "url": "https://agencyheight.com/insurance-intake-form/",
+      "readAt": "2026-11-09",
+      "says": "Gather property, coverage, declaration, and contact details so agents can review the home insurance need with less back-and-forth."
+     },
+     {
+      "url": "https://www.uplead.com/?p=16167",
+      "readAt": "2026-11-09",
+      "says": "Home Insurance Leads"
+     }
+    ]
+   },
+   "life-insurance": {
+    "producedBy": "Life quote form or the 'Life Insurance' choice of 'I'm interested in' (Rainmaker contact page); term, whole or any life cover",
+    "examples": [
+     "I want a life insurance quote",
+     "How much life cover do I need for my family"
+    ],
+    "sources": [
+     {
+      "url": "https://agencyheight.com/insurance-intake-form/",
+      "readAt": "2026-11-09",
+      "says": "Capture basic coverage needs and contact preferences to help agents follow up with the right life insurance options."
+     },
+     {
+      "url": "https://www.uplead.com/?p=16167",
+      "readAt": "2026-11-09",
+      "says": "A life insurance lead is a person who expresses a desire for it."
+     }
+    ]
+   },
+   "health-insurance": {
+    "producedBy": "Health quote or enrollment inquiry form",
+    "examples": [
+     "I lost my job and need health coverage",
+     "Compare health plans for my family"
+    ],
+    "sources": [
+     {
+      "url": "https://www.uplead.com/?p=16167",
+      "readAt": "2026-11-09",
+      "says": "Health Insurance Leads"
+     },
+     {
+      "url": "https://www.involve.me/template-categories/insurance-form",
+      "readAt": "2026-11-09",
+      "says": "Gather personal information, coverage preferences, and risk factors for new policy applications across health, auto, home, or life insurance."
+     }
+    ]
+   },
+   "commercial-quote": {
+    "producedBy": "Commercial quote form: business, structure, financial, policy and coverage details; lines such as general liability or workers comp",
+    "examples": [
+     "I need general liability for my shop",
+     "Workers comp quote for 6 employees"
+    ],
+    "sources": [
+     {
+      "url": "https://agencyheight.com/insurance-intake-form/",
+      "readAt": "2026-11-09",
+      "says": "BOP, General Liability, Workers Comp, E&O, Commercial Auto, Umbrella, Cyber Liability"
+     },
+     {
+      "url": "https://www.uplead.com/?p=16167",
+      "readAt": "2026-11-09",
+      "says": "Commercial Insurance Leads"
+     }
+    ]
+   },
+   "mortgage-protection": {
+    "producedBy": "The 'Mortgage Protection' choice of 'I'm interested in' (Rainmaker contact page), or a mortgage protection quote form",
+    "examples": [
+     "What happens to my mortgage if I die",
+     "I want mortgage protection for my new home loan"
+    ],
+    "sources": [
+     {
+      "url": "https://agenttech.io/blog/mortgage-protection-agency-leadgen",
+      "readAt": "2026-11-10",
+      "says": "ordinary term life with a face amount and term length tuned to a mortgage balance and amortization schedule"
+     },
+     {
+      "url": "https://www.policygenius.com/life-insurance/mortgage-protection-life-insurance/",
+      "readAt": "2026-11-09",
+      "says": "Mortgage protection insurance (MPI), also known as mortgage life insurance, is a policy designed to cover your mortgage balance if you die before paying it off."
+     }
+    ]
+   },
+   "annuity": {
+    "producedBy": "The 'Annuities' choice of 'I'm interested in' (Rainmaker contact page), an annuity questions page, or an annuity quote form",
+    "examples": [
+     "I want guaranteed income in retirement",
+     "Tell me about fixed annuities"
+    ],
+    "sources": [
+     {
+      "url": "https://blog.agent-crm.com/how-to-generate-annuity-leads-online-step-by-step-guide-with-funnel-templates-and-software-recommendation/",
+      "readAt": "2026-11-09",
+      "says": "Selling annuities requires having a steady stream of qualified leads."
+     },
+     {
+      "url": "https://blog.agent-crm.com/how-to-generate-annuity-leads-online-step-by-step-guide-with-funnel-templates-and-software-recommendation/",
+      "readAt": "2026-11-09",
+      "says": "Use these to provide valuable info to prospects and nudge them to book a consultation."
+     }
+    ]
+   },
+   "retirement-planning": {
+    "producedBy": "A retirement planning page form or a 'retirement income review' booking; advice offered only by a licensed adviser",
+    "examples": [
+     "Can I retire at 62",
+     "I want a review of my retirement income"
+    ],
+    "sources": [
+     {
+      "url": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen",
+      "readAt": "2026-11-09",
+      "says": "Schedule a 20-Minute Retirement Income Review"
+     },
+     {
+      "url": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen",
+      "readAt": "2026-11-09",
+      "says": "A firm might create separate pages for retirement planning, business exit planning and investment management."
+     }
+    ]
+   },
+   "investment-management": {
+    "producedBy": "An investment management page form, for an advisory firm only",
+    "examples": [
+     "I have a rollover and want it managed",
+     "Who manages my savings"
+    ],
+    "sources": [
+     {
+      "url": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen",
+      "readAt": "2026-11-09",
+      "says": "A firm might create separate pages for retirement planning, business exit planning and investment management."
+     }
+    ]
+   },
+   "consultation": {
+    "producedBy": "A 'book a call' or 'free consultation' form with a calendar slot",
+    "examples": [
+     "Book a free 20-minute call",
+     "I would like to talk to someone on Thursday"
+    ],
+    "sources": [
+     {
+      "url": "https://www.agencybloc.com/ams/sales-enablement/lead-nurturing-automation/3-ways-to-convert-more-online-insurance-leads/",
+      "readAt": "2026-11-09",
+      "says": "Quote or consultation inquiry"
+     },
+     {
+      "url": "https://paperform.co/templates/financial-advisor-free-consultation-form/",
+      "readAt": "2026-11-09",
+      "says": "Book appointments directly using integrated calendar scheduling"
+     },
+     {
+      "url": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen",
+      "readAt": "2026-11-09",
+      "says": "A free 20- or 30-minute call can work when the page explains the scope, discussion topics and next steps."
+     }
+    ]
+   },
+   "policy-review": {
+    "producedBy": "A 'review my policy' call to action, for a person who already has cover",
+    "examples": [
+     "Can you check if my life policy is still right",
+     "I want a second opinion on my coverage"
+    ],
+    "sources": [
+     {
+      "url": "https://erdmaninsurance.com/request-an-annual-insurance-review/",
+      "readAt": "2026-11-10",
+      "says": "Request an annual insurance review and one of our agents will review your policy to maximize savings and ensure everything is up to date!"
+     },
+     {
+      "url": "https://www.chrisbonnerinsurance.com/request-policy-review.html",
+      "readAt": "2026-11-10",
+      "says": "Request Policy Review"
+     },
+     {
+      "url": "https://www.jotform.com/form-templates/insurance-policy-review-appointment-form-template",
+      "readAt": "2026-11-10",
+      "says": "Insurance Policy Review Appointment Form"
+     }
+    ]
+   },
+   "claim": {
+    "producedBy": "A claim form or 'file a claim' page, from an existing policyholder",
+    "examples": [
+     "My car was hit, how do I file",
+     "I need to report water damage"
+    ],
+    "sources": [
+     {
+      "url": "https://www.insurancewebsitebuilder.com/products/websites/features/lead-generating-quote-forms",
+      "readAt": "2026-11-09",
+      "says": "Our modules include forms that can be submitted for quotes, endorsements, ID card and declaration page requests, and claim forms."
+     },
+     {
+      "url": "https://www.involve.me/template-categories/insurance-form",
+      "readAt": "2026-11-09",
+      "says": "Insurance Claim Form"
+     }
+    ]
+   },
+   "policy-service": {
+    "producedBy": "An endorsement, ID card, declarations page or certificate of insurance request form, from an existing policyholder",
+    "examples": [
+     "I need a new ID card",
+     "Add my son to my policy",
+     "Send me a certificate of insurance"
+    ],
+    "sources": [
+     {
+      "url": "https://www.insurancewebsitebuilder.com/products/websites/features/lead-generating-quote-forms",
+      "readAt": "2026-11-09",
+      "says": "Our modules include forms that can be submitted for quotes, endorsements, ID card and declaration page requests, and claim forms."
+     },
+     {
+      "url": "https://www.involve.me/template-categories/insurance-form",
+      "readAt": "2026-11-09",
+      "says": "Certificate of Insurance Request Form"
+     }
+    ]
+   },
+   "agent-recruiting": {
+    "producedBy": "The agent form (Rainmaker contact page and Join Rainmaker page): licensing status, experience, interest Agent opportunity or Agency partnership",
+    "examples": [
+     "I am licensed and looking for an agency",
+     "I lead a small agency and want to partner"
+    ],
+    "sources": [
+     {
+      "url": "https://careers.healthmarkets.com/getting-started",
+      "readAt": "2026-11-09",
+      "says": "Complete the form"
+     },
+     {
+      "url": "https://careers.healthmarkets.com/getting-started",
+      "readAt": "2026-11-09",
+      "says": "Talk to a recruiter"
+     },
+     {
+      "url": "https://paperform.co/templates/insurance-agent-application-form/",
+      "readAt": "2026-11-09",
+      "says": "Hiring the right insurance agents is critical for growing your agency"
+     }
+    ]
+   },
+   "enquiry": {
+    "producedBy": "A contact form, or the 'Not Sure' choice of 'I'm interested in' (Rainmaker, which files it under General inquiries); the default when no form says more",
+    "examples": [
+     "I am not sure what I need",
+     "Can someone call me about my options"
+    ],
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:40 through the head of operations (work/29-lead-types/CONTEXT.md, Why and Steps 1)",
+      "readAt": "2026-11-09",
+      "says": "plus \"Enquiry\" (a visitor only asking; source: the owner, 2026-11-09 20:40, through the head of operations)"
+     },
+     {
+      "url": "https://www.agencybloc.com/ams/sales-enablement/lead-nurturing-automation/3-ways-to-convert-more-online-insurance-leads/",
+      "readAt": "2026-11-09",
+      "says": "Contact form"
+     }
+    ]
+   }
+  },
+  "statuses": {
+   "not-contacted": {
+    "means": "The lead arrived and nobody has reached out yet.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "not contacted yet"
+     },
+     {
+      "url": "https://help.insiderealestate.com/en/articles/285957-kvcore-lead-contact-statuses",
+      "readAt": "2026-11-09",
+      "says": "the default lead status will be 'New Lead'"
+     },
+     {
+      "url": "https://www.fullcircleinsights.com/resource/lead-status-values-for-sales-and-marketing",
+      "readAt": "2026-11-09",
+      "says": "This status indicates that a record requires follow up. This would be the state that the rep first interacts with the lead."
+     }
+    ]
+   },
+   "contacted": {
+    "means": "A team member spoke with the lead (call, text, email reply); the status records who.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "contacted (by whom)"
+     },
+     {
+      "url": "https://developer.lofty.com/concepts/leads",
+      "readAt": "2026-11-09",
+      "says": "Common stages include New Lead, Contacted, Qualified, Under Contract, and Closed."
+     },
+     {
+      "url": "https://support.agencyzoom.com/en/articles/5668389-how-to-manage-and-build-pipelines",
+      "readAt": "2026-11-09",
+      "says": "New, Contacted, Quoted and Sold"
+     }
+    ]
+   },
+   "answering-machine": {
+    "means": "A call was answered by an answering machine and no message was left; the status records who called.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "answering machine"
+     },
+     {
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "readAt": "2026-11-09",
+      "says": "The call was answered by an answering machine."
+     }
+    ]
+   },
+   "voicemail-left": {
+    "means": "A call reached voicemail and a message was left; the status records who called.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "voicemail left"
+     },
+     {
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "readAt": "2026-11-09",
+      "says": "Voicemail left for the prospect"
+     }
+    ]
+   },
+   "no-answer": {
+    "means": "A try (call, text or email) did not reach the person and nothing was left; the status records who tried.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "no answer"
+     },
+     {
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "readAt": "2026-11-09",
+      "says": "The called party did not answer within the No Answer timeout."
+     },
+     {
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "readAt": "2026-11-09",
+      "says": "Call not answered; no voicemail left"
+     },
+     {
+      "url": "https://support.realgeeks.com/customize-your-crm",
+      "readAt": "2026-11-09",
+      "says": "Attempted Contact"
+     }
+    ]
+   },
+   "call-back": {
+    "means": "The lead asked to be called at a later time; the status holds that time.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "call back"
+     },
+     {
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "readAt": "2026-11-09",
+      "says": "Prospect requested a call back"
+     },
+     {
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "readAt": "2026-11-09",
+      "says": "When the prospect expresses interest but has yet to commit to a deal"
+     }
+    ]
+   },
+   "follow-up": {
+    "means": "The team decided to reach out again on a set date (not asked for by the lead); also the place for a long wait.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "follow-up"
+     },
+     {
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "readAt": "2026-11-09",
+      "says": "Follow-up call scheduled"
+     },
+     {
+      "url": "https://support.agencyzoom.com/en/articles/3459657-use-smart-cycle-to-automatically-recycle-leads",
+      "readAt": "2026-11-09",
+      "says": "is a bucket that you can drop unsold quotes into and we'll make sure they automatically recycle back at the perfect time."
+     }
+    ]
+   },
+   "appointment-set": {
+    "means": "A meeting, showing or call is booked with the lead; the status holds the time and who will meet them.",
+    "sources": [
+     {
+      "url": "https://support.realgeeks.com/customize-your-crm",
+      "readAt": "2026-11-09",
+      "says": "Appointment Set"
+     }
+    ]
+   },
+   "interested": {
+    "means": "The lead showed real interest in one named thing (a home, a plan, a product); the status holds what.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "interested in something specific"
+     },
+     {
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "readAt": "2026-11-09",
+      "says": "When the prospect shows the highest level of interest and is ready to move forward."
+     },
+     {
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "readAt": "2026-11-09",
+      "says": "Prospect expressed interest"
+     }
+    ]
+   },
+   "qualified": {
+    "means": "The team judged the lead a real prospect (wants it, can act, is in the area or the licensed state).",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "qualified"
+     },
+     {
+      "url": "https://knowledge.hubspot.com/records/use-lifecycle-stages",
+      "readAt": "2026-11-09",
+      "says": "a contact or company that your sales team has qualified as a potential customer."
+     },
+     {
+      "url": "https://support.freshsales.io/support/solutions/articles/229439-how-to-use-the-status-field-of-contacts-in-freshsales-",
+      "readAt": "2026-11-09",
+      "says": "A lead who has shown genuine interest in your product, replied to emails, answered calls and actively interacting with you."
+     }
+    ]
+   },
+   "quoted": {
+    "means": "Insurance and financial only: a quote or proposal was sent and the lead has not decided.",
+    "sources": [
+     {
+      "url": "https://support.agencyzoom.com/en/articles/5668389-how-to-manage-and-build-pipelines",
+      "readAt": "2026-11-09",
+      "says": "New, Contacted, Quoted and Sold"
+     },
+     {
+      "url": "https://support.agencyzoom.com/en/articles/3459657-use-smart-cycle-to-automatically-recycle-leads",
+      "readAt": "2026-11-09",
+      "says": "is a bucket that you can drop unsold quotes into and we'll make sure they automatically recycle back at the perfect time."
+     }
+    ]
+   },
+   "not-qualified": {
+    "means": "The team judged the lead not a fit (outside the area, no budget, cannot be served); the interaction ends.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "not qualified"
+     },
+     {
+      "url": "https://knowledge.hubspot.com/records/use-lifecycle-stages",
+      "readAt": "2026-11-09",
+      "says": "Unqualified"
+     },
+     {
+      "url": "https://www.fullcircleinsights.com/resource/lead-status-values-for-sales-and-marketing",
+      "readAt": "2026-11-09",
+      "says": "This status is used to specify the end of an interaction."
+     }
+    ]
+   },
+   "not-interested": {
+    "means": "The lead said they do not want what was offered; no follow-up is expected.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "not interested"
+     },
+     {
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "readAt": "2026-11-09",
+      "says": "When the prospect says they’re not interested"
+     },
+     {
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "readAt": "2026-11-09",
+      "says": "The business purpose of the call/chat was not fulfilled, but no follow up is required or expected by the customer."
+     }
+    ]
+   },
+   "wrong-number": {
+    "means": "The phone number is wrong or dead, or the wrong person answered; the lead cannot be reached on it.",
+    "sources": [
+     {
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "readAt": "2026-11-09",
+      "says": "The person for whom the call was intended cannot be reached at this number."
+     },
+     {
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "readAt": "2026-11-09",
+      "says": "Invalid or wrong contact number"
+     },
+     {
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "readAt": "2026-11-09",
+      "says": "When the number is no longer assigned to a phone carrier subscriber"
+     }
+    ]
+   },
+   "do-not-contact": {
+    "means": "The lead asked not to be contacted again; nobody reaches out and no automated message goes.",
+    "sources": [
+     {
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "readAt": "2026-11-09",
+      "says": "When a prospect requests not to be contacted or is listed on the DNC registry"
+     },
+     {
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "readAt": "2026-11-09",
+      "says": "The remote party requested that no further calls be made to his numbers."
+     }
+    ]
+   },
+   "spam": {
+    "means": "Not a real enquiry (a bot, a test, an unrelated pitch); hidden from the default list, nothing deleted.",
+    "sources": [
+     {
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "readAt": "2026-11-09",
+      "says": "The content of the customer email had no connection to any services provided by the contact center."
+     },
+     {
+      "url": "docs/product/5-crm.md:62 in this repository",
+      "readAt": "2026-11-09",
+      "says": "Status: new, contacted, qualified, closed, spam. Spam hides a lead from the default list and deletes nothing."
+     }
+    ]
+   },
+   "lost": {
+    "means": "The lead was a real prospect but the deal will not happen (chose someone else, stopped replying); not the same as not interested.",
+    "sources": [
+     {
+      "url": "https://support.agencyzoom.com/en/articles/5669585-managing-leads",
+      "readAt": "2026-11-09",
+      "says": "The “Dead” section of the AgencyZoom pipeline is for leads that are a “No Go”."
+     },
+     {
+      "url": "https://ankotahelp.helpsite.com/articles/44371-crm-status-for-prospect-management",
+      "readAt": "2026-11-09",
+      "says": "Closed Lost"
+     }
+    ]
+   },
+   "closed": {
+    "means": "The lead became a client: a sale closed, a policy was bound, a listing signed.",
+    "sources": [
+     {
+      "url": "https://developer.lofty.com/concepts/leads",
+      "readAt": "2026-11-09",
+      "says": "Common stages include New Lead, Contacted, Qualified, Under Contract, and Closed."
+     },
+     {
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "readAt": "2026-11-09",
+      "says": "Sale successfully completed"
+     },
+     {
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "readAt": "2026-11-09",
+      "says": "When a prospect completes a successful sale"
+     }
+    ]
+   }
+  }
+ }
+}

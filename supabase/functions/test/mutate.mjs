@@ -283,6 +283,17 @@ const MUTANTS = [
     ['a number is resolved like a name', 'if (parseV4(host) || parseV6(host)) return', 'if (false) return'], ['brackets are not removed', ".replace(/^\\[|\\]$/g, '')", ''],
     ['the final dot is not removed', ".replace(/\\.$/, '')", ''], ['the name is not lower-cased', '.toLowerCase();\n  if (!host)', ';\n  if (!host)'],
   ].map(([n, f, to]) => ['netguard: ' + n, F + '_shared/netguard.ts', f, to, 'netguard.test.ts']),
+  // work order 20 (migration 23): lead type and status lists as data (each must turn crm20.test.ts, capture.test.ts or export.test.ts red). Run only these: --only "crm20"
+  ['crm20 lead-update: the status date is not passed on', F + 'lead-update/index.ts', '${statusDate}::date', '${null}::date', 'crm20.test.ts'],
+  ['crm20 lead-update: the status person is not passed on', F + 'lead-update/index.ts', '${statusWho}::uuid', '${null}::uuid', 'crm20.test.ts'],
+  ['crm20 lead-update: the status line is not passed on', F + 'lead-update/index.ts', '${statusText}::text)', '${null}::text)', 'crm20.test.ts'],
+  ['crm20 http: a status date may have a day that does not exist', F + '_shared/http.ts', 't.getUTCDate() === d;', 'true;', 'crm20.test.ts'],
+  ['crm20 http: a status date may carry a time', F + '_shared/http.ts', 'const m = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(v);', 'const m = /^(\\d{4})-(\\d{2})-(\\d{2})/.exec(v);', 'crm20.test.ts'],
+  ['crm20 http: Fields.day lets a number through', F + '_shared/http.ts', "if (typeof v !== 'string' || !isDay(v)) return this.bad('TYPE', k, 'A date like 2026-11-20.');", "if (typeof v === 'string' && !isDay(v)) return this.bad('TYPE', k, 'A date like 2026-11-20.');", 'crm20.test.ts'],
+  ['crm20 lead-export: the due tick is not passed to the list', F + 'lead-export/index.ts', 'if (d.due !== undefined) q.due = d.due;', '', 'export.test.ts'],
+  ['crm20 lead-export: the duplicates tick is not passed to the list', F + 'lead-export/index.ts', 'if (d.duplicates !== undefined) q.duplicates = d.duplicates;', '', 'export.test.ts'],
+  ['crm20 lead-export: a tick that is not true or false is not refused here', F + 'lead-export/index.ts', "if (d[k] !== undefined && typeof d[k] !== 'boolean') f.problems.push({ code: 'TYPE', path: k, msg: 'True or false.' });", '', 'export.test.ts'],
+  ['crm20 lead-export: the new filter reads the old status', F + 'lead-export/index.ts', "tx`and l.status = 'not-contacted'`", "tx`and l.status = 'new'`", 'export.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;

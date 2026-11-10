@@ -1,0 +1,874 @@
+{
+ "industry": "real-estate",
+ "readAt": "2026-11-09",
+ "source": "work/29-lead-types/real-estate.json and statuses.json (perIndustry.real-estate); copied by this script, never edited by hand",
+ "crm": {
+  "lead_types": [
+   {
+    "key": "buy",
+    "label": "Buy a home"
+   },
+   {
+    "key": "sell",
+    "label": "Sell a home"
+   },
+   {
+    "key": "home-value",
+    "label": "Home value"
+   },
+   {
+    "key": "cash-offer",
+    "label": "Cash offer"
+   },
+   {
+    "key": "showing-request",
+    "label": "Showing request"
+   },
+   {
+    "key": "listing-question",
+    "label": "Question about a listing"
+   },
+   {
+    "key": "rent",
+    "label": "Rent a home"
+   },
+   {
+    "key": "rent-out",
+    "label": "Rent out a property"
+   },
+   {
+    "key": "financing",
+    "label": "Financing or pre-approval"
+   },
+   {
+    "key": "relocation",
+    "label": "Relocation"
+   },
+   {
+    "key": "open-house",
+    "label": "Open house"
+   },
+   {
+    "key": "new-construction",
+    "label": "New construction"
+   },
+   {
+    "key": "investor",
+    "label": "Investing"
+   },
+   {
+    "key": "agent-recruiting",
+    "label": "Join the team"
+   },
+   {
+    "key": "enquiry",
+    "label": "Enquiry"
+   }
+  ],
+  "statuses": [
+   {
+    "key": "not-contacted",
+    "label": "Not contacted yet",
+    "stage": "new",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "contacted",
+    "label": "Contacted",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": true,
+    "needsText": false
+   },
+   {
+    "key": "answering-machine",
+    "label": "Answering machine",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": true,
+    "needsText": false
+   },
+   {
+    "key": "voicemail-left",
+    "label": "Voicemail left",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": true,
+    "needsText": false
+   },
+   {
+    "key": "no-answer",
+    "label": "No answer",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": true,
+    "needsText": false
+   },
+   {
+    "key": "call-back",
+    "label": "Call back",
+    "stage": "working",
+    "needsDate": true,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "follow-up",
+    "label": "Follow-up",
+    "stage": "working",
+    "needsDate": true,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "appointment-set",
+    "label": "Appointment set",
+    "stage": "working",
+    "needsDate": true,
+    "needsWho": true,
+    "needsText": false
+   },
+   {
+    "key": "interested",
+    "label": "Interested in something specific",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": true
+   },
+   {
+    "key": "qualified",
+    "label": "Qualified",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "showing-or-listing",
+    "label": "Showing or listing",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "under-contract",
+    "label": "Under contract",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "not-qualified",
+    "label": "Not qualified",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "not-interested",
+    "label": "Not interested",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "wrong-number",
+    "label": "Wrong number",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "do-not-contact",
+    "label": "Do not contact",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "spam",
+    "label": "Spam",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "lost",
+    "label": "Lost",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "closed",
+    "label": "Closed",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   }
+  ]
+ },
+ "notes": {
+  "lead_types": {
+   "buy": {
+    "producedBy": "Home finder wizard (Buy tab of the hero), contact wizard with topic Buy, any buyer registration or home-search sign-up",
+    "examples": [
+     "I want to buy a house in Napa under $750k",
+     "Send me homes that match what I am looking for"
+    ],
+    "sources": [
+     {
+      "url": "https://help.insiderealestate.com/en/articles/4626537-boldtrail-lead-types-overview",
+      "readAt": "2026-11-09",
+      "says": "There are five available lead types in BoldTrail:"
+     },
+     {
+      "url": "https://developer.lofty.com/concepts/leads",
+      "readAt": "2026-11-09",
+      "says": "Type IDs: Buyer (2), Seller (1), Renter (5), Investor (6), Agent (7), Homeowner (8), Landlord (9), Other (-1)"
+     },
+     {
+      "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms",
+      "readAt": "2026-11-09",
+      "says": "Buyer Registration Forms"
+     }
+    ]
+   },
+   "sell": {
+    "producedBy": "Sell wizard (Sell tab of the hero, offerType list), contact wizard with topic Sell, a seller lead form",
+    "examples": [
+     "I want to sell my house",
+     "Can an agent call me about listing my home"
+    ],
+    "sources": [
+     {
+      "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms",
+      "readAt": "2026-11-09",
+      "says": "Seller Lead Forms"
+     },
+     {
+      "url": "https://support.realgeeks.com/customize-your-crm",
+      "readAt": "2026-11-09",
+      "says": "Lead Type identifies the role or intent of a contact in your CRM"
+     },
+     {
+      "url": "https://help.sierrainteractive.com/helpcenter/seller-lead-sites-setup-and-best-practices",
+      "readAt": "2026-11-09",
+      "says": "like \"Sell in 3-6 Months\""
+     }
+    ]
+   },
+   "home-value": {
+    "producedBy": "Home value wizard (Value tab of the hero, /home_value), contact wizard with topic Home value, a valuation tool that asks for the address",
+    "examples": [
+     "What is my home worth",
+     "Give me a free estimate for 12 Oak Street"
+    ],
+    "sources": [
+     {
+      "url": "https://support.realgeeks.com/what-is-a-potential-seller-lead",
+      "readAt": "2026-11-09",
+      "says": "Address Only Leads are created when someone enters their property address in the Home Valuation Tool but does not complete full registration"
+     },
+     {
+      "url": "https://support.realgeeks.com/seller-signals",
+      "readAt": "2026-11-09",
+      "says": "Homeowners who provide their address automatically receive a home valuation via email."
+     },
+     {
+      "url": "https://help.sierrainteractive.com/helpcenter/capture-seller-leads-with-instant-home-valuations",
+      "readAt": "2026-11-09",
+      "says": "capture contact information from potential sellers in the immediate area who are just beginning to research the market"
+     }
+    ]
+   },
+   "cash-offer": {
+    "producedBy": "Sell wizard opened from the Cash tab or a Cash offer link (offerType cash-offer), contact wizard with topic Cash offer",
+    "examples": [
+     "I need to sell fast, will you make a cash offer",
+     "Sell my house as is for cash"
+    ],
+    "sources": [
+     {
+      "url": "https://leadcapture.io/templates/cash-home-offer-form/",
+      "readAt": "2026-11-09",
+      "says": "ASAP sellers route to same-day callbacks; flexible sellers enter the follow-up cadence."
+     },
+     {
+      "url": "https://leadcapture.io/templates/cash-home-offer-form/",
+      "readAt": "2026-11-09",
+      "says": "Cash buyers pay for motivation, and motivation is exactly what a generic contact form cannot see."
+     }
+    ]
+   },
+   "showing-request": {
+    "producedBy": "A 'Schedule Showing' button or showing request form on a listing page: property address, preferred date, whether the visitor has an agent",
+    "examples": [
+     "Can I see 12 Oak Street on Saturday",
+     "Book a tour of this home"
+    ],
+    "sources": [
+     {
+      "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms",
+      "readAt": "2026-11-09",
+      "says": "Showing Request Forms"
+     },
+     {
+      "url": "https://wpforms.com/templates/real-estate-showing-request-form-template/",
+      "readAt": "2026-11-09",
+      "says": "Preferred Showing Date(s)"
+     }
+    ]
+   },
+   "listing-question": {
+    "producedBy": "'Ask about this home' or 'Request Info' on a listing page (ELEV8 opens the contact wizard with the home's title as the message)",
+    "examples": [
+     "Is this home still available",
+     "Does 12 Oak Street have a garage"
+    ],
+    "sources": [
+     {
+      "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms",
+      "readAt": "2026-11-09",
+      "says": "Property Inquiry Forms (specific listing)"
+     },
+     {
+      "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms",
+      "readAt": "2026-11-09",
+      "says": "\"Request Info\" button on listings"
+     }
+    ]
+   },
+   "rent": {
+    "producedBy": "A rental search or rental inquiry form (a visitor who wants to rent, not buy)",
+    "examples": [
+     "I am looking for a 2 bedroom to rent",
+     "Do you have rentals in Vallejo"
+    ],
+    "sources": [
+     {
+      "url": "https://help.insiderealestate.com/en/articles/4626537-boldtrail-lead-types-overview",
+      "readAt": "2026-11-09",
+      "says": "There are five available lead types in BoldTrail:"
+     },
+     {
+      "url": "https://developer.lofty.com/concepts/leads",
+      "readAt": "2026-11-09",
+      "says": "Type IDs: Buyer (2), Seller (1), Renter (5), Investor (6), Agent (7), Homeowner (8), Landlord (9), Other (-1)"
+     }
+    ]
+   },
+   "rent-out": {
+    "producedBy": "A landlord or owner form: 'I own a property and want to rent it out'",
+    "examples": [
+     "I want to rent out my condo",
+     "Can you find a tenant for my house"
+    ],
+    "sources": [
+     {
+      "url": "https://developer.lofty.com/concepts/leads",
+      "readAt": "2026-11-09",
+      "says": "Type IDs: Buyer (2), Seller (1), Renter (5), Investor (6), Agent (7), Homeowner (8), Landlord (9), Other (-1)"
+     }
+    ]
+   },
+   "financing": {
+    "producedBy": "The pre-approval question in a buyer form ('Are you pre-approved for a loan?'), the Financing topic of the contact wizard, or a first-time buyer / pre-approval form",
+    "examples": [
+     "How much can I borrow",
+     "I need to get pre-approved before I look at homes"
+    ],
+    "sources": [
+     {
+      "url": "https://leadcapture.io/templates/first-time-home-buyer-form/",
+      "readAt": "2026-11-09",
+      "says": "Already pre-approved buyers route to agents; the rest route to lender partners first."
+     },
+     {
+      "url": "https://wpforms.com/templates/real-estate-showing-request-form-template/",
+      "readAt": "2026-11-09",
+      "says": "Are you pre-approved for a mortgage?"
+     }
+    ]
+   },
+   "relocation": {
+    "producedBy": "A 'moving to <city>' or relocation guide form, or the first question 'Where are you coming from?' answered with another state",
+    "examples": [
+     "We are moving from Texas for work in Fairfield",
+     "Send me your relocation guide"
+    ],
+    "sources": [
+     {
+      "url": "https://www.nar.realtor/magazine/broker-news/network/how-to-help-out-of-state-buyers",
+      "readAt": "2026-11-09",
+      "says": "creating a relocation guide is a terrific way to give out-of-state buyers all the information they need in one place"
+     },
+     {
+      "url": "https://www.cincpro.com/blog/real-estate-lead-generations-strategies-for-out-of-state-buyers",
+      "readAt": "2026-11-09",
+      "says": "The first question out of the gate is: Where are you coming from? What state? What town are you in?"
+     },
+     {
+      "url": "https://www.newhomestar.com/blog/the-best-home-builder-websites-guide-practices-examples-strategy",
+      "readAt": "2026-11-09",
+      "says": "TOFU website content that would resonate with this audience includes area guides, relocation content"
+     }
+    ]
+   },
+   "open-house": {
+    "producedBy": "The sign-in form at an open house (buyer, agent or neighbor style), reached by QR code or on a tablet",
+    "examples": [
+     "Signing in at the open house on Elm Street",
+     "I live next door and want to know what it sells for"
+    ],
+    "sources": [
+     {
+      "url": "https://help.sierrainteractive.com/helpcenter/set-up-open-house-lead-capture-forms",
+      "readAt": "2026-11-09",
+      "says": "Leads from open house forms are automatically tagged with Source: Open House"
+     },
+     {
+      "url": "https://help.sierrainteractive.com/helpcenter/set-up-open-house-lead-capture-forms",
+      "readAt": "2026-11-09",
+      "says": "Open House Style for Neighbor"
+     }
+    ]
+   },
+   "new-construction": {
+    "producedBy": "A community inquiry form or a 'request pricing' button on a new-build community page",
+    "examples": [
+     "What are the prices at the new Benicia community",
+     "I want to see the floor plans of the new homes"
+    ],
+    "sources": [
+     {
+      "url": "https://www.newhomestar.com/blog/the-best-home-builder-websites-guide-practices-examples-strategy",
+      "readAt": "2026-11-09",
+      "says": "Community inquiry forms and “request pricing” buttons should enroll prospects in inventory alerts"
+     }
+    ]
+   },
+   "investor": {
+    "producedBy": "A question or form for buyers of investment property, rentals or multi-unit ('I am an investor')",
+    "examples": [
+     "I am looking for a rental property to buy",
+     "Do you have multi-unit buildings under $1M"
+    ],
+    "sources": [
+     {
+      "url": "https://developer.lofty.com/concepts/leads",
+      "readAt": "2026-11-09",
+      "says": "Type IDs: Buyer (2), Seller (1), Renter (5), Investor (6), Agent (7), Homeowner (8), Landlord (9), Other (-1)"
+     }
+    ]
+   },
+   "agent-recruiting": {
+    "producedBy": "A 'Join Our Team' or careers form for agents who want to work with the brokerage or team",
+    "examples": [
+     "I am a licensed agent and want to join your team",
+     "What is your split for new agents"
+    ],
+    "sources": [
+     {
+      "url": "https://help.sierrainteractive.com/helpcenter/how-can-i-recruit-new-agents-using-sierra",
+      "readAt": "2026-11-09",
+      "says": "Select the Careers form template and rename it to something specific, such as \"Join Our Team\""
+     },
+     {
+      "url": "https://help.sierrainteractive.com/helpcenter/how-can-i-recruit-new-agents-using-sierra",
+      "readAt": "2026-11-09",
+      "says": "Confirm new leads from the recruiting form arrive tagged Recruiting"
+     },
+     {
+      "url": "https://help.insiderealestate.com/en/articles/4626537-boldtrail-lead-types-overview",
+      "readAt": "2026-11-09",
+      "says": "There are five available lead types in BoldTrail:"
+     }
+    ]
+   },
+   "enquiry": {
+    "producedBy": "The contact form or contact wizard when the visitor picks Other or only writes a message; the default when no form says more",
+    "examples": [
+     "I have a question",
+     "Can someone call me back"
+    ],
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:40 through the head of operations (work/29-lead-types/CONTEXT.md, Why and Steps 1)",
+      "readAt": "2026-11-09",
+      "says": "plus \"Enquiry\" (a visitor only asking; source: the owner, 2026-11-09 20:40, through the head of operations)"
+     },
+     {
+      "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms",
+      "readAt": "2026-11-09",
+      "says": "Contact Forms (general inquiries)"
+     },
+     {
+      "url": "https://developer.lofty.com/concepts/leads",
+      "readAt": "2026-11-09",
+      "says": "Type IDs: Buyer (2), Seller (1), Renter (5), Investor (6), Agent (7), Homeowner (8), Landlord (9), Other (-1)"
+     }
+    ]
+   }
+  },
+  "statuses": {
+   "not-contacted": {
+    "means": "The lead arrived and nobody has reached out yet.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "not contacted yet"
+     },
+     {
+      "url": "https://help.insiderealestate.com/en/articles/285957-kvcore-lead-contact-statuses",
+      "readAt": "2026-11-09",
+      "says": "the default lead status will be 'New Lead'"
+     },
+     {
+      "url": "https://www.fullcircleinsights.com/resource/lead-status-values-for-sales-and-marketing",
+      "readAt": "2026-11-09",
+      "says": "This status indicates that a record requires follow up. This would be the state that the rep first interacts with the lead."
+     }
+    ]
+   },
+   "contacted": {
+    "means": "A team member spoke with the lead (call, text, email reply); the status records who.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "contacted (by whom)"
+     },
+     {
+      "url": "https://developer.lofty.com/concepts/leads",
+      "readAt": "2026-11-09",
+      "says": "Common stages include New Lead, Contacted, Qualified, Under Contract, and Closed."
+     },
+     {
+      "url": "https://support.agencyzoom.com/en/articles/5668389-how-to-manage-and-build-pipelines",
+      "readAt": "2026-11-09",
+      "says": "New, Contacted, Quoted and Sold"
+     }
+    ]
+   },
+   "answering-machine": {
+    "means": "A call was answered by an answering machine and no message was left; the status records who called.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "answering machine"
+     },
+     {
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "readAt": "2026-11-09",
+      "says": "The call was answered by an answering machine."
+     }
+    ]
+   },
+   "voicemail-left": {
+    "means": "A call reached voicemail and a message was left; the status records who called.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "voicemail left"
+     },
+     {
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "readAt": "2026-11-09",
+      "says": "Voicemail left for the prospect"
+     }
+    ]
+   },
+   "no-answer": {
+    "means": "A try (call, text or email) did not reach the person and nothing was left; the status records who tried.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "no answer"
+     },
+     {
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "readAt": "2026-11-09",
+      "says": "The called party did not answer within the No Answer timeout."
+     },
+     {
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "readAt": "2026-11-09",
+      "says": "Call not answered; no voicemail left"
+     },
+     {
+      "url": "https://support.realgeeks.com/customize-your-crm",
+      "readAt": "2026-11-09",
+      "says": "Attempted Contact"
+     }
+    ]
+   },
+   "call-back": {
+    "means": "The lead asked to be called at a later time; the status holds that time.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "call back"
+     },
+     {
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "readAt": "2026-11-09",
+      "says": "Prospect requested a call back"
+     },
+     {
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "readAt": "2026-11-09",
+      "says": "When the prospect expresses interest but has yet to commit to a deal"
+     }
+    ]
+   },
+   "follow-up": {
+    "means": "The team decided to reach out again on a set date (not asked for by the lead); also the place for a long wait.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "follow-up"
+     },
+     {
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "readAt": "2026-11-09",
+      "says": "Follow-up call scheduled"
+     },
+     {
+      "url": "https://support.agencyzoom.com/en/articles/3459657-use-smart-cycle-to-automatically-recycle-leads",
+      "readAt": "2026-11-09",
+      "says": "is a bucket that you can drop unsold quotes into and we'll make sure they automatically recycle back at the perfect time."
+     }
+    ]
+   },
+   "appointment-set": {
+    "means": "A meeting, showing or call is booked with the lead; the status holds the time and who will meet them.",
+    "sources": [
+     {
+      "url": "https://support.realgeeks.com/customize-your-crm",
+      "readAt": "2026-11-09",
+      "says": "Appointment Set"
+     }
+    ]
+   },
+   "interested": {
+    "means": "The lead showed real interest in one named thing (a home, a plan, a product); the status holds what.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "interested in something specific"
+     },
+     {
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "readAt": "2026-11-09",
+      "says": "When the prospect shows the highest level of interest and is ready to move forward."
+     },
+     {
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "readAt": "2026-11-09",
+      "says": "Prospect expressed interest"
+     }
+    ]
+   },
+   "qualified": {
+    "means": "The team judged the lead a real prospect (wants it, can act, is in the area or the licensed state).",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "qualified"
+     },
+     {
+      "url": "https://knowledge.hubspot.com/records/use-lifecycle-stages",
+      "readAt": "2026-11-09",
+      "says": "a contact or company that your sales team has qualified as a potential customer."
+     },
+     {
+      "url": "https://support.freshsales.io/support/solutions/articles/229439-how-to-use-the-status-field-of-contacts-in-freshsales-",
+      "readAt": "2026-11-09",
+      "says": "A lead who has shown genuine interest in your product, replied to emails, answered calls and actively interacting with you."
+     }
+    ]
+   },
+   "showing-or-listing": {
+    "means": "Real estate only: the team is showing homes to a buyer or preparing the listing for a seller.",
+    "sources": [
+     {
+      "url": "https://support.realgeeks.com/customize-your-crm",
+      "readAt": "2026-11-09",
+      "says": "Showing or Listing"
+     },
+     {
+      "url": "https://help.insiderealestate.com/en/articles/285957-kvcore-lead-contact-statuses",
+      "readAt": "2026-11-09",
+      "says": "Contacts you are actually working with, and showing homes, etc."
+     }
+    ]
+   },
+   "under-contract": {
+    "means": "Real estate only: an offer was accepted and the sale or purchase is in progress.",
+    "sources": [
+     {
+      "url": "https://developer.lofty.com/concepts/leads",
+      "readAt": "2026-11-09",
+      "says": "Common stages include New Lead, Contacted, Qualified, Under Contract, and Closed."
+     },
+     {
+      "url": "https://help.insiderealestate.com/en/articles/285957-kvcore-lead-contact-statuses",
+      "readAt": "2026-11-09",
+      "says": "Contacts who are in the buying or selling transaction process."
+     },
+     {
+      "url": "https://support.realgeeks.com/customize-your-crm",
+      "readAt": "2026-11-09",
+      "says": "Under Contract"
+     }
+    ]
+   },
+   "not-qualified": {
+    "means": "The team judged the lead not a fit (outside the area, no budget, cannot be served); the interaction ends.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "not qualified"
+     },
+     {
+      "url": "https://knowledge.hubspot.com/records/use-lifecycle-stages",
+      "readAt": "2026-11-09",
+      "says": "Unqualified"
+     },
+     {
+      "url": "https://www.fullcircleinsights.com/resource/lead-status-values-for-sales-and-marketing",
+      "readAt": "2026-11-09",
+      "says": "This status is used to specify the end of an interaction."
+     }
+    ]
+   },
+   "not-interested": {
+    "means": "The lead said they do not want what was offered; no follow-up is expected.",
+    "sources": [
+     {
+      "url": "owner:2026-11-09 20:48 through the head of operations",
+      "readAt": "2026-11-09",
+      "says": "not interested"
+     },
+     {
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "readAt": "2026-11-09",
+      "says": "When the prospect says they’re not interested"
+     },
+     {
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "readAt": "2026-11-09",
+      "says": "The business purpose of the call/chat was not fulfilled, but no follow up is required or expected by the customer."
+     }
+    ]
+   },
+   "wrong-number": {
+    "means": "The phone number is wrong or dead, or the wrong person answered; the lead cannot be reached on it.",
+    "sources": [
+     {
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "readAt": "2026-11-09",
+      "says": "The person for whom the call was intended cannot be reached at this number."
+     },
+     {
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "readAt": "2026-11-09",
+      "says": "Invalid or wrong contact number"
+     },
+     {
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "readAt": "2026-11-09",
+      "says": "When the number is no longer assigned to a phone carrier subscriber"
+     }
+    ]
+   },
+   "do-not-contact": {
+    "means": "The lead asked not to be contacted again; nobody reaches out and no automated message goes.",
+    "sources": [
+     {
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "readAt": "2026-11-09",
+      "says": "When a prospect requests not to be contacted or is listed on the DNC registry"
+     },
+     {
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "readAt": "2026-11-09",
+      "says": "The remote party requested that no further calls be made to his numbers."
+     }
+    ]
+   },
+   "spam": {
+    "means": "Not a real enquiry (a bot, a test, an unrelated pitch); hidden from the default list, nothing deleted.",
+    "sources": [
+     {
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "readAt": "2026-11-09",
+      "says": "The content of the customer email had no connection to any services provided by the contact center."
+     },
+     {
+      "url": "docs/product/5-crm.md:62 in this repository",
+      "readAt": "2026-11-09",
+      "says": "Status: new, contacted, qualified, closed, spam. Spam hides a lead from the default list and deletes nothing."
+     }
+    ]
+   },
+   "lost": {
+    "means": "The lead was a real prospect but the deal will not happen (chose someone else, stopped replying); not the same as not interested.",
+    "sources": [
+     {
+      "url": "https://support.agencyzoom.com/en/articles/5669585-managing-leads",
+      "readAt": "2026-11-09",
+      "says": "The “Dead” section of the AgencyZoom pipeline is for leads that are a “No Go”."
+     },
+     {
+      "url": "https://ankotahelp.helpsite.com/articles/44371-crm-status-for-prospect-management",
+      "readAt": "2026-11-09",
+      "says": "Closed Lost"
+     }
+    ]
+   },
+   "closed": {
+    "means": "The lead became a client: a sale closed, a policy was bound, a listing signed.",
+    "sources": [
+     {
+      "url": "https://developer.lofty.com/concepts/leads",
+      "readAt": "2026-11-09",
+      "says": "Common stages include New Lead, Contacted, Qualified, Under Contract, and Closed."
+     },
+     {
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "readAt": "2026-11-09",
+      "says": "Sale successfully completed"
+     },
+     {
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "readAt": "2026-11-09",
+      "says": "When a prospect completes a successful sale"
+     }
+    ]
+   }
+  }
+ }
+}

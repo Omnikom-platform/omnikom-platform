@@ -85,3 +85,16 @@ t('capture-lead: the security event of a bad signature carries its detail as a J
     eq(e.d, 'object', 'detail is an object'); eq(e.path, '/capture-lead', 'and says which path');
   });
 });
+
+t('capture-lead (work order 20): the lead type comes from the form\'s mapping (a mapped answer, another mapped answer, none) and a new lead starts at not-contacted', async () => {
+  await seedKey(); await crmForms();
+  const send = async (name: string, answers: Record<string, unknown>) => {
+    const r = await post({ form: 'contact', page: '/contact', consentText: 'I agree to be contacted', name, answers });
+    eq(r.status, 202, `${name}: ${r.text}`);
+    return await withSql(async sql => (await sql`select lead_type, status from public.leads where name = ${name}`)[0]);
+  };
+  const buy = await send('Cap Type Buy', { budget: 'high' });
+  eq(buy.lead_type, 'buy', 'a mapped answer'); eq(buy.status, 'not-contacted', 'a new lead starts at not-contacted');
+  eq((await send('Cap Type Ask', { budget: 'low' })).lead_type, 'listing-question', 'the "Ask about this home" kind of answer is listing-question');
+  eq((await send('Cap Type None', { rooms: 2 })).lead_type, 'enquiry', 'no answer to map is an enquiry');
+});

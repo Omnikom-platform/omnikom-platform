@@ -1,12 +1,12 @@
 // lead-export: the CRM's Export (DP-1.3-05; 15-CRM section 7; slice 5.2). Two body shapes:
 //   { site, filter?: 'new' | 'all' | 'mine' | 'spam', q?: string }   block 1's: one site under the New / All / Mine / Spam filter (the CLI and the e2e files use it).
-//   { workspace, search?, filters?, sort?, template?, timezone? }    the CRM view (work orders 02 and 07): the leads exactly as service.lead_list shows them to the caller
+//   { workspace, search?, filters?, sort?, due?, duplicates?, template?, timezone? }    the CRM view (work orders 02 and 07; due and duplicates, work order 20): the leads exactly as service.lead_list shows them to the caller
 //     (search over every column, filters and sort on any column, the same query as the screen), with the client's saved layout when `template` is given and, without it,
 //     in block 1's one-column-per-field layout (the columns below). A body with `workspace` always takes this shape; `template` without `workspace` is a 400.
 // What the caller gets is exactly what the database lets them read: the leads are selected on a connection that acts AS THE CALLER under Row Level
 // Security (db.ts asCaller: role authenticated + their verified claims), never as the service role. An owner or staff reads every lead of the
 // site, an agent only the leads assigned to them.
-//   filter (default 'all'): new = status new; all = every status except spam; mine = assigned to me (their team profile), except spam; spam = spam.
+//   filter (default 'all'): new = status not-contacted; all = every status except spam; mine = assigned to me (their team profile), except spam; spam = spam.
 //   q: matches name, email and phone, case-insensitive, once it is at least 2 characters (as the list does); shorter is ignored.
 //   Newest first. At most 5000 rows: when there were more, the answer carries the header X-Omnikom-Export-Capped: 5000 and holds the newest 5000.
 // Columns: received (UTC, ISO), name, email, phone, form, page, status, owner (the team member's name), then every industry field of the contract as its
@@ -43,7 +43,7 @@ async function serve(req: Request, maxRows: number): Promise<Response> {
       const [m] = filter === 'mine'
         ? await tx`select m.team_row_id from public.members m join public.sites s on s.workspace_id = m.workspace_id where s.id = ${site}::uuid and m.user_id = ${c.sub}::uuid`
         : [{ team_row_id: null }];
-      const byFilter = filter === 'new' ? tx`and l.status = 'new'` : filter === 'spam' ? tx`and l.status = 'spam'`
+      const byFilter = filter === 'new' ? tx`and l.status = 'not-contacted'` : filter === 'spam' ? tx`and l.status = 'spam'`
         : filter === 'mine' ? tx`and l.status <> 'spam' and l.owner_team_row = ${m?.team_row_id ?? null}::uuid` : tx`and l.status <> 'spam'`;
       const byText = pattern ? tx`and (l.name ilike ${pattern} or l.email ilike ${pattern} or l.phone ilike ${pattern})` : tx``;
       const rows: Lead[] = await tx`select l.id, l.created_at, l.name, l.email, l.phone, l.form, l.page_path, l.status, l.owner_team_row, l.answers
@@ -99,6 +99,8 @@ async function inLayout(c: Ctx, d: Record<string, unknown>, maxRows: number): Pr
   const f = new Fields(d);
   const workspace = f.uuid('workspace'), template = f.uuid('template', false), search = f.str('search', { max: 200 }), timezone = f.str('timezone', { max: 60 });
   const filters = d.filters, sort = d.sort;
+  // work order 19 finding 4 (head's ruling H): the view's Due and Duplicates ticks are part of the view, so the file holds what the screen shows (service.lead_list reads both)
+  for (const k of ['due', 'duplicates'] as const) if (d[k] !== undefined && typeof d[k] !== 'boolean') f.problems.push({ code: 'TYPE', path: k, msg: 'True or false.' });
   if (filters !== undefined && !(Array.isArray(filters) && filters.length <= 20)) f.problems.push({ code: 'TYPE', path: 'filters', msg: 'A list of at most 20 filters.' });
   if (sort !== undefined && (sort === null || typeof sort !== 'object' || Array.isArray(sort))) f.problems.push({ code: 'TYPE', path: 'sort', msg: 'An object { field, dir }.' });
   if (f.problems.length || !workspace) return badBody(f.problems);
@@ -112,6 +114,8 @@ async function inLayout(c: Ctx, d: Record<string, unknown>, maxRows: number): Pr
   if (search) q.search = search;
   if (filters !== undefined) q.filters = filters;
   if (sort !== undefined) q.sort = sort;
+  if (d.due !== undefined) q.due = d.due;
+  if (d.duplicates !== undefined) q.duplicates = d.duplicates;
   const ids: string[] = [];
   let total = 0;
   let fields: Field[] = [];

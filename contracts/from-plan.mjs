@@ -142,6 +142,7 @@ export function generate({ sitemap, business, existing, entities, planDir }) {
       generatedFrom: { plan: planDir, sitemapSha256: hash, planGeneratedAt: sitemap.generatedAt, entities: E.source || 'entities.json' },
     },
     collections, pageTypes, pages, forms, placements,
+    ...(E.crm ? { crm: E.crm } : {}),   // work order 20: the industry's lead type and status lists
     clientWording: E.clientWording || [],
     gateWaivers: E.gateWaivers || [],
     pageSeeds: { ...pageSeeds, ...(E.pageSeo || {}) },
@@ -165,6 +166,12 @@ export function seedGaps(contract) {
   return gaps;
 }
 
+// `crmFrom` in the entities file names a fragment of contracts/examples/crm-lists/ (path relative to the entities file); its `crm` block is copied in whole
+function withCrm(E, entitiesPath) {
+  if (!E.crmFrom) return E;
+  return { ...E, crm: JSON.parse(readFileSync(join(dirname(entitiesPath), E.crmFrom), 'utf8')).crm };
+}
+
 function args() {
   const a = process.argv.slice(2), o = {};
   for (let i = 0; i < a.length; i += 2) o[a[i].replace(/^--/, '')] = a[i + 1];
@@ -181,7 +188,7 @@ if (isMain(import.meta.url)) {
   const exPath = join(planDir, 'existing-pages.json');
   const contract = generate({
     sitemap, business: bizPath && read(bizPath), existing: existsSync(exPath) ? read(exPath) : null,
-    entities: read(o.entities), planDir: o.plan.replace(/\\/g, '/'),
+    entities: withCrm(read(o.entities), o.entities), planDir: o.plan.replace(/\\/g, '/'),
   });
   writeFileSync(o.out, JSON.stringify(contract, null, 1) + '\n');
   const problems = validateContract(contract);

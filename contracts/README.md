@@ -52,6 +52,14 @@ seeds        places / items the plan names (e.g. the 10 ELEV8 cities)
   other key is an industry field kept in `leads.answers` under that key, and the same key in two forms must agree on type and
   flags (one CRM column). `leadColumns(contract)` lists them; the database reads the same declaration to type a capture and an
   edit (M14). The factory draws each type with no script (`factory/lib/fields.mjs`).
+- **Lead type and status lists** (work order 20, A16; `crm`, optional, top level of the site contract): `crm.lead_types` is an ordered list of `{ key, label }` and
+  `crm.statuses` of `{ key, label, stage?, needsDate?, needsWho?, needsText? }` (stage: new, working or outcome; the three flags are true or false), each 1 to 60
+  entries, keys lower-case words joined by hyphens, unique; `enquiry` must be a lead type and `not-contacted` a status. The lists are the industry's data, never code:
+  `examples/crm-lists/` holds the real-estate and insurance-and-financial fragments, built by `node contracts/examples/crm-lists/build.mjs` from SEO's researched files
+  (`work/29-lead-types/`, sources kept in the fragment's `notes`), and an entities file names one with `"crmFrom": "../crm-lists/<industry>.json"`. A form says how
+  its submission sets the lead type: `leadType: "<key>"` (always that type) or `leadTypeFrom: { field, map: { <answer value>: "<key>" } }` (an enum, a single choice or
+  a reference field of the form); anything else is `enquiry`. A site without `crm` has the platform floor (lead type enquiry; statuses not-contacted, contacted, qualified, closed, no flags, so an existing business keeps working; spam is a system status everywhere).
+  The database reads the same block (migration 23) and checks every write against it.
 - **Section kinds:** `fields` (the client edits them), `feed` (fills itself from a collection through placements), `form`,
   `notice` (a locked legal text).
 - **Bound pages:** a page type with `bind` shows one row of that collection (ELEV8 city guides bound to a city; Rainmaker product
@@ -82,7 +90,7 @@ database checks so the app cannot skip them.
 Contract: C-SHAPE C-CORE C-KIND C-FIELDS C-FIELD-TYPE C-ENUM C-REF C-LOCK C-RANGE C-MEDIA C-TITLE C-ROUTE C-STATUS C-ACCESS C-OWNER
 C-ONDELETE C-BIND C-SECTION C-FEED C-FORM-REF C-NOTICE C-PAGE-TYPE C-PATH C-PAGE-BIND C-CONSENT C-CRM C-PLACE-COLL C-PLACE-WHEN
 C-PLACE-TARGET C-PLACE-SECTION C-PLACE-MATCH C-PLACE-ROUTE C-FEED-ORPHAN C-SITEMAP C-VISIBLE C-WORDING C-SAMPLE C-WAIVER
-C-FORM-TYPE C-FORM-KEY C-FORM-CORE C-FORM-FLAG C-FORM-LABEL C-FORM-SAME-KEY.
+C-FORM-TYPE C-FORM-KEY C-FORM-CORE C-FORM-FLAG C-FORM-LABEL C-FORM-SAME-KEY C-CRM-LIST C-CRM-KEY C-CRM-LABEL C-CRM-STAGE C-CRM-FLAG C-CRM-REQUIRED C-FORM-LEADTYPE.
 Rows: I-REQUIRED I-TYPE I-ENUM I-MAX I-MIN I-SLUG I-ALT I-MEDIA-SIZE I-RIGHTS I-EXIF I-SOURCE I-PLACEHOLDER I-UNKNOWN I-REF I-COLLECTION I-MEDIA-UNKNOWN I-SAMPLE-LIVE.
 Store: S-WORKSPACE S-NOT-FOUND S-COLLECTION S-ROLE S-OWN-ONLY S-SINGLETON S-LOCKED S-SIGNOFF S-INVALID S-PUBLISH-INVALID S-KIND.
 The message text of each is in the source next to the code.

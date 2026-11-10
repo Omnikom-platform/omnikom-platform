@@ -2,7 +2,7 @@
 // tests prove the functions pass the verified claims through and map the walls to the right status.
 import { handle as leadUpdate } from '../lead-update/index.ts';
 import { handle as addLead } from '../add-lead/index.ts';
-import { assert, call, eq, securityEvents, SITE_A, SUB, teamRows, t, WS_A, withSql } from './util.ts';
+import { assert, call, crmForms, eq, securityEvents, SITE_A, SUB, teamRows, t, WS_A, withSql } from './util.ts';
 
 const upd = (who: Parameters<typeof call>[3], body: Record<string, unknown>) => call(leadUpdate, 'lead-update', body, who);
 const add = (who: Parameters<typeof call>[3], body: Record<string, unknown>) => call(addLead, 'add-lead', body, who);
@@ -16,16 +16,18 @@ async function mkLead(owner: string | null, name: string): Promise<string> {
 }
 
 t('lead-update: member-a1 on a lead that is not theirs is 404 S-NOT-FOUND (and one security event)', async () => {
+  await crmForms();
   const team = await teamRows();
   const lead = await mkLead(team.two, 'Lead of agent two');
   const before = await securityEvents({ actor: SUB['member-a1'], code: 'S-NOT-FOUND' });
   const r = await upd('member-a1', { lead, status: 'contacted' });
   eq(r.status, 404, 'status: ' + r.text); eq(r.json?.code, 'S-NOT-FOUND', 'code');
   eq(await securityEvents({ actor: SUB['member-a1'], code: 'S-NOT-FOUND' }), before + 1, 'a security event');
-  await withSql(async sql => { const [x] = await sql`select status from public.leads where id = ${lead}::uuid`; eq(x.status, 'new', 'the lead did not change'); });
+  await withSql(async sql => { const [x] = await sql`select status from public.leads where id = ${lead}::uuid`; eq(x.status, 'not-contacted', 'the lead did not change'); });
 });
 
 t('lead-update: member-a1 on their own lead is 204, the status changes and the timeline says so', async () => {
+  await crmForms();
   const team = await teamRows();
   const lead = await mkLead(team.one, 'Lead of agent one');
   const r = await upd('member-a1', { lead, status: 'contacted', note: 'Called, no answer' });

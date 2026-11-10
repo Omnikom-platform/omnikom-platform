@@ -59,15 +59,27 @@ typed, with the column list as an array in contract form order; `lead-export` wr
 edits them through `lead-update` `fields`. Nothing is written per industry in code. The CRM's columns follow from the contract.
 Not yet: the crm-map dictionary entries and the screens (block 3).
 
-**Status:** new, contacted, qualified, closed, spam today (a fixed list). Spam hides a lead from the default list and deletes nothing.
-Owner ruling 2026-11-09 (A16, work order 20): a lead carries two separate columns. **Lead type** is what the lead is about, set from
+**Lead type and status (A16, work order 20, migration 23).** Owner ruling 2026-11-09: a lead carries two separate columns. **Lead type** is what the lead is about, set from
 the form and what the visitor asked, from a list per industry (real estate has about 13 to 15 types; "Enquiry" is one, for a
 visitor who is just asking). **Status** is the acquisition state, what happened with the lead: not contacted yet, contacted (and
 by whom), not interested, interested in something specific, and so on. The owner's set (2026-11-09 20:48): not contacted yet,
 contacted (by whom), answering machine, no answer, voicemail left, wrong number, call back, follow-up, qualified, not qualified,
-not interested, interested in something specific, appointment set, do not contact; call back and follow-up carry a date. Both lists are data per industry, never written in code;
-SEO and audits research them (work order 29: real estate first, then insurance) and hand the lists to platform build. Today's
-five statuses become the status column's starting set or are replaced by a migration (work order 20 decides).
+not interested, interested in something specific, appointment set, do not contact; call back and follow-up carry a date.
+Both lists are **data of the industry contract**, never written in code: `crm.lead_types` and `crm.statuses`, each an ordered list of
+`{ key, label }` (statuses also `stage` and the flags `needsDate`, `needsWho`, `needsText`), validated by `contracts/validate.mjs`
+(`C-CRM-*`; `contracts/README.md`). SEO's researched lists (work order 29, with their sources) are the real-estate and
+insurance-and-financial fragments in `contracts/examples/crm-lists/`, built from SEO's files by a script and copied into a site's contract by
+`crmFrom` in its entities file. A site whose contract has no `crm` block has the platform floor: lead type `enquiry`, and the four statuses the product had before
+(`not-contacted`, `contacted`, `qualified`, `closed`, no flags), so every existing business keeps working and its old rows stay settable; `spam` is a system status accepted everywhere (it hides a lead from the default list and is not an acquisition outcome).
+**Lead type** is set when the lead is captured, from the form it came through (the contract's `forms.<id>.leadType`, a fixed type, or
+`leadTypeFrom { field, map }`, the value of one answer picks the type); anything else is `enquiry`; a user may change it later. **Status**
+is checked against the business's own list on every write (capture, the edit call, bulk, import, a direct table write): a status that
+`needsDate` takes a day (`status_date`) and is refused without one, one that `needsWho` records a member (`status_who`, the caller when no one
+is named), one that `needsText` keeps one line (`status_text`, up to 200); a status that does not ask for a value clears it, and **a status change clears the date, person and line the old status carried** (they belong to the status they were set for: the caller sends them again; the edit paths, `lead-update`, the edit call and bulk, clear what was not sent and keep what was, even when it equals the old value; a direct table write is only validated). A bulk change
+or a file import cannot set a status that needs a date (a limit: one lead at a time). An import file may carry the lead type (a key or a label of the business's list; empty is `enquiry`; the map may name `lead_type`). A new lead starts at `not-contacted`; the old five statuses were converted by the
+migration (new became not-contacted; contacted, qualified, closed and spam are keys of the lists). **Every note shows its author** and its
+time: `lead_events.by` is the user id, `detail.author` is `{ kind: user | agent, name }` written at the time ("agent" only when the verified
+claims' `app_metadata.actor` says so; the AI operators' identity is defined nowhere else yet). ELEV8's `both` (buyer and seller) has no type of its own yet: it is stored as `enquiry` until the clients department names one. The owner's "answering machine" and "voicemail left" are two statuses (the SEO research merged them; the owner outranks it, `contracts/examples/crm-lists/build.mjs`).
 
 **Who sees what:** the owner sees every lead of the workspace; a member (agent) sees only leads assigned to them. The database
 decides, not the screen. A member cannot hand a lead on. A member's hand-entered lead is their own; the owner can pick an owner.

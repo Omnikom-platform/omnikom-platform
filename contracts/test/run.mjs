@@ -38,6 +38,20 @@ const entities = {
       fields: { area: { type: 'reference', to: 'areas', required: true }, agent: { type: 'reference', to: 'team', required: true } },
       onDelete: { redirectToPageOf: 'area', pageType: 'buyer-guide' } },
   },
+  crm: {
+    lead_types: [{ key: 'enquiry', label: 'Enquiry' }, { key: 'buy', label: 'Buy a home' }, { key: 'sell', label: 'Sell a home' }],
+    statuses: [
+      { key: 'not-contacted', label: 'Not contacted yet', stage: 'new', needsDate: false, needsWho: false, needsText: false },
+      { key: 'contacted', label: 'Contacted', stage: 'working', needsDate: false, needsWho: true, needsText: false },
+      { key: 'call-back', label: 'Call back', stage: 'working', needsDate: true, needsWho: false, needsText: false },
+      { key: 'closed', label: 'Closed', stage: 'outcome' },
+    ],
+  },
+  forms: {
+    buyer: { label: 'Buyer', fields: { name: { type: 'text' }, email: { type: 'email' }, topic: { type: 'enum', options: ['buy', 'sell', 'other'] } }, consent: { notice: 'form-consent' },
+      leadTypeFrom: { field: 'topic', map: { buy: 'buy', sell: 'sell' } } },
+    seller: { label: 'Seller', fields: { name: { type: 'text' }, email: { type: 'email' } }, consent: { notice: 'form-consent' }, leadType: 'sell' },
+  },
   extend: { team: { route: '/team/{slug}', areas: { type: 'reference', to: 'areas', multiple: true } } },
   pageTypes: {
     home: { sections: [
@@ -68,6 +82,7 @@ check('generator: unbound page type gets default sections', GOOD.pageTypes.guide
 check('generator: item that references the page\'s place is derived onto it', JSON.stringify(GOOD.placements.find(p => p.id === 'derived:team>buyer-guide')?.to) === '{"pageType":"buyer-guide","section":"area-agents","match":"areas"}');
 check('generator: FAQ feeds derived', GOOD.placements.some(p => p.id === 'derived:faqs>buyer-guide'));
 check('generator: sitemap + schema derived for routed collections', ['listings', 'team', 'posts'].every(c => GOOD.placements.some(p => p.collection === c && p.to.sitemap)) && GOOD.placements.some(p => p.collection === 'listings' && p.to.schema === 'RealEstateListing'));
+check('generator: the entities\' crm lists ride into the contract whole', JSON.stringify(GOOD.crm) === JSON.stringify(entities.crm) && GOOD.forms.buyer.leadTypeFrom.field === 'topic');
 check('generator: seeds the places the plan names', JSON.stringify(GOOD.seeds.areas) === '["alpha","beta"]');
 
 // ---------- contract: each broken fixture must report its code ----------
@@ -117,6 +132,28 @@ const contractCases = [
   ['C-FORM-LABEL', c => { c.forms.contact.fields.message.label = ''; }],
   ['C-FORM-SAME-KEY', c => { c.forms.other = { label: 'Other', fields: { message: { type: 'number' } } }; }],
   ['C-FORM-SAME-KEY', c => { c.forms.other = { label: 'Other', fields: { message: { type: 'text', column: false } } }; }],
+  ['C-CRM-LIST', c => { c.crm = 'statuses'; }],
+  ['C-CRM-LIST', c => { c.crm.statuses = []; }],
+  ['C-CRM-LIST', c => { c.crm.lead_types.push('buy'); }],
+  ['C-CRM-LIST', c => { delete c.crm.lead_types; }],
+  ['C-CRM-KEY', c => { c.crm.statuses[1].key = 'Contacted Today'; }],
+  ['C-CRM-KEY', c => { c.crm.lead_types[2].key = 'buy'; }],
+  ['C-CRM-LABEL', c => { c.crm.statuses[1].label = ''; }],
+  ['C-CRM-LABEL', c => { c.crm.lead_types[1].label = 'x'.repeat(61); }],
+  ['C-CRM-STAGE', c => { c.crm.statuses[1].stage = 'later'; }],
+  ['C-CRM-STAGE', c => { c.crm.lead_types[1].stage = 'new'; }],
+  ['C-CRM-FLAG', c => { c.crm.statuses[1].needsWho = 'yes'; }],
+  ['C-CRM-FLAG', c => { c.crm.lead_types[1].needsDate = true; }],
+  ['C-CRM-REQUIRED', c => { c.crm.lead_types = c.crm.lead_types.filter(e => e.key !== 'enquiry'); }],
+  ['C-CRM-REQUIRED', c => { c.crm.statuses = c.crm.statuses.filter(e => e.key !== 'not-contacted'); }],
+  ['C-FORM-LEADTYPE', c => { c.forms.seller.leadType = 'rent'; }],
+  ['C-FORM-LEADTYPE', c => { c.forms.seller.leadTypeFrom = c.forms.buyer.leadTypeFrom; }],
+  ['C-FORM-LEADTYPE', c => { c.forms.buyer.leadTypeFrom.map.buy = 'rent'; }],
+  ['C-FORM-LEADTYPE', c => { c.forms.buyer.leadTypeFrom.map.maybe = 'buy'; }],
+  ['C-FORM-LEADTYPE', c => { c.forms.buyer.leadTypeFrom.field = 'name'; }],
+  ['C-FORM-LEADTYPE', c => { c.forms.buyer.leadTypeFrom = { field: 'topic', map: {} }; }],
+  ['C-FORM-LEADTYPE', c => { delete c.crm; }],
+  ['C-FORM-KEY', c => { c.forms.contact.fields.lead_type = { type: 'text' }; }],
   ['C-PLACE-COLL', c => { c.placements[0].collection = 'nope'; }],
   ['C-PLACE-WHEN', c => { c.placements[0].when.status = ['rented']; }],
   ['C-PLACE-TARGET', c => { c.placements[0].to = { page: '/nope/', section: 'x' }; }],
@@ -156,10 +193,25 @@ for (const [code, mutate] of contractCases) {
   check('form fields: number, enum, choice (single and multi), date, boolean and reference with flags validate', p.length === 0, JSON.stringify(p));
   const cols = leadColumns(c), by = Object.fromEntries(cols.map(x => [x.key, x]));
   check('form fields: leadColumns lists industry keys only (not name/email/phone), in form order',
-    cols.map(x => x.key).join() === 'message,budget,timing,side,wants,moveBy,preApproved,area', cols.map(x => x.key).join());
+    cols.map(x => x.key).join() === 'topic,message,budget,timing,side,wants,moveBy,preApproved,area', cols.map(x => x.key).join());
   check('form fields: column and editable default to true; false stays false', by.budget.column && by.budget.editable && !by.wants.column && !by.moveBy.editable && by.wants.editable);
   check('form fields: a key in two forms is one column with both forms\' options', JSON.stringify(by.timing.options) === '["0-3 months","just looking","6-12 months"]', JSON.stringify(by.timing.options));
   check('form fields: number keeps min/max and label; reference keeps its collection; multi is carried', by.budget.min === 0 && by.budget.max === 5000000 && by.budget.label === 'Budget' && by.area.to === 'areas' && by.wants.multi === true && by.side.multi === false);
+}
+
+// ---------- the real examples carry their industry's lists (work order 20) ----------
+{
+  const { readFileSync } = await import('node:fs');
+  const ex = n => JSON.parse(readFileSync(resolve(DIR, 'examples', n, 'contract.json'), 'utf8'));
+  const elev8 = ex('elev8'), rm = ex('rainmaker');
+  check('examples: ELEV8 and Rainmaker validate with their crm lists', validateContract(elev8).length === 0 && validateContract(rm).length === 0, JSON.stringify([...validateContract(elev8), ...validateContract(rm)]));
+  const lt = c => c.crm.lead_types.map(e => e.key);
+  check('examples: ELEV8 has the 15 real-estate types and 19 statuses; Rainmaker the 15 insurance types and 18 (the owner\'s answering machine and voicemail left are two)', lt(elev8).length === 15 && elev8.crm.statuses.length === 19 && lt(rm).length === 15 && rm.crm.statuses.length === 18 && [elev8, rm].every(c => ['answering-machine', 'voicemail-left'].every(k => c.crm.statuses.some(x => x.key === k))));
+  check("examples: ELEV8's contact form allows listing-question and maps Ask about this home to it, not to buy", elev8.forms.contact.fields.leadType.options.includes('listing-question')
+    && elev8.forms.contact.leadTypeFrom.field === 'leadType' && elev8.forms.contact.leadTypeFrom.map['listing-question'] === 'listing-question' && elev8.forms.contact.leadTypeFrom.map.buyer === 'buy' && elev8.forms.contact.leadTypeFrom.map.seller === 'sell');
+  check('examples: every ELEV8 form says how it sets the lead type', Object.values(elev8.forms).every(f => f.leadType || f.leadTypeFrom));
+  check('examples: Rainmaker maps its three products and sends the careers form to agent-recruiting', rm.forms.inquiry.leadTypeFrom.map.annuities === 'annuity' && rm.forms['careers-interest'].leadType === 'agent-recruiting');
+  check('examples: the statuses that need a date are the ones the owner named (call-back, follow-up, appointment-set)', elev8.crm.statuses.filter(s => s.needsDate).map(s => s.key).join() === 'call-back,follow-up,appointment-set');
 }
 
 // ---------- items ----------

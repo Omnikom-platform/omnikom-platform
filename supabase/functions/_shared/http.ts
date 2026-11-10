@@ -16,6 +16,15 @@ export function isInstant(v: string): boolean {
   return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d && mi < 60 && s < 60;   // an hour of 24 or more rolls the day over, so the date check refuses it
 }
 
+/** a calendar day, 2026-11-20: what a status date is sent as */
+export function isDay(v: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if (!m) return false;
+  const [y, mo, d] = [m[1], m[2], m[3]].map(Number);
+  const t = new Date(Date.UTC(y, mo - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d;
+}
+
 export type FieldProblem = { code: string; path: string; msg: string; row?: string };
 
 export const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: H });
@@ -59,6 +68,13 @@ export class Fields {
     const v = this.d[k];
     if (v == null) return null;
     if (typeof v !== 'string' || !isInstant(v)) return this.bad('TYPE', k, 'A date and time like 2026-11-20T10:00:00Z.');
+    return v;
+  }
+  /** a calendar day (isDay); null when absent or null */
+  day(k: string): string | null {
+    const v = this.d[k];
+    if (v == null) return null;
+    if (typeof v !== 'string' || !isDay(v)) return this.bad('TYPE', k, 'A date like 2026-11-20.');
     return v;
   }
   obj(k: string, required = true): Record<string, unknown> | null {

@@ -27,7 +27,7 @@ create function test.publish(p_site uuid, p_rows uuid[], p_versions int[] defaul
   select service.start_publish(test.claims(), p_site, p_rows,
     coalesce(p_versions, (select array_agg((select max(n) from content_versions v where v.row_id = r) order by i) from unnest(p_rows) with ordinality x(r, i)))) $$;
 -- step C: what the lead-update and add-lead Edge Functions do after verifying the user's JWT
-create function test.lead_update(p_lead uuid, p_status lead_status default null, p_owner uuid default null, p_note text default null, p_unassign boolean default false)
+create function test.lead_update(p_lead uuid, p_status text default null, p_owner uuid default null, p_note text default null, p_unassign boolean default false)
 returns void language sql security definer as $$ select service.lead_update(test.claims(), p_lead, p_status, p_owner, p_note, p_unassign) $$;
 create function test.add_lead(p_site uuid, p_name text, p_email text, p_phone text, p_answers jsonb, p_consent text, p_owner uuid default null)
 returns uuid language sql security definer as $$ select service.add_lead(test.claims(), p_site, p_name, p_email, p_phone, p_answers, p_consent, 'manual', p_owner) $$;
@@ -71,7 +71,19 @@ select ws, 1, '{}'::jsonb, '{"collections":{
     "free":{"type":"group","open":true,"of":{"x":{"type":"text","required":true}}},"fact":{"type":"group","sourced":true,"of":{"n":{"type":"text","required":true}}},"sections":{"type":"sections"}}},
   "settings":{"kind":"singleton","access":{"member":"none"},"fields":{"businessName":{"type":"text"},"licences":{"type":"list","locked":{"reason":"fact"}}}},
   "leads":{"kind":"inbox","access":{"member":"own"},"ownerField":"owner","fields":{"status":{"type":"enum"}}}},
-  "forms":{"contact":{"fields":{"name":{"type":"text"},"email":{"type":"email"},"phone":{"type":"phone"},"topic":{"type":"text"},"message":{"type":"text","max":2000}}}},
+  "crm":{"lead_types":[{"key":"enquiry","label":"Enquiry"},{"key":"buy","label":"Buy a home"},{"key":"sell","label":"Sell a home"},{"key":"listing-question","label":"Question about a listing"}],
+    "statuses":[{"key":"not-contacted","label":"Not contacted yet","stage":"new","needsDate":false,"needsWho":false,"needsText":false},
+      {"key":"contacted","label":"Contacted","stage":"working","needsDate":false,"needsWho":true,"needsText":false},
+      {"key":"qualified","label":"Qualified","stage":"working","needsDate":false,"needsWho":false,"needsText":false},
+      {"key":"call-back","label":"Call back","stage":"working","needsDate":true,"needsWho":false,"needsText":false},
+      {"key":"interested","label":"Interested in something specific","stage":"working","needsDate":false,"needsWho":false,"needsText":true},
+      {"key":"appointment-set","label":"Appointment set","stage":"working","needsDate":true,"needsWho":true,"needsText":false},
+      {"key":"closed","label":"Closed","stage":"outcome","needsDate":false,"needsWho":false,"needsText":false},
+      {"key":"lost","label":"Lost","stage":"outcome","needsDate":false,"needsWho":false,"needsText":true},
+      {"key":"answering-machine","label":"Answering machine","stage":"working","needsDate":false,"needsWho":true,"needsText":false}]},
+  "forms":{"contact":{"fields":{"name":{"type":"text"},"email":{"type":"email"},"phone":{"type":"phone"},"topic":{"type":"text"},"message":{"type":"text","max":2000}},
+      "leadTypeFrom":{"field":"topic","map":{"buy":"buy","sell":"sell","ask-about-this-home":"listing-question"}}},
+    "seller":{"fields":{"name":{"type":"text"},"email":{"type":"email"}},"leadType":"sell"}},
   "pageTypes":{"home":{"sections":[{"id":"hero","kind":"fields","fields":{"headline":{"type":"text","required":true}}},{"id":"extras","kind":"fields","fields":{"note":{"type":"text"}}},{"id":"feed","kind":"feed","accepts":"listings"}]}}}'::jsonb, true
 from (values ('aaaaaaaa-0000-0000-0000-000000000000'::uuid), ('bbbbbbbb-0000-0000-0000-000000000000'::uuid)) v(ws);
 insert into members (workspace_id, user_id, role) values
@@ -339,7 +351,7 @@ select test.act_as('00000000-0000-0000-0000-0000000000a1');     -- agent one: le
 select test.lead_update(test.id('leadA'), 'contacted');
 do $$ begin
   assert (select status from leads where id = test.id('leadA')) = 'contacted', 'agent one changed the status of their lead';
-  assert (select count(*) from lead_events where lead_id = test.id('leadA') and kind = 'status' and detail ->> 'from' = 'new' and detail ->> 'to' = 'contacted') = 1, 'the status change wrote its event';
+  assert (select count(*) from lead_events where lead_id = test.id('leadA') and kind = 'status' and detail ->> 'from' = 'not-contacted' and detail ->> 'to' = 'contacted') = 1, 'the status change wrote its event';
 end $$;
 select test.expect_error(format($q$select test.lead_update(%L, null, %L)$q$, test.id('leadA'), test.id('team2')), 'S-OWN-ONLY');
 select test.expect_error(format($q$update leads set status = 'spam' where id = %L$q$, test.id('leadA')), 'permission denied');
@@ -1841,7 +1853,7 @@ select test.expect_error(format($q$select service.leads_bulk(test.c('00000000-00
 select test.expect_error(format($q$select service.leads_bulk(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', array[%L, %L]::uuid[], 'delete', null, false)$q$, test.id('c1'), test.id('c2')), 'S-CONFIRM');
 reset role;
 do $$ begin
-  assert (select status from leads where id = test.id('cB')) = 'new', 'T22d a refused bulk call wrote nothing to the foreign lead (a partial write to c1 or c2 would make b1 below count less than 2)';
+  assert (select status from leads where id = test.id('cB')) = 'not-contacted', 'T22d a refused bulk call wrote nothing to the foreign lead (a partial write to c1 or c2 would make b1 below count less than 2)';
   assert (select v from test.r where k = 'b1') = '2' and (select count(*) from leads where id in (test.id('c1'), test.id('c2')) and status = 'qualified') = 2, 'T22d bulk status';
   assert (select count(*) from lead_events where lead_id in (test.id('c1'), test.id('c2')) and kind = 'status' and detail ->> 'to' = 'qualified') = 2, 'T22d one status event per lead';
   assert (select count(*) from audit_log where action = 'leads-bulk') = 2, 'T22d one audit row per bulk call';
@@ -1949,7 +1961,7 @@ do $$ declare d jsonb := (select v from test.r where k = 'dry'); s jsonb; begin
   assert jsonb_array_length(d -> 'sample') = 5 and jsonb_typeof(s -> 'answers' -> 'budget') = 'number' and (s -> 'answers' ->> 'budget')::numeric = 250000
     and s ->> 'owner' = test.id('crm_t1')::text and s ->> 'status' = 'qualified' and s ->> 'duplicate' = 'false', 'T23c the sample is the rows as stored: typed, owner by name (any case), status read: ' || s::text;
   assert (select v ->> 'dry_run' from test.r where k = 'dry2') = 'true', 'T23c only dry_run false is a real run';
-  assert (select v -> 'refused' from test.r where k = 'dryS') = '[{"line":2,"field":"status","reason":"Status must be one of the lead statuses"},{"line":3,"field":"name","reason":"a lead needs a name, an email or a phone"}]',
+  assert (select v -> 'refused' from test.r where k = 'dryS') = '[{"line":2,"field":"status","reason":"Status must be one of this business''s statuses"},{"line":3,"field":"name","reason":"a lead needs a name, an email or a phone"}]',
     'T23c a status that is not ours and a lead with no name, email or phone are refused: ' || (select v -> 'refused' from test.r where k = 'dryS')::text;
   assert (select count(*) from leads where form = 'import') = 0 and (select count(*) from audit_log where action = 'lead-import') = 0
     and (select count(*) from consent_ledger where form = 'import') = 0, 'T23c a dry run and every refused real run write nothing';
@@ -2733,6 +2745,334 @@ do $$ begin assert (select count(*) from pg_policies where schemaname = 'storage
 -- T30b: reading survives: the member sees A's folder (the object the superuser inserted in T10)
 do $$ begin assert (select count(*) from storage.objects where name like 'aaaaaaaa-%') = 1, 'T30b a member still reads their workspace''s folder'; end $$;
 reset role;
+
+-- ===== T31 work order 20 (migration 23): lead type and status as per-industry lists held as data; note authors; one domain, one site (own block; mutants "crm23: ..." in run-local.mjs) =====
+-- ===================================================================================================================================
+-- The fixture contract of both workspaces carries a crm block (lead types enquiry, buy, sell, listing-question; statuses with each of the three flags) and a contact
+-- form whose `topic` answer picks the type. Leads are inserted directly (the guard is a trigger on the table, so it sees every writer), through lead_update,
+-- lead_set_fields, leads_bulk, capture_lead, add_lead and import_leads. The enum conversion and the note backfill are run against a database that has migrations
+-- 1 to 22 and real rows first: run-local.mjs "upgrade" (it cannot be asserted from here, the migration has already run).
+reset role;
+select test.act_as(null);
+create function test.t31_lead(p_name text, p_team uuid default null, p_ws uuid default 'aaaaaaaa-0000-0000-0000-000000000000', p_status text default 'not-contacted', p_type text default 'enquiry',
+  p_date date default null, p_form text default 'zz-t31') returns uuid language sql as $$
+  insert into leads (workspace_id, site_id, form, page_path, name, consent_text, owner_team_row, status, lead_type, status_date)
+  values (p_ws, case when p_ws = 'aaaaaaaa-0000-0000-0000-000000000000' then 'aaaaaaaa-0000-0000-0000-00000000517e'::uuid else 'bbbbbbbb-0000-0000-0000-00000000517e'::uuid end,
+    p_form, '/', p_name, 'I agree', p_team, p_status, p_type, p_date) returning id $$;
+create function test.t31_upd(p_sub text, p_lead uuid, p_status text default null, p_date date default null, p_who uuid default null, p_text text default null, p_note text default null)
+returns void language sql as $$ select service.lead_update(test.c(p_sub), p_lead, p_status, null, p_note, false, p_date, p_who, p_text) $$;
+create function test.t31_list(p_sub text, p_ws uuid, p_q jsonb default '{}') returns jsonb language sql as $$ select service.lead_list(test.c(p_sub), p_ws, p_q) $$;
+create function test.t31_names(p_list jsonb) returns text language sql as $$
+  select coalesce(string_agg(r.v ->> 'name', ',' order by r.ord), '') from jsonb_array_elements(p_list -> 'rows') with ordinality r(v, ord) $$;
+grant execute on function test.t31_lead(text, uuid, uuid, text, text, date, text), test.t31_upd(text, uuid, text, date, uuid, text, text), test.t31_list(text, uuid, jsonb),
+  test.t31_names(jsonb) to anon, authenticated, service_role, omnikom_fn;
+
+insert into test.ids select 'l31_a1', test.t31_lead('T31 a1 lead', test.id('crm_t1'));       -- assigned to agent one
+insert into test.ids select 'l31_free', test.t31_lead('T31 free lead');                     -- assigned to nobody
+insert into test.ids select 'l31_b', test.t31_lead('T31 B lead', null, 'bbbbbbbb-0000-0000-0000-000000000000');
+
+-- (a) the guard sees every writer: a table insert and a table update are refused too, in the words the screens show
+select test.expect_error($q$insert into leads (workspace_id, site_id, form, page_path, name, consent_text, status) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', 'zz-t31', '/', 'T31 bad', 'I agree', 'bogus')$q$, 'I-ANSWER status: Status must be one of this business''s statuses');
+select test.expect_error(format($q$update leads set status = 'bogus' where id = %L$q$, test.id('l31_a1')), 'I-ANSWER status: Status must be one of this business''s statuses');
+select test.expect_error($q$insert into leads (workspace_id, site_id, form, page_path, name, consent_text, lead_type) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', 'zz-t31', '/', 'T31 bad', 'I agree', 'bogus')$q$, 'I-ANSWER lead_type: Lead type must be one of this business''s lead types');
+select test.expect_error(format($q$update leads set lead_type = 'bogus' where id = %L$q$, test.id('l31_a1')), 'I-ANSWER lead_type');
+select test.expect_error(format($q$select test.t31_upd('00000000-0000-0000-0000-00000000000a', %L, 'bogus')$q$, test.id('l31_a1')), 'I-ANSWER status');
+select test.expect_error(format($q$select test.t31_upd('00000000-0000-0000-0000-00000000000a', %L, 'Contacted')$q$, test.id('l31_a1')), 'I-ANSWER status');   -- a key, not its label
+do $$ begin
+  assert (select status from leads where id = test.id('l31_a1')) = 'not-contacted' and (select lead_type from leads where id = test.id('l31_a1')) = 'enquiry', 'T31a refused writes changed nothing';
+  assert (select count(*) from leads where name = 'T31 bad') = 0, 'T31a refused inserts stored nothing';
+end $$;
+-- a status the list dropped since stays as it is while only other columns change (older rows stay editable), and is never set again
+alter table leads disable trigger leads_guard;
+update leads set status = 'legacy-x' where id = test.id('l31_free');
+alter table leads enable trigger leads_guard;
+update leads set name = 'T31 free lead renamed' where id = test.id('l31_free');
+select test.expect_error(format($q$update leads set status = 'legacy-y' where id = %L$q$, test.id('l31_free')), 'I-ANSWER status');
+update leads set name = 'T31 free lead', status = 'not-contacted' where id = test.id('l31_free');
+do $$ begin assert (select status from leads where id = test.id('l31_free')) = 'not-contacted', 'T31a an older row with a dropped status is editable and can be moved to a listed one'; end $$;
+
+-- (b) the list is the site's own: B's list has no "qualified"; A's has it; nobody reaches the other's lead
+update site_contracts set resolved = jsonb_set(resolved, '{crm,statuses}', '[{"key":"not-contacted","label":"Not contacted yet"},{"key":"contacted","label":"Contacted","needsWho":true}]')
+  where workspace_id = 'bbbbbbbb-0000-0000-0000-000000000000';
+select test.expect_error(format($q$select test.t31_upd('00000000-0000-0000-0000-00000000000b', %L, 'qualified')$q$, test.id('l31_b')), 'I-ANSWER status');
+select test.expect_error(format($q$update leads set status = 'qualified' where id = %L$q$, test.id('l31_b')), 'I-ANSWER status');
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('l31_a1'), 'qualified');
+select test.expect_error(format($q$select test.t31_upd('00000000-0000-0000-0000-00000000000b', %L, 'qualified')$q$, test.id('l31_a1')), 'S-NOT-FOUND');
+do $$ begin
+  assert (select status from leads where id = test.id('l31_a1')) = 'qualified' and (select status from leads where id = test.id('l31_b')) = 'not-contacted', 'T31b A has its own list, B its own';
+  assert exists (select 1 from lead_events where lead_id = test.id('l31_a1') and kind = 'status' and detail ->> 'from' = 'not-contacted' and detail ->> 'to' = 'qualified'), 'T31b the change wrote its event';
+  assert private.status_def('bbbbbbbb-0000-0000-0000-000000000000', 'spam') ->> 'system' = 'true' and private.status_def('aaaaaaaa-0000-0000-0000-000000000000', 'spam') ->> 'system' = 'true', 'T31b spam is a system status in every business, outside the list';
+end $$;
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('l31_a1'), 'spam');
+do $$ begin assert (select status from leads where id = test.id('l31_a1')) = 'spam', 'T31b spam is accepted although it is not in the list'; end $$;
+
+-- (c) a status that needs a date
+select test.expect_error(format($q$select test.t31_upd('00000000-0000-0000-0000-00000000000a', %L, 'call-back')$q$, test.id('l31_a1')), 'I-ANSWER status_date: Call back needs a date');
+select test.expect_error(format($q$update leads set status = 'call-back' where id = %L$q$, test.id('l31_a1')), 'I-ANSWER status_date');
+select test.expect_error(format($q$select test.t31_upd('00000000-0000-0000-0000-00000000000a', %L, 'appointment-set', null, '00000000-0000-0000-0000-0000000000a1')$q$, test.id('l31_a1')), 'I-ANSWER status_date');
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('l31_a1'), 'call-back', date '2026-12-24');
+do $$ declare e jsonb; begin
+  assert (select status from leads where id = test.id('l31_a1')) = 'call-back' and (select status_date from leads where id = test.id('l31_a1')) = date '2026-12-24' and (select status_who from leads where id = test.id('l31_a1')) is null, 'T31c a call back with its date';
+  select detail into e from lead_events where lead_id = test.id('l31_a1') and kind = 'status' and detail ->> 'to' = 'call-back';
+  assert e ->> 'date' = '2026-12-24' and e ->> 'from' = 'spam', 'T31c the event says the date: ' || e::text;
+end $$;
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('l31_a1'), null, date '2026-12-31');   -- the same status, a new day
+do $$ begin
+  assert (select status_date from leads where id = test.id('l31_a1')) = date '2026-12-31', 'T31c the date moves on the same status';
+  assert (select count(*) from lead_events where lead_id = test.id('l31_a1') and kind = 'status' and detail ->> 'to' = 'call-back') = 2, 'T31c and says so';
+end $$;
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('l31_a1'), 'qualified');
+do $$ begin assert (select status_date from leads where id = test.id('l31_a1')) is null, 'T31c a status that does not take a date clears it'; end $$;
+
+-- (d) a status that records who: the caller by default, a member by name, never an outsider
+select test.t31_upd('00000000-0000-0000-0000-0000000000a1', test.id('l31_a1'), 'contacted');
+do $$ begin assert (select status_who from leads where id = test.id('l31_a1')) = '00000000-0000-0000-0000-0000000000a1', 'T31d "contacted" by agent one is by agent one'; end $$;
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('l31_a1'), 'contacted', null, '00000000-0000-0000-0000-0000000000a2');   -- the owner names the member who spoke to the lead
+do $$ declare e jsonb; begin
+  assert (select status_who from leads where id = test.id('l31_a1')) = '00000000-0000-0000-0000-0000000000a2', 'T31d a member named by the owner';
+  select detail into e from lead_events where lead_id = test.id('l31_a1') and kind = 'status' and detail ->> 'who' = '00000000-0000-0000-0000-0000000000a2';
+  assert e ->> 'who_name' is not null and e -> 'author' ->> 'kind' = 'user', 'T31d the event carries the person''s name and its author: ' || coalesce(e::text, 'none');
+end $$;
+select test.expect_error(format($q$select test.t31_upd('00000000-0000-0000-0000-00000000000a', %L, 'contacted', null, '00000000-0000-0000-0000-00000000000b')$q$, test.id('l31_a1')), 'I-ANSWER status_who: Pick a member of this business');
+select test.expect_error(format($q$update leads set status_who = '00000000-0000-0000-0000-00000000000b' where id = %L$q$, test.id('l31_a1')), 'I-ANSWER status_who');
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('l31_a1'), 'qualified');
+do $$ begin assert (select status_who from leads where id = test.id('l31_a1')) is null, 'T31d a status that does not record who clears it'; end $$;
+
+-- (e) a status that asks for one line
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('l31_a1'), 'interested', null, null, '  Pool homes in Napa  ');
+do $$ begin assert (select status_text from leads where id = test.id('l31_a1')) = 'Pool homes in Napa', 'T31e the line is kept, trimmed'; end $$;
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), %L, jsonb_build_object('status_text', repeat('x', 201)))$q$, test.id('l31_a1')), 'I-ANSWER status_text');
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('l31_a1'), 'qualified', null, null, 'ignored');
+do $$ begin assert (select status_text from leads where id = test.id('l31_a1')) is null, 'T31e a status that does not ask for a line clears it'; end $$;
+
+-- (f) a member sets a status only on a lead assigned to them
+select test.expect_error(format($q$select test.t31_upd('00000000-0000-0000-0000-0000000000a2', %L, 'contacted')$q$, test.id('l31_a1')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select test.t31_upd('00000000-0000-0000-0000-0000000000a1', %L, 'contacted')$q$, test.id('l31_free')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-0000000000a2'), %L, '{"status":"contacted"}')$q$, test.id('l31_a1')), 'S-NOT-FOUND');
+select test.expect_error(format($q$select service.leads_bulk(test.c('00000000-0000-0000-0000-0000000000a2'), 'aaaaaaaa-0000-0000-0000-000000000000', array[%L]::uuid[], 'status', 'contacted')$q$, test.id('l31_a1')), 'S-NOT-FOUND');
+select test.t31_upd('00000000-0000-0000-0000-0000000000a1', test.id('l31_a1'), 'contacted');   -- their own: fine
+do $$ begin assert (select status from leads where id = test.id('l31_a1')) = 'contacted' and (select status from leads where id = test.id('l31_free')) = 'not-contacted', 'T31f refused member writes changed nothing'; end $$;
+
+-- (g) the edit call: status with its companions, and the lead type
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), %L, '{"status":"call-back"}')$q$, test.id('l31_a1')), 'I-ANSWER status_date');
+select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), test.id('l31_a1'), '{"status":"call-back","status_date":"2026-12-25"}');
+select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), test.id('l31_a1'), '{"lead_type":"buy"}');
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), %L, '{"lead_type":"zzz"}')$q$, test.id('l31_a1')), 'I-ANSWER lead_type');
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), %L, '{"status":"contacted","status_who":"00000000-0000-0000-0000-00000000000b"}')$q$, test.id('l31_a1')), 'I-ANSWER status_who');
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), %L, '{"status_date":"next week"}')$q$, test.id('l31_a1')), 'I-ANSWER status_date');
+do $$ begin
+  assert (select status from leads where id = test.id('l31_a1')) = 'call-back' and (select status_date from leads where id = test.id('l31_a1')) = date '2026-12-25' and (select lead_type from leads where id = test.id('l31_a1')) = 'buy', 'T31g status with its date and a lead type, by the edit call';
+  assert exists (select 1 from lead_events where lead_id = test.id('l31_a1') and kind = 'edited' and detail ->> 'field' = 'lead_type' and detail ->> 'old' = 'enquiry' and detail ->> 'new' = 'buy'), 'T31g the lead type change is an event';
+end $$;
+
+-- (h) bulk: a status that needs a date is one lead at a time; the others default the caller as "who"
+select test.expect_error(format($q$select service.leads_bulk(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', array[%L]::uuid[], 'status', 'call-back')$q$, test.id('l31_a1')), 'I-ANSWER status: Call back needs a date');
+select test.expect_error(format($q$select service.leads_bulk(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', array[%L]::uuid[], 'status', 'bogus')$q$, test.id('l31_a1')), 'I-ANSWER status');
+select service.leads_bulk(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', array[test.id('l31_a1'), test.id('l31_free')], 'status', 'contacted');
+do $$ begin
+  assert (select count(*) from leads where id in (test.id('l31_a1'), test.id('l31_free')) and status = 'contacted' and status_who = '00000000-0000-0000-0000-00000000000a' and status_date is null) = 2, 'T31h bulk contacted: by the caller, no date left over';
+end $$;
+
+-- (i) capture sets the type from the form: a mapped answer, an unmapped one, none, a fixed type; a type the list dropped is "enquiry" (the lead is kept)
+insert into test.ids select 'cap_buy', service.capture_lead('bbbbbbbb-0000-0000-0000-00000000517e', 'contact', '/', 'T31 Cap Buy', 'capbuy@t31.test', null, '{"topic":"buy"}', 'I agree');
+insert into test.ids select 'cap_ask', service.capture_lead('bbbbbbbb-0000-0000-0000-00000000517e', 'contact', '/', 'T31 Cap Ask', 'capask@t31.test', null, '{"topic":"ask-about-this-home"}', 'I agree');
+insert into test.ids select 'cap_odd', service.capture_lead('bbbbbbbb-0000-0000-0000-00000000517e', 'contact', '/', 'T31 Cap Odd', 'capodd@t31.test', null, '{"topic":"something else"}', 'I agree');
+insert into test.ids select 'cap_none', service.capture_lead('bbbbbbbb-0000-0000-0000-00000000517e', 'contact', '/', 'T31 Cap None', 'capnone@t31.test', null, '{}', 'I agree');
+insert into test.ids select 'cap_sell', service.capture_lead('bbbbbbbb-0000-0000-0000-00000000517e', 'seller', '/', 'T31 Cap Sell', 'capsell@t31.test', null, '{}', 'I agree');
+do $$ begin
+  assert (select lead_type from leads where id = test.id('cap_buy')) = 'buy', 'T31i a submission whose topic is buy is stored as buy';
+  assert (select lead_type from leads where id = test.id('cap_ask')) = 'listing-question', 'T31i an "Ask about this home" submission is stored as listing-question (the ELEV8 form, work order 20 finding)';
+  assert (select lead_type from leads where id = test.id('cap_odd')) = 'enquiry' and (select lead_type from leads where id = test.id('cap_none')) = 'enquiry', 'T31i an unmapped or missing answer is enquiry';
+  assert (select lead_type from leads where id = test.id('cap_sell')) = 'sell', 'T31i a form with a fixed leadType gives that type';
+  assert (select status from leads where id = test.id('cap_buy')) = 'not-contacted', 'T31i a new lead starts at not-contacted';
+end $$;
+update site_contracts set resolved = jsonb_set(resolved, '{crm,lead_types}', '[{"key":"enquiry","label":"Enquiry"},{"key":"buy","label":"Buy a home"}]') where workspace_id = 'bbbbbbbb-0000-0000-0000-000000000000';
+insert into test.ids select 'cap_gone', service.capture_lead('bbbbbbbb-0000-0000-0000-00000000517e', 'seller', '/', 'T31 Cap Gone', 'capgone@t31.test', null, '{}', 'I agree');
+do $$ begin assert (select lead_type from leads where id = test.id('cap_gone')) = 'enquiry', 'T31i a type the list dropped falls back to enquiry and the lead is stored'; end $$;
+insert into test.ids select 'man_1', service.add_lead(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', 'T31 Manual', 'man@t31.test', null, '{}', 'Said yes', 'manual', null);
+do $$ begin assert (select lead_type from leads where id = test.id('man_1')) = 'enquiry' and (select status from leads where id = test.id('man_1')) = 'not-contacted', 'T31i a hand-entered lead is an enquiry, not contacted yet'; end $$;
+
+-- (j) import reads the business's list: a key or a label in any case, a status that needs a date cannot come from a file
+create function test.t31_imp(p_rows jsonb) returns jsonb language sql as $$
+  select service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', (select v #>> '{}' from test.r where k = 'tplA')::uuid, p_rows, '{}') $$;
+grant execute on function test.t31_imp(jsonb) to anon, authenticated, service_role, omnikom_fn;
+do $$ declare d jsonb; begin
+  d := test.t31_imp('[{"line":2,"name":"T31 Imp One","status":"Qualified"},{"line":3,"name":"T31 Imp Two","status":"contacted"},{"line":4,"name":"T31 Imp Three","status":"Call back"},{"line":5,"name":"T31 Imp Four","status":"Hot"},{"line":6,"name":"T31 Imp Five"}]');
+  assert (d ->> 'valid')::int = 3 and (d ->> 'refused_count')::int = 2, 'T31j the dry run: two of five refused: ' || d::text;
+  assert (select string_agg(x ->> 'line' || ':' || (x ->> 'reason'), ' | ' order by x ->> 'line') from jsonb_array_elements(d -> 'refused') x)
+    = '4:Call back needs a date, so a file cannot set it; import the lead as Not contacted yet and set it in the CRM | 5:Status must be one of this business''s statuses', 'T31j the refusals say why: ' || (d -> 'refused')::text;
+  assert (select string_agg(s ->> 'status', ',' order by (s ->> 'line')::int) from jsonb_array_elements(d -> 'sample') s) = 'qualified,contacted,not-contacted', 'T31j the sample: a label becomes its key, empty is not-contacted: ' || (d -> 'sample')::text;
+end $$;
+
+-- (j2) the import template may name the lead type, and a file may carry it (head's ruling E): a key or a label of the business's list, empty is enquiry, a stranger is refused
+select service.save_crm_template(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', null, 'T31 type map', 'custom', 'import', '[{"header":"Name","field":"name"},{"header":"Type","field":"lead_type"}]');
+select test.expect_error($q$select service.save_crm_template(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', null, 'T31 bad map', 'custom', 'import', '[{"header":"Type","field":"lead_typo"}]')$q$, 'T-COLUMNS');
+do $$ declare d jsonb; begin
+  d := test.t31_imp('[{"line":2,"name":"T31 Typed One","lead_type":"Buy a home"},{"line":3,"name":"T31 Typed Two","lead_type":"sell"},{"line":4,"name":"T31 Typed Three","lead_type":"nonsense"},{"line":5,"name":"T31 Typed Four"}]');
+  assert (d ->> 'valid')::int = 3 and (d ->> 'refused_count')::int = 1 and d -> 'refused' -> 0 ->> 'field' = 'lead_type', 'T31j2 one of four refused for its lead type: ' || d::text;
+  assert (select string_agg(s ->> 'lead_type', ',' order by (s ->> 'line')::int) from jsonb_array_elements(d -> 'sample') s) = 'buy,sell,enquiry', 'T31j2 a label becomes its key, empty is enquiry: ' || (d -> 'sample')::text;
+end $$;
+select service.import_leads(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', (select v #>> '{}' from test.r where k = 'tplA')::uuid,
+  '[{"line":2,"name":"T31 Typed Real","lead_type":"Sell a home"}]', ('{"dry_run":false,"consent":true,"duplicates":"add","file_name":"t31.csv","file_sha256":"' || repeat('a', 64) || '"}')::jsonb);
+do $$ begin assert (select lead_type from leads where name = 'T31 Typed Real') = 'sell', 'T31j2 a real import stores the lead type'; end $$;
+
+-- (k) lists, filters and sort through lead_list
+insert into test.ids select 'f_nc', test.t31_lead('T31 sort nc');
+insert into test.ids select 'f_ct', test.t31_lead('T31 sort ct', null, 'aaaaaaaa-0000-0000-0000-000000000000', 'contacted', 'buy');
+insert into test.ids select 'f_ql', test.t31_lead('T31 sort ql', null, 'aaaaaaaa-0000-0000-0000-000000000000', 'qualified', 'sell');
+insert into test.ids select 'f_cb', test.t31_lead('T31 sort cb', null, 'aaaaaaaa-0000-0000-0000-000000000000', 'call-back', 'buy', date '2027-01-05');
+insert into test.ids select 'f_cb2', test.t31_lead('T31 sort cb2', null, 'aaaaaaaa-0000-0000-0000-000000000000', 'call-back', 'enquiry', date '2027-02-05');
+-- one transaction gives every row the same created_at; the tie between equal statuses breaks newest first, so make cb2 the newer
+update leads set created_at = created_at + interval '1 minute' where id = test.id('f_cb2');
+do $$ declare x jsonb; begin
+  x := test.t31_list('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"search":"T31 sort","sort":{"field":"status","dir":"asc"}}');
+  assert test.t31_names(x) = 'T31 sort nc,T31 sort ct,T31 sort ql,T31 sort cb2,T31 sort cb', 'T31k status sorts by its place in the business''s list, not by its letters: ' || test.t31_names(x);
+  x := test.t31_list('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"search":"T31 sort","sort":{"field":"status","dir":"desc"},"size":2}');
+  assert test.t31_names(x) = 'T31 sort cb2,T31 sort cb' or test.t31_names(x) = 'T31 sort cb,T31 sort cb2', 'T31k and descending: ' || test.t31_names(x);
+  x := test.t31_list('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"search":"T31 sort","filters":[{"field":"lead_type","op":"eq","value":"buy"}],"sort":{"field":"name","dir":"asc"}}');
+  assert test.t31_names(x) = 'T31 sort cb,T31 sort ct', 'T31k filter by lead type: ' || test.t31_names(x);
+  x := test.t31_list('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"search":"T31 sort","filters":[{"field":"status","op":"in","values":["qualified","call-back"]}],"sort":{"field":"name","dir":"asc"}}');
+  assert test.t31_names(x) = 'T31 sort cb,T31 sort cb2,T31 sort ql', 'T31k filter by status: ' || test.t31_names(x);
+  x := test.t31_list('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"search":"T31 sort","filters":[{"field":"status_date","op":"range","from":"2027-01-01","to":"2027-01-31"}]}');
+  assert test.t31_names(x) = 'T31 sort cb', 'T31k filter by status date (a range): ' || test.t31_names(x);
+  x := test.t31_list('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"search":"T31 sort","sort":{"field":"status_date","dir":"asc"}}');
+  assert (test.t31_names(x) like 'T31 sort cb,T31 sort cb2,%'), 'T31k sort by status date: ' || test.t31_names(x);
+  assert (x -> 'rows' -> 0 ->> 'lead_type') = 'buy' and (x -> 'rows' -> 0 ->> 'status') = 'call-back' and (x -> 'rows' -> 0 ->> 'status_date') = '2027-01-05' and x -> 'rows' -> 0 ? 'status_who' and x -> 'rows' -> 0 ? 'status_text', 'T31k every row carries the five columns: ' || (x -> 'rows' -> 0)::text;
+  assert jsonb_array_length(x -> 'lead_types') = 4 and (x -> 'statuses' -> 1 ->> 'key') = 'contacted' and (x -> 'statuses' -> 1 ->> 'needsWho')::boolean, 'T31k the answer carries the business''s two lists, in order, with the flags';
+  assert (select jsonb_array_length(test.t31_list('00000000-0000-0000-0000-00000000000b', 'bbbbbbbb-0000-0000-0000-000000000000', '{}') -> 'lead_types')) = 2, 'T31k B reads B''s own lists';
+end $$;
+select test.expect_error($q$select test.t31_list('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"filters":[{"field":"lead_kind","op":"eq","value":"x"}]}')$q$, 'S-QUERY');
+-- a saved view takes the new keys as columns, filters and sort, and still refuses an unknown one
+select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000',
+  '{"name":"T31 view","query":{"filters":[{"field":"lead_type","op":"eq","value":"buy"},{"field":"status_date","op":"not_empty"}],"sort":{"field":"status","dir":"asc"}},"columns":["name","lead_type","status","status_date","status_who","status_text"]}');
+select test.expect_error($q$select test.t29_save('00000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', '{"name":"T31 view bad","columns":["lead_kind"]}')$q$, 'I-ANSWER columns: lead_kind is not a column');
+do $$ begin assert (select count(*) from crm_views where name = 'T31 view') = 1, 'T31k the view with the new keys was saved'; end $$;
+
+-- (l) notes carry their author: a user by name, an AI operator as "agent"
+select test.t31_upd('00000000-0000-0000-0000-0000000000a1', test.id('l31_a1'), null, null, null, null, 'T31 note from a member');
+select service.lead_update(jsonb_build_object('sub', '00000000-0000-0000-0000-00000000000a', 'aal', 'aal1', 'app_metadata', jsonb_build_object('actor', 'agent')), test.id('l31_a1'), null, null, 'T31 note from the agent');
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('l31_a1'), null, null, null, null, 'T31 note from the owner');
+do $$ declare m jsonb; g jsonb; o jsonb; begin
+  select detail into m from lead_events where lead_id = test.id('l31_a1') and kind = 'note' and detail ->> 'text' = 'T31 note from a member';
+  select detail into g from lead_events where lead_id = test.id('l31_a1') and kind = 'note' and detail ->> 'text' = 'T31 note from the agent';
+  select detail into o from lead_events where lead_id = test.id('l31_a1') and kind = 'note' and detail ->> 'text' = 'T31 note from the owner';
+  assert m -> 'author' ->> 'kind' = 'user' and m -> 'author' ->> 'name' = (select v.data ->> 'name' from public.content_versions v where v.row_id = test.id('crm_t1') order by v.n desc limit 1), 'T31l a member''s note carries their team profile name: ' || m::text;
+  assert g -> 'author' ->> 'kind' = 'agent' and g -> 'author' ->> 'name' = 'Agent', 'T31l a note from an AI operator is "agent": ' || g::text;
+  assert o -> 'author' ->> 'kind' = 'user' and coalesce(o -> 'author' ->> 'name', '') <> '', 'T31l the owner''s note has a name: ' || o::text;
+  assert (select count(*) from lead_events where lead_id = test.id('l31_a1') and kind = 'note' and by is not null and (detail -> 'author') is not null) = 3, 'T31l every note has its author block and the user id (by)';
+  assert private.actor_kind('{"app_metadata":{"actor":"agent"}}') = 'agent' and private.actor_kind('{"actor":"agent"}') = 'user' and private.actor_kind('{"sub":"x"}') = 'user', 'T31l only the verified app_metadata names an agent';
+end $$;
+
+-- (m) one domain, one site, in any letter case; sites without a domain are many
+update sites set domain = 'Demo-A.Example.com' where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+select test.expect_error($q$update sites set domain = 'demo-a.EXAMPLE.com' where id = 'bbbbbbbb-0000-0000-0000-00000000517e'$q$, 'sites_domain_unique');
+do $$ begin assert (select count(*) from sites where id in ('aaaaaaaa-0000-0000-0000-00000000517e', 'bbbbbbbb-0000-0000-0000-00000000517e') and domain is null) = 1, 'T31m one site has a domain, the other none'; end $$;
+update sites set domain = null where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+do $$ begin assert (select count(*) from sites where id in ('aaaaaaaa-0000-0000-0000-00000000517e', 'bbbbbbbb-0000-0000-0000-00000000517e') and domain is null) = 2, 'T31m two sites without a domain are fine'; end $$;
+
+-- (n) structure: the enum is gone, status is text, the guard is on the table, the new functions are closed to logins and built as every service function is
+do $$ declare f text; begin
+  assert to_regtype('public.lead_status') is null, 'T31n the lead_status enum is gone';
+  assert (select format_type(atttypid, atttypmod) from pg_attribute where attrelid = 'public.leads'::regclass and attname = 'status') = 'text', 'T31n leads.status is text';
+  assert (select count(*) from pg_trigger where tgrelid = 'public.leads'::regclass and tgname = 'leads_guard' and not tgisinternal) = 1, 'T31n the guard is a trigger on leads';
+  foreach f in array array['private.crm_lists(uuid)', 'private.status_def(uuid,text)', 'private.status_pick(jsonb,text)', 'private.lead_type_def(uuid,text)', 'private.person_label(uuid,uuid)', 'private.actor_kind(jsonb)',
+    'private.lead_guard()', 'service.lead_update(jsonb,uuid,text,uuid,text,boolean,date,uuid,text)'] loop
+    assert not has_function_privilege('anon', f, 'execute') and not has_function_privilege('authenticated', f, 'execute') and not exists (select 1 from aclexplode((select proacl from pg_proc where oid = f::regprocedure)) a where a.grantee = 0), f || ' is closed to anon, authenticated and PUBLIC';
+    assert (select proconfig from pg_proc where oid = f::regprocedure) = array['search_path=""'], f || ' has an empty search_path';
+  end loop;
+  assert has_function_privilege('omnikom_fn', 'service.lead_update(jsonb,uuid,text,uuid,text,boolean,date,uuid,text)', 'execute'), 'T31n lead_update is open to the function role';
+  assert (select count(*) from pg_indexes where schemaname = 'public' and tablename = 'sites' and indexname = 'sites_domain_unique') = 1, 'T31n the unique domain index exists';
+end $$;
+
+-- (o) a contract without a crm block has the platform floor: the four statuses the product had before (head's ruling A), spam, enquiry; an existing business keeps working
+update site_contracts set resolved = resolved - 'crm' where workspace_id = 'bbbbbbbb-0000-0000-0000-000000000000';
+select test.expect_error(format($q$select test.t31_upd('00000000-0000-0000-0000-00000000000b', %L, 'call-back', date '2027-01-01')$q$, test.id('l31_b')), 'I-ANSWER status');
+select test.t31_upd('00000000-0000-0000-0000-00000000000b', test.id('l31_b'), 'spam');
+select test.t31_upd('00000000-0000-0000-0000-00000000000b', test.id('l31_b'), 'not-contacted');
+select test.t31_upd('00000000-0000-0000-0000-00000000000b', test.id('l31_b'), 'contacted');
+do $$ begin assert (select status from leads where id = test.id('l31_b')) = 'contacted', 'T31o a floor business can set contacted (an old row stays settable)'; end $$;
+select test.t31_upd('00000000-0000-0000-0000-00000000000b', test.id('l31_b'), 'qualified');
+select test.t31_upd('00000000-0000-0000-0000-00000000000b', test.id('l31_b'), 'closed');
+do $$ declare x jsonb; begin
+  assert (select status from leads where id = test.id('l31_b')) = 'closed', 'T31o a floor business can set qualified and closed';
+  x := test.t31_list('00000000-0000-0000-0000-00000000000b', 'bbbbbbbb-0000-0000-0000-000000000000', '{}');
+  assert x -> 'lead_types' = '[{"key":"enquiry","label":"Enquiry"}]'::jsonb and (select string_agg(s ->> 'key', ',') from jsonb_array_elements(x -> 'statuses') s) = 'not-contacted,contacted,qualified,closed', 'T31o the floor: ' || x::text;
+end $$;
+
+-- (p) a status change clears the date, person and line the old status carried (head's ruling G): the caller sends fresh ones
+insert into test.ids select 'f_carry', test.t31_lead('T31 carry');
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('f_carry'), 'call-back', date '2027-03-01');
+select test.expect_error(format($q$select test.t31_upd('00000000-0000-0000-0000-00000000000a', %L, 'appointment-set')$q$, test.id('f_carry')), 'I-ANSWER status_date: Appointment set needs a date');
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('f_carry'), 'appointment-set', date '2027-03-02');   -- a fresh date: kept
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('f_carry'), 'contacted', null, '00000000-0000-0000-0000-0000000000a2');
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('f_carry'), 'appointment-set', date '2027-03-03');   -- the old person (agent two) is not carried; the caller is the default
+do $$ begin assert (select status_who from leads where id = test.id('f_carry')) = '00000000-0000-0000-0000-00000000000a', 'T31p the person of the old status is not carried to the new one (the caller is the default)'; end $$;
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('f_carry'), 'interested', null, null, 'Pool homes');
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('f_carry'), 'lost');
+do $$ declare r leads; begin
+  select * into r from leads where id = test.id('f_carry');
+  assert r.status = 'lost' and r.status_text is null, 'T31p the line of the old status is not carried to the new one: ' || coalesce(r.status_text, 'none');
+end $$;
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('f_carry'), 'appointment-set', date '2027-03-04');
+do $$ declare r leads; begin
+  select * into r from leads where id = test.id('f_carry');
+  assert r.status_date = date '2027-03-04' and r.status_who = '00000000-0000-0000-0000-00000000000a', 'T31p a fresh date is kept and the person is the caller, not the one the earlier status named: ' || r.status_who::text;
+end $$;
+
+-- (p2) what the caller sends counts even when it equals the old value (ruling G, round 2): the same date on another status, the same person, the same line
+insert into test.ids select 'f_same', test.t31_lead('T31 same');
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('f_same'), 'call-back', date '2027-04-01');
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('f_same'), 'appointment-set', date '2027-04-01');   -- call back on Friday, appointment on the same Friday: the date is sent, so it stays
+do $$ begin assert (select status_date from leads where id = test.id('f_same')) = date '2027-04-01' and (select status from leads where id = test.id('f_same')) = 'appointment-set', 'T31p2 a date sent again with the new status is kept'; end $$;
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('f_same'), 'contacted', null, '00000000-0000-0000-0000-0000000000a2');
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('f_same'), 'appointment-set', date '2027-04-02', '00000000-0000-0000-0000-0000000000a2');   -- the person is sent again
+do $$ begin assert (select status_who from leads where id = test.id('f_same')) = '00000000-0000-0000-0000-0000000000a2', 'T31p2 a person sent again with the new status is kept'; end $$;
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('f_same'), 'interested', null, null, 'Pool homes');
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('f_same'), 'lost', null, null, 'Pool homes');
+do $$ begin assert (select status_text from leads where id = test.id('f_same')) = 'Pool homes', 'T31p2 a line sent again with the new status is kept'; end $$;
+
+-- (p3) the same rules in the edit call (lead_set_fields): sent is kept, not sent is cleared
+insert into test.ids select 'f_sf', test.t31_lead('T31 set fields');
+select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), test.id('f_sf'), '{"status":"call-back","status_date":"2027-05-01"}');
+select test.expect_error(format($q$select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), %L, '{"status":"appointment-set"}')$q$, test.id('f_sf')), 'I-ANSWER status_date');
+select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), test.id('f_sf'), '{"status":"appointment-set","status_date":"2027-05-01"}');
+do $$ begin assert (select status_date from leads where id = test.id('f_sf')) = date '2027-05-01', 'T31p3 a date sent again with the new status is kept by the edit call'; end $$;
+select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), test.id('f_sf'), '{"status":"contacted","status_who":"00000000-0000-0000-0000-0000000000a2"}');
+select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), test.id('f_sf'), '{"status":"answering-machine"}');
+do $$ begin assert (select status_who from leads where id = test.id('f_sf')) = '00000000-0000-0000-0000-00000000000a', 'T31p3 a person not sent is not carried by the edit call (the caller is the default)'; end $$;
+select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), test.id('f_sf'), '{"status":"contacted","status_who":"00000000-0000-0000-0000-0000000000a2"}');
+select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), test.id('f_sf'), '{"status":"answering-machine","status_who":"00000000-0000-0000-0000-0000000000a2"}');
+do $$ begin assert (select status_who from leads where id = test.id('f_sf')) = '00000000-0000-0000-0000-0000000000a2', 'T31p3 a person sent again with the new status is kept by the edit call'; end $$;
+select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), test.id('f_sf'), '{"status":"interested","status_text":"Pool"}');
+select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), test.id('f_sf'), '{"status":"lost"}');
+do $$ begin assert (select status_text from leads where id = test.id('f_sf')) is null, 'T31p3 a line not sent is not carried by the edit call'; end $$;
+select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), test.id('f_sf'), '{"status":"interested","status_text":"Pool"}');
+select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), test.id('f_sf'), '{"status":"lost","status_text":"Pool"}');
+do $$ begin assert (select status_text from leads where id = test.id('f_sf')) = 'Pool', 'T31p3 a line sent again with the new status is kept by the edit call'; end $$;
+
+-- (p4) a bulk status change sends nothing, so no person or line is carried to the new status
+insert into test.ids select 'f_bk', test.t31_lead('T31 bulk carry');
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('f_bk'), 'contacted', null, '00000000-0000-0000-0000-0000000000a2');
+select service.leads_bulk(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', array[test.id('f_bk')], 'status', 'answering-machine');
+do $$ begin assert (select status_who from leads where id = test.id('f_bk')) = '00000000-0000-0000-0000-00000000000a', 'T31p4 bulk: the person of the old status is not carried (the caller is the default)'; end $$;
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('f_bk'), 'interested', null, null, 'Pool');
+select service.leads_bulk(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', array[test.id('f_bk')], 'status', 'lost');
+do $$ begin assert (select status_text from leads where id = test.id('f_bk')) is null, 'T31p4 bulk: the line of the old status is not carried'; end $$;
+
+-- (q) a bulk delete is service.delete_lead once per lead, so every delete path erases the same way (head's ruling J): one audit row per lead, and the delete runs inside delete_lead
+create table test.delctx (ctx text);
+create function test.t31_delctx() returns trigger language plpgsql as $f$ declare c text; begin get diagnostics c = pg_context; insert into test.delctx values (c); return old; end $f$;
+insert into test.ids select 'bd1', test.t31_lead('T31 bulk delete one');
+insert into test.ids select 'bd2', test.t31_lead('T31 bulk delete two');
+create trigger t31_delctx before delete on public.leads for each row execute function test.t31_delctx();
+select service.leads_bulk(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', array[test.id('bd1'), test.id('bd2')], 'delete', null, true);
+drop trigger t31_delctx on public.leads;
+do $$ begin
+  assert (select count(*) from leads where id in (test.id('bd1'), test.id('bd2'))) = 0, 'T31q the bulk delete deleted both leads';
+  assert (select count(*) from audit_log where action = 'lead-delete' and target in (test.id('bd1')::text, test.id('bd2')::text) and detail ->> 'reason' = 'bulk' and detail ->> 'email_hash' is not null) = 2,
+    'T31q a bulk delete leaves one audit row per lead, with the reason and the email hash';
+  assert (select count(*) from test.delctx where ctx like '%service.delete_lead(%') = 2, 'T31q each lead was deleted inside service.delete_lead: ' || coalesce((select string_agg(left(ctx, 120), ' | ') from test.delctx), 'no delete seen');
+end $$;
 
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

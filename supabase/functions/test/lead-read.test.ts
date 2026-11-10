@@ -1,6 +1,6 @@
 // lead-update, slice 5.2: `read: true` marks a lead read for the caller (service.mark_lead_read, migration 12).
 import { handle } from '../lead-update/index.ts';
-import { call, eq, SITE_A, SUB, teamRows, t, WS_A, withSql } from './util.ts';
+import { call, crmForms, eq, SITE_A, SUB, teamRows, t, WS_A, withSql } from './util.ts';
 
 const upd = (who: Parameters<typeof call>[3], body: Record<string, unknown>) => call(handle, 'lead-update', body, who);
 async function mkLead(owner: string | null, name: string): Promise<string> {
@@ -21,7 +21,7 @@ t('lead-update read: true alone marks the lead read for the caller, once, and ch
   eq(again.status, 204, 'a second time');
   eq((await readMarks(lead)).join(), SUB['member-a1'], 'one mark, theirs');
   await withSql(async sql => {
-    const [x] = await sql`select status from public.leads where id = ${lead}::uuid`; eq(x.status, 'new', 'the status did not change');
+    const [x] = await sql`select status from public.leads where id = ${lead}::uuid`; eq(x.status, 'not-contacted', 'the status did not change');
     const [e] = await sql`select count(*)::int as n from public.lead_events where lead_id = ${lead}::uuid and kind in ('status', 'note', 'assigned')`; eq(e.n, 0, 'no timeline event was written');
   });
   eq((await upd('owner-a', { lead, read: true })).status, 204, 'the owner marks it too');
@@ -29,6 +29,7 @@ t('lead-update read: true alone marks the lead read for the caller, once, and ch
 });
 
 t('lead-update read: true together with a change does both; read: false marks nothing', async () => {
+  await crmForms();
   const team = await teamRows();
   const lead = await mkLead(team.one, 'Lead to read and change');
   const r = await upd('member-a1', { lead, status: 'contacted', read: true });

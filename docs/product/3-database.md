@@ -49,7 +49,7 @@ How the wall is built (each part has a test and a mutant in `supabase/tests/run-
 ### Sites and content
 | Table | Holds |
 |---|---|
-| `sites` | one row per website: `deploy_target` (its Pages project), `preview_host`, `domain`, `state` (preview, live, paused), `lead_alert_to`, `alert_assignee` |
+| `sites` | one row per website: `deploy_target` (its Pages project), `preview_host`, `domain` (M23: unique in any letter case, `sites_domain_unique`), `state` (preview, live, paused), `lead_alert_to`, `alert_assignee` |
 | `site_contracts` | the content contract per workspace, versioned; `contract` as generated, `resolved` with the shared core merged; one `active` |
 | `content_rows` | one item: `collection`, `owner_team_row`, `published_version` (moves only when a publish job finishes), `deleted_at` |
 | `content_versions` | every save as a new version, never updated or deleted: `data` in the contract's shape, `by`, `at`, `sign_off` for a locked field |
@@ -61,7 +61,7 @@ needs no migration. Version history and rollback come from the append-only versi
 ### Leads (the CRM)
 | Table | Holds |
 |---|---|
-| `leads` | `site_id`, `form`, `page_path`, `name`, `email`, `phone`, `answers` (every other form field as JSON, keyed as in the contract, typed by M14: a number is a JSON number; a key the form does not declare is never stored), `consent_text`, `marketing_consent`, `sms_consent`, `sms_stopped_at`, `status` (new, contacted, qualified, closed, spam), `owner_team_row`, `flow`, `cta`, `idempotency_key`, `follow_up_at` (M22: set through `lead_follow_up`), `duplicate_of` (M22: the oldest earlier lead of the workspace with the same email, lower-cased, or phone, E.164; set by a trigger on every insert, never by a caller; nothing is merged), `created_at` |
+| `leads` | `site_id`, `form`, `page_path`, `name`, `email`, `phone`, `answers` (every other form field as JSON, keyed as in the contract, typed by M14: a number is a JSON number; a key the form does not declare is never stored), `consent_text`, `marketing_consent`, `sms_consent`, `sms_stopped_at`, `status` (M23: text, one of the business's own list or spam; default `not-contacted`), `lead_type` (M23: text, default `enquiry`, one of the business's own list), `status_date`, `status_who` (a member), `status_text` (up to 200; M23: each kept only when the status's list entry asks for it; `private.lead_guard` checks every write), `owner_team_row`, `flow`, `cta`, `idempotency_key`, `follow_up_at` (M22: set through `lead_follow_up`), `duplicate_of` (M22: the oldest earlier lead of the workspace with the same email, lower-cased, or phone, E.164; set by a trigger on every insert, never by a caller; nothing is merged), `created_at` |
 | `lead_events` | the lead's timeline, one row per thing that happened: `kind`, `by`, `detail`, `at`. Kinds in the enum: received, alert-sent, alert-failed, status, assigned, note, resent, exported, deleted, sms-stop, edited (M14: one per changed field, detail `{field, old, new}`), follow-up (M22: detail `{old, new}`), task (M22: detail `{action: added / done / reopened, task, text}`), plus kinds left from dropped plans (pushed, push-failed, booked, booking-changed, message-sent, message-failed) |
 | `lead_reads` | which login has opened which lead (the unread mark) |
 | `consent_ledger` | the proof of consent per lead: wording and its sha256, sms and marketing consent, hashed address; outlives a deleted lead |

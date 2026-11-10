@@ -85,7 +85,8 @@ export const FORM_FIELD_TYPES = ['text', 'email', 'phone', 'number', 'enum', 'ch
 export const CORE_LEAD_FIELDS = { name: 'text', email: 'email', phone: 'phone' };
 // Names the lead endpoint and the CRM already use (factory/worker/lead-endpoint.mjs TOP, the consent ticks, the lead's own columns).
 const RESERVED_FORM_KEYS = new Set(['form', 'flow', 'page', 'cta', 'assignee', 'consentText', 'hp', 'idempotencyKey', 'consent',
-  'marketingConsent', 'marketingConsentText', 'smsConsent', 'status', 'owner', 'id', 'created_at', 'updated_at', 'workspace', 'site']);
+  'marketingConsent', 'marketingConsentText', 'smsConsent', 'status', 'owner', 'id', 'created_at', 'updated_at', 'workspace', 'site',
+  'lead_type', 'status_date', 'status_who', 'status_text', 'follow_up', 'duplicate', 'duplicate_of']);
 const FORM_KEY = /^[a-zA-Z][a-zA-Z0-9_]{0,39}$/;
 const FORM_FLAGS = ['required', 'column', 'editable', 'multi'];
 
@@ -110,6 +111,49 @@ function checkFormFields(out, path, fields, collections) {
     if (f.multi !== undefined && f.type !== 'choice') err(out, 'C-FORM-FLAG', p, '"multi" applies to a choice field only');
     if (f.label !== undefined && !(typeof f.label === 'string' && f.label.trim() && f.label.length <= 80))
       err(out, 'C-FORM-LABEL', p, 'label must be text of 1 to 80 characters');
+  }
+}
+
+// Work order 20 (A16): the lead type and status lists are data of the industry, not code. `crm: { lead_types: [{ key, label }], statuses: [{ key, label, stage?,
+// needsDate, needsWho, needsText }] }`, each an ordered list of at most 60. A site without `crm` has the platform floor (lead type enquiry; the four statuses the product had before: not-contacted, contacted, qualified, closed).
+// A form says how its submission sets the lead type: `leadType: "<key>"` (always that type) or `leadTypeFrom: { field, map: { <value>: "<key>" } }`
+// (the value of one of its enum, choice or reference fields picks the type); anything else is "enquiry". The database applies the same rule (migration 23).
+export const CRM_FLAGS = ['needsDate', 'needsWho', 'needsText'];
+const CRM_STAGES = ['new', 'working', 'outcome'];
+const CRM_KEY = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+function checkCrm(out, crm) {
+  if (!crm || typeof crm !== 'object' || Array.isArray(crm)) { err(out, 'C-CRM-LIST', 'crm', 'crm must be an object with lead_types and statuses'); return; }
+  for (const [name, flagged, required] of [['lead_types', false, 'enquiry'], ['statuses', true, 'not-contacted']]) {
+    const p = `crm.${name}`, list = crm[name];
+    if (!Array.isArray(list) || !list.length || list.length > 60) { err(out, 'C-CRM-LIST', p, 'must be a list of 1 to 60 entries'); continue; }
+    const seen = new Set();
+    for (const [i, e] of list.entries()) {
+      const ep = `${p}[${i}]`;
+      if (!e || typeof e !== 'object' || Array.isArray(e)) { err(out, 'C-CRM-LIST', ep, 'an entry is an object { key, label }'); continue; }
+      if (typeof e.key !== 'string' || !CRM_KEY.test(e.key) || e.key.length > 40) err(out, 'C-CRM-KEY', ep, 'key is lower-case words joined by hyphens, up to 40 characters');
+      else if (seen.has(e.key)) err(out, 'C-CRM-KEY', ep, `duplicate key "${e.key}"`);
+      else seen.add(e.key);
+      if (typeof e.label !== 'string' || !e.label.trim() || e.label.length > 60) err(out, 'C-CRM-LABEL', ep, 'label must be text of 1 to 60 characters');
+      if (e.stage !== undefined && !(flagged && CRM_STAGES.includes(e.stage))) err(out, 'C-CRM-STAGE', ep, flagged ? `stage is one of ${CRM_STAGES.join(', ')}` : 'a lead type has no stage');
+      for (const k of CRM_FLAGS) if (e[k] !== undefined && !(flagged && typeof e[k] === 'boolean')) err(out, 'C-CRM-FLAG', ep, flagged ? `${k} must be true or false` : `a lead type has no ${k}`);
+    }
+    if (!seen.has(required)) err(out, 'C-CRM-REQUIRED', p, `must contain "${required}"`);
+  }
+}
+
+function checkFormLeadType(out, p, f, crm) {
+  const keys = new Set(((crm && crm.lead_types) || []).map(e => e && e.key));
+  if (f.leadType !== undefined && f.leadTypeFrom !== undefined) err(out, 'C-FORM-LEADTYPE', p, 'a form has leadType or leadTypeFrom, not both');
+  if (f.leadType !== undefined && !keys.has(f.leadType)) err(out, 'C-FORM-LEADTYPE', `${p}.leadType`, `"${f.leadType}" is not in crm.lead_types`);
+  if (f.leadTypeFrom === undefined) return;
+  const q = `${p}.leadTypeFrom`, from = f.leadTypeFrom, fd = from && (f.fields || {})[from.field];
+  if (!from || typeof from !== 'object' || Array.isArray(from) || !from.map || typeof from.map !== 'object' || Array.isArray(from.map) || !Object.keys(from.map).length)
+    { err(out, 'C-FORM-LEADTYPE', q, 'leadTypeFrom is { field, map: { value: lead type } }'); return; }
+  if (!fd || !(fd.type === 'enum' || (fd.type === 'choice' && fd.multi !== true) || fd.type === 'reference'))
+    { err(out, 'C-FORM-LEADTYPE', q, `field "${from.field}" must be an enum, a single choice or a reference field of this form`); return; }
+  for (const [v, k] of Object.entries(from.map)) {
+    if (!keys.has(k)) err(out, 'C-FORM-LEADTYPE', `${q}.map.${v}`, `"${k}" is not in crm.lead_types`);
+    if (fd.type !== 'reference' && !(fd.options || []).includes(v)) err(out, 'C-FORM-LEADTYPE', `${q}.map.${v}`, `"${v}" is not an option of ${from.field}`);
   }
 }
 
@@ -220,6 +264,8 @@ export function validateContract(contract) {
     for (const k of Object.keys(f.crm || {})) if (!(f.fields || {})[k]) err(out, 'C-CRM', p, `crm map names unknown form field "${k}"`);
   }
   checkFormKeysAgree(out, contract.forms);
+  if (contract.crm !== undefined) checkCrm(out, contract.crm);
+  for (const [id, f] of Object.entries(contract.forms)) checkFormLeadType(out, `forms.${id}`, f, contract.crm);
 
   // Placements: where each published item goes
   const fed = new Set();

@@ -633,13 +633,9 @@
      },
      "status": {
       "type": "string",
-      "enum": [
-       "new",
-       "contacted",
-       "qualified",
-       "closed",
-       "spam"
-      ]
+      "maxLength": 40,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Work order 20: a status key of the business's own list (its contract's crm.statuses, or spam); the database decides (400 I-ANSWER status). One `status` event with from, to, date, who and the author"
      },
      "owner": {
       "type": "string",
@@ -648,7 +644,8 @@
      },
      "note": {
       "type": "string",
-      "maxLength": 2000
+      "maxLength": 2000,
+      "description": "Work order 20: the note carries its author (detail.author { kind: user | agent, name }) as well as the user id and the time of its timeline row"
      },
      "unassign": {
       "type": "boolean",
@@ -671,6 +668,21 @@
       ],
       "format": "date-time",
       "description": "Work order 18: the lead's follow-up date and time (with an offset, 2026-11-20T10:00:00Z); null clears it; absent leaves it alone. One `follow-up` event with old and new when it changes, in the same transaction as the other changes"
+     },
+     "status_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Work order 20: the day the status schedules (a status whose list entry has needsDate takes one: 400 I-ANSWER status_date without it); absent keeps the lead's"
+     },
+     "status_who": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Work order 20: the member who made the contact (needsWho statuses); absent takes the caller; a person who is not a member of the business is 400 I-ANSWER status_who"
+     },
+     "status_text": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Work order 20: one short line the status asks for (needsText), up to 200 characters"
      }
     },
     "description": "every field but lead is optional; each change writes its own event on the lead timeline (service.lead_update)"
@@ -1074,7 +1086,7 @@
        "spam"
       ],
       "default": "all",
-      "description": "new = status new; all = every status except spam; mine = assigned to the caller, except spam; spam = spam"
+      "description": "new = status not-contacted (work order 20; it was new); all = every status except spam; mine = assigned to the caller, except spam; spam = spam"
      },
      "q": {
       "type": "string",
@@ -1145,9 +1157,17 @@
      "timezone": {
       "type": "string",
       "description": "IANA name; the day the us and eu date forms print"
+     },
+     "due": {
+      "type": "boolean",
+      "description": "The view's Due tick (work order 20): only the leads whose follow-up has come or that have an open task due, as lead-list does"
+     },
+     "duplicates": {
+      "type": "boolean",
+      "description": "The view's Duplicates tick (work order 20): only the leads flagged as duplicates, as lead-list does"
      }
     },
-    "description": "Without workspace: site (required), filter, q (block 1's body). With workspace (the CRM view): search, filters, sort, timezone, and optionally template; with template the file is in that CRM's layout, without it block 1's plain file from the same view."
+    "description": "Without workspace: site (required), filter, q (block 1's body). With workspace (the CRM view): search, filters, sort, due, duplicates, timezone, and optionally template; with template the file is in that CRM's layout, without it block 1's plain file from the same view."
    },
    "InviteMemberRequest": {
     "type": "object",
@@ -1372,7 +1392,8 @@
       "type": [
        "string",
        "null"
-      ]
+      ],
+      "description": "action status: a status key of the business's own list (a status that needs a date is refused: one lead at a time); owner: a team row id or null"
      },
      "confirm": {
       "type": "boolean"

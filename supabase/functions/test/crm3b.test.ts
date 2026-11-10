@@ -126,6 +126,7 @@ t('view-delete: 204 for the caller\'s own view and an owner\'s for a shared one;
 
 // ---------- lead-update follow_up ----------
 t('lead-update follow_up: set, change and clear (204); one follow-up event per change; a time is stored as the instant it names', async () => {
+  await crmForms();
   const team = await teamRows();
   const lead = await mkLead(team.one, `Follow ${nonce()}`);
   const set = await upd('member-a1', { lead, follow_up: '2026-12-01T10:00:00+02:00' });
@@ -145,6 +146,7 @@ t('lead-update follow_up: set, change and clear (204); one follow-up event per c
 });
 
 t('lead-update follow_up: a bad value is 400 on follow_up (a date alone, a day that does not exist, a number); a lead the caller cannot act on is 404 and nothing changes', async () => {
+  await crmForms();
   const team = await teamRows();
   const mine = await mkLead(team.one, `Follow bad ${nonce()}`), theirs = await mkLead(team.two, `Follow theirs ${nonce()}`);
   for (const v of ['2026-12-01', '2026-02-30T10:00:00Z', '2026-12-01T10:00:00', 12345, true, '']) {
@@ -157,7 +159,7 @@ t('lead-update follow_up: a bad value is 400 on follow_up (a date alone, a day t
   eq((await upd('owner-b', { lead: mine, follow_up: '2026-12-01T10:00:00Z' })).status, 404, 'owner B');
   await withSql(async sql => {
     eq((await sql`select follow_up_at from public.leads where id in (${mine}::uuid, ${theirs}::uuid) and follow_up_at is not null`).length, 0, 'nothing was set');
-    eq((await sql`select status::text as s from public.leads where id = ${theirs}::uuid`)[0].s, 'new', 'nor the status of the same call');
+    eq((await sql`select status::text as s from public.leads where id = ${theirs}::uuid`)[0].s, 'not-contacted', 'nor the status of the same call');
   });
 });
 

@@ -50,6 +50,9 @@ swap('validate.mjs', 'column: d.column !== false, editable: d.editable !== false
 swap('validate.mjs', 'column: d.column !== false, editable: d.editable !== false', 'column: d.column !== false, editable: d.editable === true', 'leadColumns: editable defaults to false');
 swap('validate.mjs', 'if (CORE_LEAD_FIELDS[k] || !d ||', 'if (!d ||', 'leadColumns lists name/email/phone as industry columns');
 swap('validate.mjs', 'for (const o of d.options || []) if (!c.options.includes(o)) c.options.push(o);', 'if (!c.options.length) c.options.push(...(d.options || []));', 'leadColumns: options of the first form only');
+swap('from-plan.mjs', '...(E.crm ? { crm: E.crm } : {}),', '', 'generator drops the entities\' crm lists');
+swap('validate.mjs', "if (fd.type !== 'reference' && !(fd.options || []).includes(v))", "if (false)", 'leadTypeFrom map keys not checked against the field\'s options');
+swap('validate.mjs', "'status', 'owner', 'id', 'created_at', 'updated_at', 'workspace', 'site',\n  'lead_type', 'status_date', 'status_who', 'status_text', 'follow_up', 'duplicate', 'duplicate_of']", "'status', 'owner', 'id', 'created_at', 'updated_at', 'workspace', 'site']", 'lead type and status columns not reserved as form keys');
 swap('validate.mjs', "if (empty(v)) { if (publish && f.required)", "if (empty(v)) { if (f.required)", 'required enforced on drafts too');
 
 // 3. coverage: every code raised in the source is named in the tests

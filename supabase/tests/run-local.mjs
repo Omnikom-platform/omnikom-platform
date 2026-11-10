@@ -25,7 +25,8 @@ const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', t
 
 // Read every input ONCE at the start, so editing files during a run cannot mix versions.
 const migrationFiles = readdirSync(MIGRATIONS_DIR).filter(f => f.endsWith('.sql')).sort();
-const src = migrationFiles.map(f => `-- >>> ${f}\n` + readFileSync(join(MIGRATIONS_DIR, f), 'utf8')).join('\n');
+const migrationParts = migrationFiles.map(f => [f, readFileSync(join(MIGRATIONS_DIR, f), 'utf8')]);
+const src = migrationParts.map(([f, t]) => `-- >>> ${f}\n` + t).join('\n');
 const shimText = readFileSync(SHIM, 'utf8');
 const testText = readFileSync(TESTS, 'utf8');
 
@@ -504,7 +505,7 @@ const MUTANTS = [
   ['crm14: set_fields, a non-editable field is editable', "      if not (d ->> 'editable')::boolean then raise exception 'S-LOCKED: \"%\" cannot be edited', k; end if;", "      null;"],
   ['crm14: set_fields, an edit is not typed', "      nv := private.typed_value(k, d, v);\n", "      nv := v;\n"],
   ['crm14: set_fields, an unknown key is accepted', "      if d is null then raise exception 'I-UNKNOWN: \"%\" is not a field of this lead', left(k, 40); end if;", "      if d is null then d := '{\"type\":\"text\",\"editable\":true}'; end if;"],
-  ['crm14: set_fields, a bad status is accepted', "        raise exception 'I-ANSWER status: Status must be one of the lead statuses'; end if;\n      nv := v;", "        null; end if;\n      nv := v;"],
+  ['crm14: set_fields, a bad status is accepted (both layers)', [["      if jsonb_typeof(v) <> 'string' or private.status_def(l.workspace_id, btrim(v #>> '{}')) is null then\n        raise exception 'I-ANSWER status: Status must be one of this business''s statuses'; end if;", "      null;"], ["      if ins or new.status is distinct from old.status then raise exception 'I-ANSWER status: Status must be one of this business''s statuses'; end if;", "      null;"]]],
   ['crm14: set_fields, writes no edited event', "      insert into public.lead_events (lead_id, workspace_id, kind, by, detail) values (p_lead, l.workspace_id, 'edited', me, e);", "      null;"],
   ['crm14: set_fields, an unchanged value writes an event', "    if old is distinct from nv and not (old is null and nv = 'null'::jsonb) then", "    if true then"],
   ['crm14: set_fields, not audited', "values (l.workspace_id, me, 'lead-edit', p_lead::text,", "values (l.workspace_id, me, 'lead-edited', p_lead::text,"],
@@ -525,13 +526,13 @@ const MUTANTS = [
   ['crm14: bulk, delete without the confirm flag', "  if p_action = 'delete' and p_confirm is not true then raise exception 'S-CONFIRM: deleting leads needs the confirm step'; end if;", "  null;"],
   ['crm14: bulk, no audit row per deleted lead', "      insert into public.audit_log (workspace_id, actor, action, target, detail) values (l.workspace_id, me, 'lead-delete', l.id::text,", "      perform (l.workspace_id, me, 'lead-delete', l.id::text,"],
   ['crm14: bulk, more than 500 ids', "  if cardinality(ids) = 0 or cardinality(ids) > 500 then", "  if cardinality(ids) = 0 then"],
-  ['crm14: bulk, a bad status is accepted', "    if p_value is null or not (p_value = any (enum_range(null::public.lead_status)::text[])) then raise exception", "    if p_value is null then raise exception"],
+  ['crm14: bulk, a bad status is accepted (both layers)', [["    if p_value is null or private.status_def(p_workspace, btrim(p_value)) is null then raise exception 'I-ANSWER status: Status must be one of this business''s statuses'; end if;", "    if p_value is null then raise exception 'I-ANSWER status: no value'; end if;"], ["      if ins or new.status is distinct from old.status then raise exception 'I-ANSWER status: Status must be one of this business''s statuses'; end if;", "      null;"]]],
   ['crm14: bulk, no status event per lead', "values (l.id, l.workspace_id, 'status', me, jsonb_build_object('from', l.status, 'to', st, 'bulk', true));", "values (l.id, l.workspace_id, 'note', me, jsonb_build_object('from', l.status, 'to', st, 'bulk', true));"],
   ...['lead_set_fields(jsonb, uuid, jsonb)', 'lead_list(jsonb, uuid, jsonb)', 'leads_bulk(jsonb, uuid, uuid[], text, text, boolean)'].flatMap(sig => [
     [`crm14: migration 14 closes service.${sig.split('(')[0]} to anon, authenticated, PUBLIC (both layers)`, [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], [`revoke all on function service.${sig} from public, anon, authenticated;`, '-- (revoke removed)']]],
     [`crm14: migration 14 opens service.${sig.split('(')[0]} to the function role (both layers)`, [['alter default privileges in schema service grant execute on functions to service_role, omnikom_fn;', '-- (no default grant)'], [`grant execute on function service.${sig} to service_role, omnikom_fn;`, '-- (grant removed)']]],
   ]),
-  ...['lead_set_fields(p_claims jsonb, p_lead uuid, p_fields jsonb) returns int'].map(h => [`crm14: service.${h.split('(')[0]} does not pin the search_path`, `create function service.${h} language plpgsql security definer set search_path = '' as $$`, `create function service.${h} language plpgsql security definer as $$`]),
+  ...['lead_set_fields(p_claims jsonb, p_lead uuid, p_fields jsonb) returns int'].map(h => [`crm14: service.${h.split('(')[0]} does not pin the search_path`, `create or replace function service.${h} language plpgsql security definer set search_path = '' as $$`, `create or replace function service.${h} language plpgsql security definer as $$`]),
 
   // ---- work order 02 (migration 15): the map's fields, the map, the import, add_lead typed; tests in tenancy.test.sql T23 ----
   ['crm15: add_lead stores the raw answers (F3)', "  typed := private.typed_lead_answers(ws, private.lead_column_defs(ws), p_answers, false);", "  typed := coalesce(p_answers, '{}');"],
@@ -555,7 +556,7 @@ const MUTANTS = [
   ['crm15: import, a map naming a field the forms no longer have is used', "  if missing is not null then raise exception 'T-FIELD %: the map names a field this business''s forms no longer have; save the map again', missing; end if;", "  null;"],
   ['crm15: import, a refused row does not refuse a real run (partial write)', "      if not dry then raise exception 'I-IMPORT line % %: %', line, fld, m; end if;   -- all or nothing: one refused row refuses the import\n", ''],
   ['crm15: import, answers are not typed', "      n_answers := private.typed_lead_answers(p_workspace, cols, r -> 'answers', true);", "      n_answers := coalesce(r -> 'answers', '{}');"],
-  ['crm15: import, a bad status becomes new', "      else raise exception 'I-ANSWER status: Status must be one of the lead statuses'; end if;\n      n_answers", "      else n_status := 'new'; end if;\n      n_answers"],
+  ['crm15: import, a bad status becomes not-contacted', "        if pick is null then raise exception 'I-ANSWER status: Status must be one of this business''s statuses'; end if;", "        if pick is null then pick := '{\"key\":\"not-contacted\",\"label\":\"Not contacted yet\"}'::jsonb; end if;"],
   ['crm15: import, a lead with no name, email or phone', "      if n_name is null and n_email is null and n_phone is null then raise exception", "      if false then raise exception"],
   ['crm15: import, a lead of the workspace is not a duplicate', "    if ekey is not null and have_e ? ekey then dupe := 'email'; dwith := 'a lead you already have';\n    elsif", "    if false then null;\n    elsif"],
   ['crm15: import, email case matters', "ekey := lower(btrim(n_email));", "ekey := btrim(n_email);"],
@@ -576,8 +577,8 @@ const MUTANTS = [
 
   // ---- work order 07 (migration 18): `site` is a filterable key of lead_list; tests in tenancy.test.sql T24 ----
   ['crm18: service.lead_list does not pin the search_path (migrations 14 and 18)', [["create function service.lead_list(p_claims jsonb, p_workspace uuid, p_query jsonb default '{}') returns jsonb language plpgsql security definer set search_path = '' as $", "create function service.lead_list(p_claims jsonb, p_workspace uuid, p_query jsonb default '{}') returns jsonb language plpgsql security definer as $"], ["create or replace function service.lead_list(p_claims jsonb, p_workspace uuid, p_query jsonb default '{}') returns jsonb language plpgsql security definer set search_path = '' as $", "create or replace function service.lead_list(p_claims jsonb, p_workspace uuid, p_query jsonb default '{}') returns jsonb language plpgsql security definer as $"]]],
-  ['crm18: the site key is not a filterable key', ",\"page\":\"text\",\"site\":\"text\"}'::jsonb;", ",\"page\":\"text\"}'::jsonb;"],
-  ['crm18: the site key is not in lead_value', " when 'site' then to_jsonb(l.site_id::text) else", " else"],
+  ['crm18: the site key is not a filterable key', ",\"page\":\"text\",\"site\":\"text\",\"lead_type\":\"enum\"", ",\"page\":\"text\",\"lead_type\":\"enum\""],
+  ['crm18: the site key is not in lead_value', " when 'site' then to_jsonb(l.site_id::text)\n    when 'lead_type'", "\n    when 'lead_type'"],
   ['crm18: the site key reads the workspace, not the site', "when 'site' then to_jsonb(l.site_id::text)", "when 'site' then to_jsonb(l.workspace_id::text)"],
   ['crm18: a site filter reaches across workspaces (both layers)', "    where l.workspace_id = p_workspace\n      and (see_all or", "    where true\n      and (see_all or"],
   ['crm18: an answer named site overwrites the row\'s site', "'owner', 'form', 'page', 'site')", "'owner', 'form', 'page')"],
@@ -656,7 +657,7 @@ const MUTANTS = [
       ['crm22: lead_list, "a duplicate" is told only to who sees both leads', `'duplicate', p.duplicate_of is not null`, `'duplicate', p.dv is not null`],
       ['crm22: lead_list, a row has no follow_up', `'follow_up', p.follow_up_at, 'duplicate'`, `'follow_up', null::timestamptz, 'duplicate'`],
       ['crm22: lead_list, due and duplicates may be anything', `  if (q ? 'due' and jsonb_typeof(q -> 'due') <> 'boolean') or (q ? 'duplicates' and jsonb_typeof(q -> 'duplicates') <> 'boolean') then\n    raise exception 'S-QUERY: due and duplicates are true or false'; end if;\n`, ''],
-      ['crm22: lead_query_check does not pin the search_path', `create function private.lead_query_check(p_workspace uuid, p_query jsonb) returns jsonb language plpgsql stable security definer set search_path = '' as $$`, `create function private.lead_query_check(p_workspace uuid, p_query jsonb) returns jsonb language plpgsql stable security definer as $$`],
+      ['crm22: lead_query_check does not pin the search_path', `create or replace function private.lead_query_check(p_workspace uuid, p_query jsonb) returns jsonb language plpgsql stable security definer set search_path = '' as $$`, `create or replace function private.lead_query_check(p_workspace uuid, p_query jsonb) returns jsonb language plpgsql stable security definer as $$`],
       // the duplicate rule
       ['crm22: duplicates, no trigger (nothing is flagged)', `create trigger leads_duplicate before insert on public.leads for each row execute function private.lead_set_duplicate();`, `-- (no trigger)`],
       ['crm22: duplicates, the flag can be sent in', `new.duplicate_of := private.lead_duplicate_of(new.workspace_id, new.email, new.phone);`, `new.duplicate_of := coalesce(new.duplicate_of, private.lead_duplicate_of(new.workspace_id, new.email, new.phone));`],
@@ -739,6 +740,73 @@ const MUTANTS = [
   ['media limits: one more type is allowed (text/html)', "'image/heic', 'application/pdf']", "'image/heic', 'application/pdf', 'text/html']"],
   ['media limits: one type is missing (application/pdf)', "'image/heic', 'application/pdf']", "'image/heic']"],
   ['media limits: the insert policy is kept', "drop policy media_objects_insert on storage.objects;", ""],
+
+  // ---- work order 20 (migration 23): lead type and status lists as data, the guard, note authors, one domain per site; tests in tenancy.test.sql T31 and the "upgrade" below. Run only these: --only "crm23" ----
+  ['crm23: the guard is not on the table', "create trigger leads_guard before insert or update of status, lead_type, status_date, status_who, status_text on public.leads for each row execute function private.lead_guard();", '-- (trigger removed)'],
+  ['crm23: the guard accepts a status that is not in the list', "      if ins or new.status is distinct from old.status then raise exception 'I-ANSWER status: Status must be one of this business''s statuses'; end if;", "      null;"],
+  ['crm23: the guard accepts a lead type that is not in the list', "  if (ins or new.lead_type is distinct from old.lead_type) and private.lead_type_def(new.workspace_id, new.lead_type) is null then\n    raise exception 'I-ANSWER lead_type: Lead type must be one of this business''s lead types'; end if;", "  null;"],
+  ['crm23: a status that needs a date takes none', "        if new.status_date is null then raise exception 'I-ANSWER status_date: % needs a date', def ->> 'label'; end if;", "        null;"],
+  ['crm23: a date stays on a status that does not take one', "      else new.status_date := null; end if;", "      end if;"],
+  ['crm23: a person is not defaulted to the caller', "          select m.user_id into new.status_who from public.members m where m.workspace_id = new.workspace_id and m.user_id = (select auth.uid()); end if;", "          null; end if;"],
+  ['crm23: a status can name a person who is not a member', "        if new.status_who is not null and not exists (select 1 from public.members m where m.workspace_id = new.workspace_id and m.user_id = new.status_who) then\n          raise exception 'I-ANSWER status_who: Pick a member of this business'; end if;", "        null;"],
+  ['crm23: a person stays on a status that does not record one', "      else new.status_who := null; end if;", "      end if;"],
+  ['crm23: a line stays on a status that does not ask for one', "      else new.status_text := null; end if;", "      end if;"],
+  ['crm23: a form\'s fixed lead type is ignored', "      if jsonb_typeof(f -> 'leadType') = 'string' then new.lead_type := f ->> 'leadType';", "      if false then null;"],
+  ['crm23: a form\'s leadTypeFrom map is ignored', "        new.lead_type := coalesce(lf -> 'map' ->> v, 'enquiry');", "        new.lead_type := 'enquiry';"],
+  ['crm23: a type the list dropped is not replaced by enquiry', "      if private.lead_type_def(new.workspace_id, new.lead_type) is null then new.lead_type := 'enquiry'; end if;\n    end if;", "    end if;"],
+  ['crm23: a lead type is read from every business\'s contract', "from public.site_contracts sc where sc.workspace_id = new.workspace_id and sc.active limit 1;\n    if jsonb_typeof(f) = 'object' then", "from public.site_contracts sc where sc.active limit 1;\n    if jsonb_typeof(f) = 'object' then"],
+  ['crm23: the lists are read from any business\'s contract', "from (select (select sc.resolved -> 'crm' from public.site_contracts sc where sc.workspace_id = p_ws and sc.active limit 1) as crm) c $$;", "from (select (select sc.resolved -> 'crm' from public.site_contracts sc where sc.active limit 1) as crm) c $$;"],
+  ['crm23: spam is not a system status', "    case when p_key = 'spam' then", "    case when p_key = 'never' then"],
+  // ruling A: the floor is the four statuses the product had before (an existing business keeps working); each one is a mutant
+  ['crm23: a business without a crm block has no not-contacted in its floor', "else '[{\"key\":\"not-contacted\",\"label\":\"Not contacted yet\",\"stage\":\"new\",\"needsDate\":false,\"needsWho\":false,\"needsText\":false},", "else '["],
+  ['crm23: the floor has no contacted', "{\"key\":\"contacted\",\"label\":\"Contacted\",\"stage\":\"working\",\"needsDate\":false,\"needsWho\":false,\"needsText\":false},", ""],
+  ['crm23: the floor has no qualified', "{\"key\":\"qualified\",\"label\":\"Qualified\",\"stage\":\"working\",\"needsDate\":false,\"needsWho\":false,\"needsText\":false},", ""],
+  ['crm23: the floor has no closed', "{\"key\":\"closed\",\"label\":\"Closed\",\"stage\":\"outcome\",\"needsDate\":false,\"needsWho\":false,\"needsText\":false}]'::jsonb end)", "{\"key\":\"qualified\",\"label\":\"Qualified\",\"stage\":\"working\",\"needsDate\":false,\"needsWho\":false,\"needsText\":false}]'::jsonb end)"],
+  // ruling J: a bulk delete goes through service.delete_lead (the direct delete of migration 14 and 22 restored, audit row and all)
+  ['crm23: bulk, delete restores the direct delete (not through service.delete_lead)', "perform service.delete_lead(p_claims, l.id, 'bulk');", "insert into public.audit_log (workspace_id, actor, action, target, detail) values (l.workspace_id, me, 'lead-delete', l.id::text, jsonb_build_object('reason', 'bulk', 'email_hash', encode(sha256(convert_to(coalesce(l.email, ''), 'utf8')), 'hex'))); delete from public.leads where public.leads.id = l.id;"],
+  // ruling E: the import template names the lead type, a file carries it
+  ['crm23: a map cannot name the lead type', "status|lead_type|created_at|owner|answers", "status|created_at|owner|answers"],
+  ['crm23: import, a lead type that is not in the list is taken', "if n_type is null then raise exception 'I-ANSWER lead_type: Lead type must be one of this business''s lead types'; end if;", "null;"],
+  ['crm23: import, the lead type is never read from the row', "where lower(e ->> 'key') = lower(btrim(r ->> 'lead_type')) or lower(e ->> 'label') = lower(btrim(r ->> 'lead_type')) limit 1;", "where false limit 1;"],
+  ['crm23: import, the dry run sample has no lead type', "'status', n_status, 'lead_type', n_type,", "'status', n_status,"],
+  ['crm23: import, the lead is stored without its lead type', "consent, n_status, n_type, n_owner,", "consent, n_status, 'enquiry', n_owner,"],
+  // ruling G: a status change clears the date, person and line the old status carried
+  // (the write paths clear what was not sent and keep what was, even when it equals the old value: lead_update, lead_set_fields, leads_bulk; the guard only validates)
+  ...[['date', 'nd', 'p_status_date', 'status_date'], ['person', 'nw', 'p_status_who', 'status_who'], ['line', 'nt', "nullif(btrim(p_status_text), '')", 'status_text']].flatMap(([w, v, sent, col]) => [
+    [`crm23: lead_update, a status change keeps the old ${w}`, `${v} := ${sent};`, `${v} := coalesce(${sent}, l.${col});`],
+    [`crm23: lead_update, a status change clears a ${w} that was sent again`, `${v} := ${sent};`, `${v} := case when ${sent} is not distinct from l.${col} then null else ${sent} end;`]]),
+  ...[['date', 'n_sdate', 'status_date', 'date'], ['person', 'n_swho', 'status_who', 'uuid'], ['line', 'n_stext', 'status_text', 'text']].flatMap(([w, v, key, ty]) => [
+    [`crm23: lead_set_fields, a status change keeps the old ${w}`, `if not p_fields ? '${key}' then ${v} := null; end if;`, `null;`],
+    [`crm23: lead_set_fields, a status change clears a ${w} that was sent again`, `if not p_fields ? '${key}' then ${v} := null; end if;`,
+      `if not p_fields ? '${key}' or (p_fields ->> '${key}')::${ty} is not distinct from l.${key} then ${v} := null; end if;`]]),
+  ['crm23: bulk, a status change keeps the old person', "status = st, status_who = null, status_text = null where", "status = st, status_text = null where"],
+  ['crm23: bulk, a status change keeps the old line', "status = st, status_who = null, status_text = null where", "status = st, status_who = null where"],
+  ['crm23: lead_update, a member sets a status on a lead not theirs', "  if not coalesce(staff or role = 'owner' or (role = 'member' and l.owner_team_row = mine), false) then raise exception 'S-NOT-FOUND: not found'; end if;\n  actor := private.actor_kind(p_claims);", "  actor := private.actor_kind(p_claims);"],
+  ['crm23: lead_update, a note has no author block', "jsonb_build_object('text', p_note, 'author', jsonb_build_object('kind', actor, 'name', case when actor = 'agent' then 'Agent' else private.person_label(l.workspace_id, me) end)));", "jsonb_build_object('text', p_note));"],
+  ['crm23: an AI operator is never recognised', "  select case when p_claims -> 'app_metadata' ->> 'actor' = 'agent' then 'agent' else 'user' end $$;", "  select 'user'::text $$;"],
+  ['crm23: a claim outside app_metadata names an agent', "  select case when p_claims -> 'app_metadata' ->> 'actor' = 'agent' then 'agent' else 'user' end $$;", "  select case when p_claims ->> 'actor' = 'agent' or p_claims -> 'app_metadata' ->> 'actor' = 'agent' then 'agent' else 'user' end $$;"],
+  ['crm23: a member\'s note does not carry their name', "    (select nullif(btrim(v.data ->> 'name'), '') from public.members m", "    (select null::text from public.members m"],
+  ['crm23: the status event has no date', "jsonb_build_object('from', l.status, 'to', r.status, 'date', r.status_date, 'who', r.status_who,", "jsonb_build_object('from', l.status, 'to', r.status, 'who', r.status_who,"],
+  ['crm23: lead_set_fields, a bad lead type is stored (both layers)', [["      if jsonb_typeof(v) <> 'string' or private.lead_type_def(l.workspace_id, btrim(v #>> '{}')) is null then\n        raise exception 'I-ANSWER lead_type: Lead type must be one of this business''s lead types'; end if;", "      null;"], ["  if (ins or new.lead_type is distinct from old.lead_type) and private.lead_type_def(new.workspace_id, new.lead_type) is null then\n    raise exception 'I-ANSWER lead_type: Lead type must be one of this business''s lead types'; end if;", "  null;"]]],
+  ['crm23: lead_set_fields, a status that is not a member\'s person (both layers)', [["        if jsonb_typeof(v) <> 'string' or (v #>> '{}') !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then raise exception 'I-ANSWER status_who: Pick a member of this business'; end if;\n        nv := v; n_swho := (v #>> '{}')::uuid;", "        nv := v; n_swho := (v #>> '{}')::uuid;"], ["        if new.status_who is not null and not exists (select 1 from public.members m where m.workspace_id = new.workspace_id and m.user_id = new.status_who) then\n          raise exception 'I-ANSWER status_who: Pick a member of this business'; end if;", "        null;"]]],
+  ['crm23: lead_set_fields, the status date is not typed', "      nv := private.typed_value('status_date', '{\"type\":\"date\",\"label\":\"Date\"}', v); old := to_jsonb(l.status_date::text); n_sdate := (nv #>> '{}')::date;", "      nv := v; old := to_jsonb(l.status_date::text); n_sdate := (nv #>> '{}')::date;"],
+  ['crm23: lead_set_fields, the line is not limited to 200 characters', "      nv := private.typed_value('status_text', '{\"type\":\"text\",\"max\":200,\"label\":\"Status note\"}', v);", "      nv := private.typed_value('status_text', '{\"type\":\"text\",\"max\":2000,\"label\":\"Status note\"}', v);"],
+  ['crm23: bulk, a status that needs a date is set without one', "    if coalesce((private.status_def(p_workspace, st) ->> 'needsDate')::boolean, false) then\n      raise exception 'I-ANSWER status: % needs a date; set it on one lead at a time', private.status_def(p_workspace, st) ->> 'label'; end if;", ""],
+  ['crm23: import, a status that needs a date is accepted from a file', "        if coalesce((pick ->> 'needsDate')::boolean, false) then\n          raise exception 'I-ANSWER status: % needs a date, so a file cannot set it; import the lead as Not contacted yet and set it in the CRM', pick ->> 'label'; end if;", ""],
+  ['crm23: import, a status is read by its key only', "    (select e from jsonb_array_elements(p_statuses) e where lower(e ->> 'key') = lower(btrim(p_value)) or lower(e ->> 'label') = lower(btrim(p_value)) limit 1),", "    (select e from jsonb_array_elements(p_statuses) e where lower(e ->> 'key') = lower(btrim(p_value)) limit 1),"],
+  ['crm23: lead_list, a status sorts by its letters', "case when skey = 'status' then coalesce((srank ->> l.status)::int, 1000) end as ss,", "case when skey = 'status' then ascii(l.status) end as ss,"],
+  ['crm23: lead_list, the answer has no lists', ", 'lead_types', lists -> 'lead_types', 'statuses', lists -> 'statuses');", ");"],
+  ['crm23: lead_list, a row has no lead type', "'status', p.status, 'lead_type', p.lead_type,", "'status', p.status,"],
+  ['crm23: lead_list, a row has no status date', "'status_date', p.status_date, 'status_who'", "'status_who'"],
+  ['crm23: a lead type cannot be filtered on', "    when 'lead_type' then to_jsonb(l.lead_type) when 'status_date'", "    when 'lead_type' then null when 'status_date'"],
+  ['crm23: the status date is not a date column (no range)', '"status_date":"date"', '"status_date":"text"'],
+  ['crm23: lead types are not a column of a saved view', '"lead_type":"enum","status_date"', '"status_date"'],
+  ['crm23: the unique domain index is gone', "create unique index sites_domain_unique on public.sites (lower(domain)) where domain is not null;", "-- (index removed)"],
+  ['crm23: the unique domain index is case sensitive', "create unique index sites_domain_unique on public.sites (lower(domain)) where domain is not null;", "create unique index sites_domain_unique on public.sites (domain) where domain is not null;"],
+  ['crm23: the old lead_status enum is kept', "drop type public.lead_status;", "-- (enum kept)"],
+  ...['private.crm_lists(uuid)', 'private.lead_guard()'].map(sig => [`crm23: migration 23 opens ${sig} to anon, authenticated, PUBLIC (both layers)`, [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], [`revoke all on function ${sig} from public, anon, authenticated;`, '-- (revoke removed)']]]),
+  ['crm23: migration 23 opens service.lead_update to anon, authenticated, PUBLIC (both layers)', [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], ['revoke all on function service.lead_update(jsonb, uuid, text, uuid, text, boolean, date, uuid, text) from public, anon, authenticated;', '-- (revoke removed)']]],
+  ['crm23: migration 23 does not open service.lead_update to the function role (both layers)', [['alter default privileges in schema service grant execute on functions to service_role, omnikom_fn;', '-- (no default grant)'], ['grant execute on function service.lead_update(jsonb, uuid, text, uuid, text, boolean, date, uuid, text) to service_role, omnikom_fn;', '-- (grant removed)']]],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]
@@ -757,6 +825,47 @@ const PORT_MUTANTS = [
 // remove a wall from the original text and, when the wall lives in a function body, from its schema-qualified copy too
 const mutate = (s, x, y) => { let t = s.split(x).join(y); const qx = qualify(x); if (qx !== x) t = t.split(qx).join(qualify(y)); return t; };
 
+
+// Work order 20 (migration 23): the enum conversion and the note backfill need rows that exist BEFORE the migration. This builds a database with migrations 1 to 22,
+// puts one lead of each old status and one note in it, applies migration 23 alone, and reads the rows back. Mutants of migration 23 run the same check.
+const UP_FILE = '20261109000023_lead_type_status.sql';
+const UP_SEED = `insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000aa01', 'up-owner@test');
+insert into workspaces (id, slug, name, industry) values ('aaaaaaaa-0000-0000-0000-0000000000f1', 'test-upgrade', 'Upgrade', 'real-estate-agent');
+insert into members (workspace_id, user_id, role) values ('aaaaaaaa-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-00000000aa01', 'owner');
+insert into leads (workspace_id, form, page_path, name, consent_text, status) values
+  ('aaaaaaaa-0000-0000-0000-0000000000f1', 'f', '/', 'u1', 'x', 'new'), ('aaaaaaaa-0000-0000-0000-0000000000f1', 'f', '/', 'u2', 'x', 'contacted'),
+  ('aaaaaaaa-0000-0000-0000-0000000000f1', 'f', '/', 'u3', 'x', 'qualified'), ('aaaaaaaa-0000-0000-0000-0000000000f1', 'f', '/', 'u4', 'x', 'closed'),
+  ('aaaaaaaa-0000-0000-0000-0000000000f1', 'f', '/', 'u5', 'x', 'spam');
+insert into lead_events (lead_id, workspace_id, kind, by, detail) select id, workspace_id, 'note', '00000000-0000-0000-0000-00000000aa01', '{"text":"an old note"}' from leads where name = 'u1';
+`;
+const UP_CHECK = `select coalesce((select string_agg(status, ',' order by name) from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-0000000000f1'), 'no rows') || ' | ' ||
+  coalesce((select string_agg(distinct lead_type, ',') from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-0000000000f1'), '-') || ' | ' ||
+  coalesce((select detail -> 'author' ->> 'kind' || ':' || (detail -> 'author' ->> 'name') from lead_events where kind = 'note' limit 1), 'no author') || ' | ' ||
+  case when to_regtype('public.lead_status') is null then 'enum gone' else 'enum kept' end`;
+const UP_WANT = 'not-contacted,contacted,qualified,closed,spam | enquiry | user:Owner | enum gone';
+const upgradeRun = (name, mutate23) => {
+  sqlOn('postgres', `create database ${name}`);
+  const old = migrationParts.filter(([f]) => f < UP_FILE).map(([f, t]) => `-- >>> ${f}\n` + t).join('\n');
+  const up = migrationParts.find(([f]) => f === UP_FILE);
+  if (!up) return { setup: false, out: 'migration 23 is missing' };
+  const files = [['shim.sql', null], ['cron-stub.sql', null], [`${name}-old.sql`, old], [`${name}-seed.sql`, UP_SEED], [`${name}-23.sql`, mutate23(up[1])]];
+  writeFileSync(join(dir, 'cron-stub.sql'), CRON_STUB);
+  for (const [f, text] of files) {
+    if (text !== null) writeFileSync(join(dir, f), text);
+    const x = psql(name, join(dir, f));
+    if (x.status !== 0) { return { setup: false, out: outOf(x) }; }
+  }
+  const got = (sqlOn(name, UP_CHECK).stdout ?? '').trim();
+  return { setup: true, ok: got === UP_WANT, got };
+};
+const upgradeDone = (name) => { done(name); for (const f of ['old', 'seed', '23']) rmSync(join(dir, `${name}-${f}.sql`), { force: true }); };
+const UPGRADE_MUTANTS = [
+  ['crm23: upgrade, the enum conversion keeps new as new', "when 'new' then 'not-contacted' else status::text end", "when 'new' then 'new' else status::text end"],
+  ['crm23: upgrade, the enum conversion drops spam', "when 'new' then 'not-contacted' else status::text end", "when 'new' then 'not-contacted' when 'spam' then 'not-contacted' else status::text end"],
+  ['crm23: upgrade, notes written before the migration get no author', "update public.lead_events e set detail = e.detail || jsonb_build_object('author', jsonb_build_object('kind', 'user', 'name', private.person_label(e.workspace_id, e.by)))\n  where e.kind = 'note' and e.by is not null and not (e.detail ? 'author');", ""],
+  ['crm23: upgrade, a new lead type column starts empty', "add column lead_type text not null default 'enquiry'", "add column lead_type text not null default 'other'"],
+];
+
 let failed = 0, crashed = null, real = { setup: false, ok: false, out: '' }, ran = 0, left = '?';
 const bad = [];   // the mutants not caught, named again on the last line (CI keeps only the last lines of a gate)
 try {
@@ -774,7 +883,26 @@ try {
     console.log(same ? `PASS T30c media bucket limits equal upload-start (${maxBytes} bytes, ${mimes.length} types)` : `FAIL T30c media bucket limits differ from upload-start: bucket '${got || outOf(b)}' vs upload-start '${want}'`);
     if (!same) failed++;
   }
+  // Work order 20: the upgrade check, real and then each of its mutants (caught = the check reads something else)
   let n = 0;
+  if (!ONLY || 'crm23: upgrade'.includes(ONLY)) {
+    ran++;
+    const u = upgradeRun('upreal', t => t);
+    upgradeDone('upreal');
+    console.log(u.setup && u.ok ? `PASS upgrade: migrations 1 to 22 with one lead of each old status and a note, then 23: ${u.got}` : `FAIL upgrade: ${u.setup ? `read '${u.got}', wanted '${UP_WANT}'` : u.out.split('\n').slice(-4).join(' | ')}`);
+    if (!(u.setup && u.ok)) { failed++; bad.push('upgrade (the real migration)'); }
+  }
+  for (const [name, a, b] of UPGRADE_MUTANTS) {
+    if (ONLY && !name.includes(ONLY)) continue;
+    ran++;
+    const t = migrationParts.find(([f]) => f === UP_FILE);
+    if (!t || !t[1].includes(a)) { console.log(`MUTANT TARGET MISSING: ${name}: ${a.slice(0, 60)}`); failed++; bad.push(`${name} (target missing)`); continue; }
+    const m = upgradeRun(`up${++n}`, x => x.split(a).join(b));
+    upgradeDone(`up${n}`);
+    const caught = !m.setup || !m.ok;
+    if (!caught) { failed++; bad.push(`${name} (survived)`); }
+    console.log(`${caught ? 'caught  ' : 'SURVIVED'} ${name.padEnd(44)} ${m.setup ? `read '${m.got}'` : 'setup failed: ' + m.out.split('\n').slice(-2).join(' | ').slice(0, 160)}`);
+  }
   for (const [name, a, b] of MUTANTS) {
     if (ONLY && !name.includes(ONLY)) continue;
     ran++;

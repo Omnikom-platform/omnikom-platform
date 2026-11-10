@@ -32,7 +32,7 @@ const emailsOf = (o: Out) => parse(o.text).slice(1).map(r => r[2]);
 async function mkLead(o: { site?: string; ws?: string; name: string; email: string; phone?: string | null; status?: string; owner?: string | null; answers?: unknown; at?: string }): Promise<string> {
   return await withSql(async sql => {
     const [l] = await sql`insert into public.leads (workspace_id, site_id, form, page_path, name, email, phone, status, owner_team_row, answers, consent_text, created_at)
-      values (${o.ws ?? WS_A}::uuid, ${o.site ?? SITE_A}::uuid, 'contact', '/contact', ${o.name}, ${o.email}, ${o.phone ?? null}, ${o.status ?? 'new'}::public.lead_status, ${o.owner ?? null}::uuid,
+      values (${o.ws ?? WS_A}::uuid, ${o.site ?? SITE_A}::uuid, 'contact', '/contact', ${o.name}, ${o.email}, ${o.phone ?? null}, ${o.status ?? 'not-contacted'}::text, ${o.owner ?? null}::uuid,
         ${o.answers ?? {}}::jsonb, 'I agree to be contacted', ${o.at ?? new Date().toISOString()}::timestamptz) returning id`;
     return l.id;
   });
@@ -69,7 +69,7 @@ t('lead-export: the owner gets a text/csv file with the header, the readable lea
   eq(rows[0].join(), HEADER.join(), 'the header');
   eq(emailsOf(r).join(), 'free-zz52@example.com,inj-zz52@example.com,a-zz52@example.com', 'the three non-spam leads of this site, newest first; the spam lead and B\'s lead are absent');
   const alice = rows.find(x => x[2] === 'a-zz52@example.com')!;
-  eq(alice[0], '2026-01-01T10:00:00.000Z', 'received, ISO'); eq(alice[1], 'Alice zz52', 'name'); eq(alice[4], 'contact', 'form'); eq(alice[5], '/contact', 'page'); eq(alice[6], 'new', 'status');
+  eq(alice[0], '2026-01-01T10:00:00.000Z', 'received, ISO'); eq(alice[1], 'Alice zz52', 'name'); eq(alice[4], 'contact', 'form'); eq(alice[5], '/contact', 'page'); eq(alice[6], 'not-contacted', 'status');
   eq(alice[7], 'Agent One', 'the owner is the team member\'s name'); eq(alice[8], 'high', 'a select is its value'); eq(alice[9], '', 'a field with no value is empty');
   eq(alice[10], 'Pool; Garden', 'a multi choice is its values joined'); eq(alice[11], "'=1+1", 'a non-column field is exported too, with the formula guard');
   eq(alice.length, HEADER.length, 'no answers cell: a key the contract does not declare is not a column');
@@ -200,7 +200,7 @@ t('lead-export without a template: the file is block 1\'s plain file, byte for b
   const old = await ok('owner-a', { site: SITE_A, filter: 'all', q: 'zz07v' });
   const view = await ok('owner-a', VIEW);
   eq(view.text, old.text, 'the same bytes from the old body and from the view');
-  eq(parse(old.text)[1].join('|'), ['2026-04-03T10:00:00.000Z', 'View Three zz07v', 'v3-zz07v@example.com', '', 'contact', '/contact', 'new', '', 'high', '7', '', ''].join('|'), 'the old shape\'s first line, as it always was');
+  eq(parse(old.text)[1].join('|'), ['2026-04-03T10:00:00.000Z', 'View Three zz07v', 'v3-zz07v@example.com', '', 'contact', '/contact', 'not-contacted', '', 'high', '7', '', ''].join('|'), 'the old shape\'s first line, as it always was');
   eq(view.headers.get('content-disposition')?.startsWith('attachment; filename="leads-'), true, 'a leads-<date>.csv filename'); eq(view.headers.get('cache-control'), 'no-store', 'no-store');
 });
 
@@ -231,4 +231,27 @@ t('lead-export without a template: a workspace the caller cannot see is 404 and 
   eq((await exportCsv('owner-a', { workspace: 'nope' })).status, 400, 'a workspace that is not an id');
   eq((await exportCsv('owner-a', { ...VIEW, filters: 'budget' })).status, 400, 'filters that are not a list');
   eq((await exportCsv('owner-a', { ...VIEW, filters: [{ field: 'nothere', op: 'eq', value: 1 }] })).status >= 400, true, 'a filter on a column that does not exist is refused');
+});
+
+// work order 19 finding 4, head's ruling H (work order 20): the Due and Duplicates ticks of the view narrow the file as they narrow the list
+t('lead-export (work order 20): the Due and Duplicates ticks of the view narrow the file as they narrow the list; a tick that is not true or false is 400', async () => {
+  const team = await teamRows();
+  await crmForms();
+  const tok = 'zz20h' + Math.random().toString(36).slice(2, 8);
+  const mk = (name: string, email: string, followUp: string | null = null) => withSql(async sql => {
+    const [l] = await sql`insert into public.leads (workspace_id, site_id, form, page_path, name, email, consent_text, owner_team_row, follow_up_at)
+      values (${WS_A}::uuid, ${SITE_A}::uuid, 'contact', '/contact', ${name}, ${email}, 'I agree to be contacted', ${team.one}::uuid, ${followUp}::timestamptz) returning id`;
+    return l.id as string;
+  });
+  await mk(`${tok} past`, `past-${tok}@zz20.test`, '2026-01-02T10:00:00Z');
+  await mk(`${tok} future`, `future-${tok}@zz20.test`, '2999-01-02T10:00:00Z');
+  await mk(`${tok} plain`, `plain-${tok}@zz20.test`);
+  await mk(`${tok} dup first`, `dup-${tok}@zz20.test`);
+  await mk(`${tok} dup second`, `dup-${tok}@zz20.test`);   // flagged as a duplicate by the database
+  const view = { workspace: WS_A, search: tok };
+  eq(emailsOf(await ok('owner-a', view)).length, 5, 'no tick: every lead of the search');
+  eq(emailsOf(await ok('owner-a', { ...view, due: true })).join(), `past-${tok}@zz20.test`, 'due: only the follow-up that has come');
+  eq(emailsOf(await ok('owner-a', { ...view, due: false })).length, 5, 'due: false keeps every lead');
+  eq(emailsOf(await ok('owner-a', { ...view, duplicates: true })).join(), `dup-${tok}@zz20.test`, 'duplicates: only the flagged lead (one row)');
+  for (const body of [{ due: 'yes' }, { duplicates: 1 }]) { const r = await exportCsv('owner-a', { ...view, ...body }); eq(r.status, 400, `${JSON.stringify(body)}: ${r.text.slice(0, 160)}`); }
 });

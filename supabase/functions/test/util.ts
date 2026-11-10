@@ -126,10 +126,23 @@ export function eq<T>(got: T, want: T, msg: string) { if (got !== want) throw ne
 // a contact form first (idempotent). leadColumns is the ordered list contracts/validate.mjs writes into a resolved contract.
 export const CRM_FORMS = { contact: { fields: { name: { type: 'text' }, email: { type: 'email' }, phone: { type: 'phone' },
   budget: { type: 'enum', options: ['high', 'low'] }, rooms: { type: 'number', min: 0, max: 20 }, wants: { type: 'choice', options: ['Pool', 'Garden'], multi: true },
-  note: { type: 'text', column: false } } } };
+  note: { type: 'text', column: false } }, leadTypeFrom: { field: 'budget', map: { high: 'buy', low: 'listing-question' } } } };
+// Work order 20: the business's own lead type and status lists (the contract's crm block). The CLI's seed contract has none, so the tests that need a status other
+// than the platform floor (not-contacted, spam) put these in with the forms. The contact form's `budget` answer picks the lead type: high is buy, low is listing-question.
+export const CRM_LISTS = {
+  lead_types: [{ key: 'enquiry', label: 'Enquiry' }, { key: 'buy', label: 'Buy a home' }, { key: 'sell', label: 'Sell a home' }, { key: 'listing-question', label: 'Question about a listing' }],
+  statuses: [
+    { key: 'not-contacted', label: 'Not contacted yet', stage: 'new', needsDate: false, needsWho: false, needsText: false },
+    { key: 'contacted', label: 'Contacted', stage: 'working', needsDate: false, needsWho: true, needsText: false },
+    { key: 'qualified', label: 'Qualified', stage: 'working', needsDate: false, needsWho: false, needsText: false },
+    { key: 'call-back', label: 'Call back', stage: 'working', needsDate: true, needsWho: false, needsText: false },
+    { key: 'interested', label: 'Interested in something specific', stage: 'working', needsDate: false, needsWho: false, needsText: true },
+    { key: 'closed', label: 'Closed', stage: 'outcome', needsDate: false, needsWho: false, needsText: false },
+  ],
+};
 export async function crmForms() {
   const lc = [{ key: 'budget' }, { key: 'rooms' }, { key: 'wants' }, { key: 'note' }];
-  await withSql(sql => sql`update public.site_contracts set resolved = resolved || jsonb_build_object('forms', ${CRM_FORMS}::jsonb, 'leadColumns', ${lc}::jsonb)
+  await withSql(sql => sql`update public.site_contracts set resolved = resolved || jsonb_build_object('forms', ${CRM_FORMS}::jsonb, 'leadColumns', ${lc}::jsonb, 'crm', ${CRM_LISTS}::jsonb)
     where workspace_id in (${WS_A}::uuid, ${WS_B}::uuid) and active`);
 }
 

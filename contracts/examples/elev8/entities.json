@@ -308,6 +308,7 @@
   }
  ],
  "defaultForm": "contact",
+ "crmFrom": "../crm-lists/real-estate.json",
  "forms": {
   "contact": {
    "label": "Contact",
@@ -357,12 +358,22 @@
       "buyer",
       "seller",
       "both",
-      "other"
+      "other",
+      "listing-question"
      ]
     }
    },
    "consent": {
     "notice": "form-consent"
+   },
+   "leadTypeFrom": {
+    "field": "leadType",
+    "map": {
+     "buyer": "buy",
+     "seller": "sell",
+     "listing-question": "listing-question",
+     "other": "enquiry"
+    }
    },
    "crm": {
     "leadType": "Buyer or Seller",
@@ -464,6 +475,7 @@
    "consent": {
     "notice": "form-consent"
    },
+   "leadType": "home-value",
    "crm": {
     "sellTimeframe": "Move Timeframe",
     "leadType": "Buyer or Seller",
@@ -558,6 +570,7 @@
    "consent": {
     "notice": "form-consent"
    },
+   "leadType": "buy",
    "crm": {
     "area": "Target Area",
     "budget": "Price Range",
@@ -640,6 +653,13 @@
    },
    "consent": {
     "notice": "form-consent"
+   },
+   "leadTypeFrom": {
+    "field": "offerType",
+    "map": {
+     "list": "sell",
+     "cash-offer": "cash-offer"
+    }
    },
    "crm": {
     "sellTimeframe": "Move Timeframe",

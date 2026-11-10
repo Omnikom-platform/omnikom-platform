@@ -25,6 +25,7 @@
   "notices": { "category": { "type": "enum", "required": true, "options": ["product-disclosure", "consent", "privacy", "terms", "general-disclosure"] } }
  },
  "defaultForm": "inquiry",
+ "crmFrom": "../crm-lists/insurance-financial.json",
  "forms": {
   "inquiry": {
    "label": "Inquiry",
@@ -34,7 +35,8 @@
     "state": { "type": "text", "max": 40 }, "interest": { "type": "reference", "to": "products" },
     "preferred_contact": { "type": "enum", "options": ["phone", "text", "email"] }, "message": { "type": "text", "max": 2000 }
    },
-   "consent": { "notice": "calls-and-texts-consent" }
+   "consent": { "notice": "calls-and-texts-consent" },
+   "leadTypeFrom": { "field": "interest", "map": { "mortgage-protection": "mortgage-protection", "life-insurance": "life-insurance", "annuities": "annuity" } }
   },
   "careers-interest": {
    "label": "Careers interest",
@@ -43,7 +45,8 @@
     "state": { "type": "text", "max": 40 }, "licensing_status": { "type": "enum", "options": ["licensed", "in-progress", "not-licensed"] },
     "experience": { "type": "text", "max": 200 }, "about": { "type": "text", "max": 2000 }
    },
-   "consent": { "notice": "calls-and-texts-consent" }
+   "consent": { "notice": "calls-and-texts-consent" },
+   "leadType": "agent-recruiting"
   }
  },
  "pageTypes": {
