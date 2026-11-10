@@ -39,25 +39,6 @@ export function client({ fetch: fetchFn, secrets = [], timeoutMs = 30000 }) {
 }
 export const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// The words of a name and the site's domain: copies of the skill's matching (measure-sources.mjs), kept here so this folder loads without it.
-export const nfkc = (s) => String(s ?? "").normalize("NFKC").toLowerCase();
-export const words = (s) => nfkc(s).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
-export function containsWords(hay, needle) {
-  const h = words(hay), n = words(needle);
-  if (!n.length || n.length > h.length) return false;
-  for (let i = 0; i + n.length <= h.length; i++) if (n.every((w, j) => h[i + j] === w)) return true;
-  return false;
-}
-export const domainOf = (u) => {
-  const s = String(u || "").trim().toLowerCase();
-  if (!s) return "";
-  try { return new URL(/^[a-z][a-z0-9+.-]*:\/\//.test(s) ? s : `http://${s}`).hostname.replace(/^www\./, ""); } catch { return ""; }
-};
-export const isOurs = (domainOrUrl, ours, aliases = []) => {
-  const d = domainOf(domainOrUrl);
-  return !!d && [ours, ...aliases].map(domainOf).some((o) => o && (d === o || d.endsWith("." + o)));
-};
-
 export const round = (v, n) => (typeof v === "number" && Number.isFinite(v) ? Number(v.toFixed(n)) : null);
 // An invalid row is a thrown error, never a written row.
 export function assertValid(row, validate) {

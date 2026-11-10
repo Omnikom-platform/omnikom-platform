@@ -4,10 +4,10 @@
 //   node tools/audit/metrics/cli.mjs pagespeed --workspace ID --day YYYY-MM-DD --urls u1,u2,... [--origin O] [--out FILE]
 //   node tools/audit/metrics/cli.mjs crux --origin O
 //   node tools/audit/metrics/cli.mjs bing --workspace ID --day YYYY-MM-DD [--site URL] [--sites-only true] [--out FILE]
-//   node tools/audit/metrics/cli.mjs ai-answers --workspace ID --day YYYY-MM-DD --domain D --name N --prompts "p1|p2|p3" [--model NAME] [--captures FILE] [--out FILE]
+//   node tools/audit/metrics/cli.mjs ai-answers --workspace ID --day YYYY-MM-DD --captures FILE [--out FILE]   (no model is called: DECISIONS 38)
 //   node tools/audit/metrics/cli.mjs search-console --workspace ID --day YYYY-MM-DD [--property P]      (token: GSC_ACCESS_TOKEN)
 //   node tools/audit/metrics/cli.mjs report --rows FILE --month YYYY-MM --name N [--domain D]
-// Live calls are small: at most 3 prompts, at most 5 pages. Exit 0 = a row (or a BLOCKED row) was produced, 2 = bad usage, 1 = an error.
+// Live calls are small: at most 5 pages. Exit 0 = a row (or a BLOCKED row) was produced, 2 = bad usage, 1 = an error.
 import fs from "node:fs";
 import { collectPageSpeed, queryCrux } from "./pagespeed.mjs";
 import { collectBing, listBingSites } from "./bing.mjs";
@@ -16,7 +16,7 @@ import { collectSearchConsole } from "./search-console.mjs";
 import { monthlyReport } from "./report-monthly.mjs";
 import { isDay } from "./util.mjs";
 
-const KEY_NAMES = ["PSI_API_KEY", "CRUX_API_KEY", "BING_WEBMASTER_KEY", "GEMINI_API_KEY", "GSC_ACCESS_TOKEN"];
+const KEY_NAMES = ["PSI_API_KEY", "CRUX_API_KEY", "BING_WEBMASTER_KEY", "GSC_ACCESS_TOKEN"];
 const keys = Object.fromEntries(KEY_NAMES.filter((n) => process.env[n]).map((n) => [n, process.env[n]]));
 const USAGE = "usage: cli.mjs <pagespeed|crux|bing|ai-answers|search-console|report> [options] (see the header of this file)";
 const die = (msg, code = 2) => { console.error(msg); process.exit(code); };
@@ -56,11 +56,10 @@ if (cmd === "pagespeed") {
   if (sites.blocked && res.row.data.blocked) res.row.data.blocked = sites.blocked;
   emit({ ...res, calls: [...sites.calls, ...res.calls] });
 } else if (cmd === "ai-answers") {
-  needRow(); need("domain", "name", "prompts");
-  const prompts = opt.prompts.split("|").map((p) => p.trim()).filter(Boolean);
-  if (prompts.length > 3) die("at most 3 prompts per live run");
-  const captures = opt.captures ? JSON.parse(fs.readFileSync(opt.captures, "utf8")) : [];
-  emit(await collectAiAnswers({ fetch, keys, workspaceId: opt.workspace, day: opt.day, site: { domain: opt.domain, name: opt.name }, ...(opt.model ? { model: opt.model } : {}), prompts: prompts.map((p, i) => ({ id: `p${i + 1}`, prompt: p })), captures }));
+  needRow(); need("captures");
+  const captures = JSON.parse(fs.readFileSync(opt.captures, "utf8"));
+  if (!Array.isArray(captures)) die("--captures must be a JSON list of answer rows");
+  emit(await collectAiAnswers({ workspaceId: opt.workspace, day: opt.day, captures }));
 } else if (cmd === "search-console") {
   needRow();
   emit(await collectSearchConsole({ fetch, token: keys.GSC_ACCESS_TOKEN, workspaceId: opt.workspace, day: opt.day, property: opt.property }));

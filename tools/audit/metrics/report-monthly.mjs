@@ -9,7 +9,7 @@ const DEFAULT_UNBLOCK = {
   "search-console": "the site's domain is verified in Search Console and the Google account is connected",
   pagespeed: "the PageSpeed key is set and the site is live",
   bing: "the site is verified in Bing Webmaster Tools and the Bing key is set",
-  "ai-answers": "the Gemini key is set, or answers captured from ChatGPT or Perplexity are added",
+  "ai-answers": "the AI-answer check of our research skill is run for this site, or answers captured from ChatGPT or Perplexity are added",
 };
 const EM = String.fromCharCode(0x2014);
 const cond = (s) => clean(s).replace(/^([A-Z])([a-z])/, (m, a, b) => a.toLowerCase() + b).replace(/[.\s]+$/, "");

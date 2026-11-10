@@ -8,14 +8,14 @@ report reads those rows back. Platform loads these modules from a Deno edge func
 
 - **Deno-loadable.** No module except `cli.mjs` imports `node:` or touches `process`; nothing reads a file or the environment.
   A collector takes `{ fetch, keys, workspaceId, day, ... }` (keys are passed in by variable name: `PSI_API_KEY`,
-  `CRUX_API_KEY`, `BING_WEBMASTER_KEY`, `GEMINI_API_KEY`; Search Console takes an OAuth `token`). A test enforces it.
+  `CRUX_API_KEY`, `BING_WEBMASTER_KEY`; Search Console takes an OAuth `token`; no model key, DECISIONS 38). A test enforces it.
 - **Returns `{ row, calls, notes }`.** `row = { workspace_id, source, day, data }` (the table's shape), `calls = [{ what, status }]`
   (one per request, no key in it), `notes` = plain sentences about what was skipped or refused.
 - **A source that cannot be read is a BLOCKED row**: `data.blocked = { reason, unblock }` (no key, no verified property, a 403 or
   429). A number is never filled in from a guess or an older run. Any 429 or 403 stops that source.
 - **Validated before it is returned.** `shapes.mjs` has one `validate<Source>Row(row)` per source, returning a list of problems;
   an invalid row is a thrown error, never a written row.
-- **Every request has a time limit** (`AbortSignal.timeout`, 30 s; 60 s for PageSpeed and Gemini). A network error is scrubbed of
+- **Every request has a time limit** (`AbortSignal.timeout`, 30 s; 60 s for PageSpeed). A network error is scrubbed of
   every key before it reaches a row or a note.
 
 ## Row shapes (`data`)
@@ -54,11 +54,11 @@ row cannot be inserted.
 Exactly platform ruling 5-P4 and the skill's 5d shape: one row per workspace per run day, `data = { date, rows }`, each inner row
 `{ promptId, prompt, engine, named, cited, pageCited, asked_at, evidence_url, evidence_excerpt }` (`data.rows`). `engine` is one of
 `chatgpt`, `perplexity`, `gemini`; `named` and `cited` are `true`, `false` or `null` (not both null); `asked_at` is a day;
-evidence is a URL or a dated excerpt. The live collector asks Gemini (free tier, Google Search grounding, the question alone) and
-judges `named` by the site's name or domain in the answer, `cited` by a grounding source or a link in the answer that is our domain.
-The default model is `gemini-3.8-flash` (the one Google's own 404 message names; `gemini-2.5-flash`, the skill's default, is "no longer available to new users" as of 2026-11-10); pass `model` to change it. Gemini's terms forbid keeping the answer, so evidence is our cited page, or a pointer `gemini <model>, answer <hash>, seen <day>`.
-Rows from other engines (an owner's ChatGPT or Perplexity capture) come in as `captures` already in the inner shape; an invalid one
-is refused with a note, never written. A test runs the skill's `validateAiAnswerRow` and ours over the same rows.
+evidence is a URL or a dated excerpt. **No model is called here**: DECISIONS 38 keeps every model API out of runtime code, and
+`tools/audit/` is runtime (`docs/blueprint/specs/check-no-model.mjs`, a CI gate). The answers come in as `captures`, already in the
+inner shape: the skill's measure stage (its own Gemini check, which that decision allows) or an owner's ChatGPT or Perplexity
+capture. An invalid one is refused with a note, never written; no captures is a BLOCKED row. A test runs the skill's
+`validateAiAnswerRow` and ours over the same rows.
 
 ## The monthly report
 `monthlyReport({ rows, month: "2026-10", site: { name, domain } })` returns markdown in plain words for a business owner. Search
@@ -69,7 +69,7 @@ sum, average, percentage or seconds figure worked out from rows (a test traces e
 
 ## Command line
 `node tools/with-env.mjs ".secrets/api-keys.env" -- node tools/audit/metrics/cli.mjs <command>`; commands `pagespeed`, `crux`,
-`bing`, `ai-answers`, `search-console`, `report` (options in the file's header). Live runs are small: at most 5 pages, 3 prompts.
+`bing`, `ai-answers`, `search-console`, `report` (options in the file's header). Live runs are small: at most 5 pages.
 Anything about to be printed or written is checked against every key value first and refused if one is in it.
 
 ## Fixtures (`fixtures/`)
@@ -83,8 +83,8 @@ yet), with invented hosts (`example-property.test`, `example-shop.test`).
 - `bing.json`: GetUserSites, GetQueryStats, GetPageStats, GetCrawlStats answers (`{ d: [...] }`, dates as `/Date(ms)/`), an answer
   without the array, an error body. From https://learn.microsoft.com/en-us/dotnet/api/microsoft.bing.webmaster.api.interfaces.iwebmasterapi
   (the response field names are the interface's; the JSON wrapper `d` is how the endpoint answers).
-- `ai-answers.json`: Gemini generateContent answers with grounding (named and cited, named only, neither, domain only, grounded
-  only, link only, a 429) from https://ai.google.dev/api/generate-content; plus captured inner rows, two valid and six invalid, one per rule.
+- `ai-answers.json`: captured inner rows, two valid and six invalid, one per rule (written by hand from the 5d shape,
+  `tools/audit/proof/5d.md`).
 - `report-rows.json`: twelve metrics_snapshots rows for September and October 2026 (made by hand; the numbers are the ones the
   report test checks the text against).
 - `malformed.txt`: an HTML error page where JSON was expected.

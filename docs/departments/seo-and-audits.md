@@ -556,3 +556,8 @@ options, never a fix made here.
   404 "no longer available to new users", gemini-3.8-flash 429 on the first request). Only `bing` differs from 5-P4 (platform's
   block 6 migration adds it). Finding for the next skill touch: the skill's default model in `scripts/measure.mjs` is that dead
   gemini-2.5-flash. Still open: 26 part 2 (owner). Remove `builders/metrics-collectors` after the land.
+  - 18:05: that land was refused (CI run 42844880393 red at "no model in runtime (D38)": the brief asked for a live Gemini call in
+    `tools/audit/`, which DECISIONS 38 forbids; the brief's fault). Head's fix: `ai-answers.mjs` only packs captured answers (the
+    skill's measure stage, allowed by D38, or an owner's capture); no model key in `tools/audit/`. Suite `OK: 802 of 802`, D38 check
+    OK locally, changed mutants all caught. Rule for every SEO brief from now on: nothing under `tools/audit/` calls a model; run
+    `node docs/blueprint/specs/check-no-model.mjs` before a land.

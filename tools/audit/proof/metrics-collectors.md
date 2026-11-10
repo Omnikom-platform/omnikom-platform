@@ -142,3 +142,18 @@ This part is not connected yet: run again later, or add captured answers.
 2. A verified Bing site exists for `BING_WEBMASTER_KEY`: the statistics pull can be proven with one more small run if wanted.
 3. A repo hook regenerated `icm/CODE-MAP.md`, `icm/INDEX.md`, `icm/code-map.json`, `icm/index.json` in this worktree (counts +2 docs); they are generated files and show as modified.
 4. `bing` needs one more allowed value in the CHECK (already ruled; block 6).
+
+## Head's fix after CI went red (2026-11-10 18:05): no model call in runtime code (DECISIONS 38)
+The first land (`bab074b`, CI run 42844880393) was refused: the gate "no model in runtime (D38)" (`docs/blueprint/specs/check-no-model.mjs`)
+found 17 model tells (the Gemini host and `GEMINI_API_KEY`) in `tools/audit/`, which DECISIONS 38 counts as runtime code. Only the skill's
+research scripts may call a model. The brief (written by the head) asked for a live Gemini collector here; that conflicts with D38, so
+the fault is the brief's, not the builder's. Fixed by the head, inside SEO's own files:
+- `metrics/ai-answers.mjs` calls no model: `collectAiAnswers({ workspaceId, day, captures })` validates captured inner rows (the skill's
+  measure stage, its own Gemini check, which D38 allows; or an owner's ChatGPT or Perplexity capture) and packs them into the 5-P4 row; no
+  captures is a BLOCKED row whose way in is the skill's measure stage or a capture. The name and domain matching helpers left `util.mjs`
+  with it; `cli.mjs ai-answers` takes `--captures FILE` and no model key; the Gemini answers left the fixture.
+- Tests: the 14 Gemini-call checks went with the code, 4 capture checks remain or are new (`OK: 802 of 802 checks passed`, was 812). The
+  21 Gemini mutants went too; 2 new ones for the no-captures reason and its way in, 2 new CLI ones for `--captures` (200 metrics mutants).
+- `node docs/blueprint/specs/check-no-model.mjs`: `OK: 748 runtime files, 0 model SDK imports, API hosts or key names (DECISIONS 38)`.
+The Gemini section above is history: the live 404 and 429 were seen by the builder's run before this fix. AI answers are now BLOCKED
+until captures come in, which is what the skill's measure stage produces (its default model needs the update in finding 1 first).

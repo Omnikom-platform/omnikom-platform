@@ -15,8 +15,8 @@ export async function metricsChecks({ check, AUDIT, SKILL }) {
   const EM = String.fromCharCode(0x2014);
   const W = "00000000-0000-4000-8000-000000000009";
   const DAY = "2026-11-03";
-  const K = { PSI: "PSIKEY-test-secret-1", CRUX: "CRUXKEY-test-secret-2", BING: "BINGKEY-test-secret-7", GEMINI: "GEMINIKEY-test-secret-4", TOKEN: "TOKEN-test-secret-9", INDEXNOW: "INDEXNOWKEY-test-secret-5" };
-  const KEYS = { PSI_API_KEY: K.PSI, CRUX_API_KEY: K.CRUX, BING_WEBMASTER_KEY: K.BING, GEMINI_API_KEY: K.GEMINI };
+  const K = { PSI: "PSIKEY-test-secret-1", CRUX: "CRUXKEY-test-secret-2", BING: "BINGKEY-test-secret-7", TOKEN: "TOKEN-test-secret-9", INDEXNOW: "INDEXNOWKEY-test-secret-5" };
+  const KEYS = { PSI_API_KEY: K.PSI, CRUX_API_KEY: K.CRUX, BING_WEBMASTER_KEY: K.BING };
   const leaks = (x) => Object.values(K).filter((v) => JSON.stringify(x).includes(v));
 
   // a fake fetch: the first route whose `when(url, init)` is true answers; body may be a function; a route may throw
@@ -183,49 +183,21 @@ export async function metricsChecks({ check, AUDIT, SKILL }) {
   const dayNew = (await attempt(async () => bing.appendIndexNow(null, ping1, { workspaceId: W, day: DAY }))).v;
   check("metrics bing: a ping with no row yet for the day makes a valid row that says the statistics are not pulled yet and holds the ping", !!dayNew?.data.blocked && eq(dayNew.data.indexnow, [ping1]) && validateOk(dayNew) && /takes a bing row or null/.test((await attempt(async () => bing.appendIndexNow({ source: "pagespeed" }, ping1))).err || ""));
 
-  // ---------- ai-answers ----------
-  const SITE = { domain: "example-property.test", name: "Example Property Group" };
-  const PROMPTS = [1, 2, 3].map((n) => ({ id: `p${n}`, prompt: `question ${n}` }));
-  const NOW = () => new Date("2026-11-04T01:00:00Z");
-  const gem = (bodies) => { let n = 0; return fake([{ when: (u) => u.includes(":generateContent"), body: () => bodies[n++] }]); };
-  const aArgs = (f, o = {}) => ({ fetch: f, keys: { GEMINI_API_KEY: K.GEMINI }, workspaceId: W, day: DAY, site: SITE, prompts: PROMPTS, gapMs: 777, now: NOW, ...o });
+  // ---------- ai-answers (captures only: no model is called, DECISIONS 38) ----------
   const A = fx("ai-answers.json");
-  const sl3 = sleeps(), fg = gem([A.geminiNamedCited, A.geminiNamedOnly, A.geminiNeither]);
-  const aGood = await attempt(() => ai.collectAiAnswers(aArgs(fg, { sleep: sl3.sleep })));
-  const r3 = aGood.v?.row.data.rows || [];
-  check("metrics ai-answers: Gemini answers become inner rows (promptId, prompt, engine, named, cited, pageCited, asked_at, evidence) in the 5-P4 shape, data.date is the run day",
-    aGood.v?.row.data.date === DAY && r3.length === 3 && eq(Object.keys(r3[0]), ["promptId", "prompt", "engine", "named", "cited", "pageCited", "asked_at", "evidence_url", "evidence_excerpt"]) && r3.every((r) => r.engine === "gemini" && r.asked_at === "2026-11-04") && r3[0].prompt === "question 1", aGood.err || JSON.stringify(r3[0]));
-  check("metrics ai-answers: named and cited are judged on the answer: our name and a link to our page (named, cited), the name only (named), nothing (neither)",
-    eq(r3.map((r) => [r.named, r.cited]), [[true, true], [true, false], [false, false]]) && r3[0].pageCited === "https://example-property.test/homes-in-alpha/" && r3[1].pageCited === null, JSON.stringify(r3.map((r) => [r.named, r.cited])));
-  check("metrics ai-answers: evidence is our cited page when there is one, else a dated pointer (model, answer hash, day) because the answer text may not be stored",
-    r3[0].evidence_url === r3[0].pageCited && r3[0].evidence_excerpt === null && r3[1].evidence_url === null && /^gemini gemini-3\.8-flash, answer [0-9a-f]{16}, seen 2026-11-04$/.test(r3[1].evidence_excerpt), JSON.stringify(r3[1]));
-  check("metrics ai-answers: the answer text is never stored, the key is in no output, and the gap between prompts is waited twice",
-    !JSON.stringify(aGood.v).includes("local forums") && leaks(aGood.v).length === 0 && eq(sl3.l, [777, 777]) && aGood.v.calls.length === 3 && fg.seen.every((c) => c.init.headers["x-goog-api-key"] === K.GEMINI && !c.url.includes(K.GEMINI)), JSON.stringify(sl3.l));
-  const aDom = await attempt(() => ai.collectAiAnswers(aArgs(gem([A.geminiDomainOnly]), { prompts: [PROMPTS[0]] })));
-  check("metrics ai-answers: our domain written in the answer counts as named even without the name", aDom.v?.row.data.rows[0].named === true && aDom.v.row.data.rows[0].cited === false, aDom.err || JSON.stringify(aDom.v?.row.data.rows[0]));
-  const aGr = await attempt(() => ai.collectAiAnswers(aArgs(gem([A.geminiGroundedOnly]), { prompts: [PROMPTS[0]] })));
-  check("metrics ai-answers: a grounding source that is our domain counts as cited (the redirect address is not taken for a page), named stays false", aGr.v?.row.data.rows[0].cited === true && aGr.v.row.data.rows[0].named === false && aGr.v.row.data.rows[0].pageCited === null, aGr.err || JSON.stringify(aGr.v?.row.data.rows[0]));
-  const g2 = fake([{ when: () => true, status: 429, body: A.gemini429 }]);
-  let nCall = 0; const f429m = fake([{ when: () => true, status: 200, body: () => A.geminiNamedCited }]);
-  const fMix = async (url, init) => (nCall++ === 0 ? f429m(url, init) : g2(url, init));
-  const aLink = await attempt(() => ai.collectAiAnswers(aArgs(gem([A.geminiLinkOnly]), { prompts: [PROMPTS[0]] })));
-  check("metrics ai-answers: a link to our page written in the answer counts as cited with no grounding source, and is the evidence address", aLink.v?.row.data.rows[0].cited === true && aLink.v.row.data.rows[0].pageCited === "https://example-property.test/homes-in-alpha/" && aLink.v.row.data.rows[0].evidence_url === aLink.v.row.data.rows[0].pageCited, aLink.err || JSON.stringify(aLink.v?.row.data.rows[0]));
-  const a429 = await attempt(() => ai.collectAiAnswers(aArgs(fMix, { sleep: sleeps().sleep })));
-  check("metrics ai-answers: a 429 at the second prompt stops there: the first row kept, the third not asked, a note names the prompt", a429.v?.row.data.rows.length === 1 && g2.seen.length === 1 && a429.v.calls.length === 2 && a429.v.notes.some((n) => /429/.test(n) && /p2/.test(n)), a429.err || JSON.stringify(a429.v?.notes));
-  const a404 = await attempt(() => ai.collectAiAnswers(aArgs(fake([{ when: () => true, status: 404, body: A.gemini404 }]), { prompts: [PROMPTS[0]] })));
-  check("metrics ai-answers: a refused model (404) is BLOCKED and the reason carries Google's own message, so the cause can be read from the row", /no longer available to new users/.test(a404.v?.row.data.blocked?.reason || "") && leaks(a404.v).length === 0, a404.err || JSON.stringify(a404.v?.row.data.blocked));
-  const aNoKey = await attempt(() => ai.collectAiAnswers(aArgs(fN, { keys: {} })));
-  check("metrics ai-answers: no GEMINI_API_KEY and no captures gives a BLOCKED row naming the key and makes no request", /^no GEMINI_API_KEY and no captured answers$/.test(aNoKey.v?.row.data.blocked?.reason || "") && /aistudio/.test(aNoKey.v.row.data.blocked.unblock) && fN.seen.length === 0, aNoKey.err);
-  const aCap = await attempt(() => ai.collectAiAnswers(aArgs(fN, { keys: {}, prompts: [], captures: A.captures.valid })));
-  check("metrics ai-answers: captured rows from other engines are accepted as they are and make a valid row with no request", eq(aCap.v?.row.data.rows, A.captures.valid) && aCap.v.calls.length === 0 && validateOk(aCap.v.row), aCap.err);
-  const aBad = await attempt(() => ai.collectAiAnswers(aArgs(fN, { keys: {}, prompts: [], captures: [...A.captures.valid, ...A.captures.invalid.map((x) => x.row)] })));
+  const aArgs = (o = {}) => ({ workspaceId: W, day: DAY, ...o });
+  const aNone = await attempt(() => ai.collectAiAnswers(aArgs()));
+  check("metrics ai-answers: no captures gives a BLOCKED row whose way in is the skill's measure stage or a ChatGPT or Perplexity capture, with no request",
+    /^no captured answers$/.test(aNone.v?.row.data.blocked?.reason || "") && /skill's measure stage/.test(aNone.v.row.data.blocked.unblock) && /Perplexity/.test(aNone.v.row.data.blocked.unblock) && aNone.v.calls.length === 0 && validateOk(aNone.v.row), aNone.err || JSON.stringify(aNone.v?.row.data));
+  const aCap = await attempt(() => ai.collectAiAnswers(aArgs({ fetch: fN, captures: A.captures.valid })));
+  check("metrics ai-answers: captured rows are accepted as they are and make a valid 5-P4 row (data.date is the run day) with no request, even when a fetch is passed",
+    eq(aCap.v?.row.data.rows, A.captures.valid) && aCap.v.row.data.date === DAY && aCap.v.calls.length === 0 && fN.seen.length === 0 && validateOk(aCap.v.row), aCap.err || JSON.stringify(aCap.v?.row.data.date));
+  const aBad = await attempt(() => ai.collectAiAnswers(aArgs({ captures: [...A.captures.valid, ...A.captures.invalid.map((x) => x.row)] })));
   const expects = ["evidence", "neither named nor cited", "engine", "asked_at", "promptId", "named missing"];
   check("metrics ai-answers: six invalid captures are each refused with a note naming the problem; the two valid ones are kept",
     aBad.v?.row.data.rows.length === 2 && aBad.v.notes.length === 6 && expects.every((e, i) => aBad.v.notes[i].includes(e) && aBad.v.notes[i].startsWith(`capture ${i + 3} refused`)), aBad.err || JSON.stringify(aBad.v?.notes));
-  const aAllBad = await attempt(() => ai.collectAiAnswers(aArgs(fN, { keys: {}, prompts: [], captures: [A.captures.invalid[0].row] })));
-  check("metrics ai-answers: when every capture is refused and nothing else was asked the row is BLOCKED, not empty", !!aAllBad.v?.row.data.blocked && /no answer was collected/.test(aAllBad.v.row.data.blocked.reason), aAllBad.err || JSON.stringify(aAllBad.v?.row.data));
-  const aNoSite = await attempt(() => ai.collectAiAnswers(aArgs(fN, { site: { domain: "x.test" } })));
-  check("metrics ai-answers: a site with no name or domain is a thrown error (named and cited need both)", /site\.domain and site\.name/.test(aNoSite.err || ""), aNoSite.err);
+  const aAllBad = await attempt(() => ai.collectAiAnswers(aArgs({ captures: [A.captures.invalid[0].row] })));
+  check("metrics ai-answers: when every capture is refused the row is BLOCKED, not empty, and the reason carries the refusal", !!aAllBad.v?.row.data.blocked && /^no answer was collected \(capture 1 refused: /.test(aAllBad.v.row.data.blocked.reason), aAllBad.err || JSON.stringify(aAllBad.v?.row.data));
   const skillM = await import(pathToFileURL(join(SKILL, "scripts", "measure.mjs")).href);
   const inner = [...A.captures.valid, ...A.captures.invalid.map((x) => x.row)];
   const agree = inner.filter((r) => (shapes.validateAiAnswerInner(r).length === 0) === (skillM.validateAiAnswerRow(r).length === 0));
@@ -318,15 +290,15 @@ export async function metricsChecks({ check, AUDIT, SKILL }) {
   check("metrics report: January looks back to December of the year before", rep.prevMonth("2027-01") === "2026-12" && rep.prevMonth("2026-10") === "2026-09" && rep.monthName("2026-10") === "October 2026");
 
   // ---------- the command line ----------
-  const cliRun = (args, env = {}) => { const e = { ...process.env, ...env }; for (const k of ["PSI_API_KEY", "CRUX_API_KEY", "BING_WEBMASTER_KEY", "GEMINI_API_KEY", "GSC_ACCESS_TOKEN"]) if (!(k in env)) delete e[k]; const r = spawnSync(process.execPath, [join(M, "cli.mjs"), ...args], { encoding: "utf8", timeout: 30000, env: e }); return { status: r.status, out: r.stdout || "", err: r.stderr || "" }; };
+  const cliRun = (args, env = {}) => { const e = { ...process.env, ...env }; for (const k of ["PSI_API_KEY", "CRUX_API_KEY", "BING_WEBMASTER_KEY", "GSC_ACCESS_TOKEN"]) if (!(k in env)) delete e[k]; const r = spawnSync(process.execPath, [join(M, "cli.mjs"), ...args], { encoding: "utf8", timeout: 30000, env: e }); return { status: r.status, out: r.stdout || "", err: r.stderr || "" }; };
   const cliReport = cliRun(["report", "--rows", join(M, "fixtures", "report-rows.json"), "--month", "2026-10", "--name", "Example Shop", "--domain", "example-shop.test"]);
   check("metrics cli: report reads a rows file and prints exactly what monthlyReport returns, exit 0", cliReport.status === 0 && cliReport.out === text, `${cliReport.status} ${cliReport.err}`);
   const cliBlocked = cliRun(["pagespeed", "--workspace", W, "--day", DAY, "--urls", PAGES[0]]);
   check("metrics cli: pagespeed with no key prints a BLOCKED row naming PSI_API_KEY and exits 0 with no request", cliBlocked.status === 0 && /BLOCKED: no PSI_API_KEY/.test(cliBlocked.out) && /0 request\(s\)/.test(cliBlocked.out), cliBlocked.out + cliBlocked.err);
   const cliSc = cliRun(["search-console", "--workspace", W, "--day", DAY]);
   check("metrics cli: search-console with no token prints the BLOCKED row (verify a property first) and exits 0", cliSc.status === 0 && /BLOCKED: no Search Console access/.test(cliSc.out), cliSc.out + cliSc.err);
-  const cliUse = [cliRun(["nonsense"]), cliRun(["pagespeed", "--day", DAY]), cliRun(["pagespeed", "--workspace", W, "--day", "2026-13-40", "--urls", PAGES[0]]), cliRun(["ai-answers", "--workspace", W, "--day", DAY, "--domain", "d.test", "--name", "N", "--prompts", "a|b|c|d"])];
-  check("metrics cli: an unknown command, a missing option, a day that is not a date and four prompts (the live limit is three) all exit 2 with a message on stderr", cliUse.every((r) => r.status === 2 && r.err.trim() !== "" && r.out === ""), cliUse.map((r) => r.status).join(","));
+  const cliUse = [cliRun(["nonsense"]), cliRun(["pagespeed", "--day", DAY]), cliRun(["pagespeed", "--workspace", W, "--day", "2026-13-40", "--urls", PAGES[0]]), cliRun(["ai-answers", "--workspace", W, "--day", DAY]), cliRun(["ai-answers", "--workspace", W, "--day", DAY, "--captures", join(M, "fixtures", "ai-answers.json")])];
+  check("metrics cli: an unknown command, a missing option, a day that is not a date, ai-answers with no captures file and a captures file that is not a list all exit 2 with a message on stderr", cliUse.every((r) => r.status === 2 && r.err.trim() !== "" && r.out === ""), cliUse.map((r) => r.status).join(","));
   const cliLeak = cliRun(["report", "--rows", join(M, "fixtures", "report-rows.json"), "--month", "2026-10", "--name", K.PSI], { PSI_API_KEY: K.PSI });
   check("metrics cli: output that would carry a key value is refused (exit 1, nothing on stdout)", cliLeak.status === 1 && cliLeak.out === "" && /REFUSED/.test(cliLeak.err), `${cliLeak.status} ${cliLeak.out.slice(0, 80)}`);
 
