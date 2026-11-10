@@ -12,11 +12,13 @@ const LIB = process.env.ONBOARD_LIB ? resolve(process.env.ONBOARD_LIB) : join(HE
 const { onboard, checkIntake, loadInboxes, hashEmail, parseArgs, slugify, Refused } = await import(pathToFileURL(LIB).href);
 
 const INBOX = 'inbox-test@example.com';
+// absolute: test/onboard-mutate.mjs runs a copy of onboard.mjs from a temp folder, where a repository-relative path would not resolve
+const CONTRACT = join(HERE, '..', '..', '..', 'contracts', 'industry-run', 'contracts', 'real-estate.json');
 const intake = () => ({
   intakeVersion: 1,
   workspace: { slug: 'test-wo36', name: 'WO36 Test Realty', industry: 'real-estate' },
   site: { deployTarget: 'test-site-wo36', previewHost: 'preview.test-site-wo36.pages.dev' },
-  contract: { file: 'contracts/industry-run/contracts/real-estate.json' },
+  contract: { file: CONTRACT },
   settings: { businessName: 'WO36 Test Realty', phone: '(555) 555-0136', email: 'office@example.com', address: { street: '36 Test Way', city: 'Testville', region: 'ST', postalCode: '00036' } },
   owner: { name: 'Test Owner', email: INBOX, teamRole: 'Owner' },
 });
@@ -110,7 +112,8 @@ t('a workspace whose site differs from the intake is refused', async () => {
 });
 
 t('intake checks: types, contract file exists, address parts, optional domain', async () => {
-  const ok = checkIntake(intake()).length === 0;
+  const ok = checkIntake(intake()).length === 0
+    && checkIntake({ ...intake(), contract: { file: 'contracts/industry-run/contracts/real-estate.json' } }, { repo: join(HERE, '..', '..', '..') }).length === 0;
   const j = intake(); j.intakeVersion = 2; j.owner.email = 'not-an-email'; j.contract.file = 'contracts/nope.json'; j.settings.address = { street: '1' }; j.site.domain = 'bad host';
   const p = checkIntake(j);
   const want = ['intakeVersion: expected 1', 'owner.email: expected an email address', 'contract.file: expected an existing file', 'settings.address.city: missing', 'site.domain: expected a hostname'];
