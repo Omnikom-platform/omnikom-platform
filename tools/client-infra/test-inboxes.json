@@ -1,0 +1,10 @@
+{
+  "_doc": "Test inboxes tools/client-infra/onboard.mjs may send an owner invite to on staging, as the sha256 of the lowercased address (never the address: this repository is public and a test inbox can be a person's own mailbox). Each entry is an owner ruling with an until day (the last day it counts). A client's or any other person's address is never listed.",
+  "inboxes": [
+    {
+      "sha256": "3c2ed8b83f7c88f38eb129b8f58d03be54b180cdbce71bd3295a2c538e608911",
+      "until": "2026-11-12",
+      "ruling": "owner 2026-11-10 17:00 (through the head of operations): the owner's own inbox as the test inbox for the work order 36 proof; one invite per real run, the second run none"
+    }
+  ]
+}

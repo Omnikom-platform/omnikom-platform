@@ -40,3 +40,25 @@ again (must change nothing), and in a `finally` deletes the CNAME, the custom do
 
 The older one-off scripts stay for their own jobs: `tools/pages-project.mjs` (our own `omnikom-*` pages), `tools/dns-upsert.mjs`
 (records from a file), `tools/mint-site-key.mjs` (the runner key; site keys now come from this command or `omnikom key mint`).
+
+## Onboarding a client (work order 36, product row C14)
+
+```
+node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/client-infra/onboard.mjs --intake <file.json> [--dry-run]
+```
+
+The intake (`intake.example.json`) names the workspace (slug, name, industry), the site (deploy target, preview host, optional
+domain), the contract file, the business details (name, phone, email, optional address) and the owner (name, email, team role).
+A half-filled intake is refused with every missing or wrong field named, before anything is read or written.
+
+| Step | How | A second run |
+|---|---|---|
+| workspace, site row, contract, pages | `omnikom seed workspace` (the CLI's command, called as a program) | the CLI says it changed nothing |
+| business details | `service.seed_version(settings)` when there is no settings row | exists: compared; a difference is a note, never overwritten |
+| owner's team profile | `service.seed_version(team)`, found again by its slug | the same |
+| owner's login | `invite-member` as Omnikom staff (MFA), role owner, linked to the profile: ONE real mail | already a member: nothing, no mail |
+| site infrastructure | `provision.mjs` (above) | `changed 0` |
+
+On staging the invite goes only to an address in `test-inboxes.json` (owner rulings with an `until` day); anything else is
+refused before any step runs. Tests: `test/onboard-run.mjs` (in-memory fakes) and `test/onboard-mutate.mjs`, both inside
+`node clients/test/run.mjs`.

@@ -107,8 +107,8 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | C10 API key registry | WORKS | M2 |
 | C11 Consent ledger, suppressions, limits, workspace state, privacy requests | PARTLY | consent and limits in the lead path; an imported lead carries the owner's tick, stored like a hand-added lead (M15); the rest have functions and no caller |
 | C12 Realtime for leads, events, reads, publish jobs | WORKS | `publish_job_events` not in it |
-| C13 Email: sign-in, invite and new-lead alert | PARTLY | the invite mail is sent by `invite-member` through Auth (a new login: the invite mail with who invited them and to which business; an existing login: the sign-in mail, which cannot name either); `email_sent` is Auth's own answer; a real send is UNPROVEN until the head sends one to the named test address; the own sender domain stays an owner item |
-| C14 Onboard a client (workspace, site, contract, rows, logins) | PARTLY | CLI `omnikom seed`; proven for the two test workspaces only |
+| C13 Email: sign-in, invite and new-lead alert | PARTLY | the invite mail is sent by `invite-member` through Auth (a new login: the invite mail with who invited them and to which business; an existing login: the sign-in mail, which cannot name either); `email_sent` is Auth's own answer; a real send: `invite-member` answered 200 with email_sent true at 2026-11-10 15:13:42 UTC for a new login (work order 36, `work/36-onboard/proof.md`); its arrival in the inbox is UNPROVEN until the inbox is read; the own sender domain stays an owner item |
+| C14 Onboard a client (workspace, site, contract, rows, logins) | WORKS | `tools/client-infra/onboard.mjs --intake <file>`: workspace, site row, contract and pages through `omnikom seed workspace`, the business details and the owner's team profile, the owner's invite (`invite-member` as staff, linked to the profile), then `tools/client-infra/provision.mjs`; refuses a half-filled intake naming every missing field; `--dry-run`; a second run changes nothing and sends no mail. Proven on staging 2026-11-10 with the test client test-wo36: `work/36-onboard/proof.md`. Staging only; the invite goes only to a test inbox (`tools/client-infra/test-inboxes.json`) |
 | C15 Migrations and function deploy to staging | WORKS | 13 applied, 16 deployed |
 | C16 Metrics pull and sitemap submit | MISSING | |
 | C18 Proof tooling: CLI journey, wall tests, mutants, gates | WORKS | `9-blocks.md` |
@@ -157,10 +157,10 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 |---|---|---|---|---|
 | A CRM | 18 | 3 | 5 | 26 |
 | B Dashboard | 10 | 6 | 5 | 21 |
-| C Backend and database | 12 | 4 | 1 | 17 |
+| C Backend and database | 13 | 3 | 1 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
 | E Hardening | 4 | 12 | 5 | 21 |
-| Total | 54 | 25 | 16 | 95 |
+| Total | 55 | 24 | 16 | 95 |
 
 Completion is reported from these counts only.
 

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 633,
+    "sources": 638,
     "unowned": 0
   },
   "files": [
@@ -475,10 +475,15 @@
     {"path":"tools/check-api-keys.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/check-platform-keys.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"tools/client-infra/live.mjs","owner":"clients","exports":["liveDeps"],"tests":["tools/audit/test/mutate.mjs","tools/audit/test/run.mjs","tools/client-infra/test/fakes.mjs"],"feature":""},
+    {"path":"tools/client-infra/onboard-live.mjs","owner":"clients","exports":["onboardDeps"],"tests":["tools/client-infra/test/onboard-fakes.mjs"],"feature":""},
+    {"path":"tools/client-infra/onboard.mjs","owner":"clients","exports":["REPO","Refused","checkIntake","hashEmail","loadInboxes","onboard","parseArgs","precheck","slugify"],"tests":["tools/client-infra/test/onboard-mutate.mjs","tools/client-infra/test/onboard-run.mjs"],"feature":""},
     {"path":"tools/client-infra/proof-staging.mjs","owner":"clients","exports":[],"tests":[],"feature":""},
-    {"path":"tools/client-infra/provision.mjs","owner":"clients","exports":["ENVS","HOST_RE","Refused","loadAllowed","parseArgs","provision"],"tests":["tools/client-infra/test/mutate.mjs","tools/client-infra/test/run.mjs"],"feature":""},
+    {"path":"tools/client-infra/provision.mjs","owner":"clients","exports":["ENVS","HOST_RE","Refused","loadAllowed","parseArgs","provision"],"tests":["tools/client-infra/test/mutate.mjs","tools/client-infra/test/onboard-fakes.mjs","tools/client-infra/test/run.mjs"],"feature":""},
     {"path":"tools/client-infra/test/fakes.mjs","owner":"clients","exports":["addKey","addSite","fakeDeps","newState"],"tests":[],"feature":""},
     {"path":"tools/client-infra/test/mutate.mjs","owner":"clients","exports":[],"tests":[],"feature":""},
+    {"path":"tools/client-infra/test/onboard-fakes.mjs","owner":"clients","exports":["newWorld","onboardFakeDeps"],"tests":[],"feature":""},
+    {"path":"tools/client-infra/test/onboard-mutate.mjs","owner":"clients","exports":[],"tests":[],"feature":""},
+    {"path":"tools/client-infra/test/onboard-run.mjs","owner":"clients","exports":[],"tests":[],"feature":""},
     {"path":"tools/client-infra/test/run.mjs","owner":"clients","exports":[],"tests":[],"feature":""},
     {"path":"tools/client-questions/questions-pdf.mjs","owner":"clients","exports":[],"tests":[],"feature":""},
     {"path":"tools/compose-db-url.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},

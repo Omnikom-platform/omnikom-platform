@@ -1,0 +1,13 @@
+{
+  "intakeVersion": 1,
+  "workspace": { "slug": "example-realty", "name": "Example Realty", "industry": "real-estate" },
+  "site": { "deployTarget": "example-realty-site", "previewHost": "preview.example-realty-site.pages.dev" },
+  "contract": { "file": "contracts/industry-run/contracts/real-estate.json" },
+  "settings": {
+    "businessName": "Example Realty",
+    "phone": "(555) 555-0100",
+    "email": "office@example.com",
+    "address": { "street": "1 Example Way", "city": "Exampleton", "region": "ST", "postalCode": "00000" }
+  },
+  "owner": { "name": "Example Owner", "email": "owner@example.com", "teamRole": "Owner" }
+}
