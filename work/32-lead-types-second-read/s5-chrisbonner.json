@@ -1,0 +1,32 @@
+{
+  "url": "https://www.chrisbonnerinsurance.com/request-policy-review.html",
+  "summary": {
+    "statusChain": [
+      200
+    ],
+    "finalUrl": "https://www.chrisbonnerinsurance.com/request-policy-review.html",
+    "textLength": 3912,
+    "scriptAppMarker": null
+  },
+  "textHead": "Review Your Insurance Policies With an Insurance Professional - Chris Bonner Insurance Contact Us: (360) 255-7806 Home Quotes Personal Quotes > Auto Quotes > Auto Insurance Quote Classic Car Insurance Quote Motorcycle Quote RV Insurance Quote ATV Insurance Quote Property Quotes > Home Insurance Quote Renters Insurance Quote Earthquake Insurance Quote Flood Insurance Quote Landlords Insurance Quote Life Quotes > Life Insurance Quote Final Expense Insurance Quote Long Term Care Insurance Quote Annuity Quotes Disability Insurance Quote Other Quotes > Boat Insurance Quote Event Insurance Quote Umbrella Insurance Quote Travel Insurance Quote Wedding Insurance Quote Commercial Quotes > Business Insurance Quote Business Owners Package (BOP) Insurance Quote Insurance Bond Quote Service Client Portal Report a Claim Request Policy Review Make a Payment Update Contact Info Contact My Carrier Online Documents Insurance Personal Insurance > Vehicles > Auto Insurance ATV Insurance Boat Insurance Classic Car Insurance Motorcycle Insurance RV Insurance Property > Home Insurance Earthquake Insurance Flood Insurance Landlords Insurance Renters Insurance Life > Life Insurance Annuities Disability Insurance Final Expense Insurance Umbrella Insurance Long Term Care Insurance Other > Pet Insurance Event Insurance Travel Insurance Wedding Insurance Commercial Insurance > Business Insurance Business Owners Package (BOP) Insurance Insurance Bonds About Client Testimonials Refer a Friend Insurance Car",
+  "rows": [
+    {
+      "url": "https://www.chrisbonnerinsurance.com/request-policy-review.html",
+      "says": "Review Your Insurance Policies With an Insurance Professional",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.chrisbonnerinsurance.com/request-policy-review.html"
+    },
+    {
+      "url": "https://www.chrisbonnerinsurance.com/request-policy-review.html",
+      "says": "request a policy review",
+      "verdict": "CASE-OR-PUNCT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.chrisbonnerinsurance.com/request-policy-review.html"
+    }
+  ]
+}

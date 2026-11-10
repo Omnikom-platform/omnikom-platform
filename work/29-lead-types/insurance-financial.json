@@ -1,7 +1,7 @@
 {
   "industry": "insurance-financial",
   "readAt": "2026-11-09",
-  "note": "Quotes were fetched and copied by sub-agent readers (WebFetch) on 2026-11-09 and 9 of them were re-checked by a second reader (all exact), see proof.md; the others were not re-checked. 'examples' are plain phrasings written for this list, not quotes. Rainmaker sells only mortgage protection, life insurance, annuities and agent recruiting, so a site uses a subset of this list (see checkedAgainst).",
+  "note": "Quotes were first copied by sub-agent readers (WebFetch) on 2026-11-09. Work order 32 then re-read every web source with a script that fetches the page itself (2026-11-10, see work/32-lead-types-second-read/proof.md): of the 31 source rows, 25 matched the page word for word, 2 were not on the page (one replaced, one dropped) and 4 (agencyheight.com, HTTP 403) could not be read and stay unchecked; the policy-review sources were replaced with 3 pages checked the same way. 'examples' are plain phrasings written for this list, not quotes. Rainmaker sells only mortgage protection, life insurance, annuities and agent recruiting, so a site uses a subset of this list (see checkedAgainst).",
   "types": [
     {
       "id": "auto-quote",
@@ -59,8 +59,7 @@
       "producedBy": "The 'Mortgage Protection' choice of 'I'm interested in' (Rainmaker contact page), or a mortgage protection quote form",
       "examples": ["What happens to my mortgage if I die", "I want mortgage protection for my new home loan"],
       "sources": [
-        { "url": "https://agenttech.io/blog/mortgage-protection-agency-leadgen", "readAt": "2026-11-09", "says": "MPI is term life with mortgage framing" },
-        { "url": "https://agenttech.io/blog/mortgage-protection-agency-leadgen", "readAt": "2026-11-09", "says": "it has its own predictable lead channels" },
+        { "url": "https://agenttech.io/blog/mortgage-protection-agency-leadgen", "readAt": "2026-11-10", "says": "ordinary term life with a face amount and term length tuned to a mortgage balance and amortization schedule" },
         { "url": "https://www.policygenius.com/life-insurance/mortgage-protection-life-insurance/", "readAt": "2026-11-09", "says": "Mortgage protection insurance (MPI), also known as mortgage life insurance, is a policy designed to cover your mortgage balance if you die before paying it off." }
       ]
     },
@@ -110,8 +109,9 @@
       "producedBy": "A 'review my policy' call to action, for a person who already has cover",
       "examples": ["Can you check if my life policy is still right", "I want a second opinion on my coverage"],
       "sources": [
-        { "url": "https://www.agencybloc.com/ams/sales-enablement/lead-and-sales-management/how-to-recruit-insurance-agents", "readAt": "2026-11-09", "says": "like scheduling a policy review" },
-        { "url": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen", "readAt": "2026-11-09", "says": "Schedule a 20-Minute Retirement Income Review" }
+        { "url": "https://erdmaninsurance.com/request-an-annual-insurance-review/", "readAt": "2026-11-10", "says": "Request an annual insurance review and one of our agents will review your policy to maximize savings and ensure everything is up to date!" },
+        { "url": "https://www.chrisbonnerinsurance.com/request-policy-review.html", "readAt": "2026-11-10", "says": "Request Policy Review" },
+        { "url": "https://www.jotform.com/form-templates/insurance-policy-review-appointment-form-template", "readAt": "2026-11-10", "says": "Insurance Policy Review Appointment Form" }
       ]
     },
     {

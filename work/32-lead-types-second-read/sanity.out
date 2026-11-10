@@ -1,0 +1,29 @@
+real-estate.json: 15 types, 15 with at least one source (url, readAt, says)
+real-estate.json: ids and names unchanged vs 478a129 (order too): true
+real-estate.json: nothing but sources and the top-level note changed
+insurance-financial.json: 15 types, 15 with at least one source (url, readAt, says)
+insurance-financial.json: ids and names unchanged vs 478a129 (order too): true
+insurance-financial.json: nothing but sources and the top-level note changed
+statuses.json: 19 statuses, 19 with at least one source (url, readAt, says)
+statuses.json: ids and names unchanged vs 478a129 (order too): true
+statuses.json: nothing but sources and the top-level note changed
+
+changed sources (9):
+  - insurance-financial.json mortgage-protection: https://agenttech.io/blog/mortgage-protection-agency-leadgen | MPI is term life with mortgage framing
+  - insurance-financial.json mortgage-protection: https://agenttech.io/blog/mortgage-protection-agency-leadgen | it has its own predictable lead channels
+  + insurance-financial.json mortgage-protection: https://agenttech.io/blog/mortgage-protection-agency-leadgen | ordinary term life with a face amount and term length tuned to a mortgage balance and amortization schedule | in the page text held: true
+  - insurance-financial.json policy-review: https://www.agencybloc.com/ams/sales-enablement/lead-and-sales-management/how-to-recruit-insurance-agents | like scheduling a policy review
+  - insurance-financial.json policy-review: https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen | Schedule a 20-Minute Retirement Income Review
+  + insurance-financial.json policy-review: https://erdmaninsurance.com/request-an-annual-insurance-review/ | Request an annual insurance review and one of our agents will review your policy to maximize savings and ensure everything is up to date! | in the page text held: true
+  + insurance-financial.json policy-review: https://www.chrisbonnerinsurance.com/request-policy-review.html | Request Policy Review | in the page text held: true
+  + insurance-financial.json policy-review: https://www.jotform.com/form-templates/insurance-policy-review-appointment-form-template | Insurance Policy Review Appointment Form | in the page text held: true
+  - statuses.json appointment-set: https://www.agencybloc.com/ams/sales-enablement/lead-nurturing-automation/3-ways-to-convert-more-online-insurance-leads/ | How many of the requested quotes became scheduled appointments?
+em dashes in work/29-lead-types/real-estate.json: 0
+em dashes in work/29-lead-types/insurance-financial.json: 0
+em dashes in work/29-lead-types/statuses.json: 0
+em dashes in work/32-lead-types-second-read/proof.md: 0
+em dashes in work/32-lead-types-second-read/check-quotes.mjs: 0
+em dashes in work/32-lead-types-second-read/check-quotes.test.mjs: 0
+em dashes in work/32-lead-types-second-read/sanity.mjs: 0
+
+all checks passed

@@ -1,6 +1,6 @@
 {
   "readAt": "2026-11-09",
-  "note": "Quotes were fetched and copied by sub-agent readers (WebFetch) on 2026-11-09; 10 of them were re-checked by a second reader, all exact (see proof.md). Owner source for the first ten names: the owner, 2026-11-09 20:48, through the head of operations (work/29-lead-types/CONTEXT.md, step 6). Stage: new = nobody has tried yet, working = being worked, outcome = the lead path ended (a lead in an outcome status stays in the CRM).",
+  "note": "Quotes were first copied by sub-agent readers (WebFetch) on 2026-11-09. Work order 32 then re-read every web source with a script that fetches the page itself (2026-11-10, see work/32-lead-types-second-read/proof.md): of the 41 source rows, 40 matched the page word for word and 1 was not on the page and was dropped. Owner source for the first ten names: the owner, 2026-11-09 20:48, through the head of operations (work/29-lead-types/CONTEXT.md, step 6). Stage: new = nobody has tried yet, working = being worked, outcome = the lead path ended (a lead in an outcome status stays in the CRM).",
   "fieldNotes": {
     "needsDate": "true when the status schedules a next touch: the screen must ask for a date (and time) and the lead shows in the 'due' filter (A17).",
     "needsWho": "true when the status records which team member did it (who called, who spoke to the lead, who will meet them).",
@@ -87,8 +87,7 @@
       "means": "A meeting, showing or call is booked with the lead; the status holds the time and who will meet them.",
       "needsDate": true, "needsWho": true, "needsText": false,
       "sources": [
-        { "url": "https://support.realgeeks.com/customize-your-crm", "readAt": "2026-11-09", "says": "Appointment Set" },
-        { "url": "https://www.agencybloc.com/ams/sales-enablement/lead-nurturing-automation/3-ways-to-convert-more-online-insurance-leads/", "readAt": "2026-11-09", "says": "How many of the requested quotes became scheduled appointments?" }
+        { "url": "https://support.realgeeks.com/customize-your-crm", "readAt": "2026-11-09", "says": "Appointment Set" }
       ]
     },
     {

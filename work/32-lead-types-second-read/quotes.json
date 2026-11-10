@@ -1,0 +1,1644 @@
+{
+  "generatedAt": "2026-11-10T08:41:11.922Z",
+  "userAgent": "omnikom-quote-check/1.0 (research reader, one request per page, 2 s per host)",
+  "neverRequested": [
+    "help.followupboss.com",
+    "help.lofty.com",
+    "www.sierrainteractive.com",
+    "www.luxurypresence.com",
+    "www.zillow.com",
+    "developer.salesforce.com",
+    "help.wealthbox.com"
+  ],
+  "stoppedHosts": {
+    "agencyheight.com": "HTTP 403"
+  },
+  "counts": {
+    "EXACT": 97,
+    "BLOCKED": 4,
+    "NOT-FOUND": 3
+  },
+  "pages": {
+    "https://help.insiderealestate.com/en/articles/4626537-boldtrail-lead-types-overview": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://help.insiderealestate.com/en/articles/4626537-boldtrail-lead-types-overview",
+      "textLength": 6543,
+      "scriptAppMarker": null
+    },
+    "https://developer.lofty.com/concepts/leads": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://developer.lofty.com/concepts/leads",
+      "textLength": 3857,
+      "scriptAppMarker": null
+    },
+    "https://www.pandaidx.com/docs/lead-capture/lead-forms": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.pandaidx.com/docs/lead-capture/lead-forms",
+      "textLength": 6161,
+      "scriptAppMarker": null
+    },
+    "https://support.realgeeks.com/customize-your-crm": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.realgeeks.com/customize-your-crm",
+      "textLength": 10427,
+      "scriptAppMarker": null
+    },
+    "https://help.sierrainteractive.com/helpcenter/seller-lead-sites-setup-and-best-practices": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://help.sierrainteractive.com/helpcenter/seller-lead-sites-setup-and-best-practices",
+      "textLength": 10960,
+      "scriptAppMarker": null
+    },
+    "https://support.realgeeks.com/what-is-a-potential-seller-lead": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.realgeeks.com/what-is-a-potential-seller-lead",
+      "textLength": 5669,
+      "scriptAppMarker": null
+    },
+    "https://support.realgeeks.com/seller-signals": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.realgeeks.com/seller-signals",
+      "textLength": 7686,
+      "scriptAppMarker": null
+    },
+    "https://help.sierrainteractive.com/helpcenter/capture-seller-leads-with-instant-home-valuations": {
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://help.sierrainteractive.com/helpcenter/seller-lead-sites-setup-and-best-practices",
+      "textLength": 10960,
+      "scriptAppMarker": null
+    },
+    "https://leadcapture.io/templates/cash-home-offer-form/": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://leadcapture.io/templates/cash-home-offer-form/",
+      "textLength": 6253,
+      "scriptAppMarker": null
+    },
+    "https://wpforms.com/templates/real-estate-showing-request-form-template/": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://wpforms.com/templates/real-estate-showing-request-form-template/",
+      "textLength": 8288,
+      "scriptAppMarker": "enable-javascript-message"
+    },
+    "https://leadcapture.io/templates/first-time-home-buyer-form/": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://leadcapture.io/templates/first-time-home-buyer-form/",
+      "textLength": 6311,
+      "scriptAppMarker": null
+    },
+    "https://www.nar.realtor/magazine/broker-news/network/how-to-help-out-of-state-buyers": {
+      "statusChain": [
+        308,
+        200
+      ],
+      "finalUrl": "https://www.nar.realtor/news/broker-news/network/how-to-help-out-of-state-buyers",
+      "textLength": 20530,
+      "scriptAppMarker": null
+    },
+    "https://www.cincpro.com/blog/real-estate-lead-generations-strategies-for-out-of-state-buyers": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.cincpro.com/blog/real-estate-lead-generations-strategies-for-out-of-state-buyers",
+      "textLength": 10396,
+      "scriptAppMarker": null
+    },
+    "https://www.newhomestar.com/blog/the-best-home-builder-websites-guide-practices-examples-strategy": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.newhomestar.com/blog/the-best-home-builder-websites-guide-practices-examples-strategy",
+      "textLength": 24258,
+      "scriptAppMarker": null
+    },
+    "https://help.sierrainteractive.com/helpcenter/set-up-open-house-lead-capture-forms": {
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://help.sierrainteractive.com/helpcenter/setting-up-open-house-lead-capture-forms-for-automatic-routing",
+      "textLength": 10000,
+      "scriptAppMarker": null
+    },
+    "https://help.sierrainteractive.com/helpcenter/how-can-i-recruit-new-agents-using-sierra": {
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://help.sierrainteractive.com/helpcenter/-building-an-agent-recruiting-funnel-with-your-idx-site-and-crm",
+      "textLength": 8406,
+      "scriptAppMarker": null
+    },
+    "https://agencyheight.com/insurance-intake-form/": {
+      "statusChain": [
+        403
+      ],
+      "finalUrl": "https://agencyheight.com/insurance-intake-form/",
+      "textLength": 0,
+      "scriptAppMarker": null,
+      "blocked": "HTTP 403 from agencyheight.com"
+    },
+    "https://www.uplead.com/?p=16167": {
+      "statusChain": [
+        301,
+        301,
+        200
+      ],
+      "finalUrl": "https://www.uplead.com/insurance-leads/",
+      "textLength": 17885,
+      "scriptAppMarker": null
+    },
+    "https://www.involve.me/template-categories/insurance-form": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.involve.me/template-categories/insurance-form",
+      "textLength": 19146,
+      "scriptAppMarker": null
+    },
+    "https://agenttech.io/blog/mortgage-protection-agency-leadgen": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://agenttech.io/blog/mortgage-protection-agency-leadgen",
+      "textLength": 12213,
+      "scriptAppMarker": null
+    },
+    "https://www.policygenius.com/life-insurance/mortgage-protection-life-insurance/": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.policygenius.com/life-insurance/mortgage-protection-life-insurance/",
+      "textLength": 18039,
+      "scriptAppMarker": null
+    },
+    "https://blog.agent-crm.com/how-to-generate-annuity-leads-online-step-by-step-guide-with-funnel-templates-and-software-recommendation/": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://blog.agent-crm.com/how-to-generate-annuity-leads-online-step-by-step-guide-with-funnel-templates-and-software-recommendation/",
+      "textLength": 4882,
+      "scriptAppMarker": null
+    },
+    "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen",
+      "textLength": 20496,
+      "scriptAppMarker": null
+    },
+    "https://www.agencybloc.com/ams/sales-enablement/lead-nurturing-automation/3-ways-to-convert-more-online-insurance-leads/": {
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://www.agencybloc.com/agency-management-system/secure-insurance-lead-forms/how-to-convert-more-online-insurance-leads/",
+      "textLength": 13246,
+      "scriptAppMarker": null
+    },
+    "https://paperform.co/templates/financial-advisor-free-consultation-form/": {
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://paperform.com/templates/financial-advisor-free-consultation-form/",
+      "textLength": 9221,
+      "scriptAppMarker": null
+    },
+    "https://www.agencybloc.com/ams/sales-enablement/lead-and-sales-management/how-to-recruit-insurance-agents": {
+      "statusChain": [
+        301,
+        301,
+        301,
+        200
+      ],
+      "finalUrl": "https://www.agencybloc.com/marketing-software/social-media-software/insurance-agents-guide-to-social-media/",
+      "textLength": 21256,
+      "scriptAppMarker": null
+    },
+    "https://www.insurancewebsitebuilder.com/products/websites/features/lead-generating-quote-forms": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.insurancewebsitebuilder.com/products/websites/features/lead-generating-quote-forms",
+      "textLength": 7137,
+      "scriptAppMarker": null
+    },
+    "https://careers.healthmarkets.com/getting-started": {
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://careers.healthmarkets.com/en/getting-started",
+      "textLength": 5285,
+      "scriptAppMarker": null
+    },
+    "https://paperform.co/templates/insurance-agent-application-form/": {
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://paperform.com/templates/insurance-agent-application-form/",
+      "textLength": 11915,
+      "scriptAppMarker": null
+    },
+    "https://help.insiderealestate.com/en/articles/285957-kvcore-lead-contact-statuses": {
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://help.insiderealestate.com/en/articles/285957-boldtrail-contact-statuses-overview",
+      "textLength": 6677,
+      "scriptAppMarker": null
+    },
+    "https://www.fullcircleinsights.com/resource/lead-status-values-for-sales-and-marketing": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.fullcircleinsights.com/resource/lead-status-values-for-sales-and-marketing",
+      "textLength": 6129,
+      "scriptAppMarker": null
+    },
+    "https://support.agencyzoom.com/en/articles/5668389-how-to-manage-and-build-pipelines": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.agencyzoom.com/en/articles/5668389-how-to-manage-and-build-pipelines",
+      "textLength": 5993,
+      "scriptAppMarker": null
+    },
+    "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "textLength": 8798,
+      "scriptAppMarker": null
+    },
+    "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "textLength": 11675,
+      "scriptAppMarker": null
+    },
+    "https://batchdialer.com/blog/what-is-a-call-disposition": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "textLength": 10247,
+      "scriptAppMarker": null
+    },
+    "https://support.agencyzoom.com/en/articles/3459657-use-smart-cycle-to-automatically-recycle-leads": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.agencyzoom.com/en/articles/3459657-use-smart-cycle-to-automatically-recycle-leads",
+      "textLength": 2731,
+      "scriptAppMarker": null
+    },
+    "https://knowledge.hubspot.com/records/use-lifecycle-stages": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://knowledge.hubspot.com/records/use-lifecycle-stages",
+      "textLength": 10247,
+      "scriptAppMarker": null
+    },
+    "https://support.freshsales.io/support/solutions/articles/229439-how-to-use-the-status-field-of-contacts-in-freshsales-": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.freshsales.io/support/solutions/articles/229439-how-to-use-the-status-field-of-contacts-in-freshsales-",
+      "textLength": 4956,
+      "scriptAppMarker": null
+    },
+    "https://support.agencyzoom.com/en/articles/5669585-managing-leads": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.agencyzoom.com/en/articles/5669585-managing-leads",
+      "textLength": 4300,
+      "scriptAppMarker": null
+    },
+    "https://ankotahelp.helpsite.com/articles/44371-crm-status-for-prospect-management": {
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://ankotahelp.helpsite.com/articles/44371-crm-status-for-prospect-management",
+      "textLength": 2576,
+      "scriptAppMarker": null
+    }
+  },
+  "rows": [
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "buy",
+      "url": "https://help.insiderealestate.com/en/articles/4626537-boldtrail-lead-types-overview",
+      "says": "There are five available lead types in BoldTrail:",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://help.insiderealestate.com/en/articles/4626537-boldtrail-lead-types-overview"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "buy",
+      "url": "https://developer.lofty.com/concepts/leads",
+      "says": "Type IDs: Buyer (2), Seller (1), Renter (5), Investor (6), Agent (7), Homeowner (8), Landlord (9), Other (-1)",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://developer.lofty.com/concepts/leads"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "buy",
+      "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms",
+      "says": "Buyer Registration Forms",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.pandaidx.com/docs/lead-capture/lead-forms"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "sell",
+      "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms",
+      "says": "Seller Lead Forms",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.pandaidx.com/docs/lead-capture/lead-forms"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "sell",
+      "url": "https://support.realgeeks.com/customize-your-crm",
+      "says": "Lead Type identifies the role or intent of a contact in your CRM",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.realgeeks.com/customize-your-crm"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "sell",
+      "url": "https://help.sierrainteractive.com/helpcenter/seller-lead-sites-setup-and-best-practices",
+      "says": "like \"Sell in 3-6 Months\"",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://help.sierrainteractive.com/helpcenter/seller-lead-sites-setup-and-best-practices"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "home-value",
+      "url": "https://support.realgeeks.com/what-is-a-potential-seller-lead",
+      "says": "Address Only Leads are created when someone enters their property address in the Home Valuation Tool but does not complete full registration",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.realgeeks.com/what-is-a-potential-seller-lead"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "home-value",
+      "url": "https://support.realgeeks.com/seller-signals",
+      "says": "Homeowners who provide their address automatically receive a home valuation via email.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.realgeeks.com/seller-signals"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "home-value",
+      "url": "https://help.sierrainteractive.com/helpcenter/capture-seller-leads-with-instant-home-valuations",
+      "says": "capture contact information from potential sellers in the immediate area who are just beginning to research the market",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://help.sierrainteractive.com/helpcenter/seller-lead-sites-setup-and-best-practices"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "cash-offer",
+      "url": "https://leadcapture.io/templates/cash-home-offer-form/",
+      "says": "ASAP sellers route to same-day callbacks; flexible sellers enter the follow-up cadence.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://leadcapture.io/templates/cash-home-offer-form/"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "cash-offer",
+      "url": "https://leadcapture.io/templates/cash-home-offer-form/",
+      "says": "Cash buyers pay for motivation, and motivation is exactly what a generic contact form cannot see.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://leadcapture.io/templates/cash-home-offer-form/"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "showing-request",
+      "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms",
+      "says": "Showing Request Forms",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.pandaidx.com/docs/lead-capture/lead-forms"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "showing-request",
+      "url": "https://wpforms.com/templates/real-estate-showing-request-form-template/",
+      "says": "Preferred Showing Date(s)",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://wpforms.com/templates/real-estate-showing-request-form-template/"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "listing-question",
+      "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms",
+      "says": "Property Inquiry Forms (specific listing)",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.pandaidx.com/docs/lead-capture/lead-forms"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "listing-question",
+      "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms",
+      "says": "\"Request Info\" button on listings",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.pandaidx.com/docs/lead-capture/lead-forms"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "rent",
+      "url": "https://help.insiderealestate.com/en/articles/4626537-boldtrail-lead-types-overview",
+      "says": "There are five available lead types in BoldTrail:",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://help.insiderealestate.com/en/articles/4626537-boldtrail-lead-types-overview"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "rent",
+      "url": "https://developer.lofty.com/concepts/leads",
+      "says": "Type IDs: Buyer (2), Seller (1), Renter (5), Investor (6), Agent (7), Homeowner (8), Landlord (9), Other (-1)",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://developer.lofty.com/concepts/leads"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "rent-out",
+      "url": "https://developer.lofty.com/concepts/leads",
+      "says": "Type IDs: Buyer (2), Seller (1), Renter (5), Investor (6), Agent (7), Homeowner (8), Landlord (9), Other (-1)",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://developer.lofty.com/concepts/leads"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "financing",
+      "url": "https://leadcapture.io/templates/first-time-home-buyer-form/",
+      "says": "Already pre-approved buyers route to agents; the rest route to lender partners first.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://leadcapture.io/templates/first-time-home-buyer-form/"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "financing",
+      "url": "https://wpforms.com/templates/real-estate-showing-request-form-template/",
+      "says": "Are you pre-approved for a mortgage?",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://wpforms.com/templates/real-estate-showing-request-form-template/"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "relocation",
+      "url": "https://www.nar.realtor/magazine/broker-news/network/how-to-help-out-of-state-buyers",
+      "says": "creating a relocation guide is a terrific way to give out-of-state buyers all the information they need in one place",
+      "verdict": "EXACT",
+      "statusChain": [
+        308,
+        200
+      ],
+      "finalUrl": "https://www.nar.realtor/news/broker-news/network/how-to-help-out-of-state-buyers"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "relocation",
+      "url": "https://www.cincpro.com/blog/real-estate-lead-generations-strategies-for-out-of-state-buyers",
+      "says": "The first question out of the gate is: Where are you coming from? What state? What town are you in?",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.cincpro.com/blog/real-estate-lead-generations-strategies-for-out-of-state-buyers"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "relocation",
+      "url": "https://www.newhomestar.com/blog/the-best-home-builder-websites-guide-practices-examples-strategy",
+      "says": "TOFU website content that would resonate with this audience includes area guides, relocation content",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.newhomestar.com/blog/the-best-home-builder-websites-guide-practices-examples-strategy"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "open-house",
+      "url": "https://help.sierrainteractive.com/helpcenter/set-up-open-house-lead-capture-forms",
+      "says": "Leads from open house forms are automatically tagged with Source: Open House",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://help.sierrainteractive.com/helpcenter/setting-up-open-house-lead-capture-forms-for-automatic-routing"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "open-house",
+      "url": "https://help.sierrainteractive.com/helpcenter/set-up-open-house-lead-capture-forms",
+      "says": "Open House Style for Neighbor",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://help.sierrainteractive.com/helpcenter/setting-up-open-house-lead-capture-forms-for-automatic-routing"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "new-construction",
+      "url": "https://www.newhomestar.com/blog/the-best-home-builder-websites-guide-practices-examples-strategy",
+      "says": "Community inquiry forms and “request pricing” buttons should enroll prospects in inventory alerts",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.newhomestar.com/blog/the-best-home-builder-websites-guide-practices-examples-strategy"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "investor",
+      "url": "https://developer.lofty.com/concepts/leads",
+      "says": "Type IDs: Buyer (2), Seller (1), Renter (5), Investor (6), Agent (7), Homeowner (8), Landlord (9), Other (-1)",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://developer.lofty.com/concepts/leads"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "agent-recruiting",
+      "url": "https://help.sierrainteractive.com/helpcenter/how-can-i-recruit-new-agents-using-sierra",
+      "says": "Select the Careers form template and rename it to something specific, such as \"Join Our Team\"",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://help.sierrainteractive.com/helpcenter/-building-an-agent-recruiting-funnel-with-your-idx-site-and-crm"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "agent-recruiting",
+      "url": "https://help.sierrainteractive.com/helpcenter/how-can-i-recruit-new-agents-using-sierra",
+      "says": "Confirm new leads from the recruiting form arrive tagged Recruiting",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://help.sierrainteractive.com/helpcenter/-building-an-agent-recruiting-funnel-with-your-idx-site-and-crm"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "agent-recruiting",
+      "url": "https://help.insiderealestate.com/en/articles/4626537-boldtrail-lead-types-overview",
+      "says": "There are five available lead types in BoldTrail:",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://help.insiderealestate.com/en/articles/4626537-boldtrail-lead-types-overview"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "enquiry",
+      "url": "https://www.pandaidx.com/docs/lead-capture/lead-forms",
+      "says": "Contact Forms (general inquiries)",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.pandaidx.com/docs/lead-capture/lead-forms"
+    },
+    {
+      "file": "real-estate.json",
+      "kind": "types",
+      "id": "enquiry",
+      "url": "https://developer.lofty.com/concepts/leads",
+      "says": "Type IDs: Buyer (2), Seller (1), Renter (5), Investor (6), Agent (7), Homeowner (8), Landlord (9), Other (-1)",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://developer.lofty.com/concepts/leads"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "auto-quote",
+      "url": "https://agencyheight.com/insurance-intake-form/",
+      "says": "Collect the key vehicle, driver, and current policy details needed to generate a faster, more accurate auto insurance quote.",
+      "verdict": "BLOCKED",
+      "detail": "HTTP 403 from agencyheight.com",
+      "statusChain": [
+        403
+      ],
+      "finalUrl": "https://agencyheight.com/insurance-intake-form/"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "auto-quote",
+      "url": "https://www.uplead.com/?p=16167",
+      "says": "Auto Insurance Leads",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        301,
+        200
+      ],
+      "finalUrl": "https://www.uplead.com/insurance-leads/"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "home-quote",
+      "url": "https://agencyheight.com/insurance-intake-form/",
+      "says": "Gather property, coverage, declaration, and contact details so agents can review the home insurance need with less back-and-forth.",
+      "verdict": "BLOCKED",
+      "detail": "HTTP 403 from agencyheight.com",
+      "statusChain": [
+        403
+      ],
+      "finalUrl": "https://agencyheight.com/insurance-intake-form/"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "home-quote",
+      "url": "https://www.uplead.com/?p=16167",
+      "says": "Home Insurance Leads",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        301,
+        200
+      ],
+      "finalUrl": "https://www.uplead.com/insurance-leads/"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "life-insurance",
+      "url": "https://agencyheight.com/insurance-intake-form/",
+      "says": "Capture basic coverage needs and contact preferences to help agents follow up with the right life insurance options.",
+      "verdict": "BLOCKED",
+      "detail": "HTTP 403 from agencyheight.com",
+      "statusChain": [
+        403
+      ],
+      "finalUrl": "https://agencyheight.com/insurance-intake-form/"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "life-insurance",
+      "url": "https://www.uplead.com/?p=16167",
+      "says": "A life insurance lead is a person who expresses a desire for it.",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        301,
+        200
+      ],
+      "finalUrl": "https://www.uplead.com/insurance-leads/"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "health-insurance",
+      "url": "https://www.uplead.com/?p=16167",
+      "says": "Health Insurance Leads",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        301,
+        200
+      ],
+      "finalUrl": "https://www.uplead.com/insurance-leads/"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "health-insurance",
+      "url": "https://www.involve.me/template-categories/insurance-form",
+      "says": "Gather personal information, coverage preferences, and risk factors for new policy applications across health, auto, home, or life insurance.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.involve.me/template-categories/insurance-form"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "commercial-quote",
+      "url": "https://agencyheight.com/insurance-intake-form/",
+      "says": "BOP, General Liability, Workers Comp, E&O, Commercial Auto, Umbrella, Cyber Liability",
+      "verdict": "BLOCKED",
+      "detail": "HTTP 403 from agencyheight.com",
+      "statusChain": [
+        403
+      ],
+      "finalUrl": "https://agencyheight.com/insurance-intake-form/"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "commercial-quote",
+      "url": "https://www.uplead.com/?p=16167",
+      "says": "Commercial Insurance Leads",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        301,
+        200
+      ],
+      "finalUrl": "https://www.uplead.com/insurance-leads/"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "mortgage-protection",
+      "url": "https://agenttech.io/blog/mortgage-protection-agency-leadgen",
+      "says": "MPI is term life with mortgage framing",
+      "verdict": "NOT-FOUND",
+      "closest": "tection insurance is, in product terms, ordinary term life with a face amount and term length tuned to a mortgage balance and amortization schedule. What makes MPI a distinct vertical for an agency is",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://agenttech.io/blog/mortgage-protection-agency-leadgen"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "mortgage-protection",
+      "url": "https://agenttech.io/blog/mortgage-protection-agency-leadgen",
+      "says": "it has its own predictable lead channels",
+      "verdict": "NOT-FOUND",
+      "closest": "Highest intent, warm handoff RESPA-style anti-kickback considerations; relationship management Aged mortgage data Low cost per record Stale homeowner status, low contact rates Each channel has its own",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://agenttech.io/blog/mortgage-protection-agency-leadgen"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "mortgage-protection",
+      "url": "https://www.policygenius.com/life-insurance/mortgage-protection-life-insurance/",
+      "says": "Mortgage protection insurance (MPI), also known as mortgage life insurance, is a policy designed to cover your mortgage balance if you die before paying it off.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.policygenius.com/life-insurance/mortgage-protection-life-insurance/"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "annuity",
+      "url": "https://blog.agent-crm.com/how-to-generate-annuity-leads-online-step-by-step-guide-with-funnel-templates-and-software-recommendation/",
+      "says": "Selling annuities requires having a steady stream of qualified leads.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://blog.agent-crm.com/how-to-generate-annuity-leads-online-step-by-step-guide-with-funnel-templates-and-software-recommendation/"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "annuity",
+      "url": "https://blog.agent-crm.com/how-to-generate-annuity-leads-online-step-by-step-guide-with-funnel-templates-and-software-recommendation/",
+      "says": "Use these to provide valuable info to prospects and nudge them to book a consultation.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://blog.agent-crm.com/how-to-generate-annuity-leads-online-step-by-step-guide-with-funnel-templates-and-software-recommendation/"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "retirement-planning",
+      "url": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen",
+      "says": "Schedule a 20-Minute Retirement Income Review",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "retirement-planning",
+      "url": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen",
+      "says": "A firm might create separate pages for retirement planning, business exit planning and investment management.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "investment-management",
+      "url": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen",
+      "says": "A firm might create separate pages for retirement planning, business exit planning and investment management.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "consultation",
+      "url": "https://www.agencybloc.com/ams/sales-enablement/lead-nurturing-automation/3-ways-to-convert-more-online-insurance-leads/",
+      "says": "Quote or consultation inquiry",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://www.agencybloc.com/agency-management-system/secure-insurance-lead-forms/how-to-convert-more-online-insurance-leads/"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "consultation",
+      "url": "https://paperform.co/templates/financial-advisor-free-consultation-form/",
+      "says": "Book appointments directly using integrated calendar scheduling",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://paperform.com/templates/financial-advisor-free-consultation-form/"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "consultation",
+      "url": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen",
+      "says": "A free 20- or 30-minute call can work when the page explains the scope, discussion topics and next steps.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "policy-review",
+      "url": "https://www.agencybloc.com/ams/sales-enablement/lead-and-sales-management/how-to-recruit-insurance-agents",
+      "says": "like scheduling a policy review",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        301,
+        301,
+        200
+      ],
+      "finalUrl": "https://www.agencybloc.com/marketing-software/social-media-software/insurance-agents-guide-to-social-media/"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "policy-review",
+      "url": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen",
+      "says": "Schedule a 20-Minute Retirement Income Review",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://smartasset.com/advisor-resources/financial-advisor-website-lead-gen"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "claim",
+      "url": "https://www.insurancewebsitebuilder.com/products/websites/features/lead-generating-quote-forms",
+      "says": "Our modules include forms that can be submitted for quotes, endorsements, ID card and declaration page requests, and claim forms.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.insurancewebsitebuilder.com/products/websites/features/lead-generating-quote-forms"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "claim",
+      "url": "https://www.involve.me/template-categories/insurance-form",
+      "says": "Insurance Claim Form",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.involve.me/template-categories/insurance-form"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "policy-service",
+      "url": "https://www.insurancewebsitebuilder.com/products/websites/features/lead-generating-quote-forms",
+      "says": "Our modules include forms that can be submitted for quotes, endorsements, ID card and declaration page requests, and claim forms.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.insurancewebsitebuilder.com/products/websites/features/lead-generating-quote-forms"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "policy-service",
+      "url": "https://www.involve.me/template-categories/insurance-form",
+      "says": "Certificate of Insurance Request Form",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.involve.me/template-categories/insurance-form"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "agent-recruiting",
+      "url": "https://careers.healthmarkets.com/getting-started",
+      "says": "Complete the form",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://careers.healthmarkets.com/en/getting-started"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "agent-recruiting",
+      "url": "https://careers.healthmarkets.com/getting-started",
+      "says": "Talk to a recruiter",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://careers.healthmarkets.com/en/getting-started"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "agent-recruiting",
+      "url": "https://paperform.co/templates/insurance-agent-application-form/",
+      "says": "Hiring the right insurance agents is critical for growing your agency",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://paperform.com/templates/insurance-agent-application-form/"
+    },
+    {
+      "file": "insurance-financial.json",
+      "kind": "types",
+      "id": "enquiry",
+      "url": "https://www.agencybloc.com/ams/sales-enablement/lead-nurturing-automation/3-ways-to-convert-more-online-insurance-leads/",
+      "says": "Contact form",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://www.agencybloc.com/agency-management-system/secure-insurance-lead-forms/how-to-convert-more-online-insurance-leads/"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "not-contacted",
+      "url": "https://help.insiderealestate.com/en/articles/285957-kvcore-lead-contact-statuses",
+      "says": "the default lead status will be 'New Lead'",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://help.insiderealestate.com/en/articles/285957-boldtrail-contact-statuses-overview"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "not-contacted",
+      "url": "https://www.fullcircleinsights.com/resource/lead-status-values-for-sales-and-marketing",
+      "says": "This status indicates that a record requires follow up. This would be the state that the rep first interacts with the lead.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.fullcircleinsights.com/resource/lead-status-values-for-sales-and-marketing"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "contacted",
+      "url": "https://developer.lofty.com/concepts/leads",
+      "says": "Common stages include New Lead, Contacted, Qualified, Under Contract, and Closed.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://developer.lofty.com/concepts/leads"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "contacted",
+      "url": "https://support.agencyzoom.com/en/articles/5668389-how-to-manage-and-build-pipelines",
+      "says": "New, Contacted, Quoted and Sold",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.agencyzoom.com/en/articles/5668389-how-to-manage-and-build-pipelines"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "answering-machine",
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "says": "The call was answered by an answering machine.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "answering-machine",
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "says": "Voicemail left for the prospect",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "no-answer",
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "says": "The called party did not answer within the No Answer timeout.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "no-answer",
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "says": "Call not answered; no voicemail left",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "no-answer",
+      "url": "https://support.realgeeks.com/customize-your-crm",
+      "says": "Attempted Contact",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.realgeeks.com/customize-your-crm"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "call-back",
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "says": "Prospect requested a call back",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "call-back",
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "says": "When the prospect expresses interest but has yet to commit to a deal",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://batchdialer.com/blog/what-is-a-call-disposition"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "follow-up",
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "says": "Follow-up call scheduled",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "follow-up",
+      "url": "https://support.agencyzoom.com/en/articles/3459657-use-smart-cycle-to-automatically-recycle-leads",
+      "says": "is a bucket that you can drop unsold quotes into and we'll make sure they automatically recycle back at the perfect time.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.agencyzoom.com/en/articles/3459657-use-smart-cycle-to-automatically-recycle-leads"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "appointment-set",
+      "url": "https://support.realgeeks.com/customize-your-crm",
+      "says": "Appointment Set",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.realgeeks.com/customize-your-crm"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "appointment-set",
+      "url": "https://www.agencybloc.com/ams/sales-enablement/lead-nurturing-automation/3-ways-to-convert-more-online-insurance-leads/",
+      "says": "How many of the requested quotes became scheduled appointments?",
+      "verdict": "NOT-FOUND",
+      "closest": "ts. 1. Respond to online leads quickly There are countless studies that investigate how quickly you need to follow up with leads to increase your chances of conversion. Many have found that the sweet ",
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://www.agencybloc.com/agency-management-system/secure-insurance-lead-forms/how-to-convert-more-online-insurance-leads/"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "interested",
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "says": "When the prospect shows the highest level of interest and is ready to move forward.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://batchdialer.com/blog/what-is-a-call-disposition"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "interested",
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "says": "Prospect expressed interest",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "qualified",
+      "url": "https://knowledge.hubspot.com/records/use-lifecycle-stages",
+      "says": "a contact or company that your sales team has qualified as a potential customer.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://knowledge.hubspot.com/records/use-lifecycle-stages"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "qualified",
+      "url": "https://support.freshsales.io/support/solutions/articles/229439-how-to-use-the-status-field-of-contacts-in-freshsales-",
+      "says": "A lead who has shown genuine interest in your product, replied to emails, answered calls and actively interacting with you.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.freshsales.io/support/solutions/articles/229439-how-to-use-the-status-field-of-contacts-in-freshsales-"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "not-qualified",
+      "url": "https://knowledge.hubspot.com/records/use-lifecycle-stages",
+      "says": "Unqualified",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://knowledge.hubspot.com/records/use-lifecycle-stages"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "not-qualified",
+      "url": "https://www.fullcircleinsights.com/resource/lead-status-values-for-sales-and-marketing",
+      "says": "This status is used to specify the end of an interaction.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.fullcircleinsights.com/resource/lead-status-values-for-sales-and-marketing"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "not-interested",
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "says": "When the prospect says they’re not interested",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://batchdialer.com/blog/what-is-a-call-disposition"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "not-interested",
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "says": "The business purpose of the call/chat was not fulfilled, but no follow up is required or expected by the customer.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "wrong-number",
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "says": "The person for whom the call was intended cannot be reached at this number.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "wrong-number",
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "says": "Invalid or wrong contact number",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "wrong-number",
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "says": "When the number is no longer assigned to a phone carrier subscriber",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://batchdialer.com/blog/what-is-a-call-disposition"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "do-not-contact",
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "says": "When a prospect requests not to be contacted or is listed on the DNC registry",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://batchdialer.com/blog/what-is-a-call-disposition"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "do-not-contact",
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "says": "The remote party requested that no further calls be made to his numbers.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "spam",
+      "url": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions",
+      "says": "The content of the customer email had no connection to any services provided by the contact center.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://help.brightpattern.com/latest:Contact-center-administrator-guide/Pre-definedDispositions"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "lost",
+      "url": "https://support.agencyzoom.com/en/articles/5669585-managing-leads",
+      "says": "The “Dead” section of the AgencyZoom pipeline is for leads that are a “No Go”.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.agencyzoom.com/en/articles/5669585-managing-leads"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "lost",
+      "url": "https://ankotahelp.helpsite.com/articles/44371-crm-status-for-prospect-management",
+      "says": "Closed Lost",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://ankotahelp.helpsite.com/articles/44371-crm-status-for-prospect-management"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "closed",
+      "url": "https://developer.lofty.com/concepts/leads",
+      "says": "Common stages include New Lead, Contacted, Qualified, Under Contract, and Closed.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://developer.lofty.com/concepts/leads"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "closed",
+      "url": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/",
+      "says": "Sale successfully completed",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://www.virtualpbx.com/blog/contact-centers/list-of-call-disposition-codes-by-industry/"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "closed",
+      "url": "https://batchdialer.com/blog/what-is-a-call-disposition",
+      "says": "When a prospect completes a successful sale",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://batchdialer.com/blog/what-is-a-call-disposition"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "showing-or-listing",
+      "url": "https://support.realgeeks.com/customize-your-crm",
+      "says": "Showing or Listing",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.realgeeks.com/customize-your-crm"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "showing-or-listing",
+      "url": "https://help.insiderealestate.com/en/articles/285957-kvcore-lead-contact-statuses",
+      "says": "Contacts you are actually working with, and showing homes, etc.",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://help.insiderealestate.com/en/articles/285957-boldtrail-contact-statuses-overview"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "under-contract",
+      "url": "https://developer.lofty.com/concepts/leads",
+      "says": "Common stages include New Lead, Contacted, Qualified, Under Contract, and Closed.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://developer.lofty.com/concepts/leads"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "under-contract",
+      "url": "https://help.insiderealestate.com/en/articles/285957-kvcore-lead-contact-statuses",
+      "says": "Contacts who are in the buying or selling transaction process.",
+      "verdict": "EXACT",
+      "statusChain": [
+        301,
+        200
+      ],
+      "finalUrl": "https://help.insiderealestate.com/en/articles/285957-boldtrail-contact-statuses-overview"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "under-contract",
+      "url": "https://support.realgeeks.com/customize-your-crm",
+      "says": "Under Contract",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.realgeeks.com/customize-your-crm"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "quoted",
+      "url": "https://support.agencyzoom.com/en/articles/5668389-how-to-manage-and-build-pipelines",
+      "says": "New, Contacted, Quoted and Sold",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.agencyzoom.com/en/articles/5668389-how-to-manage-and-build-pipelines"
+    },
+    {
+      "file": "statuses.json",
+      "kind": "statuses",
+      "id": "quoted",
+      "url": "https://support.agencyzoom.com/en/articles/3459657-use-smart-cycle-to-automatically-recycle-leads",
+      "says": "is a bucket that you can drop unsold quotes into and we'll make sure they automatically recycle back at the perfect time.",
+      "verdict": "EXACT",
+      "statusChain": [
+        200
+      ],
+      "finalUrl": "https://support.agencyzoom.com/en/articles/3459657-use-smart-cycle-to-automatically-recycle-leads"
+    }
+  ]
+}

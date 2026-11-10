@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 615,
+    "sources": 620,
     "unowned": 0
   },
   "files": [
@@ -619,6 +619,11 @@
     {"path":"tools/test/test-dep-scan.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/test/test-secret-receiver.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/tick-sequence.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
-    {"path":"tools/with-env.mjs","owner":"cli-and-testing","exports":[],"tests":["apps/dashboard/tests/global-setup.ts","apps/dashboard/tests/support/clean-flow-leads.mjs","apps/dashboard/tests/support/reset-staging-drafts.mjs","apps/dashboard/tests/support/staging.ts","supabase/tests/e2e-export.mjs","supabase/tests/e2e-functions.mjs","supabase/tests/e2e-screens.mjs","supabase/tests/e2e-site-audit.mjs","tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/with-env-main.mjs","tools/omnikom-cli/test/with-env-sleeper.mjs","tools/omnikom-cli/test/with-env.mjs","tools/test/probe-anon-exec.mjs","tools/test/probe-db.mjs","tools/test/probe-function.mjs"],"feature":""}
+    {"path":"tools/with-env.mjs","owner":"cli-and-testing","exports":[],"tests":["apps/dashboard/tests/global-setup.ts","apps/dashboard/tests/support/clean-flow-leads.mjs","apps/dashboard/tests/support/reset-staging-drafts.mjs","apps/dashboard/tests/support/staging.ts","supabase/tests/e2e-export.mjs","supabase/tests/e2e-functions.mjs","supabase/tests/e2e-screens.mjs","supabase/tests/e2e-site-audit.mjs","tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/with-env-main.mjs","tools/omnikom-cli/test/with-env-sleeper.mjs","tools/omnikom-cli/test/with-env.mjs","tools/test/probe-anon-exec.mjs","tools/test/probe-db.mjs","tools/test/probe-function.mjs"],"feature":""},
+    {"path":"work/32-lead-types-second-read/bycount.mjs","owner":"head-of-operations","exports":[],"tests":[],"feature":""},
+    {"path":"work/32-lead-types-second-read/check-quotes.mjs","owner":"head-of-operations","exports":["BLOCKED_HOSTS","HOST_GAP_MS","USER_AGENT","botWall","checkRows","closestWindow","collapse","collectRows","countVerdicts","decodeEntities","htmlToText","isCaseOrPunct","isExact","makeReader","normalize","scriptAppMarker","verdictFor"],"tests":["work/32-lead-types-second-read/check-quotes.test.mjs"],"feature":""},
+    {"path":"work/32-lead-types-second-read/check-quotes.test.mjs","owner":"head-of-operations","exports":[],"tests":[],"feature":""},
+    {"path":"work/32-lead-types-second-read/sanity.mjs","owner":"head-of-operations","exports":[],"tests":[],"feature":""},
+    {"path":"work/32-lead-types-second-read/show.mjs","owner":"head-of-operations","exports":[],"tests":[],"feature":""}
   ]
 }

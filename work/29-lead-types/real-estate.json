@@ -1,7 +1,7 @@
 {
   "industry": "real-estate",
   "readAt": "2026-11-09",
-  "note": "Quotes were fetched and copied by sub-agent readers (WebFetch) on 2026-11-09 and spot-checked by a second reader (see proof.md). 'examples' are plain phrasings written for this list, not quotes. The 'Enquiry' type is the owner's, see its source.",
+  "note": "Quotes were first copied by sub-agent readers (WebFetch) on 2026-11-09. Work order 32 then re-read every web source with a script that fetches the page itself (2026-11-10, see work/32-lead-types-second-read/proof.md): all 32 source rows (26 distinct quotes) matched the page word for word. 'examples' are plain phrasings written for this list, not quotes. The 'Enquiry' type is the owner's, see its source.",
   "types": [
     {
       "id": "buy",
