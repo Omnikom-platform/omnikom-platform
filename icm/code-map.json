@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 626,
+    "sources": 627,
     "unowned": 0
   },
   "files": [
@@ -292,7 +292,7 @@
     {"path":"supabase/functions/_shared/dashboard.ts","owner":"platform-build","exports":["Ctx","Frame","Run","allowedOrigins","badBody","corsHeaders","dashboard","jwksUrl"],"tests":["supabase/functions/test/mutate.mjs"],"feature":""},
     {"path":"supabase/functions/_shared/db.ts","owner":"platform-build","exports":["ConfigError","Refusal","Sql","answerProblem","asCaller","connect","recordEvent","refusal","withDb"],"tests":["supabase/functions/test/db.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
     {"path":"supabase/functions/_shared/dispatch.ts","owner":"platform-build","exports":["Dispatched","dispatch"],"tests":["supabase/functions/test/db.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
-    {"path":"supabase/functions/_shared/http.ts","owner":"platform-build","exports":["EMAIL","FieldProblem","Fields","H","MAX_BODY","SLUG","UUID","isInstant","json","noContent","problem","sha256Hex"],"tests":["supabase/functions/test/crm3b.test.ts","supabase/functions/test/import-cpu.ts","supabase/functions/test/import.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
+    {"path":"supabase/functions/_shared/http.ts","owner":"platform-build","exports":["EMAIL","FieldProblem","Fields","H","MAX_BODY","SLUG","UUID","isInstant","json","noContent","problem","sha256Hex"],"tests":["supabase/functions/test/import-cpu.ts","supabase/functions/test/import.test.ts","supabase/functions/test/instant.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
     {"path":"supabase/functions/_shared/netguard.ts","owner":"platform-build","exports":["Resolve","hostProblem","isPrivateAddress","parseV4","parseV6","privateV4","privateV6","systemResolve"],"tests":["supabase/functions/test/mutate.mjs","supabase/functions/test/netguard.test.ts","supabase/functions/test/screens-util.ts"],"feature":""},
     {"path":"supabase/functions/_shared/runner.ts","owner":"platform-build","exports":["RunnerCtx","RunnerOpts","pathForSignature","runner"],"tests":["supabase/functions/test/mutate.mjs"],"feature":""},
     {"path":"supabase/functions/_shared/signature.test.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
@@ -332,6 +332,7 @@
     {"path":"supabase/functions/test/harness.mjs","owner":"platform-build","exports":["REPO","RUNNER_KEY","SECRET","denoTest","startHarness"],"tests":[],"feature":""},
     {"path":"supabase/functions/test/import-cpu.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/import.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"supabase/functions/test/instant.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/invite.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/lead-read.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/leads.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},

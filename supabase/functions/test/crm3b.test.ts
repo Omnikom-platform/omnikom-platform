@@ -5,7 +5,6 @@ import { handle as viewDelete } from '../view-delete/index.ts';
 import { handle as leadTask } from '../lead-task/index.ts';
 import { handle as leadUpdate } from '../lead-update/index.ts';
 import { handle as leadList } from '../lead-list/index.ts';
-import { isInstant } from '../_shared/http.ts';
 import { assert, call, crmForms, eq, securityEvents, SITE_A, SUB, teamRows, t, WS_A, WS_B, withSql } from './util.ts';
 
 type W = Parameters<typeof call>[3];
@@ -29,13 +28,6 @@ async function mkLead(owner: string | null, name: string, o: { email?: string; f
 const events = (lead: string, kind: string) => withSql(async sql => (await sql`select count(*)::int as n from public.lead_events where lead_id = ${lead}::uuid and kind = ${kind}::public.lead_event_kind`)[0].n as number);
 const viewRow = (id: string) => withSql(async sql => (await sql`select user_id, name, query, columns from public.crm_views where id = ${id}::uuid`)[0]);
 const nonce = () => crypto.randomUUID().slice(0, 8);
-
-// ---------- isInstant (the body check of follow_up and due) ----------
-t('isInstant: a date and time with an offset on a real day is one; a date, a missing offset, a day that does not exist and a wrong clock are not', () => {
-  for (const ok of ['2026-11-20T10:00:00Z', '2026-11-20T10:00Z', '2026-11-20T10:00:00.123+02:00', '2026-02-28T23:59:59-05:30', '2028-02-29T00:00:00Z']) assert(isInstant(ok), `${ok} is valid`);
-  for (const bad of ['2026-11-20', '2026-11-20T10:00:00', '2026-02-30T10:00:00Z', '2027-02-29T10:00:00Z', '2026-13-01T10:00:00Z', '2026-11-20T24:00:00Z', '2026-11-20T10:75:00Z', '2026-11-20T10:00:75Z',
-    '2026-11-20T10:00:00+99:00', '2026-11-20T10:00:00+16:00', '2026-11-20T10:00:00+02:60', '2026-11-20 10:00:00Z', 'tomorrow', '', '2026-11-20T10:00:00Zjunk']) assert(!isInstant(bad), `${bad} is not valid`);
-});
 
 // ---------- view-save and view-delete ----------
 t('view-save: 200 { view }; the view is the caller\'s own, with the query and the columns as sent; the list answers with the same query', async () => {
