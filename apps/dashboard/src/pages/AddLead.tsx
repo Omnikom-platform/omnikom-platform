@@ -74,8 +74,8 @@ export function AddLead() {
       await qc.invalidateQueries({ queryKey: ['leads', workspace.id] });
       void qc.invalidateQueries({ queryKey: ['leadlist', workspace.id] });
       void qc.invalidateQueries({ queryKey: ['leadcounts', workspace.id] });
-      toast(t('DP-1.3b-09', 'Lead added.'), { label: t('DP-1.3b-09', 'Open'), run: () => void nav({ to: '/w/$ws/leads/$id', params: { ws, id } }) });
-      void nav({ to: '/w/$ws/leads', params: { ws } });
+      toast(t('DP-1.3b-09', 'Lead added.'), { label: t('DP-1.3b-09', 'Open'), run: () => void nav({ to: '/w/$ws/leads/$id', params: { ws, id }, search: prev => prev }) });
+      void nav({ to: '/w/$ws/leads', params: { ws }, search: prev => prev });
     } catch (err) {
       setError(err instanceof CallFailed && err.problem.plain ? err.problem.message : t('DP-1.3b-10', 'Could not save. Try again.'));
     } finally {

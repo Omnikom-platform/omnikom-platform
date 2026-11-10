@@ -24,3 +24,6 @@ export function problemFrom(status: number, body: unknown): Problem {
 export class CallFailed extends Error {
   constructor(public problem: Problem) { super(problem.message); }
 }
+
+/** The function's own sentence when a failed call carries one, else the plan's words for that action. */
+export const plainOr = (e: unknown, fallback: string): string => (e instanceof CallFailed && e.problem.plain ? e.problem.message : fallback);

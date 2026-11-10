@@ -15,7 +15,7 @@ export type SortSpec = { field: string; dir: 'asc' | 'desc' };
 export type Column = { key: string; label: string; type: string; options?: string[]; editable?: boolean; min?: number; max?: number };
 
 /** The row `lead-list` answers: the core keys, then each industry key under its own name. */
-export type ListRow = { id: string; created_at: string; name: string | null; email: string | null; phone: string | null; status: string; owner: string | null; form: string; page: string | null; site: string | null } & Record<string, unknown>;
+export type ListRow = { id: string; created_at: string; name: string | null; email: string | null; phone: string | null; status: string; owner: string | null; form: string; page: string | null; site: string | null; follow_up?: string | null; duplicate?: boolean; duplicate_of?: string | null } & Record<string, unknown>;
 export type ListAnswer = { total: number; page: number; size: number; columns: Column[]; fields: Column[]; rows: ListRow[] };
 
 /** The core columns of the list, in order (DP-1.3-06). Their keys are lead-list's. */
@@ -36,8 +36,9 @@ export const CORE_COLUMNS: Column[] = [
 export type Condition = 'is' | 'between' | 'empty' | 'not_empty';
 export type ColumnFilter = { key: string; label: string; type: string; cond: Condition; value?: string; from?: string; to?: string };
 
-export type View = { filter: Filter; search: string; site: string; columnFilters: ColumnFilter[]; sort: SortSpec | null; page: number };
-export const FIRST_VIEW: View = { filter: 'new', search: '', site: '', columnFilters: [], sort: null, page: 1 };
+/** `due` and `duplicates` are the two flags of lead-list (DP-1.3-55, -56); the export does not take them (see `listQuery`). */
+export type View = { filter: Filter; search: string; site: string; columnFilters: ColumnFilter[]; sort: SortSpec | null; page: number; due: boolean; duplicates: boolean };
+export const FIRST_VIEW: View = { filter: 'new', search: '', site: '', columnFilters: [], sort: null, page: 1, due: false, duplicates: false };
 
 export const SEARCH_MIN = 2;   // DP-1.3-03: the server matches after 2 characters
 
@@ -93,6 +94,11 @@ export function viewQuery(view: View, myTeamRow: string | null): { search?: stri
     filters: viewFilters(view, myTeamRow),
     ...(view.sort ? { sort: view.sort } : {}),
   };
+}
+
+/** The body of lead-list: the view's query and the two flags when ticked (lead-export has no such keys, so the export keeps `viewQuery`). */
+export function listQuery(view: View, myTeamRow: string | null): ReturnType<typeof viewQuery> & { due?: true; duplicates?: true } {
+  return { ...viewQuery(view, myTeamRow), ...(view.due ? { due: true as const } : {}), ...(view.duplicates ? { duplicates: true as const } : {}) };
 }
 
 /** The count next to a filter is that filter's total in the current site (DP-1.3-02): the view with nothing else narrowing it. */
@@ -177,6 +183,7 @@ export function cellText(row: ListRow, key: string, o: { owner: (id: string) => 
     case 'form': return formLabel(row.form, o.forms);
     case 'owner': return row.owner ? o.owner(row.owner) : '';
     case 'page': return row.form === 'manual' ? '' : row.page ?? '';
+    case 'follow_up': return row.follow_up ? receivedWords(row.follow_up) : '';
     default: return plainValue(row[key]);
   }
 }

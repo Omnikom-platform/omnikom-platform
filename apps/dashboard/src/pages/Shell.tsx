@@ -38,7 +38,7 @@ export function Shell() {
             </select>
           )}
           <div className={s.tabs}>
-            <Link to="/w/$ws/leads" params={{ ws }} data-plan="DP-1.2s-03" activeProps={{ 'aria-current': 'page' }} className={s.tab}>Leads</Link>
+            <Link to="/w/$ws/leads" params={{ ws }} search={prev => prev} data-plan="DP-1.2s-03" activeProps={{ 'aria-current': 'page' }} className={s.tab}>Leads</Link>
             <Link to="/w/$ws/site" params={{ ws }} data-plan="DP-1.2s-04" activeProps={{ 'aria-current': 'page' }} className={s.tab}>Site</Link>
             <Link to="/w/$ws/settings" params={{ ws }} data-plan="DP-1.2s-05" activeProps={{ 'aria-current': 'page' }} className={s.tab}>Settings</Link>
           </div>

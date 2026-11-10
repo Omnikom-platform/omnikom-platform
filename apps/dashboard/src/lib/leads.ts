@@ -30,6 +30,8 @@ export type Lead = {
   created_at: string;
   cta?: string | null;
   sms_consent?: boolean;
+  follow_up_at?: string | null;
+  duplicate_of?: string | null;
 };
 
 export type LeadEvent = {
@@ -154,6 +156,25 @@ export function editedLine(d: Record<string, unknown>, labelOf: (key: string) =>
   return `${t('DP-1.3-22', 'Changed')} ${labelOf(String(d.field ?? ''))}: ${word(d.old)} ${t('DP-1.3-22', 'to')} ${word(d.new)}`;
 }
 
+/** "Follow-up set for <time>", "Follow-up changed from <old> to <new>" or "Follow-up cleared" (DP-1.3-72). */
+export function followUpLine(d: Record<string, unknown>): string {
+  const at = (v: unknown) => (typeof v === 'string' ? receivedWords(v) : '');
+  if (!at(d.new)) return t('DP-1.3-72', 'Follow-up cleared');
+  if (!at(d.old)) return `${t('DP-1.3-72', 'Follow-up set for')} ${at(d.new)}`;
+  return `${t('DP-1.3-72', 'Follow-up changed from')} ${at(d.old)} ${t('DP-1.3-72', 'to')} ${at(d.new)}`;
+}
+
+/** "Task added: <text>", "Task done: <text>" or "Task reopened: <text>" (DP-1.3-72). */
+export function taskLine(d: Record<string, unknown>): string {
+  const text = String(d.text ?? '');
+  switch (d.action) {
+    case 'added': return `${t('DP-1.3-72', 'Task added:')} ${text}`;
+    case 'done': return `${t('DP-1.3-72', 'Task done:')} ${text}`;
+    case 'reopened': return `${t('DP-1.3-72', 'Task reopened:')} ${text}`;
+    default: return `${t('DP-1.3-72', 'Task')}: ${text}`;
+  }
+}
+
 export type TimelineLine = { at: string; who: string; what: string };
 
 /**
@@ -178,6 +199,8 @@ export function timelineLines(events: Pick<LeadEvent, 'id' | 'kind' | 'by' | 'de
         case 'note': what = `${t('DP-1.3-22', 'Note:')} ${String(d.text ?? '')}`; break;
         case 'edited': what = editedLine(d, labelOf); break;
         case 'exported': what = t('DP-1.3-22', 'Exported to a CSV file'); break;
+        case 'follow-up': what = followUpLine(d); break;
+        case 'task': what = taskLine(d); break;
         default: what = e.kind;
       }
       return { at: e.at, who: e.kind === 'received' && d.manual ? '' : who, what };

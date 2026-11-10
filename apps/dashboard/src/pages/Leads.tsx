@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, Outlet, useParams, useRouterState } from '@tanstack/react-router';
-import { useContractForms, useFilterCounts, useLeadList, useLeadsLive, useMe, useReadIds, useSites, useTeam } from '../data';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, Outlet, useNavigate, useParams, useRouterState, useSearch } from '@tanstack/react-router';
+import { useContractForms, useFilterCounts, useLeadColumns, useLeadList, useLeadsLive, useMe, useReadIds, useSites, useTeam } from '../data';
 import { FILTERS, leadsTitle, type Filter } from '../lib/leads';
 import {
-  allOnPage, cellText, CORE_COLUMNS, FIRST_VIEW, nextSort, pageLine, pageNumbers, PAGE_SIZE, sortState, toggleId, togglePage, type ColumnFilter, type View,
+  allOnPage, cellText, CORE_COLUMNS, nextSort, pageLine, pageNumbers, PAGE_SIZE, sortState, toggleId, togglePage, type Column, type ColumnFilter, type View,
 } from '../lib/crm';
 import { LeadsViewContext } from '../leads-view';
+import { allColumns, DISPLAY_ONLY, fromAddress, fromSaved, shownColumns, toAddress, type ColumnInfo, type SavedView, type Screen } from '../lib/views';
 import { useWide } from '../hooks';
 import { useWorkspaceValue } from '../workspace-context';
 import { UNREACHABLE } from '../lib/problems';
@@ -13,17 +14,24 @@ import { activeSiteId, rememberSite, storedSite } from '../site-choice';
 import { t } from '../plan';
 import { BulkBar } from './BulkBar';
 import { ColumnFilters } from './ColumnFilters';
+import { ColumnsPicker } from './ColumnsPicker';
+import { ViewsPanel } from './ViewsPanel';
 import { ExportControl } from './ExportControl';
 import css from './Leads.module.css';
 import crm from './Crm.module.css';
 
 const SEARCH_PAUSE_MS = 250;
+/** One empty list for every render before the columns arrive, so what is built from it keeps its identity. */
+const NO_COLUMNS: Column[] = [];
 
 /**
- * Leads (DP-1.3-01 to -10, -26 to -36): the inbox as the server lists it (lead-list: search, filters on any column, sort, one page, typed), with
+ * Leads (DP-1.3-01 to -10, -26 to -36, -51 to -66): the inbox as the server lists it (lead-list: search, filters on any column, sort, one page, typed), with
  * the site switcher (two or more sites), search, the filter New / All / Mine / Spam with a count each, a filter on any column, Export and its layout,
  * Add a lead and Import. Rows can be selected for the bulk bar. A lead opens as a panel (the Outlet) beside the list on a wide screen and instead of
  * the list on a narrow one; the import screen takes the whole place. `data-layout` and `data-live` are the hooks the styling pass uses.
+ * The view (filter, search, sort, column filters, Due, Duplicates, page, the columns chosen and the saved view applied) lives in the page address
+ * (work order 19: a copied link keeps it); only the typed search text and the selection are local. Links to the panel and the other screens carry
+ * the address along, so the list is as it was when the person comes back.
  */
 export function LeadsLayout() {
   const { workspace, userId } = useWorkspaceValue();
@@ -33,8 +41,8 @@ export function LeadsLayout() {
   const importing = path === `/w/${ws}/leads/import`;
   const panelOpen = path !== `/w/${ws}/leads` && !importing;
 
-  const [view, setView] = useState<View>(FIRST_VIEW);
-  const [typed, setTyped] = useState('');
+  const search = useSearch({ from: '/authed/w/$ws/leads' });
+  const nav = useNavigate();
   const [site, setSite] = useState<string>(() => storedSite(userId, workspace.id));
   const [template, setTemplate] = useState('');
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -45,12 +53,24 @@ export function LeadsLayout() {
   const forms = useContractForms(workspace.id);
   const live = useLeadsLive(workspace.id);
 
+  const leadColumns = useLeadColumns(workspace.id);
+  const industry = leadColumns.data?.columns ?? NO_COLUMNS;
+  const info = useCallback<ColumnInfo>(key => {
+    const c = [...CORE_COLUMNS, ...industry].find(x => x.key === key);
+    return c ? { label: c.label, type: c.type } : null;
+  }, [industry]);
+  const screen = useMemo<Screen>(() => fromAddress(search, info), [search, info]);
+  const view = screen.view;
+  // no `to`: the same page (the list, or the lead beside it) with the new address; the router types that search as never, hence the cast
+  const go = (next: Screen) => void nav({ search: (() => toAddress(next)) as never, replace: true });
+
   const siteList = sites.data ?? [];
-  const activeSite = siteList.length > 1 ? activeSiteId(siteList, site) : '';
+  const activeSite = siteList.length > 1 ? activeSiteId(siteList, view.site || site) : '';
   const myTeamRow = me.data?.teamRow ?? null;
   const canOwn = me.data ? me.data.role !== 'member' : false;
   const effective = useMemo<View>(() => ({ ...view, site: activeSite }), [view, activeSite]);
-  const ready = Boolean(me.data) && !sites.isLoading;
+  // a column filter is typed by its column, so the list waits for the columns when the address carries one
+  const ready = Boolean(me.data) && !sites.isLoading && (view.columnFilters.length === 0 || Boolean(leadColumns.data));
 
   const list = useLeadList(workspace.id, effective, myTeamRow, ready && !importing);
   const counts = useFilterCounts(workspace.id, activeSite, myTeamRow, ready && !importing);
@@ -59,25 +79,44 @@ export function LeadsLayout() {
   const reads = useReadIds(ids, userId);
 
   // a change of the view starts again at the first page with nothing selected
-  const change = (patch: Partial<View>) => setView(v => ({ ...v, ...patch, page: 1 }));
+  const change = (patch: Partial<View>) => go({ ...screen, view: { ...view, ...patch, page: 1 } });
   const viewKey = JSON.stringify(effective);
   useEffect(() => { setSelected(new Set()); }, [viewKey]);
+  // the search box keeps what is typed; the address follows after a pause, and the box follows the address when something else changes it (a saved view, Show all)
+  const [typed, setTyped] = useState(view.search);
+  const committed = useRef(view.search);
   useEffect(() => {
-    const id = window.setTimeout(() => setView(v => (v.search === typed ? v : { ...v, search: typed, page: 1 })), SEARCH_PAUSE_MS);
+    const id = window.setTimeout(() => {
+      if (typed === committed.current) return;
+      committed.current = typed;
+      go({ ...screen, view: { ...view, search: typed, page: 1 } });
+    }, SEARCH_PAUSE_MS);
     return () => window.clearTimeout(id);
-  }, [typed]);
+  });
+  useEffect(() => {
+    if (view.search !== committed.current) { committed.current = view.search; setTyped(view.search); }
+  }, [view.search]);
   useEffect(() => { if (counts.data) document.title = leadsTitle(counts.data.new); }, [counts.data]);
 
   const owners = team.data?.names ?? new Map<string, string>();
   const ownerName = (id: string | null) => (id ? owners.get(id) ?? '' : '');
-  const columns = useMemo(() => [...CORE_COLUMNS, ...(list.data?.columns ?? [])], [list.data?.columns]);
+  const industryNow = list.data?.columns ?? industry;
+  const filterable = useMemo(() => [...CORE_COLUMNS, ...industryNow], [industryNow]);
+  const everyColumn = useMemo(() => allColumns(industryNow), [industryNow]);
+  const columns = useMemo(() => shownColumns(everyColumn, screen.columns), [everyColumn, screen.columns]);
   const noLeadsAtAll = counts.data ? counts.data.all + counts.data.spam === 0 : false;
   const page = list.data ? pageNumbers(list.data.page, list.data.size || PAGE_SIZE, list.data.total) : null;
   const showList = wide || !panelOpen;
   const loading = list.isLoading || !ready;
 
-  function showAll() { setTyped(''); setView(v => ({ ...v, filter: 'all', search: '', columnFilters: [], page: 1 })); }
+  function showAll() { setTyped(''); committed.current = ''; go({ ...screen, view: { ...view, filter: 'all', search: '', columnFilters: [], due: false, duplicates: false, page: 1 } }); }
   const setColumnFilters = (next: ColumnFilter[]) => change({ columnFilters: next });
+  const setPage = (n: number) => go({ ...screen, view: { ...view, page: n } });
+  // applying a saved view puts its query and columns in the address; a site the view names wins, else the site stays as it is
+  function applyView(v: SavedView) {
+    const r = fromSaved(v.query, v.columns, { myTeamRow, info });
+    go({ view: { ...r.view, site: r.view.site || view.site }, columns: r.columns, viewId: v.id });
+  }
 
   return (
     <LeadsViewContext.Provider value={{ workspaceId: workspace.id, view: effective, myTeamRow, template }}>
@@ -87,8 +126,8 @@ export function LeadsLayout() {
             <div className={css.head}>
               <h1 data-plan="DP-1.2s-09">Leads</h1>
               <span>
-                {canOwn && <Link to="/w/$ws/leads/import" params={{ ws }} data-plan="DP-1.3-41">{t('DP-1.3-41', 'Import')}</Link>}{' '}
-                <Link to="/w/$ws/leads/new" params={{ ws }} className={css.add} data-plan="DP-1.3-04">Add a lead</Link>
+                {canOwn && <Link to="/w/$ws/leads/import" params={{ ws }} search={prev => prev} data-plan="DP-1.3-41">{t('DP-1.3-41', 'Import')}</Link>}{' '}
+                <Link to="/w/$ws/leads/new" params={{ ws }} search={prev => prev} className={css.add} data-plan="DP-1.3-04">Add a lead</Link>
               </span>
             </div>
             <div className={css.tools}>
@@ -97,7 +136,7 @@ export function LeadsLayout() {
                   data-plan="DP-1.3-01"
                   aria-label="Site switcher"
                   value={activeSite}
-                  onChange={e => { setSite(e.target.value); rememberSite(userId, workspace.id, e.target.value); setView(v => ({ ...v, page: 1 })); }}
+                  onChange={e => { setSite(e.target.value); rememberSite(userId, workspace.id, e.target.value); go({ ...screen, view: { ...view, site: e.target.value, page: 1 } }); }}
                 >
                   {siteList.map(s => <option key={s.id} value={s.id}>{s.domain || s.preview_host}</option>)}
                 </select>
@@ -111,9 +150,22 @@ export function LeadsLayout() {
                   </label>
                 ))}
               </div>
+              <span className={css.ticks}>
+                <span data-plan="DP-1.3-55">
+                  <label><input type="checkbox" name="due" checked={view.due} onChange={e => change({ due: e.target.checked })} /> {t('DP-1.3-55', 'Due')}</label>
+                </span>
+                <span data-plan="DP-1.3-56">
+                  <label><input type="checkbox" name="duplicates" checked={view.duplicates} onChange={e => change({ duplicates: e.target.checked })} /> {t('DP-1.3-56', 'Duplicates')}</label>
+                </span>
+              </span>
             </div>
-            <ColumnFilters columns={columns} filters={view.columnFilters} team={owners} onChange={setColumnFilters} />
+            <ColumnFilters columns={filterable} filters={view.columnFilters} team={owners} onChange={setColumnFilters} />
             <ExportControl workspaceId={workspace.id} template={template} onTemplate={setTemplate} />
+            <ColumnsPicker all={everyColumn} chosen={screen.columns} onChange={keys => go({ ...screen, columns: keys })} />
+            <ViewsPanel
+              workspaceId={workspace.id} userId={userId} isOwner={canOwn} view={effective} shown={columns} myTeamRow={myTeamRow} viewId={screen.viewId}
+              onApply={applyView} onApplied={id => go({ ...screen, viewId: id })}
+            />
 
             {(list.error || counts.error) && <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
             {live === 'paused' && <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
@@ -134,11 +186,13 @@ export function LeadsLayout() {
                         <th scope="col">
                           <input type="checkbox" data-plan="DP-1.3-30" aria-label="Select all on this page" checked={allOnPage(selected, ids)} onChange={() => setSelected(togglePage(selected, ids))} />
                         </th>
-                        {columns.map(c => (
-                          <th key={c.key} scope="col" aria-sort={sortState(view.sort, c.key)}>
-                            <button type="button" data-plan="DP-1.3-27" onClick={() => change({ sort: nextSort(view.sort, c.key) })}>{c.label}</button>
-                          </th>
-                        ))}
+                        {columns.map(c => (DISPLAY_ONLY.has(c.key)
+                          ? <th key={c.key} scope="col" data-plan="DP-1.3-54">{c.label}</th>
+                          : (
+                            <th key={c.key} scope="col" aria-sort={sortState(view.sort, c.key)}>
+                              <button type="button" data-plan="DP-1.3-27" onClick={() => change({ sort: nextSort(view.sort, c.key) })}>{c.label}</button>
+                            </th>
+                          )))}
                       </tr>
                     </thead>
                     <tbody>
@@ -155,10 +209,12 @@ export function LeadsLayout() {
                               if (c.key === 'name') {
                                 return (
                                   <th key={c.key} scope="row">
-                                    <Link to="/w/$ws/leads/$id" params={{ ws, id: l.id }} data-plan="DP-1.3-06">{who}</Link>
+                                    <Link to="/w/$ws/leads/$id" params={{ ws, id: l.id }} search={prev => prev} data-plan="DP-1.3-06">{who}</Link>
                                   </th>
                                 );
                               }
+                              if (c.key === 'follow_up') return <td key={c.key} data-plan="DP-1.3-57">{text}</td>;
+                              if (c.key === 'duplicate') return <td key={c.key} data-plan="DP-1.3-58">{l.duplicate ? t('DP-1.3-58', 'Possible duplicate') : ''}</td>;
                               if (c.key === 'owner') {
                                 return <td key={c.key} data-plan="DP-1.3-06" data-empty={l.owner ? undefined : 'true'}>{text || 'Unassigned'}</td>;
                               }
@@ -175,8 +231,8 @@ export function LeadsLayout() {
             {page && list.data && list.data.total > 0 && (
               <div data-plan="DP-1.3-36" className={crm.paging}>
                 <p>{pageLine(list.data.page, list.data.size || PAGE_SIZE, list.data.total)}</p>
-                <button type="button" disabled={view.page <= 1} onClick={() => setView(v => ({ ...v, page: v.page - 1 }))}>{t('DP-1.3-36', 'Previous')}</button>
-                <button type="button" disabled={view.page >= page.last} onClick={() => setView(v => ({ ...v, page: v.page + 1 }))}>{t('DP-1.3-36', 'Next')}</button>
+                <button type="button" disabled={view.page <= 1} onClick={() => setPage(view.page - 1)}>{t('DP-1.3-36', 'Previous')}</button>
+                <button type="button" disabled={view.page >= page.last} onClick={() => setPage(view.page + 1)}>{t('DP-1.3-36', 'Next')}</button>
               </div>
             )}
           </section>

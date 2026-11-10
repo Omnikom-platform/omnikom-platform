@@ -38,6 +38,7 @@ function expectNone(haystack: string, needles: string[], where: string) {
 // A failed removal fails the run: a lead left on staging is exactly what this hook exists to stop.
 test.afterAll(async () => {
   await removeCrmScreensTestData();
+  await removeCrm3bTestData();
   const made = await serviceGet<{ id: string }[]>(`/leads?site_id=eq.${WS.a.site}&name=like.${encodeURIComponent(`5.3 flows ${RUN}*`)}&select=id&limit=100`);
   if (!made.length) return;
   const out = spawnSync(process.execPath, [CLEAN_LEADS, '--apply', '--ids', made.map(l => l.id).join(',')], { encoding: 'utf8', env: process.env, timeout: 120_000, windowsHide: true });
@@ -429,6 +430,197 @@ test.describe('the CRM screens as an agent', () => {
 
     await page.goto(`/w/${WS.a.slug}/leads/import`);
     await notFound(page);
+  });
+});
+
+// ---------- the CRM block 3b screens (work order 19: columns, saved views, follow-up and tasks, the duplicate mark) ----------
+// Staging, workspace A. Owner-a makes two synthetic leads with the add-lead function (the second has the first one's email in capitals, so the second is
+// the duplicate), then drives the Columns picker, the Duplicates and Due filters, the follow-up date, a task, and saved views (a private one and a shared one);
+// member-a1 sees the shared view and has no Share control. The leads are marked by name ("crm-3b <RUN> ..."), as block 3a's are: add-lead types an answer
+// against the contract, and a name needs no contract field. The teardown removes the leads (leads-bulk with confirm; their tasks go with them) and every
+// view this run saved, by the marker, so staging keeps nothing.
+const CRM3B_MARK = `crm-3b ${RUN}`;
+const crm3bLeads = () => serviceGet<{ id: string; name: string }[]>(`/leads?workspace_id=eq.${WS.a.id}&name=like.${encodeURIComponent(`${CRM3B_MARK}*`)}&select=id,name&order=name`);
+
+async function addCrm3bLead(token: string, suffix: string, email: string, phone: string) {
+  const r = await callAs(token, 'add-lead', { site: WS.a.site, name: `${CRM3B_MARK} ${suffix}`, email, phone, answers: {}, consentText: 'The person agreed to be contacted', form: 'manual' });
+  expect(r.status, `add-lead (${suffix}) answered ${r.status}: ${r.text.slice(0, 160)}`).toBe(201);
+}
+
+/** The block 3b teardown, called from the file's one afterAll: the flow leads through leads-bulk with confirm, the views by the marker in their names. */
+async function removeCrm3bTestData() {
+  const made = await crm3bLeads();
+  if (made.length) {
+    const token = await personAccessToken('owner-a');
+    const r = await callAs(token, 'leads-bulk', { workspace: WS.a.id, ids: made.map(l => l.id), action: 'delete', confirm: true });
+    console.log(`crm-3b cleanup: ${made.length} lead(s), leads-bulk answered ${r.status}`);
+    expect(r.status, `removing the crm-3b leads answered ${r.status}: ${r.text.slice(0, 200)}`).toBe(200);
+  }
+  await serviceDelete(`/crm_views?workspace_id=eq.${WS.a.id}&name=like.${encodeURIComponent(`${CRM3B_MARK}*`)}`);
+}
+
+const headings = async (page: Page) => (await page.locator('thead th').allInnerTexts()).map(h => h.trim());
+const toggleButton = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
+
+test.describe('the CRM block 3b screens as the owner', () => {
+  test.use({ storageState: '.auth/owner-a.json' });
+  test.setTimeout(300_000);
+
+  test('pick and reorder the columns (the address keeps them), see the duplicate mark and its filter, set a follow-up and find it with Due, add and finish a task, save a private and a shared view and apply and delete one', async ({ page }) => {
+    const token = await personAccessToken('owner-a');
+    await addCrm3bLead(token, 'alpha', `crm3b.${RUN}@example.com`, '(555) 010-0171');
+    await addCrm3bLead(token, 'beta', `CRM3B.${RUN}@EXAMPLE.COM`, '(555) 010-0172');
+    const made = await crm3bLeads();
+    expect(made.map(l => l.name), 'the two leads are in the database').toEqual([`${CRM3B_MARK} alpha`, `${CRM3B_MARK} beta`]);
+    const alpha = made[0]!;
+    const alphaName = `${CRM3B_MARK} alpha`, betaName = `${CRM3B_MARK} beta`;
+
+    await page.goto(`/w/${WS.a.slug}/leads`);
+    await leadsLoaded(page);
+    await radio(page, 'All').check();
+    await settled(page);
+    await page.getByRole('searchbox', { name: 'Search' }).fill(CRM3B_MARK);
+    await expect(page.locator('tbody tr')).toHaveCount(2);
+
+    // columns: the first view shows Follow-up and Possible duplicate (as plain words, not sort buttons); hide Email, move Status up; the address keeps it
+    expect(await headings(page)).toEqual(expect.arrayContaining(['Follow-up', 'Possible duplicate', 'Email']));
+    await expect(page.locator('thead').getByRole('button', { name: 'Follow-up' })).toHaveCount(0);
+    await expect(page.locator('thead').getByRole('button', { name: 'Possible duplicate' })).toHaveCount(0);
+    await toggleButton(page, 'Columns').click();
+    await page.getByLabel('Show Email').uncheck();
+    await expect(page.locator('thead').getByRole('button', { name: 'Email', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Move Status up' }).click();
+    await expect(page).toHaveURL(/cols=/);
+    const moved = await headings(page);
+    expect(moved, 'Email is gone').not.toContain('Email');
+    expect(moved.indexOf('Status'), 'Status moved before Page').toBeLessThan(moved.indexOf('Page'));
+    await page.reload();
+    await leadsLoaded(page);
+    await settled(page);
+    await expect(page.locator('tbody tr')).toHaveCount(2);   // the search is in the address too
+    expect(await headings(page), 'the reloaded page keeps the columns').toEqual(moved);
+    await toggleButton(page, 'Columns').click();
+    await page.getByRole('button', { name: 'Reset columns' }).click();
+    await expect(page).not.toHaveURL(/cols=/);
+    expect(await headings(page), 'Reset columns brings the first view back').toContain('Email');
+    await toggleButton(page, 'Columns').click();
+
+    // the duplicate: the second lead carries the mark and the Duplicates tick finds exactly it; the record names the older lead and links to it
+    const alphaRow = rowOf(page, alphaName), betaRow = rowOf(page, betaName);
+    await expect(betaRow.getByText('Possible duplicate')).toBeVisible();
+    await expect(alphaRow.getByText('Possible duplicate')).toHaveCount(0);
+    await page.getByRole('checkbox', { name: 'Duplicates', exact: true }).check();
+    await expect(page.locator('tbody tr')).toHaveCount(1);
+    await expect(betaRow).toHaveCount(1);
+    await page.getByRole('checkbox', { name: 'Duplicates', exact: true }).uncheck();
+    await expect(page.locator('tbody tr')).toHaveCount(2);
+    await betaRow.getByRole('link').click();
+    await expect(page.locator('#lead-name')).toHaveText(betaName);
+    await expect(page.getByText('Possible duplicate of')).toBeVisible();
+    await page.locator('section[aria-labelledby="lead-name"]').getByRole('link', { name: alphaName }).click();
+    await expect(page.locator('#lead-name')).toHaveText(alphaName);
+
+    // follow-up: set a date in the past (it is due), see it in the record, the timeline and the list; the Due tick finds alpha only
+    await page.getByRole('button', { name: 'Set follow-up' }).click();
+    await page.getByLabel('Follow-up date and time').fill('2026-01-05T09:00');
+    await page.locator('[data-plan="DP-1.3-68"]').getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('status').last()).toContainText('Follow-up set.');
+    const [row] = await serviceGet<{ follow_up_at: string | null }[]>(`/leads?id=eq.${alpha.id}&select=follow_up_at`);
+    expect(row?.follow_up_at, 'the follow-up is in the database').toBeTruthy();
+    expect(new Date(row?.follow_up_at ?? '').getTime(), 'the instant is the one typed, in the browser\'s offset').toBe(new Date('2026-01-05T09:00').getTime());
+    await expect(page.locator('ol li').first()).toContainText('Follow-up set for');
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(alphaRow).toContainText('5 Jan 09:00');
+    await page.getByRole('checkbox', { name: 'Due', exact: true }).check();
+    await expect(page.locator('tbody tr')).toHaveCount(1);
+    await expect(alphaRow).toHaveCount(1);
+    await page.getByRole('checkbox', { name: 'Due', exact: true }).uncheck();
+    await expect(page.locator('tbody tr')).toHaveCount(2);
+
+    // tasks: add one, finish it (one tick), reopen it (the same tick); the database and the timeline agree
+    await alphaRow.getByRole('link').click();
+    await expect(page.locator('#lead-name')).toHaveText(alphaName);
+    await page.getByLabel('Task', { exact: true }).fill('call back');
+    await page.getByRole('button', { name: 'Add task' }).click();
+    await expect(page.getByRole('status').last()).toContainText('Task added.');
+    const doneTick = page.getByRole('checkbox', { name: 'Done call back' });
+    await expect(doneTick).not.toBeChecked();
+    await doneTick.check();
+    await expect(page.getByRole('status').last()).toContainText('Task done.');
+    await expect(doneTick).toBeChecked();
+    expect((await serviceGet<{ done_at: string | null }[]>(`/lead_tasks?lead_id=eq.${alpha.id}&select=done_at`))[0]?.done_at, 'the task is done in the database').toBeTruthy();
+    await doneTick.uncheck();
+    await expect(page.getByRole('status').last()).toContainText('Task reopened.');
+    await expect(doneTick).not.toBeChecked();
+    expect((await serviceGet<{ done_at: string | null }[]>(`/lead_tasks?lead_id=eq.${alpha.id}&select=done_at`))[0]?.done_at, 'the task is open again').toBeNull();
+    await expect(page.locator('ol li').first()).toContainText('Task reopened: call back');
+    expect(await planProblems(page, { required: ['DP-1.3-67', 'DP-1.3-69', 'DP-1.3-70'] }), 'the DOM plan gate on the record, follow-up and tasks').toEqual([]);
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
+
+    // views: save the current view (Email hidden) privately, then a shared one; a taken name is refused under the name box; applying a view restores its columns
+    await toggleButton(page, 'Columns').click();
+    await page.getByLabel('Show Email').uncheck();
+    await toggleButton(page, 'Columns').click();
+    await toggleButton(page, 'Views').click();
+    await page.getByLabel('View name').fill(`${CRM3B_MARK} private`);
+    await page.getByRole('button', { name: 'Save as', exact: true }).click();
+    await expect(page.getByRole('status').last()).toContainText('View saved.');
+    await page.getByLabel('View name').fill(`${CRM3B_MARK} shared`);
+    await page.getByLabel('Share with the business').check();
+    await page.getByRole('button', { name: 'Save as', exact: true }).click();
+    await expect(page.getByRole('status').last()).toContainText('View saved.');
+    const stored = await serviceGet<{ name: string; user_id: string | null; columns: string[] }[]>(`/crm_views?workspace_id=eq.${WS.a.id}&name=like.${encodeURIComponent(`${CRM3B_MARK}*`)}&select=name,user_id,columns&order=name`);
+    expect(stored.map(v => `${v.name}:${v.user_id === null ? 'shared' : 'own'}`), 'a private view and a shared one are stored').toEqual([`${CRM3B_MARK} private:own`, `${CRM3B_MARK} shared:shared`]);
+    expect(stored[0]?.columns, 'the view stores the columns shown').not.toContain('email');
+    await page.getByLabel('View name').fill(`${CRM3B_MARK} shared`);
+    await page.getByLabel('Share with the business').check();
+    await page.getByRole('button', { name: 'Save as', exact: true }).click();
+    await expect(page.locator('[data-plan="DP-1.3-63"]').getByRole('alert')).toBeVisible();
+    expect(await serviceGet<{ id: string }[]>(`/crm_views?workspace_id=eq.${WS.a.id}&name=eq.${encodeURIComponent(`${CRM3B_MARK} shared`)}&select=id`), 'the refused name saved nothing').toHaveLength(1);
+    await toggleButton(page, 'Columns').click();
+    await page.getByRole('button', { name: 'Reset columns' }).click();
+    await toggleButton(page, 'Columns').click();
+    expect(await headings(page)).toContain('Email');
+    await page.getByRole('button', { name: `${CRM3B_MARK} private`, exact: true }).click();
+    await expect(page.getByText(`View: ${CRM3B_MARK} private`)).toBeVisible();
+    await expect(page).toHaveURL(/view=/);
+    expect(await headings(page), 'applying the view hides Email again').not.toContain('Email');
+    expect(await planProblems(page, { required: ['DP-1.3-51', 'DP-1.3-54', 'DP-1.3-55', 'DP-1.3-56', 'DP-1.3-57', 'DP-1.3-58', 'DP-1.3-59', 'DP-1.3-60', 'DP-1.3-62', 'DP-1.3-63'] }), 'the DOM plan gate on the list with the Views panel open').toEqual([]);
+    await page.getByRole('button', { name: `Delete ${CRM3B_MARK} private` }).click();
+    await expect(page.getByText(`Delete ${CRM3B_MARK} private?`)).toBeVisible();
+    await page.getByRole('button', { name: 'Delete view' }).click();
+    await expect(page.getByRole('status').last()).toContainText('View deleted.');
+    expect(await serviceGet<{ id: string }[]>(`/crm_views?workspace_id=eq.${WS.a.id}&name=eq.${encodeURIComponent(`${CRM3B_MARK} private`)}&select=id`), 'the view is gone from the database').toEqual([]);
+  });
+});
+
+test.describe('the CRM block 3b screens as an agent', () => {
+  test.use({ storageState: '.auth/member-a1.json' });
+
+  test('member-a1 sees the owner\'s shared view, can save its own, and has no Share control and no Delete on the shared one', async ({ page }) => {
+    const shared = `${CRM3B_MARK} member shared`;
+    const saved = await callAs(await personAccessToken('owner-a'), 'view-save', { workspace: WS.a.id, name: shared, query: {}, columns: ['name', 'status'], shared: true });
+    expect(saved.status, `view-save answered ${saved.status}: ${saved.text.slice(0, 160)}`).toBe(200);
+
+    await page.goto(`/w/${WS.a.slug}/leads`);
+    await leadsLoaded(page);
+    await toggleButton(page, 'Views').click();
+    await expect(page.getByRole('heading', { name: 'Shared views' })).toBeVisible();
+    await expect(page.getByRole('button', { name: shared, exact: true })).toBeVisible();
+    await expect(page.getByLabel('Share with the business')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: `Delete ${shared}` })).toHaveCount(0);
+
+    await page.getByLabel('View name').fill(`${CRM3B_MARK} member own`);
+    await page.getByRole('button', { name: 'Save as', exact: true }).click();
+    await expect(page.getByRole('status').last()).toContainText('View saved.');
+    await expect(page.getByRole('heading', { name: 'Your views' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Share', exact: true })).toHaveCount(0);
+
+    await page.getByRole('button', { name: shared, exact: true }).click();
+    await expect(page.getByText(`View: ${shared}`)).toBeVisible();
+    const heads = await headings(page);
+    expect(heads, 'the shared view shows Name and Status only').toContain('Status');
+    expect(heads).not.toContain('Email');
   });
 });
 

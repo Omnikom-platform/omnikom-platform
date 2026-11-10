@@ -1,7 +1,7 @@
 # 19 CRM block 3b screens: columns, saved views, follow-up and tasks, duplicates
 
 Owner: platform build. Model: Sonnet (high). Branch: check/platform/crm-3b-screens (a worktree on master once work order 18 has
-landed). No migration. Status: OPEN 2026-11-10 (head wrote it); starts after 18 lands.
+landed). No migration. Status: SCREENS BUILT 2026-11-10 (builder), NOT PROVEN on staging; plan rows DP-1.3-51 to -74 OK'd by the head 2026-11-10; the head runs the flows after CI is 9 of 9.
 
 ## Why
 The screens on work order 18's backend, so rows A13 (choose the columns), A14 (saved views), A17 (follow-up date and tasks) and
@@ -60,4 +60,13 @@ The builder never commits, pushes, applies to staging, deploys or publishes. Hea
 (filled by the head with pasted lines)
 
 ## Findings
-Send to the head; never fix here.
+Send to the head; never fix here. (Builder, 2026-11-10.)
+1. **`follow_up` and `duplicate` cannot be sorted or filtered by a column filter**: `private.lead_query_check` types only the core keys and the industry `column: true` keys, so lead-list answers S-QUERY for them. They are display-only columns (plan row DP-1.3-54: plain headings, no sort button); the Due and Duplicates ticks are how the list finds them. Head ruled: accepted for now; a later backend order may add them to `lead_query_check`.
+2. **No "Stop sharing"** on a shared view (head ruled 2026-11-10): an owner who shares by mistake deletes the view and saves it again. The owner may ask for a control later (`view-save` with `shared: false` already makes the view the caller's own).
+3. **The list's "Possible duplicate" cell is plain words, not a link** (plan row DP-1.3-58 amended): `tests/flows.spec.ts:291` opens a lead with `rowOf(page, name).getByRole('link').click()`, which is strict, and its three synthetic leads share one phone number, so all three are now flagged; a second link in the row would break that flow, which must pass unchanged. The link to the older lead is in the record (DP-1.3-73).
+4. **Export ignores Due and Duplicates**: `lead-export` takes `search`, `filters` and `sort` only, so with the Due or Duplicates tick on, Export (and the delete sheet's "Export the list first") writes the leads without that tick. The screen sends only what the function takes. A backend order could add the two keys to `lead-export`.
+5. **The new flows mark their leads by name** (`crm-3b <RUN> ...`), as block 3a's do, not by `{"test": "crm-3b"}` in the answers: `add-lead` types an answer against the contract and a name needs no contract field. The teardown removes the leads (leads-bulk with confirm) and the views by that marker.
+6. **A saved view that the controls cannot say**: a stored filter with `in` of several values on a column is counted (`fromSaved().dropped`) and not shown; a view made by the screen never has one. A stored query with no status filter reads as All. Neither has wording in the plan.
+7. **The view is in the route's search params and every change replaces the history entry** (no back-button step per keystroke or tick). Links to the panel, Add a lead, Import, Back to leads, See the leads, the panel's Close, the delete sheet's close and the rail's Leads carry the address along (`search: prev => prev`), which is how block 3a's list stayed as it was.
+8. **`node apps/dashboard/scripts/ci.mjs` runs `npm ci`, which deletes `node_modules`**: this worktree's `node_modules` is a Windows junction to `code/main/apps/dashboard/node_modules` (same package-lock.json, SHA-1 107566f9...), made because the machine lock queued `npm ci` behind a video render. The junction must be removed (`cmd /c rmdir`, never a recursive delete) before anything runs `npm ci` in this worktree. It is removed now; this worktree has no `node_modules`.
+9. **BLOCKED: `node apps/dashboard/scripts/ci.mjs` was not run.** `heavy.mjs` waited 30 minutes behind a video render (`heavy: gave up after 30 min ... Nothing was run`, exit 75). Unblock: run it when the lock is free (`node ~/.claude/scripts/heavy.mjs --label "dashboard ci" -- node apps/dashboard/scripts/ci.mjs`); it does the locked `npm ci` itself. What did run: `tsc --noEmit` exit 0 and `vitest run` 10 files, 193 tests, exit 0 (all of that step's unit tests and the plan gate), on the finished tree. NOT RUN: the two Auth email checks of ci.mjs, `vite build`, any Playwright flow, any render of the screens (the flows need staging sign-in).

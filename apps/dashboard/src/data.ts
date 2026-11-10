@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from './supabase';
 import { fetchDrafts, fetchTeamList, listLeads, type Draft } from './api';
-import { countQuery, PAGE_SIZE, viewQuery, type Column, type ListAnswer, type View } from './lib/crm';
+import { countQuery, listQuery, PAGE_SIZE, type Column, type ListAnswer, type View } from './lib/crm';
+import type { Task } from './lib/followup';
+import type { SavedView } from './lib/views';
 import { FILTERS, type ContractForms, type Filter, type Lead, type LeadEvent } from './lib/leads';
 import type { Contract, Job, JobEvent, SiteState } from './lib/site';
 import type { Member } from './lib/settings';
@@ -130,7 +132,7 @@ export function useContractForms(wsId: string) {
   });
 }
 
-const LEAD_COLUMNS = 'id,workspace_id,site_id,form,flow,cta,page_path,name,email,phone,answers,consent_text,marketing_consent,sms_consent,status,owner_team_row,created_at';
+const LEAD_COLUMNS = 'id,workspace_id,site_id,form,flow,cta,page_path,name,email,phone,answers,consent_text,marketing_consent,sms_consent,status,owner_team_row,created_at,follow_up_at,duplicate_of';
 
 /** Ids that have been on a list in this tab: a lead that was listed and is now gone was removed, one that never was is not found. */
 export const everListed = new Set<string>();
@@ -153,7 +155,7 @@ export function useLeadList(wsId: string, view: View, myTeamRow: string | null, 
     enabled,
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<ListAnswer> => {
-      const a = await listLeads({ workspace: wsId, ...viewQuery(view, myTeamRow), page: view.page, size: PAGE_SIZE });
+      const a = await listLeads({ workspace: wsId, ...listQuery(view, myTeamRow), page: view.page, size: PAGE_SIZE });
       for (const r of a.rows) everListed.add(r.id);
       return a;
     },
@@ -205,10 +207,29 @@ export function useTemplates(wsId: string) {
 }
 
 /** One lead, or null when this login cannot read it (another business's lead, or another agent's): the database decides. */
-export function useLead(wsId: string, id: string) {
+export function useLead(wsId: string, id: string, enabled = true) {
   return useQuery({
     queryKey: ['lead', wsId, id],
+    enabled,
     queryFn: async (): Promise<Lead | null> => must(await supabase.from('leads').select(LEAD_COLUMNS).eq('id', id).eq('workspace_id', wsId).maybeSingle()) as Lead | null,
+  });
+}
+
+/** The workspace's saved views the caller may read (crm_views: their own and the shared ones; row level security decides), by name. */
+export function useViews(wsId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['views', wsId],
+    enabled,
+    queryFn: async (): Promise<SavedView[]> => must(await supabase.from('crm_views').select('id,user_id,name,query,columns,updated_at').eq('workspace_id', wsId).order('name')) as SavedView[],
+  });
+}
+
+/** One lead's tasks, wherever the lead is visible (lead_tasks follows the lead's row level security). */
+export function useTasks(wsId: string, leadId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['tasks', wsId, leadId],
+    enabled,
+    queryFn: async (): Promise<Task[]> => must(await supabase.from('lead_tasks').select('id,lead_id,text,due_at,done_at,created_at').eq('lead_id', leadId)) as Task[],
   });
 }
 

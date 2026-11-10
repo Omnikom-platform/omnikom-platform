@@ -276,3 +276,29 @@
     border-bottom: 1px solid var(--line);
   }
 }
+
+/* Tasks (work order 19): a plain list under the answers, the add form under it; a done task is muted. */
+.tasks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.tasks h3,
+.tasks p,
+.tasks ul {
+  margin: 0;
+}
+
+.tasks ul {
+  padding: 0;
+  list-style: none;
+}
+
+.tasks li[data-done='true'] {
+  color: var(--ink-muted);
+}
+
+.tasks [data-over='true'] {
+  color: var(--on-alert);
+}

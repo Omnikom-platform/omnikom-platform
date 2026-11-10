@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
-import { useNavigate, useParams } from '@tanstack/react-router';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { updateLead, type LeadChange } from '../api';
 import { everListed, useContractForms, useEvents, useEventsLive, useLead, useLeadColumns, useMe, useSites, useTeam } from '../data';
@@ -12,6 +12,8 @@ import { useWorkspaceValue } from '../workspace-context';
 import { t } from '../plan';
 import { UNDO, useToast } from '../toast';
 import { DeleteSheet } from './DeleteSheet';
+import { LeadFollowUp } from './LeadFollowUp';
+import { LeadTasks } from './LeadTasks';
 import { NotFound } from './NotFound';
 import css from './Panel.module.css';
 import crm from './Crm.module.css';
@@ -99,7 +101,7 @@ export function PanelClose() {
   const { ws } = useParams({ from: '/authed/w/$ws' });
   const nav = useNavigate();
   const wide = useWide();
-  const close = () => void nav({ to: '/w/$ws/leads', params: { ws } });
+  const close = () => void nav({ to: '/w/$ws/leads', params: { ws }, search: prev => prev });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
     window.addEventListener('keydown', onKey);
@@ -140,6 +142,8 @@ export function LeadPanel() {
   const [savingNote, setSavingNote] = useState(false);
 
   const data = lead.data;
+  // a flagged lead's older match: readable (then it has a name and a link) or not (then only the fact that another lead matches)
+  const other = useLead(workspace.id, data?.duplicate_of ?? '', Boolean(data?.duplicate_of));
   useEffect(() => { setStatusError(''); setOwnerError(''); setNote(''); setNoteError(''); }, [id]);
   useEffect(() => { if (lead.data === null && everListed.has(id)) void qc.invalidateQueries({ queryKey: ['leads', workspace.id] }); }, [lead.data, id, qc, workspace.id]);
 
@@ -158,6 +162,7 @@ export function LeadPanel() {
     void qc.invalidateQueries({ queryKey: ['leadlist', workspace.id] });
     void qc.invalidateQueries({ queryKey: ['leadcounts', workspace.id] });
     void qc.invalidateQueries({ queryKey: ['events', workspace.id, id] });
+    void qc.invalidateQueries({ queryKey: ['tasks', workspace.id, id] });
   };
 
   // opening a lead marks it read for this login (DP-1.3-08); the row in the list loses its bold. A refusal changes nothing the person can see.
@@ -269,6 +274,14 @@ export function LeadPanel() {
         </p>
       </div>
 
+      {data.duplicate_of && other.data && (
+        <p data-plan="DP-1.3-73">
+          {t('DP-1.3-73', 'Possible duplicate of')}{' '}
+          <Link to="/w/$ws/leads/$id" params={{ ws, id: other.data.id }} search={prev => prev}>{other.data.name || other.data.email || other.data.phone || ''}</Link>
+        </p>
+      )}
+      {data.duplicate_of && other.data === null && <p data-plan="DP-1.3-74">{t('DP-1.3-74', 'Another lead matches this one.')}</p>}
+
       <div role="radiogroup" aria-label="Status" data-plan="DP-1.3-12" className={css.status}>
         {STATUSES.map(s => (
           <label key={s}>
@@ -290,9 +303,13 @@ export function LeadPanel() {
       )}
       {ownerError && <p role="alert" data-plan="DP-1.3-25">{ownerError}</p>}
 
+      <LeadFollowUp leadId={id} value={data.follow_up_at} refresh={refresh} />
+
       <dl data-plan="DP-1.3-14" className={css.answers}>
         {recordRows.map(f => <FieldRow key={f.key} f={f} onSave={saveField} />)}
       </dl>
+
+      <LeadTasks workspaceId={workspace.id} leadId={id} refresh={refresh} />
 
       <form data-plan="DP-1.3-15" onSubmit={e => void addNote(e)} className={css.note}>
         <label>
@@ -321,7 +338,7 @@ export function LeadPanel() {
 
       {!isMember && <button type="button" data-plan="DP-1.3-19" onClick={() => setDeleting(true)}>{t('DP-1.3-19', 'Delete this lead')}</button>}
       {deleting && (
-        <DeleteSheet workspaceId={workspace.id} ids={[id]} onClose={() => setDeleting(false)} onDeleted={() => { setDeleting(false); void nav({ to: '/w/$ws/leads', params: { ws } }); }} />
+        <DeleteSheet workspaceId={workspace.id} ids={[id]} onClose={() => setDeleting(false)} onDeleted={() => { setDeleting(false); void nav({ to: '/w/$ws/leads', params: { ws }, search: prev => prev }); }} />
       )}
     </section>
   );

@@ -141,13 +141,13 @@ export function ImportLeads() {
       <div data-plan="DP-1.3-42" className={css.step}>
         <h1>Import leads</h1>
         <p>Upload the file your CRM exports. Nothing is saved until you have checked it and confirmed.</p>
-        <p><Link to="/w/$ws/leads" params={{ ws }}>Back to leads</Link></p>
+        <p><Link to="/w/$ws/leads" params={{ ws }} search={prev => prev}>Back to leads</Link></p>
       </div>
 
       {done && (
         <div data-plan="DP-1.3-49" className={css.step} role="status">
           <p>{t('DP-1.3-49', 'Imported')} {done.created} {t('DP-1.3-49', 'leads.')}{done.skipped > 0 && <> {t('DP-1.3-49', 'Skipped')} {done.skipped} {t('DP-1.3-49', 'duplicates.')}</>}</p>
-          <p><Link to="/w/$ws/leads" params={{ ws }}>See the leads</Link></p>
+          <p><Link to="/w/$ws/leads" params={{ ws }} search={prev => prev}>See the leads</Link></p>
         </div>
       )}
 

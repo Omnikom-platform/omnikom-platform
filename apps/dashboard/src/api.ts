@@ -36,7 +36,7 @@ async function call(name: string, body: Record<string, unknown>): Promise<unknow
   return parseJson((await request(name, body)).text);
 }
 
-export type LeadChange = { lead: string; status?: LeadStatus; owner?: string; unassign?: boolean; note?: string; read?: boolean; fields?: Record<string, unknown> };
+export type LeadChange = { lead: string; status?: LeadStatus; owner?: string; unassign?: boolean; note?: string; read?: boolean; fields?: Record<string, unknown>; follow_up?: string | null };
 
 /** lead-update: status, owner (a team row id), unassign, a note, read, or fields (one edit call for any core or industry field). 204 on success, 200 { changed } with fields. */
 export async function updateLead(change: LeadChange): Promise<void> {
@@ -44,10 +44,36 @@ export async function updateLead(change: LeadChange): Promise<void> {
 }
 
 /** lead-list: the CRM list on the server (search, filters on any column, sort, one page) as the caller; the workspace's own columns come with it. */
-export async function listLeads(q: { workspace: string; search?: string; filters?: ListFilter[]; sort?: SortSpec; page?: number; size?: number }): Promise<ListAnswer> {
+export async function listLeads(q: { workspace: string; search?: string; filters?: ListFilter[]; sort?: SortSpec; page?: number; size?: number; due?: boolean; duplicates?: boolean }): Promise<ListAnswer> {
   const out = (await call('lead-list', q)) as Partial<ListAnswer> | null;
   if (!out || !Array.isArray(out.rows) || typeof out.total !== 'number') throw new CallFailed(problemFrom(500, null));
   return { total: out.total, page: out.page ?? q.page ?? 1, size: out.size ?? q.size ?? 0, columns: out.columns ?? [], fields: out.fields ?? [], rows: out.rows };
+}
+
+export type ViewSave = { workspace: string; id?: string; name: string; query: Record<string, unknown>; columns: string[]; shared: boolean };
+
+/** view-save: save the view under a name, or change the view `id` in place. 200 { view }; a refused name or column is 400 I-ANSWER with the words in `problems`. */
+export async function saveView(v: ViewSave): Promise<string> {
+  const out = (await call('view-save', v)) as { view?: string } | null;
+  if (!out || typeof out.view !== 'string') throw new CallFailed(problemFrom(500, null));
+  return out.view;
+}
+
+/** view-delete: the caller's own view, or a shared one for an owner. 204. */
+export async function deleteView(view: string): Promise<void> {
+  await call('view-delete', { view });
+}
+
+/** lead-task: add a task to a lead (text up to 500, an optional due instant with an offset). 201 { task }. */
+export async function addTask(lead: string, text: string, due: string | null): Promise<string> {
+  const out = (await call('lead-task', { lead, text, ...(due ? { due } : {}) })) as { task?: string } | null;
+  if (!out || typeof out.task !== 'string') throw new CallFailed(problemFrom(500, null));
+  return out.task;
+}
+
+/** lead-task: finish a task (done: true) or reopen it (done: false). 200 { task, done }. */
+export async function markTask(task: string, done: boolean): Promise<void> {
+  await call('lead-task', { task, done });
 }
 
 export type BulkAction = { workspace: string; ids: string[]; action: 'status' | 'owner' | 'delete'; value?: string | null; confirm?: boolean };

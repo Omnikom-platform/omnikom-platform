@@ -12,6 +12,7 @@ import { SiteLayout, NoItemChosen } from './pages/SiteLayout';
 import { Editor } from './pages/Editor';
 import { Settings } from './pages/Settings';
 import { NotFound } from './pages/NotFound';
+import { parseAddress } from './lib/views';
 
 // Routes (03-FRONTEND B2), written in code so the dashboard needs no build plugin. Everything under /w needs a login.
 const rootRoute = createRootRoute({ component: () => <Outlet /> });
@@ -71,7 +72,8 @@ const wsIndexRoute = createRoute({
   beforeLoad: ({ params }) => { throw redirect({ to: '/w/$ws/leads', params: { ws: params.ws }, replace: true }); },
 });
 
-const leadsRoute = createRoute({ getParentRoute: () => wsRoute, path: 'leads', component: LeadsLayout });
+// the Leads view lives in the address (work order 19); the panel, Add a lead and Import inherit it, so a link to them keeps the list as it is
+const leadsRoute = createRoute({ getParentRoute: () => wsRoute, path: 'leads', validateSearch: parseAddress, component: LeadsLayout });
 const leadsIndexRoute = createRoute({ getParentRoute: () => leadsRoute, path: '/', component: NoLeadChosen });
 const addLeadRoute = createRoute({ getParentRoute: () => leadsRoute, path: 'new', component: AddLead });
 const importRoute = createRoute({ getParentRoute: () => leadsRoute, path: 'import', component: ImportLeads });

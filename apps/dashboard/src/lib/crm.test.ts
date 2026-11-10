@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   allOnPage, cellText, choicesFor, conditionsFor, countQuery, describeFilter, editText, editValue, FIRST_VIEW, nextSort, pageLine, pageNumbers, recordFields, sortState,
-  statusFilters, toggleId, toListFilter, togglePage, viewFilters, viewQuery, type ColumnFilter, type Column, type ListRow,
+  listQuery, statusFilters, toggleId, toListFilter, togglePage, viewFilters, viewQuery, type ColumnFilter, type Column, type ListRow,
 } from './crm';
-import { editedLine, plainValue, smsLine, timelineLines, type Lead } from './leads';
+import { editedLine, plainValue, receivedWords, smsLine, timelineLines, type Lead } from './leads';
 
 // Test data lives in tests only (DECISIONS 44 bans sample data in the app source, not in a test that proves a rule).
 const budget: ColumnFilter = { key: 'budget', label: 'Budget', type: 'number', cond: 'between', from: '300000', to: '' };
@@ -155,5 +155,24 @@ describe('the timeline and the consent lines', () => {
     expect(smsLine(true)).toBe('Text messages: yes');
     expect(smsLine(false)).toBe('Text messages: no');
     expect(smsLine(undefined)).toBe('Text messages: no');
+  });
+});
+
+describe('work order 19: the follow-up cell and the two flags of lead-list', () => {
+  const row = (o: Partial<ListRow>): ListRow => ({ id: 'r1', created_at: '2025-01-05T09:00:00Z', name: 'n', email: null, phone: null, status: 'new', owner: null, form: 'contact', page: '/p', site: null, ...o });
+  it('the follow-up cell is the follow-up worded as the received time, and empty with none', () => {
+    const at = '2025-01-09T09:00:00Z';
+    expect(cellText(row({ follow_up: at }), 'follow_up', { owner: () => '', forms: null })).toBe(receivedWords(at));
+    expect(cellText(row({ follow_up: null }), 'follow_up', { owner: () => '', forms: null })).toBe('');
+    expect(cellText(row({}), 'follow_up', { owner: () => '', forms: null })).toBe('');
+  });
+  it('Due and Duplicates go to lead-list only when ticked, and never into the export query', () => {
+    expect(listQuery(view, null)).toEqual(viewQuery(view, null));
+    expect(listQuery({ ...view, due: true }, null)).toMatchObject({ due: true });
+    expect(listQuery({ ...view, due: true }, null)).not.toHaveProperty('duplicates');
+    expect(listQuery({ ...view, duplicates: true }, null)).toMatchObject({ duplicates: true });
+    expect(viewQuery({ ...view, due: true, duplicates: true }, null)).not.toHaveProperty('due');
+    expect(viewQuery({ ...view, due: true, duplicates: true }, null)).not.toHaveProperty('duplicates');
+    expect(FIRST_VIEW).toMatchObject({ due: false, duplicates: false });
   });
 });
