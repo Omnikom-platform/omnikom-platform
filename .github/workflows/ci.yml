@@ -84,7 +84,8 @@ jobs:
   functions:
     name: functions (Deno tests and mutants)
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # stopgap 2026-11-10: work order 18 makes the functions mutants about 55 to 65 min in one job (run 42775482582 cancelled at 40m15s); sharding them is next
+    timeout-minutes: 75
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
