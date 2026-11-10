@@ -70,3 +70,19 @@ Send to the head; never fix here. (Builder, 2026-11-10.)
 7. **The view is in the route's search params and every change replaces the history entry** (no back-button step per keystroke or tick). Links to the panel, Add a lead, Import, Back to leads, See the leads, the panel's Close, the delete sheet's close and the rail's Leads carry the address along (`search: prev => prev`), which is how block 3a's list stayed as it was.
 8. **`node apps/dashboard/scripts/ci.mjs` runs `npm ci`, which deletes `node_modules`**: this worktree's `node_modules` is a Windows junction to `code/main/apps/dashboard/node_modules` (same package-lock.json, SHA-1 107566f9...), made because the machine lock queued `npm ci` behind a video render. The junction must be removed (`cmd /c rmdir`, never a recursive delete) before anything runs `npm ci` in this worktree. It is removed now; this worktree has no `node_modules`.
 9. **BLOCKED: `node apps/dashboard/scripts/ci.mjs` was not run.** `heavy.mjs` waited 30 minutes behind a video render (`heavy: gave up after 30 min ... Nothing was run`, exit 75). Unblock: run it when the lock is free (`node ~/.claude/scripts/heavy.mjs --label "dashboard ci" -- node apps/dashboard/scripts/ci.mjs`); it does the locked `npm ci` itself. What did run: `tsc --noEmit` exit 0 and `vitest run` 10 files, 193 tests, exit 0 (all of that step's unit tests and the plan gate), on the finished tree. NOT RUN: the two Auth email checks of ci.mjs, `vite build`, any Playwright flow, any render of the screens (the flows need staging sign-in).
+
+## Staging proof (platform head, 2026-11-10)
+
+- flows.spec.ts, first run on dfc1a6c: 8 passed, 3 failed, 1 skipped. Causes:
+  - :137: `/leads/new` now keeps the list's view in the address (`?f=all`), so the old check was too strict.
+  - :548: the task tick moved only after the answer ("Clicking the checkbox did not change its state").
+  - :622: the headers were read before the new view's rows arrived.
+- Fixed in 2491738 (LeadTasks: the tick shows at once and is disabled until the read-back agrees; the tests wait).
+- Second run: 9 passed, 2 failed, 1 skipped. The 3b owner test read the database under the first save's toast, and
+  member-a1 had no leads, so no table. Fixed in 77ff128.
+- The two 3b describes then passed (2 of 2).
+- plan-gate.spec.ts: 6 of 6.
+- CI 42850062911 green on 2491738.
+- Book: A13, A14, A17 and A18 are WORKS. A20 notes finding 4 (the export ignores the Due and Duplicates ticks).
+- Finding 9 (`ci.mjs`): GitHub's dashboard job ran it (CI above), not run locally (rule 8).
+- NOT CHECKED: the look at 390 px wide.

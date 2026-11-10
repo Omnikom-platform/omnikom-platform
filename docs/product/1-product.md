@@ -155,12 +155,12 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 ### Counts
 | Part | WORKS | PARTLY | MISSING | Rows |
 |---|---|---|---|---|
-| A CRM | 18 | 3 | 5 | 26 |
+| A CRM | 22 | 3 | 1 | 26 |
 | B Dashboard | 10 | 6 | 5 | 21 |
 | C Backend and database | 13 | 3 | 1 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
 | E Hardening | 4 | 12 | 5 | 21 |
-| Total | 55 | 24 | 16 | 95 |
+| Total | 59 | 24 | 12 | 95 |
 
 Completion is reported from these counts only.
 
