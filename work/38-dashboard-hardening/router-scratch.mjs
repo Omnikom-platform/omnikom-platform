@@ -98,7 +98,7 @@ try {
       const tag = `${name} ${size.w}x${size.h}`;
       if (name === "control") {
         // the router's own screen: "Something went wrong!" and a "Show Error" button that reveals the thrown error's text; no h1, no plan ids, no Reload
-        check(`${tag}: without the patch the router's own screen shows (no plan sentence, no plan ids, no Reload button)`, /Something went wrong!/.test(look.body) && look.h1.length === 0 && look.plans.length === 0 && !look.buttons.includes("Reload"), look.body);
+        check(`${tag}: without the patch the router's own screen shows (no plan sentence, no DP-1.2s-12 or DP-1.2s-13, no Reload button; the toast container DP-1.2s-08 is on every screen)`, /Something went wrong!/.test(look.body) && look.h1.length === 0 && !look.plans.includes("DP-1.2s-12") && !look.plans.includes("DP-1.2s-13") && !look.buttons.includes("Reload"), JSON.stringify({ body: look.body, h1: look.h1, plans: look.plans, buttons: look.buttons }));
         await page.click("text=Show Error");
         check(`${tag}: without the patch one click on "Show Error" puts the thrown error's text on the page (what ErrorScreen never does)`, (await page.evaluate(() => document.body.innerText)).includes(MARKER));
       } else {

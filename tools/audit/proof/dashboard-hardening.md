@@ -19,8 +19,9 @@ Status words as in CLAUDE.md rule 2: PROVEN (a command ran, its output is pasted
    `response.json` (`headers`); `site/robots.json` has them too (`:255`). The audit just never read them. `lib/context.mjs` now does (no skill change, so no sync). What the snapshot does NOT keep is the
    headers of an asset: `browser-<profile>.json` keeps only `cacheControl` per request (`cdp-measure.mjs:187-191`). So the cache rule (`/assets/*` immutable) is checked by `curl -sI` in the staging proof,
    not by an audit rule; a SEC rule for it would need the skill's snapshot to keep asset headers (skill change, outside this order).
-2. A folder with no `_headers` file prints no SEC line (its host may add headers). The alternative, one `SKIP SEC-010 ...` line, would change every folder run and break the "0 SKIP" and
-   `1 SKIP` literals in the CLI's tests (`tools/omnikom-cli/test/run.mjs`, CLI's file). Your call.
+2. **A built folder with no `_headers` file is NOT JUDGED by SEC-010 or SEC-075** (its host may add the headers, so the folder says nothing) and prints no SEC line; a snapshot of a live site
+   and a folder with a `_headers` file are always judged. A SKIP line instead would change every folder run and break the "0 SKIP" and `1 SKIP` literals in the CLI's tests
+   (`tools/omnikom-cli/test/run.mjs`, CLI's file). Ruled fine by the head, 2026-11-10 21:28; also stated in `tools/audit/README.md` and both rule files ("Not judged here").
 3. The new rules fire on every factory build: `factory/lib/launch.mjs` `headersText` writes the same seven headers, and the generator now uses the same values, so the factory's builds pass (the
    fixtures prove the factory's header text passes). UNPROVEN on a real factory build: `factory/test/run.mjs` was not run here (rule of 2026-11-10); CI runs it.
 4. `names.json` (plain names) must name every rule, and its topics are the dashboard spec's eleven. SEC-010 and SEC-075 are under the topic `setting` ("Preview or live setting"), the nearest fit.
@@ -47,6 +48,27 @@ is joined with a comma (so `/assets/*` detaches the `/*` Cache-Control with `! C
 
 ## Proven so far
 (commands and their pasted output are added below as each part runs)
+
+### The router patch shows the error screen (PROVEN, 2026-11-10 21:33, local build, installed Edge, no network, dummy public values)
+Command: `node ~/.claude/scripts/heavy.mjs --wait-min 60 --label "SEO 38: router patch scratch test ..." -- node work/38-dashboard-hardening/router-scratch.mjs <scratch folder>`. The script copies
+`apps/dashboard` twice, adds a route `/boom` that throws an error carrying a marker, applies `router-wiring.patch` to one copy (the other is the control), builds both, and opens `/boom` at
+390x844 and 1536x730. Output (the `ok` lines; exit 0):
+```
+ok   control 390x844: without the patch the router's own screen shows (no plan sentence, no DP-1.2s-12 or DP-1.2s-13, no Reload button; ...)
+ok   control 390x844: without the patch one click on "Show Error" puts the thrown error's text on the page (what ErrorScreen never does)
+(the same two for 1536x730)
+ok   patched 390x844: the page shows the plan sentence in exactly one h1
+ok   patched 390x844: one Reload button, and the elements carry DP-1.2s-12 and DP-1.2s-13
+ok   patched 390x844: no error text, marker, path or stack on the page (SEC-007)
+ok   patched 390x844: no visible text under 14 px (smallest 16 px)
+ok   patched 390x844: the h1 is Poppins, weight 600, and the Poppins 600 face is loaded
+ok   patched 390x844: Reload reloads the page (a window marker set before the click is gone after it)
+ok   patched 390x844: nothing else logged an error to the console but the thrown route error itself
+(the same seven for 1536x730)
+OK: the patched router shows the error screen, the unpatched one shows the router's own error text
+```
+The 14 px, h1 and Poppins checks are those of `apps/dashboard/tests/styles.spec.ts` (platform's ask). Honest note: the first three runs of this script were red on my own control assertion (the router's
+screen hides its text behind "Show Error", and the control page carries the toast container `DP-1.2s-08`); the patched checks were green in all four runs, and only the control checks changed.
 
 ## NOT DONE yet
 - the staging deploys, the `curl -sI` lines, the audit on a live snapshot, the flows on the deployed origin (each deploy waits for the head's yes)

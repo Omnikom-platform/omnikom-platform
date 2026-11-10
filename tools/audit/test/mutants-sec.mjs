@@ -42,7 +42,7 @@ export const SEC_MUTANTS = [
   ["SEC-075: no PASS line per page (subjects empty)", S75, "export const subjects = (site) => judged(site).map((p) => p.path);", "export const subjects = (site) => [];"],
   ["SEC-075: strict-dynamic skips the check without a nonce or hash", S75, "&& hasNonceOrHash(src)) return { ok: true };", ") return { ok: true };"],
   ["SEC-075: strict-dynamic does not skip the check even with a nonce", S75, "&& hasNonceOrHash(src)) return { ok: true };", "&& false) return { ok: true };"],
-  ["SEC-075: no script-src and no default-src passes", S75, "if (!src) return { ok: false,", "if (!src) return { ok: true, why:"],
+  ["SEC-075: no script-src and no default-src passes", S75, "if (!src) return { ok: false,", "if (!src) return { ok: true,"],
   ["SEC-075: a * source passes the wildcard test by name (the star is not looked for)", S75, 'if (t === "*") return', 'if (t === "*x") return'],
   ["SEC-075: only https: counts as a scheme-only source", S75, "/^[a-z][a-z0-9+.-]*:$/i.test(t)", "/^https:$/i.test(t)"],
   ["SEC-075: a wildcard directly under a one-label domain (*.com) passes", S75, 'rest.split(".").length < 2', 'rest.split(".").length < 1'],

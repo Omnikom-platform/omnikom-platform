@@ -16,23 +16,25 @@ export async function secChecks({ check, AUDIT, tmp }) {
   const { headersText, SEC_HEADERS } = gen;
   const CSP = SEC_HEADERS.find(([n]) => n === "Content-Security-Policy")[1];
 
-  // ---- the readers
+  // ---- the readers (R: a throw inside a reader check is a red check, never a crash with no FAIL line)
+  const R = (name, fn) => { let ok = false, detail = ""; try { ok = !!fn(); } catch (e) { detail = String(e.stack); } check(name, ok, detail); };
   const dict = (s) => parseSfDictionary(s).ok;
-  check("SEC readers: Permissions-Policy as the factory sends it is an RFC 8941 dictionary", dict("camera=(), microphone=(), geolocation=(), payment=(), usb=()"));
-  check("SEC readers: a dictionary accepts self and * tokens, strings, params, booleans and an empty list", dict('geolocation=(self "https://a.example"), fullscreen=*, sync-xhr=(), autoplay=(self);report-to=x, vibrate') && dict("a=1, b=?0, c=:YWJj:, d=-2.5"));
-  check("SEC readers: the old Feature-Policy form (camera 'none') is not a dictionary", !dict("camera 'none'") && !dict("camera=(), microphone 'none'"));
-  check("SEC readers: a dictionary with a trailing comma, an unclosed list, an unclosed string or an upper-case key is refused", !dict("camera=(),") && !dict("camera=(self") && !dict('a="x') && !dict("Camera=()") && !dict("a=(b,c)"));
-  check("SEC readers: a refused dictionary says where", /position \d+/.test(parseSfDictionary("camera 'none'").error || ""));
-  check("SEC readers: hstsMaxAge reads max-age, quoted or not, in any case, among other directives", hstsMaxAge("max-age=31536000; includeSubDomains") === 31536000 && hstsMaxAge("includeSubDomains; MAX-AGE=63072000; preload") === 63072000 && hstsMaxAge('max-age="300"') === 300);
-  check("SEC readers: hstsMaxAge is null with no max-age or one that is not a number", hstsMaxAge("includeSubDomains") === null && hstsMaxAge("max-age=abc") === null && hstsMaxAge("max-age=") === null);
-  check("SEC readers: the last valid Referrer-Policy token wins, an unknown token is skipped", lastValidReferrerToken("unsafe-url, strict-origin") === "strict-origin" && lastValidReferrerToken("strict-origin, bogus") === "strict-origin" && lastValidReferrerToken("Strict-Origin-When-Cross-Origin") === "strict-origin-when-cross-origin");
-  check("SEC readers: a Referrer-Policy with no valid token has none", lastValidReferrerToken("bogus") === null && lastValidReferrerToken("") === null);
+  R("SEC readers: Permissions-Policy as the factory sends it is an RFC 8941 dictionary", () => (dict("camera=(), microphone=(), geolocation=(), payment=(), usb=()")));
+  R("SEC readers: a dictionary accepts self and * tokens, strings, params, booleans and an empty list", () => (dict('geolocation=(self "https://a.example"), fullscreen=*, sync-xhr=(), autoplay=(self);report-to=x, vibrate') && dict("a=1, b=?0, c=:YWJj:, d=-2.5")));
+  R("SEC readers: the old Feature-Policy form (camera 'none') is not a dictionary", () => (!dict("camera 'none'") && !dict("camera=(), microphone 'none'")));
+  R("SEC readers: a dictionary with a trailing comma, an unclosed list, an unclosed string or an upper-case key is refused", () => (!dict("camera=(),") && !dict("camera=(self") && !dict('a="x') && !dict("Camera=()") && !dict("a=(b,c)")));
+  R("SEC readers: two members with a space and no comma between them are refused (camera=() microphone=())", () => !dict("camera=() microphone=()") && !dict("a=1 b=2") && !dict("camera=(self) geolocation=()") && dict("camera=(self), geolocation=()"));
+  R("SEC readers: a refused dictionary says where", () => (/position \d+/.test(parseSfDictionary("camera 'none'").error || "")));
+  R("SEC readers: hstsMaxAge reads max-age, quoted or not, in any case, among other directives", () => (hstsMaxAge("max-age=31536000; includeSubDomains") === 31536000 && hstsMaxAge("includeSubDomains; MAX-AGE=63072000; preload") === 63072000 && hstsMaxAge('max-age="300"') === 300));
+  R("SEC readers: hstsMaxAge is null with no max-age or one that is not a number", () => (hstsMaxAge("includeSubDomains") === null && hstsMaxAge("max-age=abc") === null && hstsMaxAge("max-age=") === null));
+  R("SEC readers: the last valid Referrer-Policy token wins, an unknown token is skipped", () => (lastValidReferrerToken("unsafe-url, strict-origin") === "strict-origin" && lastValidReferrerToken("strict-origin, bogus") === "strict-origin" && lastValidReferrerToken("Strict-Origin-When-Cross-Origin") === "strict-origin-when-cross-origin"));
+  R("SEC readers: a Referrer-Policy with no valid token has none", () => (lastValidReferrerToken("bogus") === null && lastValidReferrerToken("") === null));
   const two = parseCsp(["default-src 'self'; script-src 'self', default-src 'none'; default-src 'self'"]);
-  check("SEC readers: a comma starts a second policy and a repeated directive keeps its first value", two.length === 2 && two[1].directives.get("default-src").join(" ") === "'none'" && parseCsp(["a-src x; a-src y"])[0].directives.get("a-src").join() === "x");
-  check("SEC readers: directive names are lower-cased and a separate header line is a separate policy list", parseCsp(["SCRIPT-SRC 'self'"])[0].directives.has("script-src") && parseCsp(["default-src 'self'", "script-src 'none'"]).length === 2);
-  check("SEC readers: script sources are script-src, else default-src, else null", scriptSources(parseCsp(["default-src 'self'; script-src 'none'"])[0]).join() === "'none'" && scriptSources(parseCsp(["default-src 'self'"])[0]).join() === "'self'" && scriptSources(parseCsp(["img-src 'self'"])[0]) === null);
-  check("SEC readers: a nonce or a sha256, sha384 or sha512 source is a nonce or hash, 'unsafe-inline' and a host are not", hasNonceOrHash(["'nonce-abc'"]) && hasNonceOrHash(["'self'", "'sha256-AAA='"]) && hasNonceOrHash(["'sha384-AAA='"]) && hasNonceOrHash(["'sha512-AAA='"]) && !hasNonceOrHash(["'unsafe-inline'", "https://a.example", "'sha1-AAA='"]));
-  check("SEC readers: the bypass list names the five hosts the spec names, each with a reason", ["www.google.com", "ajax.googleapis.com", "cdnjs.cloudflare.com", "cdn.jsdelivr.net", "unpkg.com"].every((h) => BYPASS_HOSTS.some((b) => b.host === h && b.reason.length > 10)) && BYPASS_HOSTS.length === 5);
+  R("SEC readers: a comma starts a second policy and a repeated directive keeps its first value", () => (two.length === 2 && two[1].directives.get("default-src").join(" ") === "'none'" && parseCsp(["a-src x; a-src y"])[0].directives.get("a-src").join() === "x"));
+  R("SEC readers: directive names are lower-cased and a separate header line is a separate policy list", () => (parseCsp(["SCRIPT-SRC 'self'"])[0].directives.has("script-src") && parseCsp(["default-src 'self'", "script-src 'none'"]).length === 2));
+  R("SEC readers: script sources are script-src, else default-src, else null", () => (scriptSources(parseCsp(["default-src 'self'; script-src 'none'"])[0]).join() === "'none'" && scriptSources(parseCsp(["default-src 'self'"])[0]).join() === "'self'" && scriptSources(parseCsp(["img-src 'self'"])[0]) === null));
+  R("SEC readers: a nonce or a sha256, sha384 or sha512 source is a nonce or hash, 'unsafe-inline' and a host are not", () => (hasNonceOrHash(["'nonce-abc'"]) && hasNonceOrHash(["'self'", "'sha256-AAA='"]) && hasNonceOrHash(["'sha384-AAA='"]) && hasNonceOrHash(["'sha512-AAA='"]) && !hasNonceOrHash(["'unsafe-inline'", "https://a.example", "'sha1-AAA='"])));
+  R("SEC readers: the bypass list names the five hosts the spec names, each with a reason", () => (["www.google.com", "ajax.googleapis.com", "cdnjs.cloudflare.com", "cdn.jsdelivr.net", "unpkg.com"].every((h) => BYPASS_HOSTS.some((b) => b.host === h && b.reason.length > 10)) && BYPASS_HOSTS.length === 5));
 
   // ---- the rules on a folder: the good site plus a _headers file
   const GOOD = join(FIX, "good");
