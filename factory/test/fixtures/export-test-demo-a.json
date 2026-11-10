@@ -587,15 +587,9 @@
       "help": "The exact consent wording shown when the form was sent (copied at send time)."
      },
      "status": {
-      "type": "enum",
+      "type": "text",
       "required": true,
-      "options": [
-       "new",
-       "contacted",
-       "qualified",
-       "closed",
-       "spam"
-      ]
+      "help": "A key of the business's own status list (crm.statuses in its contract; the floor is not-contacted, contacted, qualified, closed), or spam. Checked by the database on every write."
      },
      "owner": {
       "type": "reference",
