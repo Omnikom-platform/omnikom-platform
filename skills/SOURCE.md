@@ -2,7 +2,7 @@
 
 | Copy here | Copied from | Version at copy | Date |
 |---|---|---|---|
-| `programmatic-enterprise-web-performance/` | `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance` (own git repo; its `.git` was not copied) | `a15be7a` "test-compare, test-authority: main-check-exact-path mutant patches lib-main.mjs (the old t" | 2026-11-09 |
+| `programmatic-enterprise-web-performance/` | `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance` (own git repo; its `.git` was not copied) | `98cca19` "measure, research-ai: default Gemini model gemini-3.8-flash; gemini-2.5-flash answers 404 " | 2026-11-10 |
 | `design-tournament/` | `C:\Users\DELL\.claude\skills\design-tournament` | (no git) | 2026-10-24 |
 | `icm-librarian.agent.md` | the Example B and D project's `.claude\agents\icm-librarian.md` | Example B and D repo | 2026-10-24 |
 | `context-economics/` | written here (no outside copy): BUILDER_head-of-operations_context-economics, brief `docs/departments/briefs/context-economics.md`; prices from platform.claude.com pricing, read 2026-11-01 | (new) | 2026-11-01 |

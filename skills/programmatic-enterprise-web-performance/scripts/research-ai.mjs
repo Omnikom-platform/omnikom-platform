@@ -30,7 +30,7 @@ const isDomain = (s) => /^[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)+$/i.test(String(s || 
 const hit = (domains, own) => domains.some((d) => d === own || d.endsWith("." + own));
 
 // ---------- 1. Gemini with Google Search grounding ----------
-export async function geminiRuns(ctx, { questions, runs = 3, model = process.env.GEMINI_MODEL || "gemini-2.5-flash", maxCalls = 30, maxAgeDays = 7 }) {
+export async function geminiRuns(ctx, { questions, runs = 3, model = process.env.GEMINI_MODEL || "gemini-3.8-flash", maxCalls = 30, maxAgeDays = 7 }) {
   const key = (process.env.GEMINI_API_KEY || "").trim();
   if (!key) throw new Blocked(UNBLOCK_KEY);
   if (process.env.PEWP_GEMINI_TERMS_ACK !== "1") throw new Blocked(UNBLOCK_TERMS);

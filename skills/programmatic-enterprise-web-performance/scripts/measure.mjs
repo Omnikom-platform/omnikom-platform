@@ -32,7 +32,7 @@ export const DEFAULT_CONFIG = {
   gsc: { site: null, country: null /* gsc alpha-3 lower case, default from market */ },
   bing: { site: null },
   crux: { maxUrls: 8, formFactor: "PHONE" },
-  ai: { model: "gemini-2.5-flash", runs: 3, maxQuestions: 10, questionsPerCluster: 2, gapMs: 60000, geminiTermsAcknowledged: false, questions: null,
+  ai: { model: "gemini-3.8-flash", runs: 3, maxQuestions: 10, questionsPerCluster: 2, gapMs: 60000, geminiTermsAcknowledged: false, questions: null,
     prompts: null /* null = every row of the (approved) prompt map; a list of row ids = only those */, promptWindowDays: 31 /* an observation older than this is not this month's */ },
   captures: { rankings: "captures/serp" /* shared with research-serp-import.mjs */, ai: "captures/ai", conversions: "captures/conversions.json" },
   rankDevices: ["mobile"], // devices that get a (null) row when a target query has no Search Console data for them
