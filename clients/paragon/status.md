@@ -16,9 +16,11 @@
 
 ## Open items (who holds each)
 - The owner or Dave: who our contact at Paragon is, the agreement, and what they want from us.
-- Research before anything client-facing: the legal entity and its state; which licences and disclosure rules apply to a business
-  funding broker in California and Florida; why the terms name Palm Beach County, Florida (`facts.md` "Not facts yet").
-- Instagram @pacfunding: linked from YouTube, not read yet.
+- The owner: the NMLS search (its human check stops us) and the Instagram counts (BLOCKED twice), or his OK to download the
+  entity's Statement of Information for the managers' names (`facts.md`).
+- Research before anything client-facing: which licences and disclosure rules apply to a business funding broker in California and
+  Florida; why the terms name Palm Beach County, Florida, and why the filed address differs from the site's (`facts.md` "Not facts yet").
 
 ## Last updated
 - 2026-11-10: folder made from public sources (site, YouTube, TikTok, read 20:27 to 20:45 UTC), work order 40, by HEAD_Clients_2026-11-09.
+- 2026-11-11: second pass (the owner's ask): California entity found (bizfile), no Florida entity (Sunbiz), no DFPI licence; NMLS and Instagram BLOCKED, with what unblocks each; read 2026-11-10 22:00 to 22:16 UTC.
