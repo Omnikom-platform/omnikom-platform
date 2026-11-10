@@ -188,7 +188,9 @@ export function fromSaved(query: Partial<SavedQuery> & { due?: unknown; duplicat
   const rest: ListFilter[] = [];
   const statusAt = filters.findIndex(f => f.field === 'status');
   const status = statusAt >= 0 ? filters[statusAt]! : null;
-  if (status && status.op === 'eq' && (status.value === 'new' || status.value === 'spam')) filter = status.value;
+  // a view saved before work order 20 says status new; that status is now called not-contacted, and both read back as New
+  if (status && status.op === 'eq' && (status.value === 'not-contacted' || status.value === 'new')) filter = 'new';
+  else if (status && status.op === 'eq' && status.value === 'spam') filter = 'spam';
   else if (status && status.op === 'in' && sameSet(status.values, ALL_BUT_SPAM)) filter = 'all';
   else if (status) rest.push(status);
   if (filter === 'all' && status && status.op === 'in' && sameSet(status.values, ALL_BUT_SPAM)) {

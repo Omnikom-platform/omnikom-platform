@@ -1308,13 +1308,13 @@ async function database() {
     r = await run(['lead', 'get', ...T, '--as', 'owner-b', '--lead', leadId, '--expect', 'S-NOT-FOUND']);
     check("lead get: B's owner gets S-NOT-FOUND for A's lead", r.exit === 0 && r.json.code === 'S-NOT-FOUND');
     r = await run(['lead', 'update', ...T, '--as', 'member-a1', '--lead', leadId, '--status', 'contacted', '--expect', 'S-NOT-FOUND']);
-    check("lead update: member A1 cannot update a lead that is not theirs -> S-NOT-FOUND", r.exit === 0 && r.json.code === 'S-NOT-FOUND' && db.query(`select status from leads where id = '${leadId}'`) === 'new');
+    check("lead update: member A1 cannot update a lead that is not theirs -> S-NOT-FOUND", r.exit === 0 && r.json.code === 'S-NOT-FOUND' && db.query(`select status from leads where id = '${leadId}'`) === 'not-contacted');
     r = await run(['lead', 'update', ...T, '--as', 'owner-b', '--lead', leadId, '--status', 'spam', '--expect', 'S-NOT-FOUND']);
-    check("lead update: B's owner cannot update A's lead -> S-NOT-FOUND", r.exit === 0 && db.query(`select status from leads where id = '${leadId}'`) === 'new');
+    check("lead update: B's owner cannot update A's lead -> S-NOT-FOUND", r.exit === 0 && db.query(`select status from leads where id = '${leadId}'`) === 'not-contacted');
     r = await run(['lead', 'update', ...T, '--as', 'owner-a', '--lead', leadId, '--status', 'contacted', '--note', 'called, left a message']);
     check('lead update: the owner changes the status; the timeline gets the status and note events', r.exit === 0 && db.query(`select status from leads where id = '${leadId}'`) === 'contacted' && db.query(`select string_agg(kind::text, ',' order by id) from lead_events where lead_id = '${leadId}'`) === 'received,status,note');
-    r = await run(['lead', 'update', ...T, '--as', 'owner-a', '--lead', leadId, '--status', 'bogus']);
-    check('lead update: a status outside the list is a usage error (exit 2)', r.exit === 2);
+    r = await run(['lead', 'update', ...T, '--as', 'owner-a', '--lead', leadId, '--status', 'bogus', '--expect', 'I-ANSWER']);
+    check("lead update: a status outside the business's list is refused by the database (I-ANSWER, migration 23), the CLI keeps no list, and the lead keeps its status", r.exit === 0 && r.json.code === 'I-ANSWER' && db.query(`select status from leads where id = '${leadId}'`) === 'contacted');
     r = await run(['lead', 'add', ...T, '--as', 'owner-a', '--site', 'test-demo-a', '--fixture', 'lead-manual.json']);
     const added = r.json && r.json.data.lead;
     check('lead add: a manual lead from the fixture, with the manual event', r.exit === 0 && added && db.query(`select form from leads where id = '${added}'`) === 'manual', r.all.slice(0, 300));

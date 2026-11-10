@@ -219,3 +219,37 @@ The three guard-level mutants are replaced by 14: `lead_update` x6, `lead_set_fi
 sent again" for date, person, line) and `bulk` x2. Proof run: Deno `crm20.test.ts` 8, `crm.test.ts` 4, `leads.test.ts` 9, `lead-read.test.ts` 3,
 `crm3b.test.ts` 10, all 0 failed (the harness applies migration 23 as edited). UNPROVEN, not run (ruling: no run-local): T31p2, T31p3, T31p4
 and all 14 mutants; the real tenancy run has not been re-run since the move.
+
+### Round 4 (builder, 2026-11-11 night): B (dashboard minimum), C (CLI), the CI retargets; nothing committed, pushed, applied or deployed
+Head's ruling of 2026-11-11 01:03: locally only the tests of the changed files plus gitleaks; no run-local, no CLI suites, no heavy lock (reserved for the
+staging proof). The DB walls, the CLI suites and the mutants are proved by CI on the pushed tip.
+
+B (`apps/dashboard`): statuses are the floor keys (not-contacted, contacted, qualified, closed, spam), labels not raw keys (`statusLabel`), New means
+not-contacted; `lib/leads.ts`, `crm.ts`, `views.ts` (an old saved view with status `new` is read as not-contacted), `LeadPanel.tsx`, `BulkBar.tsx`, the
+three lib tests, `tests/flows.spec.ts` (two lines). Proof: tsc clean and vitest green (earlier this round). The label "Not contacted yet" is blocked by the
+plan gate (plan row DP-1.3-12 in `docs/blueprint/16-DESIGN-PARTS.md`), so the label is "Not contacted"; the wording moves with order 39.
+
+C (`tools/omnikom-cli`): `commands/lead.mjs` (no status list, no `::lead_status` cast: `list` filters on text, `update` passes `::text` and the database refuses an
+unknown status with I-ANSWER), `commands/seed.mjs` (`TEST_CONTRACT` equals the contract in `tenancy.test.sql`, crm and forms included), `test/run.mjs`
+(three lead checks and the seed check expect not-contacted and I-ANSWER), `test/harness.mjs` (the fake REST PATCH cast `::lead_status` to `::text`; the type is gone),
+`test/journey.mjs` fakes and `commands/journey.mjs` value map (`'new'` to `'not-contacted'`, 12 places). Proof seen: CLI `--unit` part "OK: 800 of 800 checks passed"
+(before the journey and harness edits); `node --check` on every changed file.
+NOT RUN (stopped by the head): CLI `--unit` after the journey and harness edits, the `--db` part (the four lead and verify-people checks), and the watched red for
+`lead.mjs` (break the new `lead_update` call, see the lead update check red, restore). UNPROVEN until CI.
+
+CI retargets on d0b3b14 (all six applied): `status change writes its event`, `template field allowlist (review 10)`, `workspace index on leads (review 8, T14)`,
+`crm14: bulk, no audit row per deleted lead`, functions `lead-update: the status is not checked`, and the new wall T31p5 (a person sent to a status that records
+none is dropped, by `lead_update` and by the edit call). `isDay` (`_shared/http.ts`) now round-trips through ISO so a day that does not exist is refused.
+Seen locally before the stop: run-local `--only` for `status change writes its event`, `crm14: bulk, no audit row` and `crm23: a person stays`: each
+"PASS real migration: ALL TENANCY TESTS PASSED" and the mutant caught for its intended reason; functions `mutate.mjs --only "a day that does not exist"`:
+"2 mutants, 2 caught, 0 survived, 0 target text missing". NOT RUN: `template field allowlist` and `workspace index on leads` (two attempts failed on the heavy
+lock, then the head stopped the loop), the remaining CI findings of the six database-mutant items beyond those, and `mutate.mjs --only "the status is not checked"`.
+
+Migration lint (on master a3846cf, not on this branch until it is rebased): run with master's `lint.mjs` against this migration folder it gives 5 findings in
+migration 23 and no problem with the 37 existing waivers: line 32 L1 (unique index `sites_domain_unique`), 36 L4 (`alter column status type text`, the enum to text
+conversion), 38 L2 (`leads_status_key` check, validated on existing rows), 44 L1 (`leads_status`), 45 L1 (`leads_lead_type`). L7 is clear (ruling I, `set lock_timeout`).
+The waiver entries go in `tools/migration-lint/waivers.json` after the rebase (it is not in this tree); migration 23 is not applied to staging, so the migration itself could
+be changed instead if the head prefers a concurrent index or a not-valid check.
+
+Findings: the column-filter dropdown in the dashboard still lists raw status keys (labels only in the panel, bulk bar, timeline and filter chips); Playwright
+`flows.spec.ts` edits are unrun (staging e2e); the panel radios and BulkBar have no component unit test; `tools/crm-map` still passes no `lead_type`.

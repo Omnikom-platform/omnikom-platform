@@ -156,6 +156,14 @@ describe('a saved view and the screen it makes', () => {
     expect(r.view.columnFilters).toEqual([]);
     expect(fromSaved({ filters: [{ field: 'status', op: 'eq', value: 'new' }, { field: 'beds', op: 'in', values: [2] }] }, null, { myTeamRow: null, info }).view.columnFilters).toHaveLength(1);
   });
+  it('a view saved before work order 20 (status new) and one saved now (status not-contacted) both read back as New', () => {
+    for (const value of ['new', 'not-contacted']) {
+      const r = fromSaved({ filters: [{ field: 'status', op: 'eq', value }] }, null, { myTeamRow: null, info });
+      expect(r.view.filter, value).toBe('new');
+      expect(r.view.columnFilters, value).toEqual([]);
+    }
+    expect(toSaved({ ...FIRST_VIEW }, null, []).query.filters).toEqual([{ field: 'status', op: 'eq', value: 'not-contacted' }]);
+  });
   it('the page is always 1 and a stored query of the wrong shape never throws', () => {
     expect(fromSaved({ filters: [] }, null, { myTeamRow: null, info }).view.page).toBe(1);
     expect(() => fromSaved({} as never, undefined, { myTeamRow: null, info })).not.toThrow();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  answerRows, filterCounts, filterLeads, formLabel, labelWords, leadsTitle, marketingLine, newestFirst, receivedWords, searchLeads, telHref, timelineLines, visibleLeads,
+  answerRows, filterCounts, filterLeads, formLabel, labelWords, leadsTitle, marketingLine, newestFirst, receivedWords, searchLeads, statusLabel, STATUSES, telHref, timelineLines, visibleLeads,
   type ContractForms, type Lead, type LeadStatus, type Names,
 } from './leads';
 import { problemFrom, UNREACHABLE } from './problems';
@@ -8,7 +8,7 @@ import { problemFrom, UNREACHABLE } from './problems';
 // Test data lives in tests only (DECISIONS 44 bans sample data in the app source, not in a test that proves a rule).
 const lead = (o: Partial<Lead> & { id: string }): Lead => ({
   workspace_id: 'w', site_id: 's', form: 'contact', flow: null, page_path: '/', name: null, email: null, phone: null, answers: {}, consent_text: 'c',
-  marketing_consent: null, status: 'new', owner_team_row: null, created_at: '2026-10-30T09:00:00Z', ...o,
+  marketing_consent: null, status: 'not-contacted', owner_team_row: null, created_at: '2026-10-30T09:00:00Z', ...o,
 });
 
 const A = lead({ id: 'a', name: 'Ada Lovelace', email: 'ada@example.com', phone: '(555) 010-0199', created_at: '2026-10-30T09:12:00Z', owner_team_row: 't1' });
@@ -23,7 +23,7 @@ describe('order, filters and their counts', () => {
     expect(newestFirst([t1, t2]).map(l => l.id)).toEqual(['y', 'x']);
     expect(newestFirst([t2, t1]).map(l => l.id)).toEqual(['y', 'x']);
   });
-  it('New is status new; All is everything but spam; Spam is spam', () => {
+  it('New is status not-contacted; All is everything but spam; Spam is spam', () => {
     expect(filterLeads([A, B, C, D], 'new', 't1').map(l => l.id)).toEqual(['a', 'd']);
     expect(filterLeads([A, B, C, D], 'all', 't1').map(l => l.id)).toEqual(['a', 'b', 'd']);
     expect(filterLeads([A, B, C, D], 'spam', 't1').map(l => l.id)).toEqual(['c']);
@@ -119,7 +119,7 @@ describe('the timeline (DP-1.3-22 wording, newest first)', () => {
   it('says each event kind in the plan words; who is the team name, else the login email, else nothing; never an id', () => {
     const lines = timelineLines([
       ev(1, 'received', null, {}, 0),
-      ev(2, 'status', 'u-ann', { from: 'new', to: 'contacted' }, 5),
+      ev(2, 'status', 'u-ann', { from: 'not-contacted', to: 'contacted' }, 5),
       ev(3, 'assigned', 'u-ann', { to: 't1' }, 6),
       ev(4, 'note', 'u-me', { text: 'Called back' }, 7),
       ev(5, 'note', 'u-zzz', { text: 'Left a message' }, 8),
@@ -130,7 +130,7 @@ describe('the timeline (DP-1.3-22 wording, newest first)', () => {
       ['', 'Note: Left a message'],
       ['me@login.test', 'Note: Called back'],
       ['Agent One', 'Given to Agent One'],
-      ['Agent One', 'Status: new to contacted'],
+      ['Agent One', 'Status: Not contacted to Contacted'],
       ['', 'Received from /sell'],
     ]);
   });
@@ -158,5 +158,17 @@ describe('a failed call', () => {
     expect(problemFrom(0, null).plain).toBe(false);
     expect(problemFrom(502, '<html>bad gateway</html>').message).toBe(UNREACHABLE);
     expect(problemFrom(403, { code: 'S-OWN-ONLY', message: 'You can only keep your own leads.' }).message).toBe('You can only keep your own leads.');
+  });
+});
+
+describe('work order 20: the status keys are the floor and show as words', () => {
+  it('the keys are the floor list (new is called not-contacted) and every one has words', () => {
+    expect([...STATUSES]).toEqual(['not-contacted', 'contacted', 'qualified', 'closed', 'spam']);
+    expect(STATUSES.map(statusLabel)).toEqual(['Not contacted', 'Contacted', 'Qualified', 'Closed', 'Spam']);
+  });
+  it("a key of a business's own list is its key spelled out, and an older timeline event that says new reads as Not contacted", () => {
+    expect(statusLabel('call-back')).toBe('Call back');
+    expect(statusLabel('new')).toBe('Not contacted');
+    expect(statusLabel('')).toBe('');
   });
 });

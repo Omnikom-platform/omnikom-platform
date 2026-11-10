@@ -432,7 +432,7 @@ export const STEPS = [
     if (p.status !== 200 || fieldOf(H.b) !== `answers.${nf.key}` || fieldOf(H.t) !== `answers.${pick.key}` || fieldOf('Email') !== 'email' || fieldOf('First Name') !== 'name')
       return fail(`crm-map-propose: ${H.b} should map to answers.${nf.key}, ${H.t} to answers.${pick.key}, Email to email, First Name to name; got ${H.b} -> ${fieldOf(H.b)}, ${H.t} -> ${fieldOf(H.t)}, Email -> ${fieldOf('Email')}, First Name -> ${fieldOf('First Name')} (${brief(p)})`);
     const columns = cols.map(x => (x.field === 'phone' ? { ...x, transform: 'us' } : x));   // the client wants (xxx) xxx-xxxx
-    const sv = await call('owner-a', 'crm-template-save', { name: IO_MAP, crm: 'hubspot', columns, value_maps: { status: { new: 'New', contacted: 'Attempted to Contact' } } });
+    const sv = await call('owner-a', 'crm-template-save', { name: IO_MAP, crm: 'hubspot', columns, value_maps: { status: { 'not-contacted': 'New', contacted: 'Attempted to Contact' } } });
     const tpl = sv.json && sv.json.template;
     if (sv.status !== 200 || typeof tpl !== 'string') return fail(`crm-template-save as owner-a answered ${brief(sv)} (wanted 200 with the map's id)`);
     const ms = await call('member-a1', 'crm-template-save', { name: IO_MAP, crm: 'hubspot', columns });

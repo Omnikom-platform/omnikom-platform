@@ -3059,6 +3059,13 @@ select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('f_bk'), 'in
 select service.leads_bulk(test.c('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', array[test.id('f_bk')], 'status', 'lost');
 do $$ begin assert (select status_text from leads where id = test.id('f_bk')) is null, 'T31p4 bulk: the line of the old status is not carried'; end $$;
 
+-- (p5) a person sent with a status that does not record one is dropped (the guard), by lead_update and by the edit call
+insert into test.ids select 'f_np', test.t31_lead('T31 no person');
+select test.t31_upd('00000000-0000-0000-0000-00000000000a', test.id('f_np'), 'qualified', null, '00000000-0000-0000-0000-0000000000a2');
+do $$ begin assert (select status_who from leads where id = test.id('f_np')) is null, 'T31p5 a person sent with a status that does not record one is dropped (lead_update)'; end $$;
+select service.lead_set_fields(test.c('00000000-0000-0000-0000-00000000000a'), test.id('f_np'), '{"status":"closed","status_who":"00000000-0000-0000-0000-0000000000a2"}');
+do $$ begin assert (select status_who from leads where id = test.id('f_np')) is null, 'T31p5 a person sent with a status that does not record one is dropped (the edit call)'; end $$;
+
 -- (q) a bulk delete is service.delete_lead once per lead, so every delete path erases the same way (head's ruling J): one audit row per lead, and the delete runs inside delete_lead
 create table test.delctx (ctx text);
 create function test.t31_delctx() returns trigger language plpgsql as $f$ declare c text; begin get diagnostics c = pg_context; insert into test.delctx values (c); return old; end $f$;

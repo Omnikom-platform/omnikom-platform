@@ -282,7 +282,7 @@ export async function makeSupabaseModel({ makeSql, dbUrl, anonKey, secretKey, to
     const ids = (u.searchParams.get('id') || '').replace(/^(in\.\(|eq\.)/, '').replace(/\)$/, '').split(',').filter(Boolean);
     const where = ids.length ? `where id in (${ids.map(i => `${lit(i)}::uuid`).join(', ')})` : '';
     if (init.method === 'PATCH') {
-      const script = `begin;\nset local role authenticated;\nselect set_config('request.jwt.claims', ${lit(JSON.stringify({ sub: claims.sub, aal: claims.aal, role: 'authenticated' }))}, true), set_config('request.jwt.claim.sub', ${lit(claims.sub)}, true);\nupdate leads set status = ${lit(body.status)}::lead_status ${where};\ncommit;`;
+      const script = `begin;\nset local role authenticated;\nselect set_config('request.jwt.claims', ${lit(JSON.stringify({ sub: claims.sub, aal: claims.aal, role: 'authenticated' }))}, true), set_config('request.jwt.claim.sub', ${lit(claims.sub)}, true);\nupdate leads set status = ${lit(body.status)}::text ${where};\ncommit;`;
       const r = sql.exec(script);
       return r.ok ? reply(200, []) : reply(/permission denied/.test(r.message) ? 403 : 400, { code: '42501' });
     }

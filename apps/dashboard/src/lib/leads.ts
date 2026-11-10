@@ -2,8 +2,19 @@
 // Vitest covers all of it. Words that are copy come from the plan (t(), DECISIONS 44); everything else is the data itself.
 import { t } from '../plan';
 
-export const STATUSES = ['new', 'contacted', 'qualified', 'closed', 'spam'] as const;
+// Work order 20 (migration 23): a status is a key of the business's own list (its contract's crm.statuses). Until the screens read that list (work order 39) this is
+// the platform floor, the list a business without one has: the four statuses of before, with "new" now called not-contacted, and spam (a system status).
+export const STATUSES = ['not-contacted', 'contacted', 'qualified', 'closed', 'spam'] as const;
 export type LeadStatus = (typeof STATUSES)[number];
+/**
+ * The words for a status key: the key spelled out (not-contacted is "Not contacted"; the business's own keys, call-back, "Call back"), "new" being what older timeline
+ * events call not-contacted. The owner's exact words ("Not contacted yet") are the labels of the business's list in its contract; the screens read them in work order 39.
+ */
+const SPELLED: Record<string, string> = { contacted: 'Contacted', qualified: 'Qualified', closed: 'Closed', spam: 'Spam' };
+export const statusLabel = (key: string): string => {
+  const k = key === 'new' ? 'not-contacted' : key;
+  return SPELLED[k] ?? (k ? k.charAt(0).toUpperCase() + k.slice(1).replace(/-/g, ' ') : '');
+};
 export type Filter = 'new' | 'all' | 'mine' | 'spam';
 export const FILTERS: { id: Filter; label: string }[] = [
   { id: 'new', label: t('DP-1.3-02', 'New') },
@@ -49,12 +60,12 @@ export function newestFirst<T extends { created_at: string; id: string }>(leads:
 }
 
 /**
- * New = status new. All = every lead that is not spam. Mine = the leads owned by the signed-in person's team row, spam left out.
+ * New = status not-contacted. All = every lead that is not spam. Mine = the leads owned by the signed-in person's team row, spam left out.
  * Spam = status spam. (The database already hides what a person may not see; this only narrows what the database sent.)
  */
 export function filterLeads<T extends { status: LeadStatus; owner_team_row: string | null }>(leads: T[], filter: Filter, myTeamRow: string | null): T[] {
   switch (filter) {
-    case 'new': return leads.filter(l => l.status === 'new');
+    case 'new': return leads.filter(l => l.status === 'not-contacted');
     case 'spam': return leads.filter(l => l.status === 'spam');
     case 'mine': return myTeamRow ? leads.filter(l => l.status !== 'spam' && l.owner_team_row === myTeamRow) : [];
     case 'all': return leads.filter(l => l.status !== 'spam');
@@ -194,7 +205,7 @@ export function timelineLines(events: Pick<LeadEvent, 'id' | 'kind' | 'by' | 'de
         case 'received': what = d.manual ? `${t('DP-1.3-22', 'Added by hand by')} ${who}` : `${t('DP-1.3-22', 'Received from')} ${lead?.page_path ?? ''}`; break;
         case 'alert-sent': what = t('DP-1.3-22', 'Alert sent'); break;
         case 'alert-failed': what = t('DP-1.3-22', 'An alert could not be sent'); break;
-        case 'status': what = `${t('DP-1.3-22', 'Status:')} ${String(d.from ?? '')} ${t('DP-1.3-22', 'to')} ${String(d.to ?? '')}`; break;
+        case 'status': what = `${t('DP-1.3-22', 'Status:')} ${statusLabel(String(d.from ?? ''))} ${t('DP-1.3-22', 'to')} ${statusLabel(String(d.to ?? ''))}`; break;
         case 'assigned': what = `${t('DP-1.3-22', 'Given to')} ${nameOf(d.to)}`; break;
         case 'note': what = `${t('DP-1.3-22', 'Note:')} ${String(d.text ?? '')}`; break;
         case 'edited': what = editedLine(d, labelOf); break;

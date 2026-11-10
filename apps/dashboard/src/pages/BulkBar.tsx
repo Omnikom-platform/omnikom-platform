@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { bulkLeads } from '../api';
 import { CallFailed } from '../lib/problems';
-import { STATUSES } from '../lib/leads';
+import { STATUSES, statusLabel } from '../lib/leads';
 import { t } from '../plan';
 import { useToast } from '../toast';
 import { DeleteSheet } from './DeleteSheet';
@@ -44,9 +44,9 @@ export function BulkBar({ workspaceId, ids, canOwn, team, onClear }: { workspace
     <div data-plan="DP-1.3-31" className={css.bar}>
       <p>{ids.length} {t('DP-1.3-31', 'selected')} <button type="button" onClick={onClear}>{t('DP-1.3-31', 'Clear selection')}</button></p>
       <select data-plan="DP-1.3-32" aria-label="Set status" value="" disabled={busy}
-        onChange={e => { const s = e.target.value; if (s) void run('status', s, n => `${n} ${t('DP-1.3-32', 'leads marked')} ${s}.`, STATUS_FAILED); }}>
+        onChange={e => { const s = e.target.value; if (s) void run('status', s, n => `${n} ${t('DP-1.3-32', 'leads marked')} ${statusLabel(s)}.`, STATUS_FAILED); }}>
         <option value="">{t('DP-1.3-32', 'Set status')}</option>
-        {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+        {STATUSES.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
       </select>
       {canOwn && (
         <select data-plan="DP-1.3-33" aria-label="Set owner" value="" disabled={busy}

@@ -90,7 +90,7 @@ const MUTANTS = [
   ['member cannot reassign a lead (lead_update)', "    if not staff and role = 'member' then raise exception 'S-OWN-ONLY: members cannot hand a lead to someone else'; end if;", "    null;"],
   ['lead_update needs to see the lead', "  if not coalesce(staff or role = 'owner' or (role = 'member' and l.owner_team_row = mine), false) then raise exception 'S-NOT-FOUND: not found'; end if;", "  null;"],
   ['no direct status update (grant removed)', "revoke update on leads from authenticated;\ndrop policy leads_update on leads;", "-- (grant kept)"],
-  ['status change writes its event', "    insert into lead_events (lead_id, workspace_id, kind, by, detail) values (p_lead, l.workspace_id, 'status', me, jsonb_build_object('from', l.status, 'to', p_status));", "    null;"],
+  ['status change writes its event', "values (p_lead, l.workspace_id, 'status', me,", "values (p_lead, l.workspace_id, 'edited', me,"],   // every copy of lead_update, migration 23's the one that stands
   ['new owner must be a team row of the workspace', "    if not exists (select 1 from content_rows c where c.id = p_owner and c.workspace_id = l.workspace_id and c.collection = 'team' and c.deleted_at is null)\n      then raise exception 'S-NOT-FOUND: no such team member'; end if;", "    null;"],
   ['timeline read wall follows the lead', "create policy lead_events_read on lead_events for select to authenticated using (exists (select 1 from leads l where l.id = lead_id));", "create policy lead_events_read on lead_events for select to authenticated using (true);"],
   // Double since migration 4: the early return AND the on-conflict insert; the mutant removes both layers.
@@ -141,7 +141,8 @@ const MUTANTS = [
   ['the member a meeting is with may change it (review 12)', 'or (private.my_role(b.workspace_id) = \'member\' and b.with_team_row = private.my_team_row(b.workspace_id))', 'or false'],
   // migration 15 replaces save_crm_template and adds owner to the list: the wall is removed from every copy at once
   ['template field allowlist (review 10)', [["       or (c ->> 'field') !~ '^(name|email|phone|form|page_path|flow|cta|status|created_at|answers\\.[a-z][a-zA-Z0-9_]{0,60})$'", ''],
-    ["       or (c ->> 'field') !~ '^(name|email|phone|form|page_path|flow|cta|status|created_at|owner|answers\\.[a-z][a-zA-Z0-9_]{0,60})$'", '']]],
+    ["       or (c ->> 'field') !~ '^(name|email|phone|form|page_path|flow|cta|status|created_at|owner|answers\\.[a-z][a-zA-Z0-9_]{0,60})$'", ''],
+    ["       or (c ->> 'field') !~ '^(name|email|phone|form|page_path|flow|cta|status|lead_type|created_at|owner|answers\\.[a-z][a-zA-Z0-9_]{0,60})$'", '']]],   // migration 23's copy (ruling E)
   ['value maps shape (review 10)', "    then raise exception 'T-VALUE-MAPS: value maps must be an object of objects under 64 KB'; end if;", '    then null; end if;'],
   ['secrets anywhere in a connector config (review 10)', 'alter table connectors add constraint connectors_no_secret_in_config check (not private.has_secret_like(config));', 'alter table connectors add constraint connectors_no_secret_in_config check (true);'],
   ['has_secret_like walks nested objects', "      if private.has_secret_like(v) then return true; end if;\n    end loop;\n  elsif jsonb_typeof(j) = 'array'", "    end loop;\n  elsif jsonb_typeof(j) = 'array'"],
@@ -151,7 +152,9 @@ const MUTANTS = [
   ['workspace index on leads (review 8, T14)', [['create index if not exists leads_ws_created on leads (workspace_id, created_at desc);', ''], ['create index if not exists leads_ws_owner on leads (workspace_id, owner_team_row, created_at desc);', ''],
     // migration 22's indexes also lead with workspace_id, so they go too (else T14 still finds one and the mutant survives: CI 42761845178)
     ['create index leads_dup_email on public.leads (workspace_id, (lower(btrim(email))));', ''], ['create index leads_dup_phone on public.leads (workspace_id, (private.phone_key(phone)));', ''],
-    ['create index leads_follow_up on public.leads (workspace_id, follow_up_at) where follow_up_at is not null;', '']]],
+    ['create index leads_follow_up on public.leads (workspace_id, follow_up_at) where follow_up_at is not null;', ''],
+    // migration 23's two indexes lead with workspace_id as well
+    ['create index leads_status on public.leads (workspace_id, status);', ''], ['create index leads_lead_type on public.leads (workspace_id, lead_type);', '']]],
   ['definer functions set search_path (T14)', "create or replace function service.lead_sms_stop(p_lead uuid, p_detail jsonb default '{}') returns void language plpgsql security definer set search_path = '' as $$", "create or replace function service.lead_sms_stop(p_lead uuid, p_detail jsonb default '{}') returns void language plpgsql security definer as $$"],
   ['definer functions pin the empty search_path (migration 8, T14)', "create or replace function service.delete_lead(p_claims jsonb, p_lead uuid, p_reason text default null) returns void language plpgsql security definer set search_path = '' as $$", "create or replace function service.delete_lead(p_claims jsonb, p_lead uuid, p_reason text default null) returns void language plpgsql security definer set search_path = pg_catalog, public as $$"],
   ['default privileges close a new private or service function (migration 8)', 'alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'],
@@ -524,7 +527,7 @@ const MUTANTS = [
   ['crm14: bulk, a foreign id does not refuse the call (partial write)', "  if seen <> cardinality(ids) then raise exception 'S-NOT-FOUND: not found'; end if;", "  null;"],
   ['crm14: bulk, a member may hand on or delete', "  if p_action in ('owner', 'delete') and not coalesce(staff or role = 'owner', false) then", "  if false then"],
   ['crm14: bulk, delete without the confirm flag', "  if p_action = 'delete' and p_confirm is not true then raise exception 'S-CONFIRM: deleting leads needs the confirm step'; end if;", "  null;"],
-  ['crm14: bulk, no audit row per deleted lead', "      insert into public.audit_log (workspace_id, actor, action, target, detail) values (l.workspace_id, me, 'lead-delete', l.id::text,", "      perform (l.workspace_id, me, 'lead-delete', l.id::text,"],
+  ['crm14: bulk, no audit row per deleted lead', "perform service.delete_lead(p_claims, l.id, 'bulk');", "delete from public.leads where public.leads.id = l.id;"],   // ruling J: the audit row is delete_lead's; a direct delete leaves none
   ['crm14: bulk, more than 500 ids', "  if cardinality(ids) = 0 or cardinality(ids) > 500 then", "  if cardinality(ids) = 0 then"],
   ['crm14: bulk, a bad status is accepted (both layers)', [["    if p_value is null or private.status_def(p_workspace, btrim(p_value)) is null then raise exception 'I-ANSWER status: Status must be one of this business''s statuses'; end if;", "    if p_value is null then raise exception 'I-ANSWER status: no value'; end if;"], ["      if ins or new.status is distinct from old.status then raise exception 'I-ANSWER status: Status must be one of this business''s statuses'; end if;", "      null;"]]],
   ['crm14: bulk, no status event per lead', "values (l.id, l.workspace_id, 'status', me, jsonb_build_object('from', l.status, 'to', st, 'bulk', true));", "values (l.id, l.workspace_id, 'note', me, jsonb_build_object('from', l.status, 'to', st, 'bulk', true));"],

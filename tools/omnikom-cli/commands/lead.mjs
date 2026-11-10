@@ -12,7 +12,7 @@ import { parseIdentity, claimsFor, machineKey } from '../lib/identity.mjs';
 import { callFunction } from '../lib/fn.mjs';
 import { loadFixture } from '../lib/fixtures.mjs';
 
-const STATUSES = ['new', 'contacted', 'qualified', 'closed', 'spam'];
+// a status is a key of the business's own list (its contract's crm.statuses, migration 23): the database checks it, the CLI keeps no list of its own
 const person = ctx => { const id = parseIdentity(ctx.flags.as); claimsFor(id); return id; };   // throws for a machine identity
 
 async function send(ctx) {
@@ -46,8 +46,7 @@ async function send(ctx) {
 
 function list(ctx) {
   const id = person(ctx);
-  const where = ctx.flags.status ? `where status = ${lit(ctx.flags.status)}::lead_status` : '';
-  if (ctx.flags.status && !STATUSES.includes(ctx.flags.status)) throw new Usage(`--status must be one of ${STATUSES.join(', ')}`);
+  const where = ctx.flags.status ? `where status = ${lit(ctx.flags.status)}` : '';   // text since migration 23: no cast, an unknown key matches nothing
   const limit = Math.min(Number(ctx.flags.limit) || 50, 500);
   const r = ctx.sql().rows(`select id, status, name, form, flow, page_path, owner_team_row, created_at from leads ${where} order by created_at desc limit ${limit}`, { claims: claimsFor(id) });
   return fromSql(r, { as: id.name, count: r.rows.length, leads: r.rows });
@@ -68,9 +67,8 @@ function update(ctx) {
   const id = person(ctx);
   const f = ctx.flags;
   const lead = needUuid(f, 'lead');
-  if (f.status && !STATUSES.includes(f.status)) throw new Usage(`--status must be one of ${STATUSES.join(', ')}`);
   if (f.owner && !isUuid(f.owner)) throw new Usage('--owner must be a team row uuid');
-  const r = ctx.sql().exec(`select service.lead_update(${jsonLit(claimsFor(id))}, ${uuidLit(lead)}, ${f.status ? lit(f.status) : 'null'}::lead_status, ${f.owner ? uuidLit(f.owner) : 'null::uuid'}, ${f.note ? lit(f.note) : 'null::text'}, ${f.unassign ? 'true' : 'false'});`);
+  const r = ctx.sql().exec(`select service.lead_update(${jsonLit(claimsFor(id))}, ${uuidLit(lead)}, ${f.status ? lit(f.status) : 'null'}::text, ${f.owner ? uuidLit(f.owner) : 'null::uuid'}, ${f.note ? lit(f.note) : 'null::text'}, ${f.unassign ? 'true' : 'false'});`);
   return fromSql(r, { as: id.name, lead });
 }
 

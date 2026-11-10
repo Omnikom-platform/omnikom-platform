@@ -55,7 +55,7 @@ const MUTANTS = [
   ['upload-finish: the rights tick is always true', F + 'upload-finish/index.ts', 'select service.finish_media(${c.jwtClaims}::jsonb, ${media}::uuid, ${rights})', 'select service.finish_media(${c.jwtClaims}::jsonb, ${media}::uuid, true)'],
   ['upload-finish: nothing is dispatched', F + 'upload-finish/index.ts', "    const sent = await dispatch('media', { media_id: media, workspace_id: m.workspace_id });", '    const sent = { dispatched: true, reason: null };'],
   ['add-lead: the email is not checked', F + 'add-lead/index.ts', '    if (email && !EMAIL.test(email)) f.problems.push(', '    if (false) f.problems.push('],
-  ['lead-update: the status is not checked', F + 'lead-update/index.ts', '    if (status && !STATUS.includes(status)) f.problems.push(', '    if (false) f.problems.push('],
+  ['lead-update: the status is not checked', F + 'lead-update/index.ts', '    if (status && !SLUG.test(status)) f.problems.push(', '    if (false) f.problems.push('],
 
   // ---- slice 4.3: the runner's functions (the fifth element is the test file that must go red) and the capture-lead jsonb fix ----
   // the frame every runner function shares (_shared/runner.ts)
@@ -134,7 +134,7 @@ const MUTANTS = [
   ['lead-export: one character already searches', F + 'lead-export/index.ts', 'const pattern = q.length >= 2 ?', 'const pattern = q.length >= 1 ?', 'export.test.ts'],
   ['lead-export: spam is in the list of all', F + 'lead-export/index.ts', ": tx`and l.status <> 'spam'`;", ': tx``;', 'export.test.ts'],
   ['lead-export: mine is every lead', F + 'lead-export/index.ts', ' and l.owner_team_row = ${m?.team_row_id ?? null}::uuid`', '`', 'export.test.ts'],
-  ['lead-export: new is every lead', F + 'lead-export/index.ts', "filter === 'new' ? tx`and l.status = 'new'`", "filter === 'new' ? tx``", 'export.test.ts'],
+  ['lead-export: new is every lead', F + 'lead-export/index.ts', "filter === 'new' ? tx`and l.status = 'not-contacted'`", "filter === 'new' ? tx``", 'export.test.ts'],
   ['lead-export: oldest first', F + 'lead-export/index.ts', 'order by l.created_at desc, l.id', 'order by l.created_at asc, l.id', 'export.test.ts'],
   ['lead-export: the owner column is the team row id', F + 'lead-export/index.ts', '(names.get(l.owner_team_row) ?? l.owner_team_row)', 'l.owner_team_row', 'export.test.ts'],
   ['lead-export: the site is not in the filter', F + 'lead-export/index.ts', 'from public.leads l where l.site_id = ${site}::uuid ${byFilter}', 'from public.leads l where true ${byFilter}', 'export.test.ts'],
@@ -236,7 +236,7 @@ const MUTANTS = [
   ['crm3b lead-list: due is dropped', F + 'lead-list/index.ts', '    if (due !== null) q.due = due;\n', '', 'crm3b.test.ts'],
   ['crm3b lead-list: duplicates is dropped', F + 'lead-list/index.ts', '    if (duplicates !== null) q.duplicates = duplicates;\n', '', 'crm3b.test.ts'],
   ['crm3b lead-list: due need not be true or false at the edge', F + 'lead-list/index.ts', "due = f.bool('due')", 'due = (d.due ?? null) as boolean | null', 'crm3b.test.ts'],
-  ['crm3b http: an instant may be a day that does not exist', F + '_shared/http.ts', ' && t.getUTCDate() === d', '', 'instant.test.ts'],
+  ['crm3b http: an instant may be a day that does not exist', F + '_shared/http.ts', ' && t.getUTCDate() === d && mi < 60', ' && mi < 60', 'instant.test.ts'],
   ['crm3b http: an instant needs no offset', F + '_shared/http.ts', '(?:Z|[+-](?:0\\d|1[0-5]):[0-5]\\d)$/.exec(v)', '(?:Z|[+-](?:0\\d|1[0-5]):[0-5]\\d)?$/.exec(v)', 'instant.test.ts'],
   ['crm3b http: an instant may carry an offset of any hours', F + '_shared/http.ts', '(?:Z|[+-](?:0\\d|1[0-5]):', '(?:Z|[+-]\\d{2}:', 'instant.test.ts'],
   ['crm3b http: an instant may have 60 minutes or more', F + '_shared/http.ts', 'mi < 60 && s < 60', 's < 60', 'instant.test.ts'],
@@ -287,7 +287,7 @@ const MUTANTS = [
   ['crm20 lead-update: the status date is not passed on', F + 'lead-update/index.ts', '${statusDate}::date', '${null}::date', 'crm20.test.ts'],
   ['crm20 lead-update: the status person is not passed on', F + 'lead-update/index.ts', '${statusWho}::uuid', '${null}::uuid', 'crm20.test.ts'],
   ['crm20 lead-update: the status line is not passed on', F + 'lead-update/index.ts', '${statusText}::text)', '${null}::text)', 'crm20.test.ts'],
-  ['crm20 http: a status date may have a day that does not exist', F + '_shared/http.ts', 't.getUTCDate() === d;', 'true;', 'crm20.test.ts'],
+  ['crm20 http: a status date may have a day that does not exist', F + '_shared/http.ts', 'return t.toISOString().slice(0, 10) === v;', 'return true;', 'crm20.test.ts'],
   ['crm20 http: a status date may carry a time', F + '_shared/http.ts', 'const m = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(v);', 'const m = /^(\\d{4})-(\\d{2})-(\\d{2})/.exec(v);', 'crm20.test.ts'],
   ['crm20 http: Fields.day lets a number through', F + '_shared/http.ts', "if (typeof v !== 'string' || !isDay(v)) return this.bad('TYPE', k, 'A date like 2026-11-20.');", "if (typeof v === 'string' && !isDay(v)) return this.bad('TYPE', k, 'A date like 2026-11-20.');", 'crm20.test.ts'],
   ['crm20 lead-export: the due tick is not passed to the list', F + 'lead-export/index.ts', 'if (d.due !== undefined) q.due = d.due;', '', 'export.test.ts'],

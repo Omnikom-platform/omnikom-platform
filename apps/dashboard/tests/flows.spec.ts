@@ -351,9 +351,9 @@ test.describe('the CRM screens as the owner', () => {
     await page.getByRole('checkbox', { name: `Select ${CRM_MARK} bravo` }).check();
     await expect(page.getByText(/^2 selected/)).toBeVisible();
     await page.getByLabel('Set status').selectOption('contacted');
-    await expect(page.getByRole('status').last()).toContainText('2 leads marked contacted.');
+    await expect(page.getByRole('status').last()).toContainText('2 leads marked Contacted.');
     await settled(page);
-    expect((await crmLeads()).map(l => `${l.name.split(' ').pop()}:${l.status}`).sort()).toEqual(['alpha:contacted', 'bravo:contacted', 'charlie:new']);
+    expect((await crmLeads()).map(l => `${l.name.split(' ').pop()}:${l.status}`).sort()).toEqual(['alpha:contacted', 'bravo:contacted', 'charlie:not-contacted']);
     await expect(page.getByText(/ selected/)).toHaveCount(0);   // the selection cleared
 
     // delete one through the sheet: Cancel sends nothing, the sheet's own button deletes

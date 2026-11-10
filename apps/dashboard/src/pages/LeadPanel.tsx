@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { updateLead, type LeadChange } from '../api';
 import { everListed, useContractForms, useEvents, useEventsLive, useLead, useLeadColumns, useMe, useSites, useTeam } from '../data';
 import { editText, editValue, recordFields, type RecordField } from '../lib/crm';
-import { marketingLine, receivedWords, smsLine, STATUSES, telHref, timelineLines, type Lead, type LeadEvent, type LeadStatus } from '../lib/leads';
+import { marketingLine, receivedWords, smsLine, STATUSES, statusLabel, telHref, timelineLines, type Lead, type LeadEvent, type LeadStatus } from '../lib/leads';
 import { CallFailed, UNREACHABLE } from '../lib/problems';
 import { useSession } from '../auth';
 import { useWide } from '../hooks';
@@ -206,7 +206,7 @@ export function LeadPanel() {
   function setStatus(next: LeadStatus) {
     if (!data || next === data.status) return;
     const before = data.status;
-    void change('status', { lead: id, status: next }, { status: next }, { status: before }, `${t('DP-1.3-12', 'Marked')} ${next}.`,
+    void change('status', { lead: id, status: next }, { status: next }, { status: before }, `${t('DP-1.3-12', 'Marked')} ${statusLabel(next)}.`,
       () => void change('status', { lead: id, status: before }, { status: before }, { status: next }, '', null));
   }
 
@@ -286,7 +286,7 @@ export function LeadPanel() {
         {STATUSES.map(s => (
           <label key={s}>
             <input type="radio" name="status" value={s} checked={data.status === s} onChange={() => setStatus(s)} />
-            {s}
+            {statusLabel(s)}
           </label>
         ))}
         {statusError && <p role="alert">{statusError}</p>}

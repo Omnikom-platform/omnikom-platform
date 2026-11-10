@@ -11,10 +11,10 @@ const view = { ...FIRST_VIEW, filter: 'all' as const };
 
 describe('the status filters and the query the list sends', () => {
   it('New, All, Spam and Mine are lead-list filters on status and owner', () => {
-    expect(statusFilters('new', 't1')).toEqual([{ field: 'status', op: 'eq', value: 'new' }]);
+    expect(statusFilters('new', 't1')).toEqual([{ field: 'status', op: 'eq', value: 'not-contacted' }]);
     expect(statusFilters('spam', 't1')).toEqual([{ field: 'status', op: 'eq', value: 'spam' }]);
-    expect(statusFilters('all', 't1')).toEqual([{ field: 'status', op: 'in', values: ['new', 'contacted', 'qualified', 'closed'] }]);
-    expect(statusFilters('mine', 't1')).toEqual([{ field: 'status', op: 'in', values: ['new', 'contacted', 'qualified', 'closed'] }, { field: 'owner', op: 'eq', value: 't1' }]);
+    expect(statusFilters('all', 't1')).toEqual([{ field: 'status', op: 'in', values: ['not-contacted', 'contacted', 'qualified', 'closed'] }]);
+    expect(statusFilters('mine', 't1')).toEqual([{ field: 'status', op: 'in', values: ['not-contacted', 'contacted', 'qualified', 'closed'] }, { field: 'owner', op: 'eq', value: 't1' }]);
   });
   it('Mine with no team row of mine matches nobody, never everybody', () => {
     expect(statusFilters('mine', null)[1]).toEqual({ field: 'owner', op: 'in', values: [] });
@@ -97,7 +97,7 @@ describe('sort, selection and paging', () => {
 });
 
 describe('cells, record fields and edits', () => {
-  const row = { id: 'x', created_at: '2026-10-30T09:12:00Z', name: 'Ada', email: null, phone: null, status: 'new', owner: 't1', form: 'manual', page: '/home', site: 's1', budget: 450000, pre: true, tags: ['a', 'b'] } as ListRow;
+  const row = { id: 'x', created_at: '2026-10-30T09:12:00Z', name: 'Ada', email: null, phone: null, status: 'not-contacted', owner: 't1', form: 'manual', page: '/home', site: 's1', budget: 450000, pre: true, tags: ['a', 'b'] } as ListRow;
   const o = { owner: (id: string) => (id === 't1' ? 'Agent One' : ''), forms: null };
   it('a cell is words: the owner by name, a number plain, a tick Yes or No, a list joined, a hand-entered lead has no page', () => {
     expect(cellText(row, 'owner', o)).toBe('Agent One');
@@ -109,7 +109,7 @@ describe('cells, record fields and edits', () => {
     expect(cellText({ ...row, form: 'contact' }, 'page', o)).toBe('/home');
   });
 
-  const lead = { id: 'x', workspace_id: 'w', site_id: 's1', form: 'contact', flow: 'f', page_path: '/home', name: 'Ada', email: null, phone: '555', answers: { budget: 450000 }, consent_text: 'c', marketing_consent: null, status: 'new', owner_team_row: null, created_at: '2026-10-30T09:12:00Z', cta: 'Book', sms_consent: false } as Lead;
+  const lead = { id: 'x', workspace_id: 'w', site_id: 's1', form: 'contact', flow: 'f', page_path: '/home', name: 'Ada', email: null, phone: '555', answers: { budget: 450000 }, consent_text: 'c', marketing_consent: null, status: 'not-contacted', owner_team_row: null, created_at: '2026-10-30T09:12:00Z', cta: 'Book', sms_consent: false } as Lead;
   const fields: Column[] = [{ key: 'budget', label: 'Budget', type: 'number', min: 0, max: 5000000 }, { key: 'area', label: 'Area', type: 'enum', options: ['north'], editable: false }];
   it('the record lists every field in order, edits the core three and the industry fields not marked read only', () => {
     const rows = recordFields(lead, fields, { forms: null, siteName: () => 'site one', manySites: true });
@@ -159,7 +159,7 @@ describe('the timeline and the consent lines', () => {
 });
 
 describe('work order 19: the follow-up cell and the two flags of lead-list', () => {
-  const row = (o: Partial<ListRow>): ListRow => ({ id: 'r1', created_at: '2025-01-05T09:00:00Z', name: 'n', email: null, phone: null, status: 'new', owner: null, form: 'contact', page: '/p', site: null, ...o });
+  const row = (o: Partial<ListRow>): ListRow => ({ id: 'r1', created_at: '2025-01-05T09:00:00Z', name: 'n', email: null, phone: null, status: 'not-contacted', owner: null, form: 'contact', page: '/p', site: null, ...o });
   it('the follow-up cell is the follow-up worded as the received time, and empty with none', () => {
     const at = '2025-01-09T09:00:00Z';
     expect(cellText(row({ follow_up: at }), 'follow_up', { owner: () => '', forms: null })).toBe(receivedWords(at));
@@ -174,5 +174,19 @@ describe('work order 19: the follow-up cell and the two flags of lead-list', () 
     expect(viewQuery({ ...view, due: true, duplicates: true }, null)).not.toHaveProperty('due');
     expect(viewQuery({ ...view, due: true, duplicates: true }, null)).not.toHaveProperty('duplicates');
     expect(FIRST_VIEW).toMatchObject({ due: false, duplicates: false });
+  });
+});
+
+describe('work order 20: the status cell is words, and New asks for not-contacted', () => {
+  it('the Status cell shows the label of the key, not the key', () => {
+    const o = { owner: () => '', forms: null };
+    const r = (status: string) => ({ id: 'r', created_at: '2025-01-05T09:00:00Z', name: 'n', email: null, phone: null, status, owner: null, form: 'contact', page: '/p', site: null }) as unknown as ListRow;
+    expect(cellText(r('not-contacted'), 'status', o)).toBe('Not contacted');
+    expect(cellText(r('closed'), 'status', o)).toBe('Closed');
+    expect(cellText(r('call-back'), 'status', o)).toBe('Call back');
+  });
+  it('the first screen is the New filter, which is status not-contacted (the platform floor key)', () => {
+    expect(FIRST_VIEW.filter).toBe('new');
+    expect(viewFilters({ filter: 'new', site: '', columnFilters: [] }, null)).toEqual([{ field: 'status', op: 'eq', value: 'not-contacted' }]);
   });
 });

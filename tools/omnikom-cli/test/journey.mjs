@@ -60,20 +60,20 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     { key: 'area', type: 'reference', multi: false, column: true, editable: true, options: [], to: 'areas' },
     { key: 'message', type: 'text', multi: false, column: false, editable: true, options: [] },
   ];
-  const csvOf = (fields, leads, o = {}) => [J.csvHeader(fields), ...leads.map(l => ['2026-11-01T00:00:00Z', l.name, 'a@example.com', l.phone || '', 'contact', '/contact/', l.status || 'new', '', ...fields.map(f => String((l.answers || {})[f.key] ?? ''))])]
+  const csvOf = (fields, leads, o = {}) => [J.csvHeader(fields), ...leads.map(l => ['2026-11-01T00:00:00Z', l.name, 'a@example.com', l.phone || '', 'contact', '/contact/', l.status || 'not-contacted', '', ...fields.map(f => String((l.answers || {})[f.key] ?? ''))])]
     .map(r => r.join(',')).join('\r\n') + '\r\n';
   // o: fields (the contract), exportFields (what the export writes), stored (the lead's answers), extraRows (other leads in the workspace), and one switch per planted fault
   const crmFake = (o = {}) => {
     const fields = o.fields || FIELDS, store = { leads: [], seen: new Set(), log: [] };
     const lead = (marker, ans) => {
-      if (!store.seen.has(marker)) { store.seen.add(marker); store.leads.push({ id: `lead-${store.seen.size}`, name: marker, phone: '(555) 010-0153', status: 'new', owner: null, events: 0, answers: { ...(ans || o.stored || J.journeyAnswers(fields)) } }); store.peak = Math.max(store.peak || 0, store.leads.filter(l => !/IO check|Screens check/.test(l.name)).length);
-        if (o.dupMarker) store.leads.push({ id: 'lead-dup', name: marker + ' again', phone: '', status: 'new', owner: null, events: 0, answers: {} }); }
+      if (!store.seen.has(marker)) { store.seen.add(marker); store.leads.push({ id: `lead-${store.seen.size}`, name: marker, phone: '(555) 010-0153', status: 'not-contacted', owner: null, events: 0, answers: { ...(ans || o.stored || J.journeyAnswers(fields)) } }); store.peak = Math.max(store.peak || 0, store.leads.filter(l => !/IO check|Screens check/.test(l.name)).length);
+        if (o.dupMarker) store.leads.push({ id: 'lead-dup', name: marker + ' again', phone: '', status: 'not-contacted', owner: null, events: 0, answers: {} }); }
     };
     const rowOf = l => ({ id: l.id, name: l.name, email: l.email || '', form: l.form || 'contact', phone: l.phone, status: l.status, owner: l.owner, ...(o.stringNumbers ? Object.fromEntries(Object.entries(l.answers).map(([k, v]) => [k, typeof v === 'number' ? String(v) : v])) : l.answers) });
     const ok = (json, status = 200) => ({ status, text: JSON.stringify(json), json });
     const down = () => new Blocked('a session for owner-a: Auth verify answered 403: Email link is invalid or has expired', 'run again');
     if (o.preLead) lead('Journey abcdef12');
-    if (o.oldLead) { store.seen.add('Journey 8c12816a'); store.leads.push({ id: 'old-1', name: 'Journey 8c12816a', phone: '', status: 'new', owner: null, events: 0, answers: {} }); }
+    if (o.oldLead) { store.seen.add('Journey 8c12816a'); store.leads.push({ id: 'old-1', name: 'Journey 8c12816a', phone: '', status: 'not-contacted', owner: null, events: 0, answers: {} }); }
     return {
       store, fields, addLead: lead,
       async crm(who, name, body) {
@@ -96,7 +96,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
           if (v !== undefined && !Number.isFinite(Number(v)) && !o.badAnswerAccepted && !o.answerRefusedWithOk) return ok({ code: 'I-ANSWER', path: nk }, o.answerStatus || 400);
           if (v !== undefined && !Number.isFinite(Number(v)) && o.answerRefusedWithOk) return ok({ code: 'I-ANSWER', path: nk }, 201);
           const typed = { ...(body.answers || {}) }; if (v !== undefined && Number.isFinite(Number(v))) typed[nk] = Number(v);
-          store.seen.add(body.name); store.leads.push({ id: `lead-add-${store.leads.length + 1}`, name: body.name, email: body.email, phone: body.phone, form: 'dashboard', status: 'new', owner: null, events: 0, answers: typed });
+          store.seen.add(body.name); store.leads.push({ id: `lead-add-${store.leads.length + 1}`, name: body.name, email: body.email, phone: body.phone, form: 'dashboard', status: 'not-contacted', owner: null, events: 0, answers: typed });
           store.peak = Math.max(store.peak || 0, store.leads.filter(l => !/IO check|Screens check/.test(l.name)).length);
           return ok({ lead: { id: 'x' } }, 201);
         }
@@ -117,7 +117,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
           const dry = body.dry_run !== false;
           if (dry) {
             const dups = data.filter(r => dup(r, new Set())).length;
-            if (o.dryWrites) data.forEach((r, i) => store.leads.push({ id: `lead-dry-${i}`, name: r[0] + ' ' + r[1], email: r[ix('Email')], phone: '', form: 'import', status: 'new', owner: null, events: 0, answers: {} }));
+            if (o.dryWrites) data.forEach((r, i) => store.leads.push({ id: `lead-dry-${i}`, name: r[0] + ' ' + r[1], email: r[ix('Email')], phone: '', form: 'import', status: 'not-contacted', owner: null, events: 0, answers: {} }));
             return ok({ dry_run: true, rows: data.length, duplicates_count: dups, new: data.length - dups });
           }
           if (!body.consent && !o.noTickAccepted) return ok({ code: 'I-CONSENT' }, 422);
@@ -129,7 +129,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
           for (const r of data) {
             const d = dup(r, seenIn); seenIn.add(r[ix('Email')].toLowerCase());
             if (d && body.duplicates === 'skip' && !o.dupsAdded) { skipped++; continue; }
-            store.leads.push({ id: `lead-imp-${store.leads.length + 1}`, name: r[0] + ' ' + r[1], email: r[ix('Email')], phone: '', form: 'import', status: /Attempted/.test(r[ix('Lead Status')]) ? 'contacted' : 'new', owner: null, events: 0,
+            store.leads.push({ id: `lead-imp-${store.leads.length + 1}`, name: r[0] + ' ' + r[1], email: r[ix('Email')], phone: '', form: 'import', status: /Attempted/.test(r[ix('Lead Status')]) ? 'contacted' : 'not-contacted', owner: null, events: 0,
               answers: { [nk]: Number(r[bi]) }, consent_text: o.wrongConsent ? `Imported from ${body.file_name}` : o.consentNoFile ? `${J.CONSENT_START}2026-11-04.` : `${J.CONSENT_START}2026-11-04. File: ${body.file_name}` });
             created++;
           }
@@ -266,7 +266,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
     const team = await impl.teamRow();
     check('journey seam teamRow: a team row of the test workspace\'s members', team === 'team-1' && new RegExp(`from members where workspace_id = '${WS_A}'::uuid and team_row_id is not null`).test(sqls[1]), sqls[1]);
     const mints = () => seen.filter(x => x.url.endsWith('/admin/generate_link')).length;
-    await impl.exportCsv('owner-a', 'x'); await impl.crm('owner-a', 'lead-list', { workspace: WS_A }); await impl.crm('owner-a', 'leads-bulk', { workspace: WS_A, ids: ['a'], action: 'status', value: 'new' });
+    await impl.exportCsv('owner-a', 'x'); await impl.crm('owner-a', 'lead-list', { workspace: WS_A }); await impl.crm('owner-a', 'leads-bulk', { workspace: WS_A, ids: ['a'], action: 'status', value: 'not-contacted' });
     check('journey seam session: owner-a is signed in once for all of the CRM calls and the export (one verified session kept, not one link per call)', mints() === 1, String(mints()));
     await impl.workspacesAs('member-a1');
     check('journey seam session: another person gets a session of their own', mints() === 2, String(mints()));
@@ -385,7 +385,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const good = await crmRun({});
   check('journey CRM: with a working CRM J7, J8, J9 and J10 PASS, and the lead is gone at the end', ['J7', 'J8', 'J9', 'J10'].every(i => good.byId[i].status === 'PASS') && good.impl.store.leads.length === 0, good.text);
   check('journey J7: the PASS line counts the contract\'s columns and the marker lead\'s industry values', /14 columns \(8 core \+ 6 industry/.test(good.byId.J7.evidence) && /with 4 industry value\(s\)/.test(good.byId.J7.evidence), good.byId.J7.evidence);
-  const oldHeader = await crmRun({ exportCsv: m => ({ status: 200, text: `received,name,email,phone,form,page,status,owner,answers\r\n2026,${m},a@example.com,,contact,/contact/,new,,\r\n` }) });
+  const oldHeader = await crmRun({ exportCsv: m => ({ status: 200, text: `received,name,email,phone,form,page,status,owner,answers\r\n2026,${m},a@example.com,,contact,/contact/,not-contacted,,\r\n` }) });
   check('journey J7: the old fixed header (a column "answers") is a FAIL that names both headers', oldHeader.byId.J7.status === 'FAIL' && /the CSV header is "received,name,email,phone,form,page,status,owner,answers"/.test(oldHeader.byId.J7.evidence) && /the contract wants/.test(oldHeader.byId.J7.evidence), oldHeader.byId.J7.evidence);
   const newField = await crmRun({ fields: [...FIELDS, { key: 'garage', type: 'number', multi: false, column: true, editable: true, options: [], min: 0, max: 5 }], exportFields: FIELDS });
   check('journey J7: a field the contract has and the file lacks is a FAIL (the list is the contract\'s, not a copy)', newField.byId.J7.status === 'FAIL' && /garage/.test(newField.byId.J7.evidence), newField.byId.J7.evidence);
@@ -397,7 +397,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   check('journey J7: an industry value missing from the line is a FAIL', emptied.byId.J7.status === 'FAIL' && /timing is ""/.test(emptied.byId.J7.evidence), emptied.byId.J7.evidence);
   const bare = await crmRun({ fields: [{ key: 'note', type: 'text', multi: false, column: true, editable: true, options: [] }] });
   check('journey J7: a lead that carries no industry answer cannot pass (a header alone proves no value)', bare.byId.J7.status === 'FAIL' && /carries no industry answer/.test(bare.byId.J7.evidence), bare.byId.J7.evidence);
-  const other = await crmRun({ exportCsv: () => ({ status: 200, text: `${J.csvHeader(FIELDS).join(',')}\r\n2026,Somebody Else,a@example.com,,contact,/contact/,new,,Buying,10000,0-3 months,10,,\r\n` }) });
+  const other = await crmRun({ exportCsv: () => ({ status: 200, text: `${J.csvHeader(FIELDS).join(',')}\r\n2026,Somebody Else,a@example.com,,contact,/contact/,not-contacted,,Buying,10000,0-3 months,10,,\r\n` }) });
   check('journey J7: a line of another lead is not the marker lead (the name column must be the marker)', other.byId.J7.status === 'FAIL' && /0 line\(s\) named "Journey abcdef12"/.test(other.byId.J7.evidence), other.byId.J7.evidence);
   const quoted = await crmRun({ exportText: t => t.replace('Journey abcdef12', '"Journey abcdef12"') });
   check('journey J7: a quoted cell is read as its text (the marker name is found in quotes)', quoted.byId.J7.status === 'PASS', quoted.byId.J7.evidence);
@@ -455,7 +455,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const b1 = await crmRun({ bulkChanged: 0 });
   check('journey J10: a bulk status that changes 0 leads is a FAIL and the lead is still removed afterwards', b1.byId.J10.status === 'FAIL' && /changed 2/.test(b1.byId.J10.evidence) && /then removed/.test(b1.byId.J10.evidence) && b1.impl.store.leads.length === 0, b1.byId.J10.evidence);
   const b2 = await crmRun({ statusIgnored: true });
-  check('journey J10: a bulk status that says changed 1 and writes nothing is a FAIL at the read back', b2.byId.J10.status === 'FAIL' && /lead-list still shows "new"/.test(b2.byId.J10.evidence) && b2.impl.store.leads.length === 0, b2.byId.J10.evidence);
+  check('journey J10: a bulk status that says changed 1 and writes nothing is a FAIL at the read back', b2.byId.J10.status === 'FAIL' && /lead-list still shows "not-contacted"/.test(b2.byId.J10.evidence) && b2.impl.store.leads.length === 0, b2.byId.J10.evidence);
   const b3 = await crmRun({ ownerIgnored: true });
   check('journey J10: a bulk owner that is not applied is a FAIL at the read back', b3.byId.J10.status === 'FAIL' && /lead-list shows owner null/.test(b3.byId.J10.evidence), b3.byId.J10.evidence);
   const b4 = await crmRun({ teamRow: null });

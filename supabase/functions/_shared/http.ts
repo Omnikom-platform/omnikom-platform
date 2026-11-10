@@ -22,7 +22,7 @@ export function isDay(v: string): boolean {
   if (!m) return false;
   const [y, mo, d] = [m[1], m[2], m[3]].map(Number);
   const t = new Date(Date.UTC(y, mo - 1, d));
-  return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d;
+  return t.toISOString().slice(0, 10) === v;   // a day that does not exist rolls over (February 30 is March 2), so it no longer reads back as it was sent
 }
 
 export type FieldProblem = { code: string; path: string; msg: string; row?: string };

@@ -2,7 +2,7 @@
 // the selection, the paging line, the cells, the record's fields and what a typed edit becomes. No browser, no network: Vitest covers
 // all of it. Words that are copy come from the plan (t(), DECISIONS 44); everything else is the data itself.
 import { t } from '../plan';
-import { plainValue, receivedWords, STATUSES, formLabel, type ContractForms, type Filter, type Lead } from './leads';
+import { plainValue, receivedWords, STATUSES, statusLabel, formLabel, type ContractForms, type Filter, type Lead } from './leads';
 
 export const PAGE_SIZE = 50;
 
@@ -47,7 +47,7 @@ const ALL_BUT_SPAM = STATUSES.filter(s => s !== 'spam');
 /** New / All / Mine / Spam as lead-list filters (DP-1.3-02). Mine with no team row of mine matches nothing. */
 export function statusFilters(filter: Filter, myTeamRow: string | null): ListFilter[] {
   switch (filter) {
-    case 'new': return [{ field: 'status', op: 'eq', value: 'new' }];
+    case 'new': return [{ field: 'status', op: 'eq', value: 'not-contacted' }];
     case 'spam': return [{ field: 'status', op: 'eq', value: 'spam' }];
     case 'all': return [{ field: 'status', op: 'in', values: [...ALL_BUT_SPAM] }];
     case 'mine': return [{ field: 'status', op: 'in', values: [...ALL_BUT_SPAM] }, { field: 'owner', op: myTeamRow ? 'eq' : 'in', ...(myTeamRow ? { value: myTeamRow } : { values: [] }) }];
@@ -184,6 +184,7 @@ export function cellText(row: ListRow, key: string, o: { owner: (id: string) => 
     case 'owner': return row.owner ? o.owner(row.owner) : '';
     case 'page': return row.form === 'manual' ? '' : row.page ?? '';
     case 'follow_up': return row.follow_up ? receivedWords(row.follow_up) : '';
+    case 'status': return statusLabel(String(row.status ?? ''));
     default: return plainValue(row[key]);
   }
 }
