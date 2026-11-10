@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent } from 'react';
 import { addTask, markTask } from '../api';
 import { useTasks } from '../data';
 import { canAddTask, instantFromLocal, orderTasks, TASK_MAX } from '../lib/followup';
@@ -25,15 +25,24 @@ export function LeadTasks({ workspaceId, leadId, refresh }: { workspaceId: strin
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [rowError, setRowError] = useState<{ id: string; text: string } | null>(null);
+  // a tick shows its new state at once and stays put (disabled) until the list read back agrees; a failed save drops it (work order 19 staging:
+  // a tick that moved only after the answer looked dead)
+  const [pending, setPending] = useState<Record<string, boolean>>({});
   const list = orderTasks(tasks.data ?? []);
+  useEffect(() => {
+    const settled = Object.keys(pending).filter(id => list.some(k => k.id === id && (k.done_at !== null) === pending[id]));
+    if (settled.length) setPending(p => { const n = { ...p }; for (const id of settled) delete n[id]; return n; });
+  }, [tasks.data, pending]);
   const over = text.length > TASK_MAX;
 
   async function mark(id: string, done: boolean) {
     setRowError(null);
+    setPending(p => ({ ...p, [id]: done }));
     try {
       await markTask(id, done);
       toast(done ? t('DP-1.3-69', 'Task done.') : t('DP-1.3-69', 'Task reopened.'));
     } catch (e) {
+      setPending(p => { const n = { ...p }; delete n[id]; return n; });
       setRowError({ id, text: plainOr(e, MARK_FAILED) });
     } finally {
       refresh();
@@ -67,7 +76,7 @@ export function LeadTasks({ workspaceId, leadId, refresh }: { workspaceId: strin
           {list.map(k => (
             <li key={k.id} data-done={k.done_at ? 'true' : undefined}>
               <label>
-                <input type="checkbox" checked={k.done_at !== null} aria-label={`${t('DP-1.3-69', 'Done')} ${k.text}`} onChange={e => void mark(k.id, e.target.checked)} />
+                <input type="checkbox" checked={pending[k.id] ?? k.done_at !== null} disabled={k.id in pending} aria-label={`${t('DP-1.3-69', 'Done')} ${k.text}`} onChange={e => void mark(k.id, e.target.checked)} />
                 {' '}{k.text}
               </label>
               {k.due_at && <span>{' '}{`${t('DP-1.3-69', 'Due')} ${receivedWords(k.due_at)}`}</span>}

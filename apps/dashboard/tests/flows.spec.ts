@@ -193,7 +193,7 @@ test.describe('a member sees only their leads', () => {
     await page.getByLabel('Email').fill(`flows.${RUN}.mine@example.com`);
     await page.getByLabel('Notes').fill('Test data from the 5.3 flows. Safe to ignore.');
     await page.getByRole('button', { name: 'Save', exact: true }).click();   // the consent tick is required: first try without it
-    await expect(page).toHaveURL(/\/leads\/new$/);
+    await expect(page).toHaveURL(/\/leads\/new(\?|$)/);   // the address keeps the list's view behind the sheet (work order 19)
     await expect(page.getByRole('alert')).toHaveText('Tick this to confirm the person agreed to be contacted.');
     await page.getByLabel('The person agreed to be contacted').check();
     await page.getByRole('button', { name: 'Save', exact: true }).click();
@@ -459,7 +459,11 @@ async function removeCrm3bTestData() {
   await serviceDelete(`/crm_views?workspace_id=eq.${WS.a.id}&name=like.${encodeURIComponent(`${CRM3B_MARK}*`)}`);
 }
 
-const headings = async (page: Page) => (await page.locator('thead th').allInnerTexts()).map(h => h.trim());
+// the table is drawn only once rows arrive (a new view loads first), so wait for it before reading
+const headings = async (page: Page) => {
+  await expect(page.locator('thead th').first()).toBeVisible();
+  return (await page.locator('thead th').allInnerTexts()).map(h => h.trim());
+};
 const toggleButton = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 
 test.describe('the CRM block 3b screens as the owner', () => {
