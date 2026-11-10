@@ -573,6 +573,8 @@ test.describe('the CRM block 3b screens as the owner', () => {
     await page.getByLabel('Share with the business').check();
     await page.getByRole('button', { name: 'Save as', exact: true }).click();
     await expect(page.getByRole('status').last()).toContainText('View saved.');
+    // the first save's toast is still up, so wait for the shared view itself before reading the database
+    await expect(page.getByRole('button', { name: `${CRM3B_MARK} shared`, exact: true })).toBeVisible();
     const stored = await serviceGet<{ name: string; user_id: string | null; columns: string[] }[]>(`/crm_views?workspace_id=eq.${WS.a.id}&name=like.${encodeURIComponent(`${CRM3B_MARK}*`)}&select=name,user_id,columns&order=name`);
     expect(stored.map(v => `${v.name}:${v.user_id === null ? 'shared' : 'own'}`), 'a private view and a shared one are stored').toEqual([`${CRM3B_MARK} private:own`, `${CRM3B_MARK} shared:shared`]);
     expect(stored[0]?.columns, 'the view stores the columns shown').not.toContain('email');
@@ -605,6 +607,8 @@ test.describe('the CRM block 3b screens as an agent', () => {
     const shared = `${CRM3B_MARK} member shared`;
     const saved = await callAs(await personAccessToken('owner-a'), 'view-save', { workspace: WS.a.id, name: shared, query: {}, columns: ['name', 'status'], shared: true });
     expect(saved.status, `view-save answered ${saved.status}: ${saved.text.slice(0, 160)}`).toBe(200);
+    // the table is drawn only with rows, and the earlier flows removed member-a1's leads: an agent's added lead is its own (the teardown removes it)
+    await addCrm3bLead(await personAccessToken('member-a1'), 'member own lead', `crm3b.${RUN}.member@example.com`, '(555) 010-0173');
 
     await page.goto(`/w/${WS.a.slug}/leads`);
     await leadsLoaded(page);
