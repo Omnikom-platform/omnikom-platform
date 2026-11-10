@@ -100,6 +100,24 @@ when the head of operations has released its slice.
 - Lead type through the CLI import (finding from platform 20, A16, 2026-11-10 22:20): migration 23 lets the import template and
   `import_leads` take `lead_type`, but `tools/crm-map` drops it in `proposeMap` and `importRows`, so a client file's type column is lost
   on the CLI path. Scheduled after platform 20 lands; until then the type comes from the form (or 'enquiry').
+- `lead list --status <typo>` (after platform 20, migration 23, 2026-11-11 01:10): the status is text and the CLI keeps no list, so an
+  unknown key returns 0 leads with exit 0. Check the key against the workspace's own statuses and refuse an unknown one (the platform head
+  left it to this department).
+- Work order 41 (owner 2026-11-11 01:27, after ci-runners lands): `omnikom seo run <url> --client <slug>`, `seo status`, `seo resume`.
+  Every mechanical step of a client audit in one call: in order, in parallel where independent, at the skill's pace, resumable; the output
+  is a coverage table (RUN with its evidence file, SKIPPED with the reason, BLOCKED with what unblocks it, WAITING for a browser capture or
+  AI, naming exactly what). The steps come ONLY from SEO's manifest `skills/programmatic-enterprise-web-performance/pipeline.json` (SEO
+  owns it; the CLI adds no step, like `audit`). Agreed with the SEO head 01:28: exits 0 ok, 2 usage, 3 BLOCKED, 4 SKIPPED, other FAILED,
+  with a last line `BLOCKED: <what> | unblocks: <what>` or `SKIPPED: <reason>`; fields id, module, script, args, inputs, outputs,
+  dependsOn, needsBrowser none|headless|owner, needsAi, needsKeys, heavy, pace, hits (same host never in parallel), timeoutMinutes, brief
+  (for WAITING), evidence (counts only if written after the step started); {name} placeholders; the CLI refuses an invalid manifest (exit 2).
+  Proof: a fixture site on a fake server, each state watched red; then one real run on Paragon's site.
+  Plus (owner 01:45): `omnikom seo vantage start|status|stop`, a pass-through to SEO's scripts/vantage.mjs (their WO43: an Edge profile
+  geolocated to Sacramento, a West US Codespace tunnel if needed). The manifest's `vantage` step runs status and every capture step depends
+  on it; `seo run` never calls start (a Codespace spends the owner's GitHub quota), so an unverified vantage BLOCKS the captures.
+- After platform's apply-notx lands: the lint stops calling a `-- no-transaction` file an applier problem, README "The applier wall" and
+  FINDING-apply-staging.md say done, and `tools/migration-lint/test/apply-proof.mjs` becomes a CI step in a job with Postgres. E19 goes WORKS
+  when platform's first CONCURRENTLY migration applies on staging (ledger row and a valid index, read only).
 - Slice 3 (placeholder `briefs/slice-3-onboard.md`; build steps 6 and 7): `onboard`, `offboard` (DECISIONS 31), `drift`, the
   Cloudflare API calls.
 - UNPROVEN on staging: `mfa enroll-staff` removing a stale TOTP factor (model only). Known: a paused site answers 500 over HTTP
