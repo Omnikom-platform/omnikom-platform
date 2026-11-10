@@ -145,7 +145,7 @@ test.describe('the owner\'s Site screen', () => {
   });
 
   test('the publish sheet: the progress comes in live, the job ends done, the preview shows the new heading', async ({ page }) => {
-    test.setTimeout(900_000);
+    test.setTimeout(1_800_000);   // the publish workflow's own limit (timeout-minutes: 30)
     // every run starts from a known state: the never-published rows of workspace A are removed first (tests/support/reset-staging-drafts.mjs)
     const removed = await removeRows((await resetPlan()).remove.map(r => r.id));
     expect(removed.filter(r => !r.ok), 'the reset removed every row it meant to').toEqual([]);
@@ -161,7 +161,7 @@ test.describe('the owner\'s Site screen', () => {
     await page.getByRole('button', { name: /^Publish \d+ changes?$/ }).click({ timeout: 30_000 });
     const sheet = page.getByRole('dialog');
     await sheet.getByRole('button', { name: 'Publish', exact: true }).click({ timeout: 30_000 });
-    await expect(sheet.getByText(/Building the site|Nothing went live/)).toBeVisible({ timeout: 120_000 });
+    await expect(sheet.getByText(/Building the site|Nothing went live/)).toBeVisible({ timeout: 600_000 });   // GitHub's runner can take minutes to pick the job up (2m05s and 3m18s on 2026-11-10); a queued job has no line yet
     if (await sheet.getByText('Nothing went live').isVisible()) throw new Error(`BLOCKED: the sheet stopped at a failed check: ${(await sheet.innerText()).replace(/\s+/g, ' ')}`);
     await expect(sheet.getByText('Checking')).toBeVisible({ timeout: 240_000 });
     await expect(sheet.getByText('Putting it live')).toBeVisible({ timeout: 240_000 });
