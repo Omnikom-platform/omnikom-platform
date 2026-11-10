@@ -1445,6 +1445,79 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
       check('ci-heavy: a bad flag (shard out of range, not i/N, missing, --suite with --shard, an unknown flag, a stray word) is exit 2 and nothing is spawned', bads.every(b => b.r.code === 2 && b.r.spawned.length === 0), JSON.stringify(bads));
     }
 
+    // ============================================================================ ci-team-kit: the team kit's hook test runs only when the change touches the kit [team-kit-ci]
+    {
+      const tk = await import(pathToFileURL(join(CLI_ROOT, 'test', 'ci-team-kit.mjs')).href);
+      const KFILES = {
+        'tools/team-kit/test-agent-hooks.mjs': "console.log('hooks');\n",
+        'tools/team-kit/agent-anchor.mjs': 'export const a = 1;\n',
+        'tools/team-kit-extra/x.mjs': 'export const x = 1;\n',
+        'tools/omnikom-cli/lib/other.mjs': 'export const o = 1;\n',
+        'tools/omnikom-cli/lib/ci-base.mjs': 'export const b = 1;\n',
+        'tools/omnikom-cli/test/ci-team-kit.mjs': 'export const t = 1;\n',
+        'notes/readme.md': 'prose\n',
+        '.github/workflows/ci.yml': 'name: ci\non: [push]\njobs:\n  a:\n    name: a\n    runs-on: ubuntu-latest\n    timeout-minutes: 5\n    steps:\n      - name: CLI unit tests\n        run: node tools/omnikom-cli/test/run.mjs --unit\n',
+      };
+      const KR = mkRepo(KFILES);
+      const kBase = git(KR, 'rev-parse', 'HEAD');
+      const kCommit = (files, msg) => { for (const [k, v] of Object.entries(files)) put(KR, k, v); git(KR, 'add', '-A'); git(KR, 'commit', '-q', '-m', msg); return git(KR, 'rev-parse', 'HEAD'); };
+      const kBranch = (name, files) => { git(KR, 'checkout', '-q', '-B', name, kBase); kCommit(files, name); };
+      const runKit = (env, fail = 0, argv = []) => {
+        const lines = [], spawned = [];
+        const spawn = (cmd, args, opts) => { spawned.push({ file: args[0].split(/[\\/]/).slice(-3).join('/'), cwd: opts.cwd === KR }); return { status: fail }; };
+        const code = tk.ciTeamKit({ repo: KR, env, spawn, log: l => lines.push(l), argv });
+        return { code, lines, spawned };
+      };
+      const KE = { OMNIKOM_CI_BASE: kBase };
+      kBranch('k1', { 'tools/team-kit/agent-anchor.mjs': 'export const a = 2;\n' });
+      let k = runKit(KE);
+      check('ci-team-kit: a change under tools/team-kit/ is needed: the reason line names the file, the hook test runs once as tools/team-kit/test-agent-hooks.mjs in the repository (exit 0)',
+        k.code === 0 && k.lines[0] === 'ci-team-kit: needed (tools/team-kit/agent-anchor.mjs)' && k.spawned.length === 1 && k.spawned[0].file === 'tools/team-kit/test-agent-hooks.mjs' && k.spawned[0].cwd === true, JSON.stringify(k));
+      kBranch('k2', { 'notes/readme.md': 'more prose\n', 'tools/omnikom-cli/lib/other.mjs': 'export const o = 2;\n' });
+      k = runKit(KE);
+      check('ci-team-kit: prose and another CLI file are not needed: "ci-team-kit: not needed (2 changed files, none under tools/team-kit/)", exit 0, the hook test is never spawned',
+        k.code === 0 && k.lines.join('|') === 'ci-team-kit: not needed (2 changed files, none under tools/team-kit/)' && k.spawned.length === 0, JSON.stringify(k));
+      kBranch('k3', { 'tools/team-kit-extra/x.mjs': 'export const x = 2;\n' });
+      k = runKit(KE);
+      check('ci-team-kit: tools/team-kit-extra/ is not tools/team-kit/ (the path prefix ends in a slash): not needed', k.code === 0 && k.spawned.length === 0 && k.lines[0].startsWith('ci-team-kit: not needed'), JSON.stringify(k));
+      kBranch('k4', { '.github/workflows/ci.yml': KFILES['.github/workflows/ci.yml'] + '# edited\n' });
+      k = runKit(KE);
+      check('ci-team-kit: a change to .github/workflows/ci.yml is needed', k.lines[0] === 'ci-team-kit: needed (.github/workflows/ci.yml)' && k.spawned.length === 1, JSON.stringify(k));
+      kBranch('k5', { 'tools/omnikom-cli/test/ci-team-kit.mjs': 'export const t = 2;\n' });
+      k = runKit(KE);
+      check('ci-team-kit: a change to the job\'s own script is needed', k.lines[0] === 'ci-team-kit: needed (tools/omnikom-cli/test/ci-team-kit.mjs)' && k.spawned.length === 1, JSON.stringify(k));
+      kBranch('k6', { 'tools/omnikom-cli/lib/ci-base.mjs': 'export const b = 2;\n' });
+      k = runKit(KE);
+      check('ci-team-kit: a change to lib/ci-base.mjs (what the script decides with) is needed', k.lines[0] === 'ci-team-kit: needed (tools/omnikom-cli/lib/ci-base.mjs)' && k.spawned.length === 1, JSON.stringify(k));
+      k = runKit({});
+      check('ci-team-kit: no base (no OMNIKOM_CI_BASE, no origin/master, no backup-gh/master) is needed: fail safe', k.lines[0].startsWith('ci-team-kit: needed (no base commit found') && k.spawned.length === 1, JSON.stringify(k));
+      k = runKit({ OMNIKOM_CI_BASE: 'deadbeefdeadbeefdeadbeef' });
+      check('ci-team-kit: a base that is not a commit here is needed too (fail safe)', k.lines[0].includes('is not a commit here') && k.spawned.length === 1, JSON.stringify(k));
+      kBranch('k7', { 'notes/readme.md': 'prose 7\n' });
+      git(KR, 'update-ref', 'refs/remotes/origin/master', kBase);
+      k = runKit({});
+      check('ci-team-kit: without OMNIKOM_CI_BASE the base is the merge base with refs/remotes/origin/master (a prose-only change is not needed)', k.lines[0].startsWith('ci-team-kit: not needed (1 changed files') && k.spawned.length === 0, JSON.stringify(k));
+      git(KR, 'update-ref', '-d', 'refs/remotes/origin/master');
+      k = runKit({ OMNIKOM_CI_BASE: git(KR, 'rev-parse', 'HEAD') });
+      check('ci-team-kit: nothing changed since the base (master itself) is not needed', k.lines.join('|') === 'ci-team-kit: not needed (0 changed files, none under tools/team-kit/)' && k.spawned.length === 0, JSON.stringify(k));
+      kBranch('k8', Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map(i => [`tools/team-kit/f${i}.mjs`, `export const f = ${i};\n`])));
+      k = runKit(KE);
+      check('ci-team-kit: the reason line lists the first 5 triggering files', k.lines[0].split(', ').length === 5 && k.lines[0].startsWith('ci-team-kit: needed (tools/team-kit/f1.mjs'), JSON.stringify(k));
+      k = runKit(KE, 7);
+      check('ci-team-kit: a failing hook test gives its own exit code (7), not 1 and not 0', k.code === 7 && k.lines.some(l => l.includes('test-agent-hooks.mjs failed (exit 7)')), JSON.stringify(k));
+      k = runKit(KE, 0);
+      check('ci-team-kit: a passing hook test says so and exits 0', k.code === 0 && k.lines[k.lines.length - 1] === 'ci-team-kit: test-agent-hooks.mjs passed', JSON.stringify(k));
+      const kCrash = tk.ciTeamKit({ repo: KR, env: KE, spawn: () => ({ error: new Error('spawn failed'), status: null }), log: () => {} });
+      check('ci-team-kit: a child that cannot start is a failure (exit 1), not a pass', kCrash === 1, String(kCrash));
+      k = runKit(KE, 0, ['--all']);
+      check('ci-team-kit: an argument is a usage error (exit 2) and nothing is spawned', k.code === 2 && k.spawned.length === 0, JSON.stringify(k));
+      // the real ci.yml: the job exists, reads the history, and runs this script (an `if:` or a missing history would skip or blind it)
+      const kYml = (() => { try { return readFileSync(join(REPO_ROOT, '.github', 'workflows', 'ci.yml'), 'utf8'); } catch { return ''; } })();
+      const kJob = (/^ {2}team-kit-hooks:\n((?: {3,}.*|\s*)\n)*/m.exec(kYml) || [''])[0];
+      check('ci.yml: the job team-kit-hooks runs `node tools/omnikom-cli/test/ci-team-kit.mjs` with the whole history (fetch-depth: 0) and has no if:/paths: of its own',
+        /^ {8}run: node tools\/omnikom-cli\/test\/ci-team-kit\.mjs$/m.test(kJob) && /^ {10}fetch-depth: 0$/m.test(kJob) && !/^\s*(if|paths):/m.test(kJob), kJob.slice(0, 200));
+    }
+
     // ============================================================================ ci.yml must not run on pushes of the land lock
     {
       const { LOCK_BRANCH } = await lib('landlock.mjs');

@@ -5,7 +5,7 @@
 // The CLI's unit run stays on every push; its full suite (test/run.mjs: units plus the database part) and its mutants (test/mutate.mjs) take
 // long and cost Actions minutes, so they run only when the change can reach them (DECISIONS 45, head of operations). The script decides, not
 // ci.yml (`omnikom ci` does not model `if:`).
-//   base      $OMNIKOM_CI_BASE when set; else the merge base of HEAD with refs/remotes/origin/master, then refs/remotes/backup-gh/master.
+//   base      (lib/ci-base.mjs, shared with test/ci-team-kit.mjs) $OMNIKOM_CI_BASE when set; else the merge base of HEAD with refs/remotes/origin/master, then refs/remotes/backup-gh/master.
 //             No base found (or an unusable one) means run heavy: fail safe. On master itself the diff against origin/master is empty, so
 //             it skips: master only takes a commit that was already green on a check branch.
 //   needed    any changed file under tools/omnikom-cli/, or .github/workflows/ci.yml, or a file that `omnikom impact` (analyse of
@@ -18,6 +18,7 @@ import { realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeGit } from '../lib/git.mjs';
+import { changedSinceBase } from '../lib/ci-base.mjs';
 import { treeSource } from '../lib/graph.mjs';
 import { analyse } from '../commands/impact.mjs';
 import { parseShard } from './mutate-run.mjs';
@@ -25,27 +26,13 @@ import { parseShard } from './mutate-run.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI_DIR = 'tools/omnikom-cli/';
 const CI_YML = '.github/workflows/ci.yml';
-const splitZ = s => String(s || '').split('\0').filter(Boolean);
 
 // -> { needed, reason, changed }   (never throws: anything unreadable means needed)
 export function decide({ repo, env = process.env }) {
   const git = makeGit(repo);
-  if (!git.run(['rev-parse', '--git-dir']).ok) return { needed: true, reason: `${repo} is not a git repository, fail safe`, changed: [] };
-  let base = '';
-  if (env.OMNIKOM_CI_BASE) {
-    const r = git.run(['rev-parse', '--verify', '--quiet', `${env.OMNIKOM_CI_BASE}^{commit}`]);
-    if (!r.ok) return { needed: true, reason: `OMNIKOM_CI_BASE ${env.OMNIKOM_CI_BASE} is not a commit here, fail safe`, changed: [] };
-    base = r.out;
-  } else {
-    for (const ref of ['refs/remotes/origin/master', 'refs/remotes/backup-gh/master']) {
-      const r = git.run(['merge-base', 'HEAD', ref]);
-      if (r.ok && r.out) { base = r.out; break; }
-    }
-  }
-  if (!base) return { needed: true, reason: 'no base commit found (no OMNIKOM_CI_BASE, no origin/master or backup-gh/master), fail safe', changed: [] };
-  const d = git.run(['diff', '--name-only', '-z', '--no-renames', base, 'HEAD']);
-  if (!d.ok) return { needed: true, reason: `git diff ${base} HEAD failed (${(d.err || '').split('\n')[0].slice(0, 100)}), fail safe`, changed: [] };
-  const changed = splitZ(d.out);
+  const c = changedSinceBase({ repo, env });
+  if (!c.ok) return { needed: true, reason: c.reason, changed: [] };
+  const changed = c.changed;
   const direct = changed.filter(f => f.startsWith(CLI_DIR) || f === CI_YML);
   if (direct.length) return { needed: true, reason: direct.slice(0, 5).join(', '), changed };
   if (changed.length === 0) return { needed: false, reason: '0 changed files, none read by the CLI suite', changed };

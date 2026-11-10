@@ -64,6 +64,10 @@ this department then proves it over HTTP.
   tools/omnikom-cli/test/port-bind-probe.mjs (2026-11-01 real-kill reds, runs 41350867780 and 41353911357).
 - Every SendMessage from the head to a builder sets `notify_when_idle: true`, so a builder going idle reaches the head
   (HoO-02b, 2026-11-02 14:38, after a builder sat 3 h with uncommitted work and no report).
+- gitleaks runs as its own step and its exit code is read before any commit or push, in a later call: never
+  `gitleaks ... | tail && git commit && git push` (the pipe hides the exit). On 2026-11-10 15:17 that chain pushed a flagged commit
+  (a fake jwt.io sample, a355cab) to the public repo; the branch was deleted through `gh api -X DELETE .../git/refs/heads/<branch>`
+  2 min later (the push-gate refuses even a delete push). Accepted by the head of operations 15:25.
 
 ## Proof
 - `node tools/omnikom-cli/test/run.mjs`: "OK: N of N checks passed"; `node tools/omnikom-cli/test/mutate.mjs`: "N mutants, N caught,

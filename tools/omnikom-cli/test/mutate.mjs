@@ -316,7 +316,7 @@ const MUTANTS = [
   ["ci-heavy: the scope check always says not needed", "test/ci-heavy.mjs", "if (!v.needed) {", "if (true) {", 'unit'],
   ["ci-heavy: the child exit code is ignored", "test/ci-heavy.mjs", "if (code !== 0) {", "if (false) {", 'unit'],
   ["ci-heavy: a file the cli job reads through impact is not counted", "test/ci-heavy.mjs", "reached = a.changed.filter(c => c.gates.includes('job cli')).map(c => c.path);", "reached = [];", 'unit'],
-  ["ci-heavy: no base is not needed", "test/ci-heavy.mjs", "if (!base) return { needed: true,", "if (!base) return { needed: false,", 'unit'],
+  ["ci-heavy: no base is not needed", "lib/ci-base.mjs", "if (!base) return { ok: false,", "if (!base) return { ok: true, changed: [],", 'unit'],
   ["ci: the checkout is not removed after a failed job", "lib/checkout.mjs", "finally { info.removed = removeCheckout(git, dir); }", "finally { if (value && value.ok) info.removed = removeCheckout(git, dir); }", 'unit'],
   ["ci: --staged is the tree of HEAD, not the index", "lib/checkout.mjs", "const r = git.run(['write-tree']);", "const r = git.run(['rev-parse', 'HEAD^{tree}']);", 'unit'],
   ["ci: --commit is ignored (the index tree is used)", "lib/checkout.mjs", "  if (commit !== undefined) {", "  if (false) {", 'unit'],
@@ -664,6 +664,21 @@ const MUTANTS = [
   ['functions shard: a functions job without the Deno tests is accepted [functions-shards]', 'test/mutate-run.mjs', R`if (!fn || !fn.lines.some(l => /functions\/test\/run\.mjs\s*$/.test(l))) problems.push(`, 'if (false) problems.push(', 'unit'],
   ['functions shard: N need not be the job count in a run line [functions-shards]', 'test/mutate-run.mjs', '|| Number(r[0][2]) !== k) problems.push(`${b.id} must run supabase', ') problems.push(`${b.id} must run supabase', 'unit'],
   ['ci: the function mutants shard step is not mapped [functions-shards]', 'commands/ci.mjs', "'Function mutants, one shard',", "", 'unit'],
+  // ---- the team kit's hook test job (test/ci-team-kit.mjs, the ci.yml job team-kit-hooks) [team-kit-ci]
+  ['ci-team-kit: the scope check always says not needed (the hook test never runs) [team-kit-ci]', 'test/ci-team-kit.mjs', 'if (!v.needed) {', 'if (true) {', 'unit'],
+  ['ci-team-kit: the scope check always says needed (the hook test runs on every change) [team-kit-ci]', 'test/ci-team-kit.mjs', 'if (!v.needed) {', 'if (false) {', 'unit'],
+  ['ci-team-kit: a failing hook test exits 1 whatever its code [team-kit-ci]', 'test/ci-team-kit.mjs', 'failed (exit ${code})`); return code; }', 'failed (exit ${code})`); return 1; }', 'unit'],
+  ['ci-team-kit: a failing hook test is passed on as 0 [team-kit-ci]', 'test/ci-team-kit.mjs', 'failed (exit ${code})`); return code; }', 'failed (exit ${code})`); return 0; }', 'unit'],
+  ['ci-team-kit: a hook test that cannot start is a pass [team-kit-ci]', 'test/ci-team-kit.mjs', 'const code = r.error ? 1 : (', 'const code = r.error ? 0 : (', 'unit'],
+  ['ci-team-kit: the path prefix has no closing slash (tools/team-kit-extra/ counts) [team-kit-ci]', 'test/ci-team-kit.mjs', "const KIT_DIR = 'tools/team-kit/';", "const KIT_DIR = 'tools/team-kit';", 'unit'],
+  ['ci-team-kit: the path prefix is too wide (tools/) [team-kit-ci]', 'test/ci-team-kit.mjs', "const KIT_DIR = 'tools/team-kit/';", "const KIT_DIR = 'tools/';", 'unit'],
+  ['ci-team-kit: the path prefix is the wrong folder [team-kit-ci]', 'test/ci-team-kit.mjs', "const KIT_DIR = 'tools/team-kit/';", "const KIT_DIR = 'tools/team/';", 'unit'],
+  ['ci-team-kit: a change to ci.yml is not counted [team-kit-ci]', 'test/ci-team-kit.mjs', 'f.startsWith(KIT_DIR) || f === CI_YML || OWN', 'f.startsWith(KIT_DIR) || OWN', 'unit'],
+  ['ci-team-kit: a change to the job\'s own files is not counted [team-kit-ci]', 'test/ci-team-kit.mjs', ' || OWN.includes(f));', ');', 'unit'],
+  ['ci-team-kit: the wrong hook test is run [team-kit-ci]', 'test/ci-team-kit.mjs', "const HOOK_TEST = ['tools', 'team-kit', 'test-agent-hooks.mjs'];", "const HOOK_TEST = ['tools', 'team-kit', 'test-agent-hook.mjs'];", 'unit'],
+  ['ci-team-kit: an argument is ignored [team-kit-ci]', 'test/ci-team-kit.mjs', 'if (argv.length) {', 'if (false) {', 'unit'],
+  ['ci-team-kit: no base is not needed (fail safe lost) [team-kit-ci]', 'test/ci-team-kit.mjs', 'if (!c.ok) return { needed: true,', 'if (!c.ok) return { needed: false,', 'unit'],
+  ['ci: the team kit hook test step is not mapped [team-kit-ci]', 'commands/ci.mjs', "'Team kit hook tests (when the change touches the kit)', ", "", 'unit'],
 ];
 
 const list = pickMutants(shardMutants(MUTANTS, shard), only);   // sharded by the index in the whole list, then narrowed by --only

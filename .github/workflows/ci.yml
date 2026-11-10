@@ -433,6 +433,26 @@ jobs:
       - name: CLI mutants, one shard (when the change reaches them)
         run: node tools/omnikom-cli/test/ci-heavy.mjs --shard 6/6
 
+  # The team kit's hook test (51 checks, 10 mutants, about 8 minutes), its own job so it does not add to the land wait of the rest. `omnikom ci` models no
+  # `paths:` or `if:`, so the job always starts and test/ci-team-kit.mjs decides from the change's files (history needed): a change that does not touch
+  # tools/team-kit/ (or this job's own script or this file) prints "not needed" and succeeds in seconds.
+  team-kit-hooks:
+    name: team kit hook tests (when the change touches the kit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out the repository with its whole history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Team kit hook tests (when the change touches the kit)
+        run: node tools/omnikom-cli/test/ci-team-kit.mjs
+
   dashboard:
     name: dashboard (type check, unit tests, plan gate)
     runs-on: ubuntu-latest
