@@ -17,6 +17,7 @@ import { join, resolve, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { METRICS_MUTANTS } from "./mutants-metrics.mjs";   // work order 33: the mutants of tools/audit/metrics/
 
 const AUDIT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SKILL = process.env.OMNIKOM_SKILL_DIR ? resolve(process.env.OMNIKOM_SKILL_DIR) : resolve(AUDIT, "..", "..", "skills", "programmatic-enterprise-web-performance");   // the skill's own fixtures (work order 25); a mutant's copy of tools/audit/ is not inside the repo
@@ -507,6 +508,7 @@ const MUTANTS = [
   ["run.mjs: --prompt-coverage with no value is accepted", "run.mjs", 'if (!promptCoverage || promptCoverage.startsWith("--")) die(', "if (false) die("],
   ["live.mjs: --prompt-coverage is not passed to the engine", "live.mjs", "promptCoverage: promptCoverage || undefined", "promptCoverage: undefined"],
   ["live.mjs: --prompt-coverage with no value is accepted", "live.mjs", 'promptCoverage = value(i, a); i++;', "promptCoverage = args[i + 1]; i++;"],
+  ...METRICS_MUTANTS,
 ];
 let survived = 0, missing = 0, notRun = 0;
 const TMP_BASE = process.env.OMNIKOM_AUDIT_TMP ? resolve(process.env.OMNIKOM_AUDIT_TMP) : tmpdir();

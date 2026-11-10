@@ -1,0 +1,520 @@
+[
+ {
+  "workspace_id": "00000000-0000-4000-8000-000000000001",
+  "source": "search-console",
+  "day": "2026-09-10",
+  "data": {
+   "property": "sc-domain:example-shop.test",
+   "window": {
+    "start": "2026-09-08",
+    "end": "2026-09-08"
+   },
+   "totals": {
+    "clicks": 40,
+    "impressions": 800,
+    "ctr": 0.05,
+    "position": 12
+   },
+   "queries": [
+    {
+     "key": "tea shop",
+     "clicks": 30,
+     "impressions": 300,
+     "ctr": 0.1,
+     "position": 5
+    }
+   ],
+   "pages": [
+    {
+     "key": "https://example-shop.test/",
+     "clicks": 30,
+     "impressions": 300,
+     "ctr": 0.1,
+     "position": 5
+    }
+   ],
+   "sitemaps": [
+    {
+     "path": "https://example-shop.test/sitemap.xml",
+     "lastSubmitted": null,
+     "isPending": false,
+     "errors": 0,
+     "warnings": 0
+    }
+   ]
+  }
+ },
+ {
+  "workspace_id": "00000000-0000-4000-8000-000000000001",
+  "source": "search-console",
+  "day": "2026-09-20",
+  "data": {
+   "property": "sc-domain:example-shop.test",
+   "window": {
+    "start": "2026-09-18",
+    "end": "2026-09-18"
+   },
+   "totals": {
+    "clicks": 20,
+    "impressions": 400,
+    "ctr": 0.05,
+    "position": 15
+   },
+   "queries": [
+    {
+     "key": "tea shop",
+     "clicks": 15,
+     "impressions": 150,
+     "ctr": 0.1,
+     "position": 5
+    }
+   ],
+   "pages": [
+    {
+     "key": "https://example-shop.test/",
+     "clicks": 15,
+     "impressions": 150,
+     "ctr": 0.1,
+     "position": 5
+    }
+   ],
+   "sitemaps": [
+    {
+     "path": "https://example-shop.test/sitemap.xml",
+     "lastSubmitted": null,
+     "isPending": false,
+     "errors": 0,
+     "warnings": 0
+    }
+   ]
+  }
+ },
+ {
+  "workspace_id": "00000000-0000-4000-8000-000000000001",
+  "source": "search-console",
+  "day": "2026-10-05",
+  "data": {
+   "property": "sc-domain:example-shop.test",
+   "window": {
+    "start": "2026-10-03",
+    "end": "2026-10-03"
+   },
+   "totals": {
+    "clicks": 50,
+    "impressions": 1000,
+    "ctr": 0.05,
+    "position": 10
+   },
+   "queries": [
+    {
+     "key": "tea shop",
+     "clicks": 30,
+     "impressions": 300,
+     "ctr": 0.1,
+     "position": 5
+    },
+    {
+     "key": "homes",
+     "clicks": 20,
+     "impressions": 200,
+     "ctr": 0.1,
+     "position": 5
+    }
+   ],
+   "pages": [
+    {
+     "key": "https://example-shop.test/",
+     "clicks": 35,
+     "impressions": 350,
+     "ctr": 0.1,
+     "position": 5
+    },
+    {
+     "key": "https://example-shop.test/menu/",
+     "clicks": 15,
+     "impressions": 150,
+     "ctr": 0.1,
+     "position": 5
+    }
+   ],
+   "sitemaps": [
+    {
+     "path": "https://example-shop.test/sitemap.xml",
+     "lastSubmitted": null,
+     "isPending": false,
+     "errors": 0,
+     "warnings": 0
+    }
+   ]
+  }
+ },
+ {
+  "workspace_id": "00000000-0000-4000-8000-000000000001",
+  "source": "search-console",
+  "day": "2026-10-15",
+  "data": {
+   "property": "sc-domain:example-shop.test",
+   "window": {
+    "start": "2026-10-13",
+    "end": "2026-10-13"
+   },
+   "totals": {
+    "clicks": 30,
+    "impressions": 800,
+    "ctr": 0.0375,
+    "position": 15
+   },
+   "queries": [
+    {
+     "key": "tea shop",
+     "clicks": 20,
+     "impressions": 200,
+     "ctr": 0.1,
+     "position": 5
+    },
+    {
+     "key": "open late",
+     "clicks": 10,
+     "impressions": 100,
+     "ctr": 0.1,
+     "position": 5
+    }
+   ],
+   "pages": [
+    {
+     "key": "https://example-shop.test/",
+     "clicks": 20,
+     "impressions": 200,
+     "ctr": 0.1,
+     "position": 5
+    },
+    {
+     "key": "https://example-shop.test/menu/",
+     "clicks": 10,
+     "impressions": 100,
+     "ctr": 0.1,
+     "position": 5
+    }
+   ],
+   "sitemaps": [
+    {
+     "path": "https://example-shop.test/sitemap.xml",
+     "lastSubmitted": null,
+     "isPending": false,
+     "errors": 0,
+     "warnings": 0
+    }
+   ]
+  }
+ },
+ {
+  "workspace_id": "00000000-0000-4000-8000-000000000001",
+  "source": "pagespeed",
+  "day": "2026-09-28",
+  "data": {
+   "strategy": "mobile",
+   "pages": [
+    {
+     "url": "https://example-shop.test/",
+     "performance": 85,
+     "lcpMs": 1900,
+     "cls": 0.01,
+     "tbtMs": 100,
+     "fcpMs": 1000,
+     "speedIndexMs": 2000,
+     "field": null
+    },
+    {
+     "url": "https://example-shop.test/menu/",
+     "performance": 65,
+     "lcpMs": 3600,
+     "cls": 0.02,
+     "tbtMs": 200,
+     "fcpMs": 1500,
+     "speedIndexMs": 2500,
+     "field": null
+    }
+   ],
+   "crux": {
+    "origin": "https://example-shop.test",
+    "none": true,
+    "reason": "CrUX has no record for this origin (too few real visitors on phones yet)"
+   }
+  }
+ },
+ {
+  "workspace_id": "00000000-0000-4000-8000-000000000001",
+  "source": "pagespeed",
+  "day": "2026-10-06",
+  "data": {
+   "strategy": "mobile",
+   "pages": [
+    {
+     "url": "https://example-shop.test/",
+     "performance": 90,
+     "lcpMs": 2000,
+     "cls": 0.01,
+     "tbtMs": 100,
+     "fcpMs": 1000,
+     "speedIndexMs": 2000,
+     "field": null
+    },
+    {
+     "url": "https://example-shop.test/menu/",
+     "performance": 70,
+     "lcpMs": 3400,
+     "cls": 0.02,
+     "tbtMs": 200,
+     "fcpMs": 1500,
+     "speedIndexMs": 2500,
+     "field": null
+    }
+   ],
+   "crux": {
+    "origin": "https://example-shop.test",
+    "none": true,
+    "reason": "CrUX has no record for this origin (too few real visitors on phones yet)"
+   }
+  }
+ },
+ {
+  "workspace_id": "00000000-0000-4000-8000-000000000001",
+  "source": "pagespeed",
+  "day": "2026-10-27",
+  "data": {
+   "strategy": "mobile",
+   "pages": [
+    {
+     "url": "https://example-shop.test/",
+     "performance": 94,
+     "lcpMs": 1800,
+     "cls": 0.01,
+     "tbtMs": 100,
+     "fcpMs": 1000,
+     "speedIndexMs": 2000,
+     "field": null
+    },
+    {
+     "url": "https://example-shop.test/menu/",
+     "performance": 82,
+     "lcpMs": 2600,
+     "cls": 0.02,
+     "tbtMs": 200,
+     "fcpMs": 1500,
+     "speedIndexMs": 2500,
+     "field": null
+    }
+   ],
+   "crux": {
+    "origin": "https://example-shop.test",
+    "formFactor": "PHONE",
+    "lcpMs": 2300,
+    "inpMs": 150,
+    "cls": 0.03,
+    "collectionPeriod": {
+     "first": "2026-09-06",
+     "last": "2026-10-03"
+    }
+   }
+  }
+ },
+ {
+  "workspace_id": "00000000-0000-4000-8000-000000000001",
+  "source": "bing",
+  "day": "2026-09-12",
+  "data": {
+   "site": "https://example-shop.test/",
+   "window": {
+    "start": "2026-09-10",
+    "end": "2026-09-10"
+   },
+   "totals": {
+    "clicks": 5,
+    "impressions": 100
+   },
+   "queries": [
+    {
+     "key": "tea shop",
+     "clicks": 5,
+     "impressions": 100,
+     "ctr": 0.1,
+     "position": 7
+    }
+   ],
+   "pages": [],
+   "crawl": null,
+   "indexnow": []
+  }
+ },
+ {
+  "workspace_id": "00000000-0000-4000-8000-000000000001",
+  "source": "bing",
+  "day": "2026-10-08",
+  "data": {
+   "site": "https://example-shop.test/",
+   "window": {
+    "start": "2026-10-06",
+    "end": "2026-10-06"
+   },
+   "totals": {
+    "clicks": 6,
+    "impressions": 90
+   },
+   "queries": [
+    {
+     "key": "tea shop",
+     "clicks": 6,
+     "impressions": 90,
+     "ctr": 0.1,
+     "position": 7
+    }
+   ],
+   "pages": [],
+   "crawl": null,
+   "indexnow": [
+    {
+     "at": "2026-10-08T10:00:00.000Z",
+     "urls": [
+      "https://example-shop.test/p0/",
+      "https://example-shop.test/p1/"
+     ],
+     "status": 200,
+     "endpoint": "https://api.indexnow.org/indexnow"
+    },
+    {
+     "at": "2026-10-08T15:30:00.000Z",
+     "urls": [
+      "https://example-shop.test/p0/",
+      "https://example-shop.test/p1/",
+      "https://example-shop.test/p2/"
+     ],
+     "status": 200,
+     "endpoint": "https://api.indexnow.org/indexnow"
+    }
+   ]
+  }
+ },
+ {
+  "workspace_id": "00000000-0000-4000-8000-000000000001",
+  "source": "bing",
+  "day": "2026-10-20",
+  "data": {
+   "site": "https://example-shop.test/",
+   "window": {
+    "start": "2026-10-18",
+    "end": "2026-10-18"
+   },
+   "totals": {
+    "clicks": 4,
+    "impressions": 60
+   },
+   "queries": [
+    {
+     "key": "tea shop",
+     "clicks": 4,
+     "impressions": 60,
+     "ctr": 0.1,
+     "position": 7
+    }
+   ],
+   "pages": [],
+   "crawl": null,
+   "indexnow": [
+    {
+     "at": "2026-10-20T09:00:00.000Z",
+     "urls": [
+      "https://example-shop.test/p0/"
+     ],
+     "status": 200,
+     "endpoint": "https://api.indexnow.org/indexnow"
+    }
+   ]
+  }
+ },
+ {
+  "workspace_id": "00000000-0000-4000-8000-000000000001",
+  "source": "ai-answers",
+  "day": "2026-09-27",
+  "data": {
+   "date": "2026-09-27",
+   "rows": [
+    {
+     "promptId": "p1",
+     "prompt": "question p1",
+     "engine": "chatgpt",
+     "named": false,
+     "cited": false,
+     "pageCited": null,
+     "asked_at": "2026-09-27",
+     "evidence_url": null,
+     "evidence_excerpt": "chatgpt capture, seen 2026-09-27"
+    },
+    {
+     "promptId": "p1",
+     "prompt": "question p1",
+     "engine": "gemini",
+     "named": true,
+     "cited": false,
+     "pageCited": null,
+     "asked_at": "2026-09-27",
+     "evidence_url": null,
+     "evidence_excerpt": "gemini capture, seen 2026-09-27"
+    }
+   ]
+  }
+ },
+ {
+  "workspace_id": "00000000-0000-4000-8000-000000000001",
+  "source": "ai-answers",
+  "day": "2026-10-28",
+  "data": {
+   "date": "2026-10-28",
+   "rows": [
+    {
+     "promptId": "p1",
+     "prompt": "question p1",
+     "engine": "chatgpt",
+     "named": true,
+     "cited": false,
+     "pageCited": null,
+     "asked_at": "2026-10-28",
+     "evidence_url": null,
+     "evidence_excerpt": "chatgpt capture, seen 2026-10-28"
+    },
+    {
+     "promptId": "p2",
+     "prompt": "question p2",
+     "engine": "chatgpt",
+     "named": true,
+     "cited": true,
+     "pageCited": null,
+     "asked_at": "2026-10-28",
+     "evidence_url": null,
+     "evidence_excerpt": "chatgpt capture, seen 2026-10-28"
+    },
+    {
+     "promptId": "p1",
+     "prompt": "question p1",
+     "engine": "gemini",
+     "named": false,
+     "cited": false,
+     "pageCited": null,
+     "asked_at": "2026-10-28",
+     "evidence_url": null,
+     "evidence_excerpt": "gemini capture, seen 2026-10-28"
+    },
+    {
+     "promptId": "p2",
+     "prompt": "question p2",
+     "engine": "perplexity",
+     "named": null,
+     "cited": true,
+     "pageCited": null,
+     "asked_at": "2026-10-28",
+     "evidence_url": null,
+     "evidence_excerpt": "perplexity capture, seen 2026-10-28"
+    }
+   ]
+  }
+ }
+]

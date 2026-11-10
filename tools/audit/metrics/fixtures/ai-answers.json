@@ -1,0 +1,227 @@
+{
+ "geminiNamedCited": {
+  "candidates": [
+   {
+    "content": {
+     "parts": [
+      {
+       "text": "Example Property Group is a small agency covering Alpha and Beta. Listings are at https://example-property.test/homes-in-alpha/ and a second source is https://other-site.test/guide."
+      }
+     ]
+    },
+    "groundingMetadata": {
+     "groundingChunks": [
+      {
+       "web": {
+        "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc",
+        "title": "example-property.test"
+       }
+      }
+     ],
+     "webSearchQueries": [
+      "homes in alpha"
+     ]
+    }
+   }
+  ]
+ },
+ "geminiNamedOnly": {
+  "candidates": [
+   {
+    "content": {
+     "parts": [
+      {
+       "text": "Example Property Group is mentioned on local forums, but the best listings are on other-site.test."
+      }
+     ]
+    },
+    "groundingMetadata": {
+     "groundingChunks": [
+      {
+       "web": {
+        "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/def",
+        "title": "other-site.test"
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "geminiNeither": {
+  "candidates": [
+   {
+    "content": {
+     "parts": [
+      {
+       "text": "Several agencies cover that area; compare their listings."
+      }
+     ]
+    },
+    "groundingMetadata": {
+     "groundingChunks": []
+    }
+   }
+  ]
+ },
+ "geminiDomainOnly": {
+  "candidates": [
+   {
+    "content": {
+     "parts": [
+      {
+       "text": "See example-property.test for details on the Alpha listings."
+      }
+     ]
+    },
+    "groundingMetadata": {
+     "groundingChunks": []
+    }
+   }
+  ]
+ },
+ "geminiGroundedOnly": {
+  "candidates": [
+   {
+    "content": {
+     "parts": [
+      {
+       "text": "Alpha has several agencies with current listings."
+      }
+     ]
+    },
+    "groundingMetadata": {
+     "groundingChunks": [
+      {
+       "web": {
+        "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/ghi",
+        "title": "example-property.test"
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "geminiLinkOnly": {
+  "candidates": [
+   {
+    "content": {
+     "parts": [
+      {
+       "text": "Alpha homes are listed at https://example-property.test/homes-in-alpha/ among others."
+      }
+     ]
+    },
+    "groundingMetadata": {
+     "groundingChunks": []
+    }
+   }
+  ]
+ },
+ "gemini429": {
+  "error": {
+   "code": 429,
+   "message": "Resource has been exhausted (e.g. check quota).",
+   "status": "RESOURCE_EXHAUSTED"
+  }
+ },
+ "gemini404": {
+  "error": {
+   "code": 404,
+   "status": "NOT_FOUND",
+   "message": "This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash."
+  }
+ },
+ "captures": {
+  "valid": [
+   {
+    "promptId": "p1",
+    "prompt": "best agency for homes in Alpha",
+    "engine": "chatgpt",
+    "named": true,
+    "cited": false,
+    "pageCited": null,
+    "asked_at": "2026-10-20",
+    "evidence_url": null,
+    "evidence_excerpt": "owner capture of the ChatGPT app, seen 2026-10-20"
+   },
+   {
+    "promptId": "p2",
+    "prompt": "who sells homes in Beta",
+    "engine": "perplexity",
+    "named": null,
+    "cited": true,
+    "pageCited": "https://example-property.test/homes-in-beta/",
+    "asked_at": "2026-10-20",
+    "evidence_url": "https://www.perplexity.ai/search/example",
+    "evidence_excerpt": null
+   }
+  ],
+  "invalid": [
+   {
+    "why": "no evidence",
+    "row": {
+     "promptId": "p3",
+     "engine": "chatgpt",
+     "named": true,
+     "cited": true,
+     "asked_at": "2026-10-20"
+    }
+   },
+   {
+    "why": "neither named nor cited observed",
+    "row": {
+     "promptId": "p3",
+     "engine": "chatgpt",
+     "named": null,
+     "cited": null,
+     "asked_at": "2026-10-20",
+     "evidence_excerpt": "x, seen 2026-10-20"
+    }
+   },
+   {
+    "why": "unknown engine",
+    "row": {
+     "promptId": "p3",
+     "engine": "bard",
+     "named": true,
+     "cited": true,
+     "asked_at": "2026-10-20",
+     "evidence_excerpt": "x, seen 2026-10-20"
+    }
+   },
+   {
+    "why": "asked_at is not a date",
+    "row": {
+     "promptId": "p3",
+     "engine": "gemini",
+     "named": true,
+     "cited": true,
+     "asked_at": "20 Oct",
+     "evidence_excerpt": "x, seen 2026-10-20"
+    }
+   },
+   {
+    "why": "no prompt id",
+    "row": {
+     "engine": "gemini",
+     "named": true,
+     "cited": true,
+     "asked_at": "2026-10-20",
+     "evidence_excerpt": "x, seen 2026-10-20"
+    }
+   },
+   {
+    "why": "named is absent",
+    "row": {
+     "promptId": "p3",
+     "engine": "gemini",
+     "cited": true,
+     "asked_at": "2026-10-20",
+     "evidence_excerpt": "x, seen 2026-10-20"
+    }
+   }
+  ]
+ }
+}

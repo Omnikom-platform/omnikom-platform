@@ -1,0 +1,162 @@
+{
+ "good": {
+  "id": "https://example-property.test/",
+  "loadingExperience": {
+   "id": "https://example-property.test/",
+   "metrics": {
+    "LARGEST_CONTENTFUL_PAINT_MS": {
+     "percentile": 2100,
+     "category": "FAST"
+    },
+    "INTERACTION_TO_NEXT_PAINT": {
+     "percentile": 180,
+     "category": "FAST"
+    },
+    "CUMULATIVE_LAYOUT_SHIFT_SCORE": {
+     "percentile": 5,
+     "category": "FAST"
+    }
+   },
+   "overall_category": "FAST"
+  },
+  "lighthouseResult": {
+   "categories": {
+    "performance": {
+     "score": 0.87
+    }
+   },
+   "audits": {
+    "largest-contentful-paint": {
+     "numericValue": 2412.6
+    },
+    "cumulative-layout-shift": {
+     "numericValue": 0.0456
+    },
+    "total-blocking-time": {
+     "numericValue": 130.2
+    },
+    "first-contentful-paint": {
+     "numericValue": 1180.9
+    },
+    "speed-index": {
+     "numericValue": 2210.4
+    }
+   }
+  }
+ },
+ "slow": {
+  "loadingExperience": {
+   "id": "https://example-property.test/contact/",
+   "metrics": {
+    "LARGEST_CONTENTFUL_PAINT_MS": {
+     "percentile": 1800,
+     "category": "FAST"
+    },
+    "INTERACTION_TO_NEXT_PAINT": {
+     "percentile": 120,
+     "category": "FAST"
+    },
+    "CUMULATIVE_LAYOUT_SHIFT_SCORE": {
+     "percentile": 3,
+     "category": "FAST"
+    }
+   },
+   "origin_fallback": true
+  },
+  "lighthouseResult": {
+   "categories": {
+    "performance": {
+     "score": 0.61
+    }
+   },
+   "audits": {
+    "largest-contentful-paint": {
+     "numericValue": 3402.1
+    },
+    "cumulative-layout-shift": {
+     "numericValue": 0.12
+    },
+    "total-blocking-time": {
+     "numericValue": 410
+    },
+    "first-contentful-paint": {
+     "numericValue": 1900
+    },
+    "speed-index": {
+     "numericValue": 3300
+    }
+   }
+  }
+ },
+ "noScore": {
+  "lighthouseResult": {
+   "categories": {
+    "performance": {
+     "score": null
+    }
+   },
+   "audits": {}
+  }
+ },
+ "error429": {
+  "error": {
+   "code": 429,
+   "message": "Quota exceeded for quota metric 'Queries' and limit 'Queries per day'",
+   "status": "RESOURCE_EXHAUSTED"
+  }
+ },
+ "cruxGood": {
+  "record": {
+   "key": {
+    "formFactor": "PHONE",
+    "origin": "https://example-property.test"
+   },
+   "metrics": {
+    "largest_contentful_paint": {
+     "histogram": [],
+     "percentiles": {
+      "p75": 2250
+     }
+    },
+    "interaction_to_next_paint": {
+     "histogram": [],
+     "percentiles": {
+      "p75": 160
+     }
+    },
+    "cumulative_layout_shift": {
+     "histogram": [],
+     "percentiles": {
+      "p75": "0.04"
+     }
+    }
+   },
+   "collectionPeriod": {
+    "firstDate": {
+     "year": 2026,
+     "month": 10,
+     "day": 3
+    },
+    "lastDate": {
+     "year": 2026,
+     "month": 10,
+     "day": 30
+    }
+   }
+  }
+ },
+ "crux404": {
+  "error": {
+   "code": 404,
+   "message": "chrome ux report data not found",
+   "status": "NOT_FOUND"
+  }
+ },
+ "cruxNoMetrics": {
+  "record": {
+   "key": {
+    "origin": "https://example-property.test"
+   }
+  }
+ }
+}

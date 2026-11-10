@@ -1,0 +1,17 @@
+{
+  "totals": { "rows": [{ "clicks": 12, "impressions": 340, "ctr": 0.035294117647058823, "position": 14.237 }], "responseAggregationType": "auto" },
+  "totalsEmpty": { "responseAggregationType": "auto" },
+  "queries": { "rows": [
+    { "keys": ["homes in alpha"], "clicks": 7, "impressions": 120, "ctr": 0.0583333, "position": 9.4 },
+    { "keys": ["12 alpha lane"], "clicks": 3, "impressions": 20, "ctr": 0.15, "position": 1.8 },
+    { "keys": ["beta street house"], "clicks": 2, "impressions": 200, "ctr": 0.01, "position": 22.5 }
+  ], "responseAggregationType": "auto" },
+  "pages": { "rows": [
+    { "keys": ["https://example-property.test/homes-in-alpha/"], "clicks": 9, "impressions": 150, "ctr": 0.06, "position": 10.1 },
+    { "keys": ["https://example-property.test/"], "clicks": 3, "impressions": 190, "ctr": 0.0157895, "position": 17.3 }
+  ], "responseAggregationType": "auto" },
+  "sitemaps": { "sitemap": [
+    { "path": "https://example-property.test/sitemap.xml", "lastSubmitted": "2026-10-30T09:15:00.000Z", "isPending": false, "isSitemapsIndex": false, "lastDownloaded": "2026-10-31T02:00:00.000Z", "warnings": "0", "errors": "2" }
+  ] },
+  "error403": { "error": { "code": 403, "message": "User does not have sufficient permission for site 'sc-domain:example-property.test'.", "status": "PERMISSION_DENIED" } }
+}

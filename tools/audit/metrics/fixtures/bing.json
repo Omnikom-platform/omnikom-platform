@@ -1,0 +1,116 @@
+{
+ "userSites": {
+  "d": [
+   {
+    "Url": "https://example-property.test/",
+    "IsVerified": true,
+    "AuthenticationCode": "x"
+   },
+   {
+    "Url": "https://other-property.test/",
+    "IsVerified": false,
+    "AuthenticationCode": "y"
+   }
+  ]
+ },
+ "userSitesNoneVerified": {
+  "d": [
+   {
+    "Url": "https://other-property.test/",
+    "IsVerified": false
+   }
+  ]
+ },
+ "queryStats": {
+  "d": [
+   {
+    "Query": "homes in alpha",
+    "Date": "/Date(1793491200000)/",
+    "Clicks": 4,
+    "Impressions": 50,
+    "AvgClickPosition": 3,
+    "AvgImpressionPosition": 8
+   },
+   {
+    "Query": "homes in alpha",
+    "Date": "/Date(1793577600000)/",
+    "Clicks": 2,
+    "Impressions": 30,
+    "AvgClickPosition": 4,
+    "AvgImpressionPosition": 12
+   },
+   {
+    "Query": "beta street house",
+    "Date": "/Date(1793491200000)/",
+    "Clicks": 1,
+    "Impressions": 20,
+    "AvgClickPosition": 5,
+    "AvgImpressionPosition": 15
+   },
+   {
+    "Query": "old query",
+    "Date": "/Date(1793404800000)/",
+    "Clicks": 9,
+    "Impressions": 90,
+    "AvgClickPosition": 2,
+    "AvgImpressionPosition": 2
+   }
+  ]
+ },
+ "pageStats": {
+  "d": [
+   {
+    "Query": "https://example-property.test/homes-in-alpha/",
+    "Date": "/Date(1793491200000)/",
+    "Clicks": 5,
+    "Impressions": 70,
+    "AvgClickPosition": 3,
+    "AvgImpressionPosition": 9
+   },
+   {
+    "Query": "https://example-property.test/",
+    "Date": "/Date(1793491200000)/",
+    "Clicks": 1,
+    "Impressions": 30,
+    "AvgClickPosition": 6,
+    "AvgImpressionPosition": 14
+   }
+  ]
+ },
+ "crawlStats": {
+  "d": [
+   {
+    "Date": "/Date(1793404800000)/",
+    "CrawledPages": 40,
+    "CrawlErrors": 1,
+    "InIndex": 30,
+    "Code4xx": 1,
+    "Code5xx": 0
+   },
+   {
+    "Date": "/Date(1793491200000)/",
+    "CrawledPages": 44,
+    "CrawlErrors": 3,
+    "InIndex": 32,
+    "Code4xx": 2,
+    "Code5xx": 1
+   },
+   {
+    "Date": "/Date(1793836800000)/",
+    "CrawledPages": 99,
+    "CrawlErrors": 9,
+    "InIndex": 90,
+    "Code4xx": 8,
+    "Code5xx": 7
+   }
+  ]
+ },
+ "notArray": {
+  "d": {
+   "message": "unexpected"
+  }
+ },
+ "error": {
+  "Message": "ERROR!!! NotAuthorized"
+ }
+}

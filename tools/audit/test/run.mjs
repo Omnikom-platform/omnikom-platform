@@ -61,6 +61,8 @@ const COVERAGE_REL = "plan/prompt-coverage.json";
 const ENV_SOURCE = "factory/lib/launch.mjs headersText and factory/README.md (robots.txt always Allow, the preview kept out by X-Robots-Tag; head, 2026-10-31); head of operations, 2026-11-01 (slice 4c)";
 
 try {
+  // work order 33: the metrics collectors (tools/audit/metrics/); first, so a mutant of them is caught before the long checks run
+  await (await import(pathToFileURL(join(AUDIT, "test", "metrics.mjs")).href)).metricsChecks({ check, AUDIT, SKILL: process.env.OMNIKOM_SKILL_DIR ? resolve(process.env.OMNIKOM_SKILL_DIR) : resolve(HERE, "..", "..", "..", "skills", "programmatic-enterprise-web-performance") });
   // the rules the engine has, from --list
   const listed = cli(["--list"]);
   const rules = listed.out.split(/\r?\n/).filter(Boolean).map((l) => { const [id, severity, ...src] = l.trim().split(/\s+/); return { id, severity, source: src.join(" ") }; });
