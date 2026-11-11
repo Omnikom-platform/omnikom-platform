@@ -118,7 +118,8 @@ begin
   return counts;
 end $$;
 
-revoke all on function service.purge_expired(int) from public, anon, authenticated;
+-- omnikom_fn is named on purpose: migration 8's default privileges give it execute on every new service function
+revoke all on function service.purge_expired(int) from public, anon, authenticated, omnikom_fn;
 grant execute on function service.purge_expired(int) to service_role;   -- pg_cron runs it as the owner; no function calls it
 
 do $$ begin

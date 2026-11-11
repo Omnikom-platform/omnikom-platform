@@ -3356,6 +3356,9 @@ do $$ begin assert (select count(*) from retention_rules) = 7, 'T33 staff with M
 select test.act_as('00000000-0000-0000-0000-00000000000a');
 do $$ begin assert (select count(*) from retention_rules) = 0, 'T33 an owner reads no rule'; end $$;
 reset role;
+set role omnikom_fn;   -- the Edge Functions' role reaches service functions; no function calls the purge, so it may not run it
+select test.expect_error($q$select service.purge_expired()$q$, 'permission denied');
+reset role;
 select test.expect_error($q$select service.purge_expired(0)$q$, 'R-BATCH');
 -- rows on both sides of each period (and an old consent row that must stay)
 insert into security_events (kind, code, at) values ('refused', 't33-old', now() - interval '400 days'), ('refused', 't33-old', now() - interval '500 days'), ('refused', 't33-new', now() - interval '10 days');
