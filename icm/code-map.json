@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 748,
+    "sources": 749,
     "unowned": 0
   },
   "files": [
@@ -204,7 +204,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-prompt-plan.mjs","owner":"seo-and-audits","exports":["COVERAGE","FACTS_FILE","FACTS_SECTION","NO_FACTS","PROMPTS_SECTION","PROMPT_KINDS","PromptMapError","briefFactProblems","coverageDoc","factLine","factProblems","loadFacts","loadPromptMap","mentionId","promptMapPath","routeRows","sha256","urlProblem"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-rules.mjs","owner":"seo-and-audits","exports":["RuleMissing","SKILL_RULES","clearRuleCache","loadRule","localeEntry","localeOf","rulesDir"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-shots.mjs","owner":"seo-and-audits","exports":["Blocked","UsageError","launch","opt","positionals","report","resolvePage","serve","urlFor"],"tests":[],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-site.mjs","owner":"seo-and-audits","exports":["decode","googleRobotsDirectives","loadSite","normPath","parseHtml","resolveInternal","robotsNoindex","words"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-site.mjs","owner":"seo-and-audits","exports":["decode","googleRobotsDirectives","loadSite","normPath","parseHtml","resolveInternal","robotsNoindex","words"],"tests":["tools/omnikom-cli/test/impact-stamp-hooks.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-snowball.mjs","owner":"seo-and-audits","exports":["stemEnglish","stemFor"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-text.mjs","owner":"seo-and-audits","exports":["GENERIC_ANCHORS","LocaleMissing","STOP","THRESHOLD","containsHeadTerm","coversTerm","gazetteer","headTerm","isGenericAnchor","missing","overlap","removePlaces","requiredTerms","scanPlaces","seqContains","shingles","showsQuestion","slugify","stem","stemSet","stemmerFor","stopWordsFor","termsOf","titleCase","tokenSet","tokens","uaxWords","words"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-writing-fixture.mjs","owner":"seo-and-audits","exports":["HEADERS","LLMS","PAGES","PNG","pageHtml","patchFile","patchPages","serveSite","writeGoodSite"],"tests":[],"feature":""},
@@ -220,7 +220,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/measure.mjs","owner":"seo-and-audits","exports":["AI_ANSWERS_FILE","AI_ANSWERS_SOURCE","DEFAULT_CONFIG","DEFAULT_CTR_CURVE","PROMPT_FILE","aiAnswersSnapshot","buildPlan","configPath","contractCitations","contractRankings","diffPromptMonths","diffRuns","evaluateRules","importFreshMarkdown","initMeasure","loadConfig","loadRun","previousPromptMonth","previousRunDir","promptMapInfo","promptMonth","promptObservations","promptObserved","promptQuestions","runMeasure","targetsInfo","validateAiAnswerRow","windowsFor","writeReport"],"tests":["tools/audit/test/metrics.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/merge.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/migrate.mjs","owner":"seo-and-audits","exports":["CSV_COLS","STAGES","Stop429","buildBaseline","buildInventory","buildRedirectMap","carryOver","csvLine","emitRedirects","excludedBy","goneReason","judge","latestMeasureDir","mapToCsv","parseCli","parseCsv","parseRedirectsFile","parseSitemapXml","readNewSite","runGate","runMigrate","runMonitor","trace"],"tests":[],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/mutants-research.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/mutants-research.mjs","owner":"seo-and-audits","exports":[],"tests":["tools/omnikom-cli/test/ci-skill.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/plan-picture.mjs","owner":"seo-and-audits","exports":["WIDTH","buildPicture","renderPng","volumeText","wrap"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/plan-site.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/plan.mjs","owner":"seo-and-audits","exports":[],"tests":["factory/test/mutate.mjs","factory/test/run.mjs"],"feature":""},
@@ -668,7 +668,7 @@
     {"path":"tools/omnikom-cli/lib/args.mjs","owner":"cli-and-testing","exports":["SLUG","SWITCHES","isUuid","need","needUuid","parseArgs"],"tests":["tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/lib/browser.mjs","owner":"cli-and-testing","exports":["DEVTOOLS_WAIT_MS","findBrowser","launchBrowser"],"tests":["tools/design-engine/tests/test-design-engine.mjs","tools/omnikom-cli/test/harness.mjs","tools/omnikom-cli/test/impact-stamp-hooks.mjs","tools/omnikom-cli/test/journey.mjs","tools/omnikom-cli/test/mutate.mjs","tools/proc-guard/test/run.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/lib/checkout.mjs","owner":"cli-and-testing","exports":["GATES_ROOT","checkRoot","commonDirOf","removeCheckout","treeOf","withTreeCheckout"],"tests":["tools/omnikom-cli/test/impact-stamp-hooks.mjs","tools/omnikom-cli/test/mutate.mjs"],"feature":""},
-    {"path":"tools/omnikom-cli/lib/ci-base.mjs","owner":"cli-and-testing","exports":["changedSinceBase"],"tests":["tools/omnikom-cli/test/ci-functions.mjs","tools/omnikom-cli/test/ci-heavy.mjs","tools/omnikom-cli/test/ci-team-kit.mjs","tools/omnikom-cli/test/impact-stamp-hooks.mjs","tools/omnikom-cli/test/mutate.mjs"],"feature":""},
+    {"path":"tools/omnikom-cli/lib/ci-base.mjs","owner":"cli-and-testing","exports":["changedSinceBase"],"tests":["tools/omnikom-cli/test/ci-functions.mjs","tools/omnikom-cli/test/ci-heavy.mjs","tools/omnikom-cli/test/ci-skill.mjs","tools/omnikom-cli/test/ci-team-kit.mjs","tools/omnikom-cli/test/impact-stamp-hooks.mjs","tools/omnikom-cli/test/mutate.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/lib/ctx.mjs","owner":"cli-and-testing","exports":["fromSql","makeCtx","result"],"tests":["tools/omnikom-cli/test/journey.mjs","tools/omnikom-cli/test/run.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/lib/errors.mjs","owner":"cli-and-testing","exports":["Blocked","Usage"],"tests":["tools/omnikom-cli/test/impact-stamp-hooks.mjs","tools/omnikom-cli/test/journey.mjs","tools/omnikom-cli/test/run.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/lib/fixtures.mjs","owner":"cli-and-testing","exports":["loadFixture","realLooking"],"tests":["tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs"],"feature":""},
@@ -691,6 +691,7 @@
     {"path":"tools/omnikom-cli/omnikom.mjs","owner":"cli-and-testing","exports":["USAGE","main"],"tests":["apps/dashboard/tests/flows.spec.ts","factory/runner/test/run.mjs","supabase/tests/e2e-export.mjs","supabase/tests/e2e-functions.mjs","supabase/tests/e2e-screens.mjs","tools/omnikom-cli/test/harness.mjs","tools/omnikom-cli/test/impact-stamp-hooks.mjs","tools/omnikom-cli/test/journey.mjs","tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/test/ci-functions.mjs","owner":"cli-and-testing","exports":["FUNCTION_INPUTS","ciFunctions","decideFunctions","isFunctionInput"],"tests":[],"feature":""},
     {"path":"tools/omnikom-cli/test/ci-heavy.mjs","owner":"cli-and-testing","exports":["ciHeavy","decide","suiteOnly"],"tests":[],"feature":""},
+    {"path":"tools/omnikom-cli/test/ci-skill.mjs","owner":"cli-and-testing","exports":["SKILL_DIR","ciSkill","decide","readSummary"],"tests":[],"feature":""},
     {"path":"tools/omnikom-cli/test/ci-team-kit.mjs","owner":"cli-and-testing","exports":["ciTeamKit","decide"],"tests":[],"feature":""},
     {"path":"tools/omnikom-cli/test/cluster-child.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/omnikom-cli/test/fake-gh.mjs","owner":"cli-and-testing","exports":["jobRows","makeFakeGh","runRow","stepRows"],"tests":[],"feature":""},

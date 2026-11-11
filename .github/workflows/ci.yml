@@ -464,6 +464,26 @@ jobs:
       - name: Team kit hook tests (when the change touches the kit)
         run: node tools/omnikom-cli/test/ci-team-kit.mjs
 
+  # The SEO skill's own suite (skills/programmatic-enterprise-web-performance: 28 test files and mutants-research, run by its scripts/run-all-tests.sh),
+  # which no job ran before (SEO head and head of operations, 2026-11-11). The same shape as team-kit-hooks: the job always starts and
+  # test/ci-skill.mjs decides from the change's files (history needed); a change outside the skill prints "not needed" and succeeds in seconds.
+  seo-skill:
+    name: SEO skill tests (when the change touches the skill)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out the repository with its whole history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: SEO skill tests (when the change touches the skill)
+        run: node tools/omnikom-cli/test/ci-skill.mjs
+
   dashboard:
     name: dashboard (type check, unit tests, plan gate)
     runs-on: ubuntu-latest

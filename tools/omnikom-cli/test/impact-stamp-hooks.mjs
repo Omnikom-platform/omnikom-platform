@@ -1571,6 +1571,79 @@ export async function impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, l
         /^ {8}run: node tools\/omnikom-cli\/test\/ci-team-kit\.mjs$/m.test(kJob) && /^ {10}fetch-depth: 0$/m.test(kJob) && !/^\s*(if|paths):/m.test(kJob), kJob.slice(0, 200));
     }
 
+    // ============================================================================ ci-skill: the SEO skill's suite runs only when the change touches the skill [skill-ci]
+    {
+      const sk = await import(pathToFileURL(join(CLI_ROOT, 'test', 'ci-skill.mjs')).href);
+      const SD = 'skills/programmatic-enterprise-web-performance/';
+      const SFILES = {
+        [SD + 'scripts/run-all-tests.sh']: 'echo run\n',
+        [SD + 'scripts/lib-site.mjs']: 'export const s = 1;\n',
+        'skills/programmatic-enterprise-web-performance-old/x.mjs': 'export const x = 1;\n',
+        'tools/omnikom-cli/lib/other.mjs': 'export const o = 1;\n',
+        'tools/omnikom-cli/test/ci-skill.mjs': 'export const t = 1;\n',
+        'notes/readme.md': 'prose\n',
+        '.github/workflows/ci.yml': 'name: ci\non: [push]\njobs:\n  a:\n    name: a\n    runs-on: ubuntu-latest\n    timeout-minutes: 5\n    steps:\n      - name: x\n        run: node x.mjs\n',
+      };
+      const SR = mkRepo(SFILES);
+      const sBase = git(SR, 'rev-parse', 'HEAD');
+      const sCommit = files => { for (const [k, v] of Object.entries(files)) put(SR, k, v); git(SR, 'add', '-A'); git(SR, 'commit', '-q', '-m', 'c'); };
+      const sBranch = (name, files) => { git(SR, 'checkout', '-q', '-B', name, sBase); sCommit(files); };
+      // a fake runner: writes the summary (and one log) the real run-all-tests.sh would write into the out folder it is handed
+      const runSkill = (env, summary, argv = [], opts = {}) => {
+        const out = mkdtempSync(join(tmpdir(), 'ci-skill-test-'));
+        const lines = [], spawned = [];
+        const spawn = (cmd, args, o) => {
+          spawned.push({ cmd, file: args[0].replace(/\\/g, '/').split('/').slice(-2).join('/'), out: args[1], cwd: o.cwd.replace(/\\/g, '/') });
+          if (opts.error) return { error: new Error('sh not found') };
+          if (summary !== null) writeFileSync(join(args[1], 'summary.txt'), summary);
+          writeFileSync(join(args[1], 'test-bad.log'), Array.from({ length: 60 }, (_, i) => `line ${i + 1}`).join('\n'));
+          return { status: 0 };
+        };
+        const code = sk.ciSkill({ repo: SR, env, spawn, log: l => lines.push(l), argv, outDir: out });
+        rmSync(out, { recursive: true, force: true });
+        return { code, lines, spawned, out };
+      };
+      const SE = { OMNIKOM_CI_BASE: sBase };
+      const GREEN = 'test-a exit=0 secs=3\ntest-b exit=0 secs=1\nmutants-research exit=0 secs=40\nDONE\n';
+      sBranch('s1', { [SD + 'scripts/lib-site.mjs']: 'export const s = 2;\n' });
+      let q = runSkill(SE, GREEN);
+      check('ci-skill: a change under the skill folder is needed: sh runs scripts/run-all-tests.sh once, in the skill folder, with an out folder; all exit=0 and DONE is exit 0 [skill-ci]',
+        q.code === 0 && q.lines[0] === `ci-skill: needed (${SD}scripts/lib-site.mjs)` && q.spawned.length === 1 && q.spawned[0].cmd === 'sh' && q.spawned[0].file === 'scripts/run-all-tests.sh' && q.spawned[0].cwd.replace(/\/+$/, '').endsWith(SD.slice(0, -1)) && q.spawned[0].out === q.out && q.lines.at(-1) === 'ci-skill: 3 skill test file(s) passed', JSON.stringify(q));
+      q = runSkill(SE, 'test-a exit=0 secs=3\ntest-bad exit=1 secs=2\nDONE\n');
+      check('ci-skill: one test with exit=1 fails the step (exit 1), names it, and prints the last 40 lines of its log [skill-ci]',
+        q.code === 1 && q.lines.includes('ci-skill: FAIL test-bad exit=1; the last lines of its log:') && q.lines.includes('  line 60') && q.lines.includes('  line 21') && !q.lines.includes('  line 20') && q.lines.at(-1) === 'ci-skill: 1 of 2 skill test file(s) failed', JSON.stringify(q.lines.slice(0, 4)));
+      q = runSkill(SE, 'test-a exit=0 secs=3\n');
+      check('ci-skill: a summary that does not end with DONE (the runner stopped early) fails [skill-ci]', q.code === 1 && q.lines.some(l => l.includes('does not end with DONE')), JSON.stringify(q.lines));
+      q = runSkill(SE, 'DONE\n');
+      check('ci-skill: a summary with no test in it fails ("no test ran") [skill-ci]', q.code === 1 && q.lines.some(l => l.includes('no test ran')), JSON.stringify(q.lines));
+      q = runSkill(SE, null);
+      check('ci-skill: no summary file at all fails [skill-ci]', q.code === 1 && q.lines.some(l => l.includes('does not end with DONE')), JSON.stringify(q.lines));
+      q = runSkill(SE, 'test-a exit=0 secs=3\ngarbage here\nDONE\n');
+      check('ci-skill: a summary line it cannot read fails, quoting the line [skill-ci]', q.code === 1 && q.lines.some(l => l.includes('line not understood: garbage here')), JSON.stringify(q.lines));
+      q = runSkill(SE, GREEN, [], { error: true });
+      check('ci-skill: a runner that cannot start is exit 1, never a pass [skill-ci]', q.code === 1 && q.lines.some(l => l.includes('could not start')), JSON.stringify(q.lines));
+      sBranch('s2', { 'notes/readme.md': 'more\n', 'tools/omnikom-cli/lib/other.mjs': 'export const o = 2;\n' });
+      q = runSkill(SE, GREEN);
+      check('ci-skill: prose and another CLI file are not needed: one line, exit 0, nothing spawned [skill-ci]',
+        q.code === 0 && q.lines.join('|') === `ci-skill: not needed (2 changed files, none under ${SD})` && q.spawned.length === 0, JSON.stringify(q));
+      sBranch('s3', { 'skills/programmatic-enterprise-web-performance-old/x.mjs': 'export const x = 2;\n' });
+      q = runSkill(SE, GREEN);
+      check('ci-skill: a folder whose name only starts like the skill folder is not the skill (the prefix ends in a slash) [skill-ci]', q.code === 0 && q.spawned.length === 0, JSON.stringify(q.lines));
+      for (const [name, file] of [['s4', '.github/workflows/ci.yml'], ['s5', 'tools/omnikom-cli/test/ci-skill.mjs']]) {
+        sBranch(name, { [file]: SFILES[file] + '// edited\n' });
+        q = runSkill(SE, GREEN);
+        check(`ci-skill: a change to ${file} is needed [skill-ci]`, q.lines[0] === `ci-skill: needed (${file})` && q.spawned.length === 1, JSON.stringify(q.lines));
+      }
+      q = runSkill({ OMNIKOM_CI_BASE: 'deadbeefdeadbeefdeadbeef' }, GREEN);
+      check('ci-skill: an unusable base is needed (fail safe) [skill-ci]', q.spawned.length === 1 && q.lines[0].startsWith('ci-skill: needed ('), JSON.stringify(q.lines));
+      q = runSkill(SE, GREEN, ['--all']);
+      check('ci-skill: an argument is a usage error (exit 2) and nothing is spawned [skill-ci]', q.code === 2 && q.spawned.length === 0, JSON.stringify(q));
+      const sYml = (() => { try { return readFileSync(join(REPO_ROOT, '.github', 'workflows', 'ci.yml'), 'utf8'); } catch { return ''; } })();
+      const sJob = (/^ {2}seo-skill:\n((?: {3,}.*|\s*)\n)*/m.exec(sYml) || [''])[0];
+      check('ci.yml: the job seo-skill runs `node tools/omnikom-cli/test/ci-skill.mjs` with the whole history (fetch-depth: 0) and has no if:/paths: of its own [skill-ci]',
+        /^ {8}run: node tools\/omnikom-cli\/test\/ci-skill\.mjs$/m.test(sJob) && /^ {10}fetch-depth: 0$/m.test(sJob) && !/^\s*(if|paths):/m.test(sJob), sJob.slice(0, 200));
+    }
+
     // ============================================================================ ci.yml must not run on pushes of the land lock
     {
       const { LOCK_BRANCH } = await lib('landlock.mjs');
