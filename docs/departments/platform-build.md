@@ -623,3 +623,10 @@ Closed work (steps 1 to 4, 5.1 to 5.3, 6A, 6B, the Auth emails) is in the positi
 - 2026-11-10 22:40, head `HEAD_Platform-build_2026-11-09`: 19 landed 2486091 (CI 42889487862, 20 of 20): A13, A14, A17 and A18 are WORKS, total 59 of 95. The 390 px pass fixed four layout faults, with styles.spec.ts checks watched red.
   - 20's review, rulings A to J (work/20-crm-a16/CONTEXT.md): the floor list keeps the old statuses; the dashboard minimum (B) and CLI lead.mjs (C, with the CLI head's conditions) ride in 20; the full A16 screens are work order 39; bulk delete goes through delete_lead (J).
   - Migration 24 (Clients 37b) was reviewed and approved on 5cccd4d. It may reach staging before 23.
+- 2026-11-11 08:00, queue after work order 39 (head of operations, from SEO's work order 38, E7):
+  1. Apply `work/38-dashboard-hardening/router-wiring.patch` (written on 613bae0; router.tsx belongs to work order 44 while it is open):
+     without it ErrorScreen is wired in nowhere. E7 goes WORKS only with it plus "realtime only where shown".
+  2. Test isolation: flows.spec.ts leaves leads on the shared staging test site ("8 lead(s) of the test site left"; :292 failed once
+     on that, green on clean data). The flows clean up after themselves or seed a fresh site per run.
+  3. The next deploy of omnikom-app-staging comes from master and carries WO38's enforced CSP; do it in the same step as the next
+     dashboard-reading migration (charter staging rule, 2026-11-11).
