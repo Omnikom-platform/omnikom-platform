@@ -867,7 +867,8 @@ const MUTANTS = [
   ['retention 28: open or failed webhooks go after 30 days', "x.received_at < cutoff and x.processed_at is not null and x.error is null limit p_batch", "x.received_at < cutoff limit p_batch"],
   ['retention 28: the consent ledger can be given a period', "when 'consent_ledger' then keep_days is null", "when 'consent_ledger' then true"],
   ['retention 28: the audit log has no floor', "when 'audit_log' then keep_days >= 365", "when 'audit_log' then true"],
-  ['retention 28: signed-in users may run the purge', "revoke all on function service.purge_expired(int) from public, anon, authenticated;", ""],
+  // removing the revoke alone is an equivalent mutant (migration 1's default privileges already withhold execute; CI 42964569179):
+  ['retention 28: signed-in users may run the purge', "grant execute on function service.purge_expired(int) to service_role;", "grant execute on function service.purge_expired(int) to service_role, authenticated;"],
   ['retention 28: the purge writes no audit row', "  insert into public.audit_log (workspace_id, actor, action, target, detail) values (null, null, 'retention-purge', 'retention_rules', jsonb_build_object('deleted', counts, 'batch', p_batch));", "  null;"],
   ['retention 28: a batch out of range is taken', "  if p_batch is null or p_batch < 1 or p_batch > 50000 then raise exception 'R-BATCH: the batch is 1 to 50000 rows'; end if;", "  null;"],
 ];
