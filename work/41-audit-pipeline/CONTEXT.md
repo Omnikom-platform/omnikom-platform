@@ -96,20 +96,23 @@ were run against a fixture or only checked against the usage line.
 - report-live.mjs does not read crux.json or the six importers' JSON, though pipeline.json orders them before it: the six-question
   report ignores real-visitor speed, index coverage, trends, non-Google AI answers, reputation, social and ads. Its own work order.
 
-## Builder status, 2026-11-11 04:35 (sonnet; written by the builder, replaced in place when it changes)
-DONE and COMMITTED in the skill repo (outside copy, worktree synced, SOURCE.md row c04ac91, uncommitted here):
-1907497 psi --runs | ea248bc Bing NotAuthorized (+ lib-test-kit.mjs, netguard-import.mjs) | f76874e crux.mjs | a6a0948 six importers | a89ae9f live-target
-pointer, local-grid exit 3, intake last line | 84f1ec5 city-centres | 5777d1b pipeline.json + lib-pipeline.mjs + start.mjs + tests + docs | 41f2bef report-live
-exit 3 + step-contract section K | c04ac91 vantage step as ruled.
-Plain test lines (no mutants): pipeline 126/126, start 125/125, psi 33/33, bing-refusal 15/15, crux 22/22, importers 69/69, step-contracts 41/41, city-centres 19/19.
-UNPROVEN / NOT DONE (say these words in any report):
-- MUTANT RUNS of all 8 suites: NOT RUN (heavy lock order: WO43's proof, platform 20, Clients 37b, then SEO; the head says when). One suite at a time, measure each wall time,
-  send the numbers to HEAD_CLI-and-testing_2026-11-09 (cc the head). Run: node ~/.claude/scripts/heavy.mjs --wait-min 180 --label "SEO 41: <suite> mutants" -- node scripts/<suite>.mjs --json
-- report-live.mjs reading crux and the six importer JSONs: NOT DONE (its own work order). The manifest only orders report-live after them.
-- Live paths UNPROVEN: Google serving a repeat PSI request within ~30 s (hence --run-gap-ms 31000), the HTTP status Bing puts on NotAuthorized, crux and Wikipedia live answers, vantage.
-- Step-contract breakers by design, not changed: demand-bing and forums (a missing NAMED file is exit 2, test-research asserts it), targets-validate (exit 2 = cannot judge), local (exit 0,
-  every part BLOCKED inside its summary). 11 BLOCKED last lines lack ' | unblocks: ' (listed by test-step-contracts section K).
-Landing: the head syncs/commits/lands; WO42 and WO43 do not sync. After any further skill commit by me or them: node skills/sync-skill.mjs programmatic-enterprise-web-performance.
+## Builder status, 2026-11-11 09:25 (sonnet; written by the builder, replaced in place when it changes)
+DONE and COMMITTED in the skill repo (outside copy; newest first): 44e39e9 delegated stamp (intake/approve/lib-provenance; live on Paragon) | 44da6f9 ADOPT by default
+(lib-pipeline adoptStep/adoptDefault, start.mjs --adopt/--fresh) | 05dbf43 browser profile seed against the Windows lockouts (lib-browser-profile.mjs; live proof: BadPasswordAttempts
+0 -> 0 with the seed, 0 -> 1 without) | c1aca68 authority edge cache | report-live section 7 (crux + six importers) | f58e80c licence detection per industry pack (+ footer fix) | 1318d7c topic
+filter per pack | 4bd82ba/5461576 BLOCKED form, intake contact | earlier: psi, bing, crux, importers, live-target pointer, city-centres, pipeline.json + lib-pipeline + start, vantage, authority-anchors.
+Plain test lines (no mutants): pipeline 147/147, start 145/145, approve 111/111, reports 73/73, step-contracts 41/41, industry 24/24, authority-cache 13/13, topic-filter 14/14, browser-profile 11/11, importers 69/69.
+MUTANT RESULTS so far (through heavy.mjs): pipeline 34 of 34 (after retargeting 12 stale patches), importers 24 of 25 (survivor was a test crash, fixed, rerun owed), psi 18/18, bing-refusal 8/8,
+crux 12/12; test-plan-gate 64/64 (ran outside heavy by mistake, disclosed). The killed test-start run printed 2 survivors: "a desktop lift frees a script too" (CHECK FIRST: a lift must never
+free script mode) and "the runner does not make {work}". By the head's order the remaining mutant suites go to the skill CI job: city-centres, local-nap, intake-contact, topic-filter, industry,
+authority-cache, reports group X, browser-profile, step-contracts, start, importers rerun: UNPROVEN until then.
+NOT DONE: gap 2 (pipeline.json paths of local-grid-plan, capture-maps, local-grid-import do not match local-grid.mjs: it writes captures/local/grid/requests.json, reads
+captures/local/grid/<id>.json, writes local/<date>/grid.json; plus a test that each script step's evidence paths match what its script writes) | pipeline.json kind (stable | time-sensitive |
+derived) and maxAgeDays on every step, validator rules, start.mjs modes resume / re-evaluate / fresh (list from the head; wait for the CLI head's OK) | test-browser-leftovers not run (real
+browser) | Playwright launches (lib-shots.mjs) are NOT seeded against the lockouts, and the repo tools that launch a browser (tools/site-backup, proc-guard, omnikom-cli/lib/browser.mjs,
+client-questions, docs render, apps/dashboard global-setup) are not covered.
+UNPROVEN live: the authority cache at real scale (test graph only), Google serving a repeat PSI request within ~30 s, Bing NotAuthorized status, crux and Wikipedia live answers, vantage.
+Landing: the head syncs the skill's committed HEAD into skills/ and lands; I do not edit the skill repo while a sync runs.
 - New modules the owner asked for on 2026-11-11 04:27 (WO40 items 15 to 22). Each becomes a pipeline.json step once a skill script
   exists (WO40 B writes one-off scripts in its worktree first):
   - tracking tags and lead measurement (mechanical, from the snapshot)
