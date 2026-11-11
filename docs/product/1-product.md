@@ -136,7 +136,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | E4 Background jobs: the stale-job reaper scheduled, a mail outbox worker, retries | PARTLY | the reaper runs every 5 minutes on staging (H0-1, work order 13); no outbox (H1-4) |
 | E5 Abuse protection: per-visitor limits and a bot check at the edge; bounded security events | PARTLY | security events are bucketed per source, function and minute, at most 11 new rows a minute per kind from anonymous callers (H0-2, work order 15, migration 20, walls T26a-e); staging 2026-11-09: 25 bad-signature posts to capture-lead on one fresh site wrote 2 security_events rows (2 minute buckets, n 14 and 11), where the same flood wrote 25 before; no edge limits or bot check (KNOWN-1) |
 | E6 Pooled database connections for every function | MISSING | a direct connection per call (KNOWN-2) |
-| E7 Dashboard hardening: CSP and security headers, error boundary, cache rules, realtime only where shown | MISSING | no `public/_headers`, no error component (H1-5, KNOWN-5) |
+| E7 Dashboard hardening: CSP and security headers, error boundary, cache rules, realtime only where shown | PARTLY | the headers file `apps/dashboard/public/_headers` (CSP, HSTS, frame, referrer, cache rules per path) and the error screen `apps/dashboard/src/ErrorScreen.tsx` (work order 38, `work/38-dashboard-hardening/`): on a deployed test origin 2026-11-11 the audit checks SEC-010 and SEC-075 passed and 43 of 44 flows ran with 0 CSP violations. Missing half: the error screen is not wired into the router (`work/38-dashboard-hardening/router-wiring.patch`, rides in work order 39), the staging dashboard is not yet deployed with the headers, and realtime only where shown (H1-5, KNOWN-5) |
 | E8 Safe live publish: smoke on the deployment by content hash, automatic rollback | PARTLY | a title smoke after going live (H1-6) |
 | E9 Least-privilege secrets: minimal build environment, dispatch token scope, two-key rotation, per-project tokens | PARTLY | every runner step gets an allow-listed environment (H0-3, work order 14) (H0-5, H2-5, H2-11) |
 | E10 Media bucket limits on size and type | WORKS | the bucket enforces 25 MB and the five types of upload-start on every upload, signed URLs included, and no signed-in user inserts into Storage directly (H0-4, work order 16, migration 21, walls T10 and T30); staging 2026-11-09 (e2e-media-limits): 26214401 bytes refused 413, text/html refused 415, a small png accepted, a direct insert refused 403 |
@@ -159,8 +159,8 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B Dashboard | 10 | 6 | 5 | 21 |
 | C Backend and database | 13 | 3 | 1 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
-| E Hardening | 6 | 10 | 5 | 21 |
-| Total | 61 | 23 | 11 | 95 |
+| E Hardening | 6 | 11 | 4 | 21 |
+| Total | 61 | 24 | 10 | 95 |
 
 Completion is reported from these counts only.
 

@@ -101,15 +101,15 @@ starts its next slice from its lowest open stage. A step lands with its test and
 | H2-3 | H2 | RLS helpers run once per row | platform build | E13 |
 | H2-4 | H2 | publish validation is a round trip per row; export holds 5,001 rows in memory | platform build | E13 |
 | H2-5 | H2 | one global RUNNER_KEY and an account-wide Pages token (ADR 0011): OIDC and per-project tokens | platform build | E9 |
-| H2-6 | H2 | no offboarding: data export, Pages project, Storage, Vault keys, domain | platform build | E14 |
-| H2-7 | H2 | client Pages projects, domains and keys made by hand; `sites.domain` not unique | platform build | E15 |
-| H2-8 | H2 | erasure blocked by NO ACTION foreign keys to auth.users; privacy requests are only tickets | platform build | E14 |
+| H2-6 | H2 | done, 63fb057: no offboarding: data export, Pages project, Storage, Vault keys, domain | clients | E14 |
+| H2-7 | H2 | done, a6b55ae and 9b0bb8a: client Pages projects, domains and keys made by hand; `sites.domain` not unique | clients | E15 |
+| H2-8 | H2 | done, 63fb057: erasure blocked by NO ACTION foreign keys to auth.users; privacy requests are only tickets | clients | E14 |
 | H2-9 | H2 | no limits on sites, media bytes or publishes; no billing | platform build | E16 |
-| H2-10 | H2 | no dependency scan; CI installs with `--no-audit` | CLI and testing | E17 |
+| H2-10 | H2 | done, 862f50c: no dependency scan; CI installs with `--no-audit` | CLI and testing | E17 |
 | H2-11 | H2 | key rotation only reported, and RUNNER_KEY is one value: accept two keys | platform build | E9 |
 | H2-12 | H2 | restore drill manual; runbooks R1-R5 only in the archive | platform build | E1 |
 | H2-13 | H2 | richtext accepted as any string; no sanitiser; no gate on `raw()` for tenant fields | platform build | E18 |
-| H2-14 | H2 | migrations: no lock lint, no expand-contract, no CONCURRENTLY possible | platform build | E19 |
+| H2-14 | H2 | done, a3846cf and 536d3bb: migrations: no lock lint, no expand-contract, no CONCURRENTLY possible | CLI and testing | E19 |
 | H2-15 | H2 | mail: no bounce or complaint handling, no erasure executor | platform build | E21 |
 | H3 | H3 | the audit's remaining items (C3, U0, U3, U4, U6-U10, U12, U13, U15, U16, U20, U24, U30-U34) | each area's owner | as found |
 

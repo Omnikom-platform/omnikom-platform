@@ -122,8 +122,10 @@ script never deploys, changes DNS or sends anything: those are the owner's click
 Sources: Search Console daily, PageSpeed weekly on five pages and at every launch, CrUX weekly, Bing and IndexNow on every
 publish, Cloudflare Web Analytics (no cookies), AI answers monthly; lead numbers from the CRM. Per site: a Search Console
 domain property verified by DNS, a sitemap submit after every live publish, a day-0 baseline. All land in
-`metrics_snapshots` with source and date; a monthly plain-words report is generated from the rows. Not built: `metrics-pull`,
-`sitemap-submit`, the verification step, the IndexNow ping, the report. Built: the keys and `tools/check-api-keys.mjs`.
+`metrics_snapshots` with source and date; a monthly plain-words report is generated from the rows. Built: the collectors,
+their row checks, the sitemap submit call and the monthly report as modules a function can load
+(`tools/audit/metrics/README.md`), the keys and `tools/check-api-keys.mjs`. Not built: the scheduled `metrics-pull`
+function that runs them, the verification step, the IndexNow ping; no source is proven live yet.
 
 ## The test site
 
