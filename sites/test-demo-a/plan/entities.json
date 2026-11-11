@@ -5,6 +5,7 @@
   "families": { "c-buy": "buyer-guide" },
   "pageTypeOf": { "/": "home", "/contact/": "contact" },
   "defaultForm": "contact",
+  "crmFrom": "../../../contracts/examples/crm-lists/real-estate.json",
   "forms": {
     "contact": {
       "label": "Contact",

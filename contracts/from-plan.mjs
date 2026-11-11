@@ -167,7 +167,7 @@ export function seedGaps(contract) {
 }
 
 // `crmFrom` in the entities file names a fragment of contracts/examples/crm-lists/ (path relative to the entities file); its `crm` block is copied in whole
-function withCrm(E, entitiesPath) {
+export function withCrm(E, entitiesPath) {
   if (!E.crmFrom) return E;
   return { ...E, crm: JSON.parse(readFileSync(join(dirname(entitiesPath), E.crmFrom), 'utf8')).crm };
 }

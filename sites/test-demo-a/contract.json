@@ -477,6 +477,224 @@
    }
   }
  ],
+ "crm": {
+  "lead_types": [
+   {
+    "key": "buy",
+    "label": "Buy a home"
+   },
+   {
+    "key": "sell",
+    "label": "Sell a home"
+   },
+   {
+    "key": "home-value",
+    "label": "Home value"
+   },
+   {
+    "key": "cash-offer",
+    "label": "Cash offer"
+   },
+   {
+    "key": "showing-request",
+    "label": "Showing request"
+   },
+   {
+    "key": "listing-question",
+    "label": "Question about a listing"
+   },
+   {
+    "key": "rent",
+    "label": "Rent a home"
+   },
+   {
+    "key": "rent-out",
+    "label": "Rent out a property"
+   },
+   {
+    "key": "financing",
+    "label": "Financing or pre-approval"
+   },
+   {
+    "key": "relocation",
+    "label": "Relocation"
+   },
+   {
+    "key": "open-house",
+    "label": "Open house"
+   },
+   {
+    "key": "new-construction",
+    "label": "New construction"
+   },
+   {
+    "key": "investor",
+    "label": "Investing"
+   },
+   {
+    "key": "agent-recruiting",
+    "label": "Join the team"
+   },
+   {
+    "key": "enquiry",
+    "label": "Enquiry"
+   }
+  ],
+  "statuses": [
+   {
+    "key": "not-contacted",
+    "label": "Not contacted yet",
+    "stage": "new",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "contacted",
+    "label": "Contacted",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": true,
+    "needsText": false
+   },
+   {
+    "key": "answering-machine",
+    "label": "Answering machine",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": true,
+    "needsText": false
+   },
+   {
+    "key": "voicemail-left",
+    "label": "Voicemail left",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": true,
+    "needsText": false
+   },
+   {
+    "key": "no-answer",
+    "label": "No answer",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": true,
+    "needsText": false
+   },
+   {
+    "key": "call-back",
+    "label": "Call back",
+    "stage": "working",
+    "needsDate": true,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "follow-up",
+    "label": "Follow-up",
+    "stage": "working",
+    "needsDate": true,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "appointment-set",
+    "label": "Appointment set",
+    "stage": "working",
+    "needsDate": true,
+    "needsWho": true,
+    "needsText": false
+   },
+   {
+    "key": "interested",
+    "label": "Interested in something specific",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": true
+   },
+   {
+    "key": "qualified",
+    "label": "Qualified",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "showing-or-listing",
+    "label": "Showing or listing",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "under-contract",
+    "label": "Under contract",
+    "stage": "working",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "not-qualified",
+    "label": "Not qualified",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "not-interested",
+    "label": "Not interested",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "wrong-number",
+    "label": "Wrong number",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "do-not-contact",
+    "label": "Do not contact",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "spam",
+    "label": "Spam",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "lost",
+    "label": "Lost",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   },
+   {
+    "key": "closed",
+    "label": "Closed",
+    "stage": "outcome",
+    "needsDate": false,
+    "needsWho": false,
+    "needsText": false
+   }
+  ]
+ },
  "clientWording": [],
  "gateWaivers": [],
  "pageSeeds": {},

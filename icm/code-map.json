@@ -93,7 +93,7 @@
     {"path":"contracts/examples/crm-lists/build.mjs","owner":"platform-build","exports":[],"tests":["factory/test/mutate.mjs","factory/test/run.mjs"],"feature":""},
     {"path":"contracts/examples/rainmaker/check.mjs","owner":"platform-build","exports":[],"tests":["clients/test/run.mjs","tools/departments/test/mutate.mjs","tools/departments/test/run.mjs"],"feature":""},
     {"path":"contracts/examples/vtv/adapter.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
-    {"path":"contracts/from-plan.mjs","owner":"platform-build","exports":["generate","seedGaps","slugify"],"tests":["contracts/test/mutate.mjs","contracts/test/run.mjs"],"feature":""},
+    {"path":"contracts/from-plan.mjs","owner":"platform-build","exports":["generate","seedGaps","slugify","withCrm"],"tests":["contracts/test/mutate.mjs","contracts/test/run.mjs"],"feature":""},
     {"path":"contracts/industry-run/run.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"contracts/place.mjs","owner":"platform-build","exports":["place","publicData"],"tests":["contracts/test/mutate.mjs","contracts/test/run.mjs"],"feature":""},
     {"path":"contracts/screens.mjs","owner":"platform-build","exports":["screens"],"tests":[],"feature":""},

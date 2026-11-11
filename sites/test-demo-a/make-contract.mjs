@@ -6,14 +6,14 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { generate } from '../../contracts/from-plan.mjs';
+import { generate, withCrm } from '../../contracts/from-plan.mjs';
 import { validateContract, isMain } from '../../contracts/validate.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (f) => JSON.parse(readFileSync(join(HERE, f), 'utf8'));
 
 export function makeContract() {
-  return generate({ sitemap: read('plan/sitemap.json'), business: { industry: 'real-estate-agent' }, existing: null, entities: read('plan/entities.json'), planDir: 'sites/test-demo-a/plan' });
+  return generate({ sitemap: read('plan/sitemap.json'), business: { industry: 'real-estate-agent' }, existing: null, entities: withCrm(read('plan/entities.json'), join(HERE, 'plan', 'entities.json')), planDir: 'sites/test-demo-a/plan' });
 }
 
 if (isMain(import.meta.url)) {
