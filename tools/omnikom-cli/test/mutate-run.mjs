@@ -294,6 +294,7 @@ export async function mutateRunTests({ check, CLI_ROOT, REPO_ROOT }) {
     'a shard job has another timeout': ciReal.replace(fnBlock(2), fnBlock(2).replace('timeout-minutes: 45', 'timeout-minutes: 99')),
     'a shard job runs ci-functions.mjs with no --shard': ciReal.replace(/test\/ci-functions\.mjs --shard 1\/4/, 'test/ci-functions.mjs'),
     'a shard job calls mutate.mjs itself (no scope check) [ci-runners]': ciReal.replace(/tools\/omnikom-cli\/test\/ci-functions\.mjs --shard 2\/4/, 'supabase/functions/test/mutate.mjs --shard 2/4'),
+    'every shard job also calls mutate.mjs itself, the same way (only the direct-call rule sees it) [ci-runners]': [1, 2, 3, 4].reduce((c, n) => c.replace(fnBlock(n), fnBlock(n) + `      - name: Again\n        run: node supabase/functions/test/mutate.mjs --shard ${n}/4\n`), ciReal),
     'a shard job calls both (the wrapper and mutate.mjs) [ci-runners]': ciReal.replace(fnBlock(3), fnBlock(3) + '      - name: Again\n        run: node supabase/functions/test/mutate.mjs --shard 3/4\n'),
     'the functions job runs the mutants too': ciReal.replace('        run: node supabase/functions/test/run.mjs\n', '        run: node supabase/functions/test/run.mjs\n      - name: Function mutants\n        run: node supabase/functions/test/mutate.mjs\n'),
     'the functions job no longer runs the Deno tests': ciReal.replace('        run: node supabase/functions/test/run.mjs\n', '        run: node supabase/functions/test/other.mjs\n'),
