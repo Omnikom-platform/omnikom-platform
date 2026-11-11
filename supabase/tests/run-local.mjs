@@ -15,6 +15,8 @@ import { guardedTemp, sweep } from '../../tools/proc-guard/index.mjs';
 import { startOnBlock } from './lib/cluster-port.mjs';
 // a mutant that can never run (a missing comma, an entry in the wrong list) and a run of none are FAILs, never a quiet green
 import { mutantListProblems, noneRanProblem } from './lib/mutant-lists.mjs';
+// a failing real migration is named (file, line, the whole database error) on the last lines, the only ones CI keeps
+import { whereFailed, failedLine } from './lib/real-failure.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const arg = n => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : null; };
@@ -887,7 +889,7 @@ const UPGRADE_MUTANTS = [
   ['crm23: upgrade, a new lead type column starts empty', "add column lead_type text not null default 'enquiry'", "add column lead_type text not null default 'other'"],
 ];
 
-let failed = 0, crashed = null, real = { setup: false, ok: false, out: '' }, ran = 0, left = '?';
+let failed = 0, crashed = null, real = { setup: false, ok: false, out: '' }, ran = 0, left = '?', realFail = null;
 const bad = [];   // the mutants not caught, named again on the last line (CI keeps only the last lines of a gate)
 try {
   const listProblems = mutantListProblems({ MUTANTS, PORT_MUTANTS, PORT_HARNESS_FILES, exists: f => existsSync(join(HERE, '..', f)) });
@@ -895,7 +897,7 @@ try {
   if (listProblems.length) throw new Error(`the mutant lists are broken (${listProblems.length} FAIL line(s) above); nothing was run`);
   real = fresh('real', src);
   console.log(real.setup && real.ok ? `PASS real migration: ${real.out.split('\n').filter(l => /PASSED/.test(l)).join(' ').trim()}` : `FAIL real migration:\n${real.out.split('\n').filter(l => /ERROR|EXPECTED|assert|\(E[A-Z]+\)/i.test(l)).join('\n')}`);
-  if (!(real.setup && real.ok)) failed++;
+  if (!(real.setup && real.ok)) { failed++; realFail = whereFailed(real.out, { 'real.sql': { label: 'the migrations', src }, 'tests.sql': { label: 'the tenancy tests', src: null }, 'shim.sql': { label: 'the local shim', src: null }, 'cron-stub.sql': { label: 'the cron stub', src: null } }); }
   // Work order 16 (T30c): the media bucket's two limits must equal upload-start's MAX_BYTES and MIMES, so the two cannot drift apart.
   if (real.setup) {
     const us = readFileSync(join(HERE, '..', 'functions', 'upload-start', 'index.ts'), 'utf8');
@@ -987,5 +989,7 @@ try {
 } finally {
   guard.release({ keep: process.argv.includes('--keep') });   // always: a crash must not leave a server running (pg_ctl stop -m immediate, every process naming the folder, then the folder)
 }
-console.log(`\n${failed ? 'FAILED' : 'OK'}: real migration ${real.ok ? 'passes' : 'fails'}; ${ran} mutants${crashed ? ' (CRASHED, see CRASH above)' : ''}${bad.length ? `; not caught: ${bad.join('; ')}` : ''}`);
+// the failing statement's file, line and whole error go last, next to the summary: CI keeps only the last lines of a gate
+if (realFail) console.log(`\nFAIL real migration in ${realFail.where}${realFail.line ? ` line ${realFail.line}` : ''}:\n${realFail.error.split(/\r?\n/).slice(0, 6).join('\n')}`);
+console.log(`\n${failed ? 'FAILED' : 'OK'}: real migration ${real.ok ? 'passes' : `fails${realFail ? ` (${failedLine(realFail)})` : ''}`}; ${ran} mutants${crashed ? ' (CRASHED, see CRASH above)' : ''}${bad.length ? `; not caught: ${bad.join('; ')}` : ''}`);
 process.exit(failed ? 1 : 0);

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 750,
+    "sources": 752,
     "unowned": 0
   },
   "files": [
@@ -427,11 +427,13 @@
     {"path":"supabase/tests/lib/cluster-port.mjs","owner":"platform-build","exports":["BIND_FAILURE","BLOCKS","CLI_BLOCK","LISTEN","MAX_TRIES","nextPort","pgOptions","pickPort","startOnBlock"],"tests":[],"feature":""},
     {"path":"supabase/tests/lib/fake-pg-ctl-bind.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/tests/lib/mutant-lists.mjs","owner":"platform-build","exports":["mutantListProblems","noneRanProblem"],"tests":[],"feature":""},
+    {"path":"supabase/tests/lib/real-failure.mjs","owner":"platform-build","exports":["failedLine","whereFailed"],"tests":[],"feature":""},
     {"path":"supabase/tests/local-shim.sql","owner":"platform-build","exports":["fn:auth.jwt","fn:auth.uid","fn:public.rls_auto_enable","fn:storage.foldername","table:AS","table:auth.users","table:storage.buckets","table:storage.objects"],"tests":[],"feature":""},
     {"path":"supabase/tests/mutant-lists.test.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/tests/port-probe.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/tests/publish-parity.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/tests/qualify.mjs","owner":"platform-build","exports":["TABLES","TYPES","qualify"],"tests":[],"feature":""},
+    {"path":"supabase/tests/real-failure.test.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/tests/run-local.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/tests/run-staging.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/tests/tenancy.test.sql","owner":"platform-build","exports":["fn:private.zz_probe","fn:service.zz_probe","fn:test.act_as","fn:test.activate_addon","fn:test.add_lead","fn:test.audit_job","fn:test.audit_sum","fn:test.book","fn:test.c","fn:test.cl","fn:test.claims","fn:test.crm_drop","fn:test.crm_put","fn:test.crm_target","fn:test.crm_tested","fn:test.delete_lead","fn:test.drafts","fn:test.expect_error","fn:test.exported","fn:test.find_login","fn:test.id","fn:test.lead_update","fn:test.mark_read","fn:test.offboarding_storage","fn:test.open_privacy_request","fn:test.pp","fn:test.publish","fn:test.remove_member","fn:test.save","fn:test.save_b","fn:test.save_crm_template","fn:test.set_addon_state","fn:test.set_alerts","fn:test.set_booking_state","fn:test.set_crm","fn:test.set_member","fn:test.set_privacy_request_state","fn:test.set_workspace_state","fn:test.t29_done","fn:test.t29_fu","fn:test.t29_lead","fn:test.t29_save","fn:test.t29_task","fn:test.t29_vdel","fn:test.t31_delctx","fn:test.t31_imp","fn:test.t31_lead","fn:test.t31_list","fn:test.t31_names","fn:test.t31_upd","fn:test.unpublish","fn:vault.create_secret","fn:vault.update_secret","table:test.counts","table:test.delctx","table:test.ids","table:test.r","table:vault.secrets"],"tests":[],"feature":""},
