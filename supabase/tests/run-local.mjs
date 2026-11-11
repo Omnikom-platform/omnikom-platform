@@ -3,7 +3,7 @@
 // Needs initdb/pg_ctl/psql on PATH (Postgres 15+). The shim (default local-shim.sql) models Supabase's defaults.
 // Then runs each MUTANT (one wall removed from a copy of the migration) and requires the tests to fail: a wall whose
 // mutant passes has no test. Exit 0 = tests pass on the real migration AND every mutant is caught.
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -13,6 +13,8 @@ import { qualify } from './qualify.mjs';
 import { guardedTemp, sweep } from '../../tools/proc-guard/index.mjs';
 // 5-PORT: the port block, the listen pin and the bind fallback live in one module for every test cluster
 import { startOnBlock } from './lib/cluster-port.mjs';
+// a mutant that can never run (a missing comma, an entry in the wrong list) and a run of none are FAILs, never a quiet green
+import { mutantListProblems, noneRanProblem } from './lib/mutant-lists.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const arg = n => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : null; };
@@ -888,6 +890,9 @@ const UPGRADE_MUTANTS = [
 let failed = 0, crashed = null, real = { setup: false, ok: false, out: '' }, ran = 0, left = '?';
 const bad = [];   // the mutants not caught, named again on the last line (CI keeps only the last lines of a gate)
 try {
+  const listProblems = mutantListProblems({ MUTANTS, PORT_MUTANTS, PORT_HARNESS_FILES, exists: f => existsSync(join(HERE, '..', f)) });
+  for (const p of listProblems) { console.log(`FAIL mutant lists: ${p}`); failed++; bad.push(`mutant lists: ${p}`); }
+  if (listProblems.length) throw new Error(`the mutant lists are broken (${listProblems.length} FAIL line(s) above); nothing was run`);
   real = fresh('real', src);
   console.log(real.setup && real.ok ? `PASS real migration: ${real.out.split('\n').filter(l => /PASSED/.test(l)).join(' ').trim()}` : `FAIL real migration:\n${real.out.split('\n').filter(l => /ERROR|EXPECTED|assert|\(E[A-Z]+\)/i.test(l)).join('\n')}`);
   if (!(real.setup && real.ok)) failed++;
@@ -968,6 +973,8 @@ try {
       console.log(`${caught ? 'caught  ' : 'SURVIVED'} ${name.padEnd(44)} ${(outOf(m).match(/^FAIL[^\n]*/m) || [''])[0].slice(0, 120)}`);
     }
   }
+  const none = noneRanProblem(ran, ONLY);
+  if (none) { console.log(`FAIL ${none}`); failed++; bad.push(none); }
   // no mutant database may be left behind (the disk wall above); `real` is the only database of ours
   const q = sqlOn('postgres', "select count(*) from pg_database where datname ~ '^m[0-9]+$'");
   left = (q.stdout ?? '').trim();
