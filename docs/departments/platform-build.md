@@ -635,3 +635,7 @@ Closed work (steps 1 to 4, 5.1 to 5.3, 6A, 6B, the Auth emails) is in the positi
      dashboard's Playwright setup: launchPersistentContext on a prepared folder whose "Local State" holds
      password_manager.os_password_blank=false and os_password_last_changed = now in Chrome's clock (copy the CLI's one-liner).
      Proof: ([ADSI]"WinNT://$env:COMPUTERNAME/DELL,user").BadPasswordAttempts stays flat across a full flows run.
+     The same seed goes before every fresh-profile Chrome or Edge launch in our files (head of operations 08:38): tools/site-backup
+     (backup, verify, view, test-loaders), tools/proc-guard (index, test/child), docs/blueprint/wireframes/render.mjs,
+     docs/blueprint/diagrams/render.mjs, apps/dashboard/tests/global-setup.ts (launchPersistentContext on a seeded folder). Reuse
+     CLI's seedProfile (tools/omnikom-cli/lib/browser.mjs) or SEO's helper (skill commit 05dbf43) by path once on master.
