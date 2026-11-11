@@ -57,7 +57,7 @@ none
 | work/37-offboard/CONTEXT.md | head-of-operations | 58 | 37 offboard a client | Owner: clients. Model: opus (the head did it). Branch: check/clients/wo37-offboard. Status: DONE on staging (37 and 37b); E14 WORKS (head of operations 2026-... |  |
 | work/37-offboard/proof.md | head-of-operations | 162 | 37 proof (staging, 2026-11-10) | All commands run as `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node <script> ...`. `<out>` is a folder in the session's scratch direc... |  |
 | work/38-dashboard-hardening/CONTEXT.md | head-of-operations | 86 | 38 dashboard hardening: security headers, cache rules, error screen (E7, SEO's parts) | Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/dashboard-hardening. Status: OPEN (head of operations 2026-11-10 20:14). |  |
-| work/41-audit-pipeline/CONTEXT.md | head-of-operations | 122 | 41 Skill: one step list for a full client audit (pipeline.json), read by start.mjs and by `omnikom seo run` | Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/audit-pipeline. Status: OPEN, 2026-11-11 01:40, from the head of SEO. Ordered by the own... |  |
+| work/41-audit-pipeline/CONTEXT.md | head-of-operations | 125 | 41 Skill: one step list for a full client audit (pipeline.json), read by start.mjs and by `omnikom seo run` | Owner: seo-and-audits. Model: sonnet, effort high. Branch: check/seo/audit-pipeline. Status: OPEN, 2026-11-11 01:40, from the head of SEO. Ordered by the own... |  |
 | work/README.md | head-of-operations | 47 | Work orders | `work/` is layer 2 of the layout in `docs/product/README.md`: one folder per piece of work, plus `STATE.md` (where things stand now). A session loads `CLAUDE... |  |
 
 ## Layer 3 (82)
