@@ -642,3 +642,25 @@ Closed work (steps 1 to 4, 5.1 to 5.3, 6A, 6B, the Auth emails) is in the positi
      SUPERSEDED 2026-11-11 08:41 (owner, through the head of operations): no own patches. CLI builds one shared toolkit in the Omnikom
      CLI as work order 47 (browser launcher, polite fetch, renderer, heavy lock) with a CI guard against launches outside it; after it
      lands, platform moves the launchers listed above onto it.
+- 2026-11-11 09:25, HANDOVER, head `HEAD_Platform-build_2026-11-09` (Opus 5.5), wrap-up ordered by the owner 08:42; reports to
+  HEAD-OF-OPERATIONS_Fable_2026-11-11 from 08:50.
+  On master (this session): 20 A16 backend 9b0bb8a (A16 PARTLY; staging: migration 23, lead-update/lead-list/lead-export/leads-bulk,
+  e2e-crm-a16 ALL PASSED, flows 11 passed); applier `-- no-transaction` 536d3bb; migration 25 lead FK indexes 74b278e (staging
+  2026-11-11 00:59 UTC, E19 WORKS). Staging ledger order: 23, 25, then Clients' 26 (03:13 UTC). KNOWN-6 (9-blocks H1-2): staging
+  applied 20 before 16, repair steps written, before the first promotion.
+  On the land train (head of operations, train a): run-local-guard 6ef2ad0 (mutant lists and run-of-none FAIL; a failing real migration
+  named by file, line and error; the charter's staging-dashboard rule and the queue below).
+  Parked, each with its own HANDOVER in its CONTEXT.md (train b):
+  - WO39 A16 screens, branch check/platform/crm-a16-screens (fc7b249: ba30951 + the mutant retarget + its HANDOVER): owed CI green (functions shard 4,
+    "crm3b db ... underscore" mutant target moved by the db.ts ';' fix), then deploy leads-bulk to staging (and every function that
+    imports _shared/db.ts, in time), one heavy slot for the A16 flows (13: first error unknown; 14 needs the deploy; lead type; agent;
+    plan-gate DOM) and styles (390 px shots for the owner), then A16 WORKS (A 23/3/0). Builder stopped; worktree crm-a16-screens kept.
+  - WO44 block 6 checkpoint 1, branch check/platform/overview-metrics 0f3487c: migration 27 (bing, metrics write path, daily
+    pg_cron) + C16 (metrics-pull, sitemap-submit). Owed CI green on the T34 fix (37b's T32e leaves workspace B deleted). Staging, in
+    order, after it lands: apply 27; deploy metrics-pull, sitemap-submit, job-callback; secrets CRON_KEY, PSI_API_KEY, CRUX_API_KEY,
+    BING_WEBMASTER_KEY; Vault metrics_cron_key (= CRON_KEY) and project_url; redeploy the staging dashboard (charter rule); one signed
+    metrics-pull and ?source=pagespeed. The Overview screen (B20, B21) is the next slice (3 to 5 points, plan in its CONTEXT).
+    Clients' 28 (retention) is approved and parked behind 27: 27 on staging first, then 28 after a warning to platform.
+  Queue after these (charter 08:00 list): the router-wiring patch for E7 (work/38-dashboard-hardening/router-wiring.patch; router.tsx
+  free once 44 is parked), flows test isolation, the CSP deploy with the next dashboard migration, the browser launchers onto CLI's
+  WO47 toolkit once it lands; then the E14 items, H2-8, H1-x, KNOWN-x. H0-5 waits on the owner's token (worktree dispatch-scope).
