@@ -686,8 +686,14 @@ const list = pickMutants(shardMutants(MUTANTS, shard), only);   // sharded by th
 const label = shard ? `shard ${shard.i}/${shard.n}: ` : '';
 if (shard) console.log(`${label}${list.length} of ${MUTANTS.length} mutants${only.length ? ' (after --only)' : ''}`);
 if (shard && list.length === 0) { console.log(`${label}FAIL: no mutant is assigned to this shard (${MUTANTS.length} mutants, ${shard.n} shards): a job that ran nothing is not a pass`); process.exit(1); }
-// --list: print the selected mutants (their index in the whole list, then the name) and stop, with no cluster and no run: how the tests check the real list's shards
-if (process.argv.includes('--list')) { for (const m of list) console.log(`mutant ${MUTANTS.indexOf(m)}\t${m[0]}`); process.exit(0); }
+// --list: print the selected mutants (their index in the whole list, then the name) and stop, with no cluster and no run: how the tests check the real list's shards.
+// One write, awaited until it is flushed, then exit: process.exit right after ~600 console.log calls dropped the unflushed tail into a pipe
+// (CI runs 42914537051, 42935935825, 42935417453 read 453, 308 and 318 rows of ~611 for the whole list, and every row for --shard 1/1).
+if (process.argv.includes('--list')) {
+  const text = list.map(m => `mutant ${MUTANTS.indexOf(m)}\t${m[0]}\n`).join('');
+  await new Promise(done => process.stdout.write(text, done));
+  process.exit(0);
+}
 
 const sh = (args, env) => new Promise(res => {
   const c = spawn(process.execPath, args, { env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
