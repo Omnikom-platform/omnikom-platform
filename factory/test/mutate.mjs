@@ -118,7 +118,8 @@ const MUTANTS = [
 // the layout the tests expect next to the factory: contracts/ (code only), sites/test-demo-a/, factory/ (no briefs, no worker)
 function prepare(dir) {
   cpSync(join(REPO, 'factory'), join(dir, 'factory'), { recursive: true, filter: (s) => !/[\\/]factory[\\/](briefs|worker)([\\/]|$)/.test(s) });
-  cpSync(join(REPO, 'contracts'), join(dir, 'contracts'), { recursive: true, filter: (s) => !/[\\/]contracts[\\/](examples|industry-run|test)([\\/]|$)/.test(s) });
+  // examples/crm-lists stays: the test site's plan names its real-estate lists there (crmFrom, work order 20)
+  cpSync(join(REPO, 'contracts'), join(dir, 'contracts'), { recursive: true, filter: (s) => !/[\\/]contracts[\\/](examples|industry-run|test)([\\/]|$)/.test(s) || /[\\/]contracts[\\/]examples([\\/]crm-lists([\\/]|$)|$)/.test(s) });
   mkdirSync(join(dir, 'sites'), { recursive: true });
   cpSync(join(REPO, 'sites', 'test-demo-a'), join(dir, 'sites', 'test-demo-a'), { recursive: true });
 }
