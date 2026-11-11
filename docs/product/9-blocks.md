@@ -86,7 +86,7 @@ starts its next slice from its lowest open stage. A step lands with its test and
 | H0-5 | H0 | the dispatch token can write the repo whose workflows hold the Cloudflare token; master unprotected (UNVERIFIED) | platform build | E9 |
 | H0-6 | H0 | done, f5e7af8: the book's counts are typed by hand; a check in `tools/icm` recomputes them, checks WORKS paths and step owners | head of operations | E20 |
 | H1-1 | H1 | no backup of any kind: database, media, Vault; Free plan (the plan is the owner's call) | platform build | E1 |
-| H1-2 | H1 | production does not exist; no scripted bring-up of dashboard, secrets, Auth settings, runner | platform build | E2 |
+| H1-2 | H1 | production does not exist; no scripted bring-up of dashboard, secrets, Auth settings, runner; KNOWN-6 staging's ledger applied migration 20 before 16, so promote-check refuses (R-ORDER): repair it first (steps below) | platform build | E2 |
 | H1-3 | H1 | alerts go nowhere; no error reporting, no request id | platform build | E3 |
 | H1-4 | H1 | lead alerts can be lost: no outbox worker, Resend has no timeout; KNOWN-4 the form waits for mail, quota is `count(*)` | platform build | E4 |
 | H1-5 | H1 | dashboard: no CSP or security headers, no error boundary | platform build | E7 |
@@ -112,6 +112,20 @@ starts its next slice from its lowest open stage. A step lands with its test and
 | H2-14 | H2 | migrations: no lock lint, no expand-contract, no CONCURRENTLY possible | platform build | E19 |
 | H2-15 | H2 | mail: no bounce or complaint handling, no erasure executor | platform build | E21 |
 | H3 | H3 | the audit's remaining items (C3, U0, U3, U4, U6-U10, U12, U13, U15, U16, U20, U24, U30-U34) | each area's owner | as found |
+
+**KNOWN-6, the staging ledger repair (head of operations' ruling 2026-11-11: a repair before the first promotion, not an accepted
+exception).** Staging's `ops.platform_migrations` holds `20261109000020_security_event_buckets.sql` at 2026-11-09 15:51:03.593903+00
+and `20261104000016_site_audit.sql` at 15:54:47.547589+00 (read-only query, 2026-11-11 00:18 UTC), so `supabase/ops/promote-check.mjs`
+(:104, each database must have applied its files in name order) refuses with R-ORDER. The two files touch disjoint objects (16:
+`private.audit_row`, `service.site_audit`; 20: `security_event_counts`, its indexes and policy, `service.record_security_event`), so name
+order and the order staging used give the same schema. Steps, by platform build, in this order:
+1. Re-check that the two files are still disjoint (grep their create/alter/drop statements); if not, stop and write a finding.
+2. A fresh cluster replays every migration in name order and passes the tenancy tests (`node supabase/tests/test-apply.mjs`), its output pasted.
+3. On staging, one transaction over the session connection (`STAGING_DB_URL_DIRECT`): `update ops.platform_migrations set applied_at =
+   (select applied_at from ops.platform_migrations where name = '20261109000020_security_event_buckets.sql') - interval '1 second'
+   where name = '20261104000016_site_audit.sql' and applied_at = '2026-11-09 15:54:47.547589+00';` (exactly 1 row, else roll back).
+4. Write the old and new `applied_at` of 16 and the reason into `docs/blueprint/PROGRESS.md` (the ledger has no note column).
+5. `promote-check` against staging prints no R-ORDER; paste it. Any later out-of-order apply is refused the same way: apply in name order.
 
 ## What each department builds next
 
