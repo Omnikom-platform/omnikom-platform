@@ -253,3 +253,15 @@ be changed instead if the head prefers a concurrent index or a not-valid check.
 
 Findings: the column-filter dropdown in the dashboard still lists raw status keys (labels only in the panel, bulk bar, timeline and filter chips); Playwright
 `flows.spec.ts` edits are unrun (staging e2e); the panel radios and BulkBar have no component unit test; `tools/crm-map` still passes no `lead_type`.
+
+## Staging proof (head, 2026-11-11)
+
+- Migration 23 applied to staging 2026-11-10 23:49:06 UTC (`apply-staging.mjs --url-env STAGING_DB_URL_DIRECT`: "OK: applied 1 of 23");
+  lead-update, lead-list, lead-export, leads-bulk deployed (`tools/deploy-functions.mjs --deploy-only`).
+- First e2e run: "BLOCKED: workspace A's contract has no crm block": the test site's plan now names the real-estate lists (`crmFrom`),
+  `seed test --target staging` made contract version 7.
+- `supabase/tests/e2e-crm-a16.mjs`: 19 PASS, "ALL PASSED"; NOT RUN: the published-form step (needs SITE_URL and a form that maps
+  listing-question).
+- `apps/dashboard/tests/flows.spec.ts` against staging (build-staging, heavy lock): "11 passed (6.7m)", 1 skipped (the invite, needs
+  SETTINGS_INVITE_EMAIL); cleanup left no CRM test lead.
+- Book: A16 MISSING -> PARTLY (the screens are work order 39).

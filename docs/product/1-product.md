@@ -55,7 +55,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | A13 Choose the columns of a view | WORKS | staging flows 2026-11-10 (flows.spec.ts "the CRM block 3b screens" as the owner and as an agent, 2 of 2; plan-gate.spec.ts; the 390 px and laptop look, styles.spec.ts 26 of 26 on 2026-11-10): backend work order 18, screens work order 19: the Columns picker on the list (DP-1.3-51 to -54, D:pages/ColumnsPicker.tsx), the choice kept in the page address, Follow-up and Possible duplicate as columns; a view's `columns` (F:view-save) |
 | A14 Saved views | WORKS | staging flows 2026-11-10 (flows.spec.ts "the CRM block 3b screens" as the owner and as an agent, 2 of 2; plan-gate.spec.ts; the 390 px and laptop look, styles.spec.ts 26 of 26 on 2026-11-10): backend work order 18, screens work order 19: the Views panel (DP-1.3-59 to -66, D:pages/ViewsPanel.tsx): apply, Save as, Save, Share (owner), Delete; `crm_views`, F:view-save, F:view-delete |
 | A15 Bulk edit (status, owner, delete) | PARTLY | staging flows 2026-11-05 (flows.spec.ts:291, 5 of 5 on a re-run; the first run's 2 reds were the label bug fixed in 33d59c2; 9 of 9 green on a GitHub runner 2026-11-10, runs 42823258511 and 42825133168; flake closed by the head of operations 2026-11-10 16:05): bulk status on two marked leads in one call; bulk owner and bulk delete are not driven on the screen (backend journey J10) |
-| A16 Status board | MISSING | owner ruling 2026-11-09: two columns, lead type and status, both per-industry lists held as data (`5-crm.md` "The lead record"); backend built (work order 20, migration 23): `crm` block of the contract, `leads.lead_type` and `status*`, F:lead-update, F:lead-list, F:leads-bulk; screens are a later order |
+| A16 Status board | PARTLY | owner ruling 2026-11-09: two columns, lead type and status, both per-industry lists held as data (`5-crm.md` "The lead record"). Backend (work order 20, migration 23): `crm` block of the contract, `leads.lead_type` and `status*`, F:lead-update, F:lead-list, F:leads-bulk; staging 2026-11-11: e2e-crm-a16 ALL PASSED (the published-form step NOT RUN), flows.spec.ts 11 passed 1 skipped (the invite, needs its mail address). Missing half: the screens that show and set both lists (work order 39); today the dashboard shows the platform floor statuses only |
 | A17 Follow-up date and tasks | WORKS | staging flows 2026-11-10 (flows.spec.ts "the CRM block 3b screens" as the owner and as an agent, 2 of 2; plan-gate.spec.ts; the 390 px and laptop look, styles.spec.ts 26 of 26 on 2026-11-10): backend work order 18, screens work order 19: the record's Follow-up and Tasks (DP-1.3-67 to -72, D:pages/LeadFollowUp.tsx, D:pages/LeadTasks.tsx), the Due tick and the Follow-up column (DP-1.3-55, -57); `follow_up_at`, `lead_tasks`, F:lead-update `follow_up`, F:lead-task, F:lead-list `due` |
 | A18 Duplicate flag | WORKS | staging flows 2026-11-10 (flows.spec.ts "the CRM block 3b screens" as the owner and as an agent, 2 of 2; plan-gate.spec.ts; the 390 px and laptop look, styles.spec.ts 26 of 26 on 2026-11-10): backend work order 18, screens work order 19: the Duplicates tick and the Possible duplicate cell (DP-1.3-56, -58) and, in the record, the line with a link to the older lead or "Another lead matches this one." (DP-1.3-73, -74); `leads.duplicate_of` set on every insert, F:lead-list `duplicates` (`idempotency_key` still catches the same submission) |
 | A19 Unread bold, opening marks read | WORKS | staging flows 2026-11-05 (flows.spec.ts:291, 5 of 5 on a re-run; the first run's 2 reds were the label bug fixed in 33d59c2; 9 of 9 green on a GitHub runner 2026-11-10, runs 42823258511 and 42825133168; flake closed by the head of operations 2026-11-10 16:05): an unopened lead is bold (data-unread), opening it marks it read; M12 |
@@ -155,12 +155,12 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 ### Counts
 | Part | WORKS | PARTLY | MISSING | Rows |
 |---|---|---|---|---|
-| A CRM | 22 | 3 | 1 | 26 |
+| A CRM | 22 | 4 | 0 | 26 |
 | B Dashboard | 10 | 6 | 5 | 21 |
 | C Backend and database | 13 | 3 | 1 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
 | E Hardening | 4 | 12 | 5 | 21 |
-| Total | 59 | 24 | 12 | 95 |
+| Total | 59 | 25 | 11 | 95 |
 
 Completion is reported from these counts only.
 
