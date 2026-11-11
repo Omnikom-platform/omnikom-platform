@@ -299,7 +299,9 @@ const MUTANTS = [
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
 const plan = planShard(process.argv, MUTANTS, only);   // --only a|b (any of the substrings), then the share of --shard i/N; --list prints and stops
-for (const l of plan.lines) console.log(l);
+// one write, awaited until it is flushed: console.log per line then process.exit dropped the tail of --list into a pipe (CI 42950225902 read 189
+// of 255 rows; the CLI's mutate.mjs had the same bug, 6dadcdb). Made by CLI and testing, reviewed by the platform head 2026-11-11 06:22.
+if (plan.lines.length) await new Promise(done => process.stdout.write(plan.lines.join('\n') + '\n', done));
 if (plan.exit !== null) process.exit(plan.exit);
 const { list, label } = plan;
 const work = mkdtempSync(join(tmpdir(), 'omnikom-fn-mut-'));

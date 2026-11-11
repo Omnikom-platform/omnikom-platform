@@ -164,6 +164,7 @@ export async function mutateRunTests({ check, CLI_ROOT, REPO_ROOT }) {
   };
   const whole = listOf([]), total = whole.rows.length;
   const realBad = [];
+  let cliOne = -1;   // rows of --shard 1/1
   for (const n of [1, 2, 3, 6, 8]) {
     const seen = new Map();
     for (let i = 1; i <= n; i++) {
@@ -171,8 +172,10 @@ export async function mutateRunTests({ check, CLI_ROOT, REPO_ROOT }) {
       if (s.status !== 0 || s.rows.length === 0) realBad.push(`${i}/${n}: exit ${s.status}, ${s.rows.length} mutants`);
       for (const x of s.rows) seen.set(x, (seen.get(x) || 0) + 1);
     }
+    if (n === 1) cliOne = seen.size;
     if (seen.size !== total || [...seen.values()].some(c => c !== 1)) realBad.push(`N=${n}: ${seen.size} different mutants of ${total}, ${[...seen.values()].filter(c => c !== 1).length} run more than once`);
   }
+  check(`mutate shard: the whole --list arrives complete (${total} rows = ${cliOne} rows in --shard 1/1; cut short it read 308 of 611 in CI 42935935825)`, total > 0 && total === cliOne, JSON.stringify({ total, cliOne }));
   check('mutate shard: the real mutant list (mutate.mjs --list) split by --shard i/N for N = 1, 2, 3, 6, 8: every shard has mutants, no mutant is in two shards, the shards add up to the whole list',
     whole.status === 0 && total > 500 && whole.rows.every((x, k) => x === k) && realBad.length === 0, JSON.stringify({ total, status: whole.status, realBad }));
   const empty = listOf(['--shard', `${total + 1}/${total + 1}`]), badShards = [['--shard', '0/3'], ['--shard', '4/3'], ['--shard']].map(a => ({ a: a.join(' '), s: listOf(a) }));
@@ -254,6 +257,7 @@ export async function mutateRunTests({ check, CLI_ROOT, REPO_ROOT }) {
   };
   const fnWhole = fnList([]), fnTotal = fnWhole.rows.length;
   const fnBad = [];
+  let fnOne = -1;   // rows of --shard 1/1: the whole list read a second way
   for (const n of [1, 2, 4, 6]) {
     const seen = new Map(), W = [], S = [];
     for (let i = 1; i <= n; i++) {
@@ -262,11 +266,13 @@ export async function mutateRunTests({ check, CLI_ROOT, REPO_ROOT }) {
       W.push(s.rows.filter(x => x.whole).length); S.push(s.rows.filter(x => !x.whole).length);
       for (const x of s.rows) seen.set(x.idx, (seen.get(x.idx) || 0) + 1);
     }
+    if (n === 1) fnOne = seen.size;
     if (seen.size !== fnTotal || [...seen.values()].some(c => c !== 1)) fnBad.push(`N=${n}: ${seen.size} different mutants of ${fnTotal}, ${[...seen.values()].filter(c => c !== 1).length} run more than once`);
     if (Math.max(...W) - Math.min(...W) > 1 || Math.max(...S) - Math.min(...S) > 1) fnBad.push(`N=${n}: unscoped ${W.join('/')}, scoped ${S.join('/')}`);
   }
   check('functions shard: the real mutant list (functions/test/mutate.mjs --list) split by --shard i/N for N = 1, 2, 4, 6: every share has mutants, none is in two shares, the shares add up to the whole list, and the unscoped and the scoped mutants are each spread to within one',
     fnWhole.status === 0 && fnTotal > 150 && fnWhole.rows.every((x, k) => x.idx === k) && fnWhole.rows.some(x => x.whole) && fnBad.length === 0, JSON.stringify({ fnTotal, status: fnWhole.status, fnBad }));
+  check(`functions shard: the whole --list arrives complete (${fnTotal} rows = ${fnOne} rows in --shard 1/1; a list cut short by an exit before the flush read 189 of 255 in CI 42950225902)`, fnTotal > 0 && fnTotal === fnOne, JSON.stringify({ fnTotal, fnOne }));
   const fnEmpty = fnList(['--shard', `${fnTotal + 1}/${fnTotal + 1}`]), fnBadArgs = [['--shard', '0/3'], ['--shard', '4/3'], ['--shard']].map(a => ({ a: a.join(' '), s: fnList(a) }));
   check('functions shard: the real script ends with exit 1 and a FAIL line for a share with no mutant, and with exit 2 for a bad --shard value',
     fnEmpty.status === 1 && /shard \d+\/\d+: FAIL: no mutant is assigned/.test(fnEmpty.out) && fnBadArgs.every(b => b.s.status === 2 && /--shard needs i\/N/.test(b.s.out)), JSON.stringify({ empty: [fnEmpty.status, fnEmpty.out.slice(0, 160)], bad: fnBadArgs.map(b => [b.a, b.s.status]) }));
