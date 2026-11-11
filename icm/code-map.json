@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 764,
+    "sources": 765,
     "unowned": 0
   },
   "files": [
@@ -768,6 +768,7 @@
     {"path":"work/32-lead-types-second-read/check-quotes.test.mjs","owner":"head-of-operations","exports":[],"tests":[],"feature":""},
     {"path":"work/32-lead-types-second-read/sanity.mjs","owner":"head-of-operations","exports":[],"tests":[],"feature":""},
     {"path":"work/32-lead-types-second-read/show.mjs","owner":"head-of-operations","exports":[],"tests":[],"feature":""},
+    {"path":"work/38-dashboard-hardening/leads-probe.mjs","owner":"head-of-operations","exports":[],"tests":[],"feature":""},
     {"path":"work/38-dashboard-hardening/router-scratch.mjs","owner":"head-of-operations","exports":[],"tests":[],"feature":""}
   ]
 }
