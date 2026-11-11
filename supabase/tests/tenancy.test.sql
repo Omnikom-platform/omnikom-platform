@@ -3358,7 +3358,7 @@ do $$ begin assert (select count(*) from retention_rules) = 0, 'T33 an owner rea
 reset role;
 select test.expect_error($q$select service.purge_expired(0)$q$, 'R-BATCH');
 -- rows on both sides of each period (and an old consent row that must stay)
-insert into security_events (kind, at) values ('t33-old', now() - interval '400 days'), ('t33-old', now() - interval '500 days'), ('t33-new', now() - interval '10 days');
+insert into security_events (kind, code, at) values ('refused', 't33-old', now() - interval '400 days'), ('refused', 't33-old', now() - interval '500 days'), ('refused', 't33-new', now() - interval '10 days');
 insert into audit_log (action, at) values ('t33-old', now() - interval '800 days'), ('t33-old', now() - interval '900 days'), ('t33-new', now() - interval '100 days');
 insert into messages (workspace_id, channel, template, to_text, created_at) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'email', 't33-old', 't33@test', now() - interval '1500 days'),
@@ -3375,7 +3375,7 @@ insert into consent_ledger (workspace_id, form, page_path, consent_text, consent
 select test.expect_error($q$delete from audit_log where action = 't33-old'$q$, 'A-APPEND-ONLY');
 select set_config('omnikom.purge', 'on', false);
 select test.expect_error($q$delete from audit_log where action = 't33-new'$q$, 'A-APPEND-ONLY');
-select test.expect_error($q$delete from security_events where kind = 't33-new'$q$, 'A-APPEND-ONLY');
+select test.expect_error($q$delete from security_events where code = 't33-new'$q$, 'A-APPEND-ONLY');
 select test.expect_error($q$update audit_log set action = 'changed' where action = 't33-old'$q$, 'A-APPEND-ONLY');
 do $$
 begin
@@ -3400,7 +3400,7 @@ set role service_role;
 select service.purge_expired();
 reset role;
 do $$ begin
-  assert (select count(*) from security_events where kind = 't33-old') = 0 and (select count(*) from security_events where kind = 't33-new') = 1, 'T33a security events: the old one goes, the new one stays';
+  assert (select count(*) from security_events where code = 't33-old') = 0 and (select count(*) from security_events where code = 't33-new') = 1, 'T33a security events: the old ones go, the new one stays';
   assert (select count(*) from audit_log where action = 't33-old') = 0 and (select count(*) from audit_log where action = 't33-new') = 1, 'T33a audit log: the old one goes, the new one stays';
   assert (select count(*) from messages where template = 't33-old') = 0 and (select count(*) from messages where template = 't33-new') = 1, 'T33a messages: the old one goes, the new one stays';
   assert (select count(*) from webhook_events where kind in ('t33-done-old', 't33-open-old')) = 0, 'T33a webhook events: a processed one past 30 days and an open one past 90 days go';
