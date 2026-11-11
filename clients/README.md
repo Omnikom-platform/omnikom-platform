@@ -9,7 +9,10 @@ this folder holds the record. Nobody writes into a project folder from here.
 
 Check: `node clients/check.mjs` (every client folder complete, every slug listed below with a status line, every facts row
 sourced, no em dash, no private individual's name: those live only in the git-ignored `clients/<slug>/private/people.md`, whose
-"## Names" list the check searches every other file for). Tests and mutants: `node clients/test/run.mjs`.
+"## Names" list the check searches every other file for; and in every folder not on the dated list `clients/legacy-people.json`,
+the rows built for people (profile "People" and "Contact used for the work", facts rows about a kind of person, the README row) say
+unknown or none or point at that private file, with no capitalised name pair outside quotes. A check cannot recognise a name in
+free text elsewhere; that is caught only when the name is listed in a `people.md`). Tests and mutants: `node clients/test/run.mjs`.
 
 ## Clients
 | Slug | Client | Industry | Status (one line, kept current in `status.md`) |

@@ -67,5 +67,37 @@ for (const slug of slugs) {
   }
 }
 
+// People rows in every folder not on the dated legacy list (clients/legacy-people.json): a check cannot recognise a person's name
+// in free text, so the rows built to hold people must point at private/people.md or say unknown/none. 1. profile.md "People" and
+// "Contact used for the work". 2. facts.md ledger rows whose Fact names a kind of person. 3. the folder's README row: no person in
+// parentheses after the business name (quoted names such as a trading name do not count).
+const legacyFile = join(DIR, 'legacy-people.json');
+let legacy = null;
+try { legacy = JSON.parse(readFileSync(legacyFile, 'utf8')); } catch { problems.push('legacy-people.json: missing or not JSON (the dated list of folders exempt from the people rules)'); }
+const exempt = new Set((legacy && Array.isArray(legacy.folders)) ? legacy.folders : []);
+if (legacy && !/^\d{4}-\d{2}-\d{2}$/.test(legacy.date || '')) problems.push('legacy-people.json: needs its ruling date');
+// Says unknown/none or points at the private file, AND holds no capitalised word pair ("Jane Doe") outside quotes and backticks
+// (a value that names a person and also mentions the private file still fails; quoted labels such as "View History" do not count).
+const pointsAway = (v) => (/^\s*(unknown|none)\b/i.test(v) || /private\/people\.md/.test(v))
+  && !/\b[A-Z][a-z]+\s+[A-Z][a-z]+/.test(v.replace(/"[^"]*"|`[^`]*`/g, ''));
+const PERSON_FACT = /\b(person|people|agent|owner|manager|contact|testimonial|founder|staff|officer|member|director|partner|employee)s?\b/i;
+for (const slug of slugs.filter((s) => !exempt.has(s))) {
+  const pf = join(DIR, slug, 'profile.md');
+  if (existsSync(pf)) for (const line of readFileSync(pf, 'utf8').split('\n')) {
+    const cells = line.split('|').map((c) => c.trim());
+    if (cells.length > 3 && /^(People|Contact used for the work)\b/.test(cells[1]) && !pointsAway(cells[2])) problems.push(`${slug}/profile.md: the "${cells[1].slice(0, 30)}" row must say unknown or none, or point at private/people.md (no names in the public record)`);
+  }
+  const ff = join(DIR, slug, 'facts.md');
+  if (existsSync(ff)) for (const line of readFileSync(ff, 'utf8').split('\n')) {
+    const cells = line.split('|').map((c) => c.trim());
+    if (cells.length > 4 && cells[1] !== 'Fact' && !/^-+$/.test(cells[1]) && PERSON_FACT.test(cells[1]) && !pointsAway(cells[2])) problems.push(`${slug}/facts.md: the row "${cells[1].slice(0, 40)}" names a kind of person: its value must say unknown or none, or point at private/people.md`);
+  }
+  for (const line of readme.split('\n')) {
+    const m = /^\|\s*([a-z0-9][a-z0-9-]*)\s*\|([^|]*)\|/.exec(line);
+    if (!m || m[1] !== slug) continue;
+    for (const par of m[2].match(/\(([^)]*)\)/g) || []) if (/\b[A-Z][a-z]+\s+[A-Z][a-z]+/.test(par.replace(/"[^"]*"/g, ''))) problems.push(`README.md: the ${slug} row names a person in parentheses (${par.slice(0, 40)}): write the business only`);
+  }
+}
+
 if (problems.length) { for (const p of problems) console.log('FAIL ' + p); process.exit(1); }
 console.log(`OK: ${slugs.length} client record(s) complete: ${slugs.join(', ')}`);

@@ -1,0 +1,5 @@
+{
+  "_doc": "Client folders whose existing lines may name the client's own people (head of operations ruling 2026-11-11 02:11: the owner ruled on 2026-11-09 that the public repository's existing data stays where it is; going forward every individual in a new client folder, the client's own contacts included, lives in the git-ignored clients/<slug>/private/people.md). clients/check.mjs applies the people-row rules to every folder not listed here. Adding a folder here is a ruling, never a convenience.",
+  "date": "2026-11-11",
+  "folders": ["elev8", "rainmaker", "vtv", "eli"]
+}

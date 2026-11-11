@@ -62,6 +62,28 @@ try {
   edit(d, join('elev8', 'status.md'), '# ELEV8 Real Estate Group: status', '# ELEV8 Real Estate Group: status (testperson zyx)');
   r = run(d);
   check('mutant: a private name in a record file fails (any case)', r.status === 1 && /elev8[\\/]status\.md: names a person listed in elev8\/private\/people\.md/.test(r.out), r.out);
+
+  // people rows outside the dated legacy list (head of operations ruling 2026-11-11 02:11)
+  d = fresh(); dirs.push(d);
+  edit(d, join('paragon', 'profile.md'), '| Contact used for the work (person, email, phone) | none (no person named);', '| Contact used for the work (person, email, phone) | Jane Testperson, owner;');
+  r = run(d);
+  check('mutant: a name in a new folder\'s contact row fails', r.status === 1 && /paragon\/profile\.md: the "Contact used for the work/.test(r.out), r.out);
+
+  d = fresh(); dirs.push(d);
+  edit(d, join('paragon', 'facts.md'), '| Registered agent | an individual (the name', '| Registered agent | Jane Testperson (the name');
+  r = run(d);
+  check('mutant: a name in a new folder\'s person-type facts row fails', r.status === 1 && /paragon\/facts\.md: the row "Registered agent" names a kind of person/.test(r.out), r.out);
+
+  d = fresh(); dirs.push(d);
+  edit(d, 'README.md', '| paragon | Paragon Alternative Capital ("PAC Funding"), Sacramento CA |', '| paragon | Paragon Alternative Capital (Jane Testperson), Sacramento CA |');
+  r = run(d);
+  check('mutant: a person in a new folder\'s README row fails', r.status === 1 && /README\.md: the paragon row names a person in parentheses/.test(r.out), r.out);
+
+  d = fresh(); dirs.push(d);
+  edit(d, 'legacy-people.json', '"folders": ["elev8", "rainmaker", "vtv", "eli"]', '"folders": ["rainmaker", "vtv", "eli"]');
+  r = run(d);
+  check('mutant: a legacy folder taken off the list fails on its named contact', r.status === 1 && /elev8\/profile\.md: the "Contact used for the work/.test(r.out), r.out);
+  check('the legacy folders pass with their names (the real records run above)', /^OK: \d+ client record/m.test(run(fresh()).out));
 } finally {
   for (const d of dirs) rmSync(d, { recursive: true, force: true });
 }
