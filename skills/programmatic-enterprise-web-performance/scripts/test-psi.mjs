@@ -55,6 +55,7 @@ async function scenarios(dir) {
 
   // ---- the fake PSI endpoint ----
   const hits = []; // { t, path, q }
+  const varyCalls = new Map();
   const sockets = new Set();
   const server = http.createServer((req, res) => {
     const u = new URL(req.url, "http://x"), q = Object.fromEntries(u.searchParams);
@@ -64,6 +65,15 @@ async function scenarios(dir) {
     if (/\/hang/.test(target)) return; // never answers
     if (/\/429/.test(target)) { res.statusCode = 429; return res.end(JSON.stringify({ error: { code: 429, message: "Quota exceeded", status: "RESOURCE_EXHAUSTED" } })); }
     if (/\/bad/.test(target)) { res.statusCode = 400; return res.end(JSON.stringify({ error: { code: 400, message: `Invalid request ${req.url}`, status: "INVALID_ARGUMENT" } })); }
+    if (/\/vary|\/flaky/.test(target)) {
+      const k = `${target}|${q.strategy}`; const n = (varyCalls.get(k) || 0) + 1; varyCalls.set(k, n);
+      if (/\/flaky/.test(target) && n === 2) { res.statusCode = 500; return res.end(JSON.stringify({ error: { code: 500, message: "Lighthouse failed on run 2" } })); }
+      const a = answer(target, q.strategy); const i = (n - 1) % 3;
+      a.lighthouseResult.categories.performance.score = [0.70, 0.95, 0.80][i];
+      a.lighthouseResult.audits["largest-contentful-paint"].numericValue = [3000, 1000, 2500][i];
+      a.lighthouseResult.audits["cumulative-layout-shift"].numericValue = [0.3, 0.05, 0.2][i];
+      return res.end(JSON.stringify(a));
+    }
     if (/\/noscore/.test(target)) { const a = answer(target, q.strategy); a.lighthouseResult.categories.performance.score = null; return res.end(JSON.stringify(a)); }
     res.end(JSON.stringify(answer(target, q.strategy)));
   });
@@ -147,6 +157,33 @@ async function scenarios(dir) {
     const r7 = await runPsi([site("/hang"), "--cwd", c7, "--strategy", "mobile", "--gap-ms", "0", "--dotenv", envFile], { env: { PSI_TIMEOUT_MS: "600" }, timeout: 20000 });
     check("a request that never gets an answer is cut off (bounded), reported as a failed page, exit 1", r7.code === 1 && /no answer within/.test(r7.so) && Date.now() - t7 < 15000, `exit ${r7.code} after ${Date.now() - t7} ms; ${r7.so}${r7.se}`);
 
+    // ---- 7b. --runs: several runs per page and strategy, every run kept, the median recorded ----
+    const c11 = fresh("runs"), h11 = hits.length;
+    const r11 = await runPsi([site("/vary"), "--cwd", c11, "--today", "2026-10-26", "--strategy", "mobile", "--runs", "3", "--gap-ms", "0", "--run-gap-ms", "500", "--dotenv", envFile]);
+    const mine11 = hits.slice(h11), file11 = path.join(pewpOf(c11), "psi", "2026-10-26.json");
+    const doc11 = fs.existsSync(file11) ? J(file11) : { pages: [] }, row11 = doc11.pages[0] || {};
+    check("runs: --runs 3 asks Google three times for the same page and strategy (3 requests, exit 0)", r11.code === 0 && mine11.length === 3 && mine11.every((x) => x.q.strategy === "mobile" && /\/vary$/.test(x.q.url)), `exit ${r11.code} ${mine11.length} requests ${r11.so}${r11.se}`);
+    check("runs: the row holds the MEDIAN of the three runs (scores 70, 95, 80 -> 80 (the mean would be 81.7); LCP 3000, 1000, 2500 -> 2500 ms (mean 2167); CLS 0.3, 0.05, 0.2 -> 0.2 (mean 0.183)) and says it is a median of 3", doc11.pages.length === 1 && row11.performance === 80 && row11.lcpMs === 2500 && row11.cls === 0.2 && row11.medianOf === 3 && row11.runsAsked === 3, JSON.stringify(row11).slice(0, 500));
+    check("runs: every run is listed with its own numbers and its own cache file (3 different files, all exist): the median is never the only record", Array.isArray(row11.runs) && row11.runs.length === 3 && row11.runs.map((x) => x.performance).join() === "70,95,80" && new Set(row11.runs.map((x) => x.cacheFile)).size === 3 && row11.runs.every((x) => x.cacheFile && fs.existsSync(path.join(pewpOf(c11), x.cacheFile))), JSON.stringify(row11.runs));
+    check("runs: the row's own cacheFile is the median run's file (score 80, the third run)", row11.cacheFile === (row11.runs || [])[2]?.cacheFile && !!row11.cacheFile, JSON.stringify([row11.cacheFile, row11.runs]));
+    const gaps11 = mine11.slice(1).map((x, i) => x.t - mine11[i].t);
+    check("runs: two runs of the same page and strategy are at least --run-gap-ms (500) apart on the server's clock (Google may answer a repeat within about 30 s from one analysis)", gaps11.length === 2 && gaps11.every((g) => g >= 450), `gaps ${gaps11.join(", ")}`);
+    check('runs: the output says it is a median: "median of 3: performance 80, LCP 2500 ms"', /median of 3: performance 80, LCP 2500 ms/.test(r11.so), r11.so);
+    const h12 = hits.length;
+    const r12 = await runPsi([site("/vary"), "--cwd", c11, "--today", "2026-10-26", "--strategy", "mobile", "--runs", "3", "--gap-ms", "0", "--run-gap-ms", "500", "--dotenv", envFile]);
+    check("runs: the same run again the same day is answered from the three cache files (no request) with the same median", r12.code === 0 && hits.length === h12 && J(file11).pages[0].performance === 80 && J(file11).pages[0].runs.length === 3, `exit ${r12.code}; ${hits.length - h12} requests; ${r12.so}${r12.se}`);
+    const c13 = fresh("flaky"), h13 = hits.length;
+    const r13 = await runPsi([site("/flaky"), "--cwd", c13, "--today", "2026-10-26", "--strategy", "mobile", "--runs", "3", "--gap-ms", "0", "--run-gap-ms", "0", "--dotenv", envFile]);
+    const f13 = path.join(pewpOf(c13), "psi", "2026-10-26.json"), doc13 = fs.existsSync(f13) ? J(f13) : { pages: [], failures: [] }, row13 = doc13.pages[0] || {};
+    check("runs: a run that fails is listed (with its run number) and the median is taken over the runs that worked, saying so (2 of 3: scores 70 and 80 -> 75)", r13.code === 0 && hits.length - h13 === 3 && row13.medianOf === 2 && row13.runsAsked === 3 && row13.performance === 75 && doc13.failures.length === 1 && doc13.failures[0].run === 2, `exit ${r13.code} ${JSON.stringify(row13).slice(0, 300)} ${JSON.stringify(doc13.failures)}`);
+    const c14 = fresh("one"), h14 = hits.length;
+    const r14 = await runPsi([site("/one"), "--cwd", c14, "--today", "2026-10-26", "--strategy", "mobile", "--gap-ms", "0", "--dotenv", envFile]);
+    const f14 = path.join(pewpOf(c14), "psi", "2026-10-26.json"), row14 = (fs.existsSync(f14) ? J(f14) : { pages: [] }).pages[0] || {};
+    check("runs: without --runs it is one request, medianOf 1, and the line is the old one", r14.code === 0 && hits.length - h14 === 1 && row14.medianOf === 1 && /^psi mobile .*: performance 94, LCP 2750 ms$/m.test(r14.so), `${hits.length - h14} requests ${JSON.stringify(row14).slice(0, 200)} ${r14.so}`);
+    const badRuns = [];
+    for (const v of ["0", "abc", "9", "2.5"]) { const r = await runPsi([site("/x"), "--runs", v, "--dotenv", envFile]); if (!(r.code === 2 && /--runs/.test(r.se))) badRuns.push(`${v}: exit ${r.code} ${r.se}`); }
+    check("runs: --runs must be a whole number from 1 to 5 (exit 2, nothing fetched)", !badRuns.length, badRuns.join(" | "));
+
     // ---- 8. key from the process environment; usage errors ----
     const c8 = fresh("envkey"), h8 = hits.length;
     const r8 = await runPsi([site("/e"), "--cwd", c8, "--strategy", "desktop", "--gap-ms", "0"], { env: { PSI_API_KEY: KEY } });
@@ -180,8 +217,8 @@ async function scenarios(dir) {
 const SCRUB_FROM = "for (const k of new Set([key, encodeURIComponent(key), new URLSearchParams({ k: key }).toString().slice(2)])) if (k) t = t.split(k).join(\"[key removed]\");";
 const MUTANTS = [
   { name: "score not multiplied by 100", patches: [{ file: "psi.mjs", from: "performance: Math.round(score * 100),", to: "performance: Math.round(score)," }], expect: [/^score is written 0\.\.100/, /^one line per page/] },
-  { name: "pacing removed", patches: [{ file: "psi.mjs", from: "if (wait > 0) await sleep(wait);", to: "" }], expect: [/^pacing: every request/] },
-  { name: "the gap is not remembered after a request", patches: [{ file: "psi.mjs", from: "if (!res.fromCache) nextAt = Date.now() + gapMs;", to: "if (false) nextAt = Date.now() + gapMs;" }], expect: [/^pacing: every request/] },
+  { name: "pacing removed", patches: [{ file: "psi.mjs", from: "if (wait > 0 && !(await isCached(loc.pewp, reqUrl, run))) await sleep(wait);", to: "" }], expect: [/^pacing: every request/] },
+  { name: "the gap is not remembered after a request", patches: [{ file: "psi.mjs", from: "if (!res.fromCache) { nextAt = Date.now() + gapMs; lastAt.set(pk, Date.now()); }", to: "if (false) { nextAt = Date.now() + gapMs; lastAt.set(pk, Date.now()); }" }], expect: [/^pacing: every request/] },
   { name: "key stored in the cache file (redaction gone) and psi.mjs does not look", patches: [
     { file: "cache.mjs", from: "const shownUrl = url.replace(/([?&](key|api_key|apikey|token|access_token)=)[^&]+/gi, \"$1REDACTED\");", to: "const shownUrl = url;" },
     { file: "psi.mjs", from: "if ([key, encodeURIComponent(key)].some((k) => stored.includes(k)))", to: "if (false)" }], expect: [/^the key is in no cache file/, /^the key is in no file under the working folder/] },
@@ -189,20 +226,28 @@ const MUTANTS = [
     { file: "cache.mjs", from: "const shownUrl = url.replace(/([?&](key|api_key|apikey|token|access_token)=)[^&]+/gi, \"$1REDACTED\");", to: "const shownUrl = url;" }], expect: [/^main run: exit 0/] },
   { name: "Google's error message is printed unscrubbed", patches: [{ file: "psi.mjs", from: SCRUB_FROM, to: "" }], expect: [/^a failure message from Google/, /^every page failed/] },
   { name: "429 does not stop the run", patches: [{ file: "psi.mjs", from: "if (res.status === 429) throw new Stop429(", to: "if (false) throw new Stop429(" }], expect: [/^429: the page after it is never asked/] },
-  { name: "the request is not bounded", patches: [{ file: "psi.mjs", from: "{ maxAgeDays: 1, timeoutMs }", to: "{ maxAgeDays: 1, timeoutMs: 1e9 }" }], expect: [/^a request that never gets an answer/] },
+  { name: "the request is not bounded", patches: [{ file: "psi.mjs", from: "{ maxAgeDays: 1, timeoutMs, variant:", to: "{ maxAgeDays: 1, timeoutMs: 1e9, variant:" }], expect: [/^a request that never gets an answer/] },
+  { name: "--runs asks once whatever it is given", patches: [{ file: "psi.mjs", from: "for (let run = 1; run <= runs; run++) {", to: "for (let run = 1; run <= 1; run++) {" }], expect: [/^runs: --runs 3 asks Google three times/, /^runs: the row holds the MEDIAN/] },
+  { name: "the three runs share one cache entry (the second and third are answered from the first)", patches: [{ file: "psi.mjs", from: "variant: run > 1 ? `run${run}` : undefined", to: "variant: undefined" }], expect: [/^runs: --runs 3 asks Google three times/, /^runs: the row holds the MEDIAN/] },
+  { name: "the median is the first run", patches: [{ file: "psi.mjs", from: "const med = (xs) => {", to: "const med = (xs) => { if (xs.length) return xs[0];" }], expect: [/^runs: the row holds the MEDIAN/, /^runs: a run that fails is listed/] },
+  { name: "the mean instead of the median", patches: [{ file: "psi.mjs", from: "return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;", to: "return v.reduce((x, y) => x + y, 0) / v.length;" }], expect: [/^runs: the row holds the MEDIAN/] },
+  { name: "the runs of a page are not listed (only the median is kept)", patches: [{ file: "psi.mjs", from: "runs: list.map(({ run, ...x }) => ({ run, ...x })),", to: "runs: []," }], expect: [/^runs: every run is listed/, /^runs: the row's own cacheFile/] },
+  { name: "no gap between two runs of the same page", patches: [{ file: "psi.mjs", from: "const sameWait = (lastAt.get(pk) || 0) + runGapMs - Date.now();", to: "const sameWait = 0;" }], expect: [/^runs: two runs of the same page/] },
+  { name: "a failed run is not recorded with its run number", patches: [{ file: "psi.mjs", from: "failures.push({ url, strategy, run, error: scrub(why) });", to: "failures.push({ url, strategy, error: scrub(why) });" }], expect: [/^runs: a run that fails is listed/] },
+  { name: "--runs is not validated", patches: [{ file: "psi.mjs", from: "if (runs > 5) throw new Usage(", to: "if (false) throw new Usage(" }], expect: [/^runs: --runs must be a whole number/] },
   { name: "no key does not block", patches: [{ file: "psi.mjs", from: "if (!key) throw new Blocked(UNBLOCK);", to: "" }], expect: [/^no key: BLOCKED/, /^no key: no request/] },
   { name: "the polite minimum gap is not enforced", patches: [{ file: "psi.mjs", from: "politeMs(\"--gap-ms\", numArg(", to: "((n, v) => v)(\"--gap-ms\", numArg(" }], expect: [/^to the real Google address/] },
 ];
 
 if (isMain(import.meta.url)) {
   if (A.includes("--help")) { console.log("usage: node test-psi.mjs [--scripts <dir>] [--no-mutants] [--mutant <name part>]"); process.exit(0); }
+  const t0 = Date.now();
   const main = await scenarios(scriptsDir);
   for (const r of main) console.log(`${r.ok ? "PASS" : "FAIL"} ${r.name}${r.ok ? "" : `\n     ${r.detail}`}`);
-  let failed = main.filter((r) => !r.ok).length;
+  let failed = main.filter((r) => !r.ok).length; const mainFailed = failed; let caught = 0, ran = 0;
   console.log(failed ? `PSI TEST FAIL: ${failed} of ${main.length}` : `PSI TEST PASS: ${main.length} of ${main.length}`);
   if (!failed && !A.includes("--no-mutants")) {
     console.log("\nWatched-fail mutants (each must turn the named assertions red; the unmutated tree is green above):");
-    let caught = 0, ran = 0;
     for (const mu of MUTANTS.filter((m) => !opt("--mutant") || m.name.includes(opt("--mutant")))) {
       ran++;
       const mdir = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-psi-mutant-"));
@@ -226,5 +271,6 @@ if (isMain(import.meta.url)) {
     }
     console.log(failed ? `MUTANTS FAIL: ${caught} of ${ran} caught` : `MUTANTS PASS: ${caught} of ${ran} caught`);
   }
+  if (A.includes("--json")) console.log(JSON.stringify({ suite: "psi", ok: !failed, assertions: { total: main.length, failed: mainFailed }, mutants: ran ? { ran, caught, failed: ran - caught } : null, wallMs: Date.now() - t0 }));
   process.exit(failed ? 1 : 0);
 }

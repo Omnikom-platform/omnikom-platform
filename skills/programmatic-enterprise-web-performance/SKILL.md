@@ -15,7 +15,7 @@ order, stops at approvals, missing inputs and main-session tasks, and re-runs st
 
 | The user says / has | Mode | Status |
 |---|---|---|
-| a link: "audit this", "why am I not ranking", "not on Google / ChatGPT" | `audit-live <url>` | BUILT (Q2, Q3, Q5 answered from research / measure / gate files when they exist, else BLOCKED) |
+| a link: "audit this", "why am I not ranking", "not on Google / ChatGPT" | `audit-live <url>` | BUILT: its steps are `pipeline.json` (below); Q2, Q3, Q5 answered from research / measure / gate files when they exist, else BLOCKED |
 | a codebase: "check this repo", "make it enterprise grade" | `audit-repo <path>` | BUILT |
 | "compare our site with theirs / old vs new" | `compare <a> <b>` | BUILT: `stages/compare.md` (`node scripts/compare.mjs <a> <b> [--launch-state-b preview]`; reads snapshots, never crawls) |
 | "research our market / keywords / competitors" | `research <business\|url>` | BUILT: `stages/intake.md`, `stages/research.md` |
@@ -25,7 +25,7 @@ order, stops at approvals, missing inputs and main-session tasks, and re-runs st
 | "we're replacing the old site" | `migrate <old> <new>` | BUILT: `stages/migrate.md` |
 | "Business Profile / map pack / local" | `local` | BUILT: `stages/local.md` |
 | "who links to them / how do we earn links, mentions, citations" | `authority` | BUILT: `stages/authority.md` (the off-site playbook for any industry: authority.mjs -> authority-classify.mjs -> authority-vet.mjs -> authority-outreach.mjs) |
-| "approve the plan" / "sign off the targets" | `approve <target> targets\|plan --by NAME` | BUILT: scripts/approve.mjs (signed copies + lock; the launch gate needs them) |
+| "approve the plan" / "sign off the targets" / "approve the business, competitors, seeds or prompt map" | `approve <target> targets\|plan\|business\|competitors\|seeds\|prompt-map --by NAME` | BUILT: scripts/approve.mjs (six kinds; signed copies + lock; the launch gate needs them) |
 | "what should we change next" / after a measure run | `iterate <target>` | BUILT: `stages/iterate.md` (proposals only; they need approve again) |
 | "build a new site from a business brief" | `build <brief>` | BUILT (driver): `stages/build.md` |
 | "launch it" / "go live" / "make the preview production" (a built, gated preview) | `launch <target>` | BUILT: `stages/launch.md` (`node scripts/launch.mjs --init <pewp>` writes the 22-item ledger `launch.json`; `--access` the owner access questions; `--task` the one-shot agent brief; `--check` exits 0 only when every item is PASS with its proof line or BLOCKED with an allowed reason, 3 while items are open). Not in `start.mjs` yet |
@@ -35,18 +35,36 @@ Read the stage file before running a mode: each lists its inputs, steps, outputs
 file does not exist is NOT BUILT: say so plainly; never improvise it from memory.
 
 ## audit-live <url>
-1. `node "<skill>/scripts/doctor.mjs" <url>`: which free sources are connected (writes `site-checks/<host>/.pewp/doctor.json`).
-2. `node "<skill>/scripts/live-target.mjs" <url> [-- <snapshot options>]`: reuses a snapshot younger than 7 days, else
-   takes one (`--fresh` forces). Run it from PowerShell. For a client site pass its off-limits paths
-   (`--exclude "^/home-search"`) and never submit forms or log in. For your own preview add `--ignore-robots`.
-3. Show the user the worker count (`node "<skill>/scripts/plan.mjs" <snapshot dir> --dry`), then run the checker on the
-   snapshot folder: the coordinator agent below, repo root = the snapshot folder.
-4. Optional, free, 15 to 30 minutes of disk reading: `node "<skill>/scripts/authority.mjs" site-checks/<host>/.pewp/authority.json --target <domain> --competitor <domain>...`
-5. `node "<skill>/scripts/report-live.mjs" <url> [--launch-state preview]`: writes `.pewp/report.md` (plain words, the
-   six questions in order) and `report.json` (every number with its source, date and file).
-6. Save the proof: `runs/<date>-audit-live.md` (command, exit code, first 40 lines, doctor result).
+The step list is **`pipeline.json`** (skill root): ONE list, read by `node "<skill>/scripts/start.mjs" audit-live <url> [--client <slug>] [--go]` and by `omnikom seo run`.
+Both use `scripts/lib-pipeline.mjs` (load, validity rules, run order, placeholders, evidence, step outcome); `start.mjs` keeps no list of its own, and
+`scripts/test-pipeline.mjs` fails if the two ever differ (ids, order, dependsOn) or if the manifest breaks a rule. To add or change a step edit `pipeline.json`
+and run that test; never add a step in `start.mjs`.
+**A run resumes, never starts from scratch** (the owner's rule): a step whose evidence exists (not empty) and whose inputs are all older is ADOPTED: recorded done, exit 0, "adopted", with
+`evidenceDate` = the evidence's own mtime (not now), not run again; a newer input re-runs that step and, through its outputs, its dependents. `--adopt <id>[,<id>]` is the explicit form (a step that cannot
+be adopted refuses with exit 3 and the input or file named, nothing starts); `--fresh` discards (alone: every step again; `--fresh <id>[,<id>]`: those steps and their dependents). `adoptStep`
+and `adoptDefault` in `lib-pipeline.mjs` are the same rule for `omnikom seo run`.
+- Each step: id, module, what, script (or null), args, inputs, outputs, dependsOn, needsBrowser (none | headless | owner), needsAi, needsPerson, needsKeys, heavy, hits
+  (none | client | third-party:<host>), pace, timeoutMinutes, evidence, and for a waiting step a brief. Optional: `exit` (what a script's exit 4 means) and `engines` (names known to
+  `scripts/lib-stops.mjs`: while a stop is in force for one of them (a robot check, a 429, a sign-in wall) the step is BLOCKED with the stop's until and reason and never started; a
+  person's desktop lift frees only a person-paced capture in the owner's browser). The file is in run order (a step after the steps it depends on).
+- A step with a script runs: exit 0 = done once its evidence is there (exists, not empty, written after the step started; of a pattern the newest match counts),
+  3 = BLOCKED (the last line is `BLOCKED: <what> | unblocks: <what would>`; the steps that do not depend on it go on), 4 = SKIPPED (`SKIPPED: <reason>`) or, where the
+  step's own `exit` says so, partial (run again to continue), 2 = usage. A step that calls a site other than the owner's needs the owner's plan ack first (`--ack plan-ok`).
+- A step with `script: null` is WAITING and never run by a script: needsPerson prints NEEDS-APPROVAL (an approval: `approve.mjs`), needsBrowser "owner" and needsAi print
+  WAITING-FOR with the brief. The main session (or an agent) does it and writes the evidence; the next `--go` picks it up. Every waiting step is listed at once.
+- The modules, in the order a client audit needs them: setup (doctor, intake, business approval), technical (snapshot, psi with three runs and the median, crux for real
+  visitors, the checker agent), keywords and demand (seeds and their approval, Bing estimates and the client's own site stats which stay BLOCKED until the client adds us,
+  autocomplete, Trends), visibility (research plan, the vantage check, the Google and Bing captures, index coverage, research), competitors, authority (Common Crawl links,
+  anchors, classify, vet), local (city centres from Wikipedia, the Maps grid, directories), reputation, social, ads (each a capture in the owner's browser followed by an
+  importer that writes ONE normalized JSON under `research/`), forums, report (`report-live`), verify (a fresh agent re-checks every number).
+- Options of `start.mjs` that shape the run (remembered for the run): `--exclude`, `--max-pages`, `--research-args`, `--seed-args`, `--no-authority`, `--fresh`, `--client`,
+  `--env-file`; `--stage <id>` runs one step (after its dependencies); `--pipeline <file>` uses another manifest (tests). `{work}` for the checker's headless workers is
+  `<run>/work`, or `<os temp>/pewp-work/<host>` when the run lives under `~/.claude` (those workers cannot write there).
+- The captures a script never makes: Google, Bing, ChatGPT, Perplexity, Copilot, Maps, Trends, directories, review sites, social and ad libraries are read in the owner's
+  browser at human pace and saved in the format at the top of each importer (`scripts/import-*.mjs`, `research-autocomplete.mjs`, `local-nap.mjs`).
+- Run state and proof: `site-checks/<host>/.pewp/state.json`; every start writes `runs/<date>-audit-live.md` (command, exit code, first 40 lines, doctor result).
 
-## The checker (audit-repo, and step 3 above)
+## The checker (audit-repo, and the `checker` step of audit-live)
 The main session never reads the code. Start ONE agent: `subagent_type: "general-purpose"`, `model: "sonnet"`,
 `effort: "high"`, prompt:
 > Read `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance\coordinator.md` and follow it exactly. Repo root: `<path>`. Focus: `<focus>`. Max parallel workers: `<n, default 4>`. Return only the short summary it specifies.
@@ -80,6 +98,7 @@ After fixes: `node .checks/run-all.mjs`. After big changes, run the skill again 
 - Proof of the tooling (counts come from the output): `node scripts/test-snapshot.mjs`, `test-plan-merge.mjs`,
   `test-phase1.mjs`, `test-compare.mjs` (+ `--mutants`), `test-authority.mjs` (+ `--mutants`), `test-start.mjs`, `test-ref.mjs`, `test-research.mjs` (+ `mutants-research.mjs`), `test-plan-gate.mjs`, `test-prompt-plan.mjs` (the prompt map in the plan and gate GT-014, with its own mutants), `test-measure-prompts.mjs` (the monthly prompt-map re-run and its diff, with its own mutants), `test-measure.mjs`
   (+ `--mutants`), `test-refactor.mjs`, `test-freshness.mjs` (no fake freshness: check-stability, GT-013, built-in sitemap check; mutants built in),
+  `test-pipeline.mjs` (pipeline.json: validity rules, run order, evidence, the sameness with `start.mjs audit-live`, every script step's args; mutants built in), `test-bing-refusal.mjs`, `test-crux.mjs`, `test-importers.mjs` (the six capture importers), `test-city-centres.mjs`, `test-step-contracts.mjs` (live-target's pointer, local-grid and intake exits; each with its own mutants; `--json` prints one JSON result line last),
   `test-launch.mjs` (the launch ledger on a local fixture site, a fixture PSI file and the real strict gate; mutants built in),
   `test-writing-gate.mjs` (the writing gate on a good fixture site and one mutant per rule, each watched red for the right reason; needs the render-gate Chromium),
   `test-browser-leftovers.mjs [cdp-measure.mjs]` (`launchBrowser()` leaves no browser process and no pewp-chrome-* folder after close, process.exit and an uncaught error; run it through `node ~/.claude/scripts/heavy.mjs --`; BLOCKED, exit 1, with no Chrome or Edge).

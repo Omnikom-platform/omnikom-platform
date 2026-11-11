@@ -4,6 +4,10 @@
 // It drives the skill's scripts by their own command lines; it builds no stage itself.
 //
 // Usage: node start.mjs <mode> <target> [<target2>] [--go] [--stage <name>] [--ack <stage> [--by NAME] [...]] [options]
+//   audit-live: its steps are NOT in this file: they are the steps of pipeline.json (skill root), read through lib-pipeline.mjs and run in its
+//          order (file order, a step after the steps it depends on). Steps with a script run; steps marked needsPerson (NEEDS-APPROVAL), needsBrowser
+//          owner or needsAi (WAITING-FOR) print their brief and wait for their evidence; a step that exits 3 is BLOCKED and the steps that do not
+//          depend on it go on. Extra options: --client <slug> (the {client} placeholder), --pipeline <file> (another manifest; tests).
 //   modes: audit-live <url> | audit-repo <path> | audit <url|path> | compare <a> <b> | research <url|folder> | refactor <repo path>
 //          | measure <url> | migrate <old url> <new url|folder> | build <folder> (alias: new) | iterate <target> | local <url|repo>
 //          | overhaul <live url> <repo path>   (fix an existing live site end to end: stages/overhaul.md; 14 steps, OWNER stops)
@@ -43,6 +47,8 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { locate, load, save, init } from "./state.mjs";
 import { latestComplete } from "./live-target.mjs";
+import os from "node:os";
+import { loadManifest, validateManifest, runOrder, substitute, evidenceState, stepOutcome, stepKind, stepStop, describe, globPaths, hasGlob, adoptStep } from "./lib-pipeline.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const skill = path.resolve(here, "..");
@@ -53,11 +59,12 @@ let A = dd >= 0 ? ARGV.slice(0, dd) : ARGV;
 const VALUE_FLAGS = new Set(["--cwd", "--stage-scripts", "--stage-timeout-min", "--today", "--stage", "--ack", "--by", "--site", "--cutover-date", "--max-age-days", "--launch-state", "--launch-state-a", "--launch-state-b", "--competitor", "--focus", "--workers",
   "--research-args", "--plan-args", "--brief", "--live-url", "--build", "--setup", "--causes", "--people", "--decisions", "--max-workers", "--visual-allow", "--visual-dir", "--property", "--gsc-file", "--gsc-days", "--links-csv", "--overrides", "--home-ok", "--min-score",
   "--new-origin", "--gap-ms", "--max-urls", "--exclude", "--snapshot-dir", "--image-scope", "--max-pages",
-  "--env-file", "--dotenv", "--max-parallel", "--release", "--sitemap-url", "--seed-args", "--cc-release"]);
+  "--env-file", "--dotenv", "--max-parallel", "--release", "--sitemap-url", "--seed-args", "--cc-release", "--client", "--pipeline", "--adopt"]);
 const flag = (k) => A.includes(k);
 const val = (k, d = null) => (A.includes(k) ? A[A.indexOf(k) + 1] : d);
 const vals = (k) => A.flatMap((x, i) => (x === k ? [A[i + 1]] : []));
-const pos = A.filter((x, i) => !x.startsWith("--") && !VALUE_FLAGS.has(A[i - 1]));
+const MODES0 = ["audit-live", "audit-repo", "audit", "compare", "research", "refactor", "measure", "migrate", "build", "new", "iterate", "local", "overhaul"]; // the mode names, needed before MODES to tell `--fresh <step>` from a target
+const pos = A.filter((x, i) => !x.startsWith("--") && !VALUE_FLAGS.has(A[i - 1]) && !(A[i - 1] === "--fresh" && /^[a-z][a-z0-9,-]*$/.test(x) && !MODES0.includes(x)));
 const die = (msg, code = 2) => { console.error(msg); process.exit(code); };
 // everything printed is kept, so the run file (G14) can hold the first 40 lines of exactly what the main session saw
 const OUTLOG = []; { const _log = console.log; console.log = (...a) => { const s = a.map(String).join(" "); OUTLOG.push(...s.split("\n")); _log(s); }; }
@@ -264,14 +271,198 @@ function approvalStage(name, what, l, kind, o = {}) {
     judge: (r) => (r.code === 0 ? { outcome: "done", message: "approved copy matches the working file" } : r.code === 3 ? { outcome: "approval", message: `${r.out.trim()}\nNEEDS-APPROVAL stage=${name}: the owner reads the diff above and decides. To sign (the main session records the owner's decision, with the owner's name): node "${rel(path.join(stageDir, "approve.mjs"))}" "${t}" ${kind} ${from.join(" ")} --by "<owner name>"   then run the same start command again.` } : { outcome: r.code === 2 ? "blocked" : "fail", message: r.out.trim().split("\n").slice(-6).join("\n") }) };
 }
 
+// ---------------------------------------------------------------- audit-live: the step list is pipeline.json (lib-pipeline.mjs) and nothing else
+// A manifest step becomes a stage here; this file keeps no list of audit-live steps of its own (test-pipeline.mjs fails if it ever does).
+const PIPELINE_FILE = path.resolve(val("--pipeline") || path.join(skill, "pipeline.json"));
+const stripSlash = (p) => String(p).replace(/[\\/]+$/, "");
+// {work}: a folder for the checker's headless workers. {runDir}/work, except when {runDir} is under ~/.claude (the outside copy of the skill), where those
+// workers cannot write: then <os temp>/pewp-work/<host>.
+const underClaude = (p) => { const c = path.resolve(os.homedir(), ".claude").toLowerCase() + path.sep; return (path.resolve(p).toLowerCase() + path.sep).startsWith(c); };
+function pipelineVars() {
+  return { url: T1, client: val("--client") || null, host: loc.host, skill, runDir: loc.root, pewp: loc.pewp, work: underClaude(loc.root) ? path.join(os.tmpdir(), "pewp-work", loc.host) : path.join(loc.root, "work") };
+}
+// the evidence of one step; a placeholder without a value (no --client) counts as missing evidence and says why
+const evid = (m, since) => { try { const r = evidenceState(m, pipelineVars(), { since }); return { ...r, ok: r.state === "done" }; } catch (e) { return { state: "missing", ok: false, problems: [e.message], evidence: [] }; } };
+// What the runner adds to a script's command line from its own options; never part of the manifest. A manifest "--cwd {skill}" is the run
+// root: with the run in the skill folder that is the skill folder, and --cwd of this command replaces it, so the script writes where start reads.
+const EXTRA_ARGS = {
+  "doctor.mjs": () => [...envArgs(), ...(flag("--offline") ? ["--offline"] : [])],
+  "live-target.mjs": () => [...(flag("--fresh") ? ["--fresh"] : []), ...(val("--max-age-days") ? ["--max-age-days", val("--max-age-days")] : []), ...(snapshotArgs().length ? ["--", ...snapshotArgs()] : [])],
+  "report-live.mjs": () => launchArgs(),
+  "research.mjs": () => splitArgs(val("--research-args")),
+  "research-seeds.mjs": () => splitArgs(val("--seed-args")),
+};
+const lastLine = (out) => String(out || "").trim().split("\n").filter(Boolean).pop() || "";
+function costOf(m) {
+  const bits = [m.hits === "none" ? "free, local" : m.hits === "client" ? "requests to the client's site" : `calls ${m.hits.replace("third-party:", "")}`];
+  if (m.pace) bits.push(`pace: ${m.pace}`);
+  if (m.timeoutMinutes) bits.push(`up to ${m.timeoutMinutes} min`);
+  if (m.needsKeys.length) bits.push(`keys: ${m.needsKeys.join(", ")}`);
+  if (m.heavy) bits.push("heavy (one at a time on this laptop)");
+  return bits.join("; ");
+}
+function manifestStage(m) {
+  const waits = m.script === null;
+  const kind = stepKind(m);
+  const ex = (x) => substitute(x, pipelineVars());
+  const safe = (arr) => arr.flatMap((x) => { try { return [ex(x)]; } catch { return []; } }); // a placeholder without a value (no --client) leaves the path out; cmd() says why
+  const usesWork = JSON.stringify(m).includes("{work}");
+  return { name: m.id, kind, manifest: m, dependsOn: m.dependsOn, what: m.what, cost: costOf(m), external: !waits && m.hits !== "none",
+    skipIf: () => (m.module === "authority" && flag("--no-authority") ? "--no-authority" : null),
+    inputs: () => safe(m.inputs).flatMap((p) => { const g = hasGlob(p) ? globPaths(p) : [p]; return (g.length ? g : [p]).map((abs) => ({ abs })); }),
+    outputs: () => safe(m.outputs).map(stripSlash),
+    evidence: (since) => evid(m, since),
+    prepare: () => { if (usesWork) fs.mkdirSync(pipelineVars().work, { recursive: true }); },
+    cmd: () => {
+      const raw = m.args.map(ex);
+      const args = raw.map((a, i) => (raw[i - 1] === "--cwd" && m.args[i] === "{skill}" ? cwd : a));
+      const name = path.basename(m.script);
+      return script(name, [...args, ...(EXTRA_ARGS[name] ? EXTRA_ARGS[name]() : [])], m.timeoutMinutes ? { timeoutMin: m.timeoutMinutes } : {});
+    },
+    // the outcome of a step that ran is lib-pipeline.mjs's stepOutcome (exit 0 ok and then its evidence, 2 usage, 3 BLOCKED, 4 SKIPPED or partial, a NEEDS-INPUT line)
+    judge: (r, since) => {
+      const o = stepOutcome(m, { code: r.code, lastLine: lastLine(r.out), output: r.out, evidence: r.code === 0 ? evid(m, since) : null });
+      if (o.outcome === "needs-input") return { outcome: "needs-input", message: intakeQuestionText(m.id, r) || `NEEDS-INPUT stage=${m.id}: ${tail(r.out, 20)}` };
+      if (o.outcome === "fail" && r.code === 2) return { outcome: "fail", message: `usage error (exit 2): the manifest's args do not fit the script: ${tail(r.out, 4)}` };
+      if (o.outcome === "fail" && ![0, 3, 4].includes(r.code)) return { outcome: "fail", message: tail(r.out, 15) };
+      return o;
+    } };
+}
+function pipelineSequence() {
+  const lm = loadManifest(PIPELINE_FILE);
+  const scriptExists = (p) => String(p).startsWith("repo:") || fs.existsSync(path.join(stageDir, path.basename(p)));
+  const problems = lm.ok ? validateManifest(lm.manifest, { scriptExists }).problems : lm.problems;
+  if (problems.length) die(`${rel(PIPELINE_FILE)} is not valid; nothing ran:\n - ${problems.map(describe).join("\n - ")}`, 2);
+  return runOrder(lm.manifest).steps.map(manifestStage);
+}
+const safeList = (arr, vars) => arr.map((x) => { try { return substitute(x, vars); } catch { return x; } }).join(", ");
+// ---------------------------------------------------------------- ADOPT (work order 41): a run resumes from where it is, never from scratch (the owner's standing rule)
+// A step whose evidence exists (not empty) and whose inputs are older is recorded as adopted: done, exit 0, outcome "adopted", evidenceDate = the evidence's own mtime (not now), and
+// not run again. A step whose input is newer than its evidence runs (and so, through its outputs, do its dependents). --adopt <id>[,<id>] is the explicit case: a step that
+// cannot be adopted is a refusal (exit 3) and nothing starts. --fresh discards: --fresh alone runs every step again, --fresh <id>[,<id>] those steps (their dependents follow
+// through their inputs). Bare --fresh also still tells the snapshot to take a new snapshot.
+const idList = (v) => String(v || "").split(",").map((x) => x.trim()).filter(Boolean);
+const freshArg = (() => { const i = A.indexOf("--fresh"); const n = i >= 0 ? A[i + 1] : null; return n && /^[a-z][a-z0-9,-]*$/.test(n) && !MODES.includes(n) ? n : null; })();
+const freshAll = flag("--fresh") && !freshArg, freshIds = new Set(idList(freshArg));
+function tryAdopt(s) {
+  let a;
+  try { a = adoptStep(s.manifest, { vars: pipelineVars(), now: Date.now() }); } catch (e) { return { ok: false, rule: "error", reason: e.message }; }
+  if (!a.ok) return a;
+  // doneAt stays "when the step was completed or adopted" (a waiting step's staleness is judged against it: its evidence must be newer than that after an input changes); evidenceDate is the date of the DATA
+  markDone(s, {}, { adopted: true, adoptedAt: a.adoptedAt, evidenceDate: a.at, exit: 0, outcome: "adopted", adoptedEvidence: a.evidence });
+  RAN.push({ stage: s.name, script: null, args: [], code: 0, out: `adopted: ${a.evidence.map((e) => `${e.path} (${e.mtime})`).join(", ")}`, adopted: a });
+  console.log(`${s.name}: adopted (its evidence is from ${a.at}; not run again)`);
+  return a;
+}
+// The waiting steps print their brief; the run goes on with every step that does not depend on one. Exit 0 all done, 1 a step FAILED,
+// 3 a step is waiting for a person, an agent or the owner's browser (or needs input), 4 a step is BLOCKED or partial and nothing else can run.
+async function runManifestLoop() {
+  const settled = new Set(["done", "skipped"]);
+  const res = new Map(); // id -> done | skipped | blocked | partial | waiting | held
+  const heldBy = new Map(), waiting = [], blockedNotes = [];
+  const forced = val("--stage");
+  const unknown = [...idList(val("--adopt")), ...freshIds].filter((x) => !byName.has(x));
+  if (unknown.length) { console.error(`unknown step id(s) ${unknown.join(", ")}: --adopt and --fresh take ids of the manifest's steps: ${SEQ.map((s) => s.name).join(", ")}`); return 2; }
+  if (go && !forced && idList(val("--adopt")).length) {
+    const refused = [];
+    for (const id of idList(val("--adopt"))) {
+      const s = byName.get(id);
+      if (statusOf(s).status === "done") { console.log(`${id}: already done, nothing to adopt`); continue; }
+      const a = adoptStep(s.manifest, { vars: pipelineVars(), now: Date.now() });
+      if (!a.ok) refused.push(a);
+    }
+    if (refused.length) {
+      for (const a of refused) console.log(`ADOPT REFUSED ${a.id}: ${a.reason}`);
+      console.log(`BLOCKED: cannot adopt ${refused.map((a) => a.id).join(", ")}: ${refused[0].reason} | unblocks: run the step instead (drop it from --adopt), or restore the older input, or fix its evidence`);
+      return 3;
+    }
+    for (const id of idList(val("--adopt"))) if (statusOf(byName.get(id)).status !== "done") tryAdopt(byName.get(id));
+  }
+  // a step with `engines` is BLOCKED, never started, while a stop (lib-stops.mjs: a robot check, a 429, a sign-in wall) is in force for one of them; the stop's until and reason are quoted
+  const stopBlock = (s, stop) => { persist((x) => { x.stages[s.name] = { blocked: String(stop.message).slice(0, 300), at: new Date().toISOString(), stop: { engine: stop.engine, until: stop.until } }; }); console.log(`${s.name}: BLOCKED: ${stop.message}`); blockedNotes.push(`${s.name}: ${stop.message}`); res.set(s.name, "blocked"); };
+  const queue = forced ? [byName.get(forced)] : SEQ;
+  setRun("running", queue[0]?.name || null, "");
+  if (forced) {
+    const s = byName.get(forced);
+    const dep = s.dependsOn.filter((d) => statusOf(byName.get(d)).status !== "done");
+    if (dep.length) { setRun("waiting-for-dependency", s.name, dep.join(", ")); console.log(`WAITING-FOR stage=${dep[0]}: ${s.name} depends on ${dep.join(", ")}, which ${dep.length > 1 ? "are" : "is"} not done yet. A step never starts before the steps it depends on are done: run the same command without --stage to reach it in order.`); return 3; }
+  }
+  for (const s of queue) {
+    const skip = s.skipIf?.();
+    if (skip) { console.log(`${s.name}: skipped (${skip})`); res.set(s.name, "skipped"); continue; }
+    const unmet = forced ? [] : s.dependsOn.filter((d) => !settled.has(res.get(d)));
+    if (unmet.length) { res.set(s.name, "held"); heldBy.set(s.name, unmet); continue; }
+    const isFresh = freshAll || freshIds.has(s.name);
+    const status = forced || isFresh ? { status: "pending" } : statusOf(s);
+    if (status.status === "pending" && !forced && !isFresh && go) {
+      const a = tryAdopt(s);
+      if (a.ok) { res.set(s.name, "done"); continue; }
+      if (a.rule === "input-newer") console.log(`${s.name}: not adopted (${a.reason}): running it again`);
+    }
+    if (status.status === "done") { console.log(`${s.name}: done${status.note ? ` (${status.note})` : ""}`); res.set(s.name, status.note.startsWith("skipped") ? "skipped" : "done"); continue; }
+    if (status.status === "stale") console.log(`${s.name}: stale (${status.note}): running again`);
+    s.prepare?.();
+    if (s.kind !== "script") {
+      // the evidence makes it done: it exists, is not empty and is newer than the step's last completion (after an input changed, nothing earlier counts)
+      const rec = load(runLoc)?.stages?.[s.name];
+      const since = Date.parse(rec?.doneAt || 0) || 0;
+      const ev = s.evidence(since);
+      if (ev.ok && !forced && !isFresh) { markDone(s); console.log(`${s.name}: done (its evidence exists)`); res.set(s.name, "done"); continue; }
+      const stopW = stepStop(s.manifest, { mode: s.kind === "browser" ? "desktop" : "script" }); // a person-paced capture in the owner's own browser is freed by a desktop lift
+      if (stopW) { stopBlock(s, stopW); continue; }
+      res.set(s.name, "waiting"); waiting.push({ s, ev }); continue;
+    }
+    const stopS = stepStop(s.manifest, { mode: "script" });
+    if (stopS) { stopBlock(s, stopS); continue; }
+    if (!planAckOf() && s.external) {
+      setRun("needs-approval", s.name, "plan-ok");
+      console.log(`NEEDS-APPROVAL stage=plan-ok (before ${s.name}): the owner has not seen this run plan (the steps above and their costs; not the page plan). Show it and ask as a pickable option. Then record it:\n  node "${rel(path.join(here, "start.mjs"))}" ${mode} ${JSON.stringify(T1)} --ack plan-ok --by "<owner name>"   (or pass --yes with --go when the owner already said yes in words). Nothing external ran.`);
+      return 3;
+    }
+    let c;
+    try { c = s.cmd(); } catch (e) { setRun("needs-input", s.name, e.message); console.log(`NEEDS-INPUT stage=${s.name}: ${e.message}`); return 3; }
+    console.log(`${s.name}: running scripts/${c.script} ${c.args.map((x) => (/\s/.test(x) ? JSON.stringify(x) : x)).join(" ").slice(0, 200)}`);
+    const t0 = Date.now();
+    const out = await runScript(c, s.name);
+    RAN.push({ stage: s.name, script: c.script, args: c.args, code: out.code, out: out.out });
+    const v = out.notBuilt ? { outcome: "blocked", message: out.out } : out.timedOut ? { outcome: "fail", message: `timed out after ${c.timeoutMin || timeoutMs / 60_000} min` } : s.judge(out, t0);
+    if (v.outcome === "done") { markDone(s); console.log(`${s.name}: done${v.message ? `. ${v.message}` : ""}`); res.set(s.name, "done"); continue; }
+    if (v.outcome === "skipped") { markDone(s, {}, { skipped: String(v.message).slice(0, 300) }); console.log(`${s.name}: SKIPPED: ${v.message}`); res.set(s.name, "skipped"); continue; }
+    if (v.outcome === "blocked") { persist((x) => { x.stages[s.name] = { blocked: String(v.message).slice(0, 300), at: new Date().toISOString() }; }); console.log(`${s.name}: BLOCKED: ${v.message}`); blockedNotes.push(`${s.name}: ${v.message}`); res.set(s.name, "blocked"); continue; }
+    if (v.outcome === "partial") { persist((x) => { x.stages[s.name] = { partial: String(v.message).slice(0, 300), at: new Date().toISOString() }; }); console.log(`${s.name}: PARTIAL: ${v.message} (what was read is kept; run again to continue)`); blockedNotes.push(`${s.name}: partial, ${v.message}`); res.set(s.name, "partial"); continue; }
+    if (v.outcome === "needs-input") { setRun("needs-input", s.name, ""); console.log(v.message); return 3; }
+    setRun("failed", s.name, v.message); console.log(`FAILED stage=${s.name}: ${v.message}`); return 1;
+  }
+  const after2 = SEQ.map((x) => ({ s: x, ...statusOf(x) }));
+  persist((x) => { for (const r of after2) if (x.stages[r.s.name]) { if (r.status === "stale") x.stages[r.s.name].stale = { markedAt: new Date().toISOString(), changed: r.changed }; else delete x.stages[r.s.name].stale; } });
+  if (forced) { const stale = after2.filter((r) => r.status === "stale").map((r) => r.s.name); if (stale.length) console.log(`marked stale in state.json (their inputs changed): ${stale.join(", ")}; the next start --go re-runs them`); }
+  if (waiting.length) {
+    const first = waiting[0].s;
+    setRun(first.kind === "person" ? "needs-approval" : first.kind === "browser" ? "waiting-for-browser" : "waiting-for-agent", first.name, waiting.map((w) => w.s.name).join(", "));
+    for (const { s, ev } of waiting) {
+      const m = s.manifest, vars = pipelineVars();
+      const head = s.kind === "person" ? `NEEDS-APPROVAL stage=${s.name}: ${m.what}` : s.kind === "browser" ? `WAITING-FOR the owner's browser (stage=${s.name}): ${m.what}` : `WAITING-FOR an agent (stage=${s.name}): ${m.what}`;
+      let brief = m.brief; try { brief = substitute(m.brief, vars); } catch {}
+      console.log([head, `  brief: ${brief}`, ...(m.pace ? [`  pace: ${m.pace}`] : []), `  evidence it must leave: ${safeList(m.evidence, vars)}`, `  now: ${ev.problems.slice(0, 2).join("; ")}`].join("\n"));
+    }
+    if (blockedNotes.length) console.log(`BLOCKED (the steps that do not depend on them went on): ${blockedNotes.join(" | ")}`);
+    console.log(`${waiting.length} step(s) wait. When their evidence is written, run the same command again: it picks them up and goes on.`);
+    return 3;
+  }
+  if (blockedNotes.length) {
+    setRun("blocked", blockedNotes[0].split(":")[0], blockedNotes.join(" | "));
+    console.log(`BLOCKED: ${blockedNotes.join(" | ")}\n${[...heldBy].map(([k, v]) => `${k} waits for ${v.join(", ")}`).join("; ")}`);
+    return 4;
+  }
+  if (forced) { console.log("stage finished."); return 0; }
+  setRun("done", null, "all steps done"); console.log("ALL STAGES DONE."); return 0;
+}
+
 // ---------------------------------------------------------------- the sequences
 function sequence() {
   const S = [];
   if (mode === "audit-live") {
-    S.push(doctorStage(loc, T1), snapshotStage(loc), checkerStage(loc), authorityStage(loc),
-      { name: "report", kind: "script", what: "the six-question report in plain words (report.md) with every number sourced (report.json)", cost: "free, seconds",
-        inputs: () => [{ abs: path.join(snapDirOf(loc) || P("none"), "_site.json") }, { abs: path.join(snapDirOf(loc) || P("none"), ".checks", "causes.json") }, "authority.json", "business.json"], outputs: () => [P("report.md"), P("report.json")],
-        cmd: () => script("report-live.mjs", [T1, "--cwd", cwd, ...launchArgs()]) });
+    S.push(...pipelineSequence());
   } else if (mode === "audit-repo") {
     S.push(doctorStage(loc, loc.root), guardStage(loc, "before"), checkerStage(loc), guardStage(loc, "after"));
   } else if (mode === "compare") {
@@ -534,7 +725,9 @@ function statusOf(s) {
     const changed = Object.keys(cur.detail).filter((k) => rec.inputsDetail?.[k] !== cur.detail[k]);
     return { status: "stale", note: `an input changed: ${changed.slice(0, 3).map((c) => path.basename(c)).join(", ")}`, changed };
   }
+  if (rec.skipped) return { status: "done", note: `skipped: ${rec.skipped}` };
   if (outsOf(s).some((o) => !fs.existsSync(o))) return { status: "pending", note: "outputs missing" };
+  if (s.evidence) { const ev = s.evidence(0); if (!ev.ok) return { status: "pending", note: `evidence: ${ev.problems.slice(0, 2).join("; ")}` }; }
   if (!rec.inputsHash) { persist((x) => { x.stages[s.name].inputsHash = cur.hash; x.stages[s.name].inputsDetail = cur.detail; x.stages[s.name].adopted = true; }); return { status: "done", note: "adopted (already done outside start)" }; }
   return { status: "done", note: "" };
 }
@@ -542,7 +735,7 @@ function markDone(s, outputs = {}, extra = {}) {
   const cur = hashInputs(s.inputs ? s.inputs() : []);
   persist((x) => { x.stages[s.name] = { doneAt: new Date().toISOString(), outputs: Object.fromEntries(outsOf(s).map((o) => [path.basename(o), rel(o)])), ...outputs, inputsHash: cur.hash, inputsDetail: cur.detail, ...extra }; });
 }
-function setRun(status, stage, message = "") { persist((x) => { x.start = { ...(x.start || {}), mode, targets: [T1, T2].filter(Boolean), sequence: SEQ.map((s) => ({ name: s.name, kind: s.kind, optional: !!s.optional })), status, stage, message: String(message).slice(0, 400), updatedAt: new Date().toISOString() }; }); }
+function setRun(status, stage, message = "") { persist((x) => { x.start = { ...(x.start || {}), mode, targets: [T1, T2].filter(Boolean), sequence: SEQ.map((s) => ({ name: s.name, kind: s.kind, optional: !!s.optional, ...(s.dependsOn ? { dependsOn: s.dependsOn } : {}) })), status, stage, message: String(message).slice(0, 400), updatedAt: new Date().toISOString() }; }); }
 
 // ---------------------------------------------------------------- running a script
 function killTree(child) { try { if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", timeout: 10_000 }); else child.kill("SIGKILL"); } catch {} }
@@ -575,9 +768,10 @@ function writeRunFiles(code) {
     const ack = planAckOf();
     const head = [`# ${today} ${mode}: ${[T1, T2].filter(Boolean).join(" ")}`, "", `- command: \`${safeArgv()}\``, `- exit code: ${code} (${code === 0 ? "done or natural pause" : code === 1 ? "FAILED" : code === 3 ? "STOPPED for a person" : code === 4 ? "BLOCKED" : "usage"})`,
       `- run state: ${load(runLoc)?.start?.status || "?"} at stage ${load(runLoc)?.start?.stage || "-"}`, `- plan seen by the owner: ${ack ? `${ack.how}, by ${ack.by}, ${ack.at}` : "NOT RECORDED (no --ack plan-ok, no --yes)"}`, `- env file: ${envInfo.file ? `${rel(envInfo.file)} (${envInfo.loaded.length} names, ${envInfo.source})` : "none"}`, `- ${doctorSummary()}`,
-      `- stages run now: ${RAN.length ? RAN.map((r) => `${r.stage} (exit ${r.code})`).join(", ") : "none"}`, "", "## First 40 lines", "```", first40(OUTLOG.join("\n")), "```", ""];
+      `- stages run now: ${RAN.length ? RAN.map((r) => `${r.stage} (exit ${r.code}${r.adopted ? ", adopted" : ""})`).join(", ") : "none"}`, "", "## First 40 lines", "```", first40(OUTLOG.join("\n")), "```", ""];
     fs.writeFileSync(path.join(dir, `${today}-${mode}.md`), head.join("\n"));
-    for (const r of RAN) fs.writeFileSync(path.join(dir, `${today}-${mode}-${r.stage}.md`), [`# ${today} ${mode} / ${r.stage}`, "", `- command: \`node scripts/${r.script} ${r.args.map((x) => (/\s/.test(x) ? JSON.stringify(x) : x)).join(" ")}\``, `- exit code: ${r.code}`, `- ${doctorSummary()}`, "", "## First 40 lines of its output", "```", first40(r.out), "```", ""].join("\n"));
+    for (const r of RAN.filter((x) => x.adopted)) fs.writeFileSync(path.join(dir, `${today}-${mode}-${r.stage}.md`), [`# ${today} ${mode} / ${r.stage}`, "", "- adopted: the step was not run; its evidence already existed and every input was older", `- exit code: ${r.code} (adopted)`, `- date: ${r.adopted.at} (the evidence's own date; adopted ${r.adopted.adoptedAt})`, `- evidence: ${r.adopted.evidence.map((e) => `${e.path} (${e.mtime})`).join(", ")}`, `- inputs checked: ${r.adopted.inputsChecked}${r.adopted.missingInputs.length ? `; not present (cannot be newer): ${r.adopted.missingInputs.join(", ")}` : ""}`, ""].join("\n"));
+    for (const r of RAN.filter((x) => !x.adopted)) fs.writeFileSync(path.join(dir, `${today}-${mode}-${r.stage}.md`), [`# ${today} ${mode} / ${r.stage}`, "", `- command: \`node scripts/${r.script} ${r.args.map((x) => (/\s/.test(x) ? JSON.stringify(x) : x)).join(" ")}\``, `- exit code: ${r.code}`, `- ${doctorSummary()}`, "", "## First 40 lines of its output", "```", first40(r.out), "```", ""].join("\n"));
   } catch (e) { console.error(`run file not written: ${e.message || e}`); }
 }
 const finish = (code) => { writeRunFiles(code); process.exit(code); };
@@ -635,6 +829,8 @@ if (!go && !val("--ack")) {
   finish(0);
 }
 if (!go) finish(0);
+
+if (mode === "audit-live") finish(await runManifestLoop());
 
 setRun("running", need[0]?.name || null, "");
 const targetsToRun = val("--stage") ? [byName.get(val("--stage"))] : SEQ;

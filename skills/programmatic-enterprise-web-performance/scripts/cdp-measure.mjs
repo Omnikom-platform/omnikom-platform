@@ -8,6 +8,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
+import { spawnBrowser } from "./lib-browser-profile.mjs";
 
 const CHROME = [
   process.env.CHROME_PATH,
@@ -29,9 +30,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export async function launchBrowser() {
   if (!CHROME) throw new Error("no Chrome or Edge found (set CHROME_PATH)");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-chrome-"));
-  const proc = spawn(CHROME, ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${dir}`, "--no-first-run",
+  // spawnBrowser seeds the new profile's Local State first: a fresh profile otherwise makes the browser try the Windows account with an empty password (lib-browser-profile.mjs)
+  const proc = spawnBrowser({ exe: CHROME, dir, args: ["--headless=new", "--remote-debugging-port=0", "--no-first-run",
     "--no-default-browser-check", "--disable-extensions", "--disable-background-networking", "--mute-audio", "about:blank"],
-    { stdio: "ignore", windowsHide: true });
+    options: { stdio: "ignore", windowsHide: true } });
   // Chrome may hold its profile files for a moment after it exits: retry the removal (EBUSY/EPERM) instead of leaving temp folders.
   const removeDir = () => { try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch {} };
   proc.on("error", () => {}); // a start failure shows as "no DevTools port" below, never as an unhandled error event

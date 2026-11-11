@@ -84,7 +84,7 @@ export function context(target, { cwd = process.cwd() } = {}) {
   return { loc, pewp: loc.pewp, rdir: path.join(loc.pewp, "research"), business, market: business?.market || null, domain: business?.domain || loc.host || null };
 }
 export function needBusiness(ctx) {
-  if (!ctx.business) throw new Blocked(`no ${path.join(ctx.pewp, "business.json")}: run S1 intake first (node scripts/intake.mjs <target>) and answer its questions`);
+  if (!ctx.business) throw new Blocked(`no ${path.join(ctx.pewp, "business.json")} | unblocks: run S1 intake first (node scripts/intake.mjs <target>) and answer its questions`);
   if (!ctx.market?.country || !ctx.market?.language) throw new Blocked("business.json has no market {country, language}: every volume is per country, so intake must set it");
   return ctx.business;
 }

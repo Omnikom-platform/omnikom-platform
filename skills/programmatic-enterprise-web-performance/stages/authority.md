@@ -32,7 +32,8 @@ counts distinct linking **domains**, so use it to compare us with competitors an
 ## 2. The run
 | Step | Command | Reads | Writes | Notes |
 |---|---|---|---|---|
-| 1 Who links to us and to competitors | `node scripts/authority.mjs <pewp>/authority.json --target <domain> --competitor <d>... --top 500` | Common Crawl cache | `authority.json` (+ `.md`), including the link gap | 15 to 30 minutes of disk reading. `--top` is how many linking domains are kept per site (default 30): use 500 so the classifier sees them all |
+| 1 Who links to us and to competitors | `node scripts/authority.mjs <pewp>/authority.json --target <domain> --competitor <d>... --top 500` | Common Crawl cache | `authority.json` (+ `.md`), including the link gap | 15 to 30 minutes the first time, then cached per release (`<release>-asked.json`, `--rescan`): UNPROVEN at real scale. `--top` = linking domains kept per site (default 30); use 500 |
+| 1b How they link (anchors, follow or nofollow) | `node scripts/authority-anchors.mjs <pewp> [--keyword "<money term>"]...` | `authority.json`, Common Crawl data host (at most 600 requests, 3 s apart) | `authority/anchors.json` + `anchors.md` | optional, after step 1; see 2b. Exit 4 = Common Crawl stopped us (24 h stop file) |
 | 2 Classify and rank | `node scripts/authority-classify.mjs <target> [--industry slug] [--fetch]` | `authority.json`, `research/citations.json`, `research/ai-citations.json`, `business.json`, the pack | `authority/opportunities.json` + `.md` | no network unless `--fetch`; exit 3 = no `authority.json` yet |
 | 3 Vet before spending | `node scripts/authority-vet.mjs <target> [--domain d]... [--limit 25] [--exclude "<regex>"]` | `opportunities.json` | `authority/vetting.json` + `howto.md` | polite read-only visits, about 12 s a site; exit 4 = a time or request cap stopped it |
 | 4 Hand the client the how-to | `authority/howto.md` | `vetting.json` | the plain-words list | the client never sees internal notes |
@@ -56,6 +57,28 @@ Three filters keep the list about places that can link to the client (added afte
 1. **Scope of the AI answers.** `research/ai-citations.json` can hold answers to questions of a second business. Only rows whose question matches a cluster of `targets.json` (record-only clusters excluded; word overlap 0.6 or more) or shares a word with the business's offer, industry or pack aliases are counted. With neither targets nor offer nothing can be judged: all rows are kept and `aiFilter.mode` says `unfiltered`. If `targets.json` itself holds a second business's clusters, this filter keeps them; filter 2 is what removes the companies.
 2. **Provider businesses are not opportunities.** A domain whose name (pack `providerPatterns`, tested on the main label) or home page (pack `providerText`: first-person wording such as "we buy houses", "get a cash offer") shows it sells the same or a neighbouring service is `provider-business`. Names the pack knows (a Zillow, an escrow company named as a partner) win over this rule. Directory wording ("find the best agents") never counts. `authority-vet.mjs` applies the wording test to unclassified sites and returns `NOT AN OPPORTUNITY`.
 3. **Only kinds that link out are ranked**, and a partner type the pack names (lender, escrow, stager, inspector) found only through AI answers or searches ranks below the directories (tier `partner`).
+
+### 2b. Anchors and link types (`authority-anchors.mjs`)
+Step 1 says who links, not the anchor text or follow/nofollow. This step reads both from Common Crawl's copies of the referring pages,
+for each graph competitor, over the domains `authority.json` lists. **No referring site is ever requested**; every request goes to
+`data.commoncrawl.org`.
+- **Fact, 2026-11-11 (UTC+2): `index.commoncrawl.org` dropped every request 03:59 to 04:12 and all 3 probes at 05:00** (cause unknown, maybe
+  our 1 s pace; the data host answered). Slow down; do not route around.
+- Limits: hard cap **600** requests a run (cache hits are free), gap **3 s or more**, 3 index blocks and 20
+  pages per referring domain. **One 403, 429 or 503, or one dropped connection, stops the run** and writes a 24 h stop file
+  (`omnikom-stops/commoncrawl.json`, `lib-stops.mjs`): no run starts while it is in force (exit 3). Five index-block reads failing in a
+  row stop it too: an unreachable index is never "no pages". Free disk under 15 GB is BLOCKED before the cluster.idx download. The owner's
+  do-not-request hosts are never read.
+- Each link: anchor text (alt text for an image), type (follow, nofollow, ugc, sponsored; a page-level `meta robots nofollow` counts), place
+  (nav, header, aside, footer, body), page URL. Anchor classes: brand, exact (a `--keyword` you gave), partial, url, generic, image, empty,
+  other.
+- Coverage line per target: "found links on N of M referring domains read; the rest: not found in the pages sampled (sampled N of M index
+  blocks)". **Never** write that a site has no link or does not link: an unsampled page proves nothing; every count is a lower bound.
+- Live run 2026-11-11 (Paragon, 7 competitors): 28 domains read, 4 links (all brand, follow): **too thin to describe anchors**. 3 of about
+  7,000 index blocks per domain is a random sample; more runs only add domains. To be useful it must find the linking page itself: e.g. read the
+  WAT of only the blocks whose URLs mention the competitor's brand, or use a host-level graph (a future order).
+  A target outside the graph has no referring domains: its row says so, no anchors.
+- Test: `node scripts/test-authority-anchors.mjs` and `--mutants`.
 
 ## 3. The source types
 The ids are the `type` values in the files. The numbers are the skill's judgement (value 1 to 5, effort 1 = an hour to 5 =
@@ -274,7 +297,7 @@ competitors had 7 to 9 from expertise.com, activerain.com, a chamber of commerce
   come from the cache). Git Bash rewrites a leading `/` in `--exclude`: run from PowerShell or the tool refuses.
 - **Never** scrape Google, Bing, ChatGPT or Perplexity result pages, submit a form, register, or log in. Those captures are the
   owner's, at human pace.
-- Files (under `<pewp>/authority/`): `opportunities.json` and `.md`, `vetting.json`, `howto.md`, `outreach.json` and
+- Files (under `<pewp>/authority/`): `anchors.json` and `.md` (2b), `opportunities.json` and `.md`, `vetting.json`, `howto.md`, `outreach.json` and
   `outreach.md`. `outreach.json` rows: domain, type, owner, status (`planned`, `asked`, `listed`, `refused`), date,
   `evidenceUrl`, history. **A row is `listed` only with an evidence address on that site**; an owner is needed before a site is
   asked; a site appears once; dates are real. `explain` (and `explainReferringDomains` for `measure.mjs`) separates the

@@ -21,7 +21,7 @@ export async function run(ctx, o = {}) {
   const oppFile = path.join(ctx.pewp, "authority", "opportunities.json");
   const opps = J(oppFile);
   const explicit = (o.domains || []).map(hostOf);
-  if (!opps && !explicit.length) throw new Blocked(`no ${oppFile}: run  node scripts/authority-classify.mjs <target>  first, or name the sites with --domain`);
+  if (!opps && !explicit.length) throw new Blocked(`no ${oppFile} | unblocks: run  node scripts/authority-classify.mjs <target>  first, or name the sites with --domain`);
   refuseMangled(o.exclude || []);
   const excludes = compileExcludes(o.exclude);
   const rules = loadRules();

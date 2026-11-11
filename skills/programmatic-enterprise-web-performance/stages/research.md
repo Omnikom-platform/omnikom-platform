@@ -113,6 +113,36 @@ receiver** (no hand-written files, no other tool that writes captures) and repor
 not yet run. It does not decide which queries to add, does not click Allow for the owner and does not sign in. The main session reads the counts, runs
 `research.mjs` again and trusts only what the importer shows (`serp.json` counts, rejected, `deviceMismatch`, notes).
 
+## US vantage (work order 43): `scripts/vantage.mjs`, `scripts/lib-stops.mjs`
+**Status: Google web numbers stay "measured from outside the US, indicative". The Sacramento vantage is NOT PROVEN and Google is BLOCKED from it until at
+least 2026-11-12 04:29 local** (see "What was proven").
+- **What it is.** One dedicated Edge profile, `omnikom-us-vantage` (never the owner's own profile; `assertOwnProfile` refuses any other folder), started with remote
+  debugging on 127.0.0.1 only, signed out. It tells the browser it is in Sacramento (CDP geolocation override 38.5816, -121.4944, permission for google.com and
+  bing.com) and uses `gl=us&hl=en` on Google, `cc=US&setlang=en-US` on Bing. It bypasses nothing and changes no IP.
+- **Commands** (exit 0 ok, 2 usage, 3 BLOCKED with a last line `BLOCKED: <what> | unblocks: <what>`): `start` launches the profile and does the footer proof;
+  `status` re-verifies (no Google page loaded); `stop` closes it and proves it; `capture <url> --out FILE.json [--settle] [--city "City, ST"]` is ONE page the agent
+  asked for (writes the json, the html and a png). The CLI wraps start, status and stop as `omnikom seo vantage`. `seo run` runs only `status`.
+- **The footer proof.** `start` (an explicit action, never `status`) loads ONE Google results page, `coffee` with `gl=us&hl=en`, at the normal pace, reads the footer's
+  place line and records `{footer, footerLocation, query, url, at}` plus a browser session id. `status` passes only if that proof exists, passed (Sacramento or
+  California), is under 12 hours old and belongs to the browser that is running now. Every Google capture also records its own footer location in
+  `vantage.footerLocation`, so each capture proves its own vantage.
+- **Pace and walls.** At least 45 s between Google pages and between Bing pages; 60 s per host for every other host (ChatGPT, Perplexity, Copilot, LinkedIn,
+  Facebook, Reddit, BBB, Trustpilot). `capture` refuses inside the gap. A robot check, CAPTCHA or sign-in wall is BLOCKED and writes that engine's 24 h stop, never
+  solved, never bypassed. No loop over a query list; the agent asks for each page.
+- **Stops** are one file per engine in the shared format, `~/.claude/state/omnikom-stops/<engine>.json` (`lib-stops.mjs`: engine, hosts, until, reason, setBy, setAt,
+  evidence, optional desktop-only `lift`). A Google stop blocks Google only. Scripts honour a stop until `until`; a lift frees only a person-paced desktop capture.
+- **Other hosts** need no Sacramento proof, only the running browser and their own stop. `--settle` waits until the page text has not changed for 5 s (90 s cap), then
+  saves; AI engines always settle. The AI answer selectors and the generic page reader are UNPROVEN until a live read (an empty answer is BLOCKED, never guessed).
+  An AI capture is saved in the `captures/ai/<id>.json` shape (`engine, question, answer, sources`) plus `citations`, `settle`, `vantage`.
+- **What was proven (2026-11-11, one real run each, through `heavy.mjs`).** PROVEN: the profile starts, the browser reads back Sacramento (`38.5816, -121.4944`),
+  `stop` closes it, `status` is 3 after that, the 45 s gap held. NOT PROVEN: the footer location. Google's home page footer carries no location line, and the first
+  results page ("business loans", `gl=us`, signed-out Edge driven over CDP, exit IP 156.208.129.182 Giza, EG) returned Google's robot check ("Our systems have
+  detected unusual traffic from your computer network ... not a robot"). Stopped at once, evidence kept in `omnikom-stops/evidence/`, stop until
+  2026-11-12T02:29:12Z. The footer reader is tested on synthetic strings only. No retry from this IP.
+- **Step 2 (a US egress) is BLOCKED.** A GitHub Codespace as an SSH tunnel is out: GitHub's terms (github/docs, "GitHub Terms for Additional Products and Features",
+  Codespaces, fetched 2026-11-11) say "Additionally, Codespaces should not be used for: ... Any other activity unrelated to the development or testing of the
+  software project associated with the repository where GitHub Codespaces is initiated." Unblocks: a US egress we are permitted to use (the owner's own server or VPN).
+
 ## Capturing autocomplete (the main session, in the owner's browser)
 Same pace and stop rule as the results pages, and the same rule for the list: only the seeds in `capture-requests.json` (`autocompleteRequests`), none of your own
 (a new seed comes through the approved path). The receiver does not take autocomplete files yet; the main session writes them. For each seed: type the seed slowly into the engine's search
@@ -180,7 +210,7 @@ The monthly re-run of the map is the measure stage (`stages/measure.md`); the pl
 - **Winner pages** (`research/winners.json`): `requiredTerms` (06 9.5) = the 1-3 word terms of the headings, list items and bold text that appear on >= 2 of the top 3 winners, stop words removed; `requiredEntities` = the older shorter list
   (heading words on half the pages, minus the query's own words) that the briefs and GT-005 still use; `winningPageType` = the most common 9.3 page type; `winningFormat` = the page kind most winners are; `wordRange` = a sourced `[min, max]` of visible words (p25 to p75 with 4+ pages, else min to max, rounded to 50), always
   `estimate: true`, with its location and device. `wordRange` is the optional T-011 field. When the capture holds no page addresses it comes from the cached competitor
-  audits (`basis` says so); with no pages at all the fields stay as before. Cost stops: 20 pages a run, 3 per cluster, 10 clusters, 1 request per second per site.
+  audits (`basis` says so); with no pages at all the fields stay as before. Cost stops: 20 pages a run, 3 per cluster, 10 clusters, 1 request per 4 s per site.
 - **serpFeatures** = features seen on the cluster's captures (same engine and device): `ai_overview`, `local_pack`, `paa`. No capture =
   `[]` with a source that says NOT CAPTURED and UNKNOWN (the contract has no "unknown" value; an empty list here is not "no features").
 - **targetPage** (06 9.7): an existing page whose title or H1 contains the primary query's head term (web-delivery 12: stemmed words minus stop words and place names) and whose page type (9.3, from its JSON-LD and path)
@@ -208,7 +238,7 @@ name; competitors are never listed; `listed` needs proof in business.json (socia
 - A step without its source exits 3 with `BLOCKED: <what unblocks it>`; `research.mjs` records it and goes on. Never fill it from memory.
 - Two failed attempts at the same obstacle end it: record `BLOCKED - obstacle - what would unblock it` and move to the next step.
 - First 429/403 from Reddit, a competitor site, Search Console or Gemini stops that source for the run. First robot check stops all captures.
-- Polite crawling only: robots.txt first and obeyed, 1 request per second per site, honest user agent, one attempt per URL, no forms, no logins.
+- Polite crawling only: robots.txt first and obeyed, 1 request per 4 s per site, honest user agent, one attempt per URL, no forms, no logins.
 - Stay inside the cost stops: 12 competitor sites, 60 Bing calls, 12 Reddit calls, 30 Gemini calls (questions x runs), 60 captures a run,
   45 s a capture. Above any of them, ask the owner.
 - Gemini: only derived fields are kept (cited domains, our domain cited, name mentioned); raw grounded answers are not stored because the

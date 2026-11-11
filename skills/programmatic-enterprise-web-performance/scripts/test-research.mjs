@@ -467,6 +467,9 @@ try {
   const brokenCtx = { business: { domain: HOST, name: "Tracy Homes Realty", competitors: [] }, market: { country: "US", language: "en" }, domain: HOST, loc: { kind: "url" }, pewp: loc.pewp, rdir: path.join(loc.pewp, "research") };
   // authority on a tiny fake Common Crawl graph (same layout as test-phase1)
   const comp = await imp("research-competitors.mjs");
+  // Politeness (Omnikom rule, 2026-11-11): a third-party site gets at most one request every 4 s, and every fetch is paced by that constant.
+  const compSrc = fs.readFileSync(path.join(dir, "research-competitors.mjs"), "utf8");
+  check("competitors: a site is read at most one request every 4 s (SITE_GAP_MS >= 4000, and the fetch is paced by it)", comp.SITE_GAP_MS >= 4000 && /await pace\(url, SITE_GAP_MS\);/.test(compSrc) && !/await pace\(url, \d+\)/.test(compSrc) && /1 request per 4 s per site/.test(comp.CRAWL_UA), `${comp.SITE_GAP_MS} ms; ${comp.CRAWL_UA}`);
   const cc = path.join(tmp, "cc"), rel = "cc-test-rel";
   const gz = (name, lines) => w(path.join(cc, `${rel}-domain-${name}.txt.gz`), zlib.gzipSync(lines.join("\n") + "\n"));
   gz("vertices", [["com.target", 0], ["com.c1", 1], ["com.c2", 2], ["com.a", 3], ["com.b", 4]].map(([d, id]) => `${id}\t${d}\t1`));

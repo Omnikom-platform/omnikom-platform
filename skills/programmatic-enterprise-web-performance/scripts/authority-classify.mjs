@@ -29,7 +29,7 @@ export function refuseMangled(list) {
 
 export async function run(ctx, o = {}) {
   const authority = J(path.join(ctx.pewp, "authority.json"));
-  if (!authority) throw new Blocked(`no ${path.join(ctx.pewp, "authority.json")}: run  node scripts/authority.mjs ${path.join(ctx.pewp, "authority.json")} --target <domain> --competitor <domain>...  first (Common Crawl, free, 15 to 30 minutes)`);
+  if (!authority) throw new Blocked(`no ${path.join(ctx.pewp, "authority.json")} | unblocks: run  node scripts/authority.mjs ${path.join(ctx.pewp, "authority.json")} --target <domain> --competitor <domain>...  first (Common Crawl, free, 15 to 30 minutes)`);
   const citations = J(path.join(ctx.rdir, "citations.json"));
   const ai = J(path.join(ctx.rdir, "ai-citations.json"));
   const business = ctx.business || {};

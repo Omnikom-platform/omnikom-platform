@@ -68,6 +68,8 @@ const M = [
   ["competitors: a 429 does not stop the site", "research-competitors.mjs", "if (ref || (challenge && kind === \"html\")) halted.set(host, res.status);", "if (false) halted.set(host, res.status);", "competitors: the first 429 stops that site"],
   ["competitors: robots.txt not obeyed", "research-competitors.mjs", "if (!pathAllowed(rb0.groups, CRAWL_UA, base.pathname || \"/\"))", "if (false)", "competitors: robots.txt is obeyed"],
   ["competitors: the cache is never used", "research-competitors.mjs", "if (c.refusal ? age < 1 : age < 7) {", "if (false) {", "competitors: a re-run is served from the cache"],
+  ["competitors: the old 1 s pace per site", "research-competitors.mjs", "export const SITE_GAP_MS = 4000;", "export const SITE_GAP_MS = 1000;", "competitors: a site is read at most one request every 4 s"],
+  ["competitors: a fetch is paced by a literal 1 s, not the constant", "research-competitors.mjs", "  await pace(url, SITE_GAP_MS);", "  await pace(url, 1000);", "competitors: a site is read at most one request every 4 s"],
   ["competitors: audited sites taken from SERP captures by default", "research.mjs", "competitorsFromSerp: a.has(\"from-serp\")", "competitorsFromSerp: true", "guard: nothing in this whole test left the machine"],
   ["ai: citedShare taken from the last run only", "research-ai.mjs", "citedShare: f(cites / g.runs.length, {", "citedShare: f(g.runs.at(-1).ourDomainCited ? 1 : 0, {", "ai: the question is asked N times"],
   ["ai: raw Gemini answer stored", "research-ai.mjs", "doc.runs.push({ question, run: n, model, at: iso(), prompt: question,", "doc.runs.push({ raw: text, question, run: n, model, at: iso(), prompt: question,", "ai: the raw Gemini answer is never stored"],

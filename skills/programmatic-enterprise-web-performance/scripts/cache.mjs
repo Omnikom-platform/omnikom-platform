@@ -1,12 +1,14 @@
 // Dated cache for every external response, under <pewp>/cache/<source>/, so a re-run never pays (or waits) twice and
 // every number in a report can point at the exact response it came from (cacheFile).
-// Library: cachedFetch(pewp, source, url, { maxAgeDays, init, timeoutMs }) -> { status, text, json(), fetchedAt, cacheFile, fromCache }
+// Library: cachedFetch(pewp, source, url, { maxAgeDays, init, timeoutMs, variant }) -> { status, text, json(), fetchedAt, cacheFile, fromCache }
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 
-export async function cachedFetch(pewp, source, url, { maxAgeDays = 7, init = {}, timeoutMs = 30000 } = {}) {
-  const key = createHash("sha256").update(`${init.method || "GET"} ${url} ${init.body || ""}`).digest("hex").slice(0, 24);
+// variant: a label that makes the same request a different cache entry (run 2 and run 3 of a repeated measurement must not be answered from run 1);
+// without it the key is exactly what it always was.
+export async function cachedFetch(pewp, source, url, { maxAgeDays = 7, init = {}, timeoutMs = 30000, variant = null } = {}) {
+  const key = createHash("sha256").update(`${init.method || "GET"} ${url} ${init.body || ""}${variant ? ` #${variant}` : ""}`).digest("hex").slice(0, 24);
   const dir = path.join(pewp, "cache", source);
   const cacheFile = path.join(dir, `${key}.json`);
   if (fs.existsSync(cacheFile)) {

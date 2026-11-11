@@ -8,9 +8,15 @@
 // business.json.provenance says, per field, owner | site | default | unstated; approve.mjs business refuses a business whose owner-only fields
 // (kind, offer, audience, goals, competitors, brand.constraints, vocabulary) are not "owner". vocabulary (the words the business and its readers
 // use) is asked as a question and [] is not an answer; it blocks only with --require-vocabulary (overhaul mode), otherwise approve refuses without it.
+// The site's own contact block (work order 41, gap 2): when the owner has not answered phone or the address of the first location, intake reads them from the page
+// (JSON-LD telephone / address, then a tel: link / an <address> element, then the visible text: a phone and a street address "100 Main St, Sacramento, CA 95814") and uses them as a
+// LABELLED DEFAULT: business.phone, locations[0].address, and business.contact = { name, address, phone: { value, source, from, readAt, others? } } where source is
+// "the site, not confirmed by the owner" (or "the owner" for an answered value: the answers always win). A `defaulted` row says it too. A page with no contact block gives nothing:
+// nothing is invented, and the local suite stays BLOCKED for want of it, naming it.
 // Outputs: business.json (only when nothing is missing), intake-facts.json (every found fact with its source, what was
 // accepted, what was defaulted, the open questions), business.draft.json. Exit 0 complete, 3 questions open (BLOCKED), 2 usage.
 import fs from "node:fs";
+import { delegationOf } from "./lib-provenance.mjs";
 import path from "node:path";
 import zlib from "node:zlib";
 import { rulesDir } from "./lib-rules.mjs";
@@ -62,6 +68,37 @@ export function readSite(dir) {
   return html ? { html, file, noindexAll: false, pages: null, finishedAt: null } : null;
 }
 
+// ---------- the site's own contact block (a labelled default; the owner's answers win) ----------
+const SITE_UNCONFIRMED = "the site, not confirmed by the owner";
+const visibleText = (h) => decode(String(h).replace(/<(script|style|noscript)\b[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+const PHONE_TXT = /(?:\+?1[\s.-]?)?\(?\b\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g;
+const digits10 = (s) => { const d = String(s).replace(/\D/g, ""); return d.length === 11 && d[0] === "1" ? d.slice(1) : d; };
+const fmtUS = (s) => { const d = digits10(s); return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : String(s).trim(); };
+const streetRe = /\b\d{1,6}\s+[A-Za-z0-9][A-Za-z0-9 .'#-]{1,40}?\s(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Way|Ct|Court|Pl|Place|Pkwy|Parkway|Hwy|Highway|Cir|Circle|Ter|Terrace)\b\.?(?:,?\s*(?:Suite|Ste|Unit|#)\s*[\w-]+)?,\s*[A-Za-z][A-Za-z .'-]{1,30},\s*[A-Z]{2}\s+\d{5}(?:-\d{4})?/;
+// phone: the business's own JSON-LD telephone, then tel: links, then the visible text (the first is taken, the other numbers are listed under others);
+// address: the JSON-LD address, then an <address> element, then a street address in the visible text. Returns { phone, address } with value and where; null parts when the page has none.
+export function contactBlock(h, biz) {
+  const ld = { phone: biz?.telephone ? decode(String(biz.telephone)).trim() : null };
+  const tel = [...h.matchAll(/<a\b[^>]*\bhref\s*=\s*["']tel:([^"']+)["']/gi)].map((m) => fmtUS(decode(m[1]))).filter(Boolean);
+  const vis = visibleText(h);
+  const visiblePhone = (vis.match(PHONE_TXT) || [])[0] || null;
+  const phones = [ld.phone && { value: ld.phone, where: "JSON-LD telephone" }, ...tel.map((v) => ({ value: v, where: "tel: link" })), visiblePhone && { value: visiblePhone.trim(), where: "visible text" }].filter(Boolean);
+  const phone = ld.phone || tel[0] || visiblePhone;
+  const first = phones.find((p) => p.value === phone || digits10(p.value) === digits10(phone || ""));
+  const others = [...new Set(phones.filter((p) => digits10(p.value) !== digits10(phone || "")).map((p) => `${p.value} (${p.where})`))];
+  let address = null;
+  const a = biz?.address;
+  if (a && typeof a === "object") { const line = [a.streetAddress, a.addressLocality, [a.addressRegion, a.postalCode].filter(Boolean).join(" ")].filter(Boolean).join(", "); if (line) address = { value: line, where: "JSON-LD address" }; }
+  else if (typeof a === "string" && a.trim()) address = { value: decode(a).trim(), where: "JSON-LD address" };
+  if (!address) {
+    const addrEl = h.match(/<address\b[^>]*>([\s\S]*?)<\/address>/i);
+    const el = addrEl ? decode(addrEl[1].replace(/<br\s*\/?>/gi, ", ").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").replace(/\s+,/g, ",").replace(/,\s*,/g, ",").trim() : "";
+    if (el) address = { value: el, where: "address element" };
+    else { const m = visibleText(h).match(streetRe); if (m) address = { value: m[0].trim(), where: "visible text" }; }
+  }
+  return { phone: phone ? { value: phone, where: first?.where || "visible text", others } : null, address };
+}
+
 // What the home page says about the business: each entry is a fact with its source.
 export function siteFacts(site, label) {
   const F = [], add = (field, value, how, confidence = "found") => { if (value != null && value !== "" && !(Array.isArray(value) && !value.length)) F.push({ field, value, source: `${label}: ${how}`, fetchedAt: site.finishedAt || iso(), confidence }); };
@@ -83,6 +120,8 @@ export function siteFacts(site, label) {
   }
   const area = biz?.areaServed ? [].concat(biz.areaServed).map((a) => (typeof a === "string" ? a : a?.name)).filter(Boolean) : [];
   add("locations.serviceArea", area, "JSON-LD areaServed");
+  const cb = contactBlock(h, biz);
+  for (const [field, c] of [["contact.phone", cb.phone], ["contact.address", cb.address]]) if (c) F.push({ field, value: c.value, source: `${label}: ${c.where} (${SITE_UNCONFIRMED})`, fetchedAt: site.finishedAt || iso(), confidence: "found", ...(c.others?.length ? { others: c.others } : {}) });
   const lang = (h.match(/<html\b[^>]*\blang\s*=\s*["']([a-zA-Z-]+)["']/i) || [])[1];
   add("market.language", lang ? lang.slice(0, 2).toLowerCase() : null, "<html lang>");
   const hrefs = [...h.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi)].map((m) => decode(m[1])).filter((u) => /^https?:/i.test(u));
@@ -106,27 +145,28 @@ export function normaliseAnswers(raw) { // dotted keys ("market.country") and ne
 }
 // Contract C2: an answer is bare (legacy: "unstated") or { value, answeredBy }. unwrapAnswers returns the plain answers and, per answered field
 // (dotted path), who answered. A plain object with no wrapped answer inside (a location, a credentials block) is one answer.
-const STAMPS = ["owner", "site", "default"];
+const STAMPS = ["owner", "site", "default"]; // plus a delegation object (lib-provenance.mjs): { by, delegatedBy: "owner", at } -> provenance "delegated"
 const isWrapped = (v) => !!v && typeof v === "object" && !Array.isArray(v) && Object.hasOwn(v, "answeredBy") && Object.hasOwn(v, "value");
 const hasWrapped = (v) => isWrapped(v) || (!!v && typeof v === "object" && !Array.isArray(v) && Object.values(v).some(hasWrapped));
 export function unwrapAnswers(raw) {
-  const prov = {};
+  const prov = {}, deleg = {};
   const walk = (o, prefix) => {
     const out = {};
     for (const [k, v] of Object.entries(o || {})) {
       const p = prefix ? `${prefix}.${k}` : k;
-      if (isWrapped(v)) { out[k] = v.value; prov[p] = STAMPS.includes(v.answeredBy) ? v.answeredBy : "unstated"; }
+      if (isWrapped(v)) { out[k] = v.value; const d = delegationOf(v.answeredBy); if (d) { prov[p] = "delegated"; deleg[p] = d; } else prov[p] = STAMPS.includes(v.answeredBy) ? v.answeredBy : "unstated"; }
       else if (hasWrapped(v)) out[k] = walk(v, p);
       else { out[k] = v; prov[p] = "unstated"; }
     }
     return out;
   };
-  return { answers: walk(raw, ""), prov };
+  return { answers: walk(raw, ""), prov, deleg };
 }
 const getPath = (o, p) => p.split(".").reduce((c, k) => (c && typeof c === "object" ? c[k] : undefined), o);
 // who answered <field>: its own entry, else the nearest parent's ("market" for "market.country"), else unstated
+const answerDelegOf = (deleg, field) => { for (let p = field; ; p = p.slice(0, p.lastIndexOf("."))) { if (deleg[p]) return deleg[p]; if (!p.includes(".")) return null; } };
 const answerProvOf = (prov, field) => { for (let p = field; ; p = p.slice(0, p.lastIndexOf("."))) { if (prov[p]) return prov[p]; if (!p.includes(".")) return "unstated"; } };
-const PROV_FIELDS = ["name", "domain", "kind", "industry", "offer", "audience", "market.country", "market.language", "locations", "goals", "competitors", "brand.constraints", "existing.site", "existing.searchConsole", "existing.businessProfile", "existing.socials", "launchState", "vocabulary", "notOffer", "credentials", "rankTracking.source", "rankTracking.locations", "rankTracking.devices"];
+const PROV_FIELDS = ["name", "domain", "phone", "kind", "industry", "offer", "audience", "market.country", "market.language", "locations", "goals", "competitors", "brand.constraints", "existing.site", "existing.searchConsole", "existing.businessProfile", "existing.socials", "launchState", "vocabulary", "notOffer", "credentials", "rankTracking.source", "rankTracking.locations", "rankTracking.devices"];
 export function provenanceOf(business, answers, answerProv, accepted, defaulted) {
   const out = {}, acc = new Set(accepted.map((x) => x.field)), def = new Set(defaulted.map((x) => x.field));
   for (const f of PROV_FIELDS) {
@@ -164,6 +204,8 @@ export function assemble(c, { industries = null, requireVocabulary = false } = {
   const locs = locIn.filter((l) => l && l.name);
   if (!locs.length) missing.push("locations");
   b.locations = locs.map((l) => ({ name: String(l.name), address: l.address ?? null, serviceArea: clean(l.serviceArea) || [] }));
+  if (c.phone != null && String(c.phone).trim()) b.phone = String(c.phone).trim();
+  if (c.contact && typeof c.contact === "object" && Object.keys(c.contact).length) b.contact = c.contact;
   const goals = (clean(c.goals) || []).map(goalWord);
   const badGoals = goals.filter((g) => !GOALS.includes(g));
   if (badGoals.length) invalid.push({ field: "goals", why: `${badGoals.join(", ")} not in ${GOALS.join("|")}` });
@@ -242,6 +284,7 @@ export async function run(ctx, { answersFile = null, snapshotDir = null, refresh
   };
   const parts = [readAnswers(path.join(loc.pewp, "intake-answers.json"), false), answersFile ? readAnswers(answersFile, true) : {}].map(unwrapAnswers);
   const answers = normaliseAnswers({ ...parts[0].answers, ...parts[1].answers });
+  const answerDeleg = { ...parts[0].deleg, ...parts[1].deleg };
   const answerProv = { ...parts[0].prov, ...parts[1].prov }; // who answered each field (a later file wins, like the values)
   // merge answers (win) over accepted facts
   const accepted = [], defaulted = [];
@@ -261,6 +304,29 @@ export async function run(ctx, { answersFile = null, snapshotDir = null, refresh
     const preview = PREVIEW_HOST.test(loc.host) || get("_noindex") === true;
     cand.launchState = take("launchState", preview ? "preview" : "live", `${preview ? "preview host or noindex on the crawled pages" : "public host, indexable"}`);
   }
+  // the site's own contact block as a LABELLED default: phone and the address of the first location, only where the owner gave none (the answers win); nothing is invented
+  const cf = (f) => facts.find((x) => x.field === f);
+  const ownerSrc = (field) => { const p = answerProvOf(answerProv, field); return p === "site" ? SITE_UNCONFIRMED : p === "default" ? "a default, not confirmed by the owner" : "the owner"; };
+  const contact = {};
+  if (cand.name) contact.name = { value: String(cand.name), source: answers.name !== undefined ? ownerSrc("name") : SITE_UNCONFIRMED, ...(answers.name !== undefined || !cf("name") ? {} : { from: cf("name").source }) };
+  if (answers.phone !== undefined) { cand.phone = answers.phone; contact.phone = { value: String(answers.phone), source: ownerSrc("phone") }; }
+  if (answers.phone === undefined && get("contact.phone")) {
+    const f = cf("contact.phone");
+    cand.phone = get("contact.phone");
+    contact.phone = { value: cand.phone, source: SITE_UNCONFIRMED, from: f.source, readAt: f.fetchedAt, ...(f.others?.length ? { others: f.others } : {}) };
+    defaulted.push({ field: "phone", value: cand.phone, why: `from the site's contact block (${f.source}); answer phone to change it` });
+  }
+  if (Array.isArray(cand.locations) && cand.locations.length) {
+    const l0 = cand.locations[0];
+    const ownAddress = answers.locations?.[0]?.address != null;
+    if (!l0.address && get("contact.address")) {
+      const f = cf("contact.address");
+      cand.locations = cand.locations.map((l, i) => (i === 0 ? { ...l, address: get("contact.address") } : l));
+      contact.address = { value: get("contact.address"), source: SITE_UNCONFIRMED, from: f.source, readAt: f.fetchedAt };
+      defaulted.push({ field: "locations.address", value: get("contact.address"), why: `from the site's contact block (${f.source}); answer the location's address to change it` });
+    } else if (l0.address) contact.address = ownAddress ? { value: l0.address, source: ownerSrc("locations") } : { value: l0.address, source: SITE_UNCONFIRMED, from: cf("locations.address")?.source || "the site" };
+  }
+  if (Object.keys(contact).length) cand.contact = contact;
   // kind: only an answer or the site's own markup type is used, and the markup type is offered as the recommended pick, not assumed
   let industries = null;
   try { industries = fs.readdirSync(path.join(rulesDir(), "industries")).filter((f) => f.endsWith(".json")).map((f) => f.slice(0, -5)); } catch {}
@@ -283,6 +349,8 @@ export async function run(ctx, { answersFile = null, snapshotDir = null, refresh
   const optional = [...(cand.vocabulary === undefined ? ["vocabulary"] : []), ...(cand.notOffer === undefined ? ["notOffer"] : [])]; // asked with the rest; they do not block (vocabulary blocks with requireVocabulary)
   const questions = questionsFor(missing, invalid, facts, cand, optional);
   business.provenance = provenanceOf(business, answers, answerProv, accepted, defaulted);
+  const delegations = Object.fromEntries(Object.entries(business.provenance).filter(([, v]) => v === "delegated").map(([f]) => [f, answerDelegOf(answerDeleg, f)]).filter(([, d]) => d));
+  if (Object.keys(delegations).length) business.delegations = delegations; // who answered for the owner, and when (approve.mjs prints it)
   const doc = { generatedAt: iso(), target: loc.target, siteSource: label, facts, accepted, defaulted, missing, invalid, questions, provenance: business.provenance };
   W(path.join(loc.pewp, "intake-facts.json"), doc);
   W(path.join(loc.pewp, "business.draft.json"), business);
@@ -302,8 +370,8 @@ await runCli(import.meta.url, "node intake.mjs <url | repo path> [--answers FILE
   if (r.status === "complete") {
     console.log(`COMPLETE ${r.businessFile}${r.reused ? " (already there; --refresh rebuilds)" : ""}`); for (const x of r.accepted || []) console.log(`  accepted ${x.field}: ${JSON.stringify(x.value).slice(0, 100)}  [${x.source}]`); for (const x of r.defaulted || []) console.log(`  default  ${x.field}: ${JSON.stringify(x.value)}  (${x.why})`);
     if (r.provenance) {
-      const n = (k) => Object.values(r.provenance).filter((v) => v === k).length, no = OWNER_FIELDS.filter((f) => r.provenance[f] !== "owner");
-      console.log(`  provenance: owner ${n("owner")}, site ${n("site")}, default ${n("default")}, unstated ${n("unstated")}`);
+      const n = (k) => Object.values(r.provenance).filter((v) => v === k).length, no = OWNER_FIELDS.filter((f) => r.provenance[f] !== "owner" && r.provenance[f] !== "delegated");
+      console.log(`  provenance: owner ${n("owner")}, delegated ${n("delegated")}, site ${n("site")}, default ${n("default")}, unstated ${n("unstated")}`);
       if (no.length) console.log(`  NOTE no owner answer for: ${no.join(", ")}. approve.mjs business will refuse until the owner answers them and the answers are written as {"value":..., "answeredBy":"owner"} in ${path.join(ctx.pewp, "intake-answers.json")}, then intake runs again.`);
     }
     if (r.optional?.length) { console.log(`OPTIONAL QUESTIONS ${r.optional.length} (not blocking; ask them with the rest)`); console.log(JSON.stringify(r.optional, null, 1)); }
@@ -314,5 +382,9 @@ await runCli(import.meta.url, "node intake.mjs <url | repo path> [--answers FILE
   console.log(`QUESTIONS ${r.questions.length}`);
   console.log(JSON.stringify(r.questions, null, 1));
   console.log(`BLOCKED: ${r.questions.filter((q) => !q.optional).length} answers missing${r.questions.some((q) => q.optional) ? ` (and ${r.questions.filter((q) => q.optional).length} optional, asked with them)` : ""}. The main session asks them as pickable options, appends the picks to ${path.join(ctx.pewp, "intake-answers.json")} (field -> value), then re-runs intake.`);
+  // the NEEDS-INPUT line comes AFTER the old BLOCKED line (test-approve reads the question list as the JSON between QUESTIONS n and the first BLOCKED); the LAST line is the shared
+  // convention (exit 3 = BLOCKED: <what> | unblocks: <what would>), so a runner can quote it; the NEEDS-INPUT line before it tells it the owner must answer
+  console.log(`NEEDS-INPUT intake: ${r.questions.filter((q) => !q.optional).length} question(s) for the owner (the list above; ${path.join(ctx.pewp, "intake-facts.json")} holds them as data)`);
+  console.log(`BLOCKED: intake needs the owner's answers | unblocks: answer the questions above in ${path.join(ctx.pewp, "intake-answers.json")} and run intake again`);
   process.exit(3);
 });

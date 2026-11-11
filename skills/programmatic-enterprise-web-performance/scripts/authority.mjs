@@ -1,4 +1,4 @@
-// Usage: node authority.mjs <out.json> --target <domain> [--competitor <domain>]... [--release <id>] [--cache DIR] [--top 30]
+// Usage: node authority.mjs <out.json> --target <domain> [--competitor <domain>]... [--release <id>] [--cache DIR] [--top 30] [--rescan]
 //        [--approved-competitors <pewp>/approved/competitors.json] [--require-approved] | --download-only [--release <id>] [--cache DIR]
 // G8 (overhaul mode): authority never compares against a guessed list. --approved-competitors takes the competitor domains from the owner's approved
 // list (approve.mjs <target> competitors): exactly the rows that have a domain; a --competitor that is not in it is refused (exit 2). When the file sits
@@ -10,6 +10,7 @@
 // Data: https://data.commoncrawl.org/projects/hyperlinkgraph/<release>/domain/ (vertices 0.9 GB, edges 8 GB, ranks 2.3 GB).
 // Cache: --cache, else machine.local.json "seoKitCache"; the release defaults to the one already in the cache, so a run
 // reads from disk and downloads nothing. Read-only; writes only <out.json> and its .md.
+// What a run found is kept per release in <cache>/<release>-asked.json (see "The 8 GB edges file" below): a later run for domains already in it reads none of the big files; --rescan ignores it.
 // Honest scope: Common Crawl sees fewer links than paid indexes; use the numbers to compare sites, not as absolutes.
 // Exit 0 written, 1 failed (the message names the file and the step), 2 usage, 3 BLOCKED (no complete release in the cache).
 import fs from "node:fs";
@@ -134,13 +135,50 @@ export function approvedDomains(file) {
   return { domains, rows: rows.length };
 }
 
-export async function authority({ out, release, cacheDir, top = 30, target, competitors = [] }) {
-  const url = (f) => `${BASE}/${release}/domain/${release}-domain-${f}.txt.gz`;
-  const domains = [target, ...competitors].filter(Boolean);
-  const targets = new Map(domains.map((d) => [rev(d), { domain: d.toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/^www\./, ""), id: null }]));
+// The 8 GB edges file is read once per run to find who links to FIVE domains. A release never changes, so what was found is kept per release in
+// <cache>/<release>-asked.json: for every domain ever asked about, its vertex id, host count and the ids of the domains linking to it, plus the names and
+// strength of those linking domains. A later run whose domains are all in that file reads none of the three big files. A domain not in it triggers one
+// full read for the union of the asked-before and the new domains (the file only grows). The file is stamped with the size and time of the three release
+// files and ignored when they differ; a file that cannot be read or written is ignored, never an error (--rescan ignores it on purpose).
+const ASKED_VERSION = 1;
+const askedFile = (cacheDir, release) => (cacheDir ? path.join(cacheDir, `${release}-asked.json`) : null);
+const releaseStamp = (cacheDir, release) => Object.fromEntries(["vertices", "edges", "ranks"].map((f) => {
+  try { const st = fs.statSync(path.join(cacheDir, `${release}-domain-${f}.txt.gz`)); return [f, { bytes: st.size, mtimeMs: Math.round(st.mtimeMs) }]; } catch { return [f, null]; }
+}));
+function loadAsked(cacheDir, release) {
+  const f = askedFile(cacheDir, release);
+  if (!f || !fs.existsSync(f)) return null;
+  try {
+    const d = JSON.parse(fs.readFileSync(f, "utf8"));
+    if (d.formatVersion !== ASKED_VERSION || d.release !== release) return null;
+    const now = releaseStamp(cacheDir, release);
+    if (["vertices", "edges", "ranks"].some((k) => !now[k] || !d.stamp?.[k] || now[k].bytes !== d.stamp[k].bytes || now[k].mtimeMs !== d.stamp[k].mtimeMs)) return null;
+    return {
+      domains: new Map(Object.entries(d.domains).map(([r, v]) => [r, { id: v.id, hosts: v.hosts, from: new Set(v.from) }])),
+      names: new Map(Object.entries(d.names).map(([id, n]) => [Number(id), n])),
+      rank: new Map(Object.entries(d.rank)),
+    };
+  } catch { return null; }
+}
+function saveAsked(cacheDir, release, st) {
+  const f = askedFile(cacheDir, release);
+  if (!f) return "no cache folder";
+  try {
+    const doc = { formatVersion: ASKED_VERSION, release, builtAt: new Date().toISOString(), stamp: releaseStamp(cacheDir, release),
+      domains: Object.fromEntries([...st.domains].map(([r, v]) => [r, { id: v.id, hosts: v.hosts ?? null, from: [...v.from] }])),
+      names: Object.fromEntries(st.names), rank: Object.fromEntries(st.rank) };
+    fs.writeFileSync(f + ".tmp", JSON.stringify(doc));
+    fs.renameSync(f + ".tmp", f);
+    return null;
+  } catch (e) { return e.message; }
+}
+// the four reading steps for a list of [rev, domain]; -> the same maps a cache file holds, and how many lines were read
+async function scanRelease({ url, cacheDir, list }) {
+  const targets = new Map(list.map(([r, domain]) => [r, { domain, id: null }]));
   const idToTarget = new Map();
+  let lines = 0;
   console.log("1/4 finding the sites in the domain list");
-  await eachLine(url("vertices"), cacheDir, "vertices", (s, a, b) => {
+  lines += await eachLine(url("vertices"), cacheDir, "vertices", (s, a, b) => {
     const t1 = s.indexOf("\t", a); if (t1 < 0 || t1 > b) return;
     const t2 = s.indexOf("\t", t1 + 1); const name = s.slice(t1 + 1, t2 > 0 && t2 < b ? t2 : b);
     const t = targets.get(name);
@@ -148,7 +186,7 @@ export async function authority({ out, release, cacheDir, top = 30, target, comp
   });
   console.log("2/4 reading every link between domains (largest step)");
   const inbound = new Map([...idToTarget.keys()].map((id) => [id, new Set()]));
-  await eachLine(url("edges"), cacheDir, "edges", (s, a, b) => {
+  lines += await eachLine(url("edges"), cacheDir, "edges", (s, a, b) => {
     const t = s.indexOf("\t", a); if (t < 0 || t > b) return;
     const set = inbound.get(int(s, t + 1, b));
     if (set) set.add(int(s, a, t));
@@ -156,7 +194,7 @@ export async function authority({ out, release, cacheDir, top = 30, target, comp
   const allFrom = new Set(); for (const set of inbound.values()) for (const id of set) allFrom.add(id);
   console.log(`3/4 naming ${allFrom.size} linking domains`);
   const names = new Map();
-  await eachLine(url("vertices"), cacheDir, "vertices", (s, a, b) => {
+  lines += await eachLine(url("vertices"), cacheDir, "vertices", (s, a, b) => {
     const t1 = s.indexOf("\t", a); if (t1 < 0 || t1 > b) return;
     const id = int(s, a, t1);
     if (allFrom.has(id)) { const t2 = s.indexOf("\t", t1 + 1); names.set(id, s.slice(t1 + 1, t2 > 0 && t2 < b ? t2 : b)); }
@@ -164,13 +202,35 @@ export async function authority({ out, release, cacheDir, top = 30, target, comp
   console.log("4/4 reading domain strength (harmonic centrality and PageRank)");
   const want = new Set([...targets.keys(), ...names.values()]);
   const rank = new Map(); let cols = null;
-  await eachLine(url("ranks"), cacheDir, "ranks", (s, a, b) => {
+  lines += await eachLine(url("ranks"), cacheDir, "ranks", (s, a, b) => {
     const line = s.slice(a, b);
     if (!cols) { if (line.startsWith("#")) { cols = line.slice(1).split("\t").map((c) => c.trim().replace(/^#/, "")); return; } cols = ["harmonicc_pos", "harmonicc_val", "pr_pos", "pr_val", "host_rev", "n_hosts"]; }
     const f = line.split("\t");
     const host = f[cols.indexOf("host_rev")] ?? f[4];
     if (want.has(host)) rank.set(host, { harmonicPos: Number(f[cols.indexOf("harmonicc_pos")] ?? f[0]), pageRankPos: Number(f[cols.indexOf("pr_pos")] ?? f[2]) });
   });
+  const domains = new Map([...targets].map(([r, t]) => [r, { id: t.id, hosts: t.hosts, from: new Set(t.id == null ? [] : inbound.get(t.id)) }]));
+  return { domains, names, rank, lines };
+}
+export async function authority({ out, release, cacheDir, top = 30, target, competitors = [], rescan = false }) {
+  const url = (f) => `${BASE}/${release}/domain/${release}-domain-${f}.txt.gz`;
+  const domains = [target, ...competitors].filter(Boolean);
+  const asked = new Map(domains.map((d) => [rev(d), d.toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/^www\./, "")]));
+  let st = rescan ? null : loadAsked(cacheDir, release), scan;
+  if (st && [...asked.keys()].every((r) => st.domains.has(r))) {
+    scan = { fromCache: true, linesRead: 0, cacheFile: askedFile(cacheDir, release), domainsInCache: st.domains.size };
+    console.log(`the edges of these domains are already in ${scan.cacheFile} (${st.domains.size} domains kept for ${release}): the 4 reading steps are skipped, 0 lines read`);
+  } else {
+    const union = new Map([...(st ? [...st.domains.keys()].map((r) => [r, unrev(r)]) : []), ...asked]);
+    const r = await scanRelease({ url, cacheDir, list: [...union] });
+    st = r;
+    const why = saveAsked(cacheDir, release, st);
+    scan = { fromCache: false, linesRead: r.lines, cacheFile: why ? null : askedFile(cacheDir, release), domainsInCache: why ? 0 : st.domains.size, ...(why ? { cacheNotWritten: why } : {}) };
+    console.log(why ? `the edge cache was not written (${why}); the run is complete` : `kept the edges of ${st.domains.size} domains in ${scan.cacheFile}: the next run for any of them reads none of the three big files`);
+  }
+  const targets = new Map([...asked].map(([r, domain]) => { const v = st.domains.get(r); return [r, { domain, id: v.id, hosts: v.hosts ?? undefined }]; }));
+  const inbound = new Map([...st.domains.values()].filter((v) => v.id != null).map((v) => [v.id, v.from]));
+  const { names, rank } = st;
   const linkersOf = new Map();
   const results = [...targets.entries()].map(([r, t]) => {
     if (t.id == null) return { domain: t.domain, inGraph: false, note: "not in this Common Crawl release (too few links or not crawled)" };
@@ -185,7 +245,7 @@ export async function authority({ out, release, cacheDir, top = 30, target, comp
   for (const c of results.filter((r) => r.role === "competitor" && r.inGraph)) for (const d of linkersOf.get(c.domain)) if (!mine.has(d)) counts.set(d, (counts.get(d) || 0) + 1);
   const rankOf = (d) => rank.get(rev(d))?.harmonicPos ?? 9e9;
   const gap = [...counts.entries()].filter(([, n]) => n >= 2).map(([domain, n]) => ({ domain, linksToCompetitors: n, harmonicPos: rank.get(rev(domain))?.harmonicPos })).sort((a, b) => b.linksToCompetitors - a.linksToCompetitors || rankOf(a.domain) - rankOf(b.domain)).slice(0, 100);
-  const doc = { fetchedAt: new Date().toISOString(), source: `Common Crawl web graph ${release} (domain level)`, release, cacheDir, target: tDomain, results, linkGap: gap,
+  const doc = { fetchedAt: new Date().toISOString(), source: `Common Crawl web graph ${release} (domain level)`, release, cacheDir, target: tDomain, scan, results, linkGap: gap,
     note: "Distinct linking DOMAINS Common Crawl saw in this release, not every link on the web; compare sites with each other, not as absolute numbers." };
   fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
   fs.writeFileSync(out, JSON.stringify(doc, null, 1) + "\n");
@@ -213,10 +273,10 @@ if (isMain(import.meta.url)) {
   const UNBLOCK = "unblocks: approve.mjs <target> competitors --by NAME";
   let competitors = all("--competitor");
   if (!downloadOnly) {
-    if (requireApproved && !approvedFile) { console.error(`BLOCKED: competitor list not approved; ${UNBLOCK}`); process.exit(3); }
+    if (requireApproved && !approvedFile) { console.error(`BLOCKED: competitor list not approved | ${UNBLOCK}`); process.exit(3); }
     if (approvedFile) {
       const ap = approvedDomains(approvedFile);
-      if (ap.error) { console.error(`BLOCKED: competitor list not approved: ${ap.error}; ${UNBLOCK}`); process.exit(3); }
+      if (ap.error) { console.error(`BLOCKED: competitor list not approved: ${ap.error} | ${UNBLOCK}`); process.exit(3); }
       const bad = competitors.filter((c) => !ap.domains.includes(bareDomain(c)));
       if (bad.length) { console.error(`REFUSED: --competitor ${bad.join(", ")} is not in the approved list (${approvedFile}). Approved domains: ${ap.domains.join(", ") || "none"}. A domain joins the comparison by the owner approving a new list, never by a flag.`); process.exit(2); }
       if (!ap.domains.length) { console.error(`BLOCKED: the approved list has no competitor with a domain (${ap.rows} rows, all social accounts or without a site); there is nothing to compare. ${UNBLOCK} after the list names at least one site`); process.exit(3); }
@@ -236,7 +296,7 @@ if (isMain(import.meta.url)) {
     if (!Number.isInteger(top) || top < 1) { console.error(`--top must be a whole number of at least 1 (got ${opt("--top")})`); process.exit(2); }
     console.log(`release ${release}; cache ${cacheDir}`);
     // a failure names the file and the step; exitCode, not process.exit(), so an aborted download can close cleanly (Windows libuv assert)
-    try { await authority({ out, release, cacheDir, top, target, competitors }); }
+    try { await authority({ out, release, cacheDir, top, target, competitors, rescan: a.includes("--rescan") }); }
     catch (e) { console.error(`FAILED: ${e.message}`); process.exitCode = 1; }
   }
 }

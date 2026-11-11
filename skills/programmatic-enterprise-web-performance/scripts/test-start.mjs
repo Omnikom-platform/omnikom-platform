@@ -9,7 +9,7 @@ import { isMain } from "./lib-main.mjs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const A = process.argv.slice(2);
 const opt = (k, d = null) => (A.includes(k) ? A[A.indexOf(k) + 1] : d);
@@ -52,7 +52,7 @@ else if (name === "live-target.mjs") {
 else if (name === "intake.mjs") {
   const l = locOf(args[0]);
   if (fs.existsSync(path.join(l.pewp, "intake-answers.json"))) { w(path.join(l.pewp, "business.json"), JSON.stringify({ name: "Fixture Co", competitors: ["rival.test"] })); say("intake complete"); done(); }
-  else { w(path.join(l.pewp, "intake-facts.json"), JSON.stringify({ questions: [{ id: "Q1", field: "industry", question: "What kind of business is it?", options: [{ label: "real estate agent" }, { label: "other" }], recommended: 0 }] })); say("questions open"); process.exit(3); }
+  else { w(path.join(l.pewp, "intake-facts.json"), JSON.stringify({ questions: [{ id: "Q1", field: "industry", question: "What kind of business is it?", options: [{ label: "real estate agent" }, { label: "other" }], recommended: 0 }] })); say("questions open"); say("NEEDS-INPUT intake: 1 question(s) for the owner"); say("BLOCKED: intake needs the owner's answers | unblocks: answer the questions above in " + path.join(l.pewp, "intake-answers.json") + " and run intake again"); process.exit(3); }
 }
 else if (name === "research.mjs") {
   const l = locOf(args[0]);
@@ -95,7 +95,7 @@ else if (name === "gate.mjs") { const p = args[0]; if (fs.existsSync(ctlFile("fa
 else if (name === "sitemap-check.mjs") { const l = locOf(args[0]); const t = opt("--today", "2026-10-23"); if (fs.existsSync(ctlFile("fail"))) { say("FAIL /legal/ is in the sitemap file but not in the page plan"); process.exit(1); } w(path.join(l.pewp, "sitemap", "check-" + t + ".json"), "{}"); say("PASS sitemap: 12 urls, all in the page plan"); done(); }
 else if (name === "sitemap-submit.mjs") { const l = locOf(args[0]); const t = opt("--today", "2026-10-23"); w(path.join(l.pewp, "sitemap", "submit-" + t + ".json"), "{}"); say("submitted: gsc 200, bing 200"); done(); }
 else if (name === "report-live.mjs") { const l = locOf(args[0]); if (!noout) { w(path.join(l.pewp, "report.md"), "# report"); w(path.join(l.pewp, "report.json"), "{}"); } say("report written"); done(); }
-else if (name === "authority.mjs") { if (fs.existsSync(ctlFile("ok"))) { w(args[0], "{}"); say("authority ok"); done(); } say("BLOCKED: no complete Common Crawl release in the cache"); process.exit(3); }
+else if (name === "authority.mjs") { if (fs.existsSync(ctlFile("ok"))) { w(args[0], "{}"); say("authority ok"); done(); } if (fs.existsSync(ctlFile("silent"))) { say("something odd happened"); process.exit(3); } if (fs.existsSync(ctlFile("skip"))) { say("SKIPPED: not applicable to this site"); process.exit(4); } say("BLOCKED: no complete Common Crawl release in the cache | unblocks: download one"); process.exit(3); }
 else if (name === "guard-readonly.mjs") { say("PASS guard"); done(); }
 else if (name === "refactor.mjs") {
   if (args.includes("--dry")) { say("DRY refactor x"); say("  3 root causes: 2 would get a fix worker"); done(); }
@@ -136,8 +136,8 @@ function mkWorld(sdir, { omit = [] } = {}) {
   for (const n of STUB_NAMES) if (!omit.includes(n)) w(path.join(stubs, n + ".mjs"), STUB);
   const log = path.join(root, "calls.log"); fs.writeFileSync(log, "");
   const env = { ...process.env, STUB_LOG: log, STUB_CTL: ctl, STUB_REAL: sdir }; delete env.PSI_API_KEY; // the psi stage is skipped without the key, whatever this machine has
-  const run = (args, { stdin = "" } = {}) => {
-    const r = spawnSync(node, [path.join(sdir, "start.mjs"), ...args, ...(args.includes("--") ? [] : []), ], { cwd, env, encoding: "utf8", timeout: 120000 });
+  const run = (args, { stdin = "", env: moreEnv = {}, cwd: otherCwd = null } = {}) => {
+    const r = spawnSync(node, [path.join(sdir, "start.mjs"), ...args, ...(args.includes("--") ? [] : []), ], { cwd: otherCwd || cwd, env: { ...env, ...moreEnv }, encoding: "utf8", timeout: 120000 });
     return { code: r.status, out: (r.stdout || "") + (r.stderr || "") };
   };
   // run with the usual global options appended before any `--`. A stage with external calls or agent workers needs the owner's plan ack
@@ -148,7 +148,8 @@ function mkWorld(sdir, { omit = [] } = {}) {
     const dd = extra.indexOf("--"); let pre = dd >= 0 ? extra.slice(0, dd) : extra; const post = dd >= 0 ? extra.slice(dd) : [];
     const noAck = pre.includes("--no-plan-ack"); pre = pre.filter((x) => x !== "--no-plan-ack");
     const key = mode + " " + targets.join(" ");
-    if (pre.includes("--go") && !noAck && !acked.has(key)) { acked.add(key); run([mode, ...targets, "--stage-scripts", stubs, "--cwd", cwd, "--today", TODAY, "--ack", "plan-ok", "--by", "Test Owner"]); }
+    const pf = pre.includes("--pipeline") ? ["--pipeline", pre[pre.indexOf("--pipeline") + 1]] : [];
+    if (pre.includes("--go") && !noAck && !acked.has(key)) { acked.add(key); run([mode, ...targets, "--stage-scripts", stubs, "--cwd", cwd, "--today", TODAY, "--ack", "plan-ok", "--by", "Test Owner", ...pf]); }
     return run([mode, ...targets, "--stage-scripts", stubs, "--cwd", cwd, ...(pre.includes("--today") ? [] : ["--today", TODAY]), ...pre, ...post]);
   };
   const calls = () => fs.readFileSync(log, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
@@ -170,60 +171,225 @@ async function runScenariosInner(sdir, only, results) {
   const want = (id) => !only || only.includes(id);
   const URL1 = "https://fixture.test/";
 
+  if (want("AD")) {
+    // --adopt <id>[,<id>]: take over a step's valid existing outputs instead of running it (work order 41; the owner: no repeated work)
+    const S1 = (id, over) => ({ id, module: "x", what: id, script: null, args: [], inputs: [], outputs: [], dependsOn: [], needsBrowser: "none", needsAi: false, needsPerson: false, needsKeys: [], heavy: false, hits: "none", pace: null, timeoutMinutes: 5, evidence: [], ...over });
+    const steps = [
+      S1("seeds", { module: "research", script: "scripts/research-seeds.mjs", args: ["{url}", "--cwd", "{skill}"], inputs: ["{pewp}/business.json"], outputs: ["{pewp}/research/seeds.json"], evidence: ["{pewp}/research/seeds.json"] }),
+      S1("plan", { module: "plan", script: "scripts/plan-site.mjs", args: ["{pewp}"], dependsOn: ["seeds"], inputs: ["{pewp}/research/seeds.json"], outputs: ["{pewp}/plan/sitemap.json"], evidence: ["{pewp}/plan/sitemap.json"] }),
+      S1("capture-x", { module: "visibility", needsBrowser: "owner", hits: "third-party:google.com", pace: "one page at least 45 s apart", inputs: ["{pewp}/captures-brief.md"], outputs: ["{pewp}/captures/x/"], evidence: ["{pewp}/captures/x/*.json"], brief: "Capture x in the owner's browser." }),
+    ];
+    const world = () => {
+      const W = mkWorld(sdir), pewp = path.join(W.cwd, "site-checks", "fixture.test", ".pewp"), PL = path.join(W.root, "ad-pipeline.json");
+      w(PL, JSON.stringify({ version: 1, name: "adopt", what: "adopt", conventions: {}, vars: {}, steps }, null, 1));
+      const at = (rel, content, ageMs) => { const p = path.join(pewp, rel); w(p, content); const t = new Date(Date.now() - ageMs); fs.utimesSync(p, t, t); return p; };
+      const go = (extra = []) => W.start("audit-live", [URL1], ["--go", "--yes", "--pipeline", PL, ...extra]);
+      return { W, pewp, at, go, state: () => rj(path.join(pewp, "state.json")) };
+    };
+    const H = 3_600_000;
+    // 1. adopt OK: the step is not run, its dependent is, and the record says exit 0 / adopted with the evidence's own date
+    let A = world();
+    A.at("business.json", "{}", 3 * H); A.at("captures-brief.md", "x", 3 * H); A.at("captures/x/a.json", "{\"ok\":1}", H); const seedsFile = A.at("research/seeds.json", "{\"queries\":[]}", H);
+    const seedsMtime = fs.statSync(seedsFile).mtime.toISOString();
+    let r = A.go(["--adopt", "seeds"]);
+    let st = A.state(), rec = st?.stages?.seeds;
+    check("AD: --adopt seeds: exit 0, the seeds step is NOT run and its dependent (plan) IS", r.code === 0 && names(A.W.calls()).join() === "plan-site", `${r.code} ${names(A.W.calls()).join()} ${r.out.slice(0, 400)}`);
+    check("AD: the state records the adopted step as done with the EVIDENCE's mtime as its evidenceDate (not now), adopted true, exit 0, outcome 'adopted'", rec?.adopted === true && rec.evidenceDate === seedsMtime && rec.exit === 0 && rec.outcome === "adopted" && !!rec.adoptedAt && rec.evidenceDate !== rec.adoptedAt, JSON.stringify(rec));
+    const runFile = path.join(A.pewp, "runs", TODAY + "-audit-live-seeds.md"), runText = fs.existsSync(runFile) ? fs.readFileSync(runFile, "utf8") : "";
+    check("AD: the run log has a file for the adopted step: exit code 0, 'adopted', and the evidence's own date", /exit code: 0/.test(runText) && /adopted/.test(runText) && runText.includes(seedsMtime), runText.slice(0, 400));
+    check("AD: the screen says the step was adopted, with the date", /seeds: adopted/.test(r.out) && r.out.includes(seedsMtime.slice(0, 10)), r.out.slice(0, 400));
+    A.W.clear(); r = A.go();
+    check("AD: the next run without --adopt keeps the adopted step done: it is not run (nothing runs again)", r.code === 0 && !names(A.W.calls()).includes("research-seeds"), `${r.code} ${names(A.W.calls()).join()} ${r.out.slice(0, 300)}`);
+    A.W.cleanup();
+    // 2. an input newer than the evidence: refused, the input named, nothing started
+    A = world();
+    A.at("research/seeds.json", "{\"queries\":[]}", H); A.at("business.json", "{}", 60_000);
+    r = A.go(["--adopt", "seeds"]);
+    check("AD: an input newer than the evidence refuses the adoption (exit 3, last line BLOCKED: ... | unblocks: ...), names the input (business.json) and starts nothing", r.code === 3 && /business\.json/.test(r.out) && /input/.test(r.out) && /BLOCKED: .*\| unblocks: /.test(r.out.trim().split("\n").pop()) && A.W.calls().length === 0 && !A.state()?.stages?.seeds?.adopted, `${r.code} ${A.W.calls().length} ${r.out.slice(-400)}`);
+    A.W.cleanup();
+    // 3. empty evidence
+    A = world();
+    A.at("business.json", "{}", 3 * H); A.at("research/seeds.json", "", H);
+    r = A.go(["--adopt", "seeds"]);
+    check("AD: empty evidence refuses the adoption (exit 3), says the file is empty and names it, and starts nothing", r.code === 3 && /empty/.test(r.out) && /seeds\.json/.test(r.out) && A.W.calls().length === 0, `${r.code} ${A.W.calls().length} ${r.out.slice(-400)}`);
+    A.W.cleanup();
+    // 4. a waiting step (an owner capture) is adopted the same way
+    A = world();
+    A.at("captures-brief.md", "x", 3 * H); A.at("captures/x/a.json", "{\"ok\":1}", H);
+    r = A.go(["--adopt", "capture-x"]);
+    check("AD: a waiting step (owner capture) whose evidence exists is adopted: done, adopted true, no WAITING-FOR line for it", /capture-x: adopted/.test(r.out) && A.state()?.stages?.["capture-x"]?.adopted === true && !/WAITING-FOR[^\n]*capture-x/.test(r.out), r.out.slice(0, 500));
+    A.W.cleanup();
+    // 5. an id that is not a step, and two ids at once
+    A = world();
+    r = A.go(["--adopt", "nope"]);
+    check("AD: --adopt with an id that is not a step of the manifest is a usage error (exit 2) that lists the step ids, and starts nothing", r.code === 2 && /nope/.test(r.out) && /seeds/.test(r.out) && A.W.calls().length === 0, `${r.code} ${r.out.slice(-300)}`);
+    A.at("business.json", "{}", 3 * H); A.at("research/seeds.json", "{}", H); A.at("captures/x/a.json", "{}", H);
+    r = A.go(["--adopt", "seeds,capture-x"]);
+    check("AD: two ids with a comma adopt both (seeds and capture-x) and the dependent runs", r.code === 0 && A.state()?.stages?.seeds?.adopted === true && A.state()?.stages?.["capture-x"]?.adopted === true && names(A.W.calls()).join() === "plan-site", `${r.code} ${names(A.W.calls()).join()} ${r.out.slice(-300)}`);
+    A.W.cleanup();
+    // 6. the DEFAULT of a run: resume. Without --adopt every step whose evidence exists and whose inputs are older is adopted; --fresh discards; a newer input re-runs that step and its dependents only
+    {
+      const finished = () => { const X = world(); X.at("business.json", "{}", 4 * H); X.at("captures-brief.md", "x", 4 * H); X.at("research/seeds.json", "{\"queries\":[]}", 3 * H); X.at("plan/sitemap.json", "{\"pages\":[]}", 2 * H); X.at("captures/x/a.json", "{\"ok\":1}", H); return X; };
+      let X = finished();
+      r = X.go();
+      st = X.state();
+      check("AD: a finished fixture (all evidence there, every input older), run WITHOUT --adopt: nothing is run (no calls), every step is adopted (exit 0), each dated by its own evidence", r.code === 0 && X.W.calls().length === 0 && ["seeds", "plan", "capture-x"].every((id) => st?.stages?.[id]?.adopted === true && st.stages[id].outcome === "adopted") && !/WAITING-FOR/.test(r.out), `${r.code} ${names(X.W.calls()).join()} ${r.out.slice(0, 500)}`);
+      check("AD: the adopted dates are the evidence files' own mtimes, not now (seeds 3 h old, plan 2 h, capture 1 h)", ["seeds", "plan", "capture-x"].every((id, i) => Math.abs(Date.now() - Date.parse(st?.stages?.[id]?.evidenceDate) - [3, 2, 1][i] * H) < 5 * 60_000), JSON.stringify(["seeds", "plan", "capture-x"].map((id) => st?.stages?.[id]?.evidenceDate)));
+      X.W.clear(); r = X.go();
+      check("AD: a second run on the same finished fixture runs nothing again", r.code === 0 && X.W.calls().length === 0, `${r.code} ${names(X.W.calls()).join()}`);
+      X.W.clear(); r = X.go(["--fresh"]);
+      check("AD: --fresh discards: every script step runs again (seeds then plan), and the capture is asked for again (WAITING-FOR), nothing is adopted", names(X.W.calls()).join() === "research-seeds,plan-site" && /WAITING-FOR[^\n]*capture-x|capture-x/.test(r.out) && !/seeds: adopted|plan: adopted/.test(r.out), `${r.code} ${names(X.W.calls()).join()} ${r.out.slice(0, 500)}`);
+      X.W.cleanup();
+      X = finished();
+      r = X.go(); X.W.clear();
+      r = X.go(["--fresh", "seeds"]);
+      check("AD: --fresh seeds re-runs that step and its dependent (plan) only; the capture stays adopted", names(X.W.calls()).join() === "research-seeds,plan-site" && !/capture-x: running/.test(r.out), `${r.code} ${names(X.W.calls()).join()} ${r.out.slice(0, 400)}`);
+      X.W.cleanup();
+      X = finished();
+      X.at("business.json", "{}", 60_000); // seeds' input is now newer than seeds.json
+      r = X.go();
+      check("AD: an input newer than its evidence re-runs only that step and its dependents (seeds, then plan); the capture, whose input is older, is adopted without a run", r.code === 0 && names(X.W.calls()).join() === "research-seeds,plan-site" && /not adopted \(input .*business\.json/.test(r.out) && /capture-x: adopted/.test(r.out), `${r.code} ${names(X.W.calls()).join()} ${r.out.slice(0, 600)}`);
+      X.W.cleanup();
+    }
+  }
+
   if (want("A")) {
-    const W = mkWorld(sdir); const live = path.join(W.cwd, "site-checks", "fixture.test"); const pewp = path.join(live, ".pewp");
+    // audit-live: the steps are the manifest's (a small fixture manifest here: the real pipeline.json is proven by test-pipeline.mjs)
+    const S1 = (id, over) => ({ id, module: "x", what: id, script: null, args: [], inputs: [], outputs: [], dependsOn: [], needsBrowser: "none", needsAi: false, needsPerson: false, needsKeys: [], heavy: false, hits: "none", pace: null, timeoutMinutes: 5, evidence: [], ...over });
+    const fixSteps = (extra = []) => [
+      S1("doctor", { module: "setup", script: "scripts/doctor.mjs", args: ["{url}", "--cwd", "{skill}", "--json"], outputs: ["{pewp}/doctor.json"], evidence: ["{pewp}/doctor.json"] }),
+      S1("snapshot", { module: "technical", script: "scripts/live-target.mjs", args: ["{url}", "--cwd", "{skill}"], dependsOn: ["doctor"], outputs: ["{runDir}/snapshots/"], evidence: ["{runDir}/snapshots/*/_site.json"], hits: "client", pace: "1 request per 4 s", needsBrowser: "headless", timeoutMinutes: 150 }),
+      S1("checker", { module: "technical", dependsOn: ["snapshot"], inputs: ["{runDir}/snapshots/*/_site.json"], outputs: ["{work}/checker/.checks/causes.json"], evidence: ["{work}/checker/.checks/causes.json"], needsAi: true, brief: "Run ONE coordinator agent (coordinator.md) on {work}/checker." }),
+      S1("authority", { module: "authority", script: "scripts/authority.mjs", args: ["{pewp}/authority.json", "--target", "{host}"], dependsOn: ["doctor"], outputs: ["{pewp}/authority.json"], evidence: ["{pewp}/authority.json"], heavy: true, hits: "third-party:commoncrawl" }),
+      S1("authority-classify", { module: "authority", script: "scripts/authority-classify.mjs", args: ["{url}", "--cwd", "{skill}"], dependsOn: ["authority"], exit: { 4: "partial: what was read is kept; run again to continue" } }),
+      S1("report-live", { module: "report", script: "scripts/report-live.mjs", args: ["{url}", "--cwd", "{skill}"], dependsOn: ["snapshot", "checker"], inputs: ["{runDir}/snapshots/*/_site.json", "{work}/checker/.checks/causes.json"], outputs: ["{pewp}/report.md", "{pewp}/report.json"], evidence: ["{pewp}/report.json"] }),
+      S1("approve-business", { module: "setup", dependsOn: ["doctor"], needsPerson: true, outputs: ["{pewp}/approved/business.json"], evidence: ["{pewp}/approved/business.json"], brief: "Show the owner business.json as pickable options." }),
+      S1("capture-x", { module: "visibility", dependsOn: ["doctor"], needsBrowser: "owner", hits: "third-party:google.com", pace: "one page at least 45 s apart", outputs: ["{pewp}/captures/x/"], evidence: ["{pewp}/captures/x/*.json"], brief: "Capture x in the owner's browser." }),
+      ...extra];
+    const mkFix = (W, extra = [], mutate = (m) => m) => { const f = path.join(W.root, "fix-pipeline.json"); w(f, JSON.stringify(mutate({ version: 1, name: "fixture", what: "fixture", conventions: {}, vars: {}, steps: fixSteps(extra) }), null, 1)); return f; };
+    const W = mkWorld(sdir); const live = path.join(W.cwd, "site-checks", "fixture.test"); const pewp = path.join(live, ".pewp"); const PL = mkFix(W); const PLF = ["--pipeline", PL];
+    const ORDER = "doctor,snapshot,checker,authority,authority-classify,report-live,approve-business,capture-x";
     // A1: no --go -> plan only
-    let r = W.start("audit-live", [URL1], ["--exclude", "^/home-search"]);
+    let r = W.start("audit-live", [URL1], ["--exclude", "^/home-search", ...PLF]);
     check("A: plan only (no --go) runs nothing and exits 0", r.code === 0 && W.calls().length === 0 && /Plan only/.test(r.out), `${r.code} ${W.calls().length} ${r.out.slice(0, 300)}`);
-    check("A: the plan lists the audit-live stages in order with costs", ["doctor", "snapshot", "checker", "authority", "report"].every((n, i, a) => r.out.indexOf(n.padEnd(18)) > (i ? r.out.indexOf(a[i - 1].padEnd(18)) : -1)) && /cost: polite crawl/.test(r.out), r.out.slice(0, 900));
+    check("A: the plan lists the manifest's steps in the manifest's order, with kind and cost", ORDER.split(",").every((n, i, a) => r.out.indexOf(` ${n.padEnd(18)} `) > (i ? r.out.indexOf(` ${a[i - 1].padEnd(18)} `) : -1)) && /\[agent\]/.test(r.out) && /\[person\]/.test(r.out) && /\[browser\]/.test(r.out) && /cost: requests to the client's site; pace: 1 request per 4 s/.test(r.out), r.out.slice(0, 900));
     let st = rj(path.join(pewp, "state.json"));
-    check("A: the sequence is recorded in state.json", st.start?.mode === "audit-live" && st.start.sequence.map((s) => s.name).join() === "doctor,snapshot,checker,authority,report" && st.start.status === "planned", JSON.stringify(st.start));
-    // A2: --go runs doctor + snapshot then stops at the checker (a task for the main session)
-    r = W.start("audit-live", [URL1], ["--go", "--exclude", "^/home-search", "--max-pages", "9"]);
+    check("A: the sequence recorded in state.json carries ids, order and dependsOn from the manifest", st.start?.mode === "audit-live" && st.start.sequence.map((s) => s.name).join() === ORDER && JSON.stringify(st.start.sequence.find((s) => s.name === "report-live").dependsOn) === '["snapshot","checker"]' && st.start.status === "planned", JSON.stringify(st.start));
+    // A2: --go runs what can run, goes on past BLOCKED authority, and lists every waiting step with its brief
+    r = W.start("audit-live", [URL1], ["--go", "--exclude", "^/home-search", "--max-pages", "9", ...PLF]);
     const c2 = W.calls();
-    check("A: --go runs doctor then live-target, in order", names(c2).join() === "doctor,live-target", names(c2).join());
-    check("A: the snapshot gets the exact command line (url, --cwd, then -- --exclude ... --max-pages)", c2[1] && c2[1].args[0] === URL1 && c2[1].args.includes("--cwd") && c2[1].args.join(" ").includes("-- --exclude ^/home-search --max-pages 9"), JSON.stringify(c2[1]));
-    check("A: it stops at the checker with WAITING-FOR, the coordinator brief and exit 3", r.code === 3 && /WAITING-FOR the checker agent/.test(r.out) && /coordinator\.md/.test(r.out) && /"sonnet"/.test(r.out) && /plan\.mjs/.test(r.out), `${r.code} ${r.out.slice(-600)}`);
-    // A3: the checker's outputs appear; the optional authority is BLOCKED and skipped; the report runs; all done
-    const snapDir = path.join(live, "snapshots", "2026-10-21");
-    w(path.join(snapDir, ".checks", "REPORT.md"), "# report"); w(path.join(snapDir, ".checks", "causes.json"), "[]");
-    W.clear(); r = W.start("audit-live", [URL1], ["--go"]);
-    const c3 = names(W.calls());
-    check("A: with the checker output present it goes on: authority (BLOCKED, optional, skipped), then report-live", c3.join() === "authority,report-live" && /authority: skipped, BLOCKED \(optional\)/.test(r.out) && r.code === 0 && /ALL STAGES DONE/.test(r.out), `${c3.join()} ${r.code} ${r.out.slice(-500)}`);
-    check("A: report-live gets the url and --cwd", W.calls()[1]?.args[0] === URL1, JSON.stringify(W.calls()[1]));
-    // A4: a second run does nothing
-    W.clear(); r = W.start("audit-live", [URL1], ["--go"]);
-    check("A: a second --go with nothing changed re-runs nothing but the optional stage that was BLOCKED (authority), exit 0", names(W.calls()).join() === "authority" && r.code === 0 && /ALL STAGES DONE/.test(r.out), `${names(W.calls())} ${r.code}`);
-    // A5: a new snapshot makes the checker and the report stale; stale is written to state.json
+    check("A: --go runs doctor, the snapshot and authority (BLOCKED, so authority-classify is held); report-live waits for the checker", names(c2).join() === "doctor,live-target,authority", names(c2).join());
+    check("A: the snapshot gets its manifest args, --cwd of this run (not the skill folder) and the remembered options after --", c2[1] && c2[1].args[0] === URL1 && c2[1].args[c2[1].args.indexOf("--cwd") + 1] === W.cwd && c2[1].args.join(" ").includes("-- --exclude ^/home-search --max-pages 9"), JSON.stringify(c2[1]));
+    check("A: a BLOCKED step prints its own last line and does not stop the others", /authority: BLOCKED: no complete Common Crawl release in the cache \| unblocks: download one/.test(r.out) && !names(c2).includes("authority-classify"), r.out.slice(-900));
+    check("A: every waiting step is listed with its kind, brief and evidence, exit 3", r.code === 3 && /WAITING-FOR an agent \(stage=checker\)/.test(r.out) && /coordinator\.md/.test(r.out) && /NEEDS-APPROVAL stage=approve-business/.test(r.out) && /WAITING-FOR the owner's browser \(stage=capture-x\)/.test(r.out) && /evidence it must leave: .*captures\/x\/\*\.json/.test(r.out) && /3 step\(s\) wait/.test(r.out), `${r.code} ${r.out.slice(-1200)}`);
+    check("A: the runner made {work} for the checker's brief, and the brief shows the real path", fs.existsSync(path.join(live, "work")) && r.out.includes(`${path.join(live, "work")}/checker`.replace(/\\/g, "/")) || r.out.includes(path.join(live, "work")), r.out.slice(-900));
+    // A3: the checker's evidence appears -> report-live runs; the person and browser steps still wait
+    w(path.join(live, "work", "checker", ".checks", "causes.json"), "[]");
+    W.clear(); r = W.start("audit-live", [URL1], ["--go", ...PLF]);
+    check("A: with the checker evidence present report-live runs (authority is tried again), two steps still wait (exit 3)", names(W.calls()).join() === "authority,report-live" && fs.existsSync(path.join(pewp, "report.json")) && r.code === 3 && /2 step\(s\) wait/.test(r.out) && !/stage=checker\)/.test(r.out), `${names(W.calls())} ${r.code} ${r.out.slice(-600)}`);
+    // A4: all evidence in, authority still BLOCKED: exit 4 and the held steps are named
+    w(path.join(pewp, "approved", "business.json"), "{}"); w(path.join(pewp, "captures", "x", "a.json"), "{}");
+    W.clear(); r = W.start("audit-live", [URL1], ["--go", ...PLF]);
+    check("A: nothing waits but authority is BLOCKED: exit 4, the held step is named", r.code === 4 && /^BLOCKED: authority: /m.test(r.out) && /authority-classify waits for authority/.test(r.out) && !/ALL STAGES DONE/.test(r.out), `${r.code} ${r.out.slice(-500)}`);
+    // A5: authority unblocked -> authority, authority-classify run, all done
+    W.control("authority.mjs.ok"); W.clear(); r = W.start("audit-live", [URL1], ["--go", ...PLF]);
+    check("A: once authority works its dependent runs and the run ends ALL STAGES DONE, exit 0", names(W.calls()).join() === "authority,authority-classify" && r.code === 0 && /ALL STAGES DONE/.test(r.out) && rj(path.join(pewp, "state.json")).start.status === "done", `${names(W.calls())} ${r.code} ${r.out.slice(-300)}`);
+    W.clear(); r = W.start("audit-live", [URL1], ["--go", ...PLF]);
+    check("A: a second --go with nothing changed runs nothing (exit 0)", W.calls().length === 0 && r.code === 0 && /ALL STAGES DONE/.test(r.out), `${names(W.calls())} ${r.code}`);
+    // A6: a new snapshot makes the checker and report-live stale
     W.control("snap-new-1"); W.clear();
-    r = W.start("audit-live", [URL1], ["--go", "--stage", "snapshot"]);
+    r = W.start("audit-live", [URL1], ["--go", "--stage", "snapshot", ...PLF]);
     st = rj(path.join(pewp, "state.json"));
     check("A: --stage snapshot runs ONLY the snapshot", names(W.calls()).join() === "live-target", names(W.calls()).join());
-    check("A: options given once (--exclude, --max-pages) are remembered: the next start of the same run still sends them to the crawler", W.calls()[0].args.join(" ").includes("-- --exclude ^/home-search --max-pages 9") && /options remembered/.test(r.out), JSON.stringify(W.calls()[0]) + r.out.slice(0, 300));
-    check("A: stages whose input changed are marked stale in state.json (checker, report)", !!st.stages.checker?.stale && !!st.stages.report?.stale && /_site\.json/.test(JSON.stringify(st.stages.checker.stale.changed)), JSON.stringify([st.stages.checker?.stale, st.stages.report?.stale]));
-    check("A: and --stage says which ones it marked", /marked stale in state\.json.*checker.*report/.test(r.out), r.out.slice(-300));
-    W.clear(); r = W.start("audit-live", [URL1], ["--go"]);
-    check("A: the next --go re-runs the stale checker (asks for the agent again) and does NOT run report-live on old checks", r.code === 3 && /WAITING-FOR the checker agent/.test(r.out) && !names(W.calls()).includes("report-live"), `${r.code} ${names(W.calls())} ${r.out.slice(-300)}`);
-    const snap2 = path.join(live, "snapshots", "2026-10-22");
+    check("A: options given once (--exclude, --max-pages) are remembered by the next start of the run", W.calls()[0].args.join(" ").includes("-- --exclude ^/home-search --max-pages 9") && /options remembered/.test(r.out), JSON.stringify(W.calls()[0]) + r.out.slice(0, 300));
+    check("A: steps whose input changed are marked stale in state.json (checker, report-live) and --stage says so", !!st.stages.checker?.stale && !!st.stages["report-live"]?.stale && /marked stale in state\.json.*checker.*report-live/.test(r.out), JSON.stringify([st.stages.checker?.stale, st.stages["report-live"]?.stale]) + r.out.slice(-300));
+    W.clear(); r = W.start("audit-live", [URL1], ["--go", ...PLF]);
+    check("A: the next --go asks for the checker again (old evidence is older than its completion) and does NOT run report-live on old checks", r.code === 3 && /WAITING-FOR an agent \(stage=checker\)/.test(r.out) && !names(W.calls()).includes("report-live"), `${r.code} ${names(W.calls())} ${r.out.slice(-400)}`);
     await new Promise((x) => setTimeout(x, 30));
-    w(path.join(snap2, ".checks", "REPORT.md"), "# report2"); w(path.join(snap2, ".checks", "causes.json"), "[]");
-    W.clear(); r = W.start("audit-live", [URL1], ["--go"]);
-    check("A: once the agent redid it, the report is re-run on the new checks", names(W.calls()).includes("report-live") && r.code === 0, `${names(W.calls())} ${r.code} ${r.out.slice(-300)}`);
-    // A6: --stage forces one stage even when done
-    W.clear(); r = W.start("audit-live", [URL1], ["--go", "--stage", "report"]);
-    check("A: --stage report re-runs only report-live although it is done", names(W.calls()).join() === "report-live" && r.code === 0, names(W.calls()).join());
-    // A7: a stage that exits 0 without its outputs FAILS (a pass without the file proves nothing)
-    W.control("report-live.mjs.noout"); fs.rmSync(path.join(pewp, "report.md")); W.clear();
-    r = W.start("audit-live", [URL1], ["--go"]);
-    check("A: a script that exits 0 but did not write its outputs is FAILED, exit 1", r.code === 1 && /FAILED stage=report: the script exited 0 but did not write/.test(r.out), `${r.code} ${r.out.slice(-300)}`);
+    w(path.join(live, "work", "checker", ".checks", "causes.json"), "[1]");
+    W.clear(); r = W.start("audit-live", [URL1], ["--go", ...PLF]);
+    check("A: once the agent redid it, report-live is re-run on the new checks (exit 0)", names(W.calls()).join() === "report-live" && r.code === 0, `${names(W.calls())} ${r.code} ${r.out.slice(-300)}`);
+    W.clear(); r = W.start("audit-live", [URL1], ["--go", "--stage", "report-live", ...PLF]);
+    check("A: --stage report-live re-runs only report-live although it is done", names(W.calls()).join() === "report-live" && r.code === 0, names(W.calls()).join());
+    // A7: the evidence rule: exit 0 is not enough
+    W.control("report-live.mjs.noout"); fs.rmSync(path.join(pewp, "report.md")); fs.rmSync(path.join(pewp, "report.json")); W.clear();
+    r = W.start("audit-live", [URL1], ["--go", "--stage", "report-live", ...PLF]);
+    check("A: a script that exits 0 without writing its evidence is FAILED (exit 1) and the message names the missing file", r.code === 1 && /FAILED stage=report-live: the script exited 0 but its evidence is not there: missing: .*report\.json/.test(r.out), `${r.code} ${r.out.slice(-300)}`);
+    for (const f of ["report.md", "report.json"]) { w(path.join(pewp, f), "{}"); const old = new Date(Date.now() - 86400000); fs.utimesSync(path.join(pewp, f), old, old); }
+    W.clear(); r = W.start("audit-live", [URL1], ["--go", "--stage", "report-live", ...PLF]);
+    check("A: evidence that exists but is older than the step's start does not count (FAILED, 'older than the step')", r.code === 1 && /older than the step: .*report\.json/.test(r.out), `${r.code} ${r.out.slice(-300)}`);
+    w(path.join(pewp, "report.md"), "{}"); w(path.join(pewp, "report.json"), "");
+    W.clear(); r = W.start("audit-live", [URL1], ["--go", "--stage", "report-live", ...PLF]);
+    check("A: empty evidence does not count (FAILED, 'empty')", r.code === 1 && /empty: .*report\.json/.test(r.out), `${r.code} ${r.out.slice(-300)}`);
     W.uncontrol("report-live.mjs.noout");
-    // A8: a stage script that does not exist is BLOCKED (never improvised)
-    const W2 = mkWorld(sdir, { omit: ["report-live"] });
-    W2.start("audit-live", [URL1], ["--go"]);
-    const sd2 = path.join(W2.cwd, "site-checks", "fixture.test", "snapshots", "2026-10-21");
-    w(path.join(sd2, ".checks", "REPORT.md"), "#"); w(path.join(sd2, ".checks", "causes.json"), "[]");
-    r = W2.start("audit-live", [URL1], ["--go"]); W2.cleanup();
-    check("A: a stage whose script is not built is BLOCKED with what unblocks it (exit 4), never improvised", r.code === 4 && /BLOCKED stage=report: scripts\/report-live\.mjs is not built yet\. Unblocks:/.test(r.out), `${r.code} ${r.out.slice(-300)}`);
+    // A8: exit codes: 3 without the BLOCKED line, 4 SKIPPED, 4 partial, 2 usage
+    const W3 = mkWorld(sdir); const PL3 = mkFix(W3); const P3 = ["--pipeline", PL3, "--go"]; const live3 = path.join(W3.cwd, "site-checks", "fixture.test");
+    W3.start("audit-live", [URL1], [...P3, "--stage", "doctor"]); W3.control("authority.mjs.silent"); r = W3.start("audit-live", [URL1], [...P3, "--stage", "authority"]);
+    check("A: exit 3 whose last line is not 'BLOCKED: ...' is a FAILED contract break, not a BLOCKED", r.code === 1 && /FAILED stage=authority: exit 3 means BLOCKED but the last line is not "BLOCKED:/.test(r.out), `${r.code} ${r.out.slice(-300)}`);
+    W3.uncontrol("authority.mjs.silent"); W3.control("authority.mjs.skip"); W3.clear(); r = W3.start("audit-live", [URL1], [...P3, "--stage", "authority"]);
+    check("A: exit 4 with 'SKIPPED: <reason>' settles the step: the reason is quoted and recorded", r.code === 0 && /authority: SKIPPED: not applicable to this site/.test(r.out) && rj(path.join(live3, ".pewp", "state.json")).stages.authority?.skipped === "not applicable to this site", `${r.code} ${r.out.slice(-300)}`);
+    W3.clear(); r = W3.start("audit-live", [URL1], [...P3]);
+    check("A: a skipped step does not hold its dependent: in a normal run authority-classify runs and authority is not run again", names(W3.calls()).includes("authority-classify") && !names(W3.calls()).includes("authority"), `${names(W3.calls())} ${r.code} ${r.out.slice(-300)}`);
+    W3.control("authority-classify.mjs.exit", "4"); W3.clear(); r = W3.start("audit-live", [URL1], [...P3, "--stage", "authority-classify"]);
+    check("A: a step whose manifest says 4 = partial is PARTIAL (kept, not done): exit 4, 'run again to continue'", r.code === 4 && /authority-classify: PARTIAL/.test(r.out) && /run again to continue/.test(r.out) && !rj(path.join(live3, ".pewp", "state.json")).stages["authority-classify"]?.doneAt, `${r.code} ${r.out.slice(-300)}`);
+    W3.uncontrol("authority-classify.mjs.exit"); W3.control("doctor.mjs.exit", "2"); W3.clear(); r = W3.start("audit-live", [URL1], [...P3, "--stage", "doctor"]);
+    check("A: exit 2 is a usage error: FAILED saying the manifest's args do not fit the script", r.code === 1 && /FAILED stage=doctor: usage error \(exit 2\)/.test(r.out), `${r.code} ${r.out.slice(-300)}`);
+    // A9: --no-authority, --stage before its dependency, the owner's plan ack
+    const W4 = mkWorld(sdir); const PL4 = mkFix(W4); const P4 = ["--pipeline", PL4];
+    r = W4.start("audit-live", [URL1], ["--go", "--stage", "report-live", ...P4]);
+    check("A: --stage on a step whose dependencies are not done is refused (WAITING-FOR the dependency, exit 3) and its script never runs", r.code === 3 && /WAITING-FOR stage=snapshot: report-live depends on snapshot, checker/.test(r.out) && W4.calls().length === 0, `${r.code} ${names(W4.calls())} ${r.out.slice(-300)}`);
+    W4.clear(); r = W4.start("audit-live", [URL1], ["--go", "--no-authority", ...P4]);
+    check("A: --no-authority skips every step of the authority module (and does not hold their dependents)", !names(W4.calls()).includes("authority") && /authority: skipped \(--no-authority\)/.test(r.out) && /authority-classify: skipped \(--no-authority\)/.test(r.out), `${names(W4.calls())} ${r.out.slice(-400)}`);
+    const Wn = mkWorld(sdir); const Pn = ["--pipeline", mkFix(Wn)];
+    r = Wn.start("audit-live", [URL1], ["--go", "--no-plan-ack", ...Pn]);
+    check("A: without the owner's plan ack the free doctor runs and the run stops before the first step that makes external calls (exit 3, plan-ok)", r.code === 3 && names(Wn.calls()).join() === "doctor" && /NEEDS-APPROVAL stage=plan-ok \(before snapshot\)/.test(r.out), `${r.code} ${names(Wn.calls())} ${r.out.slice(-300)}`);
+    // A10: {client}: a step that needs it asks for it
+    const W6 = mkWorld(sdir); const P6 = ["--pipeline", mkFix(W6, [S1("psi", { script: "scripts/psi.mjs", args: ["{url}", "--client", "{client}"], dependsOn: ["doctor"] })])];
+    W6.start("audit-live", [URL1], ["--go", "--stage", "doctor", ...P6]); W6.clear();
+    r = W6.start("audit-live", [URL1], ["--go", "--stage", "psi", ...P6]);
+    check("A: a step with {client} and no --client stops with NEEDS-INPUT naming --client (exit 3), nothing run", r.code === 3 && /NEEDS-INPUT stage=psi: the placeholder \{client\} has no value for this run \(pass --client <slug>\)/.test(r.out) && W6.calls().length === 0, `${r.code} ${r.out.slice(-300)}`);
+    r = W6.start("audit-live", [URL1], ["--go", "--stage", "psi", "--client", "acme", ...P6]);
+    check("A: with --client acme the script gets it", r.code === 0 && W6.calls()[0]?.args.join(" ").endsWith("--client acme"), `${r.code} ${JSON.stringify(W6.calls())} ${r.out.slice(-200)}`);
+    // A11: an invalid manifest or a missing script stops everything before it starts
+    const W7 = mkWorld(sdir, { omit: ["report-live"] }); const PL7 = mkFix(W7);
+    r = W7.start("audit-live", [URL1], ["--go", "--pipeline", PL7]);
+    check("A: a manifest whose script does not exist is invalid: exit 2 naming the script, nothing ran (never improvised)", r.code === 2 && /is not valid; nothing ran/.test(r.out) && /step report-live: the script scripts\/report-live\.mjs does not exist/.test(r.out) && W7.calls().length === 0, `${r.code} ${r.out.slice(-300)}`);
+    const W8 = mkWorld(sdir); const PL8b = mkFix(W8, [], (m) => { m.steps[0].surprise = 1; return m; });
+    r = W8.start("audit-live", [URL1], ["--go", "--pipeline", PL8b]);
+    check("A: a manifest with an unknown key is invalid: exit 2, nothing ran", r.code === 2 && /step doctor: unknown key "surprise"/.test(r.out) && W8.calls().length === 0, `${r.code} ${r.out.slice(-300)}`);
+    // A12: intake exits 3 with question lines, a NEEDS-INPUT line and the BLOCKED line last: the owner is asked, it is not just BLOCKED
+    const W9 = mkWorld(sdir); const P9 = ["--pipeline", mkFix(W9, [S1("intake", { module: "setup", script: "scripts/intake.mjs", args: ["{url}", "--cwd", "{skill}"], dependsOn: ["doctor"], outputs: ["{pewp}/business.json"], evidence: ["{pewp}/business.json"] })])];
+    W9.start("audit-live", [URL1], ["--go", "--stage", "doctor", ...P9]); W9.clear();
+    r = W9.start("audit-live", [URL1], ["--go", "--stage", "intake", ...P9]);
+    check("A: a step that exits 3 with a NEEDS-INPUT line (intake) asks the owner: the question list as pickable options, exit 3, state needs-input, and it is not reported as BLOCKED", r.code === 3 && /NEEDS-INPUT stage=intake: 1 question\(s\)\. Ask ALL of them/.test(r.out) && /real estate agent \[recommended\]/.test(r.out) && !/BLOCKED stage=intake|intake: BLOCKED/.test(r.out) && rj(path.join(W9.cwd, "site-checks", "fixture.test", ".pewp", "state.json")).start.status === "needs-input", `${r.code} ${r.out.slice(-500)}`);
+    w(path.join(W9.cwd, "site-checks", "fixture.test", ".pewp", "intake-answers.json"), JSON.stringify({ industry: "real estate agent" }));
+    W9.clear(); r = W9.start("audit-live", [URL1], ["--go", "--stage", "intake", ...P9]);
+    check("A: with the answers written intake completes and the step is done", r.code === 0 && fs.existsSync(path.join(W9.cwd, "site-checks", "fixture.test", ".pewp", "business.json")) && /intake: done/.test(r.out), `${r.code} ${r.out.slice(-300)}`);
+    // A13: {work} is outside ~/.claude when the run lives under it (the checker's headless workers cannot write there)
+    const Wh = mkWorld(sdir); const fakeHome = path.join(Wh.root, "home"), cwdH = path.join(fakeHome, ".claude", "skills", "x"); fs.mkdirSync(cwdH, { recursive: true });
+    const envH = { USERPROFILE: fakeHome, HOME: fakeHome };
+    r = Wh.run(["audit-live", URL1, "--stage-scripts", Wh.stubs, "--cwd", cwdH, "--pipeline", mkFix(Wh), "--go", "--yes", "--today", TODAY], { env: envH });
+    const outWork = path.join(os.tmpdir(), "pewp-work", "fixture.test").replace(/\\/g, "/");
+    check("A: when the run lives under ~/.claude, {work} is <os temp>/pewp-work/<host> (the checker's headless workers cannot write under ~/.claude): the brief shows it and the folder exists", r.out.replace(/\\/g, "/").includes(`${outWork}/checker`) && fs.existsSync(outWork) && !fs.existsSync(path.join(cwdH, "site-checks", "fixture.test", "work")), `${r.code} ${r.out.slice(-500)}`);
+    fs.rmSync(outWork, { recursive: true, force: true });
+    // A14: a step with engines is BLOCKED, never started, while a stop is in force; a desktop lift frees only the person-paced capture in the owner's browser
+    const stopsLib = await import(pathToFileURL(path.join(sdir, "lib-stops.mjs")).href + "?" + Math.random());
+    const mkStops = (W0, fn) => { const d = path.join(W0.root, "stops"); fs.mkdirSync(d, { recursive: true }); fn(d); return d; };
+    const withEngines = (m) => { for (const s of m.steps) { if (s.id === "authority") s.engines = ["commoncrawl"]; if (s.id === "capture-x") s.engines = ["google"]; } return m; };
+    const runE = (W0, plf, dir) => W0.run(["audit-live", URL1, "--stage-scripts", W0.stubs, "--cwd", W0.cwd, "--pipeline", plf, "--go", "--yes", "--today", TODAY], { env: { OMNIKOM_STOPS_DIR: dir } });
+    const We = mkWorld(sdir); const PLe = mkFix(We, [], withEngines);
+    const dirE = mkStops(We, (d) => { stopsLib.writeStop({ engine: "google", until: Date.now() + 3600_000, reason: "robot check", setBy: "test", dir: d }); stopsLib.writeStop({ engine: "commoncrawl", until: Date.now() + 3600_000, reason: "HTTP 429", setBy: "test", dir: d }); });
+    r = runE(We, PLe, dirE);
+    check("A: while a stop is in force a step with engines is BLOCKED with the stop's until and reason and never started: the script step (authority, commoncrawl) is not run, the owner-browser capture (capture-x, google) is not asked for", /authority: BLOCKED: commoncrawl is stopped until \d{4}-\d{2}-\d{2}T[\d:.]+Z \(HTTP 429\) \| unblocks: wait until then/.test(r.out) && /capture-x: BLOCKED: google is stopped until .* \(robot check\)/.test(r.out) && !names(We.calls()).includes("authority") && !/WAITING-FOR the owner's browser \(stage=capture-x\)/.test(r.out), `${r.code} ${names(We.calls())} ${r.out.slice(-900)}`);
+    check("A: the stop is recorded for the step in state.json (blocked text and the engine's until), so a later reader sees why", /commoncrawl is stopped until/.test(rj(path.join(We.cwd, "site-checks", "fixture.test", ".pewp", "state.json")).stages.authority?.blocked || "") && rj(path.join(We.cwd, "site-checks", "fixture.test", ".pewp", "state.json")).stages.authority?.stop?.engine === "commoncrawl", JSON.stringify(rj(path.join(We.cwd, "site-checks", "fixture.test", ".pewp", "state.json")).stages.authority));
+    stopsLib.liftStop({ engine: "google", by: "test", note: "a person paces the capture in the owner's own browser", dir: dirE });
+    We.clear(); r = runE(We, PLe, dirE);
+    check("A: a desktop lift of the google stop frees only the person-paced capture: capture-x is asked for again (WAITING-FOR the owner's browser) while the script step (authority) stays BLOCKED", /WAITING-FOR the owner's browser \(stage=capture-x\)/.test(r.out) && /authority: BLOCKED: commoncrawl is stopped/.test(r.out) && !names(We.calls()).includes("authority"), `${r.code} ${names(We.calls())} ${r.out.slice(-700)}`);
+    const Wf = mkWorld(sdir); const PLf = mkFix(Wf, [], withEngines);
+    const dirF = mkStops(Wf, (d) => { stopsLib.writeStop({ engine: "commoncrawl", until: Date.now() - 1000, reason: "HTTP 429", setBy: "test", dir: d }); });
+    r = runE(Wf, PLf, dirF);
+    check("A: an expired stop does not hold the step: authority runs, capture-x is asked for", names(Wf.calls()).includes("authority") && /WAITING-FOR the owner's browser \(stage=capture-x\)/.test(r.out) && !/stopped until/.test(r.out), `${r.code} ${names(Wf.calls())} ${r.out.slice(-500)}`);
+    for (const x of [W3, W4, Wn, W6, W7, W8, W9, Wh, We, Wf]) x.cleanup();
     // audit-repo: a moved git HEAD makes the finished checker stale; the old .checks are not trusted
     const W5 = mkWorld(sdir); const repo = path.join(W5.cwd, "repo"); fs.mkdirSync(repo, { recursive: true });
     const g = (...a) => spawnSync("git", ["-C", repo, "-c", "user.name=t", "-c", "user.email=t@t", ...a], { encoding: "utf8", timeout: 60_000, env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_EDITOR: "true" } });
@@ -247,6 +413,8 @@ async function runScenariosInner(sdir, only, results) {
     check("B: build mode: intake with open questions stops with the question list as pickable options, exit 3", r.code === 3 && /NEEDS-INPUT stage=intake: 1 question\(s\)\. Ask ALL of them/.test(r.out) && /real estate agent \[recommended\]/.test(r.out) && /QUESTIONS-JSON/.test(r.out), `${r.code} ${r.out.slice(-500)}`);
     check("B: nothing after intake ran", names(W.calls()).join() === "doctor,intake", names(W.calls()).join());
     w(path.join(pewp, "intake-answers.json"), JSON.stringify({ industry: "real estate agent" }));
+    W.control("research.mjs.noout"); r = W.start("build", [dir], ["--go", "--stage", "research", "--research-args", "--service sell --yes"]); W.uncontrol("research.mjs.noout");
+    check("B: a script that exits 0 but did not write its outputs is FAILED (exit 1)", r.code === 1 && /FAILED stage=research: the script exited 0 but did not write/.test(r.out), `${r.code} ${r.out.slice(-300)}`);
     W.clear(); r = W.start("build", [dir], ["--go", "--research-args", "--service sell --yes"]);
     check("B: with the answers it runs intake, research (args passed through), plan and stops at the targets approval", names(W.calls()).join() === "intake,research,plan-site,approve" && W.calls()[1].args.join(" ").includes("--service sell --yes") && W.calls()[3].args.slice(0, 2)[1] === "targets", names(W.calls()).join());
     check("B: the approval stop prints the diff, names approve.mjs and is exit 3 (start never signs)", r.code === 3 && /DIFF targets/.test(r.out) && /NEEDS-APPROVAL stage=approve-targets/.test(r.out) && /approve\.mjs/.test(r.out) && /--by "<owner name>"/.test(r.out) && !W.calls().some((c) => c.args.includes("--by")), `${r.code} ${r.out.slice(-500)}`);
@@ -372,7 +540,8 @@ async function runScenariosInner(sdir, only, results) {
     check("E: an --exclude rewritten by Git Bash is refused before anything runs (exit 2)", r.code === 2 && /REFUSED/.test(r.out) && W.calls().length === 0, `${r.code} ${r.out}`);
     r = W.run(["nonsense", URL1]);
     check("E: an unknown mode is a usage error (exit 2)", r.code === 2, `${r.code} ${r.out}`);
-    r = W.run(["audit", URL1, "--stage-scripts", W.stubs, "--cwd", W.cwd]);
+    const onePipe = path.join(W.root, "one-pipeline.json"); w(onePipe, JSON.stringify({ version: 1, name: "one", what: "one", conventions: {}, vars: {}, steps: [{ id: "doctor", module: "setup", what: "doctor", script: "scripts/doctor.mjs", args: ["{url}"], inputs: [], outputs: [], dependsOn: [], needsBrowser: "none", needsAi: false, needsPerson: false, needsKeys: [], heavy: false, hits: "none", pace: null, timeoutMinutes: 5, evidence: [] }] }));
+    r = W.run(["audit", URL1, "--stage-scripts", W.stubs, "--cwd", W.cwd, "--pipeline", onePipe]);
     check("E: `audit <url>` is audit-live", /PLAN audit-live/.test(r.out), r.out.slice(0, 200));
     const Wi = mkWorld(sdir); r = Wi.start("iterate", [URL1], ["--go"]);
     check("E: iterate cannot judge without two measure runs: BLOCKED with what unblocks it (exit 4)", r.code === 4 && /Unblocks: two measure runs/.test(r.out), `${r.code} ${r.out.slice(-300)}`);
@@ -512,13 +681,36 @@ async function runScenariosInner(sdir, only, results) {
 
 // ---------------- mutants ----------------
 const MUTANTS = [
-  { name: "stale detection disabled", file: "start.mjs", from: "if (rec.inputsHash && rec.inputsHash !== cur.hash) {", to: "if (false) {", sc: "A+B+D", expect: [/^A: stages whose input changed are marked stale/, /^B: a changed targets\.json marks plan/, /^D: editing redirect-map\.csv/] },
+  { name: "stale detection disabled", file: "start.mjs", from: "if (rec.inputsHash && rec.inputsHash !== cur.hash) {", to: "if (false) {", sc: "A+B+D", expect: [/^A: steps whose input changed are marked stale/, /^B: a changed targets\.json marks plan/, /^D: editing redirect-map\.csv/] },
   { name: "--go not needed to run stages", file: "start.mjs", from: "if (!go && !val(\"--ack\")) {", to: "if (false) {", sc: "A", expect: [/^A: plan only/] },
   { name: "approval exit 3 treated as approved", file: "start.mjs", from: "(r.code === 0 ? { outcome: \"done\", message: \"approved copy matches the working file\" } : r.code === 3 ?", to: "(r.code === 0 || r.code === 3 ? { outcome: \"done\", message: \"approved copy matches the working file\" } : r.code === 99 ?", sc: "B", expect: [/^B: the approval stop prints the diff/] },
   { name: "--by not required for an owner approval", file: "start.mjs", from: "if (s.ack.by && !val(\"--by\"))", to: "if (false)", sc: "C", expect: [/^C: an owner approval needs the owner's name/] },
-  { name: "--stage runs the whole sequence", file: "start.mjs", from: "const targetsToRun = val(\"--stage\") ? [byName.get(val(\"--stage\"))] : SEQ;", to: "const targetsToRun = SEQ;", sc: "A", expect: [/^A: --stage snapshot runs ONLY the snapshot/, /^A: --stage report re-runs only report-live/] },
-  { name: "a script's outputs are not verified", file: "start.mjs", from: "if (v.outcome === \"done\" && outsOf(s).some((o) => !fs.existsSync(o)))", to: "if (false)", sc: "A", expect: [/^A: a script that exits 0 but did not write/] },
-  { name: "an optional BLOCKED stage stops the run", file: "start.mjs", from: "if (v.outcome === \"blocked\" && s.optional) {", to: "if (false) {", sc: "A+E", expect: [/^A: with the checker output present/, /^E: measure: doctor, init/] },
+  { name: "--stage runs the whole sequence", file: "start.mjs", from: "const targetsToRun = val(\"--stage\") ? [byName.get(val(\"--stage\"))] : SEQ;", to: "const targetsToRun = SEQ;", sc: "G", expect: [/^G: --stage seeds-propose before the competitor list is approved is refused/] },
+  { name: "a script's outputs are not verified", file: "start.mjs", from: "if (v.outcome === \"done\" && outsOf(s).some((o) => !fs.existsSync(o)))", to: "if (false)", sc: "B", expect: [/^B: a script that exits 0 but did not write its outputs/] },
+  { name: "an optional BLOCKED stage stops the run", file: "start.mjs", from: "if (v.outcome === \"blocked\" && s.optional) {", to: "if (false) {", sc: "E", expect: [/^E: measure: doctor, init/] },
+  { name: "audit-live: exit 0 counts as done without looking at the evidence", file: "start.mjs", from: "evidence: r.code === 0 ? evid(m, since) : null", to: "evidence: null", sc: "A", expect: [/^A: a script that exits 0 without writing its evidence/, /^A: evidence that exists but is older/, /^A: empty evidence/] },
+  { name: "audit-live: a BLOCKED step stops the whole run", file: "start.mjs", from: "blockedNotes.push(`${s.name}: ${v.message}`); res.set(s.name, \"blocked\"); continue; }", to: "blockedNotes.push(`${s.name}: ${v.message}`); return 4; }", sc: "A", expect: [/^A: every waiting step is listed/] },
+  { name: "audit-live: exit 3 without a BLOCKED last line is believed", file: "lib-pipeline.mjs", from: "return /^BLOCKED:/.test(ll) ? {", to: "return true ? {", sc: "A", expect: [/^A: exit 3 whose last line is not/] },
+  { name: "audit-live: a skipped step holds its dependents", file: "start.mjs", from: "const settled = new Set([\"done\", \"skipped\"]);", to: "const settled = new Set([\"done\"]);", sc: "A", expect: [/^A: a skipped step does not hold its dependent/] },
+  { name: "audit-live: a waiting step's old evidence counts after an input changed", file: "start.mjs", from: "const since = Date.parse(rec?.doneAt || 0) || 0;", to: "const since = 0;", sc: "A", expect: [/^A: the next --go asks for the checker again/] },
+  { name: "audit-live: a step runs before the steps it depends on are settled", file: "start.mjs", from: "const unmet = forced ? [] : s.dependsOn.filter((d) => !settled.has(res.get(d)));", to: "const unmet = [];", sc: "A", expect: [/^A: --go runs doctor, the snapshot and authority/] },
+  { name: "audit-live: external steps run without the owner's plan ack", file: "start.mjs", from: "if (!planAckOf() && s.external) {", to: "if (false) {", sc: "A", expect: [/^A: without the owner's plan ack/] },
+  { name: "audit-live: --no-authority does not skip the authority module", file: "start.mjs", from: "skipIf: () => (m.module === \"authority\" && flag(\"--no-authority\") ? \"--no-authority\" : null),", to: "skipIf: () => null,", sc: "A", expect: [/^A: --no-authority skips/] },
+  { name: "audit-live: the script gets the skill folder as --cwd instead of this run's", file: "start.mjs", from: "(raw[i - 1] === \"--cwd\" && m.args[i] === \"{skill}\" ? cwd : a)", to: "a", sc: "A", expect: [/^A: the snapshot gets its manifest args, --cwd of this run/] },
+  { name: "audit-live: an invalid manifest still runs", file: "start.mjs", from: "if (problems.length) die(`${rel(PIPELINE_FILE)} is not valid; nothing ran:", to: "if (false) die(`${rel(PIPELINE_FILE)} is not valid; nothing ran:", sc: "A", expect: [/^A: a manifest whose script does not exist is invalid/, /^A: a manifest with an unknown key is invalid/] },
+  { name: "audit-live: 4 = partial is not honoured", file: "lib-pipeline.mjs", from: "if (code === 4 && partial) return { outcome: \"partial\", message: ll };", to: "", sc: "A", expect: [/^A: a step whose manifest says 4 = partial/] },
+  { name: "audit-live: a SKIPPED step's reason is not recorded", file: "start.mjs", from: "markDone(s, {}, { skipped: String(v.message).slice(0, 300) });", to: "markDone(s);", sc: "A", expect: [/^A: exit 4 with 'SKIPPED/] },
+  { name: "audit-live: --stage starts before its dependencies are done", file: "start.mjs", from: "if (dep.length) { setRun(\"waiting-for-dependency\"", to: "if (false) { setRun(\"waiting-for-dependency\"", sc: "A", expect: [/^A: --stage on a step whose dependencies are not done is refused/] },
+  { name: "audit-live: --stage runs the whole manifest", file: "start.mjs", from: "const queue = forced ? [byName.get(forced)] : SEQ;", to: "const queue = SEQ;", sc: "A", expect: [/^A: --stage snapshot runs ONLY the snapshot/, /^A: --stage report-live re-runs only report-live/] },
+  { name: "audit-live: a step with a NEEDS-INPUT line is reported as BLOCKED, the owner is not asked", file: "start.mjs", from: "if (o.outcome === \"needs-input\") return { outcome: \"needs-input\", message: intakeQuestionText(m.id, r) ||", to: "if (false) return { outcome: \"needs-input\", message: intakeQuestionText(m.id, r) ||", sc: "A", expect: [/^A: a step that exits 3 with a NEEDS-INPUT line/] },
+  { name: "audit-live: {work} stays under ~/.claude", file: "start.mjs", from: "work: underClaude(loc.root) ? path.join(os.tmpdir(), \"pewp-work\", loc.host) : path.join(loc.root, \"work\")", to: "work: path.join(loc.root, \"work\")", sc: "A", expect: [/^A: when the run lives under ~\/\.claude, \{work\} is/] },
+  { name: "audit-live: a stopped script step is started anyway", file: "start.mjs", from: "if (stopS) { stopBlock(s, stopS); continue; }", to: "if (false) { stopBlock(s, stopS); continue; }", sc: "A", expect: [/^A: while a stop is in force a step with engines is BLOCKED/] },
+  { name: "audit-live: a stopped owner-browser capture is asked for anyway", file: "start.mjs", from: "if (stopW) { stopBlock(s, stopW); continue; }", to: "if (false) { stopBlock(s, stopW); continue; }", sc: "A", expect: [/^A: while a stop is in force a step with engines is BLOCKED/] },
+  { name: "audit-live: a desktop lift frees a script too", file: "start.mjs", from: "const stopS = stepStop(s.manifest, { mode: \"script\" });", to: "const stopS = stepStop(s.manifest, { mode: \"desktop\" });", sc: "A", expect: [/^A: a desktop lift of the google stop frees only/] },
+  { name: "audit-live: a desktop lift is not honoured for the owner-browser capture", file: "start.mjs", from: "mode: s.kind === \"browser\" ? \"desktop\" : \"script\" });", to: "mode: \"script\" });", sc: "A", expect: [/^A: a desktop lift of the google stop frees only/] },
+  { name: "audit-live: the stop is not recorded in state.json", file: "start.mjs", from: ", stop: { engine: stop.engine, until: stop.until } }; }); console.log(`${s.name}: BLOCKED:", to: " }; }); console.log(`${s.name}: BLOCKED:", sc: "A", expect: [/^A: the stop is recorded for the step in state.json/] },
+  { name: "audit-live: the runner does not make {work}", file: "start.mjs", from: "prepare: () => { if (usesWork) fs.mkdirSync(pipelineVars().work, { recursive: true }); },", to: "prepare: () => {},", sc: "A", expect: [/^A: the runner made \{work\}/] },
+  { name: "audit-live: a waiting step is done without evidence being newer than its last completion nor present", file: "start.mjs", from: "if (ev.ok && !forced) { markDone(s);", to: "if (!forced) { markDone(s);", sc: "A", expect: [/^A: every waiting step is listed/] },
   { name: "the agent's old outputs count as done", file: "start.mjs", from: "const fresh = done && outsOf(s).every((o) => fs.statSync(o).mtimeMs > since) && !forced;", to: "const fresh = done && !forced;", sc: "A", expect: [/^A: a moved git HEAD makes the checker stale/] },
   { name: "refactor runs without the visual proof by default", file: "start.mjs", from: "...(flag(\"--no-visual\") ? [] : [\"--visual\"])", to: "...(flag(\"--no-visual\") ? [] : [])", sc: "C", expect: [/^C: the real run gets --visual by default/] },
   { name: "the migrate gate leaves the image check out", file: "start.mjs", from: "...(flag(\"--no-images\") ? [] : [\"--images\"])", to: "...[]", sc: "D", expect: [/^D: the gate runs with --images/] },
@@ -546,13 +738,13 @@ const MUTANTS = [
 if (isMain(import.meta.url)) { // lib-main.mjs: real paths (started through a junction this used to skip the whole suite)
   // --help: the usage path test-main.mjs runs through a junction (inside the guard, so a broken guard prints nothing and goes red)
   if (A.includes("--help")) { console.log("usage: node test-start.mjs [--scripts <dir>] [--no-mutants] [--mutant <name part>] [--keep]"); process.exit(0); }
+  const t0 = Date.now();
   const main = await runScenarios(scriptsDir);
   for (const r of main) console.log(`${r.ok ? "PASS" : "FAIL"} ${r.name}${r.ok ? "" : `\n     ${r.detail.slice(0, 700)}`}`);
-  let failed = main.filter((r) => !r.ok).length;
+  let failed = main.filter((r) => !r.ok).length; const mainFailed = failed; let caught = 0, ran = 0;
   console.log(failed ? `START TEST FAIL: ${failed} of ${main.length}` : `START TEST PASS: ${main.length} of ${main.length}`);
   if (!failed && !A.includes("--no-mutants")) {
     console.log("\nWatched-fail mutants (each must turn the named assertions red; the unmutated tree is green above):");
-    let caught = 0, ran = 0;
     for (const mu of MUTANTS.filter((m) => !opt("--mutant") || m.name.includes(opt("--mutant")))) {
       ran++;
       const mdir = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-mutant-"));
@@ -573,5 +765,6 @@ if (isMain(import.meta.url)) { // lib-main.mjs: real paths (started through a ju
     }
     console.log(failed ? `MUTANTS FAIL: ${caught} of ${ran} caught` : `MUTANTS PASS: ${caught} of ${ran} caught`);
   }
+  if (A.includes("--json")) console.log(JSON.stringify({ suite: "start", ok: !failed, assertions: { total: main.length, failed: mainFailed }, mutants: ran ? { ran, caught, failed: ran - caught } : null, wallMs: Date.now() - t0 }));
   process.exit(failed ? 1 : 0);
 }

@@ -567,3 +567,48 @@ options, never a fix made here.
   text at least 14 px and an h1, for `styles.spec.ts`). **Rule from the head of operations, 20:49:** locally run only the tests of
   the files changed plus gitleaks; full suites and mutant runs go to CI by pushing the branch; the heavy lock only for what CI cannot
   do (a staging proof). The head's own re-check is then the CI run on the exact tip plus a read of the diff.
+- 2026-11-11 09:25 (head of SEO), work orders 41, 42 and 43 and the skill's night of work: the skill copy in `skills/` is synced to the
+  outside repo's `44e39e9` (from `98cca19`). It adds:
+  - the competitor pace fix, one request per 4 s per site (`075cf19`)
+  - authority-anchors (WO42)
+  - vantage.mjs and lib-stops.mjs (WO43)
+  - pipeline.json, lib-pipeline.mjs and start.mjs reading it (WO41), the six importers, crux, psi --runs, the local-nap fix, the
+    intake defaults, licence detection per industry, and the authority cache
+  - the browser-profile lockout fix (`05dbf43`)
+  - adopt by default (`44da6f9`) and the delegated stamp (`44e39e9`)
+  test-pipeline 147 of 147 on the repo copy. Mutant suites NOT RUN on CI yet (skill-CI job pending); see HANDOVER.
+
+## HANDOVER 2026-11-11 (head of SEO, wrap-up at about 90% of the week)
+- **Which copy is the source:** the skill's outside repo `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance`
+  (its own git, HEAD `44e39e9`, never pushed to its GitHub) is where the skill is edited. `skills/programmatic-enterprise-web-performance/`
+  here is a copy made by `node skills/sync-skill.mjs programmatic-enterprise-web-performance`. The row in `skills/SOURCE.md` names the
+  synced sha. Never edit the repo copy; never start from it if SOURCE.md's sha differs from the outside HEAD. Sync only from a
+  committed, clean outside tree (`git status` empty): the sync copies uncommitted files too.
+- **On master or riding the train:** WO38 dashboard hardening (`check/seo/dashboard-hardening`, landing). The skill sync
+  (`check/seo/audit-pipeline`).
+- **Open, in order:**
+  1. WO41 gap 2: the local-grid paths in pipeline.json (local-grid-plan, capture-maps, local-grid-import) do not match what
+     local-grid.mjs writes; plus a test that evidence paths match what each script writes.
+  2. The 2 start-mutant survivors. "A desktop lift frees a script too" comes first: check it is not a real gap in lib-stops or
+     stepStop.
+  3. `kind` and `maxAgeDays` per step (the list was sent to CLI), and the RESUME, RE-EVALUATE and FRESH modes in start.mjs.
+  4. Six skill test files red on Linux (CLI's run 42968940978): test-approve, test-browser-leftovers, test-freshness, test-launch,
+     test-writing-gate and mutants-research.
+  5. All mutant suites of tonight's commits (UNPROVEN), on the skill-CI job once it lands.
+  6. Playwright launches in lib-shots.mjs are not seeded against the lockout (launchPersistentContext on a seeded dir).
+  7. WO47: move the skill onto `tools/kit` (vendored `scripts/kit/`, sameness test) once CLI lands it.
+  8. A lending industry pack (topicFilter, licence patterns, compliance limits) does not exist.
+  9. report-live reads crux and the importers (done); authority-anchors needs a way to find the linking page (stage doc 2b).
+- **Paragon (WO40):** the client report is PARKED by the owner until the skill's full run is done. The 22-page evidence pack and the
+  8-page client copy are in `clients/paragon/private/audit-2026-11/` (git-ignored). The skill run is the OWNER'S to steer
+  (`BUILDER_seo-and-audits_paragon-skillrun`, worktree `departments/seo-and-audits/builders/paragon-skillrun`):
+  - all three approvals PASS, stamped "head of operations (delegated by the owner)"
+  - adoption table: ADOPT 17, RERUN 1, MISSING 28 (`clients/paragon/private/audit-2026-11/skill-run/ADOPTION.md`)
+  - `--go` launched 09:17, waiting for the heavy lock
+  - Perplexity and Copilot are still to capture by desktop; Google is stopped for scripts until 2026-11-12 04:29 (desktop lift
+    only)
+- **Worktrees:**
+  - safe to remove after the train lands: `dashboard-hardening`, `audit-pipeline`, `link-anchors`, `us-vantage`, `paragon-b`,
+    `paragon-c` (C's and B's results are in their RESULTS.md: copy them into the private folder first), `paragon-audit` (its
+    work/40 CONTEXT.md is the WO40 record: commit it first)
+  - keep: `paragon-skillrun` (the owner's run), `omnikom-ai-intake` (WO26 part 2, on hold)

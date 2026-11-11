@@ -46,7 +46,7 @@ Start never signs an approval, merges, pushes, deploys or switches a site over.
 ## The sequences (script and command line each stage runs)
 | Mode | Stages (script) |
 |---|---|
-| `audit-live <url>` | doctor -> snapshot (`live-target.mjs <url> -- <snapshot options>`) -> checker [agent: coordinator.md on the snapshot] -> authority (optional, `authority.mjs`) -> report (`report-live.mjs`) |
+| `audit-live <url>` | the steps of `pipeline.json` in its run order (SKILL.md "audit-live"): scripts run, steps with `script: null` wait (needsPerson = NEEDS-APPROVAL, owner browser and agent = WAITING-FOR, with the brief), a BLOCKED step does not stop the steps that do not depend on it |
 | `audit-repo <path>` | doctor -> guard-before (`guard-readonly.mjs --before`) -> checker [agent] -> guard-after |
 | `compare <a> <b>` | per side: snapshot (URL) -> checker [agent]; authority-a/-b (optional); compare (`compare.mjs <a> <b>`) |
 | `research <url\|folder>` | doctor -> intake (`intake.mjs`) -> research-plan (`research.mjs --dry`) -> research (`research.mjs`, `--research-args`) |

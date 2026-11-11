@@ -59,6 +59,19 @@ async function runScenarios(sdir, groups = ["a", "b", "c", "d"]) {
       p = mk(); w(path.join(p, "business.json"), bizDoc({ ...allOwner, audience: "site", goals: "default" }));
       r = ap(p, "business", "--by", "Ana");
       check("A1: a stamp of site or default is not the owner: each provenance is named", r.code === 1 && /audience was not answered by the owner \(provenance: site\)/.test(r.out) && /goals was not answered by the owner \(provenance: default\)/.test(r.out), r.out);
+      // a delegate answered for the owner: accepted, said out loud, kept in the approved copy and the lock
+      const DEL = { by: "head of operations", delegatedBy: "owner", at: "2026-11-11T08:00:00Z" };
+      p = mk(); w(path.join(p, "business.json"), bizDoc({ ...allOwner, kind: "delegated", offer: "delegated" }, { delegations: { kind: DEL, offer: DEL } }));
+      r = ap(p, "business", "--by", "Ana");
+      const apBiz = fs.existsSync(path.join(p, "approved", "business.json")) ? rj(path.join(p, "approved", "business.json")) : null, lockDel = fs.existsSync(path.join(p, "approved", "lock.json")) ? rj(path.join(p, "approved", "lock.json")) : null;
+      check("A1: owner-only fields answered by a DELEGATE (provenance delegated, with who, for whom and when) are approved (exit 0), and the run says which fields were delegated and by whom", r.code === 0 && /NOTE 2 owner-only field\(s\) were answered by a delegate for the owner, not by the owner: kind \(by head of operations, delegated by the owner, 2026-11-11T08:00:00Z\); offer/.test(r.out) && /DELEGATED: kind, offer/.test(r.out), r.out);
+      check("A1: the stamp shows in the approved copy (provenance delegated, delegations.kind.by) and in the lock (delegated: kind, offer)", apBiz?.provenance?.kind === "delegated" && apBiz.delegations?.kind?.by === "head of operations" && apBiz.delegations.kind.delegatedBy === "owner" && lockDel?.business?.delegated?.map((d) => d.field).join() === "kind,offer", JSON.stringify([apBiz?.provenance?.kind, apBiz?.delegations?.kind, lockDel?.business?.delegated]));
+      p = mk(); w(path.join(p, "business.json"), bizDoc({ ...allOwner, kind: "delegated" }));
+      r = ap(p, "business", "--by", "Ana");
+      check("A1: 'delegated' written by hand, with no record of who and when (business.delegations), proves nothing: refused (exit 1) and says so", r.code === 1 && /kind was not answered by the owner \(provenance: delegated without a record of who and when/.test(r.out) && !fs.existsSync(path.join(p, "approved")), r.out);
+      p = mk(); w(path.join(p, "business.json"), bizDoc({ ...allOwner, kind: "delegated", offer: "site" }, { delegations: { kind: DEL } }));
+      r = ap(p, "business", "--by", "Ana");
+      check("A1: a delegated field does not excuse a site field: offer (site) is still refused while kind (delegated) is accepted", r.code === 1 && /offer was not answered by the owner \(provenance: site\)/.test(r.out) && !/kind was not answered/.test(r.out), r.out);
       p = mk(); const noProv = bizDoc(null); delete noProv.provenance; w(path.join(p, "business.json"), noProv);
       r = ap(p, "business", "--by", "Ana");
       check("A1: a business with no provenance at all (written before this check) is refused, every owner-only field unstated", r.code === 1 && /kind, offer, audience, goals, competitors, brand\.constraints, vocabulary were not answered by the owner \(provenance: unstated\)/.test(r.out), r.out);
@@ -72,7 +85,7 @@ async function runScenarios(sdir, groups = ["a", "b", "c", "d"]) {
       r = ap(p, "business", "--by", "Ana");
       check("A1: no business.json => cannot judge (exit 2)", r.code === 2 && /business\.json not found/.test(r.out), r.out);
       r = ap(p, "targets-and-more");
-      check("A1: an unknown kind is a usage error (exit 2) that lists the five", r.code === 2 && /targets, plan, business, competitors or seeds/.test(r.out), r.out);
+      check("A1: an unknown kind is a usage error (exit 2) that lists the six kinds (targets, plan, business, competitors, seeds, prompt-map)", r.code === 2 && /targets, plan, business, competitors, seeds or prompt-map/.test(r.out), r.out);
 
       // business sign / lock / diff / history / approvedMatches
       p = mk(); w(path.join(p, "business.json"), bizDoc(allOwner));
@@ -191,7 +204,7 @@ async function runScenarios(sdir, groups = ["a", "b", "c", "d"]) {
       check("B3: bare legacy answers still end COMPLETE (exit 0) with business.json written", r.code === 0 && /^COMPLETE /m.test(r.out) && !!b, r.out.slice(0, 400));
       check("B3: provenance says unstated for every owner-only field a bare answer filled", ["kind", "offer", "audience", "goals", "competitors", "brand.constraints", "locations", "market.country", "existing.searchConsole"].every((f) => b?.provenance?.[f] === "unstated"), JSON.stringify(b?.provenance));
       check("B3: provenance says site for what was read from the site and default for what the script defaulted", b?.provenance?.name === "site" && b.provenance.domain === "site" && b.provenance["market.language"] === "site" && b.provenance.launchState === "site" && b.provenance["rankTracking.devices"] === "default" && b.provenance["rankTracking.source"] === "default" && b.provenance["rankTracking.locations"] === "default", JSON.stringify(b?.provenance));
-      check("B3: the run says which owner-only fields have no owner answer and what approve will do about it", /NOTE no owner answer for: kind, offer, audience, goals, competitors, brand\.constraints, vocabulary\./.test(r.out) && /approve\.mjs business will refuse/.test(r.out) && /provenance: owner 0, site \d+, default \d+, unstated \d+/.test(r.out), r.out);
+      check("B3: the run says which owner-only fields have no owner answer and what approve will do about it", /NOTE no owner answer for: kind, offer, audience, goals, competitors, brand\.constraints, vocabulary\./.test(r.out) && /approve\.mjs business will refuse/.test(r.out) && /provenance: owner 0, delegated 0, site \d+, default \d+, unstated \d+/.test(r.out), r.out);
       check("B3: vocabulary missing does not block (exit 0) but is listed as an optional question; business has no vocabulary", b && !("vocabulary" in b) && /OPTIONAL QUESTIONS 2/.test(r.out), r.out.slice(-500));
       check("B3: industry follows kind editorial-media when rules/industries/editorial-media.json exists (provenance default)", b?.industry === "editorial-media" && b.provenance.industry === "default", JSON.stringify([b?.industry, b?.provenance?.industry]));
       r = intake(m1, ["--refresh"], { PEWP_RULES_DIR: rulesNone });
@@ -215,6 +228,12 @@ async function runScenarios(sdir, groups = ["a", "b", "c", "d"]) {
       w(path.join(m1.pewp, "intake-answers.json"), answers(own, { vocabulary: own(["x"]), kind: { value: "editorial-media", answeredBy: "site" }, offer: { value: "A line.", answeredBy: "default" }, audience: { value: "Readers", answeredBy: "claude" } }));
       r = intake(m1, ["--refresh"]); b = biz(m1);
       check("B5: answeredBy site and default are kept; any other word (claude) is unstated, never owner", b?.provenance.kind === "site" && b.provenance.offer === "default" && b.provenance.audience === "unstated" && b.provenance.goals === "owner", JSON.stringify(b?.provenance));
+      // a delegation object stamps "delegated"; a bare word or a half-filled object does not
+      const DEL = { by: "head of operations", delegatedBy: "owner", at: "2026-11-11T08:00:00Z" };
+      w(path.join(m1.pewp, "intake-answers.json"), answers(own, { vocabulary: own(["x"]), kind: { value: "editorial-media", answeredBy: DEL }, offer: { value: "A line.", answeredBy: "delegated" }, audience: { value: "Readers", answeredBy: { by: "head of operations", delegatedBy: "owner" } }, goals: { value: ["leads"], answeredBy: { by: "someone", delegatedBy: "site", at: "2026-11-11T08:00:00Z" } } }));
+      r = intake(m1, ["--refresh"]); b = biz(m1);
+      check("B5: answeredBy { by, delegatedBy: 'owner', at } is provenance 'delegated' and business.delegations keeps who and when", b?.provenance.kind === "delegated" && b.delegations?.kind?.by === "head of operations" && b.delegations.kind.delegatedBy === "owner" && b.delegations.kind.at === "2026-11-11T08:00:00Z" && /delegated 1/.test(r.out), JSON.stringify([b?.provenance.kind, b?.delegations, r.out.slice(0, 300)]));
+      check("B5: the bare word 'delegated', an object with no date, and an object not delegated by the owner are unstated (they name nobody or nothing): no delegations entry for them", b?.provenance.offer === "unstated" && b.provenance.audience === "unstated" && b.provenance.goals === "unstated" && Object.keys(b.delegations || {}).join() === "kind", JSON.stringify([b?.provenance, b?.delegations]));
       // vocabulary rules
       w(path.join(m1.pewp, "intake-answers.json"), answers(own, { vocabulary: own([]) }));
       fs.rmSync(path.join(m1.pewp, "business.json"), { force: true });
@@ -319,7 +338,7 @@ async function runScenarios(sdir, groups = ["a", "b", "c", "d"]) {
       const out = path.join(tmp, "d", "authority.json");
       const base = [out, "--target", "example.com", "--cache", cache, "--release", REL];
       let r = run("authority.mjs", [...base, "--require-approved", "--competitor", "gamma.com"]);
-      check("D1: --require-approved without an approved file refuses (exit 3) with the unblock command, even with a guessed --competitor", r.code === 3 && /BLOCKED: competitor list not approved; unblocks: approve\.mjs <target> competitors --by NAME/.test(r.out) && !fs.existsSync(out), r.out);
+      check("D1: --require-approved without an approved file refuses (exit 3) with the unblock command, even with a guessed --competitor", r.code === 3 && /BLOCKED: competitor list not approved \| unblocks: approve\.mjs <target> competitors --by NAME/.test(r.out) && !fs.existsSync(out), r.out);
       r = run("authority.mjs", [out, "--target", "example.com", "--cache", path.join(tmp, "d", "no-such-cache"), "--require-approved"]);
       check("D1: the refusal comes before anything is read: with no cache and no release it is still the approval message, not the missing-release one", r.code === 3 && /competitor list not approved/.test(r.out) && !/no complete Common Crawl release/.test(r.out), r.out);
       r = run("authority.mjs", [...base, "--approved-competitors", af, "--competitor", "alpha.com", "--competitor", "gamma.com"]);

@@ -251,6 +251,7 @@ if (isMain(import.meta.url)) {
   if (opt("--today") && !isDay(opt("--today"))) { console.error(`--today must be a real day as YYYY-MM-DD (got ${opt("--today")})`); process.exit(2); }
   const cwd = opt("--cwd", process.cwd());
   const r = cmd === "plan" ? runGridPlan(target, { cwd, n: opt("--n") ? Number(opt("--n")) : undefined, spacingKm: opt("--spacing-km") ? Number(opt("--spacing-km")) : undefined, queries: all("--query"), cities: all("--cities").length ? all("--cities") : null, maxCaptures: opt("--max-captures") ? Number(opt("--max-captures")) : undefined }) : runGridImport(target, { cwd, today: opt("--today") });
-  if (r.status === "blocked") console.log(`BLOCKED: ${r.blocked.reason}. To fix: ${r.blocked.unblock}`);
+  // cities without a sourced centre first, then (when NOTHING could be done) the one BLOCKED line LAST and exit 3, the shared convention: pipeline.json's runners quote that line
   for (const b of r.plan?.blocked || []) console.log(`BLOCKED city ${b.city}: ${b.reason}. To fix: ${b.unblock}`);
+  if (r.status === "blocked") { console.log(`BLOCKED: ${r.blocked.reason} | unblocks: ${r.blocked.unblock}`); process.exitCode = 3; }
 }

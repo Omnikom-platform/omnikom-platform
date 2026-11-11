@@ -1,0 +1,1520 @@
+{
+ "version": 1,
+ "name": "client-audit",
+ "what": "Every step of a full client audit of a live site (audit-live), in one list that start.mjs and `omnikom seo run` both read. Steps marked needsBrowser owner, needsAi or needsPerson are never run by a script: the runner lists them as WAITING with their brief, an agent or the owner writes their outputs, and the next resume picks them up.",
+ "conventions": {
+  "exit": {
+   "0": "ok",
+   "2": "usage",
+   "3": "BLOCKED",
+   "4": "SKIPPED"
+  },
+  "lastLine": "A step that exits 3 prints `BLOCKED: <what> | unblocks: <what would>`; one that exits 4 prints `SKIPPED: <reason>`. The runner quotes that line and never invents a reason.",
+  "done": "exit 0 in the run log AND every evidence path exists, is not empty, and was written after the step started; an input newer than the evidence makes the step stale.",
+  "hits": "Two steps that hit the same host never run at the same time. pace is informational: the script enforces it.",
+  "scriptPaths": "Relative to the skill folder. `repo:` means relative to the Omnikom repository root."
+ },
+ "vars": {
+  "url": "the live site, as given",
+  "client": "the client slug (clients/<slug>/ in the Omnikom repo)",
+  "host": "the url's hostname without www.",
+  "skill": "the skill folder",
+  "runDir": "{skill}/site-checks/{host}",
+  "pewp": "{runDir}/.pewp",
+  "work": "a folder the runner makes for this run for the checker's headless workers: {runDir}/work, except when {runDir} is under ~/.claude (the outside copy of the skill), where those workers cannot write (work order 40): then <os temp>/pewp-work/{host}"
+ },
+ "steps": [
+  {
+   "id": "doctor",
+   "module": "setup",
+   "what": "which free sources and keys are connected; the latest Common Crawl release",
+   "script": "scripts/doctor.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}",
+    "--json"
+   ],
+   "inputs": [],
+   "outputs": [
+    "{pewp}/doctor.json"
+   ],
+   "dependsOn": [],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "third-party:commoncrawl",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/doctor.json"
+   ]
+  },
+  {
+   "id": "vantage",
+   "module": "visibility",
+   "what": "US vantage (Sacramento) verified before any capture",
+   "script": "scripts/vantage.mjs",
+   "args": [
+    "status",
+    "--json",
+    "--pewp",
+    "{pewp}"
+   ],
+   "inputs": [],
+   "outputs": [
+    "{pewp}/vantage.json"
+   ],
+   "dependsOn": [
+    "doctor"
+   ],
+   "needsBrowser": "headless",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": true,
+   "hits": "third-party:ip-geo",
+   "pace": null,
+   "timeoutMinutes": 2,
+   "evidence": [
+    "{pewp}/vantage.json"
+   ]
+  },
+  {
+   "id": "snapshot",
+   "module": "technical",
+   "what": "polite snapshot of the site, raw HTML and rendered in real Chrome, phone speed in the lab (a snapshot younger than 7 days is reused; either way snapshots/latest.json says which one this run handed on)",
+   "script": "scripts/live-target.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [],
+   "outputs": [
+    "{runDir}/snapshots/"
+   ],
+   "dependsOn": [
+    "doctor"
+   ],
+   "needsBrowser": "headless",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": true,
+   "hits": "client",
+   "pace": "1 request per 4 s, robots.txt obeyed, a 429 waits 90 s once then stops",
+   "timeoutMinutes": 150,
+   "evidence": [
+    "{runDir}/snapshots/latest.json"
+   ]
+  },
+  {
+   "id": "psi",
+   "module": "technical",
+   "what": "Google's PageSpeed test, phone and desktop, three runs each: every run's raw answer is kept and the median is recorded (medianOf says how many runs it is a median of)",
+   "script": "scripts/psi.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}",
+    "--strategy",
+    "mobile,desktop",
+    "--runs",
+    "3",
+    "--gap-ms",
+    "2000"
+   ],
+   "inputs": [],
+   "outputs": [
+    "{pewp}/psi/"
+   ],
+   "dependsOn": [
+    "doctor"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [
+    "PSI_API_KEY"
+   ],
+   "heavy": false,
+   "hits": "third-party:pagespeedonline.googleapis.com",
+   "pace": "2 s between calls, 31 s between two runs of the same page (Google may answer a repeat within about 30 s from one analysis)",
+   "timeoutMinutes": 15,
+   "evidence": [
+    "{pewp}/psi/*.json"
+   ]
+  },
+  {
+   "id": "crux",
+   "module": "technical",
+   "what": "real-visitor speed from the Chrome UX Report, for the page and its origin on phones and desktops; NO DATA (too little traffic) is a result, not a failure",
+   "script": "scripts/crux.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [],
+   "outputs": [
+    "{pewp}/crux/"
+   ],
+   "dependsOn": [
+    "doctor"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [
+    "CRUX_API_KEY"
+   ],
+   "heavy": false,
+   "hits": "third-party:chromeuxreport.googleapis.com",
+   "pace": "1 s between calls",
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/crux/*.json"
+   ]
+  },
+  {
+   "id": "checker",
+   "module": "technical",
+   "what": "the shipgate checker: ONE coordinator agent groups failures into root causes",
+   "script": null,
+   "args": [],
+   "inputs": [
+    "{runDir}/snapshots/*/_site.json"
+   ],
+   "outputs": [
+    "{work}/checker/.checks/causes.json",
+    "{work}/checker/.checks/REPORT.md"
+   ],
+   "dependsOn": [
+    "snapshot"
+   ],
+   "needsBrowser": "none",
+   "needsAi": true,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": true,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 120,
+   "evidence": [
+    "{work}/checker/.checks/causes.json"
+   ],
+   "brief": "Copy the newest snapshot folder to {work}/checker, then run ONE coordinator agent on it exactly as SKILL.md 'The checker' says, with the repo root = that copy."
+  },
+  {
+   "id": "intake",
+   "module": "setup",
+   "what": "who the client is (business.json): name, address, phone, services, service area, market",
+   "script": "scripts/intake.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [],
+   "outputs": [
+    "{pewp}/business.json"
+   ],
+   "dependsOn": [
+    "snapshot"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 10,
+   "evidence": [
+    "{pewp}/business.json"
+   ]
+  },
+  {
+   "id": "approve-business",
+   "module": "setup",
+   "what": "the owner confirms the business definition, including serviceArea (local-grid refuses without it: work order 40)",
+   "script": null,
+   "args": [],
+   "inputs": [
+    "{pewp}/business.json"
+   ],
+   "outputs": [
+    "{pewp}/approved/business.json"
+   ],
+   "dependsOn": [
+    "intake"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": true,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 0,
+   "evidence": [
+    "{pewp}/approved/business.json"
+   ],
+   "brief": "Show the owner business.json as pickable options. On his answer, record it with `node scripts/approve.mjs {url} business --by \"<owner>\" --cwd {skill}`."
+  },
+  {
+   "id": "city-centres",
+   "module": "local",
+   "what": "each service-area city's centre (latitude, longitude, source page, date) read from the coordinates of the city's Wikipedia page, one polite request per city; a city with no coordinates is BLOCKED by name",
+   "script": "scripts/local-centres.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/approved/business.json"
+   ],
+   "outputs": [
+    "{pewp}/captures/local/grid/cities.json"
+   ],
+   "dependsOn": [
+    "approve-business"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "third-party:wikipedia.org",
+   "pace": "one request per city, 250 ms apart, a descriptive User-Agent",
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/captures/local/grid/cities.json"
+   ]
+  },
+  {
+   "id": "seeds",
+   "module": "keywords",
+   "what": "search seeds proposed from the business's own words and places; nothing fetched",
+   "script": "scripts/research-seeds.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/approved/business.json"
+   ],
+   "outputs": [
+    "{pewp}/research/seeds.json"
+   ],
+   "dependsOn": [
+    "approve-business"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/research/seeds.json"
+   ]
+  },
+  {
+   "id": "approve-seeds",
+   "module": "keywords",
+   "what": "the owner approves the seeds before any call is spent on them",
+   "script": null,
+   "args": [],
+   "inputs": [
+    "{pewp}/research/seeds.json"
+   ],
+   "outputs": [
+    "{pewp}/approved/seeds.json"
+   ],
+   "dependsOn": [
+    "seeds"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": true,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 0,
+   "evidence": [
+    "{pewp}/approved/seeds.json"
+   ],
+   "brief": "Show the owner the seeds as pickable options. Record the answer with `node scripts/approve.mjs {url} seeds --by \"<owner>\" --cwd {skill}`."
+  },
+  {
+   "id": "demand-bing",
+   "module": "demand",
+   "what": "Bing keyword estimates and related keywords for every seed, plain and with the city and state; the client's own site statistics are BLOCKED until the client adds us as a user in Bing Webmaster Tools (the estimates go on)",
+   "script": "scripts/research-bing.mjs",
+   "args": [
+    "{url}",
+    "--seeds-file",
+    "{pewp}/approved/seeds.json",
+    "--cwd",
+    "{skill}",
+    "--site-stats"
+   ],
+   "inputs": [
+    "{pewp}/approved/seeds.json"
+   ],
+   "outputs": [
+    "{pewp}/research/bing.json"
+   ],
+   "dependsOn": [
+    "approve-seeds"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [
+    "BING_WEBMASTER_KEY"
+   ],
+   "heavy": false,
+   "hits": "third-party:ssl.bing.com",
+   "pace": "the script's own call cap (60)",
+   "timeoutMinutes": 15,
+   "evidence": [
+    "{pewp}/research/bing.json"
+   ]
+  },
+  {
+   "id": "search-console",
+   "module": "visibility",
+   "what": "the client's own search data; BLOCKED until the client adds us as a user",
+   "script": "scripts/research-gsc.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [],
+   "outputs": [
+    "{pewp}/research/gsc.json"
+   ],
+   "dependsOn": [
+    "doctor"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "third-party:searchconsole.googleapis.com",
+   "pace": null,
+   "timeoutMinutes": 10,
+   "evidence": [
+    "{pewp}/research/gsc.json"
+   ]
+  },
+  {
+   "id": "research-plan",
+   "module": "visibility",
+   "what": "the research run's plan and the capture requests for the owner's browser (dry run: nothing fetched)",
+   "script": "scripts/research.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}",
+    "--dry"
+   ],
+   "inputs": [
+    "{pewp}/approved/seeds.json"
+   ],
+   "outputs": [
+    "{pewp}/research/capture-requests.json"
+   ],
+   "dependsOn": [
+    "approve-seeds"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/research/capture-requests.json"
+   ]
+  },
+  {
+   "id": "capture-google",
+   "module": "visibility",
+   "what": "Google results pages: every buyer search, the brand searches, each service + city, with the AI answer, People Also Ask and related searches",
+   "script": null,
+   "args": [],
+   "inputs": [
+    "{pewp}/research/capture-requests.json"
+   ],
+   "outputs": [
+    "{pewp}/captures/serp/"
+   ],
+   "dependsOn": [
+    "research-plan",
+    "vantage"
+   ],
+   "needsBrowser": "owner",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "third-party:google.com",
+   "pace": "one page at least 45 s apart; stop at the first robot check",
+   "timeoutMinutes": 0,
+   "evidence": [
+    "{pewp}/captures/serp/*.google.json"
+   ],
+   "brief": "In the owner's Edge, open each Google request in capture-requests.json plus the brand searches (business name, short name, domain) and each service + city. Save each page in the serp capture format with its footer location (a location outside the market makes it a national baseline, not local).",
+   "engines": [
+    "google"
+   ]
+  },
+  {
+   "id": "capture-bing",
+   "module": "visibility",
+   "what": "Bing results pages for the same buyer and brand searches",
+   "script": null,
+   "args": [],
+   "inputs": [
+    "{pewp}/research/capture-requests.json"
+   ],
+   "outputs": [
+    "{pewp}/captures/serp/"
+   ],
+   "dependsOn": [
+    "research-plan",
+    "vantage"
+   ],
+   "needsBrowser": "owner",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "third-party:bing.com",
+   "pace": "one page at least 45 s apart; stop at the first robot check",
+   "timeoutMinutes": 0,
+   "evidence": [
+    "{pewp}/captures/serp/*.bing.json"
+   ],
+   "brief": "In the owner's Edge, the same buyer searches and the brand searches on bing.com; save each in the serp capture format with engine bing.",
+   "engines": [
+    "bing"
+   ]
+  },
+  {
+   "id": "capture-index",
+   "module": "visibility",
+   "what": "index coverage: site: searches on Google and Bing, and whether each service has an indexed page",
+   "script": null,
+   "args": [],
+   "inputs": [],
+   "outputs": [
+    "{pewp}/captures/index/"
+   ],
+   "dependsOn": [
+    "research-plan",
+    "vantage"
+   ],
+   "needsBrowser": "owner",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "third-party:google.com",
+   "pace": "one page at least 45 s apart",
+   "timeoutMinutes": 0,
+   "evidence": [
+    "{pewp}/captures/index/*.json"
+   ],
+   "brief": "site:{host} on Google and Bing: record the result count shown and the addresses listed; then for each service, whether a page for it is listed.",
+   "engines": [
+    "google"
+   ]
+  },
+  {
+   "id": "index-import",
+   "module": "visibility",
+   "what": "index captures become counts: the pages each engine lists for site:<host>, and which services have a listed page",
+   "script": "scripts/import-index.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/captures/index/"
+   ],
+   "outputs": [
+    "{pewp}/research/index.json"
+   ],
+   "dependsOn": [
+    "capture-index"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/research/index.json"
+   ]
+  },
+  {
+   "id": "capture-autocomplete",
+   "module": "keywords",
+   "what": "autocomplete suggestions on Google and Bing for each service + city and the brand",
+   "script": null,
+   "args": [],
+   "inputs": [
+    "{pewp}/approved/seeds.json"
+   ],
+   "outputs": [
+    "{pewp}/captures/autocomplete/"
+   ],
+   "dependsOn": [
+    "approve-seeds",
+    "vantage"
+   ],
+   "needsBrowser": "owner",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "third-party:google.com",
+   "pace": "type slowly, never press Enter, 45 s between seeds",
+   "timeoutMinutes": 0,
+   "evidence": [
+    "{pewp}/captures/autocomplete/*.json"
+   ],
+   "brief": "Type each seed slowly into the search box without pressing Enter and save the list shown, in the format at the top of scripts/research-autocomplete.mjs.",
+   "engines": [
+    "google",
+    "bing"
+   ]
+  },
+  {
+   "id": "autocomplete-import",
+   "module": "keywords",
+   "what": "autocomplete captures become sourced demand estimates and new queries",
+   "script": "scripts/research-autocomplete.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/captures/autocomplete/"
+   ],
+   "outputs": [
+    "{pewp}/research/autocomplete.json"
+   ],
+   "dependsOn": [
+    "capture-autocomplete"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/research/autocomplete.json"
+   ]
+  },
+  {
+   "id": "capture-trends",
+   "module": "demand",
+   "what": "Google Trends interest by region for each service: the state among states, the metro within the state",
+   "script": null,
+   "args": [],
+   "inputs": [
+    "{pewp}/approved/seeds.json"
+   ],
+   "outputs": [
+    "{pewp}/captures/trends/"
+   ],
+   "dependsOn": [
+    "approve-seeds"
+   ],
+   "needsBrowser": "owner",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "third-party:trends.google.com",
+   "pace": "one page at least 45 s apart",
+   "timeoutMinutes": 0,
+   "evidence": [
+    "{pewp}/captures/trends/*.json"
+   ],
+   "brief": "trends.google.com, past 12 months, one service per page: the country's region table (the client's state and its rank) and the state's metro table (the client's metro). Save the tables with the address read.",
+   "engines": [
+    "google"
+   ]
+  },
+  {
+   "id": "trends-import",
+   "module": "demand",
+   "what": "Trends region tables become ranks: the client's state among the states and its metro, per service",
+   "script": "scripts/import-trends.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/captures/trends/"
+   ],
+   "outputs": [
+    "{pewp}/research/trends.json"
+   ],
+   "dependsOn": [
+    "capture-trends"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/research/trends.json"
+   ]
+  },
+  {
+   "id": "capture-ai",
+   "module": "ai",
+   "what": "AI answers beyond Google: ChatGPT, Perplexity, Copilot (no login), Gemini web (only if signed in); the buyer questions and 'who is <business>'",
+   "script": null,
+   "args": [],
+   "inputs": [
+    "{pewp}/approved/seeds.json"
+   ],
+   "outputs": [
+    "{pewp}/captures/ai/"
+   ],
+   "dependsOn": [
+    "approve-seeds"
+   ],
+   "needsBrowser": "owner",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "third-party:ai-engines",
+   "pace": "one question at least 60 s apart per engine",
+   "timeoutMinutes": 0,
+   "evidence": [
+    "{pewp}/captures/ai/*.json"
+   ],
+   "brief": "Ask each engine the buyer questions and 'Who is <business> in <city>?'. Record whether the business is named, who is named instead, and the cited sources. A sign-in wall means that engine is BLOCKED. The Gemini API is not used (owner, 2026-11-11)."
+  },
+  {
+   "id": "ai-import",
+   "module": "ai",
+   "what": "AI answers beyond Google become counts per engine: questions, how often the business is named (checked against the text), who is named instead, which sources are cited; a blocked engine is a BLOCKED row",
+   "script": "scripts/import-ai.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/captures/ai/"
+   ],
+   "outputs": [
+    "{pewp}/research/ai-answers.json"
+   ],
+   "dependsOn": [
+    "capture-ai"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/research/ai-answers.json"
+   ]
+  },
+  {
+   "id": "research",
+   "module": "visibility",
+   "what": "imports the captures and runs clustering, competitors, winners, citations and AI citations; writes targets.json",
+   "script": "scripts/research.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/approved/seeds.json",
+    "{pewp}/captures/serp/",
+    "{pewp}/research/bing.json"
+   ],
+   "outputs": [
+    "{pewp}/targets.json",
+    "{pewp}/research/clusters.json",
+    "{pewp}/research/serp.json",
+    "{pewp}/research/ai-citations.json"
+   ],
+   "dependsOn": [
+    "capture-google",
+    "capture-bing",
+    "demand-bing",
+    "autocomplete-import"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [
+    "BING_WEBMASTER_KEY"
+   ],
+   "heavy": true,
+   "hits": "third-party:competitor-sites",
+   "pace": "competitor sites: 1 request per 4 s per host",
+   "timeoutMinutes": 240,
+   "evidence": [
+    "{pewp}/targets.json",
+    "{pewp}/research/serp.json"
+   ]
+  },
+  {
+   "id": "targets-validate",
+   "module": "keywords",
+   "what": "the target list is well formed and every target is sourced",
+   "script": "scripts/targets-validate.mjs",
+   "args": [
+    "{pewp}",
+    "--business",
+    "{pewp}/business.json"
+   ],
+   "inputs": [
+    "{pewp}/targets.json"
+   ],
+   "outputs": [],
+   "dependsOn": [
+    "research"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/targets.json"
+   ]
+  },
+  {
+   "id": "local-grid-plan",
+   "module": "local",
+   "what": "a grid of points around each service-area city and the capture requests for Maps",
+   "script": "scripts/local-grid.mjs",
+   "args": [
+    "plan",
+    "{url}",
+    "--n",
+    "3",
+    "--spacing-km",
+    "3",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/approved/business.json",
+    "{pewp}/captures/local/grid/cities.json"
+   ],
+   "outputs": [
+    "{pewp}/local-grid/requests.json"
+   ],
+   "dependsOn": [
+    "approve-business",
+    "city-centres"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/local-grid/requests.json"
+   ]
+  },
+  {
+   "id": "capture-maps",
+   "module": "local",
+   "what": "Google Maps by viewport: the client's own listing, and each service at the city centre and the grid points",
+   "script": null,
+   "args": [],
+   "inputs": [
+    "{pewp}/local-grid/requests.json"
+   ],
+   "outputs": [
+    "{pewp}/captures/local/pack/",
+    "{pewp}/captures/local/profile.json"
+   ],
+   "dependsOn": [
+    "local-grid-plan"
+   ],
+   "needsBrowser": "owner",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "third-party:google.com",
+   "pace": "one page at least 45 s apart; stop at the first robot check",
+   "timeoutMinutes": 0,
+   "evidence": [
+    "{pewp}/captures/local/pack/*.json"
+   ],
+   "brief": "Google Maps ranks by the map's viewport, not by IP (work order 40: a browser outside the market cannot localize web results). Open https://www.google.com/maps/search/<service>/@<lat>,<lng>,14z for each point in the grid requests, and record the results list in the local-pack format. Then search the business's own name: record its profile (rating, reviews, category, photos), or that none exists.",
+   "engines": [
+    "google"
+   ]
+  },
+  {
+   "id": "competitors",
+   "module": "competitors",
+   "what": "competitor sites read the way a crawler reads them: words, sitemap, schema, FAQ, llms.txt, AI crawler access",
+   "script": "scripts/research-competitors.mjs",
+   "args": [
+    "{url}",
+    "--from-serp",
+    "--max",
+    "12",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/research/serp.json"
+   ],
+   "outputs": [
+    "{pewp}/research/competitors.json"
+   ],
+   "dependsOn": [
+    "research",
+    "capture-maps"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "third-party:competitor-sites",
+   "pace": "1 request per 4 s per host, robots.txt obeyed, the first 403/429 stops the host",
+   "timeoutMinutes": 60,
+   "evidence": [
+    "{pewp}/research/competitors.json"
+   ]
+  },
+  {
+   "id": "approve-competitors",
+   "module": "competitors",
+   "what": "the owner approves the competitor list (national, local lenders and brokers, aggregators) before authority compares against it",
+   "script": null,
+   "args": [],
+   "inputs": [
+    "{pewp}/research/competitors.json"
+   ],
+   "outputs": [
+    "{pewp}/approved/competitors.json"
+   ],
+   "dependsOn": [
+    "competitors"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": true,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 0,
+   "evidence": [
+    "{pewp}/approved/competitors.json"
+   ],
+   "brief": "Show the owner the competitor list, local ones first, as pickable options. Record it with `node scripts/approve.mjs {url} competitors --by \"<owner>\" --cwd {skill}`."
+  },
+  {
+   "id": "authority",
+   "module": "authority",
+   "what": "linking domains for the client and its competitors from the free Common Crawl web graph",
+   "script": "scripts/authority.mjs",
+   "args": [
+    "{pewp}/authority.json",
+    "--target",
+    "{host}",
+    "--approved-competitors",
+    "{pewp}/approved/competitors.json",
+    "--require-approved"
+   ],
+   "inputs": [
+    "{pewp}/approved/competitors.json"
+   ],
+   "outputs": [
+    "{pewp}/authority.json",
+    "{pewp}/authority.md"
+   ],
+   "dependsOn": [
+    "approve-competitors"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": true,
+   "hits": "third-party:commoncrawl",
+   "pace": "downloads a release once and caches it; check 15 GB free first",
+   "timeoutMinutes": 180,
+   "evidence": [
+    "{pewp}/authority.json"
+   ],
+   "engines": [
+    "commoncrawl"
+   ]
+  },
+  {
+   "id": "authority-anchors",
+   "module": "authority",
+   "what": "anchor text and follow/nofollow of the links from the referring domains to the client and its competitors, read from Common Crawl's own copies of the pages (no referring site is requested)",
+   "script": "scripts/authority-anchors.mjs",
+   "args": [
+    "{pewp}",
+    "--max-requests",
+    "600",
+    "--gap-ms",
+    "3000"
+   ],
+   "inputs": [
+    "{pewp}/authority.json"
+   ],
+   "outputs": [
+    "{pewp}/authority/anchors.json",
+    "{pewp}/authority/anchors.md"
+   ],
+   "dependsOn": [
+    "authority"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": true,
+   "hits": "third-party:commoncrawl",
+   "pace": "one request per 3 s to the Common Crawl data host, hard cap 600 requests (the cluster.idx download counts as one), about 30 to 40 minutes; responses are cached so a re-run costs nothing",
+   "timeoutMinutes": 60,
+   "exit": {
+    "3": "BLOCKED: no authority.json, free disk under 15 GB, or the 24 h Common Crawl stop file is in force (it prints until when)",
+    "4": "stopped: Common Crawl answered 403, 429 or 503 or dropped the connection; the run stops, a 24 h stop file is written, what was read is kept"
+   },
+   "evidence": [
+    "{pewp}/authority/anchors.md"
+   ],
+   "engines": [
+    "commoncrawl"
+   ]
+  },
+  {
+   "id": "authority-classify",
+   "module": "authority",
+   "what": "the link gap ranked into places to earn links, mentions and citations",
+   "script": "scripts/authority-classify.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}",
+    "--gap-ms",
+    "4000"
+   ],
+   "inputs": [
+    "{pewp}/authority.json"
+   ],
+   "outputs": [
+    "{pewp}/authority/opportunities.json"
+   ],
+   "dependsOn": [
+    "authority"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 15,
+   "exit": {
+    "4": "partial: what was read is kept; run again to continue"
+   },
+   "evidence": [
+    "{pewp}/authority/opportunities.json"
+   ]
+  },
+  {
+   "id": "authority-vet",
+   "module": "authority",
+   "what": "a polite read-only visit to each link opportunity: indexable, follow or nofollow, free or paid",
+   "script": "scripts/authority-vet.mjs",
+   "args": [
+    "{url}",
+    "--limit",
+    "25",
+    "--gap-ms",
+    "4000",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/authority/opportunities.json"
+   ],
+   "outputs": [
+    "{pewp}/authority/vetting.json"
+   ],
+   "dependsOn": [
+    "authority-classify"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "third-party:link-opportunity-sites",
+   "pace": "1 request per 4 s per host",
+   "timeoutMinutes": 30,
+   "exit": {
+    "4": "partial: what was read is kept; run again to continue"
+   },
+   "evidence": [
+    "{pewp}/authority/vetting.json"
+   ]
+  },
+  {
+   "id": "local-grid-import",
+   "module": "local",
+   "what": "Maps captures become a per-point position table and a share of local voice",
+   "script": "scripts/local-grid.mjs",
+   "args": [
+    "import",
+    "{url}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/captures/local/pack/"
+   ],
+   "outputs": [
+    "{pewp}/local-grid/"
+   ],
+   "dependsOn": [
+    "capture-maps"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/local-grid/*.json"
+   ]
+  },
+  {
+   "id": "capture-directories",
+   "module": "reputation",
+   "what": "the business's listings on directories (Yelp, BBB, Bing Places, Apple Maps, Manta, Yellow Pages and the market's own) for name, address and phone",
+   "script": null,
+   "args": [],
+   "inputs": [
+    "{pewp}/approved/business.json"
+   ],
+   "outputs": [
+    "{pewp}/captures/local/citations.json"
+   ],
+   "dependsOn": [
+    "approve-business"
+   ],
+   "needsBrowser": "owner",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "third-party:directories",
+   "pace": "one page at least 45 s apart per site",
+   "timeoutMinutes": 0,
+   "evidence": [
+    "{pewp}/captures/local/citations.json"
+   ],
+   "brief": "Search each directory for the business by name and city, read only. Record the name, address and phone it shows, or that it is not listed, in the citations.json format at the top of scripts/local-nap.mjs."
+  },
+  {
+   "id": "local",
+   "module": "local",
+   "what": "the local suite: Business Profile, map-pack positions, NAP consistency, review gap",
+   "script": "scripts/local-run.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/business.json",
+    "{pewp}/captures/local/"
+   ],
+   "outputs": [
+    "{pewp}/local/"
+   ],
+   "dependsOn": [
+    "capture-maps",
+    "capture-directories",
+    "snapshot"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 10,
+   "evidence": [
+    "{pewp}/local/*/summary.json"
+   ]
+  },
+  {
+   "id": "capture-reputation",
+   "module": "reputation",
+   "what": "reviews and complaints: Google reviews, BBB (rating, accreditation, complaints), Trustpilot, Yelp; for the client and the top local competitors",
+   "script": null,
+   "args": [],
+   "inputs": [
+    "{pewp}/research/competitors.json"
+   ],
+   "outputs": [
+    "{pewp}/captures/reputation/"
+   ],
+   "dependsOn": [
+    "competitors"
+   ],
+   "needsBrowser": "owner",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "third-party:review-sites",
+   "pace": "one page at least 45 s apart per site",
+   "timeoutMinutes": 0,
+   "evidence": [
+    "{pewp}/captures/reputation/*.json"
+   ],
+   "brief": "Read only, no login. Per site and business: the rating, review count, newest review date, complaint count and accreditation, or 'not listed'. Never copy a reviewer's name."
+  },
+  {
+   "id": "reputation-import",
+   "module": "reputation",
+   "what": "review captures become ratings, review counts, newest review and complaints per business and site (no reviewer names ever stored)",
+   "script": "scripts/import-reputation.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/captures/reputation/"
+   ],
+   "outputs": [
+    "{pewp}/research/reputation.json"
+   ],
+   "dependsOn": [
+    "capture-reputation"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/research/reputation.json"
+   ]
+  },
+  {
+   "id": "capture-social",
+   "module": "social",
+   "what": "public social profiles: YouTube, TikTok, Instagram, LinkedIn (company and people), Facebook; counts, newest post, the link to the site",
+   "script": null,
+   "args": [],
+   "inputs": [
+    "{pewp}/business.json"
+   ],
+   "outputs": [
+    "{pewp}/captures/social/"
+   ],
+   "dependsOn": [
+    "intake"
+   ],
+   "needsBrowser": "owner",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "third-party:social-sites",
+   "pace": "one page at least 45 s apart per site",
+   "timeoutMinutes": 0,
+   "evidence": [
+    "{pewp}/captures/social/*.json"
+   ],
+   "brief": "Public pages only, nothing clicked beyond reading. Per profile: followers, posts or videos (with Shorts counted: work order 40), views, the newest post date, and where its link goes (open the link and record the status the visitor sees). A login wall means BLOCKED."
+  },
+  {
+   "id": "social-import",
+   "module": "social",
+   "what": "social captures become followers, posts, newest post, active or not, and whether the profile's link works",
+   "script": "scripts/import-social.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/captures/social/"
+   ],
+   "outputs": [
+    "{pewp}/research/social.json"
+   ],
+   "dependsOn": [
+    "capture-social"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/research/social.json"
+   ]
+  },
+  {
+   "id": "capture-ads",
+   "module": "ads",
+   "what": "ads the client and its top competitors run: Google Ads Transparency Center and the Meta Ad Library",
+   "script": null,
+   "args": [],
+   "inputs": [
+    "{pewp}/research/competitors.json"
+   ],
+   "outputs": [
+    "{pewp}/captures/ads/"
+   ],
+   "dependsOn": [
+    "competitors"
+   ],
+   "needsBrowser": "owner",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "third-party:ad-libraries",
+   "pace": "one page at least 45 s apart",
+   "timeoutMinutes": 0,
+   "evidence": [
+    "{pewp}/captures/ads/*.json"
+   ],
+   "brief": "adstransparency.google.com and facebook.com/ads/library, US: per advertiser, whether ads are running, how many, since when, and the formats. Read only."
+  },
+  {
+   "id": "ads-import",
+   "module": "ads",
+   "what": "ad library captures become running or not, ad count and since when, per advertiser and library",
+   "script": "scripts/import-ads.mjs",
+   "args": [
+    "{url}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/captures/ads/"
+   ],
+   "outputs": [
+    "{pewp}/research/ads.json"
+   ],
+   "dependsOn": [
+    "capture-ads"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/research/ads.json"
+   ]
+  },
+  {
+   "id": "forums",
+   "module": "reputation",
+   "what": "Reddit mentions of the business and of its services in its city",
+   "script": "scripts/research-forums.mjs",
+   "args": [
+    "{url}",
+    "--queries-file",
+    "{pewp}/approved/seeds.json",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/approved/seeds.json"
+   ],
+   "outputs": [
+    "{pewp}/research/forums.json"
+   ],
+   "dependsOn": [
+    "approve-seeds"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [
+    "REDDIT_TOKEN"
+   ],
+   "heavy": false,
+   "hits": "third-party:reddit.com",
+   "pace": "1 request per 7 s; the first 429/403 stops it (without a token Reddit answers 403: work order 40)",
+   "timeoutMinutes": 10,
+   "evidence": [
+    "{pewp}/research/forums.json"
+   ]
+  },
+  {
+   "id": "report-live",
+   "module": "report",
+   "what": "the six-question report in plain words, every number sourced",
+   "script": "scripts/report-live.mjs",
+   "args": [
+    "{url}",
+    "--authority",
+    "{pewp}/authority.json",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{runDir}/snapshots/*/_site.json",
+    "{pewp}/authority.json",
+    "{pewp}/business.json",
+    "{pewp}/psi/",
+    "{pewp}/crux/",
+    "{pewp}/research/index.json",
+    "{pewp}/research/trends.json",
+    "{pewp}/research/ai-answers.json",
+    "{pewp}/research/reputation.json",
+    "{pewp}/research/social.json",
+    "{pewp}/research/ads.json"
+   ],
+   "outputs": [
+    "{pewp}/report.md",
+    "{pewp}/report.json"
+   ],
+   "dependsOn": [
+    "snapshot",
+    "checker",
+    "authority",
+    "research",
+    "psi",
+    "crux",
+    "index-import",
+    "trends-import",
+    "ai-import",
+    "reputation-import",
+    "social-import",
+    "ads-import"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/report.json"
+   ]
+  },
+  {
+   "id": "verify",
+   "module": "report",
+   "what": "a fresh agent that did not write the report re-checks every number against its source",
+   "script": null,
+   "args": [],
+   "inputs": [
+    "{pewp}/report.json"
+   ],
+   "outputs": [
+    "{work}/verifier-table.md"
+   ],
+   "dependsOn": [
+    "report-live",
+    "local",
+    "authority-vet",
+    "capture-reputation",
+    "capture-social",
+    "capture-ads",
+    "capture-ai",
+    "capture-index",
+    "capture-trends"
+   ],
+   "needsBrowser": "none",
+   "needsAi": true,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "client",
+   "pace": "re-measures politely: 1 request per 4 s",
+   "timeoutMinutes": 120,
+   "evidence": [
+    "{work}/verifier-table.md"
+   ],
+   "brief": "A fresh agent with no part in the report: re-measure what can be re-measured (PageSpeed median of 3, served and rendered counts two ways, page statuses), re-read every capture cited, and write one row per claim with the verdict MATCH, MISMATCH, OVERSTATED, NO SOURCE or UNPROVEN."
+  }
+ ]
+}

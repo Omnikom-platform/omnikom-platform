@@ -53,9 +53,20 @@ export function checkSiteNap(pages, canon) {
   return { pages: pages.length, pagesWithNap: withNap, distinct: { names: seen.names.size, phones: seen.phones.size, addresses: seen.addresses.size }, issues };
 }
 
+// A row is CHECKED only when something was read to compare: name, address or phone. A row that says BLOCKED or UNPROVEN (status, any letter case), one that holds none
+// of the three, and a directory where the business is not listed (listed: false) are NOT CHECKED: neither consistent nor inconsistent. They come back in notChecked with
+// their status and reason, and the consistency share is over the checked rows only, with the denominator printed (work order 40 C: walled directories were counted consistent).
 export function checkCitations(list, canon) {
-  const mismatches = [], ok = [];
+  const mismatches = [], ok = [], notChecked = [];
   for (const c of list) {
+    const st = String(c.status || "").toUpperCase();
+    // WO 40 C's real rows: status "BLOCKED" | "UNPROVEN" | "listed" | "not listed"; the reason sits in reason, blocked or note (first present), how to unblock in unblock
+    if (st === "BLOCKED" || st === "UNPROVEN" || st === "NOT LISTED" || c.listed === false || (c.name == null && c.address == null && c.phone == null)) {
+      const status = st === "BLOCKED" || st === "UNPROVEN" ? st : st === "NOT LISTED" || c.listed === false ? "NOT LISTED" : "NOTHING READ";
+      const reason = c.reason || c.blocked || c.note || (status === "BLOCKED" || status === "UNPROVEN" ? `${status}: no reason recorded` : status === "NOT LISTED" ? "not listed" : "the capture holds no name, address or phone");
+      notChecked.push({ directory: c.directory, url: c.url || null, status, reason, ...(c.unblock ? { unblock: c.unblock } : {}), capturedAt: c.capturedAt || null });
+      continue;
+    }
     const diffs = [];
     if (c.name != null && normName(c.name) !== canon.norm.name) diffs.push({ field: "name", found: c.name, expected: canon.nap.name });
     if (c.address != null && normAddress(c.address) !== canon.norm.address) diffs.push({ field: "address", found: c.address, expected: canon.nap.address });
@@ -64,7 +75,9 @@ export function checkCitations(list, canon) {
     if (diffs.length) mismatches.push({ directory: c.directory, url: c.url || null, fields: diffs.map((d) => d.field), diffs, detail: `${c.directory}: ${diffs.map((d) => `${d.field} is "${d.found}", expected "${d.expected}"`).join("; ")}`, capturedAt: c.capturedAt || null });
     else ok.push(c.directory);
   }
-  return { mismatches, consistent: ok };
+  const checked = ok.length + mismatches.length;
+  return { mismatches, consistent: ok, notChecked, checked, consistentShare: checked ? ok.length / checked : null,
+    consistency: `${ok.length} of ${checked} checked${checked ? "" : ": nothing was checked"}${notChecked.length ? `; ${notChecked.length} not checked (${notChecked.map((x) => `${x.directory} ${x.status}`).join(", ")})` : ""}` };
 }
 export function missingDirectories(listed, { country = "US", industry = null, sources = DEFAULT_CITATION_SOURCES } = {}) {
   const want = [...(sources[country] || []), ...(industry ? sources[`${country}:${industry}`] || [] : [])];
@@ -79,8 +92,10 @@ export function runNap({ business, siteDir = null, citations = null, sources = n
   if (siteDir && fs.existsSync(siteDir)) { out.site = checkSiteNap(sitePages(siteDir), canon); out.parts.site = { status: "ok", source: `site folder ${siteDir}`, pages: out.site.pages }; }
   else out.parts.site = { status: "blocked", blocked: { source: "site", reason: "no site folder or snapshot given", unblock: "Pass --site <snapshot dir or built folder>." } };
   if (citations && citations.length) {
-    const cc = checkCitations(citations, canon); out.mismatches = cc.mismatches; out.consistentDirectories = cc.consistent;
-    out.parts.citations = { status: "ok", source: "owner-read directory listings (dated captures)", listings: citations.length, latest: citations.map((c) => c.capturedAt).filter(Boolean).sort().at(-1) || null };
+    const cc = checkCitations(citations, canon); out.mismatches = cc.mismatches; out.consistentDirectories = cc.consistent; out.notCheckedDirectories = cc.notChecked;
+    out.consistency = { consistent: cc.consistent.length, inconsistent: cc.mismatches.length, checked: cc.checked, notChecked: cc.notChecked.length, share: cc.consistentShare, text: cc.consistency };
+    out.parts.citations = { status: cc.checked ? "ok" : "blocked", source: "owner-read directory listings (dated captures)", listings: citations.length, checked: cc.checked, notChecked: cc.notChecked.length, latest: citations.map((c) => c.capturedAt).filter(Boolean).sort().at(-1) || null,
+      ...(cc.checked ? {} : { blocked: { source: "citations", reason: `every listing was BLOCKED, UNPROVEN, not listed or empty: nothing was checked (${cc.notChecked.map((x) => `${x.directory} ${x.status}`).join(", ")})`, unblock: "Read the listings again by hand where a directory was walled (owner, human pace), or record why it cannot be read." } }) };
     const srcDoc = sources || DEFAULT_CITATION_SOURCES;
     out.missingDirectories = missingDirectories(citations.map((c) => c.directory), { country: (business.market?.country || "US").toUpperCase(), industry: /real.?estate/i.test(business.kind || business.industry || "") ? "real-estate" : null, sources: srcDoc });
     out.citationSourcesNote = srcDoc._note || "ruleset citation-sources.json";
@@ -93,5 +108,5 @@ if (isMain(import.meta.url)) {
   if (!opt("--business")) { console.error("usage: node local-nap.mjs --business business.json [--site <dir>] [--citations citations.json] [--sources file.json] [--out nap.json]"); process.exit(2); }
   const r = runNap({ business: readJson(opt("--business")), siteDir: opt("--site"), citations: opt("--citations") ? readJson(opt("--citations")) : null, sources: opt("--sources") ? readJson(opt("--sources")) : null });
   if (opt("--out")) writeJson(opt("--out"), r);
-  console.log(r.status === "blocked" ? `BLOCKED: ${r.blocked.reason}. To fix: ${r.blocked.unblock}` : JSON.stringify({ siteIssues: r.site?.issues.length ?? "not checked", mismatches: r.mismatches.length, missingDirectories: r.missingDirectories }, null, 1));
+  console.log(r.status === "blocked" ? `BLOCKED: ${r.blocked.reason}. To fix: ${r.blocked.unblock}` : JSON.stringify({ siteIssues: r.site?.issues.length ?? "not checked", mismatches: r.mismatches.length, consistency: r.consistency?.text, notChecked: (r.notCheckedDirectories || []).map((x) => `${x.directory} ${x.status}: ${x.reason}`), missingDirectories: r.missingDirectories }, null, 1));
 }

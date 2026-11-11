@@ -35,9 +35,9 @@ const loc = locate(url, { cwd: opt("--cwd", process.cwd()) });
 // (a BOM, as an editor on Windows may leave in a hand-edited business.json, is not a reason to ignore the file)
 const J = (p) => { try { return JSON.parse(fs.readFileSync(p, "utf8").replace(/^\uFEFF/, "")); } catch { return null; } };
 const snapDir = opt("--snapshot") || latestComplete(loc.snapshots)?.dir;
-if (!snapDir || !fs.existsSync(path.join(snapDir, "_site.json"))) { console.error(`no complete snapshot for ${loc.host}: run live-target.mjs first`); process.exit(1); }
+if (!snapDir || !fs.existsSync(path.join(snapDir, "_site.json"))) { console.log(`BLOCKED: no complete snapshot for ${loc.host} | unblocks: run live-target.mjs first (the snapshot step of pipeline.json)`); process.exit(3); }
 const site = J(path.join(snapDir, "_site.json"));
-if (!site) { console.error(`${path.join(snapDir, "_site.json")} is not readable JSON: take the snapshot again (live-target.mjs --fresh)`); process.exit(1); }
+if (!site) { console.log(`BLOCKED: ${path.join(snapDir, "_site.json")} is not readable JSON | unblocks: take the snapshot again (live-target.mjs --fresh)`); process.exit(3); }
 const business = J(path.join(loc.pewp, "business.json")) || {};
 const launchState = opt("--launch-state") || business.launchState || "live";
 const rel = (p) => path.relative(loc.root, p).split(path.sep).join("/");
@@ -519,6 +519,67 @@ const show = (m, v) => (m.notFound ? NOT_IN_GRAPH : m.pct ? pctTxt(v) : String(v
 // ---------- write ----------
 const q6 = { n: 6, q: "What to fix, in order", status: fixes.length || plan.length ? "answered" : "partial", fixes, plan };
 const notMeasured = Object.entries(measureRep?.sources || {}).filter(([, v]) => v.status === "BLOCKED").map(([name, v]) => ({ part: name, reason: v.reason, unblock: v.unblock }));
+// ---- section 7: the Chrome UX Report and the six importers' files (work order 41, gap list item 5). A source with data gets a block (figures, the file, the capture date, how many captures are stale);
+// a source without gets one BLOCKED line saying what unblocks it. Never a zero: a source that was not read is not shown as 0. These sit beside the five questions, they do not change them.
+const dayTxt = (iso) => String(iso || "").slice(0, 10) || "date unknown";
+const nTxt = (v) => (v == null ? "not shown" : typeof v === "number" ? v.toLocaleString("en-US") : String(v));
+const cruxLine = (r) => {
+  const m = r.metrics, who = `${r.scope === "origin" ? "the whole site" : "this page"} (${r.target}), ${String(r.formFactor || "").toLowerCase()}`;
+  if (r.status !== "data" || !m) return `- ${who}: no data (Google's Chrome UX Report has none: too little traffic; a result, not a failure)`;
+  const bits = [m.lcp?.p75 != null && `LCP ${sec(m.lcp.p75)}`, m.inp?.p75 != null && `INP ${Math.round(m.inp.p75)} ms`, m.cls?.p75 != null && `CLS ${m.cls.p75}`].filter(Boolean);
+  return `- ${who}: ${bits.join(", ") || "no figures"} for real visitors, 75th percentile${r.collectionPeriod ? ` (collected ${r.collectionPeriod.first} to ${r.collectionPeriod.last})` : ""}`;
+};
+const EXTRA_IMPORTERS = [
+  { id: "index", title: "Pages in the search index", file: "index.json", script: "import-index.mjs", dir: "index", what: "how many pages each engine lists for the site", lines: (d) => {
+    const y = d.summary || {}, g = y.google || {}, b = y.bing || {};
+    return [`- Google lists ${nTxt(g.indexedCount)} pages for the site (the engine's own count); Bing lists ${nTxt(b.indexedCount)}`,
+      `- ${y.servicesListed ?? 0} of ${y.servicesChecked ?? 0} services have a listed page${(y.servicesMissing || []).length ? ` (none for: ${y.servicesMissing.join(", ")})` : ""}`];
+  } },
+  { id: "trends", title: "Search interest", file: "trends.json", script: "import-trends.mjs", dir: "trends", what: "how much interest there is in each service (Google Trends)", lines: (d) => {
+    const y = d.summary || {};
+    return [`- ${y.services ?? 0} services compared (${y.scale || "scale not stated"}); strongest: ${y.bestRank?.service ?? "n/a"} (rank ${y.bestRank?.stateRank ?? "n/a"}), weakest: ${y.worstRank?.service ?? "n/a"} (rank ${y.worstRank?.stateRank ?? "n/a"}); rank 1 = most interest`];
+  } },
+  { id: "ai", title: "AI answers", file: "ai-answers.json", script: "import-ai.mjs", dir: "ai", what: "what AI engines answer to the buyer and brand questions", lines: (d) => {
+    const y = d.summary || {}, L = [`- ${y.namedAnswers ?? 0} of ${y.questions ?? 0} answers name the business (${pctTxt(y.shareNamed ?? 0)})`];
+    for (const e of y.engines || []) L.push(`- ${e.engine}: named in ${e.named} of ${e.questions} answers (${pctTxt(e.shareNamed ?? 0)})`);
+    if ((y.blockedEngines || []).length) L.push(`- Not read: ${y.blockedEngines.map((e) => `${e.engine} (${e.reason})`).join(", ")}`);
+    if ((y.competitors || []).length) L.push(`- Named most often instead: ${y.competitors.slice(0, 5).map((c) => `${c.name} (${c.count})`).join(", ")}`);
+    L.push(`- The business's own domain is ${y.ownDomainCited ? "" : "not "}among the sources the answers cite`);
+    return L;
+  } },
+  { id: "reputation", title: "Reviews", file: "reputation.json", script: "import-reputation.mjs", dir: "reputation", what: "reviews and ratings on the review sites", lines: (d) => (d.summary?.subjects || []).map((x) => `- ${x.subject}: listed on ${x.sitesListed} of ${x.sitesChecked} review sites, ${x.totalReviews} reviews, rating ${x.weightedRating ?? "n/a"} (weighted), ${x.complaints ?? 0} complaint${s(x.complaints ?? 0)}${x.newestReviewDate ? `, newest ${x.newestReviewDate}` : ""}`) },
+  { id: "social", title: "Social profiles", file: "social.json", script: "import-social.mjs", dir: "social", what: "the business's social profiles", lines: (d) => {
+    const y = d.summary || {};
+    return [`- ${y.profilesRead ?? 0} profile${s(y.profilesRead ?? 0)} read${y.blocked ? `, ${y.blocked} not readable` : ""}; ${nTxt(y.totalFollowers)} followers in total; active on: ${(y.platformsActive || []).join(", ") || "none"}`,
+      `- Links from the site that do not work: ${(y.linksBroken || []).join(", ") || "none"}`];
+  } },
+  { id: "ads", title: "Ads", file: "ads.json", script: "import-ads.mjs", dir: "ads", what: "which advertisers are running ads (the ad libraries)", lines: (d) => {
+    const y = d.summary || {};
+    return [`- ${y.advertisersRunning ?? 0} of ${y.advertisersChecked ?? 0} advertisers are running ads; the business itself is ${y.clientRunning ? "" : "not "}running ads; competitors running: ${y.competitorsRunning ?? 0}`];
+  } },
+];
+function computeExtras() {
+  const out = [], blockedOf = (id, title, why, unblock) => ({ id, title, status: "BLOCKED", why, unblock });
+  // crux: the newest dated file in <pewp>/crux/
+  const cdir = path.join(loc.pewp, "crux");
+  const cfile = fs.existsSync(cdir) ? fs.readdirSync(cdir).filter((n) => /^\d{4}-\d{2}-\d{2}\.json$/.test(n)).sort().at(-1) : null;
+  const cdoc = cfile ? J(path.join(cdir, cfile)) : null;
+  if (!cdoc || !Array.isArray(cdoc.rows) || !cdoc.rows.length) out.push(blockedOf("crux", "Real-visitor speed (Chrome UX Report)", "no Chrome UX Report file for this site (crux.mjs has not run, or every request failed)", `set CRUX_API_KEY (a free Google Cloud key with the Chrome UX Report API enabled), then run node scripts/crux.mjs ${loc.target}`));
+  else {
+    const data = cdoc.rows.some((r) => r.status === "data");
+    out.push({ id: "crux", title: "Real-visitor speed (Chrome UX Report)", status: data ? "answered" : "no data", source: rel(path.join(cdir, cfile)), capturedAt: cdoc.generatedAt || null, lines: [...cdoc.rows.map(cruxLine), ...((cdoc.failures || []).length ? [`- ${cdoc.failures.length} request${s(cdoc.failures.length)} failed and ${cdoc.failures.length === 1 ? "is" : "are"} not counted`] : [])] });
+  }
+  for (const imp of EXTRA_IMPORTERS) {
+    const file = path.join(rdir, imp.file), doc = fs.existsSync(file) ? J(file) : null;
+    if (!doc || !Array.isArray(doc.rows) || !doc.rows.length) { out.push(blockedOf(imp.id, imp.title, doc ? `${imp.file} holds no usable capture (${(doc.rejected || []).length} rejected)` : `no ${imp.file}: ${imp.what} was not captured`, `capture it in the owner's browser into ${rel(path.join(loc.pewp, "captures", imp.dir))}/ (stages/research.md), then run node scripts/${imp.script} ${loc.target}`)); continue; }
+    const at = doc.rows.map((r) => r.capturedAt).filter(Boolean).sort().at(-1) || null, stale = doc.staleCount ?? doc.rows.filter((r) => r.stale).length;
+    out.push({ id: imp.id, title: imp.title, status: "answered", source: rel(file), capturedAt: at, stale, lines: imp.lines(doc), summary: doc.summary ?? null });
+  }
+  return out;
+}
+const extras = computeExtras();
+const extraLines = extras.flatMap((x) => [`### ${x.title}`, "",
+  ...(x.status === "BLOCKED" ? [`**BLOCKED.** ${x.why} | unblocks: ${x.unblock}`] : [...x.lines, "", `Source: ${x.source}, captured ${dayTxt(x.capturedAt)}${x.stale ? `; ${x.stale} capture${s(x.stale)} stale (older than the freshness limit: capture again)` : ""}.`]), ""]);
 const report = { url: loc.target, host: loc.host, writtenAt: new Date().toISOString(), snapshot: rel(snapDir), launchState, shortAnswer: oneLine,
   doctor: doctor ? { checkedAt: doctor.checkedAt || null, stale: doctorStale, staleBecause: doctorCheck.why, hasInputHashes: doctorCheck.hashed } : null,
   inputs: { targets: targets ? rel(targetsFile) : null, research: fs.existsSync(rdir) ? rel(rdir) : null, measure: measureDir ? rel(measureDir) : null, gate: gateR ? rel(gateFile) : null, authority: auth ? rel(path.resolve(authFile)) : null },
@@ -529,7 +590,7 @@ const report = { url: loc.target, host: loc.host, writtenAt: new Date().toISOStr
     { n: 4, q: "Does the site have the authority to rank?", ...q4 },
     { n: 5, q: "Is it cited by AI engines? If not, who is, and why?", ...q5 },
     q6,
-  ], notMeasured };
+  ], extras: Object.fromEntries(extras.map(({ id, lines, ...rest }) => [id, rest])), notMeasured };
 let sinceLine = null;
 if (prevReport?.writtenAt && prevReport.questions) {
   const pm = metricsOf(prevReport), cm = metricsOf(report);
@@ -601,6 +662,11 @@ const md = [
   blockedQs.length ? `Then, to answer question${s(blockedQs.length)} ${blockedQs.join(", ")}: connect the sources listed there (all free).` : "Every question above has data behind it.",
   ...(notMeasured.length ? ["", "Not measured yet (the sources are not connected):", ...notMeasured.map((n) => `- ${n.part}: ${n.reason}. To unblock: ${n.unblock}`)] : []),
   "",
+  "## 7. What else was measured",
+  "",
+  "Sources beside the five questions: real visitors' speed and what the owner's browser captured. A source with no data is listed with what would unblock it; none is shown as zero.",
+  "",
+  ...extraLines,
   "## Words used",
   "",
   ...Object.entries(GLOSSARY).filter(([t]) => used.has(t)).map(([t, d]) => `- **${t}**: ${d}`),

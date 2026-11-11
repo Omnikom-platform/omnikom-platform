@@ -48,6 +48,7 @@ owner, and a stamp copied from a project document is the same breach as a bare a
 (`owner | site | default | unstated`; what intake read from the site is `site`, what it defaulted is `default`). `approve.mjs business` refuses unless
 `kind, offer, audience, goals, competitors, brand.constraints, vocabulary` are all `owner`; the refusal names the fields and says to write the answers as
 `{"value": ..., "answeredBy": "owner"}` and run intake again.
+**Delegated answers.** When the owner told a delegate (a head of operations, an agent) to answer for them, write `answeredBy` as an OBJECT: `{"value": ..., "answeredBy": {"by": "head of operations", "delegatedBy": "owner", "at": "2026-11-11T08:00:00Z"}}`. intake records provenance `delegated` and keeps who and when in `business.delegations`; `approve.mjs business` accepts `owner` or `delegated` for the owner-only fields, prints which fields were delegated, and keeps the record in the approved copy and in `approved/lock.json`. The bare word "delegated", an object without `by`, `at` or `delegatedBy: "owner"`, `site` and `default` are still not the owner. Proof: `test-approve.mjs` (A1, B5).
 
 ## Vocabulary and what it is not
 `vocabulary` is the list of words the business and its readers use for what it does (`["historic homes", "design-led"]`), asked as a multi-select whose

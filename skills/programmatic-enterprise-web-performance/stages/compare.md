@@ -124,3 +124,7 @@ whose title and heading do not carry their search or the place, cannibalisation 
 and the SERP captures against the home page and each matched page (depth, schema, FAQ, AI crawler access, missing entities and questions; the
 winners' speed is not measured); Q5 from `research/ai-citations.json` and `measure/<date>/citations.json` (run-weighted share, who is cited
 instead, why). A previous `report.json` is kept as `report.prev.json` and the new report opens with what changed since it.
+Section 7 ("What else was measured", `report.json` `extras`) sits beside the questions: real-visitor speed (`crux/<date>.json`, newest) and the six importers' files in `research/`
+(`index.json`, `trends.json`, `ai-answers.json`, `reputation.json`, `social.json`, `ads.json`). A source with data gets a block with its figures, the file and the capture date
+(stale captures counted); a source without gets one BLOCKED line with `| unblocks:` and the script that fills it; a count that was not shown says "not shown", never 0; a CrUX
+file with only "no data" rows is a result (too little traffic), not BLOCKED.

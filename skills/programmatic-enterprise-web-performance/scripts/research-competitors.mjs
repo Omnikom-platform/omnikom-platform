@@ -4,7 +4,7 @@
 // domains, strength, link gap) from the free Common Crawl graph through authority.mjs.
 // Usage: node research-competitors.mjs <target> [--domain d]... [--from-serp] [--max 12] [--pages 4] [--authority] [--authority-cache DIR]
 //        [--authority-release ID] [--max-age-days 30] [--cwd DIR]
-// Polite, always: robots.txt first and obeyed for every page, one request per second per site, one attempt per URL, an honest user
+// Polite, always: robots.txt first and obeyed for every page, one request per 4 s per site, one attempt per URL, an honest user
 // agent, and a site is STOPPED for the rest of the run at its first 403/429/503 or bot-protection page (never retried, never bypassed).
 // Every response is cached under <pewp>/cache/competitors/ (same layout as cache.mjs, plus headers); a cached refusal is honoured for
 // 24 h so an immediate re-run does not knock again. Domains with a fresh audit in research/existing.json are not fetched again.
@@ -18,11 +18,15 @@ import zlib from "node:zlib";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { detectLicences, licenceDetectFor, LICENCE_DEFAULT } from "./lib-industry.mjs";
 import { Blocked, J, W, listFile, iso, ageDays, context, needBusiness, runCli, readStep, writeStep, writeBlocked, factor, fact, domainOf, pace } from "./research-lib.mjs";
 import { cachedRelease, defaultCache } from "./authority.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-export const CRAWL_UA = "PEWP-SiteResearch/1.0 (competitor research audit; 1 request per second per site; contact the site owner who runs it)";
+// One request every 4 s per site, the same pace as the live crawler (Omnikom politeness rule; 2026-11-11 a 1 s pace sent NerdWallet 19
+// requests in 19 s). Every fetch of a third-party site goes through pace(url, SITE_GAP_MS).
+export const SITE_GAP_MS = 4000;
+export const CRAWL_UA = "PEWP-SiteResearch/1.0 (competitor research audit; 1 request per 4 s per site; contact the site owner who runs it)";
 export const BOTS = {
   Googlebot: "Google Search + AI Overviews", Bingbot: "Bing + Copilot + ChatGPT search (Bing index)", "OAI-SearchBot": "ChatGPT search", "ChatGPT-User": "ChatGPT browsing for a user", GPTBot: "OpenAI training",
   "Claude-SearchBot": "Claude search", "Claude-User": "Claude browsing for a user", ClaudeBot: "Anthropic training", PerplexityBot: "Perplexity search", "Perplexity-User": "Perplexity browsing for a user",
@@ -43,7 +47,7 @@ async function get(pewp, url, kind = "html", deadline = Infinity) {
     const age = ageDays(c.fetchedAt);
     if (c.refusal ? age < 1 : age < 7) { if (c.refusal) halted.set(host, c.status); return { ...c, body: c.text, url: c.finalUrl || c.url, cacheFile, fromCache: true }; }
   }
-  await pace(url, 1000);
+  await pace(url, SITE_GAP_MS);
   try {
     const res = await fetch(url, { headers: { "user-agent": CRAWL_UA, accept: kind === "html" ? "text/html,*/*;q=0.8" : "*/*" }, redirect: "follow", signal: AbortSignal.timeout(20000) });
     const headers = Object.fromEntries(res.headers);
@@ -77,8 +81,10 @@ export function meta(html, key) { const k = key.toLowerCase(); const t = tags(ht
 const inner = (html, name) => [...html.matchAll(new RegExp(`<${name}\\b[^>]*>([\\s\\S]*?)</${name}>`, "gi"))].map((m) => decode(m[1].replace(/<[^>]+>/g, " ")));
 export function visibleText(html) {
   const main = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1] || html.match(/<article\b[^>]*>([\s\S]*?)<\/article>/i)?.[1];
-  const strip = (s) => decode(s.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<noscript[\s\S]*?<\/noscript>|<svg[\s\S]*?<\/svg>/gi, " ").replace(/<(nav|header|footer)\b[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " "));
-  return { all: strip(html), main: main ? strip(main) : null };
+  const bare = (s) => s.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<noscript[\s\S]*?<\/noscript>|<svg[\s\S]*?<\/svg>/gi, " ");
+  const strip = (s) => decode(bare(s).replace(/<(nav|header|footer)\b[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " "));
+  // withChrome keeps nav, header and footer: a licence number lives in the FOOTER, which the word counts rightly leave out (it is on every page)
+  return { all: strip(html), main: main ? strip(main) : null, withChrome: decode(bare(html).replace(/<[^>]+>/g, " ")) };
 }
 const words = (s) => (s ? s.split(" ").filter(Boolean).length : 0);
 export function parseRobots(txt) {
@@ -129,7 +135,7 @@ export function schema(html) {
   for (const b of blocks) { try { walk(JSON.parse(b.replace(/^\s*(\/\/)?\s*(<!--|<!\[CDATA\[)/, "").replace(/(\/\/)?\s*(-->|\]\]>)\s*$/, "").trim())); } catch { bad++; } }
   return { jsonLdBlocks: blocks.length, unparsable: bad, types: [...new Set(items.map((i) => i.type))], questions: items.filter((i) => /\bQuestion\b/.test(i.type)).length, reviews: items.filter((i) => /\bReview\b/.test(i.type)).length, business: items.filter((i) => /LocalBusiness|RealEstate|Organization|HomeAndConstructionBusiness|ProfessionalService|Corporation/.test(i.type)).slice(0, 3) };
 }
-export function page(html, finalUrl) {
+export function page(html, finalUrl, detect = LICENCE_DEFAULT) {
   const origin = (() => { try { return new URL(finalUrl).origin; } catch { return ""; } })();
   const t = visibleText(html);
   const links = tags(html, "a").map((a) => a.href).filter(Boolean);
@@ -142,7 +148,8 @@ export function page(html, finalUrl) {
   return {
     title: inner(html, "title")[0] ?? null, description: meta(html, "description"), canonical, canonicalPointsElsewhere: canonical ? norm(canonical) !== norm(finalUrl) : null, robotsMeta, noindex: /noindex|none/i.test(robotsMeta || ""),
     h1: inner(html, "h1").slice(0, 3), h2: inner(html, "h2").slice(0, 12), words: words(t.all), mainWords: t.main ? words(t.main) : null, internalLinks: internal.length, externalLinks: abs.length - internal.length, internalPaths: [...new Set(internal.map((u) => u.pathname))],
-    equalHousing: /equal housing/i.test(t.all), licence: (t.all.match(/\b(?:DRE|BRE|CalDRE|licen[sc]e)\s*(?:Lic(?:ense)?\.?\s*)?#?\s*:?\s*\d{6,8}\b/gi) || []).slice(0, 3),
+    equalHousing: /equal housing/i.test(t.all), licence: (t.withChrome.match(/\b(?:DRE|BRE|CalDRE|licen[sc]e)\s*(?:Lic(?:ense)?\.?\s*)?#?\s*:?\s*\d{6,8}\b/gi) || []).slice(0, 3),
+    licences: detectLicences(t.withChrome, detect),
     googleVerified: !!meta(html, "google-site-verification"), bingVerified: !!meta(html, "msvalidate.01"),
     trust: { googleBusinessLink: /(g\.page\/|maps\.app\.goo\.gl|google\.com\/maps\/place|[?&]cid=\d{6,})/i.test(html), reviewWidget: [...new Set((html.match(/trustpilot|birdeye|podium|elfsight|grade\.us|nicejob|bbb\.org/gi) || []).map((s) => s.toLowerCase()))] },
     platform: /\/wp-content\/|\/wp-json\//i.test(html) ? "WordPress" : /static\.wixstatic\.com/i.test(html) ? "Wix" : /static1\.squarespace\.com/i.test(html) ? "Squarespace" : /webflow\.js/i.test(html) ? "Webflow" : /cdn\.shopify\.com/i.test(html) ? "Shopify" : /\/_next\/static\//.test(html) ? "Next.js" : /lpcdn|luxurypresence/i.test(html) ? "Luxury Presence" : "unknown",
@@ -175,7 +182,7 @@ async function sitemaps(pewp, urls, deadline, files) {
   return { pages: out.pages, sitemapsRead: out.read, errors: out.errors.slice(0, 5), medianLastmodDays: ages.length ? Math.round(ages[Math.floor(ages.length / 2)]) : null, _urls: out.urls };
 }
 
-export async function auditSite(pewp, input, { pages = 4 } = {}) {
+export async function auditSite(pewp, input, { pages = 4, detect = LICENCE_DEFAULT } = {}) {
   const files = new Set(), startedAt = Date.now(), deadline = startedAt + 120000;
   const base = new URL(/^https?:\/\//i.test(input) ? input : `https://${input}`);
   const keep = (r) => { if (r?.cacheFile) files.add(r.cacheFile); return r; };
@@ -195,7 +202,7 @@ export async function auditSite(pewp, input, { pages = 4 } = {}) {
   const finalHost = new URL(res.finalUrl).hostname.replace(/^www\./, ""), inHost = base.hostname.replace(/^www\./, "");
   if (finalHost !== inHost) return done({ error: `NOT READ: redirected to another host (${finalHost}), not the site` });
   const origin = new URL(res.finalUrl).origin;
-  const p = page(home.body, res.finalUrl), sc = schema(home.body);
+  const p = page(home.body, res.finalUrl, detect), sc = schema(home.body);
   const robotsOk = robots0.status === 200 && !looksHtml(robots0);
   const crawlers = robotsOk ? Object.fromEntries(Object.entries(BOTS).map(([bot, what]) => [bot, `${rootAccess(rb0.groups, bot)} - ${what}`])) : null;
   const sm = await sitemaps(pewp, rb0.sitemaps.length ? rb0.sitemaps : [`${origin}/sitemap.xml`, `${origin}/sitemap_index.xml`], deadline, files);
@@ -210,8 +217,8 @@ export async function auditSite(pewp, input, { pages = 4 } = {}) {
     if (!pathAllowed(rb0.groups, CRAWL_UA, pa)) { samples.push({ kind, path: pa, status: "skipped: robots.txt disallows it for our crawler" }); continue; }
     const r = keep(await get(pewp, origin + pa, "html", deadline));
     if (r.status !== 200 || !looksHtml(r)) { samples.push({ kind, path: pa, status: r.status || r.error }); continue; }
-    const sp = page(r.body, r.finalUrl || r.url), ss = schema(r.body);
-    samples.push({ kind, path: pa, status: 200, title: sp.title, h1: sp.h1[0] ?? null, words: sp.words, mainWords: sp.mainWords, h2: sp.h2, schema: ss.types, faqQuestions: ss.questions, noindex: sp.noindex, internalLinks: sp.internalLinks });
+    const sp = page(r.body, r.finalUrl || r.url, detect), ss = schema(r.body);
+    samples.push({ kind, path: pa, status: 200, licences: sp.licences, title: sp.title, h1: sp.h1[0] ?? null, words: sp.words, mainWords: sp.mainWords, h2: sp.h2, schema: ss.types, faqQuestions: ss.questions, noindex: sp.noindex, internalLinks: sp.internalLinks });
   }
   return done({ xRobotsTag: home.headers?.["x-robots-tag"] || null, page: p, schema: sc, robotsTxt: robotsOk ? "present" : "none or unreadable", crawlers, sitemap: { pages: sm.pages, sitemapsRead: sm.sitemapsRead, medianLastmodDays: sm.medianLastmodDays, errors: sm.errors, byKind: Object.fromEntries(Object.entries(byKind).map(([k, v]) => [k, v.length])) }, llms, samples, jsOnlyRisk: (p.mainWords ?? p.words) < 150 ? "HIGH: little text in the raw HTML; content probably needs JavaScript, which many AI crawlers do not run" : "low", seconds: Math.round((Date.now() - startedAt) / 1000) });
 }
@@ -259,6 +266,7 @@ export function summarise(r, f) {
     sitemapMedianAgeDays: f(r.sitemap.medianLastmodDays, { unit: "days since lastmod, median" }),
     cityPages: f(r.sitemap.byKind.city ?? 0, { unit: "sitemap/home URLs classified as city pages" }),
     faqQuestions: f(r.schema.questions, { unit: "Question items in the home page JSON-LD" }),
+    licences: f([...new Map([...(r.page.licences || []), ...(r.samples || []).flatMap((s) => s.licences || [])].map((l) => [`${l.id}|${l.text.toLowerCase()}`, l])).values()].map((l) => `${l.id}: ${l.text}`), { unit: "licence statements read on the home page and the sampled pages (kinds from the industry pack, see licenceDetect)" }),
     schemaTypes: f(r.schema.types, { unit: "JSON-LD types on the home page" }),
     aiSearchBotsBlocked: f(r.crawlers ? ["OAI-SearchBot", "PerplexityBot", "Claude-SearchBot", "Bingbot"].filter((b) => /BLOCKED/.test(r.crawlers[b])) : null, { unit: "AI search crawlers blocked at the site root by robots.txt" }),
   };
@@ -294,19 +302,20 @@ export async function run(ctx, { domains = [], approvedFile = null, fromSerp = f
     list = [...new Set(fromSerp ? pickCompetitors(ctx, { max, extra: named }) : named)].slice(0, max);
     if (!list.length) { const m = "no competitor domains: name them in business.json, pass --domain, or import SERP captures and use --from-serp"; writeBlocked(ctx, "competitors", m); throw new Blocked(m); }
   }
+  const lic = licenceDetectFor(b); // which licences to look for comes from the business's industry pack
   const existing = readStep(ctx, "existing")?.competitorAudits || {};
   const sites = [];
   for (const d of list) {
     const old = existing[d];
     if (old && ageDays(old.fetchedAt) < maxAgeDays) { sites.push({ ...old, reusedFrom: old.importedFrom || "existing research", reused: true }); continue; }
     let r; // one malformed name ("foo bar") is that site's error, not the end of every other site's audit
-    try { r = await auditSite(ctx.pewp, d, { pages }); } catch (e) { if (e.code !== "ERR_INVALID_URL") throw e; r = { input: d, fetchedAt: iso(), error: "NOT READ: not a valid domain or URL", cacheFiles: [] }; } // any other error is a real crash: not hidden
+    try { r = await auditSite(ctx.pewp, d, { pages, detect: lic.detect }); } catch (e) { if (e.code !== "ERR_INVALID_URL") throw e; r = { input: d, fetchedAt: iso(), error: "NOT READ: not a valid domain or URL", cacheFiles: [] }; } // any other error is a real crash: not hidden
     const f = factor(`competitor raw-HTML audit of ${d} (research-competitors.mjs, robots.txt obeyed)`, r.fetchedAt, r.cacheFiles?.[0] || null);
     sites.push({ domain: d, ...r, facts: summarise(r, f) });
   }
   const auth = await runAuthority(ctx, { target: b.domain, competitors: list, cache: authorityCache, release: authorityRelease, maxAgeDays, run: authority });
   const authority_ = { status: auth.status, ...(auth.why ? { why: auth.why } : {}), ...(auth.status === "reused" || auth.status === "ran" ? { file: auth.file, release: auth.doc.release, fetchedAt: auth.doc.fetchedAt, domains: auth.doc.results.map((r) => { const f = factor(auth.doc.source, auth.doc.fetchedAt, auth.file); return r.inGraph ? { domain: r.domain, role: r.role, linkingDomains: f(r.linkingDomains, { unit: "distinct linking domains in this release (domain level)" }), strengthRank: f(r.harmonicPos ?? null, { unit: "harmonic-centrality rank, 1 = strongest" }) } : { domain: r.domain, inGraph: false }; }), linkGap: (auth.doc.linkGap || []).slice(0, 30) } : {}) };
-  return writeStep(ctx, "competitors", { ...(approved ? { approvedFile, approvedRows: approved.rows, withoutDomain: approved.withoutDomain, suggested } : {}), audited: list, blockedSites: sites.filter((s) => /BLOCKED/.test(s.error || "")).map((s) => s.domain), sites, authority: authority_ });
+  return writeStep(ctx, "competitors", { ...(approved ? { approvedFile, approvedRows: approved.rows, withoutDomain: approved.withoutDomain, suggested } : {}), licenceDetect: { from: lic.from, kinds: lic.detect.map((d) => d.id) }, audited: list, blockedSites: sites.filter((s) => /BLOCKED/.test(s.error || "")).map((s) => s.domain), sites, authority: authority_ });
 }
 
 await runCli(import.meta.url, "node research-competitors.mjs <target> [--domain d]... [--approved-competitors FILE] [--from-serp] [--max 12] [--pages 4] [--authority] [--authority-cache DIR] [--authority-release ID] [--max-age-days 30] [--cwd DIR]", ["from-serp", "authority"], async (a) => {

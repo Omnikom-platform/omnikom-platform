@@ -8,6 +8,8 @@
 //   S  speed      report-live.mjs shows lab and PageSpeed Insights side by side; PSI is the trusted number when the lab run was UNTRUSTED
 //   Q  authority  report-live.mjs question 4: a site (target or competitor) the Common Crawl link graph does not hold is "not found in the link data", never 0;
 //                 with the target not found, the link gap line and the links plan row do not claim "but not to you"
+//   X  extras     report-live.mjs section 7: the Chrome UX Report (crux.json) and the six importers' files (index, trends, AI answers, reputation, social, ads): a block with the
+//                 data and its capture date for each source that has data, a BLOCKED line with "| unblocks:" for each that has none (never a zero), no data (too little traffic) said as a result
 //   G  groups     this file's own --group option: only the chosen scenario groups run, and only the mutants whose group is among them
 //   --group Q,W runs just those groups and the mutants whose group is among them
 // Fixtures only: no network, no model. Chrome is used only for the PNG check (local file:// page). Mutants: each patches ONE string in a copy of the
@@ -34,7 +36,7 @@ const BARE_SITEMAP = /\bsitemap\b(?!\.json|\.xml| file)/gi; // "sitemap" alone: 
 const bare = (text) => [...String(text).matchAll(BARE_SITEMAP)].map((m) => text.slice(Math.max(0, m.index - 30), m.index + 30).replace(/\s+/g, " "));
 const section = (md, n) => (md.split(new RegExp(`^## ${n}\\. `, "m"))[1] || "").split(/^## \d\. /m)[0].split("\n").slice(1).join("\n"); // without the heading's own words
 
-const GROUPS = ["W", "P", "N", "A", "D", "S", "Q", "G"];
+const GROUPS = ["W", "P", "N", "A", "D", "S", "Q", "X", "G"];
 function parseGroups(raw) { // "q, w" -> ["Q", "W"]; an unknown letter is an error, never a silent empty run
   const gs = [...new Set(String(raw).split(",").map((x) => x.trim().toUpperCase()).filter(Boolean))];
   const bad = gs.filter((g) => !GROUPS.includes(g));
@@ -307,6 +309,50 @@ async function runScenarios(skill, groups = null) {
     check("G", "--group selects mutants too: an A mutant runs under --group A and not under --group D", inG.status === 0 && /RED \(caught\) A: the refusal exits 0/.test(inG.stdout) && /MUTANTS PASS: 1 of 1 caught/.test(inG.stdout) && outG.status === 0 && !/RED \(caught\)/.test(outG.stdout) && /MUTANTS PASS: 0 of 0 caught/.test(outG.stdout), `${inG.status}: ${inG.stdout.split("\n").slice(-4).join(" | ")} || ${outG.status}: ${outG.stdout.split("\n").slice(-4).join(" | ")}`.slice(0, 600));
   }
 
+  // =============================== X: the extras (crux + six importers) ===============================
+  if (want("X")) {
+    const DAY = "2026-10-24", ISO = DAY + "T10:00:00Z";
+    const put = (s0, rel, o) => w(path.join(s0.pewp, rel), o);
+    const row = (extra) => ({ file: "a.json", capturedAt: ISO, ageDays: 1, stale: false, ...extra });
+    const full = snapshot("x1.example", { pages: [{ path: "/", slug: "home", lcp: 1500 }] });
+    put(full, "crux/" + DAY + ".json", { generatedAt: ISO, failures: [], rows: [
+      { scope: "url", target: "https://x1.example/", formFactor: "PHONE", status: "data", metrics: { lcp: { p75: 2300 }, inp: { p75: 180 }, cls: { p75: 0.04 } }, collectionPeriod: { first: "2026-09-01", last: "2026-09-28" }, fetchedAt: ISO, cacheFile: null },
+      { scope: "origin", target: "https://x1.example", formFactor: "PHONE", status: "no data", metrics: null, collectionPeriod: null, fetchedAt: ISO, cacheFile: null }] });
+    put(full, "research/index.json", { rows: [row({ engine: "google" })], summary: { google: { indexedCount: 230, listedUrls: 12 }, bing: { indexedCount: null, listedUrls: 0 }, servicesChecked: 4, servicesListed: 3, servicesMissing: ["bridge loans"] } });
+    put(full, "research/trends.json", { rows: [row({})], summary: { scale: "0-100, relative interest", services: 3, bestRank: { service: "hard money loans", stateRank: 2 }, worstRank: { service: "bridge loans", stateRank: 31 } } });
+    put(full, "research/ai-answers.json", { rows: [row({ engine: "chatgpt" })], summary: { engines: [{ engine: "chatgpt", status: "ok", questions: 6, named: 1, shareNamed: 0.17 }], blockedEngines: [{ engine: "gemini", reason: "sign-in wall" }], questions: 6, namedAnswers: 1, shareNamed: 0.17, competitors: [{ name: "Acme Lending", count: 4 }], citedDomains: [{ name: "acme.example", count: 3 }], ownDomainCited: false } });
+    put(full, "research/reputation.json", { rows: [row({})], staleCount: 0, summary: { subjects: [{ subject: "x1.example", sitesChecked: 3, sitesListed: 2, totalReviews: 41, weightedRating: 4.6, complaints: 1, newestReviewDate: "2026-10-01" }] } });
+    put(full, "research/social.json", { rows: [row({})], summary: { profilesRead: 2, blocked: 1, totalFollowers: 1500, platformsActive: ["instagram"], linksBroken: ["https://tiktok.example/x1"] } });
+    put(full, "research/ads.json", { rows: [row({})], summary: { advertisers: [{ advertiser: "x1.example", librariesChecked: 2, running: false, adCount: 0 }], advertisersChecked: 3, advertisersRunning: 1, clientRunning: false, competitorsRunning: 1 } });
+    const { r: rF, md: mdF, json: jF } = report(full, BASE_ENV);
+    const secF = section(mdF, 7);
+    check("X", "report.md has a section 7 with a block for each of the seven sources that has data: " + "real-visitor speed, pages in the index, search interest, AI answers, reviews, social profiles, ads", rF.status === 0 && ["Real-visitor speed", "Pages in the search index", "Search interest", "AI answers", "Reviews", "Social profiles", "Ads"].every((h) => secF.includes("### " + h)), rF.stderr + secF.slice(0, 400));
+    check("X", "with all seven present the section holds no BLOCKED line", !/BLOCKED/.test(secF), secF.slice(0, 400));
+    check("X", "crux: the url's phone figures (LCP 2.3 s, INP 180 ms, CLS 0.04) and the origin's 'no data' (too little traffic) are both said, with the collection period", /LCP 2\.3 s/.test(secF) && /INP 180 ms/.test(secF) && /CLS 0\.04/.test(secF) && /no data/i.test(secF) && /too little traffic/.test(secF) && /2026-09-01/.test(secF), secF.slice(0, 700));
+    check("X", "index: Google 230 pages, Bing 'not shown' (never 0), 3 of 4 services listed and the missing one named", /230/.test(secF) && /not shown/.test(secF) && /3 of 4/.test(secF) && /bridge loans/.test(secF), secF.slice(0, 900));
+    check("X", "trends: the best and worst ranked service are named with their ranks", /hard money loans/.test(secF) && /rank 2/.test(secF) && /bridge loans/.test(secF) && /rank 31/.test(secF), secF.slice(0, 900));
+    check("X", "AI answers: share named (17%), the engine that was blocked (gemini, sign-in wall), the competitor named most", /17%/.test(secF) && /gemini/.test(secF) && /sign-in wall/.test(secF) && /Acme Lending/.test(secF), secF.slice(0, 900));
+    check("X", "reviews, social and ads: 41 reviews at 4.6, 2 profiles read with the broken link named, 1 of 3 advertisers running", /41 reviews/.test(secF) && /4\.6/.test(secF) && /tiktok\.example/.test(secF) && /1 of 3/.test(secF), secF.slice(0, 1200));
+    check("X", "every block says where its data came from (the file) and when it was captured (the date)", ["crux/" + DAY + ".json", "research/index.json", "research/trends.json", "research/ai-answers.json", "research/reputation.json", "research/social.json", "research/ads.json"].every((p) => secF.includes(p)) && (secF.match(/2026-10-24/g) || []).length >= 7, secF.slice(0, 600));
+    check("X", "report.json carries the same: extras.<id> with status 'answered' and the source file, for all seven", ["crux", "index", "trends", "ai", "reputation", "social", "ads"].every((k) => jF?.extras?.[k]?.status === "answered" && typeof jF.extras[k].source === "string"), JSON.stringify(jF?.extras || null).slice(0, 400));
+
+    const bare0 = snapshot("x2.example", { pages: [{ path: "/", slug: "home", lcp: 1500 }] });
+    const { r: rB, md: mdB, json: jB } = report(bare0, BASE_ENV);
+    const secB = section(mdB, 7), blockedB = secB.split("\n").filter((l) => /BLOCKED/.test(l));
+    check("X", "with none of the seven present the section says BLOCKED seven times, each with '| unblocks:' and the script that would fill it (crux.mjs, import-index.mjs, import-trends.mjs, import-ai.mjs, import-reputation.mjs, import-social.mjs, import-ads.mjs)", rB.status === 0 && blockedB.length === 7 && blockedB.every((l) => / \| unblocks: /.test(l)) && ["crux.mjs", "import-index.mjs", "import-trends.mjs", "import-ai.mjs", "import-reputation.mjs", "import-social.mjs", "import-ads.mjs"].every((n) => blockedB.some((l) => l.includes(n))), rB.stderr + secB.slice(0, 900));
+    check("X", "a source with no data is never shown as zero (no '0 pages', '0 reviews', '0%' in the empty section) and report.json says BLOCKED for each", !/\b0 (pages|reviews|profiles|advertisers)|\b0%/.test(secB) && ["crux", "index", "trends", "ai", "reputation", "social", "ads"].every((k) => jB?.extras?.[k]?.status === "BLOCKED" && / /.test(jB.extras[k].unblock || "")), JSON.stringify(jB?.extras || null).slice(0, 400));
+
+    const mix = snapshot("x3.example", { pages: [{ path: "/", slug: "home", lcp: 1500 }] });
+    put(mix, "crux/" + DAY + ".json", { generatedAt: ISO, failures: [], rows: [{ scope: "url", target: "https://x3.example/", formFactor: "PHONE", status: "no data", metrics: null, collectionPeriod: null, fetchedAt: ISO, cacheFile: null }] });
+    put(mix, "research/reputation.json", { rows: [], staleCount: 0, summary: { subjects: [] } });
+    put(mix, "research/index.json", { rows: [row({ engine: "google", stale: true })], staleCount: 1, summary: { google: { indexedCount: 5, listedUrls: 5 }, bing: { indexedCount: 4, listedUrls: 4 }, servicesChecked: 2, servicesListed: 2, servicesMissing: [] } });
+    const { md: mdM, json: jM } = report(mix, BASE_ENV);
+    const secM = section(mdM, 7);
+    check("X", "crux with only 'no data' rows is a result, not BLOCKED: it says no data / too little traffic, and report.json status is 'no data'", /too little traffic/.test(secM) && jM?.extras?.crux?.status === "no data", JSON.stringify(jM?.extras?.crux));
+    check("X", "an importer file with no rows is BLOCKED (nothing usable was read), not a block of zeros", jM?.extras?.reputation?.status === "BLOCKED" && /Reviews[\s\S]*BLOCKED/.test(secM), JSON.stringify(jM?.extras?.reputation));
+    check("X", "a stale capture is shown as stale with its count", /stale/i.test(secM.split("### Pages in the search index")[1] || ""), secM.slice(0, 700));
+  }
+
   function firstOf(sec) { return sec.split("\n").map((l) => l.trim()).find(Boolean) || ""; }
   fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 });
   return results;
@@ -378,6 +424,17 @@ const MUTANTS = [
   { name: "G: an unknown group letter is accepted", file: "scripts/test-reports.mjs", from: "if (bad.length || " + "!gs.length) throw new Error(", to: "if (false) throw new Error(", sc: "G", expect: [/^G: --group with an unknown letter/] },
   { name: "G: a mutant outside the chosen groups still runs", file: "scripts/test-reports.mjs", from: '!groups || m.sc.split("+").' + 'every((g) => groups.includes(g))', to: "true", sc: "G", expect: [/^G: --group selects mutants too/] },
   { name: "G: --keep is back in the usage line", file: "scripts/test-reports.mjs", from: '[--group <letter>[,<letter>]]"); ' + 'process.exit(0); }', to: '[--keep]"); process.exit(0); }', sc: "G", expect: [/^G: usage lines/] },
+  { name: "X: the crux file is never read", file: S0, from: "const cdoc = cfile ? J(path.join(cdir, cfile)) : null;", to: "const cdoc = null;", sc: "X", expect: [/^X: report\.md has a section 7/, /^X: crux: the url's phone figures/, /^X: report\.json carries the same/] },
+  { name: "X: a BLOCKED line has no 'unblocks'", file: S0, from: "**BLOCKED.** ${x.why} | unblocks: ${x.unblock}", to: "**BLOCKED.** ${x.why}", sc: "X", expect: [/^X: with none of the seven present/] },
+  { name: "X: an importer file with no rows counts as data", file: S0, from: "if (!doc || !Array.isArray(doc.rows) || !doc.rows.length) { out.push(blockedOf(imp.id,", to: "if (!doc || !Array.isArray(doc.rows)) { out.push(blockedOf(imp.id,", sc: "X", expect: [/^X: an importer file with no rows is BLOCKED/] },
+  { name: "X: an engine count that is not shown becomes 0", file: S0, from: "v == null ? \"not shown\"", to: "v == null ? \"0\"", sc: "X", expect: [/^X: index: Google 230 pages/] },
+  { name: "X: crux with only no-data rows is BLOCKED", file: S0, from: "status: data ? \"answered\" : \"no data\"", to: "status: data ? \"answered\" : \"BLOCKED\"", sc: "X", expect: [/^X: crux with only 'no data' rows is a result/] },
+  { name: "X: the source file and capture date are left out", file: S0, from: "Source: ${x.source}, captured ${dayTxt(x.capturedAt)}", to: "Source:", sc: "X", expect: [/^X: every block says where its data came from/] },
+  { name: "X: stale captures are not counted", file: S0, from: "${x.stale ? `; ${x.stale} capture${s(x.stale)} stale (older than the freshness limit: capture again)` : \"\"}", to: "", sc: "X", expect: [/^X: a stale capture is shown as stale/] },
+  { name: "X: report.json has no extras", file: S0, from: "extras: Object.fromEntries(extras.map(({ id, lines, ...rest }) => [id, rest])),", to: "extras: {},", sc: "X", expect: [/^X: report\.json carries the same/, /^X: a source with no data is never shown as zero/] },
+  { name: "X: the AI engines that could not be read are hidden", file: S0, from: "if ((y.blockedEngines || []).length) L.push(", to: "if (false) L.push(", sc: "X", expect: [/^X: AI answers: share named/] },
+  { name: "X: the ads block is missing", file: S0, from: "{ id: \"ads\", title: \"Ads\",", to: "{ id: \"adsX\", title: \"Ads\",", sc: "X", expect: [/^X: report\.json carries the same/, /^X: with none of the seven present/] },
+  { name: "X: the trends rank of the weakest service is left out", file: S0, from: "(rank ${y.worstRank?.stateRank ?? \"n/a\"})", to: "", sc: "X", expect: [/^X: trends: the best and worst ranked service/] },
 ];
 
 const mutantsIn = (groups) => MUTANTS.filter((m) => !groups || m.sc.split("+").every((g) => groups.includes(g))); // all of a mutant's groups must be chosen

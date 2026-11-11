@@ -22,6 +22,7 @@
 // approvedMatches(pewp, kind) says whether the approved copy is current (sha256 of the source == the lock entry).
 // Exit 0 approved / no change / lock ok, 1 invalid source or lock failed, 2 cannot judge (file missing), 3 diff shown, not signed (no --by).
 import fs from "node:fs";
+import { delegationOf } from "./lib-provenance.mjs";
 import { isMain } from "./lib-main.mjs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -157,8 +158,9 @@ function checkBusiness(b) {
   const groups = new Map();
   for (const field of OWNER_ONLY) {
     const missingValue = field === "vocabulary" && (!Array.isArray(b.vocabulary) || !b.vocabulary.length);
-    const p = missingValue ? "unstated" : prov[field] || "unstated";
-    if (p !== "owner") groups.set(p, [...(groups.get(p) || []), field]);
+    let p = missingValue ? "unstated" : prov[field] || "unstated";
+    if (p === "delegated" && !delegationOf(b.delegations?.[field])) p = "delegated without a record of who and when (business.delegations)"; // a hand-written "delegated" proves nothing
+    if (p !== "owner" && p !== "delegated") groups.set(p, [...(groups.get(p) || []), field]);
   }
   for (const [p, fields] of groups) out.push(`${fields.join(", ")} ${fields.length > 1 ? "were" : "was"} not answered by the owner (provenance: ${p}). ${FIX.business}`);
   return out;
@@ -219,12 +221,16 @@ function diffFile(kind, o, n) {
   return L;
 }
 
+// the owner-only fields a delegate answered: [{ field, by, delegatedBy, at }]
+const delegatedOf = (b) => OWNER_ONLY.filter((f) => b?.provenance?.[f] === "delegated" && delegationOf(b.delegations?.[f])).map((f) => ({ field: f, ...delegationOf(b.delegations[f]) }));
 function approveFile(pewp, kind, { by, log, lock, stamp }) {
   const spec = FILE_KINDS[kind], dir = approvedDir(pewp), src = path.join(pewp, ...spec.src.split("/")), dstFile = path.join(dir, spec.dst);
   if (!fs.existsSync(src)) { log(`ERROR approve cannot judge: ${src} not found${NOTFOUND[kind]}`); return 2; }
   let doc; try { doc = J(src); } catch (e) { log(`ERROR approve cannot judge: ${src} is not JSON: ${e.message}`); return 2; }
   const problems = CHECKS[kind](doc);
   if (problems.length) { log(`FAIL approve ${kind}: ${spec.src} cannot be approved yet, nothing approved`); for (const p of problems) log(`  ${p}`); return 1; }
+  const deleg = kind === "business" ? delegatedOf(doc) : [];
+  if (deleg.length) log(`NOTE ${deleg.length} owner-only field(s) were answered by a delegate for the owner, not by the owner: ${deleg.map((d) => `${d.field} (by ${d.by}, delegated by the ${d.delegatedBy}, ${d.at})`).join("; ")}`);
   const buf = fs.readFileSync(src), sha = sha256(buf), old = jr(dstFile);
   log(old ? `Diff of ${spec.src} against the approved ${kind} (${String(lock[kind]?.files?.[spec.dst] || "").slice(0, 8)}):` : `First approval of the ${kind} (${spec.src}).`);
   const d = old ? diffFile(kind, old, doc) : [];
@@ -235,10 +241,10 @@ function approveFile(pewp, kind, { by, log, lock, stamp }) {
   if (old) { const h = path.join(dir, "history", stamp.replace(/[:.]/g, "-")); fs.mkdirSync(h, { recursive: true }); fs.copyFileSync(dstFile, path.join(h, spec.dst)); }
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(dstFile, buf);
-  lock[kind] = { approvedAt: stamp, approvedBy: by, source: spec.src, files: { [spec.dst]: sha } };
+  lock[kind] = { approvedAt: stamp, approvedBy: by, source: spec.src, files: { [spec.dst]: sha }, ...(deleg.length ? { delegated: deleg } : {}) };
   fs.writeFileSync(path.join(dir, "lock.json"), JSON.stringify(lock, null, 1) + "\n");
   const n = kind === "competitors" || kind === "prompt-map" ? `${rowsOf(doc).length} rows` : kind === "seeds" ? `${doc.queries.length} queries` : `${doc.name || doc.domain}`;
-  log(`PASS approve ${kind}: ${n} signed by ${by} at ${stamp} (sha256 ${sha.slice(0, 12)})`);
+  log(`PASS approve ${kind}: ${n} signed by ${by} at ${stamp} (sha256 ${sha.slice(0, 12)})${deleg.length ? `; ${deleg.length} owner-only field(s) DELEGATED: ${deleg.map((d) => d.field).join(", ")}` : ""}`);
   return 0;
 }
 

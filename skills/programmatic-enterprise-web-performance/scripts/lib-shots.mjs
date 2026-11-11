@@ -48,6 +48,8 @@ export async function serve(root) {
 export const urlFor = (port, root, page) => `http://127.0.0.1:${port}/${path.relative(root, page).split(path.sep).join("/")}`;
 
 // Playwright from the render-gate install, then a browser. Throws Blocked with what unblocks it.
+// NOT SEEDED: Playwright makes its own profile folder and refuses a --user-data-dir flag, so lib-browser-profile.mjs cannot seed it: a first Playwright launch may still make the
+// browser try the Windows account with an empty password (UNPROVEN either way: not tried on purpose, a failed logon is what the seed avoids).
 export async function launch() {
   let gate;
   try {
