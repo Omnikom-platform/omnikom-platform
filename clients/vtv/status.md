@@ -22,5 +22,14 @@
 - Platform build: the look-folder and content load for her site are an M4 work order after ELEV8 (DECISIONS 27); the lead flow from her forms goes to the platform inbox with a CRM push.
 - Contradictions between files (record only, nothing fixed here): (1) `planning/CONTEXT.md` row 9 calls her "eXp"; the project's record says Xpert Home Realty (Dave 2026-10-20) and the eXp logo on her old footer is wrong; (2) `planning/DECISIONS.md` 18 (2026-10-28) cuts IDX, the project plans MLS homes for sale and her preview shows 28 current listings; (3) the project's 2026-10-22 rows say OmniSuite has no role and each business has its own database, `planning/DECISIONS.md` 11 and 12 (2026-10-26) say one multi-tenant database and an OmniSuite voice agent as a rented add-on; (4) her sheet has 15 questions while `planning/DECISIONS.md` 17 (2026-10-28) caps a client sheet at 12 and `E:\Francine & Eli\deliverables\docs\README.md` and `ROADMAP.md` still say 11; (5) `planning/CONTEXT.md` and the README row cite `proposals/vtv`: it exists at `E:\Francine & Eli\proposals\vtv`; the project's position file is `.claude/POSITION.md` (there is no `proposals/POSITION.md`).
 
+## Profile passes
+RESUME finishes an unfinished profile (only what is missing is added); RE-EVALUATE is a dated new pass on a finished one (stable facts
+such as the entity, filings and history are kept and re-checked; time-sensitive ones such as follower counts, reviews and addresses
+on listings are re-read, with a "what changed since <date>" note). Newest last; an older pass is never overwritten (owner 2026-11-11).
+
+| Date | Mode | What the pass did | By |
+|---|---|---|---|
+| before 2026-11-11 | not recorded (profiled before this rule; see Last updated) | the record | earlier Clients sessions |
+
 ## Last updated
 - 2026-10-30: record created by the slice 2a builder (Sonnet) from `E:\Francine & Eli` read-only; preview headers read the same day. The project log's last entry is 2026-10-26.

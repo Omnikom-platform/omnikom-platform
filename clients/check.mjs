@@ -99,5 +99,15 @@ for (const slug of slugs.filter((s) => !exempt.has(s))) {
   }
 }
 
+// Profile passes (owner 2026-11-11): every status.md (the template included) has the section with at least one dated row.
+for (const slug of [...slugs, 'TEMPLATE']) {
+  const sp = join(DIR, slug, 'status.md');
+  if (!existsSync(sp)) continue;
+  const sec = (readFileSync(sp, 'utf8').split(/^## Profile passes\s*$/m)[1] || '').split(/^## /m)[0];
+  const passRows = sec.split('\n').filter((l) => /^\|/.test(l) && !/^\|\s*(Date|-+)\s*\|/.test(l));
+  if (!passRows.length) problems.push(`${slug}/status.md: no "## Profile passes" section with a dated row (RESUME or RE-EVALUATE)`);
+  else if (slug !== 'TEMPLATE' && !passRows.every((l) => /\|\s*(RESUME|RE-EVALUATE|not recorded)/.test(l))) problems.push(`${slug}/status.md: a profile pass without its mode (RESUME or RE-EVALUATE)`);
+}
+
 if (problems.length) { for (const p of problems) console.log('FAIL ' + p); process.exit(1); }
 console.log(`OK: ${slugs.length} client record(s) complete: ${slugs.join(', ')}`);

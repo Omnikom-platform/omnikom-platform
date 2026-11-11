@@ -22,5 +22,14 @@
 - Platform build: the content load for his site, the cash-offer lead flow into the platform inbox with a CRM push, and the situations collection of the `cash-home-buyer` pack; the lead export and number move from REsimpli are launch steps. Source: `sops/clients/site-scope.md` section 3; `planning/DECISIONS.md` 18.
 - Contradictions between files (record only, nothing fixed here): (1) `planning/DECISIONS.md` 27 lists three existing drafts moving to the platform (ELEV8 first, then Rainmaker and VTV) and `planning/CONTEXT.md` lists his as a third origin client, so his draft has no place in the M4 order; (2) the project's 2026-10-22 rows (OmniSuite has no role, own database per business) versus `planning/DECISIONS.md` 11 and 12 (2026-10-26); (3) `planning/CONTEXT.md` and the README row cite `proposals/eli`: it exists at `E:\Francine & Eli\proposals\eli`.
 
+## Profile passes
+RESUME finishes an unfinished profile (only what is missing is added); RE-EVALUATE is a dated new pass on a finished one (stable facts
+such as the entity, filings and history are kept and re-checked; time-sensitive ones such as follower counts, reviews and addresses
+on listings are re-read, with a "what changed since <date>" note). Newest last; an older pass is never overwritten (owner 2026-11-11).
+
+| Date | Mode | What the pass did | By |
+|---|---|---|---|
+| before 2026-11-11 | not recorded (profiled before this rule; see Last updated) | the record | earlier Clients sessions |
+
 ## Last updated
 - 2026-10-30: record created by the slice 2a builder (Sonnet) from `E:\Francine & Eli` read-only; preview headers read the same day. The project log's last entry is 2026-10-26.

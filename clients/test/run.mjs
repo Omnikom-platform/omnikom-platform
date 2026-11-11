@@ -84,6 +84,16 @@ try {
   r = run(d);
   check('mutant: a legacy folder taken off the list fails on its named contact', r.status === 1 && /elev8\/profile\.md: the "Contact used for the work/.test(r.out), r.out);
   check('the legacy folders pass with their names (the real records run above)', /^OK: \d+ client record/m.test(run(fresh()).out));
+
+  // profile passes (owner 2026-11-11)
+  d = fresh(); dirs.push(d);
+  edit(d, join('vtv', 'status.md'), '## Profile passes', '## Profile notes');
+  r = run(d);
+  check('mutant: a status file without its profile passes fails', r.status === 1 && /vtv\/status\.md: no "## Profile passes" section/.test(r.out), r.out);
+  d = fresh(); dirs.push(d);
+  edit(d, join('paragon', 'status.md'), '| 2026-11-11 | RESUME |', '| 2026-11-11 | second |');
+  r = run(d);
+  check('mutant: a profile pass without its mode fails', r.status === 1 && /paragon\/status\.md: a profile pass without its mode/.test(r.out), r.out);
 } finally {
   for (const d of dirs) rmSync(d, { recursive: true, force: true });
 }

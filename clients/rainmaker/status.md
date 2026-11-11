@@ -55,6 +55,15 @@ The sheet: `go-live-2026-11-09.md` (what is proven, what blocks with its holder,
   >    please let us know and we will help you secure it. Also: is pay.rwifinancial.com (your GoDaddy payment page) still in use?
   > Once we have these and GoDaddy access with a date, we switch the domain without touching your email.
 
+## Profile passes
+RESUME finishes an unfinished profile (only what is missing is added); RE-EVALUATE is a dated new pass on a finished one (stable facts
+such as the entity, filings and history are kept and re-checked; time-sensitive ones such as follower counts, reviews and addresses
+on listings are re-read, with a "what changed since <date>" note). Newest last; an older pass is never overwritten (owner 2026-11-11).
+
+| Date | Mode | What the pass did | By |
+|---|---|---|---|
+| before 2026-11-11 | not recorded (profiled before this rule; see Last updated) | the record and the go-live check | earlier Clients sessions |
+
 ## Last updated
 - 2026-10-30: record created by the slice 2a builder (Sonnet) from `E:\Rainmaker` read-only; preview headers read the same day.
 - 2026-11-09: go-live check by HEAD_Clients_2026-11-09 (status line, the section above, `go-live-2026-11-09.md`, `evidence-2026-11-09/`).

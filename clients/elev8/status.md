@@ -60,6 +60,15 @@ The sheet: `go-live-2026-11-09.md` (what is proven, what blocks with its holder,
     listing the client sends is one row in `content/rows.json` and a rebuild (`draft-site\ADD-A-LISTING.md`).
   - Omnikom (Clients) after launch: WG-2 home CSS 12.4 KiB vs 8 KiB, WG-4 flaky; C124 stays with the owner's rows.
 
+## Profile passes
+RESUME finishes an unfinished profile (only what is missing is added); RE-EVALUATE is a dated new pass on a finished one (stable facts
+such as the entity, filings and history are kept and re-checked; time-sensitive ones such as follower counts, reviews and addresses
+on listings are re-read, with a "what changed since <date>" note). Newest last; an older pass is never overwritten (owner 2026-11-11).
+
+| Date | Mode | What the pass did | By |
+|---|---|---|---|
+| before 2026-11-11 | not recorded (profiled before this rule; see Last updated) | the record and the go-live check | earlier Clients sessions |
+
 ## Last updated
 - 2026-10-30: record created by the Clients head (slice 1) from `E:\Alex Sevilla` read-only; the split recorded in `sites.md` as waiting for the agreement.
 - 2026-10-30 21:58: the owner's answers written into `decisions.md` and `sites.md` (workspace per site; pages and sharing after the client meeting).

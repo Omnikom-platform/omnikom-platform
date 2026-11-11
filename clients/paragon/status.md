@@ -21,6 +21,16 @@
 - Research before anything client-facing: which licences and disclosure rules apply to a business funding broker in California and
   Florida; why the terms name Palm Beach County, Florida, and why the filed address differs from the site's (`facts.md` "Not facts yet").
 
+## Profile passes
+RESUME finishes an unfinished profile (only what is missing is added); RE-EVALUATE is a dated new pass on a finished one (stable facts
+such as the entity, filings and history are kept and re-checked; time-sensitive ones such as follower counts, reviews and addresses
+on listings are re-read, with a "what changed since <date>" note). Newest last; an older pass is never overwritten (owner 2026-11-11).
+
+| Date | Mode | What the pass did | By |
+|---|---|---|---|
+| 2026-11-10 | RESUME (first pass) | the profile from public sources: site, YouTube, TikTok | HEAD_Clients_2026-11-09 |
+| 2026-11-11 | RESUME | the unknowns retried: the California entity (bizfile), no Florida entity, no DFPI licence; NMLS and Instagram BLOCKED; every fact re-read against its source before landing | HEAD_Clients_2026-11-09 |
+
 ## Last updated
 - 2026-11-10: folder made from public sources (site, YouTube, TikTok, read 20:27 to 20:45 UTC), work order 40, by HEAD_Clients_2026-11-09.
 - 2026-11-11: second pass (the owner's ask): California entity found (bizfile), no Florida entity (Sunbiz), no DFPI licence; NMLS and Instagram BLOCKED, with what unblocks each; read 2026-11-10 22:00 to 22:16 UTC.
