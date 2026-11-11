@@ -16,7 +16,7 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
   code plus plain words (`_shared/problems`); the dashboard shows the words.
 - Shared validation imports `contracts/validate.mjs`, so the browser, the functions and the build run the same rules.
 
-## The Edge Functions (21 in `supabase/functions/`)
+## The Edge Functions (28 in `supabase/functions/`)
 
 | Function | Caller | Does |
 |---|---|---|
@@ -46,6 +46,8 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
 | `team-list` | dashboard (owner) | the members of the workspace, owners first: user, email, role, team profile and name, joined date (M17 `list_members`); 404 for anyone else |
 | `member-remove` | dashboard (owner) | takes a person out (`remove_member`): never the last owner (409 `S-LAST-OWNER`), audited, their rows stay. Open sessions are not ended: Supabase Auth has no admin logout by user id (`api.go`, `GoTrueAdminApi.ts`, read 2026-11-04); every request is checked against `members`, so their next request in the workspace is refused (T27 proves it with the claims the person had) |
 | `settings-save` | dashboard (owner) | one site's lead alert addresses (up to 10) and "also email the assigned agent"; no CRM part (a `crm` key alone is 400) |
+| `metrics-pull` | pg_cron, signed `X-Cron-Signature` (`CRON_KEY`) | work order 44 (M27): the daily pull of one workspace's search numbers into `metrics_snapshots` by (workspace, source, day), one site per workspace (the live one, else the oldest preview one). `?workspace=<id>`: `search-console` (a BLOCKED row until the owner verifies a property; fixtures only, live UNPROVEN) and `bing`; `?workspace=<id>&source=pagespeed`: five pages from the site's sitemap on a phone plus CrUX, weekly. SEO's collectors (`tools/audit/metrics`) loaded through `_shared/metrics.ts`; keys by name `PSI_API_KEY`, `CRUX_API_KEY`, `BING_WEBMASTER_KEY`; a source with no key is a BLOCKED row and sends no request, a 429 or 403 stops that source; a source that throws writes no row. `ai-answers` has no writer (no model call in runtime code, DECISIONS 38): NOT DONE |
+| `sitemap-submit` | head, signed `X-Cron-Signature`; the same code runs inside `job-callback` on `done` of a production job (best effort, never changes the 204) | work order 44: Search Console submit (BLOCKED until a property is verified) and an IndexNow ping of the sitemap's addresses appended to the day's `bing` row; the ping is sent only when the site hosts a key file, and none does (the factory slice, work order 45): NOT DONE |
 
 **The import's caps are measured** (work order 02, F6): parse + map in Deno, the functions' runtime (`supabase/functions/test/import-cpu.ts`,
 2026-11-04, idle laptop, 3 runs of 5 each; the worst CPU of the 3 runs):
@@ -135,12 +137,14 @@ a Vault name. A script reads a key by its variable name from the git-ignored `.e
 | Cloudflare deploy token, one for the account (Pages edit, DNS edit) | GitHub secret, held only by the runner | `publish.yml` |
 | GitHub dispatch token (this repository only) | function environment | `publish`, `upload-finish` |
 | Runner key | function environment and GitHub secret | runner calls |
+| Cron key | function environment (`CRON_KEY`) and Vault (`metrics_cron_key`, with `project_url`) | the signature of `metrics-pull` and `sitemap-submit`; Vault is where pg_cron reads it |
+| PageSpeed, CrUX and Bing Webmaster keys | function environment | `metrics-pull` (a missing one is a BLOCKED row) |
 | Site signing key, one per site | the site's Pages project and Vault; hash in `api_keys` | `/api/lead` to `capture-lead` |
 | Resend key, alert sender | function environment | lead alert, sign-in mail through Supabase Auth SMTP |
 
 Variable names a script expects: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY` (suffix `_STAGING` or
 `_PROD`), `STAGING_DB_URL`, `PROD_DB_URL`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `RUNNER_KEY`,
-`GITHUB_DISPATCH_TOKEN`, `RESEND_API_KEY`, `LEAD_ALERT_FROM`, `DASHBOARD_URL`, `SITE_SIGNING_KEY_<SLUG>` (minted by
+`GITHUB_DISPATCH_TOKEN`, `CRON_KEY`, `PSI_API_KEY`, `CRUX_API_KEY`, `BING_WEBMASTER_KEY`, `RESEND_API_KEY`, `LEAD_ALERT_FROM`, `DASHBOARD_URL`, `SITE_SIGNING_KEY_<SLUG>` (minted by
 `tools/mint-site-key.mjs`), `PLATFORM_FUNCTIONS_BASE`, `CLOUDFLARE_PAGES_TOKEN`. Production keys are used only with
 `--i-mean-production`.
 

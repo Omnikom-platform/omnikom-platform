@@ -110,7 +110,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | C13 Email: sign-in, invite and new-lead alert | PARTLY | the invite mail is sent by `invite-member` through Auth (a new login: the invite mail with who invited them and to which business; an existing login: the sign-in mail, which cannot name either); `email_sent` is Auth's own answer; a real send: `invite-member` answered 200 with email_sent true at 2026-11-10 15:13:42 UTC for a new login (work order 36, `work/36-onboard/proof.md`); it arrived in the owner's test inbox, checked by the owner 2026-11-10; the sign-in mail and the new-lead alert mail are not shown arriving in this row, so it stays PARTLY; the own sender domain stays an owner item |
 | C14 Onboard a client (workspace, site, contract, rows, logins) | WORKS | `tools/client-infra/onboard.mjs --intake <file>`: workspace, site row, contract and pages through `omnikom seed workspace`, the business details and the owner's team profile, the owner's invite (`invite-member` as staff, linked to the profile), then `tools/client-infra/provision.mjs`; refuses a half-filled intake naming every missing field; `--dry-run`; a second run changes nothing and sends no mail. Proven on staging 2026-11-10 with the test client test-wo36: `work/36-onboard/proof.md`. Staging only; the invite goes only to a test inbox (`tools/client-infra/test-inboxes.json`) |
 | C15 Migrations and function deploy to staging | WORKS | 13 applied, 16 deployed |
-| C16 Metrics pull and sitemap submit | MISSING | |
+| C16 Metrics pull and sitemap submit | PARTLY | work order 44, M27: F:metrics-pull (pg_cron `metrics-pull-daily`, 03:30 UTC) writes `search-console` (a BLOCKED row: no property is verified), `bing` and weekly `pagespeed` with CrUX into `metrics_snapshots`; F:sitemap-submit and `job-callback` on a production `done`; function tests `supabase/functions/test/metrics.test.ts` 19 of 19 on this laptop (the SQL signer accepted by the function's verifier); tenancy T34 and the mutants are proved by CI; STAGING UNPROVEN (migration, deploy, the Vault entries, a real signed call). NOT DONE: the live Search Console pull and submit (no verified property), the IndexNow ping (no site hosts a key file, work order 45), the `ai-answers` writer (DECISIONS 38: no model call in runtime code) |
 | C18 Proof tooling: CLI journey, wall tests, mutants, gates | WORKS | `9-blocks.md` |
 
 ### D. Site factory and forms
@@ -157,10 +157,10 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 |---|---|---|---|---|
 | A CRM | 22 | 4 | 0 | 26 |
 | B Dashboard | 10 | 6 | 5 | 21 |
-| C Backend and database | 13 | 3 | 1 | 17 |
+| C Backend and database | 13 | 4 | 0 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
 | E Hardening | 6 | 11 | 4 | 21 |
-| Total | 61 | 24 | 10 | 95 |
+| Total | 61 | 25 | 9 | 95 |
 
 Completion is reported from these counts only.
 

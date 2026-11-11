@@ -149,8 +149,12 @@ publish, Cloudflare Web Analytics (no cookies), AI answers monthly; lead numbers
 domain property verified by DNS, a sitemap submit after every live publish, a day-0 baseline. All land in
 `metrics_snapshots` with source and date; a monthly plain-words report is generated from the rows. Built: the collectors,
 their row checks, the sitemap submit call and the monthly report as modules a function can load
-(`tools/audit/metrics/README.md`), the keys and `tools/check-api-keys.mjs`. Not built: the scheduled `metrics-pull`
-function that runs them, the verification step, the IndexNow ping; no source is proven live yet.
+(`tools/audit/metrics/README.md`), the keys and `tools/check-api-keys.mjs`. Built by work order 44 (proven by tests, staging
+UNPROVEN): the scheduled `metrics-pull` function that runs them (Search Console as a BLOCKED row, Bing, PageSpeed with CrUX
+weekly) and `sitemap-submit` (also run by `job-callback` after a production publish). Not built: the Search Console
+verification step (no property is verified, so that source is a BLOCKED row), the IndexNow ping (code and tests exist, no
+site hosts the key file: work order 45), the AI-answer writer (no model call in runtime code), the stored monthly report; no
+source is proven live yet.
 
 ## The test site
 

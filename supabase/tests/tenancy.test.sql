@@ -2067,7 +2067,9 @@ end $$;
 do $$ begin
   if to_regclass('cron.stub_jobs') is null then raise notice 'T25 skipped: no cron stand-in here'; return; end if;
   assert (select count(*) from cron.stub_jobs where jobname = 'reap-stale-jobs') = 1, 'T25 exactly one job named reap-stale-jobs is scheduled';
-  assert (select count(*) from cron.stub_jobs) = 1, 'T25 the migrations schedule no other job';
+  assert (select count(*) from cron.stub_jobs) = 2, 'T25 the migrations schedule two jobs: the reaper and the daily metrics pull (T32)';
+  assert (select count(*) from cron.stub_jobs where jobname = 'metrics-pull-daily') = 1 and (select schedule from cron.stub_jobs where jobname = 'metrics-pull-daily') = '30 3 * * *'
+    and (select command from cron.stub_jobs where jobname = 'metrics-pull-daily') ~ 'service\.metrics_pull_all\(\)', 'T32 the daily metrics pull is scheduled at 03:30 UTC and calls service.metrics_pull_all()';
   assert (select schedule from cron.stub_jobs where jobname = 'reap-stale-jobs') = '*/5 * * * *', 'T25 the reaper runs every 5 minutes';
   assert (select command from cron.stub_jobs where jobname = 'reap-stale-jobs') ~ 'service\.reap_stale_jobs\(\)', 'T25 the job calls service.reap_stale_jobs()';
 end $$;
@@ -3205,6 +3207,111 @@ select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
 select test.set_workspace_state('bbbbbbbb-0000-0000-0000-000000000000', 'deleted', 'T32 offboarded');
 reset role;
 do $$ begin assert (select state from workspaces where id = 'bbbbbbbb-0000-0000-0000-000000000000') = 'deleted', 'T32e B is deleted once its Storage is empty and its keys revoked'; end $$;
+-- ===== T34 work order 44 (migration 27): the metrics sources, the function role's way in and out of metrics_snapshots, the daily job (own block; mutants "metrics27: ..." in run-local.mjs) =====
+reset role;
+-- (a) the source check: bing is allowed, the old check is gone, the new one is validated, anything else is still refused
+do $$ begin
+  assert not exists (select 1 from pg_constraint where conrelid = 'public.metrics_snapshots'::regclass and conname = 'metrics_snapshots_source_check'), 'T34a the old source check is gone';
+  assert (select convalidated from pg_constraint where conrelid = 'public.metrics_snapshots'::regclass and conname = 'metrics_snapshots_source_ok'), 'T34a the new source check is validated';
+  insert into public.metrics_snapshots (workspace_id, source, day, data) values ('aaaaaaaa-0000-0000-0000-000000000000', 'bing', '2026-11-02', '{"t32":true}');
+  assert exists (select 1 from public.metrics_snapshots where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and source = 'bing'), 'T34a bing is accepted';
+end $$;
+select test.expect_error($q$insert into public.metrics_snapshots (workspace_id, source, day, data) values ('aaaaaaaa-0000-0000-0000-000000000000', 'crux', '2026-11-02', '{}')$q$, 'metrics_snapshots_source_ok');
+-- (b) the writer: an upsert by (workspace, source, day); only the collectors' sources; an object of at most 256 KiB; a workspace that exists
+select service.metrics_put('aaaaaaaa-0000-0000-0000-000000000000', 'pagespeed', '2026-11-02', '{"v":1}');
+select service.metrics_put('aaaaaaaa-0000-0000-0000-000000000000', 'pagespeed', '2026-11-02', '{"v":2}');
+do $$ begin
+  assert (select count(*) from public.metrics_snapshots where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and source = 'pagespeed' and day = '2026-11-02') = 1, 'T34b a rerun leaves one row';
+  assert service.metrics_get('aaaaaaaa-0000-0000-0000-000000000000', 'pagespeed', '2026-11-02') = '{"v": 2}'::jsonb, 'T34b the row holds the newer data';
+  assert service.metrics_get('aaaaaaaa-0000-0000-0000-000000000000', 'pagespeed', '2026-11-03') is null, 'T34b a day with no row answers null';
+  assert service.metrics_get('bbbbbbbb-0000-0000-0000-000000000000', 'pagespeed', '2026-11-02') is null, 'T34b another workspace has no such row';
+  assert service.metrics_last_day('aaaaaaaa-0000-0000-0000-000000000000', 'pagespeed') = '2026-11-02', 'T34b the newest day of a source';
+  assert service.metrics_last_day('bbbbbbbb-0000-0000-0000-000000000000', 'pagespeed') is null, 'T34b no day for a workspace with no row';
+end $$;
+select test.expect_error($q$select service.metrics_put('aaaaaaaa-0000-0000-0000-000000000000', 'uptime', '2026-11-02', '{}')$q$, 'S-SOURCE');
+select test.expect_error($q$select service.metrics_put('aaaaaaaa-0000-0000-0000-000000000000', 'crux', '2026-11-02', '{}')$q$, 'S-SOURCE');
+select test.expect_error($q$select service.metrics_put('aaaaaaaa-0000-0000-0000-000000000000', null, '2026-11-02', '{}')$q$, 'S-SOURCE');
+select test.expect_error($q$select service.metrics_put('aaaaaaaa-0000-0000-0000-000000000000', 'bing', '2026-11-02', '[]')$q$, 'S-BODY');
+select test.expect_error($q$select service.metrics_put('aaaaaaaa-0000-0000-0000-000000000000', 'bing', '2026-11-02', null)$q$, 'S-BODY');
+select test.expect_error($q$select service.metrics_put('aaaaaaaa-0000-0000-0000-000000000000', 'bing', null, '{}')$q$, 'S-BODY');
+select test.expect_error($q$select service.metrics_put('aaaaaaaa-0000-0000-0000-000000000000', 'bing', '2026-11-02', jsonb_build_object('x', repeat('a', 262200)))$q$, 'S-SIZE');
+select test.expect_error($q$select service.metrics_put('99999999-9999-4999-8999-999999999999', 'bing', '2026-11-02', '{}')$q$, 'S-NOT-FOUND');
+-- (c) the targets: one site per workspace, a live one before a preview one, a workspace that is not trial or active is left out
+do $$ begin
+  assert (select count(*) from service.metrics_targets() where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 1, 'T34c one target for a workspace with several sites';
+  assert (select site_state from service.metrics_targets() where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 'preview', 'T34c a workspace with only preview sites is measured on a preview one';
+  update public.sites set state = 'live', domain = 't32-live.example.test' where id = 'aaaaaaaa-0000-0000-0000-0000000052e2';
+  assert (select site_id from service.metrics_targets() where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 'aaaaaaaa-0000-0000-0000-0000000052e2'
+    and (select domain from service.metrics_targets() where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 't32-live.example.test', 'T34c a live site is measured before an older preview one';
+  update public.sites set state = 'paused' where id = 'aaaaaaaa-0000-0000-0000-0000000052e2';
+  assert (select site_state from service.metrics_targets() where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 'preview', 'T34c a paused site is never measured';
+  update public.sites set state = 'live' where id = 'aaaaaaaa-0000-0000-0000-0000000052e2';
+  assert (select count(*) from service.metrics_targets() where workspace_id = 'bbbbbbbb-0000-0000-0000-000000000000') = 1, 'T34c B has a target while active';
+  update public.workspaces set state = 'suspended' where id = 'bbbbbbbb-0000-0000-0000-000000000000';
+  assert (select count(*) from service.metrics_targets() where workspace_id = 'bbbbbbbb-0000-0000-0000-000000000000') = 0, 'T34c a suspended workspace is not measured';
+  update public.workspaces set state = 'active' where id = 'bbbbbbbb-0000-0000-0000-000000000000';
+  insert into public.workspaces (id, slug, name, industry) values ('cccccccc-0000-0000-0000-000000000032', 't32-paused-only', 'T34 paused only', 'real-estate');
+  insert into public.sites (workspace_id, deploy_target, preview_host, state) values ('cccccccc-0000-0000-0000-000000000032', 't32-paused-only', 't32-paused.preview.test', 'paused');
+  assert (select count(*) from service.metrics_targets() where workspace_id = 'cccccccc-0000-0000-0000-000000000032') = 0, 'T34c a workspace whose only site is paused is not measured';
+end $$;
+-- (d) the facts of the site of a publish job (for the sitemap step): a live site says so with its domain; a missing job and an unmeasured workspace answer null
+with j as (insert into public.publish_jobs (workspace_id, site_id, requested_by, rows, requested, state)
+  values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000052e2', '00000000-0000-0000-0000-00000000000a', '{}', '{}', 'deploying') returning id)
+  insert into test.ids select 'm32job', id from j;
+do $$ begin
+  assert service.metrics_target_for_job(test.id('m32job')) ->> 'site_state' = 'live' and service.metrics_target_for_job(test.id('m32job')) ->> 'domain' = 't32-live.example.test'
+    and service.metrics_target_for_job(test.id('m32job')) ->> 'workspace_id' = 'aaaaaaaa-0000-0000-0000-000000000000', 'T34d the job''s site, its state and its domain';
+  assert service.metrics_target_for_job('99999999-9999-4999-8999-999999999999') is null, 'T34d no job, no answer';
+  update public.workspaces set state = 'offboarding' where id = 'aaaaaaaa-0000-0000-0000-000000000000';
+  assert service.metrics_target_for_job(test.id('m32job')) is null, 'T34d a workspace that is offboarding is not measured';
+  update public.workspaces set state = 'active' where id = 'aaaaaaaa-0000-0000-0000-000000000000';
+end $$;
+-- (e) the daily job: two calls per measured workspace (the quick one and the slow PageSpeed one); with no pg_net, Vault entry or pgcrypto it sends nothing
+do $$ begin
+  assert (select array_agg(path order by path) from service.metrics_calls() where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000')
+    = array['/metrics-pull?workspace=aaaaaaaa-0000-0000-0000-000000000000', '/metrics-pull?workspace=aaaaaaaa-0000-0000-0000-000000000000&source=pagespeed'], 'T34e two calls for a workspace, by path';
+  assert (select count(*) from service.metrics_calls()) = 2 * (select count(*) from service.metrics_targets()), 'T34e two calls for each target';
+  assert service.metrics_pull_all() = 0, 'T34e without pg_net the daily job sends nothing';
+end $$;
+-- (f) the walls: the owner and a member of A read A's rows, B's owner and a login of nothing read none; nobody who is signed in writes
+set role authenticated;
+do $$ declare n int; begin
+  perform test.act_as('00000000-0000-0000-0000-00000000000a');
+  select count(*) into n from public.metrics_snapshots where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and source = 'bing'; assert n = 1, 'T34f the owner of A reads A''s bing row';
+  perform test.act_as('00000000-0000-0000-0000-0000000000a1');
+  select count(*) into n from public.metrics_snapshots where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and source = 'bing'; assert n = 1, 'T34f a member of A reads it too';
+  perform test.act_as('00000000-0000-0000-0000-00000000000b');
+  select count(*) into n from public.metrics_snapshots where source in ('bing', 'pagespeed'); assert n = 0, 'T34f the owner of B reads none of A''s rows';
+  perform test.act_as('00000000-0000-0000-0000-00000000000e');
+  select count(*) into n from public.metrics_snapshots; assert n = 0, 'T34f a login of nothing reads none';
+end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.expect_error($q$insert into public.metrics_snapshots (workspace_id, source, day, data) values ('aaaaaaaa-0000-0000-0000-000000000000', 'bing', '2026-11-09', '{}')$q$, 'permission denied');
+select test.expect_error($q$update public.metrics_snapshots set data = '{"x":1}' where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000'$q$, 'permission denied');
+select test.expect_error($q$select service.metrics_put('aaaaaaaa-0000-0000-0000-000000000000', 'bing', '2026-11-09', '{}')$q$, 'permission denied');
+select test.expect_error($q$select * from service.metrics_targets()$q$, 'permission denied');
+select test.expect_error($q$select service.metrics_pull_all()$q$, 'permission denied');
+reset role;
+do $$ declare n int; begin
+  select count(*) into n from public.metrics_snapshots where day = '2026-11-09'; assert n = 0, 'T34f a signed-in owner wrote nothing';
+end $$;
+set role anon;
+select test.act_as(null);
+select test.expect_error($q$select service.metrics_put('aaaaaaaa-0000-0000-0000-000000000000', 'bing', '2026-11-09', '{}')$q$, 'permission denied');
+select test.expect_error($q$select * from service.metrics_calls()$q$, 'permission denied');
+reset role;
+-- (g) the seven functions: closed to anon, authenticated and PUBLIC; definers with an empty search_path; the function role has the five it needs and neither cron function
+do $$ declare f text; begin
+  foreach f in array array['service.metrics_targets()', 'service.metrics_target_for_job(uuid)', 'service.metrics_put(uuid,text,date,jsonb)', 'service.metrics_get(uuid,text,date)', 'service.metrics_last_day(uuid,text)', 'service.metrics_calls()', 'service.metrics_pull_all()'] loop
+    assert not has_function_privilege('anon', f, 'execute') and not has_function_privilege('authenticated', f, 'execute') and not exists (select 1 from aclexplode((select proacl from pg_proc where oid = f::regprocedure)) a where a.grantee = 0), f || ' is closed to anon, authenticated and PUBLIC';
+    assert (select prosecdef from pg_proc where oid = f::regprocedure) and (select proconfig from pg_proc where oid = f::regprocedure) = array['search_path=""'], f || ' is a definer function with an empty search_path';
+  end loop;
+  foreach f in array array['service.metrics_targets()', 'service.metrics_target_for_job(uuid)', 'service.metrics_put(uuid,text,date,jsonb)', 'service.metrics_get(uuid,text,date)', 'service.metrics_last_day(uuid,text)'] loop
+    assert has_function_privilege('omnikom_fn', f, 'execute'), f || ' is open to the function role';
+  end loop;
+  assert not has_function_privilege('omnikom_fn', 'service.metrics_pull_all()', 'execute') and not has_function_privilege('omnikom_fn', 'service.metrics_calls()', 'execute'), 'the function role cannot run the daily job';
+  assert not has_function_privilege('service_role', 'service.metrics_pull_all()', 'execute') and not has_function_privilege('service_role', 'service.metrics_calls()', 'execute'), 'nor can service_role';
+end $$;
 
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

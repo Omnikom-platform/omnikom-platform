@@ -296,6 +296,31 @@ const MUTANTS = [
   ['crm20 lead-export: the duplicates tick is not passed to the list', F + 'lead-export/index.ts', 'if (d.duplicates !== undefined) q.duplicates = d.duplicates;', '', 'export.test.ts'],
   ['crm20 lead-export: a tick that is not true or false is not refused here', F + 'lead-export/index.ts', "if (d[k] !== undefined && typeof d[k] !== 'boolean') f.problems.push({ code: 'TYPE', path: k, msg: 'True or false.' });", '', 'export.test.ts'],
   ['crm20 lead-export: the new filter reads the old status', F + 'lead-export/index.ts', "tx`and l.status = 'not-contacted'`", "tx`and l.status = 'new'`", 'export.test.ts'],
+
+  // work order 44 (migration 27): the metrics functions and job-callback's sitemap step (each must turn metrics.test.ts red). Run only these: --only "metrics"
+  ['metrics: the cron key is read from the runner key\'s variable', F + '_shared/runner.ts', "const keyEnv = o.keyEnv ?? 'RUNNER_KEY';", "const keyEnv = 'RUNNER_KEY';", 'metrics.test.ts'],
+  ['metrics: the cron signature is read from the runner header', F + '_shared/runner.ts', "req.headers.get(o.header ?? 'x-runner-signature')", "req.headers.get('x-runner-signature')", 'metrics.test.ts'],
+  ['metrics: a bad cron signature is recorded as a runner event', F + '_shared/runner.ts', "kind: o.keyEnv ? 'cron' : 'runner'", "kind: 'runner'", 'metrics.test.ts'],
+  ['metrics: metrics-pull takes any source', F + 'metrics-pull/index.ts', "    if (only !== null && only !== 'pagespeed') return problem(400, 'BODY', 'source is pagespeed, or leave it out.');\n", '', 'metrics.test.ts'],
+  ['metrics: metrics-pull pulls a workspace that is not a target', F + 'metrics-pull/index.ts', 'select * from service.metrics_targets() where workspace_id = ${c.id}::uuid`', 'select * from service.metrics_targets() limit 1`', 'metrics.test.ts'],
+  ['metrics: Bing is asked about a preview site', F + 'metrics-pull/index.ts', "site: t.site_state === 'live' && t.domain ? `https://${t.domain}/` : undefined, indexnow", 'site: `https://${t.domain ?? t.host}/`, indexnow', 'metrics.test.ts'],
+  ['metrics: the day\'s IndexNow list is dropped when the bing row is rebuilt', F + 'metrics-pull/index.ts', 'const indexnow = Array.isArray(d?.indexnow) ? d.indexnow : [];', 'const indexnow: unknown[] = [];', 'metrics.test.ts'],
+  ['metrics: PageSpeed runs every day', F + 'metrics-pull/index.ts', 'if (!pagespeedDue(last, d, day))', 'if (false)', 'metrics.test.ts'],
+  ['metrics: the sitemap is read without a PSI key', F + 'metrics-pull/index.ts', 'if (keys.PSI_API_KEY) {   // the one polite request', 'if (true) {   // the one polite request', 'metrics.test.ts'],
+  ['metrics: every page of the sitemap is measured, not five', F + 'metrics-pull/index.ts', 'urls = pickPages(sitemapLocs(await r.text(), new URL(origin).host), origin);', 'urls = sitemapLocs(await r.text(), new URL(origin).host);', 'metrics.test.ts'],
+  ['metrics: a live site is measured at its preview host', F + '_shared/metrics.ts', "const h = t.site_state === 'live' && t.domain ? t.domain : t.host;", 'const h = t.host;', 'metrics.test.ts'],
+  ['metrics: sitemapLocs keeps addresses of other hosts', F + '_shared/metrics.ts', "&& p.host === host && !out.includes(u)", '&& !out.includes(u)', 'metrics.test.ts'],
+  ['metrics: sitemapLocs does not decode &amp;', F + '_shared/metrics.ts', ".replace(/&amp;/g, '&')", '', 'metrics.test.ts'],
+  ['metrics: pickPages takes every page of a section', F + '_shared/metrics.ts', 'if (seen.has(section) || u === home) continue;', 'if (u === home) continue;', 'metrics.test.ts'],
+  ['metrics: pagespeedDue ignores a BLOCKED last row', F + '_shared/metrics.ts', 'if (lastData && lastData.blocked) return true;\n', '', 'metrics.test.ts'],
+  ['metrics: pagespeedDue after six days', F + '_shared/metrics.ts', 'return dayNumber(day) - dayNumber(lastDay) >= 7;', 'return dayNumber(day) - dayNumber(lastDay) >= 6;', 'metrics.test.ts'],
+  ['metrics: a preview site is submitted', F + '_shared/sitemap.ts', "if (t.site_state !== 'live' || !t.domain) return", 'if (false) return', 'metrics.test.ts'],
+  ['metrics: IndexNow is pinged with no key file', F + '_shared/sitemap.ts', 'const k = deps.indexNow?.(target) ?? null;', "const k = deps.indexNow?.(target) ?? { key: 'k', keyLocation: `${origin}/k.txt` };", 'metrics.test.ts'],
+  ['metrics: the ping is not recorded', F + '_shared/sitemap.ts', "  await sql`select service.metrics_put(${target.workspace_id}::uuid, 'bing', ${day}::date, ${row.data}::jsonb)`;\n", '', 'metrics.test.ts'],
+  ['metrics: a second ping replaces the day\'s list', F + '_shared/sitemap.ts', 'appendIndexNow(d ? { workspace_id: target.workspace_id, source: \'bing\', day, data: d } : null,', 'appendIndexNow(null,', 'metrics.test.ts'],
+  ['metrics: job-callback submits the sitemap for a preview job', F + 'job-callback/index.ts', "(report?.audit as { target?: unknown } | undefined)?.target === 'production'", 'true', 'metrics.test.ts'],
+  ['metrics: job-callback submits the sitemap on a failed job', F + 'job-callback/index.ts', "if (state === 'done' && (report?.audit", 'if ((report?.audit', 'metrics.test.ts'],
+  ['metrics: a failed sitemap step fails the callback', F + 'job-callback/index.ts', "try { await submitForJob(c.sql, job, deps); } catch (e) { console.error('job-callback: the sitemap was not submitted', String(e).slice(0, 200)); }", 'await submitForJob(c.sql, job, deps);', 'metrics.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;

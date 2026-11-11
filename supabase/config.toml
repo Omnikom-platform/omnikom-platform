@@ -28,13 +28,12 @@ verify_jwt = false           # site Worker: verifies X-Site-Signature (HMAC with
 [functions.push-lead]
 verify_jwt = false           # pg_cron / queue: verifies the internal cron secret header in code
 
-# planned: M6 (05-BUILD-PLAN.md milestone M6 Leads + metrics; 02-BACKEND.md section 6; no work order names it yet)
+# Work order 44 (2026-11-11): the daily metrics pull and the sitemap submit. Machine calls: each verifies X-Cron-Signature (HMAC with CRON_KEY) in code.
 [functions.metrics-pull]
-verify_jwt = false           # pg_cron: verifies the internal cron secret header in code; one workspace per call
+verify_jwt = false           # pg_cron through pg_net (service.metrics_pull_all): verifies X-Cron-Signature in code; one workspace per call
 
-# planned: M6 (02-BACKEND.md section 6: called by job-callback on done for a live site; no work order names it yet)
 [functions.sitemap-submit]
-verify_jwt = false           # job-callback (internal): verifies the internal secret header in code
+verify_jwt = false           # head or cron: verifies X-Cron-Signature in code (job-callback runs the same code itself on done of a production job)
 
 [functions.media-process-callback]
 verify_jwt = false           # media processor (runner): verifies X-Runner-Signature in code

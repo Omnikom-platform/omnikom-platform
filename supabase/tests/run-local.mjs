@@ -830,6 +830,32 @@ const MUTANTS = [
   ['erasure 26: files are listed in any state', "  if w.state <> 'offboarding' then raise exception 'S-WORKSPACE-STATE: % is %: only an offboarding workspace''s files are listed for deletion', w.slug, w.state; end if;", '  null;'],
   ['erasure 26: deleted with files still in Storage', "    if n > 0 then raise exception 'S-WORKSPACE-STORAGE: % file(s) of the workspace are still in Storage', n; end if;", '    null;'],
   ['erasure 26: deleted with keys not revoked', "    if n > 0 then raise exception 'S-WORKSPACE-KEYS: % key(s) of the workspace are not revoked', n; end if;", '    null;'],
+
+  // ---- work order 44 (migration 27): the metrics sources, the function role's access, the daily job; tests in tenancy.test.sql T34 and T25 ----
+  ['metrics27: bing is not an allowed source', "'search-console', 'pagespeed', 'bing', 'ai-answers', 'uptime')) not valid", "'search-console', 'pagespeed', 'ai-answers', 'uptime')) not valid"],
+  ['metrics27: the old source check stays', 'alter table public.metrics_snapshots drop constraint metrics_snapshots_source_check;', '-- (old check kept)'],
+  ['metrics27: the new source check is never validated', 'alter table public.metrics_snapshots validate constraint metrics_snapshots_source_ok;', '-- (not validated)'],
+  ['metrics27: metrics_put takes any source', "  if p_source is null or p_source not in ('search-console', 'pagespeed', 'bing', 'ai-answers') then raise exception 'S-SOURCE: not a metrics source'; end if;\n", ''],
+  ['metrics27: metrics_put takes data that is not an object', "if p_day is null or p_data is null or jsonb_typeof(p_data) <> 'object' then", 'if p_day is null or p_data is null then'],
+  ['metrics27: metrics_put has no size cap', "  if length(p_data::text) > 262144 then raise exception 'S-SIZE: a metrics row is at most 256 KiB'; end if;\n", ''],
+  ['metrics27: metrics_put takes a workspace that does not exist', "  if not exists (select 1 from public.workspaces w where w.id = p_workspace) then raise exception 'S-NOT-FOUND: not found'; end if;\n", ''],
+  ['metrics27: metrics_put keeps the first row, not the newest', 'on conflict (workspace_id, source, day) do update set data = excluded.data;', 'on conflict (workspace_id, source, day) do nothing;'],
+  ['metrics27: metrics_targets measures a workspace in any state', "where w.state in ('trial', 'active') and s.state in ('live', 'preview')", "where s.state in ('live', 'preview')"],
+  ['metrics27: metrics_targets measures a paused site', "and s.state in ('live', 'preview')\n  order by", "and s.state in ('live', 'preview', 'paused')\n  order by"],
+  ['metrics27: metrics_targets prefers a preview site to a live one', "(s.state = 'live') desc", "(s.state = 'live') asc"],
+  ['metrics27: metrics_targets gives every site of a workspace', 'select distinct on (s.workspace_id) s.workspace_id,', 'select s.workspace_id,'],
+  ['metrics27: metrics_target_for_job answers for a workspace in any state', 'where j.id = p_job and w.state in (\'trial\', \'active\') $$;', 'where j.id = p_job $$;'],
+  ['metrics27: metrics_calls has no PageSpeed call', ", ('/metrics-pull?workspace=' || t.workspace_id::text || '&source=pagespeed')", ''],
+  ...['metrics_targets()', 'metrics_target_for_job(uuid)', 'metrics_put(uuid, text, date, jsonb)', 'metrics_get(uuid, text, date)', 'metrics_last_day(uuid, text)', 'metrics_calls()', 'metrics_pull_all()'].map(sig =>
+    [`metrics27: migration 27 opens service.${sig.split('(')[0]} to anon, authenticated, PUBLIC (both layers)`, [['alter default privileges revoke execute on functions from public;', '-- (PUBLIC keeps EXECUTE on new functions)'], [`revoke all on function service.${sig} from public, anon, authenticated;`, '-- (revoke removed)']]]),
+  ...['metrics_targets()', 'metrics_target_for_job(uuid)', 'metrics_put(uuid, text, date, jsonb)', 'metrics_get(uuid, text, date)', 'metrics_last_day(uuid, text)'].map(sig =>
+    [`metrics27: migration 27 does not open service.${sig.split('(')[0]} to the function role (both layers)`, [['alter default privileges in schema service grant execute on functions to service_role, omnikom_fn;', '-- (no default grant)'], [`grant execute on function service.${sig} to service_role, omnikom_fn;`, '-- (grant removed)']]]),
+  ['metrics27: service.metrics_calls stays open to the function role', 'revoke all on function service.metrics_calls() from omnikom_fn, service_role;', '-- (default grant kept)'],
+  ['metrics27: service.metrics_pull_all stays open to the function role', 'revoke all on function service.metrics_pull_all() from omnikom_fn, service_role;', '-- (default grant kept)'],
+  ['metrics27: service.metrics_put does not pin the search_path', "create function service.metrics_put(p_workspace uuid, p_source text, p_day date, p_data jsonb) returns void language plpgsql security definer set search_path = '' as $$", 'create function service.metrics_put(p_workspace uuid, p_source text, p_day date, p_data jsonb) returns void language plpgsql security definer as $$'],
+  ['metrics27: service.metrics_pull_all does not pin the search_path', "create function service.metrics_pull_all() returns int language plpgsql security definer set search_path = '' as $$", 'create function service.metrics_pull_all() returns int language plpgsql security definer as $$'],
+  ['metrics27: the daily schedule is removed', "    perform cron.schedule('metrics-pull-daily', '30 3 * * *', 'select service.metrics_pull_all()');", '    null;'],
+  ['metrics27: the daily schedule runs at another time', "'30 3 * * *', 'select service.metrics_pull_all()'", "'30 4 * * *', 'select service.metrics_pull_all()'"],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

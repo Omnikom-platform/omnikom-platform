@@ -35,11 +35,11 @@
     "name": "X-Site-Signature",
     "description": "That site's own signing key. Header value t=<unix seconds>,v1=<hex HMAC-SHA256 of \"t\\nMETHOD\\npath?query\\nbody\">, accepted for 300 s (supabase/functions/_shared/signature.ts); checked in code (verify_jwt = false)"
    },
-   "cronSecret": {
+   "cronSignature": {
     "type": "apiKey",
     "in": "header",
-    "name": "X-Internal-Secret",
-    "description": "internal cron secret read from Vault by pg_cron; checked in code (verify_jwt = false)"
+    "name": "X-Cron-Signature",
+    "description": "The cron key (function secret CRON_KEY; the same value is in Vault as metrics_cron_key for pg_cron). Header value t=<unix seconds>,v1=<hex HMAC-SHA256 of \"t\\nMETHOD\\npath?query\\nbody\">, accepted for 300 s (supabase/functions/_shared/signature.ts); checked in code (verify_jwt = false). Work order 44 replaced the X-Internal-Secret header of the first plan with this one signature scheme"
    }
   },
   "schemas": {
@@ -2745,10 +2745,11 @@
   "/metrics-pull": {
    "post": {
     "operationId": "metricsPull",
-    "summary": "Pull Search Console + PSI for ONE workspace (one queue message per call; finishes under the 150 s idle timeout)",
+    "summary": "Pull one workspace's search numbers into metrics_snapshots (pg_cron, 03:30 UTC, two calls per workspace; work order 44)",
+    "description": "Body {}. The site measured is the workspace's live site, else its oldest preview one. Without `source`: search-console (always a BLOCKED row until a property is verified) and bing. With source=pagespeed: PageSpeed on five pages plus CrUX, weekly (a call on a day it is not due answers `skipped`). A source that cannot be read is a BLOCKED row (data.blocked), never a guess; one that throws is under `failed` and writes no row. 502 when nothing was written and something failed. 404 for a workspace that is not trial or active.",
     "security": [
      {
-      "cronSecret": []
+      "cronSignature": []
      }
     ],
     "parameters": [
@@ -2760,18 +2761,78 @@
        "type": "string",
        "format": "uuid"
       }
+     },
+     {
+      "name": "source",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "enum": [
+        "pagespeed"
+       ]
+      }
      }
     ],
     "responses": {
-     "204": {
-      "description": "snapshot stored"
+     "200": {
+      "description": "{ workspace, day, site: { id, state, origin }, written: [{ source, blocked }], skipped: [text], failed: [{ source, error }], notes: [text] }"
+     },
+     "400": {
+      "$ref": "#/components/responses/Invalid"
      },
      "401": {
       "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "$ref": "#/components/responses/NotFound"
+     },
+     "502": {
+      "description": "UPSTREAM: nothing could be written",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
      }
     }
-   },
-   "x-planned": "M6 (05-BUILD-PLAN.md milestone M6 Leads + metrics; 02-BACKEND.md section 6; no work order names it yet)"
+   }
+  },
+  "/sitemap-submit": {
+   "post": {
+    "operationId": "sitemapSubmit",
+    "summary": "Tell the search engines a live site's sitemap changed (job-callback runs the same code on done of a production job; work order 44)",
+    "description": "Body {}. For the site of the job: Search Console submit (BLOCKED until a property is verified) and an IndexNow ping of the sitemap's addresses, sent only when the site hosts a key file (none does yet, work order 45), appended to the day's bing row. { skipped } for a site that is not live; 404 for a job that does not exist.",
+    "security": [
+     {
+      "cronSignature": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "job",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "{ skipped } or { sitemap, searchConsole: { ok, status?, blocked? }, indexnow: { sent, reason?, status?, urls? } }"
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "$ref": "#/components/responses/NotFound"
+     }
+    }
+   }
   },
   "/unpublish": {
    "post": {

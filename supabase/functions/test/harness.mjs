@@ -41,6 +41,7 @@ create function vault.update_secret(secret_id uuid, new_secret text default null
   $f$ update vault.secrets set secret = coalesce(new_secret, secret), name = coalesce(new_name, name), description = coalesce(new_description, description), updated_at = now() where id = secret_id $f$;
 `;
 export const RUNNER_KEY = 'test-runner-key-not-a-secret';
+export const CRON_KEY = 'test-cron-key-not-a-secret';
 
 export async function startHarness() {
   sweep();
@@ -168,7 +169,7 @@ export async function startHarness() {
         return {
           SUPABASE_DB_URL: `postgres://postgres@127.0.0.1:${PORT}/${db}`,
           SUPABASE_URL: base, JWKS_URL: `${base}/auth/v1/.well-known/jwks.json`,
-          SUPABASE_SECRET_KEY: SECRET, SUPABASE_SERVICE_ROLE_KEY: SECRET, RUNNER_KEY, GITHUB_DISPATCH_TOKEN: SECRET, GITHUB_REPO: 'test/test', GITHUB_API_BASE: base,
+          SUPABASE_SECRET_KEY: SECRET, SUPABASE_SERVICE_ROLE_KEY: SECRET, RUNNER_KEY, CRON_KEY, GITHUB_DISPATCH_TOKEN: SECRET, GITHUB_REPO: 'test/test', GITHUB_API_BASE: base,
           TEST_JWK_PRIVATE: JSON.stringify(priv), TEST_FAKE_BASE: base, TEST_DB_URL: `postgres://postgres@127.0.0.1:${PORT}/${db}`,
           DASHBOARD_ORIGINS: 'http://localhost:5173,http://localhost:5174,https://app.test-origin.example', NO_COLOR: '1',
         };

@@ -14,7 +14,8 @@ import { connect, ConfigError, refusal, type Sql } from './db.ts';
 import { MAX_BODY, UUID, problem, sha256Hex } from './http.ts';
 
 export type RunnerCtx = { sql: Sql; fn: string; id: string | null; body: Record<string, unknown> };
-export type RunnerOpts = { fn: string; method: 'GET' | 'POST'; idParam?: string };
+// keyEnv and header name another machine caller that signs the same way (the daily cron, work order 44: CRON_KEY, X-Cron-Signature); the default is the build runner.
+export type RunnerOpts = { fn: string; method: 'GET' | 'POST'; idParam?: string; keyEnv?: string; header?: string };
 
 /** The signed path: "/export-published?job=<id>". The gateway may present the function URL with or without /functions/v1. */
 export function pathForSignature(u: URL): string {
@@ -41,21 +42,22 @@ export async function runner(req: Request, o: RunnerOpts, run: (c: RunnerCtx) =>
   }
   const text = o.method === 'POST' ? await req.text() : '';
   if (text.length > MAX_BODY) return problem(413, 'SIZE', 'This request is too large.');
-  const key = Deno.env.get('RUNNER_KEY');
-  if (!key) { console.error(o.fn, 'RUNNER_KEY is not set'); return problem(500, 'CONFIG', 'Not configured.'); }
+  const keyEnv = o.keyEnv ?? 'RUNNER_KEY';
+  const key = Deno.env.get(keyEnv);
+  if (!key) { console.error(o.fn, `${keyEnv} is not set`); return problem(500, 'CONFIG', 'Not configured.'); }
   const signedBody = o.method === 'GET' ? '' : text;
-  const signed = await verify(req.headers.get('x-runner-signature'), key, o.method, pathForSignature(url), signedBody);
+  const signed = await verify(req.headers.get(o.header ?? 'x-runner-signature'), key, o.method, pathForSignature(url), signedBody);
   let sql: Sql | null = null;
   try {
     sql = await connect();
     if (!signed) {
       const ip = req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '';
       const ipHash = ip ? await sha256Hex(`${o.fn}:${ip}`) : null;
-      try { await sql`select service.record_security_event('bad-signature', 'SIGNATURE', null, null, null, ${ipHash}, ${{ fn: o.fn, kind: 'runner' }}::jsonb)`; }
+      try { await sql`select service.record_security_event('bad-signature', 'SIGNATURE', null, null, null, ${ipHash}, ${{ fn: o.fn, kind: o.keyEnv ? 'cron' : 'runner' }}::jsonb)`; }
       catch (e) { console.error('security event not recorded', String(e).slice(0, 200)); }
       return problem(401, 'SIGNATURE', 'Not accepted.');
     }
-    await touchKey(sql, key);
+    if (!o.keyEnv) await touchKey(sql, key);   // the registry row is the runner key's; the cron key has none
     let body: Record<string, unknown> = {};
     if (o.method === 'POST') {
       let parsed: unknown;
