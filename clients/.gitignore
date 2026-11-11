@@ -1,0 +1,4 @@
+# Person-level facts about a client's people (names of individuals from public records or the client's own pages) stay on this
+# machine: this repository is public (head of operations ruling 2026-11-11 02:01). clients/check.mjs fails when this rule is missing,
+# when a file under a private/ folder is tracked, or when a name listed in a private/people.md appears in any other file here.
+*/private/

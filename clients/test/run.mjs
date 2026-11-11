@@ -47,6 +47,21 @@ try {
   edit(d, join('elev8', 'status.md'), '# ELEV8 Real Estate Group: status', '# ELEV8 Real Estate Group — status');
   r = run(d);
   check('mutant: an em dash fails', r.status === 1 && /status\.md: contains an em dash/.test(r.out), r.out);
+
+  // private individuals (head of operations ruling 2026-11-11): the ignore rule, and a listed name leaking into a record file
+  d = fresh(); dirs.push(d);
+  writeFileSync(join(d, '.gitignore'), '# the rule removed\n');
+  r = run(d);
+  check('mutant: clients/.gitignore without */private/ fails', r.status === 1 && /\.gitignore: must hold the line \*\/private\//.test(r.out), r.out);
+
+  d = fresh(); dirs.push(d);
+  mkdirSync(join(d, 'elev8', 'private'), { recursive: true });
+  writeFileSync(join(d, 'elev8', 'private', 'people.md'), '# test\n\n## Names\n- Testperson Zyx\n\n## Facts\n| Person | Role |\n|---|---|\n| Testperson Zyx | test |\n');
+  r = run(d);
+  check('a name kept only in private/people.md passes', r.status === 0, r.out);
+  edit(d, join('elev8', 'status.md'), '# ELEV8 Real Estate Group: status', '# ELEV8 Real Estate Group: status (testperson zyx)');
+  r = run(d);
+  check('mutant: a private name in a record file fails (any case)', r.status === 1 && /elev8[\\/]status\.md: names a person listed in elev8\/private\/people\.md/.test(r.out), r.out);
 } finally {
   for (const d of dirs) rmSync(d, { recursive: true, force: true });
 }

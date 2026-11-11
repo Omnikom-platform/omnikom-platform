@@ -8,7 +8,8 @@ client stands today and what waits on whom). The client's project folder outside
 this folder holds the record. Nobody writes into a project folder from here.
 
 Check: `node clients/check.mjs` (every client folder complete, every slug listed below with a status line, every facts row
-sourced, no em dash). Tests and mutants: `node clients/test/run.mjs`.
+sourced, no em dash, no private individual's name: those live only in the git-ignored `clients/<slug>/private/people.md`, whose
+"## Names" list the check searches every other file for). Tests and mutants: `node clients/test/run.mjs`.
 
 ## Clients
 | Slug | Client | Industry | Status (one line, kept current in `status.md`) |
