@@ -241,7 +241,7 @@ const MUTANTS = [
   ['crm3b http: an instant may carry an offset of any hours', F + '_shared/http.ts', '(?:Z|[+-](?:0\\d|1[0-5]):', '(?:Z|[+-]\\d{2}:', 'instant.test.ts'],
   ['crm3b http: an instant may have 60 minutes or more', F + '_shared/http.ts', 'mi < 60 && s < 60', 's < 60', 'instant.test.ts'],
   ['crm3b http: an instant may have 60 seconds or more', F + '_shared/http.ts', 'mi < 60 && s < 60', 'mi < 60', 'instant.test.ts'],
-  ['crm3b db: the words of an I-ANSWER may not name a key with an underscore', F + '_shared/db.ts', "([A-Za-z0-9_ ().,'\\-]{1,160}?)", "([A-Za-z0-9 ().,'\\-]{1,160}?)", 'crm3b.test.ts'],
+  ['crm3b db: the words of an I-ANSWER may not name a key with an underscore', F + '_shared/db.ts', "([A-Za-z0-9_ ().,;'\\-]{1,160}?)", "([A-Za-z0-9 ().,;'\\-]{1,160}?)", 'crm3b.test.ts'],
   ['crm3b http: Fields.instant lets a number through', F + '_shared/http.ts', "if (typeof v !== 'string' || !isInstant(v)) return this.bad('TYPE', k, 'A date and time", "if (typeof v === 'string' && !isInstant(v)) return this.bad('TYPE', k, 'A date and time", 'crm3b.test.ts'],
   // refusal(): the migration 12 input codes and the last owner
   ['db: I-EMAIL is not mapped', F + '_shared/db.ts', "  if (has('I-EMAIL')) return { status: 422, code: 'I-EMAIL', kind: null, msg: 'An email address is not valid, or there are more than ten.' };\n", '', 'db.test.ts'],
