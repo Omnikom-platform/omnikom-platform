@@ -70,5 +70,15 @@ OK: the patched router shows the error screen, the unpatched one shows the route
 The 14 px, h1 and Poppins checks are those of `apps/dashboard/tests/styles.spec.ts` (platform's ask). Honest note: the first three runs of this script were red on my own control assertion (the router's
 screen hides its text behind "Show Error", and the control page carries the toast container `DP-1.2s-08`); the patched checks were green in all four runs, and only the control checks changed.
 
+## Staging deploy log (`omnikom-app-staging`, SHARED with platform: its flows ran on it about 04:30 on 2026-11-11)
+Rule from the head of operations (via the head, 2026-11-11 05:16): after the enforced deploy and its checks, deploy master's build back (`build-staging` from master's tree) and confirm by `curl -sI`
+that the CSP headers match master's, unless the head passes platform's OK to leave ours. Each deploy's time and build are recorded here.
+| # | Time (local) | Build | Deploy address | State |
+|---|---|---|---|---|
+| 1 | 2026-11-10 (evening; exact clock not kept, the deploy tool's output is in the session scratchpad `deploy1.out`) | this branch, `_headers` with the CSP as `Content-Security-Policy-Report-Only` | `https://655f206e.omnikom-app-staging.pages.dev` | live as of 2026-11-11 05:16 (head curled it) |
+| 2 | not yet | this branch, enforced | | NOT DONE |
+| 3 | not yet | master's tree (`build-staging`), back | | NOT DONE. Platform's OK (via the head, 2026-11-11 05:17): our report-only build may stay until deploy 2; master's build goes back when WO38 is done. Platform's own flows run LOCALLY, so nothing of theirs has exercised our headers: our runs are the only evidence about our build. |
+
 ## NOT DONE yet
-- the staging deploys, the `curl -sI` lines, the audit on a live snapshot, the flows on the deployed origin (each deploy waits for the head's yes)
+- deploy 2 (enforced), its `curl -sI`, the audit on a live snapshot, the flows on the deployed origin with 0 violations, deploy 3 (master's build back)
+- flows on the deployed origin, report-only run: 30 of 44 finished (17 ok, 1 skipped, 12 red), then killed by the wrapper's own 45-minute limit; failure text not yet read (a targeted rerun of tests 2 and 20 is queued)
