@@ -24,6 +24,7 @@ export function makeCtx({ command, positionals, flags, deps = {} }) {
     ghRepo: deps.ghRepo,       // owner/name; only a test sets it (a throwaway bare remote is not on github.com), never an environment variable
     gitSpy: deps.gitSpy,       // land: a test sees every git argument list
     stdin: deps.stdin,         // hooks pre-push: git's lines
+    seo: deps.seo,             // seo: a test hands its own skill folder (manifest and scripts) and heavy.mjs; otherwise this repository's skill folder and ~/.claude/scripts/heavy.mjs
     now: deps.now || (() => Math.floor(Date.now() / 1000)),
     randomUUID: deps.randomUUID || randomUUID,
     sleep: deps.sleep || (ms => new Promise(r => setTimeout(r, ms))),

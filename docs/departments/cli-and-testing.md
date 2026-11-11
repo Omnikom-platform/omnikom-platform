@@ -97,6 +97,11 @@ when the head of operations has released its slice.
   Export-published and job-callback (runner-facing) come with 4.3.
 - Client stand-in flows beyond leads (brief `briefs/stand-in-flows.md`; waits for slice 2 and `push-lead`): a content edit and
   publish as a member, a CRM webhook push through `tools/crm-map`, `lead day`; a booking when the add-on exists.
+- Journey J9's second lead comes from add-lead (no alert), so a run of J8 to J10 sends exactly one alert mail (head of operations 2026-11-11
+  05:47; the 05:44 run sent two, J9's second lead was a `lead send`). After WO41 lands. The test inbox is passed by --alert-to only, never
+  written to a tracked file (the repo is public).
+- WO41 follow-ups: import SEO's lib-pipeline.mjs (rules) and lib-stops.mjs (isStopped, KNOWN_ENGINES) once on master, keeping the tests as
+  the parity check; heavy.mjs giving up on the lock exits 0 having run nothing, so the step shows FAILED (no evidence) without that reason.
 - Lead type through the CLI import (finding from platform 20, A16, 2026-11-10 22:20): migration 23 lets the import template and
   `import_leads` take `lead_type`, but `tools/crm-map` drops it in `proposeMap` and `importRows`, so a client file's type column is lost
   on the CLI path. Scheduled after platform 20 lands; until then the type comes from the form (or 'enquiry').

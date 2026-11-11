@@ -28,11 +28,12 @@ import { impact, impactText } from './commands/impact.mjs';
 import { land, landText } from './commands/land.mjs';
 import { hooksGroup, hooksText } from './commands/hooks.mjs';
 import { journeyText } from './commands/journey.mjs';
+import { seoGroup, seoText } from './commands/seo.mjs';
 
-const COMMANDS = { status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate, tools: toolsGroup, ci, impact, land, hooks: hooksGroup };
+const COMMANDS = { status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate, tools: toolsGroup, ci, impact, land, hooks: hooksGroup, seo: seoGroup };
 // the commands that print text lines by default (with --json: the result object), and the ones that talk to no target
-const TEXT = { impact: impactText, land: landText, hooks: hooksText };
-const NO_TARGET = new Set(['impact', 'land', 'hooks']);
+const TEXT = { impact: impactText, land: landText, hooks: hooksText, seo: seoText };
+const NO_TARGET = new Set(['impact', 'land', 'hooks', 'seo']);
 export const USAGE = [
   'status | apply [--dry-run] | test walls | verify --only lead|walls|people | mfa enroll-staff',
   'seed test [--alert-to <email>] [--clean] | seed workspace --slug --name --industry --deploy-target --preview-host (--contract <file> | --plan <dir> --entities <file>)',
@@ -47,6 +48,8 @@ export const USAGE = [
   'land check/<department>/<slug> [--remote backup-gh] [--wait-minutes 60] [--lock-wait-minutes 30]   (waits for GitHub\'s ci run of that branch\'s commit without the land lock, refuses on any red job, then takes the lock for seconds: a master that moved is refused with "rebase", otherwise it fast-forwards master and pushes and brings this checkout\'s local master along when that is safe; no target; exit 0 landed, 1 refused, 2 usage, 3 blocked)',
   'hooks install | uninstall | status   (the pre-push hook: master takes only a commit with a green GitHub ci run, check/** branches are allowed)   |   ci --staged | --commit <sha> [--job <id>] [--install]   (ci on that exact tree, to reproduce a red GitHub job; no stamp)',
   'test journey --target staging [--only J4,J5] [--out <dir>] [--alert-to <our own email>]   (the test site end to end on staging, looked at in a browser: one line per step PASS | FAIL | BLOCKED | NOT BUILT YET | SKIPPED, then a summary; exit 0 only when no step failed; J5 and J6 send a real alert, so --alert-to is required for them; J13 runs the Settings tests and e2e-settings without SETTINGS_INVITE_EMAIL, so it sends no mail; J14 runs e2e-site-audit --job on the publish J3 made (it never publishes; no job id kept is BLOCKED); never looped)',
+  'seo run <url> --client <slug> [--only id,id] [--from id] [--module name] [--fresh] [--env-file <f>] | seo resume <url> | seo status <url>   (every mechanical step of a client SEO audit, from SEO\'s manifest skills/programmatic-enterprise-web-performance/pipeline.json; a coverage table of RUN | SKIPPED | BLOCKED | WAITING | PARTIAL | FAILED per step, from the run log {pewp}/seo-run.json; exit 0 no FAILED step, 1 a FAILED step, 2 usage or an invalid manifest; no target)',
+  'seo vantage start|status|stop [--json] [--pewp <dir>]   (SEO\'s scripts/vantage.mjs: its output and exit code unchanged; a missing script is BLOCKED, exit 3; a seo run never calls start)',
   'flags: --target staging|local|production  --as <identity>  --expect <code>  --json  --fixture <file>  --real',
 ];
 
@@ -86,6 +89,7 @@ export async function main(argv, deps = {}) {
     const first = parsed.positionals[0] || argv.find(a => !a.startsWith('--'));
     if (first === 'ci' && obj.command !== 'help' && !parsed.flags.json && !argv.includes('--json')) return { exit: obj.exit, stdout: ciText(obj, env), stderr: '' };
     if ((first === 'audit' || first === 'gate') && obj.command !== 'help' && !parsed.flags.json && !argv.includes('--json')) return { exit: obj.exit, stdout: textOutput(first, obj, env), stderr: '' };
+    if (first === 'seo' && parsed.positionals[1] === 'vantage' && obj.data && obj.data.raw) return { exit: obj.data.exit, stdout: redact(obj.data.stdout, env), stderr: redact(obj.data.stderr, env) };   // the script's own output and exit code, never the JSON object
     if (first === 'test' && parsed.positionals[1] === 'journey' && obj.data && obj.data.steps && !parsed.flags.json && !argv.includes('--json')) return { exit: obj.exit, stdout: journeyText(obj, env), stderr: '' };
     if (TEXT[first] && obj.command !== 'help' && !parsed.flags.json && !argv.includes('--json')) return { exit: obj.exit, stdout: TEXT[first](obj, env), stderr: '' };
     const lines = obj.data && Array.isArray(obj.data.lines) && obj.command === 'verify' ? obj.data.lines.map(l => redact(l, env)).join('\n') + '\n' : '';
