@@ -5,7 +5,7 @@
 ## Phase (the client lifecycle: onboarding = prospect audit, Launch Information Request, agreement, plan approval; then design, build, preview, launch, monthly service, offboarding)
 | Phase | State | Proof (file or output) | Waits on |
 |---|---|---|---|
-| Prospect audit | RUNNING (SEO and audits department, work order 40) | `clients/paragon/audit-2026-11/` once landed | SEO and audits |
+| Prospect audit | near-final, pending the owner's word (SEO and audits department, work order 40) | `clients/paragon/private/audit-2026-11/` (git-ignored, local only) | the owner |
 | Launch Information Request (the client question sheet, max 12) | NOT STARTED | none | the audit; a contact person |
 | Agreement | NOT RECORDED | none | Dave and the client |
 | Plan approval | NOT STARTED | none | the audit and the agreement |

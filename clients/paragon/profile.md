@@ -37,7 +37,7 @@ the `reach` text reader got no text from it), navigation and page reads only.
 ## Where things are
 | What | Path |
 |---|---|
-| Audit (report, evidence) | `clients/paragon/audit-2026-11/` (SEO and audits department, work order 40; raw data outside git in the skill's `site-checks/`) |
+| Audit (report, evidence) | `clients/paragon/private/audit-2026-11/` (SEO and audits department, work order 40; git-ignored, local only, by the head of operations' ruling 2026-11-11; raw data outside git in the skill's `site-checks/`) |
 | Facts and research | `clients/paragon/facts.md` |
 | Approved plan | none yet |
 | Draft site | none yet |
