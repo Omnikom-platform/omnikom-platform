@@ -70,6 +70,11 @@ sent to the head of operations with options, never a fix made here.
   staging before its tree was gated): a builder never applies a migration or deploys a function to staging; the head does it after
   the combined tree passed the full gates and is committed. A builder proves its work locally and names the staging steps for the
   head. If a gate changes something already on staging, roll staging forward to the fixed version and say so in PROGRESS.
+- A migration or function that changes what the dashboard reads (a column, a value, an answer's shape) is applied in the same step
+  as making the deployed staging dashboard (omnikom-app-staging) match it: redeploy it from the tree just applied, or tell whoever
+  holds that origin and wait for their yes before applying (head of operations 2026-11-11, after migration 23 renamed status
+  'new' to 'not-contacted' at 2026-11-10 23:49 UTC and the deployed dashboard, an older build, showed 0 leads until SEO
+  redeployed it). Local flows (vite preview against staging) do not prove the deployed origin.
 - Keys by variable name only (CLAUDE.md rule 9); live things need the owner's click (rules 6 and 12); nothing against a client
   project or site (DECISIONS 30: Example A is touched only in step 7); no em dashes in any file.
 
