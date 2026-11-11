@@ -1,17 +1,17 @@
 # Where things stand
 
-Rewritten in place, never appended, under 60 lines; last 2026-11-11 by the head of operations, inside land train a. Every
+Rewritten in place, never appended, under 60 lines; last 2026-11-11 10:10 by the head of operations, after land train a. Every
 feature's state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. Getting back in: `resume\RESUME.md`.
 
 ## Now
 - Product: 61 of 95 rows WORK, 24 PARTLY, 10 MISSING (computed from the rows, checked by CI). CRM 22, 4, 0 of 26; dashboard
   10, 6, 5 of 21; backend 13, 3, 1 of 17; factory 10, 0, 0 of 10; hardening 6, 11, 4 of 21.
-- Head of operations: HEAD-OF-OPERATIONS_Fable_2026-11-11 (Fable 5.2), the owner's order of 2026-11-11 08:50. The four heads
-  (Opus 5.5) wrapped up that morning: HANDOVER written, builders stopped. They restart fresh; nothing is building.
-- Land train a, 2026-11-11 (one CI run for all of it): work order 38 (E7 PARTLY: dashboard headers and error screen), 41
-  (`omnikom seo run | resume | status | vantage`), the skill sync 98cca19 to 44e39e9 (pipeline, anchors, vantage, the
-  lockout fix), Clients' names check, CLI browser seed, platform's run-local guard, journey J9, the HANDOVER blocks of
-  CLI, Clients and SEO, the departments README and the head of operations' charter rewritten, the framework review (49).
+- Head of operations: HEAD-OF-OPERATIONS_Fable_2026-11-11 (Fable 5.2). Every other session of ours was closed 10:00 to 10:05
+  on the owner's word (four heads, the Opus head, the Paragon run): nothing is running, and nothing starts before order 54.
+- Land train a landed 10:03 as master 55b3966 (one CI run, 42980477363, 20 of 20): work order 38 (E7 PARTLY: dashboard
+  headers and error screen), 41 (`omnikom seo run | resume | status | vantage`), the skill sync 98cca19 to 44e39e9, Clients'
+  names check, CLI browser seed, platform's run-local guard, journey J9, the HANDOVER blocks of CLI, Clients and SEO, the
+  departments README and the head of operations' charter rewritten, the framework review (49).
 
 ## Not landed: train b, in this order
 1. Platform 39, `check/platform/crm-a16-screens` d12908f (A16 screens, 38's router wiring, platform's HANDOVER). Owes: one
@@ -22,24 +22,24 @@ feature's state: `docs/product/1-product.md`. How we work: `docs/departments/REA
 3. Clients 46, `check/clients/wo46-retention` d4250a5 (E12; migration 28; CI green, run 42973218242). Approved; lands only
    after 27 is on staging. Periods: security_events 365 days, audit_log 730, messages 1461, consent never.
 4. CLI skill-ci, `check/cli/skill-ci` 0017719 (a CI job for the skill's tests): waits on SEO fixing six test files on Linux;
-   until then the skill's mutant suites are UNPROVEN. The outside skill repo is at 92cfb1b, two commits past the sync.
+   until then the skill's mutant suites are UNPROVEN. The outside skill repo is past the sync (HEAD seen 10:05: cc36ba9).
 Waiting on the owner, on no train: 17 `check/platform/dispatch-scope` 8aca31d; 26 part 2 `check/seo/omnikom-ai-plan` 67f2bb5.
 
-## Work orders (next free number: 54; migrations reserved: 27 platform, 28 Clients)
+## Work orders (next free number: 55; migrations reserved: 27 platform, 28 Clients)
 - Open: 39, 44, 46 (above). 42 link anchors (in the skill; the Common Crawl index host throttled the full run). 43 US
   vantage (code done; Google web results cannot be localised from this machine, they stay "indicative"). 45 IndexNow key
-  file (deferred). 47 the shared toolkit `tools/kit/` (CLI's first slice after the restart; `work/47-shared-toolkit/`).
-  48 RE-EVALUATE mode for `omnikom seo run` (after 47).
-- From the framework review (`work/49-framework-review/CONTEXT.md`), given, not started: 50 the train inside `omnikom land`
-  and a short CI path for document-only commits (CLI); 51 `omnikom state`, the generated half of this file (CLI); 52
-  builders without Remote Control, the Fable 5.2 id and price row (head of operations' tools); 53 the client report
-  refuses to build until every audit module is DONE or BLOCKED, plus a client-copy check (SEO). Orders 34, 40, 42 to 46
-  and 48 never got a folder and two folders share number 20; a new order gets its folder when given.
+  file (deferred). 47 the shared toolkit `tools/kit/` (`work/47-shared-toolkit/`). 48 RE-EVALUATE mode for `omnikom seo run`.
+- 54, the head of operations, FIRST (owner 2026-11-11 10:00: fewer sessions, one toolbox, no drift, production sooner):
+  rewrite how we work around the head of operations and two lanes, Product and Tools, on Fable 5.2 xhigh, helpers per job;
+  every tool behind the `omnikom` CLI with the skill inside it; a job names its product row and its done-test before code.
+  It takes in 47 and 50 to 53 of the framework review (`work/49-framework-review/CONTEXT.md`): the train inside
+  `omnikom land`, a short CI path for documents, `omnikom state`, builders without Remote Control, the report gate.
+  Unlanded builder notes of 41, 42, 43 are saved in the top-level `archive\2026-11-11-unlanded-work-orders\`.
 
 ## Clients
-- Paragon Alternative Capital (new 2026-11-10): profile `clients/paragon/`. Its audit runs only through `omnikom seo run`,
-  resumed, in BUILDER_seo-and-audits_paragon-skillrun, which the owner steers himself: nobody sends it anything. The report
-  is PARKED until the full run is done (owner 2026-11-11 08:33); 5 to 8 pages, plain words, no internals, no "pending".
+- Paragon Alternative Capital (new 2026-11-10): profile `clients/paragon/`. The owner handed its audit run to the head of
+  operations 10:02. It is stopped at step local-grid-plan and resumes with `omnikom seo resume`; the resume point is
+  `POSITION.md` in the git-ignored `clients/paragon/private/audit-2026-11/skill-run/`. The report stays PARKED until then.
 - ELEV8 and Rainmaker: go-live sheets `clients/<slug>/go-live-2026-11-09.md`, both waiting on the owner's clicks.
   Rainmaker: rwifinancial.com has served an edited copy of our preview from another Cloudflare account since 2026-11-06;
   who moved it is BLOCKED (Dave, or Monica's GoDaddy log).
