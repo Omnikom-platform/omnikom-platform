@@ -23,6 +23,7 @@ has to relearn it (README rule 5). Spec: `docs/blueprint/26-PLATFORM-CLI.md`.
 - `tools/resend-test-email.mjs`
 - `tools/secret-receiver.mjs`
 - `tools/hooks/` (Claude Code hooks this department builds; DECISIONS 41)
+- `tools/kit/` (work order 47: the one shared toolkit, browser, polite fetch, render, heavy lock, desktop capture; every department imports it)
 
 ## Does not touch
 Every path not listed above. In particular `supabase/` (migrations, functions, the SQL wall tests) and `factory/`: a bug the CLI
@@ -108,6 +109,17 @@ when the head of operations has released its slice.
 - `lead list --status <typo>` (after platform 20, migration 23, 2026-11-11 01:10): the status is text and the CLI keeps no list, so an
   unknown key returns 0 leads with exit 0. Check the key against the workspace's own statuses and refuse an unknown one (the platform head
   left it to this department).
+- Work order 47 (owner 2026-11-11 08:41, this department leads; after WO41 and browser-seed land): every mechanical tool lives ONCE.
+  Shape agreed with the SEO head 08:42: `tools/kit/` holds dependency-free ESM modules (named exports, no process.exit, no console):
+  browser.mjs (seeded profile, persistent context for Playwright), polite-fetch.mjs (one request per host at the agreed pace, stop at a 429
+  or a wall, read the engine stop files: the skill's pace() and lib-stops.mjs are the core), render.mjs (PDF and screenshots), heavy.mjs (the
+  heavy-lock wrapper), desktop/ (the desktop-control capture helper). The CLI's lib/ wraps it; the skill vendors a byte-equal copy in
+  scripts/kit/ (synced tools/kit -> skill by skills/sync-skill.mjs; a CI sameness test fails on drift; the ~/.claude copy gets it through the
+  normal skill sync). A CI guard fails any file outside tools/kit that launches a browser, spawns chrome/msedge, uses --user-data-dir or
+  chromium.launch, or fetches third-party pages directly; today's callers sit on a dated list and come off it as each owner moves them
+  (platform: site-backup, proc-guard, render scripts, dashboard Playwright setup; Clients: questions-pdf; SEO: the skill's launchers). The pewp
+  skill runs only through `omnikom seo run|resume|status`. Start the browser piece from the skill's lib-browser-profile.mjs (skill commit
+  05dbf43) and this branch's seedProfile.
 - Work order 41 (owner 2026-11-11 01:27, after ci-runners lands): `omnikom seo run <url> --client <slug>`, `seo status`, `seo resume`.
   Every mechanical step of a client audit in one call: in order, in parallel where independent, at the skill's pace, resumable; the output
   is a coverage table (RUN with its evidence file, SKIPPED with the reason, BLOCKED with what unblocks it, WAITING for a browser capture or

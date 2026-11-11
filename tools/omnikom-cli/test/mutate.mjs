@@ -682,6 +682,10 @@ const MUTANTS = [
   ['functions shard: a functions job without the Deno tests is accepted [functions-shards]', 'test/mutate-run.mjs', R`if (!fn || !fn.lines.some(l => /functions\/test\/run\.mjs\s*$/.test(l))) problems.push(`, 'if (false) problems.push(', 'unit'],
   ['functions shard: N need not be the job count in a run line [functions-shards]', 'test/mutate-run.mjs', '|| Number(r[0][2]) !== k) problems.push(`${b.id} must run tools/omnikom-cli/test/ci-functions', ') problems.push(`${b.id} must run tools/omnikom-cli/test/ci-functions', 'unit'],
   ['ci: the function mutants shard step is not mapped [functions-shards]', 'commands/ci.mjs', "'Function mutants, one shard',", "", 'unit'],
+  ["browser: the profile is not seeded before the spawn (a failed Windows logon per start) [browser-seed]","lib/browser.mjs","  seedProfile(folder.dir);   // before the spawn","  // before the spawn",'unit'],
+  ["browser: the seed says the OS password is blank [browser-seed]","lib/browser.mjs","password_manager: { os_password_blank: false,","password_manager: { os_password_blank: true,",'unit'],
+  ["browser: the seed overwrites an existing Local State [browser-seed]","lib/browser.mjs","  if (existsSync(file)) return file;   // a profile","  if (false) return file;   // a profile",'unit'],
+  ["browser: the FILETIME epoch offset is wrong [browser-seed]","lib/browser.mjs","(BigInt(now) + 11644473600000n) * 1000n","(BigInt(now) + 11644473600000n) * 1n",'unit'],
   // ---- the team kit's hook test job (test/ci-team-kit.mjs, the ci.yml job team-kit-hooks) [team-kit-ci]
   ['ci-team-kit: the scope check always says not needed (the hook test never runs) [team-kit-ci]', 'test/ci-team-kit.mjs', 'if (!v.needed) {', 'if (true) {', 'unit'],
   ['ci-team-kit: the scope check always says needed (the hook test runs on every change) [team-kit-ci]', 'test/ci-team-kit.mjs', 'if (!v.needed) {', 'if (false) {', 'unit'],

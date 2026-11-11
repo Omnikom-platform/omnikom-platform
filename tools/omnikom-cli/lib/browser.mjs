@@ -158,12 +158,25 @@ class Page {
   async close() { try { await this.cdp.send('Target.closeTarget', { targetId: this.targetId }); } catch { /* the browser is going away */ } }
 }
 
+// A brand-new Chrome or Edge profile asks Windows whether the account's password is blank (LogonUser with an empty password), which logs a
+// failed logon (event 4625); ten in a short time lock the account for 10 minutes (2026-11-11: 5 lockouts, 59 bad logons 04:08 to 08:00, SSH
+// refused while locked; found by the OmniSkipX session). A "Local State" that already answers the question stops the probe. `now` is for tests.
+// os_password_last_changed is a Windows FILETIME in microseconds: (Unix ms + 11644473600000) * 1000.
+export function seedProfile(dir, now = Date.now()) {
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, 'Local State');
+  if (existsSync(file)) return file;   // a profile that was seeded (or used) before keeps its own
+  writeFileSync(file, JSON.stringify({ password_manager: { os_password_blank: false, os_password_last_changed: String((BigInt(now) + 11644473600000n) * 1000n) } }));
+  return file;
+}
+
 // devtoolsWaitMs and clock are for tests only (a stub browser, a short bound, and a clock a test advances by hand so that a wait of
 // 20 s of "browser time" costs no real seconds; clock covers the DevTools wait only)
 export async function launchBrowser({ env = process.env, spawnImpl = spawn, importer = importRepo, devtoolsWaitMs = DEVTOOLS_WAIT_MS, clock = { now: () => Date.now(), sleep } } = {}) {
   const exe = findBrowser(env);
   const guard = await importer('tools/proc-guard/index.mjs');
   const folder = guard.guardedTemp('omnikom-jb-', 'journey-browser');   // cleaned on every exit path of this process
+  seedProfile(folder.dir);   // before the spawn: an unseeded profile makes the browser test the Windows account's password (a failed logon each start)
   const args = ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${folder.dir}`, '--no-first-run', '--no-default-browser-check', '--disable-extensions', '--disable-background-networking', '--disable-sync', '--mute-audio', ...(process.platform === 'linux' ? ['--no-sandbox'] : []), 'about:blank'];
   const child = spawnImpl(exe, args, { stdio: 'ignore', windowsHide: true, detached: process.platform !== 'win32' });
   let closed = false;

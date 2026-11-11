@@ -1013,6 +1013,23 @@ export async function browserStartTests({ check, CLI_ROOT, imp }) {
   const dead = await start((child) => { setImmediate(() => child.emit('exit', 3, null)); }, { devtoolsWaitMs: 5000 });
   check('journey browser start: a browser that exited at once fails at once, naming the exit code (far under the bound)',
     /exited before it reported its DevTools address \(exit code 3\)/.test(dead.message || '') && dead.ms < 3000, JSON.stringify(dead));
+
+  // e: the profile is seeded BEFORE the browser starts: an unseeded profile makes Chrome/Edge test the Windows account with an empty password
+  // (a failed logon each start; ten lock the account: 2026-11-11, 5 lockouts). The stub reads the folder at the moment of the spawn. [browser-seed]
+  let atSpawn = null;
+  await start((child, dir) => { const f = join(dir, 'Local State'); atSpawn = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : 'missing'; setImmediate(() => child.emit('exit', 3, null)); }, { devtoolsWaitMs: 5000 });
+  check('journey browser start: "Local State" is in the profile when the browser is spawned, saying the OS password is not blank and when it last changed [browser-seed]',
+    atSpawn && atSpawn !== 'missing' && atSpawn.password_manager && atSpawn.password_manager.os_password_blank === false && /^\d{17,}$/.test(atSpawn.password_manager.os_password_last_changed), JSON.stringify(atSpawn));
+  const seedDir = mkdtempSync(join(tmpdir(), 'seed-unit-'));
+  const NOW = 1762840000000;   // 2025-11-11T05:46:40Z
+  B.seedProfile(seedDir, NOW);
+  const seeded = JSON.parse(readFileSync(join(seedDir, 'Local State'), 'utf8'));
+  writeFileSync(join(seedDir, 'Local State'), '{"kept":true}');
+  B.seedProfile(seedDir, NOW);
+  const kept = readFileSync(join(seedDir, 'Local State'), 'utf8');
+  rmSync(seedDir, { recursive: true, force: true });
+  check('journey browser seedProfile: os_password_last_changed is the Windows FILETIME in microseconds ((ms + 11644473600000) * 1000), and an existing Local State is kept [browser-seed]',
+    seeded.password_manager.os_password_last_changed === String((BigInt(NOW) + 11644473600000n) * 1000n) && seeded.password_manager.os_password_last_changed === '13407313600000000' && kept === '{"kept":true}', JSON.stringify({ seeded, kept }));
   const killed = await start((child) => { setImmediate(() => child.emit('exit', null, 'SIGKILL')); }, { devtoolsWaitMs: 5000 });
   check('journey browser start: a browser killed by a signal fails at once naming the signal', /exited before it reported its DevTools address \(signal SIGKILL\)/.test(killed.message || '') && killed.ms < 3000, JSON.stringify(killed));
   const nospawn = await start((child) => { setImmediate(() => child.emit('error', Object.assign(new Error('spawn x ENOENT'), { code: 'ENOENT' }))); }, { devtoolsWaitMs: 5000 });
