@@ -2067,9 +2067,10 @@ end $$;
 do $$ begin
   if to_regclass('cron.stub_jobs') is null then raise notice 'T25 skipped: no cron stand-in here'; return; end if;
   assert (select count(*) from cron.stub_jobs where jobname = 'reap-stale-jobs') = 1, 'T25 exactly one job named reap-stale-jobs is scheduled';
-  assert (select count(*) from cron.stub_jobs) = 2, 'T25 the migrations schedule two jobs: the reaper and the daily metrics pull (T34)';
+  assert (select count(*) from cron.stub_jobs) = 3, 'T25 the migrations schedule three jobs: the reaper, the daily metrics pull (T34) and the retention purge (migration 28)';
   assert (select count(*) from cron.stub_jobs where jobname = 'metrics-pull-daily') = 1 and (select schedule from cron.stub_jobs where jobname = 'metrics-pull-daily') = '30 3 * * *'
     and (select command from cron.stub_jobs where jobname = 'metrics-pull-daily') ~ 'service\.metrics_pull_all\(\)', 'T34 the daily metrics pull is scheduled at 03:30 UTC and calls service.metrics_pull_all()';
+  assert (select count(*) from cron.stub_jobs) = 3 and (select count(*) from cron.stub_jobs where jobname = 'purge-expired') = 1, 'T25 the migrations schedule no other job than the reaper, the daily metrics pull and the retention purge (migration 28)';
   assert (select schedule from cron.stub_jobs where jobname = 'reap-stale-jobs') = '*/5 * * * *', 'T25 the reaper runs every 5 minutes';
   assert (select command from cron.stub_jobs where jobname = 'reap-stale-jobs') ~ 'service\.reap_stale_jobs\(\)', 'T25 the job calls service.reap_stale_jobs()';
 end $$;
@@ -3330,6 +3331,90 @@ do $$ begin
   assert not exists (select 1 from test.t34_ws s join public.workspaces w on w.id = s.id where w.state is distinct from s.state), 'T34 the workspace states are back';
   assert not exists (select 1 from test.t34_sites s join public.sites x on x.id = s.id where x.state is distinct from s.state or x.domain is distinct from s.domain), 'T34 the site states and domains are back';
 end $$;
+
+-- ===== T33 retention (work order 46, migration 28, the Clients department's file): periods as data with floors; a daily purge that
+-- deletes only rows older than their period; audit_log and security_events stay append-only except for that purge =====
+do $$ begin
+  assert (select count(*) from retention_rules) = 7, 'T33 seven retention rules';
+  assert (select keep_days from retention_rules where table_name = 'consent_ledger') is null, 'T33 the consent ledger is never purged';
+  assert (select keep_days from retention_rules where table_name = 'audit_log') = 730 and (select keep_days from retention_rules where table_name = 'security_events') = 365
+     and (select keep_days from retention_rules where table_name = 'messages') = 1461 and (select keep_days from retention_rules where table_name = 'webhook_events') = 30, 'T33 the periods set on 2026-11-11';
+  if to_regclass('cron.stub_jobs') is not null then
+    assert (select schedule from cron.stub_jobs where jobname = 'purge-expired') = '17 3 * * *', 'T33 the purge runs daily at 03:17';
+    assert (select command from cron.stub_jobs where jobname = 'purge-expired') = 'select service.purge_expired()', 'T33 the job calls the purge';
+  end if;
+end $$;
+-- the floors: an audit trail cannot be cut short by mistake, the consent ledger cannot get a period
+select test.expect_error($q$update retention_rules set keep_days = 30 where table_name = 'audit_log'$q$, 'retention_rules_floor');
+select test.expect_error($q$update retention_rules set keep_days = 10 where table_name = 'consent_ledger'$q$, 'retention_rules_floor');
+select test.expect_error($q$update retention_rules set keep_days = 3 where table_name = 'webhook_events'$q$, 'retention_rules_floor');
+-- who runs it: not a signed-in user, staff included; a batch out of range is refused
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+select test.expect_error($q$select service.purge_expired()$q$, 'permission denied');
+do $$ begin assert (select count(*) from retention_rules) = 7, 'T33 staff with MFA read the rules'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin assert (select count(*) from retention_rules) = 0, 'T33 an owner reads no rule'; end $$;
+reset role;
+select test.expect_error($q$select service.purge_expired(0)$q$, 'R-BATCH');
+-- rows on both sides of each period (and an old consent row that must stay)
+insert into security_events (kind, at) values ('t33-old', now() - interval '400 days'), ('t33-new', now() - interval '10 days');
+insert into audit_log (action, at) values ('t33-old', now() - interval '800 days'), ('t33-new', now() - interval '100 days');
+insert into messages (workspace_id, channel, template, to_text, created_at) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'email', 't33-old', 't33@test', now() - interval '1500 days'),
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'email', 't33-new', 't33@test', now() - interval '400 days');
+insert into webhook_events (workspace_id, kind, received_at, processed_at, error) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', 't33-done-old', now() - interval '40 days', now() - interval '40 days', null),
+  ('aaaaaaaa-0000-0000-0000-000000000000', 't33-done-new', now() - interval '10 days', now() - interval '10 days', null),
+  ('aaaaaaaa-0000-0000-0000-000000000000', 't33-failed-mid', now() - interval '40 days', now() - interval '40 days', 'provider said no'),
+  ('aaaaaaaa-0000-0000-0000-000000000000', 't33-open-mid', now() - interval '40 days', null, null),
+  ('aaaaaaaa-0000-0000-0000-000000000000', 't33-open-old', now() - interval '100 days', null, null);
+insert into security_event_counts (kind, minute, event_id, last_at) values ('t33-old', now() - interval '40 days', 0, now() - interval '40 days'), ('t33-new', now() - interval '1 day', 0, now() - interval '1 day');
+insert into consent_ledger (workspace_id, form, page_path, consent_text, consent_hash, at) values ('aaaaaaaa-0000-0000-0000-000000000000', 't33', '/', 'T33 old consent', repeat('a', 64), now() - interval '5000 days');
+-- the append-only walls hold outside the purge: no setting; a row younger than its period; an update; another role (superuser runs only)
+select test.expect_error($q$delete from audit_log where action = 't33-old'$q$, 'A-APPEND-ONLY');
+select set_config('omnikom.purge', 'on', false);
+select test.expect_error($q$delete from audit_log where action = 't33-new'$q$, 'A-APPEND-ONLY');
+select test.expect_error($q$delete from security_events where kind = 't33-new'$q$, 'A-APPEND-ONLY');
+select test.expect_error($q$update audit_log set action = 'changed' where action = 't33-old'$q$, 'A-APPEND-ONLY');
+do $$
+begin
+  if not coalesce((select rolsuper from pg_roles where rolname = current_user), false) then
+    raise notice 'T33: the other-role check needs a superuser (run-local.mjs runs it); skipped here';
+    return;
+  end if;
+  execute 'create role t33_purger';
+  execute 'grant select, delete on audit_log to t33_purger';
+  execute 'create policy t33_any on audit_log for all to public using (true) with check (true)';
+  execute 'grant usage on schema test to t33_purger';
+  execute 'grant execute on function test.expect_error(text, text) to t33_purger';
+  perform set_config('omnikom.purge', 'on', true);
+  execute 'set local role t33_purger';
+  perform test.expect_error($q$delete from audit_log where action = 't33-old'$q$, 'A-APPEND-ONLY');
+  execute 'reset role';
+  raise notice 'T33: the other-role check ran';
+end $$;
+select set_config('omnikom.purge', 'off', false);
+-- the purge, as the service role
+set role service_role;
+select service.purge_expired();
+reset role;
+do $$ begin
+  assert (select count(*) from security_events where kind = 't33-old') = 0 and (select count(*) from security_events where kind = 't33-new') = 1, 'T33a security events: the old one goes, the new one stays';
+  assert (select count(*) from audit_log where action = 't33-old') = 0 and (select count(*) from audit_log where action = 't33-new') = 1, 'T33a audit log: the old one goes, the new one stays';
+  assert (select count(*) from messages where template = 't33-old') = 0 and (select count(*) from messages where template = 't33-new') = 1, 'T33a messages: the old one goes, the new one stays';
+  assert (select count(*) from webhook_events where kind in ('t33-done-old', 't33-open-old')) = 0, 'T33a webhook events: a processed one past 30 days and an open one past 90 days go';
+  assert (select count(*) from webhook_events where kind in ('t33-done-new', 't33-failed-mid', 't33-open-mid')) = 3, 'T33a webhook events: a new one, and failed or open ones under 90 days, stay';
+  assert (select count(*) from security_event_counts where kind = 't33-old') = 0 and (select count(*) from security_event_counts where kind = 't33-new') = 1, 'T33a rate buckets: the old one goes, the new one stays';
+  assert (select count(*) from consent_ledger where consent_text = 'T33 old consent') = 1, 'T33a the consent ledger is never purged';
+  assert (select count(*) from audit_log where action = 'retention-purge' and (detail -> 'deleted' ->> 'audit_log')::int >= 1 and (detail -> 'deleted' ->> 'messages')::int >= 1) = 1, 'T33b the purge writes one audit row with its counts';
+  assert coalesce(current_setting('omnikom.purge', true), '') <> 'on', 'T33b the purge turns its setting off again';
+end $$;
+-- a second run deletes nothing more of the rows above
+set role service_role;
+select service.purge_expired();
+reset role;
+do $$ begin assert (select count(*) from audit_log where action = 't33-new') = 1 and (select count(*) from webhook_events where kind = 't33-open-mid') = 1, 'T33c a second run keeps what is under its period'; end $$;
 
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

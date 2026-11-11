@@ -856,6 +856,19 @@ const MUTANTS = [
   ['metrics27: service.metrics_pull_all does not pin the search_path', "create function service.metrics_pull_all() returns int language plpgsql security definer set search_path = '' as $$", 'create function service.metrics_pull_all() returns int language plpgsql security definer as $$'],
   ['metrics27: the daily schedule is removed', "    perform cron.schedule('metrics-pull-daily', '30 3 * * *', 'select service.metrics_pull_all()');", '    null;'],
   ['metrics27: the daily schedule runs at another time', "'30 3 * * *', 'select service.metrics_pull_all()'", "'30 4 * * *', 'select service.metrics_pull_all()'"],
+
+  // Work order 46 (migration 28, the Clients department's file): retention periods as data with floors, the daily purge, the narrow append-only exception
+  ['retention 28: the purge takes rows younger than their period', "    cutoff := now() - make_interval(days => r.keep_days);", "    cutoff := now();"],
+  ['retention 28: the trigger lets any purge delete through', "    if old.at < now() - make_interval(days => (select r.keep_days from public.retention_rules r where r.table_name = tg_table_name and r.keep_days is not null)) then", "    if true then"],
+  ['retention 28: any role may use the purge exception', "  if tg_op = 'DELETE' and tg_table_name in ('audit_log', 'security_events') and coalesce(current_setting('omnikom.purge', true), '') = 'on'\n     and current_user = (select pg_catalog.pg_get_userbyid(c.relowner) from pg_catalog.pg_class c where c.oid = tg_relid) then", "  if tg_op = 'DELETE' and tg_table_name in ('audit_log', 'security_events') and coalesce(current_setting('omnikom.purge', true), '') = 'on' then"],
+  ['retention 28: the purge exception needs no setting', "tg_table_name in ('audit_log', 'security_events') and coalesce(current_setting('omnikom.purge', true), '') = 'on'", "tg_table_name in ('audit_log', 'security_events') and true"],
+  ['retention 28: the purge leaves its setting on', "      delete from public.security_events s where s.ctid = any(array(select x.ctid from public.security_events x where x.at < cutoff limit p_batch));\n      perform set_config('omnikom.purge', 'off', true);", "      delete from public.security_events s where s.ctid = any(array(select x.ctid from public.security_events x where x.at < cutoff limit p_batch));"],
+  ['retention 28: open or failed webhooks go after 30 days', "x.received_at < cutoff and x.processed_at is not null and x.error is null limit p_batch", "x.received_at < cutoff limit p_batch"],
+  ['retention 28: the consent ledger can be given a period', "when 'consent_ledger' then keep_days is null", "when 'consent_ledger' then true"],
+  ['retention 28: the audit log has no floor', "when 'audit_log' then keep_days >= 365", "when 'audit_log' then true"],
+  ['retention 28: signed-in users may run the purge', "revoke all on function service.purge_expired(int) from public, anon, authenticated;", ""],
+  ['retention 28: the purge writes no audit row', "  insert into public.audit_log (workspace_id, actor, action, target, detail) values (null, null, 'retention-purge', 'retention_rules', jsonb_build_object('deleted', counts, 'batch', p_batch));", "  null;"],
+  ['retention 28: a batch out of range is taken', "  if p_batch is null or p_batch < 1 or p_batch > 50000 then raise exception 'R-BATCH: the batch is 1 to 50000 rows'; end if;", "  null;"],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]
