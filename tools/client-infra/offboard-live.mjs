@@ -129,6 +129,10 @@ export function offboardDeps({ log }) {
         a as (insert into public.audit_log (workspace_id, actor, action, target, detail) select workspace_id, :'actor'::uuid, 'key-revoke', :'k', jsonb_build_object('vault_ref', vault_ref, 'by', :'by') from c returning 1)
         select count(*) from a;`, { k: key, s: site, actor: staff.sub, by: BY }, 'revoking the key');
     },
+    // migration 26: staff with MFA, an offboarding workspace only; the paths its Storage files are deleted by
+    async offboardingStorage(ws) {
+      return JSON.parse(psql(`select coalesce(json_agg(s.path order by s.path), '[]') from service.offboarding_storage(:'claims'::jsonb, :'ws'::uuid) s;`, { claims, ws }));
+    },
     async audit(ws, action, target) {
       one(`with a as (insert into public.audit_log (workspace_id, actor, action, target, detail) values (:'ws'::uuid, :'actor'::uuid, :'act', :'t', jsonb_build_object('by', :'by')) returning 1) select count(*) from a;`,
         { ws, actor: staff.sub, act: action, t: target, by: BY }, 'the audit row');
@@ -145,6 +149,15 @@ export function offboardDeps({ log }) {
       const r = await fetch(url, { headers: { apikey: secret, authorization: `Bearer ${secret}` }, signal: AbortSignal.timeout(120000) });
       if (r.status !== 200) throw new Error(scrub(`Storage GET media/${name}: HTTP ${r.status} ${(await r.text()).slice(0, 200)}`));
       return Buffer.from(await r.arrayBuffer());
+    },
+    // DELETE /storage/v1/object/media with {prefixes}: the Storage API's own delete (a SQL delete is refused by storage.protect_delete)
+    async remove(paths) {
+      if (!target.ref || !secret) throw new Error(`set STAGING_SUPABASE_REF and ${target.vars.secretKey} (read by name) to delete in Storage`);
+      for (let i = 0; i < paths.length; i += 100) {
+        const r = await fetch(`https://${target.ref}.supabase.co/storage/v1/object/media`, { method: 'DELETE', headers: { apikey: secret, authorization: `Bearer ${secret}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ prefixes: paths.slice(i, i + 100) }), signal: AbortSignal.timeout(120000) });
+        if (r.status !== 200) throw new Error(scrub(`Storage DELETE media: HTTP ${r.status} ${(await r.text()).slice(0, 200)}`));
+      }
     },
   };
 

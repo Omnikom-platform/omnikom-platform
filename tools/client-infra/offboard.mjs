@@ -2,15 +2,16 @@
 // end to end, take down what provision.mjs set up (--teardown: custom domains, signing keys, the Pages project), and export all of
 // its data (every row and its Storage files) to a folder outside any git checkout.
 //   node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/client-infra/offboard.mjs --workspace <slug> --out <dir>
-//        [--erase <privacy request id>] [--teardown] [--dry-run]
+//        [--erase <privacy request id>] [--teardown] [--delete] [--dry-run]
 // Only a workspace listed in offboard-marked.json (a ruling with an `until` day) is touched; any other is refused before a
-// connection is made. Order: state, erasure, teardown, export, so the export never holds an erased person. The erasure
+// connection is made. Order: state, erasure, teardown, export, and with --delete (work order 37b, migration 26) the Storage files deleted
+// and the state deleted; the export never holds an erased person and is made before the files go. The erasure
 // uses the database's own functions (set_privacy_request_state, delete_lead) as Omnikom staff, then scans every table of the
 // workspace for the person's address: the request is marked done only when nothing is left (privacy_requests keeps the address,
 // needed to answer the person). The export file holds personal data: it is never written inside a git checkout (this repository
 // is public). Every step reads first, so a second run changes nothing ("RESULT: changed 0").
-// Not built here (H2-6, they need database functions): deleting the Storage files and the last state move to deleted. DNS
-// records are never touched (the owner's click).
+// DNS records are never touched (the owner's click). The workspace's rows stay (the state deleted ends the offboarding; removing
+// the rows is not decided).
 // Exit: 0 done, 1 a step failed, 2 refused (nothing written). Staging only.
 import { readFileSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -54,6 +55,7 @@ export function precheck(o) {
   if (!o.outDir) throw new Refused('--out <dir> is needed: the export goes to a folder outside any git checkout');
   if (o.insideGit) throw new Refused(`--out ${o.outDir} is inside a git checkout: the export holds personal data and this repository is public`);
   if (o.erase != null && !UUID_RE.test(o.erase)) throw new Refused(`--erase ${o.erase}: expected a privacy request id`);
+  if (o.del && !o.teardown) throw new Refused('--delete needs --teardown: the database refuses the state deleted while a key is not revoked');
   return m;
 }
 
@@ -68,8 +70,11 @@ export async function offboard(o, d) {
   if (!ws) throw new Refused(`workspace ${o.slug} does not exist`);
   if (!(await d.db.staffOk())) throw new Error('the staff test identity is not in public.staff: the database functions would refuse it');
 
-  // 1 the state: active or suspended -> offboarding (the only legal moves into it); offboarding already = nothing to do
-  if (ws.state === 'offboarding') log(`ok     ${o.slug} is offboarding (since ${ws.state_changed_at || '?'})`);
+  // 1 the state: active or suspended -> offboarding (the only legal moves into it); offboarding already = nothing to do; deleted (with
+  // --delete) = an earlier run finished: only the checks run
+  const gone = ws.state === 'deleted' && o.del;
+  if (gone) log(`ok     ${o.slug} is deleted (since ${ws.state_changed_at || '?'})`);
+  else if (ws.state === 'offboarding') log(`ok     ${o.slug} is offboarding (since ${ws.state_changed_at || '?'})`);
   else if (ws.state === 'active' || ws.state === 'suspended') {
     if (o.dryRun) would(`set ${o.slug} ${ws.state} -> offboarding, reason "${mark.ruling}"`, 'psql: service.set_workspace_state as staff');
     else {
@@ -149,8 +154,18 @@ export async function offboard(o, d) {
     }
   }
 
-  // 4 the export: every row of every table of the workspace, the logins, and the Storage files
-  if (o.dryRun) {
+  if (!o.teardown) log('skip   teardown (runs with --teardown)');
+
+  // 4 the export: every row of every table of the workspace, the logins, and the Storage files. A deleted workspace's export is the one
+  // made before its files went: it is checked to be there, never made again.
+  let exportOk = false;
+  if (gone) {
+    const file = join(o.outDir, o.slug, 'export.json');
+    let prev = null;
+    try { prev = d.fs.exists(file) ? JSON.parse(d.fs.read(file).toString('utf8')) : null; } catch { prev = null; }
+    if (!prev || prev.schema !== SCHEMA) fail('export', `${o.slug} is deleted but ${file} is not its export`);
+    else log(`ok     ${file} is the export made before the deletion (content sha256 ${String(prev.content_sha256).slice(0, 16)})`);
+  } else if (o.dryRun) {
     const plan = await d.db.exportPlan(ws.id);
     would(`export ${plan.rows} rows from ${plan.tables} tables, ${plan.logins} login(s) and ${plan.files} Storage file(s) to ${join(o.outDir, o.slug)}`, 'psql: read-only; Storage REST GET');
   } else if (!out.failed.includes('erasure')) {
@@ -188,11 +203,34 @@ export async function offboard(o, d) {
       // privacy_requests keeps the address of each request (needed to answer the person); everywhere else it must be gone
       const { privacy_requests: _p, ...rest } = body.tables || {};
       if (key && hasSubject(JSON.stringify({ ...body, tables: rest }), key)) fail('export', `${file} still holds the erased person outside privacy_requests`);
-      else log(`ok     ${file} reads back (content sha256 ${h.slice(0, 16)})${key ? '; the erased person is not in it (privacy_requests keeps the request)' : ''}`);
+      else { exportOk = !out.failed.includes('export'); log(`ok     ${file} reads back (content sha256 ${h.slice(0, 16)})${key ? '; the erased person is not in it (privacy_requests keeps the request)' : ''}`); }
     }
   } else log('skip   the export: the erasure failed, and an export must never hold the person');
 
-  log(`next   not built (H2-6, need database functions): deleting the Storage files, then the state move to deleted${o.teardown ? '' : '; teardown runs with --teardown'}`);
+  // 5 the end (--delete, with --teardown): the workspace's files deleted through the Storage API (Supabase refuses a SQL delete), from the
+  // list service.offboarding_storage gives staff for an offboarding workspace; then offboarding -> deleted, which the database refuses
+  // while a file or an unrevoked key is left (migration 26). Only after this run's export read back and nothing failed.
+  if (o.del && !gone) {
+    if (o.dryRun) {
+      const paths = ws.state === 'offboarding' ? await d.db.offboardingStorage(ws.id) : null;
+      would(`delete ${paths ? paths.length : 'the'} Storage file(s) of ${o.slug}, then set it offboarding -> deleted`, 'psql: service.offboarding_storage as staff; Storage REST DELETE; service.set_workspace_state');
+    } else if (out.failed.length || !exportOk) log('skip   the deletion: an earlier step failed or the export is not confirmed');
+    else {
+      const paths = await d.db.offboardingStorage(ws.id);
+      if (paths.some((p) => !p.startsWith(`${ws.id}/`))) fail('delete', 'service.offboarding_storage listed a path outside the workspace folder; nothing deleted');
+      else {
+        if (paths.length) { await d.storage.remove(paths); did(`deleted ${paths.length} Storage file(s) of ${o.slug} (Storage API)`); }
+        const left = await d.db.offboardingStorage(ws.id);
+        if (left.length) fail('delete', `${left.length} Storage file(s) are still there after the delete; the state stays offboarding`);
+        else {
+          await d.db.setState(ws.id, 'deleted', `${mark.ruling}; export ${join(o.outDir, o.slug, 'export.json')}`);
+          const after = await d.db.workspace(o.slug);
+          if (!after || after.state !== 'deleted') fail('delete', `the state is ${after && after.state} after set_workspace_state, expected deleted`);
+          else did(`set ${o.slug} offboarding -> deleted`);
+        }
+      }
+    }
+  } else if (!o.del) log('next   the end runs with --delete (with --teardown): the Storage files deleted, then the state deleted');
   log(`${o.dryRun ? 'DRY RUN' : 'RESULT'}: changed ${out.changed}${out.failed.length ? `, FAILED ${out.failed.join(', ')}` : ''}`);
   return out;
 }
@@ -212,10 +250,11 @@ export function parseArgs(argv) {
     else if (a === '--erase') { o.erase = argv[++i]; if (!o.erase) throw new Refused('--erase needs a privacy request id'); }
     else if (a === '--dry-run') o.dryRun = true;
     else if (a === '--teardown') o.teardown = true;
+    else if (a === '--delete') o.del = true;
     else if (a === '--target') { if (argv[++i] !== 'staging') throw new Refused(`--target ${argv[i]}: only staging is built (work order 37); production is the owner's click`); }
     else throw new Refused(`unknown argument ${a}`);
   }
-  if (!o.slug || !o.outDir) throw new Refused('usage: --workspace <slug> --out <dir> [--erase <privacy request id>] [--teardown] [--dry-run]');
+  if (!o.slug || !o.outDir) throw new Refused('usage: --workspace <slug> --out <dir> [--erase <privacy request id>] [--teardown] [--delete] [--dry-run]');
   if (!isAbsolute(o.outDir)) o.outDir = resolve(o.outDir);
   return o;
 }

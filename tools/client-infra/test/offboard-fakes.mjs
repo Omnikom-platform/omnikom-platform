@@ -27,7 +27,8 @@ export function newWorld() {
     countLie: null,    // a table whose count(*) says one more than its rows
     sizeLie: false,    // Storage metadata says another size than the bytes
     keyStaysActive: false,
-    scanBlind: false,  // the scan misses every table (the export's own check must still catch the person)
+    scanBlind: false,
+    storageStays: false, // the Storage API answers but the files stay  // the scan misses every table (the export's own check must still catch the person)
   };
 }
 
@@ -50,7 +51,10 @@ export function offboardFakeDeps(w, lines = []) {
     async workspace(slug) { return slug === w.ws.slug ? { ...w.ws } : null; },
     async staffOk() { return w.staff; },
     async setState(id, state, reason) {
-      if (!(['active', 'suspended'].includes(w.ws.state) && state === 'offboarding')) throw new Error(`S-WORKSPACE-STATE: ${w.ws.state} -> ${state} is not allowed`);
+      const legal = (['active', 'suspended'].includes(w.ws.state) && state === 'offboarding') || (w.ws.state === 'offboarding' && state === 'deleted');
+      if (!legal) throw new Error(`S-WORKSPACE-STATE: ${w.ws.state} -> ${state} is not allowed`);
+      if (state === 'deleted' && w.objects.length) throw new Error(`S-WORKSPACE-STORAGE: ${w.objects.length} file(s) of the workspace are still in Storage`);
+      if (state === 'deleted' && w.keys.some((k) => !k.revoked)) throw new Error('S-WORKSPACE-KEYS: a key is not revoked');
       w.ws.state = state; w.ws.state_reason = reason; write(`state ${state}`);
     },
     async ticket(id) { const t = w.tickets.find((x) => x.id === id); return t ? JSON.parse(JSON.stringify(t)) : null; },
@@ -81,11 +85,16 @@ export function offboardFakeDeps(w, lines = []) {
     async clearSiteDomain(id, domain) { const s = w.sites.find((x) => x.id === id && x.domain === domain); if (!s) throw new Error('0 rows changed, expected 1'); s.domain = null; w.audit.push({ action: 'site-domain-detach', target: id }); write(`clear domain ${domain}`); },
     async activeKeys(site) { return w.keys.filter((k) => k.site === site && !k.revoked).map((k) => ({ id: k.id, vault_ref: k.vault_ref })); },
     async revokeKey(site, id) { const k = w.keys.find((x) => x.id === id && x.site === site && !x.revoked); if (!k) throw new Error('0 rows changed, expected 1'); if (!w.keyStaysActive) k.revoked = true; w.audit.push({ action: 'key-revoke', target: id }); write(`revoke ${id}`); },
+    async offboardingStorage() {
+      if (w.ws.state !== 'offboarding') throw new Error(`S-WORKSPACE-STATE: ${w.ws.slug} is ${w.ws.state}`);
+      return w.objects.map((o) => o.name);
+    },
     async audit(ws, action, target) { w.audit.push({ action, target }); write(`audit ${action}`); },
   };
   const storage = {
     async list() { return w.objects.map((o) => ({ name: o.name, size: o.body.length + (w.sizeLie ? 5 : 0) })); },
     async get(name) { return Buffer.from(w.objects.find((o) => o.name === name).body); },
+    async remove(paths) { if (!w.storageStays) w.objects = w.objects.filter((o) => !paths.includes(o.name)); write(`storage remove ${paths.length}`); },
   };
   const cf = {
     async getProject(name) { return w.projects[name] ? { name } : null; },

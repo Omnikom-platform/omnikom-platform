@@ -102,9 +102,61 @@ CHECK PASS: 0 problem(s)
 ```
 Watched red: the same check against an empty folder: `FAIL the export file is there`, `CHECK FAIL: 1 problem(s)`, exit 1.
 
+## Work order 37b (staging, 2026-11-11): migration 26, the erasure of every copy, Storage, the state deleted
+
+Migration `supabase/migrations/20261111000026_offboarding_erasure.sql` (24 at first, renamed 26 by the head of operations so the staging
+ledger runs 23, 25, 26), reviewed and approved by platform; CI run 42947986222 on d9aed3c, 20 of 20, database walls "OK: real migration
+passes; 626 mutants" (the first run where its 15 mutants ran: an earlier patch had put them in the wrong list, where they never ran).
+Applied with `supabase/apply-staging.mjs` after warning platform: dry run "would apply 20261111000026_offboarding_erasure.sql" only,
+apply at 2026-11-11T03:13:04Z "OK: applied 1 of 23 (22 were already applied)", then "DRY RUN: 0 pending of 23".
+
+Seed (`proof-offboard.mjs --seed2`): a second person, erase-two-wo37@example.com, with 2 messages (one with the address in its error),
+2 webhook events and a consent row holding the address or number; privacy request 33a29f07 (opened as staff).
+
+Dry run (sent to the head of operations; go at 05:14 local), exit 0:
+```
+ok     test-wo37 is offboarding (since 2026-11-10T18:49:48.239852+00:00)
+would  move privacy request 33a29f07-9ded-4d2a-915b-3b90cd968d5b received -> in-progress
+would  delete 1 lead(s) of the person (their events, tasks, bookings and reads go with them)
+would  scan every table of test-wo37 for the person; mark the request done only if nothing is left
+ok     test-site-wo37: no active signing key
+ok     test-site-wo37: no Pages project
+would  export 67 rows from 29 tables, 0 login(s) and 1 Storage file(s) to <out>\test-wo37
+would  delete 1 Storage file(s) of test-wo37, then set it offboarding -> deleted
+DRY RUN: changed 0
+```
+Run 1 (03:15:05 UTC), exit 0:
+```
+done   privacy request 33a29f07-9ded-4d2a-915b-3b90cd968d5b received -> in-progress
+done   deleted lead 39562032-01a7-42ab-9f6a-22c479c53d07 (service.delete_lead)
+done   privacy request 33a29f07-9ded-4d2a-915b-3b90cd968d5b -> done (1 lead(s) deleted, scan clean)
+done   exported 69 rows from 29 tables, 0 login(s), 1 file(s) to <out>\test-wo37\export.json
+ok     <out>\test-wo37\export.json reads back (content sha256 b03bc42972a69486); the erased person is not in it (privacy_requests keeps the request)
+done   deleted 1 Storage file(s) of test-wo37 (Storage API)
+done   set test-wo37 offboarding -> deleted
+RESULT: changed 6
+```
+Run 2 (03:15:46 UTC), exit 0: "ok test-wo37 is deleted", the request done and the person found nowhere, the export kept from before the
+deletion (same sha256), "RESULT: changed 0".
+
+Independent check (`proof-offboard.mjs --check2`, its own queries), 03:16:04 UTC, exit 0:
+```
+state: {"state":"deleted","req":"done","leads":0,"msg_plain":0,"msg_erased":2,"hook_plain":0,"hook_erased":2,"ledger":[{"lead":null,"ua":null,"mk":null,"email_hash_ok":true,"phone_hash_ok":true,"ip":true}],"files":0}
+ok   the second privacy request is done
+ok   the second person's lead is gone
+ok   no message holds the address or the number (2 erased)
+ok   no webhook payload holds them (2 erased)
+ok   the consent row keeps only hashes and the time
+ok   no Storage file is left
+ok   the workspace is deleted
+ok   Pages project test-site-wo37: HTTP 404
+CHECK PASS: 0 problem(s)
+```
+Watched red: the same check aimed at the kept person (keep-me-wo37@example.com): 3 FAIL lines, exit 1. The exported Storage file
+(70 bytes) was saved before the delete.
+
 ## What this does not prove
-- The erased test lead had no messages, so the scan never met an address `delete_lead` leaves behind (`messages.to_text`); with one,
-  the request would stay in-progress (proven on fakes only). Work order 37b.
 - The Pages custom-domain detach on staging: the same Cloudflare call ran live in work order 35's clean-up; the wrapper is proven on
   fakes.
-- Deleting the Storage files and the state deleted: not built (work order 37b).
+- A number under 10 digits is not scrubbed (migration 26's limit); the workspace's rows stay after deleted (not decided); a bulk delete
+  scrubs only once platform's work order 20 routes it through `service.delete_lead`.

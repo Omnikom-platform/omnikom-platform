@@ -1,7 +1,6 @@
 # 37 offboard a client
 
-Owner: clients. Model: opus (the head did it). Branch: check/clients/wo37-offboard. Status: DONE on staging; E14 stays PARTLY
-(head of operations 2026-11-10 20:57) until work order 37b (migration 24) lands.
+Owner: clients. Model: opus (the head did it). Branch: check/clients/wo37-offboard. Status: DONE on staging (37 and 37b); E14 WORKS (head of operations 2026-11-11 05:17).
 
 ## Why
 Product row E14 "Tenant offboarding, full data export, privacy erasure carried out" was PARTLY: the workspace states and the
@@ -50,7 +49,10 @@ is a finding for platform); proof on a fresh test client test-wo37 made with onb
 test-wo37: offboarding, its site row (no domain, key revoked), the kept lead, the done request, the Storage file. No Pages project.
 
 ## Next
-Work order 37b (head of operations 20:57): migration 24 (reserved by platform), this department's file and tests, reviewed by
+Work order 37b (head of operations 20:57): migration 26 (24 reserved by platform, renamed 26 by the head of operations 2026-11-11), this department's file and tests, reviewed by
 platform: `delete_lead` scrubs every plaintext copy (`messages.to_text`, `webhook_events.payload`, `consent_ledger` keeps hashes and
 the time), a Storage deletion function for an offboarding workspace, the move to deleted once Storage is empty; must not touch
 `lead_set_fields` or `lead_query_check` (migration 20). Then E14 WORKS.
+
+Note (2026-11-11): migration 26's header names its tests "tenancy.test.sql T31"; work order 20 took T31, so the block is T32. The
+migration is applied on staging and is never edited (its hash would change), so the header keeps the old name.

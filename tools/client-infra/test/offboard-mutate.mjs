@@ -30,6 +30,10 @@ const MUTANTS = [
   ['a Storage size mismatch passes', 'if (ob.size != null && body.length !== Number(ob.size))', 'if (false)'],
   ['the export is rewritten on every run', 'if (prev && prev.content_sha256 === h) log(', 'if (false) log('],
   ['an export holding the person passes', 'if (key && hasSubject(JSON.stringify({ ...body, tables: rest }), key)) fail', 'if (false) fail'],
+  ['--delete runs without --teardown', "if (o.del && !o.teardown) throw", 'if (false) throw'],
+  ['the files are deleted although an earlier step failed', "} else if (out.failed.length || !exportOk) log('skip   the deletion", "} else if (false) log('skip   the deletion"],
+  ['the state goes to deleted with files left', "if (left.length) fail('delete'", "if (false) fail('delete'"],
+  ['a deleted workspace is exported again', "const gone = ws.state === 'deleted' && o.del;", 'const gone = false;'],
   ['production is accepted', "if (argv[++i] !== 'staging') throw", 'if (++i < 0) throw'],
 ];
 

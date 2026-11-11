@@ -68,7 +68,7 @@ address need not be a test inbox. Tests: `test/onboard-run.mjs` (in-memory fakes
 
 ```
 node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/client-infra/offboard.mjs --workspace <slug> --out <dir>
-     [--erase <privacy request id>] [--teardown] [--dry-run]
+     [--erase <privacy request id>] [--teardown] [--delete] [--dry-run]
 ```
 
 Only a workspace listed in `offboard-marked.json` (a ruling with an `until` day; a real client only on the owner's word) is
@@ -80,8 +80,9 @@ touched; any other, an `--out` folder inside a git checkout, or a malformed requ
 | privacy delete request (`--erase`) | `set_privacy_request_state` to in-progress, `service.delete_lead` for each of the person's leads, then a scan of every table of the workspace for the address; done only when nothing is found, else it stays in-progress (exit 1) | done: the scan runs again and must still be clean |
 | teardown (`--teardown`) | per site: Pages custom domains detached, `sites.domain` cleared (by id, exactly 1 row, audit row), signing keys revoked (`api_keys.revoked_at`, by id, exactly 1 row, audit row), the Pages project deleted (then a 404 is required) | nothing left: `ok` lines |
 | export | every row of every table with `workspace_id`, plus `lead_reads` and `publish_job_events`, the logins, and the Storage files, to `<out>/<slug>/export.json` and `files/`; each table checked against its `count(*)`, read back, and the erased person must be absent outside `privacy_requests` (which keeps the request, to answer the person); `api_keys` without `key_hash` | same content hash: not rewritten |
+| the end (`--delete`, needs `--teardown`; work order 37b) | only after this run's export read back and nothing failed: the paths from `service.offboarding_storage` (migration 26: staff with MFA, an offboarding workspace only) deleted through the Storage API (a SQL delete is refused by Supabase's `storage.protect_delete`), the list must then be empty, then offboarding -> deleted (the database refuses it while a file or an unrevoked key is left) | deleted: only checks; the export made before the deletion is kept |
 
-The export runs last so it is the final state and never holds an erased person. It holds personal data: keep it out of the
-repository (this repository is public). Not built (need database functions, platform's, H2-6): deleting the Storage files and the
-move to deleted. DNS records are never touched. Tests: `test/offboard-run.mjs` (fakes) and `test/offboard-mutate.mjs`, inside
-`node clients/test/run.mjs`. Staging proof: `proof-offboard.mjs` (`--seed`, then `--check --out <dir>`).
+The export runs after the erasure and the teardown and before `--delete`, so it never holds an erased person and still has the files. It holds personal data: keep it out of the
+repository (this repository is public). Since migration 26 (work order 37b) `service.delete_lead` also scrubs the person's copies in `messages` and `webhook_events` and
+reduces their consent rows to hashes and the time. The workspace's rows stay after deleted (removing them is not decided). DNS records are never touched. Tests: `test/offboard-run.mjs` (fakes) and `test/offboard-mutate.mjs`, inside
+`node clients/test/run.mjs`. Staging proof: `proof-offboard.mjs` (`--seed`, then `--check --out <dir>`; for 37b `--seed2`, then `--check2`).

@@ -9,6 +9,9 @@
 //   node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/client-infra/proof-offboard.mjs --check --out <dir>
 //        checks the outcome with its own queries, not offboard.mjs's: the state, the request, the leads, the keys, the domain, the
 //        Pages project, and the export file (its hash, its row counts against the database, its Storage file, no erased person).
+//   --seed2 / --check2 (work order 37b, migration 26): a second person whose lead, messages, webhook events and consent row hold the
+//        address; after offboard.mjs --erase <its request> --teardown --delete: no plaintext copy, the consent row as hashes, Storage
+//        empty, the state deleted.
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
@@ -18,7 +21,7 @@ import { parseIdentity, claimsFor } from '../omnikom-cli/lib/identity.mjs';
 import { contentHash } from './offboard.mjs';
 
 const SLUG = 'test-wo37', SITE = 'test-site-wo37', HOST = 'wo37-test.example.com';
-const ERASE = 'erase-me-wo37@example.com', KEEP = 'keep-me-wo37@example.com', FILE = 'wo37-test.png';
+const ERASE = 'erase-me-wo37@example.com', KEEP = 'keep-me-wo37@example.com', FILE = 'wo37-test.png', ERASE2 = 'erase-two-wo37@example.com';
 const need = (n) => { const v = process.env[n]; if (!v) throw new Error(`set ${n} (read by name, never printed)`); return v; };
 const dbUrl = need('STAGING_DB_URL'), pagesToken = need('CLOUDFLARE_PAGES_TOKEN'), account = need('CLOUDFLARE_ACCOUNT_ID');
 const target = resolveTarget('staging', process.env, { needDb: false });
@@ -56,7 +59,7 @@ if (mode === '--seed') {
     if (has) { console.log(`ok   lead ${email} is there`); continue; }
     const id = psql(`select service.add_lead(:'c'::jsonb, :'site'::uuid, :'n', :'e', :'p', '{"message":"work order 37 test lead"}'::jsonb, 'Test consent text (work order 37).', 'manual', null);`,
       { c: claims, site: ws.site_id, n: name, e: email, p: phone });
-    if (email === ERASE) psql(`select service.lead_update(:'c'::jsonb, :'id'::uuid, null::public.lead_status, null::uuid, 'work order 37 note: called, left a message', false);`, { c: claims, id });
+    if (email === ERASE) psql(`select service.lead_update(:'c'::jsonb, :'id'::uuid, null::text, null::uuid, 'work order 37 note: called, left a message', false);`, { c: claims, id });
     console.log(`done lead ${email} (${id})`);
   }
   const objName = `${ws.id}/${FILE}`;
@@ -91,6 +94,52 @@ if (mode === '--seed') {
   if (req) console.log(`ok   privacy request ${req} is there`);
   else { req = psql(`select service.open_privacy_request(:'c'::jsonb, :'ws'::uuid, 'delete', :'e', 'work order 37 test request');`, { c: claims, ws: ws.id, e: ERASE.toUpperCase() }); console.log(`done privacy request ${req} (subject in capitals on purpose)`); }
   console.log(`REQUEST ${req}`);
+} else if (mode === '--seed2') {
+  // work order 37b (migration 26): a second person with every copy delete_lead must now reach. The lead and its copies are written as
+  // test fixtures by the database owner (the workspace is offboarding, so no form takes leads); the request through the function, as staff.
+  const has = psql(`select id from public.leads where workspace_id = :'ws'::uuid and lower(email) = :'e' limit 1;`, { ws: ws.id, e: ERASE2 });
+  if (has) console.log(`ok   lead ${ERASE2} is there`);
+  else {
+    const id = psql(`with l as (insert into public.leads (workspace_id, site_id, form, page_path, name, email, phone, answers, consent_text)
+        values (:'ws'::uuid, :'site'::uuid, 'contact', '/contact', 'Erase Two WO37', :'e', '(555) 555-0237', '{}'::jsonb, 'Test consent text (work order 37b).') returning id),
+      m as (insert into public.messages (workspace_id, lead_id, channel, template, to_text, error)
+        select :'ws'::uuid, l.id, 'email'::public.message_channel, 'follow-up', :'e', 'bounced: ' || upper(:'e') from l union all
+        select :'ws'::uuid, null::uuid, 'sms'::public.message_channel, 'follow-up', '555.555.0237', null::text from l returning 1),
+      h as (insert into public.webhook_events (workspace_id, kind, payload) values (:'ws'::uuid, 'wo37b-bounce', jsonb_build_object('to', upper(:'e'))), (:'ws'::uuid, 'wo37b-sms', '{"from": "+15555550237"}'::jsonb) returning 1),
+      c as (insert into public.consent_ledger (workspace_id, site_id, lead_id, form, page_path, consent_text, consent_hash, sms_consent, marketing, ip_hash, user_agent)
+        select :'ws'::uuid, :'site'::uuid, l.id, 'contact', '/contact', 'Test consent text (work order 37b).', encode(sha256(convert_to('Test consent text (work order 37b).', 'utf8')), 'hex'), true, '{"email": true}'::jsonb, repeat('a', 64), 'Mozilla/5.0 (work order 37b)' from l returning 1)
+      select l.id from l, (select count(*) from m) mm, (select count(*) from h) hh, (select count(*) from c) cc;`, { ws: ws.id, site: ws.site_id, e: ERASE2 });
+    console.log(`done lead ${ERASE2} (${id}) with 2 messages, 2 webhook events and a consent row that hold the person`);
+  }
+  let req = psql(`select id from public.privacy_requests where workspace_id = :'ws'::uuid and kind = 'delete' and lower(subject) = :'e' order by received_at limit 1;`, { ws: ws.id, e: ERASE2 });
+  if (req) console.log(`ok   privacy request ${req} is there`);
+  else { req = psql(`select service.open_privacy_request(:'c'::jsonb, :'ws'::uuid, 'delete', :'e', 'work order 37b test request');`, { c: claims, ws: ws.id, e: ERASE2 }); console.log(`done privacy request ${req}`); }
+  console.log(`REQUEST ${req}`);
+} else if (mode === '--check2') {
+  // work order 37b: the copies are gone, the ledger keeps hashes and the time, Storage is empty, the state is deleted
+  const st = JSON.parse(psql(`select json_build_object(
+    'state', (select state::text from public.workspaces where id = :'ws'::uuid),
+    'req', (select state::text from public.privacy_requests where workspace_id = :'ws'::uuid and kind = 'delete' and lower(subject) = :'e' order by received_at limit 1),
+    'leads', (select count(*) from public.leads where workspace_id = :'ws'::uuid and lower(email) = :'e'),
+    'msg_plain', (select count(*) from public.messages where workspace_id = :'ws'::uuid and (strpos(lower(to_text), :'e') > 0 or strpos(lower(coalesce(error, '')), :'e') > 0 or to_text ~ '555[-. ()+]{0,3}0237')),
+    'msg_erased', (select count(*) from public.messages where workspace_id = :'ws'::uuid and to_text like 'erased:%'),
+    'hook_plain', (select count(*) from public.webhook_events where workspace_id = :'ws'::uuid and (strpos(lower(payload::text), :'e') > 0 or payload::text ~ '555[-. ()+]{0,3}0237')),
+    'hook_erased', (select count(*) from public.webhook_events where workspace_id = :'ws'::uuid and kind like 'wo37b-%' and payload = '{"erased": true}'::jsonb),
+    'ledger', (select json_agg(json_build_object('lead', lead_id, 'ua', user_agent, 'mk', marketing, 'email_hash_ok', email_hash = encode(sha256(convert_to(:'e', 'utf8')), 'hex'), 'phone_hash_ok', phone_hash = encode(sha256(convert_to('5555550237', 'utf8')), 'hex'), 'ip', ip_hash is not null))
+               from public.consent_ledger where workspace_id = :'ws'::uuid and consent_text = 'Test consent text (work order 37b).'),
+    'files', (select count(*) from storage.objects where bucket_id = 'media' and name like :'ws' || '/%'));`, { ws: ws.id, e: ERASE2 }));
+  console.log(`state: ${JSON.stringify(st)}`);
+  say(st.req === 'done', 'the second privacy request is done');
+  say(st.leads === 0, 'the second person\'s lead is gone');
+  say(st.msg_plain === 0 && st.msg_erased >= 2, `no message holds the address or the number (${st.msg_erased} erased)`);
+  say(st.hook_plain === 0 && st.hook_erased === 2, 'no webhook payload holds them (2 erased)');
+  say(Array.isArray(st.ledger) && st.ledger.length === 1 && st.ledger.every((r) => r.lead === null && r.ua === null && r.mk === null && r.email_hash_ok && r.phone_hash_ok && r.ip),
+    'the consent row keeps only hashes and the time');
+  say(st.files === 0, 'no Storage file is left');
+  say(st.state === 'deleted', 'the workspace is deleted');
+  const p = await pages('GET', `/${SITE}`);
+  say(p.status === 404, `Pages project ${SITE}: HTTP ${p.status}`);
+  console.log(`${bad ? 'CHECK FAIL' : 'CHECK PASS'}: ${bad} problem(s)`);
 } else if (mode === '--check') {
   const out = process.argv[4];
   if (process.argv[3] !== '--out' || !out) throw new Error('usage: --check --out <dir>');
@@ -135,5 +184,5 @@ if (mode === '--seed') {
     say(Object.keys(body.tables).length >= 25, `${Object.keys(body.tables).length} tables in the export`);
   }
   console.log(`${bad ? 'CHECK FAIL' : 'CHECK PASS'}: ${bad} problem(s)`);
-} else { console.error('usage: --seed | --check --out <dir>'); process.exit(2); }
+} else { console.error('usage: --seed | --check --out <dir> | --seed2 | --check2'); process.exit(2); }
 process.exit(bad ? 1 : 0);

@@ -674,8 +674,9 @@ do $$ declare c consent_ledger; begin
   assert found, 'capture writes the consent ledger row';
   assert c.consent_hash = encode(sha256(convert_to('I agree to be contacted by email, phone or text', 'utf8')), 'hex'), 'the ledger holds the hash of the exact wording';
   assert c.sms_consent and c.marketing ->> 'given' = 'true' and c.ip_hash = repeat('f', 64) and c.page_path = '/consent/', 'the ledger holds the consent facts (sms, marketing, hashed address, page)';
-  assert (select count(*) from consent_ledger where lead_id = test.id('leadM')) = 1, 'a manual lead has its consent row too (added by a member, then deleted: the row stays)';
-  assert (select by from consent_ledger where lead_id = test.id('leadM')) = '00000000-0000-0000-0000-0000000000a1', 'the manual consent row names who entered it';
+  -- since migration 26 a deleted lead's consent row keeps hashes and the time (lead_id emptied): it is found by the email's hash
+  assert (select count(*) from consent_ledger where lead_id is null and email_hash = encode(sha256(convert_to('w@test', 'utf8')), 'hex')) = 1, 'a manual lead has its consent row too (added by a member, then deleted: the row stays)';
+  assert (select by from consent_ledger where lead_id is null and email_hash = encode(sha256(convert_to('w@test', 'utf8')), 'hex')) = '00000000-0000-0000-0000-0000000000a1', 'the manual consent row names who entered it';
 end $$;
 select test.expect_error($q$update consent_ledger set consent_text = 'changed'$q$, 'A-APPEND-ONLY');
 select test.expect_error($q$delete from consent_ledger$q$, 'A-APPEND-ONLY');
@@ -687,7 +688,7 @@ do $$ begin assert (select count(*) from consent_ledger) = 0, 'members do not re
 select test.act_as('00000000-0000-0000-0000-00000000000a');
 select test.delete_lead(test.id('leadC'));
 reset role;
-do $$ begin assert (select count(*) from consent_ledger where lead_id = test.id('leadC')) = 1, 'the consent record survives the lead''s deletion'; end $$;
+do $$ begin assert (select count(*) from consent_ledger where lead_id is null and email_hash = encode(sha256(convert_to('c@test', 'utf8')), 'hex') and ip_hash = repeat('f', 64)) = 1, 'the consent record survives the lead''s deletion (as hashes and the time, migration 26)'; end $$;
 -- suppressions: the STOP of leadS (T15) became a suppression by hashed number; it survives the lead and blocks a new lead with the same number
 do $$ begin assert (select count(*) from suppressions where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and channel = 'sms' and reason = 'stop' and lead_id = test.id('leadS')) = 1, 'STOP wrote a suppression'; end $$;
 set role authenticated;
@@ -1607,7 +1608,8 @@ do $$ declare t record; n int; begin
       'crm_fields', 'import_leads',                    -- work order 02: owner B on each in T23
       'view_save', 'view_delete', 'lead_follow_up', 'task_add', 'task_done',   -- work order 18: owner B, a login of nothing and a member on each in T29
       'list_members', 'invite_context',                -- work order 08: owner B and a member in T24
-      'site_audit']),                                  -- work order 10: member and owner B in T24
+      'site_audit',                                    -- work order 10: member and owner B in T24
+      'offboarding_storage']),                         -- work order 37b (migration 26): owner B and staff without MFA in T32e
       'service.' || t.proname || ' takes claims but has no outsider test listed in T14';
   end loop;
 end $$;
@@ -1866,7 +1868,8 @@ reset role;
 do $$ begin
   assert (select v from test.r where k = 'b3') = '2' and (select count(*) from leads where id in (test.id('c1'), test.id('c2'))) = 0, 'T22d confirmed bulk delete is a hard delete';
   assert (select count(*) from audit_log where action = 'lead-delete' and target in (test.id('c1')::text, test.id('c2')::text)) = 2, 'T22d one audit row per deleted lead';
-  assert (select count(*) from consent_ledger where lead_id in (test.id('c1'), test.id('c2'))) = 2, 'T22d the consent ledger keeps its rows';
+  -- since migration 26 the delete (through service.delete_lead since work order 20) keeps each consent row as hashes and the time
+  assert (select count(*) from consent_ledger where lead_id is null and email_hash in (encode(sha256(convert_to('t1@test', 'utf8')), 'hex'), encode(sha256(convert_to('t2@test', 'utf8')), 'hex'))) = 2, 'T22d the consent ledger keeps its rows (as hashes, migration 26)';
 end $$;
 
 -- (e) the new functions: closed to anon, authenticated and PUBLIC, open to the function role, definer with an empty search_path
@@ -3080,6 +3083,128 @@ do $$ begin
     'T31q a bulk delete leaves one audit row per lead, with the reason and the email hash';
   assert (select count(*) from test.delctx where ctx like '%service.delete_lead(%') = 2, 'T31q each lead was deleted inside service.delete_lead: ' || coalesce((select string_agg(left(ctx, 120), ' | ') from test.delctx), 'no delete seen');
 end $$;
+
+-- ===== T32 erasure scrubs every copy of the person; Storage and keys gate the deleted state (work order 37b, migration 26, the Clients
+-- department's file) =====
+create function test.offboarding_storage(p_ws uuid) returns setof text language sql security definer as $$ select path from service.offboarding_storage(test.claims(), p_ws) $$;
+grant execute on function test.offboarding_storage(uuid) to authenticated;
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+insert into test.ids select 't32lead', test.add_lead('aaaaaaaa-0000-0000-0000-00000000517e', 'T32 Person', 'T32.Erase@Example.com', '+1 (555) 555-0199', '{}', 'I agree (T32)');
+reset role;
+-- the copies an erasure must reach: a message to the email (its error quotes it), one to the number in another layout, one to someone else;
+-- webhook payloads with the email, with the number, and with someone else; a second ledger row with a user agent and marketing choices
+insert into messages (workspace_id, lead_id, channel, template, to_text, error) values
+ ('aaaaaaaa-0000-0000-0000-000000000000', test.id('t32lead'), 'email', 'follow-up', 't32.erase@example.com', 'bounced: T32.Erase@Example.com'),
+ ('aaaaaaaa-0000-0000-0000-000000000000', null, 'sms', 'follow-up', '555.555.0199', null),
+ ('aaaaaaaa-0000-0000-0000-000000000000', null, 'email', 'new-lead', 't32-agent@test', null),
+ ('aaaaaaaa-0000-0000-0000-000000000000', null, 'sms', 'follow-up', '25555550199', null),
+ ('aaaaaaaa-0000-0000-0000-000000000000', null, 'sms', 'follow-up', '(555) 555-01990', null),
+ ('aaaaaaaa-0000-0000-0000-000000000000', null, 'email', 'follow-up', 'x.t32.erase@example.com', null);
+insert into webhook_events (workspace_id, kind, payload) values
+ ('aaaaaaaa-0000-0000-0000-000000000000', 't32-bounce', '{"to": "T32.ERASE@example.com"}'),
+ ('aaaaaaaa-0000-0000-0000-000000000000', 't32-sms', '{"from": "+15555550199"}'),
+ ('aaaaaaaa-0000-0000-0000-000000000000', 't32-other', '{"to": "someone@else.test"}'),
+ ('aaaaaaaa-0000-0000-0000-000000000000', 't32-longer-address', '{"to": "my.t32.erase@example.com"}'),
+ ('aaaaaaaa-0000-0000-0000-000000000000', 't32-longer-number', '{"from": "+44 25555550199"}');
+insert into consent_ledger (workspace_id, site_id, lead_id, form, page_path, consent_text, consent_hash, sms_consent, marketing, ip_hash, user_agent)
+  values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', test.id('t32lead'), 'contact', '/contact', 'I agree (T32)',
+          encode(sha256(convert_to('I agree (T32)', 'utf8')), 'hex'), true, '{"email": true}', repeat('a', 64), 'Mozilla/5.0 (T32)');
+do $$ begin assert (select count(*) from consent_ledger where lead_id = test.id('t32lead')) = 2, 'T32 setup: the lead has two ledger rows'; end $$;
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.delete_lead(test.id('t32lead'));
+reset role;
+do $$ begin
+  assert (select count(*) from leads where id = test.id('t32lead')) = 0, 'T32 the lead is gone';
+  assert (select count(*) from messages where lower(to_text) = 't32.erase@example.com' or strpos(lower(coalesce(error, '')), 't32.erase@example.com') > 0) = 0, 'T32a no message holds the email, in to_text or error';
+  assert (select count(*) from messages where to_text ~ '(^|[^0-9])(1[-. ()+]{0,3})?5[-. ()+]{0,3}5[-. ()+]{0,3}5[-. ()+]{0,3}5[-. ()+]{0,3}5[-. ()+]{0,3}5[-. ()+]{0,3}0[-. ()+]{0,3}1[-. ()+]{0,3}9[-. ()+]{0,3}9($|[^0-9])') = 0, 'T32a no message holds the number';
+  assert (select count(*) from messages where to_text in ('erased:' || encode(sha256(convert_to('t32.erase@example.com', 'utf8')), 'hex'), 'erased:' || encode(sha256(convert_to('555.555.0199', 'utf8')), 'hex'))) = 2, 'T32a both copies are erased:<sha256>';
+  assert (select count(*) from messages where to_text = 't32-agent@test') = 1, 'T32a another person''s message is untouched';
+  assert (select count(*) from messages where to_text in ('25555550199', '(555) 555-01990')) = 2, 'T32a another person''s longer number that holds the digits is untouched';
+  assert (select count(*) from messages where to_text = 'x.t32.erase@example.com') = 1, 'T32a another person''s longer address is untouched';
+  assert (select payload from webhook_events where kind = 't32-bounce') = '{"erased": true}'::jsonb, 'T32b the payload with the email is erased';
+  assert (select payload from webhook_events where kind = 't32-sms') = '{"erased": true}'::jsonb, 'T32b the payload with the number is erased';
+  assert (select payload from webhook_events where kind = 't32-other') = '{"to": "someone@else.test"}'::jsonb, 'T32b another person''s payload is kept';
+  assert (select payload from webhook_events where kind = 't32-longer-address') = '{"to": "my.t32.erase@example.com"}'::jsonb, 'T32b a longer address that holds the person''s is kept';
+  assert (select payload from webhook_events where kind = 't32-longer-number') = '{"from": "+44 25555550199"}'::jsonb, 'T32b a longer number that holds the person''s digits is kept';
+  assert (select count(*) from consent_ledger where consent_text = 'I agree (T32)' and lead_id is null and user_agent is null and marketing is null
+          and email_hash = encode(sha256(convert_to('t32.erase@example.com', 'utf8')), 'hex') and phone_hash = encode(sha256(convert_to('5555550199', 'utf8')), 'hex')) = 2,
+    'T32c both ledger rows keep only hashes and the time: ' || coalesce((select json_agg(json_build_object('lead', lead_id, 'ua', user_agent, 'mk', marketing, 'e', email_hash, 'p', phone_hash))::text from consent_ledger where consent_text = 'I agree (T32)'), 'none');
+  assert (select count(*) from consent_ledger where consent_text = 'I agree (T32)' and ip_hash = repeat('a', 64) and sms_consent and page_path = '/contact') = 1, 'T32c the proof itself is kept';
+  assert coalesce(current_setting('omnikom.erasure', true), '') <> 'on', 'T32c delete_lead turns the erasure setting off again';
+end $$;
+-- T32d the ledger stays append-only: no setting, a change outside the erasure shape, a role that is not the table's owner, a delete
+select test.expect_error($q$update consent_ledger set user_agent = null where consent_text = 'I agree (T32)'$q$, 'A-APPEND-ONLY');
+select set_config('omnikom.erasure', 'on', false);
+select test.expect_error($q$update consent_ledger set consent_text = 'changed (T32)' where consent_text = 'I agree (T32)'$q$, 'A-APPEND-ONLY');
+select test.expect_error($q$update consent_ledger set email_hash = repeat('b', 64) where consent_text = 'I agree (T32)'$q$, 'A-APPEND-ONLY');
+select test.expect_error($q$delete from consent_ledger where consent_text = 'I agree (T32)'$q$, 'A-APPEND-ONLY');
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select set_config('omnikom.erasure', 'on', false);
+select test.expect_error($q$update consent_ledger set user_agent = null where consent_text = 'I agree (T32)'$q$, 'permission denied');
+reset role;
+-- a grant and a policy made by mistake (test only, rolled back): the rows are then reachable, and the trigger alone still refuses a
+-- signed-in user, and any role that is not the table's owner (without the policy, row-level security would hide the rows and the
+-- update would change nothing, which tests nothing). Granting and creating a role need a superuser: run-local.mjs (where the
+-- mutants run) is one; the CLI's walls run on a namespaced copy is not (CI a8011c4: "permission denied"), so there they are skipped.
+do $$
+begin
+  if not coalesce((select rolsuper from pg_roles where rolname = current_user), false) then
+    raise notice 'T32d: the grant and role checks need a superuser (run-local.mjs runs them); skipped here';
+    return;
+  end if;
+  execute 'grant update on consent_ledger to authenticated';
+  execute 'create policy t32_update_any on consent_ledger for all to public using (true) with check (true)';
+  assert (select count(*) from consent_ledger where consent_text = 'I agree (T32)') = 2, 'T32d setup: the two rows are there to update';
+  perform set_config('omnikom.erasure', 'on', true);
+  execute 'set local role authenticated';
+  perform test.act_as('00000000-0000-0000-0000-00000000000a');
+  perform test.expect_error($q$update consent_ledger set user_agent = null where consent_text = 'I agree (T32)'$q$, 'A-APPEND-ONLY');
+  execute 'reset role';
+  execute 'revoke update on consent_ledger from authenticated';
+  execute 'create role t32_writer';
+  execute 'grant select, update on consent_ledger to t32_writer';
+  execute 'grant usage on schema test to t32_writer';
+  execute 'grant execute on function test.expect_error(text, text) to t32_writer';
+  execute 'set local role t32_writer';
+  perform test.expect_error($q$update consent_ledger set user_agent = null where consent_text = 'I agree (T32)'$q$, 'A-APPEND-ONLY');
+  execute 'reset role';
+  raise notice 'T32d: the grant and role checks ran';
+end $$;
+select set_config('omnikom.erasure', 'off', false);
+-- T32e Storage: staff with MFA list an offboarding workspace's files, nobody else, and no other state; deleted waits for empty Storage and revoked keys
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+select test.expect_error($q$select test.offboarding_storage('bbbbbbbb-0000-0000-0000-000000000000')$q$, 'S-WORKSPACE-STATE');   -- B is active
+select test.set_workspace_state('bbbbbbbb-0000-0000-0000-000000000000', 'offboarding', 'T32');
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+select test.expect_error($q$select test.offboarding_storage('bbbbbbbb-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');   -- B's owner
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal1');
+select test.expect_error($q$select test.offboarding_storage('bbbbbbbb-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');   -- staff without MFA
+reset role;
+insert into storage.objects (bucket_id, name) values ('media', 'bbbbbbbb-0000-0000-0000-000000000000/t32.png');
+insert into api_keys (workspace_id, site_id, kind, label, key_hash) values ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-00000000517e', 'site-signing', 'T32 key', repeat('c', 64));
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+do $$ begin
+  assert (select count(*) from test.offboarding_storage('bbbbbbbb-0000-0000-0000-000000000000') p where p = 'bbbbbbbb-0000-0000-0000-000000000000/t32.png') = 1, 'T32e staff list the offboarding workspace''s file';
+  assert (select count(*) from test.offboarding_storage('bbbbbbbb-0000-0000-0000-000000000000') p where p not like 'bbbbbbbb-0000-0000-0000-000000000000/%') = 0, 'T32e only that workspace''s folder';
+end $$;
+select test.expect_error($q$select test.set_workspace_state('bbbbbbbb-0000-0000-0000-000000000000', 'deleted')$q$, 'S-WORKSPACE-STORAGE');
+reset role;
+delete from storage.objects where bucket_id = 'media' and name like 'bbbbbbbb-0000-0000-0000-000000000000/%';
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+select test.expect_error($q$select test.set_workspace_state('bbbbbbbb-0000-0000-0000-000000000000', 'deleted')$q$, 'S-WORKSPACE-KEYS');
+reset role;
+update api_keys set revoked_at = now() where workspace_id = 'bbbbbbbb-0000-0000-0000-000000000000' and revoked_at is null;
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+select test.set_workspace_state('bbbbbbbb-0000-0000-0000-000000000000', 'deleted', 'T32 offboarded');
+reset role;
+do $$ begin assert (select state from workspaces where id = 'bbbbbbbb-0000-0000-0000-000000000000') = 'deleted', 'T32e B is deleted once its Storage is empty and its keys revoked'; end $$;
 
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

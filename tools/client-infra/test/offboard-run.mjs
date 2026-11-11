@@ -142,7 +142,7 @@ t('teardown: a key still active after the revoke fails; without --teardown nothi
   const w2 = newWorld();
   const b = await run(w2, { teardown: false });
   return [a.r.failed.includes('teardown') && /still has an active signing key/.test(a.text) && w2.projects['test-site-wo37'] && !w2.keys[0].revoked && w2.sites[0].domain
-    && !w2.writes.some((x) => /detach|revoke|delete project|clear domain/.test(x)) && /teardown runs with --teardown/.test(b.text), a.text + '\n--\n' + b.text];
+    && !w2.writes.some((x) => /detach|revoke|delete project|clear domain/.test(x)) && /skip {3}teardown \(runs with --teardown\)/.test(b.text), a.text + '\n--\n' + b.text];
 });
 
 t('a number as the subject: matched by its digits, in any layout', async () => {
@@ -153,6 +153,34 @@ t('a number as the subject: matched by its digits, in any layout', async () => {
     && hasSubject('call 1-555-555-0137 now', k) && hasSubject('(555) 555-0137', subjectKey('+1 555 555 0137')) && !hasSubject('15555550138', k) && subjectKey('12345') === null && subjectKey(' A@B.co ').email === 'a@b.co', a.err ? a.err.stack : a.text];
 });
 
+t('--delete: the files deleted through Storage after the export, then deleted; a second run changes nothing', async () => {
+  const w = newWorld();
+  const a = await run(w, { del: true });
+  const ex = w.files.has(EXPORT) ? exported(w) : null;
+  const before = w.writes.length;
+  const b = await run(w, { del: true });
+  const order = w.writes.indexOf(`file ${EXPORT}`) >= 0 && w.writes.indexOf(`file ${EXPORT}`) < w.writes.indexOf('storage remove 1');
+  return [!a.err && a.r.failed.length === 0 && w.ws.state === 'deleted' && w.objects.length === 0 && ex && ex.files.length === 1 && order
+    && w.files.has(join(OUT, 'test-wo37', 'files', 'logo.png')) && /done {3}set test-wo37 offboarding -> deleted/.test(a.text)
+    && !b.err && b.r.changed === 0 && b.r.failed.length === 0 && w.writes.length === before && /is the export made before the deletion/.test(b.text), (a.err ? a.err.stack : a.text) + '\n--\n' + (b.err ? b.err.stack : b.text)];
+});
+
+t('--delete: refused without --teardown; files that stay keep the state offboarding; a failed step deletes nothing; dry run writes nothing', async () => {
+  let noTear = false; try { precheck({ slug: 'test-wo37', outDir: OUT, marked: MARKED, insideGit: false, del: true }); } catch (e) { noTear = e instanceof Refused; }
+  const w = newWorld(); w.storageStays = true;
+  const a = await run(w, { del: true });
+  const w2 = newWorld(); w2.countLie = 'leads';
+  const b = await run(w2, { del: true });
+  const w3 = newWorld();
+  const c = await run(w3, { del: true, dryRun: true });
+  const w4 = newWorld(); w4.ws.state = 'deleted';
+  const e = await run(w4, { del: true });
+  return [noTear && a.r.failed.includes('delete') && w.ws.state === 'offboarding' && /still there after the delete/.test(a.text)
+    && w2.objects.length === 1 && w2.ws.state === 'offboarding' && /skip {3}the deletion/.test(b.text)
+    && w3.writes.length === 0 && /would {2}delete the Storage file\(s\) of test-wo37, then set it offboarding -> deleted/.test(c.text)
+    && e.r && e.r.failed.includes('export') && /is deleted but .* is not its export/.test(e.text), [a.text, b.text, c.text, e.text].join('\n--\n')];
+});
+
 t('rulings, arguments and the content hash', async () => {
   const d = mkdtempSync(join(tmpdir(), 'offboard-'));
   try {
@@ -161,8 +189,8 @@ t('rulings, arguments and the content hash', async () => {
     const l = loadMarked(f, '2026-11-10');
     let prod = false; try { parseArgs(['--workspace', 'a', '--out', 'x', '--target', 'production']); } catch (e) { prod = e instanceof Refused; }
     let none = false; try { parseArgs(['--workspace', 'a']); } catch (e) { none = e instanceof Refused; }
-    const p = parseArgs(['--workspace', 'a', '--out', 'rel', '--teardown', '--dry-run', '--erase', TICKET]);
-    return [l.length === 1 && l[0].slug === 'a' && prod && none && p.teardown && p.dryRun && p.erase === TICKET && resolve(p.outDir) === p.outDir
+    const p = parseArgs(['--workspace', 'a', '--out', 'rel', '--teardown', '--dry-run', '--erase', TICKET, '--delete']);
+    return [l.length === 1 && l[0].slug === 'a' && prod && none && p.teardown && p.dryRun && p.del && p.erase === TICKET && resolve(p.outDir) === p.outDir
       && contentHash({ a: 1, b: { c: 2, d: 3 } }) === contentHash({ b: { d: 3, c: 2 }, a: 1 }), JSON.stringify(l)];
   } finally { rmSync(d, { recursive: true, force: true }); }
 });
