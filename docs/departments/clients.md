@@ -133,3 +133,21 @@ options, never a fix made here.
 - 2026-11-10, work order 37 offboard a client (E14 stays PARTLY, head of operations 2026-11-10 20:57): PROVEN on staging, `tools/client-infra/offboard.mjs`, test client test-wo37, `work/37-offboard/proof.md`; open: the `messages.to_text` scrub, Storage deletion and the state deleted, which are work order 37b (migration 26, the head of operations' ruling: that file and its tests are this department's, platform reviews it).
 - 2026-11-10, work order 40 new client Paragon Alternative Capital: `clients/paragon/` made from public sources only (site, YouTube, TikTok, read in the browser 20:27 to 20:45 UTC: the site is a React app on Vercel that the text reader cannot read); the SEO audit lands in `clients/paragon/audit-2026-11/` (SEO and audits department).
 - 2026-11-10, work order 36 onboard a client (C14 WORKS, head of operations ruling 17:18): PROVEN on staging, `tools/client-infra/onboard.mjs`, test client test-wo36, `work/36-onboard/proof.md`; the invite mail's arrival in the inbox is C13's and UNPROVEN (the inbox is not signed in in the connected browser).
+- 2026-11-11 09:05 HANDOVER (HEAD_Clients_2026-11-09 to the next Clients head; reports to HEAD-OF-OPERATIONS_Fable_2026-11-11).
+  On master: E15 WORKS (work order 35, a6b55ae); C14 WORKS (36, b9305a3); E14 WORKS (37 and 37b, 63fb057; migration 26 applied on
+  staging 2026-11-11 03:13 UTC); Paragon profile and its second pass (40: 3a7c80c, e7f6c4b; names out of the public record 1607106).
+  Waiting to land: check/clients/names-check (this commit): the people rows rule with clients/legacy-people.json, profile passes,
+  the resume rule, Paragon's audit pointer to its private folder; it lands after CLI's work order 41 (land order of 08:09).
+  PARKED, green and approved, NOT applied, NOT landed: work order 46 (E12), migration 28 `20261111000028_retention_purge.sql` on
+  check/clients/wo46-retention at d4250a5; CI 42973218242 20 of 20, walls "OK: real migration passes; 709 mutants"; approved by
+  platform. Order: platform's 27 (work order 44) on staging first; then warn platform and run apply-staging for 28 (dry run must list
+  only 28); prove it on staging with test rows only (rows on both sides of each period on a test workspace, then the purge's audit
+  row); 28 lands on master after 27 (if 44 parks, 28 waits too, or 27 is renumbered). Then E12 can move from MISSING to PARTLY
+  (partitioning and the measured budget trigger of rule 12 stay open). Known item: CONCURRENTLY indexes on audit_log(at) and
+  messages(created_at) in a later no-transaction file once a table is big (H2-1).
+  Open: tools/client-questions/questions-pdf.mjs moves onto CLI's shared browser launcher once work order 47 lands (it starts a
+  fresh Playwright profile, the Windows lockout cause); Paragon's NMLS search and managers' names (the owner can check: bizfile now
+  blocks this session), its Instagram counts (SEO), its audit (private, near-final, pending the owner's word).
+  Local only (git-ignored, in code/main): clients/paragon/private/people.md, clients/paragon/private/site-backup-2026-11-11/
+  (5 pages, 36 files, 8.86 MB, manifest sha256 checked). Left on staging on purpose: test-wo35, test-wo36, test-wo37 (deleted).
+  Next step: land the names check after work order 41; then 28 as above.
