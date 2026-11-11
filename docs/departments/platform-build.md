@@ -630,3 +630,8 @@ Closed work (steps 1 to 4, 5.1 to 5.3, 6A, 6B, the Auth emails) is in the positi
      on that, green on clean data). The flows clean up after themselves or seed a fresh site per run.
   3. The next deploy of omnikom-app-staging comes from master and carries WO38's enforced CSP; do it in the same step as the next
      dashboard-reading migration (charter staging rule, 2026-11-11).
+  4. Playwright account lockouts (head of operations 2026-11-11 08:23): every launch() on a brand-new browser profile probes the
+     Windows account DELL with an empty password; ten close together lock it for 10 minutes (5 lockouts that morning). Fix in the
+     dashboard's Playwright setup: launchPersistentContext on a prepared folder whose "Local State" holds
+     password_manager.os_password_blank=false and os_password_last_changed = now in Chrome's clock (copy the CLI's one-liner).
+     Proof: ([ADSI]"WinNT://$env:COMPUTERNAME/DELL,user").BadPasswordAttempts stays flat across a full flows run.
