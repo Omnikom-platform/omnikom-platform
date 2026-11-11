@@ -2067,9 +2067,9 @@ end $$;
 do $$ begin
   if to_regclass('cron.stub_jobs') is null then raise notice 'T25 skipped: no cron stand-in here'; return; end if;
   assert (select count(*) from cron.stub_jobs where jobname = 'reap-stale-jobs') = 1, 'T25 exactly one job named reap-stale-jobs is scheduled';
-  assert (select count(*) from cron.stub_jobs) = 2, 'T25 the migrations schedule two jobs: the reaper and the daily metrics pull (T32)';
+  assert (select count(*) from cron.stub_jobs) = 2, 'T25 the migrations schedule two jobs: the reaper and the daily metrics pull (T34)';
   assert (select count(*) from cron.stub_jobs where jobname = 'metrics-pull-daily') = 1 and (select schedule from cron.stub_jobs where jobname = 'metrics-pull-daily') = '30 3 * * *'
-    and (select command from cron.stub_jobs where jobname = 'metrics-pull-daily') ~ 'service\.metrics_pull_all\(\)', 'T32 the daily metrics pull is scheduled at 03:30 UTC and calls service.metrics_pull_all()';
+    and (select command from cron.stub_jobs where jobname = 'metrics-pull-daily') ~ 'service\.metrics_pull_all\(\)', 'T34 the daily metrics pull is scheduled at 03:30 UTC and calls service.metrics_pull_all()';
   assert (select schedule from cron.stub_jobs where jobname = 'reap-stale-jobs') = '*/5 * * * *', 'T25 the reaper runs every 5 minutes';
   assert (select command from cron.stub_jobs where jobname = 'reap-stale-jobs') ~ 'service\.reap_stale_jobs\(\)', 'T25 the job calls service.reap_stale_jobs()';
 end $$;
@@ -3209,6 +3209,17 @@ reset role;
 do $$ begin assert (select state from workspaces where id = 'bbbbbbbb-0000-0000-0000-000000000000') = 'deleted', 'T32e B is deleted once its Storage is empty and its keys revoked'; end $$;
 -- ===== T34 work order 44 (migration 27): the metrics sources, the function role's way in and out of metrics_snapshots, the daily job (own block; mutants "metrics27: ..." in run-local.mjs) =====
 reset role;
+-- (0) the state this block asserts on is set here, not assumed: an earlier block may have left a workspace or a site in another state (CI 42969064328: Clients'
+-- T32e moves B to deleted, so "B has a target while active" failed). A and B become active and every site of A and B a preview site; the end of the block puts
+-- back what was there (workspace state, site state and domain).
+create table test.t34_ws as select id, state from public.workspaces where id in ('aaaaaaaa-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000');
+create table test.t34_sites as select id, state, domain from public.sites where workspace_id in ('aaaaaaaa-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000');
+update public.workspaces set state = 'active' where id in ('aaaaaaaa-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000');
+update public.sites set state = 'preview' where workspace_id in ('aaaaaaaa-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000');
+do $$ begin
+  assert (select count(*) from test.t34_ws) = 2 and (select count(*) from public.workspaces where state = 'active' and id in ('aaaaaaaa-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000')) = 2, 'T34 setup: A and B are active';
+  assert (select count(*) from public.sites where workspace_id = 'bbbbbbbb-0000-0000-0000-000000000000' and state = 'preview') >= 1, 'T34 setup: B has a preview site';
+end $$;
 -- (a) the source check: bing is allowed, the old check is gone, the new one is validated, anything else is still refused
 do $$ begin
   assert not exists (select 1 from pg_constraint where conrelid = 'public.metrics_snapshots'::regclass and conname = 'metrics_snapshots_source_check'), 'T34a the old source check is gone';
@@ -3311,6 +3322,13 @@ do $$ declare f text; begin
   end loop;
   assert not has_function_privilege('omnikom_fn', 'service.metrics_pull_all()', 'execute') and not has_function_privilege('omnikom_fn', 'service.metrics_calls()', 'execute'), 'the function role cannot run the daily job';
   assert not has_function_privilege('service_role', 'service.metrics_pull_all()', 'execute') and not has_function_privilege('service_role', 'service.metrics_calls()', 'execute'), 'nor can service_role';
+end $$;
+-- (0) back: what the earlier blocks left is what the later ones find
+update public.workspaces w set state = s.state from test.t34_ws s where w.id = s.id;
+update public.sites x set state = s.state, domain = s.domain from test.t34_sites s where x.id = s.id;
+do $$ begin
+  assert not exists (select 1 from test.t34_ws s join public.workspaces w on w.id = s.id where w.state is distinct from s.state), 'T34 the workspace states are back';
+  assert not exists (select 1 from test.t34_sites s join public.sites x on x.id = s.id where x.state is distinct from s.state or x.domain is distinct from s.domain), 'T34 the site states and domains are back';
 end $$;
 
 select 'ALL TENANCY TESTS PASSED' as result;
