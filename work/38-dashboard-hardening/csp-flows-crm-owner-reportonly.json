@@ -1,0 +1,165 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\apps\\dashboard\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "--config",
+      "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\tools\\audit\\dashboard-csp\\playwright.config.ts",
+      "--reporter=line,json",
+      "--grep",
+      "the CRM screens as the owner"
+    ],
+    "configFile": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\tools\\audit\\dashboard-csp\\playwright.config.ts",
+    "rootDir": "E:/Omnikom Platform/departments/seo-and-audits/builders/dashboard-hardening/tools/audit/dashboard-csp",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\tools\\audit\\dashboard-csp\\global-setup.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "E:/Omnikom Platform/departments/seo-and-audits/builders/dashboard-hardening/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "E:/Omnikom Platform/departments/seo-and-audits/builders/dashboard-hardening/tools/audit/dashboard-csp",
+        "testIgnore": [],
+        "testMatch": [
+          "/csp-.*\\.spec\\.ts/"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "",
+        "testDir": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\tools\\audit\\dashboard-csp",
+        "snapshotDir": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\tools\\audit\\dashboard-csp",
+        "testIgnore": [],
+        "testMatch": {},
+        "timeout": 90000,
+        "use": {
+          "baseURL": "https://omnikom-app-staging.pages.dev",
+          "channel": "msedge",
+          "headless": true,
+          "trace": "off",
+          "screenshot": "off",
+          "video": "off"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": ""
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "line"
+      ],
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "csp-flows.spec.ts",
+      "file": "csp-flows.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "the CRM screens as the owner",
+          "file": "../../../apps/dashboard/tests/flows.spec.ts",
+          "line": 288,
+          "column": 6,
+          "specs": [
+            {
+              "title": "search, a filter on an industry column, sort by budget, edit a field, bulk status, delete through the sheet, export the view, and a dry-run import",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 300000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 88202,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "export header row: received,name,email,phone,form,page,status,owner,side,budget,timing,beds,area,message\n"
+                        },
+                        {
+                          "text": "crm-screens cleanup: 2 lead(s), leads-bulk answered 200\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T04:41:25.567Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-a4acb6313bcfe7db2ac9",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 292,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-11T04:41:01.749Z",
+    "duration": 128589.31700000001,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

@@ -12,7 +12,7 @@ Status words as in CLAUDE.md rule 2: PROVEN (a command ran, its output is pasted
 | Router wiring (platform's file) | `work/38-dashboard-hardening/router-wiring.patch` | written; `git apply --check` OK on this tree; not applied |
 | Audit rules | `tools/audit/checks/sec-010.mjs`, `sec-075.mjs`, `lib/secheaders.mjs`, `lib/csp-bypass-hosts.json`, `rules/SEC-010.md`, `rules/SEC-075.md` | written; the engine now has 32 rules |
 | Audit tests and mutants | `tools/audit/test/sec.mjs`, `mutants-sec.mjs` (72), `check-mutant-targets.mjs`; 5 fixtures, snapshot fixtures carry the headers | tests run alone; mutants NOT RUN here (rule of 2026-11-10: they run on CI) |
-| Deployed-origin flows | `tools/audit/dashboard-csp/` | written; NOT RUN (needs the staging deploy) |
+| Deployed-origin flows | `tools/audit/dashboard-csp/` | written and RUN on the deployed origin (report-only and enforced, below): 43 of 44 passed, 1 skipped, 0 CSP violations |
 
 ## Findings, for the head
 1. The brief said the live snapshot does not keep response headers. It does: `skills/.../scripts/snapshot-site.mjs:128` reads every header and `:338` writes them into each page's
@@ -76,9 +76,42 @@ that the CSP headers match master's, unless the head passes platform's OK to lea
 | # | Time (local) | Build | Deploy address | State |
 |---|---|---|---|---|
 | 1 | 2026-11-10 (evening; exact clock not kept, the deploy tool's output is in the session scratchpad `deploy1.out`) | this branch, `_headers` with the CSP as `Content-Security-Policy-Report-Only` | `https://655f206e.omnikom-app-staging.pages.dev` | live as of 2026-11-11 05:16 (head curled it) |
-| 2 | not yet | this branch, enforced | | NOT DONE |
+| 1b | 2026-11-11 06:14 to 06:16 | this branch rebased onto master `9b0bb8a` (tip `8806ccf`), `_headers` with the CSP as `Content-Security-Policy-Report-Only`; built with `build-staging.mjs --direct-functions` (exit 0, bundle-secret check ok), 0 inline `<script>`, 0 `style=` in `dist/index.html` | `https://df148eb1.omnikom-app-staging.pages.dev` | live; `curl -sI` of `/` and `/assets/App-Cr4lzVM-*.js` shows report-only CSP, HSTS, nosniff, DENY, referrer, permissions, COOP; asset `Cache-Control: public, max-age=31536000, immutable`, page `no-cache` (the build of deploy 1 was on the older base 2486091, and its Leads list drew 0 rows against the migrated staging database: version drift, see the finding below) |
+| 2 | 2026-11-11 06:43:45 to 06:44:27 | the same build (`App-Cr4lzVM-*.js`), `dist/_headers` restored byte-equal to `public/_headers` (`cmp`), CSP enforced | `https://a6744f9e.omnikom-app-staging.pages.dev` | live; `curl -sI` of `/`, `/w/x/leads` and the asset shows `content-security-policy:` (no Report-Only) and every other header of `public/_headers`; audit and flows below |
 | 3 | not yet | master's tree (`build-staging`), back | | NOT DONE. Platform's OK (via the head, 2026-11-11 05:17): our report-only build may stay until deploy 2; master's build goes back when WO38 is done. Platform's own flows run LOCALLY, so nothing of theirs has exercised our headers: our runs are the only evidence about our build. |
 
+### SEC-010 and SEC-075 on a live snapshot of the enforced staging dashboard (PROVEN, 2026-11-11 about 07:00, after deploy 2)
+Command (under the heavy lock): `node tools/audit/live.mjs https://omnikom-app-staging.pages.dev --fresh --only SEC-010,SEC-075`. A new snapshot (1 page, 6 requests, 0 rate-limit responses, robots.txt read); output:
+```
+SNAPSHOT DONE: 1 pages, 6 HTTP requests, 0 rate-limit responses -> site-checks/omnikom-app-staging.pages.dev/snapshots/2026-11-11
+PASS SEC-010 /
+PASS SEC-075 /
+OK: 1 page(s), 2 rule(s), 0 FAIL, 0 WARN, 0 SKIP
+```
+(The snapshot's speed numbers were marked UNTRUSTED by the tool because the machine was busy; they are not used here.)
+
+### The flows against the deployed origin with the CSP guard
+- Report-only build at tip `8806ccf` (deploy 1b), the 12 earlier reds by `--grep` (17 tests with the same styles tests at the other viewport): 16 passed, 1 red, **0 CSP violations**; the red (`flows.spec.ts:292`, `tbody tr` expected 1, received 2) passed alone on clean data (2.1 min, CSV export header row `received,name,email,phone,form,page,status,owner,side,budget,timing,beds,area,message`): stale rows from the earlier killed runs on shared staging data. Reports: `work/38-dashboard-hardening/csp-flows-reds-reportonly.json`, `csp-flows-crm-owner-reportonly.json`.
+- First run, deploy 1 (older base `2486091`), killed at test 30 of 44 by the wrapper's own limit: 12 reds, all the Leads list drawing 0 rows because the staging database was on migration 23 (status `not-contacted`) and that build still filtered on `new`: version drift, not CSP. The guard was proven on the origin by one deliberate inline style (`report style-src-elem: blocked inline`, exactly one event); `work/38-dashboard-hardening/leads-probe.mjs`.
+- **Enforced build (deploy 2), the full run, PROVEN 2026-11-11 07:05 to 07:38** (heavy, `run.mjs --base https://omnikom-app-staging.pages.dev --out csp-flows-full-enforced --limit-min 90`, report `work/38-dashboard-hardening/csp-flows-full-enforced.json`): `Running 44 tests using 1 worker`, then `1 skipped`, `43 passed (9.7m)`, exit 0. The one skip is the invite test (`flows.spec.ts:724`, it needs `SETTINGS_INVITE_EMAIL`: a real mail goes out). The guard fails any test on a CSP violation or CSP console line, so 43 passes are **0 violations** (the guard itself proven on this origin above). The live lead appeared 0.0 s after the send; the CSV export header row came out as `received,name,email,phone,form,page,status,owner,side,budget,timing,beds,area,message` (the `blob:` download works under the enforced CSP, which has no `blob:` in `img-src`). Cleanup counts: crm-screens 3 leads, crm-3b 3, flows cleanup "5 removed, 0 failed, 8 lead(s) of the test site left", styles 12.
+- Honest note: the staging test site still carries leftover test leads after these runs ("8 lead(s) of the test site left" in the flows cleanup line); the red of `flows.spec.ts:292` earlier was such leftover rows.
+
+### CI on the rebased tip
+Run 42957448139 on `8806ccf` (the exact tip pushed by the head): conclusion **success** (read with `gh run list`, 2026-11-11 about 07:40). The local `scripts/ci.mjs` was NOT RUN after the rebase (the first attempt was killed by the machine's memory pressure; the head told me to let CI judge it).
+
+### Deploy 3: master's build back on staging (2026-11-11 07:45:51 to 07:46:29)
+Built from master `613bae0` in a detached sparse worktree (`apps/dashboard`, `docs/blueprint`; `node_modules` a junction to ours, same package files), `build-staging.mjs --direct-functions` exit 0, bundle-secret check ok; `dist/` has no `_headers`; deployed to `https://10f3278a.omnikom-app-staging.pages.dev`. `curl -sI https://omnikom-app-staging.pages.dev/` afterwards:
+```
+HTTP/1.1 200 OK
+Cache-Control: public, max-age=0, must-revalidate
+referrer-policy: strict-origin-when-cross-origin
+x-content-type-options: nosniff
+```
+No Content-Security-Policy, HSTS, X-Frame-Options, Permissions-Policy or COOP: master's `apps/dashboard/public/` is empty, so master ships no `_headers`; these two remaining lines are the host's own defaults. Note: master's `App-Cr4lzVM-*.js` and `Poppins-*.woff2` have the same hashes as ours, because the only differences between master and this branch in `apps/dashboard` are `ErrorScreen.tsx` (not wired, so not bundled) and `public/_headers`; the headers, not the bundle names, tell the two deploys apart.
+
 ## NOT DONE yet
-- deploy 2 (enforced), its `curl -sI`, the audit on a live snapshot, the flows on the deployed origin with 0 violations, deploy 3 (master's build back)
-- flows on the deployed origin, report-only run: 30 of 44 finished (17 ok, 1 skipped, 12 red), then killed by the wrapper's own 45-minute limit; failure text not yet read (a targeted rerun of tests 2 and 20 is queued)
+- the router wiring is not applied (`work/38-dashboard-hardening/router-wiring.patch` goes to platform through the head; so the error screen is not on staging or in master's build)
+- the enforced CSP is not on staging now (master's build is back; it goes live when this branch lands and a staging deploy is made from master)
+- the full `tools/audit/test/run.mjs`, the factory tests and the CLI tests were not run locally (CI ran them on the pushed tip: success)
+- flows tests with the invite mail (`flows.spec.ts:724`): skipped by the spec without `SETTINGS_INVITE_EMAIL`
+- HSTS `preload` and exact per-environment Supabase origins in `connect-src`: owner and platform calls, see findings 5 above

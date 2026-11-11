@@ -1,0 +1,858 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\apps\\dashboard\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "--config",
+      "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\tools\\audit\\dashboard-csp\\playwright.config.ts",
+      "--reporter=line,json",
+      "--grep",
+      "a lead appears live|a member sees only their leads|the CRM screens as|the CRM block 3b screens as|a field over its limit|leads is styled|the lead panel is styled|the columns picker is styled|the views panel is styled|the follow-up and tasks are styled"
+    ],
+    "configFile": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\tools\\audit\\dashboard-csp\\playwright.config.ts",
+    "rootDir": "E:/Omnikom Platform/departments/seo-and-audits/builders/dashboard-hardening/tools/audit/dashboard-csp",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\tools\\audit\\dashboard-csp\\global-setup.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "E:/Omnikom Platform/departments/seo-and-audits/builders/dashboard-hardening/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "E:/Omnikom Platform/departments/seo-and-audits/builders/dashboard-hardening/tools/audit/dashboard-csp",
+        "testIgnore": [],
+        "testMatch": [
+          "/csp-.*\\.spec\\.ts/"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "",
+        "testDir": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\tools\\audit\\dashboard-csp",
+        "snapshotDir": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\tools\\audit\\dashboard-csp",
+        "testIgnore": [],
+        "testMatch": {},
+        "timeout": 90000,
+        "use": {
+          "baseURL": "https://omnikom-app-staging.pages.dev",
+          "channel": "msedge",
+          "headless": true,
+          "trace": "off",
+          "screenshot": "off",
+          "video": "off"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": ""
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "line"
+      ],
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "csp-flows.spec.ts",
+      "file": "csp-flows.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "a lead appears live",
+          "file": "../../../apps/dashboard/tests/flows.spec.ts",
+          "line": 93,
+          "column": 6,
+          "specs": [
+            {
+              "title": "owner-a has Leads open; a lead sent to the test site the way omnikom lead send does appears without a reload within 15 s",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 16287,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "lead send: ok=true code=202 statuses=202\n"
+                        },
+                        {
+                          "text": "the lead appeared 0.1 s after the send returned\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T04:22:07.777Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-f162cdf217307c329fed",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 96,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "a member sees only their leads",
+          "file": "../../../apps/dashboard/tests/flows.spec.ts",
+          "line": 134,
+          "column": 6,
+          "specs": [
+            {
+              "title": "member-a1 sees exactly the leads assigned to them (compared with the service role), and Add a lead makes one that is theirs",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 38110,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T04:22:26.364Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-5eb1fdd429c2633a756e",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 137,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "the CRM screens as the owner",
+          "file": "../../../apps/dashboard/tests/flows.spec.ts",
+          "line": 288,
+          "column": 6,
+          "specs": [
+            {
+              "title": "search, a filter on an industry column, sort by budget, edit a field, bulk status, delete through the sheet, export the view, and a dry-run import",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 300000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 105955,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('tbody tr')\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m2\u001b[39m\nTimeout:  15000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveCount\" locator('tbody tr') with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('tbody tr')\u001b[22m\n\u001b[2m    31 × locator resolved to 2 elements\u001b[22m\n\u001b[2m       - unexpected value \"2\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('tbody tr')\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m2\u001b[39m\nTimeout:  15000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveCount\" locator('tbody tr') with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('tbody tr')\u001b[22m\n\u001b[2m    31 × locator resolved to 2 elements\u001b[22m\n\u001b[2m       - unexpected value \"2\"\u001b[22m\n\n    at E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\apps\\dashboard\\tests\\flows.spec.ts:375:44",
+                        "location": {
+                          "file": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\apps\\dashboard\\tests\\flows.spec.ts",
+                          "column": 44,
+                          "line": 375
+                        },
+                        "snippet": "  373 |     // export the view: the filter and the sort are the file's (budget from 500000 leaves bravo only), the header row has the contract's columns\n  374 |     await columnFrom(page, budgetLabel, '500000');\n> 375 |     await expect(page.locator('tbody tr')).toHaveCount(1);\n      |                                            ^\n  376 |     const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export', exact: true }).click()]);\n  377 |     const file = readFileSync((await download.path()) ?? '', 'utf8').trim().split(/\\r?\\n/);\n  378 |     console.log(`export header row: ${file[0]}`);"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\apps\\dashboard\\tests\\flows.spec.ts",
+                            "column": 44,
+                            "line": 375
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('tbody tr')\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m2\u001b[39m\nTimeout:  15000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveCount\" locator('tbody tr') with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('tbody tr')\u001b[22m\n\u001b[2m    31 × locator resolved to 2 elements\u001b[22m\n\u001b[2m       - unexpected value \"2\"\u001b[22m\n\n\n  373 |     // export the view: the filter and the sort are the file's (budget from 500000 leaves bravo only), the header row has the contract's columns\n  374 |     await columnFrom(page, budgetLabel, '500000');\n> 375 |     await expect(page.locator('tbody tr')).toHaveCount(1);\n      |                                            ^\n  376 |     const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export', exact: true }).click()]);\n  377 |     const file = readFileSync((await download.path()) ?? '', 'utf8').trim().split(/\\r?\\n/);\n  378 |     console.log(`export header row: ${file[0]}`);\n    at E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\apps\\dashboard\\tests\\flows.spec.ts:375:44"
+                        },
+                        {
+                          "message": "TypeError: fetch failed\n[cause]: ConnectTimeoutError: Connect Timeout Error (attempted address: oncenkqzesuyiwzbcipu.supabase.co:443, timeout: 10000ms)"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T04:23:04.799Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\test-results\\csp-flows-the-CRM-screens--3d0fc-e-view-and-a-dry-run-import\\error-context.md"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\test-results\\csp-flows-the-CRM-screens--3d0fc-e-view-and-a-dry-run-import\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\apps\\dashboard\\tests\\flows.spec.ts",
+                        "column": 44,
+                        "line": 375
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-a4acb6313bcfe7db2ac9",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 292,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "the CRM screens as an agent",
+          "file": "../../../apps/dashboard/tests/flows.spec.ts",
+          "line": 406,
+          "column": 6,
+          "specs": [
+            {
+              "title": "member-a1 sees no Import, no Delete and no Set owner, and Not found on the import address",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 20929,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T04:26:53.102Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-54d5d7e2015adad9ff0b",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 409,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "the CRM block 3b screens as the owner",
+          "file": "../../../apps/dashboard/tests/flows.spec.ts",
+          "line": 469,
+          "column": 6,
+          "specs": [
+            {
+              "title": "pick and reorder the columns (the address keeps them), see the duplicate mark and its filter, set a follow-up and find it with Due, add and finish a task, save a private and a shared view and apply and delete one",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 300000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 63397,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T04:27:15.790Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-d520e65dc31bcfa655ad",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 473,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "the CRM block 3b screens as an agent",
+          "file": "../../../apps/dashboard/tests/flows.spec.ts",
+          "line": 603,
+          "column": 6,
+          "specs": [
+            {
+              "title": "member-a1 sees the owner's shared view, can save its own, and has no Share control and no Delete on the shared one",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 16110,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "crm-screens cleanup: 1 lead(s), leads-bulk answered 200\n"
+                        },
+                        {
+                          "text": "crm-3b cleanup: 3 lead(s), leads-bulk answered 200\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T04:28:19.676Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-eff899eca73a1eaeea89",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 606,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "csp-site.spec.ts",
+      "file": "csp-site.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "the owner's Site screen",
+          "file": "../../../apps/dashboard/tests/site.spec.ts",
+          "line": 39,
+          "column": 6,
+          "specs": [
+            {
+              "title": "a field over its limit turns the counter red and keeps Save off; a stale save shows the plan's sentence",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 23840,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T04:28:46.290Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "37b1ae897aef93c66d02-cdc206cc99f2b9d0b9bd",
+              "file": "../../../apps/dashboard/tests/site.spec.ts",
+              "line": 84,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "csp-styles.spec.ts",
+      "file": "csp-styles.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "styles at 390x844",
+          "file": "../../../apps/dashboard/tests/styles.spec.ts",
+          "line": 123,
+          "column": 8,
+          "specs": [],
+          "suites": [
+            {
+              "title": "signed in as owner-a",
+              "file": "../../../apps/dashboard/tests/styles.spec.ts",
+              "line": 134,
+              "column": 10,
+              "specs": [
+                {
+                  "title": "leads is styled at phone",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 9739,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T04:29:11.183Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-71ba9e549d80f0552df3",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 137,
+                  "column": 7
+                },
+                {
+                  "title": "the lead panel is styled at phone",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 11140,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T04:29:21.166Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-46f08a856d89dd7e9e22",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 146,
+                  "column": 7
+                },
+                {
+                  "title": "the columns picker is styled at phone",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 13811,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T04:29:32.465Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-5a265d40dfed84bae973",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 157,
+                  "column": 7
+                },
+                {
+                  "title": "the views panel is styled at phone",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 18283,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T04:29:46.477Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-4178b2bfeebdc6117c0a",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 175,
+                  "column": 7
+                },
+                {
+                  "title": "the follow-up and tasks are styled at phone",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 13665,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T04:30:04.914Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-585e383716a45e6c36f7",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 185,
+                  "column": 7
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "styles at 1536x730",
+          "file": "../../../apps/dashboard/tests/styles.spec.ts",
+          "line": 123,
+          "column": 8,
+          "specs": [],
+          "suites": [
+            {
+              "title": "signed in as owner-a",
+              "file": "../../../apps/dashboard/tests/styles.spec.ts",
+              "line": 134,
+              "column": 10,
+              "specs": [
+                {
+                  "title": "leads is styled at laptop",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 10034,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T04:30:18.897Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-998062cae5a78041874a",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 137,
+                  "column": 7
+                },
+                {
+                  "title": "the lead panel is styled at laptop",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 11506,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T04:30:29.310Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-7f173571ae007f6784ab",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 146,
+                  "column": 7
+                },
+                {
+                  "title": "the columns picker is styled at laptop",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 10894,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T04:30:40.928Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-8b14ac03dbcba94215ed",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 157,
+                  "column": 7
+                },
+                {
+                  "title": "the views panel is styled at laptop",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 10130,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T04:30:51.966Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-eca4b6f74b6779c9997e",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 175,
+                  "column": 7
+                },
+                {
+                  "title": "the follow-up and tasks are styled at laptop",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 17860,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "styles cleanup: 10 lead(s), leads-bulk answered 200\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T04:31:02.236Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-4875b96d8ba040e2dfe0",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 185,
+                  "column": 7
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-11T04:17:48.862Z",
+    "duration": 1037285.775,
+    "expected": 16,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

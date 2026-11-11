@@ -1,0 +1,1829 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\apps\\dashboard\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "--config",
+      "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\tools\\audit\\dashboard-csp\\playwright.config.ts",
+      "--reporter=line,json"
+    ],
+    "configFile": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\tools\\audit\\dashboard-csp\\playwright.config.ts",
+    "rootDir": "E:/Omnikom Platform/departments/seo-and-audits/builders/dashboard-hardening/tools/audit/dashboard-csp",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\tools\\audit\\dashboard-csp\\global-setup.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "E:/Omnikom Platform/departments/seo-and-audits/builders/dashboard-hardening/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "E:/Omnikom Platform/departments/seo-and-audits/builders/dashboard-hardening/tools/audit/dashboard-csp",
+        "testIgnore": [],
+        "testMatch": [
+          "/csp-.*\\.spec\\.ts/"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "",
+        "testDir": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\tools\\audit\\dashboard-csp",
+        "snapshotDir": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\tools\\audit\\dashboard-csp",
+        "testIgnore": [],
+        "testMatch": {},
+        "timeout": 90000,
+        "use": {
+          "baseURL": "https://omnikom-app-staging.pages.dev",
+          "channel": "msedge",
+          "headless": true,
+          "trace": "off",
+          "screenshot": "off",
+          "video": "off"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": ""
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "line"
+      ],
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "csp-flows.spec.ts",
+      "file": "csp-flows.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "a member of A cannot open B",
+          "file": "../../../apps/dashboard/tests/flows.spec.ts",
+          "line": 55,
+          "column": 6,
+          "specs": [
+            {
+              "title": "member-a1 gets Not found for B's workspace and B's lead, with no B data in the page or in any response",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 9846,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:29:52.677Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-b2c24c7bd73758d8c480",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 58,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "a lead appears live",
+          "file": "../../../apps/dashboard/tests/flows.spec.ts",
+          "line": 93,
+          "column": 6,
+          "specs": [
+            {
+              "title": "owner-a has Leads open; a lead sent to the test site the way omnikom lead send does appears without a reload within 15 s",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 12914,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "lead send: ok=true code=202 statuses=202\n"
+                        },
+                        {
+                          "text": "the lead appeared 0.0 s after the send returned\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:30:03.371Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-f162cdf217307c329fed",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 96,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "a member sees only their leads",
+          "file": "../../../apps/dashboard/tests/flows.spec.ts",
+          "line": 134,
+          "column": 6,
+          "specs": [
+            {
+              "title": "member-a1 sees exactly the leads assigned to them (compared with the service role), and Add a lead makes one that is theirs",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 38231,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:30:16.415Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-5eb1fdd429c2633a756e",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 137,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "the CRM screens as the owner",
+          "file": "../../../apps/dashboard/tests/flows.spec.ts",
+          "line": 288,
+          "column": 6,
+          "specs": [
+            {
+              "title": "search, a filter on an industry column, sort by budget, edit a field, bulk status, delete through the sheet, export the view, and a dry-run import",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 300000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 84242,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "export header row: received,name,email,phone,form,page,status,owner,side,budget,timing,beds,area,message\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:30:54.798Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-a4acb6313bcfe7db2ac9",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 292,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "the CRM screens as an agent",
+          "file": "../../../apps/dashboard/tests/flows.spec.ts",
+          "line": 406,
+          "column": 6,
+          "specs": [
+            {
+              "title": "member-a1 sees no Import, no Delete and no Set owner, and Not found on the import address",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 10178,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:32:19.290Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-54d5d7e2015adad9ff0b",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 409,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "the CRM block 3b screens as the owner",
+          "file": "../../../apps/dashboard/tests/flows.spec.ts",
+          "line": 469,
+          "column": 6,
+          "specs": [
+            {
+              "title": "pick and reorder the columns (the address keeps them), see the duplicate mark and its filter, set a follow-up and find it with Due, add and finish a task, save a private and a shared view and apply and delete one",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 300000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 48398,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:32:29.522Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-d520e65dc31bcfa655ad",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 473,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "the CRM block 3b screens as an agent",
+          "file": "../../../apps/dashboard/tests/flows.spec.ts",
+          "line": 603,
+          "column": 6,
+          "specs": [
+            {
+              "title": "member-a1 sees the owner's shared view, can save its own, and has no Share control and no Delete on the shared one",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 11188,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:33:17.946Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-eff899eca73a1eaeea89",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 606,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "settings: the owner",
+          "file": "../../../apps/dashboard/tests/flows.spec.ts",
+          "line": 647,
+          "column": 6,
+          "specs": [
+            {
+              "title": "owner-a sees the five cards, edits the alert addresses and reads them back; a bad line shows its inline error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 11931,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:33:29.169Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-a0f8fa7972e06d7febd9",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 650,
+              "column": 3
+            },
+            {
+              "title": "owner-a's cards show what the database holds: the people, the sites and the alert addresses are the service role's own reads, not a shape",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5546,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:33:41.142Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-574ef64404e78fc9e4ab",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 692,
+              "column": 3
+            },
+            {
+              "title": "owner-a invites a person, sees them in the list and removes them through the sheet (only with SETTINGS_INVITE_EMAIL: a real mail goes out)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "SETTINGS_INVITE_EMAIL is not set: the head names the one address a real invite may go to",
+                      "location": {
+                        "file": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\apps\\dashboard\\tests\\flows.spec.ts",
+                        "line": 726,
+                        "column": 10
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 784,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:33:46.718Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "SETTINGS_INVITE_EMAIL is not set: the head names the one address a real invite may go to",
+                          "location": {
+                            "file": "E:\\Omnikom Platform\\departments\\seo-and-audits\\builders\\dashboard-hardening\\apps\\dashboard\\tests\\flows.spec.ts",
+                            "line": 726,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-a031e6e8d600477b7dc1",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 724,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "settings: an agent",
+          "file": "../../../apps/dashboard/tests/flows.spec.ts",
+          "line": 750,
+          "column": 6,
+          "specs": [
+            {
+              "title": "member-a1 sees only Your account and Sign out everywhere, and no team or alert data comes back",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2969,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:33:47.533Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-6ab65309c712bfb3301a",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 753,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "settings: sign out everywhere",
+          "file": "../../../apps/dashboard/tests/flows.spec.ts",
+          "line": 768,
+          "column": 6,
+          "specs": [
+            {
+              "title": "member-a2, freshly signed in, ends every session and lands on the sign-in card with the plan's sentence",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4529,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "crm-screens cleanup: 3 lead(s), leads-bulk answered 200\n"
+                        },
+                        {
+                          "text": "crm-3b cleanup: 3 lead(s), leads-bulk answered 200\n"
+                        },
+                        {
+                          "text": "flows cleanup: applied: 5 removed, 0 failed, 8 lead(s) of the test site left\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:33:50.541Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b3a5a1bce2561af06cb1-e22a28de074e2fc9a9f6",
+              "file": "../../../apps/dashboard/tests/flows.spec.ts",
+              "line": 769,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "csp-site.spec.ts",
+      "file": "csp-site.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "the owner's Site screen",
+          "file": "../../../apps/dashboard/tests/site.spec.ts",
+          "line": 39,
+          "column": 6,
+          "specs": [
+            {
+              "title": "the list and the editor carry the plan, and a save is a new version while the site stays as it is",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 19048,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:34:21.862Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "37b1ae897aef93c66d02-8dee32d20922a5589174",
+              "file": "../../../apps/dashboard/tests/site.spec.ts",
+              "line": 42,
+              "column": 3
+            },
+            {
+              "title": "a field over its limit turns the counter red and keeps Save off; a stale save shows the plan's sentence",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 19832,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:34:40.932Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "37b1ae897aef93c66d02-cdc206cc99f2b9d0b9bd",
+              "file": "../../../apps/dashboard/tests/site.spec.ts",
+              "line": 84,
+              "column": 3
+            },
+            {
+              "title": "an invalid draft stops the sheet at the failed check with Fix and the plan's sentence; the invalid row is removed afterwards",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 14738,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:35:00.789Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "37b1ae897aef93c66d02-a34d5506c9813524f351",
+              "file": "../../../apps/dashboard/tests/site.spec.ts",
+              "line": 119,
+              "column": 3
+            },
+            {
+              "title": "the publish sheet: the progress comes in live, the job ends done, the preview shows the new heading",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 1800000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 51103,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:35:15.552Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "37b1ae897aef93c66d02-2aafe8c8b86773889a2e",
+              "file": "../../../apps/dashboard/tests/site.spec.ts",
+              "line": 147,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "the agent's Site screen",
+          "file": "../../../apps/dashboard/tests/site.spec.ts",
+          "line": 178,
+          "column": 6,
+          "specs": [
+            {
+              "title": "an agent sees Add only on the collections marked own, and none of the owner-only groups",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4286,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:36:06.672Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "37b1ae897aef93c66d02-04441a89a06609b5ee64",
+              "file": "../../../apps/dashboard/tests/site.spec.ts",
+              "line": 181,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "the owner sees Add on every collection",
+          "file": "../../../apps/dashboard/tests/site.spec.ts",
+          "line": 205,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Add is on each group, and a new item opens an empty editor",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2977,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:36:10.986Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "37b1ae897aef93c66d02-621a7189d235e1fcdf3d",
+              "file": "../../../apps/dashboard/tests/site.spec.ts",
+              "line": 208,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "csp-styles.spec.ts",
+      "file": "csp-styles.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "styles at 390x844",
+          "file": "../../../apps/dashboard/tests/styles.spec.ts",
+          "line": 123,
+          "column": 8,
+          "specs": [
+            {
+              "title": "sign in is styled at phone",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1213,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:36:14.081Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "596d454a8188d3feacbe-f97b2154635d5ca4e461",
+              "file": "../../../apps/dashboard/tests/styles.spec.ts",
+              "line": 127,
+              "column": 5
+            }
+          ],
+          "suites": [
+            {
+              "title": "signed in as owner-a",
+              "file": "../../../apps/dashboard/tests/styles.spec.ts",
+              "line": 134,
+              "column": 10,
+              "specs": [
+                {
+                  "title": "leads is styled at phone",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 8653,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:36:15.336Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-71ba9e549d80f0552df3",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 137,
+                  "column": 7
+                },
+                {
+                  "title": "the lead panel is styled at phone",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 7897,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:36:24.023Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-46f08a856d89dd7e9e22",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 146,
+                  "column": 7
+                },
+                {
+                  "title": "the columns picker is styled at phone",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 7745,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:36:31.946Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-5a265d40dfed84bae973",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 157,
+                  "column": 7
+                },
+                {
+                  "title": "the views panel is styled at phone",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 7310,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:36:39.724Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-4178b2bfeebdc6117c0a",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 175,
+                  "column": 7
+                },
+                {
+                  "title": "the follow-up and tasks are styled at phone",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 11242,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:36:47.064Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-585e383716a45e6c36f7",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 185,
+                  "column": 7
+                },
+                {
+                  "title": "add a lead is styled at phone",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 2481,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:36:58.329Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-881275f96c106f41ac05",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 199,
+                  "column": 7
+                },
+                {
+                  "title": "site is styled at phone",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 2496,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:37:00.844Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-aaf869192d0b70cea311",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 219,
+                  "column": 7
+                },
+                {
+                  "title": "the editor is styled at phone",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 3313,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:37:03.359Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-2b7daa70252d090f8220",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 225,
+                  "column": 7
+                },
+                {
+                  "title": "the publish sheet is styled at phone",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 6797,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:37:06.698Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-f0de0dff4c70a89365fc",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 234,
+                  "column": 7
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "styles at 1536x730",
+          "file": "../../../apps/dashboard/tests/styles.spec.ts",
+          "line": 123,
+          "column": 8,
+          "specs": [
+            {
+              "title": "sign in is styled at laptop",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1122,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:37:13.515Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "596d454a8188d3feacbe-735c5acd3d1c6fd00e86",
+              "file": "../../../apps/dashboard/tests/styles.spec.ts",
+              "line": 127,
+              "column": 5
+            }
+          ],
+          "suites": [
+            {
+              "title": "signed in as owner-a",
+              "file": "../../../apps/dashboard/tests/styles.spec.ts",
+              "line": 134,
+              "column": 10,
+              "specs": [
+                {
+                  "title": "leads is styled at laptop",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 7421,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:37:14.662Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-998062cae5a78041874a",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 137,
+                  "column": 7
+                },
+                {
+                  "title": "the lead panel is styled at laptop",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 8651,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:37:22.110Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-7f173571ae007f6784ab",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 146,
+                  "column": 7
+                },
+                {
+                  "title": "the columns picker is styled at laptop",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 8704,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:37:30.790Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-8b14ac03dbcba94215ed",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 157,
+                  "column": 7
+                },
+                {
+                  "title": "the views panel is styled at laptop",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 8108,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:37:39.528Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-eca4b6f74b6779c9997e",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 175,
+                  "column": 7
+                },
+                {
+                  "title": "the follow-up and tasks are styled at laptop",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 11437,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:37:47.673Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-4875b96d8ba040e2dfe0",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 185,
+                  "column": 7
+                },
+                {
+                  "title": "add a lead is styled at laptop",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 2894,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:37:59.155Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-b1119b24822b58066570",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 199,
+                  "column": 7
+                },
+                {
+                  "title": "site is styled at laptop",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 2749,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:38:02.106Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-fb249a2c3894a088c95e",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 219,
+                  "column": 7
+                },
+                {
+                  "title": "the editor is styled at laptop",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 3519,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:38:04.897Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-24524c6979bda292c34d",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 225,
+                  "column": 7
+                },
+                {
+                  "title": "the publish sheet is styled at laptop",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 90000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "",
+                      "projectName": "",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 8878,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-11-11T05:38:08.516Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "596d454a8188d3feacbe-e072f7f8163c2c78ea6b",
+                  "file": "../../../apps/dashboard/tests/styles.spec.ts",
+                  "line": 234,
+                  "column": 7
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "r4 rulings at 390x844",
+          "file": "../../../apps/dashboard/tests/styles.spec.ts",
+          "line": 272,
+          "column": 8,
+          "specs": [
+            {
+              "title": "(2) nothing to publish is a status line, not a disabled button, at phone",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5201,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:38:17.577Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "596d454a8188d3feacbe-efc7689979a0382013cc",
+              "file": "../../../apps/dashboard/tests/styles.spec.ts",
+              "line": 277,
+              "column": 5
+            },
+            {
+              "title": "(7) one change is singular, on the button and in the sheet, at phone",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7735,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:38:22.855Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "596d454a8188d3feacbe-01ddb634cd474e70c48b",
+              "file": "../../../apps/dashboard/tests/styles.spec.ts",
+              "line": 284,
+              "column": 5
+            },
+            {
+              "title": "(6) the filter shows no counts while the list is loading, at phone",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 12897,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:38:30.671Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "596d454a8188d3feacbe-9e5f9f59f6f496a21a28",
+              "file": "../../../apps/dashboard/tests/styles.spec.ts",
+              "line": 291,
+              "column": 5
+            }
+          ]
+        },
+        {
+          "title": "r4 rulings at 1536x730",
+          "file": "../../../apps/dashboard/tests/styles.spec.ts",
+          "line": 272,
+          "column": 8,
+          "specs": [
+            {
+              "title": "(2) nothing to publish is a status line, not a disabled button, at laptop",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3806,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:38:43.611Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "596d454a8188d3feacbe-6b28c9682f1162813ff7",
+              "file": "../../../apps/dashboard/tests/styles.spec.ts",
+              "line": 277,
+              "column": 5
+            },
+            {
+              "title": "(7) one change is singular, on the button and in the sheet, at laptop",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 8449,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:38:47.488Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "596d454a8188d3feacbe-94101a24a150aaa1fd9d",
+              "file": "../../../apps/dashboard/tests/styles.spec.ts",
+              "line": 284,
+              "column": 5
+            },
+            {
+              "title": "(6) the filter shows no counts while the list is loading, at laptop",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 12397,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "styles cleanup: 12 lead(s), leads-bulk answered 200\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-11T05:38:56.020Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "596d454a8188d3feacbe-96a3c030c4697beb3403",
+              "file": "../../../apps/dashboard/tests/styles.spec.ts",
+              "line": 291,
+              "column": 5
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-11T05:29:32.458Z",
+    "duration": 579704.394,
+    "expected": 43,
+    "skipped": 1,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
