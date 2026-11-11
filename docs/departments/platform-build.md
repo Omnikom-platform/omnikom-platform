@@ -639,3 +639,6 @@ Closed work (steps 1 to 4, 5.1 to 5.3, 6A, 6B, the Auth emails) is in the positi
      (backup, verify, view, test-loaders), tools/proc-guard (index, test/child), docs/blueprint/wireframes/render.mjs,
      docs/blueprint/diagrams/render.mjs, apps/dashboard/tests/global-setup.ts (launchPersistentContext on a seeded folder). Reuse
      CLI's seedProfile (tools/omnikom-cli/lib/browser.mjs) or SEO's helper (skill commit 05dbf43) by path once on master.
+     SUPERSEDED 2026-11-11 08:41 (owner, through the head of operations): no own patches. CLI builds one shared toolkit in the Omnikom
+     CLI as work order 47 (browser launcher, polite fetch, renderer, heavy lock) with a CI guard against launches outside it; after it
+     lands, platform moves the launchers listed above onto it.
