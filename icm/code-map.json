@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 741,
+    "sources": 742,
     "unowned": 0
   },
   "files": [
@@ -386,6 +386,7 @@
     {"path":"supabase/migrations/20261109000020_security_event_buckets.sql","owner":"platform-build","exports":["fn:service.record_security_event","table:security_event_counts"],"tests":[],"feature":""},
     {"path":"supabase/migrations/20261109000021_media_limits.sql","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/migrations/20261109000022_crm_views_followup.sql","owner":"platform-build","exports":["fn:private.lead_duplicate_of","fn:private.lead_query_check","fn:private.lead_set_duplicate","fn:service.lead_follow_up","fn:service.lead_list","fn:service.task_add","fn:service.task_done","fn:service.view_delete","fn:service.view_save","table:public.crm_views","table:public.lead_tasks"],"tests":[],"feature":""},
+    {"path":"supabase/migrations/20261111000025_lead_fk_indexes.sql","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/ops/alerts.mjs","owner":"platform-build","exports":["ALERTS","RULES","Stop","environmentOf","main","parseArgs","pgEnv","render","runQueries","statusData"],"tests":["supabase/ops/test/6b-alerts-fixture.mjs","supabase/ops/test/6b-mutate.mjs","supabase/ops/test/alerts.test.mjs"],"feature":""},
     {"path":"supabase/ops/backup.mjs","owner":"platform-build","exports":["DEFAULT_RECIPIENT","MAX_BYTES","Stop","labelOf","main","parseArgs","pgEnv","readRecipient","regionOf","scrubber","signV4","sizeS3","stampOf","uploadS3"],"tests":["supabase/ops/test/6b-fake-s3.mjs","supabase/ops/test/6b-mutate.mjs","supabase/ops/test/backup.test.mjs"],"feature":""},
     {"path":"supabase/ops/key-ages.mjs","owner":"platform-build","exports":["assess","main","table"],"tests":["supabase/ops/test/key-ages.test.mjs"],"feature":""},
