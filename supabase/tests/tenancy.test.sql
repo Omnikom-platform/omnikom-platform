@@ -3358,8 +3358,8 @@ do $$ begin assert (select count(*) from retention_rules) = 0, 'T33 an owner rea
 reset role;
 select test.expect_error($q$select service.purge_expired(0)$q$, 'R-BATCH');
 -- rows on both sides of each period (and an old consent row that must stay)
-insert into security_events (kind, at) values ('t33-old', now() - interval '400 days'), ('t33-new', now() - interval '10 days');
-insert into audit_log (action, at) values ('t33-old', now() - interval '800 days'), ('t33-new', now() - interval '100 days');
+insert into security_events (kind, at) values ('t33-old', now() - interval '400 days'), ('t33-old', now() - interval '500 days'), ('t33-new', now() - interval '10 days');
+insert into audit_log (action, at) values ('t33-old', now() - interval '800 days'), ('t33-old', now() - interval '900 days'), ('t33-new', now() - interval '100 days');
 insert into messages (workspace_id, channel, template, to_text, created_at) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'email', 't33-old', 't33@test', now() - interval '1500 days'),
   ('aaaaaaaa-0000-0000-0000-000000000000', 'email', 't33-new', 't33@test', now() - interval '400 days');
@@ -3407,7 +3407,11 @@ do $$ begin
   assert (select count(*) from webhook_events where kind in ('t33-done-new', 't33-failed-mid', 't33-open-mid')) = 3, 'T33a webhook events: a new one, and failed or open ones under 90 days, stay';
   assert (select count(*) from security_event_counts where kind = 't33-old') = 0 and (select count(*) from security_event_counts where kind = 't33-new') = 1, 'T33a rate buckets: the old one goes, the new one stays';
   assert (select count(*) from consent_ledger where consent_text = 'T33 old consent') = 1, 'T33a the consent ledger is never purged';
-  assert (select count(*) from audit_log where action = 'retention-purge' and (detail -> 'deleted' ->> 'audit_log')::int >= 1 and (detail -> 'deleted' ->> 'messages')::int >= 1) = 1, 'T33b the purge writes one audit row with its counts';
+  assert (select count(*) from audit_log where action = 'retention-purge' and workspace_id is null and actor is null) = 1, 'T33b the purge writes one audit row, a system job (no workspace, no actor)';
+  assert (select (detail -> 'deleted' ->> 'audit_log')::int from audit_log where action = 'retention-purge') = 2
+     and (select (detail -> 'deleted' ->> 'security_events')::int from audit_log where action = 'retention-purge') = 2
+     and (select (detail -> 'deleted' ->> 'messages')::int from audit_log where action = 'retention-purge') = 1,
+    'T33b the audit row carries the true counts (2 audit rows, 2 security events, 1 message past their periods): ' || coalesce((select (detail -> 'deleted')::text from audit_log where action = 'retention-purge'), 'no row');
   assert coalesce(current_setting('omnikom.purge', true), '') <> 'on', 'T33b the purge turns its setting off again';
 end $$;
 -- a second run deletes nothing more of the rows above

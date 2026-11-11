@@ -16,7 +16,7 @@
 --     A floor per table refuses a period that would wipe an audit trail by mistake: audit_log at least 365 days, security_events at least
 --     90, messages at least 365, the others at least 7. consent_ledger cannot be given a period.
 --  2. service.purge_expired(batch): deletes each table's rows older than its period, at most `batch` rows per table per call, and writes
---     one audit_log row (action retention-purge) with the counts. Service role and the function role only. pg_cron runs it daily at
+--     one audit_log row (action retention-purge, no workspace, no actor: a system job) with the counts. The service role only. pg_cron runs it daily at
 --     03:17 UTC as purge-expired (guarded as in migration 19: without pg_cron one notice, the migration still succeeds).
 --  3. audit_log and security_events stay append-only. private.refuse_change() lets through exactly one delete: on those two tables,
 --     inside purge_expired (the transaction-local setting omnikom.purge = 'on', run as the table's owner), and only of a row older than
@@ -88,24 +88,30 @@ begin
     cutoff := now() - make_interval(days => r.keep_days);
     if r.table_name = 'webhook_events' then
       delete from public.webhook_events w where w.ctid = any(array(select x.ctid from public.webhook_events x where x.received_at < cutoff and x.processed_at is not null and x.error is null limit p_batch));
+      get diagnostics n = row_count;
     elsif r.table_name = 'webhook_events.unprocessed' then
       delete from public.webhook_events w where w.ctid = any(array(select x.ctid from public.webhook_events x where x.received_at < cutoff and (x.processed_at is null or x.error is not null) limit p_batch));
+      get diagnostics n = row_count;
     elsif r.table_name = 'security_event_counts' then
       delete from public.security_event_counts s where s.ctid = any(array(select x.ctid from public.security_event_counts x where x.last_at < cutoff limit p_batch));
+      get diagnostics n = row_count;
     elsif r.table_name = 'security_events' then
       perform set_config('omnikom.purge', 'on', true);
       delete from public.security_events s where s.ctid = any(array(select x.ctid from public.security_events x where x.at < cutoff limit p_batch));
+      get diagnostics n = row_count;
       perform set_config('omnikom.purge', 'off', true);
     elsif r.table_name = 'audit_log' then
       perform set_config('omnikom.purge', 'on', true);
       delete from public.audit_log a where a.ctid = any(array(select x.ctid from public.audit_log x where x.at < cutoff limit p_batch));
+      get diagnostics n = row_count;
       perform set_config('omnikom.purge', 'off', true);
     elsif r.table_name = 'messages' then
       delete from public.messages m where m.ctid = any(array(select x.ctid from public.messages x where x.created_at < cutoff limit p_batch));
+      get diagnostics n = row_count;
     else
       raise exception 'R-RULE: no purge is written for %', r.table_name;
     end if;
-    get diagnostics n = row_count;
+    -- ROW_COUNT is read right after each delete, before any PERFORM (platform review of 9749cef: read after the set_config it was 1)
     counts := counts || jsonb_build_object(r.table_name, n);
   end loop;
   insert into public.audit_log (workspace_id, actor, action, target, detail) values (null, null, 'retention-purge', 'retention_rules', jsonb_build_object('deleted', counts, 'batch', p_batch));
@@ -113,7 +119,7 @@ begin
 end $$;
 
 revoke all on function service.purge_expired(int) from public, anon, authenticated;
-grant execute on function service.purge_expired(int) to service_role, omnikom_fn;
+grant execute on function service.purge_expired(int) to service_role;   -- pg_cron runs it as the owner; no function calls it
 
 do $$ begin
   if to_regprocedure('cron.schedule(text,text,text)') is not null then
