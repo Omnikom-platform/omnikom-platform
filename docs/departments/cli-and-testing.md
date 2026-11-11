@@ -117,7 +117,8 @@ when the head of operations has released its slice.
   on it; `seo run` never calls start (a Codespace spends the owner's GitHub quota), so an unverified vantage BLOCKS the captures.
 - E19 WORKS when platform's first CONCURRENTLY migration applies on staging (ledger row and a valid index, read only). MET 2026-11-11 03:03:
   20261111000025_lead_fk_indexes.sql in the staging ledger at 00:59:17 UTC, bookings_lead and messages_lead valid and ready, lint exit 0 on
-  platform's tree (branch check/platform/lead-fk-indexes). Flip the book row when that file is on master, citing it.
+  platform's tree (branch check/platform/lead-fk-indexes). DONE: the file is on master (74b278e, CI 42944813167); E19 is WORKS in the book
+  with ci-runners (total 60 of 95).
   Done 2026-11-11 with ci-runners: platform's apply-notx (536d3bb) is on master, the lint accepts a `-- no-transaction` file with it (probe
   file: exit 0 with the new applier, 1 with the old), README and FINDING say so, and apply-proof is the cli job's "Migration applier proof".
 - Slice 3 (placeholder `briefs/slice-3-onboard.md`; build steps 6 and 7): `onboard`, `offboard` (DECISIONS 31), `drift`, the

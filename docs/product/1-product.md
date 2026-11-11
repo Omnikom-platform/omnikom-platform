@@ -148,7 +148,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | E16 Plan limits and billing per workspace | PARTLY | caps for leads, mail and SMS only (H2-9) |
 | E17 Dependency and supply-chain scanning | WORKS | actions SHA-pinned; `tools/test/dep-scan.mjs` (pinned osv-scanner 2.7.0, sha256 checked, fails closed) scans the 3 package-lock.json and deno.lock (via its npm entries; a jsr or https entry there would print NOT COVERED, none today); the `secrets` CI job runs its tests, 27 mutants and the scan, green on run 42566847935 ("4 lockfile(s), 0 finding(s), 0 allowed"); `npm ci` no longer passes --no-audit (H2-10, work order 21) |
 | E18 Tenant rich text sanitised before it reaches a site | PARTLY | html escapes by default; richtext open (H2-13) |
-| E19 Migration safety: lock lint, expand-contract, concurrent indexes | PARTLY | lock lint and expand-contract work: `tools/migration-lint/lint.mjs` (CI departments job) refuses 9 lock and contract patterns (L1 to L7, E1, C1), each watched red on its fixtures in `tools/migration-lint/test/fixtures/` (40 red, 28 green, 2026-11-10); all 22 migrations pass or carry one of 37 dated waivers (`tools/migration-lint/waivers.json`); CI replays every migration and the ledger refuses an edited one (H2-14). Open: concurrent indexes, since `supabase/apply-staging.mjs` wraps each file in a transaction (platform takes `tools/migration-lint/FINDING-apply-staging.md` after its order 20); WORKS when that lands and one CONCURRENTLY fixture migration applies on staging |
+| E19 Migration safety: lock lint, expand-contract, concurrent indexes | WORKS | `tools/migration-lint/lint.mjs` (CI departments job) refuses 9 lock and contract patterns (L1 to L7, E1, C1), each watched red on its fixtures in `tools/migration-lint/test/fixtures/` (40 red, 28 green, 2026-11-10); every migration passes or carries a dated waiver (`tools/migration-lint/waivers.json`); CI replays every migration and the ledger refuses an edited one (H2-14). Concurrent indexes: `supabase/apply-staging.mjs` runs a `-- no-transaction` file outside a transaction (536d3bb), proven in CI by `tools/migration-lint/test/apply-proof.mjs` (cli job); the first one, `supabase/migrations/20261111000025_lead_fk_indexes.sql`, applied on staging 2026-11-11 00:59:17 UTC with both indexes valid and ready (read-only check by CLI and testing, 03:03) |
 | E20 The book checks itself: counts from rows, WORKS rows cite real paths, every step has an owner and a row | WORKS | `tools/icm/book-check.mjs` runs inside `node tools/icm/index.mjs --check` (CI gates job, 2026-11-09): Counts vs rows, WORKS paths, step owners and part E rows; `tools/icm/test/book.mjs` 30 of 30 (and red through `test/run.mjs`), 19 of 19 book mutants caught; `work/12-book-check/CONTEXT.md` (H0-6) |
 | E21 Mail deliverability: bounces, complaints, suppression on both | PARTLY | suppressions and the consent ledger exist (H2-15) |
 
@@ -159,8 +159,8 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B Dashboard | 10 | 6 | 5 | 21 |
 | C Backend and database | 13 | 3 | 1 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
-| E Hardening | 5 | 11 | 5 | 21 |
-| Total | 60 | 24 | 11 | 95 |
+| E Hardening | 6 | 10 | 5 | 21 |
+| Total | 61 | 23 | 11 | 95 |
 
 Completion is reported from these counts only.
 
