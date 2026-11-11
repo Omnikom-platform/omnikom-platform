@@ -284,6 +284,7 @@ const MUTANTS = [
     ['the final dot is not removed', ".replace(/\\.$/, '')", ''], ['the name is not lower-cased', '.toLowerCase();\n  if (!host)', ';\n  if (!host)'],
   ].map(([n, f, to]) => ['netguard: ' + n, F + '_shared/netguard.ts', f, to, 'netguard.test.ts']),
   // work order 20 (migration 23): lead type and status lists as data (each must turn crm20.test.ts, capture.test.ts or export.test.ts red). Run only these: --only "crm20"
+  ['crm20 db: the refusal words may not hold a semicolon', F + '_shared/db.ts', "([A-Za-z0-9_ ().,;'\\-]{1,160}?)", "([A-Za-z0-9_ ().,'\\-]{1,160}?)", 'crm20.test.ts'],
   ['crm20 lead-update: the status date is not passed on', F + 'lead-update/index.ts', '${statusDate}::date', '${null}::date', 'crm20.test.ts'],
   ['crm20 lead-update: the status person is not passed on', F + 'lead-update/index.ts', '${statusWho}::uuid', '${null}::uuid', 'crm20.test.ts'],
   ['crm20 lead-update: the status line is not passed on', F + 'lead-update/index.ts', '${statusText}::text)', '${null}::text)', 'crm20.test.ts'],

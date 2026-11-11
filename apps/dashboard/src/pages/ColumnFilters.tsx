@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { statusChoices, type Lists } from '../lib/leads';
 import { choicesFor, conditionsFor, CONDITION_WORDS, describeFilter, type Column, type ColumnFilter, type Condition } from '../lib/crm';
 import { t } from '../plan';
 import css from './Crm.module.css';
@@ -6,7 +7,10 @@ import css from './Crm.module.css';
 type Choice = { value: string; label: string };
 
 /** The values a column offers to pick from: the owner is a team member, a tick is Yes or No, a pick-one column its options; null when the value is typed. */
-function choicesOf(col: Column, team: ReadonlyMap<string, string>): Choice[] | null {
+function choicesOf(col: Column, team: ReadonlyMap<string, string>, lists: Lists): Choice[] | null {
+  // status and lead type are keys of the business's own lists: the person picks the list's words, the filter sends the key
+  if (col.key === 'status') return statusChoices(lists).map(s => ({ value: s.key, label: s.label }));
+  if (col.key === 'lead_type') return lists.leadTypes.map(l => ({ value: l.key, label: l.label }));
   if (col.key === 'owner') return [...team.entries()].map(([value, label]) => ({ value, label }));
   if (col.type === 'boolean') return [{ value: 'yes', label: t('DP-1.3-28', 'Yes') }, { value: 'no', label: t('DP-1.3-28', 'No') }];
   return choicesFor(col)?.map(o => ({ value: o, label: o })) ?? null;
@@ -19,7 +23,7 @@ const inputType = (type: string) => (type === 'number' ? 'number' : type === 'da
  * and Clear filters. The filters are the view's; lead-list does the narrowing, so the control only builds them.
  * A label sits BESIDE its select (htmlFor and id), never around it: a wrapping label gives the select the text of every option as its name.
  */
-export function ColumnFilters({ columns, filters, team, onChange }: { columns: Column[]; filters: ColumnFilter[]; team: ReadonlyMap<string, string>; onChange: (next: ColumnFilter[]) => void }) {
+export function ColumnFilters({ columns, filters, team, lists, onChange }: { columns: Column[]; filters: ColumnFilter[]; team: ReadonlyMap<string, string>; lists: Lists; onChange: (next: ColumnFilter[]) => void }) {
   const base = useId();
   const [key, setKey] = useState('');
   const col = columns.find(c => c.key === key) ?? null;
@@ -28,7 +32,7 @@ export function ColumnFilters({ columns, filters, team, onChange }: { columns: C
   const [value, setValue] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const choices = col ? choicesOf(col, team) : null;
+  const choices = col ? choicesOf(col, team, lists) : null;
   const effective: Condition = conditions.includes(cond) ? cond : conditions[0] ?? 'is';
 
   function pick(k: string) { setKey(k); setCond('is'); setValue(''); setFrom(''); setTo(''); }
@@ -42,7 +46,7 @@ export function ColumnFilters({ columns, filters, team, onChange }: { columns: C
 
   const valueWords = (colKey: string) => (v: string) => {
     const c = columns.find(x => x.key === colKey);
-    return (c ? choicesOf(c, team)?.find(o => o.value === v)?.label : undefined) ?? v;
+    return (c ? choicesOf(c, team, lists)?.find(o => o.value === v)?.label : undefined) ?? v;
   };
 
   return (

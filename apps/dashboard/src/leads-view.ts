@@ -3,10 +3,11 @@
 import { createContext, useCallback, useContext, useState } from 'react';
 import { exportLeads } from './api';
 import { viewQuery, type View } from './lib/crm';
+import type { Lists } from './lib/leads';
 import { CallFailed } from './lib/problems';
 import { t } from './plan';
 
-export type LeadsViewValue = { workspaceId: string; view: View; myTeamRow: string | null; template: string };
+export type LeadsViewValue = { workspaceId: string; view: View; myTeamRow: string | null; lists: Lists; template: string };
 export const LeadsViewContext = createContext<LeadsViewValue | null>(null);
 export const useLeadsView = () => useContext(LeadsViewContext);
 
@@ -37,7 +38,7 @@ export function useExporter() {
     setMessage('');
     setFailed(false);
     try {
-      const q = viewQuery(v.view, v.myTeamRow);
+      const q = viewQuery(v.view, v.myTeamRow, v.lists);
       const out = await exportLeads({
         workspace: v.workspaceId, ...q,
         ...(v.template ? { template: v.template, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone } : {}),

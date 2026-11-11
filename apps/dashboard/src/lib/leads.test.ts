@@ -1,9 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import {
-  answerRows, filterCounts, filterLeads, formLabel, labelWords, leadsTitle, marketingLine, newestFirst, receivedWords, searchLeads, statusLabel, STATUSES, telHref, timelineLines, visibleLeads,
-  type ContractForms, type Lead, type LeadStatus, type Names,
+  answerRows, filterCounts, filterLeads, formLabel, labelWords, leadsTitle, marketingLine, newestFirst, receivedWords, searchLeads, statusLabel, telHref, timelineLines, visibleLeads, FLOOR_LISTS, listsFrom, statusChoices, newKeys, allKeys, typeLabel, statusWords, dayWords,
+  type ContractForms, type Lead, type Lists, type Names,
 } from './leads';
 import { problemFrom, UNREACHABLE } from './problems';
+
+// A business's own lists as lead-list answers them: the owner's words as data (none of them is written in the app).
+const LISTS: Lists = {
+  statuses: [
+    { key: 'not-contacted', label: 'Not contacted yet', stage: 'new' },
+    { key: 'contacted', label: 'Contacted', stage: 'working', needsWho: true },
+    { key: 'call-back', label: 'Call back', stage: 'working', needsDate: true },
+    { key: 'interested', label: 'Interested in something specific', stage: 'working', needsText: true },
+    { key: 'closed', label: 'Closed', stage: 'outcome' },
+  ],
+  leadTypes: [{ key: 'enquiry', label: 'Enquiry' }, { key: 'buy', label: 'Looking to buy' }],
+};
 
 // Test data lives in tests only (DECISIONS 44 bans sample data in the app source, not in a test that proves a rule).
 const lead = (o: Partial<Lead> & { id: string }): Lead => ({
@@ -24,19 +36,19 @@ describe('order, filters and their counts', () => {
     expect(newestFirst([t2, t1]).map(l => l.id)).toEqual(['y', 'x']);
   });
   it('New is status not-contacted; All is everything but spam; Spam is spam', () => {
-    expect(filterLeads([A, B, C, D], 'new', 't1').map(l => l.id)).toEqual(['a', 'd']);
-    expect(filterLeads([A, B, C, D], 'all', 't1').map(l => l.id)).toEqual(['a', 'b', 'd']);
-    expect(filterLeads([A, B, C, D], 'spam', 't1').map(l => l.id)).toEqual(['c']);
+    expect(filterLeads([A, B, C, D], 'new', 't1', LISTS).map(l => l.id)).toEqual(['a', 'd']);
+    expect(filterLeads([A, B, C, D], 'all', 't1', LISTS).map(l => l.id)).toEqual(['a', 'b', 'd']);
+    expect(filterLeads([A, B, C, D], 'spam', 't1', LISTS).map(l => l.id)).toEqual(['c']);
   });
   it('Mine is the leads owned by my team row, spam left out; with no team row it is empty (never everything)', () => {
-    expect(filterLeads([A, B, C, D], 'mine', 't1').map(l => l.id)).toEqual(['a', 'd']);
-    expect(filterLeads([A, B, C, D], 'mine', null)).toEqual([]);
-    const spamMine = lead({ id: 'e', status: 'spam' as LeadStatus, owner_team_row: 't1' });
-    expect(filterLeads([spamMine], 'mine', 't1')).toEqual([]);
+    expect(filterLeads([A, B, C, D], 'mine', 't1', LISTS).map(l => l.id)).toEqual(['a', 'd']);
+    expect(filterLeads([A, B, C, D], 'mine', null, LISTS)).toEqual([]);
+    const spamMine = lead({ id: 'e', status: 'spam', owner_team_row: 't1' });
+    expect(filterLeads([spamMine], 'mine', 't1', LISTS)).toEqual([]);
   });
   it('counts what each filter shows (the number next to it)', () => {
-    expect(filterCounts([A, B, C, D], 't1')).toEqual({ new: 2, all: 3, mine: 2, spam: 1 });
-    expect(filterCounts([], null)).toEqual({ new: 0, all: 0, mine: 0, spam: 0 });
+    expect(filterCounts([A, B, C, D], 't1', LISTS)).toEqual({ new: 2, all: 3, mine: 2, spam: 1 });
+    expect(filterCounts([], null, LISTS)).toEqual({ new: 0, all: 0, mine: 0, spam: 0 });
   });
 });
 
@@ -57,7 +69,7 @@ describe('search (after 2 characters)', () => {
     expect(searchLeads([A, B], '999 999')).toEqual([]);
   });
   it('combines with the order and the filter', () => {
-    expect(visibleLeads([A, B, C, D], { filter: 'all', query: 'e', myTeamRow: null }).map(l => l.id)).toEqual(['d', 'a', 'b']);
+    expect(visibleLeads([A, B, C, D], { filter: 'all', query: 'e', myTeamRow: null, lists: LISTS }).map(l => l.id)).toEqual(['d', 'a', 'b']);
   });
 });
 
@@ -161,14 +173,59 @@ describe('a failed call', () => {
   });
 });
 
-describe('work order 20: the status keys are the floor and show as words', () => {
-  it('the keys are the floor list (new is called not-contacted) and every one has words', () => {
-    expect([...STATUSES]).toEqual(['not-contacted', 'contacted', 'qualified', 'closed', 'spam']);
-    expect(STATUSES.map(statusLabel)).toEqual(['Not contacted', 'Contacted', 'Qualified', 'Closed', 'Spam']);
+describe('work order 39: the lists are the business\'s, with the floor only when there are none', () => {
+  it('reads both lists from a lead-list answer, keys, labels and the three flags', () => {
+    const l = listsFrom({ statuses: [{ key: 'call-back', label: 'Call back', stage: 'working', needsDate: true }, { key: 'x' }, { nokey: 1 }, 'junk'], lead_types: [{ key: 'buy', label: 'Looking to buy' }, 5] });
+    expect(l.statuses).toEqual([
+      { key: 'call-back', label: 'Call back', stage: 'working', needsDate: true, needsWho: false, needsText: false },
+      { key: 'x', label: 'X', needsDate: false, needsWho: false, needsText: false },
+    ]);
+    expect(l.leadTypes).toEqual([{ key: 'buy', label: 'Looking to buy' }]);
   });
-  it("a key of a business's own list is its key spelled out, and an older timeline event that says new reads as Not contacted", () => {
-    expect(statusLabel('call-back')).toBe('Call back');
-    expect(statusLabel('new')).toBe('Not contacted');
-    expect(statusLabel('')).toBe('');
+  it('an answer with no list (or nothing usable in it) is the platform floor, never an empty picker', () => {
+    expect(listsFrom(null)).toEqual(FLOOR_LISTS);
+    expect(listsFrom({ statuses: [], lead_types: 'x' })).toEqual(FLOOR_LISTS);
+    expect(FLOOR_LISTS.statuses.map(s => s.key)).toEqual(['not-contacted', 'contacted', 'qualified', 'closed']);
+    expect(FLOOR_LISTS.leadTypes.map(s => s.key)).toEqual(['enquiry']);
+  });
+  it('the words are the list\'s labels, whatever they are; spam is the one system status; an older key is spelled out; new reads as not-contacted', () => {
+    expect(statusLabel(LISTS, 'not-contacted')).toBe('Not contacted yet');
+    expect(statusLabel(LISTS, 'new')).toBe('Not contacted yet');
+    expect(statusLabel(LISTS, 'interested')).toBe('Interested in something specific');
+    expect(statusLabel(LISTS, 'spam')).toBe('Spam');
+    expect(statusLabel(LISTS, 'gone-key')).toBe('Gone key');
+    expect(statusLabel(LISTS, '')).toBe('');
+    expect(statusChoices(LISTS).map(s => s.key)).toEqual(['not-contacted', 'contacted', 'call-back', 'interested', 'closed', 'spam']);
+    expect(typeLabel(LISTS, 'buy')).toBe('Looking to buy');
+    expect(typeLabel(LISTS, 'old-type')).toBe('Old type');
+  });
+  it('a list that already holds spam (the real-estate list does) offers it once; its own label wins; All and New leave it out', () => {
+    const withSpam: Lists = { ...LISTS, statuses: [...LISTS.statuses, { key: 'spam', label: 'Spam or junk', stage: 'outcome' }] };
+    expect(statusChoices(withSpam).map(s => s.key)).toEqual(['not-contacted', 'contacted', 'call-back', 'interested', 'closed', 'spam']);
+    expect(statusChoices(withSpam).find(s => s.key === 'spam')?.label).toBe('Spam or junk');
+    expect(statusLabel(withSpam, 'spam')).toBe('Spam or junk');
+    expect(allKeys(withSpam)).toEqual(['not-contacted', 'contacted', 'call-back', 'interested', 'closed']);
+    expect(newKeys(withSpam)).toEqual(['not-contacted']);
+  });
+  it('New is the statuses at stage new, All every status of the list but spam', () => {
+    expect(newKeys(LISTS)).toEqual(['not-contacted']);
+    expect(allKeys(LISTS)).toEqual(['not-contacted', 'contacted', 'call-back', 'interested', 'closed']);
+  });
+  it('a status in words carries its date, person and line in that order; a day names the year only when it is not this year', () => {
+    const who = (id: string) => (id === 'u1' ? 'Agent One' : '');
+    expect(statusWords(LISTS, 'call-back', { date: '2025-11-20', who: null, text: null }, who)).toBe('Call back, 20 Nov 2025');
+    expect(statusWords(LISTS, 'contacted', { date: null, who: 'u1', text: '' }, who)).toBe('Contacted, Agent One');
+    expect(statusWords(LISTS, 'closed', {}, who)).toBe('Closed');
+    expect(dayWords('2026-11-20', new Date('2026-11-11T00:00:00Z'))).toBe('20 Nov');
+    expect(dayWords('not a day')).toBe('');
+  });
+  it('the timeline says a status change in the list\'s words and brackets what it carries; an edit of the lead type reads its labels', () => {
+    const names: Names = { me: null, byUser: new Map(), team: new Map() };
+    const at = '2026-10-31T09:05:00Z';
+    const w = (kind: string, detail: Record<string, unknown>) => timelineLines([{ id: 1, kind, by: null, detail, at }], null, names, k => k, LISTS)[0]?.what;
+    expect(w('status', { from: 'not-contacted', to: 'call-back', date: '2025-11-20' })).toBe('Status: Not contacted yet to Call back (20 Nov 2025)');
+    expect(w('status', { from: 'call-back', to: 'contacted', who_name: 'Agent One', text: 'left a message' })).toBe('Status: Call back to Contacted (Agent One, left a message)');
+    expect(w('status', { from: 'contacted', to: 'closed' })).toBe('Status: Contacted to Closed');
+    expect(w('edited', { field: 'lead_type', old: 'enquiry', new: 'buy' })).toBe('Changed lead_type: Enquiry to Looking to buy');
   });
 });

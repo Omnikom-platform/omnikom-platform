@@ -34,8 +34,9 @@ export async function withDb<T>(fn: (sql: Sql) => Promise<T>): Promise<T> {
 export type Refusal = { status: number; code: string; kind: 'refused' | 'quota' | 'suspended' | null; msg: string; path?: string; row?: string };
 /** migration 14: 'I-ANSWER <key>: <plain words>' -> the field and the words; anything that does not match the pattern gets fixed words */
 export function answerProblem(message: string): { path: string; msg: string } | null {
-  // the words may name a key, and keys have underscores (work order 18 staging: "zz_unknown is not a column" came back as fixed words)
-  const m = /I-ANSWER ([A-Za-z][A-Za-z0-9_]{0,39}): ([A-Za-z0-9_ ().,'\-]{1,160}?)(?:\n|$| CONTEXT)/.exec(message);
+  // the words may name a key, and keys have underscores (work order 18 staging: "zz_unknown is not a column" came back as fixed words), and a sentence may hold
+  // a semicolon (work order 39: leads-bulk's "<status> needs a date; set it on one lead at a time" came back as fixed words)
+  const m = /I-ANSWER ([A-Za-z][A-Za-z0-9_]{0,39}): ([A-Za-z0-9_ ().,;'\-]{1,160}?)(?:\n|$| CONTEXT)/.exec(message);
   return m ? { path: m[1], msg: m[2] } : null;
 }
 

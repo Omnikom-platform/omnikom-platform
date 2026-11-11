@@ -5,6 +5,7 @@ import { useViews } from '../data';
 import type { Column, View } from '../lib/crm';
 import { plainOr, UNREACHABLE } from '../lib/problems';
 import { canChangeView, canShareView, groupViews, toSaved, type SavedView } from '../lib/views';
+import type { Lists } from '../lib/leads';
 import { t } from '../plan';
 import { useToast } from '../toast';
 import css from './Crm.module.css';
@@ -22,6 +23,7 @@ type Props = {
   view: View;
   shown: Column[];
   myTeamRow: string | null;
+  lists: Lists;
   viewId: string;
   onApply: (v: SavedView) => void;
   /** Called with the id of the view just saved, or of '' when the applied one was deleted. */
@@ -34,7 +36,7 @@ type Props = {
  * question in the row, no Undo). The function's plain-word problems show where the person is looking (a taken name under the name box).
  * The line "View: <name>" (DP-1.3-62) shows while a view is applied.
  */
-export function ViewsPanel({ workspaceId, userId, isOwner, view, shown, myTeamRow, viewId, onApply, onApplied }: Props) {
+export function ViewsPanel({ workspaceId, userId, isOwner, view, shown, myTeamRow, lists, viewId, onApply, onApplied }: Props) {
   const qc = useQueryClient();
   const toast = useToast();
   const nameId = useId();
@@ -51,7 +53,7 @@ export function ViewsPanel({ workspaceId, userId, isOwner, view, shown, myTeamRo
   const all = views.data ?? [];
   const groups = groupViews(all, userId);
   const applied = all.find(v => v.id === viewId) ?? null;
-  const current = () => toSaved(view, myTeamRow, shown);
+  const current = () => toSaved(view, myTeamRow, shown, lists);
   const reload = () => void qc.invalidateQueries({ queryKey: ['views', workspaceId] });
 
   async function saveAs() {

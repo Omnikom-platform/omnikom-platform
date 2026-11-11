@@ -2,7 +2,7 @@
 // the selection, the paging line, the cells, the record's fields and what a typed edit becomes. No browser, no network: Vitest covers
 // all of it. Words that are copy come from the plan (t(), DECISIONS 44); everything else is the data itself.
 import { t } from '../plan';
-import { plainValue, receivedWords, STATUSES, statusLabel, formLabel, type ContractForms, type Filter, type Lead } from './leads';
+import { allKeys, formLabel, newKeys, plainValue, receivedWords, SPAM, statusWords, typeLabel, type ContractForms, type Filter, type Lead, type Lists } from './leads';
 
 export const PAGE_SIZE = 50;
 
@@ -15,8 +15,9 @@ export type SortSpec = { field: string; dir: 'asc' | 'desc' };
 export type Column = { key: string; label: string; type: string; options?: string[]; editable?: boolean; min?: number; max?: number };
 
 /** The row `lead-list` answers: the core keys, then each industry key under its own name. */
-export type ListRow = { id: string; created_at: string; name: string | null; email: string | null; phone: string | null; status: string; owner: string | null; form: string; page: string | null; site: string | null; follow_up?: string | null; duplicate?: boolean; duplicate_of?: string | null } & Record<string, unknown>;
-export type ListAnswer = { total: number; page: number; size: number; columns: Column[]; fields: Column[]; rows: ListRow[] };
+export type ListRow = { id: string; created_at: string; name: string | null; email: string | null; phone: string | null; status: string; lead_type?: string; status_date?: string | null; status_who?: string | null; status_text?: string | null; owner: string | null; form: string; page: string | null; site: string | null; follow_up?: string | null; duplicate?: boolean; duplicate_of?: string | null } & Record<string, unknown>;
+/** `lists` are the business's lead types and statuses as the answer carries them (the platform floor when it carries none). */
+export type ListAnswer = { total: number; page: number; size: number; columns: Column[]; fields: Column[]; rows: ListRow[]; lists: Lists };
 
 /** The core columns of the list, in order (DP-1.3-06). Their keys are lead-list's. */
 export const CORE_COLUMNS: Column[] = [
@@ -25,8 +26,9 @@ export const CORE_COLUMNS: Column[] = [
   { key: 'email', label: t('DP-1.3-06', 'Email'), type: 'text' },
   { key: 'phone', label: t('DP-1.3-06', 'Phone'), type: 'text' },
   { key: 'form', label: t('DP-1.3-06', 'What they asked for'), type: 'text' },
+  { key: 'lead_type', label: t('DP-1.3-06', 'Lead type'), type: 'enum' },
   { key: 'page', label: t('DP-1.3-06', 'Page'), type: 'text' },
-  { key: 'status', label: t('DP-1.3-06', 'Status'), type: 'enum', options: [...STATUSES] },
+  { key: 'status', label: t('DP-1.3-06', 'Status'), type: 'enum' },
   { key: 'owner', label: t('DP-1.3-06', 'Owner'), type: 'owner' },
 ];
 
@@ -42,15 +44,14 @@ export const FIRST_VIEW: View = { filter: 'new', search: '', site: '', columnFil
 
 export const SEARCH_MIN = 2;   // DP-1.3-03: the server matches after 2 characters
 
-const ALL_BUT_SPAM = STATUSES.filter(s => s !== 'spam');
-
-/** New / All / Mine / Spam as lead-list filters (DP-1.3-02). Mine with no team row of mine matches nothing. */
-export function statusFilters(filter: Filter, myTeamRow: string | null): ListFilter[] {
+/** New / All / Mine / Spam as lead-list filters (DP-1.3-02), the keys from the business's own list. Mine with no team row of mine matches nothing. */
+export function statusFilters(filter: Filter, myTeamRow: string | null, lists: Lists): ListFilter[] {
+  const fresh = newKeys(lists), every = allKeys(lists);
   switch (filter) {
-    case 'new': return [{ field: 'status', op: 'eq', value: 'not-contacted' }];
-    case 'spam': return [{ field: 'status', op: 'eq', value: 'spam' }];
-    case 'all': return [{ field: 'status', op: 'in', values: [...ALL_BUT_SPAM] }];
-    case 'mine': return [{ field: 'status', op: 'in', values: [...ALL_BUT_SPAM] }, { field: 'owner', op: myTeamRow ? 'eq' : 'in', ...(myTeamRow ? { value: myTeamRow } : { values: [] }) }];
+    case 'new': return [fresh.length === 1 ? { field: 'status', op: 'eq', value: fresh[0] } : { field: 'status', op: 'in', values: fresh }];
+    case 'spam': return [{ field: 'status', op: 'eq', value: SPAM }];
+    case 'all': return [{ field: 'status', op: 'in', values: every }];
+    case 'mine': return [{ field: 'status', op: 'in', values: every }, { field: 'owner', op: myTeamRow ? 'eq' : 'in', ...(myTeamRow ? { value: myTeamRow } : { values: [] }) }];
   }
 }
 
@@ -79,31 +80,31 @@ export function toListFilter(cf: ColumnFilter): ListFilter | null {
 }
 
 /** Every filter of the view: the status filter, the site, then each complete column filter. */
-export function viewFilters(view: Pick<View, 'filter' | 'site' | 'columnFilters'>, myTeamRow: string | null): ListFilter[] {
-  const out = statusFilters(view.filter, myTeamRow);
+export function viewFilters(view: Pick<View, 'filter' | 'site' | 'columnFilters'>, myTeamRow: string | null, lists: Lists): ListFilter[] {
+  const out = statusFilters(view.filter, myTeamRow, lists);
   if (view.site) out.push({ field: 'site', op: 'eq', value: view.site });
   for (const cf of view.columnFilters) { const f = toListFilter(cf); if (f) out.push(f); }
   return out;
 }
 
 /** The body of lead-list and of the export without a workspace: search (after 2 characters), filters, sort. */
-export function viewQuery(view: View, myTeamRow: string | null): { search?: string; filters: ListFilter[]; sort?: SortSpec } {
+export function viewQuery(view: View, myTeamRow: string | null, lists: Lists): { search?: string; filters: ListFilter[]; sort?: SortSpec } {
   const search = view.search.trim();
   return {
     ...(search.length >= SEARCH_MIN ? { search } : {}),
-    filters: viewFilters(view, myTeamRow),
+    filters: viewFilters(view, myTeamRow, lists),
     ...(view.sort ? { sort: view.sort } : {}),
   };
 }
 
 /** The body of lead-list: the view's query and the two flags when ticked (lead-export has no such keys, so the export keeps `viewQuery`). */
-export function listQuery(view: View, myTeamRow: string | null): ReturnType<typeof viewQuery> & { due?: true; duplicates?: true } {
-  return { ...viewQuery(view, myTeamRow), ...(view.due ? { due: true as const } : {}), ...(view.duplicates ? { duplicates: true as const } : {}) };
+export function listQuery(view: View, myTeamRow: string | null, lists: Lists): ReturnType<typeof viewQuery> & { due?: true; duplicates?: true } {
+  return { ...viewQuery(view, myTeamRow, lists), ...(view.due ? { due: true as const } : {}), ...(view.duplicates ? { duplicates: true as const } : {}) };
 }
 
 /** The count next to a filter is that filter's total in the current site (DP-1.3-02): the view with nothing else narrowing it. */
-export function countQuery(filter: Filter, site: string, myTeamRow: string | null): { filters: ListFilter[] } {
-  return { filters: viewFilters({ filter, site, columnFilters: [] }, myTeamRow) };
+export function countQuery(filter: Filter, site: string, myTeamRow: string | null, lists: Lists): { filters: ListFilter[] } {
+  return { filters: viewFilters({ filter, site, columnFilters: [] }, myTeamRow, lists) };
 }
 
 // ---------- sort ----------
@@ -176,15 +177,16 @@ export const pageLine = (page: number, size: number, total: number): string => {
 
 // ---------- cells and fields ----------
 
-/** A cell of the list in words. The owner is the team member's name, received is the received words, the form is its label. */
-export function cellText(row: ListRow, key: string, o: { owner: (id: string) => string; forms: ContractForms | null }): string {
+/** A cell of the list in words. The owner is the team member's name, received is the received words, the form is its label; status and lead type are the labels of the business's lists (a status then what it carries: "Call back, 20 Nov"). */
+export function cellText(row: ListRow, key: string, o: { owner: (id: string) => string; forms: ContractForms | null; lists: Lists; who: (id: string) => string }): string {
   switch (key) {
     case 'created_at': return receivedWords(row.created_at);
     case 'form': return formLabel(row.form, o.forms);
     case 'owner': return row.owner ? o.owner(row.owner) : '';
     case 'page': return row.form === 'manual' ? '' : row.page ?? '';
     case 'follow_up': return row.follow_up ? receivedWords(row.follow_up) : '';
-    case 'status': return statusLabel(String(row.status ?? ''));
+    case 'status': return statusWords(o.lists, String(row.status ?? ''), { date: row.status_date, who: row.status_who, text: row.status_text }, o.who);
+    case 'lead_type': return typeLabel(o.lists, String(row.lead_type ?? ''));
     default: return plainValue(row[key]);
   }
 }

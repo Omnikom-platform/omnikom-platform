@@ -1,38 +1,50 @@
 import { describe, expect, it } from 'vitest';
 import {
-  allOnPage, cellText, choicesFor, conditionsFor, countQuery, describeFilter, editText, editValue, FIRST_VIEW, nextSort, pageLine, pageNumbers, recordFields, sortState,
+  allOnPage, cellText, CORE_COLUMNS, choicesFor, conditionsFor, countQuery, describeFilter, editText, editValue, FIRST_VIEW, nextSort, pageLine, pageNumbers, recordFields, sortState,
   listQuery, statusFilters, toggleId, toListFilter, togglePage, viewFilters, viewQuery, type ColumnFilter, type Column, type ListRow,
 } from './crm';
-import { editedLine, plainValue, receivedWords, smsLine, timelineLines, type Lead } from './leads';
+import { editedLine, plainValue, receivedWords, smsLine, timelineLines, type Lead, type Lists } from './leads';
 
 // Test data lives in tests only (DECISIONS 44 bans sample data in the app source, not in a test that proves a rule).
 const budget: ColumnFilter = { key: 'budget', label: 'Budget', type: 'number', cond: 'between', from: '300000', to: '' };
 const view = { ...FIRST_VIEW, filter: 'all' as const };
 
+// A business's own lists as lead-list answers them: the owner's words as data (none of them is written in the app).
+const LISTS: Lists = {
+  statuses: [
+    { key: 'not-contacted', label: 'Not contacted yet', stage: 'new' },
+    { key: 'contacted', label: 'Contacted', stage: 'working', needsWho: true },
+    { key: 'call-back', label: 'Call back', stage: 'working', needsDate: true },
+    { key: 'interested', label: 'Interested in something specific', stage: 'working', needsText: true },
+    { key: 'closed', label: 'Closed', stage: 'outcome' },
+  ],
+  leadTypes: [{ key: 'enquiry', label: 'Enquiry' }, { key: 'buy', label: 'Looking to buy' }],
+};
+
 describe('the status filters and the query the list sends', () => {
   it('New, All, Spam and Mine are lead-list filters on status and owner', () => {
-    expect(statusFilters('new', 't1')).toEqual([{ field: 'status', op: 'eq', value: 'not-contacted' }]);
-    expect(statusFilters('spam', 't1')).toEqual([{ field: 'status', op: 'eq', value: 'spam' }]);
-    expect(statusFilters('all', 't1')).toEqual([{ field: 'status', op: 'in', values: ['not-contacted', 'contacted', 'qualified', 'closed'] }]);
-    expect(statusFilters('mine', 't1')).toEqual([{ field: 'status', op: 'in', values: ['not-contacted', 'contacted', 'qualified', 'closed'] }, { field: 'owner', op: 'eq', value: 't1' }]);
+    expect(statusFilters('new', 't1', LISTS)).toEqual([{ field: 'status', op: 'eq', value: 'not-contacted' }]);
+    expect(statusFilters('spam', 't1', LISTS)).toEqual([{ field: 'status', op: 'eq', value: 'spam' }]);
+    expect(statusFilters('all', 't1', LISTS)).toEqual([{ field: 'status', op: 'in', values: ['not-contacted', 'contacted', 'call-back', 'interested', 'closed'] }]);
+    expect(statusFilters('mine', 't1', LISTS)).toEqual([{ field: 'status', op: 'in', values: ['not-contacted', 'contacted', 'call-back', 'interested', 'closed'] }, { field: 'owner', op: 'eq', value: 't1' }]);
   });
   it('Mine with no team row of mine matches nobody, never everybody', () => {
-    expect(statusFilters('mine', null)[1]).toEqual({ field: 'owner', op: 'in', values: [] });
+    expect(statusFilters('mine', null, LISTS)[1]).toEqual({ field: 'owner', op: 'in', values: [] });
   });
   it('a search under 2 characters is not sent; 2 or more is, trimmed', () => {
-    expect(viewQuery({ ...view, search: 'a' }, null).search).toBeUndefined();
-    expect(viewQuery({ ...view, search: '  ab ' }, null).search).toBe('ab');
+    expect(viewQuery({ ...view, search: 'a' }, null, LISTS).search).toBeUndefined();
+    expect(viewQuery({ ...view, search: '  ab ' }, null, LISTS).search).toBe('ab');
   });
   it('the site is a filter only when there is one chosen, and column filters follow the status filter', () => {
-    expect(viewFilters({ filter: 'new', site: '', columnFilters: [] }, null)).toHaveLength(1);
-    const f = viewFilters({ filter: 'new', site: 's1', columnFilters: [budget] }, null);
+    expect(viewFilters({ filter: 'new', site: '', columnFilters: [] }, null, LISTS)).toHaveLength(1);
+    const f = viewFilters({ filter: 'new', site: 's1', columnFilters: [budget] }, null, LISTS);
     expect(f.map(x => x.field)).toEqual(['status', 'site', 'budget']);
     expect(f[1]).toEqual({ field: 'site', op: 'eq', value: 's1' });
   });
   it('the sort goes through when chosen and the count query has no search, column filter or sort', () => {
-    expect(viewQuery({ ...view, sort: { field: 'budget', dir: 'desc' } }, null).sort).toEqual({ field: 'budget', dir: 'desc' });
-    expect(viewQuery(view, null).sort).toBeUndefined();
-    expect(countQuery('mine', 's1', 't1')).toEqual({ filters: viewFilters({ filter: 'mine', site: 's1', columnFilters: [] }, 't1') });
+    expect(viewQuery({ ...view, sort: { field: 'budget', dir: 'desc' } }, null, LISTS).sort).toEqual({ field: 'budget', dir: 'desc' });
+    expect(viewQuery(view, null, LISTS).sort).toBeUndefined();
+    expect(countQuery('mine', 's1', 't1', LISTS)).toEqual({ filters: viewFilters({ filter: 'mine', site: 's1', columnFilters: [] }, 't1', LISTS) });
   });
 });
 
@@ -98,7 +110,7 @@ describe('sort, selection and paging', () => {
 
 describe('cells, record fields and edits', () => {
   const row = { id: 'x', created_at: '2026-10-30T09:12:00Z', name: 'Ada', email: null, phone: null, status: 'not-contacted', owner: 't1', form: 'manual', page: '/home', site: 's1', budget: 450000, pre: true, tags: ['a', 'b'] } as ListRow;
-  const o = { owner: (id: string) => (id === 't1' ? 'Agent One' : ''), forms: null };
+  const o = { owner: (id: string) => (id === 't1' ? 'Agent One' : ''), forms: null, lists: LISTS, who: () => '' };
   it('a cell is words: the owner by name, a number plain, a tick Yes or No, a list joined, a hand-entered lead has no page', () => {
     expect(cellText(row, 'owner', o)).toBe('Agent One');
     expect(cellText(row, 'budget', o)).toBe('450000');
@@ -162,31 +174,44 @@ describe('work order 19: the follow-up cell and the two flags of lead-list', () 
   const row = (o: Partial<ListRow>): ListRow => ({ id: 'r1', created_at: '2025-01-05T09:00:00Z', name: 'n', email: null, phone: null, status: 'not-contacted', owner: null, form: 'contact', page: '/p', site: null, ...o });
   it('the follow-up cell is the follow-up worded as the received time, and empty with none', () => {
     const at = '2025-01-09T09:00:00Z';
-    expect(cellText(row({ follow_up: at }), 'follow_up', { owner: () => '', forms: null })).toBe(receivedWords(at));
-    expect(cellText(row({ follow_up: null }), 'follow_up', { owner: () => '', forms: null })).toBe('');
-    expect(cellText(row({}), 'follow_up', { owner: () => '', forms: null })).toBe('');
+    expect(cellText(row({ follow_up: at }), 'follow_up', { owner: () => '', forms: null, lists: LISTS, who: () => '' })).toBe(receivedWords(at));
+    expect(cellText(row({ follow_up: null }), 'follow_up', { owner: () => '', forms: null, lists: LISTS, who: () => '' })).toBe('');
+    expect(cellText(row({}), 'follow_up', { owner: () => '', forms: null, lists: LISTS, who: () => '' })).toBe('');
   });
   it('Due and Duplicates go to lead-list only when ticked, and never into the export query', () => {
-    expect(listQuery(view, null)).toEqual(viewQuery(view, null));
-    expect(listQuery({ ...view, due: true }, null)).toMatchObject({ due: true });
-    expect(listQuery({ ...view, due: true }, null)).not.toHaveProperty('duplicates');
-    expect(listQuery({ ...view, duplicates: true }, null)).toMatchObject({ duplicates: true });
-    expect(viewQuery({ ...view, due: true, duplicates: true }, null)).not.toHaveProperty('due');
-    expect(viewQuery({ ...view, due: true, duplicates: true }, null)).not.toHaveProperty('duplicates');
+    expect(listQuery(view, null, LISTS)).toEqual(viewQuery(view, null, LISTS));
+    expect(listQuery({ ...view, due: true }, null, LISTS)).toMatchObject({ due: true });
+    expect(listQuery({ ...view, due: true }, null, LISTS)).not.toHaveProperty('duplicates');
+    expect(listQuery({ ...view, duplicates: true }, null, LISTS)).toMatchObject({ duplicates: true });
+    expect(viewQuery({ ...view, due: true, duplicates: true }, null, LISTS)).not.toHaveProperty('due');
+    expect(viewQuery({ ...view, due: true, duplicates: true }, null, LISTS)).not.toHaveProperty('duplicates');
     expect(FIRST_VIEW).toMatchObject({ due: false, duplicates: false });
   });
 });
 
-describe('work order 20: the status cell is words, and New asks for not-contacted', () => {
-  it('the Status cell shows the label of the key, not the key', () => {
-    const o = { owner: () => '', forms: null };
-    const r = (status: string) => ({ id: 'r', created_at: '2025-01-05T09:00:00Z', name: 'n', email: null, phone: null, status, owner: null, form: 'contact', page: '/p', site: null }) as unknown as ListRow;
-    expect(cellText(r('not-contacted'), 'status', o)).toBe('Not contacted');
-    expect(cellText(r('closed'), 'status', o)).toBe('Closed');
-    expect(cellText(r('call-back'), 'status', o)).toBe('Call back');
+describe('work order 39: status and lead type are the business\'s own lists', () => {
+  const r = (o: Partial<ListRow>) => ({ id: 'r', created_at: '2025-01-05T09:00:00Z', name: 'n', email: null, phone: null, status: 'not-contacted', owner: null, form: 'contact', page: '/p', site: null, ...o }) as unknown as ListRow;
+  const o = { owner: () => '', forms: null, lists: LISTS, who: (id: string) => (id === 'u1' ? 'Agent One' : '') };
+  it('the Status cell is the label the list gives, then what the status carries', () => {
+    expect(cellText(r({ status: 'not-contacted' }), 'status', o)).toBe('Not contacted yet');
+    expect(cellText(r({ status: 'call-back', status_date: '2025-11-20' }), 'status', o)).toBe('Call back, 20 Nov 2025');
+    expect(cellText(r({ status: 'contacted', status_who: 'u1' }), 'status', o)).toBe('Contacted, Agent One');
+    expect(cellText(r({ status: 'interested', status_text: ' 3 beds, by the park ' }), 'status', o)).toBe('Interested in something specific, 3 beds, by the park');
   });
-  it('the first screen is the New filter, which is status not-contacted (the platform floor key)', () => {
+  it('the Lead type cell is the label of the list; a key the list lost is spelled out', () => {
+    expect(cellText(r({ lead_type: 'buy' }), 'lead_type', o)).toBe('Looking to buy');
+    expect(cellText(r({ lead_type: 'old-type' }), 'lead_type', o)).toBe('Old type');
+  });
+  it('the first screen is the New filter: the statuses at stage new, from the list', () => {
     expect(FIRST_VIEW.filter).toBe('new');
-    expect(viewFilters({ filter: 'new', site: '', columnFilters: [] }, null)).toEqual([{ field: 'status', op: 'eq', value: 'not-contacted' }]);
+    expect(viewFilters({ filter: 'new', site: '', columnFilters: [] }, null, LISTS)).toEqual([{ field: 'status', op: 'eq', value: 'not-contacted' }]);
+    const two: Lists = { ...LISTS, statuses: [{ key: 'fresh', label: 'Fresh', stage: 'new' }, { key: 'not-contacted', label: 'Nobody yet', stage: 'new' }, { key: 'done', label: 'Done', stage: 'outcome' }] };
+    expect(statusFilters('new', null, two)).toEqual([{ field: 'status', op: 'in', values: ['fresh', 'not-contacted'] }]);
+    expect(statusFilters('all', null, two)).toEqual([{ field: 'status', op: 'in', values: ['fresh', 'not-contacted', 'done'] }]);
+  });
+  it('lead type is a column of the list and of the filter, after the form', () => {
+    const keys = CORE_COLUMNS.map(c => c.key);
+    expect(keys.slice(keys.indexOf('form'), keys.indexOf('form') + 2)).toEqual(['form', 'lead_type']);
+    expect(toListFilter({ key: 'lead_type', label: 'Lead type', type: 'enum', cond: 'is', value: 'buy' })).toEqual({ field: 'lead_type', op: 'eq', value: 'buy' });
   });
 });

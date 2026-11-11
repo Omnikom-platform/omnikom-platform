@@ -91,7 +91,12 @@ test.describe('the owner\'s screens', () => {
     await page.locator('tbody th a').first().click();
     await expect(page.locator('#lead-name')).toBeVisible();
     await expect(page.locator('ol li').first()).toBeVisible();   // the timeline has loaded
-    await ok(page, { required: ['DP-1.3-11', 'DP-1.3-12', 'DP-1.3-13', 'DP-1.3-14', 'DP-1.3-15', 'DP-1.3-16', 'DP-1.3-17', 'DP-1.3-19', 'DP-1.3-20', 'DP-1.3-22', 'DP-1.3-23', 'DP-1.3-24', 'DP-1.3-37', 'DP-1.3-39', 'DP-1.3-40'] });
+    await ok(page, { required: ['DP-1.3-11', 'DP-1.3-12', 'DP-1.3-13', 'DP-1.3-14', 'DP-1.3-15', 'DP-1.3-16', 'DP-1.3-17', 'DP-1.3-19', 'DP-1.3-20', 'DP-1.3-22', 'DP-1.3-23', 'DP-1.3-24', 'DP-1.3-37', 'DP-1.3-39', 'DP-1.3-40', 'DP-1.3-80'] });
+    // a status that asks for something opens its boxes (nothing is sent: Cancel)
+    await page.getByLabel('Status', { exact: true }).selectOption({ label: 'Call back' });
+    await expect(page.getByLabel('Date', { exact: true })).toBeVisible();
+    await ok(page, { required: ['DP-1.3-12', 'DP-1.3-81'] });
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.locator('dl').getByRole('button', { name: /^Edit / }).first().click();   // a field's box, with Save and Cancel (nothing is saved)
     await ok(page, { required: ['DP-1.3-37'] });
     await page.locator('dl').getByRole('button', { name: 'Cancel', exact: true }).click();

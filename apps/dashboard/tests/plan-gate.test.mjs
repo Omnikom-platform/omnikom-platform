@@ -186,3 +186,22 @@ describe('mutants of the real source: each must turn the gate red for its reason
     red('html-words', scanReal(files => files, indexHtml.replace('<title></title>', '<title>Omnikom</title>')), 'PLAN-8');
   });
 });
+
+describe('work order 39: a label that is data is not plan copy, and the gate is not loosened for it', () => {
+  const mini = readPlan('| DP-9.2-01 | 5.3 | Status: a pick of the business\'s own list | pick | | | |');
+  const run = code => scanSources({ files: [{ path: 'src/x.tsx', code }], plan: mini, built: ['5.3'], routes: new Set(['/']) });
+  it('a label read from the list (a value in the markup) passes; the same words typed into the markup or into code are caught', () => {
+    const data = `export const A = ({ lists }) => (<select data-plan="DP-9.2-01" onChange={() => 1}>{lists.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}</select>);`;
+    expect(run(data).filter(p => p.rule !== 'PLAN-3')).toEqual([]);
+    const typedInMarkup = `export const A = () => (<select data-plan="DP-9.2-01" onChange={() => 1}><option value="x">Not contacted yet</option></select>);`;
+    expect(run(typedInMarkup).map(p => p.rule)).toContain('PLAN-4');
+    const typedInCode = `export const label = 'Not contacted yet';`;
+    expect(run(typedInCode).map(p => p.rule)).toContain('PLAN-5');
+  });
+  it('the real source: planting the owner\'s words in the panel turns the gate red, so the labels there can only be data (watched red)', () => {
+    const problems = scanReal(patch('src/pages/LeadPanel.tsx', 'const NOTE_MAX = 2000;', "const label = 'Not contacted yet';\nconst NOTE_MAX = 2000;"));
+    const hit = problems.find(p => p.rule === 'PLAN-5' && p.message.includes('Not contacted yet'));
+    console.log(`MUTANT status-word-in-code: ${hit ? `RED  ${hit.rule} ${hit.file}:${hit.line} ${hit.message}` : 'STAYED GREEN'}`);
+    expect(hit, 'a status word written in code must be a PLAN-5').toBeTruthy();
+  });
+});

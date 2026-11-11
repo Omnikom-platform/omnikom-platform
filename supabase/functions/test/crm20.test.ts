@@ -97,6 +97,11 @@ t('leads-bulk (work order 20): a status of the business\'s own list changes many
     const r = await bulk('owner-a', { workspace: WS_A, ids: [a, b], action: 'status', value });
     eq(r.status, 400, `${JSON.stringify(value)}: ${r.text}`);
   }
+  // the database's own sentence reaches the person (the dashboard shows it in the bar), not the fixed "A value is not valid."
+  const dated = await bulk('owner-a', { workspace: WS_A, ids: [a, b], action: 'status', value: 'call-back' });
+  eq(dated.status, 400, 'a status needing a date in bulk: ' + dated.text);
+  assert(dated.text.includes('needs a date; set it on one lead at a time'), 'the sentence of the database, semicolon included: ' + dated.text);
+  eq((await row(a)).status, 'contacted', 'nothing was written');
 });
 
 t('lead-list (work order 20): a row carries the five columns, the answer carries the business\'s lists, and lead type and status filter and sort', async () => {

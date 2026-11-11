@@ -60,62 +60,17 @@
   gap: var(--s-1) var(--s-4);
 }
 
-/* status: five words, the current one underlined (the same device as the inbox filter) */
-.status {
+/* what a status asks for (date, who, details), under the status pick: the same labelled fields, stacked, then Save and Cancel side by side */
+.asks {
+  display: grid;
+  gap: var(--s-3);
+  padding: var(--s-3) 0;
+}
+
+.askButtons {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-1) var(--s-5);
-}
-
-.status label {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--control-h);
-  color: var(--ink-muted);
-  text-transform: capitalize;
-  cursor: pointer;
-}
-
-.status input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.status label::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 6px;
-  height: 2px;
-  background: var(--ink);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform var(--dur) var(--ease);
-}
-
-.status label:has(input:checked) {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.status label:has(input:checked)::after {
-  transform: scaleX(1);
-}
-
-.status label:has(input:focus-visible) {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
-.status p {
-  flex-basis: 100%;
+  gap: var(--s-3);
 }
 
 /* a labelled field: the words above the control */

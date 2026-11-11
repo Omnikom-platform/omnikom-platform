@@ -9,6 +9,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { ColumnFilters } from './ColumnFilters';
 import type { Column } from '../lib/crm';
+import { FLOOR_LISTS } from '../lib/leads';
 
 const columns: Column[] = [
   { key: 'name', label: 'Name', type: 'text' },
@@ -23,7 +24,7 @@ function labelOf(markup: string, id: string): string | null {
 }
 
 describe('the filter control names its select by its label alone', () => {
-  const markup = renderToStaticMarkup(createElement(ColumnFilters, { columns, filters: [], team: new Map(), onChange: () => undefined }));
+  const markup = renderToStaticMarkup(createElement(ColumnFilters, { columns, filters: [], team: new Map(), lists: FLOOR_LISTS, onChange: () => undefined }));
   const select = /<select[^>]*id="([^"]+)"[^>]*name="filter-column"/.exec(markup) ?? /<select[^>]*name="filter-column"[^>]*id="([^"]+)"/.exec(markup);
 
   it('has a select with an id', () => {

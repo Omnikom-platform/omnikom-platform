@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { bulkLeads } from '../api';
 import { CallFailed } from '../lib/problems';
-import { STATUSES, statusLabel } from '../lib/leads';
+import { statusChoices, statusLabel, type Lists } from '../lib/leads';
 import { t } from '../plan';
 import { useToast } from '../toast';
 import { DeleteSheet } from './DeleteSheet';
@@ -15,7 +15,7 @@ const OWNER_FAILED = t('DP-1.3-33', 'Could not save. Nothing was changed. Try ag
  * The bar over the list while one or more leads are selected (DP-1.3-31 to -34): Set status, Set owner and Delete (the last two only for an
  * owner, so an agent never sees them). The call is leads-bulk, all or nothing; there is no Undo for many. Delete opens the confirm sheet.
  */
-export function BulkBar({ workspaceId, ids, canOwn, team, onClear }: { workspaceId: string; ids: string[]; canOwn: boolean; team: ReadonlyMap<string, string>; onClear: () => void }) {
+export function BulkBar({ workspaceId, ids, canOwn, team, lists, onClear }: { workspaceId: string; ids: string[]; canOwn: boolean; team: ReadonlyMap<string, string>; lists: Lists; onClear: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
   const [error, setError] = useState('');
@@ -44,9 +44,9 @@ export function BulkBar({ workspaceId, ids, canOwn, team, onClear }: { workspace
     <div data-plan="DP-1.3-31" className={css.bar}>
       <p>{ids.length} {t('DP-1.3-31', 'selected')} <button type="button" onClick={onClear}>{t('DP-1.3-31', 'Clear selection')}</button></p>
       <select data-plan="DP-1.3-32" aria-label="Set status" value="" disabled={busy}
-        onChange={e => { const s = e.target.value; if (s) void run('status', s, n => `${n} ${t('DP-1.3-32', 'leads marked')} ${statusLabel(s)}.`, STATUS_FAILED); }}>
+        onChange={e => { const s = e.target.value; if (s) void run('status', s, n => `${n} ${t('DP-1.3-32', 'leads marked')} ${statusLabel(lists, s)}.`, STATUS_FAILED); }}>
         <option value="">{t('DP-1.3-32', 'Set status')}</option>
-        {STATUSES.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
+        {statusChoices(lists).map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
       </select>
       {canOwn && (
         <select data-plan="DP-1.3-33" aria-label="Set owner" value="" disabled={busy}

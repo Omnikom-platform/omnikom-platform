@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Outlet, useNavigate, useParams, useRouterState, useSearch } from '@tanstack/react-router';
 import { useContractForms, useFilterCounts, useLeadColumns, useLeadList, useLeadsLive, useMe, useReadIds, useSites, useTeam } from '../data';
-import { FILTERS, leadsTitle, type Filter } from '../lib/leads';
+import { FILTERS, FLOOR_LISTS, leadsTitle, type Filter } from '../lib/leads';
 import {
   allOnPage, cellText, CORE_COLUMNS, nextSort, pageLine, pageNumbers, PAGE_SIZE, sortState, toggleId, togglePage, type Column, type ColumnFilter, type View,
 } from '../lib/crm';
@@ -55,6 +55,8 @@ export function LeadsLayout() {
 
   const leadColumns = useLeadColumns(workspace.id);
   const industry = leadColumns.data?.columns ?? NO_COLUMNS;
+  // the business's own lead types and statuses come with its columns; nothing is asked of the list until they are here, so no filter is built from a guess
+  const lists = leadColumns.data?.lists ?? FLOOR_LISTS;
   const info = useCallback<ColumnInfo>(key => {
     const c = [...CORE_COLUMNS, ...industry].find(x => x.key === key);
     return c ? { label: c.label, type: c.type } : null;
@@ -70,10 +72,10 @@ export function LeadsLayout() {
   const canOwn = me.data ? me.data.role !== 'member' : false;
   const effective = useMemo<View>(() => ({ ...view, site: activeSite }), [view, activeSite]);
   // a column filter is typed by its column, so the list waits for the columns when the address carries one
-  const ready = Boolean(me.data) && !sites.isLoading && (view.columnFilters.length === 0 || Boolean(leadColumns.data));
+  const ready = Boolean(me.data) && !sites.isLoading && Boolean(leadColumns.data);
 
-  const list = useLeadList(workspace.id, effective, myTeamRow, ready && !importing);
-  const counts = useFilterCounts(workspace.id, activeSite, myTeamRow, ready && !importing);
+  const list = useLeadList(workspace.id, effective, myTeamRow, lists, ready && !importing);
+  const counts = useFilterCounts(workspace.id, activeSite, myTeamRow, lists, ready && !importing);
   const rows = list.data?.rows ?? [];
   const ids = useMemo(() => rows.map(r => r.id), [rows]);
   const reads = useReadIds(ids, userId);
@@ -114,12 +116,12 @@ export function LeadsLayout() {
   const setPage = (n: number) => go({ ...screen, view: { ...view, page: n } });
   // applying a saved view puts its query and columns in the address; a site the view names wins, else the site stays as it is
   function applyView(v: SavedView) {
-    const r = fromSaved(v.query, v.columns, { myTeamRow, info });
+    const r = fromSaved(v.query, v.columns, { myTeamRow, info, lists });
     go({ view: { ...r.view, site: r.view.site || view.site }, columns: r.columns, viewId: v.id });
   }
 
   return (
-    <LeadsViewContext.Provider value={{ workspaceId: workspace.id, view: effective, myTeamRow, template }}>
+    <LeadsViewContext.Provider value={{ workspaceId: workspace.id, view: effective, myTeamRow, lists, template }}>
       <div data-layout={wide ? 'wide' : 'narrow'} className={css.layout}>
         {!importing && showList && (
           <section data-live={live}>
@@ -159,19 +161,19 @@ export function LeadsLayout() {
                 </span>
               </span>
             </div>
-            <ColumnFilters columns={filterable} filters={view.columnFilters} team={owners} onChange={setColumnFilters} />
+            <ColumnFilters columns={filterable} filters={view.columnFilters} team={owners} lists={lists} onChange={setColumnFilters} />
             <ExportControl workspaceId={workspace.id} template={template} onTemplate={setTemplate} />
             <div className={crm.viewTools}>
               <ColumnsPicker all={everyColumn} chosen={screen.columns} onChange={keys => go({ ...screen, columns: keys })} />
               <ViewsPanel
-                workspaceId={workspace.id} userId={userId} isOwner={canOwn} view={effective} shown={columns} myTeamRow={myTeamRow} viewId={screen.viewId}
+                workspaceId={workspace.id} userId={userId} isOwner={canOwn} view={effective} shown={columns} myTeamRow={myTeamRow} lists={lists} viewId={screen.viewId}
                 onApply={applyView} onApplied={id => go({ ...screen, viewId: id })}
               />
             </div>
 
             {(list.error || counts.error) && <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
             {live === 'paused' && <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
-            {selected.size > 0 && <BulkBar workspaceId={workspace.id} ids={[...selected]} canOwn={canOwn} team={owners} onClear={() => setSelected(new Set())} />}
+            {selected.size > 0 && <BulkBar workspaceId={workspace.id} ids={[...selected]} canOwn={canOwn} team={owners} lists={lists} onClear={() => setSelected(new Set())} />}
             <div className={css.card} data-card="" data-busy={list.isFetching || counts.isFetching ? 'true' : undefined}>
               {loading && !list.error && <p data-plan="DP-1.2s-10">Loading</p>}
               {!loading && !list.error && rows.length === 0 && noLeadsAtAll && (
@@ -207,7 +209,7 @@ export function LeadsLayout() {
                               <input type="checkbox" data-plan="DP-1.3-30" aria-label={`${t('DP-1.3-30', 'Select')} ${who}`} checked={selected.has(l.id)} onChange={() => setSelected(toggleId(selected, l.id))} />
                             </td>
                             {columns.map(c => {
-                              const text = cellText(l, c.key, { owner: ownerName, forms: forms.data ?? null });
+                              const text = cellText(l, c.key, { owner: ownerName, forms: forms.data ?? null, lists, who: id => team.data?.byUser.get(id) ?? '' });
                               if (c.key === 'name') {
                                 return (
                                   <th key={c.key} scope="row">

@@ -3,7 +3,7 @@
 import { config } from './config';
 import { supabase } from './supabase';
 import { CallFailed, problemFrom, UNREACHABLE } from './lib/problems';
-import type { LeadStatus } from './lib/leads';
+import { listsFrom } from './lib/leads';
 import type { ListAnswer, ListFilter, SortSpec } from './lib/crm';
 import type { MapColumn, Proposal, Report } from './lib/importmap';
 import type { Member } from './lib/settings';
@@ -36,7 +36,7 @@ async function call(name: string, body: Record<string, unknown>): Promise<unknow
   return parseJson((await request(name, body)).text);
 }
 
-export type LeadChange = { lead: string; status?: LeadStatus; owner?: string; unassign?: boolean; note?: string; read?: boolean; fields?: Record<string, unknown>; follow_up?: string | null };
+export type LeadChange = { lead: string; status?: string; status_date?: string; status_who?: string; status_text?: string; owner?: string; unassign?: boolean; note?: string; read?: boolean; fields?: Record<string, unknown>; follow_up?: string | null };
 
 /** lead-update: status, owner (a team row id), unassign, a note, read, or fields (one edit call for any core or industry field). 204 on success, 200 { changed } with fields. */
 export async function updateLead(change: LeadChange): Promise<void> {
@@ -47,7 +47,7 @@ export async function updateLead(change: LeadChange): Promise<void> {
 export async function listLeads(q: { workspace: string; search?: string; filters?: ListFilter[]; sort?: SortSpec; page?: number; size?: number; due?: boolean; duplicates?: boolean }): Promise<ListAnswer> {
   const out = (await call('lead-list', q)) as Partial<ListAnswer> | null;
   if (!out || !Array.isArray(out.rows) || typeof out.total !== 'number') throw new CallFailed(problemFrom(500, null));
-  return { total: out.total, page: out.page ?? q.page ?? 1, size: out.size ?? q.size ?? 0, columns: out.columns ?? [], fields: out.fields ?? [], rows: out.rows };
+  return { total: out.total, page: out.page ?? q.page ?? 1, size: out.size ?? q.size ?? 0, columns: out.columns ?? [], fields: out.fields ?? [], rows: out.rows, lists: listsFrom(out as { statuses?: unknown; lead_types?: unknown }) };
 }
 
 export type ViewSave = { workspace: string; id?: string; name: string; query: Record<string, unknown>; columns: string[]; shared: boolean };

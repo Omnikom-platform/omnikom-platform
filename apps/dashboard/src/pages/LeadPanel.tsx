@@ -4,8 +4,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { updateLead, type LeadChange } from '../api';
 import { everListed, useContractForms, useEvents, useEventsLive, useLead, useLeadColumns, useMe, useSites, useTeam } from '../data';
 import { editText, editValue, recordFields, type RecordField } from '../lib/crm';
-import { marketingLine, receivedWords, smsLine, STATUSES, statusLabel, telHref, timelineLines, type Lead, type LeadEvent, type LeadStatus } from '../lib/leads';
-import { CallFailed, UNREACHABLE } from '../lib/problems';
+import { FLOOR_LISTS, marketingLine, receivedWords, smsLine, statusChoices, statusDef, statusLabel, telHref, timelineLines, typeLabel, type Lead, type LeadEvent } from '../lib/leads';
+import { CallFailed, plainOr, UNREACHABLE } from '../lib/problems';
 import { useSession } from '../auth';
 import { useWide } from '../hooks';
 import { useWorkspaceValue } from '../workspace-context';
@@ -14,12 +14,14 @@ import { UNDO, useToast } from '../toast';
 import { DeleteSheet } from './DeleteSheet';
 import { LeadFollowUp } from './LeadFollowUp';
 import { LeadTasks } from './LeadTasks';
+import { StatusAsk, type StatusValues } from './StatusAsk';
 import { NotFound } from './NotFound';
 import css from './Panel.module.css';
 import crm from './Crm.module.css';
 
 const NOTE_MAX = 2000;
 const FIELD_FAILED = t('DP-1.3-38', 'Could not save. Try again.');
+const NO_VALUES: StatusValues = { date: '', who: '', text: '' };
 
 const said = (e: unknown): string => (e instanceof CallFailed && e.problem.plain ? e.problem.message : FIELD_FAILED);
 
@@ -131,12 +133,18 @@ export function LeadPanel() {
   const nav = useNavigate();
   const { ws } = useParams({ from: '/authed/w/$ws' });
   const wide = useWide();
+  const lists = columns.data?.lists ?? FLOOR_LISTS;
   useEventsLive(workspace.id, id);
   const [deleting, setDeleting] = useState(false);
   const ownerId = useId();
+  const statusId = useId();
+  const typeId = useId();
 
   const [statusError, setStatusError] = useState('');
   const [ownerError, setOwnerError] = useState('');
+  const [pending, setPending] = useState<string | null>(null);   // a status picked that asks for something, not sent yet
+  const [statusBusy, setStatusBusy] = useState(false);
+  const [typeError, setTypeError] = useState('');
   const [note, setNote] = useState('');
   const [noteError, setNoteError] = useState('');
   const [savingNote, setSavingNote] = useState(false);
@@ -144,7 +152,7 @@ export function LeadPanel() {
   const data = lead.data;
   // a flagged lead's older match: readable (then it has a name and a link) or not (then only the fact that another lead matches)
   const other = useLead(workspace.id, data?.duplicate_of ?? '', Boolean(data?.duplicate_of));
-  useEffect(() => { setStatusError(''); setOwnerError(''); setNote(''); setNoteError(''); }, [id]);
+  useEffect(() => { setStatusError(''); setOwnerError(''); setNote(''); setNoteError(''); setPending(null); setTypeError(''); }, [id]);
   useEffect(() => { if (lead.data === null && everListed.has(id)) void qc.invalidateQueries({ queryKey: ['leads', workspace.id] }); }, [lead.data, id, qc, workspace.id]);
 
   const names = useMemo(
@@ -186,7 +194,7 @@ export function LeadPanel() {
   }
 
   /** Change status or owner at once; on a refusal put the old value back and say so. `said` is the toast, with Undo when `undo` is given. */
-  async function change(kind: 'status' | 'owner', call: LeadChange, patch: Partial<Lead>, back: Partial<Lead>, said: string, undo: (() => void) | null) {
+  async function change(kind: 'status' | 'owner', call: LeadChange, patch: Partial<Lead>, back: Partial<Lead>, said: string, undo: (() => void) | null): Promise<boolean> {
     const [setError, failed] = kind === 'status'
       ? [setStatusError, t('DP-1.3-12', 'Could not save. Try again.')] as const
       : [setOwnerError, t('DP-1.3-25', 'Could not save. Try again.')] as const;
@@ -195,19 +203,55 @@ export function LeadPanel() {
     try {
       await updateLead(call);
       toast(said, undo ? { label: UNDO, run: undo } : undefined);
-    } catch {
+      return true;
+    } catch (e) {
       patchCache(back);
-      setError(failed);
+      // the database's own sentence (a status that needs a date without one, a person who is not a member) shows as it is
+      setError(plainOr(e, failed));
+      return false;
     } finally {
       refresh();
     }
   }
 
-  function setStatus(next: LeadStatus) {
-    if (!data || next === data.status) return;
-    const before = data.status;
-    void change('status', { lead: id, status: next }, { status: next }, { status: before }, `${t('DP-1.3-12', 'Marked')} ${statusLabel(next)}.`,
-      () => void change('status', { lead: id, status: before }, { status: before }, { status: next }, '', null));
+  /** The status with what it carries, as lead-update takes it (only what was filled in); true when it saved. Undo puts the old status and its values back. */
+  function sendStatus(next: string, v: StatusValues): Promise<boolean> {
+    if (!data) return Promise.resolve(false);
+    const body = (s: string, x: { date?: string | null; who?: string | null; text?: string | null }): LeadChange => ({
+      lead: id, status: s, ...(x.date ? { status_date: x.date } : {}), ...(x.who ? { status_who: x.who } : {}), ...(x.text?.trim() ? { status_text: x.text.trim() } : {}),
+    });
+    const to = { status: next, status_date: v.date || null, status_who: v.who || null, status_text: v.text.trim() || null };
+    const from = { status: data.status, status_date: data.status_date ?? null, status_who: data.status_who ?? null, status_text: data.status_text ?? null };
+    const words = statusLabel(lists, next);
+    return change('status', body(next, v), to, from, `${t('DP-1.3-12', 'Marked')} ${words}.`,
+      () => void change('status', body(from.status, { date: from.status_date, who: from.status_who, text: from.status_text }), from, to, '', null));
+  }
+
+  /** Picking a status that asks for a date, a person or a line opens the asks; any other is sent at once. */
+  function pickStatus(next: string) {
+    if (!data) return;
+    setStatusError('');
+    const def = statusDef(lists, next);
+    if (def && (def.needsDate || def.needsWho || def.needsText)) { setPending(next === data.status ? null : next); return; }
+    setPending(null);
+    if (next !== data.status) void sendStatus(next, NO_VALUES);
+  }
+
+  async function setLeadType(next: string) {
+    if (!data || next === (data.lead_type ?? '')) return;
+    const before = data.lead_type ?? '';
+    setTypeError('');
+    patchCache({ lead_type: next });
+    const label = t('DP-1.3-80', 'Lead type');
+    try {
+      await updateLead({ lead: id, fields: { lead_type: next } });
+      toast(`${label} ${t('DP-1.3-37', 'saved.')}`, { label: UNDO, run: () => { patchCache({ lead_type: before }); void updateLead({ lead: id, fields: { lead_type: before } }).catch(() => undefined).finally(refresh); } });
+    } catch (e) {
+      patchCache({ lead_type: before });
+      setTypeError(plainOr(e, FIELD_FAILED));
+    } finally {
+      refresh();
+    }
   }
 
   function setOwner(next: string) {
@@ -255,9 +299,19 @@ export function LeadPanel() {
   const isMember = me.data?.role === 'member';
   const title = data.name || data.email || data.phone || '';
   const fields = columns.data?.fields ?? [];
+  const listsKnown = Boolean(columns.data);   // the status and lead type controls wait for the business's lists, so no wrong word shows first
   const siteList = sites.data ?? [];
   const recordRows = recordFields(data, fields, { forms: forms.data ?? null, siteName: sid => siteList.find(s => s.id === sid)?.domain || siteList.find(s => s.id === sid)?.preview_host || '', manySites: siteList.length > 1 });
-  const lines = timelineLines(events.data ?? [], data, names, key => fields.find(x => x.key === key)?.label ?? ({ name: t('DP-1.3-14', 'Name'), email: t('DP-1.3-14', 'Email'), phone: t('DP-1.3-14', 'Phone') } as Record<string, string>)[key] ?? key);
+  const lines = timelineLines(events.data ?? [], data, names, key => fields.find(x => x.key === key)?.label ?? ({ name: t('DP-1.3-14', 'Name'), email: t('DP-1.3-14', 'Email'), phone: t('DP-1.3-14', 'Phone'), lead_type: t('DP-1.3-80', 'Lead type') } as Record<string, string>)[key] ?? key, lists);
+  const shownStatus = pending ?? data.status;
+  const shownDef = statusDef(lists, shownStatus);
+  const asks = Boolean(shownDef && (shownDef.needsDate || shownDef.needsWho || shownDef.needsText));
+  // the status the lead has now stays pickable even when the list no longer has it (an old row)
+  const choices = statusChoices(lists);
+  const known = choices.some(s => s.key === data.status) || data.status === 'new';
+  const askStart: StatusValues = pending
+    ? { ...NO_VALUES, who: shownDef?.needsWho && names.byUser.has(userId) ? userId : '' }
+    : { date: data.status_date ?? '', who: data.status_who ?? '', text: data.status_text ?? '' };
   const marketing = data.marketing_consent;
   const over = note.length > NOTE_MAX;
   // the lead's name is the screen title on a phone (the list is gone) and a section title beside the list on a laptop
@@ -282,15 +336,35 @@ export function LeadPanel() {
       )}
       {data.duplicate_of && other.data === null && <p data-plan="DP-1.3-74">{t('DP-1.3-74', 'Another lead matches this one.')}</p>}
 
-      <div role="radiogroup" aria-label="Status" data-plan="DP-1.3-12" className={css.status}>
-        {STATUSES.map(s => (
-          <label key={s}>
-            <input type="radio" name="status" value={s} checked={data.status === s} onChange={() => setStatus(s)} />
-            {statusLabel(s)}
-          </label>
-        ))}
-        {statusError && <p role="alert">{statusError}</p>}
-      </div>
+      {listsKnown && (
+        <div data-plan="DP-1.3-12" className={css.field}>
+          <label htmlFor={statusId}>{t('DP-1.3-12', 'Status')}</label>
+          <select id={statusId} name="status" value={shownStatus === 'new' ? 'not-contacted' : shownStatus} onChange={e => pickStatus(e.target.value)}>
+            {!known && <option value={data.status}>{statusLabel(lists, data.status)}</option>}
+            {choices.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+          </select>
+          {asks && shownDef && (
+            <StatusAsk
+              key={pending ? `pick:${pending}` : `now:${data.status}:${data.status_date ?? ''}:${data.status_who ?? ''}:${data.status_text ?? ''}`}
+              def={shownDef} team={names.byUser} initial={askStart} busy={statusBusy} error={statusError}
+              onSave={v => { setStatusBusy(true); void sendStatus(shownStatus, v).then(ok => { setStatusBusy(false); if (ok) setPending(null); }); }}
+              onCancel={pending ? () => { setPending(null); setStatusError(''); } : null}
+            />
+          )}
+          {!asks && statusError && <p role="alert">{statusError}</p>}
+        </div>
+      )}
+
+      {listsKnown && (
+        <div data-plan="DP-1.3-80" className={css.field}>
+          <label htmlFor={typeId}>{t('DP-1.3-80', 'Lead type')}</label>
+          <select id={typeId} name="lead-type" value={data.lead_type ?? ''} onChange={e => void setLeadType(e.target.value)}>
+            {!lists.leadTypes.some(l => l.key === (data.lead_type ?? '')) && <option value={data.lead_type ?? ''}>{typeLabel(lists, data.lead_type ?? '')}</option>}
+            {lists.leadTypes.map(l => <option key={l.key} value={l.key}>{l.label}</option>)}
+          </select>
+          {typeError && <p role="alert">{typeError}</p>}
+        </div>
+      )}
 
       {!isMember && (
         <div data-plan="DP-1.3-13" className={css.field}>

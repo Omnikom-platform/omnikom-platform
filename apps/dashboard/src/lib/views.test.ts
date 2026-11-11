@@ -4,6 +4,19 @@ import {
   allColumns, canChangeView, canShareView, commitColumns, DISPLAY_ONLY, fromAddress, fromSaved, groupViews, moveColumn, parseAddress, pickerLines, shownColumns,
   toAddress, toggleColumn, toSaved, type ColumnInfo, type SavedView, type Screen,
 } from './views';
+import type { Lists } from './leads';
+
+// A business's own lists as lead-list answers them: the owner's words as data (none of them is written in the app).
+const LISTS: Lists = {
+  statuses: [
+    { key: 'not-contacted', label: 'Not contacted yet', stage: 'new' },
+    { key: 'contacted', label: 'Contacted', stage: 'working', needsWho: true },
+    { key: 'call-back', label: 'Call back', stage: 'working', needsDate: true },
+    { key: 'interested', label: 'Interested in something specific', stage: 'working', needsText: true },
+    { key: 'closed', label: 'Closed', stage: 'outcome' },
+  ],
+  leadTypes: [{ key: 'enquiry', label: 'Enquiry' }, { key: 'buy', label: 'Looking to buy' }],
+};
 
 // Test data lives in tests only (DECISIONS 44 bans sample data in the app source, not in a test that proves a rule).
 const industry: Column[] = [
@@ -22,7 +35,7 @@ const noPhone: ColumnFilter = { key: 'phone', label: 'Phone', type: 'text', cond
 
 describe('the columns the list shows', () => {
   it('the first view is the core columns, Follow-up, Possible duplicate, then the industry columns in form order', () => {
-    expect(everything.map(c => c.key)).toEqual(['created_at', 'name', 'email', 'phone', 'form', 'page', 'status', 'owner', 'follow_up', 'duplicate', 'budget', 'beds', 'pets']);
+    expect(everything.map(c => c.key)).toEqual(['created_at', 'name', 'email', 'phone', 'form', 'lead_type', 'page', 'status', 'owner', 'follow_up', 'duplicate', 'budget', 'beds', 'pets']);
     expect(shownColumns(everything, null)).toEqual(everything);
     expect(shownColumns(everything, [])).toEqual(everything);
   });
@@ -83,7 +96,7 @@ describe('the view in the page address', () => {
   it('an end left empty in the box and an end that is not in the address are the same filter for the server', () => {
     const typed: ColumnFilter = { ...budget, to: '' };
     const back = fromAddress(parseAddress(toAddress({ view: { ...FIRST_VIEW, columnFilters: [typed] }, columns: null, viewId: '' }) as Record<string, unknown>), info).view.columnFilters;
-    expect(listQuery({ ...FIRST_VIEW, columnFilters: back }, null)).toEqual(listQuery({ ...FIRST_VIEW, columnFilters: [typed] }, null));
+    expect(listQuery({ ...FIRST_VIEW, columnFilters: back }, null, LISTS)).toEqual(listQuery({ ...FIRST_VIEW, columnFilters: [typed] }, null, LISTS));
   });
   it('a filter on a column the list does not know is read as text under its key, not lost', () => {
     const back = fromAddress({ cf: [{ k: 'zz', c: 'is', v: 'x' }] }, info).view.columnFilters;
@@ -111,13 +124,13 @@ describe('a saved view and the screen it makes', () => {
   const base: View = { ...FIRST_VIEW };
   const roundTrip = (v: View, cols: string[] | null = null, myTeamRow: string | null = mine) => {
     const shown = shownColumns(everything, cols);
-    const saved = toSaved(v, myTeamRow, shown);
-    return fromSaved(JSON.parse(JSON.stringify(saved.query)), saved.columns, { myTeamRow, info });
+    const saved = toSaved(v, myTeamRow, shown, LISTS);
+    return fromSaved(JSON.parse(JSON.stringify(saved.query)), saved.columns, { myTeamRow, info, lists: LISTS });
   };
   it('saves the very query lead-list takes (the same function builds both) and the keys of the columns shown', () => {
     const v: View = { ...base, filter: 'all', search: 'ab', due: true, duplicates: true, columnFilters: [budget] };
-    const saved = toSaved(v, mine, shownColumns(everything, ['name', 'budget']));
-    expect(saved.query).toEqual(listQuery(v, mine));
+    const saved = toSaved(v, mine, shownColumns(everything, ['name', 'budget']), LISTS);
+    expect(saved.query).toEqual(listQuery(v, mine, LISTS));
     expect(saved.query).toMatchObject({ due: true, duplicates: true, search: 'ab' });
     expect(saved.columns).toEqual(['name', 'budget']);
   });
@@ -132,42 +145,42 @@ describe('a saved view and the screen it makes', () => {
   });
   it('the columns come back in order; no column list means the first view', () => {
     expect(roundTrip(base, ['name', 'budget']).columns).toEqual(['name', 'budget']);
-    expect(fromSaved({ filters: [] }, [], { myTeamRow: null, info }).columns).toBeNull();
+    expect(fromSaved({ filters: [] }, [], { myTeamRow: null, info, lists: LISTS }).columns).toBeNull();
   });
   it('Mine of another person is an owner filter for the reader, never their own Mine', () => {
-    const saved = toSaved({ ...base, filter: 'mine' }, 'someone-else', everything);
-    const r = fromSaved(saved.query, saved.columns, { myTeamRow: mine, info });
+    const saved = toSaved({ ...base, filter: 'mine' }, 'someone-else', everything, LISTS);
+    const r = fromSaved(saved.query, saved.columns, { myTeamRow: mine, info, lists: LISTS });
     expect(r.view.filter).toBe('all');
     expect(r.view.columnFilters).toEqual([{ key: 'owner', label: 'Owner', type: 'owner', cond: 'is', value: 'someone-else' }]);
   });
   it('a reader with no team row reads Mine as Mine (it matches nobody, as it did for the saver)', () => {
-    const saved = toSaved({ ...base, filter: 'mine' }, null, everything);
-    expect(fromSaved(saved.query, saved.columns, { myTeamRow: null, info }).view.filter).toBe('mine');
+    const saved = toSaved({ ...base, filter: 'mine' }, null, everything, LISTS);
+    expect(fromSaved(saved.query, saved.columns, { myTeamRow: null, info, lists: LISTS }).view.filter).toBe('mine');
   });
   it('a query with no status filter reads as All; a status the four cannot say stays a filter on Status', () => {
-    expect(fromSaved({ filters: [] }, null, { myTeamRow: null, info }).view.filter).toBe('all');
-    const r = fromSaved({ filters: [{ field: 'status', op: 'eq', value: 'contacted' }] }, null, { myTeamRow: null, info });
+    expect(fromSaved({ filters: [] }, null, { myTeamRow: null, info, lists: LISTS }).view.filter).toBe('all');
+    const r = fromSaved({ filters: [{ field: 'status', op: 'eq', value: 'contacted' }] }, null, { myTeamRow: null, info, lists: LISTS });
     expect(r.view.filter).toBe('all');
     expect(r.view.columnFilters).toEqual([{ key: 'status', label: 'Status', type: 'enum', cond: 'is', value: 'contacted' }]);
   });
   it('a filter the controls cannot say (an in of several values on a column) is counted, not turned into another filter', () => {
-    const r = fromSaved({ filters: [{ field: 'status', op: 'eq', value: 'new' }, { field: 'beds', op: 'in', values: [2, 3] }] }, null, { myTeamRow: null, info });
+    const r = fromSaved({ filters: [{ field: 'status', op: 'eq', value: 'new' }, { field: 'beds', op: 'in', values: [2, 3] }] }, null, { myTeamRow: null, info, lists: LISTS });
     expect(r.dropped).toBe(1);
     expect(r.view.columnFilters).toEqual([]);
-    expect(fromSaved({ filters: [{ field: 'status', op: 'eq', value: 'new' }, { field: 'beds', op: 'in', values: [2] }] }, null, { myTeamRow: null, info }).view.columnFilters).toHaveLength(1);
+    expect(fromSaved({ filters: [{ field: 'status', op: 'eq', value: 'new' }, { field: 'beds', op: 'in', values: [2] }] }, null, { myTeamRow: null, info, lists: LISTS }).view.columnFilters).toHaveLength(1);
   });
   it('a view saved before work order 20 (status new) and one saved now (status not-contacted) both read back as New', () => {
     for (const value of ['new', 'not-contacted']) {
-      const r = fromSaved({ filters: [{ field: 'status', op: 'eq', value }] }, null, { myTeamRow: null, info });
+      const r = fromSaved({ filters: [{ field: 'status', op: 'eq', value }] }, null, { myTeamRow: null, info, lists: LISTS });
       expect(r.view.filter, value).toBe('new');
       expect(r.view.columnFilters, value).toEqual([]);
     }
-    expect(toSaved({ ...FIRST_VIEW }, null, []).query.filters).toEqual([{ field: 'status', op: 'eq', value: 'not-contacted' }]);
+    expect(toSaved({ ...FIRST_VIEW }, null, [], LISTS).query.filters).toEqual([{ field: 'status', op: 'eq', value: 'not-contacted' }]);
   });
   it('the page is always 1 and a stored query of the wrong shape never throws', () => {
-    expect(fromSaved({ filters: [] }, null, { myTeamRow: null, info }).view.page).toBe(1);
-    expect(() => fromSaved({} as never, undefined, { myTeamRow: null, info })).not.toThrow();
-    expect(() => fromSaved({ filters: 'x', sort: 5, search: 3 } as never, null, { myTeamRow: null, info })).not.toThrow();
+    expect(fromSaved({ filters: [] }, null, { myTeamRow: null, info, lists: LISTS }).view.page).toBe(1);
+    expect(() => fromSaved({} as never, undefined, { myTeamRow: null, info, lists: LISTS })).not.toThrow();
+    expect(() => fromSaved({ filters: 'x', sort: 5, search: 3 } as never, null, { myTeamRow: null, info, lists: LISTS })).not.toThrow();
   });
 });
 
@@ -190,5 +203,17 @@ describe('who may do what to a view', () => {
     expect(canShareView(own, 'me', true)).toBe(true);
     expect(canShareView(own, 'me', false)).toBe(false);
     expect(canShareView(other, 'me', true)).toBe(false);
+  });
+});
+
+describe('work order 39: a saved view reads New and All from the business\'s own list', () => {
+  const own: Lists = { ...LISTS, statuses: [{ key: 'fresh', label: 'Fresh', stage: 'new' }, { key: 'done', label: 'Done', stage: 'outcome' }] };
+  it('New saves as the list\'s stage-new status and every filter reads back as itself', () => {
+    expect(toSaved({ ...FIRST_VIEW, filter: 'new' }, null, [], own).query.filters).toEqual([{ field: 'status', op: 'eq', value: 'fresh' }]);
+    expect(toSaved({ ...FIRST_VIEW, filter: 'all' }, null, [], own).query.filters).toEqual([{ field: 'status', op: 'in', values: ['fresh', 'done'] }]);
+    for (const filter of ['new', 'all', 'spam'] as const) {
+      const saved = toSaved({ ...FIRST_VIEW, filter }, null, [], own);
+      expect(fromSaved(JSON.parse(JSON.stringify(saved.query)), null, { myTeamRow: null, info, lists: own }).view.filter, filter).toBe(filter);
+    }
   });
 });

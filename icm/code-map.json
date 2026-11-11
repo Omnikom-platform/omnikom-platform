@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 835,
+    "sources": 836,
     "unowned": 0
   },
   "files": [
@@ -29,7 +29,7 @@
     {"path":"apps/dashboard/src/lib/importmap.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/importmap.ts","owner":"platform-build","exports":["MAX_FILE_BYTES","MapColumn","Pair","Proposal","Report","changePair","crmSlug","fieldChoices","fileTooBig","flattenSample","matchWords","pairsFromProposal","sampleHeads","templateColumns"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/leads.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
-    {"path":"apps/dashboard/src/lib/leads.ts","owner":"platform-build","exports":["ContractForms","FILTERS","Filter","Lead","LeadEvent","LeadStatus","Names","SEARCH_MIN","STATUSES","TimelineLine","answerRows","editedLine","filterCounts","filterLeads","followUpLine","formLabel","labelWords","leadsTitle","marketingLine","newestFirst","plainValue","receivedWords","searchLeads","smsLine","statusLabel","taskLine","telHref","timelineLines","visibleLeads"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/lib/leads.ts","owner":"platform-build","exports":["ContractForms","FILTERS","FLOOR_LISTS","Filter","Lead","LeadEvent","Lists","Names","SEARCH_MIN","SPAM","StatusDef","TimelineLine","TypeDef","allKeys","answerRows","dayWords","editedLine","filterCounts","filterLeads","followUpLine","formLabel","labelWords","leadsTitle","listsFrom","marketingLine","newKeys","newestFirst","plainValue","receivedWords","searchLeads","smsLine","statusCarries","statusChoices","statusDef","statusLabel","statusWords","taskLine","telHref","timelineLines","typeLabel","visibleLeads"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/problems.ts","owner":"platform-build","exports":["CallFailed","Problem","UNREACHABLE","plainOr","problemFrom"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/settings.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/settings.ts","owner":"platform-build","exports":["AlertProblem","MAX_ALERTS","Member","ParsedAlerts","alertsChanged","alertsText","canRemove","canSaveAlerts","memberName","onlyYou","parseAlerts","validEmail"],"tests":[],"feature":""},
@@ -61,6 +61,7 @@
     {"path":"apps/dashboard/src/pages/Shell.tsx","owner":"platform-build","exports":["Shell"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/SignOutButton.tsx","owner":"platform-build","exports":["SignOutButton"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/SiteLayout.tsx","owner":"platform-build","exports":["NoItemChosen","SiteLayout"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
+    {"path":"apps/dashboard/src/pages/StatusAsk.tsx","owner":"platform-build","exports":["StatusAsk","StatusValues"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/ViewsPanel.tsx","owner":"platform-build","exports":["ViewsPanel"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/Widgets.tsx","owner":"platform-build","exports":["AskUs","FieldError","FieldWidget","WidgetCtx"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/Workspaces.tsx","owner":"platform-build","exports":["Workspaces"],"tests":[],"feature":""},

@@ -39,6 +39,7 @@ function expectNone(haystack: string, needles: string[], where: string) {
 test.afterAll(async () => {
   await removeCrmScreensTestData();
   await removeCrm3bTestData();
+  await removeA16TestData();
   const made = await serviceGet<{ id: string }[]>(`/leads?site_id=eq.${WS.a.site}&name=like.${encodeURIComponent(`5.3 flows ${RUN}*`)}&select=id&limit=100`);
   if (!made.length) return;
   const out = spawnSync(process.execPath, [CLEAN_LEADS, '--apply', '--ids', made.map(l => l.id).join(',')], { encoding: 'utf8', env: process.env, timeout: 120_000, windowsHide: true });
@@ -776,5 +777,165 @@ test.describe('settings: sign out everywhere', () => {
     await expect(page.getByText('You were signed out. Sign in again.')).toBeVisible();
     await page.goto(settingsUrl);
     await expect(page).toHaveURL(/\/login/);   // nothing of this login is left in the browser
+  });
+});
+
+// ---------- the A16 status board (work order 39): lead type and status as the business's own lists ----------
+// Owner-a and member-a1 on workspace A's test site, whose contract (version 7) carries the real-estate lists. The words picked and read here are the list's
+// labels as lead-list answers them (read at run time, never typed): a label change in the contract changes the test with it. Every lead is made with add-lead,
+// marked by name ("a16 <RUN> ..."), and removed in the file's afterAll through leads-bulk with confirm.
+const A16_MARK = `a16 ${RUN}`;
+type A16Lead = { id: string; name: string; status: string; status_date: string | null; status_who: string | null; status_text: string | null; lead_type: string };
+const a16Leads = () => serviceGet<A16Lead[]>(`/leads?workspace_id=eq.${WS.a.id}&name=like.${encodeURIComponent(`${A16_MARK}*`)}&select=id,name,status,status_date,status_who,status_text,lead_type&order=name`);
+const a16One = async (name: string) => (await a16Leads()).find(l => l.name === name)!;
+
+async function addA16Lead(suffix: string, owner?: string | null): Promise<string> {
+  const token = await personAccessToken('owner-a');
+  const name = `${A16_MARK} ${suffix}`;
+  const r = await callAs(token, 'add-lead', { site: WS.a.site, name, email: `a16.${suffix}.${RUN}@example.com`, phone: '(555) 010-0163', answers: {}, consentText: 'The person agreed to be contacted', form: 'manual', ...(owner ? { owner } : {}) });
+  expect(r.status, `add-lead (${suffix}) answered ${r.status}: ${r.text.slice(0, 160)}`).toBe(201);
+  return name;
+}
+
+/** The business's lists as lead-list answers them: the screens must show exactly these words. */
+async function a16Lists() {
+  const token = await personAccessToken('owner-a');
+  const r = await callAs(token, 'lead-list', { workspace: WS.a.id, size: 1 });
+  expect(r.status, `lead-list answered ${r.status}: ${r.text.slice(0, 120)}`).toBe(200);
+  const j = r.json as { statuses?: { key: string; label: string; needsDate?: boolean; needsWho?: boolean; needsText?: boolean }[]; lead_types?: { key: string; label: string }[] };
+  expect(j.statuses?.length, 'the test site has a status list (crmFrom, contract version 7)').toBeGreaterThan(4);
+  return { statuses: j.statuses!, types: j.lead_types! };
+}
+const a16Status = (lists: Awaited<ReturnType<typeof a16Lists>>, key: string) => lists.statuses.find(x => x.key === key)!;
+
+async function a16Open(page: Page, name: string) {
+  await page.goto(`/w/${WS.a.slug}/leads`);
+  await leadsLoaded(page);
+  await radio(page, 'All').check();
+  await page.getByRole('searchbox', { name: 'Search' }).fill(name);
+  await page.getByRole('link', { name, exact: true }).click();
+  await expect(page.locator('#lead-name')).toHaveText(name);
+}
+const statusPick = (page: Page) => page.getByLabel('Status', { exact: true });
+
+async function removeA16TestData() {
+  const made = await a16Leads();
+  if (!made.length) return;
+  const token = await personAccessToken('owner-a');
+  const r = await callAs(token, 'leads-bulk', { workspace: WS.a.id, ids: made.map(l => l.id), action: 'delete', confirm: true });
+  console.log(`a16 cleanup: ${made.length} lead(s), leads-bulk answered ${r.status}`);
+  expect(r.status, `removing the a16 leads answered ${r.status}: ${r.text.slice(0, 200)}`).toBe(200);
+}
+
+test.describe('the A16 status board as the owner', () => {
+  test.use({ storageState: '.auth/owner-a.json' });
+  test.setTimeout(300_000);
+
+  test('a status that needs a date asks for it, shows the server\'s refusal, then saves the date; a status with a person and one with a line save theirs', async ({ page }) => {
+    const lists = await a16Lists();
+    const dated = a16Status(lists, 'call-back'), withWho = a16Status(lists, 'contacted'), withLine = a16Status(lists, 'interested');
+    expect([dated.needsDate, withWho.needsWho, withLine.needsText], 'the list marks call-back, contacted and interested as the order expects').toEqual([true, true, true]);
+    const name = await addA16Lead('owner');
+    await a16Open(page, name);
+
+    // the picker is the list's words, in the list's order, then spam
+    await expect(statusPick(page).locator('option')).toHaveText(lists.statuses.some(x => x.key === 'spam') ? lists.statuses.map(x => x.label) : [...lists.statuses.map(x => x.label), 'Spam']);
+
+    // a dated status: the Date box opens, Save with no date is refused by the database and its sentence shows under the box; nothing is written
+    await statusPick(page).selectOption({ label: dated.label });
+    await expect(page.getByLabel('Date', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('alert').filter({ hasText: /needs a date/i })).toBeVisible();
+    expect((await a16One(name)).status, 'a refused status changed nothing').toBe('not-contacted');
+    await page.getByLabel('Date', { exact: true }).fill('2026-12-04');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('status').last()).toContainText(`Marked ${dated.label}.`);
+    await expect.poll(async () => { const l = await a16One(name); return `${l.status}|${l.status_date}`; }).toBe('call-back|2026-12-04');
+    await expect(page.locator('ol li').first()).toContainText(`Status: ${lists.statuses[0]!.label} to ${dated.label} (4 Dec 2026)`);
+
+    // a status with a person: the Who pick starts on the signed-in person (or nobody, which the server fills with the caller); saved, it is the caller's id
+    await statusPick(page).selectOption({ label: withWho.label });
+    await expect(page.getByLabel('Who', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('status').last()).toContainText(`Marked ${withWho.label}.`);
+    await expect.poll(async () => { const l = await a16One(name); return `${l.status}|${l.status_who}|${l.status_date}`; }, { message: 'the person is recorded and the old date is gone' }).toBe(`contacted|${PEOPLE['owner-a'].id}|null`);
+
+    // a status with a line
+    await statusPick(page).selectOption({ label: withLine.label });
+    await page.getByLabel('Details', { exact: true }).fill('three beds near the park');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('status').last()).toContainText(`Marked ${withLine.label}.`);
+    await expect.poll(async () => { const l = await a16One(name); return `${l.status}|${l.status_text}|${l.status_who}`; }).toBe('interested|three beds near the park|null');
+    await expect(page.locator('ol li').first()).toContainText(`${withLine.label} (three beds near the park)`);
+  });
+
+  test('a bulk status that needs a date is refused by the server and its sentence shows in the bar; nothing is written. A bulk status that needs nothing saves', async ({ page }) => {
+    const lists = await a16Lists();
+    const dated = a16Status(lists, 'call-back'), plain = a16Status(lists, 'qualified');
+    const a = await addA16Lead('bulk-a'), b = await addA16Lead('bulk-b');
+    await page.goto(`/w/${WS.a.slug}/leads`);
+    await leadsLoaded(page);
+    await radio(page, 'All').check();
+    await page.getByRole('searchbox', { name: 'Search' }).fill(`${A16_MARK} bulk`);
+    await expect(page.locator('tbody tr')).toHaveCount(2);
+    await page.getByRole('checkbox', { name: `Select ${a}` }).check();
+    await page.getByRole('checkbox', { name: `Select ${b}` }).check();
+    await expect(page.getByLabel('Set status').locator('option')).toContainText([lists.statuses[0]!.label, dated.label]);
+    await page.getByLabel('Set status').selectOption({ label: dated.label });
+    await expect(page.getByRole('alert').filter({ hasText: /needs a date/i })).toBeVisible();
+    expect((await a16Leads()).filter(l => l.name.includes(' bulk-')).map(l => l.status), 'the refused bulk wrote nothing').toEqual(['not-contacted', 'not-contacted']);
+    await page.getByLabel('Set status').selectOption({ label: plain.label });
+    await expect(page.getByRole('status').last()).toContainText(`2 leads marked ${plain.label}.`);
+    await expect.poll(async () => (await a16Leads()).filter(l => l.name.includes(' bulk-')).map(l => l.status)).toEqual(['qualified', 'qualified']);
+  });
+
+  test('the lead type is set in the panel from the list, and the list filters on it by the list\'s words; the Status filter offers the list\'s words, not keys', async ({ page }) => {
+    const lists = await a16Lists();
+    const buy = lists.types.find(t => t.key === 'buy')!;
+    const one = await addA16Lead('type-a'), two = await addA16Lead('type-b');
+    await a16Open(page, one);
+    await expect(page.getByLabel('Lead type', { exact: true }).locator('option')).toHaveText(lists.types.map(t => t.label));
+    await page.getByLabel('Lead type', { exact: true }).selectOption({ label: buy.label });
+    await expect(page.getByRole('status').last()).toContainText('Lead type saved.');
+    await expect.poll(async () => (await a16One(one)).lead_type).toBe('buy');
+    expect((await a16One(two)).lead_type, 'the other lead is still an enquiry').toBe('enquiry');
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
+
+    await radio(page, 'All').check();
+    await page.getByRole('searchbox', { name: 'Search' }).fill(`${A16_MARK} type`);
+    await expect(page.locator('tbody tr')).toHaveCount(2);
+    expect(await columnOf(page, /^Lead type$/)).toEqual(expect.arrayContaining([buy.label, lists.types.find(t => t.key === 'enquiry')!.label]));
+    await page.getByLabel('Filter by').selectOption({ label: 'Lead type' });
+    await page.getByLabel('value', { exact: true }).selectOption({ label: buy.label });
+    await page.getByRole('button', { name: 'Add filter' }).click();
+    await expect(page.getByText(`Lead type is ${buy.label}`)).toBeVisible();
+    await expect(page.locator('tbody tr')).toHaveCount(1);
+    await expect(rowOf(page, one)).toHaveCount(1);
+    await page.getByRole('button', { name: 'Remove' }).click();
+
+    // the known finding: the Status filter's values are the list's labels, never the keys
+    await page.getByLabel('Filter by').selectOption({ label: 'Status' });
+    const values = await page.getByLabel('value', { exact: true }).locator('option').allTextContents();
+    expect(values).toEqual(expect.arrayContaining(lists.statuses.map(x => x.label)));
+    expect(values.filter(v => /^[a-z]+(-[a-z]+)+$/.test(v)), 'no raw status key in the dropdown').toEqual([]);
+  });
+});
+
+test.describe('the A16 status board as an agent', () => {
+  test.use({ storageState: '.auth/member-a1.json' });
+
+  test('member-a1 sets a dated status on a lead of their own, and the database holds the date', async ({ page }) => {
+    const lists = await a16Lists();
+    const dated = a16Status(lists, 'call-back');
+    const members = await serviceGet<{ user_id: string; team_row_id: string | null }[]>(`/members?workspace_id=eq.${WS.a.id}&select=user_id,team_row_id`);
+    const own = members.find(m => m.user_id === PEOPLE['member-a1'].id)?.team_row_id ?? null;
+    expect(own, 'the seeded member has a team row (omnikom seed test)').toBeTruthy();
+    const name = await addA16Lead('agent', own);
+    await a16Open(page, name);
+    await statusPick(page).selectOption({ label: dated.label });
+    await page.getByLabel('Date', { exact: true }).fill('2026-12-07');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('status').last()).toContainText(`Marked ${dated.label}.`);
+    await expect.poll(async () => { const l = await a16One(name); return `${l.status}|${l.status_date}`; }).toBe('call-back|2026-12-07');
   });
 });

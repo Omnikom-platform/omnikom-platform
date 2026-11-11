@@ -2,7 +2,7 @@
 // the columns the list shows and how the picker changes them. No browser, no network: Vitest covers all of it. Words that are copy come from
 // the plan (t(), DECISIONS 44).
 import { t } from '../plan';
-import { STATUSES, type Filter } from './leads';
+import { allKeys, newKeys, type Filter, type Lists } from './leads';
 import {
   CORE_COLUMNS, FIRST_VIEW, listQuery, type Column, type ColumnFilter, type Condition, type ListFilter, type SortSpec, type View,
 } from './crm';
@@ -153,11 +153,10 @@ export function fromAddress(a: LeadsSearch, info: ColumnInfo): Screen {
 export type SavedQuery = ReturnType<typeof listQuery>;
 
 /** What view-save stores for the screen: the very query lead-list takes, and the keys of the columns shown. */
-export function toSaved(view: View, myTeamRow: string | null, shown: readonly Column[]): { query: SavedQuery; columns: string[] } {
-  return { query: listQuery(view, myTeamRow), columns: shown.map(c => c.key) };
+export function toSaved(view: View, myTeamRow: string | null, shown: readonly Column[], lists: Lists): { query: SavedQuery; columns: string[] } {
+  return { query: listQuery(view, myTeamRow, lists), columns: shown.map(c => c.key) };
 }
 
-const ALL_BUT_SPAM = STATUSES.filter(s => s !== 'spam');
 const sameSet = (a: unknown[] | undefined, b: readonly string[]) => Array.isArray(a) && a.length === b.length && b.every(x => a.includes(x));
 
 /** One stored filter as a column filter the person could have built (DP-1.3-28); null when the controls cannot say it. */
@@ -181,7 +180,7 @@ function toColumnFilter(f: ListFilter, info: ColumnInfo): ColumnFilter | null {
  * cannot say stays as a column filter on Status (with All, which it narrows). `dropped` counts filters the controls cannot say (an `in` of
  * several values on a column); a view made only by the screen has none. The page is always 1.
  */
-export function fromSaved(query: Partial<SavedQuery> & { due?: unknown; duplicates?: unknown }, columns: readonly string[] | null | undefined, o: { myTeamRow: string | null; info: ColumnInfo }): { view: View; columns: string[] | null; dropped: number } {
+export function fromSaved(query: Partial<SavedQuery> & { due?: unknown; duplicates?: unknown }, columns: readonly string[] | null | undefined, o: { myTeamRow: string | null; info: ColumnInfo; lists: Lists }): { view: View; columns: string[] | null; dropped: number } {
   const filters = Array.isArray(query.filters) ? [...query.filters] : [];
   let filter: Filter = 'all';
   let dropped = 0;
@@ -189,11 +188,12 @@ export function fromSaved(query: Partial<SavedQuery> & { due?: unknown; duplicat
   const statusAt = filters.findIndex(f => f.field === 'status');
   const status = statusAt >= 0 ? filters[statusAt]! : null;
   // a view saved before work order 20 says status new; that status is now called not-contacted, and both read back as New
-  if (status && status.op === 'eq' && (status.value === 'not-contacted' || status.value === 'new')) filter = 'new';
+  const fresh = newKeys(o.lists), every = allKeys(o.lists);
+  if (status && ((status.op === 'eq' && (status.value === 'new' || fresh.includes(String(status.value)))) || (status.op === 'in' && fresh.length > 1 && sameSet(status.values, fresh)))) filter = 'new';
   else if (status && status.op === 'eq' && status.value === 'spam') filter = 'spam';
-  else if (status && status.op === 'in' && sameSet(status.values, ALL_BUT_SPAM)) filter = 'all';
+  else if (status && status.op === 'in' && sameSet(status.values, every)) filter = 'all';
   else if (status) rest.push(status);
-  if (filter === 'all' && status && status.op === 'in' && sameSet(status.values, ALL_BUT_SPAM)) {
+  if (filter === 'all' && status && status.op === 'in' && sameSet(status.values, every)) {
     const ownerAt = filters.findIndex(f => f.field === 'owner' && ((f.op === 'eq' && o.myTeamRow !== null && f.value === o.myTeamRow) || (f.op === 'in' && o.myTeamRow === null && Array.isArray(f.values) && f.values.length === 0)));
     if (ownerAt >= 0) { filter = 'mine'; filters.splice(ownerAt, 1); }
   }

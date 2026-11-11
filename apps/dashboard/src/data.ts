@@ -7,7 +7,7 @@ import { fetchDrafts, fetchTeamList, listLeads, type Draft } from './api';
 import { countQuery, listQuery, PAGE_SIZE, type Column, type ListAnswer, type View } from './lib/crm';
 import type { Task } from './lib/followup';
 import type { SavedView } from './lib/views';
-import { FILTERS, type ContractForms, type Filter, type Lead, type LeadEvent } from './lib/leads';
+import { FILTERS, type ContractForms, type Filter, type Lead, type LeadEvent, type Lists } from './lib/leads';
 import type { Contract, Job, JobEvent, SiteState } from './lib/site';
 import type { Member } from './lib/settings';
 
@@ -132,7 +132,7 @@ export function useContractForms(wsId: string) {
   });
 }
 
-const LEAD_COLUMNS = 'id,workspace_id,site_id,form,flow,cta,page_path,name,email,phone,answers,consent_text,marketing_consent,sms_consent,status,owner_team_row,created_at,follow_up_at,duplicate_of';
+const LEAD_COLUMNS = 'id,workspace_id,site_id,form,flow,cta,page_path,name,email,phone,answers,consent_text,marketing_consent,sms_consent,status,lead_type,status_date,status_who,status_text,owner_team_row,created_at,follow_up_at,duplicate_of';
 
 /** Ids that have been on a list in this tab: a lead that was listed and is now gone was removed, one that never was is not found. */
 export const everListed = new Set<string>();
@@ -149,13 +149,13 @@ export function useLeads(wsId: string) {
 }
 
 /** The CRM list: one page of the view as lead-list answers it (search, filter, sort on the server, typed). The page before stays on screen while the next loads. */
-export function useLeadList(wsId: string, view: View, myTeamRow: string | null, enabled: boolean) {
+export function useLeadList(wsId: string, view: View, myTeamRow: string | null, lists: Lists, enabled: boolean) {
   return useQuery({
-    queryKey: ['leadlist', wsId, view, myTeamRow],
+    queryKey: ['leadlist', wsId, view, myTeamRow, lists],
     enabled,
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<ListAnswer> => {
-      const a = await listLeads({ workspace: wsId, ...listQuery(view, myTeamRow), page: view.page, size: PAGE_SIZE });
+      const a = await listLeads({ workspace: wsId, ...listQuery(view, myTeamRow, lists), page: view.page, size: PAGE_SIZE });
       for (const r of a.rows) everListed.add(r.id);
       return a;
     },
@@ -163,25 +163,25 @@ export function useLeadList(wsId: string, view: View, myTeamRow: string | null, 
 }
 
 /** The number next to each filter (DP-1.3-02): that filter's total in the current site, four calls of size 1. */
-export function useFilterCounts(wsId: string, site: string, myTeamRow: string | null, enabled: boolean) {
+export function useFilterCounts(wsId: string, site: string, myTeamRow: string | null, lists: Lists, enabled: boolean) {
   return useQuery({
-    queryKey: ['leadcounts', wsId, site, myTeamRow],
+    queryKey: ['leadcounts', wsId, site, myTeamRow, lists],
     enabled,
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<Record<Filter, number>> => {
-      const totals = await Promise.all(FILTERS.map(async f => [f.id, (await listLeads({ workspace: wsId, ...countQuery(f.id, site, myTeamRow), size: 1 })).total] as const));
+      const totals = await Promise.all(FILTERS.map(async f => [f.id, (await listLeads({ workspace: wsId, ...countQuery(f.id, site, myTeamRow, lists), size: 1 })).total] as const));
       return Object.fromEntries(totals) as Record<Filter, number>;
     },
   });
 }
 
-/** The workspace's lead columns and every industry field (label, type, options, editable), from lead-list: what the record and the filters need. */
+/** The workspace's lead columns, every industry field (label, type, options, editable) and its two lists (lead types, statuses), from lead-list: what the record, the filters and the status controls need. */
 export function useLeadColumns(wsId: string) {
   return useQuery({
     queryKey: ['leadcolumns', wsId],
-    queryFn: async (): Promise<{ columns: Column[]; fields: Column[] }> => {
+    queryFn: async (): Promise<{ columns: Column[]; fields: Column[]; lists: Lists }> => {
       const a = await listLeads({ workspace: wsId, size: 1 });
-      return { columns: a.columns, fields: a.fields };
+      return { columns: a.columns, fields: a.fields, lists: a.lists };
     },
   });
 }

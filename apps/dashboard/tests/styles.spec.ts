@@ -149,8 +149,36 @@ for (const size of SIZES) {
         await page.goto(leads);
         await page.locator('tbody th a').first().click();
         await expect(page.locator('#lead-name')).toBeVisible();
-        await expect(page.getByRole('radiogroup', { name: 'Status' })).toBeVisible();
+        await expect(page.getByLabel('Status', { exact: true })).toBeVisible();
         await check(page, 'lead-panel', size);
+      });
+
+      // work order 39 (A16): the status is a pick of the business's own list (15 to 19 words, which is why it is a select and not a row of radios), and a status
+      // that needs a date or a person opens its boxes under it. The owner judges the 390 px shots: the closed pick, the longest label of the list, and the boxes open.
+      test(`the status picker and what a status asks for are styled at ${size.name}`, async ({ page }) => {
+        await installMutant(page, 'no-styles');
+        await makeOwnLead(TAG, `status ${size.name}`);
+        await page.goto(leads);
+        await page.locator('tbody th a').first().click();
+        await expect(page.locator('#lead-name')).toBeVisible();
+        const pick = page.getByLabel('Status', { exact: true });
+        await expect(pick).toBeVisible();
+        await check(page, 'status-picker', size);
+
+        // the longest label of the business's list must fit the pick inside the screen
+        const longest = (await pick.locator('option').allTextContents()).reduce((a, b) => (b.length > a.length ? b : a));
+        await pick.selectOption({ label: longest });
+        const box = await pick.boundingBox();
+        expect(box, 'the status pick has a box').not.toBeNull();
+        expect(box!.x + box!.width, `the pick holding "${longest}" ends inside the screen`).toBeLessThanOrEqual(size.width);
+        await check(page, 'status-picker-longest', size);
+
+        // a status with a date and a person: both boxes open, Save and Cancel under them (nothing is sent)
+        await pick.selectOption({ label: 'Appointment set' });
+        await expect(page.getByLabel('Date', { exact: true })).toBeVisible();
+        await expect(page.getByLabel('Who', { exact: true })).toBeVisible();
+        await pick.scrollIntoViewIfNeeded();
+        await check(page, 'status-asks', size);
       });
 
       // block 3b (work order 19): the Columns picker, the Views panel, and the record's follow-up and tasks, each open, at both sizes
