@@ -1,9 +1,9 @@
 {
   "version": 1,
   "counts": {
-    "docs": 344,
-    "unownedDocs": 8,
-    "unplaced": 218,
+    "docs": 343,
+    "unownedDocs": 7,
+    "unplaced": 217,
     "over300": 10
   },
   "docs": [
@@ -136,7 +136,6 @@
     {"path":"planning/anonymise-private-notes.md","title":"Private: real names behind the neutral lines left in tracked files (DECISIONS 47). planning/ never reaches the public copy.","summary":"Written 2026-11-01 by BUILDER_head-of-operations_anonymise. Neutral names per `planning/anonymise-map.md` (example-a = elev8, example-b = eli, example-c = ra...","owner":"head-of-operations","layer":"unplaced","lines":20,"loadFor":[]},
     {"path":"planning/inputs/2026-10-23-chatgpt-omnikom-website-cms-full-chat.md","title":"Full Conversation Export — CMS, Website Factory & AI-Native Website Management","summary":"**Export date:** 2026-10-23 **Format:** Markdown transcript, in chronological order. **Preservation note:** All user-visible messages are included. Original ...","owner":"head-of-operations","layer":"unplaced","lines":664,"loadFor":[]},
     {"path":"planning/inputs/2026-10-23-owner-draft-deepseek-brief.md","title":"Owner draft: platform brief (unfinished, written for DeepSeek, never sent)","summary":"Banked verbatim 2026-10-23. Unfinished: it stops at \"Note\".","owner":"head-of-operations","layer":"unplaced","lines":22,"loadFor":[]},
-    {"path":"site-checks/omnikom-app-staging.pages.dev/snapshots/2026-11-11/README.md","title":"Snapshot of https://omnikom-app-staging.pages.dev/","summary":"Made by `snapshot-site.mjs` on 2026-11-11T05:03:06.892Z. Start with `_site.json` (pages, groups, skipped, stoppedEarly).","owner":null,"layer":"unplaced","lines":5,"loadFor":[]},
     {"path":"skills/SOURCE.md","title":"Where each skill copy came from (owner decision 2026-10-24: skills live in this repo, still usable outside)","summary":"| Copy here | Copied from | Version at copy | Date | |---|---|---|---| | `programmatic-enterprise-web-performance/` | `C:\\Users\\DELL\\.claude\\skills\\programma...","owner":"head-of-operations","layer":3,"lines":12,"loadFor":[]},
     {"path":"skills/context-economics/SKILL.md","title":"Context economics: when to swap, how, and what to report","summary":"Every call of a Claude Code session re-sends its whole context. On a warm cache that context is billed at the cache-read price, which is cheap but grows with...","owner":null,"layer":3,"lines":251,"loadFor":[]},
     {"path":"skills/design-tournament/SKILL.md","title":"Design Tournament — the protocol","summary":"A reusable, niche-adaptive methodology for turning a template-feeling page into something that reads as genuinely agency-built. Built and proven on a real cl...","owner":"head-of-operations","layer":3,"lines":236,"loadFor":[]},
