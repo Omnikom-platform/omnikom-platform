@@ -348,18 +348,18 @@ export const STEPS = [
       if (nums.some((v, i) => i && (dir === 'asc' ? v < nums[i - 1] : v > nums[i - 1]))) return { status: 'FAIL', evidence: `sort ${nf.key} ${dir} is not in numeric order: ${nums.slice(0, 8).join(', ')}${lead.via}` };
       sorted[dir] = nums.length;
     }
-    // The order of two numbers: a second lead (made by lead send, one more alert to --alert-to only, the alert list checked first) holds 9 where the
+    // The order of two numbers: a second lead (added by the owner through add-lead, which sends no alert, so a run sends one alert mail at most:
+    // head of operations 2026-11-11; the 05:44 run sent two when this lead came from lead send) holds 9 where the
     // marker lead holds 10. A sort that compares text puts "10" before "9"; the typed sort puts 9 first. J10 removes both leads.
     const sf = fields.find(f => f.type === 'number' && f.column && (f.min === undefined || f.min <= 9) && (f.max === undefined || f.max >= 10));
     if (!sf) return { status: 'FAIL', evidence: `the form contract has no number column that takes both 9 and 10 to compare the sort on${lead.via}` };
     if (row[sf.key] !== 10) return { status: 'FAIL', evidence: `the marker lead holds ${sf.key} ${JSON.stringify(row[sf.key])}, not 10, so 9 cannot be compared with it${lead.via}` };
-    const blocked = await alertGuard(c); if (blocked) return blocked;
     const second = `Order check ${c.runId}`;
-    const sent = await c.impl.sendLead(second, join(c.out, 'lead-send-order.json'), { ...journeyAnswers(fields), [sf.key]: 9 });
-    if (sent.ok) c.state.second = { marker: second };
-    const stored = sent.ok ? await c.impl.leadCount(second) : 0;
+    const order = await c.impl.crm('owner-a', 'add-lead', { site: SITE_A, name: second, email: `order-${c.runId}@example.com`, answers: { ...journeyAnswers(fields), [sf.key]: 9 }, consentText: 'Synthetic journey lead: agreed to be contacted' });
+    if (order.status === 201) c.state.second = { marker: second };
+    const stored = order.status === 201 ? await c.impl.leadCount(second) : 0;
     if (!stored) c.state.second = null;
-    if (stored !== 1) return { status: 'FAIL', evidence: `lead send did not store one lead for "${second}" (${sent.ok ? 'ok' : sent.code}, ${stored} row(s))${lead.via}` };
+    if (stored !== 1) return { status: 'FAIL', evidence: `add-lead did not store one lead for "${second}" (HTTP ${order.status}, ${stored} row(s))${lead.via}` };
     const cleanSecond = async why => {
       const f = await findLead(c, second);
       if (f.rows.length) await c.impl.crm('owner-a', 'leads-bulk', { workspace: WS_A, ids: f.rows.map(x => x.id), action: 'delete', confirm: true });

@@ -91,6 +91,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
           store.tpl = body.columns; return ok({ template: 'tpl-1' });
         }
         if (name === 'add-lead') {
+          if (o.orderAddFails && /^Order check/.test(body.name)) return ok({ code: 'S-X' }, 500);
           if (o.screensAddFails && /^Screens check/.test(body.name)) return ok({ code: 'S-X' }, 500);
           const nk = fields.find(x => x.type === 'number').key, v = (body.answers || {})[nk];
           if (v !== undefined && !Number.isFinite(Number(v)) && !o.badAnswerAccepted && !o.answerRefusedWithOk) return ok({ code: 'I-ANSWER', path: nk }, o.answerStatus || 400);
@@ -422,8 +423,8 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   check('journey J8: a contract with no editable number field is a FAIL that says so', e8.byId.J8.status === 'FAIL' && /no editable number field/.test(e8.byId.J8.evidence), e8.byId.J8.evidence);
   check('journey J8: a FAIL skips J9 and J10 (the later CRM steps), naming J8', e1.byId.J9.status === 'SKIPPED' && e1.byId.J10.status === 'SKIPPED' && /^J10 SKIPPED \(after J8 FAIL\)/m.test(e1.text), e1.text);
 
-  check('journey J9: search finds exactly 1, the filters keep and exclude, the sort is typed; a second lead from lead send holds 9 where the lead holds 10 and 9 sorts before 10',
-    good.byId.J9.status === 'PASS' && /search finds exactly 1/.test(good.byId.J9.evidence) && /eq keeps the lead and excludes "3-6 months"/.test(good.byId.J9.evidence) && /asc 9 before 10, desc 10 before 9/.test(good.byId.J9.evidence) && good.impl.store.peak === 2 && good.impl.calls.filter(c => c === 'sendOrder').length === 1, good.byId.J9.evidence);
+  check('journey J9: search finds exactly 1, the filters keep and exclude, the sort is typed; a second lead from add-lead (no alert, never lead send) holds 9 where the lead holds 10 and 9 sorts before 10',
+    good.byId.J9.status === 'PASS' && /search finds exactly 1/.test(good.byId.J9.evidence) && /eq keeps the lead and excludes "3-6 months"/.test(good.byId.J9.evidence) && /asc 9 before 10, desc 10 before 9/.test(good.byId.J9.evidence) && good.impl.store.peak === 2 && !good.impl.calls.includes('sendOrder') && good.impl.store.seen.has('Order check abcdef12'), good.byId.J9.evidence);
   const rows9 = await crmRun({ extraRows: [{ id: 'x1', name: 'Other 1', budget: 9 }, { id: 'x2', name: 'Other 2', budget: 10 }, { id: 'x3', name: 'Other 3' }] });
   check('journey J9: with other rows holding 9 and 10 the sort is compared as numbers over them', rows9.byId.J9.status === 'PASS' && /over the 3 row\(s\) holding one/.test(rows9.byId.J9.evidence), rows9.byId.J9.evidence);
   const txt9 = await crmRun({ extraRows: [{ id: 'x1', name: 'Other 1', budget: 9 }, { id: 'x2', name: 'Other 2', budget: 10 }], sortAsText: true });
@@ -498,10 +499,10 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const blkIo = await crmRun({ bulkBlockedOnce: true }, { only: 'J11' });
   check('journey J11: when the clean-up call inside J11 is blocked mid-run the orchestrator\'s clean-up still removes the run\'s leads (they carry the run id)', blkIo.impl.store.leads.length === 0 && /^cleanup: 4 journey lead\(s\) removed, 0 left$/m.test(blkIo.text) && blkIo.byId.J11.status === 'BLOCKED', blkIo.text);
   const o1 = await crmRun({ alertsOnlyTo: (() => { let k = 0; return () => ++k <= 2; })() });
-  check('journey J9: the second lead is not sent when the alert list no longer holds exactly --alert-to (the guard runs again before this alert): BLOCKED, nothing sent, J10 skipped',
-    o1.byId.J9.status === 'BLOCKED' && !o1.impl.calls.includes('sendOrder') && o1.byId.J10.status === 'SKIPPED' && o1.impl.store.peak === 1, o1.byId.J9.evidence);
-  const o2 = await crmRun({ orderSend: false });
-  check('journey J9: a second lead that lead send cannot store is a FAIL that names it, and J10 is skipped', o2.byId.J9.status === 'FAIL' && /did not store one lead for "Order check abcdef12"/.test(o2.byId.J9.evidence) && o2.byId.J10.status === 'SKIPPED', o2.byId.J9.evidence);
+  check('journey J9: the second lead sends no alert, so an alert list that changed after J8 does not stop J9 (no lead send is made for it)',
+    o1.byId.J9.status === 'PASS' && !o1.impl.calls.includes('sendOrder'), o1.byId.J9.evidence);
+  const o2 = await crmRun({ orderAddFails: true });
+  check('journey J9: a second lead that add-lead cannot store is a FAIL that names it (HTTP 500), and J10 is skipped', o2.byId.J9.status === 'FAIL' && /add-lead did not store one lead for "Order check abcdef12" \(HTTP 500/.test(o2.byId.J9.evidence) && o2.byId.J10.status === 'SKIPPED', o2.byId.J9.evidence);
   const o3 = await crmRun({ sortAsText: true });
   check('journey J9: a sort that puts 10 before 9 (text order) over the two leads is a FAIL that shows both orders, and the second lead is removed again', o3.byId.J9.status === 'FAIL' && /sort beds asc over the two leads of this run/.test(o3.byId.J9.evidence) && /wanted Order check abcdef12=9, Journey abcdef12=10/.test(o3.byId.J9.evidence) && /second lead was then removed/.test(o3.byId.J9.evidence) && /^cleanup: 1 journey lead\(s\) removed, 0 left$/m.test(o3.text) && o3.impl.store.leads.length === 0 && o3.byId.J10.status === 'SKIPPED', o3.byId.J9.evidence);
   const o4 = await crmRun({ sortAlwaysAsc: true });
