@@ -277,6 +277,9 @@ jobs:
           fi
       - name: CLI unit tests
         run: node tools/omnikom-cli/test/run.mjs --unit
+      # E19: the real supabase/apply-staging.mjs on a throwaway cluster applies a CONCURRENTLY migration outside a transaction (platform 536d3bb)
+      - name: Migration applier proof
+        run: node tools/migration-lint/test/apply-proof.mjs
       # the full suite (with the database part) runs only when the change can reach it (test/ci-heavy.mjs decides); the mutants run in the
       # cli-mutants-1..6 jobs below, in parallel (one job took 53 to 78 minutes, runs 42680701873, 42688877100, 42693457902)
       - name: CLI full suite (when the change reaches it)

@@ -2,6 +2,10 @@
 
 From: CLI and testing (work order 34, book row E19, migration lock lint). Not applied by us: `supabase/` is the platform's.
 
+**Status: DONE 2026-11-11.** Platform took option (a) (536d3bb, branch check/platform/apply-notx); apply-proof on the real script printed
+`apply-proof: 0 FAIL`, and with the no-transaction path forced off `apply-proof: 7 FAIL` (the platform head's watched red). apply-proof is a CI
+step since then. E19 stays PARTLY until the first CONCURRENTLY migration applies on staging.
+
 ## The problem (measured)
 
 `apply-staging.mjs` sends every migration as `begin; <file> insert into ops.platform_migrations ...; commit;`. Postgres refuses

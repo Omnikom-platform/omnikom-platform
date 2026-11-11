@@ -65,9 +65,12 @@ that is a reviewed line, not a comment in the file.
 
 ## The applier wall
 
-`apply-staging.mjs` wraps every file in `begin; ... commit;`, so a `-- no-transaction` file cannot run. The change it needs is a finding for the
-platform department (`FINDING-apply-staging.md`, with the exact block). Until it lands, the lint refuses a `-- no-transaction` file ("applier
-problem", exit 1): a `CONCURRENTLY` migration cannot reach master by accident. No applier in this department's files applies migrations (`omnikom apply`
+Down since 2026-11-11 (platform 536d3bb, from `FINDING-apply-staging.md` option a): `apply-staging.mjs` runs a file whose header says
+`-- no-transaction` statement by statement outside a transaction, and writes its ledger row after the last statement. The lint still reads the
+applier: a `-- no-transaction` file is an "applier problem" (exit 1) whenever the applier does not handle the header (an older or reverted
+script), so a `CONCURRENTLY` migration cannot reach master with an applier that would wrap it in begin/commit. `test/apply-proof.mjs` runs the
+real applier on a throwaway cluster in CI (the cli job, step "Migration applier proof"): a CONCURRENTLY file applies, the index is valid, the
+ledger is right and a failed no-transaction file is not recorded. No applier in this department's files applies migrations (`omnikom apply`
 calls `apply-staging.mjs`).
 
 ## Not covered (known gaps, none hidden)

@@ -1,5 +1,6 @@
 // apply-proof: the change rule C1 needs in supabase/apply-staging.mjs, run against a throwaway cluster (the CLI harness's startCluster).
-//   node ~/.claude/scripts/heavy.mjs -- node tools/migration-lint/test/apply-proof.mjs      (a cluster: not part of the fast CI step)
+//   node ~/.claude/scripts/heavy.mjs -- node tools/migration-lint/test/apply-proof.mjs      (a cluster: on the laptop through the heavy lock;
+//   in CI it is the cli job's step "Migration applier proof", which has Postgres 16 on PATH)
 // Two COPIES of the real script run: the original (must FAIL on a CREATE INDEX CONCURRENTLY file: the bug) and the patched one
 // (lib/apply-patch.mjs; asserts its target is in the script exactly once). If the real script already handles `-- no-transaction`, it
 // is run as it is. supabase/ is never written. Each line: PASS|FAIL <what> (observed ...). Exit 1 on any FAIL.

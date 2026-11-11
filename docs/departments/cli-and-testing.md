@@ -115,9 +115,11 @@ when the head of operations has released its slice.
   Plus (owner 01:45): `omnikom seo vantage start|status|stop`, a pass-through to SEO's scripts/vantage.mjs (their WO43: an Edge profile
   geolocated to Sacramento, a West US Codespace tunnel if needed). The manifest's `vantage` step runs status and every capture step depends
   on it; `seo run` never calls start (a Codespace spends the owner's GitHub quota), so an unverified vantage BLOCKS the captures.
-- After platform's apply-notx lands: the lint stops calling a `-- no-transaction` file an applier problem, README "The applier wall" and
-  FINDING-apply-staging.md say done, and `tools/migration-lint/test/apply-proof.mjs` becomes a CI step in a job with Postgres. E19 goes WORKS
-  when platform's first CONCURRENTLY migration applies on staging (ledger row and a valid index, read only).
+- E19 WORKS when platform's first CONCURRENTLY migration applies on staging (ledger row and a valid index, read only). MET 2026-11-11 03:03:
+  20261111000025_lead_fk_indexes.sql in the staging ledger at 00:59:17 UTC, bookings_lead and messages_lead valid and ready, lint exit 0 on
+  platform's tree (branch check/platform/lead-fk-indexes). Flip the book row when that file is on master, citing it.
+  Done 2026-11-11 with ci-runners: platform's apply-notx (536d3bb) is on master, the lint accepts a `-- no-transaction` file with it (probe
+  file: exit 0 with the new applier, 1 with the old), README and FINDING say so, and apply-proof is the cli job's "Migration applier proof".
 - Slice 3 (placeholder `briefs/slice-3-onboard.md`; build steps 6 and 7): `onboard`, `offboard` (DECISIONS 31), `drift`, the
   Cloudflare API calls.
 - UNPROVEN on staging: `mfa enroll-staff` removing a stale TOTP factor (model only). Known: a paused site answers 500 over HTTP
