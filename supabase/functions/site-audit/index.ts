@@ -5,7 +5,7 @@
 // is version 1 (summary = the whole summary, its fails included), or null; history is the last 10 finished jobs of the site, newest first, each
 // without fails (summary null; a job from before the summary has pass and counts null).
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, json } from '../_shared/http.ts';
+import { Fields, json, serve } from '../_shared/http.ts';
 
 export async function handle(req: Request): Promise<Response> {
   return await dashboard(req, 'site-audit', async (c, d) => {
@@ -18,4 +18,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('site-audit', handle);

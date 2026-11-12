@@ -13,7 +13,7 @@
 //     (the runner fails the build if the file is referenced).
 // Answer 200 with the document and `cache-control: no-store`.
 import { runner } from '../_shared/runner.ts';
-import { json, problem } from '../_shared/http.ts';
+import { json, problem, serve } from '../_shared/http.ts';
 import { storageCfg, signDownload, pool, derivativePath, derivativeSlot } from '../_shared/storage.ts';
 
 export const SIGN_AT_ONCE = 8;
@@ -36,4 +36,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('export-published', handle);

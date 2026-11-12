@@ -5,7 +5,7 @@
 // request is checked against `members`, so the removed person's next request in this workspace is refused (tenancy.test.sql T24).
 // 200 { removed: true }.
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, json } from '../_shared/http.ts';
+import { Fields, json, serve } from '../_shared/http.ts';
 
 export async function handle(req: Request): Promise<Response> {
   return await dashboard(req, 'member-remove', async (c, d) => {
@@ -18,4 +18,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('member-remove', handle);

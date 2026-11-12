@@ -75,6 +75,10 @@
       "items": {
        "$ref": "#/components/schemas/FieldProblem"
       }
+     },
+     "request_id": {
+      "type": "string",
+      "description": "the id of the call: also the x-request-id header and the first word of its log lines"
      }
     }
    },

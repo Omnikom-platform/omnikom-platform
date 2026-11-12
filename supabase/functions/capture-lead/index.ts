@@ -17,6 +17,7 @@
 import postgres from 'npm:postgres@3.4.5';
 import { verify } from '../_shared/signature.ts';
 import { answerProblem, type Sql } from '../_shared/db.ts';
+import { serve } from '../_shared/http.ts';
 
 const MAX_BODY = 16 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -148,4 +149,4 @@ export async function handle(req: Request): Promise<Response> {
   }
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('capture-lead', handle);

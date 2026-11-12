@@ -7,7 +7,7 @@
 // The callback records. It does not notify the requester. Work order 44 (C16): on `done` of a PRODUCTION job (gateReport.audit.target) it also submits the
 // sitemap (_shared/sitemap.ts), after the state is recorded and best effort: a failure there is logged and never changes the 204 the runner gets.
 import { runner } from '../_shared/runner.ts';
-import { Fields, noContent, problem } from '../_shared/http.ts';
+import { Fields, noContent, problem, serve } from '../_shared/http.ts';
 import { badBody } from '../_shared/dashboard.ts';
 import { submitForJob, type SubmitDeps } from '../_shared/sitemap.ts';
 
@@ -30,4 +30,4 @@ export async function handle(req: Request, deps: SubmitDeps = {}): Promise<Respo
   });
 }
 
-if (import.meta.main) Deno.serve(req => handle(req));
+if (import.meta.main) serve('job-callback', handle);

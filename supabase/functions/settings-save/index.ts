@@ -5,7 +5,7 @@
 // Answers 200 { alerts: true }; the screen reads the new values back through RLS. There is no CRM part any more: leads leave as an export
 // (docs/product/5-crm.md); a body without `alerts` is 400 REQUIRED, whatever else it carries.
 import { dashboard, badBody, type Ctx } from '../_shared/dashboard.ts';
-import { Fields, json } from '../_shared/http.ts';
+import { Fields, json, serve } from '../_shared/http.ts';
 
 export async function handle(req: Request): Promise<Response> {
   return await dashboard(req, 'settings-save', async (c: Ctx, d) => {
@@ -34,4 +34,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('settings-save', handle);

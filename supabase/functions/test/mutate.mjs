@@ -357,6 +357,15 @@ const MUTANTS = [
   ['E21 mail-events: the body is not signed', F + 'mail-events/index.ts', '`${id}.${ts}.${body}`', '`${id}.${ts}.`', 'mail-events.test.ts'],
   ['E21 mail-events: a complaint suppresses for the whole platform', F + 'mail-events/index.ts', "e?.type === 'email.complained' ? 'complaint'", "e?.type === 'email.complained' ? 'bounce'", 'mail-events.test.ts'],
   ['E21 mail-events: a secret that is not base64 is not refused', F + 'mail-events/index.ts', '  } catch { return null; }', '  } catch { return new Uint8Array(0); }', 'mail-events.test.ts'],
+  // ---- E3: the request id and the error sink ----
+  ['E3 http: the answer has no x-request-id header', F + '_shared/http.ts', "headers.set('x-request-id', id);", '', 'request-id.test.ts'],
+  ['E3 http: a problem does not name the request id', F + '_shared/http.ts', ', ...(requestId() ? { request_id: requestId() } : {})', '', 'request-id.test.ts'],
+  ['E3 http: a log line of a call does not start with its id', F + '_shared/http.ts', 'logSink.write(level, id ? [`request ${id}`, ...args] : args);', 'logSink.write(level, args);', 'request-id.test.ts'],
+  ['E3 http: every call has the same id', F + '_shared/http.ts', 'const id = crypto.randomUUID();', "const id = '00000000-0000-4000-8000-000000000000';", 'request-id.test.ts'],
+  ['E3 http: a 5xx answer is not counted', F + '_shared/http.ts', 'if (res.status >= 500) { try { await record(', 'if (false) { try { await record(', 'request-id.test.ts'],
+  ['E3 http: a handler that throws gets no answer', F + '_shared/http.ts', "catch (e) { console.error(fn, 'threw', String(e).slice(0, 300)); res = problem(500, 'SERVER', 'Something went wrong on our side.'); }", 'catch (e) { throw e; }', 'request-id.test.ts'],
+  ['E3 http: a sink that fails fails the answer', F + '_shared/http.ts', "try { await record(fn, res.status, id); } catch (e) { console.error('function error not recorded', String(e).slice(0, 160)); }", 'await record(fn, res.status, id);', 'request-id.test.ts'],
+  ['E3 drafts: the function serves without the request id', F + 'drafts/index.ts', "if (import.meta.main) serve('drafts', handle);", 'if (import.meta.main) Deno.serve(handle);', 'request-id.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;

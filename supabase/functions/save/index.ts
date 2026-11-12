@@ -7,7 +7,7 @@
 // it); for a new row it is optional and, when sent, must be 0. It goes to service.save_as as p_base, which refuses a save on top of a newer
 // version with 409 S-STALE (the database's sentence: the row id and the newest version).
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, json, problem } from '../_shared/http.ts';
+import { Fields, json, problem, serve } from '../_shared/http.ts';
 import { RowValidator } from '../_shared/validate.ts';
 
 export async function handle(req: Request): Promise<Response> {
@@ -36,4 +36,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('save', handle);

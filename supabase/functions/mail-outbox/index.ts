@@ -10,7 +10,7 @@
 import { verify } from '../_shared/signature.ts';
 import { pathForSignature } from '../_shared/runner.ts';
 import { connect, ConfigError, recordEvent, type Sql } from '../_shared/db.ts';
-import { json, problem } from '../_shared/http.ts';
+import { json, problem, serve } from '../_shared/http.ts';
 import { alertSubject, alertText, type AlertRow } from '../_shared/lead-alert.ts';
 
 export const CLAIM = 10, TIMEOUT_MS = 10000;
@@ -63,4 +63,4 @@ export async function handle(req: Request, deps: Deps = {}): Promise<Response> {
   }
 }
 
-if (import.meta.main) Deno.serve(req => handle(req));
+if (import.meta.main) serve('mail-outbox', handle);

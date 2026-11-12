@@ -10,7 +10,7 @@
 // MAX_ROWS is measured, not guessed: parse + map of 1000, 2000 and 5000 rows in this harness (test/import-cpu.ts, docs/product/4-backend.md).
 import { dashboard, badBody, type Ctx } from '../_shared/dashboard.ts';
 import { asCaller } from '../_shared/db.ts';
-import { Fields, json, problem, sha256Hex } from '../_shared/http.ts';
+import { Fields, json, problem, sha256Hex, serve } from '../_shared/http.ts';
 import { crmFields, importRows, parseCsv, SET_ON_IMPORT, type Template } from '../_shared/crm-map.ts';
 
 // F6 (measured, test/import-cpu.ts): CPU follows the file's size, about 0.75 s per MB at worst; 1 MB holds 5000 typical rows under 0.4 s
@@ -64,4 +64,4 @@ export async function handle(req: Request): Promise<Response> {
   }, { maxBody: 2 * MAX_FILE + 64 * 1024 });   // JSON escapes line ends and quotes: the body of a 1 MB file can be up to twice its size
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('lead-import', handle);

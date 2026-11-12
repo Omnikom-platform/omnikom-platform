@@ -5,7 +5,7 @@
 // their headers, the samples) -> 200 { template: { columns: [{ header, field, transform? }], value_maps: {} }, scores: [{ header, field, score }],
 // unmapped, splits, warnings }. A pair under 0.5 is never assigned (the library's rule); the client confirms the map with crm-template-save.
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, json } from '../_shared/http.ts';
+import { Fields, json, serve } from '../_shared/http.ts';
 import { crmFields, ourFields, parseCsv, proposeMap } from '../_shared/crm-map.ts';
 
 export const MAX_CSV = 1024 * 1024;
@@ -44,4 +44,4 @@ export async function handle(req: Request): Promise<Response> {
 
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('crm-map-propose', handle);

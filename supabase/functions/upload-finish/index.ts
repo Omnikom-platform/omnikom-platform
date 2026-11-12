@@ -4,7 +4,7 @@
 // -> the media job is dispatched to the runner (repository_dispatch event `media`, { media_id, workspace_id }; `dispatched` is
 // reported honestly) -> 200 { media, processed, dispatched }. processed stays false until the runner's callback says otherwise.
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, json } from '../_shared/http.ts';
+import { Fields, json, serve } from '../_shared/http.ts';
 import { dispatch } from '../_shared/dispatch.ts';
 
 export async function handle(req: Request): Promise<Response> {
@@ -21,4 +21,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('upload-finish', handle);

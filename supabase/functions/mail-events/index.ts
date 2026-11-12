@@ -10,7 +10,7 @@
 // { handled: true, suppressed: n } (n is 1 for an email id of ours, 0 for none); 500 SERVER. Tests: supabase/functions/test/mail-events.test.ts; the database side:
 // tenancy.test.sql T37.
 import { connect, ConfigError, recordEvent, type Sql } from '../_shared/db.ts';
-import { json, problem } from '../_shared/http.ts';
+import { json, problem, serve } from '../_shared/http.ts';
 
 export const TOLERANCE_S = 300;
 
@@ -73,4 +73,4 @@ export async function handle(req: Request): Promise<Response> {
   }
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('mail-events', handle);

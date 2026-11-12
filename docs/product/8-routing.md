@@ -45,8 +45,10 @@ screens).
 | `media-process-callback` (POST) | media runner | `X-Runner-Signature` |
 
 The runner signs the path after `PLATFORM_FUNCTIONS_BASE`, never the `/functions/v1` prefix. Answers use plain codes: `401
-SIGNATURE`, `404 S-NOT-FOUND`, `409 S-JOB-BUSY`, `409 S-JOB-STATE`, `413`, `422 I-*`, `429 S-QUOTA`, `500 CONFIG`. The OpenAPI
-file `docs/blueprint/specs/openapi.json` describes the functions and is checked by the gates.
+SIGNATURE`, `404 S-NOT-FOUND`, `409 S-JOB-BUSY`, `409 S-JOB-STATE`, `413`, `422 I-*`, `429 S-QUOTA`, `500 CONFIG`. Every answer
+carries the call's request id in the header `x-request-id` (M32: the same id starts every log line of the call); a problem answered by the
+shared frame (`_shared/http.ts`) also carries it in its body as `request_id`, while `capture-lead`'s own problems carry it in the header
+only. The OpenAPI file `docs/blueprint/specs/openapi.json` describes the functions and is checked by the gates.
 
 GitHub entry points: `repository_dispatch` types `publish` (`{job_id, site_id}`) and `media` (`{media_id, workspace_id}`);
 `workflow_dispatch` on `publish.yml` with `job_id`, `site_id`, `force_fail`.

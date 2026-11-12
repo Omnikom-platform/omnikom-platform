@@ -2,7 +2,7 @@
 // -> service.view_delete (the caller's own view, or an owner's for a shared one: 403 S-OWN-ONLY for a member on a shared view; 404 S-NOT-FOUND for a view
 // that does not exist, another workspace's, or another person's private one) -> 204.
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, noContent } from '../_shared/http.ts';
+import { Fields, noContent, serve } from '../_shared/http.ts';
 
 export async function handle(req: Request): Promise<Response> {
   return await dashboard(req, 'view-delete', async (c, d) => {
@@ -14,4 +14,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('view-delete', handle);

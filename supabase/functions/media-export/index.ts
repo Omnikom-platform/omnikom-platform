@@ -7,7 +7,7 @@
 // A file Storage will not sign (the upload never arrived, Storage is down) is a 502 STORAGE: the runner retries and then fails the media job.
 // The secret key never leaves this function.
 import { runner } from '../_shared/runner.ts';
-import { json, problem } from '../_shared/http.ts';
+import { json, problem, serve } from '../_shared/http.ts';
 import { storageCfg, signDownload, signUpload, derivativePath, SLOTS } from '../_shared/storage.ts';
 
 export const WIDTHS = [...SLOTS];
@@ -25,4 +25,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('media-export', handle);

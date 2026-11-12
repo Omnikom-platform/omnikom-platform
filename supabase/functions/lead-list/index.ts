@@ -10,7 +10,7 @@
 // Work order 18 (migration 22): body `due: true` keeps the leads whose follow-up date or an open task's due time has come, `duplicates: true` the flagged ones;
 // a row's duplicate_of is the other lead's id only when the caller may read that lead too (else null, with duplicate true).
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, json } from '../_shared/http.ts';
+import { Fields, json, serve } from '../_shared/http.ts';
 
 export async function handle(req: Request): Promise<Response> {
   return await dashboard(req, 'lead-list', async (c, d) => {
@@ -35,4 +35,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('lead-list', handle);

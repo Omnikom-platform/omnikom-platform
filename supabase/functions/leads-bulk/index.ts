@@ -4,7 +4,7 @@
 // exist: 404 S-NOT-FOUND and nothing written); owner and delete are for an owner (403 S-OWN-ONLY); delete is the hard delete, as privacy requires,
 // and is refused without confirm: true (409 S-CONFIRM); one audit row per deleted lead, the consent ledger kept -> 200 { changed }.
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, json, UUID, SLUG } from '../_shared/http.ts';
+import { Fields, json, UUID, SLUG, serve } from '../_shared/http.ts';
 
 const ACTIONS = ['status', 'owner', 'delete'];
 
@@ -28,4 +28,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('leads-bulk', handle);

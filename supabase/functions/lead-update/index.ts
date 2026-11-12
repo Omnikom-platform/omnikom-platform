@@ -12,7 +12,7 @@
 // Work order 18 (migration 22): `follow_up: "2026-11-20T10:00:00Z"` sets the lead's follow-up date, `follow_up: null` clears it (400 for anything else, also
 // a date without a time); service.lead_follow_up writes one `follow-up` event with old and new, in the same transaction as the other changes. Answers 204.
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, noContent, json, SLUG } from '../_shared/http.ts';
+import { Fields, noContent, json, SLUG, serve } from '../_shared/http.ts';
 
 export async function handle(req: Request): Promise<Response> {
   return await dashboard(req, 'lead-update', async (c, d) => {
@@ -37,4 +37,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('lead-update', handle);

@@ -3,7 +3,7 @@
 // capture-lead; the consent wording is required) -> service.add_lead (workspace from the site; a member's lead lands on the member's own
 // team row whatever `owner` says; consent ledger written) -> 201 { lead }.
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, json, EMAIL, SLUG } from '../_shared/http.ts';
+import { Fields, json, EMAIL, SLUG, serve } from '../_shared/http.ts';
 
 export async function handle(req: Request): Promise<Response> {
   return await dashboard(req, 'add-lead', async (c, d) => {
@@ -20,4 +20,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('add-lead', handle);

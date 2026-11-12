@@ -3663,5 +3663,70 @@ do $$ declare e text := 'erased:' || encode(sha256(convert_to('t37-e@example.tes
   assert not exists (select 1 from public.suppressions where address_hash in (private.address_hash('email', e), private.address_hash('email', 't37-e@example.test'))), 'T37e no suppression of the erased text or of its old address';
 end $$;
 
+-- ===== T38 E3 (migration 32): the function error sink =====
+-- Every function serves through withRequestId (_shared/http.ts): an answer of 500 to 599 calls service.record_function_error(function, status, request id),
+-- which first deletes the rows older than 30 days, then counts the error in function_errors, one row per function, status and minute, with the newest
+-- request id. Nothing stores a cause or a value. The whole file is one transaction, so now() (and the minute) is one instant here; the counts read this
+-- block's functions in that minute only. Superuser unless said. Mutants "errors32: ..." in run-local.mjs; the function side: request-id.test.ts [E3].
+reset role;
+-- (a) two errors of one function, status and minute: one row, n 2, the newest request id
+do $$ begin
+  perform service.record_function_error('capture-lead', 500, '00000000-0000-4000-8000-0000000038a1');
+  perform service.record_function_error('capture-lead', 500, '00000000-0000-4000-8000-0000000038a2');
+  assert (select count(*) from public.function_errors where fn = 'capture-lead' and minute = date_trunc('minute', now())) = 1, 'T38a two errors of one function, status and minute are one row';
+  assert (select n from public.function_errors where fn = 'capture-lead' and status = 500 and minute = date_trunc('minute', now())) = 2, 'T38a the row counts both';
+  assert (select last_request from public.function_errors where fn = 'capture-lead' and status = 500 and minute = date_trunc('minute', now())) = '00000000-0000-4000-8000-0000000038a2', 'T38a the row keeps the newest request id';
+end $$;
+-- (b) another status of the function and another function are two more rows
+do $$ begin
+  perform service.record_function_error('capture-lead', 503, '00000000-0000-4000-8000-0000000038b1');
+  perform service.record_function_error('lead-list', 500, '00000000-0000-4000-8000-0000000038b2');
+  assert (select count(*) from public.function_errors where fn in ('capture-lead', 'lead-list') and minute = date_trunc('minute', now())) = 3, 'T38b another status and another function are two more rows';
+end $$;
+-- (c) a name that is not a function folder's and a status below 500 are refused
+select test.expect_error($q$select service.record_function_error('Bad Name', 500, gen_random_uuid())$q$, 'function_errors_fn_check');
+select test.expect_error($q$select service.record_function_error('capture-lead', 404, gen_random_uuid())$q$, 'function_errors_status_check');
+-- (d) the walls, as T26d and T36g: an owner reads none; staff with MFA read them; only the definer function writes the table; the function is closed to anon
+-- and authenticated and open to the function role
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin assert (select count(*) from public.function_errors) = 0, 'T38d an owner reads no function error'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+do $$ begin assert (select count(*) from public.function_errors where fn in ('capture-lead', 'lead-list') and minute = date_trunc('minute', now())) = 3, 'T38d staff with MFA read the three rows'; end $$;
+select test.expect_error($q$insert into public.function_errors (fn, status, minute, last_request) values ('x', 500, now(), gen_random_uuid())$q$, 'permission denied');
+select test.expect_error($q$update public.function_errors set n = 0$q$, 'permission denied');
+select test.expect_error($q$delete from public.function_errors$q$, 'permission denied');
+reset role;
+set role service_role;
+select test.expect_error($q$insert into public.function_errors (fn, status, minute, last_request) values ('x', 500, now(), gen_random_uuid())$q$, 'permission denied');
+select test.expect_error($q$update public.function_errors set n = 0$q$, 'permission denied');
+select test.expect_error($q$delete from public.function_errors$q$, 'permission denied');
+reset role;
+set role omnikom_fn;
+select test.expect_error($q$insert into public.function_errors (fn, status, minute, last_request) values ('x', 500, now(), gen_random_uuid())$q$, 'permission denied');
+select test.expect_error($q$update public.function_errors set n = 0$q$, 'permission denied');
+select test.expect_error($q$delete from public.function_errors$q$, 'permission denied');
+reset role;
+do $$ begin
+  assert not has_function_privilege('anon', 'service.record_function_error(text,int,uuid)', 'execute') and not has_function_privilege('authenticated', 'service.record_function_error(text,int,uuid)', 'execute'), 'T38d record_function_error is closed to anon and authenticated';
+  assert has_function_privilege('omnikom_fn', 'service.record_function_error(text,int,uuid)', 'execute'), 'T38d the function role runs record_function_error';
+end $$;
+-- (e) 50 errors of one function, status and minute are one row with n 50
+do $$ begin
+  for i in 1..50 loop perform service.record_function_error('lead-export', 502, gen_random_uuid()); end loop;
+  assert (select count(*) from public.function_errors where fn = 'lead-export' and minute = date_trunc('minute', now())) = 1, 'T38e 50 errors are one row';
+  assert (select n from public.function_errors where fn = 'lead-export' and status = 502 and minute = date_trunc('minute', now())) = 50, 'T38e the row counts all 50';
+end $$;
+-- (f) the table keeps 30 days and is cleaned as it is written: a call deletes the rows older than 30 days, the younger ones stay
+insert into public.function_errors (fn, status, minute, last_request) values
+  ('save', 500, date_trunc('minute', now()) - interval '31 days', '00000000-0000-4000-8000-0000000038f1'),
+  ('save', 500, date_trunc('minute', now()) - interval '29 days', '00000000-0000-4000-8000-0000000038f2');
+do $$ begin
+  perform service.record_function_error('save', 502, '00000000-0000-4000-8000-0000000038f3');
+  assert not exists (select 1 from public.function_errors where fn = 'save' and minute = date_trunc('minute', now()) - interval '31 days'), 'T38f the row of 31 days ago is gone';
+  assert exists (select 1 from public.function_errors where fn = 'save' and minute = date_trunc('minute', now()) - interval '29 days'), 'T38f the row of 29 days ago stays';
+  assert (select n from public.function_errors where fn = 'save' and status = 502 and minute = date_trunc('minute', now())) = 1, 'T38f the new error is counted';
+end $$;
+
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

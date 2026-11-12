@@ -2,7 +2,7 @@
 // X-Cron-Signature (the frame of _shared/runner.ts). job-callback does the same work itself on `done` of a production job (best effort); this entry is for
 // a repeat by hand or by the head. The steps and what is BLOCKED or not sent are in _shared/sitemap.ts. 200 with the answer; 404 for a job that does not exist.
 import { runner } from '../_shared/runner.ts';
-import { json, problem } from '../_shared/http.ts';
+import { json, problem, serve } from '../_shared/http.ts';
 import { submitForJob, type SubmitDeps } from '../_shared/sitemap.ts';
 
 export async function handle(req: Request, deps: SubmitDeps = {}): Promise<Response> {
@@ -13,4 +13,4 @@ export async function handle(req: Request, deps: SubmitDeps = {}): Promise<Respo
   });
 }
 
-if (import.meta.main) Deno.serve(req => handle(req));
+if (import.meta.main) serve('sitemap-submit', handle);

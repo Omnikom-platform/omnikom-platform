@@ -18,7 +18,7 @@
 //      Auth's own answer decides: 200 { user, invited: true, email_sent: true | false }. A mail that did not go (Auth down, its rate limit) does not
 //      undo the membership: the person is a member and can ask for a sign-in link at /login.
 import { dashboard, badBody, type Ctx } from '../_shared/dashboard.ts';
-import { EMAIL, Fields, json, problem } from '../_shared/http.ts';
+import { EMAIL, Fields, json, problem, serve } from '../_shared/http.ts';
 
 export type AdminDeps = { fetchImpl?: typeof fetch };
 
@@ -116,4 +116,4 @@ export function makeHandle(deps: AdminDeps = {}) {
 
 export const handle = makeHandle();
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('invite-member', handle);

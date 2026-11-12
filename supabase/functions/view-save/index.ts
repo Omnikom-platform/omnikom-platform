@@ -5,7 +5,7 @@
 // right to share: a member saves only their own (403 S-OWN-ONLY for a shared one); another person's private view, another workspace's view and a view
 // that does not exist are all 404 S-NOT-FOUND -> 200 { view }. Views are listed by the dashboard with a plain select (row level security), not here.
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, json } from '../_shared/http.ts';
+import { Fields, json, serve } from '../_shared/http.ts';
 
 export async function handle(req: Request): Promise<Response> {
   return await dashboard(req, 'view-save', async (c, d) => {
@@ -22,4 +22,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('view-save', handle);

@@ -4,7 +4,7 @@
 // service function, which writes the task and its timeline event in one transaction. 404 S-NOT-FOUND for a lead or task the caller may not act on (a member:
 // only leads assigned to them), also for another workspace's.
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, json } from '../_shared/http.ts';
+import { Fields, json, serve } from '../_shared/http.ts';
 
 export async function handle(req: Request): Promise<Response> {
   return await dashboard(req, 'lead-task', async (c, d) => {
@@ -26,4 +26,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('lead-task', handle);

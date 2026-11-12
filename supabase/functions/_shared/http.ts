@@ -1,11 +1,25 @@
 // Answers and body checks shared by the dashboard and runner functions (slice 4.2).
 // An error answer is the `Problem` of specs/openapi.json: { code, message, problems?: [{ code, path, msg }] }. It carries a code, a path
 // and plain words, never a value the caller sent (a field value, an id, a name). Every answer is JSON and `cache-control: no-store`.
+// The request id (product row E3, migration 32): every function serves through serve(<its folder>, handle), which wraps handle in withRequestId. Each call
+// gets a uuid: the header x-request-id of its answer, request_id in a problem body, and the first word of every log line written during the call
+// (console.log, warn and error are replaced once, here, and write through logSink). A handler that throws answers a plain 500 SERVER. The sink: an answer
+// of 500 to 599 is counted by service.record_function_error (function, status, minute, the newest request id; never a cause or a value), and a sink that
+// fails is a log line, never a different answer.
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { connect } from './db.ts';
+
 export const H = { 'content-type': 'application/json', 'cache-control': 'no-store' };
 export const MAX_BODY = 256 * 1024;                              // 256 KiB, 413 above
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+const requests = new AsyncLocalStorage<string>();
+export const requestId = (): string | null => requests.getStore() ?? null;
+const ORIGINAL = { log: console.log.bind(console), warn: console.warn.bind(console), error: console.error.bind(console) };
+export const logSink = { write: (level: 'log' | 'warn' | 'error', args: unknown[]) => ORIGINAL[level](...args) };
+for (const level of ['log', 'warn', 'error'] as const) console[level] = (...args: unknown[]) => { const id = requestId(); logSink.write(level, id ? [`request ${id}`, ...args] : args); };
 
 /** an ISO date-time with an offset (2026-11-20T10:00:00Z, 2026-11-20T10:00+02:00) on a real calendar day: what a follow-up or a task's due time is sent as */
 export function isInstant(v: string): boolean {
@@ -30,7 +44,27 @@ export type FieldProblem = { code: string; path: string; msg: string; row?: stri
 export const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: H });
 export const noContent = () => new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } });
 export const problem = (status: number, code: string, message: string, problems?: FieldProblem[]) =>
-  json(status, problems ? { code, message, problems } : { code, message });
+  json(status, { code, message, ...(problems ? { problems } : {}), ...(requestId() ? { request_id: requestId() } : {}) });
+
+export function withRequestId(fn: string, handle: (req: Request) => Response | Promise<Response>, record = recordError) {
+  return (req: Request) => {
+    const id = crypto.randomUUID();
+    return requests.run(id, async () => {
+      let res: Response;
+      try { res = await handle(req); } catch (e) { console.error(fn, 'threw', String(e).slice(0, 300)); res = problem(500, 'SERVER', 'Something went wrong on our side.'); }
+      if (res.status >= 500) { try { await record(fn, res.status, id); } catch (e) { console.error('function error not recorded', String(e).slice(0, 160)); } }
+      const headers = new Headers(res.headers); headers.set('x-request-id', id);
+      return new Response(res.body, { status: res.status, headers });
+    });
+  };
+}
+
+async function recordError(fn: string, status: number, id: string) {
+  const sql = await connect();
+  try { await sql`select service.record_function_error(${fn}, ${status}, ${id}::uuid)`; } finally { await sql.end({ timeout: 2 }); }
+}
+
+export const serve = (fn: string, handle: (req: Request) => Response | Promise<Response>) => Deno.serve(withRequestId(fn, handle));
 
 /** Body-shape checker: collects field problems (code, path, plain words), never the values. */
 export class Fields {

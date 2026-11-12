@@ -903,6 +903,14 @@ const MUTANTS = [
   ['events31: an email id that is none of ours is not refused', '  if not found then return 0; end if;', ''],
   ['events31: the event suppresses nothing', "  perform service.suppress(case when p_kind = 'bounce' then null else m.workspace_id end, 'email', m.to_text, p_kind, 'resend webhook');", '  null;'],
   ['events31: an erased address is suppressed', " and x.to_text not like 'erased:%'", ''],
+
+  // ---- E3 (migration 32): the function error sink; tests T38. Run only these: --only "errors32" ----
+  ['errors32: a second error of the minute is refused, not counted', '    on conflict (fn, status, minute) do update set n = public.function_errors.n + 1, last_request = excluded.last_request, last_at = now();', '    ;'],
+  ['errors32: a status below 500 is stored', 'check (status between 500 and 599)', 'check (status between 100 and 599)'],
+  ['errors32: every login reads the function errors', 'create policy function_errors_staff_read on public.function_errors for select to authenticated using (private.is_staff());', 'create policy function_errors_staff_read on public.function_errors for select to authenticated using (true);'],
+  ['errors32: service_role and authenticated keep their table rights', 'revoke all on public.function_errors from public, anon, authenticated, service_role, omnikom_fn;', 'revoke all on public.function_errors from public, anon;'],
+  ['errors32: migration 32 does not open service.record_function_error to the function role (both layers)', [['alter default privileges in schema service grant execute on functions to service_role, omnikom_fn;', '-- (no default grant)'], ['grant execute on function service.record_function_error(text, int, uuid) to service_role, omnikom_fn;', '-- (grant removed)']]],
+  ['errors32: rows older than 30 days are never deleted', "  delete from public.function_errors e where e.minute < now() - interval '30 days';", ''],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

@@ -3,7 +3,7 @@
 // rows they could publish themselves, inbox rows and deleted rows never; 404 S-NOT-FOUND for a site the caller cannot see) -> 200
 // { drafts: [{ row, collection, newest, published, editedBy, editedAt }] }, newest edit first. `published` is null for a row never published.
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, json } from '../_shared/http.ts';
+import { Fields, json, serve } from '../_shared/http.ts';
 
 type Row = { row_id: string; collection: string; newest_version: number; published_version: number | null; edited_by: string | null; edited_at: Date | string };
 
@@ -21,4 +21,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('drafts', handle);

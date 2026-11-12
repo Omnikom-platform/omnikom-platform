@@ -8,7 +8,7 @@
 // Each source is its own step: one that throws is listed under `failed` and writes no row; the others still run. 200 { workspace, day, site, written,
 // skipped, failed, notes } (502 when nothing was written and something failed). Keys by variable name only (keysFromEnv); none is in a row, a note or an answer.
 import { runner } from '../_shared/runner.ts';
-import { json, problem } from '../_shared/http.ts';
+import { json, problem, serve } from '../_shared/http.ts';
 import { collectBing, collectPageSpeed, collectSearchConsole, dayOf, keysFromEnv, originOf, pagespeedDue, pickPages, sitemapLocs, type Collected, type Target } from '../_shared/metrics.ts';
 
 export type Deps = { fetch?: typeof fetch; now?: () => Date };
@@ -64,4 +64,4 @@ export async function handle(req: Request, deps: Deps = {}): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(req => handle(req));
+if (import.meta.main) serve('metrics-pull', handle);

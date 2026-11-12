@@ -7,7 +7,7 @@
 //   document flag, so a document can never become `processed` today. Reported to the head as a finding; no migration comes from this slice.
 //   service.media_processed(media, width, height, true, bytes): S-NOT-FOUND = 404. Answer 204.
 import { runner } from '../_shared/runner.ts';
-import { Fields, noContent, problem } from '../_shared/http.ts';
+import { Fields, noContent, problem, serve } from '../_shared/http.ts';
 import { badBody } from '../_shared/dashboard.ts';
 
 const widthsOk = (v: unknown) => v == null || (Array.isArray(v) && v.length <= 10 && v.every(x => (typeof x === 'number' && Number.isInteger(x)) || (typeof x === 'string' && x.length <= 20)));
@@ -29,4 +29,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('media-process-callback', handle);

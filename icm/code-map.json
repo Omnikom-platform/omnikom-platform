@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 881,
+    "sources": 883,
     "unowned": 0
   },
   "files": [
@@ -349,7 +349,7 @@
     {"path":"supabase/functions/_shared/dashboard.ts","owner":"platform-build","exports":["Ctx","Frame","Run","allowedOrigins","badBody","corsHeaders","dashboard","jwksUrl"],"tests":["supabase/functions/test/mutate.mjs"],"feature":""},
     {"path":"supabase/functions/_shared/db.ts","owner":"platform-build","exports":["ConfigError","Refusal","Sql","answerProblem","asCaller","connect","recordEvent","refusal","withDb"],"tests":["supabase/functions/test/db.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
     {"path":"supabase/functions/_shared/dispatch.ts","owner":"platform-build","exports":["Dispatched","dispatch"],"tests":["supabase/functions/test/db.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
-    {"path":"supabase/functions/_shared/http.ts","owner":"platform-build","exports":["EMAIL","FieldProblem","Fields","H","MAX_BODY","SLUG","UUID","isDay","isInstant","json","noContent","problem","sha256Hex"],"tests":["supabase/functions/test/import-cpu.ts","supabase/functions/test/import.test.ts","supabase/functions/test/instant.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
+    {"path":"supabase/functions/_shared/http.ts","owner":"platform-build","exports":["EMAIL","FieldProblem","Fields","H","MAX_BODY","SLUG","UUID","isDay","isInstant","json","logSink","noContent","problem","requestId","serve","sha256Hex","withRequestId"],"tests":["supabase/functions/test/import-cpu.ts","supabase/functions/test/import.test.ts","supabase/functions/test/instant.test.ts","supabase/functions/test/mutate.mjs","supabase/functions/test/request-id.test.ts","supabase/tests/tenancy.test.sql"],"feature":""},
     {"path":"supabase/functions/_shared/lead-alert.ts","owner":"platform-build","exports":["AlertRow","alertSubject","alertText"],"tests":["supabase/functions/test/mutate.mjs"],"feature":""},
     {"path":"supabase/functions/_shared/metrics.ts","owner":"platform-build","exports":["Collected","Row","Target","appendIndexNow","collectBing","collectPageSpeed","collectSearchConsole","dayOf","indexNowPing","keysFromEnv","originOf","pagespeedDue","pickPages","sitemapLocs","submitSitemap"],"tests":["supabase/functions/test/metrics.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
     {"path":"supabase/functions/_shared/netguard.ts","owner":"platform-build","exports":["Resolve","hostProblem","isPrivateAddress","parseV4","parseV6","privateV4","privateV6","systemResolve"],"tests":["supabase/functions/test/mutate.mjs","supabase/functions/test/netguard.test.ts","supabase/functions/test/screens-util.ts"],"feature":""},
@@ -408,6 +408,7 @@
     {"path":"supabase/functions/test/netguard.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/outbox.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/publish.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"supabase/functions/test/request-id.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/run.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/runner-util.ts","owner":"platform-build","exports":["RunnerOpts","callRunner","jobState","publishedVersion","runnerEvents","startJob","storageBehaviour","storageLog"],"tests":[],"feature":""},
     {"path":"supabase/functions/test/runner.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
@@ -456,6 +457,7 @@
     {"path":"supabase/migrations/20261112000029_mail_outbox.sql","owner":"platform-build","exports":["fn:service.mail_outbox_tick","fn:service.outbox_claim","fn:service.outbox_done","fn:service.queue_lead_alert","table:public.mail_outbox"],"tests":[],"feature":""},
     {"path":"supabase/migrations/20261112000030_visitor_limit.sql","owner":"platform-build","exports":["fn:service.count_visitor","table:visitor_counts"],"tests":[],"feature":""},
     {"path":"supabase/migrations/20261112000031_mail_events.sql","owner":"platform-build","exports":["fn:service.mail_event"],"tests":[],"feature":""},
+    {"path":"supabase/migrations/20261112000032_function_errors.sql","owner":"platform-build","exports":["fn:service.record_function_error","table:public.function_errors"],"tests":[],"feature":""},
     {"path":"supabase/ops/alerts.mjs","owner":"platform-build","exports":["ALERTS","RULES","Stop","environmentOf","main","parseArgs","pgEnv","render","runQueries","statusData"],"tests":["supabase/ops/test/6b-alerts-fixture.mjs","supabase/ops/test/6b-mutate.mjs","supabase/ops/test/alerts.test.mjs"],"feature":""},
     {"path":"supabase/ops/backup.mjs","owner":"platform-build","exports":["DEFAULT_RECIPIENT","MAX_BYTES","Stop","labelOf","main","parseArgs","pgEnv","readRecipient","regionOf","scrubber","signV4","sizeS3","stampOf","uploadS3"],"tests":["supabase/ops/test/6b-fake-s3.mjs","supabase/ops/test/6b-mutate.mjs","supabase/ops/test/backup.test.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
     {"path":"supabase/ops/inbox-state.mjs","owner":"platform-build","exports":["SQL","main"],"tests":["supabase/ops/test/inbox-state.test.mjs"],"feature":""},

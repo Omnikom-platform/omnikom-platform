@@ -2,7 +2,7 @@
 // Owner or staff only; the database decides (404 S-NOT-FOUND for a member, another workspace's owner, a login of nothing, a workspace that does not exist).
 // 200 { members: [{ user, email, role: 'owner' | 'member', team_row: uuid | null, name: string | null, joined: ISO time }] }, owners first.
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, json } from '../_shared/http.ts';
+import { Fields, json, serve } from '../_shared/http.ts';
 
 export async function handle(req: Request): Promise<Response> {
   return await dashboard(req, 'team-list', async (c, d) => {
@@ -19,4 +19,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('team-list', handle);

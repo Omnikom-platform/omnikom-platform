@@ -7,7 +7,7 @@
 // dispatched: false (no token, GitHub refused, GitHub unreachable) is REPORTED, not hidden: the job stays queued and the reaper fails it
 // after 24 hours. A missing version is 404 S-NOT-FOUND (service.row_version), the same answer as a row of another workspace.
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, json, problem, type FieldProblem } from '../_shared/http.ts';
+import { Fields, json, problem, type FieldProblem, serve } from '../_shared/http.ts';
 import { RowValidator } from '../_shared/validate.ts';
 import { dispatch } from '../_shared/dispatch.ts';
 
@@ -35,4 +35,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('publish', handle);

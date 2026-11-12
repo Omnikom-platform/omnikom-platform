@@ -17,7 +17,7 @@
 import { dashboard, badBody, type Ctx } from '../_shared/dashboard.ts';
 import { asCaller } from '../_shared/db.ts';
 import { csvLine } from '../_shared/csv.ts';
-import { Fields, problem } from '../_shared/http.ts';
+import { Fields, problem, serve } from '../_shared/http.ts';
 import { exportRows, toCsv, type Template } from '../_shared/crm-map.ts';
 
 export const MAX_ROWS = 5000;
@@ -26,10 +26,10 @@ type Field = { key: string };
 type Lead = { id: string; created_at: Date; name: string | null; email: string | null; phone: string | null; form: string; page_path: string; status: string; owner_team_row: string | null; answers: unknown };
 
 /** maxRows: the cap of the export in a template's layout (a test injects a small one; the deployed function uses MAX_ROWS) */
-export const makeHandle = (o: { maxRows?: number } = {}) => (req: Request) => serve(req, o.maxRows ?? MAX_ROWS);
+export const makeHandle = (o: { maxRows?: number } = {}) => (req: Request) => exportCall(req, o.maxRows ?? MAX_ROWS);
 export const handle = makeHandle();
 
-async function serve(req: Request, maxRows: number): Promise<Response> {
+async function exportCall(req: Request, maxRows: number): Promise<Response> {
   return await dashboard(req, 'lead-export', async (c: Ctx, d) => {
     if (d.template !== undefined || d.workspace !== undefined) return await inLayout(c, d, maxRows);   // work orders 02 and 07: the CRM view, in the client's layout or block 1's plain one
     const f = new Fields(d);
@@ -167,4 +167,4 @@ async function inLayout(c: Ctx, d: Record<string, unknown>, maxRows: number): Pr
   } });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('lead-export', handle);

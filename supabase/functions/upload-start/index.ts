@@ -5,7 +5,7 @@
 // uploads to <SUPABASE_URL>/storage/v1<url>) -> 200 { media, uploadUrl, path }. The secret key never leaves this function.
 // Environment, by name: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (the default name Supabase sets in functions) or SUPABASE_SECRET_KEY.
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, json, problem } from '../_shared/http.ts';
+import { Fields, json, problem, serve } from '../_shared/http.ts';
 
 export const MAX_BYTES = 26214400;
 export const MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'];
@@ -35,4 +35,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('upload-start', handle);

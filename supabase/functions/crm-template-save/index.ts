@@ -6,7 +6,7 @@
 // field) -> service.save_crm_template (the same rules in the database, which is the wall; one map per workspace and name: a re-save of a name is the
 // same row, updated) -> 200 { template }.
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, json, problem, SLUG } from '../_shared/http.ts';
+import { Fields, json, problem, SLUG, serve } from '../_shared/http.ts';
 import { crmFields, exportRows, templateProblems, validateTemplate } from '../_shared/crm-map.ts';
 
 const DIRECTIONS = ['export', 'import', 'both'];
@@ -39,4 +39,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('crm-template-save', handle);
