@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 896,
+    "sources": 898,
     "unowned": 0
   },
   "files": [
@@ -19,7 +19,7 @@
     {"path":"apps/dashboard/src/api.ts","owner":"platform-build","exports":["BulkAction","Draft","Exported","ImportCall","ItemSave","LeadChange","NewLead","Published","ViewSave","addLead","addTask","bulkLeads","deleteItem","deleteView","exportLeads","fetchDrafts","fetchSiteAudit","fetchTeamList","importLeads","inviteMember","listLeads","markTask","proposeMap","publishRows","putFile","removeMember","saveAlerts","saveItem","saveTemplate","saveView","updateLead","uploadFinish","uploadStart"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/auth.tsx","owner":"platform-build","exports":["SessionProvider","safeNext","useSession"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/config.ts","owner":"platform-build","exports":["config"],"tests":[],"feature":""},
-    {"path":"apps/dashboard/src/data.ts","owner":"platform-build","exports":["ContentRow","LiveState","Me","MediaRow","Membership","Role","RowVersion","Site","SiteAlerts","Team","Template","VersionSign","Workspace","everListed","fetchFrameMedia","fetchSnapshot","fetchVersions","fetchVersionsAt","useContract","useContractForms","useDrafts","useEvents","useEventsLive","useFilterCounts","useJobs","useLead","useLeadColumns","useLeadList","useLeads","useLeadsLive","useMe","useMedia","useMemberships","useReadIds","useRows","useSignedUrl","useSiteAlerts","useSites","useStaffAal","useTasks","useTeam","useTeamList","useTemplates","useVersions","useViews","useWorkspace"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
+    {"path":"apps/dashboard/src/data.ts","owner":"platform-build","exports":["ContentRow","LiveState","Me","MediaFile","MediaRow","Membership","Role","RowVersion","Site","SiteAlerts","Team","Template","VersionSign","Workspace","everListed","fetchFrameMedia","fetchSnapshot","fetchVersions","fetchVersionsAt","useContract","useContractForms","useDrafts","useEvents","useEventsLive","useFilterCounts","useJobs","useLead","useLeadColumns","useLeadList","useLeads","useLeadsLive","useMe","useMedia","useMediaFiles","useMemberships","useReadIds","useRows","useSignedUrl","useSiteAlerts","useSites","useStaffAal","useTasks","useTeam","useTeamList","useTemplates","useVersions","useViews","useWorkspace"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/hooks.ts","owner":"platform-build","exports":["useWide"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/leads-view.ts","owner":"platform-build","exports":["EXPORT_CAPPED","EXPORT_FAILED","LeadsViewContext","LeadsViewValue","saveFile","useExporter","useLeadsView"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/crm.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
@@ -36,6 +36,8 @@
     {"path":"apps/dashboard/src/lib/leads.ts","owner":"platform-build","exports":["ContractForms","FILTERS","FLOOR_LISTS","Filter","Lead","LeadEvent","Lists","Names","SEARCH_MIN","SPAM","StatusDef","TimelineLine","TypeDef","allKeys","answerRows","dayWords","editedLine","filterCounts","filterLeads","followUpLine","formLabel","labelWords","leadsTitle","listsFrom","marketingLine","newKeys","newestFirst","plainValue","receivedWords","searchLeads","smsLine","statusCarries","statusChoices","statusDef","statusLabel","statusWords","taskLine","telHref","timelineLines","typeLabel","visibleLeads"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/live.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/live.ts","owner":"platform-build","exports":["heldTopics","holdChannel","jobsWanted"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/lib/media.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/lib/media.ts","owner":"platform-build","exports":["Problem","Use","problemsOf","usesOf"],"tests":["apps/dashboard/src/lib/media.test.ts"],"feature":""},
     {"path":"apps/dashboard/src/lib/overview.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/overview.ts","owner":"platform-build","exports":["AuditRow","Card","METRIC_SOURCES","MetricRow","SiteAudit","changesWords","checkLine","lastPublished","leadsWeekWords","publishWords","visibilityCards","weekStart"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/lib/problems.ts","owner":"platform-build","exports":["CallFailed","Problem","UNREACHABLE","plainOr","problemFrom"],"tests":[],"feature":""},

@@ -380,6 +380,20 @@ export function useSignedUrl(path: string | undefined) {
   });
 }
 
+export type MediaFile = MediaRow & { created_at: string };
+
+/** Every uploaded file of the workspace, newest first: the media library (book row B14). `uploadedBy` set: only that login's own uploads (a member's library). */
+export function useMediaFiles(wsId: string, uploadedBy: string | null) {
+  return useQuery({
+    queryKey: ['media-files', wsId, uploadedBy],
+    queryFn: async (): Promise<MediaFile[]> => {
+      let q = supabase.from('media').select('id,path,width,processed,rights_confirmed,created_at').eq('workspace_id', wsId);
+      if (uploadedBy) q = q.eq('uploaded_by', uploadedBy);
+      return must(await q.order('created_at', { ascending: false })) as MediaFile[];
+    },
+  });
+}
+
 /** The members of the workspace for the People card (the team-list function; the owner's call, so it is only asked for when `enabled`). */
 export function useTeamList(wsId: string, enabled: boolean) {
   return useQuery({ queryKey: ['team-list', wsId], enabled, queryFn: async (): Promise<Member[]> => await fetchTeamList(wsId) });
