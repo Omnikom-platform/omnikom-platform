@@ -4,7 +4,7 @@
 //   STAGING_DB_URL=... SITE_URL=https://elev8-omnikom-website.pages.dev node supabase/tests/e2e-lead.mjs [--keep] [--no-alert]
 // Runs only against STAGING_DB_URL (refuses PROD_DB_URL). The site must be deployed with factory/worker/pages-function-lead.js
 // and its SITE_ID / SITE_SIGNING_KEY / PLATFORM_BASE; capture-lead must be deployed on the staging project with
-// SUPABASE_DB_URL, RESEND_API_KEY and LEAD_ALERT_FROM; the site's sites.lead_alert_to must hold the owner's address.
+// DB_POOLER_URL, RESEND_API_KEY and LEAD_ALERT_FROM; the site's sites.lead_alert_to must hold the owner's address.
 // A preview site (noindex) is not a client's live site, and the lead lands in OUR database, so this does not break the rule
 // "never submit a form on a client's live site" (CLAUDE.md 2). Status: UNPROVEN until the owner's keys exist.
 import { randomUUID } from 'node:crypto';

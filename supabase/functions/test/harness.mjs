@@ -194,7 +194,7 @@ export async function startHarness() {
       /** the environment a function (and its tests) reads, by name; the values are the fakes of this run */
       env(db) {
         return {
-          SUPABASE_DB_URL: `postgres://postgres@127.0.0.1:${PORT}/${db}`,
+          SUPABASE_DB_URL: 'postgres://postgres@127.0.0.1:1/no-direct-connection', DB_POOLER_URL: `postgres://postgres@127.0.0.1:${PORT}/${db}`,
           SUPABASE_URL: base, JWKS_URL: `${base}/auth/v1/.well-known/jwks.json`,
           SUPABASE_SECRET_KEY: SECRET, SUPABASE_SERVICE_ROLE_KEY: SECRET, RUNNER_KEY, CRON_KEY, GITHUB_DISPATCH_TOKEN: SECRET, GITHUB_DISPATCH_TOKEN_V2: V2_TOKEN, GITHUB_REPO: 'test/test', GITHUB_API_BASE: base,
           TEST_JWK_PRIVATE: JSON.stringify(priv), TEST_FAKE_BASE: base, TEST_DB_URL: `postgres://postgres@127.0.0.1:${PORT}/${db}`,

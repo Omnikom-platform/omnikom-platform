@@ -3,7 +3,7 @@
 //   method (405) -> the id in the query, for a GET (404 for one that is not a uuid) -> body cap 256 KiB (413) -> X-Runner-Signature checked with
 //   RUNNER_KEY over `METHOD`, the path with its query (the /functions/v1 prefix is never signed) and the body (a GET signs an empty body), within
 //   300 s (signature.ts) -> a bad or missing signature = 401 SIGNATURE and a security event (kind bad-signature, detail kind 'runner') ->
-//   the connection steps down to omnikom_fn (db.ts) -> the registry row of the key is touched (last_used_at) -> a POST body must be a JSON
+//   every statement steps down to omnikom_fn (db.ts) -> the registry row of the key is touched (last_used_at) -> a POST body must be a JSON
 //   object (400 BODY) -> the function's own steps -> a refusal from the database becomes its platform code and status -> anything else is a
 //   plain 500 that says nothing about the cause. Every answer is JSON (or 204) and `cache-control: no-store`.
 // A refusal of an authenticated runner (S-JOB-BUSY, S-JOB-STATE, S-NOT-FOUND) is NOT a security event: it is the state machine speaking to a

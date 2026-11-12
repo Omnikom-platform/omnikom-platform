@@ -1,7 +1,10 @@
 // _shared/db.ts: the step-down to omnikom_fn, and the mapping of the database's refusals to statuses.
-import { connect, refusal, withDb } from '../_shared/db.ts';
+import postgres from 'npm:postgres@3.4.5';
+import { connect, refusal, stepDown, withDb } from '../_shared/db.ts';
 import { dispatch } from '../_shared/dispatch.ts';
-import { assert, eq, fake, SUB, t, teamRows, WS_A } from './util.ts';
+import { handle as drafts } from '../drafts/index.ts';
+import { handle as leadFn } from '../capture-lead/index.ts';
+import { assert, call, env, eq, fake, SITE_A, SUB, type Sql, t, teamRows, WS_A } from './util.ts';
 
 t('db: connect() has stepped down: the current role is omnikom_fn and no table can be read', async () => {
   await withDb(async sql => {
@@ -16,14 +19,49 @@ t('db: connect() has stepped down: the current role is omnikom_fn and no table c
   });
 });
 
-t('db: without a database URL connect() throws and nothing is run (fail closed)', async () => {
-  const url = Deno.env.get('SUPABASE_DB_URL');
-  Deno.env.delete('SUPABASE_DB_URL');
+t('db [E6]: every statement steps down in a transaction of its own and leaves nothing in the session (what a transaction pooler needs)', async () => {
+  const base = postgres(env('TEST_DB_URL'), { max: 1, prepare: false });   // one server connection, as postgres, shared by the wrapper and the checks
+  const sql = stepDown(base);
   try {
-    let threw = false;
-    try { await connect(); } catch { threw = true; }
-    assert(threw, 'connect() throws');
-  } finally { Deno.env.set('SUPABASE_DB_URL', url!); }
+    eq((await sql`select current_user as u`)[0].u, 'omnikom_fn', '(a) a statement runs as omnikom_fn');
+    eq((await base`select current_user as u`)[0].u, 'postgres', '(b) right after, the session is postgres again: nothing was left in it');
+    eq((await sql.begin((tx: Sql) => tx`select current_user as u`))[0].u, 'omnikom_fn', '(c) sql.begin steps down first');
+    await base.unsafe('set role authenticated');   // another client's session state on that server connection
+    eq((await sql`select current_user as u`)[0].u, 'omnikom_fn', '(d) a statement steps down whatever the session holds');
+  } finally { await base.end({ timeout: 2 }); }
+});
+
+t('db [E6]: without DB_POOLER_URL connect() throws, even when the direct SUPABASE_DB_URL would answer (no fallback)', async () => {
+  const pooler = Deno.env.get('DB_POOLER_URL'), direct = Deno.env.get('SUPABASE_DB_URL');
+  Deno.env.delete('DB_POOLER_URL');
+  Deno.env.set('SUPABASE_DB_URL', env('TEST_DB_URL'));   // a direct address that would answer
+  try {
+    let msg = '';
+    try { const s = await connect(); await s.end({ timeout: 2 }); } catch (e) { msg = (e as Error).message; }
+    eq(msg, 'DB_POOLER_URL is not set', 'connect() throws and names the missing pooler address');
+  } finally { Deno.env.set('DB_POOLER_URL', pooler!); Deno.env.set('SUPABASE_DB_URL', direct!); }
+});
+
+t('db [E6]: 8 parallel calls and a post to the lead function open no connection to the direct address', async () => {
+  const direct = Deno.listen({ hostname: '127.0.0.1', port: 0 });   // a stand-in direct address that counts each connection and closes it
+  let opened = 0;
+  const loop = (async () => { for await (const conn of direct) { opened++; conn.close(); } })();
+  const old = Deno.env.get('SUPABASE_DB_URL');
+  Deno.env.set('SUPABASE_DB_URL', `postgres://postgres@127.0.0.1:${(direct.addr as Deno.NetAddr).port}/direct`);
+  try {
+    const answers = await Promise.all(Array.from({ length: 8 }, () => call(drafts, 'drafts', { site: SITE_A }, 'owner-a')));
+    for (const a of answers) eq(a.status, 200, `drafts (connections to the direct address so far: ${opened}): ${a.text}`);
+    const res = await leadFn(new Request(`http://localhost/capture-lead?site=${SITE_A}`, {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-site-signature': 't=1,v1=00' }, body: '{}' }));
+    const text = await res.text();
+    eq(res.status, 401, `capture-lead (connections to the direct address so far: ${opened}): ${text}`);
+    eq(JSON.parse(text).problems?.[0]?.code, 'SIGNATURE', 'the keys were read from the database');
+    eq(opened, 0, 'connections to the direct address');
+  } finally {
+    Deno.env.set('SUPABASE_DB_URL', old!);
+    direct.close();
+    await loop.catch(() => {});
+  }
 });
 
 t('db: refusal() maps the platform codes to statuses and never echoes the database message', () => {

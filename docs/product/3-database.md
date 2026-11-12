@@ -29,9 +29,9 @@ How the wall is built (each part has a test and a mutant in `supabase/tests/run-
 - Schemas: `public` (tables, exposed read-only through RLS), `private` (helpers the policies use: `is_member`, `my_role`,
   `my_team_row`, `can_see`, `is_staff`, `can_act_on_lead`, `is_owner_or_staff`, `limit_for`), `service` (the write functions,
   never exposed to clients).
-- The Edge Functions connect and step down to the role `omnikom_fn`, which may only execute `service` functions and reads no
-  table. Every definer function pins `search_path = ''` with schema-qualified names. A new function is closed to PUBLIC by
-  default privileges.
+- The Edge Functions connect through the transaction pooler (`DB_POOLER_URL`) and step down to the role `omnikom_fn` inside
+  each statement's own transaction; `omnikom_fn` may only execute `service` functions and reads no table. Every definer
+  function pins `search_path = ''` with schema-qualified names. A new function is closed to PUBLIC by default privileges.
 - Every "may this login act" check goes through `coalesce(..., false)`, so a login that is not a member at all is refused.
 - `audit_log`, `security_events` and `consent_ledger` are append-only for every role (a trigger refuses update and delete). `security_event_counts` is not: one row per source and minute holds how many times an event repeated (only `service.record_security_event` writes it).
 

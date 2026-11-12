@@ -2,7 +2,7 @@
 //   OPTIONS (a browser's CORS preflight, slice 5.2) -> 204 before anything else, then
 //   POST only (405) -> body cap 256 KiB, or the function's own `maxBody` (work order 02: an import file) (413) -> the user's JWT checked in code (401 S-AUTH + an auth-refused security event (reason bad-jwt); the gateway's
 //   verify_jwt is the first wall, this is the second) -> JSON object body (400 BODY) -> the function's own steps with a connection
-//   already stepped down to omnikom_fn -> a refusal from the database becomes its platform code and status, and a security event
+//   whose every statement steps down to omnikom_fn -> a refusal from the database becomes its platform code and status, and a security event
 //   (code, workspace when known, actor = the login) -> anything else is a plain 500 that says nothing about the cause.
 import { verifyUserJwt, sqlClaims, type Claims } from './auth.ts';
 import { connect, ConfigError, refusal, recordEvent, type Sql } from './db.ts';

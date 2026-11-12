@@ -20,7 +20,7 @@ Prove it: `node factory/worker/test/run.mjs` (the signature is verified with the
 2. `capture-lead` and `mail-outbox` are deployed on the staging project (`supabase functions deploy capture-lead mail-outbox`):
    capture-lead queues the alert, mail-outbox sends it, so `RESEND_API_KEY`, `LEAD_ALERT_FROM` (and optionally `DASHBOARD_URL`)
    serve `mail-outbox`, with its `MAIL_OUTBOX_KEY` (Supabase function secrets are the project's, one set for every function);
-   `SUPABASE_DB_URL` is there by default.
+   `DB_POOLER_URL` (the transaction pooler) is set by the head.
 3. In the site's deploy (ELEV8: `E:\Alex Sevilla\draft-site\site\tools\deploy-pages.mjs`), copy `pages-function-lead.js` to
    `functions/api/lead.js` and `lead-endpoint.mjs` to `functions/api/lead-endpoint.mjs` in place of the stub.
 4. On the Pages project: variables `SITE_ID` (the `sites.id`), `PLATFORM_BASE` (`https://<staging ref>.supabase.co/functions/v1`);

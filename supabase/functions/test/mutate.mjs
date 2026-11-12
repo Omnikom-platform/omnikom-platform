@@ -29,7 +29,7 @@ const MUTANTS = [
   ['dashboard: no body cap (256 KiB)', F + '_shared/dashboard.ts', "  if (text.length > (o.maxBody ?? MAX_BODY)) return problem(413, 'SIZE', 'This request is too large.');\n", ''],
   ['dashboard: a function\'s own body cap is ignored (256 KiB for an import file)', F + '_shared/dashboard.ts', 'text.length > (o.maxBody ?? MAX_BODY)', 'text.length > MAX_BODY', 'import.test.ts'],
   ['dashboard: any method', F + '_shared/dashboard.ts', "  if (req.method !== 'POST') return problem(405, 'METHOD', 'POST only.');\n", ''],
-  ['db: no step-down to omnikom_fn', F + '_shared/db.ts', "await sql.unsafe('set role omnikom_fn');", "await sql.unsafe('select 1');"],
+  ['db: no step-down to omnikom_fn', F + '_shared/db.ts', "await tx.unsafe('set local role omnikom_fn');", "await tx.unsafe('select 1');"],
   ['db: I-NOT-READY is not a 422 with its own code', F + '_shared/db.ts', "  if (has('I-NOT-READY')) return { status: 422, code: 'I-NOT-READY', kind: 'refused', msg: 'Some items are not ready to publish.' };\n", ''],
   ['db: S-STALE is not mapped (migration 12)', F + '_shared/db.ts', "  if (has('S-STALE')) {", "  if (has('S-STALE-NEVER')) {"],
   ['db: S-STALE is a 400, not a 409', F + '_shared/db.ts', "return { status: 409, code: 'S-STALE', kind: null,", "return { status: 400, code: 'S-STALE', kind: null,"],
@@ -375,6 +375,13 @@ const MUTANTS = [
   // ---- E16: plan limits in plain words ----
   ['E16 db: S-LIMIT is not a refusal', F + '_shared/db.ts', "  if (has('S-LIMIT')) {", '  if (false) {', 'limits.test.ts'],
   ['E16 db: S-LIMIT passes any database text', F + '_shared/db.ts', '(sites|MB of photos and files|publishes today)', '(.+?)', 'limits.test.ts'],
+  // ---- E6: pooled connections (DB_POOLER_URL, a step-down per statement). Run only these: --only "E6 |db: no step-down" ----
+  ['E6 db: the door reads the direct address', F + '_shared/db.ts', "const url = Deno.env.get('DB_POOLER_URL');", "const url = Deno.env.get('SUPABASE_DB_URL');", 'db.test.ts'],
+  ['E6 db: no pooler address falls back to the direct one', F + '_shared/db.ts', "const url = Deno.env.get('DB_POOLER_URL');", "const url = Deno.env.get('DB_POOLER_URL') ?? Deno.env.get('SUPABASE_DB_URL');", 'db.test.ts'],
+  ['E6 db: the step-down is a session SET', F + '_shared/db.ts', "await tx.unsafe('set local role omnikom_fn');", "await tx.unsafe('set role omnikom_fn');", 'db.test.ts'],
+  ['E6 db: a statement runs outside a transaction', F + '_shared/db.ts', 'inTx((tx: Sql) => tx(strings, ...values))', 'base(strings, ...values)', 'db.test.ts'],
+  ['E6 db: sql.begin does not step down', F + '_shared/db.ts', '=> inTx(run), array:', '=> base.begin(run), array:', 'db.test.ts'],
+  ['E6 capture-lead: its own connection to the direct address', F + 'capture-lead/index.ts', 'try { sql = await connect(); }', "try { sql = (await import('npm:postgres@3.4.5')).default(Deno.env.get('SUPABASE_DB_URL')!, { max: 1, prepare: false }); }", 'db.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;

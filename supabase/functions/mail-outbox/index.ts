@@ -4,8 +4,8 @@
 // It claims at most CLAIM rows of mail_outbox (service.outbox_claim: the due rows, leased, each with its message recorded) and posts them to Resend one
 // at a time, each with a TIMEOUT_MS timeout and the message id as Resend's idempotency key; service.outbox_done records each answer (a failed try waits
 // for its lease, the sixth fails the message). CLAIM rows of at most TIMEOUT_MS each stay under the 150 s idle limit (docs/product/4-backend.md).
-// Keys by name only: MAIL_OUTBOX_KEY, RESEND_API_KEY, LEAD_ALERT_FROM, DASHBOARD_URL (optional, for the link), SUPABASE_DB_URL.
-// Answers: 405 METHOD (not POST); 500 CONFIG (a key or the sender missing, or the database role); 401 SIGNATURE (and a security event);
+// Keys by name only: MAIL_OUTBOX_KEY, RESEND_API_KEY, LEAD_ALERT_FROM, DASHBOARD_URL (optional, for the link), DB_POOLER_URL (through _shared/db.ts connect()).
+// Answers: 405 METHOD (not POST); 500 CONFIG (a key, the sender or DB_POOLER_URL missing); 401 SIGNATURE (and a security event);
 // 200 { claimed, sent, failed }; 500 SERVER. Tests: supabase/functions/test/outbox.test.ts; the database side: tenancy.test.sql T35.
 import { verify } from '../_shared/signature.ts';
 import { pathForSignature } from '../_shared/runner.ts';

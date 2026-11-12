@@ -63,9 +63,9 @@ if (LOCAL) {
   if (!/listening on/.test(out)) { console.error('BLOCKED: the local server did not start:\n' + out.slice(-600)); child.kill(); await api.stop(); process.exit(3); }
   base = `http://127.0.0.1:${port}`;
   fakeBase = api.base;
-  const sql = makeSql({ url: env.SUPABASE_DB_URL });
+  const sql = makeSql({ url: env.TEST_DB_URL });
   q = (query, who) => sql.rows(query, who ? { claims: claimsFor(parseIdentity(who)) } : {});
-  localDb = env.SUPABASE_DB_URL;
+  localDb = env.TEST_DB_URL;
   token = async who => (await (await fetch(`${base}/__token?who=${who}`, { signal: AbortSignal.timeout(15000) })).text()).trim();
   stop = async () => { child.kill(); await api.stop(); };
 } else {

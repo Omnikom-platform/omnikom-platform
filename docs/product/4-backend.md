@@ -136,6 +136,7 @@ a Vault name. A script reads a key by its variable name from the git-ignored `.e
 | Secret | Lives in | Used by |
 |---|---|---|
 | Supabase secret key, per environment | function environment, GitHub secret (production's only in the production repository) | functions, CI |
+| Database address through the transaction pooler (port 6543), per environment | function environment, as `DB_POOLER_URL` (set by the head from the env file's `STAGING_DB_URL`) | every function (`_shared/db.ts` `connect()`) |
 | Supabase publishable key | dashboard build (public by design; RLS applies) | dashboard |
 | Cloudflare deploy token, one for the account (Pages edit, DNS edit) | GitHub secret, held only by the runner | `publish.yml` |
 | GitHub dispatch token (`GITHUB_DISPATCH_TOKEN_V2`, this repository, Actions: write; the old Contents token until retired) | function environment | `publish`, `upload-finish` |

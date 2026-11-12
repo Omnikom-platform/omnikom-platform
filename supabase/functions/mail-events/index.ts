@@ -5,7 +5,7 @@
 // A permanent bounce (email.bounced, bounce type Permanent) or a spam complaint (email.complained) calls service.mail_event(email id, kind): the address is read from our own
 // message that Resend's email id names, never from the payload; a bounce suppresses it for the whole platform, a complaint for that message's workspace. Any other signed
 // event is answered 200 { handled: false }, so Resend does not send it again.
-// Keys by name only: RESEND_WEBHOOK_SECRET, SUPABASE_DB_URL.
+// Keys by name only: RESEND_WEBHOOK_SECRET, DB_POOLER_URL (through _shared/db.ts connect()).
 // Answers: 405 METHOD (not POST); 500 CONFIG (the secret missing or not base64, or the database role); 401 SIGNATURE (and a security event); 200 { handled: false } or
 // { handled: true, suppressed: n } (n is 1 for an email id of ours, 0 for none); 500 SERVER. Tests: supabase/functions/test/mail-events.test.ts; the database side:
 // tenancy.test.sql T37.

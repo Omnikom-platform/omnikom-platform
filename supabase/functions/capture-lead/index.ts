@@ -6,17 +6,16 @@
 // and the new-lead alert is queued in mail_outbox, one row per address of sites.lead_alert_to (service.queue_lead_alert; never fails the
 // lead; one alert per lead: a retry of the same idempotency key queues nothing again). The mail-outbox function sends it (product row E4).
 // First proof target (DECISIONS 25): the ELEV8 preview form -> this -> staging database -> the owner's inbox.
-// Environment, read by name only: SUPABASE_DB_URL (set by Supabase for every function); the alert's Resend keys are mail-outbox's.
+// Environment, read by name only: DB_POOLER_URL (the transaction pooler, through _shared/db.ts connect()); the alert's Resend keys are mail-outbox's.
 // The path string this function sees equals what the endpoint signs (proven on staging 2026-10-30, step 2).
-// Step 3 (migration 8): the connection steps down to the role omnikom_fn right after it opens, so this code can only call
+// Step 3 (migration 8): every statement steps down to the role omnikom_fn in a transaction of its own, so this code can only call
 // service.* functions (no table read or write, 24-GAP-HUNT A 13.2.2); Vault, the alert recipients and "was this lead alerted"
 // come through service functions. A refusal is answered with its platform code and recorded in security_events.
 // Slice 4.3 (2026-10-31): a jsonb parameter is given the OBJECT, never JSON.stringify(object)::jsonb: postgres.js encodes a string given to a jsonb
 // parameter a second time, so answers, marketing consent and the security event's detail were stored as JSON strings (jsonb_typeof 'string').
 // Tests: supabase/functions/test/capture.test.ts. This file keeps its own `refusal` (visitor wording and the 'SITE' code differ from _shared/db.ts).
-import postgres from 'npm:postgres@3.4.5';
 import { verify } from '../_shared/signature.ts';
-import { answerProblem, type Sql } from '../_shared/db.ts';
+import { answerProblem, connect, type Sql } from '../_shared/db.ts';
 import { serve } from '../_shared/http.ts';
 
 const MAX_BODY = 16 * 1024;
@@ -98,9 +97,8 @@ export async function handle(req: Request): Promise<Response> {
   if (!UUID.test(site)) return problem(404, [{ code: 'SITE', path: '', msg: 'Not found.' }]);
   const body = await req.text();
   if (body.length > MAX_BODY) return problem(413, [{ code: 'SIZE', path: '', msg: 'Too large.' }]);
-  const dbUrl = Deno.env.get('SUPABASE_DB_URL');
-  if (!dbUrl) return problem(500, [{ code: 'CONFIG', path: '', msg: 'Not configured.' }]);
-  const sql: Sql = postgres(dbUrl, { max: 1, prepare: false });     // any: a jsonb parameter takes the object itself (see the header)
+  let sql: Sql;   // E6: the transaction pooler (DB_POOLER_URL), each statement stepped down in its own transaction
+  try { sql = await connect(); } catch { return problem(500, [{ code: 'CONFIG', path: '', msg: 'Not configured.' }]); }
   // a hash with the site id, never the address itself (Cloudflare's header first; X-Forwarded-For is a fallback for the first test)
   const ip = req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '';
   const ipHash = ip ? await sha256Hex(`${site}:${ip}`) : null;
@@ -112,8 +110,6 @@ export async function handle(req: Request): Promise<Response> {
     catch (e) { console.error('security event not recorded', String(e).slice(0, 200)); }
   };
   try {
-    // step down: from here on only service.* functions are reachable (migration 8); fail closed when the role is missing
-    try { await sql.unsafe('set role omnikom_fn'); } catch (e) { console.error('set role omnikom_fn failed', String(e).slice(0, 200)); return problem(500, [{ code: 'CONFIG', path: '', msg: 'Not configured.' }]); }
     // the site's live signing keys (never revoked or expired), read from Vault by the registry's name
     const keys = await sql`select id, secret from service.site_signing_secrets(${site}::uuid)`;
     const header = req.headers.get('x-site-signature');

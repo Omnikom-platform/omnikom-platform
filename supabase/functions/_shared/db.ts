@@ -1,7 +1,9 @@
 // The database door of every dashboard and runner function (slice 4.2). The pattern of capture-lead, moved here and widened:
-//  * connect(): one connection (max 1, prepare false), and the very next statement is `set role omnikom_fn` (migration 8): from there
-//    on only service.* functions can be called, no table is readable or writable (ASVS 13.2.2). Fail closed: when the step-down
-//    fails the connection is closed and ConfigError is thrown, and the caller answers 500 CONFIG. Nothing is ever run as postgres.
+//  * connect(): one connection (max 1, prepare false) to DB_POOLER_URL, the Supabase transaction pooler (product row E6, rule 31);
+//    SUPABASE_DB_URL is read nowhere. Every statement runs in a transaction of its own that first steps down to the role
+//    omnikom_fn (migration 8, stepDown): only service.* functions can be called, no table is readable or writable (ASVS 13.2.2).
+//    Fail closed: without DB_POOLER_URL ConfigError is thrown (500 CONFIG); a step-down that fails ends its statement's transaction
+//    (500 SERVER). Nothing is ever run as postgres.
 //  * withDb(fn): connect, run, and always close (end with a 2 second timeout).
 //  * refusal(message): what the database said no to, as a platform code, an HTTP status and plain words. The words are fixed here
 //    (S-STALE and S-LIMIT keep a checked sentence); the database message is never echoed (it can name a field or a value).
@@ -13,17 +15,22 @@ import postgres from 'npm:postgres@3.4.5';
 export type Sql = any;
 export class ConfigError extends Error {}
 
+// E6, rule 31: a transaction pooler hands each transaction any free server connection, so nothing may live in the session.
+// Every statement runs in a transaction of its own that steps down first.
+// Only a statement, `begin`, `array` and `end` are offered (no top-level `unsafe`).
+export function stepDown(base: Sql): Sql {
+  const inTx = (run: (tx: Sql) => Promise<unknown>) => base.begin(async (tx: Sql) => {
+    await tx.unsafe('set local role omnikom_fn');
+    return await run(tx);
+  });
+  return Object.assign((strings: TemplateStringsArray, ...values: unknown[]) => inTx((tx: Sql) => tx(strings, ...values)),
+    { begin: (run: (tx: Sql) => Promise<unknown>) => inTx(run), array: (...a: unknown[]) => base.array(...a), end: (o?: unknown) => base.end(o) });
+}
+
 export async function connect(): Promise<Sql> {
-  const url = Deno.env.get('SUPABASE_DB_URL');
-  if (!url) throw new ConfigError('SUPABASE_DB_URL is not set');
-  const sql = postgres(url, { max: 1, prepare: false });
-  try {
-    await sql.unsafe('set role omnikom_fn');
-  } catch (e) {
-    await sql.end({ timeout: 2 }).catch(() => {});
-    throw new ConfigError('could not step down to omnikom_fn: ' + String(e).slice(0, 160));
-  }
-  return sql;
+  const url = Deno.env.get('DB_POOLER_URL');
+  if (!url) throw new ConfigError('DB_POOLER_URL is not set');
+  return stepDown(postgres(url, { max: 1, prepare: false }));
 }
 
 export async function withDb<T>(fn: (sql: Sql) => Promise<T>): Promise<T> {
@@ -117,7 +124,7 @@ export async function recordEvent(sql: Sql, kind: string, code: string, o: { wor
 /** Run `fn` on a transaction that acts as the CALLER under Row Level Security (slice 5.2: lead-export reads leads the way the dashboard would).
  *  The connection has stepped down to omnikom_fn (no table is readable); inside this transaction only, it takes the role `authenticated` and the
  *  caller's verified claims, which is exactly the state a signed-in browser's request has, so every policy answers as it does for that person.
- *  `set local` ends with the transaction: afterwards the connection is omnikom_fn again. SET ROLE is checked against the session user (postgres),
+ *  `set local` ends with the transaction; the next statement steps down again in its own (stepDown). SET ROLE is checked against the session user (postgres),
  *  which Supabase makes a member of authenticated; fail closed if it is not (the statement throws and nothing is read). */
 export async function asCaller<T>(sql: Sql, claims: { sub: string; aal: string; role: string; email: string | null }, fn: (tx: Sql) => Promise<T>): Promise<T> {
   return await sql.begin(async (tx: Sql) => {
