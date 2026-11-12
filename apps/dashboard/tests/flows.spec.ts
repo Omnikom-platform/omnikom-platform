@@ -639,7 +639,7 @@ test.describe('the CRM block 3b screens as an agent', () => {
 // ---- Settings (work order 08; DP-1.6-01 to -20) ----
 // Staging, workspace A. The owner sees the five cards, saves alert addresses and reads them back, sees the inline error for a bad line, and (with an
 // address the head names in SETTINGS_INVITE_EMAIL: a real mail goes out through Auth, so only to that address) invites a person, sees them in the list
-// and removes them through the sheet. The alert addresses are put back as they were, in a finally. An agent sees only Your account and Sign out everywhere.
+// and removes them through the sheet, checking the exact sentence of DP-1.6-14; a finally removes the person whatever failed. The alert addresses are put back as they were, in a finally. An agent sees only Your account and Sign out everywhere.
 // Sign out everywhere ends EVERY session of the login, so it runs as member-a2 on a FRESH sign-in (no other spec uses member-a2's saved state).
 const settingsUrl = `/w/${WS.a.slug}/settings`;
 const cards = (page: Page) => ({
@@ -728,26 +728,39 @@ test.describe('settings: the owner', () => {
   test('owner-a invites a person, sees them in the list and removes them through the sheet (only with SETTINGS_INVITE_EMAIL: a real mail goes out)', async ({ page }) => {
     const invite = process.env.SETTINGS_INVITE_EMAIL ?? '';
     test.skip(!invite, 'SETTINGS_INVITE_EMAIL is not set: the head names the one address a real invite may go to');
-    await page.goto(settingsUrl);
-    await expect(cards(page).people).toBeVisible();
-    await page.getByLabel('Email', { exact: true }).fill('not-an-address');
-    await page.getByRole('button', { name: 'Send invite', exact: true }).click();
-    await expect(page.getByRole('alert').filter({ hasText: 'Enter a full email address.' })).toBeVisible();
-    await page.getByLabel('Email', { exact: true }).fill(invite);
-    await page.getByRole('button', { name: 'Send invite', exact: true }).click();
-    await expect(page.getByRole('status').filter({ hasText: invite.toLowerCase() })).toBeVisible();
-    const row = page.getByRole('listitem').filter({ hasText: invite.toLowerCase() });
-    await expect(row).toBeVisible();
-    await expect(row.getByRole('button', { name: 'Remove', exact: true })).toBeVisible();
-    await row.getByRole('button', { name: 'Remove', exact: true }).click();
-    await expect(page.getByRole('dialog')).toContainText('Their leads and edits stay.');
-    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
-    await expect(row).toBeVisible();   // Cancel removes nobody
-    await row.getByRole('button', { name: 'Remove', exact: true }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Remove', exact: true }).click();
-    await expect(page.getByRole('listitem').filter({ hasText: invite.toLowerCase() })).toHaveCount(0);
-    // your own row has no Remove
-    await expect(page.getByRole('listitem').filter({ hasText: PEOPLE['owner-a'].email }).getByRole('button', { name: 'Remove' })).toHaveCount(0);
+    const token = await personAccessToken('owner-a');   // the finally removes the person as owner-a, through the functions
+    await installMutant(page, 'mail-not-sent');
+    await installMutant(page, 'remove-refused');
+    try {
+      await page.goto(settingsUrl);
+      await expect(cards(page).people).toBeVisible();
+      await page.getByLabel('Email', { exact: true }).fill('not-an-address');
+      await page.getByRole('button', { name: 'Send invite', exact: true }).click();
+      await expect(page.getByRole('alert').filter({ hasText: 'Enter a full email address.' })).toBeVisible();
+      await page.getByLabel('Email', { exact: true }).fill(invite);
+      await page.getByRole('button', { name: 'Send invite', exact: true }).click();
+      await expect(page.getByRole('status').filter({ hasText: invite.toLowerCase() })).toHaveText(`Invite sent to ${invite.toLowerCase()}.`);   // DP-1.6-14: Auth said the mail went
+      const row = page.getByRole('listitem').filter({ hasText: invite.toLowerCase() });
+      await expect(row).toBeVisible();
+      await expect(row.getByRole('button', { name: 'Remove', exact: true })).toBeVisible();
+      await row.getByRole('button', { name: 'Remove', exact: true }).click();
+      await expect(page.getByRole('dialog')).toContainText('Their leads and edits stay.');
+      await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+      await expect(row).toBeVisible();   // Cancel removes nobody
+      await row.getByRole('button', { name: 'Remove', exact: true }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Remove', exact: true }).click();
+      await expect(page.getByRole('listitem').filter({ hasText: invite.toLowerCase() })).toHaveCount(0);
+      // your own row has no Remove
+      await expect(page.getByRole('listitem').filter({ hasText: PEOPLE['owner-a'].email }).getByRole('button', { name: 'Remove' })).toHaveCount(0);
+    } finally {
+      // the invited person is never left a member of workspace A, whatever failed above: found by address in owner-a's team list (S1-C)
+      const listed = await callAs(token, 'team-list', { workspace: WS.a.id });
+      const left = ((listed.json as { members?: { user: string; email: string }[] } | null)?.members ?? []).find(m => m.email.toLowerCase() === invite.toLowerCase());
+      if (left) {
+        const out = await callAs(token, 'member-remove', { workspace: WS.a.id, user: left.user });
+        expect(out.status, 'the finally removed the invited person: ' + out.text).toBe(200);
+      }
+    }
   });
 });
 
