@@ -10,7 +10,7 @@ SWITCHES.add('staged');   // impact, ci: the tree of the index
 // Flags that were renamed: a wrapped tool that is given the old spelling is told the new one (lib/wrap.mjs also refuses a row that declares one).
 export const RETIRED = { dry: 'dry-run' };
 
-// With `declared` (a wrapped tool's flags: name to { value: true | false }) only those flags and --help are accepted; without it, as always.
+// With `declared` (a wrapped tool's flags: name to { value: true | false }) only those flags and --help are accepted, and a flag that takes a value may be given once; without it, as always.
 export function parseArgs(argv, declared) {
   const positionals = [];
   const flags = {};
@@ -24,6 +24,7 @@ export function parseArgs(argv, declared) {
       if (name === 'help') { flags[name] = true; continue; }
       if (!Object.prototype.hasOwnProperty.call(declared, name)) throw new Usage(`unknown flag --${name}${Object.prototype.hasOwnProperty.call(RETIRED, name) ? `; the spelling is --${RETIRED[name]}` : ''}`);
       if (!declared[name].value) { flags[name] = true; continue; }
+      if (Object.prototype.hasOwnProperty.call(flags, name)) throw new Usage(`--${name} is given twice`);   // the guard reads the last, a script may read the first
       const given = eq > 0 ? a.slice(eq + 1) : argv[i + 1];
       if (given === undefined || (eq < 0 && given.startsWith('--'))) throw new Usage(`--${name} needs a value`);
       if (eq < 0) i++;

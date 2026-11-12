@@ -1,18 +1,22 @@
 // Tests for the CLI's thin wrap (P3.3 B1): lib/wrap.mjs (mapExit, runWrapped, help) and the registry path of omnikom.mjs, over a fake script.
 // The fake script lives in a temp folder that plays the repo root (deps.repo), so nothing here starts a real tool. The code under test is loaded
 // ONLY through `lib`, `cli` and an import of the omnikom.mjs of CLI_ROOT: test/mutate.mjs runs this suite against a broken COPY of the CLI.
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { randomBytes } from 'node:crypto';
 
-// echo.mjs <exit code> [--skipped] [--sleep <seconds>] [--secret] [--raw-err] [more]: argv on stdout, err:fake on stderr, then the code;
-// --secret also prints the variable SOME_SECRET_KEY on both streams, --raw-err ends stderr without a line end
-const FAKE = String.raw`const a = process.argv.slice(2);
+// echo.mjs <exit code> [--skipped] [--sleep <seconds>] [--secret] [--raw-err] [--big] [more]: argv on stdout, err:fake on stderr, then the code;
+// --secret also prints the variable SOME_SECRET_KEY on both streams, --raw-err ends stderr without a line end, --big first prints 2 MB of x lines;
+// when the variable FAKE_MARK names a file, the first thing the script does is write the word started into it (so a test can tell that it ran)
+const FAKE = String.raw`import { writeFileSync } from 'node:fs';
+if (process.env.FAKE_MARK) writeFileSync(process.env.FAKE_MARK, 'started');
+const a = process.argv.slice(2);
 const at = a.indexOf('--sleep');
 const wait = at >= 0 ? Number(a[at + 1]) * 1000 : 0;
 setTimeout(() => {
+  if (a.includes('--big')) process.stdout.write(('x'.repeat(1023) + '\n').repeat(2048));
   process.stdout.write('argv:' + JSON.stringify(a) + '\n');
   process.stderr.write(a.includes('--raw-err') ? 'err:fake' : 'err:fake\n');
   if (a.includes('--secret')) {
@@ -51,6 +55,9 @@ export async function wrapTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     writeFileSync(join(root, 'tools', 'fake', 'echo.mjs'), FAKE);
     const run = async args => (await runWrapped('fake run', ROW, args, { env, repo: root })).data;
     const argvLine = a => `argv:${JSON.stringify(a)}\n`;
+    // a call of the CLI with FAKE_MARK in its environment: the marker file is removed first, and `started` says afterwards whether the fake script ran
+    const MARK = join(root, 'started.txt');
+    const go = async (argv, deps) => { rmSync(MARK, { force: true }); const r = await cli(argv, { FAKE_MARK: MARK }, deps); return { ...r, started: existsSync(MARK) }; };
 
     // W1 the exit table
     const m = [[0, ''], [1, ''], [2, ''], [3, ''], [4, 'SKIPPED: x'], [4, 'done'], [124, ''], [127, ''], [130, ''], [143, ''], [9, ''], [null, '']].map(([c, l]) => mapExit(c, l));
@@ -94,9 +101,9 @@ export async function wrapTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     check('wrap: the CLI exits with the mapped code (3 stays, 124 is 1)', r9a.exit === 3 && r9b.exit === 1, `${r9a.exit} ${r9b.exit}`);
 
     // W10 a flag the row does not declare is refused before the script starts
-    const r10a = await cli(['fake', 'run', '0', '--nope', '1'], {}, DEPS), r10b = await cli(['fake', 'run', '0', '--dry'], {}, DEPS);
+    const r10a = await go(['fake', 'run', '0', '--nope', '1'], DEPS), r10b = await go(['fake', 'run', '0', '--dry'], DEPS);
     check('wrap: an undeclared flag is a usage error (exit 2), a retired one names its new spelling, and the script is not started',
-      r10a.exit === 2 && r10a.json && r10a.json.code === 'USAGE' && r10a.json.error === 'unknown flag --nope' && r10b.exit === 2 && r10b.json && r10b.json.code === 'USAGE' && r10b.json.error === 'unknown flag --dry; the spelling is --dry-run' && !r10a.all.includes('argv:') && !r10b.all.includes('argv:'), `${r10a.all} ${r10b.all}`);
+      r10a.exit === 2 && r10a.json && r10a.json.code === 'USAGE' && r10a.json.error === 'unknown flag --nope' && r10b.exit === 2 && r10b.json && r10b.json.code === 'USAGE' && r10b.json.error === 'unknown flag --dry; the spelling is --dry-run' && !r10a.all.includes('argv:') && !r10b.all.includes('argv:') && !r10a.started && !r10b.started, `${r10a.all} ${r10b.all} ${r10a.started} ${r10b.started}`);
 
     // W11 the row's own help, two ways
     const h1 = await cli(['fake', 'run', '--help'], {}, DEPS), h2 = await cli(['help', 'fake', 'run'], {}, DEPS);
@@ -109,9 +116,9 @@ export async function wrapTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     check('wrap: the global help lists a line per row (usage and summary) after the engine\'s lines, and no row adds no line',
       g1.json && g1.json.usage.length === USAGE.length + 3 && g1.json.usage.some(l => l.includes('omnikom fake run <code>') && l.includes('A fake tool for the wrap tests')) && g2.json && g2.json.usage.length === USAGE.length, JSON.stringify([g1.json && g1.json.usage.length, g2.json && g2.json.usage.length, USAGE.length]));
 
-    // W13 a two-word row wins over an engine command, an engine verb that is no row still reaches the engine
-    const r13a = await cli(['seo', 'fake', '0'], {}, DEPS), r13b = await cli(['seo', 'status', '--json'], {}, DEPS);
-    check('wrap: a two-word row under an engine word is run, and an engine verb that is no row still reaches the engine', r13a.stdout.startsWith('argv:') && r13b.json && r13b.json.code === 'USAGE' && String(r13b.json.error).includes('needs the site\'s url'), `${r13a.all} ${r13b.all}`);
+    // W13 a row under an engine's first word is never taken, the engine answers (also for an engine verb that is no row)
+    const r13a = await go(['seo', 'fake', '0'], DEPS), r13b = await cli(['seo', 'status', '--json'], {}, DEPS);
+    check('wrap: a row under an engine\'s first word is never taken, the engine answers', !r13a.stdout.startsWith('argv:') && !r13a.started && r13b.json && r13b.json.code === 'USAGE' && String(r13b.json.error).includes('needs the site\'s url'), `${r13a.all} ${r13a.started} ${r13b.all}`);
 
     // W14 a one-word row runs, but an engine word wins over a one-word row
     const r14a = await cli(['solo', '0'], {}, DEPS);
@@ -126,21 +133,63 @@ export async function wrapTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
       p0.flags.site === 'x' && p0.flags.retry === true && p1.flags.out === 'd' && p1.flags.json === true && throws(() => parseArgs(['x', '--out'], { out: { value: true } }), Usage) && p2.flags.help === true, JSON.stringify([p0, p1, p2]));
 
     // W16 the production guard stands before a wrapped script: --target production is BLOCKED and the script is not started
-    const r16 = await cli(['fake', 'run', '0', '--target', 'production'], {}, DEPS);
-    check('wrap: --target production on a wrapped tool is BLOCKED (exit 3) and the script is not started', r16.exit === 3 && r16.json && r16.json.code === 'BLOCKED' && !r16.stdout.includes('argv:'), r16.all);
+    const r16 = await go(['fake', 'run', '0', '--target', 'production'], DEPS);
+    check('wrap: --target production on a wrapped tool is BLOCKED (exit 3) and the script is not started', r16.exit === 3 && r16.json && r16.json.code === 'BLOCKED' && !r16.stdout.includes('argv:') && !r16.started, `${r16.all} ${r16.started}`);
 
     // W17 the wrapped output is redacted: a secret the script prints on either stream is masked
     const S = randomBytes(24).toString('hex');
     const r17 = await cli(['fake', 'run', '0', '--secret'], { SOME_SECRET_KEY: S }, DEPS);
     check('wrap: a secret variable the script prints on stdout and on stderr never comes out of the CLI', r17.exit === 0 && r17.stdout.includes('secret:') && !r17.stdout.includes(S) && !r17.stderr.includes(S), `${r17.exit} ${r17.stdout.includes('secret:')} ${r17.stdout.includes(S)} ${r17.stderr.includes(S)}`);
 
-    // W18 a wrapped tool's own errors print as the CLI's JSON object, also under an engine word that prints text lines
-    const r18 = await cli(['seo', 'fake', '0', '--nope', '1'], {}, DEPS);
-    check('wrap: a usage error of a wrapped tool under an engine word (seo fake) is the JSON object, exit 2, not a text line', r18.exit === 2 && r18.json !== null && r18.json.code === 'USAGE' && r18.json.error === 'unknown flag --nope', r18.all);
+    // W18 a valued flag given twice is refused: the guard reads the last --target, a script may read the first
+    const r18 = await go(['fake', 'run', '0', '--target', 'staging', '--target', 'production'], DEPS);
+    check('wrap: a valued flag given twice (--target staging --target production) is a usage error (exit 2), and the script is not started', r18.exit === 2 && r18.json !== null && r18.json.code === 'USAGE' && r18.json.error === '--target is given twice' && !r18.started, `${r18.all} ${r18.started}`);
 
     // W19 the line the wrap adds starts on a line of its own, also when the script's stderr has no line end
     const d19 = await run(['4', '--raw-err']);
     check('wrap: when the script\'s stderr does not end with a line end, the line the wrap adds still starts on its own line', d19.stderr === 'err:fake\nomnikom fake run: the script exited 4; exit 1\n', JSON.stringify(d19));
+
+    // W20 the control for the "script not started" checks: the marker does appear when the script starts
+    const r20 = await go(['fake', 'run', '0'], DEPS);
+    check('wrap: a plain call starts the script, and the marker file shows it (the control of the checks that say the script was not started)', r20.exit === 0 && r20.started, `${r20.all} ${r20.started}`);
+
+    // W21 --target must be exactly staging, production or local, as written: no change of case, no trimming, no short form
+    const r21 = [];
+    for (const t of ['PRODUCTION', ' production ', 'prod']) r21.push(await go(['fake', 'run', '0', '--target', t], DEPS));
+    const r21s = await go(['fake', 'run', '0', '--target', 'staging'], DEPS);
+    check('wrap: a --target that is not exactly staging, production or local (PRODUCTION, " production ", prod) is a usage error and the script is not started; staging runs',
+      r21.every(r => r.exit === 2 && r.json && r.json.code === 'USAGE' && r.json.error === '--target must be one of staging, production, local' && !r.started) && r21s.exit === 0 && r21s.started, JSON.stringify([r21.map(r => [r.exit, r.all, r.started]), r21s.exit, r21s.started]));
+
+    // W22 output past proc-guard's cap: the run is stopped, and the line says so
+    const d22 = (await runWrapped('fake run', ROW, ['0', '--big'], { env, repo: root, maxBuffer: 1024 * 1024 })).data;
+    check('wrap: a script whose output passes the limit is stopped: childExit 143, exit 1, and the line says the output passed the limit',
+      d22.exit === 1 && d22.childExit === 143 && d22.stderr.endsWith('omnikom fake run: the script exited 143 (stopped: its output passed the limit); exit 1\n'), JSON.stringify({ exit: d22.exit, childExit: d22.childExit, stdoutLength: d22.stdout.length, stderr: d22.stderr }));
+
+    // W23 help alone is the global help, as --help is, and --json is honoured
+    const h23a = await cli(['help'], {}, DEPS), h23b = await cli(['help', '--json'], {}, DEPS);
+    check('wrap: help alone is the global help (exit 0, command help, a line per row), also with --json, which prints it on one line',
+      [h23a, h23b].every(r => r.exit === 0 && r.json && r.json.command === 'help' && r.json.usage.length === USAGE.length + 3) && h23b.stdout.trim().split('\n').length === 1, `${h23a.all} ${h23b.all}`);
+
+    // W24 help <words>: an unknown name is a usage error, an engine word is the global help
+    const h24a = await cli(['help', 'nope'], {}, DEPS), h24b = await cli(['help', 'status'], {}, DEPS);
+    check('wrap: help nope is a usage error (unknown command \'nope\'), help status (an engine word) is the global help', h24a.exit === 2 && h24a.json && h24a.json.code === 'USAGE' && h24a.json.error === 'unknown command \'nope\'' && h24b.exit === 0 && h24b.json && h24b.json.command === 'help', `${h24a.all} ${h24b.all}`);
+
+    // W24b the command table has only its own names: a word every object answers to (constructor, toString, __proto__) is an unknown command, alone and under help
+    const h24c = [];
+    for (const a of [['constructor'], ['toString'], ['__proto__'], ['help', 'constructor']]) {
+      try { h24c.push(await cli(a, {}, DEPS)); } catch (e) { h24c.push({ exit: -1, json: null, all: `threw: ${e.message}` }); }   // a table that inherits makes the CLI itself throw
+    }
+    check('wrap: constructor, toString and __proto__ are unknown commands (a usage error), alone and under help', h24c.every(r => r.exit === 2 && r.json && r.json.code === 'USAGE' && /^unknown command '/.test(r.json.error)), h24c.map(r => r.all).join(' '));
+
+    // W25 a row's help is redacted like all output (the secret sits in the row's own summary)
+    const S25 = randomBytes(24).toString('hex');
+    const rows25 = withRows({ 'fake run': { ...ROW, summary: 'Fake ' + S25 } });
+    const h25a = await cli(['help', 'fake', 'run'], { SOME_SECRET_KEY: S25 }, rows25), h25b = await cli(['fake', 'run', '--help'], { SOME_SECRET_KEY: S25 }, rows25);
+    check('wrap: a secret in a row\'s help text never comes out of help <name> or --help', [h25a, h25b].every(r => r.exit === 0 && r.stdout.includes('usage:') && !r.stdout.includes(S25)), JSON.stringify([h25a, h25b].map(r => [r.exit, r.stdout.includes('usage:'), r.stdout.includes(S25)])));
+
+    // W26 a script that is a folder is BLOCKED, like a script that is not there
+    const r26 = await cli(['fake', 'run', '0'], {}, withRows({ 'fake run': { ...ROW, script: 'tools/fake' } }));
+    check('wrap: a row whose script is a folder is BLOCKED (exit 3) and the message names it', r26.exit === 3 && r26.json && r26.json.code === 'BLOCKED' && String(r26.json.error).includes('tools/fake'), r26.all);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

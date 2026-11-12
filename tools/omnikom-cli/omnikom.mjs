@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { isatty } from 'node:tty';
 import { parseArgs } from './lib/args.mjs';
 import { Usage, Blocked } from './lib/errors.mjs';
-import { guardProduction } from './lib/target.mjs';
+import { guardProduction, TARGET_NAMES } from './lib/target.mjs';
 import { makeCtx } from './lib/ctx.mjs';
 import { render, redact, clearRuntimeSecrets } from './lib/redact.mjs';
 import { status } from './commands/status.mjs';
@@ -31,10 +31,11 @@ import { journeyText } from './commands/journey.mjs';
 import { seoGroup, seoText } from './commands/seo.mjs';
 import { loadRegistry, findRow, runWrapped, helpText } from './lib/wrap.mjs';
 
-const COMMANDS = { status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate, tools: toolsGroup, ci, impact, land, hooks: hooksGroup, seo: seoGroup };
+// both tables are looked up by a word the user typed, so they inherit nothing: constructor, toString or __proto__ is an unknown command, not a hit
+const COMMANDS = { __proto__: null, status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate, tools: toolsGroup, ci, impact, land, hooks: hooksGroup, seo: seoGroup };
 export const COMMAND_NAMES = Object.keys(COMMANDS);
 // the commands that print text lines by default (with --json: the result object), and the ones that talk to no target
-const TEXT = { impact: impactText, land: landText, hooks: hooksText, seo: seoText };
+const TEXT = { __proto__: null, impact: impactText, land: landText, hooks: hooksText, seo: seoText };
 const NO_TARGET = new Set(['impact', 'land', 'hooks', 'seo']);
 export const USAGE = [
   'status | apply [--dry-run] | test walls | verify --only lead|walls|people | mfa enroll-staff',
@@ -66,20 +67,31 @@ export async function main(argv, deps = {}) {
   let parsed = { positionals: [], flags: {} };
   const name = () => [parsed.positionals[0], parsed.positionals[1]].filter(Boolean).join(' ');
   try {
-    // the registry path (lib/wrap.mjs): a tool in registry.json is run as it is; a row of two words always wins, a row of one word only when no engine command has that name
+    // the registry path (lib/wrap.mjs): a tool in registry.json is run as it is, but a row is taken only when its first word is no engine command (an engine command always wins; checkRegistry calls such a row a NAME problem)
     const words = [];
     for (const a of argv) { if (a.startsWith('--')) break; words.push(a); }
     const registry = loadRegistry(deps);
-    if (words[0] === 'help' && words.length > 1) {
-      const helped = findRow(registry, words.slice(1));
-      if (helped) return { exit: 0, stdout: helpText(helped.name, helped.row), stderr: '' };
+    if (words[0] === 'help') {
+      // help alone is the global help, as --help is; help <words> is an engine's global help, else a row's help, else an unknown name
+      if (words.length === 1) {
+        parsed = parseArgs(argv.slice(1));
+        return finish({ ok: true, command: 'help', code: 'ok', exit: 0, usage: usageWith(registry) });
+      }
+      if (!COMMANDS[words[1]]) {
+        const helped = findRow(registry, words.slice(1));
+        if (!helped) throw new Usage(`unknown command '${words.slice(1).join(' ')}'`);
+        return { exit: 0, stdout: redact(helpText(helped.name, helped.row), env), stderr: '' };
+      }
       return finish({ ok: true, command: 'help', code: 'ok', exit: 0, usage: usageWith(registry) });
     }
     const hit = findRow(registry, words);
-    if (hit && (hit.used === 2 || !COMMANDS[words[0]])) {
+    if (hit && !COMMANDS[words[0]]) {
       wrapped = true;
       parsed = parseArgs(argv, hit.row.flags || {});
-      if (parsed.flags.help) return { exit: 0, stdout: helpText(hit.name, hit.row), stderr: '' };
+      if (parsed.flags.help) return { exit: 0, stdout: redact(helpText(hit.name, hit.row), env), stderr: '' };
+      // only the three names reach the guard, and only local and staging reach a script: no other spelling (PRODUCTION, a padded value, a switch) is passed on
+      const target = parsed.flags.target;
+      if (target !== undefined && !TARGET_NAMES.includes(target)) throw new Usage('--target must be one of ' + TARGET_NAMES.join(', '));
       guardProduction(parsed.flags.target, hit.name, parsed.flags);
       const res = await runWrapped(hit.name, hit.row, argv.slice(hit.used), { env, repo: deps.repo });
       return { exit: res.data.exit, stdout: redact(res.data.stdout, env), stderr: redact(res.data.stderr, env) };

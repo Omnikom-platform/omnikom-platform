@@ -2,7 +2,7 @@
 // arguments, passes its output back untouched, maps its exit code (the table in mapExit), prints the row's own help and checks the registry.
 // The wrap adds no logic of its own: whatever the script prints and exits with is the answer, except that one line is added to stderr when
 // the exit code was changed or the script gave none, so the person can see why.
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { CLI_DIR, REPO, importRepo } from './repo.mjs';
 import { Blocked } from './errors.mjs';
@@ -42,14 +42,19 @@ export function mapExit(childExit, lastLine) {
   return 1;   // everything else: a time-out (124), a stop (130, 143), any other number, no number
 }
 
-export async function runWrapped(name, row, args, { env, repo } = {}) {
+// maxBuffer (bytes) is for tests: the cap on the script's output, handed to proc-guard instead of its own
+export async function runWrapped(name, row, args, { env, repo, maxBuffer } = {}) {
   const script = join(repo || REPO, row.script);
-  if (!existsSync(script)) throw new Blocked(`the script of '${name}' is not at ${row.script}`, 'restore it from git, or correct its row in tools/omnikom-cli/registry.json');
+  let isFile = false;
+  try { isFile = statSync(script).isFile(); } catch { isFile = false; }
+  if (!isFile) throw new Blocked(`the script of '${name}' is not at ${row.script}`, 'restore it from git, or correct its row in tools/omnikom-cli/registry.json');
   const guard = await importRepo('tools/proc-guard/index.mjs');
-  const r = await guard.runLimited(process.execPath, [script, ...args], { cwd: repo || REPO, env, timeout: (row.timeoutMinutes || 10) * 60000 });
+  const r = await guard.runLimited(process.execPath, [script, ...args], { cwd: repo || REPO, env, timeout: (row.timeoutMinutes || 10) * 60000, ...(typeof maxBuffer === 'number' ? { maxBuffer } : {}) });
   let childExit, why = '', gave = true;
   // the time limit is read first: on Windows the tree kill ends the script with the number 1, and that is not the script's own answer
   if (r.timedOut) { childExit = 124; why = ' (timed out)'; gave = false; }
+  // proc-guard stops a script whose output passes its cap and reports that as an error; the tree kill hides the script's own code the same way
+  else if (r.error && r.error.message === 'maxBuffer exceeded') { childExit = 143; why = ' (stopped: its output passed the limit)'; gave = false; }
   else if (typeof r.status === 'number') childExit = r.status;
   else {
     gave = false;
@@ -80,6 +85,7 @@ export function helpText(name, row) {
 }
 
 const NAME = /^[a-z][a-z0-9-]*( [a-z][a-z0-9-]*)?$/;
+const FLAG_NAME = /^[a-z][a-z0-9-]*$/;
 const PART = /^[A-Za-z0-9._-]+$/;
 const isPath = p => typeof p === 'string' && p.split('/').every(x => PART.test(x) && x !== '..');
 const isText = t => typeof t === 'string' && t.trim() !== '';
@@ -95,7 +101,8 @@ export function checkRegistry(registry, { repo, commandFiles, engineCommands }) 
   for (const [name, row] of Object.entries(registry.commands || {})) {
     const p = (kind, why) => problems.push(`${kind} ${name}: ${why}`);
     if (!NAME.test(name)) p('NAME', 'the name must be one or two lowercase words (letters, digits, hyphens)');
-    else if (!name.includes(' ') && (engineCommands || []).includes(name)) p('NAME', 'an engine command has this name, and the engine wins over a one-word row');
+    else if (name.split(' ')[0] === 'help') p('NAME', 'help is the CLI\'s own word');
+    else if ((engineCommands || []).includes(name.split(' ')[0])) p('NAME', 'an engine command has this first word, and the engine always wins');
     if (!isObject(row)) { p('HELP', 'the row is not an object'); continue; }
     const fileProblem = field => {
       if (!isPath(row[field])) return `${field} must be a repo-relative path of letters, digits, . _ - joined by /, with no .. part`;
@@ -113,6 +120,8 @@ export function checkRegistry(registry, { repo, commandFiles, engineCommands }) 
       [typeof row.summary !== 'string' || row.summary.trim().length < 1 || row.summary.length > 100 || /[\r\n]/.test(row.summary), 'summary must be one line of 1 to 100 characters'],
       [usageBad, `usage must start with 'omnikom ${name}'`],
       [exampleBad, `example must start with 'omnikom ${name}'`],
+      [typeof row.usage === 'string' && /[\r\n]/.test(row.usage), 'usage must be one line'],
+      [typeof row.example === 'string' && /[\r\n]/.test(row.example), 'example must be one line'],
       [!isText(row.output), 'output must say what the tool prints'],
       [row.args !== undefined && typeof row.args !== 'string', 'args must be text'],
       [exitsBad, 'exits must be an object with a key 0, only keys 0 to 3, and a text for each'],
@@ -124,9 +133,12 @@ export function checkRegistry(registry, { repo, commandFiles, engineCommands }) 
       if (flagsBad) p('FLAGS', 'flags must be an object of { value: <true or false>, help: <text> }');
     }
     if (isObject(row.flags)) {
+      if (Object.keys(row.flags).some(f => !FLAG_NAME.test(f) || f === 'help')) p('FLAGS', 'a flag name must be lowercase letters, digits and hyphens, and not help');
+      if (own(row.flags, 'target') && isObject(row.flags.target) && row.flags.target.value !== true) p('FLAGS', '--target must take a value');
       const old = Object.keys(row.flags).find(f => own(RETIRED, f));
       if (old) p('RETIRED-FLAG', `--${old} is retired; the spelling is --${RETIRED[old]}`);
     }
+    if (row.timeoutMinutes !== undefined && !(typeof row.timeoutMinutes === 'number' && row.timeoutMinutes > 0 && row.timeoutMinutes <= 120)) p('TIMEOUT', 'timeoutMinutes must be a number above 0 and at most 120');
     if (!usageBad && !exampleBad && !flagsBad) {
       try { parseArgs(row.example.slice(`omnikom ${name}`.length).split(/\s+/).filter(Boolean), isObject(row.flags) ? row.flags : {}); } catch (e) { p('EXAMPLE', `the example does not parse with the row's flags: ${e.message}`); }
     }

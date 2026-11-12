@@ -791,6 +791,12 @@ const MUTANTS = [
   ['[wrap] a row\'s script is not checked by checkRegistry', 'lib/wrap.mjs', "if (s) p('SCRIPT', s);", "if (false) p('SCRIPT', s);", 'unit'],
   ['[wrap] the wrapped path skips the production guard', 'omnikom.mjs', '      guardProduction(parsed.flags.target, hit.name, parsed.flags);\n', '', 'unit'],
   ['[wrap] the wrapped output is not redacted', 'omnikom.mjs', 'stdout: redact(res.data.stdout, env), stderr: redact(res.data.stderr, env) };', 'stdout: res.data.stdout, stderr: res.data.stderr };', 'unit'],
+  ['[wrap] the production guard runs after the script has started', 'omnikom.mjs', [['      guardProduction(parsed.flags.target, hit.name, parsed.flags);\n', ''], ['      const res = await runWrapped(hit.name, hit.row, argv.slice(hit.used), { env, repo: deps.repo });\n', '      const res = await runWrapped(hit.name, hit.row, argv.slice(hit.used), { env, repo: deps.repo });\n      guardProduction(parsed.flags.target, hit.name, parsed.flags);\n']], null, 'unit'],
+  ['[wrap] a row may take an engine\'s first word', 'omnikom.mjs', 'if (hit && !COMMANDS[words[0]]) {', 'if (hit) {', 'unit'],
+  ['[wrap] any --target value reaches the guard and the script', 'omnikom.mjs', 'if (target !== undefined && !TARGET_NAMES.includes(target)) throw new Usage(', 'if (false) throw new Usage(', 'unit'],
+  ['[wrap] a valued flag given twice is accepted', 'lib/args.mjs', 'if (Object.prototype.hasOwnProperty.call(flags, name)) throw new Usage(', 'if (false) throw new Usage(', 'unit'],
+  ['[wrap] the command table answers to every object\'s names (constructor, toString)', 'omnikom.mjs', 'const COMMANDS = { __proto__: null, ', 'const COMMANDS = { ', 'unit'],
+  ['[wrap] the text table answers to every object\'s names (the CLI throws on __proto__)', 'omnikom.mjs', 'const TEXT = { __proto__: null, ', 'const TEXT = { ', 'unit'],
 ];
 
 const list = pickMutants(shardMutants(MUTANTS, shard), only);   // sharded by the index in the whole list, then narrowed by --only

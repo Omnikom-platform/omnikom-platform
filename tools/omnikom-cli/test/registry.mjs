@@ -20,7 +20,7 @@ export async function registryTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
   };
   const renamed = to => ({ ...ROW, usage: ROW.usage.replace('omnikom fake run', to), example: ROW.example.replace('omnikom fake run', to) });
   const named = name => renamed(`omnikom ${name}`);
-  const FIX = { schema: 1, engines: real.engines, commands: { 'fake run': ROW, 'seo fake': renamed('omnikom seo fake'), solo: renamed('omnikom solo') } };
+  const FIX = { schema: 1, engines: real.engines, commands: { 'fake run': ROW, 'fake more': renamed('omnikom fake more'), solo: renamed('omnikom solo') } };
   const repo = join(root, 'repo');   // the fixture repo root; the folder above it holds x.mjs, so only the .. rule can refuse '../x.mjs'
   const OPTS = { repo, commandFiles: real.engines, engineCommands: COMMAND_NAMES };
   const one = (problems, word) => problems.length === 1 && problems[0].startsWith(word);
@@ -68,6 +68,31 @@ export async function registryTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     // R9 the clean fixture
     const p9 = checkRegistry(FIX, OPTS);
     check('registry: the clean fixture registry has no problem', p9.length === 0, seen(p9));
+
+    // R10 help is the CLI's own word
+    const p10a = checkRegistry({ ...FIX, commands: { help: named('help') } }, OPTS), p10b = checkRegistry({ ...FIX, commands: { 'help x': named('help x') } }, OPTS);
+    check('registry: a row named help, and a row whose first word is help, are NAME problems', one(p10a, 'NAME help') && one(p10b, 'NAME help x'), seen(p10a, p10b));
+
+    // R11 a row never has an engine command as its first word, also with two words
+    const p11 = checkRegistry({ ...FIX, commands: { 'seo capture': named('seo capture') } }, OPTS);
+    check('registry: a two-word row whose first word is an engine command (seo capture) is a NAME problem', one(p11, 'NAME seo capture'), seen(p11));
+
+    // R12 a target flag must take a value
+    const p12 = with1({ flags: { ...ROW.flags, target: { value: false, help: 'the target' } } });
+    check('registry: a flag named target with value false is a FLAGS problem that says --target must take a value', one(p12, 'FLAGS fake run') && p12[0].includes('--target must take a value'), seen(p12));
+
+    // R13 flag names
+    const p13 = ['Dry', 'help', 'a=b', ''].map(flag => with1({ flags: { ...ROW.flags, [flag]: { value: false, help: 'a flag' } } }));
+    check('registry: a flag named Dry, help, a=b or nothing is one FLAGS problem each', p13.every(p => one(p, 'FLAGS fake run')), seen(p13));
+
+    // R14 one line
+    const p14a = with1({ usage: `${ROW.usage}\nmore` }), p14b = with1({ example: `${ROW.example}\nmore` });
+    check('registry: a usage that holds a line end and an example that holds one are HELP problems', one(p14a, 'HELP fake run') && one(p14b, 'HELP fake run'), seen(p14a, p14b));
+
+    // R15 the time limit of a row
+    const p15 = ['abc', -5, 0, 121].map(timeoutMinutes => with1({ timeoutMinutes }));
+    const p15ok = [with1({ timeoutMinutes: 30 }), with1({ timeoutMinutes: undefined })];
+    check('registry: a timeoutMinutes of "abc", -5, 0 or 121 is one TIMEOUT problem each; 30 and none are clean', p15.every(p => one(p, 'TIMEOUT fake run')) && p15ok.every(p => p.length === 0), seen(p15, p15ok));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
