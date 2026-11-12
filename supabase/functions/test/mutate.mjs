@@ -59,16 +59,16 @@ const MUTANTS = [
 
   // ---- slice 4.3: the runner's functions (the fifth element is the test file that must go red) and the capture-lead jsonb fix ----
   // the frame every runner function shares (_shared/runner.ts)
-  ['runner: the signature is not checked', F + '_shared/runner.ts', "  const signed = await verify(req.headers.get('x-runner-signature'), key, o.method, pathForSignature(url), signedBody);", '  const signed = true;', 'runner.test.ts'],
+  ['runner: the signature is not checked', F + '_shared/runner.ts', "  const signed = await verify(req.headers.get(o.header ?? 'x-runner-signature'), key, o.method, pathForSignature(url), signedBody);", '  const signed = true;', 'runner.test.ts'],
   ['runner: a bad signature leaves no security event', F + '_shared/runner.ts', "service.record_security_event('bad-signature', 'SIGNATURE'", "service.record_security_event('no-such-kind', 'SIGNATURE'", 'runner.test.ts'],
-  ['runner: the event does not say kind runner', F + '_shared/runner.ts', "{ fn: o.fn, kind: 'runner' }", '{ fn: o.fn }', 'runner.test.ts'],
+  ['runner: the event does not say kind runner', F + '_shared/runner.ts', "{ fn: o.fn, kind: o.keyEnv ? 'cron' : 'runner' }", '{ fn: o.fn }', 'runner.test.ts'],
   ['runner: a GET is verified over a body that is not empty', F + '_shared/runner.ts', "const signedBody = o.method === 'GET' ? '' : text;", "const signedBody = o.method === 'GET' ? 'x' : text;", 'runner.test.ts'],
-  ['runner: a missing RUNNER_KEY is not refused', F + '_shared/runner.ts', "  if (!key) { console.error(o.fn, 'RUNNER_KEY is not set'); return problem(500, 'CONFIG', 'Not configured.'); }\n", '', 'runner.test.ts'],
+  ['runner: a missing RUNNER_KEY is not refused', F + '_shared/runner.ts', "  if (!key) { console.error(o.fn, `${keyEnv} is not set`); return problem(500, 'CONFIG', 'Not configured.'); }\n", '', 'runner.test.ts'],
   ['runner: any method', F + '_shared/runner.ts', "  if (req.method !== o.method) return problem(405, 'METHOD', `${o.method} only.`);\n", '', 'runner.test.ts'],
   ['runner: an id that is not a uuid is not refused', F + '_shared/runner.ts', "    if (!UUID.test(v)) return problem(404, 'S-NOT-FOUND', 'Not found.');\n", '', 'runner.test.ts'],
   ['runner: no body cap (256 KiB)', F + '_shared/runner.ts', "  if (text.length > MAX_BODY) return problem(413, 'SIZE', 'This request is too large.');\n", '', 'runner.test.ts'],
   ['runner: a refusal of the database is a plain 500', F + '_shared/runner.ts', '      return problem(r.status, r.code, r.msg);', "      return problem(500, 'SERVER', 'x');", 'runner.test.ts'],
-  ['runner: the key row is not touched', F + '_shared/runner.ts', '    await touchKey(sql, key);\n', '', 'runner.test.ts'],
+  ['runner: the key row is not touched', F + '_shared/runner.ts', "    if (!o.keyEnv) await touchKey(sql, key);   // the registry row is the runner key's; the cron key has none\n", '', 'runner.test.ts'],
   // export-published
   ['export-published: the snapshot is not frozen first', F + 'export-published/index.ts', '    await c.sql`select service.freeze_snapshot(${c.id}::uuid)`;\n', '', 'runner.test.ts'],
   ['export-published: the ORIGINAL path is exported (GPS leak)', F + 'export-published/index.ts', '      const path = derivativePath(m.path, derivativeSlot(m.width));', '      const path = m.path;', 'runner.test.ts'],
