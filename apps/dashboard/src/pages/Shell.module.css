@@ -125,9 +125,11 @@
     height: var(--bar-h);
     min-height: 0;
     margin: 0;
+    padding: 0;
     border-radius: 0;
     font-size: var(--text-md);
     text-align: center;
+    white-space: nowrap;   /* a place of the bar never breaks over two lines (a fifth of 390 px is 78 px; "Sign out" needs about 61) */
   }
 
   .nav > button:last-child:hover {
@@ -155,8 +157,9 @@
     justify-content: center;
     min-height: 0;
     height: var(--bar-h);
-    padding: 0 var(--s-1);
+    padding: 0;
     border-radius: 0;
+    white-space: nowrap;   /* "Overview" needs about 68 px of the fifth (78 px at 390, 72 at 360) */
   }
 
   .tab[aria-current='page'] {
