@@ -88,6 +88,13 @@ ci.yml is read by a small reader for this file's shape (`parseWorkflow` in `comm
 - A step after a failed step is SKIP unless it has `if: always()`. Each command gets the job's `timeout-minutes` as its time limit, never less.
 - stdout and stderr are captured separately: a failing command's last line is the last line of its stderr when it printed any.
 
+## The registry
+`registry.json` lists every tool the CLI wraps (`commands`, none yet) and the command files whose logic lives in the CLI (`engines`, checked against `commands/*.mjs`). `lib/wrap.mjs` runs a row's `script` with the caller's arguments and passes its stdout and stderr back untouched: the CLI adds no logic to a wrapped tool.
+- A row holds `script` and `test` (tracked files), `summary` (one line, 100 characters at most), `usage` and `example` (both start `omnikom <name>`), `args`, `flags` (`{ value: true or false, help }`; a flag the row does not declare is exit 2), `exits` (keys 0 to 3), `output` and `timeoutMinutes` (10 when absent).
+- Exit codes: 0, 1, 2 and 3 as the script gave them; 4 is 0 when the script's last line starts `SKIPPED:`, else 1; 127 (could not start) is 3; a time-out (124), a stop (130, 143) and any other number are 1. When the code changes, stderr gets one more line saying so.
+- `omnikom <name> --help` and `omnikom help <name>` print the row's own help; the global help lists a line per row. A one-word row never hides an engine command of that name.
+- To add a row: write the row, give its script its own test, then run `node tools/omnikom-cli/test/wrap-alone.mjs` (it checks the registry against `commands/` and every row's script, test, help, flags and example).
+
 ## Tests
 `tools.json` and ci.yml agree (a test with its own regular expressions fails when a version, linux url, sha256, `node-version` or `deno-version` differs); `tools ensure` and `ci` are tested over a fake fetch and fixture archives built with the system tar, with a fake spawn that records the tools' calls: no network and no real download. The real ci.yml is run through `ci --install` with every command faked, to prove that every step of it is mapped today.
 `node tools/omnikom-cli/test/run.mjs [--unit|--db] [--bail]` (units + a throwaway cluster; the cluster takes minutes to start on this machine; `--bail` stops at the first FAIL) and `node tools/omnikom-cli/test/mutate.mjs` (one rule removed per mutant, all must go red; 3 mutants at once, each in its own tree copy; a mutant's suite runs with `--bail`, the baseline and a survivor run everything; copies left by a killed run are swept at the start, by owner pid).

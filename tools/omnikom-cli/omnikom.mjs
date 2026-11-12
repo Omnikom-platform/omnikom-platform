@@ -29,8 +29,10 @@ import { land, landText } from './commands/land.mjs';
 import { hooksGroup, hooksText } from './commands/hooks.mjs';
 import { journeyText } from './commands/journey.mjs';
 import { seoGroup, seoText } from './commands/seo.mjs';
+import { loadRegistry, findRow, runWrapped, helpText } from './lib/wrap.mjs';
 
 const COMMANDS = { status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate, tools: toolsGroup, ci, impact, land, hooks: hooksGroup, seo: seoGroup };
+export const COMMAND_NAMES = Object.keys(COMMANDS);
 // the commands that print text lines by default (with --json: the result object), and the ones that talk to no target
 const TEXT = { impact: impactText, land: landText, hooks: hooksText, seo: seoText };
 const NO_TARGET = new Set(['impact', 'land', 'hooks', 'seo']);
@@ -52,18 +54,39 @@ export const USAGE = [
   'seo vantage start|status|stop [--json] [--pewp <dir>]   (SEO\'s scripts/vantage.mjs: its output and exit code unchanged; a missing script is BLOCKED, exit 3; a seo run never calls start)',
   'flags: --target staging|local|production  --as <identity>  --expect <code>  --json  --fixture <file>  --real',
 ];
+// the global help: the lines above, then one line per tool in registry.json (its usage and its summary)
+const usageWith = registry => [...USAGE, ...Object.values(registry.commands).map(r => `${r.usage}   (${r.summary})`)];
 
 // main never touches process.exit or the console, so a test can call it directly: it returns what would be printed.
 export async function main(argv, deps = {}) {
   const env = deps.env || process.env;
   clearRuntimeSecrets();
   let out;
+  let wrapped = false;   // true once a registry row is taken: its own errors always print as the JSON object
   let parsed = { positionals: [], flags: {} };
   const name = () => [parsed.positionals[0], parsed.positionals[1]].filter(Boolean).join(' ');
   try {
+    // the registry path (lib/wrap.mjs): a tool in registry.json is run as it is; a row of two words always wins, a row of one word only when no engine command has that name
+    const words = [];
+    for (const a of argv) { if (a.startsWith('--')) break; words.push(a); }
+    const registry = loadRegistry(deps);
+    if (words[0] === 'help' && words.length > 1) {
+      const helped = findRow(registry, words.slice(1));
+      if (helped) return { exit: 0, stdout: helpText(helped.name, helped.row), stderr: '' };
+      return finish({ ok: true, command: 'help', code: 'ok', exit: 0, usage: usageWith(registry) });
+    }
+    const hit = findRow(registry, words);
+    if (hit && (hit.used === 2 || !COMMANDS[words[0]])) {
+      wrapped = true;
+      parsed = parseArgs(argv, hit.row.flags || {});
+      if (parsed.flags.help) return { exit: 0, stdout: helpText(hit.name, hit.row), stderr: '' };
+      guardProduction(parsed.flags.target, hit.name, parsed.flags);
+      const res = await runWrapped(hit.name, hit.row, argv.slice(hit.used), { env, repo: deps.repo });
+      return { exit: res.data.exit, stdout: redact(res.data.stdout, env), stderr: redact(res.data.stderr, env) };
+    }
     parsed = parseArgs(argv);
     const { positionals, flags } = parsed;
-    if (flags.help || positionals.length === 0) return finish({ ok: true, command: 'help', code: 'ok', exit: 0, usage: USAGE });
+    if (flags.help || positionals.length === 0) return finish({ ok: true, command: 'help', code: 'ok', exit: 0, usage: usageWith(registry) });
     const command = positionals[0];
     const run = COMMANDS[command];
     if (!run) throw new Usage(`unknown command '${command}'`);
@@ -85,6 +108,7 @@ export async function main(argv, deps = {}) {
   return finish(out);
 
   function finish(obj) {
+    if (wrapped) return { exit: obj.exit, stdout: render(obj, { compact: Boolean(parsed.flags.json), env }), stderr: '' };
     // audit and gate print their lines, not the JSON object (unless --json); a usage error or a crash is one ERROR line
     const first = parsed.positionals[0] || argv.find(a => !a.startsWith('--'));
     if (first === 'ci' && obj.command !== 'help' && !parsed.flags.json && !argv.includes('--json')) return { exit: obj.exit, stdout: ciText(obj, env), stderr: '' };

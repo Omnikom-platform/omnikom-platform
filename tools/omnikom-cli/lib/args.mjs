@@ -7,7 +7,11 @@ export const SWITCHES = new Set(['json', 'retry', 'real', 'dry-run', 'i-mean-pro
 SWITCHES.add('fresh');    // seo run: redo every step
 SWITCHES.add('staged');   // impact, ci: the tree of the index
 
-export function parseArgs(argv) {
+// Flags that were renamed: a wrapped tool that is given the old spelling is told the new one (lib/wrap.mjs also refuses a row that declares one).
+export const RETIRED = { dry: 'dry-run' };
+
+// With `declared` (a wrapped tool's flags: name to { value: true | false }) only those flags and --help are accepted; without it, as always.
+export function parseArgs(argv, declared) {
   const positionals = [];
   const flags = {};
   for (let i = 0; i < argv.length; i++) {
@@ -16,6 +20,16 @@ export function parseArgs(argv) {
     const eq = a.indexOf('=');
     const name = (eq > 0 ? a.slice(2, eq) : a.slice(2));
     if (!name) throw new Usage('empty flag name');
+    if (declared) {
+      if (name === 'help') { flags[name] = true; continue; }
+      if (!Object.prototype.hasOwnProperty.call(declared, name)) throw new Usage(`unknown flag --${name}${Object.prototype.hasOwnProperty.call(RETIRED, name) ? `; the spelling is --${RETIRED[name]}` : ''}`);
+      if (!declared[name].value) { flags[name] = true; continue; }
+      const given = eq > 0 ? a.slice(eq + 1) : argv[i + 1];
+      if (given === undefined || (eq < 0 && given.startsWith('--'))) throw new Usage(`--${name} needs a value`);
+      if (eq < 0) i++;
+      flags[name] = given;
+      continue;
+    }
     if (SWITCHES.has(name)) { flags[name] = true; continue; }
     let value;
     if (eq > 0) value = a.slice(eq + 1);
