@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 901,
+    "sources": 902,
     "unowned": 0
   },
   "files": [
@@ -50,7 +50,7 @@
     {"path":"apps/dashboard/src/lib/views.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/views.ts","owner":"platform-build","exports":["AddressFilter","ColumnInfo","DISPLAY_ONLY","DUPLICATE","FOLLOW_UP","LeadsSearch","PickerLine","SavedQuery","SavedView","Screen","allColumns","canChangeView","canShareView","commitColumns","fromAddress","fromSaved","groupViews","moveColumn","parseAddress","pickerLines","shownColumns","toAddress","toSaved","toggleColumn"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/main.tsx","owner":"platform-build","exports":[],"tests":["apps/dashboard/tests/mutants.ts"],"feature":""},
-    {"path":"apps/dashboard/src/overview-data.ts","owner":"platform-build","exports":["useLeadsSince","useMetricHistory","useMetrics","useSiteAudit"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/overview-data.ts","owner":"platform-build","exports":["useLeadsSince","useMetricHistory","useSiteAudit"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/AddLead.tsx","owner":"platform-build","exports":["AddLead"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/AuthConfirm.tsx","owner":"platform-build","exports":["AuthConfirm"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/BulkBar.tsx","owner":"platform-build","exports":["BulkBar"],"tests":[],"feature":""},
@@ -107,6 +107,7 @@
     {"path":"apps/dashboard/tests/preview-port.mutants.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/preview-port.test.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/realtime.spec.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"apps/dashboard/tests/search-mutants.ts","owner":"platform-build","exports":["SearchMutant","installSearchMutant"],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/site.spec.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/styles.spec.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/support/clean-flow-leads.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},

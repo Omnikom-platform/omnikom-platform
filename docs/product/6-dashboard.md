@@ -110,11 +110,11 @@ The first screen of a business, `/w/$ws` (the Overview tab; sign-in still lands 
 its last publish and by whom and the changes waiting, and the leads received this week (since Monday, spam left out; an agent counts their own).
 Every line says what it counts; nothing is shown without its inputs. Plan rows DP-1.9-01 to -05. For owners and staff, each site card carries
 the site check headline and "How people find you" shows Google search, Bing search, speed on a phone and AI answers, each with its source and
-day; a source that is not connected says so (plan rows DP-1.9-06 to -08).
+day; a source that is not connected says so, a newer read without numbers never hides the last real one, and a failed read of the numbers says so in its section (plan rows DP-1.9-06 to -08).
 
-## Search health (MISSING, book row B24)
+## Search health (PARTLY, book row B24)
 
-One page per site, `/w/$ws/sites/$site/search`, for the workspace owner (site settings are hidden from members, so this is too).
+One page per site, `/w/$ws/sites/$site/search`, for owners and staff, linked from the site's card on the Overview once the site has a check (before it, the page shows one empty state and its one button); a member who opens it lands on the Overview (site settings are hidden from members, so this is too). A failed read says so in its own part; the others stay. Plan rows DP-1.10-01 to -07.
 Every number shows its source and date; a card whose input does not exist yet is not shown (no dead control, no sample data).
 The client cannot change the site's code, so a problem never gets a fix button: it reads "Omnikom fixes this" and the fix ships
 with a publish.
@@ -126,21 +126,21 @@ with a publish.
    what, which page. The plain family and problem words come from `tools/audit/names.json` through the summary's `byTopic`, never written in the
    screen. Backend: built (work order 10, M16 `site_audit`, function `site-audit` `latest.preview` and `latest.production`, the
    summary whole with its fails); staging proof: e2e-site-audit 2026-11-09 ("PASS: site-audit on staging, 0 problem(s)": latest.preview and history read
-   one real publish job, a member and another workspace's owner get not found). No screen yet.
+   one real publish job, a member and another workspace's owner get not found). On the page (B24): the headline in the words of DP-1.9-06, then the topics and their problems (DP-1.10-03).
 2. **Check history:** the last 10 publishes, each with its date, pass or fail and counts; a failed one says "nothing went live"
    (`site-audit` `history`: the last 10 finished jobs, newest first, no fails; a job from before the stored summary shows no pass or counts
-   and says only its date and state). Backend: built with card 1 (staging proof as card 1).
+   and says only its date and state). Backend: built with card 1 (staging proof as card 1). On the page (B24, DP-1.10-04).
 3. **AI questions:** the plan's prompt map (`plan/prompt-coverage.json`): each question a buyer asks an AI engine, and the page
    that answers it or "not answered yet". Needs the map stored with the site (today it exists only in the build folder): a
    platform finding when this card is built.
 4. **Visibility** (the existing text, unchanged): Search Console clicks, impressions, top queries and pages; PageSpeed phone and
-   desktop with the test date; AI-answer samples per prompt (named or cited, engine, date). Its numbers are on the Overview today (B21).
+   desktop with the test date; AI-answer samples per prompt (named or cited, engine, date). On the page (B24, DP-1.10-05): the site the numbers are measured for, named in every state; on that site's page each source as on the Overview with its earlier readings; a newer read that got no numbers is named beside the newest real one. Not built: top queries and pages, PageSpeed on a desktop, answers per prompt.
 5. **Monthly report:** the six-question report in plain words (SEO slice 4), one per month, opened from the page. Waits on slice 4
    and on stored reports.
 
 Order of build: cards 1 and 2 first (they need only work order 05, F1 and F2, and the route); 3 when the map is stored; 4 and 5
 when the metrics pull and slice 4 exist. The overview at `/w/$ws` keeps its own line in the book ("site state, last publish ...")
-and may show the card 1 headline with a link here.
+and shows the card 1 headline with the link here (DP-1.9-06, DP-1.10-01). Built: cards 1, 2 and 4.
 
 ## Roles on screen
 

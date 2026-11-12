@@ -89,9 +89,9 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B17 Settings: team list, invite, remove | WORKS | F:team-list, F:invite-member, F:member-remove (M17 `list_members`; remove is `remove_member`), and the People card (D:pages/SettingsPeople.tsx). Remove refuses the last owner; a removed person's next request is refused by the wall, open sessions are not ended (Supabase Auth has no admin logout by user id). No role-change control: inviting an existing member as owner sets the role. staging 2026-11-09 from the settings branch: `supabase/tests/e2e-settings.mjs` 0 problems (list, last-owner 409, remove, the wall after removal) and the card shows the service role's people; staging 2026-11-12: the invite flow (`apps/dashboard/tests/flows.spec.ts` "owner-a invites a person ...", which removes the person again in a finally) 1 passed with SETTINGS_INVITE_EMAIL the test inbox, the sentence "Invite sent to <email>." checked (seen red with FLOWS_MUTANT=mail-not-sent), and Auth's mail reached that inbox and its link opened once into the business |
 | B18 Settings: websites | PARTLY | the Websites card (D:pages/Settings.tsx): preview address, domain and state, no edit, shown on staging 2026-11-09 from the settings branch as the service role reads them; "Ask Omnikom" links to `VITE_ASK_EMAIL`, which is unset (no address in the repo: an owner item), so the link is not shown; a flow checks the link once the build has the address (flows.spec.ts "owner-a sees the Ask Omnikom link", S1-D; skipped without VITE_ASK_EMAIL) |
 | B20 Overview | WORKS | `/w/$ws`, the Overview tab: D:pages/Overview.tsx with D:lib/overview.ts (vitest): a card per site (its state, the last publish and by whom, the changes waiting) and the leads of this week. staging 2026-11-12: the DOM gate (`apps/dashboard/tests/plan-gate.spec.ts`, "the Overview") 2 passed and the styles at 390 px and at laptop width (`apps/dashboard/tests/styles.spec.ts`, "overview is styled") 2 passed, watched red with FLOWS_MUTANT=no-styles; at 390 px every place of the bottom bar holds its words on one line (watched red before the fix) |
-| B21 Search and AI visibility numbers | PARTLY | on the Overview for owners and staff (D:pages/Overview.tsx, D:lib/overview.ts, vitest): the site check headline from F:site-audit, and "How people find you" from the newest `metrics_snapshots` row of each source (Google search, Bing search, speed on a phone with real-visitor numbers, AI answers); a source that is not connected says so. NOT DONE: Search Console numbers (no verified property; the Google login is the owner's) and AI answers (no writer, DECISIONS 38). Staging UNPROVEN (the head's run) |
+| B21 Search and AI visibility numbers | PARTLY | on the Overview for owners and staff (D:pages/Overview.tsx, D:lib/overview.ts, vitest): the site check headline from F:site-audit, and "How people find you" from the newest `metrics_snapshots` row of each source that has its numbers, a failed read on its own line (Google search, Bing search, speed on a phone with real-visitor numbers, AI answers); a source that is not connected says so. NOT DONE: Search Console numbers (no verified property; the Google login is the owner's) and AI answers (no writer, DECISIONS 38). Staging UNPROVEN (the head's run) |
 | B23 Not found, service unreachable, loading states | WORKS | D:pages/NotFound.tsx, D:lib/problems.ts |
-| B24 Search health page (one per site, owner): the site check by topic, check history, AI questions, monthly report | MISSING | the numbers and the site check headline are on the Overview (B21, decision 1a of work order 44) |
+| B24 Search health page (one per site, owner): the site check by topic, check history, AI questions, monthly report | PARTLY | `/w/$ws/sites/$site/search` for owners and staff, linked from the Overview's site card once the site has a check (before it the page shows one empty state and its button; a member lands on the Overview): `apps/dashboard/src/pages/SearchHealth.tsx` with `apps/dashboard/src/lib/search-health.ts` (vitest): the newest check from F:site-audit by topic with each failed rule in the words of `tools/audit/names.json` and "Omnikom fixes this", the last 10 publishes, and, for the site the numbers are measured for (the page names it), each source's newest reading with numbers and its earlier ones (a newer read that got none is named and never hides it); a failed read says so in its own part. NOT DONE: AI questions (the prompt map is not stored with the site) and the monthly report (no stored reports); AI answers have no writer (DECISIONS 38). Staging UNPROVEN (the head's run) |
 
 ### C. Backend and database
 | Feature | State | Missing half, or where it lives |
@@ -157,11 +157,11 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | Part | WORKS | PARTLY | MISSING | Rows |
 |---|---|---|---|---|
 | A CRM | 26 | 0 | 0 | 26 |
-| B Dashboard | 15 | 6 | 1 | 22 |
+| B Dashboard | 15 | 7 | 0 | 22 |
 | C Backend and database | 15 | 2 | 0 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
 | E Hardening | 8 | 11 | 2 | 21 |
-| Total | 74 | 19 | 3 | 96 |
+| Total | 74 | 20 | 2 | 96 |
 
 Completion is reported from these counts only.
 
@@ -174,7 +174,7 @@ the backend, the dashboard and the CRM are proven on staging (`2-architecture.md
    saved views; columns, filter, sort and search on any column; bulk edit; delete; the export button with every column;
    export in the client's layout; import; follow-up and status board; duplicates; unread bold.
 2. Dashboard: the Settings screen is built (work order 08; staging proof to run); publish history and restore; unpublish and delete an item; media library with one photo proven end to end;
-   preview of a change; a magic link from a real inbox; the Search health page (B24) last.
+   preview of a change; a magic link from a real inbox; the Search health page's AI questions and monthly report (B24) last.
 3. Then production, made from the proven staging setup.
 
 ## Parked

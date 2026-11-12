@@ -283,6 +283,19 @@ for (const size of SIZES) {
         }
       });
 
+      test(`search health is styled at ${size.name}`, async ({ page }) => {
+        await installMutant(page, 'no-styles');
+        await page.goto(`/w/${WS.a.slug}/sites/${WS.a.site}/search`);
+        await expect(page.locator('[data-plan="DP-1.10-03"] li').first()).toBeVisible();
+        await expect(page.locator('[data-plan="DP-1.10-05"] h3').first()).toBeVisible();
+        await check(page, 'search-health', size);
+        if (!size.desktop) {
+          const seen = await page.evaluate(() => ({ h1: getComputedStyle(document.querySelector('h1')!).textAlign, body: getComputedStyle(document.querySelector('main section li')!).textAlign }));
+          expect(seen.h1, 'search health: the h1 is centred on the phone').toBe('center');
+          expect(['left', 'start'], 'search health: the body text is left-aligned on the phone').toContain(seen.body);
+        }
+      });
+
       test(`the editor is styled at ${size.name}`, async ({ page }) => {
         await installMutant(page, 'no-styles');
         await openSite(page);

@@ -24,7 +24,7 @@ One app, one magic-link sign-in. The CRM's routes sit under `leads`; the dashboa
 | `/w/$ws/site/media` | the media library (a member: its own uploads) | now |
 | (no route) | publish history and restore | a sheet on the Site screen (B11) |
 | `/w/$ws/settings` | one Settings screen of cards | MISSING |
-| `/w/$ws/sites/$site/search` | the Search health page of a site (owner) | MISSING (book row B24; the numbers are on the Overview) |
+| `/w/$ws/sites/$site/search` | the Search health page of a site (owners and staff; a member lands on the Overview) | now (book row B24) |
 | anything else | not found | now |
 
 Not routes, by decision: `/invite/:token` (an invite is a sign-in link), `/reset` (no passwords), `/admin/*` (no staff

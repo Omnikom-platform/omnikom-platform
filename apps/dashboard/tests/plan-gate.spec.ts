@@ -5,6 +5,7 @@ import { expect, test } from '@playwright/test';
 import { builtSlices, planIds, planProblems } from './plan-gate.dom';
 import { WS } from './support/staging';
 import { makeOwnLead, removeOwnLeads } from './support/own-lead';
+import { installSearchMutant } from './search-mutants';
 
 // The rows these screens show are this file's own (a test that needs a row makes one); the file's one afterAll removes them.
 const TAG = 'plan-gate';
@@ -176,12 +177,13 @@ test.describe('the Overview as the owner (slice 5.7)', () => {
   test.use({ storageState: '.auth/owner-a.json' });
 
   test('the cards, the title, and the Overview tab as the place the owner is in', async ({ page }) => {
+    await installSearchMutant(page, 'metrics-lost');
     await page.goto(`/w/${WS.a.slug}`);
     await expect(page.getByText(/leads? this week$/)).toBeVisible();
     await expect(page.locator('[data-plan="DP-1.9-04"]').first()).toBeVisible();
     await expect(page.getByRole('heading', { name: 'How people find you', exact: true })).toBeVisible();
     await expect(page.locator('[data-plan="DP-1.9-06"]').first()).toBeVisible();
-    await ok(page, { required: ['DP-1.2s-14', 'DP-1.9-01', 'DP-1.9-02', 'DP-1.9-03', 'DP-1.9-04', 'DP-1.9-05', 'DP-1.9-06', 'DP-1.9-07', 'DP-1.9-08'] });
+    await ok(page, { required: ['DP-1.2s-14', 'DP-1.9-01', 'DP-1.9-02', 'DP-1.9-03', 'DP-1.9-04', 'DP-1.9-05', 'DP-1.9-06', 'DP-1.9-07', 'DP-1.9-08', 'DP-1.10-01'] });
     // staging holds no verified Search Console property and no writer of AI answers: those two cards say so, and show no zero
     const cards = page.locator('[data-plan="DP-1.9-08"]');
     await expect(cards.nth(0)).toContainText('Not connected yet');
@@ -199,7 +201,48 @@ test.describe('the Overview as an agent (slice 5.7)', () => {
   test('the site card and the leads card (the agent counts their own)', async ({ page }) => {
     await page.goto(`/w/${WS.a.slug}`);
     await expect(page.getByText(/leads? this week$/)).toBeVisible();
-    await ok(page, { required: ['DP-1.2s-14', 'DP-1.9-01', 'DP-1.9-02', 'DP-1.9-03', 'DP-1.9-05'], absent: ['DP-1.9-06', 'DP-1.9-07', 'DP-1.9-08'] });
+    await ok(page, { required: ['DP-1.2s-14', 'DP-1.9-01', 'DP-1.9-02', 'DP-1.9-03', 'DP-1.9-05'], absent: ['DP-1.9-06', 'DP-1.9-07', 'DP-1.9-08', 'DP-1.10-01'] });
+  });
+});
+
+test.describe('Search health as the owner (slice 5.8)', () => {
+  test.use({ storageState: '.auth/owner-a.json' });
+
+  test('the site check by topic, the check history and the numbers, each part on its own', async ({ page }) => {
+    await installSearchMutant(page, 'audit-lost');
+    await installSearchMutant(page, 'metrics-lost');
+    await page.goto(`/w/${WS.a.slug}/sites/${WS.a.site}/search`);
+    await expect(page.getByRole('heading', { name: 'How people find you', exact: true })).toBeVisible();
+    await expect(page.locator('[data-plan="DP-1.10-05"] h3').first()).toBeVisible();
+    await expect(page.locator('[data-plan="DP-1.10-03"] li').first()).toBeVisible();
+    await expect(page.locator('[data-plan="DP-1.10-04"] li').first()).toBeVisible();
+    await ok(page, { required: ['DP-1.10-02', 'DP-1.10-03', 'DP-1.10-04', 'DP-1.10-05'] });
+    // staging holds no verified Search Console property and no writer of AI answers: those two say so, never a zero
+    const sources = page.locator('[data-plan="DP-1.10-05"] article');
+    await expect(sources.nth(0)).toContainText('Not connected yet');
+    await expect(sources.nth(3)).toContainText('Not connected yet');
+    await expect(page).toHaveTitle('Search health');
+  });
+
+  test('before the first check the Overview has no link here', async ({ page }) => {
+    // read only: the site check is answered "none yet" by the test, as styles.spec.ts answers drafts (FLOWS_MUTANT=no-check-answer leaves it out)
+    if (process.env.FLOWS_MUTANT !== 'no-check-answer') await page.route(/\/functions\/v1\/site-audit$/, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ latest: { preview: null, production: null }, history: [] }), headers: { 'access-control-allow-origin': '*' } }));
+    await page.goto(`/w/${WS.a.slug}/sites/${WS.a.site}/search`);
+    await expect(page.locator('[data-plan="DP-1.10-06"], [data-plan="DP-1.10-03"] li').first()).toBeVisible();   // the check is read, in either state
+    await page.getByRole('navigation').getByRole('link', { name: 'Overview', exact: true }).click();   // the same read, cached: the guard is seen, not raced
+    await expect(page.getByText(/leads? this week$/)).toBeVisible();
+    await ok(page, { required: ['DP-1.9-02'], absent: ['DP-1.9-06', 'DP-1.10-01'] });
+  });
+});
+
+test.describe('Search health as an agent (slice 5.8)', () => {
+  test.use({ storageState: '.auth/member-a1.json' });
+
+  test('an agent who opens the address lands on the Overview', async ({ page }) => {
+    await page.goto(`/w/${WS.a.slug}/sites/${WS.a.site}/search`);
+    await expect(page).toHaveURL(new RegExp(`/w/${WS.a.slug}/?$`));
+    await expect(page.getByText(/leads? this week$/)).toBeVisible();
+    await ok(page, { required: ['DP-1.9-01'], absent: ['DP-1.10-01', 'DP-1.10-02', 'DP-1.10-03', 'DP-1.10-04', 'DP-1.10-05'] });
   });
 });
 
