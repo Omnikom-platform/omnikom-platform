@@ -257,15 +257,29 @@ for (const size of SIZES) {
         await expect(page.getByRole('heading', { name: 'How people find you', exact: true })).toBeVisible();
         await check(page, 'overview', size);
         if (!size.desktop) {
-          // phone: headings centred, body left, and every place of the bottom bar fits its words
-          const seen = await page.evaluate(() => ({
-            h1: getComputedStyle(document.querySelector('h1')!).textAlign,
-            body: getComputedStyle(document.querySelector('main section p')!).textAlign,
-            clipped: [...document.querySelectorAll('header nav a')].filter(a => a.scrollWidth > a.clientWidth).map(a => (a.textContent ?? '').trim()),
-          }));
+          // phone: headings centred, body left, and every place of the bottom bar fits its words, each on one line
+          const seen = await page.evaluate(() => {
+            // the bar's five places: the four links and the Sign out button. One line is measured, not assumed: the height of the words
+            // (a range over the element's contents) is under 1.5 line-heights ("normal" is 1.2 times the font size)
+            const places = [...document.querySelectorAll('header nav a'), ...document.querySelectorAll('header nav > button:last-child')];
+            const onOneLine = (el: Element) => {
+              const cs = getComputedStyle(el);
+              const line = cs.lineHeight === 'normal' ? 1.2 * parseFloat(cs.fontSize) : parseFloat(cs.lineHeight);
+              const words = document.createRange();
+              words.selectNodeContents(el);
+              return words.getBoundingClientRect().height < 1.5 * line;
+            };
+            return {
+              h1: getComputedStyle(document.querySelector('h1')!).textAlign,
+              body: getComputedStyle(document.querySelector('main section p')!).textAlign,
+              clipped: [...document.querySelectorAll('header nav a')].filter(a => a.scrollWidth > a.clientWidth).map(a => (a.textContent ?? '').trim()),
+              twoLines: places.filter(el => !onOneLine(el)).map(el => (el.textContent ?? '').trim()),
+            };
+          });
           expect(seen.h1, 'overview: the h1 is centred on the phone').toBe('center');
           expect(['left', 'start'], 'overview: the body text is left-aligned on the phone').toContain(seen.body);
           expect(seen.clipped, 'overview: places of the bottom bar whose words do not fit').toEqual([]);
+          expect(seen.twoLines, 'overview: places of the bottom bar whose words break over two lines').toEqual([]);
         }
       });
 
