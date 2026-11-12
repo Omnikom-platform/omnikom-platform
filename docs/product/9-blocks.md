@@ -92,7 +92,7 @@ starts its next slice from its lowest open stage. A step lands with its test and
 | H1-5 | H1 | done, b07747e: dashboard: no CSP or security headers, no error boundary | platform build | E7 |
 | H1-6 | H1 | a live publish goes live before its smoke; no rollback; the smoke reads only the title | platform build | E8 |
 | H1-7 | H1 | staff reads are not audited; session and refresh settings unread | platform build | E11 |
-| KNOWN-1 | H1 | the public form has no per-visitor limit or bot check; the site endpoint signs anything and forwards no visitor IP | platform build | E5 |
+| KNOWN-1 | H1 | done, f72ee50: the public form has no per-visitor limit or bot check; the site endpoint signs anything and forwards no visitor IP (the per-visitor limit is built and seen on staging 2026-11-13; no bot check, by ruling) | platform build | E5 |
 | KNOWN-2 | H1 | a direct Postgres connection per function call | platform build | E6 |
 | KNOWN-5 | H1 | done, b07747e: dashboard: no cache rules, 3 realtime channels per tab | platform build | E7 |
 | KNOWN-3 | H2 | lead_list scans the whole workspace, offset paging, industry fields in jsonb | platform build | E13 |
