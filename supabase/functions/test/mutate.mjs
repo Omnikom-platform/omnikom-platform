@@ -335,6 +335,8 @@ cpSync(join(REPO, 'supabase', 'functions'), join(work, 'supabase', 'functions'),
 symlinkSync(join(REPO, 'contracts'), join(work, 'contracts'), 'junction');
 mkdirSync(join(work, 'tools'));
 symlinkSync(join(REPO, 'tools', 'crm-map'), join(work, 'tools', 'crm-map'), 'junction');   // work order 02: _shared/crm-map.ts imports tools/crm-map
+mkdirSync(join(work, 'tools', 'audit'));
+symlinkSync(join(REPO, 'tools', 'audit', 'metrics'), join(work, 'tools', 'audit', 'metrics'), 'junction');   // work order 44: _shared/metrics.ts imports tools/audit/metrics
 cpSync(join(REPO, 'deno.json'), join(work, 'deno.json'));
 const testDir = join(work, 'supabase', 'functions', 'test');
 
