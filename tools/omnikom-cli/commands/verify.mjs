@@ -12,7 +12,7 @@
 // each refused signature adds one event (kind bad-signature, the site), the paused refusal adds one (kind suspended), an accepted lead has exactly one consent_ledger
 // row and a retry of the same key adds none. Both ledgers are append-only: a run leaves its rows behind, by design.
 import { Usage, Blocked } from '../lib/errors.mjs';
-import { uuidLit, lit } from '../lib/sql.mjs';
+import { uuidLit, lit, jsonLit } from '../lib/sql.mjs';
 import { result } from '../lib/ctx.mjs';
 import { parseIdentity, machineKey, personToken, PERSONS } from '../lib/identity.mjs';
 import { WS_A, WS_B } from './seed.mjs';
@@ -156,6 +156,8 @@ async function verifyWalls(ctx) {
 // (lib/identity.mjs personToken: Auth admin generate_link + verify; in memory only), then reads and one write through PostgREST,
 // where row-level security decides. Two leads are made for the run (one handed to member A1) and removed at the end.
 // Needs: omnikom seed test (GoTrue-shaped logins), the publishable and secret keys by name, the database URL (fixtures only).
+// Staff read only inside a window (migration 43): the staff checks open a 5-minute one through `service.staff_open` (one `audit_log`
+// row with the reason) and close it after; the database URL is used for the leads and the window.
 async function verifyPeople(ctx) {
   const target = ctx.target();
   if (!target.restBase) throw new Blocked('no Data API URL for this target (staging needs STAGING_SUPABASE_REF; local needs LOCAL_REST_BASE)', 'set the variable by name');
@@ -220,6 +222,8 @@ async function verifyPeople(ctx) {
     r = await call('/api_keys?select=id&limit=5', 'member-a1');
     add('a member reading the key registry gets nothing', '200, 0 rows', r.status, same(idsOf(r), []));
     if (withStaff) {
+      const win = sql.scalar(`select service.staff_open(${jsonLit({ sub: PERSONS.staff.sub, aal: 'aal2' })}, 'omnikom verify --only people: the staff checks', 5)`);
+      if (!win.ok || !win.value) throw new Blocked(`could not open a staff window (${win.code}: ${win.message})`, 'apply migration 43 (service.staff_open) to this target first');
       r = await call(q, 'staff');
       add('staff at aal2 read every lead (control: MFA session works)', 'both test leads', r.status, same(idsOf(r), made));
       r = await call('/api_keys?select=id&limit=5', 'staff');
@@ -228,6 +232,7 @@ async function verifyPeople(ctx) {
       add('staff without MFA (aal1) sees no lead', '200, 0 rows', r.status, same(idsOf(r), []));
       r = await call('/api_keys?select=id&limit=5', 'staff-aal1');
       add('staff without MFA (aal1) sees no key', '200, 0 rows', r.status, same(idsOf(r), []));
+      sql.exec(`update staff_access set until = now() where user_id = ${uuidLit(PERSONS.staff.sub)} and until = ${lit(win.value)}::timestamptz;`);
     }
     r = await call(`/leads?id=eq.${L1}`, 'owner-a', { method: 'PATCH', headers: { 'content-type': 'application/json', prefer: 'return=representation' }, body: JSON.stringify({ status: 'closed' }) });
     const status = sql.scalar(`select status::text from leads where id = ${uuidLit(L1)}`).value;

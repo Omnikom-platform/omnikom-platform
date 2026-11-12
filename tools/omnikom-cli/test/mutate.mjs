@@ -91,6 +91,8 @@ const MUTANTS = [
   ['people: the key registry is not checked for owners', 'commands/verify.mjs', "add('an owner reading the key registry gets nothing', '200, 0 rows', r.status, same(idsOf(r), []));", "add('an owner reading the key registry gets nothing', '200, 0 rows', r.status, true);", 'db'],
   ['people: the test leads are left behind', 'commands/verify.mjs', "    for (const id of made) sql.exec(`delete from leads where id = ${uuidLit(id)};`);   // events cascade", '', 'db'],
   ['people: staff without MFA may see keys', 'commands/verify.mjs', "add('staff without MFA (aal1) sees no key', '200, 0 rows', r.status, same(idsOf(r), []));", "add('staff without MFA (aal1) sees no key', '200, 0 rows', r.status, true);", 'db'],
+  ['people: no staff window is opened', 'commands/verify.mjs', "select service.staff_open(${jsonLit({ sub: PERSONS.staff.sub, aal: 'aal2' })}, 'omnikom verify --only people: the staff checks', 5)", "select now() + interval '5 minutes'", 'db'],
+  ['people: the staff window is left open', 'commands/verify.mjs', "      sql.exec(`update staff_access set until = now() where user_id = ${uuidLit(PERSONS.staff.sub)} and until = ${lit(win.value)}::timestamptz;`);", '', 'db'],
   ['mfa enroll-staff: the secret is not written to the env file', 'commands/mfa.mjs', 'try { appendFileSync(envFile,', 'try { (() => {})(envFile,', 'db'],
   ['staff act without MFA', 'lib/identity.mjs', "workspace: null, aal: 'aal2' }", "workspace: null, aal: 'aal1' }", 'unit'],
   ['a flag without a value is accepted', 'lib/args.mjs', "if (value === undefined || value.startsWith('--')) throw new Usage(", 'if (false) throw new Usage(', 'unit'],

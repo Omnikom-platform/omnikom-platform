@@ -1455,6 +1455,7 @@ async function database() {
     check('verify --only people: every login sees what its role allows (owner B 0, member A1 own, nobody none, keys hidden, staff only at aal2)',
       r.exit === 0 && r.json.data.failed === 0 && r.json.data.checks.length === 15 && /^PASS /.test(r.stderr) && !r.json.data.waiting.some(w => w.startsWith('staff at aal2')), r.stderr.slice(0, 700) || r.all.slice(0, 400));
     check('verify --only people: the two test leads are removed again', testLeads() === leadsBefore);
+    check('verify --only people: it opened one staff window for its staff checks and closed it again', db.query("select count(*) filter (where until <= now()) || '/' || count(*) from staff_access where user_id = '00000000-0000-0000-0000-00000000005f' and reason = 'omnikom verify --only people: the staff checks'") === '1/1');
     check('hygiene: no session token and no admin key in the people run', !/eyJ[\w-]+\.[\w-]+\.[\w-]+/.test(r.all) && !r.all.includes(secretK));
     r = await run(['verify', ...T, '--only', 'people'], peopleEnv, { fetch: await supa({}) });
     check('verify --only people: without the staff TOTP secret the staff checks are listed as waiting, not faked', r.exit === 0 && r.json.data.checks.length === 11 && r.json.data.waiting.some(w => w.startsWith('staff at aal2')), r.all.slice(0, 300));
