@@ -51,31 +51,33 @@ async function scenarios(sdir) {
     const real = val(manifest);
     check("V: the real pipeline.json is valid (the rules below are red only for their own broken copy)", real.length === 0, real.join(" | "));
     const RULES = [
-      ["an unknown top-level key", (m) => { m.extra = 1; }, /unknown top-level key "extra"/],
+      ["an unknown top-level key", (m) => { m.extra = 1; }, /unknown key 'extra' at the top level/],
       ["a version other than 1", (m) => { m.version = 2; }, /version must be 1/],
-      ["an empty step list", (m) => { m.steps = []; }, /steps must be a non-empty list/],
-      ["a duplicate id", (m) => { m.steps.push(structuredClone(m.steps[0])); }, /duplicate id "doctor"/],
-      ["an unknown step key", (m) => { step(m, "psi").surprise = 1; }, /step psi: unknown key "surprise"/],
-      ["a missing required key", (m) => { delete step(m, "psi").hits; }, /step psi: missing key\(s\) hits/],
+      ["an empty step list", (m) => { m.steps = []; }, /steps must be a non-empty array/],
+      ["a duplicate id", (m) => { m.steps.push(structuredClone(m.steps[0])); }, /step id 'doctor' is used twice/],
+      ["an unknown step key", (m) => { step(m, "psi").surprise = 1; }, /step psi: unknown key 'surprise'/],
+      ["a missing required key", (m) => { delete step(m, "psi").hits; }, /step psi: missing 'hits'/],
       ["needsBrowser outside none, headless, owner", (m) => { step(m, "psi").needsBrowser = "both"; }, /needsBrowser must be one of/],
-      ["a timeout below 0", (m) => { step(m, "psi").timeoutMinutes = -1; }, /timeoutMinutes must be a number of 0 or more/],
-      ["a key name that is not in capitals", (m) => { step(m, "psi").needsKeys = ["psi_key"]; }, /needsKeys names a variable in capitals/],
-      ["hits that is not none, client or third-party:<name>", (m) => { step(m, "psi").hits = "somewhere"; }, /hits must be none, client or third-party/],
-      ["an unknown placeholder in args", (m) => { step(m, "psi").args.push("{nope}"); }, /unknown placeholder \{nope\} in args/],
-      ["an unknown placeholder in evidence", (m) => { step(m, "psi").evidence.push("{nope}/x.json"); }, /unknown placeholder \{nope\} in evidence/],
-      ["an unknown placeholder in a brief", (m) => { step(m, "checker").brief += " {nope}"; }, /unknown placeholder \{nope\} in brief/],
-      ["a dependsOn id that is not a step", (m) => { step(m, "psi").dependsOn.push("ghost"); }, /dependsOn "ghost" is not a step id/],
-      ["a step that depends on itself", (m) => { step(m, "psi").dependsOn.push("psi"); }, /depends on itself/],
-      ["a cycle", (m) => { step(m, "doctor").dependsOn = ["snapshot"]; }, /^cycle among/],
-      ["a script that does not exist", (m) => { step(m, "psi").script = "scripts/no-such-step.mjs"; }, /does not exist in the skill folder/],
-      ["script null on a step that is not WAITING", (m) => { step(m, "checker").needsAi = false; }, /script is null, so it must be WAITING/],
-      ["a WAITING step without a brief", (m) => { delete step(m, "checker").brief; }, /a WAITING step carries a brief/],
+      ["a timeout below 0", (m) => { step(m, "psi").timeoutMinutes = -1; }, /timeoutMinutes is missing or not a number of minutes/],
+      ["a key name that is not in capitals", (m) => { step(m, "psi").needsKeys = ["psi_key"]; }, /needsKeys holds 'psi_key'/],
+      ["hits that is not none, client or third-party:<name>", (m) => { step(m, "psi").hits = "somewhere"; }, /hits must be client, none or third-party/],
+      ["an unknown placeholder in args", (m) => { step(m, "psi").args.push("{nope}"); }, /args uses the placeholder \{nope\}/],
+      ["an unknown placeholder in evidence", (m) => { step(m, "psi").evidence.push("{nope}/x.json"); }, /evidence uses the placeholder \{nope\}/],
+      ["an unknown placeholder in a brief", (m) => { step(m, "checker").brief += " {nope}"; }, /brief uses the placeholder \{nope\}/],
+      ["a dependsOn id that is not a step", (m) => { step(m, "psi").dependsOn.push("ghost"); }, /dependsOn 'ghost' is not a step/],
+      ["a step that depends on itself", (m) => { step(m, "psi").dependsOn.push("psi"); }, /dependency cycle: psi -> psi/],
+      ["a cycle", (m) => { step(m, "doctor").dependsOn = ["snapshot"]; }, /^dependency cycle: /],
+      ["a script that does not exist", (m) => { step(m, "psi").script = "scripts/no-such-step.mjs"; }, /script 'scripts\/no-such-step\.mjs' does not exist/],
+      ["script null on a step that is not WAITING", (m) => { step(m, "checker").needsAi = false; }, /a step the runner runs needs a script/],
+      ["a WAITING step without a brief", (m) => { delete step(m, "checker").brief; }, /a waiting step needs a brief/],
       ["a WAITING step with args", (m) => { step(m, "checker").args = ["x"]; }, /a WAITING step has no args/],
-      ["a script step that needs a person", (m) => { step(m, "psi").needsPerson = true; }, /never needs the owner's browser, an agent or a person/],
-      ["an engines name that lib-stops does not know", (m) => { step(m, "capture-google").engines = ["nope"]; }, /engines: "nope" is not a known engine/],
-      ["engines that is not a list of names", (m) => { step(m, "capture-google").engines = "google"; }, /engines must be a list of engine names/],
-      ["an exit override that is not a digit 0 to 4", (m) => { step(m, "psi").exit = { 7: "x" }; }, /exit key "7"/],
-      ["evidence that is neither under an output nor an input", (m) => { step(m, "psi").evidence = ["{pewp}/elsewhere.json"]; }, /evidence .*elsewhere\.json is neither under an output nor an input/],
+      ["a script step that needs a person", (m) => { step(m, "psi").needsPerson = true; }, /a waiting step \(owner browser, AI or person\) must have script null, not a script/],
+      ["an engines name that lib-stops does not know", (m) => { step(m, "capture-google").engines = ["nope"]; }, /engines holds 'nope'/],
+      ["engines that is not a list of names", (m) => { step(m, "capture-google").engines = "google"; }, /engines must be a list of strings/],
+      ["an exit override that is not a digit 0 to 4", (m) => { step(m, "psi").exit = { 7: "x" }; }, /exit key '7' is not an exit code/],
+      ["an unknown kind", (m) => { step(m, "psi").kind = "other"; }, /kind must be stable, time-sensitive or derived/],
+      ["a step that calls vantage start", (m) => { step(m, "vantage").args = ["start"]; }, /a step must never call vantage start/],
+      ["evidence that is neither under an output nor an input", (m) => { step(m, "psi").evidence = ["{pewp}/elsewhere.json"]; }, /evidence '.*elsewhere\.json' is neither inside an output nor an input/],
       ["an input written by a step it does not depend on", (m) => { step(m, "doctor").inputs.push("{pewp}/business.json"); }, /input .*business\.json is written by step intake, which it does not depend on/],
     ];
     for (const [name, mutate, re] of RULES) {
@@ -98,7 +100,7 @@ async function scenarios(sdir) {
     check("O: a cycle cannot be ordered (the error names the steps)", /^cycle among: .*doctor/.test(thrown), thrown);
 
     // ---------------- E: placeholders and evidence ----------------
-    const vars = { url: URL1, client: null, host: "fixture.test", skill: "/s", runDir: "/s/site-checks/fixture.test", pewp: "/s/site-checks/fixture.test/.pewp", work: "/s/site-checks/fixture.test/work" };
+    const vars = { url: URL1, client: null, host: "fixture.test", skill: "/s", data: "/s", runDir: "/s/site-checks/fixture.test", pewp: "/s/site-checks/fixture.test/.pewp", work: "/s/site-checks/fixture.test/work" };
     check("E: substitute fills every placeholder (one text or a list)", lib.substitute("{pewp}/a/{host}/{work}", vars) === "/s/site-checks/fixture.test/.pewp/a/fixture.test//s/site-checks/fixture.test/work" && lib.substitute(["{host}", "{url}"], vars).join() === "fixture.test," + URL1, lib.substitute("{pewp}/a/{host}/{work}", vars));
     let e1 = null; try { lib.substitute("{nope}", vars); } catch (e) { e1 = e; }
     let e2 = null; try { lib.substitute("x/{client}", vars); } catch (e) { e2 = e; }
@@ -107,7 +109,7 @@ async function scenarios(sdir) {
     const f = (p, body, ageMs = 0) => { const full = path.join(ev, p); fs.mkdirSync(path.dirname(full), { recursive: true }); fs.writeFileSync(full, body); const t = new Date(Date.now() - ageMs); fs.utimesSync(full, t, t); return full; };
     const since = Date.now() - 60_000;
     f("ok.json", "{}"); f("empty.json", ""); f("old.json", "{}", 3_600_000);
-    const st = (evidence, inputs = []) => ({ evidence, inputs });
+    const st = (evidence, inputs = []) => ({ evidence, inputs, outputs: evidence.filter((e) => !inputs.includes(e)) }); // a path the step writes (an output) must be new; one it only reads (an input) need only exist
     const es = (p, opts = {}, inputs = []) => lib.evidenceState(st([p], inputs), {}, { since, ...opts });
     const c1 = es(path.join(ev, "ok.json"));
     const c2 = es(path.join(ev, "nope.json"));
@@ -115,9 +117,9 @@ async function scenarios(sdir) {
     const c4 = es(path.join(ev, "old.json"));
     const c5 = es(path.join(ev, "old.json"), {}, [path.join(ev, "old.json")]);
     check("E: evidence that exists, is not empty and is newer than the step's start is done", c1.state === "done" && !c1.problems.length, JSON.stringify(c1));
-    check("E: evidence that is missing is missing (the problem says 'missing')", c2.state === "missing" && /^missing: /.test(c2.problems[0]), JSON.stringify(c2));
-    check("E: evidence that is empty is missing (the problem says 'empty')", c3.state === "missing" && /^empty: /.test(c3.problems[0]), JSON.stringify(c3));
-    check("E: evidence older than the step's start is stale (the problem says 'older than the step')", c4.state === "stale" && /^older than the step: /.test(c4.problems[0]), JSON.stringify(c4));
+    check("E: evidence that is missing is missing (the problem says 'no non-empty file')", c2.state === "missing" && /nope\.json \(no non-empty file\)$/.test(c2.problems[0]), JSON.stringify(c2));
+    check("E: evidence that is empty is missing (the problem says '1 empty file' and names it)", c3.state === "missing" && /empty\.json \(1 empty file: .*empty\.json\)$/.test(c3.problems[0]), JSON.stringify(c3));
+    check("E: evidence older than the step's start is stale (the problem says 'only files older than the step started')", c4.state === "stale" && /old\.json \(only files older than the step started\)$/.test(c4.problems[0]), JSON.stringify(c4));
     check("E: a path the step only reads (also an input) needs to exist and be non-empty, not to be new", c5.state === "done", JSON.stringify(c5));
     f("snap/a/_site.json", "{}", 3_600_000); f("snap/b/_site.json", "{}");
     const c6 = es(path.join(ev, "snap", "*", "_site.json"));
@@ -126,7 +128,7 @@ async function scenarios(sdir) {
     f("snap/b/_site.json", "", 0);
     const c8 = es(path.join(ev, "snap", "*", "_site.json"));
     check("E: a pattern with several matches (dated snapshot folders) is satisfied by its newest match, an older one beside it does not fail it", c6.state === "done" && c7.state === "stale" && /older than the step/.test(c7.problems[0]), JSON.stringify([c6, c7]));
-    check("E: a pattern's match that is empty still counts as empty", c8.state === "missing" && c8.problems.some((p) => /^empty: /.test(p)), JSON.stringify(c8));
+    check("E: a pattern's match that is empty still counts as empty", c8.state === "missing" && c8.problems.some((p) => /\(1 empty file: .*_site\.json\)$/.test(p)), JSON.stringify(c8));
     // the same through an injected file system: no real files (the CLI tests with fakes)
     const NOW = Date.now(), files = { "/r/a.json": { size: 5, mtimeMs: NOW }, "/r/old.json": { size: 5, mtimeMs: NOW - 9e6 }, "/r/zero.json": { size: 0, mtimeMs: NOW } };
     const fake = { existsSync: (p) => p in files, statSync: (p) => ({ ...files[p], isDirectory: () => false }), readdirSync: () => [] };
@@ -137,7 +139,7 @@ async function scenarios(sdir) {
       const H = 3_600_000, T = Date.now();
       const F = { "/r/in.json": { size: 5, mtimeMs: T - 3 * H }, "/r/newin.json": { size: 5, mtimeMs: T - 600_000 }, "/r/same.json": { size: 5, mtimeMs: T - H }, "/r/out.json": { size: 9, mtimeMs: T - H }, "/r/out2.json": { size: 9, mtimeMs: T - 5 * H }, "/r/zero.json": { size: 0, mtimeMs: T - H } };
       const aio = { existsSync: (p) => p in F, statSync: (p) => ({ ...F[p], isDirectory: () => false }), readdirSync: () => [] };
-      const mk = (over) => ({ id: "x", module: "m", what: "w", script: "scripts/x.mjs", args: [], inputs: [], outputs: [], dependsOn: [], needsBrowser: "none", needsAi: false, needsPerson: false, needsKeys: [], heavy: false, hits: "none", pace: null, timeoutMinutes: 1, evidence: ["/r/out.json"], ...over });
+      const mk = (over) => { const s = { id: "x", module: "m", what: "w", script: "scripts/x.mjs", args: [], inputs: [], dependsOn: [], needsBrowser: "none", needsAi: false, needsPerson: false, needsKeys: [], heavy: false, hits: "none", pace: null, timeoutMinutes: 1, evidence: ["/r/out.json"], ...over }; return { ...s, outputs: over && "outputs" in over ? over.outputs : s.evidence.filter((e) => !s.inputs.includes(e)) }; }; // the evidence the step writes is its output; a path it only reads is not
       const ad = (step, vars = {}) => { try { return lib.adoptStep(step, { vars, now: T, io: aio }); } catch (e) { return { ok: null, threw: e.message }; } };
       const a1 = ad(mk({ inputs: ["/r/in.json"] }));
       check("D2: a step whose evidence exists, is not empty and is newer than every input is adopted: ok, outcome 'adopted', exit 0", a1.ok === true && a1.outcome === "adopted" && a1.exit === 0 && a1.id === "x", JSON.stringify(a1));
@@ -145,7 +147,7 @@ async function scenarios(sdir) {
       const a2 = ad(mk({ inputs: ["/r/in.json", "/r/newin.json"] }));
       check("D2: an input newer than the evidence refuses the adoption and NAMES the input (rule input-newer, with both dates)", a2.ok === false && a2.rule === "input-newer" && /\/r\/newin\.json/.test(a2.reason) && a2.input === "/r/newin.json" && !!a2.inputMtime && !!a2.evidenceMtime, JSON.stringify(a2));
       const a3 = ad(mk({ evidence: ["/r/zero.json"] })), a4 = ad(mk({ evidence: ["/r/none.json"] }));
-      check("D2: empty evidence refuses (rule evidence, says empty and names the file); missing evidence refuses too", a3.ok === false && a3.rule === "evidence" && /empty/.test(a3.reason) && /zero\.json/.test(a3.reason) && a4.ok === false && a4.rule === "evidence" && /missing/.test(a4.reason), JSON.stringify([a3, a4]));
+      check("D2: empty evidence refuses (rule evidence, says empty and names the file); missing evidence refuses too", a3.ok === false && a3.rule === "evidence" && /empty/.test(a3.reason) && /zero\.json/.test(a3.reason) && a4.ok === false && a4.rule === "evidence" && /no non-empty file/.test(a4.reason), JSON.stringify([a3, a4]));
       const a5 = ad(mk({ evidence: [] }));
       check("D2: a step that names no evidence cannot be adopted (nothing to look at): rule no-evidence", a5.ok === false && a5.rule === "no-evidence", JSON.stringify(a5));
       const a6 = ad(mk({ evidence: ["/r/out.json", "/r/out2.json"], inputs: ["/r/in.json"] })), a7 = ad(mk({ evidence: ["/r/out.json", "/r/out2.json"], inputs: ["/r/out2.json"].slice(1) }));
@@ -162,26 +164,26 @@ async function scenarios(sdir) {
     }
 
     // ---------------- A: the API the CLI imports ----------------
-    check("A: the lib exports the API names (loadManifest, validateManifest, runOrder, substitute, evidenceState, stepOutcome, stepKind, describe) and prints nothing, never exits", ["loadManifest", "validateManifest", "runOrder", "substitute", "evidenceState", "stepOutcome", "stepKind", "stepStop", "describe", "PlaceholderError"].every((k) => typeof lib[k] === "function") && !/console\.|process\.exit/.test(fs.readFileSync(path.join(sdir, "lib-pipeline.mjs"), "utf8").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n")), "missing export, or console / process.exit in the code");
+    check("A: the lib exports the API names (loadManifest, validateManifest, runOrder, substitute, evidenceState, stepOutcome, stepKind, describe and the rest the CLI takes) and prints nothing, never exits", ["loadManifest", "validateManifest", "runOrder", "makeVars", "hostOf", "resolveScript", "substitute", "covers", "globPaths", "filesUnder", "evidenceState", "inputNewer", "adoptStep", "stepOutcome", "outcomeState", "stepStop", "stepKind", "isWaiting", "describe", "PipelineError", "PlaceholderError"].every((k) => typeof lib[k] === "function") && Array.isArray(lib.STEP_KEYS) && Array.isArray(lib.TOP_KEYS) && Array.isArray(lib.PLACEHOLDERS) && Array.isArray(lib.RUN_OPTIONS) && typeof lib.SLACK_MS === "number" && !/console\.|process\.exit/.test(fs.readFileSync(path.join(sdir, "lib-pipeline.mjs"), "utf8").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n")), "missing export, or console / process.exit in the code");
     const sf = (...a) => { try { return lib.loadManifest(...a); } catch (e) { return { ok: null, problems: [{ rule: "threw", detail: e.message }], manifest: { steps: [] } }; } }; // a throw is a red assertion, not a crash
     const lm = sf(PIPE), lmBad = sf(path.join(tmp, "no-such.json")), lmJson = sf("x", { io: { readFileSync: () => "{ nope" } }), lmFake = sf("x", { io: { readFileSync: () => '\uFEFF{"version":1}' } });
     check("A: loadManifest returns { ok, manifest, problems } (the real file ok; a missing file and bad JSON are problems with rule 'load', not exceptions; an injected io and a BOM work)", lm.ok && lm.manifest.steps.length === manifest.steps.length && !lmBad.ok && lmBad.problems[0].rule === "load" && !lmJson.ok && /not valid JSON/.test(lmJson.problems[0].detail) && lmFake.ok && lmFake.manifest.version === 1, JSON.stringify([lmBad, lmJson]));
     const vm = lib.validateManifest((() => { const m = clone(); step(m, "psi").surprise = 1; return m; })(), { skillDir });
-    check("A: validateManifest returns { ok: false, problems: [{ rule, step, detail }] } (rule 'step-key', step 'psi'); the real manifest is { ok: true, problems: [] }", !vm.ok && vm.problems.length === 1 && vm.problems[0].rule === "step-key" && vm.problems[0].step === "psi" && /unknown key "surprise"/.test(vm.problems[0].detail) && lib.validateManifest(manifest, { skillDir }).ok === true, JSON.stringify(vm));
+    check("A: validateManifest returns { ok: false, problems: [{ rule, step, detail }] } (rule 'step-key', step 'psi'); the real manifest is { ok: true, problems: [] }", !vm.ok && vm.problems.length === 1 && vm.problems[0].rule === "step-key" && vm.problems[0].step === "psi" && /unknown key 'surprise'/.test(vm.problems[0].detail) && lib.validateManifest(manifest, { skillDir }).ok === true, JSON.stringify(vm));
     const ro = lib.runOrder(cyc);
     check("A: runOrder returns { ok, steps, ids, problems } and a cycle is a problem value (rule 'cycle'), never a throw", !ro.ok && ro.problems[0].rule === "cycle" && lib.runOrder(manifest).ok && lib.runOrder(manifest).steps.length === manifest.steps.length, JSON.stringify(ro.problems));
     check("A: stepKind says script, person, browser or agent", lib.stepKind(step(manifest, "psi")) === "script" && lib.stepKind(step(manifest, "approve-business")) === "person" && lib.stepKind(step(manifest, "capture-google")) === "browser" && lib.stepKind(step(manifest, "checker")) === "agent", "");
-    const S0 = { exit: {} }, SP = { exit: { 4: "partial: what was read is kept" } }, okEv = { state: "done", problems: [] }, badEv = { state: "missing", problems: ["missing: /x"] };
+    const S0 = { exit: {} }, okEv = { state: "done", problems: [] }, badEv = { state: "missing", problems: ["/x (no non-empty file)"] };
     const so = (step2, o) => lib.stepOutcome(step2, o);
     const OUT = [
       ["exit 0 with its evidence is done", so(S0, { code: 0, lastLine: "wrote it", evidence: okEv }), "done", /wrote it/],
-      ["exit 0 whose evidence is missing is a failure that lists the problem", so(S0, { code: 0, lastLine: "wrote it", evidence: badEv }), "fail", /evidence is not there: missing: \/x/],
+      ["exit 0 whose evidence is missing is a failure that lists the problem", so(S0, { code: 0, lastLine: "wrote it", evidence: badEv }), "fail", /^exit 0 but evidence missing: \/x \(no non-empty file\)$/],
       ["exit 3 with a 'BLOCKED: <what> | unblocks: <what would>' last line is blocked, the line quoted without its prefix", so(S0, { code: 3, lastLine: "BLOCKED: no key | unblocks: set it" }), "blocked", /^no key \| unblocks: set it$/],
       ["exit 3 without the BLOCKED line is a failure (a broken contract), not a block", so(S0, { code: 3, lastLine: "something odd" }), "fail", /not "BLOCKED:/],
       ["exit 3 with a NEEDS-INPUT line in the output is needs-input", so(S0, { code: 3, lastLine: "BLOCKED: intake needs the owner's answers | unblocks: answer", output: "NEEDS-INPUT stage=intake: 2 questions\nBLOCKED: intake needs the owner's answers" }), "needs-input", /./],
       ["exit 4 with 'SKIPPED: <reason>' is skipped, the reason quoted", so(S0, { code: 4, lastLine: "SKIPPED: not applicable" }), "skipped", /^not applicable$/],
       ["exit 4 without the SKIPPED line is a failure", so(S0, { code: 4, lastLine: "done something" }), "fail", /not "SKIPPED:/],
-      ["exit 4 on a step whose manifest says '4: partial' is partial", so(SP, { code: 4, lastLine: "read 10 of 25" }), "partial", /read 10 of 25/],
+      ["exit 0 with a 'PARTIAL: <what is missing>' last line and its evidence is partial, the line quoted without its prefix", so(S0, { code: 0, lastLine: "PARTIAL: read 10 of 25", evidence: okEv }), "partial", /^read 10 of 25$/],
       ["exit 2 is a failure that names the usage error", so(S0, { code: 2, lastLine: "usage: node x" }), "fail", /usage error \(exit 2\)/],
       ["any other exit (1) is a failure", so(S0, { code: 1, lastLine: "crashed" }), "fail", /exit 1: crashed/],
     ];
@@ -210,7 +212,65 @@ async function scenarios(sdir) {
     const past = path.join(tmp, "stops-past"); fs.mkdirSync(past);
     stopsLib.writeStop({ engine: "google", until: Date.now() - 1000, reason: "old", setBy: "test", dir: past });
     check("G: an expired stop does not hold the step", lib.stepStop({ engines: ["google"] }, { dir: past }) === null, "");
+    const unreadable = path.join(tmp, "stops-unreadable"), noUntil = path.join(tmp, "stops-no-until"); fs.mkdirSync(unreadable); fs.mkdirSync(noUntil);
+    fs.writeFileSync(path.join(unreadable, "google.json"), "{ not json"); fs.writeFileSync(path.join(noUntil, "google.json"), JSON.stringify({ engine: "google", reason: "x" }));
+    const u1 = lib.stepStop({ engines: ["google"] }, { dir: unreadable }), u2 = lib.stepStop({ engines: ["google"] }, { dir: noUntil });
+    check("G: with the real lib-stops: a stop file that cannot be read, and one with no valid until, each hold the step", u1?.engine === "google" && /unreadable/.test(u1.reason) && u2?.engine === "google" && /unreadable/.test(u2.reason), JSON.stringify([u1, u2]));
     } catch (e) { check("G: stepStop and the stops run without an error (" + e.message + ")", false, String(e.stack)); }
+
+    // ---------------- L: the ONE engine (P3.4 R2): what `omnikom seo run` takes from this file, the expected values written here ----------------
+    try {
+    const SN = 1_700_000_000_000;
+    const okL = { state: "done", problems: [] }, badL = { state: "missing", problems: ["/x (no non-empty file)"] };
+    const pt = so(S0, { code: 0, lastLine: "PARTIAL: read 10 of 25", evidence: okL });
+    check("L: exit 0 with a 'PARTIAL: <what is missing>' last line and its evidence is the outcome partial, state PARTIAL, message 'read 10 of 25', the line kept whole", pt.outcome === "partial" && lib.outcomeState(pt) === "PARTIAL" && pt.message === "read 10 of 25" && pt.line === "PARTIAL: read 10 of 25", JSON.stringify(pt));
+    const pf = so(S0, { code: 0, lastLine: "PARTIAL: read 10 of 25", evidence: badL });
+    check("L: the same PARTIAL line without its evidence is a failure (exit 0 but evidence missing), state FAILED, never a partial", pf.outcome === "fail" && lib.outcomeState(pf) === "FAILED" && pf.message === "exit 0 but evidence missing: /x (no non-empty file)", JSON.stringify(pf));
+    const bl = so(S0, { code: 3, lastLine: ["a stderr line that says nothing", "BLOCKED: no key | unblocks: set it"], output: "x" });
+    check("L: lastLine as a list (the CLI hands the last stderr line, then the last stdout line): for exit 3 the one that starts BLOCKED: is used, quoted without its prefix", bl.outcome === "blocked" && bl.message === "no key | unblocks: set it" && bl.line === "BLOCKED: no key | unblocks: set it", JSON.stringify(bl));
+    const ni = so(S0, { code: 3, lastLine: ["BLOCKED: answers | unblocks: y"], output: "NEEDS-INPUT x\nBLOCKED: answers | unblocks: y" });
+    check("L: a NEEDS-INPUT outcome is the state WAITING, and every outcome has its state (done RUN, partial PARTIAL, blocked BLOCKED, skipped SKIPPED, needs-input WAITING, fail FAILED)", ni.outcome === "needs-input" && lib.outcomeState(ni) === "WAITING" && [["done", "RUN"], ["partial", "PARTIAL"], ["blocked", "BLOCKED"], ["skipped", "SKIPPED"], ["needs-input", "WAITING"], ["fail", "FAILED"]].every(([o, st2]) => lib.outcomeState({ outcome: o }) === st2), JSON.stringify([ni, lib.outcomeState(ni)]));
+    const fio = (mtimes) => ({ existsSync: (p) => p in mtimes, statSync: (p) => ({ size: 5, mtimeMs: mtimes[p], isDirectory: () => false }), readdirSync: () => [] });
+    const stepSl = { evidence: ["/r/a.json"], inputs: [], outputs: ["/r/a.json"] };
+    const sl1 = lib.evidenceState(stepSl, {}, { since: SN, io: fio({ "/r/a.json": SN - 1000 }) }), sl3 = lib.evidenceState(stepSl, {}, { since: SN, io: fio({ "/r/a.json": SN - 3000 }) });
+    check("L: the file-time slack is 2 s: a file 1 s older than the step's start is done, one 3 s older is stale", lib.SLACK_MS === 2000 && sl1.state === "done" && sl3.state === "stale", JSON.stringify([lib.SLACK_MS, sl1, sl3]));
+    const stepIn = { evidence: ["/r/out.json"], inputs: ["/r/in.json"], outputs: ["/r/out.json"] };
+    const newer = (ms) => { const io = fio({ "/r/out.json": SN, "/r/in.json": SN + ms }); return lib.inputNewer(stepIn, {}, lib.evidenceState(stepIn, {}, { since: 0, io }).files, { io }); };
+    const n1 = newer(1000), n3 = newer(3000);
+    check("L: inputNewer: an input 1 s newer than the evidence is null (the slack), one 3 s newer names the input and both times", n1 === null && n3 && n3.input === "/r/in.json" && n3.inputMtime === new Date(SN + 3000).toISOString() && n3.evidenceMtime === new Date(SN).toISOString(), JSON.stringify([n1, n3]));
+    const ao = lib.adoptStep({ id: "x", evidence: ["/r/out.json"], inputs: [], outputs: ["/r/made.json"] }, { vars: {}, now: SN, io: fio({ "/r/out.json": SN }) });
+    check("L: a step whose output has no non-empty file is not adopted although its evidence is there: rule output-missing, naming the output", ao.ok === false && ao.rule === "output-missing" && /\/r\/made\.json/.test(ao.reason), JSON.stringify(ao));
+    const open = () => ({ until: null, reason: "unreadable" });
+    const o1 = lib.stepStop({ engines: ["google"] }, { isStopped: open }), o2 = lib.stepStop({ engines: ["google"] }, { isStopped: open, mode: "desktop" });
+    check("L: a stop with no end time says '(no end time)' and, in script mode, 'its owner removing the stop file' (desktop mode: 'its owner lifting it for a desktop capture')", o1?.until === null && o1.message === "google is stopped (no end time) (unreadable) | unblocks: its owner removing the stop file (a stop is never lifted for a script)" && o2?.message === "google is stopped (no end time) (unreadable) | unblocks: its owner lifting it for a desktop capture", JSON.stringify([o1, o2]));
+    const data10 = "/m/clients/demo/private/pewp/example.com/2026-01-01-1";
+    const mv = lib.makeVars({ url: "https://www.example.com/x", client: "demo", skillDir: "/s", data: data10 });
+    check("L: makeVars: {data} is the run's data folder, {runDir} and {pewp} are under it by host, {work} is under {data}", JSON.stringify(Object.entries(mv).sort()) === JSON.stringify(Object.entries({ url: "https://www.example.com/x", client: "demo", host: "example.com", skill: "/s", data: data10, runDir: `${data10}/site-checks/example.com`, pewp: `${data10}/site-checks/example.com/.pewp`, work: `${data10}/work` }).sort()), JSON.stringify(mv));
+    // the validator table of the CLI test (T1): the same changes to the same base manifest, the same rule ids
+    const sB = (id, over = {}) => ({ id, module: "m", what: `step ${id}`, script: "scripts/doctor.mjs", args: [], inputs: [], outputs: [`{pewp}/${id}.json`], dependsOn: [], needsBrowser: "none", needsAi: false, needsPerson: false, needsKeys: [], heavy: false, hits: "none", pace: null, timeoutMinutes: 1, evidence: [`{pewp}/${id}.json`], kind: "derived", maxAgeDays: null, ...over });
+    const wB = (id, over = {}) => sB(id, { script: null, needsBrowser: "owner", brief: "do it for {host}", timeoutMinutes: 0, outputs: [`{pewp}/captures/${id}.json`], evidence: [`{pewp}/captures/${id}.json`], ...over });
+    const TABLE = [
+      [1, (m, h) => { h("a").exit = { 4: "partial: r" }; }, "exit"], [2, (m, h) => { h("a").exit = { 5: "failed: x" }; }, "exit"], [3, (m, h) => { h("a").exit = { 3: "blocked: x", 4: "skipped: n" }; }, "ok"],
+      [4, (m, h) => { delete h("a").kind; }, "required-key"], [5, (m, h) => { h("a").maxAgeDays = 0; }, "ok"], [6, (m, h) => { h("a").maxAgeDays = -1; }, "type"],
+      [7, (m, h) => { h("a").script = "repo:tools/nope.mjs"; }, "script-missing"], [8, (m, h) => { h("a").script = "repo:tools/with-env.mjs"; }, "ok"],
+      [9, (m, h) => { h("b").id = "b--x"; }, "id"], [10, (m, h) => { h("a").module = "Alpha"; }, "module"],
+      [11, (m, h) => { delete h("a").pace; }, "required-key"], [12, (m) => { delete m.name; }, "top-level"], [13, (m) => { m.vars = { nope: "x" }; }, "vars"],
+      [14, (m) => { m.extra = 1; }, "top-level"], [15, (m) => { m.coverage = {}; }, "ok"], [16, (m, h) => { h("a").hits = "third-party:A B"; }, "hits"],
+      [17, (m, h) => { h("a").engines = []; }, "engines"], [18, (m, h) => { h("a").engines = ["yahoo"]; }, "engines"], [19, (m, h) => { h("a").engines = ["trustpilot"]; }, "ok"],
+      [20, (m, h) => { h("a").evidence = []; }, "evidence"], [21, (m, h) => { h("a").evidence = ["{pewp}/**/a.json"]; }, "evidence"], [22, (m, h) => { h("a").evidence = ["{pewp}/z/a.json"]; }, "evidence"],
+      [23, (m, h) => { h("a").outputs = ["{pewp}/d/"]; h("a").evidence = ["{pewp}/d/*.json"]; }, "ok"],
+      [24, (m, h) => { h("a").script = "scripts/x.py"; }, "script"], [25, (m, h) => { h("a").script = "../x.mjs"; }, "script"], [26, (m, h) => { h("a").script = "scripts/{host}.mjs"; }, "placeholder"],
+      [27, (m, h) => { h("w").args = ["x"]; }, "waiting"], [28, (m, h) => { h("w").outputs = []; }, "waiting"], [29, (m, h) => { h("a").timeoutMinutes = 0; }, "timeout"],
+    ];
+    const repoRootL = path.resolve(skillDir, "..", ".."), wrongL = [];
+    for (const [n, change, verdict] of TABLE) {
+      const m = { version: 1, name: "t", what: "t", steps: [sB("a"), sB("b", { dependsOn: ["a"] }), wB("w")] };
+      change(m, (id) => m.steps.find((x) => x.id === id));
+      let rules; try { rules = lib.validateManifest(m, { skillDir, repoRoot: repoRootL }).problems.map((p) => p.rule); } catch (e) { rules = [`threw: ${e.message}`]; }
+      if (verdict === "ok" ? rules.length !== 0 : !rules.includes(verdict)) wrongL.push(`${n}: want ${verdict}, got ${rules.join("+") || "none"}`);
+    }
+    check("L: the validator table of the CLI test (29 changes to one base manifest): each gives its rule id, and the accepted ones give no problem", TABLE.length === 29 && wrongL.length === 0, wrongL.join("; "));
+    } catch (e) { check("L: the engine's cases run without an error (" + e.message + ")", false, String(e.stack)); }
 
     // ---------------- F: the file is already in run order (nobody is misled reading it top to bottom) ----------------
     const fileIds = manifest.steps.map((s) => s.id), at2 = new Map(fileIds.map((id, i) => [id, i]));
@@ -228,7 +288,7 @@ async function scenarios(sdir) {
       ["report-live waits for the speed steps and every importer (psi, crux, index, trends, ai, reputation, social, ads)", (m) => ["psi", "crux", "index-import", "trends-import", "ai-import", "reputation-import", "social-import", "ads-import"].every((d) => step(m, "report-live").dependsOn.includes(d)), (m) => { step(m, "report-live").dependsOn = step(m, "report-live").dependsOn.filter((d) => d !== "crux"); }],
       ["city-centres writes captures/local/grid/cities.json and local-grid-plan waits for it", (m) => step(m, "city-centres").outputs.join() === "{pewp}/captures/local/grid/cities.json" && step(m, "local-grid-plan").dependsOn.includes("city-centres") && step(m, "city-centres").dependsOn.join() === "approve-business", (m) => { step(m, "local-grid-plan").dependsOn = step(m, "local-grid-plan").dependsOn.filter((d) => d !== "city-centres"); }],
       ["psi asks for three runs per page and strategy, and demand-bing asks for the client's own site stats (BLOCKED until the client adds us)", (m) => step(m, "psi").args.join(" ").includes("--runs 3") && step(m, "demand-bing").args.includes("--site-stats"), (m) => { step(m, "psi").args = step(m, "psi").args.filter((a, i, arr) => a !== "--runs" && arr[i - 1] !== "--runs"); }],
-      ["authority-anchors comes from WO 42 with the head of operations' limits: it depends on authority only, 600 requests 3 s apart (data host only), 60 minutes, and keeps its exit 3 and exit 4 meanings", (m) => { const s = step(m, "authority-anchors"); return s.dependsOn.join() === "authority" && s.args.join(" ") === "{pewp} --max-requests 600 --gap-ms 3000" && s.timeoutMinutes === 60 && /^BLOCKED/.test(s.exit?.[3] || "") && /^partial: /.test(s.exit?.[4] || ""); }, (m) => { delete step(m, "authority-anchors").exit; }],
+      ["authority-anchors comes from WO 42 with the head of operations' limits: it depends on authority only, 600 requests 3 s apart (data host only), 60 minutes, and keeps its exit 3 meaning; it has no exit 4 entry (a stop by Common Crawl is exit 0 with a PARTIAL: last line)", (m) => { const s = step(m, "authority-anchors"); return s.dependsOn.join() === "authority" && s.args.join(" ") === "{pewp} --max-requests 600 --gap-ms 3000" && s.timeoutMinutes === 60 && /^BLOCKED/.test(s.exit?.[3] || "") && s.exit?.[4] === undefined; }, (m) => { delete step(m, "authority-anchors").exit; }],
     ];
     for (const [name, pred, brk] of FACTS) {
       const broken = clone(); brk(broken);
@@ -309,36 +369,73 @@ const MUTANTS = [
   { name: "start.mjs runs the manifest in file order, not the run order", patches: [{ file: "start.mjs", from: "return runOrder(lm.manifest).steps.map(manifestStage);", to: "return lm.manifest.steps.map(manifestStage);" }], expect: [/^S: a manifest listed backwards/] },
   { name: "start.mjs drops a step of the manifest", patches: [{ file: "start.mjs", from: "return runOrder(lm.manifest).steps.map(manifestStage);", to: "return runOrder(lm.manifest).steps.slice(1).map(manifestStage);" }], expect: [/^S: same: the step ids and their order/] },
   { name: "start.mjs does not record dependsOn", patches: [{ file: "start.mjs", from: "...(s.dependsOn ? { dependsOn: s.dependsOn } : {})", to: "...{}" }], expect: [/^S: same: every step's dependsOn/] },
-  { name: "no cycle check (runOrder gives up quietly)", patches: [{ file: LP, from: "if (i < 0) return { ok: false, steps: out, ids: out.map((s) => s.id), problems: [problem(\"cycle\", null, `cycle among: ${left.map((s) => s.id).join(\", \")}`)] };", to: "if (i < 0) { out.push(...left); break; }" }], expect: [/^V: a cycle is refused/, /^O: a cycle cannot be ordered/, /^A: runOrder returns/] },
+  { name: "no cycle check (runOrder gives up quietly)", patches: [{ file: LP, from: "if (i < 0) return { ok: false, steps: out, ids: out.map((s) => s.id), problems: [problem(\"cycle\", null, `cycle among: ${left.map((s) => s.id).join(\", \")}`)] };", to: "if (i < 0) { out.push(...left); break; }" }], expect: [/^O: a cycle cannot be ordered/, /^A: runOrder returns/] },
   { name: "runOrder ignores dependencies", patches: [{ file: LP, from: "const i = left.findIndex((s) => (s.dependsOn || []).every((d) => placed.has(d) || !ids.has(d)));", to: "const i = 0;" }], expect: [/^O: a manifest listed backwards/] },
   { name: "an unknown engine name is accepted", patches: [{ file: LP, from: "if (!Object.hasOwn(KNOWN_ENGINES, e)) bad(", to: "if (false) bad(" }], expect: [/^V: an engines name that lib-stops does not know/] },
   { name: "engines may be a string", patches: [{ file: LP, from: "if (!Array.isArray(s.engines) || !s.engines.length) bad(", to: "if (false) bad(" }], expect: [/^V: engines that is not a list of names/] },
-  { name: "stepStop never finds a stop", patches: [{ file: LP, from: "if (stop) return { engine,", to: "if (false) return { engine," }], expect: [/^G: stepStop returns the stop of the first stopped engine/, /^G: with the real lib-stops/] },
+  { name: "stepStop never finds a stop", patches: [{ file: LP, from: "if (stop) {", to: "if (false) {" }], expect: [/^G: stepStop returns the stop of the first stopped engine/, /^G: with the real lib-stops/] },
   { name: "stepStop ignores the mode", patches: [{ file: LP, from: "const stop = isStopped(engine, now, dir, mode);", to: "const stop = isStopped(engine, now, dir, \"script\");" }], expect: [/^G: the mode reaches isStopped/, /^G: with the real lib-stops/] },
   { name: "the lib prints something", patches: [{ file: LP, from: "export const describe = ", to: "console.log('hi'); export const describe = " }], expect: [/^A: the lib exports the API names/] },
   { name: "the lib can exit the process", patches: [{ file: LP, from: "export class PipelineError extends Error {}", to: "export class PipelineError extends Error {}\nexport const boom = () => process.exit(9);" }], expect: [/^A: the lib exports the API names/] },
   { name: "stepOutcome believes exit 0 without its evidence", patches: [{ file: LP, from: "if (evidence && evidence.state !== \"done\") return", to: "if (false) return" }], expect: [/^A: stepOutcome: exit 0 whose evidence is missing/] },
   { name: "stepOutcome believes exit 3 without the BLOCKED line", patches: [{ file: LP, from: "return /^BLOCKED:/.test(ll) ? { outcome: \"blocked\"", to: "return true ? { outcome: \"blocked\"" }], expect: [/^A: stepOutcome: exit 3 without the BLOCKED line/] },
-  { name: "stepOutcome does not honour 4 = partial", patches: [{ file: LP, from: "if (code === 4 && partial) return { outcome: \"partial\", message: ll };", to: "" }], expect: [/^A: stepOutcome: exit 4 on a step whose manifest says/] },
+  { name: "stepOutcome does not honour a PARTIAL: last line", patches: [{ file: LP, from: "if (code === 0 && /^PARTIAL:/.test(ll)) return", to: "if (false) return" }], expect: [/^A: stepOutcome: exit 0 with a 'PARTIAL/, /^L: exit 0 with a 'PARTIAL/] },
   { name: "stepOutcome loses the NEEDS-INPUT line", patches: [{ file: LP, from: "if (code === 3 && /^NEEDS-INPUT/m.test(output)) return { outcome: \"needs-input\", message: ll };", to: "" }], expect: [/^A: stepOutcome: exit 3 with a NEEDS-INPUT line/] },
   { name: "stepOutcome counts exit 2 as ok", patches: [{ file: LP, from: "if (code === 2) return { outcome: \"fail\"", to: "if (code === 2) return { outcome: \"done\"" }], expect: [/^A: stepOutcome: exit 2 is a failure/] },
   { name: "a missing placeholder value is not a typed error", patches: [{ file: LP, from: "if (vars?.[k] == null || vars[k] === \"\") throw new PlaceholderError(k, \"missing\");", to: "if (vars?.[k] == null || vars[k] === \"\") return \"\";" }], expect: [/^E: an unknown placeholder, and one with no value/] },
   { name: "evidenceState ignores an injected io", patches: [{ file: LP, from: "const ioOf = (io) => ({ ...IO, ...(io || {}) });", to: "const ioOf = (io) => ({ ...IO });" }], expect: [/^E: evidenceState reads the files through an injected io/, /^A: loadManifest returns/] },
   { name: "loadManifest throws instead of returning problems", patches: [{ file: LP, from: "try { text = ioOf(io).readFileSync(file, \"utf8\"); } catch (e) { return", to: "try { text = ioOf(io).readFileSync(file, \"utf8\"); } catch (e) { throw e; return" }], expect: [/^A: loadManifest returns/] },
-  { name: "unknown dependsOn not reported", patches: [{ file: LP, from: "else if (!ids.has(d)) bad(\"dependsOn\", at,", to: "else if (false) bad(\"dependsOn\", at," }], expect: [/^V: a dependsOn id that is not a step is refused/] },
+  { name: "unknown dependsOn not reported", patches: [{ file: LP, from: "else if (!known.has(d)) bad(\"dependsOn\", at,", to: "else if (false) bad(\"dependsOn\", at," }], expect: [/^V: a dependsOn id that is not a step is refused/] },
   { name: "a step may depend on itself", patches: [{ file: LP, from: "if (d === s.id) bad(\"self-dependency\"", to: "if (false) bad(\"self-dependency\"" }], expect: [/^V: a step that depends on itself/] },
-  { name: "duplicate ids allowed", patches: [{ file: LP, from: "if (ids.has(s.id)) bad(\"duplicate-id\"", to: "if (false) bad(\"duplicate-id\"" }], expect: [/^V: a duplicate id is refused/] },
-  { name: "unknown placeholder in args allowed", patches: [{ file: LP, from: "if (!PLACEHOLDERS.includes(p)) bad(\"placeholder\", at, `unknown placeholder {${p}} in ${k}`)", to: "if (false) bad(\"placeholder\", at, `unknown placeholder {${p}} in ${k}`)" }], expect: [/^V: an unknown placeholder in args/, /^V: an unknown placeholder in evidence/] },
-  { name: "unknown placeholder in a brief allowed", patches: [{ file: LP, from: "if (!PLACEHOLDERS.includes(p)) bad(\"placeholder\", at, `unknown placeholder {${p}} in brief`)", to: "if (false) bad(\"placeholder\", at, `unknown placeholder {${p}} in brief`)" }], expect: [/^V: an unknown placeholder in a brief/] },
-  { name: "a missing script is not noticed", patches: [{ file: LP, from: "(scriptExists ? !scriptExists(s.script) : skillDir && !fs.existsSync(path.join(skillDir, s.script)))", to: "false" }], expect: [/^V: a script that does not exist is refused/] },
-  { name: "an unknown step key is allowed", patches: [{ file: LP, from: "if (![...REQUIRED, ...OPTIONAL].includes(k)) bad(\"step-key\"", to: "if (false) bad(\"step-key\"" }], expect: [/^V: an unknown step key is refused/] },
+  { name: "duplicate ids allowed", patches: [{ file: LP, from: "for (const id of dup) bad(\"duplicate-id\"", to: "for (const id of []) bad(\"duplicate-id\"" }], expect: [/^V: a duplicate id is refused/] },
+  { name: "unknown placeholder in args allowed", patches: [{ file: LP, from: "for (const text of Array.isArray(s[k]) ? s[k] : []) for (const name of placeholdersIn(text)) if (!PLACEHOLDERS.includes(name)) bad(", to: "for (const text of Array.isArray(s[k]) ? s[k] : []) for (const name of placeholdersIn(text)) if (false) bad(" }], expect: [/^V: an unknown placeholder in args/, /^V: an unknown placeholder in evidence/] },
+  { name: "unknown placeholder in a brief allowed", patches: [{ file: LP, from: "if (typeof s.brief === \"string\") for (const name of placeholdersIn(s.brief)) if (!PLACEHOLDERS.includes(name)) bad(", to: "if (typeof s.brief === \"string\") for (const name of placeholdersIn(s.brief)) if (false) bad(" }], expect: [/^V: an unknown placeholder in a brief/] },
+  { name: "a missing script is not noticed", patches: [{ file: LP, from: "const gone = scriptExists ? !scriptExists(s.script) : file !== null && !ex(file);", to: "const gone = false;" }], expect: [/^V: a script that does not exist is refused/] },
+  { name: "an unknown step key is allowed", patches: [{ file: LP, from: "if (!STEP_KEYS.includes(k)) bad(\"step-key\"", to: "if (false) bad(\"step-key\"" }], expect: [/^V: an unknown step key is refused/] },
   { name: "an unknown top-level key is allowed", patches: [{ file: LP, from: "if (!TOP_KEYS.includes(k)) bad(\"top-level\"", to: "if (false) bad(\"top-level\"" }], expect: [/^V: an unknown top-level key is refused/] },
-  { name: "a WAITING step needs no brief", patches: [{ file: LP, from: "if (!isStr(s.brief)) bad(\"waiting\"", to: "if (false) bad(\"waiting\"" }], expect: [/^V: a WAITING step without a brief/] },
-  { name: "evidence may be anywhere", patches: [{ file: LP, from: "if (!s.outputs.some((o) => under(e, o)) && !s.inputs.some((i) => under(e, i))) bad(\"evidence\"", to: "if (false) bad(\"evidence\"" }], expect: [/^V: evidence that is neither under an output nor an input/] },
+  { name: "a WAITING step needs no brief", patches: [{ file: LP, from: "if (typeof s.brief !== \"string\" || !s.brief.trim()) bad(\"waiting\"", to: "if (false) bad(\"waiting\"" }], expect: [/^V: a WAITING step without a brief/] },
+  { name: "evidence may be anywhere", patches: [{ file: LP, from: "else if (!(s.outputs || []).some((o) => covers(o, e)) && !(s.inputs || []).some((o) => covers(o, e))) bad(\"evidence\"", to: "else if (false) bad(\"evidence\"" }], expect: [/^V: evidence that is neither under an output nor an input/] },
   { name: "an input written by a step that comes later is allowed", patches: [{ file: LP, from: "if (makers.length && !makers.some((w) => anc.has(w.id))) bad(\"input-order\"", to: "if (false) bad(\"input-order\"" }], expect: [/^V: an input written by a step it does not depend on/] },
-  { name: "evidence older than the step counts", patches: [{ file: LP, from: "if (!readOnly.has(norm(p)) && newest.mtime < since) {", to: "if (false) {" }], expect: [/^E: evidence older than the step's start/, /^E: a pattern with several matches/] },
-  { name: "empty evidence counts", patches: [{ file: LP, from: "if (!f || f.size === 0) { empty = true;", to: "if (!f) { empty = true;" }], expect: [/^E: evidence that is empty/, /^E: a pattern's match that is empty/] },
-  { name: "a pattern needs ALL its matches to be new", patches: [{ file: LP, from: "else if (!newest || f.mtime > newest.mtime) newest = { mtime: f.mtime, path: h };", to: "else if (!newest || f.mtime < newest.mtime) newest = { mtime: f.mtime, path: h };" }], expect: [/^E: a pattern with several matches/] },
+  { name: "evidence older than the step counts", patches: [{ file: LP, from: "else if (need && Math.max(...found.map((f) => f.mtimeMs)) < since - SLACK_MS) {", to: "else if (false) {" }], expect: [/^E: evidence older than the step's start/, /^E: a pattern with several matches/] },
+  { name: "empty evidence counts", patches: [{ file: LP, from: "else if (empty.length) {", to: "else if (false) {" }], expect: [/^E: evidence that is empty/, /^E: a pattern's match that is empty/] },
+  { name: "a pattern needs ALL its matches to be new", patches: [{ file: LP, from: "Math.max(...found.map((f) => f.mtimeMs)) < since - SLACK_MS", to: "Math.min(...found.map((f) => f.mtimeMs)) < since - SLACK_MS" }], expect: [/^E: a pattern with several matches/] },
+  { name: "exit map: a key whose text does not start with that code's word is accepted", patches: [{ file: LP, from: "if (exitWord(v) !== EXIT_FOR[k]) bad(\"exit\", at,", to: "if (false) bad(\"exit\", at," }], expect: [/^L: the validator table/] },
+  { name: "kind and maxAgeDays are not required on a step", patches: [{ file: LP, from: "\"evidence\", \"kind\", \"maxAgeDays\"]", to: "\"evidence\"]" }], expect: [/^V: the real pipeline\.json is valid/, /^L: the validator table/] },
+  { name: "{work} is under {runDir}, not under {data}", patches: [{ file: LP, from: "work: `${data}/work`", to: "work: `${runDir}/work`" }], expect: [/^L: makeVars/] },
+  { name: "a step whose output holds no file is adopted", patches: [{ file: LP, from: "if (outputsEmpty.length) return refuse(\"output-missing\",", to: "if (false) return refuse(\"output-missing\"," }], expect: [/^L: a step whose output has no non-empty file is not adopted/] },
+  { name: "the file-time slack is 0", patches: [{ file: LP, from: "export const SLACK_MS = 2000;", to: "export const SLACK_MS = 0;" }], expect: [/^L: the file-time slack is 2 s/] },
+  { name: "an open stop does not say it has no end time", patches: [{ file: LP, from: "stop.until ? `until ${stop.until}` : \"(no end time)\"", to: "`until ${stop.until}`" }], expect: [/^L: a stop with no end time says/] },
+  { name: "[seo-run moved] seo stops: the stop end time is read backwards (a live stop counts as expired)", patches: [{ file: "lib-stops.mjs", from: "readAll(dir).filter((s) => ms(s.until) > ms(now) &&", to: "readAll(dir).filter((s) => ms(s.until) < ms(now) &&" }], expect: [/^G: with the real lib-stops: a stop file holds the step/, /^G: an expired stop does not hold the step/] },
+  { name: "[seo-run moved] seo stops: an unreadable stop file is treated as no stop (fail open)", patches: [{ file: "lib-stops.mjs", from: "      let m = 0; try { m = fs.statSync(file).mtimeMs; } catch { /* gone */ }", to: "      let m = 0; try { m = fs.statSync(file).mtimeMs; } catch { /* gone */ } if (e.message !== \"no readable until\") continue;" }], expect: [/^G: with the real lib-stops: a stop file that cannot be read/] },
+  { name: "[seo-run moved] seo stops: a stop with no valid until is treated as no stop", patches: [{ file: "lib-stops.mjs", from: "if (!j || typeof j !== \"object\" || !Number.isFinite(Date.parse(j.until))) throw new Error(\"no readable until\");", to: "if (!j || typeof j !== \"object\") throw new Error(\"no readable until\");" }], expect: [/^G: with the real lib-stops: a stop file that cannot be read/] },
+  { name: "[seo-run moved] seo stops: only the first engine of a step is checked", patches: [{ file: LP, from: "for (const engine of step?.engines || []) {", to: "for (const engine of (step?.engines || []).slice(0, 1)) {" }], expect: [/^G: stepStop returns the stop of the first stopped engine/] },
+  { name: "[seo-run moved] seo stops: a desktop lift frees script steps too", patches: [{ file: "lib-stops.mjs", from: "!(mode === \"desktop\" && s.lift && s.lift.mode === \"desktop\")", to: "!(s.lift && s.lift.mode === \"desktop\")" }], expect: [/^G: with the real lib-stops: a stop file holds the step/] },
+  { name: "[seo-run moved] seo modes: an unknown kind is accepted", patches: [{ file: LP, from: "if (\"kind\" in s && !KINDS.includes(s.kind)) bad(", to: "if (false) bad(" }], expect: [/^V: an unknown kind is refused/] },
+  { name: "[seo-run moved] seo validator: an unknown key at the top is accepted", patches: [{ file: LP, from: "for (const k of Object.keys(m)) if (!TOP_KEYS.includes(k)) bad(", to: "for (const k of Object.keys(m)) if (false) bad(" }], expect: [/^V: an unknown top-level key is refused/] },
+  { name: "[seo-run moved] seo validator: an unknown key in a step is accepted", patches: [{ file: LP, from: "for (const k of Object.keys(s)) if (!STEP_KEYS.includes(k)) bad(", to: "for (const k of Object.keys(s)) if (false) bad(" }], expect: [/^V: an unknown step key is refused/] },
+  { name: "[seo-run moved] seo validator: an unknown placeholder is accepted", patches: [{ file: LP, from: "for (const text of Array.isArray(s[k]) ? s[k] : []) for (const name of placeholdersIn(text)) if (!PLACEHOLDERS.includes(name)) bad(", to: "for (const text of Array.isArray(s[k]) ? s[k] : []) for (const name of placeholdersIn(text)) if (false) bad(" }], expect: [/^V: an unknown placeholder in args/, /^V: an unknown placeholder in evidence/] },
+  { name: "[seo-run moved] seo validator: a dependsOn id that is no step is accepted", patches: [{ file: LP, from: "else if (!known.has(d)) bad(\"dependsOn\", at,", to: "else if (false) bad(\"dependsOn\", at," }], expect: [/^V: a dependsOn id that is not a step is refused/] },
+  { name: "[seo-run moved] seo validator: a dependency cycle is accepted", patches: [{ file: LP, from: "for (const l of loops) bad(\"cycle\", null,", to: "for (const l of []) bad(\"cycle\", null," }], expect: [/^V: a cycle is refused/] },
+  { name: "[seo-run moved] seo validator: a script that does not exist is accepted", patches: [{ file: LP, from: "const gone = scriptExists ? !scriptExists(s.script) : file !== null && !ex(file);", to: "const gone = false;" }], expect: [/^V: a script that does not exist is refused/] },
+  { name: "[seo-run moved] seo validator: a script on a waiting step is accepted", patches: [{ file: LP, from: "if (waiting) { if (s.script !== null) bad(\"waiting\", at,", to: "if (waiting) { if (false) bad(\"waiting\", at," }], expect: [/^V: a script step that needs a person is refused/] },
+  { name: "[seo-run moved] seo validator: a runnable step with no script is accepted", patches: [{ file: LP, from: "else if (typeof s.script !== \"string\" || !s.script) bad(\"script\", at,", to: "else if (false) bad(\"script\", at," }], expect: [/^V: script null on a step that is not WAITING is refused/] },
+  { name: "[seo-run moved] seo validator: a bad needsBrowser is accepted", patches: [{ file: LP, from: "if (\"needsBrowser\" in s && !BROWSER.includes(s.needsBrowser)) bad(", to: "if (false) bad(" }], expect: [/^V: needsBrowser outside none, headless, owner is refused/] },
+  { name: "[seo-run moved] seo validator: a bad hits value is accepted", patches: [{ file: LP, from: "if (\"hits\" in s && !(typeof s.hits === \"string\" && /^(none|client|third-party:[a-z0-9.-]+)$/.test(s.hits))) bad(", to: "if (false) bad(" }], expect: [/^V: hits that is not none, client or third-party:<name> is refused/] },
+  { name: "[seo-run moved] seo validator: a missing timeout is accepted", patches: [{ file: LP, from: "if (!(\"timeoutMinutes\" in s) || typeof timeout !== \"number\" || !Number.isFinite(timeout) || timeout < 0) bad(", to: "if (false) bad(" }], expect: [/^V: a timeout below 0 is refused/] },
+  { name: "[seo-run moved] seo validator: a step that calls vantage start is accepted", patches: [{ file: LP, from: "Array.isArray(s.args) && s.args.some((a) => /^start$/i.test(String(a)))) bad(", to: "Array.isArray(s.args) && s.args.some((a) => false)) bad(" }], expect: [/^V: a step that calls vantage start is refused/] },
+  { name: "[seo-run moved] seo validator: evidence outside every output and input is accepted", patches: [{ file: LP, from: "else if (!(s.outputs || []).some((o) => covers(o, e)) && !(s.inputs || []).some((o) => covers(o, e))) bad(\"evidence\", at,", to: "else if (false) bad(\"evidence\", at," }], expect: [/^V: evidence that is neither under an output nor an input is refused/] },
+  { name: "[seo-run moved] seo run: exit 3 is FAILED, not BLOCKED", patches: [{ file: LP, from: "if (code === 3) return /^BLOCKED:/.test(ll) ? { outcome: \"blocked\"", to: "if (code === 3) return /^BLOCKED:/.test(ll) ? { outcome: \"fail\"" }], expect: [/^A: stepOutcome: exit 3 with a 'BLOCKED/] },
+  { name: "[seo-run moved] seo run: exit 4 is FAILED, not SKIPPED", patches: [{ file: LP, from: "if (code === 4) return /^SKIPPED:/.test(ll) ? { outcome: \"skipped\"", to: "if (code === 4) return /^SKIPPED:/.test(ll) ? { outcome: \"fail\"" }], expect: [/^A: stepOutcome: exit 4 with 'SKIPPED/] },
+  { name: "[seo-run moved] seo run: a failing exit counts as RUN", patches: [{ file: LP, from: "return { outcome: \"fail\", message: `exit ${code}: ${ll || \"(no output)\"}` };", to: "return { outcome: \"done\", message: ll };" }], expect: [/^A: stepOutcome: any other exit \(1\) is a failure/] },
+  { name: "[seo-run moved] seo run: the BLOCKED and SKIPPED line is not quoted", patches: [{ file: LP, from: "return { ...judge(code, ll, String(output || \"\"), evidence), line: ll || null };", to: "return { ...judge(code, ll, String(output || \"\"), evidence), line: null };" }], expect: [/^L: exit 0 with a 'PARTIAL/, /^L: lastLine as a list/] },
+  { name: "[seo-run moved] seo run: a missing BLOCKED line is replaced by an invented one", patches: [{ file: LP, from: "const ll = (want && cands.find((x) => want.test(x))) || cands[0] || \"\";", to: "const ll = (want && cands.find((x) => want.test(x))) || (want ? \"BLOCKED: reason unknown\" : cands[0]) || \"\";" }], expect: [/^A: stepOutcome: exit 3 without the BLOCKED line/] },
+  { name: "[seo-run moved] seo run: exit 0 without evidence is RUN", patches: [{ file: LP, from: "if (evidence && evidence.state !== \"done\") return noEvidence();", to: "if (false) return noEvidence();" }], expect: [/^A: stepOutcome: exit 0 whose evidence is missing/] },
+  { name: "[seo-run moved] seo run: evidence written before the step started counts", patches: [{ file: LP, from: "else if (need && Math.max(...found.map((f) => f.mtimeMs)) < since - SLACK_MS) {", to: "else if (false) {" }], expect: [/^E: evidence older than the step's start/] },
+  { name: "[seo-run moved] seo run: an empty file among the evidence matches is accepted", patches: [{ file: LP, from: "else if (empty.length) {", to: "else if (false) {" }], expect: [/^E: evidence that is empty/] },
+  { name: "[seo-run moved] seo run: one older match fails an evidence glob (the newest must decide)", patches: [{ file: LP, from: "Math.max(...found.map((f) => f.mtimeMs)) < since - SLACK_MS", to: "Math.min(...found.map((f) => f.mtimeMs)) < since - SLACK_MS" }], expect: [/^E: a pattern with several matches/] },
+  { name: "[seo-run moved] seo run: exit 3 or 4 without its prefix line is BLOCKED or SKIPPED, not FAILED", patches: [{ file: LP, from: "/^BLOCKED:/.test(ll) ? { outcome: \"blocked\", message: ll.replace(/^BLOCKED:\\s*/, \"\") } : { outcome: \"fail\", message: `exit 3 means", to: "/^BLOCKED:/.test(ll) ? { outcome: \"blocked\", message: ll.replace(/^BLOCKED:\\s*/, \"\") } : { outcome: \"blocked\", message: `exit 3 means" }, { file: LP, from: "/^SKIPPED:/.test(ll) ? { outcome: \"skipped\", message: ll.replace(/^SKIPPED:\\s*/, \"\") } : { outcome: \"fail\", message: `exit 4 means", to: "/^SKIPPED:/.test(ll) ? { outcome: \"skipped\", message: ll.replace(/^SKIPPED:\\s*/, \"\") } : { outcome: \"skipped\", message: `exit 4 means" }], expect: [/^A: stepOutcome: exit 3 without the BLOCKED line/, /^A: stepOutcome: exit 4 without the SKIPPED line/] },
+  { name: "[seo-run moved] seo run: the steps are read in file order, not topological order", patches: [{ file: LP, from: "const [s] = left.splice(i, 1); placed.add(s.id); out.push(s);", to: "const [s] = left.splice(0, 1); placed.add(s.id); out.push(s);" }], expect: [/^O: a manifest listed backwards/] },
+  { name: "[seo-run moved] seo run: an input newer than the evidence does not make a step stale", patches: [{ file: LP, from: "if (!newest || newest.mtimeMs - evidenceAt <= SLACK_MS) return null;", to: "if (true) return null;" }], expect: [/^L: inputNewer: an input 1 s newer/] },
 ];
 
 if (isMain(import.meta.url)) {

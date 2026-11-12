@@ -11,7 +11,7 @@
 // honest user agent, a gap per host, stop at 403/429) and its title / description are run through the text rules; if those do not
 // decide either, it stays unclassified. Order: link gap first, then sources the AI engines cited instead of the business, then one competitor, then
 // search-result directories, then the pack's usual places; inside a group by kind value x ease (value * (6 - effort)), then number of competitors, then link-graph strength.
-// Exit: 0 ok, 2 usage, 3 BLOCKED (no authority.json), 4 time cap reached.
+// Exit: 0 ok (also when the time cap was reached: the last line is then `PARTIAL: <why>; what was read is kept, run again to continue`), 2 usage, 3 BLOCKED (no authority.json).
 import path from "node:path";
 import { J, W, context, runCli, Blocked, iso } from "./research-lib.mjs";
 import { POLITE_GAP_MS, MIN_GAP_MS } from "./lib-polite.mjs";
@@ -78,5 +78,5 @@ await runCli(import.meta.url, 'node authority-classify.mjs <target> [--cwd DIR] 
   console.log(`pack ${out.pack.slug} (${out.pack.via}${out.pack.note ? ": " + out.pack.note : ""})`);
   console.log(`OK ${s.open} open opportunities: ${s.gap} link gap, ${s.ai} AI-cited, ${s.competitor} one competitor, ${s.serp} from searches, ${s.baseline} usual places; ${s.alreadyHave} already ours; ${s.notActionable} not actionable; ${s.unclassified} unclassified (${s.providers} competing or unrelated businesses set aside) -> ${path.join(dir, "opportunities.json")}`);
   for (const o of out.opportunities.slice(0, 10)) console.log(`  ${String(o.rank).padStart(2)} ${o.domain.padEnd(30)} ${o.typeLabel} [${o.tier}]`);
-  if (stopped) { console.log(`STOPPED: ${stopped} (what was read is kept)`); process.exitCode = 4; }
+  if (stopped) console.log(`PARTIAL: ${stopped}; what was read is kept, run again to continue`);
 });

@@ -93,6 +93,7 @@ const results = [];
 const check = (name, ok, detail = "") => { results.push({ name, ok: !!ok, detail }); if (!quiet) console.log(`${ok ? "PASS" : "FAIL"} ${name}${ok ? "" : " :: " + String(detail).slice(0, 500)}`); else if (!ok) console.log(`FAIL ${name} :: ${String(detail).slice(0, 500)}`); };
 const w = (p, s) => { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, typeof s === "string" ? s : JSON.stringify(s, null, 1)); return p; };
 const J = (p) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return null; } };
+const lastLine = (o) => String(o).trim().split("\n").pop();
 const spawnP = (cmd, a, opts) => new Promise((res) => { const p = spawn(cmd, a, { ...opts, stdio: ["ignore", "pipe", "pipe"] }); let o = "", e = ""; p.stdout.on("data", (d) => (o += d)); p.stderr.on("data", (d) => (e += d)); const t = setTimeout(() => p.kill(), 60000); p.on("close", (code) => { clearTimeout(t); res({ code, out: o, err: e }); }); });
 const stopFile = () => path.join(process.env.OMNIKOM_STOPS_DIR, "commoncrawl.json");
 const clearStop = () => fs.rmSync(stopFile(), { force: true });
@@ -280,12 +281,12 @@ try {
   check("budget: the run stops at the cap and says the rest was not reached", LOG.length === 3 && B.requests.requests === 3 && B.stopped?.kind === "budget" && /were not reached because the run stopped/.test(B.targets["kapitus.com"].coverage), `${LOG.length} requests; ${JSON.stringify(B.stopped)}; ${B.targets["kapitus.com"].coverage}`);
   check("budget: a partial result is still written, and a budget stop leaves no stop file", fs.existsSync(path.join(pB, "authority", "anchors.md")) && /Stopped early:\*\* request budget of 3 reached/.test(md(pB)) && !fs.existsSync(stopFile()), md(pB).slice(0, 400));
 
-  // ================================================================ stops (through the CLI: exit code 4) and the 24 h stop file
+  // ================================================================ stops (through the CLI: exit 0 and a PARTIAL: last line) and the 24 h stop file
   const stateS = path.join(tmp, "state-503");
   resetState(); LOG.length = 0; state.failPage = { at: 2, status: 503 };
   const p503 = freshPewp("s503"), c503 = await cli(p503, [], stateS);
   const stop503 = J(path.join(stateS, "commoncrawl.json")), j503 = J(path.join(p503, "authority", "anchors.json"));
-  check("stop: a 503 from Common Crawl stops the run at once (exit 4, nothing sent after it, partial result written)", c503.code === 4 && state.failed && state.afterFail === 0 && j503?.stopped?.status === 503 && /STOPPED/.test(c503.err), `exit ${c503.code}; after the 503: ${state.afterFail}; ${c503.err.slice(0, 200)}`);
+  check("stop: a 503 from Common Crawl stops the run at once (exit 0 with a PARTIAL: last line, nothing sent after it, partial result written)", c503.code === 0 && state.failed && state.afterFail === 0 && j503?.stopped?.status === 503 && /^PARTIAL: /.test(lastLine(c503.out)), `exit ${c503.code}; after the 503: ${state.afterFail}; ${c503.err.slice(0, 200)}`);
   check("stop file: after a stop, a 24 h stop file exists and the next run refuses to start (exit 3, no request)", stop503 && Date.parse(stop503.until) - Date.now() > 23.9 * 3600e3 && Date.parse(stop503.until) - Date.now() <= 24 * 3600e3 + 1000 && stop503.engine === "commoncrawl" && stop503.setBy === "authority-anchors.mjs" && /503/.test(stop503.reason), JSON.stringify(stop503));
   const n0 = LOG.length; resetState();
   const cAgain = await cli(freshPewp("s503b"), [], stateS);
@@ -296,11 +297,11 @@ try {
   const stateT = path.join(tmp, "state-429");
   resetState(); LOG.length = 0; state.failIndex = { at: 3, status: 429 };
   const p429 = freshPewp("s429"), c429 = await cli(p429, [], stateT);
-  check("stop: a 429 while downloading cluster.idx stops the run too, and nothing is kept as the cluster file", c429.code === 4 && state.failed && state.afterFail === 0 && J(path.join(p429, "authority", "anchors.json"))?.stopped?.status === 429 && !fs.existsSync(path.join(p429, "cache", "anchors", `${CRAWL}-cluster.idx`)), `exit ${c429.code}; after: ${state.afterFail}`);
+  check("stop: a 429 while downloading cluster.idx stops the run too (PARTIAL: last line, exit 0), and nothing is kept as the cluster file", c429.code === 0 && /^PARTIAL: /.test(lastLine(c429.out)) && state.failed && state.afterFail === 0 && J(path.join(p429, "authority", "anchors.json"))?.stopped?.status === 429 && !fs.existsSync(path.join(p429, "cache", "anchors", `${CRAWL}-cluster.idx`)), `exit ${c429.code}; after: ${state.afterFail}`);
   const stateD = path.join(tmp, "state-drop");
   resetState(); LOG.length = 0; state.dropBlocks = true;
   const pD = freshPewp("drop"), cD = await cli(pD, [], stateD), jD = J(path.join(pD, "authority", "anchors.json"));
-  check("stop: a dropped connection (the first index block read) stops the run at once, exit 4, and starts the 24 h stop file", cD.code === 4 && jD?.stopped?.kind === "dropped" && LOG.filter((l) => l.path.includes("/indexes/cdx-")).length === 1 && fs.existsSync(path.join(stateD, "commoncrawl.json")) && /dropped/.test(J(path.join(stateD, "commoncrawl.json"))?.reason || ""), `exit ${cD.code}; ${JSON.stringify(jD?.stopped)}; block requests ${LOG.filter((l) => l.path.includes("/indexes/cdx-")).length}`);
+  check("stop: a dropped connection (the first index block read) stops the run at once, exit 0 with a PARTIAL: last line, and starts the 24 h stop file", cD.code === 0 && /^PARTIAL: /.test(lastLine(cD.out)) && jD?.stopped?.kind === "dropped" && LOG.filter((l) => l.path.includes("/indexes/cdx-")).length === 1 && fs.existsSync(path.join(stateD, "commoncrawl.json")) && /dropped/.test(J(path.join(stateD, "commoncrawl.json"))?.reason || ""), `exit ${cD.code}; ${JSON.stringify(jD?.stopped)}; block requests ${LOG.filter((l) => l.path.includes("/indexes/cdx-")).length}`);
   resetState(); LOG.length = 0; state.blocks500 = true; clearStop();
   const pI = freshPewp("indexdown"), I = await imp.runAnchors(opts(pI));
   state.blocks500 = false;

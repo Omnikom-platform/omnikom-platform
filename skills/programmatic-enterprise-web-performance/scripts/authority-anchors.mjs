@@ -21,8 +21,9 @@
 // Nothing here ever requests a referring site. Honest scope: a domain's pages are SAMPLED (N of M blocks, said in every coverage line);
 // "not found in the pages sampled" is never "does not link".
 // Writes <out-dir>/anchors.json and anchors.md (default <pewp>/authority/). Cache: --cache, else machine.local.json "seoKitCache"/anchors,
-// else <pewp>/cache/anchors. Exit 0 written (also when the request budget ended it), 1 failed, 2 usage, 3 BLOCKED (no authority.json,
-// free disk below the floor, or a 24 h stop in force), 4 stopped by Common Crawl or by an unreachable index (the partial result is written).
+// else <pewp>/cache/anchors. Exit 0 written (also when the request budget ended it, and when Common Crawl or an unreachable index stopped the run: the partial result is
+// written and the last line is `PARTIAL: <why>; what was read is kept, run again to continue`), 1 failed, 2 usage, 3 BLOCKED (no authority.json, free disk below the floor,
+// or a 24 h stop in force).
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -400,7 +401,7 @@ if (isMain(import.meta.url)) {
     const d = await runAnchors({ pewp: path.resolve(pewp), authorityFile: opt("--authority"), outDir: opt("--out-dir"), cacheDir: opt("--cache"), k: opt("--k"), referrers: opt("--referrers"), blocks: opt("--blocks"), maxRequests: opt("--max-requests"), gapMs: opt("--gap-ms"), crawlsN: opt("--crawls"), crawls: all("--crawl"), keywords: all("--keyword"), minFreeGb: opt("--min-free-gb") });
     for (const t of Object.values(d.targets)) console.log(t.inGraph ? `${t.domain}: ${t.coverage}; ${t.linksFound} links (follow ${t.follow}, nofollow ${t.nofollow})` : `${t.domain}: not in the link graph`);
     console.log(`requests ${d.requests.requests} (cached ${d.requests.cached}); wrote ${path.join(opt("--out-dir") || path.join(path.resolve(pewp), "authority"), "anchors.md")}`);
-    if (d.stopped && d.stopped.kind !== "budget") { console.error(`STOPPED: ${d.stopped.message}`); process.exitCode = 4; }
+    if (d.stopped && d.stopped.kind !== "budget") console.log(`PARTIAL: ${d.stopped.message}; what was read is kept, run again to continue`);
   } catch (e) {
     if (e instanceof UsageError) { console.error(`usage: ${e.message}`); process.exitCode = 2; }
     else if (e.blocked) { console.error(e.message); process.exitCode = 3; }

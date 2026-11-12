@@ -1,25 +1,26 @@
 // The engine of `omnikom seo run | resume | status` (work order 41): every mechanical step of a client SEO audit, in the order SEO's manifest says.
-// The manifest (lib/seo-manifest.mjs) is the only source of steps. This file adds no step, rewrites no reason a script gave and swallows no exit
-// code, the same principle as commands/audit.mjs. What it adds is the order (a step runs after what it dependsOn is RUN), the pre-checks that never
-// start a script (a missing dependency, key or input file is BLOCKED, by name), the two locks (a host is hit by one step at a time, heavy steps run
-// one at a time through heavy.mjs) and the run log {pewp}/seo-run.json, from which the coverage table is read.
-// States: RUN (exit 0 AND every evidence glob holds a non-empty file written after the step started, and no input is newer: otherwise the step
-// re-runs), SKIPPED (exit 4, the script's own `SKIPPED: <reason>` line), BLOCKED (exit 3 with the script's `BLOCKED: <what> | unblocks: <what>` line,
-// or a pre-check), WAITING (an owner-browser, AI or person step: it never runs; it is WAITING with its brief until its outputs are written after
-// the run began), PARTIAL (an `exit` override of the manifest says so), FAILED (any other exit, a timeout, exit 0 without evidence). NOT RUN is the
-// seventh label: a step no run has reached (filtered out by --only/--from/--module, or never started).
-import { mkdirSync, readFileSync, writeFileSync, renameSync, existsSync, statSync } from 'node:fs';
+// The manifest (lib/seo-manifest.mjs, the skill's one rule engine) is the only source of steps AND of every rule: what a step is, where its files are, what done means, what an exit code
+// amounts to, what a stop is. This file adds no step, no rule, rewrites no reason a script gave and swallows no exit code, the same principle as commands/audit.mjs. What it adds is the
+// order (a step runs after what it dependsOn is RUN), the pre-checks that never start a script (a missing dependency, key or input file is BLOCKED, by name), the two locks (a host is hit by
+// one step at a time, heavy steps run one at a time through heavy.mjs), the spawning with its timeouts and tree kill, and the run log {pewp}/seo-run.json (the skill's lib-run.mjs reads and
+// writes it), from which the coverage table is read.
+// States: RUN (exit 0 AND every evidence glob holds a non-empty file written after the step started, and no input is newer: otherwise the step re-runs), SKIPPED (exit 4, the script's own
+// `SKIPPED: <reason>` line), BLOCKED (exit 3 with the script's `BLOCKED: <what> | unblocks: <what>` line, or a pre-check, or a stop), WAITING (an owner-browser, AI or person step: it never
+// runs; it is WAITING with its brief until its outputs are written after the run began; a script that exits 3 with a NEEDS-INPUT line is WAITING too, for the owner's answers), PARTIAL (exit 0
+// with `PARTIAL: <what is missing>` as the last line: what was read is kept, a resume runs the step again), FAILED (any other exit, a timeout, exit 0 without evidence). NOT RUN is the seventh
+// label: a step no run has reached (filtered out by --only/--from/--module, or never started).
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { join, relative, sep } from 'node:path';
 import { homedir } from 'node:os';
 import { Usage } from './errors.mjs';
 import { importRepo, repoPath } from './repo.mjs';
 import { redact } from './redact.mjs';
-import { isWaiting, makeVars, expand, covers, related, resolveScript, liveFiles, expandPath, filesUnder, topoOrder, norm, exitWord, EXIT_WORDS } from './seo-manifest.mjs';
+import { isWaiting, makeVars, substitute, covers, resolveScript, globPaths, filesUnder, evidenceState, inputNewer, adoptStep, stepOutcome, outcomeState, stepStop, runOrder, norm, SLACK_MS } from './seo-manifest.mjs';
+const { readRun, writeRun } = await importRepo('skills/programmatic-enterprise-web-performance/scripts/lib-run.mjs');
 
 export const STATES = ['RUN', 'SKIPPED', 'BLOCKED', 'WAITING', 'PARTIAL', 'FAILED'];
 export const NOT_RUN = 'NOT RUN';
-export const SLACK_MS = 2000;      // file times are compared with this much give (FAT keeps two seconds; two clocks differ by milliseconds)
 export const MAX_PARALLEL = 4;     // independent steps in flight at once
 export const GRACE_MS = 15000;     // after a timeout kill, how long to wait for the process to be gone before naming it and going on
 const MAX_LINE = 2000;
@@ -69,72 +70,27 @@ export function runStep(guard, argv, { cwd, env, timeout, graceMs, kill, maxBuff
   });
 }
 
-// ---- the run log
-export function readLog(file) {
-  if (!existsSync(file)) return { log: null };
-  try {
-    const j = JSON.parse(readFileSync(file, 'utf8'));
-    if (j && j.version === 1 && Array.isArray(j.steps)) return { log: j };
-  } catch { /* below */ }
-  return { log: null, error: `the run log ${norm(file)} is not readable (delete it, or run with --fresh)` };
-}
-function writeLog(file, log) {
-  const tmp = file + '.tmp';
-  writeFileSync(tmp, JSON.stringify(log, null, 1) + '\n');
-  renameSync(tmp, file);   // a reader never sees half a log
-}
+// ---- the non-empty files a path or glob names (a folder is read to the bottom)
+const liveFiles = pattern => globPaths(pattern).flatMap(p => filesUnder(p));
 
-// ---- the manifest's steps with their paths filled in
+// ---- the manifest's steps in the engine's run order, with their paths filled in (the engine's functions take these steps: their evidence, inputs, outputs and engines are all they read)
 function prepare(manifest, vars) {
-  return topoOrder(manifest.steps.map(s => ({
+  return runOrder(manifest).steps.map(s => ({
     id: s.id, module: s.module, what: s.what, script: s.script, waiting: isWaiting(s), heavy: s.heavy, hits: s.hits,
-    needsKeys: s.needsKeys, dependsOn: s.dependsOn, timeoutMinutes: s.timeoutMinutes, exit: s.exit || {},
+    needsKeys: s.needsKeys, dependsOn: s.dependsOn, timeoutMinutes: s.timeoutMinutes,
     needsBrowser: s.needsBrowser, needsAi: s.needsAi, needsPerson: s.needsPerson, engines: Array.isArray(s.engines) ? s.engines : [],
-    args: s.args.map(x => expand(x, vars)),
-    inputs: s.inputs.map(x => expand(x, vars)), outputs: s.outputs.map(x => expand(x, vars)),
-    brief: s.brief ? expand(s.brief, vars) : null,
-    evidence: s.evidence.map(e => ({ glob: expand(e, vars), isOutput: s.outputs.some(o => covers(o, e)) })),
+    args: substitute(s.args, vars),
+    inputs: substitute(s.inputs, vars), outputs: substitute(s.outputs, vars),
+    brief: s.brief ? substitute(s.brief, vars) : null,
+    evidence: substitute(s.evidence, vars),
     rawInputs: s.inputs, rawOutputs: s.outputs,
-  })));
+  }));
 }
 
-// the evidence of a step: every glob needs a non-empty file; a glob inside an output also needs one written after `since` (a glob that is only
-// an input, like targets-validate's targets.json, cannot be written by the step). -> { ok, files: [{ path, mtimeMs, out }], missing: [text] }
-function checkEvidence(step, since, allFresh = false) {
-  const files = [], missing = [];
-  for (const e of step.evidence) {
-    const paths = expandPath(e.glob);
-    const empty = paths.filter(p => { try { const st = statSync(p); return st.isFile() && st.size === 0; } catch { return false; } });
-    const found = paths.flatMap(p => filesUnder(p));
-    const need = e.isOutput || allFresh;
-    // every match must be non-empty; the NEWEST match must be newer than the step's start (an older sibling from an earlier run does not matter)
-    if (paths.length === 0) missing.push(`${e.glob} (no non-empty file)`);
-    else if (empty.length) missing.push(`${e.glob} (${empty.length} empty file${empty.length === 1 ? '' : 's'}: ${norm(empty[0])})`);
-    else if (found.length === 0) missing.push(`${e.glob} (no non-empty file)`);
-    else if (need && Math.max(...found.map(f => f.mtimeMs)) < since - SLACK_MS) missing.push(`${e.glob} (only files older than the step started)`);
-    files.push(...found.map(f => ({ ...f, out: need, glob: e.glob })));
-  }
-  return { ok: missing.length === 0, files, missing };
-}
-// an input newer than the evidence: newest input file against the oldest of the globs' newest files
-function isStale(step, ev) {
-  const newestOf = new Map();
-  for (const f of ev.files) if (f.out) newestOf.set(f.glob, Math.max(newestOf.get(f.glob) || 0, f.mtimeMs));
-  if (newestOf.size === 0) return false;
-  const evidenceAt = Math.min(...newestOf.values());
-  const inputAt = Math.max(0, ...step.inputs.flatMap(i => liveFiles(i)).map(f => f.mtimeMs));
-  return inputAt - evidenceAt > SLACK_MS;
-}
-
-// what exit code means which state: the step's own `exit` map first, then 0 ok, 3 BLOCKED, 4 SKIPPED, anything else FAILED
-export function classifyExit(step, code) {
-  const own = step.exit[String(code)];
-  if (own !== undefined) return { state: EXIT_WORDS[exitWord(own)], why: own };
-  if (code === 0) return { state: 'RUN' };
-  if (code === 3) return { state: 'BLOCKED' };
-  if (code === 4) return { state: 'SKIPPED' };
-  return { state: 'FAILED', why: code === 2 ? 'usage' : undefined };
-}
+// the line the table says is missing when the engine calls an exit 3 or 4 a failure (the engine decides; this is only the sentence)
+const CONTRACT_LINE = { 3: 'BLOCKED: <what> | unblocks: <what>', 4: 'SKIPPED: <reason>' };
+// the state a logged exit code and last line amount to (the evidence is looked at separately)
+const exitState = (step, e) => outcomeState(stepOutcome(step, { code: e.exit, lastLine: e.line ?? '', output: '', evidence: null }));
 
 function envFileVars(file) {
   let text;
@@ -173,9 +129,10 @@ export function rowOf(step, entry, skillDir, how) {
   else if (state === 'WAITING') {
     const w = entry.waiting;
     detail = `needs ${w.who.join(' and ')}`;
-    more = [`do: ${w.brief}`, `reads: ${w.inputs.length ? w.inputs.map(p => where(skillDir, p)).join(', ') : '(nothing)'}`, `write: ${w.outputs.map(p => where(skillDir, p)).join(', ')}`,
-      `done when: ${w.evidence.map(p => where(skillDir, p)).join(', ')} hold non-empty files written after ${w.runStartedAt}`];
-  } else if (state === 'PARTIAL') detail = `exit ${entry.exit}: ${entry.line ?? '(no output)'}${entry.reason ? ` [manifest: ${entry.reason}]` : ''}`;
+    more = [`do: ${w.brief}`];
+    if (w.outputs.length) more.push(`reads: ${w.inputs.length ? w.inputs.map(p => where(skillDir, p)).join(', ') : '(nothing)'}`, `write: ${w.outputs.map(p => where(skillDir, p)).join(', ')}`,
+      `done when: ${w.evidence.map(p => where(skillDir, p)).join(', ')} hold non-empty files written after ${w.runStartedAt}`);
+  } else if (state === 'PARTIAL') detail = `exit ${entry.exit}: ${entry.line ?? '(no output)'}`;
   else if (state === 'FAILED') detail = entry.timedOut ? `${entry.reason}${entry.line ? `; last line: ${entry.line}` : ''}` : entry.exit !== undefined && entry.exit !== null ? `exit ${entry.exit}${entry.line === null && entry.reason ? '' : `: ${entry.line ?? '(no output)'}`}${entry.reason ? ` [${entry.reason}]` : ''}` : (entry.reason || 'failed');
   else detail = entry.line ?? entry.reason ?? '';   // SKIPPED, BLOCKED: the script's own line, else the pre-check's sentence
   return { ...base, state, detail, more, exit: entry.exit, line: entry.line ?? null, reason: entry.reason ?? null, evidence: ev, evidenceCount: entry.evidenceCount ?? ev.length, startedAt: entry.startedAt, endedAt: entry.endedAt, ...(entry.leftover ? { leftover: entry.leftover } : {}), logFile: entry.logFile ? where(skillDir, entry.logFile) : undefined, ...(entry.waiting ? { waiting: { ...entry.waiting, inputs: entry.waiting.inputs.map(p => where(skillDir, p)), outputs: entry.waiting.outputs.map(p => where(skillDir, p)) } } : {}), ...(how ? { how } : {}) };
@@ -193,11 +150,11 @@ export function summarize(steps, rows) {
 }
 
 // ---- status: the table from the run log, runs nothing
-export function statusSeo({ manifest, skillDir, url, client }) {
-  const vars = makeVars({ url, client: client || '', skillDir });
+export function statusSeo({ manifest, skillDir, data, url, client }) {
+  const vars = makeVars({ url, client: client || '', skillDir, data });
   const steps = prepare(manifest, vars);
   const logFile = `${vars.pewp}/seo-run.json`;
-  const { log, error } = readLog(logFile);
+  const { run: log, error } = readRun(logFile);
   if (error) throw new Usage(error);
   const entries = new Map((log ? log.steps : []).map(e => [e.id, e]));
   const rows = steps.map(s => rowOf(s, entries.get(s.id), skillDir));
@@ -205,45 +162,33 @@ export function statusSeo({ manifest, skillDir, url, client }) {
 }
 
 // ---- run and resume
-// o: { manifest, skillDir, repoRoot, url, client, resume, only, from, module, fresh, envFile, env, heavyScript }
-// An engine's stop file (SEO head 2026-11-11): {engine, hosts, until (ISO UTC), reason, setBy, setAt, evidence}. Active while `until` is in the
-// future; an expired one counts as absent (it stays as a record). A file that cannot be read or has no valid `until` stops the engine (fail closed).
+// o: { manifest, skillDir, data, repoRoot, url, client, resume, only, from, module, fresh, envFile, env, heavyScript }
+// An engine's stop file (SEO head 2026-11-11) is read by the engine (stepStop: the skill's lib-stops.mjs); this is the folder it lives in. The stop of a step's `engines` holds the step
+// (a desktop lift frees only an owner-browser capture: `stopMode` is "desktop" for an owner-browser waiting step and "script" for everything else).
 export const STOPS_DIR = join(homedir(), '.claude', 'state', 'omnikom-stops');
-// A stop may carry "lift": {mode: "desktop", by, at, note} (the owner, 2026-11-11 04:44): it frees only a person-paced capture in the owner's
-// own browser. `mode` is "desktop" for an owner-browser waiting step and "script" for everything else, so a script never passes a lifted stop.
-export function activeStop(dir, engine, now = Date.now(), mode = 'script') {
-  const file = join(dir, `${engine}.json`);
-  if (!existsSync(file)) return null;
-  let s;
-  try { s = JSON.parse(readFileSync(file, 'utf8')); } catch { return { engine, until: null, reason: `stop file ${norm(file)} cannot be read` }; }
-  const until = Date.parse(s && s.until);
-  if (!Number.isFinite(until)) return { engine, until: null, reason: `stop file ${norm(file)} has no valid until` };
-  if (s.lift && typeof s.lift === 'object' && s.lift.mode === mode && mode === 'desktop') return null;
-  return until > now ? { engine, until: new Date(until).toISOString(), reason: String(s.reason || 'no reason given') } : null;
-}
 
 export async function runSeo(o) {
   const stopsDir = o.stopsDir || STOPS_DIR;
-  const { skillDir, url } = o;
+  const { skillDir, data, url } = o;
   const env = o.env || process.env;
-  const logFile0 = makeVars({ url, client: 'x', skillDir }).pewp + '/seo-run.json';
-  const read = readLog(logFile0);
+  const logFile0 = makeVars({ url, client: 'x', skillDir, data }).pewp + '/seo-run.json';
+  const read = readRun(logFile0);
   if (read.error && !o.fresh) throw new Usage(read.error);
-  let prior = read.log;
+  let prior = read.run;
   let client = o.client;
   if (o.resume) {
     if (!prior) throw new Usage(`there is no run log for ${url} (${norm(logFile0)}); start with: omnikom seo run ${url} --client <slug>`);
     if (client !== undefined && client !== prior.client) throw new Usage(`--client ${client} is not the client of this run (${prior.client})`);
     client = prior.client;
   } else if (prior && prior.client !== client && !o.fresh) throw new Usage(`the run log of ${url} belongs to client '${prior.client}', not '${client}' (run with --fresh to start a new run)`);
-  const vars = makeVars({ url, client, skillDir });
+  const vars = makeVars({ url, client, skillDir, data });
   const steps = prepare(o.manifest, vars);
   const byId = new Map(steps.map(s => [s.id, s]));
   const selected = selectSteps(steps, o);
   const wholeFresh = o.fresh && !o.only && o.from === undefined && o.module === undefined;
   // the mode (owner 2026-11-11): RESUME by default (an existing run is finished, never restarted); FRESH only with --fresh, saying what it discards
   const mode = wholeFresh ? 'FRESH' : 'RESUME';
-  const discarded = wholeFresh ? steps.filter(s => (prior && prior.steps.some(e => e.id === s.id && e.state === 'RUN')) || checkEvidence(s, 0, s.waiting).ok).map(s => s.id) : [];
+  const discarded = wholeFresh ? steps.filter(s => (prior && prior.steps.some(e => e.id === s.id && e.state === 'RUN')) || evidenceState(s, vars, { since: 0 }).state === 'done').map(s => s.id) : [];
   if (wholeFresh) prior = null;
   const forced = o.fresh || o.from !== undefined;
   const fileVars = o.envFile ? envFileVars(o.envFile) : {};
@@ -255,7 +200,7 @@ export async function runSeo(o) {
   const runStartMs = prior && Date.parse(prior.runStartedAt) ? Date.parse(prior.runStartedAt) : Date.now();
   const entries = new Map((prior ? prior.steps : []).map(e => [e.id, e]));
   const log = { version: 1, url, client, host: vars.host, runStartedAt: iso(runStartMs), updatedAt: iso(Date.now()), steps: [] };
-  const save = () => { log.updatedAt = iso(Date.now()); log.steps = steps.filter(s => entries.has(s.id)).map(s => entries.get(s.id)); writeLog(logFile, log); };
+  const save = () => { log.updatedAt = iso(Date.now()); log.steps = steps.filter(s => entries.has(s.id)).map(s => entries.get(s.id)); writeRun(logFile, log); };
   const guard = await importRepo('tools/proc-guard/index.mjs');
   const withEnv = repoPath('tools', 'with-env.mjs');
   const kill = o.kill || guard.killTree;                      // a test hands one that does nothing, to stand for a process that survives the kill
@@ -263,6 +208,7 @@ export async function runSeo(o) {
   const settled = new Map();   // id -> { entry, how }
   const stateOf = id => (settled.get(id).entry ? settled.get(id).entry.state : NOT_RUN);
 
+  const related = (a, b) => covers(a, b) || covers(b, a);
   const writersOf = raw => steps.filter(t => t.rawOutputs.some(x => related(x, raw))).map(t => t.id);
   const inputsMissing = step => step.inputs.map((p, i) => ({ p, raw: step.rawInputs[i] })).filter(({ p }) => liveFiles(p).length === 0);
 
@@ -270,23 +216,20 @@ export async function runSeo(o) {
   function doneBefore(step) {
     const e = entries.get(step.id);
     if (!e || e.state !== 'RUN') return null;
-    if (!e.adopted && (!e.startedAt || classifyExit(step, e.exit).state !== 'RUN')) return null;
-    const ev = checkEvidence(step, e.adopted ? 0 : Date.parse(e.startedAt), e.adopted && step.waiting);   // an adopted step never started: its evidence counts at any age
-    return ev.ok && !isStale(step, ev) ? ev : null;
+    if (!e.adopted && (!e.startedAt || exitState(step, e) !== 'RUN')) return null;
+    const ev = evidenceState(step, vars, { since: e.adopted ? 0 : Date.parse(e.startedAt), allFresh: e.adopted && step.waiting });   // an adopted step never started: its evidence counts at any age
+    return ev.state === 'done' && !inputNewer(step, vars, ev.files) ? ev : null;
   }
   // a waiting step whose outputs and evidence were all written after the run began
   function waitingDone(step) {
     for (const out of step.outputs) if (!liveFiles(out).some(f => f.mtimeMs >= runStartMs - SLACK_MS)) return null;
-    const ev = checkEvidence(step, runStartMs, true);
-    return ev.ok ? ev : null;
+    const ev = evidenceState(step, vars, { since: runStartMs, allFresh: true });
+    return ev.state === 'done' ? ev : null;
   }
   // a step the log does not know whose outputs and evidence are already there and not older than its inputs: adopted, not run again
   function adoptable(step) {
     if (entries.has(step.id)) return null;   // the log knows it (a failure stays a failure)
-    for (const out of step.outputs) if (!liveFiles(out).length) return null;
-    const ev = checkEvidence(step, 0, step.waiting);
-    if (!ev.ok || isStale(step, ev)) return null;
-    return ev;
+    return adoptStep(step, { vars }).ok ? evidenceState(step, vars, { since: 0 }) : null;
   }
   const evidenceOf = ev => uniq(ev.files.map(f => f.path));
   const runEntry = (step, ev, extra = {}) => { const all = evidenceOf(ev); return { ...extra, id: step.id, module: step.module, state: 'RUN', evidence: all.slice(0, MAX_EVIDENCE), evidenceCount: all.length }; };
@@ -317,12 +260,8 @@ export async function runSeo(o) {
     }
     // an engine stop (a robot check, a ban): the step never starts and a waiting one is not handed to an agent either
     const stopMode = step.waiting && step.needsBrowser === 'owner' ? 'desktop' : 'script';
-    const stops = step.engines.map(e => activeStop(stopsDir, e, Date.now(), stopMode)).filter(Boolean);
-    if (stops.length) {
-      const what = stops.map(s => `${s.engine} stopped ${s.until ? `until ${s.until}` : '(no end time)'} (${s.reason})`).join('; ');
-      const ends = stops.map(s => s.until).filter(Boolean).sort();
-      return { final: { entry: blocked(step, `BLOCKED: ${what} | unblocks: ${stops.some(s => !s.until) ? 'a readable stop file with a valid until, or its owner lifting the stop' : `the stop ending at ${ends[ends.length - 1]}, or its owner lifting it`}`), store: true } };
-    }
+    const stop = stepStop(step, { dir: stopsDir, mode: stopMode });
+    if (stop) return { final: { entry: blocked(step, `BLOCKED: ${stop.message}`), store: true } };
     if (!step.waiting) {
       const lacking = step.needsKeys.filter(k => !keyPresent(k));
       if (lacking.length) return { final: { entry: blocked(step, `BLOCKED: ${lacking.length === 1 ? 'key' : 'keys'} ${lacking.join(', ')} not set | unblocks: set ${lacking.length === 1 ? 'it' : 'them'} in the environment or pass --env-file with ${lacking.length === 1 ? 'it' : 'them'}`), store: true } };
@@ -335,7 +274,7 @@ export async function runSeo(o) {
     }
     if (step.waiting) {
       const who = [step.needsBrowser === 'owner' && "the owner's browser", step.needsAi && 'an AI agent', step.needsPerson && 'a person'].filter(Boolean);
-      const waiting = { who, brief: step.brief, inputs: step.inputs, outputs: step.outputs, evidence: step.evidence.map(e => e.glob), runStartedAt: iso(runStartMs) };
+      const waiting = { who, brief: step.brief, inputs: step.inputs, outputs: step.outputs, evidence: step.evidence, runStartedAt: iso(runStartMs) };
       return { final: { entry: { id: step.id, module: step.module, state: 'WAITING', waiting, endedAt: iso(Date.now()) }, store: true } };
     }
     if (step.heavy && !existsSync(o.heavyScript)) return { final: { entry: blocked(step, `BLOCKED: heavy steps run through heavy.mjs, which is not at ${norm(o.heavyScript)} | unblocks: install it there`), store: true } };
@@ -361,19 +300,17 @@ export async function runSeo(o) {
     if (r.error && r.status === null && !r.timedOut) return { ...done, state: 'FAILED', exit: null, line: null, reason: `could not run: ${redact(String(r.error.message || r.error), secrets).slice(0, 300)}` };
     if (r.timedOut) return { ...done, state: 'FAILED', exit: r.status, timedOut: true, line: clip(redact(lastLine(err) || lastLine(out) || '', secrets) || null), ...(r.leftover.length ? { leftover: r.leftover } : {}), reason: r.leftover.length ? `timeout after ${step.timeoutMinutes} min; the process tree did not exit after the kill (pids ${r.leftover.join(', ')})` : `timeout after ${step.timeoutMinutes} min, the process tree was stopped` };
     const code = r.status === null ? -1 : r.status;
-    const c = classifyExit(step, code);
-    const want = c.state === 'BLOCKED' ? /^BLOCKED:/ : c.state === 'SKIPPED' ? /^SKIPPED:/ : null;
-    const cands = [lastLine(err), lastLine(out)].filter(Boolean);
-    const line = clip(want ? cands.find(x => want.test(x)) ?? null : cands[0] ?? null);
-    if (c.state === 'RUN') {
-      const ev = checkEvidence(step, startMs);
-      if (!ev.ok) return { ...done, state: 'FAILED', exit: code, line, reason: `exit 0 but evidence missing: ${ev.missing.join('; ')}` };
-      return { ...runEntry(step, ev, done), exit: code, line };
-    }
-    // exit 3 or 4 without its prefix line breaks the contract: FAILED, naming the line that is missing (never a made-up reason)
-    if ((c.state === 'BLOCKED' || c.state === 'SKIPPED') && line === null) return { ...done, state: 'FAILED', exit: code, line: null, reason: `contract break: exit ${code} (${c.state}) without a '${c.state}: <${c.state === 'BLOCKED' ? 'what> | unblocks: <what' : 'reason'}>' line` };
-    if (c.state === 'BLOCKED' || c.state === 'SKIPPED') return { ...done, state: c.state, exit: code, line };
-    return { ...done, state: c.state, exit: code, line, reason: c.why };
+    const ev = code === 0 ? evidenceState(step, vars, { since: startMs }) : null;
+    const oc = stepOutcome(step, { code, lastLine: [lastLine(err), lastLine(out)].filter(Boolean), output: `${out}\n${err}`, evidence: ev });
+    const state = outcomeState(oc), line = clip(oc.line);
+    if (state === 'RUN') return { ...runEntry(step, ev, done), exit: code, line };
+    if (state === 'PARTIAL' || state === 'BLOCKED' || state === 'SKIPPED') return { ...done, state, exit: code, line };
+    // exit 3 and the owner's answers: the step is WAITING for them (the script runs again on the next resume)
+    if (state === 'WAITING') return { ...done, state, exit: code, line, waiting: { who: ["the owner's answers"], brief: oc.message, inputs: [], outputs: [], evidence: [], runStartedAt: iso(runStartMs) } };
+    // a failure the engine named: exit 3 or 4 without its prefix line breaks the contract, and the table names the line that is missing (never a made-up reason)
+    const miss = CONTRACT_LINE[code];
+    if (miss) return { ...done, state, exit: code, line: null, reason: `contract break: exit ${code} (${miss.split(':')[0]}) without a '${miss}' line` };
+    return { ...done, state, exit: code, line, reason: code === 0 ? oc.message : code === 2 ? 'usage' : undefined };
   }
 
   // ---- the scheduler: topological, independent steps in parallel, one step per host, one heavy step at a time

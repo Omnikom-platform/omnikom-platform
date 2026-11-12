@@ -19,9 +19,10 @@
   "client": "the client slug (clients/<slug>/ in the Omnikom repo)",
   "host": "the url's hostname without www.",
   "skill": "the skill folder",
-  "runDir": "{skill}/site-checks/{host}",
+  "data": "the run's data folder; until row R3 the skill folder",
+  "runDir": "{data}/site-checks/{host}",
   "pewp": "{runDir}/.pewp",
-  "work": "a folder the runner makes for this run for the checker's headless workers: {runDir}/work, except when {runDir} is under ~/.claude (the outside copy of the skill), where those workers cannot write (work order 40): then <os temp>/pewp-work/{host}"
+  "work": "{data}/work"
  },
  "steps": [
   {
@@ -50,7 +51,9 @@
    "timeoutMinutes": 5,
    "evidence": [
     "{pewp}/doctor.json"
-   ]
+   ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 1
   },
   {
    "id": "vantage",
@@ -80,7 +83,9 @@
    "timeoutMinutes": 2,
    "evidence": [
     "{pewp}/vantage.json"
-   ]
+   ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 1
   },
   {
    "id": "snapshot",
@@ -109,7 +114,9 @@
    "timeoutMinutes": 150,
    "evidence": [
     "{runDir}/snapshots/latest.json"
-   ]
+   ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 7
   },
   {
    "id": "psi",
@@ -146,7 +153,9 @@
    "timeoutMinutes": 15,
    "evidence": [
     "{pewp}/psi/*.json"
-   ]
+   ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 7
   },
   {
    "id": "crux",
@@ -177,7 +186,9 @@
    "timeoutMinutes": 5,
    "evidence": [
     "{pewp}/crux/*.json"
-   ]
+   ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 28
   },
   {
    "id": "checker",
@@ -206,6 +217,8 @@
    "evidence": [
     "{work}/checker/.checks/causes.json"
    ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 7,
    "brief": "Copy the newest snapshot folder to {work}/checker, then run ONE coordinator agent on it exactly as SKILL.md 'The checker' says, with the repo root = that copy."
   },
   {
@@ -235,7 +248,9 @@
    "timeoutMinutes": 10,
    "evidence": [
     "{pewp}/business.json"
-   ]
+   ],
+   "kind": "stable",
+   "maxAgeDays": null
   },
   {
    "id": "approve-business",
@@ -263,6 +278,8 @@
    "evidence": [
     "{pewp}/approved/business.json"
    ],
+   "kind": "stable",
+   "maxAgeDays": null,
    "brief": "Show the owner business.json as pickable options. On his answer, record it with `node scripts/approve.mjs {url} business --by \"<owner>\" --cwd {skill}`."
   },
   {
@@ -294,7 +311,9 @@
    "timeoutMinutes": 5,
    "evidence": [
     "{pewp}/captures/local/grid/cities.json"
-   ]
+   ],
+   "kind": "stable",
+   "maxAgeDays": null
   },
   {
    "id": "seeds",
@@ -325,7 +344,9 @@
    "timeoutMinutes": 5,
    "evidence": [
     "{pewp}/research/seeds.json"
-   ]
+   ],
+   "kind": "stable",
+   "maxAgeDays": null
   },
   {
    "id": "approve-seeds",
@@ -353,6 +374,8 @@
    "evidence": [
     "{pewp}/approved/seeds.json"
    ],
+   "kind": "stable",
+   "maxAgeDays": null,
    "brief": "Show the owner the seeds as pickable options. Record the answer with `node scripts/approve.mjs {url} seeds --by \"<owner>\" --cwd {skill}`."
   },
   {
@@ -389,7 +412,9 @@
    "timeoutMinutes": 15,
    "evidence": [
     "{pewp}/research/bing.json"
-   ]
+   ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 30
   },
   {
    "id": "search-console",
@@ -418,7 +443,9 @@
    "timeoutMinutes": 10,
    "evidence": [
     "{pewp}/research/gsc.json"
-   ]
+   ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 30
   },
   {
    "id": "research-plan",
@@ -450,7 +477,9 @@
    "timeoutMinutes": 5,
    "evidence": [
     "{pewp}/research/capture-requests.json"
-   ]
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
   },
   {
    "id": "capture-google",
@@ -478,6 +507,8 @@
    "evidence": [
     "{pewp}/captures/serp/*.google.json"
    ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 30,
    "brief": "In the owner's Edge, open each Google request in capture-requests.json plus the brand searches (business name, short name, domain) and each service + city. Save each page in the serp capture format with its footer location (a location outside the market makes it a national baseline, not local).",
    "engines": [
     "google"
@@ -509,6 +540,8 @@
    "evidence": [
     "{pewp}/captures/serp/*.bing.json"
    ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 30,
    "brief": "In the owner's Edge, the same buyer searches and the brand searches on bing.com; save each in the serp capture format with engine bing.",
    "engines": [
     "bing"
@@ -538,6 +571,8 @@
    "evidence": [
     "{pewp}/captures/index/*.json"
    ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 30,
    "brief": "site:{host} on Google and Bing: record the result count shown and the addresses listed; then for each service, whether a page for it is listed.",
    "engines": [
     "google"
@@ -572,7 +607,9 @@
    "timeoutMinutes": 5,
    "evidence": [
     "{pewp}/research/index.json"
-   ]
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
   },
   {
    "id": "capture-autocomplete",
@@ -600,6 +637,8 @@
    "evidence": [
     "{pewp}/captures/autocomplete/*.json"
    ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 30,
    "brief": "Type each seed slowly into the search box without pressing Enter and save the list shown, in the format at the top of scripts/research-autocomplete.mjs.",
    "engines": [
     "google",
@@ -635,7 +674,9 @@
    "timeoutMinutes": 5,
    "evidence": [
     "{pewp}/research/autocomplete.json"
-   ]
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
   },
   {
    "id": "capture-trends",
@@ -663,6 +704,8 @@
    "evidence": [
     "{pewp}/captures/trends/*.json"
    ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 30,
    "brief": "trends.google.com, past 12 months, one service per page: the country's region table (the client's state and its rank) and the state's metro table (the client's metro). Save the tables with the address read.",
    "engines": [
     "google"
@@ -697,7 +740,9 @@
    "timeoutMinutes": 5,
    "evidence": [
     "{pewp}/research/trends.json"
-   ]
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
   },
   {
    "id": "capture-ai",
@@ -725,6 +770,8 @@
    "evidence": [
     "{pewp}/captures/ai/*.json"
    ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 30,
    "brief": "Ask each engine the buyer questions and 'Who is <business> in <city>?'. Record whether the business is named, who is named instead, and the cited sources. A sign-in wall means that engine is BLOCKED. The Gemini API is not used (owner, 2026-11-11)."
   },
   {
@@ -756,7 +803,9 @@
    "timeoutMinutes": 5,
    "evidence": [
     "{pewp}/research/ai-answers.json"
-   ]
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
   },
   {
    "id": "research",
@@ -798,7 +847,9 @@
    "evidence": [
     "{pewp}/targets.json",
     "{pewp}/research/serp.json"
-   ]
+   ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 30
   },
   {
    "id": "targets-validate",
@@ -827,7 +878,9 @@
    "timeoutMinutes": 5,
    "evidence": [
     "{pewp}/targets.json"
-   ]
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
   },
   {
    "id": "local-grid-plan",
@@ -865,7 +918,9 @@
    "timeoutMinutes": 5,
    "evidence": [
     "{pewp}/captures/local/grid/requests.json"
-   ]
+   ],
+   "kind": "stable",
+   "maxAgeDays": null
   },
   {
    "id": "capture-maps",
@@ -894,6 +949,8 @@
    "evidence": [
     "{pewp}/captures/local/grid/*__*.json"
    ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 30,
    "brief": "Google Maps ranks by the map's viewport, not by IP (work order 40: a browser outside the market cannot localize web results). Open https://www.google.com/maps/search/<service>/@<lat>,<lng>,14z for each point in the grid requests, and record the results list in the local-pack format. Then search the business's own name: record its profile (rating, reviews, category, photos), or that none exists.",
    "engines": [
     "google"
@@ -932,7 +989,9 @@
    "timeoutMinutes": 60,
    "evidence": [
     "{pewp}/research/competitors.json"
-   ]
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
   },
   {
    "id": "approve-competitors",
@@ -960,6 +1019,8 @@
    "evidence": [
     "{pewp}/approved/competitors.json"
    ],
+   "kind": "stable",
+   "maxAgeDays": null,
    "brief": "Show the owner the competitor list, local ones first, as pickable options. Record it with `node scripts/approve.mjs {url} competitors --by \"<owner>\" --cwd {skill}`."
   },
   {
@@ -996,6 +1057,8 @@
    "evidence": [
     "{pewp}/authority.json"
    ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 90,
    "engines": [
     "commoncrawl"
    ]
@@ -1031,12 +1094,13 @@
    "pace": "one request per 3 s to the Common Crawl data host, hard cap 600 requests (the cluster.idx download counts as one), about 30 to 40 minutes; responses are cached so a re-run costs nothing",
    "timeoutMinutes": 60,
    "exit": {
-    "3": "BLOCKED: no authority.json, free disk under 15 GB, or the 24 h Common Crawl stop file is in force (it prints until when)",
-    "4": "partial: Common Crawl answered 403, 429 or 503 or dropped the connection; the run stops, a 24 h stop file is written, what was read is kept; run again to continue"
+    "3": "BLOCKED: no authority.json, free disk under 15 GB, or the 24 h Common Crawl stop file is in force (it prints until when)"
    },
    "evidence": [
     "{pewp}/authority/anchors.md"
    ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 90,
    "engines": [
     "commoncrawl"
    ]
@@ -1070,12 +1134,11 @@
    "hits": "none",
    "pace": null,
    "timeoutMinutes": 15,
-   "exit": {
-    "4": "partial: what was read is kept; run again to continue"
-   },
    "evidence": [
     "{pewp}/authority/opportunities.json"
-   ]
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
   },
   {
    "id": "authority-vet",
@@ -1108,12 +1171,11 @@
    "hits": "third-party:link-opportunity-sites",
    "pace": "1 request per 4 s per host",
    "timeoutMinutes": 30,
-   "exit": {
-    "4": "partial: what was read is kept; run again to continue"
-   },
    "evidence": [
     "{pewp}/authority/vetting.json"
-   ]
+   ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 90
   },
   {
    "id": "local-grid-import",
@@ -1145,7 +1207,9 @@
    "timeoutMinutes": 5,
    "evidence": [
     "{pewp}/local/*/grid.json"
-   ]
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
   },
   {
    "id": "capture-directories",
@@ -1173,6 +1237,8 @@
    "evidence": [
     "{pewp}/captures/local/citations.json"
    ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 90,
    "brief": "Search each directory for the business by name and city, read only. Record the name, address and phone it shows, or that it is not listed, in the citations.json format at the top of scripts/local-nap.mjs."
   },
   {
@@ -1207,7 +1273,9 @@
    "timeoutMinutes": 10,
    "evidence": [
     "{pewp}/local/*/summary.json"
-   ]
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
   },
   {
    "id": "capture-reputation",
@@ -1235,6 +1303,8 @@
    "evidence": [
     "{pewp}/captures/reputation/*.json"
    ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 30,
    "brief": "Read only, no login. Per site and business: the rating, review count, newest review date, complaint count and accreditation, or 'not listed'. Never copy a reviewer's name."
   },
   {
@@ -1266,7 +1336,9 @@
    "timeoutMinutes": 5,
    "evidence": [
     "{pewp}/research/reputation.json"
-   ]
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
   },
   {
    "id": "capture-social",
@@ -1294,6 +1366,8 @@
    "evidence": [
     "{pewp}/captures/social/*.json"
    ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 90,
    "brief": "Public pages only, nothing clicked beyond reading. Per profile: followers, posts or videos (with Shorts counted: work order 40), views, the newest post date, and where its link goes (open the link and record the status the visitor sees). A login wall means BLOCKED."
   },
   {
@@ -1325,7 +1399,9 @@
    "timeoutMinutes": 5,
    "evidence": [
     "{pewp}/research/social.json"
-   ]
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
   },
   {
    "id": "capture-ads",
@@ -1353,6 +1429,8 @@
    "evidence": [
     "{pewp}/captures/ads/*.json"
    ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 30,
    "brief": "adstransparency.google.com and facebook.com/ads/library, US: per advertiser, whether ads are running, how many, since when, and the formats. Read only."
   },
   {
@@ -1384,7 +1462,9 @@
    "timeoutMinutes": 5,
    "evidence": [
     "{pewp}/research/ads.json"
-   ]
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
   },
   {
    "id": "forums",
@@ -1419,7 +1499,9 @@
    "timeoutMinutes": 10,
    "evidence": [
     "{pewp}/research/forums.json"
-   ]
+   ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 30
   },
   {
    "id": "report-live",
@@ -1474,7 +1556,9 @@
    "timeoutMinutes": 5,
    "evidence": [
     "{pewp}/report.json"
-   ]
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
   },
   {
    "id": "verify",
@@ -1510,6 +1594,8 @@
    "evidence": [
     "{work}/verifier-table.md"
    ],
+   "kind": "time-sensitive",
+   "maxAgeDays": 0,
    "brief": "A fresh agent with no part in the report: re-measure what can be re-measured (PageSpeed median of 3, served and rendered counts two ways, page statuses), re-read every capture cited, and write one row per claim with the verdict MATCH, MISMATCH, OVERSTATED, NO SOURCE or UNPROVEN."
   }
  ]

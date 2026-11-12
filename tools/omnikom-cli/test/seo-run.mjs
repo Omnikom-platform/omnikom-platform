@@ -3,7 +3,7 @@
 // Everything runs real child processes against fake step scripts (test/fixtures/seo/skill/scripts: one tiny script per behaviour) and a fake HTTP server
 // that counts the requests open at once; nothing touches a real site, ~/.claude or the real heavy.mjs (a stand-in that takes no lock is used, so the
 // serialisation seen here is the runner's own). Each check below has a mutant in test/mutate.mjs tagged [seo-run].
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, cpSync, mkdirSync, utimesSync, statSync, symlinkSync, unlinkSync, rmdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, cpSync, mkdirSync, utimesSync, statSync, symlinkSync, unlinkSync, rmdirSync, readdirSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 import { tmpdir, homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -13,7 +13,7 @@ import http from 'node:http';
 import { pidAlive } from './harness.mjs';
 
 export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
-  const { validateManifest, covers } = await lib('seo-manifest.mjs');
+  const { validateManifest, covers, describe } = await lib('seo-manifest.mjs');
   const { skillDirOf, SKILL } = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'seo.mjs')).href);
   const guard = await import(pathToFileURL(join(REPO_ROOT, 'tools', 'proc-guard', 'index.mjs')).href);
   const FIX = join(CLI_ROOT, 'test', 'fixtures', 'seo');
@@ -30,8 +30,8 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
   const URL_ = `http://127.0.0.1:${server.address().port}/`;
   const HOST = '127.0.0.1';
 
-  // manifest builders: a runnable step (S), a waiting step (W), a manifest (M)
-  const S = (id, over = {}) => ({ id, module: 'm', what: `step ${id}`, script: 'scripts/ok.mjs', args: ['--id', id, '--out', `{pewp}/${id}.json`], inputs: [], outputs: [`{pewp}/${id}.json`], dependsOn: [], needsBrowser: 'none', needsAi: false, needsPerson: false, needsKeys: [], heavy: false, hits: 'none', pace: null, timeoutMinutes: 1, evidence: [`{pewp}/${id}.json`], ...over });
+  // manifest builders: a runnable step (S), a waiting step (W), a manifest (M); kind and maxAgeDays are required on every step (P3.4 R2)
+  const S = (id, over = {}) => ({ id, module: 'm', what: `step ${id}`, script: 'scripts/ok.mjs', args: ['--id', id, '--out', `{pewp}/${id}.json`], inputs: [], outputs: [`{pewp}/${id}.json`], dependsOn: [], needsBrowser: 'none', needsAi: false, needsPerson: false, needsKeys: [], heavy: false, hits: 'none', pace: null, timeoutMinutes: 1, evidence: [`{pewp}/${id}.json`], kind: 'derived', maxAgeDays: null, ...over });
   const W = (id, over = {}) => S(id, { script: null, args: [], needsBrowser: 'owner', brief: 'do it for {host}', timeoutMinutes: 0, outputs: [`{pewp}/captures/${id}.json`], evidence: [`{pewp}/captures/${id}.json`], ...over });
   const M = (...steps) => ({ version: 1, name: 't', what: 't', steps });
   const base = JSON.parse(readFileSync(join(FIX, 'skill', 'pipeline.json'), 'utf8'));
@@ -42,7 +42,7 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     const dir = join(root, `s${++n}`), skill = join(dir, 'skill');
     cpSync(join(FIX, 'skill'), skill, { recursive: true });
     if (manifest) writeFileSync(join(skill, 'pipeline.json'), JSON.stringify(manifest, null, 1));
-    return { dir, skill, record: join(dir, 'record.jsonl'), pewp: join(skill, 'site-checks', HOST, '.pewp'), work: join(skill, 'site-checks', HOST, 'work') };
+    return { dir, skill, record: join(dir, 'record.jsonl'), pewp: join(skill, 'site-checks', HOST, '.pewp'), work: join(skill, 'work') };
   }
   // No command may hang the file: one that does not return within the deadline ends the file with a FAIL line naming it (see the catch at the bottom)
   const DEADLINE_MS = 150000;
@@ -63,10 +63,11 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
   const has = (problems, text) => problems.some(p => p.includes(text));
 
   try {
-    // ================================================================ the validator (SEO runs the same function)
+    // ================================================================ the validator (the skill's engine: seo-manifest.mjs only re-exports it)
     const vopts = { skillDir: join(FIX, 'skill'), repoRoot: REPO_ROOT };
-    check('seo validator: the fixture manifest is valid', validateManifest(base, vopts).length === 0, validateManifest(base, vopts).join(' | '));
-    const broke = fn => { const m = structuredClone(base); fn(m); return validateManifest(m, vopts); };
+    const vsentences = (m, o = vopts) => { try { return validateManifest(m, o).problems.map(describe); } catch (e) { return [`threw: ${e.message}`]; } };   // a throw is a red check, not a crash
+    check('seo validator: the fixture manifest is valid', vsentences(base).length === 0, vsentences(base).join(' | '));
+    const broke = fn => { const m = structuredClone(base); fn(m); return vsentences(m); };
     const step = (m, id) => m.steps.find(x => x.id === id);
     let p;
     p = broke(m => { m.extra = 1; });
@@ -126,7 +127,7 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     check('seo status: an invalid manifest exits 2 as well', r.exit === 2 && r.stdout.includes('invalid'), r.all.slice(0, 300));
     s = site(); rmSync(join(s.skill, 'pipeline.json'));
     r = await go(s, ['status', URL_]);
-    check('seo status: no manifest exits 2 and names where it looked', r.exit === 2 && r.stdout.includes('pipeline.json') && r.stdout.includes(norm(s.skill)), r.all.slice(0, 300));
+    check('seo status: no manifest exits 2 and names where it looked', r.exit === 2 && r.stdout.includes('the manifest is not at') && r.stdout.includes('pipeline.json') && r.stdout.includes(norm(s.skill)), r.all.slice(0, 300));
 
     // ---- the manifest is the repository's copy: the default skill folder is <repo>/skills/programmatic-enterprise-web-performance, never ~/.claude
     const def = norm(skillDirOf({}));
@@ -136,6 +137,7 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     writeFileSync(join(fakeRepo, 'skills', SKILL[1], 'scripts', 'ok.mjs'), '// x\n');
     const withLeadEndpoint = dir => { mkdirSync(join(dir, 'factory', 'worker'), { recursive: true }); cpSync(join(REPO_ROOT, 'factory', 'worker', 'lead-endpoint.mjs'), join(dir, 'factory', 'worker', 'lead-endpoint.mjs')); };   // lib/sign.mjs imports it from the repository at load
     withLeadEndpoint(fakeRepo);
+    for (const f of ['lib-pipeline.mjs', 'lib-stops.mjs', 'lib-run.mjs']) cpSync(join(REPO_ROOT, ...SKILL, 'scripts', f), join(fakeRepo, 'skills', SKILL[1], 'scripts', f));   // the CLI takes the rule engine from the repository at load
     writeFileSync(join(fakeRepo, 'skills', SKILL[1], 'pipeline.json'), JSON.stringify(M(S('only-in-repo-copy'))));
     const sub = await new Promise(res => {
       const c = spawn(process.execPath, [join(CLI_ROOT, 'omnikom.mjs'), 'seo', 'status', URL_, '--json'], { env: { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, OMNIKOM_REPO_ROOT: fakeRepo }, windowsHide: true });
@@ -153,7 +155,7 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     check('seo run: exit 1 when a step FAILED, code SEO-FAILED, failed 1', r.exit === 1 && r.json.code === 'SEO-FAILED' && r.json.data.failed === 1, r.all.slice(0, 300));
     check('seo run: a BLOCKED exit 3 quotes the script\'s last line verbatim', row(r, 'fx-blocked').line === 'BLOCKED: the client has not added us | unblocks: the client adds us as a user' && row(r, 'fx-blocked').detail === row(r, 'fx-blocked').line && row(r, 'fx-blocked').exit === 3, JSON.stringify(row(r, 'fx-blocked')));
     check('seo run: a SKIPPED exit 4 quotes the script\'s last line verbatim', row(r, 'fx-skipped').line === 'SKIPPED: nothing to compare against yet' && row(r, 'fx-skipped').detail === row(r, 'fx-skipped').line, JSON.stringify(row(r, 'fx-skipped')));
-    check('seo run: an exit the manifest maps to partial is PARTIAL, with the script\'s last line and the manifest\'s words', row(r, 'fx-partial').exit === 4 && row(r, 'fx-partial').detail.includes('read 3 of 9 pages') && row(r, 'fx-partial').detail.includes('manifest: partial: what was read is kept'), JSON.stringify(row(r, 'fx-partial')));
+    check('seo run: a step that exits 0 with a PARTIAL: last line is PARTIAL (no exit map: the manifest\'s exit is not read), with the script\'s own last line', row(r, 'fx-partial').exit === 0 && row(r, 'fx-partial').line === 'PARTIAL: read 10 of 25' && row(r, 'fx-partial').detail.includes('read 10 of 25'), JSON.stringify(row(r, 'fx-partial')));
     check('seo run: FAILED says the exit and the last line', row(r, 'fx-fail').exit === 1 && row(r, 'fx-fail').detail === 'exit 1: boom: the page did not load', JSON.stringify(row(r, 'fx-fail')));
     check('seo run: a step whose dependency FAILED is BLOCKED by it and its script never starts', row(r, 'fx-after-fail').detail.startsWith('BLOCKED: waits for fx-fail (FAILED)') && starts(s, 'fx-after-fail') === 0, JSON.stringify(row(r, 'fx-after-fail')));
     check('seo run: the evidence of a RUN step is its file, relative to the skill folder', row(r, 'fx-ok').detail === `site-checks/${HOST}/.pewp/fx-ok.json` && row(r, 'fx-ok').exit === 0, JSON.stringify(row(r, 'fx-ok')));
@@ -176,9 +178,9 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     s = site(M(S('u', { script: 'scripts/fail.mjs', args: ['--id', 'u', '--code', '2'] }), S('seven', { script: 'scripts/fail.mjs', args: ['--id', 'seven', '--code', '7'] })));
     r = await run(s);
     check('seo run: exit 2 is FAILED (usage) and any other exit is FAILED', row(r, 'u').state === 'FAILED' && row(r, 'u').detail.endsWith('[usage]') && row(r, 'seven').state === 'FAILED' && row(r, 'seven').exit === 7, JSON.stringify(r.json.data.steps));
-    s = site(M(S('b1', { script: 'scripts/blocked.mjs' }), S('s1', { script: 'scripts/skipped.mjs' }), W('w1')));
+    s = site(M(S('b1', { script: 'scripts/blocked.mjs' }), S('s1', { script: 'scripts/skipped.mjs' }), W('w1'), S('ni', { script: 'scripts/needs-input.mjs' })));
     r = await run(s);
-    check('seo run: only BLOCKED, SKIPPED and WAITING steps exit 0 (they are states, not failures)', r.exit === 0 && r.json.ok === true && r.json.data.failed === 0, r.all.slice(0, 300));
+    check('seo run: only BLOCKED, SKIPPED and WAITING steps exit 0 (they are states, not failures); a script that asks for input (NEEDS-INPUT, exit 3) is WAITING, with the owner\'s answers named', r.exit === 0 && r.json.ok === true && r.json.data.failed === 0 && row(r, 'ni').state === 'WAITING' && row(r, 'ni').detail === 'needs the owner\'s answers' && row(r, 'ni').exit === 3 && row(r, 'ni').line === 'BLOCKED: answers | unblocks: y', r.all.slice(0, 300) + JSON.stringify(row(r, 'ni')));
 
     // ================================================================ pre-checks never start the script
     const KEY = randomBytes(12).toString('hex');
@@ -187,7 +189,7 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     check('seo run: a missing key is BLOCKED by name (all missing names), the script never starts', row(r, 'needs-key').state === 'BLOCKED' && row(r, 'needs-key').detail.startsWith('BLOCKED: keys FIXTURE_KEY, FIXTURE_OTHER not set |') && starts(s, 'needs-key') === 0, JSON.stringify(row(r, 'needs-key')));
     r = await run(s, [], { FIXTURE_KEY: KEY, FIXTURE_OTHER: KEY + 'x' });
     check('seo run: with the keys in the environment the step runs, and no key value is printed', row(r, 'needs-key').state === 'RUN' && !r.all.includes(KEY), r.all.slice(0, 300));
-    s = site(M(S('maker', { script: 'scripts/blocked.mjs', outputs: ['{pewp}/made.json'], evidence: ['{pewp}/made.json'] }), S('consumer', { inputs: ['{pewp}/made.json'] }), S('lonely', { inputs: ['{pewp}/ghost.json'] })));
+    s = site(M(S('maker', { script: 'scripts/skipped.mjs', outputs: ['{pewp}/made.json'], evidence: ['{pewp}/made.json'] }), S('consumer', { inputs: ['{pewp}/made.json'], dependsOn: ['maker'] }), S('lonely', { inputs: ['{pewp}/ghost.json'] })));   // the validator's input-order rule: a reader of another step's output depends on it; a SKIPPED maker is settled, so the reader's own input check is what says the file is missing
     r = await run(s);
     check('seo run: a missing input file is BLOCKED naming the file and the step that writes it; the script never starts', row(r, 'consumer').state === 'BLOCKED' && row(r, 'consumer').detail.includes(`site-checks/${HOST}/.pewp/made.json (written by maker)`) && starts(s, 'consumer') === 0, JSON.stringify(row(r, 'consumer')));
     check('seo run: an input no step writes says so', row(r, 'lonely').detail.includes('ghost.json (no step of the manifest writes it)') && starts(s, 'lonely') === 0, JSON.stringify(row(r, 'lonely')));
@@ -297,11 +299,12 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     const stopRepo = join(root, 'stop-repo');
     const stopSkill = join(stopRepo, ...SKILL);
     cpSync(join(FIX, 'skill'), stopSkill, { recursive: true });
+    for (const f of ['lib-pipeline.mjs', 'lib-stops.mjs', 'lib-run.mjs']) cpSync(join(REPO_ROOT, ...SKILL, 'scripts', f), join(stopSkill, 'scripts', f));   // this child is a whole CLI process: it takes the rule engine from its repository at load
     withLeadEndpoint(stopRepo);
     cpSync(join(REPO_ROOT, 'tools', 'proc-guard'), join(stopRepo, 'tools', 'proc-guard'), { recursive: true, filter: f => !/[\\/]test([\\/]|$)/.test(f) });
     const stopManifest = slow => M(S('first'), S('slow', slow ? { script: 'scripts/hang.mjs', args: ['--id', 'slow', '--pidfile', '{work}/pid'], timeoutMinutes: 5, dependsOn: ['first'] } : { dependsOn: ['first'] }));
     writeFileSync(join(stopSkill, 'pipeline.json'), JSON.stringify(stopManifest(true)));
-    const stopS = { skill: stopSkill, record: join(root, 'stop-record.jsonl'), pewp: join(stopSkill, 'site-checks', HOST, '.pewp'), work: join(stopSkill, 'site-checks', HOST, 'work') };
+    const stopS = { skill: stopSkill, record: join(root, 'stop-record.jsonl'), pewp: join(stopSkill, 'site-checks', HOST, '.pewp'), work: join(stopSkill, 'work') };
     // this child is a whole CLI process, so it runs the real skill check (P3.4 R1, no seam): stop-repo is a git checkout with its skill committed, at backup-gh/master,
     // and a skills folder of this test holds a junction to its copy of the skill
     const stopSkills = join(root, 'stop-skills');
@@ -451,15 +454,15 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
       let s2 = site(M(S('g', { engines: ['google'] }), S('g-after', { dependsOn: ['g'] }), S('free'), W('cap-g', { engines: ['google'] }), S('cc', { engines: ['commoncrawl'] })));
       let r2 = await run(s2, [], {}, { stopsDir: stops });
       check('seo run: a live google stop BLOCKS the google step, which never starts, and names the engine, the end time and the reason [stops]',
-        row(r2, 'g').state === 'BLOCKED' && starts(s2, 'g') === 0 && row(r2, 'g').detail.includes(`google stopped until ${live}`) && row(r2, 'g').detail.includes('robot check: unusual traffic') && row(r2, 'g').detail.includes(`the stop ending at ${live}`), JSON.stringify(row(r2, 'g')));
-      check('seo run: a waiting step on a stopped engine is BLOCKED, not handed to an agent as WAITING [stops]', row(r2, 'cap-g').state === 'BLOCKED' && row(r2, 'cap-g').detail.includes('google stopped'), JSON.stringify(row(r2, 'cap-g')));
+        row(r2, 'g').state === 'BLOCKED' && starts(s2, 'g') === 0 && row(r2, 'g').detail.includes(`google is stopped until ${live}`) && row(r2, 'g').detail.includes('robot check: unusual traffic') && row(r2, 'g').detail.includes('unblocks: wait until then'), JSON.stringify(row(r2, 'g')));
+      check('seo run: a waiting step on a stopped engine is BLOCKED, not handed to an agent as WAITING [stops]', row(r2, 'cap-g').state === 'BLOCKED' && row(r2, 'cap-g').detail.includes('google is stopped'), JSON.stringify(row(r2, 'cap-g')));
       check('seo run: the stopped step\'s dependents are BLOCKED by it; steps on other engines or none run [stops]',
         row(r2, 'g-after').state === 'BLOCKED' && starts(s2, 'g-after') === 0 && row(r2, 'free').state === 'RUN' && row(r2, 'cc').state === 'RUN', JSON.stringify(states(r2)));
       writeFileSync(join(stops, 'google.json'), JSON.stringify({ engine: 'google', hosts: ['google.com'], until: live, reason: 'robot check', setBy: 'test', setAt: new Date().toISOString(), evidence: 'x', lift: { mode: 'desktop', by: 'owner', at: new Date().toISOString(), note: 'his own Edge, human pace' } }));
       s2 = site(M(S('g', { engines: ['google'] }), W('cap-g', { engines: ['google'] }), W('cap-ai', { engines: ['google'], needsBrowser: 'none', needsAi: true })));
       r2 = await run(s2, [], {}, { stopsDir: stops });
       check('seo run: a stop lifted for desktop frees only the owner-browser capture (WAITING); the script step stays BLOCKED until the stop ends, and so does a non-browser waiting step [stops]',
-        row(r2, 'cap-g').state === 'WAITING' && row(r2, 'g').state === 'BLOCKED' && starts(s2, 'g') === 0 && row(r2, 'g').detail.includes(`google stopped until ${live}`) && row(r2, 'cap-ai').state === 'BLOCKED', JSON.stringify(states(r2)));
+        row(r2, 'cap-g').state === 'WAITING' && row(r2, 'g').state === 'BLOCKED' && starts(s2, 'g') === 0 && row(r2, 'g').detail.includes(`google is stopped until ${live}`) && row(r2, 'cap-ai').state === 'BLOCKED', JSON.stringify(states(r2)));
       stopFile('google', new Date(Date.now() - 60000).toISOString());
       s2 = site(M(S('g', { engines: ['google'] })));
       r2 = await run(s2, [], {}, { stopsDir: stops });
@@ -467,23 +470,23 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
       writeFileSync(join(stops, 'google.json'), '{ not json');
       s2 = site(M(S('g', { engines: ['google'] })));
       r2 = await run(s2, [], {}, { stopsDir: stops });
-      check('seo run: an unreadable stop file stops the engine (fail closed) and says so [stops]', row(r2, 'g').state === 'BLOCKED' && starts(s2, 'g') === 0 && row(r2, 'g').detail.includes('cannot be read'), JSON.stringify(row(r2, 'g')));
+      check('seo run: an unreadable stop file stops the engine (fail closed) and says so [stops]', row(r2, 'g').state === 'BLOCKED' && starts(s2, 'g') === 0 && row(r2, 'g').detail.includes('google is stopped') && row(r2, 'g').detail.includes('unreadable'), JSON.stringify(row(r2, 'g')));
       writeFileSync(join(stops, 'google.json'), JSON.stringify({ engine: 'google', reason: 'x' }));
       s2 = site(M(S('g', { engines: ['google'] })));
       r2 = await run(s2, [], {}, { stopsDir: stops });
-      check('seo run: a stop file with no valid until stops the engine (fail closed) [stops]', row(r2, 'g').state === 'BLOCKED' && starts(s2, 'g') === 0 && row(r2, 'g').detail.includes('no valid until'), JSON.stringify(row(r2, 'g')));
+      check('seo run: a stop file with no valid until stops the engine (fail closed) [stops]', row(r2, 'g').state === 'BLOCKED' && starts(s2, 'g') === 0 && row(r2, 'g').detail.includes('google is stopped') && row(r2, 'g').detail.includes('unreadable'), JSON.stringify(row(r2, 'g')));
       rmSync(join(stops, 'google.json'));
       stopFile('bing', live, 'bing said no');
       s2 = site(M(S('ab', { engines: ['google', 'bing'] })));
       r2 = await run(s2, [], {}, { stopsDir: stops });
-      check('seo run: a step on two engines is stopped when either one is [stops]', row(r2, 'ab').state === 'BLOCKED' && starts(s2, 'ab') === 0 && row(r2, 'ab').detail.includes('bing stopped'), JSON.stringify(row(r2, 'ab')));
+      check('seo run: a step on two engines is stopped when either one is [stops]', row(r2, 'ab').state === 'BLOCKED' && starts(s2, 'ab') === 0 && row(r2, 'ab').detail.includes('bing is stopped'), JSON.stringify(row(r2, 'ab')));
     }
     // ================================================================ modes: RESUME (default, adopts) and FRESH (owner 2026-11-11) [modes]
     {
-      p = broke(m => { step(m, 'fx-ok').kind = 'stable'; step(m, 'fx-ok').maxAgeDays = 90; step(m, 'fx-read').kind = 'derived'; step(m, 'fx-read').maxAgeDays = null; step(m, 'fx-wait').kind = 'time-sensitive'; });
-      check('seo validator: kind (stable | time-sensitive | derived) and maxAgeDays (a number above 0, or null) are accepted [modes]', p.length === 0, p.join(' | '));
-      p = broke(m => { step(m, 'fx-ok').kind = 'sometimes'; step(m, 'fx-read').maxAgeDays = 0; });
-      check('seo validator: another kind and a maxAgeDays of 0 are refused [modes]', has(p, 'kind must be stable, time-sensitive or derived') && has(p, 'maxAgeDays must be null or a number above 0'), p.join(' | '));
+      p = broke(m => { step(m, 'fx-ok').kind = 'stable'; step(m, 'fx-ok').maxAgeDays = 90; step(m, 'fx-read').kind = 'derived'; step(m, 'fx-read').maxAgeDays = null; step(m, 'fx-wait').kind = 'time-sensitive'; step(m, 'fx-wait').maxAgeDays = 0; });
+      check('seo validator: kind (stable | time-sensitive | derived) and maxAgeDays (a number of 0 or more, or null) are accepted [modes]', p.length === 0, p.join(' | '));
+      p = broke(m => { step(m, 'fx-ok').kind = 'sometimes'; step(m, 'fx-read').maxAgeDays = -1; });
+      check('seo validator: another kind and a maxAgeDays below 0 are refused [modes]', has(p, 'kind must be stable, time-sensitive or derived') && has(p, 'maxAgeDays must be null or a number of 0 or more'), p.join(' | '));
       // evidence already on disk from an earlier run that left no log (a manual run, an older tool): a plain run adopts it and never starts the step
       const sa = site(M(S('a1'), S('a2', { dependsOn: ['a1'] }), S('a3')));
       mkdirSync(sa.pewp, { recursive: true });
@@ -508,6 +511,76 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
       mkdirSync(sb.pewp, { recursive: true }); writeFileSync(join(sb.pewp, 'b1.json'), '{"x":1}');
       const rb = await run(sb);
       check('seo run: a step the log records as FAILED is not adopted from a file that appeared later; it runs again [modes]', starts(sb, 'b1') === 2 && !(rb.json.data.steps.find(x => x.id === 'b1') || {}).adopted, JSON.stringify(states(rb)));
+    }
+    // ================================================================ one engine (P3.4 R2) [engine]
+    // The skill's lib-pipeline.mjs is the ONE rule engine; seo-manifest.mjs only re-exports it. L(m) is the engine's problems for a manifest, C(m) is `seo status <URL_> --json` on site(m):
+    // a refused manifest has its rule in L and is exit 2 with that problem's describe in C; an accepted one is ok in L and exit 0 in C.
+    {
+      const LIB = await import(pathToFileURL(join(REPO_ROOT, ...SKILL, 'scripts', 'lib-pipeline.mjs')).href);
+      const L = m => { try { return LIB.validateManifest(m, vopts).problems; } catch (e) { return [{ rule: 'threw', step: null, detail: e.message }]; } };
+      const C = m => go(site(m), ['status', URL_, '--json']);
+      const BASE = () => M(S('a'), S('b', { dependsOn: ['a'] }), W('w'));
+      const hit = (m, id) => m.steps.find(x => x.id === id);
+      const TABLE = [
+        [1, "a's exit {4: partial}", m => { hit(m, 'a').exit = { 4: 'partial: r' }; }, 'exit'],
+        [2, "a's exit {5: failed}", m => { hit(m, 'a').exit = { 5: 'failed: x' }; }, 'exit'],
+        [3, "a's exit {3: blocked, 4: skipped}", m => { hit(m, 'a').exit = { 3: 'blocked: x', 4: 'skipped: n' }; }, 'ok'],
+        [4, 'a without kind', m => { delete hit(m, 'a').kind; }, 'required-key'],
+        [5, 'a maxAgeDays of 0', m => { hit(m, 'a').maxAgeDays = 0; }, 'ok'],
+        [6, 'a maxAgeDays of -1', m => { hit(m, 'a').maxAgeDays = -1; }, 'type'],
+        [7, "a's script repo:tools/nope.mjs", m => { hit(m, 'a').script = 'repo:tools/nope.mjs'; }, 'script-missing'],
+        [8, "a's script repo:tools/with-env.mjs", m => { hit(m, 'a').script = 'repo:tools/with-env.mjs'; }, 'ok'],
+        [9, "b's id b--x", m => { hit(m, 'b').id = 'b--x'; }, 'id'],
+        [10, "a's module Alpha", m => { hit(m, 'a').module = 'Alpha'; }, 'module'],
+        [11, 'a without pace', m => { delete hit(m, 'a').pace; }, 'required-key'],
+        [12, 'no top name', m => { delete m.name; }, 'top-level'],
+        [13, 'vars with a name that is no placeholder', m => { m.vars = { nope: 'x' }; }, 'vars'],
+        [14, 'a top key extra', m => { m.extra = 1; }, 'top-level'],
+        [15, 'a top key coverage', m => { m.coverage = {}; }, 'ok'],
+        [16, "a's hits third-party:A B", m => { hit(m, 'a').hits = 'third-party:A B'; }, 'hits'],
+        [17, "a's engines []", m => { hit(m, 'a').engines = []; }, 'engines'],
+        [18, "a's engines [yahoo]", m => { hit(m, 'a').engines = ['yahoo']; }, 'engines'],
+        [19, "a's engines [trustpilot]", m => { hit(m, 'a').engines = ['trustpilot']; }, 'ok'],
+        [20, "a's evidence []", m => { hit(m, 'a').evidence = []; }, 'evidence'],
+        [21, "a's evidence with **", m => { hit(m, 'a').evidence = ['{pewp}/**/a.json']; }, 'evidence'],
+        [22, "a's evidence outside every output and input", m => { hit(m, 'a').evidence = ['{pewp}/z/a.json']; }, 'evidence'],
+        [23, "a's evidence a glob inside its output folder", m => { hit(m, 'a').outputs = ['{pewp}/d/']; hit(m, 'a').evidence = ['{pewp}/d/*.json']; }, 'ok'],
+        [24, "a's script scripts/x.py", m => { hit(m, 'a').script = 'scripts/x.py'; }, 'script'],
+        [25, "a's script ../x.mjs", m => { hit(m, 'a').script = '../x.mjs'; }, 'script'],
+        [26, "a's script with a placeholder", m => { hit(m, 'a').script = 'scripts/{host}.mjs'; }, 'placeholder'],
+        [27, 'w with args', m => { hit(m, 'w').args = ['x']; }, 'waiting'],
+        [28, 'w with no outputs', m => { hit(m, 'w').outputs = []; }, 'waiting'],
+        [29, 'a with a timeout of 0', m => { hit(m, 'a').timeoutMinutes = 0; }, 'timeout'],
+      ];
+      for (const [n, what, change, verdict] of TABLE) {
+        const m = BASE(); change(m);
+        const problems = L(m), r = await C(m);
+        const want = verdict === 'ok' ? null : problems.find(p => p.rule === verdict);
+        const ok = verdict === 'ok' ? problems.length === 0 && r.exit === 0 : Boolean(want) && r.exit === 2 && Boolean(r.json) && String(r.json.error).includes(LIB.describe(want));
+        check(`seo one engine: case ${n}, ${what}: ${verdict === 'ok' ? 'accepted' : `refused, rule ${verdict}`} [engine]`, ok, JSON.stringify({ rules: problems.map(p => p.rule), exit: r.exit, error: r.json && r.json.error }).slice(0, 600));
+      }
+      // 30: the variables of a run (the golden), and a script path resolved against the repository or the skill
+      let vars30 = null, script30 = null;
+      try {
+        const E = await lib('seo-manifest.mjs');
+        const data = '/m/clients/demo/private/pewp/example.com/2026-01-01-1';
+        vars30 = E.makeVars({ url: 'https://www.example.com/x', client: 'demo', skillDir: '/s', data });
+        script30 = E.resolveScript('repo:tools/site-backup/backup.mjs', { skillDir: '/s', repoRoot: '/r' });
+      } catch (e) { vars30 = { threw: e.message }; }
+      const data30 = '/m/clients/demo/private/pewp/example.com/2026-01-01-1';
+      const golden30 = { url: 'https://www.example.com/x', client: 'demo', host: 'example.com', skill: '/s', data: data30, runDir: `${data30}/site-checks/example.com`, pewp: `${data30}/site-checks/example.com/.pewp`, work: `${data30}/work` };
+      check('seo one engine: case 30, makeVars gives the golden variables ({data} is the run, work under it) and resolveScript puts a repo: script under the repository [engine]', JSON.stringify(Object.entries(vars30 || {}).sort()) === JSON.stringify(Object.entries(golden30).sort()) && script30 === join('/r', 'tools/site-backup/backup.mjs'), JSON.stringify([vars30, script30]));
+      // 31: the options of seo run are the engine's list; an option outside it is refused
+      const runOptions = ['client', 'only', 'from', 'module', 'fresh', 'env-file', 'json'];
+      const stage = await go(site(), ['run', URL_, '--client', 'demo', '--stage', 'x', '--json']);
+      check('seo one engine: case 31, RUN_OPTIONS is client, only, from, module, fresh, env-file, json and seo run takes no other (--stage is exit 2) [engine]', JSON.stringify(LIB.RUN_OPTIONS) === JSON.stringify(runOptions) && stage.exit === 2 && Boolean(stage.json) && stage.json.error === 'seo run takes no --stage', JSON.stringify([LIB.RUN_OPTIONS, stage.exit, stage.json && stage.json.error]));
+      // 32: T3, the CLI holds no copy of a rule: seo-manifest.mjs is the engine's names (the same objects), and no other CLI lib file (the stop code apart) defines a key list or a word table
+      const reexport = await lib('seo-manifest.mjs');
+      const names = Object.keys(reexport);
+      const notSame = names.filter(k => reexport[k] !== LIB[k]);
+      const libDir = join(CLI_ROOT, 'lib');
+      const copies = readdirSync(libDir).filter(f => f.endsWith('.mjs') && f !== 'stops.mjs').filter(f => /\b(STEP_KEYS|TOP_KEYS|EXIT_WORDS|KNOWN_ENGINES)\s*=/.test(readFileSync(join(libDir, f), 'utf8')));
+      check('seo one engine: case 32, every export of seo-manifest.mjs is the engine\'s own object and no CLI lib file (stops.mjs apart) defines STEP_KEYS, TOP_KEYS, EXIT_WORDS or KNOWN_ENGINES [engine]', names.length > 0 && notSame.length === 0 && copies.length === 0, JSON.stringify({ names: names.length, notSame, copies }));
     }
   } catch (e) {
     if (!(e && e.seoDeadline)) throw e;

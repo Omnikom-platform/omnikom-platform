@@ -435,7 +435,7 @@ try {
   const rb = await V.run(R.context(mkTarget("tb").url, { cwd: path.join(tmp, "tb") }), { domains: ["good-dir.example", "editorial.example", "thin.example"], origins, gapMs: 0, maxRequests: 2 });
   check("vet: the request budget stops the run", LOG.length <= 2 && rb.stopped && /budget/.test(rb.stopped) && rb.doc.results.some((r) => r.notVisited), `${LOG.length} ${rb.stopped}`);
   const rtc = await cli("authority-vet.mjs", ["https://valleytovalleyrealty.com/", "--cwd", tt.root, "--domain", "good-dir.example", ...originArgs, "--max-minutes", "-1"]);
-  check("vet: the CLI exits 4 when a cap stops the run", rtc.code === 4 && /STOPPED/.test(rtc.out), `${rtc.code} ${rtc.out}`);
+  check("vet: the CLI exits 0 with a PARTIAL: last line when a cap stops the run", rtc.code === 0 && /^PARTIAL: /.test(rtc.out.trim().split("\n").pop()), `${rtc.code} ${rtc.out}`);
   const rbl = await cli("authority-vet.mjs", ["https://valleytovalleyrealty.com/", "--cwd", path.join(tmp, "nothing")]);
   check("vet: no opportunities and no --domain is BLOCKED (exit 3)", rbl.code === 3 && /BLOCKED/.test(rbl.out), `${rbl.code} ${rbl.out}`);
   const rmg = await cli("authority-vet.mjs", ["https://valleytovalleyrealty.com/", "--cwd", tt.root, "--domain", "x.example", "--exclude", "C:/Program Files/Git/x"]);

@@ -9,8 +9,9 @@
 // checkout path; robots.txt first and obeyed; honest user agent (PEWP-Authority/1.0); --gap-ms between requests to one site;
 // a 403 or 429 stops that site (no retry, no disguise); --exclude (path regexes) and --skip-domain cover every request, robots.txt
 // and the redirect hops included; every 2xx answer is cached (cache.mjs); each request has a time limit (--timeout-s) and the run has
-// a deadline (--max-minutes, exit 4) and a request budget (--max-requests). A site visited within --max-age-days is reused, not visited.
-// Writes <pewp>/authority/vetting.json and howto.md (plain words for the client). Exit: 0 ok, 2 usage, 3 BLOCKED, 4 time/request cap.
+// a deadline (--max-minutes) and a request budget (--max-requests): a run that one of them stops is exit 0 with `PARTIAL: <why>; what was read is kept, run again to continue` as its last line.
+// A site visited within --max-age-days is reused, not visited.
+// Writes <pewp>/authority/vetting.json and howto.md (plain words for the client). Exit: 0 ok (a PARTIAL: last line says a cap stopped it), 2 usage, 3 BLOCKED.
 import path from "node:path";
 import { J, W, context, runCli, Blocked, iso } from "./research-lib.mjs";
 import { loadRules, pickPack, mergedPack, classifyDomain, createClient, vetDomain, howtoMd, UA, hostOf, Stop, compileExcludes } from "./authority-lib.mjs";
@@ -77,5 +78,5 @@ await runCli(import.meta.url, 'node authority-vet.mjs <target> [--domain d]... [
   const { doc, dir, stopped } = await run(ctx, { domains: a.all("domain"), limit: a.num("limit", 25, { min: 1, int: true }), industry: a.get("industry"), refresh: a.has("refresh"), maxAgeDays: a.num("max-age-days", 30, { min: 0 }), gapMs: a.num("gap-ms", POLITE_GAP_MS, { min: MIN_GAP_MS }), timeoutS: a.num("timeout-s", 20, { min: 1 }), maxMinutes: a.num("max-minutes", 20), maxRequests: a.num("max-requests", 150, { min: 1, int: true }), exclude: a.all("exclude"), skipDomain: a.all("skip-domain"), cacheDays: a.num("cache-days", 7), origins: parseOrigins(a.all("origin")) });
   for (const r of doc.results) console.log(`${(r.verdict || "NOT VISITED").padEnd(13)} ${r.domain.padEnd(32)} ${(r.reasons[0]?.text || r.notVisited || "").slice(0, 90)}`);
   console.log(`OK vetted: ${doc.summary.PURSUE} pursue, ${doc.summary["CHECK BY HAND"]} check by hand, ${doc.summary.AVOID} avoid, ${doc.summary["NOT AN OPPORTUNITY"]} not an opportunity, ${doc.summary.notVisited} not visited; ${doc.requests.network} network requests, ${doc.requests.cacheHits} from cache; reused without a visit: ${doc.summary.reusedWithoutVisit.length} -> ${path.join(dir, "vetting.json")}, howto.md`);
-  if (stopped) { console.log(`STOPPED: ${stopped} (what was read is kept; run again to continue, finished sites are reused)`); process.exitCode = 4; }
+  if (stopped) console.log(`PARTIAL: ${stopped}; what was read is kept, run again to continue`);
 });

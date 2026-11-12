@@ -135,6 +135,67 @@ console.log("stand-in crawl done");
     }
     check(`K: ${kRan} script steps checked; not reached on a bare fixture (${Object.keys(UNREACHED).length}): ${Object.entries(UNREACHED).map(([k, v]) => `${k} (${v})`).join("; ")}`, kRan + Object.keys(UNREACHED).length === man.steps.filter((x) => x.script).length, `checked ${kRan} + unreached ${Object.keys(UNREACHED).length} is not the ${man.steps.filter((x) => x.script).length} script steps of the manifest`);
     check(`K: the BLOCKED last lines without the full form ' | unblocks: ' are only the exempt ones (${noPipe.join(", ") || "none"})`, noPipe.every((x) => PIPE_EXEMPT.includes(x)), `not exempt and not in the full form: ${noPipe.filter((x) => !PIPE_EXEMPT.includes(x)).join(", ")}`);
+    // ---------------- T: every script step that CAN run on fixtures, run with its manifest args: exit 0 and its evidence done (P3.4 R2, T1b) ----------------
+    // The K group above shows what each step does when it cannot go on; this one shows that the manifest's own command line, on inputs the step's predecessors leave, does the work and leaves exactly the
+    // evidence the manifest names. Fixtures are copied from test-importers.mjs (the six capture importers), the B group above (the local grid) and test-research.mjs (seeds, autocomplete captures).
+    {
+      const TH = "sample-valley-realty.test", TURL = `https://${TH}/`, TSKILL = path.join(here, "..");
+      const ago = (d) => new Date(Date.now() - d * 86400000).toISOString(), day = (d) => ago(d).slice(0, 10), cap = { capturedAt: ago(1), browser: "owner's Edge" };
+      // the skill's own fixture business (a definition targets-validate accepts), with no named competitor (an audit would make a network call) and two service-area cities
+      const BIZ = { ...J(path.join(TSKILL, "fixtures", "pewp", "business.json")), competitors: [], vocabulary: ["realtor"], locations: [{ name: "Tracy office", address: null, serviceArea: ["Tracy, CA", "Elk Grove, CA"] }], existing: { site: null, searchConsole: false, businessProfile: null, socials: [] }, rankTracking: { source: "search-console", locations: ["Tracy, CA"], devices: ["mobile"] } };
+      const stepT = (id) => man.steps.find((s) => s.id === id);
+      const worldT = (name, files = {}) => {
+        const cwd = path.join(tmp, "t-" + name), runDir = path.join(cwd, "site-checks", TH), pewp = path.join(runDir, ".pewp");
+        W(path.join(pewp, "business.json"), BIZ);
+        for (const [rel, body] of Object.entries(files)) W(path.join(pewp, rel), body);
+        return { cwd, runDir, pewp, vars: { url: TURL, client: "c", host: TH, skill: TSKILL, runDir, pewp, work: path.join(cwd, "work") } };
+      };
+      const stepRun = async (id, w) => {
+        const st = stepT(id), args = lib.substitute(st.args, w.vars).map((a, i, arr) => (arr[i - 1] === "--cwd" ? w.cwd : a));
+        const start = Date.now(), r = await run(path.basename(st.script), args, { timeout: 120000 });
+        return { r, ev: lib.evidenceState(st, w.vars, { since: start }) };
+      };
+      const importFiles = (dirName, files) => Object.fromEntries(Object.entries(files).map(([f, body]) => [`captures/${dirName}/${f}`, body]));
+      const IMPORTERS = [
+        ["index-import", "index", { "google.json": { ...cap, engine: "google", query: `site:${TH}`, resultCountText: "About 1,230 results", listedUrls: [TURL, `${TURL}a`, `${TURL}b`], serviceChecks: [{ service: "Hard Money Loans", listed: true, url: `${TURL}a` }, { service: "bridge loans", listed: false }] }, "bing.json": { ...cap, engine: "bing", query: `site:${TH}`, resultCount: 12, listedUrls: [TURL], serviceChecks: [{ service: "bridge loans", listed: true }] } }],
+        ["trends-import", "trends", { "hard-money.json": { ...cap, service: "Hard money loans", period: "past 12 months", geo: "US", address: "https://trends.google.com/trends/explore?q=hard%20money", regions: [{ name: "California", value: 87 }, { name: "Texas", value: 100 }, { name: "Florida", value: 61 }], metros: [{ name: "Sacramento CA", value: 100 }, { name: "Fresno CA", value: 55 }], client: { state: "California", metro: "Sacramento CA" } } }],
+        ["ai-import", "ai", { "chatgpt-1.json": { ...cap, engine: "chatgpt", type: "buyer", question: "who lends on rentals in Sacramento", answerText: "Sample Valley Realty and Kiavi both lend on rentals.", named: true, competitorsNamed: ["Kiavi"], citedSources: ["https://www.kiavi.com/a"] }, "perplexity-1.json": { ...cap, engine: "perplexity", type: "buyer", question: "best hard money lender Sacramento", answerText: "Lima One and Kiavi lead the list.", named: false, competitorsNamed: ["Kiavi", "Lima One"], citedSources: ["https://www.kiavi.com/b"] } }],
+        ["reputation-import", "reputation", { "client-google.json": { ...cap, subject: "client", site: "google", listed: true, rating: 4.8, reviewCount: 100, newestReviewDate: day(20), complaintCount: null }, "client-yelp.json": { ...cap, subject: "client", site: "yelp", listed: false } }],
+        ["social-import", "social", { "youtube.json": { ...cap, platform: "youtube", kind: "channel", handle: "@svr", profileUrl: "https://www.youtube.com/@svr", followers: "1.2K", posts: 58, postsIncludeShorts: true, newestPostDate: day(10), linkTarget: TURL, linkStatus: 200 }, "linkedin.json": { ...cap, platform: "linkedin", kind: "company", profileUrl: "https://www.linkedin.com/company/svr", blocked: "login wall" } }],
+        ["ads-import", "ads", { "client-meta.json": { ...cap, advertiser: "client", library: "meta-ad-library", region: "US", running: true, adCount: 3, since: day(40), formats: ["Image", "video"] }, "kiavi-google.json": { ...cap, advertiser: "Kiavi.com", library: "google-transparency", region: "US", running: true, adCount: 25 } }],
+      ];
+      const tcheck = (id, got, extra = "") => check(`T: ${id}: run with its manifest args on a fixture, it exits 0 and its evidence is done${extra}`, got.r.code === 0 && got.ev.state === "done", `exit ${got.r.code}; evidence ${got.ev.state}: ${got.ev.problems.join("; ")}; ${got.r.out.slice(-400)}`);
+      for (const [id, dirName, files] of IMPORTERS) tcheck(id, await stepRun(id, worldT(id, importFiles(dirName, files))));
+      const acFiles = importFiles("autocomplete", { "a1.google.json": { seed: "Realtor in Tracy", engine: "google", capturedAt: "2026-10-21T10:00:00Z", browser: "owner's Edge", language: "en", location: { requested: "Tracy, CA", footer: "Tracy, California" }, suggestions: ["realtor in tracy ca", "realtor in tracy california reviews", "realtor in {city}"] } });
+      tcheck("autocomplete-import", await stepRun("autocomplete-import", worldT("autocomplete", acFiles)), " (the autocomplete captures of test-research.mjs)");
+      // the local grid (the B group above): the plan writes requests.json from the cities, their sourced centres and the query templates of config.json; the import reads a capture made for a point
+      const gridFiles = { "captures/local/grid/cities.json": [{ city: "Tracy, CA", lat: 37.7397, lng: -121.4252, source: "https://en.wikipedia.org/wiki/Tracy,_California", readAt: "2026-11-10" }, { city: "Elk Grove, CA", lat: 38.4088, lng: -121.3716, source: "https://en.wikipedia.org/wiki/Elk_Grove,_California", readAt: "2026-11-10" }], "captures/local/grid/config.json": { n: 3, spacingKm: 3, queryTemplates: ["realtor in {city}"], maxCaptures: 200 }, "approved/business.json": BIZ };
+      const gw = worldT("grid", gridFiles);
+      tcheck("local-grid-plan", await stepRun("local-grid-plan", gw));
+      const requested = J(path.join(gw.pewp, "captures", "local", "grid", "requests.json")).requests[0];
+      W(path.join(gw.pewp, "captures", "local", "grid", `${requested.id}.json`), { id: requested.id, query: requested.query, city: requested.city, location: requested.location, locationShown: "Tracy, California", device: "mobile", language: "en", point: requested.point, capturedAt: ago(1), capturedIn: "owner's Edge", pack: [{ position: 1, name: "Sample Valley Realty", rating: 4.9, reviews: 20 }, { position: 2, name: "Rival Realty", rating: 4.5, reviews: 10 }] });
+      tcheck("local-grid-import", await stepRun("local-grid-import", gw));
+      // research: business.json, the seeds the owner approved and the autocomplete captures (no key, no network: the autocomplete suggestions are the demand signal)
+      const seedQueries = [{ query: "realtor in tracy ca", source: "fixture", from: "definition vocabulary", location: "Tracy, CA" }, { query: "realtor", source: "fixture", from: "definition vocabulary", location: null }];
+      const researchFiles = { ...acFiles, "research/seeds.json": { step: "seeds", status: "ok", generatedAt: ago(1), market: BIZ.market, queries: seedQueries }, "approved/seeds.json": { queries: seedQueries } };
+      const rw = worldT("research", researchFiles);
+      tcheck("research-plan", await stepRun("research-plan", rw));
+      const rr = await stepRun("research", rw);
+      check("T-R: the real research.mjs on a fixture (business.json, approved seeds, autocomplete captures), no BING_WEBMASTER_KEY: exit 0 and targets.json written", rr.r.code === 0 && fs.existsSync(path.join(rw.pewp, "targets.json")) && J(path.join(rw.pewp, "targets.json")).clusters.length > 0, `exit ${rr.r.code}; ${rr.r.out.slice(-500)}`);
+      tcheck("research", rr);
+      tcheck("targets-validate", await stepRun("targets-validate", rw));
+      // the other script steps are NOT run here, one reason each; the K group above shows their BLOCKED path where one is cheap to reach
+      const NOT_RUN_HERE = {
+        doctor: "a network call (the latest Common Crawl release)", vantage: "a browser and the machine's egress (exit 4 when it cannot verify)", snapshot: "a crawl of the live site",
+        psi: "a key (PSI_API_KEY) and the PageSpeed API", crux: "a key (CRUX_API_KEY) and the CrUX API", intake: "the owner's answers (NEEDS-INPUT)", "city-centres": "a read of a public map (a network host)",
+        seeds: "the owner's vocabulary from intake, proposed for approval", "demand-bing": "a key (BING_WEBMASTER_KEY) and the Bing Webmaster API", "search-console": "a Search Console credential and its API",
+        competitors: "a crawl of the competitors' sites", authority: "the Common Crawl link graph (a download of several GB)", "authority-anchors": "Common Crawl index reads (a network host, a 24 h stop file)",
+        "authority-classify": "the link opportunities that authority leaves (a crawl of the opportunity sites)", "authority-vet": "a visit to each opportunity site", local: "the local profile, pack, citations and reviews (captures, a browser)",
+        forums: "the Reddit API and its token", "report-live": "every earlier step's output (a whole run)",
+      };
+      const scriptSteps = man.steps.filter((s) => s.script).map((s) => s.id), tested = [...IMPORTERS.map((x) => x[0]), "autocomplete-import", "local-grid-plan", "local-grid-import", "research-plan", "research", "targets-validate"];
+      check(`T: the other ${Object.keys(NOT_RUN_HERE).length} script steps are named with one reason each (${Object.keys(NOT_RUN_HERE).join(", ")}); ${tested.length} + ${Object.keys(NOT_RUN_HERE).length} are the manifest's ${scriptSteps.length} script steps, none twice, none left out`, tested.length + Object.keys(NOT_RUN_HERE).length === scriptSteps.length && [...tested, ...Object.keys(NOT_RUN_HERE)].every((id) => scriptSteps.includes(id)) && new Set([...tested, ...Object.keys(NOT_RUN_HERE)]).size === scriptSteps.length, `script steps ${scriptSteps.join(", ")}; tested ${tested.join(", ")}`);
+    }
     const net = fs.existsSync(netLog) ? fs.readFileSync(netLog, "utf8").trim() : "";
     check("contracts: nothing in this suite left the machine (network guard log empty)", !net, net);
   } finally { rmTmp(tmp); }

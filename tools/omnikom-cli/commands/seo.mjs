@@ -9,7 +9,7 @@
 // invalid manifest; seo vantage status returns the script's own lines and exit code (0 ok, 2 usage, 3 BLOCKED) except that its 4 (SKIPPED: no allowed US egress) comes
 // back as 3, and a missing script is BLOCKED (3) naming it. seo run and seo resume run the skill check (commands/skill.mjs) first: a skill that is not the repository's copy is exit 2.
 // In text mode (no --json) omnikom.mjs prints seoText() instead of the JSON object; vantage always prints the script's own output.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { Usage, Blocked } from '../lib/errors.mjs';
@@ -17,7 +17,7 @@ import { SLUG } from '../lib/args.mjs';
 import { importRepo, repoPath } from '../lib/repo.mjs';
 import { redact } from '../lib/redact.mjs';
 import { result } from '../lib/ctx.mjs';
-import { validateManifest, parseManifest, hostOf, norm } from '../lib/seo-manifest.mjs';
+import { loadManifest as readManifest, validateManifest, hostOf, norm, describe, PipelineError, RUN_OPTIONS } from '../lib/seo-manifest.mjs';
 import { runSeo, statusSeo, STATES, NOT_RUN } from '../lib/seo-run.mjs';
 import { skillCheck } from './skill.mjs';
 
@@ -32,10 +32,10 @@ export const skillDirOf = ctx => (ctx.seo && ctx.seo.skillDir ? resolve(ctx.seo.
 function loadManifest(ctx, skillDir) {
   const file = join(skillDir, 'pipeline.json');
   if (!existsSync(file)) throw new Usage(`the manifest is not at ${norm(file)} (SEO's skills/programmatic-enterprise-web-performance/pipeline.json, in this repository)`);
-  const manifest = parseManifest(readFileSync(file, 'utf8'), norm(file));
-  const problems = validateManifest(manifest, { skillDir, repoRoot: ctx.repo });
+  const read = readManifest(file);
+  const problems = (read.ok ? validateManifest(read.manifest, { skillDir, repoRoot: ctx.repo }) : read).problems.map(describe);
   if (problems.length) throw new Usage(`the manifest ${norm(file)} is invalid (${problems.length} problem${problems.length === 1 ? '' : 's'}):\n${problems.map(x => `- ${x}`).join('\n')}`);
-  return manifest;
+  return read.manifest;
 }
 
 const list = (name, v) => {
@@ -63,7 +63,11 @@ async function vantage(ctx, skillDir) {
   return result(exit === 0, exit === 0 ? 'ok' : `VANTAGE-${exit}`, { exit, stdout: r.stdout || '', stderr, raw: true });
 }
 
+// a PipelineError of the engine (a url that is not a url, a placeholder with no value) is a wrong command line: exit 2
 export const seoGroup = async ctx => {
+  try { return await seoVerb(ctx); } catch (e) { throw e instanceof PipelineError ? new Usage(e.message) : e; }
+};
+const seoVerb = async ctx => {
   const f = ctx.flags;
   const verb = ctx.positionals[1];
   if (!VERBS.includes(verb)) throw new Usage(`seo takes ${VERBS.join(' | ')}`);
@@ -74,7 +78,7 @@ export const seoGroup = async ctx => {
   const url = ctx.positionals[2];
   hostOf(url);
   if (f.expect !== undefined) throw new Usage('seo takes no --expect: a run that can be told to match a failure is not a coverage table');
-  const allowed = { run: ['client', 'only', 'from', 'module', 'fresh', 'env-file', 'json'], resume: ['only', 'from', 'module', 'env-file', 'json', 'client'], status: ['json'] }[verb];
+  const allowed = { run: RUN_OPTIONS, resume: ['only', 'from', 'module', 'env-file', 'json', 'client'], status: ['json'] }[verb];
   for (const k of Object.keys(f)) if (!allowed.includes(k)) throw new Usage(`seo ${verb} takes no --${k}${k === 'fresh' ? ' (a resume redoes nothing; use seo run --fresh)' : ''}`);
   if (verb === 'run' && (f.client === undefined || f.client === true || f.client === '')) throw new Usage('--client <slug> is required');
   if (f.client !== undefined && !SLUG.test(String(f.client))) throw new Usage('--client must be a slug (lowercase words joined by hyphens)');
@@ -84,9 +88,9 @@ export const seoGroup = async ctx => {
     if (!sc.ok) throw new Usage(`skill check pewp failed: ${sc.problems.join('; ')}`);
   }
   const manifest = loadManifest(ctx, skillDir);
-  if (verb === 'status') return fromData(statusSeo({ manifest, skillDir, url, client: undefined }));
+  if (verb === 'status') return fromData(statusSeo({ manifest, skillDir, data: skillDir, url, client: undefined }));
   const data = await runSeo({
-    manifest, skillDir, repoRoot: ctx.repo, url, client: f.client, resume: verb === 'resume', only: list('only', f.only), from: f.from, module: f.module,
+    manifest, skillDir, data: skillDir, repoRoot: ctx.repo, url, client: f.client, resume: verb === 'resume', only: list('only', f.only), from: f.from, module: f.module,
     fresh: Boolean(f.fresh), envFile: f['env-file'] === undefined ? undefined : resolve(f['env-file']), env: ctx.env,
     heavyScript: (ctx.seo && ctx.seo.heavyScript) || join(homedir(), '.claude', 'scripts', 'heavy.mjs'),
     kill: ctx.seo && ctx.seo.killTree, graceMs: ctx.seo && ctx.seo.graceMs,   // tests only: a killer that does nothing, a short grace
