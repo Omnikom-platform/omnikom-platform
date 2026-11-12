@@ -39,6 +39,10 @@
   width: 100%;
 }
 
+.card li {
+  overflow-wrap: anywhere;
+}
+
 .muted {
   color: var(--ink-muted);
 }

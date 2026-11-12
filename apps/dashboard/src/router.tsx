@@ -5,6 +5,7 @@ import { AuthConfirm } from './pages/AuthConfirm';
 import { Workspaces } from './pages/Workspaces';
 import { Shell } from './pages/Shell';
 import { Overview } from './pages/Overview';
+import { SearchHealth } from './pages/SearchHealth';
 import { LeadsLayout, NoLeadChosen } from './pages/Leads';
 import { LeadPanel } from './pages/LeadPanel';
 import { AddLead } from './pages/AddLead';
@@ -89,6 +90,7 @@ const itemRoute = createRoute({
 const mediaRoute = createRoute({ getParentRoute: () => siteRoute, path: 'media', component: MediaLibrary });
 
 const settingsRoute = createRoute({ getParentRoute: () => wsRoute, path: 'settings', component: Settings });
+const searchRoute = createRoute({ getParentRoute: () => wsRoute, path: 'sites/$site/search', component: SearchHealth });
 
 const notFound = () => (
   <main>
@@ -102,7 +104,7 @@ const routeTree = rootRoute.addChildren([
   confirmRoute,
   authedRoute.addChildren([
     workspacesRoute,
-    wsRoute.addChildren([wsIndexRoute, leadsRoute.addChildren([leadsIndexRoute, addLeadRoute, importRoute, leadRoute]), siteRoute.addChildren([siteIndexRoute, mediaRoute, itemRoute]), settingsRoute]),
+    wsRoute.addChildren([wsIndexRoute, leadsRoute.addChildren([leadsIndexRoute, addLeadRoute, importRoute, leadRoute]), siteRoute.addChildren([siteIndexRoute, mediaRoute, itemRoute]), settingsRoute, searchRoute]),
   ]),
 ]);
 

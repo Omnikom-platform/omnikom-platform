@@ -1,7 +1,7 @@
 // The pure parts of the Search health page (B24-a): the newest check, the check by topic, the history, each source, the measured site.
 import { describe, expect, it } from 'vitest';
 import NAMES from '../../../../tools/audit/names.json';
-import { checkHistory, checkTopics, measuredSite, newestCheck, sourceViews } from './search-health';
+import { blockedWords, checkHistory, checkTopics, historyWords, measuredSite, measuredWords, newestCheck, notListedWords, problemWords, sourceViews, topicWords } from './search-health';
 import { visibilityCards, type AuditRow, type MetricRow } from './overview';
 
 const now = new Date('2026-11-12T12:00:00Z');
@@ -92,5 +92,30 @@ describe('the Search health page, pure parts (B24-a)', () => {
     expect(newestCheck({ preview: P, production: null }, true)).toBe(P);
     expect(newestCheck(undefined, true)).toBeNull();
     expect(newestCheck({ preview: null, production: null }, false)).toBeNull();
+  });
+});
+
+describe('the Search health page, its words (B24-b)', () => {
+  it('W1: a topic says how many of its checks pass, one outside the table is other checks; a problem says Omnikom fixes it and where', () => {
+    expect(topicWords({ id: 'headings', name: 'Headings and structure', pass: 5, fail: 1, problems: [] })).toBe('Headings and structure: 5 of 6 pass');
+    expect(topicWords({ id: 'other', name: '', pass: 1, fail: 0, problems: [] })).toBe('Other checks: 1 of 1 pass');
+    expect(problemWords({ rule: 'LNK-002', problem: 'A link is broken.', pages: ['/', '/contact/'] })).toBe('A link is broken. Omnikom fixes this. Pages: /, /contact/');
+    expect(notListedWords(12)).toBe('12 more problems are not listed');
+  });
+
+  it('W2: a history line says when, live or preview and its counts; a failed one adds that nothing went live; an old one has no check stored', () => {
+    expect(historyWords({ job: 'j3', at: '2026-11-12T10:00:00Z', live: true, failed: false, pass: 40, fail: 0 }, now, 'UTC')).toBe('today 10:00 (live): 40 passed, 0 failed.');
+    expect(historyWords({ job: 'j2', at: '2026-11-11T09:00:00Z', live: false, failed: true, pass: 38, fail: 2 }, now, 'UTC')).toBe('yesterday 09:00 (preview): 38 passed, 2 failed. Nothing went live.');
+    expect(historyWords({ job: 'j1', at: '2026-10-12T09:12:00Z', live: null, failed: true, pass: null, fail: null }, now, 'UTC')).toBe('12 Oct 09:12: no check stored. Nothing went live.');
+  });
+
+  it('W3: a newer read with no numbers names its day', () => {
+    expect(blockedWords('2026-11-11', now)).toBe('The read on 11 Nov got no numbers; this is the newest we have.');
+  });
+
+  it('W4: the numbers name the site they are measured for, on its page, on another site\'s page, and when none is measured', () => {
+    expect(measuredWords({ domain: null, preview_host: 'p.site.test' }, true)).toBe('Measured for p.site.test.');
+    expect(measuredWords({ domain: 'www.main.test', preview_host: 'p2.site.test' }, false)).toBe('Measured for www.main.test only, not for this site.');
+    expect(measuredWords(null, false)).toBe('No site of this business is measured yet.');
   });
 });

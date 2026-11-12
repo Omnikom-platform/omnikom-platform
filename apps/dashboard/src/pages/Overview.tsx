@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { Link, useParams } from '@tanstack/react-router';
 import { useSession } from '../auth';
 import { useDrafts, useJobs, useMe, useSites, useTeam, type Site } from '../data';
 import { useLeadsSince, useMetrics, useSiteAudit } from '../overview-data';
@@ -64,6 +65,7 @@ export function Overview() {
 }
 
 function SiteCard({ site, last, who, canSee }: { site: Site; last: Job | null; who: (id: string) => string; canSee: boolean }) {
+  const { ws } = useParams({ from: '/authed/w/$ws' });
   const drafts = useDrafts(site.id);
   const audit = useSiteAudit(site.id, canSee);
   const check = checkLine(audit.data?.latest, site.state === 'live');
@@ -75,6 +77,7 @@ function SiteCard({ site, last, who, canSee }: { site: Site; last: Job | null; w
       <p data-plan="DP-1.9-03">{publishWords(last ? { at: last.finished_at ?? last.created_at, by: who(last.requested_by) } : null)}</p>
       {drafts.data && <p data-plan="DP-1.9-04">{changesWords(drafts.data.length)}</p>}
       {check && <p data-plan="DP-1.9-06">{check}</p>}
+      {check && <p><Link to="/w/$ws/sites/$site/search" params={{ ws, site: site.id }} data-plan="DP-1.10-01">Search health</Link></p>}
       {audit.error && <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
       {drafts.error &&<p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
     </section>

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 899,
+    "sources": 901,
     "unowned": 0
   },
   "files": [
@@ -42,7 +42,7 @@
     {"path":"apps/dashboard/src/lib/overview.ts","owner":"platform-build","exports":["AuditRow","Card","METRIC_SOURCES","MetricRow","SiteAudit","changesWords","checkLine","lastPublished","leadsWeekWords","publishWords","visibilityCards","weekStart"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/lib/problems.ts","owner":"platform-build","exports":["CallFailed","Problem","UNREACHABLE","plainOr","problemFrom"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/search-health.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
-    {"path":"apps/dashboard/src/lib/search-health.ts","owner":"platform-build","exports":["HistoryLine","Problem","SourceView","Topic","checkHistory","checkTopics","measuredSite","newestCheck","sourceViews"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/lib/search-health.ts","owner":"platform-build","exports":["HistoryLine","Problem","SourceView","Topic","blockedWords","checkHistory","checkTopics","historyWords","measuredSite","measuredWords","newestCheck","notListedWords","problemWords","sourceViews","topicWords"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/lib/settings.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/settings.ts","owner":"platform-build","exports":["AlertProblem","MAX_ALERTS","Member","ParsedAlerts","alertsChanged","alertsText","canRemove","canSaveAlerts","memberName","onlyYou","parseAlerts","validEmail"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/site.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
@@ -72,6 +72,8 @@
     {"path":"apps/dashboard/src/pages/Overview.tsx","owner":"platform-build","exports":["Overview"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/PublishHistory.tsx","owner":"platform-build","exports":["PublishHistory"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/PublishSheet.tsx","owner":"platform-build","exports":["PublishSheet"],"tests":["apps/dashboard/tests/plan-gate.test.mjs","apps/dashboard/tests/site.spec.ts"],"feature":""},
+    {"path":"apps/dashboard/src/pages/SearchHealth.test.tsx","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/pages/SearchHealth.tsx","owner":"platform-build","exports":["Read","SearchHealth","SearchHealthView"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/Settings.tsx","owner":"platform-build","exports":["Settings"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/SettingsAlerts.tsx","owner":"platform-build","exports":["SettingsAlerts"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/SettingsPeople.tsx","owner":"platform-build","exports":["SettingsPeople"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
