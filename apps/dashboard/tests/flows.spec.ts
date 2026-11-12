@@ -40,6 +40,7 @@ test.afterAll(async () => {
   await removeCrmScreensTestData();
   await removeCrm3bTestData();
   await removeA16TestData();
+  await removeA15TestData();
   const made = await serviceGet<{ id: string }[]>(`/leads?site_id=eq.${WS.a.site}&name=like.${encodeURIComponent(`5.3 flows ${RUN}*`)}&select=id&limit=100`);
   if (!made.length) return;
   const out = spawnSync(process.execPath, [CLEAN_LEADS, '--apply', '--ids', made.map(l => l.id).join(',')], { encoding: 'utf8', env: process.env, timeout: 120_000, windowsHide: true });
@@ -937,5 +938,68 @@ test.describe('the A16 status board as an agent', () => {
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByRole('status').last()).toContainText(`Marked ${dated.label}.`);
     await expect.poll(async () => { const l = await a16One(name); return `${l.status}|${l.status_date}`; }).toBe('call-back|2026-12-07');
+  });
+});
+
+// ---------- book row A15: bulk owner and bulk delete on the screen (slice S2) ----------
+// Owner-a makes three leads with add-lead, marked by name ("a15 <RUN> ..."), gives two to member-a1's team row in one call through the bar's
+// Set owner, then deletes those two through the sheet (Cancel first, which sends nothing). Each step is read back as the service role.
+// No mail: add-lead and leads-bulk send none. The file's afterAll removes what is left through leads-bulk with confirm.
+const A15_MARK = `a15 ${RUN}`;
+const a15Leads = () => serviceGet<{ id: string; name: string; owner_team_row: string | null }[]>(`/leads?workspace_id=eq.${WS.a.id}&name=like.${encodeURIComponent(`${A15_MARK}*`)}&select=id,name,owner_team_row&order=name`);
+
+async function removeA15TestData() {
+  const made = await a15Leads();
+  if (!made.length) return;
+  const r = await callAs(await personAccessToken('owner-a'), 'leads-bulk', { workspace: WS.a.id, ids: made.map(l => l.id), action: 'delete', confirm: true });
+  console.log(`a15 cleanup: ${made.length} lead(s), leads-bulk answered ${r.status}`);
+  expect(r.status, `removing the a15 leads answered ${r.status}: ${r.text.slice(0, 200)}`).toBe(200);
+}
+
+test.describe('A15 bulk owner and bulk delete as the owner', () => {
+  test.use({ storageState: '.auth/owner-a.json' });
+  test.setTimeout(300_000);
+
+  test('two marked leads go to member-a1 in one call and the third keeps its owner; the two are deleted through the sheet after a Cancel that sends nothing', async ({ page }) => {
+    await installMutant(page, 'bulk-lost');
+    const token = await personAccessToken('owner-a');
+    for (const n of ['alpha', 'bravo', 'charlie']) {
+      const r = await callAs(token, 'add-lead', { site: WS.a.site, name: `${A15_MARK} ${n}`, email: `a15.${n}.${RUN}@example.com`, phone: '(555) 010-0164', answers: {}, consentText: 'The person agreed to be contacted', form: 'manual' });
+      expect(r.status, `add-lead (${n}) answered ${r.status}: ${r.text.slice(0, 160)}`).toBe(201);
+    }
+    const members = await serviceGet<{ user_id: string; team_row_id: string | null }[]>(`/members?workspace_id=eq.${WS.a.id}&select=user_id,team_row_id`);
+    const agent = members.find(m => m.user_id === PEOPLE['member-a1'].id)?.team_row_id ?? '';
+    expect(agent, 'the seeded member has a team row (omnikom seed test)').toBeTruthy();
+    const before = await a15Leads();
+    expect(before.map(l => l.name), 'the three leads are in the database').toEqual([`${A15_MARK} alpha`, `${A15_MARK} bravo`, `${A15_MARK} charlie`]);
+    expect(before.filter(l => l.owner_team_row === agent), 'no lead starts with member-a1').toEqual([]);
+    const owners = async () => (await a15Leads()).map(l => l.owner_team_row ?? '').join('|');
+
+    await page.goto(`/w/${WS.a.slug}/leads`);
+    await leadsLoaded(page);
+    await radio(page, 'All').check();
+    await settled(page);
+    await page.getByRole('searchbox', { name: 'Search' }).fill(A15_MARK);
+    await expect(page.locator('tbody tr')).toHaveCount(3);
+
+    // bulk owner: alpha and bravo to member-a1 in one call; charlie is not touched
+    await page.getByRole('checkbox', { name: `Select ${A15_MARK} alpha` }).check();
+    await page.getByRole('checkbox', { name: `Select ${A15_MARK} bravo` }).check();
+    await page.getByLabel('Set owner').selectOption(agent);
+    await expect(page.getByRole('status').last()).toContainText('2 leads given to');
+    await expect.poll(owners, { message: 'alpha and bravo belong to member-a1, charlie keeps its owner' }).toBe(`${agent}|${agent}|${before[2]!.owner_team_row ?? ''}`);
+
+    // bulk delete through the sheet: Cancel sends nothing, the sheet's own button deletes both
+    await page.getByRole('checkbox', { name: `Select ${A15_MARK} alpha` }).check();
+    await page.getByRole('checkbox', { name: `Select ${A15_MARK} bravo` }).check();
+    await page.getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Delete 2 leads?' })).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(await a15Leads(), 'Cancel deleted nothing').toHaveLength(3);
+    await page.getByRole('button', { name: 'Delete', exact: true }).click();
+    await page.getByRole('button', { name: 'Delete 2 leads', exact: true }).click();
+    await expect(page.getByRole('status').last()).toContainText('Deleted 2 leads.');
+    await expect.poll(async () => (await a15Leads()).map(l => l.name), { message: 'only charlie is left' }).toEqual([`${A15_MARK} charlie`]);
   });
 });

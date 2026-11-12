@@ -14,10 +14,12 @@
 // Slice 5-DS (tests/styles.spec.ts):
 //   no-styles             the built stylesheet is served empty, as if src/main.tsx no longer imported the styles
 //   no-bar-room           the main area has no bottom padding on the phone: the end of Add a lead sits under the bottom bar
+// Slice S2, book rows A15, A21, A22 (tests/flows.spec.ts):
+//   bulk-lost             the page's leads-bulk calls are answered 200 by the test and never reach the function: the screen says done, the database is unchanged
 import type { Page } from '@playwright/test';
 import { callAs, personAccessToken, serviceGet, serviceRepeat } from './support/staging';
 
-export type Mutant = 'leak-b' | 'no-live' | 'member-sees-all' | 'save-lost' | 'no-stale' | 'agent-add-everywhere' | 'publish-accepted' | 'contract-empty' | 'no-styles' | 'no-bar-room' | 'no-own-lead';
+export type Mutant = 'leak-b' | 'no-live' | 'member-sees-all' | 'save-lost' | 'no-stale' | 'agent-add-everywhere' | 'publish-accepted' | 'contract-empty' | 'no-styles' | 'no-bar-room' | 'no-own-lead' | 'bulk-lost';
 export const MUTANT = (process.env.FLOWS_MUTANT ?? '') as Mutant | '';
 
 export function active(name: Mutant): boolean {
@@ -99,5 +101,11 @@ export async function installMutant(page: Page, name: Mutant) {
   }
   if (name === 'publish-accepted') {
     await page.route(/\/functions\/v1\/publish$/, route => route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ job: '00000000-0000-0000-0000-000000000000', state: 'queued', dispatched: true }) }));
+  }
+  if (name === 'bulk-lost') {
+    await page.route(/\/functions\/v1\/leads-bulk$/, route => {
+      const body = JSON.parse(route.request().postData() ?? '{}') as { ids?: unknown[] };
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ changed: body.ids?.length ?? 0 }), headers: { 'access-control-allow-origin': '*' } });
+    });
   }
 }
