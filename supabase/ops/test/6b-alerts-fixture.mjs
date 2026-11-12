@@ -106,6 +106,17 @@ select pg_temp.act('f7000000-0000-0000-0000-0000000000f7', pg_temp.pt(3, '06:59'
 select pg_temp.act('f8000000-0000-0000-0000-0000000000f8', pg_temp.pt(7, '12:00') - interval '30 days');   -- a Sunday a month ago: outside the window
 select pg_temp.act('f9000000-0000-0000-0000-0000000000f9', pg_temp.pt(6, '12:00'));      -- a plain login (not staff) on a Saturday
 
+-- function-errors (migration 32): the 5xx answers of a function and status in the last 60 minutes, 5 or more fire
+create function pg_temp.fe(p_fn text, p_status int, p_n int, p_min_ago int, p_req uuid) returns void language sql as $$
+  insert into function_errors (fn, status, minute, n, last_request, last_at)
+  values (p_fn, p_status, date_trunc('minute', now() - make_interval(mins => p_min_ago)), p_n, p_req, now() - make_interval(mins => p_min_ago)) $$;
+select pg_temp.fe('capture-lead', 500, 3, 10, 'e3100000-0000-0000-0000-000000000001');   -- 3 + 2 in the hour: fires, newest request e3100000
+select pg_temp.fe('capture-lead', 500, 2, 30, 'e3300000-0000-0000-0000-000000000002');
+select pg_temp.fe('lead-list', 500, 4, 10, 'e3400000-0000-0000-0000-000000000003');      -- 4: one under 5
+select pg_temp.fe('publish', 502, 5, 70, 'e3700000-0000-0000-0000-000000000004');        -- 5, but 70 minutes ago: outside the hour
+select pg_temp.fe('save', 500, 3, 50, 'e3500000-0000-0000-0000-000000000005');           -- 3 in the hour and 2 at 65 minutes: quiet
+select pg_temp.fe('save', 500, 2, 65, 'e3650000-0000-0000-0000-000000000006');
+
 -- for the read only test: a function that writes (a query that calls it inside a read only transaction must be refused)
 create or replace function public.zz_evil() returns jsonb language plpgsql as $$ begin insert into workspaces (slug, name, industry) values ('evil', 'x', 'y'); return '[]'::jsonb; end $$;
 `;

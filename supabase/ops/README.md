@@ -9,7 +9,7 @@ and `openssl`. Keys and database URLs are read from the environment BY NAME (`no
 |---|---|
 | `backup.mjs` | `pg_dump` of the database named by `--db <VARIABLE>`, encrypted to the public certificate `backup-recipient.pem` (`openssl cms -encrypt`, AES-256), uploaded to every `--to` target, each copy verified by size. Targets: `s3://<bucket>/<prefix> --env <PREFIX>` (S3-compatible, signed in the file itself, no `aws` tool) or `file://<dir>`. |
 | `restore-drill.mjs` | The monthly drill: dump (or `--dump file --key file`), restore into a throwaway local cluster, row counts, wall tests on the restored schema, the factory builds the test site from the restored rows, every phase timed, total against the 2 hour target. |
-| `alerts.mjs` | Six alert queries (below), one per rule of 11-OPERATIONS section 1 that our tables can answer. Prints what it would send with the runbook name. Sending is off. Writes the status page's data file with `--json`. |
+| `alerts.mjs` | Seven alert queries (below), one per rule of 11-OPERATIONS section 1 that our tables can answer. Prints each firing alert with its runbook name and first step. With `--send --to-env <VARIABLE>` it mails each firing alert through Resend (`RESEND_API_KEY`, `LEAD_ALERT_FROM`) to the address in that variable, once per alert and UTC day. Writes the status page's data file with `--json`. |
 | `inbox-state.mjs` | Read only, staging only: for one address given on the command line, whether a login exists, whether it is confirmed, its number of memberships, and whether each test site's alert list is exactly that address. Prints no address. Test: `test/inbox-state.test.mjs --mutants`. |
 | `test/backup.test.mjs`, `test/alerts.test.mjs`, `test/6b-drill.test.mjs` | The tests. `test/6b-mutate.mjs` runs each of them against broken copies of the script and requires red. `test/6b-cluster.mjs`, `test/6b-fake-s3.mjs`: helpers. |
 | `../../.github/workflows/backup.yml` | Nightly, staging only, skipped until `BACKUP_ENABLED` is `true`. |
@@ -52,17 +52,21 @@ secrets are not usable after a restore into a different project (the key that en
 | `no-leads-7-days` | R4 | a live site older than 7 days has had no lead for 7 days (the "with traffic" half cannot be checked: no analytics table exists, so quiet sites over-alert) |
 | `security-not-found-burst` | R2 | one login got 10 or more `S-NOT-FOUND` refusals in the last hour |
 | `security-staff-after-hours` | R2 | a staff login acted outside Mon to Fri 07:00 to 19:00 US Pacific in the last `--since-minutes` (default 70). The clock hours are an assumption: 11-OPERATIONS says "business hours (US Pacific)" only |
+| `function-errors` | R6 | a function answered the same 5xx status 5 or more times in the last 60 minutes (`function_errors`, migration 32). The numbers are a choice: the old spec's "2% for 10 min" needs a call count we do not keep |
 
-Not answerable from our tables, so not faked: function error rate, uptime of sites / dashboard / form endpoint, site quality gates, PSI
-speed, database CPU and slow queries. They need an external checker or the Supabase dashboard (owner batch / later step). `--send`
-refuses ("sending is off"). A condition that holds (a site with two failed jobs) fires on every hourly run until fixed; de-duplicating is
-the sender's job when one exists.
+Not answerable from our tables, so not faked: uptime of sites / dashboard / form endpoint, site quality gates, PSI speed, database CPU
+and slow queries. They need an external checker or the Supabase dashboard (owner batch / later step). With `--send --to-env ALERTS_TO`
+each firing alert is one mail through Resend; its idempotency key is the environment, the alert and the UTC day, so a condition that holds
+(a site with two failed jobs) fires on every hourly run but mails once a day, and a new item later that day waits for the next day's mail
+(the hourly job summary still shows it). A failed send exits 1; no retry; no address is printed.
 
 ## Owner batch (nothing below is created by a session)
 - Make the key pair and commit `supabase/ops/backup-recipient.pem` (above).
 - R2 enabled, a private bucket, a write-only key; a second provider's bucket and write-only key (Backblaze B2, Wasabi, ...).
 - Repository secrets: `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `BACKUP2_ENDPOINT`, `BACKUP2_BUCKET`,
   `BACKUP2_ACCESS_KEY_ID`, `BACKUP2_SECRET_ACCESS_KEY`; the same set plus `PROD_DB_URL` in the production repository. Variable
-  `BACKUP_ENABLED = true` when ready; `ALERTS_RED = true` to make a firing alert turn the alerts job red (the only channel until a sender exists).
+  `BACKUP_ENABLED = true` when ready; `ALERTS_RED = true` to make a firing alert also turn the alerts job red. The alert mail needs the
+  secrets `RESEND_API_KEY`, `LEAD_ALERT_FROM` and `ALERTS_TO` (the on-call address) in each repository.
 - Bucket lifecycle rule: keep 30 days (not a workflow step).
-- A status page host and a sender for alerts (11-OPERATIONS D5): not chosen.
+- A status page host (11-OPERATIONS D5): not chosen. Alerts send through the Resend sender that exists (`supabase/auth-settings.md`);
+  production's on-call address is the owner's.

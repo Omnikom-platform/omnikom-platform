@@ -122,11 +122,11 @@ private; a build copies only the media a snapshot row uses.
 | `publish.yml` | `workflow_dispatch` from `publish` (`repository_dispatch` publish while only the old token is set), or by hand | export, build, audit gate, Pages deploy, smoke, rollback of a failed live deploy, callback |
 | `media.yml` | `workflow_dispatch` from `upload-finish` (`repository_dispatch` media while only the old token is set) | photo processing |
 | `keepalive.yml` | Mondays 06:00 UTC | one read-only CLI `status` so the free staging project is not paused |
-| `alerts.yml` | hourly | read-only alert queries on staging; sending is off until a sender exists |
+| `alerts.yml` | hourly | alert queries on staging, mailed to ALERTS_TO when its secrets are set |
 | `backup.yml` | nightly | encrypted dump of staging to two buckets; skipped until the owner sets up the buckets and key |
 | `key-rotation.yml` | monthly | red when an active key is over 90 days old or expires within 14 days |
 
-`.github/production/` holds `promote.yml` and the production backup, which run only in the separate production repository.
+`.github/production/` holds `promote.yml`, the production backup and the production alerts, which run only in the separate production repository.
 
 ## Secrets
 
@@ -150,7 +150,7 @@ a Vault name. A script reads a key by its variable name from the git-ignored `.e
 
 Variable names a script expects: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY` (suffix `_STAGING` or
 `_PROD`), `STAGING_DB_URL`, `PROD_DB_URL`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `RUNNER_KEY`,
-`GITHUB_DISPATCH_TOKEN_V2`, `GITHUB_DISPATCH_TOKEN`, `CRON_KEY`, `PSI_API_KEY`, `CRUX_API_KEY`, `BING_WEBMASTER_KEY`, `RESEND_API_KEY`, `LEAD_ALERT_FROM`, `DASHBOARD_URL`, `MAIL_OUTBOX_KEY`, `RESEND_WEBHOOK_SECRET`, `SITE_SIGNING_KEY_<SLUG>` (minted by
+`GITHUB_DISPATCH_TOKEN_V2`, `GITHUB_DISPATCH_TOKEN`, `CRON_KEY`, `PSI_API_KEY`, `CRUX_API_KEY`, `BING_WEBMASTER_KEY`, `RESEND_API_KEY`, `LEAD_ALERT_FROM`, `ALERTS_TO`, `DASHBOARD_URL`, `MAIL_OUTBOX_KEY`, `RESEND_WEBHOOK_SECRET`, `SITE_SIGNING_KEY_<SLUG>` (minted by
 `tools/mint-site-key.mjs`), `PLATFORM_FUNCTIONS_BASE`, `CLOUDFLARE_PAGES_TOKEN`. Production keys are used only with
 `--i-mean-production`.
 

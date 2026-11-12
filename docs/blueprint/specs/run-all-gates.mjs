@@ -20,6 +20,7 @@ const GATES = [
   ['head land-script gate (gate-lib)', 'factory/briefs/gate-lib.test.mjs'],   // the head's land script stops at the first red step and never pushes after one (factory/briefs/gate-lib.sh)
   ['promote-check tests','supabase/ops/test/promote-check.test.mjs'],   // slice 5-PORT: the promote script's own tests on a local cluster (ledger, dry run, read-only, function list, smoke judgement); no staging; it was run by no job before
   ['inbox-state tests + mutants', 'supabase/ops/test/inbox-state.test.mjs', '--mutants'],   // slice S1 (S1-B): the read-only state of one address on a local cluster; no staging
+  ['alerts tests', 'supabase/ops/test/alerts.test.mjs'],   // slice S5 (E3): the alert queries, the function-errors alert and the sender (a fake Resend) on a local cluster; no network
   ['e2e cleanup + mutants', 'supabase/tests/e2e-cleanup.test.mjs'],   // slice 5.2b: the staging e2e scripts remove the content rows they create (a thrown assertion included); no staging, about 2 s
   ['dashboard preview port', 'apps/dashboard/tests/preview-port.test.mjs'],   // slice 5-PW (DECISIONS 50 (e)): the dashboard's Playwright web server takes a free port of 27000-27899 on 127.0.0.1, walks on a taken port (5 tries, a line each), 4173 is gone; plain node, no browser, no staging, 21 mutants (its own pass), about 20 s
   ['function tests (Deno)', 'supabase/functions/test/run.mjs'],   // slice 4.2 harness: a local cluster + the Edge Functions under Deno, about 2 to 5 minutes; its mutants (mutate.mjs) are the slice gate, too long for here

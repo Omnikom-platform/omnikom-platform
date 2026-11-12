@@ -1,10 +1,10 @@
 # Hourly alert checks against the STAGING database (11-OPERATIONS section 1; the work is supabase/ops/alerts.mjs, its header lists the rules).
 # Every 15 minutes would spend too many of the free Actions minutes (18-BUDGET-ARCHITECTURE); hourly is the compromise. The checks only READ
-# (a read only transaction). SENDING IS OFF: no sender exists, so a firing alert is printed in the log and the job summary with the name of its
-# runbook, and nothing is sent. Skipped (green, with a line saying so) while the repository secret STAGING_DB_URL is absent.
-# A red job is the only channel there is today: the repository variable ALERTS_RED = true makes a firing alert fail the job (GitHub emails the
-# repository's watchers). It is off by default because staging holds test data that makes some alerts fire. The status page's data file
-# (omnikom-status/1) is printed into the job summary; no host for the page is chosen (supabase/ops/README.md).
+# (a read only transaction). A firing alert is printed in the log and the job summary with the name of its runbook. When the repository secrets
+# ALERTS_TO, RESEND_API_KEY and LEAD_ALERT_FROM are all set, staging also mails the address in ALERTS_TO through Resend, once per alert and UTC
+# day (alerts.mjs --send --to-env ALERTS_TO); a failed send turns the job red. Skipped (green, with a line saying so) while STAGING_DB_URL is absent.
+# The repository variable ALERTS_RED = true makes a firing alert fail the job too; it is off by default because staging holds test data that makes
+# some alerts fire. The status page's data file (omnikom-status/1) is printed into the job summary; no host for the page is chosen (supabase/ops/README.md).
 name: alerts
 
 on:
@@ -26,6 +26,9 @@ jobs:
     env:
       STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
       ALERTS_RED: ${{ vars.ALERTS_RED }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      LEAD_ALERT_FROM: ${{ secrets.LEAD_ALERT_FROM }}
+      ALERTS_TO: ${{ secrets.ALERTS_TO }}
     steps:
       - name: Is the secret there
         id: gate
@@ -51,12 +54,13 @@ jobs:
         run: |
           flags=()
           if [ "$ALERTS_RED" = "true" ]; then flags+=(--fail-on-alert); fi
+          if [ -n "$ALERTS_TO" ] && [ -n "$RESEND_API_KEY" ] && [ -n "$LEAD_ALERT_FROM" ]; then flags+=(--send --to-env ALERTS_TO); fi
           set +e
           node supabase/ops/alerts.mjs --db STAGING_DB_URL --json "$RUNNER_TEMP/status.json" "${flags[@]}" | tee "$RUNNER_TEMP/alerts.txt"
           code=${PIPESTATUS[0]}
           set -e
           {
-            echo "### Alert checks (staging, sending is off)"
+            echo "### Alert checks (staging)"
             echo '```'
             cat "$RUNNER_TEMP/alerts.txt"
             echo '```'

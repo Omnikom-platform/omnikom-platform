@@ -60,12 +60,18 @@ const ALERTS = [
   ['after hours: weekends are working days', "in (6, 7)\n                    or", "in (0)\n                    or"],
   ['after hours: any login counts, not only staff', 'a.actor in (select user_id from public.staff) and', ''],
   ['read only transaction removed', "'begin transaction read only;', ", ''],
-  ['sending is on: --send does not refuse', "if (o.send) { out.push(`alerts: ${SEND_OFF}`); return { exit: 2, lines: out }; }", ''],
   ['the runbook name is not printed', '(runbook ${alert.runbook}, 11-OPERATIONS section 2)', '(11-OPERATIONS section 2)'],
   ['--fail-on-alert is ignored', 'exit: fired && o.failOnAlert ? 1 : 0', 'exit: 0'],
   ['an unreachable database leaks the password', "for (const s of [url, pgEnv(url).PGPASSWORD, pgEnv(url).PGHOST].filter(x => x && x.length >= 4)) msg = msg.split(s).join('***');", ''],
   ['status: the dashboard is claimed operational', "{ id: 'dashboard', name: 'Dashboard', status: 'unknown', checked_at: null,", "{ id: 'dashboard', name: 'Dashboard', status: 'operational', checked_at: at,"],
   ['status: a firing alert leaves the component operational', "return fired.length ? { status: 'degraded'", "return false ? { status: 'degraded'"],
+  ['send: the idempotency key is missing', "'idempotency-key': key", "'x-none': key"],
+  ['send: the mail goes to the sender', 'to: env[r.send.toEnv]', 'to: env.LEAD_ALERT_FROM'],
+  ['send: a failed send exits 0', 'return failed ? 1 : 0;', 'return 0;'],
+  ['send: no time limit', 'signal: AbortSignal.timeout(timeoutMs)', 'signal: undefined'],
+  ['send: every 409 is taken as sent before', "const before = res.status === 409 && (await res.json().catch(() => null))?.name === 'invalid_idempotent_request';", 'const before = res.status === 409;'],
+  ['function-errors: 4 answers are enough', 'errorAnswers: 5', 'errorAnswers: 4'],
+  ['function-errors: the window is two hours', 'errorMinutes: 60', 'errorMinutes: 120'],
 ];
 
 const DRILL = [
