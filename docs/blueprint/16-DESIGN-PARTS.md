@@ -333,10 +333,9 @@ environment and fails on any `fs`, `fetch` or `process` use).
 ### 2.3 The preview site (the whole site with every draft, on a real address)
 - Each site gets a second deploy target: `<slug>-preview` (a Worker like the live one, always noindex, basic-auth or a signed
   link so the public never sees drafts). `sites` gets `preview_target` and `preview_token_ref` (NOT BUILT; one additive column pair).
-- "Open the preview site" in the publish sheet starts a job of kind `preview` (NOT BUILT: `publish_jobs.kind` enum
-  `preview | live`, default live). It is the same pipeline as a live publish (export with the draft versions pinned, build, the
-  gates, deploy) but the target is the preview Worker and `published_version` never moves. A preview job that fails shows the
-  same check lines, so the person sees what a real publish would say before pressing Publish.
+- Built (book row B15): "Preview site" starts a publish job with `preview` true (`service.start_preview`, migration 42): the
+  saved changes that pass the publish-ready wall, at their newest version; the others are named with the field they lack;
+  `published_version` never moves and `site_audit` skips it. A preview job that fails shows the same check lines.
 - Time: a full build (ELEV8: minutes, measured in W1.5). The sheet shows the steps; the person keeps working.
 - The preview address is one per site and shows the latest preview job's output; the sheet shows "Preview from 14:02 (3
   changes)". A link with a 7-day token can be sent to the team.

@@ -382,6 +382,9 @@ const MUTANTS = [
   ['E6 db: a statement runs outside a transaction', F + '_shared/db.ts', 'inTx((tx: Sql) => tx(strings, ...values))', 'base(strings, ...values)', 'db.test.ts'],
   ['E6 db: sql.begin does not step down', F + '_shared/db.ts', '=> inTx(run), array:', '=> base.begin(run), array:', 'db.test.ts'],
   ['E6 capture-lead: its own connection to the direct address', F + 'capture-lead/index.ts', 'try { sql = await connect(); }', "try { sql = (await import('npm:postgres@3.4.5')).default(Deno.env.get('SUPABASE_DB_URL')!, { max: 1, prepare: false }); }", 'db.test.ts'],
+  ['publish [B15]: no ready draft still starts a preview', F + 'publish/index.ts', "if (!out.job) return problem(422, 'NOTHING-TO-PREVIEW',", "if (false) return problem(422, 'NOTHING-TO-PREVIEW',", 'publish.test.ts'],
+  ['publish [B15]: a preview body must name rows', F + 'publish/index.ts', "rows = preview ? [] : f.uuids('rows', 200)", "rows = f.uuids('rows', 200)", 'publish.test.ts'],
+  ['publish [B15]: the left-out drafts are not named', F + 'publish/index.ts', 'reason: sent.reason, left_out: left })', 'reason: sent.reason, left_out: [] })', 'publish.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
