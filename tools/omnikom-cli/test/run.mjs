@@ -17,6 +17,7 @@ import { withEnvTests } from './with-env.mjs';
 import { seoRunTests } from './seo-run.mjs';
 import { wrapTests } from './wrap.mjs';
 import { registryTests } from './registry.mjs';
+import { toolkitTests } from './toolkit.mjs';
 import { makeCheck, mutateRunTests } from './mutate-run.mjs';
 
 const onlyUnit = process.argv.includes('--unit'), onlyDb = process.argv.includes('--db');
@@ -1616,7 +1617,7 @@ async function database() {
 }
 const PERSON = n => ({ 'member-a1': '00000000-0000-0000-0000-0000000000a1' })[n];
 
-if (!onlyDb) { await units(); await toolsAndCi(); await impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }); await journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }); await mutateRunTests({ check, CLI_ROOT, REPO_ROOT }); await withEnvTests({ check, CLI_ROOT, REPO_ROOT, lib }); await seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }); await wrapTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }); await registryTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }); }
+if (!onlyDb) { await units(); await toolsAndCi(); await impactStampHooksTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }); await toolkitTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }); await journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }); await mutateRunTests({ check, CLI_ROOT, REPO_ROOT }); await withEnvTests({ check, CLI_ROOT, REPO_ROOT, lib }); await seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }); await wrapTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }); await registryTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }); }
 if (!onlyUnit) await database();
 const { total, failed } = counts();
 console.log(`\n${failed ? 'FAILED' : 'OK'}: ${total - failed} of ${total} checks passed${failed ? `, ${failed} FAILED` : ''}`);

@@ -9,7 +9,9 @@
 //   await page.screenshot(file);               -> bytes written (a full-page PNG)
 //   await b.close();
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync, rmSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { Blocked } from './errors.mjs';
 import { importRepo } from './repo.mjs';
@@ -21,6 +23,43 @@ const WIN = process.platform === 'win32';
 // The bound is 180 s, 2.4 times the worst measured. A browser that cannot start, or exits with a code other than 0 or by a signal, is reported at once (see launchBrowser), so the bound only costs time when a browser really hangs or a hand-over brings no browser. Run 41404410237 went red on the old 15 s count.
 export const DEVTOOLS_WAIT_MS = 180000;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// One headless browser of ours at a time on this machine (RULINGS-1 row 9): a start takes a lock file, close (or a failed start) gives it back.
+// How long a start waits for another browser of ours to end, as a wall clock. PROVISIONAL: heavy.mjs's own default --wait-min 30, until P3.10-B10 logs real waits.
+export const BROWSER_LOCK_WAIT_MS = 30 * 60000;
+// beside the machine's heavy.lock; OMNIKOM_BROWSER_LOCK moves it (the tests give every start a lock of its own)
+export function browserLockPath(env = process.env) {
+  return env.OMNIKOM_BROWSER_LOCK || join(homedir(), '.claude', 'state', 'browser.lock');
+}
+// is this process alive? (EPERM means it exists but is not ours to signal: alive)
+function alive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; }
+}
+// The lock file holds { pid, token } and is made with the flag wx (it fails when the file exists). A file that is not JSON, or names a process that
+// has ended, is a lock nobody holds and is taken over. A live holder is waited for in steps of one second (the loop never spins) up to waitMs; then BLOCKED.
+// -> { release() }: removes the file only while it still holds this start's token (never another start's lock).
+async function takeBrowserLock(file, { waitMs, clock }) {
+  mkdirSync(dirname(file), { recursive: true });
+  const token = randomUUID();
+  const start = clock.now();
+  for (;;) {
+    try {
+      writeFileSync(file, JSON.stringify({ pid: process.pid, token }), { flag: 'wx' });
+      return { release() { try { if (JSON.parse(readFileSync(file, 'utf8')).token === token) rmSync(file, { force: true }); } catch { /* gone, or not ours */ } } };
+    } catch (e) { if (e.code !== 'EEXIST') throw e; }
+    let holder = null;
+    try { holder = JSON.parse(readFileSync(file, 'utf8')); } catch { holder = null; }
+    if (!holder || !alive(holder.pid)) {
+      try { rmSync(file, { force: true }); } catch { /* it cannot be removed now: wait below, then look again */ }
+      if (!existsSync(file)) continue;
+    }
+    const waited = clock.now() - start;
+    const pid = holder ? holder.pid : null;
+    if (waited >= waitMs) throw new Blocked(`another browser of ours holds ${file} (PID ${pid}); waited ${Math.round(waited / 1000)} s`, `wait for that run to end, or remove ${file} if PID ${pid} is not a browser run of ours`);
+    await clock.sleep(1000);
+  }
+}
 
 // OMNIKOM_BROWSER names a browser by path; otherwise the first of the usual places. Not found is BLOCKED with what to set (the tool is
 // named, not skipped: DECISIONS 42).
@@ -170,9 +209,17 @@ export function seedProfile(dir, now = Date.now()) {
   return file;
 }
 
-// devtoolsWaitMs and clock are for tests only (a stub browser, a short bound, and a clock a test advances by hand so that a wait of
-// 20 s of "browser time" costs no real seconds; clock covers the DevTools wait only)
-export async function launchBrowser({ env = process.env, spawnImpl = spawn, importer = importRepo, devtoolsWaitMs = DEVTOOLS_WAIT_MS, clock = { now: () => Date.now(), sleep } } = {}) {
+// devtoolsWaitMs, lockWaitMs and clock are for tests only (a stub browser, short bounds, and a clock a test advances by hand so that a wait of
+// 20 s of "browser time" costs no real seconds; clock covers the DevTools wait and the browser lock wait)
+// The start waits for the lock of one browser at a time (above), then starts the browser; a start that fails gives the lock back at once,
+// a started browser gives it back on close.
+export async function launchBrowser(opts = {}) {
+  const { env = process.env, lockWaitMs = BROWSER_LOCK_WAIT_MS, clock = { now: () => Date.now(), sleep } } = opts;
+  const lock = await takeBrowserLock(browserLockPath(env), { waitMs: lockWaitMs, clock });
+  try { return await startBrowser({ ...opts, lock }); } catch (e) { lock.release(); throw e; }
+}
+
+async function startBrowser({ lock, env = process.env, spawnImpl = spawn, importer = importRepo, devtoolsWaitMs = DEVTOOLS_WAIT_MS, clock = { now: () => Date.now(), sleep } } = {}) {
   const exe = findBrowser(env);
   const guard = await importer('tools/proc-guard/index.mjs');
   const folder = guard.guardedTemp('omnikom-jb-', 'journey-browser');   // cleaned on every exit path of this process
@@ -228,7 +275,7 @@ export async function launchBrowser({ env = process.env, spawnImpl = spawn, impo
         pages.push(page);
         return page;
       },
-      async close() { try { ws.close(); } catch { /* closed */ } await stop(); },
+      async close() { try { ws.close(); } catch { /* closed */ } try { await stop(); } finally { lock.release(); } },
     };
   } catch (e) { await stop(); throw e; }
 }

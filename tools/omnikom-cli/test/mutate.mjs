@@ -799,6 +799,25 @@ const MUTANTS = [
   ['[wrap] a valued flag given twice is accepted', 'lib/args.mjs', 'if (Object.prototype.hasOwnProperty.call(flags, name)) throw new Usage(', 'if (false) throw new Usage(', 'unit'],
   ['[wrap] the command table answers to every object\'s names (constructor, toString)', 'omnikom.mjs', 'const COMMANDS = { __proto__: null, ', 'const COMMANDS = { ', 'unit'],
   ['[wrap] the text table answers to every object\'s names (the CLI throws on __proto__)', 'omnikom.mjs', 'const TEXT = { __proto__: null, ', 'const TEXT = { ', 'unit'],
+  // ---- the toolkit and the three adapters (P3.3 B4)
+  ["[toolkit] fetch: no gap between two requests to one host", "lib/fetch.mjs", "if (wait > 0) await clock.sleep(wait);", "", 'unit'],
+  ["[toolkit] fetch: a gap under 1000 ms is allowed to any host", "lib/fetch.mjs", "if (gapMs < MIN_GAP_MS && !LOCAL.test(host)) throw new Usage(", "if (false) throw new Usage(", 'unit'],
+  ["[toolkit] fetch: any address is fetched", "lib/fetch.mjs", "if (!u || (u.protocol !== 'http:' && u.protocol !== 'https:')) throw new Usage(", "if (!u) throw new Usage(", 'unit'],
+  ["[toolkit] fetch: a 429 is returned as an answer", "lib/fetch.mjs", "if (res.status === 429) {", "if (false) {", 'unit'],
+  ["[toolkit] fetch: a stopped host is asked again", "lib/fetch.mjs", "if (stopped.has(host)) throw stoppedError(host);", "", 'unit'],
+  ["[toolkit] fetch: a redirect is followed", "lib/fetch.mjs", "redirect: 'manual'", "redirect: 'follow'", 'unit'],
+  ["[toolkit] fetch: a request has no time limit", "lib/fetch.mjs", "signal: AbortSignal.timeout(timeoutMs)", "signal: undefined", 'unit'],
+  ["[toolkit] browser: a second browser starts while one of ours is open", "lib/browser.mjs", "const lock = await takeBrowserLock(browserLockPath(env), { waitMs: lockWaitMs, clock });", "const lock = { release() {} };", 'unit'],
+  ["[toolkit] browser: a dead holder's lock is never taken over", "lib/browser.mjs", "if (!holder || !alive(holder.pid)) {", "if (!holder) {", 'unit'],
+  ["[toolkit] browser: a start that fails keeps the lock", "lib/browser.mjs", "catch (e) { lock.release(); throw e; }", "catch (e) { throw e; }", 'unit'],
+  ["[toolkit] browser: close keeps the lock", "lib/browser.mjs", "try { await stop(); } finally { lock.release(); }", "await stop();", 'unit'],
+  ["[toolkit] browser: release removes another start's lock", "lib/browser.mjs", "if (JSON.parse(readFileSync(file, 'utf8')).token === token) rmSync(file, { force: true });", "rmSync(file, { force: true });", 'unit'],
+  ["[toolkit] render: the browser is not closed", "lib/render.mjs", "} finally { await b.close(); }", "} finally { }", 'unit'],
+  ["[toolkit] machine: a missing key is not refused", "lib/machine.mjs", "if (typeof value !== 'string' || value === '') throw new Blocked(", "if (false) throw new Blocked(", 'unit'],
+  ["[toolkit] machine: the reaper runs for real", "lib/machine.mjs", "[script, '--dry', '--no-stdin']", "[script, '--no-stdin']", 'unit'],
+  ["[toolkit] heavy: the adapter runs one job at a time", "lib/heavy.mjs", "const r = await runner(process.execPath, args, { cwd, env, timeout: timeoutMs });", "const r = await (globalThis.heavyQueue = (globalThis.heavyQueue || Promise.resolve()).then(() => runner(process.execPath, args, { cwd, env, timeout: timeoutMs })));", 'unit'],
+  ["[toolkit] heavy: a lock wait that ran out is not BLOCKED", "lib/heavy.mjs", "if (r.status === 75 && line) throw new Blocked(", "if (false) throw new Blocked(", 'unit'],
+  ["[toolkit] desktop: any script name is run", "lib/desktop.mjs", "if (!DESKTOP_SCRIPTS.includes(script)) throw new Usage(", "if (false) throw new Usage(", 'unit'],
 ];
 
 const list = pickMutants(shardMutants(MUTANTS, shard), only);   // sharded by the index in the whole list, then narrowed by --only

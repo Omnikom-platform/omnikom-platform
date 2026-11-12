@@ -26,7 +26,7 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
   const rand = () => randomBytes(12).toString('hex');
   const work = mkdtempSync(join(tmpdir(), 'omnikom-journey-test-'));
   const SECRET = rand();
-  const ENV = { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, STAGING_DB_URL: `postgres://u:${rand()}@127.0.0.1:5/x`, STAGING_SUPABASE_REF: 'testref', STAGING_SUPABASE_SECRET_KEY: SECRET, STAGING_SUPABASE_PUBLISHABLE_KEY: rand() };
+  const ENV = { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, STAGING_DB_URL: `postgres://u:${rand()}@127.0.0.1:5/x`, STAGING_SUPABASE_REF: 'testref', STAGING_SUPABASE_SECRET_KEY: SECRET, STAGING_SUPABASE_PUBLISHABLE_KEY: rand(), ...(process.env.OMNIKOM_BROWSER_LOCK ? { OMNIKOM_BROWSER_LOCK: process.env.OMNIKOM_BROWSER_LOCK } : {}) };
   const ALERT = 'alerts@example.com';
   const mkctx = (flags = {}) => makeCtx({ command: 'test', positionals: ['test', 'journey'], flags: { target: 'staging', out: work, ...flags }, deps: { env: ENV, randomUUID: () => 'abcdef12-0000-0000-0000-000000000000', now: () => 1793500000 } });
   const run = async (flags, overrides) => {
@@ -984,7 +984,7 @@ export async function browserStartTests({ check, CLI_ROOT, imp }) {
     behave(child, args.find(a => a.startsWith('--user-data-dir=')).slice('--user-data-dir='.length));
     return child;
   };
-  const env = { OMNIKOM_BROWSER: process.execPath };   // any file that exists: findBrowser only checks the path
+  const env = { OMNIKOM_BROWSER: process.execPath, OMNIKOM_BROWSER_LOCK: join(tmpdir(), `omnikom-journey-stub-${process.pid}-${Date.now()}.lock`) };   // any file that exists: findBrowser only checks the path; the lock is this run's own (no real browser of another session may hold the fake-clock stub starts)
   const start = async (behave, extra = {}) => {
     kills.length = 0;
     const t0 = Date.now();
