@@ -973,9 +973,11 @@ export async function journeyTests({ check, cli, CLI_ROOT, REPO_ROOT }) {
 // on a 15 s count). A stub browser through the spawnImpl and importer seams: no real Edge, no real proc-guard, and the runs are short.
 export async function browserStartTests({ check, CLI_ROOT, imp }) {
   const B = await imp('lib/browser.mjs');
-  const fakeGuard = {   // guardedTemp makes a real folder (the stub writes into it); killTree touches nothing
+  const kills = [];   // what the launch asked the guard to kill, in order: 'tree <pid>' or 'folder'
+  const fakeGuard = {   // guardedTemp makes a real folder (the stub writes into it); the kills touch nothing and are only written down
     guardedTemp: prefix => { const dir = mkdtempSync(join(tmpdir(), prefix)); return { dir, release: () => rmSync(dir, { recursive: true, force: true }) }; },
-    killTree: () => true,
+    killTree: (pid) => { kills.push('tree ' + pid); return true; },
+    killFolderProcs: () => { kills.push('folder'); return 0; },
   };
   const stub = behave => (exe, args) => {
     const child = new EventEmitter(); child.pid = 4000000;
@@ -984,10 +986,11 @@ export async function browserStartTests({ check, CLI_ROOT, imp }) {
   };
   const env = { OMNIKOM_BROWSER: process.execPath };   // any file that exists: findBrowser only checks the path
   const start = async (behave, extra = {}) => {
+    kills.length = 0;
     const t0 = Date.now();
     let error = null;
     try { const b = await B.launchBrowser({ env, spawnImpl: stub(behave), importer: async () => fakeGuard, ...extra }); await b.close(); } catch (e) { error = e; }
-    return { ms: Date.now() - t0, message: error ? error.message : null };
+    return { ms: Date.now() - t0, message: error ? error.message : null, kills: [...kills] };
   };
 
   check('journey browser start: the bound is a named exported constant of at least 120 s (1.5 times the worst measured launch, 74.5 s)', typeof B.DEVTOOLS_WAIT_MS === 'number' && B.DEVTOOLS_WAIT_MS >= 120000, String(B.DEVTOOLS_WAIT_MS));
@@ -1013,7 +1016,7 @@ export async function browserStartTests({ check, CLI_ROOT, imp }) {
   // c: a browser that has already exited fails at once naming the exit, not after the bound
   const dead = await start((child) => { setImmediate(() => child.emit('exit', 3, null)); }, { devtoolsWaitMs: 5000 });
   check('journey browser start: a browser that exited at once fails at once, naming the exit code (far under the bound)',
-    /exited before it reported its DevTools address \(exit code 3\)/.test(dead.message || '') && dead.ms < 3000, JSON.stringify(dead));
+    /exited before it reported its DevTools address \(exit code 3\)/.test(dead.message || '') && dead.ms < 3000 && dead.kills.length > 0 && dead.kills.every(k => k === 'tree 4000000'), JSON.stringify(dead));
 
   // e: the profile is seeded BEFORE the browser starts: an unseeded profile makes Chrome/Edge test the Windows account with an empty password
   // (a failed logon each start; ten lock the account: 2026-11-11, 5 lockouts). The stub reads the folder at the moment of the spawn. [browser-seed]
@@ -1035,4 +1038,35 @@ export async function browserStartTests({ check, CLI_ROOT, imp }) {
   check('journey browser start: a browser killed by a signal fails at once naming the signal', /exited before it reported its DevTools address \(signal SIGKILL\)/.test(killed.message || '') && killed.ms < 3000, JSON.stringify(killed));
   const nospawn = await start((child) => { setImmediate(() => child.emit('error', Object.assign(new Error('spawn x ENOENT'), { code: 'ENOENT' }))); }, { devtoolsWaitMs: 5000 });
   check('journey browser start: a browser that cannot be started fails at once with the reason', /could not start the browser: spawn x ENOENT/.test(nospawn.message || '') && nospawn.ms < 3000, JSON.stringify(nospawn));
+
+  // h: the started process hands the browser over to another process and ends with exit code 0 (Edge 157.0.4341.46 on this laptop, 2026-11-12:
+  // the started process ended after 0.1 s, the address file appeared after 0.4 s). That exit is waited past, up to the same bound; any other exit stays fatal.
+  const handed = await start((child, dir) => {
+    setImmediate(() => child.emit('exit', 0, null));
+    setTimeout(() => { try { writeFileSync(join(dir, 'DevToolsActivePort'), '9\n/devtools/browser/stub\n'); } catch { /* the folder is gone: the implementation under test gave up first */ } }, 300);
+  });
+  check('journey browser start: a started process that ends with exit code 0 is a hand-over: the address written 300 ms later is waited for',
+    handed.message === 'could not connect to the browser' && handed.ms < 5000 && handed.kills.length > 0 && handed.kills.every(k => k === 'folder'), JSON.stringify(handed));
+
+  // The launch's own hand clock again: the bound of a hand-over with no browser costs no real seconds. The exit with code 0 comes at 15 s, fired from inside
+  // the clock's own sleep (the way check a's clock fires), so the check also tells which moment the bound counts from: the launch's start (20 s), not the hand-over (35 s).
+  let hand = 0, exitAt15 = null;
+  const handClock = { now: () => hand, sleep: async ms => { hand += ms; if (exitAt15 && hand >= 15000) { const fire = exitAt15; exitAt15 = null; fire(); } } };
+  const handOnly = await start((child) => { exitAt15 = () => child.emit('exit', 0, null); }, { clock: handClock, devtoolsWaitMs: 20000 });
+  const hm = /^the browser did not report its DevTools address in (\d+\.\d) s \(bound 20 s\); the started process had ended with exit code 0 \(a hand-over\)$/.exec(handOnly.message || '');
+  check('journey browser start: after a hand-over with no browser it fails at the one bound, naming the hand-over',
+    Boolean(hm) && Number(hm[1]) >= 20 && Number(hm[1]) < 22 && hand >= 20000 && hand < 25000 && handOnly.ms < 5000 && handOnly.kills.every(k => k === 'folder'), JSON.stringify({ ...handOnly, clockMs: hand }));
+
+  // A hand-over starts no shorter limit: the exit with code 0 comes at 50 s and the address at 65 s, both fired from inside the hand clock's own sleep
+  // (synchronously, the way check a's clock fires its one), and the default bound (180 s) is still the one that counts.
+  let hand3 = 0, timed = [];
+  const clock3 = { now: () => hand3, sleep: async ms => { hand3 += ms; for (const t of timed) if (!t.fired && hand3 >= t.at) { t.fired = true; t.fire(); } } };
+  const late3 = await start((child, dir) => {
+    timed = [
+      { at: 50000, fired: false, fire: () => child.emit('exit', 0, null) },
+      { at: 65000, fired: false, fire: () => { try { writeFileSync(join(dir, 'DevToolsActivePort'), '9\n/devtools/browser/stub\n'); } catch { /* the folder is gone: the implementation under test gave up first */ } } },
+    ];
+  }, { clock: clock3 });
+  check('journey browser start: a hand-over starts no shorter limit: an exit with code 0 at 50 s and the address at 65 s reach the connect step',
+    late3.message === 'could not connect to the browser' && hand3 >= 65000 && hand3 < 70000 && late3.ms < 5000, JSON.stringify({ ...late3, clockMs: hand3 }));
 }

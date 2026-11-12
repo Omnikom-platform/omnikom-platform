@@ -18,7 +18,7 @@ const WIN = process.platform === 'win32';
 
 // How long launchBrowser waits for the browser to write its DevTools address (the file DevToolsActivePort in its profile folder), as a wall clock.
 // Measured 2026-11-02 on this laptop, 22 real headless Edge launches, spawn to a readable DevToolsActivePort: idle 6 launches 0.7 to 1.5 s (median 1.1 s); 4 at once 8 launches 1.6 to 49.2 s (median 43.4 s); 4 at once with 8 CPU-busy processes 8 launches 2.8 to 74.5 s (median 45.2 s).
-// The bound is 180 s, 2.4 times the worst measured. A browser that exits or cannot start is reported at once (see launchBrowser), so the bound only costs time when a browser really hangs. Run 41404410237 went red on the old 15 s count.
+// The bound is 180 s, 2.4 times the worst measured. A browser that cannot start, or exits with a code other than 0 or by a signal, is reported at once (see launchBrowser), so the bound only costs time when a browser really hangs or a hand-over brings no browser. Run 41404410237 went red on the old 15 s count.
 export const DEVTOOLS_WAIT_MS = 180000;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -180,16 +180,21 @@ export async function launchBrowser({ env = process.env, spawnImpl = spawn, impo
   const args = ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${folder.dir}`, '--no-first-run', '--no-default-browser-check', '--disable-extensions', '--disable-background-networking', '--disable-sync', '--mute-audio', ...(process.platform === 'linux' ? ['--no-sandbox'] : []), 'about:blank'];
   const child = spawnImpl(exe, args, { stdio: 'ignore', windowsHide: true, detached: process.platform !== 'win32' });
   let closed = false;
-  // a browser that cannot start or has already exited is not waited for: both are said at once, with the reason
+  // a browser that cannot start, or has exited with a code other than 0 or by a signal, is not waited for: both are said at once, with the reason
   let exited = null, spawnError = null;
   child.once('exit', (code, signal) => { exited = { code, signal }; });
   child.once('error', e => { spawnError = e; });
+  // A started process that ends with exit code 0 and no signal has handed the browser over to another process (Edge 157.0.4341.46 on this laptop,
+  // measured 2026-11-12 03:46: the started process ended after 0.1 s, the address file appeared after 0.4 s). The address is then waited for up to
+  // the same bound (a handed-over browser comes up no faster than any other), and the ended process's number is never killed: Windows gives a free
+  // number to the next process that starts. Everything that names the profile folder is killed instead.
+  const handedOver = () => Boolean(exited && exited.code === 0 && !exited.signal);
   // kill the tree and everything naming the profile folder, then remove the folder; under load a late child can outlive the first pass,
   // so it is repeated until the folder is really gone (a folder that cannot be removed is a process that is still running)
   const stop = async () => {
     if (closed) return; closed = true;
     for (let i = 0; i < 8; i++) {
-      try { guard.killTree(child.pid, folder.dir); } catch { /* already gone */ }
+      try { if (handedOver()) guard.killFolderProcs(folder.dir); else guard.killTree(child.pid, folder.dir); } catch { /* already gone */ }
       try { folder.release(); } catch { /* the guard cleans at exit */ }
       try { rmSync(folder.dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 }); } catch { /* a process still holds it: kill again */ }
       if (!existsSync(folder.dir)) return;
@@ -205,8 +210,8 @@ export async function launchBrowser({ env = process.env, spawnImpl = spawn, impo
       if (existsSync(portFile)) { try { const [p, w] = readFileSync(portFile, 'utf8').split(/\r?\n/); if (p && w) { port = p; wsPath = w; break; } } catch { /* the browser still holds the file (EBUSY on Windows): look again */ } }
       const elapsed = clock.now() - waitStart;
       if (spawnError) throw new Error(`could not start the browser: ${spawnError.message}`);
-      if (exited) throw new Error(`the browser exited before it reported its DevTools address (${exited.signal ? `signal ${exited.signal}` : `exit code ${exited.code}`}) after ${(elapsed / 1000).toFixed(1)} s`);
-      if (elapsed >= devtoolsWaitMs) throw new Error(`the browser did not report its DevTools address in ${(elapsed / 1000).toFixed(1)} s (bound ${devtoolsWaitMs / 1000} s)`);
+      if (exited && !handedOver()) throw new Error(`the browser exited before it reported its DevTools address (${exited.signal ? `signal ${exited.signal}` : `exit code ${exited.code}`}) after ${(elapsed / 1000).toFixed(1)} s`);
+      if (elapsed >= devtoolsWaitMs) throw new Error(`the browser did not report its DevTools address in ${(elapsed / 1000).toFixed(1)} s (bound ${devtoolsWaitMs / 1000} s)${handedOver() ? '; the started process had ended with exit code 0 (a hand-over)' : ''}`);
       await clock.sleep(100);
     }
     const ws =new WebSocket(`ws://127.0.0.1:${port}${wsPath}`);
