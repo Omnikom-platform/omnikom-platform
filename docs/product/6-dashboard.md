@@ -70,12 +70,14 @@ runs (one jobs channel per tab, `src/lib/live.ts`). Vitest for units, Playwright
 - Past publishes (owners and staff, a sheet on the Site screen): each finished publish, live or not, with its checks; "Put the site back to this publish" saves its content as new versions and publishes them (nothing deleted; items added since stay on the site).
 - Take an item off the site without deleting it (MISSING): `drafts_waiting` would list it again and the next publish would put it back. A delete alone is not a waiting change either: with nothing else waiting the item stays on the live site until the next publish. Both need a database change first.
 
-## Preview of a change (the frame built; the preview site MISSING)
+## Preview of a change (the frame and the preview site built; the screenshots MISSING)
 
 First an instant frame: the factory's own renderer runs in a browser worker on the draft and shows it in a sandboxed frame
 (no site scripts, media through short signed links), the changed section outlined, phone and laptop widths. Then a preview
 site: the site's Pages project `preview` branch (`preview.<project>.pages.dev`), always noindex, built by the same pipeline
 without moving what is live. Before and after screenshots at 390 and 1366 px come last.
+"Preview site" on the Site screen (owners and staff) starts the build; one line follows it to "Preview from 14:02. Open the preview" (the signed link), and a list names
+each saved change left out and the field it still needs.
 
 ## Photos and media
 

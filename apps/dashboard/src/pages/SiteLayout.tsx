@@ -9,11 +9,12 @@ import { SiteContext, type SiteValue } from '../site-context';
 import { useSession } from '../auth';
 import { useWorkspaceValue } from '../workspace-context';
 import { PublishSheet } from './PublishSheet';
+import { PreviewSite } from './PreviewSite';
 import { PublishHistory } from './PublishHistory';
 import css from './Site.module.css';
 
 /**
- * The Site screen (DP-1.4-01, -02, -04 to -07, DP-1.4c-05): the site switcher, the state line with Open, "Publish N changes", and the list
+ * The Site screen (DP-1.4-01, -02, -04 to -07, DP-1.4c-05, -09): the site switcher, the state line with Open, "Publish N changes", and the list
  * (Pages, the contract's own collections with Add, Business details). The editor opens beside it (the Outlet). An agent sees no group that
  * is owner-only, only their own rows of a collection marked own, and Add only there.
  */
@@ -109,6 +110,7 @@ export function SiteLayout() {
             {count === 1 ? 'Publish 1 change' : `Publish ${count} changes`}
           </button>
         )}
+        {site && role !== 'member' && site.deploy_target && <PreviewSite site={site} />}
         {drafts.error && <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
       </section>
 

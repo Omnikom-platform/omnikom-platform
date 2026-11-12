@@ -8,7 +8,7 @@ import { countQuery, listQuery, PAGE_SIZE, type Column, type ListAnswer, type Vi
 import type { Task } from './lib/followup';
 import type { SavedView } from './lib/views';
 import { FILTERS, type ContractForms, type Filter, type Lead, type LeadEvent, type Lists } from './lib/leads';
-import type { Contract, Job, JobEvent, SiteState } from './lib/site';
+import type { Contract, Job, JobEvent, LeftOut, SiteState } from './lib/site';
 import type { Member } from './lib/settings';
 import { holdChannel, jobsWanted } from './lib/live';
 
@@ -112,12 +112,12 @@ export function useTeam(wsId: string) {
   });
 }
 
-export type Site = { id: string; preview_host: string; domain: string | null; state: SiteState };
+export type Site = { id: string; preview_host: string; domain: string | null; state: SiteState; deploy_target?: string };
 
 export function useSites(wsId: string) {
   return useQuery({
     queryKey: ['sites', wsId],
-    queryFn: async (): Promise<Site[]> => must(await supabase.from('sites').select('id,preview_host,domain,state').eq('workspace_id', wsId).order('created_at')) as Site[],
+    queryFn: async (): Promise<Site[]> => must(await supabase.from('sites').select('id,preview_host,domain,state,deploy_target').eq('workspace_id', wsId).order('created_at')) as Site[],
   });
 }
 
@@ -334,7 +334,7 @@ export function useJobs(wsId: string, live: 'always' | 'running') {
   const q = useQuery({
     queryKey: ['jobs', wsId],
     queryFn: async (): Promise<{ jobs: Job[]; events: JobEvent[] }> => {
-      const jobs = must(await supabase.from('publish_jobs').select('id,site_id,requested_by,rows,requested,state,gate_report,error,created_at,finished_at').eq('workspace_id', wsId).order('created_at', { ascending: false }).limit(10)) as Job[];
+      const jobs = must(await supabase.from('publish_jobs').select('id,site_id,requested_by,rows,requested,state,gate_report,error,created_at,finished_at').eq('workspace_id', wsId).eq('preview', false).order('created_at', { ascending: false }).limit(10)) as Job[];
       if (!jobs.length) return { jobs, events: [] };
       const events = must(await supabase.from('publish_job_events').select('job_id,state,at').in('job_id', jobs.map(j => j.id)).order('at', { ascending: true })) as JobEvent[];
       return { jobs, events };
@@ -427,4 +427,11 @@ export async function fetchFrameMedia(ids: string[]): Promise<Record<string, { u
   const out: Record<string, { url: string; width: number | null; height: number | null }> = {};
   await Promise.all(found.map(async m => { const url = (await supabase.storage.from('media').createSignedUrl(m.path, 300)).data?.signedUrl; if (url) out[m.id] = { url, width: m.width, height: m.height }; }));
   return out;
+}
+
+/** The site's newest preview build (book row B15): what it left out (B15-b1), its signed link once done (B15-b3); useJobs' realtime refetches it (['jobs', ws]). */
+export type PreviewJob = Job & { left_out: LeftOut[] | null };
+export function usePreviewJob(wsId: string, siteId: string) {
+  return useQuery({ queryKey: ['jobs', wsId, 'preview', siteId], enabled: Boolean(siteId), queryFn: async (): Promise<PreviewJob | null> =>
+    (must(await supabase.from('publish_jobs').select('id,site_id,requested_by,rows,requested,state,gate_report,error,created_at,finished_at,left_out').eq('site_id', siteId).eq('preview', true).order('created_at', { ascending: false }).limit(1)) as PreviewJob[])[0] ?? null });
 }

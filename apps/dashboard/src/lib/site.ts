@@ -230,6 +230,19 @@ export function clock(iso: string, timeZone?: string): string {
 export function siteUrl(site: { domain: string | null; preview_host: string; state: string }): string {
   return `https://${site.state === 'live' && site.domain ? site.domain : site.preview_host}`;
 }
+/** The preview site's signed link (book row B15): the draft branch with the preview job's token (B15-b3); none without a project, a good token, or after its end. */
+export function draftLink(site: { deploy_target?: string }, job: Pick<Job, 'gate_report'> | null | undefined, now: Date = new Date()): string {
+  const l = (job?.gate_report?.link ?? null) as { k?: unknown; until?: unknown } | null;
+  if (!site.deploy_target || !l || typeof l.k !== 'string' || !/^[0-9a-f]{64}$/.test(l.k) || typeof l.until !== 'string' || !(Date.parse(l.until) > now.getTime())) return '';
+  return `https://draft.${site.deploy_target}.pages.dev/?k=${l.k}`;
+}
+/** A saved change a preview left out (publish_jobs.left_out, or the 422's problems), in plain words: its title, else its collection, and the field it still needs. */
+export type LeftOut = { row: string; path: string; collection?: string };
+export function leftOutLine(contract: Contract, row: { collection: string; newest: { data: Record<string, unknown> } | null } | undefined, path: string): string {
+  const col = row ? contract.collections[row.collection] : undefined, name = path.replace(/\[\d+\]/g, '').split('.').pop() || path;
+  const title = (row && rowTitle(contract, row.collection, row.newest?.data)) || col?.label || t('DP-1.4c-09', 'A saved change');
+  return `${title}: ${col?.fields[path] ? fieldLabel(path, col.fields[path]) : humanize(name)} ${t('DP-1.4c-09', 'is not filled in yet.')}`;
+}
 
 // ---------- the publish progress ----------
 export type JobState = 'queued' | 'building' | 'gating' | 'deploying' | 'done' | 'failed';

@@ -67,7 +67,7 @@ types `publish` (`{job_id, site_id}`) and `media` (`{media_id, workspace_id}`).
 | `_headers`, `_redirects` | security headers; redirects from the `redirects` collection and deleted items |
 | `/media/<path>`, `/assets/<name>.<sha>.css` and `.js` | photos and hashed assets |
 
-Addresses: `<project>.pages.dev` (noindex until launch), `preview.<project>.pages.dev` (staging, always noindex), the client's
+Addresses: `<project>.pages.dev` (noindex until launch), `preview.<project>.pages.dev` (staging, always noindex), `draft.<project>.pages.dev` (the preview site of saved changes, noindex, only by its signed link, book row B15), the client's
 domain once attached. The platform's domain is `omnikom.ai` (owner, 2026-11-05): the dashboard is `app.omnikom.ai` in
 production; staging runs on its Pages address (`omnikom-app-staging.pages.dev`) until a staging name is set. `omnikom.io` is the
 company's own domain and is not used by the platform.

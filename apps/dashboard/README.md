@@ -55,6 +55,7 @@ line in the slice report. The gate (`tests/plan-gate.*`):
   job runs, and a toast at the end shows on any screen (`JobWatcher` in the shell).
 - Past publishes and putting the site back (B11): old content back as new versions, published.
 - The instant frame (B15): Preview in the editor draws the page with the draft.
+- The preview site (B15): Preview site on the Site screen builds the saved changes that are ready to the draft address, opened by its signed link.
 - Not built, by the plan: the search card with metrics, "see" links and Compare of preview sites (later).
 - Pure logic (`src/lib/site.ts`, `site.test.ts`): the cards of an editor, values by path, limits, compare, the state line, the progress lines.
 
