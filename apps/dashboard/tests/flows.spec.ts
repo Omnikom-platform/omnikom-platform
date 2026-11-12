@@ -42,6 +42,7 @@ test.afterAll(async () => {
   await removeA16TestData();
   await removeA15TestData();
   await removeA21TestData();
+  await removeA22TestData();
   const made = await serviceGet<{ id: string }[]>(`/leads?site_id=eq.${WS.a.site}&name=like.${encodeURIComponent(`5.3 flows ${RUN}*`)}&select=id&limit=100`);
   if (!made.length) return;
   const out = spawnSync(process.execPath, [CLEAN_LEADS, '--apply', '--ids', made.map(l => l.id).join(',')], { encoding: 'utf8', env: process.env, timeout: 120_000, windowsHide: true });
@@ -1058,5 +1059,84 @@ test.describe('A21 export in a saved layout as the owner', () => {
     console.log(`a21 export header row: ${file[0]}`);
     expect(file[0], 'the header is the layout\'s, in its order').toBe(A21_COLUMNS.map(c => c.header).join(','));
     expect(file.slice(1).sort(), 'each lead\'s values sit under the layout\'s headers').toEqual(want.sort());
+  });
+});
+
+// ---------- book row A22: the real import (slice S2) ----------
+// Owner-a has one lead by add-lead (a22.<RUN>.dup@example.com). A 3-row file: line 2 new, line 3 that email in capitals (a duplicate), line 4 a
+// budget that is not a number: the check names line 4, offers no import, writes nothing. The fixed file: Add them anyway offers 3, Skip them 2;
+// no import without the consent tick; with it, two leads with form import and one consent ledger row each, the duplicate skipped. No mail. The
+// afterAll removes the three leads (their consent ledger rows stay: append-only) and the saved layout, and reads the layout back as gone.
+const A22_MARK = `a22 ${RUN}`;
+const A22_LAYOUT = `a22 layout ${RUN}`;
+const a22Email = (n: string) => `a22.${RUN}.${n}@example.com`;
+const a22File = (budget: string) => ['First Name,Last Name,Email,Budget', `Ima,One,${a22Email('one')},450000`, `Ima,Dup,${a22Email('dup').toUpperCase()},`, `Ima,Two,${a22Email('two')},${budget}`].join('\n');
+const a22Leads = () => serviceGet<{ id: string; email: string; form: string }[]>(`/leads?workspace_id=eq.${WS.a.id}&email=like.${encodeURIComponent(`a22.${RUN}.*`)}&select=id,email,form&order=email`);
+const a22Layout = () => serviceGet<{ id: string }[]>(`/crm_templates?workspace_id=eq.${WS.a.id}&name=eq.${encodeURIComponent(A22_LAYOUT)}&select=id`);
+
+async function removeA22TestData() {
+  const made = await a22Leads();
+  if (made.length) {
+    const r = await callAs(await personAccessToken('owner-a'), 'leads-bulk', { workspace: WS.a.id, ids: made.map(l => l.id), action: 'delete', confirm: true });
+    console.log(`a22 cleanup: ${made.length} lead(s), leads-bulk answered ${r.status}`);
+    expect(r.status, `removing the a22 leads answered ${r.status}: ${r.text.slice(0, 200)}`).toBe(200);
+  }
+  await serviceDelete(`/crm_templates?workspace_id=eq.${WS.a.id}&name=eq.${encodeURIComponent(A22_LAYOUT)}`);
+  expect(await a22Layout(), 'the a22 layout is gone').toEqual([]);
+}
+
+test.describe('A22 the real import as the owner', () => {
+  test.use({ storageState: '.auth/owner-a.json' });
+  test.setTimeout(300_000);
+
+  test('a file with a bad line offers no import and writes nothing; the fixed file imports its new rows with form import and one consent row each, skips the duplicate, and only after the consent tick', async ({ page }) => {
+    await installMutant(page, 'import-lost');
+    const added = await callAs(await personAccessToken('owner-a'), 'add-lead', { site: WS.a.site, name: `${A22_MARK} existing`, email: a22Email('dup'), phone: '(555) 010-0166', answers: {}, consentText: 'The person agreed to be contacted', form: 'manual' });
+    expect(added.status, `add-lead answered ${added.status}: ${added.text.slice(0, 160)}`).toBe(201);
+    const checkFile = async (budget: string) => {
+      await page.locator('input[type="file"]').setInputFiles({ name: 'a22.csv', mimeType: 'text/csv', buffer: Buffer.from(a22File(budget)) });
+      await expect(page.getByRole('heading', { name: 'How your columns match ours' })).toBeVisible();
+      await page.getByLabel('Email', { exact: true }).selectOption('email');
+      await page.getByLabel('Budget', { exact: true }).selectOption('answers.budget');
+      await page.getByLabel('Name of your CRM').fill(A22_LAYOUT);
+      await page.getByRole('button', { name: 'Save these matches' }).click();
+      await expect(page.getByText('Saved.')).toBeVisible();
+      await page.getByRole('button', { name: 'Check the file' }).click();
+      await expect(page.getByText('3 rows in the file')).toBeVisible();
+    };
+
+    await page.goto(`/w/${WS.a.slug}/leads/import`);
+    await expect(page.getByRole('heading', { name: 'Import leads' })).toBeVisible();
+
+    // a bad line: the check names it and its field, Import is not offered, nothing is written
+    await checkFile('lots');
+    await expect(page.getByRole('alert').filter({ hasText: 'Line 4, budget:' })).toBeVisible();
+    await expect(page.getByText('1 are refused')).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Import 1 leads$/ })).toBeDisabled();
+    await expect(page.getByText('Fix the lines above in your file, then choose it again.')).toBeVisible();
+    expect((await a22Leads()).length, 'the refused file wrote nothing').toBe(1);
+
+    // the fixed file: adding or skipping the duplicate changes the count; no import without the consent tick
+    await page.getByRole('button', { name: 'Choose another file' }).click();
+    await expect(page.getByRole('heading', { name: 'How your columns match ours' })).toHaveCount(0);
+    await checkFile('900000');
+    await expect(page.getByText('2 will be added')).toBeVisible();
+    await expect(page.getByText('1 look like leads you already have')).toBeVisible();
+    await page.getByLabel('Add them anyway').check();
+    await expect(page.getByRole('button', { name: /^Import 3 leads$/ })).toBeVisible();
+    await page.getByLabel('Skip them').check();
+    await page.getByRole('button', { name: /^Import 2 leads$/ }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Tick this to confirm the people agreed to be contacted.' })).toBeVisible();
+    expect((await a22Leads()).length, 'no import without the tick').toBe(1);
+
+    // with the tick: two leads with form import, one consent ledger row each; the duplicate is skipped
+    await page.getByLabel('These people agreed to be contacted by my business').check();
+    await page.getByRole('button', { name: /^Import 2 leads$/ }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Imported 2 leads.' })).toContainText('Skipped 1 duplicates.');
+    const made = await a22Leads();
+    expect(made.map(l => `${l.email}|${l.form}`), 'two new leads with form import; the duplicate is not added again').toEqual([`${a22Email('dup')}|manual`, `${a22Email('one')}|import`, `${a22Email('two')}|import`]);
+    const imported = made.filter(l => l.form === 'import').map(l => l.id).sort();
+    const consent = await serviceGet<{ lead_id: string; form: string }[]>(`/consent_ledger?lead_id=in.(${imported.join(',')})&select=lead_id,form`);
+    expect(consent.map(c => `${c.lead_id}|${c.form}`).sort(), 'one consent ledger row per imported lead').toEqual(imported.map(id => `${id}|import`));
   });
 });

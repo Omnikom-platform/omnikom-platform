@@ -17,10 +17,11 @@
 // Slice S2, book rows A15, A21, A22 (tests/flows.spec.ts):
 //   bulk-lost             the page's leads-bulk calls are answered 200 by the test and never reach the function: the screen says done, the database is unchanged
 //   export-plain          the layout id is taken out of the page's lead-export call: the file comes back as the plain Omnikom CSV
+//   import-lost           a real import (dry_run false) is answered by the test with a made-up count: the screen says imported, the database holds nothing
 import type { Page } from '@playwright/test';
 import { callAs, personAccessToken, serviceGet, serviceRepeat } from './support/staging';
 
-export type Mutant = 'leak-b' | 'no-live' | 'member-sees-all' | 'save-lost' | 'no-stale' | 'agent-add-everywhere' | 'publish-accepted' | 'contract-empty' | 'no-styles' | 'no-bar-room' | 'no-own-lead' | 'bulk-lost' | 'export-plain';
+export type Mutant = 'leak-b' | 'no-live' | 'member-sees-all' | 'save-lost' | 'no-stale' | 'agent-add-everywhere' | 'publish-accepted' | 'contract-empty' | 'no-styles' | 'no-bar-room' | 'no-own-lead' | 'bulk-lost' | 'export-plain' | 'import-lost';
 export const MUTANT = (process.env.FLOWS_MUTANT ?? '') as Mutant | '';
 
 export function active(name: Mutant): boolean {
@@ -115,6 +116,13 @@ export async function installMutant(page: Page, name: Mutant) {
       delete body.template;
       delete body.timezone;
       return route.continue({ postData: JSON.stringify(body) });
+    });
+  }
+  if (name === 'import-lost') {
+    await page.route(/\/functions\/v1\/lead-import$/, route => {
+      const body = JSON.parse(route.request().postData() ?? '{}') as { dry_run?: boolean };
+      if (body.dry_run !== false) return route.continue();
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ dry_run: false, rows: 3, created: 2, skipped: 1 }), headers: { 'access-control-allow-origin': '*' } });
     });
   }
 }
