@@ -1,6 +1,6 @@
 { "schema": 1,
   "note": "Every tool the CLI wraps: lib/wrap.mjs starts the row's script, passes its output back and maps its exit code; the CLI adds no logic. A row's script and test are tracked files; its summary, usage, args, flags, exits, output and example are its help. engines lists commands/*.mjs, the commands whose logic lives in the CLI. Checked by test/registry.mjs.",
-  "engines": ["apply", "audit", "ci", "content", "contract", "hooks", "impact", "journey", "key", "land", "lead", "mfa", "publish", "seed", "seo", "status", "tools", "verify"],
+  "engines": ["apply", "audit", "ci", "content", "contract", "hooks", "impact", "journey", "key", "land", "lead", "mfa", "publish", "seed", "seo", "status", "tools", "usage", "verify"],
   "commands": {
     "site sign": {
       "script": "tools/site-sign/sign-site.mjs", "test": "tools/site-sign/sign-site.test.mjs",

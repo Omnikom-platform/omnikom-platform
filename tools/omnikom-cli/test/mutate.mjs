@@ -824,6 +824,15 @@ const MUTANTS = [
   ['[session-check] a headless helper has Remote Control on', 'sessions/kinds.json', '"remoteControl": false', '"remoteControl": true', 'unit'],
   ['[session-check] a headless start has no turn limit', 'sessions/kinds.json', '"maxTurns": 200, ', '', 'unit'],
   ['[session-check] the headless settings file holds a second key', 'sessions/headless-helper.settings.json', '{"remoteControlAtStartup": false}', '{"remoteControlAtStartup": false, "model": "claude-fable-5-2"}', 'unit'],
+  // ---- usage rate and the fit (P3.2 B5)
+  ['[usage] the running maximum is broken', 'commands/usage.mjs', 'hi = Math.max(hi, r.p);', 'hi = r.p;', 'unit'],
+  ['[usage] a reset is not seen', 'commands/usage.mjs', 'if (list[i].p < list[i - 1].p - 5) start = i;', 'if (false) start = i;', 'unit'],
+  ['[usage] a stale reading counts', 'commands/usage.mjs', 'if (ageMin > STALE_MIN) throw new Blocked(', 'if (false) throw new Blocked(', 'unit'],
+  ['[usage] the 2-point margin is dropped', 'commands/usage.mjs', 'const pace = (100 - MARGIN - last.p) / resetH;', 'const pace = (100 - last.p) / resetH;', 'unit'],
+  ['[usage] no rate is not refused', 'commands/usage.mjs', 'if (after.length < 2) throw new Blocked(', 'if (false) throw new Blocked(', 'unit'],
+  ['[usage] over the pace exits 0', 'commands/usage.mjs', "return result(!r.over, r.over ? 'OVER' : 'ok', r);", "return result(true, 'ok', r);", 'unit'],
+  ['[usage] a fit from fewer than 3 windows', 'commands/usage.mjs', 'if (windows.length < 3) throw new Blocked(', 'if (false) throw new Blocked(', 'unit'],
+  ['[usage] a fit that cannot tell the models apart', 'commands/usage.mjs', 'if (Math.abs(m[c][c]) <= 1e-12 * scale) throw new Blocked(', 'if (false) throw new Blocked(', 'unit'],
 ];
 
 const list = pickMutants(shardMutants(MUTANTS, shard), only);   // sharded by the index in the whole list, then narrowed by --only

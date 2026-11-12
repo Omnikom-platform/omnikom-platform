@@ -29,14 +29,15 @@ import { land, landText } from './commands/land.mjs';
 import { hooksGroup, hooksText } from './commands/hooks.mjs';
 import { journeyText } from './commands/journey.mjs';
 import { seoGroup, seoText } from './commands/seo.mjs';
+import { usageGroup } from './commands/usage.mjs';
 import { loadRegistry, findRow, runWrapped, helpText } from './lib/wrap.mjs';
 
 // both tables are looked up by a word the user typed, so they inherit nothing: constructor, toString or __proto__ is an unknown command, not a hit
-const COMMANDS = { __proto__: null, status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate, tools: toolsGroup, ci, impact, land, hooks: hooksGroup, seo: seoGroup };
+const COMMANDS = { __proto__: null, status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate, tools: toolsGroup, ci, impact, land, hooks: hooksGroup, seo: seoGroup, usage: usageGroup };
 export const COMMAND_NAMES = Object.keys(COMMANDS);
 // the commands that print text lines by default (with --json: the result object), and the ones that talk to no target
 const TEXT = { __proto__: null, impact: impactText, land: landText, hooks: hooksText, seo: seoText };
-const NO_TARGET = new Set(['impact', 'land', 'hooks', 'seo']);
+const NO_TARGET = new Set(['impact', 'land', 'hooks', 'seo', 'usage']);
 export const USAGE = [
   'status | apply [--dry-run] | test walls | verify --only lead|walls|people | mfa enroll-staff',
   'seed test [--alert-to <email>] [--clean] | seed workspace --slug --name --industry --deploy-target --preview-host (--contract <file> | --plan <dir> --entities <file>)',
@@ -53,6 +54,7 @@ export const USAGE = [
   'test journey --target staging [--only J4,J5] [--out <dir>] [--alert-to <our own email>]   (the test site end to end on staging, looked at in a browser: one line per step PASS | FAIL | BLOCKED | NOT BUILT YET | SKIPPED, then a summary; exit 0 only when no step failed; J5 and J6 send a real alert, so --alert-to is required for them; J13 runs the Settings tests and e2e-settings without SETTINGS_INVITE_EMAIL, so it sends no mail; J14 runs e2e-site-audit --job on the publish J3 made (it never publishes; no job id kept is BLOCKED); never looped)',
   'seo run <url> --client <slug> [--only id,id] [--from id] [--module name] [--fresh] [--env-file <f>] | seo resume <url> | seo status <url>   (every mechanical step of a client SEO audit, from SEO\'s manifest skills/programmatic-enterprise-web-performance/pipeline.json; a coverage table of RUN | SKIPPED | BLOCKED | WAITING | PARTIAL | FAILED per step, from the run log {pewp}/seo-run.json; exit 0 no FAILED step, 1 a FAILED step, 2 usage or an invalid manifest; no target)',
   'seo vantage start|status|stop [--json] [--pewp <dir>]   (SEO\'s scripts/vantage.mjs: its output and exit code unchanged; a missing script is BLOCKED, exit 3; a seo run never calls start)',
+  'usage rate | usage fit --windows <file>   (the weekly meter: exit 0 inside the pace, 1 over it, 3 BLOCKED on a stale reading or no rate yet; the fit: points per list dollar per model from 3 or more windows; no target)',
   'flags: --target staging|local|production  --as <identity>  --expect <code>  --json  --fixture <file>  --real',
 ];
 // the global help: the lines above, then one line per tool in registry.json (its usage and its summary)
