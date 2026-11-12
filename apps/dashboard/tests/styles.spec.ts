@@ -254,6 +254,7 @@ for (const size of SIZES) {
         await installMutant(page, 'no-styles');
         await page.goto(`/w/${WS.a.slug}`);
         await expect(page.getByText(/leads? this week$/)).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'How people find you', exact: true })).toBeVisible();
         await check(page, 'overview', size);
         if (!size.desktop) {
           // phone: headings centred, body left, and every place of the bottom bar fits its words

@@ -7,6 +7,7 @@ import { listsFrom } from './lib/leads';
 import type { ListAnswer, ListFilter, SortSpec } from './lib/crm';
 import type { MapColumn, Proposal, Report } from './lib/importmap';
 import type { Member } from './lib/settings';
+import type { SiteAudit } from './lib/overview';
 
 async function request(name: string, body: Record<string, unknown>): Promise<{ text: string; res: Response }> {
   const { data } = await supabase.auth.getSession();
@@ -132,6 +133,13 @@ export async function fetchDrafts(site: string): Promise<Draft[]> {
   const out = (await call('drafts', { site })) as { drafts?: Draft[] } | null;
   if (!out || !Array.isArray(out.drafts)) throw new CallFailed(problemFrom(500, null));
   return out.drafts;
+}
+
+/** site-audit: a site's search check from its publish jobs; the owner and staff, 404 for anyone else. 200 { latest: { preview, production }, history }. */
+export async function fetchSiteAudit(site: string): Promise<SiteAudit> {
+  const out = (await call('site-audit', { site })) as SiteAudit | null;
+  if (!out || !out.latest) throw new CallFailed(problemFrom(500, null));
+  return out;
 }
 
 export type ItemSave = { workspace: string; collection: string; row: string | null; base?: number; data: Record<string, unknown> };

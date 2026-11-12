@@ -89,8 +89,9 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B17 Settings: team list, invite, remove | PARTLY | F:team-list, F:invite-member, F:member-remove (M17 `list_members`; remove is `remove_member`), and the People card (D:pages/SettingsPeople.tsx). Remove refuses the last owner; a removed person's next request is refused by the wall, open sessions are not ended (Supabase Auth has no admin logout by user id). No role-change control: inviting an existing member as owner sets the role. staging 2026-11-09 from the settings branch: `e2e-settings.mjs` 0 problems (list, last-owner 409, remove, the wall after removal) and the card shows the service role's people; the invite and the remove sheet on screen are UNPROVEN until the head runs the flow (flows.spec.ts "owner-a invites a person", which now checks the sentence "Invite sent to <email>." and removes the person in a finally, S1-C); it sends a real mail to the test inbox |
 | B18 Settings: websites | PARTLY | the Websites card (D:pages/Settings.tsx): preview address, domain and state, no edit, shown on staging 2026-11-09 from the settings branch as the service role reads them; "Ask Omnikom" links to `VITE_ASK_EMAIL`, which is unset (no address in the repo: an owner item), so the link is not shown; a flow checks the link once the build has the address (flows.spec.ts "owner-a sees the Ask Omnikom link", S1-D; skipped without VITE_ASK_EMAIL) |
 | B20 Overview | PARTLY | `/w/$ws`, the Overview tab: D:pages/Overview.tsx with D:lib/overview.ts (vitest): a card per site (its state, the last publish and by whom, the changes waiting) and the leads of this week. Staging UNPROVEN: the DOM gate and the 390 px and laptop styles (the head's run) |
-| B21 Search and AI visibility numbers | MISSING | only the empty `metrics_snapshots` table; the site-check half is stored per publish (work order 10: the runner puts the audit summary in `gate_report.audit`, M16 `site_audit`, function `site-audit`; proven on staging 2026-11-09 by e2e-site-audit), no screen yet |
+| B21 Search and AI visibility numbers | PARTLY | on the Overview for owners and staff (D:pages/Overview.tsx, D:lib/overview.ts, vitest): the site check headline from F:site-audit, and "How people find you" from the newest `metrics_snapshots` row of each source (Google search, Bing search, speed on a phone with real-visitor numbers, AI answers); a source that is not connected says so. NOT DONE: Search Console numbers (no verified property; the Google login is the owner's) and AI answers (no writer, DECISIONS 38). Staging UNPROVEN (the head's run) |
 | B23 Not found, service unreachable, loading states | WORKS | D:pages/NotFound.tsx, D:lib/problems.ts |
+| B24 Search health page (one per site, owner): the site check by topic, check history, AI questions, monthly report | MISSING | the numbers and the site check headline are on the Overview (B21, decision 1a of work order 44) |
 
 ### C. Backend and database
 | Feature | State | Missing half, or where it lives |
@@ -156,11 +157,11 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | Part | WORKS | PARTLY | MISSING | Rows |
 |---|---|---|---|---|
 | A CRM | 26 | 0 | 0 | 26 |
-| B Dashboard | 10 | 7 | 4 | 21 |
+| B Dashboard | 10 | 8 | 4 | 22 |
 | C Backend and database | 13 | 4 | 0 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
 | E Hardening | 6 | 12 | 3 | 21 |
-| Total | 65 | 23 | 7 | 95 |
+| Total | 65 | 24 | 7 | 96 |
 
 Completion is reported from these counts only.
 
@@ -173,7 +174,7 @@ the backend, the dashboard and the CRM are proven on staging (`2-architecture.md
    saved views; columns, filter, sort and search on any column; bulk edit; delete; the export button with every column;
    export in the client's layout; import; follow-up and status board; duplicates; unread bold.
 2. Dashboard: the Settings screen is built (work order 08; staging proof to run); publish history and restore; unpublish and delete an item; media library with one photo proven end to end;
-   preview of a change; a magic link from a real inbox; overview and visibility last.
+   preview of a change; a magic link from a real inbox; the Search health page (B24) last.
 3. Then production, made from the proven staging setup.
 
 ## Parked

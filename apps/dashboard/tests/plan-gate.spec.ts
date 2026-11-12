@@ -179,7 +179,13 @@ test.describe('the Overview as the owner (slice 5.7)', () => {
     await page.goto(`/w/${WS.a.slug}`);
     await expect(page.getByText(/leads? this week$/)).toBeVisible();
     await expect(page.locator('[data-plan="DP-1.9-04"]').first()).toBeVisible();
-    await ok(page, { required: ['DP-1.2s-14', 'DP-1.9-01', 'DP-1.9-02', 'DP-1.9-03', 'DP-1.9-04', 'DP-1.9-05'] });
+    await expect(page.getByRole('heading', { name: 'How people find you', exact: true })).toBeVisible();
+    await expect(page.locator('[data-plan="DP-1.9-06"]').first()).toBeVisible();
+    await ok(page, { required: ['DP-1.2s-14', 'DP-1.9-01', 'DP-1.9-02', 'DP-1.9-03', 'DP-1.9-04', 'DP-1.9-05', 'DP-1.9-06', 'DP-1.9-07', 'DP-1.9-08'] });
+    // staging holds no verified Search Console property and no writer of AI answers: those two cards say so, and show no zero
+    const cards = page.locator('[data-plan="DP-1.9-08"]');
+    await expect(cards.nth(0)).toContainText('Not connected yet');
+    await expect(cards.nth(3)).toContainText('Not connected yet');
     await expect(page).toHaveTitle('Overview');
     const nav = page.getByRole('navigation');
     await expect(nav.getByRole('link', { name: 'Overview', exact: true })).toHaveAttribute('aria-current', 'page');
@@ -193,7 +199,7 @@ test.describe('the Overview as an agent (slice 5.7)', () => {
   test('the site card and the leads card (the agent counts their own)', async ({ page }) => {
     await page.goto(`/w/${WS.a.slug}`);
     await expect(page.getByText(/leads? this week$/)).toBeVisible();
-    await ok(page, { required: ['DP-1.2s-14', 'DP-1.9-01', 'DP-1.9-02', 'DP-1.9-03', 'DP-1.9-05'] });
+    await ok(page, { required: ['DP-1.2s-14', 'DP-1.9-01', 'DP-1.9-02', 'DP-1.9-03', 'DP-1.9-05'], absent: ['DP-1.9-06', 'DP-1.9-07', 'DP-1.9-08'] });
   });
 });
 

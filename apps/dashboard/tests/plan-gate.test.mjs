@@ -45,9 +45,9 @@ function patch(file, find, replace) {
 }
 
 describe('the plan itself', () => {
-  it('has rows, and slices 5.3, 5.3b, 5.3c, 5.3d, 5.4, 5.6 and 5.7 are the built ones', () => {
+  it('has rows, and slices 5.3, 5.3b, 5.3c, 5.3d, 5.4, 5.6, 5.7 and 5.7b are the built ones', () => {
     expect(plan.size).toBeGreaterThan(60);
-    expect(built).toEqual(['5.3', '5.3b', '5.3c', '5.3d', '5.4', '5.6', '5.7']);
+    expect(built).toEqual(['5.3', '5.3b', '5.3c', '5.3d', '5.4', '5.6', '5.7', '5.7b']);
     expect(plan.get('DP-1.2-05')?.slice).toBe('5.3');
     expect(plan.get('DP-1.3-05')?.slice).toBe('5.3b');
   });
@@ -187,6 +187,12 @@ describe('mutants of the real source: each must turn the gate red for its reason
   });
   it('slice 5.7: plant words that are not in the row (the empty changes line)', () => {
     red('invented-57-words', scanReal(patch('src/lib/overview.ts', "t('DP-1.9-04', 'Nothing to publish')", "t('DP-1.9-04', 'Nothing to publish today')")), 'PLAN-4', 'DP-1.9-04');
+  });
+  it('slice 5.7b: plant words that are not in the row (the not connected line)', () => {
+    red('invented-57b-words', scanReal(patch('src/lib/overview.ts', "t('DP-1.9-07', 'Not connected yet')", "t('DP-1.9-07', 'Not ready yet')")), 'PLAN-4', 'DP-1.9-07');
+  });
+  it('slice 5.7b: a card carries an id the plan does not have', () => {
+    red('unknown-57b-id', scanReal(patch('src/pages/Overview.tsx', 'data-plan="DP-1.9-08"', 'data-plan="DP-1.9-99"')), 'PLAN-2', 'DP-1.9-99');
   });
   it('put words in index.html', () => {
     red('html-words', scanReal(files => files, indexHtml.replace('<title></title>', '<title>Omnikom</title>')), 'PLAN-8');

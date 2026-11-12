@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import { useSession } from '../auth';
-import { useDrafts, useJobs, useSites, useTeam, type Site } from '../data';
-import { useLeadsSince } from '../overview-data';
-import { changesWords, lastPublished, leadsWeekWords, publishWords, weekStart } from '../lib/overview';
+import { useDrafts, useJobs, useMe, useSites, useTeam, type Site } from '../data';
+import { useLeadsSince, useMetrics, useSiteAudit } from '../overview-data';
+import { changesWords, checkLine, lastPublished, leadsWeekWords, publishWords, visibilityCards, weekStart } from '../lib/overview';
 import { UNREACHABLE } from '../lib/problems';
 import { siteUrl, stateLine, type Job } from '../lib/site';
 import { t } from '../plan';
@@ -10,9 +10,10 @@ import { useWorkspaceValue } from '../workspace-context';
 import css from './Overview.module.css';
 
 /**
- * The Overview (DP-1.9-01 to -05, book row B20, slice 5.7), the first screen of a business at /w/$ws: a card per site (its state with Open,
- * the last publish and by whom, the changes waiting) and the leads of this week. Every line says what it counts; the database decides
- * what this login may count (an agent counts their own), the screen only reports.
+ * The Overview (DP-1.9-01 to -08, book rows B20 and B21, slices 5.7 and 5.7b), the first screen of a business at /w/$ws: a card per site (its
+ * state with Open, the last publish and by whom, the changes waiting, and for owners and staff the site check), the leads of this week, and
+ * for owners and staff "How people find you". Every line says what it counts; the database decides what this login may count (an agent
+ * counts their own), the screen only reports.
  */
 export function Overview() {
   const { workspace, userId } = useWorkspaceValue();
@@ -20,12 +21,15 @@ export function Overview() {
   const sites = useSites(workspace.id);
   const jobs = useJobs(workspace.id);
   const team = useTeam(workspace.id);
+  const me = useMe(workspace.id, userId);
+  const canSee = me.data !== undefined && me.data.role !== 'member';
+  const metrics = useMetrics(workspace.id, canSee);
   const from = useMemo(() => weekStart(new Date()).toISOString(), []);
   const week = useLeadsSince(workspace.id, from);
 
   useEffect(() => { document.title = t('DP-1.9-01', 'Overview'); }, []);
 
-  const all = [sites, jobs, team, week];
+  const all = [sites, jobs, team, week, me, metrics];
   if (all.some(q => q.error)) return <section><p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p></section>;
   if (all.some(q => q.isLoading)) return <section><p data-plan="DP-1.2s-10">Loading</p></section>;
 
@@ -34,17 +38,35 @@ export function Overview() {
   return (
     <div className={css.page}>
       <h1 data-plan="DP-1.9-01">Overview</h1>
-      {(sites.data ?? []).map(s => <SiteCard key={s.id} site={s} last={lastPublished(jobs.data?.jobs ?? [], s.id)} who={who} />)}
+      {(sites.data ?? []).map(s => <SiteCard key={s.id} site={s} last={lastPublished(jobs.data?.jobs ?? [], s.id)} who={who} canSee={canSee} />)}
       <section className={css.card} data-card="">
         <h2 data-plan="DP-1.9-05">Leads</h2>
         <p data-plan="DP-1.9-05">{leadsWeekWords(week.data ?? 0)}</p>
       </section>
+      {canSee && (
+        <section data-plan="DP-1.9-07" className={css.find}>
+          <h2>How people find you</h2>
+          <div className={css.cards}>
+            {visibilityCards(metrics.data ?? []).map(c => (
+              <article key={c.title} data-plan="DP-1.9-08" className={css.card} data-card="">
+                <h3>{c.title}</h3>
+                <p>{c.value}</p>
+                {c.bar !== null && <meter min={0} max={100} value={c.bar} aria-hidden="true" />}
+                {c.extra && <p>{c.extra}</p>}
+                <p className={css.muted}>{c.note}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 
-function SiteCard({ site, last, who }: { site: Site; last: Job | null; who: (id: string) => string }) {
+function SiteCard({ site, last, who, canSee }: { site: Site; last: Job | null; who: (id: string) => string; canSee: boolean }) {
   const drafts = useDrafts(site.id);
+  const audit = useSiteAudit(site.id, canSee);
+  const check = checkLine(audit.data?.latest, site.state === 'live');
   const state = stateLine(site.state, null);
   return (
     <section className={css.card} data-card="">
@@ -52,7 +74,9 @@ function SiteCard({ site, last, who }: { site: Site; last: Job | null; who: (id:
       <p data-plan="DP-1.9-02">{state}{state ? ' ' : ''}<a href={siteUrl(site)} target="_blank" rel="noopener">Open</a></p>
       <p data-plan="DP-1.9-03">{publishWords(last ? { at: last.finished_at ?? last.created_at, by: who(last.requested_by) } : null)}</p>
       {drafts.data && <p data-plan="DP-1.9-04">{changesWords(drafts.data.length)}</p>}
-      {drafts.error && <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
+      {check && <p data-plan="DP-1.9-06">{check}</p>}
+      {audit.error && <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
+      {drafts.error &&<p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
     </section>
   );
 }

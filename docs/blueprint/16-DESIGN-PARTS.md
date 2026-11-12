@@ -186,7 +186,7 @@ and you get an email."), the spam state, the "Add a lead" form (1.3b), the expor
 |---|---|---|---|---|---|---|
 | DP-1.4-01 | 5.4 | Site switcher | pick | the list and editor change to that site | | |
 | DP-1.4-02 | 5.4 | State line: "Preview, not live yet" or "Live, last published Tue 14:02 by Agent One" with Open | read, click Open | the site in a new tab | | |
-| DP-1.4-03 | later | Search card (live sites): clicks and impressions 28 days, PageSpeed phone and desktop with the date | read | | | needs the metrics pull |
+| DP-1.4-03 | later | Search card (live sites): clicks and impressions 28 days, PageSpeed phone and desktop with the date | read | | | the numbers are on the Overview (DP-1.9-07, -08) |
 | DP-1.4-04 | 5.4 | Publish N changes (the count from `drafts`; one change reads "Publish 1 change") | click | the publish sheet (1.4c) | | nothing to publish: no button; the muted line "Nothing to publish" in its place |
 | DP-1.4-05 | 5.4 | List: Pages, with the changed mark on pages that have drafts; each row says "Edit" | tap a page | the editor opens on that page | | |
 | DP-1.4-06 | 5.4 | List: the client's own collections from the contract (Listings, Articles, Team, Reviews, Questions...) with Add; each row says "Edit" | tap an item or Add | the item editor | | an agent sees Add only on collections marked `own` |
@@ -268,7 +268,7 @@ every gate check (one sentence per check, written once in the gate's own file so
 the keyboard map (Esc closes, Enter saves a note, Cmd+S saves), the accessibility pass (WCAG 2.2 AA, `09-TEST-STRATEGY.md` 5b).
 
 ### 1.9 Screen 5: Overview (`/w/$ws`, `docs/product/6-dashboard.md` "Overview")
-Slice 5.7 is book row B20. Every line says what it counts; a card whose input does not exist is not shown.
+Slice 5.7 is book row B20, 5.7b row B21. Every line says what it counts; a card whose input does not exist is not shown, and a source that is not connected says so.
 | Id | Slice | Element | What it does |
 |---|---|---|---|
 | DP-1.9-01 | 5.7 | The screen title "Overview" (the page title too) | names the screen |
@@ -276,6 +276,9 @@ Slice 5.7 is book row B20. Every line says what it counts; a card whose input do
 | DP-1.9-03 | 5.7 | On the site card, the last publish, live or preview: "Last published <when> by <who>", or "Not published yet" | the newest done job of the site in `publish_jobs` |
 | DP-1.9-04 | 5.7 | On the site card, the changes waiting: "1 change waiting to publish", "3 changes waiting to publish", or "Nothing to publish" | the `drafts` count (an agent: the rows they could publish) |
 | DP-1.9-05 | 5.7 | The Leads card: the heading "Leads" and "No leads this week", "1 lead this week" or "12 leads this week": the leads received since Monday 00:00 in your time zone, spam left out (an agent: their own) | a count of the `leads` the login may read |
+| DP-1.9-06 | 5.7b | On the site card (owners and staff), the site check: "Checked <when> (preview): 41 of 44 checks pass on 6 pages." ("(live)" for the live check, "1 page"); not shown before the site's first check | `site-audit` latest: the live check of a live site, else the preview check |
+| DP-1.9-07 | 5.7b | The section "How people find you" (owners and staff): four cards in the order Google search, Bing search, Speed on a phone, AI answers; a source that is not connected reads "Not connected yet" and "Omnikom connects this for you." (never a zero, never an empty card) | the newest `metrics_snapshots` row of each source |
+| DP-1.9-08 | 5.7b | A card: "Google search" and "Bing search": "1,200 times seen, 3 clicks" with "Google Search Console" or "Bing Webmaster Tools" and the day; "Speed on a phone": "Speed score 87 of 100" for the home page with a bar, "Google PageSpeed" and the test day, then "Real visitors: the main content shows in 2.3 seconds" or "Not enough real visitors yet"; "AI answers": "Named in 1 of 3 AI answers" with the engines and the day | the row's own numbers; nothing is computed but counts and seconds from milliseconds |
 
 ## Part 2. Preview: seeing the change as it will look on the website
 

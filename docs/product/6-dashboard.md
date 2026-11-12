@@ -106,9 +106,11 @@ Lead alerts card only and on only when it changed; leaving with unsaved changes 
 
 The first screen of a business, `/w/$ws` (the Overview tab; sign-in still lands on Leads): a card per site with its state,
 its last publish and by whom and the changes waiting, and the leads received this week (since Monday, spam left out; an agent counts their own).
-Every line says what it counts; nothing is shown without its inputs. Plan rows DP-1.9-01 to -05.
+Every line says what it counts; nothing is shown without its inputs. Plan rows DP-1.9-01 to -05. For owners and staff, each site card carries
+the site check headline and "How people find you" shows Google search, Bing search, speed on a phone and AI answers, each with its source and
+day; a source that is not connected says so (plan rows DP-1.9-06 to -08).
 
-## Search health (MISSING)
+## Search health (MISSING, book row B24)
 
 One page per site, `/w/$ws/sites/$site/search`, for the workspace owner (site settings are hidden from members, so this is too).
 Every number shows its source and date; a card whose input does not exist yet is not shown (no dead control, no sample data).
@@ -130,7 +132,7 @@ with a publish.
    that answers it or "not answered yet". Needs the map stored with the site (today it exists only in the build folder): a
    platform finding when this card is built.
 4. **Visibility** (the existing text, unchanged): Search Console clicks, impressions, top queries and pages; PageSpeed phone and
-   desktop with the test date; AI-answer samples per prompt (named or cited, engine, date). Waits on the metrics pull (`7-sites.md`).
+   desktop with the test date; AI-answer samples per prompt (named or cited, engine, date). Its numbers are on the Overview today (B21).
 5. **Monthly report:** the six-question report in plain words (SEO slice 4), one per month, opened from the page. Waits on slice 4
    and on stored reports.
 
