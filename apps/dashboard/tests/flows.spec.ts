@@ -818,6 +818,7 @@ async function a16Open(page: Page, name: string) {
   await expect(page.locator('#lead-name')).toHaveText(name);
 }
 const statusPick = (page: Page) => page.getByLabel('Status', { exact: true });
+const askSave = (page: Page, label: string) => page.getByRole('group', { name: label, exact: true }).getByRole('button', { name: 'Save', exact: true });
 
 async function removeA16TestData() {
   const made = await a16Leads();
@@ -845,11 +846,11 @@ test.describe('the A16 status board as the owner', () => {
     // a dated status: the Date box opens, Save with no date is refused by the database and its sentence shows under the box; nothing is written
     await statusPick(page).selectOption({ label: dated.label });
     await expect(page.getByLabel('Date', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await askSave(page, dated.label).click();
     await expect(page.getByRole('alert').filter({ hasText: /needs a date/i })).toBeVisible();
     expect((await a16One(name)).status, 'a refused status changed nothing').toBe('not-contacted');
     await page.getByLabel('Date', { exact: true }).fill('2026-12-04');
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await askSave(page, dated.label).click();
     await expect(page.getByRole('status').last()).toContainText(`Marked ${dated.label}.`);
     await expect.poll(async () => { const l = await a16One(name); return `${l.status}|${l.status_date}`; }).toBe('call-back|2026-12-04');
     await expect(page.locator('ol li').first()).toContainText(`Status: ${lists.statuses[0]!.label} to ${dated.label} (4 Dec 2026)`);
@@ -857,14 +858,14 @@ test.describe('the A16 status board as the owner', () => {
     // a status with a person: the Who pick starts on the signed-in person (or nobody, which the server fills with the caller); saved, it is the caller's id
     await statusPick(page).selectOption({ label: withWho.label });
     await expect(page.getByLabel('Who', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await askSave(page, withWho.label).click();
     await expect(page.getByRole('status').last()).toContainText(`Marked ${withWho.label}.`);
     await expect.poll(async () => { const l = await a16One(name); return `${l.status}|${l.status_who}|${l.status_date}`; }, { message: 'the person is recorded and the old date is gone' }).toBe(`contacted|${PEOPLE['owner-a'].id}|null`);
 
     // a status with a line
     await statusPick(page).selectOption({ label: withLine.label });
     await page.getByLabel('Details', { exact: true }).fill('three beds near the park');
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await askSave(page, withLine.label).click();
     await expect(page.getByRole('status').last()).toContainText(`Marked ${withLine.label}.`);
     await expect.poll(async () => { const l = await a16One(name); return `${l.status}|${l.status_text}|${l.status_who}`; }).toBe('interested|three beds near the park|null');
     await expect(page.locator('ol li').first()).toContainText(`${withLine.label} (three beds near the park)`);
@@ -935,7 +936,7 @@ test.describe('the A16 status board as an agent', () => {
     await a16Open(page, name);
     await statusPick(page).selectOption({ label: dated.label });
     await page.getByLabel('Date', { exact: true }).fill('2026-12-07');
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await askSave(page, dated.label).click();
     await expect(page.getByRole('status').last()).toContainText(`Marked ${dated.label}.`);
     await expect.poll(async () => { const l = await a16One(name); return `${l.status}|${l.status_date}`; }).toBe('call-back|2026-12-07');
   });
