@@ -225,6 +225,14 @@ address with map pin), the counter, the locked style, the fills-itself note, the
 (Save, Preview, History), the history list and compare view, the publish sheet, the checks list, the empty states ("No
 articles yet. Add your first one."), the agent view (fewer groups, Add only where allowed).
 
+#### 1.4m Photos and files (the media library, book row B14)
+| Id | Slice | Element | What it does |
+|---|---|---|---|
+| DP-1.4m-01 | 5.4 | List: Photos and files | opens the library under the list |
+| DP-1.4m-02 | 5.4 | The library "Photos and files": one row per file of the business (a member: its own uploads), newest first, its picture and "1600 px wide" ("Preparing sizes" until it is processed); none yet: "No photos yet. Add one in an item's photo slot." | from `media` |
+| DP-1.4m-03 | 5.4 | A file's problems, one line each: "No alt text in <item> (<field>)", "No rights tick in <item> (<field>)", "Too small for <item> (<field>): 900 px wide, needs 1600" | the publish checks (contracts/validate.mjs checkImage) on each item's newest version |
+| DP-1.4m-04 | 5.4 | "Used in 1 place" or "Used in 2 places", every use counted; each item this person can open, with its field, as a link ("Not used" when none) | opens the editor on that field (`?field=`) |
+
 ### 1.5 Preview of a change (section 2 has the engineering)
 | Id | Slice | Element | Click | What happens |
 |---|---|---|---|---|

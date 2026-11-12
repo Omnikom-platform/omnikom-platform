@@ -133,6 +133,9 @@ export function SiteLayout() {
             {settingsRow && draftRows.has(settingsRow.id) && <> <mark data-plan="DP-1.4-17">changed</mark></>}
           </section>
         )}
+        <section className={css.group}>
+          <Link to="/w/$ws/site/media" params={{ ws }} data-plan="DP-1.4m-01">Photos and files</Link>
+        </section>
       </div>
 
       <Outlet />

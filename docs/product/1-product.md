@@ -83,7 +83,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B11 Publish history and restore the site | PARTLY | Past publishes on the Site screen (owners and staff: each finished publish, live or not, with its checks; DP-1.4c-07) and putting the site back to one (DP-1.4c-08): its content saved as new versions and published, nothing deleted (D:pages/PublishHistory.tsx, D:lib/site.ts, vitest); staging UNPROVEN until the head's flow. Items added since stay on the site; deleted items stay deleted |
 | B12 Take an item off the site, delete an item | PARTLY | Delete: the editor's Delete (owner and staff; DP-1.4-21, -23; D:pages/Editor.tsx, D:lib/site.ts, vitest) and F:unpublish (supabase/functions/test/unpublish.test.ts): off the Site list at once, off the live site at the next publish, versions kept; staging 2026-11-12: F:unpublish deployed and the flow "B12 delete an item" (`apps/dashboard/tests/site.spec.ts`) 1 passed, watched red with FLOWS_MUTANT=delete-lost; what the deleted item's address answers after a publish is UNPROVEN. Missing: take off the site without deleting; and a delete alone is not a waiting change, so with nothing else waiting the item stays on the live site until the next publish |
 | B13 Photo upload (rights, alt, sizes, EXIF stripped) | WORKS | the photo slot (`apps/dashboard/src/pages/Widgets.tsx`) to the published page: staging flows 2026-11-12 (`apps/dashboard/tests/media.spec.ts` "B13", 1 passed; watched red with FLOWS_MUTANT=photo-lost): drawn by the test, uploaded at 390 px, saved with its alt text, processed by `.github/workflows/media.yml`, published, served by the preview as a WebP file under its workspace's media path; EXIF and GPS removal and sizes: `factory/runner/test/run.mjs`; the rights tick and an unready photo refused: `supabase/functions/test/upload.test.ts`, `supabase/functions/test/publish.test.ts` |
-| B14 Media library | MISSING | |
+| B14 Media library | PARTLY | the library: D:pages/MediaLibrary.tsx with D:lib/media.ts (vitest): every file with its problems where used and a link to each use. Replace and delete MISSING; the flow UNPROVEN (the head's run) |
 | B15 Preview a change before publishing | PARTLY | the instant frame: Preview in the editor draws this page with the draft as typed, by the factory's own renderer (factory/lib/render.mjs) in a browser worker, in a sandboxed frame with the changed section outlined, phone or laptop width, photos through signed links (DP-1.4-18, DP-1.5-01, -02, -04; D:pages/Frame.tsx, D:lib/frame.ts, vitest); staging UNPROVEN until the head's flow. Not built: the preview site (B15-b) |
 | B16 Settings: lead alert addresses | WORKS | F:settings-save (alerts only) and the Lead alerts card (D:pages/SettingsAlerts.tsx: up to 10 per site, the agent tick, one Save, the leave question); staging 2026-11-09 from the settings branch: owner-a edits the addresses and reads them back, a bad line shows its inline error, the card shows the service role's own read |
 | B17 Settings: team list, invite, remove | WORKS | F:team-list, F:invite-member, F:member-remove (M17 `list_members`; remove is `remove_member`), and the People card (D:pages/SettingsPeople.tsx). Remove refuses the last owner; a removed person's next request is refused by the wall, open sessions are not ended (Supabase Auth has no admin logout by user id). No role-change control: inviting an existing member as owner sets the role. staging 2026-11-09 from the settings branch: `supabase/tests/e2e-settings.mjs` 0 problems (list, last-owner 409, remove, the wall after removal) and the card shows the service role's people; staging 2026-11-12: the invite flow (`apps/dashboard/tests/flows.spec.ts` "owner-a invites a person ...", which removes the person again in a finally) 1 passed with SETTINGS_INVITE_EMAIL the test inbox, the sentence "Invite sent to <email>." checked (seen red with FLOWS_MUTANT=mail-not-sent), and Auth's mail reached that inbox and its link opened once into the business |
@@ -157,11 +157,11 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | Part | WORKS | PARTLY | MISSING | Rows |
 |---|---|---|---|---|
 | A CRM | 26 | 0 | 0 | 26 |
-| B Dashboard | 15 | 5 | 2 | 22 |
+| B Dashboard | 15 | 6 | 1 | 22 |
 | C Backend and database | 15 | 2 | 0 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
 | E Hardening | 8 | 11 | 2 | 21 |
-| Total | 74 | 18 | 4 | 96 |
+| Total | 74 | 19 | 3 | 96 |
 
 Completion is reported from these counts only.
 

@@ -11,6 +11,7 @@ import { AddLead } from './pages/AddLead';
 import { ImportLeads } from './pages/ImportLeads';
 import { SiteLayout, NoItemChosen } from './pages/SiteLayout';
 import { Editor } from './pages/Editor';
+import { MediaLibrary } from './pages/MediaLibrary';
 import { Settings } from './pages/Settings';
 import { NotFound } from './pages/NotFound';
 import { parseAddress } from './lib/views';
@@ -85,6 +86,7 @@ const itemRoute = createRoute({
   validateSearch: (s: Record<string, unknown>): { field?: string } => (typeof s.field === 'string' && s.field ? { field: s.field } : {}),
   component: Editor,
 });
+const mediaRoute = createRoute({ getParentRoute: () => siteRoute, path: 'media', component: MediaLibrary });
 
 const settingsRoute = createRoute({ getParentRoute: () => wsRoute, path: 'settings', component: Settings });
 
@@ -100,7 +102,7 @@ const routeTree = rootRoute.addChildren([
   confirmRoute,
   authedRoute.addChildren([
     workspacesRoute,
-    wsRoute.addChildren([wsIndexRoute, leadsRoute.addChildren([leadsIndexRoute, addLeadRoute, importRoute, leadRoute]), siteRoute.addChildren([siteIndexRoute, itemRoute]), settingsRoute]),
+    wsRoute.addChildren([wsIndexRoute, leadsRoute.addChildren([leadsIndexRoute, addLeadRoute, importRoute, leadRoute]), siteRoute.addChildren([siteIndexRoute, mediaRoute, itemRoute]), settingsRoute]),
   ]),
 ]);
 

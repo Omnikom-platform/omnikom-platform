@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 898,
+    "sources": 899,
     "unowned": 0
   },
   "files": [
@@ -67,6 +67,7 @@
     {"path":"apps/dashboard/src/pages/LeadTasks.tsx","owner":"platform-build","exports":["LeadTasks"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/Leads.tsx","owner":"platform-build","exports":["LeadsLayout","NoLeadChosen"],"tests":["apps/dashboard/src/ErrorScreen.test.tsx","apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/Login.tsx","owner":"platform-build","exports":["Login"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
+    {"path":"apps/dashboard/src/pages/MediaLibrary.tsx","owner":"platform-build","exports":["MediaLibrary"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/NotFound.tsx","owner":"platform-build","exports":["NotFound"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/Overview.tsx","owner":"platform-build","exports":["Overview"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/PublishHistory.tsx","owner":"platform-build","exports":["PublishHistory"],"tests":[],"feature":""},

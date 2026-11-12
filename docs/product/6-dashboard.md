@@ -81,7 +81,7 @@ without moving what is live. Before and after screenshots at 390 and 1366 px com
 
 - Upload in the editor: JPG, PNG or WebP; rights tick and alt text required; the processor strips EXIF and GPS and makes 2400,
   1600 and 800 px WebP; an original under 800 px wide is refused ("This photo is 900 px wide; this spot needs 1600.").
-- Media library (MISSING): every file with its problems flagged (no alt, too small, no rights), where it is used, replace
+- Media library (PARTLY: replace and delete MISSING): every file with its problems flagged (no alt, too small, no rights), where it is used, replace
   everywhere, delete only when unused.
 
 ## Settings

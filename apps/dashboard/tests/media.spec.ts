@@ -75,3 +75,62 @@ test.describe('B13 a photo from the editor to the published site', () => {
     }
   });
 });
+
+/** A file record made by upload-start, the way the dashboard starts an upload (the file itself is not sent: the library reads the record). */
+async function mediaRecord(token: string, name: string): Promise<string> {
+  const r = await callAs(token, 'upload-start', { workspace: WS.a.id, filename: name, bytes: 1000, mime: 'image/png' });
+  expect(r.status, `upload-start answered: ${r.text.slice(0, 120)}`).toBe(200);
+  return (r.json as { media: string }).media;
+}
+
+test.describe('B14-a2 the media library lists a photo with its problems and where it is used', () => {
+  test.use({ storageState: '.auth/owner-a.json', viewport: { width: 390, height: 844 } });
+  test('a photo of a draft listing with no alt text and no rights tick is flagged, and its use opens the editor on it', async ({ page }) => {
+    await installMediaMutant(page, 'library-rights');
+    const token = await personAccessToken('owner-a');
+    const street = `b14 ${RUN} photo`;
+    const media = await mediaRecord(token, `b14-${RUN}.png`);
+    const made = await callAs(token, 'save', { workspace: WS.a.id, collection: 'listings', row: null, data: { street, photos: [{ asset: media }] } });
+    expect(made.status, `the draft listing was saved: ${made.text.slice(0, 120)}`).toBe(200);
+    const row = (made.json as { row: string }).row;
+    try {
+      await page.goto(`/w/${WS.a.slug}/site`);
+      await page.getByRole('link', { name: 'Photos and files', exact: true }).click();
+      const problems = page.locator(`li[data-media="${media}"] [data-plan="DP-1.4m-03"]`);
+      await expect(problems).toContainText(`No alt text in ${street} (Photos)`);
+      await expect(problems, 'the rights tick is read from the record').toContainText(`No rights tick in ${street} (Photos)`);
+      await ok(page, { required: ['DP-1.4m-01', 'DP-1.4m-02', 'DP-1.4m-03', 'DP-1.4m-04'] });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'no sideways scroll at 390 px').toBe(true);
+      await page.locator(`li[data-media="${media}"]`).getByRole('link', { name: `${street} (Photos)` }).click();
+      await expect(page).toHaveURL(u => u.pathname.endsWith(`/site/listings/${row}`) && u.searchParams.get('field') === 'photos[0]');
+      await expect(page.locator('[data-plan="DP-1.4-11"][data-path="photos[0]"]'), 'the editor opens on that photo').toBeVisible();
+    } finally {
+      const gone = await removeRows([row]);
+      expect(gone[0]?.ok, `the draft listing must be removed: ${gone[0]?.message}`).toBe(true);
+    }
+  });
+});
+
+test.describe('B14-a2 a member sees its own uploads in the library and no one else\'s', () => {
+  test.use({ storageState: '.auth/member-a1.json', viewport: { width: 390, height: 844 } });
+  test('the member\'s own record is listed and the owner\'s is not; a use in an item it cannot open is counted, not named', async ({ page }) => {
+    await installMediaMutant(page, 'library-all'); await installMediaMutant(page, 'library-hidden');
+    const owner = await personAccessToken('owner-a'), own = await mediaRecord(await personAccessToken('member-a1'), `b14-${RUN}-member.png`);
+    const owners = await mediaRecord(owner, `b14-${RUN}-owner.png`);
+    const made = await callAs(owner, 'save', { workspace: WS.a.id, collection: 'listings', row: null, data: { street: `b14 ${RUN} hidden`, photos: [{ asset: own }] } });
+    expect(made.status, `the owner's draft listing holds the member's file: ${made.text.slice(0, 120)}`).toBe(200);
+    try {
+      await page.goto(`/w/${WS.a.slug}/site`);
+      await page.getByRole('link', { name: 'Photos and files', exact: true }).click();
+      const mine = page.locator(`li[data-media="${own}"]`);
+      await expect(mine, 'its own upload is listed').toBeVisible();
+      await expect(page.locator(`li[data-media="${owners}"]`), 'the owner\'s upload is not listed').toHaveCount(0);
+      await expect(mine.locator('p[data-plan="DP-1.4m-04"]'), 'a use in an item it cannot open is counted').toHaveText('Used in 1 place');
+      await expect(mine.getByRole('link'), 'and not named').toHaveCount(0);
+      await ok(page, { required: ['DP-1.4m-01', 'DP-1.4m-02', 'DP-1.4m-04'] });
+    } finally {
+      const gone = await removeRows([(made.json as { row: string }).row]);
+      expect(gone[0]?.ok, `the owner's draft listing must be removed: ${gone[0]?.message}`).toBe(true);
+    }
+  });
+});

@@ -5,7 +5,7 @@ Every route in the product, in one place. "Now" means the route is in the code o
 
 ## User dashboard (`apps/dashboard/src/router.tsx`)
 
-One app, one magic-link sign-in. The CRM's routes sit under `leads`; the dashboard's under `site`, `media`, `publish` and
+One app, one magic-link sign-in. The CRM's routes sit under `leads`; the dashboard's under `site` (the media library too), `publish` and
 `settings`.
 
 | Route | Shows | State |
@@ -21,7 +21,7 @@ One app, one magic-link sign-in. The CRM's routes sit under `leads`; the dashboa
 | `/w/$ws/leads` with a saved view, the status board, import and export layout | CRM views, board, import and export | MISSING (routes decided with the screens) |
 | `/w/$ws/site` | pages and collections from the contract, the publish sheet | now |
 | `/w/$ws/site/$collection/$row` (`?field`) | the item editor with history | now |
-| `/w/$ws/media` | the media library | MISSING |
+| `/w/$ws/site/media` | the media library (a member: its own uploads) | now |
 | (no route) | publish history and restore | a sheet on the Site screen (B11) |
 | `/w/$ws/settings` | one Settings screen of cards | MISSING |
 | `/w/$ws/sites/$site/search` | the Search health page of a site (owner) | MISSING (book row B24; the numbers are on the Overview) |
