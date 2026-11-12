@@ -148,3 +148,16 @@ t('mail-events [E21] W5: without RESEND_WEBHOOK_SECRET the function is 500 CONFI
     assert((await rows(addr)).length === 0, 'nothing suppressed');
   } finally { Deno.env.set('RESEND_WEBHOOK_SECRET', SECRET); }
 });
+
+// The answer must come before any database connection; nothing in the database shows whether a connection was opened (the same as W5's check), so this asserts the
+// status, the code and that nothing is suppressed.
+t('mail-events [E21] W6: a secret that is not base64 answers 500 CONFIG', async () => {
+  const addr = 'e21-base64@example.test';
+  await messages([addr, 're_e21_7']);
+  try {
+    Deno.env.set('RESEND_WEBHOOK_SECRET', 'whsec_***');
+    const a = await post(event('email.bounced', 're_e21_7', 'Permanent'));
+    eq(a.status, 500, a.text); eq(a.json.code, 'CONFIG', 'the code');
+    assert((await rows(addr)).length === 0, 'nothing suppressed');
+  } finally { Deno.env.set('RESEND_WEBHOOK_SECRET', SECRET); }
+});

@@ -356,6 +356,7 @@ const MUTANTS = [
   ['E21 mail-events: a temporary bounce suppresses', F + 'mail-events/index.ts', "e?.data?.bounce?.type === 'Permanent'", 'true', 'mail-events.test.ts'],
   ['E21 mail-events: the body is not signed', F + 'mail-events/index.ts', '`${id}.${ts}.${body}`', '`${id}.${ts}.`', 'mail-events.test.ts'],
   ['E21 mail-events: a complaint suppresses for the whole platform', F + 'mail-events/index.ts', "e?.type === 'email.complained' ? 'complaint'", "e?.type === 'email.complained' ? 'bounce'", 'mail-events.test.ts'],
+  ['E21 mail-events: a secret that is not base64 is not refused', F + 'mail-events/index.ts', '  } catch { return null; }', '  } catch { return new Uint8Array(0); }', 'mail-events.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;

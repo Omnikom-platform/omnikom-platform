@@ -902,6 +902,7 @@ const MUTANTS = [
   ['events31: a bounce suppresses for one workspace only', "case when p_kind = 'bounce' then null else m.workspace_id end", 'm.workspace_id'],
   ['events31: an email id that is none of ours is not refused', '  if not found then return 0; end if;', ''],
   ['events31: the event suppresses nothing', "  perform service.suppress(case when p_kind = 'bounce' then null else m.workspace_id end, 'email', m.to_text, p_kind, 'resend webhook');", '  null;'],
+  ['events31: an erased address is suppressed', " and x.to_text not like 'erased:%'", ''],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

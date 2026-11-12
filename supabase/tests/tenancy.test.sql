@@ -3651,6 +3651,17 @@ do $$ begin
   assert not has_function_privilege('anon', 'service.mail_event(text,text)', 'execute') and not has_function_privilege('authenticated', 'service.mail_event(text,text)', 'execute'), 'T37d mail_event is closed to anon and authenticated';
   assert has_function_privilege('omnikom_fn', 'service.mail_event(text,text)', 'execute'), 'T37d the function role runs mail_event';
 end $$;
+-- (e) a message whose address was erased (migration 26 leaves to_text as 'erased:' and the sha256 of the old address, and keeps provider_id) is no message of ours:
+-- a bounce and then a complaint for it answer 0 and write no suppression, neither of the erased text nor of the address it was made from
+do $$ declare e text := 'erased:' || encode(sha256(convert_to('t37-e@example.test', 'utf8')), 'hex'); n0 int; begin
+  insert into public.messages (workspace_id, lead_id, channel, template, to_text, state, provider_id)
+    values ('aaaaaaaa-0000-0000-0000-000000000000', null, 'email', 'new-lead', e, 'sent', 're_t37_3');
+  n0 := (select count(*) from public.suppressions);
+  assert service.mail_event('re_t37_3', 'bounce') = 0, 'T37e a bounce for an erased address answers 0';
+  assert service.mail_event('re_t37_3', 'complaint') = 0, 'T37e a complaint for an erased address answers 0';
+  assert (select count(*) from public.suppressions) = n0, 'T37e and neither writes a suppression';
+  assert not exists (select 1 from public.suppressions where address_hash in (private.address_hash('email', e), private.address_hash('email', 't37-e@example.test'))), 'T37e no suppression of the erased text or of its old address';
+end $$;
 
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

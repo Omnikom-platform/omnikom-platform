@@ -6,7 +6,7 @@
 // message that Resend's email id names, never from the payload; a bounce suppresses it for the whole platform, a complaint for that message's workspace. Any other signed
 // event is answered 200 { handled: false }, so Resend does not send it again.
 // Keys by name only: RESEND_WEBHOOK_SECRET, SUPABASE_DB_URL.
-// Answers: 405 METHOD (not POST); 500 CONFIG (the secret missing, or the database role); 401 SIGNATURE (and a security event); 200 { handled: false } or
+// Answers: 405 METHOD (not POST); 500 CONFIG (the secret missing or not base64, or the database role); 401 SIGNATURE (and a security event); 200 { handled: false } or
 // { handled: true, suppressed: n } (n is 1 for an email id of ours, 0 for none); 500 SERVER. Tests: supabase/functions/test/mail-events.test.ts; the database side:
 // tenancy.test.sql T37.
 import { connect, ConfigError, recordEvent, type Sql } from '../_shared/db.ts';
@@ -22,10 +22,17 @@ function same(a: string, b: string): boolean {
   return diff === 0;
 }
 
-export async function svixValid(secret: string, id: string | null, ts: string | null, header: string | null, body: string, now = Math.floor(Date.now() / 1000)): Promise<boolean> {
+/** the key bytes: the base64 part of the secret after whsec_, or null when it is not base64 or is empty */
+export function secretBytes(secret: string): Uint8Array<ArrayBuffer> | null {
+  try {
+    const raw = Uint8Array.from(atob(secret.replace(/^whsec_/, '')), c => c.charCodeAt(0));
+    return raw.length ? raw : null;
+  } catch { return null; }
+}
+
+export async function svixValid(key: Uint8Array<ArrayBuffer>, id: string | null, ts: string | null, header: string | null, body: string, now = Math.floor(Date.now() / 1000)): Promise<boolean> {
   if (!id || !ts || !header || !/^\d{1,12}$/.test(ts) || Math.abs(now - Number(ts)) > TOLERANCE_S) return false;
-  const raw = Uint8Array.from(atob(secret.replace(/^whsec_/, '')), c => c.charCodeAt(0));
-  const k = await crypto.subtle.importKey('raw', raw, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const k = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const mac = new Uint8Array(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(`${id}.${ts}.${body}`)));
   let bin = '';
   for (const b of mac) bin += String.fromCharCode(b);
@@ -39,10 +46,12 @@ export async function handle(req: Request): Promise<Response> {
   if (req.method !== 'POST') return problem(405, 'METHOD', 'POST only.');
   const secret = Deno.env.get('RESEND_WEBHOOK_SECRET');
   if (!secret) return problem(500, 'CONFIG', 'Not configured.');
+  const key = secretBytes(secret);
+  if (!key) return problem(500, 'CONFIG', 'Not configured.');
   const body = await req.text();
   let sql: Sql | null = null;
   try {
-    const ok = await svixValid(secret, req.headers.get('svix-id'), req.headers.get('svix-timestamp'), req.headers.get('svix-signature'), body);
+    const ok = await svixValid(key, req.headers.get('svix-id'), req.headers.get('svix-timestamp'), req.headers.get('svix-signature'), body);
     sql = await connect();
     if (!ok) {
       await recordEvent(sql, 'bad-signature', 'SIGNATURE', { fn: 'mail-events' });
