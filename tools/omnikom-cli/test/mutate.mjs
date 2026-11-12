@@ -818,6 +818,12 @@ const MUTANTS = [
   ["[toolkit] heavy: the adapter runs one job at a time", "lib/heavy.mjs", "const r = await runner(process.execPath, args, { cwd, env, timeout: timeoutMs });", "const r = await (globalThis.heavyQueue = (globalThis.heavyQueue || Promise.resolve()).then(() => runner(process.execPath, args, { cwd, env, timeout: timeoutMs })));", 'unit'],
   ["[toolkit] heavy: a lock wait that ran out is not BLOCKED", "lib/heavy.mjs", "if (r.status === 75 && line) throw new Blocked(", "if (false) throw new Blocked(", 'unit'],
   ["[toolkit] desktop: any script name is run", "lib/desktop.mjs", "if (!DESKTOP_SCRIPTS.includes(script)) throw new Usage(", "if (false) throw new Usage(", 'unit'],
+  // ---- the session kinds (P3.2 B2)
+  ['[session-check] the lane runs at high effort', 'sessions/kinds.json', '"lane": { "model": "claude-fable-5-2", "effort": "xhigh"', '"lane": { "model": "claude-fable-5-2", "effort": "high"', 'unit'],
+  ['[session-check] the head\'s window is not 600000', 'sessions/kinds.json', '"head": { "model": "claude-fable-5-2", "effort": "xhigh", "window": 600000', '"head": { "model": "claude-fable-5-2", "effort": "xhigh", "window": 200000', 'unit'],
+  ['[session-check] a headless helper has Remote Control on', 'sessions/kinds.json', '"remoteControl": false', '"remoteControl": true', 'unit'],
+  ['[session-check] a headless start has no turn limit', 'sessions/kinds.json', '"maxTurns": 200, ', '', 'unit'],
+  ['[session-check] the headless settings file holds a second key', 'sessions/headless-helper.settings.json', '{"remoteControlAtStartup": false}', '{"remoteControlAtStartup": false, "model": "claude-fable-5-2"}', 'unit'],
 ];
 
 const list = pickMutants(shardMutants(MUTANTS, shard), only);   // sharded by the index in the whole list, then narrowed by --only

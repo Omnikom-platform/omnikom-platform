@@ -1,0 +1,4 @@
+{ "note": "Each kind of session and headless helper (P3.2 section 2; RULINGS-1 rows 12 and 24). A headless helper takes model and effort from its job. maxTurns and timeoutMinutes are PROVISIONAL, not measured. Read by commands/session.mjs and commands/helper.mjs; checked by test/session-check.mjs.",
+  "head": { "model": "claude-fable-5-2", "effort": "xhigh", "window": 600000, "remoteControl": true, "permissionMode": "bypassPermissions", "nameForm": "HEAD-OF-OPERATIONS_<Model>_<date>" },
+  "lane": { "model": "claude-fable-5-2", "effort": "xhigh", "window": 600000, "remoteControl": true, "permissionMode": "bypassPermissions", "nameForm": "LANE_<area>_<date>" },
+  "helper": { "window": 600000, "remoteControl": false, "permissionMode": "bypassPermissions", "maxTurns": 200, "timeoutMinutes": 120, "nameForm": "JOB_<job id>_<HHMM>" } }
