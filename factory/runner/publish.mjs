@@ -1,12 +1,14 @@
 // The publish runner (02-BACKEND section 7, 21-PROTOCOLS sections 1 to 3; brief factory/briefs/4-4-runner-and-workflows.md).
 // One publish job: fetch the export, download its media, build the site, judge it with the audit engine, deploy it to the
-// export's Pages project, smoke-test the address, tell the platform. Started by .github/workflows/publish.yml.
+// export's Pages project, smoke-test the deployment's own address by content hash and the site's address, roll a live deploy that fails the smoke
+// back to the deployment that was live before, tell the platform. Started by .github/workflows/publish.yml.
 //   node factory/runner/publish.mjs [--force-fail heading] [--no-deploy <dir>] [--work <dir>]
 //        [--smoke-url <url>] [--smoke-tries <n>] [--smoke-interval-ms <ms>]       (the last three exist for tests of the smoke step)
 // Environment, by name: JOB_ID, SITE_ID (the dispatch payload), PLATFORM_FUNCTIONS_BASE (https://<ref>.supabase.co/functions/v1),
 // RUNNER_KEY, CLOUDFLARE_PAGES_TOKEN, CLOUDFLARE_ACCOUNT_ID. Test hooks: OMNIKOM_REPO_ROOT, RUNNER_WRANGLER_SCRIPT,
 // RUNNER_FETCH_TIMEOUT_MS, RUNNER_RETRY_BACKOFF_MS, RUNNER_CF_API_BASE (the Cloudflare API address the lead-settings check reads),
 // RUNNER_BUSY_BACKOFF_MS (the first S-JOB-BUSY wait, default 30000; then x2, x4, x4 ...). RUNNER_BUSY_WAIT_MS (default 1200000) is the total S-JOB-BUSY wait.
+// RUNNER_SMOKE_DEPLOY_URL stands in for the deployment's own address (https://<hash>.<project>.pages.dev) in the smoke, which a --no-deploy run has none of.
 // Every child process (build, audit, wrangler) gets childEnv(): an allow list plus what that step needs, never this process's whole environment (H0-3).
 // Exit 0 only after `done` was answered 2xx. A failed run exits 1 after its `failed` callback was answered. 2 = usage / environment.
 // Every line printed goes through the scrubber (secret values, the project ref and signed-URL tokens never reach a log).
@@ -35,6 +37,10 @@ if (opts['force-fail'] !== undefined && opts['force-fail'] !== 'heading') { cons
 const env = process.env;
 const JOB_ID = env.JOB_ID, SITE_ID = env.SITE_ID, BASE = env.PLATFORM_FUNCTIONS_BASE, KEY = env.RUNNER_KEY;
 const CF_TOKEN = env.CLOUDFLARE_PAGES_TOKEN, CF_ACCOUNT = env.CLOUDFLARE_ACCOUNT_ID;
+const CF_API = env.RUNNER_CF_API_BASE || 'https://api.cloudflare.com/client/v4';
+// E8: Cloudflare's shapes, UNPROVEN against the real API (outside knowledge, no source in the repository): the project's live production deployment, and the call that makes a deployment live again.
+const liveDeploymentOf = (project) => (project && project.canonical_deployment && project.canonical_deployment.id) || null;
+const rollbackUrl = (target, id) => `${CF_API}/accounts/${CF_ACCOUNT}/pages/projects/${target}/deployments/${id}/rollback`;
 const scrub = makeScrubber([KEY, CF_TOKEN, CF_ACCOUNT, BASE], BASE || '');
 const out = (line) => console.log(scrub(line));
 const step = (name, result) => out(`STEP ${name}: ${result}`);
@@ -78,6 +84,14 @@ function treeHash(dir) {
 }
 
 const titleOf = (htmlText) => { const m = /<title>([^<]*)<\/title>/i.exec(htmlText); return m ? m[1] : null; };
+
+// E8: put back the deployment that was live before (one try, 30 s like the settings read); the words go into the failed job.
+async function rollBack(target, previous) {
+  if (!previous) return 'no earlier deployment to roll back to: the failed one stays live';
+  const r = await fetch(rollbackUrl(target, previous), { method: 'POST', headers: { authorization: `Bearer ${CF_TOKEN}` }, signal: AbortSignal.timeout(30000) }).catch(() => null);
+  const j = r ? await r.json().catch(() => null) : null;
+  return r && r.status === 200 && j && j.success === true ? `rolled back to deployment ${previous}` : `the rollback to ${previous} failed (${r ? `HTTP ${r.status}` : 'no answer'}): the failed deployment stays live`;
+}
 
 async function run() {
   const work = opts.work ? resolve(opts.work) : mkdtempSync(join(tmpdir(), `omnikom-publish-${JOB_ID.slice(0, 8)}-`));
@@ -178,15 +192,17 @@ async function run() {
 
   // ---- 4b the lead function ships with every deploy and answers 503 "not configured" without its three settings (5-L round 2):
   // read the target project's settings (names only) for the environment this deploy lands in and stop at gating if one is missing
+  let previous = null;   // E8: the production deployment live before this deploy (liveDeploymentOf)
   if (!opts['no-deploy']) {
     const envName = branch === 'main' ? 'production' : 'preview';
     let cf = null, cfJson = null;
     for (let n = 1; n <= 3 && !(cf && cf.status < 500); n++) {   // a dropped connection or a 5xx is tried again (like platform.call); a 4xx is an answer
       if (n > 1) await new Promise((r) => setTimeout(r, numEnv('RUNNER_RETRY_BACKOFF_MS', 1000) * n));
-      cf = await fetch(`${env.RUNNER_CF_API_BASE || 'https://api.cloudflare.com/client/v4'}/accounts/${CF_ACCOUNT}/pages/projects/${target}`, { headers: { authorization: `Bearer ${CF_TOKEN}` }, signal: AbortSignal.timeout(30000) }).catch(() => null);
+      cf = await fetch(`${CF_API}/accounts/${CF_ACCOUNT}/pages/projects/${target}`, { headers: { authorization: `Bearer ${CF_TOKEN}` }, signal: AbortSignal.timeout(30000) }).catch(() => null);
       cfJson = cf ? await cf.json().catch(() => null) : null;
     }
     if (!cf || cf.status !== 200 || !cfJson || cfJson.success === false || !cfJson.result) throw new Stop(`lead endpoint settings could not be read from the ${target} project (${cf ? `HTTP ${cf.status}` : 'no answer'}): nothing was deployed`, { project: target, environment: envName });
+    previous = liveDeploymentOf(cfJson.result);
     const have = Object.keys((cfJson.result.deployment_configs && cfJson.result.deployment_configs[envName] && cfJson.result.deployment_configs[envName].env_vars) || {});
     const lacking = LEAD_SETTINGS.filter((n) => !have.includes(n));
     if (lacking.length) throw new Stop(`lead endpoint not configured: the ${target} ${envName} environment lacks ${lacking.join(', ')}; nothing was deployed`, { project: target, environment: envName, missing: lacking });
@@ -223,10 +239,12 @@ async function run() {
   }
   step('deploying', `${branch} deployment ${deployId}${deployUrl ? ` at ${deployUrl}` : ' (local, nothing sent to Cloudflare)'}`);
 
-  // ---- 6 smoke: the fixed address answers 200, a preview says noindex, a live site does not, the page is the one we built
+  // ---- 6 smoke: the deployment's own address serves the bytes we built (sha256 of the home page); the fixed address answers 200, a preview says noindex, a live site does not, the page is the one we built
   const isLive = exp.site.state === 'live';
   const smokeUrl = opts['smoke-url'] || (isLive ? (exp.site.domain ? `https://${exp.site.domain}/` : `https://${target}.pages.dev/`) : `https://preview.${target}.pages.dev/`);
   const wantTitle = titleOf(readFileSync(join(dist, 'index.html'), 'utf8'));
+  const wantHash = createHash('sha256').update(readFileSync(join(dist, 'index.html'))).digest('hex');
+  const ownUrl = env.RUNNER_SMOKE_DEPLOY_URL || deployUrl;   // the deployment's own address (a test hook stands in for it)
   const tries = Number(opts['smoke-tries'] || 6), gap = Number(opts['smoke-interval-ms'] || 10000);
   let smokeWhy = 'never answered';
   let smokeOk = false;
@@ -234,18 +252,21 @@ async function run() {
     try {
       const res = await fetch(smokeUrl, { redirect: 'follow', headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(15000) });
       const body = await res.text();
+      const own = await fetch(ownUrl, { redirect: 'follow', headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(15000) });
+      const ownHash = createHash('sha256').update(Buffer.from(await own.arrayBuffer())).digest('hex');
       const robots = res.headers.get('x-robots-tag') || '';
       if (res.status !== 200) smokeWhy = `HTTP ${res.status}`;
       else if (!isLive && !/noindex/i.test(robots)) smokeWhy = 'a preview must answer x-robots-tag noindex';
       else if (isLive && /noindex/i.test(robots)) smokeWhy = 'a live site answered x-robots-tag noindex';
       else if (wantTitle === null || !body.includes(`<title>${wantTitle}</title>`)) smokeWhy = 'the page is not the one that was built (title differs)';
+      else if (ownHash !== wantHash) smokeWhy = "the deployment's own address does not serve the page that was built (content hash differs)";
       else smokeOk = true;
     } catch (e) { smokeWhy = e && e.name === 'TimeoutError' ? 'timeout' : 'no answer'; }
     out(`  smoke ${n} of ${tries}: ${smokeOk ? 'ok' : smokeWhy}`);
     if (!smokeOk && n < tries) await new Promise((r) => setTimeout(r, gap));
   }
-  if (!smokeOk) throw new Stop('deployed but smoke failed', { ...gateReport, deployId, deployUrl, smoke: smokeWhy });
-  step('smoke', `${smokeUrl} answers 200${isLive ? '' : ' with noindex'}, title matches`);
+  if (!smokeOk) throw new Stop(`deployed but smoke failed${branch === 'main' && !opts['no-deploy'] ? `; ${await rollBack(target, previous)}` : ''}`, { ...gateReport, deployId, deployUrl, smoke: smokeWhy });
+  step('smoke', `${smokeUrl} answers 200${isLive ? '' : ' with noindex'}, title and content hash match`);
 
   // ---- 7 done
   await callback('done', { deployId, gateReport });

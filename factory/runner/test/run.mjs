@@ -12,7 +12,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { startFake } from './lib/fake-platform.mjs';
+import { CANONICAL, startFake } from './lib/fake-platform.mjs';
 import { GPS_BYTES, gpsTiff, webpChunks, webpSize, withExif } from './lib/exif.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -90,13 +90,15 @@ async function runPublish(o = {}) {
   const smoke = ['--smoke-url', `${fake.origin}/site/`, '--smoke-tries', String(o.smokeTries ?? 2), '--smoke-interval-ms', '40'];
   const args = o.args ? o.args({ deployDir, work, smoke }) : ['--no-deploy', deployDir, '--work', work, ...smoke];
   const env = { ...BASE_ENV, JOB_ID: JOB, SITE_ID: SITE, PLATFORM_FUNCTIONS_BASE: fake.base, RUNNER_KEY, CLOUDFLARE_PAGES_TOKEN: CF_TOKEN, CLOUDFLARE_ACCOUNT_ID: CF_ACCOUNT,
-    OMNIKOM_REPO_ROOT: REPO, RUNNER_RETRY_BACKOFF_MS: '20', RUNNER_CF_API_BASE: `${fake.origin}/cf`, ...(o.env || {}) };
+    OMNIKOM_REPO_ROOT: REPO, RUNNER_RETRY_BACKOFF_MS: '20', RUNNER_CF_API_BASE: `${fake.origin}/cf`, RUNNER_SMOKE_DEPLOY_URL: `${fake.origin}/deploy/`, ...(o.env || {}) };
   for (const k of o.unset || []) delete env[k];
   const r = await spawnNode(join(RUNNER, 'publish.mjs'), args, env, o.timeoutMs || 180000);
   await fake.close();
   const states = fake.log.callbacks.map((c) => c.body.state);
   return { ...r, fake, log: fake.log, dir, deployDir, work, states, last: fake.log.callbacks[fake.log.callbacks.length - 1] };
 }
+const LIVE = (e) => { e.site.state = 'live'; e.site.domain = 'demo-a.example'; };   // a live site (E8): deployed to main, judged as production
+const NOT_BUILT = (h) => h + '\n<!-- not the build -->';   // the served page is not the built one, and its title is the same (E8)
 
 // ================= 1. the signature =================
 if (on('signature')) {
@@ -178,6 +180,7 @@ await check('full run: the deploy folder holds the built site (index.html, _head
 });
 await check('full run: the media file was downloaded from the signed URL the export carried', () => full.log.downloads.some((d) => d.startsWith('/storage/object/sign/media/logo.png?token=')) || JSON.stringify(full.log.downloads));
 await check('full run: smoke asked the fixed address', () => full.log.siteHits.length >= 1 && full.log.siteHits[0] === '/site/');
+await check("full run (E8): smoke also asked the deployment's own address", () => full.log.deployHits[0] === '/deploy/' || JSON.stringify(full.log.deployHits));
 await check('full run: no secret, no signed-URL token and no project ref in anything printed', () =>
   !full.out.includes(RUNNER_KEY) && !full.out.includes(CF_TOKEN) && !full.out.includes(CF_ACCOUNT) && !full.out.includes('SIGNEDTOKEN123') || 'a secret reached the output');
 
@@ -215,6 +218,7 @@ await check('child env: the build still gets what it needs to start (PATH)', () 
 }
 // ================= 4. the deploy command, with a fake wrangler =================
 if (on('wrangler')) {
+const CFP = `/cf/accounts/${CF_ACCOUNT}/pages/projects/test-site-demo-a`;
 // The fake is started through a per-run wrapper: it records the names in the environment wrangler was given, THEN adds the fake's own
 // settings (a smaller environment no longer carries FAKE_* names) and imports the fake itself.
 async function wranglerRun(o = {}) {
@@ -292,6 +296,25 @@ await check('deploy: the default command is npx --yes wrangler@<exact version> (
   const src = readFileSync(join(RUNNER, 'publish.mjs'), 'utf8');
   return /const WRANGLER_VERSION = '\d+\.\d+\.\d+';/.test(src) && src.includes("['--yes', `wrangler@${WRANGLER_VERSION}`, ...wargs]");
 });
+// ---- E8: a live deploy that fails its smoke goes back to the deployment that was live before (Pages makes a production deployment live the moment it exists)
+const rbLive = await wranglerRun({ exportMut: LIVE, cfg: { siteMutate: NOT_BUILT } });
+await check('rollback (E8): a live deploy whose smoke fails puts back the deployment that was live before, and the job fails saying so', () =>
+  rbLive.code === 1 && same(rbLive.states, ['gating', 'deploying', 'failed']) && rbLive.last.body.error === `deployed but smoke failed; rolled back to deployment ${CANONICAL}`
+  && same(rbLive.log.cfCalls.map((c) => [c.method, c.path]), [['GET', CFP], ['POST', `${CFP}/deployments/${CANONICAL}/rollback`]])
+  && rbLive.log.cfCalls.every((c) => c.auth === `Bearer ${CF_TOKEN}`) && !rbLive.out.includes(CF_TOKEN)
+  || `${rbLive.code} ${JSON.stringify(rbLive.states)} ${rbLive.last && rbLive.last.body.error} ${JSON.stringify(rbLive.log.cfCalls.map((c) => [c.method, c.path]))}`);
+const rbPreview = await wranglerRun({ cfg: { siteMutate: NOT_BUILT } });
+await check('rollback (E8): a preview that fails its smoke is not rolled back (Pages rolls back production only)', () =>
+  rbPreview.code === 1 && rbPreview.last.body.error === 'deployed but smoke failed' && rbPreview.log.cfCalls.length >= 1 && rbPreview.log.cfCalls.every((c) => c.method === 'GET')
+  || `${rbPreview.code} ${rbPreview.last && rbPreview.last.body.error} ${JSON.stringify(rbPreview.log.cfCalls.map((c) => c.method))}`);
+const rbFirst = await wranglerRun({ exportMut: LIVE, cfg: { siteMutate: NOT_BUILT, cf: { canonical: null } } });
+await check('rollback (E8): a first live deploy has nothing to roll back to and says so', () =>
+  rbFirst.code === 1 && rbFirst.last.body.error === 'deployed but smoke failed; no earlier deployment to roll back to: the failed one stays live' && rbFirst.log.cfCalls.every((c) => c.method !== 'POST')
+  || `${rbFirst.code} ${rbFirst.last && rbFirst.last.body.error} ${JSON.stringify(rbFirst.log.cfCalls.map((c) => c.method))}`);
+const rbRefused = await wranglerRun({ exportMut: LIVE, cfg: { siteMutate: NOT_BUILT, cf: { rollbackStatus: 403 } } });
+await check('rollback (E8): a rollback Cloudflare refuses is reported as failed, never as done', () =>
+  rbRefused.code === 1 && rbRefused.last.body.error === `deployed but smoke failed; the rollback to ${CANONICAL} failed (HTTP 403): the failed deployment stays live` && rbRefused.log.cfCalls.filter((c) => c.method === 'POST').length === 1
+  || `${rbRefused.code} ${rbRefused.last && rbRefused.last.body.error} ${JSON.stringify(rbRefused.log.cfCalls.map((c) => c.method))}`);
 
 }
 // ================= 5. the gate that must stop a bad build =================
@@ -446,6 +469,10 @@ await check('a live site (state live, domain set) builds, deploys to main and pa
   const rec = JSON.parse(readFileSync(join(liveOk.work, 'deploy-record.json'), 'utf8'));
   return liveOk.code === 0 && rec.branch === 'main' && !/X-Robots-Tag/.test(readFileSync(join(liveOk.deployDir, '_headers'), 'utf8')) || `${liveOk.code} ${JSON.stringify(rec)}\n${liveOk.out.slice(-400)}`;
 });
+const notBuilt = await runPublish({ cfg: { siteMutate: NOT_BUILT } });
+await check("smoke (E8): the deployment's own address serving another page than the one built (same title) fails the run on the content hash, exit 1", () =>
+  notBuilt.code === 1 && same(notBuilt.states, ['gating', 'deploying', 'failed']) && notBuilt.last.body.error === 'deployed but smoke failed' && /content hash/.test(notBuilt.last.body.gateReport.smoke)
+  || `${notBuilt.code} ${JSON.stringify(notBuilt.states)} ${notBuilt.last && notBuilt.last.body.error} ${notBuilt.last && notBuilt.last.body.gateReport && notBuilt.last.body.gateReport.smoke}`);
 
 }
 // ================= 9. the callbacks =================

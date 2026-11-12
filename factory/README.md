@@ -116,7 +116,7 @@ The test site `sites/test-demo-a/` is synthetic ("Demo A"): `plan/` (sitemap.jso
 
 ## 5. Runner (slice 4.4): `factory/runner/`, `.github/workflows/`, `tools/github-secrets.mjs`
 Owner: the platform build department. The runner is the GitHub Actions side of a publish: it fetches the export, builds, judges the
-build with the audit engine, deploys to Cloudflare Pages, smoke-tests the address and tells the platform. Design: `docs/blueprint/02-BACKEND.md`
+build with the audit engine, deploys to Cloudflare Pages, smoke-tests the deployment by content hash, rolls a live deploy that fails back, and tells the platform. Design: `docs/blueprint/02-BACKEND.md`
 sections 5, 7, 8 and `21-PROTOCOLS.md` sections 1 to 3. It is proven against a FAKE platform and a FAKE wrangler; against the real Edge
 Functions and the real Cloudflare account it is UNPROVEN until slice 4.5.
 
@@ -131,11 +131,16 @@ node factory/runner/media.mjs                                                   
 - **publish.mjs steps**, each printed `STEP <name>: <result>`: `export` (GET, refuses a different site or job, a missing `sites/<slug>/design/`)
   -> `media` (downloads every signed URL of `media[]`; one that fails is only reported, the factory stops if a built row needs it) -> `build`
   (`factory/build.mjs`) -> `gating` (callback, then `tools/audit/run.mjs`; exit 1 = failed with the FAIL lines in `gateReport.audit.fails`)
-  -> `deploying` (callback, then `wrangler pages deploy`, branch `preview` unless the site is live, then `main`) -> `smoke` (the fixed address,
-  6 tries 10 s apart: 200, `x-robots-tag: noindex` on a preview and NOT on a live site, the built home page `<title>` in the body) -> `done`
+  -> `deploying` (callback, then `wrangler pages deploy`, branch `preview` unless the site is live, then `main`) -> `smoke` (both addresses, 6 tries
+  10 s apart: the site's fixed address answers 200, `x-robots-tag: noindex` on a preview and NOT on a live site, the built home page `<title>` in
+  the body; the deployment's own address `https://<hash>.<project>.pages.dev` serves bytes whose sha256 is that of the built `index.html`) -> `done`
   (callback with the deploy id and `{ factory: 'pass', audit: { exit: 0, fails: [] } }`). The export call already moved the job to `building`
   (`freeze_snapshot`), so there is no `building` callback. Every failure sends ONE `failed` callback (`error` = the short reason,
-  `gateReport.reason` the same) and exits 1; a 409 from any callback is printed and the run stops without sending more.
+  `gateReport.reason` the same) and exits 1; a 409 from any callback is printed and the run stops without sending more. A live site (branch
+  `main`) that fails the smoke is first rolled back, before that `failed` callback: Pages makes a production deployment live the moment it
+  exists, so the runner POSTs the Pages rollback to the deployment that was live before (read from the project's settings before the deploy, one
+  try, the runner's own token) and the `error` says `deployed but smoke failed; rolled back to deployment <id>` (or that there was none, or that
+  Cloudflare refused). A preview is never rolled back. The field and the call are UNPROVEN against the real API (`liveDeploymentOf`, `rollbackUrl`).
 - **Deploy.** `npx --yes wrangler@4.152.0 pages deploy <work>/dist --project-name <site.deploy_target> --branch <preview|main> --commit-dirty=true`
   run from `<work>/pages-root/`, which holds `functions/api/lead.js` and `lead-endpoint.mjs` (copied from `factory/worker/`) so the site's
   `/api/lead` travels with the deploy. wrangler gets `CLOUDFLARE_API_TOKEN` (= `CLOUDFLARE_PAGES_TOKEN`) and `CLOUDFLARE_ACCOUNT_ID` and
@@ -150,6 +155,7 @@ node factory/runner/media.mjs                                                   
   sizes, skipped }` (width and height are the oriented size). A PDF sends `{ media, kind: 'document' }`. An original narrower than 800 px is
   refused (nothing sent; publish refuses an unprocessed photo).
 - **Test hooks** (not for production): `OMNIKOM_REPO_ROOT`, `RUNNER_WRANGLER_SCRIPT`, `RUNNER_FETCH_TIMEOUT_MS`, `RUNNER_RETRY_BACKOFF_MS`,
+  `RUNNER_SMOKE_DEPLOY_URL` (stands in for the deployment's own address, which a `--no-deploy` run has none of),
   `--smoke-url`, `--smoke-tries`, `--smoke-interval-ms`; `--no-deploy <dir>` copies `dist/` there and invents the deploy id `local-<sha>`.
 - **Workflows** (`.github/workflows/`, every action pinned by SHA, `permissions: contents: read`, a timeout on every job, `.github/actionlint.yaml`
   ignores only actionlint 1.7.12's ignorance of `concurrency.queue`): `publish.yml` (repository_dispatch `publish` + a manual

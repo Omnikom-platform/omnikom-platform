@@ -87,7 +87,7 @@ sequenceDiagram
   R->>R: build the site, run the gates
   alt every gate passes
     R->>S: wrangler pages deploy to the site's own project
-    R->>R: smoke test (200, noindex on a preview, the home title)
+    R->>R: smoke test (the deployment by content hash, then the site: 200, noindex on a preview, the home title), a live site that fails is rolled back
   else a gate fails
     R-->>E: failed, with the reason in plain words; nothing deployed
   end
@@ -99,7 +99,7 @@ Rules of the pipeline:
 - One build per site at a time (`concurrency: site-<site_id>`, queue max); different sites build in parallel.
 - The snapshot is frozen when the build starts, so a rerun ships exactly the same content.
 - The runner refuses when the export's site or Pages project differs from the job's.
-- A failed job changes nothing live, and its versions are never shipped by a later job.
+- A failed job changes nothing live: a build that fails a gate is never deployed, and a live deploy that fails its smoke is rolled back to the deployment before it (a first live deploy has none); its versions are never shipped by a later job.
 - `reap_stale_jobs` fails a job idle 30 minutes in building, gating or deploying, or 24 hours queued.
 - Before deploying a site that has a lead form, the runner reads the site's Pages project settings and stops if `SITE_ID`,
   `SITE_SIGNING_KEY` or `PLATFORM_BASE` is missing.
@@ -116,7 +116,7 @@ private; a build copies only the media a snapshot row uses.
 | Workflow | Runs | Does |
 |---|---|---|
 | `ci.yml` | every push and pull request | the checks (`11-rules.md`): gates, factory, functions, audit, cli, dashboard, departments, secrets, workflows |
-| `publish.yml` | `repository_dispatch` publish, or by hand | export, build, audit gate, Pages deploy, smoke, callback |
+| `publish.yml` | `repository_dispatch` publish, or by hand | export, build, audit gate, Pages deploy, smoke, rollback of a failed live deploy, callback |
 | `media.yml` | `repository_dispatch` media | photo processing |
 | `keepalive.yml` | Mondays 06:00 UTC | one read-only CLI `status` so the free staging project is not paused |
 | `alerts.yml` | hourly | read-only alert queries on staging; sending is off until a sender exists |

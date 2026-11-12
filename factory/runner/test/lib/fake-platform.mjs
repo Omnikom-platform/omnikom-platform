@@ -7,6 +7,8 @@
 //   GET  /storage/...                               the media files (signed-URL stand-ins, with a ?token=)
 //   PUT  /storage/upload/...                        recorded bodies of the three WebP sizes
 //   GET  /site/...                                  the "deployed" folder (cfg.siteDir) with its _headers applied
+//   GET  /deploy/...                                the same folder, the same cfg: the deployment's own address (work order E8, RUNNER_SMOKE_DEPLOY_URL); hits in log.deployHits
+//   POST /cf/.../deployments/<id>/rollback          the Pages rollback of work order E8: 200 { success: true }, or cfg.cf.rollbackStatus with success false (the call is logged in log.cfCalls)
 // Every signed call is checked with the PLATFORM'S OWN verify (supabase/functions/_shared/signature.ts, run by Node's type stripping).
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync } from 'node:fs';
@@ -15,8 +17,10 @@ import { join, extname } from 'node:path';
 export const FUNCTIONS_PREFIX = '/functions/v1';
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.xml': 'application/xml', '.txt': 'text/plain', '.png': 'image/png', '.json': 'application/json' };
 
+export const CANONICAL = 'c0c0c0c0-0000-4000-8000-000000000001';   // the production deployment the fake project says is live (cfg.cf.canonical changes it, null = none)
+
 export async function startFake({ runnerKey, verify, cfg }) {
-  const log = { exportCalls: [], callbacks: [], mediaExports: [], mediaCallbacks: [], uploads: [], downloads: [], siteHits: [], cfCalls: [] };
+  const log = { exportCalls: [], callbacks: [], mediaExports: [], mediaCallbacks: [], uploads: [], downloads: [], siteHits: [], deployHits: [], cfCalls: [] };
   const server = createServer(async (req, res) => {
     const chunks = [];
     for await (const c of req) chunks.push(c);
@@ -63,12 +67,16 @@ export async function startFake({ runnerKey, verify, cfg }) {
       }
       if (u.pathname.startsWith('/cf/')) {   // Cloudflare: GET /cf/accounts/<account>/pages/projects/<name>; cfg.cf = { status, names: { preview: [...], production: [...] } }
         const c = cfg.cf || {};
-        log.cfCalls.push({ path: u.pathname, auth: req.headers.authorization });
+        log.cfCalls.push({ method: req.method, path: u.pathname, auth: req.headers.authorization });
+        if (req.method === 'POST' && u.pathname.endsWith('/rollback')) {
+          if (c.rollbackStatus) return send(c.rollbackStatus, { success: false, errors: [{ code: 8000000, message: 'refused by the fake' }] });
+          return send(200, { success: true, result: { id: u.pathname.split('/').slice(-2)[0] } });
+        }
         if (c.failFirst && log.cfCalls.length <= c.failFirst) return send(503, 'busy');
         if (c.status && c.status !== 200) return send(c.status, { success: false, errors: [{ code: 10000, message: 'Authentication error' }] });
         const names = c.names || { preview: ['SITE_ID', 'SITE_SIGNING_KEY', 'PLATFORM_BASE'], production: ['SITE_ID', 'SITE_SIGNING_KEY', 'PLATFORM_BASE'] };
         const vars = (list) => Object.fromEntries(list.map((n) => [n, n === 'SITE_SIGNING_KEY' ? { type: 'secret_text' } : { type: 'plain_text', value: 'LEAKCHECK-VALUE-' + n }]));
-        return send(200, { success: true, result: { name: u.pathname.split('/').pop(), deployment_configs: { preview: { env_vars: vars(names.preview) }, production: { env_vars: vars(names.production) } } } });
+        return send(200, { success: true, result: { name: u.pathname.split('/').pop(), canonical_deployment: 'canonical' in c ? (c.canonical && { id: c.canonical }) : { id: CANONICAL }, deployment_configs: { preview: { env_vars: vars(names.preview) }, production: { env_vars: vars(names.production) } } } });
       }
       if (u.pathname.startsWith('/storage/upload/') && req.method === 'PUT') {
         log.uploads.push({ path: u.pathname, search: u.search, type: req.headers['content-type'], body });
@@ -80,10 +88,11 @@ export async function startFake({ runnerKey, verify, cfg }) {
         if (!f) return send(404, 'not found');
         return send(200, f, { 'content-type': 'application/octet-stream' });
       }
-      if (u.pathname.startsWith('/site/')) {
-        log.siteHits.push(u.pathname);
+      if (u.pathname.startsWith('/site/') || u.pathname.startsWith('/deploy/')) {   // the site's address and the deployment's own address: one folder, one cfg
+        const at = u.pathname.startsWith('/deploy/') ? '/deploy/' : '/site/';
+        (at === '/deploy/' ? log.deployHits : log.siteHits).push(u.pathname);
         const status = cfg.siteStatus || 200;         // an error status still serves the real page and headers: only the status is wrong
-        const rel = u.pathname.slice('/site/'.length);
+        const rel = u.pathname.slice(at.length);
         let file = join(cfg.siteDir, rel);
         if (rel === '' || rel.endsWith('/')) file = join(file, 'index.html');
         if (!existsSync(file) || !statSync(file).isFile()) return send(404, 'not found');

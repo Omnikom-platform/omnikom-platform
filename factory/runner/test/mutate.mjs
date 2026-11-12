@@ -114,6 +114,14 @@ const ALL_MUTANTS = [
   ['secrets: a lowercase name is accepted', 'tools/github-secrets.mjs', "!/^[A-Z][A-Z0-9_]*$/.test(n) || n.startsWith('GITHUB_')", "n.startsWith('GITHUB_')", 'secrets'],
   ['secrets: a GITHUB_ name is accepted', 'tools/github-secrets.mjs', " || n.startsWith('GITHUB_')", '', 'secrets'],
   ['secrets: a failed set still exits 0', 'tools/github-secrets.mjs', 'process.exit(failed ? 1 : 0);', 'process.exit(0);', 'secrets'],
+  // E8: the deployment's own address by content hash, the rollback of a live deploy (book row E8, H1-6)
+  ['E8 publish: a failed live smoke is not rolled back', `${R}publish.mjs`, "branch === 'main' && !opts['no-deploy'] ?", 'false ?', 'wrangler'],
+  ['E8 publish: a failed preview smoke is rolled back too', `${R}publish.mjs`, "branch === 'main' && !opts['no-deploy'] ?", "!opts['no-deploy'] ?", 'wrangler'],
+  ['E8 publish: the rollback names another deployment', `${R}publish.mjs`, '/deployments/${id}/rollback', '/deployments/latest/rollback', 'wrangler'],
+  ['E8 publish: a refused rollback is reported as done', `${R}publish.mjs`, 'r && r.status === 200 && j && j.success === true ?', 'r ?', 'wrangler'],
+  ['E8 publish: the deployment live before is not read', `${R}publish.mjs`, 'previous = liveDeploymentOf(cfJson.result);', '', 'wrangler'],
+  ['E8 publish: no earlier deployment is rolled back anyway', `${R}publish.mjs`, "if (!previous) return 'no earlier deployment to roll back to: the failed one stays live';", '', 'wrangler'],
+  ['E8 publish: the own address is not compared by content hash', `${R}publish.mjs`, 'else if (ownHash !== wantHash) smokeWhy', 'else if (false) smokeWhy', 'smoke'],
 ];
 
 const ONLY = process.env.MUTANT_ONLY;   // a substring of the mutant names: only those run (a scoped run; the whole list is the CI run)
