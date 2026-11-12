@@ -102,7 +102,7 @@ try {
     invitedId = inv.json?.user ?? null;
     line(inv.status === 200 && inv.json?.invited === true && typeof inv.json?.email_sent === 'boolean' && typeof invitedId === 'string' && !/action_link|token|http/.test(inv.text),
       'invite-member is 200 { user, invited: true, email_sent: <Auth\'s answer> } and no link', `${inv.status} ${inv.text.slice(0, 200)}`);
-    info(`email_sent was ${inv.json?.email_sent} (true: Auth accepted the mail for ${createdLogin ? 'a NEW login: the invite mail' : 'an existing login: the sign-in mail'})`);
+    info(`email_sent was ${inv.json?.email_sent} (true: Auth accepted the mail for ${createdLogin ? 'a NEW login: the invite mail' : 'an existing login: the sign-in mail, or the invite again if it never opened its invite'})`);
   } else {
     console.log('SKIP: invite mail (C13) UNPROVEN: SETTINGS_INVITE_EMAIL not set');
     let directUrl = null;

@@ -95,7 +95,8 @@ export const fake = {
 export type AuthMail = { kind: 'invite' | 'otp'; authorized: boolean; email: string | null; data: Record<string, unknown> | null; create_user: boolean | null };
 export type Hook = { path: string; signature: string | null; contentType: string | null; body: string };
 export const hooks = {
-  async recorded(): Promise<{ hooks: Hook[]; redirected: number; authLinks: { authorized: boolean; type: string | null; email: string | null; data?: Record<string, unknown> | null }[]; authMails: AuthMail[] }> {
+  async recorded(): Promise<{ hooks: Hook[]; redirected: number; authLinks: { authorized: boolean; type: string | null; email: string | null; data?: Record<string, unknown> | null }[]; authMails: AuthMail[];
+    authReads: { id: string; authorized: boolean }[]; authUpdates: { id: string; authorized: boolean; user_metadata: Record<string, unknown> | null }[] }> {
     return await (await fetch(`${env('TEST_FAKE_BASE')}/__recorded`)).json();
   },
   /** the webhook answers this status; mode 'redirect' answers 302 to a second address whose hits are counted; delay in ms */
@@ -107,6 +108,10 @@ export const hooks = {
   /** Auth's admin invite will create this login (id and email, in this run's database, as GoTrue would) and answer its id, or fail with this status */
   async authUser(email: string, id: string, status = 200) {
     await (await fetch(`${env('TEST_FAKE_BASE')}/__auth-user?email=${encodeURIComponent(email)}&id=${id}&status=${status}&db=${encodeURIComponent(env('TEST_DB_URL'))}`, { method: 'POST' })).text();
+  },
+  /** Auth's record of a login that exists (S1-E): confirmed or not; its read and its user-data write answer these statuses (200 = fine) */
+  async login(id: string, o: { confirmed?: boolean; read?: number; update?: number } = {}) {
+    await (await fetch(`${env('TEST_FAKE_BASE')}/__auth-login?id=${id}&confirmed=${o.confirmed === false ? 0 : 1}&read=${o.read ?? 200}&update=${o.update ?? 200}`, { method: 'POST' })).text();
   },
 };
 /** A fetch that sends a call meant for https://<any host>/<path> to the fake webhook instead (the function's own code, with its own headers and options, runs unchanged). */

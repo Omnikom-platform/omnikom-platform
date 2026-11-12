@@ -1,6 +1,6 @@
 // invite-member (slice 5.2, mail by work order 08): find the login or create it through the Auth admin API (generate_link, invite: creates the user, sends nothing),
 // then service.set_member, then the mail: a new login gets Auth's invite mail (POST /auth/v1/invite with the inviter and the business as user data), an existing
-// one the sign-in mail (POST /auth/v1/otp, create_user false); email_sent is Auth's own answer. Auth is a fake of the harness that records every call and answers
+// one the sign-in mail (POST /auth/v1/otp, create_user false), an existing login that never opened its invite gets the invite again (S1-E); email_sent is Auth's own answer. Auth is a fake of the harness that records every call and answers
 // the id the test registered (the test inserts the auth.users row itself, as GoTrue does). The link in its answer carries a marker that must never appear in an answer.
 // Nothing here sends mail: the fake sends nothing.
 import { handle } from '../invite-member/index.ts';
@@ -51,6 +51,9 @@ t('invite-member: a person who already has a login is not created again; the rol
   eq((await hooks.recorded()).authLinks.length, 0, 'Auth was not asked to create anyone');
   const sent = await mails();
   eq(sent.length, 1, 'one mail call'); eq(sent[0].kind, 'otp', 'the sign-in mail, not the invite'); eq(sent[0].create_user, false, 'it creates no login'); eq(sent[0].data, null, 'no user data (Auth applies it only to a new login)'); eq(sent[0].email, 'existing-login@omnikom.test', 'to the address'); eq(sent[0].authorized, true, 'with the secret key');
+  const rec = await hooks.recorded();
+  eq(rec.authReads.length, 1, 'Auth was asked once whether the login is confirmed'); eq(rec.authReads[0]?.id, id, 'about this login');
+  eq(rec.authReads[0]?.authorized, true, 'with the secret key'); eq(rec.authUpdates.length, 0, 'a confirmed login keeps its user data');
   eq((await member(id))?.role, 'owner', 'an owner, as sent');
   const again = await invite('owner-a', { workspace: WS_A, email: 'existing-login@omnikom.test', role: 'member' });
   eq(again.status, 200, 'inviting again changes the role: ' + again.text); eq((await member(id))?.role, 'member', 'now a member');
@@ -121,4 +124,48 @@ t('invite-member: when Auth refuses the mail the person is still a member and th
   await hooks.mailStatus(200);
   const again = await invite('owner-a', { workspace: WS_A, email: 'mail-down@omnikom.test', role: 'member' });
   eq(again.json?.email_sent, true, 'when Auth answers again the mail goes');
+});
+
+t('invite-member: a login that exists but never opened its invite (not confirmed) gets the invite again, with this business and inviter put in its user data first; nothing is created', async () => {
+  await fake.reset();
+  const id = NEW_ID(6), address = 'never-opened@omnikom.test';
+  await mkAuthUser(id, address);
+  await hooks.login(id, { confirmed: false });
+  const r = await invite('owner-a', { workspace: WS_A, email: address, role: 'member' });
+  eq(r.status, 200, 'status: ' + r.text);
+  eq(JSON.stringify(r.json), JSON.stringify({ user: id, invited: true, email_sent: true }), 'exactly { user, invited: true, email_sent: true }');
+  const rec = await hooks.recorded();
+  eq(rec.authLinks.length, 0, 'Auth was not asked to create anyone');
+  eq(rec.authReads.length, 1, 'Auth was asked once whether the login is confirmed'); eq(rec.authReads[0]?.authorized, true, 'with the secret key');
+  eq(rec.authUpdates.length, 1, 'its user data was set once'); eq(rec.authUpdates[0]?.id, id, 'on this login'); eq(rec.authUpdates[0]?.authorized, true, 'with the secret key');
+  const facts = await expectedFacts(WS_A, SUB['owner-a']);
+  const put = rec.authUpdates[0]?.user_metadata;
+  eq(put?.inviter, facts.inviter, 'the inviter is put in its user data'); eq(put?.business, facts.business, 'and the business'); eq(Object.keys(put ?? {}).sort().join(), 'business,inviter', 'and nothing else');
+  const sent = rec.authMails;
+  eq(sent.length, 1, 'one mail call'); eq(sent[0].kind, 'invite', 'the invite mail, not the sign-in mail'); eq(sent[0].email, address, 'to the address'); eq(sent[0].authorized, true, 'with the secret key');
+  eq((await member(id))?.role, 'member', 'a member');
+});
+
+t('invite-member: when Auth cannot say whether a login is confirmed, it gets the sign-in mail as before and its user data is untouched', async () => {
+  await fake.reset();
+  const id = NEW_ID(7), address = 'unknown-state@omnikom.test';
+  await mkAuthUser(id, address);
+  await hooks.login(id, { confirmed: false, read: 500 });
+  const r = await invite('owner-a', { workspace: WS_A, email: address, role: 'member' });
+  eq(r.status, 200, 'status: ' + r.text); eq(r.json?.email_sent, true, 'the mail went');
+  const rec = await hooks.recorded();
+  eq(rec.authMails.length, 1, 'one mail call'); eq(rec.authMails[0].kind, 'otp', 'the sign-in mail, as before');
+  eq(rec.authUpdates.length, 0, 'its user data is untouched');
+});
+
+t('invite-member: when Auth refuses the user data of an unconfirmed login, no mail goes (it would name another business) and email_sent is false; the person is a member', async () => {
+  await fake.reset();
+  const id = NEW_ID(8), address = 'data-refused@omnikom.test';
+  await mkAuthUser(id, address);
+  await hooks.login(id, { confirmed: false, update: 500 });
+  const r = await invite('owner-a', { workspace: WS_A, email: address, role: 'member' });
+  eq(r.status, 200, 'status: ' + r.text); eq(r.json?.email_sent, false, 'no mail went'); eq(r.json?.invited, true, 'invited');
+  const rec = await hooks.recorded();
+  eq(rec.authUpdates.length, 1, 'Auth was asked to set the user data'); eq(rec.authMails.length, 0, 'and no mail was sent');
+  eq((await member(id))?.role, 'member', 'a member all the same');
 });

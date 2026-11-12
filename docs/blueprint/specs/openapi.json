@@ -3216,7 +3216,7 @@
      }
     ],
     "summary": "Invite a person to the workspace (dashboard; owner or staff; supabase/functions/invite-member)",
-    "description": "Finds the login with this email or creates it through the Auth admin API (no email is sent by that call), makes the person a member, then asks Auth to send the mail: a new login gets the invite mail (who invited them and to which business, from the user data), a login that already existed gets the sign-in link mail. email_sent is Auth's own answer; a mail that did not go does not undo the membership. Inviting the same address again finds the same login.",
+    "description": "Finds the login with this email or creates it through the Auth admin API (no email is sent by that call), makes the person a member, then asks Auth to send the mail: a new login gets the invite mail (who invited them and to which business, from the user data), a login that already existed and is confirmed gets the sign-in link mail, and one that never opened its invite gets the invite again, its user data set to this business and inviter first. email_sent is Auth's own answer; a mail that did not go does not undo the membership. Inviting the same address again finds the same login.",
     "requestBody": {
      "required": true,
      "content": {

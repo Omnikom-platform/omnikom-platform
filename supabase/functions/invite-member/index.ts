@@ -11,10 +11,12 @@
 //      409 S-LAST-OWNER; the audit row `member-set`).
 //   4. Only now the mail, so a refused invite sends nothing: a NEW login (made unconfirmed in step 2) gets Auth's invite mail (POST /auth/v1/invite with
 //      { email, data: { inviter, business } }; Auth resends the invite to an unconfirmed user, and answers 422 email_exists for a confirmed one; template
-//      DP-email-08 to 12 reads the user data as {{ .Data.inviter }} and {{ .Data.business }}); a login that already existed gets the normal
-//      sign-in link mail (POST /auth/v1/otp, create_user false). Auth's own answer decides: 200 { user, invited: true, email_sent: true | false }. A mail
-//      that did not go (Auth down, its rate limit) does not undo the membership: the person is a member and can ask for a sign-in link at /login.
-//      The existing login's mail cannot name the inviter or the business (Auth's user data applies only to a new login).
+//      DP-email-08 to 12 reads the user data as {{ .Data.inviter }} and {{ .Data.business }}); a login that already existed and is confirmed (Auth's
+//      record, GET /auth/v1/admin/users/<id>) gets the normal sign-in link mail (POST /auth/v1/otp, create_user false; it cannot name the inviter or the
+//      business); one that exists but never opened its invite gets the invite again, after this business and inviter are put in its user data
+//      (PUT /auth/v1/admin/users/<id>; when Auth refuses that, no mail: it would name another business). Auth unreadable: the sign-in mail.
+//      Auth's own answer decides: 200 { user, invited: true, email_sent: true | false }. A mail that did not go (Auth down, its rate limit) does not
+//      undo the membership: the person is a member and can ask for a sign-in link at /login.
 import { dashboard, badBody, type Ctx } from '../_shared/dashboard.ts';
 import { EMAIL, Fields, json, problem } from '../_shared/http.ts';
 
@@ -54,6 +56,35 @@ async function sendMail(email: string, isNew: boolean, data: Record<string, stri
   } catch (e) { console.error('invite: auth mail failed', String(e).slice(0, 120)); return false; }
 }
 
+/** Auth's own record of a login that exists: true when its address is confirmed, false when not, null when Auth did not answer
+ *  (GET /auth/v1/admin/users/<id>; GoTrue omits email_confirmed_at until the address is confirmed: supabase/auth models/user.go). */
+async function isConfirmed(id: string, fetchImpl: typeof fetch): Promise<boolean | null> {
+  const key = secretKey();
+  if (!base() || !key) return null;
+  try {
+    const r = await fetchImpl(`${base()}/auth/v1/admin/users/${id}`, { headers: { authorization: `Bearer ${key}`, apikey: key }, signal: AbortSignal.timeout(10000) });
+    if (!r.ok) { console.error('invite: auth user read answered', r.status); await r.body?.cancel(); return null; }
+    const j = await r.json();
+    return typeof j?.email_confirmed_at === 'string';
+  } catch (e) { console.error('invite: auth user read failed', String(e).slice(0, 120)); return null; }
+}
+
+/** Puts this business and inviter in the user data of a login that exists, so the invite mail names them: Auth's invite to an existing login
+ *  reads the data the login already holds (invite.go); PUT /auth/v1/admin/users/<id> merges user_metadata (user.go). True only when Auth took it. */
+async function setInviteData(id: string, data: Record<string, string>, fetchImpl: typeof fetch): Promise<boolean> {
+  const key = secretKey();
+  if (!base() || !key) return false;
+  try {
+    const r = await fetchImpl(`${base()}/auth/v1/admin/users/${id}`, {
+      method: 'PUT', headers: { authorization: `Bearer ${key}`, apikey: key, 'content-type': 'application/json' },
+      body: JSON.stringify({ user_metadata: data }), signal: AbortSignal.timeout(10000),
+    });
+    await r.body?.cancel();
+    if (!r.ok) console.error('invite: auth user data answered', r.status);
+    return r.ok;
+  } catch (e) { console.error('invite: auth user data failed', String(e).slice(0, 120)); return false; }
+}
+
 export function makeHandle(deps: AdminDeps = {}) {
   const fetchImpl = deps.fetchImpl ?? fetch;
   return async (req: Request): Promise<Response> => await dashboard(req, 'invite-member', async (c: Ctx, d) => {
@@ -75,7 +106,10 @@ export function makeHandle(deps: AdminDeps = {}) {
       if (!user) return problem(502, 'AUTH', 'Could not create the login right now. Please try again.');
     }
     await c.sql`select service.set_member(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${user}::uuid, ${role}::public.member_role, ${team}::uuid)`;
-    const emailSent = await sendMail(email, isNew, data, fetchImpl);
+    // A login that exists but never opened its invite (not confirmed) gets the invite again, naming this business: Auth refuses it the sign-in
+    // mail while sign-ups are off (supabase/auth 8872586: otp.go, magic_link.go, signup.go). Auth unreadable: the sign-in mail, as before.
+    const resend = !isNew && (await isConfirmed(user, fetchImpl)) === false;
+    const emailSent = resend ? (await setInviteData(user, data, fetchImpl)) && (await sendMail(email, true, data, fetchImpl)) : await sendMail(email, isNew, data, fetchImpl);
     return json(200, { user, invited: true, email_sent: emailSent });
   });
 }

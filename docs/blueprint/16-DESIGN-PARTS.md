@@ -74,7 +74,7 @@ own sender. `{{ .Email }}`, `{{ .TokenHash }}` and `{{ .SiteURL }}` are filled i
 | DP-email-05 | email | Both emails: the link's life (600 s; a token hash works once) | "The link works for 10 minutes and only once." |
 | DP-email-06 | email | Both emails: not asked for | "If you did not ask for this, you can ignore this email." |
 | DP-email-07 | email | Both emails: sender identity block | "Omnikom Dashboard, login@notify.omnikom.io" and "Sent by Omnikom, omnikom.io" |
-| DP-email-08 | email | Invite email (sent by `invite-member`, DP-1.6-02, to a new login through Auth's invite; an existing login gets the sign-in email DP-email-01 to 07 instead): subject | "You are invited to the Omnikom dashboard" |
+| DP-email-08 | email | Invite email (sent by `invite-member`, DP-1.6-02, to a new login through Auth's invite; an existing confirmed login gets the sign-in email DP-email-01 to 07 instead, one that never opened its invite gets this invite again): subject | "You are invited to the Omnikom dashboard" |
 | DP-email-09 | email | Invite email: heading | "You are invited to the Omnikom dashboard" |
 | DP-email-10 | email | Invite email: what happened (`{{ .Data.inviter }}` is the inviter's name, or their email when they have no team profile; `{{ .Data.business }}` the business name; both set from the invite's user data) | "{{ .Data.inviter }} invited {{ .Email }} to {{ .Data.business }} on the Omnikom dashboard." |
 | DP-email-11 | email | Invite email: the button, to {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite | "Accept and sign in" |
@@ -239,7 +239,7 @@ only (it is the one card that changes something), enabled only when that card ch
 | Id | Slice | Element | What it does |
 |---|---|---|---|
 | DP-1.6-01 | 5.6 | People: the list, one row per member: name (the team profile's, else the email again), email, role (Owner or Member), joined date | `team-list` (owner only) |
-| DP-1.6-02 | 5.6 | People: Invite: email field, role (Member, or Owner), the team profile to attach (optional, from this business's profiles), the button "Send invite" | `invite-member`, which makes the person a member and sends the mail (a new login gets the invite mail, DP-email-08 to 12; an existing login gets the sign-in link mail, DP-email-01 to 07); the answer's `email_sent` decides the line in DP-1.6-14 |
+| DP-1.6-02 | 5.6 | People: Invite: email field, role (Member, or Owner), the team profile to attach (optional, from this business's profiles), the button "Send invite" | `invite-member`, which makes the person a member and sends the mail (a new login, or one that never opened its invite, gets the invite mail, DP-email-08 to 12; an existing confirmed login gets the sign-in link mail, DP-email-01 to 07); the answer's `email_sent` decides the line in DP-1.6-14 |
 | DP-1.6-03 | 5.6 | People: Remove on each row but your own | opens the confirm sheet (DP-1.6-12) |
 | DP-1.6-04 | 5.6 | Lead alerts: for each site (its preview address as the heading, so two sites are two blocks): the addresses, one per line, and "also email the assigned agent" | `settings-save` alerts |
 | DP-1.6-07 | 5.6 | Websites: each site's preview address, domain and state (read as the Site screen reads them); the link "Ask Omnikom" (a mail link to the dashboard's `askEmail` setting, as DP-1.4-15; with no address set the words show without a link) | read from `sites`; no edit |

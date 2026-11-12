@@ -196,7 +196,8 @@ const MUTANTS = [
   ['invite-member: the login is made before anyone is asked who may', F + 'invite-member/index.ts', "    const [found] = await c.sql`select service.find_login(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${email}, ${team}::uuid) as user_id`;\n    let user: string | null = found.user_id;",
     "    let user: string | null = await createLogin(email, fetchImpl);\n    const [found] = await c.sql`select service.find_login(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${email}, ${team}::uuid) as user_id`;", 'invite.test.ts'],
   ['invite-member: the mail is sent before the member is set', F + 'invite-member/index.ts', [
-    ["    await c.sql`select service.set_member(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${user}::uuid, ${role}::public.member_role, ${team}::uuid)`;\n    const emailSent = await sendMail(email, isNew, data, fetchImpl);", "    const emailSent = await sendMail(email, isNew, data, fetchImpl);\n    await c.sql`select service.set_member(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${user}::uuid, ${role}::public.member_role, ${team}::uuid)`;"]], null, 'invite.test.ts'],
+    ["    await c.sql`select service.set_member(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${user}::uuid, ${role}::public.member_role, ${team}::uuid)`;\n", ''],
+    ['    return json(200, { user, invited: true, email_sent: emailSent });', "    await c.sql`select service.set_member(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${user}::uuid, ${role}::public.member_role, ${team}::uuid)`;\n    return json(200, { user, invited: true, email_sent: emailSent });"]], null, 'invite.test.ts'],
   ['invite-member: a new login gets the sign-in mail, not the invite', F + 'invite-member/index.ts', "${isNew ? 'invite' : 'otp'}", "otp", 'invite.test.ts'],
   ['invite-member: an existing login gets the invite mail', F + 'invite-member/index.ts', "${isNew ? 'invite' : 'otp'}", "invite", 'invite.test.ts'],
   ['invite-member: the invite mail carries no user data', F + 'invite-member/index.ts', "isNew ? { email, data } : { email, create_user: false }", "isNew ? { email } : { email, create_user: false }", 'invite.test.ts'],
@@ -206,6 +207,15 @@ const MUTANTS = [
   ['invite-member: the inviter is not named', F + 'invite-member/index.ts', "inviter: String(ctx?.inviter ?? '')", "inviter: ''", 'invite.test.ts'],
   ['invite-member: the business is not named', F + 'invite-member/index.ts', "business: String(ctx?.business ?? '')", "business: ''", 'invite.test.ts'],
   ['invite-member: the login is made without the user data', F + 'invite-member/index.ts', "body: JSON.stringify({ type: 'invite', email, data })", "body: JSON.stringify({ type: 'invite', email })", 'invite.test.ts'],
+  // slice S1 (S1-E): a login that never opened its invite gets it again
+  ['invite-member: an unconfirmed login gets the sign-in mail', F + 'invite-member/index.ts', 'const resend = !isNew && (await isConfirmed(user, fetchImpl)) === false;', 'const resend = false;', 'invite.test.ts'],
+  ['invite-member: every existing login is sent the invite', F + 'invite-member/index.ts', 'const resend = !isNew && (await isConfirmed(user, fetchImpl)) === false;', 'const resend = !isNew;', 'invite.test.ts'],
+  ['invite-member: a login Auth could not read is sent the invite', F + 'invite-member/index.ts', '(await isConfirmed(user, fetchImpl)) === false', '(await isConfirmed(user, fetchImpl)) !== true', 'invite.test.ts'],
+  ['invite-member: the invite to an unconfirmed login keeps the old business', F + 'invite-member/index.ts', '(await setInviteData(user, data, fetchImpl)) && ', '', 'invite.test.ts'],
+  ['invite-member: the invite goes although its user data was refused', F + 'invite-member/index.ts', '(await setInviteData(user, data, fetchImpl)) && (await sendMail(email, true, data, fetchImpl))', '(await setInviteData(user, data, fetchImpl), await sendMail(email, true, data, fetchImpl))', 'invite.test.ts'],
+  ['invite-member: Auth is asked without the secret key whether a login is confirmed', F + 'invite-member/index.ts', "{ headers: { authorization: `Bearer ${key}`, apikey: key }, signal", '{ headers: {}, signal', 'invite.test.ts'],
+  ['invite-member: the user data is set without the secret key', F + 'invite-member/index.ts', "method: 'PUT', headers: { authorization: `Bearer ${key}`, apikey: key, 'content-type': 'application/json' },", "method: 'PUT', headers: { 'content-type': 'application/json' },", 'invite.test.ts'],
+  ['invite-member: the user data put is empty', F + 'invite-member/index.ts', 'body: JSON.stringify({ user_metadata: data })', 'body: JSON.stringify({ user_metadata: {} })', 'invite.test.ts'],
   // team-list and member-remove (work order 08)
   ['team-list: the workspace is not passed on', F + 'team-list/index.ts', "service.list_members(${c.jwtClaims}::jsonb, ${workspace}::uuid)", "service.list_members(${c.jwtClaims}::jsonb, ${'aaaaaaaa-0000-0000-0000-000000000000'}::uuid)", 'team.test.ts'],
   ['team-list: the email is left out', F + 'team-list/index.ts', "user: r.user_id, email: r.email,", "user: r.user_id, email: null,", 'team.test.ts'],
