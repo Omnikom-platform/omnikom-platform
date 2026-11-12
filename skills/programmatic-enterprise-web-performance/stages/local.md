@@ -77,22 +77,24 @@ the 3-pack on this one factor), the pack median, the gap in reviews and in ratin
 follows: a steady review request routine (a link to the profile, to recent customers, no incentives, no gating), replies to every review.
 
 ## 5. Local grid: our own rank grid (`local-grid.mjs`, feeds MSR-010)
-A paid grid tool is not allowed, so the grid is ours: the same map-pack capture as section 2, repeated at several points around each
-service-area city, on mobile. Nothing about Google is automated; the script plans the work and reads the results.
+A paid grid tool is not allowed, so the grid is ours: the Google Maps results list, read at several points around each
+service-area city (Maps ranks by the map's viewport). Nothing about Google is automated; the script plans the work and reads the results.
 1. **Centres.** `captures/local/grid/cities.json`: `[{ "city": "Tracy, CA", "lat": 0, "lng": 0, "source": "<where read>", "readAt": "<date>" }]`,
    one entry per `business.json` `locations[].serviceArea` city, read once from a public map by the owner or the main session. Never
    looked up or guessed here; a city without a sourced centre is BLOCKED with that step.
 2. **Plan.** `node scripts/local-grid.mjs plan <url> --query "we buy houses {city}" --query "realtor in {cityName}" [--n 3] [--spacing-km 3] [--cities "Tracy, CA"] [--max-captures 200]`.
    An N x N grid (default 3 x 3, 3 km apart; north is up, rows `r1..rN`, columns `c1..cN`) centred on the city centre; an even N gets
-   the centre as an extra point. Writes `plan.json`, `config.json` and the **capture requests**: `requests.json` (query x point,
-   mobile, `location: "lat,lng (city)"`, a capture template per request, the instruction text) and `requests.md` (a checklist).
+   the centre as an extra point. Writes `plan.json`, `config.json` and the **capture requests**: `requests.json` (query x point, each with its Google Maps address mapsUrl at zoom 14,
+   `location: "lat,lng (city)"`, a capture template per request, the instruction text) and `requests.md` (a checklist).
    It prints the number of captures and the minutes (45 s each). **Cost stop: 200 captures** (a 3 x 3 grid, 11 cities, 2 queries is
    198 captures, about 2.5 hours of human-pace capturing): over the stop nothing is written and the message says to ask the owner and
-   cut `--n`, `--cities` or the queries. Pick the 1 to 3 queries that matter; each one multiplies the work.
-3. **Capture** (the main session with the owner, never automated): for each request set the browser's location override to the
-   point's coordinates (DevTools > Sensors > Location, or the extension's equivalent), open Google on a mobile viewport, search the
-   query, **read the page footer**, save the map pack as `captures/local/grid/<id>.json` using the request's `template` (pack
-   entries with position, name, rating, reviews, website/phone when shown). One page at a time, **at least 45 seconds apart; stop at
+   cut `--n`, `--cities` or the queries. Pick the 1 to 3 queries that matter; each one multiplies the work. A plan
+   narrowed with `--cities` writes them into `config.json` `cities`; a later plan without the flag (the manifest's step passes none) plans exactly
+   those; the flag beats the file; delete the key to plan every city. A name in `--cities` or in `cities` that is not a service-area city is
+   BLOCKED naming where it came from, and nothing is written; `cities` must be a non-empty list of names.
+3. **Capture** (the main session with the owner, never automated): open each request's `mapsUrl` (mobile or desktop, as captured);
+   when the list has loaded, read the viewport back from the page's address (`@<lat>,<lng>,<zoom>z`) and save the list as
+   `captures/local/grid/<id>.json` from the request's `template` (`method: "maps-viewport"`, `viewport`, the device: mobile or desktop, as captured, `sponsored` per row). One page at a time, **at least 45 seconds apart; stop at
    the first robot check** (save `{"robotCheck": true}` and say so; do not continue). Not signed in to anything of the client's, nothing submitted.
 4. **Import.** `node scripts/local-grid.mjs import <url>` (also run by `local-run.mjs`) writes `<pewp>/local/<date>/grid.json`,
    `grid.txt` and `grid.html`. A capture is one of two forms, never mixed in one grid (a folder holding both that pass is BLOCKED with
@@ -116,9 +118,9 @@ service-area city, on mobile. Nothing about Google is automated; the script plan
    `thresholds.gridSov3Floor` (0.34), and a lost-positions finding when the 3-pack points fell by 2 or more against the previous grid
    (compared only on identical query, city, coordinates, device, language); `diff.json` carries `grid` and the report a line.
 Plain words for the owner: "the map pack is different on every street; this shows, point by point around each city, whether we
-are among the three businesses Google shows on a phone there". Do not promise a position; say what the captures showed and when.
+are among the first three Google Maps lists there". Do not promise a position; say what the captures showed and when.
 **UNPROVEN against real captures:** the importer follows the pack format of `local-pack.mjs` and is tested on fixtures; the first
-real capture session is the first proof, and the location override approach must be checked once by reading the footer.
+real capture session is the first proof, and that the page's address after the list has loaded keeps the requested centre and zoom must be checked then.
 
 ## Rules for the work around these scripts
 - **Service-area pages are not doorway pages.** One page per city is allowed only if it has content that is true of that city and
@@ -142,4 +144,5 @@ real capture session is the first proof, and the location override approach must
 `node scripts/test-measure.mjs` (profile import from an API-shaped export and from manual captures, undated refusal, absolute and
 comparative findings, pack importer with localized / unlocalized / rejected / superseded captures, the grid's two capture forms, sponsored rows and a folder that mixes them, NAP on a fixture site and
 citations, review gap with sourced numbers, BLOCKED paths) and `--mutants` (phone normalisation and the unlocalized-capture
-guard broken in turn must turn named checks red).
+guard broken in turn must turn named checks red). `scripts/test-step-contracts.mjs` (remembered
+cities; a capture made from a request's template is counted).

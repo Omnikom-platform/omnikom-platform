@@ -1,8 +1,8 @@
 // Local grid: our own rank-grid for the Google map pack (a paid grid tool is not allowed). Free, proprietary, no automation of Google.
 //   plan    a grid of points around each service-area city (N x N, spacing in km, plus the city centre) and the CAPTURE REQUESTS for
-//           the main session: query x point, mobile, with the coordinates to set in the browser's location override. A person or a
-//           supervised session captures them at human pace (at least 45 s apart, stop at the first robot check), one result page per
-//           file, in the style local-pack.mjs reads (pack[] of the map pack) plus the point.
+//           the main session: query x point, each with its Google Maps address (mapsUrl, zoom 14), mobile or desktop, as captured. A
+//           person or a supervised session captures them at human pace (at least 45 s apart, stop at the first robot check); one
+//           results list per file with method maps-viewport, the viewport read back, sponsored per row, plus the point.
 //   import  reads those captures into a per-point map-pack position table, a "share of local voice" per query and city, the top 3
 //           competitors per point, a heat map (text and HTML, no external libs) and ranking rows that pass targets-validate
 //           (location = "lat,lng (city)", the device as captured; mobile for the search form).
@@ -14,6 +14,7 @@
 // Usage: node local-grid.mjs plan   <url|repo> [--n 3] [--spacing-km 3] [--query "we buy houses {city}"]... [--cities "Tracy, CA"]... [--max-captures 200] [--cwd DIR]
 //        node local-grid.mjs import <url|repo> [--today YYYY-MM-DD] [--cwd DIR]
 // {city} in a query template is the label from business.json ("Tracy, CA"); {cityName} is the part before the comma.
+// --cities is remembered in config.json (cities): a later plan without the flag plans exactly those; the flag beats the file.
 import fs from "node:fs";
 import { isMain } from "./lib-main.mjs";
 import { createHash } from "node:crypto";
@@ -68,7 +69,7 @@ export function planGrid({ cities, centers = [], n = 3, spacingKm = 3, queryTemp
   const requests = [];
   for (const pc of planned) for (const tpl of queryTemplates) {
     const query = tpl.replace(/\{cityName\}/g, pc.city.split(",")[0].trim()).replace(/\{city\}/g, pc.city);
-    for (const p of pc.points) requests.push({ id: `${slug(pc.city)}__${slug(query)}__${p.id}`, query, queryTemplate: tpl, city: pc.city, point: { id: p.id, row: p.row, col: p.col, lat: p.lat, lng: p.lng, isCenter: p.isCenter }, device: "mobile", language, location: fmtLoc(p.lat, p.lng, pc.city) });
+    for (const p of pc.points) requests.push({ id: `${slug(pc.city)}__${slug(query)}__${p.id}`, query, queryTemplate: tpl, city: pc.city, point: { id: p.id, row: p.row, col: p.col, lat: p.lat, lng: p.lng, isCenter: p.isCenter }, device: "mobile or desktop, as captured", language, location: fmtLoc(p.lat, p.lng, pc.city), mapsUrl: `https://www.google.com/maps/search/${encodeURIComponent(query)}/@${p.lat.toFixed(5)},${p.lng.toFixed(5)},14z` });
   }
   const over = requests.length > maxCaptures;
   return { n, spacingKm, language, queryTemplates, createdAt: now.toISOString(), planned, blocked, requests: over ? [] : requests, captureCount: requests.length, maxCaptures, over,
@@ -76,8 +77,8 @@ export function planGrid({ cities, centers = [], n = 3, spacingKm = 3, queryTemp
     overMessage: over ? `${requests.length} captures is over the stop of ${maxCaptures} (about ${Math.ceil((requests.length * PACE_S) / 60)} minutes of human-pace capturing). Ask the owner, then reduce --n, --cities or --query, or raise --max-captures.` : null };
 }
 
-const INSTRUCTIONS = "Set the browser's location override to the point (Chrome DevTools > More tools > Sensors > Location: custom, or the extension's equivalent), open Google on a mobile viewport, search the query exactly, check that the page footer names the place, then save the map pack. One page at a time, at least 45 seconds apart; stop at the first robot check and say so (save {\"robotCheck\": true}). Never submit anything, never sign in. Save the JSON as captures/local/grid/<id>.json.";
-export const captureTemplate = (r) => ({ id: r.id, query: r.query, city: r.city, location: r.location, locationShown: "<what the page footer says>", device: "mobile", language: r.language, point: r.point, capturedAt: "<ISO time>", capturedIn: "<browser, signed in or out>", pack: [{ position: 1, name: "", rating: null, reviews: null, category: "", address: "", phone: "", website: "" }] });
+const INSTRUCTIONS = "Open the request's mapsUrl (https://www.google.com/maps/search/<query>/@<lat>,<lng>,14z) in the browser as it is, on a phone or a desktop: Google Maps ranks by the map's viewport, not by where the browser is. When the results list has loaded, read the viewport back from the page's address (the @<lat>,<lng>,<zoom>z part) and save it as viewport {lat, lng, zoom} (numbers), with method \"maps-viewport\" and the device the page was captured on (mobile or desktop). Save the results list in order as pack[]; a row the page marks as sponsored or as an ad gets sponsored: true, every other row sponsored: false. One page at a time, at least 45 seconds apart; stop at the first robot check and say so (save {\"robotCheck\": true}). Never submit anything, never sign in. Save the JSON as captures/local/grid/<id>.json.";
+export const captureTemplate = (r) => ({ id: r.id, query: r.query, city: r.city, location: r.location, method: "maps-viewport", viewport: { lat: "<from the page's address after the list has loaded>", lng: "<the same>", zoom: "<the same: the number before z>" }, device: "<mobile or desktop, as captured>", language: r.language, point: r.point, capturedAt: "<ISO time>", capturedIn: "<browser, signed in or out>", pack: [{ position: 1, name: "", rating: null, reviews: null, category: "", address: "", phone: "", website: "", sponsored: false }] });
 
 // ---------- import ----------
 // A capture counts for its point only when the footer names the city, a neighbouring service-area city, or says "precise location":
@@ -226,15 +227,20 @@ export function runGridPlan(target, { cwd = process.cwd(), n, spacingKm, queries
   const templates = queries.length ? queries : cfg.queryTemplates || [];
   if (!templates.length) return { status: "blocked", blocked: { source: "queries", reason: "no query templates for the grid", unblock: "Pass --query \"we buy houses {city}\" (one or more), or set queryTemplates in captures/local/grid/config.json. The owner picks the 1 to 3 queries that matter most; every query multiplies the captures." } };
   const centers = readJson(path.join(dir, "cities.json"), []) || [];
-  const plan = planGrid({ cities: all, centers, n: n ?? cfg.n ?? 3, spacingKm: spacingKm ?? cfg.spacingKm ?? 3, queryTemplates: templates, language: business?.market?.language || "en", maxCaptures: maxCaptures ?? cfg.maxCaptures ?? 200, only: cities, now });
+  const only = cities || cfg.cities || null;   // G3: the flag beats the file; a plan narrowed by --cities is remembered in config.json
+  const from = cities ? "--cities" : "config.json cities";
+  if (!cities && Object.hasOwn(cfg, "cities") && !(Array.isArray(cfg.cities) && cfg.cities.length && cfg.cities.every((c) => typeof c === "string" && c.trim()))) return { status: "blocked", blocked: { source: "config.json", reason: "config.json cities is not a list of city names: it must be a non-empty list of non-empty words, such as [\"Tracy, CA\"]", unblock: "Fix cities in captures/local/grid/config.json, delete the key to plan every city, or run plan with --cities." } };
+  const unknown = (only || []).filter((c) => !all.some((a) => nfkc(a) === nfkc(c)));
+  if (unknown.length) return { status: "blocked", blocked: { source: from, reason: `${from} holds ${unknown.join(", ")}, not a service-area city of business.json`, unblock: "Name only service-area cities of business.json, in --cities or in cities of captures/local/grid/config.json (delete that key to plan every city)." } };
+  const plan = planGrid({ cities: all, centers, n: n ?? cfg.n ?? 3, spacingKm: spacingKm ?? cfg.spacingKm ?? 3, queryTemplates: templates, language: business?.market?.language || "en", maxCaptures: maxCaptures ?? cfg.maxCaptures ?? 200, only, now });
   if (plan.error) return { status: "blocked", blocked: { source: "grid settings", reason: plan.error, unblock: "Fix --n / --spacing-km." } };
   if (!plan.planned.length) { log(`grid plan: no city has a sourced centre; BLOCKED cities: ${plan.blocked.map((b) => b.city).join(", ")}`); return { status: "blocked", plan, blocked: { source: "city centres", reason: "no service-area city has a sourced centre, so there is nothing to plan", unblock: plan.blocked[0]?.unblock || "Add the city centres to captures/local/grid/cities.json." } }; }
   fs.mkdirSync(dir, { recursive: true });
-  writeJson(path.join(dir, "config.json"), { n: plan.n, spacingKm: plan.spacingKm, queryTemplates: templates, maxCaptures: plan.maxCaptures });
+  writeJson(path.join(dir, "config.json"), { n: plan.n, spacingKm: plan.spacingKm, queryTemplates: templates, maxCaptures: plan.maxCaptures, ...(only ? { cities: only } : {}) });
   writeJson(path.join(dir, "plan.json"), { ...plan, requests: plan.over ? [] : plan.requests });
   if (!plan.over) {
     writeJson(path.join(dir, "requests.json"), { createdAt: plan.createdAt, instructions: INSTRUCTIONS, paceSeconds: PACE_S, stopOnRobotCheck: true, count: plan.requests.length, estimatedMinutes: plan.estimatedMinutes, requests: plan.requests.map((r) => ({ ...r, captureFile: `${r.id}.json`, template: captureTemplate(r) })) });
-    fs.writeFileSync(path.join(dir, "requests.md"), [`# Local grid capture requests (${plan.requests.length}, about ${plan.estimatedMinutes} minutes at ${PACE_S} s apart)`, "", INSTRUCTIONS, "", ...plan.requests.map((r, i) => `${i + 1}. [ ] ${r.query} | ${r.location} | mobile -> ${r.id}.json`)].join("\n") + "\n");
+    fs.writeFileSync(path.join(dir, "requests.md"), [`# Local grid capture requests (${plan.requests.length}, about ${plan.estimatedMinutes} minutes at ${PACE_S} s apart)`, "", INSTRUCTIONS, "", ...plan.requests.map((r, i) => `${i + 1}. [ ] ${r.query} | ${r.mapsUrl} | mobile or desktop, as captured -> ${r.id}.json`)].join("\n") + "\n");
   }
   markStage(loc, "local-grid-plan", { "grid dir": dir }, { captures: plan.captureCount });
   log(`grid plan: ${plan.planned.length} cities, ${plan.captureCount} captures, about ${plan.estimatedMinutes} min at ${PACE_S} s apart${plan.over ? ` (OVER the stop of ${plan.maxCaptures}: nothing written to requests.json)` : ""}; BLOCKED cities: ${plan.blocked.map((b) => b.city).join(", ") || "none"}`);

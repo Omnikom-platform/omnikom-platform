@@ -587,8 +587,7 @@ options, never a fix made here.
 - **On master or riding the train:** WO38 dashboard hardening (`check/seo/dashboard-hardening`, landing). The skill sync
   (`check/seo/audit-pipeline`).
 - **Open, in order:**
-  1. WO41 gap 2: the local-grid paths in pipeline.json (local-grid-plan, capture-maps, local-grid-import) do not match what
-     local-grid.mjs writes; plus a test that evidence paths match what each script writes.
+  1. Closed: test-step-contracts proves the local-grid evidence paths (B gap-2, T); the grid counts the Maps viewport form (SKILL-GRID-1a, 1b).
   2. The 2 start-mutant survivors. "A desktop lift frees a script too" comes first: check it is not a real gap in lib-stops or
      stepStop.
   3. The RESUME, RE-EVALUATE and FRESH modes in start.mjs (the engine reads `maxAgeDays`, approvals by their bytes and BLOCKED records since SKILL-ADOPT-1).

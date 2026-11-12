@@ -33,7 +33,7 @@ Rules that hold at every step:
 | 11 | Deploy a preview and compare with the old site | Lead | project deploy tool, then `live-target --fresh`, `compare.mjs` | `compare.md/.json` | same snapshot options on both sides | TR-261 |
 | 12 | Switch over without losing rankings | Lead + owner | `scripts/migrate.mjs` (`stages/migrate.md`) | redirect map, `_redirects`, baseline | owner approves each suggested redirect; gate: every old URL with traffic or links resolves in one hop | refactor pack |
 | 13 | Measure every month | Lead (or schedule) | `measure.mjs --init` once, then `.pewp/measure/run.mjs` (`stages/measure.md`) | `measure/<date>/`, diff | changes count only under the significance rules | TR-250..252, measure pack |
-| 14 | Local search (map pack, Business Profile) | Lead + owner captures | `local-run.mjs`, `local-grid.mjs` (`stages/local.md`) | local tables, grid heat map | captures must show the place in the page footer | TR-218 local |
+| 14 | Local search (map pack, Business Profile) | Lead + owner captures | `local-run.mjs`, `local-grid.mjs` (`stages/local.md`) | local tables, grid heat map | grid captures are Google Maps viewport captures (method, viewport read back); a footer is read only for a mobile search capture | TR-218 local |
 | 15 | Iterate | Lead -> owner | `scripts/iterate.mjs` (`stages/iterate.md`) | proposals (targets, plan deltas) | proposals need step 8 again | iterate stage |
 | 16 | Client report | Lead | report.md -> the project's PDF tool | client PDF | plain words; no internal notes | TR-260 |
 

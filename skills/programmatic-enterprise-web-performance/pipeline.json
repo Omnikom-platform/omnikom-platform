@@ -952,7 +952,7 @@
    ],
    "kind": "time-sensitive",
    "maxAgeDays": 30,
-   "brief": "Google Maps ranks by the map's viewport, not by IP (work order 40: a browser outside the market cannot localize web results). Open https://www.google.com/maps/search/<service>/@<lat>,<lng>,14z for each point in the grid requests, and record the results list in the local-pack format. Then search the business's own name: record its profile (rating, reviews, category, photos), or that none exists.",
+   "brief": "Google Maps ranks by the map's viewport, not by IP (work order 40: a browser outside the market cannot localize web results). Open https://www.google.com/maps/search/<service>/@<lat>,<lng>,14z for each point in the grid requests, and record the results list in the local-pack format with method \"maps-viewport\" and viewport {lat, lng, zoom} read back from the page's address after the list has loaded. Then search the business's own name: record its profile (rating, reviews, category, photos), or that none exists.",
    "engines": [
     "google"
    ]
