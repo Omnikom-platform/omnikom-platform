@@ -1,4 +1,86 @@
 { "schema": 1,
   "note": "Every tool the CLI wraps: lib/wrap.mjs starts the row's script, passes its output back and maps its exit code; the CLI adds no logic. A row's script and test are tracked files; its summary, usage, args, flags, exits, output and example are its help. engines lists commands/*.mjs, the commands whose logic lives in the CLI. Checked by test/registry.mjs.",
   "engines": ["apply", "audit", "ci", "content", "contract", "hooks", "impact", "journey", "key", "land", "lead", "mfa", "publish", "seed", "seo", "status", "tools", "verify"],
-  "commands": {} }
+  "commands": {
+    "site sign": {
+      "script": "tools/site-sign/sign-site.mjs", "test": "tools/site-sign/sign-site.test.mjs",
+      "summary": "Sign a clean site build into a new folder as a draft, live or handed-over copy",
+      "usage": "omnikom site sign --draft|--live|--handover <clean> --out <new folder> --site <slug> [--host <host>] [--client <name> --date <YYYY-MM-DD>] [--register <file>]",
+      "args": "none; folders are absolute paths (the CLI runs the script from the repository root); tools/site-sign/README.md",
+      "flags": {
+        "draft": { "value": true, "help": "sign this clean build as a draft preview (needs --host)" },
+        "live": { "value": true, "help": "sign this clean build for go-live (needs --client, --date and --host; the owner's go)" },
+        "handover": { "value": true, "help": "sign this clean build as handed over (needs --client and --date)" },
+        "out": { "value": true, "help": "the new folder (it must not exist)" },
+        "site": { "value": true, "help": "the site's slug (a-z, 0-9, -)" },
+        "host": { "value": true, "help": "the one address Omnikom publishes it at" },
+        "client": { "value": true, "help": "the client's name as on the site (live, handover)" },
+        "date": { "value": true, "help": "YYYY-MM-DD (live, handover)" },
+        "register": { "value": true, "help": "the register file, kept outside the repository (or set SIGN_SITE_REGISTER; one is required)" }
+      },
+      "exits": { "0": "signed, its own check passed, one register line added", "1": "refused (REFUSED: <why>), nothing signed", "2": "wrong command line" },
+      "output": "signed <stage>: <ID>; the counts; check PASS; register line added (a refusal is one REFUSED line on stderr)",
+      "example": "omnikom site sign --draft /work/demo-site/clean --out /work/demo-site/draft --site demo-site --host demo-site.pages.dev --register /work/register.tsv"
+    },
+    "site check": {
+      "script": "tools/site-sign/sign-site.mjs", "test": "tools/site-sign/sign-site.test.mjs",
+      "summary": "Check a signed build against its clean build for its stage (needs no register)",
+      "usage": "omnikom site check --check <signed> --mode draft|live|handover --clean <clean>",
+      "args": "none; folders are absolute paths (the CLI runs the script from the repository root)",
+      "flags": {
+        "check": { "value": true, "help": "the signed folder" },
+        "mode": { "value": true, "help": "draft, live or handover" },
+        "clean": { "value": true, "help": "the clean build it was signed from" }
+      },
+      "exits": { "0": "CHECK PASS", "1": "CHECK FAIL, one line per problem", "2": "wrong command line" },
+      "output": "CHECK PASS (<stage>): <n> files, signature <ID>, or CHECK FAIL and one line per problem",
+      "example": "omnikom site check --check /work/demo-site/draft --mode draft --clean /work/demo-site/clean"
+    },
+    "site seal": {
+      "script": "tools/site-sign/seal-site.mjs", "test": "tools/site-sign/seal-site.test.mjs",
+      "summary": "Seal a signed draft: each page becomes an encrypted block shown only on our host",
+      "usage": "omnikom site seal --in <signed draft> --out <new folder> [--register <file>]",
+      "args": "none; folders are absolute paths (the CLI runs the script from the repository root)",
+      "flags": {
+        "in": { "value": true, "help": "the signed draft folder (its <in>-functions beside it)" },
+        "out": { "value": true, "help": "the new folder (it and <out>-functions must not exist)" },
+        "register": { "value": true, "help": "the register file, kept outside the repository (or set SIGN_SITE_REGISTER; one is required)" }
+      },
+      "exits": { "0": "sealed, its own check passed, one register line added", "1": "refused (REFUSED: <why>), nothing written", "2": "wrong command line" },
+      "output": "sealed draft: <ID>; the counts; check PASS; register line added (the key is never printed)",
+      "example": "omnikom site seal --in /work/demo-site/draft --out /work/demo-site/sealed --register /work/register.tsv"
+    },
+    "site seal-check": {
+      "script": "tools/site-sign/seal-site.mjs", "test": "tools/site-sign/seal-site.test.mjs",
+      "summary": "Check a sealed draft against its signed draft: each block opens to that page, nothing else ships",
+      "usage": "omnikom site seal-check --check <sealed> --in <signed draft>",
+      "args": "none; folders are absolute paths (the CLI runs the script from the repository root)",
+      "flags": {
+        "check": { "value": true, "help": "the sealed folder" },
+        "in": { "value": true, "help": "the signed draft it was sealed from" }
+      },
+      "exits": { "0": "SEAL CHECK PASS", "1": "SEAL CHECK FAIL, one line per problem", "2": "wrong command line" },
+      "output": "SEAL CHECK PASS: <n> pages, signature <ID>, or SEAL CHECK FAIL and one line per problem",
+      "example": "omnikom site seal-check --check /work/demo-site/sealed --in /work/demo-site/draft"
+    },
+    "site deploy": {
+      "script": "tools/site-sign/deploy-signed.mjs", "test": "tools/site-sign/deploy-signed.test.mjs",
+      "summary": "Upload a signed or sealed build to its Pages project after its checks; fill its register line",
+      "usage": "omnikom site deploy <folder> --clean <clean> --mode draft|sealed|live|handover --to preview|production [--i-mean-production] --project <pages project> [--in <signed draft>] [--functions <lead.js>] [--register <file>]",
+      "args": "<folder>: the signed folder, or with --mode sealed the sealed one; folders are absolute paths",
+      "flags": {
+        "clean": { "value": true, "help": "the clean build it was signed from" },
+        "mode": { "value": true, "help": "draft, sealed, live or handover (live and handover: the owner's go only)" },
+        "to": { "value": true, "help": "required, no default: preview for draft and sealed, production for live and handover" },
+        "i-mean-production": { "value": false, "help": "required with --to production: the owner's go for a live or handover upload" },
+        "project": { "value": true, "help": "the Cloudflare Pages project" },
+        "in": { "value": true, "help": "with --mode sealed: the signed draft it was sealed from" },
+        "functions": { "value": true, "help": "a lead form function, deployed as functions/api/lead.js" },
+        "register": { "value": true, "help": "the register file, kept outside the repository (or set SIGN_SITE_REGISTER; one is required)" }
+      },
+      "exits": { "0": "deployed, its register line filled", "1": "refused (REFUSED: <why>; nothing deployed), --to production without --i-mean-production, or CLOUDFLARE_API_TOKEN not set", "2": "wrong command line (a mode with another --to included)" },
+      "output": "deployed <project>: <url> (<ID>, stage <stage>); register updated",
+      "example": "omnikom site deploy /work/demo-site/sealed --in /work/demo-site/draft --clean /work/demo-site/clean --mode sealed --to preview --project demo-site-preview --register /work/register.tsv",
+      "timeoutMinutes": 20
+    }
+  } }

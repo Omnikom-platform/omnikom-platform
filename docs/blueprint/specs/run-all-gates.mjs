@@ -26,6 +26,10 @@ const GATES = [
   ['specs: deployed-function rule', 'docs/blueprint/specs/check-specs.test.mjs'],   // slice 5.2b: every deployed function has an operation; planted faults in a temp copy
   ['machine-call signature', 'supabase/functions/_shared/signature.test.mjs'],
   ['no model in runtime (D38)', 'docs/blueprint/specs/check-no-model.test.mjs'],   // DECISIONS 38 (1): planted tells, 10 mutants, then the real tree
+  // the site signing tools (tools/site-sign/README.md): a --mutants run first runs every case, then its seeded faults; no network, about 1 to 4 minutes
+  ['site sign tests + mutants', 'tools/site-sign/sign-site.test.mjs', '--mutants'],
+  ['site seal tests + mutants', 'tools/site-sign/seal-site.test.mjs', '--mutants'],
+  ['site deploy tests', 'tools/site-sign/deploy-signed.test.mjs'],
   // slice 5-H (after the 2026-11-01 restart: 1021 orphaned Edge processes, 40 Postgres): the guard's tests and mutants, then, LAST, no
   // process may still run from a temp folder of ours after every gate above has ended
   ['process guard tests', 'tools/proc-guard/test/run.mjs'],
@@ -39,10 +43,10 @@ const GATES = [
 const TIMEOUT_MS = Number(process.env.GATE_TIMEOUT_MS) || 3600000;
 const ONLY = process.env.GATE_ONLY || '';   // run the one gate whose name contains this (and skip the deno check): for watching one gate red
 let bad = 0;
-for (const [name, script] of GATES) {
+for (const [name, script, ...args] of GATES) {
   if (ONLY && !name.includes(ONLY)) continue;
   const t0 = Date.now();
-  const r = spawnSync(process.execPath, [resolve(ROOT, script)], { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT_MS });
+  const r = spawnSync(process.execPath, [resolve(ROOT, script), ...args], { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT_MS });
   const secs = Math.round((Date.now() - t0) / 1000);
   const last = (r.stdout || '').trim().split('\n').filter(Boolean).pop() || (r.stderr || '').trim().split('\n').pop();
   const timedOut = r.status === null && (r.signal === 'SIGTERM' || (r.error && r.error.code === 'ETIMEDOUT'));

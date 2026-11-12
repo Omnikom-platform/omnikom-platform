@@ -117,6 +117,28 @@ groups: before launch, launch day, first 30 days, ongoing). Each item ends PASS 
 with an allowed reason (waiting on owner access, a client answer, owner proof, a third-party outage, not yet due). The
 script never deploys, changes DNS or sends anything: those are the owner's clicks. Not built: a ledger screen in the dashboard.
 
+## Signed and sealed builds
+
+Every build we upload carries Omnikom's signature (`tools/site-sign/README.md`). The tool reads a clean build and writes a signed
+copy to a new folder; it never edits a build in place, and every stage is made from the clean build.
+- Every draft preview is signed as a draft and then sealed before it is uploaded. The draft carries a visible draft bar, the
+  copyright and no-copy notice, noindex and noai, and a lock that shows the page only at our own preview address.
+- Every go-live is signed for live, on the owner's go: no bar and no lock, the site's own robots files as they are, our
+  signature and notice in the code.
+- A handover is signed as handed over: one line naming the client and the date, with no rights kept by Omnikom.
+- Every signing, seal and deploy writes a line in the register. It holds client names, so it is never in this repository:
+  its place is `--register <file>` or `SIGN_SITE_REGISTER`, and with neither the tools refuse before writing anything.
+
+The five commands: `omnikom site sign` (`--draft`, `--live` or `--handover`), `omnikom site check`, `omnikom site seal`,
+`omnikom site seal-check` and `omnikom site deploy`. A deploy runs only when the checks pass (a sealed draft needs the seal check
+and the draft check), and a draft or sealed draft goes only to `--to preview`, a live or handover build only to `--to production`,
+which also needs `--i-mean-production` (the owner's go).
+
+What sealing stops: each page arrives as an encrypted block that opens only on our host with the key from our own deployment, so
+a download of the files, a mirror, a copy put up elsewhere or a saved .mhtml file shows nothing. What it does not stop: a "save
+page, complete" or a screenshot of our real preview still gets the page's visible content, and a person with developer tools
+can take what the browser shows. The claim is what a copy now costs, never that it cannot be copied.
+
 ## Search and analytics
 
 Sources: Search Console daily, PageSpeed weekly on five pages and at every launch, CrUX weekly, Bing and IndexNow on every

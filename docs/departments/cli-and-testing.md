@@ -24,6 +24,7 @@ has to relearn it (README rule 5). Spec: `docs/blueprint/26-PLATFORM-CLI.md`.
 - `tools/secret-receiver.mjs`
 - `tools/hooks/` (Claude Code hooks this department builds; DECISIONS 41)
 - `tools/kit/` (work order 47: the one shared toolkit, browser, polite fetch, render, heavy lock, desktop capture; every department imports it)
+- `tools/site-sign/` (sign, seal and deploy a site build; the `omnikom site` rows of `tools/omnikom-cli/registry.json`)
 
 ## Does not touch
 Every path not listed above. In particular `supabase/` (migrations, functions, the SQL wall tests) and `factory/`: a bug the CLI

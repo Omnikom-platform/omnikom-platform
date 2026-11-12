@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 829,
+    "sources": 835,
     "unowned": 0
   },
   "files": [
@@ -189,7 +189,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/gate-query-match.mjs","owner":"seo-and-audits","exports":["id","plain","run","title"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/gate-schema.mjs","owner":"seo-and-audits","exports":["id","plain","run","satisfies","title"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/gate-targets.mjs","owner":"seo-and-audits","exports":["id","plain","run","title"],"tests":[],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/gate.mjs","owner":"seo-and-audits","exports":["CHECKS","emit","gate","reportMd"],"tests":["tools/audit/test/run.mjs"],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/gate.mjs","owner":"seo-and-audits","exports":["CHECKS","emit","gate","reportMd"],"tests":["tools/audit/test/run.mjs","tools/site-sign/seal-site.test.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/guard-readonly.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/import-ads.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/import-ai.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
@@ -811,6 +811,12 @@
     {"path":"tools/site-backup/test-verify-gates.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"tools/site-backup/verify.mjs","owner":"platform-build","exports":[],"tests":["tools/omnikom-cli/test/mutate.mjs"],"feature":""},
     {"path":"tools/site-backup/view.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"tools/site-sign/deploy-signed.mjs","owner":"cli-and-testing","exports":["deploy","upload"],"tests":["tools/site-sign/deploy-signed.test.mjs"],"feature":""},
+    {"path":"tools/site-sign/deploy-signed.test.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
+    {"path":"tools/site-sign/seal-site.mjs","owner":"cli-and-testing","exports":["check","decrypt","encrypt","joinPage","noscriptPage","sealBuild","sealHeaders","sealJs","sealedKeyFunction","splitPage"],"tests":["tools/site-sign/deploy-signed.test.mjs","tools/site-sign/seal-site.test.mjs"],"feature":""},
+    {"path":"tools/site-sign/seal-site.test.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
+    {"path":"tools/site-sign/sign-site.mjs","owner":"cli-and-testing","exports":["REGISTER_UNSET","check","keyFunction","lockJs","marks","onRequest","stripHeaders","treeHash"],"tests":["tools/site-sign/deploy-signed.test.mjs","tools/site-sign/seal-site.test.mjs","tools/site-sign/sign-site.test.mjs"],"feature":""},
+    {"path":"tools/site-sign/sign-site.test.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/staging-extensions.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"tools/team-kit/agent-anchor.mjs","owner":"clients","exports":[],"tests":["tools/omnikom-cli/test/impact-stamp-hooks.mjs"],"feature":""},
     {"path":"tools/team-kit/agent-role.mjs","owner":"clients","exports":["detectRole","gapRows","isTmp","leadSessionId","loadRoles","matchesAny","normPath","phaseRows","projectRoot","readStdinJson","readText","relToRoot"],"tests":[],"feature":""},
