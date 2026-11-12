@@ -50,8 +50,9 @@ carries the call's request id in the header `x-request-id` (M32: the same id sta
 shared frame (`_shared/http.ts`) also carries it in its body as `request_id`, while `capture-lead`'s own problems carry it in the header
 only. The OpenAPI file `docs/blueprint/specs/openapi.json` describes the functions and is checked by the gates.
 
-GitHub entry points: `repository_dispatch` types `publish` (`{job_id, site_id}`) and `media` (`{media_id, workspace_id}`);
-`workflow_dispatch` on `publish.yml` with `job_id`, `site_id`, `force_fail`.
+GitHub entry points: `workflow_dispatch` on `publish.yml` with `job_id`, `site_id`, `force_fail` (the platform sends the first two) and on
+`media.yml` with `media_id`, `workspace_id`, ref `master`, sent with `GITHUB_DISPATCH_TOKEN_V2`; while only the old token is set, `repository_dispatch`
+types `publish` (`{job_id, site_id}`) and `media` (`{media_id, workspace_id}`).
 
 ## A business website (built by `factory/build.mjs`)
 

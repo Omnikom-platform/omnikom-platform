@@ -1,7 +1,7 @@
 # One publish job: export -> build -> audit gate -> Cloudflare Pages deploy -> smoke -> callback (02-BACKEND section 7, 21-PROTOCOLS 1 to 3).
-# Started by the platform's `publish` Edge Function (repository_dispatch, type publish, client_payload { job_id, site_id }) and by hand
-# with workflow_dispatch (the done-when test of step 4: `gh workflow run publish.yml -f job_id=... -f site_id=... [-f force_fail=heading]`).
-# GitHub runs a dispatch-triggered workflow only from the DEFAULT branch. Four secrets, by name: PLATFORM_FUNCTIONS_BASE, RUNNER_KEY,
+# Started by the platform's `publish` Edge Function (workflow_dispatch of this file, inputs job_id and site_id, with the one-repository Actions
+# token; repository_dispatch type publish while only the old token is set) and by hand (`gh workflow run publish.yml -f job_id=... -f site_id=...
+# [-f force_fail=heading]`). GitHub runs a dispatch-triggered workflow only from the DEFAULT branch. Four secrets, by name: PLATFORM_FUNCTIONS_BASE, RUNNER_KEY,
 # CLOUDFLARE_PAGES_TOKEN, CLOUDFLARE_ACCOUNT_ID (tools/github-secrets.mjs sets them). Nothing here echoes a secret; the runner scrubs its own output.
 name: publish
 

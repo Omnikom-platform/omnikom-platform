@@ -122,6 +122,10 @@ const ALL_MUTANTS = [
   ['E8 publish: the deployment live before is not read', `${R}publish.mjs`, 'previous = liveDeploymentOf(cfJson.result);', '', 'wrangler'],
   ['E8 publish: no earlier deployment is rolled back anyway', `${R}publish.mjs`, "if (!previous) return 'no earlier deployment to roll back to: the failed one stays live';", '', 'wrangler'],
   ['E8 publish: the own address is not compared by content hash', `${R}publish.mjs`, 'else if (ownHash !== wantHash) smokeWhy', 'else if (false) smokeWhy', 'smoke'],
+  // E9: both dispatch triggers on media.yml, version-free job names, the ruleset (book row E9, H0-5)
+  ['E9 workflows: media.yml groups by the payload only', '.github/workflows/media.yml', '  group: media-${{ github.event.client_payload.media_id || inputs.media_id }}', '  group: media-${{ github.event.client_payload.media_id }}', 'workflows'],
+  ['E9 workflows: a job name carries a version again', '.github/workflows/ci.yml', '    name: secret scan (gitleaks)', '    name: secret scan (gitleaks 8.30.1)', 'workflows'],
+  ['E9 workflows: a required check is renamed in ci.yml', '.github/workflows/ci.yml', '    name: departments and client files', '    name: departments and the client files', 'workflows'],
 ];
 
 const ONLY = process.env.MUTANT_ONLY;   // a substring of the mutant names: only those run (a scoped run; the whole list is the CI run)

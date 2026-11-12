@@ -66,13 +66,13 @@ t('db: a database S-STALE becomes 409 S-STALE and keeps its words (the row id an
   eq(refusal(`S-STALE: ${row} was saved at version 2 by someone else; password=hunter2`)?.msg, `${row} was saved at version 2 by someone else`, 'only the sentence is kept, not what follows it');
 });
 
-t('dispatch: no token, no repository, GitHub 204, GitHub 500 and an unreachable GitHub each report honestly', async () => {
+t('dispatch [E9]: no token, no repository, GitHub 204, GitHub 500 and an unreachable GitHub each report honestly', async () => {
   await fake.reset();
-  const token = Deno.env.get('GITHUB_DISPATCH_TOKEN'), repo = Deno.env.get('GITHUB_REPO'), api = Deno.env.get('GITHUB_API_BASE');
+  const token = Deno.env.get('GITHUB_DISPATCH_TOKEN'), v2 = Deno.env.get('GITHUB_DISPATCH_TOKEN_V2'), repo = Deno.env.get('GITHUB_REPO'), api = Deno.env.get('GITHUB_API_BASE');
   try {
-    eq((await dispatch('publish', { a: 1 })).dispatched, true, '204');
+    eq((await dispatch('publish', { a: '1' })).dispatched, true, '204');
     await fake.githubStatus(500);
-    const bad = await dispatch('publish', { a: 1 });
+    const bad = await dispatch('publish', { a: '1' });
     eq(bad.dispatched, false, '500'); eq(bad.reason, 'github 500', 'reason');
     await fake.reset();
     Deno.env.set('GITHUB_REPO', 'not a repo');
@@ -81,9 +81,43 @@ t('dispatch: no token, no repository, GitHub 204, GitHub 500 and an unreachable 
     Deno.env.set('GITHUB_API_BASE', 'http://127.0.0.1:1');
     eq((await dispatch('publish', {})).reason, 'github unreachable', 'unreachable');
     Deno.env.set('GITHUB_API_BASE', api!);
-    Deno.env.delete('GITHUB_DISPATCH_TOKEN');
+    Deno.env.delete('GITHUB_DISPATCH_TOKEN'); Deno.env.delete('GITHUB_DISPATCH_TOKEN_V2');
     eq((await dispatch('publish', {})).reason, 'no dispatch token', 'no token');
   } finally {
-    Deno.env.set('GITHUB_DISPATCH_TOKEN', token!); Deno.env.set('GITHUB_REPO', repo!); Deno.env.set('GITHUB_API_BASE', api!); await fake.reset();
+    Deno.env.set('GITHUB_DISPATCH_TOKEN', token!); Deno.env.set('GITHUB_DISPATCH_TOKEN_V2', v2!); Deno.env.set('GITHUB_REPO', repo!); Deno.env.set('GITHUB_API_BASE', api!); await fake.reset();
+  }
+});
+
+t('dispatch [E9]: with the new token set, publish.yml and media.yml are started by workflow_dispatch (ref master, string inputs, the new token); a 403 is reported as github 403', async () => {
+  await fake.reset();
+  try {
+    eq((await dispatch('publish', { job_id: 'j1', site_id: 's1' })).dispatched, true, 'publish: 204');
+    eq((await dispatch('media', { media_id: 'm1', workspace_id: 'w1' })).dispatched, true, 'media: 204');
+    const got = (await fake.recorded()).github;
+    eq(got.map((g) => g.path).join(','), 'publish.yml,media.yml', 'the workflow file of each');
+    eq(got.map((g) => g.token).join(','), 'v2,v2', 'the new token for each');
+    eq(JSON.stringify(got[0].body), '{"ref":"master","inputs":{"job_id":"j1","site_id":"s1"}}', 'the body is exactly { ref, inputs }');
+    await fake.reset(); await fake.githubStatus(403);
+    const denied = await dispatch('publish', { job_id: 'j3', site_id: 's3' });
+    eq(denied.dispatched, false, '403 is not a dispatch'); eq(denied.reason, 'github 403', '403 reason');
+    eq((await fake.recorded()).github.map((g) => g.path).join(','), 'publish.yml', 'the refused call went to publish.yml');
+  } finally { await fake.reset(); }
+});
+
+t('dispatch [E9]: with only the old token, the old repository_dispatch; with neither, no dispatch token and nothing sent', async () => {
+  await fake.reset();
+  const token = Deno.env.get('GITHUB_DISPATCH_TOKEN'), v2 = Deno.env.get('GITHUB_DISPATCH_TOKEN_V2');
+  try {
+    Deno.env.delete('GITHUB_DISPATCH_TOKEN_V2');
+    eq((await dispatch('publish', { job_id: 'j2', site_id: 's2' })).dispatched, true, 'the old token: 204');
+    const got = (await fake.recorded()).github;
+    eq(got.length, 1, 'one call'); eq(got[0].path, 'dispatches', 'repository_dispatch'); eq(got[0].token, 'old', 'the old token');
+    eq(JSON.stringify(got[0].body), '{"event_type":"publish","client_payload":{"job_id":"j2","site_id":"s2"}}', 'the body is exactly { event_type, client_payload }');
+    await fake.reset();
+    Deno.env.delete('GITHUB_DISPATCH_TOKEN');
+    eq((await dispatch('publish', { job_id: 'j3', site_id: 's3' })).reason, 'no dispatch token', 'neither token');
+    eq((await fake.recorded()).github.length, 0, 'nothing was sent');
+  } finally {
+    Deno.env.set('GITHUB_DISPATCH_TOKEN', token!); Deno.env.set('GITHUB_DISPATCH_TOKEN_V2', v2!); await fake.reset();
   }
 });

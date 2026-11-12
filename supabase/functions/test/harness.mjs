@@ -14,7 +14,8 @@
 //   POST /storage/v1/object/upload/sign/media/<path>          Storage's signed-upload endpoint (answers { url, token }; needs the secret key)
 //   POST /storage/v1/object/sign/media/<path>                 Storage's signed-download endpoint (slice 4.3; answers { signedURL }; records the path, the
 //                                                             expiresIn asked for and how many calls ran at once; can be told to fail for a path or to be slow)
-//   POST /repos/test/test/dispatches                          GitHub repository_dispatch (records what it got; answers the status you set)
+//   POST /repos/test/test/dispatches, POST /repos/test/test/actions/workflows/(publish|media).yml/dispatches   GitHub repository_dispatch and workflow_dispatch
+//                                                             (records the path, which token, the body; a workflow path answers 422 unless { ref, inputs } with string inputs; else the status you set)
 //   GET  /__recorded, POST /__reset, POST /__github-status?code=N, POST /__sign?fail=<path part>&delay=<ms>     control, for the tests
 // The cluster holds a template database (migrations + fixtures); every run gets its own copy, so tests and mutants never see each
 // other's rows. Needs initdb / pg_ctl / psql / deno on PATH.
@@ -33,6 +34,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO = resolve(HERE, '..', '..', '..');
 const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 240000, ...opts });
 export const SECRET = 'test-not-a-secret';
+export const V2_TOKEN = 'test-dispatch-v2-not-a-secret';
 // The Supabase Vault does not exist on a plain Postgres. This models the part the migrations use (the same stand-in as tenancy.test.sql T21, which applies it
 // only when no vault schema exists): secrets by name, create_secret, update_secret, decrypted_secrets. The function role gets nothing on it.
 const VAULT_STANDIN = `create schema vault;
@@ -112,9 +114,14 @@ export async function startHarness() {
             send(200, { signedURL: `/object/sign/media/${path}?token=fake-download-token` });
           }, state.signDelayMs);
         }
-        if (req.method === 'POST' && u.pathname === '/repos/test/test/dispatches') {
+        const gh = /^\/repos\/test\/test\/(?:actions\/workflows\/(publish|media)\.yml\/)?dispatches$/.exec(u.pathname);
+        if (req.method === 'POST' && gh) {
           let parsed = null; try { parsed = JSON.parse(body); } catch { /* recorded as null */ }
-          state.github.push({ authorized: req.headers.authorization === `Bearer ${SECRET}`, accept: req.headers.accept, body: parsed });
+          const auth = req.headers.authorization, token = auth === `Bearer ${V2_TOKEN}` ? 'v2' : auth === `Bearer ${SECRET}` ? 'old' : 'other';
+          state.github.push({ path: gh[1] ? gh[1] + '.yml' : 'dispatches', token, authorized: token !== 'other', accept: req.headers.accept, body: parsed });
+          // GitHub answers 422 to a workflow_dispatch without a ref or with inputs that are not strings; the fake does the same, so a wrong body is a refusal, not a pass
+          const inputs = parsed && parsed.inputs;
+          if (gh[1] && (!parsed || typeof parsed.ref !== 'string' || !inputs || typeof inputs !== 'object' || Object.values(inputs).some((v) => typeof v !== 'string'))) return send(422, { message: 'invalid body' });
           return state.githubStatus === 204 ? (res.writeHead(204), res.end()) : send(state.githubStatus, { message: 'refused' });
         }
         if (req.method === 'POST' && u.pathname === '/auth/v1/admin/generate_link') {
@@ -189,7 +196,7 @@ export async function startHarness() {
         return {
           SUPABASE_DB_URL: `postgres://postgres@127.0.0.1:${PORT}/${db}`,
           SUPABASE_URL: base, JWKS_URL: `${base}/auth/v1/.well-known/jwks.json`,
-          SUPABASE_SECRET_KEY: SECRET, SUPABASE_SERVICE_ROLE_KEY: SECRET, RUNNER_KEY, CRON_KEY, GITHUB_DISPATCH_TOKEN: SECRET, GITHUB_REPO: 'test/test', GITHUB_API_BASE: base,
+          SUPABASE_SECRET_KEY: SECRET, SUPABASE_SERVICE_ROLE_KEY: SECRET, RUNNER_KEY, CRON_KEY, GITHUB_DISPATCH_TOKEN: SECRET, GITHUB_DISPATCH_TOKEN_V2: V2_TOKEN, GITHUB_REPO: 'test/test', GITHUB_API_BASE: base,
           TEST_JWK_PRIVATE: JSON.stringify(priv), TEST_FAKE_BASE: base, TEST_DB_URL: `postgres://postgres@127.0.0.1:${PORT}/${db}`,
           DASHBOARD_ORIGINS: 'http://localhost:5173,http://localhost:5174,https://app.test-origin.example', NO_COLOR: '1',
         };

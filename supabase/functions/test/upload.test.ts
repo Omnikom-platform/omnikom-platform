@@ -73,7 +73,7 @@ async function newMedia(who: 'owner-a' | 'member-a1'): Promise<string> {
   return String(r.json?.media);
 }
 
-t('upload-finish: owner-a sets rights_confirmed, processed stays false, and the media job is dispatched', async () => {
+t('upload-finish [E9]: owner-a sets rights_confirmed, processed stays false, and the media job is dispatched', async () => {
   await fake.reset();
   const media = await newMedia('owner-a');
   const r = await fin('owner-a', { media, rightsConfirmed: true, alt: 'The front of the house' });
@@ -83,7 +83,7 @@ t('upload-finish: owner-a sets rights_confirmed, processed stays false, and the 
     eq(m.rights_confirmed, true, 'rights'); eq(m.processed, false, 'processed stays false'); eq(m.exif_stripped, false, 'exif'); eq(m.width, null, 'width stays unknown');
   });
   const got = (await fake.recorded()).github;
-  eq(got.length, 1, 'one dispatch'); eq(got[0].body?.event_type, 'media', 'event type'); eq(got[0].body?.client_payload.media_id, media, 'media_id'); eq(got[0].body?.client_payload.workspace_id, WS_A, 'workspace_id');
+  eq(got.length, 1, 'one dispatch'); eq(got[0].path, 'media.yml', 'workflow_dispatch of media.yml'); eq(got[0].token, 'v2', 'the new token'); eq(Object.keys(got[0].body?.inputs ?? {}).sort().join(','), 'media_id,workspace_id', 'exactly these inputs'); eq(got[0].body?.inputs?.media_id, media, 'media_id'); eq(got[0].body?.inputs?.workspace_id, WS_A, 'workspace_id');
 });
 
 t('upload-finish: rightsConfirmed false is stored as false; the uploader (a member) may finish their own upload', async () => {
@@ -104,14 +104,14 @@ t('upload-finish: another member, B\'s owner and a login of nothing get 404; an 
   eq((await fin('owner-a', { media, rightsConfirmed: true })).status, 200, 'the owner of the workspace may finish it');
 });
 
-t('upload-finish: the dispatch is reported honestly (no token, GitHub refusing)', async () => {
+t('upload-finish [E9]: the dispatch is reported honestly (no token, GitHub refusing)', async () => {
   const media = await newMedia('owner-a');
-  const token = Deno.env.get('GITHUB_DISPATCH_TOKEN');
-  Deno.env.delete('GITHUB_DISPATCH_TOKEN');
+  const token = Deno.env.get('GITHUB_DISPATCH_TOKEN'), v2 = Deno.env.get('GITHUB_DISPATCH_TOKEN_V2');
+  Deno.env.delete('GITHUB_DISPATCH_TOKEN'); Deno.env.delete('GITHUB_DISPATCH_TOKEN_V2');
   try {
     const r = await fin('owner-a', { media, rightsConfirmed: true });
     eq(r.status, 200, 'status'); eq(r.json?.dispatched, false, 'no token'); eq(r.json?.reason, 'no dispatch token', 'reason');
-  } finally { Deno.env.set('GITHUB_DISPATCH_TOKEN', token!); }
+  } finally { Deno.env.set('GITHUB_DISPATCH_TOKEN', token!); Deno.env.set('GITHUB_DISPATCH_TOKEN_V2', v2!); }
   await fake.githubStatus(502);
   try {
     const r = await fin('owner-a', { media, rightsConfirmed: true });

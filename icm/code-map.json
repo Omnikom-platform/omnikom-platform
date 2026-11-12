@@ -405,7 +405,7 @@
     {"path":"supabase/functions/test/db.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/drafts.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/export.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
-    {"path":"supabase/functions/test/harness.mjs","owner":"platform-build","exports":["CRON_KEY","REPO","RUNNER_KEY","SECRET","denoTest","startHarness"],"tests":[],"feature":""},
+    {"path":"supabase/functions/test/harness.mjs","owner":"platform-build","exports":["CRON_KEY","REPO","RUNNER_KEY","SECRET","V2_TOKEN","denoTest","startHarness"],"tests":[],"feature":""},
     {"path":"supabase/functions/test/import-cpu.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/import.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/instant.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},

@@ -366,6 +366,12 @@ const MUTANTS = [
   ['E3 http: a handler that throws gets no answer', F + '_shared/http.ts', "catch (e) { console.error(fn, 'threw', String(e).slice(0, 300)); res = problem(500, 'SERVER', 'Something went wrong on our side.'); }", 'catch (e) { throw e; }', 'request-id.test.ts'],
   ['E3 http: a sink that fails fails the answer', F + '_shared/http.ts', "try { await record(fn, res.status, id); } catch (e) { console.error('function error not recorded', String(e).slice(0, 160)); }", 'await record(fn, res.status, id);', 'request-id.test.ts'],
   ['E3 drafts: the function serves without the request id', F + 'drafts/index.ts', "if (import.meta.main) serve('drafts', handle);", 'if (import.meta.main) Deno.serve(handle);', 'request-id.test.ts'],
+  // ---- E9: the dispatch token, new name first ----
+  ['E9 dispatch: the old token wins', F + '_shared/dispatch.ts', "token = v2 || Deno.env.get('GITHUB_DISPATCH_TOKEN')", "token = Deno.env.get('GITHUB_DISPATCH_TOKEN') || v2", 'db.test.ts'],
+  ['E9 dispatch: the new token goes to repository_dispatch', F + '_shared/dispatch.ts', 'const [path, body] = v2 ?', 'const [path, body] = false ?', 'db.test.ts'],
+  ['E9 dispatch: the old token goes to the workflow file', F + '_shared/dispatch.ts', 'const [path, body] = v2 ?', 'const [path, body] = token ?', 'db.test.ts'],
+  ['E9 dispatch: no ref', F + '_shared/dispatch.ts', "{ ref: 'master', inputs }", '{ inputs }', 'db.test.ts'],
+  ['E9 dispatch: the old token is never read', F + '_shared/dispatch.ts', "|| Deno.env.get('GITHUB_DISPATCH_TOKEN')", '', 'db.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;

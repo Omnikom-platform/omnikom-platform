@@ -1,8 +1,8 @@
 // upload-finish: the dashboard says the file is uploaded and ticks the rights box (specs/openapi.json UploadFinishRequest; 02-BACKEND
 // section 5; slice 4.2). Steps: the user's JWT -> the body shape (400; `alt` is at most 150 characters and lives in the row, not here)
 // -> service.finish_media (the uploader, an owner or staff; it sets the rights tick and NOTHING the processor owns; 404 for anyone else)
-// -> the media job is dispatched to the runner (repository_dispatch event `media`, { media_id, workspace_id }; `dispatched` is
-// reported honestly) -> 200 { media, processed, dispatched }. processed stays false until the runner's callback says otherwise.
+// -> the media job is dispatched to the runner (GitHub dispatch (`_shared/dispatch.ts`: workflow_dispatch with the new token, repository_dispatch
+// while only the old one is set) of { media_id, workspace_id }; `dispatched` is reported honestly) -> 200 { media, processed, dispatched }. processed stays false until the runner's callback says otherwise.
 import { dashboard, badBody } from '../_shared/dashboard.ts';
 import { Fields, json, serve } from '../_shared/http.ts';
 import { dispatch } from '../_shared/dispatch.ts';

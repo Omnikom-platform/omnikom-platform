@@ -12,7 +12,7 @@ const saveRow = async (who: Parameters<typeof call>[3], collection: string, row:
 };
 const fullTeam = (name: string, slug: string) => ({ name, slug, role: 'Sales agent' });
 
-t('publish: owner-a publishes a team row at its saved version: 202, a queued job, and GitHub received { job_id, site_id }', async () => {
+t('publish [E9]: owner-a publishes a team row at its saved version: 202, a queued job, and GitHub received { job_id, site_id }', async () => {
   await fake.reset();
   const team = await teamRows();
   const v = await saveRow('owner-a', 'team', team.one, fullTeam('Agent One', 'agent-one'));
@@ -25,8 +25,8 @@ t('publish: owner-a publishes a team row at its saved version: 202, a queued job
   });
   const got = (await fake.recorded()).github;
   eq(got.length, 1, 'GitHub got one dispatch');
-  eq(got[0].body?.event_type, 'publish', 'event type'); eq(got[0].body?.client_payload.job_id, job, 'job_id'); eq(got[0].body?.client_payload.site_id, SITE_A, 'site_id');
-  eq(got[0].authorized, true, 'the dispatch token was sent'); eq(got[0].accept, 'application/vnd.github+json', 'accept header');
+  eq(got[0].path, 'publish.yml', 'workflow_dispatch of publish.yml'); eq(got[0].token, 'v2', 'the new token was sent'); eq(got[0].body?.ref, 'master', 'ref');
+  eq(Object.keys(got[0].body?.inputs ?? {}).sort().join(','), 'job_id,site_id', 'exactly these inputs'); eq(got[0].body?.inputs?.job_id, job, 'job_id'); eq(got[0].body?.inputs?.site_id, SITE_A, 'site_id'); eq(got[0].accept, 'application/vnd.github+json', 'accept header');
 });
 
 t('publish: a version that does not exist is 404 S-NOT-FOUND (the same answer as a row of another workspace)', async () => {
@@ -37,18 +37,18 @@ t('publish: a version that does not exist is 404 S-NOT-FOUND (the same answer as
   eq(await securityEvents({ actor: SUB['owner-a'], code: 'S-NOT-FOUND' }), before + 1, 'a security event');
 });
 
-t('publish: without GITHUB_DISPATCH_TOKEN the job is queued and the answer says dispatched: false (not a silent success)', async () => {
+t('publish [E9]: without GITHUB_DISPATCH_TOKEN the job is queued and the answer says dispatched: false (not a silent success)', async () => {
   await fake.reset();
   const team = await teamRows();
   const v = await saveRow('owner-a', 'team', team.one, fullTeam('Agent One', 'agent-one'));
-  const token = Deno.env.get('GITHUB_DISPATCH_TOKEN');
-  Deno.env.delete('GITHUB_DISPATCH_TOKEN');
+  const token = Deno.env.get('GITHUB_DISPATCH_TOKEN'), v2 = Deno.env.get('GITHUB_DISPATCH_TOKEN_V2');
+  Deno.env.delete('GITHUB_DISPATCH_TOKEN'); Deno.env.delete('GITHUB_DISPATCH_TOKEN_V2');
   try {
     const r = await publish('owner-a', { site: SITE_A, rows: [team.one], versions: [v.version] });
     eq(r.status, 202, 'status: ' + r.text); eq(r.json?.dispatched, false, 'dispatched'); eq(r.json?.reason, 'no dispatch token', 'reason'); eq(r.json?.state, 'queued', 'state');
     await withSql(async sql => { const [j] = await sql`select state from public.publish_jobs where id = ${String(r.json?.job)}::uuid`; eq(j.state, 'queued', 'the job stays queued'); });
     eq((await fake.recorded()).github.length, 0, 'nothing was sent');
-  } finally { if (token) Deno.env.set('GITHUB_DISPATCH_TOKEN', token); }
+  } finally { if (token) Deno.env.set('GITHUB_DISPATCH_TOKEN', token); if (v2) Deno.env.set('GITHUB_DISPATCH_TOKEN_V2', v2); }
 });
 
 t('publish: when GitHub refuses, the job stays queued and the answer says dispatched: false with the status', async () => {

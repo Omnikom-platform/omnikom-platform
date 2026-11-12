@@ -22,7 +22,7 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
 |---|---|---|
 | `save` | dashboard, user JWT | `contract_for` first (404 for non-members before any field name can leak), validate the draft, `save_as` |
 | `drafts` | dashboard | lists the changes waiting to publish |
-| `publish` | dashboard | validate exactly the given versions, `start_publish` pins them, `repository_dispatch` to `publish.yml` |
+| `publish` | dashboard | validate exactly the given versions, `start_publish` pins them, GitHub dispatch to `publish.yml` (`workflow_dispatch`; `repository_dispatch` while only the old token is set) |
 | `upload-start` | dashboard | a signed upload URL under `media/<workspace_id>/` (jpg, png, webp; 25 MB) |
 | `upload-finish` | dashboard | records the media row, the rights tick and alt text, dispatches `media.yml` |
 | `media-export` | runner, signed | hands the runner one original to process |
@@ -84,7 +84,7 @@ sequenceDiagram
   U->>DS: publish
   DS->>E: publish
   E->>D: start_publish pins the versions (ready wall checks fields, sources, placeholders)
-  E->>R: repository_dispatch {job_id, site_id}
+  E->>R: workflow_dispatch {job_id, site_id}
   R->>E: export-published (signed)
   E->>D: freeze_snapshot, published_rows
   R->>R: build the site, run the gates
@@ -119,8 +119,8 @@ private; a build copies only the media a snapshot row uses.
 | Workflow | Runs | Does |
 |---|---|---|
 | `ci.yml` | every push and pull request | the checks (`11-rules.md`): gates, factory, functions, audit, cli, dashboard, departments, secrets, workflows |
-| `publish.yml` | `repository_dispatch` publish, or by hand | export, build, audit gate, Pages deploy, smoke, rollback of a failed live deploy, callback |
-| `media.yml` | `repository_dispatch` media | photo processing |
+| `publish.yml` | `workflow_dispatch` from `publish` (`repository_dispatch` publish while only the old token is set), or by hand | export, build, audit gate, Pages deploy, smoke, rollback of a failed live deploy, callback |
+| `media.yml` | `workflow_dispatch` from `upload-finish` (`repository_dispatch` media while only the old token is set) | photo processing |
 | `keepalive.yml` | Mondays 06:00 UTC | one read-only CLI `status` so the free staging project is not paused |
 | `alerts.yml` | hourly | read-only alert queries on staging; sending is off until a sender exists |
 | `backup.yml` | nightly | encrypted dump of staging to two buckets; skipped until the owner sets up the buckets and key |
@@ -138,7 +138,7 @@ a Vault name. A script reads a key by its variable name from the git-ignored `.e
 | Supabase secret key, per environment | function environment, GitHub secret (production's only in the production repository) | functions, CI |
 | Supabase publishable key | dashboard build (public by design; RLS applies) | dashboard |
 | Cloudflare deploy token, one for the account (Pages edit, DNS edit) | GitHub secret, held only by the runner | `publish.yml` |
-| GitHub dispatch token (this repository only) | function environment | `publish`, `upload-finish` |
+| GitHub dispatch token (`GITHUB_DISPATCH_TOKEN_V2`, this repository, Actions: write; the old Contents token until retired) | function environment | `publish`, `upload-finish` |
 | Runner key | function environment and GitHub secret | runner calls |
 | Cron key | function environment (`CRON_KEY`) and Vault (`metrics_cron_key`, with `project_url`) | the signature of `metrics-pull` and `sitemap-submit`; Vault is where pg_cron reads it |
 | PageSpeed, CrUX and Bing Webmaster keys | function environment | `metrics-pull` (a missing one is a BLOCKED row) |
@@ -149,7 +149,7 @@ a Vault name. A script reads a key by its variable name from the git-ignored `.e
 
 Variable names a script expects: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY` (suffix `_STAGING` or
 `_PROD`), `STAGING_DB_URL`, `PROD_DB_URL`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `RUNNER_KEY`,
-`GITHUB_DISPATCH_TOKEN`, `CRON_KEY`, `PSI_API_KEY`, `CRUX_API_KEY`, `BING_WEBMASTER_KEY`, `RESEND_API_KEY`, `LEAD_ALERT_FROM`, `DASHBOARD_URL`, `MAIL_OUTBOX_KEY`, `RESEND_WEBHOOK_SECRET`, `SITE_SIGNING_KEY_<SLUG>` (minted by
+`GITHUB_DISPATCH_TOKEN_V2`, `GITHUB_DISPATCH_TOKEN`, `CRON_KEY`, `PSI_API_KEY`, `CRUX_API_KEY`, `BING_WEBMASTER_KEY`, `RESEND_API_KEY`, `LEAD_ALERT_FROM`, `DASHBOARD_URL`, `MAIL_OUTBOX_KEY`, `RESEND_WEBHOOK_SECRET`, `SITE_SIGNING_KEY_<SLUG>` (minted by
 `tools/mint-site-key.mjs`), `PLATFORM_FUNCTIONS_BASE`, `CLOUDFLARE_PAGES_TOKEN`. Production keys are used only with
 `--i-mean-production`.
 

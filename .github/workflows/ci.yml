@@ -528,7 +528,7 @@ jobs:
         run: node tools/migration-lint/test/mutate.mjs
 
   secrets:
-    name: secret scan (gitleaks 8.30.1)
+    name: secret scan (gitleaks)
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -565,7 +565,7 @@ jobs:
         run: node tools/test/dep-scan.mjs
 
   workflows:
-    name: workflow files (actionlint 1.7.12, shellcheck 0.11.0)
+    name: workflow files (actionlint, shellcheck)
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
