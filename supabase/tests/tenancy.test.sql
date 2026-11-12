@@ -3728,5 +3728,65 @@ do $$ begin
   assert (select n from public.function_errors where fn = 'save' and status = 502 and minute = date_trunc('minute', now())) = 1, 'T38f the new error is counted';
 end $$;
 
+-- ===== T47 E16 (migration 41): plan limits for sites, photos and files, publishes =====
+-- Each cap is a platform_limits row (the head's choice) that a workspace_limits row replaces (private.limit_for), checked by a BEFORE INSERT trigger.
+-- Each refusal is caught and compared whole, so the words are the test. Mutants "limits41: ..." in run-local.mjs (--only "limits41").
+do $$ begin
+  assert coalesce((select value from platform_limits where key = 'sites_workspace'), -1) = 25, 'T47.0 the platform cap on sites per workspace is 25';
+  assert coalesce((select value from platform_limits where key = 'media_mb_workspace'), -1) = 200, 'T47.0 the platform cap on photos and files per workspace is 200 MB';
+  assert coalesce((select value from platform_limits where key = 'publishes_per_day_workspace'), -1) = 100, 'T47.0 the platform cap on publishes per workspace and day is 100';
+end $$;
+-- a: sites. A's cap is exactly what A already has; one more site of A is refused, B is untouched
+do $$ declare n int; msg text; begin
+  select count(*) into n from sites where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000';
+  insert into workspace_limits (workspace_id, key, value, note) values ('aaaaaaaa-0000-0000-0000-000000000000', 'sites_workspace', n, 'test: the cap is exactly what A already has');
+  begin
+    insert into sites (workspace_id, deploy_target, preview_host) values ('aaaaaaaa-0000-0000-0000-000000000000', 't47-sites-a', 't47-sites-a.preview.test');
+    msg := 'accepted';
+  exception when others then msg := sqlerrm; end;
+  assert msg = 'S-LIMIT: this workspace has reached its limit of ' || n || ' sites', 'T47a a workspace at its site limit adds no site, in these words: ' || msg;
+  insert into sites (workspace_id, deploy_target, preview_host) values ('bbbbbbbb-0000-0000-0000-000000000000', 't47-sites-b', 't47-sites-b.preview.test');
+  assert (select count(*) from sites where deploy_target = 't47-sites-b') = 1, 'T47a a site of B is accepted while A is at its limit';
+  delete from workspace_limits where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and key = 'sites_workspace';
+end $$;
+-- b: photos and files. A's cap is 2 MB over what A holds; a file of exactly the room left is accepted, then 1 byte more is refused
+do $$ declare s bigint; cap int; room bigint; msg text; begin
+  select coalesce(sum(bytes), 0) into s from media where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000';
+  cap := (s / 1048576)::int + 2;
+  insert into workspace_limits (workspace_id, key, value, note) values ('aaaaaaaa-0000-0000-0000-000000000000', 'media_mb_workspace', cap, 'test: 2 MB over what A holds');
+  room := cap::bigint * 1048576 - s;
+  perform * from service.record_media(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 't47-fits.jpg', room::int, 'image/jpeg');
+  assert (select coalesce(sum(bytes), 0) from media where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = cap::bigint * 1048576, 'T47b a file that fills the cap exactly is accepted';
+  begin
+    perform * from service.record_media(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 't47-over.jpg', 1, 'image/jpeg');
+    msg := 'accepted';
+  exception when others then msg := sqlerrm; end;
+  assert msg = 'S-LIMIT: this workspace has reached its limit of ' || cap || ' MB of photos and files', 'T47b 1 byte over the cap is refused, in these words: ' || msg;
+  delete from workspace_limits where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and key = 'media_mb_workspace';
+end $$;
+-- c: publishes. A job of A two days old does not count; A's cap is today's jobs plus one; one more is accepted, the next refused; B is untouched
+do $$ declare n int; msg text; begin
+  insert into publish_jobs (workspace_id, site_id, requested_by, rows, requested, created_at)
+    values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', '00000000-0000-0000-0000-00000000000a', '{}', '{}', now() - interval '2 days');
+  select count(*) into n from publish_jobs where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and created_at >= date_trunc('day', now());
+  insert into workspace_limits (workspace_id, key, value, note) values ('aaaaaaaa-0000-0000-0000-000000000000', 'publishes_per_day_workspace', n + 1, 'test: one more than A published today');
+  insert into publish_jobs (workspace_id, site_id, requested_by, rows, requested)
+    values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', '00000000-0000-0000-0000-00000000000a', '{}', '{}');
+  begin
+    insert into publish_jobs (workspace_id, site_id, requested_by, rows, requested)
+      values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', '00000000-0000-0000-0000-00000000000a', '{}', '{}');
+    msg := 'accepted';
+  exception when others then msg := sqlerrm; end;
+  assert msg = 'S-LIMIT: this workspace has reached its limit of ' || (n + 1) || ' publishes today', 'T47c a workspace at its publish limit publishes no more today, in these words: ' || msg;
+  insert into publish_jobs (workspace_id, site_id, requested_by, rows, requested)
+    values ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-00000000517e', '00000000-0000-0000-0000-00000000000b', '{}', '{}');
+  delete from workspace_limits where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and key = 'publishes_per_day_workspace';
+end $$;
+-- d: the overrides stay staff-only (the wall of the per-workspace quota block above)
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin assert (select count(*) from workspace_limits) = 0, 'T47d an owner still reads no workspace limit'; end $$;
+reset role;
+
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

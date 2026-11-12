@@ -3,8 +3,8 @@
 //    on only service.* functions can be called, no table is readable or writable (ASVS 13.2.2). Fail closed: when the step-down
 //    fails the connection is closed and ConfigError is thrown, and the caller answers 500 CONFIG. Nothing is ever run as postgres.
 //  * withDb(fn): connect, run, and always close (end with a 2 second timeout).
-//  * refusal(message): what the database said no to, as a platform code, an HTTP status and plain words. The words are fixed here;
-//    the database message is never echoed (it can name a field or a value).
+//  * refusal(message): what the database said no to, as a platform code, an HTTP status and plain words. The words are fixed here
+//    (S-STALE and S-LIMIT keep a checked sentence); the database message is never echoed (it can name a field or a value).
 //  * recordEvent: a refusal rolled its own transaction back, so the security event is a call of its own (service.record_security_event).
 // capture-lead keeps its own copy of refusal (not edited in slice 4.2); the follow-up is one refusal in _shared.
 import postgres from 'npm:postgres@3.4.5';
@@ -73,6 +73,11 @@ export function refusal(message: string): Refusal | null {
   if (has('I-NOT-READY')) return { status: 422, code: 'I-NOT-READY', kind: 'refused', msg: 'Some items are not ready to publish.' };
   if (has('S-COLLECTION')) return { status: 422, code: 'S-COLLECTION', kind: 'refused', msg: 'This site has no such collection.' };
   if (has('S-QUOTA')) return { status: 429, code: 'S-QUOTA', kind: 'quota', msg: 'Please try again later.' };
+  // E16 (migration 41): a plan limit; the database's words name the number and the thing, nothing else, so they are passed on
+  if (has('S-LIMIT')) {
+    const m = /S-LIMIT: this workspace has reached its limit of ([0-9]{1,9}) (sites|MB of photos and files|publishes today)(?:\n|$| CONTEXT)/.exec(message);
+    return { status: 409, code: 'S-LIMIT', kind: 'quota', msg: m ? `This workspace has reached its limit of ${m[1]} ${m[2]}.` : 'This workspace has reached a limit of its plan.' };
+  }
   if (has('S-NOTE')) return { status: 400, code: 'LENGTH', kind: null, msg: 'A note is at most 2000 characters.' };
   if (has('I-MEDIA-TYPE')) return { status: 415, code: 'I-MEDIA-TYPE', kind: null, msg: 'Use a jpg, png, webp, heic or pdf file.' };
   if (has('I-MEDIA-SIZE')) return { status: 413, code: 'I-MEDIA-SIZE', kind: null, msg: 'This file is too large or empty.' };

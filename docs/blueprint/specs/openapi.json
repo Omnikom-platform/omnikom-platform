@@ -2368,7 +2368,7 @@
       "$ref": "#/components/responses/NotFound"
      },
      "409": {
-      "description": "a build of this site is running; this one is queued behind it",
+      "description": "a build of this site is running; this one is queued behind it; or S-LIMIT (a Problem): the workspace reached its limit of publishes today",
       "content": {
        "application/json": {
         "schema": {
@@ -2418,6 +2418,16 @@
      },
      "404": {
       "$ref": "#/components/responses/NotFound"
+     },
+     "409": {
+      "description": "S-LIMIT: the workspace reached its limit of MB of photos and files",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
      },
      "413": {
       "description": "file too large",

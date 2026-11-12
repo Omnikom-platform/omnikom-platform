@@ -911,6 +911,12 @@ const MUTANTS = [
   ['errors32: service_role and authenticated keep their table rights', 'revoke all on public.function_errors from public, anon, authenticated, service_role, omnikom_fn;', 'revoke all on public.function_errors from public, anon;'],
   ['errors32: migration 32 does not open service.record_function_error to the function role (both layers)', [['alter default privileges in schema service grant execute on functions to service_role, omnikom_fn;', '-- (no default grant)'], ['grant execute on function service.record_function_error(text, int, uuid) to service_role, omnikom_fn;', '-- (grant removed)']]],
   ['errors32: rows older than 30 days are never deleted', "  delete from public.function_errors e where e.minute < now() - interval '30 days';", ''],
+  // ---- E16 (migration 41): plan limits; tests T47. Run only these: --only "limits41" ----
+  ['limits41: a workspace at its site limit adds a site', "    raise exception 'S-LIMIT: this workspace has reached its limit of % sites', cap; end if;", '    null; end if;'],
+  ['limits41: a workspace at its byte limit uploads more', "    raise exception 'S-LIMIT: this workspace has reached its limit of % MB of photos and files', cap; end if;", '    null; end if;'],
+  ['limits41: a workspace at its publish limit publishes again', "    raise exception 'S-LIMIT: this workspace has reached its limit of % publishes today', cap; end if;", '    null; end if;'],
+  ["limits41: the new file's bytes are not counted", '+ coalesce(new.bytes, 0) > cap::bigint * 1048576', '> cap::bigint * 1048576'],
+  ["limits41: every day's publishes count", " and j.created_at >= date_trunc('day', now())", ''],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

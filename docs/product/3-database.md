@@ -43,8 +43,8 @@ How the wall is built (each part has a test and a mutant in `supabase/tests/run-
 | `workspaces` | one client business: `slug`, `name`, `industry`, `timezone`, `state` (trial, active, suspended, offboarding, deleted) |
 | `members` | a login in a workspace with role `owner` or `member`; `team_row_id` links the login to its row in the team collection, which drives "own items" |
 | `staff` | Omnikom's own access, with a second factor (`aal2`); every staff action is audited. Not a user feature and has no screen |
-| `workspace_limits` | per-workspace override of a platform limit (leads per hour 60 by default) |
-| `platform_limits` | the caps and their sources (email and SMS per day, quiet hours) |
+| `workspace_limits` | per-workspace override of a platform limit: leads per hour, mail and SMS per day, sites, MB of photos and files, publishes a day |
+| `platform_limits` | the caps and their sources (email and SMS per day, quiet hours; sites, MB of photos and files and publishes a day, the three new ones, are the head's choice) |
 
 ### Sites and content
 | Table | Holds |

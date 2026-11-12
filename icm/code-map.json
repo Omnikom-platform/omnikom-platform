@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 894,
+    "sources": 896,
     "unowned": 0
   },
   "files": [
@@ -358,7 +358,7 @@
     {"path":"supabase/functions/_shared/crm-map.ts","owner":"platform-build","exports":["CORE_FIELDS","IndustryField","SET_ON_IMPORT","Template","crmFields","exportRows","importRows","ourFields","parseCsv","proposeMap","templateProblems","toCsv","validateTemplate"],"tests":["supabase/functions/test/import-cpu.ts","supabase/functions/test/import.test.ts","supabase/functions/test/mutate.mjs","supabase/functions/test/templates.test.ts"],"feature":""},
     {"path":"supabase/functions/_shared/csv.ts","owner":"platform-build","exports":["csvCell","csvLine"],"tests":["supabase/functions/test/mutate.mjs"],"feature":""},
     {"path":"supabase/functions/_shared/dashboard.ts","owner":"platform-build","exports":["Ctx","Frame","Run","allowedOrigins","badBody","corsHeaders","dashboard","jwksUrl"],"tests":["supabase/functions/test/mutate.mjs"],"feature":""},
-    {"path":"supabase/functions/_shared/db.ts","owner":"platform-build","exports":["ConfigError","Refusal","Sql","answerProblem","asCaller","connect","recordEvent","refusal","withDb"],"tests":["supabase/functions/test/db.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
+    {"path":"supabase/functions/_shared/db.ts","owner":"platform-build","exports":["ConfigError","Refusal","Sql","answerProblem","asCaller","connect","recordEvent","refusal","withDb"],"tests":["supabase/functions/test/db.test.ts","supabase/functions/test/limits.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
     {"path":"supabase/functions/_shared/dispatch.ts","owner":"platform-build","exports":["Dispatched","dispatch"],"tests":["supabase/functions/test/db.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
     {"path":"supabase/functions/_shared/http.ts","owner":"platform-build","exports":["EMAIL","FieldProblem","Fields","H","MAX_BODY","SLUG","UUID","isDay","isInstant","json","logSink","noContent","problem","requestId","serve","sha256Hex","withRequestId"],"tests":["supabase/functions/test/import-cpu.ts","supabase/functions/test/import.test.ts","supabase/functions/test/instant.test.ts","supabase/functions/test/mutate.mjs","supabase/functions/test/request-id.test.ts","supabase/tests/tenancy.test.sql"],"feature":""},
     {"path":"supabase/functions/_shared/lead-alert.ts","owner":"platform-build","exports":["AlertRow","alertSubject","alertText"],"tests":["supabase/functions/test/mutate.mjs"],"feature":""},
@@ -412,6 +412,7 @@
     {"path":"supabase/functions/test/invite.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/lead-read.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/leads.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"supabase/functions/test/limits.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/local-serve.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/mail-events.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/metrics.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
@@ -469,6 +470,7 @@
     {"path":"supabase/migrations/20261112000030_visitor_limit.sql","owner":"platform-build","exports":["fn:service.count_visitor","table:visitor_counts"],"tests":[],"feature":""},
     {"path":"supabase/migrations/20261112000031_mail_events.sql","owner":"platform-build","exports":["fn:service.mail_event"],"tests":[],"feature":""},
     {"path":"supabase/migrations/20261112000032_function_errors.sql","owner":"platform-build","exports":["fn:service.record_function_error","table:public.function_errors"],"tests":[],"feature":""},
+    {"path":"supabase/migrations/20261112000041_plan_limits.sql","owner":"platform-build","exports":["fn:private.limit_media","fn:private.limit_publishes","fn:private.limit_sites"],"tests":[],"feature":""},
     {"path":"supabase/ops/alerts.mjs","owner":"platform-build","exports":["ALERTS","RULES","Stop","environmentOf","main","parseArgs","pgEnv","render","runQueries","statusData"],"tests":["supabase/ops/test/6b-alerts-fixture.mjs","supabase/ops/test/6b-mutate.mjs","supabase/ops/test/alerts.test.mjs"],"feature":""},
     {"path":"supabase/ops/backup.mjs","owner":"platform-build","exports":["DEFAULT_RECIPIENT","MAX_BYTES","Stop","labelOf","main","parseArgs","pgEnv","readRecipient","regionOf","scrubber","signV4","sizeS3","stampOf","uploadS3"],"tests":["supabase/ops/test/6b-fake-s3.mjs","supabase/ops/test/6b-mutate.mjs","supabase/ops/test/backup.test.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
     {"path":"supabase/ops/inbox-state.mjs","owner":"platform-build","exports":["SQL","main"],"tests":["supabase/ops/test/inbox-state.test.mjs"],"feature":""},

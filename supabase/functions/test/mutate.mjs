@@ -372,6 +372,9 @@ const MUTANTS = [
   ['E9 dispatch: the old token goes to the workflow file', F + '_shared/dispatch.ts', 'const [path, body] = v2 ?', 'const [path, body] = token ?', 'db.test.ts'],
   ['E9 dispatch: no ref', F + '_shared/dispatch.ts', "{ ref: 'master', inputs }", '{ inputs }', 'db.test.ts'],
   ['E9 dispatch: the old token is never read', F + '_shared/dispatch.ts', "|| Deno.env.get('GITHUB_DISPATCH_TOKEN')", '', 'db.test.ts'],
+  // ---- E16: plan limits in plain words ----
+  ['E16 db: S-LIMIT is not a refusal', F + '_shared/db.ts', "  if (has('S-LIMIT')) {", '  if (false) {', 'limits.test.ts'],
+  ['E16 db: S-LIMIT passes any database text', F + '_shared/db.ts', '(sites|MB of photos and files|publishes today)', '(.+?)', 'limits.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
