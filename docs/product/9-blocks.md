@@ -89,12 +89,12 @@ starts its next slice from its lowest open stage. A step lands with its test and
 | H1-2 | H1 | production does not exist; no scripted bring-up of dashboard, secrets, Auth settings, runner; KNOWN-6 staging's ledger applied migration 20 before 16, so promote-check refuses (R-ORDER): repair it first (steps below) | platform build | E2 |
 | H1-3 | H1 | alerts go nowhere; no error reporting, no request id | platform build | E3 |
 | H1-4 | H1 | lead alerts can be lost: no outbox worker, Resend has no timeout; KNOWN-4 the form waits for mail, quota is `count(*)` | platform build | E4 |
-| H1-5 | H1 | dashboard: no CSP or security headers, no error boundary | platform build | E7 |
+| H1-5 | H1 | done, b07747e: dashboard: no CSP or security headers, no error boundary | platform build | E7 |
 | H1-6 | H1 | a live publish goes live before its smoke; no rollback; the smoke reads only the title | platform build | E8 |
 | H1-7 | H1 | staff reads are not audited; session and refresh settings unread | platform build | E11 |
 | KNOWN-1 | H1 | the public form has no per-visitor limit or bot check; the site endpoint signs anything and forwards no visitor IP | platform build | E5 |
 | KNOWN-2 | H1 | a direct Postgres connection per function call | platform build | E6 |
-| KNOWN-5 | H1 | dashboard: no cache rules, 3 realtime channels per tab | platform build | E7 |
+| KNOWN-5 | H1 | done, b07747e: dashboard: no cache rules, 3 realtime channels per tab | platform build | E7 |
 | KNOWN-3 | H2 | lead_list scans the whole workspace, offset paging, industry fields in jsonb | platform build | E13 |
 | H2-1 | H2 | no retention or partitioning on append-only tables | platform build | E12 |
 | H2-2 | H2 | every publish ships the whole media library; one Actions run per photo | platform build | E13 |
