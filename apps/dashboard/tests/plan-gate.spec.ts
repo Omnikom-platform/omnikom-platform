@@ -121,6 +121,7 @@ test.describe('the owner\'s screens', () => {
     await page.goto(`/w/${WS.a.slug}/settings`);
     await expect(page.getByRole('heading', { name: 'People', exact: true })).toBeVisible();
     await expect(page.getByRole('listitem').first()).toBeVisible();   // the team list has loaded
+    await expect(page.locator('[data-plan="DP-1.6-10"]')).toBeVisible();   // the Lead alerts card has its data: its form is rendered only then
     await ok(page, { required: ['DP-1.2s-05', 'DP-1.2s-09', 'DP-1.6-01', 'DP-1.6-02', 'DP-1.6-04', 'DP-1.6-07', 'DP-1.6-08', 'DP-1.6-09', 'DP-1.6-10'] });
 
     await page.getByRole('button', { name: 'Remove', exact: true }).first().click();

@@ -853,7 +853,8 @@ test.describe('the A16 status board as the owner', () => {
     await askSave(page, dated.label).click();
     await expect(page.getByRole('status').last()).toContainText(`Marked ${dated.label}.`);
     await expect.poll(async () => { const l = await a16One(name); return `${l.status}|${l.status_date}`; }).toBe('call-back|2026-12-04');
-    await expect(page.locator('ol li').first()).toContainText(`Status: ${lists.statuses[0]!.label} to ${dated.label} (4 Dec 2026)`);
+    const dec4 = new Date().getFullYear() === 2026 ? '4 Dec' : '4 Dec 2026';
+    await expect(page.locator('ol li').first()).toContainText(`Status: ${lists.statuses[0]!.label} to ${dated.label} (${dec4})`);
 
     // a status with a person: the Who pick starts on the signed-in person (or nobody, which the server fills with the caller); saved, it is the caller's id
     await statusPick(page).selectOption({ label: withWho.label });
