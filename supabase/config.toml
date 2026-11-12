@@ -24,6 +24,9 @@ verify_jwt = false           # build runner: verifies X-Runner-Signature (HMAC o
 [functions.capture-lead]
 verify_jwt = false           # site Worker: verifies X-Site-Signature (HMAC with that site's signing key) in code
 
+[functions.mail-outbox]
+verify_jwt = false           # pg_cron through pg_net (service.mail_outbox_tick): verifies X-Cron-Signature with MAIL_OUTBOX_KEY in code
+
 # planned: W6.3 (05-BUILD-PLAN.md; no folder under supabase/functions yet)
 [functions.push-lead]
 verify_jwt = false           # pg_cron / queue: verifies the internal cron secret header in code

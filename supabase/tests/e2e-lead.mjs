@@ -49,7 +49,7 @@ check('the visitor address is stored only as a hash', ip === '' || /^[0-9a-f]{64
 
 if (!noAlert) {
   let state = '';
-  for (let i = 0; i < 12 && !/^(sent|delivered)$/.test(state); i++) {
+  for (let i = 0; i < 24 && !/^(sent|delivered)$/.test(state); i++) {
     await new Promise(r => setTimeout(r, 5000));
     state = psql(`select coalesce(string_agg(m.state::text || ':' || coalesce(m.error, ''), ','), '') from public.messages m join public.leads l on l.id = m.lead_id where l.idempotency_key = '${key}' and m.template = 'new-lead'`);
   }

@@ -98,3 +98,32 @@ t('capture-lead (work order 20): the lead type comes from the form\'s mapping (a
   eq((await send('Cap Type Ask', { budget: 'low' })).lead_type, 'listing-question', 'the "Ask about this home" kind of answer is listing-question');
   eq((await send('Cap Type None', { rooms: 2 })).lead_type, 'enquiry', 'no answer to map is an enquiry');
 });
+
+// Product row E4 (migration 29): the post only queues the alert (one mail_outbox row per address); the mail-outbox function sends it later
+t('capture-lead [E4]: the new-lead alert is queued in mail_outbox, one row per address, nothing is sent or recorded during the post, and a retry of the same submission queues nothing more', async () => {
+  await seedKey();
+  const old = await withSql(async sql => (await sql`select lead_alert_to::text as v from public.sites where id = ${SITE_A}::uuid`)[0].v as string);
+  const realFetch = globalThis.fetch;
+  try {
+    await withSql(sql => sql`update public.sites set lead_alert_to = array['e4-a@example.test', 'e4-b@example.test'] where id = ${SITE_A}::uuid`);
+    globalThis.fetch = (() => { throw new Error('capture-lead must not call out during the post'); }) as typeof fetch;
+    const body = { form: 'contact', page: '/contact', consentText: 'I agree to be contacted', name: 'Cap E4 Alert', idempotencyKey: crypto.randomUUID(), answers: {} };
+    const look = () => withSql(async sql => {
+      const [l] = await sql`select id from public.leads where name = 'Cap E4 Alert'`;
+      const rows = await sql`select to_text from public.mail_outbox where lead_id = ${l.id}::uuid order by to_text`;
+      const [m] = await sql`select count(*)::int as n from public.messages where lead_id = ${l.id}::uuid`;
+      return { to: rows.map((x: { to_text: string }) => x.to_text).join(), n: rows.length as number, messages: m.n as number };
+    });
+    const r = await post(body);
+    eq(r.status, 202, 'status: ' + r.text);
+    const a = await look();
+    eq(a.to, 'e4-a@example.test,e4-b@example.test', 'one outbox row per address');
+    eq(a.messages, 0, 'no message row during the post');
+    const r2 = await post(body);
+    eq(r2.status, 202, 'the retry: ' + r2.text);
+    eq((await look()).n, 2, 'the retry queued nothing more');
+  } finally {
+    globalThis.fetch = realFetch;
+    await withSql(sql => sql`update public.sites set lead_alert_to = ${old}::text[] where id = ${SITE_A}::uuid`);
+  }
+});

@@ -23,6 +23,12 @@
     "scheme": "bearer",
     "bearerFormat": "Supabase JWT"
    },
+   "mailOutboxSignature": {
+    "type": "apiKey",
+    "in": "header",
+    "name": "X-Cron-Signature",
+    "description": "The mail outbox key (function secret MAIL_OUTBOX_KEY; the same value is in Vault as mail_outbox_key for pg_cron). Header value t=<unix seconds>,v1=<hex HMAC-SHA256 of \"t\\nMETHOD\\npath?query\\nbody\">, accepted for 300 s (supabase/functions/_shared/signature.ts); checked in code (verify_jwt = false)"
+   },
    "runnerSecret": {
     "type": "apiKey",
     "in": "header",
@@ -2693,6 +2699,29 @@
         }
        }
       }
+     }
+    }
+   }
+  },
+  "/mail-outbox": {
+   "post": {
+    "operationId": "mailOutbox",
+    "summary": "Send the queued new-lead alerts (pg_cron every minute through service.mail_outbox_tick; product row E4, migration 29)",
+    "description": "Body {}. Claims at most 10 due rows of mail_outbox (service.outbox_claim records each message; a capped one waits for the next day, a suppressed address is dropped) and posts each to Resend, one at a time, with a 10 s timeout and the message id as Resend's idempotency key; service.outbox_done records the answer (a failed try is retried later, the sixth fails the message).",
+    "security": [
+     {
+      "mailOutboxSignature": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "{ claimed, sent, failed }: the rows claimed and how many Resend accepted or not"
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "500": {
+      "$ref": "#/components/responses/ServerError"
      }
     }
    }

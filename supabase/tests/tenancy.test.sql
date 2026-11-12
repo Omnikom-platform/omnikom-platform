@@ -2067,10 +2067,10 @@ end $$;
 do $$ begin
   if to_regclass('cron.stub_jobs') is null then raise notice 'T25 skipped: no cron stand-in here'; return; end if;
   assert (select count(*) from cron.stub_jobs where jobname = 'reap-stale-jobs') = 1, 'T25 exactly one job named reap-stale-jobs is scheduled';
-  assert (select count(*) from cron.stub_jobs) = 3, 'T25 the migrations schedule three jobs: the reaper, the daily metrics pull (T34) and the retention purge (migration 28)';
+  assert (select count(*) from cron.stub_jobs) = 4, 'T25 the migrations schedule four jobs: the reaper, the daily metrics pull (T34), the retention purge (migration 28) and mail-outbox (T35)';
   assert (select count(*) from cron.stub_jobs where jobname = 'metrics-pull-daily') = 1 and (select schedule from cron.stub_jobs where jobname = 'metrics-pull-daily') = '30 3 * * *'
     and (select command from cron.stub_jobs where jobname = 'metrics-pull-daily') ~ 'service\.metrics_pull_all\(\)', 'T34 the daily metrics pull is scheduled at 03:30 UTC and calls service.metrics_pull_all()';
-  assert (select count(*) from cron.stub_jobs) = 3 and (select count(*) from cron.stub_jobs where jobname = 'purge-expired') = 1, 'T25 the migrations schedule no other job than the reaper, the daily metrics pull and the retention purge (migration 28)';
+  assert (select count(*) from cron.stub_jobs) = 4 and (select count(*) from cron.stub_jobs where jobname = 'purge-expired') = 1, 'T25 the migrations schedule no other job than the reaper, the daily metrics pull, the retention purge (migration 28) and mail-outbox (migration 29)';
   assert (select schedule from cron.stub_jobs where jobname = 'reap-stale-jobs') = '*/5 * * * *', 'T25 the reaper runs every 5 minutes';
   assert (select command from cron.stub_jobs where jobname = 'reap-stale-jobs') ~ 'service\.reap_stale_jobs\(\)', 'T25 the job calls service.reap_stale_jobs()';
 end $$;
@@ -3422,6 +3422,129 @@ set role service_role;
 select service.purge_expired();
 reset role;
 do $$ begin assert (select count(*) from audit_log where action = 't33-new') = 1 and (select count(*) from webhook_events where kind = 't33-open-mid') = 1, 'T33c a second run keeps what is under its period'; end $$;
+
+-- ===== T35 E4 (migration 29): the mail outbox =====
+-- The new-lead alert waits in mail_outbox (service.queue_lead_alert, which capture-lead calls) and the mail-outbox function sends it: service.outbox_claim leases
+-- the due rows and records each message, service.outbox_done records Resend's answer, service.mail_outbox_tick is what pg_cron runs every minute. The whole
+-- file is one transaction, so now() is one instant here. Superuser unless said; the end of the block puts back site A's alert list and A's email limit.
+-- Mutants "outbox29: ..." in run-local.mjs.
+reset role;
+create table test.t35_site as select lead_alert_to from public.sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+create table test.t35_limit as select * from public.workspace_limits where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and key = 'email_per_day_workspace';
+update public.sites set lead_alert_to = array['t35-a@example.test', 't35-b@example.test'] where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+with n as (insert into public.leads (workspace_id, site_id, form, page_path, name, email, consent_text) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'T35 Lead One', 't35-1@test', 'I agree') returning id) insert into test.ids select 't35_1', id from n;
+with n as (insert into public.leads (workspace_id, site_id, form, page_path, name, email, consent_text) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'T35 Lead Two', 't35-2@test', 'I agree') returning id) insert into test.ids select 't35_2', id from n;
+with n as (insert into public.leads (workspace_id, site_id, form, page_path, name, email, consent_text) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', 'T35 Lead Three', 't35-3@test', 'I agree') returning id) insert into test.ids select 't35_3', id from n;
+-- (a) queue lead 1 twice: a row per address, once
+do $$ declare n1 int; n2 int; begin
+  n1 := service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('t35_1'));
+  n2 := service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('t35_1'));
+  assert n1 = 2 and n2 = 0, 'T35a the first queue adds two rows, the second none: ' || n1 || ', ' || n2;
+  assert (select count(*) from public.mail_outbox where lead_id = test.id('t35_1')) = 2, 'T35a two rows';
+  assert (select count(*) from public.mail_outbox where lead_id = test.id('t35_1') and attempts = 0 and message_id is null) = 2, 'T35a attempts 0 and no message yet';
+end $$;
+-- (b) claim twice: the first leases both rows and records a queued message for each, the second finds nothing due
+create table test.t35_b as select * from service.outbox_claim(10);
+do $$ begin
+  assert (select count(*) from test.t35_b) = 2, 'T35b the first claim returns the two rows';
+  assert (select count(*) from test.t35_b where workspace_slug = 'test-demo-a' and name = 'T35 Lead One' and lead_id = test.id('t35_1')) = 2, 'T35b each row carries the workspace slug and the lead';
+  assert (select count(*) from public.mail_outbox o join public.messages m on m.id = o.message_id join test.t35_b b on b.message_id = o.message_id
+          where o.lead_id = test.id('t35_1') and m.state = 'queued' and o.attempts = 1 and o.next_at = now() + interval '5 minutes') = 2, 'T35b each row has a queued message, attempts 1, its next try in 5 minutes';
+  assert (select count(*) from service.outbox_claim(10)) = 0, 'T35b a second claim returns none';
+end $$;
+insert into test.ids select 't35_ma', message_id from test.t35_b where to_text = 't35-a@example.test';
+insert into test.ids select 't35_mb', message_id from test.t35_b where to_text = 't35-b@example.test';
+-- (c) a sent alert: the message is sent with Resend's id, its row is gone, and the lead is not queued again
+select service.outbox_done(test.id('t35_ma'), true, 're_t35', null);
+do $$ begin
+  assert (select state from public.messages where id = test.id('t35_ma')) = 'sent' and (select provider_id from public.messages where id = test.id('t35_ma')) = 're_t35', 'T35c the message is sent with Resend''s id';
+  assert not exists (select 1 from public.mail_outbox where message_id = test.id('t35_ma')), 'T35c its row is gone';
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('t35_1')) = 0, 'T35c an alerted lead is not queued again';
+end $$;
+-- (d) a failed try below six keeps the row and the queued message; the sixth fails the message and removes the row
+select service.outbox_done(test.id('t35_mb'), false, null, 'x');
+do $$ begin
+  assert (select count(*) from public.mail_outbox where message_id = test.id('t35_mb')) = 1, 'T35d a failed first try keeps the row';
+  assert (select state from public.messages where id = test.id('t35_mb')) = 'queued', 'T35d and the message stays queued';
+end $$;
+update public.mail_outbox set attempts = 5, next_at = now() where message_id = test.id('t35_mb');
+do $$ begin
+  perform service.outbox_claim(10);
+  perform service.outbox_done(test.id('t35_mb'), false, null, 'x');
+  assert (select state from public.messages where id = test.id('t35_mb')) = 'failed', 'T35d the sixth failed try fails the message';
+  assert not exists (select 1 from public.mail_outbox where message_id = test.id('t35_mb')), 'T35d and removes its row';
+end $$;
+-- (e) the daily cap: a capped alert keeps its row for the next day (the blocked message stays as that day's record) and gets a new message when it goes
+insert into public.workspace_limits (workspace_id, key, value, note) values ('aaaaaaaa-0000-0000-0000-000000000000', 'email_per_day_workspace', 0, 'T35e')
+  on conflict (workspace_id, key) do update set value = excluded.value;
+do $$ begin
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('t35_2')) = 2, 'T35e lead two is queued';
+  assert (select count(*) from service.outbox_claim(10)) = 0, 'T35e a capped claim returns no row';
+  assert (select count(*) from public.messages where lead_id = test.id('t35_2') and template = 'new-lead' and state = 'blocked' and error = 'daily cap (workspace)') = 2, 'T35e both messages are blocked by the workspace''s daily cap';
+  assert (select count(*) from public.mail_outbox where lead_id = test.id('t35_2') and message_id is not null and next_at = date_trunc('day', now()) + interval '1 day') = 2, 'T35e both rows wait for the next day';
+end $$;
+delete from public.workspace_limits where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and key = 'email_per_day_workspace';
+do $$ begin
+  assert (select count(*) from service.outbox_claim(10, now())) = 0, 'T35e the same day nothing is due';
+  assert (select count(*) from service.outbox_claim(10, now() + interval '1 day')) = 2, 'T35e a day later both rows are claimed';
+  assert (select count(*) from public.mail_outbox o join public.messages m on m.id = o.message_id where o.lead_id = test.id('t35_2') and m.state = 'queued') = 2, 'T35e each with a new queued message';
+  assert (select count(*) from public.messages where lead_id = test.id('t35_2') and template = 'new-lead' and state = 'blocked') = 2, 'T35e the blocked messages stay';
+  assert (select count(*) from service.outbox_claim(10, now() + interval '1 day')) = 0, 'T35e then nothing is due';
+end $$;
+-- (f) a suppressed address: its row is dropped at the claim, no message is recorded
+update public.sites set lead_alert_to = array['t35-c@example.test'] where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+do $$ begin
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('t35_3')) = 1, 'T35f lead three is queued to its one address';
+  perform service.suppress('aaaaaaaa-0000-0000-0000-000000000000', 'email', 't35-c@example.test', 'complaint');
+  assert (select count(*) from service.outbox_claim(10)) = 0, 'T35f a suppressed address is never claimed';
+  assert not exists (select 1 from public.mail_outbox where lead_id = test.id('t35_3')), 'T35f its row is gone';
+  assert not exists (select 1 from public.messages where lead_id = test.id('t35_3')), 'T35f no message was recorded';
+end $$;
+-- (g) the tick: nothing due calls nothing; a due row without pg_net says so (where pg_net exists, the call is proven on staging)
+do $$ begin
+  if to_regprocedure('net.http_post(text,jsonb,jsonb,jsonb,integer)') is not null then raise notice 'T35g skipped: pg_net is installed here'; return; end if;
+  assert service.mail_outbox_tick() = 'idle', 'T35g with no due row the tick is idle';
+  update public.mail_outbox set next_at = now() where lead_id = test.id('t35_2') and to_text = 't35-a@example.test';
+  assert service.mail_outbox_tick() = 'not installed', 'T35g with a due row and no pg_net the tick says not installed';
+end $$;
+-- (h) the schedule (the cron stand-in of run-local.mjs; T25 counts it among the jobs)
+do $$ begin
+  if to_regclass('cron.stub_jobs') is null then raise notice 'T35h skipped: no cron stand-in here'; return; end if;
+  assert (select count(*) from cron.stub_jobs where jobname = 'mail-outbox') = 1 and (select schedule from cron.stub_jobs where jobname = 'mail-outbox') = '* * * * *'
+    and (select command from cron.stub_jobs where jobname = 'mail-outbox') ~ 'service\.mail_outbox_tick\(\)', 'T35h mail-outbox runs every minute and calls service.mail_outbox_tick()';
+end $$;
+-- (i) the walls, as T26d: only the definer functions write the outbox; an owner reads none; staff with MFA read it; the four functions are closed to anon and
+-- authenticated; the function role runs queue, claim and done, never the tick
+set role service_role;
+select test.expect_error($q$insert into public.mail_outbox (lead_id, template, to_text) values ('00000000-0000-0000-0000-000000000000', 'new-lead', 'x@test')$q$, 'permission denied');
+select test.expect_error($q$update public.mail_outbox set attempts = 0$q$, 'permission denied');
+select test.expect_error($q$delete from public.mail_outbox$q$, 'permission denied');
+select test.expect_error($q$select count(*) from public.mail_outbox$q$, 'permission denied');
+reset role;
+set role omnikom_fn;
+select test.expect_error($q$insert into public.mail_outbox (lead_id, template, to_text) values ('00000000-0000-0000-0000-000000000000', 'new-lead', 'x@test')$q$, 'permission denied');
+select test.expect_error($q$update public.mail_outbox set attempts = 0$q$, 'permission denied');
+select test.expect_error($q$delete from public.mail_outbox$q$, 'permission denied');
+select test.expect_error($q$select count(*) from public.mail_outbox$q$, 'permission denied');
+reset role;
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin assert (select count(*) from public.mail_outbox) = 0, 'T35i an owner reads no outbox row'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+do $$ begin assert (select count(*) from public.mail_outbox) > 0, 'T35i staff with MFA read the outbox'; end $$;
+reset role;
+do $$ declare f text; begin
+  foreach f in array array['service.queue_lead_alert(uuid,uuid)', 'service.outbox_claim(integer,timestamp with time zone)', 'service.outbox_done(uuid,boolean,text,text)', 'service.mail_outbox_tick()'] loop
+    assert not has_function_privilege('anon', f, 'execute') and not has_function_privilege('authenticated', f, 'execute'), 'T35i ' || f || ' is closed to anon and authenticated';
+  end loop;
+  foreach f in array array['service.queue_lead_alert(uuid,uuid)', 'service.outbox_claim(integer,timestamp with time zone)', 'service.outbox_done(uuid,boolean,text,text)'] loop
+    assert has_function_privilege('omnikom_fn', f, 'execute'), 'T35i the function role runs ' || f;
+  end loop;
+  assert not has_function_privilege('omnikom_fn', 'service.mail_outbox_tick()', 'execute'), 'T35i the function role cannot run the tick';
+end $$;
+-- back: site A's alert list and A's email limit as the earlier blocks left them
+update public.sites set lead_alert_to = (select lead_alert_to from test.t35_site) where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+insert into public.workspace_limits select * from test.t35_limit on conflict (workspace_id, key) do update set value = excluded.value, note = excluded.note;
 
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

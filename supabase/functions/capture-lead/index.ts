@@ -3,11 +3,10 @@
 // No user login: verify_jwt = false (supabase/config.toml); the signature is checked here first, against the site's active
 // signing keys from the api_keys registry (service.active_key) read out of Vault. Then the body is checked against LeadRequest
 // (specs/openapi.json), stored through service.capture_lead (workspace from the site, consent required, idempotent by key),
-// and the new-lead email alert goes out through Resend to sites.lead_alert_to (recorded in messages, never fails the lead;
-// one alert per lead: a retry of the same idempotency key alerts nobody again, found 2026-10-30 by the lead session).
+// and the new-lead alert is queued in mail_outbox, one row per address of sites.lead_alert_to (service.queue_lead_alert; never fails the
+// lead; one alert per lead: a retry of the same idempotency key queues nothing again). The mail-outbox function sends it (product row E4).
 // First proof target (DECISIONS 25): the ELEV8 preview form -> this -> staging database -> the owner's inbox.
-// Environment, read by name only: SUPABASE_DB_URL (set by Supabase for every function), RESEND_API_KEY, LEAD_ALERT_FROM
-// (a sender on a verified Resend domain, or onboarding@resend.dev for the first test), DASHBOARD_URL (optional, for the link).
+// Environment, read by name only: SUPABASE_DB_URL (set by Supabase for every function); the alert's Resend keys are mail-outbox's.
 // The path string this function sees equals what the endpoint signs (proven on staging 2026-10-30, step 2).
 // Step 3 (migration 8): the connection steps down to the role omnikom_fn right after it opens, so this code can only call
 // service.* functions (no table read or write, 24-GAP-HUNT A 13.2.2); Vault, the alert recipients and "was this lead alerted"
@@ -90,40 +89,6 @@ async function sha256Hex(s: string): Promise<string> {
   return Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
 }
 
-// deno-lint-ignore no-explicit-any
-async function sendAlert(sql: any, site: string, leadId: string, lead: Lead): Promise<void> {
-  const apiKey = Deno.env.get('RESEND_API_KEY'), from = Deno.env.get('LEAD_ALERT_FROM');
-  if (!apiKey || !from) return;                                   // alerts are off until D5 is set up; the lead is already stored
-  // one alert per lead: a retried submission (same idempotency key) answers the same lead id and must not alert again
-  const [prior] = await sql`select service.lead_alerted(${leadId}::uuid) as alerted`;
-  if (prior?.alerted) return;
-  const [s] = await sql`select workspace_id, lead_alert_to, name from service.alert_recipients(${site}::uuid)`;
-  if (!s || !s.lead_alert_to || s.lead_alert_to.length === 0) return;
-  const dash = Deno.env.get('DASHBOARD_URL');
-  const answers = lead.answers;
-  const lines = [
-    `New lead for ${s.name}`, '',
-    `Name: ${lead.name ?? '(not given)'}`, `Phone: ${lead.phone ?? '(not given)'}`, `Email: ${lead.email ?? '(not given)'}`,
-    `Form: ${lead.form}${lead.flow ? ` (${lead.flow})` : ''}`, `Page: ${lead.page}`,
-    ...Object.entries(answers).slice(0, 12).map(([k, v]) => `${k}: ${typeof v === 'string' ? v.slice(0, 200) : JSON.stringify(v).slice(0, 200)}`),
-    '', dash ? `Open it: ${dash}/leads/${leadId}` : `Lead id: ${leadId}`,
-  ];
-  for (const to of s.lead_alert_to as string[]) {
-    const [m] = await sql`select * from service.record_message(${s.workspace_id}::uuid, ${leadId}::uuid, null, 'email', 'new-lead', ${to})`;
-    if (m.state !== 'queued') continue;                           // blocked by the daily cap: recorded, the queue retries tomorrow
-    try {
-      const r = await fetch('https://api.resend.com/emails', {
-        method: 'POST', headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ from, to, subject: `New lead: ${lead.name ?? 'a visitor'} (${lead.form})`, text: lines.join('\n') }),
-      });
-      const j = await r.json().catch(() => ({}));
-      await sql`select service.set_message_state(${m.id}::uuid, ${r.ok ? 'sent' : 'failed'}, ${r.ok ? (j.id ?? null) : null}, ${r.ok ? null : `resend ${r.status}`})`;
-    } catch (e) {
-      await sql`select service.set_message_state(${m.id}::uuid, 'failed', null, ${String(e).slice(0, 200)})`;
-    }
-  }
-}
-
 export async function handle(req: Request): Promise<Response> {
   if (req.method !== 'POST') return problem(405, [{ code: 'METHOD', path: '', msg: 'POST only.' }]);
   const url = new URL(req.url);
@@ -168,7 +133,7 @@ export async function handle(req: Request): Promise<Response> {
       return problem(r.status, [{ code: r.code, path: r.path ?? '', msg: r.msg }]);
     }
     await sql`select service.touch_key(${keyId}::uuid)`;
-    try { await sendAlert(sql, site, row.id, L); } catch (e) { console.error('alert failed', String(e).slice(0, 200)); }
+    try { await sql`select service.queue_lead_alert(${site}::uuid, ${row.id}::uuid)`; } catch (e) { console.error('alert not queued', String(e).slice(0, 200)); }
     return new Response(JSON.stringify({ ok: true }), { status: 202, headers: H });
   } catch (e) {
     console.error('capture-lead', String(e).slice(0, 300));

@@ -337,6 +337,14 @@ const MUTANTS = [
   ['metrics: job-callback submits the sitemap for a preview job', F + 'job-callback/index.ts', "(report?.audit as { target?: unknown } | undefined)?.target === 'production'", 'true', 'metrics.test.ts'],
   ['metrics: job-callback submits the sitemap on a failed job', F + 'job-callback/index.ts', "if (state === 'done' && (report?.audit", 'if ((report?.audit', 'metrics.test.ts'],
   ['metrics: a failed sitemap step fails the callback', F + 'job-callback/index.ts', "try { await submitForJob(c.sql, job, deps); } catch (e) { console.error('job-callback: the sitemap was not submitted', String(e).slice(0, 200)); }", 'await submitForJob(c.sql, job, deps);', 'metrics.test.ts'],
+  // ---- E4: the mail outbox worker and the queued alert ----
+  ['E4 mail-outbox: a bad signature is let through', F + 'mail-outbox/index.ts', 'if (!signed) {', 'if (false) {', 'outbox.test.ts'],
+  ['E4 mail-outbox: Resend has no timeout', F + 'mail-outbox/index.ts', 'signal: AbortSignal.timeout(deps.timeoutMs ?? TIMEOUT_MS)', 'signal: undefined', 'outbox.test.ts'],
+  ['E4 mail-outbox: no idempotency key goes to Resend', F + 'mail-outbox/index.ts', "'idempotency-key': r.message_id", "'x-none': r.message_id", 'outbox.test.ts'],
+  ['E4 mail-outbox: Resend\'s answer is not recorded', F + 'mail-outbox/index.ts', 'await sql`select service.outbox_done(${r.message_id}::uuid, ${ok}, ${id}, ${err})`;', 'void 0;', 'outbox.test.ts'],
+  ['E4 mail-outbox: it runs without the Resend key or the sender', F + 'mail-outbox/index.ts', 'if (!key || !apiKey || !from) return problem(500', 'if (!key) return problem(500', 'outbox.test.ts'],
+  ['E4 lead-alert: the link has no workspace', F + '_shared/lead-alert.ts', '/w/${r.workspace_slug}/leads/${r.lead_id}', '/leads/${r.lead_id}', 'outbox.test.ts'],
+  ['E4 capture-lead: the alert is not queued', F + 'capture-lead/index.ts', 'await sql`select service.queue_lead_alert(${site}::uuid, ${row.id}::uuid)`;', 'void 0;', 'capture.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;

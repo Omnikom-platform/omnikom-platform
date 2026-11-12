@@ -874,6 +874,20 @@ const MUTANTS = [
   ['retention 28: the purge writes no audit row', "  insert into public.audit_log (workspace_id, actor, action, target, detail) values (null, null, 'retention-purge', 'retention_rules', jsonb_build_object('deleted', counts, 'batch', p_batch));", "  null;"],
   ['retention 28: a batch out of range is taken', "  if p_batch is null or p_batch < 1 or p_batch > 50000 then raise exception 'R-BATCH: the batch is 1 to 50000 rows'; end if;", "  null;"],
   ['retention 28: the daily purge is not scheduled', "    perform cron.schedule('purge-expired', '17 3 * * *', 'select service.purge_expired()');", '    null;'],
+  // ---- E4 (migration 29): the mail outbox; tests T35. Run only these: --only "outbox29" ----
+  ['outbox29: an alerted lead is queued again', '  if service.lead_alerted(p_lead) then return 0; end if;', ''],
+  ['outbox29: one address is queued twice for a lead', 'constraint mail_outbox_once unique (lead_id, template, to_text)', 'constraint mail_outbox_once unique (id, lead_id, template, to_text)'],
+  ['outbox29: a suppressed address is claimed', "    if private.is_suppressed(ws, 'email', o.to_text) then", '    if false then'],
+  ['outbox29: a capped alert is dropped', "if r.reason like 'daily cap%' then", 'if false then'],
+  ['outbox29: a capped alert is due again at once', "next_at = date_trunc('day', p_now) + interval '1 day'", 'next_at = p_now'],
+  ['outbox29: a leased row is due again at once', "next_at = p_now + interval '5 minutes' * (o.attempts + 1)", 'next_at = p_now'],
+  ['outbox29: a blocked message is never recorded again', "or (select m.state from public.messages m where m.id = o.message_id) = 'blocked'", ''],
+  ['outbox29: the sixth failed try does not fail the message', 'elsif a >= 6 then', 'elsif a >= 600 then'],
+  ['outbox29: Resend\'s email id is not stored', "perform service.set_message_state(p_message, 'sent', p_provider_id);", "perform service.set_message_state(p_message, 'sent', null);"],
+  ['outbox29: the tick calls with nothing due', "  if not exists (select 1 from public.mail_outbox o where o.next_at <= now()) then return 'idle'; end if;", ''],
+  ['outbox29: the mail outbox is not scheduled', "    perform cron.schedule('mail-outbox', '* * * * *', 'select service.mail_outbox_tick()');", '    null;'],
+  ['outbox29: the function role may run the tick', 'revoke all on function service.mail_outbox_tick() from omnikom_fn, service_role;', ''],
+  ['outbox29: every login reads the outbox', 'create policy mail_outbox_staff_read on public.mail_outbox for select to authenticated using (private.is_staff());', 'create policy mail_outbox_staff_read on public.mail_outbox for select to authenticated using (true);'],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

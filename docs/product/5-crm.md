@@ -24,7 +24,7 @@ sequenceDiagram
   F->>E: signed request with the site's key
   E->>D: store the lead with its consent text
   E-->>V: thank-you page
-  E->>E: new-lead alert email (Resend)
+  E->>E: queue the new-lead alert (mail-outbox sends it)
   D-->>C: the lead appears live, every field a column
   C->>X: export in their CRM's layout (they upload it)
   X->>C: import their file back through the same map
@@ -42,7 +42,9 @@ sequenceDiagram
    The same idempotency key stores nothing new and sends no second alert. The lead, a `received` event and a consent ledger row
    are written in one transaction.
 5. **Alert.** One email to the site's alert addresses and, when set, the assigned agent, through Resend, branded with the
-   client's name and "powered by Omnikom". A failed alert never fails the lead; it is retried, never the visitor.
+   client's name and "powered by Omnikom". The post only queues it (`mail_outbox`, migration 29); the `mail-outbox` function sends it
+   within a minute (pg_cron), retries a failed try up to six tries in all, and sends one held by the daily cap the next day. A failed
+   alert never fails the lead; it is retried, never the visitor.
 6. **In the CRM.** The new row appears live (Realtime, still filtered by RLS).
 
 ## The lead record
