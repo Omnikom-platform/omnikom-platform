@@ -873,6 +873,7 @@ const MUTANTS = [
   ['retention 28: the function role may run the purge', "revoke all on function service.purge_expired(int) from public, anon, authenticated, omnikom_fn;", "revoke all on function service.purge_expired(int) from public, anon, authenticated;"],
   ['retention 28: the purge writes no audit row', "  insert into public.audit_log (workspace_id, actor, action, target, detail) values (null, null, 'retention-purge', 'retention_rules', jsonb_build_object('deleted', counts, 'batch', p_batch));", "  null;"],
   ['retention 28: a batch out of range is taken', "  if p_batch is null or p_batch < 1 or p_batch > 50000 then raise exception 'R-BATCH: the batch is 1 to 50000 rows'; end if;", "  null;"],
+  ['retention 28: the daily purge is not scheduled', "    perform cron.schedule('purge-expired', '17 3 * * *', 'select service.purge_expired()');", '    null;'],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]
