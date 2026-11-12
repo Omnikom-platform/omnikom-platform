@@ -84,6 +84,13 @@ check('generator: FAQ feeds derived', GOOD.placements.some(p => p.id === 'derive
 check('generator: sitemap + schema derived for routed collections', ['listings', 'team', 'posts'].every(c => GOOD.placements.some(p => p.collection === c && p.to.sitemap)) && GOOD.placements.some(p => p.collection === 'listings' && p.to.schema === 'RealEstateListing'));
 check('generator: the entities\' crm lists ride into the contract whole', JSON.stringify(GOOD.crm) === JSON.stringify(entities.crm) && GOOD.forms.buyer.leadTypeFrom.field === 'topic');
 check('generator: seeds the places the plan names', JSON.stringify(GOOD.seeds.areas) === '["alpha","beta"]');
+// every section below builds on GOOD and the store refuses an invalid contract, so a generator that writes an invalid one ends
+// the run here with its summary (the red check above names it) instead of dying in a later section
+if (validateContract(GOOD).length) {
+  console.log('\nstopped: the generated fixture is invalid (see "generator: good fixture is valid"); the sections below need a valid one');
+  console.log(`\n${passed} passed, ${failed} failed`);
+  process.exit(1);
+}
 
 // ---------- contract: each broken fixture must report its code ----------
 const L = c => c.collections.listings;

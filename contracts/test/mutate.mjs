@@ -1,8 +1,12 @@
 // Watched-fail for every rule: make a broken copy of the modules with ONE rule switched off, run the tests against it,
 // and require the suite to go red. A rule whose mutant stays green has no test that measures it.
-//   node test/mutate.mjs      (exit 0 = every mutant was caught, 1 = at least one survived)
+//   node test/mutate.mjs      (exit 0 = the unbroken copy passed and every mutant was caught; 1 = it did not, or a mutant
+//                              survived or crashed, or a code is untested)
+// The copy holds FILES (what a mutant breaks) and READS (the other files test/run.mjs reads from CONTRACTS_DIR). The
+// unbroken copy runs first and must pass. A mutant is caught only when the tests ran to their summary line and it names a
+// failed check; a run that died before its summary is CRASHED and counts with the survivors.
 // Also checks that every rule code in the source appears in the tests, so a new rule cannot ship without a case.
-import { readFileSync, writeFileSync, mkdtempSync, copyFileSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, copyFileSync, rmSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -11,6 +15,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const FILES = ['validate.mjs', 'store.mjs', 'place.mjs', 'from-plan.mjs', 'core.json', 'types.json', 'richtext.mjs'];
 const TEST = join(ROOT, 'test', 'run.mjs');
+// the example contracts test/run.mjs reads from CONTRACTS_DIR, one per ex('<folder>') call in it
+const READS = [...new Set([...readFileSync(TEST, 'utf8').matchAll(/\bex\('([a-z0-9-]+)'\)/g)].map(m => join('examples', m[1], 'contract.json')))];
 const src = Object.fromEntries(FILES.map(f => [f, readFileSync(join(ROOT, f), 'utf8')]));
 
 // 1. every rule code -> one mutant that switches it off at every place it is raised
@@ -73,21 +79,37 @@ swap('richtext.mjs', 'href="([^"<>]*)")>', 'href="([^"<>]*)"[^>]*)>', 'rich text
 const tests = readFileSync(TEST, 'utf8');
 const missing = [...new Set(mutants.filter(m => m.code).map(m => m.code))].filter(c => !tests.includes(`'${c}'`));
 
-let survived = 0;
-for (const m of mutants) {
+// one run of the tests against a fresh copy with mutant m applied (no m = the unbroken copy); failed is null when the run
+// died before its summary line
+function runCopy(m) {
   const dir = mkdtempSync(join(tmpdir(), 'contract-mutant-'));
   try {
-    for (const f of FILES) copyFileSync(join(ROOT, f), join(dir, f));
-    writeFileSync(join(dir, m.file), m.apply(src[m.file]));
-    if (readFileSync(join(dir, m.file), 'utf8') === src[m.file]) throw new Error(`mutant "${m.name}" changed nothing`);
+    for (const f of [...FILES, ...READS]) { mkdirSync(dirname(join(dir, f)), { recursive: true }); copyFileSync(join(ROOT, f), join(dir, f)); }
+    if (m) {
+      writeFileSync(join(dir, m.file), m.apply(src[m.file]));
+      if (readFileSync(join(dir, m.file), 'utf8') === src[m.file]) throw new Error(`mutant "${m.name}" changed nothing`);
+    }
     const r = spawnSync(process.execPath, [TEST], { env: { ...process.env, CONTRACTS_DIR: dir }, encoding: 'utf8', timeout: 60000 });
-    const fails = (r.stdout || '').split('\n').filter(l => l.startsWith('FAIL'));
-    const caught = r.status !== 0;
-    if (!caught) survived++;
-    const why = fails[0] ? fails[0].slice(5, 110) : (r.stderr || '').split('\n').find(Boolean) || '';
-    console.log(`${caught ? 'caught  ' : 'SURVIVED'} ${m.name.padEnd(52)} ${caught ? `(${fails.length} red: ${why})` : ''}`);
+    const out = r.stdout || '', err = (r.stderr || '').split(/\r?\n/);
+    const sum = out.match(/^(\d+) passed, (\d+) failed\s*$/m);
+    return { status: r.status, fails: out.split('\n').filter(l => l.startsWith('FAIL')), failed: sum ? Number(sum[2]) : null,
+      died: (r.error && r.error.message) || err.find(l => /Error\b/.test(l)) || err.find(Boolean) || `exit ${r.status}` };
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
+
+const base = runCopy(null);
+if (base.failed !== 0 || base.status !== 0) {
+  console.log(`BASELINE FAILS: the unbroken copy does not pass (${base.failed === null ? `died before its summary: ${base.died}` : `${base.failed} failed: ${(base.fails[0] || '').slice(5, 110)}`})`);
+  process.exit(1);
+}
+let caught = 0, survived = 0, crashed = 0;
+for (const m of mutants) {
+  const r = runCopy(m);
+  const verdict = r.failed === null ? 'CRASHED ' : r.failed > 0 && r.fails.length ? 'caught  ' : 'SURVIVED';
+  if (verdict === 'CRASHED ') crashed++; else if (verdict === 'SURVIVED') survived++; else caught++;
+  const why = r.failed === null ? `died before its summary: ${r.died}` : r.fails[0] ? `${r.fails.length} red: ${r.fails[0].slice(5, 110)}` : '';
+  console.log(`${verdict} ${m.name.padEnd(52)} ${why ? `(${why})` : ''}`);
+}
 if (missing.length) console.log(`codes with no test case: ${missing.join(', ')}`);
-console.log(`\n${mutants.length} mutants, ${mutants.length - survived} caught, ${survived} survived; ${missing.length} codes untested`);
-process.exit(survived || missing.length ? 1 : 0);
+console.log(`\n${mutants.length} mutants, ${caught} caught, ${survived} survived, ${crashed} crashed; ${missing.length} codes untested`);
+process.exit(survived || crashed || missing.length ? 1 : 0);

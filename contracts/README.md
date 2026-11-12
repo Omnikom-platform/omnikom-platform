@@ -21,7 +21,7 @@ from a library keyed by schema.org type.
 | `store.mjs` | Reference model of how rows behave: versions, draft/publish, rollback, locked fields, member-owns-own, the workspace wall. **The spec the Supabase layer (step 3) must reproduce** |
 | `place.mjs` | Publish-time placement: published rows -> page sections, item pages, sitemap, page schema |
 | `screens.mjs` | Dashboard screens from the contract: `node screens.mjs <contract.json> --out screens.md` |
-| `test/run.mjs` | 138 checks on a synthetic fixture ("Demo Homes"); `test/mutate.mjs` breaks each rule and requires the tests to go red |
+| `test/run.mjs` | 237 checks on a synthetic fixture ("Demo Homes"); `test/mutate.mjs` breaks each rule in a copy and requires a named check to go red |
 | `examples/elev8/` | ELEV8: entity declaration, contract generated from its **approved plan**, screens, mapping |
 | `examples/rainmaker/` | Rainmaker: same, plus `check.mjs` run against its real pages (read only) |
 | `examples/vtv/` | VTV: same, plus `adapter.mjs` run against its real `data.json` (read only); front end only (its project rule) |
@@ -97,8 +97,9 @@ The message text of each is in the source next to the code.
 
 ## Run it
 ```
-node contracts/test/run.mjs          # 138 checks, exit 1 on any failure
-node contracts/test/mutate.mjs       # 82 broken copies (every rule off + 11 behaviour breaks); all must be caught
+node contracts/test/run.mjs          # 237 checks, exit 1 on any failure
+node contracts/test/mutate.mjs       # the unbroken copy must pass first, then 126 broken copies (every rule off + 42 behaviour breaks);
+                                     # caught = the run reached its summary with a named red check; a run that died first is CRASHED (exit 1)
 node contracts/industry-run/run.mjs  # 15 industries
 node contracts/from-plan.mjs --plan "E:/Alex Sevilla/site-checks/elev8ca.com/.pewp/approved" --entities contracts/examples/elev8/entities.json --out contracts/examples/elev8/contract.json
 node contracts/examples/rainmaker/check.mjs
