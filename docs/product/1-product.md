@@ -84,7 +84,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B12 Take an item off the site, delete an item | PARTLY | Delete: the editor's Delete (owner and staff; DP-1.4-21, -23; D:pages/Editor.tsx, D:lib/site.ts, vitest) and F:unpublish (supabase/functions/test/unpublish.test.ts): off the Site list at once, off the live site at the next publish, versions kept; staging 2026-11-12: F:unpublish deployed and the flow "B12 delete an item" (`apps/dashboard/tests/site.spec.ts`) 1 passed, watched red with FLOWS_MUTANT=delete-lost; what the deleted item's address answers after a publish is UNPROVEN. Missing: take off the site without deleting; and a delete alone is not a waiting change, so with nothing else waiting the item stays on the live site until the next publish |
 | B13 Photo upload (rights, alt, sizes, EXIF stripped) | PARTLY | upload functions work on staging; photo to site end to end UNPROVEN |
 | B14 Media library | MISSING | |
-| B15 Preview a change before publishing | MISSING | |
+| B15 Preview a change before publishing | PARTLY | the instant frame: Preview in the editor draws this page with the draft as typed, by the factory's own renderer (factory/lib/render.mjs) in a browser worker, in a sandboxed frame with the changed section outlined, phone or laptop width, photos through signed links (DP-1.4-18, DP-1.5-01, -02, -04; D:pages/Frame.tsx, D:lib/frame.ts, vitest); staging UNPROVEN until the head's flow. Not built: the preview site (B15-b) |
 | B16 Settings: lead alert addresses | WORKS | F:settings-save (alerts only) and the Lead alerts card (D:pages/SettingsAlerts.tsx: up to 10 per site, the agent tick, one Save, the leave question); staging 2026-11-09 from the settings branch: owner-a edits the addresses and reads them back, a bad line shows its inline error, the card shows the service role's own read |
 | B17 Settings: team list, invite, remove | WORKS | F:team-list, F:invite-member, F:member-remove (M17 `list_members`; remove is `remove_member`), and the People card (D:pages/SettingsPeople.tsx). Remove refuses the last owner; a removed person's next request is refused by the wall, open sessions are not ended (Supabase Auth has no admin logout by user id). No role-change control: inviting an existing member as owner sets the role. staging 2026-11-09 from the settings branch: `supabase/tests/e2e-settings.mjs` 0 problems (list, last-owner 409, remove, the wall after removal) and the card shows the service role's people; staging 2026-11-12: the invite flow (`apps/dashboard/tests/flows.spec.ts` "owner-a invites a person ...", which removes the person again in a finally) 1 passed with SETTINGS_INVITE_EMAIL the test inbox, the sentence "Invite sent to <email>." checked (seen red with FLOWS_MUTANT=mail-not-sent), and Auth's mail reached that inbox and its link opened once into the business |
 | B18 Settings: websites | PARTLY | the Websites card (D:pages/Settings.tsx): preview address, domain and state, no edit, shown on staging 2026-11-09 from the settings branch as the service role reads them; "Ask Omnikom" links to `VITE_ASK_EMAIL`, which is unset (no address in the repo: an owner item), so the link is not shown; a flow checks the link once the build has the address (flows.spec.ts "owner-a sees the Ask Omnikom link", S1-D; skipped without VITE_ASK_EMAIL) |
@@ -157,11 +157,11 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | Part | WORKS | PARTLY | MISSING | Rows |
 |---|---|---|---|---|
 | A CRM | 26 | 0 | 0 | 26 |
-| B Dashboard | 14 | 5 | 3 | 22 |
+| B Dashboard | 14 | 6 | 2 | 22 |
 | C Backend and database | 14 | 3 | 0 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
 | E Hardening | 7 | 11 | 3 | 21 |
-| Total | 71 | 19 | 6 | 96 |
+| Total | 71 | 20 | 5 | 96 |
 
 Completion is reported from these counts only.
 

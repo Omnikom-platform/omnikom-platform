@@ -192,7 +192,7 @@ and you get an email."), the spam state, the "Add a lead" form (1.3b), the expor
 | DP-1.4-06 | 5.4 | List: the client's own collections from the contract (Listings, Articles, Team, Reviews, Questions...) with Add; each row says "Edit" | tap an item or Add | the item editor | | an agent sees Add only on collections marked `own` |
 | DP-1.4-07 | 5.4 | List: Business details | tap | the editor with the settings fields; locked ones greyed with the reason | | |
 | DP-1.4-08 | 5.4 | Editor: a section card; its header row says "Open" or "Close" | tap | expands to its fields; one section open at a time | | |
-| DP-1.4-09 | 5.4 | Editor: a text field with its counter ("17 of 70") | type | the counter; the live preview (1.5) updates once 5.5 is built | | over the limit: counter red, Save disabled with "Title is too long" |
+| DP-1.4-09 | 5.4 | Editor: a text field with its counter ("17 of 70") | type | the counter; the Preview frame (1.5) updates | | over the limit: counter red, Save disabled with "Title is too long" |
 | DP-1.4-10 | 5.4 | Editor: long text | type | the same | | |
 | DP-1.4-11 | 5.4 | Editor: photo slot (drop or choose, alt text, rights tick, "Preparing sizes") | drop | `upload-start`, `upload-finish`; processing in the background | the photo, then ready | too small: "This photo is 900 px wide; this spot needs 1600."; wrong type: "Use a JPG, PNG or WebP." |
 | DP-1.4-12 | 5.4 | Editor: lists (points, steps, cards): add, remove, move up, move down | click | | | |
@@ -201,7 +201,7 @@ and you get an email."), the spam state, the "Add a lead" form (1.3b), the expor
 | DP-1.4-15 | 5.4 | Editor: locked section: greyed, "Omnikom changes this after sign-off. Ask us." with a mail link | read | | | |
 | DP-1.4-16 | 5.4 | Editor: search-result card (title and description with length bars and a Google-style preview) | type | the preview updates | | |
 | DP-1.4-17 | 5.4 | Save (and autosave after 10 s idle) | click | `save` with the base version -> a new version; the site does not change | toast "Saved"; the changed mark | validation: errors under the fields, the first scrolled to; stale (S-STALE): "Agent One saved a newer version at 14:02. See their changes, then save again."; network: "Not saved yet, retrying", draft kept locally |
-| DP-1.4-18 | 5.5 | Preview | click | the instant preview (1.5) of this page with the draft | | |
+| DP-1.4-18 | 5.4 | Preview | click | the instant preview (1.5) of this page with the draft | | |
 | DP-1.4-19 | 5.4 | History: the version list (who, when) with Compare and Restore | click | | | |
 | DP-1.4-20 | 5.4 | Restore | click a version, Restore | a new version with that content (nothing is deleted) | toast "Restored the version from Mon 10:12. Undo" | |
 | DP-1.4-21 | 5.4 | Item: Delete (owner and staff, in the editor's bar; not on pages, the business details, the team or uploads) | click | opens the delete sheet (DP-1.4-23) | | |
@@ -228,10 +228,10 @@ articles yet. Add your first one."), the agent view (fewer groups, Add only wher
 ### 1.5 Preview of a change (section 2 has the engineering)
 | Id | Slice | Element | Click | What happens |
 |---|---|---|---|---|
-| DP-1.5-01 | 5.5 | The preview frame (beside the editor on laptop, full screen on phone) | | the page renders with the draft |
-| DP-1.5-02 | 5.5 | Phone / laptop toggle | click | the frame width |
-| DP-1.5-03 | 5.5 | "Live now" / "With your changes" toggle | click | published rows or the draft |
-| DP-1.5-04 | 5.5 | A changed section in the frame | click | outlined; scrolls the editor to that section |
+| DP-1.5-01 | 5.4 | The Preview frame (beside the editor on laptop, full screen on phone) with Close: the factory's own renderer draws the page with the draft in a browser worker; no site script, photos through short signed links | | the page renders with the draft; if it cannot: "The preview cannot show this draft yet:" and the reason |
+| DP-1.5-02 | 5.4 | Phone / laptop toggle | click | the frame width |
+| DP-1.5-03 | later | "Live now" / "With your changes" toggle | click | published rows or the draft |
+| DP-1.5-04 | 5.4 | A changed section in the Preview frame | | outlined, dashed; clicking it to scroll the editor: later (the frame runs no script) |
 | DP-1.5-05 | later | Open the preview site; Compare | click | 2.3 and 2.4, not in step 5 |
 
 ### 1.6 Screen 4: Settings
@@ -301,8 +301,7 @@ same render on draft rows", not a second rendering system.
 - Fidelity: the HTML is byte-identical to the build's for that page, minus the launch layer (hashed asset names, image size
   variants, inlined critical CSS). The iframe loads the site's full CSS instead of the inlined subset, so the look is the same.
   Photos not yet processed show the original with a "preparing" mark.
-- Changed sections get a dashed outline (from a data attribute the renderer already emits per section id); clicking one scrolls
-  the editor.
+- Changed sections get a dashed outline (the frame marks a changed section's first tag `data-changed`); clicking one: later.
 - Time: under 100 ms per keystroke for ELEV8-size pages (UNPROVEN until W3.x measures it; the whole 42-page ELEV8 build takes
   seconds in Node, one page in a Worker is far less).
 - Cost: zero server work. No publish, no job, nothing stored.
@@ -392,5 +391,5 @@ looked at it (DECISIONS 21: the owner brings the references; the screens above a
 
 ## Status
 Design: nothing drawn yet after the owner's steer; the four-screen structure (`15-CRM.md`) and this inventory are what to
-design against. Preview: 2.1 exists, 2.2 to 2.4 NOT BUILT. Walls: 3.1 items 1 to 10 BUILT and mutated; `S-STALE` (3.2)
+design against. Preview: 2.1 exists, 2.2 built (book row B15), 2.3 and 2.4 NOT BUILT. Walls: 3.1 items 1 to 10 BUILT and mutated; `S-STALE` (3.2)
 PROPOSED. No application code; nothing on a real Supabase project (D1-D5).

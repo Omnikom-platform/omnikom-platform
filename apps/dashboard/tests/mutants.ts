@@ -13,6 +13,7 @@
 //   undo-lost             the toast's Undo after a Restore (the page's third save) is answered 200 by the test and never reaches the function
 //   delete-lost           the editor's Delete (unpublish) is answered 204 by the test and never reaches the function
 //   restore-lost          the B11 flow's restore saves (the page's only saves) are answered 200 by the test and never reach the function
+//   frame-lost            the frame's worker never answers (a stand-in Worker): the frame stays empty, as if the renderer were gone
 // Work order 07 (tests/support/own-lead.ts):
 //   no-own-lead      the add-lead a test uses to make its own row is skipped, so every test that waits for a first row must go red for want of one
 // Slice 5-DS (tests/styles.spec.ts):
@@ -37,7 +38,7 @@ export function active(name: Mutant): boolean {
 
 // Kept out of the Mutant union on purpose: the flows slice edits that union's line, and a branch that conflicts with another anywhere but icm/
 // and the book's Counts leaves the land train (docs/departments/README.md rule 8).
-export type SiteMutant = 'undo-lost' | 'delete-lost' | 'restore-lost';
+export type SiteMutant = 'undo-lost' | 'delete-lost' | 'restore-lost' | 'frame-lost';
 export async function installSiteMutant(page: Page, name: SiteMutant) {
   if (process.env.FLOWS_MUTANT !== name) return;
   if (name === 'undo-lost') {
@@ -59,6 +60,7 @@ export async function installSiteMutant(page: Page, name: SiteMutant) {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ row: body.row, version: (body.base ?? 0) + 1 }) });
     });
   }
+  if (name === 'frame-lost') await page.addInitScript(() => { (window as unknown as { Worker: unknown }).Worker = class { onmessage: unknown = null; postMessage() {} terminate() {} }; });
 }
 
 /** Answer matching requests from the page with the same request made as the service role (which ignores Row-Level Security). */

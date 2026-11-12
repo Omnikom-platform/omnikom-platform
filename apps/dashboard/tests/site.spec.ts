@@ -286,3 +286,28 @@ test.describe('B11 put the site back as the owner', () => {
     } finally { const now = await contact(); if (heading(now.data) !== old) await saveAsOwner(now, old); }   // the saved heading is left as found (this file's header)
   });
 });
+
+// ---------- book row B15-a2: the instant frame at phone width (slice S10): a typed heading reaches the sandboxed frame ----------
+test.describe('B15 the instant frame as the owner', () => {
+  test.use({ storageState: '.auth/owner-a.json', viewport: { width: 390, height: 844 } });
+  test('a typed heading shows in the frame with its section outlined, at phone then laptop width, and no site script is in it', async ({ page }) => {
+    await installSiteMutant(page, 'frame-lost');
+    const before = await contact(), typed = `b15 ${RUN} frame`;
+    try {
+      await page.goto(`/w/${WS.a.slug}/site/pages/${before.id}`);
+      await page.getByLabel('Heading').fill(typed);
+      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      const frame = page.locator('iframe[title="Preview"]');
+      await expect(frame, 'the frame shows the typed heading').toHaveAttribute('srcdoc', new RegExp(`<h1>${typed}</h1>`), { timeout: 15_000 });
+      await expect(frame).toHaveAttribute('srcdoc', /<section data-changed class="contact">/);
+      expect(await frame.getAttribute('srcdoc'), 'no site script in the frame').not.toMatch(/<script src=/);
+      await expect(frame).toHaveAttribute('sandbox', ''); await expect(frame).toHaveAttribute('width', '390');
+      await ok(page, { required: ['DP-1.4-18', 'DP-1.5-01', 'DP-1.5-02', 'DP-1.5-04'] });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'no sideways scroll at 390 px').toBe(true);
+      await page.getByRole('button', { name: 'Laptop', exact: true }).click(); await expect(frame).toHaveAttribute('width', '1366');
+    } finally {
+      await page.goto('about:blank');   // the editor's autosave (10 s idle) cannot fire after this
+      const now = await contact(); if (heading(now.data) !== heading(before.data)) await saveAsOwner(now, heading(before.data));
+    }
+  });
+});

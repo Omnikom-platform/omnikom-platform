@@ -159,7 +159,7 @@ describe('mutants of the real source: each must turn the gate red for its reason
     red('fake-count', scanReal(patch('src/pages/Shell.tsx', '<p data-plan="DP-1.2s-01"><strong>{workspace.name}</strong></p>', '<p data-plan="DP-1.2s-01"><strong>{workspace.name}</strong> <span>3</span></p>')), 'PLAN-7', 'bare number');
   });
   it('show an element of a slice that is not built (the Preview button, slice 5.5)', () => {
-    red('unbuilt-row', scanReal(patch('src/pages/Shell.tsx', '<SignOutButton />\n        </nav>', '<Link to="/w/$ws/leads" params={{ ws }} data-plan="DP-1.4-18">Preview</Link>\n          <SignOutButton />\n        </nav>')), 'PLAN-9', 'DP-1.4-18');
+    red('unbuilt-row', scanReal(patch('src/pages/Shell.tsx', '<SignOutButton />\n        </nav>', '<Link to="/w/$ws/leads" params={{ ws }} data-plan="DP-1.5-03">Preview</Link>\n          <SignOutButton />\n        </nav>')), 'PLAN-9', 'DP-1.5-03');
   });
   it('slice 5.3d: take the element of one row away (the line "View: <name>" is the only carrier of DP-1.3-62)', () => {
     red('delete-53d-element', scanReal(f => patch('src/pages/ViewsPanel.tsx', '<p data-plan="DP-1.3-62">', '<p data-plan="DP-1.3-61">')(patch('src/pages/ViewsPanel.tsx', "t('DP-1.3-62', 'View:')", "t('DP-1.3-61', 'View:')")(f))), 'PLAN-3', 'DP-1.3-62');
@@ -177,7 +177,7 @@ describe('mutants of the real source: each must turn the gate red for its reason
     red('invented-sheet-words', scanReal(patch('src/pages/PublishSheet.tsx', "Publish {drafts.length === 1 ? 'this change' : `these ${drafts.length} changes`} to <span className={css.address}>{name}</span>?", "Publish all of {drafts.length === 1 ? 'this change' : `these ${drafts.length} changes`} to <span className={css.address}>{name}</span>?")), 'PLAN-4', 'DP-1.4c-02');
   });
   it('slice 5.4: show the Preview button of slice 5.5 in the editor', () => {
-    red('unbuilt-preview', scanReal(patch('src/pages/Editor.tsx', '<button type="button" data-plan="DP-1.4-19" aria-expanded={showHistory}', '<button type="button" data-plan="DP-1.4-18" onClick={() => undefined}>Preview</button>\n        <button type="button" data-plan="DP-1.4-19" aria-expanded={showHistory}')), 'PLAN-9', 'DP-1.4-18');
+    red('unbuilt-preview', scanReal(patch('src/pages/Editor.tsx', '<button type="button" data-plan="DP-1.4-19" aria-expanded={showHistory}', '<button type="button" data-plan="DP-1.5-03" onClick={() => undefined}>Preview</button>\n        <button type="button" data-plan="DP-1.4-19" aria-expanded={showHistory}')), 'PLAN-9', 'DP-1.5-03');
   });
   it('slice 5.4: plant a sentence of ours in the editor code (the stale sentence reworded)', () => {
     red('invented-editor-string', scanReal(patch('src/pages/Editor.tsx', "const AUTOSAVE_MS = 10_000;", "const oops = 'Someone else edited this page';\nconst AUTOSAVE_MS = 10_000;")), 'PLAN-5', 'Someone else edited this page');

@@ -309,3 +309,39 @@
     padding-bottom: calc(var(--control-h) + var(--s-6));
   }
 }
+
+/* The instant frame (B15, DP-1.5-01): full screen on a phone, the right half on a laptop; the frame keeps its width (390 or 1366) and scrolls inside its own box. No animation. */
+.frame {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+
+.frameBar {
+  display: flex;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--gutter);
+  border-bottom: 1px solid var(--line);
+}
+
+.frameView {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.frameView iframe {
+  display: block;
+  height: 100%;
+  border: 0;
+}
+
+@media (min-width: 1100px) {
+  .frame {
+    left: 50%;
+    border-left: 1px solid var(--line);
+  }
+}

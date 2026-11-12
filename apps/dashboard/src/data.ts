@@ -405,3 +405,12 @@ export async function fetchVersionsAt(pairs: [string, number][]): Promise<Record
   const got = must(await supabase.from('content_versions').select('row_id,n,data').or(pairs.map(([r, n]) => `and(row_id.eq.${r},n.eq.${n})`).join(','))) as { row_id: string; data: Record<string, unknown> }[];
   return Object.fromEntries(got.map(v => [v.row_id, v.data]));
 }
+
+/** The photos an instant frame shows (book row B15): each media row the rows point at, with a 5-minute signed link to its upload. */
+export async function fetchFrameMedia(ids: string[]): Promise<Record<string, { url: string; width: number | null; height: number | null }>> {
+  if (!ids.length) return {};
+  const found = must(await supabase.from('media').select('id,path,width,height').in('id', ids)) as { id: string; path: string; width: number | null; height: number | null }[];
+  const out: Record<string, { url: string; width: number | null; height: number | null }> = {};
+  await Promise.all(found.map(async m => { const url = (await supabase.storage.from('media').createSignedUrl(m.path, 300)).data?.signedUrl; if (url) out[m.id] = { url, width: m.width, height: m.height }; }));
+  return out;
+}

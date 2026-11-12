@@ -1,0 +1,2 @@
+/* The instant frame's one mark (book row B15, DP-1.5-04): a changed section is outlined. Served from the dashboard's host, as the frame's CSP needs. */
+[data-changed] { outline: 2px dashed #b45309; outline-offset: 4px; }

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 890,
+    "sources": 892,
     "unowned": 0
   },
   "files": [
@@ -19,7 +19,7 @@
     {"path":"apps/dashboard/src/api.ts","owner":"platform-build","exports":["BulkAction","Draft","Exported","ImportCall","ItemSave","LeadChange","NewLead","Published","ViewSave","addLead","addTask","bulkLeads","deleteItem","deleteView","exportLeads","fetchDrafts","fetchSiteAudit","fetchTeamList","importLeads","inviteMember","listLeads","markTask","proposeMap","publishRows","putFile","removeMember","saveAlerts","saveItem","saveTemplate","saveView","updateLead","uploadFinish","uploadStart"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/auth.tsx","owner":"platform-build","exports":["SessionProvider","safeNext","useSession"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/config.ts","owner":"platform-build","exports":["config"],"tests":[],"feature":""},
-    {"path":"apps/dashboard/src/data.ts","owner":"platform-build","exports":["ContentRow","LiveState","Me","MediaRow","Membership","Role","RowVersion","Site","SiteAlerts","Team","Template","VersionSign","Workspace","everListed","fetchSnapshot","fetchVersions","fetchVersionsAt","useContract","useContractForms","useDrafts","useEvents","useEventsLive","useFilterCounts","useJobs","useLead","useLeadColumns","useLeadList","useLeads","useLeadsLive","useMe","useMedia","useMemberships","useReadIds","useRows","useSignedUrl","useSiteAlerts","useSites","useStaffAal","useTasks","useTeam","useTeamList","useTemplates","useVersions","useViews","useWorkspace"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
+    {"path":"apps/dashboard/src/data.ts","owner":"platform-build","exports":["ContentRow","LiveState","Me","MediaRow","Membership","Role","RowVersion","Site","SiteAlerts","Team","Template","VersionSign","Workspace","everListed","fetchFrameMedia","fetchSnapshot","fetchVersions","fetchVersionsAt","useContract","useContractForms","useDrafts","useEvents","useEventsLive","useFilterCounts","useJobs","useLead","useLeadColumns","useLeadList","useLeads","useLeadsLive","useMe","useMedia","useMemberships","useReadIds","useRows","useSignedUrl","useSiteAlerts","useSites","useStaffAal","useTasks","useTeam","useTeamList","useTemplates","useVersions","useViews","useWorkspace"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/hooks.ts","owner":"platform-build","exports":["useWide"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/leads-view.ts","owner":"platform-build","exports":["EXPORT_CAPPED","EXPORT_FAILED","LeadsViewContext","LeadsViewValue","saveFile","useExporter","useLeadsView"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/crm.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
@@ -29,6 +29,7 @@
     {"path":"apps/dashboard/src/lib/frame-render.ts","owner":"platform-build","exports":["frameHtml"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/frame.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/frame.ts","owner":"platform-build","exports":["FrameInput","FrameRow","assetsIn","changedSections","cssOf"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/lib/frame.worker.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/importmap.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/importmap.ts","owner":"platform-build","exports":["MAX_FILE_BYTES","MapColumn","Pair","Proposal","Report","changePair","crmSlug","fieldChoices","fileTooBig","flattenSample","matchWords","pairsFromProposal","sampleHeads","templateColumns"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/leads.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
@@ -56,6 +57,7 @@
     {"path":"apps/dashboard/src/pages/DeleteSheet.tsx","owner":"platform-build","exports":["DELETE_FAILED","DeleteSheet"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/Editor.tsx","owner":"platform-build","exports":["Editor"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/ExportControl.tsx","owner":"platform-build","exports":["ExportControl"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/pages/Frame.tsx","owner":"platform-build","exports":["Frame"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/ImportLeads.tsx","owner":"platform-build","exports":["ImportLeads"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/JobWatcher.tsx","owner":"platform-build","exports":["JobWatcher"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/LeadFollowUp.tsx","owner":"platform-build","exports":["LeadFollowUp"],"tests":[],"feature":""},

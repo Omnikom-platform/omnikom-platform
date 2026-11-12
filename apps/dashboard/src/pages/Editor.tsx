@@ -17,6 +17,7 @@ import { useSiteValue } from '../site-context';
 import { UNDO, useToast } from '../toast';
 import { useWorkspaceValue } from '../workspace-context';
 import { NotFound } from './NotFound';
+import { Frame } from './Frame';
 import { AskUs, FieldWidget, type FieldError, type WidgetCtx } from './Widgets';
 
 const AUTOSAVE_MS = 10_000;
@@ -69,6 +70,7 @@ function EditorBody({ collection, row, current }: { collection: string; row: str
   const [open, setOpen] = useState('');
   const [jump, setJump] = useState(search.field ?? '');
   const [showHistory, setShowHistory] = useState(false);
+  const [showFrame, setShowFrame] = useState(false);
   const [compare, setCompare] = useState<Change[] | null>(null);
   const [asking, setAsking] = useState(false);
   const saving = useRef(false);
@@ -223,6 +225,7 @@ function EditorBody({ collection, row, current }: { collection: string; row: str
       <div data-plan="DP-1.4-17" data-saving={busy ? 'true' : 'false'} className={css.bar}>
         <button type="button" disabled={saveDisabled} onClick={() => void save()} className={css.save}>Save</button>
         <button type="button" data-plan="DP-1.4-19" aria-expanded={showHistory} onClick={() => { setShowHistory(s => !s); setCompare(null); }}>History</button>
+        {rowId && <button type="button" data-plan="DP-1.4-18" aria-expanded={showFrame} onClick={() => setShowFrame(s => !s)}>Preview</button>}
         {rowId && canDelete(role, collection, col) && <button type="button" data-plan="DP-1.4-21" className={crm.danger} onClick={() => setAsking(true)}>Delete</button>}
         {rowId && drafts.some(d => d.row === rowId) && <mark data-plan="DP-1.4-17">changed</mark>}
         {offline && <p role="status" data-plan="DP-1.4-17">Not saved yet, retrying</p>}
@@ -236,6 +239,7 @@ function EditorBody({ collection, row, current }: { collection: string; row: str
 
       {compare && <Changes changes={compare} />}
       {asking && rowId && <DeleteItem row={rowId} title={title} onClose={closeAsk} onDeleted={() => void deleted()} />}
+      {showFrame && rowId && <Frame rowId={rowId} data={data} saved={saved} onClose={() => setShowFrame(false)} />}
 
       {showHistory && (
         <div data-plan="DP-1.4-19" className={css.history}>
