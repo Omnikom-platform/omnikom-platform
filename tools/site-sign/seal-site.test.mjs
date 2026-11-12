@@ -1,9 +1,12 @@
-// Tests for seal-site.mjs: 41 named cases, each counted once. Round 1 wrote 26 of them before the tool was rewritten; round 2
+// Tests for seal-site.mjs: 42 named cases, each counted once. Round 1 wrote 26 of them before the tool was rewritten; round 2
 // changed four (6, 10, 22, 23) and added 13 (27 to 39), written before the code, seen red, then green. The browser trial (B1,
 // kept outside this repository) added case 40 for the three loader rules a real browser showed were missing, seen red, then green.
+// A review then found two faults of the loader's decision: on our own host a 404, 401, 403 or a wrong answer showed the copy
+// warning, and a page of another site could show the preview in a frame. Case 22 now holds the new table (our own fault waits,
+// a framed page warns) and case 42 holds the framed lines of the loader text, both written before the code and seen red.
 // usage: node --max-old-space-size=256 seal-site.test.mjs
 //        SEAL_SITE_TOOL=<path> node ... seal-site.test.mjs   (tests another copy of the tool; used by the seeded faults)
-//        node --max-old-space-size=256 seal-site.test.mjs --mutants  (copies the tool, breaks it 10 ways, each must turn its named case red)
+//        node --max-old-space-size=256 seal-site.test.mjs --mutants  (copies the tool, breaks it 12 ways, each must turn its named case red)
 // The tool is read as a whole (seal = the module namespace), so a missing export fails one case and the file still runs to its last line.
 // Fixtures are small sites in a temp folder, signed by sign-site.mjs --draft (its command line), the register points into the temp folder.
 import fs from 'node:fs';
@@ -322,18 +325,28 @@ await kase(22, 'decideSealed: the whole table', () => {
   const good = JSON.stringify({ id: T.ID, k: 'AAAA' });
   const dec = (o) => T.decideSealed({ hosts: T.HOSTS, id: T.ID, ...o });
   const eq = (o, want, what) => assert.equal(dec(o), want, what);
+  // on our own host the warning is never ours to show: whatever the answer, no good key yet is a wait (our deployment's fault)
   eq({ hostname: H, status: 200, body: good }, 'reveal', 'listed host, good body');
-  eq({ hostname: H, status: 404, body: '' }, 'warn', '404');
-  eq({ hostname: H, status: 403, body: '' }, 'warn', '403');
-  eq({ hostname: H, status: 200, body: '<!doctype html><title>x</title>' }, 'warn', '200 that is HTML');
-  eq({ hostname: H, status: 200, body: JSON.stringify({ id: 'omk-other', k: 'AAAA' }) }, 'warn', 'another id');
-  eq({ hostname: H, status: 200, body: JSON.stringify({ id: T.ID }) }, 'warn', 'no k');
-  eq({ hostname: H, status: 200, body: JSON.stringify({ id: T.ID, k: '' }) }, 'warn', 'empty k');
+  eq({ hostname: H, framed: false, status: 200, body: good }, 'reveal', 'listed host, not framed, good body');
+  eq({ hostname: H, status: 404, body: '' }, 'wait', '404');
+  eq({ hostname: H, status: 403, body: '' }, 'wait', '403');
+  eq({ hostname: H, status: 401, body: '' }, 'wait', '401');
+  eq({ hostname: H, framed: false, status: 404, body: '' }, 'wait', '404, not framed');
+  eq({ hostname: H, status: 200, body: '<!doctype html><title>x</title>' }, 'wait', '200 that is HTML');
+  eq({ hostname: H, status: 200, body: JSON.stringify({ id: 'omk-other', k: 'AAAA' }) }, 'wait', 'another id');
+  eq({ hostname: H, status: 200, body: JSON.stringify({ id: T.ID }) }, 'wait', 'no k');
+  eq({ hostname: H, status: 200, body: JSON.stringify({ id: T.ID, k: '' }) }, 'wait', 'empty k');
   eq({ hostname: H, error: true }, 'wait', 'network error');
   eq({ hostname: H, status: 500, body: '' }, 'wait', '500');
   eq({ hostname: H, status: 503, body: '' }, 'wait', '503');
   eq({ hostname: H, status: 429, body: '' }, 'wait', '429');
+  // a page of another site that shows our preview in a frame: the host test passes inside the frame, the warning must still show
+  eq({ hostname: H, framed: true, status: 200, body: good }, 'warn', 'framed by another site, good body');
+  eq({ hostname: H, framed: true, status: 404, body: '' }, 'warn', 'framed by another site, 404');
+  eq({ hostname: H, framed: true, error: true }, 'warn', 'framed by another site, network error');
   eq({ hostname: 'www.other-site.org', status: 200, body: good }, 'warn', 'foreign host');
+  eq({ hostname: 'www.other-site.org', status: 404, body: '' }, 'warn', 'foreign host, 404');
+  eq({ hostname: 'www.other-site.org', error: true }, 'warn', 'foreign host, network error');
   eq({ hostname: '', status: 200, body: good }, 'warn', 'empty hostname');
   eq({ hostname: `${H}.example.com`, status: 200, body: good }, 'warn', 'look-alike host');
   eq({ hostname: 'evil' + H, status: 200, body: good }, 'warn', 'a host that only ends like ours');
@@ -352,7 +365,7 @@ await kase(23, 'the loader holds no eval, no new Function, no document.write, no
   assert.equal(W.old_title, 'This preview needs a current browser');
   assert.equal(W.old_body, 'Open this address in an up-to-date Chrome, Edge, Safari or Firefox.');
   for (const w of ['This preview needs a current browser', 'Open this address in an up-to-date Chrome, Edge, Safari or Firefox.']) assert.ok(t.includes(w), `the loader lacks the old-browser text "${w}"`);
-  const host = t.indexOf('if (!hostOk(host, HOSTS))'), able = t.indexOf('if (!able())'), first = t.indexOf('attempt(0)');
+  const host = t.indexOf('if (!hostOk(host, HOSTS) || framed)'), able = t.indexOf('if (!able())'), first = t.indexOf('attempt(0)');
   assert.ok(host >= 0 && able >= 0 && first >= 0, `positions: host test ${host}, able() call ${able}, attempt(0) ${first}`);
   assert.ok(host < able && able < first, `the order must be host test (${host}), able() (${able}), attempt(0) (${first})`);
 });
@@ -598,6 +611,18 @@ await kase(41, 'with neither --register nor SIGN_SITE_REGISTER a seal is refused
   assert.ok(read(given).split('\n').filter(Boolean).length === 2 && read(given).includes('\tsealed-draft\t'), 'the given register holds no sealed-draft line');
   assert.equal(bare(['--check', out2, '--in', s.signed]).status, 0, 'a --check without a register failed');
 });
+// 42
+await kase(42, 'the loader computes framed once (a top window of another origin counts as framed), tests it with the host, and hands it to done() both times', () => {
+  const t = read(main().out, 'omk-seal.js');
+  const line = 'var framed = false; try { framed = window.top !== window.self && window.top.location.hostname !== host; } catch (e) { framed = true; }';
+  const test = 'if (!hostOk(host, HOSTS) || framed) { paint(WARN[0], WARN[1], true); return; }';
+  assert.equal(t.split(line).length, 2, 'the framed line must be in the loader exactly once');
+  assert.equal(t.split(test).length, 2, 'the host test with || framed must be in the loader exactly once');
+  assert.ok(t.indexOf(line) < t.indexOf(test), 'framed must be computed before it is tested');
+  const calls = t.match(/done\(\{[^}]*\}\)/g) || [];
+  assert.equal(calls.length, 2, `the loader hands two objects to done(), found ${calls.length}`);
+  for (const c of calls) assert.ok(c.includes('framed: framed'), `an object handed to done() lacks framed: ${c}`);
+});
 
 fs.rmSync(TMP, { recursive: true, force: true });
 console.log(`seal-site tests: ${passed} passed, ${failed} failed`);
@@ -606,8 +631,8 @@ if (failed) process.exitCode = 1;
 // seeded faults: each must turn its named case red (the named case must be among the failed ones)
 if (process.argv.includes('--mutants')) {
   const MUT = [
-    ['the host test taken out of decideSealed', 22, "    if (!hostOk(i.hostname, i.hosts)) return 'warn';\n", ''],
-    ['wait answered as warn', 22, "if (i.error || i.status === 429 || i.status >= 500) return 'wait';", "if (i.error || i.status === 429 || i.status >= 500) return 'warn';"],
+    ['the host test taken out of decideSealed', 22, "    if (!hostOk(i.hostname, i.hosts) || i.framed) return 'warn';\n", "    if (i.framed) return 'warn';\n"],
+    ['wait answered as warn', 22, "if (i.error || i.status !== 200) return 'wait';", "if (i.error || i.status !== 200) return 'warn';"],
     ['the JS file left in the output', 4, "if (r.toLowerCase() === 'omk-lock.js' || plan.removed.has(r.toLowerCase())) continue;", "if (r.toLowerCase() === 'omk-lock.js') continue;"],
     ['the cut for an inline script not taken', 3, "if (attrs.src === undefined) return mkCut(m[2], 'js', { code: m[4], mode: 'classic', attrs: keep });", 'if (attrs.src === undefined) return null;'],
     ['the check not comparing the block with the signed page', 10, "if (text !== JSON.stringify({ v: 2, doc: p.doc, cuts: p.cuts }))", 'if (false)'],
@@ -616,6 +641,8 @@ if (process.argv.includes('--mutants')) {
     ['the functions-folder test taken out', 39, "held.length !== 1 || held[0] !== 'omk-key.js'", 'false'],
     ['the ship list not applied', 29, 'if (!SHIP.test(r)) refuse(', 'if (false) refuse('],
     ['the R5 count never above 0', 33, '(n) => open[n] > 0', '(n) => false'],
+    ['our own fault shows the warning', 22, "if (i.error || i.status !== 200) return 'wait';", "if (i.error || i.status >= 500) return 'wait'; if (i.status !== 200) return 'warn';"],
+    ['a page framed by another site opens', 22, "|| i.framed) return 'warn';", ") return 'warn';"],
   ];
   let caught = 0;
   for (const [name, want, from, to] of MUT) {

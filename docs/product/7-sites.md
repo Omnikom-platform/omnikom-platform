@@ -137,7 +137,10 @@ which also needs `--i-mean-production` (the owner's go).
 What sealing stops: each page arrives as an encrypted block that opens only on our host with the key from our own deployment, so
 a download of the files, a mirror, a copy put up elsewhere or a saved .mhtml file shows nothing. What it does not stop: a "save
 page, complete" or a screenshot of our real preview still gets the page's visible content, and a person with developer tools
-can take what the browser shows. The claim is what a copy now costs, never that it cannot be copied.
+can take what the browser shows. Also, the key function answers any request, so a copier who reads the loader can ask our host
+for the key and open the pages offline; such a copy still carries our signature marks, and a re-hosted copy cannot get the key
+from a visitor's browser. A preview shown inside another site's frame shows the warning. The claim is what a copy now costs,
+never that it cannot be copied.
 
 ## Search and analytics
 

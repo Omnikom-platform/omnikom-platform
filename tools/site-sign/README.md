@@ -74,7 +74,7 @@ sighting script for live is planned (head of operations' step). Limits: a person
 tool can remove it; an AI rebuilding from screenshots ignores it; a visitor with scripts blocked sees a blank draft. It makes
 a naive copy break and announce itself; it is not airtight. Cost: one function call per draft page view (free plan 100k/day).
 
-## Sealed drafts (tool and check built 2026-11-12, round 2 the same day; the browser proof is still to do)
+## Sealed drafts (tool and check built 2026-11-12, round 2 the same day; the browser trial passed on a laptop the same day)
 What it is: a signed draft turned into one where the code a copier downloads arrives scrambled (owner's order, after a
 browser-saved copy of a signed draft had its lock removed by deleting one tag). `seal-site.mjs` reads a signed draft folder and
 writes a NEW folder. Every page becomes a small shell (the notice, the title, the three metas, the draft robots meta, a noscript
@@ -98,15 +98,16 @@ Commands (the id and the host are read from the signed draft; nothing else is as
   the tool makes from the signed page (nothing added, nothing missing); no code file is shipped; the loader, the noscript page,
   `_headers` and the function file are the tool's; the functions folder holds that one file and no other; every other file is
   byte for byte the input's; nothing extra. Sealing runs this check on its own output before it writes the register line.
-- Tests: `node --max-old-space-size=256 seal-site.test.mjs` (41 cases, no browser, no network) and the same with `--mutants`
-  (ten seeded faults, each must turn its named case red).
+- Tests: `node --max-old-space-size=256 seal-site.test.mjs` (42 cases, no browser, no network) and the same with `--mutants`
+  (twelve seeded faults, each must turn its named case red).
 
 What ships in the clear. Only the pages are sealed, and of a page only what goes into its block. These stay readable to anyone
 who downloads the folder: the page's title, the notice and the signature metas, the robots meta, the draft bar's stylesheet
 `omk-draft.css`, `_headers` and `_redirects`, and every file of the ship list: images (png, jpg, webp, avif, gif, ico, svg),
 fonts (woff, woff2, ttf, otf), media (mp4, webm, mp3), pdf, and text or data files such as `robots.txt`, a sitemap, `llms.txt`,
 a `.json` or a `.webmanifest`. The content of those files is NOT sealed. Nothing that must stay private belongs in a file of
-those kinds.
+those kinds. Every shell keeps its page's real title in the clear (the browser tab shows it before the key arrives); the
+body, the rest of the head and the site's code are what is sealed.
 
 What the tool allows. Everything else is refused, with the reason in the refusal line, and nothing is written.
 - Files. A file of the signed draft is one of: a page (sealed); a code file (`.css`, `.js`, `.mjs`, `.cjs`) that a page loads,
@@ -139,8 +140,10 @@ there, not re-proved here): with `script-src 'self' blob:` an external loader ca
 page, complete" keeps neither an adopted style sheet nor the blob script; the AES-256-GCM block (`iv`, `tag`, ciphertext,
 base64) made in Node opens in the browser. Save formats: complete = script plus the rendered DOM; .mhtml = flat, no script and
 no adopted sheet; HTML only = the raw source bytes. So sealing beats a download, a mirror, a re-serve and .mhtml, and it does
-NOT beat a "save page, complete" or a screenshot of our own real preview, which still gets the unstyled content text. The claim
-is what a copy now costs, never "cannot be copied".
+NOT beat a "save page, complete" or a screenshot of our own real preview, which still gets the unstyled content text.
+Honest limit: the key function answers any request, so a copier who reads the loader can ask our host for the key and open the
+pages offline; such a copy still carries our signature marks, and a re-hosted copy cannot get the key from a visitor's
+browser. The claim stays what a copy now costs, never "cannot be copied".
 
 Rules. Drafts only: `_headers` gains ` blob:` at the end of each `script-src` directive that lacks it (a file with no
 `script-src` is left alone; an existing `blob:` counts in any case of letters), and `sign-site.mjs --check` refuses `blob:`
@@ -151,16 +154,23 @@ in the `_headers` of a live or handover build when it sits in a directive that l
 command line. The register line (stage `sealed-draft`, `in:<tree hash of the signed draft>`, the tree hash of the output, the
 file count, `key-sha256:<hex>`, the host) holds only the key's hash. The loader and the lock are one file, so a page view
 calls the key function once, not twice. Cost: a sealed draft shows nothing without the key, so "cannot tell means show" is
-gone: on a function hiccup or the quota the client sees "Preview is loading" (retries after 1 s, 2 s and 4 s, then it stays),
-never the unauthorised-copy warning on our own host; a block that does not open, a block that is not version 2 and a page
-that fails while it is being built show the same words, with no retry (a fault of ours is never worded as a copy); with
-scripts off the shell sends the visitor to `/omk-noscript.html`.
-The browser side is not covered by these tests (they run the pure `decideSealed` and `rebase` only). It is measured by the browser
+gone. The decision (`decideSealed`, pure and tested) has three answers. Warn: only when the address is not ours, or when the
+preview is shown inside a frame of another site (a top window of another origin throws on the host read and counts as framed;
+our own page framing our own preview stays allowed). Wait: on our own host, every answer that is not a good key (a 404, 401,
+403, 429 or 5xx, a network error, a 200 that is not JSON, a 200 with another ID or with no key), because once the host test has
+passed it can only be our own deployment's fault (the likeliest: the functions folder did not go up); the client sees "Preview
+is loading" (retries after 1 s, 2 s and 4 s, then it stays), never the unauthorised-copy warning. Reveal: a 200 with our ID and
+a key. A block that does not open, a block that is not version 2 and a page that fails while it is being built show the same
+wait words, with no retry (a fault of ours is never worded as a copy); with scripts off the shell sends the visitor to
+`/omk-noscript.html`.
+The browser side is not covered by these tests (they run the pure `decideSealed` and `rebase` only, and read the loader's
+`framed` lines as text). It is measured by the browser
 trial (headless Edge, a 13-page trial site, no deploy, nothing leaves the machine; kept outside this repository): the fetch and its retries, the decrypt and gunzip, `able()`, the page assembly,
 the adopted sheets, the blob scripts and their order, the events, the warning, the wait words and the noscript page all hold on
-every page at phone and desktop width. Still red there: on two phone pages, before the reader scrolls, sections the browser has not
-drawn yet (the site's `content-visibility:auto`) can hold another height on the sealed page than on the unsealed one (12 and
-47 px of page length); after one scroll through the page every box matches. Measured only in Edge.
+every page at phone and desktop width. The trial has passed on a laptop: a gate of 198 checks, sealed against unsealed, green
+four runs in a row on 2026-11-12. The two page-height differences it first showed (on two phone pages, before the reader
+scrolls: 12 and 47 px of page length) are understood and asserted: they equal the sections the browser has not drawn yet (the
+site's `content-visibility:auto`); after one scroll through the page every box matches. Measured only in Edge.
 
 ## In the Omnikom CLI
 Five thin rows of `tools/omnikom-cli/registry.json` (the CLI adds no logic): `omnikom site sign` (`--draft|--live|--handover`),

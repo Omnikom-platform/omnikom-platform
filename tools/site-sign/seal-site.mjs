@@ -227,13 +227,12 @@ export function sealJs(id, hosts, report, notice) {
     }
     return false;
   }
-  // pure: what the answer from /omk-key means. warn = not ours or not allowed, wait = cannot tell yet, reveal = open the page
+  // pure: what the answer from /omk-key means. warn = not ours (another address, or shown inside another site's frame); wait = ours but no good key yet, whatever the answer (our own fault is never the warning); reveal = open the page
   function decideSealed(i) {
-    if (!hostOk(i.hostname, i.hosts)) return 'warn';
-    if (i.error || i.status === 429 || i.status >= 500) return 'wait';
-    if (i.status !== 200) return 'warn';
-    var j; try { j = JSON.parse(i.body); } catch (e) { return 'warn'; }
-    return j && j.id === i.id && typeof j.k === 'string' && j.k !== '' ? 'reveal' : 'warn';
+    if (!hostOk(i.hostname, i.hosts) || i.framed) return 'warn';
+    if (i.error || i.status !== 200) return 'wait';
+    var j; try { j = JSON.parse(i.body); } catch (e) { return 'wait'; }
+    return j && j.id === i.id && typeof j.k === 'string' && j.k !== '' ? 'reveal' : 'wait';
   }
   var g = typeof globalThis !== 'undefined' ? globalThis : window;
   if (g.__OMK_TEST__) { g.__OMK_TEST__.decideSealed = decideSealed; g.__OMK_TEST__.HOSTS = HOSTS; g.__OMK_TEST__.ID = ID; g.__OMK_TEST__.rebase = rebase; return; }
@@ -348,6 +347,8 @@ export function sealJs(id, hosts, report, notice) {
     });
   }
   var host = location.hostname, DELAYS = [1000, 2000, 4000];
+  // shown inside a page of another site? a top window of another origin throws on this read: framed. Our own page framing our own preview stays allowed
+  var framed = false; try { framed = window.top !== window.self && window.top.location.hostname !== host; } catch (e) { framed = true; }
   function attempt(n) {
     var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     var t = setTimeout(function () { if (ctl) ctl.abort(); }, 5000);
@@ -366,9 +367,9 @@ export function sealJs(id, hosts, report, notice) {
     }
     fetch('/omk-key', { cache: 'no-store', signal: ctl ? ctl.signal : undefined })
       .then(function (r) { return r.text().then(function (body) { return { status: r.status, body: body }; }); })
-      .then(function (a) { done({ hostname: host, hosts: HOSTS, status: a.status, body: a.body, id: ID }); }, function () { done({ hostname: host, hosts: HOSTS, error: true, id: ID }); });
+      .then(function (a) { done({ hostname: host, framed: framed, hosts: HOSTS, status: a.status, body: a.body, id: ID }); }, function () { done({ hostname: host, framed: framed, hosts: HOSTS, error: true, id: ID }); });
   }
-  if (!hostOk(host, HOSTS)) { paint(WARN[0], WARN[1], true); return; }
+  if (!hostOk(host, HOSTS) || framed) { paint(WARN[0], WARN[1], true); return; }
   if (!able()) { paint(OLD[0], OLD[1], false); return; }
   holdIcon();
   attempt(0);
