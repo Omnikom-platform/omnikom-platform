@@ -22,7 +22,7 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
 |---|---|---|
 | `save` | dashboard, user JWT | `contract_for` first (404 for non-members before any field name can leak), validate the draft, `save_as` |
 | `drafts` | dashboard | lists the changes waiting to publish |
-| `publish` | dashboard | validate exactly the given versions, `start_publish` pins them, GitHub dispatch to `publish.yml` (`workflow_dispatch`; `repository_dispatch` while only the old token is set) |
+| `publish` | dashboard | validate exactly the given versions, `start_publish` pins them, GitHub dispatch to `publish.yml` (`workflow_dispatch`; `repository_dispatch` while only the old token is set); `{ site, preview: true }` (owners and staff, book row B15): `start_preview` takes the saved changes that pass the publish-ready wall, at their newest version, into a preview job that publishes nothing (built by B15-b3), and names the rest; none ready: 422; a preview counts toward the day's publish limit (409 `S-LIMIT`) |
 | `upload-start` | dashboard | a signed upload URL under `media/<workspace_id>/` (jpg, png, webp; 25 MB) |
 | `upload-finish` | dashboard | records the media row, the rights tick and alt text, dispatches `media.yml` |
 | `media-export` | runner, signed | hands the runner one original to process |

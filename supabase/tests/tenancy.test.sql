@@ -1609,6 +1609,7 @@ do $$ declare t record; n int; begin
       'view_save', 'view_delete', 'lead_follow_up', 'task_add', 'task_done',   -- work order 18: owner B, a login of nothing and a member on each in T29
       'list_members', 'invite_context',                -- work order 08: owner B and a member in T24
       'site_audit',                                    -- work order 10: member and owner B in T24
+      'start_preview',                                 -- book row B15 (migration 42): a member and owner B in T-B15
       'offboarding_storage']),                         -- work order 37b (migration 26): owner B and staff without MFA in T32e
       'service.' || t.proname || ' takes claims but has no outsider test listed in T14';
   end loop;
@@ -3787,6 +3788,48 @@ set role authenticated;
 select test.act_as('00000000-0000-0000-0000-00000000000a');
 do $$ begin assert (select count(*) from workspace_limits) = 0, 'T47d an owner still reads no workspace limit'; end $$;
 reset role;
+
+-- ===== T-B15 (book row B15, migration 42): the preview job =====
+-- set here, not assumed: A active, no build of site A running (earlier blocks may leave one); A's state is put back at the end
+create table test.tb15_ws as select id, state from public.workspaces where id = 'aaaaaaaa-0000-0000-0000-000000000000'; update public.workspaces set state = 'active' where id = 'aaaaaaaa-0000-0000-0000-000000000000';
+select service.set_job_state(id, 'failed') from public.publish_jobs where site_id = 'aaaaaaaa-0000-0000-0000-00000000517e' and state in ('queued', 'building', 'gating', 'deploying');
+set role authenticated; select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('listing1'), jsonb_build_object('street', '1 Demo Road preview', 'status', 'for-sale', 'agent', test.id('team1')));
+select test.expect_error($q$select service.start_preview(test.claims(), 'aaaaaaaa-0000-0000-0000-00000000517e')$q$, 'permission denied'); reset role;
+insert into test.ids select 'jobP', (service.start_preview(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e') ->> 'job')::uuid;
+do $$ begin
+  assert (select preview and rows = '{}' from publish_jobs where id = test.id('jobP')), 'TB15a a preview job with no rows to publish';
+  assert (select (requested ->> test.id('listing1')::text)::int from publish_jobs where id = test.id('jobP')) = (select max(n) from content_versions where row_id = test.id('listing1')), 'TB15a the ready draft at its newest version';
+  assert (select not (requested ? test.id('dwPage')::text) and coalesce((select e ->> 'path' from jsonb_array_elements(left_out) e where e ->> 'row' = test.id('dwPage')::text), '') <> '' from publish_jobs where id = test.id('jobP')), 'TB15a the not-ready draft (T20''s page) is left out and named with its field';
+  assert not exists (select 1 from jsonb_object_keys((select requested from publish_jobs where id = test.id('jobP'))) k join content_rows c on c.id = k::uuid where c.workspace_id <> 'aaaaaaaa-0000-0000-0000-000000000000'), 'TB15a nothing of another workspace';
+  assert not (select preview from publish_jobs where id = test.id('jobX')) and exists (select 1 from audit_log where action = 'preview-start' and target = test.id('jobP')::text), 'TB15a a publish is not a preview; the start is in the audit log';
+end $$;
+do $$ declare a jsonb; begin   -- only not-ready drafts: the other rows of A are hidden for this one call, and put back by the raise
+  update public.content_rows set deleted_at = now() where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and deleted_at is null and id <> test.id('dwPage');
+  a := service.start_preview(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e');
+  assert a -> 'job' = 'null'::jsonb and a -> 'left_out' @> jsonb_build_array(jsonb_build_object('row', test.id('dwPage'))), 'TB15b only not-ready drafts: no job, each one named';
+  raise exception 'TB15b-undo';
+exception when others then if sqlerrm <> 'TB15b-undo' then raise; end if;
+end $$;
+select test.expect_error($q$select service.start_preview(test.cl('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-00000000517e')$q$, 'S-ROLE');
+select test.expect_error($q$select service.start_preview(test.cl('00000000-0000-0000-0000-00000000000b'), 'aaaaaaaa-0000-0000-0000-00000000517e')$q$, 'S-NOT-FOUND');
+update public.workspaces set state = 'suspended' where id = 'aaaaaaaa-0000-0000-0000-000000000000'; select test.expect_error($q$select service.start_preview(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e')$q$, 'S-WORKSPACE-STATE'); update public.workspaces set state = 'active' where id = 'aaaaaaaa-0000-0000-0000-000000000000';
+-- a preview counts toward the day's publishes (migration 41's cap): A at its cap today starts no preview; the cap row is removed again
+insert into public.workspace_limits (workspace_id, key, value, note) select 'aaaaaaaa-0000-0000-0000-000000000000', 'publishes_per_day_workspace', count(*), 'T-B15: A at its publish limit today' from public.publish_jobs where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and created_at >= date_trunc('day', now());
+select test.expect_error($q$select service.start_preview(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e')$q$, 'S-LIMIT'); delete from public.workspace_limits where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and key = 'publishes_per_day_workspace';
+select service.freeze_snapshot(test.id('jobP'));
+do $$ declare b jsonb; live int; sa jsonb; begin
+  b := service.export_bundle(test.id('jobP'));
+  assert (b -> 'job' ->> 'preview')::boolean and not (service.export_bundle(test.id('jobX')) -> 'job' ->> 'preview')::boolean, 'TB15c the export says preview, a publish export not';
+  assert (select (r ->> 'version')::int from jsonb_array_elements(b -> 'rows') r where r ->> 'id' = test.id('listing1')::text) = (select max(n) from content_versions where row_id = test.id('listing1')), 'TB15c the export ships the newest version';
+  select published_version into live from content_rows where id = test.id('listing1');
+  perform service.set_job_state(test.id('jobP'), 'gating'); perform service.set_job_state(test.id('jobP'), 'deploying');
+  perform service.set_job_state(test.id('jobP'), 'done', jsonb_build_object('factory', 'pass', 'audit', jsonb_build_object('v', 1, 'target', 'preview', 'pass', true, 'counts', jsonb_build_object('PASS', 1))));
+  assert (select published_version from content_rows where id = test.id('listing1')) is not distinct from live, 'TB15c a finished preview publishes nothing';
+  sa := service.site_audit(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e');
+  assert (sa #>> '{latest,preview,job}') is distinct from test.id('jobP')::text and not (sa -> 'history') @> jsonb_build_array(jsonb_build_object('job', test.id('jobP'))), 'TB15c site_audit skips the preview build (the Overview''s site check)';
+end $$;
+update public.workspaces w set state = t.state from test.tb15_ws t where w.id = t.id;
 
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

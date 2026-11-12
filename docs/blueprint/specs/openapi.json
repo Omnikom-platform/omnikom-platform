@@ -170,9 +170,7 @@
    "PublishRequest": {
     "type": "object",
     "required": [
-     "site",
-     "rows",
-     "versions"
+     "site"
     ],
     "properties": {
      "site": {
@@ -186,7 +184,8 @@
       "items": {
        "type": "string",
        "format": "uuid"
-      }
+      },
+      "description": "required unless preview"
      },
      "versions": {
       "type": "array",
@@ -194,7 +193,11 @@
       "items": {
        "type": "integer"
       },
-      "description": "the version of each row that was validated; the job ships exactly these (dry run 2, N4)"
+      "description": "the version of each row that was validated; the job ships exactly these (dry run 2, N4); required unless preview"
+     },
+     "preview": {
+      "type": "boolean",
+      "description": "book row B15: true builds a preview of the saved changes that are ready, at their newest version, to the site's draft address (rows and versions are not read); owners and staff"
      }
     }
    },
@@ -222,6 +225,10 @@
        "null"
       ],
       "description": "why dispatched is false: no dispatch token, no repository configured, github <status>, github unreachable"
+     },
+     "left_out": {
+      "type": "array",
+      "description": "book row B15, a preview: the saved changes not in it, each { row, collection, path } (the field the publish-ready wall wants)"
      }
     },
     "description": "a job holding a snapshot of exact versions; nothing goes live until the job is done"

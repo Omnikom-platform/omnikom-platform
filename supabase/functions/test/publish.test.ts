@@ -121,3 +121,35 @@ t('publish: a photo must be processed, rights-ticked and wide enough in the medi
   const ok = await publish('owner-a', { site: SITE_A, rows: [v1.row], versions: [v1.version] });
   eq(ok.status, 202, 'processed: ' + ok.text); eq(ok.json?.dispatched, true, 'dispatched');
 });
+
+t('publish [B15]: owner-a starts a preview: 202, a preview job with no rows, the ready draft at its newest version, the not-ready one named and left out, one dispatch', async () => {
+  await fake.reset(); const team = await teamRows(), v = await saveRow('owner-a', 'team', team.one, fullTeam('Agent One', 'agent-one'));
+  const bare = await saveRow('owner-a', 'listings', null, { street: 'B15 Draft Street' });   // no status: the wall's REQUIRED rule refuses it
+  try {
+    const r = await publish('owner-a', { site: SITE_A, preview: true }), left = r.json?.left_out as { row: string; path: string }[];
+    eq(r.status, 202, 'status: ' + r.text); eq(r.json?.dispatched, true, 'dispatched'); assert(left.some(x => x.row === bare.row && x.path !== ''), 'named with its field: ' + r.text);
+    await withSql(async sql => {
+      const [j] = await sql`select preview, rows, requested, left_out from public.publish_jobs where id = ${String(r.json?.job)}::uuid`;
+      eq(j.preview, true, 'a preview job'); eq(j.rows.length, 0, 'no rows to publish'); eq(j.requested[team.one], v.version, 'the newest saved version');
+      eq(bare.row in j.requested, false, 'the not-ready draft is not built'); eq(j.left_out.length, left.length, 'the job keeps the list');
+    });
+    eq((await fake.recorded()).github.length, 1, 'one dispatch');
+  } finally { await withSql(sql => sql`update public.content_rows set deleted_at = now() where id = ${bare.row}::uuid`); }
+});
+t('publish [B15]: a member is refused a preview (403 S-ROLE), an outsider gets 404, a bad site id 400', async () => {
+  const m = await publish('member-a1', { site: SITE_A, preview: true }); eq(m.status, 403, 'member: ' + m.text); eq(m.json?.code, 'S-ROLE', 'code');
+  eq((await publish('owner-b', { site: SITE_A, preview: true })).status, 404, 'owner of B'); eq((await publish('owner-a', { site: 'x', preview: true })).status, 400, 'not an id');
+});
+t('publish [B15]: with no ready draft the answer is 422 NOTHING-TO-PREVIEW naming each not-ready one, and no job is made', async () => {
+  const bare = await saveRow('owner-a', 'listings', null, { street: 'B15 Only Draft' });
+  const hidden = await withSql<{ id: string }[]>(sql => sql`update public.content_rows set deleted_at = now() where workspace_id = ${WS_A}::uuid and deleted_at is null and id <> ${bare.row}::uuid returning id`);
+  try {
+    const count = () => withSql(async sql => (await sql`select count(*)::int as n from public.publish_jobs`)[0].n), before = await count();
+    const r = await publish('owner-a', { site: SITE_A, preview: true });
+    eq(r.status, 422, 'status: ' + r.text); eq(r.json?.code, 'NOTHING-TO-PREVIEW', 'code');
+    assert((r.json?.problems as { row: string }[]).some(p => p.row === bare.row), 'the draft is named: ' + r.text); eq(await count(), before, 'no job');
+  } finally {
+    await withSql(sql => sql`update public.content_rows set deleted_at = null where id = any(${hidden.map((h: { id: string }) => h.id)}::uuid[])`);
+    await withSql(sql => sql`update public.content_rows set deleted_at = now() where id = ${bare.row}::uuid`);
+  }
+});

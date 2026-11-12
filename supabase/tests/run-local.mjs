@@ -917,6 +917,20 @@ const MUTANTS = [
   ['limits41: a workspace at its publish limit publishes again', "    raise exception 'S-LIMIT: this workspace has reached its limit of % publishes today', cap; end if;", '    null; end if;'],
   ["limits41: the new file's bytes are not counted", '+ coalesce(new.bytes, 0) > cap::bigint * 1048576', '> cap::bigint * 1048576'],
   ["limits41: every day's publishes count", " and j.created_at >= date_trunc('day', now())", ''],
+  // Book row B15 (migration 42): the preview job; tenancy.test.sql T-B15. Run only these: --only "preview42"
+  ['preview42: a preview job publishes its rows', "values (ws, p_site, me, '{}', req, true, skipped)", "values (ws, p_site, me, (select array_agg(k::uuid) from jsonb_object_keys(req) k), req, true, skipped)"],
+  ['preview42: the job is not marked a preview', "values (ws, p_site, me, '{}', req, true, skipped)", "values (ws, p_site, me, '{}', req, false, skipped)"],
+  ['preview42: the left-out list is not kept', "values (ws, p_site, me, '{}', req, true, skipped)", "values (ws, p_site, me, '{}', req, true, null)"],
+  ['preview42: the oldest version is built', 'x.n, x.data from public.content_versions x where x.row_id = c.id order by x.n desc limit 1', 'x.n, x.data from public.content_versions x where x.row_id = c.id order by x.n limit 1'],
+  ['preview42: a not-ready draft is requested (the wall refuses)', 'if cardinality(probs) = 0 then', 'if true then'],
+  ['preview42: a left-out draft is not named', "'path', regexp_replace(probs[1], ' required$', '')", "'path', ''"],
+  ['preview42: no ready draft still makes a job', "  if req = '{}'::jsonb then return jsonb_build_object('job', null, 'left_out', skipped); end if;\n", ''],
+  ['preview42: a deleted row is built', 'c.deleted_at is null and v.n is distinct from', 'v.n is distinct from'],
+  ['preview42: a member starts a preview', "  if not private.is_staff() and private.my_role(ws) = 'member' then raise exception 'S-ROLE: members do not build a preview of the whole site'; end if;\n", ''],
+  ['preview42: another workspace starts a preview', 'if ws is null or not (private.is_staff() or private.my_role(ws) is not null) then', 'if ws is null then'],
+  ['preview42: a suspended workspace starts a preview', "  if wst not in ('trial', 'active') then raise exception 'S-WORKSPACE-STATE: a % workspace builds nothing', wst; end if;\n", ''],
+  ['preview42: the export does not say preview', "'created_at', j.created_at, 'preview', j.preview)", "'created_at', j.created_at, 'preview', false)"],
+  ['preview42: site_audit reads preview jobs', 'from (select * from public.publish_jobs p where not p.preview) j', 'from public.publish_jobs j'],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]
