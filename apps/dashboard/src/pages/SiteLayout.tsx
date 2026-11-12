@@ -25,7 +25,7 @@ export function SiteLayout() {
   const rows = useRows(workspace.id);
   const me = useMe(workspace.id, userId);
   const team = useTeam(workspace.id);
-  const jobs = useJobs(workspace.id);
+  const jobs = useJobs(workspace.id, 'always');
   const [chosen, setChosen] = useState(() => storedSite(userId, workspace.id));
   const [sheet, setSheet] = useState(false);
 

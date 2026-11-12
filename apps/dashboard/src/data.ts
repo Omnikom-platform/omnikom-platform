@@ -10,6 +10,7 @@ import type { SavedView } from './lib/views';
 import { FILTERS, type ContractForms, type Filter, type Lead, type LeadEvent, type Lists } from './lib/leads';
 import type { Contract, Job, JobEvent, SiteState } from './lib/site';
 import type { Member } from './lib/settings';
+import { holdChannel, jobsWanted } from './lib/live';
 
 export type Workspace = { id: string; slug: string; name: string };
 export type Role = 'owner' | 'member' | 'staff';
@@ -325,21 +326,12 @@ export function useDrafts(siteId: string) {
   return useQuery({ queryKey: ['drafts', siteId], enabled: Boolean(siteId), queryFn: (): Promise<Draft[]> => fetchDrafts(siteId) });
 }
 
-/** The newest publish jobs of the workspace with their events. Realtime on publish_jobs refetches both (every state change writes its event in the same step). */
-export function useJobs(wsId: string) {
+/** The newest publish jobs of the workspace with their events. Realtime on publish_jobs refetches both (every state change writes its event in the
+ *  same step). `live`: 'always' on the screens that show publishes (Site, Overview); 'running' holds the channel only while one of these jobs runs
+ *  (the toast at the end of a publish, on any screen). One channel per tab, whoever reads (lib/live.ts; book row E7). */
+export function useJobs(wsId: string, live: 'always' | 'running') {
   const qc = useQueryClient();
-  useEffect(() => {
-    const channel = supabase
-      .channel(`jobs-${wsId}-${Math.random().toString(36).slice(2, 8)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'publish_jobs', filter: `workspace_id=eq.${wsId}` }, () => {
-        void qc.invalidateQueries({ queryKey: ['jobs', wsId] });
-        void qc.invalidateQueries({ queryKey: ['drafts'] });
-        void qc.invalidateQueries({ queryKey: ['rows', wsId] });
-      })
-      .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [wsId, qc]);
-  return useQuery({
+  const q = useQuery({
     queryKey: ['jobs', wsId],
     queryFn: async (): Promise<{ jobs: Job[]; events: JobEvent[] }> => {
       const jobs = must(await supabase.from('publish_jobs').select('id,site_id,requested_by,rows,requested,state,gate_report,error,created_at,finished_at').eq('workspace_id', wsId).order('created_at', { ascending: false }).limit(10)) as Job[];
@@ -348,6 +340,22 @@ export function useJobs(wsId: string) {
       return { jobs, events };
     },
   });
+  const on = jobsWanted(live, q.data?.jobs);
+  useEffect(() => {
+    if (!on) return;
+    return holdChannel(`jobs-${wsId}`, () => {
+      const channel = supabase
+        .channel(`jobs-${wsId}-${Math.random().toString(36).slice(2, 8)}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'publish_jobs', filter: `workspace_id=eq.${wsId}` }, () => {
+          void qc.invalidateQueries({ queryKey: ['jobs', wsId] });
+          void qc.invalidateQueries({ queryKey: ['drafts'] });
+          void qc.invalidateQueries({ queryKey: ['rows', wsId] });
+        })
+        .subscribe();
+      return () => { void supabase.removeChannel(channel); };
+    });
+  }, [wsId, qc, on]);
+  return q;
 }
 
 export type MediaRow = { id: string; path: string; width: number | null; processed: boolean; rights_confirmed: boolean };

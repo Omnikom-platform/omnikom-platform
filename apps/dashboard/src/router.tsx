@@ -14,9 +14,10 @@ import { Editor } from './pages/Editor';
 import { Settings } from './pages/Settings';
 import { NotFound } from './pages/NotFound';
 import { parseAddress } from './lib/views';
+import { ErrorScreen } from './ErrorScreen';
 
 // Routes (03-FRONTEND B2), written in code so the dashboard needs no build plugin. Everything under /w needs a login.
-const rootRoute = createRootRoute({ component: () => <Outlet /> });
+const rootRoute = createRootRoute({ component: () => <Outlet />, errorComponent: ErrorScreen });
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,

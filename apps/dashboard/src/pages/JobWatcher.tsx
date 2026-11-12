@@ -12,7 +12,7 @@ import { useWorkspaceValue } from '../workspace-context';
  */
 export function JobWatcher() {
   const { workspace } = useWorkspaceValue();
-  const jobs = useJobs(workspace.id);
+  const jobs = useJobs(workspace.id, 'running');
   const sites = useSites(workspace.id);
   const toast = useToast();
   const seen = useRef<Map<string, JobState>>(new Map());

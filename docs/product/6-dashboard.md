@@ -16,7 +16,9 @@ the tokens and screen styles in one slice.
 React 18, TypeScript and Vite, built as a static single-page app on its own Pages project. TanStack Router (typed routes) and
 TanStack Query (cache, retries); supabase-js for sign-in, RLS reads, signed uploads and function calls. The contract validator
 `contracts/validate.mjs` is imported as is, so the browser and the server run the same rules. Server state only, keyed by
-workspace, resource and id; Realtime for new leads and publish jobs. Vitest for units, Playwright against staging for flows.
+workspace, resource and id; Realtime for new leads and publish jobs, each opened only on the screen that shows it: leads on
+Leads, a lead's timeline in its panel, publish jobs on the Site screen and the Overview and elsewhere only while a publish
+runs (one jobs channel per tab, `src/lib/live.ts`). Vitest for units, Playwright against staging for flows.
 
 ## Rules every screen follows
 

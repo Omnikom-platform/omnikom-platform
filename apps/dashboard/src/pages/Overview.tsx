@@ -19,7 +19,7 @@ export function Overview() {
   const { workspace, userId } = useWorkspaceValue();
   const { session } = useSession();
   const sites = useSites(workspace.id);
-  const jobs = useJobs(workspace.id);
+  const jobs = useJobs(workspace.id, 'always');
   const team = useTeam(workspace.id);
   const me = useMe(workspace.id, userId);
   const canSee = me.data !== undefined && me.data.role !== 'member';
