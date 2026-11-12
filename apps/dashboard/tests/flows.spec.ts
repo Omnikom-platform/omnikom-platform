@@ -41,6 +41,7 @@ test.afterAll(async () => {
   await removeCrm3bTestData();
   await removeA16TestData();
   await removeA15TestData();
+  await removeA21TestData();
   const made = await serviceGet<{ id: string }[]>(`/leads?site_id=eq.${WS.a.site}&name=like.${encodeURIComponent(`5.3 flows ${RUN}*`)}&select=id&limit=100`);
   if (!made.length) return;
   const out = spawnSync(process.execPath, [CLEAN_LEADS, '--apply', '--ids', made.map(l => l.id).join(',')], { encoding: 'utf8', env: process.env, timeout: 120_000, windowsHide: true });
@@ -1003,5 +1004,59 @@ test.describe('A15 bulk owner and bulk delete as the owner', () => {
     await page.getByRole('button', { name: 'Delete 2 leads', exact: true }).click();
     await expect(page.getByRole('status').last()).toContainText('Deleted 2 leads.');
     await expect.poll(async () => (await a15Leads()).map(l => l.name), { message: 'only charlie is left' }).toEqual([`${A15_MARK} charlie`]);
+  });
+});
+
+// ---------- book row A21: an export in a saved layout (slice S2) ----------
+// Owner-a saves a layout with crm-template-save ("a21 layout <RUN>": Budget, Full Name, E-mail, in an order unlike the plain file) and makes two
+// leads with a budget (add-lead, marked "a21 <RUN> ..."). The screen picks the layout in Export layout and exports the searched view: the file's
+// header is the layout's, in its order, and each row holds that lead's values. No mail. The file's afterAll removes the leads and the layout, and
+// reads the layout back as gone.
+const A21_MARK = `a21 ${RUN}`;
+const A21_LAYOUT = `a21 layout ${RUN}`;
+const A21_COLUMNS = [{ header: 'Budget', field: 'answers.budget' }, { header: 'Full Name', field: 'name' }, { header: 'E-mail', field: 'email' }];
+const a21Leads = () => serviceGet<{ id: string }[]>(`/leads?workspace_id=eq.${WS.a.id}&name=like.${encodeURIComponent(`${A21_MARK}*`)}&select=id`);
+const a21Layout = () => serviceGet<{ id: string }[]>(`/crm_templates?workspace_id=eq.${WS.a.id}&name=eq.${encodeURIComponent(A21_LAYOUT)}&select=id`);
+
+async function removeA21TestData() {
+  const made = await a21Leads();
+  if (made.length) {
+    const r = await callAs(await personAccessToken('owner-a'), 'leads-bulk', { workspace: WS.a.id, ids: made.map(l => l.id), action: 'delete', confirm: true });
+    console.log(`a21 cleanup: ${made.length} lead(s), leads-bulk answered ${r.status}`);
+    expect(r.status, `removing the a21 leads answered ${r.status}: ${r.text.slice(0, 200)}`).toBe(200);
+  }
+  await serviceDelete(`/crm_templates?workspace_id=eq.${WS.a.id}&name=eq.${encodeURIComponent(A21_LAYOUT)}`);
+  expect(await a21Layout(), 'the a21 layout is gone').toEqual([]);
+}
+
+test.describe('A21 export in a saved layout as the owner', () => {
+  test.use({ storageState: '.auth/owner-a.json' });
+  test.setTimeout(300_000);
+
+  test('the searched view exported in a saved layout has the layout\'s header in its order and each lead\'s values under it', async ({ page }) => {
+    await installMutant(page, 'export-plain');
+    const token = await personAccessToken('owner-a');
+    const saved = await callAs(token, 'crm-template-save', { workspace: WS.a.id, name: A21_LAYOUT, crm: 'flows', columns: A21_COLUMNS });
+    expect(saved.status, `crm-template-save answered ${saved.status}: ${saved.text.slice(0, 160)}`).toBe(200);
+    const want: string[] = [];
+    for (const [n, budget] of [['alpha', 600000], ['bravo', 800000]] as const) {
+      const name = `${A21_MARK} ${n}`, email = `a21.${n}.${RUN}@example.com`;
+      const r = await callAs(token, 'add-lead', { site: WS.a.site, name, email, phone: '(555) 010-0165', answers: { budget }, consentText: 'The person agreed to be contacted', form: 'manual' });
+      expect(r.status, `add-lead (${n}) answered ${r.status}: ${r.text.slice(0, 160)}`).toBe(201);
+      want.push(`${budget},${name},${email}`);
+    }
+
+    await page.goto(`/w/${WS.a.slug}/leads`);
+    await leadsLoaded(page);
+    await radio(page, 'All').check();
+    await settled(page);
+    await page.getByRole('searchbox', { name: 'Search' }).fill(A21_MARK);
+    await expect(page.locator('tbody tr')).toHaveCount(2);
+    await page.getByLabel('Export layout').selectOption({ label: A21_LAYOUT });
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export', exact: true }).click()]);
+    const file = readFileSync((await download.path()) ?? '', 'utf8').trim().split(/\r?\n/);
+    console.log(`a21 export header row: ${file[0]}`);
+    expect(file[0], 'the header is the layout\'s, in its order').toBe(A21_COLUMNS.map(c => c.header).join(','));
+    expect(file.slice(1).sort(), 'each lead\'s values sit under the layout\'s headers').toEqual(want.sort());
   });
 });
