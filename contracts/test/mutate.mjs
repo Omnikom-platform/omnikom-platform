@@ -9,7 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const FILES = ['validate.mjs', 'store.mjs', 'place.mjs', 'from-plan.mjs', 'core.json', 'types.json'];
+const FILES = ['validate.mjs', 'store.mjs', 'place.mjs', 'from-plan.mjs', 'core.json', 'types.json', 'richtext.mjs'];
 const TEST = join(ROOT, 'test', 'run.mjs');
 const src = Object.fromEntries(FILES.map(f => [f, readFileSync(join(ROOT, f), 'utf8')]));
 
@@ -54,6 +54,20 @@ swap('from-plan.mjs', '...(E.crm ? { crm: E.crm } : {}),', '', 'generator drops 
 swap('validate.mjs', "if (fd.type !== 'reference' && !(fd.options || []).includes(v))", "if (false)", 'leadTypeFrom map keys not checked against the field\'s options');
 swap('validate.mjs', "'status', 'owner', 'id', 'created_at', 'updated_at', 'workspace', 'site',\n  'lead_type', 'status_date', 'status_who', 'status_text', 'follow_up', 'duplicate', 'duplicate_of']", "'status', 'owner', 'id', 'created_at', 'updated_at', 'workspace', 'site']", 'lead type and status columns not reserved as form keys');
 swap('validate.mjs', "if (empty(v)) { if (publish && f.required)", "if (empty(v)) { if (f.required)", 'required enforced on drafts too');
+swap('richtext.mjs', "const NAMES = 'p|h2|h3|ul|ol|li|strong|em';", "const NAMES = 'p|h2|h3|ul|ol|li|strong|em|script';", 'rich text: a script tag passes');
+swap('richtext.mjs', '|(${NAMES})|', '|(${NAMES})(?: [^>]*)?|', 'rich text: any attribute passes on an allowed tag');
+swap('richtext.mjs', 'if (m[4] !== undefined && !LINK.some(', 'if (false && !LINK.some(', 'rich text: a link to any address passes');
+swap('richtext.mjs', 'new RegExp(`^/(?:${SEG})*$`)', 'new RegExp(`^/.*$`)', 'rich text: a link to another host by // passes');
+swap('richtext.mjs', 'if (!out.length && open.length) out.push(', 'if (false) out.push(', 'rich text: a tag left open passes');
+swap('richtext.mjs', 'if (!m) { out.push(', 'if (!m) { String(', 'rich text: a < that starts no allowed tag passes');
+swap('richtext.mjs', 'open.pop(); else out.push(', 'open.pop(); else String(', 'rich text: a closing tag that closes nothing passes');
+swap('richtext.mjs', "const SPAN_CLASSES = 'ph|prov';", "const SPAN_CLASSES = 'ph|prov|[a-z]+';", 'rich text: another span class passes');
+swap('richtext.mjs', "const A_CLASS = 'ul';", "const A_CLASS = '[a-z]+';", 'rich text: another link class passes');
+swap('richtext.mjs', '|(${NAMES})|', '|(${NAMES})(?: class="ul")?|', 'rich text: the class passes on another tag');
+swap('richtext.mjs', "const SEG = '[a-z0-9]+(?:-[a-z0-9]+)*/';", "const SEG = '[a-z0-9.%]+(?:-[a-z0-9.%]+)*/';", 'rich text: .. passes inside a path');
+swap('richtext.mjs', 'i !== -1 && !out.length;', 'i !== -1;', 'rich text: every < of a long input is a problem');
+swap('richtext.mjs', 'const LINK = [/^https?:', 'const LINK = [/https?:', 'rich text: a link pattern is not anchored at its start');
+swap('richtext.mjs', 'href="([^"<>]*)")>', 'href="([^"<>]*)"[^>]*)>', 'rich text: attributes after a link\'s href pass');
 
 // 3. coverage: every code raised in the source is named in the tests
 const tests = readFileSync(TEST, 'utf8');

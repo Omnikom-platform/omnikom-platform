@@ -5,6 +5,7 @@
 // CLI: node validate.mjs <site-contract.json>   (exit 0 = valid, 1 = errors printed, 2 = usage)
 import { readFileSync, realpathSync } from 'node:fs';
 import CORE_JSON from './core.json' with { type: 'json' };
+import { richProblems } from './richtext.mjs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 
@@ -385,6 +386,7 @@ function checkValue(out, p, v, f, o) {
     if (typeof f.max === 'number' && ['text', 'richtext'].includes(f.type) && v.length > f.max) err(out, 'I-MAX', p, `longer than ${f.max} characters`);
     if (publish && PLACEHOLDER.test(v)) err(out, 'I-PLACEHOLDER', p, 'placeholder text cannot be published');
   }
+  if (f.type === 'richtext') for (const m of richProblems(v)) err(out, 'I-RICHTEXT', p, m);
   if (f.type === 'enum' && !f.options.includes(v)) err(out, 'I-ENUM', p, `"${v}" is not one of ${f.options.join(', ')}`);
   if (f.type === 'slug' && !SLUG.test(v)) err(out, 'I-SLUG', p, 'lowercase words joined by single hyphens');
   if (f.type === 'number') {

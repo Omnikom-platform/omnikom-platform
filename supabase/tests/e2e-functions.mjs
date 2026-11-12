@@ -40,6 +40,9 @@ try {
   line(s.status === 200 && s.json && s.json.version >= 1, 'save by owner-a is 200 with a version', `${brief(s)} version ${s.json && s.json.version}`);
   const n = await fn('save', 'nobody', { workspace: WS_A, collection: 'listings', row: null, data: { street: 'x', zzUnknownField: 1 } });
   line(n.status === 404 && !n.snippet.includes('zzUnknownField'), 'save by nobody is 404 and names no field', brief(n));
+  // E18: a script in rich text is refused at save (422, I-RICHTEXT); the unknown field zzE18 makes every save version refuse it, so no row is made
+  const rt = await fn('save', 'owner-a', { workspace: WS_A, collection: 'faqs', row: null, data: { question: 'E18 e2e', answer: '<script>alert(1)</script>', zzE18: 1 } });
+  line(rt.status === 422 && JSON.stringify(rt.json || {}).includes('I-RICHTEXT'), 'save with a script in rich text is 422 and names I-RICHTEXT (E18)', brief(rt));
 
   // publish: owner-a 202; dispatched printed as it is
   if (s.json && s.json.row) {

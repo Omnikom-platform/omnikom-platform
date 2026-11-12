@@ -113,6 +113,17 @@ const MUTANTS = [
   ['site: listings are no longer owned by their agent (seed TEST_CONTRACT)', 'sites/test-demo-a/contract.json', '"ownerField": "agent"', '"ownerField": "owner"'],
   ['site: the logo row says 100 px wide in the fixture', `${F}test/fixtures/export-test-demo-a.json`, '   "width": 400,\n', '   "width": 100,\n'],
   ['site: the logo row says EXIF is not stripped in the fixture', `${F}test/fixtures/export-test-demo-a.json`, '   "exif_stripped": true,\n', '   "exif_stripped": false,\n'],
+  // rich text and the design gate (E18)
+  ['rich: a value outside the allow-list is printed anyway', `${F}lib/html.mjs`, 'if (bad.length) throw new Error(', 'if (false) throw new Error('],
+  ['rich: plain text is not one paragraph', `${F}lib/html.mjs`, '? s : `<p>${s}</p>`);', '? s : s);'],
+  ['design gate: raw() on a value passes', `${F}lib/design.mjs`, 'RAW_ON_VALUE.test(src) ||', 'false ||'],
+  ['design gate: a renamed raw import passes', `${F}lib/design.mjs`, ' || RENAMED.test(src)', ''],
+  ['design gate: {{{...}}} passes', `${F}lib/design.mjs`, " || src.includes('{{{')", ''],
+  ['design gate: the .html files are not read', `${F}lib/design.mjs`, 'for (const f of htmlFiles(dir)) noRaw(', 'for (const f of []) noRaw('],
+  ['test design: the intro prints rich text escaped', 'sites/test-demo-a/design/sections/intro.mjs', '${rich(data.body)}', '<p>${data.body}</p>'],
+  ['jsonScript: "<" is not escaped', `${F}lib/html.mjs`, 'JSON.stringify(o, null, 2).replace(/</g,', 'JSON.stringify(o, null, 2).replace(/^$/g,'],
+  ['rich: no value prints "undefined"', `${F}lib/html.mjs`, "const s = v == null ? '' : String(v);", 'const s = String(v);'],
+  ["design gate: a module's plain string is printed", `${F}lib/html.mjs`, 'if (!(v instanceof Raw)) throw new Error(', 'if (false) throw new Error('],
 ];
 
 // the layout the tests expect next to the factory: contracts/ (code only), sites/test-demo-a/, factory/ (no briefs, no worker)

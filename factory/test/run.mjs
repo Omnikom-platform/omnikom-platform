@@ -346,6 +346,65 @@ await check('gates: the build runs them: a design whose hero adds a second <h1> 
   const r = build({ design: d }); return (r.status === 1 && /BUILD STOPPED: gate h1 \/: /.test(r.stderr) && emptyOrMissing(r.out)) || `exit ${r.status} ${r.stderr.slice(0, 300)}`;
 });
 
+// ---------- 6c. tenant rich text and the design gate (E18, audit H2-13) ----------
+// the home row's sections.intro.body carries each input; the strings are copied from contracts/test/run.mjs
+const RICH_OK = '<h2>A</h2><p>Plain &amp; <strong>bold</strong>, <em>stress</em>, 3 > 2: <a href="https://example.com/a?b=1&amp;c=2">web</a> <a href="http://example.com/">old</a> <a href="mailto:x@example.com">mail</a> <a href="tel:+1 (555) 010-0000">call</a> <a href="/contact/">here</a> <a class="ul" href="../one-two/">up</a> <a class="ul" href="../../one/two-three/">up two</a>. <span class="ph">blank to fill</span> <span class="prov">from the old site</span></p><h3>B</h3><ul><li>one</li></ul><ol><li>two</li></ol>';
+const ENCODED = ['&lt;script&gt;alert(1)&lt;/script&gt;', '&#60;script&#62;alert(1)&#60;/script&#62;', '&lt;p onclick=&quot;alert(1)&quot;&gt;x&lt;/p&gt;',
+  '&lt;a href=&quot;javascript:alert(1)&quot;&gt;x&lt;/a&gt;', '&lt;p style=&quot;background:url(x)&quot;&gt;x&lt;/p&gt;', '&lt;img src=&quot;x&quot; onerror=&quot;alert(1)&quot;', '\uFF1Cscript\uFF1Ealert(1)\uFF1C/script\uFF1E'];
+const homeBody = (body) => { const e = clone(baseExport); rowOf(e, 'pages', (d) => d.path === '/').data.sections.intro.body = body; return e; };
+await check('rich text: a script, an event attribute, a javascript: link, a style with url( or an unclosed tag in the home intro stops the build (I-RICHTEXT, the row named, nothing written)', () => {
+  const home = rowOf(baseExport, 'pages', (d) => d.path === '/');
+  for (const a of ['<script>alert(1)</script>', '<p onclick="alert(1)">x</p>', '<p &#111;nclick="alert(1)">x</p>', '<a href="javascript:alert(1)">x</a>', '<a href="&#106;avascript:alert(1)">x</a>',
+    '<p style="background:url(https://x.test/a.png)">x</p>', '<p style="background:url&#40;https://x.test/a.png&#41;">x</p>', '<img src="x" onerror="alert(1)"']) {
+    const r = build({ exp: homeBody(`Text ${a} more`) });
+    if (!(r.status === 1 && r.stderr.includes(`${home.id} I-RICHTEXT sections.intro.body `) && emptyOrMissing(r.out))) return `${a}: exit ${r.status} ${r.stderr.slice(0, 200)}`;
+  }
+  return true;
+});
+await check('rich text: the entity-encoded forms and a look-alike of < print as text in one paragraph; no tag in <main> is theirs', () => {
+  const r = build({ exp: homeBody(ENCODED.join(' ')) }); const h = r.status === 0 ? read(r.out, 'index.html') : '';
+  const main = (h.match(/<main\b[^>]*>([\s\S]*)<\/main>/) || [])[1] || '';
+  return (main.includes(`<p>${ENCODED.join(' ')}</p>`) && !(main.match(/<[^>]*>/g) || []).some((t) => /^<(script|img|style)\b|\son[a-z]+=|javascript:|style=/i.test(t))) || `exit ${r.status} ${r.stderr.slice(0, 200)} ${main.slice(0, 300)}`;
+});
+await check('rich text: both launches\' tag, class and link shapes print byte for byte', () => {
+  const r = build({ exp: homeBody(RICH_OK) }); return (r.status === 0 && read(r.out, 'index.html').includes(RICH_OK)) || `exit ${r.status} ${r.stderr.slice(0, 300)}`;
+});
+await check('rich text: plain text through rich() is the page it was (the design printing <p>${...}</p> escaped builds the same files, byte for byte)', () => {
+  const d = variant((dir) => { patch(join(dir, 'sections', 'intro.mjs'), '${rich(data.body)}', '<p>${data.body}</p>'); patch(join(dir, 'item', 'listings.mjs'), '${rich(row.description)}', '<p>${row.description}</p>'); });
+  const r = build({ design: d }); const fa = walk(GOOD), fb = r.status === 0 ? walk(r.out) : [];
+  return (JSON.stringify(fa) === JSON.stringify(fb) && fa.every((f) => readFileSync(join(GOOD, f)).equals(readFileSync(join(r.out, f))))) || `exit ${r.status} ${r.stderr.slice(0, 200)}`;
+});
+await check('rich text: a value rich() refuses stops the build ("BUILD STOPPED: render: rich text refused", nothing written)', () => {
+  const d = variant((dir) => { const f = join(dir, 'sections', 'hero.mjs'); patch(f, 'import { html }', 'import { html, rich }'); patch(f, '<h1>${data.heading}</h1>', '<h1>${rich(data.heading)}</h1>'); });
+  const e = clone(baseExport); rowOf(e, 'pages', (x) => x.path === '/').data.sections.hero.heading = 'Hi <script>alert(1)</script>';
+  const r = build({ exp: e, design: d }); return (r.status === 1 && /BUILD STOPPED: render: rich text refused: /.test(r.stderr) && emptyOrMissing(r.out)) || `exit ${r.status} ${r.stderr.slice(0, 300)}`;
+});
+await check('design gate: a value passed to raw(), a renamed raw or {{{...}}} in a design .html file stops the build ("BUILD STOPPED: design: ... prints a value raw", nothing written)', () => {
+  const edits = [
+    (dir) => { const f = join(dir, 'sections', 'intro.mjs'); patch(f, 'import { html, rich }', 'import { html, raw }'); patch(f, '${rich(data.body)}', '${raw(data.body)}'); },
+    (dir) => { const f = join(dir, 'sections', 'hero.mjs'); patch(f, 'import { html }', 'import { html, raw }'); patch(f, '<h1>${data.heading}</h1>', '<h1>${raw(`<b>${data.heading}</b>`)}</h1>'); },
+    (dir) => { const f = join(dir, 'sections', 'hero.mjs'); patch(f, 'import { html }', 'import { html, raw as r }'); patch(f, '<h1>${data.heading}</h1>', '<h1>${r(data.heading)}</h1>'); },
+    (dir) => writeFileSync(join(dir, 'sections', 'intro.html'), '<p>{{{body}}}</p>\n'),
+  ];
+  for (const [i, edit] of edits.entries()) {
+    const r = build({ design: variant(edit) });
+    if (!(r.status === 1 && /BUILD STOPPED: design: .*prints a value raw/.test(r.stderr) && emptyOrMissing(r.out))) return `variant ${i + 1}: exit ${r.status} ${r.stderr.slice(0, 300)}`;
+  }
+  return true;
+});
+await check('jsonScript: a value can never close its <script> block ("<" is written \\u003c) and JSON.parse gives it back', () => {
+  const v = '</script><script>alert(1)</script>'; const s = String(H.jsonScript({ a: v }));
+  return (!s.includes('<') && JSON.parse(s).a === v) || s;
+});
+await check('rich text: no value (undefined, null) is an empty paragraph, never "undefined"', () => (String(H.rich(undefined)) === '<p></p>' && String(H.rich(null)) === '<p></p>') || `${H.rich(undefined)} ${H.rich(null)}`);
+await check('design gate: a section, item or shell module that returns a plain string stops the build ("BUILD STOPPED: render: ... returned a plain string", nothing written)', () => {
+  for (const f of [['sections', 'hero.mjs'], ['item', 'listings.mjs'], ['shell.mjs']]) {
+    const r = build({ design: variant((dir) => patch(join(dir, ...f), 'return html`', 'return `')) });
+    if (!(r.status === 1 && /BUILD STOPPED: render: .*returned a plain string/.test(r.stderr) && emptyOrMissing(r.out))) return `${f.join('/')}: exit ${r.status} ${r.stderr.slice(0, 300)}`;
+  }
+  return true;
+});
+
 // ---------- 7. the audit engine judges the output ----------
 const auditGood = AUDIT.audit(GOOD, PREVIEW);
 await check('audit: the good build has 0 FAIL on the whole dist (every line PASS or WARN, ENV-001 PASS: the preview build carries noindex, plus the one SKIP PMP-001 no --prompt-coverage)', () => (auditGood.exit === 0 && fails(auditGood).length === 0 && auditGood.lines.every((l) => /^(PASS|WARN) /.test(l) || l.startsWith('SKIP PMP-001 / no --prompt-coverage')) && auditGood.lines.filter((l) => /ENV-001/.test(l)).length > 0 && auditGood.lines.filter((l) => /ENV-001/.test(l)).every((l) => /^PASS ENV-001 /.test(l)) && auditGood.lines.filter((l) => /PMP-001/.test(l)).length === 1) || auditGood.lines.filter((l) => !l.startsWith('PASS')).join('\n'));

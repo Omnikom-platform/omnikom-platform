@@ -1,11 +1,9 @@
 // The page shell of the Demo A test site: <head> (title, description, canonical, og:url, hreflang, one JSON-LD @graph with
 // Organization, WebSite, WebPage), header, footer with the "powered by Omnikom" line (DECISIONS 31). A look for the factory's own
 // tests: plain, readable, no invented brand.
-import { html, raw } from '../../../factory/lib/html.mjs';
+import { html, raw, jsonScript } from '../../../factory/lib/html.mjs';
 
 const tel = (phone) => `tel:${String(phone).replace(/[^0-9+]/g, '')}`;
-// JSON inside a <script> block: "<" is written as < so a value can never close the block
-const json = (o) => raw(JSON.stringify(o, null, 2).replace(/</g, '\\u003c'));
 
 export default function render({ page, main, ctx }) {
   const { origin, settings, nav, assets, media } = ctx;
@@ -36,7 +34,7 @@ ${page.kind === '404' ? '' : html`<link rel="canonical" href="${url}">
 ${logo ? html`<link rel="icon" href="${logo.url}">` : ''}
 ${assets.css.map((h) => html`<link rel="stylesheet" href="${h}">`)}
 <script type="application/ld+json">
-${json({ '@context': 'https://schema.org', '@graph': graph })}
+${jsonScript({ '@context': 'https://schema.org', '@graph': graph })}
 </script>
 </head>
 <body>

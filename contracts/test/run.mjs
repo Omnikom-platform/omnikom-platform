@@ -256,6 +256,28 @@ check('item I-CONSENT-RATES: texts named without the data-rates line', ncodes('Y
 check('consent wording: a notices row no form names is not linted', !ncodes('Our privacy policy.', 'privacy-policy').some(c => c.startsWith('I-CONSENT')));
 check('consent wording: a draft is not linted (publish is the gate)', !codes(validateItem(GOOD, 'notices', notice('draft words'), { mode: 'draft' })).some(c => c.startsWith('I-CONSENT')));
 check('consent wording: tags in the richtext do not hide the words', ncodes(`<p>${FULL.replace('text message', '<strong>text</strong> message')}</p>`).length === 0);
+// rich text (E18, audit H2-13): the allow-list of contracts/richtext.mjs; anything else is refused whole, in draft and publish
+const rt = answer => codes(validateItem(GOOD, 'faqs', { question: 'Q?', answer }, { mode: 'draft' }));
+const RICH_OK = '<h2>A</h2><p>Plain &amp; <strong>bold</strong>, <em>stress</em>, 3 > 2: <a href="https://example.com/a?b=1&amp;c=2">web</a> <a href="http://example.com/">old</a> <a href="mailto:x@example.com">mail</a> <a href="tel:+1 (555) 010-0000">call</a> <a href="/contact/">here</a> <a class="ul" href="../one-two/">up</a> <a class="ul" href="../../one/two-three/">up two</a>. <span class="ph">blank to fill</span> <span class="prov">from the old site</span></p><h3>B</h3><ul><li>one</li></ul><ol><li>two</li></ol>';
+check('rich text: every allowed tag, class and link form passes, and so does plain text', rt(RICH_OK).length === 0 && rt('Fish & Chips').length === 0, `got [${rt(RICH_OK).join(', ')}]`);
+for (const [what, s] of [['a script', '<script>alert(1)</script>'], ['an event attribute', '<p onclick="alert(1)">x</p>'], ['an event attribute written with an entity', '<p &#111;nclick="alert(1)">x</p>'],
+  ['a javascript: link', '<a href="javascript:alert(1)">x</a>'], ['a javascript: link written with an entity', '<a href="&#106;avascript:alert(1)">x</a>'], ['a javascript: link with an encoded colon', '<a href="javascript&#58;alert(1)">x</a>'],
+  ['a style with url(', '<p style="background:url(https://x.test/a.png)">x</p>'], ['a style with url( written with entities', '<p style="background:url&#40;https://x.test/a.png&#41;">x</p>'],
+  ['an unclosed tag that would take the page\'s next ">"', '<img src="x" onerror="alert(1)"'], ['an allowed tag never closed', '<strong>x'], ['a closing tag that closes nothing', 'x</strong>'],
+  ['a link to another host by //', '<a href="//evil.test/">x</a>'], ['a link to another host by /\\', '<a href="/\\evil.test/">x</a>'], ['a < that starts no allowed tag', 'price < 5'],
+  ['a link class other than ul', '<a class="x" href="../a/">x</a>'], ['a span class other than ph or prov', '<span class="x">x</span>'], ['the class on another tag', '<p class="ul">x</p>'],
+  ['.. inside a path', '<a href="../a/../b/">x</a>'], ['a control character in a link', '<a href="https://x.test/a\u0001b">x</a>'],
+  ['a javascript: link that ends in an http address', '<a href="javascript:alert(1)//https://x.test/">x</a>'], ['an attribute after the link', '<a href="../a/" onclick="alert(1)">x</a>'],
+  ['a second href', '<a href="../a/" href="javascript:alert(1)">x</a>'], ['an unquoted link with an event', '<a href=x onclick=alert(1)>x'], ['a single-quoted link', "<a href='javascript:alert(1)'>x"],
+  ['a tag in capitals', '<SCRIPT>alert(1)'], ['a javascript: link in mixed case', '<a href="JavaScript:alert(1)">x</a>'], ['a tab and a newline inside a tag', '<img\tsrc=x\nonerror=alert(1)>'],
+  ['a newline inside the scheme', '<a href="java\nscript:alert(1)">x</a>'], ['a tab the browser drops to make //', '<a href="/\t/evil.test/">x</a>'], ['a null byte inside a tag', '<scr\u0000ipt>alert(1)'],
+  ['a comment', 'a<!-- x -->b'], ['CDATA', '<![CDATA[x]]>'], ['a processing instruction', '<?xml version="1.0"?>'], ['an svg', '<svg onload=alert(1)>'], ['a math block', '<math><mtext><img src=x onerror=alert(1)>'],
+  ['tags closed out of order', '<strong><em>x</strong></em>'], ['.. written percent-encoded', '<a href="../%2e%2e/a/">x</a>']])
+  check(`item I-RICHTEXT: ${what} is refused`, rt(s).includes('I-RICHTEXT'), `got [${rt(s).join(', ')}]`);
+check('rich text: a long input is refused with one problem, not one per <', rt('<'.repeat(200000)).length === 1);
+const ENCODED = ['&lt;script&gt;alert(1)&lt;/script&gt;', '&#60;script&#62;alert(1)&#60;/script&#62;', '&lt;p onclick=&quot;alert(1)&quot;&gt;x&lt;/p&gt;',
+  '&lt;a href=&quot;javascript:alert(1)&quot;&gt;x&lt;/a&gt;', '&lt;p style=&quot;background:url(x)&quot;&gt;x&lt;/p&gt;', '&lt;img src=&quot;x&quot; onerror=&quot;alert(1)&quot;', '\uFF1Cscript\uFF1Ealert(1)\uFF1C/script\uFF1E'];
+check('rich text: the entity-encoded form of each, and a look-alike of <, is text and passes (the page prints it as text: factory test)', ENCODED.every(s => rt(s).length === 0));
 // photo facts come from the platform's media record, never from the row's own JSON (dry run 3.3)
 const forged = listing({ photos: [img({ width: 5000, exifStripped: true, rightsConfirmed: true })] });
 const fromRecord = codes(validateItem(GOOD, 'listings', forged, { mode: 'publish', media: () => ({ width: 300, exifStripped: false, rightsConfirmed: false }) }));

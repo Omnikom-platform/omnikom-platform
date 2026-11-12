@@ -39,7 +39,7 @@ placements   [ { id, collection, when { field: [values] }, to { page | pageType 
 clientWording [ { where, status "[client to confirm]", note } ]   INTERNAL build notes only: never shown to the client; client questions come only from sops/clients/client-questions.md (DECISIONS 17)
 seeds        places / items the plan names (e.g. the 10 ELEV8 cities)
 ```
-- **Field types:** text, richtext, slug, number, money, boolean, date, datetime, enum, email, phone, url, image, gallery, file,
+- **Field types:** text, richtext (only the HTML `richtext.mjs` allows), slug, number, money, boolean, date, datetime, enum, email, phone, url, image, gallery, file,
   reference (`to`, `multiple`), address, geo, list (`of`), group (`of`, or `open`), seo, sections.
 - **Field rules:** `required` (enforced at publish; drafts may be incomplete), `max`/`min`, `options`, `locked { reason }`,
   `internal` (never on the site), `sourced` (value must be `{ value, source, date }`: client-facing facts carry their source),
@@ -91,7 +91,7 @@ Contract: C-SHAPE C-CORE C-KIND C-FIELDS C-FIELD-TYPE C-ENUM C-REF C-LOCK C-RANG
 C-ONDELETE C-BIND C-SECTION C-FEED C-FORM-REF C-NOTICE C-PAGE-TYPE C-PATH C-PAGE-BIND C-CONSENT C-CRM C-PLACE-COLL C-PLACE-WHEN
 C-PLACE-TARGET C-PLACE-SECTION C-PLACE-MATCH C-PLACE-ROUTE C-FEED-ORPHAN C-SITEMAP C-VISIBLE C-WORDING C-SAMPLE C-WAIVER
 C-FORM-TYPE C-FORM-KEY C-FORM-CORE C-FORM-FLAG C-FORM-LABEL C-FORM-SAME-KEY C-CRM-LIST C-CRM-KEY C-CRM-LABEL C-CRM-STAGE C-CRM-FLAG C-CRM-REQUIRED C-FORM-LEADTYPE.
-Rows: I-REQUIRED I-TYPE I-ENUM I-MAX I-MIN I-SLUG I-ALT I-MEDIA-SIZE I-RIGHTS I-EXIF I-SOURCE I-PLACEHOLDER I-UNKNOWN I-REF I-COLLECTION I-MEDIA-UNKNOWN I-SAMPLE-LIVE.
+Rows: I-REQUIRED I-TYPE I-ENUM I-MAX I-MIN I-SLUG I-ALT I-MEDIA-SIZE I-RIGHTS I-EXIF I-SOURCE I-PLACEHOLDER I-UNKNOWN I-REF I-COLLECTION I-MEDIA-UNKNOWN I-SAMPLE-LIVE I-RICHTEXT.
 Store: S-WORKSPACE S-NOT-FOUND S-COLLECTION S-ROLE S-OWN-ONLY S-SINGLETON S-LOCKED S-SIGNOFF S-INVALID S-PUBLISH-INVALID S-KIND.
 The message text of each is in the source next to the code.
 

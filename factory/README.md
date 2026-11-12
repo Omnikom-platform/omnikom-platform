@@ -55,12 +55,13 @@ motion.js             optional; transform and opacity only, respects prefers-red
 `shell.mjs` writes the whole document: `<head>` with `<title>`, meta description, canonical, `og:url`, `hreflang`, ONE JSON-LD
 `@graph` holding Organization, WebSite and WebPage (the WebPage `@id` is `<canonical>#webpage`); the header; `<main>` around
 `main`; the footer with the "powered by Omnikom" line (DECISIONS 31). A partial may use a `.html` template with the ported Mustache
-subset (`lib/template.mjs`, ported from the ELEV8 build); the module decides.
+subset (`lib/template.mjs`, ported from the ELEV8 build); the module decides; `{{{x}}}` is refused in a design (E18).
 
 What a module is given:
 - `html` tag (`lib/html.mjs`): every interpolated value is HTML-escaped unless wrapped by `raw()` or produced by another `html`
-  call; an array is joined; null, undefined and false print nothing. Rich text is NOT sanitised by the factory yet: a design prints
-  richtext fields escaped (as the test design does) until the sanitiser of 03-FRONTEND A2 exists.
+  call; an array is joined; null, undefined and false print nothing. Rich text goes through `rich(value)`: unchanged when
+  `contracts/richtext.mjs` allows it, else the build stops; JSON-LD through `jsonScript(object)`. `lib/design.mjs` stops a design
+  that passes a value to `raw()` or renames it (E18).
 - `section` = the contract's section object (`{ id, kind, ... }`; a form section has `.form`, the form id).
 - `data` = the page row's `sections[<id>]` (a notice section gets the notice row's public data).
 - `feed` = the row ids that `place()` put in this section, each resolved to `publicData(contract, collection, data)` (internal

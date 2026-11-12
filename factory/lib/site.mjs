@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { loadExport, validateExport } from './export.mjs';
 import { planSite, resolveFeed, entryOf } from './plan.mjs';
 import { loadDesign, DesignError } from './design.mjs';
-import { raw, html } from './html.mjs';
+import { raw, html, markup } from './html.mjs';
 import { checkPage } from './gates.mjs';
 import { referenceOptions } from './fields.mjs';
 import { originOf, isPreview, headersText, robotsText, sitemapXml, llmsText, assetName, referencedMedia, readMedia, MediaError } from './launch.mjs';
@@ -72,7 +72,7 @@ export async function buildSite({ exportFile, out, designDir, mediaDir, builtAt,
     site: exp.site, workspace: exp.workspace, settings: publicData(contract, 'settings', settingsRow.data), origin, built_at: builtAt, preview,
     media: mediaCtx, nav, notices, assets: { css: css.map((c) => c.href), js: js.map((j) => j.href) },
   };
-  const wrap = (page, main) => String(design.shell({ page, main, ctx: { ...base, page, path: page.path } }));
+  const wrap = (page, main) => markup(design.shell({ page, main, ctx: { ...base, page, path: page.path } }), 'shell.mjs');
 
   try {
     for (const b of plan.built) {
@@ -88,14 +88,14 @@ export async function buildSite({ exportFile, out, designDir, mediaDir, builtAt,
         const render = await design.section(s.id);
         const feedIds = s.kind === 'feed' ? (plan.placed.pages[b.path].sections[s.id] || []) : [];
         feedIds.forEach((id) => used.add(id));
-        parts.push(String(await render({
+        parts.push(markup(await render({
           section: s,
           data: s.kind === 'notice' ? (notices[s.notice] || {}) : ((d.sections || {})[s.id] || {}),
           feed: resolveFeed(contract, byId, feedIds),
           form: s.kind === 'form' ? contract.forms[s.form] : undefined,
           choices: s.kind === 'form' ? referenceOptions(contract.forms[s.form], contract, rows) : undefined,
           ctx,
-        })));
+        }), `sections/${s.id}.mjs`));
       }
       page.html = wrap(page, raw(parts.join('\n')));
       pages.push(page);
@@ -107,7 +107,7 @@ export async function buildSite({ exportFile, out, designDir, mediaDir, builtAt,
       const seo = it.row.data.seo || {};
       const page = { kind: 'item', path: it.path, file: fileOf(it.path), type: it.collection, collection: it.collection, title: String(it.row.data[c.titleField] || ''), seo, description: seo.description || '', noindex: seo.noindex === true, bound: null };
       const render = await design.item(it.collection);
-      page.html = wrap(page, raw(String(await render({ row: entry, ctx: { ...base, page, path: it.path } }))));
+      page.html = wrap(page, raw(markup(await render({ row: entry, ctx: { ...base, page, path: it.path } }), `item/${it.collection}.mjs`)));
       pages.push(page);
     }
     const nf = { kind: '404', path: '/404.html', file: '404.html', type: '404', title: 'Page not found', noindex: true, bound: null,
