@@ -189,7 +189,8 @@ describe('mutants of the real source: each must turn the gate red for its reason
 
 // Found by the invite flow on staging (2026-11-12): a type="email" box in a form without noValidate makes the browser stop the submit with its own
 // bubble, so the form's own check never runs and the plan's sentence (DP-1.6-15 "Enter a full email address.") never shows. Login.tsx has noValidate
-// on both its forms for this reason. The rule reads the form's own text only: a box that a form reaches through a variable (Login's emailField) is not seen.
+// on both its forms for this reason. The rule is by file: in a page file that holds such a box ANYWHERE (inside a form, or in a variable the form
+// renders, as Login's emailField), every <form> of the file carries noValidate. A box typed by a variable (type={kind}) is not seen.
 describe('a form that holds an email, url or tel box carries noValidate', () => {
   /** The opening tag that starts at `from`: up to its closing `>`, which is not the `>` of an arrow function inside braces. */
   const tagAt = (code, from) => {
@@ -202,11 +203,13 @@ describe('a form that holds an email, url or tel box carries noValidate', () => 
     return code.slice(from);
   };
   const holdsTypedBox = body => [...body.matchAll(/<input\b/g)].some(m => /\btype="(?:email|url|tel)"/.test(tagAt(body, m.index)));
-  const unvalidated = files => files.filter(f => /^src\/pages\/[^/]+\.tsx$/.test(f.path)).flatMap(f => [...f.code.matchAll(/<form\b/g)].flatMap(m => {
-    const end = f.code.indexOf('</form>', m.index);
-    if (!holdsTypedBox(f.code.slice(m.index, end < 0 ? undefined : end)) || /\bnoValidate\b/.test(tagAt(f.code, m.index))) return [];
-    return [`${f.path}:${f.code.slice(0, m.index).split('\n').length} a <form> holds an email, url or tel box and has no noValidate (the browser's bubble stops the submit before the form's own check)`];
-  }));
+  const unvalidated = files => files.filter(f => /^src\/pages\/[^/]+\.tsx$/.test(f.path)).flatMap(f => {
+    const boxInFile = holdsTypedBox(f.code);   // a box inside a form is a box of the file: the first form of this rule is a case of this one
+    return [...f.code.matchAll(/<form\b/g)].flatMap(m => {
+      if (!boxInFile || /\bnoValidate\b/.test(tagAt(f.code, m.index))) return [];
+      return [`${f.path}:${f.code.slice(0, m.index).split('\n').length} a <form> in a file that holds an email, url or tel box has no noValidate (the browser's bubble stops the submit before the form's own check)`];
+    });
+  });
   const form = (attrs, input) => ({ path: 'src/pages/X.tsx', code: `export const A = () => (<form onSubmit={e => void go(e)}${attrs}>${input}</form>);` });
 
   it('a fixture trips it for each of the three types, whatever the order of the attributes, and not for a text box, a clean form or a box outside a form', () => {
@@ -228,6 +231,19 @@ describe('a form that holds an email, url or tel box carries noValidate', () => 
     const problems = unvalidated(patch('src/pages/AddLead.tsx', ' className={css.form} noValidate>', ' className={css.form}>')(sourceFiles().map(f => ({ ...f }))));
     console.log(`MUTANT no-novalidate-addlead: ${problems.length ? `RED  ${problems[0]}` : 'STAYED GREEN'}`);
     expect(problems.some(p => p.startsWith('src/pages/AddLead.tsx:')), 'the Add a lead form without noValidate must be named').toBe(true);
+  });
+  it('a box that sits in a variable above the form is seen: the rule is by file, so every form of a file that holds such a box needs noValidate', () => {
+    const viaVariable = attrs => ({ path: 'src/pages/X.tsx', code: `const field = (<input type="email" onChange={() => 1} />);\nexport const A = () => (<form onSubmit={e => void go(e)}${attrs}>{field}</form>);` });
+    const named = unvalidated([viaVariable('')]);
+    expect(named).toHaveLength(1);
+    expect(named[0]).toMatch(/^src\/pages\/X\.tsx:2 /);
+    expect(unvalidated([viaVariable(' noValidate')])).toEqual([]);
+    expect(unvalidated([{ path: 'src/pages/X.tsx', code: 'const field = (<input type="text" onChange={() => 1} />);\nexport const A = () => (<form onSubmit={e => void go(e)}>{field}</form>);' }])).toEqual([]);
+  });
+  it('the real source with noValidate taken off the first form of Login.tsx (its email box comes through emailField) is red, and names the file (watched red)', () => {
+    const problems = unvalidated(patch('src/pages/Login.tsx', 'onSubmit={e => void sendLink(e)} noValidate>', 'onSubmit={e => void sendLink(e)}>')(sourceFiles().map(f => ({ ...f }))));
+    console.log(`MUTANT no-novalidate-login: ${problems.length ? `RED  ${problems[0]}` : 'STAYED GREEN'}`);
+    expect(problems.some(p => p.startsWith('src/pages/Login.tsx:')), 'the Login form without noValidate must be named').toBe(true);
   });
 });
 
