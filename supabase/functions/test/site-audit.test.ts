@@ -64,10 +64,17 @@ t('site-audit: a member, another workspace\'s owner, a login of nothing and a si
 });
 
 t('site-audit: staff with MFA reads; staff without MFA gets 404', async () => {
-  const ok = await ask({ token: await mint('staff', { aal: 'aal2' }) }, { site: SITE_A });
-  eq(ok.status, 200, 'staff aal2: ' + ok.text); assert(ok.json && 'latest' in ok.json && 'history' in ok.json, 'the same answer');
-  const no = await ask({ token: await mint('staff', { aal: 'aal1' }) }, { site: SITE_A });
-  eq(no.status, 404, 'staff aal1: ' + no.text);
+  // E11 (migration 43): staff act only inside an open window of their own; this test opens one directly and removes it afterwards
+  const [win] = await withSql(async sql => await sql`insert into public.staff_access (user_id, reason, until)
+    values (${SUB.staff}::uuid, 'functions tests: site-audit as staff', now() + interval '1 hour') returning id`);
+  try {
+    const ok = await ask({ token: await mint('staff', { aal: 'aal2' }) }, { site: SITE_A });
+    eq(ok.status, 200, 'staff aal2: ' + ok.text); assert(ok.json && 'latest' in ok.json && 'history' in ok.json, 'the same answer');
+    const no = await ask({ token: await mint('staff', { aal: 'aal1' }) }, { site: SITE_A });
+    eq(no.status, 404, 'staff aal1: ' + no.text);
+  } finally {
+    await withSql(async sql => { await sql`delete from public.staff_access where id = ${win.id}::uuid`; });
+  }
 });
 
 t('site-audit: a site with no audited publish answers null for both targets and a list for history (never an error)', async () => {

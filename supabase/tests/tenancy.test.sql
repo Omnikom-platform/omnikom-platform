@@ -56,6 +56,7 @@ insert into auth.users (id, email) values
  ('00000000-0000-0000-0000-0000000000a1', 'agent1-a@test'), ('00000000-0000-0000-0000-0000000000a2', 'agent2-a@test'),
  ('00000000-0000-0000-0000-00000000005f', 'staff@omnikom');
 insert into staff values ('00000000-0000-0000-0000-00000000005f');
+insert into staff_access (user_id, reason, until) values ('00000000-0000-0000-0000-00000000005f', 'tenancy tests: the staff fixture', now() + interval '1 hour');   -- E11 (migration 43): staff act inside an open window
 insert into workspaces (id, slug, name, industry) values
  ('aaaaaaaa-0000-0000-0000-000000000000', 'test-demo-a', 'Demo A', 'real-estate-agent'),
  ('bbbbbbbb-0000-0000-0000-000000000000', 'test-demo-b', 'Demo B', 'real-estate-agent');
@@ -1610,7 +1611,7 @@ do $$ declare t record; n int; begin
       'list_members', 'invite_context',                -- work order 08: owner B and a member in T24
       'site_audit',                                    -- work order 10: member and owner B in T24
       'start_preview',                                 -- book row B15 (migration 42): a member and owner B in T-B15
-      'offboarding_storage']),                         -- work order 37b (migration 26): owner B and staff without MFA in T32e
+      'offboarding_storage', 'staff_open']),           -- work order 37b (migration 26): owner B and staff without MFA in T32e; E11 staff_open (migration 43): staff without MFA, owner A and a login of nothing in T39c
       'service.' || t.proname || ' takes claims but has no outsider test listed in T14';
   end loop;
 end $$;
@@ -3830,6 +3831,83 @@ do $$ declare b jsonb; live int; sa jsonb; begin
   assert (sa #>> '{latest,preview,job}') is distinct from test.id('jobP')::text and not (sa -> 'history') @> jsonb_build_array(jsonb_build_object('job', test.id('jobP'))), 'TB15c site_audit skips the preview build (the Overview''s site check)';
 end $$;
 update public.workspaces w set state = t.state from test.tb15_ws t where w.id = t.id;
+
+-- ===== T39 E11 (migration 43): staff act only inside an open window =====
+-- private.is_staff() is the staff row, aal2 and a window of the login's own that has not ended (staff_access.until > now()). A window is opened only by
+-- service.staff_open(claims, reason, minutes): a reason of 10 to 200 characters, 1 to 240 minutes, one audit_log row each; it also deletes the windows that
+-- ended more than 365 days ago. The whole file is one transaction, so now() is one instant here. Superuser unless said. Mutants "staff43: ..." in run-local.mjs.
+delete from staff_access where user_id = '00000000-0000-0000-0000-00000000005f';
+do $$ begin
+  assert (select count(*) from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') > 0 and (select count(*) from api_keys where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') > 0, 'T39 A has leads and api keys to read';
+end $$;
+-- (a) staff with MFA and no window read none of A's leads and api keys and change no workspace
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+do $$ begin
+  assert (select count(*) from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 0, 'T39a staff with MFA and no window read none of A''s leads';
+  assert (select count(*) from api_keys where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 0, 'T39a staff with MFA and no window read none of A''s api keys';
+end $$;
+select test.expect_error($q$select test.set_workspace_state('bbbbbbbb-0000-0000-0000-000000000000', 'suspended', 'T39')$q$, 'S-NOT-FOUND');
+reset role;
+-- (b) a window opened with a reason ends 30 minutes from now and writes one audit_log row (actor, no workspace, the reason and the minutes); A's leads are read again
+do $$ declare u timestamptz; begin
+  u := service.staff_open(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), 'T39 support case one', 30);
+  assert u = now() + interval '30 minutes', 'T39b the window ends 30 minutes from now: ' || u;
+  assert (select count(*) from staff_access where user_id = '00000000-0000-0000-0000-00000000005f' and until = now() + interval '30 minutes') = 1, 'T39b one window of the staff login';
+  assert (select count(*) from audit_log where action = 'staff-access-open') = 1, 'T39b one staff-access-open audit row';
+  assert exists (select 1 from audit_log where action = 'staff-access-open' and actor = '00000000-0000-0000-0000-00000000005f' and workspace_id is null
+    and detail ->> 'reason' = 'T39 support case one' and (detail ->> 'minutes')::int = 30), 'T39b the audit row names the actor, no workspace, the reason and 30 minutes';
+end $$;
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+do $$ begin assert (select count(*) from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') > 0, 'T39b inside its window staff with MFA read A''s leads'; end $$;
+reset role;
+-- (c) staff without MFA, owner A and a login of nothing open no window
+select test.expect_error($q$select service.staff_open(test.cl('00000000-0000-0000-0000-00000000005f', 'aal1'), 'T39 support case two', 30)$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select service.staff_open(test.cl('00000000-0000-0000-0000-00000000000a', 'aal2'), 'T39 support case two', 30)$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select service.staff_open(test.cl('00000000-0000-0000-0000-00000000000e', 'aal2'), 'T39 support case two', 30)$q$, 'S-NOT-FOUND');
+do $$ begin
+  assert (select count(*) from staff_access) = 1, 'T39c no new window';
+  assert (select count(*) from audit_log where action = 'staff-access-open') = 1, 'T39c no new audit row';
+end $$;
+-- (d) a reason too short, 0 minutes and 241 minutes are refused in the answer's words
+select test.expect_error($q$select service.staff_open(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), 'short', 30)$q$, 'I-ANSWER');
+select test.expect_error($q$select service.staff_open(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), 'T39 support case three', 0)$q$, 'I-ANSWER');
+select test.expect_error($q$select service.staff_open(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), 'T39 support case three', 241)$q$, 'I-ANSWER');
+do $$ begin assert (select count(*) from staff_access) = 1, 'T39d no new window'; end $$;
+-- (e) a window that has ended (opened and ended 2 hours earlier) reads nothing again
+update staff_access set opened_at = opened_at - interval '2 hours', until = until - interval '2 hours' where user_id = '00000000-0000-0000-0000-00000000005f';
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+do $$ begin assert (select count(*) from leads where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 0, 'T39e staff whose window has ended read none of A''s leads'; end $$;
+reset role;
+-- (f) the walls: a login reads only its own windows; authenticated writes none; staff_open is closed to anon and authenticated and open to the function role
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000395f', 'staff2@omnikom');
+insert into staff values ('00000000-0000-0000-0000-00000000395f');
+insert into staff_access (user_id, reason, until) values ('00000000-0000-0000-0000-00000000395f', 'T39 the second staff login', now() + interval '1 hour');
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+do $$ begin
+  assert not exists (select 1 from staff_access where user_id <> '00000000-0000-0000-0000-00000000005f'), 'T39f staff read no other login''s window';
+  assert (select count(*) from staff_access where user_id = '00000000-0000-0000-0000-00000000005f') = 1, 'T39f staff read their own window';
+end $$;
+select test.expect_error($q$insert into staff_access (user_id, reason, until) values ('00000000-0000-0000-0000-00000000005f', 'T39 a window by hand', now() + interval '1 hour')$q$, 'permission denied');
+select test.expect_error($q$update staff_access set until = now() + interval '1 hour'$q$, 'permission denied');
+select test.expect_error($q$delete from staff_access$q$, 'permission denied');
+reset role;
+do $$ begin
+  assert not has_function_privilege('anon', 'service.staff_open(jsonb,text,int)', 'execute') and not has_function_privilege('authenticated', 'service.staff_open(jsonb,text,int)', 'execute'), 'T39f staff_open is closed to anon and authenticated';
+  assert has_function_privilege('omnikom_fn', 'service.staff_open(jsonb,text,int)', 'execute'), 'T39f the function role runs staff_open';
+end $$;
+-- (g) windows are kept 365 days: opening one deletes the window that ended more than 365 days ago and keeps the younger one
+insert into staff_access (user_id, reason, opened_at, until) values
+  ('00000000-0000-0000-0000-00000000005f', 'T39 a window 366 days old', now() - interval '366 days', now() - interval '366 days' + interval '1 hour'),
+  ('00000000-0000-0000-0000-00000000005f', 'T39 a window 364 days old', now() - interval '364 days', now() - interval '364 days' + interval '1 hour');
+do $$ begin
+  perform service.staff_open(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), 'T39 retention check', 5);
+  assert not exists (select 1 from staff_access where reason = 'T39 a window 366 days old'), 'T39g the window of 366 days ago is gone';
+  assert exists (select 1 from staff_access where reason = 'T39 a window 364 days old'), 'T39g the window of 364 days ago stays';
+end $$;
 
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;
