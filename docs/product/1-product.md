@@ -81,7 +81,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B9 Search-result preview card | WORKS | D:pages/Widgets.tsx |
 | B10 Publish sheet: waiting changes, progress, failed-check message | WORKS | journey J3 |
 | B11 Publish history and restore the site | MISSING | |
-| B12 Take an item off the site, delete an item | PARTLY | `service.unpublish` exists (CLI only); no function, no screen |
+| B12 Take an item off the site, delete an item | PARTLY | Delete: the editor's Delete (owner and staff; DP-1.4-21, -23; D:pages/Editor.tsx, D:lib/site.ts, vitest) and F:unpublish (supabase/functions/test/unpublish.test.ts): off the Site list at once, off the live site at the next publish, versions kept; staging UNPROVEN until the head's flow; what the deleted item's address answers after a publish is UNPROVEN. Missing: take off the site without deleting; and a delete alone is not a waiting change, so with nothing else waiting the item stays on the live site until the next publish |
 | B13 Photo upload (rights, alt, sizes, EXIF stripped) | PARTLY | upload functions work on staging; photo to site end to end UNPROVEN |
 | B14 Media library | MISSING | |
 | B15 Preview a change before publishing | MISSING | |

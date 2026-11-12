@@ -59,10 +59,10 @@ red('no function folders at all is caught (the rule must not pass on nothing)', 
 
 // ---- an openapi path with no folder (follow-on)
 const PLANNED_PATHS = Object.keys(spec.paths).filter(p => spec.paths[p]['x-planned'] !== undefined);
-check(PLANNED_PATHS.length >= 1 && PLANNED_PATHS.every(p => !deployed.includes(p.slice(1))), `the spec marks ${PLANNED_PATHS.join(', ')} planned, and none has a folder`);
+check(PLANNED_PATHS.every(p => !deployed.includes(p.slice(1))), `the spec marks ${PLANNED_PATHS.join(', ') || 'no path'} planned, and none has a folder`);
 for (const p of PLANNED_PATHS) red(`openapi ${p} loses its x-planned mark and is caught`, { api: a => { delete a.paths[p]['x-planned']; } }, `${p} has no function folder`);
 red('an openapi path for a function that does not exist is caught', { api: a => { a.paths['/ghost'] = structuredClone(a.paths['/drafts']); a.paths['/ghost'].post.operationId = 'ghost'; } }, '/ghost has no function folder supabase/functions/ghost/index.ts and is not marked planned');
-red('an x-planned mark that names no step is caught', { api: a => { a.paths[PLANNED_PATHS[0]]['x-planned'] = ' '; } }, 'x-planned mark that names no step');
+red('an x-planned mark that names no step is caught', { api: a => { a.paths['/ghost'] = structuredClone(a.paths['/drafts']); a.paths['/ghost'].post.operationId = 'ghost'; a.paths['/ghost']['x-planned'] = ' '; } }, 'x-planned mark that names no step');
 red('a stale x-planned mark on a path that has a folder is caught', { api: a => { a.paths['/drafts']['x-planned'] = 'W9.9'; } }, '/drafts is marked x-planned but supabase/functions/drafts exists');
 
 // ---- a config.toml table with no folder (follow-on)

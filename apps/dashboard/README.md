@@ -51,7 +51,7 @@ line in the slice report. The gate (`tests/plan-gate.*`):
 - The publish sheet: the change list, "Publish these N changes to <site>?", the progress list live from `publish_jobs` (Realtime) and its
   events, a failed check that stops the list with Fix and "Nothing went live". The Publish button says "Publishing" with the step while a
   job runs, and a toast at the end shows on any screen (`JobWatcher` in the shell).
-- Not built, by the plan: Preview (5.5), item Delete, the search card with metrics, "see" links and Compare of preview sites (later).
+- Not built, by the plan: Preview (5.5), the search card with metrics, "see" links and Compare of preview sites (later).
 - Pure logic (`src/lib/site.ts`, `site.test.ts`): the cards of an editor, values by path, limits, compare, the state line, the progress lines.
 
 ## Known limits (each is a finding in the slice report)

@@ -34,7 +34,7 @@ for (const [p, methods] of Object.entries(api.paths)) for (const [m, op] of Obje
 
 // Every deployed function (a folder under supabase/functions with an index.ts; _shared and test are not functions) has an operation at /<name>.
 // 2026-11-01: five functions of slice 5.2 shipped with no operation and nothing noticed. The spec may name more paths than there are functions
-// (metrics-pull, unpublish are planned); it may not name fewer.
+// (a path marked x-planned; none is since book row B12); it may not name fewer.
 const SUPABASE_DIR = join(HERE, '..', '..', '..', 'supabase');
 const FUNCTIONS_DIR = join(SUPABASE_DIR, 'functions');
 const deployed =readdirSync(FUNCTIONS_DIR, { withFileTypes: true }).filter(e => e.isDirectory() && !e.name.startsWith('_') && e.name !== 'test' && existsSync(join(FUNCTIONS_DIR, e.name, 'index.ts'))).map(e => e.name).sort();

@@ -2837,7 +2837,7 @@
   "/unpublish": {
    "post": {
     "operationId": "unpublish",
-    "summary": "Take a row off the site (optionally delete it); goes live with the next publish (owner/staff)",
+    "summary": "Delete an item: soft delete, off the site with the next publish, its versions kept (owner/staff; supabase/functions/unpublish)",
     "security": [
      {
       "bearerAuth": []
@@ -2856,9 +2856,6 @@
          "row": {
           "type": "string",
           "format": "uuid"
-         },
-         "delete": {
-          "type": "boolean"
          }
         }
        }
@@ -2867,7 +2864,10 @@
     },
     "responses": {
      "204": {
-      "description": "done"
+      "description": "deleted"
+     },
+     "400": {
+      "$ref": "#/components/responses/Invalid"
      },
      "401": {
       "$ref": "#/components/responses/Unauthorized"
@@ -2876,8 +2876,7 @@
       "$ref": "#/components/responses/NotFound"
      }
     }
-   },
-   "x-planned": "W3.5 (05-BUILD-PLAN.md: publish centre + history + restore + unpublish)"
+   }
   },
   "/lead-update": {
    "post": {

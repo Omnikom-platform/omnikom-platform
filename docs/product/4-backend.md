@@ -16,7 +16,7 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
   code plus plain words (`_shared/problems`); the dashboard shows the words.
 - Shared validation imports `contracts/validate.mjs`, so the browser, the functions and the build run the same rules.
 
-## The Edge Functions (28 in `supabase/functions/`)
+## The Edge Functions (29 in `supabase/functions/`)
 
 | Function | Caller | Does |
 |---|---|---|
@@ -45,6 +45,7 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
 | `invite-member` | dashboard (owner) | finds the login or creates it (Auth admin `generate_link`, which sends nothing), adds the member (`set_member`), then asks Auth to send the mail: a new login gets the invite mail with the inviter's name and the business as user data (`POST /auth/v1/invite`, DP-email-08 to 12), an existing confirmed login the sign-in mail (`POST /auth/v1/otp`, `create_user` false; it cannot name either), one that never opened its invite the invite again, its user data set first (`PUT /auth/v1/admin/users/<id>`). `email_sent` is Auth's own answer; a mail that did not go does not undo the membership. The facts come from M17 `invite_context` |
 | `team-list` | dashboard (owner) | the members of the workspace, owners first: user, email, role, team profile and name, joined date (M17 `list_members`); 404 for anyone else |
 | `member-remove` | dashboard (owner) | takes a person out (`remove_member`): never the last owner (409 `S-LAST-OWNER`), audited, their rows stay. Open sessions are not ended: Supabase Auth has no admin logout by user id (`api.go`, `GoTrueAdminApi.ts`, read 2026-11-04); every request is checked against `members`, so their next request in the workspace is refused (T27 proves it with the claims the person had) |
+| `unpublish` | dashboard (owner) | Delete on an item (B12): `service.unpublish` with delete; soft-deleted, off the site with the next publish, versions kept, one audit row `delete`; 404 for anyone but an owner or staff of the row's workspace; 204 |
 | `settings-save` | dashboard (owner) | one site's lead alert addresses (up to 10) and "also email the assigned agent"; no CRM part (a `crm` key alone is 400) |
 | `metrics-pull` | pg_cron, signed `X-Cron-Signature` (`CRON_KEY`) | work order 44 (M27): the daily pull of one workspace's search numbers into `metrics_snapshots` by (workspace, source, day), one site per workspace (the live one, else the oldest preview one). `?workspace=<id>`: `search-console` (a BLOCKED row until the owner verifies a property; fixtures only, live UNPROVEN) and `bing`; `?workspace=<id>&source=pagespeed`: five pages from the site's sitemap on a phone plus CrUX, weekly. SEO's collectors (`tools/audit/metrics`) loaded through `_shared/metrics.ts`; keys by name `PSI_API_KEY`, `CRUX_API_KEY`, `BING_WEBMASTER_KEY`; a source with no key is a BLOCKED row and sends no request, a 429 or 403 stops that source; a source that throws writes no row. `ai-answers` has no writer (no model call in runtime code, DECISIONS 38): NOT DONE |
 | `sitemap-submit` | head, signed `X-Cron-Signature`; the same code runs inside `job-callback` on `done` of a production job (best effort, never changes the 204) | work order 44: Search Console submit (BLOCKED until a property is verified) and an IndexNow ping of the sitemap's addresses appended to the day's `bing` row; the ping is sent only when the site hosts a key file, and none does (the factory slice, work order 45): NOT DONE |
@@ -62,7 +63,7 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
 CPU follows file size, about 0.75 s per MB worst; cap 1 MB / 5000 rows, under 1 s of the 2 s CPU limit. A bigger file is refused whole
 with plain words before it is parsed (413 `I-FILE` over 1 MB, 413 `I-ROWS` over 5000 rows), never cut short.
 
-Functions the book needs that do not exist (states in `1-product.md`): field edit and bulk edit for leads, saved views, delete a lead, unpublish, publish history and restore,
+Functions the book needs that do not exist (states in `1-product.md`): field edit and bulk edit for leads, saved views, delete a lead, publish history and restore,
 media library, metrics pull. There is no push function and none is to be built.
 
 ## Publishing a change

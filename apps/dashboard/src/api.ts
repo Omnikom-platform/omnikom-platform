@@ -151,6 +151,11 @@ export async function saveItem(s: ItemSave): Promise<{ row: string; version: num
   return { row: out.row, version: out.version };
 }
 
+/** unpublish: Delete on an item (owner or staff): a soft delete, off the site with the next publish, its versions kept. 204. */
+export async function deleteItem(row: string): Promise<void> {
+  await call('unpublish', { row });
+}
+
 export type Published = { job: string; state: string; dispatched: boolean; reason?: string };
 
 /** publish: these rows at exactly these versions (422 with a problem per row and path when one is not ready). 202 { job, state, dispatched }. */

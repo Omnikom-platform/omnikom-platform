@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { saveItem } from '../api';
+import { deleteItem, saveItem } from '../api';
 import { config } from '../config';
 import { fetchVersions, useVersions, type ContentRow, type VersionSign } from '../data';
 import { receivedWords } from '../lib/leads';
 import { CallFailed } from '../lib/problems';
 import {
-  canAdd, changesBetween, dropDraft, editorCards, keepDraft, loadDraft, overLimits, pathKey, rowTitle, sameData, setAt, slugify, staleLine,
+  canAdd, canDelete, changesBetween, dropDraft, editorCards, keepDraft, loadDraft, overLimits, pathKey, rowTitle, sameData, setAt, slugify, staleLine,
   type Change, type Path,
 } from '../lib/site';
 import { t } from '../plan';
 import css from './Editor.module.css';
+import crm from './Crm.module.css';   // the delete sheet looks like the leads' one (DeleteSheet.tsx)
 import { useSiteValue } from '../site-context';
 import { UNDO, useToast } from '../toast';
 import { useWorkspaceValue } from '../workspace-context';
@@ -22,7 +23,7 @@ const AUTOSAVE_MS = 10_000;
 const RETRY_MS = [2000, 4000, 8000, 16000, 30000];
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
-/** The editor of one item (DP-1.4-08 to -17, -19, -20): the section cards, Save with the base version, History. It opens on /w/$ws/site/$collection/$row ("new" for an item not made yet). */
+/** The editor of one item (DP-1.4-08 to -17, -19 to -21, -23): the section cards, Save with the base version, History. It opens on /w/$ws/site/$collection/$row ("new" for an item not made yet). */
 export function Editor() {
   const { collection, row } = useParams({ from: '/authed/w/$ws/site/$collection/$row' });
   const { contract, rows, role, teamRow } = useSiteValue();
@@ -44,7 +45,7 @@ type Stale = { who: string; at: string; version: VersionSign | null };
 
 function EditorBody({ collection, row, current }: { collection: string; row: string | null; current: ContentRow | undefined }) {
   const { workspace } = useWorkspaceValue();
-  const { contract, rows, site, who, drafts } = useSiteValue();
+  const { contract, rows, site, who, drafts, role } = useSiteValue();
   const { ws } = useParams({ from: '/authed/w/$ws' });
   const search = useSearch({ from: '/authed/w/$ws/site/$collection/$row' });
   const nav = useNavigate();
@@ -69,6 +70,7 @@ function EditorBody({ collection, row, current }: { collection: string; row: str
   const [jump, setJump] = useState(search.field ?? '');
   const [showHistory, setShowHistory] = useState(false);
   const [compare, setCompare] = useState<Change[] | null>(null);
+  const [asking, setAsking] = useState(false);
   const saving = useRef(false);
   const retries = useRef(0);
   const latest = useRef({ data, base, rowId, saved });
@@ -192,6 +194,9 @@ function EditorBody({ collection, row, current }: { collection: string; row: str
   const title = rowTitle(contract, collection, data) || col.label;
   const nameOfVersion = (v: VersionSign) => who(v.by);
   const saveDisabled = !dirty || busy || over.length > 0;
+  const closeAsk = useCallback(() => setAsking(false), []);
+  const deleted = async () => { dropDraft(workspace.id, rowId ?? ''); toast(`${t('DP-1.4-23', 'Deleted')} ${title}.`); await nav({ to: '/w/$ws/site', params: { ws } });
+    await Promise.all([qc.invalidateQueries({ queryKey: ['rows', workspace.id] }), qc.invalidateQueries({ queryKey: ['drafts'] })]); };
 
   return (
     <section aria-labelledby="editor-title" className={css.editor}>
@@ -218,6 +223,7 @@ function EditorBody({ collection, row, current }: { collection: string; row: str
       <div data-plan="DP-1.4-17" data-saving={busy ? 'true' : 'false'} className={css.bar}>
         <button type="button" disabled={saveDisabled} onClick={() => void save()} className={css.save}>Save</button>
         <button type="button" data-plan="DP-1.4-19" aria-expanded={showHistory} onClick={() => { setShowHistory(s => !s); setCompare(null); }}>History</button>
+        {rowId && canDelete(role, collection, col) && <button type="button" data-plan="DP-1.4-21" className={crm.danger} onClick={() => setAsking(true)}>Delete</button>}
         {rowId && drafts.some(d => d.row === rowId) && <mark data-plan="DP-1.4-17">changed</mark>}
         {offline && <p role="status" data-plan="DP-1.4-17">Not saved yet, retrying</p>}
         {stale && (
@@ -229,6 +235,7 @@ function EditorBody({ collection, row, current }: { collection: string; row: str
       </div>
 
       {compare && <Changes changes={compare} />}
+      {asking && rowId && <DeleteItem row={rowId} title={title} onClose={closeAsk} onDeleted={() => void deleted()} />}
 
       {showHistory && (
         <div data-plan="DP-1.4-19" className={css.history}>
@@ -263,5 +270,29 @@ function Changes({ changes }: { changes: Change[] }) {
         ))}
       </dl>
     </div>
+  );
+}
+
+/** The delete sheet (DP-1.4-23), as DeleteSheet.tsx: Cancel has the focus; Cancel and Esc send nothing; only "Delete this item" calls unpublish. */
+function DeleteItem({ row, title, onClose, onDeleted }: { row: string; title: string; onClose: () => void; onDeleted: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const cancel = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    cancel.current?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const remove = async () => {
+    setBusy(true); setError('');
+    try { await deleteItem(row); onDeleted(); } catch (e) { setError(e instanceof CallFailed && e.problem.plain ? e.problem.message : t('DP-1.4-23', 'Could not delete. Nothing was removed. Try again.')); setBusy(false); }
+  };
+  return (
+    <div className={crm.overlay}><div role="dialog" aria-modal="true" aria-labelledby="delete-item-title" data-plan="DP-1.4-23" className={crm.sheet}>
+      <h2 id="delete-item-title">Delete {title}?</h2>
+      <p>It leaves your Site list now and the live site at your next publish. Its past versions stay in our records, but you cannot open it again here.</p>
+      <div className={crm.sheetButtons}><button type="button" className={crm.danger} disabled={busy} onClick={() => void remove()}>Delete this item</button><button type="button" ref={cancel} onClick={onClose}>Cancel</button></div>
+      {error && <p role="alert">{error}</p>}
+    </div></div>
   );
 }

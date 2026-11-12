@@ -148,6 +148,9 @@ export function listCollections(contract: Contract): [string, CollectionDef][] {
 /** Add is for owners and Omnikom staff, and for an agent only on a collection marked own (DP-1.4-06). */
 export const canAdd = (role: 'owner' | 'member' | 'staff', col: Pick<CollectionDef, 'access'>) => role !== 'member' || col.access.member === 'own';
 
+/** Delete (DP-1.4-21) is for owners and Omnikom staff, on the client's own items: not pages, the business details, the inbox, uploads, redirects or the team (a team row is a person's profile; leads and members point at it). */
+export const canDelete = (role: 'owner' | 'member' | 'staff', id: string, col: Pick<CollectionDef, 'kind'>) => role !== 'member' && col.kind === 'collection' && !['pages', 'media', 'redirects', 'team'].includes(id);
+
 /** An agent sees a collection only when it is not owner-only, and only the rows that are theirs when it is marked own. */
 export function visibleTo(role: 'owner' | 'member' | 'staff', teamRow: string | null, col: CollectionDef, row: { owner_team_row: string | null; id: string }): boolean {
   if (role !== 'member') return true;

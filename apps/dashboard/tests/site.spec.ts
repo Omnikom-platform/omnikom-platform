@@ -225,3 +225,34 @@ test.describe('the owner sees Add on every collection', () => {
     await ok(page, { required: ['DP-1.4-06', 'DP-1.4-08', 'DP-1.4-17'] });
   });
 });
+
+// ---------- book row B12: Delete on an item at phone width (slice S10): a marked draft listing, Cancel first, then the sheet; read back as the service role ----------
+test.describe('B12 delete an item as the owner', () => {
+  test.use({ storageState: '.auth/owner-a.json', viewport: { width: 390, height: 844 } });
+  test('a marked listing is deleted through the sheet after a Cancel that sends nothing; it leaves the list and keeps its version', async ({ page }) => {
+    await installSiteMutant(page, 'delete-lost');
+    const street = `b12 ${RUN} delete`;
+    const made = await callAs(await personAccessToken('owner-a'), 'save', { workspace: WS.a.id, collection: 'listings', row: null, data: { street } });
+    expect(made.status, `save of the b12 listing answered ${made.status}: ${made.text.slice(0, 120)}`).toBe(200);
+    const id = (made.json as { row: string }).row;
+    const row = async () => (await serviceGet<{ deleted_at: string | null; published_version: number | null }[]>(`/content_rows?id=eq.${id}&select=deleted_at,published_version`))[0];
+    try {
+      await page.goto(`/w/${WS.a.slug}/site/listings/${id}`);
+      await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+      await page.getByRole('button', { name: 'Delete', exact: true }).click();
+      await expect(page.getByRole('dialog')).toContainText('Its past versions stay in our records');
+      await ok(page, { required: ['DP-1.4-21', 'DP-1.4-23'] });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'no sideways scroll at 390 px').toBe(true);
+      await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+      await expect(page.getByRole('dialog')).toHaveCount(0); expect((await row())?.deleted_at, 'Cancel deleted nothing').toBeNull();
+      await page.getByRole('button', { name: 'Delete', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'Delete this item', exact: true }).click();
+      await expect(page).toHaveURL(new RegExp(`/w/${WS.a.slug}/site/?$`));
+      await expect(page.getByRole('status').last()).toContainText(`Deleted ${street}.`);
+      await expect.poll(async () => (await row())?.deleted_at ?? null, { message: 'the row is deleted (deleted_at set)' }).not.toBeNull();
+      expect((await serviceGet<unknown[]>(`/content_versions?row_id=eq.${id}&select=n`)).length, 'its version is kept').toBe(1);
+      await expect(page.getByRole('link', { name: street })).toHaveCount(0);
+    } finally {
+      if (!(await row())?.deleted_at) { const gone = await removeRows([id]); expect(gone[0]?.ok, `the b12 row must be removed: ${gone[0]?.message}`).toBe(true); }
+    }
+  });
+});

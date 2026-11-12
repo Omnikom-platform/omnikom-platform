@@ -51,7 +51,7 @@ restore = new version).
 year, type -> description (optional "draft it for me" from the fields; the agent edits) -> photos (drag in, order, cover, alt
 suggested, rights tick; upload strips EXIF and makes sizes) -> Preview -> Publish -> the job rebuilds the listing page, home "Our
 listings", the city guide, "Realtor in <city>", sitemap -> "Published" with the link. Status change is one click and publishes the
-same way. Delete: the page 301s to its city guide.
+same way. Delete: the item leaves the site at the next publish (no redirect is built, book row B12).
 
 ### 6. Media ![media](wireframes/media.png)
 Upload (drag, bulk), grid with problems flagged (no alt, too small for its use, no rights tick), where each file is used, replace

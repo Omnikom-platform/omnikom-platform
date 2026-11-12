@@ -223,6 +223,12 @@ const MUTANTS = [
   ['team-list: a refusal leaves no security event', F + '_shared/dashboard.ts', "      if (r.kind) await recordEvent(sql, r.kind, r.code, { workspace: c.workspace, site: c.site, actor: c.sub, ipHash, fn });", "      /* no event */", 'team.test.ts'],
   ['member-remove: the person is not passed on', F + 'member-remove/index.ts', "${workspace}::uuid, ${user}::uuid)`;", "${workspace}::uuid, ${c.sub}::uuid)`;", 'team.test.ts'],
   ['member-remove: the answer says removed whatever happened', F + 'member-remove/index.ts', "await c.sql`select service.remove_member(${c.jwtClaims}::jsonb, ${workspace}::uuid, ${user}::uuid)`;", "await c.sql`select 1`;", 'team.test.ts'],
+  // book row B12 (slice S10): unpublish, Delete on an item (each must turn unpublish.test.ts red). Run only these: --only "unpublish [B12]"
+  ['unpublish [B12]: the row is not passed on', F + 'unpublish/index.ts', 'service.unpublish(${c.jwtClaims}::jsonb, ${row}::uuid', "service.unpublish(${c.jwtClaims}::jsonb, ${'aaaaaaaa-0000-0000-0000-000000000000'}::uuid", 'unpublish.test.ts'],   // U1
+  ['unpublish [B12]: the row is only taken off, not deleted', F + 'unpublish/index.ts', '${row}::uuid, true)`;', '${row}::uuid, false)`;', 'unpublish.test.ts'],   // U1
+  ['unpublish [B12]: the answer says done whatever happened', F + 'unpublish/index.ts', '    await c.sql`select service.unpublish(${c.jwtClaims}::jsonb, ${row}::uuid, true)`;\n', '    await c.sql`select 1`;\n', 'unpublish.test.ts'],   // U1
+  ['unpublish [B12]: a refusal of the database is answered done', F + 'unpublish/index.ts', '${row}::uuid, true)`;', '${row}::uuid, true)`.catch(() => null);', 'unpublish.test.ts'],   // U2
+  ['unpublish [B12]: any text is taken as a row id', F + 'unpublish/index.ts', "const row = f.uuid('row');", "const row = typeof d.row === 'string' ? d.row : null;", 'unpublish.test.ts'],   // U3
   // work order 18 (migration 22): saved views, follow-up and tasks, the due and duplicates filters (each must turn crm3b.test.ts red). Run only these: --only "crm3b"
   ['crm3b view-save: shared is always false', F + 'view-save/index.ts', 'shared: shared === true }', 'shared: false }', 'crm3b.test.ts'],
   ['crm3b view-save: the id is dropped', F + 'view-save/index.ts', 'const view = { ...(id ? { id } : {}), name,', 'const view = { name,', 'crm3b.test.ts'],

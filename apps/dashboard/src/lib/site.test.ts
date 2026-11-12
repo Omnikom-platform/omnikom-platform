@@ -1,7 +1,7 @@
 // The pure parts of the Site screen. The contract here is a small one written for the tests; the app itself reads the workspace's own.
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  canAdd, changesBetween, clock, dropDraft, editorCards, failureLines, feedLine, getAt, humanize, keepDraft, listCollections, loadDraft, overLimits, pathKey,
+  canAdd, canDelete, changesBetween, clock, dropDraft, editorCards, failureLines, feedLine, getAt, humanize, keepDraft, listCollections, loadDraft, overLimits, pathKey,
   progressLines, rowTitle, sameData, setAt, siteUrl, slugify, staleLine, stateLine, stepWords, visibleTo, type Contract, type JobEvent,
 } from './site';
 
@@ -108,6 +108,13 @@ describe('who sees what', () => {
     expect(visibleTo('member', 'me', contract.collections.listings!, theirs)).toBe(false);
     expect(visibleTo('member', 'me', contract.collections.team!, { id: 'me', owner_team_row: null })).toBe(true);
     expect(visibleTo('owner', null, contract.collections.areas!, theirs)).toBe(true);
+  });
+  it('Delete is for owners and staff, on the client\'s own items only (B12)', () => {
+    const c = contract.collections;
+    expect(canDelete('owner', 'listings', c.listings!)).toBe(true);
+    expect(canDelete('staff', 'areas', c.areas!)).toBe(true);
+    expect(canDelete('member', 'listings', c.listings!)).toBe(false);
+    expect(['pages', 'settings', 'team', 'media', 'leads'].map(id => canDelete('owner', id, c[id]!))).toEqual([false, false, false, false, false]);
   });
 });
 

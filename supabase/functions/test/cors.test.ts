@@ -18,6 +18,7 @@ import { handle as siteAudit } from '../site-audit/index.ts';
 import { handle as viewSave } from '../view-save/index.ts';
 import { handle as viewDelete } from '../view-delete/index.ts';
 import { handle as leadTask } from '../lead-task/index.ts';
+import { handle as unpublish } from '../unpublish/index.ts';
 import { assert, eq, mint, SITE_A, t, WS_A } from './util.ts';
 
 const ALLOWED = 'http://localhost:5173';
@@ -97,7 +98,7 @@ t('cors: Allow-Origin is never *: a * in the list is ignored, an Origin of * get
 t('cors: every dashboard function answers the preflight (they all run in the same frame)', async () => {
   const all: [string, H][] = [['save', save], ['lead-update', leadUpdate], ['add-lead', addLead], ['drafts', drafts], ['settings-save', settings], ['lead-export', leadExport], ['lead-list', leadList], ['leads-bulk', leadsBulk], ['invite-member', invite], ['team-list', teamList], ['member-remove', memberRemove],
     ['crm-map-propose', crmMapPropose], ['crm-template-save', crmTemplateSave], ['lead-import', leadImport], ['site-audit', siteAudit],
-    ['view-save', viewSave], ['view-delete', viewDelete], ['lead-task', leadTask]];
+    ['view-save', viewSave], ['view-delete', viewDelete], ['lead-task', leadTask], ['unpublish', unpublish]];
   for (const [name, h] of all) {
     const r = await ask(h, { method: 'OPTIONS', origin: ALLOWED });
     eq(r.status, 204, `${name}: status`); eq(r.headers.get('access-control-allow-origin'), ALLOWED, `${name}: allow-origin`);

@@ -59,7 +59,7 @@ runs (one jobs channel per tab, `src/lib/live.ts`). Vitest for units, Playwright
   one. A save carries its base version and is refused on top of a newer one, keeping both ("Agent One saved a newer version at
   14:02. See their changes, then save again."). An offline draft stays in the browser and retries.
 - History lists the versions; Restore makes a new version and deletes nothing.
-- Deleting a routed item makes its page redirect (301) to its parent on the next publish.
+- Delete (the editor, owners and staff) takes the item off the Site list at once and off the live site at the next publish; its versions are kept. No redirect (301) to its parent is built; what its address answers after a publish is UNPROVEN.
 
 ## Publish
 
@@ -68,7 +68,7 @@ runs (one jobs channel per tab, `src/lib/live.ts`). Vitest for units, Playwright
   14:02. Open". A failed check stops at that line with a Fix link and the words "nothing went live". With nothing to publish
   there is no button, only "Nothing to publish".
 - Publish history (MISSING): past jobs with their check reports, and putting the site back to an earlier publish.
-- Take an item off the site (MISSING): `service.unpublish`, live with the next publish.
+- Take an item off the site without deleting it (MISSING): `drafts_waiting` would list it again and the next publish would put it back. A delete alone is not a waiting change either: with nothing else waiting the item stays on the live site until the next publish. Both need a database change first.
 
 ## Preview of a change (MISSING)
 
