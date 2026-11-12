@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
     server: { port: 5173, strictPort: true, proxy: forward },
     preview: { host: LISTEN, port: BLOCK[0], strictPort: true, proxy: forward },   // plain `vite preview`; the Playwright server is chosen by scripts/preview-port.mjs
     build: { sourcemap: false },
-    test: { include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.{ts,mjs}', 'tests/plan-gate.test.mjs'], environment: 'node' },
+    // css: Vitest gives an empty string for a `.css?url` import unless the file is included, and the frame's test F5 (src/lib/frame.test.ts) reads that address.
+    test: { include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.{ts,mjs}', 'tests/plan-gate.test.mjs'], environment: 'node', css: { include: [/[\\/]design[\\/][^\\/]+\.css/] } },
   };
 });

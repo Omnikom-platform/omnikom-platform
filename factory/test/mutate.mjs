@@ -24,7 +24,7 @@ const MUTANTS = [
   ['fields: a select loses its options', `${F}lib/fields.mjs`, '${opts.map((o) => html`<option value="${o.value}">${o.label}</option>`)}', ''],
   ['fields: a number input drops min', `${F}lib/fields.mjs`, '${typeof f.min === \'number\' ? html` min="${f.min}"` : \'\'}', ''],
   ['fields: a required select is not required', `${F}lib/fields.mjs`, '<select name="${key}"${r ? html` required` : \'\'}>', '<select name="${key}">'],
-  ['fields: the build passes no reference options', `${F}lib/site.mjs`, "choices: s.kind === 'form' ? referenceOptions(contract.forms[s.form], contract, rows) : undefined,", 'choices: undefined,'],
+  ['fields: the build passes no reference options', `${F}lib/render.mjs`, "choices: s.kind === 'form' ? referenceOptions(contract.forms[s.form], contract, rows) : undefined,", 'choices: undefined,'],
   // template renderer
   ['template: {{{x}}} is escaped', `${F}lib/template.mjs`, 'out += raw ? String(v) : esc(v);', 'out += esc(v);'],
   ['template: {{x}} is not escaped', `${F}lib/template.mjs`, 'out += raw ? String(v) : esc(v);', 'out += String(v);'],
@@ -101,7 +101,7 @@ const MUTANTS = [
   ['build: an out folder that holds files is accepted', `${F}lib/site.mjs`, 'if (existsSync(out) && (!statSync(out).isDirectory() || readdirSync(out).length)) throw', 'if (false) throw'],
   ['build: a missing settings row is not caught', `${F}lib/site.mjs`, 'if (!settingsRow) throw new BuildStop(', 'if (false) throw new BuildStop('],
   ['build: the settings row (the logo) is not counted as used', `${F}lib/site.mjs`, 'const used = new Set([settingsRow.id]);', 'const used = new Set();'],
-  ['build: a noindex page row is not marked noindex', `${F}lib/site.mjs`, "title: d.title, seo, description: seo.description || '', noindex: seo.noindex === true,", "title: d.title, seo, description: seo.description || '', noindex: false,"],
+  ['build: a noindex page row is not marked noindex', `${F}lib/render.mjs`, "title: d.title, seo, description: seo.description || '', noindex: seo.noindex === true,", "title: d.title, seo, description: seo.description || '', noindex: false,"],
   ['cli: an unknown --force-fail value is accepted', `${F}build.mjs`, "if (opts['force-fail'] !== undefined && opts['force-fail'] !== 'heading') die(", 'if (false) die('],
   ['cli: no --export is not a usage error', `${F}build.mjs`, 'if (!opts.export || !opts.out) die(USAGE);', 'if (false) die(USAGE);'],
   ['cli: a bad --built-at is accepted', `${F}build.mjs`, 'if (!W3C.test(builtAt) || Number.isNaN(Date.parse(builtAt))) die(', 'if (false) die('],
@@ -124,6 +124,7 @@ const MUTANTS = [
   ['jsonScript: "<" is not escaped', `${F}lib/html.mjs`, 'JSON.stringify(o, null, 2).replace(/</g,', 'JSON.stringify(o, null, 2).replace(/^$/g,'],
   ['rich: no value prints "undefined"', `${F}lib/html.mjs`, "const s = v == null ? '' : String(v);", 'const s = String(v);'],
   ["design gate: a module's plain string is printed", `${F}lib/html.mjs`, 'if (!(v instanceof Raw)) throw new Error(', 'if (false) throw new Error('],
+  ['render (B15): the renderer imports a node module', `${F}lib/render.mjs`, "import { referenceOptions } from './fields.mjs';", "import { referenceOptions } from './fields.mjs';\nimport 'node:fs';"],
 ];
 
 // the layout the tests expect next to the factory: contracts/ (code only), sites/test-demo-a/, factory/ (no briefs, no worker)

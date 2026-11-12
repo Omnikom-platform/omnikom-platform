@@ -444,6 +444,12 @@ await check('site: the export names the seeded site A and workspace A', () => {
   const e = baseExport; return (e.site.id === 'aaaaaaaa-0000-0000-0000-00000000517e' && e.site.deploy_target === 'test-site-demo-a' && e.site.preview_host === 'demo-a.preview.test' && e.site.state === 'preview'
     && e.workspace.id === 'aaaaaaaa-0000-0000-0000-000000000000' && e.workspace.slug === 'test-demo-a' && e.contract.collections.team.kind === 'collection') || JSON.stringify(e.site);
 });
+await check('render (B15): lib/render.mjs and what it imports use no node: module but contracts/validate.mjs (its command line; the dashboard worker stubs it)', () => {
+  const seen = new Set(), bad = [], walk = (file) => { if (seen.has(file)) return; seen.add(file);
+    for (const [, to] of readFileSync(file, 'utf8').matchAll(/^import [^'"]*['"]([^'"]+)['"]/gm)) if (to.startsWith('node:')) { if (file !== join(UNDER, 'contracts', 'validate.mjs')) bad.push(`${relative(UNDER, file)}: ${to}`); } else if (to.startsWith('.')) walk(resolve(dirname(file), to)); };
+  walk(join(FACTORY, 'lib', 'render.mjs'));
+  return (bad.length === 0 && seen.size >= 6) || `node imports: ${bad.join(', ')} (${seen.size} files)`;
+});
 
 // ---------- done ----------
 for (const d of variants) rmSync(d, { recursive: true, force: true });

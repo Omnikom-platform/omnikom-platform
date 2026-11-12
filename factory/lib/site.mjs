@@ -5,13 +5,12 @@ import { mkdirSync, writeFileSync, existsSync, readdirSync, rmSync, renameSync, 
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadExport, validateExport } from './export.mjs';
-import { planSite, resolveFeed, entryOf } from './plan.mjs';
+import { planSite } from './plan.mjs';
 import { loadDesign, DesignError } from './design.mjs';
-import { raw, html, markup } from './html.mjs';
+import { html, markup } from './html.mjs';
 import { checkPage } from './gates.mjs';
-import { referenceOptions } from './fields.mjs';
+import { baseOf, renderPages } from './render.mjs';
 import { originOf, isPreview, headersText, robotsText, sitemapXml, llmsText, assetName, referencedMedia, readMedia, MediaError } from './launch.mjs';
-import { publicData } from '../../contracts/place.mjs';
 import { mergeCore } from '../../contracts/validate.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -20,8 +19,6 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export class BuildStop extends Error {
   constructor(lines, code = 1) { super(lines[lines.length - 1]); this.lines = lines; this.code = code; }
 }
-
-const fileOf = (path) => (path.endsWith('/') ? `${path.slice(1)}index.html` : path.slice(1));
 
 const NOT_FOUND_MAIN = html`<h1>Page not found</h1>
 <p>That page is not on this site. <a href="/">Go to the home page</a> to find what you need.</p>`;
@@ -51,7 +48,6 @@ export async function buildSite({ exportFile, out, designDir, mediaDir, builtAt,
   // 4. render
   let design;
   try { design = await loadDesign(designDir || join(ROOT, 'sites', exp.workspace.slug, 'design')); } catch (e) { throw new BuildStop([`BUILD STOPPED: design: ${e.message}`]); }
-  const byId = new Map(rows.map((r) => [r.id, r]));
   const used = new Set([settingsRow.id]);
   const files = new Map();
   const pages = [];
@@ -65,51 +61,11 @@ export async function buildSite({ exportFile, out, designDir, mediaDir, builtAt,
     if (!m) throw new Error(`no media row "${asset}"`);
     return { url: `/media/${m.path}`, width: m.width, height: m.height };
   };
-  const notices = {};
-  for (const r of rows) if (r.collection === 'notices') { notices[r.data.slug] = entryOf(contract, r); used.add(r.id); }
-  const nav = plan.built.map((b) => ({ path: b.path, type: b.type, title: b.row.data.title }));
-  const base = {
-    site: exp.site, workspace: exp.workspace, settings: publicData(contract, 'settings', settingsRow.data), origin, built_at: builtAt, preview,
-    media: mediaCtx, nav, notices, assets: { css: css.map((c) => c.href), js: js.map((j) => j.href) },
-  };
+  const base = baseOf({ contract, rows, plan, settingsRow, used, site: exp.site, workspace: exp.workspace, origin, builtAt, preview, media: mediaCtx, assets: { css: css.map((c) => c.href), js: js.map((j) => j.href) } });
   const wrap = (page, main) => markup(design.shell({ page, main, ctx: { ...base, page, path: page.path } }), 'shell.mjs');
 
   try {
-    for (const b of plan.built) {
-      const d = b.row.data, t = contract.pageTypes[b.type];
-      used.add(b.row.id);
-      let bound = null;
-      if (b.bind) { const br = rows.find((r) => r.collection === t.bind && r.data.slug === b.bind); if (br) { bound = entryOf(contract, br); used.add(br.id); } }
-      const seo = d.seo || {};
-      const page = { kind: 'page', path: b.path, file: fileOf(b.path), type: b.type, bind: b.bind, title: d.title, seo, description: seo.description || '', noindex: seo.noindex === true, bound };
-      const ctx = { ...base, page, path: b.path };
-      const parts = [];
-      for (const s of t.sections) {
-        const render = await design.section(s.id);
-        const feedIds = s.kind === 'feed' ? (plan.placed.pages[b.path].sections[s.id] || []) : [];
-        feedIds.forEach((id) => used.add(id));
-        parts.push(markup(await render({
-          section: s,
-          data: s.kind === 'notice' ? (notices[s.notice] || {}) : ((d.sections || {})[s.id] || {}),
-          feed: resolveFeed(contract, byId, feedIds),
-          form: s.kind === 'form' ? contract.forms[s.form] : undefined,
-          choices: s.kind === 'form' ? referenceOptions(contract.forms[s.form], contract, rows) : undefined,
-          ctx,
-        }), `sections/${s.id}.mjs`));
-      }
-      page.html = wrap(page, raw(parts.join('\n')));
-      pages.push(page);
-    }
-    for (const it of plan.items) {
-      used.add(it.id);
-      const c = cols[it.collection];
-      const entry = entryOf(contract, it.row);
-      const seo = it.row.data.seo || {};
-      const page = { kind: 'item', path: it.path, file: fileOf(it.path), type: it.collection, collection: it.collection, title: String(it.row.data[c.titleField] || ''), seo, description: seo.description || '', noindex: seo.noindex === true, bound: null };
-      const render = await design.item(it.collection);
-      page.html = wrap(page, raw(markup(await render({ row: entry, ctx: { ...base, page, path: it.path } }), `item/${it.collection}.mjs`)));
-      pages.push(page);
-    }
+    pages.push(...(await renderPages({ contract, rows, plan, design, base, used })));
     const nf = { kind: '404', path: '/404.html', file: '404.html', type: '404', title: 'Page not found', noindex: true, bound: null,
       seo: { title: `Page not found: ${base.settings.businessName} website`, description: `The page you asked for is not on the ${base.settings.businessName} website. Go to the home page to find what you need.` } };
     nf.description = nf.seo.description;

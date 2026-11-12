@@ -75,7 +75,7 @@ What a module is given:
 - `page` = `{ kind: "page" | "item" | "404", path, type, bind, title, seo, description, noindex, bound }`; `bound` is the entry of
   the row a bound page presents (a place guide), or null.
 
-## 3. What the build does (`lib/site.mjs`, each step a function in `lib/*.mjs`)
+## 3. What the build does (`lib/site.mjs`, each step a function in `lib/*.mjs`; the page render is `lib/render.mjs`, which the dashboard's instant frame runs too (book row B15))
 1. Load the export, check `schema`, re-validate the contract and every row with `validateItem(..., { mode: 'publish', exists,
    media })`. Any problem prints `<row id> <code> <path> <msg>`, then `BUILD STOPPED: content does not validate for publish`.
 2. `place(contract, rows)`. Only a contract page that HAS a row in `pages` is built and listed in the sitemap; the others print
