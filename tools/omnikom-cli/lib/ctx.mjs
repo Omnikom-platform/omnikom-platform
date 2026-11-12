@@ -28,6 +28,8 @@ export function makeCtx({ command, positionals, flags, deps = {} }) {
     now: deps.now || (() => Math.floor(Date.now() / 1000)),
     randomUUID: deps.randomUUID || randomUUID,
     sleep: deps.sleep || (ms => new Promise(r => setTimeout(r, ms))),
+    open: deps.open,   // session start: a test hands a fake (name, launcher); no window opens
+    run: deps.run,     // helper run: a test hands a fake runLimited (cmd, args, opts); nothing starts
     warnings: [],
     targetName: flags.target || 'local',
     _target: null, _sql: null,

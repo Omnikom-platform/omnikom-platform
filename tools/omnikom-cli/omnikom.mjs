@@ -31,14 +31,16 @@ import { journeyText } from './commands/journey.mjs';
 import { seoGroup, seoText } from './commands/seo.mjs';
 import { usageGroup } from './commands/usage.mjs';
 import { skillGroup } from './commands/skill.mjs';
+import { sessionGroup } from './commands/session.mjs';
+import { helperGroup } from './commands/helper.mjs';
 import { loadRegistry, findRow, runWrapped, helpText } from './lib/wrap.mjs';
 
 // both tables are looked up by a word the user typed, so they inherit nothing: constructor, toString or __proto__ is an unknown command, not a hit
-const COMMANDS = { __proto__: null, status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate, tools: toolsGroup, ci, impact, land, hooks: hooksGroup, seo: seoGroup, usage: usageGroup, skill: skillGroup };
+const COMMANDS = { __proto__: null, status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate, tools: toolsGroup, ci, impact, land, hooks: hooksGroup, seo: seoGroup, usage: usageGroup, skill: skillGroup, session: sessionGroup, helper: helperGroup };
 export const COMMAND_NAMES = Object.keys(COMMANDS);
 // the commands that print text lines by default (with --json: the result object), and the ones that talk to no target
 const TEXT = { __proto__: null, impact: impactText, land: landText, hooks: hooksText, seo: seoText };
-const NO_TARGET = new Set(['impact', 'land', 'hooks', 'seo', 'usage', 'skill']);
+const NO_TARGET = new Set(['impact', 'land', 'hooks', 'seo', 'usage', 'skill', 'session', 'helper']);
 export const USAGE = [
   'status | apply [--dry-run] | test walls | verify --only lead|walls|people | mfa enroll-staff',
   'seed test [--alert-to <email>] [--clean] | seed workspace --slug --name --industry --deploy-target --preview-host (--contract <file> | --plan <dir> --entities <file>)',
@@ -57,6 +59,7 @@ export const USAGE = [
   'seo vantage status [--json] [--pewp <dir>]   (SEO\'s scripts/vantage.mjs status: its output unchanged; its exit code too, except 4 (SKIPPED: no allowed US egress), which comes back as 3; a missing script is BLOCKED, exit 3; a seo run never calls start)',
   'usage rate | usage fit --windows <file>   (the weekly meter: exit 0 inside the pace, 1 over it, 3 BLOCKED on a stale reading or no rate yet; the fit: points per list dollar per model from 3 or more windows; no target)',
   'skill check pewp   (is the machine\'s skill a junction to this repository\'s copy, with no change in it, at backup-gh/master? exit 0 yes, 1 no; no target)',
+  'session start head|lane [--area <a>] [--resume <session id>] [--dry-run] | helper run <job-id> --model <id> --effort <level> --goal <exit test> [--brief <file>] [--dry-run]   (a head or lane: writes its CRLF launcher and opens it in a window; a headless helper: claude -p for one job row, waited for; --dry-run starts nothing; no target)',
   'flags: --target staging|local|production  --as <identity>  --expect <code>  --json  --fixture <file>  --real',
 ];
 // the global help: the lines above, then one line per tool in registry.json (its usage and its summary)

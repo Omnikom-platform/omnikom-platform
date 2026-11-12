@@ -812,6 +812,20 @@ const MUTANTS = [
   ['[engine] seo run: an option the engine does not list is accepted', 'commands/seo.mjs', 'run: RUN_OPTIONS,', "run: [...RUN_OPTIONS, 'stage'],", 'unit'],
   ['[engine] seo: a rule list is written in a CLI file (the skill\'s engine is not the only one)', 'lib/seo-manifest.mjs', 'const E = await importRepo(', "const KNOWN_ENGINES = ['google'];\nconst E = await importRepo(", 'unit'],
   ['[engine] seo stops: a live stop is not read through the engine', 'lib/seo-run.mjs', 'const stop = stepStop(step, { dir: stopsDir, mode: stopMode });', 'const stop = null;', 'unit'],
+  // ---- session start and helper run (P3.2 B3)
+  ['[session] the launcher has no --autocompact (T1\'s red)', 'commands/session.mjs', "'--autocompact', String(k.window), ", '', 'unit'],
+  ['[session] a head starts without Remote Control', 'commands/session.mjs', "...(k.remoteControl ? ['--remote-control'] : []), ", '', 'unit'],
+  ['[session] a marker is left set', 'commands/session.mjs', "'CLAUDE_PID', ", '', 'unit'],
+  ['[session] session start job is taken', 'commands/session.mjs', "if (kind !== 'head' && kind !== 'lane') throw new Usage(", 'if (false) throw new Usage(', 'unit'],
+  ['[session] a lane without an area starts', 'commands/session.mjs', "if (kind === 'lane' && (typeof area !== 'string' || !AREA.test(area))) throw new Usage(", 'if (false) throw new Usage(', 'unit'],
+  ['[session] the dry run writes and opens', 'commands/session.mjs', "if (ctx.flags['dry-run']) return result(true, 'ok', { dryRun: true, name, launcher, text });", '', 'unit'],
+  ['[session] the helper has no settings file', 'commands/helper.mjs', "'--settings', join(CLI_DIR, 'sessions', 'headless-helper.settings.json'), ", '', 'unit'],
+  ['[session] the helper has no turn limit', 'commands/helper.mjs', "'--max-turns', String(k.maxTurns), ", '', 'unit'],
+  ['[session] the helper names no permission mode', 'commands/helper.mjs', "'--permission-mode', k.permissionMode, ", '', 'unit'],
+  ['[session] the markers reach the helper', 'commands/helper.mjs', 'for (const m of CLEARED) delete env[m];', '', 'unit'],
+  ['[session] max effort is taken', 'commands/helper.mjs', "'xhigh'];", "'xhigh', 'max'];", 'unit'],
+  ['[session] the dry run starts the helper', 'commands/helper.mjs', "if (ctx.flags['dry-run']) return result(true, 'ok', { dryRun: true, name, exe, cwd, args, timeout });", '', 'unit'],
+  ['[session] the helper is not told its brief file', 'commands/helper.mjs', '`; the job is written in ${brief}: read it first`', "''", 'unit'],
 ];
 
 const list = pickMutants(shardMutants(MUTANTS, shard), only);   // sharded by the index in the whole list, then narrowed by --only
