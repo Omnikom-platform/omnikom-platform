@@ -67,7 +67,7 @@ runs (one jobs channel per tab, `src/lib/live.ts`). Vitest for units, Playwright
   versions. Progress shows one line per step: building, checking (one plain line per check), putting it live, "Live since
   14:02. Open". A failed check stops at that line with a Fix link and the words "nothing went live". With nothing to publish
   there is no button, only "Nothing to publish".
-- Publish history (MISSING): past jobs with their check reports, and putting the site back to an earlier publish.
+- Past publishes (owners and staff, a sheet on the Site screen): each finished publish, live or not, with its checks; "Put the site back to this publish" saves its content as new versions and publishes them (nothing deleted; items added since stay on the site).
 - Take an item off the site without deleting it (MISSING): `drafts_waiting` would list it again and the next publish would put it back. A delete alone is not a waiting change either: with nothing else waiting the item stays on the live site until the next publish. Both need a database change first.
 
 ## Preview of a change (MISSING)

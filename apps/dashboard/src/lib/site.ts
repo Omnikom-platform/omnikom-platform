@@ -288,6 +288,27 @@ export function failureLines(job: Pick<Job, 'gate_report' | 'error'>): string[] 
   return out.map(clip).filter(Boolean).slice(0, 8);
 }
 
+// ---------- past publishes and putting the site back (book row B11) ----------
+/** DP-1.4c-07: "41 checks passed, 0 failed" from a finished job's audit summary; '' for a job from before the summary. */
+export function checksLine(job: Pick<Job, 'gate_report'>): string {
+  const c = (job.gate_report?.audit as { counts?: { PASS?: unknown; FAIL?: unknown } } | undefined)?.counts;
+  return c && typeof c.PASS === 'number' && typeof c.FAIL === 'number' ? `${c.PASS} ${t('DP-1.4c-07', 'checks passed')}, ${c.FAIL} ${t('DP-1.4c-07', 'failed')}` : '';
+}
+export type RestoreStep = { row: string; collection: string; base: number; data: Record<string, unknown> | null };
+/** DP-1.4c-08 item by item (`snapshot`: that publish's { row: version }; `old`: each such version's content that is not the item's newest). Newest
+ *  holds it: published at it (data null); else saved as a NEW version on top. Left out: published as it was, deleted or added since. */
+export function restoreSteps(snapshot: Record<string, number>, rows: { id: string; collection: string; published_version: number | null; newest: { n: number; data: Record<string, unknown> } | null }[], old: Record<string, Record<string, unknown>>): RestoreStep[] {
+  const steps: RestoreStep[] = [];
+  for (const [id, n] of Object.entries(snapshot)) {
+    const r = rows.find(x => x.id === id); if (!r?.newest) continue;
+    const was = r.newest.n === n ? r.newest.data : old[id];
+    if (!was) throw new Error(`version ${n} of ${r.collection} ${id} could not be read`);
+    const same = sameData(was, r.newest.data); if (same && r.published_version === r.newest.n) continue;
+    steps.push({ row: id, collection: r.collection, base: r.newest.n, data: same ? null : was });
+  }
+  return steps;
+}
+
 // ---------- a draft kept in this browser when the network drops (16-DESIGN-PARTS 3.2) ----------
 const draftKey = (ws: string, row: string) => `omnikom-draft:${ws}:${row}`;
 

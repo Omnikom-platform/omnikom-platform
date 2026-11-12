@@ -9,6 +9,7 @@ import { SiteContext, type SiteValue } from '../site-context';
 import { useSession } from '../auth';
 import { useWorkspaceValue } from '../workspace-context';
 import { PublishSheet } from './PublishSheet';
+import { PublishHistory } from './PublishHistory';
 import css from './Site.module.css';
 
 /**
@@ -28,6 +29,7 @@ export function SiteLayout() {
   const jobs = useJobs(workspace.id, 'always');
   const [chosen, setChosen] = useState(() => storedSite(userId, workspace.id));
   const [sheet, setSheet] = useState(false);
+  const [history, setHistory] = useState(false);
 
   useEffect(() => { document.title = t('DP-1.2s-04', 'Site'); }, []);
 
@@ -97,6 +99,7 @@ export function SiteLayout() {
             <a href={siteUrl(site)} target="_blank" rel="noopener">Open</a>
           </p>
         )}
+        {site && role !== 'member' && <button type="button" data-plan="DP-1.4c-07" onClick={() => setHistory(true)}>Past publishes</button>}
         {running ? (
           <button type="button" data-plan="DP-1.4c-05" onClick={() => setSheet(true)} className={css.publish}>Publishing {stepWords(running.state)}</button>
         ) : count === 0 ? (
@@ -135,6 +138,7 @@ export function SiteLayout() {
       <Outlet />
 
       {sheet && site && <PublishSheet site={site} jobs={jobs.data ?? { jobs: [], events: [] }} onClose={() => setSheet(false)} />}
+      {history && site && <PublishHistory site={site} jobs={jobs.data?.jobs ?? []} onClose={() => setHistory(false)} onStarted={() => { setHistory(false); setSheet(true); }} />}
     </div>
     </SiteContext.Provider>
   );

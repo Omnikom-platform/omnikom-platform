@@ -65,7 +65,7 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
 CPU follows file size, about 0.75 s per MB worst; cap 1 MB / 5000 rows, under 1 s of the 2 s CPU limit. A bigger file is refused whole
 with plain words before it is parsed (413 `I-FILE` over 1 MB, 413 `I-ROWS` over 5000 rows), never cut short.
 
-Functions the book needs that do not exist (states in `1-product.md`): field edit and bulk edit for leads, saved views, delete a lead, publish history and restore,
+Functions the book needs that do not exist (states in `1-product.md`): field edit and bulk edit for leads, saved views, delete a lead,
 media library, metrics pull. There is no push function and none is to be built.
 
 ## Publishing a change

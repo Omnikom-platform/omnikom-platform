@@ -80,7 +80,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B8 Version history and restore | WORKS | history, Compare, and Restore (a new version, nothing deleted) with Undo in the toast (the pre-restore data back as a new version): staging flows 2026-11-12 (`apps/dashboard/tests/site.spec.ts`, the first test, 'its Undo', 1 passed), each version read back as the service role; watched red with FLOWS_MUTANT=undo-lost; `apps/dashboard/src/pages/Editor.tsx`, `apps/dashboard/src/toast.tsx` |
 | B9 Search-result preview card | WORKS | D:pages/Widgets.tsx |
 | B10 Publish sheet: waiting changes, progress, failed-check message | WORKS | journey J3 |
-| B11 Publish history and restore the site | MISSING | |
+| B11 Publish history and restore the site | PARTLY | Past publishes on the Site screen (owners and staff: each finished publish, live or not, with its checks; DP-1.4c-07) and putting the site back to one (DP-1.4c-08): its content saved as new versions and published, nothing deleted (D:pages/PublishHistory.tsx, D:lib/site.ts, vitest); staging UNPROVEN until the head's flow. Items added since stay on the site; deleted items stay deleted |
 | B12 Take an item off the site, delete an item | PARTLY | Delete: the editor's Delete (owner and staff; DP-1.4-21, -23; D:pages/Editor.tsx, D:lib/site.ts, vitest) and F:unpublish (supabase/functions/test/unpublish.test.ts): off the Site list at once, off the live site at the next publish, versions kept; staging 2026-11-12: F:unpublish deployed and the flow "B12 delete an item" (`apps/dashboard/tests/site.spec.ts`) 1 passed, watched red with FLOWS_MUTANT=delete-lost; what the deleted item's address answers after a publish is UNPROVEN. Missing: take off the site without deleting; and a delete alone is not a waiting change, so with nothing else waiting the item stays on the live site until the next publish |
 | B13 Photo upload (rights, alt, sizes, EXIF stripped) | PARTLY | upload functions work on staging; photo to site end to end UNPROVEN |
 | B14 Media library | MISSING | |
@@ -157,11 +157,11 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | Part | WORKS | PARTLY | MISSING | Rows |
 |---|---|---|---|---|
 | A CRM | 26 | 0 | 0 | 26 |
-| B Dashboard | 14 | 4 | 4 | 22 |
+| B Dashboard | 14 | 5 | 3 | 22 |
 | C Backend and database | 14 | 3 | 0 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
 | E Hardening | 7 | 11 | 3 | 21 |
-| Total | 71 | 18 | 7 | 96 |
+| Total | 71 | 19 | 6 | 96 |
 
 Completion is reported from these counts only.
 

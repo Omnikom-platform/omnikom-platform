@@ -395,3 +395,13 @@ export function useSiteAlerts(wsId: string, enabled: boolean) {
     queryFn: async (): Promise<SiteAlerts[]> => must(await supabase.from('sites').select('id,preview_host,lead_alert_to,alert_assignee').eq('workspace_id', wsId).order('created_at')) as SiteAlerts[],
   });
 }
+
+/** B11: one publish job's frozen snapshot { row: version }, and the content of exactly these versions ([row, n] pairs) in one read, through RLS. */
+export async function fetchSnapshot(job: string): Promise<Record<string, number>> {
+  return (must(await supabase.from('publish_jobs').select('snapshot').eq('id', job).single()) as { snapshot: Record<string, number> | null }).snapshot ?? {};
+}
+export async function fetchVersionsAt(pairs: [string, number][]): Promise<Record<string, Record<string, unknown>>> {
+  if (!pairs.length) return {};
+  const got = must(await supabase.from('content_versions').select('row_id,n,data').or(pairs.map(([r, n]) => `and(row_id.eq.${r},n.eq.${n})`).join(','))) as { row_id: string; data: Record<string, unknown> }[];
+  return Object.fromEntries(got.map(v => [v.row_id, v.data]));
+}

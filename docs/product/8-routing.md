@@ -22,7 +22,7 @@ One app, one magic-link sign-in. The CRM's routes sit under `leads`; the dashboa
 | `/w/$ws/site` | pages and collections from the contract, the publish sheet | now |
 | `/w/$ws/site/$collection/$row` (`?field`) | the item editor with history | now |
 | `/w/$ws/media` | the media library | MISSING |
-| `/w/$ws/publish` | publish history and restore | MISSING (the sheet exists inside the Site screen) |
+| (no route) | publish history and restore | a sheet on the Site screen (B11) |
 | `/w/$ws/settings` | one Settings screen of cards | MISSING |
 | `/w/$ws/sites/$site/search` | the Search health page of a site (owner) | MISSING (book row B24; the numbers are on the Overview) |
 | anything else | not found | now |

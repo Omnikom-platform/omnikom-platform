@@ -256,3 +256,33 @@ test.describe('B12 delete an item as the owner', () => {
     }
   });
 });
+
+// ---------- book row B11: put the site back to an earlier publish at phone width (slice S10): two real publishes, read back as the service role ----------
+test.describe('B11 put the site back as the owner', () => {
+  test.use({ storageState: '.auth/owner-a.json', viewport: { width: 390, height: 844 } });
+  test('an earlier publish comes back as new versions and goes live; the newer version is kept', async ({ page }) => {
+    test.setTimeout(3_600_000); await installSiteMutant(page, 'restore-lost');   // two publishes, each within the workflow's 30 minutes
+    const [earlier] = await serviceGet<{ finished_at: string; snapshot: Record<string, number> }[]>(`/publish_jobs?site_id=eq.${WS.a.site}&state=eq.done&order=finished_at.desc&limit=1&select=finished_at,snapshot`);
+    if (!earlier) throw new Error('BLOCKED: the test site has no finished publish (run the publish sheet flow once)');
+    const c = await contact();
+    const [then] = await serviceGet<{ data: Record<string, unknown> }[]>(`/content_versions?row_id=eq.${c.id}&n=eq.${earlier.snapshot[c.id]}&select=data`);
+    const old = heading(then?.data ?? {}), newer = `b11 ${RUN} newer`;
+    await saveAsOwner(c, newer);
+    try {
+      const pub = await callAs(await personAccessToken('owner-a'), 'publish', { site: WS.a.site, rows: [c.id], versions: [c.n + 1] });
+      expect(pub.status, `the newer publish answered ${pub.status}: ${pub.text.slice(0, 120)}`).toBe(202);
+      await expect.poll(async () => (await serviceGet<{ state: string }[]>(`/publish_jobs?id=eq.${(pub.json as { job: string }).job}&select=state`))[0]?.state, { message: 'the newer publish ends done', timeout: 1_500_000, intervals: [15_000] }).toBe('done');
+      await page.goto(`/w/${WS.a.slug}/site`); await page.getByRole('button', { name: 'Past publishes', exact: true }).click();
+      await ok(page, { required: ['DP-1.4c-07', 'DP-1.4c-08'] });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'no sideways scroll at 390 px').toBe(true);
+      await page.getByRole('dialog').getByRole('listitem').filter({ has: page.locator(`time[datetime="${earlier.finished_at}"]`) }).getByRole('button', { name: 'Put the site back to this publish' }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Put it back', exact: true }).click();
+      await expect.poll(async () => heading((await contact()).data), { message: 'the earlier heading came back as a new version', timeout: 30_000 }).toBe(old);
+      expect((await contact()).n, 'one new version on top of the newer one').toBe(c.n + 2);
+      expect((await serviceGet<unknown[]>(`/content_versions?row_id=eq.${c.id}&n=eq.${c.n + 1}&select=n`)).length, 'the newer version is kept').toBe(1);
+      await expect.poll(async () => (await contact()).published, { message: 'the restored version is the published one', timeout: 1_500_000, intervals: [15_000] }).toBe(c.n + 2);   // the sheet drops a job once it is done (PublishSheet.tsx:28-29)
+      const shown = await (await fetch('https://preview.test-site-demo-a.pages.dev/contact/', { headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(30_000) })).text();
+      expect(shown, 'the published test site shows the earlier heading').toContain(old); expect(shown, 'and not the newer one').not.toContain(newer);
+    } finally { const now = await contact(); if (heading(now.data) !== old) await saveAsOwner(now, old); }   // the saved heading is left as found (this file's header)
+  });
+});

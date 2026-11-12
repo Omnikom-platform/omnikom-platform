@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 887,
+    "sources": 888,
     "unowned": 0
   },
   "files": [
@@ -19,7 +19,7 @@
     {"path":"apps/dashboard/src/api.ts","owner":"platform-build","exports":["BulkAction","Draft","Exported","ImportCall","ItemSave","LeadChange","NewLead","Published","ViewSave","addLead","addTask","bulkLeads","deleteItem","deleteView","exportLeads","fetchDrafts","fetchSiteAudit","fetchTeamList","importLeads","inviteMember","listLeads","markTask","proposeMap","publishRows","putFile","removeMember","saveAlerts","saveItem","saveTemplate","saveView","updateLead","uploadFinish","uploadStart"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/auth.tsx","owner":"platform-build","exports":["SessionProvider","safeNext","useSession"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/config.ts","owner":"platform-build","exports":["config"],"tests":[],"feature":""},
-    {"path":"apps/dashboard/src/data.ts","owner":"platform-build","exports":["ContentRow","LiveState","Me","MediaRow","Membership","Role","RowVersion","Site","SiteAlerts","Team","Template","VersionSign","Workspace","everListed","fetchVersions","useContract","useContractForms","useDrafts","useEvents","useEventsLive","useFilterCounts","useJobs","useLead","useLeadColumns","useLeadList","useLeads","useLeadsLive","useMe","useMedia","useMemberships","useReadIds","useRows","useSignedUrl","useSiteAlerts","useSites","useStaffAal","useTasks","useTeam","useTeamList","useTemplates","useVersions","useViews","useWorkspace"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
+    {"path":"apps/dashboard/src/data.ts","owner":"platform-build","exports":["ContentRow","LiveState","Me","MediaRow","Membership","Role","RowVersion","Site","SiteAlerts","Team","Template","VersionSign","Workspace","everListed","fetchSnapshot","fetchVersions","fetchVersionsAt","useContract","useContractForms","useDrafts","useEvents","useEventsLive","useFilterCounts","useJobs","useLead","useLeadColumns","useLeadList","useLeads","useLeadsLive","useMe","useMedia","useMemberships","useReadIds","useRows","useSignedUrl","useSiteAlerts","useSites","useStaffAal","useTasks","useTeam","useTeamList","useTemplates","useVersions","useViews","useWorkspace"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/hooks.ts","owner":"platform-build","exports":["useWide"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/leads-view.ts","owner":"platform-build","exports":["EXPORT_CAPPED","EXPORT_FAILED","LeadsViewContext","LeadsViewValue","saveFile","useExporter","useLeadsView"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/crm.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
@@ -41,7 +41,7 @@
     {"path":"apps/dashboard/src/lib/settings.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/settings.ts","owner":"platform-build","exports":["AlertProblem","MAX_ALERTS","Member","ParsedAlerts","alertsChanged","alertsText","canRemove","canSaveAlerts","memberName","onlyYou","parseAlerts","validEmail"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/site.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
-    {"path":"apps/dashboard/src/lib/site.ts","owner":"platform-build","exports":["Card","Change","CollectionDef","Contract","FieldDef","FieldRef","Job","JobEvent","JobState","Line","Over","Path","Placement","RUNNING","SEO_DESCRIPTION_MAX","SEO_TITLE_MAX","SectionDef","SiteState","canAdd","canDelete","changesBetween","clock","dropDraft","editorCards","failureLines","feedLine","fieldLabel","getAt","humanize","keepDraft","listCollections","loadDraft","overLimits","pathKey","progressLines","rowTitle","sameData","setAt","siteUrl","slugify","staleLine","stateLine","stepWords","visibleTo"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/lib/site.ts","owner":"platform-build","exports":["Card","Change","CollectionDef","Contract","FieldDef","FieldRef","Job","JobEvent","JobState","Line","Over","Path","Placement","RUNNING","RestoreStep","SEO_DESCRIPTION_MAX","SEO_TITLE_MAX","SectionDef","SiteState","canAdd","canDelete","changesBetween","checksLine","clock","dropDraft","editorCards","failureLines","feedLine","fieldLabel","getAt","humanize","keepDraft","listCollections","loadDraft","overLimits","pathKey","progressLines","restoreSteps","rowTitle","sameData","setAt","siteUrl","slugify","staleLine","stateLine","stepWords","visibleTo"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/views.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/views.ts","owner":"platform-build","exports":["AddressFilter","ColumnInfo","DISPLAY_ONLY","DUPLICATE","FOLLOW_UP","LeadsSearch","PickerLine","SavedQuery","SavedView","Screen","allColumns","canChangeView","canShareView","commitColumns","fromAddress","fromSaved","groupViews","moveColumn","parseAddress","pickerLines","shownColumns","toAddress","toSaved","toggleColumn"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/main.tsx","owner":"platform-build","exports":[],"tests":["apps/dashboard/tests/mutants.ts"],"feature":""},
@@ -63,7 +63,8 @@
     {"path":"apps/dashboard/src/pages/Login.tsx","owner":"platform-build","exports":["Login"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/NotFound.tsx","owner":"platform-build","exports":["NotFound"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/Overview.tsx","owner":"platform-build","exports":["Overview"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
-    {"path":"apps/dashboard/src/pages/PublishSheet.tsx","owner":"platform-build","exports":["PublishSheet"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
+    {"path":"apps/dashboard/src/pages/PublishHistory.tsx","owner":"platform-build","exports":["PublishHistory"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/pages/PublishSheet.tsx","owner":"platform-build","exports":["PublishSheet"],"tests":["apps/dashboard/tests/plan-gate.test.mjs","apps/dashboard/tests/site.spec.ts"],"feature":""},
     {"path":"apps/dashboard/src/pages/Settings.tsx","owner":"platform-build","exports":["Settings"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/SettingsAlerts.tsx","owner":"platform-build","exports":["SettingsAlerts"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/SettingsPeople.tsx","owner":"platform-build","exports":["SettingsPeople"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},

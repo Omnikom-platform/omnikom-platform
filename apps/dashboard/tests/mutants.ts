@@ -12,6 +12,7 @@
 // Slice S10 (tests/site.spec.ts; installSiteMutant, the same FLOWS_MUTANT):
 //   undo-lost             the toast's Undo after a Restore (the page's third save) is answered 200 by the test and never reaches the function
 //   delete-lost           the editor's Delete (unpublish) is answered 204 by the test and never reaches the function
+//   restore-lost          the B11 flow's restore saves (the page's only saves) are answered 200 by the test and never reach the function
 // Work order 07 (tests/support/own-lead.ts):
 //   no-own-lead      the add-lead a test uses to make its own row is skipped, so every test that waits for a first row must go red for want of one
 // Slice 5-DS (tests/styles.spec.ts):
@@ -36,7 +37,7 @@ export function active(name: Mutant): boolean {
 
 // Kept out of the Mutant union on purpose: the flows slice edits that union's line, and a branch that conflicts with another anywhere but icm/
 // and the book's Counts leaves the land train (docs/departments/README.md rule 8).
-export type SiteMutant = 'undo-lost' | 'delete-lost';
+export type SiteMutant = 'undo-lost' | 'delete-lost' | 'restore-lost';
 export async function installSiteMutant(page: Page, name: SiteMutant) {
   if (process.env.FLOWS_MUTANT !== name) return;
   if (name === 'undo-lost') {
@@ -51,6 +52,12 @@ export async function installSiteMutant(page: Page, name: SiteMutant) {
   }
   if (name === 'delete-lost') {
     await page.route(/\/functions\/v1\/unpublish$/, route => route.fulfill({ status: 204, body: '', headers: { 'access-control-allow-origin': '*' } }));
+  }
+  if (name === 'restore-lost') {
+    await page.route(/\/functions\/v1\/save$/, route => {
+      const body = JSON.parse(route.request().postData() ?? '{}') as { row?: string; base?: number };
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ row: body.row, version: (body.base ?? 0) + 1 }) });
+    });
   }
 }
 

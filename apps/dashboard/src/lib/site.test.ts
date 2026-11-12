@@ -1,8 +1,8 @@
 // The pure parts of the Site screen. The contract here is a small one written for the tests; the app itself reads the workspace's own.
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  canAdd, canDelete, changesBetween, clock, dropDraft, editorCards, failureLines, feedLine, getAt, humanize, keepDraft, listCollections, loadDraft, overLimits, pathKey,
-  progressLines, rowTitle, sameData, setAt, siteUrl, slugify, staleLine, stateLine, stepWords, visibleTo, type Contract, type JobEvent,
+  canAdd, canDelete, changesBetween, checksLine, clock, dropDraft, editorCards, failureLines, feedLine, getAt, humanize, keepDraft, listCollections, loadDraft, overLimits, pathKey,
+  progressLines, restoreSteps, rowTitle, sameData, setAt, siteUrl, slugify, staleLine, stateLine, stepWords, visibleTo, type Contract, type JobEvent,
 } from './site';
 
 const contract: Contract = {
@@ -204,5 +204,27 @@ describe('a draft kept in the browser', () => {
     expect(() => keepDraft('w', 'r', 1, {})).not.toThrow();
     expect(loadDraft('w', 'r')).toBeNull();
     expect(() => dropDraft('w', 'r')).not.toThrow();
+  });
+});
+
+describe('past publishes and putting the site back (B11)', () => {
+  it('the checks line reads the audit counts; a job from before the summary has none', () => {
+    expect(checksLine({ gate_report: { audit: { counts: { PASS: 41, FAIL: 0, SKIP: 1 } } } })).toBe('41 checks passed, 0 failed');
+    expect(checksLine({ gate_report: { reason: 'timeout' } })).toBe('');
+    expect(checksLine({ gate_report: null })).toBe('');
+  });
+  it('an item comes back as a new version, or at its newest when that holds the content; nothing else is touched', () => {
+    const v = (n: number, heading: string) => ({ n, data: { heading } });
+    const rows = [
+      { id: 'changed', collection: 'pages', published_version: 3, newest: v(3, 'new') },
+      { id: 'draft-back', collection: 'pages', published_version: 2, newest: v(3, 'old') },
+      { id: 'same', collection: 'pages', published_version: 2, newest: v(2, 'old') },
+      { id: 'added', collection: 'listings', published_version: 1, newest: v(1, 'added') },
+    ];
+    expect(restoreSteps({ changed: 2, 'draft-back': 1, same: 2, deleted: 4 }, rows, { changed: { heading: 'old' }, 'draft-back': { heading: 'old' } })).toEqual([
+      { row: 'changed', collection: 'pages', base: 3, data: { heading: 'old' } },
+      { row: 'draft-back', collection: 'pages', base: 3, data: null },
+    ]);
+    expect(() => restoreSteps({ changed: 2 }, rows, {})).toThrow('version 2 of pages changed could not be read');
   });
 });
