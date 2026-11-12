@@ -1,5 +1,5 @@
 // Sets the staging project's Auth email settings from the repository (owner 2026-10-31 and 2026-11-01): the link life
-// (mailer_otp_exp), the sender name and address, and the sign-in and invite email subjects and templates in supabase/auth-emails/.
+// (mailer_otp_exp), the address the links land on (site_url, and uri_allow_list as that address with /**), the sender name and address, and the sign-in and invite email subjects and templates in supabase/auth-emails/.
 // PATCH /v1/projects/{ref}/config/auth with ONLY these keys, then GET and compare each key with what was sent. Prints key names,
 // the short values and "matches" for the templates; never prints any other field (the endpoint also returns SMTP secrets).
 //   node tools/with-env.mjs "<env file>" -- node supabase/set-auth-settings.mjs [--ref-env STAGING_SUPABASE_REF] [--dry-run]
@@ -21,7 +21,7 @@ if (check.status !== 0) { console.error(`the email check fails; nothing sent:\n$
 console.log(check.stdout.trim());
 
 const cfg = JSON.parse(readFileSync(new URL('./auth-emails/emails.json', import.meta.url), 'utf8'));
-const body = { mailer_otp_exp: cfg.link_life_seconds, smtp_sender_name: cfg.sender.name, smtp_admin_email: cfg.sender.address };
+const body = { mailer_otp_exp: cfg.link_life_seconds, smtp_sender_name: cfg.sender.name, smtp_admin_email: cfg.sender.address, site_url: cfg.site_url, uri_allow_list: `${cfg.site_url}/**` };
 for (const [name, e] of Object.entries(cfg.emails)) {
   body[`mailer_subjects_${name}`] = e.subject;
   body[`mailer_templates_${name}_content`] = readFileSync(new URL(`./auth-emails/${e.file}`, import.meta.url), 'utf8');

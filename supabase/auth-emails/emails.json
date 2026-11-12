@@ -1,5 +1,6 @@
 {
   "sender": { "name": "Omnikom Dashboard", "address": "login@notify.omnikom.io", "plan": "DP-email-07" },
+  "site_url": "https://omnikom-app-staging.pages.dev",
   "link_life_seconds": 600,
   "emails": {
     "magic_link": { "subject": "Your sign-in link for the Omnikom dashboard", "subject_plan": "DP-email-01", "file": "magic-link.html", "type": "magiclink" },

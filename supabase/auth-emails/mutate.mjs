@@ -28,6 +28,9 @@ const MUTANTS = [
   ['the title is not the heading', 'magic-link.html', '<title>Sign in to the Omnikom dashboard</title>', '<title>Sign in now</title>'],
   ['04-DASHBOARD gives invites another life', 'dashboard', 'an invite is a sign-in link; it lives 10 minutes;', 'an invite is a sign-in link; it lives 7 days;'],
   ['the plan row words changed', 'plan', '| "Sign in to the Omnikom dashboard" |', '| "Sign in to Omnikom" |'],
+  ['emails.json sends another site address than the settings expect', 'emails.json', '"site_url": "https://omnikom-app-staging.pages.dev"', '"site_url": "https://app-staging.omnikom.io"'],
+  ['the settings expect another site address', 'settings', "['Site URL', 'https://omnikom-app-staging.pages.dev'", "['Site URL', 'https://app-staging.omnikom.io'"],
+  ['the settings expect another redirect list', 'settings', "'https://omnikom-app-staging.pages.dev/**'", "'https://omnikom-app-staging.pages.dev/*'"],
 ];
 
 const run = (dir, plan, settings, dashboard) => spawnSync(process.execPath, [join(HERE, 'check.mjs'), '--dir', dir, '--plan', plan, '--settings', settings, '--dashboard', dashboard], { encoding: 'utf8', timeout: 60000 });

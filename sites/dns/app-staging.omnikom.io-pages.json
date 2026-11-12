@@ -1,3 +1,0 @@
-[
-  { "type": "CNAME", "name": "app-staging", "content": "omnikom-app-staging.pages.dev", "proxied": true }
-]

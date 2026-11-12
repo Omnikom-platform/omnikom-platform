@@ -2,7 +2,7 @@
 // attached when asked (the DNS record it needs is printed for the owner's click: DNS stays his, CLAUDE.md rule 6), and a folder
 // deployed with the pinned wrangler the way factory/runner/publish.mjs does. Client sites are NOT made here (the publish job).
 //   node tools/with-env.mjs "<env file>" -- node tools/pages-project.mjs --name omnikom-app-staging [--branch main]
-//        [--domain app-staging.omnikom.io] [--deploy <folder>]
+//        [--domain <host>] [--deploy <folder>]
 // Needs CLOUDFLARE_PAGES_TOKEN and CLOUDFLARE_ACCOUNT_ID (by name; never printed; the output is scrubbed of both).
 // Sources: https://developers.cloudflare.com/api/resources/pages/subresources/projects/ (GET/POST projects, POST .../domains).
 import { spawnSync } from 'node:child_process';

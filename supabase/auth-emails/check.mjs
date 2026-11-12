@@ -1,7 +1,7 @@
 // The Auth email templates say only what the plan says (DECISIONS 44, plan rows DP-email-01..12 in docs/blueprint/16-DESIGN-PARTS.md
 // section 1.2e). Fails on: a line of text outside a data-plan element; words not in that row; a data-plan id that names no row; a
 // DP-email row nothing carries; a subject that is not its row's words; a link that is not the row's /auth/confirm address; a link
-// life that differs from supabase/check-auth-settings.mjs (mailer_otp_exp) or from the "10 minutes" sentence; a sender that differs.
+// life that differs from supabase/check-auth-settings.mjs (mailer_otp_exp) or from the "10 minutes" sentence; a sender that differs; a site address (site_url, uri_allow_list) that differs.
 //   node supabase/auth-emails/check.mjs [--dir <folder with emails.json and the templates>] [--plan <16-DESIGN-PARTS.md>]
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -43,6 +43,8 @@ if (String(cfg.link_life_seconds) !== life) bad('emails.json', `link_life_second
 const minutes = `${cfg.link_life_seconds / 60} minutes`;
 if (expected('smtp_sender_name') !== cfg.sender.name) bad('emails.json', `sender name "${cfg.sender.name}" but check-auth-settings expects "${expected('smtp_sender_name')}"`);
 if (expected('smtp_admin_email') !== cfg.sender.address) bad('emails.json', `sender address "${cfg.sender.address}" but check-auth-settings expects "${expected('smtp_admin_email')}"`);
+if (expected('site_url') !== cfg.site_url) bad('emails.json', `site_url "${cfg.site_url}" but check-auth-settings expects "${expected('site_url')}"`);
+if (expected('uri_allow_list') !== `${cfg.site_url}/**`) bad('emails.json', `the set script sends uri_allow_list "${cfg.site_url}/**" but check-auth-settings expects "${expected('uri_allow_list')}"`);
 if (!inRow(cfg.sender.plan, `${cfg.sender.name}, ${cfg.sender.address}`)) bad('emails.json', `the sender is not the words of ${cfg.sender.plan}`);
 used.add(cfg.sender.plan);
 

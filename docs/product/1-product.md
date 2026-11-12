@@ -70,7 +70,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 ### B. The dashboard
 | Feature | State | Missing half, or where it lives |
 |---|---|---|
-| B1 Sign in by magic link (10 minutes, single use) | PARTLY | screens and mail template work; a real link from an inbox to the staging app is UNPROVEN (waits on a DNS record) |
+| B1 Sign in by magic link (10 minutes, single use) | PARTLY | screens and mail template work; staging Auth's site_url and uri_allow_list are the staging dashboard's Pages address, kept in supabase/auth-emails/emails.json and sent by supabase/set-auth-settings.mjs (S1-A); a real link from an inbox to the staging app is UNPROVEN until the head's run |
 | B2 Sign out | WORKS | D:pages/SignOutButton.tsx |
 | B3 Sign out everywhere; account name and email | WORKS | D:pages/Settings.tsx (your account card, `signOut({ scope: 'global' })`, lands on `/login?ended=true`; D:pages/Login.tsx reads the session again before going on to /w, the race the first staging run caught); staging 2026-11-09 from the settings branch: the flow (member-a2, fresh sign-in) passes, and member-a1 sees only Your account and Sign out everywhere |
 | B4 Pick or switch business | WORKS | `/w`, the rail switcher |

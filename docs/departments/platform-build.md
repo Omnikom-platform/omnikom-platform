@@ -294,8 +294,7 @@ Closed work (steps 1 to 4, 5.1 to 5.3, 6A, 6B, the Auth emails) is in the positi
   re-applied on master after 5-H, 5.2b, 5.4 land; the 14 job-read files first. The crm migration comment is handled under
   DECISIONS 47 (f) (rule above). Done when `node tools/omnikom-cli/omnikom.mjs copy build <sha> --dry-run` shows zero
   client-named platform files (until D46 lands the head of operations has the CLI head run it on our commit).
-- **Owner's clicks (morning batch, sent 2026-11-01 03:05):** the `app-staging.omnikom.io` DNS record
-  (`sites/dns/app-staging.omnikom.io-pages.json`, dry run clean); the backup key pair made on his machine (supabase/ops/README.md);
+- **Owner's clicks (morning batch, sent 2026-11-01 03:05):** the backup key pair made on his machine (supabase/ops/README.md);
   the `omnikom-platform-prod` repository; R2 (payment method), a second backup provider, the production Supabase project, the Example A
   preview Pages project.
 - **Open from built slices:** 5.2: DNS rebinding between resolve and fetch in crm-test is not stopped; `docs/blueprint/specs/openapi.json`
@@ -366,9 +365,7 @@ Closed work (steps 1 to 4, 5.1 to 5.3, 6A, 6B, the Auth emails) is in the positi
     `tools/audit/run.mjs`; `factory/test/run.mjs` lines 231, 316, 318, 322 `AUDIT.audit(dir)` get `{ target: 'preview' | 'production' }`
     (the live build is production). Until then a missing target is one SKIP. When landed, tell the head of operations.
   - **Waiting on the owner (exact commands):**
-    1. DNS: `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node tools/dns-upsert.mjs --zone omnikom.io --records
-       sites/dns/app-staging.omnikom.io-pages.json --token-env CLOUDFLARE_DNS_TOKEN_LEGACY` (CNAME app-staging.omnikom.io ->
-       omnikom-app-staging.pages.dev, proxied; dry run clean 02:58). Sign-in emails land on that address (`site_url`).
+    1. (Dropped 2026-11-12, S1-A: omnikom.io is never touched; staging's sign-in links land on https://omnikom-app-staging.pages.dev.)
     2. Backup key pair, on his machine, outside the repository, with his own passphrase: `openssl req -x509 -newkey rsa:4096 -sha256
        -days 3650 -subj "/CN=omnikom-backup" -keyout backup-private.pem -out backup-recipient.pem`; he keeps the private key and passphrase
        offline and hands over only `backup-recipient.pem` (commit it as `supabase/ops/backup-recipient.pem`).
