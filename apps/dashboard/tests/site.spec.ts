@@ -63,7 +63,7 @@ test.describe('the owner\'s Site screen', () => {
     await page.getByLabel('Heading').fill(mine);
     await expect(page.getByText(`${mine.length} of 90`)).toBeVisible();
     await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.getByRole('status')).toContainText('Saved');
+    await expect(page.getByRole('status').last()).toContainText('Saved');
 
     const after = await contact();
     expect(after.n, 'a save is one new version').toBe(before.n + 1);
@@ -77,10 +77,10 @@ test.describe('the owner\'s Site screen', () => {
     await page.getByRole('button', { name: 'Compare' }).nth(1).click();
     await expect(page.locator('dl')).toContainText(original);
     await page.getByRole('button', { name: 'Restore' }).first().click();
-    await expect(page.getByRole('status')).toContainText('Restored the version from');
+    await expect(page.getByRole('status').last()).toContainText('Restored the version from');
     // Undo at once: the toast lasts 4 s (src/toast.tsx); the restore's version and the Undo's are read after it
-    await page.getByRole('status').getByRole('button', { name: 'Undo', exact: true }).click();
-    await expect(page.getByRole('status')).toContainText('Saved');
+    await page.getByRole('status').last().getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(page.getByRole('status').last()).toContainText('Saved');
     await expect(page.getByLabel('Heading')).toHaveValue(mine);
     const [restored] = await serviceGet<{ data: Record<string, unknown> }[]>(`/content_versions?row_id=eq.${after.id}&n=eq.${after.n + 1}&select=data`);
     expect(heading(restored?.data ?? {}), 'the restore put the old heading back as a new version').toBe(original);
@@ -115,7 +115,7 @@ test.describe('the owner\'s Site screen', () => {
       await page.getByRole('button', { name: 'See their changes' }).click();
       await expect(page.locator('dl')).toContainText(`5.4 flows ${RUN} elsewhere`);
       await page.getByRole('button', { name: 'Save', exact: true }).click();
-      await expect(page.getByRole('status')).toContainText('Saved');
+      await expect(page.getByRole('status').last()).toContainText('Saved');
       const last = await contact();
       expect(last.n, 'both versions are kept').toBe(theirs.n + 1);
       expect(heading(last.data)).toBe(`5.4 flows ${RUN} mine`);
@@ -165,7 +165,7 @@ test.describe('the owner\'s Site screen', () => {
     await openContact(page);
     await page.getByLabel('Heading').fill(mine);
     await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.getByRole('status')).toContainText('Saved');
+    await expect(page.getByRole('status').last()).toContainText('Saved');
     // the contact page and the one row the reset keeps (Agent Two, member-a2's team row) are waiting
     await page.getByRole('button', { name: /^Publish \d+ changes?$/ }).click({ timeout: 30_000 });
     const sheet = page.getByRole('dialog');
@@ -262,7 +262,7 @@ test.describe('B11 put the site back as the owner', () => {
   test.use({ storageState: '.auth/owner-a.json', viewport: { width: 390, height: 844 } });
   test('an earlier publish comes back as new versions and goes live; the newer version is kept', async ({ page }) => {
     test.setTimeout(3_600_000); await installSiteMutant(page, 'restore-lost');   // two publishes, each within the workflow's 30 minutes
-    const [earlier] = await serviceGet<{ finished_at: string; snapshot: Record<string, number> }[]>(`/publish_jobs?site_id=eq.${WS.a.site}&state=eq.done&order=finished_at.desc&limit=1&select=finished_at,snapshot`);
+    const [earlier] = await serviceGet<{ finished_at: string; snapshot: Record<string, number> }[]>(`/publish_jobs?site_id=eq.${WS.a.site}&state=eq.done&preview=eq.false&order=finished_at.desc&limit=1&select=finished_at,snapshot`);
     if (!earlier) throw new Error('BLOCKED: the test site has no finished publish (run the publish sheet flow once)');
     const c = await contact();
     const [then] = await serviceGet<{ data: Record<string, unknown> }[]>(`/content_versions?row_id=eq.${c.id}&n=eq.${earlier.snapshot[c.id]}&select=data`);
@@ -309,5 +309,41 @@ test.describe('B15 the instant frame as the owner', () => {
       await page.goto('about:blank');   // the editor's autosave (10 s idle) cannot fire after this
       const now = await contact(); if (heading(now.data) !== heading(before.data)) await saveAsOwner(now, heading(before.data));
     }
+  });
+});
+
+// ---------- book row B15-b2 (slice S10): a refusal names what it left out; a saved heading reaches the draft address by its signed link, noindex, a bare address is 404 ----------
+test.describe('B15 the preview site as the owner', () => {
+  test.use({ storageState: '.auth/owner-a.json', viewport: { width: 390, height: 844 } });
+  test('a refusal names the change left out; a saved heading shows through the signed link, noindex, and nothing without it; nothing goes live', async ({ page }) => {
+    test.setTimeout(1_800_000); await installSiteMutant(page, 'preview-lost');   // one build, within the workflow's 30 minutes
+    const c = await contact(), old = heading(c.data), draft = `b15 ${RUN} draft`, get = (u: string, cookie = '') => fetch(u, { headers: { 'cache-control': 'no-cache', ...(cookie ? { cookie } : {}) }, signal: AbortSignal.timeout(30_000) });
+    const box = page.locator('[data-plan="DP-1.4c-09"]'), PUBLISH = /\/functions\/v1\/publish$/, press = () => page.getByRole('button', { name: 'Preview site', exact: true }).click();
+    const refuse: Parameters<Page['route']>[1] = route => route.fulfill({ status: 422, contentType: 'application/json', body: JSON.stringify({ code: 'NOTHING-TO-PREVIEW',
+      message: 'Nothing can be previewed yet: no saved change is ready.', problems: [{ code: 'I-NOT-READY', path: 'sections.contact.heading', msg: 'Not filled in yet.', row: c.id }] }) });
+    await saveAsOwner(c, draft);
+    try {
+      await page.goto(`/w/${WS.a.slug}/site`);
+      await page.route(PUBLISH, refuse); await press();   // b1's 422 answered here: the screen's side (b1's Deno test proves the function's)
+      await expect(box.getByRole('alert'), 'the plain refusal').toHaveText('Nothing can be previewed yet: no saved change is ready.');
+      await expect(box.getByRole('listitem'), 'the change left out is named').toHaveText(['Contact Demo A: Heading is not filled in yet.']);
+      await page.unroute(PUBLISH, refuse); await press();
+      const line = box.getByRole('status');
+      await expect(line, 'the preview build started').toContainText('Building the preview', { timeout: 30_000 });
+      await ok(page, { required: ['DP-1.4c-09'] });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'no sideways scroll at 390 px').toBe(true);
+      await expect(line, 'the preview build ends ready').toContainText(/Preview from \d\d:\d\d\./, { timeout: 1_500_000 });
+      const href = (await line.getByRole('link', { name: 'Open the preview' }).getAttribute('href')) ?? '';
+      expect(href, 'the signed link').toMatch(/^https:\/\/draft\.test-site-demo-a\.pages\.dev\/\?k=[0-9a-f]{64}$/);
+      const first = await fetch(href.replace('/?k=', '/contact/?k='), { redirect: 'manual', signal: AbortSignal.timeout(30_000) }), to = new URL(first.headers.get('location') ?? '', href);
+      expect([first.status, to.pathname, to.searchParams.has('k')], 'the signed link: 302 to the same address, no token left (b3, R1)').toEqual([302, '/contact/', false]);
+      const at = await get(to.href, (first.headers.get('set-cookie') ?? '').split(';')[0]);
+      expect([at.status, at.headers.get('x-robots-tag') ?? ''], 'with its cookie: 200, noindex').toEqual([200, expect.stringMatching(/noindex/i)]);
+      expect(await at.text(), 'the draft address shows the saved heading').toContain(draft);
+      expect((await get('https://draft.test-site-demo-a.pages.dev/contact/')).status, 'without its link or cookie: a plain 404').toBe(404);
+      await page.goto(href); await expect(page, 'the browser lands without the token').toHaveURL('https://draft.test-site-demo-a.pages.dev/'); await page.goto(to.href); await expect(page.locator('body'), 'its cookie opens the next page').toContainText(draft);
+      expect(await (await get('https://preview.test-site-demo-a.pages.dev/contact/')).text(), 'the site address does not show it').not.toContain(draft);
+      expect((await contact()).published, 'nothing was published').toBe(c.published);
+    } finally { const now = await contact(); if (heading(now.data) !== old) await saveAsOwner(now, old); }   // the saved heading is left as found
   });
 });

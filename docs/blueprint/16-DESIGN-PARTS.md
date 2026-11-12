@@ -216,9 +216,10 @@ and you get an email."), the spam state, the "Add a lead" form (1.3b), the expor
 | DP-1.4c-03 | 5.4 | The progress list, one line per step as it finishes: Building the site, Checking (one line per check in plain words), Putting it live, "Live since 14:02. Open" | live from `publish_jobs` and its events |
 | DP-1.4c-04 | 5.4 | A failed check: the list stops at that line with Fix (opens the field) and one sentence: nothing went live | from the gate report |
 | DP-1.4c-05 | 5.4 | The Publish button while a job runs: "Publishing" with the step; a toast at the end even on another screen | |
-| DP-1.4c-06 | later | "see" link per change (its preview), Open the preview site, Compare | 16-DESIGN-PARTS 2.3 and 2.4, not in step 5 |
+| DP-1.4c-06 | later | "see" link per change (its preview), Compare | 16-DESIGN-PARTS 2.3 and 2.4, not in step 5 |
 | DP-1.4c-07 | 5.4 | "Past publishes" on the Site screen (owners and staff), a sheet with Close (Esc too): the site's finished publishes, newest first, each with its time, "Live" or "Nothing went live", and its checks ("41 checks passed, 0 failed"); a failed one lists its check lines | from `publish_jobs` (the newest 10 of the workspace, as the Site screen reads them) |
 | DP-1.4c-08 | 5.4 | "Put the site back to this publish" on each earlier live publish, then "Put the site back to the publish of <when>?", the line "Each page and item of that publish comes back as a new version and goes live. Nothing is deleted: the versions since stay in History. Items added since stay on the site; deleted items stay deleted." with "Put it back" and "Cancel" | `save` of that publish's content as new versions, then `publish` with them and the progress of DP-1.4c-03; nothing differs: "The site already shows this publish."; a refusal: its words and "Nothing went live." |
+| DP-1.4c-09 | 5.4 | "Preview site" on the Site screen (owners and staff) and one line under it: "Building the preview: every saved change that is ready, nothing goes live."; "Preview from 14:02." with "Open the preview" (the signed link to the draft address, 7 days, noindex) or "Its link has run out: press Preview site again."; "The preview did not build:" and the first check line; then "Not in the preview:" and one line per saved change left out, "<its title, else A saved change>: <field> is not filled in yet." | `publish` with `preview: true` (422: its sentence and the same lines); the site's newest preview job, its `left_out` and `gate_report.link` |
 Design parts: the list column with its groups and counts, the changed mark, the editor's section cards (closed and open), every
 field widget (text, long text, photo slot with the three states, list rows, enum segmented, date, money, reference picker,
 address with map pin), the counter, the locked style, the fills-itself note, the search-result preview card, the save bar
@@ -240,7 +241,7 @@ articles yet. Add your first one."), the agent view (fewer groups, Add only wher
 | DP-1.5-02 | 5.4 | Phone / laptop toggle | click | the frame width |
 | DP-1.5-03 | later | "Live now" / "With your changes" toggle | click | published rows or the draft |
 | DP-1.5-04 | 5.4 | A changed section in the Preview frame | | outlined, dashed; clicking it to scroll the editor: later (the frame runs no script) |
-| DP-1.5-05 | later | Open the preview site; Compare | click | 2.3 and 2.4, not in step 5 |
+| DP-1.5-05 | later | Compare | click | 2.4, not in step 5 |
 
 ### 1.6 Screen 4: Settings
 One page of cards in this order: Your account, Lead alerts, People, Websites, Sign out everywhere. The owner sees every card; a member
@@ -337,8 +338,8 @@ environment and fails on any `fs`, `fetch` or `process` use).
   saved changes that pass the publish-ready wall, at their newest version; the others are named with the field they lack;
   `published_version` never moves and `site_audit` skips it. A preview job that fails shows the same check lines.
 - Time: a full build (ELEV8: minutes, measured in W1.5). The sheet shows the steps; the person keeps working.
-- The preview address is one per site and shows the latest preview job's output; the sheet shows "Preview from 14:02 (3
-  changes)". A link with a 7-day token can be sent to the team.
+- The preview address is one per site and shows the latest preview job's output, opened only by that job's signed link; the Site screen shows
+  "Preview from 14:02." with "Open the preview" and names each saved change left out (DP-1.4c-09).
 
 ### 2.4 Compare: before and after pictures
 After a preview job, the runner takes screenshots of each changed page at 390 and 1366 (the `wf-shots` pattern, BUILT in the
@@ -410,5 +411,5 @@ looked at it (DECISIONS 21: the owner brings the references; the screens above a
 
 ## Status
 Design: nothing drawn yet after the owner's steer; the four-screen structure (`15-CRM.md`) and this inventory are what to
-design against. Preview: 2.1 exists, 2.2 built (book row B15), 2.3 and 2.4 NOT BUILT. Walls: 3.1 items 1 to 10 BUILT and mutated; `S-STALE` (3.2)
+design against. Preview: 2.1 exists, 2.2 and 2.3 built (book row B15), 2.4 NOT BUILT. Walls: 3.1 items 1 to 10 BUILT and mutated; `S-STALE` (3.2)
 PROPOSED. No application code; nothing on a real Supabase project (D1-D5).

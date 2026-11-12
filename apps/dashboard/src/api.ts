@@ -165,6 +165,13 @@ export async function publishRows(site: string, rows: string[], versions: number
   return out;
 }
 
+/** publish with { site, preview: true } (book row B15): a preview build of the saved changes that are ready; nothing goes live. 202; none ready: 422. */
+export async function startPreview(site: string): Promise<Published> {
+  const out = (await call('publish', { site, preview: true })) as Published | null;
+  if (!out || typeof out.job !== 'string') throw new CallFailed(problemFrom(500, null));
+  return out;
+}
+
 /** upload-start then the file itself to the signed address, then upload-finish with the rights tick. Returns the media id. */
 export async function uploadStart(workspace: string, file: { name: string; size: number; type: string }): Promise<{ media: string; uploadUrl: string }> {
   const out = (await call('upload-start', { workspace, filename: file.name, bytes: file.size, mime: file.type })) as { media?: string; uploadUrl?: string } | null;

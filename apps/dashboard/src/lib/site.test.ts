@@ -1,7 +1,7 @@
 // The pure parts of the Site screen. The contract here is a small one written for the tests; the app itself reads the workspace's own.
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  canAdd, canDelete, changesBetween, checksLine, clock, dropDraft, editorCards, failureLines, feedLine, getAt, humanize, keepDraft, listCollections, loadDraft, overLimits, pathKey,
+  canAdd, canDelete, changesBetween, checksLine, draftLink, clock, dropDraft, editorCards, failureLines, feedLine, getAt, humanize, keepDraft, leftOutLine, listCollections, loadDraft, overLimits, pathKey,
   progressLines, restoreSteps, rowTitle, sameData, setAt, siteUrl, slugify, staleLine, stateLine, stepWords, visibleTo, type Contract, type JobEvent,
 } from './site';
 
@@ -226,5 +226,20 @@ describe('past publishes and putting the site back (B11)', () => {
       { row: 'draft-back', collection: 'pages', base: 3, data: null },
     ]);
     expect(() => restoreSteps({ changed: 2 }, rows, {})).toThrow('version 2 of pages changed could not be read');
+  });
+});
+
+describe('the preview site (B15)', () => {
+  it('the signed link is the draft branch with the job\'s token; none without a project, a good token, or after its end', () => {
+    const k = 'ab'.repeat(32), until = '2026-11-20T00:00:00.000Z', job = { gate_report: { link: { k, until } } }, now = new Date('2026-11-13T00:00:00Z');
+    expect(draftLink({ deploy_target: 'test-site-demo-a' }, job, now)).toBe(`https://draft.test-site-demo-a.pages.dev/?k=${k}`);
+    expect([draftLink({}, job, now), draftLink({ deploy_target: 'x' }, job, new Date('2026-11-21T00:00:00Z')), draftLink({ deploy_target: 'x' }, { gate_report: { link: { k: 'xyz', until } } }, now),
+      draftLink({ deploy_target: 'x' }, { gate_report: null }, now)]).toEqual(['', '', '', '']);
+  });
+  it('a change left out is named in plain words: its title, else its collection, and the field it still needs', () => {
+    expect(leftOutLine(contract, { collection: 'listings', newest: { data: { street: '1 Elm' } } }, 'photos')).toBe('1 Elm: Photos is not filled in yet.');
+    expect(leftOutLine(contract, { collection: 'pages', newest: { data: { title: 'Home' } } }, 'sections.hero.heading')).toBe('Home: Heading is not filled in yet.');
+    expect(leftOutLine(contract, { collection: 'team', newest: { data: {} } }, 'name')).toBe('Team: Name is not filled in yet.');
+    expect(leftOutLine(contract, undefined, 'seo.title')).toBe('A saved change: Title is not filled in yet.');
   });
 });
