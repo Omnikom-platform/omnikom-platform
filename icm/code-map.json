@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 859,
+    "sources": 860,
     "unowned": 0
   },
   "files": [
@@ -442,6 +442,7 @@
     {"path":"supabase/ops/key-ages.mjs","owner":"platform-build","exports":["assess","main","table"],"tests":["supabase/ops/test/key-ages.test.mjs"],"feature":""},
     {"path":"supabase/ops/promote-check.mjs","owner":"platform-build","exports":["DbError","contentDiffers","evaluate","functionNames","judgeSmoke","main","psqlReadOnly","readLedger","readRepoMigrations","smoke"],"tests":["supabase/ops/test/key-ages.test.mjs","supabase/ops/test/promote-check.test.mjs"],"feature":""},
     {"path":"supabase/ops/prove-link-life.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"supabase/ops/prove-retention.mjs","owner":"platform-build","exports":["main"],"tests":[],"feature":""},
     {"path":"supabase/ops/restore-drill.mjs","owner":"platform-build","exports":["NOT_VALID_SQL","OUR_SCHEMAS","compareCounts","drill","fmt","parseCounts","parseRestoreErrors","pgEnv","rolesIn","shapeExport"],"tests":["supabase/ops/test/6b-drill.test.mjs","supabase/ops/test/6b-mutate.mjs","supabase/tests/cluster-port.test.mjs","supabase/tests/run-local.mjs","tools/proc-guard/test/run.mjs"],"feature":""},
     {"path":"supabase/ops/test/6b-alerts-fixture.mjs","owner":"platform-build","exports":["PLANT_SQL","SCHEMA_FILES","applySchema","plant"],"tests":[],"feature":""},
     {"path":"supabase/ops/test/6b-cluster.mjs","owner":"platform-build","exports":["ROLES_SQL","startCluster"],"tests":[],"feature":""},
