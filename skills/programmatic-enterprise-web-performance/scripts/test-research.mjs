@@ -246,6 +246,7 @@ try {
   check("bing: the API key never lands in the cache", !bc.includes("BING-KEY-SECRET") && bc.includes("apikey=REDACTED"));
   const b3 = await T("research-bing.mjs", ["--seed", "x"]);
   check("bing: no key => BLOCKED exit 3", b3.status === 3 && /BLOCKED: .*BING_WEBMASTER_KEY/.test(b3.stdout), b3.stdout + b3.stderr);
+  fs.rmSync(path.join(loc.pewp, "research", "bing.json"), { force: true }); await T("research-bing.mjs", ["--seed", "x"]);   // SKILL-ADOPT-1: b3 no longer replaces b2's data
   bg.close();
 
   // ---- G4: the parser against the LIVE response shapes (fixtures/bing-junk = answers of 2026-10-25), and the relevance filter against that day's junk ----
@@ -761,7 +762,7 @@ try {
   const dry3 = await node("research.mjs", ["https://win2.test/", "--cwd", tmp, "--from-serp", "--dry", "--kwp-file", csvW]);
   const crSt = fs.existsSync(crFile) ? fs.statSync(crFile) : null, crIn = ["seeds.json", "clusters.json"].map((f) => { try { return fs.statSync(path.join(win2, "research", f)).mtimeMs; } catch { return 0; } });
   let crDoc = null; try { crDoc = J(crFile); } catch { /* not written */ }
-  check("research: --dry fetches nothing but WRITES research/capture-requests.json from what is already on disk (the evidence of the research-plan step on a re-run): the file exists, is newer than seeds.json and clusters.json and than the start of the run, and lists what is still to capture", dry3.status === 0 && /DRY RUN/.test(dry3.stdout) && !!crSt && crSt.mtimeMs >= crT0 && crIn.every((m) => crSt.mtimeMs > m) && Array.isArray(crDoc?.items), JSON.stringify([dry3.status, dry3.stdout.slice(-120), !!crSt, crSt && crSt.mtimeMs - crT0, crIn.map((m) => crSt && crSt.mtimeMs - m), Array.isArray(crDoc?.items)]));
+  check("research: --dry fetches nothing but WRITES research/capture-requests.json from what is already on disk (the list the owner's browser captures from): the file exists, is newer than seeds.json and clusters.json and than the start of the run, and lists what is still to capture", dry3.status === 0 && /DRY RUN/.test(dry3.stdout) && !!crSt && crSt.mtimeMs >= crT0 && crIn.every((m) => crSt.mtimeMs > m) && Array.isArray(crDoc?.items), JSON.stringify([dry3.status, dry3.stdout.slice(-120), !!crSt, crSt && crSt.mtimeMs - crT0, crIn.map((m) => crSt && crSt.mtimeMs - m), Array.isArray(crDoc?.items)]));
   check("research: the plan lists the winner pages it will fetch (so the owner sees them first)", /winner pages to audit/.test(dry2.stdout) && /blog\/closing-costs/.test(dry2.stdout) && /DRY RUN/.test(dry2.stdout), dry2.stdout);
 
   // autocomplete: saved by the main session, parsed here, never fetched

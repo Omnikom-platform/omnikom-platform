@@ -826,6 +826,13 @@ const MUTANTS = [
   ['[session] max effort is taken', 'commands/helper.mjs', "'xhigh'];", "'xhigh', 'max'];", 'unit'],
   ['[session] the dry run starts the helper', 'commands/helper.mjs', "if (ctx.flags['dry-run']) return result(true, 'ok', { dryRun: true, name, exe, cwd, args, timeout });", '', 'unit'],
   ['[session] the helper is not told its brief file', 'commands/helper.mjs', '`; the job is written in ${brief}: read it first`', "''", 'unit'],
+  // ---- what a resume takes over (SKILL-ADOPT-1)
+  ['[adopt] seo run: maxAgeDays does not reach the engine', 'lib/seo-run.mjs', 'timeoutMinutes: s.timeoutMinutes, maxAgeDays: s.maxAgeDays,', 'timeoutMinutes: s.timeoutMinutes,', 'unit'],
+  ['[adopt] seo run: a step the log knows is kept over age or as a record', 'lib/seo-run.mjs', 'if (nc) { why.set(step.id, nc.message); return null; }', 'if (false) { why.set(step.id, nc.message); return null; }', 'unit'],
+  ['[adopt] seo run: why a step was not adopted is lost', 'lib/seo-run.mjs', 'if (a.notCurrent) why.set(step.id, a.reason);', '', 'unit'],
+  ['[adopt] seo run: the row does not say why', 'lib/seo-run.mjs', 'rowOf(s, f.entry, skillDir, f.how || why.get(s.id))', 'rowOf(s, f.entry, skillDir, f.how)', 'unit'],
+  ['[adopt] seo run: a BLOCKED row hides why', 'lib/seo-run.mjs', "if (how && state !== 'RUN') detail += ` [${how}]`;", "if (false) detail += ` [${how}]`;", 'unit'],
+  ['[adopt] seo run: an adopted approval goes back to WAITING', 'lib/seo-run.mjs', 'const kept = forced ? null : doneBefore(step);', 'const kept = null;', 'unit'],
 ];
 
 const list = pickMutants(shardMutants(MUTANTS, shard), only);   // sharded by the index in the whole list, then narrowed by --only

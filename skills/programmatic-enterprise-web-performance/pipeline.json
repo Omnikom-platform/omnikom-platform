@@ -10,7 +10,7 @@
    "4": "SKIPPED"
   },
   "lastLine": "A step that exits 3 prints `BLOCKED: <what> | unblocks: <what would>`; one that exits 4 prints `SKIPPED: <reason>`. The runner quotes that line and never invents a reason.",
-  "done": "exit 0 in the run log AND every evidence path exists, is not empty, and was written after the step started; an input newer than the evidence makes the step stale.",
+  "done": "exit 0 in the run log AND every evidence path exists, is not empty, and was written after the step started; an input newer than the evidence makes the step stale. A run adopts existing evidence only when no input is newer (for a person approval, an input with the approved copy's own bytes is not newer), its newest file is within maxAgeDays (null: no limit; 0: nothing from before this run) and no evidence pattern holds only BLOCKED records.",
   "hits": "Two steps that hit the same host never run at the same time. pace is informational: the script enforces it.",
   "scriptPaths": "Relative to the skill folder. `repo:` means relative to the Omnikom repository root."
  },
@@ -462,7 +462,8 @@
     "{pewp}/approved/seeds.json"
    ],
    "outputs": [
-    "{pewp}/research/capture-requests.json"
+    "{pewp}/research/capture-requests.json",
+    "{pewp}/research/research-plan.json"
    ],
    "dependsOn": [
     "approve-seeds"
@@ -476,7 +477,7 @@
    "pace": null,
    "timeoutMinutes": 5,
    "evidence": [
-    "{pewp}/research/capture-requests.json"
+    "{pewp}/research/research-plan.json"
    ],
    "kind": "derived",
    "maxAgeDays": null

@@ -37,7 +37,8 @@ fails if one tries) and call no paid API.
 
 ## The run, in order
 `node "<skill>/scripts/research.mjs" <url|repo> [options]` runs steps 1 to 9 and each step is also its own script (all take `<target> --cwd DIR`).
-`--dry` prints the plan (stages, 0 workers, external calls, $0, the competitor sites it would audit) and stops. A plan above 150 calls needs
+`--dry` prints the plan (stages, 0 workers, external calls, $0, the competitor sites it would audit), writes `research/capture-requests.json` only when what it asks for changed and
+`research/research-plan.json` every time (the research-plan step's evidence), and fetches nothing. A plan above 150 calls needs
 the owner's OK and `--yes`. Show the owner the plan before the first real run.
 
 | # | Step | Script | Source, and what it makes | When the source is missing |
@@ -67,7 +68,7 @@ already covers the domains.
 This is the project's 2026-10-17 precedent, kept as is. Use the claude-in-chrome extension; ask the owner to be present.
 0. **The list.** Capture exactly the `items` of `research/capture-requests.json` (query, engine, device, location), in order, no more than the file's cap, and
    nothing else: no query of your own. The main session adds a query only by adding a seed through the approved path (`research-seeds.mjs`, owner approves
-   with `approve.mjs <target> seeds`, the next run rewrites the list). **The tools** are two files of the skill, no key, no download:
+   with `approve.mjs <target> seeds`, the next run rewrites the list). **Where the list comes from:** the cluster heads when `research/clusters.json` was made after the seeds now approved were approved (its `generatedAt` against `approved/lock.json` `seeds.approvedAt`), else the approved seeds (results pages and autocomplete for every approved seed on both engines, the first 8 as AI questions); `universe` in the file and the dry run's line `capture list from:` say which, `clustersPassedOver` says why. **The tools** are two files of the skill, no key, no download:
    `node scripts/capture-server.mjs <target> --cwd . &` starts the receiver in the background (127.0.0.1 only, port 47321, stops after 3 hours, prints a line
    per saved file); `scripts/serp-capture.js` is pasted once into the results tab through the `javascript_tool`, and each page is then saved with
    `await window.__pewpCapture({ query, requested, engine, device })` (the top of that file explains every option). The receiver checks each capture with the

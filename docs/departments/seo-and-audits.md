@@ -591,7 +591,7 @@ options, never a fix made here.
      local-grid.mjs writes; plus a test that evidence paths match what each script writes.
   2. The 2 start-mutant survivors. "A desktop lift frees a script too" comes first: check it is not a real gap in lib-stops or
      stepStop.
-  3. `kind` and `maxAgeDays` per step (the list was sent to CLI), and the RESUME, RE-EVALUATE and FRESH modes in start.mjs.
+  3. The RESUME, RE-EVALUATE and FRESH modes in start.mjs (the engine reads `maxAgeDays`, approvals by their bytes and BLOCKED records since SKILL-ADOPT-1).
   4. Six skill test files red on Linux (CLI's run 42968940978): test-approve, test-browser-leftovers, test-freshness, test-launch,
      test-writing-gate and mutants-research.
   5. All mutant suites of tonight's commits (UNPROVEN), on the skill-CI job once it lands.

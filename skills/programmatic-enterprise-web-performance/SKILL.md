@@ -39,7 +39,7 @@ The step list is **`pipeline.json`** (skill root): ONE list, read by `node "<ski
 Both use `scripts/lib-pipeline.mjs` (load, validity rules, run order, placeholders, evidence, step outcome); `start.mjs` keeps no list of its own, and
 `scripts/test-pipeline.mjs` fails if the two ever differ (ids, order, dependsOn) or if the manifest breaks a rule. To add or change a step edit `pipeline.json`
 and run that test; never add a step in `start.mjs`.
-**A run resumes, never starts from scratch** (the owner's rule): a step whose evidence exists (not empty) and whose inputs are all older is ADOPTED: recorded done, exit 0, "adopted", with
+**A run resumes, never starts from scratch** (the owner's rule): a step whose evidence exists (not empty), is not only BLOCKED records, is within its `maxAgeDays` (null: no limit; 0: nothing from before this run) and whose inputs are all older (for a person approval an input with the approved copy's own bytes is not newer) is ADOPTED: recorded done, exit 0, "adopted", with
 `evidenceDate` = the evidence's own mtime (not now), not run again; a newer input re-runs that step and, through its outputs, its dependents. `--adopt <id>[,<id>]` is the explicit form (a step that cannot
 be adopted refuses with exit 3 and the input or file named, nothing starts); `--fresh` discards (alone: every step again; `--fresh <id>[,<id>]`: those steps and their dependents). `adoptStep`
 and `adoptDefault` in `lib-pipeline.mjs` are the same rule for `omnikom seo run`.

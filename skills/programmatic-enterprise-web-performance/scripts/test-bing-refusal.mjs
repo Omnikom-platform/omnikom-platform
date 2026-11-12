@@ -41,7 +41,7 @@ async function scenarios(dir) {
     }
     return { status: 404, body: {} };
   });
-  const env = { BING_API_BASE: `${srv.url}/webmaster/api.svc/json`, BING_WEBMASTER_KEY: KEY, PEWP_TEST_GAP_MS: "0" };
+  const env = { BING_API_BASE: `${srv.url}/webmaster/api.svc/json`, BING_WEBMASTER_KEY: KEY, PEWP_TEST_GAP_MS: "0", PEWP_RULES_DIR: path.join(here, "..", "rules") };
   const fresh = (n) => {
     const cwd = path.join(tmp, n), pewp = path.join(cwd, "site-checks", "bing-refusal-test.test", ".pewp");
     W(path.join(pewp, "business.json"), { name: "Refusal Test Realty", domain: "bing-refusal-test.test", market: { country: "US", language: "en" }, vocabulary: ["homes"], offer: "homes" });
@@ -79,6 +79,14 @@ async function scenarios(dir) {
     const r6 = await go(w6, ["--site-stats"]);
     check("refusal: a refused KEY on a keyword call still blocks the whole step (exit 3, BLOCKED: Bing refused the key)", r6.code === 3 && /^BLOCKED: Bing refused the key/m.test(r6.so), `exit ${r6.code} ${r6.out}`);
     mode.keywords = "ok";
+    // SKILL-ADOPT-1 R4: a refusal never replaces the data of an earlier run; with no data yet it leaves its BLOCKED record
+    const wk = fresh("keep"), bf = path.join(wk.pewp, "research", "bing.json"), bytes = () => (fs.existsSync(bf) ? fs.readFileSync(bf, "utf8") : null);
+    await go(wk); const okBytes = bytes();
+    mode.keywords = "401"; const rk = await go(wk, ["--seed", "a seed not in the cache"]); mode.keywords = "ok";
+    check("refusal: a refused key never replaces the data of an earlier run: bing.json keeps its bytes (exit 3, BLOCKED: Bing refused the key)", okBytes !== null && rk.code === 3 && /^BLOCKED: Bing refused the key/m.test(rk.so) && bytes() === okBytes, `exit ${rk.code} ${rk.out}`);
+    const rn0 = await go(wk, [], { ...env, BING_WEBMASTER_KEY: "" });
+    check("refusal: no key never replaces the data of an earlier run either: bing.json keeps its bytes (exit 3, BLOCKED: ... BING_WEBMASTER_KEY)", okBytes !== null && rn0.code === 3 && /^BLOCKED: .*BING_WEBMASTER_KEY/m.test(rn0.so) && bytes() === okBytes, `exit ${rn0.code} ${rn0.out}`);
+    check("refusal: with no data yet a refused key leaves its BLOCKED record with the unblock text (control)", w6.bing().status === "blocked" && /Bing refused the key/.test(String(w6.bing().blocked)), JSON.stringify(w6.bing()).slice(0, 300));
     const net = fs.existsSync(netLog) ? fs.readFileSync(netLog, "utf8").trim() : "";
     check("refusal: nothing in this suite left the machine (network guard log empty) and the key is in no output file", !net && !fs.readdirSync(tmp, { recursive: true }).some((f) => { const p = path.join(tmp, String(f)); return fs.statSync(p).isFile() && /bing\.json$/.test(p) && fs.readFileSync(p, "utf8").includes(KEY); }), net);
   } finally { srv.close(); rmTmp(tmp); }
@@ -95,6 +103,10 @@ const MUTANTS = [
   { name: "the last line does not mention the blocked site stats", patches: [{ file: RB, from: "${r.siteStats.blocked ? ` (site stats BLOCKED: ${r.siteStats.blocked})` : \"\"}", to: "" }], expect: [/^refusal: \(HTTP 400\) the output says it/] },
   { name: "a refused key on a keyword call is tolerated", patches: [{ file: RB, from: "const r = await call(\"GetKeyword\", params);", to: "const r = await call(\"GetKeyword\", params, { tolerateRefusal: true });" }], expect: [/^refusal: a refused KEY/] },
   { name: "the own-site call is made without --site-stats", patches: [{ file: RB, from: "if (siteStats) {", to: "if (true) {" }], expect: [/^refusal: without --site-stats/] },
+  { name: "[adopt] a refusal replaces earlier data", patches: [{ file: RB, from: "if (readStep(ctx, \"bing\")?.status !== \"ok\") writeBlocked(ctx, \"bing\", unblock);", to: "writeBlocked(ctx, \"bing\", unblock);" }], expect: [/^refusal: a refused key never replaces/, /^refusal: no key never replaces/] },
+  { name: "[adopt] a refusal leaves no record", patches: [{ file: RB, from: "if (readStep(ctx, \"bing\")?.status !== \"ok\") writeBlocked(ctx, \"bing\", unblock);", to: "if (false) writeBlocked(ctx, \"bing\", unblock);" }], expect: [/^refusal: with no data yet/] },
+  { name: "[adopt] a refused key overwrites as before", patches: [{ file: RB, from: "} catch (e) { if (e instanceof Blocked) blockedRecord(ctx, e.unblock); throw e; }", to: "} catch (e) { if (e instanceof Blocked) writeBlocked(ctx, \"bing\", e.unblock); throw e; }" }], expect: [/^refusal: a refused key never replaces/] },
+  { name: "[adopt] no key overwrites as before", patches: [{ file: RB, from: "if (!key) { blockedRecord(ctx, UNBLOCK); throw new Blocked(UNBLOCK); }", to: "if (!key) { writeBlocked(ctx, \"bing\", UNBLOCK); throw new Blocked(UNBLOCK); }" }], expect: [/^refusal: no key never replaces/] },
 ];
 
 if (isMain(import.meta.url)) {

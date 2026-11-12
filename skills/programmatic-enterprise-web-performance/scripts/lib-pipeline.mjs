@@ -14,6 +14,7 @@
 //   evidenceState(step, vars, { since, allFresh, io }) -> { state: "done"|"stale"|"missing", problems, files: [{ path, mtimeMs, glob, out }] }
 //   inputNewer(step, vars, files, { io })              -> null | { input, inputMtime, evidenceMtime }   an input newer than the evidence (the step is stale)
 //   adoptStep(step, { vars, now, io })                 -> { ok, ... }                          a run takes over a step's valid existing outputs
+//   notCurrent(step, files, { now, io })               -> null | { rule: "over-age" | "blocked-record", message }   evidence there but no result
 //   stepOutcome(step, { code, lastLine, output, evidence }) -> { outcome, message, line }      outcome: done | partial | blocked | skipped | needs-input | fail; outcomeState(o) -> RUN | PARTIAL | BLOCKED | SKIPPED | WAITING | FAILED
 //   stepKind(step) -> "script" | "person" | "browser" | "agent"; isWaiting(step)
 //   stepStop(step, { now, dir, mode, isStopped })      -> null | { engine, until, reason, message }   a stop (lib-stops.mjs) in force for one of the step's `engines`
@@ -324,27 +325,42 @@ export function evidenceState(step, vars, { since = 0, allFresh = false, io } = 
   return { state: missing ? "missing" : stale ? "stale" : "done", problems, files };
 }
 
-// An input newer than the evidence: the newest input file against the oldest of the patterns' newest files (only the evidence the step writes counts), by more than the slack.
+// An input newer than the evidence: the newest input file against the oldest of the patterns' newest files (only the evidence the step writes counts), by more than the slack. For a person approval an input with the bytes of one of the step's evidence files is not newer (SKILL-ADOPT-1).
 // `files` is evidenceState's. -> null | { input, inputMtime, evidenceMtime } (ISO times)
 export function inputNewer(step, vars, files, { io } = {}) {
   const fs = ioOf(io), newestOf = new Map();
   for (const f of files) if (f.out) newestOf.set(f.glob, Math.max(newestOf.get(f.glob) || 0, f.mtimeMs));
   if (newestOf.size === 0) return null;
   const evidenceAt = Math.min(...newestOf.values());
+  const approved = step.needsPerson === true ? files.filter((f) => f.out) : [];   // a person approval: an input with the approved copy's own bytes is not newer
   let newest = null;
-  for (const i of step.inputs || []) for (const f of liveFiles(substitute(i, vars), fs)) if (!newest || f.mtimeMs > newest.mtimeMs) newest = f;
+  for (const i of step.inputs || []) for (const f of liveFiles(substitute(i, vars), fs)) if ((!newest || f.mtimeMs > newest.mtimeMs) && !approved.some((e) => sameBytes(e.path, f.path, fs))) newest = f;
   if (!newest || newest.mtimeMs - evidenceAt <= SLACK_MS) return null;
   return { input: newest.path, inputMtime: new Date(newest.mtimeMs).toISOString(), evidenceMtime: new Date(evidenceAt).toISOString() };
 }
+
+// Evidence that is there but is no result (SKILL-ADOPT-1): its newest file is older than the step's maxAgeDays (null: no limit; 0: nothing written before now counts, so verify
+// checks its own run), or every file of one evidence pattern is a BLOCKED record ({ status: "blocked", blocked: "<unblock>" | { unblock } }). `files` is evidenceState's. Pure.
+export function notCurrent(step, files, { now = Date.now(), io } = {}) {
+  const fs = ioOf(io), newest = Math.max(...files.map((f) => f.mtimeMs));
+  if (typeof step.maxAgeDays === "number" && now - newest > step.maxAgeDays * 86400000) return { rule: "over-age", message: `over age: ${(Math.floor((now - newest) / 8640000) / 10).toFixed(1)} days, limit ${step.maxAgeDays}` };
+  for (const glob of new Set(files.map((f) => f.glob))) {
+    const mine = files.filter((f) => f.glob === glob);
+    if (mine.every((f) => blockedText(f.path, fs) !== null)) return { rule: "blocked-record", message: `${glob} holds only BLOCKED records: ${blockedText(mine[0].path, fs)}` };
+  }
+  return null;
+}
+const blockedText = (p, fs) => { try { const j = JSON.parse(String(fs.readFileSync(p, "utf8")).replace(/^\uFEFF/, "")); return j?.status === "blocked" ? (typeof j.blocked === "string" ? j.blocked : j.blocked?.unblock ?? "no unblock text") : null; } catch { return null; } };
+const sameBytes = (a, b, fs) => { try { return fs.readFileSync(a).equals(fs.readFileSync(b)); } catch { return false; } };
 
 // ---------------------------------------------------------------- ADOPT (work order 41): a run takes over a step's valid existing outputs instead of running it again
 // The owner's rule: once an audit has started, a run resumes from where it is, never from scratch. A step is adopted when its evidence exists and is not empty, every output holds a non-empty file AND
 // no input is newer than the evidence (more than the slack: an input exactly as old counts as not newer). With several evidence files the inputs are compared with the OLDEST of their newest
 // files; the step's date is the NEWEST evidence mtime: the evidence's own date, never now. A path that is both an input and the evidence is not compared with itself; an input that holds no file
-// cannot be newer and is listed under missingInputs. Waiting steps (script null: an owner capture, an approval) are adopted the same way.
+// cannot be newer and is listed under missingInputs. Waiting steps (script null: an owner capture, an approval) are adopted the same way. notCurrent refuses evidence over the step's maxAgeDays or holding only BLOCKED records.
 // Pure: values, never an exception, no output. io (existsSync, statSync, readdirSync) and stat (statSync alone) are injectable for tests.
 // -> { ok: true, id, outcome: "adopted", exit: 0, at: <evidence mtime, ISO>, adoptedAt: <now, ISO>, evidence: [{ path, mtime }], inputsChecked, missingInputs }
-//  | { ok: false, id, rule: "placeholder" | "no-evidence" | "evidence" | "output-missing" | "input-newer", reason, input?, inputMtime?, evidenceMtime? }
+//  | { ok: false, id, rule: "placeholder" | "no-evidence" | "evidence" | "output-missing" | "input-newer" | "over-age" | "blocked-record", reason, input?, inputMtime?, evidenceMtime?, notCurrent? }
 export function adoptStep(step, { vars = {}, now = Date.now(), stat = null, io } = {}) {
   const base = ioOf(io), fs = stat ? { ...base, statSync: stat } : base, id = step?.id ?? null;
   const refuse = (rule, reason, extra = {}) => ({ ok: false, id, rule, reason, ...extra });
@@ -357,6 +373,8 @@ export function adoptStep(step, { vars = {}, now = Date.now(), stat = null, io }
   if (outputsEmpty.length) return refuse("output-missing", `an output of step ${id} holds no non-empty file (${outputsEmpty.map(norm).join(", ")}), so there is nothing to adopt`);
   const newer = inputNewer(step, vars, state.files, { io: fs });
   if (newer) return refuse("input-newer", `input ${newer.input} (${newer.inputMtime}) is newer than the evidence of step ${id} (${newer.evidenceMtime})`, newer);
+  const nc = notCurrent(step, state.files, { now, io: fs });
+  if (nc) return refuse(nc.rule, nc.message, { notCurrent: true });
   const iso = (ms) => new Date(ms).toISOString(), byGlob = new Map();
   for (const f of state.files) byGlob.set(f.glob, Math.max(byGlob.get(f.glob) || 0, f.mtimeMs));
   const ev = [...byGlob].map(([p, mtimeMs]) => ({ path: norm(p), mtimeMs })), own = new Set(ev.map((e) => e.path)), missingInputs = [];

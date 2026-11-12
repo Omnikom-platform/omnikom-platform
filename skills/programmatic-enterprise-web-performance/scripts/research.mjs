@@ -15,7 +15,7 @@
 //                 --from-serp picks are then only SUGGESTED in the report, never audited.
 //   AI answers:   --gemini [--runs 3 --ai-questions 8 --ai-max-calls 30]  --question Q  (owner captures: <pewp>/captures/ai/)
 //   reuse:        --existing-dir DIR (repeat)  --max-age-days 30
-//   cost:         --dry prints the plan and stops; a plan above --confirm-above (default 150) external calls needs --yes.
+//   cost:         --dry prints the plan and the line "capture list from: ..." (which searches the capture list asks for, and why) and fetches nothing; a plan above --confirm-above (default 150) external calls needs --yes.
 // Exit codes: 0 targets.json written (blocked steps are listed in report.md and state), 1 a step crashed or the output failed its checks,
 //             2 usage, 3 BLOCKED (no intake yet, no query universe, owner confirmation needed, or NEEDS-APPROVAL seeds).
 import fs from "node:fs";
@@ -360,7 +360,7 @@ export async function run(ctx, o = {}) {
   }
   // 8 capture requests (what the main session still has to capture), then targets
   const req = captureRequests(ctx, S, o);
-  W(path.join(ctx.rdir, "capture-requests.json"), req);
+  writeRequests(ctx, req);
   S.serp = readStep(ctx, "serp"); S.clusters = readStep(ctx, "clusters"); S.competitors = readStep(ctx, "competitors"); S.ai = readStep(ctx, "ai-citations"); S.wiki = readStep(ctx, "wiki"); S.forums = readStep(ctx, "forums"); S.gsc = readStep(ctx, "gsc"); S.winners = readStep(ctx, "winners"); S.assets = readStep(ctx, "assets"); S.citations = readStep(ctx, "citations"); S.autocomplete = readStep(ctx, "autocomplete");
   if (S.clusters?.status !== "ok") { const m = "no query universe, so no clusters: give seeds (--service), connect Search Console / Bing, supply a Keyword Planner CSV, or import captures"; W(path.join(ctx.rdir, "summary.json"), { generatedAt: iso(), steps }); throw new Blocked(m); }
   const built = buildTargets(ctx, { clusters: S.clusters.clusters, captures: S.serp?.status === "ok" ? S.serp.captures : [], portals: S.clusters.portals || [], wikiDoc: S.wiki, forumsDoc: S.forums, gscDoc: S.gsc?.status === "ok" ? S.gsc : null, pages: existingPages(ctx), winnersDoc: S.winners?.status === "ok" ? S.winners : null });
@@ -389,11 +389,23 @@ export async function run(ctx, o = {}) {
   return { status: "ok", targets: tfile, report: path.join(ctx.rdir, "report.md"), clusters: targets.clusters.length, steps, validator, requests: req.items.length };
 }
 
+// SKILL-PLAN-1: the searches the capture list asks for. Clusters made before the seeds now approved were approved (clusters.json generatedAt against approved/lock.json
+// seeds.approvedAt; approve.mjs copies approved/seeds.json byte for byte, so the lock holds the approval's time) plan nothing: the approved seeds do. No approved/seeds.json:
+// as before (the clusters, else research/seeds.json). An approval with no time in the lock (a hand copy) cannot date the clusters: they plan as before.
+function captureUniverse(ctx) {
+  const cl = readStep(ctx, "clusters"), heads = cl?.status === "ok" ? cl.clusters.map((c) => c.head) : null;
+  const ap = J(path.join(ctx.pewp, "approved", "seeds.json")), at = J(path.join(ctx.pewp, "approved", "lock.json"))?.seeds?.approvedAt;
+  if (!ap) return heads ? { universe: "clusters", queries: heads } : { universe: "seeds", queries: (readStep(ctx, "seeds")?.queries || []).map((s) => s.query) };
+  if (heads && (!at || Date.parse(cl.generatedAt) > Date.parse(at))) return { universe: "clusters", queries: heads };
+  return { universe: "approved seeds", queries: (Array.isArray(ap) ? ap : ap.queries || []).map(seedKey).filter(Boolean), ...(heads ? { clustersPassedOver: { generatedAt: cl.generatedAt, approvedAt: at, count: heads.length } } : {}) };
+}
+
 export function captureRequests(ctx, S, o) {
   const b = ctx.business, places = allPlaces(ctx, (n) => readStep(ctx, n)), age = o.maxAgeDays ?? 30;
   const devices = b.rankTracking?.devices?.length ? b.rankTracking.devices : ["mobile"];
   const caps = (readStep(ctx, "serp")?.captures || []);
-  const universe = readStep(ctx, "clusters")?.status === "ok" ? readStep(ctx, "clusters").clusters.map((c) => c.head) : (readStep(ctx, "seeds")?.queries || []).map((s) => s.query);
+  const { queries: universe, ...source } = captureUniverse(ctx), fromSeeds = source.universe === "approved seeds";   // source: { universe, clustersPassedOver? }, written below
+  const heads = fromSeeds ? universe : (readStep(ctx, "clusters")?.clusters || []).map((c) => c.head);   // what the AI questions and autocomplete seeds are drawn from
   const items = [];
   for (const q of universe) for (const engine of ["google", "bing"]) for (const device of devices) {
     const have = caps.find((c) => normQuery(c.query) === normQuery(q) && c.engine === engine && c.device === device && ageDays(c.capturedAt) <= age && c.status !== "BLOCKED");
@@ -401,12 +413,21 @@ export function captureRequests(ctx, S, o) {
     items.push({ query: q, engine, device, location: placeInQuery(q, places)?.label || b.rankTracking?.locations?.[0] || null, language: b.market.language });
   }
   const cap = o.maxRequests ?? 60;
-  const aiQs = (readStep(ctx, "clusters")?.clusters || []).slice(0, o.aiQuestionCount ?? 8).map((c) => c.head);
+  const aiQs = heads.slice(0, o.aiQuestionCount ?? 8);
   const haveAi = new Set((readStep(ctx, "ai-citations")?.rows || []).filter((r) => /chatgpt|perplexity/.test(r.engine)).map((r) => `${r.engine}|${normQuery(r.question)}`));
   const aiRequests = aiQs.flatMap((q) => ["chatgpt", "perplexity"].filter((e) => !haveAi.has(`${e}|${normQuery(q)}`)).map((e) => ({ question: q, engine: e, runs: 3, fresh: "new chat, memory off" })));
   const ac = readStep(ctx, "autocomplete"), covered = new Set((ac?.rows || []).filter((r) => !r.stale).map((r) => `${r.engine}|${r.seed}`));
-  const autocompleteRequests = (readStep(ctx, "clusters")?.clusters || []).slice(0, 20).map((c) => c.head).flatMap((q) => ["google", "bing"].filter((e) => !covered.has(`${e}|${normQuery(q)}`)).map((e) => ({ seed: q, engine: e, location: placeInQuery(q, places)?.label || b.rankTracking?.locations?.[0] || null, language: b.market.language, how: "type the seed slowly into the search box, do not press Enter, save the suggestion list", saveAs: `captures/autocomplete/<id>.${e}.json` })));
-  return { generatedAt: iso(), autocompleteRequests, rules: "one page at a time, at least 45 s apart, stop at the first robot check, never sign in or accept terms, record date/browser/location/device in each file", saveAs: "<pewp>/captures/serp/<id>.<engine>.json and <pewp>/captures/ai/<id>.json (formats in stages/research.md)", paceSeconds: 45, count: items.length, items: items.slice(0, cap), truncated: Math.max(0, items.length - cap), estimatedMinutes: Math.ceil((Math.min(items.length, cap) * 45) / 60), aiRequests };
+  const autocompleteRequests = (fromSeeds ? heads : heads.slice(0, 20)).flatMap((q) => ["google", "bing"].filter((e) => !covered.has(`${e}|${normQuery(q)}`)).map((e) => ({ seed: q, engine: e, location: placeInQuery(q, places)?.label || b.rankTracking?.locations?.[0] || null, language: b.market.language, how: "type the seed slowly into the search box, do not press Enter, save the suggestion list", saveAs: `captures/autocomplete/<id>.${e}.json` })));
+  return { generatedAt: iso(), ...source, autocompleteRequests, rules: "one page at a time, at least 45 s apart, stop at the first robot check, never sign in or accept terms, record date/browser/location/device in each file", saveAs: "<pewp>/captures/serp/<id>.<engine>.json and <pewp>/captures/ai/<id>.json (formats in stages/research.md)", paceSeconds: 45, count: items.length, items: items.slice(0, cap), truncated: Math.max(0, items.length - cap), estimatedMinutes: Math.ceil((Math.min(items.length, cap) * 45) / 60), aiRequests };
+}
+
+// SKILL-ADOPT-1 R3: research/capture-requests.json is written only when what it asks for changes (its generatedAt apart), so the captures made from it stay adopted.
+// Not for a file whose write time is the information (a capture, an approval, a stamp, evidence that must be newer than its step's start). -> true when written
+export function writeRequests(ctx, req) {
+  const file = path.join(ctx.rdir, "capture-requests.json"), { generatedAt, ...next } = req, { generatedAt: was, ...prev } = J(file, {}) || {};
+  if (JSON.stringify(next) === JSON.stringify(prev)) return false;
+  W(file, req);
+  return true;
 }
 
 export const approvedCompetitorsFile = (ctx) => { const f = path.join(ctx.pewp, "approved", "competitors.json"); return fs.existsSync(f) ? f : null; };
@@ -443,10 +464,13 @@ await runCli(import.meta.url, "node research.mjs <url | repo path> [--dry] [--ye
   console.log(plan.text);
   if (a.has("dry")) {
     // nothing is fetched, but the list of what the owner's browser still has to capture is computed from what is already on disk (captureRequests reads the stored steps), so it is
-    // written here too: research/capture-requests.json is the evidence of the research-plan step, and a re-run could never satisfy it while --dry returned before the write
+    // written here too, only when it changes (writeRequests); research/research-plan.json, written every run, is the research-plan step's evidence
     const S = Object.fromEntries([["serp", "serp"], ["clusters", "clusters"], ["competitors", "competitors"], ["ai", "ai-citations"], ["wiki", "wiki"], ["forums", "forums"], ["gsc", "gsc"], ["winners", "winners"], ["assets", "assets"], ["citations", "citations"], ["autocomplete", "autocomplete"]].map(([k, n]) => [k, readStep(ctx, n)]));
-    W(path.join(ctx.rdir, "capture-requests.json"), captureRequests(ctx, S, o));
-    return "DRY RUN: nothing fetched; research/capture-requests.json written from what is already on disk.";
+    const U = captureUniverse(ctx), p = U.clustersPassedOver;   // SKILL-PLAN-1 Q2: the printed plan says which list plans the captures
+    console.log(`  capture list from: ${U.universe} (${U.queries.length})${p ? `; passed over: ${p.count} clusters made ${p.generatedAt}, before the seeds were approved at ${p.approvedAt}` : ""}`);
+    const changed = writeRequests(ctx, captureRequests(ctx, S, o));
+    W(path.join(ctx.rdir, "research-plan.json"), { step: "research-plan", status: "ok", generatedAt: iso(), requestsRewritten: changed });   // the step's evidence
+    return `DRY RUN: nothing fetched; research/capture-requests.json ${changed ? "written" : "unchanged (not rewritten)"} from what is already on disk.`;
   }
   if (plan.total > a.num("confirm-above", 150) && !a.has("yes")) throw new Blocked(`the plan is ${plan.total} external calls, above ${a.num("confirm-above", 150)}: the owner approves it, then re-run with --yes`);
   let r;

@@ -4,7 +4,7 @@
 // order (a step runs after what it dependsOn is RUN), the pre-checks that never start a script (a missing dependency, key or input file is BLOCKED, by name), the two locks (a host is hit by
 // one step at a time, heavy steps run one at a time through heavy.mjs), the spawning with its timeouts and tree kill, and the run log {pewp}/seo-run.json (the skill's lib-run.mjs reads and
 // writes it), from which the coverage table is read.
-// States: RUN (exit 0 AND every evidence glob holds a non-empty file written after the step started, and no input is newer: otherwise the step re-runs), SKIPPED (exit 4, the script's own
+// States: RUN (exit 0 AND every evidence glob holds a non-empty file written after the step started, no input is newer and the engine's notCurrent finds the evidence current: otherwise the step re-runs), SKIPPED (exit 4, the script's own
 // `SKIPPED: <reason>` line), BLOCKED (exit 3 with the script's `BLOCKED: <what> | unblocks: <what>` line, or a pre-check, or a stop), WAITING (an owner-browser, AI or person step: it never
 // runs; it is WAITING with its brief until its outputs are written after the run began; a script that exits 3 with a NEEDS-INPUT line is WAITING too, for the owner's answers), PARTIAL (exit 0
 // with `PARTIAL: <what is missing>` as the last line: what was read is kept, a resume runs the step again), FAILED (any other exit, a timeout, exit 0 without evidence). NOT RUN is the seventh
@@ -16,7 +16,7 @@ import { homedir } from 'node:os';
 import { Usage } from './errors.mjs';
 import { importRepo, repoPath } from './repo.mjs';
 import { redact } from './redact.mjs';
-import { isWaiting, makeVars, substitute, covers, resolveScript, globPaths, filesUnder, evidenceState, inputNewer, adoptStep, stepOutcome, outcomeState, stepStop, runOrder, norm, SLACK_MS } from './seo-manifest.mjs';
+import { isWaiting, makeVars, substitute, covers, resolveScript, globPaths, filesUnder, evidenceState, inputNewer, adoptStep, notCurrent, stepOutcome, outcomeState, stepStop, runOrder, norm, SLACK_MS } from './seo-manifest.mjs';
 const { readRun, writeRun } = await importRepo('skills/programmatic-enterprise-web-performance/scripts/lib-run.mjs');
 
 export const STATES = ['RUN', 'SKIPPED', 'BLOCKED', 'WAITING', 'PARTIAL', 'FAILED'];
@@ -77,7 +77,7 @@ const liveFiles = pattern => globPaths(pattern).flatMap(p => filesUnder(p));
 function prepare(manifest, vars) {
   return runOrder(manifest).steps.map(s => ({
     id: s.id, module: s.module, what: s.what, script: s.script, waiting: isWaiting(s), heavy: s.heavy, hits: s.hits,
-    needsKeys: s.needsKeys, dependsOn: s.dependsOn, timeoutMinutes: s.timeoutMinutes,
+    needsKeys: s.needsKeys, dependsOn: s.dependsOn, timeoutMinutes: s.timeoutMinutes, maxAgeDays: s.maxAgeDays,
     needsBrowser: s.needsBrowser, needsAi: s.needsAi, needsPerson: s.needsPerson, engines: Array.isArray(s.engines) ? s.engines : [],
     args: substitute(s.args, vars),
     inputs: substitute(s.inputs, vars), outputs: substitute(s.outputs, vars),
@@ -135,6 +135,7 @@ export function rowOf(step, entry, skillDir, how) {
   } else if (state === 'PARTIAL') detail = `exit ${entry.exit}: ${entry.line ?? '(no output)'}`;
   else if (state === 'FAILED') detail = entry.timedOut ? `${entry.reason}${entry.line ? `; last line: ${entry.line}` : ''}` : entry.exit !== undefined && entry.exit !== null ? `exit ${entry.exit}${entry.line === null && entry.reason ? '' : `: ${entry.line ?? '(no output)'}`}${entry.reason ? ` [${entry.reason}]` : ''}` : (entry.reason || 'failed');
   else detail = entry.line ?? entry.reason ?? '';   // SKIPPED, BLOCKED: the script's own line, else the pre-check's sentence
+  if (how && state !== 'RUN') detail += ` [${how}]`;   // why evidence was not taken
   return { ...base, state, detail, more, exit: entry.exit, line: entry.line ?? null, reason: entry.reason ?? null, evidence: ev, evidenceCount: entry.evidenceCount ?? ev.length, startedAt: entry.startedAt, endedAt: entry.endedAt, ...(entry.leftover ? { leftover: entry.leftover } : {}), logFile: entry.logFile ? where(skillDir, entry.logFile) : undefined, ...(entry.waiting ? { waiting: { ...entry.waiting, inputs: entry.waiting.inputs.map(p => where(skillDir, p)), outputs: entry.waiting.outputs.map(p => where(skillDir, p)) } } : {}), ...(how ? { how } : {}) };
 }
 
@@ -206,6 +207,7 @@ export async function runSeo(o) {
   const kill = o.kill || guard.killTree;                      // a test hands one that does nothing, to stand for a process that survives the kill
   const graceMs = o.graceMs === undefined ? GRACE_MS : o.graceMs;
   const settled = new Map();   // id -> { entry, how }
+  const why = new Map();       // id -> why existing evidence was not taken, shown on its row
   const stateOf = id => (settled.get(id).entry ? settled.get(id).entry.state : NOT_RUN);
 
   const related = (a, b) => covers(a, b) || covers(b, a);
@@ -218,6 +220,8 @@ export async function runSeo(o) {
     if (!e || e.state !== 'RUN') return null;
     if (!e.adopted && (!e.startedAt || exitState(step, e) !== 'RUN')) return null;
     const ev = evidenceState(step, vars, { since: e.adopted ? 0 : Date.parse(e.startedAt), allFresh: e.adopted && step.waiting });   // an adopted step never started: its evidence counts at any age
+    const nc = ev.state === 'done' ? notCurrent(step, ev.files) : null;   // too old, or only BLOCKED records (SKILL-ADOPT-1)
+    if (nc) { why.set(step.id, nc.message); return null; }
     return ev.state === 'done' && !inputNewer(step, vars, ev.files) ? ev : null;
   }
   // a waiting step whose outputs and evidence were all written after the run began
@@ -229,7 +233,9 @@ export async function runSeo(o) {
   // a step the log does not know whose outputs and evidence are already there and not older than its inputs: adopted, not run again
   function adoptable(step) {
     if (entries.has(step.id)) return null;   // the log knows it (a failure stays a failure)
-    return adoptStep(step, { vars }).ok ? evidenceState(step, vars, { since: 0 }) : null;
+    const a = adoptStep(step, { vars });
+    if (a.notCurrent) why.set(step.id, a.reason);
+    return a.ok ? evidenceState(step, vars, { since: 0 }) : null;
   }
   const evidenceOf = ev => uniq(ev.files.map(f => f.path));
   const runEntry = (step, ev, extra = {}) => { const all = evidenceOf(ev); return { ...extra, id: step.id, module: step.module, state: 'RUN', evidence: all.slice(0, MAX_EVIDENCE), evidenceCount: all.length }; };
@@ -245,6 +251,8 @@ export async function runSeo(o) {
     if (step.waiting) {
       const ev = waitingDone(step);
       if (ev) return { final: { entry: runEntry(step, ev, { startedAt: iso(runStartMs), endedAt: iso(Date.now()) }), how: 'outputs written', store: true } };
+      const kept = forced ? null : doneBefore(step);   // a waiting step a run adopted stays done while it is current (SKILL-ADOPT-1 R5)
+      if (kept) return { final: { entry: runEntry(step, kept, entries.get(step.id)), how: 'already done', store: false } };
     } else if (!forced) {
       const ev = doneBefore(step);
       if (ev) return { final: { entry: runEntry(step, ev, entries.get(step.id)), how: 'already done', store: false } };
@@ -350,6 +358,6 @@ export async function runSeo(o) {
     else break;   // nothing can start and nothing is running: the validator rules out a cycle, so this never happens
   }
   for (const id of pending) settle(byId.get(id), { entry: { id, module: byId.get(id).module, state: 'FAILED', reason: 'the runner could not schedule this step' }, how: null, store: true });
-  const rows = steps.map(s => { const f = settled.get(s.id); return rowOf(s, f.entry, skillDir, f.how); });
+  const rows = steps.map(s => { const f = settled.get(s.id); return rowOf(s, f.entry, skillDir, f.how || why.get(s.id)); });
   return { mode, discarded, url, client, host: vars.host, runStartedAt: log.runStartedAt, updatedAt: log.updatedAt, logFile, hasLog: true, order: steps.map(s => s.id), steps: rows, ...summarize(steps, rows), failed: rows.filter(r => r.state === 'FAILED').length };
 }

@@ -337,7 +337,7 @@ function pipelineSequence() {
 }
 const safeList = (arr, vars) => arr.map((x) => { try { return substitute(x, vars); } catch { return x; } }).join(", ");
 // ---------------------------------------------------------------- ADOPT (work order 41): a run resumes from where it is, never from scratch (the owner's standing rule)
-// A step whose evidence exists (not empty) and whose inputs are older is recorded as adopted: done, exit 0, outcome "adopted", evidenceDate = the evidence's own mtime (not now), and
+// A step whose evidence exists (not empty) and whose inputs are older, its evidence within maxAgeDays and not only BLOCKED records (adoptStep), is recorded as adopted: done, exit 0, outcome "adopted", evidenceDate = the evidence's own mtime (not now), and
 // not run again. A step whose input is newer than its evidence runs (and so, through its outputs, do its dependents). --adopt <id>[,<id>] is the explicit case: a step that
 // cannot be adopted is a refusal (exit 3) and nothing starts. --fresh discards: --fresh alone runs every step again, --fresh <id>[,<id>] those steps (their dependents follow
 // through their inputs). Bare --fresh also still tells the snapshot to take a new snapshot.

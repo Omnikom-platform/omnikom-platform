@@ -582,6 +582,36 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
       const copies = readdirSync(libDir).filter(f => f.endsWith('.mjs') && f !== 'stops.mjs').filter(f => /\b(STEP_KEYS|TOP_KEYS|EXIT_WORDS|KNOWN_ENGINES)\s*=/.test(readFileSync(join(libDir, f), 'utf8')));
       check('seo one engine: case 32, every export of seo-manifest.mjs is the engine\'s own object and no CLI lib file (stops.mjs apart) defines STEP_KEYS, TOP_KEYS, EXIT_WORDS or KNOWN_ENGINES [engine]', names.length > 0 && notSame.length === 0 && copies.length === 0, JSON.stringify({ names: names.length, notSame, copies }));
     }
+    // ================================================================ what a resume takes over (SKILL-ADOPT-1) [adopt]
+    {
+      const D = 86400000, H = 3600000, REC = '{"step":"x","status":"blocked","blocked":"set FIXTURE_KEY"}', how = (r, id) => String((row(r, id) || {}).how || '');
+      const put = (s, rel, body, ms) => { const f = join(s.pewp, rel); mkdirSync(join(f, '..'), { recursive: true }); writeFileSync(f, body); if (ms) touch(f, ms); return f; };
+      const sg = site(M(S('old', { kind: 'time-sensitive', maxAgeDays: 1 }), S('young', { kind: 'time-sensitive', maxAgeDays: 1 }), S('free'), S('v0', { kind: 'time-sensitive', maxAgeDays: 0 })));
+      put(sg, 'old.json', '{"x":1}', -2 * D - H); put(sg, 'young.json', '{"x":1}', -H); put(sg, 'free.json', '{"x":1}', -10 * D); put(sg, 'v0.json', '{"x":1}', -H);
+      let r = await run(sg);
+      check('seo adopt: C1 evidence older than its maxAgeDays is not adopted: the step runs, its row says "over age: 2.0 days, limit 1" [adopt]', starts(sg, 'old') === 1 && row(r, 'old').state === 'RUN' && how(r, 'old') === 'over age: 2.0 days, limit 1', JSON.stringify(row(r, 'old')));
+      check('seo adopt: C2 within the limit (1 hour of 1 day) or with no limit (null, 10 days) the step is adopted, not run [adopt]', starts(sg, 'young') === 0 && starts(sg, 'free') === 0 && how(r, 'young') === 'adopted' && how(r, 'free') === 'adopted', JSON.stringify(states(r)));
+      check('seo adopt: C3 maxAgeDays 0 adopts nothing from before the run: the step runs [adopt]', starts(sg, 'v0') === 1, JSON.stringify(row(r, 'v0')));
+      touch(join(sg.pewp, 'young.json'), -2 * D - H); r = await run(sg);
+      check('seo adopt: C4 a step the log holds as adopted runs again once its evidence is over age [adopt]', starts(sg, 'young') === 1 && how(r, 'young') === 'over age: 2.0 days, limit 1', JSON.stringify(row(r, 'young')));
+      const AP = (id, over = {}) => W(id, { needsBrowser: 'none', needsPerson: true, inputs: [`{pewp}/${id}-src.json`], outputs: [`{pewp}/approved/${id}.json`], evidence: [`{pewp}/approved/${id}.json`], ...over });
+      const sp = site(M(AP('same'), AP('diff'), AP('cap', { needsPerson: false, needsBrowser: 'owner' })));
+      for (const id of ['same', 'diff', 'cap']) { put(sp, `approved/${id}.json`, '{"q":1}', -2 * H); put(sp, `${id}-src.json`, id === 'diff' ? '{"q":2}' : '{"q":1}', -H); }
+      r = await run(sp);
+      check('seo adopt: C5 an approval whose newer input has the approved copy\'s own bytes is adopted [adopt]', row(r, 'same').state === 'RUN' && how(r, 'same') === 'adopted', JSON.stringify(row(r, 'same')));
+      check('seo adopt: C6 an approval whose newer input has other bytes is WAITING [adopt]', row(r, 'diff').state === 'WAITING', JSON.stringify(row(r, 'diff')));
+      check('seo adopt: C7 an owner capture with a newer input of the same bytes is WAITING (only an approval compares bytes) [adopt]', row(r, 'cap').state === 'WAITING', JSON.stringify(row(r, 'cap')));
+      r = await run(sp);
+      check('seo adopt: C8 on the next run the adopted approval stays RUN (already done), not WAITING [adopt]', row(r, 'same').state === 'RUN' && how(r, 'same') === 'already done', JSON.stringify(row(r, 'same')));
+      const sk = site(M(S('bl', { needsKeys: ['FIXTURE_KEY'] }), S('bl2'), W('caps', { outputs: ['{pewp}/captures/caps/'], evidence: ['{pewp}/captures/caps/*.json'] }), S('was')));
+      put(sk, 'bl.json', REC); put(sk, 'bl2.json', REC); put(sk, 'captures/caps/a.json', REC, -H); put(sk, 'captures/caps/b.json', '{"rows":1}', -H);
+      r = await run(sk);
+      check('seo adopt: C9 a BLOCKED record is not adopted: BLOCKED by its key, nothing started, the row quotes the record\'s unblock text [adopt]', row(r, 'bl').state === 'BLOCKED' && starts(sk, 'bl') === 0 && row(r, 'bl').detail.includes('holds only BLOCKED records: set FIXTURE_KEY'), JSON.stringify(row(r, 'bl')));
+      check('seo adopt: C10 a step whose evidence is a BLOCKED record runs [adopt]', starts(sk, 'bl2') === 1 && row(r, 'bl2').state === 'RUN', JSON.stringify(row(r, 'bl2')));
+      check('seo adopt: C11 one BLOCKED record among real files is still a result: the capture is adopted [adopt]', row(r, 'caps').state === 'RUN' && how(r, 'caps') === 'adopted', JSON.stringify(row(r, 'caps')));
+      writeFileSync(join(sk.pewp, 'was.json'), REC); r = await run(sk);
+      check('seo adopt: C12 a step the log holds as RUN whose evidence became a BLOCKED record runs again [adopt]', starts(sk, 'was') === 2 && how(r, 'was').includes('holds only BLOCKED records'), JSON.stringify(row(r, 'was')));
+    }
   } catch (e) {
     if (!(e && e.seoDeadline)) throw e;
     try { guard.killFolderProcs(root); } catch { /* the list of processes failed; the folder removal below may then fail too */ }   // whatever the command left running under the test folder

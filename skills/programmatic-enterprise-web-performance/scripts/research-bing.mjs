@@ -21,7 +21,7 @@
 // Output: research/bing.json { keywords:[{query, volume, broad, related}], droppedOffTopic:[{query, relatedTo, reason}], topicFilter, siteQueries:[...], siteStats:{status:"ok"|"blocked"|"not asked", blocked}, calls }. No key => BLOCKED (exit 3).
 import fs from "node:fs";
 import path from "node:path";
-import { Blocked, listFile, context, needBusiness, runCli, writeStep, writeBlocked, cachedFetch, factor, pace, normQuery, tokens, stem, knownPlaces } from "./research-lib.mjs";
+import { Blocked, listFile, context, needBusiness, runCli, writeStep, writeBlocked, readStep, cachedFetch, factor, pace, normQuery, tokens, stem, knownPlaces } from "./research-lib.mjs";
 import { loadRule } from "./lib-rules.mjs";
 import { topicFilter, topicOff } from "./research-topic.mjs";
 import { topicSetting } from "./lib-industry.mjs";
@@ -69,6 +69,9 @@ const SITE_STATS_UNBLOCK = "the client adds us as a user in Bing Webmaster Tools
 const msDate = (s) => { const m = String(s || "").match(/\/Date\((-?\d+)/); return m ? new Date(Number(m[1])).toISOString().slice(0, 10) : String(s || "").slice(0, 10); };
 const dayStr = (d) => d.toISOString().slice(0, 10);
 
+// SKILL-ADOPT-1 R4: a refusal never replaces the data of an earlier run; the BLOCKED record is written only where no ok bing.json is (the BLOCKED: line says why)
+const blockedRecord = (ctx, unblock) => { if (readStep(ctx, "bing")?.status !== "ok") writeBlocked(ctx, "bing", unblock); };
+
 export async function run(ctx, { seeds = [], related = true, keepBrands = false, siteStats = false, maxCalls = 60, days = 90 } = {}) {
   const b = needBusiness(ctx);
   // the words that make a search "about the business": the owner's vocabulary, the offer, and every seed (the seeds are owner-approved, G3)
@@ -77,7 +80,7 @@ export async function run(ctx, { seeds = [], related = true, keepBrands = false,
   const placeTerms = new Set(knownPlaces(b).flatMap((p) => tokens(p.city)));
   const brands = brandIndex(), droppedOffTopic = [];
   const key = (process.env.BING_WEBMASTER_KEY || "").trim();
-  if (!key) { writeBlocked(ctx, "bing", UNBLOCK); throw new Blocked(UNBLOCK); }
+  if (!key) { blockedRecord(ctx, UNBLOCK); throw new Blocked(UNBLOCK); }
   const country = ctx.market.country.toLowerCase(), language = `${ctx.market.language}-${ctx.market.country}`;
   const end = new Date(), start = new Date(Date.now() - days * 86400000);
   let calls = 0;
@@ -135,7 +138,7 @@ export async function run(ctx, { seeds = [], related = true, keepBrands = false,
         for (const a of agg.values()) siteQueries.push({ query: a.q, engine: "bing", language: ctx.market.language, device: null, impressions: f(a.imp), clicks: f(a.clk), position: f(a.imp ? Math.round((a.posW / a.imp) * 10) / 10 : null, { unit: "impression-weighted average position; device not split by this endpoint" }) });
       }
     }
-  } catch (e) { if (e instanceof Blocked) writeBlocked(ctx, "bing", e.unblock); throw e; }
+  } catch (e) { if (e instanceof Blocked) blockedRecord(ctx, e.unblock); throw e; }
   // the topic filter (research-topic.mjs): a related keyword that is not ABOUT the business's services (vocabulary) is dropped and LISTED with its reason, before anything clusters
   const setting = topicSetting(b); // business.json wins either way, then the industry pack, then off
   const tf = { ...(setting.value === "vocabulary" ? topicFilter(keywords, b, { placeTerms }) : topicOff(keywords)), setting: setting.value, settingFrom: setting.from };
