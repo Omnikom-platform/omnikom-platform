@@ -45,9 +45,9 @@ function patch(file, find, replace) {
 }
 
 describe('the plan itself', () => {
-  it('has rows, and slices 5.3, 5.3b, 5.3c, 5.3d, 5.4 and 5.6 are the built ones', () => {
+  it('has rows, and slices 5.3, 5.3b, 5.3c, 5.3d, 5.4, 5.6 and 5.7 are the built ones', () => {
     expect(plan.size).toBeGreaterThan(60);
-    expect(built).toEqual(['5.3', '5.3b', '5.3c', '5.3d', '5.4', '5.6']);
+    expect(built).toEqual(['5.3', '5.3b', '5.3c', '5.3d', '5.4', '5.6', '5.7']);
     expect(plan.get('DP-1.2-05')?.slice).toBe('5.3');
     expect(plan.get('DP-1.3-05')?.slice).toBe('5.3b');
   });
@@ -181,6 +181,12 @@ describe('mutants of the real source: each must turn the gate red for its reason
   });
   it('slice 5.4: plant a sentence of ours in the editor code (the stale sentence reworded)', () => {
     red('invented-editor-string', scanReal(patch('src/pages/Editor.tsx', "const AUTOSAVE_MS = 10_000;", "const oops = 'Someone else edited this page';\nconst AUTOSAVE_MS = 10_000;")), 'PLAN-5', 'Someone else edited this page');
+  });
+  it('slice 5.7: take the element of one row away (the Overview tab is the only carrier of DP-1.2s-14)', () => {
+    red('delete-57-element', scanReal(patch('src/pages/Shell.tsx', 'data-plan="DP-1.2s-14"', 'data-plan="DP-1.2s-03"')), 'PLAN-3', 'DP-1.2s-14');
+  });
+  it('slice 5.7: plant words that are not in the row (the empty changes line)', () => {
+    red('invented-57-words', scanReal(patch('src/lib/overview.ts', "t('DP-1.9-04', 'Nothing to publish')", "t('DP-1.9-04', 'Nothing to publish today')")), 'PLAN-4', 'DP-1.9-04');
   });
   it('put words in index.html', () => {
     red('html-words', scanReal(files => files, indexHtml.replace('<title></title>', '<title>Omnikom</title>')), 'PLAN-8');

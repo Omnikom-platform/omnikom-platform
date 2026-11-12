@@ -9,7 +9,7 @@ import { SignOutButton } from './SignOutButton';
 import s from './Shell.module.css';
 
 /**
- * The shell (DP-1.2s-01 to -03, -06, -07): the business name, Leads, Site, a switcher when there is more than one business, Sign out.
+ * The shell (DP-1.2s-01 to -03, -06, -07): the business name, the Overview tab first (DP-1.2s-14, slice 5.7), Leads, Site, a switcher when there is more than one business, Sign out.
  * A workspace in the address that this login cannot read shows "Not found" and renders nothing below it, so no page under it asks for
  * data: the database decides (Row-Level Security), the screen only reports. Settings (DP-1.2s-05, slice 5.6) is there for every role; a member's page holds two cards.
  */
@@ -38,6 +38,7 @@ export function Shell() {
             </select>
           )}
           <div className={s.tabs}>
+            <Link to="/w/$ws" params={{ ws }} data-plan="DP-1.2s-14" activeOptions={{ exact: true }} activeProps={{ 'aria-current': 'page' }} className={s.tab}>Overview</Link>
             <Link to="/w/$ws/leads" params={{ ws }} search={prev => prev} data-plan="DP-1.2s-03" activeProps={{ 'aria-current': 'page' }} className={s.tab}>Leads</Link>
             <Link to="/w/$ws/site" params={{ ws }} data-plan="DP-1.2s-04" activeProps={{ 'aria-current': 'page' }} className={s.tab}>Site</Link>
             <Link to="/w/$ws/settings" params={{ ws }} data-plan="DP-1.2s-05" activeProps={{ 'aria-current': 'page' }} className={s.tab}>Settings</Link>

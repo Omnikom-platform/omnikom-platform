@@ -14,7 +14,7 @@ One app, one magic-link sign-in. The CRM's routes sit under `leads`; the dashboa
 | `/login` (`?expired`, `?ended`) | ask for a sign-in link | now |
 | `/auth/confirm` | the link from the sign-in mail lands here | now |
 | `/w` | pick a business | now |
-| `/w/$ws` | the overview | MISSING (redirects to leads today) |
+| `/w/$ws` | the Overview | now |
 | `/w/$ws/leads` | the CRM lead list | now |
 | `/w/$ws/leads/new` | add a lead by hand | now |
 | `/w/$ws/leads/$id` | the lead record | now |

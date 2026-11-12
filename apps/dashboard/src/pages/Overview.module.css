@@ -1,0 +1,27 @@
+/* The Overview screen: one column of cards (plain; the owner's styling replaces the tokens and these rules in one slice, DECISIONS 52). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  max-width: 720px;
+}
+
+.card {
+  composes: card from '../styles/controls.module.css';
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.card h2 {
+  font-size: var(--text-lg);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 899px) {
+  .page h1,
+  .page h2 {
+    text-align: center;
+  }
+}

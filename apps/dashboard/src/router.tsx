@@ -4,6 +4,7 @@ import { Login } from './pages/Login';
 import { AuthConfirm } from './pages/AuthConfirm';
 import { Workspaces } from './pages/Workspaces';
 import { Shell } from './pages/Shell';
+import { Overview } from './pages/Overview';
 import { LeadsLayout, NoLeadChosen } from './pages/Leads';
 import { LeadPanel } from './pages/LeadPanel';
 import { AddLead } from './pages/AddLead';
@@ -66,11 +67,7 @@ const authedRoute = createRoute({
 const workspacesRoute = createRoute({ getParentRoute: () => authedRoute, path: 'w', component: Workspaces });
 
 const wsRoute = createRoute({ getParentRoute: () => authedRoute, path: 'w/$ws', component: Shell });
-const wsIndexRoute = createRoute({
-  getParentRoute: () => wsRoute,
-  path: '/',
-  beforeLoad: ({ params }) => { throw redirect({ to: '/w/$ws/leads', params: { ws: params.ws }, replace: true }); },
-});
+const wsIndexRoute = createRoute({ getParentRoute: () => wsRoute, path: '/', component: Overview });
 
 // the Leads view lives in the address (work order 19); the panel, Add a lead and Import inherit it, so a link to them keeps the list as it is
 const leadsRoute = createRoute({ getParentRoute: () => wsRoute, path: 'leads', validateSearch: parseAddress, component: LeadsLayout });

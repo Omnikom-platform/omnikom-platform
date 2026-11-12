@@ -172,6 +172,31 @@ test.describe('the agent\'s screens', () => {
   });
 });
 
+test.describe('the Overview as the owner (slice 5.7)', () => {
+  test.use({ storageState: '.auth/owner-a.json' });
+
+  test('the cards, the title, and the Overview tab as the place the owner is in', async ({ page }) => {
+    await page.goto(`/w/${WS.a.slug}`);
+    await expect(page.getByText(/leads? this week$/)).toBeVisible();
+    await expect(page.locator('[data-plan="DP-1.9-04"]').first()).toBeVisible();
+    await ok(page, { required: ['DP-1.2s-14', 'DP-1.9-01', 'DP-1.9-02', 'DP-1.9-03', 'DP-1.9-04', 'DP-1.9-05'] });
+    await expect(page).toHaveTitle('Overview');
+    const nav = page.getByRole('navigation');
+    await expect(nav.getByRole('link', { name: 'Overview', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(nav.getByRole('link', { name: 'Leads', exact: true })).not.toHaveAttribute('aria-current', 'page');
+  });
+});
+
+test.describe('the Overview as an agent (slice 5.7)', () => {
+  test.use({ storageState: '.auth/member-a1.json' });
+
+  test('the site card and the leads card (the agent counts their own)', async ({ page }) => {
+    await page.goto(`/w/${WS.a.slug}`);
+    await expect(page.getByText(/leads? this week$/)).toBeVisible();
+    await ok(page, { required: ['DP-1.2s-14', 'DP-1.9-01', 'DP-1.9-02', 'DP-1.9-03', 'DP-1.9-05'] });
+  });
+});
+
 test.describe('the DOM gate itself', () => {
   test('reports every rule it has when a page breaks them (watched red)', async ({ page }) => {
     // a row of a slice that is not built, taken from the plan and built-slices.json (a hard-coded one goes stale when its slice ships)

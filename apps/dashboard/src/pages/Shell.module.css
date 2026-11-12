@@ -115,13 +115,13 @@
     margin: 0;
   }
 
-  /* Sign out leaves the screen's header: it sits in the bottom bar's last quarter, after the three places (it overlapped Settings in a third) */
+  /* Sign out leaves the screen's header: it sits in the bottom bar's last fifth, after the four places (it overlapped Settings in a third) */
   .nav > button:last-child {
     position: fixed;
     right: 0;
     bottom: env(safe-area-inset-bottom);
     z-index: 11;
-    width: 25%;
+    width: 20%;
     height: var(--bar-h);
     min-height: 0;
     margin: 0;
@@ -140,7 +140,7 @@
     inset: auto 0 0 0;
     z-index: 10;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);   /* Leads, Site, Settings, and Sign out (fixed over the fourth) */
+    grid-template-columns: repeat(5, 1fr);   /* Overview, Leads, Site, Settings, and Sign out (fixed over the fifth) */
     gap: 0;
     height: calc(var(--bar-h) + env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom);
@@ -155,6 +155,7 @@
     justify-content: center;
     min-height: 0;
     height: var(--bar-h);
+    padding: 0 var(--s-1);
     border-radius: 0;
   }
 

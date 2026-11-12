@@ -13,7 +13,7 @@ stack), `09-TEST-STRATEGY.md`. Everything in this file is design, not code, unle
 |---|---|---|
 | Tokens | colours (ink, paper, two greys, one accent, one danger), type scale (4 sizes), spacing (8 px base), radii (one), shadow (one or none) | one file, `tokens.css`; every screen reads it; nothing invented per screen |
 | Type | Poppins 600 for headings, one neutral body face, sizes 13 / 15 / 20 / 28 | the owner's rule; no uppercase micro-labels |
-| The shell | laptop: left rail (business name, Leads, Site, Settings, the person at the bottom); phone: bottom bar with the same three | the only navigation there is |
+| The shell | laptop: left rail (business name, Overview, Leads, Site, Settings, the person at the bottom); phone: bottom bar with the same four | the only navigation there is |
 | States of every control | default, hover, pressed, focused (visible ring), disabled, loading, error, success | a control without all seven is not done |
 | Buttons | one primary per screen (filled), secondary (outlined), text link; sizes: one on laptop, taller on phone (44 px) | "one primary action per screen" is enforced by design, not by habit |
 | Feedback | the toast (bottom, 4 s, with Undo where undo exists), inline field errors (plain words, under the field), the banner (a problem that blocks the screen, with the one thing to do) | every outcome has one of these three, never a modal with OK |
@@ -57,6 +57,7 @@ Slice says which build slice puts it on the screen; `later` rows are not built i
 | DP-1.2s-11 | 5.3 | On "Not found": the link "Go to your businesses" | the picker (or Leads of the only business) |
 | DP-1.2s-12 | 5.3 | The error screen: when a screen fails to draw it replaces the screen and says "Something went wrong. Reload the page to try again." (no error text, no stack, no blame) | a render error in any route |
 | DP-1.2s-13 | 5.3 | On the error screen: the button "Reload" | reloads the page |
+| DP-1.2s-14 | 5.7 | Nav: Overview, the first of the places | the Overview screen, `/w/$ws` (shown only once 5.7 is built) |
 Design parts: the card, the two states, the "check your email" state, the expired-link state, the picker list, the second-factor
 field. Emails to design: the sign-in link mail, the invite mail (who invited you, which business, the button), the new-lead alert
 mail (section 1.3), each in plain text plus one HTML version.
@@ -265,6 +266,16 @@ api_keys registry (label, kind, site, last used, Revoke, Rotate). Designed after
 The three emails (1.2), the CSV export columns, the 404 and "signed out" pages, the maintenance banner, the plain-word text of
 every gate check (one sentence per check, written once in the gate's own file so the sheet and the email say the same thing),
 the keyboard map (Esc closes, Enter saves a note, Cmd+S saves), the accessibility pass (WCAG 2.2 AA, `09-TEST-STRATEGY.md` 5b).
+
+### 1.9 Screen 5: Overview (`/w/$ws`, `docs/product/6-dashboard.md` "Overview")
+Slice 5.7 is book row B20. Every line says what it counts; a card whose input does not exist is not shown.
+| Id | Slice | Element | What it does |
+|---|---|---|---|
+| DP-1.9-01 | 5.7 | The screen title "Overview" (the page title too) | names the screen |
+| DP-1.9-02 | 5.7 | One card per site: its address as the heading (the domain once there is one, else the preview address), its state in the words of DP-1.4-02 ("Preview, not live yet", "Live"), and Open | read from `sites`; Open opens the site in a new tab |
+| DP-1.9-03 | 5.7 | On the site card, the last publish, live or preview: "Last published <when> by <who>", or "Not published yet" | the newest done job of the site in `publish_jobs` |
+| DP-1.9-04 | 5.7 | On the site card, the changes waiting: "1 change waiting to publish", "3 changes waiting to publish", or "Nothing to publish" | the `drafts` count (an agent: the rows they could publish) |
+| DP-1.9-05 | 5.7 | The Leads card: the heading "Leads" and "No leads this week", "1 lead this week" or "12 leads this week": the leads received since Monday 00:00 in your time zone, spam left out (an agent: their own) | a count of the `leads` the login may read |
 
 ## Part 2. Preview: seeing the change as it will look on the website
 

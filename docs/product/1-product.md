@@ -88,7 +88,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B16 Settings: lead alert addresses | WORKS | F:settings-save (alerts only) and the Lead alerts card (D:pages/SettingsAlerts.tsx: up to 10 per site, the agent tick, one Save, the leave question); staging 2026-11-09 from the settings branch: owner-a edits the addresses and reads them back, a bad line shows its inline error, the card shows the service role's own read |
 | B17 Settings: team list, invite, remove | PARTLY | F:team-list, F:invite-member, F:member-remove (M17 `list_members`; remove is `remove_member`), and the People card (D:pages/SettingsPeople.tsx). Remove refuses the last owner; a removed person's next request is refused by the wall, open sessions are not ended (Supabase Auth has no admin logout by user id). No role-change control: inviting an existing member as owner sets the role. staging 2026-11-09 from the settings branch: `e2e-settings.mjs` 0 problems (list, last-owner 409, remove, the wall after removal) and the card shows the service role's people; the invite and the remove sheet on screen are UNPROVEN until the head runs the flow (flows.spec.ts "owner-a invites a person", which now checks the sentence "Invite sent to <email>." and removes the person in a finally, S1-C); it sends a real mail to the test inbox |
 | B18 Settings: websites | PARTLY | the Websites card (D:pages/Settings.tsx): preview address, domain and state, no edit, shown on staging 2026-11-09 from the settings branch as the service role reads them; "Ask Omnikom" links to `VITE_ASK_EMAIL`, which is unset (no address in the repo: an owner item), so the link is not shown; a flow checks the link once the build has the address (flows.spec.ts "owner-a sees the Ask Omnikom link", S1-D; skipped without VITE_ASK_EMAIL) |
-| B20 Overview | MISSING | `/w/$ws` redirects to leads |
+| B20 Overview | PARTLY | `/w/$ws`, the Overview tab: D:pages/Overview.tsx with D:lib/overview.ts (vitest): a card per site (its state, the last publish and by whom, the changes waiting) and the leads of this week. Staging UNPROVEN: the DOM gate and the 390 px and laptop styles (the head's run) |
 | B21 Search and AI visibility numbers | MISSING | only the empty `metrics_snapshots` table; the site-check half is stored per publish (work order 10: the runner puts the audit summary in `gate_report.audit`, M16 `site_audit`, function `site-audit`; proven on staging 2026-11-09 by e2e-site-audit), no screen yet |
 | B23 Not found, service unreachable, loading states | WORKS | D:pages/NotFound.tsx, D:lib/problems.ts |
 
@@ -156,11 +156,11 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | Part | WORKS | PARTLY | MISSING | Rows |
 |---|---|---|---|---|
 | A CRM | 26 | 0 | 0 | 26 |
-| B Dashboard | 10 | 6 | 5 | 21 |
+| B Dashboard | 10 | 7 | 4 | 21 |
 | C Backend and database | 13 | 4 | 0 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
 | E Hardening | 6 | 12 | 3 | 21 |
-| Total | 65 | 22 | 8 | 95 |
+| Total | 65 | 23 | 7 | 95 |
 
 Completion is reported from these counts only.
 

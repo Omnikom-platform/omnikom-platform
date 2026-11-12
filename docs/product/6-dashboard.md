@@ -102,11 +102,11 @@ Lead alerts card only and on only when it changed; leaving with unsaved changes 
   footer notice locked).
 - No CRM connection card: leads leave as an export (`5-crm.md`).
 
-## Overview (MISSING)
+## Overview
 
-An overview at `/w/$ws`: site state, last publish and by whom, leads this week, changes waiting, and a to-do list built from
-real checks; it may show the Search health headline (card 1 below) with a link to that page. Every number shows its source and
-date; nothing is shown without its inputs.
+The first screen of a business, `/w/$ws` (the Overview tab; sign-in still lands on Leads): a card per site with its state,
+its last publish and by whom and the changes waiting, and the leads received this week (since Monday, spam left out; an agent counts their own).
+Every line says what it counts; nothing is shown without its inputs. Plan rows DP-1.9-01 to -05.
 
 ## Search health (MISSING)
 

@@ -250,6 +250,24 @@ for (const size of SIZES) {
         await check(page, 'site', size);
       });
 
+      test(`the overview is styled at ${size.name}`, async ({ page }) => {
+        await installMutant(page, 'no-styles');
+        await page.goto(`/w/${WS.a.slug}`);
+        await expect(page.getByText(/leads? this week$/)).toBeVisible();
+        await check(page, 'overview', size);
+        if (!size.desktop) {
+          // phone: headings centred, body left, and every place of the bottom bar fits its words
+          const seen = await page.evaluate(() => ({
+            h1: getComputedStyle(document.querySelector('h1')!).textAlign,
+            body: getComputedStyle(document.querySelector('main section p')!).textAlign,
+            clipped: [...document.querySelectorAll('header nav a')].filter(a => a.scrollWidth > a.clientWidth).map(a => (a.textContent ?? '').trim()),
+          }));
+          expect(seen.h1, 'overview: the h1 is centred on the phone').toBe('center');
+          expect(['left', 'start'], 'overview: the body text is left-aligned on the phone').toContain(seen.body);
+          expect(seen.clipped, 'overview: places of the bottom bar whose words do not fit').toEqual([]);
+        }
+      });
+
       test(`the editor is styled at ${size.name}`, async ({ page }) => {
         await installMutant(page, 'no-styles');
         await openSite(page);
