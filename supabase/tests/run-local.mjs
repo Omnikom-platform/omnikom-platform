@@ -897,6 +897,11 @@ const MUTANTS = [
   ['visitor30: the workspace limit is ignored', "cap := private.limit_for(ws, 'leads_per_hour_visitor');", "cap := (select value from public.platform_limits where key = 'leads_per_hour_visitor');"],
   ['visitor30: every login reads the visitor counts', 'create policy visitor_counts_staff_read on visitor_counts for select to authenticated using (private.is_staff());', 'create policy visitor_counts_staff_read on visitor_counts for select to authenticated using (true);'],
   ['visitor30: service_role and the function role may write the visitor counts', 'revoke all on visitor_counts from public, anon, authenticated, service_role, omnikom_fn;', 'grant insert, update, delete on visitor_counts to service_role, omnikom_fn;'],
+
+  // ---- E21 (migration 31): bounces and complaints; tests T37. Run only these: --only "events31" ----
+  ['events31: a bounce suppresses for one workspace only', "case when p_kind = 'bounce' then null else m.workspace_id end", 'm.workspace_id'],
+  ['events31: an email id that is none of ours is not refused', '  if not found then return 0; end if;', ''],
+  ['events31: the event suppresses nothing', "  perform service.suppress(case when p_kind = 'bounce' then null else m.workspace_id end, 'email', m.to_text, p_kind, 'resend webhook');", '  null;'],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

@@ -3613,5 +3613,44 @@ end $$;
 -- back: the block's site goes, with its counts (the foreign key cascades)
 delete from public.sites where id = 'aaaaaaaa-0000-0000-0000-0000000a0e36';
 
+-- ===== T37 E21 (migration 31): bounces and complaints =====
+-- The mail-events function (Resend's signed webhook) calls service.mail_event(email id, kind) for a permanent bounce ('bounce') or a spam complaint ('complaint'):
+-- the address is read from our own message that Resend's email id names (never from the payload) and suppressed through service.suppress, a bounce for the whole
+-- platform and a complaint for the message's workspace; an email id that is none of our messages does nothing. Superuser; two messages of workspace A, state sent.
+-- Mutants "events31: ..." in run-local.mjs.
+reset role;
+insert into public.messages (workspace_id, lead_id, channel, template, to_text, state, provider_id) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', null, 'email', 'new-lead', 't37-b@example.test', 'sent', 're_t37_1'),
+  ('aaaaaaaa-0000-0000-0000-000000000000', null, 'email', 'new-lead', 't37-c@example.test', 'sent', 're_t37_2');
+-- (a) a bounce: one suppression for the whole platform (no workspace), reason bounce; a workspace that never sent to the address is refused it too
+do $$ begin
+  assert service.mail_event('re_t37_1', 'bounce') = 1, 'T37a a bounce of one of our messages answers 1';
+  assert (select count(*) from public.suppressions where channel = 'email' and address_hash = private.address_hash('email', 't37-b@example.test')) = 1, 'T37a one suppression of the bounced address';
+  assert (select count(*) from public.suppressions where channel = 'email' and address_hash = private.address_hash('email', 't37-b@example.test')
+          and workspace_id is null and reason = 'bounce' and source = 'resend webhook') = 1, 'T37a it is for the whole platform, reason bounce, source resend webhook';
+  assert private.is_suppressed('bbbbbbbb-0000-0000-0000-000000000000', 'email', 't37-b@example.test'), 'T37a the bounced address is suppressed for workspace B too';
+end $$;
+-- (b) a complaint: one suppression of workspace A, reason complaint; workspace B is not refused that address
+do $$ begin
+  assert service.mail_event('re_t37_2', 'complaint') = 1, 'T37b a complaint of one of our messages answers 1';
+  assert (select count(*) from public.suppressions where channel = 'email' and address_hash = private.address_hash('email', 't37-c@example.test')
+          and workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and reason = 'complaint' and source = 'resend webhook') = 1, 'T37b one suppression, of workspace A, reason complaint';
+  assert private.is_suppressed('aaaaaaaa-0000-0000-0000-000000000000', 'email', 't37-c@example.test'), 'T37b the address is suppressed for workspace A';
+  assert not private.is_suppressed('bbbbbbbb-0000-0000-0000-000000000000', 'email', 't37-c@example.test'), 'T37b and not for workspace B';
+end $$;
+-- (c) the same event again writes nothing more; an email id that is none of our messages answers 0 and writes nothing
+do $$ declare n0 int; begin
+  assert service.mail_event('re_t37_1', 'bounce') = 1, 'T37c the same bounce again answers 1';
+  assert (select count(*) from public.suppressions where channel = 'email' and address_hash = private.address_hash('email', 't37-b@example.test')) = 1, 'T37c and there is still one suppression';
+  n0 := (select count(*) from public.suppressions);
+  assert service.mail_event('re_none', 'bounce') = 0, 'T37c an email id that is none of our messages answers 0';
+  assert (select count(*) from public.suppressions) = n0, 'T37c and writes no suppression';
+end $$;
+-- (d) the grants: closed to anon and authenticated, open to the function role
+do $$ begin
+  assert not has_function_privilege('anon', 'service.mail_event(text,text)', 'execute') and not has_function_privilege('authenticated', 'service.mail_event(text,text)', 'execute'), 'T37d mail_event is closed to anon and authenticated';
+  assert has_function_privilege('omnikom_fn', 'service.mail_event(text,text)', 'execute'), 'T37d the function role runs mail_event';
+end $$;
+
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

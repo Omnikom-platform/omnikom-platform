@@ -29,6 +29,12 @@
     "name": "X-Cron-Signature",
     "description": "The mail outbox key (function secret MAIL_OUTBOX_KEY; the same value is in Vault as mail_outbox_key for pg_cron). Header value t=<unix seconds>,v1=<hex HMAC-SHA256 of \"t\\nMETHOD\\npath?query\\nbody\">, accepted for 300 s (supabase/functions/_shared/signature.ts); checked in code (verify_jwt = false)"
    },
+   "resendWebhookSignature": {
+    "type": "apiKey",
+    "in": "header",
+    "name": "svix-signature",
+    "description": "Resend's webhook signing secret (function secret RESEND_WEBHOOK_SECRET, whsec_ and a base64 key). Resend signs the Svix way: headers svix-id, svix-timestamp and svix-signature; the signed text is <svix-id>.<svix-timestamp>.<raw body>, HMAC-SHA256 keyed with the base64-decoded key, base64 out, the header one or more v1,<signature> separated by spaces; a timestamp more than 300 s off is refused (supabase/functions/mail-events/index.ts); checked in code (verify_jwt = false)"
+   },
    "runnerSecret": {
     "type": "apiKey",
     "in": "header",
@@ -2726,6 +2732,29 @@
     "responses": {
      "200": {
       "description": "{ claimed, sent, failed }: the rows claimed and how many Resend accepted or not"
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "500": {
+      "$ref": "#/components/responses/ServerError"
+     }
+    }
+   }
+  },
+  "/mail-events": {
+   "post": {
+    "operationId": "mailEvents",
+    "summary": "Resend's webhook for a bounced or complained email (product row E21, migration 31)",
+    "description": "Body: Resend's event. A permanent bounce (email.bounced, bounce type Permanent) suppresses the address the email was sent to for the whole platform; a complaint (email.complained) suppresses it for the workspace of the message (service.mail_event: the address comes from our own message that data.email_id names, never from the payload). Any other signed event is answered 200 { handled: false } so Resend does not send it again.",
+    "security": [
+     {
+      "resendWebhookSignature": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "{ handled: false } for an event that is no permanent bounce or complaint, else { handled: true, suppressed } with suppressed 1 for an email id of ours and 0 for none"
      },
      "401": {
       "$ref": "#/components/responses/Unauthorized"

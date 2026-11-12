@@ -16,7 +16,7 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
   code plus plain words (`_shared/problems`); the dashboard shows the words.
 - Shared validation imports `contracts/validate.mjs`, so the browser, the functions and the build run the same rules.
 
-## The Edge Functions (29 in `supabase/functions/`)
+## The Edge Functions (30 in `supabase/functions/`)
 
 | Function | Caller | Does |
 |---|---|---|
@@ -31,6 +31,7 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
 | `job-callback` | runner, signed | `set_job_state` (409 on an illegal move); the gate report (at most 64 KiB) carries `audit`, the audit summary version 1, for a pass and a fail |
 | `capture-lead` | the site's `/api/lead`, signed with that site's key (the signed path carries the visitor's hash) | stores the lead (`5-crm.md`), counts the visitor and refuses one past 5 leads an hour (M30 `count_visitor`, 429), queues the new-lead alert (M29 `queue_lead_alert`: one `mail_outbox` row per alert address, none for a lead already alerted) |
 | `mail-outbox` | pg_cron every minute through pg_net (`service.mail_outbox_tick`), signed `X-Cron-Signature` (`MAIL_OUTBOX_KEY`) | E4 (M29): sends the queued new-lead alerts by Resend, at most 10 a run, one at a time, each with a 10 s timeout and the message id as Resend's idempotency key (`outbox_claim`, `outbox_done`); a failed try is tried again 5, 10 ... 25 minutes later and the sixth fails the message; a capped alert goes the next day; a suppressed address is dropped; 200 `{ claimed, sent, failed }` |
+| `mail-events` | Resend's webhook, signed the Svix way (`svix-id`, `svix-timestamp`, `svix-signature`; `RESEND_WEBHOOK_SECRET`; a timestamp more than 300 s off is refused) | E21 (M31): a permanent `email.bounced` suppresses the address the email went to for the whole platform, an `email.complained` for the message's workspace (`mail_event`: the address comes from our own `messages` row that `data.email_id` names, never from the payload); any other signed event is 200 `{ handled: false }`; 200 `{ handled: true, suppressed }`; a bad signature is 401 and a security event; no secret is 500 `CONFIG` |
 | `add-lead` | dashboard | a lead entered by hand, consent tick required |
 | `lead-update` | dashboard | status, owner, unassign, note, mark read; `fields` edits any core or editable industry field (M14 `lead_set_fields`), 200 `{changed}`; `follow_up` (work order 18: an ISO date-time with an offset, or null to clear) sets the follow-up date (M22 `lead_follow_up`), 204; work order 20 (M23): `status` is a key of the business's own list (400 `I-ANSWER status` otherwise), with `status_date` (a day; needed when the list says `needsDate`), `status_who` (a member; defaults to the caller) and `status_text` (up to 200); a note carries its author (`detail.author` kind and name; kind is `agent` only when the verified claims carry `app_metadata.actor = "agent"`, never a body field); a status change clears the date, person and line the old status carried |
 | `lead-export` | dashboard | CSV of the leads the caller may see, one column per core and industry field in form order; one `exported` event per lead. With `template` (work order 02): the caller's CRM view (`lead_list`: search, filters, sort, and from work order 20 the view's `due` and `duplicates` ticks, each true or false, 400 otherwise) in the saved map's columns and order, at most 5000 |
@@ -144,10 +145,11 @@ a Vault name. A script reads a key by its variable name from the git-ignored `.e
 | Site signing key, one per site | the site's Pages project and Vault; hash in `api_keys` | `/api/lead` to `capture-lead` |
 | Resend key, alert sender | function environment | lead alert, sign-in mail through Supabase Auth SMTP |
 | Mail outbox key | function environment and Vault `mail_outbox_key` | pg_cron to `mail-outbox` |
+| Resend webhook signing secret | function environment | `mail-events` |
 
 Variable names a script expects: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY` (suffix `_STAGING` or
 `_PROD`), `STAGING_DB_URL`, `PROD_DB_URL`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `RUNNER_KEY`,
-`GITHUB_DISPATCH_TOKEN`, `CRON_KEY`, `PSI_API_KEY`, `CRUX_API_KEY`, `BING_WEBMASTER_KEY`, `RESEND_API_KEY`, `LEAD_ALERT_FROM`, `DASHBOARD_URL`, `MAIL_OUTBOX_KEY`, `SITE_SIGNING_KEY_<SLUG>` (minted by
+`GITHUB_DISPATCH_TOKEN`, `CRON_KEY`, `PSI_API_KEY`, `CRUX_API_KEY`, `BING_WEBMASTER_KEY`, `RESEND_API_KEY`, `LEAD_ALERT_FROM`, `DASHBOARD_URL`, `MAIL_OUTBOX_KEY`, `RESEND_WEBHOOK_SECRET`, `SITE_SIGNING_KEY_<SLUG>` (minted by
 `tools/mint-site-key.mjs`), `PLATFORM_FUNCTIONS_BASE`, `CLOUDFLARE_PAGES_TOKEN`. Production keys are used only with
 `--i-mean-production`.
 

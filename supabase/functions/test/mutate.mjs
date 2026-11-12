@@ -349,6 +349,13 @@ const MUTANTS = [
   ['E5 capture-lead: the visitor is not counted', F + 'capture-lead/index.ts', 'await sql`select service.count_visitor(${site}::uuid, ${visitor})`;', 'void 0;', 'capture.test.ts'],
   ['E5 capture-lead: any visitor text is a visitor', F + 'capture-lead/index.ts', 'const VISITOR = /^[0-9a-f]{64}$/;', 'const VISITOR = /^.+$/;', 'capture.test.ts'],
   ['E5 capture-lead: the lead stores the caller\'s address hash, not the visitor\'s', F + 'capture-lead/index.ts', '${L.assignee}, ${visitor}, ${ua})', '${L.assignee}, ${ipHash}, ${ua})', 'capture.test.ts'],
+  // ---- E21: the Resend webhook ----
+  ['E21 mail-events: a bad signature is let through', F + 'mail-events/index.ts', 'if (!ok) {', 'if (false) {', 'mail-events.test.ts'],
+  ['E21 mail-events: an old timestamp is accepted', F + 'mail-events/index.ts', 'Math.abs(now - Number(ts)) > TOLERANCE_S', 'false', 'mail-events.test.ts'],
+  ['E21 mail-events: only the first signature of the header is tried', F + 'mail-events/index.ts', "header.split(' ').some(", "header.split(' ').slice(0, 1).some(", 'mail-events.test.ts'],
+  ['E21 mail-events: a temporary bounce suppresses', F + 'mail-events/index.ts', "e?.data?.bounce?.type === 'Permanent'", 'true', 'mail-events.test.ts'],
+  ['E21 mail-events: the body is not signed', F + 'mail-events/index.ts', '`${id}.${ts}.${body}`', '`${id}.${ts}.`', 'mail-events.test.ts'],
+  ['E21 mail-events: a complaint suppresses for the whole platform', F + 'mail-events/index.ts', "e?.type === 'email.complained' ? 'complaint'", "e?.type === 'email.complained' ? 'bounce'", 'mail-events.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
