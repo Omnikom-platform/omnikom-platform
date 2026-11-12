@@ -95,17 +95,21 @@ service-area city, on mobile. Nothing about Google is automated; the script plan
    entries with position, name, rating, reviews, website/phone when shown). One page at a time, **at least 45 seconds apart; stop at
    the first robot check** (save `{"robotCheck": true}` and say so; do not continue). Not signed in to anything of the client's, nothing submitted.
 4. **Import.** `node scripts/local-grid.mjs import <url>` (also run by `local-run.mjs`) writes `<pewp>/local/<date>/grid.json`,
-   `grid.txt` and `grid.html`. A capture counts only if its footer names the city, another service-area city, or says "precise
-   location"; a footer that shows another place (Egypt, a past-activity county) is kept under that place, drawn `?` and **not counted**.
-   A point captured twice keeps the newest. Rejected with the reason: robot-check files, desktop captures (the grid is mobile only),
-   captures without date, point or pack.
+   `grid.txt` and `grid.html`. A capture is one of two forms, never mixed in one grid (a folder holding both that pass is BLOCKED with
+   the count of each, and nothing is written): the Google Maps viewport form (`method: "maps-viewport"`, `viewport {lat, lng, zoom}` read back
+   from the page's address, mobile or desktop, as captured) counts when the viewport's centre is at most 0.5 km from the point at zoom 13 to 15;
+   the mobile search form (no `method`) counts only on mobile and only when its footer names the city, another service-area city, or says
+   "precise location" (a footer that shows another place is kept under that place, drawn `?` and not counted). A pack row with `sponsored: true`
+   is an ad: it is taken out before the positions are numbered and the point keeps `sponsoredRemoved`. A point captured twice keeps the newest.
+   Rejected with the reason: robot-check files, a search-form capture not on mobile, another `method`, a Maps capture without a viewport or on a
+   device other than mobile or desktop, a `sponsored` that is not true or false, captures without date, point or pack.
    - **Per-point table:** our position (or absent), pack size, the top 3 competitors at that point, rating and reviews.
    - **Share of local voice** per query and city: 3-pack points / localized points (`solv3`), points in the pack at all (`presence`),
      median position where present, coverage against the plan (`partial` when points are missing), and the top 3 competitors by the
      number of points where they hold the 3-pack. Every number is a sourced number naming the captures.
    - **Heat map:** `grid.txt` (north-up matrix: 1 to 9 our position, `-` not in the pack, `?` another place, `.` not captured) and
      `grid.html` (one inline-styled table per query and city with a legend; no script, no external file, names escaped).
-   - **Ranking rows** in `grid.json` `rankings`: engine google, device mobile, `location "lat,lng (city)"`, a whole position or null,
+   - **Ranking rows** in `grid.json` `rankings`: engine google, the device as captured (mobile for the search form), `location "lat,lng (city)"`, a whole position or null,
      passing the ranking-row validator. A whole position needs a URL: the listing's website if the capture has it, else the business
      domain, said in `urlSource` (the map pack lists a listing, not a page).
 5. **Measure.** `measure.mjs` reads the latest grid for **MSR-010**: a weak coverage finding when the share of local voice is below
@@ -136,6 +140,6 @@ real capture session is the first proof, and the location override approach must
 
 ## Proof
 `node scripts/test-measure.mjs` (profile import from an API-shaped export and from manual captures, undated refusal, absolute and
-comparative findings, pack importer with localized / unlocalized / rejected / superseded captures, NAP on a fixture site and
+comparative findings, pack importer with localized / unlocalized / rejected / superseded captures, the grid's two capture forms, sponsored rows and a folder that mixes them, NAP on a fixture site and
 citations, review gap with sourced numbers, BLOCKED paths) and `--mutants` (phone normalisation and the unlocalized-capture
 guard broken in turn must turn named checks red).

@@ -70,6 +70,22 @@ if (args.includes("--mutants")) {
     { id: "today-unchecked", file: "measure.mjs", from: "if (opt(\"--today\") && !isDay(opt(\"--today\"))) { console.error(", to: "if (false) { console.error(", red: "today: measure, local-run and local-grid" },
     { id: "runmjs-bom-config", file: "../measure/run.mjs", from: "JSON.parse(noBom(fs.readFileSync(cfgFile, \"utf8\")))", to: "JSON.parse(fs.readFileSync(cfgFile, \"utf8\"))", red: "measure run.mjs: a config.json with a BOM" },
     { id: "pack-unlocalized-counted", file: "local-pack.mjs", from: "location = c.locationShown; localized = false; }", to: "location = c.locationShown; localized = true; }", red: "local pack: a capture whose page showed another place" },
+    // ---- grid capture forms (SKILL-GRID-1a)
+    { id: "grid-maps-mobile-only", file: "local-grid.mjs", from: 'if (!maps && c.device !== "mobile") {', to: 'if (c.device !== "mobile") {', red: "grid maps: a capture of the Google Maps viewport at the point counts" },
+    { id: "grid-maps-far-viewport-counted", file: "local-grid.mjs", from: "haversineKm(c.viewport, c.point) <= 0.5", to: "haversineKm(c.viewport, c.point) <= 5", red: "grid maps: localized exactly when the viewport centre" },
+    { id: "grid-maps-any-zoom", file: "local-grid.mjs", from: "[13, 14, 15].includes(c.viewport.zoom)", to: "c.viewport.zoom > 0", red: "grid maps: localized exactly when the viewport centre" },
+    { id: "grid-maps-footer-read", file: "local-grid.mjs", from: "const localized = maps ? ", to: "const localized = false ? ", red: "grid maps: a capture of the Google Maps viewport at the point counts" },
+    { id: "grid-maps-viewport-unchecked", file: "local-grid.mjs", from: "if (maps && !(Number.isFinite(c.viewport?.lat)", to: "if (false && !(Number.isFinite(c.viewport?.lat)", red: "grid maps: a viewport that is not lat, lng and a whole zoom is rejected" },
+    { id: "grid-maps-other-method-taken", file: "local-grid.mjs", from: 'if (maps && c.method !== "maps-viewport") {', to: "if (false) {", red: "grid maps: a method other than maps-viewport is rejected" },
+    { id: "grid-ads-ranked", file: "local-grid.mjs", from: "const pack = c.pack.filter((p) => p.sponsored !== true).map(", to: "const pack = c.pack.map(", red: "grid maps: rows the page marks sponsored are ads" },
+    { id: "grid-ads-not-renumbered", file: "local-grid.mjs", from: "position: ads ? i + 1 : Number(p.position ?? i + 1)", to: "position: Number(p.position ?? i + 1)", red: "grid maps: rows the page marks sponsored are ads" },
+    { id: "grid-always-renumbered", file: "local-grid.mjs", from: "position: ads ? i + 1 : Number(p.position ?? i + 1)", to: "position: i + 1", red: "grid maps: with no sponsored row the positions stay as captured" },
+    { id: "grid-bad-sponsored-taken", file: "local-grid.mjs", from: "if (bad >= 0) { rejected.push(", to: "if (false) { rejected.push(", red: "grid maps: with no sponsored row the positions stay as captured" },
+    { id: "grid-point-device-mobile", file: "local-grid.mjs", from: 'const device = maps ? c.device : "mobile";', to: 'const device = "mobile";', red: "grid maps: a capture of the Google Maps viewport at the point counts" },
+    { id: "grid-words-always-mobile", file: "local-grid.mjs", from: 'if (!d) return { label: "mobile",', to: 'if (true) return { label: "mobile",', red: "grid maps: a folder of Maps viewport captures imports" },
+    { id: "grid-rows-device-mobile", file: "local-grid.mjs", from: 'device: p.device, language: p.language, engine: "google",', to: 'device: "mobile", language: p.language, engine: "google",', red: "grid maps: a folder of Maps viewport captures imports" },
+    { id: "grid-forms-mixed", file: "local-grid.mjs", from: "if (res.summary.viewportCaptures && res.summary.searchCaptures) return", to: "if (false) return", red: "grid maps: a folder holding both forms is BLOCKED" },
+    { id: "grid-maps-other-device-taken", file: "local-grid.mjs", from: 'if (maps && c.device !== "mobile" && c.device !== "desktop") {', to: "if (false) {", red: "grid maps: a Maps capture on a device that is not mobile or desktop is rejected" },
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-mut-"));
   let ok = 0;
@@ -373,6 +389,42 @@ try {
   check("grid diff: an unchanged point is not reported as a change and a not-localized point is never compared", !gd.changes.some((c) => c.pointId === "r2c2" || c.pointId === "r3c3"), JSON.stringify(gd.changes.map((c) => c.pointId)));
   const lr2 = await cli("local-run.mjs", [URL_, "--site", napSite, "--today", "2026-09-28", "--cwd", tmp]);
   check("local run imports the grid when captures exist (BLOCKED when they do not); importing unchanged captures again does not create a second grid that would hide the change", lr2.status === 0 && !fs.existsSync(path.join(pewp, "local", "2026-09-28", "grid.json")) && /grid=ok/.test(lr2.stdout) && /grid=BLOCKED/.test(lr.stdout) && /Grid, "we buy houses Tracy, CA" around Tracy, CA/.test(fs.readFileSync(path.join(pewp, "local", "2026-09-28", "report.md"), "utf8")), lr.stdout + lr2.stdout);
+
+  // ---- the Google Maps viewport form and sponsored rows (SKILL-GRID-1a)
+  const IG = (caps) => { try { return GR.importGrid(caps, { name: me.name, domain: "mysite.example", cities: ["Tracy, CA", "Manteca, CA"] }); } catch (e) { return { threw: String(e), points: [], rejected: [] }; } };
+  const reqOf = (id) => tracyReq.find((r) => r.point.id === id), km = (k) => k / GR.KM_PER_DEG, c22 = reqOf("r2c2");
+  const V = (r, over = {}) => ({ query: r.query, city: r.city, location: r.location, method: "maps-viewport", viewport: { lat: r.point.lat, lng: r.point.lng, zoom: 14 }, device: "desktop", language: "en", point: r.point, capturedAt: "2026-09-29T10:00:00Z", capturedIn: "owner laptop, signed out", pack: packWith(2), ...over });
+  const ads = ["First Ad Homes", "Second Ad Homes", "Third Ad Homes"].map((name, i) => ({ name, position: i + 1, sponsored: true }));
+  const SF = (r, over = {}) => { const { method, viewport, ...rest } = V(r); return { ...rest, device: "mobile", locationShown: "Tracy, California", ...over }; };
+  const m1 = IG([V(c22)]), m1p = m1.points[0];
+  check("grid maps: a capture of the Google Maps viewport at the point counts, on the device it was captured on", m1.rejected.length === 0 && m1.points.length === 1 && m1p?.localized === true && m1p?.method === "maps-viewport" && m1p?.device === "desktop" && m1p?.position?.value === 2 && m1p?.position?.device === "desktop", JSON.stringify(m1).slice(0, 400));
+  const vw = (o) => ({ viewport: { lat: c22.point.lat, lng: c22.point.lng, zoom: 14, ...o } }), loc2 = (over) => IG([V(c22, over)]).points[0]?.localized;
+  const m2 = [loc2(vw({ lat: c22.point.lat + km(0.4) })), loc2(vw({ lat: c22.point.lat + km(0.6) })), loc2(vw({ zoom: 13 })), loc2(vw({ zoom: 15 })), loc2(vw({ zoom: 12 })), loc2(vw({ zoom: 16 })), loc2({ locationShown: "Another Town, Nowhere" })];
+  check("grid maps: localized exactly when the viewport centre is at most 0.5 km from the point and the zoom is 13, 14 or 15", m2.join() === "true,false,true,true,false,false,true", m2.join());
+  const m3 = [undefined, { lat: "37.7", lng: c22.point.lng, zoom: 14 }, { lat: c22.point.lat, lng: null, zoom: 14 }, { lat: c22.point.lat, lng: c22.point.lng, zoom: 14.5 }].map((viewport) => IG([V(c22, { viewport })]));
+  check("grid maps: a viewport that is not lat, lng and a whole zoom is rejected", m3.every((r) => r.points.length === 0 && r.rejected.length === 1 && r.rejected[0]?.reason?.includes("viewport{lat,lng,zoom}")), JSON.stringify(m3.map((r) => [r.points.length, r.rejected])).slice(0, 400));
+  const noM = (() => { const { method, ...rest } = V(c22); return rest; })();
+  const m4 = [IG([V(c22, { method: "maps" })]), IG([V(c22, { method: null })])], m4n = IG([noM]);
+  check("grid maps: a method other than maps-viewport is rejected naming the two forms", m4.every((r) => r.points.length === 0 && r.rejected.length === 1) && m4[0].rejected[0]?.reason === m4[1].rejected[0]?.reason && /left out/.test(m4[0].rejected[0]?.reason) && /"maps-viewport"/.test(m4[0].rejected[0]?.reason) && m4n.points.length === 0 && m4n.rejected[0]?.reason === "the grid is measured on mobile only", JSON.stringify([m4, m4n.rejected]).slice(0, 400));
+  const adPack = [...ads, ...packWith(1).map((o) => ({ ...o, position: o.position + 3, sponsored: false }))];
+  const m5 = [IG([V(c22, { pack: adPack })]), IG([SF(c22, { pack: adPack })])];
+  check("grid maps: rows the page marks sponsored are ads", m5.every((r) => r.points.length === 1 && r.points[0].position?.value === 1 && r.points[0].packSize === 6 && r.points[0].sponsoredRemoved === 3 && r.points[0].top3?.map((t) => t.name).join() === "Maple Home Buyers,Frank Buys Houses,Kind Path"), JSON.stringify(m5.map((r) => r.points[0] && [r.points[0].position, r.points[0].packSize, r.points[0].sponsoredRemoved, r.points[0].top3])).slice(0, 400));
+  const p6 = packWith(3).map((o, i) => ({ ...o, position: [1, 3, 4, 5, 6, 7][i], ...(i === 1 ? { sponsored: false } : {}) }));
+  const m6 = IG([V(c22, { pack: p6 })]).points[0], m6a = IG([V(c22, { pack: packWith(3).map((o, i) => (i === 2 ? { ...o, sponsored: "yes" } : o)) })]), m6b = IG([V(c22, { pack: packWith(3).map((o, i) => (i === 0 ? { ...o, sponsored: null } : o)) })]);
+  check("grid maps: with no sponsored row the positions stay as captured", m6?.position?.value === 4 && m6?.sponsoredRemoved === 0 && m6a.points.length === 0 && m6a.rejected[0]?.reason === "pack[2].sponsored must be true or false, or left out" && m6b.points.length === 0 && m6b.rejected[0]?.reason === "pack[0].sponsored must be true or false, or left out", JSON.stringify([m6?.position, m6?.sponsoredRemoved, m6a.rejected, m6b.rejected]).slice(0, 400));
+  const vroot = path.join(tmp, "maps-form"), vp = path.join(vroot, "site-checks", "mysite.example", ".pewp"), vdir = path.join(vp, "captures", "local", "grid");
+  w(path.join(vp, "business.json"), bz);
+  for (const r of [c22, reqOf("r1c1")]) w(path.join(vdir, `${r.id}.json`), V(r));
+  const gvm = await cli("local-grid.mjs", ["import", URL_, "--cwd", vroot, "--today", "2026-09-29"]);
+  const vout = path.join(vp, "local", "2026-09-29"), rd = (f) => (fs.existsSync(f) ? fs.readFileSync(f, "utf8") : "");
+  const vj = rd(path.join(vout, "grid.json")), vt = rd(path.join(vout, "grid.txt")), vh = rd(path.join(vout, "grid.html")), vg = J(path.join(vout, "grid.json"));
+  check("grid maps: a folder of Maps viewport captures imports", gvm.status === 0 && /^grid 2026-09-29: 2 points \(2 localized, 0 not\), 0 still pending, 0 rejected; 2 ranking rows/m.test(gvm.stdout) && vg?.source === "owner-supervised browser captures of the Google Maps results list at each viewport, captured on desktop" && vg?.rankings?.length === 2 && vg.rankings.every((r) => r.device === "desktop" && TVg.validateRankingRow(r).length === 0) && !/mobile/i.test(vj) && !/mobile/i.test(vt) && !/mobile/i.test(vh) && vt.startsWith("Local grid heat map (the Google Maps results list at each viewport, captured on desktop). ") && vh.includes("<p>The Google Maps results list at each viewport, captured on desktop. Each square") && grid1.source === "owner-supervised browser captures of the map pack, mobile" && txt.startsWith("Local grid heat map (mobile). ") && htm.includes("<p>Mobile map pack. Each square"), gvm.stdout + gvm.stderr + vt.slice(0, 200));
+  w(path.join(vdir, `${reqOf("r2c3").id}.json`), V(reqOf("r2c3"), { device: "mobile" }));
+  w(path.join(vdir, "search-r2c3.json"), SF(reqOf("r2c3"), { capturedAt: "2026-09-29T11:00:00Z", pack: packWith(1) }));
+  const gm = await cli("local-grid.mjs", ["import", URL_, "--cwd", vroot, "--today", "2026-09-30"]);
+  check("grid maps: a folder holding both forms is BLOCKED", gm.status === 3 && /^BLOCKED: the grid folder holds 1 mobile Google search capture\(s\) \(no method\) and 3 Google Maps viewport capture\(s\) \(method maps-viewport\); one grid never mixes the two \| unblocks: Set the captures of the form you are not using aside/.test(gm.stdout.trim().split("\n").at(-1)) && !fs.existsSync(path.join(vp, "local", "2026-09-30")), gm.stdout + gm.stderr);
+  const m9 = IG([V(c22, { device: "tablet" })]), m9c = IG([V(c22, { device: "mobile" })]);
+  check("grid maps: a Maps capture on a device that is not mobile or desktop is rejected", m9.points.length === 0 && m9.rejected.length === 1 && m9.rejected[0]?.reason === "device must be mobile or desktop, as captured (ranking rules R-001 and R-002)" && m9c.points.length === 1 && m9c.points[0].localized === true && m9c.points[0].device === "mobile", JSON.stringify([m9.rejected, m9c.points.length]).slice(0, 400));
 
   // ---------------- run B (a month later, things moved)
   phase = "B"; gemCount = {};

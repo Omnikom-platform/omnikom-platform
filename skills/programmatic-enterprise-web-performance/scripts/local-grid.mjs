@@ -5,7 +5,7 @@
 //           file, in the style local-pack.mjs reads (pack[] of the map pack) plus the point.
 //   import  reads those captures into a per-point map-pack position table, a "share of local voice" per query and city, the top 3
 //           competitors per point, a heat map (text and HTML, no external libs) and ranking rows that pass targets-validate
-//           (location = "lat,lng (city)", device mobile).
+//           (location = "lat,lng (city)", the device as captured; mobile for the search form).
 //   diff    diffGrid(prev, cur): per point, per query and city, who entered or left the 3-pack (used by measure.mjs for rule MSR-010).
 // City centres are NOT looked up or guessed: they come from captures/local/grid/cities.json ([{ city, lat, lng, source, readAt }], read
 // once from a public map by the owner or the main session, with the source and the date). A city without a sourced centre is BLOCKED.
@@ -90,6 +90,8 @@ export function localizedGrid(shown, city, allCities = []) {
 }
 const median = (a) => { const s = a.slice().sort((x, y) => x - y); return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : null; };
 
+// Two capture forms, never mixed in one grid: (a) no method key, a mobile Google search localized by its footer; (b) method
+// "maps-viewport", the Google Maps results list at viewport {lat, lng, zoom}, mobile or desktop, as captured, localized within 0.5 km at zoom 13 to 15.
 export function importGrid(caps, { plan = null, name = null, domain = null, aliases = [], phone = null, cities = [], captureDir = null } = {}) {
   const points = [], rejected = [], pending = [];
   const allCities = cities.length ? cities : (plan?.planned || []).map((p) => p.city);
@@ -100,15 +102,23 @@ export function importGrid(caps, { plan = null, name = null, domain = null, alia
     if (!c.point || !Number.isFinite(c.point.lat) || !Number.isFinite(c.point.lng) || !c.point.id) miss.push("point{id,lat,lng}");
     if (!Array.isArray(c.pack)) miss.push("pack[]");
     if (miss.length) { rejected.push({ file: c._file, query: c.query || null, reason: `missing ${miss.join(", ")}` }); continue; }
-    if (c.device !== "mobile") { rejected.push({ file: c._file, query: c.query, reason: "the grid is measured on mobile only" }); continue; }
-    const pack = c.pack.map((p, i) => ({ position: Number(p.position ?? i + 1), name: p.name || null, rating: p.rating ?? null, reviews: p.reviews ?? p.reviewCount ?? null, category: p.category || null, website: p.website || null, phone: p.phone || null }));
+    const maps = Object.hasOwn(c, "method");   // (b) a Google Maps viewport capture; no method key is (a), the mobile Google search
+    if (maps && c.method !== "maps-viewport") { rejected.push({ file: c._file, query: c.query, reason: 'method is left out (a mobile Google search capture) or is "maps-viewport" (a Google Maps viewport capture)' }); continue; }
+    if (maps && !(Number.isFinite(c.viewport?.lat) && Number.isFinite(c.viewport?.lng) && Number.isInteger(c.viewport?.zoom))) { rejected.push({ file: c._file, query: c.query, reason: "missing viewport{lat,lng,zoom}: numbers read back from the page's address, the zoom a whole number" }); continue; }
+    if (maps && c.device !== "mobile" && c.device !== "desktop") { rejected.push({ file: c._file, query: c.query, reason: "device must be mobile or desktop, as captured (ranking rules R-001 and R-002)" }); continue; }
+    if (!maps && c.device !== "mobile") { rejected.push({ file: c._file, query: c.query, reason: "the grid is measured on mobile only" }); continue; }
+    const bad = c.pack.findIndex((p) => Object.hasOwn(p, "sponsored") && typeof p.sponsored !== "boolean");
+    if (bad >= 0) { rejected.push({ file: c._file, query: c.query, reason: `pack[${bad}].sponsored must be true or false, or left out` }); continue; }
+    const ads = c.pack.filter((p) => p.sponsored === true).length;   // a row the page marks as sponsored is an ad, not a ranking (both forms)
+    const device = maps ? c.device : "mobile";   // (b) carries its device as captured: mobile or desktop (the line above)
+    const pack = c.pack.filter((p) => p.sponsored !== true).map((p, i) => ({ position: ads ? i + 1 : Number(p.position ?? i + 1), name: p.name || null, rating: p.rating ?? null, reviews: p.reviews ?? p.reviewCount ?? null, category: p.category || null, website: p.website || null, phone: p.phone || null }));
     const mine = findOurs(pack, { name, domain, aliases, phone });
-    const localized = localizedGrid(c.locationShown, c.city, allCities);
+    const localized = maps ? haversineKm(c.viewport, c.point) <= 0.5 && [13, 14, 15].includes(c.viewport.zoom) : localizedGrid(c.locationShown, c.city, allCities);
     const location = fmtLoc(c.point.lat, c.point.lng, c.city);
-    const src = `owner browser capture of the map pack (${c.capturedIn || "browser, details not recorded"})`;
+    const src = `owner browser capture of ${maps ? "the Google Maps results list at the viewport" : "the map pack"} (${c.capturedIn || "browser, details not recorded"})`;
     const top3 = pack.filter((p) => !mine || p.position !== mine.position).sort((a, b) => a.position - b.position).slice(0, 3).map((p) => ({ position: p.position, name: p.name, rating: p.rating, reviews: p.reviews }));
-    points.push({ query: c.query, city: c.city, pointId: c.point.id, row: c.point.row ?? null, col: c.point.col ?? null, lat: c.point.lat, lng: c.point.lng, location, device: "mobile", language: c.language, localized, locationShown: c.locationShown || null,
-      packSize: pack.length, inPack: !!mine, position: fact(mine ? mine.position : null, src, c.capturedAt, c._file, { location, device: "mobile", estimate: false }), ours: mine ? { name: mine.name, website: mine.website } : null, top3, pack, capturedAt: c.capturedAt, file: c._file });
+    points.push({ query: c.query, city: c.city, pointId: c.point.id, row: c.point.row ?? null, col: c.point.col ?? null, lat: c.point.lat, lng: c.point.lng, location, device, method: maps ? "maps-viewport" : null, language: c.language, localized, locationShown: c.locationShown || null,
+      packSize: pack.length, sponsoredRemoved: ads, inPack: !!mine, position: fact(mine ? mine.position : null, src, c.capturedAt, c._file, { location, device, estimate: false }), ours: mine ? { name: mine.name, website: mine.website } : null, top3, pack, capturedAt: c.capturedAt, file: c._file });
   }
   // the newest capture of the same point + query wins
   const key = (p) => [nfkc(p.query), nfkc(p.city), p.pointId, p.device, p.language].join("|");
@@ -124,7 +134,7 @@ export function importGrid(caps, { plan = null, name = null, domain = null, alia
     const planned = plan?.requests ? plan.requests.filter((r) => nfkc(r.query) === nfkc(query) && nfkc(r.city) === nfkc(city)).length : null;
     const in3 = ok.filter((p) => p.inPack && p.position.value <= 3).length, inPack = ok.filter((p) => p.inPack).length;
     const dates = ok.map((p) => p.capturedAt).sort(); const last = dates.at(-1) || null;
-    const src = `owner browser captures of the map pack at ${ok.length} localized grid point(s), mobile`;
+    const src = `owner browser captures of the map pack at ${ok.length} localized grid point(s), ${gridWords(ok).label}`;
     const comp = new Map();
     for (const p of ok) for (const c of p.pack.filter((x) => x.position <= 3 && !(p.inPack && p.ours && normName(x.name) === normName(p.ours.name || "")))) { const o = comp.get(normName(c.name)) || { name: c.name, points3: 0 }; o.points3++; comp.set(normName(c.name), o); }
     const positions = ok.filter((p) => p.inPack).map((p) => p.position.value);
@@ -134,24 +144,32 @@ export function importGrid(caps, { plan = null, name = null, domain = null, alia
       pointsIn3Pack: in3, pointsInPack: inPack, pointsAbsent: ok.length - inPack, medianPosition: positions.length ? median(positions) : null,
       topCompetitors: [...comp.values()].sort((a, b) => b.points3 - a.points3 || a.name.localeCompare(b.name)).slice(0, 3).map((c) => ({ ...c, share3: ok.length ? Math.round((c.points3 / ok.length) * 1000) / 1000 : null })) };
   });
-  return { points: table, solv, rejected, superseded, pending, summary: { captures: caps.length, used: table.length, localized: table.filter((p) => p.localized).length, notLocalized: table.filter((p) => !p.localized).length, pending: pending.length } };
+  return { points: table, solv, rejected, superseded, pending, summary: { captures: caps.length, used: table.length, localized: table.filter((p) => p.localized).length, notLocalized: table.filter((p) => !p.localized).length, pending: pending.length, viewportCaptures: points.filter((p) => p.method).length, searchCaptures: points.filter((p) => !p.method).length } };
 }
 
-// Ranking rows that pass targets-validate (R-001..R-003): engine google, device mobile, location "lat,lng (city)", a whole position or null.
+// Ranking rows that pass targets-validate (R-001..R-003): engine google, device as captured (mobile for the search form), location "lat,lng (city)", a whole position or null.
 // A whole position needs a URL: the listing's website if the capture has it, else the business domain, said so in `urlSource`.
 export function gridRankingRows(points, { domain = null } = {}) {
   return points.filter((p) => p.localized).map((p) => {
     const v = p.position.value;
     const url = v == null ? null : p.ours?.website || (domain ? `https://${domain}/` : null);
-    return { query: p.query, location: p.location, device: "mobile", language: p.language, engine: "google", url, urlSource: v == null ? null : p.ours?.website ? "the listing's website in the capture" : "the business domain (the map pack lists the listing, not a page)",
+    return { query: p.query, location: p.location, device: p.device, language: p.language, engine: "google", url, urlSource: v == null ? null : p.ours?.website ? "the listing's website in the capture" : "the business domain (the map pack lists the listing, not a page)",
       source: "local-grid", city: p.city, pointId: p.pointId, localized: true, position: p.position, packSize: p.packSize, top3: p.top3 };
   }).filter((r) => r.position.value == null || r.url);
+}
+
+// The words follow the data (G1): a grid of Maps viewport captures says what it is and the devices it was captured on; the search form says mobile.
+function gridWords(points) {
+  const d = [...new Set(points.filter((p) => p.method).map((p) => p.device))].sort().join(", ");
+  if (!d) return { label: "mobile", legend: "Mobile map pack.", source: "owner-supervised browser captures of the map pack, mobile" };
+  const label = `the Google Maps results list at each viewport, captured on ${d}`;
+  return { label, legend: `The Google Maps results list at each viewport, captured on ${d}.`, source: `owner-supervised browser captures of ${label}` };
 }
 
 // ---------- heat map ----------
 const cell = (p, planned) => (!p ? (planned ? "." : " ") : !p.localized ? "?" : p.inPack ? String(Math.min(p.position.value, 9)) : "-");
 export function heatText(result, plan = null) {
-  const L = ["Local grid heat map (mobile). Cell = our position in the map pack at that point: 1 to 9, - = not in the pack, ? = capture not at that place (not counted), . = not captured yet.", "North is up. Each block is one query in one city.", ""];
+  const L = [`Local grid heat map (${gridWords(result.points).label}). Cell = our position in the map pack at that point: 1 to 9, - = not in the pack, ? = capture not at that place (not counted), . = not captured yet.`, "North is up. Each block is one query in one city.", ""];
   for (const s of result.solv) {
     L.push(`${s.query}  |  ${s.city}  |  in the 3-pack at ${s.pointsIn3Pack} of ${s.localizedPoints} points${s.solv3.value != null ? ` (share of local voice ${Math.round(s.solv3.value * 100)}%)` : ""}${s.partial ? "  [PARTIAL: not all points captured]" : ""}`);
     const pts = result.points.filter((p) => p.query === s.query && p.city === s.city); const planPts = plan?.planned?.find((x) => x.city === s.city)?.points;
@@ -174,7 +192,7 @@ export function heatHtml(result, plan = null, { title = "Local grid" } = {}) {
     const centre = pts.find((p) => p.pointId === "center");
     return `<section><h2>${esc(s.query)} <small>${esc(s.city)}</small></h2><p>In the 3-pack at <b>${s.pointsIn3Pack}</b> of ${s.localizedPoints} points${s.solv3.value != null ? ` (share of local voice ${Math.round(s.solv3.value * 100)}%)` : ""}${s.partial ? " <b>(partial: not every point is captured)</b>" : ""}.</p><table>${rows}</table>${centre ? `<p>Centre point: ${centre.localized ? (centre.inPack ? "position " + centre.position.value : "not in the pack") : "capture not at that place"}</p>` : ""}<p>Top competitors: ${esc(s.topCompetitors.map((x) => `${x.name} (${x.points3} points)`).join("; ") || "none seen")}</p></section>`;
   }).join("\n");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>body{font:16px system-ui,sans-serif;margin:16px;max-width:720px;color:#111;background:#fff}td{width:56px;height:56px;text-align:center;font-weight:600;border:1px solid #fff}table{border-collapse:collapse}small{color:#555;font-weight:400}.k span{display:inline-block;padding:2px 8px;margin:2px;border-radius:4px}@media (prefers-color-scheme:dark){body{background:#111;color:#eee}small{color:#aaa}}</style></head><body><h1>${esc(title)}</h1><p>Mobile map pack. Each square is a point on the map (north is up); the number is our position there.</p><p class="k"><span style="background:#86efac">1 to 3</span><span style="background:#fde68a">4 to 6</span><span style="background:#fdba74">7 or lower</span><span style="background:#fca5a5">not in the pack</span><span style="background:#c7d2fe">capture at another place (not counted)</span><span style="background:#e5e7eb">not captured yet</span></p>${blocks}</body></html>\n`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>body{font:16px system-ui,sans-serif;margin:16px;max-width:720px;color:#111;background:#fff}td{width:56px;height:56px;text-align:center;font-weight:600;border:1px solid #fff}table{border-collapse:collapse}small{color:#555;font-weight:400}.k span{display:inline-block;padding:2px 8px;margin:2px;border-radius:4px}@media (prefers-color-scheme:dark){body{background:#111;color:#eee}small{color:#aaa}}</style></head><body><h1>${esc(title)}</h1><p>${esc(gridWords(result.points).legend)} Each square is a point on the map (north is up); the number is our position there.</p><p class="k"><span style="background:#86efac">1 to 3</span><span style="background:#fde68a">4 to 6</span><span style="background:#fdba74">7 or lower</span><span style="background:#fca5a5">not in the pack</span><span style="background:#c7d2fe">capture at another place (not counted)</span><span style="background:#e5e7eb">not captured yet</span></p>${blocks}</body></html>\n`;
 }
 
 // ---------- diff of two grids (identical query + city + point + device + language only) ----------
@@ -228,6 +246,7 @@ export function runGridImport(target, { cwd = process.cwd(), today = null, log =
   const caps = loadCaptures(dir).filter((c) => c.query || c.robotCheck || c.point).filter((c) => !c.requests && !c.queryTemplates);
   if (!caps.length) return { status: "blocked", blocked: { source: "local grid captures", reason: `no grid captures in ${dir}`, unblock: "Run `local-grid.mjs plan`, then capture requests.json at human pace (45 s apart, stop at the first robot check) into that folder." } };
   const res = importGrid(caps, { plan, name: business?.name, domain: business?.domain, phone: business?.phone, cities: cityList(business), captureDir: dir });
+  if (res.summary.viewportCaptures && res.summary.searchCaptures) return { status: "blocked", blocked: { source: "local grid captures", reason: `the grid folder holds ${res.summary.searchCaptures} mobile Google search capture(s) (no method) and ${res.summary.viewportCaptures} Google Maps viewport capture(s) (method maps-viewport); one grid never mixes the two`, unblock: `Set the captures of the form you are not using aside (move them out of ${dir}; the plan asks for the Google Maps viewport form), then import again.` } };
   // Importing the same captures again must not create a second "grid" that would hide the change in the diff: when no capture is new
   // since the newest grid, that grid stands.
   const signature = createHash("sha256").update(JSON.stringify(res.points.map((p) => [p.file, p.capturedAt]).sort())).digest("hex").slice(0, 16);
@@ -236,7 +255,7 @@ export function runGridImport(target, { cwd = process.cwd(), today = null, log =
   const lastG = had.length ? readJson(path.join(lroot, had.at(-1), "grid.json")) : null;
   if (lastG?.signature === signature) { log(`grid: no new capture since ${lastG.date}; that grid stands (${path.join(lroot, had.at(-1))})`); return { dir: path.join(lroot, had.at(-1)), unchanged: true, ...lastG }; }
   const rows = gridRankingRows(res.points, { domain: business?.domain });
-  const out = { status: "ok", date, signature, source: "owner-supervised browser captures of the map pack, mobile", plan: plan ? { n: plan.n, spacingKm: plan.spacingKm, captures: plan.captureCount } : null, ...res, rankings: rows };
+  const out = { status: "ok", date, signature, source: gridWords(res.points).source, plan: plan ? { n: plan.n, spacingKm: plan.spacingKm, captures: plan.captureCount } : null, ...res, rankings: rows };
   const od = path.join(loc.pewp, "local", date); fs.mkdirSync(od, { recursive: true });
   writeJson(path.join(od, "grid.json"), out); fs.writeFileSync(path.join(od, "grid.txt"), heatText(res, plan)); fs.writeFileSync(path.join(od, "grid.html"), heatHtml(res, plan, { title: `Local grid ${date}` }));
   markStage(loc, "local-grid", { "grid dir": od }, { date });
