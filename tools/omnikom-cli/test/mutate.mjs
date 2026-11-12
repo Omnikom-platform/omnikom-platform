@@ -878,8 +878,12 @@ async function runMutant([name, file, find, repl, suite]) {
 
 try {
   // the unbroken copy must pass first, or "caught" would mean nothing
-  const base = copyCli();
-  const b = await sh([join(base, 'test', 'run.mjs')], { ...env, OMNIKOM_CLI_DIR: base });
+  // the baseline (the whole CLI suite, 2 to 3 minutes) runs once per CI run, in shard 1 and in a run without --shard; shards 2..N skip it: the `cli` job runs the same
+  // suite on the same tree in the same runs (test/ci-heavy.mjs: a shard needs the mutants only when the suite is needed too), so a broken suite is red there
+  // and a broken tree copy is red in shard 1. OMNIKOM_MUTANT_BASELINE=each brings the old behaviour back.
+  const skipBaseline = shard && shard.i > 1 && process.env.OMNIKOM_MUTANT_BASELINE !== 'each';
+  const base = skipBaseline ? null : copyCli();
+  const b = skipBaseline ? { status: 0, out: 'skipped in this shard (run in shard 1 and by the cli job)' } : await sh([join(base, 'test', 'run.mjs')], { ...env, OMNIKOM_CLI_DIR: base });
   if (b.status !== 0) { console.log(`BASELINE FAILS: the unbroken copy does not pass\n${b.out.split('\n').filter(l => l.startsWith('FAIL')).join('\n')}${b.err}`); process.exitCode = 1; }
   else {
     console.log(`baseline: ${b.out.trim().split('\n').pop()}`);
