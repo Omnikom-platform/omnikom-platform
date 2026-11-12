@@ -144,6 +144,12 @@ t('--no-invite: everything else is made, no login and no mail, and the owner nee
     && parseArgs(['--intake', 'x', '--no-invite']).noInvite === true, err ? err.message : text];
 });
 
+t('the real test-inboxes.json: its one ruling counts through 2026-12-31 and none after (head of operations 2026-11-12, slice S1)', async () => {
+  const real = join(HERE, '..', 'test-inboxes.json');   // the real file by its path: onboard-mutate.mjs runs a copy of onboard.mjs from a temp folder
+  const counts = [loadInboxes(real, '2026-12-31').length, loadInboxes(real, '2027-01-01').length];
+  return [counts[0] === 1 && counts[1] === 0, JSON.stringify(counts)];
+});
+
 for (const [name, fn] of cases) {
   let ok = false, detail = '';
   try { [ok, detail] = await fn(); } catch (e) { detail = e.stack; }

@@ -3,8 +3,8 @@
   "inboxes": [
     {
       "sha256": "3c2ed8b83f7c88f38eb129b8f58d03be54b180cdbce71bd3295a2c538e608911",
-      "until": "2026-11-12",
-      "ruling": "owner 2026-11-10 17:00 (through the head of operations): the owner's own inbox as the test inbox for the work order 36 proof; one invite per real run, the second run none"
+      "until": "2026-12-31",
+      "ruling": "owner 2026-11-10 17:00 (through the head of operations): the owner's own inbox as the test inbox for the work order 36 proof; one invite per real run, the second run none; extended to 2026-12-31 by the head of operations 2026-11-12 (slice S1): staging test mails go to this inbox"
     }
   ]
 }
