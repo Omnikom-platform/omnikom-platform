@@ -22,7 +22,7 @@
   "data": "the run's data folder; until row R3 the skill folder",
   "runDir": "{data}/site-checks/{host}",
   "pewp": "{runDir}/.pewp",
-  "work": "{data}/work"
+  "work": "{runDir}/work"
  },
  "steps": [
   {

@@ -42,7 +42,7 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     const dir = join(root, `s${++n}`), skill = join(dir, 'skill');
     cpSync(join(FIX, 'skill'), skill, { recursive: true });
     if (manifest) writeFileSync(join(skill, 'pipeline.json'), JSON.stringify(manifest, null, 1));
-    return { dir, skill, record: join(dir, 'record.jsonl'), pewp: join(skill, 'site-checks', HOST, '.pewp'), work: join(skill, 'work') };
+    return { dir, skill, record: join(dir, 'record.jsonl'), pewp: join(skill, 'site-checks', HOST, '.pewp'), work: join(skill, 'site-checks', HOST, 'work') };
   }
   // No command may hang the file: one that does not return within the deadline ends the file with a FAIL line naming it (see the catch at the bottom)
   const DEADLINE_MS = 150000;
@@ -304,7 +304,7 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     cpSync(join(REPO_ROOT, 'tools', 'proc-guard'), join(stopRepo, 'tools', 'proc-guard'), { recursive: true, filter: f => !/[\\/]test([\\/]|$)/.test(f) });
     const stopManifest = slow => M(S('first'), S('slow', slow ? { script: 'scripts/hang.mjs', args: ['--id', 'slow', '--pidfile', '{work}/pid'], timeoutMinutes: 5, dependsOn: ['first'] } : { dependsOn: ['first'] }));
     writeFileSync(join(stopSkill, 'pipeline.json'), JSON.stringify(stopManifest(true)));
-    const stopS = { skill: stopSkill, record: join(root, 'stop-record.jsonl'), pewp: join(stopSkill, 'site-checks', HOST, '.pewp'), work: join(stopSkill, 'work') };
+    const stopS = { skill: stopSkill, record: join(root, 'stop-record.jsonl'), pewp: join(stopSkill, 'site-checks', HOST, '.pewp'), work: join(stopSkill, 'site-checks', HOST, 'work') };
     // this child is a whole CLI process, so it runs the real skill check (P3.4 R1, no seam): stop-repo is a git checkout with its skill committed, at backup-gh/master,
     // and a skills folder of this test holds a junction to its copy of the skill
     const stopSkills = join(root, 'stop-skills');
@@ -568,8 +568,8 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
         script30 = E.resolveScript('repo:tools/site-backup/backup.mjs', { skillDir: '/s', repoRoot: '/r' });
       } catch (e) { vars30 = { threw: e.message }; }
       const data30 = '/m/clients/demo/private/pewp/example.com/2026-01-01-1';
-      const golden30 = { url: 'https://www.example.com/x', client: 'demo', host: 'example.com', skill: '/s', data: data30, runDir: `${data30}/site-checks/example.com`, pewp: `${data30}/site-checks/example.com/.pewp`, work: `${data30}/work` };
-      check('seo one engine: case 30, makeVars gives the golden variables ({data} is the run, work under it) and resolveScript puts a repo: script under the repository [engine]', JSON.stringify(Object.entries(vars30 || {}).sort()) === JSON.stringify(Object.entries(golden30).sort()) && script30 === join('/r', 'tools/site-backup/backup.mjs'), JSON.stringify([vars30, script30]));
+      const golden30 = { url: 'https://www.example.com/x', client: 'demo', host: 'example.com', skill: '/s', data: data30, runDir: `${data30}/site-checks/example.com`, pewp: `${data30}/site-checks/example.com/.pewp`, work: `${data30}/site-checks/example.com/work` };
+      check('seo one engine: case 30, makeVars gives the golden variables ({data} is the run, work under its site folder) and resolveScript puts a repo: script under the repository [engine]', JSON.stringify(Object.entries(vars30 || {}).sort()) === JSON.stringify(Object.entries(golden30).sort()) && script30 === join('/r', 'tools/site-backup/backup.mjs'), JSON.stringify([vars30, script30]));
       // 31: the options of seo run are the engine's list; an option outside it is refused
       const runOptions = ['client', 'only', 'from', 'module', 'fresh', 'env-file', 'json'];
       const stage = await go(site(), ['run', URL_, '--client', 'demo', '--stage', 'x', '--json']);

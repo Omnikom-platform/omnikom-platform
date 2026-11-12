@@ -583,7 +583,12 @@ function overhaulSequence() {
   const judgeCode = (okMsg) => (r) => (r.code === 0 ? { outcome: "done", message: okMsg ? okMsg(r) : "" } : r.code === 3 ? { outcome: "needs-input", message: tail(r.out, 30) } : r.code === 4 || r.code === 2 ? { outcome: "blocked", message: tail(r.out, 8) } : { outcome: "fail", message: tail(r.out) });
   // the authority follow-ups are skipped when authority itself was BLOCKED or skipped (no authority.json); any non-zero exit of theirs is BLOCKED, not a stop
   const skipNoAuthority = () => (flag("--no-authority") ? "--no-authority" : !fs.existsSync(P("authority.json")) ? "authority BLOCKED or skipped (no authority.json)" : null);
-  const judgeOptional = (r) => (r.code === 0 ? { outcome: "done", message: "" } : { outcome: "blocked", message: tail(r.out, 4) });
+  // a cap or a stop ends these exit 0 with the last line `PARTIAL: <why>` (read by lib-pipeline's stepOutcome, the one rule): partial, run again; exit 0 without it is done
+  const judgeOptional = (r) => {
+    if (r.code !== 0) return { outcome: "blocked", message: tail(r.out, 4) };
+    const o = stepOutcome(null, { code: 0, lastLine: lastLine(r.out) });
+    return o.outcome === "partial" ? { outcome: "partial", message: o.message } : { outcome: "done", message: "" };
+  };
   // 1 doctor, 2 audit-live
   S.push(doctorStage(loc, T1), snapshotStage(loc),
     { name: "psi", kind: "script", external: true, optional: true, what: "PageSpeed Insights (Google's own machines) for the measured pages, next to the lab numbers; the trusted speed when this laptop was busy", cost: "free API key (PSI_API_KEY); 1 request every 2 s, 2 per page",
@@ -894,6 +899,7 @@ for (const s of targetsToRun) {
   if (v.outcome === "done" && outsOf(s).some((o) => !fs.existsSync(o))) v = { outcome: "fail", message: `the script exited 0 but did not write: ${outsOf(s).filter((o) => !fs.existsSync(o)).map(rel).join(", ")}` };
   if (v.outcome === "done") { markDone(s); if (v.message) console.log(`${s.name}: done. ${v.message}`); else console.log(`${s.name}: done`); continue; }
   if (v.outcome === "blocked" && s.optional) { persist((x) => { x.stages[s.name] = { blocked: String(v.message).slice(0, 300), at: new Date().toISOString() }; }); console.log(`${s.name}: skipped, BLOCKED (optional): ${v.message}`); continue; }
+  if (v.outcome === "partial") { persist((x) => { x.stages[s.name] = { partial: String(v.message).slice(0, 300), at: new Date().toISOString() }; }); console.log(`${s.name}: PARTIAL: ${v.message} (what was read is kept; run again to continue)`); continue; }
   if (v.outcome === "needs-input") { setRun("needs-input", s.name, ""); console.log(v.message); stoppedFor = 3; break; }
   if (v.outcome === "approval") { setRun("needs-approval", s.name, ""); console.log(v.message); stoppedFor = 3; break; }
   if (v.outcome === "blocked") { setRun("blocked", s.name, v.message); console.log(`BLOCKED stage=${s.name}: ${v.message}`); stoppedFor = 4; break; }

@@ -33,9 +33,9 @@ counts distinct linking **domains**, so use it to compare us with competitors an
 | Step | Command | Reads | Writes | Notes |
 |---|---|---|---|---|
 | 1 Who links to us and to competitors | `node scripts/authority.mjs <pewp>/authority.json --target <domain> --competitor <d>... --top 500` | Common Crawl cache | `authority.json` (+ `.md`), including the link gap | 15 to 30 minutes the first time, then cached per release (`<release>-asked.json`, `--rescan`): UNPROVEN at real scale. `--top` = linking domains kept per site (default 30); use 500 |
-| 1b How they link (anchors, follow or nofollow) | `node scripts/authority-anchors.mjs <pewp> [--keyword "<money term>"]...` | `authority.json`, Common Crawl data host (at most 600 requests, 3 s apart) | `authority/anchors.json` + `anchors.md` | optional, after step 1; see 2b. Exit 4 = Common Crawl stopped us (24 h stop file) |
+| 1b How they link (anchors, follow or nofollow) | `node scripts/authority-anchors.mjs <pewp> [--keyword "<money term>"]...` | `authority.json`, Common Crawl data host (at most 600 requests, 3 s apart) | `authority/anchors.json` + `anchors.md` | optional, after step 1; see 2b. When Common Crawl stops us (24 h stop file) the run still ends exit 0 with what it read written, and its last line is `PARTIAL: <why>; what was read is kept, run again to continue`; a stop already in force when it starts is exit 3 |
 | 2 Classify and rank | `node scripts/authority-classify.mjs <target> [--industry slug] [--fetch]` | `authority.json`, `research/citations.json`, `research/ai-citations.json`, `business.json`, the pack | `authority/opportunities.json` + `.md` | no network unless `--fetch`; exit 3 = no `authority.json` yet |
-| 3 Vet before spending | `node scripts/authority-vet.mjs <target> [--domain d]... [--limit 25] [--exclude "<regex>"]` | `opportunities.json` | `authority/vetting.json` + `howto.md` | polite read-only visits, about 12 s a site; exit 4 = a time or request cap stopped it |
+| 3 Vet before spending | `node scripts/authority-vet.mjs <target> [--domain d]... [--limit 25] [--exclude "<regex>"]` | `opportunities.json` | `authority/vetting.json` + `howto.md` | polite read-only visits, about 12 s a site; when a time or request cap stops it the run still ends exit 0 and its last line is `PARTIAL: <why>; what was read is kept, run again to continue` |
 | 4 Hand the client the how-to | `authority/howto.md` | `vetting.json` | the plain-words list | the client never sees internal notes |
 | 5 Track the work | `node scripts/authority-outreach.mjs <target> add\|set\|seed\|list\|report\|explain` | `vetting.json` | `authority/outreach.json` + `outreach.md` | one row per site: planned, asked, listed, refused |
 | 6 Measure | `measure.mjs` (stages/measure.md) | `authority.json`, `outreach.json` | referring-domain diff, MSR-007 | the tracker explains which gains were ours |
@@ -292,8 +292,9 @@ competitors had 7 to 9 from expertise.com, activerain.com, a chamber of commerce
 - **Vetting is polite**: GET only; robots.txt first and obeyed (the group for our own user agent `PEWP-Authority` counts); honest
   user agent; `--gap-ms` (default 4000) between requests to one site; a 403 or 429 stops that site, no retry, no disguise;
   `--exclude` (path regexes) and `--skip-domain` cover every request, robots.txt and redirect hops included; no login, register,
-  checkout or account path is ever opened; each request has a time limit (`--timeout-s`), the run a deadline (`--max-minutes`,
-  exit 4) and a request budget (`--max-requests`). Results younger than 30 days are reused; `--refresh` re-reads (200 answers
+  checkout or account path is ever opened; each request has a time limit (`--timeout-s`), the run a deadline (`--max-minutes`)
+  and a request budget (`--max-requests`); a run either one stops ends exit 0 with the last line `PARTIAL: <why>; what was read
+  is kept, run again to continue`. Results younger than 30 days are reused; `--refresh` re-reads (200 answers
   come from the cache). Git Bash rewrites a leading `/` in `--exclude`: run from PowerShell or the tool refuses.
 - **Never** scrape Google, Bing, ChatGPT or Perplexity result pages, submit a form, register, or log in. Those captures are the
   owner's, at human pace.

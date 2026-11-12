@@ -123,7 +123,7 @@ console.log("stand-in crawl done");
     let kRan = 0;
     for (const st of man.steps.filter((x) => x.script && !(x.id in UNREACHED))) {
       const cwdK = path.join(tmp, "k-" + st.id), runDir = path.join(cwdK, "site-checks", "contract-test.test"), pewp = path.join(runDir, ".pewp");
-      const vars = { url: SITE, client: "c", host: "contract-test.test", skill: path.join(here, ".."), runDir, pewp, work: path.join(cwdK, "work") };
+      const vars = { url: SITE, client: "c", host: "contract-test.test", skill: path.join(here, ".."), runDir, pewp, work: path.join(runDir, "work") };
       const args = lib.substitute(st.args, vars).map((a, i, arr) => (arr[i - 1] === "--cwd" ? cwdK : a));
       fs.mkdirSync(cwdK, { recursive: true });
       const r = await run(path.basename(st.script), args, { env: kEnv, timeout: 60000 });
@@ -148,7 +148,7 @@ console.log("stand-in crawl done");
         const cwd = path.join(tmp, "t-" + name), runDir = path.join(cwd, "site-checks", TH), pewp = path.join(runDir, ".pewp");
         W(path.join(pewp, "business.json"), BIZ);
         for (const [rel, body] of Object.entries(files)) W(path.join(pewp, rel), body);
-        return { cwd, runDir, pewp, vars: { url: TURL, client: "c", host: TH, skill: TSKILL, runDir, pewp, work: path.join(cwd, "work") } };
+        return { cwd, runDir, pewp, vars: { url: TURL, client: "c", host: TH, skill: TSKILL, runDir, pewp, work: path.join(runDir, "work") } };
       };
       const stepRun = async (id, w) => {
         const st = stepT(id), args = lib.substitute(st.args, w.vars).map((a, i, arr) => (arr[i - 1] === "--cwd" ? w.cwd : a));

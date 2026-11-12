@@ -106,14 +106,14 @@ export function hostOf(url) {
   if (u.protocol !== "http:" && u.protocol !== "https:") throw new PipelineError(`the url must be http or https: ${url}`);
   return u.hostname.toLowerCase().replace(/^www\./, "");
 }
-// {data} is the run's data folder (until the run record moves, the skill folder); {runDir}, {pewp} and {work} are under it
+// {data} is the run's data folder (until the run record moves, the skill folder); {runDir} is under it by host, {pewp} and {work} under {runDir} (one site's evidence is never another's)
 export function makeVars({ url, client, skillDir, data }) {
   const host = hostOf(url);
   if (!data) throw new PipelineError("makeVars needs data, the run's data folder");
   const skill = norm(skillDir);
   data = norm(data);
   const runDir = `${data}/site-checks/${host}`;
-  return { url, client, host, skill, data, runDir, pewp: `${runDir}/.pewp`, work: `${data}/work` };
+  return { url, client, host, skill, data, runDir, pewp: `${runDir}/.pewp`, work: `${runDir}/work` };
 }
 
 // `repo:<path>` is relative to the repository root, anything else to the skill folder; a path that leaves both is no script
@@ -259,7 +259,7 @@ export function validateManifest(m, { skillDir = null, repoRoot = null, scriptEx
         }
       }
     }
-    // `vantage start` opens the owner's browser session: only a person or `omnikom seo vantage start` does that, never a run
+    // `vantage start` opens the owner's browser session: only a person running `node scripts/vantage.mjs start` does that, never a run (the CLI wraps `seo vantage status` only)
     if (typeof s.script === "string" && /(^|\/)vantage\.mjs$/.test(norm(s.script)) && Array.isArray(s.args) && s.args.some((a) => /^start$/i.test(String(a)))) bad("vantage-start", at, "a step must never call vantage start (a run only reads its status)");
     if (waiting) {
       if (typeof s.brief !== "string" || !s.brief.trim()) bad("waiting", at, "a waiting step needs a brief that says what the agent must do");

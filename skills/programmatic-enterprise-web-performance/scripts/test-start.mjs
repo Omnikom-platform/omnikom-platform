@@ -633,6 +633,12 @@ async function runScenariosInner(sdir, only, results) {
     const st = rj(path.join(pewp, "state.json"));
     check("G: state.json records the plan ack by the owner for this mode and the mode's sequence", st.start.planAck?.overhaul?.by === "Test Owner" && st.start.mode === "overhaul" && st.start.sequence.length >= 38 && st.start.status === "done", JSON.stringify(st.start).slice(0, 300));
     check("G: the final run file lists the stages run and exit 0, and one file per stage exists", /exit code: 0/.test(fs.readFileSync(runs(`${TODAY}-overhaul.md`), "utf8")) && /sitemap-submit \(exit 0\)/.test(fs.readFileSync(runs(`${TODAY}-overhaul.md`), "utf8")) && fs.existsSync(runs(`${TODAY}-overhaul-sitemap-check.md`)), fs.readFileSync(runs(`${TODAY}-overhaul.md`), "utf8").slice(0, 600));
+    // a capped authority follow-up ends exit 0 with the last line 'PARTIAL: <why>': kept as partial with its reason, never done, so the next --go runs it again
+    w(path.join(pewp, "authority.json"), "{}"); w(path.join(pewp, "authority", "opportunities.json"), "{}"); W.control("authority-classify.mjs.partial");
+    W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go", "--stage", "authority-classify"]);
+    const acP = rj(path.join(pewp, "state.json")).stages["authority-classify"], outP = r.out;
+    W.clear(); r = W.start("overhaul", [URL1, "siterepo"], ["--go"]);
+    check("G: a capped authority-classify (exit 0, last line 'PARTIAL: ...') is kept in state.json as partial with its reason, not done; start prints PARTIAL: for it and the next --go runs it again", acP?.partial === "read 10 of 25" && !acP.doneAt && /authority-classify: PARTIAL: read 10 of 25/.test(outP) && names(W.calls()).includes("authority-classify"), `${JSON.stringify(acP)} ${names(W.calls())} ${outP.slice(-300)}`);
     // --yes is the main session saying the owner agreed in words: recorded as such, no stop
     const Wy = mkWorld(sdir); const repoY = path.join(Wy.cwd, "r2"); fs.mkdirSync(repoY, { recursive: true });
     r = Wy.start("overhaul", [URL1, "r2"], ["--go", "--yes", "--no-plan-ack"]);
@@ -733,6 +739,7 @@ const MUTANTS = [
   { name: "the fix run does not depend on the owner's cost approval (a forced --stage refactor would run workers)", file: "start.mjs", from: "inputs: () => [{ abs: path.join(repo, \".checks\", \"causes.json\") }, \"start/refactor-dry.log\", \"start/ack-refactor-ok\"]", to: "inputs: () => [{ abs: path.join(repo, \".checks\", \"causes.json\") }, \"start/refactor-dry.log\"]", sc: "G", expect: [/^G: --stage refactor before the OWNER cost approval is refused/] },
   { name: "refactor mode: the fix run does not depend on the owner's cost approval", file: "start.mjs", from: "inputs: () => [{ abs: path.join(loc.root, \".checks\", \"causes.json\") }, \"start/refactor-dry.log\", \"start/ack-refactor-ok\"]", to: "inputs: () => [{ abs: path.join(loc.root, \".checks\", \"causes.json\") }, \"start/refactor-dry.log\"]", sc: "C", expect: [/^C: --stage refactor before the owner's cost approval is refused/] },
   { name: "the classify stage is dropped from step 3", file: "start.mjs", from: "{ name: \"classify\", kind: \"script\", what:", to: "{ name: \"classify\", kind: \"script\", skipIf: () => \"x\", what:", sc: "G", expect: [/^G: with the answers intake completes; classify writes/] },
+  { name: "overhaul: a capped authority follow-up (PARTIAL: last line) counts as done", file: "start.mjs", from: "return o.outcome === \"partial\" ? { outcome: \"partial\", message: o.message } : { outcome: \"done\", message: \"\" };", to: "return { outcome: \"done\", message: \"\" };", sc: "G", expect: [/^G: a capped authority-classify/] },
   { name: "G1: children get --env-file (Node 24 pre-scans it) instead of --dotenv", file: "start.mjs", from: "const envArgs = () => (envInfo.file ? [\"--dotenv\", envInfo.file] : []);", to: "const envArgs = () => (envInfo.file ? [\"--env-file\", envInfo.file] : []);", sc: "G", expect: [/^G: --env-file is loaded by start/] },
 ];
 

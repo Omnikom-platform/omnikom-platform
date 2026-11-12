@@ -11,6 +11,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SOURCES = { 'programmatic-enterprise-web-performance': path.join(process.env.USERPROFILE || process.env.HOME, '.claude', 'skills', 'programmatic-enterprise-web-performance') };
 const SKIP = new Set(['.git', 'node_modules', 'site-checks', '.pewp', '.checks']);
 const name = process.argv[2], dry = process.argv.includes('--dry');
+// the repo's copy of this skill is the one copy and the installed one is a link to it: nothing is copied over it, not even as a dry run
+if (name === 'programmatic-enterprise-web-performance') { console.error(`REFUSED: the repo's copy of ${name} is the one copy (omnikom skill check pewp); nothing is synced from outside`); process.exit(2); }
 if (!name || !SOURCES[name]) { console.error(`usage: node skills/sync-skill.mjs <${Object.keys(SOURCES).join('|')}> [--dry]`); process.exit(2); }
 const src = SOURCES[name], dst = path.join(HERE, name);
 if (!fs.existsSync(src)) { console.error(`source missing: ${src}`); process.exit(1); }

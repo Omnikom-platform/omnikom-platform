@@ -163,6 +163,16 @@ export async function skillCheckTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) 
       const got = r.json && r.json.data && r.json.data.order;
       return [r.exit === 0 && Array.isArray(got) && got.length > 0 && JSON.stringify(got) === JSON.stringify(want), { exit: r.exit, error: r.json && r.json.error, order: Array.isArray(got) ? got.length : got, want: want.length }];
     });
+
+    await sc('C12 the old sync tool refuses this skill before it reads anything (the repo\'s copy is the one copy): --dry with an empty home is exit 2, stderr starts "REFUSED:", no file under skills/ changed', async () => {
+      const home = join(root, 'c12-empty-home');
+      mkdirSync(home, { recursive: true });
+      const tree = () => ['status --porcelain --untracked-files=all', 'diff'].map(a => String(spawnSync('git', ['-C', REPO_ROOT, ...a.split(' '), '--', 'skills'], { env, encoding: 'utf8', timeout: 60000, maxBuffer: 1 << 28, windowsHide: true }).stdout)).join('\n');
+      const before = tree();
+      const r = spawnSync(process.execPath, [join(REPO_ROOT, 'skills', 'sync-skill.mjs'), PEWP, '--dry'], { cwd: REPO_ROOT, env: { ...env, USERPROFILE: home, HOME: home }, encoding: 'utf8', timeout: 60000, windowsHide: true });
+      const same = tree() === before;
+      return [r.status === 2 && String(r.stderr).startsWith('REFUSED:') && same, { exit: r.status, stderr: String(r.stderr).slice(0, 200), skillsUnchanged: same }];
+    });
   } finally {
     for (const j of junctions) { try { unlink(j); } catch { /* gone already */ } }
     for (const [main, wt] of worktrees) { try { git(main, ['worktree', 'remove', '--force', wt]); } catch { /* the folder removal below takes it */ } }

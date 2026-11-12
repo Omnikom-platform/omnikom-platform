@@ -421,7 +421,7 @@ export function captureRefusal(home, engine, now = Date.now()) {
   const stop = activeStop(home, engine, now);
   if (stop) return new Blocked(`24 h stop in force for ${engine} until ${stop.untilIso} (${stop.reason})`, "wait for the stop to expire; do not retry before then");
   const st = readState(home);
-  if (isSearch(engine) && (!st.verified || !st.verified.ok)) return new Blocked("the vantage is not verified", "omnikom seo vantage start, until every status check passes");
+  if (isSearch(engine) && (!st.verified || !st.verified.ok)) return new Blocked("the vantage is not verified", "node scripts/vantage.mjs start, until every status check passes");
   const wait = gapRemaining(st, engine, now);
   if (wait) return new Blocked(`${engine} gap: ${Math.ceil(wait / 1000)} s left of the ${gapFor(engine) / 1000} s between pages`, `ask again in ${Math.ceil(wait / 1000)} s`);
   return null;
