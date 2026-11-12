@@ -2,7 +2,7 @@
 // row, true) (migration 8): owner or staff of the ROW's workspace only (anyone else, another workspace's row or none: 404 S-NOT-FOUND, a security
 // event); soft-deleted, off the site with the next publish, versions kept, one audit row. Off without delete is not offered (drafts_waiting relists it).
 import { dashboard, badBody } from '../_shared/dashboard.ts';
-import { Fields, noContent } from '../_shared/http.ts';
+import { Fields, noContent, serve } from '../_shared/http.ts';
 
 export async function handle(req: Request): Promise<Response> {
   return await dashboard(req, 'unpublish', async (c, d) => {
@@ -14,4 +14,4 @@ export async function handle(req: Request): Promise<Response> {
   });
 }
 
-if (import.meta.main) Deno.serve(handle);
+if (import.meta.main) serve('unpublish', handle);
