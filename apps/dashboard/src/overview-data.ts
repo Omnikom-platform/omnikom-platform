@@ -30,3 +30,15 @@ export function useMetrics(wsId: string, enabled: boolean) {
 export function useSiteAudit(siteId: string, enabled: boolean) {
   return useQuery({ queryKey: ['site-audit', siteId], enabled, queryFn: () => fetchSiteAudit(siteId) });
 }
+
+/** The Search health page (B24): each source's newest 10 metrics_snapshots rows, newest first (metrics_read: any member reads; the screen asks for owners and staff). */
+export function useMetricHistory(wsId: string, enabled: boolean) {
+  return useQuery({ queryKey: ['metric-history', wsId], enabled, queryFn: async (): Promise<MetricRow[]> => {
+    const lists = await Promise.all(METRIC_SOURCES.map(async source => {
+      const r = await supabase.from('metrics_snapshots').select('source,day,data').eq('workspace_id', wsId).eq('source', source).order('day', { ascending: false }).limit(10);
+      if (r.error) throw new Error(r.error.message);
+      return (r.data ?? []) as MetricRow[];
+    }));
+    return lists.flat();
+  } });
+}
