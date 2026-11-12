@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 877,
+    "sources": 878,
     "unowned": 0
   },
   "files": [
@@ -144,7 +144,7 @@
     {"path":"factory/test/make-export.mjs","owner":"platform-build","exports":["FIXTURE","makeExport","uuidOf"],"tests":[],"feature":""},
     {"path":"factory/test/mutate.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/test/run.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
-    {"path":"factory/worker/lead-endpoint.mjs","owner":"platform-build","exports":["leadFromForm","makeLeadHandler","sign"],"tests":["factory/runner/test/lib/fake-wrangler.mjs","factory/runner/test/run.mjs","factory/worker/test/e2e-form.mjs","factory/worker/test/mutate.mjs","factory/worker/test/run.mjs","tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
+    {"path":"factory/worker/lead-endpoint.mjs","owner":"platform-build","exports":["leadFromForm","makeLeadHandler","sign","visitorHash"],"tests":["factory/runner/test/lib/fake-wrangler.mjs","factory/runner/test/run.mjs","factory/worker/test/e2e-form.mjs","factory/worker/test/mutate.mjs","factory/worker/test/run.mjs","tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
     {"path":"factory/worker/pages-function-lead.js","owner":"platform-build","exports":["onRequest","onRequestPost"],"tests":["factory/runner/test/mutate.mjs","supabase/tests/e2e-lead.mjs"],"feature":""},
     {"path":"factory/worker/test/e2e-form.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/worker/test/mutate.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
@@ -452,6 +452,7 @@
     {"path":"supabase/migrations/20261111000027_metrics_sources.sql","owner":"platform-build","exports":["fn:service.metrics_calls","fn:service.metrics_get","fn:service.metrics_last_day","fn:service.metrics_pull_all","fn:service.metrics_put","fn:service.metrics_target_for_job","fn:service.metrics_targets"],"tests":[],"feature":""},
     {"path":"supabase/migrations/20261111000028_retention_purge.sql","owner":"platform-build","exports":["fn:private.refuse_change","fn:service.purge_expired","table:public.retention_rules"],"tests":[],"feature":""},
     {"path":"supabase/migrations/20261112000029_mail_outbox.sql","owner":"platform-build","exports":["fn:service.mail_outbox_tick","fn:service.outbox_claim","fn:service.outbox_done","fn:service.queue_lead_alert","table:public.mail_outbox"],"tests":[],"feature":""},
+    {"path":"supabase/migrations/20261112000030_visitor_limit.sql","owner":"platform-build","exports":["fn:service.count_visitor","table:visitor_counts"],"tests":[],"feature":""},
     {"path":"supabase/ops/alerts.mjs","owner":"platform-build","exports":["ALERTS","RULES","Stop","environmentOf","main","parseArgs","pgEnv","render","runQueries","statusData"],"tests":["supabase/ops/test/6b-alerts-fixture.mjs","supabase/ops/test/6b-mutate.mjs","supabase/ops/test/alerts.test.mjs"],"feature":""},
     {"path":"supabase/ops/backup.mjs","owner":"platform-build","exports":["DEFAULT_RECIPIENT","MAX_BYTES","Stop","labelOf","main","parseArgs","pgEnv","readRecipient","regionOf","scrubber","signV4","sizeS3","stampOf","uploadS3"],"tests":["supabase/ops/test/6b-fake-s3.mjs","supabase/ops/test/6b-mutate.mjs","supabase/ops/test/backup.test.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
     {"path":"supabase/ops/inbox-state.mjs","owner":"platform-build","exports":["SQL","main"],"tests":["supabase/ops/test/inbox-state.test.mjs"],"feature":""},

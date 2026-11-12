@@ -38,7 +38,7 @@ screens).
 | `upload-start`, `upload-finish` | dashboard | user JWT |
 | `add-lead`, `lead-update`, `lead-export` | dashboard | user JWT |
 | `invite-member`, `settings-save`, `team-list`, `member-remove` | dashboard (owner) | user JWT |
-| `capture-lead?site=<id>` | the site's `/api/lead` | `X-Site-Signature` |
+| `capture-lead?site=<id>&visitor=<hash>` | the site's `/api/lead` | `X-Site-Signature` |
 | `export-published?job=<uuid>` (GET) | publish runner | `X-Runner-Signature` |
 | `job-callback` (POST) | publish runner | `X-Runner-Signature` |
 | `media-export?media=<uuid>` (GET) | media runner | `X-Runner-Signature` |

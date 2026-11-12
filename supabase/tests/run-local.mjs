@@ -888,6 +888,15 @@ const MUTANTS = [
   ['outbox29: the mail outbox is not scheduled', "    perform cron.schedule('mail-outbox', '* * * * *', 'select service.mail_outbox_tick()');", '    null;'],
   ['outbox29: the function role may run the tick', 'revoke all on function service.mail_outbox_tick() from omnikom_fn, service_role;', ''],
   ['outbox29: every login reads the outbox', 'create policy mail_outbox_staff_read on public.mail_outbox for select to authenticated using (private.is_staff());', 'create policy mail_outbox_staff_read on public.mail_outbox for select to authenticated using (true);'],
+
+  // ---- E5 (migration 30): visitor counts; tests T36. Run only these: --only "visitor30" ----
+  ['visitor30: a visitor is never refused', "if cap is not null and c > cap then raise exception 'S-QUOTA-VISITOR", "if false then raise exception 'S-QUOTA-VISITOR"],
+  ['visitor30: a visitor may send one lead more than the limit', 'and c > cap then', 'and c > cap + 1 then'],
+  ['visitor30: every visitor is counted as one visitor', 'values (p_site, p_ip_hash, h)', "values (p_site, '', h)"],
+  ['visitor30: the older hours are never deleted', 'delete from public.visitor_counts v where v.site_id = p_site and v.hour < h;', ''],
+  ['visitor30: the workspace limit is ignored', "cap := private.limit_for(ws, 'leads_per_hour_visitor');", "cap := (select value from public.platform_limits where key = 'leads_per_hour_visitor');"],
+  ['visitor30: every login reads the visitor counts', 'create policy visitor_counts_staff_read on visitor_counts for select to authenticated using (private.is_staff());', 'create policy visitor_counts_staff_read on visitor_counts for select to authenticated using (true);'],
+  ['visitor30: service_role and the function role may write the visitor counts', 'revoke all on visitor_counts from public, anon, authenticated, service_role, omnikom_fn;', 'grant insert, update, delete on visitor_counts to service_role, omnikom_fn;'],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

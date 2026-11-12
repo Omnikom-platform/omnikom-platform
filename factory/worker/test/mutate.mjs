@@ -14,7 +14,7 @@ const MUTANTS = [
   ['size cap', 'if (body.length > maxBytes) return reply(413', 'if (false) return reply(413'],
   ['honeypot refused', "if (data && typeof data.hp === 'string' && data.hp.trim() !== '') return reply(400", 'if (false) return reply(400'],
   ['not configured answers 503', 'if (!siteId || !signingKey || !platformBase) {', 'if (false) {'],
-  ['the site id is in the signed path', 'const path = `/capture-lead?site=${siteId}`;', "const path = '/capture-lead';"],
+  ['the site id is in the signed path', 'const path = `/capture-lead?site=${siteId}${visitor ? `', 'const path = `/capture-lead?${visitor ? `'],
   ['the body is what is signed', "const signature = await sign(signingKey, 'POST', path, forward, now());", "const signature = await sign(signingKey, 'POST', path, '', now());"],
   ['the method is in the canonical form', '`${t}\\n${method.toUpperCase()}\\n${pathWithQuery}\\n${body}`', '`${t}\\n${pathWithQuery}\\n${body}`'],
   ['the timestamp is in the header', 'return `t=${t},v1=${', 'return `t=0,v1=${'],
@@ -46,6 +46,10 @@ const MUTANTS = [
   ['every problem is named in words', '${q.path ? `${escHtml(FIELD_WORDS[q.path] || q.path)}: ` : \'\'}', ''],
   ['echoed text is escaped', ".replace(/</g, '&lt;')", ''],
   ['the way back stays on this site', '/^\\/(?!\\/)[^\\s"\'<>\\\\]*$/.test(page)', 'true'],
+  // product row E5: the visitor in the signed path
+  ['the visitor hash is in the signed path', '${visitor ? `&visitor=${visitor}` : \'\'}', ''],
+  ['the visitor hash covers the site id', 'enc.encode(`${siteId}:${ip}`)', 'enc.encode(ip)'],
+  ['no address gives no visitor', 'if (!ip) return null;', ''],
 ];
 
 // the tests import ../lead-endpoint.mjs and ../../../supabase/functions/_shared/signature.ts: rebuild that shape in a temp folder

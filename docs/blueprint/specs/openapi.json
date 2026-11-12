@@ -2648,6 +2648,16 @@
        "type": "string",
        "format": "uuid"
       }
+     },
+     {
+      "name": "visitor",
+      "in": "query",
+      "required": false,
+      "description": "The visitor: sha256 of \"<site id>:<visitor address>\", put in the signed path by the site's /api/lead (product row E5). Absent or not 64 lower-case hex means no visitor limit for the post and a stored address hash of null.",
+      "schema": {
+       "type": "string",
+       "pattern": "^[0-9a-f]{64}$"
+      }
      }
     ],
     "requestBody": {
@@ -2691,7 +2701,7 @@
       "description": "The site is paused or its workspace is suspended (code S-SITE-PAUSED or S-WORKSPACE-SUSPENDED): nothing is stored; the site shows the call-us message (step 3, migrations 7 and 8)."
      },
      "429": {
-      "description": "rate limited (per IP and site) Also code S-QUOTA: the workspace reached its hourly lead limit (workspace_limits over platform_limits leads_per_hour_workspace).",
+      "description": "rate limited (per IP and site) Also code S-QUOTA: the workspace reached its hourly lead limit (workspace_limits over platform_limits leads_per_hour_workspace), or one visitor of the site reached its hourly lead limit (leads_per_hour_visitor, 5 by default; product row E5).",
       "content": {
        "application/json": {
         "schema": {

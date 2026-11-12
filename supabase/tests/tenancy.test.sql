@@ -3546,5 +3546,72 @@ end $$;
 update public.sites set lead_alert_to = (select lead_alert_to from test.t35_site) where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
 insert into public.workspace_limits select * from test.t35_limit on conflict (workspace_id, key) do update set value = excluded.value, note = excluded.note;
 
+-- ===== T36 E5 (migration 30): visitor counts =====
+-- capture-lead calls service.count_visitor(site, hash) for a signed post that carries a visitor (the site endpoint's sha256 of "<site id>:<address>"): it counts
+-- that visitor of that site in the clock hour and refuses the call past leads_per_hour_visitor, the refusal undoing its own count. The table keeps one hour per
+-- site: the call deletes that site's older hours. The whole file is one transaction, so now() is one instant here. Superuser unless said; site A is ...517e.
+-- Mutants "visitor30: ..." in run-local.mjs.
+reset role;
+-- (a) one visitor: 1 to 5, the sixth refused, the count stays 5
+do $$ declare c int; begin
+  for i in 1..5 loop
+    c := service.count_visitor('aaaaaaaa-0000-0000-0000-00000000517e', repeat('1', 64));
+    assert c = i, 'T36a the count of one visitor goes 1 to 5: ' || c || ' at ' || i;
+  end loop;
+end $$;
+select test.expect_error($q$select service.count_visitor('aaaaaaaa-0000-0000-0000-00000000517e', repeat('1', 64))$q$, 'S-QUOTA-VISITOR');
+do $$ begin
+  assert (select n from public.visitor_counts where site_id = 'aaaaaaaa-0000-0000-0000-00000000517e' and ip_hash = repeat('1', 64)) = 5, 'T36a a refused call leaves the count at 5';
+end $$;
+-- (b) another visitor of the site, and the same visitor at another site of workspace A, each start at 1
+insert into public.sites (id, workspace_id, deploy_target, preview_host) values ('aaaaaaaa-0000-0000-0000-0000000a0e36', 'aaaaaaaa-0000-0000-0000-000000000000', 'test-site-t36', 't36.preview.test');
+do $$ begin
+  assert service.count_visitor('aaaaaaaa-0000-0000-0000-00000000517e', repeat('2', 64)) = 1, 'T36b another visitor of the site starts at 1';
+  assert service.count_visitor('aaaaaaaa-0000-0000-0000-0000000a0e36', repeat('1', 64)) = 1, 'T36b the same visitor at another site starts at 1';
+end $$;
+-- (c) the workspace's own limit wins over the platform's: with 1, the second call of a visitor is refused
+insert into public.workspace_limits (workspace_id, key, value, note) values ('aaaaaaaa-0000-0000-0000-000000000000', 'leads_per_hour_visitor', 1, 'T36c');
+do $$ begin assert service.count_visitor('aaaaaaaa-0000-0000-0000-00000000517e', repeat('3', 64)) = 1, 'T36c the first call of a visitor passes'; end $$;
+select test.expect_error($q$select service.count_visitor('aaaaaaaa-0000-0000-0000-00000000517e', repeat('3', 64))$q$, 'S-QUOTA-VISITOR');
+delete from public.workspace_limits where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and key = 'leads_per_hour_visitor';
+-- (d) a call deletes the older hours of its own site only
+insert into public.visitor_counts (site_id, ip_hash, hour, n) values ('aaaaaaaa-0000-0000-0000-00000000517e', repeat('4', 64), date_trunc('hour', now()) - interval '2 hours', 9);
+insert into public.visitor_counts (site_id, ip_hash, hour, n) values ('aaaaaaaa-0000-0000-0000-0000000a0e36', repeat('4', 64), date_trunc('hour', now()) - interval '2 hours', 9);
+do $$ begin
+  assert service.count_visitor('aaaaaaaa-0000-0000-0000-00000000517e', repeat('5', 64)) = 1, 'T36d a visitor of a new hour starts at 1';
+  assert not exists (select 1 from public.visitor_counts where site_id = 'aaaaaaaa-0000-0000-0000-00000000517e' and hour < date_trunc('hour', now())), 'T36d the older hours of the site are gone';
+  assert (select count(*) from public.visitor_counts where site_id = 'aaaaaaaa-0000-0000-0000-0000000a0e36') = 2, 'T36d the older hour of another site stays, and so does its row of this hour';
+end $$;
+-- (e) an unknown site
+select test.expect_error($q$select service.count_visitor(gen_random_uuid(), repeat('1', 64))$q$, 'unknown site');
+-- (f) the platform limit
+do $$ begin assert (select value from public.platform_limits where key = 'leads_per_hour_visitor') = 5, 'T36f the platform limit of one visitor is 5 an hour'; end $$;
+-- (g) the walls, as T26d: only the definer function writes the counts; an owner reads none; staff with MFA read them; the function is closed to anon and
+-- authenticated and open to the function role
+set role service_role;
+select test.expect_error($q$insert into public.visitor_counts (site_id, ip_hash, hour) values ('aaaaaaaa-0000-0000-0000-00000000517e', 'x', now())$q$, 'permission denied');
+select test.expect_error($q$update public.visitor_counts set n = 0$q$, 'permission denied');
+select test.expect_error($q$delete from public.visitor_counts$q$, 'permission denied');
+select test.expect_error($q$select count(*) from public.visitor_counts$q$, 'permission denied');
+reset role;
+set role omnikom_fn;
+select test.expect_error($q$insert into public.visitor_counts (site_id, ip_hash, hour) values ('aaaaaaaa-0000-0000-0000-00000000517e', 'x', now())$q$, 'permission denied');
+select test.expect_error($q$update public.visitor_counts set n = 0$q$, 'permission denied');
+select test.expect_error($q$delete from public.visitor_counts$q$, 'permission denied');
+select test.expect_error($q$select count(*) from public.visitor_counts$q$, 'permission denied');
+reset role;
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin assert (select count(*) from public.visitor_counts) = 0, 'T36g an owner reads no visitor count'; end $$;
+select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
+do $$ begin assert (select count(*) from public.visitor_counts) > 0, 'T36g staff with MFA read the visitor counts'; end $$;
+reset role;
+do $$ begin
+  assert not has_function_privilege('anon', 'service.count_visitor(uuid,text)', 'execute') and not has_function_privilege('authenticated', 'service.count_visitor(uuid,text)', 'execute'), 'T36g count_visitor is closed to anon and authenticated';
+  assert has_function_privilege('omnikom_fn', 'service.count_visitor(uuid,text)', 'execute'), 'T36g the function role runs count_visitor';
+end $$;
+-- back: the block's site goes, with its counts (the foreign key cascades)
+delete from public.sites where id = 'aaaaaaaa-0000-0000-0000-0000000a0e36';
+
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

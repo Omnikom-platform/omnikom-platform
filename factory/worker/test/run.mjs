@@ -4,6 +4,7 @@
 // verify() (supabase/functions/_shared/signature.ts, loaded by Node's type stripping), so the two implementations are proven
 // to agree on the canonical form.
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { makeLeadHandler, sign } from '../lead-endpoint.mjs';
 import { verify } from '../../../supabase/functions/_shared/signature.ts';
 
@@ -111,6 +112,17 @@ await check('every answer carries noindex and no-store', async () => {
 await check('only a 202 becomes sent: a 200 from the platform does not', async () => {
   const r = await handler(platform(200))(post(lead));
   const j = await r.json(); assert.equal(j.sent, false);
+});
+// product row E5: the visitor is sha256 of "<site id>:<address>" in the signed path (capture-lead limits one visitor); the address itself never leaves
+await check('the visitor address goes as sha256 of "<site id>:<address>" inside the signed path, never in clear', async () => {
+  const p = platform(202); await handler(p)(post(lead, { headers: { 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.9' } }));
+  const H = createHash('sha256').update(`${SITE}:203.0.113.9`).digest('hex');
+  const path = `/capture-lead?site=${SITE}&visitor=${H}`;
+  assert.equal(p.seen[0].url, `${BASE}${path}`);
+  const sig = p.seen[0].init.headers['x-site-signature'];
+  assert.equal(await verify(sig, KEY, 'POST', path, p.seen[0].init.body, NOW), true, 'the signature covers the visitor');
+  assert.equal(await verify(sig, KEY, 'POST', `/capture-lead?site=${SITE}`, p.seen[0].init.body, NOW), false, 'without the visitor the signature fails');
+  assert.ok(!p.seen[0].url.includes('203.0.113.9') && !p.seen[0].init.body.includes('203.0.113.9'), 'the address is in neither the URL nor the body');
 });
 
 // ---- brief 5-L: the plain browser form (application/x-www-form-urlencoded, no script) ----

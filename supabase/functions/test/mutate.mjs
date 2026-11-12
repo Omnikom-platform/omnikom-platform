@@ -345,6 +345,10 @@ const MUTANTS = [
   ['E4 mail-outbox: it runs without the Resend key or the sender', F + 'mail-outbox/index.ts', 'if (!key || !apiKey || !from) return problem(500', 'if (!key) return problem(500', 'outbox.test.ts'],
   ['E4 lead-alert: the link has no workspace', F + '_shared/lead-alert.ts', '/w/${r.workspace_slug}/leads/${r.lead_id}', '/leads/${r.lead_id}', 'outbox.test.ts'],
   ['E4 capture-lead: the alert is not queued', F + 'capture-lead/index.ts', 'await sql`select service.queue_lead_alert(${site}::uuid, ${row.id}::uuid)`;', 'void 0;', 'capture.test.ts'],
+  // ---- E5: the visitor limit in capture-lead ----
+  ['E5 capture-lead: the visitor is not counted', F + 'capture-lead/index.ts', 'await sql`select service.count_visitor(${site}::uuid, ${visitor})`;', 'void 0;', 'capture.test.ts'],
+  ['E5 capture-lead: any visitor text is a visitor', F + 'capture-lead/index.ts', 'const VISITOR = /^[0-9a-f]{64}$/;', 'const VISITOR = /^.+$/;', 'capture.test.ts'],
+  ['E5 capture-lead: the lead stores the caller\'s address hash, not the visitor\'s', F + 'capture-lead/index.ts', '${L.assignee}, ${visitor}, ${ua})', '${L.assignee}, ${ipHash}, ${ua})', 'capture.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;

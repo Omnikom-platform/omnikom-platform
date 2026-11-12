@@ -33,12 +33,14 @@ sequenceDiagram
 1. **Form.** The site's form sends form id, flow, page, cta, assignee, name, email, phone, answers, the consent text the visitor
    saw, marketing consent, a honeypot and an idempotency key made when the form opened. A preview site never fakes success.
 2. **Site lead function.** Post only, size cap; a filled honeypot gets 400. A plain browser form (no script) is answered with a
-   303 to the thank-you page. It signs the body with the site's key and forwards it to `capture-lead?site=<id>`. Its Pages
+   303 to the thank-you page. It signs the body with the site's key and forwards it to `capture-lead?site=<id>&visitor=<hash>`
+   (the hash is sha256 of the site id and the visitor's address, never the address). Its Pages
    project holds `SITE_ID`, `PLATFORM_BASE` and the secret `SITE_SIGNING_KEY`.
-3. **Signature.** `X-Site-Signature: t=<unix>,v1=<hex>`, HMAC-SHA256 over time, method, path with the site id, and body;
+3. **Signature.** `X-Site-Signature: t=<unix>,v1=<hex>`, HMAC-SHA256 over time, method, path with the site id and the visitor, and body;
    300 s window. Site A's signature fails on site B. A revoked key fails.
 4. **Capture.** `service.capture_lead` takes the workspace from the site, never from the body. Refused: no consent text (400),
-   unknown site (404), paused site or suspended workspace (409), over the hourly quota (60 a workspace by default, 429).
+   unknown site (404), paused site or suspended workspace (409), over the hourly quota (60 a workspace by default, 429),
+   past one visitor's 5 an hour (429).
    The same idempotency key stores nothing new and sends no second alert. The lead, a `received` event and a consent ledger row
    are written in one transaction.
 5. **Alert.** One email to the site's alert addresses and, when set, the assigned agent, through Resend, branded with the

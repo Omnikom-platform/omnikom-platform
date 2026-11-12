@@ -2,7 +2,8 @@
 // that runs unchanged as a Cloudflare Pages Function (pages-function-lead.js) or inside a Worker. It takes the browser's JSON,
 // refuses the obvious (wrong method, too large, not JSON, honeypot filled), signs the exact body with the site's own key
 // (t + METHOD + path?query + body, HMAC-SHA256: the same canonical form as supabase/functions/_shared/signature.ts) and forwards
-// it to the platform's capture-lead. Whatever comes back is turned into the plain-words answer the form shows; only a 202 from
+// it to the platform's capture-lead, with the visitor (sha256 of the site id and the address in cf-connecting-ip) in the signed path as &visitor=<hash>,
+// so that capture-lead can limit one visitor. Whatever comes back is turned into the plain-words answer the form shows; only a 202 from
 // the platform may become "sent". Web Crypto only; no dependencies. Tests: factory/worker/test/run.mjs and mutate.mjs.
 // Brief 5-L: the plain browser form (application/x-www-form-urlencoded, no script) is accepted too. Its fields become the same
 // JSON object a script sends, that JSON is what is signed and forwarded, and the answer is a page for a person, never JSON.
@@ -15,6 +16,14 @@ export async function sign(key, method, pathWithQuery, body, t = Math.floor(Date
   const k = await crypto.subtle.importKey('raw', enc.encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const mac = new Uint8Array(await crypto.subtle.sign('HMAC', k, enc.encode(`${t}\n${method.toUpperCase()}\n${pathWithQuery}\n${body}`)));
   return `t=${t},v1=${Array.from(mac, b => b.toString(16).padStart(2, '0')).join('')}`;
+}
+
+// The visitor: sha256 of "<site id>:<address>", the same text capture-lead hashes for its own records (capture-lead/index.ts), so stored hashes keep their
+// meaning. It goes inside the signed path (product row E5), where capture-lead limits one visitor; the address itself never leaves this endpoint.
+export async function visitorHash(siteId, ip) {
+  if (!ip) return null;
+  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(`${siteId}:${ip}`)));
+  return Array.from(d, b => b.toString(16).padStart(2, '0')).join('');
 }
 
 const json = (status, obj) => new Response(JSON.stringify(obj), { status, headers: H });
@@ -86,7 +95,8 @@ export function makeLeadHandler({ siteId, signingKey, platformBase, fetchImpl = 
     }
     if (data && typeof data.hp === 'string' && data.hp.trim() !== '') return reply(400, { sent: false, problems: [{ code: 'HP', path: '', msg: 'Something is missing.' }] });
     if (!siteId || !signingKey || !platformBase) { log('lead endpoint not configured'); return reply(503, { sent: false, msg: CALL_US }); }
-    const path = `/capture-lead?site=${siteId}`;
+    const visitor = await visitorHash(siteId, request.headers.get('cf-connecting-ip'));
+    const path = `/capture-lead?site=${siteId}${visitor ? `&visitor=${visitor}` : ''}`;
     const signature = await sign(signingKey, 'POST', path, forward, now());
     let res;
     try {

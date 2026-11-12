@@ -22,6 +22,7 @@ const MAX_BODY = 16 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const VISITOR = /^[0-9a-f]{64}$/;
 const H = { 'content-type': 'application/json', 'cache-control': 'no-store' };
 
 type Problem = { code: string; path: string; msg: string };
@@ -47,7 +48,7 @@ export function refusal(message: string): { status: number; code: string; kind: 
   return null;
 }
 
-// The signed path is "/capture-lead?site=<id>". Supabase's gateway may present the function URL as /capture-lead or as
+// The signed path is "/capture-lead?site=<id>&visitor=<hash>" (no visitor from an endpoint published before product row E5). Supabase's gateway may present the function URL as /capture-lead or as
 // /functions/v1/capture-lead; both reduce to the same signed string.
 export function pathForSignature(u: URL): string {
   return u.pathname.replace(/^\/functions\/v1/, '') + u.search;
@@ -102,6 +103,9 @@ export async function handle(req: Request): Promise<Response> {
   // a hash with the site id, never the address itself (Cloudflare's header first; X-Forwarded-For is a fallback for the first test)
   const ip = req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '';
   const ipHash = ip ? await sha256Hex(`${site}:${ip}`) : null;
+  // the visitor: sha256 of "<site id>:<address>" from the site's own endpoint, inside the signed path (product row E5). Absent (an endpoint published before
+  // that row) or not 64 lower-case hex: no visitor, so no visitor limit and no stored hash. The security events below keep the caller's own hash (ipHash).
+  const v = url.searchParams.get('visitor') ?? '', visitor = VISITOR.test(v) ? v : null;
   const event = async (kind: string, code: string, workspace: string | null = null) => {
     try { await sql`select service.record_security_event(${kind}, ${code}, ${workspace}::uuid, ${site}::uuid, null, ${ipHash}, ${{ path: url.pathname }}::jsonb)`; }
     catch (e) { console.error('security event not recorded', String(e).slice(0, 200)); }
@@ -123,9 +127,10 @@ export async function handle(req: Request): Promise<Response> {
     const ua = (req.headers.get('user-agent') ?? '').slice(0, 400) || null;
     let row: { id: string };
     try {
+      if (visitor) await sql`select service.count_visitor(${site}::uuid, ${visitor})`;
       [row] = await sql`select service.capture_lead(${site}::uuid, ${L.form}, ${L.page}, ${L.name}, ${L.email}, ${L.phone},
         ${L.answers}::jsonb, ${L.consentText}, ${L.flow}, ${L.cta}, ${L.marketing}::jsonb,
-        ${L.idempotencyKey}::uuid, ${L.assignee}, ${ipHash}, ${ua}) as id`;
+        ${L.idempotencyKey}::uuid, ${L.assignee}, ${visitor}, ${ua}) as id`;
     } catch (e) {
       const r = refusal(String(e));
       if (!r) throw e;

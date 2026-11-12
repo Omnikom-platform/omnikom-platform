@@ -24,9 +24,9 @@ async function seedKey() {
   });
 }
 
-async function post(body: unknown, key: string = KEY): Promise<{ status: number; text: string }> {
+async function post(body: unknown, key: string = KEY, visitor = ''): Promise<{ status: number; text: string }> {
   const text = JSON.stringify(body);
-  const path = `/capture-lead?site=${SITE_A}`;
+  const path = `/capture-lead?site=${SITE_A}${visitor ? `&visitor=${visitor}` : ''}`;
   const res = await handle(new Request(`http://localhost${path}`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-site-signature': await sign(key, 'POST', path, text) }, body: text }));
   return { status: res.status, text: await res.text() };
 }
@@ -126,4 +126,47 @@ t('capture-lead [E4]: the new-lead alert is queued in mail_outbox, one row per a
     globalThis.fetch = realFetch;
     await withSql(sql => sql`update public.sites set lead_alert_to = ${old}::text[] where id = ${SITE_A}::uuid`);
   }
+});
+
+// Product row E5 (migration 30): the site endpoint signs the visitor's hash into the path; capture-lead counts it per site and hour
+t('capture-lead [E5]: past its hourly limit one visitor is refused 429, another visitor and a post with no visitor pass; the stored hash is the visitor\'s', async () => {
+  await seedKey();
+  const X = '1'.repeat(64), Y = '2'.repeat(64);
+  const body = (name: string) => ({ form: 'contact', page: '/contact', consentText: 'I agree to be contacted', name, answers: {} });
+  try {
+    await withSql(sql => sql`insert into public.workspace_limits (workspace_id, key, value, note) values (${WS_A}::uuid, 'leads_per_hour_visitor', 2, 'E5 test') on conflict (workspace_id, key) do update set value = excluded.value`);
+    eq((await post(body('Cap E5 X1'), KEY, X)).status, 202, 'X, the first');
+    eq((await post(body('Cap E5 X2'), KEY, X)).status, 202, 'X, the second');
+    const third = await post(body('Cap E5 X3'), KEY, X);
+    eq(third.status, 429, 'X, the third: ' + third.text);
+    eq(JSON.parse(third.text).problems[0].code, 'S-QUOTA', 'the code of the refusal');
+    const y = await post(body('Cap E5 Y1'), KEY, Y);
+    eq(y.status, 202, 'another visitor: ' + y.text);
+    const none = await post(body('Cap E5 None'));
+    eq(none.status, 202, 'a post with no visitor: ' + none.text);
+    await withSql(async sql => {
+      type Row = { name: string; source_ip_hash: string | null };
+      const rows: Row[] = await sql`select name, source_ip_hash from public.leads where name like 'Cap E5 %' order by name`;
+      eq(rows.map(r => `${r.name}=${r.source_ip_hash === null ? 'null' : r.source_ip_hash.slice(0, 2)}`).join(), 'Cap E5 None=null,Cap E5 X1=11,Cap E5 X2=11,Cap E5 Y1=22', 'the refused post is not stored; X\'s two leads carry X, Y\'s carries Y, the post with no visitor none');
+      eq(rows.filter(r => r.source_ip_hash === X).length, 2, 'the whole hash is stored');
+    });
+  } finally {
+    await withSql(sql => sql`delete from public.workspace_limits where workspace_id = ${WS_A}::uuid and key = 'leads_per_hour_visitor'`);
+  }
+});
+
+t('capture-lead [E5]: a visitor that is not 64 lower-case hex is no visitor: never counted, stored as null', async () => {
+  await seedKey();
+  const bad = { 'Cap E5b Short': 'ABC', 'Cap E5b Upper': 'A'.repeat(64) };   // "E5b": the other test's lead names start "Cap E5 "
+  for (const [name, v] of Object.entries(bad)) {
+    const r = await post({ form: 'contact', page: '/contact', consentText: 'I agree to be contacted', name, answers: {} }, KEY, v);
+    eq(r.status, 202, `${name}: ${r.text}`);
+  }
+  await withSql(async sql => {
+    for (const name of Object.keys(bad)) {
+      const [l] = await sql`select source_ip_hash from public.leads where name = ${name}`;
+      eq(l.source_ip_hash, null, `${name}: stored as null`);
+    }
+    eq((await sql`select count(*)::int as n from public.visitor_counts where ip_hash = 'ABC' or ip_hash = ${'A'.repeat(64)}`)[0].n, 0, 'neither value was counted');
+  });
 });
