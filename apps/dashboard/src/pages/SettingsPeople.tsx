@@ -88,7 +88,7 @@ export function SettingsPeople({ workspace, business, me }: { workspace: string;
         </ul>
       )}
       {list.data && onlyYou(members, me) && <p data-plan="DP-1.6-11">Only you so far. Invite someone to share this business.</p>}
-      <form onSubmit={e => void invite(e)} className={css.form} data-plan="DP-1.6-02">
+      <form onSubmit={e => void invite(e)} className={css.form} data-plan="DP-1.6-02" noValidate>
         <label>
           Email
           <input type="email" name="invite-email" autoComplete="off" maxLength={254} value={email} onChange={e => setEmail(e.target.value)} />

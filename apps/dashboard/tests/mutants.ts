@@ -19,7 +19,7 @@
 //   export-plain          the layout id is taken out of the page's lead-export call: the file comes back as the plain Omnikom CSV
 //   import-lost           a real import (dry_run false) is answered by the test with a made-up count: the screen says imported, the database holds nothing
 // Slice S1 (S1-C, the invite test of tests/flows.spec.ts; only with SETTINGS_INVITE_EMAIL):
-//   mail-not-sent    invite-member is answered by the test with email_sent false: the call never reaches it, so nothing is made and no mail goes
+//   mail-not-sent    an invite-member call whose email holds an @ is answered by the test with email_sent false: it never reaches the function, so nothing is made and no mail goes (any other call goes on)
 //   remove-refused   member-remove from the page is answered 500 by the test: the sheet cannot remove the person, only the test's finally can
 import type { Page } from '@playwright/test';
 import { callAs, personAccessToken, serviceGet, serviceRepeat } from './support/staging';
@@ -129,7 +129,11 @@ export async function installMutant(page: Page, name: Mutant) {
     });
   }
   if (name === 'mail-not-sent') {
-    await page.route(/\/functions\/v1\/invite-member$/, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: '00000000-0000-0000-0000-000000000000', invited: true, email_sent: false }) }));
+    await page.route(/\/functions\/v1\/invite-member$/, route => {
+      const body = JSON.parse(route.request().postData() ?? '{}') as { email?: unknown };
+      if (typeof body.email !== 'string' || !body.email.includes('@')) return route.continue();   // a call that is not a real address goes on: the bad-address step stays honest
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: '00000000-0000-0000-0000-000000000000', invited: true, email_sent: false }) });
+    });
   }
   if (name === 'remove-refused') {
     await page.route(/\/functions\/v1\/member-remove$/, route => route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 'TEST', message: 'refused by the test' }) }));

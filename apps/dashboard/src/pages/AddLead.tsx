@@ -87,7 +87,7 @@ export function AddLead() {
     <section className={css.panel}>
       <PanelClose />
       <Title data-plan="DP-1.3-04">Add a lead</Title>
-      <form data-plan="DP-1.3b-09" onSubmit={e => void submit(e)} className={css.form}>
+      <form data-plan="DP-1.3b-09" onSubmit={e => void submit(e)} className={css.form} noValidate>
         <label data-plan="DP-1.3b-01">Name <input type="text" name="name" autoComplete="off" maxLength={120} value={name} onChange={e => setName(e.target.value)} /></label>
         <label data-plan="DP-1.3b-02">Phone <input type="tel" name="phone" autoComplete="off" maxLength={40} value={phone} onChange={e => setPhone(e.target.value)} /></label>
         <label data-plan="DP-1.3b-03">Email <input type="email" name="email" autoComplete="off" maxLength={320} value={email} onChange={e => setEmail(e.target.value)} /></label>

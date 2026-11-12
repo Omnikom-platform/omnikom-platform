@@ -187,6 +187,50 @@ describe('mutants of the real source: each must turn the gate red for its reason
   });
 });
 
+// Found by the invite flow on staging (2026-11-12): a type="email" box in a form without noValidate makes the browser stop the submit with its own
+// bubble, so the form's own check never runs and the plan's sentence (DP-1.6-15 "Enter a full email address.") never shows. Login.tsx has noValidate
+// on both its forms for this reason. The rule reads the form's own text only: a box that a form reaches through a variable (Login's emailField) is not seen.
+describe('a form that holds an email, url or tel box carries noValidate', () => {
+  /** The opening tag that starts at `from`: up to its closing `>`, which is not the `>` of an arrow function inside braces. */
+  const tagAt = (code, from) => {
+    let depth = 0;
+    for (let i = from; i < code.length; i++) {
+      if (code[i] === '{') depth++;
+      else if (code[i] === '}') depth--;
+      else if (code[i] === '>' && depth === 0) return code.slice(from, i);
+    }
+    return code.slice(from);
+  };
+  const holdsTypedBox = body => [...body.matchAll(/<input\b/g)].some(m => /\btype="(?:email|url|tel)"/.test(tagAt(body, m.index)));
+  const unvalidated = files => files.filter(f => /^src\/pages\/[^/]+\.tsx$/.test(f.path)).flatMap(f => [...f.code.matchAll(/<form\b/g)].flatMap(m => {
+    const end = f.code.indexOf('</form>', m.index);
+    if (!holdsTypedBox(f.code.slice(m.index, end < 0 ? undefined : end)) || /\bnoValidate\b/.test(tagAt(f.code, m.index))) return [];
+    return [`${f.path}:${f.code.slice(0, m.index).split('\n').length} a <form> holds an email, url or tel box and has no noValidate (the browser's bubble stops the submit before the form's own check)`];
+  }));
+  const form = (attrs, input) => ({ path: 'src/pages/X.tsx', code: `export const A = () => (<form onSubmit={e => void go(e)}${attrs}>${input}</form>);` });
+
+  it('a fixture trips it for each of the three types, whatever the order of the attributes, and not for a text box, a clean form or a box outside a form', () => {
+    for (const type of ['email', 'url', 'tel']) expect(unvalidated([form('', `<input type="${type}" onChange={e => put(e.target.value)} />`)]), type).toHaveLength(1);
+    expect(unvalidated([form('', '<input name="a" onChange={e => put(e.target.value)} type="email" />')])).toHaveLength(1);
+    expect(unvalidated([form('', '<input type="text" onChange={() => 1} />')])).toEqual([]);
+    expect(unvalidated([form(' noValidate', '<input type="email" onChange={() => 1} />')])).toEqual([]);
+    expect(unvalidated([{ path: 'src/pages/X.tsx', code: 'export const A = () => (<label><input type="url" onChange={() => 1} /></label>);' }])).toEqual([]);
+  });
+  it('the real source: every such form has noValidate', () => {
+    expect(unvalidated(sourceFiles())).toEqual([]);
+  });
+  it('the real source with noValidate taken off the invite form is red, and names the file (watched red)', () => {
+    const problems = unvalidated(patch('src/pages/SettingsPeople.tsx', ' data-plan="DP-1.6-02" noValidate>', ' data-plan="DP-1.6-02">')(sourceFiles().map(f => ({ ...f }))));
+    console.log(`MUTANT no-novalidate-people: ${problems.length ? `RED  ${problems[0]}` : 'STAYED GREEN'}`);
+    expect(problems.some(p => p.startsWith('src/pages/SettingsPeople.tsx:')), 'the invite form without noValidate must be named').toBe(true);
+  });
+  it('the real source with noValidate taken off the Add a lead form is red, and names the file (watched red)', () => {
+    const problems = unvalidated(patch('src/pages/AddLead.tsx', ' className={css.form} noValidate>', ' className={css.form}>')(sourceFiles().map(f => ({ ...f }))));
+    console.log(`MUTANT no-novalidate-addlead: ${problems.length ? `RED  ${problems[0]}` : 'STAYED GREEN'}`);
+    expect(problems.some(p => p.startsWith('src/pages/AddLead.tsx:')), 'the Add a lead form without noValidate must be named').toBe(true);
+  });
+});
+
 describe('work order 39: a label that is data is not plan copy, and the gate is not loosened for it', () => {
   const mini = readPlan('| DP-9.2-01 | 5.3 | Status: a pick of the business\'s own list | pick | | | |');
   const run = code => scanSources({ files: [{ path: 'src/x.tsx', code }], plan: mini, built: ['5.3'], routes: new Set(['/']) });
