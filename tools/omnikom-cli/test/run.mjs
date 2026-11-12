@@ -223,6 +223,9 @@ async function units() {
       mkdirSync(join(fxRoot, 'supabase', 'tests'), { recursive: true });
       mkdirSync(join(fxRoot, 'factory', 'worker'), { recursive: true });   // lib/sign.mjs imports it from the repo root when the CLI loads
       cpSync(join(REPO_ROOT, 'factory', 'worker', 'lead-endpoint.mjs'), join(fxRoot, 'factory', 'worker', 'lead-endpoint.mjs'));
+      const fxScripts = join(fxRoot, 'skills', 'programmatic-enterprise-web-performance', 'scripts');   // lib/seo-manifest.mjs and lib/seo-run.mjs import the rule engine from the repo root when the CLI loads
+      mkdirSync(fxScripts, { recursive: true });
+      for (const f of ['lib-pipeline.mjs', 'lib-stops.mjs', 'lib-run.mjs']) cpSync(join(REPO_ROOT, 'skills', 'programmatic-enterprise-web-performance', 'scripts', f), join(fxScripts, f));
       writeFileSync(join(fxRoot, 'supabase', 'tests', 'tenancy.test.sql'), "select 'TEST-demo-x', '00000000-0000-0000-0000-00000000000a', 'ALL TENANCY TESTS PASSED';\n");
       const child = spawnSync(process.execPath, [join(CLI_ROOT, 'omnikom.mjs'), 'test', 'walls', '--target', 'local'], {
         encoding: 'utf8', timeout: 120000, windowsHide: true,
