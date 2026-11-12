@@ -9,7 +9,7 @@
 //   status                       VERIFY: profile, geolocation read back, (tunnel and its exit region), Google home footer
 //   stop                         close the browser (and the codespace if one runs); idempotent; prove both
 //   capture <url> --out FILE     ONE page: refuses inside the 45 s gap and while the 24 h stop file exists
-// Exit codes: 0 ok, 2 usage, 3 BLOCKED (last line "BLOCKED: <what> | unblocks: <what>").
+// Exit codes: 0 ok, 2 usage, 3 BLOCKED (start --egress codespace, capture), 4 SKIPPED (status and start not verified: no allowed US egress).
 // State lives in ~/.claude/state/omnikom-us-vantage (VANTAGE_HOME overrides, tests do): state.json, blocked-until.json, the profile.
 import fs from "node:fs";
 import os from "node:os";
@@ -354,9 +354,8 @@ async function cmdStatus(a) {
   if (a.pewp) writeJson(path.join(a.pewp, "vantage.json"), { profile: o.profile, geo: o.geo, tunnel: o.tunnel, footer: o.footer, footerLocation: o.footerLocation ?? null, query: o.query ?? null, url: o.url ?? null, at: o.at ?? null, verifiedAt: o.verifiedAt, checks: o.checks });
   report(a, o);
   if (o.ok) return 0;
-  const bad = o.checks.filter((c) => !c.ok).map((c) => c.name).join(", ");
-  console.log(`BLOCKED: vantage not verified (${bad}) | unblocks: omnikom seo vantage start (node vantage.mjs start)`);
-  return 3;
+  console.log("SKIPPED: no allowed US egress");
+  return 4;
 }
 export const CODESPACE_BLOCKED = "BLOCKED: --egress codespace is not built: GitHub's Codespaces terms (github/docs, fetched 2026-11-11) say \"Additionally, Codespaces should not be used for: ... Any other activity unrelated to the development or testing of the software project associated with the repository where GitHub Codespaces is initiated.\" | unblocks: a US egress we are permitted to use (the owner's own server or VPN)";
 async function cmdStart(a) {

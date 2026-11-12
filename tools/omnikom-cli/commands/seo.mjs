@@ -1,12 +1,13 @@
 // seo run <url> --client <slug> [--only id,id] [--from id] [--module name] [--fresh] [--env-file <f>] [--json]   every mechanical step of a client SEO audit
 // seo resume <url> [--only ..] [--from ..] [--module ..] [--env-file <f>] [--json]                                the same run, from its log (the client is read from it, nothing is redone)
 // seo status <url> [--json]                                                                                       the coverage table from the run log; runs nothing
-// seo vantage start|status|stop [--json] [--pewp <dir>]                                                           SEO's vantage.mjs, its output and exit code unchanged
+// seo vantage status [--json] [--pewp <dir>]                                                                      SEO's vantage.mjs status, its output unchanged; its exit code too, except 4 (SKIPPED) comes back as 3
 // The steps come ONLY from SEO's manifest (skills/programmatic-enterprise-web-performance/pipeline.json, read from this repository, never from ~/.claude):
 // lib/seo-manifest.mjs validates it (a bad manifest is exit 2 with every problem listed) and lib/seo-run.mjs runs it. This file adds no step, rewrites no
 // reason and swallows no exit code, like commands/audit.mjs. Nothing here touches a client's site except what a manifest step does, and a run never
 // calls `vantage start`. Exit: 0 when no step FAILED (a BLOCKED, WAITING or SKIPPED step is a state, not a failure), 1 when any step FAILED, 2 usage or an
-// invalid manifest; vantage returns the script's own exit code (0 ok, 2 usage, 3 BLOCKED), and a missing script is BLOCKED (3) naming it.
+// invalid manifest; seo vantage status returns the script's own lines and exit code (0 ok, 2 usage, 3 BLOCKED) except that its 4 (SKIPPED: no allowed US egress) comes
+// back as 3, and a missing script is BLOCKED (3) naming it. seo run and seo resume run the skill check (commands/skill.mjs) first: a skill that is not the repository's copy is exit 2.
 // In text mode (no --json) omnikom.mjs prints seoText() instead of the JSON object; vantage always prints the script's own output.
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -18,9 +19,10 @@ import { redact } from '../lib/redact.mjs';
 import { result } from '../lib/ctx.mjs';
 import { validateManifest, parseManifest, hostOf, norm } from '../lib/seo-manifest.mjs';
 import { runSeo, statusSeo, STATES, NOT_RUN } from '../lib/seo-run.mjs';
+import { skillCheck } from './skill.mjs';
 
 const VERBS = ['run', 'resume', 'status', 'vantage'];
-const VANTAGE_VERBS = ['start', 'status', 'stop'];
+const VANTAGE_VERBS = ['status'];
 const VANTAGE_MINUTES = 10;
 export const SKILL = ['skills', 'programmatic-enterprise-web-performance'];
 
@@ -56,8 +58,9 @@ async function vantage(ctx, skillDir) {
   const guard = await importRepo('tools/proc-guard/index.mjs');
   const r = await guard.runLimited(process.execPath, args, { cwd: skillDir, env: ctx.env, timeout: VANTAGE_MINUTES * 60000 });
   const code = typeof r.status === 'number' ? r.status : 1;
+  const exit = code === 4 ? 3 : code;   // the script's 4 (SKIPPED: no allowed US egress) is BLOCKED here: a caller sees 3, the script's lines stay as they are
   const stderr = r.status === null ? `${r.stderr || ''}${r.timedOut ? `seo vantage ${verb}: stopped after ${VANTAGE_MINUTES} minutes\n` : `seo vantage ${verb}: could not run: ${String((r.error && r.error.message) || r.signal || 'no exit code')}\n`}` : r.stderr || '';
-  return result(code === 0, code === 0 ? 'ok' : `VANTAGE-${code}`, { exit: code, stdout: r.stdout || '', stderr, raw: true });
+  return result(exit === 0, exit === 0 ? 'ok' : `VANTAGE-${exit}`, { exit, stdout: r.stdout || '', stderr, raw: true });
 }
 
 export const seoGroup = async ctx => {
@@ -76,6 +79,10 @@ export const seoGroup = async ctx => {
   if (verb === 'run' && (f.client === undefined || f.client === true || f.client === '')) throw new Usage('--client <slug> is required');
   if (f.client !== undefined && !SLUG.test(String(f.client))) throw new Usage('--client must be a slug (lowercase words joined by hyphens)');
   for (const k of ['from', 'module', 'env-file']) if (f[k] !== undefined && (f[k] === true || f[k] === '')) throw new Usage(`--${k} needs a value`);
+  if (verb === 'run' || verb === 'resume') {
+    const sc = ((ctx.seo && ctx.seo.skillCheck) || (() => skillCheck({ repo: ctx.repo, skillsDir: ctx.env.OMNIKOM_SKILLS_DIR || join(homedir(), '.claude', 'skills') })))();
+    if (!sc.ok) throw new Usage(`skill check pewp failed: ${sc.problems.join('; ')}`);
+  }
   const manifest = loadManifest(ctx, skillDir);
   if (verb === 'status') return fromData(statusSeo({ manifest, skillDir, url, client: undefined }));
   const data = await runSeo({

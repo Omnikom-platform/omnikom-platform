@@ -64,19 +64,20 @@ t("the geolocation read-back must be Sacramento", () => {
   eq(V.geoReadsBack({ error: "denied" }), false);
   eq(V.geoReadsBack(null), false);
 });
-t("main exits 2 on a usage error and 3 while no browser runs (status)", () => {
+t("main exits 2 on a usage error and 4 while no browser runs (status)", () => {
   const r = spawnSync(process.execPath, [target, "frobnicate"], { encoding: "utf8", env: process.env, timeout: 30_000 });
   eq(r.status, 2);
   const r2 = spawnSync(process.execPath, [target, "status"], { encoding: "utf8", env: process.env, timeout: 60_000 });
-  eq(r2.status, 3);
-  eq(/^BLOCKED: .* \| unblocks: .*/.test(r2.stdout.trim().split("\n").pop()), true, "last line");
+  eq(r2.status, 4);
+  eq(r2.stdout.trim().split("\n").pop(), "SKIPPED: no allowed US egress", "last line");
 });
-t("stop is idempotent: exit 0 when nothing runs, and status is 3 after it", () => {
+t("stop is idempotent: exit 0 when nothing runs, and status is 4 after it", () => {
   const r = spawnSync(process.execPath, [target, "stop"], { encoding: "utf8", env: process.env, timeout: 60_000 });
   eq(r.status, 0);
   eq(/nothing was running/.test(r.stdout), true);
   const r2 = spawnSync(process.execPath, [target, "status"], { encoding: "utf8", env: process.env, timeout: 60_000 });
-  eq(r2.status, 3);
+  eq(r2.status, 4);
+  eq(r2.stdout.trim().split("\n").pop(), "SKIPPED: no allowed US egress", "last line");
 });
 
 const cap = (h, ...args) => spawnSync(process.execPath, [target, "capture", ...args], { encoding: "utf8", env: { ...process.env, VANTAGE_HOME: h }, timeout: 60_000 });

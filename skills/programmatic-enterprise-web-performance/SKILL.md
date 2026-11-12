@@ -67,7 +67,7 @@ and `adoptDefault` in `lib-pipeline.mjs` are the same rule for `omnikom seo run`
 ## The checker (audit-repo, and the `checker` step of audit-live)
 The main session never reads the code. Start ONE agent: `subagent_type: "general-purpose"`, `model: "sonnet"`,
 `effort: "high"`, prompt:
-> Read `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance\coordinator.md` and follow it exactly. Repo root: `<path>`. Focus: `<focus>`. Max parallel workers: `<n, default 4>`. Return only the short summary it specifies.
+> Read `<skill>/coordinator.md` and follow it exactly. Repo root: `<path>`. Focus: `<focus>`. Max parallel workers: `<n, default 4>`. Return only the short summary it specifies.
 For a repo, run `node "<skill>/scripts/guard-readonly.mjs" <repo> --before` first and `--after` when it returns (fails if
 any source file changed). Output in `<root>/.checks/`:
 - `REPORT.md`: root causes first (where to fix, pages affected), then every finding, then NOT CHECKED and warnings.

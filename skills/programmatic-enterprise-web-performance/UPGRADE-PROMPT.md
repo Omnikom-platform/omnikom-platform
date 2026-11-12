@@ -1,4 +1,4 @@
-Upgrade the skill `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance\` end to end.
+Upgrade the skill `<skill>` (skills/programmatic-enterprise-web-performance in the Omnikom repository) end to end.
 First read every file in it (SKILL.md, coordinator.md, worker-prompt.md, scripts/*, checklist/*) and build on
 its current state: families, root causes, causes.json, live-site snapshot, check scripts. Regress none of it;
 `scripts/test-snapshot.mjs` and `scripts/test-plan-merge.mjs` must still pass.

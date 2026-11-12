@@ -441,7 +441,13 @@ await runCli(import.meta.url, "node research.mjs <url | repo path> [--dry] [--ye
   };
   const plan = planText(ctx, o);
   console.log(plan.text);
-  if (a.has("dry")) return "DRY RUN: nothing fetched.";
+  if (a.has("dry")) {
+    // nothing is fetched, but the list of what the owner's browser still has to capture is computed from what is already on disk (captureRequests reads the stored steps), so it is
+    // written here too: research/capture-requests.json is the evidence of the research-plan step, and a re-run could never satisfy it while --dry returned before the write
+    const S = Object.fromEntries([["serp", "serp"], ["clusters", "clusters"], ["competitors", "competitors"], ["ai", "ai-citations"], ["wiki", "wiki"], ["forums", "forums"], ["gsc", "gsc"], ["winners", "winners"], ["assets", "assets"], ["citations", "citations"], ["autocomplete", "autocomplete"]].map(([k, n]) => [k, readStep(ctx, n)]));
+    W(path.join(ctx.rdir, "capture-requests.json"), captureRequests(ctx, S, o));
+    return "DRY RUN: nothing fetched; research/capture-requests.json written from what is already on disk.";
+  }
   if (plan.total > a.num("confirm-above", 150) && !a.has("yes")) throw new Blocked(`the plan is ${plan.total} external calls, above ${a.num("confirm-above", 150)}: the owner approves it, then re-run with --yes`);
   let r;
   try { r = await run(ctx, o); } catch (e) { if (e instanceof NeedsApproval) { console.log(e.text); process.exitCode = 3; return; } throw e; }

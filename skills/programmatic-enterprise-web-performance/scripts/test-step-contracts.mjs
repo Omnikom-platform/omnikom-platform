@@ -76,6 +76,22 @@ console.log("stand-in crawl done");
     W(path.join(gdir, "cities.json"), [{ city: "Sacramento, CA", lat: 38.58111, lng: -121.49389, source: "https://en.wikipedia.org/wiki/Sacramento,_California", readAt: "2026-11-10" }, { city: "Elk Grove, CA", lat: 38.4088, lng: -121.3716, source: "https://en.wikipedia.org/wiki/Elk_Grove,_California", readAt: "2026-11-10" }]);
     b = await grid("plan", ["--query", "hard money loans {city}", "--n", "1"]);
     check("B: a full plan is exit 0 with no line that starts with BLOCKED", b.code === 0 && !/^BLOCKED/m.test(b.so), `exit ${b.code} ${b.out}`);
+    // gap 2 (a skill run): the manifest's evidence paths are the paths local-grid.mjs really writes and reads (they were local-grid/requests.json, captures/local/pack/*.json, local-grid/*.json)
+    {
+      const lpB = await import(pathToFileURL(path.join(dir, "lib-pipeline.mjs")).href + "?" + Math.random());
+      const manB = lpB.loadManifest(path.join(here, "..", "pipeline.json")).manifest, stepB = (id) => manB.steps.find((s) => s.id === id);
+      const varsB = { url: SITE, client: null, host: "contract-test.test", skill: path.join(here, ".."), runDir: cwdB, pewp: pewpB, work: path.join(cwdB, "work") };
+      const evB = (id) => { try { return lpB.evidenceState(stepB(id), varsB, { since: 0 }); } catch (e) { return { state: "threw", problems: [e.message] }; } };
+      check("B: after a plan, local-grid-plan's manifest evidence is done: it names captures/local/grid/requests.json, the file the plan wrote", evB("local-grid-plan").state === "done", JSON.stringify(evB("local-grid-plan")));
+      const reqB = fs.existsSync(path.join(gdir, "requests.json")) ? J(path.join(gdir, "requests.json")) : { requests: [] }, rq = (reqB.requests || [])[0] || { id: "no-request" };
+      check("B: capture-maps' evidence is NOT satisfied by the plan's own files (requests.json, plan.json, cities.json sit in the same folder): before any capture it is missing", evB("capture-maps").state === "missing", JSON.stringify(evB("capture-maps")));
+      W(path.join(gdir, `${rq.id}.json`), { id: rq.id });
+      check("B: a capture named after its request id (<city>__<query>__<point>.json, what local-grid.mjs reads from that folder) is capture-maps' evidence", rq.id.includes("__") && evB("capture-maps").state === "done", JSON.stringify([rq.id, evB("capture-maps")]));
+      fs.rmSync(path.join(gdir, `${rq.id}.json`), { force: true }); // the import checks below expect no captures yet
+      W(path.join(pewpB, "local", "2026-11-10", "grid.json"), { ok: 1 });
+      check("B: local-grid-import's evidence is the dated grid the import writes (local/<date>/grid.json)", evB("local-grid-import").state === "done", JSON.stringify(evB("local-grid-import")));
+      fs.rmSync(path.join(pewpB, "local"), { recursive: true, force: true });
+    }
     b = await grid("import");
     check("B: import with no grid captures is BLOCKED: exit 3, last line 'BLOCKED: no grid captures in <dir> | unblocks: Run `local-grid.mjs plan` ...'", b.code === 3 && /^BLOCKED: no grid captures in .* \| unblocks: Run `local-grid\.mjs plan`/.test(lastLine(b.so)), `exit ${b.code} ${b.out}`);
     b = await run("local-grid.mjs", ["nonsense"]);
@@ -103,6 +119,7 @@ console.log("stand-in crawl done");
     const kEnv = { VANTAGE_HOME: path.join(tmp, "vantage-home") };
     const noPipe = [];
     const PIPE_EXEMPT = ["authority-anchors"]; // WO 42's script: it ends 'BLOCKED: ...; unblocks: ...', theirs to change
+    const SKIPPED = { vantage: "SKIPPED: no allowed US egress" }; // a step that cannot verify what it checks does not BLOCK the run: exit 4 and this last line (P3.4 R1)
     let kRan = 0;
     for (const st of man.steps.filter((x) => x.script && !(x.id in UNREACHED))) {
       const cwdK = path.join(tmp, "k-" + st.id), runDir = path.join(cwdK, "site-checks", "contract-test.test"), pewp = path.join(runDir, ".pewp");
@@ -112,9 +129,9 @@ console.log("stand-in crawl done");
       const r = await run(path.basename(st.script), args, { env: kEnv, timeout: 60000 });
       const ll = lastLine(r.out);
       kRan++;
-      const full = /^BLOCKED: .+ \| unblocks: .+/.test(ll), exempt = PIPE_EXEMPT.includes(st.id);
+      const full = /^BLOCKED: .+ \| unblocks: .+/.test(ll), exempt = PIPE_EXEMPT.includes(st.id), skip = SKIPPED[st.id];
       if (r.code === 3 && /^BLOCKED: /.test(ll) && !full) noPipe.push(st.id);
-      check(`K: ${st.id}: on a bare fixture (no pewp files, no key, no network) it is BLOCKED: exit 3 and the last line is 'BLOCKED: <what> | unblocks: <what would>'${exempt ? " (only the 'BLOCKED: ' start is demanded of this one: WO 42's script)" : ""}`, r.code === 3 && (exempt ? /^BLOCKED: /.test(ll) : full), `exit ${r.code}; last line: ${ll.slice(0, 260)}`);
+      check(`K: ${st.id}: on a bare fixture (no pewp files, no key, no network) it is ${skip ? `SKIPPED: exit 4 and the last line is '${skip}'` : "BLOCKED: exit 3 and the last line is 'BLOCKED: <what> | unblocks: <what would>'"}${exempt ? " (only the 'BLOCKED: ' start is demanded of this one: WO 42's script)" : ""}`, skip ? r.code === 4 && ll === skip : r.code === 3 && (exempt ? /^BLOCKED: /.test(ll) : full), `exit ${r.code}; last line: ${ll.slice(0, 260)}`);
     }
     check(`K: ${kRan} script steps checked; not reached on a bare fixture (${Object.keys(UNREACHED).length}): ${Object.entries(UNREACHED).map(([k, v]) => `${k} (${v})`).join("; ")}`, kRan + Object.keys(UNREACHED).length === man.steps.filter((x) => x.script).length, `checked ${kRan} + unreached ${Object.keys(UNREACHED).length} is not the ${man.steps.filter((x) => x.script).length} script steps of the manifest`);
     check(`K: the BLOCKED last lines without the full form ' | unblocks: ' are only the exempt ones (${noPipe.join(", ") || "none"})`, noPipe.every((x) => PIPE_EXEMPT.includes(x)), `not exempt and not in the full form: ${noPipe.filter((x) => !PIPE_EXEMPT.includes(x)).join(", ")}`);

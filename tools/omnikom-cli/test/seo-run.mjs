@@ -3,8 +3,8 @@
 // Everything runs real child processes against fake step scripts (test/fixtures/seo/skill/scripts: one tiny script per behaviour) and a fake HTTP server
 // that counts the requests open at once; nothing touches a real site, ~/.claude or the real heavy.mjs (a stand-in that takes no lock is used, so the
 // serialisation seen here is the runner's own). Each check below has a mutant in test/mutate.mjs tagged [seo-run].
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, cpSync, mkdirSync, utimesSync, statSync } from 'node:fs';
-import { spawn } from 'node:child_process';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, cpSync, mkdirSync, utimesSync, statSync, symlinkSync, unlinkSync, rmdirSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
 import { tmpdir, homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -47,7 +47,9 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
   // No command may hang the file: one that does not return within the deadline ends the file with a FAIL line naming it (see the catch at the bottom)
   const DEADLINE_MS = 150000;
   const bounded = (what, p) => { let t; return Promise.race([p, new Promise((_, rej) => { t = setTimeout(() => rej(Object.assign(new Error(`${what} did not return in ${DEADLINE_MS / 1000} s`), { seoDeadline: true })), DEADLINE_MS); })]).finally(() => clearTimeout(t)); };
-  const go = (s, argv, env = {}, seo = {}) => bounded(`omnikom seo ${argv.join(' ')}`, cli(['seo', ...argv], { SEO_FIXTURE_RECORD: s.record, ...env }, { seo: { skillDir: s.skill, heavyScript, ...seo } }));
+  // seo run and seo resume run the skill check first (P3.4 R1): a test never reads the real skills folder, it hands a check that passes (a case may hand its own in `seo`)
+  const PASS = () => ({ ok: true, problems: [] });
+  const go = (s, argv, env = {}, seo = {}) => bounded(`omnikom seo ${argv.join(' ')}`, cli(['seo', ...argv], { SEO_FIXTURE_RECORD: s.record, ...env }, { seo: { skillDir: s.skill, heavyScript, skillCheck: PASS, ...seo } }));
   const run = (s, extra = [], env, seo) => go(s, ['run', URL_, '--client', 'demo', '--json', ...extra], env, seo);
   const resume = (s, extra = [], env, seo) => go(s, ['resume', URL_, '--json', ...extra], env, seo);
   const status = (s, extra = []) => go(s, ['status', URL_, '--json', ...extra]);
@@ -300,11 +302,19 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     const stopManifest = slow => M(S('first'), S('slow', slow ? { script: 'scripts/hang.mjs', args: ['--id', 'slow', '--pidfile', '{work}/pid'], timeoutMinutes: 5, dependsOn: ['first'] } : { dependsOn: ['first'] }));
     writeFileSync(join(stopSkill, 'pipeline.json'), JSON.stringify(stopManifest(true)));
     const stopS = { skill: stopSkill, record: join(root, 'stop-record.jsonl'), pewp: join(stopSkill, 'site-checks', HOST, '.pewp'), work: join(stopSkill, 'site-checks', HOST, 'work') };
-    const child = spawn(process.execPath, [join(CLI_ROOT, 'omnikom.mjs'), 'seo', 'run', URL_, '--client', 'demo', '--json'], { env: { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, OMNIKOM_REPO_ROOT: stopRepo, SEO_FIXTURE_RECORD: stopS.record }, windowsHide: true, stdio: 'ignore' });
+    // this child is a whole CLI process, so it runs the real skill check (P3.4 R1, no seam): stop-repo is a git checkout with its skill committed, at backup-gh/master,
+    // and a skills folder of this test holds a junction to its copy of the skill
+    const stopSkills = join(root, 'stop-skills');
+    mkdirSync(stopSkills, { recursive: true });
+    const stopGit = (...a) => { const x = spawnSync('git', ['-c', 'user.name=seotest', '-c', 'user.email=seotest@example.invalid', '-c', 'commit.gpgsign=false', '-c', `core.hooksPath=${join(root, 'no-hooks')}`, ...a], { cwd: stopRepo, env: Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^GIT_(DIR|WORK_TREE|INDEX_FILE|PREFIX|OBJECT_DIRECTORY|COMMON_DIR|NAMESPACE)$/.test(k))), encoding: 'utf8', timeout: 60000, windowsHide: true }); if (x.status !== 0) throw new Error(`git ${a.join(' ')}: ${x.error ? x.error.message : String(x.stderr).trim().split('\n')[0]}`); };
+    stopGit('init', '-q'); stopGit('config', 'core.autocrlf', 'false'); stopGit('add', 'skills'); stopGit('commit', '-q', '-m', 'the skill'); stopGit('update-ref', 'refs/remotes/backup-gh/master', 'HEAD');
+    symlinkSync(stopSkill, join(stopSkills, SKILL[1]), 'junction');
+    const child = spawn(process.execPath, [join(CLI_ROOT, 'omnikom.mjs'), 'seo', 'run', URL_, '--client', 'demo', '--json'], { env: { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, OMNIKOM_REPO_ROOT: stopRepo, OMNIKOM_SKILLS_DIR: stopSkills, SEO_FIXTURE_RECORD: stopS.record }, windowsHide: true, stdio: 'ignore' });
     const reached = await until(() => starts(stopS, 'slow') === 1 && existsSync(join(stopS.work, 'pid')), 30000);
     const stopPid = Number(existsSync(join(stopS.work, 'pid')) ? readFileSync(join(stopS.work, 'pid'), 'utf8') : 0);
     guard.killTree(child.pid);
     await until(() => !pidAlive(child.pid), 6000);
+    try { unlinkSync(join(stopSkills, SKILL[1])); } catch { rmdirSync(join(stopSkills, SKILL[1])); }   // the junction goes as a link, never through its target
     if (stopPid > 0) { await until(() => !pidAlive(stopPid), 6000); if (pidAlive(stopPid)) guard.killTree(stopPid); }
     check('seo resume: the run reached the slow step before it was stopped', reached, `slow started ${starts(stopS, 'slow')} times`);
     r = await go(stopS, ['status', URL_, '--json']);
@@ -402,18 +412,29 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     r = await go(s, ['vantage', 'status', '--json', '--pewp', 'some/dir']);
     check('seo vantage status: the script\'s own stdout and stderr, unchanged (not wrapped), exit 0', r.exit === 0 && r.stdout === 'vantage-args ["status","--json","--pewp","some/dir"]\n' && r.stderr === 'vantage-stderr line\n', JSON.stringify([r.stdout, r.stderr, r.exit]));
     r = await go(s, ['vantage', 'start']);
-    check('seo vantage start passes only its verb', r.exit === 0 && r.stdout === 'vantage-args ["start"]\n', r.stdout);
+    check('seo vantage start is refused (status only)', r.exit === 2 && r.stdout.includes('seo vantage takes status'), r.all.slice(0, 200));
     r = await go(s, ['vantage', 'stop']);
-    check('seo vantage stop passes only its verb', r.exit === 0 && r.stdout === 'vantage-args ["stop"]\n', r.stdout);
+    check('seo vantage stop is refused (status only)', r.exit === 2 && r.stdout.includes('seo vantage takes status'), r.all.slice(0, 200));
     r = await go(s, ['vantage', 'status'], { FIXTURE_VANTAGE_EXIT: '3' });
     check('seo vantage: exit 3 comes back as 3 with the script\'s BLOCKED line unchanged', r.exit === 3 && r.stdout.endsWith('BLOCKED: the owner browser is not open | unblocks: omnikom seo vantage start\n'), JSON.stringify([r.stdout, r.exit]));
     r = await go(s, ['vantage', 'status'], { FIXTURE_VANTAGE_EXIT: '2' });
     check('seo vantage: exit 2 comes back as 2', r.exit === 2, JSON.stringify([r.stdout, r.exit]));
+    // S1: seo run and seo resume run the skill check first; a failing one is exit 2 and no step starts
+    {
+      const sk = site();
+      const failing = { skillCheck: () => ({ ok: false, problems: ['p1'] }) };
+      const ra = await run(sk, [], {}, failing);
+      const rb = await resume(sk, [], {}, failing);
+      check('seo run and seo resume: a failing skill check is exit 2, "skill check pewp failed: p1", and no step started (S1)', ra.exit === 2 && ra.json.error === 'skill check pewp failed: p1' && rb.exit === 2 && rb.json.error === 'skill check pewp failed: p1' && rec(sk).length === 0, JSON.stringify([ra.exit, ra.json && ra.json.error, rb.exit, rb.json && rb.json.error, rec(sk).length]));
+    }
+    // S2: the script's exit 4 (SKIPPED: no allowed US egress) comes back as 3, with the script's own lines
+    r = await go(s, ['vantage', 'status'], { FIXTURE_VANTAGE_EXIT: '4' });
+    check('seo vantage: exit 4 (SKIPPED: no allowed US egress) comes back as 3, the script\'s SKIPPED line is the last line (S2)', r.exit === 3 && r.stdout.endsWith('SKIPPED: no allowed US egress\n'), JSON.stringify([r.stdout, r.exit]));
     rmSync(join(s.skill, 'scripts', 'vantage.mjs'));
     r = await go(s, ['vantage', 'status']);
     check('seo vantage: a missing script is BLOCKED (exit 3) and names it', r.exit === 3 && r.stdout.startsWith('ERROR vantage.mjs is not at ') && r.stdout.includes('scripts/vantage.mjs') && r.stdout.includes('unblocks:'), r.all.slice(0, 300));
     r = await go(s, ['vantage', 'dance']);
-    check('seo vantage with an unknown verb exits 2', r.exit === 2 && r.stdout.includes('start | status | stop'), r.all.slice(0, 200));
+    check('seo vantage with an unknown verb exits 2', r.exit === 2 && r.stdout.includes('seo vantage takes status'), r.all.slice(0, 200));
     r = await go(s, ['vantage', 'status', '--fresh']);
     check('seo vantage takes only --json and --pewp', r.exit === 2 && r.stdout.includes('only --json and --pewp'), r.all.slice(0, 200));
     s = site(M(S('vantage', { script: 'scripts/vantage.mjs', args: ['status', '--pewp', '{pewp}'], outputs: ['{pewp}/vantage.json'], evidence: ['{pewp}/vantage.json'] }), S('after-vantage', { dependsOn: ['vantage'] })));

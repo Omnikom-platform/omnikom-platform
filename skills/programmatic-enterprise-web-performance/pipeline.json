@@ -465,8 +465,7 @@
     "{pewp}/captures/serp/"
    ],
    "dependsOn": [
-    "research-plan",
-    "vantage"
+    "research-plan"
    ],
    "needsBrowser": "owner",
    "needsAi": false,
@@ -497,8 +496,7 @@
     "{pewp}/captures/serp/"
    ],
    "dependsOn": [
-    "research-plan",
-    "vantage"
+    "research-plan"
    ],
    "needsBrowser": "owner",
    "needsAi": false,
@@ -527,8 +525,7 @@
     "{pewp}/captures/index/"
    ],
    "dependsOn": [
-    "research-plan",
-    "vantage"
+    "research-plan"
    ],
    "needsBrowser": "owner",
    "needsAi": false,
@@ -590,8 +587,7 @@
     "{pewp}/captures/autocomplete/"
    ],
    "dependsOn": [
-    "approve-seeds",
-    "vantage"
+    "approve-seeds"
    ],
    "needsBrowser": "owner",
    "needsAi": false,
@@ -853,7 +849,7 @@
     "{pewp}/captures/local/grid/cities.json"
    ],
    "outputs": [
-    "{pewp}/local-grid/requests.json"
+    "{pewp}/captures/local/grid/requests.json"
    ],
    "dependsOn": [
     "approve-business",
@@ -868,7 +864,7 @@
    "pace": null,
    "timeoutMinutes": 5,
    "evidence": [
-    "{pewp}/local-grid/requests.json"
+    "{pewp}/captures/local/grid/requests.json"
    ]
   },
   {
@@ -878,10 +874,10 @@
    "script": null,
    "args": [],
    "inputs": [
-    "{pewp}/local-grid/requests.json"
+    "{pewp}/captures/local/grid/requests.json"
    ],
    "outputs": [
-    "{pewp}/captures/local/pack/",
+    "{pewp}/captures/local/grid/",
     "{pewp}/captures/local/profile.json"
    ],
    "dependsOn": [
@@ -896,7 +892,7 @@
    "pace": "one page at least 45 s apart; stop at the first robot check",
    "timeoutMinutes": 0,
    "evidence": [
-    "{pewp}/captures/local/pack/*.json"
+    "{pewp}/captures/local/grid/*__*.json"
    ],
    "brief": "Google Maps ranks by the map's viewport, not by IP (work order 40: a browser outside the market cannot localize web results). Open https://www.google.com/maps/search/<service>/@<lat>,<lng>,14z for each point in the grid requests, and record the results list in the local-pack format. Then search the business's own name: record its profile (rating, reviews, category, photos), or that none exists.",
    "engines": [
@@ -1036,7 +1032,7 @@
    "timeoutMinutes": 60,
    "exit": {
     "3": "BLOCKED: no authority.json, free disk under 15 GB, or the 24 h Common Crawl stop file is in force (it prints until when)",
-    "4": "stopped: Common Crawl answered 403, 429 or 503 or dropped the connection; the run stops, a 24 h stop file is written, what was read is kept"
+    "4": "partial: Common Crawl answered 403, 429 or 503 or dropped the connection; the run stops, a 24 h stop file is written, what was read is kept; run again to continue"
    },
    "evidence": [
     "{pewp}/authority/anchors.md"
@@ -1131,10 +1127,10 @@
     "{skill}"
    ],
    "inputs": [
-    "{pewp}/captures/local/pack/"
+    "{pewp}/captures/local/grid/"
    ],
    "outputs": [
-    "{pewp}/local-grid/"
+    "{pewp}/local/"
    ],
    "dependsOn": [
     "capture-maps"
@@ -1148,7 +1144,7 @@
    "pace": null,
    "timeoutMinutes": 5,
    "evidence": [
-    "{pewp}/local-grid/*.json"
+    "{pewp}/local/*/grid.json"
    ]
   },
   {

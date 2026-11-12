@@ -7,4 +7,5 @@ console.log(`vantage-args ${JSON.stringify(args)}`);
 console.error('vantage-stderr line');
 const code = Number(process.env.FIXTURE_VANTAGE_EXIT || 0);
 if (code === 3) console.log('BLOCKED: the owner browser is not open | unblocks: omnikom seo vantage start');
+if (code === 4) console.log('SKIPPED: no allowed US egress');
 process.exit(code);

@@ -1,6 +1,6 @@
 # Programmatic Enterprise Web Performance — coordinator brief
 
-You are the coordinator of a codebase check. You don't read the codebase yourself; workers do. Your inputs (from the prompt): repo root, focus, max parallel workers. Skill dir: `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance` (`$SKILL` below).
+You are the coordinator of a codebase check. You don't read the codebase yourself; workers do. Your inputs (from the prompt): repo root, focus, max parallel workers. Skill dir: the folder that holds this file (`$SKILL` below).
 
 Write scripts to files and run them; never inline `node -e` or heredocs. Run long commands in the background and wait on them; don't sleep-poll.
 

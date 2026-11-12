@@ -833,6 +833,15 @@ const MUTANTS = [
   ['[usage] over the pace exits 0', 'commands/usage.mjs', "return result(!r.over, r.over ? 'OVER' : 'ok', r);", "return result(true, 'ok', r);", 'unit'],
   ['[usage] a fit from fewer than 3 windows', 'commands/usage.mjs', 'if (windows.length < 3) throw new Blocked(', 'if (false) throw new Blocked(', 'unit'],
   ['[usage] a fit that cannot tell the models apart', 'commands/usage.mjs', 'if (Math.abs(m[c][c]) <= 1e-12 * scale) throw new Blocked(', 'if (false) throw new Blocked(', 'unit'],
+  // ---- skill check pewp, the seo vantage exit (P3.4 R1)
+  ['[skill-check] a real folder passes as the junction', 'commands/skill.mjs', 'if (!st.isSymbolicLink()) problems.push(', 'if (false) problems.push(', 'unit'],
+  ['[skill-check] a junction to another folder passes', 'commands/skill.mjs', 'if (realpathSync(entry) !== realpathSync(target)) problems.push(', 'if (false) problems.push(', 'unit'],
+  ['[skill-check] an edit through the junction passes', 'commands/skill.mjs', 'if (dirty.length) problems.push(', 'if (false) problems.push(', 'unit'],
+  ['[skill-check] a main checkout behind backup-gh/master passes', 'commands/skill.mjs', 'else if (head !== tip) problems.push(', 'else if (false) problems.push(', 'unit'],
+  ['[skill-check] a worktree is taken for the main checkout', 'commands/skill.mjs', 'repo => dirname(commonDirOf(makeGit(repo)));', 'repo => repo;', 'unit'],
+  ['[skill-check] seo run starts without the skill check', 'commands/seo.mjs', 'if (!sc.ok) throw new Usage(', 'if (false) throw new Usage(', 'unit'],
+  ['[skill-check] seo vantage passes exit 4 through', 'commands/seo.mjs', 'const exit = code === 4 ? 3 : code;', 'const exit = code;', 'unit'],
+  ['[skill-check] seo vantage still takes start and stop', 'commands/seo.mjs', "const VANTAGE_VERBS = ['status'];", "const VANTAGE_VERBS = ['start', 'status', 'stop'];", 'unit'],
 ];
 
 const list = pickMutants(shardMutants(MUTANTS, shard), only);   // sharded by the index in the whole list, then narrowed by --only

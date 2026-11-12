@@ -754,6 +754,14 @@ try {
   const tw = J(path.join(win2, "targets.json")), cw = tw?.clusters.find((c) => c.primaryQuery === "how much does a realtor cost in tracy");
   check("research: with --from-serp the winners fill wordRange, requiredEntities and winningFormat in targets.json, and the shared validator accepts it", rw.status === 0 && JSON.stringify(cw?.wordRange?.value) === "[1000,1400]" && cw.requiredEntities.includes("commission") && cw.winningFormat === "guide" && !!V?.validate(tw).ok, rw.stdout + rw.stderr + JSON.stringify(V?.validate(tw)?.errors?.slice(0, 3)));
   const dry2 = await node("research.mjs", ["https://win2.test/", "--cwd", tmp, "--from-serp", "--dry", "--kwp-file", csvW]);
+  // gap 3 (a skill run): --dry returned before the capture list was written, so the research-plan step's evidence (research/capture-requests.json) could never be satisfied on a re-run
+  const crFile = path.join(win2, "research", "capture-requests.json");
+  fs.rmSync(crFile, { force: true });
+  const crT0 = Date.now() - 1000;
+  const dry3 = await node("research.mjs", ["https://win2.test/", "--cwd", tmp, "--from-serp", "--dry", "--kwp-file", csvW]);
+  const crSt = fs.existsSync(crFile) ? fs.statSync(crFile) : null, crIn = ["seeds.json", "clusters.json"].map((f) => { try { return fs.statSync(path.join(win2, "research", f)).mtimeMs; } catch { return 0; } });
+  let crDoc = null; try { crDoc = J(crFile); } catch { /* not written */ }
+  check("research: --dry fetches nothing but WRITES research/capture-requests.json from what is already on disk (the evidence of the research-plan step on a re-run): the file exists, is newer than seeds.json and clusters.json and than the start of the run, and lists what is still to capture", dry3.status === 0 && /DRY RUN/.test(dry3.stdout) && !!crSt && crSt.mtimeMs >= crT0 && crIn.every((m) => crSt.mtimeMs > m) && Array.isArray(crDoc?.items), JSON.stringify([dry3.status, dry3.stdout.slice(-120), !!crSt, crSt && crSt.mtimeMs - crT0, crIn.map((m) => crSt && crSt.mtimeMs - m), Array.isArray(crDoc?.items)]));
   check("research: the plan lists the winner pages it will fetch (so the owner sees them first)", /winner pages to audit/.test(dry2.stdout) && /blog\/closing-costs/.test(dry2.stdout) && /DRY RUN/.test(dry2.stdout), dry2.stdout);
 
   // autocomplete: saved by the main session, parsed here, never fetched
