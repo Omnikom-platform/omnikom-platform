@@ -45,18 +45,34 @@ t('db [E6]: without DB_POOLER_URL connect() throws, even when the direct SUPABAS
 t('db [E6]: 8 parallel calls and a post to the lead function open no connection to the direct address', async () => {
   const direct = Deno.listen({ hostname: '127.0.0.1', port: 0 });   // a stand-in direct address that counts each connection and closes it
   let opened = 0;
-  const loop = (async () => { for await (const conn of direct) { opened++; conn.close(); } })();
+  // The first counted connection ends the test at once. The calls are not waited for then: after a clean close (the Linux runner; here the
+  // close is clean on every system because the client's first bytes are read first) postgres.js opens the connection again without end,
+  // so the calls never answer (the check run of 2026-11-12: both E6 faults ran into the 10 minute limit instead of going red).
+  let hit = (_e: Error) => {};
+  const seen = new Promise<never>((_, reject) => { hit = reject; });
+  seen.catch(() => {});
+  const loop = (async () => {
+    for await (const conn of direct) {
+      opened++;
+      hit(new Error(`connections to the direct address: ${opened}`));
+      (async () => { await conn.read(new Uint8Array(64)).catch(() => {}); try { conn.close(); } catch { /* closed already */ } })();
+    }
+  })();
   const old = Deno.env.get('SUPABASE_DB_URL');
   Deno.env.set('SUPABASE_DB_URL', `postgres://postgres@127.0.0.1:${(direct.addr as Deno.NetAddr).port}/direct`);
   try {
-    const answers = await Promise.all(Array.from({ length: 8 }, () => call(drafts, 'drafts', { site: SITE_A }, 'owner-a')));
-    for (const a of answers) eq(a.status, 200, `drafts (connections to the direct address so far: ${opened}): ${a.text}`);
-    const res = await leadFn(new Request(`http://localhost/capture-lead?site=${SITE_A}`, {
-      method: 'POST', headers: { 'content-type': 'application/json', 'x-site-signature': 't=1,v1=00' }, body: '{}' }));
-    const text = await res.text();
-    eq(res.status, 401, `capture-lead (connections to the direct address so far: ${opened}): ${text}`);
-    eq(JSON.parse(text).problems?.[0]?.code, 'SIGNATURE', 'the keys were read from the database');
-    eq(opened, 0, 'connections to the direct address');
+    const work = (async () => {
+      const answers = await Promise.all(Array.from({ length: 8 }, () => call(drafts, 'drafts', { site: SITE_A }, 'owner-a')));
+      for (const a of answers) eq(a.status, 200, `drafts (connections to the direct address so far: ${opened}): ${a.text}`);
+      const res = await leadFn(new Request(`http://localhost/capture-lead?site=${SITE_A}`, {
+        method: 'POST', headers: { 'content-type': 'application/json', 'x-site-signature': 't=1,v1=00' }, body: '{}' }));
+      const text = await res.text();
+      eq(res.status, 401, `capture-lead (connections to the direct address so far: ${opened}): ${text}`);
+      eq(JSON.parse(text).problems?.[0]?.code, 'SIGNATURE', 'the keys were read from the database');
+      eq(opened, 0, 'connections to the direct address');
+    })();
+    work.catch(() => {});   // when a connection ended the test first, the calls fail later (the listener is closed) and nobody waits for them
+    await Promise.race([work, seen]);
   } finally {
     Deno.env.set('SUPABASE_DB_URL', old!);
     direct.close();
