@@ -6,6 +6,7 @@ import { callAs, personAccessToken, RUN, serviceGet, WS } from './support/stagin
 import { installMutant } from './mutants';
 import { plan as resetPlan, removeRows } from './support/reset-staging-drafts.mjs';
 import { planProblems } from './plan-gate.dom';
+import { installSiteMutant } from './mutants';
 
 const ok = async (page: Page, o: Parameters<typeof planProblems>[1]) => expect(await planProblems(page, o)).toEqual([]);
 
@@ -39,8 +40,9 @@ const openContact = async (page: Page) => {
 test.describe('the owner\'s Site screen', () => {
   test.use({ storageState: '.auth/owner-a.json' });
 
-  test('the list and the editor carry the plan, and a save is a new version while the site stays as it is', async ({ page }) => {
+  test('the list and the editor carry the plan, a save is a new version while the site stays as it is, and Restore and its Undo are new versions too', async ({ page }) => {
     await installMutant(page, 'save-lost');
+    await installSiteMutant(page, 'undo-lost');
     const before = await contact();
     const original = heading(before.data);
     expect(original, 'the contact page has a heading').not.toBe('');
@@ -68,7 +70,7 @@ test.describe('the owner\'s Site screen', () => {
     expect(heading(after.data)).toBe(mine);
     expect(after.published, 'the published version did not move').toBe(before.published);
 
-    // History: the version list, Compare, and Restore as a new version (nothing deleted)
+    // History: the version list, Compare, Restore as a new version (nothing deleted), and the toast's Undo as one more
     await page.getByRole('button', { name: 'History', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Restore' })).toHaveCount((after.n) - 1);
     await ok(page, { required: ['DP-1.4-19', 'DP-1.4-20'] });
@@ -76,9 +78,16 @@ test.describe('the owner\'s Site screen', () => {
     await expect(page.locator('dl')).toContainText(original);
     await page.getByRole('button', { name: 'Restore' }).first().click();
     await expect(page.getByRole('status')).toContainText('Restored the version from');
-    const restored = await contact();
-    expect(restored.n, 'a restore is a new version').toBe(after.n + 1);
-    expect(heading(restored.data), 'the restore put the old heading back').toBe(original);
+    // Undo at once: the toast lasts 4 s (src/toast.tsx); the restore's version and the Undo's are read after it
+    await page.getByRole('status').getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(page.getByRole('status')).toContainText('Saved');
+    await expect(page.getByLabel('Heading')).toHaveValue(mine);
+    const [restored] = await serviceGet<{ data: Record<string, unknown> }[]>(`/content_versions?row_id=eq.${after.id}&n=eq.${after.n + 1}&select=data`);
+    expect(heading(restored?.data ?? {}), 'the restore put the old heading back as a new version').toBe(original);
+    const undone = await contact();
+    expect(undone.n, 'the Undo is a new version').toBe(after.n + 2);
+    expect(heading(undone.data), 'the Undo put the pre-restore heading back').toBe(mine);
+    await saveAsOwner(undone, original);   // the flow leaves the heading as it found it (this file's header)
   });
 
   test('a field over its limit turns the counter red and keeps Save off; a stale save shows the plan\'s sentence', async ({ page }) => {

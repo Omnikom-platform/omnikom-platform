@@ -9,6 +9,8 @@
 //   agent-add-everywhere  the contract the agent's page reads says every collection is open to agents (access.member = own)
 //   publish-accepted      a publish is answered 202 by the test: nothing is refused, so the sheet cannot stop at a failed check
 //   contract-empty        the contract the owner's page reads has no collection of the client's own, so there is nothing to Add to
+// Slice S10 (tests/site.spec.ts; installSiteMutant, the same FLOWS_MUTANT):
+//   undo-lost             the toast's Undo after a Restore (the page's third save) is answered 200 by the test and never reaches the function
 // Work order 07 (tests/support/own-lead.ts):
 //   no-own-lead      the add-lead a test uses to make its own row is skipped, so every test that waits for a first row must go red for want of one
 // Slice 5-DS (tests/styles.spec.ts):
@@ -29,6 +31,23 @@ export const MUTANT = (process.env.FLOWS_MUTANT ?? '') as Mutant | '';
 
 export function active(name: Mutant): boolean {
   return MUTANT === name;
+}
+
+// Kept out of the Mutant union on purpose: the flows slice edits that union's line, and a branch that conflicts with another anywhere but icm/
+// and the book's Counts leaves the land train (docs/departments/README.md rule 8).
+export type SiteMutant = 'undo-lost';
+export async function installSiteMutant(page: Page, name: SiteMutant) {
+  if (process.env.FLOWS_MUTANT !== name) return;
+  if (name === 'undo-lost') {
+    // the flow's Save, Restore and Undo are the page's first three saves: the third is answered here and never reaches the function
+    let saves = 0;
+    await page.route(/\/functions\/v1\/save$/, route => {
+      saves += 1;
+      if (saves < 3) return route.continue();
+      const body = JSON.parse(route.request().postData() ?? '{}') as { row?: string; base?: number };
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ row: body.row, version: (body.base ?? 0) + 1 }) });
+    });
+  }
 }
 
 /** Answer matching requests from the page with the same request made as the service role (which ignores Row-Level Security). */
