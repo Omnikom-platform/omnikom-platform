@@ -12,7 +12,7 @@
     {"path":"apps/dashboard/scripts/ci.mjs","owner":"platform-build","exports":[],"tests":["tools/omnikom-cli/test/mutate-run.mjs","tools/omnikom-cli/test/mutate.mjs"],"feature":""},
     {"path":"apps/dashboard/scripts/preview-port.mjs","owner":"platform-build","exports":["BIND_FAILURE","BLOCK","LISTEN","MAX_TRIES","PORT_ENV","baseUrl","choosePort","inBlock","isBindFailure","nextPort","pickPort","portForPlaywright","portFromEnv","probe","startOnBlock"],"tests":["apps/dashboard/tests/preview-port.mutants.mjs","apps/dashboard/tests/preview-port.test.mjs","apps/dashboard/tests/support/staging.ts","tools/omnikom-cli/test/journey.mjs"],"feature":""},
     {"path":"apps/dashboard/scripts/preview-staging.mjs","owner":"platform-build","exports":[],"tests":["apps/dashboard/tests/preview-port.mutants.mjs","apps/dashboard/tests/preview-port.test.mjs","tools/omnikom-cli/test/journey.mjs"],"feature":""},
-    {"path":"apps/dashboard/scripts/staging-env.mjs","owner":"platform-build","exports":["ROOT","runWithStaging","stagingBuildEnv"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/scripts/staging-env.mjs","owner":"platform-build","exports":["ROOT","runWithStaging","stagingBuildEnv"],"tests":["apps/dashboard/tests/flows.spec.ts"],"feature":""},
     {"path":"apps/dashboard/src/App.tsx","owner":"platform-build","exports":["App"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/ErrorScreen.test.tsx","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/ErrorScreen.tsx","owner":"platform-build","exports":["ErrorScreen"],"tests":["tools/omnikom-cli/test/impact-stamp-hooks.mjs"],"feature":""},
