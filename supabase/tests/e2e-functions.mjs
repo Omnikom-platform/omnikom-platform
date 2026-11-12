@@ -4,12 +4,15 @@
 // generate_link + verify, in memory only, never printed). Keys are read from the environment by name: STAGING_SUPABASE_REF,
 // STAGING_SUPABASE_SECRET_KEY, STAGING_SUPABASE_PUBLISHABLE_KEY (the CLI's names). Imports the CLI's modules read-only.
 // Prints one PASS/FAIL line per check and exits 1 on any FAIL. What it leaves on staging, on purpose: the content VERSION of the saved
-// listing (versions are append-only), the queued publish job (the runner does not exist yet), the media row. The listing ROW it creates is
-// soft-deleted again in the finally through service.unpublish (STAGING_DB_URL, read by name; e2e-cleanup.mjs); the lead goes through the CLI.
+// listing (versions are append-only), one publish job of the test site's business details at their published version (with the dispatch
+// token set on staging, publish.yml builds the site from what is already live and deploys it to its preview again), the media row. The
+// listing ROW it creates is soft-deleted again in the finally through service.unpublish (STAGING_DB_URL, read by name; e2e-cleanup.mjs);
+// the lead goes through the CLI and is counted by its id.
 import { resolveTarget } from '../../tools/omnikom-cli/lib/target.mjs';
 import { parseIdentity, personToken } from '../../tools/omnikom-cli/lib/identity.mjs';
 import { callFunction } from '../../tools/omnikom-cli/lib/fn.mjs';
 import { main as cli } from '../../tools/omnikom-cli/omnikom.mjs';
+import { makeSql } from '../../tools/omnikom-cli/lib/sql.mjs';
 import { createCleanup, stagingDbUrl, stagingRemover } from './e2e-cleanup.mjs';
 
 const WS_A = 'aaaaaaaa-0000-0000-0000-000000000000';
@@ -22,6 +25,7 @@ const line = (ok, name, detail = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} $
 let dbUrl;
 try { dbUrl = stagingDbUrl(process.env); } catch (e) { console.error(e.message); process.exit(String(e.message).startsWith('BLOCKED') ? 3 : 2); }
 const cleanup = createCleanup({ remove: stagingRemover({ url: dbUrl }), report: line });   // every content row this run creates is removed in the finally (slice 5.2b)
+const sql = makeSql({ url: dbUrl, readOnly: true });   // reads the row to publish again (as e2e-crm.mjs reads)
 
 const tokens = {};
 async function as(person) { return tokens[person] ??= await personToken(parseIdentity(person), { target, env: process.env }); }
@@ -44,12 +48,20 @@ try {
   const rt = await fn('save', 'owner-a', { workspace: WS_A, collection: 'faqs', row: null, data: { question: 'E18 e2e', answer: '<script>alert(1)</script>', zzE18: 1 } });
   line(rt.status === 422 && JSON.stringify(rt.json || {}).includes('I-RICHTEXT'), 'save with a script in rich text is 422 and names I-RICHTEXT (E18)', brief(rt));
 
-  // publish: owner-a 202; dispatched printed as it is
+  // publish of the bare listing: 422 VALIDATION before any job, its missing fields named on its row (E2E-FIX-1)
   if (s.json && s.json.row) {
-    const p = await fn('publish', 'owner-a', { site: SITE_A, rows: [s.json.row], versions: [s.json.version] });
+    const b = await fn('publish', 'owner-a', { site: SITE_A, rows: [s.json.row], versions: [s.json.version] });
+    const miss = (b.json && Array.isArray(b.json.problems) ? b.json.problems : []).filter(x => x.code === 'I-REQUIRED' && x.row === s.json.row).map(x => x.path);
+    line(b.status === 422 && b.json && b.json.code === 'VALIDATION' && ['slug', 'price', 'description'].every(k => miss.includes(k)), 'publish of a bare listing is 422 VALIDATION naming its missing fields', `${brief(b)} missing ${miss.join(', ')}`);
+  }
+  // publish: owner-a 202 for the business details at their published version: the build ships exactly what is live (nothing to remove)
+  const live = sql.rows(`select id, published_version as n from public.content_rows where workspace_id = '${WS_A}' and collection = 'settings' and deleted_at is null and published_version is not null limit 1`);
+  const st = live.ok ? live.rows[0] : null;
+  if (st) {
+    const p = await fn('publish', 'owner-a', { site: SITE_A, rows: [st.id], versions: [st.n] });
     line(p.status === 202 && p.json && p.json.state === 'queued', 'publish by owner-a is 202 and the job is queued', `${brief(p)} job ${p.json && p.json.job}`);
-    console.log(`INFO publish dispatched: ${p.json && p.json.dispatched}${p.json && p.json.reason ? ` (reason: ${p.json.reason})` : ''}   [the job is left ${p.json && p.json.dispatched ? 'dispatched to GitHub; no workflow listens yet, so it stays queued' : 'queued; the reaper fails it after 24 h'}]`);
-  } else line(false, 'publish by owner-a', 'no row to publish: the save failed');
+    console.log(`INFO publish dispatched: ${p.json && p.json.dispatched}${p.json && p.json.reason ? ` (reason: ${p.json.reason})` : ''}   [${p.json && p.json.dispatched ? 'publish.yml builds the test site from what is live and deploys it to its preview again' : 'the job stays queued; the reaper fails it after 24 h'}]`);
+  } else line(false, 'publish by owner-a', `no published business details on the test site${live.ok ? '' : ` (${live.code})`}`);
 
   // lead-update by member-a1 on a lead that is not theirs: 404; add-lead by owner-a 201; the lead is deleted again through the CLI
   const a = await fn('add-lead', 'owner-a', { site: SITE_A, name: 'E2E 4.2 lead', email: 'e2e-test@example.com', consentText: 'E2E test: consent given by the test, safe to ignore', answers: { note: 'slice 4.2 e2e' } });
@@ -59,10 +71,11 @@ try {
     line(u.status === 404, 'lead-update by member-a1 on a lead that is not theirs is 404', brief(u));
     const d = await cli(['lead', 'delete', '--lead', a.json.lead, '--as', 'owner-a', '--target', 'staging', '--json']);
     line(d.exit === 0, 'the e2e lead was deleted through the CLI (lead delete)', `exit ${d.exit}`);
+    // counted by its id: the dashboard flows leave their own leads on the test workspace on purpose (E2E-FIX-1)
+    const l = await cli(['lead', 'list', '--as', 'owner-a', '--target', 'staging', '--json']);
+    let count = null; try { count = JSON.parse(l.stdout).data.leads.filter(x => x.id === a.json.lead).length; } catch { /* reported below */ }
+    line(l.exit === 0 && count === 0, 'the e2e lead is gone (lead list as owner-a, counted by its id)', `count ${count}`);
   }
-  const l = await cli(['lead', 'list', '--as', 'owner-a', '--target', 'staging', '--json']);
-  let count = null; try { count = JSON.parse(l.stdout).data.count; } catch { /* reported below */ }
-  line(l.exit === 0 && count === 0, '0 leads remain on staging (lead list as owner-a)', `count ${count}`);
 
   // upload-start / upload-finish
   const us = await fn('upload-start', 'owner-a', { workspace: WS_A, filename: 'e2e.png', bytes: 1234, mime: 'image/png' });
