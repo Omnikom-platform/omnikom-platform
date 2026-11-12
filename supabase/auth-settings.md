@@ -13,6 +13,8 @@ node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node supabase/
 Needs `SUPABASE_ACCESS_TOKEN` with read access to the project's Auth configuration and `STAGING_SUPABASE_REF` (by name).
 
 ## The settings
+Every setting below with a required value is sent by `supabase/set-auth-settings.mjs` (E11: its body takes them from `check-auth-settings.mjs`), so a new project is set by script; the recorded-only ones are never sent.
+
 | Setting (Management API name) | Required value | Why | Set in the dashboard 2026-10-29 (PROGRESS.md) | Checked against staging |
 |---|---|---|---|---|
 | Sign-ups (`disable_signup`) | off: true | invites only; no stranger burns the mail quota (24-GAP-HUNT C) | yes, off | 2026-10-30: BLOCKED, see below |
@@ -25,9 +27,9 @@ Needs `SUPABASE_ACCESS_TOKEN` with read access to the project's Auth configurati
 | Email provider (`external_email_enabled`) | on | magic link is the one sign-in (DECISIONS 29 D18) | yes (no "passwords off" switch exists: finding 1 in PROGRESS.md; the dashboard never offers a password form) | 2026-10-30: BLOCKED |
 | TOTP MFA (`mfa_totp_enroll_enabled`, `mfa_totp_verify_enabled`) | on | staff act only at aal2 (`private.is_staff()`) | not read on 2026-10-29; the CLI enrolled the staff factor on 2026-10-30, so enrolment is on | 2026-10-30: BLOCKED (observed working through `omnikom mfa enroll-staff`) |
 | Rate limits (`rate_limit_email_sent`, `rate_limit_verify`, `rate_limit_token_refresh`, `rate_limit_otp`) | the defaults recorded: Auth mail 30 per hour (Supabase's value once custom SMTP is on; 2 per hour was the built-in mailer's cap, 21-PROTOCOLS section 5), verifications 30 per 5 min, token refresh 150 per 5 min; raise only on a measurement | 24-GAP-HUNT A 6.1.1 | yes, defaults | 2026-10-31: 24 read, 0 differ (the expectation 2 was stale, corrected) |
-| JWT lifetime (`jwt_exp`) | recorded; D19 proposes 3600 s | ASVS 7.x | not read | 2026-10-30: BLOCKED |
-| Refresh token rotation (`refresh_token_rotation_enabled`) | on | a stolen refresh token dies at first reuse | not read | 2026-10-30: BLOCKED |
-| Sessions (`sessions_timebox`, `sessions_inactivity_timeout`) | recorded (paid feature; D19) | ASVS 7.x | not read | 2026-10-30: BLOCKED |
+| JWT lifetime (`jwt_exp`) | 3600 s (D19, the vendor default) | ASVS 7.x | not read; from E11 set by `supabase/set-auth-settings.mjs` | 2026-10-30: BLOCKED |
+| Refresh token rotation (`refresh_token_rotation_enabled`) | on | a stolen refresh token dies at first reuse | not read; from E11 set by `supabase/set-auth-settings.mjs` | 2026-10-30: BLOCKED |
+| Sessions (`sessions_timebox`, `sessions_inactivity_timeout`) | recorded, never sent: Supabase Pro only ("only available on Pro Plans and up", supabase.com/docs/guides/auth/sessions, read 2026-11-12; owner, S5-OWNER-ASKS item 11) | ASVS 7.x | not read | 2026-10-30: BLOCKED |
 | CAPTCHA (`security_captcha_enabled`) | recorded (Turnstile decision open, 24-GAP-HUNT C) | abuse | not read | 2026-10-30: BLOCKED |
 | Sender (`smtp_sender_name`, `smtp_admin_email`) | "Omnikom Dashboard" <login@notify.omnikom.io> (owner 2026-11-01) | the person sees who writes | set 2026-11-01 by `supabase/set-auth-settings.mjs` (read back) | 2026-11-01: PASS |
 | Email subjects and templates (`mailer_subjects_magic_link`, `mailer_templates_magic_link_content`, `mailer_subjects_invite`, `mailer_templates_invite_content`) | the files in `supabase/auth-emails/` (plan rows DP-email-01 to 12, 16-DESIGN-PARTS 1.2e; `check.mjs` gates them, 18 mutants) | nothing made up (DECISIONS 44); the link goes to `/auth/confirm?token_hash=` | set 2026-11-01 by `supabase/set-auth-settings.mjs` (read back) | 2026-11-01: PASS |

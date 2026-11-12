@@ -192,7 +192,7 @@ const MUTANTS = [
   ['crm template update stays in its workspace', "      where id = p_id and workspace_id = p_workspace returning id into tid;", "      where id = p_id returning id into tid;"],
   ['locked fields', "    if not staff then raise exception 'S-LOCKED:", "    if false then raise exception 'S-LOCKED:"],
   ['sign-off for staff', "if p_sign_off is null or p_sign_off ->> 'by' is null or p_sign_off ->> 'ref' is null then", "if false then"],
-  ['staff need MFA (aal2)', "and coalesce((select auth.jwt() ->> 'aal'), '') = 'aal2' $$;", " $$;"],
+  ['staff need MFA (aal2)', "coalesce((select auth.jwt() ->> 'aal'), '') = 'aal2' and exists (select 1 from public.staff_access a", "true and exists (select 1 from public.staff_access a"],
   ['own-only for members', "      if owner_field <> 'self' and (owner_val is distinct from private.my_team_row(p_workspace)", "      if false and (owner_val is distinct from private.my_team_row(p_workspace)"],
   ['members-none collections', "if member_access = 'none' or member_access is null then raise", "if false then raise"],
   ['not-a-member check', "  if not staff and role is null then raise exception 'S-NOT-FOUND: not found'; end if;   -- outsiders learn nothing", "  -- (membership check removed)"],
@@ -931,6 +931,16 @@ const MUTANTS = [
   ['preview42: a suspended workspace starts a preview', "  if wst not in ('trial', 'active') then raise exception 'S-WORKSPACE-STATE: a % workspace builds nothing', wst; end if;\n", ''],
   ['preview42: the export does not say preview', "'created_at', j.created_at, 'preview', j.preview)", "'created_at', j.created_at, 'preview', false)"],
   ['preview42: site_audit reads preview jobs', 'from (select * from public.publish_jobs p where not p.preview) j', 'from public.publish_jobs j'],
+  // ---- E11 (migration 43): staff act inside an open window; tests T39. Run only these: --only "staff43" ----
+  ['staff43: staff read without an open window', 'and exists (select 1 from public.staff_access a where a.user_id = (select auth.uid()) and a.until > now()) $$;', ' $$;'],
+  ['staff43: a window that has ended still counts', 'a.until > now()) $$;', 'true) $$;'],
+  ['staff43: a window opens without MFA', "(select auth.jwt() ->> 'aal') = 'aal2', false)", 'true, false)'],
+  ['staff43: a window opens with no audit row', "  insert into public.audit_log (workspace_id, actor, action, target, detail) values (null, me, 'staff-access-open', me::text, jsonb_build_object('reason', btrim(p_reason), 'minutes', p_minutes));", '  null;'],
+  ['staff43: a window opens without a reason', 'if p_reason is null or length(btrim(p_reason)) not between 10 and 200 then', 'if false then'],
+  ['staff43: a window opens for any number of minutes', 'if p_minutes is null or p_minutes not between 1 and 240 then', 'if false then'],
+  ["staff43: a login reads every login's windows", 'create policy staff_access_own on public.staff_access for select to authenticated using (user_id = (select auth.uid()));', 'create policy staff_access_own on public.staff_access for select to authenticated using (true);'],
+  ['staff43: any login opens a window', 'grant execute on function service.staff_open(jsonb, text, int) to service_role, omnikom_fn;', 'grant execute on function service.staff_open(jsonb, text, int) to service_role, omnikom_fn, authenticated;'],
+  ['staff43: windows are kept for ever', "  delete from public.staff_access a where a.until < now() - interval '365 days';", ''],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

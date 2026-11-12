@@ -1,18 +1,14 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 // Reads the staging project's Auth settings through the Supabase Management API (read-only, GET only) and compares them with
-// supabase/auth-settings.md. Prints one line per setting: observed value, expected value, PASS / FAIL / RECORDED (no expectation,
+// supabase/auth-settings.md. Every setting with an expected value is also SENT by set-auth-settings.mjs (E11). Prints one line per setting: observed value, expected value, PASS / FAIL / RECORDED (no expectation,
 // the value is recorded). Only the allowlisted keys below are ever printed: the endpoint also returns SMTP and provider secrets.
 //   node tools/with-env.mjs "<env file>" -- node supabase/check-auth-settings.mjs [--ref-env STAGING_SUPABASE_REF]
 // Needs SUPABASE_ACCESS_TOKEN (a personal access token; read by name, never printed) and STAGING_SUPABASE_REF.
 // Source: https://supabase.com/docs/reference/api/v1-get-auth-service-config (GET /v1/projects/{ref}/config/auth).
-const argv = process.argv.slice(2);
-const after = n => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : null; };
-const refEnv = after('--ref-env') || 'STAGING_SUPABASE_REF';
-const ref = process.env[refEnv], token = process.env.SUPABASE_ACCESS_TOKEN;
-if (!ref || !token) { console.error(`set ${refEnv} and SUPABASE_ACCESS_TOKEN (by name)`); process.exit(2); }
 
 // setting -> [plain words, expected value or null (recorded only), source of the expectation]
-const EXPECT = {
+export const EXPECT = {
   disable_signup: ['sign-ups off (invites only)', true, '24-GAP-HUNT C; PROGRESS.md 2026-10-29'],
   external_anonymous_users_enabled: ['anonymous sign-ins off', false, '24-GAP-HUNT C; PROGRESS.md 2026-10-29'],
   mailer_autoconfirm: ['email confirmation required (autoconfirm off)', false, 'PROGRESS.md 2026-10-29 "confirm email on"'],
@@ -29,7 +25,7 @@ const EXPECT = {
   rate_limit_token_refresh: ['token refreshes per 5 minutes per IP', 150, 'PROGRESS.md 2026-10-29'],
   rate_limit_otp: ['OTP requests per 5 minutes', null, 'recorded'],
   rate_limit_anonymous_users: ['anonymous sign-ins per hour', null, 'recorded (anonymous is off)'],
-  jwt_exp: ['JWT lifetime, seconds (D19 open: proposed 3600)', null, 'recorded'],
+  jwt_exp: ['JWT lifetime, seconds (D19: 3600, the vendor default)', 3600, 'E11 2026-11-12'],
   refresh_token_rotation_enabled: ['refresh token rotation', true, 'Supabase default; ASVS 7.x'],
   security_refresh_token_reuse_interval: ['refresh token reuse interval, seconds', null, 'recorded'],
   sessions_timebox: ['absolute session lifetime (paid feature; D19)', null, 'recorded'],
@@ -41,28 +37,37 @@ const EXPECT = {
   mailer_secure_email_change_enabled: ['secure email change (both addresses confirm)', true, 'Supabase default'],
 };
 
-const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/config/auth`, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30000) });
-if (!r.ok) { console.error(`Management API answered ${r.status} ${r.statusText} (the token needs read access to the project's auth config); nothing checked`); process.exit(1); }
-const cfg = await r.json();
-let fail = 0;
-for (const [key, [words, expected, source]] of Object.entries(EXPECT)) {
-  const got = cfg[key];
-  const shown = got === undefined ? '(not returned)' : typeof got === 'string' && got === '' ? '(empty)' : JSON.stringify(got);
-  const verdict = expected === null ? 'RECORDED' : got === expected ? 'PASS' : 'FAIL';
-  if (verdict === 'FAIL') fail++;
-  console.log(`${verdict.padEnd(8)} ${key.padEnd(40)} observed ${shown}${expected === null ? '' : `  expected ${JSON.stringify(expected)}`}  (${words}; ${source})`);
-}
-// the email templates and subjects: the files in supabase/auth-emails/ (DP-email rows in 16-DESIGN-PARTS)
-const emails = JSON.parse(readFileSync(new URL('./auth-emails/emails.json', import.meta.url), 'utf8'));
-for (const [name, e] of Object.entries(emails.emails)) {
-  const want = { [`mailer_subjects_${name}`]: e.subject, [`mailer_templates_${name}_content`]: readFileSync(new URL(`./auth-emails/${e.file}`, import.meta.url), 'utf8') };
-  for (const [key, value] of Object.entries(want)) {
-    const ok = cfg[key] === value;
-    if (!ok) fail++;
-    console.log(`${ok ? 'PASS' : 'FAIL'}     ${key.padEnd(40)} ${ok ? 'matches' : 'differs from'} supabase/auth-emails/${key.includes('subjects') ? 'emails.json' : e.file}`);
+// run only as the script itself: importing the file (set-auth-settings.mjs, auth-emails/body.test.mjs) runs nothing
+if (realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
+  const argv = process.argv.slice(2);
+  const after = n => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : null; };
+  const refEnv = after('--ref-env') || 'STAGING_SUPABASE_REF';
+  const ref = process.env[refEnv], token = process.env.SUPABASE_ACCESS_TOKEN;
+  if (!ref || !token) { console.error(`set ${refEnv} and SUPABASE_ACCESS_TOKEN (by name)`); process.exit(2); }
+
+  const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/config/auth`, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30000) });
+  if (!r.ok) { console.error(`Management API answered ${r.status} ${r.statusText} (the token needs read access to the project's auth config); nothing checked`); process.exit(1); }
+  const cfg = await r.json();
+  let fail = 0;
+  for (const [key, [words, expected, source]] of Object.entries(EXPECT)) {
+    const got = cfg[key];
+    const shown = got === undefined ? '(not returned)' : typeof got === 'string' && got === '' ? '(empty)' : JSON.stringify(got);
+    const verdict = expected === null ? 'RECORDED' : got === expected ? 'PASS' : 'FAIL';
+    if (verdict === 'FAIL') fail++;
+    console.log(`${verdict.padEnd(8)} ${key.padEnd(40)} observed ${shown}${expected === null ? '' : `  expected ${JSON.stringify(expected)}`}  (${words}; ${source})`);
   }
+  // the email templates and subjects: the files in supabase/auth-emails/ (DP-email rows in 16-DESIGN-PARTS)
+  const emails = JSON.parse(readFileSync(new URL('./auth-emails/emails.json', import.meta.url), 'utf8'));
+  for (const [name, e] of Object.entries(emails.emails)) {
+    const want = { [`mailer_subjects_${name}`]: e.subject, [`mailer_templates_${name}_content`]: readFileSync(new URL(`./auth-emails/${e.file}`, import.meta.url), 'utf8') };
+    for (const [key, value] of Object.entries(want)) {
+      const ok = cfg[key] === value;
+      if (!ok) fail++;
+      console.log(`${ok ? 'PASS' : 'FAIL'}     ${key.padEnd(40)} ${ok ? 'matches' : 'differs from'} supabase/auth-emails/${key.includes('subjects') ? 'emails.json' : e.file}`);
+    }
+  }
+  const unknown = Object.keys(EXPECT).filter(k => !(k in cfg));
+  if (unknown.length) console.log(`NOTE: the API did not return: ${unknown.join(', ')} (vendor differs from the docs; a finding)`);
+  console.log(`${fail ? 'FAIL' : 'OK'}: ${Object.keys(EXPECT).length} settings read, ${fail} differ from auth-settings.md (checked ${new Date().toISOString().slice(0, 10)})`);
+  process.exit(fail ? 1 : 0);
 }
-const unknown = Object.keys(EXPECT).filter(k => !(k in cfg));
-if (unknown.length) console.log(`NOTE: the API did not return: ${unknown.join(', ')} (vendor differs from the docs; a finding)`);
-console.log(`${fail ? 'FAIL' : 'OK'}: ${Object.keys(EXPECT).length} settings read, ${fail} differ from auth-settings.md (checked ${new Date().toISOString().slice(0, 10)})`);
-process.exit(fail ? 1 : 0);

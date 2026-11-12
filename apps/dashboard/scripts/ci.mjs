@@ -1,7 +1,7 @@
 // The dashboard's CI step (ci.yml job `dashboard`): a locked install with install scripts off, the type check, and the unit tests,
 // which include the DECISIONS 44 plan gate (tests/plan-gate.test.mjs: every element carries its plan id, no invented copy, no dead
 // controls, no placeholder data), then the Auth email templates against their plan rows (supabase/auth-emails/check.mjs and its
-// mutants). No network to staging and no secret: the Playwright flows run by hand against staging.
+// mutants), and the Auth settings body the set script sends (body.test.mjs and its mutants). No network to staging and no secret: the Playwright flows run by hand against staging.
 //   node apps/dashboard/scripts/ci.mjs        exit 0 = every step passed
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
@@ -19,6 +19,7 @@ const steps = [
   ['unit tests and the plan gate', bin('vitest'), ['run']],
   ['Auth email plan check', process.execPath, [join(ROOT, 'supabase', 'auth-emails', 'check.mjs')]],
   ['Auth email mutants', process.execPath, [join(ROOT, 'supabase', 'auth-emails', 'mutate.mjs')]],
+  ['Auth settings body', process.execPath, [join(ROOT, 'supabase', 'auth-emails', 'body.test.mjs'), '--mutants']],
 ];
 for (const [name, cmd, args] of steps) {
   const t0 = Date.now();
