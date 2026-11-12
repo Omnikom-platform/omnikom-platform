@@ -1603,6 +1603,7 @@ do $$ declare t record; n int; begin
     assert t.proname = any(array['use_claims', 'contract_for', 'save_as', 'start_publish', 'unpublish', 'lead_update', 'add_lead', 'activate_addon', 'set_addon_state', 'book', 'set_booking_state', 'save_crm_template', 'set_member', 'remove_member', 'delete_lead',
       'set_workspace_state', 'open_privacy_request', 'set_privacy_request_state',
       'record_media', 'finish_media', 'row_exists', 'media_facts', 'site_for', 'row_version',
+      'replace_media', 'delete_media',                 -- B14 (migration 44): a member, owner B and B's file in T40
       'mark_lead_read', 'leads_exported', 'set_alerts', 'set_crm_webhook', 'drafts_waiting',
       'crm_secret_put', 'crm_secret_drop', 'crm_target', 'crm_tested', 'find_login',
       'lead_set_fields', 'lead_list', 'leads_bulk',   -- work order 01: owner B on each in T22
@@ -3907,6 +3908,67 @@ do $$ begin
   perform service.staff_open(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), 'T39 retention check', 5);
   assert not exists (select 1 from staff_access where reason = 'T39 a window 366 days old'), 'T39g the window of 366 days ago is gone';
   assert exists (select 1 from staff_access where reason = 'T39 a window 364 days old'), 'T39g the window of 364 days ago stays';
+end $$;
+
+-- ===== T40 the media library's replace and delete (book row B14, migration 44): the file's owner or staff only, never a member; replace gives each item
+-- whose newest version uses the file a new version, returning its data; delete is refused while a live item's newest, a live or a pinned version uses it =====
+create function test.replace_media(p_from uuid, p_to uuid) returns setof jsonb language sql security definer as $$ select r.item_data from service.replace_media(test.claims(), p_from, p_to) r $$;
+create function test.delete_media(p_media uuid) returns setof text language sql security definer as $$ select p from service.delete_media(test.claims(), p_media) p $$;
+grant execute on function test.replace_media(uuid, uuid), test.delete_media(uuid) to authenticated;
+insert into media (id, workspace_id, path, width, processed) select ('40000000-0000-4000-8000-00000000000' || k)::uuid, ws::uuid, ws || '/40000000-0000-4000-8000-00000000000' || k || '.png', 1000, true
+  from (values ('1', 'aaaaaaaa-0000-0000-0000-000000000000'), ('2', 'aaaaaaaa-0000-0000-0000-000000000000'), ('3', 'aaaaaaaa-0000-0000-0000-000000000000'), ('4', 'bbbbbbbb-0000-0000-0000-000000000000'), ('5', 'aaaaaaaa-0000-0000-0000-000000000000')) v(k, ws);
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+insert into test.ids select 't40a', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"t40a","status":"for-sale","photos":[{"asset":"40000000-0000-4000-8000-000000000001","alt":"Front"}]}');
+insert into test.ids select 't40b', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"t40b","status":"for-sale","hero":{"asset":"40000000-0000-4000-8000-000000000001"}}');
+insert into test.ids select 't40c', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"t40c","status":"for-sale","hero":{"asset":"40000000-0000-4000-8000-000000000003"}}');
+select test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('t40c'), '{"street":"t40c","status":"for-sale"}');
+insert into test.ids select 't40d', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"t40d","status":"for-sale","hero":{"asset":"40000000-0000-4000-8000-000000000005"}}');
+reset role;
+update content_rows set published_version = 1 where id = test.id('t40c');   -- live: file 3; newest: no file
+update content_rows set deleted_at = now() where id = test.id('t40d');   -- deleted: its newest version still holds file 5
+set role authenticated;
+-- the walls: a member of A (an agent), the owner of B, and for A's owner a file of B (as the new one, and to delete)
+select test.act_as('00000000-0000-0000-0000-0000000000a1');
+select test.expect_error($q$select test.replace_media('40000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000002')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select test.delete_media('40000000-0000-4000-8000-000000000002')$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000000b');
+select test.expect_error($q$select test.replace_media('40000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000002')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select test.delete_media('40000000-0000-4000-8000-000000000002')$q$, 'S-NOT-FOUND');
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.expect_error($q$select test.replace_media('40000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000004')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select test.delete_media('40000000-0000-4000-8000-000000000004')$q$, 'S-NOT-FOUND');
+do $$ declare got jsonb[]; begin
+  select array_agg(d order by d ->> 'street') into got from test.replace_media('40000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000002') d;
+  assert array_length(got, 1) = 2, 'T40a two items used file 1';
+  assert got[1] -> 'photos' = '[{"asset": "40000000-0000-4000-8000-000000000002", "alt": "Front"}]'::jsonb and got[2] -> 'hero' ->> 'asset' = '40000000-0000-4000-8000-000000000002', 'T40a it returns each item''s new data';
+end $$;
+reset role;
+do $$ begin
+  assert (select data -> 'photos' from content_versions where row_id = test.id('t40a') and n = 2) = '[{"asset": "40000000-0000-4000-8000-000000000002", "alt": "Front"}]'::jsonb, 'T40a the gallery item holds file 2 and keeps its alt text';
+  assert (select data -> 'hero' ->> 'asset' from content_versions where row_id = test.id('t40b') and n = 2) = '40000000-0000-4000-8000-000000000002', 'T40a so does the other item';
+  assert (select count(*) from content_versions where row_id = test.id('t40c')) = 2, 'T40a an item without file 1 is not touched';
+  assert (select count(*) from audit_log where action = 'media-replace' and target = '40000000-0000-4000-8000-000000000001' and (detail ->> 'items')::int = 2) = 1, 'T40a one audit row';
+end $$;
+with j as (insert into publish_jobs (workspace_id, site_id, requested_by, rows, requested) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e',
+  '00000000-0000-0000-0000-00000000000a', array[test.id('t40a')], jsonb_build_object(test.id('t40a')::text, 1)) returning id)
+insert into test.ids select 't40job', id from j;   -- a running publish pinned t40a's first version (file 1)
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.expect_error($q$select test.delete_media('40000000-0000-4000-8000-000000000002')$q$, 'S-MEDIA-IN-USE');   -- the newest versions
+select test.expect_error($q$select test.delete_media('40000000-0000-4000-8000-000000000003')$q$, 'S-MEDIA-IN-USE');   -- t40c's live version
+select test.expect_error($q$select test.delete_media('40000000-0000-4000-8000-000000000001')$q$, 'S-MEDIA-IN-USE');   -- the running publish
+reset role;
+update publish_jobs set state = 'failed' where id = test.id('t40job');
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+do $$ begin assert (select array_agg(p) from test.delete_media('40000000-0000-4000-8000-000000000001') p) = array['aaaaaaaa-0000-0000-0000-000000000000/40000000-0000-4000-8000-000000000001.png', 'aaaaaaaa-0000-0000-0000-000000000000/40000000-0000-4000-8000-000000000001-2400.webp', 'aaaaaaaa-0000-0000-0000-000000000000/40000000-0000-4000-8000-000000000001-1600.webp', 'aaaaaaaa-0000-0000-0000-000000000000/40000000-0000-4000-8000-000000000001-800.webp'],
+  'T40b file 1, named only by old versions now, goes with its three sizes'; end $$;
+do $$ begin assert (select count(*) from test.delete_media('40000000-0000-4000-8000-000000000005')) = 4, 'T40c file 5, held only by a deleted item, goes'; end $$;
+reset role;
+do $$ begin
+  assert (select count(*) from media where id in ('40000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000005')) = 0, 'T40b, T40c the records are gone';
+  assert (select count(*) from audit_log where action = 'media-delete' and target = '40000000-0000-4000-8000-000000000001') = 1, 'T40b one audit row';
 end $$;
 
 select 'ALL TENANCY TESTS PASSED' as result;

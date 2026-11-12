@@ -941,6 +941,17 @@ const MUTANTS = [
   ["staff43: a login reads every login's windows", 'create policy staff_access_own on public.staff_access for select to authenticated using (user_id = (select auth.uid()));', 'create policy staff_access_own on public.staff_access for select to authenticated using (true);'],
   ['staff43: any login opens a window', 'grant execute on function service.staff_open(jsonb, text, int) to service_role, omnikom_fn;', 'grant execute on function service.staff_open(jsonb, text, int) to service_role, omnikom_fn, authenticated;'],
   ['staff43: windows are kept for ever', "  delete from public.staff_access a where a.until < now() - interval '365 days';", ''],
+  // ---- B14 (migration 44): the media library's replace and delete; tests in tenancy.test.sql T40. Run only these: --only "media44" ----
+  ['media44: a member may replace', 'if mws is null or not private.is_owner_or_staff(mws) then', 'if mws is null then'],
+  ['media44: the new file may be another business\'s', 'where m.id = p_to and m.workspace_id = mws)', 'where m.id = p_to)'],
+  ['media44: a member may delete', 'if not found or not private.is_owner_or_staff(dm.workspace_id) then', 'if not found then'],
+  ['media44: a use in the newest version does not block a delete', 'and (v.n = (select max(x.n) from public.content_versions x where x.row_id = c.id)', 'and (false'],
+  ['media44: a use in the live version does not block a delete', 'or v.n = c.published_version', 'or false'],
+  ['media44: a running publish does not block a delete', "j.workspace_id = c.workspace_id and j.state not in ('done', 'failed')", 'false'],
+  ['media44: a deleted item blocks a delete', 'where c.workspace_id = dm.workspace_id and c.deleted_at is null and strpos(', 'where c.workspace_id = dm.workspace_id and strpos('],
+  ['media44: the record is kept', '  delete from public.media where public.media.id = p_media;', '  null;'],
+  ['media44: a replace leaves no audit row', "values (mws, me, 'media-replace',", "values (mws, me, 'media-swap',"],
+  ['media44: a delete leaves no audit row', "values (dm.workspace_id, me, 'media-delete',", "values (dm.workspace_id, me, 'media-gone',"],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]
