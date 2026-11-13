@@ -972,6 +972,13 @@ const MUTANTS = [
   ['offsite45: done follows what is off now, not what the build shipped', 'and not (j.snapshot ? c.id::text);', 'and (c.deleted_at is not null or c.off_site_at is not null);'],
   ['offsite45: a late reconcile undoes a newer job', "n.state = 'done' and n.finished_at > j.finished_at", 'false'],
   ['offsite45: a preview job counts as a newer job', ' and not n.preview', ''],
+  // ---- E12 (migration 46): retention rules and budgets; tests T42. Run only these: --only "growth46" ----
+  ['growth46: a growing table needs no rule (leads)', "  ('leads', null, 'head of operations (the owner may revise)', '2026-11-12', 'kept until the owner deletes one (service.delete_lead, migration 26); no period', 35),\n", ''],
+  ['growth46: a rule may have no budget', 'coalesce(budget_mb > 0, false)', 'true'],
+  ['growth46: a period where no purge is written', 'check (keep_days is null or table_name in (', 'check (true or table_name in ('],
+  ['growth46: no table is ever over its budget', '   where x.bytes > x.budget_mb * 1048576', '   where false'],
+  ['growth46: the budget is read in bytes', 'x.bytes > x.budget_mb * 1048576', 'x.bytes > x.budget_mb'],
+  ['growth46: the function role may ask the measure', 'revoke all on function service.over_budget() from public, anon, authenticated, omnikom_fn;', 'revoke all on function service.over_budget() from public, anon, authenticated;'],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

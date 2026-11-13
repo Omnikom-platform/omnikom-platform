@@ -3339,7 +3339,7 @@ end $$;
 -- ===== T33 retention (work order 46, migration 28, the Clients department's file): periods as data with floors; a daily purge that
 -- deletes only rows older than their period; audit_log and security_events stay append-only except for that purge =====
 do $$ begin
-  assert (select count(*) from retention_rules) = 7, 'T33 seven retention rules';
+  assert (select count(*) from retention_rules where set_on = '2026-11-11') = 7, 'T33 the seven retention rules of migration 28 (T42 holds the rest)';
   assert (select keep_days from retention_rules where table_name = 'consent_ledger') is null, 'T33 the consent ledger is never purged';
   assert (select keep_days from retention_rules where table_name = 'audit_log') = 730 and (select keep_days from retention_rules where table_name = 'security_events') = 365
      and (select keep_days from retention_rules where table_name = 'messages') = 1461 and (select keep_days from retention_rules where table_name = 'webhook_events') = 30, 'T33 the periods set on 2026-11-11';
@@ -3356,7 +3356,7 @@ select test.expect_error($q$update retention_rules set keep_days = 3 where table
 set role authenticated;
 select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
 select test.expect_error($q$select service.purge_expired()$q$, 'permission denied');
-do $$ begin assert (select count(*) from retention_rules) = 7, 'T33 staff with MFA read the rules'; end $$;
+do $$ begin assert (select count(*) from retention_rules where set_on = '2026-11-11') = 7, 'T33 staff with MFA read the rules'; end $$;
 select test.act_as('00000000-0000-0000-0000-00000000000a');
 do $$ begin assert (select count(*) from retention_rules) = 0, 'T33 an owner reads no rule'; end $$;
 reset role;
@@ -4004,6 +4004,30 @@ do $$ begin assert (select preview and state = 'done' from publish_jobs where id
 select service.set_job_state(test.id('jobH'), 'done'); do $$ begin assert (select bool_and(c.published_version is not distinct from (j.snapshot ->> c.id::text)::int) and bool_or(c.id = test.id('off2') and c.published_version = 1) from publish_jobs j join content_rows c on c.id = any(j.rows) where j.id = test.id('jobH')), 'T41h a preview finished after the reap does not stop the reconcile'; end $$;
 do $$ begin assert not has_function_privilege('anon', 'service.put_back(jsonb,uuid)', 'execute') and not has_function_privilege('authenticated', 'service.put_back(jsonb,uuid)', 'execute') and has_function_privilege('omnikom_fn', 'service.put_back(jsonb,uuid)', 'execute'), 'T41e put_back: closed to clients, open to the function role'; end $$;
 update content_rows set published_version = null, off_site_at = null where id = test.id('teamB2'); update publish_jobs set finished_at = now() where id in (test.id('jobNew'), test.id('jobHP')); update content_rows set published_version = null where id = test.id('off2'); update public.workspaces w set state = t.state from test.t41_ws t where w.id = t.id;
+
+-- ===== T42 growth (book row E12, migration 46): every growing public table has a retention rule with a budget; a period only where the
+-- purge has a branch; service.over_budget() names exactly the tables over their measured budget, and only the service role asks it =====
+do $$ declare t text; begin
+  for t in select c.relname from pg_class c join pg_namespace s on s.oid = c.relnamespace where s.nspname = 'public' and c.relkind = 'r'
+           and c.relname <> all (array['workspaces', 'staff', 'members', 'sites', 'integrations', 'add_ons', 'connectors', 'platform_limits', 'crm_templates', 'workspace_limits', 'crm_views', 'retention_rules']) loop
+    assert exists (select 1 from retention_rules r where r.table_name = t and r.budget_mb > 0), 'T42 the growing table ' || t || ' has no retention rule with a budget (or name it in T42''s bounded list, with the reason)';
+  end loop;
+  assert not exists (select 1 from retention_rules r where r.table_name <> 'webhook_events.unprocessed' and to_regclass('public.' || quote_ident(r.table_name)) is null), 'T42 every rule names a table that exists';
+end $$;
+select test.expect_error($q$update retention_rules set budget_mb = null where table_name = 'leads'$q$, 'retention_rules_budget');
+select test.expect_error($q$update retention_rules set keep_days = 30 where table_name = 'leads'$q$, 'retention_rules_purged');
+update retention_rules set budget_mb = 1000 where budget_mb is not null;
+set role service_role;
+do $$ begin assert service.over_budget() = '[]'::jsonb, 'T42 no table is over a budget of 1000 MB: ' || service.over_budget()::text; end $$;
+reset role;
+update retention_rules set budget_mb = 0.001 where table_name = 'audit_log';
+set role service_role;
+do $$ declare o jsonb := service.over_budget(); begin assert jsonb_array_length(o) = 1 and o -> 0 ->> 'table' = 'audit_log' and (o -> 0 ->> 'budget_mb')::numeric = 0.001, 'T42 audit_log over a budget of 0.001 MB is named, and only it: ' || o::text; end $$;
+reset role;
+update retention_rules set budget_mb = 35 where budget_mb is not null;
+set role omnikom_fn;   -- the Edge Functions' role: no function asks the measure
+select test.expect_error($q$select service.over_budget()$q$, 'permission denied');
+reset role;
 
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

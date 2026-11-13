@@ -9,7 +9,7 @@ and `openssl`. Keys and database URLs are read from the environment BY NAME (`no
 |---|---|
 | `backup.mjs` | `pg_dump` of the database named by `--db <VARIABLE>`, encrypted to the public certificate `backup-recipient.pem` (`openssl cms -encrypt`, AES-256), uploaded to every `--to` target, each copy verified by size. Targets: `s3://<bucket>/<prefix> --env <PREFIX>` (S3-compatible, signed in the file itself, no `aws` tool) or `file://<dir>`. Two more modes: `--what vault` (the decrypted Vault values as JSON, read in a read-only session straight to a file and encrypted at once: `<label>-vault-<stamp>.json.cms`) and `--what media --api <PREFIX>` (every object of the bucket `media`, each signed and downloaded with `<PREFIX>SUPABASE_REF` and `<PREFIX>SUPABASE_SECRET_KEY`, checked against its size, in one tar: `<label>-media-<stamp>.tar.cms`). No object name, value, ref or key is printed. |
 | `restore-drill.mjs` | The monthly drill: dump (or `--dump file --key file`), restore into a throwaway local cluster, row counts, wall tests on the restored schema, the factory builds the test site from the restored rows, every phase timed, total against the 2 hour target. With `--media <copy>` the site is built from the real media, with `--vault <copy>` every Vault name the restored rows reference must have a value in the copy (names compared, never printed). |
-| `alerts.mjs` | Seven alert queries (below), one per rule of 11-OPERATIONS section 1 that our tables can answer. Prints each firing alert with its runbook name and first step. With `--send --to-env <VARIABLE>` it mails each firing alert through Resend (`RESEND_API_KEY`, `LEAD_ALERT_FROM`) to the address in that variable, once per alert and UTC day. Writes the status page's data file with `--json`. |
+| `alerts.mjs` | Eight alert queries (below), one per rule of 11-OPERATIONS section 1 that our tables can answer. Prints each firing alert with its runbook name and first step. With `--send --to-env <VARIABLE>` it mails each firing alert through Resend (`RESEND_API_KEY`, `LEAD_ALERT_FROM`) to the address in that variable, once per alert and UTC day. Writes the status page's data file with `--json`. |
 | `bring-up.mjs`, `environments.json` | Row E2: `--env staging\|production [--apply] [--i-mean-production]` reads a project and its dashboard and changes only what differs: extensions, every Auth setting, the function secrets the code reads, the Pages project, domain and build, and (production) the production repository's secrets. A dry run unless `--apply`; a second run changes nothing; prints names and short states, never a value. `environments.json` holds the wanted values that are not secrets (Pages project, domain, dashboard address, allowed origins). Test: `test/bring-up.test.mjs --mutants` (local fakes, no network). |
 | `inbox-state.mjs` | Read only, staging only: for one address given on the command line, whether a login exists, whether it is confirmed, its number of memberships, and whether each test site's alert list is exactly that address. Prints no address. Test: `test/inbox-state.test.mjs --mutants`. |
 | `test/backup.test.mjs`, `test/alerts.test.mjs`, `test/6b-drill.test.mjs` | The tests. `test/6b-mutate.mjs` runs each of them against broken copies of the script and requires red. `test/6b-cluster.mjs`, `test/6b-fake-s3.mjs`: helpers. |
@@ -58,6 +58,7 @@ weekly): decrypt it, extract the tar (`tar -xf`), and upload its folders to the 
 | `security-not-found-burst` | R2 | one login got 10 or more `S-NOT-FOUND` refusals in the last hour |
 | `security-staff-after-hours` | R2 | a staff login acted outside Mon to Fri 07:00 to 19:00 US Pacific in the last `--since-minutes` (default 70). The clock hours are an assumption: 11-OPERATIONS says "business hours (US Pacific)" only |
 | `function-errors` | R6 | a function answered the same 5xx status 5 or more times in the last 60 minutes (`function_errors`, migration 32). The numbers are a choice: the old spec's "2% for 10 min" needs a call count we do not keep |
+| `table-over-budget` | R7 | a growing table is larger than its `budget_mb` in `public.retention_rules` (migration 46, book row E12) |
 
 Not answerable from our tables, so not faked: uptime of sites / dashboard / form endpoint, site quality gates, PSI speed, database CPU
 and slow queries. They need an external checker or the Supabase dashboard (owner batch / later step). With `--send --to-env ALERTS_TO`
@@ -98,6 +99,10 @@ continue); after the last retry the owner sees the lead in the inbox anyway (not
 newest request id; search the function's logs (Supabase dashboard, Edge Functions, Logs) for that request id (the first word of each
 log line of the call); a 500 CONFIG is a missing function secret; a database cause: Supabase status, then R3; our code: fix forward
 with a test; tell the owner when it lasted over an hour.
+
+**R7 A table over its budget** (alert `table-over-budget`). 1) Read its rule in `public.retention_rules`. 2) With a period: today's
+`retention-purge` audit row must exist. 3) Without: the head of operations chooses a period (a purge branch and the name in
+`retention_rules_purged`, one migration), partitioning, or a higher budget with the reason in `source`.
 
 ## Owner batch (nothing below is created by a session)
 - Make the key pair and commit `supabase/ops/backup-recipient.pem` (above).

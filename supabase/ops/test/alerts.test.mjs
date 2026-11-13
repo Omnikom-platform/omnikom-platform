@@ -45,7 +45,7 @@ const sitesOf = (items) => items.map(i => i.site);
 // ---- 1 an empty database: every alert quiet
 if (!PREPARED) {
   const r = run(A.ALERTS.map(a => a.name));
-  check('quiet: on an empty database none of the seven alerts fires', A.ALERTS.length === 7 && [...r.values()].every(v => v.length === 0), JSON.stringify([...r]));
+  check('quiet: on an empty database none of the eight alerts fires', A.ALERTS.length === 8 && [...r.values()].every(v => v.length === 0), JSON.stringify([...r]));
   plant(cluster, 'al');
 }
 
@@ -96,6 +96,13 @@ const get = n => all.get(n);
   check('F1 (rule A) function-errors: fires for exactly capture-lead 500 with 5 answers in the hour (3 + 2), newest request e3100000', fe.length === 1 && fe[0].fn === 'capture-lead' && fe[0].status === 500 && fe[0].answers === 5 && fe[0].request === 'e3100000', JSON.stringify(fe));
   check('F2 (rule A) function-errors: quiet for lead-list (4), publish 502 (5, 70 minutes ago) and save (3 in the hour, 2 at 65 minutes)', all.has('function-errors') && !fe.some(i => ['lead-list', 'publish', 'save'].includes(i.fn)), JSON.stringify(fe));
 }
+{
+  sql(`update public.retention_rules set budget_mb = 0.001 where table_name = 'audit_log'`);
+  const tb = run(['table-over-budget']).get('table-over-budget') || [];
+  sql(`update public.retention_rules set budget_mb = 35 where table_name = 'audit_log'`);
+  check('table-over-budget: fires for exactly the table over its budget (audit_log at 0.001 MB), with its size and budget', tb.length === 1 && tb[0].table === 'audit_log' && tb[0].budget_mb === 0.001 && typeof tb[0].mb === 'number', JSON.stringify(tb));
+  check('table-over-budget: quiet at the budgets the migration sets', A.ALERTS.some(a => a.name === 'table-over-budget') && (get('table-over-budget') || []).length === 0, JSON.stringify(get('table-over-budget')));
+}
 
 // ---- 3 the program: output, runbook names, nothing sent, nothing private printed
 const env = { TEST_DB_URL: URL_ };
@@ -103,8 +110,8 @@ const env = { TEST_DB_URL: URL_ };
   const r = A.main(['--db', 'TEST_DB_URL'], env);
   const text = r.lines.join('\n');
   check('program: prints an ALERT block with the runbook name and its "first step:" line for a firing alert', /ALERT\s+publish-failed-twice\s+\(runbook R1/.test(text) && /\n {9}first step: open the job's gate report/.test(text), text);
-  check('program: prints "quiet" for an alert that does not fire and a summary line that says nothing was sent', r.exit === 0 && /alerts: 7 checked, \d firing, \d quiet\. Nothing sent \(no --send\)\./.test(text), text);
-  check('program: six alerts fire in the hour window and name their runbooks R1, R2, R4, R5 and R6; the after-hours one is quiet (rows are days old)', /6 firing, 1 quiet/.test(text) && ['R1', 'R2', 'R4', 'R5', 'R6'].every(rb => text.includes(`runbook ${rb}`)) && /quiet\s+security-staff-after-hours/.test(text), text);
+  check('program: prints "quiet" for an alert that does not fire and a summary line that says nothing was sent', r.exit === 0 && /alerts: 8 checked, \d firing, \d quiet\. Nothing sent \(no --send\)\./.test(text), text);
+  check('program: six alerts fire in the hour window and name their runbooks R1, R2, R4, R5 and R6; the after-hours one (rows are days old) and the budget one are quiet', /6 firing, 2 quiet/.test(text) && ['R1', 'R2', 'R4', 'R5', 'R6'].every(rb => text.includes(`runbook ${rb}`)) && /quiet\s+security-staff-after-hours/.test(text), text);
   check('program: prints no email, no lead name, no workspace display name, no connection string', !/jane\.secret|Jane Secret|Name That Must Not Print|postgres(ql)?:\/\//.test(text), text);
   const f = A.main(['--db', 'TEST_DB_URL', '--fail-on-alert', '--only', 'publish-failed-twice'], env);
   check('program: --fail-on-alert exits 1 when an alert fires', f.exit === 1);

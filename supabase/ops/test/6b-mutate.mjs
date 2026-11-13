@@ -77,6 +77,7 @@ const ALERTS = [
   ['send: every 409 is taken as sent before', "const before = res.status === 409 && (await res.json().catch(() => null))?.name === 'invalid_idempotent_request';", 'const before = res.status === 409;'],
   ['function-errors: 4 answers are enough', 'errorAnswers: 5', 'errorAnswers: 4'],
   ['function-errors: the window is two hours', 'errorMinutes: 60', 'errorMinutes: 120'],
+  ['budget: the alert asks nothing', "sql: () => `select service.over_budget()`,", "sql: () => `select '[]'::jsonb`,"],
 ];
 
 const DRILL = [

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 916,
+    "sources": 917,
     "unowned": 0
   },
   "files": [
@@ -489,6 +489,7 @@
     {"path":"supabase/migrations/20261112000043_staff_access.sql","owner":"platform-build","exports":["fn:private.is_staff","fn:service.staff_open","table:public.staff_access"],"tests":[],"feature":""},
     {"path":"supabase/migrations/20261112000044_media_replace_delete.sql","owner":"platform-build","exports":["fn:service.delete_media","fn:service.replace_media"],"tests":[],"feature":""},
     {"path":"supabase/migrations/20261112000045_take_off_site.sql","owner":"platform-build","exports":["fn:service.drafts_waiting","fn:service.freeze_snapshot","fn:service.put_back","fn:service.set_job_state","fn:service.start_publish","fn:service.unpublish"],"tests":[],"feature":""},
+    {"path":"supabase/migrations/20261112000046_growth_budgets.sql","owner":"platform-build","exports":["fn:service.over_budget"],"tests":[],"feature":""},
     {"path":"supabase/ops/alerts.mjs","owner":"platform-build","exports":["ALERTS","RULES","Stop","deliver","environmentOf","main","parseArgs","pgEnv","render","runQueries","statusData"],"tests":["supabase/ops/test/6b-alerts-fixture.mjs","supabase/ops/test/6b-mutate.mjs","supabase/ops/test/alerts.test.mjs"],"feature":""},
     {"path":"supabase/ops/backup.mjs","owner":"platform-build","exports":["DEFAULT_RECIPIENT","MAX_BYTES","Stop","labelOf","main","parseArgs","pgEnv","readRecipient","regionOf","scrubber","signV4","sizeS3","stampOf","uploadS3"],"tests":["supabase/ops/test/6b-fake-s3.mjs","supabase/ops/test/6b-mutate.mjs","supabase/ops/test/backup.test.mjs","supabase/ops/test/bring-up.test.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
     {"path":"supabase/ops/bring-up.mjs","owner":"platform-build","exports":["bringUp","secretNames"],"tests":["supabase/ops/test/bring-up.test.mjs"],"feature":""},

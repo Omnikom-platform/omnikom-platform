@@ -25,6 +25,7 @@
 //                                (the hours are an assumption: 11-OPERATIONS 4 says "business hours (US Pacific)" without the clock)
 //   function-errors          R6  a function answered the same 5xx status 5 or more times in the last 60 minutes (function_errors, migration 32;
 //                                the old spec's "2% for 10 min" needs a call count we do not keep, so the numbers are a choice)
+//   table-over-budget        R7  a growing table is larger than its budget_mb in public.retention_rules (migration 46; 11-rules.md rule 12)
 // Not answerable from our tables (each needs a source that does not exist yet, so none is faked): uptime of a site / the dashboard / the form
 // endpoint, site quality gates, PSI speed, database CPU and slow queries.
 // Alerts that hold on every run (a failed twice site stays failed) fire on every hourly run until fixed; with --send they are mailed once per
@@ -124,6 +125,12 @@ export const ALERTS = [
              group by e.fn, e.status having sum(e.n) >= ${RULES.errorAnswers}) x`,
     line: i => `function ${i.fn} answered ${i.status} ${i.answers} times in the last hour (newest request ${i.request})`,
     fix: 'search the function logs for the newest request id; a 500 CONFIG is a missing function secret',
+  },
+  {
+    name: 'table-over-budget', runbook: 'R7', component: null,
+    sql: () => `select service.over_budget()`,
+    line: i => `table ${i.table} holds ${i.mb} MB, over its budget of ${i.budget_mb} MB (public.retention_rules, book row E12)`,
+    fix: 'read the table\'s rule in public.retention_rules; give it a period with a purge, partition it, or raise its budget with the reason',
   },
 ];
 
