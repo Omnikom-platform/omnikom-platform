@@ -137,6 +137,18 @@ await check('plan: a feed entry is publicData plus _id and _path; internal field
   return (one._id === l.id && one._path === `/listings/${l.data.slug}/` && one.street === l.data.street && !('sample' in one) && ('sample' in l.data)) || JSON.stringify(one);
 });
 
+await check('plan (B12-E): goneAddresses lists the address of each removed item once, sorted, never one this build serves again, never one of a collection with no route or no longer in the contract, and reads a missing or odd list as none', () => {
+  const row = (collection, data) => ({ id: 'r', collection, version: 1, data, left_at: '2026-11-10T00:00:00Z' }), at = (removed) => PL.goneAddresses({ ...baseExport, removed });
+  const live = rowOf(baseExport, 'listings').data, team = rowOf(baseExport, 'team').data;   // the fixture serves /listings/12-alpha-lane/ and routes /blog/{slug}/ and /listings/{slug}/
+  const got = at([row('listings', { ...live, slug: 'old-house' }), row('posts', { slug: 'old-post' }), row('listings', { ...live, slug: 'old-house' }), row('listings', live), row('team', team), row('nope', { slug: 'x' }), null, { collection: 'listings' }, { collection: 'listings', data: 'x' }]);
+  return JSON.stringify(got) === '["/blog/old-post/","/listings/old-house/"]' && [undefined, 'x', []].every((v) => PL.goneAddresses({ ...baseExport, removed: v }).length === 0) || JSON.stringify(got);
+});
+await check('plan (B12-E): goneAddresses gives no address to a removed item that has no value for a field its route is made of (never one with "undefined" in it), and still lists the others', () => {
+  const row = (data) => ({ id: 'r', collection: 'listings', version: 1, data, left_at: '2026-11-10T00:00:00Z' }), live = rowOf(baseExport, 'listings').data;
+  const got = PL.goneAddresses({ ...baseExport, removed: [row({ street: 'no slug yet' }), row({ ...live, slug: '' }), row({ ...live, slug: 'old-house' })] });
+  return JSON.stringify(got) === '["/listings/old-house/"]' || JSON.stringify(got);
+});
+
 // ---------- 5. the build ----------
 const good = build();
 const GOOD = good.out;

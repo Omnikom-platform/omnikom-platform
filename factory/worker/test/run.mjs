@@ -5,8 +5,10 @@
 // to agree on the canonical form.
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'; import { tmpdir } from 'node:os'; import { dirname, join } from 'node:path'; import { fileURLToPath, pathToFileURL } from 'node:url';
 import { makeLeadHandler, sign } from '../lead-endpoint.mjs';
 import { COOKIE, makeDraftGate } from '../draft-gate.mjs';
+import { makeGone } from '../gone.mjs';
 import { verify } from '../../../supabase/functions/_shared/signature.ts';
 
 let passed = 0, failed = 0;
@@ -248,6 +250,33 @@ await check('draft gate: no link, a wrong link or a link past its end time is a 
     const p = page(), r = await gateAt(now)(new Request(url, { headers: { cookie } }), p.next);
     assert.equal(r.status, 404, `${url} ${cookie}`); assert.equal(await r.text(), 'Not found'); assert.match(r.headers.get('x-robots-tag') ?? '', /noindex/); assert.equal(p.seen.n, 0);
   }
+});
+
+// ---------- book row B12-E: the gone list ----------
+const GONE_PAGE = '<title>Page not found: Demo A website</title>', goneAt = (paths = ['/listings/old-house/', '/team/old-agent']) => makeGone({ paths, page: GONE_PAGE });
+const liveSite = () => { const seen = { n: 0 }; return { seen, next: async () => { seen.n++; return new Response('<h1>live</h1>', { status: 200 }); } }; };
+await check('gone list: a listed address answers a true 404 with the page, noindex and no-store, the site is never asked, and the query string and the method change nothing', async () => {
+  for (const [url, method] of [['https://site.test/listings/old-house/', 'GET'], ['https://site.test/listings/old-house/?v=2&k=1', 'GET'], ['https://site.test/team/old-agent', 'POST']]) {
+    const p = liveSite(), r = await goneAt()(new Request(url, { method }), p.next);
+    assert.equal(r.status, 404, url); assert.equal(await r.text(), GONE_PAGE); assert.equal(r.headers.get('content-type'), 'text/html; charset=utf-8'); assert.equal(r.headers.get('x-robots-tag'), 'noindex'); assert.equal(r.headers.get('cache-control'), 'no-store'); assert.equal(p.seen.n, 0);
+  }
+});
+await check('gone list: every other address goes on to the site untouched: a live one, no trailing slash, a longer path, another case, a parent, /api/lead, the home page, and any address when the list is empty', async () => {
+  for (const url of ['https://site.test/listings/new-house/', 'https://site.test/listings/old-house', 'https://site.test/listings/old-house/x', 'https://site.test/Listings/old-house/', 'https://site.test/listings/', 'https://site.test/api/lead', 'https://site.test/']) {
+    const p = liveSite(), r = await goneAt()(new Request(url), p.next);
+    assert.equal(r.status, 200, url); assert.equal(await r.text(), '<h1>live</h1>'); assert.equal(p.seen.n, 1);
+  }
+  const p = liveSite(); assert.equal((await goneAt([])(new Request('https://site.test/listings/old-house/'), p.next)).status, 200); assert.equal(p.seen.n, 1);
+});
+await check('gone list: the wrapper the runner copies to functions/_middleware.js, run as a module beside gone.mjs and a written list, answers 404 at a listed address and passes the rest', async () => {
+  const here = dirname(fileURLToPath(import.meta.url)), dir = mkdtempSync(join(tmpdir(), 'omnikom-gone-'));
+  try {
+    copyFileSync(join(here, '..', 'gone.mjs'), join(dir, 'gone.mjs')); copyFileSync(join(here, '..', 'pages-function-gone.js'), join(dir, 'middleware.mjs'));
+    writeFileSync(join(dir, 'gone-list.mjs'), `export const GONE = ${JSON.stringify({ paths: ['/listings/old-house/'], page: GONE_PAGE })};\n`);
+    const { onRequest } = await import(pathToFileURL(join(dir, 'middleware.mjs')).href), p = liveSite();
+    assert.equal((await onRequest({ request: new Request('https://site.test/listings/old-house/'), next: p.next })).status, 404); assert.equal(p.seen.n, 0);
+    assert.equal((await onRequest({ request: new Request('https://site.test/'), next: p.next })).status, 200); assert.equal(p.seen.n, 1);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 // ---- product row E5-b: the hold at the edge (a fake of the Cache API: nothing reaches Cloudflare) ----

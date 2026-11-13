@@ -20,6 +20,7 @@ the build.
   "workspace": { "id", "slug", "name", "industry" },
   "contract":  <the resolved contract: the active site_contracts.resolved (the whole contract with the core merged in)>,
   "rows":      [ { "id", "collection", "version", "data", "at" } ],                  exactly the frozen snapshot
+  "removed":   [ { "id", "collection", "version", "data", "left_at" } ],             the items of routed collections that were on the site in a finished build of the last 7 days and are not in this one, each as the version that was live (service.gone_rows); [] for a preview build
   "media":     [ { "id", "path", "original_path", "width", "height", "processed", "exif_stripped", "rights_confirmed", "url", "error"? } ] }
 ```
 - A row's image, gallery or file value is `{ "asset": "<media.id>", "alt": ... }`; a reference field holds a row id.
@@ -148,7 +149,7 @@ node factory/runner/media.mjs                                                   
   Cloudflare refused). A preview is never rolled back. The field and the call are UNPROVEN against the real API (`liveDeploymentOf`, `rollbackUrl`).
 - **Deploy.** `npx --yes wrangler@4.152.0 pages deploy <work>/dist --project-name <site.deploy_target> --branch <draft|preview|main> --commit-dirty=true`
   run from `<work>/pages-root/`, which holds `functions/api/lead.js` and `lead-endpoint.mjs` (copied from `factory/worker/`) so the site's
-  `/api/lead` travels with the deploy. wrangler gets `CLOUDFLARE_API_TOKEN` (= `CLOUDFLARE_PAGES_TOKEN`) and `CLOUDFLARE_ACCOUNT_ID` and
+  `/api/lead` travels with the deploy. When the export's `removed` names addresses this build does not serve (`goneAddresses`, `factory/lib/plan.mjs`) and the job is not a preview build, `functions/_middleware.js`, `gone.mjs` and a written `gone-list.mjs` (the addresses and the build's own `404.html`) travel too, with a `_routes.json` in `dist` that names `/api/lead` and those addresses: for 7 days each answers a true 404 (noindex, no-store) from the deployment, because Cloudflare keeps an old deployment's page that long. Cloudflare takes at most 100 rules of 100 characters in a `_routes.json`; past either the file names `/*` instead (`ROUTES_MAX_RULES`, `ROUTES_MAX_CHARS`), the function's exact match keeps every other page as it is, and the log line says so without an address, so a publish never fails for the number of removed items. wrangler gets `CLOUDFLARE_API_TOKEN` (= `CLOUDFLARE_PAGES_TOKEN`) and `CLOUDFLARE_ACCOUNT_ID` and
   nothing of the runner key or the platform address. The deploy id sent to the platform is the deployment hash from the printed address
   (`https://<hash>.<project>.pages.dev`).
 - **Bounds.** Every fetch has a timeout (30 s, media 60 s), a call is tried 3 times on a network error or 502/503/504, every child process has a

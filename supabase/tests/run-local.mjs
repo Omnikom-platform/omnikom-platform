@@ -303,8 +303,8 @@ const MUTANTS = [
   ['row_version: only the named workspace', "where c.id = p_row and c.workspace_id = p_workspace and c.deleted_at is null and v.n = p_n;", "where c.id = p_row and c.deleted_at is null and v.n = p_n;"],
   ['row_version: unknown version', "v.n = p_n;\n  if not found then raise exception 'S-NOT-FOUND: not found'; end if;", "v.n = p_n;"],
   ['export_bundle: unknown job', "  if not found then raise exception 'S-NOT-FOUND: no job'; end if;\n  if j.snapshot is null then raise exception 'S-JOB-STATE: snapshot not frozen'; end if;\n  select * into s", "  if j.snapshot is null then raise exception 'S-JOB-STATE: snapshot not frozen'; end if;\n  select * into s"],
-  ['export_bundle: a frozen snapshot only (both layers: published_rows says it too)', [["  if j.snapshot is null then raise exception 'S-JOB-STATE: snapshot not frozen'; end if;\n  select * into s", "  select * into s"], ["  if (select snapshot from publish_jobs where publish_jobs.id = p_job) is null then raise exception 'S-JOB-STATE: snapshot not frozen'; end if;", "  null;"]]],
-  ['export_bundle: media of this workspace only', "from public.media m where m.workspace_id = j.workspace_id), '[]'::jsonb));", "from public.media m), '[]'::jsonb));"],
+  ['export_bundle: a frozen snapshot only (both layers: published_rows says it too)', [["  if j.snapshot is null then raise exception 'S-JOB-STATE: snapshot not frozen'; end if;\n  select * into s", "  select * into s"], ["  if (select snapshot from publish_jobs where publish_jobs.id = p_job) is null then raise exception 'S-JOB-STATE: snapshot not frozen'; end if;", "  null;"], ["  if j.snapshot is null then raise exception 'S-JOB-STATE: snapshot not frozen'; end if;\n  if j.preview then return; end if;", "  if j.preview then return; end if;"]]],
+  ['export_bundle: media of this workspace only', "from public.media m where m.workspace_id = j.workspace_id), '[]'::jsonb)", "from public.media m), '[]'::jsonb)"],
   ['export_bundle: the schema key the factory checks first (migration 10)', "    'schema', 'omnikom-export/1',\n", ''],
   ['job_site: unknown job',"where j.id = p_job;\n  if not found then raise exception 'S-NOT-FOUND: no job'; end if;", "where j.id = p_job;"],
   // the grants of migration 9, both layers each (migration 8's default privileges would hide a missing explicit statement)
@@ -981,6 +981,30 @@ const MUTANTS = [
   ['growth46: no table is ever over its budget', '   where x.bytes > x.budget_mb * 1048576', '   where false'],
   ['growth46: the budget is read in bytes', 'x.bytes > x.budget_mb * 1048576', 'x.bytes > x.budget_mb'],
   ['growth46: the function role may ask the measure', 'revoke all on function service.over_budget() from public, anon, authenticated, omnikom_fn;', 'revoke all on function service.over_budget() from public, anon, authenticated;'],
+  // Book row B12-E (migration 47): the build learns which items left the site; tenancy.test.sql T43. Run only these: --only "gone47"
+  // (no mutant on the revoke or the grant of gone_rows: dropping them is an equivalent mutant, as run-local.mjs:872-874 says; none for dropping the order clause either: the database may hand the rows over in id order anyway)
+  ['gone47: an unknown job is not refused', "  if not found then raise exception 'S-NOT-FOUND: no job'; end if;\n  if j.snapshot is null then raise exception 'S-JOB-STATE: snapshot not frozen'; end if;\n  if j.preview", "  if j.snapshot is null then raise exception 'S-JOB-STATE: snapshot not frozen'; end if;\n  if j.preview"],
+  ['gone47: a job with no frozen snapshot is not refused', "  if j.snapshot is null then raise exception 'S-JOB-STATE: snapshot not frozen'; end if;\n  if j.preview then return; end if;", '  if j.preview then return; end if;'],
+  ['gone47: a preview job lists removals', '  if j.preview then return; end if;\n', ''],
+  ['gone47: the 7 days are not applied', " and x.finished_at >= coalesce(edge, '-infinity')", ''],
+  ['gone47: the deployment at the edge of the window is dropped', 'x.finished_at >= coalesce(edge,', 'x.finished_at > coalesce(edge,'],
+  ['gone47: the window is a day long', "and f.finished_at <= now() - interval '7 days'", "and f.finished_at <= now() - interval '8 days'"],
+  ['gone47: an item that left exactly 7 days ago is in the window', "f.finished_at <= now() - interval '7 days'", "f.finished_at < now() - interval '7 days'"],
+  ['gone47: a preview is the edge of the window', ' and not f.preview', ''],
+  ['gone47: a failed job is the edge of the window', "f.state = 'done' and ", ''],
+  ["gone47: a deployment of another site is the edge of the window", 'f.site_id = j.site_id and ', ''],
+  ['gone47: a finished job asked again is its own edge', ' and f.id <> j.id', ''],
+  ['gone47: a failed job counts as a deployment', "x.state = 'done' and ", ''],
+  ['gone47: a preview counts as a deployment', ' and not x.preview and x.snapshot is not null', ' and x.snapshot is not null'],
+  ["gone47: another site's deployments count", 'where x.site_id = j.site_id and x.id <> j.id', 'where x.id <> j.id'],
+  ['gone47: an item still on the site is listed', 'where not (j.snapshot ? e.key)', 'where true'],
+  ['gone47: the time it left is the time it is asked', 'coalesce((select min(nx.at) from d nx where nx.at > s.at), now())', 'now()'],
+  ['gone47: the newest version is read, not the one that was live', 'v.n = s.n', 'v.n = (select max(z.n) from public.content_versions z where z.row_id = c.id)'],
+  ['gone47: the oldest version seen is taken', 'order by d.at desc))[1]', 'order by d.at))[1]'],
+  ['gone47: a collection with no route is listed', "  where coalesce(sc.resolved -> 'collections' -> c.collection ->> 'route', '') <> '';", '  where true;'],
+  ['gone47: a row of another workspace is listed', 's.k::uuid and c.workspace_id = j.workspace_id', 's.k::uuid'],
+  ['gone47: the removed list is in the wrong order', 'order by g.collection, g.id)', 'order by g.collection, g.id desc)'],
+  ['gone47: the export carries no list', "    'removed', coalesce(", "    'removed_off', coalesce("],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

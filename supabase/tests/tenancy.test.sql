@@ -4028,6 +4028,67 @@ update retention_rules set budget_mb = 35 where budget_mb is not null;
 set role omnikom_fn;   -- the Edge Functions' role: no function asks the measure
 select test.expect_error($q$select service.over_budget()$q$, 'permission denied');
 reset role;
+-- ===== T43 (book row B12-E, migration 47): the build learns which items left the site: service.gone_rows and the export's "removed" =====
+create table test.t43_ws as select id, state from public.workspaces where id = 'aaaaaaaa-0000-0000-0000-000000000000'; update public.workspaces set state = 'active' where id = 'aaaaaaaa-0000-0000-0000-000000000000';
+select service.set_job_state(id, 'failed') from public.publish_jobs where site_id = 'aaaaaaaa-0000-0000-0000-00000000517e' and state in ('queued', 'building', 'gating', 'deploying');
+update public.site_contracts set resolved = jsonb_set(resolved, '{collections,listings,route}', '"/listings/{slug}/"') where workspace_id in ('aaaaaaaa-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000') and active;   -- the test contract gives no collection a route: listings get one here, in A and in B, taken away again at the end
+create function test.t43_job(p_key text, p_site uuid, p_rows uuid[], p_versions int[], p_ago interval) returns void language plpgsql as $$
+begin   -- one finished publish of the owner of A: start, freeze, gating, deploying, done; its finish time is put p_ago into the past (one transaction: one now())
+  insert into test.ids select p_key, service.start_publish(test.cl('00000000-0000-0000-0000-00000000000a'), p_site, p_rows, p_versions);
+  perform service.freeze_snapshot(test.id(p_key)); perform service.set_job_state(test.id(p_key), 'gating'); perform service.set_job_state(test.id(p_key), 'deploying'); perform service.set_job_state(test.id(p_key), 'done');
+  update public.publish_jobs set finished_at = now() - p_ago where id = test.id(p_key);
+end $$;
+-- g1 to g8: listings of A ("43 Row n"); gt: a team row (no route); gB: a listing of the OTHER workspace. g6 and g7 stay drafts; the others are published below
+insert into test.ids select 'g' || n, service.seed_version('aaaaaaaa-0000-0000-0000-000000000000', 'listings', jsonb_build_object('street', '43 Row ' || n, 'status', 'for-sale'), '00000000-0000-0000-0000-00000000005f', 'T43') from generate_series(1, 8) n;
+insert into test.ids select 'gt', service.seed_version('aaaaaaaa-0000-0000-0000-000000000000', 'team', '{"name":"43 Agent"}', '00000000-0000-0000-0000-00000000005f', 'T43');
+insert into test.ids select 'gB', service.seed_version('bbbbbbbb-0000-0000-0000-000000000000', 'listings', '{"street":"43 Row B","status":"for-sale"}', '00000000-0000-0000-0000-00000000005f', 'T43');
+select test.t43_job('jA', 'aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('g1'), test.id('g2'), test.id('g3'), test.id('g4'), test.id('g5'), test.id('gt')], array[1, 1, 1, 1, 1, 1], interval '20 days');   -- JA, 20 days ago: six items live
+select service.unpublish(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('g4'), true); select service.save_as(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('g3'), '{"street":"43 Row 3 v2","status":"for-sale"}', null, 1);
+select test.t43_job('jB', 'aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('g3')], array[2], interval '7 days');   -- JB, EXACTLY 7 days ago: the newest deployment at least 7 days old, the edge of the window (the edge test is <=, so a deployment of exactly 7 days is it): g3 at version 2 goes live, g4 (deleted) leaves
+select service.save_as(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('g1'), '{"street":"43 Row 1 moved","status":"for-sale"}', null, 1);   -- g1's newest version (2) is not the live one (1)
+select service.unpublish(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('g1'), true); select service.save_as(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('g3'), '{"street":"43 Row 3 v3","status":"for-sale"}', null, 2);
+select test.t43_job('jB2', 'aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('g3')], array[3], interval '6 days');   -- JB2, 6 days ago: g3 at version 3 goes live (JB held version 2), g1 (deleted) leaves: JB is the last deployment that held it
+select service.unpublish(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('gt'), true); select service.unpublish(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('g3')); select service.unpublish(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('g5'));
+select test.t43_job('jC', 'aaaaaaaa-0000-0000-0000-00000000517e', '{}', '{}', interval '3 days');   -- JC, 3 days ago: carries the removals of gt (deleted), g3 and g5 (taken off)
+update public.publish_jobs set snapshot = snapshot || jsonb_build_object(test.id('gB')::text, 1) where id = test.id('jC');   -- forged: nothing writes a row of another workspace into a snapshot (freeze_snapshot reads the job's own workspace, 20261112000045_take_off_site.sql:131-135); tenancy.test.sql:1002 forges one the same way for another wall
+insert into test.ids select 'jF', service.start_publish(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('g6')], array[1]); select service.freeze_snapshot(test.id('jF')); select service.set_job_state(test.id('jF'), 'failed');   -- a failed job holds g6: it was never deployed
+insert into test.ids select 'jP', (service.start_preview(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e') ->> 'job')::uuid; select service.freeze_snapshot(test.id('jP')); select service.set_job_state(test.id('jP'), 'gating'); select service.set_job_state(test.id('jP'), 'deploying'); select service.set_job_state(test.id('jP'), 'done');   -- a finished preview holds the drafts g6 and g7
+insert into test.ids select 'jH1', (service.start_preview(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e') ->> 'job')::uuid; select service.freeze_snapshot(test.id('jH1')); select service.set_job_state(test.id('jH1'), 'gating'); select service.set_job_state(test.id('jH1'), 'deploying'); select service.set_job_state(test.id('jH1'), 'done'); update public.publish_jobs set finished_at = now() - interval '12 days' where id = test.id('jH1');   -- a finished PREVIEW 12 days ago: between JA and JB, so a build that took it for the edge would start its window after JA
+insert into test.ids select 'jH2', service.start_publish(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('g2')], array[1]); select service.freeze_snapshot(test.id('jH2')); select service.set_job_state(test.id('jH2'), 'failed'); update public.publish_jobs set finished_at = now() - interval '12 days' where id = test.id('jH2');   -- a FAILED job 12 days ago: the same
+insert into sites (id, workspace_id, deploy_target, preview_host) values ('aaaaaaaa-0000-0000-0000-0000000a0e43', 'aaaaaaaa-0000-0000-0000-000000000000', 'test-site-t43', 't43.preview.test');
+select test.t43_job('jH3', 'aaaaaaaa-0000-0000-0000-0000000a0e43', array[test.id('g2')], array[1], interval '12 days');   -- a finished job of the OTHER site 12 days ago: the same
+select test.t43_job('j2', 'aaaaaaaa-0000-0000-0000-0000000a0e43', array[test.id('g8')], array[1], interval '0 days'); select service.unpublish(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('g8'), true);   -- g8 was live on another site of A only
+insert into test.ids select 'jD', service.start_publish(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('g5')], array[1]); select service.freeze_snapshot(test.id('jD'));   -- the build being asked: g5 is requested again (put back), JD is frozen, not finished
+do $$ begin
+  assert (select array_agg(data ->> 'street' order by data ->> 'street') from service.gone_rows(test.id('jD')) where data ->> 'street' like '43 Row%') = array['43 Row 1', '43 Row 3 v3'],
+    'T43a what left the site in the last 7 days, each as the version that was live when it left: g1 (deleted; its newer draft was never live; only JB, the edge of the window, held it) and g3 (taken off; version 3 was the live one, JB held version 2); not g2 (live), g4 (left before the window), g5 (requested again), g6 (only a failed job held it), g7 (only a preview held it), g8 (another site), gB (another workspace)';
+  assert (select count(*) from service.gone_rows(test.id('jD')) where id in (test.id('g1'), test.id('g3'))) = 2 and (select version from service.gone_rows(test.id('jD')) where id = test.id('g1')) = 1 and (select version from service.gone_rows(test.id('jD')) where id = test.id('g3')) = 3, 'T43a the version that was live is returned';
+  assert (select left_at from service.gone_rows(test.id('jD')) where id = test.id('g1')) = (select finished_at from public.publish_jobs where id = test.id('jB2')) and (select left_at from service.gone_rows(test.id('jD')) where id = test.id('g3')) = (select finished_at from public.publish_jobs where id = test.id('jC')), 'T43a each left with the first finished deployment that no longer held it (g1 at JB2, g3 at JC), not when it is asked';
+  assert not exists (select 1 from service.gone_rows(test.id('jD')) where id = test.id('gt')), 'T43a a collection with no route has no address to answer';
+  assert not exists (select 1 from service.gone_rows(test.id('jD')) where id = test.id('gB')), 'T43a a row of another workspace that a snapshot names is never listed: the read stays inside the workspace of the job';
+  assert (select array_agg(id) from service.gone_rows(test.id('jB')) where data ->> 'street' like '43 Row%') = array[test.id('g4')] and (select version from service.gone_rows(test.id('jB')) where id = test.id('g4')) = 1, 'T43e a finished job asked again (JB): the edge is JA, 20 days ago, not its own deployment, the preview or the failed job of 12 days or a deployment of the other site, so g4 (held only by JA, left with JB) is the one thing that left';
+end $$;
+insert into test.ids select 'jU', service.start_publish(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('g2')], array[1]);   -- queued, never frozen
+set role omnikom_fn;
+select test.expect_error($q$select * from service.gone_rows('99999999-0000-0000-0000-000000000000')$q$, 'S-NOT-FOUND');
+select test.expect_error(format($q$select * from service.gone_rows(%L)$q$, test.id('jU')), 'S-JOB-STATE');
+do $$ declare b jsonb; begin
+  b := service.export_bundle(test.id('jD'));
+  assert jsonb_typeof(b -> 'removed') = 'array' and (select count(*) from jsonb_array_elements(b -> 'removed') r where r ->> 'id' in (test.id('g1')::text, test.id('g3')::text) and (r ->> 'version')::int in (1, 3) and r ->> 'collection' = 'listings' and r ->> 'left_at' is not null and r #>> '{data,street}' like '43 Row%') = 2, 'T43b the export carries "removed": id, collection, version, data and left_at of g1 and g3';
+  assert (select count(*) from jsonb_array_elements(b -> 'removed') r where r ->> 'id' = test.id('g2')::text) = 0, 'T43b an item still on the site is not in it';
+  assert (select array_agg((r ->> 'id')::uuid order by ord) from jsonb_array_elements(b -> 'removed') with ordinality t(r, ord) where r #>> '{data,street}' like '43 Row%') = (select array_agg(x order by x) from (select test.id('g1') x union all select test.id('g3')) s), 'T43b "removed" is exactly g1 and g3, in a fixed order, by collection and id, as "rows" is';
+end $$;
+reset role;
+select service.set_job_state(test.id('jD'), 'failed'); select service.set_job_state(test.id('jU'), 'failed');   -- so that a preview of the same site can be frozen
+insert into test.ids select 'jQ', (service.start_preview(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e') ->> 'job')::uuid; select service.freeze_snapshot(test.id('jQ'));
+do $$ begin assert (select count(*) from service.gone_rows(test.id('jQ'))) = 0 and (service.export_bundle(test.id('jQ')) -> 'removed') = '[]'::jsonb, 'T43c a preview job has no removed list: its build goes to the draft address, which only its signed link opens'; end $$;
+do $$ declare f text := 'service.gone_rows(uuid)'; begin
+  assert not has_function_privilege('anon', f, 'execute') and not has_function_privilege('authenticated', f, 'execute'), 'T43d gone_rows is closed to anon and authenticated';
+  assert has_function_privilege('service_role', f, 'execute') and has_function_privilege('omnikom_fn', f, 'execute'), 'T43d gone_rows is open to service_role and the function role';
+  assert (select prosecdef from pg_proc where oid = f::regprocedure) and (select proconfig from pg_proc where oid = f::regprocedure) = array['search_path=""'], 'T43d gone_rows is a definer function with an empty search_path';
+  assert (select proacl is not null and not exists (select 1 from aclexplode(proacl) a where a.grantee = 0) from pg_proc where oid = f::regprocedure), 'T43d gone_rows is not executable by PUBLIC';
+end $$;
+update public.site_contracts set resolved = resolved #- '{collections,listings,route}' where workspace_id in ('aaaaaaaa-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000') and active; update public.workspaces w set state = t.state from test.t43_ws t where w.id = t.id;
 
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

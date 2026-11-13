@@ -12,6 +12,7 @@ writeFileSync(e.FAKE_WRANGLER_RECORD, JSON.stringify({
   hasRunnerKey: 'RUNNER_KEY' in e, hasPagesToken: 'CLOUDFLARE_PAGES_TOKEN' in e, hasBase: 'PLATFORM_FUNCTIONS_BASE' in e,
   leadFunction: existsSync('functions/api/lead.js'), leadEndpoint: existsSync('functions/api/lead-endpoint.mjs'),
   draftGate: ['_middleware.js', 'draft-gate.mjs', 'draft-gate-key.mjs'].every((f) => existsSync(`functions/${f}`)),
+  goneFunction: ['_middleware.js', 'gone.mjs', 'gone-list.mjs'].every((f) => existsSync(`functions/${f}`)), routesFile: existsSync(`${argv[2]}/_routes.json`),   // B12-E
 }));
 console.log(`debug: authenticating with token ${e.CLOUDFLARE_API_TOKEN} for account ${e.CLOUDFLARE_ACCOUNT_ID}`);
 const mode = e.FAKE_WRANGLER_MODE || 'ok';

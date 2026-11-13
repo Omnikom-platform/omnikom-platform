@@ -17,11 +17,13 @@ import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync, cpSync } from 'node:fs';
 import { dirname, join, resolve, sep, relative } from 'node:path';
 import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { UUID, SLUG, safeRelPath, checkBase, makeScrubber, makePlatform, numEnv, childEnv } from './lib/common.mjs';
 
 const WRANGLER_VERSION = '4.152.0';   // 4.156.0 (the brief's pin) was 2 days old on 2026-10-31: supply-chain rule 1 (7 days); bump on purpose
 const LEAD_SETTINGS = ['SITE_ID', 'SITE_SIGNING_KEY', 'PLATFORM_BASE'];   // what factory/worker/pages-function-lead.js reads from the Pages project
+// Cloudflare's limits on a _routes.json (developers.cloudflare.com/pages/functions/routing/, read by the head 2026-11-13): "You may have no more than 100 include/exclude rules combined." and "Each rule may have no more than 100 characters." Past either, the gone function (book row B12-E) is invoked for every request instead of for its addresses only.
+const ROUTES_MAX_RULES = 100, ROUTES_MAX_CHARS = 100;
 const REPO = process.env.OMNIKOM_REPO_ROOT ? resolve(process.env.OMNIKOM_REPO_ROOT) : resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const USAGE = 'usage: node factory/runner/publish.mjs [--force-fail heading] [--no-deploy <dir>] [--work <dir>] [--smoke-url <url>] [--smoke-tries <n>] [--smoke-interval-ms <ms>]';
 
@@ -253,6 +255,17 @@ async function run() {
       cpSync(join(REPO, 'factory', 'worker', 'pages-function-draft-gate.js'), join(fns, '_middleware.js'));
       cpSync(join(REPO, 'factory', 'worker', 'draft-gate.mjs'), join(fns, 'draft-gate.mjs'));
       writeFileSync(join(fns, 'draft-gate-key.mjs'), `export const GATE = ${JSON.stringify({ sha256: createHash('sha256').update(gate.token).digest('hex'), until: gate.until })};\n`);
+    }
+    // book row B12-E: the addresses of items that left the site in the last 7 days (the export's `removed`, minus what this build serves) answer a true 404 from a function of this deployment, because Cloudflare's edge goes on serving an old deployment's page for up to a week. Never in a draft (the draft gate has this file name there). _routes.json names the same addresses and /api/lead, so the function is invoked for nothing else; past Cloudflare's limits (ROUTES_MAX_RULES, ROUTES_MAX_CHARS) it names every request instead, and the function's exact match keeps every other page as it is, so a publish never fails for the number of removed items. With no such address the deploy is exactly what it was.
+    const gone = gate ? [] : (await import(pathToFileURL(join(REPO, 'factory', 'lib', 'plan.mjs')).href)).goneAddresses(exp);
+    if (gone.length) {
+      const fns = join(work, 'pages-root', 'functions');
+      const rules = ['/api/lead', ...gone], wide = rules.length > ROUTES_MAX_RULES || gone.some((a) => a.length > ROUTES_MAX_CHARS);
+      cpSync(join(REPO, 'factory', 'worker', 'pages-function-gone.js'), join(fns, '_middleware.js'));
+      cpSync(join(REPO, 'factory', 'worker', 'gone.mjs'), join(fns, 'gone.mjs'));
+      writeFileSync(join(fns, 'gone-list.mjs'), `export const GONE = ${JSON.stringify({ paths: gone, page: readFileSync(join(dist, '404.html'), 'utf8') })};\n`);
+      writeFileSync(join(dist, '_routes.json'), `${JSON.stringify({ version: 1, include: wide ? ['/*'] : rules, exclude: [] })}\n`);
+      step('gone', `${gone.length} removed address(es) answer 404 from this deployment's own function (the addresses are not printed)${wide ? `; every request passes the function (more than ${ROUTES_MAX_RULES} rules or a rule over ${ROUTES_MAX_CHARS} characters)` : ''}`);
     }
     const wargs = ['pages', 'deploy', dist, '--project-name', target, '--branch', branch, '--commit-dirty=true'];
     const [cmd, args] = process.env.RUNNER_WRANGLER_SCRIPT

@@ -64,7 +64,8 @@ types `publish` (`{job_id, site_id}`) and `media` (`{media_id, workspace_id}`).
 | `GET /api/lead?sent=1` | the thank-you page when the site sets no `THANKS_PATH`; any other GET gets 405 |
 | `/sitemap.xml`, `/robots.txt`, `/llms.txt` | generated from the placed pages |
 | `/404.html` | not found |
-| `_headers`, `_redirects` | security headers; redirects from the `redirects` collection (a deleted or taken-off item gets none: its address answers `/404.html`, book row B12) |
+| the address of an item taken off the site or deleted in the last 7 days | for those 7 days a true 404 with the site's own 404 page, noindex and no-store, answered by a function of the deployment (book row B12); after them the build's own 404 |
+| `_headers`, `_redirects` | security headers; redirects from the `redirects` collection (a deleted or taken-off item gets none: its address answers `/404.html`, and for 7 days after the removal the deployment's own function answers it, book row B12) |
 | `/media/<path>`, `/assets/<name>.<sha>.css` and `.js` | photos and hashed assets |
 
 Addresses: `<project>.pages.dev` (noindex until launch), `preview.<project>.pages.dev` (staging, always noindex), `draft.<project>.pages.dev` (the preview site of saved changes, noindex, only by its signed link, book row B15), the client's

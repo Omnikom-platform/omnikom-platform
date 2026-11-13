@@ -132,6 +132,15 @@ const MUTANTS = [
   ['seo limits: the contract description minimum is 49, the audit says 50', 'contracts/seo-limits.json', '"min": 50,', '"min": 49,'],
   ['seo limits: the contract title minimum for zh, ja, ko is 9, the audit says 10', 'contracts/seo-limits.json', '"minCjk": 10,', '"minCjk": 9,'],
   ['seo limits: the contract description minimum for zh, ja, ko is 24, the audit says 25', 'contracts/seo-limits.json', '"minCjk": 25,', '"minCjk": 24,'],
+  // the addresses of items that left the site (B12-E): goneAddresses in factory/lib/plan.mjs, two checks in test/run.mjs
+  ['plan (B12-E): an address this build serves again is listed as gone', `${F}lib/plan.mjs`, ' && !live.has(path)', ''],
+  ['plan (B12-E): the addresses this build serves are not read', `${F}lib/plan.mjs`, 'exp.rows.filter((r) => routed(r.collection))', '[]'],
+  ['plan (B12-E): a collection the contract lacks is read', `${F}lib/plan.mjs`, '!routed(g.collection) || ', ''],
+  ['plan (B12-E): an entry with no data is read', `${F}lib/plan.mjs`, " || !g.data || typeof g.data !== 'object'", ''],
+  ['plan (B12-E): a repeated address is listed twice', `${F}lib/plan.mjs`, 'gone.add(path)', "gone.add(gone.has(path) ? path + ' ' : path)"],
+  ['plan (B12-E): the addresses are not sorted', `${F}lib/plan.mjs`, '[...gone].sort()', '[...gone]'],
+  ['plan (B12-E): a missing list is read as a list', `${F}lib/plan.mjs`, 'Array.isArray(exp.removed) ? exp.removed : []', 'exp.removed'],
+  ['plan (B12-E): an item with no value for its route field is given an address', `${F}lib/plan.mjs`, '.some((f) => !g.data[f])', '.some(() => false)'],
 ];
 
 // the layout the tests expect next to the factory: contracts/ (code only), sites/test-demo-a/, factory/ (no briefs, no worker)

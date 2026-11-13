@@ -10,6 +10,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..', '..', '..');
 const SRC = readFileSync(join(HERE, '..', 'lead-endpoint.mjs'), 'utf8');
 const GATE_SRC = readFileSync(join(HERE, '..', 'draft-gate.mjs'), 'utf8');   // book row B15-b3
+const GONE_SRC = readFileSync(join(HERE, '..', 'gone.mjs'), 'utf8');   // book row B12-E
+const WRAP_SRC = readFileSync(join(HERE, '..', 'pages-function-gone.js'), 'utf8');
 const MUTANTS = [
   ['method must be POST', "if (request.method !== 'POST') return json(405", "if (false) return json(405"],
   ['size cap', 'if (body.length > maxBytes) return reply(413', 'if (false) return reply(413'],
@@ -75,6 +77,19 @@ const GATE_MUTANTS = [
   ['draft gate: the redirect leaves the site', ".replace(/^\\/+/, '/')", ''],
   ['draft gate: the redirect drops the other query parts', "'/') + url.search,", "'/'),"],
 ];
+const GONE_MUTANTS = [   // book row B12-E: gone.mjs
+  ['gone list: an address is matched by prefix', 'gone.has(new URL(request.url).pathname)', '[...gone].some((p) => new URL(request.url).pathname.startsWith(p))'],
+  ['gone list: the query string is part of the address', 'new URL(request.url).pathname)', 'new URL(request.url).pathname + new URL(request.url).search)'],
+  ['gone list: the answer is 200', 'status: 404,', 'status: 200,'],
+  ['gone list: the answer is indexable', "'x-robots-tag': 'noindex', ", ''],
+  ['gone list: the answer may be cached', ", 'cache-control': 'no-store'", ''],
+  ['gone list: the answer is not html', "'content-type': 'text/html; charset=utf-8', ", ''],
+  ['gone list: the answer is not the site\'s own page', 'new Response(page,', "new Response('Not found',"],
+  ['gone list: nothing goes on to the site', ': next();', ': new Response(page, { status: 404 });'],
+];
+const WRAP_MUTANTS = [   // book row B12-E: pages-function-gone.js
+  ['gone list: the wrapper never asks the list', 'export const onRequest = ({ request, next }) => gone(request, next);', 'export const onRequest = ({ next }) => next();'],
+];
 
 // the tests import ../lead-endpoint.mjs and ../../../supabase/functions/_shared/signature.ts: rebuild that shape in a temp folder
 const tmp = mkdtempSync(join(tmpdir(), 'omnikom-lead-mut-'));
@@ -84,13 +99,17 @@ cpSync(join(ROOT, 'supabase', 'functions', '_shared', 'signature.ts'), join(tmp,
 cpSync(join(HERE, 'run.mjs'), join(tmp, 'factory', 'worker', 'test', 'run.mjs'));
 const target = join(tmp, 'factory', 'worker', 'lead-endpoint.mjs');
 const gateTarget = join(tmp, 'factory', 'worker', 'draft-gate.mjs');
+const goneTarget = join(tmp, 'factory', 'worker', 'gone.mjs');
+const wrapTarget = join(tmp, 'factory', 'worker', 'pages-function-gone.js');
 
 let failed = 0;
 writeFileSync(target, SRC); writeFileSync(gateTarget, GATE_SRC);
+writeFileSync(goneTarget, GONE_SRC); writeFileSync(wrapTarget, WRAP_SRC);
 const base = spawnSync('node', [join(tmp, 'factory', 'worker', 'test', 'run.mjs')], { encoding: 'utf8', timeout: 60000 });
 if (base.status !== 0) { console.log('the unbroken copy must pass first:\n' + base.stdout.slice(-500)); process.exit(1); }
-for (const [name, a, b, gate] of [...MUTANTS, ...GATE_MUTANTS.map((m) => [...m, true])]) {
-  const src = gate ? GATE_SRC : SRC, into = gate ? gateTarget : target, n = src.split(a).length - 1;
+const ALL = [[MUTANTS, SRC, target], [GATE_MUTANTS, GATE_SRC, gateTarget], [GONE_MUTANTS, GONE_SRC, goneTarget], [WRAP_MUTANTS, WRAP_SRC, wrapTarget]].flatMap(([list, s, t]) => list.map(([n, x, y]) => [n, x, y, s, t]));
+for (const [name, a, b, src, into] of ALL) {
+  const n = src.split(a).length - 1;
   if (n !== 1) { console.log(`MUTANT TARGET ${n === 0 ? 'MISSING' : 'NOT UNIQUE'}: ${name}`); failed++; continue; }
   writeFileSync(into, src.split(a).join(b));
   const r = spawnSync('node', [join(tmp, 'factory', 'worker', 'test', 'run.mjs')], { encoding: 'utf8', timeout: 60000 });
@@ -101,5 +120,5 @@ for (const [name, a, b, gate] of [...MUTANTS, ...GATE_MUTANTS.map((m) => [...m, 
   console.log(`${caught ? 'caught  ' : 'SURVIVED'} ${name.padEnd(40)} ${why}`);
 }
 rmSync(tmp, { recursive: true, force: true });
-console.log(`\n${(MUTANTS.length + GATE_MUTANTS.length)} mutants, ${(MUTANTS.length + GATE_MUTANTS.length) - failed} caught, ${failed} survived or missing`);
+console.log(`\n${ALL.length} mutants, ${ALL.length - failed} caught, ${failed} survived or missing`);
 process.exit(failed ? 1 : 0);
