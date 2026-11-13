@@ -1,6 +1,6 @@
 # Where things stand
 
-Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 18. Every feature's
+Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 20. Every feature's
 state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (rewritten for the method below at batch
 13). Getting back in: `resume\RESUME.md`.
 
@@ -8,7 +8,7 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (r
 - Product: 79 of 97 rows WORK, 17 PARTLY, 1 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
   18, 4, 1 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 10, 11, 0 of 21.
 - The order (owner, 2026-11-13): the owed proof runs are done; now one build job at a time: 7 rows to build (B18, B24, B25,
-  C11's request, E5's limit at the edge, E12's rest, E13) and the fault the proof runs found (below).
+  C11's request, E5's limit at the edge, E12's rest, E13).
 - The platform build is open (owner, 2026-11-12); the refactor of how we work is closed at what is built. One head of
   operations orients, rules, takes in and lands; it never builds. Every job: a written hand-over that names its product row
   and its done-test, a fresh cross-check of the hand-over against the tree, the test first and seen red, the least code, one
@@ -27,12 +27,12 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (r
   ids and hourly alerts (E3), plan limits (E16), the pooler (E6), headers (E7), publish smoke and rollback (E8), the
   workflow-only token path (E9), retention, purge and growth budgets (E12, migration 46), rich text (E18), staff windows
   (E11), production brought up by one script (E2), backups and a restore drill (E1), a publish in 3 statements (E13 d),
-  an index for every foreign key and its wall T48 (E13, migration 48), the drill's Vault stand-in (E1, part).
+  an index for every foreign key and its wall T48 (E13, migration 48), the restore drill green, 9 phases (E1, part).
 - Tools: the browser flows on GitHub's runner (`flows.yml`, one named staging flow per run, the output sealed); the
   staging walls read only the run's own rows and now pass whole; the search audit's tool (the audit lane's four landings).
 
 ## Not landed
-- Nothing is committed and waiting. One fault needs a hand-over: the restore drill's walls phase fails at T33 (see E1).
+- Nothing is committed and waiting. One tool fault needs a hand-over: the CLI's held-port check fails on a busy runner.
 
 ## Staging (the test project), 2026-11-13
 - Migrations through 48 applied in number order; 32 functions from master 0eeef26, three of them (save, publish,
