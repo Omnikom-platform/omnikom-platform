@@ -185,6 +185,21 @@ async function scenarios(sdir) {
       check("D3: notCurrent: a pattern with one BLOCKED record and one real file is a result (null); records only is rule blocked-record", n1 === null && n2?.rule === "blocked-record", JSON.stringify([n1, n2]));
     }
 
+    // ---------------- AP: an approval step watches the file its approval covers (SKILL-APPROVE-1 A1): the real manifest's approve-competitors ----------------
+    {
+      const H = 3_600_000, T = Date.now(), s = step(manifest, "approve-competitors"), sOld = { ...s, inputs: ["{pewp}/research/competitors.json"] };
+      const AC = `${vars.pewp}/approved/competitors.json`, PR = `${vars.pewp}/research/competitors-proposed.json`, CJ = `${vars.pewp}/research/competitors.json`;
+      const L2 = '{"rows":[{"name":"Sample Rival One"},{"name":"Sample Rival Two"}]}', L3 = '{"rows":[{"name":"Sample Rival One"},{"name":"Sample Rival Two"},{"name":"Sample Rival Three"}]}';
+      const world = (prAt, prBody) => { const C = { [AC]: [T - 2 * H, L2], [CJ]: [T - H, '{"sites":[{"domain":"rival-one.example"}]}'], [PR]: [prAt, prBody] }; return { existsSync: (p) => p in C, statSync: (p) => ({ size: C[p][1].length, mtimeMs: C[p][0], isDirectory: () => false }), readdirSync: () => [], readFileSync: (p) => Buffer.from(C[p][1]) }; };
+      const w1 = world(T - 3 * H, L2), w2 = world(T - H / 2, L2), wb = world(T - H / 2, L3);
+      const ad = (st, io) => { try { return lib.adoptStep(st, { vars, now: T, io }); } catch (e) { return { ok: null, threw: e.message }; } };
+      const next = (st, io) => { try { const ev = lib.evidenceState(st, vars, { since: 0, allFresh: true, io }); return ev.state === "done" && !lib.inputNewer(st, vars, ev.files, { io }) && !lib.notCurrent(st, ev.files, { now: T, io }); } catch (e) { return `threw: ${e.message}`; } };   // seo run's doneBefore for an adopted waiting step (R5)
+      const a1 = ad(s, w1), a2 = ad(s, w2), b = ad(s, wb), c = ad(sOld, w1);
+      check("AP: approve-competitors stays adopted when research/competitors.json is rewritten after the approval, while the approved copy has the proposed list's bytes (the list older than the approval, or saved again with the same bytes), on the first run and on the next", a1.ok === true && a2.ok === true && next(s, w1) === true && next(s, w2) === true, JSON.stringify([a1, a2, next(s, w1), next(s, w2)]));
+      check("AP: a proposed list changed by one row after the approval makes approve-competitors not current, and says why: rule input-newer, naming research/competitors-proposed.json", b.ok === false && b.rule === "input-newer" && b.input === PR && b.reason.includes("research/competitors-proposed.json") && next(s, wb) === false, JSON.stringify([b, next(s, wb)]));
+      check("AP: control: the same world with the step's input before this change (research/competitors.json) refuses the adoption, naming research/competitors.json (the fault A1 removes)", c.ok === false && c.rule === "input-newer" && c.input === CJ, JSON.stringify(c));
+    }
+
     // ---------------- A: the API the CLI imports ----------------
     check("A: the lib exports the API names (loadManifest, validateManifest, runOrder, substitute, evidenceState, stepOutcome, stepKind, describe and the rest the CLI takes) and prints nothing, never exits", ["loadManifest", "validateManifest", "runOrder", "makeVars", "hostOf", "resolveScript", "substitute", "covers", "globPaths", "filesUnder", "evidenceState", "inputNewer", "adoptStep", "notCurrent", "stepOutcome", "outcomeState", "stepStop", "stepKind", "isWaiting", "describe", "PipelineError", "PlaceholderError"].every((k) => typeof lib[k] === "function") && Array.isArray(lib.STEP_KEYS) && Array.isArray(lib.TOP_KEYS) && Array.isArray(lib.PLACEHOLDERS) && Array.isArray(lib.RUN_OPTIONS) && typeof lib.SLACK_MS === "number" && !/console\.|process\.exit/.test(fs.readFileSync(path.join(sdir, "lib-pipeline.mjs"), "utf8").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n")), "missing export, or console / process.exit in the code");
     const sf = (...a) => { try { return lib.loadManifest(...a); } catch (e) { return { ok: null, problems: [{ rule: "threw", detail: e.message }], manifest: { steps: [] } }; } }; // a throw is a red assertion, not a crash
@@ -315,6 +330,7 @@ async function scenarios(sdir) {
       ["city-centres writes captures/local/grid/cities.json and local-grid-plan waits for it", (m) => step(m, "city-centres").outputs.join() === "{pewp}/captures/local/grid/cities.json" && step(m, "local-grid-plan").dependsOn.includes("city-centres") && step(m, "city-centres").dependsOn.join() === "approve-business", (m) => { step(m, "local-grid-plan").dependsOn = step(m, "local-grid-plan").dependsOn.filter((d) => d !== "city-centres"); }],
       ["psi asks for three runs per page and strategy, and demand-bing asks for the client's own site stats (BLOCKED until the client adds us)", (m) => step(m, "psi").args.join(" ").includes("--runs 3") && step(m, "demand-bing").args.includes("--site-stats"), (m) => { step(m, "psi").args = step(m, "psi").args.filter((a, i, arr) => a !== "--runs" && arr[i - 1] !== "--runs"); }],
       ["authority-anchors comes from WO 42 with the head of operations' limits: it depends on authority only, 600 requests 3 s apart (data host only), 60 minutes, and keeps its exit 3 meaning; it has no exit 4 entry (a stop by Common Crawl is exit 0 with a PARTIAL: last line)", (m) => { const s = step(m, "authority-anchors"); return s.dependsOn.join() === "authority" && s.args.join(" ") === "{pewp} --max-requests 600 --gap-ms 3000" && s.timeoutMinutes === 60 && /^BLOCKED/.test(s.exit?.[3] || "") && s.exit?.[4] === undefined; }, (m) => { delete step(m, "authority-anchors").exit; }],
+      ["approve-competitors' brief names the page the owner reads, {pewp}/research/competitors-proposed.md, and the script that writes it with the proposed list, competitors-discover.mjs (no step of the manifest writes either), and that script still writes both files (SKILL-APPROVE-1 A3)", (m) => { const b = step(m, "approve-competitors").brief, src = fs.readFileSync(path.join(sdir, "competitors-discover.mjs"), "utf8"); return b.includes("{pewp}/research/competitors-proposed.md") && b.includes("`node scripts/competitors-discover.mjs {url} --cwd {skill}`") && src.includes('"competitors-proposed.md"') && src.includes('"competitors-proposed.json"') && !m.steps.some((x) => x.outputs.some((o) => o.includes("competitors-proposed"))); }, (m) => { step(m, "approve-competitors").brief = "Show the owner the competitor list."; }],
     ];
     for (const [name, pred, brk] of FACTS) {
       const broken = clone(); brk(broken);
@@ -324,6 +340,13 @@ async function scenarios(sdir) {
       check(`M: ${name}`, ok, "the manifest does not say this");
       check(`M: (watched red) the same check fails on a manifest broken that way: ${name.slice(0, 60)}`, red, "the check stays green on a broken manifest: it measures nothing");
     }
+
+    // ---------------- M (SKILL-APPROVE-1 A2): a step whose brief records an approval with approve.mjs reads the file that approval covers ----------------
+    let FK = {}; try { FK = (await import(pathToFileURL(path.join(sdir, "approve.mjs")).href + "?" + Math.random())).FILE_KINDS || {}; } catch { FK = {}; }
+    const approvals = (m) => m.steps.flatMap((x) => { const k = /approve\.mjs \{url\} ([a-z-]+)/.exec(x.brief || "")?.[1]; return k ? [`${x.id}:${FK[k] && x.inputs.includes(`{pewp}/${FK[k].src}`) ? "ok" : "gap"}`] : []; });
+    const apNow = approvals(manifest), apBroken = (() => { const m = clone(); step(m, "approve-seeds").inputs = ["{pewp}/approved/seeds.json"]; return approvals(m); })();
+    check("M: every step whose brief records an approval (approve.mjs {url} <kind>) has among its inputs the file approve.mjs approves for that kind, {pewp}/ and FILE_KINDS[kind].src (SKILL-APPROVE-1 A2)", apNow.length >= 3 && apNow.every((x) => x.endsWith(":ok")), apNow.join(" "));
+    check("M: (watched red) the approval check fails on a manifest whose approve-seeds reads its own approved copy instead of research/seeds.json", apBroken.includes("approve-seeds:gap"), apBroken.join(" "));
 
     // ---------------- S: SAMENESS with start.mjs audit-live (the real start.mjs; the manifest passed by path so mutant copies find it) ----------------
     const cwd = path.join(tmp, "cwd"); fs.mkdirSync(cwd);
@@ -470,6 +493,7 @@ const MUTANTS = [
   { name: "[adopt] a BLOCKED record is a result", patches: [{ file: LP, from: "if (mine.every((f) => blockedText(f.path, fs) !== null)) return", to: "if (false) return" }], expect: [/^D3: evidence that is only a BLOCKED record/, /^D3: notCurrent:/] },
   { name: "[adopt] one record among real files blocks the pattern", patches: [{ file: LP, from: "mine.every((f) => blockedText(f.path, fs) !== null)", to: "mine.some((f) => blockedText(f.path, fs) !== null)" }], expect: [/^D3: notCurrent:/] },
   { name: "[adopt] adoptStep does not ask notCurrent", patches: [{ file: LP, from: "if (nc) return refuse(nc.rule, nc.message, { notCurrent: true });", to: "if (false) return refuse(nc.rule, nc.message, { notCurrent: true });" }], expect: [/^D3: evidence older than maxAgeDays/, /^D3: evidence that is only a BLOCKED record/] },
+  { name: "[approve] competitors-discover.mjs writes the owner's page under another name than the brief gives", patches: [{ file: "competitors-discover.mjs", from: 'outMd = path.join(ctx.rdir, "competitors-proposed.md")', to: 'outMd = path.join(ctx.rdir, "competitors-list.md")' }], expect: [/^M: approve-competitors' brief names/] },
 ];
 
 if (isMain(import.meta.url)) {

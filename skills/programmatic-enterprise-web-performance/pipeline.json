@@ -1001,7 +1001,7 @@
    "script": null,
    "args": [],
    "inputs": [
-    "{pewp}/research/competitors.json"
+    "{pewp}/research/competitors-proposed.json"
    ],
    "outputs": [
     "{pewp}/approved/competitors.json"
@@ -1022,7 +1022,7 @@
    ],
    "kind": "stable",
    "maxAgeDays": null,
-   "brief": "Show the owner the competitor list, local ones first, as pickable options. Record it with `node scripts/approve.mjs {url} competitors --by \"<owner>\" --cwd {skill}`."
+   "brief": "Show the owner {pewp}/research/competitors-proposed.md, local ones first, as pickable options: the page of {pewp}/research/competitors-proposed.json, the list approve.mjs approves and this step reads. No step of this manifest writes them: `node scripts/competitors-discover.mjs {url} --cwd {skill}` does, from what the discovery agents found (stages/overhaul.md step 4). Record the answer with `node scripts/approve.mjs {url} competitors --by \"<owner>\" --cwd {skill}`."
   },
   {
    "id": "authority",
