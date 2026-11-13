@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 923,
+    "sources": 924,
     "unowned": 0
   },
   "files": [
@@ -401,7 +401,7 @@
     {"path":"supabase/functions/mail-events/index.ts","owner":"platform-build","exports":["TOLERANCE_S","handle","secretBytes","svixValid"],"tests":["supabase/functions/test/mail-events.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
     {"path":"supabase/functions/mail-outbox/index.ts","owner":"platform-build","exports":["CLAIM","Deps","handle"],"tests":["supabase/functions/test/mail-events.test.ts","supabase/functions/test/mutate.mjs","supabase/functions/test/outbox.test.ts"],"feature":""},
     {"path":"supabase/functions/media-export/index.ts","owner":"platform-build","exports":["WIDTHS","handle"],"tests":["supabase/functions/test/mutate.mjs","supabase/functions/test/runner.test.ts"],"feature":""},
-    {"path":"supabase/functions/media-manage/index.ts","owner":"platform-build","exports":["handle"],"tests":["supabase/functions/test/media-manage.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
+    {"path":"supabase/functions/media-manage/index.ts","owner":"platform-build","exports":["handle"],"tests":["supabase/functions/test/media-manage.test.ts","supabase/functions/test/mutate.mjs","supabase/functions/test/runner.test.ts"],"feature":""},
     {"path":"supabase/functions/media-process-callback/index.ts","owner":"platform-build","exports":["handle"],"tests":["supabase/functions/test/mutate.mjs","supabase/functions/test/runner.test.ts"],"feature":""},
     {"path":"supabase/functions/member-remove/index.ts","owner":"platform-build","exports":["handle"],"tests":["supabase/functions/test/cors.test.ts","supabase/functions/test/local-serve.ts","supabase/functions/test/mutate.mjs","supabase/functions/test/team.test.ts"],"feature":""},
     {"path":"supabase/functions/metrics-pull/index.ts","owner":"platform-build","exports":["Deps","handle"],"tests":["supabase/functions/test/metrics.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
@@ -496,6 +496,7 @@
     {"path":"supabase/migrations/20261112000046_growth_budgets.sql","owner":"platform-build","exports":["fn:service.over_budget"],"tests":[],"feature":""},
     {"path":"supabase/migrations/20261113000047_removed_addresses.sql","owner":"platform-build","exports":["fn:service.export_bundle","fn:service.gone_rows"],"tests":[],"feature":""},
     {"path":"supabase/migrations/20261113000048_fk_indexes.sql","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"supabase/migrations/20261113000049_media_sizes_left_behind.sql","owner":"platform-build","exports":["fn:service.deleted_media_path"],"tests":[],"feature":""},
     {"path":"supabase/ops/alerts.mjs","owner":"platform-build","exports":["ALERTS","RULES","Stop","deliver","environmentOf","main","parseArgs","pgEnv","render","runQueries","statusData"],"tests":["supabase/ops/test/6b-alerts-fixture.mjs","supabase/ops/test/6b-mutate.mjs","supabase/ops/test/alerts.test.mjs"],"feature":""},
     {"path":"supabase/ops/backup.mjs","owner":"platform-build","exports":["DEFAULT_RECIPIENT","MAX_BYTES","Stop","labelOf","main","parseArgs","pgEnv","readRecipient","regionOf","scrubber","signV4","sizeS3","stampOf","uploadS3"],"tests":["supabase/ops/test/6b-fake-s3.mjs","supabase/ops/test/6b-mutate.mjs","supabase/ops/test/backup.test.mjs","supabase/ops/test/bring-up.test.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
     {"path":"supabase/ops/bring-up.mjs","owner":"platform-build","exports":["bringUp","secretNames"],"tests":["supabase/ops/test/bring-up.test.mjs"],"feature":""},

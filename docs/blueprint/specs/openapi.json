@@ -2821,6 +2821,16 @@
      "404": {
       "$ref": "#/components/responses/NotFound"
      },
+     "502": {
+      "description": "STORAGE: the file was deleted while its job made the sizes and Storage would not remove them; the runner asks again",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     },
      "422": {
       "description": "I-EXIF: exifStripped was not true; I-MEDIA-SIZE: a document, or a width or height below 1 (the file stays unprocessed)",
       "content": {

@@ -5,8 +5,8 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (r
 13). Getting back in: `resume\RESUME.md`.
 
 ## Now
-- Product: 79 of 97 rows WORK, 17 PARTLY, 1 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
-  18, 4, 1 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 10, 11, 0 of 21.
+- Product: 79 of 97 rows WORK, 18 PARTLY, 0 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
+  18, 5, 0 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 10, 11, 0 of 21.
 - The order (owner, 2026-11-13): the owed proof runs are done; now one build job at a time: 7 rows to build (B18, B24, B25,
   C11's request, E5's limit at the edge, E12's rest, E13).
 - The platform build is open (owner, 2026-11-12); the refactor of how we work is closed at what is built. One head of
@@ -44,7 +44,7 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (r
 
 ## Migrations
 - A migration that has not landed takes the next free number above every file in the tree when it is built, and lands in
-  number order (staging applies in file-name order); no number is promised ahead. In the tree: through 48.
+  number order (staging applies in file-name order); no number is promised ahead. In the tree: through 49.
 
 ## BLOCKED and UNPROVEN
 - E21 on staging: BLOCKED. The mail provider's webhook is an account setting; it needs the owner's yes.

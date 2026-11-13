@@ -7,8 +7,9 @@ import { handle as exportPublished } from '../export-published/index.ts';
 import { handle as jobCallback } from '../job-callback/index.ts';
 import { handle as mediaExport } from '../media-export/index.ts';
 import { handle as mediaProcessed } from '../media-process-callback/index.ts';
+import { handle as manage } from '../media-manage/index.ts';
 import { derivativeSlot } from '../_shared/storage.ts';
-import { assert, eq, env, fake, mkMedia, SITE_B, SUB, teamRows, t, WS_A, WS_B, withSql } from './util.ts';
+import { assert, eq, call, env, fake, mkMedia, SITE_B, SUB, teamRows, t, WS_A, WS_B, withSql } from './util.ts';
 import { callRunner, jobState, publishedVersion, runnerEvents, startJob, storageBehaviour, storageLog, type RunnerOpts } from './runner-util.ts';
 
 type J = Record<string, any>; // deno-lint-ignore-line no-explicit-any
@@ -375,6 +376,27 @@ t('media-process-callback: unsigned, wrong key, a signature over another body an
   eq(await runnerEvents('media-process-callback'), before + 4, 'four security events');
   eq(await withSql(async sql => (await sql`select processed from public.media where id = ${id}::uuid`)[0].processed), false, 'nothing changed');
   eq((await callRunner(mediaProcessed, 'media-process-callback', { method: 'GET' })).status, 405, 'GET is 405');
+});
+
+t('media-process-callback: a file deleted while its job made the sizes is 404 and its sizes are removed (B25)', async () => {
+  const body = (media: string) => ({ media, width: 2400, height: 1600, exifStripped: true, bytes: 5, sizes: [800] });
+  const live = await mkMedia(WS_A, { width: null }), gone = await mkMedia(WS_A, { width: null });
+  await fake.reset(); await mexport(gone);
+  const wrote = (await storageLog()).storage.map(s => s.path).sort();   // what the job's 3 upload URLs let it write
+  eq(wrote.length, 3, 'the job may write three sizes');
+  eq((await call(manage, 'media-manage', { media: gone, action: 'delete' }, 'owner-a')).status, 200, 'deleted');
+  await fake.reset();   // the delete's own Storage call is not what is measured
+  const r = await mprocessed(body(gone)), removed = (await fake.recorded()).removed;
+  eq(r.status, 404, 'the job reports after the delete: ' + r.text); eq(r.json?.code, 'S-NOT-FOUND', 'the old answer');
+  eq(removed.length, 1, 'Storage is asked once'); eq(removed[0]?.authorized, true, 'with the secret key');
+  eq(JSON.stringify([...(removed[0]?.prefixes ?? [])].sort()), JSON.stringify(wrote), 'the three sizes, no more');
+  await fake.reset(); await fake.removeStatus(500);
+  const refused = await mprocessed(body(gone));
+  eq(refused.status, 502, 'Storage refuses: ' + refused.text); eq(refused.json?.code, 'STORAGE', 'the runner asks again');
+  await fake.reset();
+  eq((await mprocessed(body(live))).status, 204, 'a file with its record is processed');
+  eq((await mprocessed(body(NOBODY))).status, 404, 'a file that never existed is 404');
+  eq((await fake.recorded()).removed.length, 0, 'for neither is Storage asked to remove anything');
 });
 
 // ---------------------------------------------------------------- the derivative slot (2400, 1600, 800; the 800 slot always exists)

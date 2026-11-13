@@ -1010,6 +1010,10 @@ const MUTANTS = [
   // ---- E13 (migration 48): an index for every foreign key; tests T48. Run only these: --only "fkidx48" ----
   ['fkidx48: the index of a not null foreign key is missing (publish_jobs.requested_by)', 'create index concurrently publish_jobs_requested_by on public.publish_jobs (requested_by);', '-- (index removed)'],
   ['fkidx48: a partial index holds another predicate than is not null (messages.about_booking)', 'create index concurrently messages_about_booking on public.messages (about_booking) where about_booking is not null;', 'create index concurrently messages_about_booking on public.messages (about_booking) where about_booking is null;'],
+  // ---- B25 (migration 49): the path of a deleted file; tests T49. Run only these: --only "sizes49" ----
+  ['sizes49: a file that has its record answers', 'where k.id = p_media)', 'where false)'],
+  ['sizes49: a row of another action answers', "a.action = 'media-delete' and ", ''],
+  ["sizes49: another file's row answers", ' and a.target = p_media::text', ''],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

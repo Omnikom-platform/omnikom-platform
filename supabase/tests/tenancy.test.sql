@@ -4141,5 +4141,30 @@ do $$ declare n int; gaps text; begin
   assert n = 0, 'T48 b: ' || n || ' foreign key(s) have no valid index that leads with their columns: ' || gaps;
 end $$;
 
+-- ===== T49 (book row B25, migration 49): service.deleted_media_path names the original of a deleted file =====
+reset role;
+insert into media (id, workspace_id, path) select id::uuid, ws::uuid, ws || '/' || id || '.png' from (values
+  ('49000000-0000-4000-8000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000000'),
+  ('49000000-0000-4000-8000-000000000002', 'aaaaaaaa-0000-0000-0000-000000000000'),
+  ('49000000-0000-4000-8000-000000000003', 'aaaaaaaa-0000-0000-0000-000000000000')) v(id, ws);
+-- 2 has its record; 3 loses it, and its row is another action
+insert into audit_log (workspace_id, actor, action, target, detail) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', null, 'media-delete', '49000000-0000-4000-8000-000000000002', '{"path":"x2"}'),
+  ('aaaaaaaa-0000-0000-0000-000000000000', null, 'media-gone', '49000000-0000-4000-8000-000000000003', '{"path":"x3"}');
+delete from media where id = '49000000-0000-4000-8000-000000000003';
+set role authenticated;
+select test.act_as('00000000-0000-0000-0000-00000000000a');
+select test.delete_media('49000000-0000-4000-8000-000000000001');   -- the library deletes file 1: its real audit row
+reset role;
+do $$ begin
+  assert service.deleted_media_path('49000000-0000-4000-8000-000000000001'::uuid)
+    = 'aaaaaaaa-0000-0000-0000-000000000000/49000000-0000-4000-8000-000000000001.png',
+    'T49a a deleted file: its original';
+  assert service.deleted_media_path('49000000-0000-4000-8000-000000000002'::uuid) is null,
+    'T49b a file that has its record: nothing';
+  assert service.deleted_media_path('49000000-0000-4000-8000-000000000003'::uuid) is null,
+    'T49c a record gone another way, another action: nothing';
+end $$;
+
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

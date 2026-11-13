@@ -6,7 +6,7 @@
 // Prints one PASS/FAIL line per check and never a URL, token or key value (a signed URL carries a token). Exits 1 on any FAIL, 3 when a name is
 // missing. What it leaves on staging, on purpose: the content VERSION of the saved listing (versions are append-only), ONE job `done` and ONE
 // job `failed`, and ONE test media row of workspace A with its original and its three derivatives in Storage (processed, so the export carries
-// it). The listing ROW (published by the done job) is soft-deleted again in the finally through service.unpublish (STAGING_DB_URL, read by
+// it), and ONE `media-delete` audit row (the B25 block: a second test photo is uploaded and deleted again). The listing ROW (published by the done job) is soft-deleted again in the finally through service.unpublish (STAGING_DB_URL, read by
 // name; e2e-cleanup.mjs), which also clears its published_version.
 import { resolveTarget } from '../../tools/omnikom-cli/lib/target.mjs';
 import { parseIdentity, personToken } from '../../tools/omnikom-cli/lib/identity.mjs';
@@ -106,6 +106,29 @@ try {
     line(ok.status === 204, 'media-process-callback with exifStripped true is 204', brief(ok));
     const doc = await runner('POST', 'media-process-callback', { body: JSON.stringify({ media, kind: 'document' }) });
     line(doc.status === 422 && doc.json && doc.json.code === 'I-MEDIA-SIZE', 'media-process-callback for a document is 422 I-MEDIA-SIZE (the data model has no document flag)', brief(doc));
+  }
+
+  // ---- B25: a file the library deletes while its media job is still making the sizes. The job's three upload URLs are signed before the delete
+  // and used after it; the callback that follows must be 404 as before and must have removed the three sizes it could not know of otherwise.
+  {
+    const b25 = await fn('upload-start', 'owner-a', { workspace: WS_A, filename: 'e2e-b25.jpg', bytes: 5000, mime: 'image/jpeg' });
+    const gone = b25.json && b25.json.media;
+    const b25up = gone ? await put(b25.json.uploadUrl, bytesOf(1000), 'image/jpeg') : { status: 0, text: '' };
+    line(b25.status === 200 && !!gone && b25up.status === 200, 'B25: upload-start by owner-a is 200 (a test media row) and its original upload is 200', `${brief(b25)} ${b25up.status}`);
+    if (gone) {
+      const b25ex = await runner('GET', 'media-export', { query: `?media=${gone}` });
+      const urls = b25ex.json && b25ex.json.uploads ? Object.values(b25ex.json.uploads) : [];
+      const b25del = await fn('media-manage', 'owner-a', { media: gone, action: 'delete' });
+      line(b25ex.status === 200 && urls.length === 3 && b25del.status === 200, 'B25: the job takes its three upload URLs (media-export), then the library deletes the file: both 200', `${b25ex.status} ${b25del.status}`);
+      const late = [];
+      for (const u of urls) late.push(await put(u, bytesOf(2), 'image/webp'));   // the job, late: its URLs are still signed
+      const objectsOf = () => { const r = makeSql({ url: target.dbUrl, readOnly: true }).rows(`select count(*)::int as n from storage.objects where name like '${WS_A}/${gone}-%'`); return r.ok && r.rows[0] ? r.rows[0].n : null; };
+      const left = objectsOf();
+      line(late.length === 3 && late.every(r => r.status === 200) && left === 3, 'B25: the job writes its three sizes after the delete: all 200 and the three files are in Storage (the bug as it was)', `${late.map(r => r.status).join(' ')}; objects ${left}`);
+      const b25cb = await runner('POST', 'media-process-callback', { body: JSON.stringify({ media: gone, width: 3000, height: 2000, exifStripped: true, bytes: 5000, sizes: [800], skipped: [] }) });
+      const rest = objectsOf();
+      line(b25cb.status === 404 && rest === 0, 'B25: the late callback is 404 as before and the three sizes are removed from Storage', `${brief(b25cb)}; objects ${rest}`);
+    }
   }
 
   // ---- a publish job for owner-a's row, started on the SQL path

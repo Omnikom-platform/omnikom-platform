@@ -92,7 +92,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B21 Search and AI visibility numbers | PARTLY | on the Overview for owners and staff (D:pages/Overview.tsx, D:lib/overview.ts, vitest): the site check headline from F:site-audit, and "How people find you" from the newest `metrics_snapshots` row of each source that has its numbers, a failed read on its own line (Google search, Bing search, speed on a phone with real-visitor numbers, AI answers); a source that is not connected says so. NOT DONE: Search Console numbers (no verified property; the Google login is the owner's) and AI answers (no writer, DECISIONS 38). Staging UNPROVEN (the head's run) |
 | B23 Not found, service unreachable, loading states | WORKS | D:pages/NotFound.tsx, D:lib/problems.ts |
 | B24 Search health page (one per site, owner): the site check by topic, check history, AI questions, monthly report | PARTLY | `/w/$ws/sites/$site/search` for owners and staff, linked from the Overview's site card once the site has a check (before it the page shows one empty state and its button; a member lands on the Overview): `apps/dashboard/src/pages/SearchHealth.tsx` with `apps/dashboard/src/lib/search-health.ts` (vitest): the newest check from F:site-audit by topic with each failed rule in the words of `tools/audit/names.json` and "Omnikom fixes this", the last 10 publishes, and, for the site the numbers are measured for (the page names it), each source's newest reading with numbers and its earlier ones (a newer read that got none is named and never hides it); a failed read says so in its own part. NOT DONE: AI questions (the prompt map is not stored with the site) and the monthly report (no stored reports); AI answers have no writer (DECISIONS 38). Staging 2026-11-13: the plan gate's flows for the page and the Overview (`apps/dashboard/tests/plan-gate.spec.ts`) 5 passed and the styles flows (`apps/dashboard/tests/styles.spec.ts`) 4 passed, each watched red with its seeded fault (no-styles, audit-lost, metrics-lost, no-check-answer) |
-| B25 Photo sizes left behind by a delete while they are being made (follow-up of B14) | MISSING | when a file is deleted while its media job is still making its sizes, the job can write those sizes after the record is gone; they stay in Storage, named by no record and seen by nobody. To build: the job's callback removes what it wrote when the record is gone, or Delete waits until the file is processed |
+| B25 Photo sizes left behind by a delete while they are being made (follow-up of B14) | PARTLY | the media job's late callback (the function media-process-callback) asks the database for the original of a file the library deleted meanwhile (service.deleted_media_path, migration 49, wall T49 with 3 seeded faults), removes its 3 sizes from Storage and still answers 404; when Storage refuses it answers 502 and the runner asks again (the function's test, 5 seeded faults named B25); the run on staging is UNPROVEN (the head's run sheet). Not closed, by choice: a job that dies after writing a size and before its callback while its file is deleted in those minutes, and Storage down for longer than the runner's 3 tries; and, an original and not a size: an upload that lands after its record was deleted stays in Storage |
 
 ### C. Backend and database
 | Feature | State | Missing half, or where it lives |
@@ -158,11 +158,11 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | Part | WORKS | PARTLY | MISSING | Rows |
 |---|---|---|---|---|
 | A CRM | 26 | 0 | 0 | 26 |
-| B Dashboard | 18 | 4 | 1 | 23 |
+| B Dashboard | 18 | 5 | 0 | 23 |
 | C Backend and database | 15 | 2 | 0 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
 | E Hardening | 10 | 11 | 0 | 21 |
-| Total | 79 | 17 | 1 | 97 |
+| Total | 79 | 18 | 0 | 97 |
 
 Completion is reported from these counts only.
 
