@@ -167,7 +167,7 @@ try {
   const md = fs.existsSync(path.join(lu.pewp, "report.md")) ? fs.readFileSync(path.join(lu.pewp, "report.md"), "utf8") : "";
   const rj = J(path.join(lu.pewp, "report.json"));
   const heads = [...md.matchAll(/^## (\d)\. /gm)].map((m) => Number(m[1]));
-  check("report: the six questions, in order", heads.join(",") === "1,2,3,4,5,6", heads.join(",") + rl.stderr);
+  check("report: the six questions, in order, then section 7 (what else was measured)", heads.join(",") === "1,2,3,4,5,6,7", heads.join(",") + rl.stderr);
   check("report: one-line answer first", /^# .*\n\n\*\*Short answer:\*\* /.test(md));
   const facts = [];
   const walk = (o) => { if (o && typeof o === "object") { if ("value" in o && "source" in o) facts.push(o); else Object.values(o).forEach(walk); } };
