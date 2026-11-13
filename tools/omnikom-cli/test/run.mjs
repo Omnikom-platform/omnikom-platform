@@ -1207,6 +1207,31 @@ async function database() {
     r = await run(['test', 'walls', ...T], {}, { spawn: inWindow(`insert into audit_log (workspace_id, action) values ('${WS_B}', 'cli-test-window')`) });
     check('test walls: a row added to workspace B inside the window is named too (audit_log, 1 row more)', r.exit === 1 && wallsLines(r).some(l => l.startsWith('FAIL test site changed: audit_log (')), wallsWhy(r));
     db.query(`set session_replication_role = replica; delete from audit_log where action = 'cli-test-window'`);   // audit_log is append-only; the test database only
+    // ---- the case staging is in (WALLS-1): rows no walls run made, in every table that T0 to T25 read without the run's own ids
+    // (staging 2026-11-13: 4 lead_reads rows of 2026-11-11 stopped the walls at T20). Rows of the test site's workspace A and one
+    // platform-wide key, removed again below (replica role for the append-only audit_log and consent_ledger: this database only).
+    const FL1 = 'f0f0f0f0-0000-4000-8000-000000000001', FL2 = 'f0f0f0f0-0000-4000-8000-000000000002';
+    const foreignRows = `begin;
+insert into leads (id, workspace_id, site_id, form, page_path, name, email, consent_text) values ('${FL1}', '${WS_A}', '${SITE_A}', 'contact', '/foreign-fixture', 'Foreign fixture reader', 'foreign1@example.com', 'I agree'), ('${FL2}', '${WS_A}', '${SITE_A}', 'import', 'import', 'Foreign fixture import', 'foreign2@example.com', 'Imported by the foreign fixture');
+insert into lead_reads (lead_id, user_id) values ('${FL1}', '${PERSONS['owner-a'].sub}'), ('${FL1}', '${PERSONS['member-a1'].sub}');
+insert into lead_events (lead_id, workspace_id, kind, detail) values ('${FL2}', '${WS_A}', 'received', '{"import": true, "form": "import"}');
+insert into consent_ledger (workspace_id, site_id, lead_id, form, page_path, consent_text, consent_hash) values ('${WS_A}', '${SITE_A}', '${FL2}', 'import', 'import', 'Imported by the foreign fixture', encode(sha256(convert_to('Imported by the foreign fixture', 'utf8')), 'hex'));
+insert into audit_log (workspace_id, action, target, detail) values ('${WS_A}', 'crm-test', 'foreign-fixture', '{"host": "hooks.example.com", "status": 204, "outcome": "sent"}'), ('${WS_A}', 'crm-test', 'foreign-fixture', '{"host": "hooks.example.com", "status": null, "outcome": "refused"}'), ('${WS_A}', 'crm-test', 'foreign-fixture', '{"host": "hooks.example.com", "status": null, "outcome": "failed"}'), ('${WS_A}', 'leads-bulk', 'foreign-fixture', '{}'), ('${WS_A}', 'lead-import', 'foreign-fixture', '{}');
+insert into messages (workspace_id, lead_id, channel, template, to_text) values ('${WS_A}', '${FL1}', 'email', 'booking-confirmed', 'foreign1@example.com');
+insert into webhook_events (workspace_id, kind, provider_event_id) values ('${WS_A}', 'foreign-fixture', 'evt-1');
+insert into api_keys (kind, label, key_hash) values ('site-signing', 'foreign fixture platform key', repeat('f', 64));
+commit;`;
+    const foreignCount = () => db.query(`select concat_ws(',', (select count(*) from leads where id in ('${FL1}', '${FL2}')), (select count(*) from lead_reads where lead_id = '${FL1}'), (select count(*) from lead_events where lead_id = '${FL2}'), (select count(*) from consent_ledger where lead_id = '${FL2}'), (select count(*) from audit_log where target = 'foreign-fixture'), (select count(*) from messages where to_text = 'foreign1@example.com'), (select count(*) from webhook_events where kind = 'foreign-fixture'), (select count(*) from api_keys where label = 'foreign fixture platform key'))`);
+    const fpF0 = fp();
+    const loaded = makeSql({ url: db.url }).exec(foreignRows);
+    check('test walls (the case staging is in): the database holds rows no walls run made in leads, lead_reads, lead_events, consent_ledger, audit_log, messages, webhook_events and api_keys', loaded.ok && foreignCount() === '2,2,1,1,5,1,1,1', loaded.ok ? foreignCount() : `${loaded.code}: ${loaded.message}`);
+    const fpF = fp();
+    r = await run(['test', 'walls', ...T]);
+    check('test walls: on a database that also holds rows no walls run made (the case staging is in) it passes in a namespace of its own, the test site is unchanged and 0 rows of the run are left',
+      r.exit === 0 && /^PASS tenancy tests \(isolated namespace walls-[0-9a-f]{10}\)$/.test(wallsLines(r)[0] || '') && /^PASS test site unchanged \(\d+ tables compared\)$/.test(wallsLines(r)[1] || '') && wallsLines(r)[2] === 'OK: 0 rows of the run left', wallsWhy(r));
+    check('test walls (the case staging is in): the run left the database as it found it', fp() === fpF);
+    db.query(`delete from messages where to_text = 'foreign1@example.com'; delete from webhook_events where kind = 'foreign-fixture'; delete from api_keys where label = 'foreign fixture platform key'; delete from leads where id in ('${FL1}', '${FL2}'); set session_replication_role = replica; delete from audit_log where target = 'foreign-fixture'; delete from consent_ledger where lead_id = '${FL2}';`);
+    check('test walls (the case staging is in): the fixture is removed again (the database is what it was before it)', fp() === fpF0);
 
     // seed test --clean, then seed test: the same counts and the same data, new ids (the test asserts the data, not the ids)
     r = await run(['seed', 'test', ...T, '--clean']);

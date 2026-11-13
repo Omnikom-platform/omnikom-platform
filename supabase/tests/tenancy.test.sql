@@ -401,7 +401,7 @@ do $$ begin
   assert (select count(*) from service.active_key('site-signing', 'aaaaaaaa-0000-0000-0000-00000000517e') where vault_ref = 'site-demo-b-key-1') = 0, 'another site''s key never comes back';
   assert (select count(*) from service.active_key('site-signing', 'aaaaaaaa-0000-0000-0000-00000000517e', 'aaaaaaaa-0000-0000-0000-000000000000')) = 1, 'a workspace given narrows the lookup, it does not widen it';
   assert (select count(*) from service.active_key('site-signing', 'aaaaaaaa-0000-0000-0000-00000000517e', 'bbbbbbbb-0000-0000-0000-000000000000')) = 0, 'a site key is not handed out under another workspace';
-  assert (select count(*) from service.active_key('site-signing', null)) = 0, 'no site given: platform-wide keys only, never a site key (even one stored without a workspace)';
+  assert (select count(*) from service.active_key('site-signing', null) k where k.id in (select id from api_keys where site_id in ('aaaaaaaa-0000-0000-0000-00000000517e', 'bbbbbbbb-0000-0000-0000-00000000517e'))) = 0, 'no site given: platform-wide keys only, never a site key (even one stored without a workspace)';
 end $$;
 
 -- ===== T13 expansion blocks: add-ons, bookings, messages, webhook inbox, CRM templates =====
@@ -477,7 +477,7 @@ do $$ declare r record; begin
 end $$;
 update platform_limits set value = 95 where key = 'email_per_day';
 do $$ declare mid uuid; begin
-  select id into mid from messages where template = 'booking-confirmed' limit 1;
+  select id into mid from messages where template = 'booking-confirmed' and workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' limit 1;
   perform service.set_message_state(mid, 'sent', 'provider-1');
   assert (select count(*) from lead_events where lead_id = test.id('leadA') and kind = 'message-sent') = 1, 'a sent message is on the timeline';
 end $$;
@@ -498,7 +498,7 @@ do $$ declare e1 bigint; e2 bigint; begin
   e1 := service.webhook_received('cccccccc-0000-0000-0000-000000000001', 'call.result', 'evt-1', '{"workspace_id":"bbbbbbbb-0000-0000-0000-000000000000","outcome":"booked"}');
   e2 := service.webhook_received('cccccccc-0000-0000-0000-000000000001', 'call.result', 'evt-1', '{}');
   assert e1 = e2, 'the same provider event twice answers the same row';
-  assert (select count(*) from webhook_events where provider_event_id = 'evt-1') = 1, 'the same provider event twice stores one row';
+  assert (select count(*) from webhook_events where provider_event_id = 'evt-1' and connector_id = 'cccccccc-0000-0000-0000-000000000001') = 1, 'the same provider event twice stores one row';
   assert (select workspace_id from webhook_events where id = e1) = 'aaaaaaaa-0000-0000-0000-000000000000', 'the workspace comes from the connector, not the payload';
   assert (select state from connectors where id = 'cccccccc-0000-0000-0000-000000000001') = 'ok', 'a first callback marks the connector ok';
 end $$;
@@ -1125,7 +1125,7 @@ select test.delete_lead(test.id('rdTmp'));
 reset role;
 do $$ begin
   assert (select count(*) from lead_reads where lead_id = test.id('rdTmp')) = 0, 'deleting a lead deletes its marks';
-  assert (select count(*) from lead_reads) = 5, 'five marks remain: agent one 1, the owner 3, staff 1 (the deleted lead''s is gone)';
+  assert (select count(*) from lead_reads where lead_id in (test.id('rdA1'), test.id('rdA2'), test.id('rdNone'), test.id('rdTmp'))) = 5, 'five marks remain: agent one 1, the owner 3, staff 1 (the deleted lead''s is gone)';
   assert not exists (select 1 from pg_publication where pubname = 'supabase_realtime') or exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'lead_reads'), 'lead_reads is in the Realtime publication';
   assert not has_table_privilege('anon', 'public.lead_reads', 'select') and has_table_privilege('authenticated', 'public.lead_reads', 'select'), 'anon reads nothing, authenticated reads through the policy';
   assert not has_table_privilege('authenticated', 'public.lead_reads', 'insert') and not has_table_privilege('authenticated', 'public.lead_reads', 'update') and not has_table_privilege('authenticated', 'public.lead_reads', 'delete'), 'authenticated has no write grant on lead_reads';
@@ -1494,10 +1494,10 @@ select test.expect_error($q$select test.crm_tested('aaaaaaaa-0000-0000-0000-0000
 reset role;
 do $$ begin
   assert (select count(*) from audit_log where action = 'crm-test' and target = 'aaaaaaaa-0000-0000-0000-000000000000') = 3, 'three test requests are audited; the refused callers left nothing';
-  assert (select detail from audit_log where action = 'crm-test' and detail ->> 'outcome' = 'sent') = '{"host": "hooks.example.com", "status": 204, "outcome": "sent"}'::jsonb, 'the row says what happened and to which host, nothing else';
-  assert (select detail ->> 'host' from audit_log where action = 'crm-test' and detail ->> 'outcome' = 'refused') is null, 'a host that carries a path or a query is not stored';
-  assert (select detail ->> 'host' from audit_log where action = 'crm-test' and detail ->> 'outcome' = 'failed') is null, 'a host longer than a host can be is not stored';
-  assert (select actor from audit_log where action = 'crm-test' and detail ->> 'outcome' = 'sent') = '00000000-0000-0000-0000-00000000000a', 'and who';
+  assert (select detail from audit_log where action = 'crm-test' and target = 'aaaaaaaa-0000-0000-0000-000000000000' and detail ->> 'outcome' = 'sent') = '{"host": "hooks.example.com", "status": 204, "outcome": "sent"}'::jsonb, 'the row says what happened and to which host, nothing else';
+  assert (select detail ->> 'host' from audit_log where action = 'crm-test' and target = 'aaaaaaaa-0000-0000-0000-000000000000' and detail ->> 'outcome' = 'refused') is null, 'a host that carries a path or a query is not stored';
+  assert (select detail ->> 'host' from audit_log where action = 'crm-test' and target = 'aaaaaaaa-0000-0000-0000-000000000000' and detail ->> 'outcome' = 'failed') is null, 'a host longer than a host can be is not stored';
+  assert (select actor from audit_log where action = 'crm-test' and target = 'aaaaaaaa-0000-0000-0000-000000000000' and detail ->> 'outcome' = 'sent') = '00000000-0000-0000-0000-00000000000a', 'and who';
 end $$;
 
 -- ---------- (e) find_login: does this email already have a login (the invite creates one only when not) ----------
@@ -1862,7 +1862,7 @@ do $$ begin
   assert (select status from leads where id = test.id('cB')) = 'not-contacted', 'T22d a refused bulk call wrote nothing to the foreign lead (a partial write to c1 or c2 would make b1 below count less than 2)';
   assert (select v from test.r where k = 'b1') = '2' and (select count(*) from leads where id in (test.id('c1'), test.id('c2')) and status = 'qualified') = 2, 'T22d bulk status';
   assert (select count(*) from lead_events where lead_id in (test.id('c1'), test.id('c2')) and kind = 'status' and detail ->> 'to' = 'qualified') = 2, 'T22d one status event per lead';
-  assert (select count(*) from audit_log where action = 'leads-bulk') = 2, 'T22d one audit row per bulk call';
+  assert (select count(*) from audit_log where action = 'leads-bulk' and workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 2, 'T22d one audit row per bulk call';
   assert (select v from test.r where k = 'b2') = '1' and (select owner_team_row from leads where id = test.id('c1')) = test.id('crm_t1'), 'T22d bulk owner by the owner';
   assert (select count(*) from leads where id in (test.id('c1'), test.id('c2'))) = 2, 'T22d a delete without the confirm flag deletes nothing';
 end $$;
@@ -1970,8 +1970,8 @@ do $$ declare d jsonb := (select v from test.r where k = 'dry'); s jsonb; begin
   assert (select v ->> 'dry_run' from test.r where k = 'dry2') = 'true', 'T23c only dry_run false is a real run';
   assert (select v -> 'refused' from test.r where k = 'dryS') = '[{"line":2,"field":"status","reason":"Status must be one of this business''s statuses"},{"line":3,"field":"name","reason":"a lead needs a name, an email or a phone"}]',
     'T23c a status that is not ours and a lead with no name, email or phone are refused: ' || (select v -> 'refused' from test.r where k = 'dryS')::text;
-  assert (select count(*) from leads where form = 'import') = 0 and (select count(*) from audit_log where action = 'lead-import') = 0
-    and (select count(*) from consent_ledger where form = 'import') = 0, 'T23c a dry run and every refused real run write nothing';
+  assert (select count(*) from leads where form = 'import' and workspace_id in ('aaaaaaaa-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000')) = 0 and (select count(*) from audit_log where action = 'lead-import' and workspace_id in ('aaaaaaaa-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000')) = 0
+    and (select count(*) from consent_ledger where form = 'import' and workspace_id in ('aaaaaaaa-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000')) = 0, 'T23c a dry run and every refused real run write nothing';
 end $$;
 -- an import goes on the workspace's oldest site (work order 02 F4). Both sites of A were made in this transaction (the same created_at), so the
 -- second is made older: the choice is then the created_at alone, also when `omnikom test walls` gives the ids new random values
@@ -1994,9 +1994,9 @@ do $$ declare r jsonb := (select v from test.r where k = 'real'); l leads; begin
   assert (select owner_team_row from leads where email = 'imp6@t23.test') is not distinct from (select team_row_id from members where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and user_id = '00000000-0000-0000-0000-00000000000a'),
     'T23c an unknown owner name: the lead goes to the importing owner';
   assert (select count(*) from leads where name in ('Imp One', 'Imp Three', 'Imp Four')) = 0, 'T23c skip: no duplicate was created';
-  assert (select count(*) from lead_events e join leads x on x.id = e.lead_id where x.form = 'import' and e.kind = 'received' and e.detail ->> 'import' = 'true') = 3, 'T23c one received event per imported lead';
-  assert (select count(*) from consent_ledger c join leads x on x.id = c.lead_id where x.form = 'import' and c.consent_text = x.consent_text) = 3, 'T23c one consent ledger row per imported lead';
-  assert (select count(*) from audit_log where action = 'lead-import') = 2 and (select detail from audit_log where action = 'lead-import' and detail ->> 'file_sha256' = repeat('b', 64))
+  assert (select count(*) from lead_events e join leads x on x.id = e.lead_id where x.form = 'import' and x.workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and e.kind = 'received' and e.detail ->> 'import' = 'true') = 3, 'T23c one received event per imported lead';
+  assert (select count(*) from consent_ledger c join leads x on x.id = c.lead_id where x.form = 'import' and x.workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and c.consent_text = x.consent_text) = 3, 'T23c one consent ledger row per imported lead';
+  assert (select count(*) from audit_log where action = 'lead-import' and workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 2 and (select detail from audit_log where action = 'lead-import' and detail ->> 'file_sha256' = repeat('b', 64))
     = jsonb_build_object('file_sha256', repeat('b', 64), 'rows', 5, 'created', 2, 'skipped', 3, 'duplicates', 3), 'T23c one audit row per call, with the file''s sha256 and the counts';
   assert (select v from test.r where k = 'add') ->> 'created' = '1' and (select count(*) from leads where lower(email) = 'have.t23@t23.test') = 2, 'T23c add: a duplicate is created when asked';
 end $$;

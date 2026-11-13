@@ -835,6 +835,27 @@ const MUTANTS = [
   ['[adopt] seo run: the row does not say why', 'lib/seo-run.mjs', 'rowOf(s, f.entry, skillDir, f.how || why.get(s.id))', 'rowOf(s, f.entry, skillDir, f.how)', 'unit'],
   ['[adopt] seo run: a BLOCKED row hides why', 'lib/seo-run.mjs', "if (how && state !== 'RUN') detail += ` [${how}]`;", "if (false) detail += ` [${how}]`;", 'unit'],
   ['[adopt] seo run: an adopted approval goes back to WAITING', 'lib/seo-run.mjs', 'const kept = forced ? null : doneBefore(step);', 'const kept = null;', 'unit'],
+  // ---- WALLS-1: test walls on a database that also holds rows no walls run made (the case staging is in); mutate.mjs --only "[walls-foreign]"
+  ['[walls-foreign] the fixture loads no row, so the case is not the one staging is in', 'test/run.mjs', 'const loaded = makeSql({ url: db.url }).exec(foreignRows);', 'const loaded = { ok: true };', 'db'],
+  ['[walls-foreign] the fixture is left behind', 'test/run.mjs', "db.query(`delete from messages where to_text = 'foreign1@example.com';", "(() => {})(`delete from messages where to_text = 'foreign1@example.com';", 'db'],
+  // one tie of tenancy.test.sql taken back out where the walls read the file (in memory): the case staging is in must go red at that read
+  ...[
+    ['T12 no site given', "service.active_key('site-signing', null) k where k.id in (select id from api_keys where site_id in ('aaaaaaaa-0000-0000-0000-00000000517e', 'bbbbbbbb-0000-0000-0000-00000000517e')))", "service.active_key('site-signing', null))"],
+    ['T13 sent message, the foreign row first', "where template = 'booking-confirmed' and workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' limit 1;", "where template = 'booking-confirmed' order by workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' limit 1;"],
+    ['T13 one provider event', "where provider_event_id = 'evt-1' and connector_id = 'cccccccc-0000-0000-0000-000000000001') = 1, 'the same", "where provider_event_id = 'evt-1') = 1, 'the same"],
+    ['T20 five marks', "(select count(*) from lead_reads where lead_id in (test.id('rdA1'), test.id('rdA2'), test.id('rdNone'), test.id('rdTmp'))) = 5,", '(select count(*) from lead_reads) = 5,'],
+    ['T21 the sent row', "'crm-test' and target = 'aaaaaaaa-0000-0000-0000-000000000000' and detail ->> 'outcome' = 'sent') = '{", "'crm-test' and detail ->> 'outcome' = 'sent') = '{"],
+    ['T21 the refused host', "'crm-test' and target = 'aaaaaaaa-0000-0000-0000-000000000000' and detail ->> 'outcome' = 'refused')", "'crm-test' and detail ->> 'outcome' = 'refused')"],
+    ['T21 the failed host', "'crm-test' and target = 'aaaaaaaa-0000-0000-0000-000000000000' and detail ->> 'outcome' = 'failed')", "'crm-test' and detail ->> 'outcome' = 'failed')"],
+    ['T21 who', "'crm-test' and target = 'aaaaaaaa-0000-0000-0000-000000000000' and detail ->> 'outcome' = 'sent') = '0", "'crm-test' and detail ->> 'outcome' = 'sent') = '0"],
+    ['T22 one audit row per bulk call', "where action = 'leads-bulk' and workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 2,", "where action = 'leads-bulk') = 2,"],
+    ['T23 dry run, leads', "from leads where form = 'import' and workspace_id in ('aaaaaaaa-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000')) = 0", "from leads where form = 'import') = 0"],
+    ['T23 dry run, audit', "from audit_log where action = 'lead-import' and workspace_id in ('aaaaaaaa-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000')) = 0", "from audit_log where action = 'lead-import') = 0"],
+    ['T23 dry run, ledger', "from consent_ledger where form = 'import' and workspace_id in ('aaaaaaaa-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000')) = 0", "from consent_ledger where form = 'import') = 0"],
+    ['T23 received events', "where x.form = 'import' and x.workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and e.kind", "where x.form = 'import' and e.kind"],
+    ['T23 ledger rows', "where x.form = 'import' and x.workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and c.consent_text", "where x.form = 'import' and c.consent_text"],
+    ['T23 audit rows', "(select count(*) from audit_log where action = 'lead-import' and workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000') = 2", "(select count(*) from audit_log where action = 'lead-import') = 2"],
+  ].map(([at, tied, untied]) => [`[walls-foreign] untied again: ${at}`, 'commands/apply.mjs', "const original = readFileSync(repoPath('supabase', 'tests', 'tenancy.test.sql'), 'utf8');", `const original = readFileSync(repoPath('supabase', 'tests', 'tenancy.test.sql'), 'utf8').split(${JSON.stringify(tied)}).join(${JSON.stringify(untied)});`, 'db']),
 ];
 
 const list = pickMutants(shardMutants(MUTANTS, shard), only);   // sharded by the index in the whole list, then narrowed by --only
