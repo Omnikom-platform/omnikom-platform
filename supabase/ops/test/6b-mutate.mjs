@@ -98,6 +98,8 @@ const DRILL = [
   ['vault: the gaps are never looked for', 'const gaps = vaultGaps(refs, entries);', 'const gaps = [];'],
   ['media: a file the copy lacks is taken from the copy anyway', 'return exists(p) ? p : null;', 'return p;'],
   ['--media and --vault without --dump are taken', 'if ((o.media || o.vault) && !o.dump) throw', 'if (false) throw'],
+  ['walls: the vault schema is not cleared before the file runs', "const nv = q('walls', WALLS_NO_VAULT_SQL);", "const nv = { ok: true };"],
+  ['walls: the vault schema is dropped with CASCADE, so anything in it goes silently', "export const WALLS_NO_VAULT_SQL = 'drop schema if exists vault';", "export const WALLS_NO_VAULT_SQL = 'drop schema if exists vault cascade';"],
 ];
 
 function runTest(testFile, envName, mutantPath, extraEnv = {}) {

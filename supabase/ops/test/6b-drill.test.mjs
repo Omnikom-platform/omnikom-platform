@@ -4,7 +4,7 @@
 // say which phases failed, and leave no working folder behind. The real run against staging is in the 6B report. OMNIKOM_6B_DRILL points
 // the test at a mutated copy of restore-drill.mjs (6b-mutate.mjs).
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, readdirSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -157,6 +157,23 @@ const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`PASS
     const text2 = lines2.join('\n'), vp = r2 && r2.phases.find(p => p.name === 'vault');
     check('e1 case 16, drill --vault: the vault phase is red with "lacks 2 of 3", and no line holds a reference name or the value', !!vp && !vp.ok && /the vault copy lacks 2 of 3 references/.test(text2)
       && !['k-one', 'k-two', 'crm-webhook-x', 'secret-value-one'].some(s => text2.includes(s)), thrown || text2);
+    // drill-w (hand-over DRILL-W): the walls database must look to tenancy.test.sql like a cluster with no Vault. The file builds its own Vault stand-in
+    // (cut out of the file here, never copied) only where no schema named vault exists; a restored Supabase dump can leave one, so the walls phase drops it first.
+    const standIn = readFileSync(join(HERE, '..', '..', 'tests', 'tenancy.test.sql'), 'utf8').match(/do \$v\$ begin[\s\S]*?end \$v\$;/g) || [];
+    check('drill-w setup: tenancy.test.sql holds its own Vault stand-in block (do $v$ ... end $v$;) exactly once', standIn.length === 1, `${standIn.length} blocks`);
+    const useIt = `${standIn[0] || ''}\nselect vault.create_secret('a-value-of-forty-characters-0000000000', 'a-name');\nselect count(*) from vault.secrets where name = 'a-name';`;
+    cluster.createDb('huskc'); cluster.createDb('huskf'); cluster.sql('huskc', 'create schema vault;'); cluster.sql('huskf', 'create schema vault;');
+    const noPrep = cluster.sql('huskc', useIt);
+    check('drill-w control: a schema named vault with nothing in it keeps the file from building its stand-in, and its first call gives the staging error', !noPrep.ok && /function vault\.create_secret\(unknown, unknown\) does not exist/.test(noPrep.err), noPrep.err);
+    const prepped = typeof D.WALLS_NO_VAULT_SQL === 'string' ? cluster.sql('huskf', `${D.WALLS_NO_VAULT_SQL};\n${useIt}`) : null;
+    check('drill-w case 1: WALLS_NO_VAULT_SQL, then the block of the file, gives a Vault stand-in that works', !!prepped && prepped.ok && prepped.out.split(/\r?\n/).pop() === '1', prepped ? prepped.err : 'no export WALLS_NO_VAULT_SQL');
+    cluster.createDb('tinyv'); cluster.sql('tinyv', 'create schema vault; create table vault.kept (x int);');
+    const dumpV = join(root, 'tinyv.dump');
+    const dv = spawnSync('pg_dump', ['--format=custom', '--no-owner', '--file', dumpV, cluster.url('tinyv')], { encoding: 'utf8', timeout: 5 * 60 * 1000 });
+    const linesV = []; let thrownV = '';
+    try { await D.drill(['--dump', dumpV], {}, l => linesV.push(l)); } catch (e) { thrownV = `threw ${e && e.code} ${e && e.message}`; }
+    const textV = linesV.join('\n');
+    check('drill-w case 2: a vault schema that holds an object is not dropped, and the walls phase names that', dv.status === 0 && /FAIL walls\s.*the vault schema of the restored copy could not be dropped/.test(textV), thrownV || textV);
   } finally { cluster.stop(); rmSync(root, { recursive: true, force: true }); }
 }
 
