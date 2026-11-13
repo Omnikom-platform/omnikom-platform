@@ -39,7 +39,7 @@ export function active(name: Mutant): boolean {
 }
 
 // Kept out of the Mutant union on purpose: the flows slice edits that union's line, and a branch that conflicts with another anywhere but icm/
-// and the book's Counts leaves the land train (docs/departments/README.md rule 8).
+// and the book's Counts costs the landing stack a hand merge (docs/departments/README.md rule 8).
 export type SiteMutant = 'undo-lost' | 'delete-lost' | 'restore-lost' | 'frame-lost' | 'preview-lost' | 'off-lost';
 export async function installSiteMutant(page: Page, name: SiteMutant) {
   if (process.env.FLOWS_MUTANT !== name) return;
