@@ -22,8 +22,8 @@ export function DeleteSheet({ workspaceId, ids, onClose, onDeleted }: { workspac
   const cancel = useRef<HTMLButtonElement>(null);
   const one = ids.length === 1;
 
+  useEffect(() => { cancel.current?.focus(); }, []);   // once, when the sheet opens: a re-draw of the page behind never moves the focus
   useEffect(() => {
-    cancel.current?.focus();
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

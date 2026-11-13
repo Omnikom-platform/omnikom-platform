@@ -79,12 +79,12 @@ type Asked = { media: string; to: string | null; where: string };
 /** The ask-first sheet (DP-1.4m-06): replace says what changes where; delete is offered only for a file nothing uses, and the database refuses it
  *  otherwise. Only its main button calls media-manage; Cancel and Esc send nothing (as DeleteSheet). "Deleted." only after a 2xx; a refusal shows the
  *  function's own sentence (Storage refused: "Nothing was changed. Try again."), a refused replace also the save's own words. */
-function Ask({ ask, onClose }: { ask: Asked; onClose: () => void }) {
+export function Ask({ ask, onClose }: { ask: Asked; onClose: () => void }) {
   const { workspace } = useWorkspaceValue();
   const qc = useQueryClient(), toast = useToast(), cancel = useRef<HTMLButtonElement>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  useEffect(() => { cancel.current?.focus(); }, []);   // once, when the sheet opens: a re-draw of the page behind never moves the focus
   useEffect(() => {
-    cancel.current?.focus();
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
