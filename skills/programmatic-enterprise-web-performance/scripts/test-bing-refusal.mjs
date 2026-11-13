@@ -95,7 +95,7 @@ async function scenarios(dir) {
 
 const RB = "research-bing.mjs";
 const MUTANTS = [
-  { name: "a refused site-stats call is not tolerated", patches: [{ file: RB, from: "if (tolerateRefusal && refusal)", to: "if (false)" }], expect: [/^refusal: own-site stats refused \(HTTP 400/, /^refusal: own-site stats refused \(HTTP 200/, /^refusal: own-site stats refused \(HTTP 403/] },
+  { name: "a refused site-stats call is not tolerated", patches: [{ file: RB, from: "if (tolerateRefusal && refusal)", to: "if (false)" }], expect: [/^refusal: own-site stats refused \(HTTP 400/, /^refusal: \(HTTP 200\) the site stats are BLOCKED/, /^refusal: own-site stats refused \(HTTP 403/] },
   { name: "the refused answer stays in the cache", patches: [{ file: RB, from: "if (r.cacheFile) fs.rmSync(r.cacheFile, { force: true });", to: "" }], expect: [/^refusal: a refused answer is not kept in the cache/] },
   { name: "every failure of the site-stats call counts as a refusal", patches: [{ file: RB, from: "const refusal = r.status === 401 || r.status === 403 || /NotAuthorized/i.test(r.text);", to: "const refusal = r.status !== 200;" }], expect: [/^refusal: any OTHER failure/] },
   { name: "bing.json says ok for blocked site stats", patches: [{ file: RB, from: "status: !siteStats || !siteStatsAsked ? \"not asked\" : siteStatsBlocked ? \"blocked\" : \"ok\"", to: "status: \"ok\"" }], expect: [/^refusal: \(HTTP 400\) the site stats are BLOCKED/, /^refusal: \(HTTP 200\) the site stats are BLOCKED/] },
