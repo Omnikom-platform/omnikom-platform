@@ -1,7 +1,7 @@
 # The site's lead endpoint (`/api/lead`)
 
 What it is: `lead-endpoint.mjs`, one handler that takes the form's JSON, refuses the obvious, signs the body with the site's own
-key and forwards it to the platform's `capture-lead`, with the visitor (sha256 of the site id and the address in `cf-connecting-ip`, never the address) in the signed path as `&visitor=<hash>`, so that `capture-lead` can limit one visitor; `pages-function-lead.js` wraps it as a Cloudflare Pages Function.
+key and forwards it to the platform's `capture-lead`, with the visitor (sha256 of the site id and the address in `cf-connecting-ip`, never the address) in the signed path as `&visitor=<hash>`, so that `capture-lead` can limit one visitor; `pages-function-lead.js` wraps it as a Cloudflare Pages Function. After `capture-lead` answers 429 for a visitor, that visitor's posts are answered 429 here for 60 s from the Cloudflare data center's cache (the Cache API's `caches.default`: no binding; the key is the visitor hash), with no call (product row E5-b).
 Design: `docs/blueprint/14-LEAD-PATH.md` section 2; answers and wording: `sops/site-endpoints.md` 2.3. No dependencies.
 
 The plain browser form (`application/x-www-form-urlencoded`, no script; brief 5-L) is accepted as well: its fields become the same
@@ -31,7 +31,7 @@ Prove it: `node factory/worker/test/run.mjs` (the signature is verified with the
    test lead removed again.
 
 UNPROVEN until step 6 runs: the path string `capture-lead` sees on Supabase equals the signed `/capture-lead?site=<id>`
-(`pathForSignature` strips a `/functions/v1` prefix); Pages Functions importing `./lead-endpoint.mjs`; the Resend sender.
+(`pathForSignature` strips a `/functions/v1` prefix); Pages Functions importing `./lead-endpoint.mjs`; the hold on a real Pages Function (the Cache API); the Resend sender.
 
 ## The draft gate (book row B15-b3)
 `draft-gate.mjs` locks a preview build's deployment: the signed link (`?k=<token>` whose sha256 is the build's, before its end time) gets the

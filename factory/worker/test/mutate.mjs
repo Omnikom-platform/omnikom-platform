@@ -22,7 +22,7 @@ const MUTANTS = [
   ['the signature header is sent', "headers: { 'content-type': 'application/json', 'x-site-signature': signature }", "headers: { 'content-type': 'application/json' }"],
   ['only 202 is sent', 'if (res.status === 202) return reply(200, { sent: true });', 'if (res.status === 202 || res.status === 200) return reply(200, { sent: true });'],
   ['400 problems pass through', 'return reply(400, { sent: false, problems: Array.isArray(j.problems) ? j.problems : [', 'return reply(400, { sent: false, problems: ['],
-  ['429 says try again', "if (res.status === 429) return reply(429, { sent: false, retry: true, msg: 'Please try again in a minute.' });", ''],
+  ['429 says try again', 'if (res.status === 429) {', 'if (false) {'],
   ['401 is no retry', "if (res.status === 401) { log('platform refused the site signature (key or clock)'); return reply(502, { sent: false, retry: false, msg: CALL_US }); }", ''],
   ['409 (paused or suspended) is no retry, says call us', "if (res.status === 409) { log('platform refused: the site is paused or its workspace suspended'); return reply(409, { sent: false, retry: false, msg: CALL_US }); }", ''],
   ['unreachable keeps the answers', 'return reply(502, { sent: false, retry: true, msg: TRY_AGAIN });\n    }', "return reply(200, { sent: true });\n    }"],
@@ -51,6 +51,16 @@ const MUTANTS = [
   ['the visitor hash is in the signed path', '${visitor ? `&visitor=${visitor}` : \'\'}', ''],
   ['the visitor hash covers the site id', 'enc.encode(`${siteId}:${ip}`)', 'enc.encode(ip)'],
   ['no address gives no visitor', 'if (!ip) return null;', ''],
+  // product row E5-b: the hold at the edge
+  ['E5-b: a held visitor is answered here, not forwarded', 'if (held && (await holdCache.match(held)', 'if (false && (await holdCache.match(held)'],
+  ['E5-b: a platform 429 holds the visitor', 'if (held) await holdCache.put(', 'if (false) await holdCache.put('],
+  ['E5-b: the hold lasts 60 s', 'const HOLD_SECONDS = 60;', 'const HOLD_SECONDS = 3600;'],
+  ['E5-b: the hold is per visitor', '/api/lead-hold/${visitor}', '/api/lead-hold/all'],
+  ['E5-b: a cache that fails to read is skipped', '.catch(() => undefined)', ''],
+  ['E5-b: a cache that fails to write is skipped', '.catch(() => {});', ';'],
+  ['E5-b: no address, no hold', 'const held = visitor && holdCache ?', 'const held = holdCache ?'],
+  ["E5-b: the hold says the platform's words", "const SLOW_DOWN = 'Please try again in a minute.';", "const SLOW_DOWN = 'Too many posts.';"],
+  ["E5-b: the default is the Cache API's caches.default", 'holdCache = globalThis.caches && globalThis.caches.default }', 'holdCache = undefined }'],
 ];
 const GATE_MUTANTS = [
   ['draft gate: an expired link still opens', '    if (!(now() < until)) return notFound();\n', ''],

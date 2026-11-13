@@ -250,5 +250,73 @@ await check('draft gate: no link, a wrong link or a link past its end time is a 
   }
 });
 
+// ---- product row E5-b: the hold at the edge (a fake of the Cache API: nothing reaches Cloudflare) ----
+function holdCacheFake(clock) {   // keeps what is put until the max-age its cache-control names has passed, by the test's clock
+  const kept = new Map(), calls = [];
+  return { kept, calls,
+    match: async (key) => { calls.push(String(key)); return kept.has(key) && clock() < kept.get(key) ? new Response('held') : undefined; },
+    put: async (key, res) => { calls.push(String(key)); const m = /max-age=(\d+)/.exec(res.headers.get('cache-control') || ''); kept.set(key, clock() + (m ? Number(m[1]) : 0)); } };
+}
+const X = '203.0.113.9', Y = '198.51.100.7';
+const from = (ip) => ({ headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip } });
+const hashOf = (ip) => createHash('sha256').update(`${SITE}:${ip}`).digest('hex');
+const SLOW = { sent: false, retry: true, msg: 'Please try again in a minute.' };
+const refused = () => platform(429, { status: 429, problems: [{ code: 'S-QUOTA', path: '', msg: 'Please try again later.' }] });
+await check('E5-b: a post with no address is never held: the platform\'s 429 is passed on and the cache is not touched', async () => {
+  const c = holdCacheFake(() => NOW), p = refused();
+  const r = await handler(p, { holdCache: c })(post(lead));
+  assert.equal(r.status, 429); assert.deepEqual(await r.json(), SLOW);
+  assert.equal(c.calls.length, 0, 'no visitor, no cache call'); assert.equal(p.seen.length, 1);
+});
+await check('E5-b: after the platform answers 429, that visitor\'s next posts are answered 429 here with the same words and not forwarded; the key is the visitor hash, never the address', async () => {
+  const c = holdCacheFake(() => NOW), p = refused(), h = handler(p, { holdCache: c });
+  const answers = [];
+  for (let i = 0; i < 3; i++) answers.push(await h(post(lead, from(X))));
+  assert.equal(p.seen.length, 1, 'only the first post reaches the platform');
+  for (const r of answers) { assert.equal(r.status, 429); assert.deepEqual(await r.json(), SLOW); }
+  assert.deepEqual([...c.kept.keys()], [`https://site.test/api/lead-hold/${hashOf(X)}`]);
+  assert.ok(c.calls.every((k) => !k.includes(X)), 'the address is in no cache key');
+});
+await check('E5-b: the hold lasts 60 s: a post at 59 s is held, one at 60 s is forwarded again', async () => {
+  let t = NOW;
+  const c = holdCacheFake(() => t), p = refused(), h = handler(p, { holdCache: c });
+  await h(post(lead, from(X)));
+  t = NOW + 59; const r = await h(post(lead, from(X)));
+  assert.equal(p.seen.length, 1, 'held at 59 s'); assert.equal(r.status, 429);
+  t = NOW + 60; await h(post(lead, from(X)));
+  assert.equal(p.seen.length, 2, 'forwarded at 60 s');
+});
+await check('E5-b: the hold is per visitor: another address is forwarded and sent', async () => {
+  const c = holdCacheFake(() => NOW), p = refused(), q = platform(202);
+  for (let i = 0; i < 2; i++) await handler(p, { holdCache: c })(post(lead, from(X)));
+  assert.equal(p.seen.length, 1, 'the first address is held');
+  const r = await handler(q, { holdCache: c })(post(lead, from(Y)));
+  assert.equal(r.status, 200); assert.deepEqual(await r.json(), { sent: true });
+  assert.equal(q.seen.length, 1); assert.equal(q.seen[0].url, `${BASE}/capture-lead?site=${SITE}&visitor=${hashOf(Y)}`);
+});
+await check('E5-b: a held plain form post is answered with a page that says try again in a minute', async () => {
+  const c = holdCacheFake(() => NOW), p = refused(), h = handler(p, { holdCache: c });
+  await h(post(lead, from(X)));
+  const r = await h(formPost(formFields, { headers: { 'content-type': 'application/x-www-form-urlencoded', 'cf-connecting-ip': X } }));
+  assert.equal(r.status, 429); assert.match(typeOf(r), /^text\/html/); assert.match(await textOf(r), /Please try again in a minute\./);
+  assert.equal(p.seen.length, 1);
+});
+await check('E5-b: a cache that fails to read or write is skipped: the post goes on', async () => {
+  const down = { match: async () => { throw new Error('cache down'); }, put: async () => { throw new Error('cache down'); } };
+  const p = platform(202), q = refused();
+  const a = await handler(p, { holdCache: down })(post(lead, from(X)));
+  assert.equal(a.status, 200); assert.deepEqual(await a.json(), { sent: true }); assert.equal(p.seen.length, 1);
+  const b = await handler(q, { holdCache: down })(post(lead, from(X)));
+  assert.equal(b.status, 429); assert.deepEqual(await b.json(), SLOW); assert.equal(q.seen.length, 1);
+});
+await check('E5-b: without a holdCache option the hold uses the Cache API\'s caches.default', async () => {
+  globalThis.caches = { default: holdCacheFake(() => NOW) };
+  try {
+    const p = refused(), h = handler(p);
+    for (let i = 0; i < 3; i++) await h(post(lead, from(X)));
+    assert.equal(p.seen.length, 1);
+  } finally { delete globalThis.caches; }
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
