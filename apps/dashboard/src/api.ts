@@ -194,6 +194,13 @@ export async function uploadFinish(media: string, rightsConfirmed: boolean, alt:
   await call('upload-finish', { media, rightsConfirmed, ...(alt ? { alt } : {}) });
 }
 
+/** media-manage (book row B14): replace a file everywhere it is used (200 { versions }) or delete one nothing uses (200 { deleted } only once Storage removed its bytes; 409 S-MEDIA-IN-USE; 502 STORAGE: nothing changed). Returns the items changed. */
+export async function manageMedia(media: string, o: { action: 'replace'; with: string } | { action: 'delete' }): Promise<number> {
+  const out = (await call('media-manage', { media, ...o })) as { versions?: number; deleted?: boolean } | null;
+  if (!out || (o.action === 'delete' ? out.deleted !== true : typeof out.versions !== 'number')) throw new CallFailed(problemFrom(500, null));
+  return out.versions ?? 0;
+}
+
 /** team-list: the members of the workspace, owners first (owner or staff only; anyone else gets 404). 200 { members }. */
 export async function fetchTeamList(workspace: string): Promise<Member[]> {
   const out = (await call('team-list', { workspace })) as { members?: Member[] } | null;
