@@ -137,7 +137,7 @@ node factory/runner/media.mjs                                                   
   (both addresses, 6 tries 10 s apart: the site's fixed address answers 200, `x-robots-tag: noindex` on a preview and NOT on a live site, the
   built home page `<title>` in the body; the deployment's own address `https://<hash>.<project>.pages.dev` serves bytes whose sha256 is that of the built `index.html`; a draft
   is asked through its signed link (a redirect that sets the cookie and leaves no `k`, then the page with the cookie) and must answer 404 without
-  it; a draft whose smoke fails is deleted by its uuid, found by its short id in the deployment list (`DELETE .../deployments/<uuid>`); no single
+  it; a draft whose smoke fails is deleted by its uuid, found by its short id in the deployment list (`DELETE .../deployments/<uuid>?force=true`; Cloudflare refuses the delete of the deployment that holds the `draft` alias without it, HTTP 400); no single
   match, a failed list or a refused delete deletes nothing and names the address as still up, with Cloudflare's status and success) -> `done`
   (callback with the deploy id and `{ factory: 'pass', audit: { exit: 0, fails: [] } }`; a preview's carries `gateReport.link` (`k`, `until`)). The export call already moved the job to `building`
   (`freeze_snapshot`), so there is no `building` callback. Every failure sends ONE `failed` callback (`error` = the short reason,

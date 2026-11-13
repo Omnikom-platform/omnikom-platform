@@ -12,7 +12,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { CANONICAL, DRAFT_DEPLOYMENT, NOT_THIS_DRAFT, startFake } from './lib/fake-platform.mjs';
+import { ALIASED, CANONICAL, DRAFT_DEPLOYMENT, NOT_THIS_DRAFT, startFake } from './lib/fake-platform.mjs';
 import { GPS_BYTES, gpsTiff, webpChunks, webpSize, withExif } from './lib/exif.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -334,6 +334,15 @@ const rbRefused = await wranglerRun({ exportMut: LIVE, cfg: { siteMutate: NOT_BU
 await check('rollback (E8): a rollback Cloudflare refuses is reported as failed, never as done', () =>
   rbRefused.code === 1 && rbRefused.last.body.error === `deployed but smoke failed; the rollback to ${CANONICAL} failed (HTTP 403): the failed deployment stays live` && rbRefused.log.cfCalls.filter((c) => c.method === 'POST').length === 1
   || `${rbRefused.code} ${rbRefused.last && rbRefused.last.body.error} ${JSON.stringify(rbRefused.log.cfCalls.map((c) => c.method))}`);
+// ---- B15-F: Cloudflare refuses the DELETE of the deployment that holds the draft alias unless the query says force=true (HTTP 400, staging 2026-11-13); the fake refuses it the same way
+const forced = (r) => r.log.cfCalls.filter((c) => c.search.includes('force')).map((c) => `${c.method} ${c.search}`);
+await check('delete (B15-F): the DELETE of a failed draft carries ?force=true, and no other call of the runner (list reads, settings read, rollback) carries force', () =>
+  same(forced(wrOpen), ['DELETE ?force=true']) && same(forced(wrStuck), ['DELETE ?force=true']) && [wrDraft, wrLive, rbLive, rbPreview, rbFirst, rbRefused].every((r) => forced(r).length === 0)
+  || JSON.stringify([wrOpen, wrStuck, wrDraft, wrLive, rbLive, rbPreview, rbFirst, rbRefused].map(forced)));
+const wrRefused = await wranglerRun({ exportMut: PREVIEW_JOB, cfg: { gateOff: true, cf: { deleteStatus: 400, deleteMessage: ALIASED } } }), told = `deployed but smoke failed; deleting the draft deployment 1a2b3c4d failed (HTTP 400, success false, ${ALIASED}): https://1a2b3c4d.test-site-demo-a.pages.dev is still up`;
+await check('delete (B15-F): a 400 on the draft DELETE is told in Cloudflare\'s own words in the failed job\'s error, in its report and on the run\'s last line; the job fails once, exit 1, and the address is named as still up', () =>
+  wrRefused.code === 1 && same(wrRefused.states, ['gating', 'deploying', 'failed']) && wrRefused.last.body.error === told && wrRefused.last.body.gateReport?.reason === told && wrRefused.out.includes(`RESULT failed: ${told}`)
+  || `${wrRefused.code} ${JSON.stringify(wrRefused.states)} ${wrRefused.last?.body?.error}`);
 
 }
 // ================= 5. the gate that must stop a bad build =================

@@ -7,7 +7,7 @@
 //   GET  /storage/...                               the media files (signed-URL stand-ins, with a ?token=)
 //   PUT  /storage/upload/...                        recorded bodies of the three WebP sizes
 //   GET  /site/...                                  the "deployed" folder (cfg.siteDir) with its _headers applied
-//   GET  /deploy/...                                the same folder, the same cfg: the deployment's own address (work order E8, RUNNER_SMOKE_DEPLOY_URL); hits in log.deployHits; a deployed draft gate answers first (B15-b3; cfg.gateOff: no gate up, cfg.gateKeepsToken: its redirect keeps k, cfg.gateServesLink: the link gets the page, no redirect); GET .../deployments (page 1 full of others, page 2 the draft's; cfg.cf.list replaces page 2, cfg.cf.pages every page, cfg.cf.listStatus refuses) and DELETE .../deployments/<id> (cfg.cf.deleteStatus refuses)
+//   GET  /deploy/...                                the same folder, the same cfg: the deployment's own address (work order E8, RUNNER_SMOKE_DEPLOY_URL); hits in log.deployHits; a deployed draft gate answers first (B15-b3; cfg.gateOff: no gate up, cfg.gateKeepsToken: its redirect keeps k, cfg.gateServesLink: the link gets the page, no redirect); GET .../deployments (page 1 full of others, page 2 the draft's; cfg.cf.list replaces page 2, cfg.cf.pages every page, cfg.cf.listStatus refuses) and DELETE .../deployments/<id> (cfg.cf.deleteStatus refuses, with cfg.cf.deleteMessage as its first error; the draft's own id is refused with HTTP 400 unless the query says force=true, as Cloudflare did)
 //   POST /cf/.../deployments/<id>/rollback          the Pages rollback of work order E8: 200 { success: true }, or cfg.cf.rollbackStatus with success false (the call is logged in log.cfCalls)
 // Every signed call is checked with the PLATFORM'S OWN verify (supabase/functions/_shared/signature.ts, run by Node's type stripping).
 import { createServer } from 'node:http';
@@ -20,6 +20,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 
 
 export const CANONICAL = 'c0c0c0c0-0000-4000-8000-000000000001';   // the production deployment the fake project says is live (cfg.cf.canonical changes it, null = none)
 export const DRAFT_DEPLOYMENT = { id: '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d', short_id: '1a2b3c4d', url: 'https://1a2b3c4d.test-site-demo-a.pages.dev', environment: 'preview', aliases: ['https://draft.test-site-demo-a.pages.dev'] }, NOT_THIS_DRAFT = [{ id: '1a2b3c4e-0000-4000-8000-000000000001', short_id: '1a2b3c4e' }, { id: '9f9f9f9f-0000-4000-8000-000000000002', short_id: '1a2b3c4d' }, { id: '1a2b3c4d-0000-4000-8000-000000000003', short_id: 'f0f0f0f0' }];   // B15-b3 (R3): the draft fake-wrangler made, and three that are not it (the first fails both tests, the others one each)
+export const ALIASED = 'You cannot delete an aliased deployment without a `?force=true` parameter in the API request URL.';   // B15-F: the first error Cloudflare gave for the DELETE of the draft alias's deployment on staging, 2026-11-13; no error code was recorded, so the fake's refusal carries none
 
 export async function startFake({ runnerKey, verify, cfg }) {
   const log = { exportCalls: [], callbacks: [], mediaExports: [], mediaCallbacks: [], uploads: [], downloads: [], siteHits: [], deployHits: [], cfCalls: [] };
@@ -69,13 +70,13 @@ export async function startFake({ runnerKey, verify, cfg }) {
       }
       if (u.pathname.startsWith('/cf/')) {   // Cloudflare: GET /cf/accounts/<account>/pages/projects/<name>; cfg.cf = { status, names: { preview: [...], production: [...] } }
         const c = cfg.cf || {};
-        log.cfCalls.push({ method: req.method, path: u.pathname, auth: req.headers.authorization });
+        log.cfCalls.push({ method: req.method, path: u.pathname, search: u.search, auth: req.headers.authorization });
         if (req.method === 'POST' && u.pathname.endsWith('/rollback')) {
           if (c.rollbackStatus) return send(c.rollbackStatus, { success: false, errors: [{ code: 8000000, message: 'refused by the fake' }] });
           return send(200, { success: true, result: { id: u.pathname.split('/').slice(-2)[0] } });
         }
         if (req.method === 'GET' && u.pathname.endsWith('/deployments')) return c.listStatus ? send(c.listStatus, { success: false, errors: [{ code: 8000000, message: 'refused by the fake' }] }) : send(200, { success: true, result: (c.pages || [Array(25).fill(NOT_THIS_DRAFT[0]), c.list || [...NOT_THIS_DRAFT, DRAFT_DEPLOYMENT]])[Number(u.searchParams.get('page')) - 1] || [] });   // B15-b3 (R3): the draft on page 2
-        if (req.method === 'DELETE') return c.deleteStatus ? send(c.deleteStatus, { success: false, errors: [{ code: 8000000, message: 'refused by the fake' }] }) : send(200, { success: true, result: null });   // B15-b3 (R2)
+        if (req.method === 'DELETE') return c.deleteStatus ? send(c.deleteStatus, { success: false, errors: [{ code: 8000000, message: c.deleteMessage || 'refused by the fake' }] }) : u.pathname.endsWith(`/${DRAFT_DEPLOYMENT.id}`) && u.searchParams.get('force') !== 'true' ? send(400, { success: false, errors: [{ message: ALIASED }] }) : send(200, { success: true, result: null });   // B15-b3 (R2); B15-F: the draft's deployment holds the draft alias, so it is refused unless force is exactly true
         if (c.failFirst && log.cfCalls.length <= c.failFirst) return send(503, 'busy');
         if (c.status && c.status !== 200) return send(c.status, { success: false, errors: [{ code: 10000, message: 'Authentication error' }] });
         const names = c.names || { preview: ['SITE_ID', 'SITE_SIGNING_KEY', 'PLATFORM_BASE'], production: ['SITE_ID', 'SITE_SIGNING_KEY', 'PLATFORM_BASE'] };

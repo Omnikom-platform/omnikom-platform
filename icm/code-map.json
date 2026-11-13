@@ -157,7 +157,7 @@
     {"path":"factory/runner/publish.mjs","owner":"platform-build","exports":[],"tests":["factory/runner/test/lib/fake-wrangler.mjs","factory/runner/test/mutate.mjs","factory/runner/test/run.mjs","supabase/tests/e2e-site-audit.mjs","tools/omnikom-cli/test/mutate.mjs"],"feature":""},
     {"path":"factory/runner/test/lib/exif.mjs","owner":"platform-build","exports":["GPS_BYTES","gpsTiff","webpChunks","webpSize","withExif"],"tests":[],"feature":""},
     {"path":"factory/runner/test/lib/fake-gh.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
-    {"path":"factory/runner/test/lib/fake-platform.mjs","owner":"platform-build","exports":["CANONICAL","DRAFT_DEPLOYMENT","FUNCTIONS_PREFIX","startFake"],"tests":[],"feature":""},
+    {"path":"factory/runner/test/lib/fake-platform.mjs","owner":"platform-build","exports":["ALIASED","CANONICAL","DRAFT_DEPLOYMENT","FUNCTIONS_PREFIX","startFake"],"tests":[],"feature":""},
     {"path":"factory/runner/test/lib/fake-wrangler.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/runner/test/mutate.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/runner/test/run.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},

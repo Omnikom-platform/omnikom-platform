@@ -105,7 +105,7 @@ async function deleteDraft(target, shortId, url) {
     hits = list.filter((d) => d && d.short_id === shortId && typeof d.id === 'string' && d.id.startsWith(shortId)); n = list.length;
   }
   if (hits.length !== 1) return left(hits.length ? `${hits.length} deployments match it` : 'it is not in the deployment list');   // R3: no match or more than one is never a guess
-  const del = await call(`${deploymentsUrl(target)}/${hits[0].id}`, 'DELETE');
+  const del = await call(`${deploymentsUrl(target)}/${hits[0].id}?force=true`, 'DELETE');   // B15-F: Cloudflare refuses the DELETE of the deployment that holds the draft alias without force (HTTP 400, staging 2026-11-13)
   return del.r && del.r.ok && del.j && del.j.success === true ? `the draft deployment ${shortId} was deleted (${said(del)})` : `deleting the draft deployment ${shortId} failed (${said(del)}): ${url} is still up`;
 }
 
