@@ -42,8 +42,8 @@ export async function buildSite({ exportFile, out, designDir, mediaDir, builtAt,
   if (!settingsRow) throw new BuildStop(['BUILD STOPPED: the export has no settings row (business details)']);
 
   // 3. origin
-  const origin = originOf(exp.site);
-  const preview = isPreview(exp.site);
+  const origin = originOf(exp.site, exp.job.preview === true);
+  const preview = isPreview(exp.site, exp.job.preview === true);
 
   // 4. render
   let design;

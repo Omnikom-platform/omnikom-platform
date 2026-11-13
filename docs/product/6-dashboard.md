@@ -74,8 +74,9 @@ runs (one jobs channel per tab, `src/lib/live.ts`). Vitest for units, Playwright
 
 First an instant frame: the factory's own renderer runs in a browser worker on the draft and shows it in a sandboxed frame
 (no site scripts, media through short signed links), the changed section outlined, phone and laptop widths. Then a preview
-site: the site's Pages project `preview` branch (`preview.<project>.pages.dev`), always noindex, built by the same pipeline
-without moving what is live. Before and after screenshots at 390 and 1366 px come last.
+site: the site's Pages project `draft` branch (`draft.<project>.pages.dev`; `preview` is a not-live site's own address), always noindex and
+answering only its signed link (one per preview, 7 days; without it a plain 404), built from the saved changes that are ready (the rest are
+named) by the same pipeline without moving what is live. Before and after screenshots at 390 and 1366 px come last.
 "Preview site" on the Site screen (owners and staff) starts the build; one line follows it to "Preview from 14:02. Open the preview" (the signed link), and a list names
 each saved change left out and the field it still needs.
 

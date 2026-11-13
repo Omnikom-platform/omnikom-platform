@@ -1,4 +1,4 @@
-// Mutants for the site lead endpoint: each removes one rule from a copy of lead-endpoint.mjs; the tests must go red.
+// Mutants for the site lead endpoint: each removes one rule from a copy of lead-endpoint.mjs; the tests must go red. The draft gate (draft-gate.mjs, B15-b3) too.
 //   node factory/worker/test/mutate.mjs
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, cpSync, mkdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..', '..', '..');
 const SRC = readFileSync(join(HERE, '..', 'lead-endpoint.mjs'), 'utf8');
+const GATE_SRC = readFileSync(join(HERE, '..', 'draft-gate.mjs'), 'utf8');   // book row B15-b3
 const MUTANTS = [
   ['method must be POST', "if (request.method !== 'POST') return json(405", "if (false) return json(405"],
   ['size cap', 'if (body.length > maxBytes) return reply(413', 'if (false) return reply(413'],
@@ -51,6 +52,19 @@ const MUTANTS = [
   ['the visitor hash covers the site id', 'enc.encode(`${siteId}:${ip}`)', 'enc.encode(ip)'],
   ['no address gives no visitor', 'if (!ip) return null;', ''],
 ];
+const GATE_MUTANTS = [
+  ['draft gate: an expired link still opens', '    if (!(now() < until)) return notFound();\n', ''],
+  ['draft gate: any token opens', "hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))) !== sha256", 'false'],
+  ['draft gate: the 404 is indexable', "charset=utf-8', 'x-robots-tag': 'noindex, nofollow', ", "charset=utf-8', "],
+  ['draft gate: the cookie is readable by scripts', '; Secure; HttpOnly; SameSite=Lax', '; Secure; SameSite=Lax'],
+  ['draft gate: the link keeps no cookie', "'set-cookie': `${COOKIE}=", "'x-omk-none': `${COOKIE}="],
+  ['draft gate: the cookie is not read', 'const token = link || kept;', 'const token = link;'],
+  ['draft gate: the redirect keeps the token', "url.searchParams.delete('k');", ''],
+  ['draft gate: the link serves the page', 'if (!link) return next();', 'return next();'],
+  ['draft gate: a good cookie lets a wrong link in', 'const token = link || kept;', 'const token = kept || link;'],
+  ['draft gate: the redirect leaves the site', ".replace(/^\\/+/, '/')", ''],
+  ['draft gate: the redirect drops the other query parts', "'/') + url.search,", "'/'),"],
+];
 
 // the tests import ../lead-endpoint.mjs and ../../../supabase/functions/_shared/signature.ts: rebuild that shape in a temp folder
 const tmp = mkdtempSync(join(tmpdir(), 'omnikom-lead-mut-'));
@@ -59,21 +73,23 @@ mkdirSync(join(tmp, 'supabase', 'functions', '_shared'), { recursive: true });
 cpSync(join(ROOT, 'supabase', 'functions', '_shared', 'signature.ts'), join(tmp, 'supabase', 'functions', '_shared', 'signature.ts'));
 cpSync(join(HERE, 'run.mjs'), join(tmp, 'factory', 'worker', 'test', 'run.mjs'));
 const target = join(tmp, 'factory', 'worker', 'lead-endpoint.mjs');
+const gateTarget = join(tmp, 'factory', 'worker', 'draft-gate.mjs');
 
 let failed = 0;
-writeFileSync(target, SRC);
+writeFileSync(target, SRC); writeFileSync(gateTarget, GATE_SRC);
 const base = spawnSync('node', [join(tmp, 'factory', 'worker', 'test', 'run.mjs')], { encoding: 'utf8', timeout: 60000 });
 if (base.status !== 0) { console.log('the unbroken copy must pass first:\n' + base.stdout.slice(-500)); process.exit(1); }
-for (const [name, a, b] of MUTANTS) {
-  const n = SRC.split(a).length - 1;
+for (const [name, a, b, gate] of [...MUTANTS, ...GATE_MUTANTS.map((m) => [...m, true])]) {
+  const src = gate ? GATE_SRC : SRC, into = gate ? gateTarget : target, n = src.split(a).length - 1;
   if (n !== 1) { console.log(`MUTANT TARGET ${n === 0 ? 'MISSING' : 'NOT UNIQUE'}: ${name}`); failed++; continue; }
-  writeFileSync(target, SRC.split(a).join(b));
+  writeFileSync(into, src.split(a).join(b));
   const r = spawnSync('node', [join(tmp, 'factory', 'worker', 'test', 'run.mjs')], { encoding: 'utf8', timeout: 60000 });
+  writeFileSync(into, src);   // the next fault starts from the unbroken file
   const caught = r.status !== 0;
   if (!caught) failed++;
   const why = (r.stdout.match(/FAIL [^\n]*/) || [''])[0].slice(0, 110);
   console.log(`${caught ? 'caught  ' : 'SURVIVED'} ${name.padEnd(40)} ${why}`);
 }
 rmSync(tmp, { recursive: true, force: true });
-console.log(`\n${MUTANTS.length} mutants, ${MUTANTS.length - failed} caught, ${failed} survived or missing`);
+console.log(`\n${(MUTANTS.length + GATE_MUTANTS.length)} mutants, ${(MUTANTS.length + GATE_MUTANTS.length) - failed} caught, ${failed} survived or missing`);
 process.exit(failed ? 1 : 0);

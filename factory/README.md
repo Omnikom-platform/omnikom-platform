@@ -81,7 +81,8 @@ What a module is given:
 2. `place(contract, rows)`. Only a contract page that HAS a row in `pages` is built and listed in the sitemap; the others print
    `SKIP page <path>: no published row`. A page row with `seo.noindex` is built with a robots noindex meta and left out of the sitemap.
 3. Origin: `https://<site.domain>` when `state = live` and a domain is set, else `https://preview.<site.deploy_target>.pages.dev`
-   (21-PROTOCOLS section 3). `preview = state !== 'live'`.
+   (21-PROTOCOLS section 3); it is also `https://draft.<site.deploy_target>.pages.dev` for a preview build (`job.preview`, book row B15).
+   `preview = job.preview || state !== 'live'`.
 4. Render the contract pages (sections in contract order), the item pages, and `404.html` (root-absolute paths, noindex, no canonical,
    not in the sitemap). Output is the same for the same export and `--built-at` (byte for byte).
 5. Launch layer (`lib/launch.mjs`): `_headers` (HSTS, nosniff, Referrer-Policy, Permissions-Policy, X-Frame-Options DENY, COOP
@@ -131,17 +132,21 @@ node factory/runner/media.mjs                                                   
 - **publish.mjs steps**, each printed `STEP <name>: <result>`: `export` (GET, refuses a different site or job, a missing `sites/<slug>/design/`)
   -> `media` (downloads every signed URL of `media[]`; one that fails is only reported, the factory stops if a built row needs it) -> `build`
   (`factory/build.mjs`) -> `gating` (callback, then `tools/audit/run.mjs`; exit 1 = failed with the FAIL lines in `gateReport.audit.fails`)
-  -> `deploying` (callback, then `wrangler pages deploy`, branch `preview` unless the site is live, then `main`) -> `smoke` (both addresses, 6 tries
-  10 s apart: the site's fixed address answers 200, `x-robots-tag: noindex` on a preview and NOT on a live site, the built home page `<title>` in
-  the body; the deployment's own address `https://<hash>.<project>.pages.dev` serves bytes whose sha256 is that of the built `index.html`) -> `done`
-  (callback with the deploy id and `{ factory: 'pass', audit: { exit: 0, fails: [] } }`). The export call already moved the job to `building`
+  -> `deploying` (callback, then `wrangler pages deploy`, branch `preview` unless the site is live, then `main`; `draft` for a preview build,
+  which also ships the draft gate (`functions/_middleware.js`, `draft-gate.mjs`, `draft-gate-key.mjs`: the token's sha256 and end time)) -> `smoke`
+  (both addresses, 6 tries 10 s apart: the site's fixed address answers 200, `x-robots-tag: noindex` on a preview and NOT on a live site, the
+  built home page `<title>` in the body; the deployment's own address `https://<hash>.<project>.pages.dev` serves bytes whose sha256 is that of the built `index.html`; a draft
+  is asked through its signed link (a redirect that sets the cookie and leaves no `k`, then the page with the cookie) and must answer 404 without
+  it; a draft whose smoke fails is deleted by its uuid, found by its short id in the deployment list (`DELETE .../deployments/<uuid>`); no single
+  match, a failed list or a refused delete deletes nothing and names the address as still up, with Cloudflare's status and success) -> `done`
+  (callback with the deploy id and `{ factory: 'pass', audit: { exit: 0, fails: [] } }`; a preview's carries `gateReport.link` (`k`, `until`)). The export call already moved the job to `building`
   (`freeze_snapshot`), so there is no `building` callback. Every failure sends ONE `failed` callback (`error` = the short reason,
   `gateReport.reason` the same) and exits 1; a 409 from any callback is printed and the run stops without sending more. A live site (branch
   `main`) that fails the smoke is first rolled back, before that `failed` callback: Pages makes a production deployment live the moment it
   exists, so the runner POSTs the Pages rollback to the deployment that was live before (read from the project's settings before the deploy, one
   try, the runner's own token) and the `error` says `deployed but smoke failed; rolled back to deployment <id>` (or that there was none, or that
   Cloudflare refused). A preview is never rolled back. The field and the call are UNPROVEN against the real API (`liveDeploymentOf`, `rollbackUrl`).
-- **Deploy.** `npx --yes wrangler@4.152.0 pages deploy <work>/dist --project-name <site.deploy_target> --branch <preview|main> --commit-dirty=true`
+- **Deploy.** `npx --yes wrangler@4.152.0 pages deploy <work>/dist --project-name <site.deploy_target> --branch <draft|preview|main> --commit-dirty=true`
   run from `<work>/pages-root/`, which holds `functions/api/lead.js` and `lead-endpoint.mjs` (copied from `factory/worker/`) so the site's
   `/api/lead` travels with the deploy. wrangler gets `CLOUDFLARE_API_TOKEN` (= `CLOUDFLARE_PAGES_TOKEN`) and `CLOUDFLARE_ACCOUNT_ID` and
   nothing of the runner key or the platform address. The deploy id sent to the platform is the deployment hash from the printed address

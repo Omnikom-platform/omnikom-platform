@@ -222,6 +222,10 @@ await check('build: state live with no domain falls back to the preview address,
   const ra = build({ exp: a }), rb = build({ exp: b });
   return (ra.status === 0 && rb.status === 0 && read(ra.out, 'index.html').includes(`href="${ORIGIN}/"`) && read(rb.out, '_headers').includes('X-Robots-Tag: noindex') && /^preview: true$/m.test(rb.stdout)) || 'wrong';
 });
+await check('build (B15): a preview build of a live site is noindex, says "preview: true", and its origin is the draft branch address', () => {
+  const e = clone(liveExp); e.job.preview = true; const r = build({ exp: e }), o = 'https://draft.test-site-demo-a.pages.dev';
+  return (r.status === 0 && read(r.out, '_headers').includes('X-Robots-Tag: noindex') && /^preview: true$/m.test(r.stdout) && read(r.out, 'index.html').includes(`<link rel="canonical" href="${o}/">`)) || `exit ${r.status} ${r.stderr.slice(0, 200)}`;
+});
 
 // every build here but the live one is a preview (site state not live); ENV-001 judges indexing against the target the build was made for
 const PREVIEW = { target: 'preview' }, PRODUCTION = { target: 'production' };

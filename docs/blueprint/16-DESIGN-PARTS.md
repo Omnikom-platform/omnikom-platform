@@ -332,8 +332,10 @@ exists), and one rule: the renderer must stay dependency-free and side-effect-fr
 environment and fails on any `fs`, `fetch` or `process` use).
 
 ### 2.3 The preview site (the whole site with every draft, on a real address)
-- Each site gets a second deploy target: `<slug>-preview` (a Worker like the live one, always noindex, basic-auth or a signed
-  link so the public never sees drafts). `sites` gets `preview_target` and `preview_token_ref` (NOT BUILT; one additive column pair).
+- Built (book row B15): the preview site is the site's own Pages project, branch `draft` (`draft.<project>.pages.dev`), always noindex. The
+  public never sees drafts: the deployment answers only its job's signed link (`?k=<token>`, 32 random bytes per job made by the runner, 7
+  days, checked by its own Pages middleware, `factory/worker/draft-gate.mjs`; the first visit gets a cookie and is sent on without the token;
+  without it a plain 404).
 - Built (book row B15): "Preview site" starts a publish job with `preview` true (`service.start_preview`, migration 42): the
   saved changes that pass the publish-ready wall, at their newest version; the others are named with the field they lack;
   `published_version` never moves and `site_audit` skips it. A preview job that fails shows the same check lines.

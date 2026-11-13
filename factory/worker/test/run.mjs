@@ -1,4 +1,4 @@
-// Tests for the site lead endpoint (factory/worker/lead-endpoint.mjs). No framework; exit 1 on any failure.
+// Tests for the site lead endpoint (factory/worker/lead-endpoint.mjs). No framework; exit 1 on any failure. The draft gate (draft-gate.mjs, B15-b3) too.
 //   node factory/worker/test/run.mjs
 // The platform is a fake fetch that records the request; the signature it receives is checked with the platform's own
 // verify() (supabase/functions/_shared/signature.ts, loaded by Node's type stripping), so the two implementations are proven
@@ -6,6 +6,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { makeLeadHandler, sign } from '../lead-endpoint.mjs';
+import { COOKIE, makeDraftGate } from '../draft-gate.mjs';
 import { verify } from '../../../supabase/functions/_shared/signature.ts';
 
 let passed = 0, failed = 0;
@@ -229,6 +230,24 @@ await check('a JSON post is unchanged: JSON in the answer, the body forwarded by
   const p = platform(202); const r = await handler(p)(post(lead, { headers: { 'content-type': 'application/json' } }));
   assert.match(typeOf(r), /json/); assert.deepEqual(await r.json(), { sent: true }); assert.equal(p.seen[0].init.body, JSON.stringify(lead));
   const bad = await handler(platform(500, {}))(post(lead)); assert.match(typeOf(bad), /json/);
+});
+
+// ---------- book row B15-b3: the draft gate ----------
+const GT = 'ab'.repeat(32), T0 = 1_900_000_000_000, gateAt = (now = T0) => makeDraftGate({ sha256: createHash('sha256').update(GT).digest('hex'), until: T0 + 1000, now: () => now });
+const page = () => { const seen = { n: 0 }; return { seen, next: async () => { seen.n++; return new Response('<h1>draft</h1>', { status: 200, headers: { 'content-type': 'text/html' } }); } }; };
+await check('draft gate: the signed link sets the cookie and redirects (302) to the same address without k, the other query parts kept, never to another site; the page is not read', async () => {
+  const p = page(), r = await gateAt()(new Request(`https://draft.site.test/contact/?a=1&k=${GT}&b=2`), p.next);
+  assert.equal(r.status, 302); assert.equal(r.headers.get('location'), '/contact/?a=1&b=2'); assert.equal(p.seen.n, 0); assert.match(r.headers.get('x-robots-tag') ?? '', /noindex/); assert.equal(r.headers.get('set-cookie'), `${COOKIE}=${GT}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=1`); assert.equal((await gateAt()(new Request(`https://draft.site.test//evil.example/?k=${GT}`), p.next)).headers.get('location'), '/evil.example/');   // a path starting // stays on this site
+});
+await check('draft gate: the cookie alone opens the next page, with no new cookie', async () => {
+  const p = page(), r = await gateAt()(new Request('https://draft.site.test/about/', { headers: { cookie: `x=1; ${COOKIE}=${GT}` } }), p.next);
+  assert.equal(r.status, 200); assert.equal(p.seen.n, 1); assert.equal(r.headers.get('set-cookie'), null);
+});
+await check('draft gate: no link, a wrong link or a link past its end time is a plain 404, noindex, and the page is never read, with a good cookie or none', async () => {
+  for (const [url, now, cookie = ''] of [['https://draft.site.test/', T0], [`https://draft.site.test/?k=${'cd'.repeat(32)}`, T0], [`https://draft.site.test/?k=${GT}`, T0 + 1000], [`https://draft.site.test/?k=${'cd'.repeat(32)}`, T0, `${COOKIE}=${GT}`], [`https://draft.site.test/?k=${GT}`, T0 + 1000, `${COOKIE}=${GT}`]]) {
+    const p = page(), r = await gateAt(now)(new Request(url, { headers: { cookie } }), p.next);
+    assert.equal(r.status, 404, `${url} ${cookie}`); assert.equal(await r.text(), 'Not found'); assert.match(r.headers.get('x-robots-tag') ?? '', /noindex/); assert.equal(p.seen.n, 0);
+  }
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

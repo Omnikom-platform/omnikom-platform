@@ -6,13 +6,13 @@
 // RUNNER_DIR points the tests at another copy of factory/runner and SECRETS_TOOL at another github-secrets.mjs (test/mutate.mjs runs
 // broken copies); RUNNER_TEST_BAIL=1 stops at the first FAIL (the mutants only need one red line).
 import { spawn } from 'node:child_process';
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { CANONICAL, startFake } from './lib/fake-platform.mjs';
+import { CANONICAL, DRAFT_DEPLOYMENT, NOT_THIS_DRAFT, startFake } from './lib/fake-platform.mjs';
 import { GPS_BYTES, gpsTiff, webpChunks, webpSize, withExif } from './lib/exif.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -260,6 +260,24 @@ await check('deploy: the deployment hash is parsed from wrangler output and sent
 const wrLive = await wranglerRun({ exportMut: (e) => { e.site.state = 'live'; e.site.domain = 'demo-a.example'; } });
 await check('deploy: a live site goes to --branch main, and its smoke does not want noindex', () =>
   !!wrLive.wrangler && wrLive.wrangler.argv.includes('--branch') && wrLive.wrangler.argv[wrLive.wrangler.argv.indexOf('--branch') + 1] === 'main' && wrLive.code === 0 || `${wrLive.code}\n${wrLive.out.slice(-400)}`);
+const PREVIEW_JOB = (e) => { e.job.preview = true; }, wrDraft = await wranglerRun({ exportMut: (e) => { LIVE(e); PREVIEW_JOB(e); } });
+await check('deploy (B15): a preview build of a live site goes to --branch draft, its smoke wants noindex, and it is judged as a preview', () =>
+  !!wrDraft.wrangler && wrDraft.wrangler.argv[wrDraft.wrangler.argv.indexOf('--branch') + 1] === 'draft' && wrDraft.code === 0 && same(wrDraft.states, ['gating', 'deploying', 'done'])
+  && wrDraft.last.body.gateReport?.audit?.target === 'preview' || `${wrDraft.code} ${JSON.stringify(wrDraft.states)}\n${wrDraft.out.slice(-400)}`);
+await check('deploy (B15-b3): a preview ships the draft gate (only the token\'s sha256 and end time), is smoked through its link, and reports the link once, at done', () => {
+  const key = readFileSync(join(wrDraft.work, 'pages-root', 'functions', 'draft-gate-key.mjs'), 'utf8'), link = wrDraft.last.body.gateReport?.link ?? {};
+  return !!wrDraft.wrangler?.draftGate && /^[0-9a-f]{64}$/.test(link.k ?? '') && key.includes(createHash('sha256').update(link.k).digest('hex')) && !key.includes(link.k)
+    && Date.parse(link.until) - Date.now() > 6.9 * 864e5 && !wrDraft.out.includes(link.k) && wrDraft.log.callbacks.filter((c) => c.rawBody.includes(link.k)).length === 1 || JSON.stringify({ gate: wrDraft.wrangler?.draftGate, link });
+});
+await check('deploy (B15-b3): a publish ships no draft gate and reports no link', () => wrLive.wrangler?.draftGate === false && wrLive.code === 0 && !wrLive.last.body.gateReport?.link);
+const wrOpen = await wranglerRun({ exportMut: PREVIEW_JOB, cfg: { gateOff: true } }), wrStuck = await wranglerRun({ exportMut: PREVIEW_JOB, cfg: { gateOff: true, cf: { deleteStatus: 403 } } });
+const wrKeep = await wranglerRun({ exportMut: PREVIEW_JOB, cfg: { gateKeepsToken: true } }), wrServe = await wranglerRun({ exportMut: PREVIEW_JOB, cfg: { gateServesLink: true } }), deletes = (r) => r.log.cfCalls.filter((c) => c.method === 'DELETE' && c.path === `${CFP}/deployments/${DRAFT_DEPLOYMENT.id}`).length;   // this site's project, this deployment, by its uuid (R3)
+const wrNone = await wranglerRun({ exportMut: PREVIEW_JOB, cfg: { gateOff: true, cf: { pages: Array(5).fill([...NOT_THIS_DRAFT, ...Array(22).fill(NOT_THIS_DRAFT[0])]) } } }), wrTwo = await wranglerRun({ exportMut: PREVIEW_JOB, cfg: { gateOff: true, cf: { list: [DRAFT_DEPLOYMENT, { ...DRAFT_DEPLOYMENT, id: '1a2b3c4d-ffff-4fff-8fff-ffffffffffff' }] } } }), wrList = await wranglerRun({ exportMut: PREVIEW_JOB, cfg: { gateOff: true, cf: { listStatus: 500 } } });
+await check('smoke (B15-b3): a draft address that answers without its link fails the run, exit 1', () => wrOpen.code === 1 && same(wrOpen.states, ['gating', 'deploying', 'failed'])
+  && wrOpen.last.body.error.startsWith('deployed but smoke failed') && /without its signed link/.test(wrOpen.last.body.gateReport?.smoke ?? '') || `${wrOpen.code} ${JSON.stringify(wrOpen.states)}`);
+await check('smoke (B15-b3, R1): a signed link answered without a redirect, or redirected to an address that keeps the token, fails the run', () => wrKeep.code === 1 && /still holds the token/.test(wrKeep.last.body.gateReport?.smoke ?? '') && wrServe.code === 1 && /not a redirect/.test(wrServe.last.body.gateReport?.smoke ?? '') || `${wrKeep.code} ${wrKeep.last?.body?.gateReport?.smoke} ${wrServe.code} ${wrServe.last?.body?.gateReport?.smoke}`);
+await check('smoke (B15-b3, R2, R3): a failed draft is deleted by its uuid, found by its short id (the list read page by page, at most 4); a refused delete, no match, two matches or a failed list say so and name the address as still up', () => deletes(wrOpen) === 1 && deletes(wrStuck) === 1
+  && [wrNone, wrTwo, wrList].every((r) => r.code === 1 && r.log.cfCalls.every((c) => c.method !== 'DELETE')) && wrNone.log.cfCalls.filter((c) => c.method === 'GET' && c.path.endsWith('/deployments')).length === 4 && same([wrOpen, wrStuck, wrNone, wrTwo, wrList].map((r) => (r.last?.body?.error ?? '').replace('deployed but smoke failed; ', '')), ['the draft deployment 1a2b3c4d was deleted (HTTP 200, success true)', ...['deleting the draft deployment 1a2b3c4d failed (HTTP 403, success false, refused by the fake)', ...['it is not in the deployment list', '2 deployments match it', 'the deployment list answered HTTP 500, success false, refused by the fake'].map((why) => `the draft deployment 1a2b3c4d was not deleted (${why})`)].map((s) => `${s}: https://1a2b3c4d.test-site-demo-a.pages.dev is still up`)]) || JSON.stringify([wrOpen, wrStuck, wrNone, wrTwo, wrList].map((r) => r.last?.body?.error)));
 const wrFail = await wranglerRun({ mode: 'fail' });
 await check('deploy: wrangler exiting non-zero = callback failed "deploy failed" after deploying, exit 1, token scrubbed', () =>
   wrFail.code === 1 && same(wrFail.states, ['gating', 'deploying', 'failed']) && wrFail.last.body.error === 'deploy failed' && !wrFail.out.includes(CF_TOKEN) && !JSON.stringify(wrFail.last.body).includes(CF_TOKEN) || `${wrFail.code} ${JSON.stringify(wrFail.states)}`);

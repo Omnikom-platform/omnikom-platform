@@ -13,7 +13,7 @@
 // Exit 0 only after `done` was answered 2xx. A failed run exits 1 after its `failed` callback was answered. 2 = usage / environment.
 // Every line printed goes through the scrubber (secret values, the project ref and signed-URL tokens never reach a log).
 import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync, cpSync } from 'node:fs';
 import { dirname, join, resolve, sep, relative } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -41,6 +41,7 @@ const CF_API = env.RUNNER_CF_API_BASE || 'https://api.cloudflare.com/client/v4';
 // E8: Cloudflare's shapes, UNPROVEN against the real API (outside knowledge, no source in the repository): the project's live production deployment, and the call that makes a deployment live again.
 const liveDeploymentOf = (project) => (project && project.canonical_deployment && project.canonical_deployment.id) || null;
 const rollbackUrl = (target, id) => `${CF_API}/accounts/${CF_ACCOUNT}/pages/projects/${target}/deployments/${id}/rollback`;
+const deploymentsUrl = (target) => `${CF_API}/accounts/${CF_ACCOUNT}/pages/projects/${target}/deployments`;   // B15-b3 (R2, R3): the project's deployment list; one deployment is <this>/<its uuid>
 const scrub = makeScrubber([KEY, CF_TOKEN, CF_ACCOUNT, BASE], BASE || '');
 const out = (line) => console.log(scrub(line));
 const step = (name, result) => out(`STEP ${name}: ${result}`);
@@ -91,6 +92,28 @@ async function rollBack(target, previous) {
   const r = await fetch(rollbackUrl(target, previous), { method: 'POST', headers: { authorization: `Bearer ${CF_TOKEN}` }, signal: AbortSignal.timeout(30000) }).catch(() => null);
   const j = r ? await r.json().catch(() => null) : null;
   return r && r.status === 200 && j && j.success === true ? `rolled back to deployment ${previous}` : `the rollback to ${previous} failed (${r ? `HTTP ${r.status}` : 'no answer'}): the failed deployment stays live`;
+}
+
+// Book row B15-b3 (R2, R3): a draft whose smoke failed may be open to anyone: delete it by its uuid, never a guess. Its short id (wrangler's address) is looked up in the deployment list (pages of 25, at most 4, no order assumed, stopping at the first page that holds it); exactly one entry whose short_id is it AND whose id starts with it is deleted by that id; anything else deletes nothing and says so. Cloudflare's status, success and first error go into the failed job.
+async function deleteDraft(target, shortId, url) {
+  const call = (u, method) => fetch(u, { method, headers: { authorization: `Bearer ${CF_TOKEN}` }, signal: AbortSignal.timeout(30000) }).then(async (r) => ({ r, j: await r.json().catch(() => null) }), () => ({ r: null, j: null }));
+  const said = ({ r, j }) => (r ? `HTTP ${r.status}, success ${j ? j.success : 'unreadable'}${j && Array.isArray(j.errors) && j.errors[0] ? `, ${scrub(String(j.errors[0].message)).slice(0, 160)}` : ''}` : 'no answer'), left = (why) => `the draft deployment ${shortId} was not deleted (${why}): ${url} is still up`;
+  let hits = [];
+  for (let page = 1, n = 25; page <= 4 && !hits.length && n === 25; page++) {
+    const got = await call(`${deploymentsUrl(target)}?per_page=25&page=${page}`, 'GET'), list = got.r && got.r.ok && got.j && got.j.success === true && Array.isArray(got.j.result) ? got.j.result : null;
+    if (!list) return left(`the deployment list answered ${said(got)}`);
+    hits = list.filter((d) => d && d.short_id === shortId && typeof d.id === 'string' && d.id.startsWith(shortId)); n = list.length;
+  }
+  if (hits.length !== 1) return left(hits.length ? `${hits.length} deployments match it` : 'it is not in the deployment list');   // R3: no match or more than one is never a guess
+  const del = await call(`${deploymentsUrl(target)}/${hits[0].id}`, 'DELETE');
+  return del.r && del.r.ok && del.j && del.j.success === true ? `the draft deployment ${shortId} was deleted (${said(del)})` : `deleting the draft deployment ${shortId} failed (${said(del)}): ${url} is still up`;
+}
+
+// Book row B15-b3 (R1): a draft is asked as a visitor asks it: the signed link must answer 3xx with the cookie and an address holding no k; that address is asked with the cookie.
+async function viaLink(url, token, ask) {
+  const first = await ask(`${url}?k=${token}`, 'manual'), to = new URL(first.headers.get('location') || url, url), cookie = (first.headers.get('set-cookie') || '').split(';')[0];
+  if (first.status < 300 || first.status > 399) return { res: first, why: `the signed link answers HTTP ${first.status}, not a redirect` };
+  return to.searchParams.has('k') ? { res: first, why: 'the signed link redirects to an address that still holds the token' } : { res: await ask(to.href, 'follow', cookie), why: '' };
 }
 
 async function run() {
@@ -173,8 +196,9 @@ async function run() {
   // ---- 4 gating: the audit engine judges the built folder, independent of the factory's own gates
   await callback('gating');
   // one decision for the audit and the deploy: a site that is not live goes to the preview branch and is judged as a preview build (it must carry noindex), a live site goes to main and is judged as production (it must not)
-  const branch = exp.site.state !== 'live' ? 'preview' : 'main';
+  const branch = exp.job.preview === true ? 'draft' : exp.site.state !== 'live' ? 'preview' : 'main';   // book row B15: a preview build goes to draft, judged and smoked as a preview
   const auditTarget = branch === 'main' ? 'production' : 'preview';
+  const gate = branch === 'draft' && !opts['no-deploy'] ? { token: randomBytes(32).toString('hex'), until: Date.now() + 7 * 24 * 3600 * 1000 } : null;   // book row B15-b3: one signed link per preview job, 7 days
   // --summary prints one small versioned JSON object (tools/audit/summary.mjs, under 60 KiB); it is stored whole as gateReport.audit for a pass and a fail
   const a = runTool(process.execPath, [join(REPO, 'tools', 'audit', 'run.mjs'), dist, '--target', auditTarget, '--summary'], { timeoutMs: 180000, toolEnv: childEnv() });
   if (a.status === 2) throw new Stop('audit usage error', { factory: 'pass', audit: { exit: 2, lines: tail(a.text, 10) } });
@@ -224,6 +248,12 @@ async function run() {
     mkdirSync(root, { recursive: true });
     cpSync(join(REPO, 'factory', 'worker', 'pages-function-lead.js'), join(root, 'lead.js'));
     cpSync(join(REPO, 'factory', 'worker', 'lead-endpoint.mjs'), join(root, 'lead-endpoint.mjs'));
+    if (gate) {   // book row B15-b3: the draft gate runs before every request of this deployment; only the token's sha256 and end time ship
+      const fns = join(work, 'pages-root', 'functions');
+      cpSync(join(REPO, 'factory', 'worker', 'pages-function-draft-gate.js'), join(fns, '_middleware.js'));
+      cpSync(join(REPO, 'factory', 'worker', 'draft-gate.mjs'), join(fns, 'draft-gate.mjs'));
+      writeFileSync(join(fns, 'draft-gate-key.mjs'), `export const GATE = ${JSON.stringify({ sha256: createHash('sha256').update(gate.token).digest('hex'), until: gate.until })};\n`);
+    }
     const wargs = ['pages', 'deploy', dist, '--project-name', target, '--branch', branch, '--commit-dirty=true'];
     const [cmd, args] = process.env.RUNNER_WRANGLER_SCRIPT
       ? [process.execPath, [process.env.RUNNER_WRANGLER_SCRIPT, ...wargs]]
@@ -240,22 +270,26 @@ async function run() {
   step('deploying', `${branch} deployment ${deployId}${deployUrl ? ` at ${deployUrl}` : ' (local, nothing sent to Cloudflare)'}`);
 
   // ---- 6 smoke: the deployment's own address serves the bytes we built (sha256 of the home page); the fixed address answers 200, a preview says noindex, a live site does not, the page is the one we built
-  const isLive = exp.site.state === 'live';
-  const smokeUrl = opts['smoke-url'] || (isLive ? (exp.site.domain ? `https://${exp.site.domain}/` : `https://${target}.pages.dev/`) : `https://preview.${target}.pages.dev/`);
+  const isLive = branch === 'main';
+  const smokeUrl = opts['smoke-url'] || (isLive ? (exp.site.domain ? `https://${exp.site.domain}/` : `https://${target}.pages.dev/`) : `https://${branch}.${target}.pages.dev/`);
   const wantTitle = titleOf(readFileSync(join(dist, 'index.html'), 'utf8'));
   const wantHash = createHash('sha256').update(readFileSync(join(dist, 'index.html'))).digest('hex');
   const ownUrl = env.RUNNER_SMOKE_DEPLOY_URL || deployUrl;   // the deployment's own address (a test hook stands in for it)
+  const ask = (u, redirect = 'follow', cookie = '') => fetch(u, { redirect, headers: { 'cache-control': 'no-cache', ...(cookie ? { cookie } : {}) }, signal: AbortSignal.timeout(15000) });
   const tries = Number(opts['smoke-tries'] || 6), gap = Number(opts['smoke-interval-ms'] || 10000);
   let smokeWhy = 'never answered';
   let smokeOk = false;
   for (let n = 1; n <= tries && !smokeOk; n++) {
     try {
-      const res = await fetch(smokeUrl, { redirect: 'follow', headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(15000) });
+      const a = gate ? await viaLink(smokeUrl, gate.token, ask) : { res: await ask(smokeUrl), why: '' }, res = a.res;   // book row B15-b3: a draft through its signed link
       const body = await res.text();
-      const own = await fetch(ownUrl, { redirect: 'follow', headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(15000) });
+      const b = gate ? await viaLink(ownUrl, gate.token, ask) : { res: await ask(ownUrl), why: '' }, own = b.res;
       const ownHash = createHash('sha256').update(Buffer.from(await own.arrayBuffer())).digest('hex');
       const robots = res.headers.get('x-robots-tag') || '';
-      if (res.status !== 200) smokeWhy = `HTTP ${res.status}`;
+      const bare = gate ? (await ask(smokeUrl, 'manual')).status : 404;   // book row B15-b3: without the link, a plain 404
+      if (bare !== 404) smokeWhy = `the draft address answers HTTP ${bare} without its signed link`;
+      else if (a.why || b.why) smokeWhy = a.why || b.why;
+      else if (res.status !== 200) smokeWhy = `HTTP ${res.status}`;
       else if (!isLive && !/noindex/i.test(robots)) smokeWhy = 'a preview must answer x-robots-tag noindex';
       else if (isLive && /noindex/i.test(robots)) smokeWhy = 'a live site answered x-robots-tag noindex';
       else if (wantTitle === null || !body.includes(`<title>${wantTitle}</title>`)) smokeWhy = 'the page is not the one that was built (title differs)';
@@ -265,11 +299,11 @@ async function run() {
     out(`  smoke ${n} of ${tries}: ${smokeOk ? 'ok' : smokeWhy}`);
     if (!smokeOk && n < tries) await new Promise((r) => setTimeout(r, gap));
   }
-  if (!smokeOk) throw new Stop(`deployed but smoke failed${branch === 'main' && !opts['no-deploy'] ? `; ${await rollBack(target, previous)}` : ''}`, { ...gateReport, deployId, deployUrl, smoke: smokeWhy });
-  step('smoke', `${smokeUrl} answers 200${isLive ? '' : ' with noindex'}, title and content hash match`);
+  if (!smokeOk) throw new Stop(`deployed but smoke failed${branch === 'main' && !opts['no-deploy'] ? `; ${await rollBack(target, previous)}` : gate ? `; ${await deleteDraft(target, deployId, deployUrl)}` : ''}`, { ...gateReport, deployId, deployUrl, smoke: smokeWhy });
+  step('smoke', `${smokeUrl} answers 200${isLive ? '' : ' with noindex'}, title and content hash match${gate ? ', its link a redirect, 404 without it' : ''}`);
 
   // ---- 7 done
-  await callback('done', { deployId, gateReport });
+  await callback('done', { deployId, gateReport: gate ? { ...gateReport, link: { k: gate.token, until: new Date(gate.until).toISOString() } } : gateReport });
   step('done', `deploy ${deployId}`);
 }
 

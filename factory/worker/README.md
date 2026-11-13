@@ -32,3 +32,10 @@ Prove it: `node factory/worker/test/run.mjs` (the signature is verified with the
 
 UNPROVEN until step 6 runs: the path string `capture-lead` sees on Supabase equals the signed `/capture-lead?site=<id>`
 (`pathForSignature` strips a `/functions/v1` prefix); Pages Functions importing `./lead-endpoint.mjs`; the Resend sender.
+
+## The draft gate (book row B15-b3)
+`draft-gate.mjs` locks a preview build's deployment: the signed link (`?k=<token>` whose sha256 is the build's, before its end time) gets the
+cookie `omk_draft` and a 302 to the same address without `k` (the other query parts kept, never another site); that cookie before the end time
+opens every page; anything else is a plain 404 "Not found", noindex. The runner (`factory/runner/publish.mjs`) stages it for a preview build
+only: `pages-function-draft-gate.js` as `functions/_middleware.js`, `draft-gate.mjs` beside it, and a written `draft-gate-key.mjs` that holds
+only the token's sha256 and end time. Prove it: `node factory/worker/test/run.mjs` and `node factory/worker/test/mutate.mjs`.
