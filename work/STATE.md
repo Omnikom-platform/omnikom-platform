@@ -1,12 +1,12 @@
 # Where things stand
 
-Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 8. Every feature's
+Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 9. Every feature's
 state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (rewritten for the method below with this
 batch). Getting back in: `resume\RESUME.md`.
 
 ## Now
 - Product: 77 of 97 rows WORK, 19 PARTLY, 1 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
-  17, 5, 1 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 9, 12, 0 of 21.
+  16, 6, 1 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 10, 11, 0 of 21.
 - The order (owner, 2026-11-13): the owed proof runs first, then one build job at a time: 7 rows to build (B18, B24, B25,
   C11's request, E5's limit at the edge, E12's rest, E13) and the faults the proof runs found (B12, B15; below).
 - The platform build is open (owner, 2026-11-12); the refactor of how we work is closed at what is built. One head of
@@ -14,14 +14,14 @@ batch). Getting back in: `resume\RESUME.md`.
   and its done-test, a fresh cross-check of the hand-over against the tree, the test first and seen red, the least code, one
   builder in the slice's own worktree who only stages, the head's own intake and commit, one landing per batch by
   `omnikom land` on a tree that passed CI. A row is WORKS only on proof seen on staging; until then its cell says UNPROVEN.
-- A second lane runs beside the build for the search audits (its own session, the same machine lock, the same landing
-  command); product lands first.
+- A second lane runs beside the build for the search audits (own session, same lock, same landing); product lands first.
 
 ## Landed since the build reopened (owner, 2026-11-12)
 - CRM (A15, A16, A21, A22): bulk owner and delete, the business's own types and statuses, export in a saved layout, import.
 - Dashboard: the Overview (B20, B21), sign-in from a real inbox (B1), restore (B8), invites (B17), delete an item and take
   it off the site (B12, part), a photo to the published site (B13, C8), past publishes (B11), the instant frame and the
-  preview site (B15, part), the media library with replace and delete (B14), Search health (B24, part).
+  preview site (B15, part), the media library with replace and delete (B14), Search health (B24, part); this batch: a
+  failed check is read line by line in the publish sheet; a search text under its minimum is refused at publish (B10, B9).
 - Backend and hardening: the mail outbox (E4), lead limits and the hold at the site's endpoint (E5), bounces (E21), request
   ids and hourly alerts (E3), plan limits (E16), the pooler (E6), headers (E7), publish smoke and rollback (E8), the
   workflow-only token path (E9), retention, purge and growth budgets (E12, migration 46), rich text (E18), staff windows
@@ -30,17 +30,17 @@ batch). Getting back in: `resume\RESUME.md`.
   staging walls read only the run's own rows; the search audit's tool (the audit lane's four landings).
 
 ## Not landed
-- Nothing is committed and waiting. Three faults found by the proof runs, each needing a hand-over before it is built:
-  an SEO title under 20 characters is accepted at save and publish, fails the runner's audit, and the sheet does not show
-  why; a page taken off the site stays reachable at its old address through Cloudflare's edge (B12); a failed draft is not
-  removed, Cloudflare refuses the delete without `force=true` (B15).
+- Nothing is committed and waiting. Faults found by the proof runs, each needing a hand-over before it is built: a page
+  taken off the site stays reachable at its old address through Cloudflare's edge (B12); a failed draft is not removed,
+  Cloudflare refuses the delete without `force=true` (B15); the staging walls stop in T32 on a storage delete; the restore
+  drill fails its walls phase, the restored database has no Vault (E1).
 
 ## Staging (the test project), 2026-11-13
-- Migrations through 45 applied in number order; 32 functions deployed from master 0eeef26; the screens' end-to-end
-  script passes; the flows of the media library (B14, all), the preview site (B15) and the earlier ones passed and went
-  red with their seeded faults; the 22 Auth settings set and read back (E11).
-- Owed, each by the head's run sheet: migration 46; E4's inbox read; E16's limits; E3's alerts; E5's hold; E8's sheet;
-  E1's drill (its workflow, by hand); the walls on staging after this batch (they stopped at T20 on four old rows).
+- Migrations through 46 applied in number order; 32 functions deployed from master 0eeef26 (the dashboard there is older
+  than master); the flows of the media library (B14), the preview site (B15) and the earlier ones passed and went red with
+  their seeded faults; the 22 Auth settings read back (E11); E4's alert read in the test inbox, its link opens the lead.
+- Owed, each by the head's run sheet: this batch (three functions, the dashboard, the flow of B10 and B9 with its two
+  reds); E5's posts at the site's endpoint; E16's limits; E3's alerts (an owner item first); the walls past T32.
 
 ## Migrations
 - A migration that has not landed takes the next free number above every file in the tree when it is built, and lands in
@@ -55,7 +55,7 @@ batch). Getting back in: `resume\RESUME.md`.
 ## Clients
 - Each client's profile and go-live sheet are under `clients/<slug>/`. Both domain switches wait only for the owner's green
   light; nothing is changed at a client's own domain, registrar or DNS before it, and no mail goes to a client from us.
-- The newest client's search audit runs in the audit lane (files in that client's git-ignored `private` folder; not final).
+- The newest client's search audit is a finished draft (that client's git-ignored `private` folder); it lacks a contact line.
 
 ## Machine
 - One lock for every heavy local run (`~/.claude/scripts/heavy.mjs`); a run that waited the lock out is UNPROVEN, not a
