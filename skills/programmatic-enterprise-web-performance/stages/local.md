@@ -51,6 +51,9 @@ no primary category · no secondary categories · no services · no description 
 under 80% of reviews answered · no review in 90 days · and, with competitor captures: categories competitors use that we do not,
 fewer photos / reviews / lower rating than the competitor median. Each comparison number is a sourced number naming the captures.
 Fix wording is plain ("add the categories the top pack businesses use") and never promises a rank.
+In a manual capture the secondary categories, the services or the description that were not read are written null (or left out):
+the check of each is listed BLOCKED with what unblocks it; an empty list or an empty text means the listing was read and shows
+none, and gives the finding.
 
 ## 2. Map pack per city and device (`local-pack.mjs`)
 Our position in the pack for each query, city and device (null when we are not in it, with the pack size), sourced as an owner

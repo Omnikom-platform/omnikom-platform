@@ -12,6 +12,7 @@ import { isMain } from "./lib-main.mjs";
 import { fact } from "./measure-sources.mjs";
 
 export const MANUAL_EXAMPLE = { kind: "manual-capture", capturedAt: "2026-10-20", capturedBy: "owner, Chrome, public Maps listing", name: "", primaryCategory: "Real estate agent", secondaryCategories: [], services: [], address: "", phone: "", website: "", hours: "present|missing", description: "", photosCount: 0, postsLast90d: 0, reviews: { count: 0, rating: 0, lastReviewDate: "2026-10-01", ownerReplyRate: 0.0 } };
+// In a manual capture null (or a key left out) means NOT READ for secondaryCategories, services and description: no finding, a BLOCKED check. [] or "" means read and empty: the finding.
 const STARS = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 };
 
 export function importProfile(j, { file = null } = {}) {
@@ -19,8 +20,8 @@ export function importProfile(j, { file = null } = {}) {
   if (j.kind === "manual-capture" || (!j.location && j.name)) {
     if (!j.capturedAt) return blocked("business-profile", "the manual capture has no capturedAt date", "Add the date the listing was read: a capture without a date is not evidence.");
     const r = j.reviews || {};
-    return { ok: true, source: "manual capture", capturedAt: j.capturedAt, capturedBy: j.capturedBy || null, file, name: j.name || null, primaryCategory: j.primaryCategory || null, secondaryCategories: j.secondaryCategories || [], services: j.services || [], address: j.address || null, phone: j.phone || null, website: j.website || null,
-      hours: j.hours === "missing" ? false : j.hours ? true : null, serviceAreas: j.serviceAreas || [], description: j.description || null, photosCount: j.photosCount ?? null, postsLast90d: j.postsLast90d ?? null,
+    return { ok: true, source: "manual capture", capturedAt: j.capturedAt, capturedBy: j.capturedBy || null, file, name: j.name || null, primaryCategory: j.primaryCategory || null, secondaryCategories: Array.isArray(j.secondaryCategories) ? j.secondaryCategories : null, services: Array.isArray(j.services) ? j.services : null, address: j.address || null, phone: j.phone || null, website: j.website || null,
+      hours: j.hours === "missing" ? false : j.hours ? true : null, serviceAreas: j.serviceAreas || [], description: typeof j.description === "string" ? j.description : null, photosCount: j.photosCount ?? null, postsLast90d: j.postsLast90d ?? null,
       reviews: { count: r.count ?? null, rating: r.rating ?? null, lastReviewDate: r.lastReviewDate || null, ownerReplyRate: r.ownerReplyRate ?? null, last90d: r.last90d ?? null } };
   }
   const L = j.location || {}; const cats = L.categories || {};
@@ -34,7 +35,7 @@ export function importProfile(j, { file = null } = {}) {
   return { ok: true, source: "Business Profile API export (owner)", capturedAt: String(when).slice(0, 10), file, name: L.title || null, primaryCategory: cats.primaryCategory?.displayName || null,
     secondaryCategories: (cats.additionalCategories || []).map((c) => c.displayName).filter(Boolean), services: (L.serviceItems || []).map((s) => s.structuredServiceItem?.description || s.freeFormServiceItem?.label?.displayName).filter(Boolean),
     address: addr, phone: L.phoneNumbers?.primaryPhone || null, website: L.websiteUri || null, hours: L.regularHours?.periods ? L.regularHours.periods.length > 0 : null,
-    serviceAreas: (L.serviceArea?.places?.placeInfos || []).map((p) => p.placeName).filter(Boolean), description: L.profile?.description || null,
+    serviceAreas: (L.serviceArea?.places?.placeInfos || []).map((p) => p.placeName).filter(Boolean), description: L.profile?.description || "",
     photosCount: j.media?.totalMediaItemCount ?? (j.media?.mediaItems ? j.media.mediaItems.length : null),
     postsLast90d: j.localPosts?.localPosts ? j.localPosts.localPosts.filter((p) => Date.parse(p.createTime) >= cutoff).length : null,
     reviews: { count: j.reviews?.totalReviewCount ?? (revs.length || null), rating: j.reviews?.averageRating ?? (revs.length ? revs.reduce((n, r) => n + (STARS[r.starRating] || 0), 0) / revs.length : null), lastReviewDate: dates.length ? dates.at(-1).slice(0, 10) : null,
@@ -50,9 +51,11 @@ export function auditProfile(p, competitors = [], { now = new Date() } = {}) {
   const add = (id, title, detail, evidence, fix) => f.push({ id, severity: "W", title, detail, evidence, fix });
   const src = (v, extra = {}) => fact(v, `${p.source}, ${p.capturedAt}`, p.capturedAt, p.file, extra);
   if (!p.primaryCategory) add("LOC-P01", "No primary category", "The Business Profile has no primary category, the strongest single signal for which searches it appears in.", { primaryCategory: src(null) }, "Pick the category that matches what customers search (check which one the top local-pack competitors use).");
-  if (!p.secondaryCategories?.length) add("LOC-P02", "No secondary categories", "Only one category is set; secondary categories widen the searches the listing can appear in.", { secondaryCategories: src(0) }, "Add the secondary categories competitors in the pack use.");
-  if (!p.services?.length) add("LOC-P03", "No services listed", "The profile lists no services.", { services: src(0) }, "List each service with a short description.");
-  if (!p.description) add("LOC-P04", "No business description", "The profile has no description.", { description: src(null) }, "Write a 750-character description with the service area and what is offered.");
+  const UNREAD = "Give the owner's Business Profile export (it holds the categories, the services and the description). The public listing never shows secondary categories; the services and the description can also be read on the listing's other tabs and saved in the capture: an empty list or an empty text when the listing shows none.";
+  const notRead = (id, what) => blockedChecks.push({ id, source: p.source, reason: `${what} not read: the capture holds no value for it (null), so nothing is concluded`, unblock: UNREAD });
+  if (p.secondaryCategories == null) notRead("LOC-P02", "secondary categories"); else if (!p.secondaryCategories?.length) add("LOC-P02", "No secondary categories", "Only one category is set; secondary categories widen the searches the listing can appear in.", { secondaryCategories: src(0) }, "Add the secondary categories competitors in the pack use.");
+  if (p.services == null) notRead("LOC-P03", "services"); else if (!p.services?.length) add("LOC-P03", "No services listed", "The profile lists no services.", { services: src(0) }, "List each service with a short description.");
+  if (p.description == null) notRead("LOC-P04", "description"); else if (!p.description) add("LOC-P04", "No business description", "The profile has no description.", { description: src(null) }, "Write a 750-character description with the service area and what is offered.");
   if (p.hours === false) add("LOC-P05", "No opening hours", "No hours are set.", { hours: src(false) }, "Set hours (or appointment-only) so the listing is not shown as unverified.");
   if (!p.website) add("LOC-P06", "No website link", "The profile has no website.", { website: src(null) }, "Link the profile to the location landing page, not only the homepage.");
   if (p.postsLast90d === 0) add("LOC-P07", "No post in the last 90 days", "No Business Profile post was made in 90 days.", { posts: src(0, { windowDays: 90 }) }, "Post an update or offer at least monthly.");
@@ -62,9 +65,12 @@ export function auditProfile(p, competitors = [], { now = new Date() } = {}) {
   else {
     const cs = (v, extra = {}) => fact(v, `owner browser captures of ${competitors.length} competitor listing(s)`, competitors.map((c) => c.capturedAt).filter(Boolean).sort().at(-1) || null, competitors.map((c) => c.file).join("; "), extra);
     const used = new Set(competitors.flatMap((c) => [c.primaryCategory, ...c.secondaryCategories]).filter(Boolean));
-    const mine = new Set([p.primaryCategory, ...p.secondaryCategories].filter(Boolean).map((x) => x.toLowerCase()));
-    const missingCats = [...used].filter((c) => !mine.has(c.toLowerCase()));
-    if (missingCats.length) add("LOC-P10", "Categories competitors use that we do not", `Competitors use: ${missingCats.join(", ")}.`, { missing: missingCats, competitorsChecked: cs(competitors.length) }, "Add the ones that truly describe the business.");
+    if (p.secondaryCategories == null) blockedChecks.push({ id: "LOC-P10", source: p.source, reason: "our own secondary categories were not read, so the categories competitors use cannot be compared with ours", unblock: UNREAD });
+    else {
+      const mine = new Set([p.primaryCategory, ...(p.secondaryCategories || [])].filter(Boolean).map((x) => x.toLowerCase()));
+      const missingCats = [...used].filter((c) => !mine.has(c.toLowerCase()));
+      if (missingCats.length) add("LOC-P10", "Categories competitors use that we do not", `Competitors use: ${missingCats.join(", ")}.`, { missing: missingCats, competitorsChecked: cs(competitors.length) }, "Add the ones that truly describe the business.");
+    }
     const mp = median(competitors.map((c) => c.photosCount)); if (mp != null && p.photosCount != null && p.photosCount < mp) add("LOC-P11", "Fewer photos than competitors", `${p.photosCount} photos against a competitor median of ${mp}.`, { ours: src(p.photosCount), competitorMedian: cs(mp) }, "Add real photos: storefront, team, work, interior.");
     const mr = median(competitors.map((c) => c.reviewCount)); if (mr != null && p.reviews.count != null && p.reviews.count < mr) add("LOC-P12", "Fewer reviews than competitors", `${p.reviews.count} reviews against a competitor median of ${mr}.`, { ours: src(p.reviews.count), competitorMedian: cs(mr) }, "A steady review request routine closes this over months.");
     const mt = median(competitors.map((c) => c.rating)); if (mt != null && p.reviews.rating != null && p.reviews.rating < mt - 0.2) add("LOC-P13", "Lower rating than competitors", `${p.reviews.rating.toFixed(1)} against a competitor median of ${mt.toFixed(1)}.`, { ours: src(p.reviews.rating), competitorMedian: cs(mt) }, "Look at the low-rated reviews for a pattern; reply and fix the cause.");
