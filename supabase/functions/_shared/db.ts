@@ -110,6 +110,7 @@ export function refusal(message: string): Refusal | null {
   if (has('I-UNKNOWN')) return { status: 400, code: 'I-UNKNOWN', kind: null, msg: 'This lead has no such field.' };
   if (has('S-CONSENT')) return { status: 403, code: 'S-CONSENT', kind: 'refused', msg: 'The consent record cannot be changed.' };
   if (has('S-CONFIRM')) return { status: 409, code: 'S-CONFIRM', kind: null, msg: 'Deleting leads needs the confirm step.' };
+  if (has('S-MEDIA-IN-USE')) return { status: 409, code: 'S-MEDIA-IN-USE', kind: null, msg: 'Replace this file where it is used first; then it can be deleted.' };
   if (has('S-QUERY')) return { status: 422, code: 'S-QUERY', kind: null, msg: 'Sort and filter on the list\'s columns only; send 1 to 500 leads, at most 200 a page.' };
   return null;
 }

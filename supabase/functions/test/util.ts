@@ -84,11 +84,12 @@ export async function securityEvents(where: { actor?: string; code?: string; kin
 
 // ---------- the fake outside services ----------
 export const fake = {
-  async recorded(): Promise<{ github: { path: string; token: string; authorized: boolean; accept: string; body: { ref?: string; inputs?: Record<string, unknown>; event_type?: string; client_payload?: Record<string, unknown> } | null }[]; storage: { path: string; authorized: boolean }[] }> {
+  async recorded(): Promise<{ github: { path: string; token: string; authorized: boolean; accept: string; body: { ref?: string; inputs?: Record<string, unknown>; event_type?: string; client_payload?: Record<string, unknown> } | null }[]; storage: { path: string; authorized: boolean }[]; removed: { prefixes: string[] | null; authorized: boolean }[] }> {
     return await (await fetch(`${env('TEST_FAKE_BASE')}/__recorded`)).json();
   },
   async reset() { await (await fetch(`${env('TEST_FAKE_BASE')}/__reset`, { method: 'POST' })).text(); },
   async githubStatus(code: number) { await (await fetch(`${env('TEST_FAKE_BASE')}/__github-status?code=${code}`, { method: 'POST' })).text(); },
+  async removeStatus(code: number, delay = 0) { await (await fetch(env('TEST_FAKE_BASE') + '/__remove-status?code=' + code + '&delay=' + delay, { method: 'POST' })).text(); },
 };
 
 /** What the fake CRM webhook and the fake Auth admin API recorded (slice 5.2). */
