@@ -3201,7 +3201,7 @@ do $$ begin
 end $$;
 select test.expect_error($q$select test.set_workspace_state('bbbbbbbb-0000-0000-0000-000000000000', 'deleted')$q$, 'S-WORKSPACE-STORAGE');
 reset role;
-delete from storage.objects where bucket_id = 'media' and name like 'bbbbbbbb-0000-0000-0000-000000000000/%';
+set local storage.allow_delete_query = 'true'; delete from storage.objects where bucket_id = 'media' and name like 'bbbbbbbb-0000-0000-0000-000000000000/%'; reset storage.allow_delete_query;   -- the hosted Supabase project refuses a direct delete of storage rows unless this setting is true (trigger storage.protect_delete, read on staging 2026-11-13); it is on for this one statement only; the local database has no such trigger, there it changes nothing
 set role authenticated;
 select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
 select test.expect_error($q$select test.set_workspace_state('bbbbbbbb-0000-0000-0000-000000000000', 'deleted')$q$, 'S-WORKSPACE-KEYS');
