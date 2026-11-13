@@ -3926,6 +3926,90 @@
     }
    }
   },
+  "/media-manage": {
+   "post": {
+    "operationId": "mediaManage",
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "summary": "Replace a file everywhere it is used, or delete one nothing uses (dashboard; supabase/functions/media-manage)",
+    "description": "Migration 44 service.replace_media and service.delete_media: the owner or Omnikom staff of the file's workspace, the new file of the same workspace; anyone else, a member too, 404 S-NOT-FOUND. Replace gives every item whose newest version uses the file a new version, after the save's own checks on each (save/index.ts RowValidator, draft mode): a problem is 422 VALIDATION, each with its row, and nothing changes; the old file stays in the library, unused. Delete is 409 S-MEDIA-IN-USE while an item's newest or live version, or a running publish, uses the file; otherwise the record's delete and Storage's removal of the original and its three sizes are one act: the delete commits only after Storage removed them within 10 s; when Storage refuses or does not answer, nothing is changed (502 STORAGE). No Storage key: 500 CONFIG.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "media",
+         "action"
+        ],
+        "properties": {
+         "media": {
+          "type": "string",
+          "format": "uuid"
+         },
+         "action": {
+          "type": "string",
+          "enum": [
+           "replace",
+           "delete"
+          ]
+         },
+         "with": {
+          "type": "string",
+          "format": "uuid",
+          "description": "the new file; needed for replace"
+         }
+        }
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "replace: { versions }; delete: { deleted: true }",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "400": {
+      "$ref": "#/components/responses/Invalid"
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     },
+     "404": {
+      "$ref": "#/components/responses/NotFound"
+     },
+     "409": {
+      "$ref": "#/components/responses/Conflict"
+     },
+     "422": {
+      "$ref": "#/components/responses/Invalid"
+     },
+     "500": {
+      "$ref": "#/components/responses/ServerError"
+     },
+     "502": {
+      "description": "STORAGE: Storage refused the removal or did not answer within 10 s; nothing was changed, the record stays: Nothing was changed. Try again.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Problem"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/view-delete": {
    "post": {
     "operationId": "viewDelete",

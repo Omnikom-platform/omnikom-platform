@@ -15,6 +15,9 @@ verify_jwt = true            # dashboard user
 [functions.upload-finish]
 verify_jwt = true            # dashboard user
 
+[functions.media-manage]
+verify_jwt = true            # dashboard user (book row B14: the media library's replace and delete)
+
 [functions.export-published]
 verify_jwt = false           # build runner: verifies X-Runner-Signature in code (supabase/functions/_shared/signature.ts)
 
