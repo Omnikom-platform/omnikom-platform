@@ -45,3 +45,12 @@ export function mutantListProblems({ MUTANTS, PORT_MUTANTS, PORT_HARNESS_FILES, 
 
 // After the run: a run in which no mutant ran is never a pass (an --only that matches no name included).
 export const noneRanProblem = (ran, only) => (ran > 0 ? null : `no mutant ran${only ? ` (--only "${only}" matches no mutant name)` : ''}`);
+
+// run-local.mjs --psql-timeout-s <n> (E13-a: the scale run needs more than 120 s in one psql call): each psql call's limit in ms. Without the
+// option 120 s, as before; n is 1 to 3600 seconds written in digits; anything else is null, a usage error.
+export const psqlTimeoutMs = argv => {
+  const i = argv.indexOf('--psql-timeout-s');
+  if (i < 0) return 120000;
+  const v = argv[i + 1] ?? '';
+  return /^[0-9]{1,4}$/.test(v) && Number(v) >= 1 && Number(v) <= 3600 ? Number(v) * 1000 : null;
+};

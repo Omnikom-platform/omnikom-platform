@@ -113,7 +113,8 @@ Rules of the pipeline:
 `upload-start` gives a signed URL; `upload-finish` records the row and dispatches `media.yml`. The runner downloads the
 original, strips EXIF and GPS, writes WebP at 2400, 1600 and 800 px with `sharp`, and calls `media-process-callback`. Publish
 refuses a photo with no alt text, below the slot's minimum width, without the rights tick, or not processed. The bucket is
-private; a build copies only the media a snapshot row uses.
+private; a build copies only the media a snapshot row uses. The runner still receives, signs and downloads every processed photo
+of the workspace (`export-published`, `factory/runner/publish.mjs` step 2), so a publish slows as the library grows (H2-2).
 
 ## GitHub Actions workflows
 

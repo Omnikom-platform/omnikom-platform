@@ -1,5 +1,5 @@
 // Run the migration and the tenancy tests on a throwaway local Postgres cluster (no Supabase account needed).
-//   node supabase/tests/run-local.mjs [--keep] [--shim <file>] [--only <mutant name substring>] [--tests <sql file>]
+//   node supabase/tests/run-local.mjs [--keep] [--shim <file>] [--only <mutant name substring>] [--tests <sql file>] [--psql-timeout-s <n>]
 // Needs initdb/pg_ctl/psql on PATH (Postgres 15+). The shim (default local-shim.sql) models Supabase's defaults.
 // Then runs each MUTANT (one wall removed from a copy of the migration) and requires the tests to fail: a wall whose
 // mutant passes has no test. Exit 0 = tests pass on the real migration AND every mutant is caught.
@@ -14,7 +14,7 @@ import { guardedTemp, sweep } from '../../tools/proc-guard/index.mjs';
 // 5-PORT: the port block, the listen pin and the bind fallback live in one module for every test cluster
 import { startOnBlock } from './lib/cluster-port.mjs';
 // a mutant that can never run (a missing comma, an entry in the wrong list) and a run of none are FAILs, never a quiet green
-import { mutantListProblems, noneRanProblem } from './lib/mutant-lists.mjs';
+import { mutantListProblems, noneRanProblem, psqlTimeoutMs } from './lib/mutant-lists.mjs';
 // a failing real migration is named (file, line, the whole database error) on the last lines, the only ones CI keeps
 import { whereFailed, failedLine } from './lib/real-failure.mjs';
 
@@ -24,6 +24,8 @@ const MIGRATIONS_DIR = resolve(HERE, '..', 'migrations');   // every migration, 
 const SHIM = arg('--shim') ? resolve(arg('--shim')) : join(HERE, 'local-shim.sql');
 const ONLY = arg('--only');
 const TESTS = arg('--tests') ? resolve(arg('--tests')) : join(HERE, 'tenancy.test.sql');   // --tests: another SQL file (crm-scale.sql, work order 01)
+const PSQL_MS = psqlTimeoutMs(process.argv);   // --psql-timeout-s <n>: each psql call's limit (E13-a's scale run passes 600); without it 120 s
+if (PSQL_MS === null) { console.error('usage: --psql-timeout-s takes 1 to 3600 seconds in digits; nothing was run'); process.exit(2); }
 let PORT;   // set once the cluster is up: a port of this harness's block (lib/cluster-port.mjs)
 const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 120000, ...opts });
 
@@ -39,7 +41,7 @@ const guard = guardedTemp('omnikom-pg-', 'cluster', { label: 'run-local' });
 const dir = guard.dir;
 const data = join(dir, 'data');
 // Starting the cluster gets 10 minutes: on 2026-10-31 a bare initdb took 123 s on the loaded laptop and the 120 s limit killed the
-// whole wall gate before a single test ran (combined 5.1/6A/6B tree). The per-statement limit below stays 120 s.
+// whole wall gate before a single test ran (combined 5.1/6A/6B tree). The psql limit below stays 120 s unless --psql-timeout-s sets it.
 const START_MS = 600000;
 let r = run('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8'], { timeout: START_MS });
 if (r.status !== 0) { console.error('initdb failed:', r.stderr || r.error); process.exit(2); }
@@ -48,7 +50,7 @@ if (!started.ok) { console.error('pg_ctl start failed:', started.stderr, started
 PORT = String(started.port);
 for (const [n, t] of [['shim.sql', shimText], ['tests.sql', testText]]) writeFileSync(join(dir, n), t);
 
-const psql = (db, file) => run('psql', ['-h', '127.0.0.1', '-p', PORT, '-U', 'postgres', '-d', db, '-v', 'ON_ERROR_STOP=1', '-q', '-f', file]);
+const psql = (db, file) => run('psql', ['-h', '127.0.0.1', '-p', PORT, '-U', 'postgres', '-d', db, '-v', 'ON_ERROR_STOP=1', '-q', '-f', file], { timeout: PSQL_MS });
 const sqlOn = (db, cmd) => run('psql', ['-h', '127.0.0.1', '-p', PORT, '-U', 'postgres', '-d', db, '-q', '-t', '-A', '-c', cmd]);
 // A child that could not run at all (spawn error, timeout) has null output: say why instead of crashing on null.
 const outOf = x => `${x.stdout ?? ''}${x.stderr ?? ''}${x.error ? `\n(${x.error.code || x.error.message})` : ''}`.trim();

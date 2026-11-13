@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 918,
+    "sources": 919,
     "unowned": 0
   },
   "files": [
@@ -20,7 +20,7 @@
     {"path":"apps/dashboard/src/api.ts","owner":"platform-build","exports":["BulkAction","Draft","Exported","ImportCall","ItemSave","LeadChange","NewLead","Published","ViewSave","addLead","addTask","bulkLeads","deleteItem","deleteView","exportLeads","fetchDrafts","fetchSiteAudit","fetchTeamList","importLeads","inviteMember","listLeads","manageMedia","markTask","proposeMap","publishRows","putFile","removeMember","saveAlerts","saveItem","saveTemplate","saveView","setOnSite","startPreview","updateLead","uploadFinish","uploadStart"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/auth.tsx","owner":"platform-build","exports":["SessionProvider","safeNext","useSession"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/config.ts","owner":"platform-build","exports":["config"],"tests":[],"feature":""},
-    {"path":"apps/dashboard/src/data.ts","owner":"platform-build","exports":["ContentRow","LiveState","Me","MediaFile","MediaRow","Membership","PreviewJob","Role","RowVersion","Site","SiteAlerts","Team","Template","VersionSign","Workspace","everListed","fetchFrameMedia","fetchSnapshot","fetchVersions","fetchVersionsAt","useContract","useContractForms","useDrafts","useEvents","useEventsLive","useFilterCounts","useJobs","useLead","useLeadColumns","useLeadList","useLeads","useLeadsLive","useMe","useMedia","useMediaFiles","useMemberships","usePreviewJob","useReadIds","useRows","useSignedUrl","useSiteAlerts","useSites","useStaffAal","useTasks","useTeam","useTeamList","useTemplates","useVersions","useViews","useWorkspace"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
+    {"path":"apps/dashboard/src/data.ts","owner":"platform-build","exports":["ContentRow","LiveState","Me","MediaFile","MediaRow","Membership","PreviewJob","Role","RowVersion","Site","SiteAlerts","Team","Template","VersionSign","Workspace","everListed","fetchFrameMedia","fetchSnapshot","fetchVersions","fetchVersionsAt","useContract","useContractForms","useDrafts","useEvents","useEventsLive","useFilterCounts","useJobs","useLead","useLeadColumns","useLeadList","useLeads","useLeadsLive","useMe","useMedia","useMediaFiles","useMemberships","usePreviewJob","useReadIds","useRows","useSignedUrl","useSiteAlerts","useSites","useStaffAal","useTasks","useTeam","useTeamList","useTemplates","useVersions","useViews","useWorkspace"],"tests":["apps/dashboard/tests/plan-gate.test.mjs","supabase/tests/crm-scale.sql"],"feature":""},
     {"path":"apps/dashboard/src/hooks.ts","owner":"platform-build","exports":["useWide"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/leads-view.ts","owner":"platform-build","exports":["EXPORT_CAPPED","EXPORT_FAILED","LeadsViewContext","LeadsViewValue","saveFile","useExporter","useLeadsView"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/crm.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
@@ -390,7 +390,7 @@
     {"path":"supabase/functions/export-published/index.ts","owner":"platform-build","exports":["SIGN_AT_ONCE","handle"],"tests":["supabase/functions/test/mutate.mjs","supabase/functions/test/runner.test.ts"],"feature":""},
     {"path":"supabase/functions/invite-member/index.ts","owner":"platform-build","exports":["AdminDeps","handle","makeHandle"],"tests":["supabase/functions/test/cors.test.ts","supabase/functions/test/invite.test.ts","supabase/functions/test/local-serve.ts","supabase/functions/test/mutate.mjs"],"feature":""},
     {"path":"supabase/functions/job-callback/index.ts","owner":"platform-build","exports":["MAX_REPORT","STATES","handle"],"tests":["supabase/functions/test/metrics.test.ts","supabase/functions/test/mutate.mjs","supabase/functions/test/runner.test.ts"],"feature":""},
-    {"path":"supabase/functions/lead-export/index.ts","owner":"platform-build","exports":["MAX_ROWS","PAGE","handle","makeHandle","plain"],"tests":["supabase/functions/test/cors.test.ts","supabase/functions/test/export.test.ts","supabase/functions/test/import.test.ts","supabase/functions/test/local-serve.ts","supabase/functions/test/mutate.mjs"],"feature":""},
+    {"path":"supabase/functions/lead-export/index.ts","owner":"platform-build","exports":["MAX_ROWS","PAGE","handle","makeHandle","plain"],"tests":["supabase/functions/test/cors.test.ts","supabase/functions/test/export.test.ts","supabase/functions/test/import.test.ts","supabase/functions/test/local-serve.ts","supabase/functions/test/mutate.mjs","supabase/functions/test/zz-scale-probe.test.ts"],"feature":""},
     {"path":"supabase/functions/lead-import/index.ts","owner":"platform-build","exports":["MAX_FILE","MAX_ROWS","handle"],"tests":["supabase/functions/test/cors.test.ts","supabase/functions/test/import.test.ts","supabase/functions/test/local-serve.ts","supabase/functions/test/mutate.mjs"],"feature":""},
     {"path":"supabase/functions/lead-list/index.ts","owner":"platform-build","exports":["handle"],"tests":["supabase/functions/test/cors.test.ts","supabase/functions/test/crm.test.ts","supabase/functions/test/crm20.test.ts","supabase/functions/test/crm3b.test.ts","supabase/functions/test/local-serve.ts","supabase/functions/test/mutate.mjs"],"feature":""},
     {"path":"supabase/functions/lead-task/index.ts","owner":"platform-build","exports":["handle"],"tests":["supabase/functions/test/cors.test.ts","supabase/functions/test/crm3b.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
@@ -449,6 +449,7 @@
     {"path":"supabase/functions/test/unpublish.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/upload.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/util.ts","owner":"platform-build","exports":["Answer","AuthMail","CRM_FORMS","CRM_LISTS","Handle","Hook","MintOpts","SITE_A","SITE_B","SUB","Sql","WS_A","WS_B","Who","assert","call","crmForms","env","eq","fake","hooks","mint","mkMedia","newest","photoContract","securityEvents","t","teamRows","toFakeHook","withSql"],"tests":[],"feature":""},
+    {"path":"supabase/functions/test/zz-scale-probe.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/unpublish/index.ts","owner":"platform-build","exports":["handle"],"tests":["supabase/functions/test/cors.test.ts","supabase/functions/test/mutate.mjs","supabase/functions/test/unpublish.test.ts"],"feature":""},
     {"path":"supabase/functions/upload-finish/index.ts","owner":"platform-build","exports":["handle"],"tests":["supabase/functions/test/mutate.mjs","supabase/functions/test/upload.test.ts"],"feature":""},
     {"path":"supabase/functions/upload-start/index.ts","owner":"platform-build","exports":["MAX_BYTES","MIMES","handle"],"tests":["supabase/functions/test/mutate.mjs","supabase/functions/test/upload.test.ts"],"feature":""},
@@ -531,7 +532,7 @@
     {"path":"supabase/tests/e2e-site-audit.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/tests/lib/cluster-port.mjs","owner":"platform-build","exports":["BIND_FAILURE","BLOCKS","CLI_BLOCK","LISTEN","MAX_TRIES","nextPort","pgOptions","pickPort","startOnBlock"],"tests":[],"feature":""},
     {"path":"supabase/tests/lib/fake-pg-ctl-bind.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
-    {"path":"supabase/tests/lib/mutant-lists.mjs","owner":"platform-build","exports":["mutantListProblems","noneRanProblem"],"tests":[],"feature":""},
+    {"path":"supabase/tests/lib/mutant-lists.mjs","owner":"platform-build","exports":["mutantListProblems","noneRanProblem","psqlTimeoutMs"],"tests":[],"feature":""},
     {"path":"supabase/tests/lib/real-failure.mjs","owner":"platform-build","exports":["failedLine","whereFailed"],"tests":[],"feature":""},
     {"path":"supabase/tests/local-shim.sql","owner":"platform-build","exports":["fn:auth.jwt","fn:auth.uid","fn:public.rls_auto_enable","fn:storage.foldername","table:AS","table:auth.users","table:storage.buckets","table:storage.objects"],"tests":[],"feature":""},
     {"path":"supabase/tests/mutant-lists.test.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
