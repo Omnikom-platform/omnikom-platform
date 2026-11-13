@@ -34,7 +34,7 @@ sequenceDiagram
    saw, marketing consent, a honeypot and an idempotency key made when the form opened. A preview site never fakes success.
 2. **Site lead function.** Post only, size cap; a filled honeypot gets 400. A plain browser form (no script) is answered with a
    303 to the thank-you page. It signs the body with the site's key and forwards it to `capture-lead?site=<id>&visitor=<hash>`
-   (the hash is sha256 of the site id and the visitor's address, never the address). Its Pages
+   (the hash is sha256 of the site id and the visitor's address, never the address). After capture-lead answers 429 for a visitor, the function answers that visitor 429 itself for 60 s, from the Cloudflare data center's cache, with no call (row E5-b). Its Pages
    project holds `SITE_ID`, `PLATFORM_BASE` and the secret `SITE_SIGNING_KEY`.
 3. **Signature.** `X-Site-Signature: t=<unix>,v1=<hex>`, HMAC-SHA256 over time, method, path with the site id and the visitor, and body;
    300 s window. Site A's signature fails on site B. A revoked key fails.

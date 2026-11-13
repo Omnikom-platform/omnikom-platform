@@ -7,9 +7,15 @@
 // the platform may become "sent". Web Crypto only; no dependencies. Tests: factory/worker/test/run.mjs and mutate.mjs.
 // Brief 5-L: the plain browser form (application/x-www-form-urlencoded, no script) is accepted too. Its fields become the same
 // JSON object a script sends, that JSON is what is signed and forwarded, and the answer is a page for a person, never JSON.
+// Product row E5-b: a visitor the platform answered 429 is answered 429 here, with the same words, for the next 60 s, from the Cloudflare data center's cache.
 const H = { 'content-type': 'application/json', 'x-robots-tag': 'noindex, nofollow', 'cache-control': 'no-store' };
 const CALL_US = 'We could not send this. Please call or email us.';
 const TRY_AGAIN = 'We could not send this. Your answers are still here. Try again, or call us.';
+const SLOW_DOWN = 'Please try again in a minute.';   // the words of every 429 this endpoint gives: the platform's and the hold's (product row E5-b)
+// The hold (product row E5-b): after the platform answered 429 for a visitor, that visitor's posts are answered here for HOLD_SECONDS from the Cloudflare
+// data center's cache (the Cache API's caches.default: no binding, and its contents stay in that data center), so they cost capture-lead no call and the
+// database no connection. The key is the visitor hash on this site's own address, never the address. A cache that fails is skipped: the post goes on.
+const HOLD_SECONDS = 60;
 const enc = new TextEncoder();
 
 export async function sign(key, method, pathWithQuery, body, t = Math.floor(Date.now() / 1000)) {
@@ -74,8 +80,8 @@ function formAnswer(status, obj, back, thanksTo) {
 }
 
 // makeLeadHandler({ siteId, signingKey, platformBase }) -> async (request) => Response
-// platformBase: "https://<project ref>.supabase.co/functions/v1" (staging or production). fetchImpl and now are for tests.
-export function makeLeadHandler({ siteId, signingKey, platformBase, fetchImpl = globalThis.fetch, now = () => Math.floor(Date.now() / 1000), maxBytes = 16 * 1024, log = () => {}, thanksPath = '' }) {
+// platformBase: "https://<project ref>.supabase.co/functions/v1" (staging or production). fetchImpl, now and holdCache (the hold's cache: the Cache API's caches.default, absent in Node) are for tests.
+export function makeLeadHandler({ siteId, signingKey, platformBase, fetchImpl = globalThis.fetch, now = () => Math.floor(Date.now() / 1000), maxBytes = 16 * 1024, log = () => {}, thanksPath = '', holdCache = globalThis.caches && globalThis.caches.default }) {
   // thanksPath: the site's own thank-you page (a path on the site). A sent form post answers 303 there; without it, 303 to GET <this endpoint>?sent=1.
   const thanks = backPath(thanksPath) === thanksPath ? thanksPath : '';
   return async function handle(request) {
@@ -96,6 +102,8 @@ export function makeLeadHandler({ siteId, signingKey, platformBase, fetchImpl = 
     if (data && typeof data.hp === 'string' && data.hp.trim() !== '') return reply(400, { sent: false, problems: [{ code: 'HP', path: '', msg: 'Something is missing.' }] });
     if (!siteId || !signingKey || !platformBase) { log('lead endpoint not configured'); return reply(503, { sent: false, msg: CALL_US }); }
     const visitor = await visitorHash(siteId, request.headers.get('cf-connecting-ip'));
+    const held = visitor && holdCache ? `${new URL(request.url).origin}/api/lead-hold/${visitor}` : null;
+    if (held && (await holdCache.match(held).catch(() => undefined))) return reply(429, { sent: false, retry: true, msg: SLOW_DOWN });
     const path = `/capture-lead?site=${siteId}${visitor ? `&visitor=${visitor}` : ''}`;
     const signature = await sign(signingKey, 'POST', path, forward, now());
     let res;
@@ -110,7 +118,10 @@ export function makeLeadHandler({ siteId, signingKey, platformBase, fetchImpl = 
       const j = await res.json().catch(() => ({}));
       return reply(400, { sent: false, problems: Array.isArray(j.problems) ? j.problems : [{ code: 'BODY', path: '', msg: 'Something is missing.' }] });
     }
-    if (res.status === 429) return reply(429, { sent: false, retry: true, msg: 'Please try again in a minute.' });
+    if (res.status === 429) {
+      if (held) await holdCache.put(held, new Response('held', { headers: { 'cache-control': `max-age=${HOLD_SECONDS}` } })).catch(() => {});
+      return reply(429, { sent: false, retry: true, msg: SLOW_DOWN });
+    }
     if (res.status === 401) { log('platform refused the site signature (key or clock)'); return reply(502, { sent: false, retry: false, msg: CALL_US }); }
     if (res.status === 409) { log('platform refused: the site is paused or its workspace suspended'); return reply(409, { sent: false, retry: false, msg: CALL_US }); }   // step 3: S-SITE-PAUSED, S-WORKSPACE-SUSPENDED
     log(`platform answered ${res.status}`);
