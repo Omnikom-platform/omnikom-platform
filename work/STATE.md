@@ -1,12 +1,12 @@
 # Where things stand
 
-Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 12. Every feature's
+Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 13. Every feature's
 state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (rewritten for the method below with this
 batch). Getting back in: `resume\RESUME.md`.
 
 ## Now
-- Product: 78 of 97 rows WORK, 18 PARTLY, 1 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
-  17, 5, 1 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 10, 11, 0 of 21.
+- Product: 79 of 97 rows WORK, 17 PARTLY, 1 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
+  18, 4, 1 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 10, 11, 0 of 21.
 - The order (owner, 2026-11-13): the owed proof runs are done; now one build job at a time: 7 rows to build (B18, B24, B25,
   C11's request, E5's limit at the edge, E12's rest, E13) and the faults the proof runs found (below).
 - The platform build is open (owner, 2026-11-12); the refactor of how we work is closed at what is built. One head of
@@ -19,10 +19,10 @@ batch). Getting back in: `resume\RESUME.md`.
 ## Landed since the build reopened (owner, 2026-11-12)
 - CRM (A15, A16, A21, A22): bulk owner and delete, the business's own types and statuses, export in a saved layout, import.
 - Dashboard: the Overview (B20, B21), sign-in from a real inbox (B1), restore (B8), invites (B17), delete an item and take
-  it off the site (B12, part), a photo to the published site (B13, C8), past publishes (B11), the instant frame and the
+  it off the site (B12), a photo to the published site (B13, C8), past publishes (B11), the instant frame and the
   preview site (B15, part), the media library with replace and delete (B14), Search health (B24, part), a failed
-  check read line by line and a search text under its minimum refused (B10, B9), a failed draft removed (B15);
-  this batch: a removed item answers 404 at its old address from the site's own function for 7 days (B12, staging owed).
+  check read line by line and a search text under its minimum refused (B10, B9), a failed draft removed (B15),
+  a removed item answering 404 at its old address from the site's own function for 7 days (B12).
 - Backend and hardening: the mail outbox (E4), lead limits and the hold at the site's endpoint (E5), bounces (E21), request
   ids and hourly alerts (E3), plan limits (E16), the pooler (E6), headers (E7), publish smoke and rollback (E8), the
   workflow-only token path (E9), retention, purge and growth budgets (E12, migration 46), rich text (E18), staff windows
@@ -35,12 +35,12 @@ batch). Getting back in: `resume\RESUME.md`.
   staging walls stop in T32 on a storage delete; the restore drill fails its walls phase (the restored copy has no Vault).
 
 ## Staging (the test project), 2026-11-13
-- Migrations through 46 applied in number order; 32 functions from master 0eeef26, three of them (save, publish,
+- Migrations through 47 applied in number order; 32 functions from master 0eeef26, three of them (save, publish,
   media-manage) and the dashboard from a554dfd; the flows of the media library (B14), the preview site (B15), the publish
-  sheet (B10, B9) and the earlier ones passed and went red with their seeded faults; the 22 Auth settings read back (E11);
-  E4's alert read in the test inbox, its link opens the lead; E5's hold measured (1 of 22 posts reached the platform).
-- Owed, each by the head's run sheet: this batch (migration 47, then the flow of B12, red until then); E16's limits;
-  E3's alerts (an owner item first); the walls past T32.
+  sheet (B10, B9), the taken-off page (B12) and the earlier ones passed and went red with their seeded faults; the 22
+  Auth settings read back (E11); E4's alert read in the test inbox, its link opens the lead; E5's hold measured (1 of 22
+  posts reached the platform).
+- Owed, each by the head's run sheet: E16's limits; E3's alerts (an owner item first); the walls past T32.
 
 ## Migrations
 - A migration that has not landed takes the next free number above every file in the tree when it is built, and lands in
