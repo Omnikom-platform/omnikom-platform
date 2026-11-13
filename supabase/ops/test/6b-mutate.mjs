@@ -100,6 +100,8 @@ const DRILL = [
   ['--media and --vault without --dump are taken', 'if ((o.media || o.vault) && !o.dump) throw', 'if (false) throw'],
   ['walls: the vault schema is not cleared before the file runs', "const nv = q('walls', WALLS_NO_VAULT_SQL);", "const nv = { ok: true };"],
   ['walls: the vault schema is dropped with CASCADE, so anything in it goes silently', "export const WALLS_NO_VAULT_SQL = 'drop schema if exists vault';", "export const WALLS_NO_VAULT_SQL = 'drop schema if exists vault cascade';"],
+  ['walls-ref: retention_rules is missing from WALLS_REFERENCE_TABLES', ", ['public', 'retention_rules']];", '];'],
+  ['walls-ref: the loop over WALLS_REFERENCE_TABLES stops after the second table', 'for (const [n, t] of WALLS_REFERENCE_TABLES) {', 'for (const [n, t] of WALLS_REFERENCE_TABLES.slice(0, 2)) {'],
 ];
 
 function runTest(testFile, envName, mutantPath, extraEnv = {}) {

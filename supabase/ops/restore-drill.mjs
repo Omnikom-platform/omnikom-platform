@@ -17,7 +17,7 @@
 //               a WARN (the source moves while the drill runs), a table with fewer rows restored than the source had is a FAIL
 //   5 checks    every public table has row level security on; no constraint is left NOT VALID
 //   6 walls     tenancy.test.sql, unchanged, on database "walls" = the restored SCHEMA (functions, policies, grants, triggers: every wall) plus the
-//               reference rows the migrations insert (storage.buckets, platform_limits). Why not on "restored": the test inserts its own fixtures
+//               reference rows the migrations insert (storage.buckets, platform_limits, retention_rules). Why not on "restored": the test inserts its own fixtures
 //               (workspace test-demo-a, fixed user ids) and a restored staging already holds them; it runs in one transaction and rolls back.
 //   7 media     (only with --media) the media copy is opened and extracted: its files are the bucket's objects by name
 //   8 build     the factory builds the site of --slug from the restored rows: the newest `done` publish job of that workspace, its
@@ -104,6 +104,9 @@ export function rolesIn(sqlText) {
 // the walls database must look to tenancy.test.sql like a cluster with no Vault: the file builds its own Vault stand-in only where
 // to_regnamespace('vault') is null (tenancy.test.sql:1373), and a restored Supabase dump can leave a schema of that name. No CASCADE: only a schema with nothing in it goes.
 export const WALLS_NO_VAULT_SQL = 'drop schema if exists vault';
+// the reference rows the walls read: every table a migration fills at its top level (an insert or update at column 0 of a file in supabase/migrations), restored data-only into the
+// walls database after its schema. None of them has a key to a tenant's rows or a trigger; a table a later migration seeds is added here (6b-drill.test.mjs goes red until it is).
+export const WALLS_REFERENCE_TABLES = [['storage', 'buckets'], ['public', 'platform_limits'], ['public', 'retention_rules']];
 // the restored rows' Vault names that the Vault copy lacks (an entry with an empty value counts as missing)
 export function vaultGaps(refs, entries) { const have = new Set(entries.filter(e => typeof e.secret === 'string' && e.secret.length > 0).map(e => e.name)); return refs.filter(r => !have.has(r)); }
 // where a file the site needs comes from: the media copy (null when the copy lacks it), or the stand-in logo when there is no copy
@@ -322,7 +325,7 @@ export async function drill(argv, env = process.env, log = console.log) {
       if (parsed.unexpected.length) return { ok: false, detail: `the schema restore gave ${parsed.unexpected.length} unexpected error(s): ${parsed.unexpected[0].message}` };
       const nv = q('walls', WALLS_NO_VAULT_SQL);   // the file builds its own Vault stand-in (tenancy.test.sql:1372-1382) only where no vault schema exists
       if (!nv.ok) return { ok: false, detail: 'the vault schema of the restored copy could not be dropped (it holds objects, or the drop was refused), so the walls file cannot build its own Vault stand-in there' };
-      for (const [n, t] of [['storage', 'buckets'], ['public', 'platform_limits']]) {
+      for (const [n, t] of WALLS_REFERENCE_TABLES) {
         const x = sh('pg_restore', [...base, '-d', 'walls', '--no-owner', '--data-only', '-n', n, '-t', t, archive]);
         if (x.status !== 0) return { ok: false, detail: `the reference rows of ${n}.${t} did not restore: ${lastLine(x.err)}` };
       }

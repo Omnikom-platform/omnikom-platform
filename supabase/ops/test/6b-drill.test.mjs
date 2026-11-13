@@ -174,6 +174,34 @@ const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`PASS
     try { await D.drill(['--dump', dumpV], {}, l => linesV.push(l)); } catch (e) { thrownV = `threw ${e && e.code} ${e && e.message}`; }
     const textV = linesV.join('\n');
     check('drill-w case 2: a vault schema that holds an object is not dropped, and the walls phase names that', dv.status === 0 && /FAIL walls\s.*the vault schema of the restored copy could not be dropped/.test(textV), thrownV || textV);
+    // drill-w2 (hand-over DRILL-W2): the walls database gets the reference rows of EVERY table a migration fills at its top level, not two of them. The scan below sees an insert or
+    // update that starts at column 0 of a migration file; it does not see one inside a function body or a DO block (none of those seeds a reference table today).
+    const TENANT_TABLES = ['public.lead_events'];   // filled by an update of existing rows only (migration 23, the note authors): tenant data, never restored into walls
+    const migDir = join(HERE, '..', '..', 'migrations');
+    const filled = new Set();
+    for (const f of readdirSync(migDir).filter(x => x.endsWith('.sql'))) {
+      for (const m of readFileSync(join(migDir, f), 'utf8').matchAll(/^(?:insert into|update) ((?:[a-z0-9_]+\.)?[a-z0-9_]+)/gm)) filled.add(m[1].includes('.') ? m[1] : `public.${m[1]}`);
+    }
+    check('drill-w2 setup: the scan of the migrations finds the three reference tables and the one tenant table', ['storage.buckets', 'public.platform_limits', 'public.retention_rules', ...TENANT_TABLES].every(t => filled.has(t)), [...filled].join(', '));
+    const reference = Array.isArray(D.WALLS_REFERENCE_TABLES) ? D.WALLS_REFERENCE_TABLES.map(([s, t]) => `${s}.${t}`) : null;
+    const unplaced = reference ? [...filled].filter(t => !reference.includes(t) && !TENANT_TABLES.includes(t)) : [];
+    check('drill-w2 case 1: every table a migration fills at its top level is restored into walls (WALLS_REFERENCE_TABLES) or named here as tenant data', !!reference && unplaced.length === 0, reference ? `a migration fills ${unplaced.join(', ')}: add it to WALLS_REFERENCE_TABLES, or to TENANT_TABLES here with its reason` : 'no export WALLS_REFERENCE_TABLES');
+    // A tiny database with one table of each kind the drill restores into walls. The walls copy of retention_rules refuses its one row: a NOT VALID check lets a row that was already there
+    // stay in the source, pg_dump puts that check in the post-data section, so the schema-only restore creates it before the rows load. The walls phase then names the table.
+    // Nothing else shows the load: the walls database is gone when drill() returns. platform_limits has the same kind of check with a row that satisfies it (the control).
+    cluster.createDb('tinyr');
+    cluster.sql('tinyr', `create schema storage; create table storage.buckets (id text primary key, name text not null); insert into storage.buckets values ('a-bucket', 'a-bucket');
+      create table public.platform_limits (key text primary key, value int not null, note text); insert into public.platform_limits values ('a-limit', 1, null);
+      alter table public.platform_limits add constraint platform_limits_value_t check (value >= 0) not valid;
+      create table public.retention_rules (table_name text primary key, keep_days int); insert into public.retention_rules values ('a-rule', 3);
+      alter table public.retention_rules add constraint retention_rules_floor_t check (keep_days >= 7) not valid;`);
+    const dumpR = join(root, 'tinyr.dump');
+    const dr = spawnSync('pg_dump', ['--format=custom', '--no-owner', '--file', dumpR, cluster.url('tinyr')], { encoding: 'utf8', timeout: 5 * 60 * 1000 });
+    const linesR = []; let thrownR = '';
+    try { await D.drill(['--dump', dumpR], {}, l => linesR.push(l)); } catch (e) { thrownR = `threw ${e && e.code} ${e && e.message}`; }
+    const textR = linesR.join('\n');
+    check('drill-w2 control: reference tables whose rows load are not named as a failure, and the main restore passed', dr.status === 0 && /PASS restore\s/.test(textR) && !/(storage\.buckets|public\.platform_limits) did not restore/.test(textR), thrownR || dr.stderr || textR);
+    check('drill-w2 case 2: a reference table whose rows the walls copy refuses is named by the walls phase', dr.status === 0 && /FAIL walls\s.*the reference rows of public\.retention_rules did not restore/.test(textR), thrownR || textR);
   } finally { cluster.stop(); rmSync(root, { recursive: true, force: true }); }
 }
 
