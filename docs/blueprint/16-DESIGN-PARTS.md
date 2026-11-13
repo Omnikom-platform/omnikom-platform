@@ -19,7 +19,7 @@ stack), `09-TEST-STRATEGY.md`. Everything in this file is design, not code, unle
 | Feedback | the toast (bottom, 4 s, with Undo where undo exists), inline field errors (plain words, under the field), the banner (a problem that blocks the screen, with the one thing to do) | every outcome has one of these three, never a modal with OK |
 | Empty states | no leads yet, no changes to publish, no photos, no team members | each says what to do next in one sentence and has the one button |
 | Loading | skeleton rows for lists, a spinner only inside the button that was pressed | the screen never blanks |
-| Confirm sheet | one pattern for the few irreversible actions (publish, remove a person, delete an item): what will happen, Cancel, the action | no browser confirm() dialogs |
+| Confirm sheet | one pattern for the few irreversible actions (publish, remove a person, delete an item, replace or delete a media file): what will happen, Cancel, the action | no browser confirm() dialogs |
 
 ### 1.2 Screen 1: Sign in (and what follows it)
 Every element and every fixed piece of copy of the dashboard has an id in these tables (DECISIONS 44: the app carries it as
@@ -233,6 +233,9 @@ articles yet. Add your first one."), the agent view (fewer groups, Add only wher
 | DP-1.4m-02 | 5.4 | The library "Photos and files": one row per file of the business (a member: its own uploads), newest first, its picture and "1600 px wide" ("Preparing sizes" until it is processed); none yet: "No photos yet. Add one in an item's photo slot." | from `media` |
 | DP-1.4m-03 | 5.4 | A file's problems, one line each: "No alt text in <item> (<field>)", "No rights tick in <item> (<field>)", "Too small for <item> (<field>): 900 px wide, needs 1600" | the publish checks (contracts/validate.mjs checkImage) on each item's newest version |
 | DP-1.4m-04 | 5.4 | "Used in 1 place" or "Used in 2 places", every use counted; each item this person can open, with its field, as a link ("Not used" when none) | opens the editor on that field (`?field=`) |
+| DP-1.4m-05 | 5.4 | A used photo (owner and Omnikom staff): Replace (choose a JPG, PNG or WebP; it is uploaded, then the sheet asks) | the new photo goes into every item that uses this one |
+| DP-1.4m-06 | 5.4 | The ask-first sheet. Replace: "Replace this photo everywhere it is used?", "Each item that uses it gets a new version with the new photo. Your site changes at your next publish.", "It changes in: <items>", Replace everywhere, Cancel; toast "Replaced in 1 item." or "Replaced in 2 items.". Delete: "Delete this file?", "No item uses it. It is removed for good, with its sizes.", Delete this file, Cancel; toast "Deleted.". Failed: "Nothing was changed. Try again." or the save's own words for each problem | `media-manage`; Cancel and Esc send nothing |
+| DP-1.4m-07 | 5.4 | A file nothing uses (owner and Omnikom staff): Delete (opens the sheet) | the database refuses a file in use (409 S-MEDIA-IN-USE) and a member (404) |
 
 ### 1.5 Preview of a change (section 2 has the engineering)
 | Id | Slice | Element | Click | What happens |

@@ -29,7 +29,7 @@ runs (one jobs channel per tab, `src/lib/live.ts`). Vitest for units, Playwright
   shown. Where the plan is silent, the builder stops and asks; it does not invent.
 - One primary action per screen. A left rail on a laptop, a bottom bar on a phone; tap targets 44 px.
 - Feedback is a toast (4 s, with Undo where undo exists), an inline field error in plain words, or a banner. No browser
-  `confirm()` dialogs. A confirm sheet only for what cannot be undone: publish, remove a person, delete an item.
+  `confirm()` dialogs. A confirm sheet only for what cannot be undone: publish, remove a person, delete an item, replace or delete a file in the media library.
 - Loading shows skeleton rows; a spinner only inside the pressed button. An empty state is one sentence and one button.
 - Plain-word messages live next to the rule that raises them and are the single source for sheet, toast and email.
 - WCAG 2.2 AA; Esc closes, Enter saves a note, Ctrl or Cmd+S saves.
@@ -84,7 +84,7 @@ each saved change left out and the field it still needs.
 
 - Upload in the editor: JPG, PNG or WebP; rights tick and alt text required; the processor strips EXIF and GPS and makes 2400,
   1600 and 800 px WebP; an original under 800 px wide is refused ("This photo is 900 px wide; this spot needs 1600.").
-- Media library (PARTLY: replace and delete MISSING): every file with its problems flagged (no alt, too small, no rights), where it is used, replace
+- Media library: every file with its problems flagged (no alt, too small, no rights), where it is used, replace
   everywhere, delete only when unused.
 
 ## Settings

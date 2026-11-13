@@ -49,7 +49,8 @@ line in the slice report. The gate (`tests/plan-gate.*`):
   existing item; a dropped network keeps the draft in this browser and retries with a longer wait; S-STALE shows the plan's sentence and
   "See their changes"; History with Compare and Restore (a new version, with Undo in the toast).
 - Photos and files (`/w/$ws/site/media`, book row B14, under the Site list): every uploaded file of the business (a member: its own
-  uploads), newest first, its problems where it is used and a link to each use.
+  uploads), newest first, its problems where it is used and a link to each use; Replace (a used photo) and Delete (a file nothing uses),
+  for owners and staff, ask first in a sheet; the database refuses a delete of a file in use, and a member.
 - The publish sheet: the change list, "Publish these N changes to <site>?", the progress list live from `publish_jobs` (Realtime) and its
   events, a failed check that stops the list with Fix and "Nothing went live". The Publish button says "Publishing" with the step while a
   job runs, and a toast at the end shows on any screen (`JobWatcher` in the shell).
