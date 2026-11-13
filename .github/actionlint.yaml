@@ -1,10 +1,13 @@
 # actionlint 1.7.12 (the newest release on 2026-10-31) does not know `concurrency.queue`, which GitHub documents
 # ("queue: max": up to 100 pending runs in the group; docs.github.com, read 2026-10-31). Only that one message is ignored, and only
-# for the two workflows that need the queue. Remove this file when a newer actionlint knows the key (bump the pin in ci.yml).
+# for the three workflows that need the queue. Remove this file when a newer actionlint knows the key (bump the pin in ci.yml).
 paths:
   .github/workflows/publish.yml:
     ignore:
       - 'unexpected key "queue" for "concurrency" section'
   .github/workflows/media.yml:
+    ignore:
+      - 'unexpected key "queue" for "concurrency" section'
+  .github/workflows/flows.yml:
     ignore:
       - 'unexpected key "queue" for "concurrency" section'

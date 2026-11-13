@@ -164,8 +164,8 @@ node factory/runner/media.mjs                                                   
   `--smoke-url`, `--smoke-tries`, `--smoke-interval-ms`; `--no-deploy <dir>` copies `dist/` there and invents the deploy id `local-<sha>`.
 - **Workflows** (`.github/workflows/`, every action pinned by SHA, `permissions: contents: read`, a timeout on every job, `.github/actionlint.yaml`
   ignores only actionlint 1.7.12's ignorance of `concurrency.queue`): `publish.yml` (`workflow_dispatch` with `job_id`, `site_id`,
-  `force_fail`; repository_dispatch `publish` while only the old token is set), `media.yml` (`workflow_dispatch` with `media_id`, `workspace_id`; repository_dispatch `media` while only the old token is set), `ci.yml` (eight jobs), `keepalive.yml`
-  (Mondays 06:00 UTC), `backup.yml` (complete but off until `vars.BACKUP_ENABLED == 'true'`: BLOCKED on R2).
+  `force_fail`; repository_dispatch `publish` while only the old token is set), `media.yml` (`workflow_dispatch` with `media_id`, `workspace_id`; repository_dispatch `media` while only the old token is set), `ci.yml` (nine jobs), `keepalive.yml`
+  (Mondays 06:00 UTC), `backup.yml` (complete but off until `vars.BACKUP_ENABLED == 'true'`: BLOCKED on R2), `flows.yml` (by hand only: one staging flow of `apps/dashboard/tests`, master or a `check/` branch, the output sealed; `docs/product/4-backend.md`).
 - **Secrets for the repository**: `tools/github-secrets.mjs` (values from the env by name onto `gh secret set` stdin; `--dry-run` prints names only).
 - **Proof**: `node factory/runner/test/run.mjs` (OK: N of N checks passed; the media checks print `SKIP media test: run npm ci --prefix factory/runner`
   when sharp is missing) and `node factory/runner/test/mutate.mjs` (N mutants, N caught, 0 survived, 0 target text missing).

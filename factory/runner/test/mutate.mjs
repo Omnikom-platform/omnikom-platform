@@ -1,4 +1,4 @@
-// Watched-fail for the build runner: a broken COPY of factory/runner (and tools/github-secrets.mjs) with ONE rule removed,
+// Watched-fail for the build runner: a broken COPY of factory/runner (and tools/github-secrets.mjs, .github/workflows, .github/scripts) with ONE rule removed,
 // test/run.mjs run against it (RUNNER_DIR, SECRETS_TOOL), the suite must go red on a named check.
 // [name, file (relative to the repo root), exactText, replacement, sections of run.mjs that judge it], applied with split/join to a temp copy,
 // one child process per mutant, a few at a time. Caught = the suite exited nonzero AND printed a "FAIL <check>" line (a crash of the
@@ -144,6 +144,47 @@ const ALL_MUTANTS = [
   ['B15 publish: a failed list is read as an empty one', `${R}publish.mjs`, 'if (!list) return left(', 'if (!list) break; left(', 'wrangler'],
   ['B15 publish: only the first page of the deployment list is read', `${R}publish.mjs`, 'page <= 4 && !hits.length', 'page <= 1 && !hits.length', 'wrangler'],
   ['B15 publish: the deployment list is read without end', `${R}publish.mjs`, 'page <= 4 && !hits.length', '!hits.length', 'wrangler'],
+  // FLOWS-RUNNER-1: the staging flows on GitHub's runner (flows.yml, .github/scripts/flows-result.mjs)
+  ['FLOWS-RUNNER-1 flows.yml: a push starts it too', '.github/workflows/flows.yml', '  workflow_dispatch:', '  push:\n  workflow_dispatch:', 'workflows'],
+  ['FLOWS-RUNNER-1 flows.yml: the grep is pasted into the shell line', '.github/workflows/flows.yml', '--grep="$FLOWS_GREP" --reporter=list,json', '--grep="${{ inputs.grep }}" --reporter=list,json', 'workflows'],
+  ['FLOWS-RUNNER-1 flows.yml: a second start replaces the waiting one', '.github/workflows/flows.yml', '  queue: max', '  cancel-in-progress: false', 'workflows'],
+  ['FLOWS-RUNNER-1 flows.yml: the flow has no time limit of its own', '.github/workflows/flows.yml', 'timeout 75m ', '', 'workflows'],
+  ['FLOWS-RUNNER-1 flows.yml: any branch or tag runs', '.github/workflows/flows.yml', 'case "$GITHUB_REF" in refs/heads/master|refs/heads/check/*) ;; *) echo "BLOCKED: flows run only from master or a check/ branch"; exit 1 ;; esac', '', 'workflows'],
+  ['FLOWS-RUNNER-1 flows.yml: the spec is not checked', '.github/workflows/flows.yml', '[[ "$FLOWS_SPEC" =~ $spec_re ]] || { echo "BLOCKED: spec is not a file name of apps/dashboard/tests"; exit 1; }', '', 'workflows'],
+  ['FLOWS-RUNNER-1 flows.yml: the grep is not checked', '.github/workflows/flows.yml', '[[ "$FLOWS_GREP" =~ $grep_re ]] || { echo "BLOCKED: grep takes 1 to 100 letters, digits, spaces and . _ : - only"; exit 1; }', '', 'workflows'],
+  ['FLOWS-RUNNER-1 flows.yml: the mutant is not checked', '.github/workflows/flows.yml', '[[ "$FLOWS_MUTANT" =~ $mutant_re ]] || { echo "BLOCKED: mutant is empty or a FLOWS_MUTANT name (lower-case words joined by -)"; exit 1; }', '', 'workflows'],
+  ['FLOWS-RUNNER-1 flows.yml: the grep pattern lets any text through', '.github/workflows/flows.yml', "grep_re='^[A-Za-z0-9][A-Za-z0-9 ._:-]{0,99}$'", "grep_re='^.+$'", 'workflows'],
+  ['FLOWS-RUNNER-1 flows.yml: a trace is recorded', '.github/workflows/flows.yml', '--reporter=list,json', '--reporter=list,json --trace=on', 'workflows'],
+  ['FLOWS-RUNNER-1 flows.yml: the plain output is uploaded', '.github/workflows/flows.yml', '          path: ${{ runner.temp }}/flows-report.enc', '          path: ${{ runner.temp }}/flows', 'workflows'],
+  ['FLOWS-RUNNER-1 flows.yml: the report key is put on the command line', '.github/workflows/flows.yml', '-pass env:FLOWS_REPORT_KEY', '-pass "pass:$FLOWS_REPORT_KEY"', 'workflows'],
+  ['FLOWS-RUNNER-1 flows.yml: an empty report key seals with an empty password', '.github/workflows/flows.yml', 'if [ -z "$FLOWS_REPORT_KEY" ]; then echo "no artifact: FLOWS_REPORT_KEY has no repository secret, and nothing is kept unsealed"; exit 0; fi', '', 'workflows'],
+  ['FLOWS-RUNNER-1 flows.yml: the upload runs with no seal', '.github/workflows/flows.yml', "steps.seal.outputs.sealed == 'yes'", "steps.seal.outcome == 'success'", 'workflows'],
+  ['FLOWS-RUNNER-1 flows.yml: a production key reaches the job', '.github/workflows/flows.yml', '          FLOWS_REPORT_KEY: ${{ secrets.FLOWS_REPORT_KEY }}', '          FLOWS_REPORT_KEY: ${{ secrets.FLOWS_REPORT_KEY }}\n          PROD_DB_URL: ${{ secrets.PROD_DB_URL }}', 'workflows'],
+  ['FLOWS-RUNNER-1 flows.yml: the result is not read from the report', '.github/workflows/flows.yml', 'run: node .github/scripts/flows-result.mjs "$RUNNER_TEMP/flows/report.json"', 'run: echo "flows result: 1 passed"', 'workflows'],
+  ['FLOWS-RUNNER-1 flows.yml: a spec file is missing from the choice', '.github/workflows/flows.yml', '          - styles.spec.ts', '', 'workflows'],
+  ['FLOWS-RUNNER-1 flows.yml: the key check is skipped', '.github/workflows/flows.yml', 'if [ -n "$SITE_SIGNING_KEY_TEST_DEMO_A" ]; then', 'if true; then', 'workflows'],
+  ["FLOWS-RUNNER-1 flows.yml: the preflight demands the owner's optional keys", '.github/workflows/flows.yml', 'STAGING_DB_URL; do', 'STAGING_DB_URL SITE_SIGNING_KEY_TEST_DEMO_A FLOWS_REPORT_KEY; do', 'workflows'],
+  ['FLOWS-RUNNER-1: the install runs install scripts', '.github/workflows/flows.yml', 'npm ci --ignore-scripts --no-audit --no-fund', 'npm ci --no-audit --no-fund', 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: a failed test counts as a pass', '.github/scripts/flows-result.mjs', 'const ok = s.expected >= 1 && s.unexpected === 0 && errors.length === 0;', 'const ok = s.expected >= 1;', 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: a run with no passed test passes', '.github/scripts/flows-result.mjs', 's.expected >= 1 && ', '', 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: the first error is printed unredacted', '.github/scripts/flows-result.mjs', 'redact(firstLine(message))', 'firstLine(message)', 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: the job summary is not written', '.github/scripts/flows-result.mjs', 'if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(', 'if (false) appendFileSync(', 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: a setup error is not reported', '.github/scripts/flows-result.mjs', 'const errors = report.errors || [];', 'const errors = [];', 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: an unreadable report passes', '.github/scripts/flows-result.mjs', "console.log('flows result: no readable report'); process.exit(1);", "console.log('flows result: no readable report'); process.exit(0);", 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: a JWT is printed', '.github/scripts/flows-result.mjs', "'[token]']", "'$&']", 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: a URL is printed', '.github/scripts/flows-result.mjs', "'[url]']", "'$&']", 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: a project host is printed', '.github/scripts/flows-result.mjs', "'[host]']", "'$&']", 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: an email address is printed', '.github/scripts/flows-result.mjs', "'[email]']", "'$&']", 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: a uuid is printed', '.github/scripts/flows-result.mjs', "'[uuid]']", "'$&']", 'workflows'],
+  ["FLOWS-RUNNER-1 flows-result: a test lead's name is printed", '.github/scripts/flows-result.mjs', "'[lead]']", "'$&']", 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: a phone number is printed', '.github/scripts/flows-result.mjs', "'[phone]']", "'$&']", 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: a long key-like string is printed', '.github/scripts/flows-result.mjs', "'[secret]']", "'$&']", 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: a project ref is printed', '.github/scripts/flows-result.mjs', "'[id]']", "'$&']", 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: a Windows path is printed', '.github/scripts/flows-result.mjs', "'[path]']", "'$&']", 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: a flow that sends a lead passes without the key', '.github/scripts/flows-result.mjs', 'if ((list.suites || []).some(chosen)) {', 'if (false) {', 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: the describes are not read from the spec', '.github/scripts/flows-result.mjs', `"'--as', 'site:"`, `"'--as', 'nobody:"`, 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: a nested describe is not searched', '.github/scripts/flows-result.mjs', ' || (suite.suites || []).some(chosen)', '', 'workflows'],
+  ['FLOWS-RUNNER-1 flows-result: an unreadable list passes', '.github/scripts/flows-result.mjs', "console.log('BLOCKED: no readable list of the chosen flows'); process.exit(1);", "console.log('BLOCKED: no readable list of the chosen flows'); process.exit(0);", 'workflows'],
 ];
 
 const ONLY = process.env.MUTANT_ONLY;   // a substring of the mutant names: only those run (a scoped run; the whole list is the CI run)
@@ -157,6 +198,7 @@ function makeCopy(i) {
   mkdirSync(join(root, 'tools'), { recursive: true });
   cpSync(join(REPO, 'tools', 'github-secrets.mjs'), join(root, 'tools', 'github-secrets.mjs'));
   cpSync(join(REPO, '.github', 'workflows'), join(root, '.github', 'workflows'), { recursive: true });
+  cpSync(join(REPO, '.github', 'scripts'), join(root, '.github', 'scripts'), { recursive: true });
   if (existsSync(join(REPO, R, 'node_modules'))) symlinkSync(join(REPO, R, 'node_modules'), join(root, R, 'node_modules'), 'junction');
   return root;
 }
@@ -170,7 +212,7 @@ function runOne([name, file, target, replacement, sections, needs], i) {
     const n = src.split(target).length - 1;
     if (n !== 1) return done({ name, status: 'missing', detail: `target found ${n} times` });
     writeFileSync(f, src.split(target).join(replacement));
-    const env = { ...process.env, RUNNER_DIR: join(root, R), SECRETS_TOOL: join(root, 'tools', 'github-secrets.mjs'), WORKFLOWS_DIR: join(root, '.github', 'workflows'), RUNNER_TEST_BAIL: '1', RUNNER_TEST_ONLY: `signature,pieces,${sections}` };
+    const env = { ...process.env, RUNNER_DIR: join(root, R), SECRETS_TOOL: join(root, 'tools', 'github-secrets.mjs'), WORKFLOWS_DIR: join(root, '.github', 'workflows'), FLOWS_RESULT: join(root, '.github', 'scripts', 'flows-result.mjs'), RUNNER_TEST_BAIL: '1', RUNNER_TEST_ONLY: `signature,pieces,${sections}` };
     const p = spawn(process.execPath, [join(REPO, R, 'test', 'run.mjs')], { env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     let out = '';
     p.stdout.on('data', (d) => { out += d; });

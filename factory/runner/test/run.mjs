@@ -3,7 +3,7 @@
 // Everything the runner talks to is a local fake (test/lib/fake-platform.mjs, fake-wrangler.mjs, fake-gh.mjs): no staging, no Cloudflare,
 // no GitHub. The platform's OWN verify (supabase/functions/_shared/signature.ts, Node type stripping) judges every signature the
 // runner sends. The media checks need sharp (npm ci --prefix factory/runner); without it they print SKIP and are not counted.
-// RUNNER_DIR points the tests at another copy of factory/runner and SECRETS_TOOL at another github-secrets.mjs (test/mutate.mjs runs
+// RUNNER_DIR points the tests at another copy of factory/runner, SECRETS_TOOL at another github-secrets.mjs and FLOWS_RESULT at another flows-result.mjs (test/mutate.mjs runs
 // broken copies); RUNNER_TEST_BAIL=1 stops at the first FAIL (the mutants only need one red line).
 import { spawn } from 'node:child_process';
 import { createHash, createHmac } from 'node:crypto';
@@ -20,6 +20,7 @@ const REPO = resolve(HERE, '..', '..', '..');
 const REAL_RUNNER = join(REPO, 'factory', 'runner');
 const RUNNER = process.env.RUNNER_DIR ? resolve(process.env.RUNNER_DIR) : REAL_RUNNER;
 const SECRETS_TOOL = process.env.SECRETS_TOOL ? resolve(process.env.SECRETS_TOOL) : join(REPO, 'tools', 'github-secrets.mjs');
+const FLOWS_RESULT = process.env.FLOWS_RESULT ? resolve(process.env.FLOWS_RESULT) : join(REPO, '.github', 'scripts', 'flows-result.mjs');
 const BAIL = process.env.RUNNER_TEST_BAIL === '1';
 const ONLY = (process.env.RUNNER_TEST_ONLY || '').split(',').filter(Boolean);   // section names; empty = all (the mutants run only the sections their target is judged in)
 const on = (name) => !ONLY.length || ONLY.includes(name);
@@ -561,7 +562,7 @@ if (on('workflows')) {
   const wf = Object.fromEntries(files.map((f) => [f, readFileSync(join(WF, f), 'utf8')]));
   const lines = (f) => wf[f].split('\n');
   const jobCount = (f) => { const l = lines(f), at = l.indexOf('jobs:'); return l.slice(at + 1).filter((x) => /^  [A-Za-z0-9_-]+:\s*$/.test(x)).length; };
-  await check('workflows: the eight files exist', () => same(files, ['alerts.yml', 'backup.yml', 'ci.yml', 'keepalive.yml', 'key-rotation.yml', 'media.yml', 'publish.yml', 'restore-drill.yml']));
+  await check('workflows: the nine files exist', () => same(files, ['alerts.yml', 'backup.yml', 'ci.yml', 'flows.yml', 'keepalive.yml', 'key-rotation.yml', 'media.yml', 'publish.yml', 'restore-drill.yml']));
   await check('workflows: every file sets permissions contents: read for the whole workflow', () => files.every((f) => /^permissions:\n  contents: read\n/m.test(wf[f])) || files.filter((f) => !/^permissions:\n  contents: read\n/m.test(wf[f])).join(','));
   await check('workflows: every action is pinned by a 40 hex commit SHA with its version in a comment (supply-chain rule 7)', () => {
     const uses = files.flatMap((f) => lines(f).filter((l) => /^\s+(- )?uses:/.test(l)).map((l) => [f, l.trim()]));
@@ -613,6 +614,111 @@ if (on('workflows')) {
       && t.includes('-shellcheck "$RUNNER_TEMP/shellcheck-v0.11.0/shellcheck"')
       && (t.match(/sha256sum --check -/g) || []).length === 4 && t.includes('gitleaks/releases/download/v8.30.1/')
       && t.includes('160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b') && t.includes('osv-scanner/releases/download/v2.7.0/') && t.includes('actionlint/releases/download/v1.7.12/') && t.includes('fetch-depth: 0');
+  });
+  // FLOWS-RUNNER-1: one named staging flow on GitHub's runner, by hand (flows.yml), and its result line (.github/scripts/flows-result.mjs)
+  const t = wf['flows.yml'];
+  const whole = (x) => lines('flows.yml').includes(x);
+  await check('flows.yml: started only by hand', () =>
+    /^on:\n  workflow_dispatch:\n/m.test(t) && !/^  (push|pull_request|pull_request_target|schedule|repository_dispatch|workflow_run|workflow_call|merge_group):/m.test(t));
+  await check('flows.yml: the inputs spec (a choice of exactly the spec files of apps/dashboard/tests), grep and mutant', () => {
+    const choice = lines('flows.yml').filter((l) => /^          - [\w.-]+\.spec\.ts$/.test(l)).map((l) => l.trim().slice(2));
+    const specs = readdirSync(join(REPO, 'apps', 'dashboard', 'tests')).filter((f) => f.endsWith('.spec.ts')).sort();
+    return (same(choice, specs) && /^        type: choice$/m.test(t) && /^      spec:$/m.test(t) && /^      grep:$/m.test(t) && /^      mutant:$/m.test(t)) || `${JSON.stringify(choice)} ${JSON.stringify(specs)}`;
+  });
+  await check('flows.yml: one flow at a time against staging, the job 90 minutes, the flow stopped at 75', () =>
+    t.includes('concurrency:\n  group: flows-staging\n  queue: max\n') && /^    timeout-minutes: 90$/m.test(t) && t.includes('timeout 75m node node_modules/@playwright/test/cli.js test '));
+  await check('flows.yml: a ref other than master or check/, a spec, grep or mutant outside its pattern and an empty staging secret are refused before anything is installed', () => {
+    const want = [
+      '          case "$GITHUB_REF" in refs/heads/master|refs/heads/check/*) ;; *) echo "BLOCKED: flows run only from master or a check/ branch"; exit 1 ;; esac',
+      "          spec_re='^[a-z-]+\\.spec\\.ts$'; grep_re='^[A-Za-z0-9][A-Za-z0-9 ._:-]{0,99}$'; mutant_re='^([a-z0-9]+(-[a-z0-9]+)*)?$'",
+      '          [[ "$FLOWS_SPEC" =~ $spec_re ]] || { echo "BLOCKED: spec is not a file name of apps/dashboard/tests"; exit 1; }',
+      '          [[ "$FLOWS_GREP" =~ $grep_re ]] || { echo "BLOCKED: grep takes 1 to 100 letters, digits, spaces and . _ : - only"; exit 1; }',
+      '          [[ "$FLOWS_MUTANT" =~ $mutant_re ]] || { echo "BLOCKED: mutant is empty or a FLOWS_MUTANT name (lower-case words joined by -)"; exit 1; }',
+      '          for name in STAGING_SUPABASE_REF STAGING_SUPABASE_PUBLISHABLE_KEY STAGING_SUPABASE_SECRET_KEY STAGING_DB_URL; do [ -n "${!name}" ] || { echo "BLOCKED: $name has no repository secret (setting one is the owner\'s)"; missing=1; }; done',
+    ];
+    const lacking = want.filter((x) => !whole(x));
+    return (lacking.length === 0 && t.indexOf('- name: Preflight (names only)') < t.indexOf('npm ci ')) || `not whole: ${lacking.map((x) => x.trim().slice(0, 40)).join(' | ')}`;
+  });
+  await check('flows.yml: the inputs reach the command only as quoted variables, all output goes to files, no trace, screenshot or video', () =>
+    whole('        run: PLAYWRIGHT_JSON_OUTPUT_FILE="$RUNNER_TEMP/flows/report.json" timeout 75m node node_modules/@playwright/test/cli.js test "tests/$FLOWS_SPEC" --grep="$FLOWS_GREP" --reporter=list,json > "$RUNNER_TEMP/flows/flows.log" 2>&1 || echo "playwright exit $?"')
+    && t.includes('> "$RUNNER_TEMP/flows/npm.log" 2>&1') && t.includes('> "$RUNNER_TEMP/flows/build.log" 2>&1') && !/--trace|--screenshot|--video/.test(t));
+  await check('flows.yml: the output is sealed with FLOWS_REPORT_KEY read from the environment, only when it is set, and only the sealed file is kept, 7 days', () => {
+    const seal = ['          set -o pipefail',
+      '          if [ -z "$FLOWS_REPORT_KEY" ]; then echo "no artifact: FLOWS_REPORT_KEY has no repository secret, and nothing is kept unsealed"; exit 0; fi',
+      '          tar -czf - -C "$RUNNER_TEMP/flows" . | openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt -pass env:FLOWS_REPORT_KEY -out "$RUNNER_TEMP/flows-report.enc"',
+      '          echo "sealed=yes" >> "$GITHUB_OUTPUT"'];
+    const paths = lines('flows.yml').filter((l) => /^\s+path: /.test(l));
+    return (t.includes('\n' + seal.map((l) => `${l}\n`).join('')) && whole("        if: ${{ !cancelled() && steps.seal.outputs.sealed == 'yes' }}")
+      && same(paths, ['          path: ${{ runner.temp }}/flows-report.enc']) && /^          retention-days: 7$/m.test(t)) || JSON.stringify(paths);
+  });
+  await check('flows.yml: the secrets are exactly six names', () => {
+    const names = [...new Set([...t.matchAll(/secrets\.([A-Z0-9_]+)/g)].map((m) => m[1]))].sort();
+    return same(names, ['FLOWS_REPORT_KEY', 'SITE_SIGNING_KEY_TEST_DEMO_A', 'STAGING_SUPABASE_REF', 'STAGING_SUPABASE_PUBLISHABLE_KEY', 'STAGING_SUPABASE_SECRET_KEY', 'STAGING_DB_URL'].sort()) || names.join(',');
+  });
+  await check('flows.yml: the result comes from the JSON report, also after a red flow', () =>
+    t.includes('        if: ${{ !cancelled() }}\n        run: node .github/scripts/flows-result.mjs "$RUNNER_TEMP/flows/report.json"'));
+  await check('flows.yml: without SITE_SIGNING_KEY_TEST_DEMO_A a chosen flow that sends a lead stops before the browser starts', () =>
+    ['          if [ -n "$SITE_SIGNING_KEY_TEST_DEMO_A" ]; then echo "SITE_SIGNING_KEY_TEST_DEMO_A is set"; exit 0; fi',
+      '          PLAYWRIGHT_JSON_OUTPUT_FILE="$RUNNER_TEMP/flows/list.json" node node_modules/@playwright/test/cli.js test "tests/$FLOWS_SPEC" --grep="$FLOWS_GREP" --list --reporter=json > "$RUNNER_TEMP/flows/list.log" 2>&1 || { echo "BLOCKED: Playwright could not list the chosen flows (list.log, sealed)"; exit 1; }',
+      '          node ../../.github/scripts/flows-result.mjs --sends-lead "$RUNNER_TEMP/flows/list.json" "tests/$FLOWS_SPEC"'].every(whole)
+    && t.indexOf('npm ci ') < t.indexOf('--sends-lead') && t.indexOf('--sends-lead') < t.indexOf('timeout 75m '));
+  await check("flows.yml: the dashboard's dependencies are installed locked, install scripts off, and no other install runs", () => {
+    const ci = t.split('npm ci').length - 1, other = ['npm install', 'npm i ', 'npx ', 'playwright install'].filter((x) => t.includes(x));
+    return (t.includes('        working-directory: apps/dashboard\n        run: npm ci --ignore-scripts --no-audit --no-fund ') && ci === 1 && other.length === 0)
+      || `npm ci ${ci} time(s); other installs: ${other.join(' | ') || 'none'}`;
+  });
+
+  // the script, run as the workflow runs it: a report (an object as JSON, a string as is, undefined no file), the job summary in a temp file
+  const fr = async (report, env = {}, spec) => {
+    const dir = tmp('flows'), file = join(dir, 'report.json'), summary = join(dir, 'summary.md');
+    if (report !== undefined) writeFileSync(file, typeof report === 'string' ? report : JSON.stringify(report));
+    writeFileSync(summary, 'before\n');
+    const childEnv = { ...BASE_ENV, GITHUB_STEP_SUMMARY: summary, ...env };
+    if (env.GITHUB_STEP_SUMMARY === null) delete childEnv.GITHUB_STEP_SUMMARY;   // CI's own summary is never written by a test
+    const r = await spawnNode(FLOWS_RESULT, spec ? ['--sends-lead', file, spec] : [file], childEnv, 30000);
+    return { code: r.code, lines: r.out.split(/\r?\n/).filter(Boolean), summary: readFileSync(summary, 'utf8') };
+  };
+  const rep = (specs, stats, errors = []) => ({ suites: [{ title: 'x.spec.ts', specs: [], suites: [{ title: 'd', specs, suites: [] }] }], errors, stats: { expected: 0, unexpected: 0, flaky: 0, skipped: 0, ...stats } });
+  const sp = (title, status, msgs = []) => ({ title, tests: [{ status, results: [{ errors: msgs.map((message) => ({ message })) }] }] });
+  const lst = (...titles) => ({ suites: [{ title: 'flows.spec.ts', specs: [], suites: titles.map((title) => ({ title, specs: [{ title: 't', tests: [] }], suites: [] })) }] });
+  const SPEC = join(REPO, 'apps', 'dashboard', 'tests', 'flows.spec.ts');
+  const KEYLINE = "BLOCKED: the chosen flow sends a lead and SITE_SIGNING_KEY_TEST_DEMO_A has no repository secret (setting one is the owner's)";
+  const LEAK = 'eyJnotajwt0.eyJnotajwt0.notasig abcdefghijklmnopqrst.supabase.co someone@example.com 00000000-0000-0000-0000-00000000000a 5.3 flows abc123def live (555) 010-0153 NOTREAL0123456789abcdefghijklmnopqrs qrstuvwxyzabcdefghij Q:\\fake\\a.txt http://127.0.0.1:27001/auth/confirm?token_hash=abc';
+  await check('flows-result: R1 one passed test exits 0 and its line is in the log and the job summary', async () => {
+    const r = await fr(rep([sp('B11 put the site back', 'expected')], { expected: 1 }));
+    return (r.code === 0 && same(r.lines, ['flows result: 1 passed']) && r.summary === 'before\nflows result: 1 passed\n') || JSON.stringify(r);
+  });
+  await check('flows-result: R2 a failed test exits 1 with the counts and the first line of its first error, every pattern redacted', async () => {
+    const r = await fr(rep([sp('B11 put the site back', 'unexpected', [`Error: the earlier heading came back (${LEAK})\n\nExpected: 7`]), sp('other', 'expected')], { expected: 1, unexpected: 1 }));
+    return (r.code === 1 && same(r.lines, ['flows result: 1 failed, 1 passed', 'flows first error: B11 put the site back: Error: the earlier heading came back ([token] [host] [email] [uuid] [lead] [phone] [secret] [id] [path] [url])'])) || JSON.stringify(r);
+  });
+  await check('flows-result: R3 a skipped test is never a pass', async () => {
+    const r = await fr(rep([sp('s', 'skipped')], { skipped: 1 }), { GITHUB_STEP_SUMMARY: null });
+    return (r.code === 1 && same(r.lines, ['flows result: 1 skipped'])) || JSON.stringify(r);
+  });
+  await check('flows-result: R4 a setup error with no test run exits 1 and is reported', async () => {
+    const r = await fr(rep([], {}, [{ message: 'Error: BLOCKED: Auth generate_link for owner-a answered 401: Invalid API key\n    at mintTokenHash' }]));
+    return (r.code === 1 && same(r.lines, ['flows result: 0 tests ran', 'flows first error: Error: BLOCKED: Auth generate_link for owner-a answered 401: Invalid API key'])) || JSON.stringify(r);
+  });
+  await check('flows-result: R5 no report file, or a report that is not JSON, exits 1', async () => {
+    const none = await fr(undefined), junk = await fr('not json');
+    return [none, junk].every((r) => r.code === 1 && same(r.lines, ['flows result: no readable report'])) || JSON.stringify([none, junk]);
+  });
+  await check('flows-result: R6 a chosen flow of the describe that sends the live lead stops without the key', async () => {
+    const r = await fr(lst('a lead appears live'), {}, SPEC);
+    return (r.code === 1 && same(r.lines, [KEYLINE])) || JSON.stringify(r);
+  });
+  await check('flows-result: R7 a chosen flow of the describe that sends a member\'s lead stops without the key', async () => {
+    const r = await fr(lst('a member sees only their leads'), {}, SPEC);
+    return (r.code === 1 && same(r.lines, [KEYLINE])) || JSON.stringify(r);
+  });
+  await check('flows-result: R8 chosen flows that send no lead go on', async () => {
+    const r = await fr(lst('a member of A cannot open B', 'the CRM screens as the owner'), {}, SPEC);
+    return (r.code === 0 && same(r.lines, ['flows list: no chosen flow sends a lead'])) || JSON.stringify(r);
+  });
+  await check('flows-result: R9 no list file exits 1', async () => {
+    const r = await fr(undefined, {}, SPEC);
+    return (r.code === 1 && same(r.lines, ['BLOCKED: no readable list of the chosen flows'])) || JSON.stringify(r);
   });
 }
 // ================= 12. media (needs sharp) =================

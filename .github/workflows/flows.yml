@@ -1,0 +1,128 @@
+# One named staging flow on GitHub's runner, by hand, one at a time, as on the laptop. THE REPOSITORY IS PUBLIC: the log holds names and a few plain lines; all output is kept only sealed, and only when FLOWS_REPORT_KEY is set.
+# queue: max needs .github/actionlint.yaml; the flow stops at 75 minutes (B11's holds two publishes, up to 60); apps/dashboard/.auth (the sessions) is never packed.
+name: flows
+on:
+  workflow_dispatch:
+    inputs:
+      spec:
+        description: The spec file in apps/dashboard/tests
+        required: true
+        type: choice
+        options:
+          - flows.spec.ts
+          - media.spec.ts
+          - plan-gate.spec.ts
+          - realtime.spec.ts
+          - site.spec.ts
+          - styles.spec.ts
+      grep:
+        description: The -g text that names the flow
+        required: true
+        type: string
+      mutant:
+        description: A FLOWS_MUTANT name for the watched red (empty for none)
+        required: false
+        default: ''
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: flows-staging
+  queue: max
+jobs:
+  flow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Preflight (names only)
+        env:
+          FLOWS_SPEC: ${{ inputs.spec }}
+          FLOWS_GREP: ${{ inputs.grep }}
+          FLOWS_MUTANT: ${{ inputs.mutant }}
+          STAGING_SUPABASE_REF: ${{ secrets.STAGING_SUPABASE_REF }}
+          STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          STAGING_SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+        run: |
+          case "$GITHUB_REF" in refs/heads/master|refs/heads/check/*) ;; *) echo "BLOCKED: flows run only from master or a check/ branch"; exit 1 ;; esac
+          spec_re='^[a-z-]+\.spec\.ts$'; grep_re='^[A-Za-z0-9][A-Za-z0-9 ._:-]{0,99}$'; mutant_re='^([a-z0-9]+(-[a-z0-9]+)*)?$'
+          [[ "$FLOWS_SPEC" =~ $spec_re ]] || { echo "BLOCKED: spec is not a file name of apps/dashboard/tests"; exit 1; }
+          [[ "$FLOWS_GREP" =~ $grep_re ]] || { echo "BLOCKED: grep takes 1 to 100 letters, digits, spaces and . _ : - only"; exit 1; }
+          [[ "$FLOWS_MUTANT" =~ $mutant_re ]] || { echo "BLOCKED: mutant is empty or a FLOWS_MUTANT name (lower-case words joined by -)"; exit 1; }
+          missing=0
+          for name in STAGING_SUPABASE_REF STAGING_SUPABASE_PUBLISHABLE_KEY STAGING_SUPABASE_SECRET_KEY STAGING_DB_URL; do [ -n "${!name}" ] || { echo "BLOCKED: $name has no repository secret (setting one is the owner's)"; missing=1; }; done
+          [ "$missing" -eq 0 ] || exit 1
+          mkdir -p "$RUNNER_TEMP/flows"
+          echo "preflight ok: 4 names present"
+      - name: PostgreSQL 16 binaries on PATH (the image's own; apt install postgresql only if the image lacks them)
+        run: |
+          if [ -x /usr/lib/postgresql/16/bin/initdb ]; then
+            echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          else
+            sudo apt-get update
+            sudo apt-get install -y postgresql
+            printf '%s\n' /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
+          fi
+      - name: Install the dashboard's dependencies (locked, install scripts off)
+        working-directory: apps/dashboard
+        run: npm ci --ignore-scripts --no-audit --no-fund > "$RUNNER_TEMP/flows/npm.log" 2>&1
+      - name: A flow that sends a lead stops here without SITE_SIGNING_KEY_TEST_DEMO_A (no browser has started)
+        working-directory: apps/dashboard
+        env:
+          FLOWS_SPEC: ${{ inputs.spec }}
+          FLOWS_GREP: ${{ inputs.grep }}
+          SITE_SIGNING_KEY_TEST_DEMO_A: ${{ secrets.SITE_SIGNING_KEY_TEST_DEMO_A }}
+        run: |
+          if [ -n "$SITE_SIGNING_KEY_TEST_DEMO_A" ]; then echo "SITE_SIGNING_KEY_TEST_DEMO_A is set"; exit 0; fi
+          PLAYWRIGHT_JSON_OUTPUT_FILE="$RUNNER_TEMP/flows/list.json" node node_modules/@playwright/test/cli.js test "tests/$FLOWS_SPEC" --grep="$FLOWS_GREP" --list --reporter=json > "$RUNNER_TEMP/flows/list.log" 2>&1 || { echo "BLOCKED: Playwright could not list the chosen flows (list.log, sealed)"; exit 1; }
+          node ../../.github/scripts/flows-result.mjs --sends-lead "$RUNNER_TEMP/flows/list.json" "tests/$FLOWS_SPEC"
+      - name: Build this ref's dashboard against staging
+        working-directory: apps/dashboard
+        env:
+          STAGING_SUPABASE_REF: ${{ secrets.STAGING_SUPABASE_REF }}
+          STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          STAGING_SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+        run: node scripts/build-staging.mjs > "$RUNNER_TEMP/flows/build.log" 2>&1
+      - name: Run the flow
+        working-directory: apps/dashboard
+        env:
+          FLOWS_SPEC: ${{ inputs.spec }}
+          FLOWS_GREP: ${{ inputs.grep }}
+          FLOWS_MUTANT: ${{ inputs.mutant }}
+          STAGING_SUPABASE_REF: ${{ secrets.STAGING_SUPABASE_REF }}
+          STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          STAGING_SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          SITE_SIGNING_KEY_TEST_DEMO_A: ${{ secrets.SITE_SIGNING_KEY_TEST_DEMO_A }}
+        run: PLAYWRIGHT_JSON_OUTPUT_FILE="$RUNNER_TEMP/flows/report.json" timeout 75m node node_modules/@playwright/test/cli.js test "tests/$FLOWS_SPEC" --grep="$FLOWS_GREP" --reporter=list,json > "$RUNNER_TEMP/flows/flows.log" 2>&1 || echo "playwright exit $?"
+      - name: The result (counts and the first error, redacted)
+        if: ${{ !cancelled() }}
+        run: node .github/scripts/flows-result.mjs "$RUNNER_TEMP/flows/report.json"
+      - name: Seal the output (nothing leaves the runner unsealed)
+        id: seal
+        if: ${{ !cancelled() }}
+        env:
+          FLOWS_REPORT_KEY: ${{ secrets.FLOWS_REPORT_KEY }}
+        run: |
+          set -o pipefail
+          if [ -z "$FLOWS_REPORT_KEY" ]; then echo "no artifact: FLOWS_REPORT_KEY has no repository secret, and nothing is kept unsealed"; exit 0; fi
+          tar -czf - -C "$RUNNER_TEMP/flows" . | openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt -pass env:FLOWS_REPORT_KEY -out "$RUNNER_TEMP/flows-report.enc"
+          echo "sealed=yes" >> "$GITHUB_OUTPUT"
+      - name: Keep the sealed output for 7 days
+        if: ${{ !cancelled() && steps.seal.outputs.sealed == 'yes' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: flows-report
+          path: ${{ runner.temp }}/flows-report.enc
+          retention-days: 7
+          if-no-files-found: error

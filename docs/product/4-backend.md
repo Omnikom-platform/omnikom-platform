@@ -126,6 +126,7 @@ private; a build copies only the media a snapshot row uses.
 | `alerts.yml` | hourly | alert queries on staging, mailed to ALERTS_TO when its secrets are set |
 | `backup.yml` | nightly | encrypted dump of staging to two buckets; skipped until the owner sets up the buckets and key |
 | `key-rotation.yml` | monthly | red when an active key is over 90 days old or expires within 14 days |
+| `flows.yml` | by hand only (`gh workflow run`, master or a `check/` branch), one at a time | one dashboard flow of `apps/dashboard/tests` against staging; the result line in the log and the job summary; the output sealed with `FLOWS_REPORT_KEY` for 7 days, no artifact without it |
 
 `.github/production/` holds `promote.yml`, the production backup and the production alerts, which run only in the separate production repository.
 
@@ -144,10 +145,11 @@ a Vault name. A script reads a key by its variable name from the git-ignored `.e
 | Runner key | function environment and GitHub secret | runner calls |
 | Cron key | function environment (`CRON_KEY`) and Vault (`metrics_cron_key`, with `project_url`) | the signature of `metrics-pull` and `sitemap-submit`; Vault is where pg_cron reads it |
 | PageSpeed, CrUX and Bing Webmaster keys | function environment | `metrics-pull` (a missing one is a BLOCKED row) |
-| Site signing key, one per site | the site's Pages project and Vault; hash in `api_keys` | `/api/lead` to `capture-lead` |
+| Site signing key, one per site | the site's Pages project and Vault; hash in `api_keys` | `/api/lead` to `capture-lead`; `flows.yml` once the staging test site's is a GitHub secret (`omnikom lead send`; without it a flow that sends a lead stops before the browser) |
 | Resend key, alert sender | function environment | lead alert, sign-in mail through Supabase Auth SMTP |
 | Mail outbox key | function environment and Vault `mail_outbox_key` | pg_cron to `mail-outbox` |
 | Resend webhook signing secret | function environment | `mail-events` |
+| Flows report key (`FLOWS_REPORT_KEY`) | the master env file and, with the owner's yes, a GitHub secret | `flows.yml` seals its output with it (no artifact without it); the head opens it on the laptop |
 
 Variable names a script expects: per environment with the prefix `STAGING_` or `PROD_` (`tools/omnikom-cli/lib/target.mjs`),
 `<prefix>DB_URL`, `<prefix>SUPABASE_REF`, `<prefix>SUPABASE_SECRET_KEY`, `<prefix>SUPABASE_PUBLISHABLE_KEY`; for production the
@@ -155,7 +157,7 @@ bring-up (`supabase/ops/bring-up.mjs`) also reads `PROD_MAIL_FROM` (the platform
 (the production repository), `PROD_RUNNER_KEY`, `PROD_ALERTS_TO` (optional) and `PROD_<NAME>` for every other function secret but
 the shared `RESEND_API_KEY`, `PSI_API_KEY`, `CRUX_API_KEY` and `BING_WEBMASTER_KEY`; then `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `RUNNER_KEY`,
 `GITHUB_DISPATCH_TOKEN_V2`, `GITHUB_DISPATCH_TOKEN`, `CRON_KEY`, `PSI_API_KEY`, `CRUX_API_KEY`, `BING_WEBMASTER_KEY`, `RESEND_API_KEY`, `LEAD_ALERT_FROM`, `ALERTS_TO`, `DASHBOARD_URL`, `MAIL_OUTBOX_KEY`, `RESEND_WEBHOOK_SECRET`, `SITE_SIGNING_KEY_<SLUG>` (minted by
-`tools/mint-site-key.mjs`), `PLATFORM_FUNCTIONS_BASE`, `CLOUDFLARE_PAGES_TOKEN`. Production keys are used only with
+`tools/mint-site-key.mjs`), `PLATFORM_FUNCTIONS_BASE`, `CLOUDFLARE_PAGES_TOKEN`, `FLOWS_REPORT_KEY`. Production keys are used only with
 `--i-mean-production`.
 
 ## Deploying the backend
