@@ -1,14 +1,14 @@
 # Where things stand
 
-Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 22. Every feature's
+Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 23. Every feature's
 state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (rewritten for the method below at batch
 13). Getting back in: `resume\RESUME.md`.
 
 ## Now
-- Product: 80 of 97 rows WORK, 17 PARTLY, 0 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
-  19, 4, 0 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 10, 11, 0 of 21.
-- The order (owner, 2026-11-13): the owed proof runs are done; now one build job at a time: 6 rows to build (B18, B24,
-  C11's request, E5's limit at the edge, E12's rest, E13).
+- Product: 81 of 97 rows WORK, 16 PARTLY, 0 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
+  19, 4, 0 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 11, 10, 0 of 21.
+- The order (owner, 2026-11-13): the owed proof runs are done; now one build job at a time: 5 rows to build (B18, B24,
+  C11's request, E5's limit at the edge, E13).
 - The platform build is open (owner, 2026-11-12); the refactor of how we work is closed at what is built. One head of
   operations orients, rules, takes in and lands; it never builds. Every job: a written hand-over that names its product row
   and its done-test, a fresh cross-check of the hand-over against the tree, the test first and seen red, the least code, one
