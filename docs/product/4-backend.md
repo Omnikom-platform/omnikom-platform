@@ -16,7 +16,7 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
   code plus plain words (`_shared/problems`); the dashboard shows the words.
 - Shared validation imports `contracts/validate.mjs`, so the browser, the functions and the build run the same rules.
 
-## The Edge Functions (30 in `supabase/functions/`)
+## The Edge Functions (32 in `supabase/functions/`)
 
 | Function | Caller | Does |
 |---|---|---|
@@ -25,6 +25,7 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
 | `publish` | dashboard | validate exactly the given versions, `start_publish` pins them, GitHub dispatch to `publish.yml` (`workflow_dispatch`; `repository_dispatch` while only the old token is set); `{ site, preview: true }` (owners and staff, book row B15): `start_preview` takes the saved changes that pass the publish-ready wall, at their newest version, into a preview job that publishes nothing (built by B15-b3), and names the rest; none ready: 422; a preview counts toward the day's publish limit (409 `S-LIMIT`) |
 | `upload-start` | dashboard | a signed upload URL under `media/<workspace_id>/` (jpg, png, webp; 25 MB) |
 | `upload-finish` | dashboard | records the media row, the rights tick and alt text, dispatches `media.yml` |
+| `media-manage` | dashboard (owner or staff) | the media library (M44 `replace_media`, `delete_media`): `{media, action: 'replace', with}` gives every item whose newest version uses the file a new version with another file of the workspace, after the save's own checks on each (422 `VALIDATION`, nothing changed; 200 `{versions}`), the old file kept; `{media, action: 'delete'}` deletes a file nothing uses (409 `S-MEDIA-IN-USE` while an item's newest or live version or a running publish uses it) together with its original and three sizes in Storage: the delete commits only once Storage removed them within 10 s, else nothing changes (502 `STORAGE`); 200 `{deleted}`; 404 for anyone else, a member too |
 | `media-export` | runner, signed | hands the runner one original to process |
 | `media-process-callback` | runner, signed | sets width, height, `exif_stripped`, `processed` |
 | `export-published` | runner, signed | `freeze_snapshot` then the frozen rows, the contract, the media list and the site's Pages project |
@@ -66,7 +67,7 @@ CPU follows file size, about 0.75 s per MB worst; cap 1 MB / 5000 rows, under 1 
 with plain words before it is parsed (413 `I-FILE` over 1 MB, 413 `I-ROWS` over 5000 rows), never cut short.
 
 Functions the book needs that do not exist (states in `1-product.md`): field edit and bulk edit for leads, saved views, delete a lead,
-media library, metrics pull. There is no push function and none is to be built.
+metrics pull. There is no push function and none is to be built.
 
 ## Publishing a change
 
