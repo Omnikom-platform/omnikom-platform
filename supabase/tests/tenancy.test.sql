@@ -3916,8 +3916,8 @@ end $$;
 create function test.replace_media(p_from uuid, p_to uuid) returns setof jsonb language sql security definer as $$ select r.item_data from service.replace_media(test.claims(), p_from, p_to) r $$;
 create function test.delete_media(p_media uuid) returns setof text language sql security definer as $$ select p from service.delete_media(test.claims(), p_media) p $$;
 grant execute on function test.replace_media(uuid, uuid), test.delete_media(uuid) to authenticated;
-insert into media (id, workspace_id, path, width, processed) select ('40000000-0000-4000-8000-00000000000' || k)::uuid, ws::uuid, ws || '/40000000-0000-4000-8000-00000000000' || k || '.png', 1000, true
-  from (values ('1', 'aaaaaaaa-0000-0000-0000-000000000000'), ('2', 'aaaaaaaa-0000-0000-0000-000000000000'), ('3', 'aaaaaaaa-0000-0000-0000-000000000000'), ('4', 'bbbbbbbb-0000-0000-0000-000000000000'), ('5', 'aaaaaaaa-0000-0000-0000-000000000000')) v(k, ws);
+insert into media (id, workspace_id, path, width, processed) select id::uuid, ws::uuid, ws || '/' || id || '.png', 1000, true
+  from (values ('40000000-0000-4000-8000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000000'), ('40000000-0000-4000-8000-000000000002', 'aaaaaaaa-0000-0000-0000-000000000000'), ('40000000-0000-4000-8000-000000000003', 'aaaaaaaa-0000-0000-0000-000000000000'), ('40000000-0000-4000-8000-000000000004', 'bbbbbbbb-0000-0000-0000-000000000000'), ('40000000-0000-4000-8000-000000000005', 'aaaaaaaa-0000-0000-0000-000000000000')) v(id, ws);
 set role authenticated;
 select test.act_as('00000000-0000-0000-0000-00000000000a');
 insert into test.ids select 't40a', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"t40a","status":"for-sale","photos":[{"asset":"40000000-0000-4000-8000-000000000001","alt":"Front"}]}');
