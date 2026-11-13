@@ -1,12 +1,12 @@
 # Where things stand
 
-Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 10. Every feature's
+Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 11. Every feature's
 state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (rewritten for the method below with this
 batch). Getting back in: `resume\RESUME.md`.
 
 ## Now
-- Product: 77 of 97 rows WORK, 19 PARTLY, 1 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
-  16, 6, 1 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 10, 11, 0 of 21.
+- Product: 78 of 97 rows WORK, 18 PARTLY, 1 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
+  17, 5, 1 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 10, 11, 0 of 21.
 - The order (owner, 2026-11-13): the owed proof runs first, then one build job at a time: 7 rows to build (B18, B24, B25,
   C11's request, E5's limit at the edge, E12's rest, E13) and the faults the proof runs found (below).
 - The platform build is open (owner, 2026-11-12); the refactor of how we work is closed at what is built. One head of
@@ -21,7 +21,7 @@ batch). Getting back in: `resume\RESUME.md`.
 - Dashboard: the Overview (B20, B21), sign-in from a real inbox (B1), restore (B8), invites (B17), delete an item and take
   it off the site (B12, part), a photo to the published site (B13, C8), past publishes (B11), the instant frame and the
   preview site (B15, part), the media library with replace and delete (B14), Search health (B24, part), a failed
-  check read line by line and a search text under its minimum refused (B10, B9); this batch: a failed draft is removed (B15).
+  check read line by line and a search text under its minimum refused (B10, B9), a failed draft removed (B15).
 - Backend and hardening: the mail outbox (E4), lead limits and the hold at the site's endpoint (E5), bounces (E21), request
   ids and hourly alerts (E3), plan limits (E16), the pooler (E6), headers (E7), publish smoke and rollback (E8), the
   workflow-only token path (E9), retention, purge and growth budgets (E12, migration 46), rich text (E18), staff windows
@@ -35,11 +35,12 @@ batch). Getting back in: `resume\RESUME.md`.
   a storage delete; the restore drill fails its walls phase, the restored database has no Vault (E1).
 
 ## Staging (the test project), 2026-11-13
-- Migrations through 46 applied in number order; 32 functions deployed from master 0eeef26 (the dashboard there is older
-  than master); the flows of the media library (B14), the preview site (B15) and the earlier ones passed and went red with
-  their seeded faults; the 22 Auth settings read back (E11); E4's alert read in the test inbox, its link opens the lead.
-- Owed, each by the head's run sheet: this batch (three functions, the dashboard, the flow of B10 and B9 with its two
-  reds); E5's posts at the site's endpoint; E16's limits; E3's alerts (an owner item first); the walls past T32.
+- Migrations through 46 applied in number order; 32 functions from master 0eeef26, three of them (save, publish,
+  media-manage) and the dashboard from a554dfd; the flows of the media library (B14), the preview site (B15), the publish
+  sheet (B10, B9) and the earlier ones passed and went red with their seeded faults; the 22 Auth settings read back (E11);
+  E4's alert read in the test inbox, its link opens the lead.
+- Owed, each by the head's run sheet: E5's posts at the site's endpoint; E16's limits; E3's alerts (an owner item first);
+  the walls past T32.
 
 ## Migrations
 - A migration that has not landed takes the next free number above every file in the tree when it is built, and lands in
