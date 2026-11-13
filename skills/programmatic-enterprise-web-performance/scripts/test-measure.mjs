@@ -21,6 +21,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.resolve(args.includes("--scripts") ? args[args.indexOf("--scripts") + 1] : here);
 const quiet = args.includes("--quiet");
 const skill = path.dirname(dir);
+const GRID_CORRECTED = "grid import: a capture corrected in place is imported again; an unchanged one is not; a grid without sponsoredRemoved stands; one without pack is written again";
 
 // ---------------------------------------------------------------- mutants
 if (args.includes("--mutants")) {
@@ -59,7 +60,9 @@ if (args.includes("--mutants")) {
     { id: "grid-robot-check-continues", file: "local-grid.mjs", from: "if (c.robotCheck) {", to: "if (false) {", red: "grid import: per-point table" },
     { id: "grid-diff-ignores-lost-points", file: "local-grid.mjs", from: "left = (from != null && from <= 3) && !(to != null && to <= 3);", to: "left = false;", red: "grid diff: per point and per query" },
     { id: "grid-weak-coverage-silent", file: "measure.mjs", from: "if (s.solv3.value != null && s.solv3.value < th.gridSov3Floor)", to: "if (false)", red: "rules run B: MSR-010 reads the local grid" },
-    { id: "grid-reimport-hides-diff", file: "local-grid.mjs", from: "if (lastG?.signature === signature) {", to: "if (false) {", red: "local run imports the grid when captures exist" },
+    { id: "grid-reimport-hides-diff", file: "local-grid.mjs", from: "if (lastG?.signature === signature && sameRows) {", to: "if (false) {", red: "local run imports the grid when captures exist" },
+    { id: "grid-corrected-capture-ignored", file: "local-grid.mjs", from: "if (lastG?.signature === signature && sameRows) {", to: "if (lastG?.signature === signature) {", red: GRID_CORRECTED },
+    { id: "grid-old-grid-written-twice", file: "local-grid.mjs", from: "p.sponsoredRemoved ?? 0", to: "p.sponsoredRemoved", red: GRID_CORRECTED },
     { id: "main-check-exact-path", file: "lib-main.mjs", from: "try { return norm(fs.realpathSync(arg)) === norm(fs.realpathSync(me)); }", to: "try { return norm(arg) === norm(fs.realpathSync(me)); }", red: "junction: started through a junction" },
     { id: "capture-bom-dropped", file: "measure-sources.mjs", from: "JSON.parse(stripBom(fs.readFileSync(p, \"utf8\")))", to: "JSON.parse(fs.readFileSync(p, \"utf8\"))", red: "captures: a capture file saved with a BOM" },
     { id: "tel-stray-percent", file: "measure-sources.mjs", from: "map((m) => safeDecode(m[1]))", to: "map((m) => decodeURIComponent(m[1]))", red: "html: a tel: link with a stray %" },
@@ -434,6 +437,19 @@ try {
   check("grid maps: a folder holding both forms is BLOCKED", gm.status === 3 && /^BLOCKED: the grid folder holds 1 mobile Google search capture\(s\) \(no method\) and 3 Google Maps viewport capture\(s\) \(method maps-viewport\); one grid never mixes the two \| unblocks: Set the captures of the form you are not using aside/.test(gm.stdout.trim().split("\n").at(-1)) && !fs.existsSync(path.join(vp, "local", "2026-09-30")), gm.stdout + gm.stderr);
   const m9 = IG([V(c22, { device: "tablet" })]), m9c = IG([V(c22, { device: "mobile" })]);
   check("grid maps: a Maps capture on a device that is not mobile or desktop is rejected", m9.points.length === 0 && m9.rejected.length === 1 && m9.rejected[0]?.reason === "device must be mobile or desktop, as captured (ranking rules R-001 and R-002)" && m9c.points.length === 1 && m9c.points[0].localized === true && m9c.points[0].device === "mobile", JSON.stringify([m9.rejected, m9c.points.length]).slice(0, 400));
+
+  // ---- a capture corrected in place (same file name, same capturedAt, other rows) is imported again (SKILL-GRIDSIG-1); its own run folder
+  const kroot = path.join(tmp, "corrected-in-place"), kp = path.join(kroot, "site-checks", "mysite.example", ".pewp"), kdir = path.join(kp, "captures", "local", "grid"), kout = path.join(kp, "local", "2026-10-01", "grid.json");
+  w(path.join(kp, "business.json"), bz);
+  for (const r of [c22, reqOf("r1c1")]) w(path.join(kdir, `${r.id}.json`), V(r));
+  const kfile = path.join(kdir, `${c22.id}.json`), kimp = () => cli("local-grid.mjs", ["import", URL_, "--cwd", kroot, "--today", "2026-10-01"]), kstands = (r) => /that grid stands/.test(r.stdout);
+  const k1 = await kimp(), k1j = J(kout), k1p = k1j?.points?.find((p) => p.file === kfile);
+  const kstrip = (key) => ({ ...k1j, points: k1j.points.map(({ [key]: gone, ...p }) => p) });
+  w(kout, kstrip("sponsoredRemoved")); const k4 = await kimp();   // a grid written before sponsoredRemoved existed: the same captures still stand
+  w(kout, kstrip("pack")); const k5 = await kimp();               // a grid with no pack: not the same rows, written again
+  w(kfile, V(c22, { pack: packWith(2).map((o, i) => (i === 0 ? { ...o, sponsored: true } : o)) }));
+  const k2 = await kimp(), k2j = J(kout), k2p = k2j?.points?.find((p) => p.file === kfile), k2bytes = fs.existsSync(kout) ? fs.readFileSync(kout) : Buffer.alloc(0), k3 = await kimp();
+  check(GRID_CORRECTED, k1.status === 0 && k1p?.sponsoredRemoved === 0 && k1p.pack.some((p) => p.name === "Maple Home Buyers") && !kstands(k2) && k2p?.sponsoredRemoved === 1 && !k2p.pack.some((p) => p.name === "Maple Home Buyers") && kstands(k3) && fs.readFileSync(kout).equals(k2bytes) && kstands(k4) && !kstands(k5), [k2.stdout, k2.stderr, k3.stdout, k4.stdout, k5.stdout, JSON.stringify(k2p?.pack?.map((p) => p.name))].join(" | "));
 
   // ---------------- run B (a month later, things moved)
   phase = "B"; gemCount = {};
