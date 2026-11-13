@@ -263,6 +263,29 @@ check('item I-CONSENT-RATES: texts named without the data-rates line', ncodes('Y
 check('consent wording: a notices row no form names is not linted', !ncodes('Our privacy policy.', 'privacy-policy').some(c => c.startsWith('I-CONSENT')));
 check('consent wording: a draft is not linted (publish is the gate)', !codes(validateItem(GOOD, 'notices', notice('draft words'), { mode: 'draft' })).some(c => c.startsWith('I-CONSENT')));
 check('consent wording: tags in the richtext do not hide the words', ncodes(`<p>${FULL.replace('text message', '<strong>text</strong> message')}</p>`).length === 0);
+// the search card's limits (PUB-1): the minimum (title 20, description 50, counted as the audit counts: code points, trimmed) is a publish rule;
+// the maximum (60, 160) holds in both modes. The numbers are written out here on purpose: a test that read seo-limits.json would share the code's answer.
+const seoProblems = (title, desc, mode) => validateItem(GOOD, 'pages', { path: '/', type: 'home', title: 'Home', seo: { title, description: desc }, sections: {} }, { mode })
+  .filter(p => p.path.startsWith('seo')).map(p => ({ code: p.code, path: p.path }));
+const seoHas = (list, code, path) => list.some(p => p.code === code && p.path === path);
+const T20 = 't'.repeat(20), D50 = 'd'.repeat(50);
+check('seo minimum: a 19 letter title is I-MIN at seo.title in publish, 20 is not', seoHas(seoProblems('t'.repeat(19), D50, 'publish'), 'I-MIN', 'seo.title') && !seoProblems(T20, D50, 'publish').some(p => p.code === 'I-MIN'), JSON.stringify([seoProblems('t'.repeat(19), D50, 'publish'), seoProblems(T20, D50, 'publish')]));
+check('seo minimum: a 49 letter description is I-MIN at seo.description in publish, 50 is not', seoHas(seoProblems(T20, 'd'.repeat(49), 'publish'), 'I-MIN', 'seo.description') && !seoProblems(T20, D50, 'publish').some(p => p.code === 'I-MIN'), JSON.stringify([seoProblems(T20, 'd'.repeat(49), 'publish'), seoProblems(T20, D50, 'publish')]));
+check('seo minimum: a short title with a good description is I-MIN at seo.title only', JSON.stringify(seoProblems('t'.repeat(19), D50, 'publish')) === '[{"code":"I-MIN","path":"seo.title"}]', JSON.stringify(seoProblems('t'.repeat(19), D50, 'publish')));
+check('seo minimum: a draft that short is not refused (the minimum is a publish rule)', !seoProblems('t'.repeat(19), 'd'.repeat(49), 'draft').some(p => p.code === 'I-MIN'), JSON.stringify(seoProblems('t'.repeat(19), 'd'.repeat(49), 'draft')));
+check('seo minimum: a blank title is I-REQUIRED in publish and not also I-MIN', seoHas(seoProblems('', D50, 'publish'), 'I-REQUIRED', 'seo.title') && !seoProblems('', D50, 'publish').some(p => p.code === 'I-MIN'), JSON.stringify(seoProblems('', D50, 'publish')));
+check('seo minimum: the count trims, so 19 letters and a trailing space is I-MIN', seoHas(seoProblems(`${'t'.repeat(19)} `, D50, 'publish'), 'I-MIN', 'seo.title'), JSON.stringify(seoProblems(`${'t'.repeat(19)} `, D50, 'publish')));
+check('seo minimum: it counts code points, so ten emoji (20 UTF-16 units) is I-MIN and twenty is not', seoHas(seoProblems('\u{1F600}'.repeat(10), D50, 'publish'), 'I-MIN', 'seo.title') && !seoProblems('\u{1F600}'.repeat(20), D50, 'publish').some(p => p.code === 'I-MIN'), JSON.stringify([seoProblems('\u{1F600}'.repeat(10), D50, 'publish'), seoProblems('\u{1F600}'.repeat(20), D50, 'publish')]));
+for (const mode of ['publish', 'draft']) {
+  check(`seo maximum (${mode}): a title of 60 is fine and 61 is I-MAX at seo.title`, !seoProblems('t'.repeat(60), D50, mode).some(p => p.code === 'I-MAX') && seoHas(seoProblems('t'.repeat(61), D50, mode), 'I-MAX', 'seo.title'), JSON.stringify([seoProblems('t'.repeat(60), D50, mode), seoProblems('t'.repeat(61), D50, mode)]));
+  check(`seo maximum (${mode}): a description of 160 is fine and 161 is I-MAX at seo.description`, !seoProblems(T20, 'd'.repeat(160), mode).some(p => p.code === 'I-MAX') && seoHas(seoProblems(T20, 'd'.repeat(161), mode), 'I-MAX', 'seo.description'), JSON.stringify([seoProblems(T20, 'd'.repeat(160), mode), seoProblems(T20, 'd'.repeat(161), mode)]));
+}
+{
+  const { readFileSync } = await import('node:fs');
+  let got = null, why = '';
+  try { got = JSON.parse(readFileSync(resolve(DIR, 'seo-limits.json'), 'utf8')); } catch (e) { why = String(e && e.message || e).split('\n')[0]; }
+  check('seo limits: seo-limits.json holds title 20 (10 for zh, ja, ko) to 60 and description 50 (25) to 160, the numbers the audit (SE-202) judges by', JSON.stringify(got) === JSON.stringify({ title: { min: 20, minCjk: 10, max: 60 }, description: { min: 50, minCjk: 25, max: 160 } }), why || JSON.stringify(got));
+}
 // rich text (E18, audit H2-13): the allow-list of contracts/richtext.mjs; anything else is refused whole, in draft and publish
 const rt = answer => codes(validateItem(GOOD, 'faqs', { question: 'Q?', answer }, { mode: 'draft' }));
 const RICH_OK = '<h2>A</h2><p>Plain &amp; <strong>bold</strong>, <em>stress</em>, 3 > 2: <a href="https://example.com/a?b=1&amp;c=2">web</a> <a href="http://example.com/">old</a> <a href="mailto:x@example.com">mail</a> <a href="tel:+1 (555) 010-0000">call</a> <a href="/contact/">here</a> <a class="ul" href="../one-two/">up</a> <a class="ul" href="../../one/two-three/">up two</a>. <span class="ph">blank to fill</span> <span class="prov">from the old site</span></p><h3>B</h3><ul><li>one</li></ul><ol><li>two</li></ol>';

@@ -13,7 +13,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const FILES = ['validate.mjs', 'store.mjs', 'place.mjs', 'from-plan.mjs', 'core.json', 'types.json', 'richtext.mjs'];
+const FILES = ['validate.mjs', 'store.mjs', 'place.mjs', 'from-plan.mjs', 'core.json', 'types.json', 'richtext.mjs', 'seo-limits.json'];
 const TEST = join(ROOT, 'test', 'run.mjs');
 // the example contracts test/run.mjs reads from CONTRACTS_DIR, one per ex('<folder>') call in it
 const READS = [...new Set([...readFileSync(TEST, 'utf8').matchAll(/\bex\('([a-z0-9-]+)'\)/g)].map(m => join('examples', m[1], 'contract.json')))];
@@ -74,6 +74,17 @@ swap('richtext.mjs', "const SEG = '[a-z0-9]+(?:-[a-z0-9]+)*/';", "const SEG = '[
 swap('richtext.mjs', 'i !== -1 && !out.length;', 'i !== -1;', 'rich text: every < of a long input is a problem');
 swap('richtext.mjs', 'const LINK = [/^https?:', 'const LINK = [/https?:', 'rich text: a link pattern is not anchored at its start');
 swap('richtext.mjs', 'href="([^"<>]*)")>', 'href="([^"<>]*)"[^>]*)>', 'rich text: attributes after a link\'s href pass');
+// the search card's limits (PUB-1): the minimum is a publish rule, counted as the audit counts, never on a blank text; the maximum holds in both modes
+swap('validate.mjs', 'seoLength(v.title) < SEO_LIMITS.title.min', 'seoLength(v.title) <= SEO_LIMITS.title.min', 'seo: a title at the minimum is refused (< becomes <=)');
+swap('validate.mjs', 'seoLength(v.description) < SEO_LIMITS.description.min', 'seoLength(v.description) <= SEO_LIMITS.description.min', 'seo: a description at the minimum is refused (< becomes <=)');
+swap('validate.mjs', 'if (publish && isStr(v.title) && v.title.trim() && seoLength', 'if (isStr(v.title) && v.title.trim() && seoLength', 'seo: the minimum is raised in draft mode too');
+swap('validate.mjs', "const seoLength = s => [...String(s).normalize('NFC').replace(/\\s+/g, ' ').trim()].length;", 'const seoLength = s => String(s).length;', 'seo: the minimum counts raw length, not trimmed code points');
+swap('validate.mjs', 'isStr(v.title) && v.title.trim() && seoLength(v.title)', 'isStr(v.title) && seoLength(v.title)', 'seo: a blank title is I-MIN as well as I-REQUIRED');
+swap('validate.mjs', 'v.title.length > SEO_LIMITS.title.max', 'v.title.length > 600', 'seo: the title maximum is read as 600');
+swap('seo-limits.json', '"min": 20,', '"min": 19,', 'seo-limits.json: the title minimum is 19');
+swap('seo-limits.json', '"min": 50,', '"min": 49,', 'seo-limits.json: the description minimum is 49');
+swap('seo-limits.json', '"minCjk": 10,', '"minCjk": 9,', 'seo-limits.json: the title minimum for zh, ja, ko is 9');
+swap('seo-limits.json', '"minCjk": 25,', '"minCjk": 24,', 'seo-limits.json: the description minimum for zh, ja, ko is 24');
 
 // 3. coverage: every code raised in the source is named in the tests
 const tests = readFileSync(TEST, 'utf8');

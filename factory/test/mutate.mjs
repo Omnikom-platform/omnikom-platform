@@ -127,6 +127,11 @@ const MUTANTS = [
   ['render (B15): the renderer imports a node module', `${F}lib/render.mjs`, "import { referenceOptions } from './fields.mjs';", "import { referenceOptions } from './fields.mjs';\nimport 'node:fs';"],
   ['launch (B15): a preview build of a live site is indexable', `${F}lib/launch.mjs`, "draft || site.state !== 'live';", "site.state !== 'live';"],
   ['launch (B15): a preview build keeps the site origin', `${F}lib/launch.mjs`, '(draft ? `https://draft.', '(false ? `https://draft.'],
+  // the audit's own copy of the search card minimums (SE-202) is tied to contracts/seo-limits.json by a check (PUB-1)
+  ['seo limits: the contract title minimum is 19, the audit says 20', 'contracts/seo-limits.json', '"min": 20,', '"min": 19,'],
+  ['seo limits: the contract description minimum is 49, the audit says 50', 'contracts/seo-limits.json', '"min": 50,', '"min": 49,'],
+  ['seo limits: the contract title minimum for zh, ja, ko is 9, the audit says 10', 'contracts/seo-limits.json', '"minCjk": 10,', '"minCjk": 9,'],
+  ['seo limits: the contract description minimum for zh, ja, ko is 24, the audit says 25', 'contracts/seo-limits.json', '"minCjk": 25,', '"minCjk": 24,'],
 ];
 
 // the layout the tests expect next to the factory: contracts/ (code only), sites/test-demo-a/, factory/ (no briefs, no worker)

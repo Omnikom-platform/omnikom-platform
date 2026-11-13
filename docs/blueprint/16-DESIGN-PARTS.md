@@ -192,7 +192,7 @@ and you get an email."), the spam state, the "Add a lead" form (1.3b), the expor
 | DP-1.4-06 | 5.4 | List: the client's own collections from the contract (Listings, Articles, Team, Reviews, Questions...) with Add; each row says "Edit" | tap an item or Add | the item editor | | an agent sees Add only on collections marked `own` |
 | DP-1.4-07 | 5.4 | List: Business details | tap | the editor with the settings fields; locked ones greyed with the reason | | |
 | DP-1.4-08 | 5.4 | Editor: a section card; its header row says "Open" or "Close" | tap | expands to its fields; one section open at a time | | |
-| DP-1.4-09 | 5.4 | Editor: a text field with its counter ("17 of 70") | type | the counter; the Preview frame (1.5) updates | | over the limit: counter red, Save disabled with "Title is too long" |
+| DP-1.4-09 | 5.4 | Editor: a text field with its counter ("17 of 70") | type | the counter; the Preview frame (1.5) updates | | over the limit: counter red, Save disabled with "Title is too long"; a search-card title or description under its minimum: the line "Title needs at least 20 characters to publish" (or "Description needs at least 50 characters to publish"), Save stays on |
 | DP-1.4-10 | 5.4 | Editor: long text | type | the same | | |
 | DP-1.4-11 | 5.4 | Editor: photo slot (drop or choose, alt text, rights tick, "Preparing sizes") | drop | `upload-start`, `upload-finish`; processing in the background | the photo, then ready | too small: "This photo is 900 px wide; this spot needs 1600."; wrong type: "Use a JPG, PNG or WebP." |
 | DP-1.4-12 | 5.4 | Editor: lists (points, steps, cards): add, remove, move up, move down | click | | | |
@@ -216,7 +216,7 @@ and you get an email."), the spam state, the "Add a lead" form (1.3b), the expor
 | DP-1.4c-01 | 5.4 | The change list (page or item, who, when) | from `drafts` |
 | DP-1.4c-02 | 5.4 | "Publish these N changes to <site>?" ("Publish this change to <site>?" for one) with Cancel and Publish | `publish` with the pinned versions |
 | DP-1.4c-03 | 5.4 | The progress list, one line per step as it finishes: Building the site, Checking (one line per check in plain words), Putting it live, "Live since 14:02. Open" | live from `publish_jobs` and its events |
-| DP-1.4c-04 | 5.4 | A failed check: the list stops at that line with Fix (opens the field) and one sentence: nothing went live | from the gate report |
+| DP-1.4c-04 | 5.4 | A failed check: the list stops at that line with one line for each failed check (the page, what is wrong in the check's own words, the rule's id in brackets), Fix (opens the field) and one sentence: nothing went live | from the gate report |
 | DP-1.4c-05 | 5.4 | The Publish button while a job runs: "Publishing" with the step; a toast at the end even on another screen | |
 | DP-1.4c-06 | later | "see" link per change (its preview), Compare | 16-DESIGN-PARTS 2.3 and 2.4, not in step 5 |
 | DP-1.4c-07 | 5.4 | "Past publishes" on the Site screen (owners and staff), a sheet with Close (Esc too): the site's finished publishes, newest first, each with its time, "Live" or "Nothing went live", and its checks ("41 checks passed, 0 failed"); a failed one lists its check lines | from `publish_jobs` (the newest 10 of the workspace, as the Site screen reads them) |

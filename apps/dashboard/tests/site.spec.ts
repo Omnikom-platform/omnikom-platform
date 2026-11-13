@@ -378,3 +378,57 @@ test.describe('B12 take an item off the site as the owner', () => {
     } finally { if (((await row())?.published_version ?? null) === null) { const left = await removeRows([id]); expect(left[0]?.ok, `the b12 row must be removed: ${left[0]?.message}`).toBe(true); } }   // still live after a red: the run sheet's undo
   });
 });
+
+// ---------- PUB-1: a search title under 20 characters saves, is refused at publish with its field, and the next failed check is read line by line in the sheet ----------
+test.describe('PUB-1 a too-short title is refused at publish and a failed check is read in the sheet', () => {
+  test.use({ storageState: '.auth/owner-a.json' });
+  test('a short title saves, the sheet refuses it with I-MIN and Fix, the card says what is needed, and the next failed check (a street ending !) is listed by page, words and rule', async ({ page }) => {
+    test.setTimeout(1_800_000);   // one publish, within the workflow's 30 minutes
+    await installMutant(page, 'publish-accepted'); await installSiteMutant(page, 'fails-hidden');
+    const reset = await removeRows((await resetPlan()).remove.map(r => r.id)); expect(reset.filter(r => !r.ok), 'the reset removed every row it meant to').toEqual([]);
+    const seed = (await serviceGet<{ content_versions: { n: number; data: Record<string, unknown> }[] }[]>(`/content_rows?workspace_id=eq.${WS.a.id}&collection=eq.listings&deleted_at=is.null&off_site_at=is.null&published_version=not.is.null&select=content_versions(n,data)&limit=1`))[0];
+    if (!seed) throw new Error('BLOCKED: staging workspace A has no live listing (sites/test-demo-a/stage.mjs)');
+    const base = [...seed.content_versions].sort((a, b) => b.n - a.n)[0]!.data, street = `pub1 ${RUN}!`, slug = `pub1-${RUN}`, owner = await personAccessToken('owner-a');
+    const short = `pub1 ${RUN}`.padEnd(19, 'x').slice(0, 19), good = `pub1 ${RUN} test home for the PUB-1 flow`.slice(0, 40), description = `pub1 ${RUN}: a test listing for the PUB-1 flow, never live.`.padEnd(60, '.').slice(0, 60);
+    const hint = 'Title needs at least 20 characters to publish';
+    // step 1: a title of 19 characters saves, and so does the next save of the same row (the minimum is a publish rule, never a save rule)
+    const data = { ...base, street, slug, seo: { ...(base.seo as object), title: short, description } };
+    const made = await callAs(owner, 'save', { workspace: WS.a.id, collection: 'listings', row: null, data });
+    expect(made.status, `save of the short title answered ${made.status}: ${made.text.slice(0, 120)}`).toBe(200);
+    const { row: id, version } = made.json as { row: string; version: number };
+    try {
+      const again = await callAs(owner, 'save', { workspace: WS.a.id, collection: 'listings', row: id, base: version, data: { ...data, mlsNumber: `PUB1${RUN}` } });
+      expect(again.status, `the second save of a short title answered ${again.status}: ${again.text.slice(0, 120)}`).toBe(200);
+      // step 2: the sheet refuses it, names the row, the words and the code, starts no job
+      await page.goto(`/w/${WS.a.slug}/site`);
+      await page.getByRole('button', { name: /^Publish \d+ changes?$/ }).click({ timeout: 30_000 });
+      const sheet = page.getByRole('dialog');
+      await sheet.getByRole('button', { name: 'Publish', exact: true }).click({ timeout: 30_000 });
+      await expect(sheet.getByText('Nothing went live')).toBeVisible();
+      const refused = sheet.getByRole('listitem').filter({ hasText: street }).filter({ hasText: 'I-MIN' });   // the waiting-changes list names the street too: only the refusal carries the code
+      await expect(refused).toContainText('SEO title under 20 characters');
+      expect((await serviceGet<unknown[]>(`/publish_jobs?workspace_id=eq.${WS.a.id}&rows=cs.{${id}}&select=id`)).length, 'no job was started').toBe(0);
+      await ok(page, { required: ['DP-1.4c-04'] });
+      // step 3: Fix opens the title, the card says what is needed, a good title takes the hint away and Save stays on all the time
+      await sheet.getByRole('button', { name: 'Fix' }).first().click();
+      await expect(page).toHaveURL(/\/site\/listings\/[0-9a-f-]+\?field=seo\.title/);
+      await expect(page.getByText(hint)).toBeVisible();
+      await page.getByRole('textbox', { name: 'Title', exact: true }).fill(good);   // the length bar is a meter with the same label: the role picks the input
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect(page.getByRole('status').last()).toContainText('Saved');
+      await expect(page.getByText(hint)).toHaveCount(0);
+      await ok(page, { required: ['DP-1.4-09'] });
+      // step 4: the title is good now, the street still ends in ! (the audit's DSN-006): a real job fails and the sheet lists that check by page, words and rule
+      await page.goto(`/w/${WS.a.slug}/site`);
+      await page.getByRole('button', { name: /^Publish \d+ changes?$/ }).click({ timeout: 30_000 });
+      await page.getByRole('dialog').getByRole('button', { name: 'Publish', exact: true }).click({ timeout: 30_000 });
+      await expect(page.getByRole('dialog').getByText('Nothing went live')).toBeVisible({ timeout: 600_000 });   // GitHub's runner can take minutes to pick the job up
+      await expect(page.getByRole('dialog').getByRole('listitem').filter({ hasText: new RegExp(`^/listings/${slug}/: .*\\(DSN-006\\)$`) }).first()).toBeVisible();
+      const jobs = await serviceGet<{ state: string }[]>(`/publish_jobs?workspace_id=eq.${WS.a.id}&order=created_at.desc&limit=1&select=state`);
+      expect(jobs[0]?.state, 'the newest job failed at the audit').toBe('failed');
+    } finally {
+      const gone = await removeRows([id]);
+      expect(gone[0]?.ok, `the pub1 row must be removed: ${gone[0]?.message}`).toBe(true);
+    }
+  });
+});

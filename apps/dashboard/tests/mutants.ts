@@ -16,6 +16,7 @@
 //   frame-lost            the frame's worker never answers (a stand-in Worker): the frame stays empty, as if the renderer were gone
 //   preview-lost          the preview build call is answered 202 by the test and never reaches the function: no build starts
 //   off-lost              the editor's Take off the site (unpublish with off) is answered 204 by the test and never reaches the function
+//   fails-hidden          the page's reads of publish_jobs come back with audit.fails emptied: the sheet can only say audit failed
 // Work order 07 (tests/support/own-lead.ts):
 //   no-own-lead      the add-lead a test uses to make its own row is skipped, so every test that waits for a first row must go red for want of one
 // Slice 5-DS (tests/styles.spec.ts):
@@ -40,7 +41,7 @@ export function active(name: Mutant): boolean {
 
 // Kept out of the Mutant union on purpose: the flows slice edits that union's line, and a branch that conflicts with another anywhere but icm/
 // and the book's Counts costs the landing stack a hand merge (docs/departments/README.md rule 8).
-export type SiteMutant = 'undo-lost' | 'delete-lost' | 'restore-lost' | 'frame-lost' | 'preview-lost' | 'off-lost';
+export type SiteMutant = 'undo-lost' | 'delete-lost' | 'restore-lost' | 'frame-lost' | 'preview-lost' | 'off-lost' | 'fails-hidden';
 export async function installSiteMutant(page: Page, name: SiteMutant) {
   if (process.env.FLOWS_MUTANT !== name) return;
   if (name === 'undo-lost') {
@@ -65,6 +66,7 @@ export async function installSiteMutant(page: Page, name: SiteMutant) {
   if (name === 'frame-lost') await page.addInitScript(() => { (window as unknown as { Worker: unknown }).Worker = class { onmessage: unknown = null; postMessage() {} terminate() {} }; });
   if (name === 'preview-lost') await page.route(/\/functions\/v1\/publish$/, route => route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ job: '00000000-0000-4000-8000-000000000000', state: 'queued', dispatched: true, reason: null, left_out: [] }) }));
   if (name === 'off-lost') await page.route(/\/functions\/v1\/unpublish$/, route => ((JSON.parse(route.request().postData() ?? '{}') as { off?: boolean }).off === true ? route.fulfill({ status: 204, body: '', headers: { 'access-control-allow-origin': '*' } }) : route.continue()));
+  if (name === 'fails-hidden') await page.route(/\/rest\/v1\/publish_jobs/, async route => { const res = await route.fetch(); const rows = await res.json(); if (Array.isArray(rows)) for (const r of rows) if (r.gate_report?.audit) r.gate_report.audit.fails = []; await route.fulfill({ status: res.status(), contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(rows) }); });
 }
 
 /** Answer matching requests from the page with the same request made as the service role (which ignores Row-Level Security). */

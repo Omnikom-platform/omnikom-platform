@@ -2,6 +2,7 @@
 // the counters, the compare list, the state line and the publish progress. No browser, no network: Vitest covers it. Words that are copy
 // come from the plan (t(), DECISIONS 44); everything else is the data itself (the contract's labels, the person's own text).
 import { t } from '../plan';
+import SEO_LIMITS from '../../../../contracts/seo-limits.json';
 import { receivedWords } from './leads';
 
 export type FieldDef = {
@@ -160,9 +161,16 @@ export function visibleTo(role: 'owner' | 'member' | 'staff', teamRow: string | 
 }
 
 // ---------- limits and counters ----------
-// The search card's limits are the validator's (contracts/validate.mjs: seo title 60, description 160); a text field's own max comes from the contract.
-export const SEO_TITLE_MAX = 60;
-export const SEO_DESCRIPTION_MAX = 160;
+// The search card's limits are the validator's, from contracts/seo-limits.json (the minimum is a publish rule, the maximum holds when saving too);
+// a text field's own max comes from the contract.
+export const SEO_TITLE_MAX = SEO_LIMITS.title.max;
+export const SEO_DESCRIPTION_MAX = SEO_LIMITS.description.max;
+export const SEO_TITLE_MIN = SEO_LIMITS.title.min;
+export const SEO_DESCRIPTION_MIN = SEO_LIMITS.description.min;
+// Counted as contracts/validate.mjs and the audit count: code points of the NFC text, white space collapsed, trimmed.
+const seoLength = (s: string) => [...String(s).normalize('NFC').replace(/\s+/g, ' ').trim()].length;
+/** Under the minimum to publish (the card says so; Save stays on, the refusal comes at publish). */
+export const seoShort = (kind: 'title' | 'description', text: string) => seoLength(text) < (kind === 'title' ? SEO_TITLE_MIN : SEO_DESCRIPTION_MIN);
 
 export type Over = { path: string; label: string };
 
@@ -288,12 +296,22 @@ export function progressLines(events: JobEvent[]): Line[] {
 
 const clip = (s: string) => s.replace(/\s+/g, ' ').trim().slice(0, 240);
 
+/** One failed check of the audit's report: a string as it is; the runner's object ({ rule, page, line, what, source }, tools/audit/summary.mjs) as
+ *  "page: what (rule)" in the audit's own words, minus the tag before the first colon (value-mismatch:); anything else gives no line. */
+function checkLine(x: unknown): string[] {
+  if (typeof x === 'string') return [x];
+  if (!x || typeof x !== 'object') return [];
+  const { rule, page, what } = x as { rule?: unknown; page?: unknown; what?: unknown };
+  if (typeof what !== 'string' || !what.trim()) return [];
+  return [`${typeof page === 'string' && page ? `${page}: ` : ''}${what.replace(/^[a-z]+(?:-[a-z]+)+: /, '')}${typeof rule === 'string' && rule ? ` (${rule})` : ''}`];
+}
+
 /** What the failed check said, from the job's gate report and error, as the report's own lines (data, not our words). */
 export function failureLines(job: Pick<Job, 'gate_report' | 'error'>): string[] {
   const r = job.gate_report ?? {};
   const out: string[] = [];
   const audit = r.audit as { fails?: unknown } | undefined;
-  if (audit && Array.isArray(audit.fails)) out.push(...audit.fails.filter((x): x is string => typeof x === 'string'));
+  if (audit && Array.isArray(audit.fails)) out.push(...audit.fails.flatMap(checkLine));
   if (typeof r.reason === 'string') out.push(r.reason);
   const factory = r.factory as { lines?: unknown } | undefined;
   if (factory && Array.isArray(factory.lines)) out.push(...factory.lines.filter((x): x is string => typeof x === 'string'));

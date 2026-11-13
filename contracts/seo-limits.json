@@ -1,0 +1,4 @@
+{
+  "title": { "min": 20, "minCjk": 10, "max": 60 },
+  "description": { "min": 50, "minCjk": 25, "max": 160 }
+}

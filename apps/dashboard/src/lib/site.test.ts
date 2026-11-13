@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   canAdd, canDelete, changesBetween, checksLine, draftLink, clock, dropDraft, editorCards, failureLines, feedLine, getAt, humanize, keepDraft, leftOutLine, listCollections, loadDraft, overLimits, pathKey,
-  progressLines, restoreSteps, rowTitle, sameData, setAt, siteUrl, slugify, staleLine, stateLine, stepWords, visibleTo, type Contract, type JobEvent,
+  progressLines, restoreSteps, rowTitle, SEO_DESCRIPTION_MIN, SEO_TITLE_MIN, sameData, seoShort, setAt, siteUrl, slugify, staleLine, stateLine, stepWords, visibleTo, type Contract, type JobEvent,
 } from './site';
 
 const contract: Contract = {
@@ -183,6 +183,36 @@ describe('the publish progress', () => {
     expect(failureLines({ gate_report: { factory: 'pass', audit: { exit: 1, fails: ['FAIL MET-003 index.html:4 two h1'] } }, error: 'audit failed' })).toEqual(['FAIL MET-003 index.html:4 two h1']);
     expect(failureLines({ gate_report: { reason: 'build failed', factory: { exit: 1, lines: ['boom'] } }, error: null })).toEqual(['build failed', 'boom']);
     expect(failureLines({ gate_report: null, error: 'deploy failed' })).toEqual(['deploy failed']);
+  });
+  // the runner stores each failed check as the audit's own object (tools/audit/summary.mjs:52), not as a string
+  const fail = { rule: 'SE-202', page: '/listings/b12-off-mwef1pxa/', line: 6, what: 'value-mismatch: the title is 16 characters, Bing wants at least 20', source: 'checklist/search-engines.md SE-202' };
+  it('a failed check kept as the audit\'s object reads as one line: the page, what is wrong, the rule', () => {
+    const lines = failureLines({ gate_report: { reason: 'audit failed', factory: 'pass', audit: { v: 1, pass: false, exit: 1, fails: [fail, { rule: 'MET-001', page: '/', line: 4, what: 'missing-element: the page has no <title> in <head>', source: 'x' }] } }, error: 'audit failed' });
+    expect(lines).toEqual(['/listings/b12-off-mwef1pxa/: the title is 16 characters, Bing wants at least 20 (SE-202)', '/: the page has no <title> in <head> (MET-001)', 'audit failed']);
+  });
+  it('a malformed failed check gives no line, never undefined or [object Object]; only a hyphenated tag at the start is stripped', () => {
+    const lines = failureLines({ gate_report: { reason: 'audit failed', audit: { fails: [null, 7, { rule: 'SE-202' }, { what: '  ' }, { what: 'robots: blocked' }] } }, error: null });
+    expect(lines).toEqual(['robots: blocked', 'audit failed']);
+    expect(lines.some(l => l.includes('undefined') || l.includes('[object'))).toBe(false);
+  });
+});
+
+describe('the search card minimum (B9)', () => {
+  it('a title under 20 and a description under 50 characters are short; at the minimum they are not', () => {
+    expect(seoShort('title', 'x'.repeat(19))).toBe(true);
+    expect(seoShort('title', 'x'.repeat(20))).toBe(false);
+    expect(seoShort('description', 'x'.repeat(49))).toBe(true);
+    expect(seoShort('description', 'x'.repeat(50))).toBe(false);
+  });
+  it('nothing is short; a trailing space does not count; a code point is one character', () => {
+    expect(seoShort('title', '')).toBe(true);
+    expect(seoShort('title', `${'x'.repeat(19)} `)).toBe(true);
+    expect(seoShort('title', '\u{1F600}'.repeat(10))).toBe(true);
+    expect(seoShort('title', '\u{1F600}'.repeat(20))).toBe(false);
+  });
+  it('the minimums are the English numbers of contracts/seo-limits.json', () => {
+    expect(SEO_TITLE_MIN).toBe(20);
+    expect(SEO_DESCRIPTION_MIN).toBe(50);
   });
 });
 

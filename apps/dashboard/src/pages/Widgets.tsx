@@ -1,7 +1,7 @@
 import { useId, useState, type DragEvent, type ReactNode } from 'react';
 import { putFile, uploadFinish, uploadStart } from '../api';
 import { useMedia, useSignedUrl, type ContentRow } from '../data';
-import { fieldLabel, humanize, pathKey, SEO_DESCRIPTION_MAX, SEO_TITLE_MAX, type Contract, type FieldDef, type Path } from '../lib/site';
+import { fieldLabel, humanize, pathKey, SEO_DESCRIPTION_MAX, SEO_DESCRIPTION_MIN, SEO_TITLE_MAX, SEO_TITLE_MIN, seoShort, type Contract, type FieldDef, type Path } from '../lib/site';
 import { CallFailed } from '../lib/problems';
 import { t } from '../plan';
 
@@ -40,13 +40,14 @@ function Errors({ path, ctx }: { path: Path; ctx: WidgetCtx }) {
   );
 }
 
-/** "n of max" with the red mark past the limit (DP-1.4-09), and the plan's "is too long" sentence under the field. */
-function Counter({ n, max, label }: { n: number; max: number; label: string }) {
+/** "n of max" with the red mark past the limit (DP-1.4-09), and the plan's "is too long" sentence under the field; under the minimum, the plan's "needs at least" hint (Save stays on). */
+function Counter({ n, max, label, short, min }: { n: number; max: number; label: string; short?: boolean; min?: number }) {
   const over = n > max;
   return (
     <>
       <span data-plan="DP-1.4-09" data-over={over ? 'true' : 'false'}>{n} of {max}</span>
       {over && <small role="alert" data-plan="DP-1.4-09">{label} is too long</small>}
+      {short && <small data-plan="DP-1.4-09" data-under="true">{label} needs at least {min} characters to publish</small>}
     </>
   );
 }
@@ -439,11 +440,11 @@ function SeoWidget({ name, def, path, value, onChange, ctx }: Props) {
     <div data-plan="DP-1.4-16" data-path={pathKey(path)}>
       <label htmlFor={idT}>{fieldLabel('title')}</label>
       <input id={idT} type="text" value={title} onChange={e => put('title', e.target.value)} />
-      <Counter n={title.length} max={SEO_TITLE_MAX} label={fieldLabel('title')} />
+      <Counter n={title.length} max={SEO_TITLE_MAX} label={fieldLabel('title')} short={seoShort('title', title)} min={SEO_TITLE_MIN} />
       {bar(title.length, SEO_TITLE_MAX, 'Title')}
       <label htmlFor={idD}>{fieldLabel('description')}</label>
       <textarea id={idD} value={description} onChange={e => put('description', e.target.value)} />
-      <Counter n={description.length} max={SEO_DESCRIPTION_MAX} label={fieldLabel('description')} />
+      <Counter n={description.length} max={SEO_DESCRIPTION_MAX} label={fieldLabel('description')} short={seoShort('description', description)} min={SEO_DESCRIPTION_MIN} />
       {bar(description.length, SEO_DESCRIPTION_MAX, 'Description')}
       <figure>
         <p>{title}</p>

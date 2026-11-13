@@ -5,6 +5,7 @@
 // CLI: node validate.mjs <site-contract.json>   (exit 0 = valid, 1 = errors printed, 2 = usage)
 import { readFileSync, realpathSync } from 'node:fs';
 import CORE_JSON from './core.json' with { type: 'json' };
+import SEO_LIMITS from './seo-limits.json' with { type: 'json' };
 import { richProblems } from './richtext.mjs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
@@ -352,6 +353,8 @@ const checks = {
   seo: v => v && typeof v === 'object', sections: v => v && typeof v === 'object',
 };
 const empty = v => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length);
+// The search card's minimum is counted as the audit counts (tools/audit/lib/check.mjs): code points of the NFC text, white space collapsed, trimmed.
+const seoLength = s => [...String(s).normalize('NFC').replace(/\s+/g, ' ').trim()].length;
 
 // o.media(asset) -> { width, exifStripped, rightsConfirmed } from the platform's media record. When it is given (the save and
 // publish functions always give it), those facts come from the record, never from the row's own JSON (dry run 3.3).
@@ -408,8 +411,10 @@ function checkValue(out, p, v, f, o) {
   if (f.type === 'seo') {
     if (publish && !(isStr(v.title) && v.title.trim())) err(out, 'I-REQUIRED', `${p}.title`, 'SEO title required');
     if (publish && !(isStr(v.description) && v.description.trim())) err(out, 'I-REQUIRED', `${p}.description`, 'SEO description required');
-    if (isStr(v.title) && v.title.length > 60) err(out, 'I-MAX', `${p}.title`, 'SEO title over 60 characters');
-    if (isStr(v.description) && v.description.length > 160) err(out, 'I-MAX', `${p}.description`, 'SEO description over 160 characters');
+    if (isStr(v.title) && v.title.length > SEO_LIMITS.title.max) err(out, 'I-MAX', `${p}.title`, `SEO title over ${SEO_LIMITS.title.max} characters`);
+    if (isStr(v.description) && v.description.length > SEO_LIMITS.description.max) err(out, 'I-MAX', `${p}.description`, `SEO description over ${SEO_LIMITS.description.max} characters`);
+    if (publish && isStr(v.title) && v.title.trim() && seoLength(v.title) < SEO_LIMITS.title.min) err(out, 'I-MIN', `${p}.title`, `SEO title under ${SEO_LIMITS.title.min} characters`);
+    if (publish && isStr(v.description) && v.description.trim() && seoLength(v.description) < SEO_LIMITS.description.min) err(out, 'I-MIN', `${p}.description`, `SEO description under ${SEO_LIMITS.description.min} characters`);
     for (const s of [v.title, v.description]) if (publish && isStr(s) && PLACEHOLDER.test(s)) err(out, 'I-PLACEHOLDER', p, 'placeholder text cannot be published');
   }
   if (f.type === 'sections') {

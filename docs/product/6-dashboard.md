@@ -51,7 +51,7 @@ runs (one jobs channel per tab, `src/lib/live.ts`). Vitest for units, Playwright
 - The item editor shows the fields the contract declares, with a widget per type: text and rich text with a counter, slug
   (locked after first publish), number, money, yes or no, date, email, phone, link, file, choice (a select, or segmented for 4
   or fewer), image (alt text required, rights tick), gallery, reference (search picker), address, list, group, and the
-  search-result card (title 60, description 160, live preview).
+  search-result card (title 20 to 60, description 50 to 160, live preview; under the minimum it says what is needed to publish, and a publish refuses it).
 - Locked fields (licences, legal notices) show read-only with the reason and "Ask Omnikom to change this"; sourced fields
   carry a source link and date.
 - Members edit only their own items in `own` collections; the database enforces it.
@@ -65,7 +65,7 @@ runs (one jobs channel per tab, `src/lib/live.ts`). Vitest for units, Playwright
 
 - The publish sheet lists the changes waiting ("Publish these 3 changes to <site>?") and calls `publish` with those exact
   versions. Progress shows one line per step: building, checking (one plain line per check), putting it live, "Live since
-  14:02. Open". A failed check stops at that line with a Fix link and the words "nothing went live". With nothing to publish
+  14:02. Open". A failed check stops at that line with a Fix link and the words "nothing went live". The failed checks are listed one line each: the page, what is wrong, the rule's id. With nothing to publish
   there is no button, only "Nothing to publish".
 - Past publishes (owners and staff, a sheet on the Site screen): each finished publish, live or not, with its checks; "Put the site back to this publish" saves its content as new versions and publishes them (nothing deleted; items added since stay on the site).
 

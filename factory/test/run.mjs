@@ -425,6 +425,24 @@ await check('force-fail heading: only the contact page differs from the normal b
 });
 await check('force-fail: any other value is a usage error (exit 2)', () => build({ extra: ['--force-fail', 'title'] }).status === 2);
 await check('force-fail heading: the factory heading check itself is red on that page (the gate is the one skipped)', () => gateIds(read(forced.out, 'contact/index.html')).includes('heading-order') || 'heading-order not red');
+// the audit keeps its own copy of the search card's minimums (tools/audit has no import out of itself, so contracts/seo-limits.json cannot be shared):
+// this is the tie. SE-202 must start to fail at exactly the numbers the contract file holds, for en and for each of zh, ja and ko.
+await check('seo limits: SE-202 flips exactly at the numbers contracts/seo-limits.json holds', async () => {
+  const lim = JSON.parse(readFileSync(join(UNDER, 'contracts', 'seo-limits.json'), 'utf8'));
+  const se = await load(REPO, 'tools/audit/checks/se-202.mjs');
+  const found = (lang, title, description) => se.run({ pageList: [{ path: '/', lang, titles: [{ inHead: true, text: title, line: 1 }], descriptions: [{ inHead: true, text: description, line: 1 }] }] });
+  for (const [lang, key] of [['en', 'min'], ['zh', 'minCjk'], ['ja-JP', 'minCjk'], ['ko', 'minCjk']]) {
+    for (const kind of ['title', 'description']) {
+      const min = lim[kind][key];
+      // each field gets its own text, the other one long enough, or one call would return two findings
+      const at = (n) => (kind === 'title' ? found(lang, 'x'.repeat(n), 'x'.repeat(100)) : found(lang, 'x'.repeat(40), 'x'.repeat(n)));
+      const under = at(min - 1), enough = at(min);
+      if (!(under.length === 1 && under[0].what.includes(`at least ${min}`))) return `${lang} ${kind}: ${min - 1} characters gave ${JSON.stringify(under.map((f) => f.what))}, wanted one finding with "at least ${min}"`;
+      if (enough.length !== 0) return `${lang} ${kind}: ${min} characters gave ${JSON.stringify(enough.map((f) => f.what))}, wanted none`;
+    }
+  }
+  return true;
+});
 
 // ---------- 8. the test site is what the brief says ----------
 await check('site: the four collections the seed command uses keep its keys in the resolved contract (kind, member access, ownerField)', () => {

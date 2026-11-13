@@ -138,7 +138,7 @@ function synth(f, refs, key) {
   else if (t === 'geo') v = { lat: 1, lng: 1 };
   else if (t === 'list') v = Array.from({ length: Math.max(f.min || 1, 1) }, () => synthObj(f.of, refs, key));
   else if (t === 'group') v = f.open ? {} : synthObj(f.of, refs, key);
-  else if (t === 'seo') v = { title: 'Synthetic title', description: 'Synthetic description' };
+  else if (t === 'seo') v = { title: 'Synthetic title for the run', description: 'Synthetic description of an item, long enough to be published.' };
   if (f.sourced) v = { value: v, source: 'https://example.test/source', date: '2026-01-01' };
   return v;
 }
@@ -177,7 +177,7 @@ for (const ind of INDUSTRIES) {
   for (const pg of contract.pages) {
     const t = contract.pageTypes[pg.type];
     const sections = Object.fromEntries(t.sections.filter(s => s.kind === 'fields').map(s => [s.id, synthObj(s.fields, refs, pg.type)]));
-    const errs = validateItem(contract, 'pages', { path: pg.path, type: pg.type, title: 'T', seo: { title: 'T', description: 'D' }, sections }, { mode: 'publish' });
+    const errs = validateItem(contract, 'pages', { path: pg.path, type: pg.type, title: 'T', seo: { title: 'Synthetic title for the run', description: 'Synthetic description of an item, long enough to be published.' }, sections }, { mode: 'publish' });
     if (errs.length) publishFails.push(`page ${pg.path}: ${errs.map(e => e.code + ' ' + e.path).join(', ')}`);
   }
   const lockedFields = Object.entries(cols).flatMap(([id, c]) => Object.entries(c.fields).filter(([, f]) => f.locked).map(([n]) => `${id}.${n}`));
