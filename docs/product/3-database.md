@@ -52,7 +52,7 @@ How the wall is built (each part has a test and a mutant in `supabase/tests/run-
 |---|---|
 | `sites` | one row per website: `deploy_target` (its Pages project), `preview_host`, `domain` (M23: unique in any letter case, `sites_domain_unique`), `state` (preview, live, paused), `lead_alert_to`, `alert_assignee` |
 | `site_contracts` | the content contract per workspace, versioned; `contract` as generated, `resolved` with the shared core merged; one `active` |
-| `content_rows` | one item: `collection`, `owner_team_row`, `published_version` (moves only when a publish job finishes), `deleted_at` |
+| `content_rows` | one item: `collection`, `owner_team_row`, `published_version` (moves only when a publish job finishes), `deleted_at`, `off_site_at` (taken off the site, M45) |
 | `content_versions` | every save as a new version, never updated or deleted: `data` in the contract's shape, `by`, `at`, `sign_off` for a locked field |
 | `media` | an uploaded file under `media/<workspace_id>/`: `width`, `height`, `bytes`, `processed`, `exif_stripped`, `rights_confirmed`, alt text. The Storage bucket `media` is private, caps a file at 26214400 bytes and allows only jpeg, png, webp, heic and pdf (the same constants as `upload-start`, compared by `run-local.mjs`); a signed-in user may read their workspace's folder but has no insert policy (migration 21), so uploads go only through the signed URL |
 
@@ -108,7 +108,7 @@ functions calls them any more (work order 08), and the table, its rows and these
 
 | Job | Functions |
 |---|---|
-| Content | `save_as` (the only way to save; calls `private.save_version`: role, own items, locked fields, stale base `S-STALE`), `seed_version`, `contract_for`, `unpublish` |
+| Content | `save_as` (the only way to save; calls `private.save_version`: role, own items, locked fields, stale base `S-STALE`), `seed_version`, `contract_for`, `unpublish` (delete or take off, M45), `put_back` (M45) |
 | Publish | `start_publish` (pins versions, one atomic job), `freeze_snapshot`, `published_rows`, `export_bundle`, `set_job_state` (legal moves only), `reap_stale_jobs` (pg_cron every 5 minutes), `drafts_waiting` |
 | Metrics | `metrics_targets` (one site per workspace that is trial or active), `metrics_target_for_job`, `metrics_put` (upsert by workspace, source, day; refuses a source the collectors do not write, data that is not an object, over 256 KiB), `metrics_get`, `metrics_last_day` (the function role's five); `metrics_calls`, `metrics_pull_all` (pg_cron `metrics-pull-daily` at 03:30 UTC; signs two calls per workspace and posts them through pg_net with `metrics_cron_key` and `project_url` from Vault; sends nothing where pg_net, Vault or the entries are missing; no grant to any role) |
 | Media | `record_media`, `finish_media`, `media_processed`, `media_for_runner`, `media_facts`, `replace_media`, `delete_media` |

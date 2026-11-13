@@ -14,8 +14,8 @@ import { dispatch } from '../_shared/dispatch.ts';
 
 export async function handle(req: Request): Promise<Response> {
   return await dashboard(req, 'publish', async (c, d) => {
-    const f = new Fields(d), preview = d.preview === true;   // book row B15: a preview names no rows
-    const site = f.uuid('site'), rows = preview ? [] : f.uuids('rows', 200), versions = preview ? [] : f.ints('versions', 200);
+    const f = new Fields(d), preview = d.preview === true, none = Array.isArray(d.rows) && d.rows.length === 0 && Array.isArray(d.versions) && d.versions.length === 0;   // book row B15: a preview names no rows; book row B12: removals only
+    const site = f.uuid('site'), rows = preview || none ? [] : f.uuids('rows', 200), versions = preview || none ? [] : f.ints('versions', 200);
     if (rows && versions && rows.length !== versions.length) f.problems.push({ code: 'LENGTH', path: 'versions', msg: 'One version for each row.' });
     if (f.problems.length || !site || !rows || !versions) return badBody(f.problems);
     c.site = site;

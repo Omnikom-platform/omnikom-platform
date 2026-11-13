@@ -51,7 +51,7 @@ edit content, never layout).
 | FR-18 | Search and AI visibility numbers with source and date | W3.8, M6 | values carry source + date (UI test) |
 | FR-19 | Client wording to confirm collected for the review email, drafted for the owner to send | W5.1, W5.2 | list count = placeholder grep; draft exists, nothing sent without the owner's click |
 | FR-20 | Move existing sites (VTV, Rainmaker) with no visible change | W4.1-W4.3 | visual-equivalence diff |
-| FR-21 | Delete of a routed item redirects its page (e.g. listing -> its city guide) | W3.3 | store remove test; `_redirects` check |
+| FR-21 | A routed item deleted or taken off the site: after the next publish its address answers the site's own 404 page, status 404 (no redirect) | W3.3 | T41 (`supabase/tests/tenancy.test.sql`); the flow "B12 take an item off the site" (the address answers 404) |
 | FR-22 | Sold price shown only when ticked; internal fields never reach the site | W2.2 | `publicData` tests |
 | FR-23 | The site renders the approved design without silent changes | W2.1 | visual-equivalence diff vs the approved design at 3 sizes |
 | FR-24 | Clients edit page sections (text, photos, SEO text) in a page editor | W3.4 | Playwright: edit a home section, publish, preview shows it |
