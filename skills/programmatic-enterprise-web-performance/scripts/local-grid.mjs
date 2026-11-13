@@ -254,12 +254,13 @@ export function runGridImport(target, { cwd = process.cwd(), today = null, log =
   const res = importGrid(caps, { plan, name: business?.name, domain: business?.domain, phone: business?.phone, cities: cityList(business), captureDir: dir });
   if (res.summary.viewportCaptures && res.summary.searchCaptures) return { status: "blocked", blocked: { source: "local grid captures", reason: `the grid folder holds ${res.summary.searchCaptures} mobile Google search capture(s) (no method) and ${res.summary.viewportCaptures} Google Maps viewport capture(s) (method maps-viewport); one grid never mixes the two`, unblock: `Set the captures of the form you are not using aside (move them out of ${dir}; the plan asks for the Google Maps viewport form), then import again.` } };
   // Importing the same captures again must not create a second "grid" that would hide the change in the diff: when no capture is new
-  // since the newest grid, that grid stands.
+  // since the newest grid and no capture's rows changed in place (same file and capturedAt, other rows), that grid stands.
   const signature = createHash("sha256").update(JSON.stringify(res.points.map((p) => [p.file, p.capturedAt]).sort())).digest("hex").slice(0, 16);
   const lroot = path.join(loc.pewp, "local");
   const had = fs.existsSync(lroot) ? fs.readdirSync(lroot).filter((d) => /^\d{4}-\d{2}-\d{2}/.test(d) && fs.existsSync(path.join(lroot, d, "grid.json"))).sort() : [];
   const lastG = had.length ? readJson(path.join(lroot, had.at(-1), "grid.json")) : null;
-  if (lastG?.signature === signature) { log(`grid: no new capture since ${lastG.date}; that grid stands (${path.join(lroot, had.at(-1))})`); return { dir: path.join(lroot, had.at(-1)), unchanged: true, ...lastG }; }
+  const sameRows = Array.isArray(lastG?.points) && JSON.stringify(lastG.points.map((p) => JSON.stringify([p.file, p.sponsoredRemoved ?? 0, p.pack])).sort()) === JSON.stringify(res.points.map((p) => JSON.stringify([p.file, p.sponsoredRemoved, p.pack])).sort());
+  if (lastG?.signature === signature && sameRows) { log(`grid: no new capture since ${lastG.date}; that grid stands (${path.join(lroot, had.at(-1))})`); return { dir: path.join(lroot, had.at(-1)), unchanged: true, ...lastG }; }
   const rows = gridRankingRows(res.points, { domain: business?.domain });
   const out = { status: "ok", date, signature, source: gridWords(res.points).source, plan: plan ? { n: plan.n, spacingKm: plan.spacingKm, captures: plan.captureCount } : null, ...res, rankings: rows };
   const od = path.join(loc.pewp, "local", date); fs.mkdirSync(od, { recursive: true });
