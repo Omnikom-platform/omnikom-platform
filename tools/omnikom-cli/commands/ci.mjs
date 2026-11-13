@@ -332,7 +332,7 @@ const actions = {
 };
 
 const NODE_STEPS = ['ICM index is fresh', 'All blueprint gates', 'Factory tests', 'Factory mutants', 'Runner tests', 'Runner mutants', 'Function tests', 'Function mutants, one shard',
-  'Audit tests', 'Audit mutants', 'CLI unit tests', 'CLI full suite (when the change reaches it)', 'CLI mutants, one shard (when the change reaches them)', 'Team kit hook tests (when the change touches the kit)', 'One owner per path', 'Department tool tests', 'crm-map tests and mutants', 'Client record tests', 'ICM tests', 'ICM mutants', 'Lead endpoint tests', 'Lead endpoint mutants', 'Secret receiver tests', 'Secret receiver mutants', 'Site backup URL tests', 'Client files', 'Migration lint (the real folder)', 'Migration lint tests', 'Migration lint mutants', 'Migration applier proof', 'Dashboard tests'];
+  'Audit tests', 'Audit mutants', 'Search skill tests', 'Search skill mutants', 'CLI unit tests', 'CLI full suite (when the change reaches it)', 'CLI mutants, one shard (when the change reaches them)', 'Team kit hook tests (when the change touches the kit)', 'One owner per path', 'Department tool tests', 'crm-map tests and mutants', 'Client record tests', 'ICM tests', 'ICM mutants', 'Lead endpoint tests', 'Lead endpoint mutants', 'Secret receiver tests', 'Secret receiver mutants', 'Site backup URL tests', 'Client files', 'Migration lint (the real folder)', 'Migration lint tests', 'Migration lint mutants', 'Migration applier proof', 'Dashboard tests'];
 const DEP_SCAN_STEPS = ['Dependency scan tests', 'Dependency scan mutants', 'Dependency scan'];   // H2-10: tools/test/dep-scan.mjs finds .tools/bin/osv-scanner itself
 const ROWS = [
   { name: /^Check out the repository( with its whole history)?$/, run: actions.checkout },
