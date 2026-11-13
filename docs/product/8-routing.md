@@ -64,7 +64,7 @@ types `publish` (`{job_id, site_id}`) and `media` (`{media_id, workspace_id}`).
 | `GET /api/lead?sent=1` | the thank-you page when the site sets no `THANKS_PATH`; any other GET gets 405 |
 | `/sitemap.xml`, `/robots.txt`, `/llms.txt` | generated from the placed pages |
 | `/404.html` | not found |
-| `_headers`, `_redirects` | security headers; redirects from the `redirects` collection and deleted items |
+| `_headers`, `_redirects` | security headers; redirects from the `redirects` collection (a deleted or taken-off item gets none: its address answers `/404.html`, book row B12) |
 | `/media/<path>`, `/assets/<name>.<sha>.css` and `.js` | photos and hashed assets |
 
 Addresses: `<project>.pages.dev` (noindex until launch), `preview.<project>.pages.dev` (staging, always noindex), `draft.<project>.pages.dev` (the preview site of saved changes, noindex, only by its signed link, book row B15), the client's

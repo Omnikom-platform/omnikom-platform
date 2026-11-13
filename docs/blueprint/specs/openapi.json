@@ -180,16 +180,16 @@
      },
      "rows": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "items": {
        "type": "string",
        "format": "uuid"
       },
-      "description": "required unless preview"
+      "description": "required unless preview; book row B12: rows and versions both empty publish only the waiting removals (owners and staff)"
      },
      "versions": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "items": {
        "type": "integer"
       },
@@ -997,9 +997,12 @@
       "type": "string"
      },
      "newest": {
-      "type": "integer",
+      "type": [
+       "integer",
+       "null"
+      ],
       "minimum": 1,
-      "description": "the newest saved version of the row"
+      "description": "the newest saved version of the row; null for a live item deleted or taken off, waiting as a removal (book row B12)"
      },
      "published": {
       "type": [
@@ -2926,7 +2929,7 @@
   "/unpublish": {
    "post": {
     "operationId": "unpublish",
-    "summary": "Delete an item: soft delete, off the site with the next publish, its versions kept (owner/staff; supabase/functions/unpublish)",
+    "summary": "Delete an item, take it off the site or put it back (owner/staff; supabase/functions/unpublish)",
     "security": [
      {
       "bearerAuth": []
@@ -2945,6 +2948,14 @@
          "row": {
           "type": "string",
           "format": "uuid"
+         },
+         "off": {
+          "type": "boolean",
+          "description": "book row B12: true takes the item off the site (kept, marked); it leaves the live site at the next publish"
+         },
+         "back": {
+          "type": "boolean",
+          "description": "book row B12: true puts an item taken off back"
          }
         }
        }
@@ -2953,7 +2964,7 @@
     },
     "responses": {
      "204": {
-      "description": "deleted"
+      "description": "deleted, taken off or put back"
      },
      "400": {
       "$ref": "#/components/responses/Invalid"

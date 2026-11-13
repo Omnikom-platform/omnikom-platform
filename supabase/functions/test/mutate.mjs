@@ -229,6 +229,10 @@ const MUTANTS = [
   ['unpublish [B12]: the answer says done whatever happened', F + 'unpublish/index.ts', '    await c.sql`select service.unpublish(${c.jwtClaims}::jsonb, ${row}::uuid, true)`;\n', '    await c.sql`select 1`;\n', 'unpublish.test.ts'],   // U1
   ['unpublish [B12]: a refusal of the database is answered done', F + 'unpublish/index.ts', '${row}::uuid, true)`;', '${row}::uuid, true)`.catch(() => null);', 'unpublish.test.ts'],   // U2
   ['unpublish [B12]: any text is taken as a row id', F + 'unpublish/index.ts', "const row = f.uuid('row');", "const row = typeof d.row === 'string' ? d.row : null;", 'unpublish.test.ts'],   // U3
+  ['unpublish [B12-b]: taking off deletes', F + 'unpublish/index.ts', 'p_delete => false)', 'p_delete => true)', 'unpublish.test.ts'],
+  ['unpublish [B12-b]: off is not read', F + 'unpublish/index.ts', '    if (off) {', '    if (false) {', 'unpublish.test.ts'],
+  ['unpublish [B12-b]: back is not read', F + 'unpublish/index.ts', '    if (back) {', '    if (false) {', 'unpublish.test.ts'],
+  ['publish [B12-b]: an empty publish is refused', F + 'publish/index.ts', 'none = Array.isArray(d.rows)', 'none = false && Array.isArray(d.rows)', 'unpublish.test.ts'],
   // work order 18 (migration 22): saved views, follow-up and tasks, the due and duplicates filters (each must turn crm3b.test.ts red). Run only these: --only "crm3b"
   ['crm3b view-save: shared is always false', F + 'view-save/index.ts', 'shared: shared === true }', 'shared: false }', 'crm3b.test.ts'],
   ['crm3b view-save: the id is dropped', F + 'view-save/index.ts', 'const view = { ...(id ? { id } : {}), name,', 'const view = { name,', 'crm3b.test.ts'],
@@ -383,7 +387,7 @@ const MUTANTS = [
   ['E6 db: sql.begin does not step down', F + '_shared/db.ts', '=> inTx(run), array:', '=> base.begin(run), array:', 'db.test.ts'],
   ['E6 capture-lead: its own connection to the direct address', F + 'capture-lead/index.ts', 'try { sql = await connect(); }', "try { sql = (await import('npm:postgres@3.4.5')).default(Deno.env.get('SUPABASE_DB_URL')!, { max: 1, prepare: false }); }", 'db.test.ts'],
   ['publish [B15]: no ready draft still starts a preview', F + 'publish/index.ts', "if (!out.job) return problem(422, 'NOTHING-TO-PREVIEW',", "if (false) return problem(422, 'NOTHING-TO-PREVIEW',", 'publish.test.ts'],
-  ['publish [B15]: a preview body must name rows', F + 'publish/index.ts', "rows = preview ? [] : f.uuids('rows', 200)", "rows = f.uuids('rows', 200)", 'publish.test.ts'],
+  ['publish [B15]: a preview body must name rows', F + 'publish/index.ts', "rows = preview || none ? [] : f.uuids('rows', 200)", "rows = none ? [] : f.uuids('rows', 200)", 'publish.test.ts'],
   ['publish [B15]: the left-out drafts are not named', F + 'publish/index.ts', 'reason: sent.reason, left_out: left })', 'reason: sent.reason, left_out: [] })', 'publish.test.ts'],
   ['media-manage: replace may put a file in its own place', F + 'media-manage/index.ts', 'if (other && other === media) ', 'if (false) ', 'media-manage.test.ts'],
   ['media-manage: an unknown action deletes', F + 'media-manage/index.ts', "if (action && action !== 'replace' && action !== 'delete') ", 'if (false) ', 'media-manage.test.ts'],

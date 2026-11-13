@@ -310,7 +310,7 @@ select test.expect_error($q$select service.capture_lead('bbbbbbbb-0000-0000-0000
 -- unpublish: only owners and staff
 select test.expect_error(format($q$select service.unpublish('{"sub":"00000000-0000-0000-0000-0000000000a2","aal":"aal1"}', %L)$q$, test.id('listing1')), 'S-NOT-FOUND');
 select service.unpublish('{"sub":"00000000-0000-0000-0000-00000000000a","aal":"aal1"}', test.id('listing1'));
-do $$ begin assert (select published_version from content_rows where id = test.id('listing1')) is null, 'owner unpublished the listing'; end $$;
+do $$ begin assert (select off_site_at is not null and deleted_at is null from content_rows where id = test.id('listing1')), 'owner took the listing off the site: marked and kept (migration 45)'; end $$;
 reset role;
 do $$ begin assert (select count(*) from pg_publication_tables where pubname = 'supabase_realtime' and tablename in ('publish_jobs', 'leads')) = 2, 'jobs and leads stream through Realtime'; end $$;
 
@@ -1335,8 +1335,9 @@ do $$ begin assert not exists (select 1 from test.drafts('aaaaaaaa-0000-0000-000
 select * from test.save_b('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('dwL1'), '{"street":"7 Draft Rd","status":"sold"}', 1);
 do $$ begin assert (select newest_version from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') where row_id = test.id('dwL1')) = 2 and (select published_version from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') where row_id = test.id('dwL1')) = 1, 'a newer draft is waiting, with both numbers'; end $$;
 select test.act_as('00000000-0000-0000-0000-00000000000a');
+select * from test.save_b('aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('dwL2'), '{"street":"8 Draft Rd","status":"sold"}', 1);
 select test.unpublish(test.id('dwL2'));                                           -- the test helper deletes
-do $$ begin assert not exists (select 1 from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') where row_id = test.id('dwL2')), 'a deleted row is not waiting'; end $$;
+do $$ begin assert (select count(*) = 1 and bool_and(newest_version is null) from test.drafts('aaaaaaaa-0000-0000-0000-00000000517e') where row_id = test.id('dwL2')), 'a deleted live row with a newer draft waits once, as a removal'; end $$;
 reset role;
 
 -- ---------- (g) the new functions are closed to anon, authenticated and PUBLIC, open to service_role and the function role, definer with an empty search_path ----------
@@ -1612,7 +1613,7 @@ do $$ declare t record; n int; begin
       'list_members', 'invite_context',                -- work order 08: owner B and a member in T24
       'site_audit',                                    -- work order 10: member and owner B in T24
       'start_preview',                                 -- book row B15 (migration 42): a member and owner B in T-B15
-      'offboarding_storage', 'staff_open']),           -- work order 37b (migration 26): owner B and staff without MFA in T32e; E11 staff_open (migration 43): staff without MFA, owner A and a login of nothing in T39c
+      'offboarding_storage', 'staff_open', 'put_back']),   -- work order 37b (migration 26): owner B and staff without MFA in T32e; E11 staff_open (migration 43): staff without MFA, owner A and a login of nothing in T39c
       'service.' || t.proname || ' takes claims but has no outsider test listed in T14';
   end loop;
 end $$;
@@ -3970,6 +3971,34 @@ do $$ begin
   assert (select count(*) from media where id in ('40000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000005')) = 0, 'T40b, T40c the records are gone';
   assert (select count(*) from audit_log where action = 'media-delete' and target = '40000000-0000-4000-8000-000000000001') = 1, 'T40b one audit row';
 end $$;
+
+-- ===== T41 (book row B12 part b, migration 45): take off and put back; a removal is a waiting change; the build leaves it out; done follows the snapshot; a late reconcile undoes no newer job =====
+create table test.t41_ws as select id, state from public.workspaces where id = 'aaaaaaaa-0000-0000-0000-000000000000'; update public.workspaces set state = 'active' where id = 'aaaaaaaa-0000-0000-0000-000000000000';
+select service.set_job_state(id, 'failed') from public.publish_jobs where site_id = 'aaaaaaaa-0000-0000-0000-00000000517e' and state in ('queued', 'building', 'gating', 'deploying');
+set role authenticated; select test.act_as('00000000-0000-0000-0000-00000000000a'); insert into test.ids select 'off1', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"41 Off Rd","status":"for-sale"}');
+insert into test.ids select 'off2', row_id from test.save('aaaaaaaa-0000-0000-0000-000000000000', 'listings', null, '{"street":"41 Back Rd","status":"for-sale"}'); reset role; update content_rows set published_version = 1 where id in (test.id('off1'), test.id('off2')); alter table content_rows disable trigger content_rows_ready; update content_rows set published_version = 1, off_site_at = now() where id = test.id('teamB2'); alter table content_rows enable trigger content_rows_ready;   -- a removal waiting in B (T19's way past the ready wall)
+select test.expect_error(format($q$select service.unpublish(test.cl('00000000-0000-0000-0000-0000000000a1'), %L)$q$, test.id('off1')), 'S-NOT-FOUND'); select service.unpublish(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('off1')); select service.unpublish(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('off2'));   -- (a) take off
+select service.save_as(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-000000000000', 'listings', test.id('off1'), '{"street":"41 Off Rd v2","status":"for-sale"}', null, 1);
+do $$ begin assert (select off_site_at is not null and deleted_at is null and published_version = 1 from content_rows where id = test.id('off1')), 'T41a taken off: marked, kept, live until the next publish';
+  assert (select count(*) = 1 and bool_and(newest_version is null and published_version = 1) from service.drafts_waiting(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e') where row_id = test.id('off1')), 'T41a the owner sees it once, as a removal (its new draft is not offered)';
+  assert not exists (select 1 from service.drafts_waiting(test.cl('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-00000000517e') where newest_version is null), 'T41a an agent is offered no removal'; assert not exists (select 1 from service.drafts_waiting(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e') where row_id = test.id('teamB2')), 'T41a no removal of another workspace is offered'; end $$;
+select test.expect_error(format($q$select service.put_back(test.cl('00000000-0000-0000-0000-0000000000a1'), %L)$q$, test.id('off2')), 'S-NOT-FOUND'); select test.expect_error(format($q$select service.put_back(test.cl('00000000-0000-0000-0000-00000000000b'), %L)$q$, test.id('off2')), 'S-NOT-FOUND');   -- (c) put back
+select test.expect_error(format($q$select service.put_back(test.cl('00000000-0000-0000-0000-00000000000a'), %L)$q$, test.id('dwL2')), 'S-NOT-FOUND'); select service.put_back(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('off2')); do $$ begin assert (select off_site_at is null and published_version = 1 from content_rows where id = test.id('off2')), 'T41c put back: unmarked, still live'; end $$;
+select test.expect_error($q$select service.start_publish(test.cl('00000000-0000-0000-0000-0000000000a1'), 'aaaaaaaa-0000-0000-0000-00000000517e', '{}', '{}')$q$, 'S-NOT-FOUND'); insert into test.ids select 'jobOff', service.start_publish(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', '{}', '{}'); select service.freeze_snapshot(test.id('jobOff'));   -- (b) no rows
+do $$ begin assert (select test.id('off1') = any(rows) and not (test.id('off2') = any(rows)) and not (test.id('teamB2') = any(rows)) and requested = '{}' and not (snapshot ? test.id('off1')::text) and snapshot ? test.id('off2')::text from publish_jobs where id = test.id('jobOff')), 'T41b the job carries the removals, requests nothing, builds the live rows only'; end $$;
+select service.set_job_state(test.id('jobOff'), 'gating'); select service.set_job_state(test.id('jobOff'), 'deploying'); select service.set_job_state(test.id('jobOff'), 'done');
+do $$ begin assert (select published_version is null and off_site_at is not null from content_rows where id = test.id('off1')) and (select published_version = 1 from content_rows where id = test.id('off2')), 'T41b done: off1 left the live site (kept, marked); off2 stays'; end $$;
+select test.expect_error($q$select service.start_publish(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', '{}', '{}')$q$, 'S-NOT-FOUND'); select service.unpublish(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('off2')); insert into test.ids select 'jobOn', service.start_publish(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('off2')], array[1]);   -- (d)
+do $$ begin assert (select off_site_at is null from content_rows where id = test.id('off2')), 'T41d a publish of the item puts it back'; end $$; select service.set_job_state(test.id('jobOn'), 'failed');
+select service.unpublish(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('off2')); insert into test.ids select 'jobF', service.start_publish(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('off1')], array[2]); select service.freeze_snapshot(test.id('jobF'));   -- (f) done follows the snapshot
+select service.unpublish(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('off1')); select service.put_back(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('off2')); select service.set_job_state(test.id('jobF'), 'gating'); select service.set_job_state(test.id('jobF'), 'deploying'); select service.set_job_state(test.id('jobF'), 'done');
+do $$ begin assert (select published_version = 2 and off_site_at is not null from content_rows where id = test.id('off1')) and (select published_version is null and off_site_at is null from content_rows where id = test.id('off2')), 'T41f done follows the frozen snapshot: off1, taken off after the freeze, was shipped and is live; off2, put back after it, was left out and is not'; end $$;
+insert into test.ids select 'jobOld', service.start_publish(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('off2')], array[1]); select service.freeze_snapshot(test.id('jobOld')); select service.set_job_state(test.id('jobOld'), 'failed', '{"reason": "timeout"}');   -- (g) reaped
+select service.put_back(test.cl('00000000-0000-0000-0000-00000000000a'), test.id('off1')); insert into test.ids select 'jobNew', service.start_publish(test.cl('00000000-0000-0000-0000-00000000000a'), 'aaaaaaaa-0000-0000-0000-00000000517e', array[test.id('off1')], array[2]); select service.freeze_snapshot(test.id('jobNew'));
+select service.set_job_state(test.id('jobNew'), 'gating'); select service.set_job_state(test.id('jobNew'), 'deploying'); select service.set_job_state(test.id('jobNew'), 'done'); update publish_jobs set finished_at = now() + interval '1 hour' where id = test.id('jobNew');   -- one transaction: one now()
+select service.set_job_state(test.id('jobOld'), 'done'); do $$ begin assert (select published_version = 2 from content_rows where id = test.id('off1')) and (select published_version is null from content_rows where id = test.id('off2')), 'T41g a late reconcile changes nothing once a job was done after its reap: off1 stays live, off2 still waits'; end $$;
+do $$ begin assert not has_function_privilege('anon', 'service.put_back(jsonb,uuid)', 'execute') and not has_function_privilege('authenticated', 'service.put_back(jsonb,uuid)', 'execute') and has_function_privilege('omnikom_fn', 'service.put_back(jsonb,uuid)', 'execute'), 'T41e put_back: closed to clients, open to the function role'; end $$;
+update content_rows set published_version = null, off_site_at = null where id = test.id('teamB2'); update publish_jobs set finished_at = now() where id = test.id('jobNew'); update public.workspaces w set state = t.state from test.t41_ws t where w.id = t.id;
 
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

@@ -3,7 +3,8 @@
 // Each check was watched red (supabase/functions/test/mutate.mjs "unpublish [B12]" removes one step of the source and requires one of these to fail).
 import { handle } from '../unpublish/index.ts';
 import { handle as saveHandle } from '../save/index.ts';
-import { call, eq, securityEvents, SUB, teamRows, t, WS_A, WS_B, withSql } from './util.ts';
+import { handle as publishHandle } from '../publish/index.ts';
+import { call, eq, securityEvents, SITE_A, SITE_B, SUB, teamRows, t, WS_A, WS_B, withSql } from './util.ts';
 
 const del = (who: Parameters<typeof call>[3], body: Record<string, unknown>) => call(handle, 'unpublish', body, who);
 const save = (who: Parameters<typeof call>[3], body: Record<string, unknown>) => call(saveHandle, 'save', body, who);
@@ -37,7 +38,7 @@ t('unpublish [B12]: the owner deletes a published listing: 204, deleted and off 
   const r = await del('owner-a', { row });
   eq(r.status, 204, 'status: ' + r.text); eq(r.text, '', 'no body');
   const s = await state(row);
-  eq(s.deleted, true, 'deleted'); eq(s.published, null, 'off the site'); eq(s.versions, 1, 'its version is kept'); eq(s.audits, 1, 'one audit row');
+  eq(s.deleted, true, 'deleted'); eq(s.published, 1, 'live until the next publish takes it'); eq(s.versions, 1, 'its version is kept'); eq(s.audits, 1, 'one audit row');
 });
 
 t('unpublish [B12]: an agent of A, the owner of B, a login of nothing, a row that does not exist and a row of B get 404; nothing changes', async () => {
@@ -64,3 +65,15 @@ t('unpublish [B12]: no token is 401; no row and a row that is not an id are 400;
   eq((await del('owner-a', { row: 'nope' })).status, 400, 'a row that is not an id');
   eq((await call(handle, 'unpublish', {}, 'owner-a', { method: 'GET' })).status, 405, 'a GET');
 });
+
+t('unpublish [B12-b]: { off: true } marks a live listing off the site and keeps it; { back: true } puts it back; an agent gets 404 on both', async () => {
+  const row = await published('b12b off'), now = async () => await withSql(async sql => (await sql`select off_site_at is not null as off, deleted_at is null as kept, published_version as published from public.content_rows where id = ${row}::uuid`)[0]);
+  eq((await del('member-a1', { row, off: true })).status, 404, 'an agent: off'); eq((await del('owner-a', { row, off: true })).status, 204, 'off');
+  let s = await now(); eq(s.off, true, 'marked'); eq(s.kept, true, 'kept'); eq(s.published, 1, 'live until the next publish');
+  eq((await del('member-a1', { row, back: true })).status, 404, 'an agent: back'); eq((await del('owner-a', { row, back: true })).status, 204, 'back'); s = await now(); eq(s.off, false, 'put back'); eq(s.kept, true, 'still kept');
+});
+t('unpublish [B12-b]: a publish with rows [] and versions [] takes the waiting removals (202, the job carries the row, nothing requested); none waiting: 404', async () => {
+  const row = await published('b12b leaves'); eq((await del('owner-a', { row, off: true })).status, 204, 'taken off');
+  const r = await call(publishHandle, 'publish', { site: SITE_A, rows: [], versions: [] }, 'owner-a'); eq(r.status, 202, 'status: ' + r.text);
+  await withSql(async sql => { const [j] = await sql`select rows, requested from public.publish_jobs where id = ${String(r.json?.job)}::uuid`; eq(j.rows.includes(row), true, 'the job carries it'); eq(Object.keys(j.requested).length, 0, 'nothing requested'); });
+  eq((await call(publishHandle, 'publish', { site: SITE_B, rows: [], versions: [] }, 'owner-b')).status, 404, 'nothing waits on B'); });
