@@ -1,7 +1,7 @@
 # Engineering rules
 
 The rules every change is held to. A rule that can be checked by a tool is a check, not a sentence: each rule below names
-its check where one exists. How sessions and departments work (heads, builders, who reports to whom) is in
+its check where one exists. How sessions and departments work (the head, helpers, who reports to whom) is in
 `docs/departments/README.md`, not here.
 
 ## Proof
@@ -75,7 +75,7 @@ its check where one exists. How sessions and departments work (heads, builders, 
 24. **Every change follows its chain.** Before a commit, `omnikom impact --staged` lists who imports, reads or copies the
     changed files. A light follow-on in another department's file (a fixture value, a test literal) is made in the same commit
     and named; anything bigger goes to that file's owner.
-25. **Checks run on GitHub.** A head pushes to `check/<department>/<slug>`; `ci.yml` runs every job on every push. Master moves
+25. **Checks run on GitHub.** The head pushes to `check/<department>/<slug>`; `ci.yml` runs every job on every push. Master moves
     only by fast-forward to a commit whose exact tree passed every `ci.yml` job (`omnikom land`, with a land lock). The pre-push
     hook refuses anything else. Builders never commit or push.
 26. The repository is public on GitHub until there is budget for a paid plan; no client personal data (phone, email, home

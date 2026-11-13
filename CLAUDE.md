@@ -7,15 +7,15 @@ runs it from a client dashboard with a lead inbox, while AI operators keep impro
 
 **Read first, in order:** `work/STATE.md` (where things stand now; outranks memory) → `docs/product/README.md` (the product
 book: one fact, one home, edited in place; open only the book files your work needs) → your work order or brief →
-`docs/departments/README.md` (who owns which files; a session reads its own department's charter and edits only what it owns).
+`docs/departments/README.md` (who owns which files and how a job runs; a builder edits only the files its hand-over names).
 `.claude/POSITION.md` is the head of operations' running log until it is cut down; the old blueprint and decision log are in
 `archive/` and are not current. Where things live on disk (this repo is `E:\Omnikom Platform\code\main`; builders work in
 worktrees under `E:\Omnikom Platform\departments\`): `docs/departments/README.md` "The workspace".
 
-**Sessions:** one orientation session decides and reviews; one builder session per work order, discarded when the order is
-done. The files are the memory, never a session: a builder writes what it learned into `work/STATE.md` and its work order, and
-a settled choice into the book file it concerns, replacing the old text (never a growing decision log). One builder per set of
-files.
+**Sessions:** one head of operations orients, rules, takes in every job and lands; one builder per job, in the slice's
+worktree, that only stages and stops at its return (`docs/departments/README.md` "How a job runs"). The files are the memory,
+never a session: a builder's return says what it learned, and a settled choice goes into the book file it concerns, replacing
+the old text (never a growing decision log). One builder per set of files.
 
 ## Non-negotiable
 1. **Shape is settled** (`docs/product/`): one magic-link sign-in to two products, the Omnikom CRM and the dashboard; leads
