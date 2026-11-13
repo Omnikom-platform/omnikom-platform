@@ -14,6 +14,7 @@
 //   POST /storage/v1/object/upload/sign/media/<path>          Storage's signed-upload endpoint (answers { url, token }; needs the secret key)
 //   POST /storage/v1/object/sign/media/<path>                 Storage's signed-download endpoint (slice 4.3; answers { signedURL }; records the path, the
 //                                                             expiresIn asked for and how many calls ran at once; can be told to fail for a path or to be slow)
+//   DELETE /storage/v1/object/media                           Storage's delete (B14; records the prefixes and the key; answers POST /__remove-status?code=N&delay=ms after delay ms, else 200 at once)
 //   POST /repos/test/test/dispatches, POST /repos/test/test/actions/workflows/(publish|media).yml/dispatches   GitHub repository_dispatch and workflow_dispatch
 //                                                             (records the path, which token, the body; a workflow path answers 422 unless { ref, inputs } with string inputs; else the status you set)
 //   GET  /__recorded, POST /__reset, POST /__github-status?code=N, POST /__sign?fail=<path part>&delay=<ms>     control, for the tests
@@ -81,7 +82,7 @@ export async function startHarness() {
     const pub = { ...publicKey.export({ format: 'jwk' }), kid, alg: 'ES256', use: 'sig' };
     const priv = { ...privateKey.export({ format: 'jwk' }), kid, alg: 'ES256' };
 
-    const state = { github: [], storage: [], githubStatus: 204, signed: [], signFail: '', signDelayMs: 0, inflight: 0, maxInflight: 0,
+    const state = { github: [], storage: [], removed: [], removeStatus: 200, removeDelayMs: 0, githubStatus: 204, signed: [], signFail: '', signDelayMs: 0, inflight: 0, maxInflight: 0,
       hooks: [], redirected: 0, hookStatus: 200, hookMode: '', hookDelayMs: 0, authLinks: [], authUsers: {}, authStatus: 200, authMails: [], authMailStatus: 200,
       authReads: [], authUpdates: [], authUnconfirmed: {}, authReadStatus: 200, authUpdateStatus: 200 };
     let base = '';
@@ -113,6 +114,11 @@ export async function startHarness() {
             if (state.signFail && path.includes(state.signFail)) return send(400, { message: 'Object not found' });
             send(200, { signedURL: `/object/sign/media/${path}?token=fake-download-token` });
           }, state.signDelayMs);
+        }
+        if (req.method === 'DELETE' && u.pathname === '/storage/v1/object/media') {
+          let p = null; try { p = JSON.parse(body); } catch { /* not JSON */ }
+          state.removed.push({ prefixes: p && Array.isArray(p.prefixes) ? p.prefixes : null, authorized: req.headers.authorization === `Bearer ${SECRET}` });
+          return setTimeout(() => (state.removeStatus === 200 ? send(200, []) : send(state.removeStatus, { message: 'refused' })), state.removeDelayMs);
         }
         const gh = /^\/repos\/test\/test\/(?:actions\/workflows\/(publish|media)\.yml\/)?dispatches$/.exec(u.pathname);
         if (req.method === 'POST' && gh) {
@@ -167,7 +173,7 @@ export async function startHarness() {
           return setTimeout(() => (state.hookStatus === 204 ? (res.writeHead(204), res.end()) : send(state.hookStatus, { answer: 'THE-BODY-MUST-NEVER-BE-RETURNED' })), state.hookDelayMs);
         }
         if (u.pathname === '/__recorded') return send(200, state);
-        if (u.pathname === '/__reset') { state.github = []; state.storage = []; state.githubStatus = 204; state.signed = []; state.signFail = ''; state.signDelayMs = 0; state.inflight = 0; state.maxInflight = 0;
+        if (u.pathname === '/__reset') { state.github = []; state.storage = []; state.removed = []; state.removeStatus = 200; state.removeDelayMs = 0; state.githubStatus = 204; state.signed = []; state.signFail = ''; state.signDelayMs = 0; state.inflight = 0; state.maxInflight = 0;
           state.hooks = []; state.redirected = 0; state.hookStatus = 200; state.hookMode = ''; state.hookDelayMs = 0; state.authLinks = []; state.authUsers = {}; state.authStatus = 200; state.authMails = []; state.authMailStatus = 200;
           state.authReads = []; state.authUpdates = []; state.authUnconfirmed = {}; state.authReadStatus = 200; state.authUpdateStatus = 200; return send(200, {}); }
         if (u.pathname === '/__hook') { state.hookStatus = Number(u.searchParams.get('status') ?? 200); state.hookMode = u.searchParams.get('mode') ?? ''; state.hookDelayMs = Number(u.searchParams.get('delay') ?? 0); return send(200, {}); }
@@ -175,6 +181,7 @@ export async function startHarness() {
         if (u.pathname === '/__auth-mail') { state.authMailStatus = Number(u.searchParams.get('status') ?? 200); return send(200, {}); }
         if (u.pathname === '/__auth-login') { const id = u.searchParams.get('id'); state.authUnconfirmed[id] = u.searchParams.get('confirmed') === '0'; state.authReadStatus = Number(u.searchParams.get('read') ?? 200); state.authUpdateStatus = Number(u.searchParams.get('update') ?? 200); return send(200, {}); }
         if (u.pathname === '/__sign') { state.signFail = u.searchParams.get('fail') ?? ''; state.signDelayMs = Number(u.searchParams.get('delay') ?? 0); return send(200, {}); }
+        if (u.pathname === '/__remove-status') { state.removeStatus = Number(u.searchParams.get('code') ?? 200); state.removeDelayMs = Number(u.searchParams.get('delay') ?? 0); return send(200, {}); }
         if (u.pathname === '/__github-status') { state.githubStatus = Number(u.searchParams.get('code')); return send(200, {}); }
         send(404, { message: 'no such fake endpoint' });
       });

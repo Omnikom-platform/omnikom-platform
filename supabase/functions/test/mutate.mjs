@@ -385,6 +385,16 @@ const MUTANTS = [
   ['publish [B15]: no ready draft still starts a preview', F + 'publish/index.ts', "if (!out.job) return problem(422, 'NOTHING-TO-PREVIEW',", "if (false) return problem(422, 'NOTHING-TO-PREVIEW',", 'publish.test.ts'],
   ['publish [B15]: a preview body must name rows', F + 'publish/index.ts', "rows = preview ? [] : f.uuids('rows', 200)", "rows = f.uuids('rows', 200)", 'publish.test.ts'],
   ['publish [B15]: the left-out drafts are not named', F + 'publish/index.ts', 'reason: sent.reason, left_out: left })', 'reason: sent.reason, left_out: [] })', 'publish.test.ts'],
+  ['media-manage: replace may put a file in its own place', F + 'media-manage/index.ts', 'if (other && other === media) ', 'if (false) ', 'media-manage.test.ts'],
+  ['media-manage: an unknown action deletes', F + 'media-manage/index.ts', "if (action && action !== 'replace' && action !== 'delete') ", 'if (false) ', 'media-manage.test.ts'],
+  ['media-manage: a replace skips the save checks', F + 'media-manage/index.ts', 'for (const it of changed) for', 'for (const it of changed.slice(0, 0)) for', 'media-manage.test.ts'],
+  ['media-manage: a refused replace is kept', F + 'media-manage/index.ts', 'if (problems.length) throw new Error(', 'if (false) throw new Error(', 'media-manage.test.ts'],
+  ['media-manage: Storage keeps the three sizes', F + 'media-manage/index.ts', 'body: JSON.stringify({ prefixes: paths })', 'body: JSON.stringify({ prefixes: paths.slice(0, 1) })', 'media-manage.test.ts'],
+  ['media-manage: Storage is asked without the secret key', F + 'media-manage/index.ts', "headers: { authorization: `Bearer ${key}`, apikey: key, 'content-type': 'application/json' }", "headers: { 'content-type': 'application/json' }", 'media-manage.test.ts'],
+  ['media-manage: the record is deleted although Storage refused', F + 'media-manage/index.ts', 'if (!r.ok) refused = ', 'if (false) refused = ', 'media-manage.test.ts'],
+  ['media-manage: a refused delete is committed, not rolled back', F + 'media-manage/index.ts', 'if (refused) throw new Error(', 'if (false) throw new Error(', 'media-manage.test.ts'],
+  ['media-manage: Storage has no time limit', F + 'media-manage/index.ts', ', signal: AbortSignal.timeout(10000) })', ' })', 'media-manage.test.ts'],
+  ['media-manage: a file in use is a server error, not 409', F + '_shared/db.ts', "  if (has('S-MEDIA-IN-USE')) return", '  if (false) return', 'media-manage.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;

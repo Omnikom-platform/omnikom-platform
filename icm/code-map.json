@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 911,
+    "sources": 913,
     "unowned": 0
   },
   "files": [
@@ -397,6 +397,7 @@
     {"path":"supabase/functions/mail-events/index.ts","owner":"platform-build","exports":["TOLERANCE_S","handle","secretBytes","svixValid"],"tests":["supabase/functions/test/mail-events.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
     {"path":"supabase/functions/mail-outbox/index.ts","owner":"platform-build","exports":["CLAIM","Deps","handle"],"tests":["supabase/functions/test/mail-events.test.ts","supabase/functions/test/mutate.mjs","supabase/functions/test/outbox.test.ts"],"feature":""},
     {"path":"supabase/functions/media-export/index.ts","owner":"platform-build","exports":["WIDTHS","handle"],"tests":["supabase/functions/test/mutate.mjs","supabase/functions/test/runner.test.ts"],"feature":""},
+    {"path":"supabase/functions/media-manage/index.ts","owner":"platform-build","exports":["handle"],"tests":["supabase/functions/test/media-manage.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
     {"path":"supabase/functions/media-process-callback/index.ts","owner":"platform-build","exports":["handle"],"tests":["supabase/functions/test/mutate.mjs","supabase/functions/test/runner.test.ts"],"feature":""},
     {"path":"supabase/functions/member-remove/index.ts","owner":"platform-build","exports":["handle"],"tests":["supabase/functions/test/cors.test.ts","supabase/functions/test/local-serve.ts","supabase/functions/test/mutate.mjs","supabase/functions/test/team.test.ts"],"feature":""},
     {"path":"supabase/functions/metrics-pull/index.ts","owner":"platform-build","exports":["Deps","handle"],"tests":["supabase/functions/test/metrics.test.ts","supabase/functions/test/mutate.mjs"],"feature":""},
@@ -425,6 +426,7 @@
     {"path":"supabase/functions/test/limits.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/local-serve.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/mail-events.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"supabase/functions/test/media-manage.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/metrics.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/mutate.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/netguard.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
