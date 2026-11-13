@@ -235,6 +235,19 @@ console.log("stand-in crawl done");
       const scriptSteps = man.steps.filter((s) => s.script).map((s) => s.id), tested = [...IMPORTERS.map((x) => x[0]), "autocomplete-import", "local-grid-plan", "local-grid-import", "research-plan", "research", "targets-validate"];
       check(`T: the other ${Object.keys(NOT_RUN_HERE).length} script steps are named with one reason each (${Object.keys(NOT_RUN_HERE).join(", ")}); ${tested.length} + ${Object.keys(NOT_RUN_HERE).length} are the manifest's ${scriptSteps.length} script steps, none twice, none left out`, tested.length + Object.keys(NOT_RUN_HERE).length === scriptSteps.length && [...tested, ...Object.keys(NOT_RUN_HERE)].every((id) => scriptSteps.includes(id)) && new Set([...tested, ...Object.keys(NOT_RUN_HERE)]).size === scriptSteps.length, `script steps ${scriptSteps.join(", ")}; tested ${tested.join(", ")}`);
     }
+    // ---------------- R: report-live run with its manifest args reads the checker step's result where that step writes it (SKILL-REPORT-1) ----------------
+    {
+      const st = man.steps.find((x) => x.id === "report-live"), cwdR = path.join(tmp, "r-report"), runDir = path.join(cwdR, "site-checks", "contract-test.test"), pewp = path.join(runDir, ".pewp"), sd = path.join(runDir, "snapshots", "2026-11-10");
+      const vars = { url: SITE, client: "c", host: "contract-test.test", skill: path.join(here, ".."), runDir, pewp, work: path.join(runDir, "work") }, rep = path.join(pewp, "report.json");
+      W(path.join(sd, "_site.json"), { finishedAt: "2026-11-10T10:00:00Z", runs: 1, stoppedEarly: null, pages: [{ url: SITE, slug: "home", status: 200 }] });
+      for (const [f, body] of [["site/robots.json", { status: 200, groups: [] }], ["site/sitemaps.json", { urlCount: 1 }], ["site/probes.json", { notFound: { finalStatus: 404 } }], ["pages/home/response.json", { headers: {} }]]) W(path.join(sd, f), body);
+      const args = lib.substitute(st.args, vars).map((a, i, arr) => (arr[i - 1] === "--cwd" ? cwdR : a));
+      const r1 = await run("report-live.mjs", args, { timeout: 120000 });
+      check("R: report-live with its manifest args, a complete snapshot and no checker result: exit 3, the last line is the BLOCKED line for {work}/checker/.checks/causes.json naming the checker step, no report.json", r1.code === 3 && /^BLOCKED: no readable checker result at .*work[\\/]checker[\\/]\.checks[\\/]causes\.json .*\| unblocks: the checker step of pipeline\.json/.test(lastLine(r1.so)) && !fs.existsSync(rep), `exit ${r1.code}; ${r1.out.slice(-400)}`);
+      W(path.join(vars.work, "checker", ".checks", "causes.json"), [{ id: "C01", severity: "high", rules: ["MET-001"], problem: "p", fix: "f", pages: 1, scripts: [] }]);
+      const r2 = await run("report-live.mjs", args, { timeout: 120000 }), rcR = fs.existsSync(rep) ? J(rep)?.questions?.[0]?.facts?.rootCauses : null;
+      check("R: with the checker step's causes.json at {work}/checker/.checks the same command exits 0 and report.json's rootCauses has total 1 and cacheFile work/checker/.checks/causes.json", r2.code === 0 && rcR?.value?.total === 1 && rcR.cacheFile === "work/checker/.checks/causes.json", `exit ${r2.code}; ${JSON.stringify(rcR)}; ${r2.out.slice(-300)}`);
+    }
     const net = fs.existsSync(netLog) ? fs.readFileSync(netLog, "utf8").trim() : "";
     check("contracts: nothing in this suite left the machine (network guard log empty)", !net, net);
   } finally { rmTmp(tmp); }
@@ -277,6 +290,7 @@ const MUTANTS = [
   { name: "local-grid: a --cities name outside the service area is taken", patches: [{ file: LG, from: "const unknown = (only || []).filter(", to: "const unknown = (cities ? [] : only || []).filter(" }], expect: [/^T: a --cities name that is not a service-area city/] },
   { name: "local-grid: config.json cities that is not a list goes on", patches: [{ file: LG, from: "if (!cities && Object.hasOwn(cfg, \"cities\")", to: "if (false && Object.hasOwn(cfg, \"cities\")" }], expect: [/^T: config\.json cities that is not a list/] },
   { name: "local-grid: the capture template has no method", patches: [{ file: LG, from: "method: \"maps-viewport\", viewport: { lat:", to: "viewport: { lat:" }], expect: [/^T: local-grid-import counts the capture made from its request's template/] },
+  { name: "report-live: the manifest's --checks folder is not read", patches: [{ file: "report-live.mjs", from: 'path.join(checksDir || path.join(snapDir, ".checks"), "causes.json")', to: 'path.join(snapDir, ".checks", "causes.json")' }], expect: [/^R: report-live with its manifest args/, /^R: with the checker step's causes\.json/] },
 ];
 
 if (isMain(import.meta.url)) {

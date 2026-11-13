@@ -1,4 +1,4 @@
-// Usage: node report-live.mjs <url> [--snapshot DIR] [--authority FILE] [--launch-state live|preview] [--cwd DIR]
+// Usage: node report-live.mjs <url> [--snapshot DIR] [--authority FILE] [--launch-state live|preview] [--cwd DIR] [--checks DIR]
 // The audit-live report, for a non-technical owner: one-line answer first, then the six questions in order:
 //   1 Can search engines and AI crawlers reach and read the site?   (snapshot + the checker's root causes)
 //   2 Is there a page for what people actually search?              (targets.json vs the site's pages; gate data for cannibalisation)
@@ -10,6 +10,8 @@
 // Writes <pewp>/report.md and <pewp>/report.json. Every number in report.json is {value, source, fetchedAt, cacheFile}.
 // A previous report.json is kept as report.prev.json and the new report says what changed since it.
 // launchState "preview" (from --launch-state or <pewp>/business.json): a noindex preview is "not indexable by design".
+// --checks DIR: the checker's causes.json and plan.json are read from DIR (the manifest's checker step writes {work}/checker/.checks), not from <snapshot>/.checks;
+//   with --checks and no readable list of causes there: BLOCKED (exit 3) naming the checker step, and no report is written. --checks with no DIR: usage (exit 2).
 // G18: the report says the date of the doctor result it used; when doctor.json's `inputs` hashes (env file, token file, service account file)
 //   differ from the files now, section 2 opens with "STALE doctor result (<date>)" and the old per-source NEEDS text is not repeated.
 // G9: when _site.json.machineLoad says the machine was busy and a page's speedTrust is "UNTRUSTED...", the speed line says so; when
@@ -30,7 +32,7 @@ import { overlap, tokens, tokenSet, seqContains, showsQuestion, THRESHOLD, words
 const a = process.argv.slice(2);
 const opt = (k, d = null) => (a.includes(k) ? a[a.indexOf(k) + 1] : d);
 const url = a[0];
-if (!url || !/^https?:\/\//i.test(url)) { console.error("usage: node report-live.mjs <url> [--snapshot DIR] [--authority FILE] [--launch-state live|preview] [--cwd DIR]"); process.exit(2); }
+if (!url || !/^https?:\/\//i.test(url) || (a.includes("--checks") && !/^[^-]/.test(opt("--checks") || ""))) { console.error("usage: node report-live.mjs <url> [--snapshot DIR] [--authority FILE] [--launch-state live|preview] [--cwd DIR] [--checks DIR]"); process.exit(2); }
 const loc = locate(url, { cwd: opt("--cwd", process.cwd()) });
 // (a BOM, as an editor on Windows may leave in a hand-edited business.json, is not a reason to ignore the file)
 const J = (p) => { try { return JSON.parse(fs.readFileSync(p, "utf8").replace(/^\uFEFF/, "")); } catch { return null; } };
@@ -77,8 +79,9 @@ const speed = {
   clsWorst: measured.length ? fact(Number((worst("cls").b.vitals.cls || 0).toFixed(3)), worst("cls").url, worst("cls").b.measuredAt, rel(path.join(snapDir, "pages", worst("cls").slug, "browser-mobile.json"))) : null,
   heaviestKb: measured.length ? (() => { const p = measured.reduce((w, x) => (!w || x.b.totals.bytes > w.b.totals.bytes ? x : w), null); return fact(Math.round(p.b.totals.bytes / 1024), p.url, p.b.measuredAt, rel(path.join(snapDir, "pages", p.slug, "browser-mobile.json"))); })() : null,
 };
-const causesFile = path.join(snapDir, ".checks", "causes.json");
+const checksDir = opt("--checks"), causesFile = path.join(checksDir || path.join(snapDir, ".checks"), "causes.json");   // --checks: where the manifest's checker step writes
 const causes = J(causesFile);
+if (checksDir && !Array.isArray(causes)) { console.log(`BLOCKED: no readable checker result at ${causesFile} (a list of root causes) | unblocks: the checker step of pipeline.json writes it there; run that step, then report-live again`); process.exit(3); }
 const sev = { critical: 0, high: 1, medium: 2, low: 3 };
 const RULES = (() => { try { const m = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "checklist", "INDEX.md"), "utf8").match(/shipgate spec ([\d.]+), (\d+) rules/); return m ? `${m[2]} rules, shipgate spec ${m[1]}` : "shipgate checklist"; } catch { return "shipgate checklist"; } })();
 const count = (s) => (causes || []).filter((c) => c.severity === s).length;
@@ -95,7 +98,7 @@ const q1Facts = {
   pagesWithoutStructuredData: fact(noLd.length, "rendered pages", snapAt, rel(path.join(snapDir, "pages"))),
   pagesWithoutSharingTags: fact(noOg.length, "rendered pages", snapAt, rel(path.join(snapDir, "pages"))),
   ...speed,
-  rootCauses: causes ? fact({ total: causes.length, critical: count("critical"), high: count("high"), medium: count("medium"), low: count("low") }, `the checker's root causes (${RULES})`, J(path.join(snapDir, ".checks", "plan.json"))?.createdAt || snapAt, rel(causesFile)) : null,
+  rootCauses: causes ? fact({ total: causes.length, critical: count("critical"), high: count("high"), medium: count("medium"), low: count("low") }, `the checker's root causes (${RULES})`, J(path.join(path.dirname(causesFile), "plan.json"))?.createdAt || snapAt, rel(causesFile)) : null,
 };
 
 // ---------- G9: how far to trust the lab speed, and what PageSpeed Insights (Google's servers) says ----------

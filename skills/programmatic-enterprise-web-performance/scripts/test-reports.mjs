@@ -10,6 +10,8 @@
 //                 with the target not found, the link gap line and the links plan row do not claim "but not to you"
 //   X  extras     report-live.mjs section 7: the Chrome UX Report (crux.json) and the six importers' files (index, trends, AI answers, reputation, social, ads): a block with the
 //                 data and its capture date for each source that has data, a BLOCKED line with "| unblocks:" for each that has none (never a zero), no data (too little traffic) said as a result
+//   C  checks     report-live.mjs --checks DIR (SKILL-REPORT-1): the root causes and their date come from DIR, not <snapshot>/.checks
+//                 (without it: as before); no readable list of causes there is BLOCKED (exit 3, no report); --checks with no DIR is exit 2
 //   G  groups     this file's own --group option: only the chosen scenario groups run, and only the mutants whose group is among them
 //   --group Q,W runs just those groups and the mutants whose group is among them
 // Fixtures only: no network, no model. Chrome is used only for the PNG check (local file:// page). Mutants: each patches ONE string in a copy of the
@@ -36,7 +38,7 @@ const BARE_SITEMAP = /\bsitemap\b(?!\.json|\.xml| file)/gi; // "sitemap" alone: 
 const bare = (text) => [...String(text).matchAll(BARE_SITEMAP)].map((m) => text.slice(Math.max(0, m.index - 30), m.index + 30).replace(/\s+/g, " "));
 const section = (md, n) => (md.split(new RegExp(`^## ${n}\\. `, "m"))[1] || "").split(/^## \d\. /m)[0].split("\n").slice(1).join("\n"); // without the heading's own words
 
-const GROUPS = ["W", "P", "N", "A", "D", "S", "Q", "X", "G"];
+const GROUPS = ["W", "P", "N", "A", "D", "S", "Q", "X", "C", "G"];
 function parseGroups(raw) { // "q, w" -> ["Q", "W"]; an unknown letter is an error, never a silent empty run
   const gs = [...new Set(String(raw).split(",").map((x) => x.trim().toUpperCase()).filter(Boolean))];
   const bad = gs.filter((g) => !GROUPS.includes(g));
@@ -67,7 +69,7 @@ async function runScenarios(skill, groups = null) {
     for (const p of pages) { w(path.join(sd, "pages", p.slug, "browser-mobile.json"), { url: `https://${host}${p.path}`, ...pg({ lcpMs: p.lcp, cls: 0.01, tbtMs: p.tbt ?? 100 }) }); w(path.join(sd, "pages", p.slug, "response.json"), { headers: {} }); }
     return { sd, pewp: path.join(base, ".pewp"), url: `https://${host}/` };
   }
-  const report = (s, env = {}) => { const r = run("report-live.mjs", [s.url, "--cwd", root, "--snapshot", s.sd], env); return { r, md: rt(path.join(s.pewp, "report.md")), json: rj(path.join(s.pewp, "report.json")) }; };
+  const report = (s, env = {}, extra = []) => { const r = run("report-live.mjs", [s.url, "--cwd", root, "--snapshot", s.sd, ...extra], env); return { r, md: rt(path.join(s.pewp, "report.md")), json: rj(path.join(s.pewp, "report.json")) }; };
   const BASE_ENV = { GSC_TOKEN_FILE: "", GSC_SERVICE_ACCOUNT_FILE: "", GSC_SERVICE_ACCOUNT_JSON_B64: "" };
 
   // =============================== W: words ===============================
@@ -353,6 +355,32 @@ async function runScenarios(skill, groups = null) {
     check("X", "a stale capture is shown as stale with its count", /stale/i.test(secM.split("### Pages in the search index")[1] || ""), secM.slice(0, 700));
   }
 
+  // =============================== C: the checker's result where the manifest's checker step writes it (SKILL-REPORT-1) ===============================
+  if (want("C")) {
+    const cause = (id, severity, problem, pages) => ({ id, severity, rules: ["MET-001"], problem, fix: "fix it", pages, fixAt: ["index.html"], scripts: [] });
+    const ck = (host, work = true) => {
+      const s0 = snapshot(host, { pages: [{ path: "/", slug: "home", lcp: 1500 }] }), wk = path.join(root, "site-checks", host, "work", "checker", ".checks");
+      w(path.join(s0.sd, ".checks", "causes.json"), [cause("S01", "low", "snapshot copy cause", 1)]); w(path.join(s0.sd, ".checks", "plan.json"), { createdAt: "2026-10-24T11:00:00Z" });
+      if (work) { w(path.join(wk, "causes.json"), [cause("W01", "critical", "work copy cause one", 5), cause("W02", "high", "work copy cause two", 2), cause("W03", "medium", "work copy cause three", 1)]); w(path.join(wk, "plan.json"), { createdAt: "2026-11-01T09:00:00Z" }); }
+      return { ...s0, wk };
+    };
+    const rc = (c) => c.json?.questions?.[0]?.facts?.rootCauses, last = (c) => String(c.r.stdout || "").trim().split("\n").pop();
+    const none = (s0) => !fs.existsSync(path.join(s0.pewp, "report.json")) && !fs.existsSync(path.join(s0.pewp, "report.md"));
+    const BL = /^BLOCKED: no readable checker result at .*causes\.json \(a list of root causes\) \| unblocks: the checker step of pipeline\.json writes it there; run that step, then report-live again$/;
+    const s1 = ck("c1.example"), c1 = report(s1, BASE_ENV);
+    check("C", "C1 without --checks the snapshot's own .checks is read as before: 1 cause, cacheFile snapshots/2026-10-24/.checks/causes.json, dated by that plan.json (control)", c1.r.status === 0 && rc(c1)?.value?.total === 1 && rc(c1).cacheFile === "snapshots/2026-10-24/.checks/causes.json" && rc(c1).fetchedAt === "2026-10-24T11:00:00Z", JSON.stringify(rc(c1)) + c1.r.stderr);
+    const s2 = ck("c2.example"), c2 = report(s2, BASE_ENV, ["--checks", s2.wk]);
+    check("C", "C2 with --checks the checker step's result is read: 3 causes by severity, cacheFile work/checker/.checks/causes.json, dated by that folder's plan.json", c2.r.status === 0 && JSON.stringify(rc(c2)?.value) === '{"total":3,"critical":1,"high":1,"medium":1,"low":0}' && rc(c2).cacheFile === "work/checker/.checks/causes.json" && rc(c2).fetchedAt === "2026-11-01T09:00:00Z", JSON.stringify(rc(c2)) + c2.r.stderr);
+    check("C", "C2 questions 1 and 6 carry those causes: 'found 3 root causes: 1 critical, 1 high, 1 medium, 0 low', fix order W01, W02, W03, the short answer '3 root causes (2 serious)', nothing of the snapshot's copy", /found 3 root causes: 1 critical, 1 high, 1 medium, 0 low/.test(c2.md) && (c2.json?.questions?.[5]?.fixes || []).map((f) => f.cause).join() === "W01,W02,W03" && /the checker found 3 root causes \(2 serious\)/.test(c2.json?.shortAnswer || "") && !c2.md.includes("snapshot copy cause"), section(c2.md, 6).slice(0, 600));
+    const s3 = ck("c3.example", false), c3a = report(s3, BASE_ENV, ["--checks", s3.wk]);
+    w(path.join(s3.wk, "causes.json"), "{ not json"); const c3b = report(s3, BASE_ENV, ["--checks", s3.wk]);
+    check("C", "C3 with --checks and no causes.json there, or one that is not JSON: exit 3, the last line is the BLOCKED line naming the checker step, no report written (the snapshot's copy is not used instead)", [c3a, c3b].every((c) => c.r.status === 3 && BL.test(last(c))) && none(s3), `${c3a.r.status} ${last(c3a)} | ${c3b.r.status} ${last(c3b)}`);
+    const s4 = ck("c4.example", false); w(path.join(s4.wk, "causes.json"), { causes: [] }); const c4 = report(s4, BASE_ENV, ["--checks", s4.wk]);
+    check("C", "C4 with --checks and a causes.json that is JSON but not a list: the same BLOCKED line, exit 3, no report", c4.r.status === 3 && BL.test(last(c4)) && none(s4), `${c4.r.status} ${last(c4)} ${c4.r.stderr.slice(0, 200)}`);
+    const s5 = ck("c5.example"), c5a = report(s5, BASE_ENV, ["--checks"]), c5b = report(s5, BASE_ENV, ["--checks", "--launch-state", "live"]);
+    check("C", "C5 --checks with no folder (the last argument, or another option next) is a usage error: exit 2, the usage line names [--checks DIR], no report", [c5a, c5b].every((c) => c.r.status === 2 && /\[--checks DIR\]/.test(c.r.stderr)) && none(s5), `${c5a.r.status} ${c5a.r.stderr} | ${c5b.r.status} ${c5b.r.stderr}`);
+  }
+
   function firstOf(sec) { return sec.split("\n").map((l) => l.trim()).find(Boolean) || ""; }
   fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 });
   return results;
@@ -435,6 +463,12 @@ const MUTANTS = [
   { name: "X: the AI engines that could not be read are hidden", file: S0, from: "if ((y.blockedEngines || []).length) L.push(", to: "if (false) L.push(", sc: "X", expect: [/^X: AI answers: share named/] },
   { name: "X: the ads block is missing", file: S0, from: "{ id: \"ads\", title: \"Ads\",", to: "{ id: \"adsX\", title: \"Ads\",", sc: "X", expect: [/^X: report\.json carries the same/, /^X: with none of the seven present/] },
   { name: "X: the trends rank of the weakest service is left out", file: S0, from: "(rank ${y.worstRank?.stateRank ?? \"n/a\"})", to: "", sc: "X", expect: [/^X: trends: the best and worst ranked service/] },
+  { name: "C: --checks is ignored (the snapshot's .checks is read)", file: S0, from: 'path.join(checksDir || path.join(snapDir, ".checks"), "causes.json")', to: 'path.join(snapDir, ".checks", "causes.json")', sc: "C", expect: [/^C: C2 with --checks/, /^C: C2 questions 1 and 6/, /^C: C3 /] },
+  { name: "C: plan.json is read from the snapshot", file: S0, from: 'J(path.join(path.dirname(causesFile), "plan.json"))', to: 'J(path.join(snapDir, ".checks", "plan.json"))', sc: "C", expect: [/^C: C2 with --checks/] },
+  { name: "C: a missing checker result is not BLOCKED", file: S0, from: "if (checksDir && !Array.isArray(causes)) {", to: "if (false) {", sc: "C", expect: [/^C: C3 /, /^C: C4 /] },
+  { name: "C: a causes.json that is not a list passes", file: S0, from: "!Array.isArray(causes)) {", to: "causes === null) {", sc: "C", expect: [/^C: C4 /] },
+  { name: "C: a BLOCKED checker result exits 1", file: S0, from: "then report-live again`); process.exit(3); }", to: "then report-live again`); process.exit(1); }", sc: "C", expect: [/^C: C3 /, /^C: C4 /] },
+  { name: "C: --checks with no folder falls back to the snapshot", file: S0, from: ' || (a.includes("--checks") && !/^[^-]/.test(opt("--checks") || ""))', to: "", sc: "C", expect: [/^C: C5 /] },
 ];
 
 const mutantsIn = (groups) => MUTANTS.filter((m) => !groups || m.sc.split("+").every((g) => groups.includes(g))); // all of a mutant's groups must be chosen

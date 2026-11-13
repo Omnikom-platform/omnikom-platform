@@ -75,6 +75,7 @@ any source file changed). Output in `<root>/.checks/`:
 - `causes.json` (data for reports and PDFs) · `run-all.mjs` (re-runs every check, no usage) · `scripts/check-*.mjs`
   (exit 0 fixed, 1 still there, 2 cannot judge) · `scripts/know-*.mjs` (facts about the code, so nobody opens it).
 After fixes: `node .checks/run-all.mjs`. After big changes, run the skill again (the previous run moves to `.checks/prev/`).
+In audit-live the checker step's root is `{work}/checker` (a copy of the newest snapshot) and the `report-live` step reads its `.checks/` (`report-live.mjs --checks {work}/checker/.checks`): no readable list of causes there is BLOCKED, and a newer `causes.json` makes the report stale. Without `--checks` (the overhaul chain, a hand run) it reads `<snapshot>/.checks/`.
 
 ## Rules
 - Audit modes never edit the target: workers write only under `.checks/` (scratch in `.checks/tmp/`), the guard proves it.

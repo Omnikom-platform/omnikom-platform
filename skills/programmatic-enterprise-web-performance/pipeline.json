@@ -1514,10 +1514,13 @@
     "--authority",
     "{pewp}/authority.json",
     "--cwd",
-    "{skill}"
+    "{skill}",
+    "--checks",
+    "{work}/checker/.checks"
    ],
    "inputs": [
     "{runDir}/snapshots/*/_site.json",
+    "{work}/checker/.checks/causes.json",
     "{pewp}/authority.json",
     "{pewp}/business.json",
     "{pewp}/psi/",
