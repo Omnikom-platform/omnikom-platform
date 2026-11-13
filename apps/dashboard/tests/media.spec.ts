@@ -134,3 +134,66 @@ test.describe('B14-a2 a member sees its own uploads in the library and no one el
     }
   });
 });
+
+test.describe('B14-c replace a photo everywhere, delete a file only when nothing uses it', () => {
+  test.use({ storageState: '.auth/owner-a.json', viewport: { width: 390, height: 844 } });
+  test('the new photo goes into both items that used the old one; the old one, then unused, is deleted; a file in use is refused', async ({ page }) => {
+    await installMediaMutant(page, 'replace-lost');
+    await installMediaMutant(page, 'sheet-narrow');
+    const token = await personAccessToken('owner-a');
+    const old = await mediaRecord(token, `b14c-${RUN}-old.png`), rows: string[] = [];
+    let fresh = '';
+    try {
+      for (const photo of [{ asset: old, alt: 'Front' }, { asset: old }]) {
+        const r = await callAs(token, 'save', { workspace: WS.a.id, collection: 'listings', row: null, data: { street: `b14c ${RUN} ${rows.length + 1}`, photos: [photo] } });
+        expect(r.status, `a draft listing was saved: ${r.text.slice(0, 120)}`).toBe(200);
+        rows.push((r.json as { row: string }).row);
+      }
+      const refused = await callAs(token, 'media-manage', { media: old, action: 'delete' });
+      expect([refused.status, (refused.json as { code?: string }).code], 'the function refuses to delete a file in use').toEqual([409, 'S-MEDIA-IN-USE']);
+      await page.goto(`/w/${WS.a.slug}/site/media`);
+      const file = page.locator(`li[data-media="${old}"]`);
+      await expect(file.getByLabel('Replace')).toBeVisible();
+      await expect(file.getByRole('button', { name: 'Delete', exact: true }), 'no Delete on a file in use').toHaveCount(0);
+      const started = page.waitForResponse(r => r.url().endsWith('/functions/v1/upload-start') && r.request().method() === 'POST');
+      await file.getByLabel('Replace').setInputFiles({ name: `b14c-${RUN}-new.png`, mimeType: 'image/png', buffer: await testPhoto(page, 1200, 800) });
+      fresh = ((await (await started).json()) as { media: string }).media;
+      const sheet = page.getByRole('dialog');
+      for (const n of [1, 2]) await expect(sheet, 'the sheet says what changes where').toContainText(`b14c ${RUN} ${n}`);
+      await ok(page, { required: ['DP-1.4m-05', 'DP-1.4m-06'] });
+      await sheet.getByRole('button', { name: 'Replace everywhere', exact: true }).click();
+      await expect(page.getByText('Replaced in 2 items.')).toBeVisible();
+      const photos = async (id: string) => (await serviceGet<{ content_versions: { n: number; data: { photos?: unknown } }[] }[]>(`/content_rows?id=eq.${id}&select=content_versions(n,data)`))[0]?.content_versions.sort((a, b) => b.n - a.n)[0]?.data.photos;
+      await expect.poll(async () => [await photos(rows[0]!), await photos(rows[1]!)], { message: 'both items hold the new photo, the alt text kept' }).toEqual([[{ asset: fresh, alt: 'Front' }], [{ asset: fresh }]]);
+      await file.getByRole('button', { name: 'Delete', exact: true }).click(); await expect(sheet).toContainText('Delete this file?');
+      for (const name of ['Delete this file', 'Cancel']) {
+        const button = sheet.getByRole('button', { name, exact: true }), box = await button.boundingBox(), row = await button.locator('xpath=..').boundingBox();
+        expect(box && row ? Math.abs(box.width - row.width) : -1, 'on a phone each of the sheet\'s buttons is as wide as its row').toBeLessThanOrEqual(1);
+        expect(box && row ? Math.abs(box.width - row.width) : -1, `the sheet's "${name}" button and its row were measured`).toBeGreaterThanOrEqual(0);
+      }
+      await ok(page, { required: ['DP-1.4m-06', 'DP-1.4m-07'] });
+      await sheet.getByRole('button', { name: 'Delete this file', exact: true }).click();
+      await expect(file).toHaveCount(0);
+      expect(await serviceGet<unknown[]>(`/media?id=eq.${old}&select=id`), 'the record is gone').toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'no sideways scroll at 390 px').toBe(true);
+    } finally {
+      expect((await removeRows(rows)).filter(g => !g.ok), 'the draft listings are removed').toEqual([]);
+      if (fresh) expect((await callAs(token, 'media-manage', { media: fresh, action: 'delete' })).status, 'the new file is deleted').toBe(200);
+    }
+  });
+});
+
+test.describe('B14-c a member sees no Replace or Delete, and media-manage refuses it', () => {
+  test.use({ storageState: '.auth/member-a1.json', viewport: { width: 390, height: 844 } });
+  test('the member\'s own unused file shows no Delete, and its delete call is 404', async ({ page }) => {
+    await installMediaMutant(page, 'member-as-owner');
+    const token = await personAccessToken('member-a1');
+    const own = await mediaRecord(token, `b14c-${RUN}-member.png`);
+    await page.goto(`/w/${WS.a.slug}/site/media`);
+    const file = page.locator(`li[data-media="${own}"]`);
+    await expect(file.getByText('Not used', { exact: true })).toBeVisible();
+    await expect(file.getByRole('button', { name: 'Delete', exact: true }), 'a member gets no Delete').toHaveCount(0);
+    expect((await callAs(token, 'media-manage', { media: own, action: 'delete' })).status, 'the function refuses a member').toBe(404);
+    expect(await serviceGet<unknown[]>(`/media?id=eq.${own}&select=id`), 'the record stays').toHaveLength(1);
+  });
+});

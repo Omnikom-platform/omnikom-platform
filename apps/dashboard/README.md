@@ -89,9 +89,10 @@ at). Dry run by default; `--apply` removes. Published rows keep their versions: 
 node ../../tools/with-env.mjs "../../creds and accounts login/omnikom.env" -- node tests/support/reset-staging-drafts.mjs           # dry run
 ```
 
-`tests/media.spec.ts` (slice S11) changes only workspace A's Business details logo: it uploads a photo it draws itself, publishes it through the
+`tests/media.spec.ts` (slice S11) changes workspace A's Business details logo (B13): it uploads a photo it draws itself, publishes it through the
 sheet (so it runs the same reset first), and saves the old logo back as a new version, which the next publish puts live. Its mutants are in
 `tests/media-mutants.ts`.
+The B14 flows save draft listings and remove them; each run leaves media records with no file in workspace A (three for B14-a2, one for B14-c), which an owner's Delete in the library removes.
 
 ## Tests
 ```bash
