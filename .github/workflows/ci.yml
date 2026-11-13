@@ -251,6 +251,12 @@ jobs:
         run: node tools/audit/test/run.mjs
       - name: Audit mutants
         run: node tools/audit/test/mutate.mjs
+      # the search skill's tests that are proven on this runner (the list: skills/programmatic-enterprise-web-performance/scripts/ci-tests.json),
+      # then their seeded faults; a red test, a missing file, a fault that stays green or a patch that does not apply fails the step
+      - name: Search skill tests
+        run: node skills/programmatic-enterprise-web-performance/scripts/ci-tests.mjs
+      - name: Search skill mutants
+        run: node skills/programmatic-enterprise-web-performance/scripts/ci-tests.mjs --mutants
 
   cli:
     name: platform CLI (unit tests; full suite when the change reaches it)

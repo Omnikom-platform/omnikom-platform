@@ -1,0 +1,4 @@
+[
+  { "file": "test-ci-tests.mjs", "plain": [], "mutants": ["--mutants"] },
+  { "file": "test-client-copy.mjs", "plain": [], "mutants": ["--mutants"] }
+]

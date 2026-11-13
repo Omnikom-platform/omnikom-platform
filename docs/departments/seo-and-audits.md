@@ -56,6 +56,10 @@ options, never a fix made here.
 - Gate 3, the runner on a folder: `node tools/audit/run.mjs tools/audit/fixtures/good` prints one `PASS <rule id> <page>` line per rule per
   page, exit 0; on `tools/audit/fixtures/bad-MET-003` it prints `FAIL MET-003 <page>:<line> <what> (source: <checklist file>)` and exits 1;
   `--json` prints one JSON object (`{ pages, rules, findings[], pass, exit }`) and nothing else.
+- The skill's tests on GitHub: `node skills/programmatic-enterprise-web-performance/scripts/ci-tests.mjs` runs the
+  tests listed in `scripts/ci-tests.json` and ends `ci-tests: N of N green`, exit 0; with `--mutants` it runs
+  their seeded faults (a fault that stays green, or whose patch does not apply, is exit 1). Both are steps of the
+  `audit` job of ci.yml. A test of the skill that is not in that list runs in no job.
 - Every check cites its source in `tools/audit/rules/<rule id>.md` (the checklist rule id and file, or a vendor page URL with the date
   read); `node tools/audit/run.mjs --list` prints every rule with its source, and gate 1 fails on a rule whose source file is missing.
 - The head re-runs gates 1 to 3 itself before a slice is accepted (Rule 2); outputs go to `docs/blueprint/PROGRESS.md` under
