@@ -1,6 +1,6 @@
-// Operator verbs `approve targets`, `approve plan` (shipgate 06 TR-235) and, from the overhaul mode, `approve business|competitors|seeds|prompt-map`,
+// Operator verbs `approve targets`, `approve plan` (shipgate 06 TR-235) and, from the overhaul mode, `approve business|competitors|seeds|prompt-map|research-cost`,
 // and the lock check every later stage uses.
-// Usage: node approve.mjs <target> targets|plan|business|competitors|seeds|prompt-map [--by "<owner name>"] [--from proposals] [--run <research run id>] [--cwd DIR] [--pewp DIR]
+// Usage: node approve.mjs <target> targets|plan|business|competitors|seeds|prompt-map|research-cost [--by "<owner name>"] [--from proposals] [--run <research run id>] [--cwd DIR] [--pewp DIR]
 //        node approve.mjs <target> --check            verify the lock only (exit 0 ok, 1 a file changed after approval, 2 nothing approved)
 // <target> = a URL (state in <cwd>/site-checks/<host>/.pewp/) or a repo path (state in <repo>/.pewp/); --pewp names the folder directly.
 // What it does: shows the diff of the source against the current approved copy, then (only with --by) writes
@@ -13,12 +13,14 @@
 // approved ones is reported stale. The gate (lib-plan.mjs) and measure prefer the approved files when they exist.
 // Source = <pewp>/targets.json and <pewp>/plan/, or with --from proposals the iterate proposals (<pewp>/proposals/targets.json), which
 // also replaces the working targets.json so plan-site.mjs plans from them. Approving is the owner's act: never run it on your own.
-// business | competitors | seeds (contract C1): the same diff / sign / lock behaviour for one file each:
+// business | competitors | seeds | prompt-map | research-cost (contract C1): the same diff / sign / lock behaviour for one file each:
 //   business.json                          -> approved/business.json     REFUSED (exit 1) while an owner-only field (kind, offer, audience, goals, competitors,
 //                                            brand.constraints, vocabulary) has a provenance other than "owner" (intake.mjs writes provenance; stages/intake.md)
 //   research/competitors-proposed.json    -> approved/competitors.json  REFUSED while a row lacks evidenceUrl, kind, closeness 1..5, or both domain and handle
 //   research/seeds.json                    -> approved/seeds.json        REFUSED while a query lacks `from` (where it came from)
 //   research/prompt-map.json               -> approved/prompt-map.json   REFUSED while a row fails the prompt-map validator (lib-prompt-map.mjs); plan-site.mjs reads the approved copy first
+//   research/research-cost.json            -> approved/research-cost.json REFUSED while calls are not whole numbers, total is not their sum, or the competitor list does not match its sha256;
+//                                            research.mjs lets a plan above its call limit run when its numbers, cost in money and competitor list fit this record (signedCopy)
 // approvedMatches(pewp, kind) says whether the approved copy is current (sha256 of the source == the lock entry).
 // Exit 0 approved / no change / lock ok, 1 invalid source or lock failed, 2 cannot judge (file missing), 3 diff shown, not signed (no --by).
 import fs from "node:fs";
@@ -36,12 +38,13 @@ const J = (p) => JSON.parse(fs.readFileSync(p, "utf8").replace(/^\uFEFF/, "")); 
 const jr = (p, d = null) => { try { return J(p); } catch { return d; } };
 const EXCLUDE_PLAN = new Set(["programmatic-data.json"]);
 export const approvedDir = (pewp) => path.join(pewp, "approved");
-// The three single-file kinds (contract C1): the working file the owner reads, and its approved copy under approved/.
+// The single-file kinds (contract C1): the working file the owner reads, and its approved copy under approved/.
 export const FILE_KINDS = {
   business: { src: "business.json", dst: "business.json" },
   competitors: { src: "research/competitors-proposed.json", dst: "competitors.json" },
   seeds: { src: "research/seeds.json", dst: "seeds.json" },
   "prompt-map": { src: "research/prompt-map.json", dst: "prompt-map.json" }, // DECISIONS 35: plan-site.mjs reads the approved copy first
+  "research-cost": { src: "research/research-cost.json", dst: "research-cost.json" }, // SKILL-RESEARCHCOST-1: research.mjs reads the approved copy to let a plan above its call limit run
 };
 export const OWNER_ONLY = ["kind", "offer", "audience", "goals", "competitors", "brand.constraints", "vocabulary"];
 
@@ -76,7 +79,7 @@ export function verifyLock(pewp) {
     }
     if (kind === "plan") for (const rel of planFiles(path.join(dir, "plan")).map((x) => "plan/" + x)) if (!(rel in entry.files)) problems.push(`${rel}: file added after approval (not in the lock)`);
   }
-  for (const k of Object.keys(FILE_KINDS)) { // business | competitors | seeds: each approved file is listed in the lock and unchanged
+  for (const k of Object.keys(FILE_KINDS)) { // business | competitors | seeds | prompt-map | research-cost: each approved file is listed in the lock and unchanged
     const entry = lock?.[k], f = FILE_KINDS[k].dst;
     if (!entry) { if (hasKind(k)) problems.push(`approved/${f} exists but is not in the lock`); continue; }
     for (const [rel, want] of Object.entries(entry.files)) {
@@ -142,12 +145,13 @@ function researchRun(pewp, t, given) {
 
 function copyDir(from, to, files) { for (const f of files) { fs.mkdirSync(path.dirname(path.join(to, f)), { recursive: true }); fs.copyFileSync(path.join(from, f), path.join(to, f)); } }
 
-// ---------- business | competitors | seeds (contract C1) ----------
+// ---------- business | competitors | seeds | prompt-map | research-cost (contract C1) ----------
 const nonEmpty = (x) => typeof x === "string" && x.trim().length > 0;
 const FIX = {
   business: 'Ask the owner, write the answer as {"value":..., "answeredBy":"owner"} in intake-answers.json, run intake again',
   competitors: "run competitors-discover.mjs again (every row needs one evidence URL, a kind, a closeness 1 to 5, and a domain or a handle) or fix the rows in research/competitors-proposed.json",
   seeds: 'run research-seeds.mjs again (it records where each query came from) or add "from" to each query in research/seeds.json',
+  "research-cost": "run research.mjs <target> --dry again",
 };
 // Each check returns the reasons the file cannot be approved (empty = approvable).
 function checkBusiness(b) {
@@ -194,8 +198,25 @@ function checkPromptMap(doc) {
   if (!v.ok) return [`prompt-map.json is not a valid prompt map (${v.errors.length} error(s)); run research-prompts.mjs <target> --check`, ...v.errors.slice(0, 8).map((e) => `  ${e.rule} ${e.id}: ${e.message}`)];
   return v.rows ? [] : ["prompt-map.json has no rows"];
 }
-const CHECKS = { business: checkBusiness, competitors: checkCompetitors, seeds: checkSeeds, "prompt-map": checkPromptMap };
-const NOTFOUND = { business: " (run intake.mjs)", competitors: " (run competitors-discover.mjs)", seeds: " (run research-seeds.mjs)", "prompt-map": " (write research/prompt-map.json: stages/research.md, Prompt map)" };
+// SKILL-RESEARCHCOST-1: the cost of a research plan, written by research.mjs (--dry, or a plan above the limit that was refused)
+function checkResearchCost(doc) {
+  const d = doc && typeof doc === "object" && !Array.isArray(doc) ? doc : {}, out = [];
+  const entries = d.calls && typeof d.calls === "object" && !Array.isArray(d.calls) ? Object.entries(d.calls) : [];
+  if (!entries.length) out.push("calls is not an object with at least one source");
+  const bad = entries.filter(([, n]) => !(Number.isInteger(n) && n >= 0));
+  for (const [k, n] of bad) out.push(`${k}: ${JSON.stringify(n)} is not a whole number of 0 or more`);
+  const sum = entries.reduce((s, [, n]) => s + n, 0);
+  if (!bad.length && d.total !== sum) out.push(`total ${JSON.stringify(d.total)} is not the sum of the calls (${sum})`);
+  if (!nonEmpty(d.costInMoney)) out.push("costInMoney is not a non-empty text");
+  const sites = d.competitors?.sites, sitesOk = Array.isArray(sites) && sites.every(nonEmpty);
+  if (!sitesOk) out.push("competitors.sites is not a list of non-empty texts");
+  if (sitesOk && d.competitors.sha256 !== sha256(JSON.stringify(d.competitors.sites))) out.push("competitors.sha256 is not the sha256 of competitors.sites (the list the plan covers)");
+  if (out.length) out.push(FIX["research-cost"]);
+  return out;
+}
+const costSummary = (d) => `${d.total} external calls (${Object.entries(d.calls).map(([k, n]) => `${k} ${n}`).join(", ")}), ${d.costInMoney}, ${d.competitors.sites.length} competitor sites`;
+const CHECKS = { business: checkBusiness, competitors: checkCompetitors, seeds: checkSeeds, "prompt-map": checkPromptMap, "research-cost": checkResearchCost };
+const NOTFOUND = { business: " (run intake.mjs)", competitors: " (run competitors-discover.mjs)", seeds: " (run research-seeds.mjs)", "prompt-map": " (write research/prompt-map.json: stages/research.md, Prompt map)", "research-cost": " (run research.mjs <target> --dry)" };
 
 function diffFile(kind, o, n) {
   const L = [];
@@ -212,6 +233,13 @@ function diffFile(kind, o, n) {
     for (const [k, r] of nm) if (!om.has(k)) L.push(`+ ${k} "${short(r.prompt)}" (${r.fix?.kind})`);
     for (const [k, r] of om) if (!nm.has(k)) L.push(`- ${k} "${short(r.prompt)}"`);
     for (const [k, r] of nm) { const p = om.get(k); if (p && JSON.stringify(p.fix) !== JSON.stringify(r.fix)) L.push(`~ ${k}.fix: ${short(p.fix?.kind)} -> ${short(r.fix?.kind)}`); }
+  } else if (kind === "research-cost") {
+    const oc = o.calls || {}, nc = n.calls || {}, os = o.competitors?.sites || [], ns = n.competitors?.sites || [];
+    for (const k of new Set([...Object.keys(oc), ...Object.keys(nc)])) if (oc[k] !== nc[k]) L.push(`~ ${k}: ${oc[k] ?? 0} -> ${nc[k] ?? 0}`);
+    if (o.total !== n.total) L.push(`~ total: ${o.total} -> ${n.total}`);
+    if (o.costInMoney !== n.costInMoney) L.push(`~ cost in money: ${o.costInMoney} -> ${n.costInMoney}`);
+    for (const x of ns) if (!os.includes(x)) L.push(`+ ${x}`);
+    for (const x of os) if (!ns.includes(x)) L.push(`- ${x}`);
   } else {
     const om = new Map((o.queries || []).map((q) => [q.query, q])), nm = new Map((n.queries || []).map((q) => [q.query, q]));
     for (const [k, q] of nm) if (!om.has(k)) L.push(`+ "${k}" (from ${short(q.from)})`);
@@ -243,9 +271,18 @@ function approveFile(pewp, kind, { by, log, lock, stamp }) {
   fs.writeFileSync(dstFile, buf);
   lock[kind] = { approvedAt: stamp, approvedBy: by, source: spec.src, files: { [spec.dst]: sha }, ...(deleg.length ? { delegated: deleg } : {}) };
   fs.writeFileSync(path.join(dir, "lock.json"), JSON.stringify(lock, null, 1) + "\n");
-  const n = kind === "competitors" || kind === "prompt-map" ? `${rowsOf(doc).length} rows` : kind === "seeds" ? `${doc.queries.length} queries` : `${doc.name || doc.domain}`;
+  const n = kind === "competitors" || kind === "prompt-map" ? `${rowsOf(doc).length} rows` : kind === "seeds" ? `${doc.queries.length} queries` : kind === "research-cost" ? costSummary(doc) : `${doc.name || doc.domain}`;
   log(`PASS approve ${kind}: ${n} signed by ${by} at ${stamp} (sha256 ${sha.slice(0, 12)})${deleg.length ? `; ${deleg.length} owner-only field(s) DELEGATED: ${deleg.map((d) => d.field).join(", ")}` : ""}`);
   return 0;
+}
+
+// Is the approved copy of a file kind the signed one? Only the approved file and the lock are looked at, never the working file:
+// research.mjs asks this of research-cost, where a plan smaller than the approved one is still approved (approvedMatches would say no).
+export function signedCopy(pewp, kind) {
+  const spec = FILE_KINDS[kind], entry = readLock(pewp)?.[kind], f = path.join(approvedDir(pewp), spec.dst), want = entry?.files?.[spec.dst];
+  if (!want || !fs.existsSync(f)) return { ok: false, signed: false, reason: `${kind} is not approved yet` };
+  const have = sha256(fs.readFileSync(f));
+  return have === want ? { ok: true, signed: true, doc: jr(f), entry } : { ok: false, signed: true, reason: `approved/${spec.dst} was changed after approval (sha256 differs from the lock)` };
 }
 
 // Is the approved copy of <kind> current? ok when the approved file is unchanged and the working file still has the signed sha256.
@@ -259,7 +296,7 @@ export function approvedMatches(pewp, kind) {
     return JSON.stringify(Object.entries(nh).sort()) === JSON.stringify(Object.entries(oh).sort()) ? { ok: true, reason: "the approved plan matches plan/" } : { ok: false, reason: `plan/ changed since it was approved: ${how}` };
   }
   const spec = kind === "targets" ? { src: "targets.json", dst: "targets.json" } : FILE_KINDS[kind];
-  if (!spec) return { ok: false, reason: `unknown kind "${kind}" (targets, plan, business, competitors, seeds, prompt-map)` };
+  if (!spec) return { ok: false, reason: `unknown kind "${kind}" (targets, plan, business, competitors, seeds, prompt-map, research-cost)` };
   if (!entry) return { ok: false, reason: `${kind} is not approved yet (no ${kind} entry in approved/lock.json): ${how}` };
   const want = entry.files?.[spec.dst], dstFile = path.join(dir, spec.dst), srcFile = path.join(pewp, ...spec.src.split("/"));
   if (!fs.existsSync(dstFile)) return { ok: false, reason: `approved/${spec.dst} is missing` };
@@ -331,7 +368,7 @@ function main() {
   const a = process.argv.slice(2);
   const opt = (k) => (a.includes(k) ? a[a.indexOf(k) + 1] : null);
   const pos = a.filter((x, i) => !x.startsWith("--") && !["--by", "--from", "--run", "--cwd", "--pewp"].includes(a[i - 1]));
-  if (!opt("--pewp") && pos.length < 1) { console.error('usage: node approve.mjs <target> targets|plan|business|competitors|seeds|prompt-map [--by "<name>"] [--from proposals] [--run ID] [--cwd DIR] [--pewp DIR] | <target> --check'); process.exit(2); }
+  if (!opt("--pewp") && pos.length < 1) { console.error('usage: node approve.mjs <target> targets|plan|business|competitors|seeds|prompt-map|research-cost [--by "<name>"] [--from proposals] [--run ID] [--cwd DIR] [--pewp DIR] | <target> --check'); process.exit(2); }
   const pewp = opt("--pewp") ? path.resolve(opt("--pewp")) : locate(pos[0], { cwd: opt("--cwd") || process.cwd() }).pewp;
   if (a.includes("--check")) {
     const r = verifyLock(pewp);
@@ -344,7 +381,7 @@ function main() {
     process.exit(0);
   }
   const kind = pos[pos.length - 1];
-  if (!["targets", "plan", ...Object.keys(FILE_KINDS)].includes(kind)) { console.error("say what to approve: targets, plan, business, competitors, seeds or prompt-map"); process.exit(2); }
+  if (!["targets", "plan", ...Object.keys(FILE_KINDS)].includes(kind)) { console.error("say what to approve: targets, plan, business, competitors, seeds, prompt-map or research-cost"); process.exit(2); }
   process.exit(approve(pewp, kind, { by: opt("--by"), from: opt("--from"), run: opt("--run") }));
 }
 if (isMain(import.meta.url)) main();

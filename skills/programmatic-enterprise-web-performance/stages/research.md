@@ -38,8 +38,8 @@ fails if one tries) and call no paid API.
 ## The run, in order
 `node "<skill>/scripts/research.mjs" <url|repo> [options]` runs steps 1 to 9 and each step is also its own script (all take `<target> --cwd DIR`).
 `--dry` prints the plan (stages, 0 workers, external calls, $0, the competitor sites it would audit), writes `research/capture-requests.json` only when what it asks for changed and
-`research/research-plan.json` every time (the research-plan step's evidence), and fetches nothing. A plan above 150 calls needs
-the owner's OK and `--yes`. Show the owner the plan before the first real run.
+`research/research-plan.json` every time (the research-plan step's evidence), and fetches nothing. It also writes `research/research-cost.json` (the calls per source, the total, the cost in money and the competitor list; no time), only when it changes.
+A plan above 150 calls needs the owner's OK, recorded with `node "<skill>/scripts/approve.mjs" <target> research-cost --by "<name>"`: the plan then runs while no source is above the approved numbers and the competitor list is the approved one (`--yes` still passes when the script is run by hand). Show the owner the plan before the first real run.
 
 | # | Step | Script | Source, and what it makes | When the source is missing |
 |---|---|---|---|---|

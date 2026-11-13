@@ -163,6 +163,12 @@ const M = [
   ["research: the approved competitor file is not passed on","research.mjs","domains: o.competitors || [], approvedFile, fromSerp:","domains: o.competitors || [], fromSerp:","research: when approved/competitors.json exists"],
   ["lib: sleep() takes a negative or NaN wait as is","research-lib.mjs","Number.isFinite(Number(ms)) ? Math.max(0, Number(ms)) : 0","Number(ms)","lib: sleep(-5)"],
   ["lib: a negative PEWP_TEST_GAP_MS is accepted","research-lib.mjs","const gap = Number.isFinite(testGap) && testGap >= 0 ? testGap : own;","const gap = Number.isFinite(testGap) ? testGap : own;","lib: PEWP_TEST_GAP_MS that is not a number"],
+  ["research: a plan larger than the approved cost on one source passes the cost gate","research.mjs","const over = Object.entries(now.calls).filter(([k, n]) => n > (rec.calls?.[k] ?? 0));","const over = Object.entries(now.calls).filter(([k, n]) => false);","cost record: a plan larger"],
+  ["research: a source the approved record does not hold passes the cost gate","research.mjs","n > (rec.calls?.[k] ?? 0)","n > (rec.calls?.[k] ?? Infinity)","cost record: a source the approved record does not hold"],
+  ["research: another competitor list than the approved one passes the cost gate","research.mjs","if (now.competitors.sha256 !== rec.competitors?.sha256) why.push(","if (false) why.push(","cost record: another competitor list"],
+  ["research: another cost in money than the approved one passes the cost gate","research.mjs","if (now.costInMoney !== rec.costInMoney) why.push(","if (false) why.push(","cost record: another cost in money"],
+  ["approve: the signed-copy check of the cost record is skipped","approve.mjs","return have === want ? { ok: true, signed: true,","return true ? { ok: true, signed: true,","cost record: an approved record edited"],
+  ["research: research-cost.json is rewritten on every --dry","research.mjs","if (JSON.stringify(J(file)) === JSON.stringify(doc)) return false;","if (false) return false;","cost record: a second --dry"],
 ];
 
 const sel = M.filter((m) => !only || only.split("|").some((o) => m[0].includes(o))); // --only "a|b" runs the mutants whose name contains a or b

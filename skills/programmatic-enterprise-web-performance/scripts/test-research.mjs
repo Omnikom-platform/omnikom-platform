@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import http from "node:http";
 import zlib from "node:zlib";
+import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -555,8 +556,43 @@ try {
   check("research: --dry prints the plan (stages, 0 workers, calls, $0) and fetches nothing", dry.status === 0 && /PLAN research/.test(dry.stdout) && /workers: 0/.test(dry.stdout) && /\$0/.test(dry.stdout) && /seeds: \d+ in research\/seeds.json, NOT approved/.test(dry.stdout) && !fs.existsSync(path.join(loc.pewp, "targets.json")) && gs2.reqs.length === 0 && cs.reqs.length === 0, dry.stdout + dry.stderr);
   const big = await T("research.mjs", [...common, "--confirm-above", "1"], { ...e2eEnv, GSC_API_BASE: gs2.url });
   check("research: a plan above the call limit needs the owner's OK (exit 3), nothing fetched", big.status === 3 && /BLOCKED: .*approves/.test(big.stdout) && gs2.reqs.length === 0, big.stdout + big.stderr);
+  // SKILL-RESEARCHCOST-1: the owner's approval of the plan's cost is a record (approved/research-cost.json), not a flag on the command.
+  // These run BEFORE approved/seeds.json is copied by hand below (no lock entry): after that approve.mjs refuses every approval on this folder.
+  const costF = path.join(loc.pewp, "research", "research-cost.json"), costAp = path.join(loc.pewp, "approved", "research-cost.json"), costEnv = { ...e2eEnv, GSC_API_BASE: gs2.url };
+  const nothingFetched = () => gs2.reqs.length === 0 && cs.reqs.length === 0, shaOfText = (s) => crypto.createHash("sha256").update(s).digest("hex");
+  const cost0 = J(costF), expectedCalls = cost0 ? `${Object.entries(cost0.calls || {}).map(([k, n]) => k + " " + n).join(", ")} (total ${cost0.total})` : "";
+  check("cost record: the plan step (--dry) writes research/research-cost.json: the printed plan's calls and total, the cost in money, the competitor list with its sha256, and no time", !!cost0 && Object.keys(cost0).sort().join() === "calls,competitors,costInMoney,step,total" && cost0.step === "research-cost" && dry.stdout.includes(`external calls, upper bound: ${expectedCalls}; model tokens`) && cost0.total === Object.values(cost0.calls).reduce((s, n) => s + n, 0) && dry.stdout.includes(`cost in money: ${cost0.costInMoney}`) && Array.isArray(cost0.competitors?.sites) && cost0.competitors.sites.length > 0 && cost0.competitors.sha256 === shaOfText(JSON.stringify(cost0.competitors.sites)), `${JSON.stringify(cost0)} ${dry.stdout.slice(0, 900)}`);
+  const costBytes = fs.existsSync(costF) ? fs.readFileSync(costF, "utf8") : null;
+  if (costBytes !== null) fs.utimesSync(costF, 1000000000, 1000000000); // an old write time: a rewrite, even of the same bytes, shows
+  const costTime = fs.existsSync(costF) ? fs.statSync(costF).mtimeMs : null;
+  const dryAgain = await T("research.mjs", [...common, "--dry"], costEnv);
+  check("cost record: a second --dry on the same plan leaves research-cost.json as it is (same bytes, same write time): an approval does not go stale because the plan was printed again", dryAgain.status === 0 && costBytes !== null && fs.readFileSync(costF, "utf8") === costBytes && fs.statSync(costF).mtimeMs === costTime && nothingFetched(), `${dryAgain.stdout}${dryAgain.stderr} ${costTime} ${fs.existsSync(costF) ? fs.statSync(costF).mtimeMs : "none"}`);
+  const ap7 = await T("approve.mjs", ["research-cost", "--by", "Owner"]);
+  const ok7 = await T("research.mjs", [...common, "--confirm-above", "1"], costEnv);
+  check("cost record: with the plan's cost approved by approve.mjs research-cost, a plan above the limit with no --yes is not stopped by the cost gate: it prints the approval line and goes on to the seeds approval (exit 3, NEEDS-APPROVAL seeds:), no BLOCKED line, nothing fetched", ap7.status === 0 && ok7.status === 3 && /^NEEDS-APPROVAL seeds:/m.test(ok7.stdout) && /^ {2}cost: approved by Owner at /m.test(ok7.stdout) && !/^BLOCKED: /m.test(ok7.stdout) && nothingFetched(), `${ap7.stdout}${ap7.stderr} | ${ok7.stdout.slice(0, 900)}${ok7.stderr}`);
+  const costBefore = fs.existsSync(costF) ? fs.readFileSync(costF) : null;   // the refused run below writes its own plan (R1): put the file back for the items after it
+  const bNew = await T("research.mjs", [...common, "--wiki-title", "Tracy, California", "--confirm-above", "1"], costEnv);
+  if (costBefore) fs.writeFileSync(costF, costBefore);
+  check("cost record: a source the approved record does not hold is BLOCKED as <n> against 0 approved (exit 3), nothing fetched", bNew.status === 3 && /^BLOCKED: .*Wikipedia 1 against 0 approved/m.test(bNew.stdout) && !/competitor list is not/.test(bNew.stdout) && nothingFetched(), bNew.stdout.slice(0, 900) + bNew.stderr);
+  const otherList = common.map((x) => (x === cs.url ? "http://127.0.0.1:9" : x));
+  const b9 = await T("research.mjs", [...otherList, "--confirm-above", "1"], costEnv);
+  check("cost record: another competitor list with the same number of sites is BLOCKED naming the list, with its short hash and the approved one (exit 3), nothing fetched", b9.status === 3 && /^BLOCKED: .*the competitor list is not the approved plan's \(now 1 sites, list [0-9a-f]{8}; approved 1 sites, list [0-9a-f]{8}\)/m.test(b9.stdout) && !/larger than/.test(b9.stdout) && nothingFetched(), b9.stdout.slice(0, 900) + b9.stderr);
+  const dry8 = await T("research.mjs", [...common, "--bing-max-calls", "5", "--dry"], costEnv), c8 = J(costF);
+  const ap8 = await T("approve.mjs", ["research-cost", "--by", "Owner"]);
+  const b8 = await T("research.mjs", [...common, "--confirm-above", "1"], costEnv), c8b = J(costF);
+  check("cost record: a plan larger than the record on one source is BLOCKED showing both numbers for that source and for the total (exit 3), nothing fetched", dry8.status === 0 && c8?.calls?.["Bing Webmaster"] === 6 && c8.total === 23 && ap8.status === 0 && b8.status === 3 && /^BLOCKED: .*Bing Webmaster 25 against 6 approved/m.test(b8.stdout) && /total 42 against 23 approved/.test(b8.stdout) && !/competitor list is not/.test(b8.stdout) && nothingFetched(), `${JSON.stringify(c8)} ${ap8.stdout}${ap8.stderr} | ${b8.stdout.slice(0, 900)}${b8.stderr}`);
+  check("cost record: a refused plan writes its own cost document to research-cost.json (Bing Webmaster 25, total 42), so the command the message names approves exactly the plan that was refused", c8b?.calls?.["Bing Webmaster"] === 25 && c8b.total === 42, JSON.stringify(c8b));
+  w(costF, { ...c8b, costInMoney: "$5 (a paid source)" }); // a valid record that costs money, signed by the owner
+  const ap11 = await T("approve.mjs", ["research-cost", "--by", "Owner"]);
+  const b11 = await T("research.mjs", [...common, "--confirm-above", "1"], costEnv);
+  check("cost record: another cost in money than the approved one is BLOCKED showing both texts (exit 3), nothing else named, nothing fetched", ap11.status === 0 && b11.status === 3 && /^BLOCKED: .*the cost in money is not the approved plan's \(now \$0 \(free sources only\); approved \$5 \(a paid source\)\)/m.test(b11.stdout) && !/larger than|competitor list is not/.test(b11.stdout) && nothingFetched(), `${ap11.stdout}${ap11.stderr} | ${b11.stdout.slice(0, 900)}${b11.stderr}`);
+  const signedBytes = fs.existsSync(costAp) ? fs.readFileSync(costAp) : null, signedDoc = signedBytes ? JSON.parse(signedBytes.toString("utf8")) : { calls: {}, total: 0 };
+  if (signedBytes) fs.writeFileSync(costAp, JSON.stringify({ ...signedDoc, calls: Object.fromEntries(Object.entries(signedDoc.calls).map(([k, n]) => [k, n * 10])), total: signedDoc.total * 10, costInMoney: "$0 (free sources only)" }, null, 1) + "\n"); // numbers raised after approval so this plan would fit
+  const b10 = await T("research.mjs", [...common, "--confirm-above", "1"], costEnv);
+  if (signedBytes) fs.writeFileSync(costAp, signedBytes); else fs.rmSync(costAp, { force: true }); // put the signed bytes back
+  check("cost record: an approved record edited after approval is BLOCKED (approved/research-cost.json was changed after approval, exit 3), nothing fetched", b10.status === 3 && /^BLOCKED: .*approved\/research-cost\.json was changed after approval \(sha256 differs from the lock\)/m.test(b10.stdout) && nothingFetched(), b10.stdout.slice(0, 900) + b10.stderr);
   // G3: the seeds are a proposal; Bing, forums and the capture list wait for the owner's approval (approved/seeds.json equal to research/seeds.json) or --yes
-  const ng = await T("research.mjs", common, { ...e2eEnv, GSC_API_BASE: gs2.url });
+  const ng =await T("research.mjs", common, { ...e2eEnv, GSC_API_BASE: gs2.url });
   check("research: seeds nobody approved => exit 3 with `NEEDS-APPROVAL seeds:` (show research/seeds.json, run approve.mjs <target> seeds --by NAME, or --yes), nothing fetched, no targets.json", ng.status === 3 && /^NEEDS-APPROVAL seeds: the 6 seed queries in research\/seeds.json have not been approved/m.test(ng.stdout) && /approve\.mjs https:\/\/tracyhomes\.test\/ seeds --by NAME/.test(ng.stdout) && /re-run with --yes/.test(ng.stdout) && gs2.reqs.length === 0 && cs.reqs.length === 0 && !fs.existsSync(path.join(loc.pewp, "targets.json")), ng.stdout.slice(-700) + ng.stderr);
   const seedsProposed = J(path.join(loc.pewp, "research", "seeds.json"));
   w(path.join(loc.pewp, "approved", "seeds.json"), { ...seedsProposed, queries: seedsProposed.queries.slice(1).concat([{ query: "something the owner added", from: "owner" }]) });

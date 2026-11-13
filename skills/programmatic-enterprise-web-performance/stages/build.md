@@ -26,14 +26,14 @@ node "<skill>/scripts/build-site.mjs" <target dir> [--brief <file>] [--go] [--bu
 ## How the main session runs it (the loop)
 1. **Plan.** `build-site.mjs <target> --brief <file>` (no `--go`). Tell the owner in two sentences what will be produced,
    that it uses free sources only, and that the builder session is the main cost. For the research cost, also run
-   `node "<skill>/scripts/research.mjs" <target> --dry` once intake is done (it prints the external calls; above 150 it needs
-   `--yes`). Ask: go / change something (pickable options, recommended first).
+   `node "<skill>/scripts/research.mjs" <target> --dry` once intake is done (it prints the external calls and writes `research/research-cost.json`; above 150 the owner approves that cost with
+   `approve.mjs <target> research-cost --by "<name>"`). Ask: go / change something (pickable options, recommended first).
 2. **Run.** `build-site.mjs <target> --go` (PowerShell, in the background). Read its last lines. Exactly one ends every run:
 
 | Last line starts with | Exit | Meaning | The main session does |
 |---|---|---|---|
 | `NEEDS-INPUT stage=intake` + numbered questions | 3 | intake cannot finish without the owner; the questions (AskUserQuestion shape) are in `.pewp/intake-facts.json` | ask **all** of them in one batch as pickable options (the first option is recommended; a typed "Other" is the value), write the chosen values to `.pewp/intake-answers.json` as `{"<field>": <value>}`, run the same command again. Never answer for the owner |
-| `NEEDS-INPUT stage=research` + its message | 3 | research is BLOCKED: no intake, no query universe (seeds), or owner confirmation of a large plan | turn the message into one pickable question, then re-run with `--research-args "--service <s> ..."` or `"--yes"` |
+| `NEEDS-INPUT stage=research` + its message | 3 | research is BLOCKED: no intake, no query universe (seeds), or owner confirmation of a large plan | turn the message into one pickable question; for a large plan, once the owner agrees, run `approve.mjs <target> research-cost --by "<name>"` (it records the plan's numbers and its competitor list), otherwise re-run with `--research-args "--service <s> ..."` |
 | `BLOCKED stage=<s>: <reason>` | 4 | a script is not built yet | say BLOCKED and what unblocks it, in plain words. Do not improvise the stage. Earlier stages are kept |
 | `FAILED stage=<s>` | 1 | the stage crashed or did not write its outputs | show the output tail to the Lead; one re-run once the cause is understood, never a loop |
 | `WAITING-FOR-BUILDER` | 0 | plan done; the spec is `.pewp/builder/HANDOFF.md` | start the builder (below) |

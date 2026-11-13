@@ -85,7 +85,7 @@ async function runScenarios(sdir, groups = ["a", "b", "c", "d"]) {
       r = ap(p, "business", "--by", "Ana");
       check("A1: no business.json => cannot judge (exit 2)", r.code === 2 && /business\.json not found/.test(r.out), r.out);
       r = ap(p, "targets-and-more");
-      check("A1: an unknown kind is a usage error (exit 2) that lists the six kinds (targets, plan, business, competitors, seeds, prompt-map)", r.code === 2 && /targets, plan, business, competitors, seeds or prompt-map/.test(r.out), r.out);
+      check("A1: an unknown kind is a usage error (exit 2) that lists the seven kinds (targets, plan, business, competitors, seeds, prompt-map, research-cost)", r.code === 2 && /targets, plan, business, competitors, seeds, prompt-map or research-cost/.test(r.out), r.out);
 
       // business sign / lock / diff / history / approvedMatches
       p = mk(); w(path.join(p, "business.json"), bizDoc(allOwner));
@@ -155,6 +155,42 @@ async function runScenarios(sdir, groups = ["a", "b", "c", "d"]) {
       w(path.join(p, "research", "seeds.json"), { status: "blocked", blocked: "no business" });
       r = ap(p, "seeds", "--by", "Ben");
       check("A5: seeds: a BLOCKED seeds.json (no queries) is refused", r.code === 1 && /BLOCKED/.test(r.out), r.out);
+
+      // research-cost (SKILL-RESEARCHCOST-1): the owner's approval of a research plan's cost is a record, with the same diff / sign / lock as the other file kinds
+      const shaOf = (x) => crypto.createHash("sha256").update(x).digest("hex");
+      const SRC = "competitor sites (1 request/s each, ~14 requests)", sitesA = ["rival-one.test", "rival-two.test"];
+      const costDoc = (over = {}) => ({ step: "research-cost", calls: { "Search Console": 3, "Bing Webmaster": 49, [SRC]: 28 }, total: 80, costInMoney: "$0 (free sources only)", competitors: { sites: sitesA, sha256: shaOf(JSON.stringify(sitesA)) }, ...over });
+      const COSTF = (q) => path.join(q, "research", "research-cost.json");
+      p = mk();
+      r = ap(p, "research-cost", "--by", "Owner");
+      check("A7: research-cost: no research/research-cost.json cannot be judged (exit 2) and says to run research.mjs <target> --dry", r.code === 2 && /not found \(run research\.mjs <target> --dry\)/.test(r.out) && !fs.existsSync(path.join(p, "approved")), r.out);
+      w(COSTF(p), costDoc());
+      r = ap(p, "research-cost", "--by", "Owner");
+      const lkC = fs.existsSync(path.join(p, "approved", "lock.json")) ? rj(path.join(p, "approved", "lock.json")) : {};
+      check("A7: research-cost: a well-formed cost file is approved (exit 0, PASS line with the total and the site count), the lock has the entry with approvedBy, the approved copy has the working file's bytes", r.code === 0 && /PASS approve research-cost: 80 external calls \(Search Console 3, Bing Webmaster 49, competitor sites \(1 request\/s each, ~14 requests\) 28\), \$0 \(free sources only\), 2 competitor sites/.test(r.out) && lkC["research-cost"]?.approvedBy === "Owner" && lkC["research-cost"]?.files?.["research-cost.json"] === sha(COSTF(p)) && fs.existsSync(path.join(p, "approved", "research-cost.json")) && fs.readFileSync(path.join(p, "approved", "research-cost.json")).equals(fs.readFileSync(COSTF(p))), r.out + JSON.stringify(lkC));
+      const refuse = (doc) => { const q = mk(); w(COSTF(q), doc); const x = ap(q, "research-cost", "--by", "Owner"); return { x, left: fs.existsSync(path.join(q, "approved")) }; };
+      let rf = refuse(costDoc({ total: 81 }));
+      check("A7: research-cost refused: total is not the sum of the calls (exit 1, nothing approved, says to run research.mjs <target> --dry again)", rf.x.code === 1 && /total 81 is not the sum of the calls \(80\)/.test(rf.x.out) && /run research\.mjs <target> --dry again/.test(rf.x.out) && !rf.left, rf.x.out);
+      rf = refuse(costDoc({ competitors: { sites: sitesA, sha256: shaOf(JSON.stringify([...sitesA].reverse())) } }));
+      check("A7: research-cost refused: competitors.sha256 is not the sha256 of the list of sites (exit 1, nothing approved)", rf.x.code === 1 && /competitors\.sha256 is not the sha256 of competitors\.sites/.test(rf.x.out) && !rf.left, rf.x.out);
+      rf = refuse(costDoc({ calls: { "Search Console": 3, "Bing Webmaster": 1.5 }, total: 4.5 }));
+      check("A7: research-cost refused: a number of calls that is not a whole number of 0 or more (exit 1, nothing approved)", rf.x.code === 1 && /Bing Webmaster: 1\.5 is not a whole number of 0 or more/.test(rf.x.out) && !rf.left, rf.x.out);
+      rf = refuse(costDoc({ calls: {}, total: 0 }));
+      check("A7: research-cost refused: calls empty is not an object with at least one source (exit 1, nothing approved)", rf.x.code === 1 && /calls is not an object with at least one source/.test(rf.x.out) && !rf.left, rf.x.out);
+      rf = refuse(costDoc({ costInMoney: " " }));
+      check("A7: research-cost refused: costInMoney empty is not a text (exit 1, nothing approved)", rf.x.code === 1 && /costInMoney is not a non-empty text/.test(rf.x.out) && !rf.left, rf.x.out);
+      const sitesB = ["rival-one.test", ""];
+      rf = refuse(costDoc({ competitors: { sites: sitesB, sha256: shaOf(JSON.stringify(sitesB)) } }));
+      check("A7: research-cost refused: a site that is not a non-empty text (exit 1, nothing approved)", rf.x.code === 1 && /competitors\.sites is not a list of non-empty texts/.test(rf.x.out) && !rf.left, rf.x.out);
+      const sitesC = ["rival-one.test", "rival-three.test"];
+      w(COSTF(p), costDoc({ calls: { "Search Console": 3, "Bing Webmaster": 25, [SRC]: 42 }, total: 70, costInMoney: "$0 (free sources only, changed)", competitors: { sites: sitesC, sha256: shaOf(JSON.stringify(sitesC)) } }));
+      r = ap(p, "research-cost");
+      check("A7: research-cost: approving again after numbers and a site changed prints one diff line per change (a source, total, cost in money, + site, - site) and is NOT SIGNED without --by (exit 3)", r.code === 3 && /~ Bing Webmaster: 49 -> 25/.test(r.out) && /~ competitor sites \(1 request\/s each, ~14 requests\): 28 -> 42/.test(r.out) && /~ total: 80 -> 70/.test(r.out) && /~ cost in money: \$0 \(free sources only\) -> \$0 \(free sources only, changed\)/.test(r.out) && /\+ rival-three\.test/.test(r.out) && /- rival-two\.test/.test(r.out) && /NOT SIGNED/.test(r.out) && !/~ Search Console/.test(r.out), r.out);
+      r = ap(p, "research-cost", "--by", "Ben");
+      check("A7: research-cost: the changed record is signed (exit 0) and the lock moves to the new signer", r.code === 0 && rj(path.join(p, "approved", "lock.json"))["research-cost"]?.approvedBy === "Ben" && M.approvedMatches(p, "research-cost").ok === true, r.out);
+      if (fs.existsSync(path.join(p, "approved", "research-cost.json"))) fs.appendFileSync(path.join(p, "approved", "research-cost.json"), " ");
+      r = run("approve.mjs", ["--pewp", p, "--check"]);
+      check("A7: research-cost: an approved cost record edited by hand fails --check (exit 1)", r.code === 1 && /research-cost\.json: changed after approval/.test(r.out), r.out);
 
       // discover -> approve end to end on the real fixtures
       p = mk();
@@ -423,7 +459,7 @@ const MUTANTS = [
   { name: "approve: signing without --by", file: "approve.mjs", from: "if (!by) { log(`NOT SIGNED: approving is the owner's act. Re-run with --by \"<owner name>\" after the owner has read ${old", to: "if (false) { log(`NOT SIGNED: approving is the owner's act. Re-run with --by \"<owner name>\" after the owner has read ${old", g: "a", expect: [/^A2: business without --by/] },
   { name: "approve: unchanged file is re-signed", file: "approve.mjs", from: "if (old && lock[kind]?.files?.[spec.dst] === sha) {", to: "if (false) {", g: "a", expect: [/^A2: approving an unchanged business again/] },
   { name: "approve: replaced copy not kept in history", file: "approve.mjs", from: "fs.copyFileSync(dstFile, path.join(h, spec.dst));", to: "", g: "a", expect: [/^A2: re-approval keeps the replaced copy/] },
-  { name: "approve: lock stores a wrong sha", file: "approve.mjs", from: "files: { [spec.dst]: sha } };", to: 'files: { [spec.dst]: "0".repeat(64) } };', g: "a", expect: [/^A2: business with --by is approved/, /^A2: approvedMatches is ok right after approval/, /^A2: --check covers the business/] },
+  { name: "approve: lock stores a wrong sha", file: "approve.mjs", from: "files: { [spec.dst]: sha }, ...(deleg.length", to: 'files: { [spec.dst]: "0".repeat(64) }, ...(deleg.length', g: "a", expect: [/^A2: business with --by is approved/, /^A2: approvedMatches is ok right after approval/, /^A2: --check covers the business/] },
   { name: "approve: lock check misses a stray approved file", file: "approve.mjs", from: "if (!entry) { if (hasKind(k)) problems.push(", to: "if (!entry) { if (false) problems.push(", g: "a", expect: [/^A3: a seeds\.json under approved\//] },
   { name: "approve: lock check misses a hand edit of a new kind", file: "approve.mjs", from: "problems.push(`${rel}: changed after approval (sha256 differs from the lock)`);\n    }\n  }\n  const tsha", to: "void 0;\n    }\n  }\n  const tsha", g: "a", expect: [/^A2: an approved business edited by hand/] },
   { name: "approve: approvedMatches ignores a changed source", file: "approve.mjs", from: "if (now !== want) return { ok: false, reason: `${spec.src} changed since", to: "if (false) return { ok: false, reason: `${spec.src} changed since", g: "a", expect: [/^A2: after the working business\.json changes/, /^A4: approvedMatches\(competitors\)/] },
@@ -431,6 +467,9 @@ const MUTANTS = [
   { name: "approve: an unknown kind is not refused", file: "approve.mjs", from: '...Object.keys(FILE_KINDS)].includes(kind)) {', to: '...Object.keys(FILE_KINDS)].includes(kind) && false) {', g: "a", expect: [/^A1: an unknown kind/] },
   { name: "approve: the targets entry of the lock is dropped", file: "approve.mjs", from: "const lock = lockNow.lock || { formatVersion: 1 };", to: "const lock = { formatVersion: 1 };", g: "a", expect: [/^A3: approving business keeps the targets entry/] },
   { name: "approve: --check ignores the new kinds in its count", file: "approve.mjs", from: "+ extra.reduce((n, k) => n + Object.keys(r.lock[k].files || {}).length, 0)}", to: "+ 0}", g: "a", expect: [/^A2: --check covers the business/, /^A3: --check counts targets and business/] },
+  { name: "approve: a cost record whose total is not the sum is approved", file: "approve.mjs", from: "if (!bad.length && d.total !== sum) out.push(", to: "if (false) out.push(", g: "a", expect: [/^A7: research-cost refused: total is not the sum/] },
+  { name: "approve: a cost record whose list hash is wrong is approved", file: "approve.mjs", from: "if (sitesOk && d.competitors.sha256 !== sha256(JSON.stringify(d.competitors.sites))) out.push(", to: "if (false) out.push(", g: "a", expect: [/^A7: research-cost refused: competitors\.sha256/] },
+  { name: "approve: a cost record with a fractional number of calls is approved", file: "approve.mjs", from: "const bad = entries.filter(([, n]) => !(Number.isInteger(n) && n >= 0));", to: "const bad = entries.filter(([, n]) => typeof n !== \"number\");", g: "a", expect: [/^A7: research-cost refused: a number of calls/] },
   // intake.mjs
   { name: "intake: every answer is stamped owner", file: "intake.mjs", from: 'out[f] = given ? answerProvOf(answerProv, f) : acc.has(f) ? "site" : def.has(f) ? "default" : "default";', to: 'out[f] = "owner";', g: "b", expect: [/^B3: provenance says unstated/, /^B3: provenance says site/, /^B5: answeredBy site and default/] },
   { name: "intake: a bare answer is stamped owner", file: "intake.mjs", from: 'else { out[k] = v; prov[p] = "unstated"; }', to: 'else { out[k] = v; prov[p] = "owner"; }', g: "b", expect: [/^B3: provenance says unstated/] },

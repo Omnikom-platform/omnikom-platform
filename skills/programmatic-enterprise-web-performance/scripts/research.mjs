@@ -15,7 +15,7 @@
 //                 --from-serp picks are then only SUGGESTED in the report, never audited.
 //   AI answers:   --gemini [--runs 3 --ai-questions 8 --ai-max-calls 30]  --question Q  (owner captures: <pewp>/captures/ai/)
 //   reuse:        --existing-dir DIR (repeat)  --max-age-days 30
-//   cost:         --dry prints the plan and the line "capture list from: ..." (which searches the capture list asks for, and why) and fetches nothing; a plan above --confirm-above (default 150) external calls needs --yes.
+//   cost:         --dry prints the plan and the line "capture list from: ..." (which searches the capture list asks for, and why) and fetches nothing; a plan above --confirm-above (default 150) external calls runs only when the owner approved its cost (node approve.mjs <target> research-cost --by NAME, which signs research/research-cost.json) or --yes is given.
 // Exit codes: 0 targets.json written (blocked steps are listed in report.md and state), 1 a step crashed or the output failed its checks,
 //             2 usage, 3 BLOCKED (no intake yet, no query universe, owner confirmation needed, or NEEDS-APPROVAL seeds).
 import fs from "node:fs";
@@ -23,6 +23,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { markStage } from "./state.mjs";
+import { sha256, signedCopy } from "./approve.mjs";
 import { RuleMissing } from "./lib-rules.mjs";
 import { matchPages, pageTypeOf, pageTypeOfPage, schemaInfoOf } from "./lib-growth.mjs";
 import { Blocked, J, W, iso, context, needBusiness, runCli, readStep, factor, fact, knownPlaces, allPlaces, classifyIntent, placeInQuery, queryOverlap, tokens, sameQuery, domainOf, normQuery, pathOf, ageDays, localeOf } from "./research-lib.mjs";
@@ -438,16 +439,40 @@ export function plannedCompetitors(ctx, o) {
   return [...new Set(o.competitorsFromSerp ? competitors.pickCompetitors(ctx, { max: o.maxCompetitors ?? 12, extra: named }) : named)].slice(0, o.maxCompetitors ?? 12);
 }
 
+// SKILL-RESEARCHCOST-1: what the plan costs, written down so the owner's approval of it is a record (approved/research-cost.json), not a flag on a command.
+export const COST_IN_MONEY = "$0 (free sources only)";
+export const costDocument = (plan) => ({ step: "research-cost", calls: Object.fromEntries(Object.entries(plan.calls).filter(([, n]) => n > 0)), total: plan.total, costInMoney: COST_IN_MONEY, competitors: { sites: plan.sites, sha256: sha256(JSON.stringify(plan.sites)) } });
+// research/research-cost.json carries no time and is written only when what it says changes: an approval must not go stale because the plan was printed again. -> true when written
+export function writeCost(ctx, plan) {
+  const file = path.join(ctx.rdir, "research-cost.json"), doc = costDocument(plan);
+  if (JSON.stringify(J(file)) === JSON.stringify(doc)) return false;
+  W(file, doc);
+  return true;
+}
+// A plan above the limit passes without --yes only on a signed record that this run's plan fits: no source above the record's number, the same cost in money, the same competitor list.
+export function costGate(ctx, plan, limit) {
+  const how = `node approve.mjs ${ctx.loc.target} research-cost --by "<name>"`, s = signedCopy(ctx.pewp, "research-cost");
+  if (!s.signed) return { ok: false, reason: `the plan is ${plan.total} external calls, above ${limit}: the owner approves it (${how}; it records the plan's numbers and its competitor list), then run the step again` };
+  if (!s.ok) return { ok: false, reason: `${s.reason}: restore the signed file, then the owner approves the plan with ${how}, then run the step again` };
+  const now = costDocument(plan), rec = s.doc || {}, why = [];
+  const over = Object.entries(now.calls).filter(([k, n]) => n > (rec.calls?.[k] ?? 0));
+  if (over.length) why.push(`the plan is larger than the approved one: ${over.map(([k, n]) => `${k} ${n} against ${rec.calls?.[k] ?? 0} approved`).join(", ")}, total ${now.total} against ${rec.total} approved`);
+  if (now.competitors.sha256 !== rec.competitors?.sha256) why.push(`the competitor list is not the approved plan's (now ${now.competitors.sites.length} sites, list ${now.competitors.sha256.slice(0, 8)}; approved ${rec.competitors?.sites?.length ?? 0} sites, list ${String(rec.competitors?.sha256).slice(0, 8)})`);
+  if (now.costInMoney !== rec.costInMoney) why.push(`the cost in money is not the approved plan's (now ${now.costInMoney}; approved ${rec.costInMoney})`);
+  if (why.length) return { ok: false, reason: `${why.join("; ")}: the owner approves the plan as it stands now with ${how}, then run the step again` };
+  return { ok: true, line: `  cost: approved by ${s.entry.approvedBy} at ${s.entry.approvedAt} (${rec.total} external calls approved; this plan ${plan.total})` };
+}
+
 export function planText(ctx, o) {
-  const b = ctx.business;
+  const b = ctx.business, sites = plannedCompetitors(ctx, o);
   const seedN = (o.services?.length || (Array.isArray(b.vocabulary) ? b.vocabulary.filter(Boolean).length : 0)) * Math.max(1, knownPlaces(b).length) * (o.patterns?.length || 2) + (o.queries?.length || 0) + (readStep(ctx, "seeds")?.queries?.length || 0);
-  const calls = { "Search Console": 3, "Bing Webmaster": Math.min(o.bingMaxCalls ?? 60, seedN * (o.related === false ? 1 : 2) || 0) + 1, Wikipedia: o.wikiTitles?.length || 0, Reddit: o.forums || o.forumQueries?.length ? 12 : 0, "competitor sites (1 request/s each, ~14 requests)": plannedCompetitors(ctx, o).length * 14, "winner pages (robots + page each)": o.competitorsFromSerp ? (winners.plannedWinnerUrls(ctx, { perCluster: o.winnersPerCluster ?? 3, topClusters: o.winnerClusters ?? 10, maxPages: o.winnerPages ?? 20 })?.length ?? 0) * 2 : 0, "Gemini grounded runs": o.gemini ? (o.aiMaxCalls ?? 30) : 0 };
+  const calls = { "Search Console": 3, "Bing Webmaster": Math.min(o.bingMaxCalls ?? 60, seedN * (o.related === false ? 1 : 2) || 0) + 1, Wikipedia: o.wikiTitles?.length || 0, Reddit: o.forums || o.forumQueries?.length ? 12 : 0, "competitor sites (1 request/s each, ~14 requests)": sites.length * 14, "winner pages (robots + page each)": o.competitorsFromSerp ? (winners.plannedWinnerUrls(ctx, { perCluster: o.winnersPerCluster ?? 3, topClusters: o.winnerClusters ?? 10, maxPages: o.winnerPages ?? 20 })?.length ?? 0) * 2 : 0, "Gemini grounded runs": o.gemini ? (o.aiMaxCalls ?? 30) : 0 };
   const total = Object.values(calls).reduce((s, n) => s + n, 0);
   const text = [`PLAN research ${ctx.loc.target}`, `  stages: existing research, seeds, Search Console, Bing, Keyword Planner CSV, Wikipedia, forums, SERP capture import, autocomplete import, clusters, competitor audit${o.authority ? " + authority (disk, 15-30 min)" : ""}, winner pages, AI citations, asset ideas, citation sources, targets + report`,
     ...(o.competitorsFromSerp ? [`  winner pages to audit (--from-serp, robots first, 1 request/s per site, hard page budget ${o.winnerPages ?? 20}): ${(winners.plannedWinnerUrls(ctx, { perCluster: o.winnersPerCluster ?? 3, topClusters: o.winnerClusters ?? 10, maxPages: o.winnerPages ?? 20 }) || []).join(", ") || "(listed once the captures are imported and clustered)"}`] : []),
     `  seeds: ${(() => { const g = seedsApproval(ctx); return g.needed ? `${g.count} in research/seeds.json, ${g.ok ? "owner-approved" : "NOT approved (the demand steps need approved/seeds.json or --yes)"}` : "none written yet"; })()}`,
-    "  workers: 0 (scripts only; the main session captures results pages and AI answers in the owner's browser)", `  external calls, upper bound: ${Object.entries(calls).filter(([, n]) => n).map(([k, n]) => `${k} ${n}`).join(", ") || "none"} (total ${total}); model tokens: none for the scripts`, "  cost in money: $0 (free sources only)", `  competitor sites to audit (robots.txt first, 1 request/s, stop at the first 403/429): ${plannedCompetitors(ctx, o).join(", ") || "none"}`].join("\n");
-  return { text, total };
+    "  workers: 0 (scripts only; the main session captures results pages and AI answers in the owner's browser)", `  external calls, upper bound: ${Object.entries(calls).filter(([, n]) => n).map(([k, n]) => `${k} ${n}`).join(", ") || "none"} (total ${total}); model tokens: none for the scripts`, `  cost in money: ${COST_IN_MONEY}`, `  competitor sites to audit (robots.txt first, 1 request/s, stop at the first 403/429): ${sites.join(", ") || "none"}`].join("\n");
+  return { text, total, calls, sites };
 }
 
 await runCli(import.meta.url, "node research.mjs <url | repo path> [--dry] [--yes] [options: see the top of the file]", ["dry", "yes", "forums", "authority", "gemini", "use-existing-captures", "from-serp", "no-related", "keep-brands"], async (a) => {
@@ -464,15 +489,21 @@ await runCli(import.meta.url, "node research.mjs <url | repo path> [--dry] [--ye
   console.log(plan.text);
   if (a.has("dry")) {
     // nothing is fetched, but the list of what the owner's browser still has to capture is computed from what is already on disk (captureRequests reads the stored steps), so it is
-    // written here too, only when it changes (writeRequests); research/research-plan.json, written every run, is the research-plan step's evidence
+    // written here too, only when it changes (writeRequests); the plan's cost (research/research-cost.json, no time in it) is written the same way, for the owner to approve with
+    // approve.mjs <target> research-cost; research/research-plan.json, written every run, is the research-plan step's evidence
     const S = Object.fromEntries([["serp", "serp"], ["clusters", "clusters"], ["competitors", "competitors"], ["ai", "ai-citations"], ["wiki", "wiki"], ["forums", "forums"], ["gsc", "gsc"], ["winners", "winners"], ["assets", "assets"], ["citations", "citations"], ["autocomplete", "autocomplete"]].map(([k, n]) => [k, readStep(ctx, n)]));
     const U = captureUniverse(ctx), p = U.clustersPassedOver;   // SKILL-PLAN-1 Q2: the printed plan says which list plans the captures
     console.log(`  capture list from: ${U.universe} (${U.queries.length})${p ? `; passed over: ${p.count} clusters made ${p.generatedAt}, before the seeds were approved at ${p.approvedAt}` : ""}`);
     const changed = writeRequests(ctx, captureRequests(ctx, S, o));
+    const costWritten = writeCost(ctx, plan);   // SKILL-RESEARCHCOST-1: the plan's cost, for the owner to approve (approve.mjs research-cost)
     W(path.join(ctx.rdir, "research-plan.json"), { step: "research-plan", status: "ok", generatedAt: iso(), requestsRewritten: changed });   // the step's evidence
-    return `DRY RUN: nothing fetched; research/capture-requests.json ${changed ? "written" : "unchanged (not rewritten)"} from what is already on disk.`;
+    return `DRY RUN: nothing fetched; research/capture-requests.json ${changed ? "written" : "unchanged (not rewritten)"} from what is already on disk; research/research-cost.json ${costWritten ? "written" : "unchanged"}.`;
   }
-  if (plan.total > a.num("confirm-above", 150) && !a.has("yes")) throw new Blocked(`the plan is ${plan.total} external calls, above ${a.num("confirm-above", 150)}: the owner approves it, then re-run with --yes`);
+  if (plan.total > a.num("confirm-above", 150) && !a.has("yes")) {
+    const g = costGate(ctx, plan, a.num("confirm-above", 150));
+    if (!g.ok) { writeCost(ctx, plan); throw new Blocked(g.reason); }   // the refused plan's cost is written, so the command the message names approves exactly this plan
+    console.log(g.line);
+  }
   let r;
   try { r = await run(ctx, o); } catch (e) { if (e instanceof NeedsApproval) { console.log(e.text); process.exitCode = 3; return; } throw e; }
   for (const s of r.steps) console.log(`  ${s.status.toUpperCase().padEnd(8)} ${s.step}${s.note ? ": " + s.note : ""}${s.unblock ? "\n           BLOCKED: " + s.unblock : ""}${s.error ? "\n           ERROR: " + s.error : ""}`);

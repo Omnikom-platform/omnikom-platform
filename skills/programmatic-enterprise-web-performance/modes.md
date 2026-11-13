@@ -18,7 +18,7 @@ A repo target keeps `.pewp/` in the repo and the checker's output in `.checks/`.
 | One page measurement | 180 s | snapshot-site.mjs `--page-cap-s` (Chrome restarted, run continues) |
 | Snapshot reuse | younger than 7 days is reused | live-target.mjs `--max-age-days`, `--fresh` forces |
 | Owner-supervised browser captures | 1 page at a time, at least 45 s apart, stop at the first robot check | phase 2 capture script |
-| Research external calls | Bing 60, competitor sites 12, Reddit 12, Gemini 30, captures 60 per run; a plan above 150 external calls needs `--yes` | research.mjs |
+| Research external calls | Bing 60, competitor sites 12, Reddit 12, Gemini 30, captures 60 per run; a plan above 150 external calls needs the owner's approval of its cost (`approve.mjs <target> research-cost`; `--yes` by hand) | research.mjs |
 | Measure external calls | API calls 80, AI answers 60, URL inspections 20 per run | measure-sources.mjs (Budget) |
 | Fix workers per refactor run | 12 (3 at once, 30 min each) | refactor.mjs --parallel / --timeout-min; --dry prints the count |
 | Authority vetting | 12 s a site, --limit 25, --max-minutes 20, --max-requests 150 | authority-vet.mjs |
