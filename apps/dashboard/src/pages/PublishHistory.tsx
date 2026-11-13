@@ -35,7 +35,7 @@ export function PublishHistory({ site, jobs, onClose, onStarted }: { site: Site;
     <dialog open data-plan="DP-1.4c-07" aria-labelledby="history-title" className={css.sheet}>
       <h2 id="history-title">Past publishes</h2>
       {asking ? <div data-plan="DP-1.4c-08"><p>Put the site back to the publish of {receivedWords(when(asking))}?</p>
-        <p>Each page and item of that publish comes back as a new version and goes live. Nothing is deleted: the versions since stay in History. Items added since stay on the site; deleted items stay deleted.</p>
+        <p>Each page and item of that publish comes back as a new version and goes live. Nothing is deleted: the versions since stay in History. Items added since stay on the site; deleted items stay deleted; items taken off the site stay off.</p>
         <button type="button" className={css.go} disabled={busy} onClick={() => void putBack(asking)}>Put it back</button><button type="button" onClick={() => { setAsking(null); setNotice(''); }}>Cancel</button></div>
       : <ol>{finished.map(j => <li key={j.id}><time dateTime={when(j)}>{receivedWords(when(j))}</time> {j.state === 'done' ? t('DP-1.4c-07', 'Live') : t('DP-1.4c-07', 'Nothing went live')} {checksLine(j)}
           {j.state === 'failed' && <ul>{failureLines(j).map((l, i) => <li key={i}>{l}</li>)}</ul>}

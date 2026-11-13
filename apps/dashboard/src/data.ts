@@ -295,7 +295,7 @@ export function useContract(wsId: string) {
 }
 
 export type RowVersion = { n: number; data: Record<string, unknown>; by: string; at: string };
-export type ContentRow = { id: string; collection: string; owner_team_row: string | null; published_version: number | null; created_at: string; newest: RowVersion | null };
+export type ContentRow = { id: string; collection: string; owner_team_row: string | null; published_version: number | null; off_site_at: string | null; created_at: string; newest: RowVersion | null };
 
 /** Every live row of the workspace with its newest version (row-level security decides what a login may read; an agent's list is narrowed on the screen). */
 export function useRows(wsId: string) {
@@ -303,7 +303,7 @@ export function useRows(wsId: string) {
     queryKey: ['rows', wsId],
     queryFn: async (): Promise<ContentRow[]> => {
       const rows = must(await supabase.from('content_rows')
-        .select('id,collection,owner_team_row,published_version,created_at,content_versions(n,data,by,at)')
+        .select('id,collection,owner_team_row,published_version,off_site_at,created_at,content_versions(n,data,by,at)')
         .eq('workspace_id', wsId).is('deleted_at', null)
         .order('n', { referencedTable: 'content_versions', ascending: false }).limit(1, { referencedTable: 'content_versions' })) as (Omit<ContentRow, 'newest'> & { content_versions: RowVersion[] })[];
       return rows.map(({ content_versions, ...r }) => ({ ...r, newest: content_versions[0] ?? null }));

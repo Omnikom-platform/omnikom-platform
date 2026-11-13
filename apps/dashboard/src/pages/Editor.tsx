@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { deleteItem, saveItem } from '../api';
+import { deleteItem, saveItem, setOnSite } from '../api';
 import { config } from '../config';
 import { fetchVersions, useVersions, type ContentRow, type VersionSign } from '../data';
 import { receivedWords } from '../lib/leads';
@@ -24,7 +24,7 @@ const AUTOSAVE_MS = 10_000;
 const RETRY_MS = [2000, 4000, 8000, 16000, 30000];
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
-/** The editor of one item (DP-1.4-08 to -17, -19 to -21, -23): the section cards, Save with the base version, History. It opens on /w/$ws/site/$collection/$row ("new" for an item not made yet). */
+/** The editor of one item (DP-1.4-08 to -17, -19 to -21, -23, -24): the section cards, Save with the base version, History. It opens on /w/$ws/site/$collection/$row ("new" for an item not made yet). */
 export function Editor() {
   const { collection, row } = useParams({ from: '/authed/w/$ws/site/$collection/$row' });
   const { contract, rows, role, teamRow } = useSiteValue();
@@ -199,6 +199,11 @@ function EditorBody({ collection, row, current }: { collection: string; row: str
   const closeAsk = useCallback(() => setAsking(false), []);
   const deleted = async () => { dropDraft(workspace.id, rowId ?? ''); toast(`${t('DP-1.4-23', 'Deleted')} ${title}.`); await nav({ to: '/w/$ws/site', params: { ws } });
     await Promise.all([qc.invalidateQueries({ queryKey: ['rows', workspace.id] }), qc.invalidateQueries({ queryKey: ['drafts'] })]); };
+  const offSite = current?.off_site_at != null;
+  const onSite = async () => { setBusy(true); setNotice('');
+    try { await setOnSite(rowId ?? '', offSite); toast(offSite ? `${t('DP-1.4-24', 'Put back:')} ${title}.` : `${t('DP-1.4-24', 'Taken off the site:')} ${title}. ${t('DP-1.4-24', 'It leaves the live site at the next publish.')}`);
+      await Promise.all([qc.invalidateQueries({ queryKey: ['rows', workspace.id] }), qc.invalidateQueries({ queryKey: ['drafts'] })]);
+    } catch (e) { setNotice(e instanceof CallFailed && e.problem.plain ? e.problem.message : t('DP-1.4-24', 'Could not change it. Try again.')); } finally { setBusy(false); } };
 
   return (
     <section aria-labelledby="editor-title" className={css.editor}>
@@ -227,6 +232,7 @@ function EditorBody({ collection, row, current }: { collection: string; row: str
         <button type="button" data-plan="DP-1.4-19" aria-expanded={showHistory} onClick={() => { setShowHistory(s => !s); setCompare(null); }}>History</button>
         {rowId && <button type="button" data-plan="DP-1.4-18" aria-expanded={showFrame} onClick={() => setShowFrame(s => !s)}>Preview</button>}
         {rowId && canDelete(role, collection, col) && <button type="button" data-plan="DP-1.4-21" className={crm.danger} onClick={() => setAsking(true)}>Delete</button>}
+        {rowId && canDelete(role, collection, col) && (published || offSite) && <button type="button" data-plan="DP-1.4-24" disabled={busy} onClick={() => void onSite()}>{offSite ? 'Put back on the site' : 'Take off the site'}</button>}
         {rowId && drafts.some(d => d.row === rowId) && <mark data-plan="DP-1.4-17">changed</mark>}
         {offline && <p role="status" data-plan="DP-1.4-17">Not saved yet, retrying</p>}
         {stale && (

@@ -77,6 +77,7 @@ export function SiteLayout() {
             <li key={r.id}>
               <Link to="/w/$ws/site/$collection/$row" params={{ ws, collection: id, row: r.id }} data-plan="DP-1.4-06">{rowTitle(c, id, r.newest?.data) || col.label}<span aria-hidden="true">Edit</span></Link>
               {draftRows.has(r.id) && <> <mark data-plan="DP-1.4-17">changed</mark></>}
+              {r.off_site_at && <> <mark data-plan="DP-1.4-25">off the site</mark></>}
             </li>
           ))}
         </ul>
