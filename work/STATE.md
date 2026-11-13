@@ -1,14 +1,14 @@
 # Where things stand
 
-Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 13. Every feature's
-state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (rewritten for the method below with this
-batch). Getting back in: `resume\RESUME.md`.
+Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 18. Every feature's
+state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (rewritten for the method below at batch
+13). Getting back in: `resume\RESUME.md`.
 
 ## Now
 - Product: 79 of 97 rows WORK, 17 PARTLY, 1 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
   18, 4, 1 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 10, 11, 0 of 21.
 - The order (owner, 2026-11-13): the owed proof runs are done; now one build job at a time: 7 rows to build (B18, B24, B25,
-  C11's request, E5's limit at the edge, E12's rest, E13) and the faults the proof runs found (below).
+  C11's request, E5's limit at the edge, E12's rest, E13) and the fault the proof runs found (below).
 - The platform build is open (owner, 2026-11-12); the refactor of how we work is closed at what is built. One head of
   operations orients, rules, takes in and lands; it never builds. Every job: a written hand-over that names its product row
   and its done-test, a fresh cross-check of the hand-over against the tree, the test first and seen red, the least code, one
@@ -26,25 +26,25 @@ batch). Getting back in: `resume\RESUME.md`.
 - Backend and hardening: the mail outbox (E4), lead limits and the hold at the site's endpoint (E5), bounces (E21), request
   ids and hourly alerts (E3), plan limits (E16), the pooler (E6), headers (E7), publish smoke and rollback (E8), the
   workflow-only token path (E9), retention, purge and growth budgets (E12, migration 46), rich text (E18), staff windows
-  (E11), production brought up by one script (E2), backups and a restore drill (E1), a publish in 3 statements (E13 d).
+  (E11), production brought up by one script (E2), backups and a restore drill (E1), a publish in 3 statements (E13 d),
+  an index for every foreign key and its wall T48 (E13, migration 48), the drill's Vault stand-in (E1, part).
 - Tools: the browser flows on GitHub's runner (`flows.yml`, one named staging flow per run, the output sealed); the
-  staging walls read only the run's own rows; the search audit's tool (the audit lane's four landings).
+  staging walls read only the run's own rows and now pass whole; the search audit's tool (the audit lane's four landings).
 
 ## Not landed
-- Nothing is committed and waiting. Faults found by the proof runs, each needing a hand-over before it is built: the
-  staging walls stop in T32 on a storage delete; the restore drill fails its walls phase (the restored copy has no Vault).
+- Nothing is committed and waiting. One fault needs a hand-over: the restore drill's walls phase fails at T33 (see E1).
 
 ## Staging (the test project), 2026-11-13
-- Migrations through 47 applied in number order; 32 functions from master 0eeef26, three of them (save, publish,
+- Migrations through 48 applied in number order; 32 functions from master 0eeef26, three of them (save, publish,
   media-manage) and the dashboard from a554dfd; the flows of the media library (B14), the preview site (B15), the publish
   sheet (B10, B9), the taken-off page (B12) and the earlier ones passed and went red with their seeded faults; the 22
   Auth settings read back (E11); E4's alert read in the test inbox, its link opens the lead; E5's hold measured (1 of 22
-  posts reached the platform).
-- Owed, each by the head's run sheet: E16's limits; E3's alerts (an owner item first); the walls past T32.
+  posts reached the platform); the walls pass whole (T1 to T48), migration 48's 22 indexes present, none invalid.
+- Owed, each by the head's run sheet: E16's limits; E3's alerts (an owner item first).
 
 ## Migrations
 - A migration that has not landed takes the next free number above every file in the tree when it is built, and lands in
-  number order (staging applies in file-name order); no number is promised ahead. In the tree: through 47.
+  number order (staging applies in file-name order); no number is promised ahead. In the tree: through 48.
 
 ## BLOCKED and UNPROVEN
 - E21 on staging: BLOCKED. The mail provider's webhook is an account setting; it needs the owner's yes.

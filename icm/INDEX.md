@@ -71,7 +71,7 @@ none
 |---|---|---|---|---|---|
 | docs/product/1-product.md | head-of-operations | 186 | The product | Omnikom Platform replaces services like Luxury Presence for local businesses. It researches and scores a business's presence in search and AI answers, builds... |  |
 | docs/product/10-expansion.md | head-of-operations | 64 | Expansion | The only place that says how the product grows. Two directions: vertical (more value for one business, through add-ons it switches on) and horizontal (more i... |  |
-| docs/product/11-rules.md | head-of-operations | 118 | Engineering rules | The rules every change is held to. A rule that can be checked by a tool is a check, not a sentence: each rule below names its check where one exists. How ses... |  |
+| docs/product/11-rules.md | head-of-operations | 119 | Engineering rules | The rules every change is held to. A rule that can be checked by a tool is a check, not a sentence: each rule below names its check where one exists. How ses... |  |
 | docs/product/2-architecture.md | head-of-operations | 136 | Architecture | Three kinds of people touch it. The business uses one magic-link sign-in for two products: the Omnikom CRM and the dashboard. Visitors only ever see the busi... |  |
 | docs/product/3-database.md | head-of-operations | 146 | Database | One multi-tenant Postgres database on Supabase: a staging project now, a production project made from it once staging proves the product (`2-architecture.md`... |  |
 | docs/product/4-backend.md | head-of-operations | 170 | Backend | Everything server-side: the Supabase Edge Functions, the database functions they call (`3-database.md`), the publish and media runners on GitHub Actions, and... |  |
@@ -158,7 +158,7 @@ none
 |---|---|---|---|---|---|
 | .claude/POSITION.md | head-of-operations | 7 | Position | Cut down 2026-11-11 (the owner's clean-up order of that day). This file is no longer a log and nobody appends to it. |  |
 | docs/blueprint/PROGRESS.md | platform-build | 1912 | Blueprint progress (for the lead session) | Task: build-ready product engineering package (owner, 2026-10-28), raised to engineering practice, tied to published standards, then corrected by an independ... |  |
-| work/STATE.md | head-of-operations | 69 | Where things stand | Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 13. Every feature's state: `docs/product/1-product.... |  |
+| work/STATE.md | head-of-operations | 69 | Where things stand | Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 18. Every feature's state: `docs/product/1-product.... |  |
 
 ## Layer unplaced (218)
 

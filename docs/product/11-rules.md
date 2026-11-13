@@ -32,7 +32,8 @@ its check where one exists. How sessions and departments work (the head, helpers
 10. Fail closed: a failed gate, validation or signature deploys nothing, sends nothing and stores only the failure record.
 11. Consent before contact; the exact consent text is stored with the lead; email alerts go only to the client's own
     addresses.
-12. Every growing table has a `(workspace_id, ...)` index, a retention rule and a measured budget trigger.
+12. Every growing table has a `(workspace_id, ...)` index, a retention rule and a measured budget trigger. A migration that
+    adds a foreign key ships its index in the same job; the wall T48 names any foreign key without one.
 13. Migrations are forward-only and never edited once applied; `apply-staging.mjs` refuses a changed file by its sha256.
     Expand, migrate, contract. A wall-test fixture is written the way the production tool writes it, or the test calls the
     tool.
