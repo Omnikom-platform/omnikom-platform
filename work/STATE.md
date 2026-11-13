@@ -15,7 +15,7 @@ batch). Getting back in: `resume\RESUME.md`.
 - A second lane runs beside the build for the search audits (its own session, the same machine lock, the same landing
   command); product lands first.
 
-## Landed since the build reopened (80 commits, master 5d55164 before this batch)
+## Landed since the build reopened (86 commits, master 4b1e512 before this batch)
 - CRM: bulk owner and delete, the business's own types and statuses, export in a saved layout, import (A15, A16, A21, A22).
 - Dashboard: the Overview with the site check and the numbers (B20, B21), a link from a real inbox (B1), restore with Undo
   (B8), invites (B17), delete an item (B12, part), a photo from the editor to the published site (B13, C8), past publishes
@@ -32,8 +32,8 @@ batch). Getting back in: `resume\RESUME.md`.
   a publish checks its rows in 3 statements (E13 part d); the sheets' focus and phone buttons; how the departments work.
 
 ## Not landed
-- Nothing is committed and waiting. Being built: growth budgets for every table (E12, migration 46). Hand-overs ready, each
-  cross-checked against this tree: the staging walls, the browser flows on GitHub's runner, E13 part a (the measure).
+- Nothing is committed and waiting. Being built: growth budgets for every table (E12, migration 46), E13 part a (the
+  measure), the browser flows on GitHub's runner. Hand-over ready and cross-checked: the staging walls.
 
 ## Staging (the test project), 2026-11-13
 - Migrations through 41 applied in number order; all 31 functions deployed from master 9b4bfa1; the screens' end-to-end
@@ -66,4 +66,4 @@ batch). Getting back in: `resume\RESUME.md`.
 ## Open owner items
 - The workflow-only token `GITHUB_DISPATCH_TOKEN_V2`; importing the master ruleset; the backup buckets and key (E1); the
   address alerts go to (`ALERTS_TO`); the "Ask Omnikom" address (`VITE_ASK_EMAIL`); the mail provider's webhook for staging;
-  two new Actions secrets for the browser flows on the runner; the contact line on a client report; each client's go.
+  the contact line on a client report; each client's go.
