@@ -2,10 +2,11 @@
 # (10-DELIVERY section 5, 11-OPERATIONS section 3, 18-BUDGET-ARCHITECTURE 2.4). The work is supabase/ops/backup.mjs (its header says how).
 # BLOCKED: R2 is deferred until the owner does these (each is an account or secret click, none is done by a session):
 #   (1) makes the key pair OFFLINE and commits only the public certificate as supabase/ops/backup-recipient.pem (supabase/ops/README.md);
-#   (2) enables R2 and creates a private bucket, and a bucket at a second provider (Backblaze B2, Wasabi...), each with a write-only key;
+#   (2) enables R2 and creates a private bucket, and a bucket at a second provider (Backblaze B2, Wasabi...), each with a key for that bucket only;
 #   (3) adds the repository secrets R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET (CLOUDFLARE_ACCOUNT_ID exists) and
 #       BACKUP2_ENDPOINT, BACKUP2_BUCKET, BACKUP2_ACCESS_KEY_ID, BACKUP2_SECRET_ACCESS_KEY;
 #   (4) sets the repository variable BACKUP_ENABLED = true. Until then the job is skipped.
+# Nightly the dump and the Vault copy; weekly (Sundays 03:37 UTC) the media copy (backup.mjs --what vault|media), all under staging/.
 # Nothing here can decrypt a backup: the dump is encrypted to the public certificate and the private key stays with the owner.
 # Retention (30 days) is a lifecycle rule on each bucket, not a step here. The production dump is the production repository's own workflow
 # (.github/production/backup.yml, DECISIONS 29 D21); this one never holds a production key. No step prints a row, a URL or a key.
@@ -14,6 +15,7 @@ name: backup
 on:
   schedule:
     - cron: '17 2 * * *'
+    - cron: '37 3 * * 0'
   workflow_dispatch:
 
 permissions:
@@ -49,6 +51,7 @@ jobs:
           sudo apt-get install -y postgresql-client-17
           echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
       - name: Back up staging (dump, encrypt to the public certificate, upload to both buckets, verify each by size)
+        if: github.event.schedule != '37 3 * * 0'
         env:
           STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -63,5 +66,41 @@ jobs:
           pg_dump --version
           export R2_ENDPOINT="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
           node supabase/ops/backup.mjs --db STAGING_DB_URL --privileges \
+            --to "s3://${R2_BUCKET}/staging" --env R2 \
+            --to "s3://${BACKUP2_BUCKET}/staging" --env BACKUP2
+      - name: Back up the Vault
+        if: github.event.schedule != '37 3 * * 0'
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          BACKUP2_ENDPOINT: ${{ secrets.BACKUP2_ENDPOINT }}
+          BACKUP2_BUCKET: ${{ secrets.BACKUP2_BUCKET }}
+          BACKUP2_ACCESS_KEY_ID: ${{ secrets.BACKUP2_ACCESS_KEY_ID }}
+          BACKUP2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP2_SECRET_ACCESS_KEY }}
+        run: |
+          export R2_ENDPOINT="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          node supabase/ops/backup.mjs --db STAGING_DB_URL --what vault \
+            --to "s3://${R2_BUCKET}/staging" --env R2 \
+            --to "s3://${BACKUP2_BUCKET}/staging" --env BACKUP2
+      - name: Back up the media
+        if: github.event.schedule == '37 3 * * 0' || github.event_name == 'workflow_dispatch'
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          STAGING_SUPABASE_REF: ${{ secrets.STAGING_SUPABASE_REF }}
+          STAGING_SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          BACKUP2_ENDPOINT: ${{ secrets.BACKUP2_ENDPOINT }}
+          BACKUP2_BUCKET: ${{ secrets.BACKUP2_BUCKET }}
+          BACKUP2_ACCESS_KEY_ID: ${{ secrets.BACKUP2_ACCESS_KEY_ID }}
+          BACKUP2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP2_SECRET_ACCESS_KEY }}
+        run: |
+          export R2_ENDPOINT="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          node supabase/ops/backup.mjs --db STAGING_DB_URL --what media --api STAGING_ \
             --to "s3://${R2_BUCKET}/staging" --env R2 \
             --to "s3://${BACKUP2_BUCKET}/staging" --env BACKUP2

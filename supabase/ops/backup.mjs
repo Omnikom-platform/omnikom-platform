@@ -1,8 +1,13 @@
-// backup.mjs: one encrypted database dump, copied to every target given, each copy checked by size (11-OPERATIONS 3, 18-BUDGET-ARCHITECTURE 2.4).
+// backup.mjs: one encrypted copy (the database dump, the Vault or the media), copied to every target given, each copy checked by size
+// (11-OPERATIONS 3, 18-BUDGET-ARCHITECTURE 2.4).
 //
 //   node supabase/ops/backup.mjs --db <VARIABLE> --to <target> [--env <PREFIX>] [--to <target> [--env <PREFIX>]] ...
-//        [--recipient <cert.pem>] [--name <label>] [--stamp <YYYY-MM-DDTHHMMSSZ>] [--check]
+//        [--what db|vault|media] [--api <PREFIX>] [--recipient <cert.pem>] [--name <label>] [--stamp <YYYY-MM-DDTHHMMSSZ>] [--check]
 //
+//   --what      db (default): the pg_dump, <label>-<stamp>.dump.cms; vault: the decrypted Vault values, encrypted at once,
+//               <label>-vault-<stamp>.json.cms; media: every object of the bucket `media` in one tar, <label>-media-<stamp>.tar.cms
+//   --api       media only: the variable PREFIX of the project's Storage API, e.g. STAGING_: reads <PREFIX>SUPABASE_REF and
+//               <PREFIX>SUPABASE_SECRET_KEY by name (STORAGE_API_BASE replaces https://<ref>.supabase.co in tests: 127.0.0.1 only)
 //   --db        the NAME of the environment variable that holds the database URL (never the URL). Read by name, never printed.
 //   --to        s3://<bucket>[/<prefix>]   an S3-compatible bucket (Cloudflare R2, Backblaze B2, Wasabi...): needs --env right after it
 //               file://<dir>               a folder (tests, and a copy kept on a disk the owner owns)
@@ -39,7 +44,7 @@ export class Stop extends Error { constructor(code, message) { super(message); t
 
 // ---- arguments
 export function parseArgs(argv) {
-  const o = { db: null, targets: [], recipient: DEFAULT_RECIPIENT, name: null, stamp: null, check: false, privileges: false };
+  const o = { db: null, targets: [], recipient: DEFAULT_RECIPIENT, name: null, stamp: null, check: false, privileges: false, what: 'db', api: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const val = () => { const v = argv[++i]; if (v === undefined || v.startsWith('--')) throw new Stop(2, `${a} needs a value`); return v; };
@@ -51,8 +56,13 @@ export function parseArgs(argv) {
     else if (a === '--stamp') o.stamp = val();
     else if (a === '--check') o.check = true;
     else if (a === '--privileges') o.privileges = true;
+    else if (a === '--what') o.what = val();
+    else if (a === '--api') o.api = val();
     else throw new Stop(2, `unknown argument ${a}`);
   }
+  if (!['db', 'vault', 'media'].includes(o.what)) throw new Stop(2, '--what is db, vault or media');
+  if ((o.what === 'media') !== !!o.api) throw new Stop(2, '--api <PREFIX> goes with --what media, and media needs it');
+  if (o.api && !/^[A-Z][A-Z0-9_]*_$/.test(o.api)) throw new Stop(2, '--api takes a variable PREFIX ending in _, such as STAGING_');
   if (!o.db) throw new Stop(2, 'usage: backup.mjs --db <VARIABLE> --to <s3://bucket/prefix --env PREFIX | file://dir> ... (the variable NAME, not the URL)');
   if (!NAME_RE.test(o.db)) throw new Stop(2, '--db takes the NAME of a variable (upper case letters, digits, underscore), not a URL');
   if (!o.targets.length) throw new Stop(2, 'at least one --to is needed');
@@ -156,8 +166,8 @@ export async function sizeS3(cfg, key, { fetchImpl } = {}) {
 }
 
 // ---- tools
-function tool(cmd, args, { env, input, scrub, timeout = 60 * 60 * 1000 } = {}) {
-  const r = spawnSync(cmd, args, { env: { ...process.env, ...(env || {}) }, input, encoding: 'utf8', timeout, maxBuffer: 64 * 1024 * 1024, windowsHide: true, shell: false });
+function tool(cmd, args, { env, input, scrub, cwd, timeout = 60 * 60 * 1000 } = {}) {
+  const r = spawnSync(cmd, args, { env: { ...process.env, ...(env || {}) }, input, cwd, encoding: 'utf8', timeout, maxBuffer: 64 * 1024 * 1024, windowsHide: true, shell: false });
   if (r.error) throw new Stop(1, `could not run ${cmd}: ${scrub(r.error.code || r.error.message)}`);
   return { status: r.status, out: scrub(`${r.stdout || ''}${r.stderr || ''}`).trim() };
 }
@@ -194,6 +204,15 @@ export async function main(argv, env = process.env, deps = {}) {
     const secrets = [url, env.PGPASSWORD];
     for (const t of o.targets) if (t.kind === 's3') { t.cfg = targetConfig(t, env); secrets.push(t.cfg.secretKey, t.cfg.accessKey, t.cfg.endpoint, new URL(t.cfg.endpoint).hostname); }
     scrub = scrubber(secrets);
+    let api = null;
+    if (o.what === 'media') {
+      const ref = env[`${o.api}SUPABASE_REF`], key = env[`${o.api}SUPABASE_SECRET_KEY`];
+      if (!ref || !key) throw new Stop(3, `${o.api}SUPABASE_REF and ${o.api}SUPABASE_SECRET_KEY must be set (read by name)`);
+      const base = env.STORAGE_API_BASE || `https://${ref}.supabase.co`;
+      scrub = scrubber([...secrets, key, ref, base]);
+      if (env.STORAGE_API_BASE && !/^http:\/\/127\.0\.0\.1:\d+$/.test(base)) throw new Stop(2, 'STORAGE_API_BASE is for tests: http://127.0.0.1:<port> only');
+      api = { key, base };
+    }
     readRecipient(o.recipient);
     for (const t of o.targets) if (t.kind === 'file' && existsSync(t.dir) && !statSync(t.dir).isDirectory()) throw new Stop(2, 'a file:// target must be a folder');
     if (o.check) { say(`check ok: ${o.db} set, certificate readable, ${o.targets.length} target(s) configured`); return { exit: 0, lines: out }; }
@@ -202,21 +221,59 @@ export async function main(argv, env = process.env, deps = {}) {
     if (!/^\d{4}-\d{2}-\d{2}T\d{6}Z$/.test(stamp)) throw new Stop(2, '--stamp is YYYY-MM-DDTHHMMSSZ');
     const label = labelOf(o.db, o.name);
     if (!/^[a-z0-9][a-z0-9_-]*$/.test(label)) throw new Stop(2, '--name is a plain lower case label');
-    const fileName = `${label}-${stamp}.dump.cms`;
+    const fileName = `${label}${o.what === 'db' ? '' : '-' + o.what}-${stamp}.${{ db: 'dump', vault: 'json', media: 'tar' }[o.what]}.cms`;
     work = mkdtempSync(join(tmpdir(), 'omnikom-backup-'));
     const plain = join(work, 'plain.dump');
     const sealed = join(work, fileName);
+    // a read-only psql session whose rows go to a file, never through a message
+    const readOnly = (sql, file) => {
+      const r = tool('psql', ['-X', '-q', '-t', '-A', '-v', 'ON_ERROR_STOP=1', '-o', file], { env: pgEnv(url), input: `begin read only;\n${sql}\ncommit;\n`, scrub });
+      if (r.status !== 0) throw new Stop(1, `psql failed: ${lastLine(r.out)}`);
+      try { return JSON.parse(readFileSync(file, 'utf8')); } catch { throw new Stop(1, 'psql did not return JSON'); }
+    };
 
-    // 1 dump
+    // 1 dump (the database), or the Vault, or the media
     const t0 = Date.now();
-    const d = tool('pg_dump', ['--format=custom', '--no-owner', ...(o.privileges ? [] : ['--no-privileges']), '--file', plain], { env: pgEnv(url), scrub });
-    if (d.status !== 0) throw new Stop(1, `pg_dump failed: ${lastLine(d.out)}`);
-    const plainBytes = statSync(plain).size;
-    if (plainBytes < 1024) throw new Stop(1, `the dump is only ${plainBytes} bytes: refusing to ship it`);
-    const l = tool('pg_restore', ['--list', plain], { scrub });
-    if (l.status !== 0) throw new Stop(1, `the dump does not read back (pg_restore --list): ${lastLine(l.out)}`);
-    const entries = (l.out.match(/^\d+; /gm) || []).length;
-    say(`dump: ${plainBytes} bytes, ${entries} entries, ${Math.round((Date.now() - t0) / 1000)} s`);
+    if (o.what === 'db') {
+      const d = tool('pg_dump', ['--format=custom', '--no-owner', ...(o.privileges ? [] : ['--no-privileges']), '--file', plain], { env: pgEnv(url), scrub });
+      if (d.status !== 0) throw new Stop(1, `pg_dump failed: ${lastLine(d.out)}`);
+      const plainBytes = statSync(plain).size;
+      if (plainBytes < 1024) throw new Stop(1, `the dump is only ${plainBytes} bytes: refusing to ship it`);
+      const l = tool('pg_restore', ['--list', plain], { scrub });
+      if (l.status !== 0) throw new Stop(1, `the dump does not read back (pg_restore --list): ${lastLine(l.out)}`);
+      const entries = (l.out.match(/^\d+; /gm) || []).length;
+      say(`dump: ${plainBytes} bytes, ${entries} entries, ${Math.round((Date.now() - t0) / 1000)} s`);
+    } else if (o.what === 'vault') {
+      const n = readOnly("select coalesce(json_agg(json_build_object('name', name, 'description', description, 'secret', decrypted_secret) order by name), '[]') from vault.decrypted_secrets;", plain).length;
+      if (!n) { say('nothing to back up: the Vault holds 0 entries'); return { exit: 0, lines: out }; }
+      say(`vault: ${n} entries`);
+    } else {
+      const list = readOnly("select coalesce(json_agg(json_build_object('name', name, 'size', (metadata->>'size')::bigint) order by name), '[]') from storage.objects where bucket_id = 'media';", join(work, 'list.json'));
+      if (!list.length) { say('nothing to back up: the media bucket holds 0 objects'); return { exit: 0, lines: out }; }
+      const f = deps.fetchImpl || fetch, mediaDir = join(work, 'media');
+      const auth = { authorization: `Bearer ${api.key}`, apikey: api.key };
+      let bad = 0, bytes = 0, next = 0;
+      const one = async ({ name, size }) => {
+        const parts = String(name).split('/');
+        if (parts.some(p => p === '' || p === '..')) { bad++; return; }
+        try {
+          const s = await f(`${api.base}/storage/v1/object/sign/media/${parts.map(encodeURIComponent).join('/')}`, { method: 'POST', headers: { ...auth, 'content-type': 'application/json' }, body: '{"expiresIn":600}', signal: AbortSignal.timeout(60000) });
+          const j = s.ok ? await s.json() : null;
+          if (!j || typeof j.signedURL !== 'string' || !j.signedURL.startsWith('/')) { bad++; return; }
+          const g = await f(`${api.base}/storage/v1${j.signedURL}`, { signal: AbortSignal.timeout(60000) });
+          if (!g.ok) { bad++; return; }
+          const got = Buffer.from(await g.arrayBuffer());
+          if (got.length !== size) bad++;
+          else { const dest = join(mediaDir, ...parts); mkdirSync(dirname(dest), { recursive: true }); writeFileSync(dest, got); bytes += got.length; }
+        } catch { bad++; }
+      };
+      await Promise.all(Array.from({ length: Math.min(4, list.length) }, async () => { while (next < list.length) await one(list[next++]); }));
+      if (bad) throw new Stop(1, `media failed: ${bad} of ${list.length} objects did not download whole`);
+      const t = tool('tar', ['-cf', 'plain.dump', '-C', 'media', '.'], { cwd: work, scrub });   // relative names: GNU tar reads "C:" as a host
+      rmSync(mediaDir, { recursive: true, force: true });
+      if (t.status !== 0) throw new Stop(1, `tar failed: ${lastLine(t.out)}`);
+      say(`media: ${list.length} objects, ${bytes} bytes`);
+    }
 
     // 2 encrypt to the public certificate, then the plain dump is gone
     const c = tool('openssl', ['cms', '-encrypt', '-binary', '-aes256', '-outform', 'DER', '-in', plain, '-out', sealed, o.recipient], { scrub });

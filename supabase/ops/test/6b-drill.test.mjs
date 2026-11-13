@@ -4,7 +4,7 @@
 // say which phases failed, and leave no working folder behind. The real run against staging is in the 6B report. OMNIKOM_6B_DRILL points
 // the test at a mutated copy of restore-drill.mjs (6b-mutate.mjs).
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, readdirSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -89,6 +89,15 @@ const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`PASS
   check('fmt: seconds, minutes and hours are readable', D.fmt(4.2) === '4.2 s' && D.fmt(125) === '2 min 5 s' && D.fmt(3725) === '1 h 2 min 5 s', `${D.fmt(4.2)} | ${D.fmt(125)} | ${D.fmt(3725)}`);
 }
 
+// ---- row E1: the Vault copy's names against the restored references, and where a page's media come from
+{
+  const vg = typeof D.vaultGaps === 'function' ? D.vaultGaps(['a', 'b', 'c'], [{ name: 'a', secret: 'x' }, { name: 'b', secret: '' }, { name: 'd', secret: 'y' }]) : 'no export vaultGaps';
+  check('e1 case 12, vaultGaps: an entry with an empty secret counts as missing, a present one does not', JSON.stringify(vg) === '["b","c"]', JSON.stringify(vg));
+  const copy = join(tmpdir(), 'a-media-copy'), at = join(copy, 'ws', 'a-800.webp'), exists = p => p === at;
+  const ms = typeof D.mediaSource === 'function' ? [D.mediaSource(null, 'LOGO', 'ws/a-800.webp', exists), D.mediaSource(copy, 'LOGO', 'ws/a-800.webp', exists), D.mediaSource(copy, 'LOGO', 'ws/b-800.webp', exists)] : 'no export mediaSource';
+  check('e1 case 13, mediaSource: no copy gives the logo, a present file its path, a missing one null', JSON.stringify(ms) === JSON.stringify(['LOGO', at, null]), JSON.stringify(ms));
+}
+
 // ---- arguments
 {
   const refuse = async (argv, env, code, re, name) => { try { await D.drill(argv, env, () => {}); check(name, false, 'ran'); } catch (e) { check(name, e.code === code && re.test(e.message), `${e.code} ${e.message}`); } };
@@ -99,6 +108,8 @@ const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`PASS
   await refuse([], {}, 3, /STAGING_DB_URL is not set/, 'args: the default variable, unset, is BLOCKED (exit 3), by name');
   await refuse(['--slug', 'Bad Slug', '--db', 'X_URL'], { X_URL: 'postgresql://h/d' }, 2, /plain workspace slug/, 'args: a slug with a space is refused');
   await refuse(['--limit-minutes', '0', '--db', 'X_URL'], { X_URL: 'postgresql://h/d' }, 2, /positive number/, 'args: a limit of zero minutes is refused');
+  await refuse(['--media', 'f'], {}, 2, /--media and --vault go with --dump/, 'e1 case 14, args: --media without --dump is refused with its text');
+  await refuse(['--dump', fileURLToPath(import.meta.url), '--vault', join(tmpdir(), 'no-such-vault-copy.json')], {}, 2, /no such vault file/, 'e1 case 15, args: a missing --vault file is refused');
 }
 
 // ---- the drill itself on a tiny database: red where it must be, clean afterwards
@@ -112,7 +123,9 @@ const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`PASS
       grant select on notes to anon;
       alter table notes add constraint notes_body_short check (length(body) < 100) not valid;
       create schema realtime; create table realtime.messages (payload text);
-      alter table realtime.messages add constraint messages_payload_exclusive check (payload is not null) not valid;`);
+      alter table realtime.messages add constraint messages_payload_exclusive check (payload is not null) not valid;
+      create table api_keys (vault_ref text); insert into api_keys values ('k-one'), (null);
+      create table integrations (secret_ref text); insert into integrations values ('crm-webhook-x'), ('k-two');`);
     const dump = join(root, 'tiny.dump');
     const d = spawnSync('pg_dump', ['--format=custom', '--no-owner', '--file', dump, cluster.url('tiny')], { encoding: 'utf8', timeout: 5 * 60 * 1000 });
     check('setup: a tiny dump was made', d.status === 0, d.stderr);
@@ -134,6 +147,16 @@ const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`PASS
     check('drill: a total over the limit (set to 0.06 s here) fails the drill by itself', r.failures.some(f => /total time over the limit/.test(f)), r.failures.join(' | '));
     check('drill: the working folder (cluster, dump copies) is gone afterwards', readdirSync(tmpRoot).length === 0, readdirSync(tmpRoot).join(','));
     check('drill: no connection string or row appears in the output', !/postgres(ql)?:\/\//.test(text) && !/row 17/.test(text), text);
+
+    // e1 case 16: a second drill of the same dump, with a plain Vault copy that holds k-one (a value) and k-two (empty): 2 of the 3 references lack one
+    const vaultCopy = join(root, 'vault-copy.json');
+    writeFileSync(vaultCopy, JSON.stringify([{ name: 'k-one', description: 'one', secret: 'secret-value-one' }, { name: 'k-two', description: 'two', secret: '' }]));
+    const lines2 = [];
+    let r2 = null, thrown = '';
+    try { r2 = await D.drill(['--dump', dump, '--vault', vaultCopy], {}, l => lines2.push(l)); } catch (e) { thrown = `threw ${e && e.code} ${e && e.message}`; }
+    const text2 = lines2.join('\n'), vp = r2 && r2.phases.find(p => p.name === 'vault');
+    check('e1 case 16, drill --vault: the vault phase is red with "lacks 2 of 3", and no line holds a reference name or the value', !!vp && !vp.ok && /the vault copy lacks 2 of 3 references/.test(text2)
+      && !['k-one', 'k-two', 'crm-webhook-x', 'secret-value-one'].some(s => text2.includes(s)), thrown || text2);
   } finally { cluster.stop(); rmSync(root, { recursive: true, force: true }); }
 }
 

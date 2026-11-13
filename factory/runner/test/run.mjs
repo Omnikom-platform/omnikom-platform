@@ -561,7 +561,7 @@ if (on('workflows')) {
   const wf = Object.fromEntries(files.map((f) => [f, readFileSync(join(WF, f), 'utf8')]));
   const lines = (f) => wf[f].split('\n');
   const jobCount = (f) => { const l = lines(f), at = l.indexOf('jobs:'); return l.slice(at + 1).filter((x) => /^  [A-Za-z0-9_-]+:\s*$/.test(x)).length; };
-  await check('workflows: the seven files exist', () => same(files, ['alerts.yml', 'backup.yml', 'ci.yml', 'keepalive.yml', 'key-rotation.yml', 'media.yml', 'publish.yml']));
+  await check('workflows: the eight files exist', () => same(files, ['alerts.yml', 'backup.yml', 'ci.yml', 'keepalive.yml', 'key-rotation.yml', 'media.yml', 'publish.yml', 'restore-drill.yml']));
   await check('workflows: every file sets permissions contents: read for the whole workflow', () => files.every((f) => /^permissions:\n  contents: read\n/m.test(wf[f])) || files.filter((f) => !/^permissions:\n  contents: read\n/m.test(wf[f])).join(','));
   await check('workflows: every action is pinned by a 40 hex commit SHA with its version in a comment (supply-chain rule 7)', () => {
     const uses = files.flatMap((f) => lines(f).filter((l) => /^\s+(- )?uses:/.test(l)).map((l) => [f, l.trim()]));

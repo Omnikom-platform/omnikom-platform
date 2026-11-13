@@ -8,13 +8,16 @@
 # BLOCKED until the owner has: made the key pair offline and committed only the certificate; created the production Supabase project and
 # the buckets (use other prefixes or other buckets than staging's); added the repository secrets PROD_DB_URL, CLOUDFLARE_ACCOUNT_ID,
 # R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, BACKUP2_ENDPOINT, BACKUP2_BUCKET, BACKUP2_ACCESS_KEY_ID, BACKUP2_SECRET_ACCESS_KEY
-# (write-only keys), and set the repository variable BACKUP_ENABLED = true. Until then the job is skipped.
+# (keys for those buckets only), PROD_SUPABASE_REF and PROD_SUPABASE_SECRET_KEY (the media copy; bring-up.mjs sets both), and set the
+# repository variable BACKUP_ENABLED = true. Until then the job is skipped.
+# Nightly the dump and the Vault copy; weekly (Sundays 04:07 UTC) the media copy (backup.mjs --what vault|media), all under production/.
 # Recovery objectives (D17): at most 24 hours of data lost, back within 4 hours; retention 30 days is a lifecycle rule on the buckets.
 name: backup
 
 on:
   schedule:
     - cron: '47 2 * * *'
+    - cron: '07 4 * * 0'
   workflow_dispatch:
 
 permissions:
@@ -48,6 +51,7 @@ jobs:
           sudo apt-get install -y postgresql-client-17
           echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
       - name: Back up production (dump, encrypt to the public certificate, upload to both buckets, verify each by size)
+        if: github.event.schedule != '07 4 * * 0'
         env:
           PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -62,5 +66,41 @@ jobs:
           pg_dump --version
           export R2_ENDPOINT="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
           node supabase/ops/backup.mjs --db PROD_DB_URL --privileges \
+            --to "s3://${R2_BUCKET}/production" --env R2 \
+            --to "s3://${BACKUP2_BUCKET}/production" --env BACKUP2
+      - name: Back up the Vault
+        if: github.event.schedule != '07 4 * * 0'
+        env:
+          PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          BACKUP2_ENDPOINT: ${{ secrets.BACKUP2_ENDPOINT }}
+          BACKUP2_BUCKET: ${{ secrets.BACKUP2_BUCKET }}
+          BACKUP2_ACCESS_KEY_ID: ${{ secrets.BACKUP2_ACCESS_KEY_ID }}
+          BACKUP2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP2_SECRET_ACCESS_KEY }}
+        run: |
+          export R2_ENDPOINT="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          node supabase/ops/backup.mjs --db PROD_DB_URL --what vault \
+            --to "s3://${R2_BUCKET}/production" --env R2 \
+            --to "s3://${BACKUP2_BUCKET}/production" --env BACKUP2
+      - name: Back up the media
+        if: github.event.schedule == '07 4 * * 0' || github.event_name == 'workflow_dispatch'
+        env:
+          PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+          PROD_SUPABASE_REF: ${{ secrets.PROD_SUPABASE_REF }}
+          PROD_SUPABASE_SECRET_KEY: ${{ secrets.PROD_SUPABASE_SECRET_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          BACKUP2_ENDPOINT: ${{ secrets.BACKUP2_ENDPOINT }}
+          BACKUP2_BUCKET: ${{ secrets.BACKUP2_BUCKET }}
+          BACKUP2_ACCESS_KEY_ID: ${{ secrets.BACKUP2_ACCESS_KEY_ID }}
+          BACKUP2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP2_SECRET_ACCESS_KEY }}
+        run: |
+          export R2_ENDPOINT="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          node supabase/ops/backup.mjs --db PROD_DB_URL --what media --api PROD_ \
             --to "s3://${R2_BUCKET}/production" --env R2 \
             --to "s3://${BACKUP2_BUCKET}/production" --env BACKUP2

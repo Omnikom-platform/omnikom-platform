@@ -1,0 +1,55 @@
+# The monthly restore drill on STAGING (11-OPERATIONS section 3, row E1): backup.mjs makes the three copies (the database, the Vault,
+# the media) encrypted to a key pair made in this job, restore-drill.mjs opens all three and restores them into a throwaway local
+# Postgres (last line DRILL PASS: 9 phases), and the copies and the private key are deleted in the same job.
+# The owner's key never comes here: this proves our code path end to end; the owner's item 9 (one stored copy opened with his own key)
+# proves his key. No step prints a row, a URL, a key or a secret value.
+name: restore-drill
+
+on:
+  schedule:
+    - cron: '41 4 2 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      # PostgreSQL 17 as staging runs it: the client for the copies, the server for the throwaway cluster of the drill
+      - name: Install PostgreSQL 17 (server and client)
+        run: |
+          sudo apt-get update
+          if ! apt-cache show postgresql-17 > /dev/null 2>&1; then
+            sudo apt-get install -y postgresql-common
+            sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          fi
+          sudo apt-get install -y postgresql-17 postgresql-client-17
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - name: Back up staging to a throwaway key pair, then restore the three copies
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          STAGING_SUPABASE_REF: ${{ secrets.STAGING_SUPABASE_REF }}
+          STAGING_SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          D="$RUNNER_TEMP/drill"
+          STAMP=$(date -u +%Y-%m-%dT%H%M%SZ)
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=omnikom-drill" -keyout "$RUNNER_TEMP/drill-key.pem" -out "$RUNNER_TEMP/drill-cert.pem"
+          node supabase/ops/backup.mjs --db STAGING_DB_URL --privileges --recipient "$RUNNER_TEMP/drill-cert.pem" --stamp "$STAMP" --to "file://$D"
+          node supabase/ops/backup.mjs --db STAGING_DB_URL --what vault --recipient "$RUNNER_TEMP/drill-cert.pem" --stamp "$STAMP" --to "file://$D"
+          node supabase/ops/backup.mjs --db STAGING_DB_URL --what media --api STAGING_ --recipient "$RUNNER_TEMP/drill-cert.pem" --stamp "$STAMP" --to "file://$D"
+          node supabase/ops/restore-drill.mjs --dump "$D/staging-$STAMP.dump.cms" --key "$RUNNER_TEMP/drill-key.pem" --media "$D/staging-media-$STAMP.tar.cms" --vault "$D/staging-vault-$STAMP.json.cms"
+      - name: Delete the copies and the throwaway private key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/drill" "$RUNNER_TEMP/drill-key.pem"

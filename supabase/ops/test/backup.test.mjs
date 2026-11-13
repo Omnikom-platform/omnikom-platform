@@ -8,6 +8,7 @@ import { mkdtempSync, rmSync, writeFileSync, readFileSync, readdirSync, existsSy
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createServer } from 'node:http';
 import { startCluster, ROLES_SQL } from './6b-cluster.mjs';
 import { startFakeS3 } from './6b-fake-s3.mjs';
 
@@ -194,6 +195,129 @@ const everything = r => r.lines.join('\n');
   for (const [k, v] of Object.entries(before)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
   check('failure: an unreachable database exits 1 with a pg_dump message that holds no password and no host details', dead.exit === 1 && /pg_dump failed/.test(everything(dead)) && !/Sup3r-Secret-Pw/.test(everything(dead)) && !everything(dead).includes('127.0.0.1'), everything(dead));
   check('cleanup: after a failed run and a good run the temp folder holds no backup working folder (the plain dump is gone)', ok.exit === 0 && readdirSync(tmpRoot).length === 0, readdirSync(tmpRoot).join(','));
+}
+
+// ---- 7 the Vault and the media (row E1): a database "extras" with stand-ins of vault.decrypted_secrets and storage.objects, one
+// "novault" with an empty Vault, and a fake Storage API on 127.0.0.1 that signs, then serves the signed URL (as _shared/storage.ts reads)
+{
+  const VAULT = [['k-alpha', 'the first key', 'vault-secret-alpha-1111'], ['crm-webhook-zeta', 'a webhook', 'vault-secret-zeta-2222']];
+  const bytesOf = (n, seed) => Buffer.from(Array.from({ length: n }, (_, i) => (i * 7 + seed) & 255));
+  const MEDIA = new Map([['ws-a/logo-800.webp', bytesOf(1500, 1)], ['ws-a/photos/front door.jpg', bytesOf(2100, 2)], ['ws-b/c-1600.webp', bytesOf(900, 3)]]);
+  const OTHER = 'ws-a/private-note.txt';
+  const lit = s => `'${s.replace(/'/g, "''")}'`;
+  cluster.createDb('extras'); cluster.createDb('novault');
+  const ex = cluster.sql('extras', `create schema vault; create table vault.decrypted_secrets (name text, description text, decrypted_secret text);
+    insert into vault.decrypted_secrets values ${VAULT.map(r => `(${r.map(lit).join(', ')})`).join(', ')};
+    create schema storage; create table storage.objects (bucket_id text, name text, metadata jsonb);
+    insert into storage.objects values ${[...MEDIA].map(([n, b]) => `('media', ${lit(n)}, '{"size": ${b.length}}')`).join(', ')}, ('other', ${lit(OTHER)}, '{"size": 12}');`);
+  const nv = cluster.sql('novault', 'create schema vault; create table vault.decrypted_secrets (name text, description text, decrypted_secret text);');
+
+  const SKEY = 'test-storage-secret-key-0123456789', REF = 'testref-abcdefghijkl', PRE = '/storage/v1/object/sign/media/';
+  const fake = { asked: new Map(), requests: 0, short: null, tokens: new Set() };
+  const server = createServer((req, res) => {
+    req.on('data', () => {});
+    req.on('end', () => {
+      fake.requests++;
+      const u = new URL(req.url, 'http://fake');
+      const name = u.pathname.startsWith(PRE) ? u.pathname.slice(PRE.length).split('/').map(decodeURIComponent).join('/') : null;
+      if (name !== null) fake.asked.set(name, (fake.asked.get(name) || 0) + 1);
+      const obj = name !== null ? MEDIA.get(name) : undefined;
+      if (req.method === 'POST') {
+        if (req.headers.authorization !== `Bearer ${SKEY}` || req.headers.apikey !== SKEY) { res.writeHead(401); return res.end(); }
+        if (!obj) { res.writeHead(400, { 'content-type': 'application/json' }); return res.end('{"error":"not found"}'); }
+        const token = `t${fake.tokens.size + 1}`;
+        fake.tokens.add(token);
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ signedURL: `/object/sign/media/${name.split('/').map(encodeURIComponent).join('/')}?token=${token}` }));
+      }
+      if (req.method === 'GET' && obj && fake.tokens.has(u.searchParams.get('token'))) { res.writeHead(200); return res.end(fake.short === name ? obj.subarray(0, obj.length - 1) : obj); }
+      res.writeHead(400); res.end();
+    });
+  });
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const closeServer = () => new Promise(r => { server.closeAllConnections?.(); server.close(r); });
+  cleanup.push(() => server.close());
+  const refused = [];   // a request that would leave this machine is refused here, never sent
+  const guard = async (url, init) => { if (!String(url).startsWith('http://127.0.0.1:')) { refused.push(String(url)); throw new Error('the test refused a request that leaves this machine'); } return fetch(url, init); };
+  const envX = { ...env0, TEST_DB_URL: cluster.url('extras'), TEST_SUPABASE_REF: REF, TEST_SUPABASE_SECRET_KEY: SKEY, STORAGE_API_BASE: `http://127.0.0.1:${server.address().port}` };
+  const outs = [];   // the output of cases 2 to 9
+  const go = async (extra, env = envX, deps = { fetchImpl: guard }) => { const r = await B.main(argv(extra), env, deps); outs.push(everything(r)); return r; };
+  const open = (file, out, key = KEY) => sh('openssl', ['cms', '-decrypt', '-binary', '-inform', 'DER', '-in', file, '-inkey', key, '-recip', CERT, '-out', out]);
+
+  // case 1
+  const w1 = await B.main(argv(['--what', 'nonsense']), envX), w2 = await B.main(argv(['--api', 'TEST_']), envX);
+  check('e1 case 1, usage: --what nonsense, and --api without --what media, each refused with its text', w1.exit === 2 && /usage: --what is db, vault or media/.test(everything(w1))
+    && w2.exit === 2 && /usage: --api <PREFIX> goes with --what media, and media needs it/.test(everything(w2)), `${everything(w1)} | ${everything(w2)}`);
+
+  // cases 2 and 3: the Vault copy
+  const vName = 'test-vault-2026-10-31T153043Z.json.cms', vDisk = join(filesDir, vName);
+  const rV = await go(['--what', 'vault']);
+  check('e1 case 2, vault: exit 0, the copy in both fake buckets and in the folder, "vault: 2 entries"', rV.exit === 0 && /^vault: 2 entries$/m.test(everything(rV))
+    && s3a.objects.has(`bucket-r2/staging/${vName}`) && s3b.objects.has(`bucket-two/staging/${vName}`) && existsSync(vDisk), `${everything(rV)} ${ex.ok ? '' : ex.err}`);
+  const vPlain = join(root, 'vault.json'), vWrong = join(root, 'vault-wrong.json');
+  const vd = existsSync(vDisk) ? open(vDisk, vPlain) : { status: -1, stderr: 'no copy' };
+  let vGot = null; try { vGot = JSON.parse(readFileSync(vPlain, 'utf8')); } catch { /* judged below */ }
+  const vWant = [...VAULT].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([name, description, secret]) => ({ name, description, secret }));
+  const vBad = existsSync(vDisk) ? open(vDisk, vWrong, OTHER_KEY) : { status: -1 };
+  check('e1 case 3, vault: the owner key opens it to the 2 entries sorted by name, values intact; another key does not', vd.status === 0 && JSON.stringify(vGot) === JSON.stringify(vWant)
+    && (vBad.status !== 0 || !existsSync(vWrong) || !readFileSync(vWrong, 'utf8').includes('vault-secret')),`${vd.stderr || ''} entries ${Array.isArray(vGot) ? vGot.length : 'none'}`);
+
+  // case 4: an empty Vault
+  const puts0 = s3a.state.puts + s3b.state.puts;
+  const rNo = await go(['--what', 'vault'], { ...envX, TEST_DB_URL: cluster.url('novault') });
+  check('e1 case 4, vault on an empty Vault: "nothing to back up: the Vault holds 0 entries", exit 0, no PUT', rNo.exit === 0 && /nothing to back up: the Vault holds 0 entries/.test(everything(rNo))
+    && s3a.state.puts + s3b.state.puts === puts0, `${everything(rNo)} ${nv.ok ? '' : nv.err}`);
+
+  // cases 5, 6 (and the spy of case 10): the media copy
+  const tmpM = join(root, 'tmp-media'); mkdirSync(tmpM);
+  const savedT = { TEMP: process.env.TEMP, TMP: process.env.TMP, TMPDIR: process.env.TMPDIR };
+  process.env.TEMP = process.env.TMP = process.env.TMPDIR = tmpM;
+  const left = d => readdirSync(d, { withFileTypes: true }).some(e => (e.isDirectory() ? e.name === 'media' || left(join(d, e.name)) : e.name === 'plain.dump'));
+  const atPut = [];
+  const spy = async (u, init = {}) => { if (init.method === 'PUT') atPut.push(left(tmpM)); return guard(u, init); };
+  let rM;
+  try { rM = await go(['--what', 'media', '--api', 'TEST_'], envX, { fetchImpl: spy }); } finally { for (const [k, v] of Object.entries(savedT)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } }
+  const mName = 'test-media-2026-10-31T153043Z.tar.cms', mDisk = join(filesDir, mName);
+  const mBytes = [...MEDIA.values()].reduce((a, b) => a + b.length, 0);
+  check('e1 case 5, media: exit 0, "media: 3 objects, <n> bytes", the copy in all three targets', rM.exit === 0 && new RegExp(`^media: 3 objects, ${mBytes} bytes$`, 'm').test(everything(rM))
+    && s3a.objects.has(`bucket-r2/staging/${mName}`) && s3b.objects.has(`bucket-two/staging/${mName}`) && existsSync(mDisk), everything(rM));
+  const mOut = join(root, 'media-out'); mkdirSync(mOut);
+  const md = existsSync(mDisk) ? open(mDisk, join(root, 'media.tar')) : { status: -1, stderr: 'no copy' };
+  const tl = sh('tar', ['-tf', 'media.tar'], { cwd: root });
+  const listed = (tl.stdout || '').split(/\r?\n/).filter(l => l && !l.endsWith('/')).map(l => l.replace(/^\.\//, '')).sort();
+  const tx = sh('tar', ['-xf', 'media.tar', '-C', 'media-out'], { cwd: root });
+  const whole = [...MEDIA].every(([n, b]) => { try { return readFileSync(join(mOut, ...n.split('/'))).equals(b); } catch { return false; } });
+  check('e1 case 6, media: decrypted, tar -tf lists exactly the 3 names (files only), each with the bytes served; the other bucket\'s object was never asked for',
+    md.status === 0 && tl.status === 0 && JSON.stringify(listed) === JSON.stringify([...MEDIA.keys()].sort()) && tx.status === 0 && whole && !fake.asked.has(OTHER),
+    `${md.stderr || ''} listed ${listed.length} ${tx.stderr || ''} whole ${whole} other asked ${fake.asked.has(OTHER)}`);
+
+  // case 7: one object comes one byte short
+  fake.short = 'ws-a/photos/front door.jpg';
+  const rS = await go(['--what', 'media', '--api', 'TEST_']);
+  fake.short = null;
+  check('e1 case 7, media: one object served one byte short: exit 1, "media failed: 1 of 3 objects did not download whole"', rS.exit === 1 && /media failed: 1 of 3 objects did not download whole/.test(everything(rS)), everything(rS));
+
+  // case 8: a base that is not this machine's
+  const req0 = fake.requests, ref0 = refused.length;
+  const rB = await go(['--what', 'media', '--api', 'TEST_'], { ...envX, STORAGE_API_BASE: 'https://example.test' });
+  check('e1 case 8, STORAGE_API_BASE=https://example.test: exit 2 naming STORAGE_API_BASE; no request', rB.exit === 2 && /STORAGE_API_BASE/.test(everything(rB)) && fake.requests === req0 && refused.length === ref0,
+    `${everything(rB)} requests ${fake.requests - req0} refused ${refused.length - ref0}`);
+
+  // case 9: the secret key unset
+  const { TEST_SUPABASE_SECRET_KEY: _unset, ...noKey } = envX;
+  const rK = await go(['--what', 'media', '--api', 'TEST_'], noKey);
+  check('e1 case 9, TEST_SUPABASE_SECRET_KEY unset: BLOCKED, exit 3, naming it', rK.exit === 3 && /^BLOCKED: .*TEST_SUPABASE_SECRET_KEY/m.test(everything(rK)), everything(rK));
+
+  // case 10: the spy of case 5
+  check('e1 case 10, media: at least one PUT, and at every PUT neither plain.dump nor the media folder exists', atPut.length >= 1 && atPut.every(x => x === false), JSON.stringify(atPut));
+
+  // case 11: what the runs printed
+  const shown = outs.join('\n');
+  const hidden = [...MEDIA.keys(), OTHER, ...VAULT.map(r => r[2]), SKEY, REF, '127.0.0.1'];
+  check('e1 case 11, cases 2 and 5 printed their vault: and media: lines; the output of cases 2 to 9 holds no object name, secret value, key, ref or 127.0.0.1',
+    /^vault: 2 entries$/m.test(everything(rV)) && /^media: 3 objects, /m.test(everything(rM)) && outs.length === 6 && hidden.every(s => !shown.includes(s)),
+    `${outs.length} outputs; ${hidden.filter(s => shown.includes(s)).length} hidden values shown`);
+  await closeServer();
 }
 
 await s3a.close(); await s3b.close();
