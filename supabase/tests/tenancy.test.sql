@@ -2065,18 +2065,18 @@ do $$ begin
   assert (select x ->> 'site' from jsonb_array_elements((select v -> 'rows' from test.r where k = 'st_ans')) x where x ->> 'id' = test.id('sA2')::text) = 'aaaaaaaa-0000-0000-0000-0000000052e2',
     'T24d an answer named site does not overwrite the row''s site';
 end $$;
-
--- T25 (work order 13, migration 19): the reaper is scheduled. run-local.mjs gives the database a cron stand-in (cron.stub_jobs) before the
--- migrations run; where there is none (the CLI's cluster, staging, which has the real pg_cron) this reads the real thing in step 5 of the order.
-do $$ begin
-  if to_regclass('cron.stub_jobs') is null then raise notice 'T25 skipped: no cron stand-in here'; return; end if;
-  assert (select count(*) from cron.stub_jobs where jobname = 'reap-stale-jobs') = 1, 'T25 exactly one job named reap-stale-jobs is scheduled';
-  assert (select count(*) from cron.stub_jobs) = 4, 'T25 the migrations schedule four jobs: the reaper, the daily metrics pull (T34), the retention purge (migration 28) and mail-outbox (T35)';
-  assert (select count(*) from cron.stub_jobs where jobname = 'metrics-pull-daily') = 1 and (select schedule from cron.stub_jobs where jobname = 'metrics-pull-daily') = '30 3 * * *'
-    and (select command from cron.stub_jobs where jobname = 'metrics-pull-daily') ~ 'service\.metrics_pull_all\(\)', 'T34 the daily metrics pull is scheduled at 03:30 UTC and calls service.metrics_pull_all()';
-  assert (select count(*) from cron.stub_jobs) = 4 and (select count(*) from cron.stub_jobs where jobname = 'purge-expired') = 1, 'T25 the migrations schedule no other job than the reaper, the daily metrics pull, the retention purge (migration 28) and mail-outbox (migration 29)';
-  assert (select schedule from cron.stub_jobs where jobname = 'reap-stale-jobs') = '*/5 * * * *', 'T25 the reaper runs every 5 minutes';
-  assert (select command from cron.stub_jobs where jobname = 'reap-stale-jobs') ~ 'service\.reap_stale_jobs\(\)', 'T25 the job calls service.reap_stale_jobs()';
+create function test.cron_jobs() returns table (jobname text, schedule text, command text) language plpgsql as $f$ begin if to_regclass('cron.stub_jobs') is not null then return query execute 'select j.jobname, j.schedule, j.command from cron.stub_jobs j'; elsif to_regclass('cron.job') is not null then return query execute 'select j.jobname::text, j.schedule::text, j.command::text from cron.job j'; end if; end $f$;   -- the jobs of this database's cron: the stand-in of run-local.mjs where there is one, else pg_cron's own table (staging); no row where there is neither
+-- T25 (work order 13, migration 19): the reaper is scheduled. run-local.mjs gives the database a cron stand-in (cron.stub_jobs) before the migrations run; staging has the real pg_cron,
+-- whose table cron.job test.cron_jobs() reads in the stand-in's place; where there is neither (the CLI's cluster) this skips. On a real pg_cron the four jobs are asserted by name, not their total.
+do $$ declare stub boolean := to_regclass('cron.stub_jobs') is not null; begin
+  if not stub and to_regclass('cron.job') is null then raise notice 'T25 skipped: no cron table here'; return; end if;
+  assert (select count(*) from test.cron_jobs() where jobname = 'reap-stale-jobs') = 1, 'T25 exactly one job named reap-stale-jobs is scheduled';
+  assert (select count(*) from test.cron_jobs() where jobname in ('reap-stale-jobs', 'metrics-pull-daily', 'purge-expired', 'mail-outbox')) = 4 and (not stub or (select count(*) from test.cron_jobs()) = 4), 'T25 the migrations schedule four jobs: the reaper, the daily metrics pull (T34), the retention purge (migration 28) and mail-outbox (T35)';
+  assert (select count(*) from test.cron_jobs() where jobname = 'metrics-pull-daily') = 1 and (select schedule from test.cron_jobs() where jobname = 'metrics-pull-daily') = '30 3 * * *'
+    and (select command from test.cron_jobs() where jobname = 'metrics-pull-daily') ~ 'service\.metrics_pull_all\(\)', 'T34 the daily metrics pull is scheduled at 03:30 UTC and calls service.metrics_pull_all()';
+  assert (not stub or (select count(*) from test.cron_jobs()) = 4) and (select count(*) from test.cron_jobs() where jobname = 'purge-expired') = 1, 'T25 the migrations schedule no other job than the reaper, the daily metrics pull, the retention purge (migration 28) and mail-outbox (migration 29)';
+  assert (select schedule from test.cron_jobs() where jobname = 'reap-stale-jobs') = '*/5 * * * *', 'T25 the reaper runs every 5 minutes';
+  assert (select command from test.cron_jobs() where jobname = 'reap-stale-jobs') ~ 'service\.reap_stale_jobs\(\)', 'T25 the job calls service.reap_stale_jobs()';
 end $$;
 
 -- ===== T28 work order 10 (migration 16): a site's stored audit summaries =====
@@ -3282,12 +3282,12 @@ do $$ begin
   assert service.metrics_target_for_job(test.id('m32job')) is null, 'T34d a workspace that is offboarding is not measured';
   update public.workspaces set state = 'active' where id = 'aaaaaaaa-0000-0000-0000-000000000000';
 end $$;
--- (e) the daily job: two calls per measured workspace (the quick one and the slow PageSpeed one); with no pg_net, Vault entry or pgcrypto it sends nothing
-do $$ begin
+-- (e) the daily job: two calls per measured workspace (the quick one and the slow PageSpeed one), for every trial or active workspace with a live or preview site, the real ones of staging too; with no pg_net, Vault entry or pgcrypto it sends nothing, with them it queues each call through pg_net (inside this file's transaction, so rolled back with it)
+do $$ declare nx int := (select count(*) from pg_extension where extname in ('pg_net', 'pgcrypto', 'supabase_vault')); begin perform vault.create_secret('walls-made-up-key', 'metrics_cron_key') where not exists (select 1 from vault.secrets where name = 'metrics_cron_key'); perform vault.create_secret('https://walls-never-sent.invalid', 'project_url') where not exists (select 1 from vault.secrets where name = 'project_url');   -- the two Vault entries the job reads: the real ones where staging has them, else made-up ones; rolled back with the file
   assert (select array_agg(path order by path) from service.metrics_calls() where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000')
     = array['/metrics-pull?workspace=aaaaaaaa-0000-0000-0000-000000000000', '/metrics-pull?workspace=aaaaaaaa-0000-0000-0000-000000000000&source=pagespeed'], 'T34e two calls for a workspace, by path';
   assert (select count(*) from service.metrics_calls()) = 2 * (select count(*) from service.metrics_targets()), 'T34e two calls for each target';
-  assert service.metrics_pull_all() = 0, 'T34e without pg_net the daily job sends nothing';
+  assert service.metrics_pull_all() = case when nx = 3 then (select count(*) from service.metrics_calls()) else 0 end, 'T34e the daily job queues one call for each call it lists where pg_net, pgcrypto and Vault are installed, and sends nothing where they are not';
 end $$;
 -- (f) the walls: the owner and a member of A read A's rows, B's owner and a login of nothing read none; nobody who is signed in writes
 set role authenticated;
@@ -3309,7 +3309,7 @@ select test.expect_error($q$select * from service.metrics_targets()$q$, 'permiss
 select test.expect_error($q$select service.metrics_pull_all()$q$, 'permission denied');
 reset role;
 do $$ declare n int; begin
-  select count(*) into n from public.metrics_snapshots where day = '2026-11-09'; assert n = 0, 'T34f a signed-in owner wrote nothing';
+  select count(*) into n from public.metrics_snapshots where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and day = '2026-11-09'; assert n = 0, 'T34f a signed-in owner wrote nothing';
 end $$;
 set role anon;
 select test.act_as(null);
@@ -3343,9 +3343,9 @@ do $$ begin
   assert (select keep_days from retention_rules where table_name = 'consent_ledger') is null, 'T33 the consent ledger is never purged';
   assert (select keep_days from retention_rules where table_name = 'audit_log') = 730 and (select keep_days from retention_rules where table_name = 'security_events') = 365
      and (select keep_days from retention_rules where table_name = 'messages') = 1461 and (select keep_days from retention_rules where table_name = 'webhook_events') = 30, 'T33 the periods set on 2026-11-11';
-  if to_regclass('cron.stub_jobs') is not null then
-    assert (select schedule from cron.stub_jobs where jobname = 'purge-expired') = '17 3 * * *', 'T33 the purge runs daily at 03:17';
-    assert (select command from cron.stub_jobs where jobname = 'purge-expired') = 'select service.purge_expired()', 'T33 the job calls the purge';
+  if to_regclass('cron.stub_jobs') is not null or to_regclass('cron.job') is not null then   -- the stand-in locally, the table of pg_cron itself on staging (test.cron_jobs reads whichever is there)
+    assert (select schedule from test.cron_jobs() where jobname = 'purge-expired') = '17 3 * * *', 'T33 the purge runs daily at 03:17';
+    assert (select command from test.cron_jobs() where jobname = 'purge-expired') = 'select service.purge_expired()', 'T33 the job calls the purge';
   end if;
 end $$;
 -- the floors: an audit trail cannot be cut short by mistake, the consent ledger cannot get a period
@@ -3414,11 +3414,11 @@ do $$ begin
   assert (select count(*) from webhook_events where kind in ('t33-done-new', 't33-failed-mid', 't33-open-mid')) = 3, 'T33a webhook events: a new one, and failed or open ones under 90 days, stay';
   assert (select count(*) from security_event_counts where kind = 't33-old') = 0 and (select count(*) from security_event_counts where kind = 't33-new') = 1, 'T33a rate buckets: the old one goes, the new one stays';
   assert (select count(*) from consent_ledger where consent_text = 'T33 old consent') = 1, 'T33a the consent ledger is never purged';
-  assert (select count(*) from audit_log where action = 'retention-purge' and workspace_id is null and actor is null) = 1, 'T33b the purge writes one audit row, a system job (no workspace, no actor)';
-  assert (select (detail -> 'deleted' ->> 'audit_log')::int from audit_log where action = 'retention-purge') = 2
-     and (select (detail -> 'deleted' ->> 'security_events')::int from audit_log where action = 'retention-purge') = 2
-     and (select (detail -> 'deleted' ->> 'messages')::int from audit_log where action = 'retention-purge') = 1,
-    'T33b the audit row carries the true counts (2 audit rows, 2 security events, 1 message past their periods): ' || coalesce((select (detail -> 'deleted')::text from audit_log where action = 'retention-purge'), 'no row');
+  assert (select count(*) from audit_log where action = 'retention-purge' and audit_log.at = now() and workspace_id is null and actor is null) = 1, 'T33b the purge writes one audit row, a system job (no workspace, no actor)';   -- at = now() is the row of this file; staging holds the rows of the daily job too
+  assert (select (detail -> 'deleted' ->> 'audit_log')::int from audit_log where action = 'retention-purge' and audit_log.at = now()) = 2
+     and (select (detail -> 'deleted' ->> 'security_events')::int from audit_log where action = 'retention-purge' and audit_log.at = now()) = 2
+     and (select (detail -> 'deleted' ->> 'messages')::int from audit_log where action = 'retention-purge' and audit_log.at = now()) = 1,
+    'T33b the audit row carries the true counts (2 audit rows, 2 security events, 1 message past their periods): ' || coalesce((select (detail -> 'deleted')::text from audit_log where action = 'retention-purge' and audit_log.at = now()), 'no row');
   assert coalesce(current_setting('omnikom.purge', true), '') <> 'on', 'T33b the purge turns its setting off again';
 end $$;
 -- a second run deletes nothing more of the rows above
@@ -3450,7 +3450,7 @@ end $$;
 -- (b) claim twice: the first leases both rows and records a queued message for each, the second finds nothing due
 create table test.t35_b as select * from service.outbox_claim(10);
 do $$ begin
-  assert (select count(*) from test.t35_b) = 2, 'T35b the first claim returns the two rows';
+  assert (select count(*) from test.t35_b where lead_id = test.id('t35_1')) = 2, 'T35b the first claim returns the two rows';
   assert (select count(*) from test.t35_b where workspace_slug = 'test-demo-a' and name = 'T35 Lead One' and lead_id = test.id('t35_1')) = 2, 'T35b each row carries the workspace slug and the lead';
   assert (select count(*) from public.mail_outbox o join public.messages m on m.id = o.message_id join test.t35_b b on b.message_id = o.message_id
           where o.lead_id = test.id('t35_1') and m.state = 'queued' and o.attempts = 1 and o.next_at = now() + interval '5 minutes') = 2, 'T35b each row has a queued message, attempts 1, its next try in 5 minutes';
@@ -3490,7 +3490,7 @@ end $$;
 delete from public.workspace_limits where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and key = 'email_per_day_workspace';
 do $$ begin
   assert (select count(*) from service.outbox_claim(10, now())) = 0, 'T35e the same day nothing is due';
-  assert (select count(*) from service.outbox_claim(10, now() + interval '1 day')) = 2, 'T35e a day later both rows are claimed';
+  assert (select count(*) from service.outbox_claim(10, now() + interval '1 day') where lead_id = test.id('t35_2')) = 2, 'T35e a day later both rows are claimed';
   assert (select count(*) from public.mail_outbox o join public.messages m on m.id = o.message_id where o.lead_id = test.id('t35_2') and m.state = 'queued') = 2, 'T35e each with a new queued message';
   assert (select count(*) from public.messages where lead_id = test.id('t35_2') and template = 'new-lead' and state = 'blocked') = 2, 'T35e the blocked messages stay';
   assert (select count(*) from service.outbox_claim(10, now() + interval '1 day')) = 0, 'T35e then nothing is due';
@@ -3504,18 +3504,18 @@ do $$ begin
   assert not exists (select 1 from public.mail_outbox where lead_id = test.id('t35_3')), 'T35f its row is gone';
   assert not exists (select 1 from public.messages where lead_id = test.id('t35_3')), 'T35f no message was recorded';
 end $$;
--- (g) the tick: nothing due calls nothing; a due row without pg_net says so (where pg_net exists, the call is proven on staging)
-do $$ begin
-  if to_regprocedure('net.http_post(text,jsonb,jsonb,jsonb,integer)') is not null then raise notice 'T35g skipped: pg_net is installed here'; return; end if;
+-- (g) the tick: nothing due calls nothing; a due row calls through pg_net where pg_net, pgcrypto and Vault are installed (on staging one call is queued, rolled back with this file) and says not installed where they are not
+do $$ declare nx int := (select count(*) from pg_extension where extname in ('pg_net', 'pgcrypto', 'supabase_vault')); begin
+  perform vault.create_secret('walls-made-up-key', 'mail_outbox_key') where not exists (select 1 from vault.secrets where name = 'mail_outbox_key'); perform vault.create_secret('https://walls-never-sent.invalid', 'project_url') where not exists (select 1 from vault.secrets where name = 'project_url');   -- the two Vault entries of the tick: the real ones where staging has them, else made-up ones
   assert service.mail_outbox_tick() = 'idle', 'T35g with no due row the tick is idle';
   update public.mail_outbox set next_at = now() where lead_id = test.id('t35_2') and to_text = 't35-a@example.test';
-  assert service.mail_outbox_tick() = 'not installed', 'T35g with a due row and no pg_net the tick says not installed';
+  assert service.mail_outbox_tick() = case when nx = 3 then 'called' else 'not installed' end, 'T35g with a due row the tick calls where pg_net, pgcrypto and Vault are installed, and says not installed where they are not';
 end $$;
--- (h) the schedule (the cron stand-in of run-local.mjs; T25 counts it among the jobs)
+-- (h) the schedule (the cron stand-in of run-local.mjs, or pg_cron's own table on staging; T25 counts it among the jobs)
 do $$ begin
-  if to_regclass('cron.stub_jobs') is null then raise notice 'T35h skipped: no cron stand-in here'; return; end if;
-  assert (select count(*) from cron.stub_jobs where jobname = 'mail-outbox') = 1 and (select schedule from cron.stub_jobs where jobname = 'mail-outbox') = '* * * * *'
-    and (select command from cron.stub_jobs where jobname = 'mail-outbox') ~ 'service\.mail_outbox_tick\(\)', 'T35h mail-outbox runs every minute and calls service.mail_outbox_tick()';
+  if to_regclass('cron.stub_jobs') is null and to_regclass('cron.job') is null then raise notice 'T35h skipped: no cron table here'; return; end if;
+  assert (select count(*) from test.cron_jobs() where jobname = 'mail-outbox') = 1 and (select schedule from test.cron_jobs() where jobname = 'mail-outbox') = '* * * * *'
+    and (select command from test.cron_jobs() where jobname = 'mail-outbox') ~ 'service\.mail_outbox_tick\(\)', 'T35h mail-outbox runs every minute and calls service.mail_outbox_tick()';
 end $$;
 -- (i) the walls, as T26d: only the definer functions write the outbox; an owner reads none; staff with MFA read it; the four functions are closed to anon and
 -- authenticated; the function role runs queue, claim and done, never the tick

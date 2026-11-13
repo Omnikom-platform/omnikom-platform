@@ -66,7 +66,7 @@ export async function testWalls(ctx) {
     const file = join(tmp, 'tenancy.namespaced.sql');
     writeFileSync(file, mapped.text);
     r = ctx.spawn('psql', ['-X', '-q', '-v', 'ON_ERROR_STOP=1', '-f', file], {
-      encoding: 'utf8', env: { ...ctx.env, ...pgEnv(target.dbUrl) }, timeout: 600000, maxBuffer: 64 * 1024 * 1024,
+      encoding: 'utf8', env: { ...ctx.env, ...pgEnv(target.dbUrl) }, timeout: 1800000, maxBuffer: 64 * 1024 * 1024,
     });
   } finally { rmSync(tmp, { recursive: true, force: true }); }
   const passed = !r.error && r.status === 0 && /ALL TENANCY TESTS PASSED/.test(r.stdout || '');

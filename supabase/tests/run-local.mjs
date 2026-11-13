@@ -858,6 +858,7 @@ const MUTANTS = [
   ['metrics27: service.metrics_pull_all does not pin the search_path', "create function service.metrics_pull_all() returns int language plpgsql security definer set search_path = '' as $$", 'create function service.metrics_pull_all() returns int language plpgsql security definer as $$'],
   ['metrics27: the daily schedule is removed', "    perform cron.schedule('metrics-pull-daily', '30 3 * * *', 'select service.metrics_pull_all()');", '    null;'],
   ['metrics27: the daily schedule runs at another time', "'30 3 * * *', 'select service.metrics_pull_all()'", "'30 4 * * *', 'select service.metrics_pull_all()'"],
+  ['metrics27: the daily job calls pg_net where it is not installed', "    raise notice 'pg_net, Vault or pgcrypto is not installed here: the daily metrics pull sends nothing'; return 0;", '    null;'],
 
   // Work order 46 (migration 28, the Clients department's file): retention periods as data with floors, the daily purge, the narrow append-only exception
   ['retention 28: the purge takes rows younger than their period', "    cutoff := now() - make_interval(days => r.keep_days);", "    cutoff := now();"],
@@ -888,6 +889,7 @@ const MUTANTS = [
   ['outbox29: Resend\'s email id is not stored', "perform service.set_message_state(p_message, 'sent', p_provider_id);", "perform service.set_message_state(p_message, 'sent', null);"],
   ['outbox29: the tick calls with nothing due', "  if not exists (select 1 from public.mail_outbox o where o.next_at <= now()) then return 'idle'; end if;", ''],
   ['outbox29: the mail outbox is not scheduled', "    perform cron.schedule('mail-outbox', '* * * * *', 'select service.mail_outbox_tick()');", '    null;'],
+  ['outbox29: the tick calls pg_net where it is not installed', "    raise notice 'pg_net, Vault or pgcrypto is not installed here: the mail outbox is not called'; return 'not installed';", '    null;'],
   ['outbox29: the function role may run the tick', 'revoke all on function service.mail_outbox_tick() from omnikom_fn, service_role;', ''],
   ['outbox29: every login reads the outbox', 'create policy mail_outbox_staff_read on public.mail_outbox for select to authenticated using (private.is_staff());', 'create policy mail_outbox_staff_read on public.mail_outbox for select to authenticated using (true);'],
 
