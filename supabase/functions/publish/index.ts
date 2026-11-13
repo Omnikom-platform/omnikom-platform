@@ -8,6 +8,7 @@
 // dispatched: false (no token, GitHub refused, GitHub unreachable) is REPORTED, not hidden: the job stays queued and the reaper fails it
 // after 24 hours. A missing version is 404 S-NOT-FOUND (service.row_version), the same answer as a row of another workspace.
 import { dashboard, badBody } from '../_shared/dashboard.ts';
+import type { Sql } from '../_shared/db.ts';
 import { Fields, json, problem, type FieldProblem, serve } from '../_shared/http.ts';
 import { RowValidator } from '../_shared/validate.ts';
 import { dispatch } from '../_shared/dispatch.ts';
@@ -30,17 +31,26 @@ export async function handle(req: Request): Promise<Response> {
       const sent = await dispatch('publish', { job_id: out.job, site_id: site });
       return json(202, { job: out.job, state: 'queued', dispatched: sent.dispatched, reason: sent.reason, left_out: left });
     }
-    const validator = new RowValidator(c.sql, c.jwtClaims, ws, contract);
-    const all: FieldProblem[] = [];
-    for (let i = 0; i < rows.length; i++) {
-      const [v] = await c.sql`select * from service.row_version(${c.jwtClaims}::jsonb, ${ws}::uuid, ${rows[i]}::uuid, ${versions[i]}::int)`;
-      for (const p of await validator.check(v.collection, v.data, 'publish')) all.push({ ...p, row: rows[i] });
-    }
+    const all = await problemsOf(c.sql, c.jwtClaims, ws, contract, rows, versions);
     if (all.length) return problem(422, 'VALIDATION', 'Some items are not ready to publish.', all);
     const [{ job }] = await c.sql`select service.start_publish(${c.jwtClaims}::jsonb, ${site}::uuid, ${c.sql.array(rows)}::uuid[], ${c.sql.array(versions)}::int[]) as job`;
     const sent = await dispatch('publish', { job_id: job, site_id: site });
     return json(202, { job, state: 'queued', dispatched: sent.dispatched, reason: sent.reason });
   });
+}
+
+/** E13-d: the problems of a publish in at most 3 statements, whatever the number of rows (rows [] of a removals-only publish: one, which
+ *  finds nothing): every pinned version at once (service.row_version raises S-NOT-FOUND for a missing one, as the loop did), then every
+ *  reference and every photo the rows mention (prefetch). */
+export async function problemsOf(sql: Sql, jwtClaims: object, ws: string, contract: unknown, rows: string[], versions: number[]): Promise<FieldProblem[]> {
+  const validator = new RowValidator(sql, jwtClaims, ws, contract);
+  const all: FieldProblem[] = [];
+  const pinned: { i: number; collection: string; data: unknown }[] = await sql`select x.i::int as i, v.collection, v.data
+    from unnest(${sql.array(rows)}::uuid[], ${sql.array(versions)}::int[]) with ordinality as x(r, n, i)
+    cross join lateral service.row_version(${jwtClaims}::jsonb, ${ws}::uuid, x.r, x.n) as v order by x.i`;
+  await validator.prefetch(pinned, 'publish');
+  for (const v of pinned) for (const p of await validator.check(v.collection, v.data, 'publish')) all.push({ ...p, row: rows[v.i - 1] });
+  return all;
 }
 
 if (import.meta.main) serve('publish', handle);
