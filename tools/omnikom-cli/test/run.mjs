@@ -1609,7 +1609,8 @@ commit;`;
       if (!killOk) console.log(`     real kill: failed at ${!up ? 'up (the first ping, 10 s of tries)' : !outlived ? 'outlived (the ping after the kill)' : !markerLeft ? 'markerLeft' : !gone ? 'gone (after the sweep)' : 'the sweep result'}; pings ${JSON.stringify(pings)}${diag}`);   // the long part: check() cuts its detail at 300 characters
       rmSync(markers, { recursive: true, force: true });
 
-      // a port held by something else: the harness walks to the next port of its block and says so, and the cluster answers on 127.0.0.1
+      // a port held by something else: the harness walks up one port at a time, says each step and lands on the first port
+      // it can bind (P+1 may be held too: CI run 43445572324 landed on P+2, so the check wants a walk, not P+1), and the cluster answers on 127.0.0.1
       {
         const markers2 = mkdtempSync(join(tmpdir(), 'omnikom-cli-markers-'));
         const holder = net.createServer(() => {});                          // a program that owns P (any listener: the bind conflict is the same)
@@ -1618,8 +1619,8 @@ commit;`;
         let held = null, heldErr = null;
         try { held = startCluster({ markerDir: markers2, signals: false, firstPort: taken, say: l => saidLines.push(l) }); } catch (e) { heldErr = e; }
         const answers = !!held && spawnSync('psql', ['-h', '127.0.0.1', '-p', String(held.port), '-U', 'postgres', '-d', 'postgres', '-X', '-q', '-c', 'select 1'], { encoding: 'utf8', timeout: 60000 }).status === 0;
-        check('cluster guard (held port): with P held by another program the harness says "port P in use (could not bind), trying P+1", lands on P+1 and the cluster answers on 127.0.0.1',
-          !!taken && !!held && String(held.port) === String(taken + 1) && answers && saidLines.length === 1 && saidLines[0] === `cluster: port ${taken} in use (could not bind), trying ${taken + 1}`,
+        check('cluster guard (held port): with P held by another program the harness says "port P in use (could not bind), trying P+1", walks up one port at a time saying each step, lands on the first port it can bind and the cluster answers on 127.0.0.1',
+          !!taken && !!held && String(held.port) === String(taken + saidLines.length) && answers && saidLines.every((l, i) => l === `cluster: port ${taken + i} in use (could not bind), trying ${taken + i + 1}`),
           JSON.stringify({ taken, port: held && held.port, saidLines, answers, err: heldErr && String(heldErr.message).slice(0, 150) }));
         if (held) held.stop();
         await new Promise(res => holder.close(res));
