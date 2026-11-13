@@ -165,7 +165,7 @@ none
 | Path | Owner | Lines | Title | Summary | Load for |
 |---|---|---|---|---|---|
 | README.md | head-of-operations | 26 | Omnikom Platform | Self-serve platform to replace services like Luxury Presence: programmatically SEO-correct client websites (design-first, then agent-built with the programma... |  |
-| apps/dashboard/README.md | platform-build | 117 | Dashboard (step 5): the shell, sign in, Leads, and the Site screen | The client dashboard, built as plain semantic HTML on purpose (DECISIONS 21, 39): `main`, `nav`, `form`, `label`, `button`, `table`, `section`. There is no s... |  |
+| apps/dashboard/README.md | platform-build | 118 | Dashboard (step 5): the shell, sign in, Leads, and the Site screen | The client dashboard, built as plain semantic HTML on purpose (DECISIONS 21, 39): `main`, `nav`, `form`, `label`, `button`, `table`, `section`. There is no s... |  |
 | brand/pdf-kit/PROMPT-for-Claude-or-ChatGPT.md | (none) | 19 | PROMPT-for-Claude-or-ChatGPT | Paste everything below the line into Claude or ChatGPT, attach `omnikom-pdf-template.html`, then add your content at the end. |  |
 | brand/pdf-kit/README.md | (none) | 39 | Omnikom PDF kit | Everything needed to make a document that looks like our client PDFs (the setup brief, the website reviews, the question sheets). Internal: for Omnikom, not ... |  |
 | brand/pdf-kit/TEMPLATE-example.md | (none) | 37 | Document title goes here | One-line subtitle: what this document is and who it is for |  |
