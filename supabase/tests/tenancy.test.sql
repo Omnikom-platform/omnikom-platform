@@ -3856,7 +3856,7 @@ do $$ declare u timestamptz; begin
   u := service.staff_open(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), 'T39 support case one', 30);
   assert u = now() + interval '30 minutes', 'T39b the window ends 30 minutes from now: ' || u;
   assert (select count(*) from staff_access where user_id = '00000000-0000-0000-0000-00000000005f' and until = now() + interval '30 minutes') = 1, 'T39b one window of the staff login';
-  assert (select count(*) from audit_log where action = 'staff-access-open') = 1, 'T39b one staff-access-open audit row';
+  assert (select count(*) from audit_log where action = 'staff-access-open' and actor = '00000000-0000-0000-0000-00000000005f') = 1, 'T39b one staff-access-open audit row';
   assert exists (select 1 from audit_log where action = 'staff-access-open' and actor = '00000000-0000-0000-0000-00000000005f' and workspace_id is null
     and detail ->> 'reason' = 'T39 support case one' and (detail ->> 'minutes')::int = 30), 'T39b the audit row names the actor, no workspace, the reason and 30 minutes';
 end $$;
@@ -3869,14 +3869,14 @@ select test.expect_error($q$select service.staff_open(test.cl('00000000-0000-000
 select test.expect_error($q$select service.staff_open(test.cl('00000000-0000-0000-0000-00000000000a', 'aal2'), 'T39 support case two', 30)$q$, 'S-NOT-FOUND');
 select test.expect_error($q$select service.staff_open(test.cl('00000000-0000-0000-0000-00000000000e', 'aal2'), 'T39 support case two', 30)$q$, 'S-NOT-FOUND');
 do $$ begin
-  assert (select count(*) from staff_access) = 1, 'T39c no new window';
-  assert (select count(*) from audit_log where action = 'staff-access-open') = 1, 'T39c no new audit row';
+  assert (select count(*) from staff_access where user_id in ('00000000-0000-0000-0000-00000000005f', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000e')) = 1, 'T39c no new window';
+  assert (select count(*) from audit_log where action = 'staff-access-open' and actor in ('00000000-0000-0000-0000-00000000005f', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000e')) = 1, 'T39c no new audit row';
 end $$;
 -- (d) a reason too short, 0 minutes and 241 minutes are refused in the answer's words
 select test.expect_error($q$select service.staff_open(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), 'short', 30)$q$, 'I-ANSWER');
 select test.expect_error($q$select service.staff_open(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), 'T39 support case three', 0)$q$, 'I-ANSWER');
 select test.expect_error($q$select service.staff_open(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), 'T39 support case three', 241)$q$, 'I-ANSWER');
-do $$ begin assert (select count(*) from staff_access) = 1, 'T39d no new window'; end $$;
+do $$ begin assert (select count(*) from staff_access where user_id = '00000000-0000-0000-0000-00000000005f') = 1, 'T39d no new window'; end $$;
 -- (e) a window that has ended (opened and ended 2 hours earlier) reads nothing again
 update staff_access set opened_at = opened_at - interval '2 hours', until = until - interval '2 hours' where user_id = '00000000-0000-0000-0000-00000000005f';
 set role authenticated;
