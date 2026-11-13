@@ -5,8 +5,8 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (r
 batch). Getting back in: `resume\RESUME.md`.
 
 ## Now
-- Product: 74 of 97 rows WORK, 22 PARTLY, 1 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
-  15, 7, 1 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 8, 13, 0 of 21.
+- Product: 76 of 97 rows WORK, 20 PARTLY, 1 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
+  16, 6, 1 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 9, 12, 0 of 21.
 - The platform build is open (owner, 2026-11-12); the refactor of how we work is closed at what is built. One head of
   operations orients, rules, takes in and lands; it never builds. Every job: a written hand-over that names its product row
   and its done-test, a fresh cross-check of the hand-over against the tree, the test first and seen red, the least code, one
@@ -29,19 +29,19 @@ batch). Getting back in: `resume\RESUME.md`.
   (E11, 43); replace and delete of a stored file, on the screen too (B14, 44; a new row B25 for sizes left behind); take an
   item off the site and put it back (B12, 45); production brought up from staging by one script (E2); the Vault and the
   media backed up and a monthly restore drill (E1); a refused visitor held at the site's own endpoint for 60 s (E5 part b);
-  the sheets' focus and phone buttons; how the departments work, rewritten.
+  a publish checks its rows in 3 statements (E13 part d); the sheets' focus and phone buttons; how the departments work.
 
 ## Not landed
-- Nothing is committed and waiting. Being built: E13 part d (publish validates its rows in 3 statements). Hand-overs ready,
-  each cross-checked against this tree first: the staging walls, the browser flows on GitHub's runner, E13 part a, E12 last.
+- Nothing is committed and waiting. Being built: growth budgets for every table (E12, migration 46). Hand-overs ready, each
+  cross-checked against this tree: the staging walls, the browser flows on GitHub's runner, E13 part a (the measure).
 
 ## Staging (the test project), 2026-11-13
 - Migrations through 41 applied in number order; all 31 functions deployed from master 9b4bfa1; the screens' end-to-end
-  script passes; the flows of the instant frame (B15), Search health (B24) and the media library (B14 part a) passed and
-  went red with their seeded faults; E6: 20 parallel calls hold no function connection after the change.
-- Owed, each by the head's run sheet: migrations 42 to 45 and this batch's functions; the flows of B11, B12, B14 (replace
-  and delete), B15 (the preview site) and E6's journeys (a browser, the machine lock); E4's inbox read; E16's limits; E3's
-  alerts; E11's settings; E5's hold; E1's drill (its workflow, by hand). RED: the walls stop at T20 on four old rows.
+  script passes; the flows of the instant frame (B15), Search health (B24), the media library (B14 part a) and putting the
+  site back (B11) passed and went red with their seeded faults; the journeys J1, J3, J5 passed on the pooler (E6).
+- Owed, each by the head's run sheet: migrations 42 to 45 and this batch's functions; the flows of B12, B14 (replace and
+  delete) and B15 (the preview site) (a browser, the machine lock); E4's inbox read; E16's limits; E3's alerts; E11's
+  settings; E5's hold; E1's drill (its workflow, by hand). RED: the walls stop at T20 on four old rows.
 
 ## Migrations
 - A migration that has not landed takes the next free number above every file in the tree when it is built, and lands in
