@@ -4090,5 +4090,56 @@ do $$ declare f text := 'service.gone_rows(uuid)'; begin
 end $$;
 update public.site_contracts set resolved = resolved #- '{collections,listings,route}' where workspace_id in ('aaaaaaaa-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000') and active; update public.workspaces w set state = t.state from test.t43_ws t where w.id = t.id;
 
+-- ===== T48 E13 (migration 48): every foreign key of public, ops and service has a valid index that leads with its columns; the fixture is the query's own control =====
+reset role;   -- the block creates a schema: it needs the superuser, whatever the block before it left
+-- test.fk_gaps(schemas) gives the name of each foreign key of those schemas that no index serves. An index serves a key when it is valid, its first columns (as many as the key has)
+-- are the key's columns in any order, they are key columns (not INCLUDE columns), and it is not partial unless the key has one column and the predicate is exactly "<column> IS NOT NULL".
+create function test.fk_gaps(p_schemas text[]) returns setof text language sql stable as $$
+  select c.conname::text
+  from pg_constraint c
+  join pg_class t on t.oid = c.conrelid
+  join pg_namespace n on n.oid = t.relnamespace
+  where c.contype = 'f' and n.nspname = any (p_schemas)
+    and not exists (
+      select 1
+      from pg_index i
+      cross join lateral (select array_agg(u.k) as firstn
+                          from unnest(string_to_array(i.indkey::text, ' ')::int2[]) with ordinality u(k, o)
+                          where u.o <= cardinality(c.conkey)) l
+      where i.indrelid = c.conrelid
+        and i.indisvalid
+        and i.indnkeyatts >= cardinality(c.conkey)
+        and l.firstn @> c.conkey
+        and (i.indpred is null
+             or (cardinality(c.conkey) = 1
+                 and regexp_replace(pg_get_expr(i.indpred, i.indrelid), '[()]', '', 'g')
+                     = quote_ident((select a.attname from pg_attribute a where a.attrelid = c.conrelid and a.attnum = c.conkey[1])) || ' IS NOT NULL'))
+    ) $$;
+-- the control: a fixture of its own (schema t48, gone with the rollback) with one key of each kind; the query must name exactly the keys no index serves
+create schema t48;
+create table t48.one (a int primary key);
+create table t48.two (a int, b int, primary key (a, b));
+create table t48.c (id int primary key, f1 int, f3 int, f4 int, f5 int, g1 int, g2 int, h1 int, h2 int, i1 int, i2 int, j1 int, j2 int,
+  constraint t48_f1 foreign key (f1) references t48.one (a), constraint t48_f3 foreign key (f3) references t48.one (a),
+  constraint t48_f4 foreign key (f4) references t48.one (a), constraint t48_f5 foreign key (f5) references t48.one (a),
+  constraint t48_f6 foreign key (g1, g2) references t48.two (a, b), constraint t48_f7 foreign key (h1, h2) references t48.two (a, b),
+  constraint t48_f8 foreign key (i1, i2) references t48.two (a, b), constraint t48_f9 foreign key (j1, j2) references t48.two (a, b));
+create index on t48.c (f3) where f3 is not null;       -- t48_f3 served: partial, exactly "is not null", one column (t48_f1 has no index at all: not served)
+create index on t48.c (f4) where f4 > 0;               -- t48_f4 not served: a partial index with another predicate
+create index on t48.c (id, f5);                        -- t48_f5 not served: its column is the second key column
+create index on t48.c (g2, g1);                        -- t48_f6 served: both columns, the other way round
+create index on t48.c (h1);                            -- t48_f7 not served: one column of two
+create index on t48.c (i1) include (i2);               -- t48_f8 not served: the second column is an INCLUDE column
+create index on t48.c (j1, j2) where j1 is not null;   -- t48_f9 not served: partial on a two-column key
+do $$ declare got text[]; begin
+  select coalesce(array_agg(k order by k collate "C"), '{}') into got from test.fk_gaps(array['t48']) g(k);
+  assert got = array['t48_f1', 't48_f4', 't48_f5', 't48_f7', 't48_f8', 't48_f9'], 'T48 a: the query names ' || array_to_string(got, ', ') || ' on the fixture, it must name t48_f1, t48_f4, t48_f5, t48_f7, t48_f8, t48_f9';
+end $$;
+-- the wall: no foreign key of our three schemas without a serving index
+do $$ declare n int; gaps text; begin
+  select count(*), string_agg(k, ', ' order by k collate "C") into n, gaps from test.fk_gaps(array['public', 'ops', 'service']) g(k);
+  assert n = 0, 'T48 b: ' || n || ' foreign key(s) have no valid index that leads with their columns: ' || gaps;
+end $$;
+
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;
