@@ -971,6 +971,7 @@ const MUTANTS = [
   ['offsite45: a job carries the removals of another workspace', 'where g.workspace_id = ws and g.published_version is not null', 'where g.published_version is not null'],
   ['offsite45: done follows what is off now, not what the build shipped', 'and not (j.snapshot ? c.id::text);', 'and (c.deleted_at is not null or c.off_site_at is not null);'],
   ['offsite45: a late reconcile undoes a newer job', "n.state = 'done' and n.finished_at > j.finished_at", 'false'],
+  ['offsite45: a preview job counts as a newer job', ' and not n.preview', ''],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

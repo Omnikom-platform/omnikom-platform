@@ -105,8 +105,8 @@ begin
   if p_state = 'done' then
     if j.snapshot is null then raise exception 'S-JOB-STATE: no frozen snapshot'; end if;
     -- book row B12-b: done follows the frozen snapshot: the job's rows its build shipped get their version (a version only ever rises), the rows it left out are
-    -- blanked; a late reconcile (reaped, then done) changes nothing once another job of the site was done after the reap: that build is the newer one
-    if not (j.state = 'failed' and exists (select 1 from public.publish_jobs n where n.site_id = j.site_id and n.state = 'done' and n.finished_at > j.finished_at)) then
+    -- blanked; a late reconcile (reaped, then done) changes nothing once another job of the site, not a preview, was done after the reap: that build is the newer one
+    if not (j.state = 'failed' and exists (select 1 from public.publish_jobs n where n.site_id = j.site_id and n.state = 'done' and n.finished_at > j.finished_at and not n.preview)) then
     update public.content_rows c set published_version = greatest(coalesce(c.published_version, 0), (j.snapshot ->> c.id::text)::int)
       where c.id = any(j.rows) and j.snapshot ? c.id::text;
     update public.content_rows c set published_version = null where c.id = any(j.rows) and not (j.snapshot ? c.id::text);
