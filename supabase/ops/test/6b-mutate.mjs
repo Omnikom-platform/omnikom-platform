@@ -34,6 +34,11 @@ const BACKUP = [
   ['a missing variable is a plain failure, not BLOCKED', "throw new Stop(3, `missing variables (by name)", "throw new Stop(1, `missing variables (by name)"],
   ['a missing certificate is not reported as BLOCKED', 'if (!existsSync(path)) throw new Stop(3,', 'if (false) throw new Stop(3,'],
   ['the last target decides the exit (a failed copy is forgotten)', 'if (bad) { say(', 'if (false) { say('],
+  ['media: an object that came short is kept', 'if (got.length !== size) bad++;', 'if (false) bad++;'],
+  ['media: any STORAGE_API_BASE is taken', String.raw`!/^http:\/\/127\.0\.0\.1:\d+$/.test(base)) throw`, 'false) throw'],
+  ['media: every bucket is copied', "where bucket_id = 'media';", 'where true;'],
+  ['media: the plain media folder is kept while uploading', 'rmSync(mediaDir, { recursive: true, force: true });', ''],
+  ['vault: the values are not copied', "'secret', decrypted_secret) order", "'secret', null) order"],
 ];
 
 const ALERTS = [
@@ -88,6 +93,10 @@ const DRILL = [
   ['the walls phase passes whatever the tests say', 'const passed = r.status === 0 && /ALL TENANCY TESTS PASSED/.test(r.out);', 'const passed = true;'],
   ['the time limit is not enforced', 'if (total > o.limit * 60) failures.push(', 'if (false) failures.push('],
   ['--db may be a URL', "if (o.db && !NAME_RE.test(o.db)) throw", 'if (false) throw'],
+  ['vault: an empty value counts as present', "typeof e.secret === 'string' && e.secret.length > 0", 'true'],
+  ['vault: the gaps are never looked for', 'const gaps = vaultGaps(refs, entries);', 'const gaps = [];'],
+  ['media: a file the copy lacks is taken from the copy anyway', 'return exists(p) ? p : null;', 'return p;'],
+  ['--media and --vault without --dump are taken', 'if ((o.media || o.vault) && !o.dump) throw', 'if (false) throw'],
 ];
 
 function runTest(testFile, envName, mutantPath, extraEnv = {}) {

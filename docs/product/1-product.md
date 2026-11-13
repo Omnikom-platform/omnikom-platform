@@ -132,7 +132,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 ### E. Hardening (enterprise grade; owner 2026-11-05, steps in `9-blocks.md`, evidence in `work/11-enterprise-audit/`)
 | Feature | State | Missing half, or where it lives |
 |---|---|---|
-| E1 Backups and restore: database, media, Vault; a scheduled restore drill | MISSING | `backup.yml` off, production backup not installed, media and Vault in no dump (H1-1, H2-12) |
+| E1 Backups and restore: database, media, Vault; a scheduled restore drill | PARTLY | backup.mjs copies the database and the Vault nightly and the media weekly, encrypted to the owner's certificate, two providers (backup.yml waits on the owner's buckets and key); restore-drill.yml backs staging up with a throwaway key pair and restores all three monthly; production's copy comes with the production repository (owner) |
 | E2 Production made from staging by script (dashboard, secrets, Auth settings, runner) | PARTLY | supabase/ops/bring-up.mjs reads a project and its dashboard and changes only what differs: extensions, every Auth setting, the function secrets the code reads, the Pages project, domain and build, the production repository's secrets; promote.yml moves migrations and functions; a second run changes nothing (supabase/ops/test/bring-up.test.mjs, against fakes); production UNPROVEN until it exists (owner) |
 | E3 Monitoring: alerts delivered, error reporting, a request id per call | PARTLY | every function answers through serve() (`supabase/functions/_shared/http.ts`): its request id in the x-request-id header, in every problem (request_id) and first in every log line of the call; a 5xx answer is counted in function_errors (migration 32, tenancy T38; kept 30 days, cleaned on write); seven hourly alerts, function-errors among them, mail the address named by ALERTS_TO once per alert and day (`supabase/ops/alerts.mjs --send`); staging delivery UNPROVEN until the head's run sheet; production waits on its repository and its on-call address |
 | E4 Background jobs: the stale-job reaper scheduled, a mail outbox worker, retries | PARTLY | the reaper runs every 5 minutes on staging (H0-1, work order 13); the lead alert waits in `mail_outbox` and the `mail-outbox` function sends it, run every minute by pg_cron (migration 29): a 10 s timeout, 6 tries, a capped alert the next day, never to a suppressed address (tenancy T35, `supabase/functions/test/outbox.test.ts`); staging UNPROVEN until the head's run sheet (H1-4) |
@@ -161,8 +161,8 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B Dashboard | 15 | 7 | 1 | 23 |
 | C Backend and database | 15 | 2 | 0 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
-| E Hardening | 8 | 12 | 1 | 21 |
-| Total | 74 | 21 | 2 | 97 |
+| E Hardening | 8 | 13 | 0 | 21 |
+| Total | 74 | 22 | 1 | 97 |
 
 Completion is reported from these counts only.
 

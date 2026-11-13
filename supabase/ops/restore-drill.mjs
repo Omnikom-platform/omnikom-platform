@@ -3,7 +3,8 @@
 //
 //   node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node supabase/ops/restore-drill.mjs [--db STAGING_DB_URL]
 //   node supabase/ops/restore-drill.mjs --dump <file> [--key <private key pem>]      (a dump the backup job made: --key opens the CMS envelope)
-//        [--slug test-demo-a] [--limit-minutes 120] [--keep]
+//        [--media <file>] [--vault <file>] [--slug test-demo-a] [--limit-minutes 120] [--keep]
+//   --media, --vault: the media and Vault copies of backup.mjs --what media|vault (a .cms copy is opened with --key); they go with --dump
 //
 // The phases, each timed:
 //   1 dump      pg_dump of the database named by --db (read only, custom format, with privileges: see backup.mjs --privileges), or
@@ -18,15 +19,19 @@
 //   6 walls     tenancy.test.sql, unchanged, on database "walls" = the restored SCHEMA (functions, policies, grants, triggers: every wall) plus the
 //               reference rows the migrations insert (storage.buckets, platform_limits). Why not on "restored": the test inserts its own fixtures
 //               (workspace test-demo-a, fixed user ids) and a restored staging already holds them; it runs in one transaction and rolls back.
-//   7 build     the factory builds the site of --slug from the restored rows: the newest `done` publish job of that workspace, its
+//   7 media     (only with --media) the media copy is opened and extracted: its files are the bucket's objects by name
+//   8 build     the factory builds the site of --slug from the restored rows: the newest `done` publish job of that workspace, its
 //               service.export_bundle shaped like the export-published function (processed media only, derivative paths), factory/build.mjs.
-//               A pg_dump holds no Storage files: the media the rows reference are replaced by the repository's stand-in logo
-//               (sites/test-demo-a/media/logo.png), so the build proves the rows, the contract and the design, not the photos.
+//               A pg_dump holds no Storage files: with --media every file the site needs comes from the media copy (one missing fails
+//               the phase); without it the repository's stand-in logo (sites/test-demo-a/media/logo.png) replaces them, so the build
+//               proves the rows, the contract and the design, not the photos.
+//   9 vault     (only with --vault) every Vault name the restored rows reference (api_keys.vault_ref, integrations.secret_ref) has an
+//               entry with a value in the Vault copy; names compared, never printed
 // Exit 0 DRILL PASS (every phase passed and the total is under the limit); 1 a phase failed (named); 2 usage; 3 blocked (a variable or tool missing).
 // Printed: counts, times, plain error classes. Never a URL, a key, a password or a row.
 import { spawnSync } from 'node:child_process';
 import { writeFileSync, readFileSync, mkdirSync, existsSync, statSync, readdirSync, copyFileSync, realpathSync } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
+import { join, dirname, resolve, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -96,6 +101,11 @@ export function rolesIn(sqlText) {
   return [...found].filter(r => !r.startsWith('pg_')).sort();
 }
 
+// the restored rows' Vault names that the Vault copy lacks (an entry with an empty value counts as missing)
+export function vaultGaps(refs, entries) { const have = new Set(entries.filter(e => typeof e.secret === 'string' && e.secret.length > 0).map(e => e.name)); return refs.filter(r => !have.has(r)); }
+// where a file the site needs comes from: the media copy (null when the copy lacks it), or the stand-in logo when there is no copy
+export function mediaSource(copyDir, logo, path, exists = existsSync) { if (!copyDir) return logo; const p = join(copyDir, ...path.split('/')); return exists(p) ? p : null; }
+
 export function fmt(s) { const m = Math.floor(s / 60); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min ${Math.round(s % 60)} s` : m ? `${m} min ${Math.round(s % 60)} s` : `${s.toFixed(1)} s`; }
 
 // the export the factory reads, from export_bundle's document, shaped like supabase/functions/export-published/index.ts does
@@ -135,14 +145,16 @@ export function compareCounts(before, after, restored) {
 }
 
 export async function drill(argv, env = process.env, log = console.log) {
-  const o = { db: null, dump: null, key: null, slug: 'test-demo-a', limit: 120, keep: false };
+  const o = { db: null, dump: null, key: null, media: null, vault: null, slug: 'test-demo-a', limit: 120, keep: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i], v = () => { const x = argv[++i]; if (x === undefined || x.startsWith('--')) throw new Stop(2, `${a} needs a value`); return x; };
     if (a === '--db') o.db = v(); else if (a === '--dump') o.dump = resolve(v()); else if (a === '--key') o.key = resolve(v());
+    else if (a === '--media') o.media = resolve(v()); else if (a === '--vault') o.vault = resolve(v());
     else if (a === '--slug') o.slug = v(); else if (a === '--limit-minutes') o.limit = Number(v()); else if (a === '--keep') o.keep = true;
     else throw new Stop(2, `unknown argument ${a}`);
   }
   if (o.dump && o.db) throw new Stop(2, '--db and --dump are two ways to get the dump: give one');
+  if ((o.media || o.vault) && !o.dump) throw new Stop(2, '--media and --vault go with --dump');
   if (!o.dump) o.db = o.db || 'STAGING_DB_URL';
   if (o.db && !NAME_RE.test(o.db)) throw new Stop(2, '--db takes the NAME of a variable, not a URL');
   if (o.key && !o.dump) throw new Stop(2, '--key goes with --dump');
@@ -152,6 +164,9 @@ export async function drill(argv, env = process.env, log = console.log) {
   if (o.db && !url) throw new Stop(3, `${o.db} is not set (read by name; node tools/with-env.mjs <env file> -- ...)`);
   if (o.dump && !existsSync(o.dump)) throw new Stop(2, `no such dump file`);
   if (o.key && !existsSync(o.key)) throw new Stop(2, `no such key file`);
+  if (o.media && !existsSync(o.media)) throw new Stop(2, 'no such media file');
+  if (o.vault && !existsSync(o.vault)) throw new Stop(2, 'no such vault file');
+  if ([o.media, o.vault].some(f => f && f.endsWith('.cms')) && !o.key) throw new Stop(2, 'a .cms copy needs --key');
   for (const t of ['pg_dump', 'pg_restore', 'psql', 'initdb', 'pg_ctl']) { const r = sh(t, ['--version']); if (r.error || r.status !== 0) throw new Stop(3, `${t} is not on PATH (PostgreSQL 15+ client and server binaries)`); }
   const designDir = join(REPO, 'sites', o.slug, 'design');
   if (!existsSync(designDir)) throw new Stop(3, `no look-folder at sites/${o.slug}/design`);
@@ -185,6 +200,14 @@ export async function drill(argv, env = process.env, log = console.log) {
   const cleanup = () => {
     // pg_ctl stop -m immediate for the cluster in the folder, any process naming the folder, then the folder (--keep leaves it, stopped)
     guard.release({ keep: o.keep });
+  };
+  // a .cms copy (--media, --vault) is decrypted with --key into the work folder, as the dump phase does; any other file is used as it is
+  const openCopy = (file, name) => {
+    if (!file.endsWith('.cms')) return file;
+    const out = join(work, name);
+    const r = sh('openssl', ['cms', '-decrypt', '-binary', '-inform', 'DER', '-in', file, '-inkey', o.key, '-out', out]);
+    if (r.status !== 0) throw new Error(`openssl cms -decrypt failed: ${lastLine(r.err)}`);
+    return out;
   };
   try {
     log(`restore drill ${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}: ${o.db ? `dump of ${o.db}` : 'dump file'}, site ${o.slug}, work folder in the system temp folder, limit ${o.limit} min`);
@@ -305,7 +328,19 @@ export async function drill(argv, env = process.env, log = console.log) {
       return { ok: false, detail: `tenancy.test.sql FAILED on the restored schema: ${why || lastLine(r.err)}${hasAcl ? '' : ' (this dump holds no grants)'}` };
     });
 
-    // 7 build the site from the restored rows
+    // 7 the media copy (only with --media): opened and extracted; its files are the bucket's objects by name
+    let mediaCopy = null;
+    if (o.media) await phase('media', async () => {
+      const file = openCopy(o.media, 'media.tar');
+      mkdirSync(join(work, 'media-copy'));
+      const r = sh('tar', ['-xf', relative(work, file), '-C', 'media-copy'], { cwd: work });   // relative names: GNU tar reads "C:" as a host
+      if (r.status !== 0) return { ok: false, detail: `tar -xf failed: ${lastLine(r.err || r.out)}` };
+      mediaCopy = join(work, 'media-copy');
+      const n = (function walk(d) { let k = 0; for (const e of readdirSync(d, { withFileTypes: true })) k += e.isDirectory() ? walk(join(d, e.name)) : 1; return k; })(mediaCopy);
+      return { ok: true, detail: `media copy: ${n} files` };
+    });
+
+    // 8 build the site from the restored rows
     if (full.ok) await phase('build', async () => {
       const job = q('restored', `select j.id from public.publish_jobs j join public.workspaces w on w.id = j.workspace_id where w.slug = '${o.slug}' and j.state = 'done' and j.snapshot is not null order by j.created_at desc limit 1`);
       if (!job.ok) return { ok: false, detail: `could not look for a job: ${job.err}` };
@@ -318,7 +353,9 @@ export async function drill(argv, env = process.env, log = console.log) {
       writeFileSync(exportFile, JSON.stringify(exp));
       mkdirSync(mediaDir, { recursive: true });
       const logo = join(REPO, 'sites', 'test-demo-a', 'media', 'logo.png');
-      for (const m of exp.media) { const dest = join(mediaDir, ...m.path.split('/')); mkdirSync(dirname(dest), { recursive: true }); copyFileSync(logo, dest); }
+      let missing = 0;
+      for (const m of exp.media) { const src = mediaSource(mediaCopy, logo, m.path); if (!src) { missing++; continue; } const dest = join(mediaDir, ...m.path.split('/')); mkdirSync(dirname(dest), { recursive: true }); copyFileSync(src, dest); }
+      if (missing) return { ok: false, detail: `the media copy lacks ${missing} of ${exp.media.length} files the site needs` };
       const builtAt = String(bundle.job.created_at).replace(/\.\d+/, '').replace(/\+00(:00)?$/, 'Z').replace(' ', 'T');
       const r = sh(process.execPath, [join(REPO, 'factory', 'build.mjs'), '--export', exportFile, '--out', outDir, '--design', designDir, '--media', mediaDir, '--built-at', /Z$|[+-]\d\d:\d\d$/.test(builtAt) ? builtAt : `${builtAt}Z`], { cwd: REPO });
       if (r.status !== 0) return { ok: false, detail: `factory/build.mjs exit ${r.status}: ${scrub(lastLine(r.err || r.out))}` };
@@ -326,7 +363,20 @@ export async function drill(argv, env = process.env, log = console.log) {
       const htmlCount = (function walk(d) { let n = 0; for (const e of readdirSync(d, { withFileTypes: true })) n += e.isDirectory() ? walk(join(d, e.name)) : /\.html$/.test(e.name) ? 1 : 0; return n; })(outDir);
       const home = existsSync(join(outDir, 'index.html'));
       const ok = !!built && home && htmlCount >= Number(built[1]);
-      return { ok, detail: ok ? `job ${job.out.slice(0, 8)}: ${bundle.rows.length} rows, ${exp.media.length} media (stand-in logo), factory built ${built[1]} pages (${built[2]} contract + ${built[3]} item), ${htmlCount} html files, index.html present` : `build output not as expected: ${lastLine(r.out)}; html files ${htmlCount}; index.html ${home}` };
+      return { ok, detail: ok ? `job ${job.out.slice(0, 8)}: ${bundle.rows.length} rows, ${exp.media.length} media (${mediaCopy ? 'real media' : 'stand-in logo'}), factory built ${built[1]} pages (${built[2]} contract + ${built[3]} item), ${htmlCount} html files, index.html present` : `build output not as expected: ${lastLine(r.out)}; html files ${htmlCount}; index.html ${home}` };
+    });
+
+    // 9 the Vault copy (only with --vault): every Vault name the restored rows reference has a value in it; names compared, never printed
+    if (full.ok && o.vault) await phase('vault', async () => {
+      const file = openCopy(o.vault, 'vault.json');
+      let entries;
+      try { entries = JSON.parse(readFileSync(file, 'utf8')); } catch { return { ok: false, detail: 'the vault copy is not JSON' }; }
+      const r = q('restored', "select coalesce(json_agg(r), '[]') from (select vault_ref r from public.api_keys where vault_ref is not null union select secret_ref from public.integrations where secret_ref is not null) x");
+      if (!r.ok) return { ok: false, detail: `could not read the references: ${r.err}` };
+      const refs = JSON.parse(r.out);
+      const gaps = vaultGaps(refs, entries);
+      return gaps.length ? { ok: false, detail: `the vault copy lacks ${gaps.length} of ${refs.length} references (names not printed)` }
+        : { ok: true, detail: `vault copy: ${entries.length} entries; all ${refs.length} references in the restored rows have one (names compared, never printed)` };
     });
   } catch (e) {
     if (!(e instanceof Stop)) failures.push(`crash: ${scrub(e && e.message || e)}`);

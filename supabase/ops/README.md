@@ -7,13 +7,14 @@ and `openssl`. Keys and database URLs are read from the environment BY NAME (`no
 
 | File | What it does |
 |---|---|
-| `backup.mjs` | `pg_dump` of the database named by `--db <VARIABLE>`, encrypted to the public certificate `backup-recipient.pem` (`openssl cms -encrypt`, AES-256), uploaded to every `--to` target, each copy verified by size. Targets: `s3://<bucket>/<prefix> --env <PREFIX>` (S3-compatible, signed in the file itself, no `aws` tool) or `file://<dir>`. |
-| `restore-drill.mjs` | The monthly drill: dump (or `--dump file --key file`), restore into a throwaway local cluster, row counts, wall tests on the restored schema, the factory builds the test site from the restored rows, every phase timed, total against the 2 hour target. |
+| `backup.mjs` | `pg_dump` of the database named by `--db <VARIABLE>`, encrypted to the public certificate `backup-recipient.pem` (`openssl cms -encrypt`, AES-256), uploaded to every `--to` target, each copy verified by size. Targets: `s3://<bucket>/<prefix> --env <PREFIX>` (S3-compatible, signed in the file itself, no `aws` tool) or `file://<dir>`. Two more modes: `--what vault` (the decrypted Vault values as JSON, read in a read-only session straight to a file and encrypted at once: `<label>-vault-<stamp>.json.cms`) and `--what media --api <PREFIX>` (every object of the bucket `media`, each signed and downloaded with `<PREFIX>SUPABASE_REF` and `<PREFIX>SUPABASE_SECRET_KEY`, checked against its size, in one tar: `<label>-media-<stamp>.tar.cms`). No object name, value, ref or key is printed. |
+| `restore-drill.mjs` | The monthly drill: dump (or `--dump file --key file`), restore into a throwaway local cluster, row counts, wall tests on the restored schema, the factory builds the test site from the restored rows, every phase timed, total against the 2 hour target. With `--media <copy>` the site is built from the real media, with `--vault <copy>` every Vault name the restored rows reference must have a value in the copy (names compared, never printed). |
 | `alerts.mjs` | Seven alert queries (below), one per rule of 11-OPERATIONS section 1 that our tables can answer. Prints each firing alert with its runbook name and first step. With `--send --to-env <VARIABLE>` it mails each firing alert through Resend (`RESEND_API_KEY`, `LEAD_ALERT_FROM`) to the address in that variable, once per alert and UTC day. Writes the status page's data file with `--json`. |
 | `bring-up.mjs`, `environments.json` | Row E2: `--env staging\|production [--apply] [--i-mean-production]` reads a project and its dashboard and changes only what differs: extensions, every Auth setting, the function secrets the code reads, the Pages project, domain and build, and (production) the production repository's secrets. A dry run unless `--apply`; a second run changes nothing; prints names and short states, never a value. `environments.json` holds the wanted values that are not secrets (Pages project, domain, dashboard address, allowed origins). Test: `test/bring-up.test.mjs --mutants` (local fakes, no network). |
 | `inbox-state.mjs` | Read only, staging only: for one address given on the command line, whether a login exists, whether it is confirmed, its number of memberships, and whether each test site's alert list is exactly that address. Prints no address. Test: `test/inbox-state.test.mjs --mutants`. |
 | `test/backup.test.mjs`, `test/alerts.test.mjs`, `test/6b-drill.test.mjs` | The tests. `test/6b-mutate.mjs` runs each of them against broken copies of the script and requires red. `test/6b-cluster.mjs`, `test/6b-fake-s3.mjs`: helpers. |
-| `../../.github/workflows/backup.yml` | Nightly, staging only, skipped until `BACKUP_ENABLED` is `true`. |
+| `../../.github/workflows/backup.yml` | Nightly the dump and the Vault copy, weekly (Sundays) the media copy, staging only, skipped until `BACKUP_ENABLED` is `true`. |
+| `../../.github/workflows/restore-drill.yml` | Monthly and by hand, staging: the three copies made to a key pair made in the job, restored by `restore-drill.mjs --media --vault`, then the copies and the key deleted. Last line `DRILL PASS: 9 phases, <time>`. |
 | `../../.github/production/backup.yml` | The same for production; goes into the production repository (it never runs here). |
 | `../../.github/workflows/alerts.yml` | Hourly, staging, skipped while `STAGING_DB_URL` is absent. |
 | `../../sites/omnikom-status/` | The status page draft (`index.html` reads `status.json`). No host is chosen. |
@@ -40,8 +41,11 @@ head decides otherwise.
 1. Decrypt (above). 2. The new project has Supabase's own roles; also create `omnikom_fn` (`create role omnikom_fn nologin`, migration 8
 makes it) before `pg_restore`, or its grants fail. 3. `pg_restore --no-owner -d <new database URL> restored.dump`. Expect errors about
 objects Supabase already owns (extensions, `auth` and `storage` internals): the drill lists the same class of errors locally. 4. Vault
-secrets are not usable after a restore into a different project (the key that encrypts them is per project): re-enter them by hand
-(R3 says so). 5. Storage files are NOT in a `pg_dump`: `media` objects need their own copy (not built; see Findings in the 6B report).
+secrets are not usable after a restore into a different project (the key that encrypts them is per project), so the Vault has its own
+copy (`<label>-vault-<stamp>.json.cms`, nightly): decrypt it like the dump, then in the new project's SQL editor type one
+`select vault.create_secret('<value>', '<name>', '<description>');` per entry of the decrypted copy, there and nowhere else (R3 says
+re-enter them by hand). 5. Storage files are NOT in a `pg_dump`: the media have their own copy (`<label>-media-<stamp>.tar.cms`,
+weekly): decrypt it, extract the tar (`tar -xf`), and upload its folders to the bucket `media` of the new project keeping their paths.
 6. Run `tenancy.test.sql` against a schema-only restore of the same dump (what the drill does) before switching.
 
 ## The alerts (`alerts.mjs`)
@@ -61,11 +65,47 @@ each firing alert is one mail through Resend; its idempotency key is the environ
 (a site with two failed jobs) fires on every hourly run but mails once a day, and a new item later that day waits for the next day's mail
 (the hourly job summary still shows it). A failed send exits 1; no retry; no address is printed.
 
+## Runbooks
+The runbook names the alerts print (from 11-OPERATIONS section 2, `archive/2026-11-02-blueprint/blueprint/11-OPERATIONS.md`).
+
+**R1 Publish failed.** 1) Open the job's gate report (dashboard Publish centre / `publish_jobs.gate_report`). 2) If a content rule
+failed, the client sees the plain-word reason; help them fix it. 3) If the runner failed (export 401, build error, deploy error),
+open the GitHub run, re-run once; if it fails again, check token expiry/secrets, then the factory change that last merged. 4) The
+previous deploy stays live; nothing to roll back. 5) Note it in the job and close.
+
+**R2 Suspected cross-tenant leak (severity 1).** 1) Stop publishing: `gh workflow disable publish.yml`, and take the affected
+site(s) to the previous deploy. 2) Preserve evidence: audit_log, function logs, job exports. 3) Run `tenancy.test.sql` against prod
+read-only replica/staging copy; identify the wall that failed. 4) Fix with a test + mutant that reproduce it; two reviewers; deploy.
+5) Tell the owner the same day; the owner decides client notification (privacy duty). 6) Write a post-incident note.
+
+**R3 Roll back a deploy.** Site: Cloudflare -> Workers & Pages -> the site's Pages project -> deployments -> redeploy the previous
+deployment (or `wrangler pages deployment` tooling; the exact command for rolling back is UNVERIFIED until the first rollback is
+done); then fix content (restore versions) and publish again. Dashboard: same for the `app` Pages project. Database data loss:
+restore the last dump into a new Supabase project (the steps above), verify with the tenancy tests, switch (Free has no PITR); never
+restore over prod without the owner; re-enter Vault secrets by hand after a dump/restore into a new project, from the Vault copy
+(step 4 above; Vault secrets are not in a dump; restoring to the same project, cloning or branching keeps them readable; Supabase
+Vault docs).
+
+**R4 Form outage (leads not arriving).** 1) Synthetic POST to the site's `/api/lead` on a test form. 2) If the Pages Function fails:
+redeploy the last good Pages deployment. 3) If `capture-lead` fails: function logs; Supabase status. 4) Leads that hit an error were not
+stored: the form must show the "please call us" fallback with the phone number (built into every form). 5) Tell the client how
+long it was down.
+
+**R5 Lead push failing.** Check the `push-failed` events' codes in `lead_events`; 401 = CRM secret rotated (ask the client); 5xx = their CRM down (retries
+continue); after the last retry the owner sees the lead in the inbox anyway (nothing is lost).
+
+**R6 Function errors.** The alert names the function, the status, its count in the last hour and the first 8 characters of the
+newest request id; search the function's logs (Supabase dashboard, Edge Functions, Logs) for that request id (the first word of each
+log line of the call); a 500 CONFIG is a missing function secret; a database cause: Supabase status, then R3; our code: fix forward
+with a test; tell the owner when it lasted over an hour.
+
 ## Owner batch (nothing below is created by a session)
 - Make the key pair and commit `supabase/ops/backup-recipient.pem` (above).
-- R2 enabled, a private bucket, a write-only key; a second provider's bucket and write-only key (Backblaze B2, Wasabi, ...).
+- R2 enabled, a private bucket, a key for that bucket only (the size check reads each copy back); a second provider's bucket and a
+  key for that bucket only (Backblaze B2, Wasabi, ...).
 - Repository secrets: `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `BACKUP2_ENDPOINT`, `BACKUP2_BUCKET`,
-  `BACKUP2_ACCESS_KEY_ID`, `BACKUP2_SECRET_ACCESS_KEY`; the same set plus `PROD_DB_URL` in the production repository. Variable
+  `BACKUP2_ACCESS_KEY_ID`, `BACKUP2_SECRET_ACCESS_KEY`; the same set plus `PROD_DB_URL`, `PROD_SUPABASE_REF` and
+  `PROD_SUPABASE_SECRET_KEY` (the media copy; `bring-up.mjs` sets every name of `.github/production/`) in the production repository. Variable
   `BACKUP_ENABLED = true` when ready; `ALERTS_RED = true` to make a firing alert also turn the alerts job red. The alert mail needs the
   secrets `RESEND_API_KEY`, `LEAD_ALERT_FROM` and `ALERTS_TO` (the on-call address) in each repository.
 - Bucket lifecycle rule: keep 30 days (not a workflow step).

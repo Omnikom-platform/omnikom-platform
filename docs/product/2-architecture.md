@@ -124,10 +124,11 @@ pg_cron and pgmq replace paid queues and schedulers; heavy work runs in the GitH
 ## Recovery
 
 At most 24 hours of data lost and back within 4 hours. Nightly encrypted `pg_dump` to Cloudflare R2 plus a second provider,
-kept 30 days; a monthly restore drill into a throwaway local Postgres. The dump is encrypted to a public certificate in
-`supabase/ops/`; the owner keeps the private key offline. A restore goes into a new project, never over production without the
-owner. A bad release is fixed forward and promoted the same way. `backup.yml` is ready and waits on the owner's bucket and key
-clicks.
+kept 30 days, with the Vault copy nightly and the media copy weekly beside the dump. The copies are encrypted to a public
+certificate in `supabase/ops/`; the owner keeps the private key offline. The monthly restore drill runs in CI on staging
+(`restore-drill.yml`) with a throwaway key pair, into a throwaway local Postgres; the owner opens a stored copy once with his own
+key. A restore goes into a new project, never over production without the owner. A bad release is fixed forward and promoted the
+same way. `backup.yml` is ready and waits on the owner's bucket and key clicks. The runbooks are in `supabase/ops/README.md`.
 
 ## Targets
 
