@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 924,
+    "sources": 928,
     "unowned": 0
   },
   "files": [
@@ -204,6 +204,9 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/cdp-measure.mjs","owner":"seo-and-audits","exports":["CHROME_PATH","PROFILES","launchBrowser","measurePage"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/check-stability.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/classify-business.mjs","owner":"seo-and-audits","exports":["OWNER_FIELDS","classify","industryPack"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/client-copy-data.mjs","owner":"seo-and-audits","exports":["collect","fmt","stop"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/client-copy-pages.mjs","owner":"seo-and-audits","exports":["buildPages"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/client-copy.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/compare.mjs","owner":"seo-and-audits","exports":["allowedRoot","compare","parseRobotsTxt"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/competitors-discover.mjs","owner":"seo-and-audits","exports":["KINDS","PLATFORMS","brief","firstUrl","kindOf","mergeRows","normaliseCandidate","parseCompetitorsMd","platformOf","rowFromTable","run","table","tablesOf"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/crux.mjs","owner":"seo-and-audits","exports":["readRecord","run"],"tests":[],"feature":""},
@@ -324,6 +327,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-browser-profile.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-capture.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-city-centres.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-client-copy.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-compare.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-crux.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-freshness.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},

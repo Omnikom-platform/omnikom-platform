@@ -1,0 +1,8 @@
+{
+  "firstVisit": ["D3"],
+  "forms": ["D4"],
+  "crm": ["A1", "D6", "D10"],
+  "alert": ["D8"],
+  "pages": ["D1", "D3"],
+  "export": ["A20", "E14"]
+}

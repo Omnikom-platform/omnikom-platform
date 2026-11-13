@@ -101,6 +101,7 @@ In audit-live the checker step's root is `{work}/checker` (a copy of the newest 
   (+ `--mutants`), `test-refactor.mjs`, `test-freshness.mjs` (no fake freshness: check-stability, GT-013, built-in sitemap check; mutants built in),
   `test-pipeline.mjs` (pipeline.json: validity rules, run order, evidence, the sameness with `start.mjs audit-live`, every script step's args; mutants built in), `test-bing-refusal.mjs`, `test-crux.mjs`, `test-importers.mjs` (the six capture importers), `test-city-centres.mjs`, `test-step-contracts.mjs` (live-target's pointer, local-grid and intake exits, the grid plan's remembered cities and the plan-to-import contract; each with its own mutants; `--json` prints one JSON result line last),
   `test-launch.mjs` (the launch ledger on a local fixture site, a fixture PSI file and the real strict gate; mutants built in),
+  `test-client-copy.mjs` (`client-copy.mjs`, the client's 8-page copy from a finished run; mutants built in),
   `test-writing-gate.mjs` (the writing gate on a good fixture site and one mutant per rule, each watched red for the right reason; needs the render-gate Chromium),
   `test-browser-leftovers.mjs [cdp-measure.mjs]` (`launchBrowser()` leaves no browser process and no pewp-chrome-* folder after close, process.exit and an uncaught error; run it through `node ~/.claude/scripts/heavy.mjs --`; BLOCKED, exit 1, with no Chrome or Edge).
 - Refresh the checklist after shipgate spec changes: `node "<skill>/scripts/build-checklist.mjs"` (reads the shipgate

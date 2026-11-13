@@ -1,0 +1,8 @@
+/* The client copy's two typefaces. Sources, versions and licences: SOURCES.txt, OFL-Montserrat.txt, OFL-OpenSans.txt (beside this file). */
+@font-face { font-family: "Montserrat"; font-style: normal; font-weight: 300; src: url("Montserrat-300.ttf") format("truetype"); }
+@font-face { font-family: "Montserrat"; font-style: normal; font-weight: 400; src: url("Montserrat-400.ttf") format("truetype"); }
+@font-face { font-family: "Montserrat"; font-style: normal; font-weight: 500; src: url("Montserrat-500.ttf") format("truetype"); }
+@font-face { font-family: "Montserrat"; font-style: normal; font-weight: 600; src: url("Montserrat-600.ttf") format("truetype"); }
+@font-face { font-family: "Open Sans"; font-style: normal; font-weight: 400; src: url("OpenSans-400.ttf") format("truetype"); }
+@font-face { font-family: "Open Sans"; font-style: normal; font-weight: 600; src: url("OpenSans-600.ttf") format("truetype"); }
+@font-face { font-family: "Open Sans"; font-style: italic; font-weight: 400; src: url("OpenSans-400i.ttf") format("truetype"); }

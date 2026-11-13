@@ -1,0 +1,11 @@
+{
+  "nextSteps": [
+    ["Next", "We draft your website", "The whole site, built the right way for search, with everything in this review in place."],
+    ["Then", "You take a look", "We send you the draft on a private link. Nothing on your current site changes."],
+    ["Then", "It goes live", "Once you have looked it over, it goes live on your domain."],
+    ["Then", "12 months", "We keep everything in place, check the numbers and report them to you."]
+  ],
+  "goAhead": "Tell us to start your draft.",
+  "noOwnStatistics": "Your own search statistics are not in this review. Once your domain is with us, we add it to our Search Console and report them to you.",
+  "promise": "We can't promise a position on Google or a number of {outcome}."
+}

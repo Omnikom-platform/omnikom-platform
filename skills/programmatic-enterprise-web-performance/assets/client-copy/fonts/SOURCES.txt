@@ -1,0 +1,29 @@
+The client copy's typefaces: where each file came from, its version and its sha256.
+
+The font files were served by Google Fonts (fonts.gstatic.com) on 2026-11-11 in answer to the request named for each family, sent with a browser
+name that makes the service answer with one TrueType file per weight (a Latin subset). The exact address of each served file was not recorded then.
+Version and copyright are what each file's own name table says. Licence: SIL Open Font License 1.1 (the address in each file's name table); each
+family's licence text, as the Google Fonts repository holds it, is beside the files.
+
+Montserrat
+  request: https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600
+  version: Version 9.000
+  copyright (the files' own name table): Copyright 2011 The Montserrat Project Authors (https://github.com/JulietaUla/Montserrat)
+  copyright line heading the licence text: Copyright 2024 The Montserrat.Git Project Authors (https://github.com/JulietaUla/Montserrat.git) (a later line of the same project; the text is kept as fetched)
+  reserved font name in the licence header: none
+  licence text: OFL-Montserrat.txt, from https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/OFL.txt, read 2026-11-13, sha256 8b7141c03fa4f8d44e6345d5d4931709290f0f67875e452e95ac1fd3a027802e
+  Montserrat-300.ttf: 22580 bytes, sha256 4fbbd2e9ba8866f1ff58d3314671b410a1582c0477a301a4ff4e39c413b732a0
+  Montserrat-400.ttf: 22580 bytes, sha256 84e7f0a4764244e0e4451a4cf16db2510bce03de3b3dcad1f212b66de05ed14a
+  Montserrat-500.ttf: 22608 bytes, sha256 e3325f8faec26d23d8ff591df8115e04db93d1c96d88283cb83a001af1a51389
+  Montserrat-600.ttf: 22544 bytes, sha256 7ff7f9a94a42859d6c336591882bcb7ef1a1ad3367c254b09eab733c18ef0a54
+
+Open Sans
+  request: https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600 and https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@1,400
+  version: Version 3.003
+  copyright (the files' own name table): Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans)
+  copyright line heading the licence text: Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans) (the same)
+  reserved font name in the licence header: none
+  licence text: OFL-OpenSans.txt, from https://raw.githubusercontent.com/google/fonts/main/ofl/opensans/OFL.txt, read 2026-11-13, sha256 fbbbcfef55318de350562559b671360de6d597112ecc5c73881b05092db89602
+  OpenSans-400.ttf: 22904 bytes, sha256 078719d2a38dfaf60a26fad3e8f99e810206ad61d36b1341a92ec55377740ef6
+  OpenSans-600.ttf: 22836 bytes, sha256 d763e1d252860e33f705de2bd7991795e74cfe1825646d275635c8b6677f5292
+  OpenSans-400i.ttf: 23572 bytes, sha256 00523c5284caba2d2455c56ccde37f28d84aad1c26dfd81d645dba0975c046b2

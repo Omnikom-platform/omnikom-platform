@@ -1,0 +1,14 @@
+[
+  { "id": "words", "when": "wordsSentIsZero", "fix": "Send the words in the first response, on every public page", "why": "Search tools get {wordsSent} words from your home page today", "time": "Days to weeks", "who": "Your developer" },
+  { "id": "profile-link", "when": "profileLinkBroken", "fix": "Fix the link to your site on {brokenApply}", "why": "That link leads to an error page", "time": "About an hour", "who": "Your developer" },
+  { "id": "analytics", "when": "noAnalyticsTag", "fix": "Add one analytics tag, and record where each {applicant} came from", "why": "No {applicant} can be traced to the channel that brought them", "time": "A day", "who": "Your developer" },
+  { "id": "application", "when": "leadPathRead", "fix": "Ask for less in the first step of the {application}", "why": "{takesClause}{fieldsRange} fields on the {application}", "time": "An afternoon", "who": "You and your developer" },
+  { "id": "top-page", "when": "topProductHasNoPage", "fix": "Build the {topLower} page{thenSecond}", "why": "{topShare}% of Bing's demand for your {products} is {topLower}", "time": "Weeks", "who": "Omnikom and you" },
+  { "id": "other-pages", "when": "otherProductsHaveNoPage", "fix": "Build the other {otherCount} {product} pages, each with a {home} line", "why": "{pagesLine}", "time": "Weeks", "who": "Omnikom and you" },
+  { "id": "address", "when": "addressesDiffer", "fix": "One address everywhere; fill in your Google profile{claimClause}", "why": "A buyer finds {addrCount} addresses today", "time": "Days", "who": "You, then Omnikom" },
+  { "id": "mail", "when": "mailProblem", "fix": "Fix the email records that prove your mail is yours{spfClause}{renewClause}", "why": "Your {offers} are more likely to land in spam", "time": "Under an hour", "who": "Whoever runs your domain" },
+  { "id": "licence", "when": "trustRead", "fix": "Publish your company history and licence details, and link each testimonial", "why": "{licenceWhy}", "time": "Days", "who": "You and Omnikom" },
+  { "id": "chambers", "when": "linkPlacesFound", "fix": "Join the {home} chambers and ask for listings", "why": "Local chambers link to your rivals, not to you", "time": "Weeks, a few at a time", "who": "You and Omnikom" },
+  { "id": "speed", "when": "phoneIsSlow", "fix": "Speed up the phone page: main picture first, sized images", "why": "{lcpS} s against Google's {goodLcpS} s mark", "time": "Days", "who": "Your developer" },
+  { "id": "card", "when": "profilesNotInCard", "fix": "Name your {profilesTotal} profiles in the page's hidden business card; link them from the site", "why": "AI assistants and search tools learn which profiles are yours", "time": "A day", "who": "Your developer" }
+]
