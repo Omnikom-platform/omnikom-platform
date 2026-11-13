@@ -1,12 +1,14 @@
 # Where things stand
 
-Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 6. Every feature's
+Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 8. Every feature's
 state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (rewritten for the method below with this
 batch). Getting back in: `resume\RESUME.md`.
 
 ## Now
-- Product: 76 of 97 rows WORK, 20 PARTLY, 1 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
-  16, 6, 1 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 9, 12, 0 of 21.
+- Product: 77 of 97 rows WORK, 19 PARTLY, 1 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
+  17, 5, 1 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 9, 12, 0 of 21.
+- The order (owner, 2026-11-13): the owed proof runs first, then one build job at a time: 7 rows to build (B18, B24, B25,
+  C11's request, E5's limit at the edge, E12's rest, E13) and the faults the proof runs found (B12, B15; below).
 - The platform build is open (owner, 2026-11-12); the refactor of how we work is closed at what is built. One head of
   operations orients, rules, takes in and lands; it never builds. Every job: a written hand-over that names its product row
   and its done-test, a fresh cross-check of the hand-over against the tree, the test first and seen red, the least code, one
@@ -15,42 +17,40 @@ batch). Getting back in: `resume\RESUME.md`.
 - A second lane runs beside the build for the search audits (its own session, the same machine lock, the same landing
   command); product lands first.
 
-## Landed since the build reopened (86 commits, master 4b1e512 before this batch)
-- CRM: bulk owner and delete, the business's own types and statuses, export in a saved layout, import (A15, A16, A21, A22).
-- Dashboard: the Overview with the site check and the numbers (B20, B21), a link from a real inbox (B1), restore with Undo
-  (B8), invites (B17), delete an item (B12, part), a photo from the editor to the published site (B13, C8), past publishes
-  and putting the site back (B11), the instant preview frame (B15, part a), the media library (B14, part a), Search health
-  (B24, part).
-- Backend and hardening: the mail outbox (E4, migration 29), a per-visitor lead limit (E5, 30), bounces and complaints (E21,
-  31), a request id on every function call, counted 5xx answers and the hourly alerts (E3, 32), plan limits (E16, 41), every
-  function through the transaction pooler (E6), dashboard headers and the error screen (E7), publish smoke and rollback
-  (E8), a workflow-only token path (E9), retention and purge (E12, 28), rich text allow-list (E18), the invite repair (C13).
-- This batch: the preview site behind a signed link (B15 part b, migration 42); staff act only inside a window they open
-  (E11, 43); replace and delete of a stored file, on the screen too (B14, 44; a new row B25 for sizes left behind); take an
-  item off the site and put it back (B12, 45); production brought up from staging by one script (E2); the Vault and the
-  media backed up and a monthly restore drill (E1); a refused visitor held at the site's own endpoint for 60 s (E5 part b);
-  a publish checks its rows in 3 statements (E13 part d); the sheets' focus and phone buttons; how the departments work.
+## Landed since the build reopened (owner, 2026-11-12)
+- CRM (A15, A16, A21, A22): bulk owner and delete, the business's own types and statuses, export in a saved layout, import.
+- Dashboard: the Overview (B20, B21), sign-in from a real inbox (B1), restore (B8), invites (B17), delete an item and take
+  it off the site (B12, part), a photo to the published site (B13, C8), past publishes (B11), the instant frame and the
+  preview site (B15, part), the media library with replace and delete (B14), Search health (B24, part).
+- Backend and hardening: the mail outbox (E4), lead limits and the hold at the site's endpoint (E5), bounces (E21), request
+  ids and hourly alerts (E3), plan limits (E16), the pooler (E6), headers (E7), publish smoke and rollback (E8), the
+  workflow-only token path (E9), retention, purge and growth budgets (E12, migration 46), rich text (E18), staff windows
+  (E11), production brought up by one script (E2), backups and a restore drill (E1), a publish in 3 statements (E13 d).
+- Tools: the browser flows on GitHub's runner (`flows.yml`, one named staging flow per run, the output sealed); the
+  staging walls read only the run's own rows; the search audit's tool (the audit lane's four landings).
 
 ## Not landed
-- Nothing is committed and waiting. Being built: growth budgets for every table (E12, migration 46), E13 part a (the
-  measure), the browser flows on GitHub's runner. Hand-over ready and cross-checked: the staging walls.
+- Nothing is committed and waiting. Three faults found by the proof runs, each needing a hand-over before it is built:
+  an SEO title under 20 characters is accepted at save and publish, fails the runner's audit, and the sheet does not show
+  why; a page taken off the site stays reachable at its old address through Cloudflare's edge (B12); a failed draft is not
+  removed, Cloudflare refuses the delete without `force=true` (B15).
 
 ## Staging (the test project), 2026-11-13
-- Migrations through 41 applied in number order; all 31 functions deployed from master 9b4bfa1; the screens' end-to-end
-  script passes; the flows of the instant frame (B15), Search health (B24), the media library (B14 part a) and putting the
-  site back (B11) passed and went red with their seeded faults; the journeys J1, J3, J5 passed on the pooler (E6).
-- Owed, each by the head's run sheet: migrations 42 to 45 and this batch's functions; the flows of B12, B14 (replace and
-  delete) and B15 (the preview site) (a browser, the machine lock); E4's inbox read; E16's limits; E3's alerts; E11's
-  settings; E5's hold; E1's drill (its workflow, by hand). RED: the walls stop at T20 on four old rows.
+- Migrations through 45 applied in number order; 32 functions deployed from master 0eeef26; the screens' end-to-end
+  script passes; the flows of the media library (B14, all), the preview site (B15) and the earlier ones passed and went
+  red with their seeded faults; the 22 Auth settings set and read back (E11).
+- Owed, each by the head's run sheet: migration 46; E4's inbox read; E16's limits; E3's alerts; E5's hold; E8's sheet;
+  E1's drill (its workflow, by hand); the walls on staging after this batch (they stopped at T20 on four old rows).
 
 ## Migrations
 - A migration that has not landed takes the next free number above every file in the tree when it is built, and lands in
-  number order (staging applies in file-name order); no number is promised ahead. In the tree: through 45.
+  number order (staging applies in file-name order); no number is promised ahead. In the tree: through 46.
 
 ## BLOCKED and UNPROVEN
 - E21 on staging: BLOCKED. The mail provider's webhook is an account setting; it needs the owner's yes.
 - E9's new path: UNPROVEN until the workflow-only token is in the master `.env` (an owner item); the old path runs.
-- This batch's database rules ran here only in part (the machine lock was taken): the check run is their first whole run.
+- E13's timing at 50,000 leads: UNPROVEN, the measure stopped at its 600 s limit with no number.
+- Production does not exist yet: everything about it is UNPROVEN until the owner's go and his six items.
 
 ## Clients
 - Each client's profile and go-live sheet are under `clients/<slug>/`. Both domain switches wait only for the owner's green

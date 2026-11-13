@@ -38,6 +38,8 @@ Every setting below with a required value is sent by `supabase/set-auth-settings
 | Enforce SSL on database connections | on | the vendor's production checklist | yes (confirmed by a probe, PROGRESS.md) | not an Auth setting; proven by the probe on 2026-10-29 |
 
 ## Check log
+- 2026-11-13 (head of operations, row E11's run sheet, staging): `set-auth-settings.mjs` answered `OK: 22 Auth settings set
+  and read back on STAGING_SUPABASE_REF, 0 differ`.
 - 2026-11-01 02:35 (platform build head): `node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node supabase/set-auth-settings.mjs`
   sent 7 keys, `PATCH 200`, then read back each: `OK: 7 Auth settings set and read back on STAGING_SUPABASE_REF, 0 differ`. Before it,
   `check-auth-settings.mjs` showed `FAIL mailer_otp_exp observed 3600 expected 600` (24 read, 1 differed). Link-life proof:

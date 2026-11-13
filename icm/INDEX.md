@@ -158,7 +158,7 @@ none
 |---|---|---|---|---|---|
 | .claude/POSITION.md | head-of-operations | 7 | Position | Cut down 2026-11-11 (the owner's clean-up order of that day). This file is no longer a log and nobody appends to it. |  |
 | docs/blueprint/PROGRESS.md | platform-build | 1912 | Blueprint progress (for the lead session) | Task: build-ready product engineering package (owner, 2026-10-28), raised to engineering practice, tied to published standards, then corrected by an independ... |  |
-| work/STATE.md | head-of-operations | 69 | Where things stand | Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 6. Every feature's state: `docs/product/1-product.m... |  |
+| work/STATE.md | head-of-operations | 69 | Where things stand | Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 8. Every feature's state: `docs/product/1-product.m... |  |
 
 ## Layer unplaced (218)
 
@@ -288,7 +288,7 @@ none
 | sops/listings-feed.md | head-of-operations | 136 | SOP: MLS listings feed for a client website (intake to ongoing ops) | Why it exists (owner, 2026-10-27): a client already pays their MLS; their listings must run on their own domain, in our design, and the same procedure must w... |  |
 | sops/site-endpoints.md | head-of-operations | 263 | SOP: where every V2 website plugs into the platform (endpoints, payloads, preview and live) | Status 2026-10-28. This SOP follows `docs/blueprint/specs/openapi.json` (the API), `contracts/README.md` (forms, consent, CRM mapping), `sops/clients/site-sc... |  |
 | sops/website-backup.md | head-of-operations | 70 | SOP: back up a client's or prospect's website (step 1 of every audit) | Why first: the backup is our copy of the site's code (every page's HTML, scripts, styles, images, sitemaps and a record of every request the page made). Noth... |  |
-| supabase/auth-settings.md | platform-build | 56 | Supabase Auth settings: what every project must have, and when each was checked | Why this file exists: `docs/blueprint/24-GAP-HUNT.md` C ("Auth configuration ... nothing recorded; anyone could sign up today and burn the mail quota") and `... |  |
+| supabase/auth-settings.md | platform-build | 58 | Supabase Auth settings: what every project must have, and when each was checked | Why this file exists: `docs/blueprint/24-GAP-HUNT.md` C ("Auth configuration ... nothing recorded; anyone could sign up today and burn the mail quota") and `... |  |
 | supabase/ops/README.md | platform-build | 118 | supabase/ops: backups, the restore drill, alerts | Step 6 prep (brief `factory/briefs/6-0-production-prep.md`). Specs: `docs/blueprint/11-OPERATIONS.md` sections 1 to 3, `10-DELIVERY.md` section 5, `18-BUDGET... |  |
 | templates/client-questions/README.md | clients | 14 | Client questions: template (sops/clients/client-questions.md, DECISIONS 17) | These files are the model for what a V2 client is asked before launch: ONE sheet of at most 12 questions, plus one short forwardable email. The worked exampl... |  |
 | templates/client-questions/questions-for-CLIENT.md | clients | 49 | Questions for <First name> | <Business name> |  |

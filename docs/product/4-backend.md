@@ -127,7 +127,7 @@ of the workspace (`export-published`, `factory/runner/publish.mjs` step 2), so a
 | `alerts.yml` | hourly | alert queries on staging, mailed to ALERTS_TO when its secrets are set |
 | `backup.yml` | nightly | encrypted dump of staging to two buckets; skipped until the owner sets up the buckets and key |
 | `key-rotation.yml` | monthly | red when an active key is over 90 days old or expires within 14 days |
-| `flows.yml` | by hand only (`gh workflow run`, master or a `check/` branch), one at a time | one dashboard flow of `apps/dashboard/tests` against staging; the result line in the log and the job summary; the output sealed with `FLOWS_REPORT_KEY` for 7 days, no artifact without it |
+| `flows.yml` | by hand only (`gh workflow run`, master or a `check/` branch), one at a time | one dashboard flow of `apps/dashboard/tests` against staging; the result line in the log and the job summary; the output sealed with `FLOWS_REPORT_KEY` for 7 days, no artifact without it. First runs 2026-11-13: 43362508531 (1 passed), 43363096511 (red with its seeded fault), two refusals (a flow that sends a lead with no signing key set; a grep outside the allowed letters), the seal opened with the key and refused a wrong one |
 
 `.github/production/` holds `promote.yml`, the production backup and the production alerts, which run only in the separate production repository.
 
