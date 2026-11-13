@@ -126,7 +126,7 @@ export async function addLead(l: NewLead): Promise<string> {
   return out.lead;
 }
 
-export type Draft = { row: string; collection: string; newest: number; published: number | null; editedBy: string | null; editedAt: string };
+export type Draft = { row: string; collection: string; newest: number | null /* null: a live item deleted or taken off (book row B12) */; published: number | null; editedBy: string | null; editedAt: string };
 
 /** drafts: the rows with changes waiting to be published (an agent gets only the rows they could publish). 200 { drafts }. */
 export async function fetchDrafts(site: string): Promise<Draft[]> {
@@ -154,6 +154,11 @@ export async function saveItem(s: ItemSave): Promise<{ row: string; version: num
 /** unpublish: Delete on an item (owner or staff): a soft delete, off the site with the next publish, its versions kept. 204. */
 export async function deleteItem(row: string): Promise<void> {
   await call('unpublish', { row });
+}
+
+/** unpublish { off } or { back }: take an item off the site (kept, marked) or put it back (book row B12). 204. */
+export async function setOnSite(row: string, back: boolean): Promise<void> {
+  await call('unpublish', back ? { row, back: true } : { row, off: true });
 }
 
 export type Published = { job: string; state: string; dispatched: boolean; reason?: string };

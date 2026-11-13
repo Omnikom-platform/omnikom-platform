@@ -33,7 +33,7 @@ export function PublishSheet({ site, jobs, onClose }: { site: Site; jobs: { jobs
   const publish = async () => {
     setBusy(true); setNotice(''); setWrong([]);
     try {
-      const out = await publishRows(site.id, drafts.map(d => d.row), drafts.map(d => d.newest));
+      const out = await publishRows(site.id, drafts.filter(d => d.newest !== null).map(d => d.row), drafts.flatMap(d => (d.newest === null ? [] : [d.newest])));
       setStarted(out.job);
       if (!out.dispatched && out.reason) setNotice(out.reason);
       await Promise.all([qc.invalidateQueries({ queryKey: ['jobs'] }), qc.invalidateQueries({ queryKey: ['drafts'] })]);
@@ -64,7 +64,7 @@ export function PublishSheet({ site, jobs, onClose }: { site: Site; jobs: { jobs
           <ul data-plan="DP-1.4c-01">
             {drafts.map(d => (
               <li key={d.row}>
-                {nameOfRow(d.row)}<span>{who(d.editedBy)} <time dateTime={d.editedAt}>{receivedWords(d.editedAt)}</time></span>
+                {nameOfRow(d.row) || contract.collections[d.collection]?.label}{d.newest === null && <> <mark data-plan="DP-1.4c-10">leaves the site</mark></>}<span>{who(d.editedBy)} <time dateTime={d.editedAt}>{receivedWords(d.editedAt)}</time></span>
               </li>
             ))}
           </ul>

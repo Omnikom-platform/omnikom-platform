@@ -243,3 +243,11 @@ describe('the preview site (B15)', () => {
     expect(leftOutLine(contract, undefined, 'seo.title')).toBe('A saved change: Title is not filled in yet.');
   });
 });
+
+describe('putting the site back leaves an item taken off since alone (B12-b)', () => {
+  it('an item taken off the site since that publish gets no step; the same item on the site gets one', () => {
+    const row = (off: string | null) => [{ id: 'off', collection: 'listings', published_version: 2, off_site_at: off, newest: { n: 3, data: { heading: 'new' } } }];
+    expect(restoreSteps({ off: 2 }, row('2026-11-12T10:00:00Z'), { off: { heading: 'old' } })).toEqual([]);
+    expect(restoreSteps({ off: 2 }, row(null), { off: { heading: 'old' } })).toEqual([{ row: 'off', collection: 'listings', base: 3, data: { heading: 'old' } }]);
+  });
+});

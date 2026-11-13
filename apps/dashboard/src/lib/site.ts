@@ -309,11 +309,11 @@ export function checksLine(job: Pick<Job, 'gate_report'>): string {
 }
 export type RestoreStep = { row: string; collection: string; base: number; data: Record<string, unknown> | null };
 /** DP-1.4c-08 item by item (`snapshot`: that publish's { row: version }; `old`: each such version's content that is not the item's newest). Newest
- *  holds it: published at it (data null); else saved as a NEW version on top. Left out: published as it was, deleted or added since. */
-export function restoreSteps(snapshot: Record<string, number>, rows: { id: string; collection: string; published_version: number | null; newest: { n: number; data: Record<string, unknown> } | null }[], old: Record<string, Record<string, unknown>>): RestoreStep[] {
+ *  holds it: published at it (data null); else saved as a NEW version on top. Left out: published as it was, deleted, taken off or added since. */
+export function restoreSteps(snapshot: Record<string, number>, rows: { id: string; collection: string; published_version: number | null; off_site_at?: string | null; newest: { n: number; data: Record<string, unknown> } | null }[], old: Record<string, Record<string, unknown>>): RestoreStep[] {
   const steps: RestoreStep[] = [];
   for (const [id, n] of Object.entries(snapshot)) {
-    const r = rows.find(x => x.id === id); if (!r?.newest) continue;
+    const r = rows.find(x => x.id === id); if (!r?.newest || r.off_site_at) continue;   // taken off since that publish: left alone (B12-b)
     const was = r.newest.n === n ? r.newest.data : old[id];
     if (!was) throw new Error(`version ${n} of ${r.collection} ${id} could not be read`);
     const same = sameData(was, r.newest.data); if (same && r.published_version === r.newest.n) continue;

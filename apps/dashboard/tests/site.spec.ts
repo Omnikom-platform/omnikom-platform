@@ -347,3 +347,34 @@ test.describe('B15 the preview site as the owner', () => {
     } finally { const now = await contact(); if (heading(now.data) !== old) await saveAsOwner(now, old); }   // the saved heading is left as found
   });
 });
+
+// ---------- book row B12 part b: a live listing taken off stays listed and marked, leaves the live site at the publish (its address is the site's 404 page), is put back ----------
+test.describe('B12 take an item off the site as the owner', () => {
+  test.use({ storageState: '.auth/owner-a.json', viewport: { width: 390, height: 844 } });
+  test('taken off, marked, published away, the address answers 404, put back', async ({ page }) => {
+    test.setTimeout(3_600_000); await installSiteMutant(page, 'off-lost');   // two publishes, each within the workflow's 30 minutes
+    const reset = await removeRows((await resetPlan()).remove.map(r => r.id)); expect(reset.filter(r => !r.ok), 'the reset removed every row it meant to').toEqual([]);
+    const seed = (await serviceGet<{ content_versions: { n: number; data: Record<string, unknown> }[] }[]>(`/content_rows?workspace_id=eq.${WS.a.id}&collection=eq.listings&deleted_at=is.null&off_site_at=is.null&published_version=not.is.null&select=content_versions(n,data)&limit=1`))[0];
+    if (!seed) throw new Error('BLOCKED: staging workspace A has no live listing (sites/test-demo-a/stage.mjs)');
+    const base = [...seed.content_versions].sort((a, b) => b.n - a.n)[0]!.data, street = `b12 ${RUN} off`, slug = `b12-off-${RUN}`, owner = await personAccessToken('owner-a'), addr = `https://preview.test-site-demo-a.pages.dev/listings/${slug}/`;
+    const made = await callAs(owner, 'save', { workspace: WS.a.id, collection: 'listings', row: null, data: { ...base, street, slug, seo: { ...(base.seo as object), title: street, description: `${street}: a test listing of the B12 flow, taken off the site again.` } } });   // unique title and description (tools/audit/checks/met-002.mjs:24)
+    expect(made.status, `save answered ${made.status}: ${made.text.slice(0, 120)}`).toBe(200); const id = (made.json as { row: string }).row;
+    const row = async () => (await serviceGet<{ off_site_at: string | null; published_version: number | null }[]>(`/content_rows?id=eq.${id}&select=off_site_at,published_version`))[0];
+    const live = (n: number | null, message: string) => expect.poll(async () => (await row())?.published_version ?? null, { message, timeout: 1_500_000, intervals: [15_000] }).toBe(n);
+    try {
+      expect((await callAs(owner, 'publish', { site: WS.a.site, rows: [id], versions: [1] })).status, 'the first publish is taken').toBe(202); await live(1, 'live after the first publish');
+      expect((await fetch(addr, { signal: AbortSignal.timeout(30_000) })).status, 'the listing answers at its address').toBe(200);
+      await page.goto(`/w/${WS.a.slug}/site/listings/${id}`); await page.getByRole('button', { name: 'Take off the site', exact: true }).click();
+      await expect(page.getByRole('status').last()).toContainText(`Taken off the site: ${street}.`); await ok(page, { required: ['DP-1.4-24'] });
+      await expect.poll(async () => (await row())?.off_site_at ?? null, { message: 'the row is marked off the site (off_site_at set)' }).not.toBeNull(); expect((await row())?.published_version, 'still live').toBe(1);
+      await page.goto(`/w/${WS.a.slug}/site`); await expect(page.getByRole('listitem').filter({ hasText: street })).toContainText('off the site'); await ok(page, { required: ['DP-1.4-25'] });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'no sideways scroll at 390 px').toBe(true);
+      await page.getByRole('button', { name: /^Publish \d+ changes?$/ }).click({ timeout: 30_000 }); const sheet = page.getByRole('dialog');
+      await expect(sheet.getByRole('listitem').filter({ hasText: street })).toContainText('leaves the site'); await ok(page, { required: ['DP-1.4c-10'] });
+      await sheet.getByRole('button', { name: 'Publish', exact: true }).click(); await live(null, 'off the live site after the publish');
+      const gone = await fetch(addr, { signal: AbortSignal.timeout(30_000) }); expect(gone.status, 'its address answers 404').toBe(404); expect(await gone.text(), 'the site\'s own 404 page').toContain('Page not found: ');
+      await page.goto(`/w/${WS.a.slug}/site/listings/${id}`); await page.getByRole('button', { name: 'Put back on the site', exact: true }).click();
+      await expect.poll(async () => (await row())?.off_site_at ?? null, { message: 'put back (off_site_at cleared)' }).toBeNull();
+    } finally { if (((await row())?.published_version ?? null) === null) { const left = await removeRows([id]); expect(left[0]?.ok, `the b12 row must be removed: ${left[0]?.message}`).toBe(true); } }   // still live after a red: the run sheet's undo
+  });
+});
