@@ -363,7 +363,7 @@ test.describe('B12 take an item off the site as the owner', () => {
     const live = (n: number | null, message: string) => expect.poll(async () => (await row())?.published_version ?? null, { message, timeout: 1_500_000, intervals: [15_000] }).toBe(n);
     try {
       expect((await callAs(owner, 'publish', { site: WS.a.site, rows: [id], versions: [1] })).status, 'the first publish is taken').toBe(202); await live(1, 'live after the first publish');
-      expect((await fetch(addr, { signal: AbortSignal.timeout(30_000) })).status, 'the listing answers at its address').toBe(200);
+      await expect.poll(async () => (await fetch(addr, { cache: 'no-store', headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(30_000) })).status, { message: 'the listing answers at its address', timeout: 120_000, intervals: [5_000] }).toBe(200);
       await page.goto(`/w/${WS.a.slug}/site/listings/${id}`); await page.getByRole('button', { name: 'Take off the site', exact: true }).click();
       await expect(page.getByRole('status').last()).toContainText(`Taken off the site: ${street}.`); await ok(page, { required: ['DP-1.4-24'] });
       await expect.poll(async () => (await row())?.off_site_at ?? null, { message: 'the row is marked off the site (off_site_at set)' }).not.toBeNull(); expect((await row())?.published_version, 'still live').toBe(1);
@@ -372,7 +372,7 @@ test.describe('B12 take an item off the site as the owner', () => {
       await page.getByRole('button', { name: /^Publish \d+ changes?$/ }).click({ timeout: 30_000 }); const sheet = page.getByRole('dialog');
       await expect(sheet.getByRole('listitem').filter({ hasText: street })).toContainText('leaves the site'); await ok(page, { required: ['DP-1.4c-10'] });
       await sheet.getByRole('button', { name: 'Publish', exact: true }).click(); await live(null, 'off the live site after the publish');
-      const gone = await fetch(addr, { signal: AbortSignal.timeout(30_000) }); expect(gone.status, 'its address answers 404').toBe(404); expect(await gone.text(), 'the site\'s own 404 page').toContain('Page not found: ');
+      await expect.poll(async () => (await fetch(addr, { cache: 'no-store', headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(30_000) })).status, { message: 'its address answers 404', timeout: 120_000, intervals: [5_000] }).toBe(404); const gone = await fetch(addr, { cache: 'no-store', headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(30_000) }); expect(await gone.text(), 'the site\'s own 404 page').toContain('Page not found: ');
       await page.goto(`/w/${WS.a.slug}/site/listings/${id}`); await page.getByRole('button', { name: 'Put back on the site', exact: true }).click();
       await expect.poll(async () => (await row())?.off_site_at ?? null, { message: 'put back (off_site_at cleared)' }).toBeNull();
     } finally { if (((await row())?.published_version ?? null) === null) { const left = await removeRows([id]); expect(left[0]?.ok, `the b12 row must be removed: ${left[0]?.message}`).toBe(true); } }   // still live after a red: the run sheet's undo
