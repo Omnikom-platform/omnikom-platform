@@ -96,7 +96,11 @@ flowchart LR
   proven staging setup: its own Supabase project, changed only by the owner-run `promote` workflow, which lives in a separate
   private production repository (the working repository never holds a production key) and takes the exact commit to ship.
   `promote` checks production's pending migrations equal staging's proven list, dumps and encrypts first, applies with
-  `apply-staging.mjs --i-mean-production`, deploys the same functions and runs read-only smoke checks.
+  `apply-staging.mjs --i-mean-production`, deploys the same functions and runs read-only smoke checks. Everything else is made by
+  `supabase/ops/bring-up.mjs --env production` (row E2): the extensions, every Auth setting, the function secrets the code reads, the
+  dashboard's Pages project, domain and build, and the production repository's secrets. It reads first, changes only what differs
+  (a dry run unless `--apply --i-mean-production`), and a second run changes nothing; its wanted values live in
+  `supabase/ops/environments.json`.
 - Production data is never copied down. Every environment has its own keys. Previews are always noindex.
 
 ## Budget: free tiers first

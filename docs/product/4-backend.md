@@ -148,8 +148,11 @@ a Vault name. A script reads a key by its variable name from the git-ignored `.e
 | Mail outbox key | function environment and Vault `mail_outbox_key` | pg_cron to `mail-outbox` |
 | Resend webhook signing secret | function environment | `mail-events` |
 
-Variable names a script expects: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY` (suffix `_STAGING` or
-`_PROD`), `STAGING_DB_URL`, `PROD_DB_URL`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `RUNNER_KEY`,
+Variable names a script expects: per environment with the prefix `STAGING_` or `PROD_` (`tools/omnikom-cli/lib/target.mjs`),
+`<prefix>DB_URL`, `<prefix>SUPABASE_REF`, `<prefix>SUPABASE_SECRET_KEY`, `<prefix>SUPABASE_PUBLISHABLE_KEY`; for production the
+bring-up (`supabase/ops/bring-up.mjs`) also reads `PROD_MAIL_FROM` (the platform's sender, the owner's pick), `PROD_GITHUB_REPO`
+(the production repository), `PROD_RUNNER_KEY`, `PROD_ALERTS_TO` (optional) and `PROD_<NAME>` for every other function secret but
+the shared `RESEND_API_KEY`, `PSI_API_KEY`, `CRUX_API_KEY` and `BING_WEBMASTER_KEY`; then `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `RUNNER_KEY`,
 `GITHUB_DISPATCH_TOKEN_V2`, `GITHUB_DISPATCH_TOKEN`, `CRON_KEY`, `PSI_API_KEY`, `CRUX_API_KEY`, `BING_WEBMASTER_KEY`, `RESEND_API_KEY`, `LEAD_ALERT_FROM`, `ALERTS_TO`, `DASHBOARD_URL`, `MAIL_OUTBOX_KEY`, `RESEND_WEBHOOK_SECRET`, `SITE_SIGNING_KEY_<SLUG>` (minted by
 `tools/mint-site-key.mjs`), `PLATFORM_FUNCTIONS_BASE`, `CLOUDFLARE_PAGES_TOKEN`. Production keys are used only with
 `--i-mean-production`.
@@ -158,4 +161,6 @@ Variable names a script expects: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABAS
 
 `tools/apply-staging.mjs` applies migrations to staging and keeps a ledger with each file's sha256; it refuses a migration whose
 content changed after it was applied. `tools/deploy-functions.mjs` deploys the Edge Functions. Production receives only what
-staging proved, through the owner-run `promote` workflow (`2-architecture.md`).
+staging proved, through the owner-run `promote` workflow (`2-architecture.md`). Everything else a project needs (extensions,
+Auth settings, function secrets, the dashboard, the production repository's secrets) is made by `supabase/ops/bring-up.mjs
+--env staging|production`, which changes only what differs (`2-architecture.md`).

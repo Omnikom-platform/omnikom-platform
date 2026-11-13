@@ -132,7 +132,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | Feature | State | Missing half, or where it lives |
 |---|---|---|
 | E1 Backups and restore: database, media, Vault; a scheduled restore drill | MISSING | `backup.yml` off, production backup not installed, media and Vault in no dump (H1-1, H2-12) |
-| E2 Production made from staging by script (dashboard, secrets, Auth settings, runner) | MISSING | `promote.yml` covers migrations and functions only (H1-2) |
+| E2 Production made from staging by script (dashboard, secrets, Auth settings, runner) | PARTLY | supabase/ops/bring-up.mjs reads a project and its dashboard and changes only what differs: extensions, every Auth setting, the function secrets the code reads, the Pages project, domain and build, the production repository's secrets; promote.yml moves migrations and functions; a second run changes nothing (supabase/ops/test/bring-up.test.mjs, against fakes); production UNPROVEN until it exists (owner) |
 | E3 Monitoring: alerts delivered, error reporting, a request id per call | PARTLY | every function answers through serve() (`supabase/functions/_shared/http.ts`): its request id in the x-request-id header, in every problem (request_id) and first in every log line of the call; a 5xx answer is counted in function_errors (migration 32, tenancy T38; kept 30 days, cleaned on write); seven hourly alerts, function-errors among them, mail the address named by ALERTS_TO once per alert and day (`supabase/ops/alerts.mjs --send`); staging delivery UNPROVEN until the head's run sheet; production waits on its repository and its on-call address |
 | E4 Background jobs: the stale-job reaper scheduled, a mail outbox worker, retries | PARTLY | the reaper runs every 5 minutes on staging (H0-1, work order 13); the lead alert waits in `mail_outbox` and the `mail-outbox` function sends it, run every minute by pg_cron (migration 29): a 10 s timeout, 6 tries, a capped alert the next day, never to a suppressed address (tenancy T35, `supabase/functions/test/outbox.test.ts`); staging UNPROVEN until the head's run sheet (H1-4) |
 | E5 Abuse protection: per-visitor limits and a bot check at the edge; bounded security events | PARTLY | security events are bucketed per source, function and minute, at most 11 new rows a minute per kind from anonymous callers (H0-2, work order 15, migration 20, walls T26a-e); staging 2026-11-09: 25 bad-signature posts to capture-lead on one fresh site wrote 2 security_events rows (2 minute buckets, n 14 and 11), where the same flood wrote 25 before; per visitor: the site endpoint puts sha256 of "<site id>:<visitor address>" in the signed path and capture-lead lets one visitor of a site send 5 leads an hour (`leads_per_hour_visitor`, per workspace in `workspace_limits`; migration 30, tenancy T36); staging 2026-11-13: with the test workspace's own limit set to 1, two posts to the test site's `/api/lead` answered 200 `{"sent":true}` and then 429, one lead stored with one 64-character hash, `visitor_counts` n 1, one quota security event, the limit and the lead removed after; no bot challenge is built: the forms work with no script (`7-sites.md` "Forms that feed the CRM") and every challenge needs one; the hidden field `hp` is refused at the endpoint and in capture-lead; many addresses together are still bounded only by the workspace's 60 an hour; the limit at the edge before any function runs (rule 30, `11-rules.md` lines 100 to 102) is not built: every signed post still costs a database connection (KNOWN-1) |
@@ -160,8 +160,8 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B Dashboard | 15 | 7 | 0 | 22 |
 | C Backend and database | 15 | 2 | 0 | 17 |
 | D Factory and forms | 10 | 0 | 0 | 10 |
-| E Hardening | 8 | 11 | 2 | 21 |
-| Total | 74 | 20 | 2 | 96 |
+| E Hardening | 8 | 12 | 1 | 21 |
+| Total | 74 | 21 | 1 | 96 |
 
 Completion is reported from these counts only.
 
