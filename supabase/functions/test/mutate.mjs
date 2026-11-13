@@ -399,6 +399,12 @@ const MUTANTS = [
   ['media-manage: a refused delete is committed, not rolled back', F + 'media-manage/index.ts', 'if (refused) throw new Error(', 'if (false) throw new Error(', 'media-manage.test.ts'],
   ['media-manage: Storage has no time limit', F + 'media-manage/index.ts', ', signal: AbortSignal.timeout(10000) })', ' })', 'media-manage.test.ts'],
   ['media-manage: a file in use is a server error, not 409', F + '_shared/db.ts', "  if (has('S-MEDIA-IN-USE')) return", '  if (false) return', 'media-manage.test.ts'],
+  // ---- E13-d: publish validation in 3 statements ----
+  ['E13-d validate: the batch\'s photos are not kept', F + '_shared/validate.ts', '      for (const g of got) this.files.set(askFiles[Number(g.i) - 1], g.facts ?? null);', '      void got;', 'publish-batch.test.ts'],
+  ['E13-d validate: the batch\'s references are not kept', F + '_shared/validate.ts', '      for (const g of got) this.refs.set(askRefs[Number(g.i) - 1][0], g.ok === true);', '      void got;', 'publish-batch.test.ts'],
+  ['E13-d publish: nothing is asked before the rows are checked', F + 'publish/index.ts', "  await validator.prefetch(pinned, 'publish');\n", '', 'publish-batch.test.ts'],
+  ['E13-d publish: a problem names the next row', F + 'publish/index.ts', 'row: rows[v.i - 1] }', 'row: rows[v.i] }', 'publish-batch.test.ts'],
+  ['E13-d validate: the cap is below a full publish', F + '_shared/validate.ts', 'const MAX_LOOKUPS = 2000;', 'const MAX_LOOKUPS = 199;', 'publish-batch.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
