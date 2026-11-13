@@ -1,13 +1,13 @@
 # Where things stand
 
-Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 20. Every feature's
+Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 22. Every feature's
 state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (rewritten for the method below at batch
 13). Getting back in: `resume\RESUME.md`.
 
 ## Now
-- Product: 79 of 97 rows WORK, 18 PARTLY, 0 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
-  18, 5, 0 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 10, 11, 0 of 21.
-- The order (owner, 2026-11-13): the owed proof runs are done; now one build job at a time: 7 rows to build (B18, B24, B25,
+- Product: 80 of 97 rows WORK, 17 PARTLY, 0 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
+  19, 4, 0 of 23; backend 15, 2, 0 of 17; factory 10, 0, 0 of 10; hardening 10, 11, 0 of 21.
+- The order (owner, 2026-11-13): the owed proof runs are done; now one build job at a time: 6 rows to build (B18, B24,
   C11's request, E5's limit at the edge, E12's rest, E13).
 - The platform build is open (owner, 2026-11-12); the refactor of how we work is closed at what is built. One head of
   operations orients, rules, takes in and lands; it never builds. Every job: a written hand-over that names its product row
@@ -22,7 +22,7 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (r
   it off the site (B12), a photo to the published site (B13, C8), past publishes (B11), the instant frame and the
   preview site (B15, part), the media library with replace and delete (B14), Search health (B24, part), a failed
   check read line by line and a search text under its minimum refused (B10, B9), a failed draft removed (B15),
-  a removed item answering 404 at its old address from the site's own function for 7 days (B12).
+  a removed item answering 404 at its old address for 7 days (B12), photo sizes a delete left behind removed (B25).
 - Backend and hardening: the mail outbox (E4), lead limits and the hold at the site's endpoint (E5), bounces (E21), request
   ids and hourly alerts (E3), plan limits (E16), the pooler (E6), headers (E7), publish smoke and rollback (E8), the
   workflow-only token path (E9), retention, purge and growth budgets (E12, migration 46), rich text (E18), staff windows
@@ -32,14 +32,14 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (r
   staging walls read only the run's own rows and now pass whole; the search audit's tool (the audit lane's four landings).
 
 ## Not landed
-- Nothing is committed and waiting. One tool fault needs a hand-over: the CLI's held-port check fails on a busy runner.
+- Nothing is committed and waiting. Two runner-dependent checks need hand-overs: the CLI's held port, the audit harness.
 
 ## Staging (the test project), 2026-11-13
-- Migrations through 48 applied in number order; 32 functions from master 0eeef26, three of them (save, publish,
+- Migrations through 49 applied in number order; 32 functions from master 0eeef26, three of them (save, publish,
   media-manage) and the dashboard from a554dfd; the flows of the media library (B14), the preview site (B15), the publish
   sheet (B10, B9), the taken-off page (B12) and the earlier ones passed and went red with their seeded faults; the 22
   Auth settings read back (E11); E4's alert read in the test inbox, its link opens the lead; E5's hold measured (1 of 22
-  posts reached the platform); the walls pass whole (T1 to T48), migration 48's 22 indexes present, none invalid.
+  posts reached the platform); the walls pass whole (T1 to T49), migration 48's 22 indexes present, none invalid.
 - Owed, each by the head's run sheet: E16's limits; E3's alerts (an owner item first).
 
 ## Migrations
