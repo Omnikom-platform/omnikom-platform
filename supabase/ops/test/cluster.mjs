@@ -24,7 +24,9 @@ export function startCluster(label = 'ops') {
   const data = join(dir, 'data');
   const r = run('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-locale', '-E', 'UTF8']);
   if (r.status !== 0) { guard.release(); throw new Error(`initdb failed: ${r.stderr || r.error}`); }
-  const started = startOnBlock('ops-cluster', { data, log: join(dir, 'pg.log'), run, used });   // 5-PORT: port block, listen pin, bind fallback; `used` keeps two clusters of this process apart
+  // stdio ignore: on Windows the server inherits pg_ctl's pipes and spawnSync waits for them until its 300 s limit, per cluster (E2,
+  // 2026-11-13: the promote-check test sat 10 minutes idle); the bind check reads the server log, as 6b-cluster.mjs does
+  const started = startOnBlock('ops-cluster', { data, log: join(dir, 'pg.log'), run, used, opts: { stdio: 'ignore' } });   // 5-PORT: port block, listen pin, bind fallback; `used` keeps two clusters of this process apart
   if (!started.ok) {
     guard.release();
     throw new Error(`pg_ctl start failed: ${started.stderr}\n${started.log}`);
