@@ -11,11 +11,13 @@ writeFileSync(e.FAKE_WRANGLER_RECORD, JSON.stringify({
   accountOk: !!e.FAKE_EXPECT_ACCOUNT && e.CLOUDFLARE_ACCOUNT_ID === e.FAKE_EXPECT_ACCOUNT,
   hasRunnerKey: 'RUNNER_KEY' in e, hasPagesToken: 'CLOUDFLARE_PAGES_TOKEN' in e, hasBase: 'PLATFORM_FUNCTIONS_BASE' in e,
   leadFunction: existsSync('functions/api/lead.js'), leadEndpoint: existsSync('functions/api/lead-endpoint.mjs'),
+  draftGate: ['_middleware.js', 'draft-gate.mjs', 'draft-gate-key.mjs'].every((f) => existsSync(`functions/${f}`)),
 }));
 console.log(`debug: authenticating with token ${e.CLOUDFLARE_API_TOKEN} for account ${e.CLOUDFLARE_ACCOUNT_ID}`);
 const mode = e.FAKE_WRANGLER_MODE || 'ok';
 if (mode === 'fail') { console.error('X [ERROR] A request to the Cloudflare API (/accounts/x/pages/projects/y) failed.'); process.exit(1); }
 if (e.FAKE_WRANGLER_DEPLOY_DIR) { mkdirSync(e.FAKE_WRANGLER_DEPLOY_DIR, { recursive: true }); cpSync(argv[2], e.FAKE_WRANGLER_DEPLOY_DIR, { recursive: true }); }
+if (e.FAKE_WRANGLER_DEPLOY_DIR && existsSync('functions')) cpSync('functions', `${e.FAKE_WRANGLER_DEPLOY_DIR}-functions`, { recursive: true });   // B15-b3: the fake site runs a deployed draft gate
 if (mode === 'nourl') { console.log('Done.'); process.exit(0); }
 const project = argv[argv.indexOf('--project-name') + 1];
 console.log('Success! Uploaded 40 files (1.20 sec)');

@@ -53,8 +53,8 @@ const MUTANTS = [
   ['launch: a preview has no noindex header', `${F}lib/launch.mjs`, "...(preview ? ['  X-Robots-Tag: noindex, nofollow'] : []),", '...([]),'],
   ['launch: a live site gets the noindex header', `${F}lib/launch.mjs`, '...(preview ? [', '...(true ? ['],
   ['launch: the origin ignores the domain of a live site', `${F}lib/launch.mjs`, "site.state === 'live' && site.domain ? ", 'false ? '],
-  ['launch: a live site counts as a preview', `${F}lib/launch.mjs`, "export const isPreview = (site) => site.state !== 'live';", 'export const isPreview = (site) => true;'],
-  ['launch: a preview does not count as a preview', `${F}lib/launch.mjs`, "export const isPreview = (site) => site.state !== 'live';", 'export const isPreview = (site) => false;'],
+  ['launch: a live site counts as a preview', `${F}lib/launch.mjs`, "export const isPreview = (site, draft = false) => draft || site.state !== 'live';", 'export const isPreview = (site, draft = false) => true;'],
+  ['launch: a preview does not count as a preview', `${F}lib/launch.mjs`, "export const isPreview = (site, draft = false) => draft || site.state !== 'live';", 'export const isPreview = (site, draft = false) => draft;'],
   ['launch: robots.txt has no Sitemap line', `${F}lib/launch.mjs`, 'Allow: /\\nSitemap: ${origin}/sitemap.xml\\n', 'Allow: /\\n'],
   ['launch: robots.txt disallows everything', `${F}lib/launch.mjs`, 'User-agent: *\\nAllow: /', 'User-agent: *\\nDisallow: /'],
   ['launch: the sitemap lastmod is not the build clock', `${F}lib/launch.mjs`, '<lastmod>${builtAt}</lastmod>', '<lastmod>2020-01-01T00:00:00Z</lastmod>'],
@@ -125,6 +125,8 @@ const MUTANTS = [
   ['rich: no value prints "undefined"', `${F}lib/html.mjs`, "const s = v == null ? '' : String(v);", 'const s = String(v);'],
   ["design gate: a module's plain string is printed", `${F}lib/html.mjs`, 'if (!(v instanceof Raw)) throw new Error(', 'if (false) throw new Error('],
   ['render (B15): the renderer imports a node module', `${F}lib/render.mjs`, "import { referenceOptions } from './fields.mjs';", "import { referenceOptions } from './fields.mjs';\nimport 'node:fs';"],
+  ['launch (B15): a preview build of a live site is indexable', `${F}lib/launch.mjs`, "draft || site.state !== 'live';", "site.state !== 'live';"],
+  ['launch (B15): a preview build keeps the site origin', `${F}lib/launch.mjs`, '(draft ? `https://draft.', '(false ? `https://draft.'],
 ];
 
 // the layout the tests expect next to the factory: contracts/ (code only), sites/test-demo-a/, factory/ (no briefs, no worker)

@@ -7,17 +7,19 @@
 //   GET  /storage/...                               the media files (signed-URL stand-ins, with a ?token=)
 //   PUT  /storage/upload/...                        recorded bodies of the three WebP sizes
 //   GET  /site/...                                  the "deployed" folder (cfg.siteDir) with its _headers applied
-//   GET  /deploy/...                                the same folder, the same cfg: the deployment's own address (work order E8, RUNNER_SMOKE_DEPLOY_URL); hits in log.deployHits
+//   GET  /deploy/...                                the same folder, the same cfg: the deployment's own address (work order E8, RUNNER_SMOKE_DEPLOY_URL); hits in log.deployHits; a deployed draft gate answers first (B15-b3; cfg.gateOff: no gate up, cfg.gateKeepsToken: its redirect keeps k, cfg.gateServesLink: the link gets the page, no redirect); GET .../deployments (page 1 full of others, page 2 the draft's; cfg.cf.list replaces page 2, cfg.cf.pages every page, cfg.cf.listStatus refuses) and DELETE .../deployments/<id> (cfg.cf.deleteStatus refuses)
 //   POST /cf/.../deployments/<id>/rollback          the Pages rollback of work order E8: 200 { success: true }, or cfg.cf.rollbackStatus with success false (the call is logged in log.cfCalls)
 // Every signed call is checked with the PLATFORM'S OWN verify (supabase/functions/_shared/signature.ts, run by Node's type stripping).
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join, extname } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 export const FUNCTIONS_PREFIX = '/functions/v1';
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.xml': 'application/xml', '.txt': 'text/plain', '.png': 'image/png', '.json': 'application/json' };
 
 export const CANONICAL = 'c0c0c0c0-0000-4000-8000-000000000001';   // the production deployment the fake project says is live (cfg.cf.canonical changes it, null = none)
+export const DRAFT_DEPLOYMENT = { id: '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d', short_id: '1a2b3c4d', url: 'https://1a2b3c4d.test-site-demo-a.pages.dev', environment: 'preview', aliases: ['https://draft.test-site-demo-a.pages.dev'] }, NOT_THIS_DRAFT = [{ id: '1a2b3c4e-0000-4000-8000-000000000001', short_id: '1a2b3c4e' }, { id: '9f9f9f9f-0000-4000-8000-000000000002', short_id: '1a2b3c4d' }, { id: '1a2b3c4d-0000-4000-8000-000000000003', short_id: 'f0f0f0f0' }];   // B15-b3 (R3): the draft fake-wrangler made, and three that are not it (the first fails both tests, the others one each)
 
 export async function startFake({ runnerKey, verify, cfg }) {
   const log = { exportCalls: [], callbacks: [], mediaExports: [], mediaCallbacks: [], uploads: [], downloads: [], siteHits: [], deployHits: [], cfCalls: [] };
@@ -72,6 +74,8 @@ export async function startFake({ runnerKey, verify, cfg }) {
           if (c.rollbackStatus) return send(c.rollbackStatus, { success: false, errors: [{ code: 8000000, message: 'refused by the fake' }] });
           return send(200, { success: true, result: { id: u.pathname.split('/').slice(-2)[0] } });
         }
+        if (req.method === 'GET' && u.pathname.endsWith('/deployments')) return c.listStatus ? send(c.listStatus, { success: false, errors: [{ code: 8000000, message: 'refused by the fake' }] }) : send(200, { success: true, result: (c.pages || [Array(25).fill(NOT_THIS_DRAFT[0]), c.list || [...NOT_THIS_DRAFT, DRAFT_DEPLOYMENT]])[Number(u.searchParams.get('page')) - 1] || [] });   // B15-b3 (R3): the draft on page 2
+        if (req.method === 'DELETE') return c.deleteStatus ? send(c.deleteStatus, { success: false, errors: [{ code: 8000000, message: 'refused by the fake' }] }) : send(200, { success: true, result: null });   // B15-b3 (R2)
         if (c.failFirst && log.cfCalls.length <= c.failFirst) return send(503, 'busy');
         if (c.status && c.status !== 200) return send(c.status, { success: false, errors: [{ code: 10000, message: 'Authentication error' }] });
         const names = c.names || { preview: ['SITE_ID', 'SITE_SIGNING_KEY', 'PLATFORM_BASE'], production: ['SITE_ID', 'SITE_SIGNING_KEY', 'PLATFORM_BASE'] };
@@ -91,6 +95,12 @@ export async function startFake({ runnerKey, verify, cfg }) {
       if (u.pathname.startsWith('/site/') || u.pathname.startsWith('/deploy/')) {   // the site's address and the deployment's own address: one folder, one cfg
         const at = u.pathname.startsWith('/deploy/') ? '/deploy/' : '/site/';
         (at === '/deploy/' ? log.deployHits : log.siteHits).push(u.pathname);
+        const fns = `${cfg.siteDir}-functions`;   // B15-b3: the deployed draft gate runs first, as Pages runs functions/_middleware.js
+        if (!cfg.gateOff && existsSync(join(fns, 'draft-gate-key.mjs'))) {
+          const [{ makeDraftGate }, { GATE }] = await Promise.all([import(pathToFileURL(join(fns, 'draft-gate.mjs')).href), import(pathToFileURL(join(fns, 'draft-gate-key.mjs')).href)]);
+          const g = await makeDraftGate(GATE)(new Request(`http://x${req.url}`, { headers: { cookie: req.headers.cookie || '' } }), async () => new Response(null));
+          if (g.status !== 200 && !(cfg.gateServesLink && g.status === 302)) return send(g.status, await g.text(), { ...Object.fromEntries(g.headers), ...(cfg.gateKeepsToken && g.status === 302 ? { location: req.url } : {}) });
+        }
         const status = cfg.siteStatus || 200;         // an error status still serves the real page and headers: only the status is wrong
         const rel = u.pathname.slice(at.length);
         let file = join(cfg.siteDir, rel);

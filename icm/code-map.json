@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 904,
+    "sources": 906,
     "unowned": 0
   },
   "files": [
@@ -155,14 +155,16 @@
     {"path":"factory/runner/publish.mjs","owner":"platform-build","exports":[],"tests":["factory/runner/test/lib/fake-wrangler.mjs","factory/runner/test/mutate.mjs","factory/runner/test/run.mjs","supabase/tests/e2e-site-audit.mjs","tools/omnikom-cli/test/mutate.mjs"],"feature":""},
     {"path":"factory/runner/test/lib/exif.mjs","owner":"platform-build","exports":["GPS_BYTES","gpsTiff","webpChunks","webpSize","withExif"],"tests":[],"feature":""},
     {"path":"factory/runner/test/lib/fake-gh.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
-    {"path":"factory/runner/test/lib/fake-platform.mjs","owner":"platform-build","exports":["CANONICAL","FUNCTIONS_PREFIX","startFake"],"tests":[],"feature":""},
+    {"path":"factory/runner/test/lib/fake-platform.mjs","owner":"platform-build","exports":["CANONICAL","DRAFT_DEPLOYMENT","FUNCTIONS_PREFIX","startFake"],"tests":[],"feature":""},
     {"path":"factory/runner/test/lib/fake-wrangler.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/runner/test/mutate.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/runner/test/run.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/test/make-export.mjs","owner":"platform-build","exports":["FIXTURE","makeExport","uuidOf"],"tests":[],"feature":""},
     {"path":"factory/test/mutate.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/test/run.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"factory/worker/draft-gate.mjs","owner":"platform-build","exports":["COOKIE","makeDraftGate"],"tests":["factory/runner/test/lib/fake-platform.mjs","factory/runner/test/lib/fake-wrangler.mjs","factory/worker/test/mutate.mjs","factory/worker/test/run.mjs"],"feature":""},
     {"path":"factory/worker/lead-endpoint.mjs","owner":"platform-build","exports":["leadFromForm","makeLeadHandler","sign","visitorHash"],"tests":["factory/runner/test/lib/fake-wrangler.mjs","factory/runner/test/run.mjs","factory/worker/test/e2e-form.mjs","factory/worker/test/mutate.mjs","factory/worker/test/run.mjs","tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
+    {"path":"factory/worker/pages-function-draft-gate.js","owner":"platform-build","exports":["onRequest"],"tests":[],"feature":""},
     {"path":"factory/worker/pages-function-lead.js","owner":"platform-build","exports":["onRequest","onRequestPost"],"tests":["factory/runner/test/mutate.mjs","supabase/tests/e2e-lead.mjs"],"feature":""},
     {"path":"factory/worker/test/e2e-form.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/worker/test/mutate.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},

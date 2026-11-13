@@ -5,8 +5,9 @@ import { join } from 'node:path';
 import { esc } from './html.mjs';
 
 // The fixed preview branch address (21-PROTOCOLS section 3) until the site is live with a domain.
-export const originOf = (site) => (site.state === 'live' && site.domain ? `https://${site.domain}` : `https://preview.${site.deploy_target}.pages.dev`);
-export const isPreview = (site) => site.state !== 'live';
+// Book row B15: a preview build (export job.preview) is noindex at the draft branch whatever the site's state.
+export const originOf = (site, draft = false) => (draft ? `https://draft.${site.deploy_target}.pages.dev` : site.state === 'live' && site.domain ? `https://${site.domain}` : `https://preview.${site.deploy_target}.pages.dev`);
+export const isPreview = (site, draft = false) => draft || site.state !== 'live';
 
 export const hashOf = (content) => createHash('sha256').update(content).digest('hex').slice(0, 10);
 export const assetName = (name, ext, content) => `/assets/${name}.${hashOf(content)}.${ext}`;
