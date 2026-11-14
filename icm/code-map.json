@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 950,
+    "sources": 951,
     "unowned": 0
   },
   "files": [
@@ -370,6 +370,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-rules.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-sitemap.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-snapshot.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-social-words.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-speed-words.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-start.mjs","owner":"seo-and-audits","exports":["runScenarios"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-step-contracts.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},

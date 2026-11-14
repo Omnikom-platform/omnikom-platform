@@ -567,9 +567,17 @@ const EXTRA_IMPORTERS = [
   } },
   { id: "reputation", title: "Reviews", file: "reputation.json", script: "import-reputation.mjs", dir: "reputation", what: "reviews and ratings on the review sites", lines: (d) => (d.summary?.subjects || []).map((x) => `- ${x.subject}: listed on ${x.sitesListed} of ${x.sitesChecked} review sites, ${x.totalReviews} reviews, rating ${x.weightedRating ?? "n/a"} (weighted), ${x.complaints == null ? "complaints not read" : `${x.complaints} complaint${s(x.complaints)}`}${x.newestReviewDate ? `, newest ${x.newestReviewDate}` : ""}`) },
   { id: "social", title: "Social profiles", file: "social.json", script: "import-social.mjs", dir: "social", what: "the business's social profiles", lines: (d) => {
-    const y = d.summary || {};
-    return [`- ${y.profilesRead ?? 0} profile${s(y.profilesRead ?? 0)} read${y.blocked ? `, ${y.blocked} not readable` : ""}; ${nTxt(y.totalFollowers)} followers in total; active on: ${(y.platformsActive || []).join(", ") || "none"}`,
-      `- Links from the site that do not work: ${(y.linksBroken || []).join(", ") || "none"}`];
+    const y = d.summary || {}, act = y.platformsActive || [], na = y.platformsNotActive || [], nj = y.platformsNotJudged || [];
+    const activity = [...(act.length || !nj.length ? [`active on: ${act.join(", ") || "none"}`] : []), ...(na.length ? [`not active on: ${na.join(", ")}`] : []), ...(nj.length ? [`not judged (post date not read): ${nj.join(", ")}`] : [])].join("; ");
+    const socialPath = (u) => { try { const x = new URL(u); return x.pathname + x.search; } catch { return null; } };
+    const dead = (d.rows || []).filter((r) => r.status === "ok" && r.linkWorks === false), groups = new Map();
+    for (const r of dead) { const k = `${socialPath(r.linkTarget) ?? ""}\n${r.linkStatus}`; groups.set(k, [...(groups.get(k) || []), r.platform]); }
+    const brokenLines = [...groups].map(([k, ps]) => { const [p, st] = k.split("\n"), names = [...new Set(ps)].sort(); return `- Links on the ${names.join(", ")} profile${names.length > 1 ? "s" : ""}${p ? ` to ${p}` : ""} open a ${st} page`; });
+    const rest = (y.linksBroken || []).filter((u) => !dead.some((r) => r.profileUrl === u));
+    if (rest.length) brokenLines.push(`- Links on the social profiles that do not open: ${rest.join(", ")}`);
+    if (!brokenLines.length && (d.rows || []).some((r) => r.status === "ok" && r.linkStatus != null)) brokenLines.push("- Links on the profiles that do not open: none");
+    return [`- ${y.profilesRead ?? 0} profile${s(y.profilesRead ?? 0)} read${y.blocked ? `, ${y.blocked} not readable` : ""}; ${nTxt(y.totalFollowers)} followers in total; ${activity}`,
+      ...brokenLines];
   } },
   { id: "ads", title: "Ads", file: "ads.json", script: "import-ads.mjs", dir: "ads", what: "which advertisers are running ads (the ad libraries)", lines: (d) => {
     const y = d.summary || {}, nk = y.advertisersNotKnown ?? 0;
