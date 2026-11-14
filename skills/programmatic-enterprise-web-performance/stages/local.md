@@ -98,7 +98,7 @@ service-area city (Maps ranks by the map's viewport). Nothing about Google is au
 3. **Capture** (the main session with the owner, never automated): open each request's `mapsUrl` (mobile or desktop, as captured);
    when the list has loaded, read the viewport back from the page's address (`@<lat>,<lng>,<zoom>z`) and save the list as
    `captures/local/grid/<id>.json` from the request's `template` (`method: "maps-viewport"`, `viewport`, the device: mobile or desktop, as captured, `sponsored` per row). One page at a time, **at least 45 seconds apart; stop at
-   the first robot check** (save `{"robotCheck": true}` and say so; do not continue). Not signed in to anything of the client's, nothing submitted.
+   the first robot check** (save `{"robotCheck": true}` and say so; do not continue). Not signed in to anything of the client's, nothing submitted. When the page text was saved instead of typed (one text per page, with the helper's header line), `node scripts/grid-text-to-capture.mjs --pewp <pewp> (--raw <list text> | --card <card text>) --convert <dir> --captured-in "<browser, device>"` writes the capture and refuses a text it cannot read whole.
 4. **Import.** `node scripts/local-grid.mjs import <url>` (also run by `local-run.mjs`) writes `<pewp>/local/<date>/grid.json`,
    `grid.txt` and `grid.html`. A capture is one of two forms, never mixed in one grid (a folder holding both that pass is BLOCKED with
    the count of each, and nothing is written): the Google Maps viewport form (`method: "maps-viewport"`, `viewport {lat, lng, zoom}` read back
