@@ -140,14 +140,17 @@ if (auth) {
   const me = auth.results.find((r) => r.role === "target") || auth.results[0];
   const comps = auth.results.filter((r) => r !== me);
   const f = (v) => fact(v, auth.source, auth.fetchedAt, rel(path.resolve(authFile)));
+  const GAP_CUT = 100; // authority.mjs cuts linkGap at 100 entries; linkGapTotal (written with it) is the count before the cut
+  const gapN = Number.isInteger(auth.linkGapTotal) ? auth.linkGapTotal : auth.linkGap.length;
+  const gapTxt = !Number.isInteger(auth.linkGapTotal) && auth.linkGap.length === GAP_CUT ? `at least ${GAP_CUT} (list cut at ${GAP_CUT})` : String(gapN);
   q4 = { status: "answered", facts: { referringDomains: f(me.inGraph ? me.linkingDomains : null), inGraph: f(!!me.inGraph), strengthRank: f(me.harmonicPos ?? null),
-    competitors: f(comps.map((c) => ({ domain: c.domain, referringDomains: c.inGraph ? c.linkingDomains : null, inGraph: !!c.inGraph, strengthRank: c.harmonicPos ?? null }))), linkGap: f(auth.linkGap.length) },
+    competitors: f(comps.map((c) => ({ domain: c.domain, referringDomains: c.inGraph ? c.linkingDomains : null, inGraph: !!c.inGraph, strengthRank: c.harmonicPos ?? null }))), linkGap: fact(gapN, auth.source, auth.fetchedAt, rel(path.resolve(authFile)), { text: gapTxt }) },
     strongestLinkers: me.inGraph ? me.strongestLinkingDomains.slice(0, 10).map((l) => l.domain) : [], gapTop: auth.linkGap.slice(0, 15) };
 } else q4 = { status: "BLOCKED", why: "the authority step has not run for this site", unblock: `node scripts/authority.mjs "${rel(path.join(loc.pewp, "authority.json"))}" --target ${loc.host} --competitor <competitor domain>... (free, reads the Common Crawl graph on disk; about 15 to 30 minutes)` };
 
 const NOT_IN_GRAPH = "not found in the link data"; // question 4: Common Crawl's link graph does not hold the site; this is not a count of 0
 const inGraphQ4 = q4.status === "answered" && q4.facts.inGraph.value !== false; // false only when the graph does not hold the target
-const gapTop8 = q4.status === "answered" && q4.gapTop.length ? `, strongest first: ${q4.gapTop.slice(0, 8).map((g) => g.domain).join(", ")}` : "";
+const gapTop8 = q4.status === "answered" && q4.gapTop.length ? `, most competitors linked first: ${q4.gapTop.slice(0, 8).map((g) => g.domain).join(", ")}` : "";
 
 // ---------- research and measure outputs (Q2, Q3, Q5) ----------
 const doctor = J(path.join(loc.pewp, "doctor.json"));
@@ -655,7 +658,7 @@ const md = [
   ...(q4.status === "answered"
     ? [inGraphQ4 ? `- ${term("referring domain")}s: ${q4.facts.referringDomains.value} (strength rank ${q4.facts.strengthRank.value?.toLocaleString("en-US") ?? "not ranked"}; 1 = strongest site on the web)` : `- ${term("referring domain")}s: ${NOT_IN_GRAPH} (the link data holds no record of this site; that is not the same as 0)`,
        ...q4.facts.competitors.value.map((c) => c.inGraph === false ? `- Competitor ${c.domain}: ${NOT_IN_GRAPH}` : `- Competitor ${c.domain}: ${c.referringDomains} referring domains, strength rank ${c.strengthRank?.toLocaleString("en-US") ?? "not ranked"}`),
-       inGraphQ4 ? `- ${term("link gap")}: ${q4.facts.linkGap.value} sites${gapTop8}` : `- sites that link to two or more competitors: ${q4.facts.linkGap.value}${gapTop8}; whether they already link to this site cannot be judged (the site is ${NOT_IN_GRAPH})`,
+       inGraphQ4 ? `- ${term("link gap")}: ${q4.facts.linkGap.text} sites${gapTop8}` : `- sites that link to two or more competitors: ${q4.facts.linkGap.text}${gapTop8}; whether they already link to this site cannot be judged (the site is ${NOT_IN_GRAPH})`,
        `- Strongest sites linking here: ${inGraphQ4 ? q4.strongestLinkers.join(", ") || "none" : NOT_IN_GRAPH}`,
        "", `Source: ${auth.source}, ${auth.fetchedAt.slice(0, 10)}. Common Crawl sees fewer links than paid tools: compare sites with each other, not as absolute numbers.`]
     : [`**BLOCKED.** ${q4.why}.`, "", `What unblocks it: ${q4.unblock}`]),

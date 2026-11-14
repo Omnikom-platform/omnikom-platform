@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 942,
+    "sources": 943,
     "unowned": 0
   },
   "files": [
@@ -346,6 +346,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-iterate.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-launch.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-lib-stops.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-link-gap.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-local-nap.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-main.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-measure-prompts.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},

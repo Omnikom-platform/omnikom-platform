@@ -9,5 +9,6 @@
   { "file": "test-ai-notread.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-ai-capture-form.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-demand-label.mjs", "plain": [], "mutants": ["--mutants"] },
-  { "file": "test-pages-affected.mjs", "plain": [], "mutants": ["--mutants"] }
+  { "file": "test-pages-affected.mjs", "plain": [], "mutants": ["--mutants"] },
+  { "file": "test-link-gap.mjs", "plain": [], "mutants": ["--mutants"] }
 ]

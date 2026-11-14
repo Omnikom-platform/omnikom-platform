@@ -238,14 +238,15 @@ export async function authority({ out, release, cacheDir, top = 30, target, comp
     linkersOf.set(t.domain, new Set(linking.map((l) => l.domain)));
     return { domain: t.domain, role: t.domain === rev(target).split(".").reverse().join(".") ? "target" : "competitor", inGraph: true, hosts: t.hosts, ...rank.get(r), linkingDomains: linking.length, strongestLinkingDomains: linking.slice(0, top) };
   });
-  // Link gap: domains that link to at least 2 competitors and not to the target, strongest first.
+  // Link gap: domains that link to at least 2 competitors and not to the target, most competitors linked first (then strongest); the list is cut at 100 and linkGapTotal holds the count before the cut.
   const tDomain = results[0]?.domain;
   const mine = linkersOf.get(tDomain) || new Set();
   const counts = new Map();
   for (const c of results.filter((r) => r.role === "competitor" && r.inGraph)) for (const d of linkersOf.get(c.domain)) if (!mine.has(d)) counts.set(d, (counts.get(d) || 0) + 1);
   const rankOf = (d) => rank.get(rev(d))?.harmonicPos ?? 9e9;
-  const gap = [...counts.entries()].filter(([, n]) => n >= 2).map(([domain, n]) => ({ domain, linksToCompetitors: n, harmonicPos: rank.get(rev(domain))?.harmonicPos })).sort((a, b) => b.linksToCompetitors - a.linksToCompetitors || rankOf(a.domain) - rankOf(b.domain)).slice(0, 100);
-  const doc = { fetchedAt: new Date().toISOString(), source: `Common Crawl web graph ${release} (domain level)`, release, cacheDir, target: tDomain, scan, results, linkGap: gap,
+  const gapFull = [...counts.entries()].filter(([, n]) => n >= 2).map(([domain, n]) => ({ domain, linksToCompetitors: n, harmonicPos: rank.get(rev(domain))?.harmonicPos })).sort((a, b) => b.linksToCompetitors - a.linksToCompetitors || rankOf(a.domain) - rankOf(b.domain));
+  const gap = gapFull.slice(0, 100);
+  const doc = { fetchedAt: new Date().toISOString(), source: `Common Crawl web graph ${release} (domain level)`, release, cacheDir, target: tDomain, scan, results, linkGap: gap, linkGapTotal: gapFull.length,
     note: "Distinct linking DOMAINS Common Crawl saw in this release, not every link on the web; compare sites with each other, not as absolute numbers." };
   fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
   fs.writeFileSync(out, JSON.stringify(doc, null, 1) + "\n");
@@ -255,7 +256,7 @@ export async function authority({ out, release, cacheDir, top = 30, target, comp
     "", `Link gap (link to 2+ competitors, not to ${tDomain}): ${gap.length ? gap.slice(0, 20).map((g) => `${g.domain} (${g.linksToCompetitors})`).join(", ") : "none found"}`, "", doc.note];
   fs.writeFileSync(out.replace(/\.json$/i, "") + ".md", md.join("\n") + "\n");
   for (const r of results) console.log(`${r.domain}: ${r.inGraph ? `${r.linkingDomains} linking domains, harmonic rank ${r.harmonicPos ?? "-"}` : "not in graph"}`);
-  console.log(`link gap: ${gap.length} domains; wrote ${out}`);
+  console.log(`link gap: ${gapFull.length} domains${gapFull.length > gap.length ? ` (the first ${gap.length} are kept)` : ""}; wrote ${out}`);
   return doc;
 }
 

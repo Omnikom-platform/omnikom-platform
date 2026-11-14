@@ -11,6 +11,7 @@ import path from "node:path";
 import { J, iso, context, needBusiness, runCli, readStep, writeStep, normQuery, allPlaces, placeInQuery } from "./research-lib.mjs";
 
 export const MIN = { toolSites: 2, dataQuestions: 3, guideQuestions: 2, linkGap: 3 };
+const GAP_CUT = 100; // authority.mjs cuts linkGap at 100 entries; linkGapTotal (written with it) is the count before the cut
 const TOOL = /\b(calculator|estimator|net sheet|worksheet|quiz|checker|analy[sz]er)\b/i;
 const MONEYQ = /(price|cost|how much|median|average|market|rate|commission|%|worth|value|fee|afford)/i;
 const LIFEQ = /(good place to live|safe|neighbou?rhood|cost of living|moving to|wealthy|school|best area|what is .* like|commute|crime|expensive to live)/i;
@@ -40,18 +41,19 @@ export async function run(ctx) {
   const b = needBusiness(ctx);
   const read = (n) => readStep(ctx, n), serp = read("serp"), places = allPlaces(ctx, read);
   const auth = J(path.join(ctx.pewp, "authority.json"));
+  const gapN = Number.isInteger(auth?.linkGapTotal) ? auth.linkGapTotal : auth?.linkGap?.length || 0;
   const questions = [
     ...(serp?.captures || []).flatMap((c) => (c.paa || []).map((q) => ({ question: q, seenAt: `${c.engine} PAA for "${c.query}" (${c.file ? path.basename(c.file) : ""})` }))),
     ...(read("forums")?.questions || []).map((q) => ({ question: q.question, seenAt: q.seenAt })),
     ...(read("existing")?.questions || []).map((q) => ({ question: q.question, seenAt: `${path.basename(q.imported.file)} line ${q.imported.line}` })),
   ];
   const ideas = deriveIdeas({ captures: serp?.status === "ok" ? serp.captures : [], questions, competitors: [...Object.values(read("existing")?.competitorAudits || {}), ...(read("competitors")?.sites || [])].filter((s) => s.sitemap), linkGap: auth?.linkGap || [], places, ownDomain: b.domain });
-  return writeStep(ctx, "assets", { thresholds: MIN, inputs: { captures: serp?.captures?.length || 0, questions: questions.length, linkGap: auth?.linkGap?.length || 0 }, ideas });
+  return writeStep(ctx, "assets", { thresholds: MIN, inputs: { captures: serp?.captures?.length || 0, questions: questions.length, linkGap: gapN, linkGapText: !Number.isInteger(auth?.linkGapTotal) && gapN === GAP_CUT ? `at least ${GAP_CUT} (list cut at ${GAP_CUT})` : String(gapN) }, ideas });
 }
 
 await runCli(import.meta.url, "node research-assets.mjs <target> [--cwd DIR]", [], async (a) => {
   const ctx = context(a._[0], { cwd: a.get("cwd") || process.cwd() });
   const r = await run(ctx);
-  return `OK assets: ${r.ideas.length} ideas (${r.ideas.map((i) => i.type).join(", ") || "none: not enough evidence"}) from ${r.inputs.captures} captures, ${r.inputs.questions} questions, ${r.inputs.linkGap} link-gap sites -> ${path.join(ctx.rdir, "assets.json")}`;
+  return `OK assets: ${r.ideas.length} ideas (${r.ideas.map((i) => i.type).join(", ") || "none: not enough evidence"}) from ${r.inputs.captures} captures, ${r.inputs.questions} questions, ${r.inputs.linkGapText} link-gap sites -> ${path.join(ctx.rdir, "assets.json")}`;
 });
 void fs; void iso;
