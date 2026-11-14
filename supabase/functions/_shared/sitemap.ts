@@ -5,7 +5,8 @@
 //     none can: no site hosts a key file (the factory slice is work order 45), so the answer says `sent: false` with that reason and nothing is posted.
 //     A ping that is sent (4xx included) is appended to the day's `bing` row, which never holds the key or its file's address (appendIndexNow).
 // Answers { skipped } for a job whose site is not live (a preview publish submits nothing), else { sitemap, searchConsole, indexnow }.
-import { appendIndexNow, dayOf, indexNowPing, keysFromEnv, originOf, sitemapLocs, submitSitemap, type Target } from './metrics.ts';
+import { appendIndexNow, dayOf, indexNowPing, keysFromEnv, originOf, SITEMAP_MAX_BYTES, sitemapLocs, submitSitemap, type Target } from './metrics.ts';
+import { readUpTo } from './http.ts';
 import type { Sql } from './db.ts';
 
 export type SubmitDeps = {
@@ -34,7 +35,7 @@ export async function submitForJob(sql: Sql, job: string, deps: SubmitDeps = {})
   let urls: string[] = [];
   try {
     const r = await doFetch(sitemap, { signal: AbortSignal.timeout(15000) });
-    if (r.ok) urls = sitemapLocs(await r.text(), new URL(origin).host);
+    if (r.ok) urls = sitemapLocs((await readUpTo(r.body, SITEMAP_MAX_BYTES)).text, new URL(origin).host);   // the first 5 MiB at most; a pair the cap cuts is dropped
   } catch { /* no sitemap to read: nothing to ping */ }
   if (!urls.length) return { sitemap, searchConsole, indexnow: { sent: false, reason: 'the sitemap could not be read or lists no addresses' } };
   const sent = await indexNowPing({ fetch: doFetch, host: new URL(origin).host, key: k.key, keyLocation: k.keyLocation, urls });

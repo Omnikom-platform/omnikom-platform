@@ -2,6 +2,13 @@
 // Vitest covers all of it. Words that are copy come from the plan (t(), DECISIONS 44); everything else is the data itself.
 import { t } from '../plan';
 
+/** A path without its trailing slashes. A loop, not /\/+$/: that expression takes time in proportion to the square of a run of slashes, and the path is the address bar's. */
+export function withoutTrailingSlashes(p: string): string {
+  let end = p.length;
+  while (end > 0 && p.charCodeAt(end - 1) === 47) end--;
+  return p.slice(0, end);
+}
+
 // Work order 39: the status and the lead type of a lead are keys of the business's own lists (its contract's crm.statuses and crm.lead_types), and the words for them
 // are those lists' labels: data, read from the lead-list answer, never written in this app. The platform floor below is only the list a business without one has, used
 // when an answer carries no list at all; its words are the keys spelled out, so no label of the owner's is copied into code.

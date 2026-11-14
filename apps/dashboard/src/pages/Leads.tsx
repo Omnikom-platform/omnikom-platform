@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Outlet, useNavigate, useParams, useRouterState, useSearch } from '@tanstack/react-router';
 import { useContractForms, useFilterCounts, useLeadColumns, useLeadList, useLeadsLive, useMe, useReadIds, useSites, useTeam } from '../data';
-import { FILTERS, FLOOR_LISTS, leadsTitle, type Filter } from '../lib/leads';
+import { FILTERS, FLOOR_LISTS, leadsTitle, withoutTrailingSlashes, type Filter } from '../lib/leads';
 import {
   allOnPage, cellText, CORE_COLUMNS, nextSort, pageLine, pageNumbers, PAGE_SIZE, sortState, toggleId, togglePage, type Column, type ColumnFilter, type View,
 } from '../lib/crm';
@@ -37,7 +37,7 @@ export function LeadsLayout() {
   const { workspace, userId } = useWorkspaceValue();
   const { ws } = useParams({ from: '/authed/w/$ws' });
   const wide = useWide();
-  const path = useRouterState({ select: s => s.location.pathname.replace(/\/+$/, '') });
+  const path = useRouterState({ select: s => withoutTrailingSlashes(s.location.pathname) });
   const importing = path === `/w/${ws}/leads/import`;
   const panelOpen = path !== `/w/${ws}/leads` && !importing;
 

@@ -31,13 +31,17 @@ export function originOf(t: Pick<Target, 'site_state' | 'host' | 'domain'>): str
   return new URL(h.includes('://') ? h : `https://${h}`).origin;
 }
 
-/** The addresses in a sitemap.xml that are on `host`, in file order (at most `cap`). */
+/** A sitemap.xml is read at most this many bytes (readUpTo): a longer one is read up to here and the whole addresses in that part are used. Rule 35 and method 7: nothing from a client's domain is read without a bound. */
+export const SITEMAP_MAX_BYTES = 5 * 1024 * 1024;
+
+/** The addresses in a sitemap.xml that are on `host`, in file order (at most `cap`). A plain scan with no pattern to backtrack: each step moves past what it found, so the work is linear in the text. */
 export function sitemapLocs(xml: string, host: string, cap = 500): string[] {
   const out: string[] = [];
-  for (const m of xml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/g)) {
-    const u = m[1].replace(/&amp;/g, '&');
+  for (let at = xml.indexOf('<loc>'); at !== -1 && out.length < cap; at = xml.indexOf('<loc>', at + 5)) {
+    const end = xml.indexOf('<', at + 5);
+    if (end === -1 || !xml.startsWith('</loc>', end)) continue;
+    const u = xml.slice(at + 5, end).trim().replaceAll('&amp;', '&');
     try { const p = new URL(u); if ((p.protocol === 'https:' || p.protocol === 'http:') && p.host === host && !out.includes(u)) out.push(u); } catch { /* not an address */ }
-    if (out.length >= cap) break;
   }
   return out;
 }

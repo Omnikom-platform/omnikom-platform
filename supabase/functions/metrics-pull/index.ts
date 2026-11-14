@@ -8,8 +8,8 @@
 // Each source is its own step: one that throws is listed under `failed` and writes no row; the others still run. 200 { workspace, day, site, written,
 // skipped, failed, notes } (502 when nothing was written and something failed). Keys by variable name only (keysFromEnv); none is in a row, a note or an answer.
 import { runner } from '../_shared/runner.ts';
-import { json, problem, serve } from '../_shared/http.ts';
-import { collectBing, collectPageSpeed, collectSearchConsole, dayOf, keysFromEnv, originOf, pagespeedDue, pickPages, sitemapLocs, type Collected, type Target } from '../_shared/metrics.ts';
+import { json, problem, readUpTo, serve } from '../_shared/http.ts';
+import { collectBing, collectPageSpeed, collectSearchConsole, dayOf, keysFromEnv, originOf, pagespeedDue, pickPages, SITEMAP_MAX_BYTES, sitemapLocs, type Collected, type Target } from '../_shared/metrics.ts';
 
 export type Deps = { fetch?: typeof fetch; now?: () => Date };
 
@@ -52,8 +52,11 @@ export async function handle(req: Request, deps: Deps = {}): Promise<Response> {
         if (keys.PSI_API_KEY) {   // the one polite request to the client's site: its sitemap, for the five pages
           try {
             const r = await doFetch(`${origin}/sitemap.xml`, { signal: AbortSignal.timeout(15000) });
-            if (r.ok) urls = pickPages(sitemapLocs(await r.text(), new URL(origin).host), origin);
-            else notes.push(`pagespeed: the sitemap answered ${r.status}, the home page alone was measured`);
+            if (r.ok) {
+              const sm = await readUpTo(r.body, SITEMAP_MAX_BYTES);   // the first 5 MiB at most; sitemapLocs takes whole pairs only, the one the cap cuts is dropped
+              urls = pickPages(sitemapLocs(sm.text, new URL(origin).host), origin);
+              if (sm.cut) notes.push('pagespeed: the sitemap is longer than 5 MiB, only its first 5 MiB were read');
+            } else notes.push(`pagespeed: the sitemap answered ${r.status}, the home page alone was measured`);
           } catch { notes.push('pagespeed: the sitemap could not be read, the home page alone was measured'); }
         }
         return await collectPageSpeed({ fetch: doFetch, keys, workspaceId: ws, day, urls, origin });

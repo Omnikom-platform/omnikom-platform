@@ -422,3 +422,90 @@ t('metrics: what service.metrics_pull_all posts is accepted by metrics-pull (the
     }
   });
 });
+
+// SEC-REGEX-BOUND (method 7): a client's sitemap is read at most 5 MiB (what was read is used, a pair the cap cuts is dropped), and sitemapLocs has no regular expression to backtrack.
+// The cap is written out here on purpose (a test that imported SITEMAP_MAX_BYTES would not compile before the code, and could not see the constant change).
+const CAP = 5 * 1024 * 1024, pad = (n: number) => ' '.repeat(n), locOf = (host: string, p: string) => `<loc>https://${host}${p}</loc>`;
+// CAP + 3 MiB of sitemap: /first/ at the front; /straddle/ starts so that the cap falls inside its path (what is inside the cap, `<loc>https://<host>/stra`, is a valid address on the host: only the pair rule drops it); /after/ well beyond the cap
+const cutSitemap = (host: string) => {
+  const head = locOf(host, '/first/'), cutAt = `<loc>https://${host}/stra`.length;
+  return new TextEncoder().encode(head + pad(CAP - cutAt - head.length) + locOf(host, '/straddle/') + pad(3 * 1024 * 1024) + locOf(host, '/after/'));
+};
+// exactly CAP bytes: the last pair ends on the cap's last byte (it is kept: exactly at the cap is not cut)
+const exactSitemap = (host: string) => {
+  const head = locOf(host, '/first/'), tail = locOf(host, '/after/');
+  return new TextEncoder().encode(head + pad(CAP - head.length - tail.length) + tail);
+};
+const streamOf = (bytes: Uint8Array) => {   // 1 MiB pieces; `pulled` counts what the reader asked for
+  const o = { pulled: 0 }; let at = 0;
+  return { o, body: new ReadableStream<Uint8Array>({ pull(c) { o.pulled++; if (at < bytes.length) { c.enqueue(bytes.slice(at, at + 1048576)); at += 1048576; } else c.close(); } }) };
+};
+const sitemapFetch = (body: ReadableStream<Uint8Array>, other: (u: string, init?: RequestInit) => unknown) => (async (u: string | URL | Request, init?: RequestInit) =>
+  /sitemap\.xml/.test(String(u)) ? new Response(body, { status: 200 }) : new Response(JSON.stringify(other(String(u), init)), { status: 200 })) as typeof fetch;
+const psiPages = (seen: string[]) => seen.filter(u => /pagespeedonline/.test(u)).map(u => decodeURIComponent(u.split('url=')[1].split('&')[0]));
+
+t('metrics [SEC] sitemapLocs is a plain scan: no regular expression in its source', async () => {
+  const src = await Deno.readTextFile(new URL('../_shared/metrics.ts', import.meta.url));
+  const body = src.slice(src.indexOf('export function sitemapLocs'), src.indexOf('export function pickPages'));
+  assert(body.length > 50 && body.includes('sitemapLocs'), 'the function body was found');
+  for (const w of ['matchAll', '.exec(', '.match(', 'RegExp', '.replace(', '.test(']) assert(!body.includes(w), `sitemapLocs must not use ${w}`);
+  assert(!/[(=,:]\s*\/[^/*\s]/.test(body), 'sitemapLocs must hold no regular expression literal');
+});
+
+t('metrics [SEC] sitemapLocs gives the answers of the old expression for the odd shapes', () => {
+  const L = (xml: string) => sitemapLocs(xml, 'a.test').join(' ');
+  eq(L('<loc>\n https://a.test/p \n</loc>'), 'https://a.test/p', 'blank space around the address is trimmed');
+  eq(L('<loc>https://a.test/a</loc><loc>https://a.test/b'), 'https://a.test/a', 'a pair cut inside its address');
+  eq(L('<loc>https://a.test/1</loc><loc>https://a.test/2</lo'), 'https://a.test/1', 'a pair cut inside its closing tag');
+  eq(L('<loc>https://a.test/u</loc'), '', 'a closing tag cut short');
+  eq(L('<loc><loc>https://a.test/n</loc>'), 'https://a.test/n', 'an opening tag inside an opening tag');
+  eq(L('<loc></loc><loc>   </loc><loc>https://a.test/e</loc>'), 'https://a.test/e', 'empty and blank are no address');
+  eq(L('<loc>https://a.test/x?a=1&amp;b=2</loc>'), 'https://a.test/x?a=1&b=2', 'decoded');
+  eq(L('<loc>https://a.test/x?a=1&amp;amp;b=2</loc>'), 'https://a.test/x?a=1&amp;b=2', 'decoded once');
+  eq(L('<LOC>https://a.test/U</LOC>'), '', 'tags are case-sensitive');
+  eq(L('<loc><![CDATA[https://a.test/c]]></loc>'), '', 'CDATA is not read');
+  eq(sitemapLocs('<loc>https://a.test/1</loc><loc>https://a.test/2</loc>', 'a.test', 1).join(' '), 'https://a.test/1', 'the cap of addresses');
+});
+
+t('metrics [SEC] metrics-pull reads at most 5 MiB of a client sitemap and uses the whole addresses in it', async () => {
+  const ps = await fixture('pagespeed.json');
+  await withKeys({ PSI_API_KEY: PSI_KEY, CRUX_API_KEY: CRUX_KEY }, async () => {
+    await withSite({ state: 'preview' }, async s => {
+      const huge = streamOf(cutSitemap(s.host)), seen: string[] = [];
+      const fetch = sitemapFetch(huge.body, u => { seen.push(u); return /chromeuxreport/.test(u) ? ps.cruxGood : ps.good; });
+      const a = await pullC(s.ws, { fetch, now: () => DAY }, {}, '&source=pagespeed');
+      eq(a.status, 200, a.text);
+      eq(psiPages(seen).join(' '), `https://${s.host}/ https://${s.host}/first/`, 'the home page and the one whole address inside the cap');
+      assert((a.json?.notes as string[] ?? []).some(x => /longer than 5 MiB/.test(x)), 'the answer says the sitemap was cut: ' + a.text);
+      assert(huge.o.pulled <= 8, `the stream was left after the cap: pulled ${huge.o.pulled}`);
+    });
+  });
+});
+
+t('metrics [SEC] sitemap-submit reads at most 5 MiB of a client sitemap and pings only the whole addresses in it', async () => {
+  await withSite({ state: 'live', domain: 'client.test' }, async s => {
+    const huge = streamOf(cutSitemap(s.domain as string)), pings: string[] = [];
+    const fetch = sitemapFetch(huge.body, (u, init) => { if (/indexnow/.test(u)) pings.push(String(init?.body)); return {}; });
+    const a = await submitC(s.job, { fetch, now: () => DAY, indexNow: () => ({ key: KEY, keyLocation: `https://${s.domain}/${KEY}.txt` }) });
+    eq(a.status, 200, a.text);
+    const j = a.json as { indexnow: { sent: boolean; urls: number } };
+    eq(j.indexnow.sent, true, 'sent: ' + a.text); eq(j.indexnow.urls, 1, 'one address');
+    eq(JSON.stringify(JSON.parse(pings[0]).urlList), JSON.stringify([`https://${s.domain}/first/`]), 'only the whole address inside the cap');
+    assert(huge.o.pulled <= 8, `the stream was left after the cap: pulled ${huge.o.pulled}`);
+  });
+});
+
+t('metrics [SEC] a sitemap of exactly 5 MiB is read whole, and its last pair is kept', async () => {
+  const ps = await fixture('pagespeed.json');
+  await withKeys({ PSI_API_KEY: PSI_KEY, CRUX_API_KEY: CRUX_KEY }, async () => {
+    await withSite({ state: 'preview' }, async s => {
+      const huge = streamOf(exactSitemap(s.host)), seen: string[] = [];
+      const fetch = sitemapFetch(huge.body, u => { seen.push(u); return /chromeuxreport/.test(u) ? ps.cruxGood : ps.good; });
+      const a = await pullC(s.ws, { fetch, now: () => DAY }, {}, '&source=pagespeed');
+      eq(a.status, 200, a.text);
+      eq(psiPages(seen).join(' '), `https://${s.host}/ https://${s.host}/first/ https://${s.host}/after/`, 'all three pages');
+      assert(!((a.json?.notes as string[] ?? []).some(x => /longer than 5 MiB/.test(x))), 'no cut note');
+      assert(huge.o.pulled >= 6, `all pieces and the end were asked for: pulled ${huge.o.pulled}`);
+    });
+  });
+});

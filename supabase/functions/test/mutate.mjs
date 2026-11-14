@@ -337,10 +337,10 @@ const MUTANTS = [
   ['metrics: the day\'s IndexNow list is dropped when the bing row is rebuilt', F + 'metrics-pull/index.ts', 'const indexnow = Array.isArray(d?.indexnow) ? d.indexnow : [];', 'const indexnow: unknown[] = [];', 'metrics.test.ts'],
   ['metrics: PageSpeed runs every day', F + 'metrics-pull/index.ts', 'if (!pagespeedDue(last, d, day))', 'if (false)', 'metrics.test.ts'],
   ['metrics: the sitemap is read without a PSI key', F + 'metrics-pull/index.ts', 'if (keys.PSI_API_KEY) {   // the one polite request', 'if (true) {   // the one polite request', 'metrics.test.ts'],
-  ['metrics: every page of the sitemap is measured, not five', F + 'metrics-pull/index.ts', 'urls = pickPages(sitemapLocs(await r.text(), new URL(origin).host), origin);', 'urls = sitemapLocs(await r.text(), new URL(origin).host);', 'metrics.test.ts'],
+  ['metrics: every page of the sitemap is measured, not five', F + 'metrics-pull/index.ts', 'urls = pickPages(sitemapLocs(sm.text, new URL(origin).host), origin);', 'urls = sitemapLocs(sm.text, new URL(origin).host);', 'metrics.test.ts'],
   ['metrics: a live site is measured at its preview host', F + '_shared/metrics.ts', "const h = t.site_state === 'live' && t.domain ? t.domain : t.host;", 'const h = t.host;', 'metrics.test.ts'],
   ['metrics: sitemapLocs keeps addresses of other hosts', F + '_shared/metrics.ts', "&& p.host === host && !out.includes(u)", '&& !out.includes(u)', 'metrics.test.ts'],
-  ['metrics: sitemapLocs does not decode &amp;', F + '_shared/metrics.ts', ".replace(/&amp;/g, '&')", '', 'metrics.test.ts'],
+  ['metrics: sitemapLocs does not decode &amp;', F + '_shared/metrics.ts', ".replaceAll('&amp;', '&')", '', 'metrics.test.ts'],
   ['metrics: pickPages takes every page of a section', F + '_shared/metrics.ts', 'if (seen.has(section) || u === home) continue;', 'if (u === home) continue;', 'metrics.test.ts'],
   ['metrics: pagespeedDue ignores a BLOCKED last row', F + '_shared/metrics.ts', 'if (lastData && lastData.blocked) return true;\n', '', 'metrics.test.ts'],
   ['metrics: pagespeedDue after six days', F + '_shared/metrics.ts', 'return dayNumber(day) - dayNumber(lastDay) >= 7;', 'return dayNumber(day) - dayNumber(lastDay) >= 6;', 'metrics.test.ts'],
@@ -431,6 +431,17 @@ const MUTANTS = [
   ['SEC-LEAD: the crossing chunk is not cut at the cap', F + '_shared/http.ts', 'dec.decode(value.subarray(0, max - n))', 'dec.decode(value)', 'capture.test.ts'],
   ['SEC-LEAD: the header is not trimmed as verify trims it', F + 'capture-lead/index.ts', "SIGNATURE_SHAPE.exec((header ?? '').trim())", "SIGNATURE_SHAPE.exec((header ?? ''))", 'capture.test.ts'],
   ['SEC-LEAD: the stream is not cancelled when the body is cut', F + '_shared/http.ts', 'await reader.cancel().catch(() => {});', '', 'capture.test.ts'],
+  // ---- SEC-REGEX-BOUND: a client's sitemap is bounded and scanned without a pattern (each must turn metrics.test.ts red). Run only these: --only "SEC-REGEX" ----
+  ['SEC-REGEX: sitemapLocs uses an expression again', F + '_shared/metrics.ts', ".trim().replaceAll('&amp;', '&');", ".trim().replace(/&amp;/g, '&');", 'metrics.test.ts'],
+  ['SEC-REGEX: a loc with a cut closing tag counts', F + '_shared/metrics.ts', "if (end === -1 || !xml.startsWith('</loc>', end)) continue;", 'if (end === -1) continue;', 'metrics.test.ts'],
+  ['SEC-REGEX: the address is not trimmed', F + '_shared/metrics.ts', 'xml.slice(at + 5, end).trim().replaceAll', 'xml.slice(at + 5, end).replaceAll', 'metrics.test.ts'],
+  ['SEC-REGEX: the cap of addresses is ignored', F + '_shared/metrics.ts', 'at !== -1 && out.length < cap;', 'at !== -1;', 'metrics.test.ts'],
+  ['SEC-REGEX: the sitemap cap is 50 MiB', F + '_shared/metrics.ts', 'export const SITEMAP_MAX_BYTES = 5 * 1024 * 1024;', 'export const SITEMAP_MAX_BYTES = 50 * 1024 * 1024;', 'metrics.test.ts'],
+  ['SEC-REGEX: the sitemap cap is 1 MiB', F + '_shared/metrics.ts', 'export const SITEMAP_MAX_BYTES = 5 * 1024 * 1024;', 'export const SITEMAP_MAX_BYTES = 1 * 1024 * 1024;', 'metrics.test.ts'],
+  ['SEC-REGEX: metrics-pull reads the whole sitemap', F + 'metrics-pull/index.ts', 'const sm = await readUpTo(r.body, SITEMAP_MAX_BYTES);', 'const sm = { text: await r.text(), cut: false };', 'metrics.test.ts'],
+  ['SEC-REGEX: sitemap-submit reads the whole sitemap', F + '_shared/sitemap.ts', '(await readUpTo(r.body, SITEMAP_MAX_BYTES)).text', '(await r.text())', 'metrics.test.ts'],
+  ['SEC-REGEX: the over-cap note is not said', F + 'metrics-pull/index.ts', "'pagespeed: the sitemap is longer than 5 MiB, only its first 5 MiB were read'", "'pagespeed: the sitemap was not used'", 'metrics.test.ts'],
+  ['SEC-REGEX: the over-cap note is always said', F + 'metrics-pull/index.ts', 'if (sm.cut) notes.push(', 'if (true) notes.push(', 'metrics.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;

@@ -4,6 +4,8 @@ import {
   type ContractForms, type Lead, type Lists, type Names,
 } from './leads';
 import { problemFrom, UNREACHABLE } from './problems';
+import { readFileSync } from 'node:fs';
+import { withoutTrailingSlashes } from './leads';
 
 // A business's own lists as lead-list answers them: the owner's words as data (none of them is written in the app).
 const LISTS: Lists = {
@@ -227,5 +229,21 @@ describe('work order 39: the lists are the business\'s, with the floor only when
     expect(w('status', { from: 'call-back', to: 'contacted', who_name: 'Agent One', text: 'left a message' })).toBe('Status: Call back to Contacted (Agent One, left a message)');
     expect(w('status', { from: 'contacted', to: 'closed' })).toBe('Status: Contacted to Closed');
     expect(w('edited', { field: 'lead_type', old: 'enquiry', new: 'buy' })).toBe('Changed lead_type: Enquiry to Looking to buy');
+  });
+});
+
+// SEC-REGEX-BOUND: the address bar's trailing slashes are cut by a loop, not by an expression that is quadratic on a long run of slashes (method 7)
+describe('withoutTrailingSlashes', () => {
+  it('cuts every trailing slash and nothing else', () => {
+    for (const [from, to] of [['', ''], ['/', ''], ['///', ''], ['/w/x/leads', '/w/x/leads'], ['/w/x/leads/', '/w/x/leads'], ['/w/x/leads///', '/w/x/leads'], ['/a//b/', '/a//b']] as [string, string][]) expect(withoutTrailingSlashes(from)).toBe(to);
+  });
+  it('does not stall on a long run of slashes', () => {
+    expect(withoutTrailingSlashes(`x${'/'.repeat(300000)}`)).toBe('x');
+    expect(withoutTrailingSlashes('/'.repeat(300000))).toBe('');
+  });
+  it('is what the Leads screen uses, and the expression is gone from it', () => {
+    const src = readFileSync(new URL('../pages/Leads.tsx', import.meta.url), 'utf8');
+    expect(src).toContain('withoutTrailingSlashes(s.location.pathname)');
+    expect(src).not.toContain('.replace(/\\/+$/');
   });
 });
