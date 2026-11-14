@@ -1,8 +1,7 @@
 # Where things stand
 
-Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 23. Every feature's
-state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (rewritten for the method below at batch
-13). Getting back in: `resume\RESUME.md`.
+Rewritten in place, never appended, under 60 lines; last 2026-11-14 by the head of operations, with batch 27. Every feature's
+state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. Getting back in: `resume\RESUME.md`.
 
 ## Now
 - Product: 81 of 97 rows WORK, 16 PARTLY, 0 MISSING (computed from the rows, checked by CI). CRM 26, 0, 0 of 26; dashboard
@@ -27,19 +26,19 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (r
   ids and hourly alerts (E3), plan limits (E16), the pooler (E6), headers (E7), publish smoke and rollback (E8), the
   workflow-only token path (E9), retention, purge and growth budgets (E12, migration 46), rich text (E18), staff windows
   (E11), production brought up by one script (E2), backups and a restore drill (E1), a publish in 3 statements (E13 d),
-  an index for every foreign key and its wall T48 (E13, migration 48), the restore drill green, 9 phases (E1, part).
+  an index for every foreign key (E13, migration 48), the restore drill green (E1, part), a dropped alert's event (C11).
 - Tools: the browser flows on GitHub's runner (`flows.yml`, one named staging flow per run, the output sealed); the
-  staging walls read only the run's own rows and now pass whole; the search audit's tool (the audit lane's four landings).
+  staging walls pass whole; the search audit's tool and its client copy from one data file per client, tested by CI.
 
 ## Not landed
-- Nothing is committed and waiting. Two runner-dependent checks need hand-overs: the CLI's held port, the audit harness.
+- Nothing is committed and waiting. The audit engine's seeded-fault harness has a ruled hand-over that is not built.
 
-## Staging (the test project), 2026-11-13
-- Migrations through 49 applied in number order; 32 functions from master 0eeef26, three of them (save, publish,
+## Staging (the test project), 2026-11-14
+- Migrations through 50 applied in number order; 32 functions from master 0eeef26, three of them (save, publish,
   media-manage) and the dashboard from a554dfd; the flows of the media library (B14), the preview site (B15), the publish
   sheet (B10, B9), the taken-off page (B12) and the earlier ones passed and went red with their seeded faults; the 22
   Auth settings read back (E11); E4's alert read in the test inbox, its link opens the lead; E5's hold measured (1 of 22
-  posts reached the platform); the walls pass whole (T1 to T49), migration 48's 22 indexes present, none invalid.
+  posts reached the platform); the walls pass whole (T1 to T49 with T35j and T35k), migration 48's 22 indexes present.
 - Owed, each by the head's run sheet: E16's limits; E3's alerts (an owner item first).
 
 ## Migrations
@@ -55,7 +54,7 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (r
 ## Clients
 - Each client's profile and go-live sheet are under `clients/<slug>/`. Both domain switches wait only for the owner's green
   light; nothing is changed at a client's own domain, registrar or DNS before it, and no mail goes to a client from us.
-- The newest client's search audit is a finished draft (that client's git-ignored `private` folder); it lacks a contact line.
+- The newest client's search audit is final (that client's git-ignored `private` folder); the owner sends it himself.
 
 ## Machine
 - One lock for every heavy local run (`~/.claude/scripts/heavy.mjs`); a run that waited the lock out is UNPROVEN, not a
@@ -66,4 +65,4 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (r
 ## Open owner items
 - The workflow-only token `GITHUB_DISPATCH_TOKEN_V2`; importing the master ruleset; the backup buckets and key (E1); the
   address alerts go to (`ALERTS_TO`); the "Ask Omnikom" address (`VITE_ASK_EMAIL`); the mail provider's webhook for staging;
-  the contact line on a client report; each client's go.
+  the company's own Search Console account; each client's go.

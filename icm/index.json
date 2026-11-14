@@ -356,6 +356,6 @@
     {"path":"work/47-shared-toolkit/inventory.md","title":"What is duplicated on master, 2026-11-11 (master 613bae0)","summary":"Counted read-only by a reader agent for the head of operations, without CLI's own list. Paths are `file:line`. \"kit\" = belongs in `tools/kit/` under work ord...","owner":"head-of-operations","layer":2,"lines":79,"loadFor":[]},
     {"path":"work/49-framework-review/CONTEXT.md","title":"49 framework review","summary":"Owner: head-of-operations. Model: fable (Fable 5.2, xhigh). Branch: check/head-of-operations/train-2026-11-11-a. Status: DONE in land train a of 2026-11-11 (...","owner":"head-of-operations","layer":2,"lines":100,"loadFor":[]},
     {"path":"work/README.md","title":"Work orders","summary":"`work/` is layer 2 of the layout in `docs/product/README.md`: one folder per piece of work, plus `STATE.md` (where things stand now). A session loads `CLAUDE...","owner":"head-of-operations","layer":2,"lines":47,"loadFor":[]},
-    {"path":"work/STATE.md","title":"Where things stand","summary":"Rewritten in place, never appended, under 60 lines; last 2026-11-13 by the head of operations, with batch 23. Every feature's state: `docs/product/1-product....","owner":"head-of-operations","layer":4,"lines":69,"loadFor":[]}
+    {"path":"work/STATE.md","title":"Where things stand","summary":"Rewritten in place, never appended, under 60 lines; last 2026-11-14 by the head of operations, with batch 27. Every feature's state: `docs/product/1-product....","owner":"head-of-operations","layer":4,"lines":68,"loadFor":[]}
   ]
 }
