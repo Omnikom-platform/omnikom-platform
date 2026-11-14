@@ -20,6 +20,7 @@ import { latestComplete } from "./live-target.mjs";
 import { runGridImport } from "./local-grid.mjs";
 import { isDay } from "./measure-sources.mjs";
 
+export function notReadLine(b) { return "- NOT READ, " + b.id + ": " + String(b.reason).replace(/[.\s]+$/, "") + "." + (b.unblock ? " To fix: " + b.unblock : ""); }
 export function runLocal(target, { cwd = process.cwd(), site = null, today = null, log = console.log } = {}) {
   const loc = locate(target, { cwd }); const now = today ? new Date(`${today}T12:00:00Z`) : new Date(); const date = ymd(now);
   const dir = path.join(loc.pewp, "local", date); fs.mkdirSync(dir, { recursive: true });
@@ -40,14 +41,15 @@ export function runLocal(target, { cwd = process.cwd(), site = null, today = nul
   let siteDir = site; if (!siteDir && loc.kind === "url") { const l = latestComplete(loc.snapshots); siteDir = l?.dir || null; }
   out.nap = runNap({ business, siteDir, citations: readJson(citationsFile), sources: readJson(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "rules", "citation-sources.json")), now });
   // reviews
-  out.reviews = out.profile.status === "ok" && out.pack.status === "ok" ? reviewGap(out.profile.profile, out.pack.rows) : { status: "blocked", blocked: { source: out.profile.status !== "ok" ? "business-profile" : "local-pack captures", reason: "needs both our profile and local-pack captures", unblock: (out.profile.blocked || out.pack.blocked)?.unblock } };
+  out.reviews = out.profile.status === "ok" && out.pack.status === "ok" ? reviewGap(out.profile.profile, out.pack.rows) : { status: "blocked", blocked: { source: out.profile.status !== "ok" ? "business-profile" : "local-pack captures", reason: "needs both our profile and local-pack captures", unblock: (out.profile.status !== "ok" ? out.profile.blocked : out.pack.blocked)?.unblock } };
   for (const k of ["profile", "pack", "nap", "reviews"]) { writeJson(path.join(dir, `${k}.json`), out[k]); out.parts[k] = out[k].status === "ok" ? "ok" : "BLOCKED"; }
   // the local grid: captures per grid point (local-grid.mjs plan writes the requests, a person captures them, this imports them)
   const gr = runGridImport(target, { cwd, today, log: () => {} });
   out.grid = gr.status === "ok" ? gr : { status: "blocked", blocked: gr.blocked }; out.parts.grid = gr.status === "ok" ? "ok" : "BLOCKED";
-  const L = [`# Local search, ${date}`, "", `**${out.parts.profile === "ok" ? `${out.profile.findings.length} profile findings` : "Business Profile not measured"}; ${out.parts.pack === "ok" ? `in the map pack for ${out.pack.summary.inPack} of ${out.pack.summary.localized} confirmed city/device searches` : "map pack not measured"}; ${out.parts.nap === "ok" ? `${out.nap.mismatches.length} listing mismatches, ${out.nap.missingDirectories.length} directories without a listing` : "name/address/phone not checked"}.**`, ""];
+  const nr = out.profile.status === "ok" ? out.profile.blocked : []; const L = [`# Local search, ${date}`, "", `**${out.parts.profile === "ok" ? `${out.profile.findings.length} profile findings${nr.length ? `, ${nr.length} profile checks not read` : ""}` : "Business Profile not measured"}; ${out.parts.pack === "ok" ? `in the map pack for ${out.pack.summary.inPack} of ${out.pack.summary.localized} confirmed city/device searches` : "map pack not measured"}; ${out.parts.nap === "ok" ? `${out.nap.mismatches.length} listing mismatches, ${out.nap.missingDirectories.length} directories without a listing` : "name/address/phone not checked"}.**`, ""];
   for (const k of ["profile", "pack", "nap", "reviews"]) if (out[k].status !== "ok") L.push(`- NOT MEASURED, ${k}: ${out[k].blocked.reason}. To fix: ${out[k].blocked.unblock}`);
   if (out.profile.status === "ok") for (const f of out.profile.findings) L.push(`- ${f.id} ${f.title}: ${f.detail} Fix: ${f.fix}`);
+  for (const b of nr) L.push(notReadLine(b));
   if (out.nap.status === "ok") { for (const m of out.nap.mismatches) L.push(`- Listing differs: ${m.detail}`); if (out.nap.consistency) L.push(`- Listings consistent with the business record: ${out.nap.consistency.text}`); for (const x of out.nap.notCheckedDirectories || []) L.push(`- NOT CHECKED, ${x.directory} (${x.status}): ${x.reason}`); for (const i of (out.nap.site?.issues || []).filter((x) => !x.lowConfidence).slice(0, 20)) L.push(`- Site ${i.page}: ${i.field} is "${i.found}", the business record says "${i.expected}" (${i.where})`); }
   if (out.reviews.status === "ok") for (const r of out.reviews.rows) L.push(`- ${r.city} (${r.device}): ${r.ourReviews.value} reviews against ${r.packThirdPlaceReviews.value ?? "?"} for 3rd place in the pack.`);
   if (out.grid.status !== "ok") L.push(`- NOT MEASURED, grid: ${out.grid.blocked.reason}. To fix: ${out.grid.blocked.unblock}`);

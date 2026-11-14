@@ -4,9 +4,10 @@
 // and is empty ("") stays the finding; the owner's API export is complete, so an absent value there is a finding.
 // It also checks LOC-P10: a competitor's secondary categories that were NOT READ (null, or the key left out) stay null, are left out of
 // the comparison, and the finding or the BLOCKED check says how many lists were compared and how many were not read.
-// No network, no browser, no file is read except local-profile.mjs and its imports; the competitor cases write four small files to a temporary folder and remove it.
+// No network, no browser, no file is read except local-profile.mjs, local-run.mjs and their imports; the competitor and report cases write small files to a temporary folder and remove it.
 // --mutants: watched-fail. Copies the skill, breaks one thing at a time, runs this test against the copy and requires the named
 //   case to go red (green = the case measures nothing, or the patch never applied; a `from` that occurs twice is refused).
+// Cases 11 to 17 run local-run.mjs on invented captures in a temporary folder and read the report.md it writes.
 // Exit 0 = all pass, exit 1 = a case failed.
 import fs from "node:fs";
 import os from "node:os";
@@ -38,6 +39,14 @@ if (args.includes("--mutants")) {
     { id: "competitor-unread-silent", file: "local-profile.mjs", from: "else if (catsNotRead) blockedChecks.push(", to: "else if (false) blockedChecks.push(", red: "case 8:" },
     { id: "competitor-empty-list-counted-unread", file: "local-profile.mjs", from: "competitors.filter((c) => Array.isArray(c.secondaryCategories))", to: "competitors.filter((c) => c.secondaryCategories?.length)", red: "case 9:" },
     { id: "competitor-unread-primary-dropped", file: "local-profile.mjs", from: "const used = new Set(competitors.flatMap(", to: "const used = new Set(catsRead.flatMap(", red: "case 10:" },
+    { id: "not-read-lines-not-printed", file: "local-run.mjs", from: "for (const b of nr) L.push(", to: "for (const b of []) L.push(", red: "case 11:" },
+    { id: "printed-for-a-profile-that-is-not-ok", file: "local-run.mjs", from: "? out.profile.blocked : [];", to: "? out.profile.blocked : [out.profile.blocked];", red: "case 15:" },
+    { id: "summary-without-the-second-number", file: "local-run.mjs", from: "${nr.length ? ", to: "${false ? ", red: "case 11:" },
+    { id: "summary-changed-when-there-are-none", file: "local-run.mjs", from: "${nr.length ? ", to: "${true ? ", red: "case 12:" },
+    { id: "unblock-text-dropped", file: "local-run.mjs", from: '(b.unblock ? " To fix: " + b.unblock : "")', to: '""', red: "case 11:" },
+    { id: "line-printed-for-a-check-that-was-judged", file: "local-run.mjs", from: "? out.profile.blocked : [];", to: "? [...out.profile.blocked, ...out.profile.findings] : [];", red: "case 11:" },
+    { id: "no-unblock-prints-undefined", file: "local-run.mjs", from: '(b.unblock ? " To fix: " + b.unblock : "")', to: '" To fix: " + b.unblock', red: "case 16:" },
+    { id: "reviews-unblock-from-the-profile-list-again", file: "local-run.mjs", from: '(out.profile.status !== "ok" ? out.profile.blocked : out.pack.blocked)?.unblock', to: "(out.profile.blocked || out.pack.blocked)?.unblock", red: "case 17:" },
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "profnr-mut-"));
   let ok = 0;
@@ -71,6 +80,7 @@ const results = [];
 const check = (name, ok, detail = "") => { results.push({ name, ok: !!ok, detail }); if (!quiet) console.log(`${ok ? "PASS" : "FAIL"} ${name}${ok ? "" : " :: " + String(detail).slice(0, 400)}`); else if (!ok) console.log(`FAIL ${name} :: ${String(detail).slice(0, 200)}`); };
 
 const LP = await import(pathToFileURL(path.join(dir, "local-profile.mjs")).href);
+const LR = await import(pathToFileURL(path.join(dir, "local-run.mjs")).href);
 const man = (o) => LP.importProfile({ kind: "manual-capture", capturedAt: "2026-10-20", name: "Sample Lender", primaryCategory: "Loan agency", website: "https://sample-lender.example/", ...o }, { file: "profile.json" });
 const api = (loc) => LP.importProfile({ exportedAt: "2026-10-20", location: { title: "Sample Lender", ...loc }, reviews: { totalReviewCount: 3, averageRating: 4.5, reviews: [] } }, { file: "export.json" });
 const d22 = { now: new Date("2026-10-22T12:00:00Z") }, audit = (p) => LP.auditProfile(p, [], d22);
@@ -131,6 +141,83 @@ check("case 6: a competitor's secondary categories that were not read (null, or 
   check("case 10: an unread secondary list does not remove that competitor's primary category from the comparison",
     r.f && r.f.evidence.missing.join() === "Credit union" && r.f.evidence.competitorsChecked.value === 0 && r.f.evidence.competitorsNotRead === 1 && /0 of 1/.test(r.f.detail),
     JSON.stringify(r));
+}
+const TODAY = "2026-10-22", TITLE = "# Local search, " + TODAY, J = (f) => JSON.parse(fs.readFileSync(f, "utf8"));
+const world = (n, profile, comps = []) => { const root = path.join(tmp, "w" + n), cap = path.join(root, ".pewp", "captures", "local");
+  fs.mkdirSync(path.join(cap, "competitors"), { recursive: true }); fs.writeFileSync(path.join(cap, "profile.json"), JSON.stringify(profile));
+  comps.forEach((c, i) => fs.writeFileSync(path.join(cap, "competitors", "c" + i + ".json"), JSON.stringify({ primaryCategory: "Loan agency", capturedAt: "2026-10-18", capturedIn: "owner phone, signed out", ...c })));
+  return { root, cap }; };
+const go = (w) => { const logs = []; const r = LR.runLocal(w.root, { cwd: w.root, today: TODAY, log: (s) => logs.push(s) });
+  const od = path.join(w.root, ".pewp", "local", TODAY), text = fs.readFileSync(path.join(od, "report.md"), "utf8");
+  return { ...w, r, od, logs, text, lines: text.split("\n") }; };
+const why = (got, want) => { const g = got.split("\n"), w = want.split("\n"); let i = w.findIndex((l, k) => l !== g[k]); if (i < 0) i = g.length === w.length ? -1 : w.length; return i < 0 ? "same" : "line " + (i + 1) + ": got " + JSON.stringify(g[i]) + " | want " + JSON.stringify(w[i]); };
+const ent = (a, i) => a[i] || { id: "none", reason: "", unblock: "" }; // a missing entry fails the case, it does not throw
+const BASE = { kind: "manual-capture", capturedAt: "2026-10-20", name: "Sample Lender", primaryCategory: "Loan agency", secondaryCategories: ["Mortgage broker"], services: ["Home loans"], description: "A family lender.", website: "https://sample-lender.example/", hours: "present", photosCount: 12, postsLast90d: 2, reviews: { count: 20, rating: 4.8, lastReviewDate: "2026-10-10", ownerReplyRate: 1 } };
+const W1 = go(world(1, { ...BASE, primaryCategory: null, website: null, services: [] }));
+const W2 = go(world(2, BASE, [{ name: "Maple Loans", secondaryCategories: ["Mortgage broker"] }, { name: "Elm Lending", secondaryCategories: [] }]));
+const W3 = go(world(3, BASE, [{ name: "Maple Loans", secondaryCategories: ["Mortgage broker"] }, { name: "Cedar Credit", secondaryCategories: null }]));
+const W4 = go(world(4, { ...BASE, capturedAt: undefined }));
+const whole = (...ls) => ls.join("\n") + "\n";
+const PACKFIX = "The owner searches '<service> <city>' on a phone in each city (or a confirmed-location browser), one page at a time, at least 45 s apart, and saves each result as JSON (see local-pack.mjs header).";
+const packLine = (w) => "- NOT MEASURED, pack: no captures in " + path.join(w.cap, "pack") + ". To fix: " + PACKFIX;
+const NAP = "- NOT MEASURED, nap: business.json lacks business.json: there is no canonical name/address/phone to compare against. To fix: Add name, locations[0].address and phone (string) to business.json; the owner confirms the exact wording once.";
+const REV = "- NOT MEASURED, reviews: needs both our profile and local-pack captures. To fix: " + PACKFIX;
+const gridLine = (w) => "- NOT MEASURED, grid: no grid captures in " + path.join(w.cap, "grid") + ". To fix: Run `local-grid.mjs plan`, then capture requests.json at human pace (45 s apart, stop at the first robot check) into that folder.";
+const nline = (b) => "- NOT READ, " + b.id + ": " + b.reason.replace(/\.$/, "") + ". To fix: " + b.unblock;
+{
+  const bl = J(path.join(W1.od, "profile.json")).blocked, [b1, b6, b10] = [ent(bl, 0), ent(bl, 1), ent(bl, 2)];
+  const F3 = "- LOC-P03 No services listed: The profile lists no services. Fix: List each service with a short description.";
+  const SUMMARY = "**1 profile findings, 3 profile checks not read; map pack not measured; name/address/phone not checked.**";
+  const want = whole(TITLE, "", SUMMARY, "", packLine(W1), NAP, REV, F3, nline(b1), nline(b6), nline(b10), gridLine(W1));
+  check("case 11: an ok profile whose primary category and website were not read: the report lists each as a NOT READ line and the summary says both numbers",
+    W1.text === want && bl.map((b) => b.id).join() === "LOC-P01,LOC-P06,LOC-P10..P13"
+      && b1.reason.startsWith("primary category not read: the capture holds no value for it (null)") && b6.reason.startsWith("website not read: the capture holds no value for it (null)")
+      && b10.reason.startsWith("no competitor profile captures: category, photo, review count")
+      && b1.unblock.startsWith("Read the primary category and the website link on the public listing") && b6.unblock.startsWith("Read the primary category and the website link on the public listing")
+      && b10.unblock.startsWith("Read the top 3 local-pack businesses' public listings once by hand") && !/NOT READ, LOC-P03/.test(W1.text),
+    why(W1.text, want) + " | " + bl.map((b) => b.id).join());
+}
+{
+  const want = whole(TITLE, "", "**0 profile findings; map pack not measured; name/address/phone not checked.**", "", packLine(W2), NAP, REV, gridLine(W2));
+  check("case 12: an ok profile with everything read: no NOT READ line and the summary line is today's text", W2.text === want && !/NOT READ/.test(W2.text), why(W2.text, want));
+}
+{
+  const b = J(path.join(W3.od, "profile.json")).blocked, N10 = nline(ent(b, 0));
+  const want = whole(TITLE, "", "**0 profile findings, 1 profile checks not read; map pack not measured; name/address/phone not checked.**", "", packLine(W3), NAP, REV, N10, gridLine(W3));
+  check("case 13: a competitor capture whose secondary categories were not read: the LOC-P10 not-read entry is a NOT READ line with its counts",
+    W3.text === want && b.length === 1 && ent(b, 0).id === "LOC-P10"
+      && N10.startsWith("- NOT READ, LOC-P10: Compared the secondary categories of 1 of 2 competitors; 1 not read. Nothing is concluded about the unread ones. To fix: Read the secondary categories on each competitor's listing") && !/ones\.\./.test(W3.text),
+    why(W3.text, want));
+}
+{
+  const pj = J(path.join(W1.od, "profile.json")), sj = J(path.join(W1.od, "summary.json"));
+  const parts = { profile: "ok", pack: "BLOCKED", nap: "BLOCKED", reviews: "BLOCKED", grid: "BLOCKED" };
+  const logWant = "local 2026-10-22: profile=ok pack=BLOCKED nap=BLOCKED reviews=BLOCKED grid=BLOCKED; wrote " + path.join(W1.root, ".pewp", "local", TODAY);
+  check("case 14: nothing else changes: profile.json, summary.json, the returned parts and the log line are as before",
+    Object.keys(pj).join() === "status,profile,findings,blocked" && pj.blocked.length === 3 && pj.findings.length === 1
+      && JSON.stringify(sj) === JSON.stringify({ date: TODAY, parts }) && JSON.stringify(W1.r.parts) === JSON.stringify(parts) && W1.logs.length === 1 && W1.logs[0] === logWant,
+    Object.keys(pj).join() + " | " + JSON.stringify(sj) + " | " + JSON.stringify(W1.logs));
+}
+{
+  const DATEFIX = "Add the date the listing was read: a capture without a date is not evidence.";
+  const PROF = "- NOT MEASURED, profile: the manual capture has no capturedAt date. To fix: " + DATEFIX;
+  const REV2 = REV.replace("To fix: " + PACKFIX, "To fix: " + DATEFIX);
+  const want = whole(TITLE, "", "**Business Profile not measured; map pack not measured; name/address/phone not checked.**", "", PROF, packLine(W4), NAP, REV2, gridLine(W4));
+  check("case 15: a profile that was not read at all (undated capture) gets no NOT READ line: the report is today's", W4.text === want && !/NOT READ/.test(W4.text), why(W4.text, want));
+}
+{
+  const bare = { id: "LOC-X1", source: "invented source", reason: "the invented field was not read" };
+  const full = { id: "LOC-X2", source: "invented source", reason: "an invented check could not run.", unblock: "Read it once by hand." };
+  let a = "", b = "", err = "";
+  try { a = LR.notReadLine(bare); b = LR.notReadLine(full); } catch (e) { err = String(e); }
+  check("case 16: a not-read entry without a way to unblock ends after its reason, one with it ends with To fix; no full stop is doubled",
+    !err && a === "- NOT READ, LOC-X1: the invented field was not read." && b === "- NOT READ, LOC-X2: an invented check could not run. To fix: Read it once by hand." && !/undefined/.test(a + b),
+    err || a + " | " + b);
+}
+{
+  const line = W2.lines.find((l) => l.startsWith("- NOT MEASURED, reviews:")) || "", un = J(path.join(W2.od, "reviews.json")).blocked?.unblock;
+  check("case 17: an ok profile with no map pack capture: the reviews line and reviews.json carry the pack's own way to unblock, never undefined",
+    line === REV && un === PACKFIX && !/undefined/.test(W2.text), line + " | " + un);
 }
 fs.rmSync(tmp, { recursive: true, force: true });
 

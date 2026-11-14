@@ -55,6 +55,7 @@ In a manual capture the primary category, the secondary categories, the services
 the check of each is listed BLOCKED with what unblocks it; an empty list or an empty text means the listing was read and shows
 none, and gives the finding.
 In a competitor listing the secondary categories follow the same rule: null (or left out) is not read, that competitor is left out of the categories comparison, the finding says how many were compared and how many were not read, and when nothing is found the check is listed BLOCKED; an empty list means read and none.
+In report.md each unjudged check of a read profile is a "- NOT READ, <id>: <reason>. To fix: <unblock>" line; the summary counts both.
 
 ## 2. Map pack per city and device (`local-pack.mjs`)
 Our position in the pack for each query, city and device (null when we are not in it, with the pack size), sourced as an owner

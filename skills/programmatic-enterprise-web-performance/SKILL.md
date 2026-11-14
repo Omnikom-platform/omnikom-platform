@@ -104,7 +104,7 @@ In audit-live the checker step's root is `{work}/checker` (a copy of the newest 
   `test-client-copy.mjs` (`client-copy.mjs`, the client's 8-page copy from a finished run; + `--mutants`),
   `test-ci-tests.mjs` (`ci-tests.mjs`: the tests of `scripts/ci-tests.json`, the only ones GitHub runs, in the `audit` job; + `--mutants`),
   `test-grid-text.mjs` (`grid-text-to-capture.mjs`: a saved Google Maps page text, a results list or one place's card, becomes one grid capture; + `--mutants`),
-  `test-profile-notread.mjs` (`local-profile.mjs`: a primary category or website of a manual capture, or a competitor's secondary categories, that was not read is never a finding (a BLOCKED check, or counted as not read); + `--mutants`),
+  `test-profile-notread.mjs` (`local-profile.mjs`: a primary category or website of a manual capture, or a competitor's secondary categories, that was not read is never a finding (a BLOCKED check, or counted as not read), local-run.mjs prints each such check as a NOT READ line in report.md, and its reviews part names the way to unblock of the part really missing; + `--mutants`),
   `test-ads-untied.mjs` (`import-ads.mjs`: an ad library Page that could not be tied to the business is its own not-known state, never the business's ads and never "no ads", in the report and the client copy; + `--mutants`),
   `test-targets-record.mjs` (`targets-validate.mjs --record` and its pipeline step: the step's evidence is its own record of what it read, so a targets.json written after it ran makes it run again; + `--mutants`),
   `test-writing-gate.mjs` (the writing gate on a good fixture site and one mutant per rule, each watched red for the right reason; needs the render-gate Chromium),
