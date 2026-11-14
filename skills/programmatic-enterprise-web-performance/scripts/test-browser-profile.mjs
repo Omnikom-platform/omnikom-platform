@@ -26,8 +26,8 @@ async function scenarios(dir) {
     const p1 = path.join(tmp, "fresh");
     let seenAtSpawn = null, spawnArgs = null;
     const fakeSpawn = (exe, args, options) => { events.push("spawn"); seenAtSpawn = fs.existsSync(path.join(p1, "Local State")) ? fs.readFileSync(path.join(p1, "Local State"), "utf8") : null; spawnArgs = { exe, args, options }; return { pid: 1 }; };
-    const child = lib.spawnBrowser({ exe: "C:/fake/chrome.exe", dir: p1, args: ["--headless=new", "about:blank"], options: { stdio: "ignore" } }, { fs: rfs, spawn: fakeSpawn, now: () => NOW });
-    check("profile: the profile's Local State is written BEFORE the browser is spawned (a fake spawn sees the file, and the recorded order is mkdir, write Local State, spawn)", events.join() === "mkdir,write Local State,spawn" && seenAtSpawn !== null, `${events.join()} | at spawn: ${seenAtSpawn}`);
+    let child = null, e1 = ""; try { child = lib.spawnBrowser({ exe: "C:/fake/chrome.exe", dir: p1, args: ["--headless=new", "about:blank"], options: { stdio: "ignore" } }, { fs: rfs, spawn: fakeSpawn, now: () => NOW }); } catch (e) { e1 = e.message; }
+    check("profile: the profile's Local State is written BEFORE the browser is spawned (a fake spawn sees the file, and the recorded order is mkdir, write Local State, spawn)", events.join() === "mkdir,write Local State,spawn" && seenAtSpawn !== null, `${events.join()} | at spawn: ${seenAtSpawn} | ${e1}`);
     const written = (() => { try { return JSON.parse(fs.readFileSync(path.join(p1, "Local State"), "utf8")); } catch { return null; } })();
     check("profile: the file is JSON with password_manager.os_password_blank false and os_password_last_changed the Chrome time of now ((ms + 11644473600000) * 1000, as a string)", written?.password_manager?.os_password_blank === false && written.password_manager.os_password_last_changed === STAMP && typeof written.password_manager.os_password_last_changed === "string", JSON.stringify(written));
     check("profile: the spawn gets the exe, --user-data-dir=<the profile> first, then the caller's args and options, and returns the child", spawnArgs?.exe === "C:/fake/chrome.exe" && spawnArgs.args[0] === `--user-data-dir=${p1}` && spawnArgs.args.slice(1).join() === "--headless=new,about:blank" && spawnArgs.options?.stdio === "ignore" && child.pid === 1, JSON.stringify(spawnArgs));
@@ -47,8 +47,8 @@ async function scenarios(dir) {
     const c = (() => { try { return JSON.parse(fs.readFileSync(path.join(p3, "Local State"), "utf8")); } catch { return null; } })();
     check("profile: a Local State that is not JSON (or is a list) is replaced by a valid seed, never an error", !threw && c?.password_manager?.os_password_blank === false, `${threw} ${JSON.stringify(c)}`);
     const p4 = path.join(tmp, "deep", "er", "dir");
-    lib.seedProfile(p4, { now: () => NOW });
-    check("profile: the profile folder is made when it does not exist (nested too)", fs.existsSync(path.join(p4, "Local State")));
+    let e4 = ""; try { lib.seedProfile(p4, { now: () => NOW }); } catch (e) { e4 = e.message; }
+    check("profile: the profile folder is made when it does not exist (nested too)", fs.existsSync(path.join(p4, "Local State")), e4);
 
     // ---- the guard over every script ----
     const files = fs.readdirSync(dir).filter((f) => f.endsWith(".mjs"));
