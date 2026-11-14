@@ -5,7 +5,7 @@
 // and condition. No client word is typed here: names, products and cities come from the data and the client file.
 // Nothing is written here: the caller writes the html and the sheet. client-copy.mjs calls it and writes the files.
 import { stop } from "./client-copy-data.mjs";
-import { tagOf as ruleTag } from "./client-copy-rules.mjs";
+import { tagOf as ruleTag, starsHold } from "./client-copy-rules.mjs";
 
 const steps = [];
 for (let w = 800; w >= 320; w -= 20) steps.push(`@media screen and (max-width:${w}px){section{zoom:${(w / 816).toFixed(4)}}}`);
@@ -155,7 +155,7 @@ table.wrong td{font-size:8.6pt;vertical-align:top}
 `;
 
 export function buildPages(ctx) {
-  const { D, S, fmt, w, std, fixes, draft, logoUrl, fontsUrl, client } = ctx;
+  const { D, S, fmt, w, std, fixes, branches, draft, logoUrl, fontsUrl, client } = ctx;
   const NAME = D.biz.name, home = D.biz.home, MONTH = D.month;
   const sheet = [], seenRows = new Set();
   const add = (row) => { const k = row.join("\u0001"); if (!seenRows.has(k)) { seenRows.add(k); sheet.push(row); } }; // an identical row is one row
@@ -187,6 +187,9 @@ export function buildPages(ctx) {
   const prod = (key, shown, label) => (labelled(key) ? esc(plain(shown)) : TX("textProducts", shown, label, `service=${key}]`));
   const city = (c, label) => TX("textPlaces", c, label, `cityName=${c}]`);
   const rname = (r, label) => (r.printFrom === "client" ? esc(plain(r.printName)) : TX("textRival", r.printName, label, `domain=${r.domain}]`)); // a name the client file wrote is its wording
+  // BR: a NEW sentence of an other branch: its text is in client-copy/other-branches.json (read by the command, checked by the gate new words); each {value} is filled with html the page already made
+  const BR = (id, vals) => { const t = branches && branches[id]; if (typeof t !== "string") stop(`STOP: other-branches.json has no sentence ${id}`); return t.split(/(\{[^}]+\})/).map((p) => { const m = /^\{([^}]+)\}$/.exec(p); if (!m) return esc(p); if (!(m[1] in vals)) stop(`STOP: other-branches.json ${id} names {${m[1]}} and the page gives no value for it`); return vals[m[1]]; }).join(""); };
+  const noun = (n, one, many) => (n === 1 ? one : many); // R-b: a count of one takes the singular noun
   const miss = (v) => v === null || v === undefined || v === "" || (typeof v === "number" && !Number.isFinite(v));
   // P: draw a value read from D[key] (never null) and give it a row; returns the html text
   const P = (key, shown, label, pick) => { if (miss(shown)) stop(`STOP: page ${page}, ${label}: the value is missing`); const t = plain(typeof shown === "number" ? fmt(shown) : shown); cite(key, t, label, pick); return esc(t); };
@@ -235,7 +238,7 @@ export function buildPages(ctx) {
     const F = T.rows.filter((r) => r.cells[0].counts["top three"] === r.cells[0].points); // products with every home spot in the top three, demand order
     const away = T.cities.slice(1), bing = D.directories.find((r) => /bing/i.test(r.directory));
     if (!(chat.named > 0)) stop("STOP: page 2, the headline says answers in ChatGPT: ChatGPT names the business on no question");
-    if (typeof D.rating.rating === "number" && D.rating.rating < 4) stop(`STOP: page 2, the Google rating under what you already have going for you: the rating is ${D.rating.rating}, below 4.0`);
+    const stars = starsHold(D.rating.rating); // STARS: the rating is a number of STARS_MIN (rules module) or more; otherwise the copy says nothing about stars
     if (sv.nameFirst === 0) stop(`STOP: page 2, the name searches under what you already have going for you: your site comes first on none of the ${sv.name} results pages for your name`);
     if (!F.length) stop(`STOP: page 2, what already works: no ${w.product} has every ${home} spot in the top three`);
     const fList = andList(F.map((f) => f.lower));
@@ -243,7 +246,7 @@ export function buildPages(ctx) {
     const homeOf = sum(`${home} spots read, ${fList}`, F.map((f) => [f.lower, f.cells[0].points, "mapTiles", "query=" + f.cells[0].query]));
     if (!bing || bing.status !== "listed") stop("STOP: page 2, your business on Bing Places: the Bing directory is not listed");
     const lines = [
-      [P("rating", D.rating.rating, "Google rating", "reviews.rating"), `Google rating, from ${P("rating", D.rating.reviews, "Google reviews")} reviews`],
+      ...(stars ? [[P("rating", D.rating.rating, "Google rating", "reviews.rating"), `Google rating, from ${P("rating", D.rating.reviews, "Google reviews")} reviews`]] : []),
       [PC(`${homeTop} of ${homeOf}`, `${home} spots in the top three (sum)`, "sum, see the rows of this page"), `${city(home, "city, spots in the top three")} spots where Google Maps puts you in its top three, ${andList(F.map((f) => `for ${prod(f.key, f.lower, "product, spots in the top three")}`))}`],
       [P("ai", `${chat.named} of ${chat.questions}`, "ChatGPT questions that name you", "summary.engines[engine=chatgpt]"), "questions to ChatGPT answered with your name"],
       [P("serp", `${sv.nameFirst} of ${sv.name}`, "searches for your name where your site is first", "holds the business's name"), "results pages for your name where your site comes first"],
@@ -262,8 +265,9 @@ export function buildPages(ctx) {
     if (D.demand.length < 2) stop("STOP: page 2, what buyers search for: fewer than two products");
     const maxD = Math.max(...D.demand.map((r) => r.value));
     const dem = D.demand.map((d) => `<tr><td>${prod(d.key, d.product, "product, what buyers search for")}</td><td class="bc">${bar(d.value, maxD)}</td><td class="r">${P("demand", d.value, `Bing demand, ${d.product}`, `query=${d.key}&`)}</td><td class="r state">${P("demand", d.page ? "Listed" : "No page", `page of its own, ${d.product}`, "servicesMissing")}</td></tr>`).join("");
-    const h = `You have ${P("rating", D.rating.rating, "rating")} stars and answers in ChatGPT, and still ${P("serp", `${sv.productWithUs} of ${sv.product}`, `${w.product} searches that show you`, "where the query is a product search")} ${w.product} searches show you.`;
-    return sheetPage(2, `${head("Summary", h, "You are easy to trust and hard to find.")}
+    const PICK = "where the query is a product search";
+    const h = stars ? `You have ${P("rating", D.rating.rating, "rating")} stars and answers in ChatGPT, and still ${P("serp", `${sv.productWithUs} of ${sv.product}`, `${w.product} searches that show you`, PICK)} ${w.product} searches show you.` : BR("p2-headline-chatgpt-only", { x: P("serp", sv.productWithUs, `${w.product} searches that show you`, PICK), y: P("serp", sv.product, `${w.product} searches read`, PICK), product: esc(w.product) });
+    return sheetPage(2, `${head("Summary", h, stars ? "You are easy to trust and hard to find." : "")}
   <div class="two cols2">
     <div><h3>What you already have going for you</h3><ul class="have">${lines.map(([b, s]) => `<li><b>${b}</b><span>${s}</span></li>`).join("")}</ul></div>
     <div><h3>What holds you back</h3><ol class="back">${bad.map((t) => `<li>${t}</li>`).join("")}</ol></div>
@@ -352,7 +356,7 @@ export function buildPages(ctx) {
     const faqStat = `${P("faq", D.faq.marked, "FAQ answers marked", "FAQPage")} of ${P("faq", D.faq.of, "FAQ answers", "headings")}`;
     const profStat = `${P("profiles", pr.inCard, "profiles linked", "sameAs")} of ${P("profiles", pr.total, "profiles", "rows (length)")}`;
     const h = `ChatGPT names you on ${P("ai", `${chN} of ${G.rows.length}`, "ChatGPT", "summary.engines[engine=chatgpt]")} questions. Perplexity names you on ${P("ai", `${peN} of ${G.rows.length}`, "Perplexity", "summary.engines[engine=perplexity]")}, and Google's AI answers on ${P("googleAi", `${D.googleAi.named} of ${D.googleAi.total}`, "Google AI answers that name you")} pages.`;
-    const fixes = [[`Link your ${P("profiles", pr.total, "profiles to link", "rows (length)")} profiles in the company details your site gives Google.`, `Included in the site we draft. Today ${profStat} are linked.`]];
+    const fixes = [[`Link your ${P("profiles", pr.total, "profiles to link", "rows (length)")} ${noun(pr.total, "profile", "profiles")} in the company details your site gives Google.`, `Included in the site we draft. Today ${profStat} are linked.`]];
     return sheetPage(4, `${head("AI search \u00b7 GEO and AEO", h, `${P("aiGrid", G.rows.length, "questions asked")} questions a buyer would ask, put to ChatGPT and to Perplexity. A filled dot means the answer names you; a ring means it names other businesses.`)}<p class="sm1" style="margin-bottom:13px">GEO: being named by AI assistants. AEO: a page built to be the answer.</p>
   <table class="grid"><tr><th>The question</th><th>ChatGPT</th><th>Perplexity</th></tr>${rows}</table>
   <div class="two cols2 mt">
@@ -444,7 +448,7 @@ export function buildPages(ctx) {
     const nameHtml = (a) => { const r = RV.find((x) => x.domain === a.domain); return r ? rname(r, "rival named, ads line") : TX("ads", a.domain, "advertiser domain, ads line", `advertiser=${a.domain}&`); };
     const adPart = (a) => { const n = P("ads", a.count, `ads, ${nameOf(a)}`, `advertiser=${a.domain}`); return a.count === 0 ? `none for ${nameHtml(a)}` : `${n} ${a.count === 1 ? "ad" : "ads"} for ${nameHtml(a)}`; };
     const adLine = `Google's ad library shows ${andList(D.ads.map(adPart))} in the last ${P("ads", D.ads[0].days, "days of the ad library window", `advertiser=${D.ads[0].domain}`)} days.`;
-    const fixes = [[`Join the ${city(home, "city, chambers fix")} chambers and ask for listings.`, `We found ${P("linkPlaces", LP.pursue, "places worth asking for a listing", "summary.PURSUE")} places worth asking, ${P("linkPlaces", LP.chambers, "of them chambers of commerce", "chamber-local")} of them chambers of commerce. ${rt(client.linkPlace)} links to ${P("linkPlaces", LP.metro, `rivals linked from ${client.linkPlace}`, "opportunities[")} of the businesses you compete with, and not to you. You and Omnikom ask together.`]];
+    const fixes = [[`Join the ${city(home, "city, chambers fix")} chambers and ask for listings.`, `We found ${P("linkPlaces", LP.pursue, "places worth asking for a listing", "summary.PURSUE")} ${noun(LP.pursue, "place", "places")} worth asking, ${P("linkPlaces", LP.chambers, "of them chambers of commerce", "chamber-local")} of them chambers of commerce. ${rt(client.linkPlace)} links to ${P("linkPlaces", LP.metro, `rivals linked from ${client.linkPlace}`, "opportunities[")} of the businesses you compete with, and not to you. You and Omnikom ask together.`]];
     return sheetPage(6, `${head("Competitors", h, rt(client.rivalsLede))}
   <table class="comp"><tr><th>Business</th><th colspan="2">Words in the first response</th><th class="r">Pages in the list it gives Google</th><th class="r">Other sites pointing to it</th></tr>${youRow}${rows}</table>
   <p class="note">${adLine}</p>
@@ -489,8 +493,8 @@ export function buildPages(ctx) {
         if (!(T7.share > 50)) stop(`STOP: page 7, the row that says "the search most buyers type": ${T7.product} holds ${T7.share}% of the demand, 50% or less`);
         return P("topDemand", `${T7.share}%`, `share of demand, ${T7.product}`);
       },
-      otherCount: () => P("demand", D.demand.length - 2, `other ${w.product} pages`),
-      listedOrNone: () => (D.productPages.listed === 0 ? "none" : P("productPages", D.productPages.listed, `${w.products} listed`)),
+      otherCount: () => P("demand", D.demand.slice(2).filter((r) => !r.page).length, `other ${w.product} pages`), // the products past the top two that have no page
+      listedOrNone: () => { const k = D.demand.slice(2).filter((r) => r.page).length; return k === 0 ? "none" : P("demand", k, `${w.products} with a page past the top two`); }, // of those others, the ones a page is listed for
       addrCount: () => P("addresses", D.addresses.length, "addresses"),
       renewClause: () => (D.renewBy ? `; renew the domain before ${P("renewBy", D.renewBy, "domain expiry")}` : ""),
       linkMetro: () => P("linkPlaces", D.linkPlaces.metro, `rivals linked from ${client.linkPlace}`, "opportunities["),
@@ -498,7 +502,7 @@ export function buildPages(ctx) {
       goodLcpS: () => P("goodLcpS", D.goodLcpS, "seconds, Google's mark"),
       profilesTotal: () => {
         if (pr.inCard !== 0) stop("STOP: page 7, the profiles row says none is linked: some are");
-        return P("profiles", pr.total, "profiles", "rows (length)");
+        return `${P("profiles", pr.total, "profiles", "rows (length)")} ${noun(pr.total, "profile", "profiles")}`;
       },
     };
     for (const f of fixes) {
@@ -510,7 +514,9 @@ export function buildPages(ctx) {
     const TEXTPH = new Set(["brokenApply", "home", "topProduct", "secondLower", "claimList"]); // a text drawn from a file: one sheet row for each place the plan prints it
     const fill = (t, at) => String(t).split(/(\{\w+\})/).map((s) => (/^\{\w+\}$/.test(s) ? (TEXTPH.has(s.slice(1, -1)) ? PH[s.slice(1, -1)](at) : ph(s.slice(1, -1))) : esc(s))).join("");
     for (const k of ["takes", "brokenApply", "spfClause"]) if (live.some((f) => `${f.fix} ${f.gets}`.includes(`{${k}}`))) { if (k === "brokenApply") cite("profiles", pr.broken.length, `profile links that open an error page (${pr.broken.join(", ")})`, "linksBroken"); else ph(k); } // drawn before the rows, in this order
-    const R = live.map((f) => [fill(f.fix, `row ${f.id} fix`), fill(f.gets, `row ${f.id} gets`), f.who, f.see]);
+    const topOnly = Boolean(D.demand[1] && D.demand[1].page); // the second product already has a page: the row says only "Build the {top} page."
+    const R = live.map((f) => [f.id === "top-page" && topOnly ? BR("p7-build-top-only", { top: PH.topProduct(`row ${f.id} fix`) }) : fill(f.fix, `row ${f.id} fix`), fill(f.gets, `row ${f.id} gets`), f.who, f.see]);
+    if (!R.length) stop("STOP: page 7, the plan: no fix holds for this run");
     PC(String(R.length), "number of fixes", "count of the plan rows printed");
     if (live.some((f) => f.when === "trustRead")) {
       if (D.licenceWords !== 0) stop("STOP: page 7, the licence row says your home page shows no license wording: it shows some");
@@ -519,7 +525,8 @@ export function buildPages(ctx) {
     if (live.some((f) => f.when === "noAnalyticsTag")) cite("outsideOnlyFonts", "fonts only", "analytics host in the test visit");
     if (live.some((f) => f.when === "mailProblem")) cite("mail", `spf ${D.mail.spf}, dmarc ${D.mail.dmarcMissing ? "missing" : "found"}`, "domain's sender records, DMARC");
     const rowsHtml = R.map(([fx, gt, wh, se], i) => `<tr${i === 0 ? ' class="first"' : ""}><td>${i + 1}</td><td>${fx}</td><td>${gt}</td><td>${esc(wh)}</td><td class="see">${esc(se)}</td></tr>`).join("");
-    return sheetPage(7, `${head("Action plan", `${PC(String(R.length), "fixes", "count of the plan rows printed")} fixes, in the order that decides whether a ${esc(w.buyer)} finds you and ${esc(w.applies)}.`, "Start at the top. Each line says what you get.")}
+    const planHead = R.length === 1 ? BR("rb-one-fix", { n: PC("1", "fixes", "count of the plan rows printed"), buyer: esc(w.buyer), applies: esc(w.applies) }) : `${PC(String(R.length), "fixes", "count of the plan rows printed")} fixes, in the order that decides whether a ${esc(w.buyer)} finds you and ${esc(w.applies)}.`;
+    return sheetPage(7, `${head("Action plan", planHead, R.length === 1 ? "" : "Start at the top. Each line says what you get.")}
   <table class="plan"><tr><th>#</th><th>Fix</th><th>What you get</th><th>Who</th><th>Told on</th></tr>${rowsHtml}</table>`);
   })();
 

@@ -10,5 +10,5 @@
   { "id": "licence", "when": "trustRead", "fix": "Publish your company history and your license details.", "gets": "A buyer can check who you are before {applying}. Today your home page shows no license wording.", "who": "You and Omnikom", "see": "This page" },
   { "id": "chambers", "when": "linkPlacesFound", "fix": "Join the {home} chambers and ask for listings.", "gets": "Links from places that already link to your rivals. {linkPlace} links to {linkMetro}, and not to you.", "who": "You and Omnikom", "see": "Page 6" },
   { "id": "speed", "when": "phoneIsSlow", "fix": "Speed up the phone page: main picture first, sized images.", "gets": "Visitors on a phone wait less. Today {lcpS} s; Google's good mark is {goodLcpS} s.", "who": "Omnikom, in the site we draft", "see": "Page 3" },
-  { "id": "card", "when": "profilesNotInCard", "fix": "Name your {profilesTotal} profiles in the company details your site gives Google.", "gets": "Google and AI assistants learn which profiles are yours. Today none is linked.", "who": "Omnikom, in the site we draft", "see": "Page 4" }
+  { "id": "card", "when": "profilesNotInCard", "fix": "Name your {profilesTotal} in the company details your site gives Google.", "gets": "Google and AI assistants learn which profiles are yours. Today none is linked.", "who": "Omnikom, in the site we draft", "see": "Page 4" }
 ]

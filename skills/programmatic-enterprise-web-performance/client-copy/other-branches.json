@@ -1,0 +1,20 @@
+{
+ "note": "The NEW sentences of the other branches of the client copy (job F1: the headline of page 2 without the stars, the plan row that names only the top page, the plan headline of one fix). Each is built only from words of approved-words.json (the gate new words). Later jobs add theirs.",
+ "sentences": [
+  {
+   "id": "p2-headline-chatgpt-only",
+   "page": 2,
+   "text": "You have answers in ChatGPT, and still {x} of {y} {product} searches show you."
+  },
+  {
+   "id": "p7-build-top-only",
+   "page": 7,
+   "text": "Build the {top} page."
+  },
+  {
+   "id": "rb-one-fix",
+   "page": 7,
+   "text": "{n} fix, in the order that decides whether a {buyer} finds you and {applies}."
+  }
+ ]
+}

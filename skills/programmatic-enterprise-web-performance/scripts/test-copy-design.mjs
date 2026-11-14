@@ -121,8 +121,8 @@ if (args.includes("--mutants")) {
     { id: "f100-pre-draw-order", file: "client-copy-design.mjs", from: 'for (const k of ["takes", "brokenApply", "spfClause"])', to: 'for (const k of ["spfClause", "brokenApply", "takes"])', red: "case 25:" },
     { id: "f101-every-row-prints", file: "client-copy-design.mjs", from: "const live = fixes.filter((f) => RULES[f.when]()), memo = {};", to: "const live = fixes.filter((f) => true), memo = {};", red: "case 25:" },
     { id: "f102-promise-outcome-typed", file: "client-copy-design.mjs", from: 'std.promise.replace("{outcome}", w.outcome)', to: 'std.promise.replace("{outcome}", "customers")', red: "case 28:" },
-    { id: "f103-listed-pages-inverted", file: "client-copy-design.mjs", from: 'D.productPages.listed === 0 ? "none"', to: 'D.productPages.listed !== 0 ? "none"', red: "case 25:" },
-    { id: "f104-fix-and-gets-swapped", file: "client-copy-design.mjs", from: "const R = live.map((f) => [fill(f.fix, `row ${f.id} fix`), fill(f.gets, `row ${f.id} gets`), f.who, f.see]);", to: "const R = live.map((f) => [fill(f.gets, `row ${f.id} gets`), fill(f.fix, `row ${f.id} fix`), f.who, f.see]);", red: "case 25:" },
+    { id: "f103-listed-pages-inverted", file: "client-copy-design.mjs", from: 'return k === 0 ? "none"', to: 'return k !== 0 ? "none"', red: "case 25:" },
+    { id: "f104-fix-and-gets-swapped", file: "client-copy-design.mjs", from: "const R = live.map((f) => [f.id === \"top-page\"", to: "const R = live.map((f) => [fill(f.gets, `row ${f.id} gets`), f.id === \"top-page\"", red: "case 25:" },
     { id: "f105-page-count-not-drawn", file: "client-copy-design.mjs", from: 'PC(String(all.length), "page count in the footers"', to: 'void (String(all.length), "page count in the footers"', red: "case 28:" },
     { id: "f106-applying-key-not-accepted", file: "client-copy.mjs", from: 'otherKind: "another business", applying: "getting in touch" };', to: 'otherKind: "another business" };', red: "case 24:" },
     { id: "f107-fixes-count-not-drawn", file: "client-copy-design.mjs", from: '${PC(String(R.length), "fixes", "count of the plan rows printed")}', to: "${String(R.length)}", red: "case 25:" },
@@ -135,8 +135,7 @@ if (args.includes("--mutants")) {
     { id: "f114-claim-list-listed-ones", file: "client-copy-design.mjs", from: 'claimList: (at) => andList(D.directories.filter((r) => r.status === "not listed")', to: 'claimList: (at) => andList(D.directories.filter((r) => r.status === "listed")', red: "case 25:" },
     { id: "f115-top-product-not-lowered", file: "client-copy-design.mjs", from: "topProduct: (at) => prod(T7.key, T7.lower,", to: "topProduct: (at) => prod(T7.key, T7.product,", red: "case 25:" },
     { id: "f116-second-is-the-first", file: "client-copy-design.mjs", from: "secondLower: (at) => prod(D.demand[1].key, D.demand[1].lower,", to: "secondLower: (at) => prod(D.demand[1].key, D.demand[0].lower,", red: "case 25:" },
-    { id: "f117-other-count-off-by-one", file: "client-copy-design.mjs", from: 'P("demand", D.demand.length - 2,', to: 'P("demand", D.demand.length - 1,', red: "case 25:" },
-    { id: "f118-listed-count-wrong", file: "client-copy-design.mjs", from: ': P("productPages", D.productPages.listed, ', to: ': P("productPages", D.productPages.listed + 1, ', red: "case 26:" },
+    { id: "f117-other-count-off-by-one", file: "client-copy-design.mjs", from: 'D.demand.slice(2).filter((r) => !r.page).length, `other', to: 'D.demand.slice(2).filter((r) => !r.page).length + 1, `other', red: "case 25:" },
     { id: "f119-file-text-not-escaped", file: "client-copy-design.mjs", from: " : ph(s.slice(1, -1))) : esc(s))", to: " : ph(s.slice(1, -1))) : s)", red: "case 26:" },
     { id: "f120-who-not-escaped", file: "client-copy-design.mjs", from: "<td>${esc(wh)}</td>", to: "<td>${wh}</td>", red: "case 26:" },
     { id: "f121-see-not-escaped", file: "client-copy-design.mjs", from: '<td class="see">${esc(se)}</td>', to: '<td class="see">${se}</td>', red: "case 26:" },
@@ -150,15 +149,13 @@ if (args.includes("--mutants")) {
     { id: "f129-headline-word-typed", file: "client-copy-design.mjs", from: "finds you and ${esc(w.applies)}.", to: "finds you and gets in touch.", red: "case 25:" },
     { id: "f130-applying-typed", file: "client-copy-design.mjs", from: "applying: () => esc(w.applying)", to: 'applying: () => "getting in touch"', red: "case 25:" },
     { id: "f131-last-step-typed", file: "client-copy-design.mjs", from: "for ${esc(steps[3][1])} we keep it", to: "for 12 months we keep it", red: "case 28:" },
-    { id: "f132-profiles-pick-dropped", file: "client-copy-design.mjs", from: 'return P("profiles", pr.total, "profiles", "rows (length)");', to: 'return P("profiles", pr.total, "profiles");', red: "case 25:" },
+    { id: "f132-profiles-pick-dropped", file: "client-copy-design.mjs", from: 'P("profiles", pr.total, "profiles", "rows (length)")} ${noun(pr.total, "profile", "profiles")}', to: 'P("profiles", pr.total, "profiles")} ${noun(pr.total, "profile", "profiles")}', red: "case 25:" },
     { id: "f133-rivals-linked-pick-dropped", file: "client-copy-design.mjs", from: 'D.linkPlaces.metro, `rivals linked from ${client.linkPlace}`, "opportunities[")', to: "D.linkPlaces.metro, `rivals linked from ${client.linkPlace}`)", red: "case 25:" },
     { id: "f134-broken-links-pick-dropped", file: "client-copy-design.mjs", from: ', "linksBroken");', to: ");", red: "case 25:" },
     { id: "f135-home-dash-kept", file: "client-copy-design.mjs", from: "home: (at) => city(home, `city, plan row, ${at}`)", to: "home: (at) => esc(home)", red: "case 26:" },
     { id: "f136-top-product-dash-kept", file: "client-copy-design.mjs", from: "topProduct: (at) => prod(T7.key, T7.lower, `most searched product, plan row, ${at}`)", to: "topProduct: (at) => esc(T7.lower)", red: "case 26:" },
     { id: "f137-second-product-dash-kept", file: "client-copy-design.mjs", from: "secondLower: (at) => prod(D.demand[1].key, D.demand[1].lower, `second most searched product, plan row, ${at}`)", to: "secondLower: (at) => esc(D.demand[1].lower)", red: "case 26:" },
     { id: "f138-claim-list-dash-kept", file: "client-copy-design.mjs", from: "TX(\"textDirs\", r.name, `directory to claim, plan row, ${at}`, `printed as ${r.name})`)", to: "esc(r.name)", red: "case 26:" },
-    { id: "f139-rating-guard-off", file: "client-copy-design.mjs", from: 'if (typeof D.rating.rating === "number" && D.rating.rating < 4) stop(', to: "if (false) stop(", red: "case 9:" },
-    { id: "f140-rating-four-stops", file: "client-copy-design.mjs", from: "&& D.rating.rating < 4) stop(", to: "&& D.rating.rating <= 4) stop(", red: "case 9:" },
     { id: "f141-name-searches-guard-off", file: "client-copy-design.mjs", from: "if (sv.nameFirst === 0) stop(", to: "if (false) stop(", red: "case 9:" },
     { id: "f142-your-rival-result-allowed", file: "client-copy-design.mjs", from: 'tag !== "government" && tag !== w.otherKind) stop(', to: 'tag !== "government" && tag !== "your rival" && tag !== w.otherKind) stop(', red: "case 14:" },
     { id: "f143-one-directory-allowed", file: "client-copy-design.mjs", from: "if (notListed.length === 1) stop(", to: "if (false) stop(", red: "case 20:" },
@@ -398,7 +395,8 @@ const cfgOf = (run, client, hands = false) => ({ pewp: run.pewp, snapAbs: path.j
 // R3b: the wording files of pages 7 and 8 (null when absent, so the test says so in case 24 and does not stop)
 const readW = (f) => { try { return JSON.parse(fs.readFileSync(path.join(skill, "client-copy", f), "utf8")); } catch { return null; } };
 const std = readW("how-we-work.json") || {}, plan = readW("plan.json") || [];
-const ctxOf = (col, client) => ({ D: col.D, S: col.S, fmt: col.fmt, w: { ...W0, ...(client.words || {}) }, std, client, draft: true, contact: null, notRead: [], fixes: plan, logoUrl: "file:///logo.png", fontsUrl: "file:///fonts.css" });
+const branches = Object.fromEntries(((readW("other-branches.json") || {}).sentences || []).map((x) => [x.id, x.text]));
+const ctxOf = (col, client) => ({ D: col.D, S: col.S, fmt: col.fmt, w: { ...W0, ...(client.words || {}) }, std, client, draft: true, contact: null, notRead: [], fixes: plan, branches, logoUrl: "file:///logo.png", fontsUrl: "file:///fonts.css" });
 const { collect } = await import(pathToFileURL(path.join(dir, "client-copy-data.mjs")).href + "?" + Math.random());
 let DM = null;
 try { DM = await import(pathToFileURL(path.join(dir, "client-copy-design.mjs")).href + "?" + Math.random()); } catch {}
@@ -569,13 +567,11 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   g("g10", colA, clientA, (D) => { D.demand = D.demand.slice(0, 1); }, "fewer than two products");
   g("g11", colA, clientA, (D) => { D.rating.reviews = null; }, "Google reviews: the value is missing");
   g("g12", colA, clientA, (D) => { D.mapTiles.rows[0].cells[1].counts["top three"] = null; }, "is missing");
-  g("g13", colA, clientA, (D) => { D.rating.rating = 3.9; }, "the Google rating");
   g("g14", colA, clientA, (D) => { D.serp.nameFirst = 0; }, "the name searches");
-  { const D2 = structuredClone(colA.D); D2.rating.rating = 4; const got = stopOf(() => bp({ ...colA, D: D2 }, clientA)); if (got !== "") bad.push(`a rating of exactly 4 stops: ${got}`); }
   const clean = stopOf(() => bp(colA, clientA));
   if (clean !== "") bad.push(`the unedited run: ${clean}`);
   return [bad.length === 0, bad.join(" | ")];
-}); check("case 9: THE GUARDS: each sentence that states a finding STOPs the build with its line when the finding does not hold (14 edits: 12 guards, a missing value, a missing addend; a rating of exactly 4 builds), and the unedited run builds", ok, detail); }
+}); check("case 9: THE GUARDS: each sentence that states a finding STOPs the build with its line when the finding does not hold (13 edits: 11 guards, a missing value, a missing addend; the rating guard went to test-client-copy case 23, which runs the command), and the unedited run builds", ok, detail); }
 // ---------------------------------------------------------------- R2b: the data of pages 3 and 4, the two pages
 const topA = order(sA, clientA)[0], queryA = `${topA.p} ${sA.home}`;
 const withCol = (r, client) => collect(cfgOf(r, client));
@@ -973,7 +969,7 @@ const cells7 = (s, client) => {
     for (const x of want) if (!(typeof x === "string" ? t.includes(x) : rows.some((r) => r[0] === x[0] && r[1] === x[1]))) bad.push(`${name}: no ${JSON.stringify(x)}`);
     for (const x of not || []) if (typeof x === "string" ? t.includes(x) : rows.some((r) => r[0] === x[0])) bad.push(`${name}: still ${JSON.stringify(x)}`);
   };
-  variant("some pages listed", (D) => { D.productPages.listed = 1; }, ["Today they list 1.", [`${WA.products} listed`, "1"]]);
+  variant("a product past the top two has a page", (D) => { D.demand[2].page = true; }, [], ["Build the other"]);
   variant("one sender record", (D) => { D.mail.spf = 1; }, ["fix the email records; renew the domain before 9 Mar 2027."], [["sender records found"]]);
   variant("no renewal date", (D) => { D.renewBy = null; }, ["fix the email records (one sender record, not 2)."], [["domain expiry"]]);
   variant("dmarc found", (D) => { D.mail.dmarcMissing = false; }, [["domain's sender records, DMARC", "spf 2, dmarc found"]]);
@@ -1155,7 +1151,7 @@ const cells7 = (s, client) => {
   const got = tA.map((r) => r[0] + "|" + r[1] + "|" + r[2]);
   if (!same(got, WANT)) bad.push(`run A text rows: ${got.length} ${JSON.stringify(got.filter((x, i) => x !== WANT[i]).slice(0, 4))}`);
   const per = (rs) => [1, 2, 3, 4, 5, 6, 7, 8].map((p) => rs.filter((r) => r[0] === String(p)).length).join(" ");
-  if (per(tA) !== "1 9 27 12 19 7 11 1" || per(tB) !== "1 8 27 12 17 8 6 1") bad.push(`text rows per page: A ${per(tA)}, B ${per(tB)}`);
+  if (per(tA) !== "1 9 27 12 19 7 11 1" || per(tB) !== "1 8 27 12 17 8 5 1") bad.push(`text rows per page: A ${per(tA)}, B ${per(tB)}`);
   for (const [nm, rs] of [["A", tA], ["B", tB]]) { if (rs.some((r) => r.length !== 8 || r.some((c) => c === "") || r[7] !== "text")) bad.push(`${nm}: a text row with an empty cell`); if (new Set(rs.map((r) => r.join("\t"))).size !== rs.length) bad.push(`${nm}: two text rows alike`); }
   const row = (rs, label, printed) => rs.find((r) => r[1] === label && r[2] === printed) || [];
   const t1 = row(tA, "google result title, position 1", "Roof help - County Agency");

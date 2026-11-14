@@ -17,7 +17,7 @@ const NUM = /\d+(?:[.,]\d+)*/g;
 /** The text a reader sees: style, script and svg dropped, tags to spaces, the entities of the design decoded, white space squeezed. */
 export const visible = (h) => String(h).replace(/<(style|script|svg)\b[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;|&middot;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
 
-export function gates({ html, tsv, pages, logoUrl }) {
+export function gates({ html, tsv, pages, logoUrl, branches, approvedWords }) {
   const fail = (gate, found) => stop(`STOP: gate ${gate}: ${found}`);
   const secs = html.match(/<section\b[\s\S]*?<\/section>/g) || [];
   const opens = (html.match(/<section\b/g) || []).length, marked = (html.match(/<section class="(?:cover|pg)" id="p\d+">/g) || []).length;
@@ -60,4 +60,11 @@ export function gates({ html, tsv, pages, logoUrl }) {
     const miss = [...new Set((v.match(NUM) || []).map(norm))].filter((x) => !have.has(x));
     if (miss.length) fail("numbers", `page ${pg} prints ${miss.slice(0, 4).join(", ")}${miss.length > 4 ? ` and ${miss.length - 4} more` : ""} and no printed cell of page ${pg} of the sheet holds ${miss.length === 1 ? "it" : "them"}`);
   });
+  // i: new words: every word of every sentence of other-branches.json ({...} parts aside) is a word of the approved print, or the plural or singular of one
+  if (branches && approvedWords) {
+    const ok = new Set(approvedWords.map((x) => String(x).toLowerCase())), known = (w) => ok.has(w) || ok.has(`${w}s`) || ok.has(`${w}es`) || (w.endsWith("es") && ok.has(w.slice(0, -2))) || (w.endsWith("s") && ok.has(w.slice(0, -1)));
+    const bad = [];
+    for (const [id, t] of Object.entries(branches)) for (const w of String(t).replace(/\{[^}]*\}/g, " ").toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g) || []) if (!known(w) && !bad.some((b) => b[0] === w && b[1] === id)) bad.push([w, id]);
+    if (bad.length) fail("new words", bad.length === 1 ? `"${bad[0][0]}" in ${bad[0][1]} is not a word of the approved print` : `${bad.slice(0, 4).map((b) => `"${b[0]}" in ${b[1]}`).join(", ")}${bad.length > 4 ? ` and ${bad.length - 4} more` : ""} are not words of the approved print`);
+  }
 }

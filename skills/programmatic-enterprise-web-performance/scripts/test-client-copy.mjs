@@ -35,8 +35,8 @@ if (args.includes("--mutants")) {
     { id: "draft-contains-unchecked", file: "client-copy.mjs", from: 'if (!isTexts(std.draftContains) || std.draftContains.length !== 3) stop("STOP: how-we-work.json has no draftContains as a list of 3 texts");', to: "", red: "case 7:" },
     { id: "go-ahead-typed-in-code", file: "client-copy-design.mjs", from: "${esc(std.goAhead)}", to: "Tell us to start your draft.", red: "case 7:" },
     { id: "who-typed-in-code", file: "client-copy-design.mjs", from: "fill(f.gets, `row ${f.id} gets`), f.who, f.see]);", to: 'fill(f.gets, `row ${f.id} gets`), "Your developer", f.see]);', red: "case 8:" },
-    { id: "gates-not-called", file: "client-copy.mjs", from: "gates({ html, tsv, pages, logoUrl });", to: "", red: "case 21:" },
-    { id: "gates-after-the-first-write", file: "client-copy.mjs", from: "gates({ html, tsv, pages, logoUrl });", to: 'fs.mkdirSync(outDir, { recursive: true }); fs.writeFileSync(path.join(outDir, "early.html"), html); gates({ html, tsv, pages, logoUrl });', red: "case 21:" },
+    { id: "gates-not-called", file: "client-copy.mjs", from: "gates({ html, tsv, pages, logoUrl, branches, approvedWords: approvedWords.words });", to: "", red: "case 21:" },
+    { id: "gates-after-the-first-write", file: "client-copy.mjs", from: "gates({ html, tsv, pages, logoUrl, branches, approvedWords: approvedWords.words });", to: 'fs.mkdirSync(outDir, { recursive: true }); fs.writeFileSync(path.join(outDir, "early.html"), html); gates({ html, tsv, pages, logoUrl, branches, approvedWords: approvedWords.words });', red: "case 21:" },
     { id: "tx-p2-8-running-head-name-row-off", file: "client-copy-design.mjs", from: "TX(\"biz\", NAME, \"business name, running head\", NAME)", to: "esc(NAME)", red: "case 22:" },
     { id: "tx-p1-cover-name-row-off", file: "client-copy-design.mjs", from: "TX(\"biz\", NAME, \"business name, cover\", NAME)", to: "esc(NAME)", red: "case 22:" },
     { id: "tx-p2-city-row-off", file: "client-copy-design.mjs", from: "city(home, \"city, spots in the top three\")", to: "esc(home)", red: "case 22:" },
@@ -78,6 +78,30 @@ if (args.includes("--mutants")) {
     { id: "tx-p7-claim-directory-row-off", file: "client-copy-design.mjs", from: "TX(\"textDirs\", r.name, `directory to claim, plan row, ${at}`, `printed as ${r.name})`)", to: "esc(plain(r.name))", red: "case 22:" },
     { id: "tx-source-lookup-wrong", file: "client-copy-design.mjs", from: "TX(\"textSerp\", SL.query, \"search phrase of the two lists\", \"engine=google&device=desktop].query\")", to: "TX(\"textSerp\", SL.query, \"search phrase of the two lists\", \"engine=google&device=desktop].qry\")", red: "case 22:" },
     { id: "tx-p7-text-drawn-once-for-two-places", file: "client-copy-design.mjs", from: "(TEXTPH.has(s.slice(1, -1)) ? PH[s.slice(1, -1)](at) : ph(s.slice(1, -1)))", to: "ph(s.slice(1, -1))", red: "case 22:" },
+    { id: "f1-stars-always", file: "client-copy-rules.mjs", from: "&& Number(rating) >= STARS_MIN;", to: "&& Number(rating) >= 0;", red: "case 23:" },
+    { id: "f1-stars-line-three", file: "client-copy-rules.mjs", from: "export const STARS_MIN = 4.0;", to: "export const STARS_MIN = 3.0;", red: "case 23:" },
+    { id: "f1-stars-strict", file: "client-copy-rules.mjs", from: "&& Number(rating) >= STARS_MIN;", to: "&& Number(rating) > STARS_MIN;", red: "case 23:" },
+    { id: "f1-stars-lede-kept", file: "client-copy-design.mjs", from: "head(\"Summary\", h, stars ? \"You are easy to trust and hard to find.\" : \"\")", to: "head(\"Summary\", h, \"You are easy to trust and hard to find.\")", red: "case 23:" },
+    { id: "f1-stars-item-kept", file: "client-copy-design.mjs", from: "...(stars ? [[P(\"rating\", D.rating.rating, \"Google rating\"", to: "...(true ? [[P(\"rating\", D.rating.rating, \"Google rating\"", red: "case 23:" },
+    { id: "f1-stars-headline-kept", file: "client-copy-design.mjs", from: "const h = stars ? `You have", to: "const h = true ? `You have", red: "case 23:" },
+    { id: "f1-stars-row-kept", file: "client-copy-design.mjs", from: "product: esc(w.product) });", to: "product: esc(w.product), z: P(\"rating\", D.rating.rating, \"rating\") });", red: "case 23:" },
+    { id: "f1-one-fix-plural", file: "client-copy-design.mjs", from: "R.length === 1 ? BR(\"rb-one-fix\"", to: "R.length === 0 ? BR(\"rb-one-fix\"", red: "case 24:" },
+    { id: "f1-one-fix-lede-kept", file: "client-copy-design.mjs", from: "R.length === 1 ? \"\" : \"Start at the top.", to: "R.length === 0 ? \"\" : \"Start at the top.", red: "case 24:" },
+    { id: "f1-no-row-no-stop", file: "client-copy-design.mjs", from: "if (!R.length) stop(", to: "if (false) stop(", red: "case 24:" },
+    { id: "f1-top-only-never", file: "client-copy-design.mjs", from: "f.id === \"top-page\" && topOnly ?", to: "f.id === \"top-page\" && false ?", red: "case 25:" },
+    { id: "f1-top-only-wrong-product", file: "client-copy-design.mjs", from: "Boolean(D.demand[1] && D.demand[1].page)", to: "Boolean(D.demand[2] && D.demand[2].page)", red: "case 25:" },
+    { id: "f1-other-count-all", file: "client-copy-design.mjs", from: "P(\"demand\", D.demand.slice(2).filter((r) => !r.page).length,", to: "P(\"demand\", D.demand.length - 2,", red: "case 25:" },
+    { id: "f1-listed-count-all", file: "client-copy-design.mjs", from: "const k = D.demand.slice(2).filter((r) => r.page).length;", to: "const k = D.productPages.listed;", red: "case 25:" },
+    { id: "f1-noun-profile-page-4", file: "client-copy-design.mjs", from: "\"profiles to link\", \"rows (length)\")} ${noun(pr.total, \"profile\", \"profiles\")}", to: "\"profiles to link\", \"rows (length)\")} ${\"profiles\"}", red: "case 26:" },
+    { id: "f1-noun-profile-plan-row", file: "client-copy-design.mjs", from: "\"profiles\", \"rows (length)\")} ${noun(pr.total, \"profile\", \"profiles\")}`;", to: "\"profiles\", \"rows (length)\")} ${\"profiles\"}`;", red: "case 26:" },
+    { id: "f1-noun-place", file: "client-copy-design.mjs", from: "${noun(LP.pursue, \"place\", \"places\")} worth asking", to: "places worth asking", red: "case 26:" },
+    { id: "f1-noun-helper-plural-only", file: "client-copy-design.mjs", from: "const noun = (n, one, many) => (n === 1 ? one : many);", to: "const noun = (n, one, many) => many;", red: "case 26:" },
+    { id: "f1-gate-new-words-not-called", file: "client-copy.mjs", from: "gates({ html, tsv, pages, logoUrl, branches, approvedWords: approvedWords.words });", to: "gates({ html, tsv, pages, logoUrl });", red: "case 27:" },
+    { id: "f1-gate-plural-rule-off", file: "client-copy-gates.mjs", from: " || ok.has(`${w}s`) || ok.has(`${w}es`) || (w.endsWith(\"es\") && ok.has(w.slice(0, -2))) || (w.endsWith(\"s\") && ok.has(w.slice(0, -1)))", to: "", red: "case 27:" },
+    { id: "f1-gate-braces-read", file: "client-copy-gates.mjs", from: ".replace(/\\{[^}]*\\}/g, \" \")", to: "", red: "case 27:" },
+    { id: "f1-gate-lists-two", file: "client-copy-gates.mjs", from: "bad.slice(0, 4).map(", to: "bad.slice(0, 2).map(", red: "case 27:" },
+    { id: "f1-branches-file-unchecked", file: "client-copy.mjs", from: "const otherBranches = readJson(\"other-branches.json\", \"other-branches.json\");", to: "const otherBranches = { sentences: [] };", red: "case 27:" },
+    { id: "f1-missing-sentence-no-stop", file: "client-copy-design.mjs", from: "if (typeof t !== \"string\") stop(", to: "if (false) stop(", red: "case 27:" },
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ccopy-mut-"));
   let ok = 0;
@@ -552,6 +576,107 @@ try {
       }
       const per = pages.map((p) => rows.filter((x) => x[0] === String(p) && x[7] === "text").length);
       if (per.slice(1).filter((c) => c > 0).length < 5) bad.push(`text rows per page: ${per.join(" ")}`);
+      return [bad.length === 0, bad.join(" | ")];
+    }));
+
+  // ---------------------------------------------------------------- job F1: the sentences that printed false with no stop (every case runs the COMMAND on a made-up run on disk)
+  const SENT21 = [
+    ["p1-shown-your-site", "Buyers who search for what you sell are shown your site."], ["p2-headline-stars-only", "You have {rating} stars, and still {x} of {y} {product} searches show you."],
+    ["p2-headline-chatgpt-only", "You have answers in ChatGPT, and still {x} of {y} {product} searches show you."], ["p2-headline-not-few", "You have {rating} stars and answers in ChatGPT, and {x} of {y} {product} searches show you."],
+    ["p2-headline-no-first-part", "{x} of {y} {product} searches show you."], ["p2-perplexity-half", "Perplexity names you on {x} of {n} questions."],
+    ["p3-headline-none-is-you", "For \"{q}\", none of the {m} results below is you."], ["p3-headline-among", "For \"{q}\", your site is among the {m} results below."],
+    ["p3-fix-list-only", "Give Google a list of your pages. Today the list is a copy of your home page. The site we draft has one."], ["p3-fix-address-only", "Give Google a real \"page not found\". Today a wrong address does not say \"page not found\". The site we draft has one."],
+    ["p5-headline-one-city", "On Google Maps you are in the top three at {x} of {y} {home} spots."], ["p5-fix-one-directory", "Fill in your Google profile and claim {name}. You are listed on Bing Places."],
+    ["p5-fix-bing-not-listed", "You are listed on none of those {n}."], ["p5-fix-and-more", "Fill in your Google profile and claim {names} and {n} more."],
+    ["p6-headline-two-named", "{first rival} and {second rival} send {a} and {b} words and have {c} and {d} sites linking to them. You send {x}."], ["p6-headline-one-named", "{first rival} sends {a} words and has {c} sites linking to it. You send {x}."],
+    ["p7-build-top-only", "Build the {top} page."], ["p7-page-for-top", "A page for {top product}: {s}% of your demand."], ["p7-some-linked", "Today {x} of {n} are linked."],
+    ["rb-one-fix", "{n} fix, in the order that decides whether a {buyer} finds you and {applies}."], ["rb-one-address", "{n} address for one business"],
+  ];
+  const branchesWords = (sents) => copyWords((d) => jedit(d, "other-branches.json", () => ({ note: "made up", sentences: sents.map(([id, text]) => ({ id, page: 0, text })) })));
+
+  check("case 23: a rating under the line builds and says nothing about stars (no stars clause, no 'easy to trust', no rating item, no sheet row for it, no 4.0 printed); 4.0 and 4.8 keep today's sentences",
+    ...T(() => {
+      const bad = [], head = (r) => norm(r);
+      const low = go(makeRun(A({ rating: 3.7 })), { client: cA });
+      if (low.status !== 0) bad.push(`3.7: exit ${low.status} ${low.stderr}`);
+      else {
+        const t = head(low);
+        if (/3\.7|\b4\.0\b/.test(t)) bad.push("a rating figure is printed at 3.7");
+        if (!t.includes("You have answers in ChatGPT, and still 0 of 12 job type searches show you.")) bad.push("the headline of 3.7");
+        if (t.includes("easy to trust")) bad.push("the lede is printed at 3.7");
+        if (t.includes("Google rating")) bad.push("the rating item is printed at 3.7");
+        if (allRows(low.tsv).some((x) => x[0] === "2" && (x[2] === "3.7" || ["rating", "Google rating", "Google reviews"].includes(x[1])))) bad.push("a sheet row of the rating at 3.7");
+        bad.push(...wholeChecks(low, "3.7"));
+      }
+      for (const rt of [4.0, 4.8]) {
+        const r = go(makeRun(A({ rating: rt })), { client: cA });
+        if (r.status !== 0) { bad.push(`${rt}: exit ${r.status} ${r.stderr}`); continue; }
+        const t = head(r), f = rt.toFixed(1);
+        if (!t.includes(`You have ${f} stars and answers in ChatGPT, and still 0 of 12 job type searches show you.`)) bad.push(`headline at ${f}`);
+        if (!t.includes("You are easy to trust and hard to find.")) bad.push(`lede at ${f}`);
+        if (!t.includes(`${f} Google rating, from`)) bad.push(`item at ${f}`);
+      }
+      return [bad.length === 0, bad.join(" | ")];
+    }));
+
+  check("case 24: a plan of one row says '1 fix' and has no lede, a plan of two says '2 fixes' with its lede, a plan with no row at all STOPs with one line and writes nothing",
+    ...T(() => {
+      const bad = [], plan = (n) => go(makeRun(A()), { client: cA, words: copyWords((d) => jedit(d, "plan.json", (j) => j.slice(0, n))) });
+      const one = plan(1), two = plan(2), none = plan(0);
+      const t1 = one.status === 0 ? norm(one) : "", t2 = two.status === 0 ? norm(two) : "";
+      if (one.status !== 0) bad.push(`one row: exit ${one.status} ${one.stderr}`);
+      else { if (!t1.includes("1 fix, in the order that decides whether a homeowner finds you and asks for a quote.")) bad.push("one row: the headline"); if (t1.includes("Start at the top")) bad.push("one row: the lede"); if (/1 fixes/.test(t1)) bad.push("one row: 1 fixes"); }
+      if (two.status !== 0) bad.push(`two rows: exit ${two.status} ${two.stderr}`);
+      else if (!t2.includes("2 fixes, in the order that decides whether a homeowner finds you and asks for a quote.") || !t2.includes("Start at the top. Each line says what you get.")) bad.push("two rows: headline or lede");
+      if (!(none.status === 1 && none.stderr === "STOP: page 7, the plan: no fix holds for this run" && emptyOut(none))) bad.push(`no row: ${none.status} ${JSON.stringify(none.stderr)} ${none.files}`);
+      return [bad.length === 0, bad.join(" | ")];
+    }));
+
+  check("case 25: page 7 row 'Build the {top} page first, then {second}.' says only 'Build the {top} page.' when the second product has a page; row 'Build the other N pages' counts only the products past the top two that have no page, 'Today they list' counts those that have one, and the row is left out when there is none",
+    ...T(() => {
+      const bad = [], four = (missing) => go(makeRun(A({ products: ["roof repair", "roof replacement", "gutter installation", "chimney cleaning"], missing })), { client: cA });
+      const a = four(["chimney cleaning", "roof repair"]), b = four(["chimney cleaning", "roof replacement", "roof repair"]), c = four(["chimney cleaning"]), d = four(["chimney cleaning", "gutter installation"]), e = four(["chimney cleaning", "gutter installation", "roof repair"]);
+      const tx = (r, who) => { if (r.status !== 0) { bad.push(`${who}: exit ${r.status} ${r.stderr}`); return ""; } return norm(r); };
+      const ta = tx(a, "a"), tb = tx(b, "b"), tc = tx(c, "c"), td = tx(d, "d"), te = tx(e, "e");
+      if (ta) { if (!ta.includes("Build the chimney cleaning page.") || ta.includes("page first, then")) bad.push("a: the top-only sentence"); if (!ta.includes("Build the other 1 job type pages, each with a Alder Bay line.") || !ta.includes("Today they list 1.")) bad.push("a: the other pages row"); }
+      if (tb) { if (!tb.includes("Build the other 2 job type pages") || !tb.includes("Today they list none.")) bad.push("b: the other pages row"); }
+      if (tc) { if (tc.includes("Build the other") || tc.includes("A page that Google and Bing can list for each job type")) bad.push("c: the other pages row is not left out"); if (!tc.includes("Build the chimney cleaning page.")) bad.push("c: the top-only sentence"); }
+      if (td) { if (!td.includes("Build the chimney cleaning page first, then gutter installation.") || td.includes("Build the chimney cleaning page.")) bad.push("d: the two-page sentence is not today's"); if (td.includes("Build the other")) bad.push("d: the other pages row is not left out"); }
+      if (te) { if (!te.includes("Build the chimney cleaning page first, then gutter installation.")) bad.push("e: the two-page sentence"); if (!te.includes("Build the other 1 job type pages, each with a Alder Bay line.") || !te.includes("Today they list 1.")) bad.push("e: the other pages row"); }
+      return [bad.length === 0, bad.join(" | ")];
+    }));
+
+  check("case 26: a count of one is written with its singular noun: '1 profile' on page 4 and in the plan row, '1 place worth asking' on page 6 (a count of two or more keeps today's plural)",
+    ...T(() => {
+      const bad = [], s = A({ social: ["instagram"], sameAs: 0, broken: false });
+      s.pursue = 1; s.chambers = 1;
+      const r = go(makeRun(s), { client: cA });
+      if (r.status !== 0) return [false, `exit ${r.status} ${r.stderr}`];
+      const t = norm(r);
+      if (!t.includes("Link your 1 profile in the company details your site gives Google.") || /1 profiles/.test(t)) bad.push("page 4 profile");
+      if (!t.includes("Name your 1 profile in the company details your site gives Google.")) bad.push("plan row profile");
+      if (!t.includes("We found 1 place worth asking, 1 of them chambers of commerce.") || /1 places/.test(t)) bad.push("page 6 place");
+      const m = go(makeRun(A()), { client: cA }), tm = m.status === 0 ? norm(m) : "";
+      if (!tm.includes("Link your 3 profiles in the company details") || !tm.includes("Name your 3 profiles in the company details") || !/We found [\d,]+ places worth asking/.test(tm)) bad.push("plural kept");
+      return [bad.length === 0, bad.join(" | ")];
+    }));
+
+  check("case 27: the wording of the other branches is data: client-copy/other-branches.json is read by the command (missing: STOP, a sentence the page needs and the file lacks: STOP) and the new-words gate stops a sentence with a word the approved print does not use, passes the same word inside braces, passes a plural or singular of an approved word, and passes the 21 sentences of the lead's list",
+    ...T(() => {
+      const bad = [], line = (r, l, who) => { if (!(r.status === 1 && r.stderr === l && emptyOut(r))) bad.push(`${who}: ${r.status} ${JSON.stringify(r.stderr).slice(0, 140)} ${r.files}`); }, ok = (r, who) => { if (r.status !== 0) bad.push(`${who}: exit ${r.status} ${r.stderr}`); };
+      const noFile = copyWords((d) => fs.rmSync(path.join(d, "other-branches.json")));
+      line(go(makeRun(A()), { client: cA, words: noFile }), "STOP: other-branches.json is missing", "no file");
+      const noWords = copyWords((d) => fs.rmSync(path.join(d, "approved-words.json")));
+      line(go(makeRun(A()), { client: cA, words: noWords }), "STOP: approved-words.json is missing", "no word list");
+      const lacks = copyWords((d) => { jedit(d, "other-branches.json", (j) => { j.sentences = j.sentences.filter((x) => x.id !== "rb-one-fix"); }); jedit(d, "plan.json", (j) => j.slice(0, 1)); });
+      line(go(makeRun(A()), { client: cA, words: lacks }), "STOP: other-branches.json has no sentence rb-one-fix", "a sentence the page needs");
+      line(go(makeRun(A()), { client: cA, words: branchesWords([["x-bad", "You have zebras and {zebra} stars."]]) }), "STOP: gate new words: \"zebras\" in x-bad is not a word of the approved print", "a new word");
+      ok(go(makeRun(A()), { client: cA, words: branchesWords([["x-braces", "You have {zebras} and {zebra} stars."], ["x-plural", "You have {rating} star."]]) }), "braces and plural");
+      line(go(makeRun(A()), { client: cA, words: branchesWords([["a1", "Zebra horse."], ["a2", "Camel."], ["a3", "Llama."], ["a4", "Goat."], ["a5", "Sheep."], ["a6", "Mule."]]) }), "STOP: gate new words: \"zebra\" in a1, \"horse\" in a1, \"camel\" in a2, \"llama\" in a3 and 3 more are not words of the approved print", "several new words");
+      ok(go(makeRun(A()), { client: cA, words: branchesWords(SENT21) }), "the 21 sentences");
+      const real = go(makeRun(A()), { client: cA }); ok(real, "the real file");
+      const REAL = JSON.parse(fs.readFileSync(path.join(skill, "client-copy", "other-branches.json"), "utf8"));
+      if (!REAL.sentences.every((x) => typeof x.id === "string" && typeof x.text === "string")) bad.push("the real file's shape");
       return [bad.length === 0, bad.join(" | ")];
     }));
 } catch (e) {

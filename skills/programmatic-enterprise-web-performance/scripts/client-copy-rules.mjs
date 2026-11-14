@@ -1,5 +1,8 @@
 // client-copy-rules.mjs: the rulings on the client copy, as pure functions (no file, no network, no state).
 // Used by client-copy-data.mjs and the pages of the copy. A function that cannot answer from its input throws an Error; the caller turns it into a STOP.
+// STARS: the rating under which the copy says nothing about stars. 4.0 is OUR line, not a measured fact; no sentence of the copy states the number.
+export const STARS_MIN = 4.0;
+export const starsHold = (rating) => rating !== null && rating !== undefined && rating !== "" && Number.isFinite(Number(rating)) && Number(rating) >= STARS_MIN; // the data layer keeps the rating as text: compare it as a number
 export const DIRECT_KIND = "direct"; // the one kind of an approved row that says a direct competitor (today's vocabulary has none)
 export const OTHER_WORD = "another business";
 export const PLAIN_KIND = { publisher: "a publisher", "social-curator": "a social account", "paid-media": "a paid media company", agency: "an agency", "brokerage-program": "a brokerage program", "design-broker": "a design broker", marketplace: "a marketplace" };

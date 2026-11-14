@@ -101,6 +101,12 @@ try {
   if (!Array.isArray(fixes)) stop("STOP: plan.json has no list of rows");
   fixes.forEach((f, i) => { for (const k of ["id", "when", "fix", "gets", "who", "see"]) if (!f || !isText(f[k])) stop(`STOP: plan.json row ${i + 1} has no ${k}`); });
   const dirNames = readJson("directories.json", "directories.json");
+  const otherBranches = readJson("other-branches.json", "other-branches.json");
+  if (!Array.isArray(otherBranches.sentences) || !otherBranches.sentences.every((x) => x && isText(x.id) && isText(x.text))) stop("STOP: other-branches.json has no sentences as a list of {id, text}");
+  const branches = {};
+  for (const x of otherBranches.sentences) { if (x.id in branches) stop(`STOP: other-branches.json holds the id ${x.id} twice`); branches[x.id] = x.text; }
+  const approvedWords = readJson("approved-words.json", "approved-words.json");
+  if (!isTexts(approvedWords.words) || !approvedWords.words.length) stop("STOP: approved-words.json has no words as a list of texts");
   if (!fs.existsSync(path.join(wordsDir, "backing.json"))) stop("STOP: backing.json is missing");
 
   // ---- the assets: the logo, the font stylesheet and every file it names
@@ -123,8 +129,8 @@ try {
   const date = client.date || D.fileDate;
   const stem = `${D.biz.shortName}-website-review-${date}${draft ? "-draft" : ""}`;
   const logoUrl = pathToFileURL(path.join(assetsDir, "omnikom-logo-full.png")).href;
-  const { html, tsv, pages } = buildPages({ D, S, fmt, w: words, std, fixes, draft, notRead, client, logoUrl, fontsUrl: pathToFileURL(cssFile).href });
-  gates({ html, tsv, pages, logoUrl }); // the report rules: one STOP line, nothing written
+  const { html, tsv, pages } = buildPages({ D, S, fmt, w: words, std, fixes, branches, draft, notRead, client, logoUrl, fontsUrl: pathToFileURL(cssFile).href });
+  gates({ html, tsv, pages, logoUrl, branches, approvedWords: approvedWords.words }); // the report rules: one STOP line, nothing written
 
   // ---- nothing is written before every number has been read and every page built
   fs.mkdirSync(outDir, { recursive: true });
