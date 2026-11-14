@@ -3,17 +3,18 @@
 // [name, file, exactText, replacement], applied with split/join to a temp copy, one child process per mutant (MUTATE_JOBS at a time, default 4), 180 s timeout.
 // Caught = the suite exited nonzero AND printed at least one "FAIL" line. A crash or a timeout with no FAIL line is NOT a catch
 // (it would hide a broken test), and target text that is not found exactly once is counted as "target text missing". A mutant whose process
-// was killed (exit null: the timeout, a laptop sleep) is "NOT RUN", a third class that also makes the exit 1, so a killed run never reads as clean.
+// was killed (exit null: the timeout, a laptop sleep) is "NOT RUN", a third class that also makes the exit 1, so a killed run never reads as clean. An exit not 0 with no FAIL line read is "UNREAD", also counted as not run. The child's stdout and stderr go to files in <copy>/.tmp, never a pipe.
 // The child runs with OMNIKOM_AUDIT_FAILFAST=1: test/run.mjs stops at its first red check (still printing that FAIL line and exiting 1), so a caught mutant costs
 // only the checks up to its first failure; a mutant that survives runs the whole suite as before.
 // Temp folders (slice 4b.1): one root, omnikom-audit-mutate-*, under OMNIKOM_AUDIT_TMP or the system temp folder; each mutant's copy lives inside it, and
 // the child gets OMNIKOM_AUDIT_TMP, TMPDIR, TEMP and TMP pointed at <copy>/.tmp, so whatever a killed child made goes when its copy goes. The root is
 // removed at the end and on SIGINT/SIGTERM (the children still running are stopped first, by their PID). A child that hits the time limit is killed with SIGKILL
 // (what a laptop sleep amounts to: it can run no handler), so a run that leaks a folder outside its own root is seen by the check in test/run.mjs.
-// Summary line: "N mutants, N caught, N survived, N not run, N target text missing".
+// Summary line: "N mutants, N caught, N survived, N not run (killed or UNREAD), N target text missing".
 //   node tools/audit/test/mutate.mjs      exit 0 = every mutant caught, none survived, none not run, none missing
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, readdirSync, cpSync, rmSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
+import { openSync, closeSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -22,6 +23,8 @@ import { SEC_MUTANTS } from "./mutants-sec.mjs";   // work order 38: the mutants
 
 const AUDIT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SKILL = process.env.OMNIKOM_SKILL_DIR ? resolve(process.env.OMNIKOM_SKILL_DIR) : resolve(AUDIT, "..", "..", "skills", "programmatic-enterprise-web-performance");   // the skill's own fixtures (work order 25); a mutant's copy of tools/audit/ is not inside the repo
+const TAG = "[harness]";   // a mutant whose name starts with this runs with the harness checks on (test/harness.mjs); every other mutant skips them
+const SKIP = "OMNIKOM_AUDIT_SKIP_HARNESS";   // read by test/run.mjs: "1" = skip the harness checks
 const MUTANTS = [
   // the engine and the runner
   ["the exit code is always 0", "index.mjs", "exit: pass ? 0 : 1", "exit: 0"],
@@ -428,6 +431,17 @@ const MUTANTS = [
   ["temp folders: mutate.mjs gives the child no temp base inside its copy", "test/mutate.mjs", "OMNIKOM_AUDIT_" + "TMP: tmpIn, TMPDIR: tmpIn, TEMP: tmpIn, TMP: tmpIn", ""],
   ["temp folders: mutate.mjs points the child's temp base at the shared base, not its copy", "test/mutate.mjs", "OMNIKOM_AUDIT_" + "TMP: tmpIn,", "OMNIKOM_AUDIT_" + "TMP: TMP_BASE,"],
   ["temp folders: mutate.mjs leaves its root behind at the end", "test/mutate.mjs", "removeRoot();\n" + "process.exit(survived", "process.exit(survived"],
+  // TF-AUDIT-HARNESS: seen by test/harness.mjs and by the guard in test/run.mjs; the name tag [harness] switches the harness checks ON in the child
+  ["[harness] a run that exits 1 with no FAIL line is SURVIVED again", "test/mutate.mjs",
+    "if (status !== 0 && " + "red.length === 0) {", "if (false) {"],
+  ["[harness] the child's output goes nowhere, not into the files the harness reads", "test/mutate.mjs",
+    "stdio: [\"ignore\", " + "fo, fe], ", "stdio: [\"ignore\", \"ignore\", \"ignore\"], "],
+  ["[harness] an UNREAD run is not counted, so the exit stays 0", "test/mutate.mjs",   // harness.mjs check 3 runs this row by name: keep the name
+    "notRun++;\n          finish(`" + "UNREAD", "finish(`" + "UNREAD"],
+  ["[harness] the harness checks are skipped in every run", "test/run.mjs",
+    "if (process.env.OMNIKOM_AUDIT_SKIP_HARNESS !== \"1\") {", "if (false) {"],
+  ["[harness] the skip variable is set for every child", "test/mutate.mjs",
+    "name.startsWith(TAG) ? \"\" : \"1\"", "\"1\""],
   ["temp folders: run.mjs makes its folders beside its root, not inside it", "test/run.mjs", "const d = mkdtempSync(join(ROOT, p)); tmps.push(d);", "const d = mkdtempSync(join(TMP_BASE, p)); tmps.push(d);"],
   ["live.mjs: the time limit stops only the child, not its tree", "live.mjs", "const timer = setTimeout(() => { killTree(child); }, TIMEOUT_MS);", "const timer = setTimeout(() => { child.kill(); }, TIMEOUT_MS);"],
   // slice 4c: the noindex header and the build target. Each is seen by the checks added in test/run.mjs under "slice 4c".
@@ -535,16 +549,25 @@ function runOne([name, file, find, repl]) {
       if (n !== 1) { missing++; finish(`MISSING  ${name} (target text found ${n} times in ${file})`); return; }
       writeFileSync(p, t.split(find).join(repl), "utf8");
       const tmpIn = join(dir, ".tmp");
-      const child = spawn(process.execPath, [join(dir, "test", "run.mjs")], { env: { ...process.env, OMNIKOM_AUDIT_DIR: dir, OMNIKOM_SKILL_DIR: SKILL, OMNIKOM_AUDIT_FAILFAST: "1", OMNIKOM_AUDIT_TMP: tmpIn, TMPDIR: tmpIn, TEMP: tmpIn, TMP: tmpIn }, timeout: (Number(process.env.MUTATE_TIMEOUT_S) || 180) * 1000, killSignal: "SIGKILL" });
+      mkdirSync(tmpIn, { recursive: true });   // the child writes into files, never a pipe (a pipe loses its queue at exit)
+      const outFile = join(tmpIn, "stdout.log"), errFile = join(tmpIn, "stderr.log");
+      const skipEnv = { [SKIP]: name.startsWith(TAG) ? "" : "1" };   // set for the child of an ordinary mutant, cleared for a tagged one
+      const fo = openSync(outFile, "w"), fe = openSync(errFile, "w");
+      const child = spawn(process.execPath, [join(dir, "test", "run.mjs")], { stdio: ["ignore", fo, fe], env: { ...process.env, ...skipEnv, OMNIKOM_AUDIT_DIR: dir,OMNIKOM_SKILL_DIR: SKILL, OMNIKOM_AUDIT_FAILFAST: "1", OMNIKOM_AUDIT_TMP: tmpIn, TMPDIR: tmpIn, TEMP: tmpIn, TMP: tmpIn }, timeout: (Number(process.env.MUTATE_TIMEOUT_S) || 180) * 1000, killSignal: "SIGKILL" });
+      closeSync(fo); closeSync(fe);   // the child keeps its own copies
       kids.add(child);
-      let out = "", err = "";
-      child.stdout.on("data", (c) => { out += c; });
-      child.stderr.on("data", (c) => { err += c; });
       child.on("close", (status) => {
         kids.delete(child);
         // status null = the process was killed (the timeout, a laptop sleep): the suite did not finish, so this is neither a catch nor a survivor
         if (status === null) { notRun++; finish(`NOT RUN  ${name.padEnd(62)} (killed, exit null)`); return; }
+        const out = readFileSync(outFile, "utf8"), err = readFileSync(errFile, "utf8");
         const red = (out.match(/^FAIL .*$/gm) || []).map((l) => l.slice(5, 75));
+        if (status !== 0 && red.length === 0) {   // not caught, not survived: a survivor is a suite that exited 0
+          const last = String(err || out).trim().split(/\r?\n/).pop().slice(0, 80);
+          notRun++;
+          finish(`UNREAD   ${name.padEnd(62)} (exit ${status}, no FAIL line in ${out.length} characters; last: ${last})`);
+          return;
+        }
         const caught = status !== 0 && red.length > 0;
         if (!caught) survived++;
         finish(`${caught ? "caught  " : "SURVIVED"} ${name.padEnd(62)} ${caught ? `(${red.length} red: ${red[0]})` : `(exit ${status}, ${red.length} red${status !== 0 ? ": " + String(err || out).trim().split(/\r?\n/).pop().slice(0, 80) : ""})`}`);

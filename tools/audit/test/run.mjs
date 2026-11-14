@@ -67,6 +67,13 @@ try {
   await (await import(pathToFileURL(join(AUDIT, "test", "metrics.mjs")).href)).metricsChecks({ check, AUDIT, SKILL: process.env.OMNIKOM_SKILL_DIR ? resolve(process.env.OMNIKOM_SKILL_DIR) : resolve(HERE, "..", "..", "..", "skills", "programmatic-enterprise-web-performance") });
   // work order 38: SEC-010 and SEC-075 (test/sec.mjs runs alone too: node tools/audit/test/sec.mjs)
   await (await import(pathToFileURL(join(AUDIT, "test", "sec.mjs")).href)).secChecks({ check, AUDIT, tmp });
+  // TF-AUDIT-HARNESS: what test/mutate.mjs reads from a broken copy's run (test/harness.mjs runs alone too). OMNIKOM_AUDIT_SKIP_HARNESS=1
+  // (set by test/mutate.mjs for every mutant except the [harness] ones) skips it; a run without that variable that lost it fails below
+  const harnessFrom = total;
+  if (process.env.OMNIKOM_AUDIT_SKIP_HARNESS !== "1") {
+    await (await import(pathToFileURL(join(AUDIT, "test", "harness.mjs")).href)).harnessChecks({ check, AUDIT, tmp });
+  }
+  if (process.env.OMNIKOM_AUDIT_SKIP_HARNESS !== "1" && total === harnessFrom) check("harness: the harness checks did not run", false);
   // the rules the engine has, from --list
   const listed = cli(["--list"]);
   const rules = listed.out.split(/\r?\n/).filter(Boolean).map((l) => { const [id, severity, ...src] = l.trim().split(/\s+/); return { id, severity, source: src.join(" ") }; });

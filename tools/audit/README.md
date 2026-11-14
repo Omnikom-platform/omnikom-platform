@@ -305,7 +305,7 @@ All P1; DSN-010 and DSN-011 print WARN (the exit stays 0), the other nine print 
 ## Gates
 ```
 node tools/audit/test/run.mjs      ends "OK: N of N checks passed", exit 0
-node tools/audit/test/mutate.mjs   ends "N mutants, N caught, 0 survived, 0 not run, 0 target text missing", exit 0  (not run = the child was killed, exit null; exit 1)
+node tools/audit/test/mutate.mjs   ends "N mutants, N caught, 0 survived, 0 not run, 0 target text missing", exit 0  (not run = the child was killed, exit null, or ended not 0 with no FAIL line read (UNREAD); exit 1)
 (`MUTATE_JOBS` mutants run at once, default 4; `MUTATE_TIMEOUT_S` raises the 180 s limit on a loaded machine; `MUTATE_ONLY=<regex>` runs only the mutants whose name matches; `MUTATE_FIRST=<regex>` starts those first. Temp folders: each run keeps all of them under one `omnikom-audit-run-*` root (in `OMNIKOM_AUDIT_TMP` if set, else the system temp folder) and removes it at the end, on a red check under FAILFAST, and on SIGINT/SIGTERM; `test/mutate.mjs` does the same with `omnikom-audit-mutate-*` and runs each child inside its own copy; a test in `test/run.mjs` fails if a killed mutant run leaves a folder.)
 node tools/audit/run.mjs tools/audit/fixtures/good              exit 2, stderr names `--target`, nothing on stdout (a built folder needs its target)
 node tools/audit/run.mjs tools/audit/fixtures/good --target production            every line PASS but the one `SKIP PMP-001` line, exit 0
