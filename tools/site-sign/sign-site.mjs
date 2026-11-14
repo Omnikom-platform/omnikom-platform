@@ -194,6 +194,30 @@ const functionsDirOf = (out) => `${out}-functions`;
 
 const draftRobotsTxt = (m) => `# ${m.notice}\n\n` + AI_AGENTS.map((a) => `User-agent: ${a}\nDisallow: /\n`).join('\n') + '\nUser-agent: *\nDisallow: /\n';
 
+// third-party files: a clean build may list library files it ships from its own host in third-party.json; they are copied unchanged, never stamped
+function declared(clean) {
+  const file = path.join(clean, 'third-party.json');
+  if (!fs.existsSync(file)) return { set: new Set(), problem: '' };
+  const bad = (why) => ({ set: new Set(), problem: `third-party.json: ${why}` });
+  let d;
+  try { d = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return bad('is not valid JSON'); }
+  if (!d || !Array.isArray(d.files)) return bad('must be {"files": [ ... ]}');
+  const have = new Set(walk(clean).map((f) => rel(clean, f))), set = new Set();   // the build's own list: its spelling and case are the only ones allowed
+  for (const [i, e] of d.files.entries()) {
+    const at = `entry ${i + 1}`;
+    for (const k of ['path', 'sha256', 'licence', 'name', 'version', 'source']) if (typeof e?.[k] !== 'string' || !e[k]) return bad(`${at}: ${k} must be a non-empty text`);
+    for (const p of [e.path, e.licence]) {
+      if (p.split('/').some((s) => s.startsWith('.'))) return bad(`${at}: "${p}" is a dot path, which never ships`);
+      if (!have.has(p)) return bad(`${at}: "${p}" is not a file of the build`);
+    }
+    if (!isCss(e.path) && !isJs(e.path)) return bad(`${at}: "${e.path}" is not a css or js file`);
+    if (set.has(e.path)) return bad(`${at}: "${e.path}" is declared twice`);
+    if (sha(fs.readFileSync(path.join(clean, e.path))) !== e.sha256) return bad(`${at}: the sha256 of "${e.path}" is not the declared one`);
+    set.add(e.path);
+  }
+  return { set, problem: '' };
+}
+
 function guard(clean) {
   const files = walk(clean);
   const comp = files.filter((f) => /\.(br|gz)$/i.test(f));
@@ -217,6 +241,8 @@ function sign(stage, clean, out, site, client, date, host, register) {
   if (stage !== 'draft' && (!client || !/^\d{4}-\d{2}-\d{2}$/.test(date || ''))) fail(`--${stage} needs --client "<name>" and --date YYYY-MM-DD`);
   if (stage !== 'handover' && !HOST.test(host || '')) fail(`--${stage} needs --host <the one address Omnikom publishes it at, e.g. name.pages.dev or the client's domain>`);
   guard(clean);
+  const third = declared(clean);
+  if (third.problem) fail(third.problem);
   const day = stage === 'draft' ? new Date().toISOString().slice(0, 10) : date;
   const cleanHash = treeHash(clean);
   const id = `omk-${site}-${day.replace(/-/g, '')}-${cleanHash.slice(0, 12)}`;
@@ -228,7 +254,7 @@ function sign(stage, clean, out, site, client, date, host, register) {
   for (const f of walk(out)) {
     const r = rel(out, f);
     if (isHtml(f)) { fs.writeFileSync(f, signHtml(fs.readFileSync(f, 'utf8'), stage, m)); pages++; }
-    else if (isCss(f) || isJs(f)) { fs.writeFileSync(f, signCode(fs.readFileSync(f, 'utf8'), f, m)); code++; }
+    else if ((isCss(f) || isJs(f)) && !third.set.has(r)) { fs.writeFileSync(f, signCode(fs.readFileSync(f, 'utf8'), f, m)); code++; }
     else if (r === '_headers') fs.writeFileSync(f, signHeaders(fs.readFileSync(f, 'utf8'), stage, m));
   }
   if (!fs.existsSync(path.join(out, '_headers'))) fs.writeFileSync(path.join(out, '_headers'), signHeaders(null, stage, m));
@@ -271,7 +297,7 @@ function sign(stage, clean, out, site, client, date, host, register) {
   const files = walk(out).length;
   if (!fs.existsSync(register)) fs.writeFileSync(register, 'time_utc\tsite\tstage\tid\tclean_sha256\tsigned_sha256\tfiles\tproject\tdeployment\tclient\tdate\thost\n');
   fs.appendFileSync(register, [new Date().toISOString(), site, STAGE_NAME[stage], id, cleanHash, treeHash(out), files, '-', '-', client || '-', day, host || '-'].join('\t') + '\n');
-  console.log(`signed ${STAGE_NAME[stage]}: ${id}; ${pages} pages, ${code} css/js files, ${files} files in ${out}; ${leftOut} dot-path files left out; check PASS; register line added`);
+  console.log(`signed ${STAGE_NAME[stage]}: ${id}; ${pages} pages, ${code} css/js files, ${third.set.size} third-party files unchanged, ${files} files in ${out}; ${leftOut} dot-path files left out; check PASS; register line added`);
   return id;
 }
 
@@ -292,6 +318,8 @@ export function check(signed, stage, clean, quiet = false) {
   const host = (cr.match(stage === 'draft' ? /publishes this draft only at (\S+)\. If/ : / at (\S+) only\. If/) || [])[1] || '';
   if (stage !== 'handover' && !HOST.test(host)) problems.push('index.html: the notice does not name the one address Omnikom publishes this site at');
   const m = marks(stage, id, { year: date.slice(0, 4), client, date, host });
+  const third = declared(clean);
+  if (third.problem) problems.push(third.problem);
   const cleanFiles = new Set(walk(clean).map((f) => rel(clean, f)).filter((r) => !hiddenPath(r)));
   for (const r of walk(signed).map((f) => rel(signed, f))) if (hiddenPath(r)) problems.push(`${r}: a dot-path file must never ship`);
   const signedFiles = walk(signed).map((f) => rel(signed, f));
@@ -327,6 +355,8 @@ export function check(signed, stage, clean, quiet = false) {
         for (const w of ['DRAFT PREVIEW', 'omk-draft', 'omk-lock', 'noai']) if (st.includes(w)) problems.push(`${r}: holds "${w}"`);
         if ((st.match(/noindex/g) || []).length !== (ct.match(/noindex/g) || []).length) problems.push(`${r}: noindex count differs from the clean page`);
       }
+    } else if (third.set.has(r)) {
+      if (!s.equals(c)) problems.push(`${r}: a declared third-party file must equal the clean one byte for byte`);
     } else if (isCss(r) || isJs(r)) {
       const st = s.toString('utf8');
       if (!st.includes(m.codeComment)) problems.push(`${r}: notice comment missing`);

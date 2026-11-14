@@ -1,11 +1,12 @@
 // Tests for sign-site.mjs: three stages, the check, the refusals, tampering caught. Runs the tool as a child process.
 // usage: node sign-site.test.mjs            (SIGN_SITE_TOOL=<path> tests another copy of the tool; used by the mutants)
-//        node sign-site.test.mjs --mutants  (copies the tool, breaks it 4 ways, expects this test to go red each time)
+//        node sign-site.test.mjs --mutants  (copies the tool, breaks it 20 ways, expects this test to go red each time)
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import vm from 'node:vm';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -178,6 +179,52 @@ if (fs.existsSync(L) && fs.existsSync(H)) {
   const rd = run('--check', blobbed(L, 't9', "default-src 'self' blob:"), '--mode', 'live', '--clean', clean);
   ok(rd.status === 1 && rd.stdout.includes('_headers: holds "blob:" (drafts only)'), 'check: "blob:" in default-src fails at live');
 }
+// third-party files: a clean build lists them in third-party.json and every stage copies them byte for byte (names here are invented)
+{
+  const JS = '/*! examplelib 1.2.3 | BSD-2-Clause */\n!function(){window.ex=1}();\n', CSS = '.ex{margin:0}\n';
+  const shaOf = (s) => createHash('sha256').update(s).digest('hex');
+  const entry = (p, text, o = {}) => ({ path: p, sha256: shaOf(text), licence: 'vendor/LICENSE.txt', name: 'Examplelib', version: '1.2.3', source: 'https://example.test/examplelib-1.2.3', ...o });
+  const good = [entry('vendor/examplelib.min.js', JS), entry('vendor/examplelib.min.css', CSS)];
+  const withDecl = (name, list, extra = {}) => fixture(name, { 'vendor/examplelib.min.js': JS, 'vendor/examplelib.min.css': CSS, 'vendor/LICENSE.txt': 'Examplelib licence text\n', 'third-party.json': JSON.stringify({ files: list }), ...extra });
+  const same = (a, b) => fs.readFileSync(a).equals(fs.readFileSync(b));
+  const tp = withDecl('tp', good), outs = {};
+  for (const [stage, more] of [['draft', []], ['live', ['--client', 'Demo Co', '--date', '2026-11-20']], ['handover', ['--client', 'Demo Co', '--date', '2027-01-05']]]) {
+    const o = outs[stage] = path.join(TMP, `tp-${stage}`);
+    const rs = run(`--${stage}`, tp, '--out', o, '--site', 'demo', ...more);
+    ok(rs.status === 0 && rs.stdout.includes('2 third-party files unchanged'), `third-party ${stage}: signs and says it left 2 files unchanged (exit ${rs.status}: ${rs.stderr.trim().slice(0, 200)})`);
+    if (rs.status !== 0) continue;
+    ok(['vendor/examplelib.min.js', 'vendor/examplelib.min.css', 'vendor/LICENSE.txt', 'third-party.json'].every((f) => same(path.join(o, f), path.join(tp, f))), `third-party ${stage}: the two declared files, the licence and the declaration are byte for byte the clean ones`);
+    ok(read(o, 'app.js').startsWith('/*! ') && read(o, 'a.css').includes(':root{--omk-sig:') && read(o, 'b.css').includes(':root{--omk-sig:'), `third-party ${stage}: an undeclared css or js file is still stamped`);
+    ok(run('--check', o, '--mode', stage, '--clean', tp).status === 0, `third-party ${stage}: check passes`);
+  }
+  if (outs.live && fs.existsSync(outs.live)) {
+    const t1 = tamperH(outs.live, 'tp-t1', (d) => fs.writeFileSync(path.join(d, 'vendor', 'examplelib.min.js'), '/*! stamped */\n' + JS));
+    const c1 = run('--check', t1, '--mode', 'live', '--clean', tp);
+    ok(c1.status === 1 && c1.stdout.includes('vendor/examplelib.min.js: a declared third-party file must equal the clean one byte for byte'), 'third-party: check fails a declared file that was stamped');
+    const t2 = tamperH(outs.live, 'tp-t2', (d) => fs.writeFileSync(path.join(d, 'app.js'), read(tp, 'app.js')));
+    const c2 = run('--check', t2, '--mode', 'live', '--clean', tp);
+    ok(c2.status === 1 && c2.stdout.includes('app.js: notice comment missing'), 'third-party: check fails an undeclared js file that was not stamped');
+    const c3 = run('--check', outs.live, '--mode', 'live', '--clean', withDecl('tp-badclean', [entry('vendor/examplelib.min.js', 'other text'), good[1]]));
+    ok(c3.status === 1 && c3.stdout.includes('third-party.json: entry 1: the sha256 of "vendor/examplelib.min.js" is not the declared one'), 'third-party: check holds the clean build to its declaration');
+  }
+  const refused = (name, list, why, extra) => {
+    const o = path.join(TMP, `tpx-${name}`);
+    const rx = run('--live', withDecl(`tpc-${name}`, list, extra), '--out', o, '--site', 'demo', '--client', 'Demo Co', '--date', '2026-11-20');
+    ok(rx.status === 1 && rx.stderr.split('\n').includes(`REFUSED: third-party.json: ${why}`) && !fs.existsSync(o), `third-party refused (${name}): one line, nothing written (exit ${rx.status}: ${rx.stderr.trim().slice(0, 160)})`);
+  };
+  const pageSha = shaOf(fs.readFileSync(path.join(TMP, 'clean', 'about', 'index.html')));
+  refused('no-file', [entry('vendor/none.js', JS)], 'entry 1: "vendor/none.js" is not a file of the build');
+  refused('no-licence', [entry('vendor/examplelib.min.js', JS, { licence: 'vendor/NOPE.txt' })], 'entry 1: "vendor/NOPE.txt" is not a file of the build');
+  refused('wrong-sha', [entry('vendor/examplelib.min.js', 'other text')], 'entry 1: the sha256 of "vendor/examplelib.min.js" is not the declared one');
+  refused('page', [entry('about/index.html', 'x', { sha256: pageSha })], 'entry 1: "about/index.html" is not a css or js file');
+  refused('up', [entry('../outside.js', JS)], 'entry 1: "../outside.js" is a dot path, which never ships');
+  refused('dot-path', [entry('.checks/run.mjs', 'internal();\n')], 'entry 1: ".checks/run.mjs" is a dot path, which never ships');
+  for (const [n, p] of [['absolute', '/vendor/examplelib.min.js'], ['backslash', 'vendor\\examplelib.min.js'], ['case', 'Vendor/examplelib.min.js']]) refused(n, [entry(p, JS)], `entry 1: "${p}" is not a file of the build`);
+  refused('twice', [good[0], good[0]], 'entry 2: "vendor/examplelib.min.js" is declared twice');
+  refused('no-name', [entry('vendor/examplelib.min.js', JS, { name: '' })], 'entry 1: name must be a non-empty text');
+  refused('not-json', [], 'is not valid JSON', { 'third-party.json': '{nope' });
+  refused('wrong-shape', [], 'must be {"files": [ ... ]}', { 'third-party.json': '{"files": 3}' });
+}
 const lines = fs.existsSync(REG) ? read(REG).trim().split('\n') : [];
 ok(lines.length >= 5 && lines[0].startsWith('time_utc\tsite\tstage\tid'), 'register: header and one line per signing');
 
@@ -193,6 +240,21 @@ if (process.argv.includes('--mutants')) {
     ['json touched', "else if (r === '_headers') fs.writeFileSync", "else if (r.endsWith('.json')) fs.appendFileSync(f, ' ');\n    else if (r === '_headers') fs.writeFileSync"],
     ['check ignores untouched kinds', "} else if (!s.equals(c)) problems.push", "} else if (false) problems.push"],
     ['lock skips the hostname test', "if (!hostOk(i.hostname, i.hosts)) return 'warn';", ''],
+    ['a declared file is stamped', '&& !third.set.has(r)', ''],
+    ['one declared file unstamps every css and js file', '&& !third.set.has(r)', '&& third.set.size === 0'],
+    ['check lets a stamped declared file pass', "if (!s.equals(c)) problems.push(`${r}: a declared third-party file must equal the clean one byte for byte`);", ''],
+    ['check treats every css and js file as declared once one is', '} else if (third.set.has(r)) {', '} else if (third.set.size > 0) {'],
+    ['check ignores a declaration that does not hold', 'if (third.problem) problems.push(third.problem);', ''],
+    ['sign does not refuse a bad declaration', 'if (third.problem) fail(third.problem);', ''],
+    ['a declared sha256 is not compared', '!== e.sha256', '=== undefined'],
+    ['a licence file is not looked for', 'for (const p of [e.path, e.licence]) {', 'for (const p of [e.path]) {'],
+    ['a dot path can be declared', "p.split('/').some((s) => s.startsWith('.'))", 'false'],
+    ['a path outside the build list is accepted', 'if (!have.has(p)) return bad(', 'if (false) return bad('],
+    ['a page can be declared', 'if (!isCss(e.path) && !isJs(e.path)) return bad(', 'if (false) return bad('],
+    ['a path can be declared twice', 'if (set.has(e.path)) return bad(', 'if (false) return bad('],
+    ['an empty field is accepted', "if (typeof e?.[k] !== 'string' || !e[k]) return bad(", 'if (false) return bad('],
+    ['a declaration that is not JSON is ignored', "catch { return bad('is not valid JSON'); }", 'catch { d = { files: [] }; }'],
+    ['a declaration of the wrong shape is read on', 'if (!d || !Array.isArray(d.files)) return bad(', 'if (false) return bad('],
   ];
   let caught = 0;
   for (const [name, from, to] of MUT) {

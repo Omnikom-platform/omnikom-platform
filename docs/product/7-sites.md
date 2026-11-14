@@ -126,6 +126,7 @@ copy to a new folder; it never edits a build in place, and every stage is made f
 - Every go-live is signed for live, on the owner's go: no bar and no lock, the site's own robots files as they are, our
   signature and notice in the code.
 - A handover is signed as handed over: one line naming the client and the date, with no rights kept by Omnikom.
+- A library the site ships from its own host, taken byte for byte from its publisher, is listed in the clean build's third-party.json (path, sha256, licence file, name, version, source): every stage copies it unchanged, so no notice of ours sits over someone else's code, and the check fails a signed folder where a listed file differs from the clean one or an unlisted css or js file has no stamp (tools/site-sign/README.md, "Third-party files").
 - A preview of saved changes (book row B15) is built by the runner, not signed or sealed: its deployment answers only its job's signed link (7
   days, checked at the deployment's edge; the first visit is sent on without the token; without it a plain 404, noindex). A draft whose check
   after the deploy fails is deleted at once, by its full id found in the project's deployment list; if it is not found there exactly once, or

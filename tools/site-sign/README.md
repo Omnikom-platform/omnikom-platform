@@ -15,7 +15,8 @@ signed COPY to a new `--out` folder. Each stage is made from the clean build, so
 ## Three stages
 | Stage | Command | What it adds | Who decides |
 |---|---|---|---|
-| draft (every preview) | `--draft <clean> --out <dir> --site <slug>` | visible bar "DRAFT PREVIEW BY OMNIKOM", the full notice (copyright, no licence, notice to AI tools to decline) after the doctype, metas `author`, `copyright`, `omnikom-signature` (ID; stage=draft), one robots meta `noindex, nofollow, noarchive, noai, noimageai`, `data-omk-sig` on body, the notice as line 1 of every css/js, `:root{--omk-sig:"<ID>"}` as the last css rule, headers `X-Omnikom-Signature`, `X-Copyright`, `X-Robots-Tag ... noai, noimageai`, robots.txt blocking AI crawlers and copy tools, llms.txt and ai.txt = the notice | automatic on every preview deploy |
+| draft (every preview) | `--draft <clean> --out <dir> --site <slug>` | visible bar "DRAFT PREVIEW BY OMNIKOM", the full notice (copyright, no licence, notice to AI tools to decline) after the doctype, metas `author`, `copyright`, `omnikom-signature` (ID; stage=draft), one robots meta `noindex, nofollow, noarchive, noai, noimageai`, `data-omk-sig` on body, the notice as line 1 of every css/js
+file (except a declared third-party file, see below), `:root{--omk-sig:"<ID>"}` as the last css rule, headers `X-Omnikom-Signature`, `X-Copyright`, `X-Robots-Tag ... noai, noimageai`, robots.txt blocking AI crawlers and copy tools, llms.txt and ai.txt = the notice | automatic on every preview deploy |
 | live (default at go-live) | `--live <clean> ... --client "<name as on the site>" --date YYYY-MM-DD` | nothing visible and nothing preview-only; the code keeps the copyright, the signature and a no-clone notice that does not turn away reading or citing ("Code rights: retained by Omnikom; licensed to <client> ..."); header `X-Omnikom-Signature`. The site's own robots.txt, llms.txt, ai.txt, robots metas and _headers ship byte for byte | the owner's go |
 | handed over | `--handover <clean> ... --client ... --date ...` | one line in the same places: "Built by Omnikom. Signature <ID>; stage handed over. Code rights: handed over to <client> on <date>." No rights claimed in our name | only when the client asks and the owner says go |
 
@@ -42,11 +43,31 @@ the ID (ed25519), because a plain hash proves the build, not who issued it.
 ## The gate
 `--check <signed> --mode draft|live|handover --clean <clean>`: strip-and-compare (removing exactly what the tool added gives
 back the clean build byte for byte; drafts except the files they replace on purpose), every page and css/js carries its marks,
-untouched kinds (.json, .xml, .svg, .map, .webmanifest, images) unchanged, live and handover hold no "DRAFT PREVIEW",
+untouched kinds (.json, .xml, .svg, .map, .webmanifest, images) unchanged, a declared third-party file equal to the clean one, live and handover hold no "DRAFT PREVIEW",
 "omk-draft", "noai", nor a noindex the clean page lacked. The tool refuses: an `--out` that exists or overlaps, a build already
 signed, a page loading a local file with `integrity=`, precompressed `.br`/`.gz` files, live/handover without `--client` and
-`--date`, a sign with no register. Tests: `node --max-old-space-size=256 sign-site.test.mjs --mutants` (70 checks, then 5 seeded
+`--date`, a sign with no register. Tests: `node --max-old-space-size=256 sign-site.test.mjs --mutants` (98 checks, then 20 seeded
 faults, each must turn the test red).
+
+## Third-party files
+A site may ship a library from its own host, taken byte for byte from its publisher (a script and a style sheet of an open-source
+library, with its licence file). Our notice over such a file would claim someone else's code, and the stamp would change bytes the
+publisher's hash covers. So a clean build may hold `third-party.json` in its root: `{"files": [{"path", "sha256", "licence", "name",
+"version", "source"}, ...]}`. Each of the six is a non-empty text: `path` (the css or js file) and `licence` (its licence file) are
+paths inside the build, written with `/`; `sha256` is the lowercase hex of the file's bytes; `name`, `version` and `source` are plain
+text for people. Every stage (draft, live, handover) copies a listed file as it is: no comment, no `--omk-sig` rule. Every other css or
+js file is stamped as before. `third-party.json` and the licence file ship in the signed folder unchanged, like any file of those
+kinds: the signed site names what it carries and under which licence. With no `third-party.json` nothing differs from before.
+A sign is refused, `REFUSED: third-party.json: <why>` (one line, exit 1, nothing written), when: the file is not JSON of that shape; a
+field is missing or empty; a path has a segment that starts with a dot (`.`, `..` and dot folders never ship); a path or licence is
+not a file of the clean build (the build's own spelling and case are the only ones: a leading `/`, a `\` or another case fail here);
+`path` is not a css or js file (a page can never be listed); a path is listed twice; or the sha256 is not the file's. `--check` makes
+the same test on the clean build and then holds the signed folder to it: a listed file equals the clean file byte for byte
+(`<path>: a declared third-party file must equal the clean one byte for byte`), and every other css or js file carries its stamp.
+`deploy-signed.mjs` runs that check, so a deploy needs no change. `seal-site.mjs` never reads the list: a sealed draft takes a listed
+file into the page blocks as it is, and the licence file ships as a file of its ship list, so a licence with no extension (`LICENSE`)
+is refused there (`a file of this kind cannot ship in a sealed draft`): name it `LICENSE.txt` in the clean build. Adding or changing
+`third-party.json` changes the clean build's file list, and so the ID.
 
 ## The deploy
 `deploy-signed.mjs` uploads only a folder that passes its check, then writes the Pages project and the deployment id into the
