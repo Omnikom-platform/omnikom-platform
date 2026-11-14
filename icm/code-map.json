@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 931,
+    "sources": 933,
     "unowned": 0
   },
   "files": [
@@ -228,6 +228,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/gate-schema.mjs","owner":"seo-and-audits","exports":["id","plain","run","satisfies","title"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/gate-targets.mjs","owner":"seo-and-audits","exports":["id","plain","run","title"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/gate.mjs","owner":"seo-and-audits","exports":["CHECKS","emit","gate","reportMd"],"tests":["tools/audit/test/run.mjs","tools/site-sign/seal-site.test.mjs"],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/grid-text-to-capture.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/guard-readonly.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/import-ads.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/import-ai.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
@@ -334,6 +335,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-crux.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-freshness.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-google-auth.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-grid-text.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-importers.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-industry.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-intake-contact.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
