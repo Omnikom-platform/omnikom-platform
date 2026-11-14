@@ -2,9 +2,10 @@ import { readFileSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 // Reads the staging project's Auth settings through the Supabase Management API (read-only, GET only) and compares them with
 // supabase/auth-settings.md. Every setting with an expected value is also SENT by set-auth-settings.mjs (E11). Prints one line per setting: observed value, expected value, PASS / FAIL / RECORDED (no expectation,
-// the value is recorded). Only the allowlisted keys below are ever printed: the endpoint also returns SMTP and provider secrets.
+// the value is recorded). Only the allowlisted keys below are ever printed with a value, the doors and limits (judgeOff, judgeLimits, judgeNamed) only as a boolean or a number: the endpoint also returns SMTP and provider secrets.
 //   node tools/with-env.mjs "<env file>" -- node supabase/check-auth-settings.mjs [--ref-env STAGING_SUPABASE_REF]
 // Needs SUPABASE_ACCESS_TOKEN (a personal access token; read by name, never printed) and STAGING_SUPABASE_REF.
+// SUPABASE_API_BASE exists for the tests' local fake server only.
 // Source: https://supabase.com/docs/reference/api/v1-get-auth-service-config (GET /v1/projects/{ref}/config/auth).
 
 // setting -> [plain words, expected value or null (recorded only), source of the expectation]
@@ -37,6 +38,30 @@ export const EXPECT = {
   mailer_secure_email_change_enabled: ['secure email change (both addresses confirm)', true, 'Supabase default'],
 };
 
+// the sign-in doors that must be off (security review 2026-11-14, methods 3, 4 and 5; staging read 2026-11-14): SAML, and every key
+// external_<x>_enabled, mfa_<x>_enabled or hook_<x>_enabled that EXPECT does not judge itself (email on, anonymous off, the two TOTP switches
+// on). A pattern, so a provider, factor type or hook the vendor adds later is caught with no edit. Only checked, never sent.
+export const OFF_PATTERN = /^(external|mfa|hook)_.+_enabled$/;
+export function judgeOff(cfg) {
+  const keys = ['saml_enabled', ...Object.keys(cfg).filter(k => OFF_PATTERN.test(k) && !(k in EXPECT)).sort()];
+  return keys.map(key => ({ key, got: cfg[key], want: 'false', ok: cfg[key] === false }));
+}
+// three more doors with no common prefix (head's ruling 2026-11-14 12:26; all false on staging): a named list, judged and never sent
+export const NAMED_DOORS = ['passkey_enabled', 'oauth_server_enabled', 'custom_oauth_enabled'];
+export function judgeNamed(cfg) {
+  return NAMED_DOORS.map(key => ({ key, got: cfg[key], want: 'false', ok: Object.is(cfg[key], false) }));
+}
+// the two second-factor limits (B-sign-in.md 124-126 names the keys and no value; the safe values are the head's ruling 2026-11-14): no
+// lower-level sign-in after a factor (mfa_allow_low_aal false) and no more factors per login than the vendor's default (recalled, UNPROVEN: 10)
+export const MFA_MAX_DEFAULT = 10;
+export function judgeLimits(cfg) {
+  const low = cfg.mfa_allow_low_aal, max = cfg.mfa_max_enrolled_factors;
+  return [
+    { key: 'mfa_allow_low_aal', got: low, want: 'false', ok: low === false },
+    { key: 'mfa_max_enrolled_factors', got: max, want: `at most ${MFA_MAX_DEFAULT}`, ok: typeof max === 'number' && max <= MFA_MAX_DEFAULT },
+  ];
+}
+
 // run only as the script itself: importing the file (set-auth-settings.mjs, auth-emails/body.test.mjs) runs nothing
 if (realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   const argv = process.argv.slice(2);
@@ -44,8 +69,10 @@ if (realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url
   const refEnv = after('--ref-env') || 'STAGING_SUPABASE_REF';
   const ref = process.env[refEnv], token = process.env.SUPABASE_ACCESS_TOKEN;
   if (!ref || !token) { console.error(`set ${refEnv} and SUPABASE_ACCESS_TOKEN (by name)`); process.exit(2); }
+  const base = process.env.SUPABASE_API_BASE || 'https://api.supabase.com';
+  if (base !== 'https://api.supabase.com' && !/^http:\/\/127\.0\.0\.1:\d+$/.test(base)) { console.error("SUPABASE_API_BASE may only name the tests' local fake server"); process.exit(2); }
 
-  const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/config/auth`, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30000) });
+  const r = await fetch(`${base}/v1/projects/${ref}/config/auth`, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30000) });
   if (!r.ok) { console.error(`Management API answered ${r.status} ${r.statusText} (the token needs read access to the project's auth config); nothing checked`); process.exit(1); }
   const cfg = await r.json();
   let fail = 0;
@@ -55,6 +82,11 @@ if (realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url
     const verdict = expected === null ? 'RECORDED' : got === expected ? 'PASS' : 'FAIL';
     if (verdict === 'FAIL') fail++;
     console.log(`${verdict.padEnd(8)} ${key.padEnd(40)} observed ${shown}${expected === null ? '' : `  expected ${JSON.stringify(expected)}`}  (${words}; ${source})`);
+  }
+  for (const { key, got, want, ok } of [...judgeOff(cfg), ...judgeNamed(cfg), ...judgeLimits(cfg)]) {
+    fail += ok ? 0 : 1;
+    const shown = got === undefined ? '(not returned)' : got === null ? 'null' : typeof got === 'boolean' || (typeof got === 'number' && Number.isFinite(got)) ? String(got) : `(a ${typeof got}, not printed)`;
+    console.log(`${ok ? 'PASS' : 'FAIL'}     ${key.padEnd(40)} observed ${shown}  expected ${want}  (a sign-in door that must stay off, or a second-factor limit; security review 2026-11-14, methods 3 to 5)`);
   }
   // the email templates and subjects: the files in supabase/auth-emails/ (DP-email rows in 16-DESIGN-PARTS)
   const emails = JSON.parse(readFileSync(new URL('./auth-emails/emails.json', import.meta.url), 'utf8'));
@@ -68,6 +100,6 @@ if (realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url
   }
   const unknown = Object.keys(EXPECT).filter(k => !(k in cfg));
   if (unknown.length) console.log(`NOTE: the API did not return: ${unknown.join(', ')} (vendor differs from the docs; a finding)`);
-  console.log(`${fail ? 'FAIL' : 'OK'}: ${Object.keys(EXPECT).length} settings read, ${fail} differ from auth-settings.md (checked ${new Date().toISOString().slice(0, 10)})`);
+  console.log(`${fail ? 'FAIL' : 'OK'}: ${Object.keys(EXPECT).length} settings read, ${fail} differ from auth-settings.md (checked ${new Date().toISOString().slice(0, 10)})${base === 'https://api.supabase.com' ? '' : '  [LOCAL FAKE SERVER, NOT THE PROVIDER]'}`);
   process.exit(fail ? 1 : 0);
 }
