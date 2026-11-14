@@ -34,7 +34,50 @@ if (args.includes("--mutants")) {
     { id: "profile-rule-always-true", file: "client-copy-design.mjs", from: "profileLinkBroken: () => pr.broken.length > 0,", to: "profileLinkBroken: () => pr.broken.length >= 0,", red: "case 18:" },
     { id: "draft-contains-unchecked", file: "client-copy.mjs", from: 'if (!isTexts(std.draftContains) || std.draftContains.length !== 3) stop("STOP: how-we-work.json has no draftContains as a list of 3 texts");', to: "", red: "case 7:" },
     { id: "go-ahead-typed-in-code", file: "client-copy-design.mjs", from: "${esc(std.goAhead)}", to: "Tell us to start your draft.", red: "case 7:" },
-    { id: "who-typed-in-code", file: "client-copy-design.mjs", from: "fill(f.gets), f.who, f.see]);", to: 'fill(f.gets), "Your developer", f.see]);', red: "case 8:" },
+    { id: "who-typed-in-code", file: "client-copy-design.mjs", from: "fill(f.gets, `row ${f.id} gets`), f.who, f.see]);", to: 'fill(f.gets, `row ${f.id} gets`), "Your developer", f.see]);', red: "case 8:" },
+    { id: "gates-not-called", file: "client-copy.mjs", from: "gates({ html, tsv, pages, logoUrl });", to: "", red: "case 21:" },
+    { id: "gates-after-the-first-write", file: "client-copy.mjs", from: "gates({ html, tsv, pages, logoUrl });", to: 'fs.mkdirSync(outDir, { recursive: true }); fs.writeFileSync(path.join(outDir, "early.html"), html); gates({ html, tsv, pages, logoUrl });', red: "case 21:" },
+    { id: "tx-p2-8-running-head-name-row-off", file: "client-copy-design.mjs", from: "TX(\"biz\", NAME, \"business name, running head\", NAME)", to: "esc(NAME)", red: "case 22:" },
+    { id: "tx-p1-cover-name-row-off", file: "client-copy-design.mjs", from: "TX(\"biz\", NAME, \"business name, cover\", NAME)", to: "esc(NAME)", red: "case 22:" },
+    { id: "tx-p2-city-row-off", file: "client-copy-design.mjs", from: "city(home, \"city, spots in the top three\")", to: "esc(home)", red: "case 22:" },
+    { id: "tx-p2-product-spots-row-off", file: "client-copy-design.mjs", from: "prod(f.key, f.lower, \"product, spots in the top three\")", to: "esc(plain(f.lower))", red: "case 22:" },
+    { id: "tx-p2-away-city-row-off", file: "client-copy-design.mjs", from: "city(c, \"city, away spots in the top three\")", to: "esc(c)", red: "case 22:" },
+    { id: "tx-p2-demand-product-row-off", file: "client-copy-design.mjs", from: "prod(d.key, d.product, \"product, what buyers search for\")", to: "esc(plain(d.product))", red: "case 22:" },
+    { id: "tx-p2-note-product-row-off", file: "client-copy-design.mjs", from: "prod(topP.key, topP.product, \"most searched product, summary note\")", to: "esc(plain(topP.product))", red: "case 22:" },
+    { id: "tx-p2-bing-figure-where-row-off", file: "client-copy-design.mjs", from: "TX(\"demandWhere\", D.demandWhere, \"where Bing's figure is for\")", to: "esc(plain(D.demandWhere))", red: "case 22:" },
+    { id: "tx-p3-result-title-row-off", file: "client-copy-design.mjs", from: "TX(\"textSerp\", r.title, `${eng} result title, position ${r.position}`, pk(\"title\"))", to: "esc(plain(r.title))", red: "case 22:" },
+    { id: "tx-p3-title-less-domain-row-off", file: "client-copy-design.mjs", from: "TX(\"textSerp\", r.domain, `${eng} result domain shown as the title, position ${r.position}`, pk(\"domain\"))", to: "esc(plain(r.domain))", red: "case 22:" },
+    { id: "tx-p3-result-domain-row-off", file: "client-copy-design.mjs", from: "TX(\"textSerp\", r.domain, `${eng} result domain, position ${r.position}`, pk(\"domain\"))", to: "esc(plain(r.domain))", red: "case 22:" },
+    { id: "tx-p3-name-in-list-row-off", file: "client-copy-design.mjs", from: "TX(\"biz\", NAME, `business name, your row in the ${eng} list`, NAME)", to: "esc(NAME)", red: "case 22:" },
+    { id: "tx-p3-search-phrase-row-off", file: "client-copy-design.mjs", from: "TX(\"textSerp\", SL.query, \"search phrase of the two lists\", \"engine=google&device=desktop].query\")", to: "esc(plain(SL.query))", red: "case 22:" },
+    { id: "tx-p3-lede-product-row-off", file: "client-copy-design.mjs", from: "prod(topP.key, topP.product, \"most searched product, results lede\")", to: "esc(plain(topP.product))", red: "case 22:" },
+    { id: "tx-p3-rival-name-row-off", file: "client-copy-design.mjs", from: "rname(r, \"rival named, words in the first response\")", to: "esc(plain(r.printName))", red: "case 22:" },
+    { id: "tx-p4-named-instead-row-off", file: "client-copy-design.mjs", from: "TX(\"textAi\", nm, `business named instead, question ${qi + 1}, ${E}`, `question=${x.question}&engine=${e}].competitorsNamed[name=${nm}]`)", to: "esc(plain(nm))", red: "case 22:" },
+    { id: "tx-p4-question-row-off", file: "client-copy-design.mjs", from: "TX(\"textAi\", x.question, `question ${qi + 1}`, `question=${x.question}].question`)", to: "esc(plain(x.question))", red: "case 22:" },
+    { id: "tx-p4-named-most-often-row-off", file: "client-copy-design.mjs", from: "TX(\"aiInstead\", a.name, \"business the assistants name instead most often\", a.name)", to: "esc(plain(a.name))", red: "case 22:" },
+    { id: "tx-p5-tile-row-product-row-off", file: "client-copy-design.mjs", from: "prod(r.key, r.product, \"product, Maps tile row\")", to: "esc(plain(r.product))", red: "case 22:" },
+    { id: "tx-p5-headline-city-row-off", file: "client-copy-design.mjs", from: "city(home, \"city, Maps headline\")", to: "esc(home)", red: "case 22:" },
+    { id: "tx-p5-headline-away-city-row-off", file: "client-copy-design.mjs", from: "city(c, \"city, Maps headline away\")", to: "esc(c)", red: "case 22:" },
+    { id: "tx-p5-maps-business-row-off", file: "client-copy-design.mjs", from: "TX(\"textMaps\", r.name, `business shown by Maps in its first three, ${ri + 1}`, `name=${r.name}]`)", to: "esc(plain(r.name))", red: "case 22:" },
+    { id: "tx-p5-address-directory-row-off", file: "client-copy-design.mjs", from: "TX(\"textDirs\", w2, \"directory named beside an address\", `printed as ${w2})`)", to: "esc(plain(w2))", red: "case 22:" },
+    { id: "tx-p5-review-line-city-row-off", file: "client-copy-design.mjs", from: "city(home, \"city, review line\")", to: "esc(home)", red: "case 22:" },
+    { id: "tx-p5-claim-directory-row-off", file: "client-copy-design.mjs", from: "TX(\"textDirs\", r.name, \"directory to claim, Maps fix\", `printed as ${r.name})`)", to: "esc(plain(r.name))", red: "case 22:" },
+    { id: "tx-p5-tile-column-city-row-off", file: "client-copy-design.mjs", from: "city(c, \"city, Maps tile column\")", to: "esc(c)", red: "case 22:" },
+    { id: "tx-p5-list-product-row-off", file: "client-copy-design.mjs", from: "prod(topP.key, topP.product, \"most searched product, Maps list\")", to: "esc(plain(topP.product))", red: "case 22:" },
+    { id: "tx-p5-list-city-row-off", file: "client-copy-design.mjs", from: "city(home, \"city, Maps list\")", to: "esc(home)", red: "case 22:" },
+    { id: "tx-p6-headline-city-row-off", file: "client-copy-design.mjs", from: "city(home, \"city, rivals headline\")", to: "esc(home)", red: "case 22:" },
+    { id: "tx-p6-name-row-off", file: "client-copy-design.mjs", from: "TX(\"biz\", NAME, \"business name, comparison table\", NAME)", to: "esc(NAME)", red: "case 22:" },
+    { id: "tx-p6-rival-table-row-off", file: "client-copy-design.mjs", from: "rname(r, \"rival named, comparison table\")", to: "esc(plain(r.printName))", red: "case 22:" },
+    { id: "tx-p6-rival-ads-row-off", file: "client-copy-design.mjs", from: "rname(r, \"rival named, ads line\")", to: "esc(plain(r.printName))", red: "case 22:" },
+    { id: "tx-p6-advertiser-domain-row-off", file: "client-copy-design.mjs", from: "TX(\"ads\", a.domain, \"advertiser domain, ads line\", `advertiser=${a.domain}&`)", to: "esc(plain(a.domain))", red: "case 22:" },
+    { id: "tx-p6-chambers-city-row-off", file: "client-copy-design.mjs", from: "city(home, \"city, chambers fix\")", to: "esc(home)", red: "case 22:" },
+    { id: "tx-p7-profile-row-off", file: "client-copy-design.mjs", from: "TX(\"profiles\", nm, `profile named in the plan row, ${at}`, `\"${nm.toLowerCase()}\"`)", to: "esc(plain(nm))", red: "case 22:" },
+    { id: "tx-p7-top-product-row-off", file: "client-copy-design.mjs", from: "topProduct: (at) => prod(T7.key, T7.lower, `most searched product, plan row, ${at}`)", to: "topProduct: (at) => esc(plain(T7.lower))", red: "case 22:" },
+    { id: "tx-p7-second-product-row-off", file: "client-copy-design.mjs", from: "secondLower: (at) => prod(D.demand[1].key, D.demand[1].lower, `second most searched product, plan row, ${at}`)", to: "secondLower: (at) => esc(plain(D.demand[1].lower))", red: "case 22:" },
+    { id: "tx-p7-city-row-off", file: "client-copy-design.mjs", from: "home: (at) => city(home, `city, plan row, ${at}`)", to: "home: (at) => esc(plain(home))", red: "case 22:" },
+    { id: "tx-p7-claim-directory-row-off", file: "client-copy-design.mjs", from: "TX(\"textDirs\", r.name, `directory to claim, plan row, ${at}`, `printed as ${r.name})`)", to: "esc(plain(r.name))", red: "case 22:" },
+    { id: "tx-source-lookup-wrong", file: "client-copy-design.mjs", from: "TX(\"textSerp\", SL.query, \"search phrase of the two lists\", \"engine=google&device=desktop].query\")", to: "TX(\"textSerp\", SL.query, \"search phrase of the two lists\", \"engine=google&device=desktop].qry\")", red: "case 22:" },
+    { id: "tx-p7-text-drawn-once-for-two-places", file: "client-copy-design.mjs", from: "(TEXTPH.has(s.slice(1, -1)) ? PH[s.slice(1, -1)](at) : ph(s.slice(1, -1)))", to: "ph(s.slice(1, -1))", red: "case 22:" },
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ccopy-mut-"));
   let ok = 0;
@@ -79,7 +122,7 @@ function mk(o) {
   const u = () => (n += 43 + (n % 9)); // strictly rising: no number repeats inside one run folder
   const P = o.products, C = o.cities;
   const s = { ...o, home: C[0].split(",")[0], date: "2026-11-13", cityNames: C.map((c) => c.split(",")[0]) };
-  s.vol = P.map(() => u());
+  s.vol = P.map(() => u()); s.vol[P.length - 1] *= 4; // the top product holds most of the demand: the plan row "the search most buyers type" needs more than half
   s.relatedVol = [u(), u()];
   s.rivalStats = o.rivals.map(() => ({ words: u(), sitemap: u(), links: u() }));
   s.reviews = u();
@@ -104,6 +147,19 @@ const A = (o = {}) => mk({
   faqHeading: true, cites: [["bing.com (Bing Places)", "listed", true], ["apple.com (Apple Maps)", "not listed"], ["yelp.com", "listed"], ["manta.com", "not listed"]],
   hands: true, mailProblem: true, qNames: ["who is alder bay roofing", "best roof repair near me", "gutter installation cost", "alder bay roofing reviews"], shares: [0.4, 0, 0, 0.2], ...o,
 });
+// AD: run A with a 4-digit number of its own inside every text a page draws from a file (business, cities, products, results, rivals, questions, names, directories, profiles)
+const AD = () => {
+  const used = [], dx = () => { const n = 7300 + 7 * (used.length + 1); used.push(String(n)); return n; };
+  const t = (x) => `${x} ${dx()}`, h = (x) => `${x}${dx()}`;
+  const home = t("Alder Bay"), products = [t("roof repair"), t("roof replacement"), t("gutter installation")];
+  const rv = [["ridgeline-roofs", t("Ridgeline Roofs")], ["harbor-gutters", t("Harbor Gutters")], ["summit-shingle", t("Summit Shingle Co")]];
+  const notes = ["roofing contractor; family run", "gutter shop; small", "national roofing chain; large"];
+  return A({ dx, dxUsed: used, name: t("Alder Bay Roofing"), cities: [`${home}, WA`, `${t("Pine Hollow")}, WA`, `${t("Stonebrook")}, WA`], products, missing: products,
+    rivals: rv.map(([d, name], i) => ({ domain: `${h(d)}.test`, name, note: notes[i], status: 200 })),
+    siteAddr: `14 Cedar Row, ${home}, WA`, gAddr: `14 Cedar Row, ${home}, WA`, bAddr: `9 Mill Lane, ${home}, WA`, fAddr: `22 Harbor Street, ${home}, WA`,
+    extraAd: `${h("big-advertiser")}.test`, social: [h("instagram"), h("youtube"), h("linkedin")],
+    cites: [[`bing.com (${t("Bing Places")})`, "listed", true], [`apple.com (${t("Apple Maps")})`, "not listed"], ["yelp.com", "listed"], [`manta.com (${t("Manta")})`, "not listed"]] });
+};
 const B = () => mk({
   seed: 5210, key: "B", name: "Northgate Family Dental", short: "Northgate", domain: "northgate-family-dental.test", sdType: "Dentist",
   products: ["teeth cleaning", "dental implants"], cities: ["Northgate, OH", "Elm Ridge, OH"], extraArea: [], rating: 4.6, phone: 3640, desk: 1180,
@@ -113,7 +169,7 @@ const B = () => mk({
   sitemapUrls: 0, sitemapType: "text/html", notFound: 200, rangeFrom: "2026-10-01", rangeTo: "2026-10-31", seedsN: 4, rowsN: 19,
   serpProduct: [3, null, null, null], serpName: [1], serpSite: [1], serpNick: [], nick: "", nameQ: "northgate family dental",
   missing: ["dental implants"], desc: "A family practice.", services: [], broken: false, social: ["facebook"], sameAs: 0,
-  faqHeading: true, cites: [["bing.com (Bing Places)", "listed", true], ["apple.com (Apple Maps)", "not listed"], ["yelp.com", "listed"]],
+  faqHeading: true, cites: [["bing.com (Bing Places)", "listed", true], ["apple.com (Apple Maps)", "not listed"], ["yelp.com", "listed"], ["manta.com", "not listed"]],
   hands: false, mailProblem: false, qNames: ["who is northgate family dental", "best dentist near me", "dental implants cost", "northgate family dental reviews"], shares: [0, 0, 0, 0],
 });
 const AREA = (s) => [...s.cities, ...s.extraArea];
@@ -126,6 +182,10 @@ function makeRun(s) {
   const wp = (rel, j) => { if (omit.includes(rel)) return; if (patch[rel]) { const r = patch[rel](j); if (r !== undefined) j = r; } w(path.join(pewp, rel), j); };
   const ws = (rel, j) => { if (omit.includes("snap:" + rel)) return; w(path.join(snap, rel), j); };
   const P = s.products, C = s.cities;
+  // s.dx (the digit run only): a function giving a new 4-digit number; every text of the run that a page prints gets one of its own
+  const X = (t) => (s.dx ? `${t} ${s.dx()}` : t), H = (host) => (s.dx ? host.replace(/\./, `${s.dx()}.`) : host);
+  const [CEDAR, BIRCH, MAPLE, ZINC, HOP1, HOP2] = ["Cedar Roofs", "Birch Roofs", "Maple Roofs", "Zinc Roofs", "Hilltop Roof One", "Hilltop Roof Two"].map(X);
+  const BIGDIR = H("bigdirectory.test"), BLOG = H("random-blog.test"), LOC = s.dx ? `US ${s.dx()}` : "US";
   const unit = `impressions ${s.rangeFrom}..${s.rangeTo}`;
   w(path.join(pewp, "report.json"), { snapshot: "snapshots/2026-11-10-2" });
   const gridRel = `local/${s.date}/grid.json`;
@@ -148,7 +208,7 @@ function makeRun(s) {
   // research
   wp("research/bing.json", {
     generatedAt: "2026-11-13T07:00:00.000Z",
-    keywords: [...P.map((p, i) => ({ query: p, related: false, volume: { value: s.vol[i], unit, location: "US" } })), { query: `${P[0]} cost`, related: true, volume: { value: s.relatedVol[0], unit, location: "US" } }, { query: `${P[0]} near me`, related: true, volume: { value: s.relatedVol[1], unit, location: "US" } }],
+    keywords: [...P.map((p, i) => ({ query: p, related: false, volume: { value: s.vol[i], unit, location: LOC } })), { query: `${P[0]} cost`, related: true, volume: { value: s.relatedVol[0], unit, location: LOC } }, { query: `${P[0]} near me`, related: true, volume: { value: s.relatedVol[1], unit, location: LOC } }],
     siteStats: { status: "blocked", blocked: "not a client yet" },
   });
   wp("research/index.json", { generatedAt: "2026-11-13T07:01:00.000Z", rows: [{ engine: "bing", serviceChecks: [] }, { engine: "google", serviceChecks: P.map((service) => ({ service })) }], summary: { servicesMissing: s.missing, servicesChecked: P.length, servicesListed: P.length - s.missing.length } });
@@ -159,18 +219,18 @@ function makeRun(s) {
   s.serpSite.forEach((v) => caps.push(cap(`site:${s.domain}`, "google", "desktop", v)));
   s.serpNick.forEach((v) => caps.push(cap(s.nick, "bing", "mobile", v)));
   // the results lists of page 3: every product in the home city, on Google and on Bing, desktop, read from outside the area
-  const rd = (i) => s.rivals[i].domain, ent = (n, domain, title) => ({ position: n, url: `https://${domain}/r${n}`, domain, title: title || `Result ${n}` });
-  const gList = [ent(1, "county.agency.gov", "Roof help \u2013 County Agency"), ent(2, rd(0)), ent(3, rd(1)), ent(4, "bigdirectory.test"), ent(5, "random-blog.test"), ent(6, "extra-six.test"), ent(7, "extra-seven.test")];
-  const bList = [ent(1, "legacy.county.agency.gov"), ent(2, "random-blog.test"), ent(3, rd(1)), ent(4, rd(0)), ent(5, "bigdirectory.test"), ent(6, "extra-six.test")];
+  const rd = (i) => s.rivals[i].domain, ent = (n, domain, title) => ({ position: n, url: `https://${domain}/r${n}`, domain, title: title === null ? "" : title || X(`Result ${n}`) });
+  const gList = [ent(1, H("county.agency.gov"), X("Roof help \u2013 County Agency")), ent(2, rd(0)), ent(3, rd(1)), ent(4, BIGDIR), ent(5, BLOG), ent(6, "extra-six.test"), ent(7, "extra-seven.test")];
+  const bList = [ent(1, H("legacy.county.agency.gov")), ent(2, BLOG), ent(3, rd(1), s.dx ? null : undefined), ent(4, rd(0)), ent(5, BIGDIR), ent(6, "extra-six.test")]; // in the digit run one Bing result has no title: the page prints its domain as the title
   P.forEach((p) => ["google", "bing"].forEach((engine) => caps.push({ query: `${p} ${s.home}`, engine, device: "desktop", location: { requested: C[0], localized: false }, ourPosition: { value: null }, organic: engine === "google" ? gList : bList })));
   s.serpTotal = caps.length;
   s.serpProductN = P.length * 4; s.serpProductWithUs = caps.slice(0, P.length * 2).filter((c) => c.ourPosition.value !== null).length;
   wp("research/serp.json", { generatedAt: "2026-11-13T07:02:00.000Z", captures: caps, counts: { captures: caps.length, notLocalized: caps.length } });
   wp("research/autocomplete.json", { generatedAt: "2026-11-13T07:03:00.000Z", seeds: Array.from({ length: s.seedsN }, (_, i) => `seed ${i}`), rows: Array.from({ length: s.rowsN }, (_, i) => ({ i })) });
-  const aiRows = [], q = ["buyer one", "buyer two", "about the business"];
+  const aiRows = [], q = ["buyer one", "buyer two", "about the business"].map(X);
   s.aiQuestions = 3;
   const named = { chatgpt: [true, false, true], perplexity: [false, false, true] };
-  const inst = { "chatgpt-1": [["Cedar Roofs", "Birch Roofs"], "Try Birch Roofs first, then Cedar Roofs."], "perplexity-0": [["Maple Roofs", "Zinc Roofs", "Birch Roofs", "Cedar Roofs"], "Zinc Roofs is first; Birch Roofs and Cedar Roofs follow; Maple Roofs is last."], "perplexity-1": [["Cedar Roofs"], "Cedar Roofs."] };
+  const inst = { "chatgpt-1": [[CEDAR, BIRCH], `Try ${BIRCH} first, then ${CEDAR}.`], "perplexity-0": [[MAPLE, ZINC, BIRCH, CEDAR], `${ZINC} is first; ${BIRCH} and ${CEDAR} follow; ${MAPLE} is last.`], "perplexity-1": [[CEDAR], `${CEDAR}.`] };
   for (const e of ["chatgpt", "perplexity"]) q.forEach((qq, i) => { const f = `${e}-${i}.json`, ins = inst[`${e}-${i}`] || [[], "Nothing."]; aiRows.push({ engine: e, status: "ok", file: f, type: i < 2 ? "buyer" : "brand", named: named[e][i], question: qq, competitorsNamed: ins[0] }); wp(`captures/ai/${f}`, { capturedAt: "2026-11-12T10:00:00.000Z", signedIn: true, answerText: ins[1] }); });
   for (const e of ["copilot", "gemini"]) aiRows.push({ engine: e, status: "blocked", file: `${e}.json` });
   wp("research/ai-answers.json", { generatedAt: "2026-11-13T07:04:00.000Z", summary: { engines: [{ engine: "chatgpt", status: "ok", questions: 3, named: 2 }, { engine: "perplexity", status: "ok", questions: 3, named: 1 }, { engine: "copilot", status: "blocked", questions: 0, named: 0 }, { engine: "gemini", status: "blocked", questions: 0, named: 0 }], blockedEngines: [{ engine: "copilot", reason: "asks for a sign in" }, { engine: "gemini", reason: "asks for a sign in" }], questions: 6, competitors: [{ name: s.rivals[0].name, count: 9 }, { name: s.rivals[1].name, count: 6 }, { name: s.rivals[2].name, count: 3 }] }, rows: aiRows });
@@ -181,9 +241,9 @@ function makeRun(s) {
   const packOf = (i, j, k) => {
     if (i !== P.length - 1 || j !== 0) return [];
     const r = s.reviews, CL = s.name, rw = (position, name, reviews) => (reviews === undefined ? { position, name } : { position, name, reviews });
-    if (k <= 3) return [rw(1, "Hilltop Roof One", r + 200), rw(2, CL, r), rw(3, "Hilltop Roof Two", r + 77)];
-    if (k <= 6) return [rw(1, CL, r), rw(2, "Hilltop Roof One", r + 200), rw(3, "Cedar Roofs")];
-    return [rw(1, "Cedar Roofs"), rw(2, "Hilltop Roof Two", r + 77), rw(3, "Ad \u00b7 Hilltop Ads", 9999), rw(4, "Late Roofs", 5)];
+    if (k <= 3) return [rw(1, HOP1, r + 200), rw(2, CL, r), rw(3, HOP2, r + 77)];
+    if (k <= 6) return [rw(1, CL, r), rw(2, HOP1, r + 200), rw(3, CEDAR)];
+    return [rw(1, CEDAR), rw(2, HOP2, r + 77), rw(3, "Ad \u00b7 Hilltop Ads", 9999), rw(4, "Late Roofs", 5)];
   };
   const mkGrid = (shift) => ({
     date: shift ? "2026-11-12" : s.date, plan: { n: 3, spacingKm: s.key === "A" ? 2.5 : 1.5, captures: s.planCaptures }, summary: { localized: s.planCaptures },
@@ -197,10 +257,10 @@ function makeRun(s) {
   wp("captures/local/profile.json", { capturedAt: "2026-11-12T09:00:00.000Z", name: s.name, address: s.gAddr, reviews: { rating: s.rating, count: s.reviews }, description: s.desc, services: s.services });
   wp("captures/local/citations.json", s.cites.map(([directory, status, bing]) => ({ directory, status, capturedAt: "2026-11-12T09:30:00.000Z", ...(bing ? { address: s.bAddr } : {}) })));
   const url = (p, i) => `https://${p}.test/${s.key}${i}`;
-  wp("research/social.json", { generatedAt: "2026-11-13T07:06:00.000Z", rows: s.social.map((p, i) => ({ platform: p, profileUrl: url(p, i) })), summary: { linksBroken: s.broken ? [url("instagram", 0), url("youtube", 1)] : [] } });
-  wp("research/ads.json", { generatedAt: "2026-11-13T07:07:00.000Z", rows: s.rivals.slice(0, 2).map((r, i) => ({ advertiser: r.domain, library: "google-transparency", url: `https://ads.test/?preset-date=Last+30+days&d=${i}`, adCount: s.adCounts[i] })) });
+  wp("research/social.json", { generatedAt: "2026-11-13T07:06:00.000Z", rows: s.social.map((p, i) => ({ platform: p, profileUrl: url(p, i) })), summary: { linksBroken: s.broken ? [url(s.social[0], 0), url(s.social[1], 1)] : [] } });
+  wp("research/ads.json", { generatedAt: "2026-11-13T07:07:00.000Z", rows: s.rivals.slice(0, 2).map((r, i) => ({ advertiser: r.domain, library: "google-transparency", url: `https://ads.test/?preset-date=Last+30+days&d=${i}`, adCount: s.adCounts[i] })).concat(s.extraAd ? [{ advertiser: s.extraAd, library: "google-transparency", url: "https://ads.test/?preset-date=Last+30+days&d=9", adCount: 11 }] : []) });
   wp("research/competitors.json", { generatedAt: "2026-11-13T07:08:00.000Z", approvedRows: s.rivals.length, sites: s.rivals.map((r, i) => (r.status === 200 ? { domain: r.domain, status: 200, page: { words: s.rivalStats[i].words }, sitemap: { pages: s.rivalStats[i].sitemap } } : { domain: r.domain, status: r.status })) });
-  wp("approved/competitors.json", { generatedAt: "2026-11-13T07:09:00.000Z", rows: [...s.rivals.map((r, i) => ({ domain: r.domain, name: r.name, note: r.note, kind: ["direct", "other", "publisher"][i] })), { name: "Big Directory", domain: "bigdirectory.test", kind: "publisher" }], excluded: [{ name: "Big Directory", domain: "bigdirectory.test", reason: "a directory" }, { name: "Tools", domain: "tools.example.gov", reason: "x" }] });
+  wp("approved/competitors.json", { generatedAt: "2026-11-13T07:09:00.000Z", rows: [...s.rivals.map((r, i) => ({ domain: r.domain, name: r.name, note: r.note, kind: ["other", "other", "publisher"][i] })), { name: "Big Directory", domain: BIGDIR, kind: "publisher" }], excluded: [{ name: "Big Directory", domain: BIGDIR, reason: "a directory" }, { name: "Tools", domain: "tools.example.gov", reason: "x" }] });
   wp("authority.json", { fetchedAt: "2026-11-13T07:10:00.000Z", results: [{ domain: s.domain, inGraph: s.ourInGraph, ...(s.ourInGraph ? { linkingDomains: 3 } : {}) }, ...s.rivals.map((r, i) => ({ domain: r.domain, inGraph: s.rivalInGraph[i], ...(s.rivalInGraph[i] ? { linkingDomains: s.rivalStats[i].links } : {}) }))] });
   wp("authority/vetting.json", { generatedAt: "2026-11-13T07:11:00.000Z", summary: { PURSUE: s.pursue }, results: [...Array.from({ length: s.chambers }, (_, i) => ({ verdict: "PURSUE", type: "chamber-local", domain: `chamber${i}.test` })), { verdict: "SKIP", type: "chamber-local", domain: "skip.test" }, { verdict: "PURSUE", type: "directory", domain: "dir.test" }] });
   wp("authority/opportunities.json", { generatedAt: "2026-11-13T07:12:00.000Z", opportunities: [{ domain: "pinehollow-chamber.test", linksToCompetitors: s.metro }] });
@@ -225,10 +285,10 @@ function makeRun(s) {
 
 const clientFor = (s, over = {}) => {
   const c = {
-    contact: "none", alsoSearchedAs: [s.nick], nameWord: "alder bay roofing", labels: { "roof repair": "Roof repair and patching" }, unconfirmedNames: ["summit-shingle.test"],
+    contact: "none", alsoSearchedAs: [s.nick], nameWord: "alder bay roofing", labels: { "roof repair": "Roof repair and patching" }, unconfirmedNames: [s.rivals[2].domain],
     words: { buyer: "homeowner", buyers: "homeowners", applicant: "caller", application: "quote form", apply: "ask for a quote", applies: "asks for a quote", pastCustomer: "happy customer", outcome: "jobs", offers: "emails", product: "job type", products: "job types", localRivals: "roofers", optionalNote: "with or without a second contact", otherKind: "another roofer", applying: "applying" },
     rivals: [{ domain: s.rivals[0].domain, name: null, type: "local roofer", group: "local" }, { domain: s.rivals[1].domain, name: "Harbor", type: "local gutter shop", group: "local" }, { domain: s.rivals[2].domain, name: null, type: "national roofer", group: "nat" }],
-    adsFor: [s.rivals[0].domain, s.rivals[1].domain], linkPlace: "pinehollow-chamber.test", linkCompare: { group: "nat", label: "national roofers" },
+    adsFor: [s.rivals[0].domain, s.rivals[1].domain].concat(s.extraAd ? [s.extraAd] : []), linkPlace: "pinehollow-chamber.test", linkCompare: { group: "nat", label: "national roofers" },
     rivalsLede: "Alder Bay roofers and one national chain, then the rest.", promisePattern: "Quotes in \\d+ days?",
     handReads: { leadPath: "pewp:captures/reputation/lead.json", mail: "pewp:b/mail.json", domain: "here:domain.json", trust: "pewp:b/trust.json", trustKey: "alderbay", filing: "here:filing.md" },
   };
@@ -254,7 +314,8 @@ function go(run, opts = {}) {
 }
 const textOf = (html) => html.replace(/<style[\s\S]*?<\/style>/g, " ").replace(/<[^>]+>/g, " ");
 const cleanText = (h) => h.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]+>/g, "");
-const sheetRows = (tsv) => tsv.split("\n").slice(1).filter(Boolean).map((l) => l.split("\t"));
+const allRows = (tsv) => tsv.split("\n").slice(1).filter(Boolean).map((l) => l.split("\t"));
+const sheetRows = (tsv) => allRows(tsv).filter((r) => r[7] !== "text"); // the drawn values and sums; the rows of kind text (a text the page prints from a file) have case 22
 // a sheet row with this printed text, from a file ending so, whose "where in the file" holds this
 const hasRow = (tsv, printed, fileEnd, where) => sheetRows(tsv).some((r) => r[2] === printed && r[3].endsWith(fileEnd) && r[4].includes(where));
 const wholeChecks = (r, who) => {
@@ -314,7 +375,7 @@ try {
       return [bad.length === 0, bad.join(" | ")];
     }));
 
-  check("case 6: contact null = draft, \"none\" = final and no contact line, text = printed in the dark box; no key or \"\" = exit 2, nothing written",
+  check("case 6: contact null = draft, \"none\" or a text = final and no contact line is printed; no key or \"\" = exit 2, nothing written",
     ...T(() => {
       const bad = [], run = makeRun(A());
       const d = go(run, { client: { ...cA, contact: null } }), n = rA, t = go(run, { client: { ...cA, contact: "hello@alder-bay-roofing.test" } });
@@ -465,6 +526,32 @@ try {
       const text = cleanText(r.html), sentence = (text.match(/ad library shows [^.]*\./) || [""])[0];
       if (!text.includes("ad library shows none for Harbor in the last 30 days")) bad.push(`sentence: ${sentence || "(none)"}`);
       if (sentence.includes("Ridgeline Roofs")) bad.push(`the rival with no Google row is named: ${sentence}`);
+      return [bad.length === 0, bad.join(" | ")];
+    }));
+  check("case 21: the gates run before anything is written: a how-we-work text that makes the copy print a contact line, a number past the sheet or a banned word stops the build with ONE gate line and writes nothing",
+    ...T(() => {
+      const bad = [];
+      for (const [goAhead, re] of [["We start in 7391 days, call 555-0100.", /^STOP: gate contact line: page 8 prints "555-0100"$/], ["We start in 7391 days.", /^STOP: gate numbers: page 8 prints 7391 and no printed cell of page 8 of the sheet holds it$/], ["The next step is pending.", /^STOP: gate internal words: page 8 prints "pending"$/]]) {
+        const r = go(makeRun(A()), { client: cA, words: copyWords((d) => jedit(d, "how-we-work.json", (j) => { j.goAhead = goAhead; })) });
+        if (!(r.status === 1 && re.test(r.stderr) && emptyOut(r))) bad.push(`${goAhead}: ${r.status} ${JSON.stringify(r.stderr)} ${r.files}`);
+      }
+      return [bad.length === 0, bad.join(" | ")];
+    }));
+  check("case 22: a number inside every text a page draws from a file builds through the gates, and each such text has a sheet row of kind text on the page that prints it (a title, a domain, a name, a question, a city, a product, a directory)",
+    ...T(() => {
+      const bad = [], ad = AD(), r = go(makeRun(ad), { client: clientFor(ad) });
+      if (r.status !== 0) return [false, `exit ${r.status}: ${r.stderr}`];
+      const rows = allRows(r.tsv), secs = r.html.match(/<section\b[\s\S]*?<\/section>/g) || [];
+      const text = (i) => cleanText(secs[i - 1].replace(/<svg[\s\S]*?<\/svg>/g, " ")).replace(/\s+/g, " ");
+      for (const x of rows.filter((y) => y[7] === "text")) if (x.length !== 8 || x.some((c) => c === "")) bad.push(`an empty cell in the text row ${JSON.stringify(x)}`);
+      const pages = secs.map((_, i) => i + 1);
+      for (const n of ad.dxUsed) for (const p of pages) { // each place a number is printed has its own row: as many text rows hold it as the page prints it
+        const re = new RegExp(`(?<![\\d.,])${n}(?![\\d])`), occ = (text(p).match(new RegExp(re.source, "g")) || []).length;
+        const have = rows.filter((x) => x[0] === String(p) && x[7] === "text" && re.test(x[2])).length;
+        if (occ !== have) bad.push(`${n} is printed ${occ} times on page ${p} and ${have} text rows of page ${p} hold it`);
+      }
+      const per = pages.map((p) => rows.filter((x) => x[0] === String(p) && x[7] === "text").length);
+      if (per.slice(1).filter((c) => c > 0).length < 5) bad.push(`text rows per page: ${per.join(" ")}`);
       return [bad.length === 0, bad.join(" | ")];
     }));
 } catch (e) {

@@ -429,7 +429,7 @@ export function collect(cfg) {
   const rivals = list.map((r) => {
     const d = r.domain;
     const inGraph = get("auth", `results[domain=${d}].inGraph`, "boolean");
-    return { domain: d, name: r.name || get("approved", `rows[domain=${d}].name`, "text"), type: r.type, group: r.group,
+    return { domain: d, name: r.name || get("approved", `rows[domain=${d}].name`, "text"), fromClient: Boolean(r.name), type: r.type, group: r.group,
       words: get("comp", `sites[domain=${d}].page.words`, "count"), sitemap: get("comp", `sites[domain=${d}].sitemap.pages`, "count"), links: inGraph ? get("auth", `results[domain=${d}].linkingDomains`, "count") : null };
   });
   const ourGraph = get("auth", `results[domain=${domain}].inGraph`, "boolean");
@@ -512,7 +512,7 @@ export function collect(cfg) {
     put("approvedSet", { rows: aRows, excluded: aEx }, src("approved", "rows[*].name, .domain, .kind; excluded[*].domain", `${aRows.length} rows, ${aEx.length} excluded`));
     const unconf = client.unconfirmedNames || [], exRiv = excludedRivals(client.rivals || [], { excluded: aEx });
     if (exRiv.length) stop(`STOP: the client file names the rival ${exRiv[0]}, which stands on the excluded list of ${label(defs.approved)}`);
-    for (const r of rivals) r.printName = nameToPrint(r.domain, r.name, unconf);
+    for (const r of rivals) { r.printName = nameToPrint(r.domain, r.name, unconf); r.printFrom = r.printName === r.name ? (r.fromClient ? "client" : "approved") : "domain"; } // where the printed name comes from: the client file, the approved sheet, or the domain
     const smType = get("sitemaps", "fetched[0].contentType", "text");
     put("sitemapType", smType, src("sitemaps", "fetched[0].contentType", smType));
     const strat = get("psi", "pages[strategy=mobile].strategy", "text");
@@ -546,6 +546,15 @@ export function collect(cfg) {
     put("mapShown", { query: msQ, points: ms.points, rows: ms.rows, clientAt: ms.rows.findIndex((r) => r.isTheClient) }, src("grid", `points[query=${msQ}].pack[position<=3] (name, reviews); the client is profile name`, `${ms.rows.length} businesses over ${ms.points} points`));
     const usN = ourGraph ? get("auth", `results[domain=${domain}].linkingDomains`, "count") : null;
     put("usLinks", usN, src("auth", `results[domain=${domain}].linkingDomains`, usN === null ? "not in graph" : usN));
+    // ---- the texts the pages print that come from a file: one source for each, read by the pages' TX() into a sheet row of kind text
+    put("textSerp", null, ...[["google", lg], ["bing", lb]].flatMap(([e, l]) => [src("serp", `captures[query=${l.query}&engine=${e}&device=desktop].query`, l.query),
+      ...l.first5.flatMap((o) => [src("serp", `captures[query=${l.query}&engine=${e}&device=desktop].organic[position=${o.position}].title`, o.title), src("serp", `captures[query=${l.query}&engine=${e}&device=desktop].organic[position=${o.position}].domain`, o.domain)])]));
+    put("textRival", null, ...rivals.filter((r) => r.printFrom !== "client").map((r) => (r.printFrom === "domain" ? src("comp", `sites[domain=${r.domain}].domain`, r.domain) : src("approved", `rows[domain=${r.domain}].name`, r.name))));
+    put("textAi", null, ...qs.flatMap((x) => [src("ai", `rows[question=${x.question}].question`, x.question), ...["chatgpt", "perplexity"].flatMap((e) => x[e].instead.map((nm) => src("ai", `rows[question=${x.question}&engine=${e}].competitorsNamed[name=${nm}]`, nm)))]));
+    put("textMaps", null, ...ms.rows.map((r) => src("grid", `points[query=${msQ}].pack[position<=3&name=${r.name}].name`, r.name)));
+    put("textPlaces", null, ...cities.map((c) => src("grid", `solv[cityName=${c}].city (the part before the comma)`, solv.find((s) => s.cityName === c).city)));
+    put("textDirs", null, ...dirRows.map((r) => src("cites", `[directory=${r.directory}].directory (printed as ${r.name})`, r.directory, r.at)));
+    put("textProducts", null, ...products.map((p) => src("index", `rows[engine=google].serviceChecks[service=${p}].service`, p)));
     // @@KEYS (job R2b adds its keys above this line; keep it verbatim)
   }
   return { D, S, fmt, labelOf };

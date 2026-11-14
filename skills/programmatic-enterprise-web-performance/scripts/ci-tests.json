@@ -18,6 +18,7 @@
   { "file": "test-copy-steps.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-copy-rules.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-copy-design.mjs", "plain": [], "mutants": ["--mutants"] },
+  { "file": "test-copy-gates.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-main.mjs", "plain": [], "mutants": [] },
   { "file": "test-authority.mjs", "plain": ["--quiet"], "mutants": [] }
 ]

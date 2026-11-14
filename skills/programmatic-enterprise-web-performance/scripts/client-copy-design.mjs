@@ -166,13 +166,27 @@ export function buildPages(ctx) {
   const andList = (xs) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
   const upperFirst = (s) => s.charAt(0).toUpperCase() + s.slice(1);
   // cite: ONE sheet row for one drawn value: the sources of D[key] that `pick` keeps, joined with " | " in the five source columns; the label is not cut
+  const recsOf = (key, pick) => [].concat(key).flatMap((k) => S[k] || []).filter((s) => !pick || s.where.includes(pick) || s.value.includes(pick));
   const cite = (key, printed, label, pick) => {
-    const recs = [].concat(key).flatMap((k) => S[k] || []).filter((s) => !pick || s.where.includes(pick) || s.value.includes(pick));
+    const recs = recsOf(key, pick);
     if (!recs.length) throw new Error(`build: no source for ${key}${pick ? ` matching ${pick}` : ""}`);
     const j = (f) => recs.map((s) => clean(s[f])).join(" | ");
     add([page, plain(label), clean(printed), j("file"), j("where"), j("value"), j("measured"), j("kind")]);
   };
   const calc = (printed, label, how) => add([page, plain(label), clean(printed), "(computed)", how, clean(printed), "(computed)", "COMPUTED"]);
+  // TX: a text the page prints that is drawn from a file: the text exactly as printed gets ONE sheet row of kind text (file, where and value there from the source the data layer recorded for the key); returns the html text
+  const TX = (key, shown, label, pick) => {
+    const t = plain(shown);
+    const recs = recsOf(key, pick);
+    if (!recs.length) throw new Error(`build: no source for ${key} matching ${pick}`);
+    const j = (g) => plain(recs.map((x) => clean(x[g])).join(" | ")); // a dash of the run's own text is a hyphen in the sheet too (the dash gate refuses any other)
+    add([page, plain(label), clean(t), j("file"), j("where"), j("value"), j("measured"), "text"]);
+    return esc(t);
+  };
+  const labelled = (key) => Boolean(client.labels && client.labels[key]); // a product the client file names in its own words is the client file's wording, not a text of the run
+  const prod = (key, shown, label) => (labelled(key) ? esc(plain(shown)) : TX("textProducts", shown, label, `service=${key}]`));
+  const city = (c, label) => TX("textPlaces", c, label, `cityName=${c}]`);
+  const rname = (r, label) => (r.printFrom === "client" ? esc(plain(r.printName)) : TX("textRival", r.printName, label, `domain=${r.domain}]`)); // a name the client file wrote is its wording
   const miss = (v) => v === null || v === undefined || v === "" || (typeof v === "number" && !Number.isFinite(v));
   // P: draw a value read from D[key] (never null) and give it a row; returns the html text
   const P = (key, shown, label, pick) => { if (miss(shown)) stop(`STOP: page ${page}, ${label}: the value is missing`); const t = plain(typeof shown === "number" ? fmt(shown) : shown); cite(key, t, label, pick); return esc(t); };
@@ -180,7 +194,7 @@ export function buildPages(ctx) {
   const PC = (shown, label, how) => { if (miss(shown)) stop(`STOP: page ${page}, ${label}: the value is missing`); const t = plain(shown); calc(t, label, how); return esc(t); };
   // sum: one row per addend ([part label, value, key, pick]) and one row for the total, label "<label> (addend: <part>)"
   const sum = (label, parts) => { let t = 0; for (const [pl, v, key, pick] of parts) { if (miss(v)) stop(`STOP: page ${page}, ${label}: the addend ${pl} is missing`); cite(key, fmt(v), `${label} (addend: ${pl})`, pick); t += v; } calc(fmt(t), label, `sum of the ${parts.length} addends above`); return t; };
-  const rh = () => `<div class="rh"><span class="nm">${esc(NAME)}</span><span>SEO, AI search and local audit, ${esc(MONTH)}</span></div>`;
+  const rh = () => `<div class="rh"><span class="nm">${TX("biz", NAME, "business name, running head", NAME)}</span><span>SEO, AI search and local audit, ${esc(MONTH)}</span></div>`;
   const rf = (n) => `<div class="rf"><span>Prepared by Omnikom</span><b>${n} / @@TOTAL@@</b></div>`;
   const sheetPage = (n, inner) => `<section class="pg" id="p${n}">${rh()}<div class="in">${inner}</div>${rf(n)}</section>`;
   const head = (label, h, lede) => `<div class="shead"><div class="label">${label}</div></div><h2>${h}</h2>${lede ? `<p class="lede">${lede}</p>` : ""}`;
@@ -202,7 +216,7 @@ export function buildPages(ctx) {
     const nAi = P("aiAsked", D.aiAsked, "AI assistants asked");
     return `<section class="cover" id="p1">
   <img class="logo" src="${logoUrl}" alt="Omnikom">
-  <div class="title"><p class="caps">Audit</p><h1>SEO, AI search and local audit</h1><p>${esc(NAME)}<br>${P("month", MONTH, "month of the audit")}</p></div>
+  <div class="title"><p class="caps">Audit</p><h1>SEO, AI search and local audit</h1><p>${TX("biz", NAME, "business name, cover", NAME)}<br>${P("month", MONTH, "month of the audit")}</p></div>
   <div class="panel"><p class="caps">What we found</p><p class="lead">Buyers who search for what you sell are shown other companies.</p></div>
   <div class="nums">
     <div class="num"><b>${t1}</b><span>${w.product} searches on Google and Bing that show your site, read from outside your area</span></div>
@@ -221,6 +235,8 @@ export function buildPages(ctx) {
     const F = T.rows.filter((r) => r.cells[0].counts["top three"] === r.cells[0].points); // products with every home spot in the top three, demand order
     const away = T.cities.slice(1), bing = D.directories.find((r) => /bing/i.test(r.directory));
     if (!(chat.named > 0)) stop("STOP: page 2, the headline says answers in ChatGPT: ChatGPT names the business on no question");
+    if (typeof D.rating.rating === "number" && D.rating.rating < 4) stop(`STOP: page 2, the Google rating under what you already have going for you: the rating is ${D.rating.rating}, below 4.0`);
+    if (sv.nameFirst === 0) stop(`STOP: page 2, the name searches under what you already have going for you: your site comes first on none of the ${sv.name} results pages for your name`);
     if (!F.length) stop(`STOP: page 2, what already works: no ${w.product} has every ${home} spot in the top three`);
     const fList = andList(F.map((f) => f.lower));
     const homeTop = sum(`${home} spots in the top three, ${fList}`, F.map((f) => [f.lower, f.cells[0].counts["top three"], "mapTiles", "query=" + f.cells[0].query]));
@@ -228,7 +244,7 @@ export function buildPages(ctx) {
     if (!bing || bing.status !== "listed") stop("STOP: page 2, your business on Bing Places: the Bing directory is not listed");
     const lines = [
       [P("rating", D.rating.rating, "Google rating", "reviews.rating"), `Google rating, from ${P("rating", D.rating.reviews, "Google reviews")} reviews`],
-      [PC(`${homeTop} of ${homeOf}`, `${home} spots in the top three (sum)`, "sum, see the rows of this page"), `${esc(home)} spots where Google Maps puts you in its top three, ${esc(andList(F.map((f) => `for ${f.lower}`)))}`],
+      [PC(`${homeTop} of ${homeOf}`, `${home} spots in the top three (sum)`, "sum, see the rows of this page"), `${city(home, "city, spots in the top three")} spots where Google Maps puts you in its top three, ${andList(F.map((f) => `for ${prod(f.key, f.lower, "product, spots in the top three")}`))}`],
       [P("ai", `${chat.named} of ${chat.questions}`, "ChatGPT questions that name you", "summary.engines[engine=chatgpt]"), "questions to ChatGPT answered with your name"],
       [P("serp", `${sv.nameFirst} of ${sv.name}`, "searches for your name where your site is first", "holds the business's name"), "results pages for your name where your site comes first"],
       [P("directories", upperFirst(bing.status), "Bing Places", `directory=${bing.directory}`), "your business on Bing Places"],
@@ -241,11 +257,11 @@ export function buildPages(ctx) {
     const bad = [
       `Google and Bing list ${pp.listed === 0 ? "none" : "only " + P("productPages", pp.listed, `${w.products} listed`)} of your ${P("productPages", pp.of, w.products)} ${w.products}. <em>Page 3</em>`,
       `Perplexity names you on ${P("ai", `${perp.named} of ${perp.questions}`, "Perplexity questions that name you", "summary.engines[engine=perplexity]")} questions, and Google's AI answers on ${P("googleAi", `${D.googleAi.named} of ${D.googleAi.total}`, "Google AI answers that name you")} pages. <em>Page 4</em>`,
-      `In ${esc(andList(away))}, Google Maps puts you in its top three at ${PC(`${awayTop} of ${fmt(awayOf)}`, "away spots in the top three", "sum, see the rows of this page")} spots. <em>Page 5</em>`,
+      `In ${andList(away.map((c) => city(c, "city, away spots in the top three")))}, Google Maps puts you in its top three at ${PC(`${awayTop} of ${fmt(awayOf)}`, "away spots in the top three", "sum, see the rows of this page")} spots. <em>Page 5</em>`,
     ];
     if (D.demand.length < 2) stop("STOP: page 2, what buyers search for: fewer than two products");
     const maxD = Math.max(...D.demand.map((r) => r.value));
-    const dem = D.demand.map((d) => `<tr><td>${esc(d.product)}</td><td class="bc">${bar(d.value, maxD)}</td><td class="r">${P("demand", d.value, `Bing demand, ${d.product}`, `query=${d.key}&`)}</td><td class="r state">${P("demand", d.page ? "Listed" : "No page", `page of its own, ${d.product}`, "servicesMissing")}</td></tr>`).join("");
+    const dem = D.demand.map((d) => `<tr><td>${prod(d.key, d.product, "product, what buyers search for")}</td><td class="bc">${bar(d.value, maxD)}</td><td class="r">${P("demand", d.value, `Bing demand, ${d.product}`, `query=${d.key}&`)}</td><td class="r state">${P("demand", d.page ? "Listed" : "No page", `page of its own, ${d.product}`, "servicesMissing")}</td></tr>`).join("");
     const h = `You have ${P("rating", D.rating.rating, "rating")} stars and answers in ChatGPT, and still ${P("serp", `${sv.productWithUs} of ${sv.product}`, `${w.product} searches that show you`, "where the query is a product search")} ${w.product} searches show you.`;
     return sheetPage(2, `${head("Summary", h, "You are easy to trust and hard to find.")}
   <div class="two cols2">
@@ -254,7 +270,7 @@ export function buildPages(ctx) {
   </div>
   <h3 class="mt">What buyers search for, and the page you have for it</h3>
   <table class="dem"><tr><th>${esc(upperFirst(w.product))}</th><th></th><th class="r">Bing, ${P("demandDays", D.demandDays, "days")} days</th><th class="r">Page of its own</th></tr>${dem}</table>
-  <p class="note">${P("topDemand", `${topP.share}%`, `share of demand, ${topP.product}`)} of the demand for your ${pp.of} ${w.products} is for ${esc(topP.product)}. Bing's own figure for ${esc(D.demandWhere)}: how often it showed results for each search.</p>`);
+  <p class="note">${P("topDemand", `${topP.share}%`, `share of demand, ${topP.product}`)} of the demand for your ${pp.of} ${w.products} is for ${prod(topP.key, topP.product, "most searched product, summary note")}. Bing's own figure for ${TX("demandWhere", D.demandWhere, "where Bing's figure is for")}: how often it showed results for each search.</p>`);
   })();
 
   const rt = (s) => esc(plain(s)); // text from the run
@@ -276,21 +292,22 @@ export function buildPages(ctx) {
       if (L.ours !== null) stop(`STOP: page 3, none of the results is the business: ${eng} lists it at position ${L.ours}`);
       const rows = L.first5.map((r) => {
         const tag = tagOf(r.domain, D.approvedSet, w.otherKind);
-        if (tag !== null && tag !== "government" && tag !== "your rival" && tag !== w.otherKind) stop(`STOP: page 3, ${eng} position ${r.position}, ${r.domain}: its tag is "${tag}", the headline counts only the government, "your rival" and "${w.otherKind}"`);
+        if (tag !== null && tag !== "government" && tag !== w.otherKind) stop(`STOP: page 3, ${eng} position ${r.position}, ${r.domain}: its tag is "${tag}", the headline counts only the government and "${w.otherKind}"`);
         if (tag !== null) tagged++;
         total++;
-        const main = r.title ? rt(r.title) : rt(r.domain);
-        return `<li><span class="pos">${P("serpLists", r.position, `${eng} position`, `engine=${eng}&`)}</span><div class="rt"><b>${main}</b><small>${rt(r.domain)}${tag !== null ? ` <u>${esc(tag)}</u>` : ""}</small></div></li>`;
+        const pk = (g) => `engine=${eng}&device=desktop].organic[position=${r.position}].${g}`;
+        const main = r.title ? TX("textSerp", r.title, `${eng} result title, position ${r.position}`, pk("title")) : TX("textSerp", r.domain, `${eng} result domain shown as the title, position ${r.position}`, pk("domain"));
+        return `<li><span class="pos">${P("serpLists", r.position, `${eng} position`, `engine=${eng}&`)}</span><div class="rt"><b>${main}</b><small>${TX("textSerp", r.domain, `${eng} result domain, position ${r.position}`, pk("domain"))}${tag !== null ? ` <u>${esc(tag)}</u>` : ""}</small></div></li>`;
       }).join("");
-      return `<div class="serp"><div class="serp-h">${upperFirst(eng)}, read from outside your area</div><ol>${rows}<li class="me"><span class="pos"></span><div class="rt"><b>${esc(NAME)}</b><small>not among the ${P("serpLists", L.read, `results read on ${eng}`, `engine=${eng}&`)} results read</small></div></li></ol></div>`;
+      return `<div class="serp"><div class="serp-h">${upperFirst(eng)}, read from outside your area</div><ol>${rows}<li class="me"><span class="pos"></span><div class="rt"><b>${TX("biz", NAME, `business name, your row in the ${eng} list`, NAME)}</b><small>not among the ${P("serpLists", L.read, `results read on ${eng}`, `engine=${eng}&`)} results read</small></div></li></ol></div>`;
     };
     const gHtml = listHtml("google"), bHtml = listHtml("bing");
-    const h = `For "${rt(SL.query)}", ${PC(tagged, `results that are the government or ${w.otherKind}`, "count of the results above that carry a tag")} of the ${PC(total, "results shown", "count of the results above")} results below are the government or ${esc(w.otherKind)}. None is you.`;
-    const lede = `${P("topDemand", `${topP.share}%`, `share of demand, ${topP.product}`)} of the demand for your ${w.products} is for ${esc(topP.product)} (page 2). First five results, read on a computer.`;
+    const h = `For "${TX("textSerp", SL.query, "search phrase of the two lists", "engine=google&device=desktop].query")}", ${PC(tagged, `results that are the government or ${w.otherKind}`, "count of the results above that carry a tag")} of the ${PC(total, "results shown", "count of the results above")} results below are the government or ${esc(w.otherKind)}. None is you.`;
+    const lede = `${P("topDemand", `${topP.share}%`, `share of demand, ${topP.product}`)} of the demand for your ${w.products} is for ${prod(topP.key, topP.product, "most searched product, results lede")} (page 2). First five results, read on a computer.`;
     const you = D.wordsSent, riv3 = D.rivals.slice(0, 3);
     const maxW = Math.max(...riv3.map((r) => r.words), you);
     const wbars = [`<tr class="you"><td>Your site</td><td class="bc">${bar(you, maxW, "me")}</td><td class="r">${P("wordsSent", you, "words, your site")}</td></tr>`]
-      .concat(riv3.map((r) => `<tr><td>${rt(r.printName)}</td><td class="bc">${bar(r.words, maxW)}</td><td class="r">${P("rivals", r.words, `words, ${r.printName}`, `sites[domain=${r.domain}]`)}</td></tr>`)).join("");
+      .concat(riv3.map((r) => `<tr><td>${rname(r, "rival named, words in the first response")}</td><td class="bc">${bar(r.words, maxW)}</td><td class="r">${P("rivals", r.words, `words, ${r.printName}`, `sites[domain=${r.domain}]`)}</td></tr>`)).join("");
     const lcp = Number(D.lcpS), good = Number(D.goodLcpS);
     const sbars = [`<tr class="you"><td>Your site on a phone</td><td class="bc">${bar(lcp, Math.max(lcp, good), "me")}</td><td class="r">${P("lcpS", D.lcpS, "seconds, main picture on a phone")} s</td></tr>`, `<tr><td>Google's good mark</td><td class="bc">${bar(good, Math.max(lcp, good))}</td><td class="r">${P("goodLcpS", D.goodLcpS, "seconds, Google's good mark")} s</td></tr>`].join("");
     cite(["sitemapType", "sitemapPages"], `${D.sitemapType}, ${D.sitemapPages} urls`, "your list of pages is a copy of the home page");
@@ -325,12 +342,12 @@ export function buildPages(ctx) {
       if (x[e].named) return `<td><i class="dot on"></i><span class="nm2">names you</span></td>`;
       const ns = x[e].instead;
       if (!ns.length) stop(`STOP: page 4, "${x.question}" on ${E}: the answer does not name the business and no business is named instead`);
-      const shown = ns.slice(0, 2).map(rt).join(", ");
+      const shown = ns.slice(0, 2).map((nm) => TX("textAi", nm, `business named instead, question ${qi + 1}, ${E}`, `question=${x.question}&engine=${e}].competitorsNamed[name=${nm}]`)).join(", ");
       const more = ns.length > 2 ? ` and ${P("aiGrid", ns.length - 2, `more businesses named, question ${qi + 1}, ${E}`)} more` : "";
       return `<td><i class="dot"></i><span class="nm2">${shown}${more}</span></td>`;
     };
-    const rows = G.rows.map((x, qi) => `<tr><td class="qq">${rt(x.question)}${x.type === "brand" ? " <u>asks for you by name</u>" : ""}</td>${cell(x, qi, "chatgpt", "ChatGPT")}${cell(x, qi, "perplexity", "Perplexity")}</tr>`).join("");
-    const insHtml = D.aiInstead.map((a) => `<tr><td>${rt(a.name)}</td><td class="r">${P("aiInstead", a.count, `answers naming ${a.name}`, `${a.name} ${a.count}`)}</td></tr>`).join("");
+    const rows = G.rows.map((x, qi) => `<tr><td class="qq">${TX("textAi", x.question, `question ${qi + 1}`, `question=${x.question}].question`)}${x.type === "brand" ? " <u>asks for you by name</u>" : ""}</td>${cell(x, qi, "chatgpt", "ChatGPT")}${cell(x, qi, "perplexity", "Perplexity")}</tr>`).join("");
+    const insHtml = D.aiInstead.map((a) => `<tr><td>${TX("aiInstead", a.name, "business the assistants name instead most often", a.name)}</td><td class="r">${P("aiInstead", a.count, `answers naming ${a.name}`, `${a.name} ${a.count}`)}</td></tr>`).join("");
     const prodStat = `${P("productPages", pp.listed, `${w.products} with a page`)} of ${P("productPages", pp.of, w.products)}`;
     const faqStat = `${P("faq", D.faq.marked, "FAQ answers marked", "FAQPage")} of ${P("faq", D.faq.of, "FAQ answers", "headings")}`;
     const profStat = `${P("profiles", pr.inCard, "profiles linked", "sameAs")} of ${P("profiles", pr.total, "profiles", "rows (length)")}`;
@@ -370,33 +387,34 @@ export function buildPages(ctx) {
     if (MS.points !== per) stop(`STOP: page 5, who Maps shows: ${MS.points} points for "${MS.query}", the tile has ${per}`);
     if (D.addresses.length < 2) stop("STOP: page 5, one business with several addresses: the run holds one address");
     if (!notListed.length || notListed.length > 10) stop(`STOP: page 5, the directories to claim: ${notListed.length} are not listed (1 to 10 are written out)`);
+    if (notListed.length === 1) stop(`STOP: page 5, the fix says you are listed on none of those directories: exactly one directory is not listed (${notListed[0].name})`);
     if (!(rr.more > 0)) stop("STOP: page 5, the fix asks for reviews: no business in Maps' top three shows more reviews than yours");
-    const trs = T.rows.map((r) => `<tr><td class="pl">${rt(r.product)}</td>${r.cells.map((c) => `<td class="tc">${tile(c, r.product, c.city)}<span>${P("mapTiles", `${c.counts["top three"]} of ${c.points}`, `${r.product}, ${c.city}: top three`, `query=${c.query}`)}</span></td>`).join("")}</tr>`).join("");
+    const trs = T.rows.map((r) => `<tr><td class="pl">${prod(r.key, r.product, "product, Maps tile row")}</td>${r.cells.map((c) => `<td class="tc">${tile(c, r.product, c.city)}<span>${P("mapTiles", `${c.counts["top three"]} of ${c.points}`, `${r.product}, ${c.city}: top three`, `query=${c.query}`)}</span></td>`).join("")}</tr>`).join("");
     const homeTop = sum(`${home} spots in the top three`, T.rows.map((r) => [r.product, r.cells[0].counts["top three"], "mapTiles", `query=${r.cells[0].query}`]));
     const homeOf = sum(`${home} spots read`, T.rows.map((r) => [r.product, r.cells[0].points, "mapTiles", `query=${r.cells[0].query}`]));
     const awayTop = sum("away-city spots in the top three", T.rows.flatMap((r) => r.cells.slice(1).map((c) => [`${r.product}, ${c.city}`, c.counts["top three"], "mapTiles", `query=${c.query}`])));
     const awayOf = sum("away-city spots read", T.rows.flatMap((r) => r.cells.slice(1).map((c) => [`${r.product}, ${c.city}`, c.points, "mapTiles", `query=${c.query}`])));
-    const h = `On Google Maps you are in the top three at ${PC(`${homeTop} of ${homeOf}`, `${home} spots in the top three`, "sum, see the rows of this page")} ${rt(home)} spots, and at ${PC(`${awayTop} of ${fmt(awayOf)}`, "away spots in the top three", "sum, see the rows of this page")} in ${rt(andList(away))}.`;
-    const tableRows = MS.rows.slice(0, 5).map((r) => {
+    const h = `On Google Maps you are in the top three at ${PC(`${homeTop} of ${homeOf}`, `${home} spots in the top three`, "sum, see the rows of this page")} ${city(home, "city, Maps headline")} spots, and at ${PC(`${awayTop} of ${fmt(awayOf)}`, "away spots in the top three", "sum, see the rows of this page")} in ${andList(away.map((c) => city(c, "city, Maps headline away")))}.`;
+    const tableRows = MS.rows.slice(0, 5).map((r, ri) => {
       const meter = Array.from({ length: per }, (_, i) => `<i${i < r.inThree ? ' class="on"' : ""}></i>`).join("");
       const rev = r.reviews === null ? `<span class="q">no count shown</span>` : `${P("mapShown", r.reviews, `reviews, ${r.name}`)} reviews`;
-      return `<tr${r.isTheClient ? ' class="you"' : ""}><td>${rt(r.name)}${r.isTheClient ? " <u>you</u>" : ""}</td><td class="mt2">${meter}</td><td class="r">${P("mapShown", `${r.inThree} of ${per}`, `spots in the top three, ${r.name}`)}</td><td class="r rv">${rev}</td></tr>`;
+      return `<tr${r.isTheClient ? ' class="you"' : ""}><td>${TX("textMaps", r.name, `business shown by Maps in its first three, ${ri + 1}`, `name=${r.name}]`)}${r.isTheClient ? " <u>you</u>" : ""}</td><td class="mt2">${meter}</td><td class="r">${P("mapShown", `${r.inThree} of ${per}`, `spots in the top three, ${r.name}`)}</td><td class="r rv">${rev}</td></tr>`;
     }).join("");
     const youLine = `You are in this list: ${ordinal[MS.clientAt]} most often, at ${P("mapShown", `${you.inThree} of ${per}`, `your spots in the top three, ${topP.product}`)} spots, with ${P("mapShown", you.reviews, "your reviews")} reviews.`;
-    const addrHtml = D.addresses.map((a) => `<div><span class="al">${rt(andList(a.where))}</span> <b>${P("addresses", a.address, `address shown, ${andList(a.where)}`, a.address)}</b></div>`).join("");
+    const addrHtml = D.addresses.map((a) => `<div><span class="al">${andList(a.where.map((w2) => (D.directories.some((dd) => dd.name === w2) ? TX("textDirs", w2, "directory named beside an address", `printed as ${w2})`) : esc(plain(w2)))))}</span> <b>${P("addresses", a.address, `address shown, ${andList(a.where)}`, a.address)}</b></div>`).join("");
     cite("directories", String(notListed.length), "directories where you are not listed", "not listed");
     cite("directories", "Listed", "Bing Places: listed or not", `directory=${bing.directory}`);
-    const rvLine = `${P("rivalReviews", rr.more, `businesses in Maps' top three around ${home} with more reviews`)} of the ${P("rivalReviews", rr.of, `businesses in Maps' top three around ${home}`)} businesses in Maps' top three around ${rt(home)} show more reviews than your ${P("rivalReviews", rr.ours, "your reviews")}.`;
+    const rvLine = `${P("rivalReviews", rr.more, `businesses in Maps' top three around ${home} with more reviews`)} of the ${P("rivalReviews", rr.of, `businesses in Maps' top three around ${home}`)} businesses in Maps' top three around ${city(home, "city, review line")} show more reviews than your ${P("rivalReviews", rr.ours, "your reviews")}.`;
     const fixes = [
       ["Show one address everywhere.", "Tell us which one is right. The site we draft shows it."],
-      [`Fill in your Google profile and claim ${andList(notListed.map((r) => rt(r.name)))}.`, `You are listed on Bing Places and on none of those ${numberWord(notListed.length)}.`],
+      [`Fill in your Google profile and claim ${andList(notListed.map((r) => TX("textDirs", r.name, "directory to claim, Maps fix", `printed as ${r.name})`)))}.`, `You are listed on Bing Places and on none of those ${numberWord(notListed.length)}.`],
       [`Ask every ${w.pastCustomer} for a review, and reply to each one.`, rvLine],
     ];
     return sheetPage(5, `${head("Local and reputation", h, `Google Maps was read at ${P("mapTiles", per, "spots around each city", `query=${T.rows[0].cells[0].query}`)} spots around each city, for each ${w.product}. One square is one spot.`)}
   <div class="two cols2">
-    <div><table class="maps"><tr><th></th>${T.cities.map((c) => `<th class="tc">${rt(c)}</th>`).join("")}</tr>${trs}</table>${keyHtml}</div>
+    <div><table class="maps"><tr><th></th>${T.cities.map((c) => `<th class="tc">${city(c, "city, Maps tile column")}</th>`).join("")}</tr>${trs}</table>${keyHtml}</div>
     <div>
-      <h3 class="m0">${rt(topP.product)} in ${rt(home)}: who Maps shows in its top three</h3>
+      <h3 class="m0">${prod(topP.key, topP.product, "most searched product, Maps list")} in ${city(home, "city, Maps list")}: who Maps shows in its top three</h3>
       <table class="sbaT">${tableRows}</table>
       <p class="note">${youLine}</p>
     </div>
@@ -418,14 +436,15 @@ export function buildPages(ctx) {
     if (!D.ads.length || new Set(D.ads.map((a) => a.days)).size !== 1) stop("STOP: page 6, Google's ad library line: no rival has an ad count with its window, or the windows differ");
     if (!(client.linkPlace && LP.metro > 0 && !D.ourLinks && LP.pursue > 0)) stop("STOP: page 6, the chambers fix: the client file names no linkPlace, it links to no rival, it links to you, or no place is worth asking");
     const pk = (r, kind) => (kind === "sites" ? `sites[domain=${r.domain}]` : `results[domain=${r.domain}]`);
-    const h = `Your ${PC(numberWord(local.length), `${home} rivals`, "count of the rivals of group local")} ${rt(home)} rivals send ${P("rivals", local[0].words, "words, first local rival", pk(local[0], "sites"))} and ${P("rivals", local[1].words, "words, second local rival", pk(local[1], "sites"))} words and have ${P("rivals", local[0].links, "sites linking, first local rival", pk(local[0], "links"))} and ${P("rivals", local[1].links, "sites linking, second local rival", pk(local[1], "links"))} sites linking to them. You send ${P("wordsSent", D.wordsSent, "your words")}.`;
+    const h = `Your ${PC(numberWord(local.length), `${home} rivals`, "count of the rivals of group local")} ${city(home, "city, rivals headline")} rivals send ${P("rivals", local[0].words, "words, first local rival", pk(local[0], "sites"))} and ${P("rivals", local[1].words, "words, second local rival", pk(local[1], "sites"))} words and have ${P("rivals", local[0].links, "sites linking, first local rival", pk(local[0], "links"))} and ${P("rivals", local[1].links, "sites linking, second local rival", pk(local[1], "links"))} sites linking to them. You send ${P("wordsSent", D.wordsSent, "your words")}.`;
     const maxW = Math.max(...RV.map((r) => r.words));
-    const youRow = `<tr class="you"><td>${rt(NAME)}<small>you</small></td><td class="bc">${bar(D.wordsSent, maxW, "me")}</td><td class="r">${P("wordsSent", D.wordsSent, "your words")}</td><td class="r">${P("sitemapPages", D.sitemapPages, "your pages in the sitemap")}</td><td class="r">${P("usLinks", D.usLinks === null ? "none found" : D.usLinks, "sites linking to you")}</td></tr>`;
-    const rows = RV.map((r) => `<tr><td>${rt(r.printName)}<small>${rt(r.type)}</small></td><td class="bc">${bar(r.words, maxW)}</td><td class="r">${P("rivals", r.words, `words, ${r.printName}`, pk(r, "sites"))}</td><td class="r">${P("rivals", r.sitemap, `pages, ${r.printName}`, pk(r, "sites"))}</td><td class="r">${P("rivals", lnk(r), `sites linking, ${r.printName}`, pk(r, "links"))}</td></tr>`).join("");
+    const youRow = `<tr class="you"><td>${TX("biz", NAME, "business name, comparison table", NAME)}<small>you</small></td><td class="bc">${bar(D.wordsSent, maxW, "me")}</td><td class="r">${P("wordsSent", D.wordsSent, "your words")}</td><td class="r">${P("sitemapPages", D.sitemapPages, "your pages in the sitemap")}</td><td class="r">${P("usLinks", D.usLinks === null ? "none found" : D.usLinks, "sites linking to you")}</td></tr>`;
+    const rows = RV.map((r) => `<tr><td>${rname(r, "rival named, comparison table")}<small>${rt(r.type)}</small></td><td class="bc">${bar(r.words, maxW)}</td><td class="r">${P("rivals", r.words, `words, ${r.printName}`, pk(r, "sites"))}</td><td class="r">${P("rivals", r.sitemap, `pages, ${r.printName}`, pk(r, "sites"))}</td><td class="r">${P("rivals", lnk(r), `sites linking, ${r.printName}`, pk(r, "links"))}</td></tr>`).join("");
     const nameOf = (a) => { const r = RV.find((x) => x.domain === a.domain); return r ? r.printName : a.domain; };
-    const adPart = (a) => { const n = P("ads", a.count, `ads, ${nameOf(a)}`, `advertiser=${a.domain}`); return a.count === 0 ? `none for ${rt(nameOf(a))}` : `${n} ${a.count === 1 ? "ad" : "ads"} for ${rt(nameOf(a))}`; };
+    const nameHtml = (a) => { const r = RV.find((x) => x.domain === a.domain); return r ? rname(r, "rival named, ads line") : TX("ads", a.domain, "advertiser domain, ads line", `advertiser=${a.domain}&`); };
+    const adPart = (a) => { const n = P("ads", a.count, `ads, ${nameOf(a)}`, `advertiser=${a.domain}`); return a.count === 0 ? `none for ${nameHtml(a)}` : `${n} ${a.count === 1 ? "ad" : "ads"} for ${nameHtml(a)}`; };
     const adLine = `Google's ad library shows ${andList(D.ads.map(adPart))} in the last ${P("ads", D.ads[0].days, "days of the ad library window", `advertiser=${D.ads[0].domain}`)} days.`;
-    const fixes = [[`Join the ${rt(home)} chambers and ask for listings.`, `We found ${P("linkPlaces", LP.pursue, "places worth asking for a listing", "summary.PURSUE")} places worth asking, ${P("linkPlaces", LP.chambers, "of them chambers of commerce", "chamber-local")} of them chambers of commerce. ${rt(client.linkPlace)} links to ${P("linkPlaces", LP.metro, `rivals linked from ${client.linkPlace}`, "opportunities[")} of the businesses you compete with, and not to you. You and Omnikom ask together.`]];
+    const fixes = [[`Join the ${city(home, "city, chambers fix")} chambers and ask for listings.`, `We found ${P("linkPlaces", LP.pursue, "places worth asking for a listing", "summary.PURSUE")} places worth asking, ${P("linkPlaces", LP.chambers, "of them chambers of commerce", "chamber-local")} of them chambers of commerce. ${rt(client.linkPlace)} links to ${P("linkPlaces", LP.metro, `rivals linked from ${client.linkPlace}`, "opportunities[")} of the businesses you compete with, and not to you. You and Omnikom ask together.`]];
     return sheetPage(6, `${head("Competitors", h, rt(client.rivalsLede))}
   <table class="comp"><tr><th>Business</th><th colspan="2">Words in the first response</th><th class="r">Pages in the list it gives Google</th><th class="r">Other sites pointing to it</th></tr>${youRow}${rows}</table>
   <p class="note">${adLine}</p>
@@ -453,20 +472,23 @@ export function buildPages(ctx) {
     };
     const PH = {
       wordsSent: () => P("wordsSent", D.wordsSent, "words from the home page"),
-      brokenApply: () => { cite("profiles", pr.broken.length, `profile links that open an error page (${pr.broken.join(", ")})`, "linksBroken"); return rt(andList(pr.broken)); },
+      brokenApply: (at) => andList(pr.broken.map((nm) => TX("profiles", nm, `profile named in the plan row, ${at}`, `"${nm.toLowerCase()}"`))),
       spfClause: () => (D.mail.spf > 1 ? ` (one sender record, not ${P("mail", D.mail.spf, "sender records found")})` : ""),
       takes: () => {
         if (D.takes === null) stop("STOP: page 7, the first step of the application matches a promise: the client file has no promisePattern or the home page holds none");
         return P("takes", D.takes, `${D.takes.replace(/\d+/, "N")}, on the home page`);
       },
       applicant: () => esc(w.applicant), application: () => esc(w.application), offers: () => esc(w.offers), applying: () => esc(w.applying), product: () => esc(w.product),
-      home: () => rt(home), linkPlace: () => rt(client.linkPlace), topProduct: () => rt(T7.lower), secondLower: () => rt(D.demand[1].lower),
-      claimList: () => rt(andList(D.directories.filter((r) => r.status === "not listed").map((r) => r.name))),
+      home: (at) => city(home, `city, plan row, ${at}`), linkPlace: () => rt(client.linkPlace), topProduct: (at) => prod(T7.key, T7.lower, `most searched product, plan row, ${at}`), secondLower: (at) => prod(D.demand[1].key, D.demand[1].lower, `second most searched product, plan row, ${at}`),
+      claimList: (at) => andList(D.directories.filter((r) => r.status === "not listed").map((r) => TX("textDirs", r.name, `directory to claim, plan row, ${at}`, `printed as ${r.name})`))),
       fieldsRange: () => {
         if (!D.formAsks.taxId || !D.formAsks.ssn || !(D.formFieldsOne < D.formFields)) stop("STOP: page 7, the application row names a tax ID, each owner's SSN and a range of fields: the form asks for less or has no optional part");
         return `${P("formFieldsOne", D.formFieldsOne, "fields, one owner")} to ${P("formFields", D.formFields, "fields, two owners")}`;
       },
-      topShare: () => P("topDemand", `${T7.share}%`, `share of demand, ${T7.product}`),
+      topShare: () => {
+        if (!(T7.share > 50)) stop(`STOP: page 7, the row that says "the search most buyers type": ${T7.product} holds ${T7.share}% of the demand, 50% or less`);
+        return P("topDemand", `${T7.share}%`, `share of demand, ${T7.product}`);
+      },
       otherCount: () => P("demand", D.demand.length - 2, `other ${w.product} pages`),
       listedOrNone: () => (D.productPages.listed === 0 ? "none" : P("productPages", D.productPages.listed, `${w.products} listed`)),
       addrCount: () => P("addresses", D.addresses.length, "addresses"),
@@ -485,9 +507,10 @@ export function buildPages(ctx) {
     }
     const live = fixes.filter((f) => RULES[f.when]()), memo = {};
     const ph = (k) => (k in memo ? memo[k] : (memo[k] = PH[k]()));
-    const fill = (t) => String(t).split(/(\{\w+\})/).map((s) => (/^\{\w+\}$/.test(s) ? ph(s.slice(1, -1)) : esc(s))).join("");
-    for (const k of ["takes", "brokenApply", "spfClause"]) if (live.some((f) => `${f.fix} ${f.gets}`.includes(`{${k}}`))) ph(k); // drawn before the rows, in this order
-    const R = live.map((f) => [fill(f.fix), fill(f.gets), f.who, f.see]);
+    const TEXTPH = new Set(["brokenApply", "home", "topProduct", "secondLower", "claimList"]); // a text drawn from a file: one sheet row for each place the plan prints it
+    const fill = (t, at) => String(t).split(/(\{\w+\})/).map((s) => (/^\{\w+\}$/.test(s) ? (TEXTPH.has(s.slice(1, -1)) ? PH[s.slice(1, -1)](at) : ph(s.slice(1, -1))) : esc(s))).join("");
+    for (const k of ["takes", "brokenApply", "spfClause"]) if (live.some((f) => `${f.fix} ${f.gets}`.includes(`{${k}}`))) { if (k === "brokenApply") cite("profiles", pr.broken.length, `profile links that open an error page (${pr.broken.join(", ")})`, "linksBroken"); else ph(k); } // drawn before the rows, in this order
+    const R = live.map((f) => [fill(f.fix, `row ${f.id} fix`), fill(f.gets, `row ${f.id} gets`), f.who, f.see]);
     PC(String(R.length), "number of fixes", "count of the plan rows printed");
     if (live.some((f) => f.when === "trustRead")) {
       if (D.licenceWords !== 0) stop("STOP: page 7, the licence row says your home page shows no license wording: it shows some");

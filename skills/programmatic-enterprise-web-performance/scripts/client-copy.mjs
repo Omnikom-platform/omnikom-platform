@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { collect, stop } from "./client-copy-data.mjs";
 import { buildPages } from "./client-copy-design.mjs";
+import { gates } from "./client-copy-gates.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const skillDir = path.resolve(here, "..");
@@ -45,11 +46,10 @@ let client;
 try { client = JSON.parse(fs.readFileSync(clientFile, "utf8").replace(/^﻿/, "")); } catch { usage("the client file is not JSON"); }
 if (client === null || typeof client !== "object" || Array.isArray(client)) usage("the client file is not a JSON object");
 for (const k of Object.keys(client)) if (!KEYS.includes(k)) usage(`the client file has an unknown key ${k}`);
-if (!("contact" in client)) usage('the client file has no contact (null = not set, "none" = no contact line, or the text to print)');
+if (!("contact" in client)) usage('the client file has no contact (null = a draft, "none" or a text = final; no contact line is ever printed)');
 const contactIn = client.contact;
-if (contactIn !== null && !isText(contactIn)) usage('contact must be null, "none" or the text to print');
+if (contactIn !== null && !isText(contactIn)) usage('contact must be null (a draft), "none" or a text (final; nothing prints it)');
 const draft = contactIn === null;
-const contact = draft || contactIn === "none" ? null : contactIn;
 for (const k of ["shortName", "nameWord", "linkPlace", "rivalsLede", "promisePattern"]) if (k in client && !isText(client[k])) usage(`${k} must be a text`);
 for (const k of ["alsoSearchedAs", "adsFor", "unconfirmedNames"]) if (k in client && !isTexts(client[k])) usage(`${k} must be a list of texts`);
 if ("date" in client && !/^\d{4}-\d{2}-\d{2}$/.test(String(client.date))) usage("date must be yyyy-mm-dd");
@@ -122,7 +122,9 @@ try {
   const { D, S, fmt } = collect({ pewp, snapAbs, snapRel, client, hand, bookAbs, backingAbs: path.join(wordsDir, "backing.json"), dirNames });
   const date = client.date || D.fileDate;
   const stem = `${D.biz.shortName}-website-review-${date}${draft ? "-draft" : ""}`;
-  const { html, tsv, pages } = buildPages({ D, S, fmt, w: words, std, fixes, contact, draft, notRead, client, logoUrl: pathToFileURL(path.join(assetsDir, "omnikom-logo-full.png")).href, fontsUrl: pathToFileURL(cssFile).href });
+  const logoUrl = pathToFileURL(path.join(assetsDir, "omnikom-logo-full.png")).href;
+  const { html, tsv, pages } = buildPages({ D, S, fmt, w: words, std, fixes, draft, notRead, client, logoUrl, fontsUrl: pathToFileURL(cssFile).href });
+  gates({ html, tsv, pages, logoUrl }); // the report rules: one STOP line, nothing written
 
   // ---- nothing is written before every number has been read and every page built
   fs.mkdirSync(outDir, { recursive: true });
