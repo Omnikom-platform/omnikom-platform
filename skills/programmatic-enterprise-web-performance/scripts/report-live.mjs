@@ -313,12 +313,14 @@ function computeQ3() {
     const qNot = (c.questions || []).filter((q) => !showsQuestion(q, blockSets));
     const wdomains = (c.competitorsTop3 || []).map((x) => x.domain);
     const audited = wdomains.filter((d) => winners.some((w) => w.domain === d));
-    const lcp = bByPath.get(p.path)?.b?.vitals?.lcpMs;
+    const pb = bByPath.get(p.path), untrusted = isUntrusted(pb);   // an untrusted lab run is never the page's figure: the PageSpeed Insights phone figure, or none
+    const pr = untrusted ? psiRows.find((x) => x.strategy === "mobile" && x.lcpMs != null && urlPath(x.url) === p.path) : null;
+    const lcp = untrusted ? pr?.lcpMs : pb?.b?.vitals?.lcpMs;
     clusterRows.push({ id: c.id, search: c.primaryQuery, page: p.path, winningFormat: c.winningFormat, captured: !!(c.serpFeatures && !/NOT CAPTURED/i.test(c.serpFeatures.source || "")), requiredCount: (c.requiredEntities || []).length, winnersNamed: wdomains, winnersAudited: audited,
       entitiesMissing: CF(entMissing, `required entities not found on ${p.path} (targets.json requiredEntities vs the snapshot page text)`, targetsFile, targets.createdAt),
       questionsNotShown: CF({ notShown: qNot.length, asked: (c.questions || []).length, list: qNot.slice(0, 5) }, `questions from the research (People Also Ask, forums) not shown as headings on ${p.path}`, targetsFile, targets.createdAt),
       schemaTypes: fact(ownSchemaTypes(p), `JSON-LD on ${p.path}`, snapAt, rel(path.join(snapDir, "pages"))),
-      lcpMs: lcp != null ? fact(Math.round(lcp), `${p.path} in real Chrome, phone, slow 4G`, snapAt, rel(path.join(snapDir, "pages"))) : null });
+      lcpMs: lcp == null ? null : pr ? fact(Math.round(lcp), `${p.path} in PageSpeed Insights (Google's servers), phone`, pr.fetchedAt || psiDates[0], rel(psiFile), { psi: true }) : fact(Math.round(lcp), `${p.path} in real Chrome, phone, slow 4G`, snapAt, rel(path.join(snapDir, "pages"))) });
   }
   return {
     status: "answered",
@@ -331,7 +333,7 @@ function computeQ3() {
       ...(serpR?.counts ? { notLocalized: CF({ captures: serpR.counts.captures, notLocalized: serpR.counts.notLocalized }, "results pages captured, and how many were NOT from the asked place (so no city ranking claim is made)", serpFile, serpR.generatedAt) } : {}),
     },
     siteLevel, clusterRows,
-    notMeasured: "The speed and page weight of the winning sites are not measured (no free source); only ours are.",
+    notMeasured: "The speed and page weight of the winning sites were not measured; only ours are.",
   };
 }
 const q3c = computeQ3();
@@ -436,7 +438,7 @@ if (noindexPages.length && launchState !== "preview") problemsQ1.push(`${noindex
 if (noCanonical.length) problemsQ1.push(`${noCanonical.length} page${s(noCanonical.length)} have no canonical tag`);
 if (noLd.length) problemsQ1.push(`${noLd.length} page${s(noLd.length)} have no structured data`);
 if (labUntrusted) {
-  problemsQ1.push(`the phone speed measured here is not trusted (this computer was busy while it ran), so it is not counted as a finding${psiRows.length ? "; PageSpeed Insights is the trusted number" : "; run psi.mjs for the trusted number"}`);
+  // the busy computer is a note (speedTrustLines, labSpeedTrust), never one of the counted problems of the site
   if (psiMedianLcp != null && psiMedianLcp > 2500) problemsQ1.push(`pages are slow on phones according to PageSpeed Insights (Google's own test): the typical page takes ${sec(psiMedianLcp)} to show its main content (LCP)`);
 } else {
   if ((speed.lcpMedianMs.value || 0) > 2500) problemsQ1.push(`pages are slow on phones: the typical page takes ${sec(speed.lcpMedianMs.value)} to show its main content (LCP), the slowest ${sec(speed.lcpWorst?.value)}`);
@@ -492,7 +494,7 @@ function q3Lines() {
   if (q3.facts.notLocalized) L.push(`- ${q3.facts.notLocalized.value.notLocalized} of ${q3.facts.notLocalized.value.captures} captured results pages were not from the asked place: they show who wins and in what format, not a city ranking.`);
   if (q3.clusterRows.length) {
     L.push("", "Our pages against their searches:");
-    for (const r of q3.clusterRows.slice(0, 8)) L.push(`- ${r.page} for "${r.search}": ${!r.requiredCount ? (r.captured ? "no required entities listed for this search" : "required entities not judged (no capture of this search)") : r.entitiesMissing.value.length ? `missing ${term("entity")} mentions: ${r.entitiesMissing.value.join(", ")}` : "all required entities present"}; questions not shown as headings: ${r.questionsNotShown.value.notShown} of ${r.questionsNotShown.value.asked}${r.lcpMs ? `; loads in ${sec(r.lcpMs.value)} on a phone` : ""}`);
+    for (const r of q3.clusterRows.slice(0, 8)) L.push(`- ${r.page} for "${r.search}": ${!r.requiredCount ? (r.captured ? "no required entities listed for this search" : "required entities not judged (no capture of this search)") : r.entitiesMissing.value.length ? `missing ${term("entity")} mentions: ${r.entitiesMissing.value.join(", ")}` : "all required entities present"}; questions not shown as headings: ${r.questionsNotShown.value.notShown} of ${r.questionsNotShown.value.asked}${r.lcpMs ? `; loads in ${sec(r.lcpMs.value)} on a phone${r.lcpMs.psi ? " (PageSpeed Insights)" : ""}` : ""}`);
   } else L.push("", "No existing page matches a researched search yet, so there is no page-to-page comparison; the missing pages are listed in question 2.");
   L.push("", q3.notMeasured);
   return L;
