@@ -350,7 +350,7 @@ none
 | tools/design-engine/WRITING.md | platform-build | 102 | WRITING.md: how the engine writes code that is fast and agent-readable (the writing gate) | Owner, 2026-10-29 (ELEV8 launch): fix the habits, not the report. The lead's decision is DECISIONS 20: the first real V2 site scored 97 on mobile PageSpeed (... |  |
 | tools/design-engine/assets/fonts/LICENSES.md | platform-build | 10 | Font licences | All families are licensed under the SIL Open Font License 1.1 (https://openfontlicense.org), downloaded from Google Fonts 2026-10-27. |  |
 | tools/design-engine/tests/fixtures/CREDITS.md | platform-build | 3 | Fixture credits | - photo.jpg: Francesca Tosolini (@fromitaly), Unsplash License, https://unsplash.com/photos/blue-porch-with-wicker-furniture-XcVm8mn7NUM (generic porch; used... |  |
-| tools/golive/README.md | cli-and-testing | 13 | tools/golive | The go-live pipeline's site tools. The pipeline is the platform's and is the same for every site; everything that differs per site is one `golive.site.json`,... |  |
+| tools/golive/README.md | cli-and-testing | 27 | tools/golive | The go-live pipeline's site tools. The pipeline is the platform's and is the same for every site; everything that differs per site is one `golive.site.json`,... |  |
 | tools/icm/test/fixture/CLAUDE.md | head-of-operations | 3 | Root rules | The always-loaded rules. |  |
 | tools/icm/test/fixture/docs/blueprint/PROGRESS.md | head-of-operations | 3 | Progress | The running record. |  |
 | tools/icm/test/fixture/docs/departments/README.md | head-of-operations | 6 | Departments | This file is not a charter; its Owns list must never be read. |  |

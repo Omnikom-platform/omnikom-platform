@@ -1,6 +1,6 @@
 // Tests for site-manifest.mjs: the schema of golive.site.json, one case per rule, the good fixtures, the usage exits.
 // usage: node site-manifest.test.mjs            (SITE_MANIFEST_TOOL=<path> tests another copy of the tool; used by the mutants)
-//        node site-manifest.test.mjs --mutants  (copies the tool, breaks it 32 ways, expects this test to go red for the broken rule each time)
+//        node site-manifest.test.mjs --mutants  (copies the tool, breaks it 34 ways, expects this test to go red for the broken rule each time)
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -54,7 +54,7 @@ const T = {
   req: 'required, missing',
 };
 const unk = (list) => `unknown key (allowed: ${list})`;
-const ROOT = 'version, site, source, build, serve, pages, widths, wide, motion, menu, selectors, forms, vendored, claims, redirects, lead, deploy, own';
+const ROOT = 'version, site, source, build, serve, pages, widths, wide, motion, menu, selectors, forms, vendored, claims, redirects, lead, deploy, search, own';
 const SELS = 'header, bar, logo, footerBar, legalLinks, sections, menuButton, menuSheet, mega, pageBar';
 const MENU = ['menuButton', 'menuSheet', 'mega', 'pageBar'];
 const whole = (lo, hi) => `must be a whole number from ${lo} to ${hi}`;
@@ -92,11 +92,14 @@ try {
       add((m) => { m.forms[0].zz = 1; }, 'forms[0].zz', 'flow, page, selector, sheetTab, steps'),
       add((m) => { m.build.proofs[0].zz = 1; }, 'build.proofs[0].zz', 'id, cmd, env'),
       add((m) => { m.pages.samples.zz = 1; }, 'pages.samples.zz', 'deep'),
+      add((m) => { m.search.zz = 1; }, 'search.zz', 'host'),
     ];
-    ok(r.every(Boolean), 'R02: unknown key at five depths');
+    ok(r.every(Boolean), 'R02: unknown key at six depths');
   }
   // R03
   { const c = R03(); ok(refuses(c.m, c.exp), 'R03: a required key missing'); }
+  ok(refuses(edit((m) => { delete m.search; }), [L('search', T.req)]), 'R03: the search key missing');
+  ok(refuses(edit((m) => { delete m.search.host; }), [L('search.host', T.req)]), 'R03: search.host missing');
   // R04
   ok(refuses(edit((m) => { m.wide = '1366'; m.forms[0].steps = 1; m.own = {}; }),
     [L('wide', 'must be an integer'), L('forms[0].steps', 'must be true or false'), L('own', 'must be an array')]), 'R04: wrong type, sweep of three');
@@ -121,7 +124,7 @@ try {
     ok(refuses(m, e, Object.values(SHAPES)), 'R07: nine secret shapes in env values and a project, none printed');
   }
   // R08
-  ok(refuses(edit((m) => { m.deploy.host = 'Demo.Example.test'; }), [L('deploy.host', T.host)]), 'R08: host name');
+  ok(refuses(edit((m) => { m.deploy.host = 'Demo.Example.test'; m.search.host = 'Old.Example.test'; }), [L('deploy.host', T.host), L('search.host', T.host)]), 'R08: host name, two places');
   // R09
   ok(refuses(edit((m) => {
     m.claims = '../x.json'; m.redirects.rules = '/abs.txt'; m.redirects.old = 'a//b'; m.lead.function = 'a b.js'; m.vendored[0].dir = '.hid/';
@@ -182,7 +185,8 @@ try {
     const one = (id) => refuses(edit((m) => { m.own[0].id = id; }), [L('own[0].id', `"${id}" is a platform step id; a site's own check needs another id`)]);
     const a = one('build');
     const b = one('walk');
-    ok(a && b, 'R22: an own id equal to a platform step id, two runs');
+    const c = one('search-gate');
+    ok(a && b && c, 'R22: an own id equal to a platform step id, three runs');
   }
   // R23
   ok(refuses(edit((m) => { m.lead.testFlow = 'quote'; }), [L('lead.testFlow', 'names flow "quote", which is not in forms')]), 'R23: test flow not in forms');
@@ -269,6 +273,8 @@ if (process.argv.includes('--mutants')) {
   }
   MUT.push(['exit 0 always', 'process.exit(faults.length ? 1 : 0)', 'process.exit(0)', null]);
   MUT.push(['usage exits 1', 'process.exit(2)', 'process.exit(1)', null]);
+  MUT.push(['search not required', "search: req(obj({ host: req(str('host')) })),", "search: obj({ host: req(str('host')) }),", 'R03']);
+  MUT.push(['search-gate not a step id', "'search-console', 'search-gate']);", "'search-console']);", 'R22']);
   let caught = 0;
   for (const [name, from, to, id] of MUT) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-manifest-mut-'));

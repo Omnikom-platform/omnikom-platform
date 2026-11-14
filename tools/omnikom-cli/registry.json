@@ -92,5 +92,20 @@
       "exits": { "0": "the provider answered success", "1": "the provider refused or did not answer, a secret variable is not set (named), or the token sees no or several accounts and CLOUDFLARE_ACCOUNT_ID is not set", "2": "wrong command line (a delete included)" },
       "output": "one line: <verb> <project>: HTTP <n>, success <true|false>, address <host>; secrets list names and types only",
       "example": "omnikom site project secrets demo-site --names LEAD_URL,LEAD_SECRET"
+    },
+    "site search-gate": {
+      "script": "tools/golive/search-gate.mjs", "test": "tools/golive/search-gate.test.mjs",
+      "summary": "Run the SEO skill's gate, strict, on a built site against the research plan its manifest names",
+      "usage": "omnikom site search-gate --manifest <file> --built <folder> --out <folder> [--data <folder>]",
+      "args": "none; paths are absolute; the plan is read from <data>/site-checks/<search.host>/.pewp (data: the skill's folder by default); nothing is written but report.json and report.md in --out",
+      "flags": {
+        "manifest": { "value": true, "help": "the site's golive.site.json; it names the research host in search.host" },
+        "built": { "value": true, "help": "the built site folder (the live build)" },
+        "out": { "value": true, "help": "the evidence folder for report.json and report.md (not inside the built folder or the plan folder)" },
+        "data": { "value": true, "help": "the folder that holds site-checks/<host>/.pewp (default: the SEO skill's folder)" }
+      },
+      "exits": { "0": "the gate passed, strict", "1": "the manifest refused, or the gate FAILED or could not judge", "2": "wrong command line", "3": "BLOCKED: no research or no page plan for the host, or no sitemap in the built site (the last line says what to run or write)" },
+      "output": "the gate's lines, NOTHING TO CHECK lines for checks that had no input, then PASS|FAIL|ERROR search-gate <site>: <counts>, or one BLOCKED: <what> | unblocks: <what> line",
+      "example": "omnikom site search-gate --manifest /work/demo-site/golive.site.json --built /work/demo-site/live --out /work/demo-site/evidence/search-gate"
     }
   } }

@@ -19,7 +19,7 @@ has to relearn it (README rule 5). Spec: `docs/blueprint/26-PLATFORM-CLI.md`.
 - `tools/bank-json-key.mjs`
 - `tools/check-api-keys.mjs`
 - `tools/compose-db-url.mjs`
-- `tools/golive/` (the go-live pipeline's per-site tools: the site manifest validator today; every later go-live job adds its own files here)
+- `tools/golive/` (the go-live pipeline's per-site tools: the site manifest validator and the search gate today; every later go-live job adds its own files here)
 - `tools/lib/bank.mjs`
 - `tools/resend-test-email.mjs`
 - `tools/secret-receiver.mjs`

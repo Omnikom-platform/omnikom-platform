@@ -6,10 +6,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-// the 36 platform step ids of the design's Part 1 table
+// the 37 platform step ids: the 36 of the design's Part 1 table and search-gate (the search gate before a build is signed)
 const STEPS = new Set(['manifest', 'facts', 'leaks', 'stamp', 'review-tools', 'review-source', 'wording', 'build', 'audit', 'claims', 'lead-tests', 'checks',
   'menus', 'phone-use', 'browser-proof', 'walk', 'pairs', 'read-sheets', 'sheets-covered', 'sheets-signed', 'speed', 'stamps-agree', 'sign', 'sign-check',
-  'go', 'google-side', 'project', 'upload', 'outside', 'test-lead', 'lead-row', 'real-host', 'switch-gate', 'owner-switched', 'outside-domain', 'search-console']);
+  'go', 'google-side', 'project', 'upload', 'outside', 'test-lead', 'lead-row', 'real-host', 'switch-gate', 'owner-switched', 'outside-domain', 'search-console', 'search-gate']);
 const SHAPES = [['jwt', /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+/], ['supabase-key', /sb_(secret|publishable)_[A-Za-z0-9_-]{8,}/],
   ['github-token', /gh[pousr]_[A-Za-z0-9]{20,}/], ['aws-key', /(AKIA|ASIA)[0-9A-Z]{16}/], ['private-key', /-----BEGIN [A-Z ]*KEY-----/],
   ['url-with-password', /[a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:[^\s/@]+@/], ['bearer', /Bearer\s+[A-Za-z0-9._~+/=-]{12,}/], ['hex-run', /[0-9a-fA-F]{32,}/], ['long-token', /[A-Za-z0-9_-]{41,}/]];
@@ -64,6 +64,7 @@ const SCHEMA = obj({
   redirects: req(obj({ rules: file(), old: file(), waitOwner: req(int(0, 1000)) })),
   lead: req(obj({ function: file(), tests: req(cmd([])), testFlow: req(str('id')) })),
   deploy: req(obj({ project: req(str('id')), tokenKey: req(str('name')), host: req(str('host')) })),
+  search: req(obj({ host: req(str('host')) })),
   own: arr(obj({
     id: req(str('id')), cmd: req(cmd(['{live}', '{full}'], [])), pass: req(str('text', { max: 80 })), heavy: req({ k: 'bool' }), browser: req({ k: 'bool' }),
   }), 0, 20, { uniq: 'id' }),

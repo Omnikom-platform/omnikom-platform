@@ -10,4 +10,5 @@
   "claims": "claims.json", "redirects": { "rules": "_redirects", "old": "old-addresses.txt", "waitOwner": 2 },
   "lead": { "function": "functions/lead.js", "tests": "node lead/tests/run-all.mjs", "testFlow": "contact" },
   "deploy": { "project": "demo-site", "tokenKey": "CLOUDFLARE_API_TOKEN_DEMO", "host": "demo-site.example.test" },
+  "search": { "host": "demo-old.example.test" },
   "own": [ { "id": "site-phone", "cmd": "node tools/phone-use.mjs --live {live} --full {full}", "pass": "PHONE USE PASS", "heavy": true, "browser": true } ] }
