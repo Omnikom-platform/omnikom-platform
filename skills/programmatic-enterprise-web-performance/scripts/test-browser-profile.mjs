@@ -59,16 +59,16 @@ async function scenarios(dir) {
     check("guard: no script names --user-data-dir except through lib-browser-profile.mjs (a launcher that builds the flag itself would skip the seed)", named.length === 0, named.join(", "));
     const raw = files.filter((f) => !isTest(f) && /\bspawn(?:Sync)?\(\s*(?:CHROME|EDGE|CHROME_PATH|EDGE_PATH|chromePath|edgePath)\b/.test(code(f)));
     check("guard: no script spawns Chrome or Edge on its own (spawn(CHROME ...) / spawn(EDGE ...)); spawnBrowser() is the way", raw.length === 0, raw.join(", "));
-    const launchers = ["cdp-measure.mjs", "vantage.mjs"];
+    const launchers = ["cdp-measure.mjs", "vantage.mjs", "client-copy-pdf.mjs"];
     const bad = launchers.filter((f) => !files.includes(f) || !/from "\.\/lib-browser-profile\.mjs"/.test(text(f)) || !/\bspawnBrowser\(/.test(code(f)));
-    check("guard: the known launchers (cdp-measure.mjs, vantage.mjs) import lib-browser-profile.mjs and call spawnBrowser()", bad.length === 0, bad.join(", "));
+    check("guard: the known launchers (cdp-measure.mjs, vantage.mjs, client-copy-pdf.mjs) import lib-browser-profile.mjs and call spawnBrowser()", bad.length === 0, bad.join(", "));
     const pw = files.filter((f) => !isTest(f) && /\b(chromium|firefox|webkit)\.(launch|launchPersistentContext)\(/.test(code(f)));
     check("guard: a Playwright launch exists only in lib-shots.mjs, the one known exemption (Playwright makes its own profile and refuses --user-data-dir; it is NOT seeded, see the header of lib-shots.mjs); a new one fails here until someone decides", pw.join() === "lib-shots.mjs" && /NOT SEEDED/.test(text("lib-shots.mjs")), `${pw.join()} / marker: ${/NOT SEEDED/.test(text("lib-shots.mjs"))}`);
   } finally { rmTmp(tmp); }
   return results;
 }
 
-const LB = "lib-browser-profile.mjs", CM = "cdp-measure.mjs", VA = "vantage.mjs";
+const LB = "lib-browser-profile.mjs", CM = "cdp-measure.mjs", VA = "vantage.mjs", CP = "client-copy-pdf.mjs";
 const MUTANTS = [
   { name: "the Local State is not written", patches: [{ file: LB, from: "fs.writeFileSync(file, JSON.stringify(state));", to: "" }], expect: [/^profile: the profile's Local State is written BEFORE/, /^profile: the file is JSON/, /^profile: an existing Local State keeps/] },
   { name: "the browser is spawned before the seed", patches: [{ file: LB, from: "seedProfile(dir, io);\n  return (io.spawn || nodeSpawn)(exe, [`--user-data-dir=${dir}`, ...args], options);", to: "const c = (io.spawn || nodeSpawn)(exe, [`--user-data-dir=${dir}`, ...args], options);\n  seedProfile(dir, io);\n  return c;" }], expect: [/^profile: the profile's Local State is written BEFORE/] },
@@ -81,6 +81,7 @@ const MUTANTS = [
   { name: "the profile folder is not made", patches: [{ file: LB, from: "fs.mkdirSync(dir, { recursive: true });\n  const file", to: "const file" }], expect: [/^profile: the profile folder is made/, /^profile: the profile's Local State is written BEFORE/] },
   { name: "cdp-measure.mjs spawns Chrome itself again", patches: [{ file: CM, from: "const proc = spawnBrowser({ exe: CHROME, dir, args: [", to: "const proc = spawn(CHROME, [`--user-data-dir=${dir}`, " }], expect: [/^guard: no script names --user-data-dir/, /^guard: no script spawns Chrome or Edge on its own/, /^guard: the known launchers/] },
   { name: "vantage.mjs spawns Edge itself again", patches: [{ file: VA, from: "const child = spawnBrowser({ exe: EDGE, dir: prof, args, options: { detached: true, stdio: \"ignore\" } });", to: "const child = spawn(EDGE, [`--user-data-dir=${prof}`, ...args], { detached: true, stdio: \"ignore\" });" }], expect: [/^guard: no script names --user-data-dir/, /^guard: no script spawns Chrome or Edge on its own/, /^guard: the known launchers/] },
+  { name: "client-copy-pdf.mjs spawns Chrome itself again", patches: [{ file: CP, from: "child = spawnBrowser({ exe, dir: profileDir, args, options: { stdio: \"ignore\", windowsHide: true } }, io);", to: "child = spawn(CHROME, [`--user-data-dir=${profileDir}`, ...args], { stdio: \"ignore\", windowsHide: true });" }], expect: [/^guard: no script names --user-data-dir/, /^guard: no script spawns Chrome or Edge on its own/, /^guard: the known launchers/] },
 ];
 
 if (isMain(import.meta.url)) {

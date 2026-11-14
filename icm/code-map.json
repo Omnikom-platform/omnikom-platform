@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 946,
+    "sources": 948,
     "unowned": 0
   },
   "files": [
@@ -207,6 +207,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/classify-business.mjs","owner":"seo-and-audits","exports":["OWNER_FIELDS","classify","industryPack"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/client-copy-data.mjs","owner":"seo-and-audits","exports":["collect","fmt","stop"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/client-copy-pages.mjs","owner":"seo-and-audits","exports":["buildPages"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/client-copy-pdf.mjs","owner":"seo-and-audits","exports":["PROFILE_DIR","checkPdf","countSections","newestHtml","printCopy"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/client-copy.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/compare.mjs","owner":"seo-and-audits","exports":["allowedRoot","compare","parseRobotsTxt"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/competitors-discover.mjs","owner":"seo-and-audits","exports":["KINDS","PLATFORMS","brief","firstUrl","kindOf","mergeRows","normaliseCandidate","parseCompetitorsMd","platformOf","rowFromTable","run","table","tablesOf"],"tests":[],"feature":""},
@@ -333,6 +334,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-capture.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-ci-tests.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-city-centres.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-client-copy-pdf.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-client-copy.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-compare.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-crux.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
