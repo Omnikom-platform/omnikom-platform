@@ -18,6 +18,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { spawnBrowser } from "./lib-browser-profile.mjs";
 import { randomUUID } from "node:crypto";
 import { isStopped, writeStop as writeStopFile } from "./lib-stops.mjs";
+import { isMain } from "./lib-main.mjs";
 import { fileURLToPath } from "node:url";
 
 export const GEO = { lat: 38.5816, lon: -121.4944, accuracy: 100, label: "Sacramento, California" };
@@ -530,7 +531,6 @@ export async function main(argv) {
   if (a.cmd === "stop") return cmdStop(a);
   return cmdCapture(a);
 }
-const isMain = () => { try { return fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)); } catch { return path.resolve(process.argv[1] || "").toLowerCase() === fileURLToPath(import.meta.url).toLowerCase(); } };
-if (process.argv[1] && isMain()) {
+if (isMain(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => process.exit(c), (e) => { console.error(`ERROR: ${e.message}`); process.exit(1); });
 }
