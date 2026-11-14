@@ -67,6 +67,17 @@ export function groupFamilies(units, { threshold = THRESHOLD } = {}) {
   return { families, covered };
 }
 
+// One page is one unit. In a live-site snapshot a page is the folder pages/<slug>/ (head.html, body.html ...), so its files count once.
+// In a codebase every file is its own page, whatever its folder is called (a framework's pages/ folder is not a snapshot).
+export function pageOf(file, snapshot) {
+  const m = snapshot ? file.match(/^pages\/([^/]+)\//) : null;
+  return m ? `pages/${m[1]}` : file;
+}
+// How many distinct pages a cause touches: a family stands for all its members, a snapshot page for itself, any other file for itself.
+export function countPages(pageFiles, famOfFile, snapshot) {
+  return new Set(pageFiles.flatMap((p) => famOfFile(p)?.members || [pageOf(p, snapshot)])).size;
+}
+
 // Builds the units for a repo root from the kept file list (codebase or snapshot).
 export function unitsFor(root, files) {
   const snapshot = fs.existsSync(path.join(root, "_site.json"));

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 941,
+    "sources": 942,
     "unowned": 0
   },
   "files": [
@@ -212,7 +212,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/competitors-discover.mjs","owner":"seo-and-audits","exports":["KINDS","PLATFORMS","brief","firstUrl","kindOf","mergeRows","normaliseCandidate","parseCompetitorsMd","platformOf","rowFromTable","run","table","tablesOf"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/crux.mjs","owner":"seo-and-audits","exports":["readRecord","run"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/doctor.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/families.mjs","owner":"seo-and-audits","exports":["THRESHOLD","groupFamilies","jaccard","pathShape","skeleton","unitsFor"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/families.mjs","owner":"seo-and-audits","exports":["THRESHOLD","countPages","groupFamilies","jaccard","pageOf","pathShape","skeleton","unitsFor"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/gate-brief.mjs","owner":"seo-and-audits","exports":["id","plain","run","title"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/gate-cannibalisation.mjs","owner":"seo-and-audits","exports":["id","plain","run","title"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/gate-clusters.mjs","owner":"seo-and-audits","exports":["id","plain","run","title"],"tests":[],"feature":""},
@@ -350,6 +350,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-main.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-measure-prompts.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-measure.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-pages-affected.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-phase1.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-pipeline.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-plan-gate.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},

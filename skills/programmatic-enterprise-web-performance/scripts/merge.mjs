@@ -8,11 +8,13 @@
 // file named in the `root cause` column or in the text, or the same template family (plan.families). BUG/SEC
 // findings without a rule id join only on the same file:line. When unsure, it keeps them apart (under-merging
 // is safe; merging two different defects hides one).
+// causes.json `pages` is the number of distinct PAGES a cause touches, not files: a family counts all its members, a live-site snapshot page
+// (pages/<slug>/head.html and body.html) counts once, a codebase counts each .html file. A cause that names no page counts the slice's pages.
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { groupFamilies, unitsFor } from "./families.mjs";
+import { groupFamilies, unitsFor, countPages } from "./families.mjs";
 
 const root = path.resolve(process.argv[2] || ".");
 const dir = path.join(root, ".checks");
@@ -154,7 +156,7 @@ const causes = [...groups.values()].map((members) => {
   const lead = members[0];
   const locs = [...new Set(members.flatMap((m) => m.locs))];
   const famIds = locs.filter((l) => /^F\d+$/.test(l));
-  const pageCount = new Set(members.flatMap((m) => m.pages.flatMap((p) => famOfFile(p)?.members || [p]))).size;
+  const pageCount = countPages(members.flatMap((m) => m.pages), famOfFile, !!plan.snapshot);
   const withScript = members.filter((m) => m.status === "open" || m.status === "passes already");
   const open = withScript.filter((m) => m.status === "open").length;
   return {
