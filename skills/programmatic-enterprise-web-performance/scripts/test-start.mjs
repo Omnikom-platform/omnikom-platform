@@ -335,6 +335,14 @@ async function runScenariosInner(sdir, only, results) {
     check("A: a step that exits 0 with a PARTIAL: last line is PARTIAL (kept, not done): exit 4, 'run again to continue'", r.code === 4 && /authority-classify: PARTIAL/.test(r.out) && /run again to continue/.test(r.out) && !rj(path.join(live3, ".pewp", "state.json")).stages["authority-classify"]?.doneAt, `${r.code} ${r.out.slice(-300)}`);
     W3.uncontrol("authority-classify.mjs.partial"); W3.control("doctor.mjs.exit", "2"); W3.clear(); r = W3.start("audit-live", [URL1], [...P3, "--stage", "doctor"]);
     check("A: exit 2 is a usage error: FAILED saying the manifest's args do not fit the script", r.code === 1 && /FAILED stage=doctor: usage error \(exit 2\)/.test(r.out), `${r.code} ${r.out.slice(-300)}`);
+    // A8b: a partial step whose manifest says partialSettles settles for its dependents; without the key it holds them; the step stays partial
+    const AV = S1("authority-vet", { module: "authority", script: "scripts/authority-vet.mjs", args: ["{url}", "--cwd", "{skill}"], dependsOn: ["authority-classify"], outputs: ["{pewp}/authority/authority-vet.json"], evidence: ["{pewp}/authority/authority-vet.json"] });
+    const psRun = (withKey) => { const Wp = mkWorld(sdir), PLp = mkFix(Wp, [AV], (m) => { if (withKey) m.steps.find((x) => x.id === "authority-classify").partialSettles = true; return m; }), Pp = ["--pipeline", PLp, "--go"];
+      Wp.start("audit-live", [URL1], [...Pp, "--stage", "doctor"]); Wp.control("authority.mjs.skip"); Wp.start("audit-live", [URL1], [...Pp, "--stage", "authority"]); Wp.control("authority-classify.mjs.partial"); Wp.clear();
+      const rp = Wp.start("audit-live", [URL1], Pp); return { rp, called: names(Wp.calls()), st: rj(path.join(Wp.cwd, "site-checks", "fixture.test", ".pewp", "state.json")).stages["authority-classify"] }; };
+    const withK = psRun(true), noK = psRun(false);
+    check("A: a PARTIAL step with partialSettles in its manifest settles for its dependent: authority-vet runs, and authority-classify stays partial (printed PARTIAL:, not done)", withK.called.includes("authority-vet") && /authority-classify: PARTIAL/.test(withK.rp.out) && withK.st?.partial === "read 10 of 25" && !withK.st.doneAt, `${withK.called} ${withK.rp.out.slice(-300)}`);
+    check("A: the same PARTIAL step without the key still holds its dependent: authority-vet is not run", !noK.called.includes("authority-vet") && /authority-classify: PARTIAL/.test(noK.rp.out), `${noK.called} ${noK.rp.out.slice(-300)}`);
     // A9: --no-authority, --stage before its dependency, the owner's plan ack
     const W4 = mkWorld(sdir); const PL4 = mkFix(W4); const P4 = ["--pipeline", PL4];
     r = W4.start("audit-live", [URL1], ["--go", "--stage", "report-live", ...P4]);
@@ -700,7 +708,7 @@ const MUTANTS = [
   { name: "audit-live: exit 3 without a BLOCKED last line is believed", file: "lib-pipeline.mjs", from: "return /^BLOCKED:/.test(ll) ? {", to: "return true ? {", sc: "A", expect: [/^A: exit 3 whose last line is not/] },
   { name: "audit-live: a skipped step holds its dependents", file: "start.mjs", from: "const settled = new Set([\"done\", \"skipped\"]);", to: "const settled = new Set([\"done\"]);", sc: "A", expect: [/^A: a skipped step does not hold its dependent/] },
   { name: "audit-live: a waiting step's old evidence counts after an input changed", file: "start.mjs", from: "const since = Date.parse(rec?.doneAt || 0) || 0;", to: "const since = 0;", sc: "A", expect: [/^A: the next --go asks for the checker again/] },
-  { name: "audit-live: a step runs before the steps it depends on are settled", file: "start.mjs", from: "const unmet = forced ? [] : s.dependsOn.filter((d) => !settled.has(res.get(d)));", to: "const unmet = [];", sc: "A", expect: [/^A: --go runs doctor, the snapshot and authority/] },
+  { name: "audit-live: a step runs before the steps it depends on are settled", file: "start.mjs", from: "const unmet = forced ? [] : s.dependsOn.filter((d) => !settles(d));", to: "const unmet = [];", sc: "A", expect: [/^A: --go runs doctor, the snapshot and authority/] },
   { name: "audit-live: external steps run without the owner's plan ack", file: "start.mjs", from: "if (!planAckOf() && s.external) {", to: "if (false) {", sc: "A", expect: [/^A: without the owner's plan ack/] },
   { name: "audit-live: --no-authority does not skip the authority module", file: "start.mjs", from: "skipIf: () => (m.module === \"authority\" && flag(\"--no-authority\") ? \"--no-authority\" : null),", to: "skipIf: () => null,", sc: "A", expect: [/^A: --no-authority skips/] },
   { name: "audit-live: the script gets the skill folder as --cwd instead of this run's", file: "start.mjs", from: "(raw[i - 1] === \"--cwd\" && m.args[i] === \"{skill}\" ? cwd : a)", to: "a", sc: "A", expect: [/^A: the snapshot gets its manifest args, --cwd of this run/] },
@@ -741,6 +749,8 @@ const MUTANTS = [
   { name: "the classify stage is dropped from step 3", file: "start.mjs", from: "{ name: \"classify\", kind: \"script\", what:", to: "{ name: \"classify\", kind: \"script\", skipIf: () => \"x\", what:", sc: "G", expect: [/^G: with the answers intake completes; classify writes/] },
   { name: "overhaul: a capped authority follow-up (PARTIAL: last line) counts as done", file: "start.mjs", from: "return o.outcome === \"partial\" ? { outcome: \"partial\", message: o.message } : { outcome: \"done\", message: \"\" };", to: "return { outcome: \"done\", message: \"\" };", sc: "G", expect: [/^G: a capped authority-classify/] },
   { name: "G1: children get --env-file (Node 24 pre-scans it) instead of --dotenv", file: "start.mjs", from: "const envArgs = () => (envInfo.file ? [\"--dotenv\", envInfo.file] : []);", to: "const envArgs = () => (envInfo.file ? [\"--env-file\", envInfo.file] : []);", sc: "G", expect: [/^G: --env-file is loaded by start/] },
+  { name: "partialSettles ignored", file: "start.mjs", from: ' || (res.get(d) === "partial" && byName.get(d)?.manifest?.partialSettles === true)', to: "", sc: "A", expect: [/^A: a PARTIAL step with partialSettles/] },
+  { name: "every partial settles", file: "start.mjs", from: "byName.get(d)?.manifest?.partialSettles === true", to: "true", sc: "A", expect: [/^A: the same PARTIAL step without the key still holds/] },
 ];
 
 if (isMain(import.meta.url)) { // lib-main.mjs: real paths (started through a junction this used to skip the whole suite)

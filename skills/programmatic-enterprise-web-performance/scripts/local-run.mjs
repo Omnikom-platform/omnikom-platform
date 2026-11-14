@@ -21,6 +21,7 @@ import { runGridImport } from "./local-grid.mjs";
 import { isDay } from "./measure-sources.mjs";
 
 export function notReadLine(b) { return "- NOT READ, " + b.id + ": " + String(b.reason).replace(/[.\s]+$/, "") + "." + (b.unblock ? " To fix: " + b.unblock : ""); }
+export function partialLine(parts, dir) { const bad = Object.entries(parts).filter(([, v]) => v !== "ok").map(([k]) => k); return bad.length ? `PARTIAL: ${bad.join(", ")} not measured (BLOCKED); see ${path.join(dir, "report.md")}` : ""; }
 export function runLocal(target, { cwd = process.cwd(), site = null, today = null, log = console.log } = {}) {
   const loc = locate(target, { cwd }); const now = today ? new Date(`${today}T12:00:00Z`) : new Date(); const date = ymd(now);
   const dir = path.join(loc.pewp, "local", date); fs.mkdirSync(dir, { recursive: true });
@@ -64,5 +65,6 @@ if (isMain(import.meta.url)) {
   const a = process.argv.slice(2); const opt = (k, d = null) => (a.includes(k) ? a[a.indexOf(k) + 1] : d);
   if (!a[0] || a[0].startsWith("--")) { console.error("usage: node local-run.mjs <url|repo> [--site <dir>] [--today YYYY-MM-DD] [--cwd DIR]"); process.exit(2); }
   if (opt("--today") && !isDay(opt("--today"))) { console.error(`--today must be a real day as YYYY-MM-DD (got ${opt("--today")})`); process.exit(2); }
-  runLocal(a[0], { cwd: opt("--cwd", process.cwd()), site: opt("--site"), today: opt("--today") });
+  const res = runLocal(a[0], { cwd: opt("--cwd", process.cwd()), site: opt("--site"), today: opt("--today") });
+  const pl = partialLine(res.parts, res.dir); if (pl) console.log(pl);
 }
