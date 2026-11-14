@@ -16,10 +16,10 @@ const ok = async (page: import('@playwright/test').Page, o: Parameters<typeof pl
 test.describe('the sign-in screens (no login)', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('sign in, password, wrong password, expired link, check your email', async ({ page }) => {
+  test('sign in, expired link, check your email, no password form', async ({ page }) => {
     await page.goto('/login');
     await expect(page.getByRole('button', { name: 'Send me a sign-in link' })).toBeVisible();
-    await ok(page, { required: ['DP-1.2-01', 'DP-1.2-02', 'DP-1.2-04'] });
+    await ok(page, { required: ['DP-1.2-01', 'DP-1.2-02'] });
 
     await page.getByLabel('Email').fill('not an email');
     await page.getByRole('button', { name: 'Send me a sign-in link' }).click();
@@ -34,13 +34,10 @@ test.describe('the sign-in screens (no login)', () => {
     await ok(page, { required: ['DP-1.2-02', 'DP-1.2-03'] });
 
     await page.goto('/login');
-    await page.getByRole('button', { name: 'Use a password instead' }).click();
-    await ok(page, { required: ['DP-1.2-01', 'DP-1.2-05'] });
-    await page.getByLabel('Email').fill('nobody-5-3@flows.invalid');
-    await page.getByLabel('Password').fill('not the password');
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(page.getByRole('alert')).toHaveText('Email or password is wrong.');
-    await ok(page, { required: ['DP-1.2-05'] });
+    await expect(page.getByRole('button', { name: 'Send me a sign-in link' })).toBeVisible();   // the card has drawn: a "none" check cannot pass on a blank page
+    await expect(page.getByRole('button', { name: 'Use a password instead' })).toHaveCount(0);   // book 6-dashboard.md:39: email magic link only
+    await expect(page.locator('input[type="password"]')).toHaveCount(0);
+    await ok(page, { required: ['DP-1.2-01', 'DP-1.2-02'] });
 
     await page.goto('/login?expired=true');
     await expect(page.getByRole('alert')).toHaveText('That link expired. Send a new one.');

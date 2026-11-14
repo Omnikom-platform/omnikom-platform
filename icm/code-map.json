@@ -53,7 +53,7 @@
     {"path":"apps/dashboard/src/main.tsx","owner":"platform-build","exports":[],"tests":["apps/dashboard/tests/mutants.ts"],"feature":""},
     {"path":"apps/dashboard/src/overview-data.ts","owner":"platform-build","exports":["useLeadsSince","useMetricHistory","useSiteAudit"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/AddLead.tsx","owner":"platform-build","exports":["AddLead"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
-    {"path":"apps/dashboard/src/pages/AuthConfirm.tsx","owner":"platform-build","exports":["AuthConfirm"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/pages/AuthConfirm.tsx","owner":"platform-build","exports":["AuthConfirm"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/BulkBar.tsx","owner":"platform-build","exports":["BulkBar"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/ColumnFilters.tsx","owner":"platform-build","exports":["ColumnFilters"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/ColumnsPicker.tsx","owner":"platform-build","exports":["ColumnsPicker"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},

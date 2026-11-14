@@ -46,14 +46,6 @@
   width: 100%;
 }
 
-.quiet {
-  border-color: transparent;
-  background: transparent;
-  color: var(--ink-muted);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
 .picker {
   display: grid;
 }

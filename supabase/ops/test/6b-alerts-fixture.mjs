@@ -21,6 +21,7 @@ insert into auth.users (id, email) values ('a1000000-0000-0000-0000-0000000000a1
   ('f2000000-0000-0000-0000-0000000000f2', 'staff2@test'), ('f3000000-0000-0000-0000-0000000000f3', 'staff3@test'), ('f4000000-0000-0000-0000-0000000000f4', 'staff4@test'),
   ('f5000000-0000-0000-0000-0000000000f5', 'staff5@test'), ('f6000000-0000-0000-0000-0000000000f6', 'staff6@test'), ('f7000000-0000-0000-0000-0000000000f7', 'staff7@test'),
   ('f8000000-0000-0000-0000-0000000000f8', 'staff8@test'), ('f9000000-0000-0000-0000-0000000000f9', 'staff9@test');
+insert into auth.users (id, email, encrypted_password) values ('b1000000-0000-0000-0000-0000000000b1', 'pw-yes@test', 'planted-not-a-hash'), ('b2000000-0000-0000-0000-0000000000b2', 'pw-empty@test', ''), ('b3000000-0000-0000-0000-0000000000b3', 'pw-none@test', null);
 insert into staff select id from auth.users where email like 'staff%@test' and email <> 'staff9@test';     -- staff9 is a plain login
 insert into workspaces (id, slug, name, industry) values ('aaaaaaaa-0000-0000-0000-000000000000', 'ws-alerts', 'Name That Must Not Print', 'real-estate-agent');
 create function pg_temp.mk_site(p_target text, p_state site_state, p_days int) returns uuid language sql as $$

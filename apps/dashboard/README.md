@@ -23,7 +23,7 @@ line in the slice report. The gate (`tests/plan-gate.*`):
   the ids each screen must show, and a self-test on a page that breaks every rule.
 
 ## What is built (slice 5.3)
-- Sign in (`/login`): DP-1.2-01 to -06; the picker DP-1.2-07; Sign out DP-1.2-09. `/auth/confirm?token_hash=...&type=magiclink` calls
+- Sign in (`/login`): DP-1.2-01 to -03 and -06; the picker DP-1.2-07; Sign out DP-1.2-09. `/auth/confirm?token_hash=...&type=magiclink` calls
   `verifyOtp`; an expired link returns to `/login?expired=true`.
 - The shell: the business name, Leads, a switcher when there is more than one business, the toast (4 s, with Undo), the banner,
   "Not found". A workspace this login cannot read shows "Not found" and renders nothing below it: the database decides (RLS).

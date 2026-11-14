@@ -48,8 +48,42 @@ describe('the plan itself', () => {
   it('has rows, and slices 5.3, 5.3b, 5.3c, 5.3d, 5.4, 5.6, 5.7, 5.7b and 5.8 are the built ones', () => {
     expect(plan.size).toBeGreaterThan(60);
     expect(built).toEqual(['5.3', '5.3b', '5.3c', '5.3d', '5.4', '5.6', '5.7', '5.7b', '5.8']);
-    expect(plan.get('DP-1.2-05')?.slice).toBe('5.3');
+    expect(plan.get('DP-1.2-06')?.slice).toBe('5.3');
     expect(plan.get('DP-1.3-05')?.slice).toBe('5.3b');
+  });
+});
+
+describe('the sign-in screen offers no password (book 6-dashboard.md:39: email magic link only)', () => {
+  // Every file the browser is given: all of src (any kind, not the unit tests), public/ and index.html. The WORD is the tell, in any case and any
+  // spelling around it: signInWithPassword, grant_type=password, updateUser({ password }), resetPasswordForEmail, type="password", type={'password'},
+  // autoComplete="current-password", "Use a password". The plan gate (PLAN-1, PLAN-4) is the second net for any visible word.
+  const shippedFiles = () => {
+    const out = [];
+    const walk = dir => {
+      for (const e of readdirSync(dir)) {
+        const p = join(dir, e);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (!/\.test\./.test(e) && !/\.(woff2?|png|jpe?g|gif|ico|webp)$/i.test(e)) out.push({ path: relative(ROOT, p).replace(/\\/g, '/'), code: readFileSync(p, 'utf8') });
+      }
+    };
+    walk(join(ROOT, 'src'));
+    walk(join(ROOT, 'public'));
+    out.push({ path: 'index.html', code: indexHtml });
+    return out;
+  };
+  const holds = files => files.filter(f => /password/i.test(f.code)).map(f => f.path);
+  it('no file the browser is given holds the word password, in any case', () => { expect(holds(shippedFiles())).toEqual([]); });
+  it('the plan has no password rows, and the link in the mail is still a row of the built slice', () => {
+    expect(plan.has('DP-1.2-04')).toBe(false);
+    expect(plan.has('DP-1.2-05')).toBe(false);
+    expect(plan.get('DP-1.2-06')?.slice).toBe('5.3');
+  });
+  it('each tell, planted once in a clean file of another kind, is found and names the file (watched red)', () => {
+    const tell = (file, find, to) => holds(patch(file, find, to)(shippedFiles()));
+    expect(tell('src/pages/AuthConfirm.tsx', 'await supabase.auth.verifyOtp({', 'await supabase.auth.signInWithPassword({')).toContain('src/pages/AuthConfirm.tsx');
+    expect(tell('src/pages/AuthConfirm.tsx', 'return <main />;', "return <main><input type={'password'} /></main>;")).toContain('src/pages/AuthConfirm.tsx');
+    expect(tell('index.html', '<title></title>', '<title></title><input type="password">')).toContain('index.html');
+    expect(tell('src/pages/Login.tsx', "'Send me a sign-in link'}</button>", "'Use a password instead'}</button>")).toContain('src/pages/Login.tsx');
   });
 });
 

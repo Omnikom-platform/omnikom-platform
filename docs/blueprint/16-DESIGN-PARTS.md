@@ -30,8 +30,6 @@ Slice says which build slice puts it on the screen; `later` rows are not built i
 | DP-1.2-01 | 5.3 | Email field | type | nothing until Enter or the button | the field | a bad address: "Enter an email like name@example.com" under the field |
 | DP-1.2-02 | 5.3 | Send me a sign-in link | click | Supabase Auth sends the link | the card changes to "Check your email. The link works for 10 minutes." (the project's link life, `mailer_otp_exp` 600 s in `supabase/auth-settings.md`, owner 2026-10-31; the copy follows the setting) | provider down: "We could not send the email. Try again in a minute." The button stays |
 | DP-1.2-03 | 5.3 | Send it again (after 60 s, on the check-your-email card) | click | the same send | the same card | the same message as DP-1.2-02 |
-| DP-1.2-04 | 5.3 | Use a password instead | click | the card shows email + password + Sign in | | |
-| DP-1.2-05 | 5.3 | Password field and Sign in | type, click | password sign in | Leads | wrong password: "Email or password is wrong." No account discovery |
 | DP-1.2-06 | 5.3 | The link in the mail (`/auth/confirm`) | open | the browser lands signed in on Leads | the Leads screen | expired link: the sign-in card with "That link expired. Send a new one." |
 | DP-1.2-07 | 5.3 | Workspace picker (two or more businesses): one row per business with name, role, Open | click a row | opens that business | Leads of that business | |
 | DP-1.2-08 | later | Staff second factor (code field) | type | TOTP check | | wrong code: field error; 5 tries then 15 min lock (staff admin slice) |

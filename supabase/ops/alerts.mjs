@@ -26,6 +26,7 @@
 //   function-errors          R6  a function answered the same 5xx status 5 or more times in the last 60 minutes (function_errors, migration 32;
 //                                the old spec's "2% for 10 min" needs a call count we do not keep, so the numbers are a choice)
 //   table-over-budget        R7  a growing table is larger than its budget_mb in public.retention_rules (migration 46; 11-rules.md rule 12)
+//   login-has-password       R2  a login in auth.users holds a password (the book: email magic link only, no passwords)
 // Not answerable from our tables (each needs a source that does not exist yet, so none is faked): uptime of a site / the dashboard / the form
 // endpoint, site quality gates, PSI speed, database CPU and slow queries.
 // Alerts that hold on every run (a failed twice site stays failed) fire on every hourly run until fixed; with --send they are mailed once per
@@ -131,6 +132,14 @@ export const ALERTS = [
     sql: () => `select service.over_budget()`,
     line: i => `table ${i.table} holds ${i.mb} MB, over its budget of ${i.budget_mb} MB (public.retention_rules, book row E12)`,
     fix: 'read the table\'s rule in public.retention_rules; give it a period with a purge, partition it, or raise its budget with the reason',
+  },
+  {
+    name: 'login-has-password', runbook: 'R2', component: null,
+    sql: () => `select coalesce(jsonb_agg(jsonb_build_object('login', left(u.id::text, 8)) order by u.id), '[]'::jsonb)
+      from auth.users u
+     where u.encrypted_password is not null and u.encrypted_password <> ''`,
+    line: i => `login ${i.login} holds a password (the book says there are none: docs/product/6-dashboard.md)`,
+    fix: 'the person signs in by link and needs no password: clear it (one update of auth.users, one login), then find how it was set (the Auth dashboard, a recovery mail, an older build)',
   },
 ];
 

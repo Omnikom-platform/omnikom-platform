@@ -22,8 +22,8 @@ The exact fields of each generated screen per site: `contracts/examples/<site>/s
 | Staff admin | no | no | yes |
 
 ## Screens
-### 1. Login, invite, reset
-Email magic link by default, password optional; an invite is a sign-in link; it lives 10 minutes; the person can ask for a new one at
+### 1. Login and invite
+Email magic link only, no passwords (book 6-dashboard.md:39); an invite is a sign-in link; it lives 10 minutes; the person can ask for a new one at
 /login (owner 2026-10-31: one link life of 600 s, `mailer_otp_exp`; settled 2026-11-01); staff need MFA. After login: last workspace, or the
 picker if the person belongs to more than one.
 

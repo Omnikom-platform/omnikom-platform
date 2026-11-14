@@ -13,7 +13,7 @@ flowchart TB
   end
 
   subgraph SB["Supabase (per environment)"]
-    auth["Auth<br/>email magic link + password,<br/>invites"]:::data
+    auth["Auth<br/>email magic link only,<br/>invites"]:::data
     db[("Postgres<br/>workspaces, members, contracts,<br/>content rows + versions, leads,<br/>jobs, metrics, audit; RLS walls")]:::data
     store[("Storage<br/>bucket media/&lt;workspace_id&gt;/...")]:::data
     fn["Edge Functions (Deno, TypeScript)<br/>save, publish, upload-finish,<br/>capture-lead, push-lead,<br/>export-published, job-callback"]:::job

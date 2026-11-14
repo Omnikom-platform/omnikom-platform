@@ -78,6 +78,9 @@ const ALERTS = [
   ['function-errors: 4 answers are enough', 'errorAnswers: 5', 'errorAnswers: 4'],
   ['function-errors: the window is two hours', 'errorMinutes: 60', 'errorMinutes: 120'],
   ['budget: the alert asks nothing', "sql: () => `select service.over_budget()`,", "sql: () => `select '[]'::jsonb`,"],
+  ['password login: an empty password counts', "where u.encrypted_password is not null and u.encrypted_password <> ''", "where u.encrypted_password is not null"],
+  ['password login: every login counts', "where u.encrypted_password is not null and u.encrypted_password <> ''", "where true"],
+  ['password login: the login is shown by its address', "'login', left(u.id::text, 8)", "'login', u.email"],
 ];
 
 const DRILL = [
