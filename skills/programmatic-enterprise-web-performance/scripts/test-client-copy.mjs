@@ -33,6 +33,7 @@ if (args.includes("--mutants")) {
     { id: "plan-row-without-sheet-row", file: "client-copy-pages.mjs", from: "if (sheet.length === before) c(RULES[f.when][1], why, f.why);", to: "", red: "case 17:" },
     { id: "plan-rule-always-true", file: "client-copy-pages.mjs", from: "addressesDiffer: [() => D.addresses.length > 1, \"addresses\"],", to: "addressesDiffer: [() => D.addresses.length > 0, \"addresses\"],", red: "case 18:" },
     { id: "css-font-files-unchecked", file: "client-copy.mjs", from: 'for (const f of fontFiles) { if (!fs.existsSync(path.join(assetsDir, "fonts", f))) stop(`STOP: assets fonts/${f} is missing`); }', to: "", red: "case 13:" },
+    { id: "ads-blocked-row-is-read", file: "client-copy-data.mjs", from: 'if (getMaybe("ads", `rows[advertiser=${d}&library=google-transparency].status`, "text") === "blocked") return null; ', to: "", red: "case 19:" },
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ccopy-mut-"));
   let ok = 0;
@@ -512,6 +513,17 @@ try {
       const n = (r.html.match(/<h2>(\d+) fixes?, in the order/) || [])[1];
       if (Number(n) !== rows.length || rows.length !== 8) bad.push(`headline ${n}, table rows ${rows.length}`);
       if (r.html.includes("Show one address everywhere.")) bad.push("page 5 prints the one-address fix");
+      return [bad.length === 0, bad.join(" | ")];
+    }));
+  check("case 19: a rival whose Google ad library page was not tied to it is left out of the ads sentence and never stops the build",
+    ...T(() => {
+      const bad = [];
+      const untied = (j) => { j.rows[0] = { advertiser: j.rows[0].advertiser, library: "google-transparency", status: "blocked", blocked: "page not tied to the business", running: null, adCount: null, since: null, runningDays: null, formats: [], url: j.rows[0].url }; };
+      const r = go(makeRun({ ...A(), patch: { "research/ads.json": untied } }), { client: cA });
+      bad.push(...wholeChecks(r, "A"));
+      const text = cleanText(r.html), sentence = (text.match(/ad library shows [^.]*\./) || [""])[0];
+      if (!text.includes("ad library shows none for Harbor in the last 30 days")) bad.push(`sentence: ${sentence || "(none)"}`);
+      if (sentence.includes("Ridgeline Roofs")) bad.push(`the rival whose page was not tied is named: ${sentence}`);
       return [bad.length === 0, bad.join(" | ")];
     }));
 } catch (e) {

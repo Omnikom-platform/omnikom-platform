@@ -2,5 +2,6 @@
   { "file": "test-ci-tests.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-client-copy.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-grid-text.mjs", "plain": [], "mutants": ["--mutants"] },
-  { "file": "test-profile-notread.mjs", "plain": [], "mutants": ["--mutants"] }
+  { "file": "test-profile-notread.mjs", "plain": [], "mutants": ["--mutants"] },
+  { "file": "test-ads-untied.mjs", "plain": [], "mutants": ["--mutants"] }
 ]

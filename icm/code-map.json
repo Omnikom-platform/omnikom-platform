@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 933,
+    "sources": 935,
     "unowned": 0
   },
   "files": [
@@ -320,6 +320,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/start.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/state.mjs","owner":"seo-and-audits","exports":["init","isUrl","load","locate","markStage","save"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/targets-validate.mjs","owner":"seo-and-audits","exports":["GOALS","INTENTS","PAGE_TYPES","checkSourced","compareMeasure","measureKey","validate","validateBusiness","validateCitationRow","validateMeasureDir","validateRankingRow"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-ads-untied.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-approve.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-authority-anchors.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-authority-cache.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},

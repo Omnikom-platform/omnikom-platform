@@ -434,8 +434,8 @@ export function collect(cfg) {
   const ourGraph = get("auth", `results[domain=${domain}].inGraph`, "boolean");
   put("rivals", rivals, ...rivals.flatMap((r) => [src("comp", `sites[domain=${r.domain}].page.words, .sitemap.pages`, `${r.words}, ${r.sitemap}`), src("auth", `results[domain=${r.domain}].linkingDomains`, r.links === null ? "not in graph" : r.links), src("approved", `rows[domain=${r.domain}] (the name, the type)`, r.type)]));
   put("ourLinks", ourGraph, src("auth", `results[domain=${domain}].inGraph`, ourGraph));
-  const adRow = (d) => { const url = get("ads", `rows[advertiser=${d}&library=google-transparency].url`, "text"); const w3 = url.match(/preset-date=Last\+(\d+)\+days/i); const rv = rivals.find((r) => r.domain === d); return { domain: d, name: rv ? rv.name : d, count: get("ads", `rows[advertiser=${d}&library=google-transparency].adCount`, "count"), days: w3 ? Number(w3[1]) : null }; };
-  const ads = (client.adsFor || []).map(adRow).filter((a) => a.days !== null); // only a count with its window
+  const adRow = (d) => { if (getMaybe("ads", `rows[advertiser=${d}&library=google-transparency].status`, "text") === "blocked") return null; const url = get("ads", `rows[advertiser=${d}&library=google-transparency].url`, "text"); const w3 = url.match(/preset-date=Last\+(\d+)\+days/i); const rv = rivals.find((r) => r.domain === d); return { domain: d, name: rv ? rv.name : d, count: get("ads", `rows[advertiser=${d}&library=google-transparency].adCount`, "count"), days: w3 ? Number(w3[1]) : null }; };
+  const ads = (client.adsFor || []).map(adRow).filter((a) => a && a.days !== null); // only a count with its window; a rival whose Google page was not tied is left out
   put("ads", ads, ...ads.map((a) => src("ads", `rows[advertiser=${a.domain}&library=google-transparency].adCount, .url (window)`, `${a.count}, last ${a.days} days`)));
   const pursue = get("vet", "summary.PURSUE", "count");
   const vres = get("vet", "results", "array").map((_, i) => ({ verdict: get("vet", `results[${i}].verdict`, "text"), type: get("vet", `results[${i}].type`, "text") }));

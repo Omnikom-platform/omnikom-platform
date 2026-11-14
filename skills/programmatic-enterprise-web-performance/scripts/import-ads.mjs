@@ -4,9 +4,11 @@
 // One file per advertiser and library: { "advertiser":"client" | "kiavi.com", "library":"google-transparency|meta-ad-library", "region":"US", "capturedAt":"ISO",
 //   "browser":"owner's Edge", "url":"https://adstransparency.google.com/...", "running":true, "adCount":12, "since":"2026-08-01", "formats":["text","image","video"] }
 //   running:false (no ads shown in the library) needs nothing else; a running advertiser needs adCount (1 or more); since (the oldest start date shown) and formats may be null / left out.
+//   "blocked":"page not tied to the business" (a Page with the business's name that could not be tied to it: same name, no link to the site, no address; or any other reason the state is not known) stands in place of running; it becomes a row with status "blocked", never a count, never "no ads". With blocked, running must be left out.
 // A file with no advertiser, an unknown library, no running true|false, a running one without an adCount, a bad since date or formats that are not a list is REJECTED with the reason.
-// Output: research/ads.json { rows:[{advertiser, library, region, running, adCount, since, runningDays, formats, url, file, capturedAt, ageDays, stale}],
-//   summary:{ advertisers:[{advertiser, librariesChecked, running, adCount}], advertisersChecked, advertisersRunning, clientRunning, competitorsRunning } }.
+// Output: research/ads.json { rows:[{advertiser, library, region, status (only on a blocked row), blocked (only on a blocked row), running, adCount, since, runningDays, formats, url, file, capturedAt, ageDays, stale}],
+//   summary:{ advertisers:[{advertiser, librariesChecked, librariesNotKnown, running, adCount}], advertisersChecked, advertisersNotKnown, advertisersRunning, clientRunning, competitorsRunning } }.
+//   running and adCount of an advertiser may be null (every library of it was blocked, or one was and no known library is running).
 import { cli, nonEmpty, toNum, toDate, daysSince, isHttp } from "./lib-captures.mjs";
 
 const LIBRARIES = ["google-transparency", "meta-ad-library"];
@@ -18,7 +20,13 @@ const def = {
     const e = [];
     if (!nonEmpty(j.advertiser)) e.push("no advertiser (\"client\" or the competitor's domain)");
     if (!LIBRARIES.includes(j.library)) e.push(`library is not ${LIBRARIES.join("|")}`);
-    if (typeof j.running !== "boolean") e.push("running must be true or false");
+    if (nonEmpty(j.blocked)) {
+      if (j.running != null) e.push("a capture that says blocked must not also say running: the state is not known");
+      if (j.url != null && !isHttp(j.url)) e.push("url is not an http(s) address (blocked)");
+      if (e.length) return { errors: e }; // a blocked capture is checked like any other
+      return { errors: [], row: { advertiser: j.advertiser.trim().toLowerCase(), library: j.library, region: j.region || null, status: "blocked", blocked: j.blocked.trim(), running: null, adCount: null, since: null, runningDays: null, formats: [], url: j.url || null } };
+    }
+    if (typeof j.running !== "boolean") e.push("running must be true or false (or write \"blocked\": \"page not tied to the business\")");
     let n = null, since = null;
     if (j.running === true) {
       n = toNum(j.adCount);
@@ -32,8 +40,8 @@ const def = {
   },
   summarize(rows) {
     const names = [...new Set(rows.map((r) => r.advertiser))].sort((a, b) => (a === "client" ? -1 : b === "client" ? 1 : a.localeCompare(b)));
-    const advertisers = names.map((a) => { const mine = rows.filter((r) => r.advertiser === a); return { advertiser: a, librariesChecked: mine.length, running: mine.some((r) => r.running), adCount: mine.reduce((s, r) => s + r.adCount, 0) }; });
-    return { advertisers, advertisersChecked: advertisers.length, advertisersRunning: advertisers.filter((x) => x.running).length, clientRunning: advertisers.find((x) => x.advertiser === "client")?.running ?? null, competitorsRunning: advertisers.filter((x) => x.advertiser !== "client" && x.running).length };
+    const advertisers = names.map((a) => { const mine = rows.filter((r) => r.advertiser === a), ok = mine.filter((r) => r.status !== "blocked"), nk = mine.length - ok.length, on = ok.some((r) => r.running); return { advertiser: a, librariesChecked: ok.length, librariesNotKnown: nk, running: on ? true : nk ? null : false, adCount: on || !nk ? ok.reduce((s, r) => s + r.adCount, 0) : null }; });
+    return { advertisers, advertisersChecked: advertisers.filter((x) => x.running !== null).length, advertisersNotKnown: advertisers.filter((x) => x.running === null).length, advertisersRunning: advertisers.filter((x) => x.running).length, clientRunning: advertisers.find((x) => x.advertiser === "client")?.running ?? null, competitorsRunning: advertisers.filter((x) => x.advertiser !== "client" && x.running).length };
   },
 };
 
