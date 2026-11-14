@@ -116,6 +116,8 @@ console.log("stand-in crawl done");
       forums: "the same: a missing named --queries-file is exit 2 by design",
       "targets-validate": "its own contract is 0 pass, 1 fail, 2 cannot judge (a missing targets.json); research writes that file before this step can run",
       local: "exit 0 with every part (profile, pack, nap, reviews, grid) reported as BLOCKED inside local/<date>/summary.json: a suite of parts, not one step that blocks",
+      "client-copy": "a missing client file is a STOP, exit 1 by design (the engine blocks a run with no client file before the script starts); the copy is built by test-client-copy.mjs",
+      "client-copy-pdf": "a missing copy is exit 1 by design (the engine blocks it before the script starts); the PDF needs a headless browser, never started here",
     };
     const kEnv = { VANTAGE_HOME: path.join(tmp, "vantage-home") };
     const noPipe = [];
@@ -231,6 +233,8 @@ console.log("stand-in crawl done");
         competitors: "a crawl of the competitors' sites", authority: "the Common Crawl link graph (a download of several GB)", "authority-anchors": "Common Crawl index reads (a network host, a 24 h stop file)",
         "authority-classify": "the link opportunities that authority leaves (a crawl of the opportunity sites)", "authority-vet": "a visit to each opportunity site", local: "the local profile, pack, citations and reviews (captures, a browser)",
         forums: "the Reddit API and its token", "report-live": "every earlier step's output (a whole run)",
+        "client-copy": "a finished run and a client file; test-client-copy.mjs builds it",
+        "client-copy-pdf": "a headless browser prints the copy",
       };
       const scriptSteps = man.steps.filter((s) => s.script).map((s) => s.id), tested = [...IMPORTERS.map((x) => x[0]), "autocomplete-import", "local-grid-plan", "local-grid-import", "research-plan", "research", "targets-validate"];
       check(`T: the other ${Object.keys(NOT_RUN_HERE).length} script steps are named with one reason each (${Object.keys(NOT_RUN_HERE).join(", ")}); ${tested.length} + ${Object.keys(NOT_RUN_HERE).length} are the manifest's ${scriptSteps.length} script steps, none twice, none left out`, tested.length + Object.keys(NOT_RUN_HERE).length === scriptSteps.length && [...tested, ...Object.keys(NOT_RUN_HERE)].every((id) => scriptSteps.includes(id)) && new Set([...tested, ...Object.keys(NOT_RUN_HERE)]).size === scriptSteps.length, `script steps ${scriptSteps.join(", ")}; tested ${tested.join(", ")}`);

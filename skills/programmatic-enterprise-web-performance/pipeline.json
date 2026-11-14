@@ -1607,6 +1607,99 @@
    "kind": "time-sensitive",
    "maxAgeDays": 0,
    "brief": "A fresh agent with no part in the report: re-measure what can be re-measured (PageSpeed median of 3, served and rendered counts two ways, page statuses), re-read every capture cited, and write one row per claim with the verdict MATCH, MISMATCH, OVERSTATED, NO SOURCE or UNPROVEN."
+  },
+  {
+   "id": "client-copy",
+   "module": "report",
+   "what": "the client's 8-page copy of this run: one html and one numbers sheet, every number read from a file of the run (the client file holds this client's wording; a draft until it names a contact)",
+   "script": "scripts/client-copy.mjs",
+   "args": [
+    "{url}",
+    "--pewp",
+    "{pewp}",
+    "--client-file",
+    "{pewp}/client-copy.json",
+    "--out",
+    "{pewp}/client-copy"
+   ],
+   "inputs": [
+    "{pewp}/client-copy.json",
+    "{pewp}/report.json",
+    "{runDir}/snapshots/*/_site.json",
+    "{pewp}/research/bing.json",
+    "{pewp}/research/index.json",
+    "{pewp}/research/serp.json",
+    "{pewp}/research/autocomplete.json",
+    "{pewp}/research/ai-answers.json",
+    "{pewp}/research/ai-citations.json",
+    "{pewp}/approved/business.json",
+    "{pewp}/captures/local/profile.json",
+    "{pewp}/captures/local/citations.json",
+    "{pewp}/research/social.json",
+    "{pewp}/research/ads.json",
+    "{pewp}/research/competitors.json",
+    "{pewp}/approved/competitors.json",
+    "{pewp}/authority.json",
+    "{pewp}/authority/vetting.json",
+    "{pewp}/authority/opportunities.json",
+    "{pewp}/psi/",
+    "{pewp}/local/*/grid.json"
+   ],
+   "outputs": [
+    "{pewp}/client-copy/*.html",
+    "{pewp}/client-copy/numbers-*.tsv"
+   ],
+   "dependsOn": [
+    "report-live",
+    "authority-vet",
+    "local-grid-import",
+    "capture-directories"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/client-copy/*.html",
+    "{pewp}/client-copy/numbers-*.tsv"
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
+  },
+  {
+   "id": "client-copy-pdf",
+   "module": "report",
+   "what": "the copy printed to a PDF with headless Chrome on the shared profile, and the print checked (page count, no blank page)",
+   "script": "scripts/client-copy-pdf.mjs",
+   "args": [
+    "{pewp}/client-copy"
+   ],
+   "inputs": [
+    "{pewp}/client-copy/*.html"
+   ],
+   "outputs": [
+    "{pewp}/client-copy/*.pdf"
+   ],
+   "dependsOn": [
+    "client-copy"
+   ],
+   "needsBrowser": "headless",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": true,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 20,
+   "evidence": [
+    "{pewp}/client-copy/*.pdf"
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
   }
  ]
 }

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 953,
+    "sources": 954,
     "unowned": 0
   },
   "files": [
@@ -337,6 +337,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-client-copy-pdf.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-client-copy.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-compare.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-copy-steps.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-crux.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-demand-label.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-freshness.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
