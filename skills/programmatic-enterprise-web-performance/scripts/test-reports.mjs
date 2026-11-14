@@ -353,6 +353,12 @@ async function runScenarios(skill, groups = null) {
     check("X", "crux with only 'no data' rows is a result, not BLOCKED: it says no data / too little traffic, and report.json status is 'no data'", /too little traffic/.test(secM) && jM?.extras?.crux?.status === "no data", JSON.stringify(jM?.extras?.crux));
     check("X", "an importer file with no rows is BLOCKED (nothing usable was read), not a block of zeros", jM?.extras?.reputation?.status === "BLOCKED" && /Reviews[\s\S]*BLOCKED/.test(secM), JSON.stringify(jM?.extras?.reputation));
     check("X", "a stale capture is shown as stale with its count", /stale/i.test(secM.split("### Pages in the search index")[1] || ""), secM.slice(0, 700));
+
+    const nk = snapshot("x4.example", { pages: [{ path: "/", slug: "home", lcp: 1500 }] });
+    put(nk, "crux/" + DAY + ".json", { generatedAt: ISO, failures: [], rows: [{ scope: "url", target: "https://x4.example/", formFactor: "PHONE", status: "no data", metrics: null, collectionPeriod: null, fetchedAt: ISO, cacheFile: null }] });
+    put(nk, "research/ads.json", { rows: [row({})], summary: { advertisers: [], advertisersChecked: 1, advertisersNotKnown: 2, advertisersRunning: 1, clientRunning: null, competitorsRunning: 1 } });
+    const { md: mdN } = report(nk, BASE_ENV), adsN = (section(mdN, 7).split("### Ads")[1] || "");
+    check("X", "ads: a client whose Page was not tied is not known, never 'not running ads', and the advertisers not known are counted", /is not known/.test(adsN) && !/itself is not running ads/.test(adsN) && /1 of 1 advertisers are running ads/.test(adsN) && /Not known: 2 advertisers/.test(adsN), adsN.slice(0, 500));
   }
 
   // =============================== C: the checker's result where the manifest's checker step writes it (SKILL-REPORT-1) ===============================
@@ -461,6 +467,7 @@ const MUTANTS = [
   { name: "X: stale captures are not counted", file: S0, from: "${x.stale ? `; ${x.stale} capture${s(x.stale)} stale (older than the freshness limit: capture again)` : \"\"}", to: "", sc: "X", expect: [/^X: a stale capture is shown as stale/] },
   { name: "X: report.json has no extras", file: S0, from: "extras: Object.fromEntries(extras.map(({ id, lines, ...rest }) => [id, rest])),", to: "extras: {},", sc: "X", expect: [/^X: report\.json carries the same/, /^X: a source with no data is never shown as zero/] },
   { name: "X: the AI engines that could not be read are hidden", file: S0, from: "if ((y.blockedEngines || []).length) L.push(", to: "if (false) L.push(", sc: "X", expect: [/^X: AI answers: share named/] },
+  { name: "X: an unknown client is printed as not running ads", file: S0, from: '${y.clientRunning == null ? "whether', to: '${false ? "whether', sc: "X", expect: [/^X: ads: a client whose Page was not tied/] },
   { name: "X: the ads block is missing", file: S0, from: "{ id: \"ads\", title: \"Ads\",", to: "{ id: \"adsX\", title: \"Ads\",", sc: "X", expect: [/^X: report\.json carries the same/, /^X: a source with no data is never shown as zero/] },
   { name: "X: the trends rank of the weakest service is left out", file: S0, from: "(rank ${y.worstRank?.stateRank ?? \"n/a\"})", to: "", sc: "X", expect: [/^X: trends: the best and worst ranked service/] },
   { name: "C: --checks is ignored (the snapshot's .checks is read)", file: S0, from: 'path.join(checksDir || path.join(snapDir, ".checks"), "causes.json")', to: 'path.join(snapDir, ".checks", "causes.json")', sc: "C", expect: [/^C: C2 with --checks/, /^C: C2 questions 1 and 6/, /^C: C3 /] },

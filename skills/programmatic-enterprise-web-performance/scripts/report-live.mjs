@@ -557,8 +557,8 @@ const EXTRA_IMPORTERS = [
       `- Links from the site that do not work: ${(y.linksBroken || []).join(", ") || "none"}`];
   } },
   { id: "ads", title: "Ads", file: "ads.json", script: "import-ads.mjs", dir: "ads", what: "which advertisers are running ads (the ad libraries)", lines: (d) => {
-    const y = d.summary || {};
-    return [`- ${y.advertisersRunning ?? 0} of ${y.advertisersChecked ?? 0} advertisers are running ads; the business itself is ${y.clientRunning ? "" : "not "}running ads; competitors running: ${y.competitorsRunning ?? 0}`];
+    const y = d.summary || {}, nk = y.advertisersNotKnown ?? 0;
+    return [`- ${y.advertisersRunning ?? 0} of ${y.advertisersChecked ?? 0} advertisers are running ads; ${y.clientRunning == null ? "whether the business itself is running ads is not known" : `the business itself is ${y.clientRunning ? "" : "not "}running ads`}; competitors running: ${y.competitorsRunning ?? 0}`, ...(nk ? [`- Not known: ${nk} advertiser${s(nk)} whose ad library page could not be read or tied to the business (not counted above, and not "no ads")`] : [])];
   } },
 ];
 function computeExtras() {
