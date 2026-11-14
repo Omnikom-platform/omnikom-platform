@@ -31,6 +31,8 @@ const GATES = [
   ['specs: deployed-function rule', 'docs/blueprint/specs/check-specs.test.mjs'],   // slice 5.2b: every deployed function has an operation; planted faults in a temp copy
   ['machine-call signature', 'supabase/functions/_shared/signature.test.mjs'],
   ['no model in runtime (D38)', 'docs/blueprint/specs/check-no-model.test.mjs'],   // DECISIONS 38 (1): planted tells, 10 mutants, then the real tree
+  // the go-live pipeline's site tools (tools/golive/README.md): a --mutants run first runs every case, then its seeded faults; no network, no browser
+  ['site manifest tests + mutants', 'tools/golive/site-manifest.test.mjs', '--mutants'],
   // the site signing tools (tools/site-sign/README.md): a --mutants run first runs every case, then its seeded faults; no network, about 1 to 4 minutes
   ['site sign tests + mutants', 'tools/site-sign/sign-site.test.mjs', '--mutants'],
   ['site seal tests + mutants', 'tools/site-sign/seal-site.test.mjs', '--mutants'],

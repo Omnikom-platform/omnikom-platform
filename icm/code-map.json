@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 946,
+    "sources": 948,
     "unowned": 0
   },
   "files": [
@@ -146,7 +146,7 @@
     {"path":"factory/lib/fields.mjs","owner":"platform-build","exports":["referenceOptions","renderField"],"tests":["factory/test/mutate.mjs","factory/test/run.mjs"],"feature":""},
     {"path":"factory/lib/gates.mjs","owner":"platform-build","exports":["GATES","attrsOf","checkPage"],"tests":["factory/test/mutate.mjs","factory/test/run.mjs"],"feature":""},
     {"path":"factory/lib/html.mjs","owner":"platform-build","exports":["esc","html","jsonScript","markup","raw","rich"],"tests":["factory/test/mutate.mjs","factory/test/run.mjs"],"feature":""},
-    {"path":"factory/lib/launch.mjs","owner":"platform-build","exports":["MediaError","assetName","hashOf","headersText","isPreview","llmsText","originOf","readMedia","referencedMedia","robotsText","sitemapXml"],"tests":["apps/dashboard/tests/media.spec.ts","factory/test/mutate.mjs","factory/test/run.mjs","tools/audit/test/run.mjs"],"feature":""},
+    {"path":"factory/lib/launch.mjs","owner":"platform-build","exports":["MediaError","assetName","hashOf","headersText","isPreview","llmsText","originOf","readMedia","referencedMedia","robotsText","sitemapXml"],"tests":["apps/dashboard/tests/media.spec.ts","factory/test/mutate.mjs","factory/test/run.mjs","tools/audit/test/run.mjs","tools/golive/site-manifest.test.mjs"],"feature":""},
     {"path":"factory/lib/plan.mjs","owner":"platform-build","exports":["entryOf","goneAddresses","planSite","resolveFeed"],"tests":["factory/test/mutate.mjs","factory/test/run.mjs"],"feature":""},
     {"path":"factory/lib/render.mjs","owner":"platform-build","exports":["baseOf","renderPages","renderRow"],"tests":["factory/test/mutate.mjs","factory/test/run.mjs","tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/toolkit.mjs"],"feature":""},
     {"path":"factory/lib/site.mjs","owner":"platform-build","exports":["BuildStop","buildSite"],"tests":["factory/test/mutate.mjs","tools/audit/test/mutate.mjs","tools/audit/test/run.mjs"],"feature":""},
@@ -239,7 +239,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/intake.mjs","owner":"seo-and-audits","exports":["assemble","contactBlock","isRegionLabel","normaliseAnswers","provenanceOf","questionsFor","readSite","run","siteFacts","siteWords","unwrapAnswers"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/iterate.mjs","owner":"seo-and-audits","exports":["bands","clusterValue","run","winnability"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/launch-workers.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/launch.mjs","owner":"seo-and-audits","exports":["ACCESS","ALLOWED_MANUAL","ITEMS","blockValidity","checkLiveHeaders","evaluate","evaluateAll","isLocalHost","main","robotsAllows"],"tests":["apps/dashboard/tests/media.spec.ts","factory/test/mutate.mjs","factory/test/run.mjs","tools/audit/test/run.mjs"],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/launch.mjs","owner":"seo-and-audits","exports":["ACCESS","ALLOWED_MANUAL","ITEMS","blockValidity","checkLiveHeaders","evaluate","evaluateAll","isLocalHost","main","robotsAllows"],"tests":["apps/dashboard/tests/media.spec.ts","factory/test/mutate.mjs","factory/test/run.mjs","tools/audit/test/run.mjs","tools/golive/site-manifest.test.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-aria-roles.mjs","owner":"seo-and-audits","exports":["ANY","checkRole","parseAttrs","roleViolations","rolesFor","startTags","stripNonMarkup"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-browser-profile.mjs","owner":"seo-and-audits","exports":["chromeTime","seedProfile","spawnBrowser"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-captures.mjs","owner":"seo-and-audits","exports":["cli","count","daysSince","host","isHttp","nonEmpty","round","runImporter","toDate","toNum"],"tests":[],"feature":""},
@@ -622,7 +622,7 @@
     {"path":"tools/audit/lib/sitemap-lastmod.mjs","owner":"seo-and-audits","exports":["buildClockSignature","lastmodProblem"],"tests":["tools/audit/test/mutate.mjs"],"feature":""},
     {"path":"tools/audit/lib/typography.mjs","owner":"seo-and-audits","exports":["declaredSize","declaredTracking","declaredUppercase","declaredWeight","shortText"],"tests":["tools/audit/test/mutate.mjs"],"feature":""},
     {"path":"tools/audit/lib/xml.mjs","owner":"seo-and-audits","exports":["xmlProblems"],"tests":["tools/audit/test/mutate.mjs"],"feature":""},
-    {"path":"tools/audit/live.mjs","owner":"seo-and-audits","exports":[],"tests":["tools/audit/test/mutate.mjs","tools/audit/test/run.mjs","tools/client-infra/test/fakes.mjs"],"feature":""},
+    {"path":"tools/audit/live.mjs","owner":"seo-and-audits","exports":[],"tests":["tools/audit/test/mutate.mjs","tools/audit/test/run.mjs","tools/client-infra/test/fakes.mjs","tools/golive/site-manifest.test.mjs"],"feature":""},
     {"path":"tools/audit/metrics/ai-answers.mjs","owner":"seo-and-audits","exports":["collectAiAnswers"],"tests":["tools/audit/test/metrics.mjs","tools/audit/test/mutants-metrics.mjs"],"feature":""},
     {"path":"tools/audit/metrics/bing.mjs","owner":"seo-and-audits","exports":["INDEXNOW_ENDPOINT","appendIndexNow","collectBing","indexNowPing","listBingSites"],"tests":["tools/audit/test/metrics.mjs","tools/audit/test/mutants-metrics.mjs"],"feature":""},
     {"path":"tools/audit/metrics/cli.mjs","owner":"seo-and-audits","exports":[],"tests":["tools/audit/test/metrics.mjs","tools/audit/test/mutants-metrics.mjs","tools/proc-guard/test/run.mjs"],"feature":""},
@@ -645,7 +645,7 @@
     {"path":"tools/bank-json-key.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/check-api-keys.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/check-platform-keys.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
-    {"path":"tools/client-infra/live.mjs","owner":"clients","exports":["liveDeps"],"tests":["tools/audit/test/mutate.mjs","tools/audit/test/run.mjs","tools/client-infra/test/fakes.mjs"],"feature":""},
+    {"path":"tools/client-infra/live.mjs","owner":"clients","exports":["liveDeps"],"tests":["tools/audit/test/mutate.mjs","tools/audit/test/run.mjs","tools/client-infra/test/fakes.mjs","tools/golive/site-manifest.test.mjs"],"feature":""},
     {"path":"tools/client-infra/offboard-live.mjs","owner":"clients","exports":["gitTop","offboardDeps"],"tests":["tools/client-infra/test/offboard-fakes.mjs"],"feature":""},
     {"path":"tools/client-infra/offboard.mjs","owner":"clients","exports":["REPO","Refused","SCHEMA","contentHash","hasSubject","insideGit","loadMarked","offboard","parseArgs","precheck","subjectKey"],"tests":["tools/client-infra/test/offboard-mutate.mjs","tools/client-infra/test/offboard-run.mjs"],"feature":""},
     {"path":"tools/client-infra/onboard-live.mjs","owner":"clients","exports":["onboardDeps"],"tests":["tools/client-infra/test/onboard-fakes.mjs"],"feature":""},
@@ -698,6 +698,8 @@
     {"path":"tools/design-engine/tests/test-design-engine.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"tools/dns-upsert.mjs","owner":"clients","exports":[],"tests":[],"feature":""},
     {"path":"tools/github-secrets.mjs","owner":"platform-build","exports":[],"tests":["factory/runner/test/lib/fake-gh.mjs","factory/runner/test/mutate.mjs","factory/runner/test/run.mjs"],"feature":""},
+    {"path":"tools/golive/site-manifest.mjs","owner":"cli-and-testing","exports":["checkManifest"],"tests":["tools/golive/site-manifest.test.mjs"],"feature":""},
+    {"path":"tools/golive/site-manifest.test.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},
     {"path":"tools/icm/book-check.mjs","owner":"head-of-operations","exports":["checkBook","parseProduct"],"tests":["tools/icm/test/book.mjs","tools/icm/test/mutate.mjs"],"feature":""},
     {"path":"tools/icm/hook.mjs","owner":"head-of-operations","exports":[],"tests":[],"feature":""},
     {"path":"tools/icm/index.mjs","owner":"head-of-operations","exports":["build","check"],"tests":["tools/icm/test/book.mjs","tools/icm/test/fixture/src/deep/test/own.test.mjs","tools/icm/test/fixture/src/test/all.test.mjs","tools/icm/test/mutate.mjs","tools/icm/test/run.mjs"],"feature":""},

@@ -1,9 +1,9 @@
 {
   "version": 1,
   "counts": {
-    "docs": 350,
+    "docs": 351,
     "unownedDocs": 7,
-    "unplaced": 218,
+    "unplaced": 219,
     "over300": 10
   },
   "docs": [
@@ -97,7 +97,7 @@
     {"path":"docs/departments/README.md","title":"Departments: who owns what, and how sessions are organised","summary":"Rewritten in place by the head of operations on the owner's order of 2026-11-12 (M65): \"get us to going back at the building process properly without losing ...","owner":"head-of-operations","layer":"unplaced","lines":152,"loadFor":[]},
     {"path":"docs/departments/TEMPLATE.md","title":"Department: {{NAME}} (`{{SLUG}}`)","summary":"Created {{DATE}} by `tools/departments/new-department.mjs`. Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":46,"loadFor":[]},
     {"path":"docs/departments/briefs/takeover-after-account-switch.md","title":"Takeover brief: the build restarts on another Claude account (sent by `tools/departments/start-all.mjs`)","summary":"You are the new head of operations. The message that pointed you here names you (`HEAD-OF-OPERATIONS_Omnikom_<date><letter>`) and the Claude account this mac...","owner":"head-of-operations","layer":"unplaced","lines":26,"loadFor":[]},
-    {"path":"docs/departments/cli-and-testing.md","title":"Department: CLI and testing tooling (`cli-and-testing`)","summary":"Created 2026-10-30 by the lead session (DECISIONS 33). Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":922,"loadFor":[]},
+    {"path":"docs/departments/cli-and-testing.md","title":"Department: CLI and testing tooling (`cli-and-testing`)","summary":"Created 2026-10-30 by the lead session (DECISIONS 33). Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":923,"loadFor":[]},
     {"path":"docs/departments/clients.md","title":"Department: Clients (`clients`)","summary":"Created 2026-10-30 by `tools/departments/new-department.mjs`. Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":153,"loadFor":[]},
     {"path":"docs/departments/head-of-operations.md","title":"Department: Head of operations (`head-of-operations`)","summary":"Created 2026-10-30; rewritten in place 2026-11-11. Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":86,"loadFor":[]},
     {"path":"docs/departments/platform-build.md","title":"Department: Platform build (`platform-build`)","summary":"Created 2026-10-30 by the lead session (DECISIONS 33). Rules for every department: `docs/departments/README.md`.","owner":"head-of-operations","layer":"unplaced","lines":663,"loadFor":[]},
@@ -278,6 +278,7 @@
     {"path":"tools/design-engine/WRITING.md","title":"WRITING.md: how the engine writes code that is fast and agent-readable (the writing gate)","summary":"Owner, 2026-10-29 (ELEV8 launch): fix the habits, not the report. The lead's decision is DECISIONS 20: the first real V2 site scored 97 on mobile PageSpeed (...","owner":"platform-build","layer":"unplaced","lines":102,"loadFor":[]},
     {"path":"tools/design-engine/assets/fonts/LICENSES.md","title":"Font licences","summary":"All families are licensed under the SIL Open Font License 1.1 (https://openfontlicense.org), downloaded from Google Fonts 2026-10-27.","owner":"platform-build","layer":"unplaced","lines":10,"loadFor":[]},
     {"path":"tools/design-engine/tests/fixtures/CREDITS.md","title":"Fixture credits","summary":"- photo.jpg: Francesca Tosolini (@fromitaly), Unsplash License, https://unsplash.com/photos/blue-porch-with-wicker-furniture-XcVm8mn7NUM (generic porch; used...","owner":"platform-build","layer":"unplaced","lines":3,"loadFor":[]},
+    {"path":"tools/golive/README.md","title":"tools/golive","summary":"The go-live pipeline's site tools. The pipeline is the platform's and is the same for every site; everything that differs per site is one `golive.site.json`,...","owner":"cli-and-testing","layer":"unplaced","lines":13,"loadFor":[]},
     {"path":"tools/icm/test/fixture/CLAUDE.md","title":"Root rules","summary":"The always-loaded rules.","owner":"head-of-operations","layer":"unplaced","lines":3,"loadFor":[]},
     {"path":"tools/icm/test/fixture/docs/blueprint/PROGRESS.md","title":"Progress","summary":"The running record.","owner":"head-of-operations","layer":"unplaced","lines":3,"loadFor":[]},
     {"path":"tools/icm/test/fixture/docs/departments/README.md","title":"Departments","summary":"This file is not a charter; its Owns list must never be read.","owner":"head-of-operations","layer":"unplaced","lines":6,"loadFor":[]},
