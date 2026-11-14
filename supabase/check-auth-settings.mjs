@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 //   node tools/with-env.mjs "<env file>" -- node supabase/check-auth-settings.mjs [--ref-env STAGING_SUPABASE_REF]
 // Needs SUPABASE_ACCESS_TOKEN (a personal access token; read by name, never printed) and STAGING_SUPABASE_REF.
 // SUPABASE_API_BASE exists for the tests' local fake server only.
+// Also two more reads, GET only: /postgrest (db_schema must be public) and /config/realtime (private_only recorded).
 // Source: https://supabase.com/docs/reference/api/v1-get-auth-service-config (GET /v1/projects/{ref}/config/auth).
 
 // setting -> [plain words, expected value or null (recorded only), source of the expectation]
@@ -62,6 +63,15 @@ export function judgeLimits(cfg) {
   ];
 }
 
+// the Data API (TABLE row 12, security review 2026-11-14): the schemas the REST door serves must be exactly public (staging read 2026-11-14:
+// public,graphql_public). A second read, GET only; a check that cannot read it fails. supabase/set-data-api.mjs is the one setter.
+export const SCHEMAS_WANT = 'public';
+export const schemaList = raw => (typeof raw === 'string' ? raw.split(',').map(s => s.trim()).filter(Boolean) : null);
+export const schemaIsWanted = raw => { const l = schemaList(raw); return l !== null && l.length === 1 && l[0] === SCHEMAS_WANT; };
+export const judgeSchemas = pg => { const raw = pg ? pg.db_schema : undefined; return { key: 'db_schema', got: raw, want: SCHEMAS_WANT, ok: schemaIsWanted(raw) }; };
+// the JSON type of a value and, only for a boolean or null, the value (Realtime's private_only is recorded; nothing is judged yet)
+export const describeType = v => (v === undefined ? '(not returned)' : v === null ? 'type null, value null' : typeof v === 'boolean' ? `type boolean, value ${v}` : `type ${Array.isArray(v) ? 'list' : typeof v}`);
+
 // run only as the script itself: importing the file (set-auth-settings.mjs, auth-emails/body.test.mjs) runs nothing
 if (realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   const argv = process.argv.slice(2);
@@ -88,6 +98,14 @@ if (realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url
     const shown = got === undefined ? '(not returned)' : got === null ? 'null' : typeof got === 'boolean' || (typeof got === 'number' && Number.isFinite(got)) ? String(got) : `(a ${typeof got}, not printed)`;
     console.log(`${ok ? 'PASS' : 'FAIL'}     ${key.padEnd(40)} observed ${shown}  expected ${want}  (a sign-in door that must stay off, or a second-factor limit; security review 2026-11-14, methods 3 to 5)`);
   }
+  const get = async path => { const g = await fetch(`${base}/v1/projects/${ref}${path}`, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30000) }); if (!g.ok) { await g.body?.cancel(); return { status: g.status, json: null }; } return { status: g.status, json: await g.json() }; };
+  const pg = await get('/postgrest');
+  const sch = judgeSchemas(pg.json);
+  fail += sch.ok ? 0 : 1;
+  const schShown = pg.json === null ? `(not read: ${pg.status})` : sch.got === undefined ? '(not returned)' : typeof sch.got === 'string' && /^[A-Za-z0-9_, ]{1,200}$/.test(sch.got) ? sch.got : `(a ${typeof sch.got}, not printed)`;
+  console.log(`${sch.ok ? 'PASS' : 'FAIL'}     ${sch.key.padEnd(40)} observed ${schShown}  expected ${sch.want}  (the Data API serves public only; security review 2026-11-14, TABLE row 12)`);
+  const rt = await get('/config/realtime');
+  console.log(`${'RECORDED'.padEnd(8)} ${'private_only'.padEnd(40)} observed ${rt.json === null ? `(not read: ${rt.status})` : describeType(rt.json.private_only)}  (Realtime public access; recorded, nothing judged yet; TABLE row 19)`);
   // the email templates and subjects: the files in supabase/auth-emails/ (DP-email rows in 16-DESIGN-PARTS)
   const emails = JSON.parse(readFileSync(new URL('./auth-emails/emails.json', import.meta.url), 'utf8'));
   for (const [name, e] of Object.entries(emails.emails)) {

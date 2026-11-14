@@ -12,6 +12,7 @@ node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node supabase/
 ```
 Needs `SUPABASE_ACCESS_TOKEN` with read access to the project's Auth configuration and `STAGING_SUPABASE_REF` (by name).
 The output also lists the sign-in doors and the two second-factor limits (each door must read false).
+The output also lists db_schema (must be public) and records Realtime's private_only (its type only).
 
 ## The settings
 Every setting below with a required value is sent by `supabase/set-auth-settings.mjs` (E11: its body takes them from `check-auth-settings.mjs`), so a new project is set by script; the recorded-only ones are never sent, and the last two rows (the sign-in doors and the second-factor limits) are checked only, never sent.
@@ -39,6 +40,7 @@ Every setting below with a required value is sent by `supabase/set-auth-settings
 | Enforce SSL on database connections | on | the vendor's production checklist | yes (confirmed by a probe, PROGRESS.md) | not an Auth setting; proven by the probe on 2026-10-29 |
 | Sign-in doors (`saml_enabled`, and every `external_<x>_enabled`, `mfa_<x>_enabled` and `hook_<x>_enabled` the API returns except the rows above, and the three named doors `passkey_enabled`, `oauth_server_enabled`, `custom_oauth_enabled`) | off: false; checked by pattern and by name, never sent | single sign-on, outside providers, other factor types, hooks, passkeys and outside sign-in servers are not part of the product (security review 2026-11-14, methods 3 to 5); a key of the three families added later is caught with no edit | not read | not yet |
 | Second-factor limits (`mfa_allow_low_aal`, `mfa_max_enrolled_factors`) | `mfa_allow_low_aal` off: false; `mfa_max_enrolled_factors` at most the vendor's default (10, recalled); checked, never sent | no sign-in below the enrolled level, no pile of factors (security review 2026-11-14, method 5) | not read | not yet |
+| Data API exposed schemas (`db_schema`, read from `/postgrest`, not `/config/auth`) | `public` only; checked by `check-auth-settings.mjs`, set on staging by `supabase/set-data-api.mjs` | the REST door serves our tables only, never `graphql_public` (security review 2026-11-14, TABLE row 12) | not read | not yet |
 
 ## Check log
 - 2026-11-13 (head of operations, row E11's run sheet, staging): `set-auth-settings.mjs` answered `OK: 22 Auth settings set
