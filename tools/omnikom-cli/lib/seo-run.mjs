@@ -243,11 +243,7 @@ export async function runSeo(o) {
 
   // the decision for a step whose dependencies are all settled: { final: { entry, how, store } } or { launch: true }
   function decide(step) {
-    if (!selected.has(step.id)) {
-      const ev = step.waiting ? waitingDone(step) : doneBefore(step);
-      if (ev) return { final: { entry: runEntry(step, ev, entries.get(step.id) || {}), how: 'not selected, already done', store: false } };
-      return { final: { entry: entries.get(step.id) || null, how: null, store: false } };
-    }
+    if (!selected.has(step.id)) return { final: { entry: entries.get(step.id) || null, how: null, store: false } };   // not selected: neither run nor judged; the table says what the run log says, and the log is not touched
     if (step.waiting) {
       const ev = waitingDone(step);
       if (ev) return { final: { entry: runEntry(step, ev, { startedAt: iso(runStartMs), endedAt: iso(Date.now()) }), how: 'outputs written', store: true } };

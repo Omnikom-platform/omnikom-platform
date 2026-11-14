@@ -383,6 +383,38 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     r = await run(s, ['--only', 'a', '--module', 'other']);
     check('seo run: filters that select no step exit 2', r.exit === 2 && r.json.error.includes('select no step'), r.all.slice(0, 300));
 
+    // ================================================================ --only: a step it did not select is neither run nor printed as done; the table says what the run log says [notsel]
+    {
+      let ns = site(M(W('wa'), S('b')));
+      await run(ns);   // wa is WAITING, b is RUN, both in the log
+      mkdirSync(join(ns.pewp, 'captures'), { recursive: true });
+      writeFileSync(join(ns.pewp, 'captures', 'wa.json'), '{"done":true}\n');   // the person's output arrives; the log still says WAITING
+      let nr = await run(ns, ['--only', 'b']);
+      let nst = await status(ns);
+      check('seo run --only: a waiting step not selected is printed as the log has it (WAITING), never RUN, and status agrees on every step', row(nr, 'wa').state === 'WAITING' && JSON.stringify(states(nr)) === JSON.stringify(states(nst)), JSON.stringify(states(nr)) + ' ' + JSON.stringify(states(nst)));
+      ns = site(M(W('wn'), S('b')));
+      mkdirSync(join(ns.pewp, 'captures'), { recursive: true });
+      writeFileSync(join(ns.pewp, 'captures', 'wn.json'), '{"done":true}\n');
+      touch(join(ns.pewp, 'captures', 'wn.json'), 60000);   // newer than the run that is about to begin
+      nr = await run(ns, ['--only', 'b']);
+      nst = await status(ns);
+      const nlog = JSON.parse(readFileSync(join(ns.pewp, 'seo-run.json'), 'utf8'));
+      check('seo run --only: a waiting step the log does not know is NOT RUN in the table and in status, and the run log has no entry for it', row(nr, 'wn').state === 'NOT RUN' && row(nst, 'wn').state === 'NOT RUN' && !nlog.steps.some(x => x.id === 'wn') && JSON.stringify(states(nr)) === JSON.stringify(states(nst)), JSON.stringify(states(nr)) + ' ' + JSON.stringify(nlog.steps.map(x => x.id)));
+      ns = site(M(W('wd'), S('after-wd', { dependsOn: ['wd'] })));
+      mkdirSync(join(ns.pewp, 'captures'), { recursive: true });
+      writeFileSync(join(ns.pewp, 'captures', 'wd.json'), '{"done":true}\n');
+      touch(join(ns.pewp, 'captures', 'wd.json'), 60000);
+      nr = await run(ns, ['--only', 'after-wd']);
+      check('seo run --only: a dependent of a waiting step the log does not know is BLOCKED by it (NOT RUN) and never starts', row(nr, 'wd').state === 'NOT RUN' && row(nr, 'after-wd').state === 'BLOCKED' && row(nr, 'after-wd').detail.includes('waits for wd (NOT RUN)') && starts(ns, 'after-wd') === 0, JSON.stringify(states(nr)));
+      ns = site(M(S('a'), S('f', { script: 'scripts/fail.mjs' }), S('b')));
+      await run(ns);   // a RUN, f FAILED, b RUN
+      const nbefore = JSON.parse(readFileSync(join(ns.pewp, 'seo-run.json'), 'utf8')).steps;
+      nr = await run(ns, ['--only', 'b']);
+      nst = await status(ns);
+      const nafter = JSON.parse(readFileSync(join(ns.pewp, 'seo-run.json'), 'utf8')).steps;
+      check('seo run --only: after a run with a FAILED step the table and status agree on every step, and the steps of the run log are unchanged', row(nr, 'f').state === 'FAILED' && JSON.stringify(states(nr)) === JSON.stringify(states(nst)) && JSON.stringify(nafter) === JSON.stringify(nbefore) && starts(ns, 'f') === 1, JSON.stringify(states(nr)) + ' ' + JSON.stringify(states(nst)));
+    }
+
     // ================================================================ status runs nothing; usage rules
     s = site();
     r = await status(s);
