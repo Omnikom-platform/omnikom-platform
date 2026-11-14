@@ -12,7 +12,7 @@ import { isMain } from "./lib-main.mjs";
 import { fact } from "./measure-sources.mjs";
 
 export const MANUAL_EXAMPLE = { kind: "manual-capture", capturedAt: "2026-10-20", capturedBy: "owner, Chrome, public Maps listing", name: "", primaryCategory: "Real estate agent", secondaryCategories: [], services: [], address: "", phone: "", website: "", hours: "present|missing", description: "", photosCount: 0, postsLast90d: 0, reviews: { count: 0, rating: 0, lastReviewDate: "2026-10-01", ownerReplyRate: 0.0 } };
-// In a manual capture null (or a key left out) means NOT READ for secondaryCategories, services and description: no finding, a BLOCKED check. [] or "" means read and empty: the finding.
+// In a manual capture null (or a key left out) means NOT READ for primaryCategory, secondaryCategories, services, website and description: no finding, a BLOCKED check. [] or "" means read and empty: the finding.
 const STARS = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 };
 
 export function importProfile(j, { file = null } = {}) {
@@ -20,7 +20,7 @@ export function importProfile(j, { file = null } = {}) {
   if (j.kind === "manual-capture" || (!j.location && j.name)) {
     if (!j.capturedAt) return blocked("business-profile", "the manual capture has no capturedAt date", "Add the date the listing was read: a capture without a date is not evidence.");
     const r = j.reviews || {};
-    return { ok: true, source: "manual capture", capturedAt: j.capturedAt, capturedBy: j.capturedBy || null, file, name: j.name || null, primaryCategory: j.primaryCategory || null, secondaryCategories: Array.isArray(j.secondaryCategories) ? j.secondaryCategories : null, services: Array.isArray(j.services) ? j.services : null, address: j.address || null, phone: j.phone || null, website: j.website || null,
+    return { ok: true, source: "manual capture", capturedAt: j.capturedAt, capturedBy: j.capturedBy || null, file, name: j.name || null, primaryCategory: typeof j.primaryCategory === "string" ? j.primaryCategory : null, secondaryCategories: Array.isArray(j.secondaryCategories) ? j.secondaryCategories : null, services: Array.isArray(j.services) ? j.services : null, address: j.address || null, phone: j.phone || null, website: typeof j.website === "string" ? j.website : null,
       hours: j.hours === "missing" ? false : j.hours ? true : null, serviceAreas: j.serviceAreas || [], description: typeof j.description === "string" ? j.description : null, photosCount: j.photosCount ?? null, postsLast90d: j.postsLast90d ?? null,
       reviews: { count: r.count ?? null, rating: r.rating ?? null, lastReviewDate: r.lastReviewDate || null, ownerReplyRate: r.ownerReplyRate ?? null, last90d: r.last90d ?? null } };
   }
@@ -32,9 +32,9 @@ export function importProfile(j, { file = null } = {}) {
   const replied = revs.filter((r) => r.reviewReply?.comment).length;
   const cutoff = Date.parse(when) - 90 * 86400000;
   const addr = L.storefrontAddress ? [(L.storefrontAddress.addressLines || []).join(" "), L.storefrontAddress.locality, L.storefrontAddress.administrativeArea, L.storefrontAddress.postalCode].filter(Boolean).join(", ") : null;
-  return { ok: true, source: "Business Profile API export (owner)", capturedAt: String(when).slice(0, 10), file, name: L.title || null, primaryCategory: cats.primaryCategory?.displayName || null,
+  return { ok: true, source: "Business Profile API export (owner)", capturedAt: String(when).slice(0, 10), file, name: L.title || null, primaryCategory: cats.primaryCategory?.displayName || "",
     secondaryCategories: (cats.additionalCategories || []).map((c) => c.displayName).filter(Boolean), services: (L.serviceItems || []).map((s) => s.structuredServiceItem?.description || s.freeFormServiceItem?.label?.displayName).filter(Boolean),
-    address: addr, phone: L.phoneNumbers?.primaryPhone || null, website: L.websiteUri || null, hours: L.regularHours?.periods ? L.regularHours.periods.length > 0 : null,
+    address: addr, phone: L.phoneNumbers?.primaryPhone || null, website: L.websiteUri || "", hours: L.regularHours?.periods ? L.regularHours.periods.length > 0 : null,
     serviceAreas: (L.serviceArea?.places?.placeInfos || []).map((p) => p.placeName).filter(Boolean), description: L.profile?.description || "",
     photosCount: j.media?.totalMediaItemCount ?? (j.media?.mediaItems ? j.media.mediaItems.length : null),
     postsLast90d: j.localPosts?.localPosts ? j.localPosts.localPosts.filter((p) => Date.parse(p.createTime) >= cutoff).length : null,
@@ -50,14 +50,15 @@ export function auditProfile(p, competitors = [], { now = new Date() } = {}) {
   const f = [], blockedChecks = [];
   const add = (id, title, detail, evidence, fix) => f.push({ id, severity: "W", title, detail, evidence, fix });
   const src = (v, extra = {}) => fact(v, `${p.source}, ${p.capturedAt}`, p.capturedAt, p.file, extra);
-  if (!p.primaryCategory) add("LOC-P01", "No primary category", "The Business Profile has no primary category, the strongest single signal for which searches it appears in.", { primaryCategory: src(null) }, "Pick the category that matches what customers search (check which one the top local-pack competitors use).");
+  const UNREAD_LISTING = "Read the primary category and the website link on the public listing (it shows both) and write them in the capture, or give the owner's Business Profile export. Write an empty text when the listing shows none.";
   const UNREAD = "Give the owner's Business Profile export (it holds the categories, the services and the description). The public listing never shows secondary categories; the services and the description can also be read on the listing's other tabs and saved in the capture: an empty list or an empty text when the listing shows none.";
-  const notRead = (id, what) => blockedChecks.push({ id, source: p.source, reason: `${what} not read: the capture holds no value for it (null), so nothing is concluded`, unblock: UNREAD });
+  const notRead = (id, what, unblock = UNREAD) => blockedChecks.push({ id, source: p.source, reason: `${what} not read: the capture holds no value for it (null), so nothing is concluded`, unblock });
+  if (p.primaryCategory == null) notRead("LOC-P01", "primary category", UNREAD_LISTING); else if (!p.primaryCategory) add("LOC-P01", "No primary category", "The Business Profile has no primary category, the strongest single signal for which searches it appears in.", { primaryCategory: src(null) }, "Pick the category that matches what customers search (check which one the top local-pack competitors use).");
   if (p.secondaryCategories == null) notRead("LOC-P02", "secondary categories"); else if (!p.secondaryCategories?.length) add("LOC-P02", "No secondary categories", "Only one category is set; secondary categories widen the searches the listing can appear in.", { secondaryCategories: src(0) }, "Add the secondary categories competitors in the pack use.");
   if (p.services == null) notRead("LOC-P03", "services"); else if (!p.services?.length) add("LOC-P03", "No services listed", "The profile lists no services.", { services: src(0) }, "List each service with a short description.");
   if (p.description == null) notRead("LOC-P04", "description"); else if (!p.description) add("LOC-P04", "No business description", "The profile has no description.", { description: src(null) }, "Write a 750-character description with the service area and what is offered.");
   if (p.hours === false) add("LOC-P05", "No opening hours", "No hours are set.", { hours: src(false) }, "Set hours (or appointment-only) so the listing is not shown as unverified.");
-  if (!p.website) add("LOC-P06", "No website link", "The profile has no website.", { website: src(null) }, "Link the profile to the location landing page, not only the homepage.");
+  if (p.website == null) notRead("LOC-P06", "website", UNREAD_LISTING); else if (!p.website) add("LOC-P06", "No website link", "The profile has no website.", { website: src(null) }, "Link the profile to the location landing page, not only the homepage.");
   if (p.postsLast90d === 0) add("LOC-P07", "No post in the last 90 days", "No Business Profile post was made in 90 days.", { posts: src(0, { windowDays: 90 }) }, "Post an update or offer at least monthly.");
   if (p.reviews.ownerReplyRate != null && p.reviews.ownerReplyRate < 0.8) add("LOC-P08", "Reviews left unanswered", `Only ${Math.round(p.reviews.ownerReplyRate * 100)}% of reviews have an owner reply.`, { ownerReplyRate: src(p.reviews.ownerReplyRate) }, "Reply to every review, good and bad.");
   if (p.reviews.lastReviewDate && (now - Date.parse(p.reviews.lastReviewDate)) / 86400000 > 90) add("LOC-P09", "No new review in 90 days", `The last review is from ${p.reviews.lastReviewDate}.`, { lastReviewDate: src(p.reviews.lastReviewDate) }, "Ask recent customers for a review (a link, not an incentive).");
