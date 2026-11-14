@@ -550,7 +550,7 @@ const EXTRA_IMPORTERS = [
     L.push(`- The business's own domain is ${y.ownDomainCited ? "" : "not "}among the sources the answers cite`);
     return L;
   } },
-  { id: "reputation", title: "Reviews", file: "reputation.json", script: "import-reputation.mjs", dir: "reputation", what: "reviews and ratings on the review sites", lines: (d) => (d.summary?.subjects || []).map((x) => `- ${x.subject}: listed on ${x.sitesListed} of ${x.sitesChecked} review sites, ${x.totalReviews} reviews, rating ${x.weightedRating ?? "n/a"} (weighted), ${x.complaints ?? 0} complaint${s(x.complaints ?? 0)}${x.newestReviewDate ? `, newest ${x.newestReviewDate}` : ""}`) },
+  { id: "reputation", title: "Reviews", file: "reputation.json", script: "import-reputation.mjs", dir: "reputation", what: "reviews and ratings on the review sites", lines: (d) => (d.summary?.subjects || []).map((x) => `- ${x.subject}: listed on ${x.sitesListed} of ${x.sitesChecked} review sites, ${x.totalReviews} reviews, rating ${x.weightedRating ?? "n/a"} (weighted), ${x.complaints == null ? "complaints not read" : `${x.complaints} complaint${s(x.complaints)}`}${x.newestReviewDate ? `, newest ${x.newestReviewDate}` : ""}`) },
   { id: "social", title: "Social profiles", file: "social.json", script: "import-social.mjs", dir: "social", what: "the business's social profiles", lines: (d) => {
     const y = d.summary || {};
     return [`- ${y.profilesRead ?? 0} profile${s(y.profilesRead ?? 0)} read${y.blocked ? `, ${y.blocked} not readable` : ""}; ${nTxt(y.totalFollowers)} followers in total; active on: ${(y.platformsActive || []).join(", ") || "none"}`,

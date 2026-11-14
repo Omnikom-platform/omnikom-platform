@@ -10,10 +10,12 @@
 // reviewer names or review text (reviews, reviewers, reviewer, authors, reviewText) is REJECTED with the reason; nothing of it is stored.
 // Output: research/reputation.json { rows:[{subject, site, listed, rating, ratingScale, reviewCount, newestReviewDate, daysSinceNewest, complaintCount, accredited, url,
 //   file, capturedAt, ageDays, stale}], summary:{ subjects:[{subject, sitesChecked, sitesListed, totalReviews, weightedRating, complaints, newestReviewDate}] } }.
+//   complaints adds up the listed sites that gave a count; null when none did (not read), never 0. totalReviews is unchanged.
 import { cli, nonEmpty, toNum, toDate, daysSince, round, isHttp } from "./lib-captures.mjs";
 
 const PRIVATE = ["reviews", "reviewers", "reviewer", "reviewerNames", "authors", "author", "reviewText", "comments"];
 
+const sumRead = (rows, k) => { const v = rows.map((r) => r[k]).filter((x) => x != null); return v.length ? v.reduce((a, b) => a + b, 0) : null; };
 const def = {
   module: "reputation", dir: "reputation", out: "reputation", script: "import-reputation.mjs",
   how: "the main session reads each review site in the owner's browser (no login, 45 s apart, never a reviewer's name) and saves one file per subject and site as <pewp>/captures/reputation/<subject>-<site>.json in the format at the top of scripts/import-reputation.mjs",
@@ -48,7 +50,7 @@ const def = {
       const w = rated.reduce((a, r) => a + r.reviewCount, 0);
       const dates = listed.map((r) => r.newestReviewDate).filter(Boolean).sort();
       return { subject: s, sitesChecked: mine.length, sitesListed: listed.length, totalReviews: listed.reduce((a, r) => a + (r.reviewCount || 0), 0),
-        weightedRating: w ? round(rated.reduce((a, r) => a + (r.rating / r.ratingScale) * 5 * r.reviewCount, 0) / w) : null, complaints: listed.reduce((a, r) => a + (r.complaintCount || 0), 0), newestReviewDate: dates.at(-1) || null };
+        weightedRating: w ? round(rated.reduce((a, r) => a + (r.rating / r.ratingScale) * 5 * r.reviewCount, 0) / w) : null, complaints: sumRead(listed, "complaintCount"), newestReviewDate: dates.at(-1) || null };
     }) };
   },
 };
