@@ -4,7 +4,7 @@
 // claim, with its file and field). Reads only: the files under --pewp, the snapshot folder that <pewp>/report.json names, the client
 // file and the hand-read files it names, --words (default client-copy/ of the skill: the wording that is data), --book (default
 // docs/product/1-product.md of the repository) and --assets (default assets/client-copy/ of the skill). Starts no browser, writes no
-// PDF, makes no network request. Exit 0 built; 1 a STOP (one line on stderr, nothing written); 2 a usage fault (one line).
+// PDF (client-copy-pdf.mjs prints it), makes no network request. Exit 0 built; 1 a STOP (one line on stderr, nothing written); 2 a usage fault (one line).
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
