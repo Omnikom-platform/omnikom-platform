@@ -190,6 +190,8 @@ const used = new Set();
 const term = (t) => { used.add(t); return t; };
 const s = (n) => (n === 1 ? "" : "s");
 const sec = (ms) => (ms == null ? "n/a" : `${(ms / 1000).toFixed(1)} s`);
+const volPlace = (v) => (v && typeof v === "object" && typeof v.location === "string" && v.location.trim() ? v.location.trim() : null);
+const volCounts = (v) => { const u = String(v?.unit || "").replace(/\s*\(.*$/, "").trim(), m = u.match(/^(.*?)\s*(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/), d = m ? Math.round((Date.parse(m[3]) - Date.parse(m[2])) / 86400000) : 0; return d > 0 ? `${m[1]} over ${d} days` : u || null; };
 const cityOf = (c) => String(c.location || "").split(",")[0].trim();
 const esc = (x) => String(x ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ");
 
@@ -261,7 +263,7 @@ function computeQ2() {
       cannibalisation: cannibal,
       ...(ranking ? { ranking } : {}), ...(notLoc ? { resultsPagesCaptured: notLoc } : {}),
     },
-    missing: missingRows.sort(byPriority).slice(0, 12).map((r) => ({ id: r.c.id, search: r.c.primaryQuery, intent: r.c.intent, place: r.c.location, priority: T(r.c.priority ?? null, "priority (demand x value x ease, higher first; orders the work, not a forecast)"), volume: asFact(r.c.volume, targetsFile), closestPage: r.closest ? { path: r.closest.path, searchWordsCovered: Number(r.closest.sc.toFixed(2)) } : null })),
+    missing: missingRows.sort(byPriority).slice(0, 12).map((r) => ({ id: r.c.id, search: r.c.primaryQuery, intent: r.c.intent, place: r.c.location, priority: T(r.c.priority ?? null, "priority (demand x value x ease, higher first; orders the work, not a forecast)"), volume: asFact(r.c.volume, targetsFile), volumeAbout: { place: volPlace(r.c.volume), counts: volCounts(r.c.volume) }, closestPage: r.closest ? { path: r.closest.path, searchWordsCovered: Number(r.closest.sc.toFixed(2)) } : null })),
     weak: weak.map((r) => ({ id: r.c.id, search: r.c.primaryQuery, page: r.page.path, matchedBy: r.how, issues: r.issues })),
     unverified: unver.map((r) => ({ id: r.c.id, search: r.c.primaryQuery, page: r.c.targetPage })),
     _rows: rows,
@@ -448,13 +450,17 @@ const oneLine = `${loc.host}: ${problemsQ1.length ? `search engines can reach it
 const doctorLines = doctorStale ? [`**STALE doctor result (${doctorDate}): the env or token files changed since; run doctor again.**`, ""]
   : doctorDate ? [`Source status below is from the doctor result of ${doctorDate}${doctorCheck.hashed ? "" : " (it records no file hashes, so it cannot show whether the env or token files changed since)"}.`, ""] : [];
 const card = (q) => [`**BLOCKED.** ${q.why}`, "", `What unblocks it${doctorDate && !doctorStale ? ` (source status from the doctor result of ${doctorDate})` : ""}:`,...q.needs.map((n) => `- ${n.what}: ${n.status === "connected" ? "connected" : `${n.status}${doctor ? ` (doctor: ${doctor.sources.find((x) => x.id === n.id)?.unblock || "-"})` : ""}`}`)];
+const volWhere = (v) => (volPlace(v) && volPlace(v) === targets?.market?.country ? `${volPlace(v)}-wide` : volPlace(v));
+const samePlace = (m) => !!(m.place && volPlace(m.volume) && volPlace(m.volume).toLowerCase() === String(m.place).trim().toLowerCase());
+const whereCell = (m) => (!m.place ? "-" : samePlace(m) ? m.place : `Target: ${m.place}`);
+const demandCell = (m) => (m.volume?.value == null || samePlace(m) ? volTxt(m.volume) : [volTxt(m.volume), volWhere(m.volume) || "place of this number not recorded", volCounts(m.volume)].filter(Boolean).join(", "));
 const volTxt = (v) => (v?.value == null ? "not measured" : `${typeof v.value === "number" ? v.value.toLocaleString("en-US") : v.value}${v.estimate ? " (estimate)" : ""}`);
 
 function q2Lines() {
   if (q2.status === "BLOCKED") return card(q2);
   const f = q2.facts;
   const L = [`The research found ${f.clustersTotal.value} searches worth a page. **${f.clustersWithPage.value} have a page, ${f.clustersMissingPage.value} need a new one**${f.pageNotInSnapshot.value ? `, ${f.pageNotInSnapshot.value} cannot be judged because the page is not in the snapshot sample` : ""}. ${f.weakPages.value ? `${f.weakPages.value} existing page${s(f.weakPages.value)} do${f.weakPages.value === 1 ? "es" : ""} not clearly match the search (wrong ${term("search intent")} or missing words).` : "No existing page is a wrong match for its search."}`, ""];
-  if (q2.missing.length) L.push(`Searches with no page yet, most valuable first (demand figures are estimates from the research; report.json gives each source):`, "", "| Search | Where | Type | Demand | Closest page today |", "|---|---|---|---|---|", ...q2.missing.map((m) => `| ${esc(m.search)} | ${esc(m.place || "-")} | ${esc(m.intent)} | ${esc(volTxt(m.volume))} | ${m.closestPage ? `${m.closestPage.path} (${Math.round(m.closestPage.searchWordsCovered * 100)}% of the search words)` : "none"} |`), "");
+  if (q2.missing.length) L.push(`Searches with no page yet, most valuable first (demand figures are estimates from the research; report.json gives each source):`, "", "| Search | Where | Type | Demand | Closest page today |", "|---|---|---|---|---|", ...q2.missing.map((m) => `| ${esc(m.search)} | ${esc(whereCell(m))} | ${esc(m.intent)} | ${esc(demandCell(m))} | ${m.closestPage ? `${m.closestPage.path} (${Math.round(m.closestPage.searchWordsCovered * 100)}% of the search words)` : "none"} |`), "");
   const tpl = targets.clusters.filter((c) => /[{}]/.test(c.primaryQuery));
   if (tpl.length) L.push(`Note: ${tpl.length} research row${s(tpl.length)} (${tpl.map((c) => '"' + c.primaryQuery + '"').join(", ")}) ${tpl.length === 1 ? "is" : "are"} a template with an unfilled placeholder, not a real search: expand ${tpl.length === 1 ? "it" : "them"} per town before building.`, "");
   if (q2.weak.length) L.push("Pages that exist but do not match their search:", ...q2.weak.slice(0, 10).map((w) => `- ${w.page} (for "${w.search}"): ${w.issues.map((i) => i.text).join("; ")}`), "");
