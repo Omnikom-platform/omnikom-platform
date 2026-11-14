@@ -7,5 +7,6 @@
   { "file": "test-targets-record.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-reputation-notread.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-ai-notread.mjs", "plain": [], "mutants": ["--mutants"] },
-  { "file": "test-ai-capture-form.mjs", "plain": [], "mutants": ["--mutants"] }
+  { "file": "test-ai-capture-form.mjs", "plain": [], "mutants": ["--mutants"] },
+  { "file": "test-demand-label.mjs", "plain": [], "mutants": ["--mutants"] }
 ]

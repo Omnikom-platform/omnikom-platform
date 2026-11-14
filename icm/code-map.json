@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 940,
+    "sources": 941,
     "unowned": 0
   },
   "files": [
@@ -336,6 +336,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-client-copy.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-compare.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-crux.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-demand-label.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-freshness.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-google-auth.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-grid-text.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
