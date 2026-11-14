@@ -126,3 +126,13 @@ textarea {
     animation-duration: 0s !important;
   }
 }
+
+/* a modal sheet never scrolls the page behind it (the guide's scroll rule; Safari ignores it and the sheet still makes the page inert) */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}

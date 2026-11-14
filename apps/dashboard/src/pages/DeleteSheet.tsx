@@ -6,6 +6,7 @@ import { CallFailed } from '../lib/problems';
 import { t } from '../plan';
 import { useToast } from '../toast';
 import css from './Crm.module.css';
+import { Sheet } from './Sheet';
 
 export const DELETE_FAILED = t('DP-1.3-35', 'Could not delete. Nothing was removed. Try again.');
 
@@ -23,11 +24,6 @@ export function DeleteSheet({ workspaceId, ids, onClose, onDeleted }: { workspac
   const one = ids.length === 1;
 
   useEffect(() => { cancel.current?.focus(); }, []);   // once, when the sheet opens: a re-draw of the page behind never moves the focus
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   async function remove() {
     if (busy) return;
@@ -47,8 +43,7 @@ export function DeleteSheet({ workspaceId, ids, onClose, onDeleted }: { workspac
   }
 
   return (
-    <div className={css.overlay}>
-      <div role="dialog" aria-modal="true" aria-labelledby="delete-heading" data-plan="DP-1.3-35" className={css.sheet}>
+    <Sheet onClose={onClose} aria-labelledby="delete-heading" data-plan="DP-1.3-35" className={css.sheet}>
         <h2 id="delete-heading">{one ? t('DP-1.3-35', 'Delete this lead?') : `${t('DP-1.3-35', 'Delete')} ${ids.length} ${t('DP-1.3-35', 'leads?')}`}</h2>
         <p>{t('DP-1.3-35', 'They are removed for good. We keep the record of their consent.')}</p>
         <div className={css.sheetButtons}>
@@ -58,7 +53,6 @@ export function DeleteSheet({ workspaceId, ids, onClose, onDeleted }: { workspac
         </div>
         {exporter.message && <p role={exporter.failed ? 'alert' : 'status'}>{exporter.message}</p>}
         {error && <p role="alert">{error}</p>}
-      </div>
-    </div>
+    </Sheet>
   );
 }

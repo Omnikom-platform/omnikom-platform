@@ -12,6 +12,7 @@ import {
 } from '../lib/site';
 import { t } from '../plan';
 import css from './Editor.module.css';
+import { Sheet } from './Sheet';
 import crm from './Crm.module.css';   // the delete sheet looks like the leads' one (DeleteSheet.tsx)
 import { useSiteValue } from '../site-context';
 import { UNDO, useToast } from '../toast';
@@ -288,21 +289,17 @@ function DeleteItem({ row, title, onClose, onDeleted }: { row: string; title: st
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const cancel = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    cancel.current?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  useEffect(() => { cancel.current?.focus(); }, []);
   const remove = async () => {
     setBusy(true); setError('');
     try { await deleteItem(row); onDeleted(); } catch (e) { setError(e instanceof CallFailed && e.problem.plain ? e.problem.message : t('DP-1.4-23', 'Could not delete. Nothing was removed. Try again.')); setBusy(false); }
   };
   return (
-    <div className={crm.overlay}><div role="dialog" aria-modal="true" aria-labelledby="delete-item-title" data-plan="DP-1.4-23" className={crm.sheet}>
+    <Sheet onClose={onClose} aria-labelledby="delete-item-title" data-plan="DP-1.4-23" className={crm.sheet}>
       <h2 id="delete-item-title">Delete {title}?</h2>
       <p>It leaves your Site list now and the live site at your next publish. Its past versions stay in our records, but you cannot open it again here.</p>
       <div className={crm.sheetButtons}><button type="button" className={crm.danger} disabled={busy} onClick={() => void remove()}>Delete this item</button><button type="button" ref={cancel} onClick={onClose}>Cancel</button></div>
       {error && <p role="alert">{error}</p>}
-    </div></div>
+    </Sheet>
   );
 }

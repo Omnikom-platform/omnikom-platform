@@ -8,6 +8,7 @@ import { CallFailed } from '../lib/problems';
 import { failureLines, progressLines, RUNNING, rowTitle, siteUrl, type Job, type JobEvent } from '../lib/site';
 import { useSiteValue } from '../site-context';
 import css from './PublishSheet.module.css';
+import { Sheet } from './Sheet';
 
 type Wrong = { row: string; path: string; msg: string; code?: string };
 
@@ -57,7 +58,7 @@ export function PublishSheet({ site, jobs, onClose }: { site: Site; jobs: { jobs
   const lines = job ? progressLines(jobs.events.filter(e => e.job_id === job.id)) : [];
 
   return (
-    <dialog open data-plan="DP-1.4c-02" aria-labelledby="publish-title" className={css.sheet}>
+    <Sheet onClose={onClose} data-plan="DP-1.4c-02" aria-labelledby="publish-title" className={css.sheet}>
       {!job && (
         <>
           <h2 id="publish-title">Publish {drafts.length === 1 ? 'this change' : `these ${drafts.length} changes`} to <span className={css.address}>{name}</span>?</h2>
@@ -107,6 +108,6 @@ export function PublishSheet({ site, jobs, onClose }: { site: Site; jobs: { jobs
           <button type="button" onClick={onClose}>Cancel</button>
         </>
       )}
-    </dialog>
+    </Sheet>
   );
 }

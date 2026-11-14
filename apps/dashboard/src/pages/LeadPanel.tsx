@@ -105,7 +105,7 @@ export function PanelClose() {
   const wide = useWide();
   const close = () => void nav({ to: '/w/$ws/leads', params: { ws }, search: prev => prev });
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('dialog[open]')) close(); };   // an open sheet takes this Esc itself
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });

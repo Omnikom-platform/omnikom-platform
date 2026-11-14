@@ -11,6 +11,7 @@ import { useWorkspaceValue } from '../workspace-context';
 import { SettingsAlerts } from './SettingsAlerts';
 import { SettingsPeople } from './SettingsPeople';
 import css from './Settings.module.css';
+import { Sheet } from './Sheet';
 
 /**
  * The Settings screen (DP-1.6-01 to -20; work order 08): one page of cards. The owner sees every card; a member sees only Your account and Sign out
@@ -36,11 +37,11 @@ export function Settings() {
       {owner && <Websites workspace={workspace.id} />}
       <SignOutEverywhere />
       {leave.status === 'blocked' && (
-        <dialog open data-plan="DP-1.6-18" aria-labelledby="leave-title" className={css.sheet}>
+        <Sheet onClose={() => leave.reset()} data-plan="DP-1.6-18" aria-labelledby="leave-title" className={css.sheet}>
           <h2 id="leave-title">Leave without saving? Your changes to the lead alerts are not saved.</h2>
           <button type="button" onClick={() => leave.reset()}>Stay</button>
           <button type="button" onClick={() => leave.proceed()} className={css.go}>Leave</button>
-        </dialog>
+        </Sheet>
       )}
     </div>
   );

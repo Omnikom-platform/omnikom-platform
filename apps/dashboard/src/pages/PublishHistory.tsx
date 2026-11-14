@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { publishRows, saveItem } from '../api';
 import { fetchSnapshot, fetchVersionsAt, type Site } from '../data';
@@ -9,6 +9,7 @@ import { t } from '../plan';
 import { useSiteValue } from '../site-context';
 import { useWorkspaceValue } from '../workspace-context';
 import css from './PublishSheet.module.css';
+import { Sheet } from './Sheet';
 
 /** Past publishes (DP-1.4c-07) and putting the site back to one (DP-1.4c-08), book row B11: that publish's content comes back as NEW versions
  *  (`save`) and goes live (`publish`); nothing is deleted. The newest live publish has no button: it is what the site shows. */
@@ -17,7 +18,6 @@ export function PublishHistory({ site, jobs, onClose, onStarted }: { site: Site;
   const [asking, setAsking] = useState<Job | null>(null), [busy, setBusy] = useState(false), [notice, setNotice] = useState('');
   const finished = jobs.filter(j => j.site_id === site.id && (j.state === 'done' || j.state === 'failed'));
   const newest = finished.find(j => j.state === 'done'), when = (j: Job) => j.finished_at ?? j.created_at;
-  useEffect(() => { const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, [onClose]);
   const putBack = async (job: Job) => {
     setBusy(true); setNotice('');
     try {
@@ -32,7 +32,7 @@ export function PublishHistory({ site, jobs, onClose, onStarted }: { site: Site;
     } catch (e) { setNotice(`${e instanceof CallFailed ? e.problem.message : String(e)} ${t('DP-1.4c-08', 'Nothing went live.')}`); } finally { setBusy(false); }
   };
   return (
-    <dialog open data-plan="DP-1.4c-07" aria-labelledby="history-title" className={css.sheet}>
+    <Sheet onClose={onClose} data-plan="DP-1.4c-07" aria-labelledby="history-title" className={css.sheet}>
       <h2 id="history-title">Past publishes</h2>
       {asking ? <div data-plan="DP-1.4c-08"><p>Put the site back to the publish of {receivedWords(when(asking))}?</p>
         <p>Each page and item of that publish comes back as a new version and goes live. Nothing is deleted: the versions since stay in History. Items added since stay on the site; deleted items stay deleted; items taken off the site stay off.</p>
@@ -41,6 +41,6 @@ export function PublishHistory({ site, jobs, onClose, onStarted }: { site: Site;
           {j.state === 'failed' && <ul>{failureLines(j).map((l, i) => <li key={i}>{l}</li>)}</ul>}
           {j.state === 'done' && j.id !== newest?.id && <button type="button" data-plan="DP-1.4c-08" onClick={() => setAsking(j)}>Put the site back to this publish</button>}</li>)}</ol>}
       {notice && <p role="alert" data-plan="DP-1.4c-08">{notice}</p>}<button type="button" onClick={onClose}>Close</button>
-    </dialog>
+    </Sheet>
   );
 }

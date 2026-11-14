@@ -72,24 +72,24 @@
   margin: 0;
 }
 
-/* the delete sheet: over everything, one box */
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--gutter);
+/* the delete sheet: a modal <dialog> (Sheet.tsx); the top layer centres it, its ::backdrop is the scrim */
+.sheet::backdrop {
   background: rgb(0 0 0 / 0.4);
+}
+
+.sheet:not([open]) {
+  display: none;
 }
 
 .sheet {
   display: flex;
   flex-direction: column;
   gap: var(--s-4);
-  width: 100%;
-  max-width: 440px;
+  width: min(440px, 100% - 2 * var(--gutter));
+  max-width: none;
+  margin: auto;
+  border: 0;
+  color: var(--ink);
   padding: var(--card-pad);
   border-radius: var(--radius);
   background: var(--surface);

@@ -12,6 +12,7 @@ import { useToast } from '../toast';
 import { useWorkspaceValue } from '../workspace-context';
 import css from './Editor.module.css';
 import sheet from './Crm.module.css';
+import { Sheet } from './Sheet';
 
 /** The media library (book row B14, DP-1.4m-02 to -04): every file newest first (a member: its own uploads), its problems where it is used and a link to each use. */
 export function MediaLibrary() {
@@ -84,11 +85,6 @@ export function Ask({ ask, onClose }: { ask: Asked; onClose: () => void }) {
   const qc = useQueryClient(), toast = useToast(), cancel = useRef<HTMLButtonElement>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   useEffect(() => { cancel.current?.focus(); }, []);   // once, when the sheet opens: a re-draw of the page behind never moves the focus
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
   async function go() {
     if (busy) return; setBusy(true); setError('');
     try {
@@ -102,8 +98,7 @@ export function Ask({ ask, onClose }: { ask: Asked; onClose: () => void }) {
     }
   }
   return (
-    <div className={sheet.overlay}>
-      <div role="dialog" aria-modal="true" aria-labelledby="media-ask" data-plan="DP-1.4m-06" className={sheet.sheet}>
+    <Sheet onClose={onClose} aria-labelledby="media-ask" data-plan="DP-1.4m-06" className={sheet.sheet}>
         <h2 id="media-ask">{ask.to ? t('DP-1.4m-06', 'Replace this photo everywhere it is used?') : t('DP-1.4m-06', 'Delete this file?')}</h2>
         <p>{ask.to ? t('DP-1.4m-06', 'Each item that uses it gets a new version with the new photo. Your site changes at your next publish.') : t('DP-1.4m-06', 'No item uses it. It is removed for good, with its sizes.')}</p>
         {ask.to && <p>{t('DP-1.4m-06', 'It changes in:')} {ask.where}</p>}
@@ -112,7 +107,6 @@ export function Ask({ ask, onClose }: { ask: Asked; onClose: () => void }) {
           <button type="button" ref={cancel} onClick={onClose}>{t('DP-1.4m-06', 'Cancel')}</button>
         </div>
         {error && <p role="alert">{error}</p>}
-      </div>
-    </div>
+    </Sheet>
   );
 }

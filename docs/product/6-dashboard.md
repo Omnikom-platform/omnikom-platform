@@ -29,7 +29,7 @@ runs (one jobs channel per tab, `src/lib/live.ts`). Vitest for units, Playwright
   shown. Where the plan is silent, the builder stops and asks; it does not invent.
 - One primary action per screen. A left rail on a laptop, a bottom bar on a phone; tap targets 44 px.
 - Feedback is a toast (4 s, with Undo where undo exists), an inline field error in plain words, or a banner. No browser
-  `confirm()` dialogs. A confirm sheet only for what cannot be undone: publish, remove a person, delete an item, replace or delete a file in the media library.
+  `confirm()` dialogs. A confirm sheet only for what cannot be undone: publish, remove a person, delete an item, replace or delete a file in the media library. Every sheet is the browser's own modal dialog (apps/dashboard/src/pages/Sheet.tsx): the page behind is inert, Esc closes it and only it (never the open lead behind a sheet), focus returns to the control that opened it.
 - Loading shows skeleton rows; a spinner only inside the pressed button. An empty state is one sentence and one button.
 - Plain-word messages live next to the rule that raises them and are the single source for sheet, toast and email.
 - WCAG 2.2 AA; Esc closes, Enter saves a note, Ctrl or Cmd+S saves.

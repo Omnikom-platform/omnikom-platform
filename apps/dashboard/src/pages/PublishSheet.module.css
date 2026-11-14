@@ -9,6 +9,7 @@
   align-content: start;
   gap: var(--s-4) var(--s-3);
   width: min(560px, 100% - 2 * var(--gutter));
+  max-width: none;
   max-height: calc(100dvh - 2 * var(--s-6));
   margin: auto;
   padding: var(--card-pad);
@@ -17,8 +18,15 @@
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--ink);
-  box-shadow: 0 0 0 100vmax var(--scrim);
   animation: sheet-in var(--dur) var(--ease);
+}
+
+.sheet::backdrop {
+  background: var(--scrim);
+}
+
+.sheet:not([open]) {
+  display: none;
 }
 
 @media (min-width: 900px) {

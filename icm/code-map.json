@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 957,
+    "sources": 959,
     "unowned": 0
   },
   "files": [
@@ -73,12 +73,14 @@
     {"path":"apps/dashboard/src/pages/Overview.tsx","owner":"platform-build","exports":["Overview"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/PreviewSite.tsx","owner":"platform-build","exports":["PreviewSite"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/PublishHistory.tsx","owner":"platform-build","exports":["PublishHistory"],"tests":[],"feature":""},
-    {"path":"apps/dashboard/src/pages/PublishSheet.tsx","owner":"platform-build","exports":["PublishSheet"],"tests":["apps/dashboard/tests/plan-gate.test.mjs","apps/dashboard/tests/site.spec.ts"],"feature":""},
+    {"path":"apps/dashboard/src/pages/PublishSheet.tsx","owner":"platform-build","exports":["PublishSheet"],"tests":["apps/dashboard/src/pages/Sheet.test.ts","apps/dashboard/tests/plan-gate.test.mjs","apps/dashboard/tests/site.spec.ts"],"feature":""},
     {"path":"apps/dashboard/src/pages/SearchHealth.test.tsx","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/SearchHealth.tsx","owner":"platform-build","exports":["Read","SearchHealth","SearchHealthView"],"tests":[],"feature":""},
-    {"path":"apps/dashboard/src/pages/Settings.tsx","owner":"platform-build","exports":["Settings"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/pages/Settings.tsx","owner":"platform-build","exports":["Settings"],"tests":["apps/dashboard/src/pages/Sheet.test.ts"],"feature":""},
     {"path":"apps/dashboard/src/pages/SettingsAlerts.tsx","owner":"platform-build","exports":["SettingsAlerts"],"tests":[],"feature":""},
-    {"path":"apps/dashboard/src/pages/SettingsPeople.tsx","owner":"platform-build","exports":["SettingsPeople"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
+    {"path":"apps/dashboard/src/pages/SettingsPeople.tsx","owner":"platform-build","exports":["SettingsPeople"],"tests":["apps/dashboard/src/pages/Sheet.test.ts","apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
+    {"path":"apps/dashboard/src/pages/Sheet.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/pages/Sheet.tsx","owner":"platform-build","exports":["Sheet"],"tests":["apps/dashboard/src/pages/Sheet.test.ts"],"feature":""},
     {"path":"apps/dashboard/src/pages/SheetFocus.test.tsx","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/Shell.tsx","owner":"platform-build","exports":["Shell"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/SignOutButton.tsx","owner":"platform-build","exports":["SignOutButton"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},

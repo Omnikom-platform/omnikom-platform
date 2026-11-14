@@ -6,6 +6,7 @@ import { CallFailed, UNREACHABLE } from '../lib/problems';
 import { canRemove, memberName, onlyYou, validEmail, type Member } from '../lib/settings';
 import { t } from '../plan';
 import css from './Settings.module.css';
+import { Sheet } from './Sheet';
 
 const LAST_OWNER = t('DP-1.6-13', 'A business needs at least one owner. Add another owner first.');
 const GONE = t('DP-1.6-13', 'That person is no longer a member.');
@@ -112,12 +113,12 @@ export function SettingsPeople({ workspace, business, me }: { workspace: string;
         {result && <p role="status" data-plan="DP-1.6-14">{result}</p>}
       </form>
       {asking && (
-        <dialog open data-plan="DP-1.6-12" aria-labelledby="remove-title" className={css.sheet}>
+        <Sheet onClose={() => setAsking(null)} data-plan="DP-1.6-12" aria-labelledby="remove-title" className={css.sheet}>
           <h2 id="remove-title">Remove {memberName(asking)} from {business}? They lose access to this business now. Their leads and edits stay.</h2>
           {removeError && <p role="alert" data-plan="DP-1.6-13">{removeError}</p>}
           <button type="button" onClick={() => setAsking(null)}>Cancel</button>
           <button type="button" disabled={removing} onClick={() => void remove()} className={css.go}>{removing ? t('DP-1.2s-10', 'Removing') : 'Remove'}</button>
-        </dialog>
+        </Sheet>
       )}
     </section>
   );
