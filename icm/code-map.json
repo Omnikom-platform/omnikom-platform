@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 930,
+    "sources": 931,
     "unowned": 0
   },
   "files": [
@@ -503,6 +503,7 @@
     {"path":"supabase/migrations/20261113000047_removed_addresses.sql","owner":"platform-build","exports":["fn:service.export_bundle","fn:service.gone_rows"],"tests":[],"feature":""},
     {"path":"supabase/migrations/20261113000048_fk_indexes.sql","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/migrations/20261113000049_media_sizes_left_behind.sql","owner":"platform-build","exports":["fn:service.deleted_media_path"],"tests":[],"feature":""},
+    {"path":"supabase/migrations/20261113000050_alert_dropped_event.sql","owner":"platform-build","exports":["fn:service.outbox_claim"],"tests":[],"feature":""},
     {"path":"supabase/ops/alerts.mjs","owner":"platform-build","exports":["ALERTS","RULES","Stop","deliver","environmentOf","main","parseArgs","pgEnv","render","runQueries","statusData"],"tests":["supabase/ops/test/6b-alerts-fixture.mjs","supabase/ops/test/6b-mutate.mjs","supabase/ops/test/alerts.test.mjs"],"feature":""},
     {"path":"supabase/ops/backup.mjs","owner":"platform-build","exports":["DEFAULT_RECIPIENT","MAX_BYTES","Stop","labelOf","main","parseArgs","pgEnv","readRecipient","regionOf","scrubber","signV4","sizeS3","stampOf","uploadS3"],"tests":["supabase/ops/test/6b-fake-s3.mjs","supabase/ops/test/6b-mutate.mjs","supabase/ops/test/backup.test.mjs","supabase/ops/test/bring-up.test.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
     {"path":"supabase/ops/bring-up.mjs","owner":"platform-build","exports":["bringUp","secretNames"],"tests":["supabase/ops/test/bring-up.test.mjs"],"feature":""},

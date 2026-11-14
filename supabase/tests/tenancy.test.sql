@@ -3534,6 +3534,10 @@ reset role;
 set role authenticated;
 select test.act_as('00000000-0000-0000-0000-00000000000a');
 do $$ begin assert (select count(*) from public.mail_outbox) = 0, 'T35i an owner reads no outbox row'; end $$;
+do $$ begin
+  assert (select count(*) from public.lead_events where lead_id = test.id('t35_3') and kind = 'alert-failed' and workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and detail = jsonb_build_object('to', 't35-c@example.test', 'reason', 'suppressed')) = 1, 'T35j the owner reads the dropped alert on the lead''s timeline, with its address and its reason';
+  assert (select count(*) from public.lead_events where lead_id in (test.id('t35_1'), test.id('t35_2')) and kind = 'alert-failed') = 0, 'T35k an alert that was not dropped has no such event';
+end $$;
 select test.act_as('00000000-0000-0000-0000-00000000005f', 'aal2');
 do $$ begin assert (select count(*) from public.mail_outbox) > 0, 'T35i staff with MFA read the outbox'; end $$;
 reset role;

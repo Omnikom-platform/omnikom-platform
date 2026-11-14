@@ -44,7 +44,7 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md` (r
 
 ## Migrations
 - A migration that has not landed takes the next free number above every file in the tree when it is built, and lands in
-  number order (staging applies in file-name order); no number is promised ahead. In the tree: through 49.
+  number order (staging applies in file-name order); no number is promised ahead. In the tree: through 50.
 
 ## BLOCKED and UNPROVEN
 - E21 on staging: BLOCKED. The mail provider's webhook is an account setting; it needs the owner's yes.

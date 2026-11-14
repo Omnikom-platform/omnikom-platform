@@ -1014,6 +1014,15 @@ const MUTANTS = [
   ['sizes49: a file that has its record answers', 'where k.id = p_media)', 'where false)'],
   ['sizes49: a row of another action answers', "a.action = 'media-delete' and ", ''],
   ["sizes49: another file's row answers", ' and a.target = p_media::text', ''],
+  // ---- C11-a (migration 50): a dropped alert leaves an event on the lead; tests T35j, T35k. Run only these: --only "alert50" ----
+  ["alert50: a dropped alert leaves no event on the lead", "      insert into public.lead_events (lead_id, workspace_id, kind, detail) values (o.lead_id, ws, 'alert-failed', jsonb_build_object('to', o.to_text, 'reason', 'suppressed'));", '      null;'],
+  ['alert50: the event is of another kind', "'alert-failed', jsonb_build_object('to'", "'alert-sent', jsonb_build_object('to'"],
+  ['alert50: the event gives no reason', "jsonb_build_object('to', o.to_text, 'reason', 'suppressed')", "jsonb_build_object('to', o.to_text, 'reason', '')"],
+  ['alert50: the event names no address', "jsonb_build_object('to', o.to_text, ", "jsonb_build_object('to', '', "],
+  ['alert50: the event is written under another workspace', "values (o.lead_id, ws, 'alert-failed'", "values (o.lead_id, 'bbbbbbbb-0000-0000-0000-000000000000', 'alert-failed'"],
+  ['alert50: an alert that was not dropped gets the event too', [
+    ["      insert into public.lead_events (lead_id, workspace_id, kind, detail) values (o.lead_id, ws, 'alert-failed', jsonb_build_object('to', o.to_text, 'reason', 'suppressed'));", '      null;'],
+    ["    if private.is_suppressed(ws, 'email', o.to_text) then", "    insert into public.lead_events (lead_id, workspace_id, kind, detail) values (o.lead_id, ws, 'alert-failed', jsonb_build_object('to', o.to_text, 'reason', 'suppressed'));\n    if private.is_suppressed(ws, 'email', o.to_text) then"]]],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]
