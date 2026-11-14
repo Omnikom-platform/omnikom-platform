@@ -343,6 +343,14 @@ async function runScenariosInner(sdir, only, results) {
     const withK = psRun(true), noK = psRun(false);
     check("A: a PARTIAL step with partialSettles in its manifest settles for its dependent: authority-vet runs, and authority-classify stays partial (printed PARTIAL:, not done)", withK.called.includes("authority-vet") && /authority-classify: PARTIAL/.test(withK.rp.out) && withK.st?.partial === "read 10 of 25" && !withK.st.doneAt, `${withK.called} ${withK.rp.out.slice(-300)}`);
     check("A: the same PARTIAL step without the key still holds its dependent: authority-vet is not run", !noK.called.includes("authority-vet") && /authority-classify: PARTIAL/.test(noK.rp.out), `${noK.called} ${noK.rp.out.slice(-300)}`);
+    // A8c: a stage recorded partial is never adopted: an explicit --adopt of it is refused, and the next --go runs it again
+    const Wq = mkWorld(sdir), PLq = mkFix(Wq), Pq = ["--pipeline", PLq, "--go"], stq = () => rj(path.join(Wq.cwd, "site-checks", "fixture.test", ".pewp", "state.json")).stages["authority-classify"];
+    Wq.start("audit-live", [URL1], [...Pq, "--stage", "doctor"]); Wq.control("authority.mjs.skip"); Wq.start("audit-live", [URL1], [...Pq, "--stage", "authority"]);
+    Wq.control("authority-classify.mjs.partial"); Wq.start("audit-live", [URL1], [...Pq, "--stage", "authority-classify"]);
+    Wq.clear(); r = Wq.start("audit-live", [URL1], [...Pq, "--adopt", "authority-classify"]);
+    check("A: an explicit --adopt of a stage recorded partial is refused: exit 3, ADOPT REFUSED with the reason, nothing starts, the record stays partial", r.code === 3 && /ADOPT REFUSED authority-classify: its last run ended PARTIAL \(read 10 of 25\)/.test(r.out) && Wq.calls().length === 0 && stq()?.partial === "read 10 of 25", `${r.code} ${names(Wq.calls())} ${r.out.slice(-300)}`);
+    Wq.uncontrol("authority-classify.mjs.partial"); Wq.clear(); r = Wq.start("audit-live", [URL1], Pq);
+    check("A: a stage recorded partial is not adopted on the next --go: it is run again and, ended whole, recorded done (not adopted, no partial)", names(Wq.calls()).includes("authority-classify") && !/authority-classify: adopted/.test(r.out) && !!stq()?.doneAt && !stq().adopted && !stq().partial, `${names(Wq.calls())} ${JSON.stringify(stq())} ${r.out.slice(-300)}`);
     // A9: --no-authority, --stage before its dependency, the owner's plan ack
     const W4 = mkWorld(sdir); const PL4 = mkFix(W4); const P4 = ["--pipeline", PL4];
     r = W4.start("audit-live", [URL1], ["--go", "--stage", "report-live", ...P4]);
@@ -751,6 +759,8 @@ const MUTANTS = [
   { name: "G1: children get --env-file (Node 24 pre-scans it) instead of --dotenv", file: "start.mjs", from: "const envArgs = () => (envInfo.file ? [\"--dotenv\", envInfo.file] : []);", to: "const envArgs = () => (envInfo.file ? [\"--env-file\", envInfo.file] : []);", sc: "G", expect: [/^G: --env-file is loaded by start/] },
   { name: "partialSettles ignored", file: "start.mjs", from: ' || (res.get(d) === "partial" && byName.get(d)?.manifest?.partialSettles === true)', to: "", sc: "A", expect: [/^A: a PARTIAL step with partialSettles/] },
   { name: "every partial settles", file: "start.mjs", from: "byName.get(d)?.manifest?.partialSettles === true", to: "true", sc: "A", expect: [/^A: the same PARTIAL step without the key still holds/] },
+  { name: "a stage recorded partial is adopted on the next run", file: "start.mjs", from: "  const pr = partialRefusal(s); if (pr) return pr;", to: "", sc: "A", expect: [/^A: a stage recorded partial is not adopted/] },
+  { name: "an explicit --adopt of a partial stage is not refused", file: "start.mjs", from: "const a = partialRefusal(s) || adoptStep(", to: "const a = adoptStep(", sc: "A", expect: [/^A: an explicit --adopt of a stage recorded partial is refused/] },
 ];
 
 if (isMain(import.meta.url)) { // lib-main.mjs: real paths (started through a junction this used to skip the whole suite)

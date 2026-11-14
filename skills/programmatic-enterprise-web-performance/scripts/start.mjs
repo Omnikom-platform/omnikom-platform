@@ -337,15 +337,17 @@ function pipelineSequence() {
 }
 const safeList = (arr, vars) => arr.map((x) => { try { return substitute(x, vars); } catch { return x; } }).join(", ");
 // ---------------------------------------------------------------- ADOPT (work order 41): a run resumes from where it is, never from scratch (the owner's standing rule)
-// A step whose evidence exists (not empty) and whose inputs are older, its evidence within maxAgeDays and not only BLOCKED records (adoptStep), is recorded as adopted: done, exit 0, outcome "adopted", evidenceDate = the evidence's own mtime (not now), and
+// A step whose evidence exists (not empty) and whose inputs are older, its evidence within maxAgeDays and not only BLOCKED records (adoptStep), and whose last run did not end PARTIAL (partialRefusal), is recorded as adopted: done, exit 0, outcome "adopted", evidenceDate = the evidence's own mtime (not now), and
 // not run again. A step whose input is newer than its evidence runs (and so, through its outputs, do its dependents). --adopt <id>[,<id>] is the explicit case: a step that
 // cannot be adopted is a refusal (exit 3) and nothing starts. --fresh discards: --fresh alone runs every step again, --fresh <id>[,<id>] those steps (their dependents follow
 // through their inputs). Bare --fresh also still tells the snapshot to take a new snapshot.
 const idList = (v) => String(v || "").split(",").map((x) => x.trim()).filter(Boolean);
 const freshArg = (() => { const i = A.indexOf("--fresh"); const n = i >= 0 ? A[i + 1] : null; return n && /^[a-z][a-z0-9,-]*$/.test(n) && !MODES.includes(n) ? n : null; })();
 const freshAll = flag("--fresh") && !freshArg, freshIds = new Set(idList(freshArg));
+const partialRefusal = (s) => { reload(); const p = st.stages?.[s.name]?.partial; return p ? { ok: false, id: s.name, rule: "partial", reason: `its last run ended PARTIAL (${p}): a partial step is run again, never adopted` } : null; }; // omnikom seo run does the same: a step its log knows is never adopted
 function tryAdopt(s) {
   let a;
+  const pr = partialRefusal(s); if (pr) return pr;
   try { a = adoptStep(s.manifest, { vars: pipelineVars(), now: Date.now() }); } catch (e) { return { ok: false, rule: "error", reason: e.message }; }
   if (!a.ok) return a;
   // doneAt stays "when the step was completed or adopted" (a waiting step's staleness is judged against it: its evidence must be newer than that after an input changes); evidenceDate is the date of the DATA
@@ -369,7 +371,7 @@ async function runManifestLoop() {
     for (const id of idList(val("--adopt"))) {
       const s = byName.get(id);
       if (statusOf(s).status === "done") { console.log(`${id}: already done, nothing to adopt`); continue; }
-      const a = adoptStep(s.manifest, { vars: pipelineVars(), now: Date.now() });
+      const a = partialRefusal(s) || adoptStep(s.manifest, { vars: pipelineVars(), now: Date.now() });
       if (!a.ok) refused.push(a);
     }
     if (refused.length) {
