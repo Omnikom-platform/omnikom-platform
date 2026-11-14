@@ -34,6 +34,7 @@ if (args.includes("--mutants")) {
     { id: "plan-rule-always-true", file: "client-copy-pages.mjs", from: "addressesDiffer: [() => D.addresses.length > 1, \"addresses\"],", to: "addressesDiffer: [() => D.addresses.length > 0, \"addresses\"],", red: "case 18:" },
     { id: "css-font-files-unchecked", file: "client-copy.mjs", from: 'for (const f of fontFiles) { if (!fs.existsSync(path.join(assetsDir, "fonts", f))) stop(`STOP: assets fonts/${f} is missing`); }', to: "", red: "case 13:" },
     { id: "ads-blocked-row-is-read", file: "client-copy-data.mjs", from: 'if (getMaybe("ads", `rows[advertiser=${d}&library=google-transparency].status`, "text") === "blocked") return null; ', to: "", red: "case 19:" },
+    { id: "ads-no-google-row-is-read", file: "client-copy-data.mjs", from: 'if (getMaybe("ads", `rows[advertiser=${d}&library=google-transparency].library`, "text") === null) return null; ', to: "", red: "case 20:" },
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ccopy-mut-"));
   let ok = 0;
@@ -524,6 +525,17 @@ try {
       const text = cleanText(r.html), sentence = (text.match(/ad library shows [^.]*\./) || [""])[0];
       if (!text.includes("ad library shows none for Harbor in the last 30 days")) bad.push(`sentence: ${sentence || "(none)"}`);
       if (sentence.includes("Ridgeline Roofs")) bad.push(`the rival whose page was not tied is named: ${sentence}`);
+      return [bad.length === 0, bad.join(" | ")];
+    }));
+  check("case 20: a rival with no Google ad library row (Meta only) is left out of the ads sentence and never stops the build",
+    ...T(() => {
+      const bad = [];
+      const metaOnly = (j) => { j.rows[0].library = "meta-ad-library"; };
+      const r = go(makeRun({ ...A(), patch: { "research/ads.json": metaOnly } }), { client: cA });
+      bad.push(...wholeChecks(r, "A"));
+      const text = cleanText(r.html), sentence = (text.match(/ad library shows [^.]*\./) || [""])[0];
+      if (!text.includes("ad library shows none for Harbor in the last 30 days")) bad.push(`sentence: ${sentence || "(none)"}`);
+      if (sentence.includes("Ridgeline Roofs")) bad.push(`the rival with no Google row is named: ${sentence}`);
       return [bad.length === 0, bad.join(" | ")];
     }));
 } catch (e) {

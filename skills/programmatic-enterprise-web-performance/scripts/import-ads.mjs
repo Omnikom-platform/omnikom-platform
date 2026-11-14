@@ -7,8 +7,9 @@
 //   "blocked":"page not tied to the business" (a Page with the business's name that could not be tied to it: same name, no link to the site, no address; or any other reason the state is not known) stands in place of running; it becomes a row with status "blocked", never a count, never "no ads". With blocked, running must be left out.
 // A file with no advertiser, an unknown library, no running true|false, a running one without an adCount, a bad since date or formats that are not a list is REJECTED with the reason.
 // Output: research/ads.json { rows:[{advertiser, library, region, status (only on a blocked row), blocked (only on a blocked row), running, adCount, since, runningDays, formats, url, file, capturedAt, ageDays, stale}],
-//   summary:{ advertisers:[{advertiser, librariesChecked, librariesNotKnown, running, adCount}], advertisersChecked, advertisersNotKnown, advertisersRunning, clientRunning, competitorsRunning } }.
-//   running and adCount of an advertiser may be null (every library of it was blocked, or one was and no known library is running).
+//   summary:{ advertisers:[{advertiser, librariesChecked, librariesNotKnown, librariesRead, librariesNotRead, running, adCount}], advertisersChecked, advertisersNotKnown, advertisersRunning, clientRunning, competitorsRunning } }.
+//   running and adCount of an advertiser may be null: a library of it was blocked (not known) or has NO accepted capture (librariesNotRead) and none read shows ads.
+//   running is true when any library read shows ads; false ONLY when every library (google-transparency AND meta-ad-library) was read and none shows ads.
 import { cli, nonEmpty, toNum, toDate, daysSince, isHttp } from "./lib-captures.mjs";
 
 const LIBRARIES = ["google-transparency", "meta-ad-library"];
@@ -40,7 +41,7 @@ const def = {
   },
   summarize(rows) {
     const names = [...new Set(rows.map((r) => r.advertiser))].sort((a, b) => (a === "client" ? -1 : b === "client" ? 1 : a.localeCompare(b)));
-    const advertisers = names.map((a) => { const mine = rows.filter((r) => r.advertiser === a), ok = mine.filter((r) => r.status !== "blocked"), nk = mine.length - ok.length, on = ok.some((r) => r.running); return { advertiser: a, librariesChecked: ok.length, librariesNotKnown: nk, running: on ? true : nk ? null : false, adCount: on || !nk ? ok.reduce((s, r) => s + r.adCount, 0) : null }; });
+    const advertisers = names.map((a) => { const mine = rows.filter((r) => r.advertiser === a), ok = mine.filter((r) => r.status !== "blocked"), nk = mine.length - ok.length, on = ok.some((r) => r.running), rd = LIBRARIES.filter((l) => ok.some((r) => r.library === l)), nr = LIBRARIES.filter((l) => !mine.some((r) => r.library === l)); return { advertiser: a, librariesChecked: ok.length, librariesNotKnown: nk, librariesRead: rd, librariesNotRead: nr, running: on ? true : nk || nr.length ? null : false, adCount: on || (!nk && !nr.length) ? ok.reduce((s, r) => s + r.adCount, 0) : null }; });
     return { advertisers, advertisersChecked: advertisers.filter((x) => x.running !== null).length, advertisersNotKnown: advertisers.filter((x) => x.running === null).length, advertisersRunning: advertisers.filter((x) => x.running).length, clientRunning: advertisers.find((x) => x.advertiser === "client")?.running ?? null, competitorsRunning: advertisers.filter((x) => x.advertiser !== "client" && x.running).length };
   },
 };
