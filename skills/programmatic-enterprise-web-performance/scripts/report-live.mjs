@@ -314,7 +314,7 @@ function computeQ3() {
     const wdomains = (c.competitorsTop3 || []).map((x) => x.domain);
     const audited = wdomains.filter((d) => winners.some((w) => w.domain === d));
     const lcp = bByPath.get(p.path)?.b?.vitals?.lcpMs;
-    clusterRows.push({ id: c.id, search: c.primaryQuery, page: p.path, winningFormat: c.winningFormat, winnersNamed: wdomains, winnersAudited: audited,
+    clusterRows.push({ id: c.id, search: c.primaryQuery, page: p.path, winningFormat: c.winningFormat, captured: !!(c.serpFeatures && !/NOT CAPTURED/i.test(c.serpFeatures.source || "")), requiredCount: (c.requiredEntities || []).length, winnersNamed: wdomains, winnersAudited: audited,
       entitiesMissing: CF(entMissing, `required entities not found on ${p.path} (targets.json requiredEntities vs the snapshot page text)`, targetsFile, targets.createdAt),
       questionsNotShown: CF({ notShown: qNot.length, asked: (c.questions || []).length, list: qNot.slice(0, 5) }, `questions from the research (People Also Ask, forums) not shown as headings on ${p.path}`, targetsFile, targets.createdAt),
       schemaTypes: fact(ownSchemaTypes(p), `JSON-LD on ${p.path}`, snapAt, rel(path.join(snapDir, "pages"))),
@@ -326,6 +326,7 @@ function computeQ3() {
     facts: {
       winnersAudited: CF(winners.map((x) => x.domain), "competitor sites audited (raw HTML as a crawler sees it)", compFile, compR?.generatedAt),
       winningFormats: CF(formats, `what the captured top results look like, counted per researched search (${fmtKnown.length} of ${clusters.length} searches have a readable format)`, targetsFile, targets?.createdAt),
+      unknownFormats: CF({ notCaptured: clusters.filter((c) => !fmtKnown.includes(c) && !captured.includes(c)).length, noAddresses: clusters.filter((c) => !fmtKnown.includes(c) && captured.includes(c)).length }, "searches whose winning format is unknown: no results-page capture yet (targets.json serpFeatures source says NOT CAPTURED), or a capture with no page addresses", targetsFile, targets?.createdAt),
       resultFeatures: CF({ capturedSearches: captured.length, features: feats }, "features seen on the captured results pages (AI answer box, map pack, People Also Ask)", targetsFile, targets?.createdAt),
       ...(serpR?.counts ? { notLocalized: CF({ captures: serpR.counts.captures, notLocalized: serpR.counts.notLocalized }, "results pages captured, and how many were NOT from the asked place (so no city ranking claim is made)", serpFile, serpR.generatedAt) } : {}),
     },
@@ -483,13 +484,15 @@ function q3Lines() {
       ...q3.siteLevel.map((r) => `| ${r.measure} | ${r.ours.value} | ${r.winners.map((w) => (Array.isArray(w.value) ? w.value.length : w.value ?? "n/a")).join(" | ")} |`), "", "These are home page figures; the winners' deeper pages are not audited.", "");
   }
   const fm = Object.entries(q3.facts.winningFormats.value).sort((x, y) => y[1] - x[1]);
-  L.push(fm.length ? `- What wins the results pages we could read: ${fm.map(([k, n]) => `${k} (${n} search${s(n)})`).join(", ")}. The other searches' captures hold no page addresses, so their format is unknown.` : "- The format of the winning pages could not be read from the captures (they hold no page addresses).");
+  const uk = q3.facts.unknownFormats.value, oth = fm.length ? "other " : "";
+  const ukParts = [uk.notCaptured ? `${uk.notCaptured} ${oth}search${uk.notCaptured === 1 ? " has" : "es have"} no results-page capture yet, so their format is unknown` : null, uk.noAddresses ? `${uk.noAddresses} capture${uk.noAddresses === 1 ? " holds" : "s hold"} no page addresses` : null].filter(Boolean);
+  L.push(fm.length ? `- What wins the results pages we could read: ${fm.map(([k, n]) => `${k} (${n} search${s(n)})`).join(", ")}.${ukParts.length ? ` ${ukParts.join("; ")}.` : ""}` : `- The format of the winning pages could not be read${ukParts.length ? `: ${ukParts.join("; ")}` : ""}.`);
   const ft = q3.facts.resultFeatures.value;
   if (ft.capturedSearches) L.push(`- On the ${ft.capturedSearches} searches whose results page was captured: ${Object.entries(ft.features).map(([k, n]) => `${k.replace(/_/g, " ")} on ${n}`).join(", ") || "no special results features seen"}.`);
   if (q3.facts.notLocalized) L.push(`- ${q3.facts.notLocalized.value.notLocalized} of ${q3.facts.notLocalized.value.captures} captured results pages were not from the asked place: they show who wins and in what format, not a city ranking.`);
   if (q3.clusterRows.length) {
     L.push("", "Our pages against their searches:");
-    for (const r of q3.clusterRows.slice(0, 8)) L.push(`- ${r.page} for "${r.search}": ${r.entitiesMissing.value.length ? `missing ${term("entity")} mentions: ${r.entitiesMissing.value.join(", ")}` : "all required entities present"}; questions not shown as headings: ${r.questionsNotShown.value.notShown} of ${r.questionsNotShown.value.asked}${r.lcpMs ? `; loads in ${sec(r.lcpMs.value)} on a phone` : ""}`);
+    for (const r of q3.clusterRows.slice(0, 8)) L.push(`- ${r.page} for "${r.search}": ${!r.requiredCount ? (r.captured ? "no required entities listed for this search" : "required entities not judged (no capture of this search)") : r.entitiesMissing.value.length ? `missing ${term("entity")} mentions: ${r.entitiesMissing.value.join(", ")}` : "all required entities present"}; questions not shown as headings: ${r.questionsNotShown.value.notShown} of ${r.questionsNotShown.value.asked}${r.lcpMs ? `; loads in ${sec(r.lcpMs.value)} on a phone` : ""}`);
   } else L.push("", "No existing page matches a researched search yet, so there is no page-to-page comparison; the missing pages are listed in question 2.");
   L.push("", q3.notMeasured);
   return L;

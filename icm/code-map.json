@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 943,
+    "sources": 944,
     "unowned": 0
   },
   "files": [
@@ -351,6 +351,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-main.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-measure-prompts.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-measure.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-no-capture.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-pages-affected.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-phase1.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-pipeline.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
