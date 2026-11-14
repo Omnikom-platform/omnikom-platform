@@ -43,7 +43,7 @@ export function importProfile(j, { file = null } = {}) {
 }
 
 const median = (a) => { const s = a.filter((x) => x != null).sort((x, y) => x - y); return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : null; };
-export function loadCompetitors(dir) { return loadCaptures(dir).filter((c) => c.name).map((c) => ({ name: c.name, city: c.city || null, primaryCategory: c.primaryCategory || null, secondaryCategories: c.secondaryCategories || [], rating: c.rating ?? null, reviewCount: c.reviewCount ?? c.reviews ?? null, lastReviewDate: c.lastReviewDate || null, photosCount: c.photosCount ?? null, capturedAt: c.capturedAt || null, capturedIn: c.capturedIn || null, file: c._file })); }
+export function loadCompetitors(dir) { return loadCaptures(dir).filter((c) => c.name).map((c) => ({ name: c.name, city: c.city || null, primaryCategory: c.primaryCategory || null, secondaryCategories: Array.isArray(c.secondaryCategories) ? c.secondaryCategories : null, rating: c.rating ?? null, reviewCount: c.reviewCount ?? c.reviews ?? null, lastReviewDate: c.lastReviewDate || null, photosCount: c.photosCount ?? null, capturedAt: c.capturedAt || null, capturedIn: c.capturedIn || null, file: c._file })); }
 
 // Findings. Absolute checks need only the profile; comparative ones need competitor captures and are reported BLOCKED without them.
 export function auditProfile(p, competitors = [], { now = new Date() } = {}) {
@@ -65,12 +65,15 @@ export function auditProfile(p, competitors = [], { now = new Date() } = {}) {
   if (!competitors.length) blockedChecks.push({ id: "LOC-P10..P13", source: "competitor captures", reason: "no competitor profile captures: category, photo, review count/rating/recency comparisons need them", unblock: "Read the top 3 local-pack businesses' public listings once by hand (owner, human pace) and save them as JSON in captures/local/competitors/ with name, primaryCategory, secondaryCategories, rating, reviewCount, lastReviewDate, photosCount, capturedAt." });
   else {
     const cs = (v, extra = {}) => fact(v, `owner browser captures of ${competitors.length} competitor listing(s)`, competitors.map((c) => c.capturedAt).filter(Boolean).sort().at(-1) || null, competitors.map((c) => c.file).join("; "), extra);
-    const used = new Set(competitors.flatMap((c) => [c.primaryCategory, ...c.secondaryCategories]).filter(Boolean));
+    const catsRead = competitors.filter((c) => Array.isArray(c.secondaryCategories)), catsNotRead = competitors.length - catsRead.length;
+    const used = new Set(competitors.flatMap((c) => [c.primaryCategory, ...(Array.isArray(c.secondaryCategories) ? c.secondaryCategories : [])]).filter(Boolean));
+    const catsWords = `Compared the secondary categories of ${catsRead.length} of ${competitors.length} competitors; ${catsNotRead} not read.`;
+    const UNREAD_COMP = "Read the secondary categories on each competitor's listing and write them in its capture; the public listing seldom shows them, so write an empty list only when the listing was opened and shows none. The primary categories were compared.";
     if (p.secondaryCategories == null) blockedChecks.push({ id: "LOC-P10", source: p.source, reason: "our own secondary categories were not read, so the categories competitors use cannot be compared with ours", unblock: UNREAD });
     else {
       const mine = new Set([p.primaryCategory, ...(p.secondaryCategories || [])].filter(Boolean).map((x) => x.toLowerCase()));
       const missingCats = [...used].filter((c) => !mine.has(c.toLowerCase()));
-      if (missingCats.length) add("LOC-P10", "Categories competitors use that we do not", `Competitors use: ${missingCats.join(", ")}.`, { missing: missingCats, competitorsChecked: cs(competitors.length) }, "Add the ones that truly describe the business.");
+      if (missingCats.length) add("LOC-P10", "Categories competitors use that we do not", `Competitors use: ${missingCats.join(", ")}.${catsNotRead ? " " + catsWords : ""}`, { missing: missingCats, competitorsChecked: cs(catsRead.length), competitorsNotRead: catsNotRead }, "Add the ones that truly describe the business."); else if (catsNotRead) blockedChecks.push({ id: "LOC-P10", source: "competitor captures", reason: `${catsWords} Nothing is concluded about the unread ones.`, unblock: UNREAD_COMP });
     }
     const mp = median(competitors.map((c) => c.photosCount)); if (mp != null && p.photosCount != null && p.photosCount < mp) add("LOC-P11", "Fewer photos than competitors", `${p.photosCount} photos against a competitor median of ${mp}.`, { ours: src(p.photosCount), competitorMedian: cs(mp) }, "Add real photos: storefront, team, work, interior.");
     const mr = median(competitors.map((c) => c.reviewCount)); if (mr != null && p.reviews.count != null && p.reviews.count < mr) add("LOC-P12", "Fewer reviews than competitors", `${p.reviews.count} reviews against a competitor median of ${mr}.`, { ours: src(p.reviews.count), competitorMedian: cs(mr) }, "A steady review request routine closes this over months.");
