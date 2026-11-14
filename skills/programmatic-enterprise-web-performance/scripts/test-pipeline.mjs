@@ -75,6 +75,7 @@ async function scenarios(sdir) {
       ["an engines name that lib-stops does not know", (m) => { step(m, "capture-google").engines = ["nope"]; }, /engines holds 'nope'/],
       ["engines that is not a list of names", (m) => { step(m, "capture-google").engines = "google"; }, /engines must be a list of strings/],
       ["an exit override that is not a digit 0 to 4", (m) => { step(m, "psi").exit = { 7: "x" }; }, /exit key '7' is not an exit code/],
+      ["a partialSettles that is not true or false", (m) => { step(m, "psi").partialSettles = "yes"; }, /partialSettles must be true or false/],
       ["an unknown kind", (m) => { step(m, "psi").kind = "other"; }, /kind must be stable, time-sensitive or derived/],
       ["a step that calls vantage start", (m) => { step(m, "vantage").args = ["start"]; }, /a step must never call vantage start/],
       ["evidence that is neither under an output nor an input", (m) => { step(m, "psi").evidence = ["{pewp}/elsewhere.json"]; }, /evidence '.*elsewhere\.json' is neither inside an output nor an input/],
@@ -85,6 +86,8 @@ async function scenarios(sdir) {
       let bad; try { bad = val(m); } catch (e) { bad = [`threw: ${e.message}`]; }
       check(`V: ${name} is refused`, bad.some((b) => re.test(b)), `wanted ${re}; got ${bad.join(" | ") || "no problem at all"}`);
     }
+
+    { const m = clone(); step(m, "psi").partialSettles = true; const ok = val(m); check("V: partialSettles true is accepted", ok.length === 0, ok.join(" | ") || "accepted"); }
 
     // ---------------- O: the run order ----------------
     const ordered = lib.runOrder(manifest.steps).ids;
@@ -441,6 +444,8 @@ const MUTANTS = [
   { name: "unknown placeholder in a brief allowed", patches: [{ file: LP, from: "if (typeof s.brief === \"string\") for (const name of placeholdersIn(s.brief)) if (!PLACEHOLDERS.includes(name)) bad(", to: "if (typeof s.brief === \"string\") for (const name of placeholdersIn(s.brief)) if (false) bad(" }], expect: [/^V: an unknown placeholder in a brief/] },
   { name: "a missing script is not noticed", patches: [{ file: LP, from: "const gone = scriptExists ? !scriptExists(s.script) : file !== null && !ex(file);", to: "const gone = false;" }], expect: [/^V: a script that does not exist is refused/] },
   { name: "an unknown step key is allowed", patches: [{ file: LP, from: "if (!STEP_KEYS.includes(k)) bad(\"step-key\"", to: "if (false) bad(\"step-key\"" }], expect: [/^V: an unknown step key is refused/] },
+  { name: 'partialSettles is not a known step key', patches: [{ file: LP, from: 'export const OPTIONAL = ["brief", "exit", "engines", "partialSettles"];', to: 'export const OPTIONAL = ["brief", "exit", "engines"];' }], expect: [/^V: partialSettles true is accepted/] },
+  { name: 'partialSettles is not checked as true or false', patches: [{ file: LP, from: '"heavy", "partialSettles"]) if (k in s && typeof s[k] !== "boolean")', to: '"heavy"]) if (k in s && typeof s[k] !== "boolean")' }], expect: [/^V: a partialSettles that is not true or false is refused/] },
   { name: "an unknown top-level key is allowed", patches: [{ file: LP, from: "if (!TOP_KEYS.includes(k)) bad(\"top-level\"", to: "if (false) bad(\"top-level\"" }], expect: [/^V: an unknown top-level key is refused/] },
   { name: "a WAITING step needs no brief", patches: [{ file: LP, from: "if (typeof s.brief !== \"string\" || !s.brief.trim()) bad(\"waiting\"", to: "if (false) bad(\"waiting\"" }], expect: [/^V: a WAITING step without a brief/] },
   { name: "evidence may be anywhere", patches: [{ file: LP, from: "else if (!(s.outputs || []).some((o) => covers(o, e)) && !(s.inputs || []).some((o) => covers(o, e))) bad(\"evidence\"", to: "else if (false) bad(\"evidence\"" }], expect: [/^V: evidence that is neither under an output nor an input/] },

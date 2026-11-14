@@ -1,7 +1,7 @@
 // The engine of `omnikom seo run | resume | status` (work order 41): every mechanical step of a client SEO audit, in the order SEO's manifest says.
 // The manifest (lib/seo-manifest.mjs, the skill's one rule engine) is the only source of steps AND of every rule: what a step is, where its files are, what done means, what an exit code
 // amounts to, what a stop is. This file adds no step, no rule, rewrites no reason a script gave and swallows no exit code, the same principle as commands/audit.mjs. What it adds is the
-// order (a step runs after what it dependsOn is RUN), the pre-checks that never start a script (a missing dependency, key or input file is BLOCKED, by name), the two locks (a host is hit by
+// order (a step runs after what it dependsOn is settled: RUN, SKIPPED, or PARTIAL with partialSettles), the pre-checks that never start a script (a missing dependency, key or input file is BLOCKED, by name), the two locks (a host is hit by
 // one step at a time, heavy steps run one at a time through heavy.mjs), the spawning with its timeouts and tree kill, and the run log {pewp}/seo-run.json (the skill's lib-run.mjs reads and
 // writes it), from which the coverage table is read.
 // States: RUN (exit 0 AND every evidence glob holds a non-empty file written after the step started, no input is newer and the engine's notCurrent finds the evidence current: otherwise the step re-runs), SKIPPED (exit 4, the script's own
@@ -77,7 +77,7 @@ const liveFiles = pattern => globPaths(pattern).flatMap(p => filesUnder(p));
 function prepare(manifest, vars) {
   return runOrder(manifest).steps.map(s => ({
     id: s.id, module: s.module, what: s.what, script: s.script, waiting: isWaiting(s), heavy: s.heavy, hits: s.hits,
-    needsKeys: s.needsKeys, dependsOn: s.dependsOn, timeoutMinutes: s.timeoutMinutes, maxAgeDays: s.maxAgeDays,
+    needsKeys: s.needsKeys, dependsOn: s.dependsOn, timeoutMinutes: s.timeoutMinutes, maxAgeDays: s.maxAgeDays, partialSettles: s.partialSettles === true,
     needsBrowser: s.needsBrowser, needsAi: s.needsAi, needsPerson: s.needsPerson, engines: Array.isArray(s.engines) ? s.engines : [],
     args: substitute(s.args, vars),
     inputs: substitute(s.inputs, vars), outputs: substitute(s.outputs, vars),
@@ -261,7 +261,7 @@ export async function runSeo(o) {
       const ev = adoptable(step);
       if (ev) return { final: { entry: runEntry(step, ev, { adopted: true, adoptedAt: iso(Date.now()) }), how: 'adopted', store: true } };
     }
-    const notRun = step.dependsOn.filter(d => stateOf(d) !== 'RUN' && stateOf(d) !== 'SKIPPED');   // a SKIPPED step is settled: its dependents run (what they need from it is checked as an input)
+    const notRun = step.dependsOn.filter(d => !(stateOf(d) === 'PARTIAL' && byId.get(d).partialSettles) && stateOf(d) !== 'RUN' && stateOf(d) !== 'SKIPPED');   // a SKIPPED step is settled: its dependents run (what they need from it is checked as an input); so is a PARTIAL one whose manifest step says partialSettles
     if (notRun.length) {
       const what = notRun.map(d => `${d} (${stateOf(d)})`).join(', ');
       return { final: { entry: blocked(step, `BLOCKED: waits for ${what} | unblocks: ${notRun.join(', ')} reaching RUN`), store: true } };

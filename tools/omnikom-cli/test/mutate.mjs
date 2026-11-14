@@ -769,6 +769,12 @@ const MUTANTS = [
   ['seo run: another client\'s run log is overwritten [seo-run]', 'lib/seo-run.mjs', 'else if (prior && prior.client !== client && !o.fresh) throw new Usage(', 'else if (false) throw new Usage(', 'unit'],
   ['seo resume: no run log is accepted [seo-run]', 'lib/seo-run.mjs', 'if (!prior) throw new Usage(', 'if (false) throw new Usage(', 'unit'],
   ['seo status: a step that was running when its run was stopped is shown as RUN [seo-run]', 'lib/seo-run.mjs', "if (state === 'RUNNING') { state = 'FAILED';", "if (state === 'RUNNING') { state = 'RUN';", 'unit'],
+  ['seo run: a PARTIAL step lets its dependents run without partialSettles [partial]', 'lib/seo-run.mjs', "!(stateOf(d) === 'PARTIAL' && byId.get(d).partialSettles) && ", "!(stateOf(d) === 'PARTIAL') && ", 'unit'],
+  ['seo run: the key of one step is read for every step [partial]', 'lib/seo-run.mjs', 'byId.get(d).partialSettles', 'steps.some(x => x.partialSettles)', 'unit'],
+  ['seo run: partialSettles lets a FAILED or BLOCKED step settle too [partial]', 'lib/seo-run.mjs', "!(stateOf(d) === 'PARTIAL' && byId.get(d).partialSettles) && ", '!byId.get(d).partialSettles && ', 'unit'],
+  ['seo run: the key does not reach the step from the manifest [partial]', 'lib/seo-run.mjs', 'partialSettles: s.partialSettles === true,', 'partialSettles: false,', 'unit'],
+  ['seo run: a PARTIAL step turns the exit code to 1 [partial]', 'commands/seo.mjs', "const fromData = d => result(d.failed === 0, d.failed === 0 ? 'ok' : 'SEO-FAILED', d);", "const fromData = d => result(d.failed === 0 && d.counts.PARTIAL === 0, d.failed === 0 ? 'ok' : 'SEO-FAILED', d);", 'unit'],
+  ['seo resume: a PARTIAL step is adopted from its partial file instead of run again [partial]', 'lib/seo-run.mjs', 'if (entries.has(step.id)) return null;', '', 'unit'],
   // ---- the registry and the thin wrap (P3.3 B1)
   ['[wrap] a time-out (124) comes out as 124', 'lib/wrap.mjs', '  return 1;   // everything else', '  return childExit === 124 ? 124 : 1;   // everything else', 'unit'],
   ['[wrap] a 4 with no SKIPPED: line comes back 0', 'lib/wrap.mjs', "startsWith('SKIPPED:') ? 0 : 1", "startsWith('SKIPPED:') ? 0 : 0", 'unit'],

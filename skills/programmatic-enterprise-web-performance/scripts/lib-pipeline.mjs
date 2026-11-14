@@ -24,7 +24,7 @@
 //
 // Validity rules (rule ids in brackets; a manifest that breaks one is invalid and neither runner runs it):
 //   [top-level] only version (1), name, what, conventions, vars, steps, coverage; a name [vars] vars keys are placeholders [steps] a non-empty list
-//   [step-key] a step has exactly the keys in REQUIRED, plus optionally brief, exit and engines [required-key] [type] every value the right type (kind and maxAgeDays are required on every step)
+//   [step-key] a step has exactly the keys in REQUIRED, plus optionally brief, exit, engines and partialSettles [required-key] [type] every value the right type (kind and maxAgeDays are required on every step)
 //   [id] [duplicate-id] ids unique, lower-case words joined by single hyphens [module] the same pattern [kind] stable | time-sensitive | derived [pace] text or null
 //   [placeholder] only {url} {client} {host} {skill} {data} {runDir} {pewp} {work}, in args, inputs, outputs, evidence and brief; none in the script path
 //   [dependsOn] names an id that exists [self-dependency] never itself [cycle] no cycle
@@ -38,6 +38,7 @@
 //   [hits] none | client | third-party:<host-or-name>
 //   [engines] optional: a non-empty list of engine names known to lib-stops.mjs (google, bing, commoncrawl, ...): while a stop is in force for one of them the runner marks the step
 //             BLOCKED with the stop's until and reason and never starts it (psi and crux are keyed APIs outside the search stop and carry none)
+//   [partialSettles] optional true or false (default false): read by omnikom seo run only. A dependent of a PARTIAL step whose partialSettles is true may run (the step stays PARTIAL in the table and the log); start.mjs audit-live ignores the key and still holds the dependents of a partial step (start.mjs:360, :393).
 // Run order: file order, except that a step never comes before a step it depends on (the first step in file order whose dependencies are all placed goes next).
 // Outcome of a step that ran (stepOutcome): exit 0 = done (then its evidence must be done, else fail), or partial when its last line is `PARTIAL: <what is missing>` (then run again to continue);
 // 3 = blocked, and its last line must be `BLOCKED: <what> | unblocks: <what would>` (else fail: a broken contract), or needs-input when the output holds a NEEDS-INPUT line; 4 = skipped with a
@@ -52,7 +53,7 @@ import { KNOWN_ENGINES, isStopped as realIsStopped } from "./lib-stops.mjs";
 export const PLACEHOLDERS = ["url", "client", "host", "skill", "data", "runDir", "pewp", "work"];
 export const TOP_KEYS = ["version", "name", "what", "conventions", "vars", "steps", "coverage"];
 export const REQUIRED = ["id", "module", "what", "script", "args", "inputs", "outputs", "dependsOn", "needsBrowser", "needsAi", "needsPerson", "needsKeys", "heavy", "hits", "pace", "timeoutMinutes", "evidence", "kind", "maxAgeDays"];
-export const OPTIONAL = ["brief", "exit", "engines"];
+export const OPTIONAL = ["brief", "exit", "engines", "partialSettles"];
 export const STEP_KEYS = [...REQUIRED, ...OPTIONAL];
 export const BROWSER = ["none", "headless", "owner"];
 export const KINDS = ["stable", "time-sensitive", "derived"];
@@ -221,7 +222,7 @@ export function validateManifest(m, { skillDir = null, repoRoot = null, scriptEx
     if ("module" in s && !(typeof s.module === "string" && ID.test(s.module))) bad("module", at, "module must be lowercase words joined by hyphens");
     if ("what" in s && !(typeof s.what === "string" && s.what.trim())) bad("type", at, "what must say, in words, what the step does");
     for (const k of ["args", "inputs", "outputs", "dependsOn", "needsKeys", "evidence"]) if (k in s && !isStrings(s[k])) bad("type", at, `${k} must be a list of strings`);
-    for (const k of ["needsAi", "needsPerson", "heavy"]) if (k in s && typeof s[k] !== "boolean") bad("type", at, `${k} must be true or false`);
+    for (const k of ["needsAi", "needsPerson", "heavy", "partialSettles"]) if (k in s && typeof s[k] !== "boolean") bad("type", at, `${k} must be true or false`);
     if ("needsBrowser" in s && !BROWSER.includes(s.needsBrowser)) bad("type", at, `needsBrowser must be one of ${BROWSER.join(", ")} (got ${JSON.stringify(s.needsBrowser)})`);
     if ("hits" in s && !(typeof s.hits === "string" && /^(none|client|third-party:[a-z0-9.-]+)$/.test(s.hits))) bad("hits", at, `hits must be client, none or third-party:<name> (got ${JSON.stringify(s.hits)})`);
     if ("pace" in s && s.pace !== null && typeof s.pace !== "string") bad("pace", at, "pace must be a string or null");

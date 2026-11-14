@@ -168,6 +168,32 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     check('seo status: text table with the brief, the inputs and the outputs under a WAITING row, and the counts line', r.exit === 1 && /^WAITING +fx-wait +gamma +needs the owner's browser$/m.test(r.stdout) && r.stdout.includes(`do: Open ${URL_} in the owner's browser`) && r.stdout.includes('write: site-checks/127.0.0.1/.pewp/captures/fx-wait.json') && r.stdout.includes('counts: RUN 2, SKIPPED 1, BLOCKED 3, WAITING 1, PARTIAL 1, FAILED 1, NOT RUN 0 (of 9 steps)'), r.stdout);
     check('seo status: a module line per module', r.stdout.includes('module alpha: 2 RUN (of 2)') && r.stdout.includes('module beta: 1 SKIPPED, 1 BLOCKED, 1 PARTIAL (of 3)'), r.stdout);
 
+    // ================================================================ partialSettles: a PARTIAL step lets its dependents run, only where its own manifest step says so [partial]
+    const PART = { script: 'scripts/partial.mjs' };   // exit 0, writes its file, last line 'PARTIAL: read 10 of 25'
+    s = site(M(S('p-off', PART), S('q-off', { dependsOn: ['p-off'] })));
+    r = await run(s);
+    check('seo run: a PARTIAL step without partialSettles blocks its dependent as before, and the exit is 0 (PARTIAL is not a failure)', r.exit === 0 && JSON.stringify(states(r)) === JSON.stringify({ 'p-off': 'PARTIAL', 'q-off': 'BLOCKED' }) && row(r, 'q-off').detail.startsWith('BLOCKED: waits for p-off (PARTIAL) |') && starts(s, 'q-off') === 0, JSON.stringify(states(r)));
+    s = site(M(S('p1', { ...PART, partialSettles: true }), S('p2', PART), S('q1', { dependsOn: ['p1'] }), S('q2', { dependsOn: ['p2'] }), S('q12', { dependsOn: ['p1', 'p2'] })));
+    r = await run(s);
+    check('seo run: partialSettles is per step: the dependent of the step that has it runs, one that depends on a PARTIAL step without it is BLOCKED by that step alone', r.exit === 0 && JSON.stringify(states(r)) === JSON.stringify({ p1: 'PARTIAL', p2: 'PARTIAL', q1: 'RUN', q2: 'BLOCKED', q12: 'BLOCKED' }) && row(r, 'q12').detail.startsWith('BLOCKED: waits for p2 (PARTIAL) |') && starts(s, 'q1') === 1 && starts(s, 'q2') === 0 && starts(s, 'q12') === 0, JSON.stringify(states(r)) + ' ' + row(r, 'q12').detail);
+    s = site(M(S('p', { ...PART, partialSettles: true }), S('q', { dependsOn: ['p'] })));
+    r = await run(s);
+    const plog = JSON.parse(readFileSync(join(s.pewp, 'seo-run.json'), 'utf8'));
+    check('seo run: partialSettles on: the dependent runs, the step stays PARTIAL in the table, the log and the counts, and the exit is 0 with failed 0', r.exit === 0 && r.json.data.failed === 0 && JSON.stringify(states(r)) === JSON.stringify({ p: 'PARTIAL', q: 'RUN' }) && row(r, 'p').line === 'PARTIAL: read 10 of 25' && r.json.data.counts.PARTIAL === 1 && r.json.data.counts.RUN === 1 && plog.steps.find(x => x.id === 'p').state === 'PARTIAL' && starts(s, 'q') === 1, JSON.stringify(states(r)));
+    r = await go(s, ['status', URL_]);
+    check('seo status: a PARTIAL step lets its dependents run: its row and the counts line still say PARTIAL, exit 0', r.exit === 0 && /^PARTIAL +p +m /m.test(r.stdout) && r.stdout.includes('counts: RUN 1, SKIPPED 0, BLOCKED 0, WAITING 0, PARTIAL 1, FAILED 0, NOT RUN 0 (of 2 steps)'), r.stdout);
+    s = site(M(S('f', { script: 'scripts/fail.mjs', partialSettles: true }), S('after-f', { dependsOn: ['f'] }), S('b', { script: 'scripts/blocked.mjs', partialSettles: true }), S('after-b', { dependsOn: ['b'] })));
+    r = await run(s);
+    check('seo run: with partialSettles on, a FAILED or BLOCKED step still blocks its dependent (the key is about PARTIAL only)', JSON.stringify(states(r)) === JSON.stringify({ f: 'FAILED', 'after-f': 'BLOCKED', b: 'BLOCKED', 'after-b': 'BLOCKED' }) && starts(s, 'after-f') === 0 && starts(s, 'after-b') === 0, JSON.stringify(states(r)));
+    s = site(M(S('p', { ...PART, partialSettles: true }), S('q', { dependsOn: ['p'], script: 'scripts/fail.mjs' })));
+    r = await run(s);
+    check('seo run: the exit code follows FAILED only: a failing dependent of a PARTIAL step is exit 1, SEO-FAILED, failed 1; the PARTIAL step itself is neither', r.exit === 1 && r.json.code === 'SEO-FAILED' && r.json.data.failed === 1 && states(r).p === 'PARTIAL' && states(r).q === 'FAILED', r.all.slice(0, 300));
+    s = site(M(S('p', { ...PART, partialSettles: true }), S('q', { dependsOn: ['p'] })));
+    await run(s);
+    writeFileSync(join(s.skill, 'pipeline.json'), JSON.stringify(M(S('p', { partialSettles: true }), S('q', { dependsOn: ['p'] }))));   // the missing part is now read: same step, a script that completes
+    r = await resume(s);
+    check('seo resume: a PARTIAL step runs again and ends RUN (never adopted from its partial file); the dependent that already ran is not run again', r.exit === 0 && JSON.stringify(states(r)) === JSON.stringify({ p: 'RUN', q: 'RUN' }) && starts(s, 'p') === 2 && starts(s, 'q') === 1 && row(r, 'q').how === 'already done' && !row(r, 'p').how, JSON.stringify(states(r)) + ' ' + row(r, 'q').how);
+
     // ---- a missing BLOCKED line is said, never invented; a stray exit 2 is FAILED (usage)
     s = site(M(S('nl', { script: 'scripts/blocked-noline.mjs' }), S('snl', { script: 'scripts/skipped-noline.mjs' }), S('sk', { script: 'scripts/skipped.mjs' }), S('after-sk', { dependsOn: ['sk'] }), S('after-nl', { dependsOn: ['nl'] })));
     r = await run(s);
