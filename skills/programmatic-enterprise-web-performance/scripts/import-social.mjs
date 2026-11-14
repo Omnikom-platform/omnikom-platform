@@ -9,9 +9,11 @@
 //   linkStatus is the HTTP status the visitor saw when the profile's link was opened (200, 301 then 200 is 200, 404 ...) or null when there is no link.
 //   A profile that could not be read is { "platform":..., "profileUrl":..., "blocked":"login wall", "capturedAt":..., "browser":... } and becomes a blocked row, never a zero.
 // A file with an unknown platform, no profile address, no followers number (and not blocked), a bad newestPostDate or a non-number linkStatus is REJECTED with the reason.
-// Output: research/social.json { rows:[{platform, kind, handle, profileUrl, status:"ok"|"blocked", followers, posts, views, newestPostDate, daysSinceNewest, active,
-//   linkTarget, linkStatus, linkWorks, file, capturedAt, ageDays, stale}], summary:{ profilesRead, blocked, totalFollowers, platformsActive:[...], linksBroken:[profileUrl] } }.
-//   active = a post within the last 90 days.
+// Output: research/social.json { rows:[{platform, kind, handle, profileUrl, status:"ok"|"blocked", followers, posts, views, newestPostDate, daysSinceNewest, active, judged,
+//   linkTarget, linkStatus, linkWorks, file, capturedAt, ageDays, stale}], summary:{ profilesRead, blocked, totalFollowers, platformsActive:[...], platformsNotActive:[...], platformsNotJudged:[...], linksBroken:[profileUrl] } }.
+//   active = a post within the last 90 days. judged = the newest post date was read, or the profile shows 0 posts. A profile with posts (or a post count
+//   not shown) and no newest post date is NOT JUDGED, never "not active". Per platform (several profiles count together): active when any profile is
+//   active; else not judged when any is not judged; else not active. Each platform is in exactly one of platformsActive, platformsNotActive, platformsNotJudged.
 import { cli, nonEmpty, toNum, toDate, daysSince, isHttp } from "./lib-captures.mjs";
 
 const PLATFORMS = ["youtube", "tiktok", "instagram", "linkedin", "facebook", "x"];
@@ -36,11 +38,13 @@ const def = {
     if (j.linkTarget != null && !isHttp(j.linkTarget)) e.push("linkTarget is not an http(s) address");
     if (e.length) return { errors: e };
     const d = daysSince(newest);
-    return { errors: [], row: { platform, kind: j.kind || null, handle: j.handle || null, profileUrl: j.profileUrl, status: "ok", followers, posts, postsIncludeShorts: j.postsIncludeShorts ?? null, views, newestPostDate: newest, daysSinceNewest: d, active: d != null && d <= 90, linkTarget: j.linkTarget || null, linkStatus: j.linkStatus ?? null, linkWorks: j.linkStatus == null ? null : j.linkStatus >= 200 && j.linkStatus < 300 } };
+    return { errors: [], row: { platform, kind: j.kind || null, handle: j.handle || null, profileUrl: j.profileUrl, status: "ok", followers, posts, postsIncludeShorts: j.postsIncludeShorts ?? null, views, newestPostDate: newest, daysSinceNewest: d, active: d != null && d <= 90, judged: d != null || posts === 0, linkTarget: j.linkTarget || null, linkStatus: j.linkStatus ?? null, linkWorks: j.linkStatus == null ? null : j.linkStatus >= 200 && j.linkStatus < 300 } };
   },
   summarize(rows) {
     const ok = rows.filter((r) => r.status === "ok");
-    return { profilesRead: ok.length, blocked: rows.filter((r) => r.status === "blocked").length, totalFollowers: ok.reduce((a, r) => a + r.followers, 0), platformsActive: [...new Set(ok.filter((r) => r.active).map((r) => r.platform))].sort(), linksBroken: ok.filter((r) => r.linkWorks === false).map((r) => r.profileUrl) };
+    const act = new Set(ok.filter((r) => r.active).map((r) => r.platform)), nj = new Set(ok.filter((r) => !r.judged && !act.has(r.platform)).map((r) => r.platform));
+    const na = new Set(ok.filter((r) => !act.has(r.platform) && !nj.has(r.platform)).map((r) => r.platform));
+    return { profilesRead: ok.length, blocked: rows.filter((r) => r.status === "blocked").length, totalFollowers: ok.reduce((a, r) => a + r.followers, 0), platformsActive: [...act].sort(), platformsNotActive: [...na].sort(), platformsNotJudged: [...nj].sort(), linksBroken: ok.filter((r) => r.linkWorks === false).map((r) => r.profileUrl) };
   },
 };
 

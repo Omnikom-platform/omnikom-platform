@@ -12,5 +12,6 @@
   { "file": "test-pages-affected.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-link-gap.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-no-capture.mjs", "plain": [], "mutants": ["--mutants"] },
-  { "file": "test-speed-words.mjs", "plain": [], "mutants": ["--mutants"] }
+  { "file": "test-speed-words.mjs", "plain": [], "mutants": ["--mutants"] },
+  { "file": "test-social-words.mjs", "plain": [], "mutants": ["--mutants"] }
 ]
