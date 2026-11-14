@@ -8,12 +8,13 @@
 // are null here and nothing about it is printed.
 import fs from "node:fs";
 import path from "node:path";
+import { isAdName, mapsTile } from "./client-copy-rules.mjs";
 
 export const stop = (line) => { const e = new Error(line); e.isStop = true; throw e; };
 export const fmt = (n) => (typeof n === "number" ? n.toLocaleString("en-US") : n);
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const isAd = (name) => /^(Ad|Sponsored)\s·\s/.test(name); // a paid row the map list shows: never printed as a competitor
+const isAd = isAdName; // a paid row the map list shows: never printed as a competitor (the rule is client-copy-rules.mjs)
 const street = (a, home) => { const i = a.search(new RegExp(`,\\s*${escRe(home)}`, "i")); return (i > 0 ? a.slice(0, i) : a).trim(); };
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const lowerFirst = (s) => s.replace(/^[A-Z](?=[a-z])/, (c) => c.toLowerCase());
@@ -470,6 +471,31 @@ export function collect(cfg) {
     const states = ids.map((id) => ({ id, state: get("book", `match:^\\| ${escRe(String(id))} [^|]*\\| ([A-Z]+) \\|`, "text") }));
     const works = states.every((s) => s.state === "WORKS");
     put(`v2_${k}`, works, src("backing", k, ids), ...states.map((s) => src("book", `the row "| ${s.id} ... |" state`, s.state)));
+  }
+  // ---- the approved design (cfg.newCopy): keys of the new pages
+  if (cfg.newCopy) {
+    const gLen = (id, field) => get(id, field, "array").length;
+    put("nPages", gLen("serp", "captures"), src("serp", "captures (length)", gLen("serp", "captures")));
+    put("nPoints", gLen("grid", "points"), src("grid", "points (length)", gLen("grid", "points")));
+    const okEng = get("ai", "summary.engines", "array").map((_, i) => ({ e: get("ai", `summary.engines[${i}].engine`, "text"), s: get("ai", `summary.engines[${i}].status`, "text") })).filter((x) => x.s === "ok");
+    if (!["chatgpt", "perplexity"].every((e) => okEng.some((x) => x.e === e))) stop(`STOP: ${label(defs.ai)} has no summary.engines with status ok for both chatgpt and perplexity`);
+    put("aiAsked", okEng.length, src("ai", "summary.engines[status=ok] (length)", okEng.length));
+    // the tiles: every grid point's own state, by product and city (client-copy-rules.mjs mapsTile), checked against solv
+    if (n !== 3) stop(`STOP: ${label(defs.grid)} has plan.n ${n}, the tile of the copy is 3 by 3`);
+    const gp = get("grid", "points", "array").map((_, i) => {
+      get("grid", `points[${i}].position`, "object");
+      return { query: get("grid", `points[${i}].query`, "text"), city: get("grid", `points[${i}].city`, "text"), row: get("grid", `points[${i}].row`, "count"), col: get("grid", `points[${i}].col`, "count"), position: { value: getMaybe("grid", `points[${i}].position.value`, "number") } };
+    });
+    const qOf = solv.map((_, i) => get("grid", `solv[${i}].query`, "text"));
+    const tileRows = demand.map((r) => ({ key: r.key, product: r.product, lower: r.lower, cells: cities.map((c) => {
+      const i = solv.findIndex((s) => s.key === r.key && s.cityName === c), s = solv[i];
+      let t; try { t = mapsTile(gp, qOf[i]); } catch (e) { stop(`STOP: ${label(defs.grid)}: ${e.message}`); }
+      if (t.counts["top three"] !== s.in3) stop(`STOP: ${label(defs.grid)}: solv[query=${qOf[i]}].pointsIn3Pack is ${s.in3}, its points show ${t.counts["top three"]} in the top three`);
+      if (t.counts["top three"] + t.counts.listed !== s.inPack) stop(`STOP: ${label(defs.grid)}: solv[query=${qOf[i]}].pointsInPack is ${s.inPack}, its points show ${t.counts["top three"] + t.counts.listed} in the list`);
+      return { city: c, query: qOf[i], points: t.points, tile: t.tile, counts: t.counts, inPack: s.inPack };
+    }) }));
+    put("mapTiles", { per: 9, cities, rows: tileRows }, ...tileRows.flatMap((r) => r.cells.map((c) => src("grid", `points[query=${c.query}].position.value (the tile); solv[query=${c.query}].pointsIn3Pack, .pointsInPack`, `${c.counts["top three"]} of ${c.points} in the top three, ${c.inPack} in the list`))));
+    // @@KEYS (job R2b adds its keys above this line; keep it verbatim)
   }
   return { D, S, fmt, labelOf };
 }

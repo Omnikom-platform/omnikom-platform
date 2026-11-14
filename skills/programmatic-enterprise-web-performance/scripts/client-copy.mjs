@@ -34,8 +34,8 @@ const bookAbs = path.resolve(opt["--book"] || path.join(skillDir, "..", "..", "d
 const assetsDir = path.resolve(opt["--assets"] || path.join(skillDir, "assets", "client-copy"));
 
 // ---- the client file (it lives with the client, never in the repository)
-const KEYS = ["shortName", "nameWord", "alsoSearchedAs", "date", "contact", "labels", "words", "rivals", "adsFor", "linkPlace", "linkCompare", "rivalsLede", "promisePattern", "handReads"];
-const WORDS = { buyer: "buyer", buyers: "buyers", applicant: "enquirer", application: "enquiry form", apply: "get in touch", applies: "gets in touch", pastCustomer: "past customer", outcome: "customers", offers: "messages", product: "service", products: "services", localRivals: "businesses", optionalNote: "with or without its optional part" };
+const KEYS = ["shortName", "nameWord", "alsoSearchedAs", "date", "contact", "labels", "words", "rivals", "adsFor", "linkPlace", "linkCompare", "rivalsLede", "promisePattern", "handReads", "unconfirmedNames"];
+const WORDS = { buyer: "buyer", buyers: "buyers", applicant: "enquirer", application: "enquiry form", apply: "get in touch", applies: "gets in touch", pastCustomer: "past customer", outcome: "customers", offers: "messages", product: "service", products: "services", localRivals: "businesses", optionalNote: "with or without its optional part", otherKind: "another business" };
 const HANDS = ["leadPath", "mail", "domain", "trust", "trustKey", "filing"];
 const isText = (v) => typeof v === "string" && v.trim() !== "";
 const isTexts = (v) => Array.isArray(v) && v.every(isText);
@@ -51,7 +51,7 @@ if (contactIn !== null && !isText(contactIn)) usage('contact must be null, "none
 const draft = contactIn === null;
 const contact = draft || contactIn === "none" ? null : contactIn;
 for (const k of ["shortName", "nameWord", "linkPlace", "rivalsLede", "promisePattern"]) if (k in client && !isText(client[k])) usage(`${k} must be a text`);
-for (const k of ["alsoSearchedAs", "adsFor"]) if (k in client && !isTexts(client[k])) usage(`${k} must be a list of texts`);
+for (const k of ["alsoSearchedAs", "adsFor", "unconfirmedNames"]) if (k in client && !isTexts(client[k])) usage(`${k} must be a list of texts`);
 if ("date" in client && !/^\d{4}-\d{2}-\d{2}$/.test(String(client.date))) usage("date must be yyyy-mm-dd");
 if ("labels" in client && !(client.labels && typeof client.labels === "object" && !Array.isArray(client.labels) && Object.values(client.labels).every(isText))) usage("labels must map a product to a text");
 if ("words" in client) {
