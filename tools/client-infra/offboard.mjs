@@ -12,6 +12,8 @@
 // is public). Every step reads first, so a second run changes nothing ("RESULT: changed 0").
 // DNS records are never touched (the owner's click). The workspace's rows stay (the state deleted ends the offboarding; removing
 // the rows is not decided).
+// Staff act only inside a window (migration 43): withWindows opens one of 1 minute around each staff call; a dry run opens one only for the
+// Storage list of --delete on an offboarding workspace (a staff_access row and its audit row: the one write a dry run makes).
 // Exit: 0 done, 1 a step failed, 2 refused (nothing written). Staging only.
 import { readFileSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -59,8 +61,24 @@ export function precheck(o) {
   return m;
 }
 
-export async function offboard(o, d) {
+// Each staff call of the database gets a window of its own (migration 43): 1 minute, the least it takes (private.is_staff() reads the clock
+// once, when the call's transaction starts), a reason that names this tool and the call, closed after the call whatever happened. The reads
+// and the direct updates of offboard-live.mjs use the connection's own rights, not the staff claims: no window.
+const STAFF_CALLS = ['setState', 'setTicket', 'deleteLead', 'offboardingStorage'];
+function withWindows(db) {
+  const wrapped = { ...db };
+  for (const name of STAFF_CALLS) {
+    wrapped[name] = async (...args) => {
+      const until = await db.staffOpen(`tools/client-infra/offboard.mjs ${name}`, 1);
+      try { return await db[name](...args); } finally { await db.staffClose(until); }
+    };
+  }
+  return wrapped;
+}
+
+export async function offboard(o, deps) {
   const mark = precheck(o);
+  const d = { ...deps, db: withWindows(deps.db) };
   const out = { changed: 0, failed: [] };
   const log = d.log, would = (what, call) => log(`would  ${what}  [${call}]`), did = (what) => { out.changed++; log(`done   ${what}`); };
   const fail = (what, msg) => { out.failed.push(what); log(`FAIL   ${msg}`); };

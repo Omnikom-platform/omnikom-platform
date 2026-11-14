@@ -24,6 +24,8 @@ export function newWorld() {
     files: new Map(),
     audit: [],
     writes: [],
+    windows: [],   // migration 43: { until, reason, minutes, open }, one per staff window (kept apart from writes: a test counts writes)
+    failCall: null,   // the name of a staff call that throws after the window check
     countLie: null,    // a table whose count(*) says one more than its rows
     sizeLie: false,    // Storage metadata says another size than the bytes
     keyStaysActive: false,
@@ -37,6 +39,11 @@ const digits = (s) => String(s || '').replace(/[^0-9]/g, '');
 
 export function offboardFakeDeps(w, lines = []) {
   const write = (what) => w.writes.push(what);
+  // migration 43: a staff call outside an open window is refused as the database refuses it
+  const needWindow = (name) => {
+    if (!w.windows.some((x) => x.open)) throw new Error('S-NOT-FOUND: not found');
+    if (w.failCall === name) throw new Error(`S-TEST: ${name} failed`);
+  };
   const matches = (l, subject) => lc(l.email) === lc(subject) || (digits(subject).length >= 7 && digits(l.phone).slice(-10) === digits(subject).slice(-10));
   const rowText = (key) => (t) => (key.email ? lc(t).includes(key.email) : new RegExp(key.digits.split('').join('[-. ()+]{0,3}')).test(t));
   const tables = () => ({
@@ -50,7 +57,16 @@ export function offboardFakeDeps(w, lines = []) {
   const db = {
     async workspace(slug) { return slug === w.ws.slug ? { ...w.ws } : null; },
     async staffOk() { return w.staff; },
+    async staffOpen(reason, minutes) {
+      if (String(reason).length < 10 || String(reason).length > 200) throw new Error('I-ANSWER reason: Give a reason of 10 to 200 characters.');
+      if (!(minutes >= 1 && minutes <= 240)) throw new Error('I-ANSWER minutes: From 1 to 240 minutes.');
+      const until = `window-${w.windows.length + 1}`;
+      w.windows.push({ until, reason, minutes, open: true });
+      return until;
+    },
+    async staffClose(until) { const x = w.windows.find((y) => y.until === until && y.open); if (!x) throw new Error('closing the staff window: 0 rows changed, expected 1'); x.open = false; },
     async setState(id, state, reason) {
+      needWindow('setState');
       const legal = (['active', 'suspended'].includes(w.ws.state) && state === 'offboarding') || (w.ws.state === 'offboarding' && state === 'deleted');
       if (!legal) throw new Error(`S-WORKSPACE-STATE: ${w.ws.state} -> ${state} is not allowed`);
       if (state === 'deleted' && w.objects.length) throw new Error(`S-WORKSPACE-STORAGE: ${w.objects.length} file(s) of the workspace are still in Storage`);
@@ -59,8 +75,9 @@ export function offboardFakeDeps(w, lines = []) {
     },
     async ticket(id) { const t = w.tickets.find((x) => x.id === id); return t ? JSON.parse(JSON.stringify(t)) : null; },
     async subjectLeads(ws, subject, ids) { return w.leads.filter((l) => l.ws === ws && (ids.includes(l.id) || matches(l, subject))).map((l) => l.id).sort(); },
-    async deleteLead(id) { const i = w.leads.findIndex((l) => l.id === id); if (i < 0) throw new Error('S-NOT-FOUND'); w.leads.splice(i, 1); w.audit.push({ action: 'lead-delete', target: id }); write(`delete ${id}`); },
+    async deleteLead(id) { needWindow('deleteLead'); const i = w.leads.findIndex((l) => l.id === id); if (i < 0) throw new Error('S-NOT-FOUND'); w.leads.splice(i, 1); w.audit.push({ action: 'lead-delete', target: id }); write(`delete ${id}`); },
     async setTicket(id, state, notes) {
+      needWindow('setTicket');
       const t = w.tickets.find((x) => x.id === id);
       const legal = [['received', 'verifying'], ['received', 'in-progress'], ['received', 'refused'], ['verifying', 'in-progress'], ['verifying', 'refused'], ['in-progress', 'done'], ['in-progress', 'refused']];
       if (!legal.some(([a, b]) => a === t.state && b === state)) throw new Error(`P-STATE: ${t.state} -> ${state} is not allowed`);
@@ -86,6 +103,7 @@ export function offboardFakeDeps(w, lines = []) {
     async activeKeys(site) { return w.keys.filter((k) => k.site === site && !k.revoked).map((k) => ({ id: k.id, vault_ref: k.vault_ref })); },
     async revokeKey(site, id) { const k = w.keys.find((x) => x.id === id && x.site === site && !x.revoked); if (!k) throw new Error('0 rows changed, expected 1'); if (!w.keyStaysActive) k.revoked = true; w.audit.push({ action: 'key-revoke', target: id }); write(`revoke ${id}`); },
     async offboardingStorage() {
+      needWindow('offboardingStorage');
       if (w.ws.state !== 'offboarding') throw new Error(`S-WORKSPACE-STATE: ${w.ws.slug} is ${w.ws.state}`);
       return w.objects.map((o) => o.name);
     },

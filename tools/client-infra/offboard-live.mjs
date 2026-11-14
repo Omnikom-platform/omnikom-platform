@@ -66,6 +66,11 @@ export function offboardDeps({ log }) {
       return t ? JSON.parse(t) : null;
     },
     async staffOk() { return psql(`select exists (select 1 from public.staff where user_id = :'sub'::uuid);`, { sub: staff.sub }) === 't'; },
+    // migration 43: offboard.mjs (withWindows) opens a window of 1 minute around each staff call and closes it after
+    async staffOpen(reason, minutes) { return psql(`select service.staff_open(:'claims'::jsonb, :'reason', :'min'::int);`, { claims, reason, min: minutes }); },
+    async staffClose(until) {   // the window this call opened, by its end: exactly 1 row
+      one(`with c as (update public.staff_access set until = now() where user_id = :'sub'::uuid and until = :'u'::timestamptz returning 1) select count(*) from c;`, { sub: staff.sub, u: until }, 'closing the staff window');
+    },
     async setState(ws, state, reason) {
       psql(`select service.set_workspace_state(:'claims'::jsonb, :'ws'::uuid, :'st'::public.workspace_state, :'reason');`, { claims, ws, st: state, reason: `${reason} (${BY})` });
     },

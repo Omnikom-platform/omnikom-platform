@@ -646,7 +646,7 @@
     {"path":"tools/client-infra/offboard.mjs","owner":"clients","exports":["REPO","Refused","SCHEMA","contentHash","hasSubject","insideGit","loadMarked","offboard","parseArgs","precheck","subjectKey"],"tests":["tools/client-infra/test/offboard-mutate.mjs","tools/client-infra/test/offboard-run.mjs"],"feature":""},
     {"path":"tools/client-infra/onboard-live.mjs","owner":"clients","exports":["onboardDeps"],"tests":["tools/client-infra/test/onboard-fakes.mjs"],"feature":""},
     {"path":"tools/client-infra/onboard.mjs","owner":"clients","exports":["REPO","Refused","checkIntake","hashEmail","loadInboxes","onboard","parseArgs","precheck","slugify"],"tests":["tools/client-infra/test/onboard-mutate.mjs","tools/client-infra/test/onboard-run.mjs"],"feature":""},
-    {"path":"tools/client-infra/proof-offboard.mjs","owner":"clients","exports":[],"tests":[],"feature":""},
+    {"path":"tools/client-infra/proof-offboard.mjs","owner":"clients","exports":[],"tests":["tools/client-infra/test/offboard-mutate.mjs","tools/client-infra/test/offboard-run.mjs"],"feature":""},
     {"path":"tools/client-infra/proof-staging.mjs","owner":"clients","exports":[],"tests":[],"feature":""},
     {"path":"tools/client-infra/provision.mjs","owner":"clients","exports":["ENVS","HOST_RE","Refused","loadAllowed","parseArgs","provision"],"tests":["tools/client-infra/test/mutate.mjs","tools/client-infra/test/onboard-fakes.mjs","tools/client-infra/test/run.mjs"],"feature":""},
     {"path":"tools/client-infra/test/fakes.mjs","owner":"clients","exports":["addKey","addSite","fakeDeps","newState"],"tests":[],"feature":""},

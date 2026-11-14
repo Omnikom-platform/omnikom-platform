@@ -36,6 +36,15 @@ const psql = (sql, vars = {}) => {
   if (r.status !== 0) throw new Error(scrub(`psql exit ${r.status}: ${(r.stderr || '').split('\n').slice(0, 3).join(' ')}`));
   return (r.stdout || '').trim();
 };
+// migration 43: the staff service calls below run inside a staff window of 1 minute that this opens and closes (the reason names this tool)
+const staffPsql = (sql, vars = {}) => {
+  const until = psql(`select service.staff_open(:'c'::jsonb, :'why', 1);`, { c: claims, why: `tools/client-infra/proof-offboard.mjs ${process.argv[2]}` });
+  try { return psql(sql, vars); } finally {
+    const n = psql(`with c as (update public.staff_access set until = now() where user_id = :'sub'::uuid and until = :'u'::timestamptz returning 1) select count(*) from c;`, { sub: parseIdentity('staff').sub, u: until });
+    if (n !== '1') throw new Error(`closing the staff window changed ${n} rows`);
+  }
+};
+
 const pages = async (method, rest, body) => {
   const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/pages/projects${rest}`, {
     method, headers: { authorization: `Bearer ${pagesToken}`, ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(30000) });
@@ -57,9 +66,9 @@ if (mode === '--seed') {
   for (const [name, email, phone] of [['Erase Me WO37', ERASE, '(555) 555-0137'], ['Keep Me WO37', KEEP, '(555) 555-0138']]) {
     const has = psql(`select id from public.leads where workspace_id = :'ws'::uuid and lower(email) = :'e' limit 1;`, { ws: ws.id, e: email });
     if (has) { console.log(`ok   lead ${email} is there`); continue; }
-    const id = psql(`select service.add_lead(:'c'::jsonb, :'site'::uuid, :'n', :'e', :'p', '{"message":"work order 37 test lead"}'::jsonb, 'Test consent text (work order 37).', 'manual', null);`,
+    const id = staffPsql(`select service.add_lead(:'c'::jsonb, :'site'::uuid, :'n', :'e', :'p', '{"message":"work order 37 test lead"}'::jsonb, 'Test consent text (work order 37).', 'manual', null);`,
       { c: claims, site: ws.site_id, n: name, e: email, p: phone });
-    if (email === ERASE) psql(`select service.lead_update(:'c'::jsonb, :'id'::uuid, null::text, null::uuid, 'work order 37 note: called, left a message', false);`, { c: claims, id });
+    if (email === ERASE) staffPsql(`select service.lead_update(:'c'::jsonb, :'id'::uuid, null::text, null::uuid, 'work order 37 note: called, left a message', false);`, { c: claims, id });
     console.log(`done lead ${email} (${id})`);
   }
   const objName = `${ws.id}/${FILE}`;
@@ -92,7 +101,7 @@ if (mode === '--seed') {
   }
   let req = psql(`select id from public.privacy_requests where workspace_id = :'ws'::uuid and kind = 'delete' and lower(subject) = :'e' order by received_at limit 1;`, { ws: ws.id, e: ERASE });
   if (req) console.log(`ok   privacy request ${req} is there`);
-  else { req = psql(`select service.open_privacy_request(:'c'::jsonb, :'ws'::uuid, 'delete', :'e', 'work order 37 test request');`, { c: claims, ws: ws.id, e: ERASE.toUpperCase() }); console.log(`done privacy request ${req} (subject in capitals on purpose)`); }
+  else { req = staffPsql(`select service.open_privacy_request(:'c'::jsonb, :'ws'::uuid, 'delete', :'e', 'work order 37 test request');`, { c: claims, ws: ws.id, e: ERASE.toUpperCase() }); console.log(`done privacy request ${req} (subject in capitals on purpose)`); }
   console.log(`REQUEST ${req}`);
 } else if (mode === '--seed2') {
   // work order 37b (migration 26): a second person with every copy delete_lead must now reach. The lead and its copies are written as
@@ -113,7 +122,7 @@ if (mode === '--seed') {
   }
   let req = psql(`select id from public.privacy_requests where workspace_id = :'ws'::uuid and kind = 'delete' and lower(subject) = :'e' order by received_at limit 1;`, { ws: ws.id, e: ERASE2 });
   if (req) console.log(`ok   privacy request ${req} is there`);
-  else { req = psql(`select service.open_privacy_request(:'c'::jsonb, :'ws'::uuid, 'delete', :'e', 'work order 37b test request');`, { c: claims, ws: ws.id, e: ERASE2 }); console.log(`done privacy request ${req}`); }
+  else { req = staffPsql(`select service.open_privacy_request(:'c'::jsonb, :'ws'::uuid, 'delete', :'e', 'work order 37b test request');`, { c: claims, ws: ws.id, e: ERASE2 }); console.log(`done privacy request ${req}`); }
   console.log(`REQUEST ${req}`);
 } else if (mode === '--check2') {
   // work order 37b: the copies are gone, the ledger keeps hashes and the time, Storage is empty, the state is deleted

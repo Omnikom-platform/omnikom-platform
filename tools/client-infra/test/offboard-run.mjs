@@ -1,7 +1,8 @@
 // Tests for tools/client-infra/offboard.mjs against in-memory fakes (no network, no database, no disk): runs in CI.
 //   node tools/client-infra/test/offboard-run.mjs     exit 0 = every case passed; lines "ok  " / "FAIL".
 // OFFBOARD_LIB=<path to an offboard.mjs copy> runs the same cases against that copy (test/offboard-mutate.mjs uses it).
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+// OFFBOARD_PROOF=<path to a proof-offboard.mjs copy> is read by the one case that checks that file's source (the mutants break a copy of it).
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -15,6 +16,7 @@ const OUT = resolve(tmpdir(), 'offboard-test-out');
 // a repository root of its own: offboard-mutate.mjs runs a copy of offboard.mjs from a temp folder, whose REPO would hold OUT
 const FAKE_REPO = resolve(tmpdir(), 'offboard-test-repo');
 const MARKED = [{ slug: 'test-wo37', ruling: 'test ruling' }];
+const PROOF = process.env.OFFBOARD_PROOF ? resolve(process.env.OFFBOARD_PROOF) : join(HERE, '..', 'proof-offboard.mjs');
 const EXPORT = join(OUT, 'test-wo37', 'export.json');
 let failed = 0, total = 0;
 const check = (name, ok, detail = '') => { total++; if (!ok) failed++; console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${ok || !detail ? '' : ': ' + String(detail).slice(0, 500)}`); };
@@ -181,6 +183,31 @@ t('--delete: refused without --teardown; files that stay keep the state offboard
     && e.r && e.r.failed.includes('export') && /is deleted but .* is not its export/.test(e.text), [a.text, b.text, c.text, e.text].join('\n--\n')];
 });
 
+const WINDOW_REASON = /^tools\/client-infra\/offboard\.mjs (setState|setTicket|deleteLead|offboardingStorage)$/;
+t('staff windows (migration 43): each staff call runs inside a window of 1 minute of its own, named for the tool, closed after', async () => {
+  const w = newWorld();
+  const a = await run(w, { del: true });
+  const names = w.windows.map((x) => x.reason.split(' ')[1]).join(',');
+  return [!a.err && a.r.failed.length === 0 && w.ws.state === 'deleted'
+    && names === 'setState,setTicket,deleteLead,setTicket,offboardingStorage,offboardingStorage,setState'
+    && w.windows.every((x) => x.minutes === 1 && !x.open && WINDOW_REASON.test(x.reason)), (a.err ? a.err.stack : a.text) + '\n' + JSON.stringify(w.windows)];
+});
+t('staff windows: a staff call that fails still closes its window, and the run stops there', async () => {
+  const w = newWorld(); w.failCall = 'deleteLead';
+  const a = await run(w);
+  return [a.err && /S-TEST: deleteLead failed/.test(a.err.message) && w.windows.length === 3 && w.windows.every((x) => !x.open) && w.leads.some((l) => l.id === 'lead-1'), a.err ? a.err.message : 'ran'];
+});
+t('staff windows: a dry run opens one window, for the Storage list of --delete, and writes nothing else', async () => {
+  const w = newWorld(); w.ws.state = 'offboarding';
+  const a = await run(w, { del: true, dryRun: true });
+  return [!a.err && w.writes.length === 0 && w.windows.length === 1 && /offboardingStorage$/.test(w.windows[0].reason) && !w.windows[0].open && /DRY RUN: changed 0/.test(a.text), a.err ? a.err.stack : a.text];
+});
+t('proof-offboard.mjs: each staff call goes through staffPsql, which opens a window and closes it (a source check: that tool has no test of its own)', async () => {
+  const src = readFileSync(PROOF, 'utf8');
+  const calls = src.split('\n').filter((l) => /service\.(add_lead|lead_update|open_privacy_request)\(/.test(l));
+  const bare = calls.filter((l) => !l.includes('staffPsql('));
+  return [calls.length === 4 && bare.length === 0 && /service\.staff_open\(/.test(src) && /update public\.staff_access set until = now\(\)/.test(src), `${calls.length} calls, ${bare.length} outside staffPsql`];
+});
 t('rulings, arguments and the content hash', async () => {
   const d = mkdtempSync(join(tmpdir(), 'offboard-'));
   try {
